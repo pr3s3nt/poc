@@ -1,0 +1,8 @@
+apiVersion: score.dev/v1b1
+metadata:
+  name: api
+containers:
+  main:
+    image: ghcr.io/acme/api:v2
+    variables:
+      LOG_LEVEL: debug

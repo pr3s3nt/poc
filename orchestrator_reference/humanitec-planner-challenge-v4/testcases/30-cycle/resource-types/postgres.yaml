@@ -1,0 +1,23 @@
+apiVersion: entity.humanitec.io/v1b1
+kind: ResourceType
+metadata:
+  id: postgres
+entity:
+  inputs_schema:
+    type: object
+    properties:
+      size:
+        type: string
+      region:
+        type: string
+    additionalProperties: false
+  outputs_schema:
+    type: object
+    properties:
+      host:
+        type: string
+      port:
+        type: number
+      name:
+        type: string
+    additionalProperties: false

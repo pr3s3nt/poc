@@ -1,0 +1,14 @@
+modules:
+  update:
+    api:
+    - op: remove
+      path: /externals
+shared:
+- op: add
+  path: /orders-db
+  value:
+    type: postgres
+    class: default
+    params:
+      size: small
+      region: eu-west-1

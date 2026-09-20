@@ -1,0 +1,13 @@
+apiVersion: score.dev/v1b1
+metadata:
+  name: api
+containers:
+  main:
+    image: ghcr.io/acme/api:v1
+resources:
+  db:
+    type: postgres
+    class: premium
+    params:
+      size: small
+      region: eu-west-1

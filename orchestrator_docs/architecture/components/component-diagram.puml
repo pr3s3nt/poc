@@ -1,0 +1,47 @@
+@startuml
+title Orchestrator - Component Boundaries
+skinparam componentStyle rectangle
+
+actor Developer
+actor "Platform Engineer" as Platform
+actor "CI/CD Client" as CICD
+
+component "React + TypeScript\nWeb Console" as WebConsole
+component "HTTP/API Delivery" as API
+component "Administration Services\nUC-01..UC-04" as Admin
+component "Preview/Deployment Services\nUC-05..UC-07, UC-09" as Deploy
+component "Planning Core" as Planner
+component "Resource Provisioning\nUC-08" as Provisioning
+component "Workload Runtime" as Workload
+component "Persistence Adapters" as Persistence
+database PostgreSQL as DB
+component "Terraform Executor" as Terraform
+component "Kubernetes Executor" as K8sExecutor
+component "Existing Cluster Adapter" as Existing
+component "Secret Store Adapter" as Secrets
+cloud AWS
+node "Kubernetes / kind / EKS" as Kubernetes
+
+Developer --> WebConsole
+Platform --> WebConsole
+WebConsole --> API : same origin /api/v1
+CICD --> API
+API --> Admin
+API --> Deploy
+Admin --> Persistence
+Admin --> Secrets
+Deploy --> Planner
+Deploy --> Provisioning
+Deploy --> Workload
+Deploy --> Persistence
+Planner --> Persistence : read snapshots/catalog/state
+Provisioning --> Persistence
+Provisioning --> Terraform
+Provisioning --> K8sExecutor
+Provisioning --> Existing
+Workload --> Kubernetes
+Terraform --> AWS
+K8sExecutor --> Kubernetes
+Existing --> Kubernetes : verify/resolve target
+Persistence --> DB
+@enduml

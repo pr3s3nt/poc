@@ -1,0 +1,29 @@
+{
+  "challengePlan": {
+    "activeResources": {
+      "existing": [],
+      "new": [],
+      "unreferenced": [
+        "workload.default#modules.api"
+      ]
+    },
+    "matchedDefinitions": {},
+    "provisionBatches": [],
+    "resourceGraph": {
+      "edges": [],
+      "nodes": []
+    },
+    "terraform": []
+  },
+  "delta": {
+    "modules": {
+      "remove": [
+        "api"
+      ]
+    }
+  },
+  "deploymentSet": {
+    "modules": {}
+  },
+  "status": "ACCEPTED"
+}

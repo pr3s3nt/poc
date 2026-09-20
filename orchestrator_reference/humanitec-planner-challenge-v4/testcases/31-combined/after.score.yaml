@@ -1,0 +1,24 @@
+apiVersion: score.dev/v1b1
+metadata:
+  name: api
+containers:
+  main:
+    image: ghcr.io/acme/api:v3
+    variables:
+      DB: ${resources.db.host}
+      CACHE: ${resources.cache.host}
+  metrics:
+    image: ghcr.io/acme/metrics:v1
+    variables:
+      PORT: '9090'
+resources:
+  db:
+    type: postgres
+    params:
+      size: large
+      region: eu-west-1
+  cache:
+    type: redis
+    id: team-cache
+    params:
+      memory: 2

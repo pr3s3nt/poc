@@ -1,0 +1,28 @@
+@startuml
+title VOPC - UC-02 Register Resource Type
+left to right direction
+skinparam classAttributeIconSize 0
+class ResourceTypeController <<boundary>> {
+  +RegisterResourceType(document)
+}
+class ResourceTypeService <<control>> {
+  +RegisterResourceType(ctx, cmd): ResourceType
+}
+class SchemaValidator <<control>> {
+  +ValidateResourceTypeSchemas(inputs, outputs)
+}
+class ResourceType <<entity>> {
+  +Register(id, inputSchema, outputSchema): ResourceType
+  +ValidateInputs(params)
+  +ValidateOutputs(outputs)
+}
+interface ResourceTypeRepository {
+  +Exists(ctx, orgID, id): bool
+  +Find(ctx, orgID, id): ResourceType
+  +Save(ctx, resourceType)
+}
+ResourceTypeController --> ResourceTypeService
+ResourceTypeService --> SchemaValidator
+ResourceTypeService --> ResourceTypeRepository
+ResourceTypeService ..> ResourceType
+@enduml

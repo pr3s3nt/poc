@@ -1,0 +1,57 @@
+matchedDefinitions:
+  postgres.premium#modules.api.externals.db:
+    definitionId: pg-premium
+    score: 16
+    criterion:
+      class: premium
+  workload.default#modules.api:
+    definitionId: workload-default
+    score: 0
+    criterion: {}
+resourceGraph:
+  nodes:
+  - descriptor: postgres.premium#modules.api.externals.db
+    origins:
+    - private-dependency
+    resourceInputs:
+      size: small
+      region: eu-west-1
+  - descriptor: workload.default#modules.api
+    origins:
+    - implicit-workload
+    resourceInputs: {}
+  edges:
+  - from: workload.default#modules.api
+    to: postgres.premium#modules.api.externals.db
+    reason: deployment-set-private
+    path: /modules/api/externals/db
+terraform:
+- resource: postgres.premium#modules.api.externals.db
+  definitionId: pg-premium
+  source:
+    url: https://fixtures.invalid/postgres.git
+    rev: v2
+  localDirectory: terraform/checkouts/02-postgres-v2
+  fingerprint: sha256:bd0e7870fd51d1dfa11aa493d8c2cb136935b3b8c0a32d6e455f2b12b3db7af8
+  inputs:
+  - name: region
+    source: resource-input
+    value: eu-west-1
+    type: string
+  - name: size
+    source: resource-input
+    value: small
+    type: string
+  outputs:
+  - host
+  - name
+  - port
+provisionBatches:
+- - postgres.premium#modules.api.externals.db
+- - workload.default#modules.api
+activeResources:
+  existing: []
+  new:
+  - postgres.premium#modules.api.externals.db
+  - workload.default#modules.api
+  unreferenced: []

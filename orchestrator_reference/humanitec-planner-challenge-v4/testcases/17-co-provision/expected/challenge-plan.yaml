@@ -1,0 +1,87 @@
+matchedDefinitions:
+  audit.default#modules.api.externals.db:
+    definitionId: audit-default
+    score: 0
+    criterion: {}
+  postgres.default#modules.api.externals.db:
+    definitionId: postgres-default
+    score: 0
+    criterion: {}
+  workload.default#modules.api:
+    definitionId: workload-default
+    score: 0
+    criterion: {}
+resourceGraph:
+  nodes:
+  - descriptor: audit.default#modules.api.externals.db
+    origins:
+    - co-provision
+    resourceInputs:
+      target: db
+  - descriptor: postgres.default#modules.api.externals.db
+    origins:
+    - private-dependency
+    resourceInputs:
+      size: small
+      region: eu-west-1
+  - descriptor: workload.default#modules.api
+    origins:
+    - implicit-workload
+    resourceInputs: {}
+  edges:
+  - from: audit.default#modules.api.externals.db
+    to: postgres.default#modules.api.externals.db
+    reason: co-provision-is-dependent
+  - from: workload.default#modules.api
+    to: audit.default#modules.api.externals.db
+    reason: co-provision-match-dependents
+  - from: workload.default#modules.api
+    to: postgres.default#modules.api.externals.db
+    reason: deployment-set-private
+    path: /modules/api/externals/db
+terraform:
+- resource: audit.default#modules.api.externals.db
+  definitionId: audit-default
+  source:
+    url: https://fixtures.invalid/audit.git
+    rev: v1
+  localDirectory: terraform/checkouts/01-audit-v1
+  fingerprint: sha256:3f15f48929810e933a3c36c10c5dfa7d65a222e21c791b68862fd99fd081d77a
+  inputs:
+  - name: target
+    source: resource-input
+    value: db
+    type: string
+  outputs:
+  - id
+- resource: postgres.default#modules.api.externals.db
+  definitionId: postgres-default
+  source:
+    url: https://fixtures.invalid/postgres.git
+    rev: v1
+  localDirectory: terraform/checkouts/02-postgres-v1
+  fingerprint: sha256:a6c1abf93a48a3a075600cb15ef3ca75f7a550cf968617a5684152f4a4c2d0bc
+  inputs:
+  - name: region
+    source: resource-input
+    value: eu-west-1
+    type: string
+  - name: size
+    source: resource-input
+    value: small
+    type: string
+  outputs:
+  - host
+  - name
+  - port
+provisionBatches:
+- - postgres.default#modules.api.externals.db
+- - audit.default#modules.api.externals.db
+- - workload.default#modules.api
+activeResources:
+  existing: []
+  new:
+  - audit.default#modules.api.externals.db
+  - postgres.default#modules.api.externals.db
+  - workload.default#modules.api
+  unreferenced: []

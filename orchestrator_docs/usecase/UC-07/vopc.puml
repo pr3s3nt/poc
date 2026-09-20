@@ -1,0 +1,46 @@
+@startuml
+title VOPC - UC-07 Update or Remove Workload
+left to right direction
+skinparam classAttributeIconSize 0
+class DeploymentController <<boundary>> {
+  +UpdateWorkload(command)
+  +RemoveWorkload(command)
+}
+class DeploymentService <<control>> {
+  +UpdateWorkload(ctx, cmd): DeploymentResult
+  +RemoveWorkload(ctx, cmd): DeploymentResult
+}
+class PlanningService <<control>> {
+  +Plan(ctx, request): DeploymentPlan
+}
+class ResourceProvisioningService <<control>> {
+  +Provision(ctx, request): ProvisionResult
+}
+interface WorkloadDeployer {
+  +Apply(ctx, target, manifests)
+  +Delete(ctx, target, workloadRef)
+  +WaitReady(ctx, target, workloads)
+}
+class ActiveResource <<entity>> {
+  +MarkUnreferenced(deploymentID)
+}
+interface ActiveResourceRepository {
+  +MarkUnreferenced(ctx, descriptors, deploymentID)
+}
+interface EnvironmentRepository {
+  +LoadPlanningSnapshot(ctx, appID, envID): PlanningSnapshot
+  +CompareVersionAndSetCurrent(ctx, envID, version, setID)
+}
+interface DeploymentRepository {
+  +Create(ctx, deployment)
+  +MarkSucceeded(ctx, deploymentID)
+}
+DeploymentController --> DeploymentService
+DeploymentService --> PlanningService
+DeploymentService --> ResourceProvisioningService
+DeploymentService --> WorkloadDeployer
+DeploymentService --> ActiveResourceRepository
+DeploymentService --> EnvironmentRepository
+DeploymentService --> DeploymentRepository
+DeploymentService ..> ActiveResource
+@enduml

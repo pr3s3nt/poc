@@ -1,0 +1,69 @@
+{
+  "challengePlan": {
+    "activeResources": {
+      "existing": [],
+      "new": [
+        "workload.default#modules.api"
+      ],
+      "unreferenced": []
+    },
+    "matchedDefinitions": {
+      "workload.default#modules.api": {
+        "criterion": {},
+        "definitionId": "workload-default",
+        "score": 0
+      }
+    },
+    "provisionBatches": [
+      [
+        "workload.default#modules.api"
+      ]
+    ],
+    "resourceGraph": {
+      "edges": [],
+      "nodes": [
+        {
+          "descriptor": "workload.default#modules.api",
+          "origins": [
+            "implicit-workload"
+          ],
+          "resourceInputs": {}
+        }
+      ]
+    },
+    "terraform": []
+  },
+  "delta": {
+    "modules": {
+      "add": {
+        "api": {
+          "profile": "humanitec/default-module",
+          "spec": {
+            "containers": {
+              "main": {
+                "id": "main",
+                "image": "ghcr.io/acme/api:v1"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "deploymentSet": {
+    "modules": {
+      "api": {
+        "profile": "humanitec/default-module",
+        "spec": {
+          "containers": {
+            "main": {
+              "id": "main",
+              "image": "ghcr.io/acme/api:v1"
+            }
+          }
+        }
+      }
+    }
+  },
+  "status": "ACCEPTED"
+}

@@ -1,0 +1,51 @@
+@startuml
+title VOPC - UC-08 Provision Resources
+left to right direction
+skinparam classAttributeIconSize 0
+class ResourceProvisioningService <<control>> {
+  +Provision(ctx, request): ProvisionResult
+}
+class ActiveResourceResolver <<control>> {
+  +Resolve(ctx, descriptor, scope): ActiveResource
+}
+class OutputBindingResolver <<control>> {
+  +ResolveInputs(node, completedOutputs): ResolvedInputs
+}
+class ExecutorRegistry <<control>> {
+  +Resolve(driverType): ResourceExecutor
+}
+interface ResourceExecutor {
+  +Provision(ctx, resource, inputs, priorState): ExecutionResult
+}
+class TerraformExecutor <<adapter>>
+class KubernetesExecutor <<adapter>>
+class ExistingClusterAdapter <<adapter>>
+class OutputContractValidator <<control>> {
+  +Validate(resourceType, outputs)
+}
+class ActiveResource <<entity>> {
+  +StartProvisioning(deploymentID)
+  +MarkReady(state, outputs, deploymentID)
+}
+class ProvisionResult <<entity>>
+interface ActiveResourceRepository {
+  +FindByLogicalIdentity(ctx, descriptor, scope): ActiveResource
+  +UpsertReady(ctx, resource)
+}
+interface DeploymentResourceRepository {
+  +MarkReady(ctx, deploymentID, descriptor, activeResourceID)
+}
+ResourceProvisioningService --> ActiveResourceResolver
+ResourceProvisioningService --> OutputBindingResolver
+ResourceProvisioningService --> ExecutorRegistry
+ResourceProvisioningService --> OutputContractValidator
+ResourceProvisioningService --> ActiveResourceRepository
+ResourceProvisioningService --> DeploymentResourceRepository
+ResourceProvisioningService ..> ProvisionResult
+ExecutorRegistry --> ResourceExecutor
+ResourceExecutor <|.. TerraformExecutor
+ResourceExecutor <|.. KubernetesExecutor
+ResourceExecutor <|.. ExistingClusterAdapter
+ActiveResourceResolver --> ActiveResourceRepository
+ResourceProvisioningService ..> ActiveResource
+@enduml

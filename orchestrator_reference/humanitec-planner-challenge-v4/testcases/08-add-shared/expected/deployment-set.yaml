@@ -1,0 +1,16 @@
+modules:
+  api:
+    profile: humanitec/default-module
+    spec:
+      containers:
+        main:
+          id: main
+          image: ghcr.io/acme/api:v1
+          variables:
+            CACHE: ${shared.team-cache.host}
+shared:
+  team-cache:
+    type: redis
+    class: default
+    params:
+      memory: 2

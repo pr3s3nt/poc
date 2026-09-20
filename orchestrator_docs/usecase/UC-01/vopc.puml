@@ -1,0 +1,45 @@
+@startuml
+title VOPC - UC-01 Manage Application and Environment
+left to right direction
+skinparam classAttributeIconSize 0
+class ApplicationController <<boundary>> {
+  +CreateApplication(command)
+  +CreateEnvironment(command)
+}
+class ApplicationService <<control>> {
+  +CreateApplication(ctx, cmd): Application
+  +CreateEnvironment(ctx, cmd): Environment
+}
+class Application <<entity>> {
+  +Create(profile, connection): Application
+}
+class Environment <<entity>> {
+  +Create(application, envType): Environment
+}
+class DeploymentSet <<entity>> {
+  +Empty(environmentID): DeploymentSet
+}
+interface ConnectionRepository {
+  +FindReady(ctx, connectionID): Connection
+}
+interface ApplicationRepository {
+  +FindByID(ctx, id): Application
+  +Save(ctx, application)
+}
+interface EnvironmentRepository {
+  +Save(ctx, environment)
+}
+interface DeploymentSetRepository {
+  +SaveAndSetCurrent(ctx, set)
+}
+ApplicationController --> ApplicationService
+ApplicationService --> ConnectionRepository
+ApplicationService --> ApplicationRepository
+ApplicationService --> EnvironmentRepository
+ApplicationService --> DeploymentSetRepository
+ApplicationService ..> Application
+ApplicationService ..> Environment
+ApplicationService ..> DeploymentSet
+Application "1" *-- "0..*" Environment
+Environment "1" --> "1" DeploymentSet : current
+@enduml

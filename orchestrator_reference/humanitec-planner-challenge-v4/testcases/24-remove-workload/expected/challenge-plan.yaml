@@ -1,0 +1,11 @@
+matchedDefinitions: {}
+resourceGraph:
+  nodes: []
+  edges: []
+terraform: []
+provisionBatches: []
+activeResources:
+  existing: []
+  new: []
+  unreferenced:
+  - workload.default#modules.api

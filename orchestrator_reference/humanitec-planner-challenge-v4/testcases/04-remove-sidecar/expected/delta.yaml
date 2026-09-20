@@ -1,0 +1,5 @@
+modules:
+  update:
+    api:
+    - op: remove
+      path: /spec/containers/metrics

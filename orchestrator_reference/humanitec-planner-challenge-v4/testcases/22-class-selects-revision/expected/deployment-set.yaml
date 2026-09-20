@@ -1,0 +1,15 @@
+modules:
+  api:
+    profile: humanitec/default-module
+    spec:
+      containers:
+        main:
+          id: main
+          image: ghcr.io/acme/api:v1
+    externals:
+      db:
+        type: postgres
+        class: premium
+        params:
+          size: small
+          region: eu-west-1

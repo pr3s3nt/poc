@@ -1,0 +1,15 @@
+modules:
+  update:
+    api:
+    - op: add
+      path: /spec/containers/main/variables
+      value:
+        CACHE: ${shared.team-cache.host}
+shared:
+- op: add
+  path: /team-cache
+  value:
+    type: redis
+    class: default
+    params:
+      memory: 2

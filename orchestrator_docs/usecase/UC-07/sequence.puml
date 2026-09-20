@@ -1,0 +1,34 @@
+@startuml
+title UC-07 - Update or Remove Workload
+autonumber
+actor Developer
+boundary DeploymentController as API
+control DeploymentService as Service
+control PlanningService as Planner
+control ResourceProvisioningService as Provisioner
+boundary WorkloadDeployer as Deployer
+database ActiveResourceRepository as ResourceRepo
+database EnvironmentRepository as EnvRepo
+database DeploymentRepository as DeploymentRepo
+
+Developer -> API: UpdateWorkload / RemoveWorkload
+API -> Service: command
+Service -> EnvRepo: LoadPlanningSnapshot() [MS-01]
+EnvRepo --> Service: Current set + before contribution + version
+Service -> Planner: Plan(before, after) [MS-02..MS-04]
+Planner --> Service: Delta + Candidate + classification
+Service -> Provisioner: Provision(desired resource batches) [MS-05]
+Provisioner --> Service: Outputs
+alt Update [VAR-01]
+  Service -> Deployer: Apply(updated manifests) [MS-06]
+  Service -> Deployer: WaitReady(workload)
+else Remove [VAR-02]
+  Service -> Deployer: Delete(workloadRef) [MS-06]
+end
+Service -> ResourceRepo: MarkUnreferenced(classification.unreferenced) [MS-07]
+note right: No destroy call
+Service -> EnvRepo: CompareVersionAndSetCurrent(candidate) <<final transaction>> [MS-08]
+Service -> DeploymentRepo: MarkSucceeded() <<final transaction>>
+Service --> API: DeploymentResult
+API --> Developer: SUCCEEDED
+@enduml

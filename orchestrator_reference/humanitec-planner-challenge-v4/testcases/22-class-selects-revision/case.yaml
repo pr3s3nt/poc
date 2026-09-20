@@ -1,0 +1,24 @@
+apiVersion: challenge.humanitec.io/v1alpha1
+kind: PlannerCase
+metadata:
+  name: 22-class-selects-revision
+spec:
+  context: context.yaml
+  currentDeploymentSet: current-deployment-set.yaml
+  beforeScore: before.score.yaml
+  afterScore: after.score.yaml
+  resourceTypes:
+  - resource-types/postgres.yaml
+  - resource-types/workload.yaml
+  resourceDefinitions:
+  - resource-definitions/pg-premium.yaml
+  - resource-definitions/pg-standard.yaml
+  - resource-definitions/workload-default.yaml
+  activeResources: active-resources.yaml
+  terraformSourceMap:
+  - url: https://fixtures.invalid/postgres.git
+    rev: v1
+    directory: terraform/checkouts/01-postgres-v1
+  - url: https://fixtures.invalid/postgres.git
+    rev: v2
+    directory: terraform/checkouts/02-postgres-v2

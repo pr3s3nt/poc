@@ -1,0 +1,10 @@
+modules:
+  update:
+    api:
+    - op: replace
+      path: /spec/containers/main/image
+      value: ghcr.io/acme/api:v2
+    - op: add
+      path: /spec/containers/main/variables
+      value:
+        LOG_LEVEL: debug

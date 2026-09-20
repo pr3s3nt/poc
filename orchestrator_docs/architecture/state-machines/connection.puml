@@ -1,0 +1,12 @@
+@startuml
+title Connection State Machine
+[*] --> VERIFYING : registration request
+VERIFYING --> READY : identity/connectivity/RBAC valid + secret stored
+VERIFYING --> REJECTED : verification fails
+READY --> [*]
+REJECTED --> [*]
+note right of READY
+  Credential rotation and health monitoring
+  are outside current MVP.
+end note
+@enduml

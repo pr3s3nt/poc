@@ -1,0 +1,10 @@
+modules:
+  update:
+    api:
+    - op: add
+      path: /spec/containers/metrics
+      value:
+        id: metrics
+        image: ghcr.io/acme/metrics:v1
+        variables:
+          PORT: '9090'

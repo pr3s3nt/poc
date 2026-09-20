@@ -1,0 +1,35 @@
+@startuml
+title UC-08 - Provision Infrastructure and Application Resources
+autonumber
+actor "UC-06 / UC-07" as Caller
+control ResourceProvisioningService as Service
+control ActiveResourceResolver as ActiveResolver
+control OutputBindingResolver as BindingResolver
+control ExecutorRegistry as Registry
+boundary ResourceExecutor as Executor
+control OutputContractValidator as Validator
+database ActiveResourceRepository as ResourceRepo
+database DeploymentResourceRepository as DeploymentResourceRepo
+
+Caller -> Service: Provision(request) [MS-01]
+loop Each provider-first batch [MS-09]
+  loop Each resource node
+    Service -> ActiveResolver: Resolve(descriptor, scope) [MS-02]
+    ActiveResolver -> ResourceRepo: FindByLogicalIdentity()
+    ResourceRepo --> ActiveResolver: ActiveResource or none
+    ActiveResolver --> Service: Existing state
+    Service -> BindingResolver: ResolveInputs(node, completedOutputs) [MS-03]
+    BindingResolver --> Service: Resolved inputs
+    Service -> Registry: Resolve(driverType) [MS-04]
+    Registry --> Service: ResourceExecutor
+    Service -> Executor: Provision(resource, inputs, priorState) [MS-05]
+    Executor --> Service: ExecutionResult(state, outputs)
+    Service -> Validator: Validate(resourceType, outputs) [MS-06]
+    Validator --> Service: valid
+    Service -> ResourceRepo: UpsertReady(activeResource) <<short transaction>> [MS-07]
+    Service -> DeploymentResourceRepo: MarkReady(deployment, node) <<same transaction>>
+    Service -> Service: completedOutputs[node] = outputs [MS-08]
+  end
+end
+Service --> Caller: ProvisionResult [MS-10]
+@enduml

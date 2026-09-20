@@ -1,0 +1,21 @@
+matchedDefinitions:
+  workload.default#modules.api:
+    definitionId: workload-default
+    score: 0
+    criterion: {}
+resourceGraph:
+  nodes:
+  - descriptor: workload.default#modules.api
+    origins:
+    - implicit-workload
+    resourceInputs: {}
+  edges: []
+terraform: []
+provisionBatches:
+- - workload.default#modules.api
+activeResources:
+  existing: []
+  new:
+  - workload.default#modules.api
+  unreferenced:
+  - redis.default#shared.team-cache

@@ -1,0 +1,4 @@
+org_id: acme
+app_id: shop
+env_id: production
+env_type: production

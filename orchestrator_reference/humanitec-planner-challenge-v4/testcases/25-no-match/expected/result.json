@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "NO_MATCHING_DEFINITION",
+    "path": "postgres.default#modules.api.externals.db",
+    "phase": "match"
+  },
+  "status": "REJECTED"
+}

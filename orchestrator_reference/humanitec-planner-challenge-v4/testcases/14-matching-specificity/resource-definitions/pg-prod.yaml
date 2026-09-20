@@ -1,0 +1,16 @@
+apiVersion: entity.humanitec.io/v1b1
+kind: Definition
+metadata:
+  id: pg-prod
+entity:
+  name: pg-prod
+  type: postgres
+  driver_type: humanitec/terraform
+  criteria:
+  - env_type: production
+  driver_account: fixture-account
+  driver_inputs:
+    values:
+      source:
+        url: https://fixtures.invalid/postgres.git
+        rev: v1

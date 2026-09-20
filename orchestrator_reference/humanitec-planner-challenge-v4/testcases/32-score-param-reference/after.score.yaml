@@ -1,0 +1,13 @@
+apiVersion: score.dev/v1b1
+metadata:
+  name: api
+containers:
+  main:
+    image: ghcr.io/acme/api:v1
+resources:
+  cfg:
+    type: config
+  data:
+    type: bucket
+    params:
+      region: ${resources.cfg.region}

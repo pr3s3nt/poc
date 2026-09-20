@@ -1,0 +1,17 @@
+apiVersion: entity.humanitec.io/v1b1
+kind: ResourceType
+metadata:
+  id: audit
+entity:
+  inputs_schema:
+    type: object
+    properties:
+      target:
+        type: string
+    additionalProperties: false
+  outputs_schema:
+    type: object
+    properties:
+      id:
+        type: string
+    additionalProperties: false

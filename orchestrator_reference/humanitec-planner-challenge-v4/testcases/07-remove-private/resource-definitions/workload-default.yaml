@@ -1,0 +1,12 @@
+apiVersion: entity.humanitec.io/v1b1
+kind: Definition
+metadata:
+  id: workload-default
+entity:
+  name: workload-default
+  type: workload
+  driver_type: humanitec/echo
+  criteria:
+  - {}
+  driver_inputs:
+    values: {}

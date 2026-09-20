@@ -1,0 +1,38 @@
+@startuml
+title UC-06 - aws-eks happy path
+autonumber
+actor Developer
+control DeploymentService as Service
+control PlanningService as Planner
+control ImplicitResourceEnricher as Enricher
+control ResourceProvisioningService as Provisioner
+boundary TerraformExecutor as Terraform
+control OutputBindingResolver as Resolver
+control WorkloadRenderer as Renderer
+boundary WorkloadDeployer as K8s
+database DeploymentRepository as Repo
+
+Developer -> Service: DeployWorkload(Score, app, env)
+Service -> Repo: Create PLANNING [MS-01]
+Service -> Planner: Plan(request) [MS-02..MS-04]
+Planner -> Enricher: Enrich(profile=aws-eks) [MS-05]
+Enricher --> Planner: app VPC + app EKS + env namespace
+Planner --> Service: graph: workload -> namespace -> EKS -> VPC\nworkload -> Aurora -> VPC [MS-06..MS-08]
+Service -> Provisioner: Provision(resource batches) [MS-09]
+Provisioner -> Terraform: Provision(VPC)
+Terraform --> Provisioner: vpc outputs
+Provisioner -> Terraform: Provision(EKS, vpc outputs)
+Terraform --> Provisioner: cluster target outputs
+Provisioner -> Terraform: Provision(Aurora, vpc outputs)
+Terraform --> Provisioner: postgres outputs
+Provisioner --> Service: outputs + EKS target
+Service -> Resolver: ResolveWorkloadBindings(postgres outputs) [MS-10]
+Resolver --> Service: Resolved frontend/backend/worker workload
+Service -> Renderer: Render(all workload manifests) [MS-11]
+Renderer --> Service: Namespace + Services + Deployments
+Service -> K8s: Apply(EKS target, manifests)
+Service -> K8s: WaitReady(frontend, backend, worker)
+K8s --> Service: Ready
+Service -> Repo: Commit set/resources/workloads/SUCCEEDED [MS-12]
+Service --> Developer: DeploymentResult [MS-13]
+@enduml

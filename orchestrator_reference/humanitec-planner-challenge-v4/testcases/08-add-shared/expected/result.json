@@ -1,0 +1,140 @@
+{
+  "challengePlan": {
+    "activeResources": {
+      "existing": [],
+      "new": [
+        "redis.default#shared.team-cache",
+        "workload.default#modules.api"
+      ],
+      "unreferenced": []
+    },
+    "matchedDefinitions": {
+      "redis.default#shared.team-cache": {
+        "criterion": {},
+        "definitionId": "redis-default",
+        "score": 0
+      },
+      "workload.default#modules.api": {
+        "criterion": {},
+        "definitionId": "workload-default",
+        "score": 0
+      }
+    },
+    "provisionBatches": [
+      [
+        "redis.default#shared.team-cache"
+      ],
+      [
+        "workload.default#modules.api"
+      ]
+    ],
+    "resourceGraph": {
+      "edges": [
+        {
+          "from": "workload.default#modules.api",
+          "path": "/modules/api/spec/containers/main/variables/CACHE",
+          "reason": "workload-placeholder",
+          "to": "redis.default#shared.team-cache"
+        }
+      ],
+      "nodes": [
+        {
+          "descriptor": "redis.default#shared.team-cache",
+          "origins": [
+            "shared-dependency"
+          ],
+          "resourceInputs": {
+            "memory": 2
+          }
+        },
+        {
+          "descriptor": "workload.default#modules.api",
+          "origins": [
+            "implicit-workload"
+          ],
+          "resourceInputs": {}
+        }
+      ]
+    },
+    "terraform": [
+      {
+        "definitionId": "redis-default",
+        "fingerprint": "sha256:95b158b8b760d13ed2ab3baf9552b986d42566c69dcef76cf7cc94585b81d273",
+        "inputs": [
+          {
+            "name": "memory",
+            "source": "resource-input",
+            "type": "string",
+            "value": 2
+          }
+        ],
+        "localDirectory": "terraform/checkouts/01-redis-v1",
+        "outputs": [
+          "host",
+          "port"
+        ],
+        "resource": "redis.default#shared.team-cache",
+        "source": {
+          "rev": "v1",
+          "url": "https://fixtures.invalid/redis.git"
+        }
+      }
+    ]
+  },
+  "delta": {
+    "modules": {
+      "update": {
+        "api": [
+          {
+            "op": "add",
+            "path": "/spec/containers/main/variables",
+            "value": {
+              "CACHE": "${shared.team-cache.host}"
+            }
+          }
+        ]
+      }
+    },
+    "shared": [
+      {
+        "op": "add",
+        "path": "/team-cache",
+        "value": {
+          "class": "default",
+          "params": {
+            "memory": 2
+          },
+          "type": "redis"
+        }
+      }
+    ]
+  },
+  "deploymentSet": {
+    "modules": {
+      "api": {
+        "profile": "humanitec/default-module",
+        "spec": {
+          "containers": {
+            "main": {
+              "id": "main",
+              "image": "ghcr.io/acme/api:v1",
+              "variables": {
+                "CACHE": "${shared.team-cache.host}"
+              }
+            }
+          }
+        }
+      }
+    },
+    "shared": {
+      "team-cache": {
+        "class": "default",
+        "params": {
+          "memory": 2
+        },
+        "type": "redis"
+      }
+    }
+  },
+  "status": "ACCEPTED"
+}

@@ -1,0 +1,31 @@
+@startuml
+title UC-03 - Register Resource Definition
+autonumber
+actor "Platform Engineer" as PE
+boundary ResourceDefinitionController as API
+control ResourceDefinitionService as Service
+control DefinitionValidator as Validator
+control DriverContractInspector as Inspector
+database ResourceTypeRepository as TypeRepo
+database ConnectionRepository as ConnectionRepo
+database ResourceDefinitionRepository as DefinitionRepo
+
+PE -> API: RegisterResourceDefinition(document) [MS-01..MS-02]
+API -> Service: RegisterResourceDefinition(ctx, command)
+Service -> Validator: ValidateStructure(command) [MS-03]
+Validator --> Service: valid
+Service -> TypeRepo: Find(orgID, typeID) [MS-04]
+TypeRepo --> Service: ResourceType
+Service -> ConnectionRepo: FindReady(connectionID) [MS-04]
+ConnectionRepo --> Service: Connection
+Service -> Validator: ValidateReferencesAndRules(command) [MS-05]
+Validator --> Service: valid
+Service -> DefinitionRepo: Exists(orgID, definitionID) [MS-06]
+DefinitionRepo --> Service: false
+Service -> Inspector: Inspect(definition, resourceType) [MS-07]
+Inspector --> Service: DriverContract + fingerprint
+Service -> DefinitionRepo: Save(definition, criteria) <<transaction>> [MS-08]
+DefinitionRepo --> Service: ResourceDefinition
+Service --> API: ResourceDefinition [MS-09]
+API --> PE: Registered
+@enduml

@@ -1,0 +1,60 @@
+matchedDefinitions:
+  redis.default#shared.team-cache:
+    definitionId: redis-default
+    score: 0
+    criterion: {}
+  workload.default#modules.api:
+    definitionId: workload-default
+    score: 0
+    criterion: &id001 {}
+  workload.default#modules.worker:
+    definitionId: workload-default
+    score: 0
+    criterion: *id001
+resourceGraph:
+  nodes:
+  - descriptor: redis.default#shared.team-cache
+    origins:
+    - shared-dependency
+    resourceInputs:
+      memory: 2
+  - descriptor: workload.default#modules.api
+    origins:
+    - implicit-workload
+    resourceInputs: {}
+  - descriptor: workload.default#modules.worker
+    origins:
+    - implicit-workload
+    resourceInputs: {}
+  edges:
+  - from: workload.default#modules.worker
+    to: redis.default#shared.team-cache
+    reason: workload-placeholder
+    path: /modules/worker/spec/containers/main/variables/CACHE
+terraform:
+- resource: redis.default#shared.team-cache
+  definitionId: redis-default
+  source:
+    url: https://fixtures.invalid/redis.git
+    rev: v1
+  localDirectory: terraform/checkouts/01-redis-v1
+  fingerprint: sha256:95b158b8b760d13ed2ab3baf9552b986d42566c69dcef76cf7cc94585b81d273
+  inputs:
+  - name: memory
+    source: resource-input
+    value: 2
+    type: string
+  outputs:
+  - host
+  - port
+provisionBatches:
+- - redis.default#shared.team-cache
+  - workload.default#modules.api
+- - workload.default#modules.worker
+activeResources:
+  existing: []
+  new:
+  - redis.default#shared.team-cache
+  - workload.default#modules.api
+  - workload.default#modules.worker
+  unreferenced: []

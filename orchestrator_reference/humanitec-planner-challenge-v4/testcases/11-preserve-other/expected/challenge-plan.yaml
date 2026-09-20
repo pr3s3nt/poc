@@ -1,0 +1,30 @@
+matchedDefinitions:
+  workload.default#modules.api:
+    definitionId: workload-default
+    score: 0
+    criterion: &id001 {}
+  workload.default#modules.worker:
+    definitionId: workload-default
+    score: 0
+    criterion: *id001
+resourceGraph:
+  nodes:
+  - descriptor: workload.default#modules.api
+    origins:
+    - implicit-workload
+    resourceInputs: {}
+  - descriptor: workload.default#modules.worker
+    origins:
+    - implicit-workload
+    resourceInputs: {}
+  edges: []
+terraform: []
+provisionBatches:
+- - workload.default#modules.api
+  - workload.default#modules.worker
+activeResources:
+  existing: []
+  new:
+  - workload.default#modules.api
+  - workload.default#modules.worker
+  unreferenced: []

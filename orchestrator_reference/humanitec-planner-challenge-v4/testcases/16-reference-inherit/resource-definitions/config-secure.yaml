@@ -1,0 +1,16 @@
+apiVersion: entity.humanitec.io/v1b1
+kind: Definition
+metadata:
+  id: config-secure
+entity:
+  name: config-secure
+  type: config
+  driver_type: humanitec/terraform
+  criteria:
+  - class: secure
+  driver_account: fixture-account
+  driver_inputs:
+    values:
+      source:
+        url: https://fixtures.invalid/config.git
+        rev: v1

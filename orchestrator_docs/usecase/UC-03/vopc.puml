@@ -1,0 +1,43 @@
+@startuml
+title VOPC - UC-03 Register Resource Definition
+left to right direction
+skinparam classAttributeIconSize 0
+class ResourceDefinitionController <<boundary>> {
+  +RegisterResourceDefinition(document)
+}
+class ResourceDefinitionService <<control>> {
+  +RegisterResourceDefinition(ctx, cmd): ResourceDefinition
+}
+class DefinitionValidator <<control>> {
+  +ValidateStructure(cmd)
+  +ValidateReferencesAndRules(definition)
+}
+interface DriverContractInspector {
+  +Inspect(ctx, definition, resourceType): DriverContract
+}
+class ResourceDefinition <<entity>> {
+  +Register(cmd, contract): ResourceDefinition
+}
+class MatchingCriterion <<entity>> {
+  +Score(context): int
+}
+interface ResourceTypeRepository {
+  +Find(ctx, orgID, id): ResourceType
+}
+interface ConnectionRepository {
+  +FindReady(ctx, connectionID): Connection
+}
+interface ResourceDefinitionRepository {
+  +Exists(ctx, orgID, id): bool
+  +Save(ctx, definition, criteria)
+  +FindCandidates(ctx, orgID, resourceType): List
+}
+ResourceDefinitionController --> ResourceDefinitionService
+ResourceDefinitionService --> DefinitionValidator
+ResourceDefinitionService --> DriverContractInspector
+ResourceDefinitionService --> ResourceTypeRepository
+ResourceDefinitionService --> ConnectionRepository
+ResourceDefinitionService --> ResourceDefinitionRepository
+ResourceDefinitionService ..> ResourceDefinition
+ResourceDefinition "1" *-- "1..*" MatchingCriterion
+@enduml

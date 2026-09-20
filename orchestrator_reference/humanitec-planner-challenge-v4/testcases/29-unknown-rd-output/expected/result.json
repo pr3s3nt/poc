@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "UNKNOWN_OUTPUT",
+    "path": "/definitions/postgres-default/driver_inputs/values/variables/subnet_id",
+    "phase": "graph"
+  },
+  "status": "REJECTED"
+}

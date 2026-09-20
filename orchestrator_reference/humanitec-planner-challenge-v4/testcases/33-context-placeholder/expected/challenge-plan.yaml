@@ -1,0 +1,54 @@
+matchedDefinitions:
+  bucket.default#modules.api.externals.data:
+    definitionId: bucket-default
+    score: 0
+    criterion: {}
+  workload.default#modules.api:
+    definitionId: workload-default
+    score: 0
+    criterion: {}
+resourceGraph:
+  nodes:
+  - descriptor: bucket.default#modules.api.externals.data
+    origins:
+    - private-dependency
+    resourceInputs:
+      region: eu-west-1
+  - descriptor: workload.default#modules.api
+    origins:
+    - implicit-workload
+    resourceInputs: {}
+  edges:
+  - from: workload.default#modules.api
+    to: bucket.default#modules.api.externals.data
+    reason: deployment-set-private
+    path: /modules/api/externals/data
+terraform:
+- resource: bucket.default#modules.api.externals.data
+  definitionId: bucket-default
+  source:
+    url: https://fixtures.invalid/bucket.git
+    rev: v1
+  localDirectory: terraform/checkouts/01-bucket-v1
+  fingerprint: sha256:0f4cb79b7ab496b6a93707eabf7e7045a4273c1e2675f05034a9ec620a14c051
+  inputs:
+  - name: owner
+    source: driver-input
+    value: shop-production
+    type: string
+  - name: region
+    source: resource-input
+    value: eu-west-1
+    type: string
+  outputs:
+  - arn
+  - name
+provisionBatches:
+- - bucket.default#modules.api.externals.data
+- - workload.default#modules.api
+activeResources:
+  existing: []
+  new:
+  - bucket.default#modules.api.externals.data
+  - workload.default#modules.api
+  unreferenced: []

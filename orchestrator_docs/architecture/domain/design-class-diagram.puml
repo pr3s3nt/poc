@@ -1,0 +1,190 @@
+@startuml
+title Orchestrator - Consolidated Design Class Diagram
+left to right direction
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "Application Services" {
+  class ApplicationService {
+    +CreateApplication(ctx, cmd): Application
+    +CreateEnvironment(ctx, cmd): Environment
+  }
+  class ResourceTypeService {
+    +RegisterResourceType(ctx, cmd): ResourceType
+  }
+  class ResourceDefinitionService {
+    +RegisterResourceDefinition(ctx, cmd): ResourceDefinition
+  }
+  class ConnectionService {
+    +RegisterAWSDriverAccount(ctx, cmd): Connection
+    +RegisterKubernetesCluster(ctx, cmd): Connection
+  }
+  class PreviewService {
+    +PreviewDeployment(ctx, query): DeploymentPreview
+  }
+  class DeploymentService {
+    +DeployWorkload(ctx, cmd): DeploymentResult
+    +UpdateWorkload(ctx, cmd): DeploymentResult
+    +RemoveWorkload(ctx, cmd): DeploymentResult
+  }
+  class ResourceProvisioningService {
+    +Provision(ctx, request): ProvisionResult
+  }
+  class DeploymentQueryService {
+    +GetDeployment(ctx, query): DeploymentView
+  }
+}
+
+package "Planning" {
+  class PlanningService {
+    +Plan(ctx, request): DeploymentPlan
+  }
+  class ScoreConverter
+  class BeforeStateValidator
+  class DeltaBuilder
+  class ImplicitResourceEnricher
+  class ResourceGraphBuilder
+  class GraphExpander
+  class DefinitionMatcher
+  class DriverContractInspector
+  class BatchScheduler
+  class ActiveResourceClassifier
+}
+
+package "Execution" {
+  class ActiveResourceResolver
+  class OutputBindingResolver
+  class ExecutorRegistry
+  class OutputContractValidator
+  interface ResourceExecutor {
+    +Provision(ctx, resource, inputs, priorState): ExecutionResult
+  }
+  interface WorkloadRenderer {
+    +Render(ctx, request): List<Manifest>
+  }
+  interface WorkloadDeployer {
+    +Apply(ctx, target, manifests)
+    +Delete(ctx, target, workload)
+    +WaitReady(ctx, target, workloads)
+  }
+  class TerraformExecutor
+  class KubernetesExecutor
+  class ExistingClusterAdapter
+}
+
+package "Domain" {
+  class Organization <<entity>>
+  class Application <<aggregate>> {
+    +ID: ApplicationID
+    +Profile: ExecutionProfile
+    +RuntimeStatus: ApplicationRuntimeStatus
+  }
+  class Environment <<aggregate>> {
+    +ID: EnvironmentID
+    +Namespace: NamespaceIdentity
+    +Version: int64
+  }
+  class Connection <<aggregate>> {
+    +Kind: ConnectionKind
+    +SecretRef: SecretReference
+    +Status: ConnectionStatus
+  }
+  class ResourceType <<aggregate>>
+  class ResourceDefinition <<aggregate>>
+  class MatchingCriterion <<entity>>
+  class DeploymentSet <<entity>>
+  class Deployment <<aggregate>> {
+    +Status: DeploymentStatus
+    +StartProvisioning(plan)
+    +StartDeploying()
+    +Succeed()
+  }
+  class DeploymentPlan <<entity>>
+  class ResourceGraph <<value>>
+  class ResourceNode <<value>>
+  class ResourceEdge <<value>>
+  class ProvisionBatch <<value>>
+  class ActiveResource <<aggregate>> {
+    +Descriptor: ResourceDescriptor
+    +Scope: ResourceScope
+    +Status: ResourceStatus
+    +MarkReady(state, outputs)
+    +MarkUnreferenced()
+  }
+  class WorkloadInstance <<aggregate>>
+}
+
+package "Ports" {
+  interface ApplicationRepository
+  interface EnvironmentRepository
+  interface ConnectionRepository
+  interface ResourceTypeRepository
+  interface ResourceDefinitionRepository
+  interface DeploymentSetRepository
+  interface DeploymentRepository
+  interface ActiveResourceRepository
+  interface DeploymentResourceRepository
+  interface WorkloadInstanceRepository
+  interface SecretStore
+}
+
+PreviewService --> PlanningService
+DeploymentService --> PlanningService
+DeploymentService --> ResourceProvisioningService
+DeploymentService --> OutputBindingResolver
+DeploymentService --> WorkloadRenderer
+DeploymentService --> WorkloadDeployer
+ResourceProvisioningService --> ActiveResourceResolver
+ResourceProvisioningService --> OutputBindingResolver
+ResourceProvisioningService --> ExecutorRegistry
+ResourceProvisioningService --> OutputContractValidator
+ExecutorRegistry --> ResourceExecutor
+ResourceExecutor <|.. TerraformExecutor
+ResourceExecutor <|.. KubernetesExecutor
+ResourceExecutor <|.. ExistingClusterAdapter
+
+PlanningService --> ScoreConverter
+PlanningService --> BeforeStateValidator
+PlanningService --> DeltaBuilder
+PlanningService --> ImplicitResourceEnricher
+PlanningService --> ResourceGraphBuilder
+PlanningService --> GraphExpander
+PlanningService --> DefinitionMatcher
+PlanningService --> DriverContractInspector
+PlanningService --> BatchScheduler
+PlanningService --> ActiveResourceClassifier
+
+Organization "1" o-- "0..*" Application
+Application "1" *-- "0..*" Environment
+Application --> Connection
+Environment "1" --> "1" DeploymentSet : current
+Environment "1" o-- "0..*" Deployment
+Deployment "1" *-- "1" DeploymentPlan
+DeploymentPlan "1" *-- "1" ResourceGraph
+ResourceGraph "1" *-- "0..*" ResourceNode
+ResourceGraph "1" *-- "0..*" ResourceEdge
+DeploymentPlan "1" *-- "0..*" ProvisionBatch
+ResourceDefinition "1" *-- "1..*" MatchingCriterion
+ResourceDefinition --> ResourceType
+ActiveResource --> ResourceDefinition
+Environment "1" o-- "0..*" WorkloadInstance
+
+ApplicationService --> ApplicationRepository
+ApplicationService --> EnvironmentRepository
+ApplicationService --> ConnectionRepository
+ResourceTypeService --> ResourceTypeRepository
+ResourceDefinitionService --> ResourceDefinitionRepository
+ResourceDefinitionService --> ResourceTypeRepository
+ConnectionService --> ConnectionRepository
+ConnectionService --> SecretStore
+DeploymentService --> EnvironmentRepository
+DeploymentService --> ApplicationRepository
+DeploymentService --> DeploymentSetRepository
+DeploymentService --> DeploymentRepository
+DeploymentService --> WorkloadInstanceRepository
+ResourceProvisioningService --> ActiveResourceRepository
+ResourceProvisioningService --> DeploymentResourceRepository
+DeploymentQueryService --> DeploymentRepository
+DeploymentQueryService --> ActiveResourceRepository
+@enduml

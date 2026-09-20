@@ -1,0 +1,16 @@
+apiVersion: entity.humanitec.io/v1b1
+kind: Definition
+metadata:
+  id: audit-default
+entity:
+  name: audit-default
+  type: audit
+  driver_type: humanitec/terraform
+  criteria:
+  - {}
+  driver_account: fixture-account
+  driver_inputs:
+    values:
+      source:
+        url: https://fixtures.invalid/audit.git
+        rev: v1

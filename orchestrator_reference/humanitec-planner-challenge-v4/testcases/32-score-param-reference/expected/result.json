@@ -1,0 +1,181 @@
+{
+  "challengePlan": {
+    "activeResources": {
+      "existing": [],
+      "new": [
+        "bucket.default#modules.api.externals.data",
+        "config.default#modules.api.externals.cfg",
+        "workload.default#modules.api"
+      ],
+      "unreferenced": []
+    },
+    "matchedDefinitions": {
+      "bucket.default#modules.api.externals.data": {
+        "criterion": {},
+        "definitionId": "bucket-default",
+        "score": 0
+      },
+      "config.default#modules.api.externals.cfg": {
+        "criterion": {},
+        "definitionId": "config-default",
+        "score": 0
+      },
+      "workload.default#modules.api": {
+        "criterion": {},
+        "definitionId": "workload-default",
+        "score": 0
+      }
+    },
+    "provisionBatches": [
+      [
+        "config.default#modules.api.externals.cfg"
+      ],
+      [
+        "bucket.default#modules.api.externals.data"
+      ],
+      [
+        "workload.default#modules.api"
+      ]
+    ],
+    "resourceGraph": {
+      "edges": [
+        {
+          "from": "bucket.default#modules.api.externals.data",
+          "path": "/modules/api/externals/data/params/region",
+          "reason": "resource-input-placeholder",
+          "to": "config.default#modules.api.externals.cfg"
+        },
+        {
+          "from": "workload.default#modules.api",
+          "path": "/modules/api/externals/data",
+          "reason": "deployment-set-private",
+          "to": "bucket.default#modules.api.externals.data"
+        },
+        {
+          "from": "workload.default#modules.api",
+          "path": "/modules/api/externals/cfg",
+          "reason": "deployment-set-private",
+          "to": "config.default#modules.api.externals.cfg"
+        }
+      ],
+      "nodes": [
+        {
+          "descriptor": "bucket.default#modules.api.externals.data",
+          "origins": [
+            "private-dependency"
+          ],
+          "resourceInputs": {
+            "region": "${externals.cfg.region}"
+          }
+        },
+        {
+          "descriptor": "config.default#modules.api.externals.cfg",
+          "origins": [
+            "private-dependency"
+          ],
+          "resourceInputs": {}
+        },
+        {
+          "descriptor": "workload.default#modules.api",
+          "origins": [
+            "implicit-workload"
+          ],
+          "resourceInputs": {}
+        }
+      ]
+    },
+    "terraform": [
+      {
+        "definitionId": "bucket-default",
+        "fingerprint": "sha256:fa4ed29d3ee8aa2b537c09beaf99bbb1ea8be1f2f6f02bf9fceab58d21441950",
+        "inputs": [
+          {
+            "name": "region",
+            "source": "resource-input",
+            "type": "string",
+            "value": "${externals.cfg.region}"
+          }
+        ],
+        "localDirectory": "terraform/checkouts/01-bucket-v1",
+        "outputs": [
+          "arn",
+          "name"
+        ],
+        "resource": "bucket.default#modules.api.externals.data",
+        "source": {
+          "rev": "v1",
+          "url": "https://fixtures.invalid/bucket.git"
+        }
+      },
+      {
+        "definitionId": "config-default",
+        "fingerprint": "sha256:be6799d1bb5be73e76897d82e792c64fe72f54426ea0b4b3aa3c6c1599217e34",
+        "inputs": [],
+        "localDirectory": "terraform/checkouts/02-config-v1",
+        "outputs": [
+          "region",
+          "value"
+        ],
+        "resource": "config.default#modules.api.externals.cfg",
+        "source": {
+          "rev": "v1",
+          "url": "https://fixtures.invalid/config.git"
+        }
+      }
+    ]
+  },
+  "delta": {
+    "modules": {
+      "update": {
+        "api": [
+          {
+            "op": "add",
+            "path": "/externals",
+            "value": {
+              "cfg": {
+                "class": "default",
+                "type": "config"
+              },
+              "data": {
+                "class": "default",
+                "params": {
+                  "region": "${externals.cfg.region}"
+                },
+                "type": "bucket"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "deploymentSet": {
+    "modules": {
+      "api": {
+        "externals": {
+          "cfg": {
+            "class": "default",
+            "type": "config"
+          },
+          "data": {
+            "class": "default",
+            "params": {
+              "region": "${externals.cfg.region}"
+            },
+            "type": "bucket"
+          }
+        },
+        "profile": "humanitec/default-module",
+        "spec": {
+          "containers": {
+            "main": {
+              "id": "main",
+              "image": "ghcr.io/acme/api:v1"
+            }
+          }
+        }
+      }
+    }
+  },
+  "status": "ACCEPTED"
+}

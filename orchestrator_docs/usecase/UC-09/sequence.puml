@@ -1,0 +1,33 @@
+@startuml
+title UC-09 - View Deployment Status and Resource Graph
+autonumber
+actor Developer
+boundary DeploymentQueryController as API
+control DeploymentQueryService as Service
+control DeploymentViewAssembler as Assembler
+control OutputRedactor as Redactor
+database DeploymentRepository as DeploymentRepo
+database DeploymentSetRepository as SetRepo
+database DeploymentResourceRepository as DeploymentResourceRepo
+database ActiveResourceRepository as ResourceRepo
+database WorkloadInstanceRepository as WorkloadRepo
+
+Developer -> API: GetDeployment(appID, envID, deploymentID) [MS-01]
+API -> Service: GetDeployment(ctx, query)
+Service -> DeploymentRepo: FindScoped(query) [MS-02]
+DeploymentRepo --> Service: Deployment + persisted plan
+Service -> SetRepo: FindSnapshot(candidateSetID)
+SetRepo --> Service: DeploymentSet
+Service -> DeploymentResourceRepo: ListByDeployment(deploymentID) [MS-03]
+DeploymentResourceRepo --> Service: Resource statuses
+Service -> ResourceRepo: FindByIDs(activeResourceIDs)
+ResourceRepo --> Service: Active Resources + outputs
+Service -> WorkloadRepo: ListByDeployment(deploymentID)
+WorkloadRepo --> Service: Workload statuses
+Service -> Assembler: Assemble(all snapshots) [MS-04..MS-05]
+Assembler --> Service: DeploymentView
+Service -> Redactor: RedactSecretOutputs(view) [MS-06]
+Redactor --> Service: Safe DeploymentView
+Service --> API: DeploymentView [MS-07]
+API --> Developer: Status + graph + non-secret outputs
+@enduml

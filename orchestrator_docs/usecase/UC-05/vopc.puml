@@ -1,0 +1,56 @@
+@startuml
+title VOPC - UC-05 Validate and Preview
+left to right direction
+skinparam classAttributeIconSize 0
+class PreviewController <<boundary>> {
+  +PreviewDeployment(query)
+}
+class PreviewService <<control>> {
+  +PreviewDeployment(ctx, query): DeploymentPreview
+}
+class PlanningService <<control>> {
+  +Plan(ctx, request): DeploymentPlan
+}
+class ScoreConverter <<control>> {
+  +ConvertAndValidate(score, resourceTypes): WorkloadFragment
+}
+class DeltaBuilder <<control>> {
+  +Build(currentSet, fragment): DeltaResult
+}
+class ImplicitResourceEnricher <<control>> {
+  +Enrich(candidate, profile, context): ImplicitResources
+}
+class ResourceGraphBuilder <<control>> {
+  +BuildAndExpand(candidate, implicit, definitions): ResourceGraph
+}
+class DefinitionMatcher <<control>> {
+  +MatchAll(graph, context): MatchedDefinitions
+}
+class DriverContractInspector <<control>> {
+  +InspectContracts(graph): Contracts
+}
+class BatchScheduler <<control>> {
+  +Schedule(graph): ProvisionBatches
+}
+class ActiveResourceClassifier <<control>> {
+  +Classify(graph, active): ResourceClassification
+}
+class DeploymentPlan <<entity>>
+class DeploymentPreview <<entity>>
+interface PlanningSnapshotRepository {
+  +Load(ctx, appID, envID): PlanningSnapshot
+}
+PreviewController --> PreviewService
+PreviewService --> PlanningSnapshotRepository
+PreviewService --> PlanningService
+PreviewService ..> DeploymentPreview
+PlanningService --> ScoreConverter
+PlanningService --> DeltaBuilder
+PlanningService --> ImplicitResourceEnricher
+PlanningService --> ResourceGraphBuilder
+PlanningService --> DefinitionMatcher
+PlanningService --> DriverContractInspector
+PlanningService --> BatchScheduler
+PlanningService --> ActiveResourceClassifier
+PlanningService ..> DeploymentPlan
+@enduml

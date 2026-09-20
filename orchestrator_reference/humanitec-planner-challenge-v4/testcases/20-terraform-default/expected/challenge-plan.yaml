@@ -1,0 +1,56 @@
+matchedDefinitions:
+  postgres.default#modules.api.externals.db:
+    definitionId: postgres-default
+    score: 0
+    criterion: {}
+  workload.default#modules.api:
+    definitionId: workload-default
+    score: 0
+    criterion: {}
+resourceGraph:
+  nodes:
+  - descriptor: postgres.default#modules.api.externals.db
+    origins:
+    - private-dependency
+    resourceInputs:
+      size: large
+      region: eu-west-1
+  - descriptor: workload.default#modules.api
+    origins:
+    - implicit-workload
+    resourceInputs: {}
+  edges:
+  - from: workload.default#modules.api
+    to: postgres.default#modules.api.externals.db
+    reason: deployment-set-private
+    path: /modules/api/externals/db
+terraform:
+- resource: postgres.default#modules.api.externals.db
+  definitionId: postgres-default
+  source:
+    url: https://fixtures.invalid/postgres.git
+    rev: v1
+  localDirectory: terraform/checkouts/01-postgres-v1
+  fingerprint: sha256:ea1ab808d2725bfe31eba8373c0db209f054cdc570e91a023ddf3cee29f862dd
+  inputs:
+  - name: region
+    source: resource-input
+    value: eu-west-1
+    type: string
+  - name: size
+    source: resource-input
+    value: large
+    type: string
+  outputs:
+  - host
+  - name
+  - port
+provisionBatches:
+- - postgres.default#modules.api.externals.db
+- - workload.default#modules.api
+activeResources:
+  existing: []
+  new:
+  - postgres.default#modules.api.externals.db
+  - workload.default#modules.api
+  unreferenced: []

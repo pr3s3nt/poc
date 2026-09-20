@@ -1,0 +1,20 @@
+apiVersion: challenge.humanitec.io/v1alpha1
+kind: PlannerCase
+metadata:
+  name: 09-update-shared
+spec:
+  context: context.yaml
+  currentDeploymentSet: current-deployment-set.yaml
+  beforeScore: before.score.yaml
+  afterScore: after.score.yaml
+  resourceTypes:
+  - resource-types/redis.yaml
+  - resource-types/workload.yaml
+  resourceDefinitions:
+  - resource-definitions/redis-default.yaml
+  - resource-definitions/workload-default.yaml
+  activeResources: active-resources.yaml
+  terraformSourceMap:
+  - url: https://fixtures.invalid/redis.git
+    rev: v1
+    directory: terraform/checkouts/01-redis-v1

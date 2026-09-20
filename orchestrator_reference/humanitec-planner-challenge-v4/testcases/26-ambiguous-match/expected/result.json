@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "AMBIGUOUS_DEFINITION",
+    "path": "postgres.default#modules.api.externals.db",
+    "phase": "match"
+  },
+  "status": "REJECTED"
+}

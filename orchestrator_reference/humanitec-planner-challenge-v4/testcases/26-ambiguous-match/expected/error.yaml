@@ -1,0 +1,3 @@
+code: AMBIGUOUS_DEFINITION
+phase: match
+path: postgres.default#modules.api.externals.db

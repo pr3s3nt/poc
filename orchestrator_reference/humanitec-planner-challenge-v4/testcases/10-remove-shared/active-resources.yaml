@@ -1,0 +1,7 @@
+- metadata:
+    type: redis
+    class: default
+    res_id: shared.team-cache
+  status:
+    resource_definition_id: redis-default
+    gu_res_id: 75f1ac66b11af9489b3394d744af06ab1486119a

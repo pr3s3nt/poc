@@ -1,0 +1,6 @@
+modules:
+  update:
+    api:
+    - op: replace
+      path: /externals/db/params/size
+      value: large

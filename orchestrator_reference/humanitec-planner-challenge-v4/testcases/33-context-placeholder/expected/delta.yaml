@@ -1,0 +1,11 @@
+modules:
+  update:
+    api:
+    - op: add
+      path: /externals
+      value:
+        data:
+          type: bucket
+          class: default
+          params:
+            region: eu-west-1

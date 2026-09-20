@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "UNKNOWN_OUTPUT",
+    "path": "/containers/main/variables/DB",
+    "phase": "convert"
+  },
+  "status": "REJECTED"
+}

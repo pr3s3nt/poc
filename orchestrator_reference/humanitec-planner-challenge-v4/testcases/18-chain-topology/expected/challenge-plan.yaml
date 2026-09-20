@@ -1,0 +1,111 @@
+matchedDefinitions:
+  bucket.default#modules.api.externals.data:
+    definitionId: bucket-default
+    score: 0
+    criterion: {}
+  config.default#shared.region:
+    definitionId: config-default
+    score: 0
+    criterion: {}
+  network.default#shared.vpc:
+    definitionId: network-default
+    score: 0
+    criterion: {}
+  workload.default#modules.api:
+    definitionId: workload-default
+    score: 0
+    criterion: {}
+resourceGraph:
+  nodes:
+  - descriptor: bucket.default#modules.api.externals.data
+    origins:
+    - private-dependency
+    resourceInputs:
+      region: eu-west-1
+  - descriptor: config.default#shared.region
+    origins:
+    - resource-reference
+    resourceInputs: {}
+  - descriptor: network.default#shared.vpc
+    origins:
+    - resource-reference
+    resourceInputs: {}
+  - descriptor: workload.default#modules.api
+    origins:
+    - implicit-workload
+    resourceInputs: {}
+  edges:
+  - from: bucket.default#modules.api.externals.data
+    to: network.default#shared.vpc
+    reason: resource-reference
+    path: /definitions/bucket-default/driver_inputs/values/variables/subnet_id
+  - from: network.default#shared.vpc
+    to: config.default#shared.region
+    reason: resource-reference
+    path: /definitions/network-default/driver_inputs/values/variables/region
+  - from: workload.default#modules.api
+    to: bucket.default#modules.api.externals.data
+    reason: deployment-set-private
+    path: /modules/api/externals/data
+terraform:
+- resource: bucket.default#modules.api.externals.data
+  definitionId: bucket-default
+  source:
+    url: https://fixtures.invalid/bucket.git
+    rev: v1
+  localDirectory: terraform/checkouts/01-bucket-v1
+  fingerprint: sha256:f9d7cc55e8df3ab6fb3c9a32422a83ca85b225334bc55ff9da03a63870b25fda
+  inputs:
+  - name: region
+    source: resource-input
+    value: eu-west-1
+    type: string
+  - name: subnet_id
+    source: driver-input
+    value: ${resources['network.default#shared.vpc'].outputs.subnet_id}
+    type: string
+  outputs:
+  - arn
+  - name
+- resource: config.default#shared.region
+  definitionId: config-default
+  source:
+    url: https://fixtures.invalid/config.git
+    rev: v1
+  localDirectory: terraform/checkouts/02-config-v1
+  fingerprint: sha256:be6799d1bb5be73e76897d82e792c64fe72f54426ea0b4b3aa3c6c1599217e34
+  inputs: []
+  outputs:
+  - region
+  - value
+- resource: network.default#shared.vpc
+  definitionId: network-default
+  source:
+    url: https://fixtures.invalid/network.git
+    rev: v1
+  localDirectory: terraform/checkouts/03-network-v1
+  fingerprint: sha256:cf06906497c5b187e33444ce1333c85cb98de5c3fbd957aeb443ae1a3cfde651
+  inputs:
+  - name: cidr
+    source: terraform-default
+    value: 10.0.0.0/16
+    type: string
+  - name: region
+    source: driver-input
+    value: ${resources['config.default#shared.region'].outputs.region}
+    type: string
+  outputs:
+  - subnet_id
+provisionBatches:
+- - config.default#shared.region
+- - network.default#shared.vpc
+- - bucket.default#modules.api.externals.data
+- - workload.default#modules.api
+activeResources:
+  existing: []
+  new:
+  - bucket.default#modules.api.externals.data
+  - config.default#shared.region
+  - network.default#shared.vpc
+  - workload.default#modules.api
+  unreferenced: []

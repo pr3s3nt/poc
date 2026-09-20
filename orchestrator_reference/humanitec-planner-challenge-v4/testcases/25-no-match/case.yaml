@@ -1,0 +1,16 @@
+apiVersion: challenge.humanitec.io/v1alpha1
+kind: PlannerCase
+metadata:
+  name: 25-no-match
+spec:
+  context: context.yaml
+  currentDeploymentSet: current-deployment-set.yaml
+  beforeScore: before.score.yaml
+  afterScore: after.score.yaml
+  resourceTypes:
+  - resource-types/postgres.yaml
+  - resource-types/workload.yaml
+  resourceDefinitions:
+  - resource-definitions/workload-default.yaml
+  activeResources: active-resources.yaml
+  terraformSourceMap: []

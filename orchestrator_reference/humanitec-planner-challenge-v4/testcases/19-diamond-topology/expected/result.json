@@ -1,0 +1,259 @@
+{
+  "challengePlan": {
+    "activeResources": {
+      "existing": [],
+      "new": [
+        "bucket.default#modules.api.externals.data",
+        "network.default#shared.vpc",
+        "postgres.default#modules.api.externals.db",
+        "workload.default#modules.api"
+      ],
+      "unreferenced": []
+    },
+    "matchedDefinitions": {
+      "bucket.default#modules.api.externals.data": {
+        "criterion": {},
+        "definitionId": "bucket-default",
+        "score": 0
+      },
+      "network.default#shared.vpc": {
+        "criterion": {},
+        "definitionId": "network-default",
+        "score": 0
+      },
+      "postgres.default#modules.api.externals.db": {
+        "criterion": {},
+        "definitionId": "postgres-default",
+        "score": 0
+      },
+      "workload.default#modules.api": {
+        "criterion": {},
+        "definitionId": "workload-default",
+        "score": 0
+      }
+    },
+    "provisionBatches": [
+      [
+        "network.default#shared.vpc"
+      ],
+      [
+        "bucket.default#modules.api.externals.data",
+        "postgres.default#modules.api.externals.db"
+      ],
+      [
+        "workload.default#modules.api"
+      ]
+    ],
+    "resourceGraph": {
+      "edges": [
+        {
+          "from": "bucket.default#modules.api.externals.data",
+          "path": "/definitions/bucket-default/driver_inputs/values/variables/subnet_id",
+          "reason": "resource-reference",
+          "to": "network.default#shared.vpc"
+        },
+        {
+          "from": "postgres.default#modules.api.externals.db",
+          "path": "/definitions/postgres-default/driver_inputs/values/variables/subnet_id",
+          "reason": "resource-reference",
+          "to": "network.default#shared.vpc"
+        },
+        {
+          "from": "workload.default#modules.api",
+          "path": "/modules/api/externals/data",
+          "reason": "deployment-set-private",
+          "to": "bucket.default#modules.api.externals.data"
+        },
+        {
+          "from": "workload.default#modules.api",
+          "path": "/modules/api/externals/db",
+          "reason": "deployment-set-private",
+          "to": "postgres.default#modules.api.externals.db"
+        }
+      ],
+      "nodes": [
+        {
+          "descriptor": "bucket.default#modules.api.externals.data",
+          "origins": [
+            "private-dependency"
+          ],
+          "resourceInputs": {
+            "region": "eu-west-1"
+          }
+        },
+        {
+          "descriptor": "network.default#shared.vpc",
+          "origins": [
+            "resource-reference"
+          ],
+          "resourceInputs": {}
+        },
+        {
+          "descriptor": "postgres.default#modules.api.externals.db",
+          "origins": [
+            "private-dependency"
+          ],
+          "resourceInputs": {
+            "region": "eu-west-1",
+            "size": "small"
+          }
+        },
+        {
+          "descriptor": "workload.default#modules.api",
+          "origins": [
+            "implicit-workload"
+          ],
+          "resourceInputs": {}
+        }
+      ]
+    },
+    "terraform": [
+      {
+        "definitionId": "bucket-default",
+        "fingerprint": "sha256:f9d7cc55e8df3ab6fb3c9a32422a83ca85b225334bc55ff9da03a63870b25fda",
+        "inputs": [
+          {
+            "name": "region",
+            "source": "resource-input",
+            "type": "string",
+            "value": "eu-west-1"
+          },
+          {
+            "name": "subnet_id",
+            "source": "driver-input",
+            "type": "string",
+            "value": "${resources['network.default#shared.vpc'].outputs.subnet_id}"
+          }
+        ],
+        "localDirectory": "terraform/checkouts/01-bucket-v1",
+        "outputs": [
+          "arn",
+          "name"
+        ],
+        "resource": "bucket.default#modules.api.externals.data",
+        "source": {
+          "rev": "v1",
+          "url": "https://fixtures.invalid/bucket.git"
+        }
+      },
+      {
+        "definitionId": "network-default",
+        "fingerprint": "sha256:9feab04b4e603fc1b8440ba8d4dbddd597b935b5f9c20fbbdec083521404c552",
+        "inputs": [
+          {
+            "name": "cidr",
+            "source": "terraform-default",
+            "type": "string",
+            "value": "10.0.0.0/16"
+          }
+        ],
+        "localDirectory": "terraform/checkouts/02-network-v1",
+        "outputs": [
+          "subnet_id"
+        ],
+        "resource": "network.default#shared.vpc",
+        "source": {
+          "rev": "v1",
+          "url": "https://fixtures.invalid/network.git"
+        }
+      },
+      {
+        "definitionId": "postgres-default",
+        "fingerprint": "sha256:027f5364ea01797c15075cd428b23699ce171451b45103261887ee9fbac115e4",
+        "inputs": [
+          {
+            "name": "region",
+            "source": "resource-input",
+            "type": "string",
+            "value": "eu-west-1"
+          },
+          {
+            "name": "size",
+            "source": "resource-input",
+            "type": "string",
+            "value": "small"
+          },
+          {
+            "name": "subnet_id",
+            "source": "driver-input",
+            "type": "string",
+            "value": "${resources['network.default#shared.vpc'].outputs.subnet_id}"
+          }
+        ],
+        "localDirectory": "terraform/checkouts/03-postgres-v1",
+        "outputs": [
+          "host",
+          "name",
+          "port"
+        ],
+        "resource": "postgres.default#modules.api.externals.db",
+        "source": {
+          "rev": "v1",
+          "url": "https://fixtures.invalid/postgres.git"
+        }
+      }
+    ]
+  },
+  "delta": {
+    "modules": {
+      "update": {
+        "api": [
+          {
+            "op": "add",
+            "path": "/externals",
+            "value": {
+              "data": {
+                "class": "default",
+                "params": {
+                  "region": "eu-west-1"
+                },
+                "type": "bucket"
+              },
+              "db": {
+                "class": "default",
+                "params": {
+                  "region": "eu-west-1",
+                  "size": "small"
+                },
+                "type": "postgres"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "deploymentSet": {
+    "modules": {
+      "api": {
+        "externals": {
+          "data": {
+            "class": "default",
+            "params": {
+              "region": "eu-west-1"
+            },
+            "type": "bucket"
+          },
+          "db": {
+            "class": "default",
+            "params": {
+              "region": "eu-west-1",
+              "size": "small"
+            },
+            "type": "postgres"
+          }
+        },
+        "profile": "humanitec/default-module",
+        "spec": {
+          "containers": {
+            "main": {
+              "id": "main",
+              "image": "ghcr.io/acme/api:v1"
+            }
+          }
+        }
+      }
+    }
+  },
+  "status": "ACCEPTED"
+}

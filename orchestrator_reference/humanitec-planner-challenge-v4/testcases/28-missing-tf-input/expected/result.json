@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "MISSING_TERRAFORM_INPUT",
+    "path": "postgres.default#modules.api.externals.db:tenant",
+    "phase": "terraform"
+  },
+  "status": "REJECTED"
+}

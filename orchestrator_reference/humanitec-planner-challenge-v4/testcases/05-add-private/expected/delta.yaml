@@ -1,0 +1,16 @@
+modules:
+  update:
+    api:
+    - op: add
+      path: /externals
+      value:
+        db:
+          type: postgres
+          class: default
+          params:
+            size: large
+            region: eu-west-1
+    - op: add
+      path: /spec/containers/main/variables
+      value:
+        DB_HOST: ${externals.db.host}

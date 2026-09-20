@@ -1,0 +1,38 @@
+@startuml
+title VOPC - UC-04 Configure Connections
+left to right direction
+skinparam classAttributeIconSize 0
+class ConnectionController <<boundary>> {
+  +RegisterAWSDriverAccount(command)
+  +RegisterKubernetesCluster(command)
+}
+class ConnectionService <<control>> {
+  +RegisterAWSDriverAccount(ctx, cmd): Connection
+  +RegisterKubernetesCluster(ctx, cmd): Connection
+}
+class Connection <<entity>> {
+  +CreatePending(kind, config): Connection
+  +MarkReady(secretRef, verification)
+}
+interface SecretStore {
+  +Put(ctx, credential): SecretReference
+  +Get(ctx, reference): Credential
+}
+interface ConnectionVerifier {
+  +Verify(ctx, config, credential): VerificationResult
+}
+class AWSConnectionVerifier <<adapter>>
+class KubernetesConnectionVerifier <<adapter>>
+interface ConnectionRepository {
+  +Save(ctx, connection)
+  +FindReady(ctx, id): Connection
+}
+ConnectionController --> ConnectionService
+ConnectionService --> SecretStore
+ConnectionService --> ConnectionRepository
+ConnectionService --> AWSConnectionVerifier
+ConnectionService --> KubernetesConnectionVerifier
+ConnectionService ..> Connection
+ConnectionVerifier <|.. AWSConnectionVerifier
+ConnectionVerifier <|.. KubernetesConnectionVerifier
+@enduml

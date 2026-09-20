@@ -1,0 +1,3 @@
+shared:
+- op: remove
+  path: /team-cache

@@ -1,0 +1,39 @@
+@startuml
+title UC-06 - internal-k8s happy path
+autonumber
+actor Developer
+control DeploymentService as Service
+control PlanningService as Planner
+control ImplicitResourceEnricher as Enricher
+control ResourceProvisioningService as Provisioner
+boundary ExistingClusterAdapter as ExistingCluster
+boundary KubernetesExecutor as ResourceK8s
+control OutputBindingResolver as Resolver
+control WorkloadRenderer as Renderer
+boundary WorkloadDeployer as WorkloadK8s
+database DeploymentRepository as Repo
+
+Developer -> Service: DeployWorkload(Score, app, env)
+Service -> Repo: Create PLANNING [MS-01]
+Service -> Planner: Plan(request) [MS-02..MS-04]
+Planner -> Enricher: Enrich(profile=internal-k8s) [MS-05]
+Enricher --> Planner: existing cluster + env namespace
+Planner --> Service: graph: workload -> namespace -> existing cluster\nworkload -> postgres StatefulSet -> existing cluster [MS-06..MS-08]
+Service -> Provisioner: Provision(resource batches) [MS-09]
+Provisioner -> ExistingCluster: Provision(cluster reference)
+ExistingCluster --> Provisioner: Kubernetes target
+Provisioner -> ResourceK8s: Provision(namespace, target)
+ResourceK8s --> Provisioner: namespace output
+Provisioner -> ResourceK8s: Provision(PostgreSQL StatefulSet/Service)
+ResourceK8s --> Provisioner: postgres outputs
+Provisioner --> Service: outputs + internal target
+Service -> Resolver: ResolveWorkloadBindings(postgres outputs) [MS-10]
+Resolver --> Service: Resolved frontend/backend/worker workload
+Service -> Renderer: Render(all workload manifests) [MS-11]
+Renderer --> Service: Services + Deployments
+Service -> WorkloadK8s: Apply(internal target, manifests)
+Service -> WorkloadK8s: WaitReady(frontend, backend, worker)
+WorkloadK8s --> Service: Ready
+Service -> Repo: Commit set/resources/workloads/SUCCEEDED [MS-12]
+Service --> Developer: DeploymentResult [MS-13]
+@enduml

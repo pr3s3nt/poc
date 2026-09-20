@@ -1,0 +1,7 @@
+- metadata:
+    type: postgres
+    class: default
+    res_id: modules.api.externals.db
+  status:
+    resource_definition_id: postgres-default
+    gu_res_id: 90b366f895091f39bdaae04f5e7751bf6c0d43c8

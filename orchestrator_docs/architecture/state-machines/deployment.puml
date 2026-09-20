@@ -1,0 +1,16 @@
+@startuml
+title Deployment State Machine
+[*] --> PLANNING : Create deployment [MS-01]
+PLANNING --> PROVISIONING : Plan persisted and validated [MS-08..MS-09]
+PROVISIONING --> DEPLOYING : Resource batches READY [MS-10]
+DEPLOYING --> SUCCEEDED : Workloads READY + final transaction [MS-12]
+PLANNING --> FAILED : planning error
+PROVISIONING --> FAILED : executor error
+DEPLOYING --> FAILED : render/apply/readiness error
+SUCCEEDED --> [*]
+FAILED --> [*]
+note right of FAILED
+  Status recording only.
+  Retry/resume/rollback are out of scope.
+end note
+@enduml

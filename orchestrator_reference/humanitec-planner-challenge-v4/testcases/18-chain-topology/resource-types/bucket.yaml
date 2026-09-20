@@ -1,0 +1,19 @@
+apiVersion: entity.humanitec.io/v1b1
+kind: ResourceType
+metadata:
+  id: bucket
+entity:
+  inputs_schema:
+    type: object
+    properties:
+      region:
+        type: string
+    additionalProperties: false
+  outputs_schema:
+    type: object
+    properties:
+      name:
+        type: string
+      arn:
+        type: string
+    additionalProperties: false

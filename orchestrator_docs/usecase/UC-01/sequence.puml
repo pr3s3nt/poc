@@ -1,0 +1,32 @@
+@startuml
+title UC-01 - Manage Application and Environment
+autonumber
+actor "Platform Engineer" as PE
+boundary ApplicationController as API
+control ApplicationService as Service
+database ConnectionRepository as ConnectionRepo
+database ApplicationRepository as AppRepo
+database EnvironmentRepository as EnvRepo
+database DeploymentSetRepository as SetRepo
+
+PE -> API: CreateApplication(command) [MS-01..MS-03]
+API -> Service: CreateApplication(ctx, command)
+Service -> ConnectionRepo: FindReady(connectionID)
+ConnectionRepo --> Service: Connection
+Service -> Service: Application.Create(profile, connection) [MS-04]
+Service -> AppRepo: Save(application) <<transaction A>>
+AppRepo --> Service: Application
+Service --> API: Application
+API --> PE: Created
+
+PE -> API: CreateEnvironment(command) [MS-05]
+API -> Service: CreateEnvironment(ctx, command)
+Service -> AppRepo: FindByID(applicationID)
+AppRepo --> Service: Application
+Service -> Service: Environment.Create()\nDeploymentSet.Empty()\nNamespaceIdentity.ForEnvironment() [MS-06..MS-07]
+Service -> EnvRepo: Save(environment) <<transaction B>>
+Service -> SetRepo: SaveAndSetCurrent(emptySet) <<transaction B>>
+SetRepo --> Service: Environment ready
+Service --> API: Environment [MS-08]
+API --> PE: Created
+@enduml

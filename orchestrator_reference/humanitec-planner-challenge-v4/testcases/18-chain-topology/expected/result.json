@@ -1,0 +1,222 @@
+{
+  "challengePlan": {
+    "activeResources": {
+      "existing": [],
+      "new": [
+        "bucket.default#modules.api.externals.data",
+        "config.default#shared.region",
+        "network.default#shared.vpc",
+        "workload.default#modules.api"
+      ],
+      "unreferenced": []
+    },
+    "matchedDefinitions": {
+      "bucket.default#modules.api.externals.data": {
+        "criterion": {},
+        "definitionId": "bucket-default",
+        "score": 0
+      },
+      "config.default#shared.region": {
+        "criterion": {},
+        "definitionId": "config-default",
+        "score": 0
+      },
+      "network.default#shared.vpc": {
+        "criterion": {},
+        "definitionId": "network-default",
+        "score": 0
+      },
+      "workload.default#modules.api": {
+        "criterion": {},
+        "definitionId": "workload-default",
+        "score": 0
+      }
+    },
+    "provisionBatches": [
+      [
+        "config.default#shared.region"
+      ],
+      [
+        "network.default#shared.vpc"
+      ],
+      [
+        "bucket.default#modules.api.externals.data"
+      ],
+      [
+        "workload.default#modules.api"
+      ]
+    ],
+    "resourceGraph": {
+      "edges": [
+        {
+          "from": "bucket.default#modules.api.externals.data",
+          "path": "/definitions/bucket-default/driver_inputs/values/variables/subnet_id",
+          "reason": "resource-reference",
+          "to": "network.default#shared.vpc"
+        },
+        {
+          "from": "network.default#shared.vpc",
+          "path": "/definitions/network-default/driver_inputs/values/variables/region",
+          "reason": "resource-reference",
+          "to": "config.default#shared.region"
+        },
+        {
+          "from": "workload.default#modules.api",
+          "path": "/modules/api/externals/data",
+          "reason": "deployment-set-private",
+          "to": "bucket.default#modules.api.externals.data"
+        }
+      ],
+      "nodes": [
+        {
+          "descriptor": "bucket.default#modules.api.externals.data",
+          "origins": [
+            "private-dependency"
+          ],
+          "resourceInputs": {
+            "region": "eu-west-1"
+          }
+        },
+        {
+          "descriptor": "config.default#shared.region",
+          "origins": [
+            "resource-reference"
+          ],
+          "resourceInputs": {}
+        },
+        {
+          "descriptor": "network.default#shared.vpc",
+          "origins": [
+            "resource-reference"
+          ],
+          "resourceInputs": {}
+        },
+        {
+          "descriptor": "workload.default#modules.api",
+          "origins": [
+            "implicit-workload"
+          ],
+          "resourceInputs": {}
+        }
+      ]
+    },
+    "terraform": [
+      {
+        "definitionId": "bucket-default",
+        "fingerprint": "sha256:f9d7cc55e8df3ab6fb3c9a32422a83ca85b225334bc55ff9da03a63870b25fda",
+        "inputs": [
+          {
+            "name": "region",
+            "source": "resource-input",
+            "type": "string",
+            "value": "eu-west-1"
+          },
+          {
+            "name": "subnet_id",
+            "source": "driver-input",
+            "type": "string",
+            "value": "${resources['network.default#shared.vpc'].outputs.subnet_id}"
+          }
+        ],
+        "localDirectory": "terraform/checkouts/01-bucket-v1",
+        "outputs": [
+          "arn",
+          "name"
+        ],
+        "resource": "bucket.default#modules.api.externals.data",
+        "source": {
+          "rev": "v1",
+          "url": "https://fixtures.invalid/bucket.git"
+        }
+      },
+      {
+        "definitionId": "config-default",
+        "fingerprint": "sha256:be6799d1bb5be73e76897d82e792c64fe72f54426ea0b4b3aa3c6c1599217e34",
+        "inputs": [],
+        "localDirectory": "terraform/checkouts/02-config-v1",
+        "outputs": [
+          "region",
+          "value"
+        ],
+        "resource": "config.default#shared.region",
+        "source": {
+          "rev": "v1",
+          "url": "https://fixtures.invalid/config.git"
+        }
+      },
+      {
+        "definitionId": "network-default",
+        "fingerprint": "sha256:cf06906497c5b187e33444ce1333c85cb98de5c3fbd957aeb443ae1a3cfde651",
+        "inputs": [
+          {
+            "name": "cidr",
+            "source": "terraform-default",
+            "type": "string",
+            "value": "10.0.0.0/16"
+          },
+          {
+            "name": "region",
+            "source": "driver-input",
+            "type": "string",
+            "value": "${resources['config.default#shared.region'].outputs.region}"
+          }
+        ],
+        "localDirectory": "terraform/checkouts/03-network-v1",
+        "outputs": [
+          "subnet_id"
+        ],
+        "resource": "network.default#shared.vpc",
+        "source": {
+          "rev": "v1",
+          "url": "https://fixtures.invalid/network.git"
+        }
+      }
+    ]
+  },
+  "delta": {
+    "modules": {
+      "update": {
+        "api": [
+          {
+            "op": "add",
+            "path": "/externals",
+            "value": {
+              "data": {
+                "class": "default",
+                "params": {
+                  "region": "eu-west-1"
+                },
+                "type": "bucket"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "deploymentSet": {
+    "modules": {
+      "api": {
+        "externals": {
+          "data": {
+            "class": "default",
+            "params": {
+              "region": "eu-west-1"
+            },
+            "type": "bucket"
+          }
+        },
+        "profile": "humanitec/default-module",
+        "spec": {
+          "containers": {
+            "main": {
+              "id": "main",
+              "image": "ghcr.io/acme/api:v1"
+            }
+          }
+        }
+      }
+    }
+  },
+  "status": "ACCEPTED"
+}

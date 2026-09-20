@@ -1,0 +1,13 @@
+@startuml
+title Active Resource State Machine
+[*] --> PROVISIONING : first Provision()
+PROVISIONING --> READY : valid outputs persisted
+READY --> PROVISIONING : later deployment reconcile
+READY --> UNREFERENCED : absent from desired graph
+UNREFERENCED --> PROVISIONING : referenced again
+PROVISIONING --> FAILED : executor/output validation error
+FAILED --> [*]
+note right of UNREFERENCED
+  No automatic destroy in MVP.
+end note
+@enduml

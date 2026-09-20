@@ -1,0 +1,12 @@
+modules:
+  update:
+    api:
+    - op: add
+      path: /externals
+      value:
+        db:
+          type: postgres
+          class: default
+          params:
+            size: small
+            region: eu-west-1

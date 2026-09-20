@@ -1,0 +1,90 @@
+{
+  "challengePlan": {
+    "activeResources": {
+      "existing": [],
+      "new": [
+        "workload.default#modules.api",
+        "workload.default#modules.worker"
+      ],
+      "unreferenced": []
+    },
+    "matchedDefinitions": {
+      "workload.default#modules.api": {
+        "criterion": {},
+        "definitionId": "workload-default",
+        "score": 0
+      },
+      "workload.default#modules.worker": {
+        "criterion": {},
+        "definitionId": "workload-default",
+        "score": 0
+      }
+    },
+    "provisionBatches": [
+      [
+        "workload.default#modules.api",
+        "workload.default#modules.worker"
+      ]
+    ],
+    "resourceGraph": {
+      "edges": [],
+      "nodes": [
+        {
+          "descriptor": "workload.default#modules.api",
+          "origins": [
+            "implicit-workload"
+          ],
+          "resourceInputs": {}
+        },
+        {
+          "descriptor": "workload.default#modules.worker",
+          "origins": [
+            "implicit-workload"
+          ],
+          "resourceInputs": {}
+        }
+      ]
+    },
+    "terraform": []
+  },
+  "delta": {
+    "modules": {
+      "update": {
+        "api": [
+          {
+            "op": "replace",
+            "path": "/spec/containers/main/image",
+            "value": "ghcr.io/acme/api:v2"
+          }
+        ]
+      }
+    }
+  },
+  "deploymentSet": {
+    "modules": {
+      "api": {
+        "profile": "humanitec/default-module",
+        "spec": {
+          "containers": {
+            "main": {
+              "id": "main",
+              "image": "ghcr.io/acme/api:v2"
+            }
+          }
+        }
+      },
+      "worker": {
+        "profile": "humanitec/default-module",
+        "spec": {
+          "containers": {
+            "main": {
+              "id": "main",
+              "image": "ghcr.io/acme/worker:v7"
+            }
+          }
+        }
+      }
+    }
+  },
+  "status": "ACCEPTED"
+}

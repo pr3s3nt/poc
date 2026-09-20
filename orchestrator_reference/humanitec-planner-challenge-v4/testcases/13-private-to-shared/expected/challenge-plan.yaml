@@ -1,0 +1,53 @@
+matchedDefinitions:
+  postgres.default#shared.orders-db:
+    definitionId: postgres-default
+    score: 0
+    criterion: {}
+  workload.default#modules.api:
+    definitionId: workload-default
+    score: 0
+    criterion: {}
+resourceGraph:
+  nodes:
+  - descriptor: postgres.default#shared.orders-db
+    origins:
+    - shared-dependency
+    resourceInputs:
+      size: small
+      region: eu-west-1
+  - descriptor: workload.default#modules.api
+    origins:
+    - implicit-workload
+    resourceInputs: {}
+  edges: []
+terraform:
+- resource: postgres.default#shared.orders-db
+  definitionId: postgres-default
+  source:
+    url: https://fixtures.invalid/postgres.git
+    rev: v1
+  localDirectory: terraform/checkouts/01-postgres-v1
+  fingerprint: sha256:a6c1abf93a48a3a075600cb15ef3ca75f7a550cf968617a5684152f4a4c2d0bc
+  inputs:
+  - name: region
+    source: resource-input
+    value: eu-west-1
+    type: string
+  - name: size
+    source: resource-input
+    value: small
+    type: string
+  outputs:
+  - host
+  - name
+  - port
+provisionBatches:
+- - postgres.default#shared.orders-db
+  - workload.default#modules.api
+activeResources:
+  existing: []
+  new:
+  - postgres.default#shared.orders-db
+  - workload.default#modules.api
+  unreferenced:
+  - postgres.default#modules.api.externals.db

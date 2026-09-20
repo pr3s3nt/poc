@@ -1,0 +1,88 @@
+matchedDefinitions:
+  network.default#shared.vpc:
+    definitionId: network-default
+    score: 0
+    criterion: {}
+  postgres.default#modules.api.externals.db:
+    definitionId: postgres-default
+    score: 0
+    criterion: {}
+  workload.default#modules.api:
+    definitionId: workload-default
+    score: 0
+    criterion: {}
+resourceGraph:
+  nodes:
+  - descriptor: network.default#shared.vpc
+    origins:
+    - resource-reference
+    resourceInputs: {}
+  - descriptor: postgres.default#modules.api.externals.db
+    origins:
+    - private-dependency
+    resourceInputs:
+      size: small
+      region: eu-west-1
+  - descriptor: workload.default#modules.api
+    origins:
+    - implicit-workload
+    resourceInputs: {}
+  edges:
+  - from: postgres.default#modules.api.externals.db
+    to: network.default#shared.vpc
+    reason: resource-reference
+    path: /definitions/postgres-default/driver_inputs/values/variables/subnet_id
+  - from: workload.default#modules.api
+    to: postgres.default#modules.api.externals.db
+    reason: deployment-set-private
+    path: /modules/api/externals/db
+terraform:
+- resource: network.default#shared.vpc
+  definitionId: network-default
+  source:
+    url: https://fixtures.invalid/network.git
+    rev: v1
+  localDirectory: terraform/checkouts/01-network-v1
+  fingerprint: sha256:9feab04b4e603fc1b8440ba8d4dbddd597b935b5f9c20fbbdec083521404c552
+  inputs:
+  - name: cidr
+    source: terraform-default
+    value: 10.0.0.0/16
+    type: string
+  outputs:
+  - subnet_id
+- resource: postgres.default#modules.api.externals.db
+  definitionId: postgres-default
+  source:
+    url: https://fixtures.invalid/postgres.git
+    rev: v1
+  localDirectory: terraform/checkouts/02-postgres-v1
+  fingerprint: sha256:027f5364ea01797c15075cd428b23699ce171451b45103261887ee9fbac115e4
+  inputs:
+  - name: region
+    source: resource-input
+    value: eu-west-1
+    type: string
+  - name: size
+    source: resource-input
+    value: small
+    type: string
+  - name: subnet_id
+    source: driver-input
+    value: ${resources['network.default#shared.vpc'].outputs.subnet_id}
+    type: string
+  outputs:
+  - host
+  - name
+  - port
+provisionBatches:
+- - network.default#shared.vpc
+- - postgres.default#modules.api.externals.db
+- - workload.default#modules.api
+activeResources:
+  existing: []
+  new:
+  - network.default#shared.vpc
+  - postgres.default#modules.api.externals.db
+  - workload.default#modules.api
+  unreferenced: []

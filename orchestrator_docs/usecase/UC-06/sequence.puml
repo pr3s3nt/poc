@@ -1,0 +1,43 @@
+@startuml
+title UC-06 - Deploy Workload (shared orchestration)
+autonumber
+actor Developer
+boundary DeploymentController as API
+control DeploymentService as Service
+control PlanningService as Planner
+control ResourceProvisioningService as Provisioner
+control OutputBindingResolver as Resolver
+control WorkloadRenderer as Renderer
+boundary WorkloadDeployer as Deployer
+database DeploymentRepository as DeploymentRepo
+database ApplicationRepository as AppRepo
+database EnvironmentRepository as EnvRepo
+database DeploymentSetRepository as SetRepo
+database WorkloadInstanceRepository as WorkloadRepo
+
+Developer -> API: DeployWorkload(command)
+API -> Service: DeployWorkload(ctx, command)
+Service -> EnvRepo: LoadPlanningSnapshot(appID, envID) [MS-01]
+EnvRepo --> Service: Snapshot + version
+Service -> DeploymentRepo: Create(PLANNING) <<transaction A>>
+DeploymentRepo --> Service: Deployment
+Service -> Planner: Plan(request) [MS-02..MS-08]
+Planner --> Service: Persistable DeploymentPlan
+Service -> DeploymentRepo: SavePlanAndMark(PROVISIONING)
+Service -> Provisioner: Provision(plan.ResourceBatches) [MS-09]
+Provisioner --> Service: ProvisionResult(outputs, target)
+Service -> Resolver: ResolveWorkloadBindings(candidate, outputs) [MS-10]
+Resolver --> Service: Resolved workload
+Service -> Renderer: Render(resolved workload, target) [MS-11]
+Renderer --> Service: Manifests
+Service -> Deployer: Apply(target, manifests)
+Service -> Deployer: WaitReady(target, workloadRefs)
+Deployer --> Service: Ready
+Service -> EnvRepo: CompareVersionAndSetCurrent(version, candidateSet) <<transaction B>> [MS-12]
+Service -> SetRepo: Save(candidateSet) <<transaction B>>
+Service -> WorkloadRepo: UpsertReady(instances) <<transaction B>>
+Service -> AppRepo: MarkRuntimeReadyIfCloud(applicationID) <<transaction B>>
+Service -> DeploymentRepo: MarkSucceeded() <<transaction B>>
+Service --> API: DeploymentResult [MS-13]
+API --> Developer: SUCCEEDED
+@enduml

@@ -1,0 +1,16 @@
+apiVersion: entity.humanitec.io/v1b1
+kind: Definition
+metadata:
+  id: pg-generic
+entity:
+  name: pg-generic
+  type: postgres
+  driver_type: humanitec/terraform
+  criteria:
+  - {}
+  driver_account: fixture-account
+  driver_inputs:
+    values:
+      source:
+        url: https://fixtures.invalid/postgres.git
+        rev: v1

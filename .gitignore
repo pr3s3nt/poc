@@ -1,0 +1,41 @@
+# Local reference repository and duplicated source bundle
+/final_idp/
+/humanitec-planner-challenge-v4/
+
+# Download metadata and local scratch files
+*:Zone.Identifier
+
+# Go build/test artifacts
+/bin/
+/dist/
+*.test
+*.out
+coverage.txt
+
+# Frontend build/test artifacts
+**/node_modules/
+**/dist/
+**/coverage/
+*.tsbuildinfo
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+kubeconfig*
+/.kube/
+
+# Terraform local state and plans
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+*~

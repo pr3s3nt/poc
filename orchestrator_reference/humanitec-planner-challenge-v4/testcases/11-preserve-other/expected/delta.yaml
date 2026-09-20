@@ -1,0 +1,6 @@
+modules:
+  update:
+    api:
+    - op: replace
+      path: /spec/containers/main/image
+      value: ghcr.io/acme/api:v2

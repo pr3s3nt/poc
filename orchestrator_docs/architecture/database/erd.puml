@@ -1,0 +1,155 @@
+@startuml
+title Orchestrator Database ERD
+hide circle
+skinparam linetype ortho
+
+entity organizations {
+  * id : uuid <<PK>>
+  --
+  organization_key : text <<UQ>>
+  name : text
+}
+entity connections {
+  * id : uuid <<PK>>
+  * organization_id : uuid <<FK>>
+  --
+  connection_key : text
+  kind : text
+  secret_ref : text
+  status : text
+  config : jsonb
+}
+entity applications {
+  * id : uuid <<PK>>
+  * organization_id : uuid <<FK>>
+  * connection_id : uuid <<FK>>
+  --
+  application_key : text
+  execution_profile : text
+  region : text
+  runtime_status : text
+  version : bigint
+}
+entity environments {
+  * id : uuid <<PK>>
+  * application_id : uuid <<FK>>
+  --
+  environment_key : text
+  namespace_identity : text
+  current_deployment_set_id : uuid <<FK>>
+  version : bigint
+}
+entity resource_types {
+  * id : uuid <<PK>>
+  * organization_id : uuid <<FK>>
+  --
+  resource_type_key : text
+  input_schema : jsonb
+  output_schema : jsonb
+}
+entity resource_definitions {
+  * id : uuid <<PK>>
+  * organization_id : uuid <<FK>>
+  * resource_type_id : uuid <<FK>>
+  --
+  definition_key : text
+  driver_type : text
+  connection_id : uuid <<FK>>
+  driver_inputs : jsonb
+  provision_rules : jsonb
+}
+entity matching_criteria {
+  * id : uuid <<PK>>
+  * resource_definition_id : uuid <<FK>>
+  --
+  environment_type : text
+  application_key : text
+  environment_key : text
+  resource_id : text
+  resource_class : text
+  specificity_score : int
+}
+entity deployment_sets {
+  * id : uuid <<PK>>
+  * environment_id : uuid <<FK>>
+  --
+  created_by_deployment_id : uuid <<FK>>
+  document : jsonb
+  document_hash : text
+}
+entity deployments {
+  * id : uuid <<PK>>
+  * environment_id : uuid <<FK>>
+  --
+  action : text
+  workload_id : text
+  status : text
+  base_deployment_set_id : uuid <<FK>>
+  candidate_deployment_set_id : uuid <<FK>>
+  base_environment_version : bigint
+}
+entity deployment_plans {
+  * deployment_id : uuid <<PK,FK>>
+  --
+  delta : jsonb
+  resource_graph : jsonb
+  matched_definitions : jsonb
+  provision_batches : jsonb
+  classification : jsonb
+  plan_hash : text
+}
+entity active_resources {
+  * id : uuid <<PK>>
+  * organization_id : uuid <<FK>>
+  * resource_definition_id : uuid <<FK>>
+  --
+  descriptor : text
+  scope_type : text
+  scope_id : text
+  status : text
+  executor_state_ref : jsonb
+  outputs : jsonb
+  last_deployment_id : uuid <<FK>>
+}
+entity deployment_resources {
+  * deployment_id : uuid <<PK,FK>>
+  * node_descriptor : text <<PK>>
+  --
+  active_resource_id : uuid <<FK>>
+  status : text
+  batch_index : int
+  resolved_inputs : jsonb
+  output_snapshot : jsonb
+}
+entity workload_instances {
+  * id : uuid <<PK>>
+  * environment_id : uuid <<FK>>
+  --
+  workload_id : text
+  last_deployment_id : uuid <<FK>>
+  target_ref : jsonb
+  manifest_digest : text
+  status : text
+}
+
+organizations ||--o{ connections
+organizations ||--o{ applications
+organizations ||--o{ resource_types
+organizations ||--o{ resource_definitions
+applications }o--|| connections
+applications ||--o{ environments
+environments ||--o{ deployment_sets
+environments ||--o{ deployments
+environments ||--o{ workload_instances
+environments }o--o| deployment_sets : current
+resource_types ||--o{ resource_definitions
+resource_definitions ||--|{ matching_criteria
+deployments ||--|| deployment_plans
+deployments }o--|| deployment_sets : base
+deployments }o--|| deployment_sets : candidate
+deployments ||--o{ deployment_resources
+resource_definitions ||--o{ active_resources
+active_resources ||--o{ deployment_resources
+deployments ||--o{ active_resources : last
+deployments ||--o{ workload_instances : last
+@enduml

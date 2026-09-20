@@ -1,0 +1,14 @@
+modules:
+  update:
+    api:
+    - op: add
+      path: /externals
+      value:
+        cfg:
+          type: config
+          class: default
+        data:
+          type: bucket
+          class: default
+          params:
+            region: ${externals.cfg.region}

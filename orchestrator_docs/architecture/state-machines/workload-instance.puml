@@ -1,0 +1,12 @@
+@startuml
+title Workload Instance State Machine
+[*] --> APPLYING : Apply manifests
+APPLYING --> READY : WaitReady succeeds
+READY --> APPLYING : update workload
+READY --> REMOVING : remove workload
+REMOVING --> REMOVED : Delete succeeds
+APPLYING --> FAILED : apply/readiness error
+REMOVING --> FAILED : delete error
+REMOVED --> [*]
+FAILED --> [*]
+@enduml

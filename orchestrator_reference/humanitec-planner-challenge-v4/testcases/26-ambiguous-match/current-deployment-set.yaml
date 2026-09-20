@@ -1,0 +1,8 @@
+modules:
+  api:
+    profile: humanitec/default-module
+    spec:
+      containers:
+        main:
+          id: main
+          image: ghcr.io/acme/api:v1

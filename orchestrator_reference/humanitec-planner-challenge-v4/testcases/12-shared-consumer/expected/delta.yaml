@@ -1,0 +1,4 @@
+shared:
+- op: replace
+  path: /team-cache/params/memory
+  value: 2

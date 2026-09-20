@@ -1,0 +1,42 @@
+@startuml
+title VOPC - UC-09 View Deployment Status
+left to right direction
+skinparam classAttributeIconSize 0
+class DeploymentQueryController <<boundary>> {
+  +GetDeployment(query)
+}
+class DeploymentQueryService <<control>> {
+  +GetDeployment(ctx, query): DeploymentView
+}
+class DeploymentViewAssembler <<control>> {
+  +Assemble(deployment, set, resources, workloads): DeploymentView
+}
+class OutputRedactor <<control>> {
+  +RedactSecretOutputs(view): DeploymentView
+}
+class DeploymentView <<entity>>
+interface DeploymentRepository {
+  +FindScoped(ctx, appID, envID, deploymentID): Deployment
+}
+interface DeploymentSetRepository {
+  +FindSnapshot(ctx, setID): DeploymentSet
+}
+interface DeploymentResourceRepository {
+  +ListByDeployment(ctx, deploymentID): List
+}
+interface ActiveResourceRepository {
+  +FindByIDs(ctx, ids): List
+}
+interface WorkloadInstanceRepository {
+  +ListByDeployment(ctx, deploymentID): List
+}
+DeploymentQueryController --> DeploymentQueryService
+DeploymentQueryService --> DeploymentViewAssembler
+DeploymentQueryService --> OutputRedactor
+DeploymentQueryService --> DeploymentRepository
+DeploymentQueryService --> DeploymentSetRepository
+DeploymentQueryService --> DeploymentResourceRepository
+DeploymentQueryService --> ActiveResourceRepository
+DeploymentQueryService --> WorkloadInstanceRepository
+DeploymentQueryService ..> DeploymentView
+@enduml

@@ -1,0 +1,14 @@
+- metadata:
+    type: workload
+    class: default
+    res_id: modules.api
+  status:
+    resource_definition_id: workload-default
+    gu_res_id: dfa94cabfc44a97d38e378db3ef59b3cbc6b1899
+- metadata:
+    type: redis
+    class: default
+    res_id: shared.old
+  status:
+    resource_definition_id: redis-default
+    gu_res_id: 76fe689cb25aec5a9a03ff864991801b4720fb2b

@@ -1,0 +1,81 @@
+matchedDefinitions:
+  bucket.secure#modules.api.externals.data:
+    definitionId: bucket-secure
+    score: 16
+    criterion:
+      class: secure
+  config.secure#modules.api.externals.data:
+    definitionId: config-secure
+    score: 16
+    criterion:
+      class: secure
+  workload.default#modules.api:
+    definitionId: workload-default
+    score: 0
+    criterion: {}
+resourceGraph:
+  nodes:
+  - descriptor: bucket.secure#modules.api.externals.data
+    origins:
+    - private-dependency
+    resourceInputs:
+      region: eu-west-1
+  - descriptor: config.secure#modules.api.externals.data
+    origins:
+    - resource-reference
+    resourceInputs: {}
+  - descriptor: workload.default#modules.api
+    origins:
+    - implicit-workload
+    resourceInputs: {}
+  edges:
+  - from: bucket.secure#modules.api.externals.data
+    to: config.secure#modules.api.externals.data
+    reason: resource-reference
+    path: /definitions/bucket-secure/driver_inputs/values/variables/label
+  - from: workload.default#modules.api
+    to: bucket.secure#modules.api.externals.data
+    reason: deployment-set-private
+    path: /modules/api/externals/data
+terraform:
+- resource: bucket.secure#modules.api.externals.data
+  definitionId: bucket-secure
+  source:
+    url: https://fixtures.invalid/bucket.git
+    rev: v1
+  localDirectory: terraform/checkouts/01-bucket-v1
+  fingerprint: sha256:2221774057565b643115bbae8387449447ac0ac1476c44b5c3ce87024e8fed45
+  inputs:
+  - name: label
+    source: driver-input
+    value: ${resources.config.outputs.value}
+    type: string
+  - name: region
+    source: resource-input
+    value: eu-west-1
+    type: string
+  outputs:
+  - arn
+  - name
+- resource: config.secure#modules.api.externals.data
+  definitionId: config-secure
+  source:
+    url: https://fixtures.invalid/config.git
+    rev: v1
+  localDirectory: terraform/checkouts/02-config-v1
+  fingerprint: sha256:be6799d1bb5be73e76897d82e792c64fe72f54426ea0b4b3aa3c6c1599217e34
+  inputs: []
+  outputs:
+  - region
+  - value
+provisionBatches:
+- - config.secure#modules.api.externals.data
+- - bucket.secure#modules.api.externals.data
+- - workload.default#modules.api
+activeResources:
+  existing: []
+  new:
+  - bucket.secure#modules.api.externals.data
+  - config.secure#modules.api.externals.data
+  - workload.default#modules.api
+  unreferenced: []

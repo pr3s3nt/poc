@@ -1,0 +1,25 @@
+apiVersion: challenge.humanitec.io/v1alpha1
+kind: PlannerCase
+metadata:
+  name: 16-reference-inherit
+spec:
+  context: context.yaml
+  currentDeploymentSet: current-deployment-set.yaml
+  beforeScore: before.score.yaml
+  afterScore: after.score.yaml
+  resourceTypes:
+  - resource-types/bucket.yaml
+  - resource-types/config.yaml
+  - resource-types/workload.yaml
+  resourceDefinitions:
+  - resource-definitions/bucket-secure.yaml
+  - resource-definitions/config-secure.yaml
+  - resource-definitions/workload-default.yaml
+  activeResources: active-resources.yaml
+  terraformSourceMap:
+  - url: https://fixtures.invalid/bucket.git
+    rev: v1
+    directory: terraform/checkouts/01-bucket-v1
+  - url: https://fixtures.invalid/config.git
+    rev: v1
+    directory: terraform/checkouts/02-config-v1

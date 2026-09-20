@@ -1,0 +1,133 @@
+{
+  "challengePlan": {
+    "activeResources": {
+      "existing": [],
+      "new": [
+        "postgres.premium#modules.api.externals.db",
+        "workload.default#modules.api"
+      ],
+      "unreferenced": []
+    },
+    "matchedDefinitions": {
+      "postgres.premium#modules.api.externals.db": {
+        "criterion": {
+          "class": "premium"
+        },
+        "definitionId": "pg-premium",
+        "score": 16
+      },
+      "workload.default#modules.api": {
+        "criterion": {},
+        "definitionId": "workload-default",
+        "score": 0
+      }
+    },
+    "provisionBatches": [
+      [
+        "postgres.premium#modules.api.externals.db"
+      ],
+      [
+        "workload.default#modules.api"
+      ]
+    ],
+    "resourceGraph": {
+      "edges": [
+        {
+          "from": "workload.default#modules.api",
+          "path": "/modules/api/externals/db",
+          "reason": "deployment-set-private",
+          "to": "postgres.premium#modules.api.externals.db"
+        }
+      ],
+      "nodes": [
+        {
+          "descriptor": "postgres.premium#modules.api.externals.db",
+          "origins": [
+            "private-dependency"
+          ],
+          "resourceInputs": {
+            "region": "eu-west-1",
+            "size": "small"
+          }
+        },
+        {
+          "descriptor": "workload.default#modules.api",
+          "origins": [
+            "implicit-workload"
+          ],
+          "resourceInputs": {}
+        }
+      ]
+    },
+    "terraform": [
+      {
+        "definitionId": "pg-premium",
+        "fingerprint": "sha256:bd0e7870fd51d1dfa11aa493d8c2cb136935b3b8c0a32d6e455f2b12b3db7af8",
+        "inputs": [
+          {
+            "name": "region",
+            "source": "resource-input",
+            "type": "string",
+            "value": "eu-west-1"
+          },
+          {
+            "name": "size",
+            "source": "resource-input",
+            "type": "string",
+            "value": "small"
+          }
+        ],
+        "localDirectory": "terraform/checkouts/02-postgres-v2",
+        "outputs": [
+          "host",
+          "name",
+          "port"
+        ],
+        "resource": "postgres.premium#modules.api.externals.db",
+        "source": {
+          "rev": "v2",
+          "url": "https://fixtures.invalid/postgres.git"
+        }
+      }
+    ]
+  },
+  "delta": {
+    "modules": {
+      "update": {
+        "api": [
+          {
+            "op": "replace",
+            "path": "/externals/db/class",
+            "value": "premium"
+          }
+        ]
+      }
+    }
+  },
+  "deploymentSet": {
+    "modules": {
+      "api": {
+        "externals": {
+          "db": {
+            "class": "premium",
+            "params": {
+              "region": "eu-west-1",
+              "size": "small"
+            },
+            "type": "postgres"
+          }
+        },
+        "profile": "humanitec/default-module",
+        "spec": {
+          "containers": {
+            "main": {
+              "id": "main",
+              "image": "ghcr.io/acme/api:v1"
+            }
+          }
+        }
+      }
+    }
+  },
+  "status": "ACCEPTED"
+}

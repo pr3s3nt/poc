@@ -1,0 +1,134 @@
+- id: 01-noop
+  description: No-op workload; graph is still provisioned
+  expected: ACCEPTED
+  error: null
+- id: 02-image-env
+  description: Update image and environment variables
+  expected: ACCEPTED
+  error: null
+- id: 03-add-sidecar
+  description: Add a sidecar container
+  expected: ACCEPTED
+  error: null
+- id: 04-remove-sidecar
+  description: Remove a sidecar container
+  expected: ACCEPTED
+  error: null
+- id: 05-add-private
+  description: Add private postgres with params and output reference
+  expected: ACCEPTED
+  error: null
+- id: 06-update-private
+  description: Update private resource inputs
+  expected: ACCEPTED
+  error: null
+- id: 07-remove-private
+  description: Remove private resource; Active Resource becomes unreferenced
+  expected: ACCEPTED
+  error: null
+- id: 08-add-shared
+  description: Add shared Redis via Score resource id
+  expected: ACCEPTED
+  error: null
+- id: 09-update-shared
+  description: Update shared resource inputs
+  expected: ACCEPTED
+  error: null
+- id: 10-remove-shared
+  description: Remove shared resource; no implicit destroy
+  expected: ACCEPTED
+  error: null
+- id: 11-preserve-other
+  description: Change api while preserving worker module
+  expected: ACCEPTED
+  error: null
+- id: 12-shared-consumer
+  description: Another workload consumes shared resource owned by api
+  expected: ACCEPTED
+  error: null
+- id: 13-private-to-shared
+  description: Move a private database to shared identity
+  expected: ACCEPTED
+  error: null
+- id: 14-matching-specificity
+  description: Most specific matching criterion wins
+  expected: ACCEPTED
+  error: null
+- id: 15-definition-reference
+  description: Terraform driver input references a network output
+  expected: ACCEPTED
+  error: null
+- id: 16-reference-inherit
+  description: Resource reference inherits current class and id
+  expected: ACCEPTED
+  error: null
+- id: 17-co-provision
+  description: Definition co-provisions dependent audit resource
+  expected: ACCEPTED
+  error: null
+- id: 18-chain-topology
+  description: Resource reference chain creates provider-first batches
+  expected: ACCEPTED
+  error: null
+- id: 19-diamond-topology
+  description: Two resources share one referenced provider
+  expected: ACCEPTED
+  error: null
+- id: 20-terraform-default
+  description: Terraform required variables receive resource inputs; defaults are
+    retained
+  expected: ACCEPTED
+  error: null
+- id: 21-active-classification
+  description: Classify desired nodes as existing/new and stale nodes as unreferenced
+  expected: ACCEPTED
+  error: null
+- id: 22-class-selects-revision
+  description: Changing class selects another definition and Terraform revision
+  expected: ACCEPTED
+  error: null
+- id: 23-add-workload
+  description: Add a workload from after Score
+  expected: ACCEPTED
+  error: null
+- id: 24-remove-workload
+  description: Remove a workload using before Score
+  expected: ACCEPTED
+  error: null
+- id: 25-no-match
+  description: Reject when no Resource Definition matches
+  expected: REJECTED
+  error: NO_MATCHING_DEFINITION
+- id: 26-ambiguous-match
+  description: Reject equal-specificity Definition tie
+  expected: REJECTED
+  error: AMBIGUOUS_DEFINITION
+- id: 27-unknown-score-output
+  description: Reject output not in Resource Type schema
+  expected: REJECTED
+  error: UNKNOWN_OUTPUT
+- id: 28-missing-tf-input
+  description: Reject missing required Terraform input
+  expected: REJECTED
+  error: MISSING_TERRAFORM_INPUT
+- id: 29-unknown-rd-output
+  description: Reject Resource Definition reference to missing provider output
+  expected: REJECTED
+  error: UNKNOWN_OUTPUT
+- id: 30-cycle
+  description: Reject cyclic Resource Graph
+  expected: REJECTED
+  error: RESOURCE_GRAPH_CYCLE
+- id: 31-combined
+  description: Combined image, sidecar, private/shared, reference and co-provision
+    changes
+  expected: ACCEPTED
+  error: null
+- id: 32-score-param-reference
+  description: A Score resource param consumes another resource output
+  expected: ACCEPTED
+  error: null
+- id: 33-context-placeholder
+  description: Resolve Humanitec context placeholders before Terraform invocation
+  expected: ACCEPTED
+  error: null

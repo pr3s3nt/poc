@@ -1,0 +1,18 @@
+apiVersion: entity.humanitec.io/v1b1
+kind: Definition
+metadata:
+  id: bucket-secure
+entity:
+  name: bucket-secure
+  type: bucket
+  driver_type: humanitec/terraform
+  criteria:
+  - class: secure
+  driver_account: fixture-account
+  driver_inputs:
+    values:
+      source:
+        url: https://fixtures.invalid/bucket.git
+        rev: v1
+      variables:
+        label: ${resources.config.outputs.value}
