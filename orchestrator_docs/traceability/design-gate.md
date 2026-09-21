@@ -1,10 +1,10 @@
 # Design Gate Review
 
-Review date: 2026-09-20.
+Review date: 2026-09-20. Implementation synchronization review: 2026-09-21.
 
 ## Scope
 
-UC-01 đến UC-09, happy path cho `aws-eks` và `internal-k8s`. Code chưa bắt đầu tại thời điểm review.
+UC-01 đến UC-09, happy path cho `aws-eks` và `internal-k8s`. Gate ban đầu được duyệt trước khi code; artifact được đồng bộ lại sau Phase 6 bước 3c để phản ánh executable baseline.
 
 ## Gate checklist
 
@@ -60,6 +60,14 @@ Result: không còn dữ liệu P0 không có owner/persistence location.
 - Final commit chỉ sau Kubernetes readiness.
 
 Result: hai happy path đầy đủ ở mức thiết kế.
+
+### Implementation synchronization 2026-09-21
+
+- UC-06/UC-08 đã chạy qua HTTP API với fake adapters, kind và AWS; một request vẫn xử lý đúng một Score/workload.
+- Matching Criteria dùng đúng năm field `env_type`, `app_id`, `env_id`, `res_id`, `class`; không có field profile riêng.
+- UC-07 planning đã validate before shared contribution, từ chối shared conflict và giữ shared entry khi workload khác còn tham chiếu; runtime update/remove vẫn thuộc Phase 6 bước 7.
+- Terraform runtime của MVP chỉ execute module nhúng; remote source inspection trong conformance harness không được xem là runtime support.
+- Conformance chạy 33 fixture: accepted artifacts được so sánh; rejected fixtures mới xác nhận rejection status, chưa đối chiếu structured error contract.
 
 ## Gate decision
 

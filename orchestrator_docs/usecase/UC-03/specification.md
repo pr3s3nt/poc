@@ -23,7 +23,7 @@
 ## Main success scenario
 
 1. **MS-01:** Platform Engineer cung cấp Definition ID, Resource Type, Driver Type và Driver Inputs.
-2. **MS-02:** Platform Engineer khai báo Matching Criteria theo Environment Type tương ứng với `aws-eks` hoặc `internal-k8s`.
+2. **MS-02:** Platform Engineer khai báo Matching Criteria bằng các field `env_type`, `app_id`, `env_id`, `res_id` và `class`.
 3. **MS-03:** Orchestrator validate cấu trúc Resource Definition.
 4. **MS-04:** Orchestrator kiểm tra Resource Type, Driver và Driver Account/connection được tham chiếu tồn tại.
 5. **MS-05:** Orchestrator validate Driver Inputs, resource references và provision rules.
@@ -50,7 +50,18 @@
 
 - **BR-01:** Definition chỉ được xét cho node có cùng Resource Type.
 - **BR-02:** Matching chọn criterion hợp lệ có specificity cao nhất; happy path yêu cầu đúng một Definition thắng.
-- **BR-03:** Matching Criteria phải phân biệt `aws-eks` và `internal-k8s` bằng Environment Type/Execution Profile context.
+- **BR-03:** Matching Criteria phân biệt `aws-eks` và `internal-k8s` bằng chính các field chuẩn, thường là `app_id` (Execution Profile gắn cố định vào Application) hoặc `env_type`. Không có field riêng cho Execution Profile.
+- **BR-06:** Matching Criteria chỉ gồm năm field chuẩn với trọng số cố định:
+
+  | Field | Trọng số |
+  |---|---|
+  | `env_type` | 1 |
+  | `app_id` | 2 |
+  | `env_id` | 4 |
+  | `res_id` | 8 |
+  | `class` | 16 |
+
+  Một criterion chỉ match khi **mọi** field đã khai báo bằng đúng giá trị của context; specificity là tổng trọng số của các field đã khai báo. Với mỗi Definition lấy criterion điểm cao nhất, sau đó lấy Definition điểm cao nhất; hai Definition bằng điểm là `AMBIGUOUS_DEFINITION`, không có Definition nào match là `NO_MATCHING_DEFINITION`.
 - **BR-04:** Resource references tạo dependency `consumer -> provider` và referenced output phải tồn tại.
 - **BR-05:** Provider-specific implementation nằm trong Definition/executor, không nằm trong Score contract.
 
@@ -79,9 +90,10 @@ UC-03 Register Resource Definition
 
 ## Trạng thái implementation hiện tại
 
-- Planner hiện tại đọc Resource Definition từ YAML fixture.
-- Planner đã hỗ trợ Matching Criteria, Driver Inputs, resource references và co-provision rules trong phạm vi challenge.
-- Chưa có Definition cho implicit VPC/EKS, Kubernetes executor, API, persistent storage hoặc Driver registry.
+- Seed catalog đã có Definitions cho implicit VPC/EKS/namespace, existing cluster, Aurora và PostgreSQL StatefulSet; executor registry chọn Terraform/Kubernetes/existing-cluster adapter theo matched Definition.
+- Planner đã hỗ trợ năm Matching Criteria chuẩn, Driver Inputs, Resource References, provision rules, fixed-point expansion và kiểm tra Terraform contract.
+- Terraform execution của MVP chỉ hỗ trợ các module `vpc`, `eks` và `aurora` được nhúng trong binary. Conformance harness có thể inspect `source.url[@rev][/path]`, nhưng runtime chưa tải hoặc execute Terraform source từ xa.
+- API quản trị, PostgreSQL persistence và nghiệp vụ `RegisterResourceDefinition` vẫn thuộc Phase 6 bước 5; hiện catalog được seed khi process khởi động.
 
 ## Ngoài phạm vi happy path
 
@@ -91,3 +103,4 @@ UC-03 Register Resource Definition
 - **OOS-04:** Kiểm tra ảnh hưởng tới Active Resources hiện có.
 - **OOS-05:** Secret Driver Inputs và credential rotation.
 - **OOS-06:** RBAC chi tiết và audit history.
+- **OOS-07:** Tải, cache và execute Terraform source từ xa; MVP runtime chỉ dùng module nhúng đã kiểm soát.

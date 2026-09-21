@@ -14,8 +14,11 @@ class PlanningService <<control>> {
 class ScoreConverter <<control>> {
   +ConvertAndValidate(score, resourceTypes): WorkloadFragment
 }
+class BeforeStateValidator <<control>> {
+  +Validate(current, workloadID, before)
+}
 class DeltaBuilder <<control>> {
-  +Build(currentSet, fragment): DeltaResult
+  +Build(currentSet, workloadID, before, after): DeltaResult
 }
 class ImplicitResourceEnricher <<control>> {
   +Enrich(candidate, profile, context): ImplicitResources
@@ -45,6 +48,7 @@ PreviewService --> PlanningSnapshotRepository
 PreviewService --> PlanningService
 PreviewService ..> DeploymentPreview
 PlanningService --> ScoreConverter
+PlanningService --> BeforeStateValidator
 PlanningService --> DeltaBuilder
 PlanningService --> ImplicitResourceEnricher
 PlanningService --> ResourceGraphBuilder

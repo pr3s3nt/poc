@@ -69,8 +69,9 @@ UC-01 Manage Application and Environment
 
 ## Trạng thái implementation hiện tại
 
-- Planner hiện tại chỉ nhận `app_id`, `env_id` và `env_type` từ fixture context.
-- Chưa có Execution Profile, application-scoped runtime state, persistent model hoặc API quản lý Application/Environment.
+- Seed catalog đã tạo hai Application mẫu với profile cố định (`acceptance` dùng `internal-k8s`, `acceptance-cloud` dùng `aws-eks`) và Environment `dev`; API/Web Console có thể liệt kê chúng.
+- Planning context đã dùng Application, Environment, profile, connection, region, namespace identity và runtime status; VPC/EKS có application scope.
+- API/UI tạo Application/Environment và PostgreSQL persistence cho UC-01 chưa có; dữ liệu hiện được seed vào state store khi process khởi động.
 
 ## Ngoài phạm vi happy path
 

@@ -68,7 +68,9 @@ Columns: `id uuid PK`, `organization_id FK`, `definition_key text`, `resource_ty
 
 ### `matching_criteria`
 
-Columns: `id uuid PK`, `resource_definition_id FK ON DELETE CASCADE`, optional `environment_type`, `application_key`, `environment_key`, `resource_id`, `resource_class`, and computed `specificity_score int`. Index by `resource_definition_id` and match fields.
+Columns: `id uuid PK`, `resource_definition_id FK ON DELETE CASCADE`, optional `env_type`, `app_id`, `env_id`, `res_id`, `class`, and computed `specificity_score int`. Index by `resource_definition_id` and match fields.
+
+Năm field này cùng trọng số `env_type=1`, `app_id=2`, `env_id=4`, `res_id=8`, `class=16` là contract chuẩn của UC-03 BR-06. Không có field riêng cho Execution Profile: profile gắn cố định vào Application nên `app_id` đủ để `postgres` resolve sang Aurora hoặc StatefulSet theo UC-06 MS-07.
 
 ### `deployment_sets`
 
@@ -81,7 +83,23 @@ Columns: `id uuid PK`, `resource_definition_id FK ON DELETE CASCADE`, optional `
 | `document_hash` | text | deterministic fingerprint |
 | `created_at` | timestamptz | NOT NULL |
 
-Deployment Sets are immutable.
+Deployment Sets are immutable. Canonical shape:
+
+```json
+{
+  "modules": {
+    "<workload-id>": {
+      "profile": "humanitec/default-module",
+      "spec": { "containers": { "<name>": { "image": "...", "variables": { "PGHOST": "${shared.acceptance-db.host}" } } } },
+      "externals": { "<name>": { "type": "redis", "class": "default", "params": { } } }
+    }
+  },
+  "shared": { "<shared-id>": { "type": "postgres", "class": "default", "params": { } } }
+}
+```
+
+Private dependency của một workload nằm trong `modules.<id>.externals.<name>`; shared dependency nằm ở `shared.<id>`.
+Placeholder trong `spec` tham chiếu resource bằng `${externals.<name>[.<output>]}` và `${shared.<id>[.<output>]}`.
 
 ### `deployments`
 

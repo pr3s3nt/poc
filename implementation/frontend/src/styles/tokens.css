@@ -1,0 +1,14 @@
+:root {
+  --color-surface: #ffffff;
+  --color-page: #f5f6f8;
+  --color-text: #16191d;
+  --color-muted: #5b6672;
+  --color-border: #d8dde3;
+  --color-accent: #1f5fbf;
+  --color-ok: #146c43;
+  --color-bad: #b02a37;
+  --color-busy: #8a6d1f;
+  --radius: 6px;
+  --space: 12px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}

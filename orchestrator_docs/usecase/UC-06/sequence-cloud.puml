@@ -27,12 +27,16 @@ Provisioner -> Terraform: Provision(Aurora, vpc outputs)
 Terraform --> Provisioner: postgres outputs
 Provisioner --> Service: outputs + EKS target
 Service -> Resolver: ResolveWorkloadBindings(postgres outputs) [MS-10]
-Resolver --> Service: Resolved frontend/backend/worker workload
-Service -> Renderer: Render(all workload manifests) [MS-11]
-Renderer --> Service: Namespace + Services + Deployments
+Resolver --> Service: Resolved target workload
+Service -> Renderer: Render(target workload manifests) [MS-11]
+Renderer --> Service: Service/Deployment manifests
 Service -> K8s: Apply(EKS target, manifests)
-Service -> K8s: WaitReady(frontend, backend, worker)
+Service -> K8s: WaitReady(target workload)
 K8s --> Service: Ready
 Service -> Repo: Commit set/resources/workloads/SUCCEEDED [MS-12]
 Service --> Developer: DeploymentResult [MS-13]
+note over Developer, Service
+Acceptance verification repeats this operation for
+backend, worker and frontend Scores in that order.
+end note
 @enduml

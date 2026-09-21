@@ -66,8 +66,8 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
-| MS-01, MS-02 | update/remove; `UC-07/sequence.puml` | load snapshot, `BeforeStateValidator.Validate` | base set/version | OC-09; before mismatch test |
-| MS-03, MS-04 | `PlanningService.Plan` | Delta/graph/classifier | Candidate plan | OC-07/09; preserve-other/shared tests |
+| MS-01, MS-02 | update/remove; `UC-07/sequence.puml` | load snapshot, `BeforeStateValidator.Validate` module + declared shared entries | base set/version | OC-09; stale module/shared mismatch tests |
+| MS-03, MS-04 | `PlanningService.Plan` | `DeltaBuilder.Build` conflict/reference rules; graph/classifier | Candidate plan | OC-07/09; shared-conflict, last-reference and preserve-other tests |
 | MS-05 | `ResourceProvisioningService.Provision` | UC-08 methods | desired resources `READY` | OC-10; reconciliation test |
 | MS-06 | update/remove | `WorkloadDeployer.Apply/WaitReady` or `Delete` | workload `READY` or `REMOVED` | OC-09; update/remove adapter tests |
 | MS-07 | remove/update | `ActiveResourceRepository.MarkUnreferenced` | `active_resources=UNREFERENCED`; no destroy | OC-09; no-destroy test |

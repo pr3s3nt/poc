@@ -19,6 +19,11 @@ class ResourceDefinition <<entity>> {
   +Register(cmd, contract): ResourceDefinition
 }
 class MatchingCriterion <<entity>> {
+  +EnvType: string?
+  +AppID: string?
+  +EnvID: string?
+  +ResID: string?
+  +Class: string?
   +Score(context): int
 }
 interface ResourceTypeRepository {

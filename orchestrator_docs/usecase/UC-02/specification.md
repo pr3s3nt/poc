@@ -54,9 +54,8 @@ UC-02 Register Resource Type
 
 ## Trạng thái implementation hiện tại
 
-- Planner hiện tại đọc Resource Type từ YAML fixture.
-- Planner đã dùng `inputs_schema` để kiểm tra resource params và `outputs_schema` để kiểm tra placeholders.
-- Chưa có API, persistent storage hoặc nghiệp vụ đăng ký và cập nhật Resource Type.
+- Seed catalog đã có Resource Types cho workload, VPC, cluster, namespace và PostgreSQL; planner dùng input contract để kiểm tra Score `params` và output contract để kiểm tra placeholder/executor output.
+- API, UI, PostgreSQL persistence và nghiệp vụ `RegisterResourceType` chưa có; catalog hiện được seed khi process khởi động.
 
 ## Ngoài phạm vi happy path
 

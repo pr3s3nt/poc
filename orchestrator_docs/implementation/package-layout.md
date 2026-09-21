@@ -1,37 +1,47 @@
-# Planned Backend and Frontend Layout
+# Backend and Frontend Layout
 
 Package layout follows design ownership; it is not copied from a reference repository.
 
+Toàn bộ code sản phẩm nằm trong thư mục `implementation/` tại repository root. Thư mục
+`orchestrator_docs/implementation/` chỉ chứa tài liệu thiết kế và không phải source tree.
+
 ```text
-cmd/orchestrator/                 # API process entrypoint
-internal/delivery/http/           # controllers, request/response mapping
-internal/application/admin/       # UC-01..UC-04 services
-internal/application/preview/     # UC-05
-internal/application/deployment/  # UC-06, UC-07, UC-09
-internal/application/provisioning/# UC-08
-internal/domain/application/
-internal/domain/environment/
-internal/domain/resource/
-internal/domain/deployment/
-internal/planning/                # Score, Delta, graph, match, contract, batches
-internal/ports/persistence/       # repository and UnitOfWork interfaces
-internal/ports/execution/         # ResourceExecutor, renderer, deployer, secret store
-internal/adapters/postgres/       # repositories and migrations
-internal/adapters/terraform/      # Terraform executor/state integration
-internal/adapters/kubernetes/     # resource executor + workload deployer
-internal/adapters/aws/            # identity/connection verification helpers
-internal/adapters/secrets/        # secret-store implementation
-internal/platform/                # clock, IDs, logging, config
-test/fixtures/                    # Humanitec-style Go test fixtures
-test/integration/                 # PostgreSQL/kind integration tests
-examples/acceptance-app/          # Go frontend/backend/worker workloads cho E2E verify
-frontend/                         # Orchestrator Web Console (không phải acceptance workload)
-frontend/src/app/                 # application shell + minimal browser router
-frontend/src/features/            # UI/API/draft/page/component theo use case
-frontend/src/shared/api/          # typed same-origin HTTP transport
-frontend/src/shared/ui/           # UI primitives không biết use case
-frontend/src/styles/              # design tokens và styles theo concern
-frontend/src/test/                # Vitest setup và shared fixtures
+implementation/
+├── go.mod                                  # module orchestrator
+├── cmd/orchestrator/                       # API process entrypoint
+├── internal/delivery/http/                 # controllers, request/response mapping, /ui static delivery
+├── internal/application/admin/             # planned Phase 6 step 5: UC-01..UC-04 services
+├── internal/application/preview/           # planned Phase 6 step 6: UC-05
+├── internal/application/deployment/        # UC-06, UC-07, UC-09
+├── internal/application/provisioning/      # UC-08
+├── internal/domain/application/            # Organization, Application, ExecutionProfile, Connection
+├── internal/domain/environment/            # Environment, DeploymentSet, NamespaceIdentity
+├── internal/domain/resource/               # Descriptor, Scope, ResourceType/Definition, ActiveResource
+├── internal/domain/deployment/             # Deployment, DeploymentPlan, DeploymentResource, WorkloadInstance
+├── internal/planning/                      # Score, Delta, graph, match, contract, batches
+├── internal/ports/persistence/             # repository and UnitOfWork interfaces
+├── internal/ports/execution/               # ResourceExecutor, renderer, deployer, secret store
+├── internal/adapters/store/                # Phase 6 state store: in-memory repositories + file snapshot
+├── internal/adapters/fake/                 # fake ResourceExecutor/WorkloadDeployer cho walking skeleton
+├── internal/adapters/kubernetes/           # resource executor + workload deployer (kubectl transport)
+├── internal/adapters/terraform/            # Terraform executor, embedded modules, HCL contract inspector
+├── internal/adapters/aws/                  # planned Phase 6 step 5: identity/connection verification
+├── internal/adapters/secrets/              # secret-store implementation
+├── internal/seed/                          # Humanitec-style seed catalog cho Phase 6
+├── internal/platform/                      # clock, IDs, logging, config
+├── test/e2e/                               # HTTP end-to-end tests (fake adapters)
+├── test/integration/                       # kind/AWS integration tests (build tags)
+├── test/integration/deployctl/             # drives deployments through the HTTP API
+├── test/integration/costreport/            # AWS Pricing API estimate before apply
+├── test/conformance/                       # product planner vs the 33 challenge fixtures
+├── examples/acceptance-app/                # Go frontend/backend/worker workloads cho E2E verify
+└── frontend/                               # Orchestrator Web Console (không phải acceptance workload)
+    ├── src/app/                            # application shell + minimal browser router
+    ├── src/features/                       # UI/API/draft/page/component theo use case
+    ├── src/shared/api/                     # typed same-origin HTTP transport
+    ├── src/shared/ui/                      # UI primitives không biết use case
+    ├── src/styles/                         # design tokens và styles theo concern
+    └── src/test/                           # Vitest setup và shared fixtures
 ```
 
 ## Rules
@@ -44,4 +54,36 @@ frontend/src/test/                # Vitest setup và shared fixtures
 - Frontend và Go backend chỉ chia sẻ JSON contract dưới `/api/v1/`; không import source của nhau.
 - Go backend phục vụ production bundle dưới `/ui/`; Vite proxy `/api` trong development.
 - Frontend dùng React + TypeScript strict + Vite, Vitest/Testing Library; ưu tiên React state/reducer và minimal router trước khi thêm framework khác.
-- `frontend/` là web console quản trị. Acceptance application frontend là test workload riêng và không đặt trong cây này.
+- `implementation/frontend/` là web console quản trị. Acceptance application frontend là test workload riêng tại `implementation/examples/acceptance-app/frontend/`.
+
+## Phase 6 implementation notes
+
+- **State store:** `internal/adapters/store` hiện thực các repository port bằng in-memory aggregate
+  map cộng file snapshot (JSON) để state sống qua restart. Schema PostgreSQL trong
+  `architecture/database/schema.md` vẫn là thiết kế chuẩn của system of record; adapter
+  `internal/adapters/postgres` được hoãn sang Phase 6 bước 5 vì Phase 6 bước 1–3 chỉ cần
+  logical identity, lifecycle và plan snapshot. Transaction contract được giữ nguyên bằng
+  `UnitOfWork` nên việc thay adapter không đổi application service.
+- **Kubernetes transport:** `internal/adapters/kubernetes` gọi `kubectl` với `--context` đã resolve
+  thay vì nhúng client-go. Adapter vẫn là implementation của port `execution.ResourceExecutor`
+  và `execution.WorkloadDeployer`; lựa chọn này giữ module không có dependency nặng và dùng
+  chung một đường đi cho kind lẫn EKS.
+- **Terraform transport:** `internal/adapters/terraform` gọi `terraform` CLI với working directory
+  và state file riêng theo run ID. Runtime chỉ nhận `source.module` trỏ tới module nhúng
+  `vpc`/`eks`/`aurora`; `source.url[@rev][/path]` hiện chỉ được conformance inspector đọc và chưa
+  phải execution contract của MVP.
+- **Score contract boundary:** API nhận Score document dạng JSON. JSON là tập con của YAML nên
+  contract không đổi; orchestrator không cần YAML dependency.
+- **Terraform contract inspection:** `internal/adapters/terraform/inspect.go` parse module nhúng bằng
+  `hashicorp/hcl/v2` để planning kiểm tra variable/output và ghi source fingerprint (UC-06 BR-09).
+  Đây là dependency ngoài duy nhất của orchestrator core; `examples/acceptance-app` thêm `jackc/pgx/v5`.
+- **Verification harness:** `deployctl` gửi deployment qua `/api/v1/deployments` thay vì gọi thẳng
+  application service, nên kind và AWS verification đi đúng đường Web Console -> HTTP API -> executor.
+  Request body không chứa `runId`: process sở hữu run ID qua `-run-id`, API tự điền khi request bỏ trống.
+- **Conformance:** `test/conformance` chạy planner sản phẩm trên toàn bộ 33 fixture của planner
+  challenge và so sánh Candidate Deployment Set, graph, matching, batches, Terraform contract và
+  Active Resource classification. Hai khác biệt có chủ đích được lọc ra và ghi rõ trong package đó:
+  workload node không được match/execute (UC-08 chỉ execute resource node) và orchestrator thêm
+  namespace/cluster implicit mà challenge không có. 27 accepted fixture được so sánh artifact;
+  6 rejected fixture hiện chỉ xác nhận planner từ chối, chưa đối chiếu error code/phase/path.
+  Dependency `gopkg.in/yaml.v3` chỉ dùng ở harness này.

@@ -41,8 +41,12 @@ package "Planning" {
     +Plan(ctx, request): DeploymentPlan
   }
   class ScoreConverter
-  class BeforeStateValidator
-  class DeltaBuilder
+  class BeforeStateValidator {
+    +Validate(current, workloadID, before)
+  }
+  class DeltaBuilder {
+    +Build(current, workloadID, before, after): DeltaResult
+  }
   class ImplicitResourceEnricher
   class ResourceGraphBuilder
   class GraphExpander

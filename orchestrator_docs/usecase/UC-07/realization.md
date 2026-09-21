@@ -17,7 +17,9 @@ Hai operation dùng lại `PlanningService.Plan`, `ResourceProvisioningService.P
 
 - `DeploymentController`, `DeploymentService`.
 - Shared planning/provisioning/rendering components.
-- `BeforeStateValidator`, `ActiveResourceClassifier`.
+- `BeforeStateValidator` — deep-compare target module và từng shared entry do `before Score` khai báo.
+- `DeltaBuilder` — thay contribution của đúng workload, từ chối shared ID conflict và chỉ bỏ shared entry khi không còn module khác tham chiếu.
+- `ActiveResourceClassifier`.
 - `WorkloadDeployer.Apply/Delete/WaitReady`.
 - Deployment/DeploymentSet/ActiveResource/WorkloadInstance repositories.
 
@@ -25,7 +27,8 @@ Hai operation dùng lại `PlanningService.Plan`, `ResourceProvisioningService.P
 
 | Step | Collaboration |
 |---|---|
-| MS-01–MS-03 | Load snapshot, validate before contribution, build scoped Delta/Candidate. |
+| MS-01–MS-02 | Load snapshot; `BeforeStateValidator.Validate` so module và shared contribution. |
+| MS-03 | `DeltaBuilder.Build` thay đúng workload contribution, kiểm tra shared conflict và shared ownership/reference. |
 | MS-04 | Rebuild graph và classify existing/new/unreferenced. |
 | MS-05 | Include UC-08 cho desired resource batches. |
 | MS-06 | Update: Render/Apply/WaitReady; Remove: `WorkloadDeployer.Delete`. |
@@ -34,10 +37,14 @@ Hai operation dùng lại `PlanningService.Plan`, `ResourceProvisioningService.P
 
 ## Transaction boundary
 
-Giống UC-06. Shared-resource ownership được tính từ toàn Candidate Deployment Set trước khi mark unreferenced; không xóa shared entry/resource nếu workload khác còn tham chiếu.
+Giống UC-06. Shared-resource ownership được tính từ toàn Candidate Deployment Set trước khi mark unreferenced; không xóa shared entry/resource nếu workload khác còn tham chiếu. Shared conflict và before-state mismatch dừng ở pure planning, trước mọi external side effect.
 
 ## Planned tests
 
 - `TestUpdateWorkload_PreservesOtherModules`.
+- `TestPlan_RejectsBeforeScoreWithStaleSharedResource`.
+- `TestPlan_RejectsSharedConflict`.
+- `TestPlan_DropsSharedResourceWhenTheLastWorkloadStopsDeclaringIt`.
+- `TestPlan_KeepsSharedResourceWhileAnotherWorkloadReferencesIt`.
 - `TestRemoveWorkload_MarksResourceUnreferencedWithoutDestroy`.
 - `TestRemoveWorkload_PreservesSharedDatabaseUsedByWorker`.

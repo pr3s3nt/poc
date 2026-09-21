@@ -1,0 +1,50 @@
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #e9edf2;
+  color: var(--color-muted);
+}
+
+.badge-ok {
+  background: #e3f2e8;
+  color: var(--color-ok);
+}
+
+.badge-bad {
+  background: #fbe6e8;
+  color: var(--color-bad);
+}
+
+.badge-busy {
+  background: #fdf3dd;
+  color: var(--color-busy);
+}
+
+.callout {
+  border: 1px solid var(--color-border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  padding: var(--space);
+  margin: var(--space) 0;
+  background: var(--color-surface);
+}
+
+.callout-error {
+  border-left-color: var(--color-bad);
+}
+
+.callout-info {
+  border-left-color: var(--color-accent);
+}
+
+.callout-success {
+  border-left-color: var(--color-ok);
+}
+
+.callout-body {
+  margin-top: 6px;
+  font-size: 14px;
+}

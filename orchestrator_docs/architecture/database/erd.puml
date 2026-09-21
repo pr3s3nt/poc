@@ -62,11 +62,11 @@ entity matching_criteria {
   * id : uuid <<PK>>
   * resource_definition_id : uuid <<FK>>
   --
-  environment_type : text
-  application_key : text
-  environment_key : text
-  resource_id : text
-  resource_class : text
+  env_type : text
+  app_id : text
+  env_id : text
+  res_id : text
+  class : text
   specificity_score : int
 }
 entity deployment_sets {

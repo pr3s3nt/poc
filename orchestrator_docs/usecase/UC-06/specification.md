@@ -34,7 +34,7 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 4. **MS-04:** Orchestrator đọc Execution Profile và runtime configuration của Application.
 5. **MS-05:** Orchestrator enrich graph theo VAR-01 hoặc VAR-02.
 6. **MS-06:** Orchestrator thêm namespace có identity theo Environment và resource dependencies từ Score.
-7. **MS-07:** Orchestrator match Resource Definitions; `postgres` được chọn thành Aurora hoặc StatefulSet theo profile context.
+7. **MS-07:** Orchestrator match Resource Definitions rồi expand Resource References và provision rules tới fixed point; `postgres` được chọn thành Aurora hoặc StatefulSet theo Matching Criteria của Application.
 8. **MS-08:** Orchestrator validate graph/contracts và tính provider-first provision batches.
 9. **MS-09:** UC-06 `«include»` UC-08 để provision/reuse resources theo dependency order.
 10. **MS-10:** Orchestrator nhận resource outputs và resolve các binding của workload.
@@ -66,6 +66,9 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 - **BR-04:** Graph phải là DAG và batches phải đặt mọi provider trước consumer.
 - **BR-05:** Chỉ commit Candidate Deployment Set thành current sau khi UC-08 và workload apply hoàn tất thành công.
 - **BR-06:** Resource output chỉ được binding nếu thuộc output contract của Resource Type/Definition.
+- **BR-07:** Score `params` của một resource được validate theo `inputs` của Resource Type, đi vào Deployment Set entry và trở thành resource input của node tương ứng.
+- **BR-08:** Provision rule của Definition tạo resource đi kèm; `is_dependent` đảo chiều phụ thuộc sang node cha, `match_dependents` nối mọi consumer của node cha sang resource đi kèm.
+- **BR-09:** Trước khi execute, planner phải đối chiếu resource input và driver variable với Terraform module contract và ghi lại source fingerprint.
 
 ## Luồng nội bộ
 
@@ -105,10 +108,45 @@ workload -> postgres-statefulset -> existing-k8s-cluster
 
 VPC/EKS có scope theo Application; namespace có scope theo Environment; PostgreSQL có scope theo dependency khai báo trong Score.
 
+Hai sơ đồ trên là hình dạng tối thiểu sinh ra từ Score và Execution Profile. Resource Definition được
+phép bổ sung edge cho chính resource của nó bằng Resource Reference trong driver inputs
+(`${resources['TYPE[.CLASS][#ID]'].outputs.NAME}`, UC-03 BR-04) và bằng provision rule; graph expansion
+hợp nhất các edge đó vào cùng DAG. Hai edge bắt buộc theo cách này:
+
+- `postgres-statefulset -> k8s-namespace` trên `internal-k8s`, vì StatefulSet/Service chỉ apply được
+  sau khi namespace của Environment tồn tại.
+- `postgres-aurora -> vpc` trên `aws-eks`, vì Aurora cần subnet group của VPC đã provision.
+
+Edge do Definition khai báo không được đổi chiều `consumer -> provider` và vẫn phải giữ DAG (BR-04).
+
+## Resource Descriptor convention
+
+Resource ID là đường dẫn trong Deployment Set, không phải tên tự đặt:
+
+| Node | Descriptor |
+|---|---|
+| Workload | `workload.default#modules.<workload-id>` |
+| Private dependency của workload | `<type>.<class>#modules.<workload-id>.externals.<name>` |
+| Shared dependency | `<type>.<class>#shared.<shared-id>` |
+| VPC implicit (`aws-eks`) | `vpc.default#applications.<app-id>` |
+| EKS implicit (`aws-eks`) | `k8s-cluster.eks#applications.<app-id>` |
+| Cluster đã đăng ký (`internal-k8s`) | `k8s-cluster.internal#connections.<connection-id>` |
+| Namespace của Environment | `k8s-namespace.default#environments.<app-id>.<env-id>` |
+
+Ba dòng đầu là contract chung với Humanitec. Bốn dòng implicit là phần mở rộng của orchestrator và
+dùng cùng quy ước `<scope>.<path>` để identity luôn suy ra được từ scope.
+
+Trong Resource Reference, ngoài `@` kế thừa class/ID của node hiện tại, orchestrator cho phép ba token
+`@app`, `@env` và `@connection` bên trong phần ID. Chúng được thay bằng Application key, Environment key
+và Connection key đang xử lý, nhờ vậy một Resource Definition tham chiếu hạ tầng implicit mà không phải
+hard-code Application hay Environment.
+
 ## Trạng thái implementation hiện tại
 
-- **UC-06a Plan Deployment:** planner hiện tại đã triển khai phần Score/Delta/Graph cơ bản, nhưng chưa inject implicit VPC, EKS, existing cluster và namespace theo Execution Profile.
-- **UC-06b Execute Deployment:** chưa có; cần bổ sung driver executor, output propagation, Kubernetes renderer/deployer và persistent state.
+- **UC-06a Plan Deployment:** đã có Score conversion, Delta/Candidate Set, descriptor theo Deployment Set path, implicit infrastructure theo profile, fixed-point graph expansion, matching, Terraform contract inspection, Active Resource classification và provider-first batches.
+- **UC-06b Execute Deployment:** đã có fake, Kubernetes và Terraform adapters; output propagation; workload render/apply; API/Web Console; in-memory store kèm JSON snapshot. Internal happy path đã verify trên kind và cloud happy path đã verify trên AWS.
+- Mỗi request xử lý đúng một Score/workload. Acceptance flow gọi tuần tự ba deployment `backend`, `worker`, `frontend`; database là shared resource được giữ/reuse qua cùng descriptor.
+- PostgreSQL system-of-record và Terraform state backend bền vững chưa được triển khai; state hiện tại chỉ phù hợp executable baseline/verification.
 
 ## Ngoài phạm vi happy path
 

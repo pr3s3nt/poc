@@ -51,10 +51,12 @@ Cập nhật hoặc xóa một workload trong Environment mà vẫn giữ nguyê
 
 ## Quy tắc nghiệp vụ
 
-- **BR-01:** `before Score` phải deep-equal contribution hiện tại của workload trước khi tạo Delta.
+- **BR-01:** `before Score` phải deep-equal contribution hiện tại của workload trước khi tạo Delta, gồm cả module contribution lẫn từng shared entry mà `before Score` khai báo.
 - **BR-02:** Delta không được thay đổi module/shared contribution ngoài phạm vi workload, trừ shared entry do chính workload thêm/bỏ và không xung đột consumer khác.
 - **BR-03:** Loại dependency không đồng nghĩa với deprovision resource.
 - **BR-04:** Resource có cùng descriptor được xem xét tái sử dụng qua UC-08.
+- **BR-05:** Nếu workload khai báo một shared ID đã tồn tại với type/class/params khác, và chính workload đó chưa khai báo shared ID này trong `before Score`, planning phải từ chối vì xung đột thay vì ghi đè.
+- **BR-06:** Khi workload thôi khai báo một shared resource, entry chỉ rời Deployment Set nếu không còn module nào tham chiếu nó. Đây là phần mở rộng so với planner challenge, nơi entry bị xóa ngay theo khai báo của workload.
 
 ## Luồng nội bộ
 
@@ -71,9 +73,9 @@ UC-07 Update or Remove Workload
 
 ## Trạng thái implementation hiện tại
 
-- Planner đã tạo Delta cho update/remove và giữ nguyên các module khác.
-- Planner đã phân loại Active Resource thành `existing`, `new` và `unreferenced`.
-- Chưa có runtime update/delete, state persistence hoặc resource reconciliation.
+- Planner đã validate module và từng shared entry trong `before Score`, từ chối shared conflict, tạo Delta/Candidate Set và giữ nguyên các module khác.
+- Shared entry chỉ bị loại khi workload thôi khai báo và không còn module khác tham chiếu; planner đã phân loại Active Resource thành `existing`, `new` và `unreferenced`.
+- Runtime update/delete workload, reconcile state và API/UI cho UC-07 chưa được wire; phần này vẫn thuộc Phase 6 bước 7.
 
 ## Ngoài phạm vi happy path
 

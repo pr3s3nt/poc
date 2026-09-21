@@ -55,6 +55,8 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Use cases: UC-05, UC-06, UC-07.
 - Preconditions: immutable base snapshot, Resource Types/Definitions/connections và Active Resources đã load.
 - Returns: deterministic `DeploymentPlan` với plan hash.
+- Before-state rule: module và từng shared entry do `before Score` khai báo phải deep-equal current set.
+- Candidate rule: một shared ID mới không được ghi đè entry khác nội dung; shared entry bị workload bỏ chỉ rời Candidate khi không còn module khác tham chiếu.
 - Postconditions: graph là DAG; mỗi resource node match đúng một Definition; contracts valid; provider-first batches; workload node không thuộc resource-execution batches.
 - Side effects: none.
 
@@ -70,8 +72,8 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 ## OC-09 `DeploymentService.UpdateWorkload` / `RemoveWorkload`
 
 - Use case: UC-07.
-- Preconditions: before Score deep-equals current workload contribution.
-- Updates: only target workload contribution and legitimately owned shared contribution.
+- Preconditions: before Score deep-equals current module và từng shared entry mà workload khai báo.
+- Updates: only target workload contribution and legitimately owned shared contribution; conflicting shared ID is rejected before execution.
 - Postconditions: other modules preserved; referenced shared resources preserved; stale resource `UNREFERENCED`; no destroy.
 - Commit rule: same optimistic final transaction as OC-08.
 

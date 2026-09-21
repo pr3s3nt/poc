@@ -58,8 +58,8 @@ UC-05 Validate and Preview
 
 ## Trạng thái implementation hiện tại
 
-- Planner hiện tại đã triển khai phần lớn luồng validate và preview trong phạm vi challenge.
-- `challengePlan` hiện là artifact riêng của bài toán, chưa phải persistent deployment preview hoặc API chính thức.
+- `PlanningService` dùng chung đã triển khai Score validation, Delta/Candidate Set, graph/matching, contract inspection, classification và batches; 33 challenge fixture được chạy qua planner sản phẩm với các khác biệt đã tài liệu hóa.
+- UC-06 đang gọi pipeline này để deploy thật. `PreviewService`, endpoint và màn hình Preview read-only của UC-05 chưa được wire và vẫn thuộc Phase 6 bước 6.
 
 ## Ngoài phạm vi happy path
 

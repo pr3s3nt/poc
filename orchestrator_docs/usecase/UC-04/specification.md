@@ -64,9 +64,9 @@ UC-04 Configure Execution Profile Connections
 
 ## Trạng thái implementation hiện tại
 
-- Planner chỉ đọc `driver_type` và Terraform source từ fixture.
-- `driver_account` chưa được dùng để xác thực hoặc thực thi Driver.
-- Chưa có credential store, Terraform backend registry, cluster registry hoặc connectivity check.
+- Seed catalog đã đăng ký internal Kubernetes connection và AWS connection metadata; bootstrap wire Kubernetes, existing-cluster và Terraform adapters theo Execution Profile.
+- Internal verification dùng kube context đã cấu hình; AWS verification dùng local default credential chain, region và account ID truyền khi khởi động process.
+- API/UI đăng ký connection, Secret Store bền vững và workflow verify credential/connectivity của UC-04 chưa có. Terraform vẫn dùng local state directory, chưa có backend registry bền vững.
 
 ## Ngoài phạm vi happy path
 

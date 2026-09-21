@@ -1,0 +1,30 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-page);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+  font-size: 15px;
+}
+
+h1 {
+  font-size: 22px;
+}
+
+h2 {
+  font-size: 17px;
+  margin-top: 28px;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.hint {
+  color: var(--color-muted);
+  font-size: 13px;
+}

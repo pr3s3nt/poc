@@ -58,9 +58,9 @@ UC-09 View Deployment Status
 
 ## Trạng thái implementation hiện tại
 
-- Planner đã render Resource Graph, matched Definitions, provision batches và Active Resource classification.
-- Kết quả hiện chỉ là JSON của một lần chạy CLI.
-- Chưa có deployment record, runtime status, logs, history hoặc query API.
+- Deployment, plan snapshot, resource progress, Active Resources và Workload Instances đã được lưu trong state store; query API trả status, graph, batches, resources, workloads và redacted outputs.
+- Web Console đã có Deployment Details và live read-only verification trên kind/AWS deployment.
+- History/filter/comparison đầy đủ và PostgreSQL read model chưa hoàn thiện; đây là Phase 6 bước 4.
 
 ## Ngoài phạm vi happy path
 

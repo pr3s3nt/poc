@@ -5,6 +5,8 @@ actor Developer
 boundary DeploymentController as API
 control DeploymentService as Service
 control PlanningService as Planner
+control BeforeStateValidator as BeforeValidator
+control DeltaBuilder as Delta
 control ResourceProvisioningService as Provisioner
 boundary WorkloadDeployer as Deployer
 database ActiveResourceRepository as ResourceRepo
@@ -16,6 +18,15 @@ API -> Service: command
 Service -> EnvRepo: LoadPlanningSnapshot() [MS-01]
 EnvRepo --> Service: Current set + before contribution + version
 Service -> Planner: Plan(before, after) [MS-02..MS-04]
+Planner -> BeforeValidator: Validate(current, workloadID, before) [MS-02, BR-01]
+BeforeValidator --> Planner: valid module + shared contribution
+Planner -> Delta: Build(current, workloadID, before, after) [MS-03]
+Delta --> Planner: Delta + Candidate
+note right of Delta
+Reject conflicting shared ID (BR-05).
+Drop an omitted shared entry only when
+no other module references it (BR-06).
+end note
 Planner --> Service: Delta + Candidate + classification
 Service -> Provisioner: Provision(desired resource batches) [MS-05]
 Provisioner --> Service: Outputs
