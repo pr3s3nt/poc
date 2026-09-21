@@ -51,6 +51,29 @@ def tracked_markdown() -> set[Path]:
     return {ROOT / line for line in result.stdout.splitlines() if line}
 
 
+def repository_files() -> set[Path]:
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
+    untracked = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard", "-z"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
+    paths: set[Path] = set()
+    for raw in (*tracked.stdout.split(b"\0"), *untracked.stdout.split(b"\0")):
+        if not raw:
+            continue
+        path = ROOT / raw.decode("utf-8", errors="surrogateescape")
+        if path.is_file():
+            paths.add(path.resolve())
+    return paths
+
+
 def markdown_candidates() -> list[Path]:
     files = {path for path in tracked_markdown() if path.exists()}
     files.update(DOCS.rglob("*.md"))
@@ -141,6 +164,7 @@ def validate_diagram_pairs(errors: list[str]) -> None:
 def main() -> int:
     errors: list[str] = []
     ids: dict[str, Path] = {}
+    repository_paths = repository_files()
 
     for relative in RETIRED_ROOT_PATHS:
         if (ROOT / relative).exists():
@@ -178,8 +202,22 @@ def main() -> int:
             if target_text.startswith("/"):
                 errors.append(f"{rel}:{line}: absolute local link is not portable: {raw}")
                 continue
-            if not (path.parent / target_text).resolve().exists():
+            target = (path.parent / target_text).resolve()
+            if not target.exists():
                 errors.append(f"{rel}:{line}: missing link target: {raw}")
+                continue
+            if not target.is_relative_to(ROOT):
+                errors.append(f"{rel}:{line}: link target escapes repository: {raw}")
+                continue
+            if target.is_file() and target not in repository_paths:
+                errors.append(f"{rel}:{line}: link target is ignored or unversioned: {raw}")
+                continue
+            if target.is_dir() and not any(
+                candidate.is_relative_to(target) for candidate in repository_paths
+            ):
+                errors.append(
+                    f"{rel}:{line}: link target directory has no versioned files: {raw}"
+                )
 
     require_plantuml = os.environ.get("REQUIRE_PLANTUML") == "1"
     plantuml = shutil.which("plantuml")

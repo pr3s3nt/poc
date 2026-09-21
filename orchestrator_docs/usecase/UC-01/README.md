@@ -22,7 +22,7 @@ Full management API, persistence and Web Console flow are planned after UC-09.
 
 ## Implementation entry points
 
-- [`backend/internal/application/admin`](../../../backend/internal/application/admin/)
 - [`backend/internal/domain/application`](../../../backend/internal/domain/application/)
 - [`backend/internal/domain/environment`](../../../backend/internal/domain/environment/)
 - [`backend/internal/seed`](../../../backend/internal/seed/)
+- [`backend/internal/adapters/store`](../../../backend/internal/adapters/store/)

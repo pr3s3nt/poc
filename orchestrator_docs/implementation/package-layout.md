@@ -18,8 +18,6 @@ backend/
 ├── go.mod                                  # module orchestrator
 ├── cmd/orchestrator/                       # API process entrypoint
 ├── internal/delivery/http/                 # controllers, request/response mapping, /ui static delivery
-├── internal/application/admin/             # planned Phase 6 step 5: UC-01..UC-04 services
-├── internal/application/preview/           # planned Phase 6 step 6: UC-05
 ├── internal/application/deployment/        # UC-06, UC-07, UC-09
 ├── internal/application/provisioning/      # UC-08
 ├── internal/domain/application/            # Organization, Application, ExecutionProfile, Connection
@@ -33,7 +31,6 @@ backend/
 ├── internal/adapters/fake/                 # fake ResourceExecutor/WorkloadDeployer cho walking skeleton
 ├── internal/adapters/kubernetes/           # resource executor + workload deployer (kubectl transport)
 ├── internal/adapters/terraform/            # Terraform executor, embedded modules, HCL contract inspector
-├── internal/adapters/aws/                  # planned Phase 6 step 5: identity/connection verification
 ├── internal/adapters/secrets/              # secret-store implementation
 ├── internal/seed/                          # Humanitec-style seed catalog cho Phase 6
 ├── internal/platform/                      # clock, IDs, logging, config
@@ -65,6 +62,9 @@ frontend/                                   # Orchestrator Web Console
 - Frontend dùng React + TypeScript strict + Vite, Vitest/Testing Library; ưu tiên React state/reducer và minimal router trước khi thêm framework khác.
 - Root `frontend/` là web console quản trị. Acceptance application frontend là
   test workload riêng tại `backend/examples/acceptance-app/frontend/`.
+- Chưa tạo placeholder package cho UC-01..UC-04 admin services, UC-05 preview
+  service hoặc AWS connection registration. Chỉ thêm package khi increment đó
+  có executable implementation và tests.
 
 ## Phase 6 implementation notes
 

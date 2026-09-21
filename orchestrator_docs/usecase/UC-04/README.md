@@ -24,6 +24,7 @@ not.
 ## Implementation entry points
 
 - [`backend/internal/domain/application`](../../../backend/internal/domain/application/)
-- [`backend/internal/adapters/aws`](../../../backend/internal/adapters/aws/)
 - [`backend/internal/adapters/kubernetes`](../../../backend/internal/adapters/kubernetes/)
+- [`backend/internal/adapters/terraform`](../../../backend/internal/adapters/terraform/)
 - [`backend/internal/bootstrap`](../../../backend/internal/bootstrap/)
+- [`backend/internal/seed`](../../../backend/internal/seed/)

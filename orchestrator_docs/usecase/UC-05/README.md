@@ -22,6 +22,5 @@ and Web Console experience are not complete.
 
 ## Implementation entry points
 
-- [`backend/internal/application/preview`](../../../backend/internal/application/preview/)
 - [`backend/internal/planning`](../../../backend/internal/planning/)
 - [`backend/test/conformance`](../../../backend/test/conformance/)

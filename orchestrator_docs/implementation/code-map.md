@@ -11,8 +11,8 @@ last_reviewed: 2026-09-21
 |---|---|
 | Process bootstrap and adapter wiring | [`backend/internal/bootstrap`](../../backend/internal/bootstrap/) |
 | HTTP API and `/ui/` delivery | [`backend/internal/delivery/http`](../../backend/internal/delivery/http/) |
-| UC-01..UC-04 baseline services | [`backend/internal/application/admin`](../../backend/internal/application/admin/) |
-| UC-05 preview boundary | [`backend/internal/application/preview`](../../backend/internal/application/preview/) |
+| UC-01..UC-04 seeded executable baseline | [`backend/internal/seed`](../../backend/internal/seed/) and [`backend/internal/adapters/store`](../../backend/internal/adapters/store/) |
+| UC-05 planning core used by the future preview flow | [`backend/internal/planning`](../../backend/internal/planning/) |
 | UC-06, UC-07 and UC-09 orchestration/query | [`backend/internal/application/deployment`](../../backend/internal/application/deployment/) |
 | UC-08 resource provisioning | [`backend/internal/application/provisioning`](../../backend/internal/application/provisioning/) |
 | Application/Connection domain | [`backend/internal/domain/application`](../../backend/internal/domain/application/) |

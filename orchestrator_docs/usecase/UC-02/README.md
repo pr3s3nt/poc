@@ -23,5 +23,5 @@ management API/UI and durable persistence are not yet complete.
 ## Implementation entry points
 
 - [`backend/internal/domain/resource`](../../../backend/internal/domain/resource/)
-- [`backend/internal/application/admin`](../../../backend/internal/application/admin/)
+- [`backend/internal/adapters/store`](../../../backend/internal/adapters/store/)
 - [`backend/internal/seed`](../../../backend/internal/seed/)
