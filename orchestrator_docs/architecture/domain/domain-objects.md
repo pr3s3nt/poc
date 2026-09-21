@@ -1,3 +1,10 @@
+---
+id: DOMAIN-OBJECTS
+artifact: domain-persistence-classification
+status: current
+last_reviewed: 2026-09-21
+---
+
 # Domain Objects and Persistence Classification
 
 ## Aggregates

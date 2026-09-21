@@ -1,3 +1,10 @@
+---
+id: USE-CASE-INDEX
+artifact: use-case-index
+status: current
+last_reviewed: 2026-09-21
+---
+
 # Orchestrator Use Case Model
 
 ## 1. Mục tiêu
@@ -20,15 +27,15 @@ Xây dựng orchestrator nội bộ sử dụng các contract và khái niệm g
 
 | ID | Use case | Actor chính | Ưu tiên |
 |---|---|---|---|
-| [UC-01](UC-01/specification.md) | Quản lý Application và Environment | Platform Engineer | P0 |
-| [UC-02](UC-02/specification.md) | Đăng ký Resource Type | Platform Engineer | P0 |
-| [UC-03](UC-03/specification.md) | Đăng ký Resource Definition và Matching Criteria | Platform Engineer | P0 |
-| [UC-04](UC-04/specification.md) | Cấu hình Execution Profile, cluster và Driver Account | Platform Engineer | P0 |
-| [UC-05](UC-05/specification.md) | Validate và preview thay đổi từ Score | Developer, CI/CD | P0 |
-| [UC-06](UC-06/specification.md) | Deploy workload | Developer, CI/CD | P0 |
-| [UC-07](UC-07/specification.md) | Cập nhật hoặc xóa workload | Developer, CI/CD | P0 |
-| [UC-08](UC-08/specification.md) | Provision private/shared resources | Orchestrator | P0 |
-| [UC-09](UC-09/specification.md) | Xem deployment status, graph và resource outputs | Developer | P0 |
+| [UC-01](UC-01/README.md) | Quản lý Application và Environment | Platform Engineer | P0 |
+| [UC-02](UC-02/README.md) | Đăng ký Resource Type | Platform Engineer | P0 |
+| [UC-03](UC-03/README.md) | Đăng ký Resource Definition và Matching Criteria | Platform Engineer | P0 |
+| [UC-04](UC-04/README.md) | Cấu hình Execution Profile, cluster và Driver Account | Platform Engineer | P0 |
+| [UC-05](UC-05/README.md) | Validate và preview thay đổi từ Score | Developer, CI/CD | P0 |
+| [UC-06](UC-06/README.md) | Deploy workload | Developer, CI/CD | P0 |
+| [UC-07](UC-07/README.md) | Cập nhật hoặc xóa workload | Developer, CI/CD | P0 |
+| [UC-08](UC-08/README.md) | Provision private/shared resources | Orchestrator | P0 |
+| [UC-09](UC-09/README.md) | Xem deployment status, graph và resource outputs | Developer | P0 |
 | UC-10 | Redeploy hoặc rollback deployment cũ | Developer | P1 |
 | UC-11 | Quản lý Active Resource lifecycle | Platform Engineer | P1 |
 | UC-12 | Quản lý shared values và secrets | Developer, Platform Engineer | P1 |
@@ -79,25 +86,14 @@ Các use case ảnh hưởng trực tiếp đến kiến trúc và nên được
 
 ## 6. Cấu trúc tài liệu
 
-Mỗi use case thuộc phạm vi MVP có một thư mục `UC-xx`. File `specification.md` là nguồn yêu cầu chuẩn; các artifact realization, sequence và VOPC sẽ được bổ sung trong cùng thư mục ở giai đoạn thiết kế.
+Mỗi use case thuộc phạm vi MVP có một context package `UC-xx`. `README.md` định
+tuyến đọc và delivery state; `specification.md` là nguồn yêu cầu chuẩn;
+`realization.md`, sequence và VOPC mô tả cách thực hiện. Shared definition chỉ
+được link từ package, không sao chép vào từng use case.
 
 ## 7. Thuật ngữ chuẩn
 
-| Thuật ngữ | Nghĩa trong MVP |
-|---|---|
-| Organization | Biên sở hữu Application, Resource Type, Resource Definition và connection. |
-| Application | Đơn vị ứng dụng sở hữu một Execution Profile cố định; với `aws-eks`, đây cũng là scope của VPC/EKS. |
-| Environment | Môi trường triển khai thuộc đúng một Application, có Deployment Set hiện tại và namespace identity riêng. |
-| Execution Profile | Chính sách thực thi `aws-eks` hoặc `internal-k8s`, quyết định connection và tập Resource Definition phù hợp. |
-| Deployment | Một lần plan và execute thay đổi trên một Environment. |
-| Deployment Set | Desired-state snapshot đầy đủ của các workload và shared resource trong Environment. |
-| Deployment Delta | Thay đổi từ Deployment Set hiện tại sang Candidate Deployment Set. |
-| Resource Type | Contract inputs/outputs độc lập với implementation của một loại resource. |
-| Resource Definition | Cách hiện thực một Resource Type, gồm Driver, inputs, Matching Criteria và provision rules. |
-| Resource Descriptor | Identity dạng `type.class#res_id`, dùng làm node identity và khóa đối chiếu resource. |
-| Resource Graph | DAG có edge `consumer -> provider`; provider phải được provision trước consumer. |
-| Active Resource | Resource instance đã được orchestrator ghi nhận cùng descriptor, Definition, scope, state và outputs. |
-| Workload | Module được chuyển từ một Score document và triển khai lên Kubernetes. |
+[Project glossary](../GLOSSARY.md) là canonical owner của thuật ngữ dùng chung.
 
 ## 8. Quy ước traceability
 

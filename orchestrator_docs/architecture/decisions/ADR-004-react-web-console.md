@@ -1,11 +1,18 @@
+---
+id: ADR-004
+artifact: architecture-decision
+status: current
+last_reviewed: 2026-09-21
+---
+
 # ADR-004 — React web console served from the Go backend origin
 
-Status: Accepted  
+Status: Accepted
 Date: 2026-09-20
 
 ## Context
 
-UC-01 đến UC-09 cần giao diện quản trị cho catalog, preview, deploy và quan sát trạng thái. Dự án `final_idp/idp/frontend` đã chứng minh một cấu trúc nhỏ, feature-oriented và có thể được Go backend phục vụ cùng origin. Dự án này đồng thời có một acceptance application frontend được triển khai lên Kubernetes; đó là artifact khác với giao diện quản trị.
+UC-01 đến UC-09 cần giao diện quản trị cho catalog, preview, deploy và quan sát trạng thái. Reference `final_idp/idp/frontend` tại repository `https://github.com/pr3s3nt/final_idp.git`, branch `uc03-impl`, commit `e6dc6631ba9db1bc80e2ff56380f50db99d490f9` đã chứng minh một cấu trúc nhỏ, feature-oriented và có thể được Go backend phục vụ cùng origin. Dự án này đồng thời có một acceptance application frontend được triển khai lên Kubernetes; đó là artifact khác với giao diện quản trị.
 
 ## Decision
 
@@ -15,7 +22,7 @@ UC-01 đến UC-09 cần giao diện quản trị cho catalog, preview, deploy v
 4. Ban đầu dùng History API router và React state/reducer, không thêm router, global state hoặc UI framework khi chưa có nhu cầu rõ.
 5. Vitest, Testing Library và jsdom kiểm tra reducer, validation, API client và page states. Go handler/integration tests kiểm tra server-side API contract và business rules.
 6. Authentication, RBAC và secret-management UI không thuộc MVP. UI không hiển thị hoặc persist secret value.
-7. `final_idp/idp/frontend` chỉ là nguồn tham khảo read-only về cấu trúc và delivery; không copy nguyên domain, API contract, authentication flow hoặc source code.
+7. `final_idp/idp/frontend` tại exact Git provenance nêu trên chỉ là nguồn tham khảo về cấu trúc và delivery; repository local không phải dependency và không được copy nguyên domain, API contract, authentication flow hoặc source code.
 8. Acceptance application frontend là Kubernetes workload riêng, không nằm trong `frontend/` và không dùng chung source với web console.
 
 ## Consequences

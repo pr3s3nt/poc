@@ -1,3 +1,10 @@
+---
+id: ADR-003
+artifact: architecture-decision
+status: current
+last_reviewed: 2026-09-21
+---
+
 # ADR-003 — Separate Planner, Resource Provisioning and Workload Deployment
 
 Status: Accepted — 2026-09-20.

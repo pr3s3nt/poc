@@ -1,3 +1,10 @@
+---
+id: UC-07-SPEC
+artifact: use-case-specification
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-07 — Update or Remove Workload
 
 ## Mục tiêu

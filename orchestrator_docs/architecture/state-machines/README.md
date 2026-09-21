@@ -1,3 +1,10 @@
+---
+id: STATE-MACHINE-INDEX
+artifact: state-machine-index
+status: current
+last_reviewed: 2026-09-21
+---
+
 # State Machines
 
 - [Deployment](deployment.puml): planning through successful commit.

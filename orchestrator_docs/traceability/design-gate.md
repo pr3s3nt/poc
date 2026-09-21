@@ -1,3 +1,10 @@
+---
+id: DESIGN-GATE
+artifact: design-gate-review
+status: current
+last_reviewed: 2026-09-21
+---
+
 # Design Gate Review
 
 Review date: 2026-09-20. Implementation synchronization review: 2026-09-21.

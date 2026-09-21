@@ -1,3 +1,10 @@
+---
+id: UC-06-SPEC
+artifact: use-case-specification
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-06 — Deploy Workload
 
 ## Mục tiêu

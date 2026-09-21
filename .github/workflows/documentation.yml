@@ -1,0 +1,28 @@
+name: Documentation
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Install PlantUML
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends --yes plantuml
+
+      - name: Validate documentation contract
+        run: REQUIRE_PLANTUML=1 python3 scripts/check_docs.py
+
+      - name: Check whitespace
+        run: git diff --check HEAD^ HEAD

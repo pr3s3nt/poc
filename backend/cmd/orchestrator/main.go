@@ -19,7 +19,7 @@ func main() {
 	opts := seed.Defaults()
 	addr := flag.String("addr", "127.0.0.1:8080", "listen address")
 	addrFile := flag.String("addr-file", "", "optional file that receives the resolved listen address")
-	uiDir := flag.String("ui-dir", "frontend/dist", "directory holding the Web Console production bundle")
+	uiDir := flag.String("ui-dir", "../frontend/dist", "directory holding the Web Console production bundle")
 	statePath := flag.String("state", "", "optional path of the JSON state snapshot")
 	adapters := flag.String("adapters", "fake", "executor adapters: fake, kubernetes or aws")
 	namespace := flag.String("namespace", opts.NamespaceIdentity, "namespace identity of the internal-k8s environment")

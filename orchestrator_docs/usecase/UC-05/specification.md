@@ -1,3 +1,10 @@
+---
+id: UC-05-SPEC
+artifact: use-case-specification
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-05 — Validate and Preview Score Changes
 
 ## Mục tiêu

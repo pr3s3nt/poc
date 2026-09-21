@@ -1,3 +1,10 @@
+---
+id: UC-06-PLANNER-REFERENCE
+artifact: technical-reference-analysis
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-06 Planner Reference Analysis
 
 ## 1. Mục đích

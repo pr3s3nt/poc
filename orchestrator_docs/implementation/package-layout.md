@@ -1,12 +1,20 @@
+---
+id: IMPLEMENTATION-PACKAGE-LAYOUT
+artifact: package-layout
+status: current
+last_reviewed: 2026-09-21
+---
+
 # Backend and Frontend Layout
 
 Package layout follows design ownership; it is not copied from a reference repository.
 
-Toàn bộ code sản phẩm nằm trong thư mục `implementation/` tại repository root. Thư mục
-`orchestrator_docs/implementation/` chỉ chứa tài liệu thiết kế và không phải source tree.
+Go product code nằm trong `backend/`; Orchestrator Web Console nằm trong
+`frontend/`. Thư mục `orchestrator_docs/implementation/` chỉ chứa tài liệu thiết
+kế/ánh xạ và không phải source tree.
 
 ```text
-implementation/
+backend/
 ├── go.mod                                  # module orchestrator
 ├── cmd/orchestrator/                       # API process entrypoint
 ├── internal/delivery/http/                 # controllers, request/response mapping, /ui static delivery
@@ -34,14 +42,15 @@ implementation/
 ├── test/integration/deployctl/             # drives deployments through the HTTP API
 ├── test/integration/costreport/            # AWS Pricing API estimate before apply
 ├── test/conformance/                       # product planner vs the 33 challenge fixtures
-├── examples/acceptance-app/                # Go frontend/backend/worker workloads cho E2E verify
-└── frontend/                               # Orchestrator Web Console (không phải acceptance workload)
-    ├── src/app/                            # application shell + minimal browser router
-    ├── src/features/                       # UI/API/draft/page/component theo use case
-    ├── src/shared/api/                     # typed same-origin HTTP transport
-    ├── src/shared/ui/                      # UI primitives không biết use case
-    ├── src/styles/                         # design tokens và styles theo concern
-    └── src/test/                           # Vitest setup và shared fixtures
+└── examples/acceptance-app/                # Go frontend/backend/worker workloads cho E2E verify
+
+frontend/                                   # Orchestrator Web Console
+├── src/app/                                # application shell + minimal browser router
+├── src/features/                           # UI/API/draft/page/component theo use case
+├── src/shared/api/                         # typed same-origin HTTP transport
+├── src/shared/ui/                          # UI primitives không biết use case
+├── src/styles/                             # design tokens và styles theo concern
+└── src/test/                               # Vitest setup và shared fixtures
 ```
 
 ## Rules
@@ -54,7 +63,8 @@ implementation/
 - Frontend và Go backend chỉ chia sẻ JSON contract dưới `/api/v1/`; không import source của nhau.
 - Go backend phục vụ production bundle dưới `/ui/`; Vite proxy `/api` trong development.
 - Frontend dùng React + TypeScript strict + Vite, Vitest/Testing Library; ưu tiên React state/reducer và minimal router trước khi thêm framework khác.
-- `implementation/frontend/` là web console quản trị. Acceptance application frontend là test workload riêng tại `implementation/examples/acceptance-app/frontend/`.
+- Root `frontend/` là web console quản trị. Acceptance application frontend là
+  test workload riêng tại `backend/examples/acceptance-app/frontend/`.
 
 ## Phase 6 implementation notes
 

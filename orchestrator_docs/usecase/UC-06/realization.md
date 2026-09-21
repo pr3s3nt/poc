@@ -1,3 +1,10 @@
+---
+id: UC-06-REALIZATION
+artifact: use-case-realization
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-06 — Use Case Realization
 
 ## Trách nhiệm

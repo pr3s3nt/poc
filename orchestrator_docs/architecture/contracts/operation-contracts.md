@@ -1,3 +1,10 @@
+---
+id: OPERATION-CONTRACTS
+artifact: operation-contracts
+status: current
+last_reviewed: 2026-09-21
+---
+
 # Operation Contracts
 
 Các contract dưới đây dùng tên method cố định cho realization và Go implementation.

@@ -1,3 +1,10 @@
+---
+id: UC-02-REALIZATION
+artifact: use-case-realization
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-02 — Use Case Realization
 
 ## Trách nhiệm

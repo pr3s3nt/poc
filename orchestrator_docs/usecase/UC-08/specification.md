@@ -1,3 +1,10 @@
+---
+id: UC-08-SPEC
+artifact: use-case-specification
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-08 — Provision Infrastructure and Application Resources
 
 ## Mục tiêu

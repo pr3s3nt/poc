@@ -1,3 +1,10 @@
+---
+id: ARCHITECTURE-INDEX
+artifact: architecture-index
+status: current
+last_reviewed: 2026-09-21
+---
+
 # Shared Architecture Baseline
 
 Shared design này hợp nhất UC-01 đến UC-09 sau realization.
@@ -11,7 +18,7 @@ Shared design này hợp nhất UC-01 đến UC-09 sau realization.
 - [Operation contracts](contracts/operation-contracts.md)
 - [State machines](state-machines/README.md)
 - [Architecture decisions](decisions/README.md)
-- [Planned Go package layout](../implementation/package-layout.md)
+- [Implementation index](../implementation/README.md) và [package layout](../implementation/package-layout.md)
 
 ## Dependency rule
 

@@ -1,3 +1,10 @@
+---
+id: UC-04-SPEC
+artifact: use-case-specification
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-04 — Configure Execution Profile Connections
 
 ## Mục tiêu

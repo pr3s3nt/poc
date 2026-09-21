@@ -1,7 +1,3 @@
-# Local reference repository and duplicated source bundle
-/final_idp/
-/humanitec-planner-challenge-v4/
-
 # Download metadata and local scratch files
 *:Zone.Identifier
 

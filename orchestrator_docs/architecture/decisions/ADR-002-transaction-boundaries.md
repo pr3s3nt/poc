@@ -1,3 +1,10 @@
+---
+id: ADR-002
+artifact: architecture-decision
+status: current
+last_reviewed: 2026-09-21
+---
+
 # ADR-002 — External Calls Outside Database Transactions
 
 Status: Accepted — 2026-09-20.

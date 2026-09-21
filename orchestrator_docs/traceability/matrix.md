@@ -1,3 +1,10 @@
+---
+id: TRACEABILITY-MATRIX
+artifact: traceability-matrix
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-01..UC-09 Traceability Matrix
 
 Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, class/method, persistence/state và planned test. `OC-nn` tham chiếu `architecture/contracts/operation-contracts.md`.

@@ -1,3 +1,10 @@
+---
+id: UC-03-SPEC
+artifact: use-case-specification
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-03 — Register Resource Definition and Matching Criteria
 
 ## Mục tiêu

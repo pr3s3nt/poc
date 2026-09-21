@@ -1,3 +1,10 @@
+---
+id: UC-01-SPEC
+artifact: use-case-specification
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-01 — Manage Application and Environment
 
 ## Mục tiêu

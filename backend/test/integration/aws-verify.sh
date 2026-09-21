@@ -132,7 +132,7 @@ done | tee "${EVIDENCE}/terraform-validate.txt"
 # 6. Start the orchestrator exactly as an operator would.
 echo "=== starting the orchestrator in aws mode"
 go build -o "${WORK}/orchestrator" ./cmd/orchestrator
-"${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" -ui-dir frontend/dist \
+"${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" -ui-dir "${ROOT}/../frontend/dist" \
   -adapters aws -state "${STATE_PATH}" -region "${REGION}" -account-id "${ACCOUNT_ID}" \
   -run-id "${RUN_ID}" -owner "${OWNER_TAG}" -cloud-namespace "${NAMESPACE}" \
   -terraform-root "${TERRAFORM_ROOT}" \
@@ -183,7 +183,7 @@ echo "=== verifying the Web Console"
 curl -s "http://${API_ADDR}/api/v1/deployments/${DEPLOYMENT_ID}" > "${EVIDENCE}/deployment-view.json"
 curl -s -o /dev/null -w "ui:%{http_code}\n" "http://${API_ADDR}/ui/deployments/${DEPLOYMENT_ID}" | tee "${EVIDENCE}/ui-status.txt"
 (
-  cd frontend
+  cd "${ROOT}/../frontend"
   ORCHESTRATOR_LIVE_URL="http://${API_ADDR}" ORCHESTRATOR_LIVE_DEPLOYMENT_ID="${DEPLOYMENT_ID}" \
     npx vitest run src/test/live-console.test.tsx
 ) | tee "${EVIDENCE}/console-test.log"

@@ -1,3 +1,10 @@
+---
+id: UC-09-SPEC
+artifact: use-case-specification
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-09 — View Deployment Status and Resource Graph
 
 ## Mục tiêu

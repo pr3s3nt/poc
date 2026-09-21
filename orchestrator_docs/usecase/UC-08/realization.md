@@ -1,3 +1,10 @@
+---
+id: UC-08-REALIZATION
+artifact: use-case-realization
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-08 — Use Case Realization
 
 ## Trách nhiệm

@@ -1,3 +1,10 @@
+---
+id: DATABASE-SCHEMA
+artifact: database-schema
+status: current
+last_reviewed: 2026-09-21
+---
+
 # Database Schema
 
 PostgreSQL là system of record cho logical orchestration state. JSONB chỉ dùng cho immutable contract/plan documents; identity, lifecycle và relations quan trọng được chuẩn hóa thành columns/tables.

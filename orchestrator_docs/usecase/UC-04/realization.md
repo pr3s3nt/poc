@@ -1,3 +1,10 @@
+---
+id: UC-04-REALIZATION
+artifact: use-case-realization
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-04 — Use Case Realization
 
 ## Trách nhiệm

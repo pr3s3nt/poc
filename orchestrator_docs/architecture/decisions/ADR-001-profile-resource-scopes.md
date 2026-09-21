@@ -1,3 +1,10 @@
+---
+id: ADR-001
+artifact: architecture-decision
+status: current
+last_reviewed: 2026-09-21
+---
+
 # ADR-001 — Execution-profile Resource Enrichment and Scopes
 
 Status: Accepted — 2026-09-20.

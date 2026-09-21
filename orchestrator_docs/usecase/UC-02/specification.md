@@ -1,3 +1,10 @@
+---
+id: UC-02-SPEC
+artifact: use-case-specification
+status: current
+last_reviewed: 2026-09-21
+---
+
 # UC-02 — Register Resource Type
 
 ## Mục tiêu
