@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # Database Schema
@@ -97,7 +97,7 @@ Deployment Sets are immutable. Canonical shape:
   "modules": {
     "<workload-id>": {
       "profile": "humanitec/default-module",
-      "spec": { "containers": { "<name>": { "image": "...", "variables": { "PGHOST": "${shared.acceptance-db.host}" } } } },
+      "spec": { "containers": { "<name>": { "image": "...", "variables": { "PGHOST": "${shared.acceptance-db.host}" }, "resources": { "requests": { "cpu": "100m", "memory": "128Mi" }, "limits": { "cpu": "500m", "memory": "512Mi" } } } } },
       "externals": { "<name>": { "type": "redis", "class": "default", "params": { } } }
     }
   },
@@ -107,6 +107,36 @@ Deployment Sets are immutable. Canonical shape:
 
 Private dependency của một workload nằm trong `modules.<id>.externals.<name>`; shared dependency nằm ở `shared.<id>`.
 Placeholder trong `spec` tham chiếu resource bằng `${externals.<name>[.<output>]}` và `${shared.<id>[.<output>]}`.
+
+### `deployment_delta_snapshots`
+
+| Column | Type | Constraint |
+|---|---|---|
+| `id` | uuid | PK |
+| `application_id` | uuid | FK applications, NOT NULL |
+| `document` | jsonb | canonical Humanitec-shaped Delta, NOT NULL |
+| `document_hash` | text | deterministic content fingerprint, NOT NULL |
+| `metadata` | jsonb | actor/source metadata without secrets, NOT NULL |
+| `created_at` | timestamptz | NOT NULL |
+
+Deployment Delta Snapshots bất biến ngay khi persist. `document` có shape:
+
+```json
+{
+  "modules": {
+    "add": { "<workload-id>": { "profile": "humanitec/default-module", "spec": {} } },
+    "remove": ["<workload-id>"],
+    "update": { "<workload-id>": [{ "op": "replace", "path": "/spec/containers/main/image", "value": "image:v2" }] }
+  },
+  "shared": [{ "op": "add", "path": "/database", "value": { "type": "postgres", "class": "default" } }]
+}
+```
+
+Các nhánh rỗng bị omit và no-op Delta là `{}`. Module patch relative với module;
+shared patch relative với object `shared`.
+
+Table này không mô hình hóa mutable Humanitec Delta lifecycle. Standalone Delta
+API/update/archive được deferred tại D05.
 
 ### `deployments`
 
@@ -121,13 +151,14 @@ Placeholder trong `spec` tham chiếu resource bằng `${externals.<name>[.<outp
 | `base_environment_version` | bigint | NOT NULL |
 | `base_deployment_set_id` | uuid | FK deployment_sets |
 | `candidate_deployment_set_id` | uuid | FK deployment_sets |
+| `delta_snapshot_id` | uuid | FK deployment_delta_snapshots, UNIQUE, NOT NULL |
 | `started_at`, `finished_at` | timestamptz | lifecycle timestamps |
 
 Index `(environment_id, started_at desc)`.
 
 ### `deployment_plans`
 
-One-to-one with Deployment: `deployment_id uuid PK/FK`, `score_before jsonb`, `score_after jsonb`, `delta jsonb`, `resource_graph jsonb`, `matched_definitions jsonb`, `provision_batches jsonb`, `classification jsonb`, `plan_hash text`, `created_at`. Immutable after Deployment leaves `PLANNING`.
+One-to-one with Deployment: `deployment_id uuid PK/FK`, `score_before jsonb`, `score_after jsonb`, `resource_graph jsonb`, `matched_definitions jsonb`, `provision_batches jsonb`, `classification jsonb`, `plan_hash text`, `created_at`. Snapshot được tham chiếu qua `deployments.delta_snapshot_id`. Snapshot bất biến ngay khi persist; Plan bất biến sau khi Deployment rời `PLANNING`.
 
 ### `active_resources`
 
@@ -160,7 +191,7 @@ Columns: `id uuid PK`, `environment_id FK`, `workload_id text`, `last_deployment
 ## Transaction contracts
 
 1. Create Environment: Environment + empty Deployment Set + current pointer atomically.
-2. Create deployment plan: Deployment + Candidate Set + DeploymentPlan atomically; current pointer unchanged.
+2. Create deployment plan: Deployment + DeploymentDeltaSnapshot + Candidate Set + DeploymentPlan atomically; current pointer unchanged.
 3. Resource completion: Active Resource upsert + Deployment Resource status atomically per node.
 4. Final deployment commit: compare Environment version, update current pointer/version, mark cloud Application runtime `READY`, upsert Workload Instances and mark Deployment `SUCCEEDED` atomically.
 

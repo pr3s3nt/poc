@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # Design-to-code map
@@ -32,6 +32,13 @@ last_reviewed: 2026-09-21
 | HTTP end-to-end tests | [`backend/test/e2e`](../../backend/test/e2e/) |
 | Planner challenge conformance | [`backend/test/conformance`](../../backend/test/conformance/) |
 | kind/AWS verification | [`backend/test/integration`](../../backend/test/integration/) |
+
+Hai target contract chưa có implementation entry point hoàn chỉnh:
+
+- Humanitec-shaped `DeploymentDeltaSnapshot`/persistence đang là IMP-008; code hiện tại
+  nằm ở planning JSON patch phẳng và plan snapshot.
+- Container resource requests/limits đang là IMP-009; parser hiện reject field
+  và Kubernetes renderer dùng requests hard-code.
 
 Nếu path/module thay đổi, cập nhật map này cùng imports, build tooling, runbook và
 links trong cùng logical change.

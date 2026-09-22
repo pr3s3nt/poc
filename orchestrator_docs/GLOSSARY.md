@@ -2,7 +2,7 @@
 id: PROJECT-GLOSSARY
 artifact: glossary
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # Project glossary
@@ -18,7 +18,8 @@ last_reviewed: 2026-09-21
 | Deployment | Một lần plan và execute thay đổi cho một Environment. |
 | Deployment Set | Desired-state snapshot đầy đủ của modules và shared resources trong Environment. |
 | Candidate Deployment Set | Deployment Set sau khi áp delta, chưa trở thành current cho tới khi execution thành công. |
-| Deployment Delta | Thay đổi từ current Deployment Set sang Candidate Deployment Set. |
+| Deployment Delta | Humanitec artifact có identity/lifecycle riêng; mutable cho tới khi archive. Public-compatible lifecycle này đang deferred ở D05. |
+| Deployment Delta Snapshot | Tài liệu bất biến gắn với một Deployment MVP, mô tả thay đổi từ base Set sang Candidate Set bằng Humanitec-shaped Delta document. |
 | Resource Type | Contract input/output độc lập implementation của một loại resource. |
 | Resource Definition | Cách hiện thực Resource Type, gồm driver, inputs, matching criteria và provision rules. |
 | Resource Descriptor | Identity `type.class#res_id` dùng làm graph node và resource identity. |

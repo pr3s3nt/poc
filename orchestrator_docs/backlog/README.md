@@ -2,7 +2,7 @@
 id: BACKLOG-INDEX
 artifact: backlog-index
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # Backlog
@@ -16,6 +16,10 @@ record này không phải accepted product behavior hoặc architecture.
 | [D02](D02-structured-planner-errors.md) | Structured comparison cho rejected planner fixtures | Deferred |
 | [D03](D03-remote-terraform-runtime.md) | Runtime execution của remote Terraform sources | Deferred |
 | [D04](D04-postgres-system-store.md) | PostgreSQL adapter cho orchestrator state | Planned after UC-09 |
+| [D05](D05-humanitec-deployment-lifecycle.md) | Humanitec external deployment lifecycle compatibility | Deferred |
+| [D06](D06-humanitec-score-boundary.md) | Humanitec Resource Definition and Score boundary compatibility | Deferred |
+| [D07](D07-planner-catalog-invariant-behavior.md) | Validation boundary cho Resource Definition catalog | Deferred |
+| [D08](D08-delta-snapshot-application-id.md) | Ownership của Application identity trên Deployment Delta Snapshot | Deferred |
 
 Các phase tương lai UC-01..UC-07 được theo dõi ở current state/iteration planning;
 không tạo backlog record chỉ để sao chép use-case scope đã chấp nhận.

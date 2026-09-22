@@ -12,8 +12,12 @@ database ResourceDefinitionRepository as DefinitionRepo
 
 PE -> API: RegisterResourceDefinition(document) [MS-01..MS-02]
 API -> Service: RegisterResourceDefinition(ctx, command)
-Service -> Validator: ValidateStructure(command) [MS-03]
+Service -> Validator: ValidateStructureAndCriteria(command) [MS-03, BR-07]
 Validator --> Service: valid
+note right of Validator
+Missing or [] criteria is rejected.
+Explicit {} is wildcard score 0.
+end note
 Service -> TypeRepo: Find(orgID, typeID) [MS-04]
 TypeRepo --> Service: ResourceType
 Service -> ConnectionRepo: FindReady(connectionID) [MS-04]

@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-03 — Use Case Realization
@@ -30,7 +30,7 @@ ResourceDefinitionService.RegisterResourceDefinition(ctx context.Context, cmd Re
 
 | Step | Collaboration |
 |---|---|
-| MS-01–MS-03 | Controller parse; Service tạo Definition và validate cấu trúc. |
+| MS-01–MS-03 | Controller parse; Service tạo Definition và `ValidateStructureAndCriteria`, gồm BR-07. |
 | MS-04 | Load Resource Type và connection/Driver registration. |
 | MS-05 | `DefinitionValidator.ValidateReferencesAndRules`. |
 | MS-06 | Repository/unique constraint bảo vệ Definition ID. |
@@ -40,7 +40,10 @@ ResourceDefinitionService.RegisterResourceDefinition(ctx context.Context, cmd Re
 
 ## Transaction boundary
 
-Contract inspection hoàn tất trước transaction. Definition và toàn bộ criteria được lưu trong một transaction; source fingerprint được lưu cùng Definition metadata.
+Contract inspection hoàn tất trước transaction. Definition thiếu criterion bị
+từ chối trước persistence; criterion `{}` khai báo tường minh là wildcard điểm
+`0`. Definition hợp lệ và toàn bộ criteria được lưu trong một transaction;
+source fingerprint được lưu cùng Definition metadata.
 
 ## Planned tests
 
@@ -48,3 +51,6 @@ Contract inspection hoàn tất trước transaction. Definition và toàn bộ 
 - `TestRegisterDefinition_KubernetesInternal`.
 - `TestRegisterDefinition_OutputContractMismatch`.
 - `TestRegisterDefinition_InvalidResourceReference`.
+- `TestRegisterDefinition_RequiresAtLeastOneCriterion`.
+- `TestMatching_ExplicitEmptyCriterionIsWildcard`.
+- `TestConformanceLoader_SkipsDefinitionWithoutCriteria`.

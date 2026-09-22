@@ -2,7 +2,7 @@
 id: UC-03-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-03 context — Register Resource Definition
@@ -19,6 +19,7 @@ run in the planner. Management API/UI and durable catalog persistence remain.
 3. [Sequence](sequence.puml)
 4. [VOPC](vopc.puml)
 5. [Planner reference](../../implementation/uc06-planner-reference.md)
+6. [Humanitec/Score compatibility matrix](../../implementation/humanitec-compatibility.md)
 
 ## Implementation entry points
 

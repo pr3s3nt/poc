@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # Known design and implementation deviations
@@ -19,6 +19,14 @@ roadmap/deferred capability nằm trong [backlog](../backlog/README.md).
 | IMP-005 | UC-09 có list/detail và execution artifacts nhưng thiếu history/filter/state comparison. | Active iteration I06-04 phải hoàn thiện phần còn thiếu trước khi đánh dấu UC-09 complete. |
 | IMP-006 | Six rejected challenge fixtures mới chỉ so rejection status, chưa so structured `phase/code/path`. | D02 vẫn deferred; không tuyên bố full rejection-contract conformance. |
 | IMP-007 | Terraform inspector hiểu remote source identity nhưng runtime chỉ execute embedded `vpc`/`eks`/`aurora`. | D03 vẫn deferred; không nhận remote module là supported runtime contract. |
+| IMP-008 | Canonical planning design yêu cầu immutable `DeploymentDeltaSnapshot` có Humanitec-shaped document với `modules.add/remove/update` và `shared`; implementation đang lưu một RFC 6902 patch phẳng cho toàn Deployment Set và chưa có Snapshot entity. | Không tuyên bố Delta shape/API compatibility từ 33 fixture; sửa planner/domain/persistence trước khi đóng gap. Mutable Humanitec Delta lifecycle là D05 riêng. |
+| IMP-009 | UC-05/06 yêu cầu bảo toàn `containers.*.resources.requests/limits`; Score parser hiện reject field này và Kubernetes renderer hard-code requests `10m/32Mi`. | Không mô tả workload resource contract là implemented; bổ sung typed model, conversion, renderer và tests ngoài fixture bundle. |
+| IMP-010 | Conformance loader biến Definition thiếu/empty criteria thành wildcard `{}`. Product registration/planner giữ invariant có ít nhất một criterion, còn challenge adapter phải bỏ Definition thiếu/`[]` khỏi catalog thay vì chế tạo wildcard. | Sửa loader adapter và thêm test phân biệt missing/`[]` với `{}`; planner có thể tiếp tục fail khi product catalog vi phạm invariant. 33/33 hiện tại không chứng minh nhánh này. |
+
+Humanitec standalone Delta API, asynchronous deploy, whole-set workload apply và
+incremental deployment là compatibility scope deferred ở D05. Resource
+Definition/Score public boundary được theo dõi ở D06. Đây không phải lỗi code
+đối với happy-path API hiện hành.
 
 Khi resolve deviation, cập nhật canonical docs, code/tests, current state và xóa
 hoặc sửa dòng tương ứng trong cùng change.

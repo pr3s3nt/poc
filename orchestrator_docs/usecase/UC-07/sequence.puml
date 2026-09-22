@@ -12,6 +12,8 @@ boundary WorkloadDeployer as Deployer
 database ActiveResourceRepository as ResourceRepo
 database EnvironmentRepository as EnvRepo
 database DeploymentRepository as DeploymentRepo
+database DeploymentDeltaSnapshotRepository as DeltaSnapshotRepo
+database DeploymentSetRepository as SetRepo
 
 Developer -> API: UpdateWorkload / RemoveWorkload
 API -> Service: command
@@ -20,14 +22,19 @@ EnvRepo --> Service: Current set + before contribution + version
 Service -> Planner: Plan(before, after) [MS-02..MS-04]
 Planner -> BeforeValidator: Validate(current, workloadID, before) [MS-02, BR-01]
 BeforeValidator --> Planner: valid module + shared contribution
-Planner -> Delta: Build(current, workloadID, before, after) [MS-03]
-Delta --> Planner: Delta + Candidate
+Planner -> Delta: BuildHumanitecDelta(current, workloadID, before, after) [MS-03]
+Delta --> Planner: modules.add/remove/update + shared patch + Candidate
 note right of Delta
 Reject conflicting shared ID (BR-05).
 Drop an omitted shared entry only when
 no other module references it (BR-06).
+Module update patches are module-relative;
+shared patches are shared-object-relative (BR-07).
 end note
 Planner --> Service: Delta + Candidate + classification
+Service -> DeltaSnapshotRepo: Save(immutable snapshot) <<plan transaction>>
+Service -> SetRepo: Save(candidateSet) <<plan transaction>>
+Service -> DeploymentRepo: SavePlanAndMark(PROVISIONING) <<plan transaction>>
 Service -> Provisioner: Provision(desired resource batches) [MS-05]
 Provisioner --> Service: Outputs
 alt Update [VAR-01]

@@ -12,6 +12,10 @@ database ActiveResourceRepository as ResourceRepo
 database DeploymentResourceRepository as DeploymentResourceRepo
 
 Caller -> Service: Provision(request) [MS-01]
+note over Caller, Service
+Container CPU/memory requests/limits stay in the workload module.
+UC-06 WorkloadRenderer applies them after Provision returns (BR-06).
+end note
 loop Each provider-first batch [MS-09]
   loop Each resource node
     Service -> ActiveResolver: Resolve(descriptor, scope) [MS-02]

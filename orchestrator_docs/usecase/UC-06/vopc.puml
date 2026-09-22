@@ -11,6 +11,9 @@ class DeploymentService <<control>> {
 class PlanningService <<control>> {
   +Plan(ctx, request): DeploymentPlan
 }
+class ResourceDescriptorParser <<control>> {
+  +ParseDescriptorText(raw, current, context): ResourceDescriptor
+}
 class ResourceProvisioningService <<control>> {
   +Provision(ctx, request): ProvisionResult
 }
@@ -31,7 +34,21 @@ class Deployment <<entity>> {
   +Succeed()
 }
 class DeploymentPlan <<entity>>
+class DeploymentDeltaSnapshot <<entity>> {
+  +ID: DeltaSnapshotID
+  +Metadata: DeltaSnapshotMetadata
+  +Modules: ModuleDelta
+  +Shared: List<JSONPatchOperation>
+}
 class DeploymentSet <<entity>>
+class ContainerResourceRequirements <<value>> {
+  +Requests: ComputeResources
+  +Limits: ComputeResources
+}
+class ComputeResources <<value>> {
+  +CPU: string
+  +Memory: string
+}
 class ProvisionResult <<entity>>
 interface EnvironmentRepository {
   +LoadPlanningSnapshot(ctx, appID, envID): PlanningSnapshot
@@ -48,11 +65,15 @@ interface DeploymentRepository {
 interface DeploymentSetRepository {
   +Save(ctx, set)
 }
+interface DeploymentDeltaSnapshotRepository {
+  +Save(ctx, snapshot)
+}
 interface WorkloadInstanceRepository {
   +UpsertReady(ctx, instances)
 }
 DeploymentController --> DeploymentService
 DeploymentService --> PlanningService
+PlanningService --> ResourceDescriptorParser
 DeploymentService --> ResourceProvisioningService
 DeploymentService --> OutputBindingResolver
 DeploymentService --> WorkloadRenderer
@@ -61,9 +82,13 @@ DeploymentService --> EnvironmentRepository
 DeploymentService --> ApplicationRepository
 DeploymentService --> DeploymentRepository
 DeploymentService --> DeploymentSetRepository
+DeploymentService --> DeploymentDeltaSnapshotRepository
 DeploymentService --> WorkloadInstanceRepository
 DeploymentService ..> Deployment
 DeploymentService ..> DeploymentPlan
+DeploymentService ..> DeploymentDeltaSnapshot
 DeploymentService ..> DeploymentSet
 DeploymentService ..> ProvisionResult
+WorkloadRenderer ..> ContainerResourceRequirements
+ContainerResourceRequirements *-- ComputeResources
 @enduml

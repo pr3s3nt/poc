@@ -2,7 +2,7 @@
 id: UC-05-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-05 context — Validate and preview Score changes
@@ -10,7 +10,8 @@ last_reviewed: 2026-09-21
 ## Delivery state
 
 Planning core is implemented and shared with deployment; preview operation/API
-and Web Console experience are not complete.
+and Web Console experience are not complete. Humanitec-shaped Delta and
+container resource preservation are accepted design but remain IMP-008/009.
 
 ## Read in this order
 

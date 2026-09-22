@@ -2,7 +2,7 @@
 id: UC-07-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-07 — Update or Remove Workload
@@ -36,7 +36,7 @@ Cập nhật hoặc xóa một workload trong Environment mà vẫn giữ nguyê
 
 1. **MS-01:** Orchestrator đọc current Deployment Set và cấu hình workload trước/sau thay đổi.
 2. **MS-02:** Orchestrator xác nhận trạng thái `before` khớp contribution hiện tại của workload.
-3. **MS-03:** Orchestrator tạo Delta chỉ thay đổi contribution của workload mục tiêu và dựng Candidate Deployment Set.
+3. **MS-03:** Orchestrator tạo Humanitec-shaped Delta chỉ thay đổi contribution của workload mục tiêu và dựng Candidate Deployment Set.
 4. **MS-04:** Orchestrator dựng lại desired Resource Graph và phân loại Active Resources.
 5. **MS-05:** UC-07 `«include»` UC-08 để provision/reconcile resource còn được yêu cầu theo dependency order.
 6. **MS-06:** Orchestrator cập nhật hoặc xóa Kubernetes workload manifests theo VAR-01/VAR-02.
@@ -64,6 +64,7 @@ Cập nhật hoặc xóa một workload trong Environment mà vẫn giữ nguyê
 - **BR-04:** Resource có cùng descriptor được xem xét tái sử dụng qua UC-08.
 - **BR-05:** Nếu workload khai báo một shared ID đã tồn tại với type/class/params khác, và chính workload đó chưa khai báo shared ID này trong `before Score`, planning phải từ chối vì xung đột thay vì ghi đè.
 - **BR-06:** Khi workload thôi khai báo một shared resource, entry chỉ rời Deployment Set nếu không còn module nào tham chiếu nó. Đây là phần mở rộng so với planner challenge, nơi entry bị xóa ngay theo khai báo của workload.
+- **BR-07:** Add/remove/update module phải nằm lần lượt trong `modules.add`, `modules.remove`, `modules.update`; update patch relative với module và shared patch relative với shared object, gồm array diff deterministic theo UC-05 BR-05/BR-06.
 
 ## Luồng nội bộ
 
@@ -80,7 +81,7 @@ UC-07 Update or Remove Workload
 
 ## Trạng thái implementation hiện tại
 
-- Planner đã validate module và từng shared entry trong `before Score`, từ chối shared conflict, tạo Delta/Candidate Set và giữ nguyên các module khác.
+- Planner đã validate module và từng shared entry trong `before Score`, từ chối shared conflict, tạo Candidate Set và giữ nguyên các module khác. Delta hiện vẫn là patch phẳng toàn document, chưa đúng BR-07.
 - Shared entry chỉ bị loại khi workload thôi khai báo và không còn module khác tham chiếu; planner đã phân loại Active Resource thành `existing`, `new` và `unreferenced`.
 - Runtime update/delete workload, reconcile state và API/UI cho UC-07 chưa được wire; phần này vẫn thuộc Phase 6 bước 7.
 

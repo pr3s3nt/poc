@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-INDEX
 artifact: implementation-index
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # Implementation documentation
@@ -19,6 +19,7 @@ phải theo [operations index](../operations/README.md).
 
 - [Design-to-code map](code-map.md)
 - [Known design/implementation deviations](deviations.md)
+- [Humanitec and Score compatibility matrix](humanitec-compatibility.md)
 - [Backend and frontend layout](package-layout.md)
 - [UC-06 planner reference analysis](uc06-planner-reference.md)
 - [Documentation reconciliation](documentation-reconciliation.md)

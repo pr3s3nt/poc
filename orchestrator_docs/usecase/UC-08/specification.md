@@ -2,7 +2,7 @@
 id: UC-08-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-08 — Provision Infrastructure and Application Resources
@@ -68,6 +68,7 @@ Provision implicit infrastructure cùng private/shared resources theo dependency
 - **BR-03:** Mỗi output phải thỏa Resource Type contract trước khi persist hoặc truyền cho consumer.
 - **BR-04:** Node cùng batch không phụ thuộc nhau và có thể execute song song, nhưng MVP có thể chạy tuần tự mà không đổi semantics.
 - **BR-05:** Existing resource vẫn đi qua reconcile/provision contract của driver; planner classification không tự tạo action `reuse` hay `destroy`.
+- **BR-06:** Container CPU/memory requests/limits thuộc workload module và được UC-06 Workload Renderer xử lý; chúng không tạo Resource Graph node và không đi qua UC-08 Resource Executor.
 
 ## Luồng nội bộ
 

@@ -5,6 +5,7 @@ actor Developer
 boundary DeploymentController as API
 control DeploymentService as Service
 control PlanningService as Planner
+control ResourceDescriptorParser as DescriptorParser
 control ResourceProvisioningService as Provisioner
 control OutputBindingResolver as Resolver
 control WorkloadRenderer as Renderer
@@ -12,6 +13,7 @@ boundary WorkloadDeployer as Deployer
 database DeploymentRepository as DeploymentRepo
 database ApplicationRepository as AppRepo
 database EnvironmentRepository as EnvRepo
+database DeploymentDeltaSnapshotRepository as DeltaSnapshotRepo
 database DeploymentSetRepository as SetRepo
 database WorkloadInstanceRepository as WorkloadRepo
 
@@ -22,19 +24,22 @@ EnvRepo --> Service: Snapshot + version
 Service -> DeploymentRepo: Create(PLANNING) <<transaction A>>
 DeploymentRepo --> Service: Deployment
 Service -> Planner: Plan(request) [MS-02..MS-08]
-Planner --> Service: Persistable DeploymentPlan
+Planner -> DescriptorParser: ParseDescriptorText(reference, node, context) [BR-12]
+DescriptorParser --> Planner: Canonical descriptor
+Planner --> Service: Plan with Humanitec-shaped Delta\nand typed container resources
+Service -> DeltaSnapshotRepo: Save(immutable snapshot) <<transaction A>>
+Service -> SetRepo: Save(candidateSet) <<transaction A>>
 Service -> DeploymentRepo: SavePlanAndMark(PROVISIONING)
 Service -> Provisioner: Provision(plan.ResourceBatches) [MS-09]
 Provisioner --> Service: ProvisionResult(outputs, target)
 Service -> Resolver: ResolveWorkloadBindings(candidate, outputs) [MS-10]
 Resolver --> Service: Resolved workload
-Service -> Renderer: Render(resolved workload, target) [MS-11]
+Service -> Renderer: Render(resolved workload, target, requests/limits) [MS-11]
 Renderer --> Service: Manifests
 Service -> Deployer: Apply(target, manifests)
 Service -> Deployer: WaitReady(target, workloadRefs)
 Deployer --> Service: Ready
 Service -> EnvRepo: CompareVersionAndSetCurrent(version, candidateSet) <<transaction B>> [MS-12]
-Service -> SetRepo: Save(candidateSet) <<transaction B>>
 Service -> WorkloadRepo: UpsertReady(instances) <<transaction B>>
 Service -> AppRepo: MarkRuntimeReadyIfCloud(applicationID) <<transaction B>>
 Service -> DeploymentRepo: MarkSucceeded() <<transaction B>>

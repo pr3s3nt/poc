@@ -17,7 +17,16 @@ class BeforeStateValidator <<control>> {
   +Validate(current, workloadID, before)
 }
 class DeltaBuilder <<control>> {
-  +Build(current, workloadID, before, after): DeltaResult
+  +BuildHumanitecDelta(current, workloadID, before, after): DeltaResult
+}
+class DeploymentDeltaSnapshot <<entity>> {
+  +Modules: ModuleDelta
+  +Shared: List<JSONPatchOperation>
+}
+class ModuleDelta <<value>> {
+  +Add: Map<WorkloadID, Module>
+  +Remove: List<WorkloadID>
+  +Update: Map<WorkloadID, List<JSONPatchOperation>>
 }
 class ResourceProvisioningService <<control>> {
   +Provision(ctx, request): ProvisionResult
@@ -41,14 +50,24 @@ interface DeploymentRepository {
   +Create(ctx, deployment)
   +MarkSucceeded(ctx, deploymentID)
 }
+interface DeploymentDeltaSnapshotRepository {
+  +Save(ctx, snapshot)
+}
+interface DeploymentSetRepository {
+  +Save(ctx, set)
+}
 DeploymentController --> DeploymentService
 DeploymentService --> PlanningService
 PlanningService --> BeforeStateValidator
 PlanningService --> DeltaBuilder
+DeltaBuilder ..> DeploymentDeltaSnapshot
+DeploymentDeltaSnapshot *-- ModuleDelta
 DeploymentService --> ResourceProvisioningService
 DeploymentService --> WorkloadDeployer
 DeploymentService --> ActiveResourceRepository
 DeploymentService --> EnvironmentRepository
 DeploymentService --> DeploymentRepository
+DeploymentService --> DeploymentDeltaSnapshotRepository
+DeploymentService --> DeploymentSetRepository
 DeploymentService ..> ActiveResource
 @enduml

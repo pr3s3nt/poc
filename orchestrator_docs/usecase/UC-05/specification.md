@@ -2,7 +2,7 @@
 id: UC-05-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-05 — Validate and Preview Score Changes
@@ -30,9 +30,9 @@ Kiểm tra Score và hiển thị thay đổi dự kiến trước khi thực hi
 ## Main success scenario
 
 1. **MS-01:** Orchestrator đọc Score và Deployment Set hiện tại.
-2. **MS-02:** Orchestrator validate Score theo Score contract và Resource Type schemas.
-3. **MS-03:** Orchestrator chuyển Score thành workload fragment.
-4. **MS-04:** Orchestrator tạo Deployment Delta và Candidate Deployment Set.
+2. **MS-02:** Orchestrator validate Score theo Score contract và Resource Type schemas, gồm `containers.*.resources.requests/limits` khi được khai báo.
+3. **MS-03:** Orchestrator chuyển Score thành workload fragment và giữ nguyên container CPU/memory requests/limits trong module spec.
+4. **MS-04:** Orchestrator tạo Humanitec-shaped Deployment Delta và Candidate Deployment Set.
 5. **MS-05:** Orchestrator enrich implicit resources theo Execution Profile, dựng Resource Graph và match Resource Definitions.
 6. **MS-06:** Orchestrator kiểm tra graph, references và Terraform contracts.
 7. **MS-07:** Orchestrator tính provision batches và phân loại Active Resources.
@@ -50,6 +50,9 @@ Kiểm tra Score và hiển thị thay đổi dự kiến trước khi thực hi
 - **BR-02:** Invariant bắt buộc là `current Deployment Set + Delta = Candidate Deployment Set`.
 - **BR-03:** Graph edge có chiều `consumer -> provider`; batches luôn đặt provider trước consumer.
 - **BR-04:** Preview là read-only và không được gọi Resource Executor hoặc Kubernetes apply.
+- **BR-05:** Deployment Delta có shape `modules.add/remove/update` và `shared`; patch trong `modules.update.<id>` relative với module, patch `shared` relative với object shared.
+- **BR-06:** Delta deterministic; array được diff theo index chung, remove đuôi từ index lớn xuống nhỏ và add đuôi bằng path `/-`.
+- **BR-07:** `containers.*.resources` chỉ nhận `requests`/`limits` với `cpu` và `memory`; giá trị hợp lệ phải được bảo toàn từ Score sang Candidate Deployment Set.
 
 ## Luồng nội bộ
 
@@ -65,7 +68,8 @@ UC-05 Validate and Preview
 
 ## Trạng thái implementation hiện tại
 
-- `PlanningService` dùng chung đã triển khai Score validation, Delta/Candidate Set, graph/matching, contract inspection, classification và batches; 33 challenge fixture được chạy qua planner sản phẩm với các khác biệt đã tài liệu hóa.
+- `PlanningService` dùng chung đã triển khai Score validation, Candidate Set, graph/matching, contract inspection, classification và batches; 33 challenge fixture được chạy qua planner sản phẩm với các khác biệt đã tài liệu hóa.
+- Implementation hiện sinh JSON Patch phẳng cho toàn document, chưa có Humanitec-shaped Delta Snapshot; parser cũng đang reject `containers.*.resources`. Hai khoảng lệch được theo dõi trong known deviations và không được 33 fixture hiện tại phát hiện.
 - UC-06 đang gọi pipeline này để deploy thật. `PreviewService`, endpoint và màn hình Preview read-only của UC-05 chưa được wire và vẫn thuộc Phase 6 bước 6.
 
 ## Ngoài phạm vi happy path

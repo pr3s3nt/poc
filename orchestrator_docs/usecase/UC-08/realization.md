@@ -2,7 +2,7 @@
 id: UC-08-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-08 — Use Case Realization
@@ -10,6 +10,8 @@ last_reviewed: 2026-09-21
 ## Trách nhiệm
 
 Thực thi resource-only batches theo provider-first order, resolve runtime inputs, gọi executor phù hợp, validate outputs và persist Active Resource state cho consumer tiếp theo.
+
+Container `resources.requests/limits` không phải infrastructure resource input của UC-08. Chúng được giữ trong workload module và được `WorkloadRenderer` của UC-06 ánh xạ sang Kubernetes manifests sau khi UC-08 trả outputs/target.
 
 ## System operation
 

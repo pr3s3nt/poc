@@ -2,7 +2,7 @@
 id: UC-06-PLANNER-REFERENCE
 artifact: technical-reference-analysis
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-06 Planner Reference Analysis
@@ -66,7 +66,7 @@ Không copy nguyên source; tái sử dụng semantics và thuật toán sau tro
 
 | Thành phần | Giá trị cho orchestrator |
 |---|---|
-| Score converter | Chuyển một Score workload thành module/private/shared contribution và rewrite placeholder. |
+| Score converter | Chuyển một Score workload thành module/private/shared contribution, bảo toàn container requests/limits và rewrite placeholder. |
 | Before-state check | Chống lập kế hoạch từ snapshot cũ hoặc sai workload. |
 | Deterministic Delta | Sinh RFC 6902 patch và giữ invariant current + delta = candidate. |
 | Resource Descriptor | Identity chung cho private/shared/implicit resource và Active Resource lookup. |
@@ -83,6 +83,7 @@ Các chi tiết implementation đáng giữ:
 
 - Map traversal và descriptor/path được sort lexical để plan deterministic.
 - JSON Pointer phải escape `~` thành `~0` và `/` thành `~1`.
+- Humanitec-shaped Delta tách `modules.add/remove/update` và `shared`; module/shared patches dùng relative root, array diff theo index và append bằng `/-`.
 - `$${...}` là escaped literal, không tạo graph edge.
 - Reference có class/ID thiếu hoặc `@` kế thừa node hiện tại.
 - `match_dependents` phải được áp lại sau mỗi vòng expansion vì consumer mới có thể xuất hiện muộn.
@@ -113,6 +114,7 @@ Không đưa các thành phần sau vào domain/API sản phẩm:
 - JSON Schema validation đầy đủ; challenge chỉ chặn unknown top-level input keys, chưa kiểm tra required/type/nested constraints đầy đủ.
 - Durable Plan/Deployment snapshot và optimistic version check để plan không execute trên current Deployment Set đã đổi.
 - Quy tắc ownership/reference cho shared resource. Challenge chưa đủ để đảm bảo shared entry do workload bỏ vẫn được giữ khi workload khác còn phụ thuộc như BR-03 của UC-07.
+- Persist `DeploymentDeltaSnapshot` như immutable entity khi deploy/update/remove; preview chỉ dùng transient typed Delta document. Mutable standalone Humanitec Delta API/lifecycle vẫn là compatibility scope riêng.
 
 ### 6.2 Terraform và driver execution
 
@@ -127,6 +129,7 @@ Không đưa các thành phần sau vào domain/API sản phẩm:
 ### 6.3 Kubernetes workload execution
 
 - Workload Profile renderer cho Kubernetes manifests.
+- Typed `containers.*.resources.requests/limits` trong workload module và mapping nguyên vẹn sang Kubernetes container resources.
 - Cluster/namespace resolver và Kubernetes apply client.
 - Readiness verification cho namespace, StatefulSet/Service và workload Deployment.
 - PostgreSQL output adapter chung để Aurora và StatefulSet cùng trả contract `postgres`.
@@ -147,8 +150,8 @@ Retry, rollback, partial-failure resume, drift và deprovision vẫn nằm ngoà
 | UC-06 step | Input từ challenge | Phần sản phẩm phải bổ sung |
 |---|---|---|
 | MS-01 | Load current Deployment Set từ fixture | Deployment record/repository và versioned Environment snapshot. |
-| MS-02 | `ConvertScoreToWorkloadFragment`, schema/output checks | Full Score/JSON Schema boundary và typed errors. |
-| MS-03 | `ValidateBeforeFragment`, Candidate Set, `BuildDeploymentDelta` | Durable plan snapshot và optimistic version. |
+| MS-02 | `ConvertScoreToWorkloadFragment`, schema/output checks, container resources in the declared subset | Full Score boundary, typed container resource values và typed errors. |
+| MS-03 | `ValidateBeforeFragment`, Candidate Set, Humanitec-shaped `BuildDeploymentDelta` | Immutable Delta Snapshot for execution, durable plan snapshot và optimistic version. |
 | MS-04 | Fixture context có app/env/env_type | Load Execution Profile, connection và runtime config từ repositories. |
 | MS-05 | Không hỗ trợ implicit cluster/namespace | Profile-driven implicit resource enricher. |
 | MS-06 | Initial graph từ workload dependencies/placeholders | Thêm implicit namespace và scope-aware identities. |
@@ -156,7 +159,7 @@ Retry, rollback, partial-failure resume, drift và deprovision vẫn nằm ngoà
 | MS-08 | Output validation, Terraform scan, Active classification, Kahn batches | Plan artifact chính thức, executor-ready bindings và state-aware reuse. |
 | MS-09 | Không execute | Gọi UC-08 với resource-only batches. |
 | MS-10 | Chỉ giữ output reference dạng string | Resolve outputs thực từ provision result. |
-| MS-11 | Echo workload node, không render/apply | Workload renderer, Kubernetes apply và readiness check. |
+| MS-11 | Echo workload node, không render/apply | Workload renderer including declared requests/limits, Kubernetes apply và readiness check. |
 | MS-12 | Không persistence/lifecycle | Commit current set, Active Resources và `SUCCEEDED` theo transaction design. |
 | MS-13 | Render JSON cho grader | API/use-case response của sản phẩm. |
 
@@ -188,9 +191,15 @@ Retry, rollback, partial-failure resume, drift và deprovision vẫn nằm ngoà
 
 ## 10. Fixture-to-requirement evidence
 
+Bundle fixture là evidence không đầy đủ theo field coverage: không testcase nào
+khai báo `containers.*.resources`, dù field này thuộc Score subset ở §6. Product
+conformance harness hiện cũng không đọc/so expected Delta và chỉ kiểm rejection
+status cho sáu rejected cases. Vì vậy 33/33 không chứng minh Delta shape, array
+diff, structured error hay container resource preservation.
+
 | Khả năng | Fixtures tiêu biểu | Use case/rule nhận evidence |
 |---|---|---|
-| Delta và giữ module khác | 01–04, 11, 23, 24 | UC-05 BR-02; UC-07 BR-02 |
+| Candidate Set và giữ module khác; reference Delta có trong expected artifacts nhưng product harness chưa assert | 01–04, 11, 23, 24 | UC-05 BR-02/BR-05/BR-06; UC-07 BR-02/BR-07 |
 | Private/shared identity | 05–13 | UC-06 MS-06; UC-07 BR-03 |
 | Matching specificity/ambiguity | 14, 22, 25, 26 | UC-03 BR-01/BR-02; UC-06 MS-07 |
 | Reference/inheritance/co-provision | 15–17 | UC-03 BR-04; UC-06 MS-07 |
@@ -199,7 +208,8 @@ Retry, rollback, partial-failure resume, drift và deprovision vẫn nằm ngoà
 | Active classification | 07, 10, 21, 24 | UC-07 MS-07; UC-08 MS-02 |
 | Resource input binding | 32 | UC-06 BR-06; UC-08 MS-03/MS-08 |
 | Context resolution | 33 | UC-08 MS-03 |
+| Container requests/limits | Không có fixture | UC-05 BR-07; UC-06 BR-11; cần product contract test riêng |
 
 ## 11. Kết luận
 
-Planner challenge giải quyết tốt phần deterministic desired-state planning: Score -> Delta/Candidate Set -> expanded Resource Graph -> Definition match -> Terraform contract -> provider-first batches. Nó chưa giải quyết phần làm nên orchestrator chạy thật: implicit profile infrastructure, stateful driver execution, runtime output propagation, Kubernetes deployment và persistence/transaction boundary. Realization UC-06/UC-08 phải dùng pipeline trên làm lõi planning nhưng thiết kế rõ các ranh giới còn thiếu này.
+Planner challenge giải quyết tốt phần deterministic desired-state planning: Score -> Humanitec-shaped Delta/Candidate Set -> expanded Resource Graph -> Definition match -> Terraform contract -> provider-first batches. Nó chưa giải quyết phần làm nên orchestrator chạy thật: implicit profile infrastructure, stateful driver execution, runtime output propagation, Kubernetes deployment và persistence/transaction boundary. Fixture coverage cũng không thay thế contract review cho field không xuất hiện trong testcase. Realization UC-06/UC-08 phải dùng pipeline trên làm lõi planning nhưng thiết kế rõ các ranh giới còn thiếu này.

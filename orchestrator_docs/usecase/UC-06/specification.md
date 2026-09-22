@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-06 — Deploy Workload
@@ -27,7 +27,7 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 - **PRE-02:** Application đã chọn `aws-eks` hoặc `internal-k8s` trong UC-01.
 - **PRE-03:** AWS Driver Account hoặc internal cluster connection trạng thái `READY` đã được cấu hình trong UC-04.
 - **PRE-04:** Các Resource Type và Resource Definition cần thiết đã được đăng ký.
-- **PRE-05:** Score document hợp lệ và mô tả đúng một workload.
+- **PRE-05:** Score document hợp lệ, mô tả đúng một workload và mọi container resource requests/limits khai báo đều đúng Score subset.
 
 ## Trigger
 
@@ -36,8 +36,8 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 ## Main success scenario
 
 1. **MS-01:** Orchestrator tạo Deployment record và đọc Deployment Set hiện tại của Environment.
-2. **MS-02:** Orchestrator validate Score và chuyển nó thành workload fragment.
-3. **MS-03:** Orchestrator tạo Deployment Delta và Candidate Deployment Set.
+2. **MS-02:** Orchestrator validate Score và chuyển nó thành workload fragment, bảo toàn container CPU/memory requests/limits.
+3. **MS-03:** Orchestrator tạo Humanitec-shaped Deployment Delta và Candidate Deployment Set.
 4. **MS-04:** Orchestrator đọc Execution Profile và runtime configuration của Application.
 5. **MS-05:** Orchestrator enrich graph theo VAR-01 hoặc VAR-02.
 6. **MS-06:** Orchestrator thêm namespace có identity theo Environment và resource dependencies từ Score.
@@ -45,7 +45,7 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 8. **MS-08:** Orchestrator validate graph/contracts và tính provider-first provision batches.
 9. **MS-09:** UC-06 `«include»` UC-08 để provision/reuse resources theo dependency order.
 10. **MS-10:** Orchestrator nhận resource outputs và resolve các binding của workload.
-11. **MS-11:** Orchestrator render Workload Profile thành Kubernetes manifests và apply lên cluster đã resolve.
+11. **MS-11:** Orchestrator render Workload Profile thành Kubernetes manifests, ánh xạ container requests/limits đã khai báo vào Kubernetes resources, rồi apply lên cluster đã resolve.
 12. **MS-12:** Orchestrator lưu Candidate Deployment Set thành current, Active Resources và deployment status `SUCCEEDED`.
 13. **MS-13:** Orchestrator trả kết quả deployment thành công cho actor.
 
@@ -60,7 +60,7 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 - **POST-02:** Cloud Application có đúng một VPC và một EKS theo descriptor được dùng lại cho các Environment/deployment sau.
 - **POST-03:** Internal Application sử dụng cluster có sẵn và không tạo VPC/EKS.
 - **POST-04:** Environment có Kubernetes namespace riêng.
-- **POST-05:** Workload đã được apply lên Kubernetes.
+- **POST-05:** Workload đã được apply lên Kubernetes với container requests/limits đúng như Score khi có khai báo.
 - **POST-06:** Candidate Deployment Set trở thành current Deployment Set của Environment.
 - **POST-07:** Resource state và outputs cần thiết đã được lưu.
 - **POST-08:** Deployment có trạng thái `SUCCEEDED`.
@@ -76,6 +76,13 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 - **BR-07:** Score `params` của một resource được validate theo `inputs` của Resource Type, đi vào Deployment Set entry và trở thành resource input của node tương ứng.
 - **BR-08:** Provision rule của Definition tạo resource đi kèm; `is_dependent` đảo chiều phụ thuộc sang node cha, `match_dependents` nối mọi consumer của node cha sang resource đi kèm.
 - **BR-09:** Trước khi execute, planner phải đối chiếu resource input và driver variable với Terraform module contract và ghi lại source fingerprint.
+- **BR-10:** Deployment Delta dùng shape Humanitec `modules.add/remove/update` và `shared`; module update patch relative với module, shared patch relative với shared object, array diff theo index và `/-`.
+- **BR-11:** `containers.*.resources.requests/limits` chỉ gồm `cpu`/`memory`, phải đi nguyên vẹn qua Score fragment, Candidate Deployment Set và workload renderer; renderer không được thay bằng giá trị hard-code.
+- **BR-12:** Khi parse Resource Reference, token `@app`, `@env` và
+  `@connection` trong phần Resource ID được thay bằng key của Application,
+  Environment và Connection hiện tại trước khi tạo descriptor. Đây là product
+  extension; ký hiệu `@` dùng để kế thừa class/ID hiện tại vẫn giữ semantics
+  Resource Reference chuẩn.
 
 ## Luồng nội bộ
 
@@ -143,15 +150,15 @@ Resource ID là đường dẫn trong Deployment Set, không phải tên tự đ
 Ba dòng đầu là contract chung với Humanitec. Bốn dòng implicit là phần mở rộng của orchestrator và
 dùng cùng quy ước `<scope>.<path>` để identity luôn suy ra được từ scope.
 
-Trong Resource Reference, ngoài `@` kế thừa class/ID của node hiện tại, orchestrator cho phép ba token
+Theo BR-12, trong Resource Reference, ngoài `@` kế thừa class/ID của node hiện tại, orchestrator cho phép ba token
 `@app`, `@env` và `@connection` bên trong phần ID. Chúng được thay bằng Application key, Environment key
 và Connection key đang xử lý, nhờ vậy một Resource Definition tham chiếu hạ tầng implicit mà không phải
 hard-code Application hay Environment.
 
 ## Trạng thái implementation hiện tại
 
-- **UC-06a Plan Deployment:** đã có Score conversion, Delta/Candidate Set, descriptor theo Deployment Set path, implicit infrastructure theo profile, fixed-point graph expansion, matching, Terraform contract inspection, Active Resource classification và provider-first batches.
-- **UC-06b Execute Deployment:** đã có fake, Kubernetes và Terraform adapters; output propagation; workload render/apply; API/Web Console; in-memory store kèm JSON snapshot. Internal happy path đã verify trên kind và cloud happy path đã verify trên AWS.
+- **UC-06a Plan Deployment:** đã có Score conversion, Candidate Set, descriptor theo Deployment Set path, implicit infrastructure theo profile, fixed-point graph expansion, matching, Terraform contract inspection, Active Resource classification và provider-first batches. Delta implementation hiện là patch phẳng, chưa đúng BR-10; Score parser hiện reject container resources theo BR-11.
+- **UC-06b Execute Deployment:** đã có fake, Kubernetes và Terraform adapters; output propagation; workload render/apply; API/Web Console; in-memory store kèm JSON snapshot. Renderer hiện hard-code resource request tối thiểu thay vì lấy requests/limits từ Score. Internal happy path đã verify trên kind và cloud happy path đã verify trên AWS.
 - Mỗi request xử lý đúng một Score/workload. Acceptance flow gọi tuần tự ba deployment `backend`, `worker`, `frontend`; database là shared resource được giữ/reuse qua cùng descriptor.
 - PostgreSQL system-of-record và Terraform state backend bền vững chưa được triển khai; state hiện tại chỉ phù hợp executable baseline/verification.
 
@@ -164,3 +171,4 @@ hard-code Application hay Environment.
 - **OOS-05:** Drift reconciliation.
 - **OOS-06:** Scheduled deletion và deprovision.
 - **OOS-07:** RBAC và approval workflow.
+- **OOS-08:** Humanitec-compatible standalone Delta API, asynchronous deployment và incremental deployment mode.

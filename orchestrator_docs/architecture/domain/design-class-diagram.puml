@@ -41,6 +41,7 @@ package "Planning" {
     +Plan(ctx, request): DeploymentPlan
   }
   class ScoreConverter
+  class WorkloadSpecValidator
   class BeforeStateValidator {
     +Validate(current, workloadID, before)
   }
@@ -48,6 +49,9 @@ package "Planning" {
     +Build(current, workloadID, before, after): DeltaResult
   }
   class ImplicitResourceEnricher
+  class ResourceDescriptorParser {
+    +ParseDescriptorText(raw, current, context): ResourceDescriptor
+  }
   class ResourceGraphBuilder
   class GraphExpander
   class DefinitionMatcher
@@ -105,6 +109,22 @@ package "Domain" {
     +Succeed()
   }
   class DeploymentPlan <<entity>>
+  class DeploymentDeltaSnapshot <<entity>> {
+    +ID: DeltaSnapshotID
+    +Metadata: DeltaSnapshotMetadata
+    +Modules: ModuleDelta
+    +Shared: List<JSONPatchOperation>
+  }
+  class ModuleDelta <<value>>
+  class JSONPatchOperation <<value>>
+  class ContainerResourceRequirements <<value>> {
+    +Requests: ComputeResources
+    +Limits: ComputeResources
+  }
+  class ComputeResources <<value>> {
+    +CPU: string
+    +Memory: string
+  }
   class ResourceGraph <<value>>
   class ResourceNode <<value>>
   class ResourceEdge <<value>>
@@ -126,6 +146,7 @@ package "Ports" {
   interface ResourceTypeRepository
   interface ResourceDefinitionRepository
   interface DeploymentSetRepository
+  interface DeploymentDeltaSnapshotRepository
   interface DeploymentRepository
   interface ActiveResourceRepository
   interface DeploymentResourceRepository
@@ -149,9 +170,11 @@ ResourceExecutor <|.. KubernetesExecutor
 ResourceExecutor <|.. ExistingClusterAdapter
 
 PlanningService --> ScoreConverter
+PlanningService --> WorkloadSpecValidator
 PlanningService --> BeforeStateValidator
 PlanningService --> DeltaBuilder
 PlanningService --> ImplicitResourceEnricher
+PlanningService --> ResourceDescriptorParser
 PlanningService --> ResourceGraphBuilder
 PlanningService --> GraphExpander
 PlanningService --> DefinitionMatcher
@@ -165,6 +188,9 @@ Application --> Connection
 Environment "1" --> "1" DeploymentSet : current
 Environment "1" o-- "0..*" Deployment
 Deployment "1" *-- "1" DeploymentPlan
+Deployment "1" *-- "1" DeploymentDeltaSnapshot
+DeploymentDeltaSnapshot "1" *-- "1" ModuleDelta
+DeploymentDeltaSnapshot "1" *-- "0..*" JSONPatchOperation
 DeploymentPlan "1" *-- "1" ResourceGraph
 ResourceGraph "1" *-- "0..*" ResourceNode
 ResourceGraph "1" *-- "0..*" ResourceEdge
@@ -173,6 +199,8 @@ ResourceDefinition "1" *-- "1..*" MatchingCriterion
 ResourceDefinition --> ResourceType
 ActiveResource --> ResourceDefinition
 Environment "1" o-- "0..*" WorkloadInstance
+WorkloadRenderer ..> ContainerResourceRequirements
+ContainerResourceRequirements *-- ComputeResources
 
 ApplicationService --> ApplicationRepository
 ApplicationService --> EnvironmentRepository
@@ -185,6 +213,7 @@ ConnectionService --> SecretStore
 DeploymentService --> EnvironmentRepository
 DeploymentService --> ApplicationRepository
 DeploymentService --> DeploymentSetRepository
+DeploymentService --> DeploymentDeltaSnapshotRepository
 DeploymentService --> DeploymentRepository
 DeploymentService --> WorkloadInstanceRepository
 ResourceProvisioningService --> ActiveResourceRepository

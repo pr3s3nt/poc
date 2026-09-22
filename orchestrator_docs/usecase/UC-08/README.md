@@ -2,7 +2,7 @@
 id: UC-08-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-08 context — Provision resources
@@ -10,7 +10,8 @@ last_reviewed: 2026-09-21
 ## Delivery state
 
 Implemented and end-to-end verified for internal PostgreSQL/Kubernetes and AWS
-VPC/EKS/Aurora resource nodes.
+VPC/EKS/Aurora resource nodes. Container CPU/memory requests belong to UC-06
+workload rendering and are explicitly outside UC-08 resource-node execution.
 
 ## Read in this order
 

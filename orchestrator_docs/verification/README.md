@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # Verification evidence
@@ -19,3 +19,4 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 | 2026-09-21 | Humanitec contract review and planner fixture conformance | [Contract conformance](2026-09-21-contract-conformance.md) |
 | 2026-09-21 | Root backend/frontend layout migration | [Layout migration](2026-09-21-root-layout-migration.md) |
 | 2026-09-21 | Clean-clone documentation links and product CI | [Clean-clone CI fix](2026-09-21-clean-clone-ci.md) |
+| 2026-09-22 | Humanitec Delta, container resources and conformance coverage reconciliation | [Humanitec gap reconciliation](2026-09-22-humanitec-gap-reconciliation.md) |

@@ -2,7 +2,7 @@
 id: UC-06-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-06 context — Deploy Workload
@@ -10,7 +10,9 @@ last_reviewed: 2026-09-21
 ## Delivery state
 
 Implemented and end-to-end verified through HTTP on kind and AWS. Cloud rerun is
-still a release gate after the last planning changes.
+still a release gate after the last planning changes. Executable happy path does
+not yet implement the Humanitec-shaped Delta or Score container resources now
+specified by IMP-008/009.
 
 ## Read in this order
 

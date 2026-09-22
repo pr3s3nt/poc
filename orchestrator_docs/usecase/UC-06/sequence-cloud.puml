@@ -17,7 +17,7 @@ Service -> Repo: Create PLANNING [MS-01]
 Service -> Planner: Plan(request) [MS-02..MS-04]
 Planner -> Enricher: Enrich(profile=aws-eks) [MS-05]
 Enricher --> Planner: app VPC + app EKS + env namespace
-Planner --> Service: graph: workload -> namespace -> EKS -> VPC\nworkload -> Aurora -> VPC [MS-06..MS-08]
+Planner --> Service: Humanitec-shaped Delta + graph:\nworkload -> namespace -> EKS -> VPC\nworkload -> Aurora -> VPC [MS-03..MS-08]
 Service -> Provisioner: Provision(resource batches) [MS-09]
 Provisioner -> Terraform: Provision(VPC)
 Terraform --> Provisioner: vpc outputs
@@ -28,7 +28,7 @@ Terraform --> Provisioner: postgres outputs
 Provisioner --> Service: outputs + EKS target
 Service -> Resolver: ResolveWorkloadBindings(postgres outputs) [MS-10]
 Resolver --> Service: Resolved target workload
-Service -> Renderer: Render(target workload manifests) [MS-11]
+Service -> Renderer: Render(target workload manifests, requests/limits) [MS-11]
 Renderer --> Service: Service/Deployment manifests
 Service -> K8s: Apply(EKS target, manifests)
 Service -> K8s: WaitReady(target workload)

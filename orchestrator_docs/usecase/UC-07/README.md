@@ -2,7 +2,7 @@
 id: UC-07-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-07 context — Update or Remove Workload
@@ -11,7 +11,8 @@ last_reviewed: 2026-09-21
 
 Partially implemented. Planner covers before/shared validation, conflicts and
 last-reference preservation; full update/remove operation, execution and UI do
-not.
+not. Delta is still a flat whole-document patch rather than the accepted
+Humanitec-shaped contract.
 
 ## Read in this order
 

@@ -6,6 +6,7 @@ boundary PreviewController as API
 control PreviewService as Preview
 control PlanningService as Planner
 control ScoreConverter as Converter
+control WorkloadSpecValidator as WorkloadValidator
 control BeforeStateValidator as BeforeValidator
 control DeltaBuilder as Delta
 control ImplicitResourceEnricher as Enricher
@@ -23,10 +24,12 @@ EnvRepo --> Preview: profile + current set + version + definitions
 Preview -> Planner: Plan(request)
 Planner -> Converter: ConvertAndValidate(before/after Score) [MS-02..MS-03]
 Converter --> Planner: Before/after workload fragments
+Planner -> WorkloadValidator: ValidateContainerResources(fragments) [MS-02]
+WorkloadValidator --> Planner: Typed requests/limits preserved
 Planner -> BeforeValidator: Validate(currentSet, workloadID, before) [MS-04]
 BeforeValidator --> Planner: valid module + shared contribution
-Planner -> Delta: Build(currentSet, workloadID, before, after) [MS-04]
-Delta --> Planner: Delta + CandidateSet
+Planner -> Delta: BuildHumanitecDelta(currentSet, workloadID, before, after) [MS-04]
+Delta --> Planner: transient DeploymentDeltaDocument + CandidateSet
 Planner -> Enricher: Enrich(candidate, profile) [MS-05]
 Enricher --> Planner: Implicit resources
 Planner -> Graph: BuildAndExpand(candidate, implicit) [MS-05]

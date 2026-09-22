@@ -77,6 +77,15 @@ entity deployment_sets {
   document : jsonb
   document_hash : text
 }
+entity deployment_delta_snapshots {
+  * id : uuid <<PK>>
+  * application_id : uuid <<FK>>
+  --
+  document : jsonb
+  document_hash : text
+  metadata : jsonb
+  created_at : timestamptz
+}
 entity deployments {
   * id : uuid <<PK>>
   * environment_id : uuid <<FK>>
@@ -86,12 +95,12 @@ entity deployments {
   status : text
   base_deployment_set_id : uuid <<FK>>
   candidate_deployment_set_id : uuid <<FK>>
+  delta_snapshot_id : uuid <<FK>>
   base_environment_version : bigint
 }
 entity deployment_plans {
   * deployment_id : uuid <<PK,FK>>
   --
-  delta : jsonb
   resource_graph : jsonb
   matched_definitions : jsonb
   provision_batches : jsonb
@@ -138,6 +147,7 @@ organizations ||--o{ resource_types
 organizations ||--o{ resource_definitions
 applications }o--|| connections
 applications ||--o{ environments
+applications ||--o{ deployment_delta_snapshots
 environments ||--o{ deployment_sets
 environments ||--o{ deployments
 environments ||--o{ workload_instances
@@ -147,6 +157,7 @@ resource_definitions ||--|{ matching_criteria
 deployments ||--|| deployment_plans
 deployments }o--|| deployment_sets : base
 deployments }o--|| deployment_sets : candidate
+deployments ||--|| deployment_delta_snapshots : delta_snapshot
 deployments ||--o{ deployment_resources
 resource_definitions ||--o{ active_resources
 active_resources ||--o{ deployment_resources

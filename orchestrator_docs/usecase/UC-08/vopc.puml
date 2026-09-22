@@ -28,6 +28,10 @@ class ActiveResource <<entity>> {
   +MarkReady(state, outputs, deploymentID)
 }
 class ProvisionResult <<entity>>
+note right of ResourceProvisioningService
+Does not execute container requests/limits;
+they belong to UC-06 WorkloadRenderer.
+end note
 interface ActiveResourceRepository {
   +FindByLogicalIdentity(ctx, descriptor, scope): ActiveResource
   +UpsertReady(ctx, resource)

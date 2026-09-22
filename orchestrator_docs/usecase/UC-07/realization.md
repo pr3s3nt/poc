@@ -2,7 +2,7 @@
 id: UC-07-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-07 — Use Case Realization
@@ -25,17 +25,17 @@ Hai operation dùng lại `PlanningService.Plan`, `ResourceProvisioningService.P
 - `DeploymentController`, `DeploymentService`.
 - Shared planning/provisioning/rendering components.
 - `BeforeStateValidator` — deep-compare target module và từng shared entry do `before Score` khai báo.
-- `DeltaBuilder` — thay contribution của đúng workload, từ chối shared ID conflict và chỉ bỏ shared entry khi không còn module khác tham chiếu.
+- `DeltaBuilder` — tạo typed Delta document theo Humanitec shape, thay contribution của đúng workload, từ chối shared ID conflict và chỉ bỏ shared entry khi không còn module khác tham chiếu.
 - `ActiveResourceClassifier`.
 - `WorkloadDeployer.Apply/Delete/WaitReady`.
-- Deployment/DeploymentSet/ActiveResource/WorkloadInstance repositories.
+- Deployment/DeploymentDeltaSnapshot/DeploymentSet/ActiveResource/WorkloadInstance repositories.
 
 ## Trace main flow
 
 | Step | Collaboration |
 |---|---|
 | MS-01–MS-02 | Load snapshot; `BeforeStateValidator.Validate` so module và shared contribution. |
-| MS-03 | `DeltaBuilder.Build` thay đúng workload contribution, kiểm tra shared conflict và shared ownership/reference. |
+| MS-03 | `DeltaBuilder.BuildHumanitecDelta` phân loại module add/remove/update, tạo module-relative/shared-relative patches, kiểm tra shared conflict và shared ownership/reference. |
 | MS-04 | Rebuild graph và classify existing/new/unreferenced. |
 | MS-05 | Include UC-08 cho desired resource batches. |
 | MS-06 | Update: Render/Apply/WaitReady; Remove: `WorkloadDeployer.Delete`. |
@@ -44,7 +44,7 @@ Hai operation dùng lại `PlanningService.Plan`, `ResourceProvisioningService.P
 
 ## Transaction boundary
 
-Giống UC-06. Shared-resource ownership được tính từ toàn Candidate Deployment Set trước khi mark unreferenced; không xóa shared entry/resource nếu workload khác còn tham chiếu. Shared conflict và before-state mismatch dừng ở pure planning, trước mọi external side effect.
+Giống UC-06: immutable Delta Snapshot/Candidate Set/plan được persist trước external execution. Shared-resource ownership được tính từ toàn Candidate Deployment Set trước khi mark unreferenced; không xóa shared entry/resource nếu workload khác còn tham chiếu. Shared conflict và before-state mismatch dừng ở pure planning, trước mọi external side effect.
 
 ## Planned tests
 
@@ -53,5 +53,7 @@ Giống UC-06. Shared-resource ownership được tính từ toàn Candidate Dep
 - `TestPlan_RejectsSharedConflict`.
 - `TestPlan_DropsSharedResourceWhenTheLastWorkloadStopsDeclaringIt`.
 - `TestPlan_KeepsSharedResourceWhileAnotherWorkloadReferencesIt`.
+- `TestPlan_UpdateUsesModuleRelativePatch`.
+- `TestPlan_RemoveUsesModulesRemoveAndSharedPatch`.
 - `TestRemoveWorkload_MarksResourceUnreferencedWithoutDestroy`.
 - `TestRemoveWorkload_PreservesSharedDatabaseUsedByWorker`.

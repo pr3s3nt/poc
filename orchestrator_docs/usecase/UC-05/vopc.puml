@@ -14,11 +14,14 @@ class PlanningService <<control>> {
 class ScoreConverter <<control>> {
   +ConvertAndValidate(score, resourceTypes): WorkloadFragment
 }
+class WorkloadSpecValidator <<control>> {
+  +ValidateContainerResources(fragment)
+}
 class BeforeStateValidator <<control>> {
   +Validate(current, workloadID, before)
 }
 class DeltaBuilder <<control>> {
-  +Build(currentSet, workloadID, before, after): DeltaResult
+  +BuildHumanitecDelta(currentSet, workloadID, before, after): DeltaResult
 }
 class ImplicitResourceEnricher <<control>> {
   +Enrich(candidate, profile, context): ImplicitResources
@@ -40,6 +43,19 @@ class ActiveResourceClassifier <<control>> {
 }
 class DeploymentPlan <<entity>>
 class DeploymentPreview <<entity>>
+class DeploymentDeltaDocument <<value>> {
+  +Modules: ModuleDelta
+  +Shared: List<JSONPatchOperation>
+}
+class ModuleDelta <<value>> {
+  +Add: Map<WorkloadID, Module>
+  +Remove: List<WorkloadID>
+  +Update: Map<WorkloadID, List<JSONPatchOperation>>
+}
+class ContainerResourceRequirements <<value>> {
+  +Requests: ComputeResources
+  +Limits: ComputeResources
+}
 interface PlanningSnapshotRepository {
   +Load(ctx, appID, envID): PlanningSnapshot
 }
@@ -48,6 +64,7 @@ PreviewService --> PlanningSnapshotRepository
 PreviewService --> PlanningService
 PreviewService ..> DeploymentPreview
 PlanningService --> ScoreConverter
+PlanningService --> WorkloadSpecValidator
 PlanningService --> BeforeStateValidator
 PlanningService --> DeltaBuilder
 PlanningService --> ImplicitResourceEnricher
@@ -57,4 +74,6 @@ PlanningService --> DriverContractInspector
 PlanningService --> BatchScheduler
 PlanningService --> ActiveResourceClassifier
 PlanningService ..> DeploymentPlan
+PlanningService ..> DeploymentDeltaDocument
+ScoreConverter ..> ContainerResourceRequirements
 @enduml

@@ -2,12 +2,13 @@
 id: DESIGN-GATE
 artifact: design-gate-review
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # Design Gate Review
 
-Review date: 2026-09-20. Implementation synchronization review: 2026-09-21.
+Review date: 2026-09-20. Implementation synchronization reviews: 2026-09-21
+and Humanitec gap reconciliation 2026-09-22.
 
 ## Scope
 
@@ -44,7 +45,7 @@ Result: không còn operation P0 trùng owner.
 ### Transaction review
 
 - Không giữ transaction qua external call.
-- Candidate Set/Plan persisted trước execution nhưng chưa là current.
+- Immutable Delta Snapshot/Candidate Set/Plan persisted trước execution nhưng Candidate Set chưa là current.
 - Resource progress persisted per node.
 - Final optimistic transaction commit current set/workloads/deployment success.
 
@@ -74,8 +75,32 @@ Result: hai happy path đầy đủ ở mức thiết kế.
 - Matching Criteria dùng đúng năm field `env_type`, `app_id`, `env_id`, `res_id`, `class`; không có field profile riêng.
 - UC-07 planning đã validate before shared contribution, từ chối shared conflict và giữ shared entry khi workload khác còn tham chiếu; runtime update/remove vẫn thuộc Phase 6 bước 7.
 - Terraform runtime của MVP chỉ execute module nhúng; remote source inspection trong conformance harness không được xem là runtime support.
-- Conformance chạy 33 fixture: accepted artifacts được so sánh; rejected fixtures mới xác nhận rejection status, chưa đối chiếu structured error contract.
+- Conformance chạy 33 fixture: accepted Candidate Set/graph/matching/batches/classification/Terraform artifacts được so sánh; Delta không được assert và rejected fixtures mới xác nhận rejection status, chưa đối chiếu structured error contract.
+
+### Humanitec gap reconciliation 2026-09-22
+
+- Delta Snapshot design dùng `modules.add/remove/update` và `shared`, relative JSON Patch,
+  deterministic array diff và immutable persisted artifact; current code vẫn là
+  flat whole-document patch (IMP-008).
+- Score subset giữ typed `containers.*.resources.requests/limits` đến workload
+  renderer; current parser rejects field và renderer hard-code requests
+  (IMP-009).
+- Container resources thuộc UC-06 workload path, không làm thay đổi UC-08
+  resource-only execution boundary.
+- 33-fixture harness không assert Delta và fixture bundle không có container
+  resources, nên cần product contract tests riêng.
+- Standalone Delta API, async/full-set/incremental lifecycle và content-addressed
+  Set IDs vẫn deferred tại D05.
+- Resource Definition/Score boundary differences được phân loại tập trung trong
+  compatibility matrix; lifecycle/mapping tương thích được deferred tại D06.
+- Conformance loader empty-criteria normalization trái product registration
+  invariant và challenge adapter semantics, được ghi là IMP-010; 33-fixture
+  pass không bao phủ nhánh này.
 
 ## Gate decision
 
-**PASS.** Toàn bộ 27 PlantUML sources parse/render thành công và coverage check tìm thấy đủ 75/75 main-flow step. Không còn gap P0 trong scope happy path. Phase 6 có thể bắt đầu bằng walking skeleton Go cho UC-06/UC-08, React web-console shell và acceptance application frontend/backend/worker/shared database.
+**PASS cho design coverage.** Toàn bộ 27 PlantUML sources parse/render thành
+công và coverage check tìm thấy đủ 75/75 main-flow step. IMP-008/009 là
+implementation gaps đã được trace đầy đủ; phải đóng trước khi tuyên bố UC-05/06
+conform với hai contract mới hoặc empty-criteria adapter semantics. Executable kind/AWS baseline lịch sử vẫn có giá
+trị trong phạm vi behavior đã kiểm chứng, không phải bằng chứng cho hai gap này.
