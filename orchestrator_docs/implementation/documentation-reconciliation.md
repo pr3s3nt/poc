@@ -2,7 +2,7 @@
 id: DOCUMENTATION-RECONCILIATION-2026-09-21
 artifact: documentation-reconciliation
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # Documentation reconciliation — consolidated plan retirement
@@ -24,7 +24,7 @@ và nhật ký. Nó đã được thay bằng một historical pointer sau audit
 |---|---|
 | Project objective and current completion | [`CURRENT_STATE.md`](../CURRENT_STATE.md) |
 | Phase 1–5/design gate conclusion | [`traceability/design-gate.md`](../traceability/design-gate.md) và current state |
-| Phase 6 next steps | [`iterations/I06-04-uc09-observability.md`](../iterations/I06-04-uc09-observability.md) và backlog |
+| Phase 6 next steps | [Iteration index](../iterations/README.md) và backlog |
 | Accepted architecture decisions | Existing [ADR index](../architecture/decisions/README.md) và canonical architecture/specifications |
 | Package/source layout | [`package-layout.md`](package-layout.md) và [`code-map.md`](code-map.md) |
 | Walking-skeleton evidence | [`verification/2026-09-21-walking-skeleton.md`](../verification/2026-09-21-walking-skeleton.md) |

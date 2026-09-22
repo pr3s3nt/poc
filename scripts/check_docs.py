@@ -24,6 +24,8 @@ ALLOWED_STATUS = {
 }
 LINK_RE = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
 USE_CASE_RE = re.compile(r"UC-\d{2}")
+MILESTONE_DIR_RE = re.compile(r"M\d{2}-[a-z0-9-]+")
+ITERATION_DIR_RE = re.compile(r"I\d{2}-\d{2}-[a-z0-9-]+")
 REQUIRED_USE_CASE_FILES = (
     "README.md",
     "specification.md",
@@ -31,6 +33,7 @@ REQUIRED_USE_CASE_FILES = (
     "sequence.puml",
     "vopc.puml",
 )
+REQUIRED_ITERATION_FILES = ("README.md", "WORK_ITEMS.md")
 RETIRED_ROOT_PATHS = (
     "AGENT.md",
     "deployment-delta-problem.md",
@@ -161,6 +164,83 @@ def validate_diagram_pairs(errors: list[str]) -> None:
             )
 
 
+def validate_iteration_packages(errors: list[str]) -> None:
+    iteration_root = DOCS / "iterations"
+    iteration_index = iteration_root / "README.md"
+    if not iteration_index.is_file():
+        return
+
+    index_text = iteration_index.read_text(encoding="utf-8")
+    current_iterations: list[Path] = []
+    current_milestones: list[Path] = []
+
+    legacy_records = sorted(
+        path for path in iteration_root.glob("*.md") if path.name != "README.md"
+    )
+    for path in legacy_records:
+        errors.append(
+            "iteration record must live in a milestone/iteration folder: "
+            f"{path.relative_to(ROOT)}"
+        )
+
+    for milestone in sorted(path for path in iteration_root.glob("M*") if path.is_dir()):
+        if not MILESTONE_DIR_RE.fullmatch(milestone.name):
+            errors.append(f"invalid milestone directory: {milestone.relative_to(ROOT)}")
+            continue
+
+        milestone_readme = milestone / "README.md"
+        if not milestone_readme.is_file():
+            errors.append(
+                f"milestone has no README: {milestone.relative_to(ROOT)}"
+            )
+            continue
+        if f"({milestone.name}/README.md)" not in index_text:
+            errors.append(
+                f"iteration index does not register {milestone.name}/README.md"
+            )
+
+        milestone_text = milestone_readme.read_text(encoding="utf-8")
+        milestone_metadata, milestone_error = parse_front_matter(milestone_text)
+        if not milestone_error and milestone_metadata.get("status") == "current":
+            current_milestones.append(milestone_readme)
+
+        for iteration in sorted(path for path in milestone.glob("I*") if path.is_dir()):
+            if not ITERATION_DIR_RE.fullmatch(iteration.name):
+                errors.append(f"invalid iteration directory: {iteration.relative_to(ROOT)}")
+                continue
+            for filename in REQUIRED_ITERATION_FILES:
+                path = iteration / filename
+                if not path.is_file():
+                    errors.append(
+                        f"incomplete iteration package; missing: {path.relative_to(ROOT)}"
+                    )
+
+            iteration_readme = iteration / "README.md"
+            if not iteration_readme.is_file():
+                continue
+            if f"({iteration.name}/README.md)" not in milestone_text:
+                errors.append(
+                    f"{milestone.relative_to(ROOT)}/README.md does not register "
+                    f"{iteration.name}/README.md"
+                )
+            metadata, error = parse_front_matter(
+                iteration_readme.read_text(encoding="utf-8")
+            )
+            if not error and metadata.get("status") == "current":
+                current_iterations.append(iteration_readme)
+
+    if len(current_milestones) != 1:
+        errors.append(
+            "exactly one milestone must be current; found "
+            f"{len(current_milestones)}"
+        )
+    if len(current_iterations) != 1:
+        errors.append(
+            "exactly one iteration plan must be current; found "
+            f"{len(current_iterations)}"
+        )
+
+
 def main() -> int:
     errors: list[str] = []
     ids: dict[str, Path] = {}
@@ -171,6 +251,7 @@ def main() -> int:
             errors.append(f"retired root path must not exist: {relative}")
 
     validate_use_case_packages(errors)
+    validate_iteration_packages(errors)
     validate_diagram_pairs(errors)
 
     for path in markdown_candidates():

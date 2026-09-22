@@ -2,16 +2,16 @@
 id: UC-09-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # UC-09 context — Observe deployment
 
 ## Delivery state
 
-Partially implemented and the active iteration. List/detail, graph, batches,
-resources, workloads and redacted outputs exist; history/filter/state comparison
-remain.
+Partially implemented and reprioritized after M01 contract hardening.
+List/detail, graph, batches, resources, workloads and redacted outputs exist;
+history/filter/state comparison remain.
 
 ## Read in this order
 
@@ -19,7 +19,7 @@ remain.
 2. [Realization](realization.md)
 3. [Sequence](sequence.puml)
 4. [VOPC](vopc.puml)
-5. [Active iteration](../../iterations/I06-04-uc09-observability.md)
+5. [Deferred I06-04 iteration](../../iterations/M02-usecase-completion/I06-04-uc09-observability/README.md)
 6. [Deployment state machine](../../architecture/state-machines/deployment.puml)
 
 ## Implementation entry points

@@ -2,19 +2,37 @@
 id: ITERATION-INDEX
 artifact: iteration-index
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # Iteration index
 
 ## Active
 
-- [I06-04 — UC-09 observability](I06-04-uc09-observability.md)
+- [M01 — Contract hardening](M01-contract-hardening/README.md)
+  - [I06-05 — Fix conformance catalog semantics](M01-contract-hardening/I06-05-imp010-conformance-catalog/README.md)
 
-Mỗi iteration record sở hữu objective, scope, exit criteria và next action của
-một increment. Nó không định nghĩa product requirement; requirement vẫn nằm
-trong use-case specification.
+## Roadmap
 
-Khi iteration kết thúc, cập nhật outcome/verification links và chuyển status
-sang `historical`. Tạo file mới cho iteration kế tiếp thay vì nối thêm nhật ký
-không liên quan.
+1. [M01 — Contract hardening](M01-contract-hardening/README.md): IMP-010 →
+   IMP-008 → IMP-009.
+2. [M02 — Use-case completion](M02-usecase-completion/README.md): hoàn thiện
+   UC-09, UC-05, UC-07 và management flows UC-01..04.
+3. [M03 — Production and external compatibility](M03-production-compatibility/README.md):
+   IMP-001, rồi IMP-006/007 khi boundary tương ứng được yêu cầu.
+
+## Folder contract
+
+Mỗi milestone folder có `README.md` sở hữu objective, order và milestone exit
+criteria. Mỗi iteration folder chỉ có:
+
+- `README.md`: charter, scope, dependencies, exit criteria, status và outcome;
+- `WORK_ITEMS.md`: implementation order, code/test impact và handoff checklist.
+
+Iteration không sở hữu product requirement hoặc architecture. Agent phải đọc
+canonical specification/realization/architecture được link, không sửa chúng để
+hợp thức hóa code. Execution evidence nằm trong `verification/`, không sao chép
+vào iteration folder.
+
+Chỉ một iteration có status `current`. Iteration chưa đến lượt dùng `deferred`;
+khi hoàn thành, ghi outcome/verification links và chuyển sang `historical`.

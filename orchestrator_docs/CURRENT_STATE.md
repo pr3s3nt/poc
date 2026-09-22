@@ -15,7 +15,9 @@ thực. Internal happy path đã được kiểm chứng trên kind; cloud happy
 kiểm chứng trên AWS với VPC, EKS và Aurora rồi cleanup.
 
 Active iteration là
-[I06-04 — UC-09 observability](iterations/I06-04-uc09-observability.md).
+[I06-05 — Fix conformance catalog semantics](iterations/M01-contract-hardening/I06-05-imp010-conformance-catalog/README.md)
+thuộc [M01 — Contract hardening](iterations/M01-contract-hardening/README.md).
+I06-04 UC-09 được reprioritize sang M02, chưa hoàn thành hoặc bị loại scope.
 
 ## Use-case delivery state
 
@@ -29,7 +31,7 @@ Active iteration là
 | UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; IMP-008/009 chưa hiện thực. Conformance harness còn IMP-010. |
 | UC-07 | Partial | Planner hỗ trợ before/shared rules nhưng chưa sinh Humanitec-shaped Delta; update/remove system flow và UI chưa hoàn thiện. |
 | UC-08 | Implemented and E2E verified | Kubernetes và Terraform resource execution, output propagation và persistence baseline đã pass. |
-| UC-09 | Partially implemented; active | Deployment list/detail, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison chưa hoàn thiện. |
+| UC-09 | Partially implemented; deferred behind M01 | Deployment list/detail, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison tiếp tục ở M02/I06-04. |
 
 ## Executable baseline
 

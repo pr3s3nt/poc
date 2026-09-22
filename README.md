@@ -24,7 +24,7 @@ README này.
 - [AI agent workflow](AGENTS.md)
 - [Documentation index](orchestrator_docs/INDEX.md)
 - [Current project state](orchestrator_docs/CURRENT_STATE.md)
-- [Active iteration](orchestrator_docs/iterations/I06-04-uc09-observability.md)
+- [Active iteration](orchestrator_docs/iterations/M01-contract-hardening/I06-05-imp010-conformance-catalog/README.md)
 - [Backend implementation guide](backend/README.md)
 - [Web Console guide](frontend/README.md)
 - [Project glossary](orchestrator_docs/GLOSSARY.md)

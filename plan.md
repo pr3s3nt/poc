@@ -2,7 +2,7 @@
 id: HISTORICAL-DEVELOPMENT-PLAN
 artifact: historical-plan-pointer
 status: historical
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # Historical development plan
@@ -20,7 +20,7 @@ Các khái niệm hiện hành đã được chuyển theo
 Đọc các nguồn hiện tại sau:
 
 - [Current project state](orchestrator_docs/CURRENT_STATE.md)
-- [Active iteration](orchestrator_docs/iterations/I06-04-uc09-observability.md)
+- [Active iteration](orchestrator_docs/iterations/M01-contract-hardening/I06-05-imp010-conformance-catalog/README.md)
 - [Backlog](orchestrator_docs/backlog/README.md)
 - [Verification evidence](orchestrator_docs/verification/README.md)
 - [Operations](orchestrator_docs/operations/README.md)

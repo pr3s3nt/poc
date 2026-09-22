@@ -2,7 +2,7 @@
 id: DOC-RULES
 artifact: documentation-standard
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # Documentation rules
@@ -45,6 +45,9 @@ cải thiện navigation. Ngày review không tự quyết định authority.
 - Operation docs ghi procedure hiện hành.
 - Verification record ghi execution cụ thể và không được sửa để mô tả run mới.
 - Current state tổng hợp implemented scope; không định nghĩa requirement.
+- Milestone/iteration docs sở hữu work order, scope và exit criteria; không sao
+  chép hoặc thay thế use-case/architecture requirement. `WORK_ITEMS.md` chỉ là
+  implementation checklist; execution evidence vẫn nằm trong `verification/`.
 
 Một khái niệm current chỉ có một canonical owner. Artifact khác nên link hoặc
 tóm tắt rõ ràng, không tạo định nghĩa độc lập.
