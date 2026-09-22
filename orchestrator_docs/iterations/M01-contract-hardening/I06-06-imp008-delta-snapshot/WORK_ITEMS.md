@@ -1,7 +1,7 @@
 ---
 id: I06-06-WORK
 artifact: iteration-work-items
-status: current
+status: historical
 last_reviewed: 2026-09-22
 related: I06-06
 ---
@@ -30,8 +30,8 @@ related: I06-06
 
 ## Handoff checklist
 
-- [ ] No D05 API/lifecycle implemented.
-- [ ] Canonical design files were not changed to fit code.
-- [ ] All old flat-Delta call sites were searched and handled.
-- [ ] IMP-008 removed only after full backend regression passes.
-- [ ] Dated verification record links exact commands/results.
+- [x] No D05 API/lifecycle implemented.
+- [x] Canonical design files were not changed to fit code.
+- [x] All old flat-Delta call sites were searched and handled.
+- [x] IMP-008 removed only after full backend regression passes.
+- [x] Dated verification record links exact commands/results.

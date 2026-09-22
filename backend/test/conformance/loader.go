@@ -10,8 +10,8 @@
 //   - Every Environment gets implicit profile infrastructure (a namespace and a
 //     cluster), which the challenge has no concept of.
 //
-// For accepted fixtures, Deployment Set shape, resource identity, delta
-// invariant, params, matching, references, co-provision, batching, Terraform
+// For accepted fixtures, Deployment Set shape, the Humanitec-shaped Delta
+// document and its base + delta = candidate invariant, resource identity, params, matching, references, co-provision, batching, Terraform
 // contracts and Active Resource classification are compared against expected
 // artifacts. Rejected fixtures currently assert rejection status only; matching
 // the reference error code/phase/path is a later error-contract increment.
@@ -75,6 +75,7 @@ type Case struct {
 type Expected struct {
 	Rejected      bool
 	ErrorCode     string
+	Delta         map[string]any
 	DeploymentSet map[string]any
 	Plan          map[string]any
 }
@@ -414,6 +415,9 @@ func readExpected(dir string) (*Expected, error) {
 		return expected, nil
 	}
 
+	if err := readYAML(filepath.Join(dir, "expected", "delta.yaml"), &expected.Delta); err != nil {
+		return nil, err
+	}
 	if err := readYAML(filepath.Join(dir, "expected", "deployment-set.yaml"), &expected.DeploymentSet); err != nil {
 		return nil, err
 	}

@@ -69,7 +69,7 @@ UC-05 Validate and Preview
 ## Trạng thái implementation hiện tại
 
 - `PlanningService` dùng chung đã triển khai Score validation, Candidate Set, graph/matching, contract inspection, classification và batches; 33 challenge fixture được chạy qua planner sản phẩm với các khác biệt đã tài liệu hóa.
-- Implementation hiện sinh JSON Patch phẳng cho toàn document, chưa có Humanitec-shaped Delta Snapshot; parser cũng đang reject `containers.*.resources`. Hai khoảng lệch được theo dõi trong known deviations và không được 33 fixture hiện tại phát hiện.
+- Planner sinh Humanitec-shaped Delta `modules.add/remove/update` và `shared`; patch `modules.update.<id>` relative với module, patch `shared` relative với object shared, array diff theo BR-06 có product tests riêng và conformance so Delta của 27 accepted fixtures. Deployment path của UC-06 persist Delta thành immutable Snapshot riêng; preview không persist Snapshot. Parser vẫn reject `containers.*.resources` (IMP-009).
 - UC-06 đang gọi pipeline này để deploy thật. `PreviewService`, endpoint và màn hình Preview read-only của UC-05 chưa được wire và vẫn thuộc Phase 6 bước 6.
 
 ## Ngoài phạm vi happy path

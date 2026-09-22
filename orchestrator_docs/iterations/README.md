@@ -10,12 +10,12 @@ last_reviewed: 2026-09-22
 ## Active
 
 - [M01 — Contract hardening](M01-contract-hardening/README.md)
-  - [I06-06 — Implement Deployment Delta Snapshot](M01-contract-hardening/I06-06-imp008-delta-snapshot/README.md)
+  - [I06-07 — Preserve Score container resources](M01-contract-hardening/I06-07-imp009-container-resources/README.md)
 
 ## Roadmap
 
 1. [M01 — Contract hardening](M01-contract-hardening/README.md): IMP-010
-   (done, I06-05) → IMP-008 → IMP-009.
+   (done, I06-05) → IMP-008 (done, I06-06) → IMP-009.
 2. [M02 — Use-case completion](M02-usecase-completion/README.md): hoàn thiện
    UC-09, UC-05, UC-07 và management flows UC-01..04.
 3. [M03 — Production and external compatibility](M03-production-compatibility/README.md):

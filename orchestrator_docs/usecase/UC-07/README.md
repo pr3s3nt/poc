@@ -11,8 +11,8 @@ last_reviewed: 2026-09-22
 
 Partially implemented. Planner covers before/shared validation, conflicts and
 last-reference preservation; full update/remove operation, execution and UI do
-not. Delta is still a flat whole-document patch rather than the accepted
-Humanitec-shaped contract.
+not. The planner builds the Humanitec-shaped `modules.add/remove/update` and
+`shared` Delta (I06-06).
 
 ## Read in this order
 

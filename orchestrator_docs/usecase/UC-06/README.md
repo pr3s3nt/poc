@@ -10,9 +10,9 @@ last_reviewed: 2026-09-22
 ## Delivery state
 
 Implemented and end-to-end verified through HTTP on kind and AWS. Cloud rerun is
-still a release gate after the last planning changes. Executable happy path does
-not yet implement the Humanitec-shaped Delta or Score container resources now
-specified by IMP-008/009.
+still a release gate after the last planning changes. Each Deployment persists
+an immutable Humanitec-shaped `DeploymentDeltaSnapshot` (I06-06). Score
+container resources are not yet implemented (IMP-009).
 
 ## Read in this order
 

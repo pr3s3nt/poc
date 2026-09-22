@@ -39,6 +39,7 @@ type Deployment struct {
 	BaseEnvironmentVersion int64      `json:"baseEnvironmentVersion"`
 	BaseDeploymentSetID    string     `json:"baseDeploymentSetId"`
 	CandidateDeploymentSet string     `json:"candidateDeploymentSetId"`
+	DeltaSnapshotID        string     `json:"deltaSnapshotId,omitempty"`
 	FailureReason          string     `json:"failureReason,omitempty"`
 	StartedAt              time.Time  `json:"startedAt"`
 	FinishedAt             *time.Time `json:"finishedAt,omitempty"`

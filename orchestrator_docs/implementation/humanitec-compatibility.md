@@ -22,7 +22,7 @@ resources hoặc các dòng khác trong bảng này.
 
 | Area | Humanitec/Score contract | Product baseline | Classification | Tracking |
 |---|---|---|---|---|
-| Delta document shape | `modules.add/remove/update` và `shared`; module patch relative với module, shared patch relative với shared object. | Canonical design dùng cùng shape; code còn tạo whole-document JSON Patch. | Implementation gap | IMP-008 |
+| Delta document shape | `modules.add/remove/update` và `shared`; module patch relative với module, shared patch relative với shared object. | Planner sinh cùng shape, relative patches, array diff theo index/`/-` và no-op `{}`; 27 accepted fixtures so byte-for-byte với `expected/delta.yaml`. | Aligned | I06-06 |
 | Delta lifecycle | Humanitec Delta có identity riêng, có thể cập nhật và chỉ không còn cập nhật được sau khi archive. | MVP tạo một snapshot bất biến cho từng Deployment; không gọi snapshot này là Humanitec Delta entity. | Deferred compatibility | D05 |
 | Deploy API/lifecycle | Deploy có thể tham chiếu Delta/Set và theo dõi lifecycle bất đồng bộ; full/incremental là capability riêng. | Happy-path API nhận Score, chạy đồng bộ, provision theo full-style resource batches và chỉ apply workload mục tiêu. | Deferred compatibility | D05 |
 | Deployment Set identity | Humanitec-oriented compatibility cần content-addressed identity. | MVP lưu UUID và `document_hash` riêng. | Deferred compatibility | D05 |

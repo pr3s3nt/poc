@@ -14,6 +14,10 @@ import (
 // ErrNotFound is returned when an aggregate does not exist.
 var ErrNotFound = errors.New("persistence: not found")
 
+// ErrImmutable is returned when a write would change an immutable record or
+// association.
+var ErrImmutable = errors.New("persistence: immutable record")
+
 // ErrVersionConflict is returned when an optimistic version check fails.
 var ErrVersionConflict = errors.New("persistence: version conflict")
 
@@ -57,6 +61,14 @@ type DeploymentRepository interface {
 	ListDeploymentResources(ctx context.Context, deploymentID string) ([]deployment.Resource, error)
 }
 
+// DeltaSnapshotRepository owns immutable Deployment Delta Snapshots. A
+// Snapshot is written once and referenced by exactly one Deployment through
+// Deployment.DeltaSnapshotID (deployments.delta_snapshot_id UNIQUE).
+type DeltaSnapshotRepository interface {
+	SaveDeltaSnapshot(ctx context.Context, snapshot deployment.DeploymentDeltaSnapshot) error
+	GetDeltaSnapshot(ctx context.Context, id string) (deployment.DeploymentDeltaSnapshot, error)
+}
+
 // ActiveResourceRepository owns Active Resource logical identity and state.
 type ActiveResourceRepository interface {
 	FindByLogicalIdentity(ctx context.Context, organizationKey string, descriptor resource.Descriptor, scope resource.Scope) (resource.ActiveResource, error)
@@ -81,6 +93,7 @@ type Store interface {
 	EnvironmentRepository
 	CatalogRepository
 	DeploymentRepository
+	DeltaSnapshotRepository
 	ActiveResourceRepository
 	WorkloadInstanceRepository
 	UnitOfWork

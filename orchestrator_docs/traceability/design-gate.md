@@ -98,6 +98,18 @@ Result: hai happy path đầy đủ ở mức thiết kế.
   invariant và challenge adapter semantics, được ghi là IMP-010; 33-fixture
   pass không bao phủ nhánh này.
 
+### Delta Snapshot implementation 2026-09-22
+
+- I06-06 hiện thực `DeploymentDeltaSnapshot`, `ModuleDelta`,
+  `JSONPatchOperation` và `DeltaBuilder.BuildHumanitecDelta`; flat
+  whole-document patch đã bị xóa khỏi plan/persistence/query path (IMP-008
+  đã đóng).
+- Conformance so Delta của 27 accepted fixtures với `expected/delta.yaml` và
+  kiểm `base + delta = candidate`; array diff, shared remove và persistence có
+  product tests riêng.
+- Schema `deployments.delta_snapshot_id NOT NULL` chưa được enforce cho
+  Deployment `PLANNING`/planning-`FAILED` (IMP-011).
+
 ### Conformance catalog semantics 2026-09-22
 
 - I06-05 đóng IMP-010: conformance adapter bỏ Definition thiếu criteria hoặc
@@ -109,8 +121,9 @@ Result: hai happy path đầy đủ ở mức thiết kế.
 ## Gate decision
 
 **PASS cho design coverage.** Toàn bộ 27 PlantUML sources parse/render thành
-công và coverage check tìm thấy đủ 75/75 main-flow step. IMP-008/009 là
-implementation gaps đã được trace đầy đủ; phải đóng trước khi tuyên bố UC-05/06
-conform với hai contract mới. Empty-criteria adapter semantics đã được đóng ở
-I06-05. Executable kind/AWS baseline lịch sử vẫn có giá
-trị trong phạm vi behavior đã kiểm chứng, không phải bằng chứng cho hai gap này.
+công và coverage check tìm thấy đủ 75/75 main-flow step. IMP-008 (Delta
+Snapshot) đã đóng ở I06-06; IMP-009 là implementation gap đã được trace đầy đủ
+và phải đóng trước khi tuyên bố UC-05/06 conform với container-resource
+contract. Empty-criteria adapter semantics đã được đóng ở I06-05. Executable
+kind/AWS baseline lịch sử vẫn có giá trị trong phạm vi behavior đã kiểm chứng,
+không phải bằng chứng cho Delta Snapshot hoặc IMP-009.

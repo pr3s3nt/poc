@@ -81,7 +81,7 @@ UC-07 Update or Remove Workload
 
 ## Trạng thái implementation hiện tại
 
-- Planner đã validate module và từng shared entry trong `before Score`, từ chối shared conflict, tạo Candidate Set và giữ nguyên các module khác. Delta hiện vẫn là patch phẳng toàn document, chưa đúng BR-07.
+- Planner đã validate module và từng shared entry trong `before Score`, từ chối shared conflict, tạo Candidate Set và giữ nguyên các module khác. Planner sinh Delta theo BR-07: module add/remove/update nằm trong `modules.add/remove/update`, patch relative với module hoặc object shared và array semantics theo UC-05 BR-06 được test; conformance so Delta cho 27 accepted fixtures.
 - Shared entry chỉ bị loại khi workload thôi khai báo và không còn module khác tham chiếu; planner đã phân loại Active Resource thành `existing`, `new` và `unreferenced`.
 - Runtime update/delete workload, reconcile state và API/UI cho UC-07 chưa được wire; phần này vẫn thuộc Phase 6 bước 7.
 

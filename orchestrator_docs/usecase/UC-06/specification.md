@@ -157,7 +157,7 @@ hard-code Application hay Environment.
 
 ## Trạng thái implementation hiện tại
 
-- **UC-06a Plan Deployment:** đã có Score conversion, Candidate Set, descriptor theo Deployment Set path, implicit infrastructure theo profile, fixed-point graph expansion, matching, Terraform contract inspection, Active Resource classification và provider-first batches. Delta implementation hiện là patch phẳng, chưa đúng BR-10; Score parser hiện reject container resources theo BR-11.
+- **UC-06a Plan Deployment:** đã có Score conversion, Candidate Set, descriptor theo Deployment Set path, implicit infrastructure theo profile, fixed-point graph expansion, matching, Terraform contract inspection, Active Resource classification và provider-first batches. Planner sinh Humanitec-shaped Delta `modules.add/remove/update` và `shared` theo BR-10, với patch relative đúng module/shared scope và array semantics được test; mỗi Deployment persist immutable `DeploymentDeltaSnapshot` riêng và conformance so Delta cho 27 accepted fixtures. Score parser hiện vẫn reject container resources theo BR-11 (IMP-009).
 - **UC-06b Execute Deployment:** đã có fake, Kubernetes và Terraform adapters; output propagation; workload render/apply; API/Web Console; in-memory store kèm JSON snapshot. Renderer hiện hard-code resource request tối thiểu thay vì lấy requests/limits từ Score. Internal happy path đã verify trên kind và cloud happy path đã verify trên AWS.
 - Mỗi request xử lý đúng một Score/workload. Acceptance flow gọi tuần tự ba deployment `backend`, `worker`, `frontend`; database là shared resource được giữ/reuse qua cùng descriptor.
 - PostgreSQL system-of-record và Terraform state backend bền vững chưa được triển khai; state hiện tại chỉ phù hợp executable baseline/verification.

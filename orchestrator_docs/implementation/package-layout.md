@@ -96,6 +96,7 @@ frontend/                                   # Orchestrator Web Console
   workload node không được match/execute (UC-08 chỉ execute resource node) và orchestrator thêm
   namespace/cluster implicit mà challenge không có. 27 accepted fixture được so sánh artifact;
   6 rejected fixture hiện chỉ xác nhận planner từ chối, chưa đối chiếu error code/phase/path.
-  Harness không so expected Delta và bundle không có container requests/limits, nên hai contract
-  này cần product tests riêng theo IMP-008/009.
+  Harness so expected Delta (`expected/delta.yaml`) và kiểm `base + delta = candidate`; bundle
+  không có array diff hoặc container requests/limits, nên hai vùng này có product tests riêng
+  (`internal/planning/jsonpatch`, `internal/planning/delta_test.go`, IMP-009).
   Dependency `gopkg.in/yaml.v3` chỉ dùng ở harness này.

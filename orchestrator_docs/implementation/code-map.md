@@ -18,6 +18,9 @@ last_reviewed: 2026-09-22
 | Application/Connection domain | [`backend/internal/domain/application`](../../backend/internal/domain/application/) |
 | Environment/Deployment Set domain | [`backend/internal/domain/environment`](../../backend/internal/domain/environment/) |
 | Deployment lifecycle/read model | [`backend/internal/domain/deployment`](../../backend/internal/domain/deployment/) |
+| `DeploymentDeltaSnapshot`, `DeltaDocument`, `ModuleDelta`, `JSONPatchOperation` | [`backend/internal/domain/deployment/delta.go`](../../backend/internal/domain/deployment/delta.go) |
+| `DeltaBuilder.BuildHumanitecDelta`, `DiffDeploymentSets`, `ApplyHumanitecDelta`, `VerifyDelta` | [`backend/internal/planning/delta.go`](../../backend/internal/planning/delta.go) |
+| Deterministic relative JSON Patch diff/apply | [`backend/internal/planning/jsonpatch`](../../backend/internal/planning/jsonpatch/) |
 | Resource contracts and lifecycle | [`backend/internal/domain/resource`](../../backend/internal/domain/resource/) |
 | Score/delta/graph/matching/batches | [`backend/internal/planning`](../../backend/internal/planning/) |
 | Persistence ports | [`backend/internal/ports/persistence`](../../backend/internal/ports/persistence/) |
@@ -33,10 +36,14 @@ last_reviewed: 2026-09-22
 | Planner challenge conformance | [`backend/test/conformance`](../../backend/test/conformance/) |
 | kind/AWS verification | [`backend/test/integration`](../../backend/test/integration/) |
 
-Hai target contract chưa có implementation entry point hoàn chỉnh:
+`DeploymentDeltaSnapshotRepository` được hiện thực bởi
+`DeltaSnapshotRepository` trong persistence ports và `SaveDeltaSnapshot`/
+`GetDeltaSnapshot` của JSON snapshot store; `DeploymentService` lưu Snapshot
+trong transaction A và `QueryService` expose `delta`/`deltaDocumentHash` cho
+UC-09.
 
-- Humanitec-shaped `DeploymentDeltaSnapshot`/persistence đang là IMP-008; code hiện tại
-  nằm ở planning JSON patch phẳng và plan snapshot.
+Target contract chưa có implementation entry point hoàn chỉnh:
+
 - Container resource requests/limits đang là IMP-009; parser hiện reject field
   và Kubernetes renderer dùng requests hard-code.
 

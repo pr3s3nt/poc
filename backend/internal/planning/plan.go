@@ -8,7 +8,6 @@ import (
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning/jsonpatch"
 	"orchestrator/internal/planning/placeholder"
 	"orchestrator/internal/planning/score"
 	"orchestrator/internal/platform/canon"
@@ -58,30 +57,11 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		return nil, err
 	}
 
-	candidate, err := buildCandidate(base, req.WorkloadID, beforeFragment, afterFragment)
+	built, err := DeltaBuilder{}.BuildHumanitecDelta(base, req.WorkloadID, beforeFragment, afterFragment)
 	if err != nil {
 		return nil, err
 	}
-	if err := candidate.Validate(); err != nil {
-		return nil, err
-	}
-
-	baseMap, err := canon.Map(base)
-	if err != nil {
-		return nil, err
-	}
-	candidateMap, err := canon.Map(candidate)
-	if err != nil {
-		return nil, err
-	}
-	delta := jsonpatch.Diff(baseMap, candidateMap)
-	applied, err := jsonpatch.Apply(baseMap, delta)
-	if err != nil {
-		return nil, fmt.Errorf("planning: delta is not applicable: %w", err)
-	}
-	if !reflect.DeepEqual(applied, candidateMap) {
-		return nil, fmt.Errorf("planning: invariant violated: base + delta != candidate")
-	}
+	candidate := built.Candidate
 
 	builder := newGraphBuilder(ctx, req.Catalog)
 	namespace, err := builder.enrichProfile()
@@ -123,7 +103,7 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	plan := &Plan{
 		WorkloadID:     req.WorkloadID,
 		Action:         action,
-		Delta:          delta,
+		Delta:          built.Delta,
 		BaseSet:        base,
 		CandidateSet:   candidate,
 		Graph:          graph,

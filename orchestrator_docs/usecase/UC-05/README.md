@@ -10,8 +10,8 @@ last_reviewed: 2026-09-22
 ## Delivery state
 
 Planning core is implemented and shared with deployment; preview operation/API
-and Web Console experience are not complete. Humanitec-shaped Delta and
-container resource preservation are accepted design but remain IMP-008/009.
+and Web Console experience are not complete. The planner builds the
+Humanitec-shaped Delta (I06-06); container resource preservation remains IMP-009.
 
 ## Read in this order
 

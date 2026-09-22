@@ -9,7 +9,6 @@ import (
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning/jsonpatch"
 	"orchestrator/internal/planning/score"
 )
 
@@ -137,19 +136,21 @@ type Classification struct {
 
 // Plan is the immutable planning artifact persisted with a Deployment.
 type Plan struct {
-	WorkloadID     string               `json:"workloadId"`
-	Action         deployment.Action    `json:"action"`
-	ScoreBefore    map[string]any       `json:"scoreBefore,omitempty"`
-	ScoreAfter     map[string]any       `json:"scoreAfter,omitempty"`
-	Delta          []jsonpatch.Op       `json:"delta"`
-	BaseSet        environment.Document `json:"baseSet"`
-	CandidateSet   environment.Document `json:"candidateSet"`
-	Graph          Graph                `json:"graph"`
-	Matches        map[string]Match     `json:"matches"`
-	Terraform      []TerraformContract  `json:"terraform"`
-	Batches        [][]string           `json:"batches"`
-	Classification Classification       `json:"classification"`
-	PlanHash       string               `json:"planHash"`
+	WorkloadID  string            `json:"workloadId"`
+	Action      deployment.Action `json:"action"`
+	ScoreBefore map[string]any    `json:"scoreBefore,omitempty"`
+	ScoreAfter  map[string]any    `json:"scoreAfter,omitempty"`
+	// Delta is the transient Humanitec-shaped Delta document. It is not part
+	// of the persisted plan: UC-06/07 persist it as a DeploymentDeltaSnapshot.
+	Delta          deployment.DeltaDocument `json:"-"`
+	BaseSet        environment.Document     `json:"baseSet"`
+	CandidateSet   environment.Document     `json:"candidateSet"`
+	Graph          Graph                    `json:"graph"`
+	Matches        map[string]Match         `json:"matches"`
+	Terraform      []TerraformContract      `json:"terraform"`
+	Batches        [][]string               `json:"batches"`
+	Classification Classification           `json:"classification"`
+	PlanHash       string                   `json:"planHash"`
 }
 
 // Catalog is the read-only registry planning matches against.

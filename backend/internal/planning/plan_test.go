@@ -1,16 +1,13 @@
 package planning
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning/jsonpatch"
 	"orchestrator/internal/planning/score"
-	"orchestrator/internal/platform/canon"
 	"orchestrator/internal/seed"
 )
 
@@ -297,20 +294,8 @@ func TestPlan_DeltaKeepsInvariant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
-	baseMap, err := canon.Map(plan.BaseSet)
-	if err != nil {
-		t.Fatalf("canon: %v", err)
-	}
-	candidateMap, err := canon.Map(plan.CandidateSet)
-	if err != nil {
-		t.Fatalf("canon: %v", err)
-	}
-	applied, err := jsonpatch.Apply(baseMap, plan.Delta)
-	if err != nil {
-		t.Fatalf("apply: %v", err)
-	}
-	if !reflect.DeepEqual(applied, candidateMap) {
-		t.Fatal("base + delta != candidate")
+	if err := VerifyDelta(plan.BaseSet, plan.Delta, plan.CandidateSet); err != nil {
+		t.Fatal(err)
 	}
 }
 

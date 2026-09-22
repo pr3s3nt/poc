@@ -1,7 +1,7 @@
 ---
 id: I06-06
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-09-22
 related: IMP-008, UC-05, UC-06, UC-07
 ---
@@ -56,4 +56,24 @@ shape trước khi đổi domain model.
 
 ## Outcome
 
-Chưa thực hiện.
+Hoàn thành 2026-09-22; mọi exit criteria pass. IMP-008 đã đóng.
+
+- `backend/internal/domain/deployment/delta.go` thêm typed
+  `DeploymentDeltaSnapshot`, `DeltaDocument`, `ModuleDelta`,
+  `JSONPatchOperation`; no-op document là `{}` và Snapshot có `documentHash`.
+- `backend/internal/planning/delta.go` thêm `DeltaBuilder.BuildHumanitecDelta`,
+  `DiffDeploymentSets`, `ApplyHumanitecDelta`, `VerifyDelta`; planner luôn kiểm
+  `base + delta = candidate`.
+- `backend/internal/planning/jsonpatch` diff theo lexical key order, array theo
+  index, remove đuôi giảm dần và append `/-`.
+- `Plan.Delta []jsonpatch.Op` đã bị xóa; typed Delta không nằm trong persisted
+  plan và plan hash inputs giữ nguyên.
+- Persistence port/store lưu Snapshot riêng, bất biến, một-một với Deployment;
+  `DeploymentService` lưu trong transaction A; UC-09 view đọc `delta` từ
+  Snapshot.
+- Conformance so Delta của 27 accepted fixtures với `expected/delta.yaml`;
+  33/33 pass; `go test/build/vet ./...` pass.
+- Mâu thuẫn `NOT NULL` với Deployment `PLANNING` được ghi là IMP-011.
+- Evidence: [2026-09-22 IMP-008 Delta Snapshot](../../../verification/2026-09-22-imp008-delta-snapshot.md).
+
+Iteration kế tiếp: [I06-07](../I06-07-imp009-container-resources/README.md).

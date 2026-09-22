@@ -24,6 +24,6 @@ Các quyết định/khả năng deferred:
 
 MVP không giả lập lifecycle này bằng một entity cùng tên. Mỗi Deployment lưu
 `DeploymentDeltaSnapshot` bất biến, dùng Humanitec-shaped document để audit và
-execution. IMP-008/009 vẫn là accepted design–implementation gaps và không bị
-hoãn bởi record này: planner phải sinh đúng snapshot shape và giữ container
-resources trước khi tuyên bố contract compatibility.
+execution. Snapshot shape đã được hiện thực ở I06-06 (IMP-008 đã đóng). IMP-009
+vẫn là accepted design–implementation gap và không bị hoãn bởi record này:
+planner phải giữ container resources trước khi tuyên bố contract compatibility.

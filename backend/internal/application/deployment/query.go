@@ -36,17 +36,18 @@ type WorkloadView struct {
 
 // View is the read-only UC-09 deployment view.
 type View struct {
-	Deployment     domain.Deployment    `json:"deployment"`
-	DeploymentSet  environment.Document `json:"deploymentSet"`
-	SetID          string               `json:"deploymentSetId"`
-	Delta          any                  `json:"delta"`
-	Graph          any                  `json:"graph"`
-	Matches        any                  `json:"matches"`
-	Batches        any                  `json:"batches"`
-	Classification any                  `json:"classification"`
-	PlanHash       string               `json:"planHash"`
-	Resources      []ResourceView       `json:"resources"`
-	Workloads      []WorkloadView       `json:"workloads"`
+	Deployment     domain.Deployment     `json:"deployment"`
+	DeploymentSet  environment.Document  `json:"deploymentSet"`
+	SetID          string                `json:"deploymentSetId"`
+	Delta          *domain.DeltaDocument `json:"delta"`
+	DeltaHash      string                `json:"deltaDocumentHash,omitempty"`
+	Graph          any                   `json:"graph"`
+	Matches        any                   `json:"matches"`
+	Batches        any                   `json:"batches"`
+	Classification any                   `json:"classification"`
+	PlanHash       string                `json:"planHash"`
+	Resources      []ResourceView        `json:"resources"`
+	Workloads      []WorkloadView        `json:"workloads"`
 }
 
 // QueryService implements UC-09: assemble a read-only deployment view.
@@ -85,12 +86,20 @@ func (q *QueryService) GetDeployment(ctx context.Context, deploymentID string) (
 		}
 	}
 
+	if record.DeltaSnapshotID != "" {
+		snapshot, err := q.store.GetDeltaSnapshot(ctx, record.DeltaSnapshotID)
+		if err != nil {
+			return nil, err
+		}
+		view.Delta = &snapshot.Document
+		view.DeltaHash = snapshot.DocumentHash
+	}
+
 	plan, err := q.store.GetPlan(ctx, deploymentID)
 	if err != nil && !isNotFound(err) {
 		return nil, err
 	}
 	if plan != nil {
-		view.Delta = plan["delta"]
 		view.Graph = plan["graph"]
 		view.Matches = plan["matches"]
 		view.Batches = plan["batches"]

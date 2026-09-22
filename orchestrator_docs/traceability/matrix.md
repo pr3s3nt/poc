@@ -50,7 +50,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 |---|---|---|---|---|
 | MS-01 | `PreviewDeployment`; `UC-05/sequence.puml` | `PlanningSnapshotRepository.Load` | read current set/version | OC-06; no-mutation test |
 | MS-02, MS-03 | `PlanningService.Plan` | `ScoreConverter.ConvertAndValidate`, `WorkloadSpecValidator.ValidateContainerResources` | typed fragment with optional CPU/memory requests/limits | OC-07; Score fixture + container-resource contract tests |
-| MS-04 | same | `BeforeStateValidator.Validate`, `DeltaBuilder.BuildHumanitecDelta` | transient Humanitec-shaped Delta/Candidate | OC-07; shape, relative-patch, array-diff and invariant tests |
+| MS-04 | same | `BeforeStateValidator.Validate`, `DeltaBuilder.BuildHumanitecDelta` | transient Humanitec-shaped Delta/Candidate | OC-07; shape, relative-patch, array-diff and invariant tests (`internal/planning/delta_test.go`, `internal/planning/jsonpatch`, conformance `assertDelta`) |
 | MS-05 | same | `ImplicitResourceEnricher.Enrich`, `ResourceGraphBuilder.BuildAndExpand`, `DefinitionMatcher.MatchAll` | in-memory graph/matches | OC-07; AWS/internal graph tests |
 | MS-06, MS-07 | same | `DriverContractInspector.InspectContracts`, `ActiveResourceClassifier.Classify`, `BatchScheduler.Schedule` | in-memory plan | OC-07; contract/topology fixtures |
 | MS-08 | `PreviewDeployment` | return `DeploymentPreview` | no write/state transition | OC-06; adapter-not-called test |
@@ -60,7 +60,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
 | MS-01 | `DeployWorkload`; shared/cloud/internal sequences | `DeploymentService.DeployWorkload`, `EnvironmentRepository.LoadPlanningSnapshot`, `DeploymentRepository.Create` | `deployments=PLANNING`, base set/version | OC-08; both-profile tests |
-| MS-02, MS-03 | `PlanningService.Plan` | Score/workload validator/before/`BuildHumanitecDelta` | `deployment_delta_snapshots`, Candidate `deployment_sets` | OC-07/08; Delta shape/invariant and resource-preservation tests |
+| MS-02, MS-03 | `PlanningService.Plan` | Score/workload validator/before/`BuildHumanitecDelta` | `deployment_delta_snapshots`, Candidate `deployment_sets` | OC-07/08; Delta shape/invariant and resource-preservation tests; Snapshot persistence/association (`TestDeployWorkload_PersistsOneDeltaSnapshotPerDeployment`, `TestDeploymentReferencesExactlyOneDeltaSnapshot`) |
 | MS-04, MS-05, MS-06; BR-12 | same | profile load, `ResourceDescriptorParser.ParseDescriptorText`, `ImplicitResourceEnricher`, graph builder | canonical descriptors + graph JSON snapshot | OC-07; scoped-token and implicit-resource tests |
 | MS-07, MS-08 | same | matcher, inspector, classifier, scheduler | `deployment_plans`; `PROVISIONING` | OC-07/08; match/contract/DAG tests |
 | MS-09 | `ResourceProvisioningService.Provision` | UC-08 methods | `active_resources`, `deployment_resources` | OC-10; resource integration tests |
@@ -74,7 +74,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
 | MS-01, MS-02 | update/remove; `UC-07/sequence.puml` | load snapshot, `BeforeStateValidator.Validate` module + declared shared entries | base set/version | OC-09; stale module/shared mismatch tests |
-| MS-03, MS-04 | `PlanningService.Plan` | `DeltaBuilder.BuildHumanitecDelta` conflict/reference/relative-patch rules; graph/classifier | immutable Delta Snapshot + Candidate plan | OC-07/09; module add/remove/update, shared patch, conflict, last-reference and preserve-other tests |
+| MS-03, MS-04 | `PlanningService.Plan` | `DeltaBuilder.BuildHumanitecDelta` conflict/reference/relative-patch rules; graph/classifier | immutable Delta Snapshot + Candidate plan | OC-07/09; module add/remove/update, shared patch, conflict, last-reference and preserve-other tests (`TestDelta_*`, `TestPlan_RemoveWorkloadDeltaListsModule`) |
 | MS-05 | `ResourceProvisioningService.Provision` | UC-08 methods | desired resources `READY` | OC-10; reconciliation test |
 | MS-06 | update/remove | `WorkloadDeployer.Apply/WaitReady` or `Delete` | workload `READY` or `REMOVED` | OC-09; update/remove adapter tests |
 | MS-07 | remove/update | `ActiveResourceRepository.MarkUnreferenced` | `active_resources=UNREFERENCED`; no destroy | OC-09; no-destroy test |

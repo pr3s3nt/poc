@@ -23,17 +23,18 @@ import (
 )
 
 type state struct {
-	Applications      map[string]application.Application     `json:"applications"`
-	Connections       map[string]application.Connection      `json:"connections"`
-	Environments      map[string]environment.Environment     `json:"environments"`
-	DeploymentSets    map[string]environment.DeploymentSet   `json:"deploymentSets"`
-	ResourceTypes     map[string]resource.Type               `json:"resourceTypes"`
-	Definitions       map[string]resource.Definition         `json:"resourceDefinitions"`
-	Deployments       map[string]deployment.Deployment       `json:"deployments"`
-	Plans             map[string]map[string]any              `json:"deploymentPlans"`
-	DeployResources   map[string][]deployment.Resource       `json:"deploymentResources"`
-	ActiveResources   map[string]resource.ActiveResource     `json:"activeResources"`
-	WorkloadInstances map[string]deployment.WorkloadInstance `json:"workloadInstances"`
+	Applications      map[string]application.Application            `json:"applications"`
+	Connections       map[string]application.Connection             `json:"connections"`
+	Environments      map[string]environment.Environment            `json:"environments"`
+	DeploymentSets    map[string]environment.DeploymentSet          `json:"deploymentSets"`
+	ResourceTypes     map[string]resource.Type                      `json:"resourceTypes"`
+	Definitions       map[string]resource.Definition                `json:"resourceDefinitions"`
+	Deployments       map[string]deployment.Deployment              `json:"deployments"`
+	DeltaSnapshots    map[string]deployment.DeploymentDeltaSnapshot `json:"deploymentDeltaSnapshots"`
+	Plans             map[string]map[string]any                     `json:"deploymentPlans"`
+	DeployResources   map[string][]deployment.Resource              `json:"deploymentResources"`
+	ActiveResources   map[string]resource.ActiveResource            `json:"activeResources"`
+	WorkloadInstances map[string]deployment.WorkloadInstance        `json:"workloadInstances"`
 }
 
 func newState() *state {
@@ -45,6 +46,7 @@ func newState() *state {
 		ResourceTypes:     map[string]resource.Type{},
 		Definitions:       map[string]resource.Definition{},
 		Deployments:       map[string]deployment.Deployment{},
+		DeltaSnapshots:    map[string]deployment.DeploymentDeltaSnapshot{},
 		Plans:             map[string]map[string]any{},
 		DeployResources:   map[string][]deployment.Resource{},
 		ActiveResources:   map[string]resource.ActiveResource{},
@@ -324,8 +326,81 @@ func (s *Store) SaveDeployment(_ context.Context, d deployment.Deployment) error
 	if d.ID == "" {
 		return fmt.Errorf("store: deployment needs an id")
 	}
+	if err := s.checkDeltaSnapshotLocked(d); err != nil {
+		return err
+	}
 	s.state.Deployments[d.ID] = d
 	return nil
+}
+
+// checkDeltaSnapshotLocked enforces the one-to-one Deployment/Delta Snapshot
+// association: the Snapshot exists, belongs to no other Deployment, never
+// changes once set and is present before the Deployment leaves PLANNING.
+func (s *Store) checkDeltaSnapshotLocked(d deployment.Deployment) error {
+	if existing, ok := s.state.Deployments[d.ID]; ok && existing.DeltaSnapshotID != "" && existing.DeltaSnapshotID != d.DeltaSnapshotID {
+		return fmt.Errorf("%w: deployment %q already references delta snapshot %q", persistence.ErrImmutable, d.ID, existing.DeltaSnapshotID)
+	}
+	if d.DeltaSnapshotID == "" {
+		switch d.Status {
+		case deployment.StatusProvisioning, deployment.StatusDeploying, deployment.StatusSucceeded:
+			return fmt.Errorf("store: deployment %q cannot be %s without a delta snapshot", d.ID, d.Status)
+		}
+		return nil
+	}
+	if _, ok := s.state.DeltaSnapshots[d.DeltaSnapshotID]; !ok {
+		return fmt.Errorf("%w: delta snapshot %q", persistence.ErrNotFound, d.DeltaSnapshotID)
+	}
+	for id, other := range s.state.Deployments {
+		if id != d.ID && other.DeltaSnapshotID == d.DeltaSnapshotID {
+			return fmt.Errorf("%w: delta snapshot %q already belongs to deployment %q", persistence.ErrImmutable, d.DeltaSnapshotID, id)
+		}
+	}
+	return nil
+}
+
+// SaveDeltaSnapshot stores an immutable Deployment Delta Snapshot once. The
+// store keeps its own deep copy, so later changes to the caller's value cannot
+// reach the stored Snapshot.
+func (s *Store) SaveDeltaSnapshot(_ context.Context, snapshot deployment.DeploymentDeltaSnapshot) error {
+	defer s.lock()()
+	stored, err := cloneDeltaSnapshot(snapshot)
+	if err != nil {
+		return err
+	}
+	if err := stored.Validate(); err != nil {
+		return err
+	}
+	if _, ok := s.state.DeltaSnapshots[stored.ID]; ok {
+		return fmt.Errorf("%w: delta snapshot %q already exists", persistence.ErrImmutable, stored.ID)
+	}
+	s.state.DeltaSnapshots[stored.ID] = stored
+	return nil
+}
+
+// GetDeltaSnapshot reads one Deployment Delta Snapshot.
+func (s *Store) GetDeltaSnapshot(_ context.Context, id string) (deployment.DeploymentDeltaSnapshot, error) {
+	defer s.rlock()()
+	snapshot, ok := s.state.DeltaSnapshots[id]
+	if !ok {
+		return deployment.DeploymentDeltaSnapshot{}, fmt.Errorf("%w: delta snapshot %q", persistence.ErrNotFound, id)
+	}
+	return cloneDeltaSnapshot(snapshot)
+}
+
+// cloneDeltaSnapshot deep-copies a Snapshot through its JSON form, the same
+// form the snapshot file persists. Every nested map, slice and any value of the
+// Delta document is rebuilt, so the copy shares no memory with the original,
+// and the canonical encoding, hence the document hash, is unchanged.
+func cloneDeltaSnapshot(in deployment.DeploymentDeltaSnapshot) (deployment.DeploymentDeltaSnapshot, error) {
+	b, err := json.Marshal(in)
+	if err != nil {
+		return deployment.DeploymentDeltaSnapshot{}, fmt.Errorf("store: copy delta snapshot %q: %w", in.ID, err)
+	}
+	var out deployment.DeploymentDeltaSnapshot
+	if err := json.Unmarshal(b, &out); err != nil {
+		return deployment.DeploymentDeltaSnapshot{}, fmt.Errorf("store: copy delta snapshot %q: %w", in.ID, err)
+	}
+	return out, nil
 }
 
 // GetDeployment reads one Deployment record.

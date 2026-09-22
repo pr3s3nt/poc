@@ -61,6 +61,7 @@ func TestPlannerMatchesChallengeFixtures(t *testing.T) {
 				t.Fatalf("plan: %v", planErr)
 			}
 
+			assertDelta(t, plan, fixture.Expected.Delta)
 			assertDeploymentSet(t, plan, fixture.Expected.DeploymentSet)
 			assertGraph(t, plan, fixture.Expected.Plan)
 			assertMatches(t, plan, fixture.Expected.Plan)
@@ -82,6 +83,26 @@ func fixtureRejects(root, name string) bool {
 		Status string `json:"status"`
 	}
 	return json.Unmarshal(payload, &result) == nil && result.Status == "REJECTED"
+}
+
+// assertDelta compares the Humanitec-shaped Delta document byte for byte,
+// including operation order, and re-proves base + delta = candidate.
+func assertDelta(t *testing.T, plan *planning.Plan, expected map[string]any) {
+	t.Helper()
+	actual, err := canon.Map(plan.Delta)
+	if err != nil {
+		t.Fatalf("canon: %v", err)
+	}
+	if expected == nil {
+		expected = map[string]any{}
+	}
+	normalized := normalizeTree(expected)
+	if !reflect.DeepEqual(actual, normalized) {
+		t.Fatalf("delta mismatch\n got: %s\nwant: %s", mustJSON(actual), mustJSON(normalized))
+	}
+	if err := planning.VerifyDelta(plan.BaseSet, plan.Delta, plan.CandidateSet); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // assertDeploymentSet compares the Candidate Deployment Set byte for byte after

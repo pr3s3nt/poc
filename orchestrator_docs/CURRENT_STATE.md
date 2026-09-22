@@ -15,9 +15,9 @@ thực. Internal happy path đã được kiểm chứng trên kind; cloud happy
 kiểm chứng trên AWS với VPC, EKS và Aurora rồi cleanup.
 
 Active iteration là
-[I06-06 — Implement Deployment Delta Snapshot](iterations/M01-contract-hardening/I06-06-imp008-delta-snapshot/README.md)
+[I06-07 — Preserve Score container resources](iterations/M01-contract-hardening/I06-07-imp009-container-resources/README.md)
 thuộc [M01 — Contract hardening](iterations/M01-contract-hardening/README.md).
-I06-05 đã đóng IMP-010.
+I06-05 đã đóng IMP-010; I06-06 đã đóng IMP-008.
 I06-04 UC-09 được reprioritize sang M02, chưa hoàn thành hoặc bị loại scope.
 
 ## Use-case delivery state
@@ -28,11 +28,11 @@ I06-04 UC-09 được reprioritize sang M02, chưa hoàn thành hoặc bị lo�
 | UC-02 | Designed; seed-backed baseline | Resource Type catalog tồn tại trong seed/planner; API/UI quản trị chưa có. |
 | UC-03 | Designed; seed-backed baseline | Resource Definition, matching và contract validation đã chạy trong planner; API/UI quản trị chưa có. |
 | UC-04 | Designed; partial execution support | Connection/target seed và adapters kind/AWS đã chạy; registration/verification UI và persistence thật chưa có. |
-| UC-05 | Planning baseline; accepted contract gaps | Planner pipeline và scoped conformance đã có; preview/API/UI, Delta Snapshot shape và container-resource preservation chưa hoàn thiện. |
-| UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; IMP-008/009 chưa hiện thực. |
-| UC-07 | Partial | Planner hỗ trợ before/shared rules nhưng chưa sinh Humanitec-shaped Delta; update/remove system flow và UI chưa hoàn thiện. |
+| UC-05 | Planning baseline; accepted contract gaps | Planner pipeline và scoped conformance đã có; Planner sinh transient Humanitec-shaped Delta; preview/API/UI và container-resource preservation chưa hoàn thiện. |
+| UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; mỗi Deployment persist immutable `DeploymentDeltaSnapshot` (I06-06); IMP-009 chưa hiện thực. |
+| UC-07 | Partial | Planner hỗ trợ before/shared rules và sinh Humanitec-shaped `modules.add/remove/update` + `shared` Delta; update/remove system flow và UI chưa hoàn thiện. |
 | UC-08 | Implemented and E2E verified | Kubernetes và Terraform resource execution, output propagation và persistence baseline đã pass. |
-| UC-09 | Partially implemented; deferred behind M01 | Deployment list/detail, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison tiếp tục ở M02/I06-04. |
+| UC-09 | Partially implemented; deferred behind M01 | Deployment list/detail, Delta Snapshot document, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison tiếp tục ở M02/I06-04. |
 
 ## Executable baseline
 
@@ -40,9 +40,10 @@ I06-04 UC-09 được reprioritize sang M02, chưa hoàn thành hoặc bị lo�
   deployer và JSON snapshot store nằm dưới `backend/`.
 - Web Console React/TypeScript có Deploy và Deployment Details.
 - Planner product conformance chạy đủ 33 fixture: 27 accepted cases so sánh
-  Candidate Set/graph/matching/batches/classification/Terraform artifacts; 6
-  rejected cases hiện mới xác nhận rejection status. Harness không assert
-  Deployment Delta và bundle không có case container resource requests/limits.
+  Humanitec-shaped Delta, Candidate Set/graph/matching/batches/classification/
+  Terraform artifacts và kiểm `base + delta = candidate`; 6 rejected cases hiện
+  mới xác nhận rejection status. Bundle không có case container resource
+  requests/limits hoặc array diff; array diff có product tests riêng.
 - Internal verification chạy trên cluster kind có sẵn, namespace riêng theo run
   ID và cleanup đã xác minh.
 - AWS verification đã tạo VPC/EKS/Aurora tối thiểu, chạy acceptance job flow,
@@ -73,8 +74,9 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 - Terraform state chưa có durable backend; physical cloud names còn chứa run ID.
 - Runtime chỉ execute ba embedded Terraform modules; remote source execution
   chưa thuộc baseline.
-- Planner hiện lưu JSON Patch phẳng cho toàn Deployment Set, chưa sinh/persist
-  Humanitec-shaped `modules.add/remove/update` + `shared` Delta Snapshot.
+- `DeploymentDeltaSnapshot` được persist trong JSON snapshot store với
+  association một-một tới Deployment; store chỉ bắt buộc Snapshot khi
+  Deployment rời `PLANNING`, chưa enforce `NOT NULL` của schema (IMP-011).
 - Score parser hiện reject `containers.*.resources`; Kubernetes workload
   renderer đang dùng resource request tối thiểu hard-code thay vì Score values.
 - Deploy API chạy đồng bộ, apply một workload mục tiêu và chưa có incremental

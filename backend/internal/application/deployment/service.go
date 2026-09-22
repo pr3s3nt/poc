@@ -189,25 +189,41 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	if err != nil {
 		return nil, s.fail(ctx, record, err)
 	}
+	deltaSnapshot, err := domain.NewDeploymentDeltaSnapshot(ids.New(), app.Key, plan.Delta, domain.DeltaSnapshotMetadata{
+		ActorRef:   cmd.Actor,
+		Action:     action,
+		WorkloadID: workloadID,
+	}, now)
+	if err != nil {
+		return nil, s.fail(ctx, record, err)
+	}
 	planSnapshot, err := canon.Map(plan)
 	if err != nil {
 		return nil, s.fail(ctx, record, err)
 	}
 
-	// Transaction A: Deployment + Candidate Set + plan snapshot (OC-08).
-	record.CandidateDeploymentSet = candidateSet.ID
-	record.Status = domain.StatusProvisioning
+	// Transaction A: Deployment + Delta Snapshot + Candidate Set + plan (OC-08).
+	// The failure path must not reference rows the rolled-back transaction
+	// never wrote, so the record only advances once the transaction commits.
+	planned := record
+	planned.CandidateDeploymentSet = candidateSet.ID
+	planned.DeltaSnapshotID = deltaSnapshot.ID
+	planned.Status = domain.StatusProvisioning
 	if err := s.store.Transact(ctx, func(ctx context.Context) error {
+		if err := s.store.SaveDeltaSnapshot(ctx, deltaSnapshot); err != nil {
+			return err
+		}
 		if err := s.store.SaveDeploymentSet(ctx, candidateSet); err != nil {
 			return err
 		}
 		if err := s.store.SavePlan(ctx, record.ID, planSnapshot); err != nil {
 			return err
 		}
-		return s.store.SaveDeployment(ctx, record)
+		return s.store.SaveDeployment(ctx, planned)
 	}); err != nil {
 		return nil, s.fail(ctx, record, err)
 	}
+	record = planned
 
 	// MS-09: UC-08 provisions resource-only batches.
 	provisionResult, err := s.provisioning.Provision(ctx, provisioning.Request{

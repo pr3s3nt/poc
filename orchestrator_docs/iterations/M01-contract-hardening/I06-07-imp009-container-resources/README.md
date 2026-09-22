@@ -1,7 +1,7 @@
 ---
 id: I06-07
 artifact: iteration-plan
-status: deferred
+status: current
 last_reviewed: 2026-09-22
 related: IMP-009, UC-05, UC-06
 ---
