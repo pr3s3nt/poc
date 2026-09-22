@@ -1,7 +1,7 @@
 ---
 id: I06-05-WORK
 artifact: iteration-work-items
-status: current
+status: historical
 last_reviewed: 2026-09-22
 related: I06-05
 ---
@@ -19,9 +19,9 @@ related: I06-05
 
 ## Handoff checklist
 
-- [ ] No production planner/domain behavior changed.
-- [ ] Missing/`[]` Definition cannot become a wildcard candidate.
-- [ ] Explicit `{}` remains a wildcard.
-- [ ] 33/33 fixtures pass.
-- [ ] IMP-010 removed only after tests pass.
-- [ ] `go test ./...`, `go build ./...`, `go vet ./...` pass under `backend/`.
+- [x] No production planner/domain behavior changed.
+- [x] Missing/`[]` Definition cannot become a wildcard candidate.
+- [x] Explicit `{}` remains a wildcard.
+- [x] 33/33 fixtures pass.
+- [x] IMP-010 removed only after tests pass.
+- [x] `go test ./...`, `go build ./...`, `go vet ./...` pass under `backend/`.

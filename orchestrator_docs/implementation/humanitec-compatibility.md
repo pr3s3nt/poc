@@ -37,7 +37,7 @@ resources hoặc các dòng khác trong bảng này.
 | Probes | Score dùng `livenessProbe`/`readinessProbe` với nested `httpGet`. | MVP model hiện dùng probe phẳng `{path, port}`. | Deferred compatibility | D06 |
 | Replicas | Score workload contract không có top-level `replicas`. | MVP chấp nhận top-level `replicas` như extension. | Product extension | D06 |
 | Namespace output | Humanitec namespace resource output dùng key `namespace`. | Seed/runtime MVP hiện công bố key `name`. | Deferred compatibility | D06 |
-| Empty matching criteria | Definition thiếu criteria hoặc có `criteria: []` không được xét; một criterion `{}` là wildcard điểm 0. | Product registration/planner từ chối catalog vi phạm invariant; conformance adapter hiện lại đổi missing/`[]` thành wildcard thay vì bỏ Definition khỏi catalog. | Harness adapter implementation gap | IMP-010 |
+| Empty matching criteria | Definition thiếu criteria hoặc có `criteria: []` không được xét; một criterion `{}` là wildcard điểm 0. | Conformance harness đã aligned: adapter bỏ Definition thiếu/`[]` khỏi challenge catalog và giữ `{}` thành wildcard điểm 0. Product validation stricter: registration từ chối Definition vi phạm invariant và planner fail cả catalog thay vì bỏ qua Definition đó. | Deferred compatibility (harness aligned) | UC-03 BR-07, D07, [I06-05 evidence](../verification/2026-09-22-imp010-conformance-catalog.md) |
 
 ## Boundary rule
 

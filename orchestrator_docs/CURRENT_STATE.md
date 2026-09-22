@@ -15,8 +15,9 @@ thực. Internal happy path đã được kiểm chứng trên kind; cloud happy
 kiểm chứng trên AWS với VPC, EKS và Aurora rồi cleanup.
 
 Active iteration là
-[I06-05 — Fix conformance catalog semantics](iterations/M01-contract-hardening/I06-05-imp010-conformance-catalog/README.md)
+[I06-06 — Implement Deployment Delta Snapshot](iterations/M01-contract-hardening/I06-06-imp008-delta-snapshot/README.md)
 thuộc [M01 — Contract hardening](iterations/M01-contract-hardening/README.md).
+I06-05 đã đóng IMP-010.
 I06-04 UC-09 được reprioritize sang M02, chưa hoàn thành hoặc bị loại scope.
 
 ## Use-case delivery state
@@ -28,7 +29,7 @@ I06-04 UC-09 được reprioritize sang M02, chưa hoàn thành hoặc bị lo�
 | UC-03 | Designed; seed-backed baseline | Resource Definition, matching và contract validation đã chạy trong planner; API/UI quản trị chưa có. |
 | UC-04 | Designed; partial execution support | Connection/target seed và adapters kind/AWS đã chạy; registration/verification UI và persistence thật chưa có. |
 | UC-05 | Planning baseline; accepted contract gaps | Planner pipeline và scoped conformance đã có; preview/API/UI, Delta Snapshot shape và container-resource preservation chưa hoàn thiện. |
-| UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; IMP-008/009 chưa hiện thực. Conformance harness còn IMP-010. |
+| UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; IMP-008/009 chưa hiện thực. |
 | UC-07 | Partial | Planner hỗ trợ before/shared rules nhưng chưa sinh Humanitec-shaped Delta; update/remove system flow và UI chưa hoàn thiện. |
 | UC-08 | Implemented and E2E verified | Kubernetes và Terraform resource execution, output propagation và persistence baseline đã pass. |
 | UC-09 | Partially implemented; deferred behind M01 | Deployment list/detail, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison tiếp tục ở M02/I06-04. |
@@ -82,9 +83,9 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
   driver ID/account/secret refs, remote source mapping, context extensions,
   nested probe, replicas extension và namespace output được phân loại tại
   [compatibility matrix](implementation/humanitec-compatibility.md).
-- Conformance loader hiện biến missing/empty criteria thành wildcard; product
-  registration từ chối input này, còn challenge adapter phải bỏ Definition đó
-  khỏi catalog (IMP-010).
+- Conformance loader bỏ Definition thiếu criteria hoặc `criteria: []` khỏi
+  challenge catalog và giữ criterion `{}` thành wildcard điểm 0; product planner
+  vẫn từ chối catalog có Definition không có criterion.
 - UC-01..UC-05 và UC-07 chưa có đầy đủ product management flow/UI.
 - Rollback, failure recovery, RBAC, audit và secret lifecycle nằm ngoài MVP.
 - AWS happy path gần nhất là run `aws-20260921052038`, trước một số thay đổi

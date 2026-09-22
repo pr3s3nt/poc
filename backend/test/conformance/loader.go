@@ -317,8 +317,12 @@ func readDefinitions(dir string, names []string) ([]resource.Definition, error) 
 				Class:           stringAt(criterion, "class"),
 			})
 		}
+		// The challenge never considers a Definition without criteria or with
+		// `criteria: []`; only an explicit `{}` is a wildcard. Leave such a
+		// Definition out of the catalog instead of inventing a wildcard, so the
+		// product invariant of UC-03 BR-07 stays intact.
 		if len(def.Criteria) == 0 {
-			def.Criteria = []resource.Criterion{{}}
+			continue
 		}
 		if len(doc.Entity.Provision) > 0 {
 			def.Provision = map[string]resource.ProvisionRule{}

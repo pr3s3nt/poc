@@ -17,9 +17,9 @@ Score container resources.
 ## Iteration order
 
 1. [I06-05 — IMP-010](I06-05-imp010-conformance-catalog/README.md): làm
-   conformance adapter đáng tin.
+   conformance adapter đáng tin. Historical; hoàn thành 2026-09-22.
 2. [I06-06 — IMP-008](I06-06-imp008-delta-snapshot/README.md): thay Delta phẳng
-   bằng typed immutable Snapshot.
+   bằng typed immutable Snapshot. Current.
 3. [I06-07 — IMP-009](I06-07-imp009-container-resources/README.md): bảo toàn
    container CPU/memory đến Kubernetes renderer.
 

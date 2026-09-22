@@ -7,8 +7,9 @@ last_reviewed: 2026-09-22
 
 # Design Gate Review
 
-Review date: 2026-09-20. Implementation synchronization reviews: 2026-09-21
-and Humanitec gap reconciliation 2026-09-22.
+Review date: 2026-09-20. Implementation synchronization reviews: 2026-09-21,
+Humanitec gap reconciliation 2026-09-22 and I06-05 conformance catalog
+semantics 2026-09-22.
 
 ## Scope
 
@@ -97,10 +98,19 @@ Result: hai happy path đầy đủ ở mức thiết kế.
   invariant và challenge adapter semantics, được ghi là IMP-010; 33-fixture
   pass không bao phủ nhánh này.
 
+### Conformance catalog semantics 2026-09-22
+
+- I06-05 đóng IMP-010: conformance adapter bỏ Definition thiếu criteria hoặc
+  `criteria: []` khỏi challenge catalog và giữ `{}` thành wildcard điểm 0.
+- Loader unit tests phân biệt ba input shape; product planner vẫn từ chối
+  catalog vi phạm UC-03 BR-07; 33/33 fixture pass
+  ([evidence](../verification/2026-09-22-imp010-conformance-catalog.md)).
+
 ## Gate decision
 
 **PASS cho design coverage.** Toàn bộ 27 PlantUML sources parse/render thành
 công và coverage check tìm thấy đủ 75/75 main-flow step. IMP-008/009 là
 implementation gaps đã được trace đầy đủ; phải đóng trước khi tuyên bố UC-05/06
-conform với hai contract mới hoặc empty-criteria adapter semantics. Executable kind/AWS baseline lịch sử vẫn có giá
+conform với hai contract mới. Empty-criteria adapter semantics đã được đóng ở
+I06-05. Executable kind/AWS baseline lịch sử vẫn có giá
 trị trong phạm vi behavior đã kiểm chứng, không phải bằng chứng cho hai gap này.

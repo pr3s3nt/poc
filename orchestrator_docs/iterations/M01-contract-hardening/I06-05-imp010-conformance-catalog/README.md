@@ -1,7 +1,7 @@
 ---
 id: I06-05
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-09-22
 related: IMP-010, UC-03
 ---
@@ -52,4 +52,16 @@ Viết characterization tests cho ba input shape trước khi sửa loader.
 
 ## Outcome
 
-Chưa thực hiện.
+Hoàn thành 2026-09-22; mọi exit criteria pass. IMP-010 đã đóng.
+
+- `backend/test/conformance/loader.go` bỏ Definition thiếu criteria hoặc
+  `criteria: []` khỏi challenge catalog; không còn chế tạo wildcard.
+- Criterion `{}` vẫn thành `Criterion{}` với score `0`.
+- `backend/test/conformance/loader_test.go` phân biệt missing, `[]` và `[{}]`,
+  và giữ guard product planner từ chối Definition không có criterion.
+- Không đổi `Definition.Validate`, production planner hoặc domain invariant.
+- Loader tests, `go test ./test/conformance/ ./internal/planning/...` và 33/33
+  fixture pass; `go test/build/vet ./...` pass.
+- Evidence: [2026-09-22 IMP-010 conformance catalog](../../../verification/2026-09-22-imp010-conformance-catalog.md).
+
+Iteration kế tiếp: [I06-06](../I06-06-imp008-delta-snapshot/README.md).

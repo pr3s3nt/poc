@@ -33,7 +33,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | MS-01, MS-02, MS-03; BR-07 | `RegisterResourceDefinition`; `UC-03/sequence.puml` | `ResourceDefinitionService.RegisterResourceDefinition`, `DefinitionValidator.ValidateStructureAndCriteria` | none before validation | OC-04; Terraform/Kubernetes definition tests; missing/empty criteria rejected before persistence |
 | MS-04, MS-05 | same | type/connection repository reads; `ValidateReferencesAndRules` | `resource_types`, `connections` | OC-04; invalid reference test |
 | MS-06, MS-07 | same | `ResourceDefinitionRepository.Exists`, `DriverContractInspector.Inspect` | source fingerprint candidate | OC-04; output mismatch test |
-| MS-08, MS-09; BR-07 | same | `ResourceDefinitionRepository.Save/FindCandidates` | `resource_definitions`, `matching_criteria` | OC-04; matching query integration test; explicit `{}` wildcard test; conformance adapter skips external missing/empty criteria |
+| MS-08, MS-09; BR-07 | same | `ResourceDefinitionRepository.Save/FindCandidates` | `resource_definitions`, `matching_criteria` | OC-04; matching query integration test; explicit `{}` wildcard test; conformance adapter skips external missing/empty criteria (`TestReadDefinitionsCriteriaShapes`, `TestProductPlannerRejectsCriteriaLessDefinition`) |
 
 ## UC-04
 

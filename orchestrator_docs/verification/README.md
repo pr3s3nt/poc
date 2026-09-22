@@ -20,3 +20,4 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 | 2026-09-21 | Root backend/frontend layout migration | [Layout migration](2026-09-21-root-layout-migration.md) |
 | 2026-09-21 | Clean-clone documentation links and product CI | [Clean-clone CI fix](2026-09-21-clean-clone-ci.md) |
 | 2026-09-22 | Humanitec Delta, container resources and conformance coverage reconciliation | [Humanitec gap reconciliation](2026-09-22-humanitec-gap-reconciliation.md) |
+| 2026-09-22 | I06-05 conformance catalog criteria semantics, 33/33 fixtures | [IMP-010 conformance catalog](2026-09-22-imp010-conformance-catalog.md) |
