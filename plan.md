@@ -20,7 +20,7 @@ Các khái niệm hiện hành đã được chuyển theo
 Đọc các nguồn hiện tại sau:
 
 - [Current project state](orchestrator_docs/CURRENT_STATE.md)
-- [Active iteration](orchestrator_docs/iterations/M01-contract-hardening/I06-07-imp009-container-resources/README.md)
+- [Iteration index and active iteration](orchestrator_docs/iterations/README.md)
 - [Backlog](orchestrator_docs/backlog/README.md)
 - [Verification evidence](orchestrator_docs/verification/README.md)
 - [Operations](orchestrator_docs/operations/README.md)

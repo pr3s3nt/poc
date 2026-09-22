@@ -56,6 +56,9 @@ func Parse(b []byte) (*Document, error) {
 	if err := dec.Decode(&doc); err != nil {
 		return nil, fmt.Errorf("score: invalid document: %w", err)
 	}
+	if err := validateContainerResources(b); err != nil {
+		return nil, err
+	}
 	if err := doc.Validate(); err != nil {
 		return nil, err
 	}
@@ -146,6 +149,7 @@ func (d Document) Fragment(types map[string]resource.Type) (*Fragment, error) {
 	for _, name := range sortedKeys(d.Containers) {
 		container := d.Containers[name]
 		container.ID = name
+		container.Resources = container.Resources.Clone()
 		if len(container.Variables) > 0 {
 			rewritten := make(map[string]string, len(container.Variables))
 			for _, key := range sortedKeys(container.Variables) {

@@ -11,6 +11,13 @@ import (
 	"orchestrator/internal/ports/execution"
 )
 
+// Platform default container requests for a field whose Score declares neither
+// a request nor a limit (UC-06 BR-11). Limits have no default.
+const (
+	DefaultCPURequest    = "10m"
+	DefaultMemoryRequest = "32Mi"
+)
+
 // Renderer turns a workload module into Deployment, Service and Secret manifests.
 type Renderer struct{}
 
@@ -103,9 +110,7 @@ func (r *Renderer) Render(_ context.Context, req execution.RenderRequest) ([]exe
 		if c.LivenessProbe != nil {
 			container["livenessProbe"] = httpProbe(*c.LivenessProbe)
 		}
-		container["resources"] = map[string]any{
-			"requests": map[string]any{"cpu": "10m", "memory": "32Mi"},
-		}
+		container["resources"] = containerResources(c.Resources)
 		containers = append(containers, container)
 	}
 
@@ -155,6 +160,50 @@ func (r *Renderer) Render(_ context.Context, req execution.RenderRequest) ([]exe
 		})
 	}
 	return manifests, nil
+}
+
+// containerResources maps declared Score requirements onto Kubernetes container
+// resources without changing their values. Each request field is the declared
+// request, else the declared limit of the same field, else the platform
+// default; the limit fallback keeps a platform default from exceeding a
+// declared limit. A declared request/limit pair is kept as declared even when
+// the request exceeds the limit; the Kubernetes API validates it at apply time.
+// Limits carry only declared fields. The module input is never modified.
+func containerResources(declared *environment.ContainerResourceRequirements) map[string]any {
+	var requests, limits environment.ComputeResources
+	if declared != nil && declared.Requests != nil {
+		requests = *declared.Requests
+	}
+	if declared != nil && declared.Limits != nil {
+		limits = *declared.Limits
+	}
+	requests.CPU = firstDeclared(requests.CPU, limits.CPU, DefaultCPURequest)
+	requests.Memory = firstDeclared(requests.Memory, limits.Memory, DefaultMemoryRequest)
+	out := map[string]any{"requests": computeResources(requests)}
+	if rendered := computeResources(limits); len(rendered) > 0 {
+		out["limits"] = rendered
+	}
+	return out
+}
+
+func firstDeclared(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func computeResources(r environment.ComputeResources) map[string]any {
+	out := map[string]any{}
+	if r.CPU != "" {
+		out["cpu"] = r.CPU
+	}
+	if r.Memory != "" {
+		out["memory"] = r.Memory
+	}
+	return out
 }
 
 func httpProbe(p environment.Probe) map[string]any {

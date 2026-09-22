@@ -1,7 +1,7 @@
 ---
 id: M01
 artifact: milestone-plan
-status: current
+status: historical
 last_reviewed: 2026-09-22
 related: IMP-008, IMP-009, IMP-010
 ---
@@ -21,7 +21,8 @@ Score container resources.
 2. [I06-06 — IMP-008](I06-06-imp008-delta-snapshot/README.md): thay Delta phẳng
    bằng typed immutable Snapshot. Historical; hoàn thành 2026-09-22.
 3. [I06-07 — IMP-009](I06-07-imp009-container-resources/README.md): bảo toàn
-   container CPU/memory đến Kubernetes renderer. Current.
+   container CPU/memory đến Kubernetes renderer. Historical; hoàn thành
+   2026-09-22.
 
 ## Milestone exit criteria
 
@@ -39,3 +40,12 @@ Score container resources.
 - D05 standalone/mutable Delta lifecycle, async hoặc incremental deployment.
 - UC-05 Preview API/UI, UC-07 update/remove flow và UC-01..04 management UI.
 - PostgreSQL adapter, durable Terraform state và remote Terraform execution.
+
+## Outcome
+
+Hoàn thành 2026-09-22; mọi milestone exit criteria pass. IMP-008/009/010 đã
+đóng, 33/33 fixtures và Go test/build/vet pass, internal happy path đã verify
+trên kind sau I06-07
+([evidence](../../verification/2026-09-22-imp009-container-resources.md),
+[kind rerun](../../verification/2026-09-22-imp009-kind-rerun.md)).
+Milestone kế tiếp: [M02 — Use-case completion](../M02-usecase-completion/README.md).

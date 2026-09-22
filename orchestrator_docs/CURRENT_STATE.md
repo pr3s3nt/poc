@@ -15,10 +15,11 @@ thực. Internal happy path đã được kiểm chứng trên kind; cloud happy
 kiểm chứng trên AWS với VPC, EKS và Aurora rồi cleanup.
 
 Active iteration là
-[I06-07 — Preserve Score container resources](iterations/M01-contract-hardening/I06-07-imp009-container-resources/README.md)
-thuộc [M01 — Contract hardening](iterations/M01-contract-hardening/README.md).
-I06-05 đã đóng IMP-010; I06-06 đã đóng IMP-008.
-I06-04 UC-09 được reprioritize sang M02, chưa hoàn thành hoặc bị loại scope.
+[I06-04 — Complete UC-09 observability](iterations/M02-usecase-completion/I06-04-uc09-observability/README.md)
+thuộc [M02 — Use-case completion](iterations/M02-usecase-completion/README.md);
+code của I06-04 chưa được tiếp tục sau khi M01 đóng.
+[M01 — Contract hardening](iterations/M01-contract-hardening/README.md) đã hoàn
+thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 
 ## Use-case delivery state
 
@@ -28,11 +29,11 @@ I06-04 UC-09 được reprioritize sang M02, chưa hoàn thành hoặc bị lo�
 | UC-02 | Designed; seed-backed baseline | Resource Type catalog tồn tại trong seed/planner; API/UI quản trị chưa có. |
 | UC-03 | Designed; seed-backed baseline | Resource Definition, matching và contract validation đã chạy trong planner; API/UI quản trị chưa có. |
 | UC-04 | Designed; partial execution support | Connection/target seed và adapters kind/AWS đã chạy; registration/verification UI và persistence thật chưa có. |
-| UC-05 | Planning baseline; accepted contract gaps | Planner pipeline và scoped conformance đã có; Planner sinh transient Humanitec-shaped Delta; preview/API/UI và container-resource preservation chưa hoàn thiện. |
-| UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; mỗi Deployment persist immutable `DeploymentDeltaSnapshot` (I06-06); IMP-009 chưa hiện thực. |
+| UC-05 | Planning baseline; accepted contract gaps | Planner pipeline và scoped conformance đã có; Planner sinh transient Humanitec-shaped Delta và giữ container requests/limits nguyên văn trong Candidate Set (I06-07); preview/API/UI chưa hoàn thiện. |
+| UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; mỗi Deployment persist immutable `DeploymentDeltaSnapshot` (I06-06); container requests/limits từ Score tới live Deployment theo BR-11 (I06-07); kind chỉ kiểm ba seeded case declared/partial/omitted, nhánh limit fallback và request vượt limit chỉ có unit test. |
 | UC-07 | Partial | Planner hỗ trợ before/shared rules và sinh Humanitec-shaped `modules.add/remove/update` + `shared` Delta; update/remove system flow và UI chưa hoàn thiện. |
 | UC-08 | Implemented and E2E verified | Kubernetes và Terraform resource execution, output propagation và persistence baseline đã pass. |
-| UC-09 | Partially implemented; deferred behind M01 | Deployment list/detail, Delta Snapshot document, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison tiếp tục ở M02/I06-04. |
+| UC-09 | Partially implemented; active in M02/I06-04 | Deployment list/detail, Delta Snapshot document, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison là scope của I06-04. |
 
 ## Executable baseline
 
@@ -43,9 +44,12 @@ I06-04 UC-09 được reprioritize sang M02, chưa hoàn thành hoặc bị lo�
   Humanitec-shaped Delta, Candidate Set/graph/matching/batches/classification/
   Terraform artifacts và kiểm `base + delta = candidate`; 6 rejected cases hiện
   mới xác nhận rejection status. Bundle không có case container resource
-  requests/limits hoặc array diff; array diff có product tests riêng.
+  requests/limits hoặc array diff; hai vùng này có product tests riêng.
 - Internal verification chạy trên cluster kind có sẵn, namespace riêng theo run
-  ID và cleanup đã xác minh.
+  ID và cleanup đã xác minh; run gần nhất `kind-20260922114440-17489` (I06-07,
+  [evidence](verification/2026-09-22-imp009-kind-rerun.md)) xác nhận live
+  container resources của ba seeded workload: backend declared, worker partial,
+  frontend omitted.
 - AWS verification đã tạo VPC/EKS/Aurora tối thiểu, chạy acceptance job flow,
   không tạo public LoadBalancer và cleanup 17/17 truy vấn theo run ID.
 
@@ -77,8 +81,11 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 - `DeploymentDeltaSnapshot` được persist trong JSON snapshot store với
   association một-một tới Deployment; store chỉ bắt buộc Snapshot khi
   Deployment rời `PLANNING`, chưa enforce `NOT NULL` của schema (IMP-011).
-- Score parser hiện reject `containers.*.resources`; Kubernetes workload
-  renderer đang dùng resource request tối thiểu hard-code thay vì Score values.
+- Container resources chỉ được validate theo shape (`cpu`/`memory`, non-empty
+  string); Kubernetes quantity semantics và cặp request > limit khai báo chỉ
+  được Kubernetes API kiểm khi apply. Nhánh request thiếu lấy limit cùng field
+  (BR-11) và request vượt limit mới được unit-test, không có seeded workload
+  nào chạy trên kind.
 - Deploy API chạy đồng bộ, apply một workload mục tiêu và chưa có incremental
   mode hoặc standalone Humanitec Delta/Set deployment lifecycle.
 - Public Resource Definition/Score boundary chưa tương thích Humanitec/Score:
@@ -91,7 +98,8 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 - UC-01..UC-05 và UC-07 chưa có đầy đủ product management flow/UI.
 - Rollback, failure recovery, RBAC, audit và secret lifecycle nằm ngoài MVP.
 - AWS happy path gần nhất là run `aws-20260921052038`, trước một số thay đổi
-  planning cuối. Phải chạy lại `aws-verify.sh` trước release.
+  planning cuối và trước khi seeded Scores khai báo container resources. Phải
+  chạy lại `aws-verify.sh` trước release.
 
 Các vấn đề deferred được theo dõi tại [backlog](backlog/README.md); khác biệt
 thiết kế–implementation nằm tại

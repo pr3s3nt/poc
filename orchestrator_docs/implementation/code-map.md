@@ -42,10 +42,19 @@ last_reviewed: 2026-09-22
 trong transaction A và `QueryService` expose `delta`/`deltaDocumentHash` cho
 UC-09.
 
-Target contract chưa có implementation entry point hoàn chỉnh:
+Container resource requests/limits (UC-05 BR-07, UC-06 BR-11):
 
-- Container resource requests/limits đang là IMP-009; parser hiện reject field
-  và Kubernetes renderer dùng requests hard-code.
+- `ContainerResourceRequirements`/`ComputeResources` nằm trong
+  [`backend/internal/domain/environment/document.go`](../../backend/internal/domain/environment/document.go)
+  dưới `Container.Resources`.
+- Score shape validation nằm tại
+  [`backend/internal/planning/score/resources.go`](../../backend/internal/planning/score/resources.go);
+  `Document.Fragment` copy requirements vào module.
+- Kubernetes mapping và request policy (request > limit > default) nằm tại `containerResources`
+  trong [`backend/internal/adapters/kubernetes/renderer.go`](../../backend/internal/adapters/kubernetes/renderer.go).
+- Seeded acceptance Scores tại
+  [`backend/internal/seed/scores.go`](../../backend/internal/seed/scores.go)
+  bao phủ full (backend), partial (worker) và omitted (frontend).
 
 Nếu path/module thay đổi, cập nhật map này cùng imports, build tooling, runbook và
 links trong cùng logical change.

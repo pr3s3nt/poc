@@ -7,7 +7,9 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -111,6 +113,35 @@ func TestKindInternalVerification(t *testing.T) {
 	backendSpec := kubectl(t, target, "get", "deployment", "backend", "-n", namespace, "-o", "json")
 	if strings.Contains(backendSpec, "PGPASSWORD\",\"value\"") {
 		t.Fatal("the backend Deployment carries a plaintext PGPASSWORD")
+	}
+
+	// Container resources (UC-06 BR-11): declared Score values reach the live
+	// Deployment verbatim, only missing requests get defaults and limits appear
+	// only when declared. The seeded values are canonical Kubernetes quantities,
+	// so the API server returns them unchanged.
+	for workload, want := range map[string]map[string]any{
+		"backend": {
+			"requests": map[string]any{"cpu": "50m", "memory": "64Mi"},
+			"limits":   map[string]any{"cpu": "500m", "memory": "256Mi"},
+		},
+		"worker": {
+			"requests": map[string]any{"cpu": "10m", "memory": "48Mi"},
+			"limits":   map[string]any{"memory": "128Mi"},
+		},
+		"frontend": {
+			"requests": map[string]any{"cpu": "10m", "memory": "32Mi"},
+		},
+	} {
+		raw := kubectl(t, target, "get", "deployment", workload, "-n", namespace,
+			"-o", "jsonpath={.spec.template.spec.containers[?(@.name==\"main\")].resources}")
+		var got map[string]any
+		if err := json.Unmarshal([]byte(raw), &got); err != nil {
+			t.Fatalf("%s container resources are not JSON: %q: %v", workload, raw, err)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("%s live container resources = %s, want %v", workload, raw, want)
+		}
+		t.Logf("%s live container resources: %s", workload, raw)
 	}
 
 	jobResult := runJobFlow(ctx, t, target, namespace, "kind")

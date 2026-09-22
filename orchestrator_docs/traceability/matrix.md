@@ -49,7 +49,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
 | MS-01 | `PreviewDeployment`; `UC-05/sequence.puml` | `PlanningSnapshotRepository.Load` | read current set/version | OC-06; no-mutation test |
-| MS-02, MS-03 | `PlanningService.Plan` | `ScoreConverter.ConvertAndValidate`, `WorkloadSpecValidator.ValidateContainerResources` | typed fragment with optional CPU/memory requests/limits | OC-07; Score fixture + container-resource contract tests |
+| MS-02, MS-03; BR-07 | `PlanningService.Plan` | `ScoreConverter.ConvertAndValidate`, `WorkloadSpecValidator.ValidateContainerResources` | typed fragment with optional CPU/memory requests/limits | OC-07; Score fixture + container-resource contract tests (`TestParse_ContainerResources*`, `TestFragment_ContainerResourcesStayPerContainer`, `TestPlan_PreservesContainerResourceRequirements`, `TestPlan_ContainerResourcesAddNoGraphNodes`, `TestPlan_ContainerResourceChangeIsModuleRelativePatch`) |
 | MS-04 | same | `BeforeStateValidator.Validate`, `DeltaBuilder.BuildHumanitecDelta` | transient Humanitec-shaped Delta/Candidate | OC-07; shape, relative-patch, array-diff and invariant tests (`internal/planning/delta_test.go`, `internal/planning/jsonpatch`, conformance `assertDelta`) |
 | MS-05 | same | `ImplicitResourceEnricher.Enrich`, `ResourceGraphBuilder.BuildAndExpand`, `DefinitionMatcher.MatchAll` | in-memory graph/matches | OC-07; AWS/internal graph tests |
 | MS-06, MS-07 | same | `DriverContractInspector.InspectContracts`, `ActiveResourceClassifier.Classify`, `BatchScheduler.Schedule` | in-memory plan | OC-07; contract/topology fixtures |
@@ -65,7 +65,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | MS-07, MS-08 | same | matcher, inspector, classifier, scheduler | `deployment_plans`; `PROVISIONING` | OC-07/08; match/contract/DAG tests |
 | MS-09 | `ResourceProvisioningService.Provision` | UC-08 methods | `active_resources`, `deployment_resources` | OC-10; resource integration tests |
 | MS-10 | deploy | `OutputBindingResolver.ResolveWorkloadBindings` | resolved values stay in execution context; safe snapshot only | OC-08; output propagation test |
-| MS-11 | deploy | `WorkloadRenderer.Render`, `WorkloadDeployer.Apply/WaitReady` | declared requests/limits in manifests; `workload_instances=APPLYING/READY` | OC-08; renderer resource mapping + kind/fake adapter tests |
+| MS-11; BR-11 | deploy | `WorkloadRenderer.Render`, `WorkloadDeployer.Apply/WaitReady` | declared requests/limits in manifests; missing request = same-field limit, else default; `workload_instances=APPLYING/READY` | OC-08; renderer resource mapping + kind/fake adapter tests (`TestRender_*ContainerResources*`, `TestRender_LimitsOnlyBelowDefaultUseLimitAsRequest`, `TestRender_DoesNotMutateModuleResources`, `TestDeployWorkload_RendersDeclaredContainerResources`, kind `TestKindInternalVerification` live resources) |
 | MS-12 | deploy | `CompareVersionAndSetCurrent`, repo upserts, `MarkSucceeded` | atomic current pointer + `SUCCEEDED`; AWS runtime `READY` | OC-08; commit-after-ready transaction test |
 | MS-13 | deploy | return `DeploymentResult` | read committed status | OC-08; API contract test |
 

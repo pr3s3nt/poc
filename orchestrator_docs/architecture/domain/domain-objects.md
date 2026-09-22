@@ -65,6 +65,10 @@ hợp trong compatibility matrix.
 `ContainerResourceRequirements` giữ optional requests/limits cho `cpu` và
 `memory`. Nó thuộc workload module, không phải Resource Graph node, và được
 Workload Renderer ánh xạ nguyên vẹn sang Kubernetes container resources.
+`ComputeResources` giữ chuỗi Score nguyên văn; field rỗng nghĩa là không khai
+báo. Request suy ra cho field không khai báo (limit cùng field, rồi platform
+default) chỉ được áp dụng khi render (UC-06 BR-11), không được ghi vào
+Deployment Set.
 
 ## Persistence vs integration state
 

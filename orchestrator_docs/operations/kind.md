@@ -2,7 +2,7 @@
 id: RUNBOOK-KIND
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 ---
 
 # kind verification
@@ -32,6 +32,8 @@ namespace trong cleanup trap.
 - Namespace và run ID.
 - PostgreSQL StatefulSet/Service/PVC ready.
 - Backend, worker và frontend ready.
+- Live Deployment container resources khớp Score theo UC-06 BR-11
+  (`container-resources.txt`, assertion trong `TestKindInternalVerification`).
 - Frontend → backend → PostgreSQL → worker → backend → frontend job flow pass.
 - Password chỉ đi qua Kubernetes Secret và bị redact ở API/UI.
 - Sau cleanup không còn object mang run ID; cluster vẫn tồn tại.

@@ -36,16 +36,50 @@ type Probe struct {
 	Port int    `json:"port"`
 }
 
+// ComputeResources is one `requests` or `limits` branch of a container. Values
+// are the Score strings exactly as declared; an empty field is not declared.
+type ComputeResources struct {
+	CPU    string `json:"cpu,omitempty"`
+	Memory string `json:"memory,omitempty"`
+}
+
+// ContainerResourceRequirements holds the optional Score
+// `containers.*.resources` of one container. It belongs to the workload module
+// and is never a Resource Graph node (UC-05 BR-07, UC-06 BR-11).
+type ContainerResourceRequirements struct {
+	Requests *ComputeResources `json:"requests,omitempty"`
+	Limits   *ComputeResources `json:"limits,omitempty"`
+}
+
+// Clone returns an independent copy, so a module never aliases the Score it was
+// converted from.
+func (r *ContainerResourceRequirements) Clone() *ContainerResourceRequirements {
+	if r == nil {
+		return nil
+	}
+	out := &ContainerResourceRequirements{}
+	if r.Requests != nil {
+		requests := *r.Requests
+		out.Requests = &requests
+	}
+	if r.Limits != nil {
+		limits := *r.Limits
+		out.Limits = &limits
+	}
+	return out
+}
+
 // Container is one container of a workload module. The id repeats the map key,
 // which is the Humanitec module form.
 type Container struct {
-	ID             string            `json:"id,omitempty"`
-	Image          string            `json:"image"`
-	Command        []string          `json:"command,omitempty"`
-	Args           []string          `json:"args,omitempty"`
-	Variables      map[string]string `json:"variables,omitempty"`
-	LivenessProbe  *Probe            `json:"livenessProbe,omitempty"`
-	ReadinessProbe *Probe            `json:"readinessProbe,omitempty"`
+	ID             string                         `json:"id,omitempty"`
+	Image          string                         `json:"image"`
+	Command        []string                       `json:"command,omitempty"`
+	Args           []string                       `json:"args,omitempty"`
+	Variables      map[string]string              `json:"variables,omitempty"`
+	Resources      *ContainerResourceRequirements `json:"resources,omitempty"`
+	LivenessProbe  *Probe                         `json:"livenessProbe,omitempty"`
+	ReadinessProbe *Probe                         `json:"readinessProbe,omitempty"`
 }
 
 // ModuleSpec is the workload body of a module.

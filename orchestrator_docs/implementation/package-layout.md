@@ -98,5 +98,7 @@ frontend/                                   # Orchestrator Web Console
   6 rejected fixture hiện chỉ xác nhận planner từ chối, chưa đối chiếu error code/phase/path.
   Harness so expected Delta (`expected/delta.yaml`) và kiểm `base + delta = candidate`; bundle
   không có array diff hoặc container requests/limits, nên hai vùng này có product tests riêng
-  (`internal/planning/jsonpatch`, `internal/planning/delta_test.go`, IMP-009).
+  (`internal/planning/jsonpatch`, `internal/planning/delta_test.go`; container resources tại
+  `internal/planning/score/resources_test.go`, `internal/planning/resources_test.go`,
+  `internal/adapters/kubernetes/resources_test.go`, `internal/application/deployment/resources_test.go`).
   Dependency `gopkg.in/yaml.v3` chỉ dùng ở harness này.

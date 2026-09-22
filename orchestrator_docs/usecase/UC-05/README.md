@@ -11,7 +11,8 @@ last_reviewed: 2026-09-22
 
 Planning core is implemented and shared with deployment; preview operation/API
 and Web Console experience are not complete. The planner builds the
-Humanitec-shaped Delta (I06-06); container resource preservation remains IMP-009.
+Humanitec-shaped Delta (I06-06) and preserves Score container requests/limits
+in the Candidate Set (I06-07).
 
 ## Read in this order
 

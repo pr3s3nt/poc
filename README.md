@@ -24,7 +24,7 @@ README này.
 - [AI agent workflow](AGENTS.md)
 - [Documentation index](orchestrator_docs/INDEX.md)
 - [Current project state](orchestrator_docs/CURRENT_STATE.md)
-- [Active iteration](orchestrator_docs/iterations/M01-contract-hardening/I06-07-imp009-container-resources/README.md)
+- [Iteration index and active iteration](orchestrator_docs/iterations/README.md)
 - [Backend implementation guide](backend/README.md)
 - [Web Console guide](frontend/README.md)
 - [Project glossary](orchestrator_docs/GLOSSARY.md)

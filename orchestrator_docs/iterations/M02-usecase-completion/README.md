@@ -1,7 +1,7 @@
 ---
 id: M02
 artifact: milestone-plan
-status: deferred
+status: current
 last_reviewed: 2026-09-22
 related: IMP-002, IMP-003, IMP-004, IMP-005
 ---
@@ -16,7 +16,7 @@ mới triển khai một phần hoặc còn phụ thuộc seed.
 ## Iteration order
 
 1. [I06-04 — UC-09 observability](I06-04-uc09-observability/README.md): tiếp tục
-   iteration đã được reprioritize sau M01.
+   iteration đã được reprioritize sau M01. Current.
 2. [I06-08 — UC-05 preview](I06-08-uc05-preview/README.md).
 3. [I06-09 — UC-07 update/remove](I06-09-uc07-update-remove/README.md).
 4. [I06-10 — UC-01..04 management](I06-10-uc01-04-management/README.md).

@@ -118,12 +118,28 @@ Result: hai happy path đầy đủ ở mức thiết kế.
   catalog vi phạm UC-03 BR-07; 33/33 fixture pass
   ([evidence](../verification/2026-09-22-imp010-conformance-catalog.md)).
 
+### Container resources implementation 2026-09-22
+
+- I06-07 đóng IMP-009: Score parser validate `containers.*.resources`
+  (`requests`/`limits`, `cpu`/`memory`, non-empty string), typed
+  `ContainerResourceRequirements` đi nguyên văn qua Score fragment, Candidate
+  Set, Delta Snapshot và persisted set tới Kubernetes renderer.
+- UC-06 BR-11 ghi rõ request policy: request khai báo > limit cùng field >
+  default `10m`/`32Mi` khi render, limits không có default; UC-05 BR-07 ghi rõ
+  validation boundary không gồm Kubernetes quantity semantics.
+- CPU/memory không tạo Resource Graph node; UC-08 boundary không đổi. 33/33
+  fixture pass ([evidence](../verification/2026-09-22-imp009-container-resources.md)).
+  Kind run `kind-20260922114440-17489` chỉ chứng minh live resources của ba
+  seeded workload: backend declared, worker partial, frontend omitted
+  ([evidence](../verification/2026-09-22-imp009-kind-rerun.md)); limit fallback
+  và request vượt limit chỉ có unit test.
+
 ## Gate decision
 
 **PASS cho design coverage.** Toàn bộ 27 PlantUML sources parse/render thành
 công và coverage check tìm thấy đủ 75/75 main-flow step. IMP-008 (Delta
-Snapshot) đã đóng ở I06-06; IMP-009 là implementation gap đã được trace đầy đủ
-và phải đóng trước khi tuyên bố UC-05/06 conform với container-resource
-contract. Empty-criteria adapter semantics đã được đóng ở I06-05. Executable
-kind/AWS baseline lịch sử vẫn có giá trị trong phạm vi behavior đã kiểm chứng,
-không phải bằng chứng cho Delta Snapshot hoặc IMP-009.
+Snapshot) đã đóng ở I06-06; IMP-009 (container resources) đã đóng ở I06-07.
+Empty-criteria adapter semantics đã được đóng ở I06-05. Executable AWS baseline
+lịch sử vẫn có giá trị trong phạm vi behavior đã kiểm chứng, không phải bằng
+chứng cho Delta Snapshot hoặc container resources; kind rerun của I06-07 là bằng
+chứng internal happy path hiện tại.

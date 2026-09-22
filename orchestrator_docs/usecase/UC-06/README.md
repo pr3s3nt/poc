@@ -12,7 +12,8 @@ last_reviewed: 2026-09-22
 Implemented and end-to-end verified through HTTP on kind and AWS. Cloud rerun is
 still a release gate after the last planning changes. Each Deployment persists
 an immutable Humanitec-shaped `DeploymentDeltaSnapshot` (I06-06). Score
-container resources are not yet implemented (IMP-009).
+container requests/limits reach the Kubernetes Deployment with the BR-11
+default policy (I06-07).
 
 ## Read in this order
 

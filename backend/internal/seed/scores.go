@@ -3,6 +3,9 @@ package seed
 // AcceptanceScores returns the three Score documents of the acceptance
 // application. frontend, backend and worker are independent workloads; backend
 // and worker share one stable database resource ID and pass the same `params`.
+// Container resources cover the three renderer cases of UC-06 BR-11: backend
+// declares full requests/limits, worker declares a partial set and frontend
+// declares none.
 func AcceptanceScores(o Options) map[string]map[string]any {
 	database := o.Database
 	if database == "" {
@@ -43,6 +46,10 @@ func AcceptanceScores(o Options) map[string]map[string]any {
 					"variables":      backendVariables,
 					"readinessProbe": map[string]any{"path": "/readyz", "port": 8080},
 					"livenessProbe":  map[string]any{"path": "/healthz", "port": 8080},
+					"resources": map[string]any{
+						"requests": map[string]any{"cpu": "50m", "memory": "64Mi"},
+						"limits":   map[string]any{"cpu": "500m", "memory": "256Mi"},
+					},
 				},
 			},
 			"service":   map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080, "targetPort": 8080}}},
@@ -52,7 +59,14 @@ func AcceptanceScores(o Options) map[string]map[string]any {
 			"apiVersion": "score.dev/v1b1",
 			"metadata":   map[string]any{"name": "worker"},
 			"containers": map[string]any{
-				"main": map[string]any{"image": o.Images.Worker, "variables": workerVariables},
+				"main": map[string]any{
+					"image":     o.Images.Worker,
+					"variables": workerVariables,
+					"resources": map[string]any{
+						"requests": map[string]any{"memory": "48Mi"},
+						"limits":   map[string]any{"memory": "128Mi"},
+					},
+				},
 			},
 			"resources": map[string]any{"db": dbRef},
 		},

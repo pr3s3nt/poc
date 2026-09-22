@@ -100,6 +100,9 @@ echo "=== cluster evidence"
 kubectl --context "${CONTEXT}" get all -n "${NAMESPACE}" | tee "${EVIDENCE}/resources.txt"
 kubectl --context "${CONTEXT}" get pods -n "${NAMESPACE}" -o wide | tee "${EVIDENCE}/pods.txt"
 kubectl --context "${CONTEXT}" get pvc -n "${NAMESPACE}" | tee "${EVIDENCE}/pvc.txt"
+kubectl --context "${CONTEXT}" get deployments -n "${NAMESPACE}" \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.template.spec.containers[*].resources}{"\n"}{end}' \
+  | tee "${EVIDENCE}/container-resources.txt"
 kubectl --context "${CONTEXT}" logs -n "${NAMESPACE}" deployment/worker --tail=20 | tee "${EVIDENCE}/worker.log"
 kubectl --context "${CONTEXT}" get secret -n "${NAMESPACE}" -o name | tee "${EVIDENCE}/secrets.txt"
 

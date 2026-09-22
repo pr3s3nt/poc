@@ -9,7 +9,8 @@ last_reviewed: 2026-09-22
 
 ## Delivery state
 
-Partially implemented and reprioritized after M01 contract hardening.
+Partially implemented; M01 contract hardening is complete and completion is the
+active M02/I06-04 iteration.
 List/detail, graph, batches, resources, workloads and redacted outputs exist;
 history/filter/state comparison remain.
 

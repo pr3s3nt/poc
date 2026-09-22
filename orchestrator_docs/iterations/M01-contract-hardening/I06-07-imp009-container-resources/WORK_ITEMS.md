@@ -1,7 +1,7 @@
 ---
 id: I06-07-WORK
 artifact: iteration-work-items
-status: current
+status: historical
 last_reviewed: 2026-09-22
 related: I06-07
 ---
@@ -22,8 +22,8 @@ related: I06-07
 
 ## Handoff checklist
 
-- [ ] No CPU/memory Resource Graph nodes were introduced.
-- [ ] Declared requests and limits survive every boundary.
-- [ ] Omitted resources follow one documented default policy.
-- [ ] Invalid/unknown resource fields remain rejected.
-- [ ] Backend regression, conformance and kind verification pass.
+- [x] No CPU/memory Resource Graph nodes were introduced.
+- [x] Declared requests and limits survive every boundary.
+- [x] Omitted resources follow one documented default policy.
+- [x] Invalid/unknown resource fields remain rejected.
+- [x] Backend regression, conformance and kind verification pass.
