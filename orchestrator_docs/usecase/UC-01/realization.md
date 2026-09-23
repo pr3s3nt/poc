@@ -2,30 +2,35 @@
 id: UC-01-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-23
 ---
 
 # UC-01 — Use Case Realization
 
 ## Trách nhiệm
 
-Tạo Application với Execution Profile cố định, bind connection phù hợp và tạo Environment cùng Deployment Set rỗng/namespace identity ổn định.
+Tạo Application self-service từ Name/Subdomain, resolve default execution target
+của Organization và atomically tạo `staging`/`production` cùng Deployment Set
+rỗng, namespace identity và desired endpoint. Không provision infrastructure.
 
 ## System operations
 
 ```go
 ApplicationService.CreateApplication(ctx context.Context, cmd CreateApplicationCommand) (*Application, error)
-ApplicationService.CreateEnvironment(ctx context.Context, cmd CreateEnvironmentCommand) (*Environment, error)
 ```
 
-`CreateApplicationCommand` chứa Organization ID, Application ID/name, profile, connection ID và optional AWS region. `CreateEnvironmentCommand` chứa Application ID, Environment ID/name và Environment Type.
+`CreateApplicationCommand` chỉ chứa Organization ID, Name và Subdomain.
+`DefaultExecutionTargetResolver` trả về profile, connection và optional AWS
+region từ platform configuration của Organization. ID và hai Environment được
+hệ thống tạo, không nằm trong command.
 
 ## Participants
 
-- `ApplicationController` — boundary nhận hai command.
-- `ApplicationService` — control kiểm tra profile/connection và điều phối transaction.
+- `ApplicationController` — boundary nhận create command của Developer.
+- `ApplicationService` — control validate Name/Subdomain, resolve target và điều phối transaction.
+- `DefaultExecutionTargetResolver` — đọc platform configuration cho Organization.
 - `Application`, `Environment`, `DeploymentSet`, `NamespaceIdentity` — domain entities/value objects.
-- `ConnectionRepository` — đọc connection `READY`.
+- `ConnectionRepository` — đọc connection `READY` của target đã resolve.
 - `ApplicationRepository`, `EnvironmentRepository`, `DeploymentSetRepository` — persistence ports.
 - `UnitOfWork` — transaction cho từng aggregate creation.
 
@@ -33,17 +38,23 @@ ApplicationService.CreateEnvironment(ctx context.Context, cmd CreateEnvironmentC
 
 | Step | Collaboration |
 |---|---|
-| MS-01–MS-04 | Controller -> `CreateApplication` -> load connection -> `Application.Create` -> save trong một transaction. |
-| MS-05–MS-08 | Controller -> `CreateEnvironment` -> load Application -> `Environment.Create` + `DeploymentSet.Empty` -> save cùng current-set pointer trong một transaction. |
-| VAR-01 | Validate AWS connection/region; runtime status `PENDING`, không provision VPC/EKS. |
-| VAR-02 | Validate Kubernetes connection `READY`; bind cluster ID. |
+| MS-01–MS-02 | Controller -> `CreateApplication` -> validate Name/Subdomain and uniqueness. |
+| MS-03–MS-04 | Service -> resolve Organization default target -> load ready connection -> `Application.Create` with generated ID. |
+| MS-05–MS-06 | Service -> `Environment.Create(staging/production)` + `DeploymentSet.Empty` + `NamespaceIdentity.ForEnvironment`. |
+| MS-07–MS-08 | Service derives desired endpoints, then saves Application, both Environments and current-set pointers atomically. |
+| VAR-01 | Resolve AWS connection/region; runtime status `PENDING`, không provision VPC/EKS. |
+| VAR-02 | Resolve Kubernetes connection `READY`; bind cluster ID. |
 
 ## Transaction boundary
 
-Hai operation là hai transaction độc lập. `CreateEnvironment` khóa/version-check Application, lưu Environment và Deployment Set rỗng atomically; không có external infrastructure call.
+Một transaction tạo Application, hai Environment và hai Deployment Set rỗng
+atomically; không có external infrastructure call. Unique Name/Subdomain là
+duplicate guard cuối cùng của persistence.
 
 ## Planned tests
 
-- `TestCreateApplication_AWSEKS`, `TestCreateApplication_InternalK8s`.
-- `TestCreateEnvironment_InitializesEmptyDeploymentSetAndNamespaceIdentity`.
-- Repository integration test cho unique `(organization_id, application_id)` và `(application_pk, environment_id)`.
+- `TestCreateApplication_UsesOrganizationDefaultTarget`.
+- `TestCreateApplication_CreatesStagingAndProductionWithEmptyDeploymentSets`.
+- `TestCreateApplication_RejectsInvalidOrDuplicateSubdomain`.
+- Repository integration test cho unique `(organization_id, name)`, global
+  Subdomain và exactly-two default Environment rows.

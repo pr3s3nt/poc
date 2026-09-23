@@ -1,0 +1,45 @@
+@startuml
+title VOPC - UC-00 Sign In
+left to right direction
+skinparam classAttributeIconSize 0
+class AuthenticationController <<boundary>> {
+  +SignIn(command)
+  +SignOut()
+}
+class AuthenticationService <<control>> {
+  +SignIn(ctx, cmd): Session
+  +SignOut(ctx, token)
+}
+class AuthenticationMiddleware <<boundary>> {
+  +Authenticate(request): IdentityContext
+}
+class UserAccount <<entity>> {
+  +Status: AccountStatus
+  +OrganizationID: OrganizationID
+  +Role: UserRole
+}
+class Session <<entity>> {
+  +TokenHash: string
+  +ExpiresAt: time
+  +Revoke()
+}
+interface PasswordHasher {
+  +Verify(password, hash): bool
+}
+interface UserAccountRepository {
+  +FindActiveByUsername(ctx, username): UserAccount
+}
+interface SessionRepository {
+  +Save(ctx, session)
+  +FindActiveByTokenHash(ctx, hash): Session
+  +Revoke(ctx, id)
+}
+AuthenticationController --> AuthenticationService
+AuthenticationMiddleware --> SessionRepository
+AuthenticationService --> PasswordHasher
+AuthenticationService --> UserAccountRepository
+AuthenticationService --> SessionRepository
+AuthenticationService ..> UserAccount
+AuthenticationService ..> Session
+UserAccount "1" o-- "0..*" Session
+@enduml

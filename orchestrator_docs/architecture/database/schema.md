@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 ---
 
 # Database Schema
@@ -18,6 +18,33 @@ PostgreSQL là system of record cho logical orchestration state. JSONB chỉ dù
 | `id` | uuid | PK |
 | `organization_key` | text | UNIQUE, NOT NULL |
 | `name` | text | NOT NULL |
+
+### `user_accounts`
+
+| Column | Type | Constraint |
+|---|---|---|
+| `id` | uuid | PK |
+| `organization_id` | uuid | FK organizations, NOT NULL |
+| `username` | text | normalized, UNIQUE, NOT NULL |
+| `password_hash` | text | NOT NULL |
+| `role` | text | `ADMIN`, `PLATFORM_ENGINEER` or `DEVELOPER`, NOT NULL |
+| `status` | text | `ACTIVE` or `DISABLED`, NOT NULL |
+| `created_at`, `updated_at` | timestamptz | NOT NULL |
+
+Fixed test accounts are seed-only for `local`/`test`; they are not production records.
+
+### `sessions`
+
+| Column | Type | Constraint |
+|---|---|---|
+| `id` | uuid | PK |
+| `user_account_id` | uuid | FK user_accounts, NOT NULL |
+| `token_hash` | text | UNIQUE, NOT NULL |
+| `expires_at` | timestamptz | NOT NULL |
+| `revoked_at` | timestamptz | nullable |
+| `created_at` | timestamptz | NOT NULL |
+
+Only token hashes are persisted. A revoked or expired session is invalid.
 
 ### `connections`
 
@@ -41,15 +68,16 @@ Unique: `(organization_id, connection_key)`.
 |---|---|---|
 | `id` | uuid | PK |
 | `organization_id` | uuid | FK organizations |
-| `application_key` | text | NOT NULL |
 | `name` | text | NOT NULL |
+| `subdomain` | text | normalized DNS label, NOT NULL |
 | `execution_profile` | text | `aws-eks` or `internal-k8s` |
 | `connection_id` | uuid | FK connections |
 | `region` | text | required for `aws-eks` |
 | `runtime_status` | text | `PENDING` or `READY` |
 | `version` | bigint | optimistic version |
 
-Unique: `(organization_id, application_key)`.
+`id` is system-generated and immutable. Unique: `(organization_id, name)` and
+`subdomain` globally within the configured platform base domain.
 
 ### `environments`
 
@@ -63,7 +91,9 @@ Unique: `(organization_id, application_key)`.
 | `current_deployment_set_id` | uuid | nullable FK deployment_sets, deferred |
 | `version` | bigint | optimistic version |
 
+`environment_key` is system-owned and limited to `staging` or `production`.
 Unique: `(application_id, environment_key)` and `(application_id, namespace_identity)`.
+The application-creation transaction inserts exactly those two rows.
 
 ### `resource_types`
 

@@ -2,87 +2,96 @@
 id: UC-01-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-23
 ---
 
-# UC-01 — Manage Application and Environment
+# UC-01 — Create Application
 
 ## Mục tiêu
 
-Tạo Application, chọn Execution Profile và quản lý các Environment dùng để thực hiện deployment.
+Cho phép Developer tạo Application để khai báo và deploy workload.
 
 ## Primary actor
 
-- Platform Engineer
+- Developer
 
 ## Supporting actor
 
+- Platform Engineer
 - Organization Administrator
 
 ## Tiền điều kiện
 
 - **PRE-01:** Organization đã tồn tại.
-- **PRE-02:** Platform Engineer có quyền quản lý Application và Environment.
-- **PRE-03:** Một trong hai Execution Profile được hỗ trợ: `aws-eks` hoặc `internal-k8s`.
+- **PRE-02:** Developer đã được xác thực và thuộc Organization.
+- **PRE-03:** Platform đã cấu hình base domain và default execution target cho Organization.
+- **PRE-04:** Connection của default execution target có trạng thái `READY`.
 
 ## Trigger
 
-**TRG-01:** Platform Engineer yêu cầu tạo một Application và Environment.
+**TRG-01:** Developer yêu cầu tạo một Application.
 
 ## Main success scenario
 
-1. **MS-01:** Platform Engineer tạo Application với ID và tên duy nhất.
-2. **MS-02:** Platform Engineer chọn Execution Profile `aws-eks` hoặc `internal-k8s`.
-3. **MS-03:** Platform Engineer chọn connection phù hợp với profile theo VAR-01 hoặc VAR-02.
-4. **MS-04:** Orchestrator lưu Application cùng runtime configuration; Cloud runtime ban đầu có trạng thái `PENDING`.
-5. **MS-05:** Platform Engineer tạo Environment thuộc Application.
-6. **MS-06:** Orchestrator gán Environment Type phù hợp với Execution Profile và khởi tạo Deployment Set rỗng.
-7. **MS-07:** Orchestrator tạo namespace identity theo Environment.
-8. **MS-08:** Orchestrator lưu Environment và trả về thông tin đã tạo.
+1. **MS-01:** Developer nhập Application Name và Subdomain.
+2. **MS-02:** Orchestrator kiểm tra thông tin hợp lệ và Subdomain chưa được sử dụng trong base domain platform.
+3. **MS-03:** Orchestrator tự tạo Application ID duy nhất và lấy default execution target của Organization.
+4. **MS-04:** Orchestrator tạo Application với runtime configuration của target đó.
+5. **MS-05:** Orchestrator tự tạo hai Environment `staging` và `production` thuộc Application.
+6. **MS-06:** Orchestrator khởi tạo Deployment Set rỗng và namespace identity riêng cho mỗi Environment.
+7. **MS-07:** Orchestrator hiển thị desired endpoint cho mỗi Environment.
+8. **MS-08:** Orchestrator lưu Application và Environments, rồi trả về Application context cho Developer.
 
 ## Luồng biến thể trong happy path
 
-- **VAR-01 — `aws-eks`:** tại MS-03, Platform Engineer chọn AWS region và Driver Account đã cấu hình trong UC-04; chưa tạo VPC/EKS.
-- **VAR-02 — `internal-k8s`:** tại MS-03, Platform Engineer chọn cluster connection trạng thái `READY` đã đăng ký trong UC-04.
+- **VAR-01 — `aws-eks`:** default execution target cung cấp AWS connection và region; UC-01 chưa tạo VPC/EKS.
+- **VAR-02 — `internal-k8s`:** default execution target cung cấp Kubernetes connection đang `READY`.
 
 ## Hậu điều kiện
 
-- **POST-01:** Application có một Execution Profile cố định.
-- **POST-02:** Với Cloud, Application ở trạng thái chờ lazy-provision VPC/EKS trong UC-06/UC-08 đầu tiên.
-- **POST-03:** Với Internal, Application tham chiếu một Kubernetes cluster có sẵn.
-- **POST-04:** Mỗi Environment có Deployment Set rỗng và namespace identity riêng.
-- **POST-05:** Application và Environment sẵn sàng được sử dụng trong UC-06.
+- **POST-01:** Application thuộc Organization của Developer và có Application ID do hệ thống sinh.
+- **POST-02:** Application có đúng hai Environment: `staging` và `production`.
+- **POST-03:** Mỗi Environment có Deployment Set rỗng, namespace identity riêng và desired endpoint.
+- **POST-04:** Chưa có workload hoặc runtime infrastructure nào được provision.
+- **POST-05:** Application và Environment sẵn sàng được sử dụng trong UC-05 và UC-06.
 
 ## Quy tắc nghiệp vụ
 
-- **BR-01:** Application thuộc đúng một Organization và Application ID là duy nhất trong Organization.
-- **BR-02:** Environment thuộc đúng một Application và Environment ID là duy nhất trong Application.
-- **BR-03:** Execution Profile không đổi trong happy path sau khi Application có Active Resources.
-- **BR-04:** `aws-eks` dùng VPC/EKS scope Application; `internal-k8s` không tạo VPC/EKS.
-- **BR-05:** namespace identity có scope Environment và phải ổn định qua các deployment.
+- **BR-01:** Application ID do hệ thống sinh, bất biến và duy nhất toàn cục.
+- **BR-02:** Developer chỉ nhập Application Name và Subdomain; Name là duy nhất trong Organization.
+- **BR-03:** Subdomain là DNS label hợp lệ, được chuẩn hóa lowercase và duy nhất trong base domain platform.
+- **BR-04:** Mỗi Application có đúng hai Environment hệ thống tạo: `staging` và `production`.
+- **BR-05:** Production desired endpoint là `<subdomain>.<base-domain>`; staging desired endpoint là `staging.<subdomain>.<base-domain>`.
+- **BR-06:** Desired endpoint chưa được provision trong UC-01; UC-06 tạo hoặc cập nhật route/ingress sau khi workload sẵn sàng.
+- **BR-07:** Execution target được lấy từ default của Organization; Developer không quản lý Connection, credential, cluster, region, Resource Type hoặc Resource Definition qua UC-01.
+- **BR-08:** Execution Profile không đổi sau khi Application có Active Resources.
+- **BR-09:** `aws-eks` dùng VPC/EKS scope Application; `internal-k8s` dùng cluster đã đăng ký.
+- **BR-10:** Namespace identity có scope Environment và ổn định qua các deployment.
 
 ## Luồng nội bộ
 
 ```text
-UC-01 Manage Application and Environment
+UC-01 Create Application
+├── Validate Application Name and Subdomain
+├── Generate Application ID
+├── Resolve Organization default execution target
 ├── Create Application
-├── Assign Execution Profile
-├── Bind AWS account/region or internal cluster
-├── Initialize Application runtime state
-├── Create Environment
-├── Initialize Deployment Set and namespace identity
+├── Create staging and production Environments
+├── Initialize Deployment Sets and namespace identities
+├── Derive desired endpoints
 └── Persist configuration
 ```
 
 ## Trạng thái implementation hiện tại
 
-- Seed catalog đã tạo hai Application mẫu với profile cố định (`acceptance` dùng `internal-k8s`, `acceptance-cloud` dùng `aws-eks`) và Environment `dev`; API/Web Console có thể liệt kê chúng.
+- Baseline chỉ có Application/Environment seed (`acceptance`, `acceptance-cloud`) với Environment `dev`; API/Web Console có thể liệt kê chúng.
+- Baseline chưa có API/UI tạo Application, Application ID tự sinh theo UC-01, default target theo Organization, Subdomain/desired endpoint hoặc hai Environment cố định.
 - Planning context đã dùng Application, Environment, profile, connection, region, namespace identity và runtime status; VPC/EKS có application scope.
-- API/UI tạo Application/Environment và PostgreSQL persistence cho UC-01 chưa có; dữ liệu hiện được seed vào state store khi process khởi động.
 
 ## Ngoài phạm vi happy path
 
-- **OOS-01:** Đổi Execution Profile sau khi Application đã có Active Resources.
-- **OOS-02:** Xóa Application, EKS hoặc VPC.
-- **OOS-03:** Clone và promotion Environment.
-- **OOS-04:** RBAC chi tiết, concurrent update và audit history.
+- **OOS-01:** Sửa Name hoặc Subdomain sau khi Application được tạo.
+- **OOS-02:** Thêm, xóa, đổi tên, clone hoặc promotion Environment.
+- **OOS-03:** Chọn target khác default của Organization, hoặc quản lý Connection/credential/cluster.
+- **OOS-04:** DNS ownership verification, certificate lifecycle, custom domain và external DNS provisioning.
+- **OOS-05:** RBAC chi tiết, concurrent update và audit history.

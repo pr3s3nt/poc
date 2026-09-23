@@ -2,15 +2,15 @@
 id: UC-09-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 ---
 
 # UC-09 context — Observe deployment
 
 ## Delivery state
 
-Partially implemented; M01 contract hardening is complete and completion is the
-active M02/I06-04 iteration.
+Partially implemented; M01 contract hardening is complete. Completion remains
+in M02/I06-04, deferred until M00-a developer onboarding is complete.
 List/detail, graph, batches, resources, workloads and redacted outputs exist;
 history/filter/state comparison remain.
 

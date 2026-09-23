@@ -4,10 +4,12 @@ skinparam componentStyle rectangle
 
 actor Developer
 actor "Platform Engineer" as Platform
+actor "Organization Administrator" as OrgAdmin
 actor "CI/CD Client" as CICD
 
 component "React + TypeScript\nWeb Console" as WebConsole
 component "HTTP/API Delivery" as API
+component "Authentication Service\nUC-00" as Authentication
 component "Administration Services\nUC-01..UC-04" as Admin
 component "Preview/Deployment Services\nUC-05..UC-07, UC-09" as Deploy
 component "Planning Core" as Planner
@@ -24,9 +26,12 @@ node "Kubernetes / kind / EKS" as Kubernetes
 
 Developer --> WebConsole
 Platform --> WebConsole
+OrgAdmin --> WebConsole
 WebConsole --> API : same origin /api/v1
 CICD --> API
+API --> Authentication
 API --> Admin
+Authentication --> Persistence
 API --> Deploy
 Admin --> Persistence
 Admin --> Secrets

@@ -2,25 +2,27 @@
 id: ITERATION-INDEX
 artifact: iteration-index
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 ---
 
 # Iteration index
 
 ## Active
 
-- [M02 — Use-case completion](M02-usecase-completion/README.md)
-  - [I06-04 — Complete UC-09 observability](M02-usecase-completion/I06-04-uc09-observability/README.md)
+- [M00-a — Developer onboarding](M00-developer-onboarding/README.md)
+  - [I00-00 — UC-00 and UC-01 developer onboarding](M00-developer-onboarding/I00-00-uc00-uc01-developer-onboarding/README.md)
 
 ## Roadmap
 
-1. [M01 — Contract hardening](M01-contract-hardening/README.md): IMP-010
+1. [M00-a — Developer onboarding](M00-developer-onboarding/README.md): thiết kế
+   UI và implement UC-00 sign-in + UC-01 self-service Application. Current.
+2. [M01 — Contract hardening](M01-contract-hardening/README.md): IMP-010
    (done, I06-05) → IMP-008 (done, I06-06) → IMP-009 (done, I06-07).
    Historical; hoàn thành 2026-09-22.
-2. [M02 — Use-case completion](M02-usecase-completion/README.md): hoàn thiện
-   UC-09, UC-05, UC-07 và management flows UC-01..04. Current, bắt đầu từ
-   I06-04.
-3. [M03 — Production and external compatibility](M03-production-compatibility/README.md):
+3. [M02 — Use-case completion](M02-usecase-completion/README.md): hoàn thiện
+   UC-09, UC-05, UC-07 và management flows còn lại của UC-01..04. Deferred
+   sau M00-a.
+4. [M03 — Production and external compatibility](M03-production-compatibility/README.md):
    IMP-001, rồi IMP-006/007 khi boundary tương ứng được yêu cầu.
 
 ## Folder contract

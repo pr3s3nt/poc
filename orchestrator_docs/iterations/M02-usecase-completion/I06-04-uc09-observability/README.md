@@ -1,8 +1,8 @@
 ---
 id: I06-04
 artifact: iteration-plan
-status: current
-last_reviewed: 2026-09-22
+status: deferred
+last_reviewed: 2026-09-23
 related: UC-09, IMP-005
 ---
 
@@ -50,4 +50,4 @@ tiếp tục code.
 
 ## Outcome
 
-Đã reprioritize sau M01; chưa hoàn thành.
+Reprioritized sau M00-a; chưa hoàn thành.

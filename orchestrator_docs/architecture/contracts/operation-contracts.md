@@ -2,28 +2,28 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 ---
 
 # Operation Contracts
 
 Các contract dưới đây dùng tên method cố định cho realization và Go implementation.
 
+## OC-00 `AuthenticationService.SignIn` / `SignOut`
+
+- Use case: UC-00 MS-01–MS-05.
+- Preconditions: fixed internal account tồn tại, `ACTIVE`; test accounts chỉ được load ở profile `local`/`test`.
+- Creates: opaque Session gắn với User, Organization và role; delivery đặt raw token vào same-origin `HttpOnly` cookie.
+- Postconditions: raw token không được persist/log; only token hash được lưu; revoked/expired session không authenticate được.
+- Persistence: insert/revoke `sessions` trong một transaction; không mutate UserAccount khi sign-in thành công.
+
 ## OC-01 `ApplicationService.CreateApplication`
 
-- Use case: UC-01 MS-01–MS-04.
-- Preconditions: Organization tồn tại; connection `READY`; application key chưa tồn tại.
-- Creates: `Application` với profile/connection binding và version 1.
-- Postconditions: AWS Application `PENDING`; internal Application bind existing cluster; chưa có infrastructure.
-- Persistence: insert `applications` trong một transaction.
-
-## OC-02 `ApplicationService.CreateEnvironment`
-
-- Use case: UC-01 MS-05–MS-08.
-- Preconditions: Application tồn tại.
-- Creates: `Environment`, immutable empty `DeploymentSet`, stable namespace identity.
-- Postconditions: Environment current-set pointer trỏ empty set; version 1.
-- Persistence: insert environment/set và current pointer atomically.
+- Use case: UC-01 MS-01–MS-08.
+- Preconditions: Organization tồn tại; default execution target có connection `READY`; Name/Subdomain hợp lệ và chưa trùng.
+- Creates: system-ID `Application` với profile/connection binding, cùng `staging` và `production` Environments, immutable empty Deployment Sets và stable namespace identities.
+- Postconditions: AWS Application `PENDING`; internal Application bind existing cluster; desired endpoints được suy ra nhưng chưa có infrastructure, workload hoặc route/ingress.
+- Persistence: insert Application, hai Environment, hai Deployment Set và current pointers atomically trong một transaction.
 
 ## OC-03 `ResourceTypeService.RegisterResourceType`
 

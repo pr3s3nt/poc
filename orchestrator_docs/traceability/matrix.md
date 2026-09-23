@@ -2,21 +2,30 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 ---
 
-# UC-01..UC-09 Traceability Matrix
+# UC-00..UC-09 Traceability Matrix
 
 Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, class/method, persistence/state và planned test. `OC-nn` tham chiếu `architecture/contracts/operation-contracts.md`.
+
+## UC-00
+
+| Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
+|---|---|---|---|---|
+| MS-01, MS-02 | `SignIn`; `UC-00/sequence.puml` | `AuthenticationService.SignIn`, `UserAccountRepository.FindActiveByUsername`, `PasswordHasher.Verify` | read active `user_accounts`; no session on failure | OC-00; invalid-password/disabled-account tests |
+| MS-03 | same | identity-context builder | User ID, Organization ID, role | OC-00; organization/role context test |
+| MS-04 | same | random-token generator, `SessionRepository.Save` | token-hash-only `sessions` record | OC-00; no-raw-token persistence test |
+| MS-05 | authentication middleware | session lookup and context injection | authenticated request context | OC-00; protected-route and sign-out tests |
 
 ## UC-01
 
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
-| MS-01, MS-02, MS-03 | `CreateApplication`; `UC-01/sequence.puml` | `ApplicationService.CreateApplication`, `ConnectionRepository.FindReady` | `applications`, `connections`; AWS `PENDING`, internal `READY` | OC-01; `TestCreateApplication_AWSEKS`, `...InternalK8s` |
-| MS-04 | same | `Application.Create`, `ApplicationRepository.Save` | insert Application/version | OC-01; repository unique test |
-| MS-05, MS-06, MS-07 | `CreateEnvironment`; sequence | `ApplicationService.CreateEnvironment`, `Environment.Create`, `DeploymentSet.Empty` | `environments`, `deployment_sets` | OC-02; `TestCreateEnvironment_Initializes...` |
-| MS-08 | same | `DeploymentSetRepository.SaveAndSetCurrent` | atomic current-set pointer | OC-02; transaction integration test |
+| MS-01, MS-02 | `CreateApplication`; `UC-01/sequence.puml` | `ApplicationService.CreateApplication`, subdomain validator | `applications`; unique Name/Subdomain | OC-01; invalid/duplicate subdomain tests |
+| MS-03, MS-04 | same | default-target resolver, `ConnectionRepository.FindReady`, `Application.Create` | Application system ID, profile/connection binding; AWS `PENDING`, internal `READY` | OC-01; target-resolution tests |
+| MS-05, MS-06 | same | `Environment.Create`, `DeploymentSet.Empty`, `NamespaceIdentity.ForEnvironment` | exactly `staging` and `production`; `environments`, `deployment_sets` | OC-01; atomic default-environment test |
+| MS-07, MS-08 | same | endpoint derivation, `ApplicationRepository.Save` | derived desired endpoints; atomic Application/Environment/current-set write | OC-01; endpoint derivation and no-infrastructure test |
 
 ## UC-02
 

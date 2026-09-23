@@ -6,9 +6,12 @@ skinparam classAttributeIconSize 0
 hide empty members
 
 package "Application Services" {
+  class AuthenticationService {
+    +SignIn(ctx, cmd): Session
+    +SignOut(ctx, token)
+  }
   class ApplicationService {
     +CreateApplication(ctx, cmd): Application
-    +CreateEnvironment(ctx, cmd): Environment
   }
   class ResourceTypeService {
     +RegisterResourceType(ctx, cmd): ResourceType
@@ -83,13 +86,26 @@ package "Execution" {
 
 package "Domain" {
   class Organization <<entity>>
+  class UserAccount <<aggregate>> {
+    +OrganizationID: OrganizationID
+    +Role: UserRole
+    +Status: AccountStatus
+  }
+  class Session <<aggregate>> {
+    +TokenHash: string
+    +ExpiresAt: time
+    +Revoke()
+  }
   class Application <<aggregate>> {
     +ID: ApplicationID
+    +Name: string
+    +Subdomain: string
     +Profile: ExecutionProfile
     +RuntimeStatus: ApplicationRuntimeStatus
   }
   class Environment <<aggregate>> {
     +ID: EnvironmentID
+    +DesiredEndpoint(): Hostname
     +Namespace: NamespaceIdentity
     +Version: int64
   }
@@ -140,6 +156,14 @@ package "Domain" {
 }
 
 package "Ports" {
+  interface PasswordHasher {
+    +Verify(password, hash): bool
+  }
+  interface UserAccountRepository
+  interface SessionRepository
+  interface DefaultExecutionTargetResolver {
+    +Resolve(ctx, organizationID): ExecutionTarget
+  }
   interface ApplicationRepository
   interface EnvironmentRepository
   interface ConnectionRepository
@@ -205,6 +229,12 @@ ContainerResourceRequirements *-- ComputeResources
 ApplicationService --> ApplicationRepository
 ApplicationService --> EnvironmentRepository
 ApplicationService --> ConnectionRepository
+ApplicationService --> DefaultExecutionTargetResolver
+AuthenticationService --> PasswordHasher
+AuthenticationService --> UserAccountRepository
+AuthenticationService --> SessionRepository
+Organization "1" o-- "0..*" UserAccount
+UserAccount "1" o-- "0..*" Session
 ResourceTypeService --> ResourceTypeRepository
 ResourceDefinitionService --> ResourceDefinitionRepository
 ResourceDefinitionService --> ResourceTypeRepository

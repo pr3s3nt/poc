@@ -2,12 +2,12 @@
 id: ARCHITECTURE-INDEX
 artifact: architecture-index
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-23
 ---
 
 # Shared Architecture Baseline
 
-Shared design này hợp nhất UC-01 đến UC-09 sau realization.
+Shared design này hợp nhất UC-00 đến UC-09 sau realization.
 
 ## Artifact map
 

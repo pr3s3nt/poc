@@ -2,7 +2,7 @@
 id: USE-CASE-INDEX
 artifact: use-case-index
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-23
 ---
 
 # Orchestrator Use Case Model
@@ -18,7 +18,7 @@ Xây dựng orchestrator nội bộ sử dụng các contract và khái niệm g
 - **Developer:** khai báo và triển khai workload.
 - **Platform Engineer:** cấu hình environment, resource và hạ tầng.
 - **CI/CD System:** tự động kích hoạt deployment.
-- **Organization Administrator:** quản lý người dùng và quyền truy cập.
+- **Organization Administrator:** quản lý người dùng và quyền truy cập trong phạm vi future RBAC.
 - **Resource Driver:** provision resource như Terraform hoặc Echo.
 - **Kubernetes Cluster/Operator:** thực thi workload và resource manifests.
 - **Secret Store:** cung cấp secrets cho workload và driver.
@@ -27,7 +27,8 @@ Xây dựng orchestrator nội bộ sử dụng các contract và khái niệm g
 
 | ID | Use case | Actor chính | Ưu tiên |
 |---|---|---|---|
-| [UC-01](UC-01/README.md) | Quản lý Application và Environment | Platform Engineer | P0 |
+| [UC-00](UC-00/README.md) | Đăng nhập | User | P0 |
+| [UC-01](UC-01/README.md) | Tạo Application | Developer | P0 |
 | [UC-02](UC-02/README.md) | Đăng ký Resource Type | Platform Engineer | P0 |
 | [UC-03](UC-03/README.md) | Đăng ký Resource Definition và Matching Criteria | Platform Engineer | P0 |
 | [UC-04](UC-04/README.md) | Cấu hình Execution Profile, cluster và Driver Account | Platform Engineer | P0 |
@@ -58,7 +59,7 @@ Các use case ảnh hưởng trực tiếp đến kiến trúc và nên được
 
 ### Inception
 
-- Chốt actors, UC-01 đến UC-09 và phạm vi happy path.
+- Chốt actors, UC-00 đến UC-09 và phạm vi happy path.
 - Chỉ hỗ trợ Terraform và Kubernetes.
 - Chốt các contract tương thích Humanitec.
 
@@ -109,6 +110,8 @@ ID chỉ ổn định trong phạm vi một use case và sẽ được dùng l�
 
 ## 9. Quan hệ giữa các use case
 
+- UC-00 xác lập User, Organization và role context cho mọi UI/API operation
+  có xác thực, gồm UC-01 đến UC-09.
 - UC-06 `«include»` UC-08 tại bước provision resource.
 - UC-07 `«include»` UC-08 khi update cần provision hoặc reconcile desired resource.
 - UC-05 dùng chung planning pipeline với UC-06 nhưng không provision và không thay đổi runtime state.
@@ -118,6 +121,7 @@ ID chỉ ổn định trong phạm vi một use case và sẽ được dùng l�
 
 | UC | Specification | Realization | Sequence | VOPC |
 |---|---|---|---|---|
+| UC-00 | [spec](UC-00/specification.md) | [realization](UC-00/realization.md) | [PlantUML](UC-00/sequence.puml) | [PlantUML](UC-00/vopc.puml) |
 | UC-01 | [spec](UC-01/specification.md) | [realization](UC-01/realization.md) | [PlantUML](UC-01/sequence.puml) | [PlantUML](UC-01/vopc.puml) |
 | UC-02 | [spec](UC-02/specification.md) | [realization](UC-02/realization.md) | [PlantUML](UC-02/sequence.puml) | [PlantUML](UC-02/vopc.puml) |
 | UC-03 | [spec](UC-03/specification.md) | [realization](UC-03/realization.md) | [PlantUML](UC-03/sequence.puml) | [PlantUML](UC-03/vopc.puml) |

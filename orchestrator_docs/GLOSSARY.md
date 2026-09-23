@@ -2,7 +2,7 @@
 id: PROJECT-GLOSSARY
 artifact: glossary
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 ---
 
 # Project glossary
@@ -10,6 +10,8 @@ last_reviewed: 2026-09-22
 | Term | Meaning in this project |
 |---|---|
 | Organization | Biên sở hữu Application, Resource Type, Resource Definition và Connection. |
+| User Account | Internal account thuộc một Organization, có username, password hash, role và status. |
+| Session | Opaque authenticated session gắn với User Account; database chỉ lưu token hash. |
 | Application | Đơn vị ứng dụng sở hữu một Execution Profile cố định; với `aws-eks`, đây cũng là scope VPC/EKS. |
 | Environment | Môi trường thuộc một Application, có current Deployment Set và namespace identity riêng. |
 | Execution Profile | Chính sách `aws-eks` hoặc `internal-k8s`, quyết định target và tập Definition phù hợp. |

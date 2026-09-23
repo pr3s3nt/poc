@@ -1,20 +1,21 @@
 @startuml
-title VOPC - UC-01 Manage Application and Environment
+title VOPC - UC-01 Create Application
 left to right direction
 skinparam classAttributeIconSize 0
 class ApplicationController <<boundary>> {
   +CreateApplication(command)
-  +CreateEnvironment(command)
 }
 class ApplicationService <<control>> {
   +CreateApplication(ctx, cmd): Application
-  +CreateEnvironment(ctx, cmd): Environment
+}
+interface DefaultExecutionTargetResolver {
+  +Resolve(ctx, organizationID): ExecutionTarget
 }
 class Application <<entity>> {
-  +Create(profile, connection): Application
+  +Create(generatedID, profile, connection): Application
 }
 class Environment <<entity>> {
-  +Create(application, envType): Environment
+  +Create(application, staging|production): Environment
 }
 class DeploymentSet <<entity>> {
   +Empty(environmentID): DeploymentSet
@@ -33,6 +34,7 @@ interface DeploymentSetRepository {
   +SaveAndSetCurrent(ctx, set)
 }
 ApplicationController --> ApplicationService
+ApplicationService --> DefaultExecutionTargetResolver
 ApplicationService --> ConnectionRepository
 ApplicationService --> ApplicationRepository
 ApplicationService --> EnvironmentRepository

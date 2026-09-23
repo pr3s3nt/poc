@@ -2,22 +2,24 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 ---
 
 # Current project state
 
 ## Lifecycle position
 
-Phase 1–5 của Unified Process đã hoàn thành và design gate đã PASS. Executable
+Phase 1–5 của Unified Process cho UC-01..UC-09 đã hoàn thành và design gate đã PASS.
+UC-00 được bổ sung sau gate và cần targeted design-gate review trước implementation. Executable
 architecture cho UC-06/UC-08 cùng query path tối thiểu của UC-09 đã được hiện
 thực. Internal happy path đã được kiểm chứng trên kind; cloud happy path đã được
 kiểm chứng trên AWS với VPC, EKS và Aurora rồi cleanup.
 
 Active iteration là
-[I06-04 — Complete UC-09 observability](iterations/M02-usecase-completion/I06-04-uc09-observability/README.md)
-thuộc [M02 — Use-case completion](iterations/M02-usecase-completion/README.md);
-code của I06-04 chưa được tiếp tục sau khi M01 đóng.
+[I00-00 — UC-00 and UC-01 developer onboarding](iterations/M00-developer-onboarding/I00-00-uc00-uc01-developer-onboarding/README.md)
+thuộc [M00-a — Developer onboarding](iterations/M00-developer-onboarding/README.md).
+M00-a thiết kế UI và implement sign-in/self-service Application trước khi tiếp
+tục UC-09; I06-04 được reprioritize sang deferred.
 [M01 — Contract hardening](iterations/M01-contract-hardening/README.md) đã hoàn
 thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 
@@ -25,7 +27,8 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 
 | UC | State | Current conclusion |
 |---|---|---|
-| UC-01 | Designed; seed-backed baseline | Domain/seed và application listing phục vụ deploy đã có; CRUD quản trị và UI đầy đủ chưa có. |
+| UC-00 | Designed; not implemented | Internal-account sign-in, session persistence, middleware and Web Console login are not implemented; executable baseline remains unauthenticated. |
+| UC-01 | Designed; seed-backed baseline | Requirement hiện là Developer self-service tạo Application bằng Name/Subdomain, tự sinh `staging`/`production`; baseline vẫn chỉ có seed/listing, chưa có API/UI. |
 | UC-02 | Designed; seed-backed baseline | Resource Type catalog tồn tại trong seed/planner; API/UI quản trị chưa có. |
 | UC-03 | Designed; seed-backed baseline | Resource Definition, matching và contract validation đã chạy trong planner; API/UI quản trị chưa có. |
 | UC-04 | Designed; partial execution support | Connection/target seed và adapters kind/AWS đã chạy; registration/verification UI và persistence thật chưa có. |
@@ -33,7 +36,7 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; mỗi Deployment persist immutable `DeploymentDeltaSnapshot` (I06-06); container requests/limits từ Score tới live Deployment theo BR-11 (I06-07); kind chỉ kiểm ba seeded case declared/partial/omitted, nhánh limit fallback và request vượt limit chỉ có unit test. |
 | UC-07 | Partial | Planner hỗ trợ before/shared rules và sinh Humanitec-shaped `modules.add/remove/update` + `shared` Delta; update/remove system flow và UI chưa hoàn thiện. |
 | UC-08 | Implemented and E2E verified | Kubernetes và Terraform resource execution, output propagation và persistence baseline đã pass. |
-| UC-09 | Partially implemented; active in M02/I06-04 | Deployment list/detail, Delta Snapshot document, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison là scope của I06-04. |
+| UC-09 | Partially implemented; deferred in M02/I06-04 | Deployment list/detail, Delta Snapshot document, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison là scope còn lại của I06-04 sau M00-a. |
 
 ## Executable baseline
 
@@ -95,7 +98,8 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 - Conformance loader bỏ Definition thiếu criteria hoặc `criteria: []` khỏi
   challenge catalog và giữ criterion `{}` thành wildcard điểm 0; product planner
   vẫn từ chối catalog có Definition không có criterion.
-- UC-01..UC-05 và UC-07 chưa có đầy đủ product management flow/UI.
+- UC-00 chưa có authentication/authorization boundary; UC-01..UC-05 và UC-07
+  chưa có đầy đủ product management flow/UI.
 - Rollback, failure recovery, RBAC, audit và secret lifecycle nằm ngoài MVP.
 - AWS happy path gần nhất là run `aws-20260921052038`, trước một số thay đổi
   planning cuối và trước khi seeded Scores khai báo container resources. Phải

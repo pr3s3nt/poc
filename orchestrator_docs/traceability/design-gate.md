@@ -2,7 +2,7 @@
 id: DESIGN-GATE
 artifact: design-gate-review
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 ---
 
 # Design Gate Review
@@ -13,7 +13,7 @@ semantics 2026-09-22.
 
 ## Scope
 
-UC-01 đến UC-09, happy path cho `aws-eks` và `internal-k8s`. Gate ban đầu được duyệt trước khi code; artifact được đồng bộ lại sau Phase 6 bước 3c để phản ánh executable baseline.
+UC-01 đến UC-09, happy path cho `aws-eks` và `internal-k8s`. Gate ban đầu được duyệt trước khi code; artifact được đồng bộ lại sau Phase 6 bước 3c để phản ánh executable baseline. UC-00 được thêm sau review này và cần targeted review trước implementation.
 
 ## Gate checklist
 
@@ -143,3 +143,9 @@ Empty-criteria adapter semantics đã được đóng ở I06-05. Executable AWS
 lịch sử vẫn có giá trị trong phạm vi behavior đã kiểm chứng, không phải bằng
 chứng cho Delta Snapshot hoặc container resources; kind rerun của I06-07 là bằng
 chứng internal happy path hiện tại.
+
+## UC-00 follow-up
+
+UC-00 không thuộc decision PASS lịch sử ở trên. Trước khi implementation,
+targeted review phải xác nhận password/session handling, Organization/role
+request context, fixed-test-account isolation và UC-00 traceability.

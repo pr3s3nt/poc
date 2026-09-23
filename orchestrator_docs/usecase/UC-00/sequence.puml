@@ -1,0 +1,22 @@
+@startuml
+title UC-00 - Sign In
+autonumber
+actor User
+boundary AuthenticationController as API
+control AuthenticationService as Service
+database UserAccountRepository as UserRepo
+control PasswordHasher as Hasher
+database SessionRepository as SessionRepo
+
+User -> API: SignIn(username, password) [MS-01]
+API -> Service: SignIn(ctx, command)
+Service -> UserRepo: FindActiveByUsername(username)
+UserRepo --> Service: UserAccount
+Service -> Hasher: Verify(password, passwordHash) [MS-02]
+Hasher --> Service: valid
+Service -> Service: Build identity context [MS-03]
+Service -> SessionRepo: Save(tokenHash, user, expiry) [MS-04]
+SessionRepo --> Service: Session
+Service --> API: opaque session token
+API --> User: Set HttpOnly cookie; open app [MS-05]
+@enduml

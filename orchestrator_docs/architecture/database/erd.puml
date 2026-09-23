@@ -9,6 +9,23 @@ entity organizations {
   organization_key : text <<UQ>>
   name : text
 }
+entity user_accounts {
+  * id : uuid <<PK>>
+  * organization_id : uuid <<FK>>
+  --
+  username : text <<UQ>>
+  password_hash : text
+  role : text
+  status : text
+}
+entity sessions {
+  * id : uuid <<PK>>
+  * user_account_id : uuid <<FK>>
+  --
+  token_hash : text <<UQ>>
+  expires_at : timestamptz
+  revoked_at : timestamptz
+}
 entity connections {
   * id : uuid <<PK>>
   * organization_id : uuid <<FK>>
@@ -24,7 +41,8 @@ entity applications {
   * organization_id : uuid <<FK>>
   * connection_id : uuid <<FK>>
   --
-  application_key : text
+  name : text
+  subdomain : text
   execution_profile : text
   region : text
   runtime_status : text
@@ -142,6 +160,8 @@ entity workload_instances {
 }
 
 organizations ||--o{ connections
+organizations ||--o{ user_accounts
+user_accounts ||--o{ sessions
 organizations ||--o{ applications
 organizations ||--o{ resource_types
 organizations ||--o{ resource_definitions

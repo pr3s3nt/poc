@@ -1,8 +1,8 @@
 ---
 id: M02
 artifact: milestone-plan
-status: current
-last_reviewed: 2026-09-22
+status: deferred
+last_reviewed: 2026-09-23
 related: IMP-002, IMP-003, IMP-004, IMP-005
 ---
 
@@ -11,12 +11,13 @@ related: IMP-002, IMP-003, IMP-004, IMP-005
 ## Objective
 
 Hoàn thiện các use case đã có canonical specification/realization nhưng baseline
-mới triển khai một phần hoặc còn phụ thuộc seed.
+mới triển khai một phần hoặc còn phụ thuộc seed. M02 được reprioritize sau
+M00-a để Developer có onboarding flow dùng thử trước.
 
 ## Iteration order
 
 1. [I06-04 — UC-09 observability](I06-04-uc09-observability/README.md): tiếp tục
-   iteration đã được reprioritize sau M01. Current.
+   iteration đã được reprioritize sau M01. Deferred sau M00-a.
 2. [I06-08 — UC-05 preview](I06-08-uc05-preview/README.md).
 3. [I06-09 — UC-07 update/remove](I06-09-uc07-update-remove/README.md).
 4. [I06-10 — UC-01..04 management](I06-10-uc01-04-management/README.md).

@@ -2,7 +2,7 @@
 id: DOMAIN-OBJECTS
 artifact: domain-persistence-classification
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 ---
 
 # Domain Objects and Persistence Classification
@@ -11,8 +11,10 @@ last_reviewed: 2026-09-22
 
 | Aggregate | Root | Owned objects | Invariant chính |
 |---|---|---|---|
-| Application | `Application` | Execution Profile binding | Profile cố định khi đã có Active Resource; AWS scope sở hữu tối đa một VPC/EKS descriptor. |
-| Environment | `Environment` | namespace identity, current-set pointer | Thuộc một Application; current Deployment Set chỉ đổi trong final deployment transaction. |
+| User Account | `UserAccount` | password hash, Organization identity, role, status | Username unique; chỉ `ACTIVE` account được authenticate; plaintext password không persist. |
+| Session | `Session` | token hash, expiry, lifecycle status | Opaque token chỉ tồn tại ở browser/request memory; token hash unique và session revoked/expired không authenticate được. |
+| Application | `Application` | system ID, name, subdomain, Execution Profile binding | ID do hệ thống sinh; profile cố định khi đã có Active Resource; AWS scope sở hữu tối đa một VPC/EKS descriptor. |
+| Environment | `Environment` | namespace identity, current-set pointer | Thuộc một Application; UC-01 tạo đúng `staging` và `production`; desired endpoint được suy ra từ Application Subdomain và Environment key; current Deployment Set chỉ đổi trong final deployment transaction. |
 | Resource Type | `ResourceType` | input/output schema | Contract độc lập implementation. |
 | Resource Definition | `ResourceDefinition` | Matching Criteria, driver inputs, provision rules | Cùng Resource Type; criteria match deterministic; output contract tương thích. |
 | Connection | `Connection` | verification metadata | Chỉ secret reference được persist; chỉ `READY` được sử dụng. |
@@ -24,7 +26,7 @@ last_reviewed: 2026-09-22
 
 | Kind | Objects | Persisted form |
 |---|---|---|
-| Entity | `Application`, `Environment`, `Connection`, `ResourceType`, `ResourceDefinition`, `DeploymentSet`, `DeploymentDeltaSnapshot`, `Deployment`, `DeploymentPlan`, `ActiveResource`, `WorkloadInstance` | Dedicated tables. |
+| Entity | `UserAccount`, `Session`, `Application`, `Environment`, `Connection`, `ResourceType`, `ResourceDefinition`, `DeploymentSet`, `DeploymentDeltaSnapshot`, `Deployment`, `DeploymentPlan`, `ActiveResource`, `WorkloadInstance` | Dedicated tables. |
 | Child entity | `MatchingCriterion`, `DeploymentResource` | Dedicated child/join tables. |
 | Value object | `ExecutionProfile`, `NamespaceIdentity`, `ResourceDescriptor`, `ResourceScope`, `DeploymentStatus`, `ResourceStatus`, `DriverType`, `OutputBinding`, `DeploymentTarget`, `ModuleDelta`, `JSONPatchOperation`, `ContainerResourceRequirements`, `ComputeResources` | Scalar/JSONB columns; validated at construction. |
 | Planning document | `WorkloadFragment`, `CandidateDeploymentSet`, `ResourceGraph`, `ProvisionBatch` | Immutable JSONB snapshot in `deployment_plans`; typed Go model in memory. |
@@ -39,6 +41,7 @@ last_reviewed: 2026-09-22
 - `BatchScheduler`: provider-first Kahn batches.
 - `ResourceProvisioningService`: application service executing resource batches.
 - `OutputBindingResolver`: resolves context and completed provider outputs.
+- `AuthenticationService`: verifies internal accounts and creates/revokes opaque sessions.
 
 ## Deployment Delta Snapshot contract
 
@@ -73,6 +76,7 @@ Deployment Set.
 ## Persistence vs integration state
 
 - Database owns logical identity, lifecycle, plan snapshot, output metadata and current-set pointer.
+- Database owns internal account and session records; password hashes and session-token hashes are the only credential material persisted.
 - Terraform backend owns Terraform physical state; database keeps opaque state reference/fingerprint, not the state file.
 - Kubernetes owns live objects; database keeps target, workload identity, manifest digest and observed status.
 - Secret Store owns secret values; database keeps opaque secret references and redacted output metadata.

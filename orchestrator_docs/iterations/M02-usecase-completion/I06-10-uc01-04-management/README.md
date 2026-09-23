@@ -2,7 +2,7 @@
 id: I06-10
 artifact: iteration-plan
 status: deferred
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 related: UC-01, UC-02, UC-03, UC-04, IMP-002
 ---
 
@@ -16,7 +16,7 @@ happy paths đã thiết kế.
 
 ## In scope
 
-- UC-01 create Application/Environment với immutable Execution Profile.
+- UC-01 Developer self-service create Application với system ID, Subdomain và fixed `staging`/`production` Environments; platform resolves immutable default execution target.
 - UC-02 register Resource Type schemas.
 - UC-03 register valid Resource Definition/criteria/contracts.
 - UC-04 register/verify AWS or Kubernetes Connection và persist only secret refs.

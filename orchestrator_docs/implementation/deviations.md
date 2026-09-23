@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 ---
 
 # Known design and implementation deviations
@@ -12,11 +12,12 @@ roadmap/deferred capability nằm trong [backlog](../backlog/README.md).
 
 | ID | Difference | Required interpretation/action |
 |---|---|---|
+| IMP-012 | UC-00 yêu cầu internal account, opaque session và authenticated Organization/role context; baseline hiện không có authentication hoặc authorization boundary. | Không coi request-provided identity/Organization là trusted; implement UC-00 before exposing Developer self-service flows. |
 | IMP-001 | Database architecture mô tả PostgreSQL system of record; baseline hiện dùng in-memory map + JSON snapshot. | Giữ transaction/repository ports; không mô tả snapshot store là production persistence. |
-| IMP-002 | UC-01..UC-04 specification đầy đủ hơn seed-backed admin support hiện có. | Treat các UC này là designed, chưa fully implemented. |
+| IMP-002 | UC-01..UC-04 specification đầy đủ hơn seed-backed admin support hiện có; riêng UC-01 nay yêu cầu Developer self-service, generated Application ID, fixed `staging`/`production` Environments và desired endpoints. | Treat các UC này là designed, chưa fully implemented; không coi seeded `dev` Environment là UC-01 complete. |
 | IMP-003 | UC-05 có planner core nhưng chưa có preview system operation/API/UI hoàn chỉnh. | Không coi deploy dry-run nội bộ là UC-05 hoàn tất. |
 | IMP-004 | UC-07 planner đã có before/shared rules nhưng update/remove flow và UI chưa hoàn chỉnh. | Không coi conformance cases là full UC-07 delivery. |
-| IMP-005 | UC-09 có list/detail và execution artifacts nhưng thiếu history/filter/state comparison. | M02/I06-04 phải hoàn thiện phần còn thiếu trước khi đánh dấu UC-09 complete; iteration được reprioritize sau M01, không bị đóng. |
+| IMP-005 | UC-09 có list/detail và execution artifacts nhưng thiếu history/filter/state comparison. | M02/I06-04 phải hoàn thiện phần còn thiếu trước khi đánh dấu UC-09 complete; iteration deferred sau M00-a, không bị đóng. |
 | IMP-006 | Six rejected challenge fixtures mới chỉ so rejection status, chưa so structured `phase/code/path`. | D02 vẫn deferred; không tuyên bố full rejection-contract conformance. |
 | IMP-007 | Terraform inspector hiểu remote source identity nhưng runtime chỉ execute embedded `vpc`/`eks`/`aurora`. | D03 vẫn deferred; không nhận remote module là supported runtime contract. |
 | IMP-011 | Schema khai báo `deployments.delta_snapshot_id` là `NOT NULL`, nhưng UC-06 MS-01 và code tạo Deployment `PLANNING` trước khi planner sinh Delta Snapshot; Deployment `FAILED` trong planning không có Snapshot. In-memory store chỉ bắt buộc Snapshot khi Deployment rời `PLANNING` (`PROVISIONING`/`DEPLOYING`/`SUCCEEDED`) và enforce unique/immutable association. | Không tuyên bố `NOT NULL` đã được enforce; quyết định thứ tự tạo Deployment/Snapshot hoặc nullability khi thiết kế PostgreSQL adapter (IMP-001, D08). |

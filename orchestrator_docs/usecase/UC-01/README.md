@@ -2,15 +2,16 @@
 id: UC-01-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-23
 ---
 
-# UC-01 context — Manage Application and Environment
+# UC-01 context — Create Application
 
 ## Delivery state
 
 Designed; executable baseline currently uses seeded Applications/Environments.
-Full management API, persistence and Web Console flow are planned after UC-09.
+The self-service Developer flow, fixed `staging`/`production` Environments and
+desired endpoints are planned in I06-10 after UC-09.
 
 ## Read in this order
 
