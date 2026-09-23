@@ -11,8 +11,10 @@ last_reviewed: 2026-09-23
 
 Partially implemented; M01 contract hardening is complete. Completion remains
 in M02/I06-04, deferred until M00-a developer onboarding is complete.
-List/detail, graph, batches, resources, workloads and redacted outputs exist;
-history/filter/state comparison remain.
+The backend exposes list/detail, graph, batches, resources, workloads and
+redacted outputs; history/filter/state comparison remain. The prior Web Console
+views were retired for the M00-a rebuild and will return under
+`frontend/src/features/deployments/` when UC-09 is scheduled.
 
 ## Read in this order
 
@@ -27,5 +29,3 @@ history/filter/state comparison remain.
 
 - [`backend/internal/application/deployment`](../../../backend/internal/application/deployment/)
 - [`backend/internal/delivery/http`](../../../backend/internal/delivery/http/)
-- [`frontend/src/features/deployment-details`](../../../frontend/src/features/deployment-details/)
-- [`frontend/src/features/deploy`](../../../frontend/src/features/deploy/)

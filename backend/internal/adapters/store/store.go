@@ -17,12 +17,16 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
 )
 
 type state struct {
+	Organizations     map[string]application.Organization           `json:"organizations"`
+	UserAccounts      map[string]identity.UserAccount               `json:"userAccounts"`
+	Sessions          map[string]identity.Session                   `json:"sessions"`
 	Applications      map[string]application.Application            `json:"applications"`
 	Connections       map[string]application.Connection             `json:"connections"`
 	Environments      map[string]environment.Environment            `json:"environments"`
@@ -39,6 +43,9 @@ type state struct {
 
 func newState() *state {
 	return &state{
+		Organizations:     map[string]application.Organization{},
+		UserAccounts:      map[string]identity.UserAccount{},
+		Sessions:          map[string]identity.Session{},
 		Applications:      map[string]application.Application{},
 		Connections:       map[string]application.Connection{},
 		Environments:      map[string]environment.Environment{},
@@ -51,6 +58,18 @@ func newState() *state {
 		DeployResources:   map[string][]deployment.Resource{},
 		ActiveResources:   map[string]resource.ActiveResource{},
 		WorkloadInstances: map[string]deployment.WorkloadInstance{},
+	}
+}
+
+func (s *state) ensureMaps() {
+	if s.Organizations == nil {
+		s.Organizations = map[string]application.Organization{}
+	}
+	if s.UserAccounts == nil {
+		s.UserAccounts = map[string]identity.UserAccount{}
+	}
+	if s.Sessions == nil {
+		s.Sessions = map[string]identity.Session{}
 	}
 }
 
@@ -80,7 +99,58 @@ func NewWithSnapshot(path string) (*Store, error) {
 		return nil, fmt.Errorf("store: parse snapshot: %w", err)
 	}
 	s.state = loaded
+	s.state.ensureMaps()
 	return s, nil
+}
+
+func (s *Store) GetOrganization(_ context.Context, key string) (application.Organization, error) {
+	defer s.rlock()()
+	org, ok := s.state.Organizations[key]
+	if !ok {
+		return application.Organization{}, fmt.Errorf("%w: organization %q", persistence.ErrNotFound, key)
+	}
+	return org, nil
+}
+func (s *Store) SaveOrganization(_ context.Context, org application.Organization) error {
+	defer s.lock()()
+	s.state.Organizations[org.Key] = org
+	return nil
+}
+func (s *Store) GetUserAccountByUsername(_ context.Context, username string) (identity.UserAccount, error) {
+	defer s.rlock()()
+	for _, a := range s.state.UserAccounts {
+		if a.Username == username {
+			return a, nil
+		}
+	}
+	return identity.UserAccount{}, fmt.Errorf("%w: user %q", persistence.ErrNotFound, username)
+}
+func (s *Store) GetUserAccount(_ context.Context, id string) (identity.UserAccount, error) {
+	defer s.rlock()()
+	a, ok := s.state.UserAccounts[id]
+	if !ok {
+		return identity.UserAccount{}, fmt.Errorf("%w: user %q", persistence.ErrNotFound, id)
+	}
+	return a, nil
+}
+func (s *Store) SaveUserAccount(_ context.Context, account identity.UserAccount) error {
+	defer s.lock()()
+	s.state.UserAccounts[account.ID] = account
+	return nil
+}
+func (s *Store) SaveSession(_ context.Context, session identity.Session) error {
+	defer s.lock()()
+	s.state.Sessions[session.ID] = session
+	return nil
+}
+func (s *Store) GetSessionByTokenHash(_ context.Context, tokenHash string) (identity.Session, error) {
+	defer s.rlock()()
+	for _, session := range s.state.Sessions {
+		if session.TokenHash == tokenHash {
+			return session, nil
+		}
+	}
+	return identity.Session{}, fmt.Errorf("%w: session", persistence.ErrNotFound)
 }
 
 func (s *Store) lock() func() {

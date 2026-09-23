@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -64,11 +65,46 @@ func getJSON(t *testing.T, url string) (int, map[string]any) {
 	return resp.StatusCode, out
 }
 
+func authenticatedClient(t *testing.T, baseURL string) *http.Client {
+	t.Helper()
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		t.Fatalf("cookie jar: %v", err)
+	}
+	client := &http.Client{Jar: jar}
+	payload, err := json.Marshal(map[string]string{"username": "developer", "password": "test-password"})
+	if err != nil {
+		t.Fatalf("sign-in marshal: %v", err)
+	}
+	resp, err := client.Post(baseURL+"/api/v1/auth/sign-in", "application/json", bytes.NewReader(payload))
+	if err != nil {
+		t.Fatalf("sign-in: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("sign-in status %d", resp.StatusCode)
+	}
+	return client
+}
+
+func getJSONClient(t *testing.T, client *http.Client, url string) (int, map[string]any) {
+	t.Helper()
+	resp, err := client.Get(url)
+	if err != nil {
+		t.Fatalf("get %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+	out := map[string]any{}
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	return resp.StatusCode, out
+}
+
 func TestHTTPDeploymentEndToEnd(t *testing.T) {
 	server, seedOptions := newServer(t, "")
 	scores := seed.AcceptanceScores(seedOptions)
+	client := authenticatedClient(t, server.URL)
 
-	status, apps := getJSON(t, server.URL+"/api/v1/applications")
+	status, apps := getJSONClient(t, client, server.URL+"/api/v1/applications")
 	if status != http.StatusOK {
 		t.Fatalf("applications returned %d", status)
 	}

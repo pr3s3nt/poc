@@ -9,8 +9,10 @@ import (
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/platform/ids"
+	"orchestrator/internal/platform/password"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -24,7 +26,9 @@ type Images struct {
 
 // Options configures the seeded Organization, Applications and Environments.
 type Options struct {
+	Profile         string
 	OrganizationKey string
+	BaseDomain      string
 
 	ApplicationKey    string
 	ApplicationName   string
@@ -86,7 +90,9 @@ func DefaultCloudConfig() CloudConfig {
 // Defaults fills the values the walking skeleton does not need to override.
 func Defaults() Options {
 	return Options{
+		Profile:                "local",
 		OrganizationKey:        "acme",
+		BaseDomain:             "example.com",
 		ApplicationKey:         "acceptance",
 		ApplicationName:        "Acceptance Application",
 		NamespaceIdentity:      "acceptance-dev",
@@ -248,6 +254,18 @@ func ResourceDefinitions(o Options) []resource.Definition {
 
 // Apply writes the seeded catalog, both Applications and their Environments.
 func Apply(ctx context.Context, store persistence.Store, o Options) error {
+	if err := store.SaveOrganization(ctx, application.Organization{Key: o.OrganizationKey, Name: "Acme", DefaultConnectionKey: o.ConnectionKey}); err != nil {
+		return err
+	}
+	if o.Profile == "local" || o.Profile == "test" {
+		passwordHash, err := password.Hash("test-password")
+		if err != nil {
+			return err
+		}
+		if err := store.SaveUserAccount(ctx, identity.UserAccount{ID: "developer", OrganizationKey: o.OrganizationKey, Username: "developer", PasswordHash: passwordHash, Role: identity.RoleDeveloper, Status: identity.AccountActive}); err != nil {
+			return err
+		}
+	}
 	for _, t := range ResourceTypes() {
 		if err := store.SaveResourceType(ctx, t); err != nil {
 			return err
@@ -287,6 +305,7 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		Key:             o.ApplicationKey,
 		OrganizationKey: o.OrganizationKey,
 		Name:            o.ApplicationName,
+		Subdomain:       "acceptance",
 		Profile:         application.ProfileInternalK8s,
 		ConnectionKey:   o.ConnectionKey,
 		RuntimeStatus:   application.RuntimeReady,
@@ -296,6 +315,7 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		Key:             o.CloudApplicationKey,
 		OrganizationKey: o.OrganizationKey,
 		Name:            o.CloudApplicationName,
+		Subdomain:       "acceptance-cloud",
 		Profile:         application.ProfileAWSEKS,
 		ConnectionKey:   o.CloudConnectionKey,
 		Region:          o.Region,

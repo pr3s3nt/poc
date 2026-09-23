@@ -18,8 +18,9 @@ kiểm chứng trên AWS với VPC, EKS và Aurora rồi cleanup.
 Active iteration là
 [I00-00 — UC-00 and UC-01 developer onboarding](iterations/M00-developer-onboarding/I00-00-uc00-uc01-developer-onboarding/README.md)
 thuộc [M00-a — Developer onboarding](iterations/M00-developer-onboarding/README.md).
-M00-a thiết kế UI và implement sign-in/self-service Application trước khi tiếp
-tục UC-09; I06-04 được reprioritize sang deferred.
+M00-a đã có UI design và React prototype cho sign-in/self-service Application;
+API, session và persistence vẫn phải được hiện thực trước khi coi UC-00/UC-01
+là executable. I06-04 được reprioritize sang deferred.
 [M01 — Contract hardening](iterations/M01-contract-hardening/README.md) đã hoàn
 thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 
@@ -27,8 +28,8 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 
 | UC | State | Current conclusion |
 |---|---|---|
-| UC-00 | Designed; not implemented | Internal-account sign-in, session persistence, middleware and Web Console login are not implemented; executable baseline remains unauthenticated. |
-| UC-01 | Designed; seed-backed baseline | Requirement hiện là Developer self-service tạo Application bằng Name/Subdomain, tự sinh `staging`/`production`; baseline vẫn chỉ có seed/listing, chưa có API/UI. |
+| UC-00 | Implemented; local/test baseline | Fixed seeded `developer` account, opaque HttpOnly cookie session, session restore và sign-out đã có; production profile không seed test account. |
+| UC-01 | Implemented; local/test baseline | Authenticated Developer có thể list/create/get Application qua API; service tự sinh ID, staging/production, empty Deployment Sets và namespace identities. `acme` resolve `internal-cluster` như platform default, không hiển thị target chooser. |
 | UC-02 | Designed; seed-backed baseline | Resource Type catalog tồn tại trong seed/planner; API/UI quản trị chưa có. |
 | UC-03 | Designed; seed-backed baseline | Resource Definition, matching và contract validation đã chạy trong planner; API/UI quản trị chưa có. |
 | UC-04 | Designed; partial execution support | Connection/target seed và adapters kind/AWS đã chạy; registration/verification UI và persistence thật chưa có. |
@@ -42,7 +43,9 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 
 - Go HTTP API, application services, planner, resource executors, Kubernetes
   deployer và JSON snapshot store nằm dưới `backend/`.
-- Web Console React/TypeScript có Deploy và Deployment Details.
+- Web Console React/TypeScript hiện là M00-a prototype cho UC-00/UC-01:
+  sign-in, Applications list/create và Application home; chưa gọi API. Deploy
+  và Deployment Details UI sẽ được làm lại khi UC-06/UC-09 được lên lịch.
 - Planner product conformance chạy đủ 33 fixture: 27 accepted cases so sánh
   Humanitec-shaped Delta, Candidate Set/graph/matching/batches/classification/
   Terraform artifacts và kiểm `base + delta = candidate`; 6 rejected cases hiện

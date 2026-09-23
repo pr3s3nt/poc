@@ -1,29 +1,28 @@
-import { DeployPage } from '../features/deploy/pages/DeployPage';
-import { DeploymentDetailsPage } from '../features/deployment-details/pages/DeploymentDetailsPage';
-import { hrefFor, navigate, useRoute } from './router';
+import { useCallback, useEffect, useState } from 'react';
+import { AppShell } from './AppShell';
+import { parseRoute, navigate, type Route } from './routes';
+import { SignInPage } from '../features/auth/SignInPage';
+import { ApplicationsPage } from '../features/applications/ApplicationsPage';
+import { CreateApplicationPage } from '../features/applications/CreateApplicationPage';
+import { ApplicationHomePage } from '../features/applications/ApplicationHomePage';
+import type { Application } from '../shared/types/application';
+import { api } from '../shared/api/client';
+
+type APIApplication = { key: string; name: string; subdomain: string };
+type ApplicationsResponse = { applications: APIApplication[] };
 
 export function App() {
-  const route = useRoute();
-  return (
-    <div className="shell">
-      <header className="shell-header">
-        <a
-          className="brand"
-          href={hrefFor({ name: 'deploy' })}
-          onClick={(event) => {
-            event.preventDefault();
-            navigate({ name: 'deploy' });
-          }}
-        >
-          Orchestrator Console
-        </a>
-        <span className="shell-scope">UC-06 · UC-08 · UC-09</span>
-      </header>
-      <main className="shell-main">
-        {route.name === 'deploy' ? <DeployPage /> : null}
-        {route.name === 'deployment-details' ? <DeploymentDetailsPage deploymentId={route.deploymentId} /> : null}
-        {route.name === 'not-found' ? <p data-testid="not-found">No console page matches {route.path}.</p> : null}
-      </main>
-    </div>
-  );
+  const [route, setRoute] = useState<Route>(() => parseRoute());
+  const [signedIn, setSignedIn] = useState(false);
+  const [applications, setApplications] = useState<readonly Application[]>([]);
+  useEffect(() => { const update = () => setRoute(parseRoute()); window.addEventListener('popstate', update); window.addEventListener('orchestrator:navigate', update); return () => { window.removeEventListener('popstate', update); window.removeEventListener('orchestrator:navigate', update); }; }, []);
+  function mapApplication(application: APIApplication): Application { return { id: application.key, name: application.name, subdomain: application.subdomain, workloads: { staging: [], production: [] } }; }
+  const loadApplications = useCallback(async () => { const response = await api<ApplicationsResponse>('/applications'); setApplications(response.applications.map(mapApplication)); }, []);
+  useEffect(() => { api('/auth/session').then(() => { setSignedIn(true); return loadApplications(); }).catch(() => setSignedIn(false)); }, [loadApplications]);
+  async function signOut() { await api('/auth/sign-out', { method: 'POST' }); setSignedIn(false); navigate({ name: 'sign-in' }); }
+  async function signIn(username: string, password: string) { await api('/auth/sign-in', { method: 'POST', body: JSON.stringify({ username, password }) }); await loadApplications(); setSignedIn(true); navigate({ name: 'applications' }); }
+  async function createApplication(name: string, subdomain: string) { const response = await api<{ application: APIApplication }>('/applications', { method: 'POST', body: JSON.stringify({ name, subdomain }) }); const application = mapApplication(response.application); setApplications((current) => [...current, application]); return application.id; }
+  if (!signedIn || route.name === 'sign-in') return <SignInPage onSuccess={signIn} />;
+  const application = route.name === 'application' ? applications.find((item) => item.id === route.applicationId) : undefined;
+  return <AppShell onSignOut={signOut}>{route.name === 'applications' ? <ApplicationsPage applications={applications} /> : null}{route.name === 'create-application' ? <CreateApplicationPage onCreate={createApplication} /> : null}{application ? <ApplicationHomePage application={application} /> : null}{route.name === 'application' && !application ? <section className="page"><h1>Application not found</h1></section> : null}</AppShell>;
 }

@@ -8,6 +8,7 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/resource"
 )
 
@@ -23,12 +24,22 @@ var ErrVersionConflict = errors.New("persistence: version conflict")
 
 // ApplicationRepository owns Organization, Application and Connection records.
 type ApplicationRepository interface {
+	GetOrganization(ctx context.Context, key string) (application.Organization, error)
+	SaveOrganization(ctx context.Context, org application.Organization) error
 	ListApplications(ctx context.Context) ([]application.Application, error)
 	GetApplication(ctx context.Context, key string) (application.Application, error)
 	SaveApplication(ctx context.Context, app application.Application) error
 	GetConnection(ctx context.Context, key string) (application.Connection, error)
 	ListConnections(ctx context.Context) ([]application.Connection, error)
 	SaveConnection(ctx context.Context, conn application.Connection) error
+}
+
+type IdentityRepository interface {
+	GetUserAccountByUsername(ctx context.Context, username string) (identity.UserAccount, error)
+	GetUserAccount(ctx context.Context, id string) (identity.UserAccount, error)
+	SaveUserAccount(ctx context.Context, account identity.UserAccount) error
+	SaveSession(ctx context.Context, session identity.Session) error
+	GetSessionByTokenHash(ctx context.Context, tokenHash string) (identity.Session, error)
 }
 
 // EnvironmentRepository owns Environment records and immutable Deployment Sets.
@@ -90,6 +101,7 @@ type UnitOfWork interface {
 // Store aggregates every repository port behind one adapter.
 type Store interface {
 	ApplicationRepository
+	IdentityRepository
 	EnvironmentRepository
 	CatalogRepository
 	DeploymentRepository

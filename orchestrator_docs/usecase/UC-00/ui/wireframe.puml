@@ -1,0 +1,29 @@
+@startuml
+salt
+{
+  {+
+    {
+      <b>Orchestrator</b>
+      Internal developer platform
+
+      Build.
+      Deploy.
+      Move faster.
+
+      Infrastructure that stays out of your way.
+    }
+    {
+      <b>Welcome back</b>
+      Sign in to create and deploy applications.
+
+      Username
+      "                         "
+      Password
+      "                         "
+
+      [        Sign in        ]
+      Use your local test account.
+    }
+  }
+}
+@enduml

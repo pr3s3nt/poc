@@ -43,11 +43,12 @@ backend/
 
 frontend/                                   # Orchestrator Web Console
 ├── src/app/                                # application shell + minimal browser router
-├── src/features/                           # UI/API/draft/page/component theo use case
-├── src/shared/api/                         # typed same-origin HTTP transport
-├── src/shared/ui/                          # UI primitives không biết use case
+├── src/features/auth/                      # UC-00 sign-in page
+├── src/features/applications/              # UC-01 application pages
+├── src/features/{workloads,deployments}/   # future use-case features, added when scheduled
+├── src/shared/{types,ui}/                  # shared UI primitives and client-side types
 ├── src/styles/                             # design tokens và styles theo concern
-└── src/test/                               # Vitest setup và shared fixtures
+└── src/test/                               # Vitest setup
 ```
 
 ## Rules

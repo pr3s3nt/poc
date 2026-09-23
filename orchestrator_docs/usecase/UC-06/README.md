@@ -2,7 +2,7 @@
 id: UC-06-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 ---
 
 # UC-06 context — Deploy Workload
@@ -30,4 +30,7 @@ default policy (I06-07).
 - [`backend/internal/application/deployment`](../../../backend/internal/application/deployment/)
 - [`backend/internal/planning`](../../../backend/internal/planning/)
 - [`backend/internal/delivery/http`](../../../backend/internal/delivery/http/)
-- [`frontend/src/features/deploy`](../../../frontend/src/features/deploy/)
+
+The Web Console deploy feature is intentionally not present in M00-a. Its UI
+will be introduced under `frontend/src/features/deployments/` when UC-06 is
+scheduled for console delivery.

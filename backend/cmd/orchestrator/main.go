@@ -22,6 +22,7 @@ func main() {
 	uiDir := flag.String("ui-dir", "../frontend/dist", "directory holding the Web Console production bundle")
 	statePath := flag.String("state", "", "optional path of the JSON state snapshot")
 	adapters := flag.String("adapters", "fake", "executor adapters: fake, kubernetes or aws")
+	profile := flag.String("profile", opts.Profile, "seed profile: local, test, or production")
 	namespace := flag.String("namespace", opts.NamespaceIdentity, "namespace identity of the internal-k8s environment")
 	cloudNamespace := flag.String("cloud-namespace", opts.CloudNamespaceIdentity, "namespace identity of the aws-eks environment")
 	kubeContext := flag.String("kube-context", opts.KubeContext, "kubectl context of the registered cluster")
@@ -41,6 +42,7 @@ func main() {
 	flag.Parse()
 
 	opts.NamespaceIdentity = *namespace
+	opts.Profile = *profile
 	opts.CloudNamespaceIdentity = *cloudNamespace
 	opts.KubeContext = *kubeContext
 	opts.ClusterName = *cluster

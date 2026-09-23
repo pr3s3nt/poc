@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-23
 ---
 
 # Design-to-code map
@@ -30,7 +30,9 @@ last_reviewed: 2026-09-22
 | Kubernetes executor/deployer | [`backend/internal/adapters/kubernetes`](../../backend/internal/adapters/kubernetes/) |
 | Terraform executor/modules/inspection | [`backend/internal/adapters/terraform`](../../backend/internal/adapters/terraform/) |
 | Seed catalog and profiles | [`backend/internal/seed`](../../backend/internal/seed/) |
-| Web Console shell/features/shared UI | [`frontend/src`](../../frontend/src/) |
+| UC-00/UC-01 Web Console prototype | [`frontend/src/app`](../../frontend/src/app/), [`features/auth`](../../frontend/src/features/auth/) and [`features/applications`](../../frontend/src/features/applications/) |
+| UC-00 authentication/session | [`backend/internal/application/authentication`](../../backend/internal/application/authentication/), [`domain/identity`](../../backend/internal/domain/identity/) and [`platform/password`](../../backend/internal/platform/password/) |
+| UC-01 self-service creation | [`backend/internal/application/application`](../../backend/internal/application/application/) and [`backend/internal/domain/application`](../../backend/internal/domain/application/) |
 | Acceptance workloads | [`backend/examples/acceptance-app`](../../backend/examples/acceptance-app/) |
 | HTTP end-to-end tests | [`backend/test/e2e`](../../backend/test/e2e/) |
 | Planner challenge conformance | [`backend/test/conformance`](../../backend/test/conformance/) |

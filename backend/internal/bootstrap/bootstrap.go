@@ -11,6 +11,8 @@ import (
 	"orchestrator/internal/adapters/secrets"
 	"orchestrator/internal/adapters/store"
 	tf "orchestrator/internal/adapters/terraform"
+	appcreate "orchestrator/internal/application/application"
+	"orchestrator/internal/application/authentication"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/provisioning"
 	deliveryhttp "orchestrator/internal/delivery/http"
@@ -129,13 +131,17 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	prov := provisioning.NewService(st, registry, secretStore, c)
 	deployments := appsvc.NewService(st, planning.NewService(), prov, renderer, deployer, tf.NewInspector(), c)
 	queries := appsvc.NewQueryService(st)
+	auth := authentication.NewService(st)
+	applications := appcreate.NewService(st)
 
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
-		Deployments: deployments,
-		Queries:     queries,
-		Store:       st,
-		SeedOptions: opts.Seed,
-		UIDir:       opts.UIDir,
+		Deployments:    deployments,
+		Queries:        queries,
+		Authentication: auth,
+		Applications:   applications,
+		Store:          st,
+		SeedOptions:    opts.Seed,
+		UIDir:          opts.UIDir,
 	})
 
 	return &App{

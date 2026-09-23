@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	appcreate "orchestrator/internal/application/application"
+	"orchestrator/internal/application/authentication"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
@@ -17,32 +19,38 @@ import (
 
 // Server wires the HTTP handlers to the application services.
 type Server struct {
-	deployments *appsvc.Service
-	queries     *appsvc.QueryService
-	store       persistence.Store
-	seedOptions seed.Options
-	uiDir       string
-	mux         *http.ServeMux
+	deployments  *appsvc.Service
+	queries      *appsvc.QueryService
+	auth         *authentication.Service
+	applications *appcreate.Service
+	store        persistence.Store
+	seedOptions  seed.Options
+	uiDir        string
+	mux          *http.ServeMux
 }
 
 // Config configures the HTTP server.
 type Config struct {
-	Deployments *appsvc.Service
-	Queries     *appsvc.QueryService
-	Store       persistence.Store
-	SeedOptions seed.Options
-	UIDir       string
+	Deployments    *appsvc.Service
+	Queries        *appsvc.QueryService
+	Authentication *authentication.Service
+	Applications   *appcreate.Service
+	Store          persistence.Store
+	SeedOptions    seed.Options
+	UIDir          string
 }
 
 // NewServer builds the HTTP handler tree.
 func NewServer(cfg Config) *Server {
 	s := &Server{
-		deployments: cfg.Deployments,
-		queries:     cfg.Queries,
-		store:       cfg.Store,
-		seedOptions: cfg.SeedOptions,
-		uiDir:       cfg.UIDir,
-		mux:         http.NewServeMux(),
+		deployments:  cfg.Deployments,
+		queries:      cfg.Queries,
+		auth:         cfg.Authentication,
+		applications: cfg.Applications,
+		store:        cfg.Store,
+		seedOptions:  cfg.SeedOptions,
+		uiDir:        cfg.UIDir,
+		mux:          http.NewServeMux(),
 	}
 	s.routes()
 	return s
@@ -53,7 +61,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.mux.Serve
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/healthz", s.handleHealth)
+	s.mux.HandleFunc("POST /api/v1/auth/sign-in", s.handleSignIn)
+	s.mux.HandleFunc("GET /api/v1/auth/session", s.handleSession)
+	s.mux.HandleFunc("POST /api/v1/auth/sign-out", s.handleSignOut)
 	s.mux.HandleFunc("GET /api/v1/applications", s.handleApplications)
+	s.mux.HandleFunc("POST /api/v1/applications", s.handleCreateApplication)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}", s.handleGetApplication)
 	s.mux.HandleFunc("GET /api/v1/score-samples", s.handleScoreSamples)
 	s.mux.HandleFunc("POST /api/v1/deployments", s.handleCreateDeployment)
 	s.mux.HandleFunc("GET /api/v1/deployments", s.handleListDeployments)
@@ -87,13 +100,64 @@ type environmentView struct {
 type applicationView struct {
 	Key           string            `json:"key"`
 	Name          string            `json:"name"`
+	Subdomain     string            `json:"subdomain"`
 	Profile       string            `json:"executionProfile"`
 	RuntimeStatus string            `json:"runtimeStatus"`
 	Region        string            `json:"region,omitempty"`
 	Environments  []environmentView `json:"environments"`
 }
 
+const sessionCookie = "orchestrator_session"
+
+type signInRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+func (s *Server) handleSignIn(w http.ResponseWriter, r *http.Request) {
+	var req signInRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON body"})
+		return
+	}
+	token, identity, err := s.auth.SignIn(r.Context(), req.Username, req.Password)
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "invalid credentials"})
+		return
+	}
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 8 * 60 * 60})
+	writeJSON(w, http.StatusOK, map[string]any{"user": identity})
+}
+func (s *Server) sessionIdentity(r *http.Request) (authentication.Identity, bool) {
+	cookie, err := r.Cookie(sessionCookie)
+	if err != nil {
+		return authentication.Identity{}, false
+	}
+	identity, err := s.auth.IdentityForToken(r.Context(), cookie.Value)
+	return identity, err == nil
+}
+func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
+	identity, ok := s.sessionIdentity(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user": identity})
+}
+func (s *Server) handleSignOut(w http.ResponseWriter, r *http.Request) {
+	if cookie, err := r.Cookie(sessionCookie); err == nil {
+		_ = s.auth.SignOut(r.Context(), cookie.Value)
+	}
+	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", HttpOnly: true, MaxAge: -1})
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
+	identity, ok := s.sessionIdentity(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		return
+	}
 	apps, err := s.store.ListApplications(r.Context())
 	if err != nil {
 		writeError(w, err)
@@ -101,13 +165,16 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]applicationView, 0, len(apps))
 	for _, a := range apps {
+		if a.OrganizationKey != identity.OrganizationKey {
+			continue
+		}
 		envs, err := s.store.ListEnvironments(r.Context(), a.Key)
 		if err != nil {
 			writeError(w, err)
 			return
 		}
 		view := applicationView{
-			Key: a.Key, Name: a.Name, Profile: string(a.Profile),
+			Key: a.Key, Name: a.Name, Subdomain: a.Subdomain, Profile: string(a.Profile),
 			RuntimeStatus: string(a.RuntimeStatus), Region: a.Region,
 			Environments: make([]environmentView, 0, len(envs)),
 		}
@@ -121,6 +188,56 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 		out = append(out, view)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"applications": out})
+}
+
+type createApplicationRequest struct {
+	Name      string `json:"name"`
+	Subdomain string `json:"subdomain"`
+}
+
+func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request) {
+	identity, ok := s.sessionIdentity(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		return
+	}
+	var req createApplicationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON body"})
+		return
+	}
+	result, err := s.applications.Create(r.Context(), appcreate.CreateCommand{OrganizationKey: identity.OrganizationKey, Name: req.Name, Subdomain: req.Subdomain, BaseDomain: s.seedOptions.BaseDomain})
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"application": applicationView{Key: result.Application.Key, Name: result.Application.Name, Subdomain: result.Application.Subdomain, Profile: string(result.Application.Profile), RuntimeStatus: string(result.Application.RuntimeStatus)}})
+}
+func (s *Server) handleGetApplication(w http.ResponseWriter, r *http.Request) {
+	identity, ok := s.sessionIdentity(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		return
+	}
+	app, err := s.store.GetApplication(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	if app.OrganizationKey != identity.OrganizationKey {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not found"})
+		return
+	}
+	envs, err := s.store.ListEnvironments(r.Context(), app.Key)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	view := applicationView{Key: app.Key, Name: app.Name, Subdomain: app.Subdomain, Profile: string(app.Profile), RuntimeStatus: string(app.RuntimeStatus)}
+	for _, env := range envs {
+		view.Environments = append(view.Environments, environmentView{Key: env.Key, Name: env.Name, Type: env.Type, NamespaceIdentity: env.NamespaceIdentity, CurrentDeploymentSetID: env.CurrentDeploymentSetID, Version: env.Version})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"application": view})
 }
 
 func (s *Server) handleScoreSamples(w http.ResponseWriter, _ *http.Request) {

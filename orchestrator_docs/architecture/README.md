@@ -16,6 +16,7 @@ Shared design này hợp nhất UC-00 đến UC-09 sau realization.
 - [Component boundaries](components/component-diagram.puml)
 - [Database schema](database/schema.md) và [ERD](database/erd.puml)
 - [Operation contracts](contracts/operation-contracts.md)
+- [Shared Web Console UI](ui/README.md)
 - [State machines](state-machines/README.md)
 - [Architecture decisions](decisions/README.md)
 - [Implementation index](../implementation/README.md) và [package layout](../implementation/package-layout.md)

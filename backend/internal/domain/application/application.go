@@ -33,8 +33,9 @@ const (
 
 // Organization is the ownership boundary of every other aggregate.
 type Organization struct {
-	Key  string `json:"key"`
-	Name string `json:"name"`
+	Key                  string `json:"key"`
+	Name                 string `json:"name"`
+	DefaultConnectionKey string `json:"defaultConnectionKey"`
 }
 
 // Application owns exactly one Execution Profile and, for aws-eks, the VPC/EKS scope.
@@ -42,6 +43,7 @@ type Application struct {
 	Key             string           `json:"key"`
 	OrganizationKey string           `json:"organizationKey"`
 	Name            string           `json:"name"`
+	Subdomain       string           `json:"subdomain"`
 	Profile         ExecutionProfile `json:"executionProfile"`
 	ConnectionKey   string           `json:"connectionKey"`
 	Region          string           `json:"region,omitempty"`
@@ -53,6 +55,11 @@ type Application struct {
 func (a Application) Validate() error {
 	if !keyPattern.MatchString(a.Key) {
 		return fmt.Errorf("application: invalid application key %q", a.Key)
+	}
+	// Legacy seeded planning fixtures predate UC-01 self-service creation and
+	// have no public endpoint. UC-01's creation service always requires it.
+	if a.Subdomain != "" && !keyPattern.MatchString(a.Subdomain) {
+		return fmt.Errorf("application: invalid subdomain %q", a.Subdomain)
 	}
 	if !a.Profile.Valid() {
 		return fmt.Errorf("application: invalid execution profile %q", a.Profile)

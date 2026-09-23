@@ -18,6 +18,10 @@ PostgreSQL là system of record cho logical orchestration state. JSONB chỉ dù
 | `id` | uuid | PK |
 | `organization_key` | text | UNIQUE, NOT NULL |
 | `name` | text | NOT NULL |
+| `default_connection_id` | uuid | FK connections, NOT NULL for onboarding-enabled Organization |
+
+The default connection is platform configuration, resolved server-side during
+UC-01; it is never supplied or selected by a Developer.
 
 ### `user_accounts`
 

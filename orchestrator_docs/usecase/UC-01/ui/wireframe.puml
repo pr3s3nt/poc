@@ -1,0 +1,33 @@
+@startuml
+salt
+{
+  {
+    <b>Orchestrator</b>
+    Applications
+    Deployments
+
+
+
+    Minh Nguyen
+    Developer
+    Sign out
+  }
+  {
+    <b>Payment</b>
+    payment.example.com
+
+    [ Staging ]   [ Production ]
+
+    <b>Workloads</b>                                  [ + Add workload ]
+    {#
+      Name | Status | Actions
+      payment-api | Ready | Edit   Delete
+      payment-worker | Draft | Edit   Delete
+    }
+    Workload editing is available in the next use case.
+
+    <b>Recent deployments</b>
+    No deployments yet
+  }
+}
+@enduml
