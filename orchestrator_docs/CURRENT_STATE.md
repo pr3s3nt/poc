@@ -38,6 +38,8 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-07 | Partial | Planner hỗ trợ before/shared rules và sinh Humanitec-shaped `modules.add/remove/update` + `shared` Delta; update/remove system flow và UI chưa hoàn thiện. |
 | UC-08 | Implemented and E2E verified | Kubernetes và Terraform resource execution, output propagation và persistence baseline đã pass. |
 | UC-09 | Partially implemented; deferred in M02/I06-04 | Deployment list/detail, Delta Snapshot document, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison là scope còn lại của I06-04 sau M00-a. |
+| UC-12 | Draft only | Application-level Variables & Secrets configuration chưa được implement; secret lifecycle/contract còn cần chốt. |
+| UC-16 | Specification and UI approved; not implemented | Form/Score import, pending workload configuration, UC-12 references và workload Service references chưa có trong API/Web Console. |
 
 ## Executable baseline
 

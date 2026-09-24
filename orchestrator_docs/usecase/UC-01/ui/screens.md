@@ -40,5 +40,5 @@ After creation or selection, the Application page contains:
 |---|---|
 | Header | Application Name, production hostname and an `Open application` link only when UC-06 later reports a reachable endpoint. |
 | Environment tabs | `Staging` and `Production`; changing tab scopes the Workload list and recent deployments. |
-| Workloads | Name, status and action menu. `+ Add workload`, `Edit` and `Delete` are intentionally disabled with `Available when workload editing is enabled` until UC-05/UC-07 are implemented. |
+| Workloads | Name, status and action menu. `+ Add workload`, `Edit` and `Delete` are intentionally disabled with `Available when workload editing is enabled` until UC-16 is implemented; preview and runtime deployment remain separate flows. |
 | Recent deployments | Compact list linking to UC-09 deployment detail when records exist. |

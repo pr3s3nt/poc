@@ -3,7 +3,7 @@ id: UC-01-UI
 artifact: use-case-ui-design
 status: current
 last_reviewed: 2026-09-23
-related: UC-01, UC-05, UC-07, UC-09
+related: UC-01, UC-05, UC-07, UC-09, UC-16
 ---
 
 # UC-01 UI — Application onboarding and home
@@ -16,9 +16,10 @@ Name/Subdomain, then sees a single Application home with `staging` and
 deployments.
 
 Add/Edit/Delete workload affordances are visible in this home because that is
-where a Developer expects them. Their behavior stays owned by UC-05/UC-07;
-M00-a only designs the affordance and keeps it unavailable until those flows
-are implemented.
+where a Developer expects them. Their configuration behavior belongs to
+[UC-16](../../UC-16/ui/README.md); preview belongs to UC-05 and runtime
+update/removal to UC-07. M00-a keeps the affordances unavailable until the
+respective flows are implemented.
 
 ## Read in this order
 

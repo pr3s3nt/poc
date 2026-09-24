@@ -1,0 +1,16 @@
+@startuml
+title VOPC - UC-16 Manage workload configuration (conceptual)
+left to right direction
+skinparam classAttributeIconSize 0
+class "Workload configuration UI" as UI <<boundary>>
+class "Workload configuration" as Config <<control>>
+class "Reference catalog" as Catalog <<control>>
+class "Desired workload change" as Change <<entity>>
+interface "Desired configuration store" as Store
+
+UI --> Config : validate/save/delete
+UI --> Catalog : eligible sources
+Config --> Catalog : verify references
+Config --> Store : persist pending change
+Store ..> Change
+@enduml

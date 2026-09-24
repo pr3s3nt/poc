@@ -1,0 +1,31 @@
+@startuml
+title UC-16 - Manage workload configuration (conceptual)
+autonumber
+actor Developer as Dev
+boundary "Workload configuration UI" as UI
+control "Workload configuration" as Config
+entity "Reference catalog" as Catalog
+database "Desired configuration store" as Store
+
+Dev -> UI: Select Application/Environment [MS-01]
+UI -> Config: List workload configurations
+Config -> Store: Read desired workload state
+Store --> UI: Workloads + pending changes
+Dev -> UI: Add/Edit, form or Score import [MS-02]
+UI -> Catalog: List eligible references [MS-03..MS-05]
+Catalog --> UI: UC-12 keys, resource outputs, Services/ports
+Dev -> UI: Choose references and save [MS-04..MS-07]
+UI -> Config: Validate and save desired configuration
+Config -> Catalog: Verify scope, output class, Service/port [MS-06]
+Catalog --> Config: Validated references
+Config -> Store: Save pending change [MS-07]
+Store --> UI: Pending status
+UI --> Dev: Preview changes available (UC-05)
+
+alt Delete workload [VAR-02]
+  Dev -> UI: Confirm deletion
+  UI -> Config: Mark pending deletion
+  Config -> Store: Save pending deletion
+  Store --> UI: Pending status + Undo
+end
+@enduml

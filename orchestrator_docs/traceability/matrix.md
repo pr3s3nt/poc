@@ -5,7 +5,7 @@ status: current
 last_reviewed: 2026-09-23
 ---
 
-# UC-00..UC-09 Traceability Matrix
+# UC-00..UC-09 Traceability Matrix, with UC-16 design trace
 
 Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, class/method, persistence/state và planned test. `OC-nn` tham chiếu `architecture/contracts/operation-contracts.md`.
 
@@ -115,3 +115,16 @@ returns the target and resource outputs.
 | MS-04, MS-05 | same | `DeploymentViewAssembler.Assemble` | persisted graph/matches/batches | OC-11; view test |
 | MS-06 | same | `OutputRedactor.RedactSecretOutputs` | no mutation | OC-11; redaction test |
 | MS-07 | same | return `DeploymentView` | read-only | OC-11; no runtime call test |
+
+## UC-16 — design trace only
+
+UC-16 specification and UI are approved. Its realization is conceptual;
+operation contracts, Score-reference syntax, persistence and executable tests
+are not yet defined. These rows are planned checks, not evidence of coverage.
+
+| Steps | Design artifact | Required state/validation | Planned test |
+|---|---|---|---|
+| MS-01–MS-03 | [Screens](../usecase/UC-16/ui/screens.md), [sequence](../usecase/UC-16/sequence.puml) | Selected Environment and workload form/import | Environment isolation and form/import parity |
+| MS-04–MS-05 | [Specification](../usecase/UC-16/specification.md) BR-02–BR-05 | UC-12, resource-output and same-Environment Service references; no literal binding or secret disclosure | Source eligibility, missing key/output/port, cross-Environment rejection and secret redaction |
+| MS-06–MS-07 | [Realization](../usecase/UC-16/realization.md) | Validate then save pending desired change; current Deployment Set/runtime unchanged | Field errors, pending-save and no-runtime-mutation tests |
+| VAR-01–VAR-02 | [States](../usecase/UC-16/ui/states.md) | Score import uses same rules; deletion requires confirmation and supports Undo | Literal-import rejection, import parity and pending-delete/undo tests |

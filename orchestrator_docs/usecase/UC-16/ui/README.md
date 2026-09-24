@@ -1,0 +1,31 @@
+---
+id: UC-16-UI
+artifact: use-case-ui-design
+status: current
+last_reviewed: 2026-09-24
+related: UC-16, UC-01, UC-05, UC-12
+---
+
+# UC-16 UI — Workload configuration
+
+## UX outcome
+
+From the UC-01 Application home, Developer selects `staging` or `production`,
+then adds, edits or marks a workload for deletion. A form is the default; Score
+import is optional. Variable and secret rows select references rather than
+accepting raw values. Saving creates pending configuration; Preview changes and
+Deploy are separate steps.
+
+The Application-level Variables & Secrets page belongs to UC-12, not UC-16.
+Its layout groups variables and secrets, with distinct Staging and Production
+values for each name. UC-16 links to that page when a required key is missing.
+
+## Read in this order
+
+1. [Screens and layout](screens.md)
+2. [States and validation](states.md)
+3. [UC-16 specification](../specification.md)
+4. [Shared shell](../../../architecture/ui/README.md)
+
+The interactive HTML preview used during review is not product code. This
+package is the durable UI design; API mapping follows contract design.

@@ -18,5 +18,6 @@ defaults through OC-01.
 | Submit create form | `POST /api/v1/applications` with Name/Subdomain | Navigate to created Application home; selected tab is `staging`. | `400` maps field errors; `409` identifies duplicate Name/Subdomain; others retain form and show API error. |
 | Load Application home | `GET /api/v1/applications/{applicationId}` | Render Application, two Environment summaries, Workloads and recent deployments. | `404` shows scoped not-found state; `401` redirects Sign in. |
 
-Workload actions intentionally have no M00-a HTTP mapping. UC-05/UC-07 will
-define their contracts before those buttons become active.
+Workload actions intentionally have no M00-a HTTP mapping. UC-16 owns the
+configuration contracts; UC-05 owns preview and UC-06/UC-07 own runtime
+application. Those contracts must be designed before the buttons become active.

@@ -39,10 +39,11 @@ Xây dựng orchestrator nội bộ sử dụng các contract và khái niệm g
 | [UC-09](UC-09/README.md) | Xem deployment status, graph và resource outputs | Developer | P0 |
 | UC-10 | Redeploy hoặc rollback deployment cũ | Developer | P1 |
 | UC-11 | Quản lý Active Resource lifecycle | Platform Engineer | P1 |
-| UC-12 | Quản lý shared values và secrets | Developer, Platform Engineer | P1 |
+| UC-12 | Quản lý variables và secrets của Application | Developer, Platform Engineer | P1 |
 | UC-13 | Trigger deployment qua API, CLI hoặc pipeline | CI/CD | P1 |
 | UC-14 | Quản lý user, token và RBAC | Administrator | P2 |
 | UC-15 | Audit deployment và configuration changes | Administrator | P2 |
+| [UC-16](UC-16/README.md) | Quản lý cấu hình workload | Developer | Chưa xếp ưu tiên |
 
 ## 4. Architecturally significant use cases
 
@@ -111,8 +112,10 @@ ID chỉ ổn định trong phạm vi một use case và sẽ được dùng l�
 ## 9. Quan hệ giữa các use case
 
 - UC-00 xác lập User, Organization và role context cho mọi UI/API operation
-  có xác thực, gồm UC-01 đến UC-09.
+  có xác thực, gồm UC-01 đến UC-09 và UC-16.
 - UC-06 `«include»` UC-08 tại bước provision resource.
+- UC-16 dùng cấu hình UC-12 làm nguồn tham chiếu, đưa thay đổi mong muốn tới
+  UC-05 Preview; UC-06/UC-07 áp dụng thay đổi sau đó.
 - UC-07 `«include»` UC-08 khi update cần provision hoặc reconcile desired resource.
 - UC-05 dùng chung planning pipeline với UC-06 nhưng không provision và không thay đổi runtime state.
 - UC-09 chỉ đọc kết quả đã persist bởi UC-06, UC-07 và UC-08.

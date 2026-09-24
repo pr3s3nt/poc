@@ -35,6 +35,7 @@ implementation status.
 | Thay đổi UC-07 | [UC-07 context](usecase/UC-07/README.md) |
 | Thay đổi UC-08 | [UC-08 context](usecase/UC-08/README.md) |
 | Thay đổi UC-09 | [UC-09 context](usecase/UC-09/README.md) |
+| Thay đổi UC-16 | [UC-16 context](usecase/UC-16/README.md) |
 | Thay đổi shared architecture/domain | [Architecture index](architecture/README.md) |
 | Thay đổi schema/constraint | [Database schema](architecture/database/schema.md) |
 | Hiểu rationale của quyết định | [ADR index](architecture/decisions/README.md) |
