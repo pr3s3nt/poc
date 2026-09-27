@@ -159,3 +159,30 @@ func TestRewriteRejectsUndeclaredResource(t *testing.T) {
 		t.Fatal("expected an undeclared resource error")
 	}
 }
+
+func TestFragmentRewritesVirtualConfigurationAndServiceWithoutProvisioning(t *testing.T) {
+	doc := base()
+	doc["resources"] = map[string]any{
+		"env":     map[string]any{"type": "environment"},
+		"backend": map[string]any{"type": "service", "params": map[string]any{"workload": "backend", "port": "http"}},
+	}
+	doc["containers"] = map[string]any{"main": map[string]any{"image": "frontend:dev", "variables": map[string]any{
+		"TOKEN":       "${resources.env.API_TOKEN}",
+		"BACKEND_URL": "${resources.backend.url}",
+	}}}
+	parsed, err := FromMap(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fragment, err := parsed.Fragment(types())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fragment.Module.Externals) != 0 || len(fragment.Shared) != 0 {
+		t.Fatalf("virtual resources were provisioned: %+v", fragment)
+	}
+	vars := fragment.Module.Spec.Containers["main"].Variables
+	if vars["TOKEN"] != "${context.uc12.API_TOKEN}" || vars["BACKEND_URL"] != "${context.service.backend.http}" {
+		t.Fatalf("unexpected virtual references: %+v", vars)
+	}
+}

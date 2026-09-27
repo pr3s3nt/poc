@@ -115,6 +115,7 @@ type WorkloadDeployer struct {
 	mu      sync.Mutex
 	Applied []AppliedWorkload
 	Ready   []execution.WorkloadRef
+	Removed []string
 }
 
 // NewWorkloadDeployer returns an empty fake deployer.
@@ -133,6 +134,13 @@ func (d *WorkloadDeployer) WaitReady(_ context.Context, _ execution.Target, refs
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.Ready = append(d.Ready, refs...)
+	return nil
+}
+
+func (d *WorkloadDeployer) Remove(_ context.Context, _ execution.Target, workloadID string) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.Removed = append(d.Removed, workloadID)
 	return nil
 }
 

@@ -51,6 +51,22 @@ func (d *Deployer) WaitReady(ctx context.Context, target execution.Target, refs 
 	return nil
 }
 
+// Remove deletes only the workload's Deployment and Service; resources remain
+// subject to UC-07 reference classification and are not destroyed here.
+func (d *Deployer) Remove(ctx context.Context, target execution.Target, workloadID string) error {
+	if target.Namespace == "" {
+		return fmt.Errorf("kubernetes: remove without a namespace")
+	}
+	if target.Context == "" && target.Kubeconfig == "" {
+		return fmt.Errorf("kubernetes: remove without an explicit cluster target")
+	}
+	cli := NewCLI(d.KubectlPath, target.Context, target.Kubeconfig)
+	if err := cli.Delete(ctx, target.Namespace, "deployment", workloadID); err != nil {
+		return err
+	}
+	return cli.Delete(ctx, target.Namespace, "service", workloadID)
+}
+
 func kindArg(kind string) string {
 	switch kind {
 	case "Deployment":

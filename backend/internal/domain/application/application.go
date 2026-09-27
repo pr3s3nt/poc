@@ -40,15 +40,16 @@ type Organization struct {
 
 // Application owns exactly one Execution Profile and, for aws-eks, the VPC/EKS scope.
 type Application struct {
-	Key             string           `json:"key"`
-	OrganizationKey string           `json:"organizationKey"`
-	Name            string           `json:"name"`
-	Subdomain       string           `json:"subdomain"`
-	Profile         ExecutionProfile `json:"executionProfile"`
-	ConnectionKey   string           `json:"connectionKey"`
-	Region          string           `json:"region,omitempty"`
-	RuntimeStatus   RuntimeStatus    `json:"runtimeStatus"`
-	Version         int64            `json:"version"`
+	Key                   string           `json:"key"`
+	OrganizationKey       string           `json:"organizationKey"`
+	Name                  string           `json:"name"`
+	Subdomain             string           `json:"subdomain"`
+	Profile               ExecutionProfile `json:"executionProfile"`
+	ConnectionKey         string           `json:"connectionKey"`
+	Region                string           `json:"region,omitempty"`
+	RuntimeStatus         RuntimeStatus    `json:"runtimeStatus"`
+	Version               int64            `json:"version"`
+	ConfigurationProvider string           `json:"configurationProvider,omitempty"`
 }
 
 // Validate reports whether the Application satisfies UC-01 business rules.

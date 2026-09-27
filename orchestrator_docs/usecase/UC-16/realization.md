@@ -2,14 +2,15 @@
 id: UC-16-REALIZATION
 artifact: use-case-realization
 status: draft
-last_reviewed: 2026-09-24
+last_reviewed: 2026-09-27
 ---
 
 # UC-16 — Use Case Realization (design pending)
 
-This collaboration sketch traces the approved [specification](specification.md)
-without fixing API endpoints, Score reference syntax, draft persistence or
-deployment resolution. Those contracts must be designed before implementation.
+This collaboration traces the approved [specification](specification.md).
+Application keys use the virtual Score `environment` resource and
+`${resources.env.KEY}` syntax. HTTP and state contracts are defined in
+[OC-12/OC-16](../../architecture/contracts/operation-contracts.md).
 
 ## Responsibilities
 
@@ -20,8 +21,9 @@ deployment resolution. Those contracts must be designed before implementation.
   Services and ports.
 - Workload configuration control: validate the selected references, save a
   desired change or mark a workload pending deletion; do not call deployment.
-- Desired configuration store: retain pending changes separately from the
-  current Deployment Set.
+- Desired configuration store: retain versioned pending changes separately
+  from the current Deployment Set. Preview pins its draft version and UC-12
+  revision so a later edit makes the preview stale.
 
 ## Trace main flow
 
@@ -38,5 +40,5 @@ deployment resolution. Those contracts must be designed before implementation.
 ## Boundary
 
 UC-16 has no runtime side effects. UC-05 reads pending desired configuration to
-produce preview; UC-06/UC-07 apply an approved change later. The exact
-snapshot/version handshake and operation contracts remain open.
+produce preview; UC-06/UC-07 apply an approved change later against the pinned
+draft version and UC-12 revision.

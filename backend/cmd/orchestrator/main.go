@@ -39,6 +39,9 @@ func main() {
 	terraformCache := flag.String("terraform-plugin-cache", os.Getenv("TF_PLUGIN_CACHE_DIR"), "Terraform provider cache directory")
 	kubectlPath := flag.String("kubectl", "kubectl", "kubectl binary")
 	terraformPath := flag.String("terraform", "terraform", "terraform binary")
+	vaultAddress := flag.String("vault-address", os.Getenv("ORCHESTRATOR_VAULT_ADDR"), "Vault API address for UC-12")
+	vaultTokenFile := flag.String("vault-token-file", os.Getenv("ORCHESTRATOR_VAULT_TOKEN_FILE"), "path to scoped Vault token file for UC-12")
+	vaultAgentAddress := flag.String("vault-agent-address", os.Getenv("ORCHESTRATOR_VAULT_AGENT_ADDR"), "in-cluster Vault address used by injected workload Pods")
 	flag.Parse()
 
 	opts.NamespaceIdentity = *namespace
@@ -93,6 +96,9 @@ func main() {
 		TerraformPluginCache: *terraformCache,
 		Region:               *region,
 		Tags:                 tags,
+		VaultAddress:         *vaultAddress,
+		VaultTokenFile:       *vaultTokenFile,
+		VaultAgentAddress:    *vaultAgentAddress,
 	})
 	if err != nil {
 		log.Printf("orchestrator: startup failed: %v", err)

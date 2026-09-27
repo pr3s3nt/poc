@@ -12,3 +12,4 @@ last_reviewed: 2026-09-21
 - [ADR-003 — Separate planner, resource provisioning and workload deployment](ADR-003-planner-execution-separation.md)
 - [ADR-004 — React web console served from the Go backend origin](ADR-004-react-web-console.md)
 - [ADR-005 — Root backend and frontend source boundaries](ADR-005-root-backend-frontend-layout.md)
+- [ADR-006 — Per-Application configuration provider and Vault Agent delivery](ADR-006-application-configuration-provider.md)

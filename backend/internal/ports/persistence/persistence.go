@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"orchestrator/internal/domain/application"
+	"orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/identity"
@@ -93,6 +94,21 @@ type WorkloadInstanceRepository interface {
 	ListWorkloadInstances(ctx context.Context, environmentKey string) ([]deployment.WorkloadInstance, error)
 }
 
+// ConfigurationRepository owns immutable UC-12 revision metadata, not values.
+type ConfigurationRepository interface {
+	GetConfigurationScope(ctx context.Context, applicationKey, environmentKey string) (configuration.Scope, error)
+	GetConfigurationRevision(ctx context.Context, id string) (configuration.Revision, error)
+	CommitConfigurationRevision(ctx context.Context, expectedVersion int64, revision configuration.Revision) error
+}
+
+// WorkloadDraftRepository owns UC-16 pending desired Score documents.
+type WorkloadDraftRepository interface {
+	ListWorkloadDrafts(ctx context.Context, applicationKey, environmentKey string) ([]environment.WorkloadDraft, error)
+	GetWorkloadDraft(ctx context.Context, applicationKey, environmentKey, workloadID string) (environment.WorkloadDraft, error)
+	SaveWorkloadDraft(ctx context.Context, expectedDraftVersion int64, draft environment.WorkloadDraft) error
+	DeleteWorkloadDraft(ctx context.Context, applicationKey, environmentKey, workloadID string, expectedDraftVersion int64) error
+}
+
 // UnitOfWork runs a function inside one store transaction.
 type UnitOfWork interface {
 	Transact(ctx context.Context, fn func(ctx context.Context) error) error
@@ -108,5 +124,7 @@ type Store interface {
 	DeltaSnapshotRepository
 	ActiveResourceRepository
 	WorkloadInstanceRepository
+	ConfigurationRepository
+	WorkloadDraftRepository
 	UnitOfWork
 }

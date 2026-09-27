@@ -16,9 +16,10 @@ import is optional. Variable and secret rows select references rather than
 accepting raw values. Saving creates pending configuration; Preview changes and
 Deploy are separate steps.
 
-The Application-level Variables & Secrets page belongs to UC-12, not UC-16.
-Its layout groups variables and secrets, with distinct Staging and Production
-values for each name. UC-16 links to that page when a required key is missing.
+The Application-level [Variables & Secrets page](../../UC-12/ui/README.md)
+belongs to UC-12, not UC-16. It has Staging/Production tabs; each tab shows
+Environment variables and Secrets on the same page. A key may exist in only
+one Environment. UC-16 links there when a required key is missing.
 
 ## Read in this order
 

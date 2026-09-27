@@ -2,16 +2,19 @@
 id: UC-16-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-24
+last_reviewed: 2026-09-27
 ---
 
 # UC-16 context — Manage workload configuration
 
 ## Delivery state
 
-Specification and UI design approved; not implemented. UC-01 Application home
-already provides the navigation location, but UC-16 workload editing and UC-12
-variables/secrets management are not available in the product.
+Specification and UI design approved. UC-01 Application home now links to
+UC-16 draft list/editor and UC-12 settings. Form, Score import and draft
+save/delete/undo are implemented with reference validation. Editing a deployed
+workload without a saved draft reconstructs a reference-based Score from the
+current Deployment Set. Preview → Deploy and runtime reference resolution are
+implemented; create and configuration-only redeploy have kind verification.
 
 ## Read in this order
 
@@ -20,8 +23,8 @@ variables/secrets management are not available in the product.
 3. [UC-01 Application home](../UC-01/ui/README.md)
 4. [UC-05 preview](../UC-05/README.md)
 5. [Realization](realization.md), [sequence](sequence.puml) and [VOPC](vopc.puml)
-6. [UC-06 deployment](../UC-06/README.md) and [UC-07 update/removal](../UC-07/README.md)
+6. [UC-12 Application variables and secrets](../UC-12/README.md)
+7. [UC-06 deployment](../UC-06/README.md) and [UC-07 update/removal](../UC-07/README.md)
 
-Realization, operation contracts, persistence and Score-reference syntax remain
-to be designed before implementation. [UC-12](../README.md) currently owns the
-planned Application variables/secrets use case but has no detailed package yet.
+UC-12 owns Application variables/secrets; saving a draft never changes the
+running workload until an explicit Preview → Deploy.

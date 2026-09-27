@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-27
 ---
 
 # Database Schema
@@ -79,6 +79,7 @@ Unique: `(organization_id, connection_key)`.
 | `region` | text | required for `aws-eks` |
 | `runtime_status` | text | `PENDING` or `READY` |
 | `version` | bigint | optimistic version |
+| `configuration_provider` | text | `vault` in the first implementation; one provider per Application |
 
 `id` is system-generated and immutable. Unique: `(organization_id, name)` and
 `subdomain` globally within the configured platform base domain.
@@ -94,10 +95,51 @@ Unique: `(organization_id, connection_key)`.
 | `namespace_identity` | text | NOT NULL |
 | `current_deployment_set_id` | uuid | nullable FK deployment_sets, deferred |
 | `version` | bigint | optimistic version |
+| `draft_version` | bigint | optimistic UC-16 draft version |
+| `desired_config_revision_id` | uuid | nullable FK configuration_revisions, deferred |
 
 `environment_key` is system-owned and limited to `staging` or `production`.
 Unique: `(application_id, environment_key)` and `(application_id, namespace_identity)`.
 The application-creation transaction inserts exactly those two rows.
+
+### `configuration_revisions`
+
+| Column | Type | Constraint |
+|---|---|---|
+| `id` | uuid | PK; immutable |
+| `environment_id` | uuid | FK environments, NOT NULL |
+| `version` | bigint | monotonically increasing within Environment |
+| `created_at` | timestamptz | NOT NULL |
+
+Unique `(environment_id, version)`. A new revision copies prior entry refs and
+changes only the named key. Saving desired configuration moves
+`environments.desired_config_revision_id` but never changes applied workload
+revisions. Revision rows contain no values.
+
+### `configuration_revision_entries`
+
+| Column | Type | Constraint |
+|---|---|---|
+| `revision_id` | uuid | PK/FK configuration_revisions |
+| `key_name` | text | PK; valid environment variable name |
+| `kind` | text | `VARIABLE` or `SECRET` |
+| `value_ref` | text | opaque immutable Vault KV v2 reference, NOT NULL |
+
+The primary key gives one namespace across Variable and Secret. No raw values
+are stored in this table or in the JSON snapshot adapter.
+
+### `workload_drafts`
+
+| Column | Type | Constraint |
+|---|---|---|
+| `environment_id` | uuid | PK/FK environments |
+| `workload_id` | text | PK |
+| `score_document` | jsonb | one validated Score workload; nullable for pending delete |
+| `state` | text | `PENDING_UPSERT` or `PENDING_DELETE` |
+| `updated_at` | timestamptz | NOT NULL |
+
+The Environment `draft_version` advances on each draft save/delete/undo.
+Drafts do not alter `deployment_sets` until successful deployment.
 
 ### `resource_types`
 
@@ -220,7 +262,11 @@ Columns: `deployment_id FK`, `node_descriptor text`, `active_resource_id FK null
 
 ### `workload_instances`
 
-Columns: `id uuid PK`, `environment_id FK`, `workload_id text`, `last_deployment_id FK`, `target_ref jsonb`, `manifest_digest text`, `status text`, `observed_at timestamptz`. Unique `(environment_id, workload_id)`.
+Columns: `id uuid PK`, `environment_id FK`, `workload_id text`, `last_deployment_id FK`, `applied_config_revision_id uuid FK configuration_revisions nullable`, `target_ref jsonb`, `manifest_digest text`, `status text`, `observed_at timestamptz`. Unique `(environment_id, workload_id)`.
+
+Per-workload applied revision allows an honest partial-success state when a
+multi-workload configuration rollout fails. The desired Environment pointer
+does not imply every workload has consumed that revision.
 
 ## Transaction contracts
 

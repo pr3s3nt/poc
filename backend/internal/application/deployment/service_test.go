@@ -176,6 +176,7 @@ func (f failingDeployer) Apply(context.Context, execution.Target, []execution.Ma
 func (f failingDeployer) WaitReady(context.Context, execution.Target, []execution.WorkloadRef) error {
 	return f.err
 }
+func (f failingDeployer) Remove(context.Context, execution.Target, string) error { return f.err }
 
 func TestDeployWorkload_CommitsCurrentSetOnlyAfterReadiness(t *testing.T) {
 	ctx := context.Background()

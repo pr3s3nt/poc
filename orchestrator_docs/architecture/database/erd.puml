@@ -47,6 +47,7 @@ entity applications {
   region : text
   runtime_status : text
   version : bigint
+  configuration_provider : text
 }
 entity environments {
   * id : uuid <<PK>>
@@ -56,6 +57,30 @@ entity environments {
   namespace_identity : text
   current_deployment_set_id : uuid <<FK>>
   version : bigint
+  draft_version : bigint
+  desired_config_revision_id : uuid <<FK>>
+}
+entity configuration_revisions {
+  * id : uuid <<PK>>
+  * environment_id : uuid <<FK>>
+  --
+  version : bigint
+  created_at : timestamptz
+}
+entity configuration_revision_entries {
+  * revision_id : uuid <<PK,FK>>
+  * key_name : text <<PK>>
+  --
+  kind : text
+  value_ref : text
+}
+entity workload_drafts {
+  * environment_id : uuid <<PK,FK>>
+  * workload_id : text <<PK>>
+  --
+  score_document : jsonb
+  state : text
+  updated_at : timestamptz
 }
 entity resource_types {
   * id : uuid <<PK>>
@@ -154,6 +179,7 @@ entity workload_instances {
   --
   workload_id : text
   last_deployment_id : uuid <<FK>>
+  applied_config_revision_id : uuid <<FK>>
   target_ref : jsonb
   manifest_digest : text
   status : text
@@ -171,6 +197,11 @@ applications ||--o{ deployment_delta_snapshots
 environments ||--o{ deployment_sets
 environments ||--o{ deployments
 environments ||--o{ workload_instances
+environments ||--o{ configuration_revisions
+environments ||--o{ workload_drafts
+environments }o--o| configuration_revisions : desired
+configuration_revisions ||--o{ configuration_revision_entries
+configuration_revisions ||--o{ workload_instances : applied
 environments }o--o| deployment_sets : current
 resource_types ||--o{ resource_definitions
 resource_definitions ||--|{ matching_criteria

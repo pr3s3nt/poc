@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-27
 ---
 
 # Design-to-code map
@@ -12,7 +12,7 @@ last_reviewed: 2026-09-23
 | Process bootstrap and adapter wiring | [`backend/internal/bootstrap`](../../backend/internal/bootstrap/) |
 | HTTP API and `/ui/` delivery | [`backend/internal/delivery/http`](../../backend/internal/delivery/http/) |
 | UC-01..UC-04 seeded executable baseline | [`backend/internal/seed`](../../backend/internal/seed/) and [`backend/internal/adapters/store`](../../backend/internal/adapters/store/) |
-| UC-05 planning core used by the future preview flow | [`backend/internal/planning`](../../backend/internal/planning/) |
+| UC-05 planning core and pending Preview → Deploy | [`backend/internal/planning`](../../backend/internal/planning/) and [`backend/internal/application/pending`](../../backend/internal/application/pending/) |
 | UC-06, UC-07 and UC-09 orchestration/query | [`backend/internal/application/deployment`](../../backend/internal/application/deployment/) |
 | UC-08 resource provisioning | [`backend/internal/application/provisioning`](../../backend/internal/application/provisioning/) |
 | Application/Connection domain | [`backend/internal/domain/application`](../../backend/internal/domain/application/) |
@@ -33,6 +33,11 @@ last_reviewed: 2026-09-23
 | UC-00/UC-01 Web Console prototype | [`frontend/src/app`](../../frontend/src/app/), [`features/auth`](../../frontend/src/features/auth/) and [`features/applications`](../../frontend/src/features/applications/) |
 | UC-00 authentication/session | [`backend/internal/application/authentication`](../../backend/internal/application/authentication/), [`domain/identity`](../../backend/internal/domain/identity/) and [`platform/password`](../../backend/internal/platform/password/) |
 | UC-01 self-service creation | [`backend/internal/application/application`](../../backend/internal/application/application/) and [`backend/internal/domain/application`](../../backend/internal/domain/application/) |
+| UC-12 desired configuration, Vault KV adapter and Settings UI | [`backend/internal/application/configuration`](../../backend/internal/application/configuration/), [`backend/internal/adapters/vault`](../../backend/internal/adapters/vault/) and [`frontend/src/features/configuration`](../../frontend/src/features/configuration/) |
+| UC-16 pending workload drafts and editor | [`backend/internal/application/workloadconfig`](../../backend/internal/application/workloadconfig/), [`backend/internal/domain/environment/draft.go`](../../backend/internal/domain/environment/draft.go) and [`frontend/src/features/workloads`](../../frontend/src/features/workloads/) |
+| Reference-based deployed Score reconstruction | [`backend/internal/application/workloadconfig/reconstruct.go`](../../backend/internal/application/workloadconfig/reconstruct.go) |
+| Vault Agent Pod rendering and scoped workload policy/role | [`backend/internal/adapters/kubernetes/renderer.go`](../../backend/internal/adapters/kubernetes/renderer.go) and [`backend/internal/adapters/vault/provider.go`](../../backend/internal/adapters/vault/provider.go) |
+| Application Preview/Deploy UI | [`frontend/src/features/applications/ApplicationHomePage.tsx`](../../frontend/src/features/applications/ApplicationHomePage.tsx) |
 | Acceptance workloads | [`backend/examples/acceptance-app`](../../backend/examples/acceptance-app/) |
 | HTTP end-to-end tests | [`backend/test/e2e`](../../backend/test/e2e/) |
 | Planner challenge conformance | [`backend/test/conformance`](../../backend/test/conformance/) |

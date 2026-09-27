@@ -5,9 +5,11 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"orchestrator/internal/application/provisioning"
 	appdomain "orchestrator/internal/domain/application"
+	"orchestrator/internal/domain/configuration"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -17,21 +19,24 @@ import (
 	"orchestrator/internal/platform/canon"
 	"orchestrator/internal/platform/clock"
 	"orchestrator/internal/platform/ids"
+	configport "orchestrator/internal/ports/configuration"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/ports/persistence"
 )
 
 // DeployCommand is the UC-06 system operation input (OC-08).
 type DeployCommand struct {
-	OrganizationKey string
-	ApplicationKey  string
-	EnvironmentKey  string
-	WorkloadID      string
-	ScoreBefore     map[string]any
-	ScoreAfter      map[string]any
-	Actor           string
-	Action          domain.Action
-	RunID           string
+	OrganizationKey  string
+	ApplicationKey   string
+	EnvironmentKey   string
+	WorkloadID       string
+	ScoreBefore      map[string]any
+	ScoreAfter       map[string]any
+	Actor            string
+	Action           domain.Action
+	RunID            string
+	ExpectedPlanHash string
+	ConfigRevisionID string
 }
 
 // DeployResult is returned to the actor at UC-06 MS-13.
@@ -44,14 +49,17 @@ type DeployResult struct {
 
 // Service orchestrates plan, provision, render, apply and commit.
 type Service struct {
-	store        persistence.Store
-	planner      *planning.Service
-	provisioning *provisioning.Service
-	renderer     execution.WorkloadRenderer
-	deployer     execution.WorkloadDeployer
-	terraform    planning.ModuleInspector
-	clock        clock.Clock
+	store          persistence.Store
+	planner        *planning.Service
+	provisioning   *provisioning.Service
+	renderer       execution.WorkloadRenderer
+	deployer       execution.WorkloadDeployer
+	terraform      planning.ModuleInspector
+	clock          clock.Clock
+	configProvider configport.Provider
 }
+
+func (s *Service) SetConfigurationProvider(provider configport.Provider) { s.configProvider = provider }
 
 // NewService wires UC-06 with its collaborators.
 func NewService(
@@ -177,6 +185,9 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	if err != nil {
 		return nil, s.fail(ctx, record, err)
 	}
+	if cmd.ExpectedPlanHash != "" && plan.PlanHash != cmd.ExpectedPlanHash {
+		return nil, s.fail(ctx, record, fmt.Errorf("deployment: preview plan is stale"))
+	}
 
 	candidateSet := environment.DeploymentSet{
 		ID:                    ids.New(),
@@ -246,7 +257,11 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	result := &DeployResult{DeploymentID: record.ID, PlanHash: plan.PlanHash, WorkloadID: workloadID}
 
 	if after != nil {
-		if err := s.applyWorkload(ctx, &record, planCtx, plan, provisionResult, types, workloadID); err != nil {
+		if err := s.applyWorkload(ctx, &record, planCtx, plan, provisionResult, types, workloadID, cmd.ConfigRevisionID); err != nil {
+			return nil, s.fail(ctx, record, err)
+		}
+	} else {
+		if err := s.removeWorkload(ctx, planCtx, workloadID, record.ID); err != nil {
 			return nil, s.fail(ctx, record, err)
 		}
 	}
@@ -274,6 +289,44 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	return result, nil
 }
 
+func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, workloadID, deploymentID string) error {
+	instances, err := s.store.ListWorkloadInstances(ctx, planCtx.App.Key+"/"+planCtx.Env.Key)
+	if err != nil {
+		return err
+	}
+	for _, instance := range instances {
+		if instance.WorkloadID != workloadID {
+			continue
+		}
+		target := execution.Target{Namespace: planCtx.Env.NamespaceIdentity}
+		if value, ok := instance.TargetRef["namespace"].(string); ok && value != "" {
+			target.Namespace = value
+		}
+		if value, ok := instance.TargetRef["context"].(string); ok {
+			target.Context = value
+		}
+		if value, ok := instance.TargetRef["cluster"].(string); ok {
+			target.ClusterName = value
+		}
+		instance.Status = domain.InstanceRemoving
+		instance.LastDeploymentID = deploymentID
+		instance.ObservedAt = s.clock.Now()
+		if err := s.store.UpsertWorkloadInstance(ctx, instance); err != nil {
+			return err
+		}
+		if err := s.deployer.Remove(ctx, target, workloadID); err != nil {
+			instance.Status = domain.InstanceFailed
+			_ = s.store.UpsertWorkloadInstance(ctx, instance)
+			return err
+		}
+		instance.Status = domain.InstanceRemoved
+		instance.AppliedConfigRevisionID = ""
+		instance.ObservedAt = s.clock.Now()
+		return s.store.UpsertWorkloadInstance(ctx, instance)
+	}
+	return fmt.Errorf("deployment: workload %q has no applied instance", workloadID)
+}
+
 // applyWorkload resolves bindings, renders manifests and applies them (MS-10, MS-11).
 func (s *Service) applyWorkload(
 	ctx context.Context,
@@ -283,6 +336,7 @@ func (s *Service) applyWorkload(
 	provisionResult *provisioning.Result,
 	types map[string]resource.Type,
 	workloadID string,
+	configRevisionID string,
 ) error {
 	wd, err := planning.WorkloadDescriptor(workloadID)
 	if err != nil {
@@ -296,14 +350,31 @@ func (s *Service) applyWorkload(
 	if !ok {
 		return fmt.Errorf("deployment: workload %q is not in the candidate deployment set", workloadID)
 	}
+	target := provisioning.ResolveTarget(plan.Graph, provisionResult, wd.String())
+	if target.Namespace == "" {
+		return fmt.Errorf("deployment: workload %q has no resolved namespace", workloadID)
+	}
+	var revision configuration.Revision
+	if configRevisionID != "" {
+		revision, err = s.store.GetConfigurationRevision(ctx, configRevisionID)
+		if err != nil {
+			return err
+		}
+		if revision.ApplicationKey != planCtx.App.Key || revision.EnvironmentKey != planCtx.Env.Key {
+			return fmt.Errorf("deployment: configuration revision has wrong scope")
+		}
+	}
 
 	plainEnv := map[string]map[string]string{}
 	secretEnv := map[string]map[string]string{}
+	vaultBindings := map[string]map[string]string{}
+	valueRefs := []string{}
 	containerNames := module.ContainerNames()
 	for _, containerName := range containerNames {
 		container := module.Spec.Containers[containerName]
 		plainEnv[containerName] = map[string]string{}
 		secretEnv[containerName] = map[string]string{}
+		vaultBindings[containerName] = map[string]string{}
 		keys := make([]string, 0, len(container.Variables))
 		for key := range container.Variables {
 			keys = append(keys, key)
@@ -311,14 +382,26 @@ func (s *Service) applyWorkload(
 		sort.Strings(keys)
 		for _, key := range keys {
 			raw := container.Variables[key]
+			if strings.HasPrefix(raw, "${context.uc12.") && strings.HasSuffix(raw, "}") {
+				configKey := strings.TrimSuffix(strings.TrimPrefix(raw, "${context.uc12."), "}")
+				entry, exists := revision.Entries[configKey]
+				if !exists || configRevisionID == "" {
+					return fmt.Errorf("deployment: Application key %s is not in the pinned revision", configKey)
+				}
+				vaultBindings[containerName][key] = entry.ValueRef
+				valueRefs = append(valueRefs, entry.ValueRef)
+				continue
+			}
 			isSecret, err := bindsSecret(raw, node.Bindings, plan.Graph, types)
 			if err != nil {
 				return err
 			}
 			resolved, err := placeholder.ExpandString(raw, bindingResolver{
-				ctx:      planCtx,
-				bindings: node.Bindings,
-				outputs:  provisionResult.Outputs,
+				ctx:       planCtx,
+				bindings:  node.Bindings,
+				outputs:   provisionResult.Outputs,
+				set:       plan.CandidateSet,
+				namespace: target.Namespace,
 			})
 			if err != nil {
 				return fmt.Errorf("deployment: resolve %s/%s: %w", containerName, key, err)
@@ -332,9 +415,17 @@ func (s *Service) applyWorkload(
 		}
 	}
 
-	target := provisioning.ResolveTarget(plan.Graph, provisionResult, wd.String())
-	if target.Namespace == "" {
-		return fmt.Errorf("deployment: workload %q has no resolved namespace", workloadID)
+	var vaultInjection *execution.VaultInjection
+	if len(valueRefs) > 0 {
+		preparer, ok := s.configProvider.(configport.WorkloadAccessPreparer)
+		if !ok {
+			return fmt.Errorf("deployment: Vault workload access is not configured")
+		}
+		access, err := preparer.PrepareWorkloadAccess(ctx, planCtx.App.Key, planCtx.Env.Key, workloadID, target.Namespace, configRevisionID, valueRefs)
+		if err != nil {
+			return err
+		}
+		vaultInjection = &execution.VaultInjection{Address: access.Address, Role: access.Role, ServiceAccount: access.ServiceAccount, Bindings: vaultBindings}
 	}
 
 	manifests, err := s.renderer.Render(ctx, execution.RenderRequest{
@@ -344,6 +435,7 @@ func (s *Service) applyWorkload(
 		PlainEnv:     plainEnv,
 		SecretEnv:    secretEnv,
 		DeploymentID: record.ID,
+		Vault:        vaultInjection,
 		Labels:       map[string]string{"orchestrator.io/environment": planCtx.Env.Key},
 	})
 	if err != nil {
@@ -355,13 +447,14 @@ func (s *Service) applyWorkload(
 	}
 
 	instance := domain.WorkloadInstance{
-		EnvironmentKey:   planCtx.App.Key + "/" + planCtx.Env.Key,
-		WorkloadID:       workloadID,
-		LastDeploymentID: record.ID,
-		TargetRef:        map[string]any{"cluster": target.ClusterName, "namespace": target.Namespace, "context": target.Context},
-		ManifestDigest:   digest,
-		Status:           domain.InstanceApplying,
-		ObservedAt:       s.clock.Now(),
+		EnvironmentKey:          planCtx.App.Key + "/" + planCtx.Env.Key,
+		WorkloadID:              workloadID,
+		LastDeploymentID:        record.ID,
+		AppliedConfigRevisionID: configRevisionID,
+		TargetRef:               map[string]any{"cluster": target.ClusterName, "namespace": target.Namespace, "context": target.Context},
+		ManifestDigest:          digest,
+		Status:                  domain.InstanceApplying,
+		ObservedAt:              s.clock.Now(),
 	}
 	if err := s.store.UpsertWorkloadInstance(ctx, instance); err != nil {
 		return err
@@ -468,9 +561,11 @@ func manifestDigest(manifests []execution.Manifest) (string, error) {
 
 // bindingResolver resolves workload bindings from the outputs collected in this run.
 type bindingResolver struct {
-	ctx      planning.Context
-	bindings map[string]string
-	outputs  map[string]map[string]any
+	ctx       planning.Context
+	bindings  map[string]string
+	outputs   map[string]map[string]any
+	set       environment.Document
+	namespace string
 }
 
 // ResolveResource returns a provider output value.
@@ -491,4 +586,21 @@ func (r bindingResolver) ResolveResource(binding, outputKey string) (any, error)
 }
 
 // ResolveContext returns a non-secret context value.
-func (r bindingResolver) ResolveContext(path string) (any, error) { return r.ctx.ResolveContext(path) }
+func (r bindingResolver) ResolveContext(path string) (any, error) {
+	if strings.HasPrefix(path, "service.") {
+		parts := strings.Split(path, ".")
+		if len(parts) != 3 {
+			return nil, fmt.Errorf("deployment: invalid Service reference")
+		}
+		module, ok := r.set.Modules[parts[1]]
+		if !ok || module.Spec.Service == nil {
+			return nil, fmt.Errorf("deployment: referenced Service does not exist")
+		}
+		port, ok := module.Spec.Service.Ports[parts[2]]
+		if !ok || port.Port < 1 {
+			return nil, fmt.Errorf("deployment: referenced Service port does not exist")
+		}
+		return fmt.Sprintf("http://%s.%s.svc.cluster.local:%d", parts[1], r.namespace, port.Port), nil
+	}
+	return r.ctx.ResolveContext(path)
+}

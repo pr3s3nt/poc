@@ -2,6 +2,8 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"orchestrator/internal/domain/environment"
@@ -84,5 +86,47 @@ func TestRenderRejectsMissingNamespace(t *testing.T) {
 	_, err := NewRenderer().Render(context.Background(), execution.RenderRequest{WorkloadID: "backend"})
 	if err == nil {
 		t.Fatal("expected an error when the namespace is missing")
+	}
+}
+
+func TestRenderVaultAgentFileContainsOnlyReferencesAndSafeTemplate(t *testing.T) {
+	module := environment.Module{Profile: environment.ModuleProfile, Spec: environment.ModuleSpec{Containers: map[string]environment.Container{"main": {Image: "example.invalid/test:1"}}}}
+	manifests, err := NewRenderer().Render(context.Background(), execution.RenderRequest{
+		WorkloadID: "frontend", Module: module, Namespace: "app-staging",
+		Vault: &execution.VaultInjection{Address: "http://vault-uc12.vault.svc:8200", Role: "orch-role", ServiceAccount: "frontend-vault", Bindings: map[string]map[string]string{
+			"main": {"API_TOKEN": "kv2://kv/orchestrator/apps/app/envs/staging/values/immutable-id"},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var serviceAccount, deployment, kubeSecret bool
+	for _, m := range manifests {
+		if m.Kind == "ServiceAccount" {
+			serviceAccount = true
+		}
+		if m.Kind == "Secret" {
+			kubeSecret = true
+		}
+		if m.Kind != "Deployment" {
+			continue
+		}
+		deployment = true
+		pod := m.Object["spec"].(map[string]any)["template"].(map[string]any)
+		annotations := pod["metadata"].(map[string]any)["annotations"].(map[string]any)
+		template := annotations["vault.hashicorp.com/agent-inject-template-app-env"].(string)
+		if !strings.Contains(template, "base64Encode") || !strings.Contains(template, "export API_TOKEN") || strings.Contains(template, "raw-secret") {
+			t.Fatalf("unsafe Agent template: %s", template)
+		}
+		if pod["spec"].(map[string]any)["serviceAccountName"] != "frontend-vault" {
+			t.Fatal("wrong ServiceAccount")
+		}
+		data, _ := json.Marshal(m.Object)
+		if strings.Contains(string(data), "raw-secret") {
+			t.Fatal("raw secret in Deployment")
+		}
+	}
+	if !serviceAccount || !deployment || kubeSecret {
+		t.Fatalf("unexpected manifests: serviceAccount=%v deployment=%v KubernetesSecret=%v", serviceAccount, deployment, kubeSecret)
 	}
 }

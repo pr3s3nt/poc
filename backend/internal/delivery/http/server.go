@@ -10,23 +10,30 @@ import (
 	"path/filepath"
 	"strings"
 
+	"orchestrator/internal/adapters/configmemory"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
+	appconfig "orchestrator/internal/application/configuration"
 	appsvc "orchestrator/internal/application/deployment"
+	"orchestrator/internal/application/pending"
+	workloadconfig "orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
 )
 
 // Server wires the HTTP handlers to the application services.
 type Server struct {
-	deployments  *appsvc.Service
-	queries      *appsvc.QueryService
-	auth         *authentication.Service
-	applications *appcreate.Service
-	store        persistence.Store
-	seedOptions  seed.Options
-	uiDir        string
-	mux          *http.ServeMux
+	deployments    *appsvc.Service
+	queries        *appsvc.QueryService
+	auth           *authentication.Service
+	applications   *appcreate.Service
+	configurations *appconfig.Service
+	workloads      *workloadconfig.Service
+	pending        *pending.Service
+	store          persistence.Store
+	seedOptions    seed.Options
+	uiDir          string
+	mux            *http.ServeMux
 }
 
 // Config configures the HTTP server.
@@ -35,6 +42,9 @@ type Config struct {
 	Queries        *appsvc.QueryService
 	Authentication *authentication.Service
 	Applications   *appcreate.Service
+	Configurations *appconfig.Service
+	Workloads      *workloadconfig.Service
+	Pending        *pending.Service
 	Store          persistence.Store
 	SeedOptions    seed.Options
 	UIDir          string
@@ -43,14 +53,17 @@ type Config struct {
 // NewServer builds the HTTP handler tree.
 func NewServer(cfg Config) *Server {
 	s := &Server{
-		deployments:  cfg.Deployments,
-		queries:      cfg.Queries,
-		auth:         cfg.Authentication,
-		applications: cfg.Applications,
-		store:        cfg.Store,
-		seedOptions:  cfg.SeedOptions,
-		uiDir:        cfg.UIDir,
-		mux:          http.NewServeMux(),
+		deployments:    cfg.Deployments,
+		queries:        cfg.Queries,
+		auth:           cfg.Authentication,
+		applications:   cfg.Applications,
+		configurations: cfg.Configurations,
+		workloads:      cfg.Workloads,
+		pending:        cfg.Pending,
+		store:          cfg.Store,
+		seedOptions:    cfg.SeedOptions,
+		uiDir:          cfg.UIDir,
+		mux:            http.NewServeMux(),
 	}
 	s.routes()
 	return s
@@ -67,7 +80,19 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/applications", s.handleApplications)
 	s.mux.HandleFunc("POST /api/v1/applications", s.handleCreateApplication)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}", s.handleGetApplication)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/configuration", s.handleGetConfiguration)
+	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handlePutConfigurationKey)
+	s.mux.HandleFunc("PATCH /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handleRenameConfigurationKey)
+	s.mux.HandleFunc("DELETE /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handleDeleteConfigurationKey)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/workloads", s.handleListWorkloadDrafts)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workloads/parse", s.handleParseWorkloadScore)
+	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/workloads/{workload}", s.handleSaveWorkloadDraft)
+	s.mux.HandleFunc("DELETE /api/v1/applications/{id}/environments/{env}/workloads/{workload}", s.handleDeleteWorkloadDraft)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workloads/{workload}/undo", s.handleUndoWorkloadDraft)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/preview", s.handlePreviewPending)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/deploy", s.handleDeployPending)
 	s.mux.HandleFunc("GET /api/v1/score-samples", s.handleScoreSamples)
+	s.mux.HandleFunc("GET /api/v1/resource-types", s.handleResourceTypes)
 	s.mux.HandleFunc("POST /api/v1/deployments", s.handleCreateDeployment)
 	s.mux.HandleFunc("GET /api/v1/deployments", s.handleListDeployments)
 	s.mux.HandleFunc("GET /api/v1/deployments/{id}", s.handleGetDeployment)
@@ -359,6 +384,12 @@ func writeError(w http.ResponseWriter, err error) {
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": err.Error()})
 	case errors.Is(err, persistence.ErrVersionConflict):
 		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
+	case errors.Is(err, pending.ErrStalePreview):
+		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
+	case errors.Is(err, appconfig.ErrConflict):
+		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
+	case errors.Is(err, configmemory.ErrUnavailable):
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
 	case isValidation(err):
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 	default:
@@ -368,7 +399,7 @@ func writeError(w http.ResponseWriter, err error) {
 
 func isValidation(err error) bool {
 	msg := err.Error()
-	for _, prefix := range []string{"score:", "planning:", "environment:", "resource:", "application:"} {
+	for _, prefix := range []string{"score:", "planning:", "environment:", "resource:", "application:", "configuration:", "workloadconfig:", "pending:"} {
 		if strings.HasPrefix(msg, prefix) {
 			return true
 		}

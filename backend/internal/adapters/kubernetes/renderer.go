@@ -5,7 +5,9 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
+	"strings"
 
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/ports/execution"
@@ -21,6 +23,9 @@ const (
 // Renderer turns a workload module into Deployment, Service and Secret manifests.
 type Renderer struct{}
 
+var shellIdentifier = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+var vaultRefPattern = regexp.MustCompile(`^kv2://([A-Za-z0-9_-]+)/([A-Za-z0-9_/-]+)$`)
+
 // NewRenderer returns the Kubernetes workload renderer.
 func NewRenderer() *Renderer { return &Renderer{} }
 
@@ -32,6 +37,25 @@ func (r *Renderer) Render(_ context.Context, req execution.RenderRequest) ([]exe
 	labels := map[string]any{"app.kubernetes.io/name": req.WorkloadID, "app.kubernetes.io/managed-by": "orchestrator"}
 	for k, v := range req.Labels {
 		labels[k] = v
+	}
+	var podAnnotations map[string]any
+	if req.Vault != nil {
+		if req.Vault.Role == "" || req.Vault.Address == "" || req.Vault.ServiceAccount == "" {
+			return nil, fmt.Errorf("kubernetes: incomplete Vault injection")
+		}
+		template, firstPath, err := vaultTemplate(req.Vault.Bindings)
+		if err != nil {
+			return nil, err
+		}
+		podAnnotations = map[string]any{
+			"vault.hashicorp.com/agent-inject":                  "true",
+			"vault.hashicorp.com/agent-pre-populate-only":       "true",
+			"vault.hashicorp.com/role":                          req.Vault.Role,
+			"vault.hashicorp.com/service":                       req.Vault.Address,
+			"vault.hashicorp.com/agent-inject-secret-app-env":   firstPath,
+			"vault.hashicorp.com/agent-inject-template-app-env": template,
+			"vault.hashicorp.com/agent-inject-perms-app-env":    "0400",
+		}
 	}
 
 	var manifests []execution.Manifest
@@ -75,6 +99,9 @@ func (r *Renderer) Render(_ context.Context, req execution.RenderRequest) ([]exe
 					"secretKeyRef": map[string]any{"name": secretName, "key": secretKey(name, key)},
 				},
 			})
+		}
+		if req.Vault != nil {
+			env = append(env, map[string]any{"name": "ORCHESTRATOR_CONFIG_FILE", "value": "/vault/secrets/app-env"})
 		}
 		container := map[string]any{
 			"name":            name,
@@ -129,6 +156,14 @@ func (r *Renderer) Render(_ context.Context, req execution.RenderRequest) ([]exe
 			},
 		},
 	}
+	if req.Vault != nil {
+		podTemplate := deploymentObject["spec"].(map[string]any)["template"].(map[string]any)
+		podTemplate["metadata"].(map[string]any)["annotations"] = podAnnotations
+		podTemplate["spec"].(map[string]any)["serviceAccountName"] = req.Vault.ServiceAccount
+		manifests = append(manifests, execution.Manifest{APIVersion: "v1", Kind: "ServiceAccount", Name: req.Vault.ServiceAccount, Namespace: req.Namespace, Object: map[string]any{
+			"apiVersion": "v1", "kind": "ServiceAccount", "metadata": map[string]any{"name": req.Vault.ServiceAccount, "namespace": req.Namespace, "labels": labels},
+		}})
+	}
 	manifests = append(manifests, execution.Manifest{
 		APIVersion: "apps/v1", Kind: "Deployment", Name: req.WorkloadID, Namespace: req.Namespace, Object: deploymentObject,
 	})
@@ -160,6 +195,43 @@ func (r *Renderer) Render(_ context.Context, req execution.RenderRequest) ([]exe
 		})
 	}
 	return manifests, nil
+}
+
+func vaultTemplate(bindings map[string]map[string]string) (string, string, error) {
+	entries := map[string]string{}
+	for _, container := range sortedKeys(bindings) {
+		for _, name := range sortedStringKeys(bindings[container]) {
+			if !shellIdentifier.MatchString(name) {
+				return "", "", fmt.Errorf("kubernetes: invalid injected environment name %q", name)
+			}
+			ref := bindings[container][name]
+			if prior, exists := entries[name]; exists && prior != ref {
+				return "", "", fmt.Errorf("kubernetes: conflicting injected environment name %q", name)
+			}
+			entries[name] = ref
+		}
+	}
+	if len(entries) == 0 {
+		return "", "", fmt.Errorf("kubernetes: no Vault bindings")
+	}
+	var builder strings.Builder
+	builder.WriteString("# Sourced by the workload startup script. Values are encoded before entering shell syntax.\n")
+	first := ""
+	for _, name := range sortedStringKeys(entries) {
+		parts := vaultRefPattern.FindStringSubmatch(entries[name])
+		if parts == nil || strings.Contains(parts[2], "//") {
+			return "", "", fmt.Errorf("kubernetes: invalid Vault value reference")
+		}
+		path := parts[1] + "/data/" + parts[2]
+		if first == "" {
+			first = path
+		}
+		builder.WriteString("{{- with secret \"" + path + "\" }}\n")
+		builder.WriteString("__orch_value=$(printf '%s' '{{ .Data.data.value | base64Encode }}' | base64 -d; printf '.')\n")
+		builder.WriteString("export " + name + "=\"${__orch_value%.}\"\n")
+		builder.WriteString("unset __orch_value\n{{- end }}\n")
+	}
+	return builder.String(), first, nil
 }
 
 // containerResources maps declared Score requirements onto Kubernetes container

@@ -59,7 +59,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 				return fmt.Errorf("application: default AWS connection needs a region")
 			}
 		}
-		app := appdomain.Application{Key: ids.New(), OrganizationKey: cmd.OrganizationKey, Name: cmd.Name, Subdomain: cmd.Subdomain, Profile: profile, ConnectionKey: conn.Key, Region: region, RuntimeStatus: status}
+		app := appdomain.Application{Key: ids.New(), OrganizationKey: cmd.OrganizationKey, Name: cmd.Name, Subdomain: cmd.Subdomain, Profile: profile, ConnectionKey: conn.Key, Region: region, RuntimeStatus: status, ConfigurationProvider: "vault"}
 		if err := app.Validate(); err != nil {
 			return err
 		}

@@ -1,0 +1,34 @@
+@startuml
+title UC-12 - Manage Application variables and secrets (design)
+autonumber
+actor Developer as Dev
+boundary "Application Settings UI" as UI
+control "Configuration control" as Config
+entity "Workload reference lookup" as Refs
+database "Revision metadata" as Store
+participant "Configuration provider" as Provider
+
+Dev -> UI: Open Settings; select Staging or Production [MS-01]
+UI -> Config: List variable and secret keys(application, environment)
+Config -> Store: Read names, variable values or secret status
+Store --> UI: Both scoped key lists
+Dev -> UI: Add/update key value [MS-02]
+UI -> Config: Validate and save desired change [MS-03]
+Config -> Provider: Write immutable desired revision
+Provider --> Config: Revision reference
+Config -> Store: Save desired revision reference; keep applied reference
+Config -> Refs: Find referencing workloads [MS-04]
+Refs --> UI: Affected workload names
+UI --> Dev: Pending Preview -> Deploy
+
+alt Rename or delete [VAR-01..VAR-02]
+  Dev -> UI: Request rename/delete
+  UI -> Refs: Find referencing workloads
+  Refs --> UI: Affected workload names
+  UI --> Dev: Warning; references are not rewritten
+  Dev -> UI: Confirm
+  UI -> Config: Save pending rename/delete
+  Config -> Provider: Write new desired revision
+  Config -> Store: Save desired reference only
+end
+@enduml

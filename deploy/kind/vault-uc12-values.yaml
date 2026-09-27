@@ -1,0 +1,13 @@
+# UC-12 kind-only Vault server. The existing vault release owns the Injector.
+injector:
+  enabled: false
+
+server:
+  dev:
+    enabled: false
+  standalone:
+    enabled: true
+  dataStorage:
+    enabled: true
+    size: 1Gi
+    storageClass: standard

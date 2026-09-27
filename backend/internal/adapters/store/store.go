@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"orchestrator/internal/domain/application"
+	"orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/identity"
@@ -39,6 +40,9 @@ type state struct {
 	DeployResources   map[string][]deployment.Resource              `json:"deploymentResources"`
 	ActiveResources   map[string]resource.ActiveResource            `json:"activeResources"`
 	WorkloadInstances map[string]deployment.WorkloadInstance        `json:"workloadInstances"`
+	ConfigScopes      map[string]configuration.Scope                `json:"configurationScopes"`
+	ConfigRevisions   map[string]configuration.Revision             `json:"configurationRevisions"`
+	WorkloadDrafts    map[string]environment.WorkloadDraft          `json:"workloadDrafts"`
 }
 
 func newState() *state {
@@ -58,6 +62,9 @@ func newState() *state {
 		DeployResources:   map[string][]deployment.Resource{},
 		ActiveResources:   map[string]resource.ActiveResource{},
 		WorkloadInstances: map[string]deployment.WorkloadInstance{},
+		ConfigScopes:      map[string]configuration.Scope{},
+		ConfigRevisions:   map[string]configuration.Revision{},
+		WorkloadDrafts:    map[string]environment.WorkloadDraft{},
 	}
 }
 
@@ -71,6 +78,138 @@ func (s *state) ensureMaps() {
 	if s.Sessions == nil {
 		s.Sessions = map[string]identity.Session{}
 	}
+	if s.ConfigScopes == nil {
+		s.ConfigScopes = map[string]configuration.Scope{}
+	}
+	if s.ConfigRevisions == nil {
+		s.ConfigRevisions = map[string]configuration.Revision{}
+	}
+	if s.WorkloadDrafts == nil {
+		s.WorkloadDrafts = map[string]environment.WorkloadDraft{}
+	}
+}
+
+func draftKey(app, env, workload string) string { return envKey(app, env) + "/" + workload }
+
+func (s *Store) ListWorkloadDrafts(_ context.Context, app, env string) ([]environment.WorkloadDraft, error) {
+	defer s.rlock()()
+	if _, ok := s.state.Environments[envKey(app, env)]; !ok {
+		return nil, fmt.Errorf("%w: environment %s/%s", persistence.ErrNotFound, app, env)
+	}
+	var out []environment.WorkloadDraft
+	for _, draft := range s.state.WorkloadDrafts {
+		if draft.ApplicationKey == app && draft.EnvironmentKey == env {
+			out = append(out, cloneWorkloadDraft(draft))
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].WorkloadID < out[j].WorkloadID })
+	return out, nil
+}
+
+func (s *Store) GetWorkloadDraft(_ context.Context, app, env, workload string) (environment.WorkloadDraft, error) {
+	defer s.rlock()()
+	draft, ok := s.state.WorkloadDrafts[draftKey(app, env, workload)]
+	if !ok {
+		return environment.WorkloadDraft{}, fmt.Errorf("%w: workload draft %s/%s/%s", persistence.ErrNotFound, app, env, workload)
+	}
+	return cloneWorkloadDraft(draft), nil
+}
+
+func (s *Store) SaveWorkloadDraft(_ context.Context, expected int64, draft environment.WorkloadDraft) error {
+	defer s.lock()()
+	key := envKey(draft.ApplicationKey, draft.EnvironmentKey)
+	env, ok := s.state.Environments[key]
+	if !ok {
+		return fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
+	}
+	if env.DraftVersion != expected {
+		return persistence.ErrVersionConflict
+	}
+	if draft.WorkloadID == "" || (draft.State != environment.DraftUpsert && draft.State != environment.DraftDelete) || (draft.State == environment.DraftUpsert && draft.Score == nil) {
+		return fmt.Errorf("store: invalid workload draft")
+	}
+	s.state.WorkloadDrafts[draftKey(draft.ApplicationKey, draft.EnvironmentKey, draft.WorkloadID)] = cloneWorkloadDraft(draft)
+	env.DraftVersion++
+	s.state.Environments[key] = env
+	return nil
+}
+
+func (s *Store) DeleteWorkloadDraft(_ context.Context, app, envKeyName, workload string, expected int64) error {
+	defer s.lock()()
+	key := envKey(app, envKeyName)
+	env, ok := s.state.Environments[key]
+	if !ok {
+		return fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
+	}
+	if env.DraftVersion != expected {
+		return persistence.ErrVersionConflict
+	}
+	if _, ok := s.state.WorkloadDrafts[draftKey(app, envKeyName, workload)]; !ok {
+		return fmt.Errorf("%w: workload draft %s", persistence.ErrNotFound, workload)
+	}
+	delete(s.state.WorkloadDrafts, draftKey(app, envKeyName, workload))
+	env.DraftVersion++
+	s.state.Environments[key] = env
+	return nil
+}
+
+func cloneWorkloadDraft(in environment.WorkloadDraft) environment.WorkloadDraft {
+	out := in
+	if in.Score != nil {
+		b, _ := json.Marshal(in.Score)
+		_ = json.Unmarshal(b, &out.Score)
+	}
+	return out
+}
+
+func (s *Store) GetConfigurationScope(_ context.Context, app, env string) (configuration.Scope, error) {
+	defer s.rlock()()
+	if _, ok := s.state.Environments[envKey(app, env)]; !ok {
+		return configuration.Scope{}, fmt.Errorf("%w: environment %s/%s", persistence.ErrNotFound, app, env)
+	}
+	if scope, ok := s.state.ConfigScopes[envKey(app, env)]; ok {
+		return scope, nil
+	}
+	return configuration.Scope{ApplicationKey: app, EnvironmentKey: env}, nil
+}
+
+func (s *Store) GetConfigurationRevision(_ context.Context, id string) (configuration.Revision, error) {
+	defer s.rlock()()
+	revision, ok := s.state.ConfigRevisions[id]
+	if !ok {
+		return configuration.Revision{}, fmt.Errorf("%w: configuration revision %q", persistence.ErrNotFound, id)
+	}
+	return copyConfigurationRevision(revision), nil
+}
+
+func (s *Store) CommitConfigurationRevision(_ context.Context, expectedVersion int64, revision configuration.Revision) error {
+	defer s.lock()()
+	if err := revision.Validate(); err != nil {
+		return err
+	}
+	key := envKey(revision.ApplicationKey, revision.EnvironmentKey)
+	if _, ok := s.state.Environments[key]; !ok {
+		return fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
+	}
+	scope := s.state.ConfigScopes[key]
+	if scope.Version != expectedVersion || revision.Version != expectedVersion+1 {
+		return persistence.ErrVersionConflict
+	}
+	if _, ok := s.state.ConfigRevisions[revision.ID]; ok {
+		return persistence.ErrImmutable
+	}
+	s.state.ConfigRevisions[revision.ID] = copyConfigurationRevision(revision)
+	s.state.ConfigScopes[key] = configuration.Scope{ApplicationKey: revision.ApplicationKey, EnvironmentKey: revision.EnvironmentKey, DesiredRevisionID: revision.ID, Version: revision.Version}
+	return nil
+}
+
+func copyConfigurationRevision(in configuration.Revision) configuration.Revision {
+	out := in
+	out.Entries = make(map[string]configuration.Entry, len(in.Entries))
+	for key, entry := range in.Entries {
+		out.Entries[key] = entry
+	}
+	return out
 }
 
 // Store is the Phase 6 state store.

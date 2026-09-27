@@ -126,6 +126,12 @@ func (d Document) Fragment(types map[string]resource.Type) (*Fragment, error) {
 	}
 	for _, alias := range d.ResourceAliases() {
 		spec := d.Resources[alias]
+		if spec.Type == "environment" || spec.Type == "service" {
+			if err := validateVirtualResource(alias, spec); err != nil {
+				return nil, err
+			}
+			continue
+		}
 		typ, ok := types[spec.Type]
 		if !ok {
 			return nil, fmt.Errorf("score: resource %q uses unregistered resource type %q", alias, spec.Type)
@@ -167,6 +173,9 @@ func (d Document) Fragment(types map[string]resource.Type) (*Fragment, error) {
 	shared := map[string]environment.ResourceEntry{}
 	for _, alias := range d.ResourceAliases() {
 		spec := d.Resources[alias]
+		if spec.Type == "environment" || spec.Type == "service" {
+			continue
+		}
 		entry := environment.ResourceEntry{Type: spec.Type, Class: spec.class()}
 		if len(spec.Params) > 0 {
 			params, err := d.rewriteTree(spec.Params, types, fmt.Sprintf("resource %s params", alias))
@@ -241,6 +250,20 @@ func (d Document) rewriteOne(body string, types map[string]resource.Type, where 
 		if output == "" {
 			return "", fmt.Errorf("score: %s references an empty output", where)
 		}
+		if spec.Type == "environment" {
+			if alias != "env" {
+				return "", fmt.Errorf("score: Application keys require resources.env")
+			}
+			return "${context.uc12." + output + "}", nil
+		}
+		if spec.Type == "service" {
+			if output != "url" {
+				return "", fmt.Errorf("score: service output must be url")
+			}
+			workload, _ := spec.Params["workload"].(string)
+			port, _ := spec.Params["port"].(string)
+			return "${context.service." + workload + "." + port + "}", nil
+		}
 		typ, ok := types[spec.Type]
 		if !ok {
 			return "", fmt.Errorf("score: resource type %q is not registered", spec.Type)
@@ -251,6 +274,24 @@ func (d Document) rewriteOne(body string, types map[string]resource.Type, where 
 		out += "." + output
 	}
 	return "${" + out + "}", nil
+}
+
+func validateVirtualResource(alias string, spec ResourceSpec) error {
+	if spec.ID != "" || spec.Class != "" {
+		return fmt.Errorf("score: virtual resource %q cannot declare id or class", alias)
+	}
+	if spec.Type == "environment" {
+		if alias != "env" || len(spec.Params) != 0 {
+			return fmt.Errorf("score: Application keys require resources.env without params")
+		}
+		return nil
+	}
+	workload, wok := spec.Params["workload"].(string)
+	port, pok := spec.Params["port"].(string)
+	if !wok || !pok || workload == "" || port == "" || len(spec.Params) != 2 {
+		return fmt.Errorf("score: service %q requires workload and port", alias)
+	}
+	return nil
 }
 
 func (d Document) rewriteTree(v any, types map[string]resource.Type, where string) (any, error) {

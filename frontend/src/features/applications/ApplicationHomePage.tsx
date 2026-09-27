@@ -1,19 +1,58 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { navigate } from '../../app/routes';
 import type { Application, EnvironmentKey } from '../../shared/types/application';
 import { endpointFor } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
 import { Status } from '../../shared/ui/Status';
+import { deleteWorkload, deployChanges, getWorkloads, previewChanges, undoWorkloadDelete, type DeployReport, type PendingPreview, type WorkloadList } from '../workloads/api';
 
 export function ApplicationHomePage({ application }: { application: Application }) {
   const [environment, setEnvironment] = useState<EnvironmentKey>('staging');
-  const workloads = application.workloads[environment];
+  const [data, setData] = useState<WorkloadList>();
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [preview, setPreview] = useState<PendingPreview>();
+  const [previewing, setPreviewing] = useState(false);
+  const [deploying, setDeploying] = useState(false);
+  const [deployReport, setDeployReport] = useState<DeployReport>();
+  useEffect(() => {
+    let cancelled = false;
+    setData(undefined); setPreview(undefined); setDeployReport(undefined); setLoading(true); setError('');
+    getWorkloads(application.id, environment).then((result) => { if (!cancelled) setData(result); }).catch((err: Error) => { if (!cancelled) setError(err.message); }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [application.id, environment]);
+  async function changeDeletion(id: string, undo: boolean) {
+    if (!data) return;
+    if (!undo && !window.confirm(`Mark ${id} for deletion in ${environment}? Running workloads will not change until Deploy.`)) return;
+    try { setError(''); setPreview(undefined); setDeployReport(undefined); setData(undo ? await undoWorkloadDelete(application.id, environment, id, data.draftVersion) : await deleteWorkload(application.id, environment, id, data.draftVersion)); }
+    catch (err) { setError((err as Error).message); }
+  }
+  async function loadPreview() {
+    setPreviewing(true); setError(''); setPreview(undefined); setDeployReport(undefined);
+    try { setPreview(await previewChanges(application.id, environment)); }
+    catch (err) { setError((err as Error).message); }
+    finally { setPreviewing(false); }
+  }
+  async function deployPreview() {
+    if (!preview || preview.changes.length === 0) return;
+    setDeploying(true); setError('');
+    try {
+      const report = await deployChanges(application.id, environment, preview.token);
+      setDeployReport(report); setPreview(undefined);
+      setData(await getWorkloads(application.id, environment));
+    } catch (err) { setError((err as Error).message); setPreview(undefined); }
+    finally { setDeploying(false); }
+  }
+  const workloads = data?.workloads ?? [];
   return <section className="page application-home"><button className="back-link" onClick={() => navigate({ name: 'applications' })}>← Applications</button>
-    <header className="page-header application-header"><div><p className="eyebrow">Application</p><h1>{application.name}</h1><p>{endpointFor(application, 'production')}</p></div><Button disabled title="Available when UC-06 endpoint is ready">Open application ↗</Button></header>
+    <header className="page-header application-header"><div><p className="eyebrow">Application</p><h1>{application.name}</h1><p>{endpointFor(application, 'production')}</p></div><Button onClick={() => navigate({ name: 'settings', applicationId: application.id })}>Variables &amp; Secrets</Button></header>
     <div className="tabs" role="tablist"><button className={environment === 'staging' ? 'tab tab-active' : 'tab'} onClick={() => setEnvironment('staging')}>Staging<span>{endpointFor(application, 'staging')}</span></button><button className={environment === 'production' ? 'tab tab-active' : 'tab'} onClick={() => setEnvironment('production')}>Production<span>{endpointFor(application, 'production')}</span></button></div>
-    <section className="content-panel"><div className="section-header"><div><h2>Workloads</h2><p>Services running in {environment}.</p></div><Button disabled title="Available when UC-05 is implemented">+ Add workload</Button></div>
-      {workloads.length ? <div className="workload-table"><div className="table-head"><span>Name</span><span>Status</span><span>Actions</span></div>{workloads.map((workload) => <div className="table-row" key={workload.id}><span className="workload-name"><span className="workload-icon">◫</span>{workload.name}</span><Status tone={workload.status === 'Ready' ? 'good' : 'draft'}>{workload.status}</Status><span><Button tone="quiet" disabled title="Available when UC-05 is implemented">Edit</Button><Button tone="quiet" disabled title="Available when UC-07 is implemented">Delete</Button></span></div>)}</div> : <div className="section-empty">No workloads in this environment yet.</div>}
-      <p className="feature-note">Workload editing is available in the next use case.</p>
+    <section className="content-panel"><div className="section-header"><div><h2>Workloads</h2><p>Configuration for {environment}; saving here does not deploy.</p></div><Button onClick={() => navigate({ name: 'workload', applicationId: application.id, environment })}>+ Add workload</Button></div>
+      {error ? <div className="form-error" role="alert">{error}</div> : null}
+      {loading ? <p>Loading workloads…</p> : workloads.length ? <div className="workload-table"><div className="table-head"><span>Name</span><span>Status</span><span>Actions</span></div>{workloads.map((workload) => <div className="table-row" key={workload.id}><span className="workload-name"><span className="workload-icon">◫</span>{workload.id}</span><Status tone={workload.state ? 'draft' : 'good'}>{workload.state === 'PENDING_DELETE' ? 'Pending deletion' : workload.state === 'PENDING_UPSERT' ? 'Pending change' : 'Ready'}</Status><span>{workload.state === 'PENDING_DELETE' ? <Button tone="quiet" onClick={() => void changeDeletion(workload.id, true)}>Undo</Button> : <><Button tone="quiet" disabled={!workload.score} onClick={() => navigate({ name: 'workload', applicationId: application.id, environment, workloadId: workload.id })}>Edit</Button><Button tone="danger" onClick={() => void changeDeletion(workload.id, false)}>Delete</Button></>}</span></div>)}</div> : <div className="section-empty">No workloads in this environment yet.</div>}
+      <div className="form-actions"><Button tone="primary" disabled={loading || previewing} onClick={() => void loadPreview()}>{previewing ? 'Calculating preview…' : 'Preview changes'}</Button></div>
+      {preview ? <div className="content-panel" aria-label="Deployment preview"><h3>Preview for {environment}</h3><p>{preview.changes.length} workload(s) affected · draft v{preview.draftVersion} · configuration {preview.configRevisionId ? preview.configRevisionId.slice(0, 8) : 'empty'}</p>{preview.changes.length ? <ul>{preview.changes.map((change) => <li key={change.workloadId}><strong>{change.workloadId}</strong> · {change.action.toLowerCase()} · {change.resources.new.length} new resource(s)</li>)}</ul> : <p>No workload changes to deploy.</p>}<Button tone="primary" disabled={deploying || preview.changes.length === 0} onClick={() => void deployPreview()}>{deploying ? 'Deploying…' : 'Deploy these changes'}</Button></div> : null}
+      {deployReport ? <div className="content-panel" aria-label="Deployment result"><h3>Deploy {deployReport.status.toLowerCase()}</h3><ul>{deployReport.results.map((result) => <li key={result.workloadId}>{result.workloadId}: {result.status.toLowerCase()}{result.error ? ` — ${result.error}` : ''}</li>)}</ul>{deployReport.status !== 'SUCCEEDED' ? <p>Preview again to retry workloads that did not finish.</p> : null}</div> : null}
     </section>
     <section className="content-panel"><div className="section-header"><div><h2>Recent deployments</h2><p>Deployment activity will appear here.</p></div><Button tone="quiet" disabled>View all</Button></div><div className="section-empty">No deployments yet.</div></section>
   </section>;

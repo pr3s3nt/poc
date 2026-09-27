@@ -78,6 +78,16 @@ type RenderRequest struct {
 	PlainEnv     map[string]map[string]string
 	SecretEnv    map[string]map[string]string
 	DeploymentID string
+	Vault        *VaultInjection
+}
+
+// VaultInjection supplies only opaque immutable value references to the
+// Kubernetes renderer. Secret bytes never enter manifests or annotations.
+type VaultInjection struct {
+	Address        string
+	Role           string
+	ServiceAccount string
+	Bindings       map[string]map[string]string
 }
 
 // WorkloadRenderer turns a workload module into Kubernetes manifests (UC-06 MS-11).
@@ -96,6 +106,7 @@ type WorkloadRef struct {
 type WorkloadDeployer interface {
 	Apply(ctx context.Context, target Target, manifests []Manifest) error
 	WaitReady(ctx context.Context, target Target, refs []WorkloadRef) error
+	Remove(ctx context.Context, target Target, workloadID string) error
 }
 
 // SecretStore keeps secret values outside the orchestrator database.

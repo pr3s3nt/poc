@@ -2,7 +2,7 @@
 id: UC-16-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-24
+last_reviewed: 2026-09-27
 related: UC-01, UC-05, UC-06, UC-07, UC-12
 ---
 
@@ -54,7 +54,9 @@ của Environment đang chọn.
   lưu hoặc deploy.
 - **VAR-02 — Xóa workload:** tại TRG-01, Developer chọn Delete và xác nhận.
   Hệ thống đánh dấu workload chờ xóa trong Environment; Developer có thể hoàn
-  tác trước khi deploy. Workload đang chạy chưa bị xóa.
+  tác trước khi deploy. Workload đang chạy chưa bị xóa. Nếu workload mới chỉ
+  tồn tại ở draft, chưa từng deploy, Delete hủy pending add thay vì tạo pending
+  delete cho workload không tồn tại ở runtime.
 
 ## Hậu điều kiện
 
@@ -90,6 +92,12 @@ của Environment đang chọn.
   sở hữu việc áp dụng thay đổi.
 - **BR-08:** Form và file Score chịu cùng validation của UC-16; nạp file không
   được bỏ qua BR-02–BR-05.
+- **BR-09:** Form tạo và import nhận tham chiếu Application key qua resource
+  `env` loại `environment` với `${resources.env.KEY}`. Key phải tồn tại trong
+  Environment đã chọn; Secret chỉ được dùng làm toàn bộ một binding Secret,
+  không được ghép với literal hoặc đưa vào mục Variable.
+- **BR-10:** Mỗi lần lưu/sửa/xóa tăng version draft của Environment. Preview
+  gắn với version draft và revision UC-12; Deploy từ Preview cũ bị từ chối.
 
 ## Ngoài phạm vi
 
@@ -97,11 +105,14 @@ của Environment đang chọn.
 - **OOS-02:** Preview, approval hoặc deploy; thuộc UC-05, UC-06 và UC-07.
 - **OOS-03:** Cấp public URL cho frontend chạy trong trình duyệt; Service
   reference ở BR-05 là địa chỉ nội bộ cho giao tiếp giữa các workload.
-- **OOS-04:** Cú pháp lưu tham chiếu UC-12/Service trong Score, resolution tại
-  deploy và persistence draft; cần thiết kế contract trước implementation.
+- **OOS-04:** Cú pháp tham chiếu Service trong Score và resolution tại Deploy
+  được định nghĩa trong shared operation contract.
 
 ## Trạng thái implementation hiện tại
 
-UC-16 chưa được triển khai. Score/planner hiện hỗ trợ resource output binding
-và giá trị literal; chưa có Application variable/secret reference hoặc Service
-reference giữa workload. UI affordance ở UC-01 chưa có luồng UC-16 hoạt động.
+Đã có UI/API lưu draft, đánh dấu xóa/hoàn tác, import Score và validation
+tham chiếu Application key, resource output, Service/cổng cùng Environment.
+Planner/executor resolve tham chiếu `environment` và `service`; Application home
+có Preview → Deploy của các draft. Workload đã deploy không có draft được tái
+tạo thành Score tham chiếu để sửa trên form. Kind đã kiểm chứng create,
+configuration-only redeploy và remove; broader cloud path chưa kiểm chứng lại.

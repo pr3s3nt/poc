@@ -1,0 +1,19 @@
+@startuml
+title VOPC - UC-12 Manage Application variables and secrets (design)
+left to right direction
+skinparam classAttributeIconSize 0
+class "Application Settings UI" as UI <<boundary>>
+class "Configuration control" as Config <<control>>
+class "Workload reference lookup" as Refs <<control>>
+class "Environment-scoped key" as Key <<entity>>
+interface "Revision metadata store" as Store
+interface "Configuration provider" as Provider
+class "Vault KV adapter" as Vault
+
+UI --> Config : add/update/rename/delete
+Config --> Refs : affected workloads
+Config --> Store : desired/applied revision refs
+Config --> Provider : scoped revision read/write
+Provider <|.. Vault
+Store ..> Key
+@enduml

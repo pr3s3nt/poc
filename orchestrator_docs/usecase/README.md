@@ -39,7 +39,7 @@ Xây dựng orchestrator nội bộ sử dụng các contract và khái niệm g
 | [UC-09](UC-09/README.md) | Xem deployment status, graph và resource outputs | Developer | P0 |
 | UC-10 | Redeploy hoặc rollback deployment cũ | Developer | P1 |
 | UC-11 | Quản lý Active Resource lifecycle | Platform Engineer | P1 |
-| UC-12 | Quản lý variables và secrets của Application | Developer, Platform Engineer | P1 |
+| [UC-12](UC-12/README.md) | Quản lý variables và secrets của Application | Developer | P1 |
 | UC-13 | Trigger deployment qua API, CLI hoặc pipeline | CI/CD | P1 |
 | UC-14 | Quản lý user, token và RBAC | Administrator | P2 |
 | UC-15 | Audit deployment và configuration changes | Administrator | P2 |
@@ -112,7 +112,7 @@ ID chỉ ổn định trong phạm vi một use case và sẽ được dùng l�
 ## 9. Quan hệ giữa các use case
 
 - UC-00 xác lập User, Organization và role context cho mọi UI/API operation
-  có xác thực, gồm UC-01 đến UC-09 và UC-16.
+  có xác thực, gồm UC-01 đến UC-09, UC-12 và UC-16.
 - UC-06 `«include»` UC-08 tại bước provision resource.
 - UC-16 dùng cấu hình UC-12 làm nguồn tham chiếu, đưa thay đổi mong muốn tới
   UC-05 Preview; UC-06/UC-07 áp dụng thay đổi sau đó.
@@ -134,3 +134,5 @@ ID chỉ ổn định trong phạm vi một use case và sẽ được dùng l�
 | UC-07 | [spec](UC-07/specification.md) | [realization](UC-07/realization.md) | [PlantUML](UC-07/sequence.puml) | [PlantUML](UC-07/vopc.puml) |
 | UC-08 | [spec](UC-08/specification.md) | [realization](UC-08/realization.md) | [PlantUML](UC-08/sequence.puml) | [PlantUML](UC-08/vopc.puml) |
 | UC-09 | [spec](UC-09/specification.md) | [realization](UC-09/realization.md) | [PlantUML](UC-09/sequence.puml) | [PlantUML](UC-09/vopc.puml) |
+| UC-12 | [spec](UC-12/specification.md) | [realization](UC-12/realization.md) | [PlantUML](UC-12/sequence.puml) | [PlantUML](UC-12/vopc.puml) |
+| UC-16 | [spec](UC-16/specification.md) | [realization](UC-16/realization.md) | [PlantUML](UC-16/sequence.puml) | [PlantUML](UC-16/vopc.puml) |

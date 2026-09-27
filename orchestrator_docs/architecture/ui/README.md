@@ -33,4 +33,5 @@ It does not own a use-case screen: each use case owns its screens under
 
 - [UC-00 sign in](../../usecase/UC-00/ui/README.md)
 - [UC-01 application onboarding and home](../../usecase/UC-01/ui/README.md)
+- [UC-12 Application Variables & Secrets](../../usecase/UC-12/ui/README.md)
 - [UC-16 workload configuration](../../usecase/UC-16/ui/README.md)

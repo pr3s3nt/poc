@@ -5,7 +5,7 @@ status: current
 last_reviewed: 2026-09-23
 ---
 
-# UC-00..UC-09 Traceability Matrix, with UC-16 design trace
+# UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
 
 Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, class/method, persistence/state và planned test. `OC-nn` tham chiếu `architecture/contracts/operation-contracts.md`.
 
@@ -116,11 +116,39 @@ returns the target and resource outputs.
 | MS-06 | same | `OutputRedactor.RedactSecretOutputs` | no mutation | OC-11; redaction test |
 | MS-07 | same | return `DeploymentView` | read-only | OC-11; no runtime call test |
 
-## UC-16 — design trace only
+## UC-12 — MVP implementation trace
 
-UC-16 specification and UI are approved. Its realization is conceptual;
-operation contracts, Score-reference syntax, persistence and executable tests
-are not yet defined. These rows are planned checks, not evidence of coverage.
+UC-12 specification and UI are approved. [ADR-006](../architecture/decisions/ADR-006-application-configuration-provider.md)
+selects a per-Application provider with Vault as the first adapter; the
+persistent kind Vault release is installed and initialized. Desired and applied
+revision paths are covered by `backend/internal/application/configuration/service_test.go`,
+`backend/internal/adapters/vault/provider_test.go`,
+`backend/test/e2e/configuration_workload_test.go` and
+`frontend/src/features/configuration/SettingsPage.test.tsx`,
+`backend/internal/adapters/kubernetes/renderer_test.go`,
+`backend/test/e2e/configuration_workload_test.go` and the run-scoped
+`backend/test/integration/uc12-kind-verify.sh`. Production HA and secret
+lifecycle are not covered.
+
+| Steps | Design artifact | Required state/validation | Planned test |
+|---|---|---|---|
+| MS-01 | [Screens](../usecase/UC-12/ui/screens.md) | Two Environment tabs; variable and secret sections together in each tab | Type and Environment isolation |
+| MS-02–MS-03 | [Specification](../usecase/UC-12/specification.md) BR-01–BR-03 | Scoped uniqueness; secret write without readback | Duplicate names, secret redaction and no-readback tests |
+| MS-04 | [Realization](../usecase/UC-12/realization.md) | Affected workloads and pending Preview → Deploy; runtime unchanged | Impact list and no-runtime-mutation tests |
+| VAR-01–VAR-03 | [States](../usecase/UC-12/ui/states.md) | Warning but allow rename/delete; no automatic reference repair; secret replacement hidden | Warning/confirm, broken-reference Preview rejection and secret-update tests |
+| BR-08–BR-10 | [ADR-006](../architecture/decisions/ADR-006-application-configuration-provider.md) | Per-Application provider; immutable desired/applied revisions; Injector file imported by workload startup | Provider isolation, pending-vs-applied revision, injected-file redaction and restart tests |
+
+## UC-16 — MVP implementation trace
+
+UC-16 specification and UI are approved. Draft save/delete/undo, Score import
+and reference validation are covered by
+`backend/internal/application/workloadconfig/service_test.go`,
+`backend/test/e2e/configuration_workload_test.go` and
+`frontend/src/features/workloads/WorkloadEditorPage.test.tsx`,
+`frontend/src/features/applications/ApplicationHomePage.test.tsx` and
+`backend/internal/application/workloadconfig/service_test.go`. Preview,
+stale-token rejection, partial retry and edit reconstruction are exercised in
+local tests; create and configuration-only redeploy are verified on kind.
 
 | Steps | Design artifact | Required state/validation | Planned test |
 |---|---|---|---|

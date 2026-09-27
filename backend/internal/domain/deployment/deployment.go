@@ -85,12 +85,13 @@ const (
 
 // WorkloadInstance is the applied state of one workload inside an Environment.
 type WorkloadInstance struct {
-	ID               string         `json:"id"`
-	EnvironmentKey   string         `json:"environmentKey"`
-	WorkloadID       string         `json:"workloadId"`
-	LastDeploymentID string         `json:"lastDeploymentId"`
-	TargetRef        map[string]any `json:"targetRef"`
-	ManifestDigest   string         `json:"manifestDigest"`
-	Status           InstanceStatus `json:"status"`
-	ObservedAt       time.Time      `json:"observedAt"`
+	ID                      string         `json:"id"`
+	EnvironmentKey          string         `json:"environmentKey"`
+	WorkloadID              string         `json:"workloadId"`
+	LastDeploymentID        string         `json:"lastDeploymentId"`
+	AppliedConfigRevisionID string         `json:"appliedConfigRevisionId,omitempty"`
+	TargetRef               map[string]any `json:"targetRef"`
+	ManifestDigest          string         `json:"manifestDigest"`
+	Status                  InstanceStatus `json:"status"`
+	ObservedAt              time.Time      `json:"observedAt"`
 }

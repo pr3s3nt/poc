@@ -5,6 +5,8 @@ import { SignInPage } from '../features/auth/SignInPage';
 import { ApplicationsPage } from '../features/applications/ApplicationsPage';
 import { CreateApplicationPage } from '../features/applications/CreateApplicationPage';
 import { ApplicationHomePage } from '../features/applications/ApplicationHomePage';
+import { SettingsPage } from '../features/configuration/SettingsPage';
+import { WorkloadEditorPage } from '../features/workloads/WorkloadEditorPage';
 import type { Application } from '../shared/types/application';
 import { api } from '../shared/api/client';
 
@@ -23,6 +25,6 @@ export function App() {
   async function signIn(username: string, password: string) { await api('/auth/sign-in', { method: 'POST', body: JSON.stringify({ username, password }) }); await loadApplications(); setSignedIn(true); navigate({ name: 'applications' }); }
   async function createApplication(name: string, subdomain: string) { const response = await api<{ application: APIApplication }>('/applications', { method: 'POST', body: JSON.stringify({ name, subdomain }) }); const application = mapApplication(response.application); setApplications((current) => [...current, application]); return application.id; }
   if (!signedIn || route.name === 'sign-in') return <SignInPage onSuccess={signIn} />;
-  const application = route.name === 'application' ? applications.find((item) => item.id === route.applicationId) : undefined;
-  return <AppShell onSignOut={signOut}>{route.name === 'applications' ? <ApplicationsPage applications={applications} /> : null}{route.name === 'create-application' ? <CreateApplicationPage onCreate={createApplication} /> : null}{application ? <ApplicationHomePage application={application} /> : null}{route.name === 'application' && !application ? <section className="page"><h1>Application not found</h1></section> : null}</AppShell>;
+  const application = 'applicationId' in route ? applications.find((item) => item.id === route.applicationId) : undefined;
+  return <AppShell onSignOut={signOut}>{route.name === 'applications' ? <ApplicationsPage applications={applications} /> : null}{route.name === 'create-application' ? <CreateApplicationPage onCreate={createApplication} /> : null}{route.name === 'application' && application ? <ApplicationHomePage application={application} /> : null}{route.name === 'settings' && application ? <SettingsPage application={application} /> : null}{route.name === 'workload' && application ? <WorkloadEditorPage application={application} environment={route.environment} workloadId={route.workloadId} /> : null}{'applicationId' in route && !application ? <section className="page"><h1>Application not found</h1></section> : null}</AppShell>;
 }

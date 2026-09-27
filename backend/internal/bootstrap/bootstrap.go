@@ -6,18 +6,26 @@ package bootstrap
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 
+	"orchestrator/internal/adapters/configmemory"
 	"orchestrator/internal/adapters/fake"
 	"orchestrator/internal/adapters/secrets"
 	"orchestrator/internal/adapters/store"
 	tf "orchestrator/internal/adapters/terraform"
+	"orchestrator/internal/adapters/vault"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
+	appconfig "orchestrator/internal/application/configuration"
 	appsvc "orchestrator/internal/application/deployment"
+	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/provisioning"
+	workloadconfig "orchestrator/internal/application/workloadconfig"
 	deliveryhttp "orchestrator/internal/delivery/http"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/platform/clock"
+	configport "orchestrator/internal/ports/configuration"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/seed"
 )
@@ -48,15 +56,19 @@ type Options struct {
 	// TerraformPluginCache keeps provider downloads shared between workspaces.
 	TerraformPluginCache string
 	// Region and Tags apply to every cloud resource of one verification run.
-	Region  string
-	Tags    map[string]string
-	WorkDir string
-	Clock   clock.Clock
+	Region            string
+	Tags              map[string]string
+	WorkDir           string
+	Clock             clock.Clock
+	VaultAddress      string
+	VaultTokenFile    string
+	VaultAgentAddress string
 
 	// Overrides replace individual adapters. Tests use them to inject failures.
-	RegistryOverride execution.ExecutorRegistry
-	RendererOverride execution.WorkloadRenderer
-	DeployerOverride execution.WorkloadDeployer
+	RegistryOverride              execution.ExecutorRegistry
+	RendererOverride              execution.WorkloadRenderer
+	DeployerOverride              execution.WorkloadDeployer
+	ConfigurationProviderOverride configport.Provider
 }
 
 // App holds the built components.
@@ -133,12 +145,43 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	queries := appsvc.NewQueryService(st)
 	auth := authentication.NewService(st)
 	applications := appcreate.NewService(st)
+	var configProvider configport.Provider
+	if opts.ConfigurationProviderOverride != nil {
+		configProvider = opts.ConfigurationProviderOverride
+	} else if opts.VaultAddress != "" && opts.VaultTokenFile != "" {
+		tokenBytes, err := os.ReadFile(opts.VaultTokenFile)
+		if err != nil {
+			return nil, fmt.Errorf("bootstrap: read Vault token file: %w", err)
+		}
+		provider, err := vault.New(opts.VaultAddress, strings.TrimSpace(string(tokenBytes)), "kv", nil)
+		if err != nil {
+			return nil, err
+		}
+		if opts.VaultAgentAddress != "" {
+			if err := provider.SetAgentAddress(opts.VaultAgentAddress); err != nil {
+				return nil, err
+			}
+		}
+		configProvider = provider
+	} else if opts.Adapters == "" || opts.Adapters == AdapterFake {
+		configProvider = configmemory.New()
+	} else {
+		configProvider = configmemory.Unavailable{}
+	}
+	configurations := appconfig.NewService(st, configProvider)
+	deployments.SetConfigurationProvider(configProvider)
+	workloads := workloadconfig.NewService(st)
+	pendingChanges := pending.NewService(st, planning.NewService(), workloads, tf.NewInspector())
+	pendingChanges.SetDeployer(deployments)
 
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
 		Deployments:    deployments,
 		Queries:        queries,
 		Authentication: auth,
 		Applications:   applications,
+		Configurations: configurations,
+		Workloads:      workloads,
+		Pending:        pendingChanges,
 		Store:          st,
 		SeedOptions:    opts.Seed,
 		UIDir:          opts.UIDir,

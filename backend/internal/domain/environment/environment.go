@@ -17,6 +17,7 @@ type Environment struct {
 	NamespaceIdentity      string `json:"namespaceIdentity"`
 	CurrentDeploymentSetID string `json:"currentDeploymentSetId"`
 	Version                int64  `json:"version"`
+	DraftVersion           int64  `json:"draftVersion,omitempty"`
 }
 
 // Validate reports whether the Environment can be used as a deployment target.

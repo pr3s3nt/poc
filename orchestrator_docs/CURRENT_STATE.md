@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-27
 ---
 
 # Current project state
@@ -10,7 +10,7 @@ last_reviewed: 2026-09-23
 ## Lifecycle position
 
 Phase 1–5 của Unified Process cho UC-01..UC-09 đã hoàn thành và design gate đã PASS.
-UC-00 được bổ sung sau gate và cần targeted design-gate review trước implementation. Executable
+UC-00 được bổ sung sau gate và đã có local/test implementation. Executable
 architecture cho UC-06/UC-08 cùng query path tối thiểu của UC-09 đã được hiện
 thực. Internal happy path đã được kiểm chứng trên kind; cloud happy path đã được
 kiểm chứng trên AWS với VPC, EKS và Aurora rồi cleanup.
@@ -18,9 +18,9 @@ kiểm chứng trên AWS với VPC, EKS và Aurora rồi cleanup.
 Active iteration là
 [I00-00 — UC-00 and UC-01 developer onboarding](iterations/M00-developer-onboarding/I00-00-uc00-uc01-developer-onboarding/README.md)
 thuộc [M00-a — Developer onboarding](iterations/M00-developer-onboarding/README.md).
-M00-a đã có UI design và React prototype cho sign-in/self-service Application;
-API, session và persistence vẫn phải được hiện thực trước khi coi UC-00/UC-01
-là executable. I06-04 được reprioritize sang deferred.
+M00-a đã có React UI, API, session và JSON snapshot persistence cho
+sign-in/self-service Application ở local/test baseline. I06-04 được
+reprioritize sang deferred.
 [M01 — Contract hardening](iterations/M01-contract-hardening/README.md) đã hoàn
 thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 
@@ -33,21 +33,21 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-02 | Designed; seed-backed baseline | Resource Type catalog tồn tại trong seed/planner; API/UI quản trị chưa có. |
 | UC-03 | Designed; seed-backed baseline | Resource Definition, matching và contract validation đã chạy trong planner; API/UI quản trị chưa có. |
 | UC-04 | Designed; partial execution support | Connection/target seed và adapters kind/AWS đã chạy; registration/verification UI và persistence thật chưa có. |
-| UC-05 | Planning baseline; accepted contract gaps | Planner pipeline và scoped conformance đã có; Planner sinh transient Humanitec-shaped Delta và giữ container requests/limits nguyên văn trong Candidate Set (I06-07); preview/API/UI chưa hoàn thiện. |
-| UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; mỗi Deployment persist immutable `DeploymentDeltaSnapshot` (I06-06); container requests/limits từ Score tới live Deployment theo BR-11 (I06-07); kind chỉ kiểm ba seeded case declared/partial/omitted, nhánh limit fallback và request vượt limit chỉ có unit test. |
-| UC-07 | Partial | Planner hỗ trợ before/shared rules và sinh Humanitec-shaped `modules.add/remove/update` + `shared` Delta; update/remove system flow và UI chưa hoàn thiện. |
+| UC-05 | Pending-change Preview implemented; broader contract gaps | Planner pipeline, transient Humanitec-shaped Delta và read-only multi-workload Preview/API/UI đã có; broader UC-05 contract coverage còn hạn chế. |
+| UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. Container resources BR-11 đã pass kind cho ba seeded case. |
+| UC-07 | Update/remove executable for UC-16 | Planner hỗ trợ before/shared rules và Delta; Preview → Deploy update/remove workload trên kind, có partial retry. Broader lifecycle UI/history còn thiếu. |
 | UC-08 | Implemented and E2E verified | Kubernetes và Terraform resource execution, output propagation và persistence baseline đã pass. |
 | UC-09 | Partially implemented; deferred in M02/I06-04 | Deployment list/detail, Delta Snapshot document, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison là scope còn lại của I06-04 sau M00-a. |
-| UC-12 | Draft only | Application-level Variables & Secrets configuration chưa được implement; secret lifecycle/contract còn cần chốt. |
-| UC-16 | Specification and UI approved; not implemented | Form/Score import, pending workload configuration, UC-12 references và workload Service references chưa có trong API/Web Console. |
+| UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và Vault Agent Injector đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
+| UC-16 | MVP path implemented | Form/Score import, draft save/delete/undo, references, edit deployed workload bằng reconstructed Score, Preview → Deploy và partial retry đã có. Kind đã kiểm tra create, config-only redeploy và remove; broader update/cloud path cần external verification. |
 
 ## Executable baseline
 
 - Go HTTP API, application services, planner, resource executors, Kubernetes
   deployer và JSON snapshot store nằm dưới `backend/`.
-- Web Console React/TypeScript hiện là M00-a prototype cho UC-00/UC-01:
-  sign-in, Applications list/create và Application home; chưa gọi API. Deploy
-  và Deployment Details UI sẽ được làm lại khi UC-06/UC-09 được lên lịch.
+- Web Console React/TypeScript có sign-in, Applications list/create/home,
+  UC-12 Settings, UC-16 editor và Application Preview/Deploy panel. Deployment
+  Details UI chưa được nối vào Web Console.
 - Planner product conformance chạy đủ 33 fixture: 27 accepted cases so sánh
   Humanitec-shaped Delta, Candidate Set/graph/matching/batches/classification/
   Terraform artifacts và kiểm `base + delta = candidate`; 6 rejected cases hiện
@@ -76,7 +76,9 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 - Candidate Deployment Set chỉ trở thành current sau workload readiness.
 - Resource provisioning hiện chạy theo full-style behavior cho mọi resource
   node trong plan; workload execution chỉ apply workload mục tiêu của request.
-- Secret value không được persist trong state snapshot hoặc trả qua UC-09 view.
+- UC-12 secret value chỉ lưu trong Vault KV; state snapshot, read API, Pod
+  spec và UC-09 view không chứa giá trị. Vault Agent tạo file trong Pod; startup
+  script của workload source file đó để nhận environment variables.
 - Web Console và acceptance application frontend là hai artifact độc lập.
 
 ## Known limitations and release gate
@@ -94,8 +96,9 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
   được Kubernetes API kiểm khi apply. Nhánh request thiếu lấy limit cùng field
   (BR-11) và request vượt limit mới được unit-test, không có seeded workload
   nào chạy trên kind.
-- Deploy API chạy đồng bộ, apply một workload mục tiêu và chưa có incremental
-  mode hoặc standalone Humanitec Delta/Set deployment lifecycle.
+- Deploy API chạy đồng bộ. UC-12/16 pending Preview → Deploy hỗ trợ nhiều
+  workload tuần tự, per-workload result và retry phần chưa hoàn thành, nhưng
+  chưa có standalone Humanitec Delta/Set deployment lifecycle.
 - Public Resource Definition/Score boundary chưa tương thích Humanitec/Score:
   driver ID/account/secret refs, remote source mapping, context extensions,
   nested probe, replicas extension và namespace output được phân loại tại
@@ -103,8 +106,12 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 - Conformance loader bỏ Definition thiếu criteria hoặc `criteria: []` khỏi
   challenge catalog và giữ criterion `{}` thành wildcard điểm 0; product planner
   vẫn từ chối catalog có Definition không có criterion.
-- UC-00 chưa có authentication/authorization boundary; UC-01..UC-05 và UC-07
-  chưa có đầy đủ product management flow/UI.
+- UC-00 có cookie session cho local/test, chưa có production-grade RBAC. UC-02..UC-05
+  và UC-07 chưa có đầy đủ product management flow/UI.
+- UC-12 fake provider chỉ dành local/test và mất giá trị khi process restart.
+  Vault trên kind dùng file storage PVC, cần unseal thủ công sau restart; chưa
+  có HA, backup, rotation/revocation tự động hoặc production RBAC. Workload
+  phải tự source Agent file bằng startup script; không tự động sửa image/entrypoint.
 - Rollback, failure recovery, RBAC, audit và secret lifecycle nằm ngoài MVP.
 - AWS happy path gần nhất là run `aws-20260921052038`, trước một số thay đổi
   planning cuối và trước khi seeded Scores khai báo container resources. Phải

@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-27
 ---
 
 # Operation Contracts
@@ -107,6 +107,52 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Preconditions: scoped Deployment exists and actor is authorized at boundary.
 - Returns: persisted status, set snapshot, graph, matches, batches, resource/workload status and non-secret outputs.
 - Postconditions: no mutation and no runtime adapter call.
+
+## OC-12 `ApplicationConfigurationService.ListKeys` / `PutKey` / `RenameKey` / `DeleteKey`
+
+- Use case: UC-12. Scope is an authorized Application and exactly one of
+  `staging` or `production`. Provider binding is per Application, not per key.
+- Key name is a valid process-environment identifier and unique across both
+  Variable and Secret in one Environment. A Secret's read representation has
+  name, type and configured status only; Variable may return its value.
+- A value write first creates an immutable Vault KV v2 value at an opaque path;
+  the state store then atomically saves a new immutable desired revision and
+  advances the Environment's desired pointer/version. Previous revision and
+  applied workload pointers are unchanged. If the pointer update conflicts,
+  an unreachable Vault value may remain for later cleanup; no runtime changes.
+- Rename/delete copy or omit the old opaque reference into a new revision.
+  They warn about affected workloads and never rewrite UC-16 bindings.
+- Secret bytes never enter state snapshots, Score documents, logs, API reads,
+  preview responses, Kubernetes Secrets or Pod annotations.
+
+## OC-16 `WorkloadConfigurationService.List` / `Save` / `Delete` / `Undo`
+
+- Use case: UC-16. Persist versioned Environment-scoped desired Score documents
+  separately from the current Deployment Set. Save/delete/undo never deploy.
+- UI form and Score import share the same validation. Container bindings may
+  only be UC-12 keys, declared resource outputs or same-Environment Service
+  outputs; direct literals are rejected on this UI/API path.
+- `resources.env` is the built-in virtual resource of type `environment`.
+  `${resources.env.KEY}` resolves dynamically from the selected UC-12 revision;
+  it never provisions a resource. Secret keys must occupy the whole binding
+  and can appear only in the Secret section.
+- Changes advance the Environment draft version; preview pins this version
+  together with the UC-12 desired revision and current Deployment Set/version.
+
+## OC-17 `PreviewService.PreviewDesired` / `DeploymentService.DeployPreview`
+
+- Use cases: UC-05/06/07 with pending UC-12/UC-16 changes. Preview is read-only
+  and identifies every affected workload, including those referencing changed
+  values; missing keys/Services block Deploy.
+- Deploy requires the exact preview token and rejects any changed draft,
+  configuration revision or base Deployment Set/version. It pins a separate
+  immutable Vault bundle with only the selected keys for each affected
+  workload and uses the existing Agent Injector to render a shell-safe file.
+- Each successful workload records its own applied configuration revision.
+  A failure reports successful/failed workload names and leaves the
+  Environment in partial state, retryable with a fresh Preview. No automatic
+  rollback is implied. Unaffected workloads and the other Environment are
+  unchanged.
 
 ## Shared error/consistency rules
 
