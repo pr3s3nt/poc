@@ -27,6 +27,43 @@ type Type struct {
 	Outputs []OutputField `json:"outputs"`
 }
 
+// Validate checks the supported MVP schema before a type enters the catalog.
+func (t Type) Validate() error {
+	if t.Key == "" {
+		return fmt.Errorf("resource: type key is empty")
+	}
+	inputs := make(map[string]bool, len(t.Inputs))
+	for _, field := range t.Inputs {
+		if field.Name == "" || inputs[field.Name] {
+			return fmt.Errorf("resource: type %q has an empty or duplicate input %q", t.Key, field.Name)
+		}
+		if !validContractType(field.Type) {
+			return fmt.Errorf("resource: type %q input %q has unsupported type %q", t.Key, field.Name, field.Type)
+		}
+		inputs[field.Name] = true
+	}
+	outputs := make(map[string]bool, len(t.Outputs))
+	for _, field := range t.Outputs {
+		if field.Name == "" || outputs[field.Name] {
+			return fmt.Errorf("resource: type %q has an empty or duplicate output %q", t.Key, field.Name)
+		}
+		if !validContractType(field.Type) {
+			return fmt.Errorf("resource: type %q output %q has unsupported type %q", t.Key, field.Name, field.Type)
+		}
+		outputs[field.Name] = true
+	}
+	return nil
+}
+
+func validContractType(value string) bool {
+	switch value {
+	case "string", "number", "bool", "any", "":
+		return true
+	default:
+		return false
+	}
+}
+
 // Input returns the named input contract entry.
 func (t Type) Input(name string) (InputField, bool) {
 	for _, i := range t.Inputs {

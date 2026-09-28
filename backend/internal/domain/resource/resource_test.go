@@ -116,3 +116,21 @@ func TestValidateOutputsEnforcesContract(t *testing.T) {
 		t.Fatalf("unexpected secret outputs: %v", got)
 	}
 }
+
+func TestTypeValidateRejectsMalformedContracts(t *testing.T) {
+	cases := []Type{
+		{},
+		{Key: "postgres", Inputs: []InputField{{Name: "database", Type: "string"}, {Name: "database", Type: "string"}}},
+		{Key: "postgres", Inputs: []InputField{{Name: "database", Type: "object"}}},
+		{Key: "postgres", Outputs: []OutputField{{Name: "", Type: "string"}}},
+		{Key: "postgres", Outputs: []OutputField{{Name: "host", Type: "string"}, {Name: "host", Type: "string"}}},
+	}
+	for _, typ := range cases {
+		if err := typ.Validate(); err == nil {
+			t.Fatalf("expected invalid type contract: %#v", typ)
+		}
+	}
+	if err := (Type{Key: "postgres", Inputs: []InputField{{Name: "database", Type: "string"}}, Outputs: []OutputField{{Name: "host", Type: "string"}}}).Validate(); err != nil {
+		t.Fatalf("valid type contract rejected: %v", err)
+	}
+}

@@ -515,6 +515,9 @@ func (s *Store) ListResourceDefinitions(context.Context) ([]resource.Definition,
 // SaveResourceType registers a Resource Type.
 func (s *Store) SaveResourceType(_ context.Context, t resource.Type) error {
 	defer s.lock()()
+	if err := t.Validate(); err != nil {
+		return err
+	}
 	s.state.ResourceTypes[t.Key] = t
 	return nil
 }
