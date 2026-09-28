@@ -27,7 +27,8 @@ type Port struct {
 
 // Service exposes workload ports inside the cluster.
 type Service struct {
-	Ports map[string]Port `json:"ports"`
+	Ports      map[string]Port `json:"ports"`
+	PublicPort string          `json:"publicPort,omitempty"`
 }
 
 // Probe is an HTTP readiness or liveness probe path.

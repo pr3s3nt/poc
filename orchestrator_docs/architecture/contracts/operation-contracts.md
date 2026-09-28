@@ -67,6 +67,8 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Returns: deterministic `DeploymentPlan` với plan hash.
 - Delta rule: output có `modules.add/remove/update` và `shared`; module/shared patches có relative root đúng contract, array diff deterministic và `base + delta = candidate`.
 - Workload rule: optional `containers.*.resources.requests/limits` được validate và bảo toàn trong Candidate module; không biến thành resource node.
+- Public-route rule: a declared `service.publicPort` survives the Candidate
+  Set; planning rejects more than one public workload in an Environment.
 - Before-state rule: module và từng shared entry do `before Score` khai báo phải deep-equal current set.
 - Candidate rule: một shared ID mới không được ghi đè entry khác nội dung; shared entry bị workload bỏ chỉ rời Candidate khi không còn module khác tham chiếu.
 - Descriptor rule: `@app`, `@env`, `@connection` được resolve từ planning
@@ -83,6 +85,9 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Postconditions: UC-08 complete; workload ready với declared container requests/limits; current-set pointer atomically đổi; AWS Application runtime `READY`; Deployment `SUCCEEDED`.
 - External side effects: Terraform/Kubernetes outside DB transaction.
 - Commit rule: Candidate Set never becomes current before readiness.
+- Internal-kind route rule: after workload readiness, reconcile the scoped
+  Traefik Ingress for the selected Service port; removing public access or
+  deleting its workload removes only the owned Ingress before final commit.
 - Fleet GitRepo variant: workload adapter commits only non-secret manifests,
   waits for the commit to be observed and the exact workload revision Ready;
   UC-08 resources remain outside the GitOps repository.

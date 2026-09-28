@@ -10,6 +10,7 @@ control ResourceProvisioningService as Provisioner
 control OutputBindingResolver as Resolver
 control WorkloadRenderer as Renderer
 boundary WorkloadDeployer as Deployer
+boundary PublicRouteManager as Routes
 database DeploymentRepository as DeploymentRepo
 database ApplicationRepository as AppRepo
 database EnvironmentRepository as EnvRepo
@@ -39,6 +40,10 @@ Renderer --> Service: Manifests
 Service -> Deployer: Apply(target, manifests)
 Service -> Deployer: WaitReady(target, workloadRefs)
 Deployer --> Service: Ready
+opt internal kind, public Service port
+  Service -> Routes: Reconcile Ingress(host, Service, port)
+  Routes --> Service: Route applied
+end
 Service -> EnvRepo: CompareVersionAndSetCurrent(version, candidateSet) <<transaction B>> [MS-12]
 Service -> WorkloadRepo: UpsertReady(instances) <<transaction B>>
 Service -> AppRepo: MarkRuntimeReadyIfCloud(applicationID) <<transaction B>>

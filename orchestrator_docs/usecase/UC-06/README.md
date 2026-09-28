@@ -16,6 +16,8 @@ container requests/limits reach the Kubernetes Deployment with the BR-11
 default policy (I06-07).
 Optional `fleet-gitrepo` workload delivery for internal kind was verified with
 a Harbor image; UC-08 resource provisioning remains direct.
+Internal kind now supports an optional Environment public entry via Traefik
+Ingress after workload readiness; DNS/TLS and controller exposure are separate.
 
 ## Read in this order
 

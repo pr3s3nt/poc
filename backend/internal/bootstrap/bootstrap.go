@@ -154,6 +154,9 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 
 	prov := provisioning.NewService(st, registry, secretStore, c)
 	deployments := appsvc.NewService(st, planning.NewService(), prov, renderer, deployer, tf.NewInspector(), c)
+	if opts.Adapters == AdapterKubernetes {
+		deployments.SetPublicRouteManager(&k8s.PublicRoutes{KubectlPath: opts.KubectlPath}, opts.Seed.BaseDomain)
+	}
 	if opts.WorkloadDelivery == "fleet-gitrepo" {
 		deployments.SetImagePullSecret(opts.HarborPullSecretName)
 	}

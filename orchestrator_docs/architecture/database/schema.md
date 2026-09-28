@@ -181,6 +181,11 @@ Deployment Sets are immutable. Canonical shape:
 }
 ```
 
+For the internal-kind public route extension, a workload module may carry
+`spec.service.publicPort` naming one of `spec.service.ports` (from Score
+`service.publicPort`). At most one module per Environment may select a public
+port. The route itself is a Kubernetes Ingress, not a secret or database row.
+
 Private dependency của một workload nằm trong `modules.<id>.externals.<name>`; shared dependency nằm ở `shared.<id>`.
 Placeholder trong `spec` tham chiếu resource bằng `${externals.<name>[.<output>]}` và `${shared.<id>[.<output>]}`.
 

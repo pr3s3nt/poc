@@ -169,6 +169,37 @@ func TestProvision_ProviderOutputsFeedConsumerInputs(t *testing.T) {
 
 type failingDeployer struct{ err error }
 
+type recordingRoutes struct{ calls []execution.PublicRoute }
+
+func (r *recordingRoutes) Reconcile(_ context.Context, _ execution.Target, route execution.PublicRoute) error {
+	r.calls = append(r.calls, route)
+	return nil
+}
+
+func TestPublicRouteFollowsReadyWorkloadAndCanBeRemoved(t *testing.T) {
+	app, opts := newApp(t)
+	deployAll(t, app, opts)
+	routes := &recordingRoutes{}
+	app.Deployments.SetPublicRouteManager(routes, "example.com")
+	before := seed.AcceptanceScores(opts)["frontend"]
+	after := seed.AcceptanceScores(opts)["frontend"]
+	after["service"].(map[string]any)["publicPort"] = "http"
+	cmd := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "frontend", ScoreBefore: before, ScoreAfter: after, Actor: "test"}
+	if _, err := app.Deployments.DeployWorkload(context.Background(), cmd); err != nil {
+		t.Fatal(err)
+	}
+	if len(routes.calls) != 1 || routes.calls[0].Host != "acceptance.example.com" || routes.calls[0].PortName != "http" {
+		t.Fatalf("wrong public route: %+v", routes.calls)
+	}
+	cmd.ScoreBefore, cmd.ScoreAfter = after, before
+	if _, err := app.Deployments.DeployWorkload(context.Background(), cmd); err != nil {
+		t.Fatal(err)
+	}
+	if len(routes.calls) != 2 || routes.calls[1].PortName != "" {
+		t.Fatalf("public route was not removed: %+v", routes.calls)
+	}
+}
+
 func (f failingDeployer) Apply(context.Context, execution.Target, []execution.Manifest) error {
 	return f.err
 }

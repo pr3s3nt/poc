@@ -62,6 +62,20 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		return nil, err
 	}
 	candidate := built.Candidate
+	publicWorkload := ""
+	for _, workload := range candidate.ModuleIDs() {
+		service := candidate.Modules[workload].Spec.Service
+		if service == nil || service.PublicPort == "" {
+			continue
+		}
+		if _, ok := service.Ports[service.PublicPort]; !ok {
+			return nil, fmt.Errorf("planning: workload %q has undeclared public Service port %q", workload, service.PublicPort)
+		}
+		if publicWorkload != "" {
+			return nil, fmt.Errorf("planning: Environment has multiple public workloads: %s and %s", publicWorkload, workload)
+		}
+		publicWorkload = workload
+	}
 
 	builder := newGraphBuilder(ctx, req.Catalog)
 	namespace, err := builder.enrichProfile()

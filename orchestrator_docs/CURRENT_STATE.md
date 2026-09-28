@@ -34,12 +34,12 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-03 | Designed; seed-backed baseline | Resource Definition, profile eligibility trước matching và contract validation đã chạy trong planner; seeded PostgreSQL Definitions dùng được cho Application mới cùng profile. API/UI quản trị chưa có. |
 | UC-04 | Designed; partial execution support | Connection/target seed và adapters kind/AWS đã chạy; registration/verification UI và persistence thật chưa có. |
 | UC-05 | Pending-change Preview implemented; broader contract gaps | Planner pipeline, transient Humanitec-shaped Delta và read-only multi-workload Preview/API/UI đã có; broader UC-05 contract coverage còn hạn chế. |
-| UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; optional Fleet GitRepo adapter cho internal kind đã pass Harbor-image deployment. Mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. |
+| UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; optional Fleet GitRepo adapter cho internal kind đã pass Harbor-image deployment. Internal kind public Service port → Traefik Ingress → HTTP đã pass; DNS/TLS/chuyển controller ra ngoài chưa có. Mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. |
 | UC-07 | Update/remove executable for UC-16 | Planner hỗ trợ before/shared rules và Delta; Preview → Deploy update/remove workload trên kind, có partial retry. Fleet GitRepo remove đã pass kind; broader lifecycle UI/history còn thiếu. |
 | UC-08 | Implemented and E2E verified | Kubernetes và Terraform resource execution, output propagation và persistence baseline đã pass. |
 | UC-09 | Partially implemented; deferred in M02/I06-04 | Deployment list/detail, Delta Snapshot document, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison là scope còn lại của I06-04 sau M00-a. |
 | UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và VSO → namespace Secret → Pod `secretKeyRef` đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
-| UC-16 | MVP path implemented | Form/Score import, typed resource params, draft save/delete/undo, references, edit deployed workload bằng reconstructed Score, Preview → Deploy và partial retry đã có. Kind đã kiểm tra create, config-only redeploy và remove; broader update/cloud path cần external verification. |
+| UC-16 | MVP path implemented | Form/Score import, typed resource params, optional public Service port, draft save/delete/undo, references, edit deployed workload bằng reconstructed Score, Preview → Deploy và partial retry đã có. Kind đã kiểm tra create, config-only redeploy, public Ingress HTTP và remove; broader update/cloud path cần external verification. |
 
 ## Executable baseline
 
@@ -74,6 +74,10 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
   GitOps repo; Fleet triển khai workload, còn UC-08 vẫn trực tiếp quản lý
   namespace/resource. Harbor chứa image, không có GitHub source build trong
   đường này. Image-pull credential nằm ở namespace Secret, không nằm trong Git.
+- Internal-kind public access dùng một Traefik Ingress cho mỗi Environment,
+  được reconcile sau khi workload Ready. Traefik Service hiện chỉ là ClusterIP;
+  muốn truy cập từ máy ngoài cluster cần port-forward/edge mapping và DNS hoặc
+  hosts mapping. TLS và AWS ingress chưa được triển khai.
 - Resource graph dùng edge `consumer -> provider`; provider được schedule trước.
 - Application `aws-eks` sở hữu VPC/EKS application-scoped; `internal-k8s` dùng
   registered cluster và Environment ánh xạ namespace.

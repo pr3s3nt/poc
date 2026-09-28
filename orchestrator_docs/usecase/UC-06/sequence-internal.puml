@@ -11,6 +11,7 @@ boundary KubernetesExecutor as ResourceK8s
 control OutputBindingResolver as Resolver
 control WorkloadRenderer as Renderer
 boundary WorkloadDeployer as WorkloadK8s
+boundary PublicRouteManager as Routes
 database DeploymentRepository as Repo
 
 Developer -> Service: DeployWorkload(Score, app, env)
@@ -34,6 +35,10 @@ Renderer --> Service: Service/Deployment manifests
 Service -> WorkloadK8s: Apply(internal target, manifests)
 Service -> WorkloadK8s: WaitReady(target workload)
 WorkloadK8s --> Service: Ready
+opt Public Service port selected
+  Service -> Routes: Reconcile Ingress(host, Service, port)
+  Routes --> Service: Ingress applied
+end
 Service -> Repo: Commit set/resources/workloads/SUCCEEDED [MS-12]
 Service --> Developer: DeploymentResult [MS-13]
 note over Developer, Service

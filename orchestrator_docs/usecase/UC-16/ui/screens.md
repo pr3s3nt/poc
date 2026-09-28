@@ -31,6 +31,7 @@ Edit uses the same form and shows the current workload name.
 | Resource output picker | Select declared dependency, then eligible output from its contract; secret classification determines which group can use it. |
 | Resource dependency inputs | After selecting Resource Type, show its declared input fields with required indicators and type-appropriate controls. PostgreSQL exposes required `database` and `username`; editing preserves saved params. |
 | Workload Service picker | Select a non-deleted workload in the same Environment that declares a Service, then select a declared port; show the resulting internal endpoint as read-only explanation. |
+| Public access | Optional selector on this workload's declared Service ports. Selecting a port makes this workload the Environment's public entry after Preview → Deploy; show the intended host, without claiming DNS/TLS is ready. |
 
 The variable and secret groups link to Application Variables & Secrets (UC-12).
 Returning from settings preserves the unsaved workload form and refreshes the

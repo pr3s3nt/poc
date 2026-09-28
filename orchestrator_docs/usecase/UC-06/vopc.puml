@@ -27,6 +27,9 @@ interface WorkloadDeployer {
   +Apply(ctx, target, manifests)
   +WaitReady(ctx, target, workloads)
 }
+interface PublicRouteManager {
+  +Reconcile(ctx, target, route)
+}
 class Deployment <<entity>> {
   +Create(): Deployment
   +StartProvisioning(plan)
@@ -78,6 +81,7 @@ DeploymentService --> ResourceProvisioningService
 DeploymentService --> OutputBindingResolver
 DeploymentService --> WorkloadRenderer
 DeploymentService --> WorkloadDeployer
+DeploymentService --> PublicRouteManager
 DeploymentService --> EnvironmentRepository
 DeploymentService --> ApplicationRepository
 DeploymentService --> DeploymentRepository

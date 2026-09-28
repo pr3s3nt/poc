@@ -59,12 +59,17 @@ type Service struct {
 	configProvider  configport.Provider
 	imagePullSecret string
 	configSync      execution.ConfigSecretSynchronizer
+	publicRoutes    execution.PublicRouteManager
+	baseDomain      string
 }
 
 func (s *Service) SetConfigurationProvider(provider configport.Provider) { s.configProvider = provider }
 func (s *Service) SetImagePullSecret(name string)                        { s.imagePullSecret = name }
 func (s *Service) SetConfigSecretSynchronizer(sync execution.ConfigSecretSynchronizer) {
 	s.configSync = sync
+}
+func (s *Service) SetPublicRouteManager(manager execution.PublicRouteManager, baseDomain string) {
+	s.publicRoutes, s.baseDomain = manager, baseDomain
 }
 
 // NewService wires UC-06 with its collaborators.
@@ -267,7 +272,7 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 			return nil, s.fail(ctx, record, err)
 		}
 	} else {
-		if err := s.removeWorkload(ctx, planCtx, workloadID, record.ID); err != nil {
+		if err := s.removeWorkload(ctx, planCtx, workloadID, record.ID, plan.BaseSet.Modules[workloadID].Spec.Service); err != nil {
 			return nil, s.fail(ctx, record, err)
 		}
 	}
@@ -295,7 +300,7 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	return result, nil
 }
 
-func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, workloadID, deploymentID string) error {
+func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, workloadID, deploymentID string, priorService *environment.Service) error {
 	instances, err := s.store.ListWorkloadInstances(ctx, planCtx.App.Key+"/"+planCtx.Env.Key)
 	if err != nil {
 		return err
@@ -324,6 +329,13 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 			instance.Status = domain.InstanceFailed
 			_ = s.store.UpsertWorkloadInstance(ctx, instance)
 			return err
+		}
+		if s.publicRoutes != nil && priorService != nil && priorService.PublicPort != "" {
+			if err := s.publicRoutes.Reconcile(ctx, target, execution.PublicRoute{ApplicationID: planCtx.App.Key, EnvironmentID: planCtx.Env.Key, WorkloadID: workloadID}); err != nil {
+				instance.Status = domain.InstanceFailed
+				_ = s.store.UpsertWorkloadInstance(ctx, instance)
+				return err
+			}
 		}
 		instance.Status = domain.InstanceRemoved
 		instance.AppliedConfigRevisionID = ""
@@ -500,9 +512,33 @@ func (s *Service) applyWorkload(
 		_ = s.store.UpsertWorkloadInstance(ctx, instance)
 		return err
 	}
+	if s.publicRoutes != nil {
+		prior := plan.BaseSet.Modules[workloadID].Spec.Service
+		current := module.Spec.Service
+		if current != nil && current.PublicPort != "" {
+			if err := s.publicRoutes.Reconcile(ctx, target, execution.PublicRoute{ApplicationID: planCtx.App.Key, EnvironmentID: planCtx.Env.Key, WorkloadID: workloadID, Host: publicHost(planCtx.App.Subdomain, planCtx.Env.Key, s.baseDomain), PortName: current.PublicPort}); err != nil {
+				instance.Status = domain.InstanceFailed
+				_ = s.store.UpsertWorkloadInstance(ctx, instance)
+				return err
+			}
+		} else if prior != nil && prior.PublicPort != "" {
+			if err := s.publicRoutes.Reconcile(ctx, target, execution.PublicRoute{ApplicationID: planCtx.App.Key, EnvironmentID: planCtx.Env.Key, WorkloadID: workloadID}); err != nil {
+				instance.Status = domain.InstanceFailed
+				_ = s.store.UpsertWorkloadInstance(ctx, instance)
+				return err
+			}
+		}
+	}
 	instance.Status = domain.InstanceReady
 	instance.ObservedAt = s.clock.Now()
 	return s.store.UpsertWorkloadInstance(ctx, instance)
+}
+
+func publicHost(subdomain, env, baseDomain string) string {
+	if env == "staging" {
+		return "staging." + subdomain + "." + baseDomain
+	}
+	return subdomain + "." + baseDomain
 }
 
 func (s *Service) loadCatalog(ctx context.Context) (planning.Catalog, map[string]resource.Type, map[string]resource.Definition, error) {

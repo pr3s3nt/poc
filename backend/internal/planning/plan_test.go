@@ -182,6 +182,18 @@ func TestPlan_NewApplicationMatchesPostgresByExecutionProfile(t *testing.T) {
 	}
 }
 
+func TestPlanRejectsTwoPublicWorkloads(t *testing.T) {
+	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req.BaseSet.Modules["frontend"] = environment.Module{Profile: environment.ModuleProfile, Spec: environment.ModuleSpec{
+		Containers: map[string]environment.Container{"main": {Image: "frontend:v1"}},
+		Service:    &environment.Service{Ports: map[string]environment.Port{"web": {Port: 80}}, PublicPort: "web"},
+	}}
+	req.After.Service = &environment.Service{Ports: map[string]environment.Port{"http": {Port: 8080}}, PublicPort: "http"}
+	if _, err := NewService().Plan(req); err == nil || !strings.Contains(err.Error(), "multiple public workloads") {
+		t.Fatalf("expected public route conflict, got %v", err)
+	}
+}
+
 func TestPlan_InternalGraphIsProviderFirst(t *testing.T) {
 	plan, err := NewService().Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {

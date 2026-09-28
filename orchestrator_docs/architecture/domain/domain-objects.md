@@ -22,6 +22,12 @@ last_reviewed: 2026-09-23
 | Active Resource | `ActiveResource` | executor state, outputs | Logical identity unique theo Organization + descriptor + scope. |
 | Workload Instance | `WorkloadInstance` | manifest digest/status | Unique theo Environment + workload ID. |
 
+`DeploymentSet.modules.<workload>.spec.service.publicPort` is an optional
+orchestrator extension naming one declared Service port. At most one module in
+an Environment may select it. The resulting Ingress is runtime state owned by
+the internal-kind `PublicRouteManager`, reconciled after workload readiness;
+it is not a separate database aggregate.
+
 ## Entities and value objects
 
 | Kind | Objects | Persisted form |

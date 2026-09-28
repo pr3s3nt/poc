@@ -15,6 +15,8 @@ then adds, edits or marks a workload for deletion. A form is the default; Score
 import is optional. Variable and secret rows select references rather than
 accepting raw values. Saving creates pending configuration; Preview changes and
 Deploy are separate steps.
+One optional declared Service port can be chosen as the public entry; the
+Environment host is configured only on Deploy, not on Save.
 
 The Application-level [Variables & Secrets page](../../UC-12/ui/README.md)
 belongs to UC-12, not UC-16. It has Staging/Production tabs; each tab shows

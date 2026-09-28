@@ -91,6 +91,15 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 - **BR-13:** Trong Fleet GitRepo mode, Deployment chỉ `SUCCEEDED` khi Git
   revision được Fleet quan sát và workload revision tương ứng Ready. Không ghi
   raw secret hoặc Docker registry credential vào GitOps repository.
+- **BR-14:** Trên internal kind, nếu workload chọn Service port public, sau
+  khi Deployment Ready, UC-06 tạo/cập nhật Traefik Ingress duy nhất của
+  Environment trỏ đến Service/cổng đó. Host staging là
+  `staging.<subdomain>.<base-domain>`, production là
+  `<subdomain>.<base-domain>`. Nếu bỏ chọn hoặc xóa workload public, route được
+  gỡ. Route không được coi là truy cập được từ bên ngoài cho tới khi DNS và
+  đường vào Ingress Controller được cấu hình; TLS/cloud ingress nằm ngoài MVP.
+  `service.publicPort` là extension của orchestrator trên Score subset hiện tại,
+  không phải khẳng định field chuẩn của Score.
 
 ## Luồng nội bộ
 

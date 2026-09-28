@@ -102,13 +102,18 @@ của Environment đang chọn.
   Resource Type; input bắt buộc phải có giá trị đúng kiểu trước khi lưu.
   Tham số được lưu vào `resources.<alias>.params` của Score và được khôi phục
   khi Edit. Import Score vẫn cho phép cấu trúc phức tạp mà form không hỗ trợ.
+- **BR-12:** Developer có thể chọn tối đa một cổng Service của workload làm
+  cổng public cho Environment. Lựa chọn được lưu trong cấu hình mong muốn,
+  không tạo route khi chỉ Save. Mỗi Environment chỉ có một workload public;
+  Preview từ chối trạng thái có nhiều hơn một. Xóa/bỏ chọn cổng public sẽ gỡ
+  route khi Deploy thay đổi đó.
 
 ## Ngoài phạm vi
 
 - **OOS-01:** Quản lý variable/secret của Application; thuộc UC-12.
 - **OOS-02:** Preview, approval hoặc deploy; thuộc UC-05, UC-06 và UC-07.
-- **OOS-03:** Cấp public URL cho frontend chạy trong trình duyệt; Service
-  reference ở BR-05 là địa chỉ nội bộ cho giao tiếp giữa các workload.
+- **OOS-03:** DNS/TLS và đường mạng từ ngoài cluster tới Ingress Controller;
+  Service reference ở BR-05 vẫn là địa chỉ nội bộ cho giao tiếp giữa workload.
 - **OOS-04:** Cú pháp tham chiếu Service trong Score và resolution tại Deploy
   được định nghĩa trong shared operation contract.
 

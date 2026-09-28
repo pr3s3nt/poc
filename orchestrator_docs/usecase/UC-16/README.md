@@ -17,6 +17,8 @@ current Deployment Set. Preview → Deploy and runtime reference resolution are
 implemented; create and configuration-only redeploy have kind verification.
 Resource dependency inputs, including PostgreSQL `database` and `username`,
 are editable on the form and persisted as Score params.
+One optional Service port can be selected as the Environment's public entry;
+it remains pending until Preview → Deploy.
 
 ## Read in this order
 

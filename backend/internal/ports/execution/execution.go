@@ -20,6 +20,16 @@ type Target struct {
 	Extra       map[string]string `json:"extra,omitempty"`
 }
 
+// PublicRoute is the single HTTP entry point of one Environment. An empty
+// PortName removes the route, but only when owned by WorkloadID.
+type PublicRoute struct {
+	ApplicationID, EnvironmentID, WorkloadID, Host, PortName string
+}
+
+type PublicRouteManager interface {
+	Reconcile(ctx context.Context, target Target, route PublicRoute) error
+}
+
 // ProvisionRequest is one resource node handed to an executor (UC-08 MS-05).
 type ProvisionRequest struct {
 	DeploymentID    string

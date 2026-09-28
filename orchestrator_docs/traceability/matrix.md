@@ -156,6 +156,7 @@ local tests; create and configuration-only redeploy are verified on kind.
 | Steps | Design artifact | Required state/validation | Planned test |
 |---|---|---|---|
 | MS-01–MS-03 | [Screens](../usecase/UC-16/ui/screens.md), [sequence](../usecase/UC-16/sequence.puml) | Selected Environment and workload form/import | Environment isolation and form/import parity |
+| BR-12 | [Screens](../usecase/UC-16/ui/screens.md), [UC-06 BR-14](../usecase/UC-06/specification.md) | Optional public Service port; one public workload per Environment; route only after readiness | form, planner, route renderer and kind HTTP/remove checks |
 | MS-03, BR-11 | [Specification](../usecase/UC-16/specification.md), [screens](../usecase/UC-16/ui/screens.md) | Resource Type inputs shown on form; required params validated and written into Score | `WorkloadEditorPage.test.tsx` PostgreSQL params test |
 | MS-04–MS-05 | [Specification](../usecase/UC-16/specification.md) BR-02–BR-05 | UC-12, resource-output and same-Environment Service references; no literal binding or secret disclosure | Source eligibility, missing key/output/port, cross-Environment rejection and secret redaction |
 | MS-06–MS-07 | [Realization](../usecase/UC-16/realization.md) | Validate then save pending desired change; current Deployment Set/runtime unchanged | Field errors, pending-save and no-runtime-mutation tests |

@@ -79,6 +79,9 @@ package "Execution" {
     +Delete(ctx, target, workload)
     +WaitReady(ctx, target, workloads)
   }
+  interface PublicRouteManager {
+    +Reconcile(ctx, target, route)
+  }
   class TerraformExecutor
   class KubernetesExecutor
   class ExistingClusterAdapter
@@ -184,6 +187,7 @@ DeploymentService --> ResourceProvisioningService
 DeploymentService --> OutputBindingResolver
 DeploymentService --> WorkloadRenderer
 DeploymentService --> WorkloadDeployer
+DeploymentService --> PublicRouteManager
 ResourceProvisioningService --> ActiveResourceResolver
 ResourceProvisioningService --> OutputBindingResolver
 ResourceProvisioningService --> ExecutorRegistry

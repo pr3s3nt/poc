@@ -56,6 +56,23 @@ func fragment(t *testing.T, doc map[string]any) *Fragment {
 	return f
 }
 
+func TestPublicServicePortMustExist(t *testing.T) {
+	doc := base()
+	doc["service"] = map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicPort": "missing"}
+	if _, err := FromMap(doc); err == nil {
+		t.Fatal("accepted undeclared public port")
+	}
+	doc["service"].(map[string]any)["publicPort"] = "http"
+	parsed, err := FromMap(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fragment, err := parsed.Fragment(types())
+	if err != nil || fragment.Module.Spec.Service.PublicPort != "http" {
+		t.Fatalf("public port was not preserved: %v", err)
+	}
+}
+
 func TestFragmentHoistsSharedResourceAndRewritesPlaceholder(t *testing.T) {
 	f := fragment(t, base())
 	if f.Module.Profile == "" {

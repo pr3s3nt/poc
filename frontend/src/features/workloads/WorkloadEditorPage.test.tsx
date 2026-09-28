@@ -83,3 +83,25 @@ it('preserves PostgreSQL params when editing a workload on the form', async () =
   const score = saved?.score as { resources: { db: { params: Record<string, string> } } };
   expect(score.resources.db.params).toEqual({ database: 'catalog_v2', username: 'app' });
 });
+
+it('saves the selected public Service port without deploying', async () => {
+  let saved: Record<string, unknown> | undefined;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith('/configuration')) return Response.json({ keys: [] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
+    if (init?.method === 'PUT') { saved = JSON.parse(String(init.body)) as Record<string, unknown>; return Response.json({ draftVersion: 1, workloads: [] }); }
+    return Response.json({ draftVersion: 0, workloads: [] });
+  }));
+  const user = userEvent.setup();
+  render(<WorkloadEditorPage application={application} environment="staging" />);
+  await screen.findByRole('heading', { name: 'Basic information' });
+  await user.type(screen.getByLabelText('Workload name'), 'frontend');
+  await user.type(screen.getByLabelText('Image'), 'example.invalid/frontend:v1');
+  await user.click(screen.getByRole('button', { name: '+ Add port' }));
+  await user.type(screen.getByLabelText('Service port name'), 'http');
+  await user.type(screen.getByLabelText('Service port', { exact: true }), '8080');
+  await user.selectOptions(screen.getByLabelText('Public access port'), 'http');
+  await user.click(screen.getByRole('button', { name: 'Save pending workload' }));
+  expect((saved?.score as { service: { publicPort: string } }).service.publicPort).toBe('http');
+});

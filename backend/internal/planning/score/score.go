@@ -95,6 +95,11 @@ func (d Document) Validate() error {
 			return fmt.Errorf("score: resource %q has no type", alias)
 		}
 	}
+	if d.Service != nil && d.Service.PublicPort != "" {
+		if _, ok := d.Service.Ports[d.Service.PublicPort]; !ok {
+			return fmt.Errorf("score: public Service port %q is not declared", d.Service.PublicPort)
+		}
+	}
 	return nil
 }
 
