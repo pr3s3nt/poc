@@ -29,6 +29,7 @@ Edit uses the same form and shows the current workload name.
 | Environment variables | Each row has container variable name, source type and source picker. Types: Application variable (UC-12), non-secret resource output, or another workload's Service/cổng in this Environment. No direct-value field. |
 | Secrets | Each row has container secret name, source type and source picker. Types: Application secret (UC-12) or secret resource output. Values are never shown. |
 | Resource output picker | Select declared dependency, then eligible output from its contract; secret classification determines which group can use it. |
+| Resource dependency inputs | After selecting Resource Type, show its declared input fields with required indicators and type-appropriate controls. PostgreSQL exposes required `database` and `username`; editing preserves saved params. |
 | Workload Service picker | Select a non-deleted workload in the same Environment that declares a Service, then select a declared port; show the resulting internal endpoint as read-only explanation. |
 
 The variable and secret groups link to Application Variables & Secrets (UC-12).

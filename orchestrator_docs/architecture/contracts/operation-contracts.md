@@ -40,7 +40,8 @@ Các contract dưới đây dùng tên method cố định cho realization và G
   Matching Criterion; references/rules hợp lệ; output contract tương thích.
 - Creates: `ResourceDefinition` và một hoặc nhiều `MatchingCriterion`.
 - Postconditions: queryable cho deterministic matching; `{}` tường minh là
-  wildcard điểm `0`; source fingerprint được ghi nếu có.
+  wildcard điểm `0`; optional `execution_profile` filters eligibility before
+  scoring the five standard criteria; source fingerprint được ghi nếu có.
 - Persistence: definition + criteria atomically.
 
 ## OC-05 `ConnectionService.RegisterAWSDriverAccount` / `RegisterKubernetesCluster`
@@ -135,6 +136,8 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - UI form and Score import share the same validation. Container bindings may
   only be UC-12 keys, declared resource outputs or same-Environment Service
   outputs; direct literals are rejected on this UI/API path.
+- The form reads Resource Type input contracts and writes typed dependency
+  values to `resources.<alias>.params`; required inputs must be present.
 - `resources.env` is the built-in virtual resource of type `environment`.
   `${resources.env.KEY}` resolves dynamically from the selected UC-12 revision;
   it never provisions a resource. Secret keys must occupy the whole binding

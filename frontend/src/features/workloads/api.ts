@@ -19,5 +19,5 @@ export const previewChanges = (app: string, env: EnvironmentKey) => api<PendingP
 export type DeployReport = { status: 'SUCCEEDED' | 'PARTIAL' | 'FAILED'; results: { workloadId: string; action: string; status: 'SUCCEEDED' | 'FAILED' | 'SKIPPED'; deploymentId?: string; error?: string }[] };
 export const deployChanges = (app: string, env: EnvironmentKey, token: string) => api<DeployReport>(`/applications/${encodeURIComponent(app)}/environments/${env}/deploy`, { method: 'POST', body: JSON.stringify({ token }) });
 
-export type ResourceType = { key: string; outputs: { name: string; secret?: boolean }[] };
+export type ResourceType = { key: string; inputs: { name: string; type: string; required?: boolean }[]; outputs: { name: string; secret?: boolean }[] };
 export const getResourceTypes = () => api<{ resourceTypes: ResourceType[] }>('/resource-types');

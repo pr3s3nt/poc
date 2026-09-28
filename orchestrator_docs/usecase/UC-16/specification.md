@@ -98,6 +98,10 @@ của Environment đang chọn.
   không được ghép với literal hoặc đưa vào mục Variable.
 - **BR-10:** Mỗi lần lưu/sửa/xóa tăng version draft của Environment. Preview
   gắn với version draft và revision UC-12; Deploy từ Preview cũ bị từ chối.
+- **BR-11:** Với mỗi resource dependency trên form, hiển thị các input của
+  Resource Type; input bắt buộc phải có giá trị đúng kiểu trước khi lưu.
+  Tham số được lưu vào `resources.<alias>.params` của Score và được khôi phục
+  khi Edit. Import Score vẫn cho phép cấu trúc phức tạp mà form không hỗ trợ.
 
 ## Ngoài phạm vi
 

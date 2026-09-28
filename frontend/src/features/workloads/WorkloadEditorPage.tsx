@@ -8,7 +8,7 @@ import { getResourceTypes, getWorkloads, parseScoreImport, saveWorkload, type Re
 type Source = 'VARIABLE' | 'SECRET' | 'RESOURCE' | 'SERVICE';
 type Binding = { name: string; source: Source; key: string; alias: string; output: string; workload: string; port: string };
 type ContainerForm = { name: string; image: string; cpuRequest: string; memoryRequest: string; cpuLimit: string; memoryLimit: string; bindings: Binding[] };
-type Dependency = { alias: string; type: string; className: string };
+type Dependency = { alias: string; type: string; className: string; params: Record<string, string> };
 type ServicePort = { name: string; port: string; targetPort: string };
 type Form = { name: string; containers: ContainerForm[]; dependencies: Dependency[]; servicePorts: ServicePort[] };
 
@@ -16,7 +16,7 @@ const emptyBinding = (): Binding => ({ name: '', source: 'VARIABLE', key: '', al
 const emptyContainer = (): ContainerForm => ({ name: 'main', image: '', cpuRequest: '', memoryRequest: '', cpuLimit: '', memoryLimit: '', bindings: [] });
 const emptyForm = (): Form => ({ name: '', containers: [emptyContainer()], dependencies: [], servicePorts: [] });
 
-function needsScoreEditor(raw: Record<string, unknown>): boolean {
+function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): boolean {
   if (Object.keys(raw).some((key) => !['apiVersion', 'metadata', 'containers', 'resources', 'service'].includes(key))) return true;
   if (Object.keys((raw.metadata ?? {}) as Record<string, unknown>).some((key) => key !== 'name')) return true;
   const containers = (raw.containers ?? {}) as Record<string, Record<string, unknown>>;
@@ -24,7 +24,16 @@ function needsScoreEditor(raw: Record<string, unknown>): boolean {
   if (Object.values(containers).some((container) => Object.keys((container.resources ?? {}) as Record<string, unknown>).some((key) => !['requests', 'limits'].includes(key)))) return true;
   if (Object.values(containers).some((container) => Object.values((container.resources ?? {}) as Record<string, Record<string, unknown>>).some((quantity) => Object.keys(quantity).some((key) => !['cpu', 'memory'].includes(key))))) return true;
   const resources = (raw.resources ?? {}) as Record<string, Record<string, unknown>>;
-  if (Object.values(resources).some((resource) => resource.id != null || (resource.type !== 'service' && resource.params != null))) return true;
+  if (Object.values(resources).some((resource) => resource.id != null || (resource.type !== 'service' && resource.params != null && Object.values(resource.params as Record<string, unknown>).some((value) => value === null || typeof value === 'object')))) return true;
+  if (Object.values(resources).some((resource) => {
+    if (resource.type === 'service' || resource.type === 'environment') return false;
+    const contract = types.find((item) => item.key === resource.type);
+    if (!contract) return true;
+    return Object.entries((resource.params ?? {}) as Record<string, unknown>).some(([name, value]) => {
+      const input = contract.inputs?.find((item) => item.name === name);
+      return !input || typeof value !== (input.type === 'number' ? 'number' : input.type === 'bool' ? 'boolean' : 'string');
+    });
+  })) return true;
   if (Object.values(resources).some((resource) => Object.keys(resource).some((key) => !['type', 'class', 'params'].includes(key)))) return true;
   if (Object.values(resources).some((resource) => resource.type === 'environment' && Object.keys(resource).length !== 1)) return true;
   if (Object.values(resources).some((resource) => resource.type === 'service' && (resource.class != null || Object.keys((resource.params ?? {}) as Record<string, unknown>).some((key) => !['workload', 'port'].includes(key))))) return true;
@@ -33,11 +42,20 @@ function needsScoreEditor(raw: Record<string, unknown>): boolean {
   return Object.values(ports).some((port) => Object.keys(port).some((key) => !['port', 'targetPort'].includes(key)));
 }
 
-function buildScore(form: Form): Record<string, unknown> {
+function buildScore(form: Form, types: ResourceType[]): Record<string, unknown> {
   const resources: Record<string, unknown> = {};
   const containers: Record<string, unknown> = {};
   for (const dependency of form.dependencies) {
-    if (dependency.alias && dependency.type) resources[dependency.alias] = { type: dependency.type, ...(dependency.className ? { class: dependency.className } : {}) };
+    if (dependency.alias && dependency.type) {
+      const inputs = types.find((item) => item.key === dependency.type)?.inputs ?? [];
+      const params: Record<string, string | number | boolean> = {};
+      for (const input of inputs) {
+        const value = dependency.params[input.name];
+        if (value === undefined || value === '') continue;
+        params[input.name] = input.type === 'number' ? Number(value) : input.type === 'bool' ? value === 'true' : value;
+      }
+      resources[dependency.alias] = { type: dependency.type, ...(dependency.className ? { class: dependency.className } : {}), ...(Object.keys(params).length ? { params } : {}) };
+    }
   }
   for (const container of form.containers) {
     const variables: Record<string, string> = {};
@@ -65,14 +83,14 @@ function buildScore(form: Form): Record<string, unknown> {
 function readForm(score: Record<string, unknown>, keys: ConfigKey[]): Form {
   const form = emptyForm();
   form.name = String((score.metadata as { name?: string } | undefined)?.name ?? '');
-  const resources = (score.resources ?? {}) as Record<string, { type?: string; class?: string; params?: { workload?: string; port?: string } }>;
-  form.dependencies = Object.entries(resources).filter(([, spec]) => spec.type !== 'environment' && spec.type !== 'service').map(([alias, spec]) => ({ alias, type: spec.type ?? '', className: spec.class ?? '' }));
+  const resources = (score.resources ?? {}) as Record<string, { type?: string; class?: string; params?: Record<string, unknown> }>;
+  form.dependencies = Object.entries(resources).filter(([, spec]) => spec.type !== 'environment' && spec.type !== 'service').map(([alias, spec]) => ({ alias, type: spec.type ?? '', className: spec.class ?? '', params: Object.fromEntries(Object.entries(spec.params ?? {}).map(([key, value]) => [key, String(value)])) }));
   const rawContainers = (score.containers ?? {}) as Record<string, { image?: string; variables?: Record<string, string>; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
   form.containers = Object.entries(rawContainers).map(([name, value]) => ({ name, image: value.image ?? '', cpuRequest: value.resources?.requests?.cpu ?? '', memoryRequest: value.resources?.requests?.memory ?? '', cpuLimit: value.resources?.limits?.cpu ?? '', memoryLimit: value.resources?.limits?.memory ?? '', bindings: Object.entries(value.variables ?? {}).map(([envName, raw]) => {
     const match = raw.match(/^\$\{resources\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\}$/);
     const alias = match?.[1] ?? ''; const output = match?.[2] ?? '';
     if (alias === 'env') return { ...emptyBinding(), name: envName, source: keys.find((key) => key.name === output)?.kind ?? 'VARIABLE', key: output };
-    if (resources[alias]?.type === 'service') return { ...emptyBinding(), name: envName, source: 'SERVICE' as const, workload: resources[alias].params?.workload ?? '', port: resources[alias].params?.port ?? '' };
+    if (resources[alias]?.type === 'service') return { ...emptyBinding(), name: envName, source: 'SERVICE' as const, workload: String(resources[alias].params?.workload ?? ''), port: String(resources[alias].params?.port ?? '') };
     return { ...emptyBinding(), name: envName, source: 'RESOURCE' as const, alias, output };
   }) }));
   if (!form.containers.length) form.containers = [emptyContainer()];
@@ -102,7 +120,7 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
       if (cancelled) return;
       setKeys(config.keys); setWorkloads(list.workloads); setTypes(catalog.resourceTypes); setVersion(list.draftVersion);
       const existing = list.workloads.find((item) => item.id === workloadId);
-      if (existing?.score) { setForm(readForm(existing.score, config.keys)); setImported(existing.score); setBlocked(false); const advanced = needsScoreEditor(existing.score); setAdvancedScore(advanced); if (advanced) setMode('import'); }
+      if (existing?.score) { setForm(readForm(existing.score, config.keys)); setImported(existing.score); setBlocked(false); const advanced = needsScoreEditor(existing.score, catalog.resourceTypes); setAdvancedScore(advanced); if (advanced) setMode('import'); }
       else if (workloadId) { setForm({ ...emptyForm(), name: workloadId }); setBlocked(true); setError(existing ? 'This deployed workload has no editable Score draft yet. Editing is disabled to avoid losing its existing configuration.' : 'Workload not found in this environment.'); }
     }).catch((err: Error) => { if (!cancelled) setError(err.message); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -113,12 +131,23 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
   function updateBinding(containerIndex: number, bindingIndex: number, next: Binding) { const container = form.containers[containerIndex]; if (!container) return; const bindings = [...container.bindings]; bindings[bindingIndex] = next; updateContainer(containerIndex, { ...container, bindings }); }
   async function importFile(file: File) {
     setError('');
-    try { const result = await parseScoreImport(application.id, environment, await file.text()); setImported(result.score); setForm(readForm(result.score, keys)); setAdvancedScore(needsScoreEditor(result.score)); setDirty(false); }
+    try { const result = await parseScoreImport(application.id, environment, await file.text()); setImported(result.score); setForm(readForm(result.score, keys)); setAdvancedScore(needsScoreEditor(result.score, types)); setDirty(false); }
     catch (err) { setError((err as Error).message); }
   }
   async function save() {
     if (blocked) return;
-    const score = mode === 'import' && imported && !dirty ? imported : !dirty && imported ? imported : buildScore(form);
+    if (mode === 'form' || dirty) {
+      for (const dependency of form.dependencies) {
+        const contract = types.find((item) => item.key === dependency.type);
+        if (!contract) { setError(`Choose a valid resource type for ${dependency.alias || 'resource'}.`); return; }
+        for (const input of contract.inputs ?? []) {
+          const value = dependency.params[input.name] ?? '';
+          if (input.required && !value.trim()) { setError(`${dependency.alias || dependency.type}: ${input.name} is required.`); return; }
+          if (value && input.type === 'number' && !Number.isFinite(Number(value))) { setError(`${dependency.alias || dependency.type}: ${input.name} must be a number.`); return; }
+        }
+      }
+    }
+    const score = mode === 'import' && imported && !dirty ? imported : !dirty && imported ? imported : buildScore(form, types);
     const id = String((score.metadata as { name?: string } | undefined)?.name ?? '');
     if (!id) { setError('Workload name is required.'); return; }
     setSaving(true); setError('');
@@ -143,7 +172,7 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
           {binding.source === 'SERVICE' ? <><select aria-label="Service workload" value={binding.workload} onChange={(event) => updateBinding(ci, bi, { ...binding, workload: event.target.value, port: '' })}><option value="">Choose workload</option>{candidateServices.map((item) => <option key={item.id} value={item.id}>{item.id}</option>)}</select><select aria-label="Service port" value={binding.port} onChange={(event) => updateBinding(ci, bi, { ...binding, port: event.target.value })}><option value="">Choose port</option>{candidateServices.find((item) => item.id === binding.workload)?.servicePorts?.map((port) => <option key={port} value={port}>{port}</option>)}</select></> : null}<Button tone="quiet" onClick={() => updateContainer(ci, { ...container, bindings: container.bindings.filter((_, index) => index !== bi) })}>Remove</Button></div>)}
         <Button onClick={() => updateContainer(ci, { ...container, bindings: [...container.bindings, emptyBinding()] })}>+ Add binding</Button></section>)}
       <Button onClick={() => updateForm({ ...form, containers: [...form.containers, { ...emptyContainer(), name: `container-${form.containers.length + 1}` }] })}>+ Add container</Button>
-      <section className="content-panel editor-grid"><div className="section-header"><div><h2>Resource dependencies</h2><p>Choose an existing resource type, then use its outputs above.</p></div><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, { alias: '', type: '', className: '' }] })}>+ Add resource</Button></div>{form.dependencies.map((dep, index) => <div className="binding-row" key={index}><input aria-label="Resource alias" value={dep.alias} placeholder="db" onChange={(event) => updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, alias: event.target.value } : item) })} /><select aria-label="Resource type" value={dep.type} onChange={(event) => updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, type: event.target.value } : item) })}><option value="">Choose type</option>{types.map((type) => <option key={type.key} value={type.key}>{type.key}</option>)}</select><input aria-label="Resource class" value={dep.className} placeholder="default" onChange={(event) => updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, className: event.target.value } : item) })} /><Button tone="quiet" onClick={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })}>Remove</Button></div>)}</section>
+      <section className="content-panel editor-grid"><div className="section-header"><div><h2>Resource dependencies</h2><p>Choose an existing resource type, then fill its required inputs and use its outputs above.</p></div><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, { alias: '', type: '', className: '', params: {} }] })}>+ Add resource</Button></div>{form.dependencies.map((dep, index) => <div className="editor-grid" key={index}><div className="binding-row"><input aria-label="Resource alias" value={dep.alias} placeholder="db" onChange={(event) => updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, alias: event.target.value } : item) })} /><select aria-label="Resource type" value={dep.type} onChange={(event) => updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, type: event.target.value, params: {} } : item) })}><option value="">Choose type</option>{types.map((type) => <option key={type.key} value={type.key}>{type.key}</option>)}</select><input aria-label="Resource class" value={dep.className} placeholder="default" onChange={(event) => updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, className: event.target.value } : item) })} /><Button tone="quiet" onClick={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })}>Remove</Button></div><div className="field-grid">{types.find((type) => type.key === dep.type)?.inputs?.map((input) => <label key={input.name}>{dep.alias || dep.type} · {input.name}{input.required ? ' *' : ''}{input.type === 'bool' ? <select aria-label={`Resource ${input.name}`} value={dep.params[input.name] ?? ''} onChange={(event) => updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, params: { ...item.params, [input.name]: event.target.value } } : item) })}><option value="">Choose</option><option value="true">True</option><option value="false">False</option></select> : <input aria-label={`Resource ${input.name}`} type={input.type === 'number' ? 'number' : 'text'} value={dep.params[input.name] ?? ''} onChange={(event) => updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, params: { ...item.params, [input.name]: event.target.value } } : item) })} />}</label>)}</div></div>)}</section>
       <section className="content-panel editor-grid"><div className="section-header"><div><h2>Service ports</h2><p>Internal access for other workloads in {environment}.</p></div><Button onClick={() => updateForm({ ...form, servicePorts: [...form.servicePorts, { name: '', port: '', targetPort: '' }] })}>+ Add port</Button></div>{form.servicePorts.map((port, index) => <div className="binding-row" key={index}><input aria-label="Service port name" value={port.name} placeholder="http" onChange={(event) => updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, name: event.target.value } : item) })} /><input aria-label="Service port" type="number" value={port.port} placeholder="80" onChange={(event) => updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, port: event.target.value } : item) })} /><input aria-label="Container target port" type="number" value={port.targetPort} placeholder="8080" onChange={(event) => updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, targetPort: event.target.value } : item) })} /><Button tone="quiet" onClick={() => updateForm({ ...form, servicePorts: form.servicePorts.filter((_, i) => i !== index) })}>Remove</Button></div>)}</section>
     </>}
     {!loading ? <div className="form-actions editor-actions"><Button onClick={() => navigate({ name: 'application', applicationId: application.id })}>Cancel</Button><Button tone="primary" disabled={blocked || saving || (mode === 'import' && !imported)} onClick={() => void save()}>Save pending workload</Button></div> : null}

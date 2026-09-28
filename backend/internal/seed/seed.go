@@ -1,7 +1,7 @@
 // Package seed registers the Phase 6 catalog: Resource Types, Resource
 // Definitions, Connections, Applications and Environments. Both Execution
 // Profiles are registered, so a single process can serve an internal-k8s and an
-// aws-eks Application and matching can tell them apart with `app_id`.
+// aws-eks Application and matching can tell them apart by profile.
 package seed
 
 import (
@@ -170,7 +170,7 @@ func driverInputs(module string, variables map[string]any) map[string]any {
 }
 
 // ResourceDefinitions returns the Resource Definitions of both Execution
-// Profiles (UC-03). Matching uses only the five standard criteria fields.
+// Profiles (UC-03). The profile guard precedes five-field criteria matching.
 func ResourceDefinitions(o Options) []resource.Definition {
 	cloud := o.Cloud
 	if cloud.KubernetesVersion == "" {
@@ -223,21 +223,23 @@ func ResourceDefinitions(o Options) []resource.Definition {
 			Criteria: []resource.Criterion{{}},
 		},
 		{
-			Key:             "postgres-internal-statefulset",
-			ResourceTypeKey: "postgres",
-			DriverType:      resource.DriverKubernetes,
+			Key:              "postgres-internal-statefulset",
+			ResourceTypeKey:  "postgres",
+			ExecutionProfile: "internal-k8s",
+			DriverType:       resource.DriverKubernetes,
 			DriverInputs: driverInputs("", map[string]any{
 				"image":     o.Images.Postgres,
 				"storage":   "1Gi",
 				"namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
 			}),
-			Criteria: []resource.Criterion{{ApplicationID: o.ApplicationKey}},
+			Criteria: []resource.Criterion{{}},
 		},
 		{
-			Key:             "postgres-aws-aurora",
-			ResourceTypeKey: "postgres",
-			DriverType:      resource.DriverTerraform,
-			ConnectionKey:   o.CloudConnectionKey,
+			Key:              "postgres-aws-aurora",
+			ResourceTypeKey:  "postgres",
+			ExecutionProfile: "aws-eks",
+			DriverType:       resource.DriverTerraform,
+			ConnectionKey:    o.CloudConnectionKey,
 			DriverInputs: driverInputs("aurora", map[string]any{
 				"name":           "${context.app.id}-${context.run.id}",
 				"engine_version": cloud.AuroraEngineVersion,
@@ -247,7 +249,7 @@ func ResourceDefinitions(o Options) []resource.Definition {
 				"vpc_cidr":       "${resources['vpc.default#applications.@app'].outputs.cidr}",
 				"subnet_ids":     "${resources['vpc.default#applications.@app'].outputs.subnetIds}",
 			}),
-			Criteria: []resource.Criterion{{ApplicationID: o.CloudApplicationKey}},
+			Criteria: []resource.Criterion{{}},
 		},
 	}
 }

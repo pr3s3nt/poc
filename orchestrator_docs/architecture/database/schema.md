@@ -147,13 +147,13 @@ Columns: `id uuid PK`, `organization_id FK`, `resource_type_key text`, `input_sc
 
 ### `resource_definitions`
 
-Columns: `id uuid PK`, `organization_id FK`, `definition_key text`, `resource_type_id FK`, `driver_type text`, `connection_id FK nullable`, `driver_inputs jsonb`, `provision_rules jsonb`, `source_fingerprint text nullable`, timestamps. Unique `(organization_id, definition_key)`.
+Columns: `id uuid PK`, `organization_id FK`, `definition_key text`, `resource_type_id FK`, `execution_profile text nullable` (`internal-k8s` or `aws-eks`), `driver_type text`, `connection_id FK nullable`, `driver_inputs jsonb`, `provision_rules jsonb`, `source_fingerprint text nullable`, timestamps. Unique `(organization_id, definition_key)`. A NULL profile is shared across profiles; a non-NULL profile filters eligible Definitions before criteria scoring.
 
 ### `matching_criteria`
 
 Columns: `id uuid PK`, `resource_definition_id FK ON DELETE CASCADE`, optional `env_type`, `app_id`, `env_id`, `res_id`, `class`, and computed `specificity_score int`. Index by `resource_definition_id` and match fields.
 
-Năm field này cùng trọng số `env_type=1`, `app_id=2`, `env_id=4`, `res_id=8`, `class=16` là contract chuẩn của UC-03 BR-06. Không có field riêng cho Execution Profile: profile gắn cố định vào Application nên `app_id` đủ để `postgres` resolve sang Aurora hoặc StatefulSet theo UC-06 MS-07.
+Năm field này cùng trọng số `env_type=1`, `app_id=2`, `env_id=4`, `res_id=8`, `class=16` là contract chuẩn của UC-03 BR-06. `execution_profile` nằm trên Definition, không nằm trong Matching Criterion và không đổi trọng số. Vì vậy Application mới vẫn chọn được Aurora hoặc StatefulSet theo profile, không cần seed thêm criterion `app_id`.
 
 ### `deployment_sets`
 

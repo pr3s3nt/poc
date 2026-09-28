@@ -9,7 +9,7 @@ last_reviewed: 2026-09-22
 
 ## Delivery state
 
-Designed; seeded Definitions, five-field matching and driver contract validation
+Designed; seeded Definitions, profile eligibility, five-field matching and driver contract validation
 run in the planner. Management API/UI and durable catalog persistence remain.
 
 ## Read in this order

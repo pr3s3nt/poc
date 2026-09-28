@@ -59,7 +59,7 @@ func (m *definitionMatcher) match(node *Node) (Match, error) {
 	bestScore := -1
 
 	for _, def := range m.list {
-		if def.ResourceTypeKey != node.ResourceType {
+		if def.ResourceTypeKey != node.ResourceType || (def.ExecutionProfile != "" && def.ExecutionProfile != string(m.ctx.App.Profile)) {
 			continue
 		}
 		criterion, score, ok := def.BestCriterion(ctx)

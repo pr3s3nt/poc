@@ -15,6 +15,8 @@ save/delete/undo are implemented with reference validation. Editing a deployed
 workload without a saved draft reconstructs a reference-based Score from the
 current Deployment Set. Preview → Deploy and runtime reference resolution are
 implemented; create and configuration-only redeploy have kind verification.
+Resource dependency inputs, including PostgreSQL `database` and `username`,
+are editable on the form and persisted as Score params.
 
 ## Read in this order
 

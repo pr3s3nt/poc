@@ -19,6 +19,12 @@ Planning uses one shared core. `ImplicitResourceEnricher` adds infrastructure fr
 
 Provider choice is expressed through context + Resource Definition + executor registry, not provider-specific branches scattered through DeploymentService.
 
+For the seeded catalog, each profile-specific Definition declares an optional
+`execution_profile` guard. The planner filters by that guard before applying
+the existing five-field criteria and specificity weights. A missing guard
+remains profile-neutral for shared Definitions and conformance fixtures;
+`env_type` continues to mean Environment type, not cluster/cloud target.
+
 ## Consequences
 
 - VPC/EKS are reused across Environments of one Application.

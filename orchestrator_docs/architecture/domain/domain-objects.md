@@ -16,7 +16,7 @@ last_reviewed: 2026-09-23
 | Application | `Application` | system ID, name, subdomain, Execution Profile binding | ID do hệ thống sinh; profile cố định khi đã có Active Resource; AWS scope sở hữu tối đa một VPC/EKS descriptor. |
 | Environment | `Environment` | namespace identity, current-set pointer | Thuộc một Application; UC-01 tạo đúng `staging` và `production`; desired endpoint được suy ra từ Application Subdomain và Environment key; current Deployment Set chỉ đổi trong final deployment transaction. |
 | Resource Type | `ResourceType` | input/output schema | Contract độc lập implementation. |
-| Resource Definition | `ResourceDefinition` | Matching Criteria, driver inputs, provision rules | Cùng Resource Type; criteria match deterministic; output contract tương thích. |
+| Resource Definition | `ResourceDefinition` | optional Execution Profile guard, Matching Criteria, driver inputs, provision rules | Cùng Resource Type và profile hợp lệ; criteria match deterministic; output contract tương thích. |
 | Connection | `Connection` | verification metadata | Chỉ secret reference được persist; chỉ `READY` được sử dụng. |
 | Deployment | `Deployment` | `DeploymentDeltaSnapshot`, `DeploymentPlan`, deployment-resource progress | Delta Snapshot immutable ngay khi persist; Plan immutable khi Deployment rời `PLANNING`; `SUCCEEDED` chỉ sau workload readiness. |
 | Active Resource | `ActiveResource` | executor state, outputs | Logical identity unique theo Organization + descriptor + scope. |

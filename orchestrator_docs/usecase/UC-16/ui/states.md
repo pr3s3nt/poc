@@ -17,6 +17,7 @@ related: UC-16
 | Form | Missing/invalid reference | Identify variable/secret row and source; disable Save until corrected. |
 | Form | Missing UC-12 key | Explain the missing key in this Environment; link to Application Variables & Secrets. |
 | Form | Invalid Service target | Explain missing target, missing Service/port or target pending deletion; retain other form fields. |
+| Form | Missing/invalid resource input | Identify dependency and required input; retain entered values and prevent invalid save. |
 | Form | Secret source | Show name/output classification only; never echo secret value. |
 | Import | Parsing/invalid | Show file progress or field-level error; direct literal binding is rejected. |
 | Save | Submitting/error/success | Prevent double submit; preserve form on error; return to Application home with pending label on success. |

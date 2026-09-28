@@ -17,7 +17,7 @@ Application keys use the virtual Score `environment` resource and
 - Workload configuration boundary: present and parse form/Score input; never
   offer a literal variable/secret value field.
 - Reference catalog: list UC-12 keys for the selected Application/Environment,
-  declared resource outputs by classification, and same-Environment workload
+  declared resource inputs and outputs by classification, and same-Environment workload
   Services and ports.
 - Workload configuration control: validate the selected references, save a
   desired change or mark a workload pending deletion; do not call deployment.
@@ -30,7 +30,7 @@ Application keys use the virtual Score `environment` resource and
 | Step | Collaboration |
 |---|---|
 | MS-01–MS-02 | Read selected Environment's workload list and open the form or Score importer. |
-| MS-03 | Collect workload fields and declared resource dependencies. |
+| MS-03 | Collect workload fields, declared resource dependencies and typed input params from Resource Type contracts; reject missing required inputs. |
 | MS-04–MS-05 | Read eligible UC-12, resource-output and Service references; keep values of secrets hidden. |
 | MS-06 | Validate each reference against scope, output classification and target Service/port; return field-level errors on failure. |
 | MS-07 | Save desired configuration, return pending status and a UC-05 Preview affordance. |

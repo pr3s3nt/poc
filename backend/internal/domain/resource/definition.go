@@ -94,14 +94,15 @@ type ProvisionRule struct {
 
 // Definition is a Resource Definition: how a Resource Type is implemented (UC-03).
 type Definition struct {
-	Key             string                   `json:"key"`
-	ResourceTypeKey string                   `json:"resourceType"`
-	DriverType      DriverType               `json:"driverType"`
-	ConnectionKey   string                   `json:"connectionKey,omitempty"`
-	DriverInputs    map[string]any           `json:"driverInputs,omitempty"`
-	Provision       map[string]ProvisionRule `json:"provision,omitempty"`
-	Criteria        []Criterion              `json:"criteria"`
-	SourceFingerpr  string                   `json:"sourceFingerprint,omitempty"`
+	Key              string                   `json:"key"`
+	ResourceTypeKey  string                   `json:"resourceType"`
+	ExecutionProfile string                   `json:"executionProfile,omitempty"`
+	DriverType       DriverType               `json:"driverType"`
+	ConnectionKey    string                   `json:"connectionKey,omitempty"`
+	DriverInputs     map[string]any           `json:"driverInputs,omitempty"`
+	Provision        map[string]ProvisionRule `json:"provision,omitempty"`
+	Criteria         []Criterion              `json:"criteria"`
+	SourceFingerpr   string                   `json:"sourceFingerprint,omitempty"`
 }
 
 // DriverValues returns `driverInputs.values`, the Humanitec container for the
@@ -153,6 +154,9 @@ func (d Definition) Validate() error {
 	}
 	if d.ResourceTypeKey == "" {
 		return fmt.Errorf("resource: definition %q has no resource type", d.Key)
+	}
+	if d.ExecutionProfile != "" && d.ExecutionProfile != "internal-k8s" && d.ExecutionProfile != "aws-eks" {
+		return fmt.Errorf("resource: definition %q has unknown execution profile %q", d.Key, d.ExecutionProfile)
 	}
 	switch d.DriverType {
 	case DriverTerraform, DriverKubernetes, DriverExistingCluster, DriverEcho:

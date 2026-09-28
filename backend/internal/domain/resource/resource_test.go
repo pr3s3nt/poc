@@ -64,6 +64,17 @@ func TestCriterionMatchesOnlyDeclaredFields(t *testing.T) {
 	}
 }
 
+func TestDefinitionRejectsUnknownExecutionProfile(t *testing.T) {
+	d := Definition{Key: "postgres", ResourceTypeKey: "postgres", DriverType: DriverKubernetes, Criteria: []Criterion{{}}, ExecutionProfile: "unknown"}
+	if err := d.Validate(); err == nil {
+		t.Fatal("expected invalid profile rejection")
+	}
+	d.ExecutionProfile = "internal-k8s"
+	if err := d.Validate(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestValidateParamsEnforcesInputContract(t *testing.T) {
 	typ := Type{Key: "postgres", Inputs: []InputField{
 		{Name: "database", Type: "string", Required: true},

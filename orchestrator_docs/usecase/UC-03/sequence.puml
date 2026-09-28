@@ -10,7 +10,7 @@ database ResourceTypeRepository as TypeRepo
 database ConnectionRepository as ConnectionRepo
 database ResourceDefinitionRepository as DefinitionRepo
 
-PE -> API: RegisterResourceDefinition(document) [MS-01..MS-02]
+PE -> API: RegisterResourceDefinition(document, optional profile) [MS-01..MS-02]
 API -> Service: RegisterResourceDefinition(ctx, command)
 Service -> Validator: ValidateStructureAndCriteria(command) [MS-03, BR-07]
 Validator --> Service: valid
@@ -32,4 +32,8 @@ Service -> DefinitionRepo: Save(definition, criteria) <<transaction>> [MS-08]
 DefinitionRepo --> Service: ResourceDefinition
 Service --> API: ResourceDefinition [MS-09]
 API --> PE: Registered
+note right of DefinitionRepo
+Planning first filters by Definition profile,
+then scores the five standard criteria.
+end note
 @enduml

@@ -22,6 +22,8 @@ ResourceDefinitionService.RegisterResourceDefinition(ctx context.Context, cmd Re
 - `ResourceDefinitionController` — boundary nhận Definition document.
 - `ResourceDefinitionService` — control điều phối validation/persist.
 - `ResourceDefinition`, `MatchingCriterion`, `ResourceReference` — domain model.
+- `ResourceDefinition.execution_profile` — optional eligibility guard checked
+  before five-field criteria scoring; it has no specificity weight.
 - `DefinitionValidator` — validate driver inputs, references, rules và output contract.
 - `ResourceTypeRepository`, `ConnectionRepository`, `ResourceDefinitionRepository` — persistence ports.
 - `DriverContractInspector` — port kiểm tra Terraform/Kubernetes contract tĩnh.
@@ -36,7 +38,7 @@ ResourceDefinitionService.RegisterResourceDefinition(ctx context.Context, cmd Re
 | MS-06 | Repository/unique constraint bảo vệ Definition ID. |
 | MS-07 | `DriverContractInspector.Inspect` đối chiếu outputs với Resource Type. |
 | MS-08–MS-09 | Save Definition + criteria atomically và publish qua repository query. |
-| VAR-01/VAR-02 | Driver type/connection khác nhau, service flow không đổi. |
+| VAR-01/VAR-02 | Filter Definition by Application profile, then match criteria; driver type/connection khác nhau, service flow không đổi. |
 
 ## Transaction boundary
 

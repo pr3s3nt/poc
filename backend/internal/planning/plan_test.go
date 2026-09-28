@@ -149,6 +149,39 @@ func TestPlan_UsesDeploymentSetPathsAsResourceIdentity(t *testing.T) {
 	}
 }
 
+func TestPlan_NewApplicationMatchesPostgresByExecutionProfile(t *testing.T) {
+	for _, tc := range []struct {
+		profile    application.ExecutionProfile
+		definition string
+	}{
+		{application.ProfileInternalK8s, "postgres-internal-statefulset"},
+		{application.ProfileAWSEKS, "postgres-aws-aurora"},
+	} {
+		t.Run(string(tc.profile), func(t *testing.T) {
+			req := testRequest(t, tc.profile, "backend")
+			req.App.Key = "new-application"
+			req.Env.ApplicationKey = req.App.Key
+			req.Env.NamespaceIdentity = "new-application-staging"
+			plan, err := NewService().Plan(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, match := range plan.Matches {
+				if strings.HasPrefix(match.Descriptor, "postgres.") {
+					found = true
+					if match.DefinitionKey != tc.definition {
+						t.Fatalf("matched %s, want %s", match.DefinitionKey, tc.definition)
+					}
+				}
+			}
+			if !found {
+				t.Fatal("postgres resource not matched")
+			}
+		})
+	}
+}
+
 func TestPlan_InternalGraphIsProviderFirst(t *testing.T) {
 	plan, err := NewService().Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {

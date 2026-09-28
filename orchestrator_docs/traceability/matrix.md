@@ -43,6 +43,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | MS-04, MS-05 | same | type/connection repository reads; `ValidateReferencesAndRules` | `resource_types`, `connections` | OC-04; invalid reference test |
 | MS-06, MS-07 | same | `ResourceDefinitionRepository.Exists`, `DriverContractInspector.Inspect` | source fingerprint candidate | OC-04; output mismatch test |
 | MS-08, MS-09; BR-07 | same | `ResourceDefinitionRepository.Save/FindCandidates` | `resource_definitions`, `matching_criteria` | OC-04; matching query integration test; explicit `{}` wildcard test; conformance adapter skips external missing/empty criteria (`TestReadDefinitionsCriteriaShapes`, `TestProductPlannerRejectsCriteriaLessDefinition`) |
+| BR-01, BR-03 | [ADR-001](../architecture/decisions/ADR-001-profile-resource-scopes.md) | Optional Definition profile guard before unchanged five-field scoring | `TestPlan_NewApplicationMatchesPostgresByExecutionProfile`, invalid-profile validation |
 
 ## UC-04
 
@@ -155,6 +156,7 @@ local tests; create and configuration-only redeploy are verified on kind.
 | Steps | Design artifact | Required state/validation | Planned test |
 |---|---|---|---|
 | MS-01–MS-03 | [Screens](../usecase/UC-16/ui/screens.md), [sequence](../usecase/UC-16/sequence.puml) | Selected Environment and workload form/import | Environment isolation and form/import parity |
+| MS-03, BR-11 | [Specification](../usecase/UC-16/specification.md), [screens](../usecase/UC-16/ui/screens.md) | Resource Type inputs shown on form; required params validated and written into Score | `WorkloadEditorPage.test.tsx` PostgreSQL params test |
 | MS-04–MS-05 | [Specification](../usecase/UC-16/specification.md) BR-02–BR-05 | UC-12, resource-output and same-Environment Service references; no literal binding or secret disclosure | Source eligibility, missing key/output/port, cross-Environment rejection and secret redaction |
 | MS-06–MS-07 | [Realization](../usecase/UC-16/realization.md) | Validate then save pending desired change; current Deployment Set/runtime unchanged | Field errors, pending-save and no-runtime-mutation tests |
 | VAR-01–VAR-02 | [States](../usecase/UC-16/ui/states.md) | Score import uses same rules; deletion requires confirmation and supports Undo | Literal-import rejection, import parity and pending-delete/undo tests |

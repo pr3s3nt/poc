@@ -30,7 +30,7 @@ last_reviewed: 2026-09-22
 ## Main success scenario
 
 1. **MS-01:** Platform Engineer cung cấp Definition ID, Resource Type, Driver Type và Driver Inputs.
-2. **MS-02:** Platform Engineer khai báo Matching Criteria bằng các field `env_type`, `app_id`, `env_id`, `res_id` và `class`.
+2. **MS-02:** Platform Engineer chọn `execution_profile` áp dụng cho Definition (hoặc để trống nếu dùng chung), rồi khai báo Matching Criteria bằng các field `env_type`, `app_id`, `env_id`, `res_id` và `class`.
 3. **MS-03:** Orchestrator validate cấu trúc Resource Definition và yêu cầu ít
    nhất một Matching Criterion.
 4. **MS-04:** Orchestrator kiểm tra Resource Type, Driver và Driver Account/connection được tham chiếu tồn tại.
@@ -56,9 +56,9 @@ last_reviewed: 2026-09-22
 
 ## Quy tắc nghiệp vụ
 
-- **BR-01:** Definition chỉ được xét cho node có cùng Resource Type.
+- **BR-01:** Definition chỉ được xét cho node có cùng Resource Type và có `execution_profile` trống hoặc bằng profile của Application. Profile là điều kiện lọc trước matching, không cộng điểm specificity.
 - **BR-02:** Matching chọn criterion hợp lệ có specificity cao nhất; happy path yêu cầu đúng một Definition thắng.
-- **BR-03:** Matching Criteria phân biệt `aws-eks` và `internal-k8s` bằng chính các field chuẩn, thường là `app_id` (Execution Profile gắn cố định vào Application) hoặc `env_type`. Không có field riêng cho Execution Profile.
+- **BR-03:** `execution_profile` là thuộc tính của Definition, không phải field Matching Criterion. Hai Definition PostgreSQL theo profile dùng cùng 5 field chuẩn để xét context sau khi lọc profile; `env_type` vẫn là loại Environment, không đại diện target nội bộ/cloud.
 - **BR-06:** Matching Criteria chỉ gồm năm field chuẩn với trọng số cố định:
 
   | Field | Trọng số |
@@ -83,7 +83,7 @@ UC-03 Register Resource Definition
 ├── Parse Definition document
 ├── Validate Resource Type and Driver
 ├── Validate Driver Inputs and references
-├── Validate Execution Profile Matching Criteria
+├── Validate optional Execution Profile guard and Matching Criteria
 ├── Validate common Resource Type output contract
 ├── Persist Definition and Criteria
 └── Publish Definition for deployment matching
@@ -102,7 +102,7 @@ UC-03 Register Resource Definition
 ## Trạng thái implementation hiện tại
 
 - Seed catalog đã có Definitions cho implicit VPC/EKS/namespace, existing cluster, Aurora và PostgreSQL StatefulSet; executor registry chọn Terraform/Kubernetes/existing-cluster adapter theo matched Definition.
-- Planner đã hỗ trợ năm Matching Criteria chuẩn, Driver Inputs, Resource References, provision rules, fixed-point expansion và kiểm tra Terraform contract.
+- Planner đã hỗ trợ optional Execution Profile guard trước năm Matching Criteria chuẩn, Driver Inputs, Resource References, provision rules, fixed-point expansion và kiểm tra Terraform contract. Seeded PostgreSQL Definitions áp dụng cho mọi Application cùng profile.
 - Terraform execution của MVP chỉ hỗ trợ các module `vpc`, `eks` và `aurora` được nhúng trong binary. Conformance harness có thể inspect `source.url[@rev][/path]`, nhưng runtime chưa tải hoặc execute Terraform source từ xa.
 - API quản trị, PostgreSQL persistence và nghiệp vụ `RegisterResourceDefinition` vẫn thuộc Phase 6 bước 5; hiện catalog được seed khi process khởi động.
 - Driver enum ngắn, `ConnectionKey`, `source.module` và context placeholder mở
