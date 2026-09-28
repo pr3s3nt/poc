@@ -87,6 +87,55 @@ func (p *Provider) PrepareWorkloadAccess(ctx context.Context, app, env, workload
 	return configport.WorkloadAccess{Role: role, Address: p.agentAddress, ServiceAccount: serviceAccount}, nil
 }
 
+// PrepareWorkloadBundle creates an immutable, workload-scoped KV object for
+// VSO. A fresh deployment ID means a new path and Kubernetes Secret, so a
+// desired revision cannot alter a running Pod before Preview -> Deploy.
+func (p *Provider) PrepareWorkloadBundle(ctx context.Context, app, env, workload, namespace, revisionID, deploymentID string, refs map[string]map[string]string) (configport.WorkloadBundle, error) {
+	if !safeSegment.MatchString(app) || !safeSegment.MatchString(workload) || !safeSegment.MatchString(namespace) || !safeSegment.MatchString(revisionID) || !safeSegment.MatchString(deploymentID) || (env != "staging" && env != "production") {
+		return configport.WorkloadBundle{}, fmt.Errorf("vault: invalid workload bundle scope")
+	}
+	data := map[string]string{}
+	keys := map[string]map[string]string{}
+	for container, entries := range refs {
+		if !safeSegment.MatchString(container) {
+			return configport.WorkloadBundle{}, fmt.Errorf("vault: invalid container name")
+		}
+		keys[container] = map[string]string{}
+		for name, ref := range entries {
+			if !safeSegment.MatchString(name) {
+				return configport.WorkloadBundle{}, fmt.Errorf("vault: invalid environment variable name")
+			}
+			path, ok := strings.CutPrefix(ref, "kv2://"+p.mount+"/")
+			if !ok || !validValuePath(path) || !strings.HasPrefix(path, pathPrefix+app+"/envs/"+env+"/values/") {
+				return configport.WorkloadBundle{}, fmt.Errorf("vault: value reference is outside workload scope")
+			}
+			value, err := p.ReadValue(ctx, ref)
+			if err != nil {
+				return configport.WorkloadBundle{}, err
+			}
+			key := container + "_" + name
+			if len(key) > 253 {
+				return configport.WorkloadBundle{}, fmt.Errorf("vault: configuration key is too long")
+			}
+			data[key] = value
+			keys[container][name] = key
+		}
+	}
+	if len(data) == 0 {
+		return configport.WorkloadBundle{}, fmt.Errorf("vault: no workload configuration references")
+	}
+	path := pathPrefix + app + "/envs/" + env + "/values/" + deploymentID
+	if err := p.writeObject(ctx, "/v1/"+p.mount+"/data/"+path, map[string]any{"options": map[string]any{"cas": 0}, "data": data}); err != nil {
+		return configport.WorkloadBundle{}, fmt.Errorf("vault: create workload bundle: %w", err)
+	}
+	access, err := p.PrepareWorkloadAccess(ctx, app, env, workload, namespace, revisionID, []string{"kv2://" + p.mount + "/" + path})
+	if err != nil {
+		return configport.WorkloadBundle{}, err
+	}
+	hash := sha256.Sum256([]byte(app + "/" + env + "/" + workload + "/" + deploymentID))
+	return configport.WorkloadBundle{Address: access.Address, Mount: p.mount, Path: path, Role: access.Role, ServiceAccount: access.ServiceAccount, SecretName: "orch-" + hex.EncodeToString(hash[:10]), Keys: keys}, nil
+}
+
 func (p *Provider) writeObject(ctx context.Context, path string, body any) error {
 	encoded, err := json.Marshal(body)
 	if err != nil {

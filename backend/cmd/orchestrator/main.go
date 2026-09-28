@@ -42,6 +42,7 @@ func main() {
 	vaultAddress := flag.String("vault-address", os.Getenv("ORCHESTRATOR_VAULT_ADDR"), "Vault API address for UC-12")
 	vaultTokenFile := flag.String("vault-token-file", os.Getenv("ORCHESTRATOR_VAULT_TOKEN_FILE"), "path to scoped Vault token file for UC-12")
 	vaultAgentAddress := flag.String("vault-agent-address", os.Getenv("ORCHESTRATOR_VAULT_AGENT_ADDR"), "in-cluster Vault address used by injected workload Pods")
+	vaultDelivery := flag.String("vault-delivery", "auto", "UC-12 Kubernetes delivery: auto, vso or agent")
 	workloadDelivery := flag.String("workload-delivery", "direct", "workload delivery: direct or fleet-gitrepo (kind only)")
 	gitopsRepoDir := flag.String("gitops-repo-dir", "", "writable local clone of the Fleet GitOps repository")
 	gitopsBranch := flag.String("gitops-branch", "main", "Fleet GitOps branch")
@@ -106,6 +107,7 @@ func main() {
 		VaultAddress:           *vaultAddress,
 		VaultTokenFile:         *vaultTokenFile,
 		VaultAgentAddress:      *vaultAgentAddress,
+		VaultDelivery:          *vaultDelivery,
 		WorkloadDelivery:       *workloadDelivery,
 		GitOpsRepoDir:          *gitopsRepoDir,
 		GitOpsBranch:           *gitopsBranch,

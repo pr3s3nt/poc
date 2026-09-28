@@ -138,7 +138,7 @@ lifecycle are not covered.
 | MS-02–MS-03 | [Specification](../usecase/UC-12/specification.md) BR-01–BR-03 | Scoped uniqueness; secret write without readback | Duplicate names, secret redaction and no-readback tests |
 | MS-04 | [Realization](../usecase/UC-12/realization.md) | Affected workloads and pending Preview → Deploy; runtime unchanged | Impact list and no-runtime-mutation tests |
 | VAR-01–VAR-03 | [States](../usecase/UC-12/ui/states.md) | Warning but allow rename/delete; no automatic reference repair; secret replacement hidden | Warning/confirm, broken-reference Preview rejection and secret-update tests |
-| BR-08–BR-10 | [ADR-006](../architecture/decisions/ADR-006-application-configuration-provider.md) | Per-Application provider; immutable desired/applied revisions; Injector file imported by workload startup | Provider isolation, pending-vs-applied revision, injected-file redaction and restart tests |
+| BR-08–BR-10, BR-14 | [ADR-006](../architecture/decisions/ADR-006-application-configuration-provider.md), [ADR-008](../architecture/decisions/ADR-008-vso-native-secret-delivery.md) | Per-Application provider; immutable desired/applied revisions; VSO Secret with `secretKeyRef` on kind | Provider isolation, pending-vs-applied revision, VSO Secret synchronization and restart tests |
 
 ## UC-16 — MVP implementation trace
 

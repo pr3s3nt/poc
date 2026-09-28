@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# UC-12/16 desired configuration, Preview -> Deploy, and Vault Agent on kind.
+# UC-12/16 desired configuration, Preview -> Deploy, and VSO on kind.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -37,6 +37,7 @@ trap cleanup EXIT
 [[ "$(kubectl config current-context)" == "${CONTEXT}" ]]
 [[ -s "${TOKEN_FILE}" ]]
 kubectl --context "${CONTEXT}" -n vault wait --for=condition=Ready pod/vault-uc12-0 --timeout=60s >/dev/null
+kubectl --context "${CONTEXT}" -n vault-secrets-operator-system rollout status deployment/vault-secrets-operator-controller-manager --timeout=60s >/dev/null
 kubectl --context "${CONTEXT}" -n vault port-forward svc/vault-uc12 18211:8200 > "${WORK}/vault-port-forward.log" 2>&1 &
 VAULT_PID=$!
 for _ in $(seq 1 40); do
@@ -51,6 +52,7 @@ go build -o "${WORK}/orchestrator" ./cmd/orchestrator
   -adapters kubernetes -kube-context "${CONTEXT}" -cluster idp-internal -run-id "${RUN_ID}" \
   -vault-address http://127.0.0.1:18211 -vault-token-file "${TOKEN_FILE}" \
   -vault-agent-address http://vault-uc12.vault.svc:8200 \
+  -vault-delivery vso \
   -ui-dir "${ROOT}/../frontend/dist" > "${WORK}/orchestrator.log" 2>&1 &
 API_PID=$!
 for _ in $(seq 1 80); do
@@ -77,7 +79,7 @@ curl -fsS -b "${WORK}/cookies" -X PUT -H 'Content-Type: application/json' \
   "${BASE}/configuration/keys/API_TOKEN" > "${WORK}/configuration.json"
 if rg -q "${TEST_VALUE}" "${WORK}/configuration.json"; then echo "secret leaked in API response" >&2; exit 1; fi
 
-jq -n '{apiVersion:"score.dev/v1b1",metadata:{name:"probe"},containers:{main:{image:"busybox:1.37",command:["/bin/sh","-c"],args:["set -eu; . \"$ORCHESTRATOR_CONFIG_FILE\"; test -n \"$API_TOKEN\"; sleep 600"],variables:{API_TOKEN:"${resources.env.API_TOKEN}"}}},resources:{env:{type:"environment"}}}' \
+jq -n '{apiVersion:"score.dev/v1b1",metadata:{name:"probe"},containers:{main:{image:"busybox:1.37",command:["/bin/sh","-c"],args:["set -eu; test -n \"$API_TOKEN\"; sleep 600"],variables:{API_TOKEN:"${resources.env.API_TOKEN}"}}},resources:{env:{type:"environment"}}}' \
   | jq '{score:.,version:0}' \
   | curl -fsS -b "${WORK}/cookies" -X PUT -H 'Content-Type: application/json' --data-binary @- "${BASE}/workloads/probe" > "${WORK}/draft.json"
 
@@ -92,8 +94,10 @@ jq '{token:.token}' "${WORK}/preview.json" | curl -fsS -b "${WORK}/cookies" -X P
 jq -e '.status == "SUCCEEDED"' "${WORK}/deploy.json" >/dev/null
 kubectl --context "${CONTEXT}" -n "${NAMESPACE}" rollout status deployment/probe --timeout=180s
 kubectl --context "${CONTEXT}" -n "${NAMESPACE}" get deployment probe -o json > "${WORK}/deployment.json"
-jq -e '.spec.template.metadata.annotations["vault.hashicorp.com/agent-inject"] == "true" and .spec.template.spec.serviceAccountName != null' "${WORK}/deployment.json" >/dev/null
-if kubectl --context "${CONTEXT}" -n "${NAMESPACE}" get secret probe-env >/dev/null 2>&1; then echo "UC-12 value was copied to Kubernetes Secret" >&2; exit 1; fi
+jq -e '.spec.template.spec.containers[0].env[] | select(.name == "API_TOKEN") | .valueFrom.secretKeyRef.name | startswith("orch-")' "${WORK}/deployment.json" >/dev/null
+FIRST_SECRET="$(jq -r '.spec.template.spec.containers[0].env[] | select(.name == "API_TOKEN") | .valueFrom.secretKeyRef.name' "${WORK}/deployment.json")"
+kubectl --context "${CONTEXT}" -n "${NAMESPACE}" get secret "${FIRST_SECRET}" -o name >/dev/null
+kubectl --context "${CONTEXT}" -n "${NAMESPACE}" exec deployment/probe -- sh -c 'test -n "$API_TOKEN"' >/dev/null
 if rg -q "${TEST_VALUE}" "${WORK}/state.json" "${WORK}/deployment.json"; then echo "secret leaked to state or Deployment" >&2; exit 1; fi
 
 curl -fsS -b "${WORK}/cookies" -X PUT -H 'Content-Type: application/json' \
@@ -104,6 +108,9 @@ jq -e '.changes | length == 1' "${WORK}/rotation-preview.json" >/dev/null
 jq '{token:.token}' "${WORK}/rotation-preview.json" | curl -fsS -b "${WORK}/cookies" -X POST -H 'Content-Type: application/json' --data-binary @- "${BASE}/deploy" > "${WORK}/rotation-deploy.json"
 jq -e '.status == "SUCCEEDED"' "${WORK}/rotation-deploy.json" >/dev/null
 kubectl --context "${CONTEXT}" -n "${NAMESPACE}" rollout status deployment/probe --timeout=180s
+SECOND_SECRET="$(kubectl --context "${CONTEXT}" -n "${NAMESPACE}" get deployment probe -o json | jq -r '.spec.template.spec.containers[0].env[] | select(.name == "API_TOKEN") | .valueFrom.secretKeyRef.name')"
+[[ "${FIRST_SECRET}" != "${SECOND_SECRET}" ]]
+kubectl --context "${CONTEXT}" -n "${NAMESPACE}" exec deployment/probe -- sh -c 'test -n "$API_TOKEN"' >/dev/null
 curl -fsS -b "${WORK}/cookies" -X POST -H 'Content-Type: application/json' --data '{}' "${BASE}/preview" > "${WORK}/after.json"
 jq -e '.changes | length == 0' "${WORK}/after.json" >/dev/null
 curl -fsS -b "${WORK}/cookies" "${BASE}/workloads" > "${WORK}/workloads.json"

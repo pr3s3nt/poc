@@ -21,3 +21,15 @@ type WorkloadAccess struct {
 type WorkloadAccessPreparer interface {
 	PrepareWorkloadAccess(ctx context.Context, app, env, workload, namespace, revisionID string, refs []string) (WorkloadAccess, error)
 }
+
+// WorkloadBundle is the immutable Vault source and Kubernetes destination for
+// one applied workload revision. Keys map container/environment names to Secret
+// data keys; no value bytes cross this port.
+type WorkloadBundle struct {
+	Address, Mount, Path, Role, ServiceAccount, SecretName string
+	Keys                                                   map[string]map[string]string
+}
+
+type WorkloadBundlePreparer interface {
+	PrepareWorkloadBundle(ctx context.Context, app, env, workload, namespace, revisionID, deploymentID string, refs map[string]map[string]string) (WorkloadBundle, error)
+}

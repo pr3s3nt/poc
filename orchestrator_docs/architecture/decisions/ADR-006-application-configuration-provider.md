@@ -10,6 +10,8 @@ last_reviewed: 2026-09-27
 Status: Accepted
 Date: 2026-09-26
 
+Vault Agent delivery in decision 4 and 8 is superseded by [ADR-008](ADR-008-vso-native-secret-delivery.md); the provider/revision decisions remain accepted.
+
 ## Context
 
 UC-12 manages Variables & Secrets for the two Environments of each Application.

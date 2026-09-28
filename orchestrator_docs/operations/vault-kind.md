@@ -46,11 +46,43 @@ policy/token and the `vault-uc12-auth-delegator` ClusterRoleBinding were
 configured on 2026-09-27. The backend token is held in an owner-only file
 outside the repository and supplied with `-vault-token-file`; it is not a root
 token. The adapter creates a narrowly scoped per-workload read policy and
-Kubernetes auth role. The Pod annotations direct the existing Injector to
-`vault-uc12.vault.svc:8200`, rendering a shell-sourceable file at
-`/vault/secrets/app-env`. The workload startup script must source
-`$ORCHESTRATOR_CONFIG_FILE` before launching its process. Values are not copied
-to Kubernetes Secrets or Deployment annotations.
+Kubernetes auth role. The current kind delivery uses Vault Secrets Operator
+(VSO) 1.5.1 in `vault-secrets-operator-system`. It authenticates with the
+workload-scoped Kubernetes role, synchronizes a pinned Vault bundle to a
+namespace-local Secret, and the Pod reads keys through `secretKeyRef`.
+Run the backend with `-vault-delivery vso` and an explicit Kubernetes target.
+For a fresh kind cluster, install the pinned controller chart only after
+verifying the active context and Vault readiness:
+
+```bash
+kubectl config current-context
+helm repo add hashicorp https://helm.releases.hashicorp.com
+helm repo update hashicorp
+helm --kube-context kind-idp-internal install vault-secrets-operator \
+  hashicorp/vault-secrets-operator --version 1.5.1 \
+  --namespace vault-secrets-operator-system --create-namespace --wait
+```
+
+The pre-existing Injector is left installed for `-vault-delivery agent` legacy
+mode; that mode needs a workload startup script to source
+`$ORCHESTRATOR_CONFIG_FILE`. Secret values never enter Deployment annotations
+or GitOps manifests, but VSO mode does store them in Kubernetes Secret/etcd.
+
+To inspect VSO health without exposing values:
+
+```bash
+kubectl --context kind-idp-internal -n vault-secrets-operator-system get pods
+kubectl --context kind-idp-internal get crd vaultstaticsecrets.secrets.hashicorp.com
+kubectl --context kind-idp-internal -n <workload-namespace> get vaultconnection,vaultauth,vaultstaticsecret
+kubectl --context kind-idp-internal -n <workload-namespace> get secret <orch-secret-name> -o name
+```
+
+Do not print Secret data or Vault bundle values. VSO sync failure prevents
+workload apply after the sync timeout. Failed/retried deployments and old
+revisions currently leave VSO objects, Kubernetes Secrets and Vault bundles;
+cleanup must be planned before production. Ensure Kubernetes Secret encryption
+at rest and tight RBAC before production use. VSO CRs are applied directly by
+the backend before workload delivery, including when Fleet GitRepo mode is used.
 
 After a Vault restart, unseal it before starting a deploy. The current scoped
 backend token has a finite TTL (created with 720h); rotate it before expiry
@@ -70,5 +102,6 @@ cleanup step for a test.
 ## References
 
 - [ADR-006](../architecture/decisions/ADR-006-application-configuration-provider.md)
+- [ADR-008](../architecture/decisions/ADR-008-vso-native-secret-delivery.md)
 - [Vault initialization](https://developer.hashicorp.com/vault/docs/commands/operator/init)
-- [Vault Agent Injector](https://developer.hashicorp.com/vault/docs/deploy/kubernetes/injector)
+- [Vault Secrets Operator](https://developer.hashicorp.com/vault/docs/deploy/kubernetes/vso)

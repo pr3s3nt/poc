@@ -88,11 +88,12 @@ cùng Environment có thể tham chiếu và tái sử dụng.
   revision đã áp dụng. Workload đang chạy và Pod được tạo trước Deploy phải tiếp
   tục dùng revision đã áp dụng. Preview xác định workload bị ảnh hưởng; chỉ
   Deploy hợp lệ mới chuyển revision áp dụng và khởi động lại các workload đó.
-- **BR-10:** Với provider Vault trên Kubernetes, secret được Vault Agent Injector
-  đưa vào Pod dưới dạng file. Script khởi động workload nạp file thành biến môi
-  trường trước khi chạy ứng dụng. Giá trị secret không được ghi vào Score,
-  Deployment Set, Kubernetes Secret hoặc Pod annotations. Tiến trình đang chạy
-  không tự nhận giá trị mới khi file thay đổi.
+- **BR-10:** Với provider Vault trên Kubernetes, VSO đồng bộ đúng revision được
+  Deploy thành Kubernetes Secret trong namespace của workload. Container nhận
+  key đã tham chiếu qua `env.valueFrom.secretKeyRef`; image không phải đọc file
+  hoặc thay đổi startup command. Giá trị không được ghi vào Score, Deployment
+  Set, GitOps repo, Pod spec/annotations, log hay response đọc. Tiến trình đang
+  chạy không tự nhận giá trị mới khi Secret thay đổi.
 - **BR-11:** UC-16 dùng resource `env` loại `environment` trong Score; một key
   được tham chiếu bằng `${resources.env.KEY}`. Hệ thống xác định key là Variable
   hay Secret từ cấu hình UC-12 của đúng Application/Environment, không từ tên
@@ -104,9 +105,11 @@ cùng Environment có thể tham chiếu và tái sử dụng.
   thái áp dụng một phần và tên workload thành công/thất bại. Không đánh dấu
   Environment đã áp dụng toàn bộ revision; workload thành công giữ revision đã
   áp dụng của chính nó để lần Deploy sau tiếp tục an toàn.
-- **BR-14:** Injector chỉ cấp file chứa các key mà workload tham chiếu. Nội
-  dung file được escape an toàn cho shell; script của workload nạp file rồi
-  chạy ứng dụng. Mỗi workload chỉ có quyền đọc file/revision được cấp cho nó.
+- **BR-14:** VSO chỉ đồng bộ các key mà workload tham chiếu từ bundle bất biến
+  của Application/Environment/workload/revision. Mỗi bundle có Secret đích riêng;
+  quyền đọc Vault chỉ cho bundle đó. Deploy phải xác nhận Secret của revision đã
+  đồng bộ trước khi apply workload và chỉ báo thành công sau readiness. Đổi giá
+  trị tạo revision chờ Preview → Deploy, không tự rollout workload.
 
 ## Ngoài phạm vi
 
@@ -117,7 +120,7 @@ cùng Environment có thể tham chiếu và tái sử dụng.
 ## Trạng thái implementation hiện tại
 
 Đã có API/UI quản lý Application variables/secrets theo Environment, desired
-revision, Vault KV v2 adapter, resolution tham chiếu khi Preview/Deploy,
-Vault Agent Injector và applied revision theo workload. Fake mode dùng provider
-bộ nhớ; Vault-backed kind path đã được kiểm chứng. HA, backup và secret
-lifecycle production chưa thuộc MVP.
+revision, Vault KV v2 adapter, resolution tham chiếu khi Preview/Deploy và
+applied revision theo workload. VSO/Secret delivery theo ADR-008 đã được kiểm
+chứng trên kind; Agent Injector vẫn là đường tương thích cũ. Fake mode dùng
+provider bộ nhớ. HA, backup và secret lifecycle production chưa thuộc MVP.

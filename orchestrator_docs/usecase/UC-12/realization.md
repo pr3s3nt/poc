@@ -10,6 +10,8 @@ last_reviewed: 2026-09-27
 This sketch traces the approved [specification](specification.md). The shared
 provider boundary and Vault implementation are described in
 [ADR-006](../../architecture/decisions/ADR-006-application-configuration-provider.md).
+Kubernetes Secret delivery follows
+[ADR-008](../../architecture/decisions/ADR-008-vso-native-secret-delivery.md).
 HTTP and snapshot operations are specified in the shared operation contract.
 
 ## Responsibilities
@@ -30,10 +32,11 @@ HTTP and snapshot operations are specified in the shared operation contract.
   inside immutable revision metadata, not raw values. Variable reads may
   expose values; secret reads expose only name/configured status at the
   application boundary.
-- Workload runtime: Vault Agent Injector renders a workload-specific file with
-  only selected keys. A workload-owned startup script safely imports the file
-  as environment variables and then executes the application. A new process
-  is required to consume a changed value.
+- Workload runtime: Vault bundles only the selected keys for a pinned deploy.
+  VSO synchronizes that bundle to a namespace-local Kubernetes Secret. The
+  Pod uses `secretKeyRef` for each environment variable; a new Pod is required
+  to consume a changed value. The legacy Agent file path remains supported
+  outside VSO mode.
 
 ## Trace main flow
 

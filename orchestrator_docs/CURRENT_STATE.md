@@ -38,7 +38,7 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-07 | Update/remove executable for UC-16 | Planner hỗ trợ before/shared rules và Delta; Preview → Deploy update/remove workload trên kind, có partial retry. Fleet GitRepo remove đã pass kind; broader lifecycle UI/history còn thiếu. |
 | UC-08 | Implemented and E2E verified | Kubernetes và Terraform resource execution, output propagation và persistence baseline đã pass. |
 | UC-09 | Partially implemented; deferred in M02/I06-04 | Deployment list/detail, Delta Snapshot document, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison là scope còn lại của I06-04 sau M00-a. |
-| UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và Vault Agent Injector đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
+| UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và VSO → namespace Secret → Pod `secretKeyRef` đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
 | UC-16 | MVP path implemented | Form/Score import, draft save/delete/undo, references, edit deployed workload bằng reconstructed Score, Preview → Deploy và partial retry đã có. Kind đã kiểm tra create, config-only redeploy và remove; broader update/cloud path cần external verification. |
 
 ## Executable baseline
@@ -80,9 +80,12 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 - Candidate Deployment Set chỉ trở thành current sau workload readiness.
 - Resource provisioning hiện chạy theo full-style behavior cho mọi resource
   node trong plan; workload execution chỉ apply workload mục tiêu của request.
-- UC-12 secret value chỉ lưu trong Vault KV; state snapshot, read API, Pod
-  spec và UC-09 view không chứa giá trị. Vault Agent tạo file trong Pod; startup
-  script của workload source file đó để nhận environment variables.
+- UC-12 secret value lưu trong Vault KV và, ở Kubernetes VSO mode, được đồng bộ
+  vào namespace-local Kubernetes Secret. State snapshot, read API, GitOps
+  manifests, Pod spec và UC-09 view không chứa giá trị. Pod nhận biến qua
+  `secretKeyRef` mà không cần startup script. Agent file delivery vẫn có thể
+  chọn như legacy mode. Production cần etcd encryption, least-privilege RBAC,
+  chính sách dọn Secret/bundle cũ và Vault HA/backup.
 - Web Console và acceptance application frontend là hai artifact độc lập.
 
 ## Known limitations and release gate

@@ -71,15 +71,28 @@ type Manifest struct {
 
 // RenderRequest describes a workload whose bindings are already resolved.
 type RenderRequest struct {
-	WorkloadID      string
-	Module          environment.Module
-	Namespace       string
-	Labels          map[string]string
-	PlainEnv        map[string]map[string]string
-	SecretEnv       map[string]map[string]string
-	DeploymentID    string
-	ImagePullSecret string
-	Vault           *VaultInjection
+	WorkloadID       string
+	Module           environment.Module
+	Namespace        string
+	Labels           map[string]string
+	PlainEnv         map[string]map[string]string
+	SecretEnv        map[string]map[string]string
+	DeploymentID     string
+	ImagePullSecret  string
+	Vault            *VaultInjection
+	ConfigSecretName string
+	ConfigSecretKeys map[string]map[string]string
+}
+
+// ConfigSecretSynchronizer reconciles VSO objects and verifies the Secret of
+// the exact workload revision before a Deployment is applied.
+type ConfigSecretSynchronizer interface {
+	Sync(ctx context.Context, target Target, bundle ConfigBundle) error
+}
+
+type ConfigBundle struct {
+	Address, Mount, Path, Role, ServiceAccount, SecretName string
+	Keys                                                   map[string]map[string]string
 }
 
 // VaultInjection supplies only opaque immutable value references to the

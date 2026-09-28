@@ -11,6 +11,7 @@ import (
 
 	"orchestrator/internal/adapters/configmemory"
 	"orchestrator/internal/adapters/fake"
+	k8s "orchestrator/internal/adapters/kubernetes"
 	"orchestrator/internal/adapters/secrets"
 	"orchestrator/internal/adapters/store"
 	tf "orchestrator/internal/adapters/terraform"
@@ -63,6 +64,7 @@ type Options struct {
 	VaultAddress           string
 	VaultTokenFile         string
 	VaultAgentAddress      string
+	VaultDelivery          string
 	WorkloadDelivery       string
 	GitOpsRepoDir          string
 	GitOpsBranch           string
@@ -183,6 +185,20 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	}
 	configurations := appconfig.NewService(st, configProvider)
 	deployments.SetConfigurationProvider(configProvider)
+	vaultDelivery := opts.VaultDelivery
+	if vaultDelivery == "auto" && opts.Adapters == AdapterKubernetes && opts.VaultAddress != "" {
+		vaultDelivery = "vso"
+	} else if vaultDelivery == "auto" {
+		vaultDelivery = "agent"
+	}
+	if vaultDelivery == "vso" {
+		if opts.Adapters != AdapterKubernetes || opts.VaultAddress == "" || opts.VaultTokenFile == "" || opts.VaultAgentAddress == "" {
+			return nil, fmt.Errorf("bootstrap: VSO delivery requires Kubernetes adapters and configured Vault API/in-cluster address")
+		}
+		deployments.SetConfigSecretSynchronizer(&k8s.VSOSynchronizer{KubectlPath: opts.KubectlPath})
+	} else if vaultDelivery != "" && vaultDelivery != "agent" {
+		return nil, fmt.Errorf("bootstrap: unknown Vault delivery %q", vaultDelivery)
+	}
 	workloads := workloadconfig.NewService(st)
 	pendingChanges := pending.NewService(st, planning.NewService(), workloads, tf.NewInspector())
 	if opts.WorkloadDelivery == "fleet-gitrepo" {

@@ -150,3 +150,33 @@ func TestRenderVaultAgentFileContainsOnlyReferencesAndSafeTemplate(t *testing.T)
 		t.Fatalf("unexpected manifests: serviceAccount=%v deployment=%v KubernetesSecret=%v", serviceAccount, deployment, kubeSecret)
 	}
 }
+
+func TestRenderVSOUsesSecretKeyRefWithoutAgentOrValues(t *testing.T) {
+	module := environment.Module{Profile: environment.ModuleProfile, Spec: environment.ModuleSpec{Containers: map[string]environment.Container{"main": {Image: "example.invalid/test:1"}}}}
+	manifests, err := NewRenderer().Render(context.Background(), execution.RenderRequest{
+		WorkloadID: "frontend", Module: module, Namespace: "app-staging",
+		ConfigSecretName: "orch-revision", ConfigSecretKeys: map[string]map[string]string{"main": {"API_TOKEN": "main_API_TOKEN"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(manifests) != 1 || manifests[0].Kind != "Deployment" {
+		t.Fatalf("unexpected manifests: %+v", manifests)
+	}
+	pod := manifests[0].Object["spec"].(map[string]any)["template"].(map[string]any)
+	if _, ok := pod["metadata"].(map[string]any)["annotations"]; ok {
+		t.Fatal("unexpected Agent annotations")
+	}
+	container := pod["spec"].(map[string]any)["containers"].([]any)[0].(map[string]any)
+	env := container["env"].([]any)[0].(map[string]any)
+	ref := env["valueFrom"].(map[string]any)["secretKeyRef"].(map[string]any)
+	if env["name"] != "API_TOKEN" || ref["name"] != "orch-revision" || ref["key"] != "main_API_TOKEN" {
+		t.Fatalf("wrong VSO reference: %+v", env)
+	}
+	if _, ok := env["value"]; ok {
+		t.Fatal("value was inlined")
+	}
+	if _, err := NewRenderer().Render(context.Background(), execution.RenderRequest{WorkloadID: "frontend", Module: module, Namespace: "app-staging", ConfigSecretKeys: map[string]map[string]string{"main": {"API_TOKEN": "main_API_TOKEN"}}}); err == nil {
+		t.Fatal("accepted missing Secret name")
+	}
+}

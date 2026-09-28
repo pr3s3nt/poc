@@ -92,3 +92,69 @@ func TestPrepareWorkloadAccessUsesExactPathsAndServiceAccount(t *testing.T) {
 		t.Fatal("cross-Application reference accepted")
 	}
 }
+
+func TestPrepareWorkloadBundleWritesScopedImmutableData(t *testing.T) {
+	var bundlePath string
+	var bundleData map[string]string
+	var policy string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Vault-Token") != "scoped" {
+			t.Error("missing scoped token")
+		}
+		switch {
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/values/source"):
+			_, _ = w.Write([]byte(`{"data":{"data":{"value":"opaque-value"}}}`))
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/values/deployment-1"):
+			bundlePath = r.URL.Path
+			var body struct {
+				Options map[string]int    `json:"options"`
+				Data    map[string]string `json:"data"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Error(err)
+			}
+			if body.Options["cas"] != 0 {
+				t.Error("bundle must be create-only")
+			}
+			bundleData = body.Data
+			w.WriteHeader(http.StatusOK)
+		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/sys/policies/acl/"):
+			var body map[string]string
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Error(err)
+			}
+			policy = body["policy"]
+			w.WriteHeader(http.StatusNoContent)
+		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/v1/auth/kubernetes/role/"):
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+	provider, err := New(server.URL, "scoped", "kv", server.Client())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.SetAgentAddress("http://vault-uc12.vault.svc:8200"); err != nil {
+		t.Fatal(err)
+	}
+	ref := "kv2://kv/orchestrator/apps/app-1/envs/staging/values/source"
+	bundle, err := provider.PrepareWorkloadBundle(context.Background(), "app-1", "staging", "frontend", "app-staging", "revision-1", "deployment-1", map[string]map[string]string{"main": {"API_TOKEN": ref}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(bundlePath, "/values/deployment-1") || bundleData["main_API_TOKEN"] != "opaque-value" || len(bundleData) != 1 {
+		t.Fatal("wrong bundle content or scope")
+	}
+	if !strings.Contains(policy, "kv/data/orchestrator/apps/app-1/envs/staging/values/deployment-1") || strings.Contains(policy, "/values/source") {
+		t.Fatal("policy must read only bundle")
+	}
+	if bundle.Keys["main"]["API_TOKEN"] != "main_API_TOKEN" || bundle.SecretName == "" || bundle.Role == "" {
+		t.Fatal("wrong bundle metadata")
+	}
+	if _, err := provider.PrepareWorkloadBundle(context.Background(), "app-1", "staging", "frontend", "app-staging", "revision-1", "deployment-2", map[string]map[string]string{"main": {"API_TOKEN": "kv2://kv/orchestrator/apps/app-2/envs/staging/values/source"}}); err == nil {
+		t.Fatal("cross-Application reference accepted")
+	}
+}

@@ -58,10 +58,14 @@ type Service struct {
 	clock           clock.Clock
 	configProvider  configport.Provider
 	imagePullSecret string
+	configSync      execution.ConfigSecretSynchronizer
 }
 
 func (s *Service) SetConfigurationProvider(provider configport.Provider) { s.configProvider = provider }
 func (s *Service) SetImagePullSecret(name string)                        { s.imagePullSecret = name }
+func (s *Service) SetConfigSecretSynchronizer(sync execution.ConfigSecretSynchronizer) {
+	s.configSync = sync
+}
 
 // NewService wires UC-06 with its collaborators.
 func NewService(
@@ -419,28 +423,47 @@ func (s *Service) applyWorkload(
 	}
 
 	var vaultInjection *execution.VaultInjection
+	var configSecretName string
+	var configSecretKeys map[string]map[string]string
 	if len(valueRefs) > 0 {
-		preparer, ok := s.configProvider.(configport.WorkloadAccessPreparer)
-		if !ok {
-			return fmt.Errorf("deployment: Vault workload access is not configured")
+		if s.configSync != nil {
+			preparer, ok := s.configProvider.(configport.WorkloadBundlePreparer)
+			if !ok {
+				return fmt.Errorf("deployment: VSO workload bundle provider is not configured")
+			}
+			bundle, err := preparer.PrepareWorkloadBundle(ctx, planCtx.App.Key, planCtx.Env.Key, workloadID, target.Namespace, configRevisionID, record.ID, vaultBindings)
+			if err != nil {
+				return err
+			}
+			if err := s.configSync.Sync(ctx, target, execution.ConfigBundle{Address: bundle.Address, Mount: bundle.Mount, Path: bundle.Path, Role: bundle.Role, ServiceAccount: bundle.ServiceAccount, SecretName: bundle.SecretName, Keys: bundle.Keys}); err != nil {
+				return err
+			}
+			configSecretName, configSecretKeys = bundle.SecretName, bundle.Keys
+		} else {
+			preparer, ok := s.configProvider.(configport.WorkloadAccessPreparer)
+			if !ok {
+				return fmt.Errorf("deployment: Vault workload access is not configured")
+			}
+			access, err := preparer.PrepareWorkloadAccess(ctx, planCtx.App.Key, planCtx.Env.Key, workloadID, target.Namespace, configRevisionID, valueRefs)
+			if err != nil {
+				return err
+			}
+			vaultInjection = &execution.VaultInjection{Address: access.Address, Role: access.Role, ServiceAccount: access.ServiceAccount, Bindings: vaultBindings}
 		}
-		access, err := preparer.PrepareWorkloadAccess(ctx, planCtx.App.Key, planCtx.Env.Key, workloadID, target.Namespace, configRevisionID, valueRefs)
-		if err != nil {
-			return err
-		}
-		vaultInjection = &execution.VaultInjection{Address: access.Address, Role: access.Role, ServiceAccount: access.ServiceAccount, Bindings: vaultBindings}
 	}
 
 	manifests, err := s.renderer.Render(ctx, execution.RenderRequest{
-		WorkloadID:      workloadID,
-		Module:          module,
-		Namespace:       target.Namespace,
-		PlainEnv:        plainEnv,
-		SecretEnv:       secretEnv,
-		DeploymentID:    record.ID,
-		ImagePullSecret: s.imagePullSecret,
-		Vault:           vaultInjection,
-		Labels:          map[string]string{"orchestrator.io/application": planCtx.App.Key, "orchestrator.io/environment": planCtx.Env.Key, "orchestrator.io/deployment-id": record.ID},
+		WorkloadID:       workloadID,
+		Module:           module,
+		Namespace:        target.Namespace,
+		PlainEnv:         plainEnv,
+		SecretEnv:        secretEnv,
+		DeploymentID:     record.ID,
+		ImagePullSecret:  s.imagePullSecret,
+		Vault:            vaultInjection,
+		ConfigSecretName: configSecretName,
+		ConfigSecretKeys: configSecretKeys,
+		Labels:           map[string]string{"orchestrator.io/application": planCtx.App.Key, "orchestrator.io/environment": planCtx.Env.Key, "orchestrator.io/deployment-id": record.ID},
 	})
 	if err != nil {
 		return err

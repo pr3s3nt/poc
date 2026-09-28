@@ -34,6 +34,9 @@ func (r *Renderer) Render(_ context.Context, req execution.RenderRequest) ([]exe
 	if req.Namespace == "" {
 		return nil, fmt.Errorf("kubernetes: render %q without a namespace", req.WorkloadID)
 	}
+	if req.Vault != nil && req.ConfigSecretName != "" {
+		return nil, fmt.Errorf("kubernetes: Vault Agent and VSO delivery are mutually exclusive")
+	}
 	labels := map[string]any{"app.kubernetes.io/name": req.WorkloadID, "app.kubernetes.io/managed-by": "orchestrator"}
 	for k, v := range req.Labels {
 		labels[k] = v
@@ -99,6 +102,12 @@ func (r *Renderer) Render(_ context.Context, req execution.RenderRequest) ([]exe
 					"secretKeyRef": map[string]any{"name": secretName, "key": secretKey(name, key)},
 				},
 			})
+		}
+		for _, key := range sortedStringKeys(req.ConfigSecretKeys[name]) {
+			if req.ConfigSecretName == "" || req.ConfigSecretKeys[name][key] == "" {
+				return nil, fmt.Errorf("kubernetes: incomplete VSO Secret reference")
+			}
+			env = append(env, map[string]any{"name": key, "valueFrom": map[string]any{"secretKeyRef": map[string]any{"name": req.ConfigSecretName, "key": req.ConfigSecretKeys[name][key]}}})
 		}
 		if req.Vault != nil {
 			env = append(env, map[string]any{"name": "ORCHESTRATOR_CONFIG_FILE", "value": "/vault/secrets/app-env"})

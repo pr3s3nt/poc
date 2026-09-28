@@ -150,7 +150,9 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Deploy requires the exact preview token and rejects any changed draft,
   configuration revision or base Deployment Set/version. It pins a separate
   immutable Vault bundle with only the selected keys for each affected
-  workload and uses the existing Agent Injector to render a shell-safe file.
+  workload. On Kubernetes VSO mode, the bundle is synchronized to a
+  revision-specific Secret before the workload is applied; Pod env uses
+  `secretKeyRef`. Legacy Agent mode still renders a shell-safe file.
 - Each successful workload records its own applied configuration revision.
   A failure reports successful/failed workload names and leaves the
   Environment in partial state, retryable with a fresh Preview. No automatic

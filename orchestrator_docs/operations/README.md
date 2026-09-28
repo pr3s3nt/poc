@@ -14,7 +14,7 @@ last_reviewed: 2026-09-28
 | AWS | [AWS verification](aws.md) | Creates paid VPC/EKS/Aurora/ECR resources, then destroys them |
 
 [UC-12 Vault on kind](vault-kind.md) documents the persistent Vault release,
-its sealed/init handoff and the existing Agent Injector. It is separate from
+VSO, its sealed/init handoff and the legacy Agent Injector. It is separate from
 the run-scoped kind verification cleanup procedure.
 
 [Fleet GitRepo on kind](fleet-gitrepo-kind.md) documents the optional
