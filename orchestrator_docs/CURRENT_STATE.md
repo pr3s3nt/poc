@@ -60,6 +60,10 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
   frontend omitted.
 - AWS verification đã tạo VPC/EKS/Aurora tối thiểu, chạy acceptance job flow,
   không tạo public LoadBalancer và cleanup 17/17 truy vấn theo run ID.
+- Một lượt kiểm thử riêng đã deploy Backstage 1.53.1 qua UC-12/16 trên kind:
+  PostgreSQL resource, VSO configuration, Preview → Deploy, Traefik Ingress,
+  health và guest-auth API đều pass; namespace/PVC run-scoped đã cleanup.
+  Đây là evidence thử nghiệm, không phải một deployment Backstage thường trực.
 
 Chi tiết từng lần chạy nằm trong [verification index](verification/README.md);
 evidence lịch sử không chứng minh checkout hiện tại vẫn pass.

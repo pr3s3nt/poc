@@ -26,6 +26,21 @@ Script build ba acceptance images, load vào cluster, chạy orchestrator qua HT
 deploy backend/worker/frontend, kiểm job flow và Web Console, sau đó xóa
 namespace trong cleanup trap.
 
+The separate Backstage check uses the preloaded
+`ghcr.io/backstage/backstage:1.53.1` amd64 image, the existing Vault/VSO
+installation and Traefik. It creates an Application, stores URL settings via
+UC-12, deploys a PostgreSQL-backed Backstage workload through UC-16, checks
+the public HTML/health/guest API, then deletes only its run-scoped namespace:
+
+```bash
+bash backend/test/integration/backstage-kind-verify.sh
+```
+
+For this local check, guest sign-in is explicitly allowed in the container;
+do not reuse that setting for production. The script needs the scoped Vault
+backend token file documented in [Vault on kind](vault-kind.md). It neither
+rebuilds nor mirrors the Backstage image to Harbor.
+
 Public Ingress check (run-scoped, separate from the acceptance workload):
 
 ```bash
