@@ -119,6 +119,7 @@ returns the target and resource outputs.
 | MS-04, MS-05 | same | `DeploymentViewAssembler.Assemble` | persisted graph/matches/batches | OC-11; view test |
 | MS-06 | same | `OutputRedactor.RedactSecretOutputs` | no mutation | OC-11; redaction test |
 | MS-07 | same | return `DeploymentView` | read-only | OC-11; no runtime call test |
+| BR-05 | `UC-09/ui/screens.md`, `ui/states.md` | React history/detail/recent components | `GET /deployments`, `GET /deployments/{id}` | `DeploymentPages.test.tsx`; Web Console typecheck/lint/test/build |
 
 ## UC-12 — MVP implementation trace
 

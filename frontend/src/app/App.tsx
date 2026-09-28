@@ -7,6 +7,8 @@ import { CreateApplicationPage } from '../features/applications/CreateApplicatio
 import { ApplicationHomePage } from '../features/applications/ApplicationHomePage';
 import { SettingsPage } from '../features/configuration/SettingsPage';
 import { WorkloadEditorPage } from '../features/workloads/WorkloadEditorPage';
+import { DeploymentHistoryPage } from '../features/deployments/DeploymentHistoryPage';
+import { DeploymentDetailsPage } from '../features/deployments/DeploymentDetailsPage';
 import type { Application } from '../shared/types/application';
 import { api } from '../shared/api/client';
 
@@ -26,5 +28,5 @@ export function App() {
   async function createApplication(name: string, subdomain: string) { const response = await api<{ application: APIApplication }>('/applications', { method: 'POST', body: JSON.stringify({ name, subdomain }) }); const application = mapApplication(response.application); setApplications((current) => [...current, application]); return application.id; }
   if (!signedIn || route.name === 'sign-in') return <SignInPage onSuccess={signIn} />;
   const application = 'applicationId' in route ? applications.find((item) => item.id === route.applicationId) : undefined;
-  return <AppShell onSignOut={signOut}>{route.name === 'applications' ? <ApplicationsPage applications={applications} /> : null}{route.name === 'create-application' ? <CreateApplicationPage onCreate={createApplication} /> : null}{route.name === 'application' && application ? <ApplicationHomePage application={application} /> : null}{route.name === 'settings' && application ? <SettingsPage application={application} /> : null}{route.name === 'workload' && application ? <WorkloadEditorPage application={application} environment={route.environment} workloadId={route.workloadId} /> : null}{'applicationId' in route && !application ? <section className="page"><h1>Application not found</h1></section> : null}</AppShell>;
+  return <AppShell onSignOut={signOut}>{route.name === 'applications' ? <ApplicationsPage applications={applications} /> : null}{route.name === 'create-application' ? <CreateApplicationPage onCreate={createApplication} /> : null}{route.name === 'application' && application ? <ApplicationHomePage application={application} /> : null}{route.name === 'settings' && application ? <SettingsPage application={application} /> : null}{route.name === 'workload' && application ? <WorkloadEditorPage application={application} environment={route.environment} workloadId={route.workloadId} /> : null}{route.name === 'deployments' && application ? <DeploymentHistoryPage application={application} environment={route.environment} /> : null}{route.name === 'deployment' && application ? <DeploymentDetailsPage application={application} environment={route.environment} deploymentId={route.deploymentId} /> : null}{'applicationId' in route && !application ? <section className="page"><h1>Application not found</h1></section> : null}</AppShell>;
 }

@@ -10,6 +10,8 @@ describe('console routes', () => {
     expect(parseRoute('/ui/applications/payment%20api/settings')).toEqual({ name: 'settings', applicationId: 'payment api' });
     expect(parseRoute('/ui/applications/payment%20api/environments/staging/workloads/new')).toEqual({ name: 'workload', applicationId: 'payment api', environment: 'staging', workloadId: undefined });
     expect(parseRoute('/ui/applications/payment%20api/environments/production/workloads/backend')).toEqual({ name: 'workload', applicationId: 'payment api', environment: 'production', workloadId: 'backend' });
+    expect(parseRoute('/ui/applications/payment%20api/environments/staging/deployments')).toEqual({ name: 'deployments', applicationId: 'payment api', environment: 'staging' });
+    expect(parseRoute('/ui/applications/payment%20api/environments/staging/deployments/deploy-1')).toEqual({ name: 'deployment', applicationId: 'payment api', environment: 'staging', deploymentId: 'deploy-1' });
   });
 
   it('encodes application IDs when constructing a link', () => {

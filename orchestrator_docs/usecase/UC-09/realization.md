@@ -42,3 +42,5 @@ Read-only consistent query. Implementation có thể dùng một database transa
 - `TestGetDeployment_ReturnsPersistedPlanAndStatuses`.
 - `TestGetDeployment_RedactsSecretOutputs`.
 - `TestGetDeployment_DoesNotCallRuntimeAdapters`.
+- Web Console list/detail: Environment filter, navigation, status/failure,
+  read-only resource/workload rows and secret-safe output rendering.

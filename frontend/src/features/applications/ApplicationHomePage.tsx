@@ -5,6 +5,7 @@ import { endpointFor } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
 import { Status } from '../../shared/ui/Status';
 import { deleteWorkload, deployChanges, getWorkloads, previewChanges, undoWorkloadDelete, type DeployReport, type PendingPreview, type WorkloadList } from '../workloads/api';
+import { RecentDeployments } from '../deployments/RecentDeployments';
 
 export function ApplicationHomePage({ application }: { application: Application }) {
   const [environment, setEnvironment] = useState<EnvironmentKey>('staging');
@@ -54,6 +55,6 @@ export function ApplicationHomePage({ application }: { application: Application 
       {preview ? <div className="content-panel" aria-label="Deployment preview"><h3>Preview for {environment}</h3><p>{preview.changes.length} workload(s) affected · draft v{preview.draftVersion} · configuration {preview.configRevisionId ? preview.configRevisionId.slice(0, 8) : 'empty'}</p>{preview.changes.length ? <ul>{preview.changes.map((change) => <li key={change.workloadId}><strong>{change.workloadId}</strong> · {change.action.toLowerCase()} · {change.resources.new.length} new resource(s)</li>)}</ul> : <p>{preview.routePending ? 'Public routes need reconciliation; workloads will not restart.' : 'No workload changes to deploy.'}</p>}<Button tone="primary" disabled={deploying || (preview.changes.length === 0 && !preview.routePending)} onClick={() => void deployPreview()}>{deploying ? 'Deploying…' : preview.routePending && preview.changes.length === 0 ? 'Retry public routes' : 'Deploy these changes'}</Button></div> : null}
       {deployReport ? <div className="content-panel" aria-label="Deployment result"><h3>Deploy {deployReport.status.toLowerCase()}</h3><ul>{deployReport.results.map((result) => <li key={result.workloadId}>{result.workloadId}: {result.status.toLowerCase()}{result.error ? ` — ${result.error}` : ''}</li>)}</ul>{deployReport.status !== 'SUCCEEDED' ? <p>Preview again to retry workloads that did not finish.</p> : null}</div> : null}
     </section>
-    <section className="content-panel"><div className="section-header"><div><h2>Recent deployments</h2><p>Deployment activity will appear here.</p></div><Button tone="quiet" disabled>View all</Button></div><div className="section-empty">No deployments yet.</div></section>
+    <RecentDeployments applicationId={application.id} environment={environment} refreshKey={deployReport?.results[0]?.deploymentId} />
   </section>;
 }

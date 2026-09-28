@@ -42,6 +42,7 @@ last_reviewed: 2026-09-28
 | Reference-based deployed Score reconstruction | [`backend/internal/application/workloadconfig/reconstruct.go`](../../backend/internal/application/workloadconfig/reconstruct.go) |
 | UC-12 Vault bundle, VSO synchronization, `secretKeyRef` rendering and legacy Agent mode | [`backend/internal/adapters/vault/provider.go`](../../backend/internal/adapters/vault/provider.go), [`backend/internal/adapters/kubernetes/vso.go`](../../backend/internal/adapters/kubernetes/vso.go) and [`backend/internal/adapters/kubernetes/renderer.go`](../../backend/internal/adapters/kubernetes/renderer.go) |
 | Application Preview/Deploy UI | [`frontend/src/features/applications/ApplicationHomePage.tsx`](../../frontend/src/features/applications/ApplicationHomePage.tsx) |
+| UC-09 recent deployments, Environment history/filter and detail UI | [`frontend/src/features/deployments`](../../frontend/src/features/deployments/) |
 | Acceptance workloads | [`backend/examples/acceptance-app`](../../backend/examples/acceptance-app/) |
 | HTTP end-to-end tests | [`backend/test/e2e`](../../backend/test/e2e/) |
 | Planner challenge conformance | [`backend/test/conformance`](../../backend/test/conformance/) |

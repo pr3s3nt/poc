@@ -51,6 +51,10 @@ Cho phép Developer xem trạng thái deployment, Resource Graph và thông tin 
 - **BR-02:** Deployment view phải gắn đúng Application, Environment và Deployment ID.
 - **BR-03:** Chỉ output được phân loại non-secret mới được hiển thị.
 - **BR-04:** Graph, matched Definition và batches phải là artifact của đúng lần planning đã tạo Deployment đó.
+- **BR-05:** Web Console liệt kê Deployment theo đúng Application/Environment,
+  cho xem status, workload, thời điểm, actor và failure reason. Từ danh sách,
+  Developer mở detail gồm graph, batches và resource/workload status; màn hình
+  không thay thế runtime logs hoặc tự refresh cluster.
 
 ## Luồng nội bộ
 
@@ -66,8 +70,9 @@ UC-09 View Deployment Status
 ## Trạng thái implementation hiện tại
 
 - Deployment, plan snapshot, resource progress, Active Resources và Workload Instances đã được lưu trong state store; query API trả status, graph, batches, resources, workloads và redacted outputs.
-- Web Console đã có Deployment Details và live read-only verification trên kind/AWS deployment.
-- History/filter/comparison đầy đủ và PostgreSQL read model chưa hoàn thiện; đây là Phase 6 bước 4.
+- React Web Console có recent deployments, danh sách theo Environment với bộ
+  lọc status và trang detail dùng persisted query API.
+- Cross-deployment comparison, live status và PostgreSQL read model chưa hoàn thiện.
 
 ## Ngoài phạm vi happy path
 
