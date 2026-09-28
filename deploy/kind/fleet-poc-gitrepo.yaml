@@ -1,0 +1,13 @@
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: poc-workloads
+  namespace: fleet-local
+spec:
+  repo: ssh://git@github.com/pr3s3nt/poc-fleet-gitops.git
+  branch: main
+  clientSecretName: fleet-poc-gitops-ro
+  paths:
+    - applications/*/*/*
+  targets:
+    - clusterName: local

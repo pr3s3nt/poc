@@ -42,6 +42,13 @@ func main() {
 	vaultAddress := flag.String("vault-address", os.Getenv("ORCHESTRATOR_VAULT_ADDR"), "Vault API address for UC-12")
 	vaultTokenFile := flag.String("vault-token-file", os.Getenv("ORCHESTRATOR_VAULT_TOKEN_FILE"), "path to scoped Vault token file for UC-12")
 	vaultAgentAddress := flag.String("vault-agent-address", os.Getenv("ORCHESTRATOR_VAULT_AGENT_ADDR"), "in-cluster Vault address used by injected workload Pods")
+	workloadDelivery := flag.String("workload-delivery", "direct", "workload delivery: direct or fleet-gitrepo (kind only)")
+	gitopsRepoDir := flag.String("gitops-repo-dir", "", "writable local clone of the Fleet GitOps repository")
+	gitopsBranch := flag.String("gitops-branch", "main", "Fleet GitOps branch")
+	fleetGitRepoName := flag.String("fleet-gitrepo-name", "poc-workloads", "Fleet GitRepo resource name in fleet-local")
+	harborRegistryHost := flag.String("harbor-registry", "", "Harbor registry host:port used in workload image references")
+	harborDockerConfigFile := flag.String("harbor-dockerconfig-file", "", "owner-only Docker config JSON for namespace imagePullSecret")
+	harborPullSecretName := flag.String("harbor-pull-secret", "harbor-pull", "namespace-local imagePullSecret name")
 	flag.Parse()
 
 	opts.NamespaceIdentity = *namespace
@@ -86,19 +93,26 @@ func main() {
 	}
 
 	app, err := bootstrap.Build(context.Background(), bootstrap.Options{
-		Seed:                 opts,
-		UIDir:                *uiDir,
-		StatePath:            *statePath,
-		Adapters:             mode,
-		KubectlPath:          *kubectlPath,
-		TerraformPath:        *terraformPath,
-		TerraformRoot:        *terraformRoot,
-		TerraformPluginCache: *terraformCache,
-		Region:               *region,
-		Tags:                 tags,
-		VaultAddress:         *vaultAddress,
-		VaultTokenFile:       *vaultTokenFile,
-		VaultAgentAddress:    *vaultAgentAddress,
+		Seed:                   opts,
+		UIDir:                  *uiDir,
+		StatePath:              *statePath,
+		Adapters:               mode,
+		KubectlPath:            *kubectlPath,
+		TerraformPath:          *terraformPath,
+		TerraformRoot:          *terraformRoot,
+		TerraformPluginCache:   *terraformCache,
+		Region:                 *region,
+		Tags:                   tags,
+		VaultAddress:           *vaultAddress,
+		VaultTokenFile:         *vaultTokenFile,
+		VaultAgentAddress:      *vaultAgentAddress,
+		WorkloadDelivery:       *workloadDelivery,
+		GitOpsRepoDir:          *gitopsRepoDir,
+		GitOpsBranch:           *gitopsBranch,
+		FleetGitRepoName:       *fleetGitRepoName,
+		HarborRegistryHost:     *harborRegistryHost,
+		HarborDockerConfigFile: *harborDockerConfigFile,
+		HarborPullSecretName:   *harborPullSecretName,
 	})
 	if err != nil {
 		log.Printf("orchestrator: startup failed: %v", err)

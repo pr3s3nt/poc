@@ -55,6 +55,26 @@ func TestRenderProducesSecretDeploymentAndService(t *testing.T) {
 	}
 }
 
+func TestRenderReferencesNamespaceHarborPullSecret(t *testing.T) {
+	module := environment.Module{Profile: environment.ModuleProfile, Spec: environment.ModuleSpec{Containers: map[string]environment.Container{"main": {Image: "harbor.example/library/frontend:v1"}}}}
+	manifests, err := NewRenderer().Render(context.Background(), execution.RenderRequest{WorkloadID: "frontend", Module: module, Namespace: "app-demo-staging", ImagePullSecret: "harbor-pull"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, manifest := range manifests {
+		if manifest.Kind != "Deployment" {
+			continue
+		}
+		pod := manifest.Object["spec"].(map[string]any)["template"].(map[string]any)["spec"].(map[string]any)
+		secrets := pod["imagePullSecrets"].([]any)
+		if len(secrets) != 1 || secrets[0].(map[string]any)["name"] != "harbor-pull" {
+			t.Fatalf("unexpected pull secrets: %v", secrets)
+		}
+		return
+	}
+	t.Fatal("missing Deployment")
+}
+
 func TestRenderKeepsSecretValuesOutOfTheDeployment(t *testing.T) {
 	manifests := renderBackend(t)
 	for _, m := range manifests {

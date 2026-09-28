@@ -1,0 +1,6 @@
+# Local kind-only HTTP access to the in-cluster Harbor Service IP.
+# Re-check the Service IP if Harbor is reinstalled; never use for production.
+server = "http://10.96.91.170:80"
+
+[host."http://10.96.91.170:80"]
+  capabilities = ["pull", "resolve"]

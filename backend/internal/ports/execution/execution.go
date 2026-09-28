@@ -71,14 +71,15 @@ type Manifest struct {
 
 // RenderRequest describes a workload whose bindings are already resolved.
 type RenderRequest struct {
-	WorkloadID   string
-	Module       environment.Module
-	Namespace    string
-	Labels       map[string]string
-	PlainEnv     map[string]map[string]string
-	SecretEnv    map[string]map[string]string
-	DeploymentID string
-	Vault        *VaultInjection
+	WorkloadID      string
+	Module          environment.Module
+	Namespace       string
+	Labels          map[string]string
+	PlainEnv        map[string]map[string]string
+	SecretEnv       map[string]map[string]string
+	DeploymentID    string
+	ImagePullSecret string
+	Vault           *VaultInjection
 }
 
 // VaultInjection supplies only opaque immutable value references to the

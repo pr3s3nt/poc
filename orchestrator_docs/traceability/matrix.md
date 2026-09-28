@@ -75,6 +75,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | MS-09 | `ResourceProvisioningService.Provision` | UC-08 methods | `active_resources`, `deployment_resources` | OC-10; resource integration tests |
 | MS-10 | deploy | `OutputBindingResolver.ResolveWorkloadBindings` | resolved values stay in execution context; safe snapshot only | OC-08; output propagation test |
 | MS-11; BR-11 | deploy | `WorkloadRenderer.Render`, `WorkloadDeployer.Apply/WaitReady` | declared requests/limits in manifests; missing request = same-field limit, else default; `workload_instances=APPLYING/READY` | OC-08; renderer resource mapping + kind/fake adapter tests (`TestRender_*ContainerResources*`, `TestRender_LimitsOnlyBelowDefaultUseLimitAsRequest`, `TestRender_DoesNotMutateModuleResources`, `TestDeployWorkload_RendersDeclaredContainerResources`, kind `TestKindInternalVerification` live resources) |
+| VAR-03; BR-13 | Fleet GitRepo delivery | `gitops.Deployer.Apply/WaitReady`, Fleet `GitRepo` | Git commit of non-secret manifests, namespace-local Harbor pull Secret, exact workload revision Ready | ADR-007; `gitops/deployer_test.go`, `fleet-gitrepo-kind-verify.sh` and 2026-09-28 kind evidence |
 | MS-12 | deploy | `CompareVersionAndSetCurrent`, repo upserts, `MarkSucceeded` | atomic current pointer + `SUCCEEDED`; AWS runtime `READY` | OC-08; commit-after-ready transaction test |
 | MS-13 | deploy | return `DeploymentResult` | read committed status | OC-08; API contract test |
 
@@ -86,6 +87,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | MS-03, MS-04 | `PlanningService.Plan` | `DeltaBuilder.BuildHumanitecDelta` conflict/reference/relative-patch rules; graph/classifier | immutable Delta Snapshot + Candidate plan | OC-07/09; module add/remove/update, shared patch, conflict, last-reference and preserve-other tests (`TestDelta_*`, `TestPlan_RemoveWorkloadDeltaListsModule`) |
 | MS-05 | `ResourceProvisioningService.Provision` | UC-08 methods | desired resources `READY` | OC-10; reconciliation test |
 | MS-06 | update/remove | `WorkloadDeployer.Apply/WaitReady` or `Delete` | workload `READY` or `REMOVED` | OC-09; update/remove adapter tests |
+| VAR-03 | Fleet GitRepo remove | `gitops.Deployer.Remove` | scoped bundle path removed; Fleet prunes Deployment/Service before state commit | `fleet-gitrepo-kind-verify.sh`; kind delete/cleanup evidence |
 | MS-07 | remove/update | `ActiveResourceRepository.MarkUnreferenced` | `active_resources=UNREFERENCED`; no destroy | OC-09; no-destroy test |
 | MS-08 | final commit | current pointer + `MarkSucceeded` | atomic set/deployment state | OC-09; transaction test |
 

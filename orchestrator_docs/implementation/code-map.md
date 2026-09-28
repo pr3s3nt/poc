@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-09-27
+last_reviewed: 2026-09-28
 ---
 
 # Design-to-code map
@@ -28,6 +28,7 @@ last_reviewed: 2026-09-27
 | In-memory + JSON snapshot store | [`backend/internal/adapters/store`](../../backend/internal/adapters/store/) |
 | Fake walking-skeleton adapters | [`backend/internal/adapters/fake`](../../backend/internal/adapters/fake/) |
 | Kubernetes executor/deployer | [`backend/internal/adapters/kubernetes`](../../backend/internal/adapters/kubernetes/) |
+| Optional Fleet GitRepo workload delivery (kind) | [`backend/internal/adapters/gitops`](../../backend/internal/adapters/gitops/), [`deploy/kind/fleet-poc-gitrepo.yaml`](../../deploy/kind/fleet-poc-gitrepo.yaml) |
 | Terraform executor/modules/inspection | [`backend/internal/adapters/terraform`](../../backend/internal/adapters/terraform/) |
 | Seed catalog and profiles | [`backend/internal/seed`](../../backend/internal/seed/) |
 | UC-00/UC-01 Web Console prototype | [`frontend/src/app`](../../frontend/src/app/), [`features/auth`](../../frontend/src/features/auth/) and [`features/applications`](../../frontend/src/features/applications/) |

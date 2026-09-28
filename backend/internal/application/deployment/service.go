@@ -49,17 +49,19 @@ type DeployResult struct {
 
 // Service orchestrates plan, provision, render, apply and commit.
 type Service struct {
-	store          persistence.Store
-	planner        *planning.Service
-	provisioning   *provisioning.Service
-	renderer       execution.WorkloadRenderer
-	deployer       execution.WorkloadDeployer
-	terraform      planning.ModuleInspector
-	clock          clock.Clock
-	configProvider configport.Provider
+	store           persistence.Store
+	planner         *planning.Service
+	provisioning    *provisioning.Service
+	renderer        execution.WorkloadRenderer
+	deployer        execution.WorkloadDeployer
+	terraform       planning.ModuleInspector
+	clock           clock.Clock
+	configProvider  configport.Provider
+	imagePullSecret string
 }
 
 func (s *Service) SetConfigurationProvider(provider configport.Provider) { s.configProvider = provider }
+func (s *Service) SetImagePullSecret(name string)                        { s.imagePullSecret = name }
 
 // NewService wires UC-06 with its collaborators.
 func NewService(
@@ -298,7 +300,7 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 		if instance.WorkloadID != workloadID {
 			continue
 		}
-		target := execution.Target{Namespace: planCtx.Env.NamespaceIdentity}
+		target := execution.Target{Namespace: planCtx.Env.NamespaceIdentity, Extra: map[string]string{"application": planCtx.App.Key, "environment": planCtx.Env.Key}}
 		if value, ok := instance.TargetRef["namespace"].(string); ok && value != "" {
 			target.Namespace = value
 		}
@@ -351,6 +353,7 @@ func (s *Service) applyWorkload(
 		return fmt.Errorf("deployment: workload %q is not in the candidate deployment set", workloadID)
 	}
 	target := provisioning.ResolveTarget(plan.Graph, provisionResult, wd.String())
+	target.Extra = map[string]string{"application": planCtx.App.Key, "environment": planCtx.Env.Key, "deployment": record.ID}
 	if target.Namespace == "" {
 		return fmt.Errorf("deployment: workload %q has no resolved namespace", workloadID)
 	}
@@ -429,14 +432,15 @@ func (s *Service) applyWorkload(
 	}
 
 	manifests, err := s.renderer.Render(ctx, execution.RenderRequest{
-		WorkloadID:   workloadID,
-		Module:       module,
-		Namespace:    target.Namespace,
-		PlainEnv:     plainEnv,
-		SecretEnv:    secretEnv,
-		DeploymentID: record.ID,
-		Vault:        vaultInjection,
-		Labels:       map[string]string{"orchestrator.io/environment": planCtx.Env.Key},
+		WorkloadID:      workloadID,
+		Module:          module,
+		Namespace:       target.Namespace,
+		PlainEnv:        plainEnv,
+		SecretEnv:       secretEnv,
+		DeploymentID:    record.ID,
+		ImagePullSecret: s.imagePullSecret,
+		Vault:           vaultInjection,
+		Labels:          map[string]string{"orchestrator.io/application": planCtx.App.Key, "orchestrator.io/environment": planCtx.Env.Key, "orchestrator.io/deployment-id": record.ID},
 	})
 	if err != nil {
 		return err

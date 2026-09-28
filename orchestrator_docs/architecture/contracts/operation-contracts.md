@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-09-27
+last_reviewed: 2026-09-28
 ---
 
 # Operation Contracts
@@ -82,6 +82,9 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Postconditions: UC-08 complete; workload ready với declared container requests/limits; current-set pointer atomically đổi; AWS Application runtime `READY`; Deployment `SUCCEEDED`.
 - External side effects: Terraform/Kubernetes outside DB transaction.
 - Commit rule: Candidate Set never becomes current before readiness.
+- Fleet GitRepo variant: workload adapter commits only non-secret manifests,
+  waits for the commit to be observed and the exact workload revision Ready;
+  UC-08 resources remain outside the GitOps repository.
 
 ## OC-09 `DeploymentService.UpdateWorkload` / `RemoveWorkload`
 

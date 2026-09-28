@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-09-27
+last_reviewed: 2026-09-28
 ---
 
 # Verification evidence
@@ -27,3 +27,4 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 | 2026-09-26 | UC-12 persistent Vault installation on kind; uninitialized/sealed handoff | [Vault kind install](2026-09-26-uc12-vault-kind-install.md) |
 | 2026-09-26 | UC-12 Vault initialization/unseal and private key-file handoff | [Vault init](2026-09-26-uc12-vault-init.md) |
 | 2026-09-27 | UC-12/16 Preview → Deploy, Vault Agent on kind, secret rotation and cleanup | [UC-12/16 kind verification](2026-09-27-uc12-uc16-kind.md) |
+| 2026-09-28 | Fleet GitRepo + Harbor-image workload deploy/remove on kind and cleanup | [Fleet GitRepo kind verification](2026-09-28-fleet-gitrepo-kind.md) |

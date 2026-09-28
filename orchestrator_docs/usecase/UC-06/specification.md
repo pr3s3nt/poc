@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-28
 ---
 
 # UC-06 — Deploy Workload
@@ -53,6 +53,11 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 
 - **VAR-01 — `aws-eks`:** tại MS-05, thêm implicit VPC và EKS có Resource Descriptor scope Application; tại MS-09, UC-08 tái sử dụng hoặc provision VPC -> EKS trước Aurora/workload.
 - **VAR-02 — `internal-k8s`:** tại MS-05, thêm provider node tham chiếu cluster connection có sẵn; UC-08 không tạo VPC/EKS và provision namespace/PostgreSQL trên cluster đó.
+- **VAR-03 — Fleet GitRepo trên internal kind:** tại MS-11, khi platform cấu
+  hình mode này, Orchestrator ghi workload manifests không bí mật vào repo
+  GitOps theo Application/Environment/workload, push commit và chờ Fleet áp
+  dụng revision lên namespace của Environment. Image đã có trong Harbor; UC-06
+  không clone mã nguồn hoặc build image. UC-08 vẫn sở hữu namespace/resources.
 
 ## Hậu điều kiện
 
@@ -83,6 +88,9 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
   Environment và Connection hiện tại trước khi tạo descriptor. Đây là product
   extension; ký hiệu `@` dùng để kế thừa class/ID hiện tại vẫn giữ semantics
   Resource Reference chuẩn.
+- **BR-13:** Trong Fleet GitRepo mode, Deployment chỉ `SUCCEEDED` khi Git
+  revision được Fleet quan sát và workload revision tương ứng Ready. Không ghi
+  raw secret hoặc Docker registry credential vào GitOps repository.
 
 ## Luồng nội bộ
 
@@ -159,6 +167,7 @@ hard-code Application hay Environment.
 
 - **UC-06a Plan Deployment:** đã có Score conversion, Candidate Set, descriptor theo Deployment Set path, implicit infrastructure theo profile, fixed-point graph expansion, matching, Terraform contract inspection, Active Resource classification và provider-first batches. Planner sinh Humanitec-shaped Delta `modules.add/remove/update` và `shared` theo BR-10, với patch relative đúng module/shared scope và array semantics được test; mỗi Deployment persist immutable `DeploymentDeltaSnapshot` riêng và conformance so Delta cho 27 accepted fixtures. Score parser nhận `containers.*.resources.requests/limits` (`cpu`/`memory`) và giữ typed values nguyên văn qua Score fragment, Candidate Set, Delta Snapshot và persisted set theo BR-11 (I06-07).
 - **UC-06b Execute Deployment:** đã có fake, Kubernetes và Terraform adapters; output propagation; workload render/apply; API/Web Console; in-memory store kèm JSON snapshot. Renderer ánh xạ declared requests/limits nguyên văn; request field thiếu lấy limit cùng field, nếu không có limit thì default `10m`/`32Mi` theo BR-11; kind verification của I06-07 chỉ xác nhận live Deployment cho ba seeded case declared/partial/omitted; nhánh limit fallback và request khai báo vượt limit (giữ nguyên, Kubernetes API reject khi apply) mới được unit-test. Internal happy path đã verify trên kind và cloud happy path đã verify trên AWS; AWS chưa chạy lại sau I06-07.
+- **Fleet GitRepo mode:** internal kind có adapter tùy chọn ghi manifest vào repo GitOps private, đợi Fleet quan sát commit và đúng Deployment revision Ready. Image được kéo từ Harbor bằng namespace-local imagePullSecret; không có bước lấy mã nguồn hoặc build. Đường này đã pass kind create/remove với image mẫu; direct adapter vẫn là mặc định.
 - Mỗi request xử lý đúng một Score/workload. Acceptance flow gọi tuần tự ba deployment `backend`, `worker`, `frontend`; database là shared resource được giữ/reuse qua cùng descriptor.
 - PostgreSQL system-of-record và Terraform state backend bền vững chưa được triển khai; state hiện tại chỉ phù hợp executable baseline/verification.
 

@@ -156,6 +156,10 @@ func (r *Renderer) Render(_ context.Context, req execution.RenderRequest) ([]exe
 			},
 		},
 	}
+	if req.ImagePullSecret != "" {
+		podSpec := deploymentObject["spec"].(map[string]any)["template"].(map[string]any)["spec"].(map[string]any)
+		podSpec["imagePullSecrets"] = []any{map[string]any{"name": req.ImagePullSecret}}
+	}
 	if req.Vault != nil {
 		podTemplate := deploymentObject["spec"].(map[string]any)["template"].(map[string]any)
 		podTemplate["metadata"].(map[string]any)["annotations"] = podAnnotations

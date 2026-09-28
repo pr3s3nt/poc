@@ -56,13 +56,20 @@ type Options struct {
 	// TerraformPluginCache keeps provider downloads shared between workspaces.
 	TerraformPluginCache string
 	// Region and Tags apply to every cloud resource of one verification run.
-	Region            string
-	Tags              map[string]string
-	WorkDir           string
-	Clock             clock.Clock
-	VaultAddress      string
-	VaultTokenFile    string
-	VaultAgentAddress string
+	Region                 string
+	Tags                   map[string]string
+	WorkDir                string
+	Clock                  clock.Clock
+	VaultAddress           string
+	VaultTokenFile         string
+	VaultAgentAddress      string
+	WorkloadDelivery       string
+	GitOpsRepoDir          string
+	GitOpsBranch           string
+	FleetGitRepoName       string
+	HarborRegistryHost     string
+	HarborDockerConfigFile string
+	HarborPullSecretName   string
 
 	// Overrides replace individual adapters. Tests use them to inject failures.
 	RegistryOverride              execution.ExecutorRegistry
@@ -84,6 +91,9 @@ type App struct {
 
 // Build wires every component and seeds the catalog.
 func Build(ctx context.Context, opts Options) (*App, error) {
+	if opts.WorkloadDelivery == "fleet-gitrepo" && opts.Adapters != AdapterKubernetes {
+		return nil, fmt.Errorf("bootstrap: Fleet GitRepo delivery requires Kubernetes adapters")
+	}
 	var (
 		st  *store.Store
 		err error
@@ -142,6 +152,9 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 
 	prov := provisioning.NewService(st, registry, secretStore, c)
 	deployments := appsvc.NewService(st, planning.NewService(), prov, renderer, deployer, tf.NewInspector(), c)
+	if opts.WorkloadDelivery == "fleet-gitrepo" {
+		deployments.SetImagePullSecret(opts.HarborPullSecretName)
+	}
 	queries := appsvc.NewQueryService(st)
 	auth := authentication.NewService(st)
 	applications := appcreate.NewService(st)
@@ -172,6 +185,9 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	deployments.SetConfigurationProvider(configProvider)
 	workloads := workloadconfig.NewService(st)
 	pendingChanges := pending.NewService(st, planning.NewService(), workloads, tf.NewInspector())
+	if opts.WorkloadDelivery == "fleet-gitrepo" {
+		pendingChanges.SetImageRegistryHost(opts.HarborRegistryHost)
+	}
 	pendingChanges.SetDeployer(deployments)
 
 	server := deliveryhttp.NewServer(deliveryhttp.Config{

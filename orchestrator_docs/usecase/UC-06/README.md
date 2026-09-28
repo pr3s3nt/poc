@@ -2,7 +2,7 @@
 id: UC-06-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-28
 ---
 
 # UC-06 context — Deploy Workload
@@ -14,6 +14,8 @@ still a release gate after the last planning changes. Each Deployment persists
 an immutable Humanitec-shaped `DeploymentDeltaSnapshot` (I06-06). Score
 container requests/limits reach the Kubernetes Deployment with the BR-11
 default policy (I06-07).
+Optional `fleet-gitrepo` workload delivery for internal kind was verified with
+a Harbor image; UC-08 resource provisioning remains direct.
 
 ## Read in this order
 
@@ -31,6 +33,5 @@ default policy (I06-07).
 - [`backend/internal/planning`](../../../backend/internal/planning/)
 - [`backend/internal/delivery/http`](../../../backend/internal/delivery/http/)
 
-The Web Console deploy feature is intentionally not present in M00-a. Its UI
-will be introduced under `frontend/src/features/deployments/` when UC-06 is
-scheduled for console delivery.
+The Web Console Application home now exposes the UC-12/16 pending-change
+Preview → Deploy flow. Broader UC-06 deployment-details UI is still deferred.

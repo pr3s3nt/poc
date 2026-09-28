@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-09-27
+last_reviewed: 2026-09-28
 ---
 
 # Current project state
@@ -34,8 +34,8 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-03 | Designed; seed-backed baseline | Resource Definition, matching và contract validation đã chạy trong planner; API/UI quản trị chưa có. |
 | UC-04 | Designed; partial execution support | Connection/target seed và adapters kind/AWS đã chạy; registration/verification UI và persistence thật chưa có. |
 | UC-05 | Pending-change Preview implemented; broader contract gaps | Planner pipeline, transient Humanitec-shaped Delta và read-only multi-workload Preview/API/UI đã có; broader UC-05 contract coverage còn hạn chế. |
-| UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. Container resources BR-11 đã pass kind cho ba seeded case. |
-| UC-07 | Update/remove executable for UC-16 | Planner hỗ trợ before/shared rules và Delta; Preview → Deploy update/remove workload trên kind, có partial retry. Broader lifecycle UI/history còn thiếu. |
+| UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; optional Fleet GitRepo adapter cho internal kind đã pass Harbor-image deployment. Mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. |
+| UC-07 | Update/remove executable for UC-16 | Planner hỗ trợ before/shared rules và Delta; Preview → Deploy update/remove workload trên kind, có partial retry. Fleet GitRepo remove đã pass kind; broader lifecycle UI/history còn thiếu. |
 | UC-08 | Implemented and E2E verified | Kubernetes và Terraform resource execution, output propagation và persistence baseline đã pass. |
 | UC-09 | Partially implemented; deferred in M02/I06-04 | Deployment list/detail, Delta Snapshot document, graph, batches, resources, workloads và redacted outputs đã có; history/filter/state comparison là scope còn lại của I06-04 sau M00-a. |
 | UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và Vault Agent Injector đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
@@ -70,6 +70,10 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
   root `frontend/` theo ADR-005.
 - Planning deterministic và side-effect free.
 - UC-08 chỉ execute resource nodes; UC-06 apply workload sau khi có outputs.
+- Optional `fleet-gitrepo` mode ghi non-secret workload manifests vào private
+  GitOps repo; Fleet triển khai workload, còn UC-08 vẫn trực tiếp quản lý
+  namespace/resource. Harbor chứa image, không có GitHub source build trong
+  đường này. Image-pull credential nằm ở namespace Secret, không nằm trong Git.
 - Resource graph dùng edge `consumer -> provider`; provider được schedule trước.
 - Application `aws-eks` sở hữu VPC/EKS application-scoped; `internal-k8s` dùng
   registered cluster và Environment ánh xạ namespace.
@@ -112,6 +116,11 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
   Vault trên kind dùng file storage PVC, cần unseal thủ công sau restart; chưa
   có HA, backup, rotation/revocation tự động hoặc production RBAC. Workload
   phải tự source Agent file bằng startup script; không tự động sửa image/entrypoint.
+- Fleet GitRepo mode mới kiểm chứng trên một internal kind cluster với image
+  BusyBox mẫu từ Harbor; GitOps writer dùng local clone và host Git credential,
+  chưa có distributed lock hay production-grade reconciliation. Harbor hiện
+  dùng Service IP và HTTP node config riêng cho kind; phải cập nhật cấu hình
+  nếu Service IP đổi. AWS vẫn dùng direct Kubernetes delivery.
 - Rollback, failure recovery, RBAC, audit và secret lifecycle nằm ngoài MVP.
 - AWS happy path gần nhất là run `aws-20260921052038`, trước một số thay đổi
   planning cuối và trước khi seeded Scores khai báo container resources. Phải

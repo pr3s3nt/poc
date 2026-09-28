@@ -2,7 +2,7 @@
 id: OPERATIONS-INDEX
 artifact: operations-index
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-28
 ---
 
 # Operations index
@@ -16,6 +16,9 @@ last_reviewed: 2026-09-21
 [UC-12 Vault on kind](vault-kind.md) documents the persistent Vault release,
 its sealed/init handoff and the existing Agent Injector. It is separate from
 the run-scoped kind verification cleanup procedure.
+
+[Fleet GitRepo on kind](fleet-gitrepo-kind.md) documents the optional
+Harbor-image workload delivery path and its separate Git/registry credentials.
 
 Runbook là procedure hiện hành. Kết quả của từng execution phải được ghi thành
 dated record mới trong [verification index](../verification/README.md), không

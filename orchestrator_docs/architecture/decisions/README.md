@@ -2,7 +2,7 @@
 id: ADR-INDEX
 artifact: decision-index
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-28
 ---
 
 # Architecture Decision Records
@@ -13,3 +13,4 @@ last_reviewed: 2026-09-21
 - [ADR-004 — React web console served from the Go backend origin](ADR-004-react-web-console.md)
 - [ADR-005 — Root backend and frontend source boundaries](ADR-005-root-backend-frontend-layout.md)
 - [ADR-006 — Per-Application configuration provider and Vault Agent delivery](ADR-006-application-configuration-provider.md)
+- [ADR-007 — Fleet GitRepo workload delivery on internal kind](ADR-007-fleet-gitrepo-workload-delivery.md)

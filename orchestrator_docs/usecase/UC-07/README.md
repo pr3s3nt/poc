@@ -2,7 +2,7 @@
 id: UC-07-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-28
 ---
 
 # UC-07 context — Update or Remove Workload
@@ -10,9 +10,10 @@ last_reviewed: 2026-09-22
 ## Delivery state
 
 Partially implemented. Planner covers before/shared validation, conflicts and
-last-reference preservation; full update/remove operation, execution and UI do
-not. The planner builds the Humanitec-shaped `modules.add/remove/update` and
-`shared` Delta (I06-06).
+last-reference preservation. UC-16 Preview → Deploy update/remove is wired;
+the optional Fleet GitRepo remove path has kind verification. Broader
+deployment lifecycle UI/recovery remains deferred. The planner builds the
+Humanitec-shaped `modules.add/remove/update` and `shared` Delta.
 
 ## Read in this order
 

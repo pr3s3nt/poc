@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"fmt"
 
+	"orchestrator/internal/adapters/gitops"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/execution"
@@ -38,5 +39,23 @@ func realAdapters(opts Options) (execution.ExecutorRegistry, execution.WorkloadR
 		}
 		executors[resource.DriverTerraform] = terraformExecutor
 	}
-	return registry{executors: executors}, k8s.NewRenderer(), k8s.NewDeployer(opts.KubectlPath), nil
+	deployer := execution.WorkloadDeployer(k8s.NewDeployer(opts.KubectlPath))
+	if opts.WorkloadDelivery == "fleet-gitrepo" {
+		if opts.Adapters != AdapterKubernetes {
+			return nil, nil, nil, fmt.Errorf("bootstrap: Fleet GitRepo delivery is only supported on internal Kubernetes")
+		}
+		fleetDeployer, err := gitops.New(gitops.Options{
+			RepoDir: opts.GitOpsRepoDir, Branch: opts.GitOpsBranch,
+			GitRepoName: opts.FleetGitRepoName, KubeContext: opts.Seed.KubeContext,
+			KubectlPath: opts.KubectlPath, RegistryHost: opts.HarborRegistryHost,
+			DockerConfigFile: opts.HarborDockerConfigFile, PullSecretName: opts.HarborPullSecretName,
+		})
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		deployer = fleetDeployer
+	} else if opts.WorkloadDelivery != "" && opts.WorkloadDelivery != "direct" {
+		return nil, nil, nil, fmt.Errorf("bootstrap: unknown workload delivery %q", opts.WorkloadDelivery)
+	}
+	return registry{executors: executors}, k8s.NewRenderer(), deployer, nil
 }

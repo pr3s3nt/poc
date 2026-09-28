@@ -2,7 +2,7 @@
 id: UC-07-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-28
 ---
 
 # UC-07 — Update or Remove Workload
@@ -47,6 +47,10 @@ Cập nhật hoặc xóa một workload trong Environment mà vẫn giữ nguyê
 
 - **VAR-01 — Update:** `after Score` tồn tại; workload manifests được render/apply lại từ Candidate Deployment Set.
 - **VAR-02 — Remove:** `after Score` là `null`; workload manifests bị xóa và resource chỉ được đánh dấu `unreferenced`, không tự destroy.
+- **VAR-03 — Fleet GitRepo:** khi platform dùng GitOps workload delivery,
+  Update ghi lại directory của workload và chờ Fleet Ready; Remove xóa đúng
+  directory đó rồi chờ Fleet gỡ Deployment/Service. UC-08 resources không bị
+  xóa theo directory này.
 
 ## Hậu điều kiện
 
@@ -83,7 +87,7 @@ UC-07 Update or Remove Workload
 
 - Planner đã validate module và từng shared entry trong `before Score`, từ chối shared conflict, tạo Candidate Set và giữ nguyên các module khác. Planner sinh Delta theo BR-07: module add/remove/update nằm trong `modules.add/remove/update`, patch relative với module hoặc object shared và array semantics theo UC-05 BR-06 được test; conformance so Delta cho 27 accepted fixtures.
 - Shared entry chỉ bị loại khi workload thôi khai báo và không còn module khác tham chiếu; planner đã phân loại Active Resource thành `existing`, `new` và `unreferenced`.
-- Runtime update/delete workload, reconcile state và API/UI cho UC-07 chưa được wire; phần này vẫn thuộc Phase 6 bước 7.
+- UC-16 Preview → Deploy đã wire runtime update/delete theo từng workload. Fleet GitRepo remove đã pass kind; image/resource update qua Fleet chưa có external verification riêng.
 
 ## Ngoài phạm vi happy path
 

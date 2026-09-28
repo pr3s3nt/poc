@@ -44,16 +44,21 @@ type Preview struct {
 }
 
 type Service struct {
-	store     persistence.Store
-	planner   *planning.Service
-	workloads *workloadconfig.Service
-	terraform planning.ModuleInspector
-	deployer  *appsvc.Service
+	store             persistence.Store
+	planner           *planning.Service
+	workloads         *workloadconfig.Service
+	terraform         planning.ModuleInspector
+	deployer          *appsvc.Service
+	imageRegistryHost string
 }
 
 func NewService(store persistence.Store, planner *planning.Service, workloads *workloadconfig.Service, inspector planning.ModuleInspector) *Service {
 	return &Service{store: store, planner: planner, workloads: workloads, terraform: inspector}
 }
+
+// SetImageRegistryHost constrains the optional Fleet mode at Preview time,
+// before UC-08 provisions a namespace or other resources.
+func (s *Service) SetImageRegistryHost(host string) { s.imageRegistryHost = host }
 
 func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, error) {
 	app, err := s.store.GetApplication(ctx, appKey)
@@ -171,6 +176,9 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 			if err != nil {
 				return Preview{}, err
 			}
+			if err := validateImageRegistry(after, s.imageRegistryHost); err != nil {
+				return Preview{}, err
+			}
 		}
 		action := domain.ActionDeploy
 		if after == nil {
@@ -187,6 +195,18 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 	}
 	preview.Token, err = canon.Hash(preview)
 	return preview, err
+}
+
+func validateImageRegistry(doc *score.Document, host string) error {
+	if host == "" || doc == nil {
+		return nil
+	}
+	for name, container := range doc.Containers {
+		if !strings.HasPrefix(container.Image, host+"/") {
+			return fmt.Errorf("%w: container %s image must come from the configured Harbor registry", ErrInvalid, name)
+		}
+	}
+	return nil
 }
 
 func usesChangedConfiguration(ctx context.Context, store persistence.Store, module environment.Module, desired configuration.Revision, appliedID string) (bool, error) {
