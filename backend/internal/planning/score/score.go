@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -16,6 +17,8 @@ import (
 
 // SupportedAPIVersion is the only Score API version accepted by the MVP.
 const SupportedAPIVersion = "score.dev/v1b1"
+
+var publicPathPattern = regexp.MustCompile(`^/(?:[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*)?$`)
 
 // Metadata names the single workload described by a Score document.
 type Metadata struct {
@@ -95,9 +98,16 @@ func (d Document) Validate() error {
 			return fmt.Errorf("score: resource %q has no type", alias)
 		}
 	}
-	if d.Service != nil && d.Service.PublicPort != "" {
-		if _, ok := d.Service.Ports[d.Service.PublicPort]; !ok {
-			return fmt.Errorf("score: public Service port %q is not declared", d.Service.PublicPort)
+	if d.Service != nil {
+		seen := map[string]bool{}
+		for _, route := range d.Service.Routes() {
+			if !publicPathPattern.MatchString(route.Path) || seen[route.Path] {
+				return fmt.Errorf("score: invalid or duplicate public path %q", route.Path)
+			}
+			seen[route.Path] = true
+			if _, ok := d.Service.Ports[route.Port]; !ok {
+				return fmt.Errorf("score: public Service port %q is not declared", route.Port)
+			}
 		}
 	}
 	return nil

@@ -38,6 +38,19 @@ workload, the GitOps adapter waits for that commit and for the exact Deployment
 revision label to roll out. On failure, inspect GitRepo, Bundle and
 BundleDeployment status before retrying Preview → Deploy.
 
+Public routes use one Environment bundle at
+`applications/<app>/<env>/_routes/`, containing `fleet.yaml` and
+`ingress-orch-public.json`. After every affected workload is Ready, the
+adapter pushes this bundle and waits for Fleet GitRepo observation and the
+Ingress `orchestrator.io/route-hash` label. Removing all public paths removes
+the bundle and waits for Fleet prune. It contains only host/path/Service/port,
+never secret values. Do not manage the same Ingress with kubectl while Fleet
+mode is active. An older direct-managed Ingress without a route bundle must be
+migrated by first deploying a public route through Fleet before removing it.
+If workload apply succeeded but the route bundle failed, Preview shows
+`routePending` and the Web Console offers `Retry public routes`; this retries
+the Environment route without reapplying workloads.
+
 Start Orchestrator with `-adapters kubernetes -workload-delivery fleet-gitrepo`
 plus matching `-kube-context`, `-gitops-repo-dir`, `-gitops-branch`,
 `-fleet-gitrepo-name`, `-harbor-registry` and `-harbor-dockerconfig-file` flags.

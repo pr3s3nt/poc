@@ -58,6 +58,7 @@ entity environments {
   current_deployment_set_id : uuid <<FK>>
   version : bigint
   draft_version : bigint
+  public_routes_pending : boolean
   desired_config_revision_id : uuid <<FK>>
 }
 entity configuration_revisions {

@@ -30,7 +30,10 @@ WorkloadDeployer.WaitReady(ctx context.Context, target DeploymentTarget, workloa
   `ResourceDescriptorParser.ParseDescriptorText` resolve scoped tokens BR-12.
 - `ResourceProvisioningService` — UC-08 control.
 - `OutputBindingResolver`, `WorkloadRenderer`, `WorkloadDeployer`.
-- `PublicRouteManager` — chỉ trên internal kind, reconcile Ingress sau workload readiness hoặc gỡ route khi bỏ public/delete.
+- `PublicRouteManager` — trên internal kind, reconcile toàn bộ Ingress cấp Environment;
+  adapter Kubernetes direct hoặc GitOps `_routes` theo delivery mode.
+- Pending batch giữ `Environment.publicRoutesPending` trước khi áp dụng;
+  nếu route reconcile lỗi sau workload commit, Preview cho retry route-only.
 - `Deployment`, `DeploymentPlan`, `DeploymentDeltaSnapshot`, `DeploymentSet`, `ContainerResourceRequirements`, `ActiveResource`, `WorkloadInstance`.
 - Application/Environment/Deployment/DeploymentDeltaSnapshot/DeploymentSet/ActiveResource/WorkloadInstance repositories.
 - `UnitOfWork` cho create-plan và final commit transactions.
@@ -44,7 +47,7 @@ WorkloadDeployer.WaitReady(ctx context.Context, target DeploymentTarget, workloa
 | MS-04–MS-08 | Load profile, resolve descriptor tokens, enrich graph, match/validate/schedule; persist immutable plan snapshot. |
 | MS-09 | Chuyển Deployment `PROVISIONING`, gọi UC-08 với resource-only batches. |
 | MS-10 | `OutputBindingResolver.ResolveWorkloadBindings`. |
-| MS-11 | `WorkloadRenderer.Render` ánh xạ typed container requests/limits -> Kubernetes resources theo BR-11: giá trị khai báo giữ nguyên, request field thiếu lấy limit cùng field, thiếu cả hai thì nhận default `10m`/`32Mi`, limits chỉ gồm field khai báo; renderer không sửa module input. Sau đó `WorkloadDeployer.Apply` -> `WaitReady`; internal kind reconcile Ingress cho public Service port sau readiness. |
+| MS-11 | `WorkloadRenderer.Render` ánh xạ typed container requests/limits -> Kubernetes resources theo BR-11: giá trị khai báo giữ nguyên, request field thiếu lấy limit cùng field, thiếu cả hai thì nhận default `10m`/`32Mi`, limits chỉ gồm field khai báo; renderer không sửa module input. Sau đó `WorkloadDeployer.Apply` -> `WaitReady`; internal kind reconcile toàn bộ Ingress sau khi các workload bị ảnh hưởng Ready. Fleet mode ghi/chờ bundle `_routes`. |
 | MS-12 | Final transaction version-check Environment, set current Deployment Set, save instances/resources, mark AWS Application runtime `READY` và Deployment `SUCCEEDED`. |
 | MS-13 | Trả `DeploymentResult`. |
 

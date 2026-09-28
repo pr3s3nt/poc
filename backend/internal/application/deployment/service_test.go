@@ -188,14 +188,14 @@ func TestPublicRouteFollowsReadyWorkloadAndCanBeRemoved(t *testing.T) {
 	if _, err := app.Deployments.DeployWorkload(context.Background(), cmd); err != nil {
 		t.Fatal(err)
 	}
-	if len(routes.calls) != 1 || routes.calls[0].Host != "acceptance.example.com" || routes.calls[0].PortName != "http" {
+	if len(routes.calls) != 1 || routes.calls[0].Host != "acceptance.example.com" || len(routes.calls[0].Paths) != 1 || routes.calls[0].Paths[0].PortName != "http" {
 		t.Fatalf("wrong public route: %+v", routes.calls)
 	}
 	cmd.ScoreBefore, cmd.ScoreAfter = after, before
 	if _, err := app.Deployments.DeployWorkload(context.Background(), cmd); err != nil {
 		t.Fatal(err)
 	}
-	if len(routes.calls) != 2 || routes.calls[1].PortName != "" {
+	if len(routes.calls) != 2 || len(routes.calls[1].Paths) != 0 {
 		t.Fatalf("public route was not removed: %+v", routes.calls)
 	}
 }

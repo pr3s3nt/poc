@@ -11,6 +11,7 @@ import (
 
 	"orchestrator/internal/adapters/configmemory"
 	"orchestrator/internal/adapters/fake"
+	"orchestrator/internal/adapters/gitops"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	"orchestrator/internal/adapters/secrets"
 	"orchestrator/internal/adapters/store"
@@ -155,7 +156,15 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	prov := provisioning.NewService(st, registry, secretStore, c)
 	deployments := appsvc.NewService(st, planning.NewService(), prov, renderer, deployer, tf.NewInspector(), c)
 	if opts.Adapters == AdapterKubernetes {
-		deployments.SetPublicRouteManager(&k8s.PublicRoutes{KubectlPath: opts.KubectlPath}, opts.Seed.BaseDomain)
+		if opts.WorkloadDelivery == "fleet-gitrepo" {
+			fleet, ok := deployer.(*gitops.Deployer)
+			if !ok {
+				return nil, fmt.Errorf("bootstrap: Fleet route delivery requires GitOps deployer")
+			}
+			deployments.SetPublicRouteManager(fleet, opts.Seed.BaseDomain)
+		} else {
+			deployments.SetPublicRouteManager(&k8s.PublicRoutes{KubectlPath: opts.KubectlPath}, opts.Seed.BaseDomain)
+		}
 	}
 	if opts.WorkloadDelivery == "fleet-gitrepo" {
 		deployments.SetImagePullSecret(opts.HarborPullSecretName)

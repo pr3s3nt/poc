@@ -73,6 +73,23 @@ func TestPublicServicePortMustExist(t *testing.T) {
 	}
 }
 
+func TestPublicRoutesRejectInvalidAndDuplicatePaths(t *testing.T) {
+	doc := base()
+	service := map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicRoutes": []any{map[string]any{"path": "/api", "port": "http"}}}
+	doc["service"] = service
+	if _, err := FromMap(doc); err != nil {
+		t.Fatalf("valid public route rejected: %v", err)
+	}
+	service["publicRoutes"] = []any{map[string]any{"path": "/api?bad", "port": "http"}}
+	if _, err := FromMap(doc); err == nil {
+		t.Fatal("invalid path accepted")
+	}
+	service["publicRoutes"] = []any{map[string]any{"path": "/api", "port": "http"}, map[string]any{"path": "/api", "port": "http"}}
+	if _, err := FromMap(doc); err == nil {
+		t.Fatal("duplicate path accepted")
+	}
+}
+
 func TestFragmentHoistsSharedResourceAndRewritesPlaceholder(t *testing.T) {
 	f := fragment(t, base())
 	if f.Module.Profile == "" {

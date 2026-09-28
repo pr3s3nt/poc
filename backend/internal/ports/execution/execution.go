@@ -20,11 +20,13 @@ type Target struct {
 	Extra       map[string]string `json:"extra,omitempty"`
 }
 
-// PublicRoute is the single HTTP entry point of one Environment. An empty
-// PortName removes the route, but only when owned by WorkloadID.
+// PublicRoute is the complete HTTP route set of one Environment.
 type PublicRoute struct {
-	ApplicationID, EnvironmentID, WorkloadID, Host, PortName string
+	ApplicationID, EnvironmentID, Host string
+	Paths                              []PublicPath
 }
+
+type PublicPath struct{ Path, WorkloadID, PortName string }
 
 type PublicRouteManager interface {
 	Reconcile(ctx context.Context, target Target, route PublicRoute) error

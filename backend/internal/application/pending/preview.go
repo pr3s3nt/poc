@@ -38,6 +38,7 @@ type Preview struct {
 	BaseSetID        string   `json:"baseDeploymentSetId"`
 	BaseVersion      int64    `json:"baseVersion"`
 	DraftVersion     int64    `json:"draftVersion"`
+	RoutePending     bool     `json:"routePending,omitempty"`
 	ConfigRevisionID string   `json:"configRevisionId,omitempty"`
 	RunID            string   `json:"runId"`
 	Changes          []Change `json:"changes"`
@@ -146,7 +147,7 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 		typeMap[typ.Key] = typ
 	}
 	catalog := planning.Catalog{Types: typeMap, Definitions: definitions}
-	preview := Preview{ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, ConfigRevisionID: scope.DesiredRevisionID, Changes: []Change{}}
+	preview := Preview{ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, RoutePending: env.PublicRoutesPending, ConfigRevisionID: scope.DesiredRevisionID, Changes: []Change{}}
 	// Keep the execution identity stable across revisions of one environment.
 	// The preview token separately pins the mutable base/draft/configuration state.
 	pinHash, err := canon.Hash([]string{appKey, envKey})
@@ -186,15 +187,54 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 		} else if before != nil {
 			action = domain.ActionUpdate
 		}
-		plan, err := s.planner.Plan(planning.Request{OrganizationKey: app.OrganizationKey, App: app, Env: env, Connection: connection, BaseSet: base, Before: before, After: after, WorkloadID: id, Action: action, Catalog: catalog, Active: active, Terraform: s.terraform, RunID: preview.RunID})
+		plan, err := s.planner.Plan(planning.Request{OrganizationKey: app.OrganizationKey, App: app, Env: env, Connection: connection, BaseSet: base, Before: before, After: after, WorkloadID: id, Action: action, Catalog: catalog, Active: active, Terraform: s.terraform, RunID: preview.RunID, AllowIntermediatePublicRoutes: true})
 		if err != nil {
 			return Preview{}, err
+		}
+		if draft.State == environment.DraftUpsert && before != nil {
+			same, err := equivalentSets(base, plan.CandidateSet)
+			if err != nil {
+				return Preview{}, err
+			}
+			if same {
+				changed, err := usesChangedConfiguration(ctx, s.store, base.Modules[id], desired, instanceByID[id].AppliedConfigRevisionID)
+				if err != nil {
+					return Preview{}, err
+				}
+				if !changed {
+					continue
+				}
+			}
 		}
 		preview.Changes = append(preview.Changes, Change{WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, PlanHash: plan.PlanHash})
 		base = plan.CandidateSet
 	}
+	if err := planning.ValidatePublicRoutes(base); err != nil {
+		return Preview{}, err
+	}
 	preview.Token, err = canon.Hash(preview)
 	return preview, err
+}
+
+func equivalentSets(a, b environment.Document) (bool, error) {
+	// Compare effective Service defaults and the legacy publicPort alias.
+	a = canonicalServices(a)
+	b = canonicalServices(b)
+	left, err := canon.Hash(a)
+	if err != nil {
+		return false, err
+	}
+	right, err := canon.Hash(b)
+	return left == right, err
+}
+
+func canonicalServices(set environment.Document) environment.Document {
+	copy := environment.Document{Modules: make(map[string]environment.Module, len(set.Modules)), Shared: set.Shared}
+	for id, module := range set.Modules {
+		module.Spec.Service = module.Spec.Service.Canonical()
+		copy.Modules[id] = module
+	}
+	return copy
 }
 
 func validateImageRegistry(doc *score.Document, host string) error {

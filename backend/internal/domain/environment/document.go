@@ -27,8 +27,50 @@ type Port struct {
 
 // Service exposes workload ports inside the cluster.
 type Service struct {
-	Ports      map[string]Port `json:"ports"`
-	PublicPort string          `json:"publicPort,omitempty"`
+	Ports        map[string]Port `json:"ports"`
+	PublicPort   string          `json:"publicPort,omitempty"`
+	PublicRoutes []PublicPath    `json:"publicRoutes,omitempty"`
+}
+
+// PublicPath maps a URL prefix on the Environment host to a named Service port.
+type PublicPath struct {
+	Path string `json:"path"`
+	Port string `json:"port"`
+}
+
+// Routes includes the legacy publicPort alias without changing stored documents.
+func (s *Service) Routes() []PublicPath {
+	if s == nil {
+		return nil
+	}
+	routes := append([]PublicPath(nil), s.PublicRoutes...)
+	if s.PublicPort != "" {
+		routes = append(routes, PublicPath{Path: "/", Port: s.PublicPort})
+	}
+	return routes
+}
+
+// Canonical returns an equivalent Service shape for no-op comparisons.
+// Kubernetes defaults an omitted targetPort to port and protocol to TCP.
+func (s *Service) Canonical() *Service {
+	if s == nil {
+		return nil
+	}
+	out := *s
+	out.PublicRoutes = s.Routes()
+	out.PublicPort = ""
+	sort.Slice(out.PublicRoutes, func(i, j int) bool { return out.PublicRoutes[i].Path < out.PublicRoutes[j].Path })
+	out.Ports = make(map[string]Port, len(s.Ports))
+	for name, port := range s.Ports {
+		if port.TargetPort == 0 {
+			port.TargetPort = port.Port
+		}
+		if port.Protocol == "" {
+			port.Protocol = "TCP"
+		}
+		out.Ports[name] = port
+	}
+	return &out
 }
 
 // Probe is an HTTP readiness or liveness probe path.

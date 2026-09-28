@@ -45,6 +45,11 @@ func (s *Service) Deploy(ctx context.Context, appKey, envKey, actor, token strin
 		return DeployReport{}, err
 	}
 	report := DeployReport{Status: "SUCCEEDED", Results: []WorkloadResult{}}
+	if len(preview.Changes) > 0 {
+		if err := s.setRoutePending(ctx, appKey, envKey, true); err != nil {
+			return report, err
+		}
+	}
 	expectedEnvVersion := preview.BaseVersion
 	expectedDraftVersion := preview.DraftVersion
 	for index, change := range preview.Changes {
@@ -87,8 +92,9 @@ func (s *Service) Deploy(ctx context.Context, appKey, envKey, actor, token strin
 			OrganizationKey: app.OrganizationKey, ApplicationKey: appKey, EnvironmentKey: envKey,
 			WorkloadID: change.WorkloadID, ScoreBefore: before, ScoreAfter: after, Action: change.Action,
 			Actor: actor, RunID: preview.RunID,
-			ExpectedPlanHash: change.PlanHash,
-			ConfigRevisionID: preview.ConfigRevisionID,
+			ExpectedPlanHash:  change.PlanHash,
+			ConfigRevisionID:  preview.ConfigRevisionID,
+			DeferPublicRoutes: true,
 		})
 		if deployErr != nil {
 			report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "FAILED", Error: deployErr.Error()})
@@ -128,7 +134,27 @@ func (s *Service) Deploy(ctx context.Context, appKey, envKey, actor, token strin
 		}
 		report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "SUCCEEDED", DeploymentID: result.DeploymentID})
 	}
+	if len(preview.Changes) > 0 || preview.RoutePending {
+		if err := s.deployer.ReconcilePublicRoutes(ctx, appKey, envKey); err != nil {
+			report.Status = "PARTIAL"
+			return report, fmt.Errorf("pending: workloads applied but public routes failed: %w", err)
+		}
+		if err := s.setRoutePending(ctx, appKey, envKey, false); err != nil {
+			return report, err
+		}
+	}
 	return report, nil
+}
+
+func (s *Service) setRoutePending(ctx context.Context, appKey, envKey string, pending bool) error {
+	return s.store.Transact(ctx, func(ctx context.Context) error {
+		env, err := s.store.GetEnvironment(ctx, appKey, envKey)
+		if err != nil {
+			return err
+		}
+		env.PublicRoutesPending = pending
+		return s.store.SaveEnvironment(ctx, env)
+	})
 }
 
 func isNotFound(err error) bool { return errors.Is(err, persistence.ErrNotFound) }

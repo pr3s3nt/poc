@@ -20,8 +20,8 @@ namespaces and resource dependencies directly.
 
 ## Decision
 
-1. A configured `fleet-gitrepo` workload-delivery mode replaces only the
-   workload apply/remove/readiness adapter for the internal kind target. The
+1. A configured `fleet-gitrepo` workload-delivery mode replaces the
+   workload apply/remove/readiness and public-Ingress adapters for the internal kind target. The
    planner, UC-08 resource provisioning, Vault access preparation and
    Preview-token semantics remain unchanged. The direct Kubernetes adapter
    stays available for existing verification and AWS until separately migrated.
@@ -44,6 +44,15 @@ namespaces and resource dependencies directly.
    the pending desired change and reports deployment failure. Re-preview/retry
    is safe and writes the same desired manifests. A GitOps directory is the
    ownership boundary; the direct workload deployer must not also manage it.
+6. The Environment public Ingress is an Environment-owned `_routes` Fleet
+   bundle under `applications/<app>/<env>/_routes/`. It contains one non-secret
+   manifest with all public paths. The writer waits for GitRepo observation
+   and the Ingress route-hash label matching the desired spec. Removing all
+   paths removes the bundle and waits for Fleet pruning. Direct mode still
+   uses the Kubernetes API, never both managers for one delivery mode.
+7. A failed route reconciliation after committed workloads leaves a durable
+   `publicRoutesPending` flag on the Environment. Preview/Deploy can then retry
+   only the route bundle without restarting those workloads.
 
 ## Consequences
 

@@ -102,11 +102,15 @@ của Environment đang chọn.
   Resource Type; input bắt buộc phải có giá trị đúng kiểu trước khi lưu.
   Tham số được lưu vào `resources.<alias>.params` của Score và được khôi phục
   khi Edit. Import Score vẫn cho phép cấu trúc phức tạp mà form không hỗ trợ.
-- **BR-12:** Developer có thể chọn tối đa một cổng Service của workload làm
-  cổng public cho Environment. Lựa chọn được lưu trong cấu hình mong muốn,
-  không tạo route khi chỉ Save. Mỗi Environment chỉ có một workload public;
-  Preview từ chối trạng thái có nhiều hơn một. Xóa/bỏ chọn cổng public sẽ gỡ
-  route khi Deploy thay đổi đó.
+- **BR-12:** Mỗi workload có thể khai báo nhiều public route `{path, port}`;
+  `path` là URL prefix bắt đầu bằng `/`, `port` là tên Service port đã khai báo.
+  Preview kiểm tra path hợp lệ và không trùng trong toàn Environment; `/` và
+  `/api` được phép ở hai workload. `service.publicPort` cũ tương đương route
+  `{path: "/", port: publicPort}`. Save chỉ lưu desired state; Deploy mới
+  tạo/cập nhật hoặc gỡ route của Environment.
+- **BR-13:** Draft có nội dung ngữ nghĩa giống current Deployment Set không
+  tạo thay đổi trong Preview; thay đổi revision UC-12 của key workload đang
+  dùng vẫn là update. Mỗi Save vẫn tăng draft version theo BR-10.
 
 ## Ngoài phạm vi
 

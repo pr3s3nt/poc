@@ -189,8 +189,24 @@ func TestPlanRejectsTwoPublicWorkloads(t *testing.T) {
 		Service:    &environment.Service{Ports: map[string]environment.Port{"web": {Port: 80}}, PublicPort: "web"},
 	}}
 	req.After.Service = &environment.Service{Ports: map[string]environment.Port{"http": {Port: 8080}}, PublicPort: "http"}
-	if _, err := NewService().Plan(req); err == nil || !strings.Contains(err.Error(), "multiple public workloads") {
+	if _, err := NewService().Plan(req); err == nil || !strings.Contains(err.Error(), "public path") {
 		t.Fatalf("expected public route conflict, got %v", err)
+	}
+}
+
+func TestPlanAcceptsDistinctPublicPaths(t *testing.T) {
+	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req.BaseSet.Modules["frontend"] = environment.Module{Profile: environment.ModuleProfile, Spec: environment.ModuleSpec{
+		Containers: map[string]environment.Container{"main": {Image: "frontend:v1"}},
+		Service:    &environment.Service{Ports: map[string]environment.Port{"web": {Port: 80}}, PublicPort: "web"},
+	}}
+	req.After.Service = &environment.Service{Ports: map[string]environment.Port{"http": {Port: 8080}}, PublicRoutes: []environment.PublicPath{{Path: "/api", Port: "http"}}}
+	if _, err := NewService().Plan(req); err != nil {
+		t.Fatalf("distinct public paths rejected: %v", err)
+	}
+	req.After.Service.PublicRoutes[0].Port = "missing"
+	if _, err := NewService().Plan(req); err == nil || !strings.Contains(err.Error(), "not declared") {
+		t.Fatalf("missing Service port accepted: %v", err)
 	}
 }
 

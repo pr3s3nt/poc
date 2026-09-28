@@ -13,6 +13,7 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning/score"
+	"orchestrator/internal/platform/canon"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -60,6 +61,11 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 		items[id] = item
 	}
 	for _, draft := range drafts {
+		if draft.State == environment.DraftUpsert {
+			if current, exists := items[draft.WorkloadID]; exists && current.Score != nil && sameVisibleScore(current.Score, draft.Score) {
+				continue // a saved no-op is not a pending user-visible change
+			}
+		}
 		item := Item{ID: draft.WorkloadID, State: draft.State, Score: draft.Score, Ready: set.Document.Modules[draft.WorkloadID].Profile != ""}
 		if draft.State == environment.DraftUpsert {
 			if parsed, err := score.FromMap(draft.Score); err == nil {
@@ -74,6 +80,25 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 	}
 	sort.Slice(out.Workloads, func(i, j int) bool { return out.Workloads[i].ID < out.Workloads[j].ID })
 	return out, nil
+}
+
+func sameVisibleScore(current, draft map[string]any) bool {
+	a, err := score.FromMap(current)
+	if err != nil {
+		return false
+	}
+	b, err := score.FromMap(draft)
+	if err != nil {
+		return false
+	}
+	a.Service = a.Service.Canonical()
+	b.Service = b.Service.Canonical()
+	left, err := canon.Hash(a)
+	if err != nil {
+		return false
+	}
+	right, err := canon.Hash(b)
+	return err == nil && left == right
 }
 
 func portNames(service *environment.Service) []string {

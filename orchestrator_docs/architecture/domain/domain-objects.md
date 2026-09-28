@@ -14,7 +14,7 @@ last_reviewed: 2026-09-23
 | User Account | `UserAccount` | password hash, Organization identity, role, status | Username unique; chỉ `ACTIVE` account được authenticate; plaintext password không persist. |
 | Session | `Session` | token hash, expiry, lifecycle status | Opaque token chỉ tồn tại ở browser/request memory; token hash unique và session revoked/expired không authenticate được. |
 | Application | `Application` | system ID, name, subdomain, Execution Profile binding | ID do hệ thống sinh; profile cố định khi đã có Active Resource; AWS scope sở hữu tối đa một VPC/EKS descriptor. |
-| Environment | `Environment` | namespace identity, current-set pointer | Thuộc một Application; UC-01 tạo đúng `staging` và `production`; desired endpoint được suy ra từ Application Subdomain và Environment key; current Deployment Set chỉ đổi trong final deployment transaction. |
+| Environment | `Environment` | namespace identity, current-set pointer, public-route pending flag | Thuộc một Application; UC-01 tạo đúng `staging` và `production`; desired endpoint được suy ra từ Application Subdomain và Environment key; current Deployment Set chỉ đổi trong final deployment transaction. Route pending cho phép retry sau lỗi Fleet mà không restart workload. |
 | Resource Type | `ResourceType` | input/output schema | Contract độc lập implementation. |
 | Resource Definition | `ResourceDefinition` | optional Execution Profile guard, Matching Criteria, driver inputs, provision rules | Cùng Resource Type và profile hợp lệ; criteria match deterministic; output contract tương thích. |
 | Connection | `Connection` | verification metadata | Chỉ secret reference được persist; chỉ `READY` được sử dụng. |
@@ -22,11 +22,12 @@ last_reviewed: 2026-09-23
 | Active Resource | `ActiveResource` | executor state, outputs | Logical identity unique theo Organization + descriptor + scope. |
 | Workload Instance | `WorkloadInstance` | manifest digest/status | Unique theo Environment + workload ID. |
 
-`DeploymentSet.modules.<workload>.spec.service.publicPort` is an optional
-orchestrator extension naming one declared Service port. At most one module in
-an Environment may select it. The resulting Ingress is runtime state owned by
-the internal-kind `PublicRouteManager`, reconciled after workload readiness;
-it is not a separate database aggregate.
+`DeploymentSet.modules.<workload>.spec.service.publicRoutes` is an optional
+orchestrator extension mapping public URL paths to declared Service ports.
+Paths are unique across the Environment; legacy `publicPort` aliases `/`.
+The resulting Environment-owned Ingress is runtime state of the internal-kind
+`PublicRouteManager`, reconciled after workload readiness. It is not a
+separate database aggregate.
 
 ## Entities and value objects
 

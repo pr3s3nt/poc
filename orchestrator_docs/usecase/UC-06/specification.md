@@ -55,7 +55,8 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 - **VAR-02 — `internal-k8s`:** tại MS-05, thêm provider node tham chiếu cluster connection có sẵn; UC-08 không tạo VPC/EKS và provision namespace/PostgreSQL trên cluster đó.
 - **VAR-03 — Fleet GitRepo trên internal kind:** tại MS-11, khi platform cấu
   hình mode này, Orchestrator ghi workload manifests không bí mật vào repo
-  GitOps theo Application/Environment/workload, push commit và chờ Fleet áp
+  GitOps theo Application/Environment/workload và Ingress vào bundle
+  `Application/Environment/_routes`, push commit và chờ Fleet áp
   dụng revision lên namespace của Environment. Image đã có trong Harbor; UC-06
   không clone mã nguồn hoặc build image. UC-08 vẫn sở hữu namespace/resources.
 
@@ -91,15 +92,22 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 - **BR-13:** Trong Fleet GitRepo mode, Deployment chỉ `SUCCEEDED` khi Git
   revision được Fleet quan sát và workload revision tương ứng Ready. Không ghi
   raw secret hoặc Docker registry credential vào GitOps repository.
-- **BR-14:** Trên internal kind, nếu workload chọn Service port public, sau
-  khi Deployment Ready, UC-06 tạo/cập nhật Traefik Ingress duy nhất của
-  Environment trỏ đến Service/cổng đó. Host staging là
+- **BR-14:** Trên internal kind, các public path của Environment cùng nằm
+  trong một Traefik Ingress; mỗi path trỏ đến Service/cổng đã khai báo. Sau
+  khi mọi workload bị ảnh hưởng trong batch Deploy Ready, UC-06 reconcile
+  toàn bộ Ingress từ Deployment Set đích. Direct mode dùng Kubernetes API;
+  Fleet mode ghi bundle `_routes`, chờ GitRepo quan sát commit và Ingress có
+  đúng revision trước khi báo thành công. Gỡ hết path sẽ xóa Ingress.
+  Host staging là
   `staging.<subdomain>.<base-domain>`, production là
-  `<subdomain>.<base-domain>`. Nếu bỏ chọn hoặc xóa workload public, route được
-  gỡ. Route không được coi là truy cập được từ bên ngoài cho tới khi DNS và
+  `<subdomain>.<base-domain>`. Route không được coi là truy cập được từ bên ngoài cho tới khi DNS và
   đường vào Ingress Controller được cấu hình; TLS/cloud ingress nằm ngoài MVP.
-  `service.publicPort` là extension của orchestrator trên Score subset hiện tại,
+  `service.publicRoutes` và alias `service.publicPort` là extension của orchestrator trên Score subset hiện tại,
   không phải khẳng định field chuẩn của Score.
+- **BR-15:** Nếu workload trong batch đã apply nhưng route reconcile lỗi,
+  Environment giữ trạng thái `publicRoutesPending`. Preview kế tiếp cho phép
+  retry riêng route từ current Deployment Set, không redeploy/restart workload;
+  chỉ xóa trạng thái pending sau khi route được quan sát thành công.
 
 ## Luồng nội bộ
 

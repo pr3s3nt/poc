@@ -35,9 +35,9 @@ Renderer --> Service: Service/Deployment manifests
 Service -> WorkloadK8s: Apply(internal target, manifests)
 Service -> WorkloadK8s: WaitReady(target workload)
 WorkloadK8s --> Service: Ready
-opt Public Service port selected
-  Service -> Routes: Reconcile Ingress(host, Service, port)
-  Routes --> Service: Ingress applied
+opt Direct UC-06 (pending batch defers until all affected workloads ready)
+  Service -> Routes: Reconcile Environment Ingress from Candidate Set
+  Routes --> Service: Ingress applied or Fleet bundle observed
 end
 Service -> Repo: Commit set/resources/workloads/SUCCEEDED [MS-12]
 Service --> Developer: DeploymentResult [MS-13]

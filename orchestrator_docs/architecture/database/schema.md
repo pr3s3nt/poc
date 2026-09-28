@@ -96,6 +96,7 @@ Unique: `(organization_id, connection_key)`.
 | `current_deployment_set_id` | uuid | nullable FK deployment_sets, deferred |
 | `version` | bigint | optimistic version |
 | `draft_version` | bigint | optimistic UC-16 draft version |
+| `public_routes_pending` | boolean | true while route reconciliation has not completed after pending Deploy; route-only retry survives process restart |
 | `desired_config_revision_id` | uuid | nullable FK configuration_revisions, deferred |
 
 `environment_key` is system-owned and limited to `staging` or `production`.
@@ -181,10 +182,12 @@ Deployment Sets are immutable. Canonical shape:
 }
 ```
 
-For the internal-kind public route extension, a workload module may carry
-`spec.service.publicPort` naming one of `spec.service.ports` (from Score
-`service.publicPort`). At most one module per Environment may select a public
-port. The route itself is a Kubernetes Ingress, not a secret or database row.
+For the internal-kind public route extension, each workload module may carry
+`spec.service.publicRoutes: [{path, port}]`, where `port` names a declared
+`spec.service.ports` entry. The legacy `spec.service.publicPort` denotes `/`.
+Paths are unique across the Environment; multiple workloads may be public on
+distinct paths. The route itself is one Environment-owned Kubernetes Ingress,
+not a secret or database row.
 
 Private dependency của một workload nằm trong `modules.<id>.externals.<name>`; shared dependency nằm ở `shared.<id>`.
 Placeholder trong `spec` tham chiếu resource bằng `${externals.<name>[.<output>]}` và `${shared.<id>[.<output>]}`.

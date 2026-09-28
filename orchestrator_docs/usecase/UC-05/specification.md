@@ -53,6 +53,12 @@ Kiểm tra Score và hiển thị thay đổi dự kiến trước khi thực hi
 - **BR-05:** Deployment Delta có shape `modules.add/remove/update` và `shared`; patch trong `modules.update.<id>` relative với module, patch `shared` relative với object shared.
 - **BR-06:** Delta deterministic; array được diff theo index chung, remove đuôi từ index lớn xuống nhỏ và add đuôi bằng path `/-`.
 - **BR-07:** `containers.*.resources` chỉ nhận `requests`/`limits` với `cpu` và `memory`; mọi field đều optional, nhưng field đã khai báo phải là non-empty string. `null`, number, empty string, branch hoặc resource key khác bị reject. Giá trị hợp lệ phải được bảo toàn nguyên văn từ Score sang Candidate Deployment Set. Validation của planner dừng ở shape này, không kiểm Kubernetes quantity semantics; Kubernetes API kiểm quantity khi workload được apply.
+- **BR-08:** Với UC-16 pending changes, Preview bỏ qua draft có Candidate
+  Deployment Set tương đương current và không dùng key UC-12 đã đổi revision.
+  Nếu key tham chiếu đã đổi revision thì vẫn preview update. Preview kiểm tra
+  public path trên trạng thái Environment cuối cùng, không từ chối trạng thái
+  trung gian của batch chuyển route giữa workload. Khi chỉ còn route sync
+  pending, Preview cho retry route-only mà không redeploy workload.
 
 ## Luồng nội bộ
 
@@ -70,7 +76,9 @@ UC-05 Validate and Preview
 
 - `PlanningService` dùng chung đã triển khai Score validation, Candidate Set, graph/matching, contract inspection, classification và batches; 33 challenge fixture được chạy qua planner sản phẩm với các khác biệt đã tài liệu hóa.
 - Planner sinh Humanitec-shaped Delta `modules.add/remove/update` và `shared`; patch `modules.update.<id>` relative với module, patch `shared` relative với object shared, array diff theo BR-06 có product tests riêng và conformance so Delta của 27 accepted fixtures. Deployment path của UC-06 persist Delta thành immutable Snapshot riêng; preview không persist Snapshot. Parser validate `containers.*.resources` theo BR-07 và planner giữ requests/limits nguyên văn trong Candidate Set (I06-07).
-- UC-06 đang gọi pipeline này để deploy thật. `PreviewService`, endpoint và màn hình Preview read-only của UC-05 chưa được wire và vẫn thuộc Phase 6 bước 6.
+- UC-06 đang gọi pipeline này để deploy thật. UC-16 pending-change Preview,
+  endpoint và Application home panel đã wire, gồm no-op filtering và route-only
+  retry; broader standalone Score Preview contract vẫn chưa hoàn chỉnh.
 
 ## Ngoài phạm vi happy path
 

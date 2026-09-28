@@ -31,3 +31,4 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 | 2026-09-28 | UC-12 VSO Secret sync, rotation and direct kind deploy/remove | [UC-12 VSO kind verification](2026-09-28-uc12-vso-kind.md) |
 | 2026-09-28 | UC-03 profile matching and UC-16 resource-input form local checks | [UC-03/16 resource inputs](2026-09-28-uc03-uc16-resource-inputs.md) |
 | 2026-09-28 | UC-16 public Service port → UC-06 Traefik Ingress → kind HTTP and removal | [Public Ingress kind verification](2026-09-28-public-ingress-kind.md) |
+| 2026-09-28 | Multi-path direct Ingress, Fleet route bundle/prune, no-op Preview and Pod UID | [Public routes recheck](2026-09-28-public-routes-recheck.md) |

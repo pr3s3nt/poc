@@ -21,12 +21,14 @@ Application keys use the virtual Score `environment` resource and
   Services and ports.
 - Workload configuration control: validate the selected references, save a
   desired change or mark a workload pending deletion; do not call deployment.
-- Public access selection: store an optional declared Service port in the
-  desired Score. Planning rejects two public workloads in one Environment;
-  saving the draft alone never changes an Ingress.
+- Public access selection: store zero or more `{path, port}` bindings to
+  declared Service ports in desired Score. Preview validates the complete
+  Environment path set; saving alone never changes an Ingress.
 - Desired configuration store: retain versioned pending changes separately
   from the current Deployment Set. Preview pins its draft version and UC-12
   revision so a later edit makes the preview stale.
+- No-op drafts remain versioned but do not appear as affected workloads in
+  Preview; a referenced UC-12 key revision change still produces an update.
 
 ## Trace main flow
 

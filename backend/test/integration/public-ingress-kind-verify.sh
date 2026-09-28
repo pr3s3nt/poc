@@ -70,10 +70,37 @@ for _ in $(seq 1 40); do
 done
 [[ "$(<"${WORK}/http-response.txt")" == "ingress-ok" ]]
 
+# A second workload owns /api on the same host; the frontend remains at /.
+curl -fsS -b "${WORK}/cookies" "${BASE}/workloads" > "${WORK}/workloads.json"
+jq -n '{apiVersion:"score.dev/v1b1",metadata:{name:"api"},containers:{main:{image:"busybox:1.37",command:["/bin/sh","-c"],args:["printf api-ok >/tmp/api; exec httpd -f -p 8080 -h /tmp"]}},service:{ports:{http:{port:8080,targetPort:8080}},publicRoutes:[{path:"/api",port:"http"}]}}' > "${WORK}/api-score.json"
+jq -n --slurpfile score "${WORK}/api-score.json" --slurpfile state "${WORK}/workloads.json" '{score:$score[0],version:$state[0].draftVersion}' | curl -fsS -b "${WORK}/cookies" -X PUT -H 'Content-Type: application/json' --data-binary @- "${BASE}/workloads/api" > "${WORK}/api-draft.json"
+curl -fsS -b "${WORK}/cookies" -X POST -H 'Content-Type: application/json' --data '{}' "${BASE}/preview" > "${WORK}/api-preview.json"
+jq '{token:.token}' "${WORK}/api-preview.json" | curl -fsS -b "${WORK}/cookies" -X POST -H 'Content-Type: application/json' --data-binary @- "${BASE}/deploy" > "${WORK}/api-deploy.json"
+jq -e '.status == "SUCCEEDED"' "${WORK}/api-deploy.json" >/dev/null
+kubectl --context "${CONTEXT}" -n "${NAMESPACE}" get ingress orch-public -o json > "${WORK}/ingress-two-paths.json"
+jq -e '[.spec.rules[0].http.paths[] | [.path,.backend.service.name]] | sort == [["/","probe"],["/api","api"]]' "${WORK}/ingress-two-paths.json" >/dev/null
+for _ in $(seq 1 40); do
+  if curl -fsS -H "Host: ${HOST}" http://127.0.0.1:18380/api > "${WORK}/api-http-response.txt" 2>/dev/null; then break; fi
+  sleep 0.5
+done
+[[ "$(<"${WORK}/api-http-response.txt")" == "api-ok" ]]
+
+curl -fsS -b "${WORK}/cookies" "${BASE}/workloads" > "${WORK}/workloads.json"
+jq '{score:(.workloads[] | select(.id == "probe") | .score),version:.draftVersion}' "${WORK}/workloads.json" | curl -fsS -b "${WORK}/cookies" -X PUT -H 'Content-Type: application/json' --data-binary @- "${BASE}/workloads/probe" > "${WORK}/noop-draft.json"
+kubectl --context "${CONTEXT}" -n "${NAMESPACE}" get pods -o jsonpath='{.items[0].metadata.uid}' > "${WORK}/pod-uid-before"
+curl -fsS -b "${WORK}/cookies" -X POST -H 'Content-Type: application/json' --data '{}' "${BASE}/preview" > "${WORK}/noop-preview.json"
+jq -e '(.changes | length) == 0' "${WORK}/noop-preview.json" >/dev/null
+[[ "$(<"${WORK}/pod-uid-before")" == "$(kubectl --context "${CONTEXT}" -n "${NAMESPACE}" get pods -o jsonpath='{.items[0].metadata.uid}')" ]]
 curl -fsS -b "${WORK}/cookies" "${BASE}/workloads" > "${WORK}/workloads.json"
 jq '{version:.draftVersion}' "${WORK}/workloads.json" | curl -fsS -b "${WORK}/cookies" -X DELETE -H 'Content-Type: application/json' --data-binary @- "${BASE}/workloads/probe" > "${WORK}/delete-draft.json"
 curl -fsS -b "${WORK}/cookies" -X POST -H 'Content-Type: application/json' --data '{}' "${BASE}/preview" > "${WORK}/remove-preview.json"
 jq '{token:.token}' "${WORK}/remove-preview.json" | curl -fsS -b "${WORK}/cookies" -X POST -H 'Content-Type: application/json' --data-binary @- "${BASE}/deploy" > "${WORK}/remove-deploy.json"
 jq -e '.status == "SUCCEEDED"' "${WORK}/remove-deploy.json" >/dev/null
+kubectl --context "${CONTEXT}" -n "${NAMESPACE}" get ingress orch-public -o json | jq -e '[.spec.rules[0].http.paths[] | [.path,.backend.service.name]] == [["/api","api"]]' >/dev/null
+curl -fsS -b "${WORK}/cookies" "${BASE}/workloads" > "${WORK}/workloads.json"
+jq '{version:.draftVersion}' "${WORK}/workloads.json" | curl -fsS -b "${WORK}/cookies" -X DELETE -H 'Content-Type: application/json' --data-binary @- "${BASE}/workloads/api" > "${WORK}/delete-api-draft.json"
+curl -fsS -b "${WORK}/cookies" -X POST -H 'Content-Type: application/json' --data '{}' "${BASE}/preview" > "${WORK}/remove-api-preview.json"
+jq '{token:.token}' "${WORK}/remove-api-preview.json" | curl -fsS -b "${WORK}/cookies" -X POST -H 'Content-Type: application/json' --data-binary @- "${BASE}/deploy" > "${WORK}/remove-api-deploy.json"
+jq -e '.status == "SUCCEEDED"' "${WORK}/remove-api-deploy.json" >/dev/null
 if kubectl --context "${CONTEXT}" -n "${NAMESPACE}" get ingress orch-public >/dev/null 2>&1; then echo "public route was not removed" >&2; exit 1; fi
 echo "Public Ingress kind verification passed"

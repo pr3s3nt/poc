@@ -40,9 +40,9 @@ Renderer --> Service: Manifests
 Service -> Deployer: Apply(target, manifests)
 Service -> Deployer: WaitReady(target, workloadRefs)
 Deployer --> Service: Ready
-opt internal kind, public Service port
-  Service -> Routes: Reconcile Ingress(host, Service, port)
-  Routes --> Service: Route applied
+opt internal kind, direct deploy
+  Service -> Routes: Reconcile full Environment Ingress from Candidate Set
+  Routes --> Service: Route applied (kubectl or Fleet _routes bundle)
 end
 Service -> EnvRepo: CompareVersionAndSetCurrent(version, candidateSet) <<transaction B>> [MS-12]
 Service -> WorkloadRepo: UpsertReady(instances) <<transaction B>>

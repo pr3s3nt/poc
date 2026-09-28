@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"sort"
 
 	"orchestrator/internal/ports/execution"
 )
@@ -18,7 +19,7 @@ var routePort = regexp.MustCompile(`^[a-z](?:[a-z0-9-]*[a-z0-9])?$`)
 type PublicRoutes struct{ KubectlPath string }
 
 func (r *PublicRoutes) Reconcile(ctx context.Context, target execution.Target, route execution.PublicRoute) error {
-	if target.Namespace == "" || (target.Context == "" && target.Kubeconfig == "") || route.ApplicationID == "" || route.EnvironmentID == "" || route.WorkloadID == "" {
+	if target.Namespace == "" || (target.Context == "" && target.Kubeconfig == "") || route.ApplicationID == "" || route.EnvironmentID == "" {
 		return fmt.Errorf("kubernetes: public route requires scoped target and owner")
 	}
 	cli := NewCLI(r.KubectlPath, target.Context, target.Kubeconfig)
@@ -29,11 +30,11 @@ func (r *PublicRoutes) Reconcile(ctx context.Context, target execution.Target, r
 	if exists {
 		metadata, _ := object["metadata"].(map[string]any)
 		labels, _ := metadata["labels"].(map[string]any)
-		if labels["app.kubernetes.io/managed-by"] != "orchestrator" || labels["orchestrator.io/application"] != route.ApplicationID || labels["orchestrator.io/environment"] != route.EnvironmentID || labels["orchestrator.io/workload"] != route.WorkloadID {
-			return fmt.Errorf("kubernetes: public Ingress is not owned by workload %q", route.WorkloadID)
+		if labels["app.kubernetes.io/managed-by"] != "orchestrator" || labels["orchestrator.io/application"] != route.ApplicationID || labels["orchestrator.io/environment"] != route.EnvironmentID {
+			return fmt.Errorf("kubernetes: public Ingress is not owned by Environment %q", route.EnvironmentID)
 		}
 	}
-	if route.PortName == "" {
+	if len(route.Paths) == 0 {
 		if !exists {
 			return nil
 		}
@@ -46,24 +47,34 @@ func (r *PublicRoutes) Reconcile(ctx context.Context, target execution.Target, r
 	return cli.Apply(ctx, []map[string]any{manifest})
 }
 
-func publicIngress(namespace string, route execution.PublicRoute) (map[string]any, error) {
-	if !routeHost.MatchString(route.Host) || !routePort.MatchString(route.PortName) {
+// PublicIngress builds a deterministic Environment-owned Ingress for both direct and Fleet adapters.
+func PublicIngress(namespace string, route execution.PublicRoute) (map[string]any, error) {
+	if !routeHost.MatchString(route.Host) || len(route.Paths) == 0 {
 		return nil, fmt.Errorf("kubernetes: invalid public host or Service port")
+	}
+	paths := append([]execution.PublicPath(nil), route.Paths...)
+	sort.Slice(paths, func(i, j int) bool { return paths[i].Path < paths[j].Path })
+	httpPaths := make([]any, 0, len(paths))
+	for _, path := range paths {
+		if path.Path == "" || path.Path[0] != '/' || !routePort.MatchString(path.PortName) || !routePort.MatchString(path.WorkloadID) {
+			return nil, fmt.Errorf("kubernetes: invalid public path or Service port")
+		}
+		httpPaths = append(httpPaths, map[string]any{"path": path.Path, "pathType": "Prefix", "backend": map[string]any{"service": map[string]any{"name": path.WorkloadID, "port": map[string]any{"name": path.PortName}}}})
 	}
 	return map[string]any{
 		"apiVersion": "networking.k8s.io/v1", "kind": "Ingress",
 		"metadata": map[string]any{"name": publicIngressName, "namespace": namespace, "labels": map[string]any{
 			"app.kubernetes.io/managed-by": "orchestrator", "orchestrator.io/application": route.ApplicationID,
-			"orchestrator.io/environment": route.EnvironmentID, "orchestrator.io/workload": route.WorkloadID,
+			"orchestrator.io/environment": route.EnvironmentID,
 		}},
 		"spec": map[string]any{"ingressClassName": "traefik", "rules": []any{map[string]any{
-			"host": route.Host, "http": map[string]any{"paths": []any{map[string]any{
-				"path": "/", "pathType": "Prefix", "backend": map[string]any{"service": map[string]any{
-					"name": route.WorkloadID, "port": map[string]any{"name": route.PortName},
-				}},
-			}}},
+			"host": route.Host, "http": map[string]any{"paths": httpPaths},
 		}}},
 	}, nil
+}
+
+func publicIngress(namespace string, route execution.PublicRoute) (map[string]any, error) {
+	return PublicIngress(namespace, route)
 }
 
 var _ execution.PublicRouteManager = (*PublicRoutes)(nil)

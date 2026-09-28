@@ -10,11 +10,12 @@ type Binding = { name: string; source: Source; key: string; alias: string; outpu
 type ContainerForm = { name: string; image: string; cpuRequest: string; memoryRequest: string; cpuLimit: string; memoryLimit: string; bindings: Binding[] };
 type Dependency = { alias: string; type: string; className: string; params: Record<string, string> };
 type ServicePort = { name: string; port: string; targetPort: string };
-type Form = { name: string; containers: ContainerForm[]; dependencies: Dependency[]; servicePorts: ServicePort[]; publicPort: string };
+type PublicRoute = { path: string; port: string };
+type Form = { name: string; containers: ContainerForm[]; dependencies: Dependency[]; servicePorts: ServicePort[]; publicRoutes: PublicRoute[] };
 
 const emptyBinding = (): Binding => ({ name: '', source: 'VARIABLE', key: '', alias: '', output: '', workload: '', port: '' });
 const emptyContainer = (): ContainerForm => ({ name: 'main', image: '', cpuRequest: '', memoryRequest: '', cpuLimit: '', memoryLimit: '', bindings: [] });
-const emptyForm = (): Form => ({ name: '', containers: [emptyContainer()], dependencies: [], servicePorts: [], publicPort: '' });
+const emptyForm = (): Form => ({ name: '', containers: [emptyContainer()], dependencies: [], servicePorts: [], publicRoutes: [] });
 
 function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): boolean {
   if (Object.keys(raw).some((key) => !['apiVersion', 'metadata', 'containers', 'resources', 'service'].includes(key))) return true;
@@ -37,7 +38,7 @@ function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): 
   if (Object.values(resources).some((resource) => Object.keys(resource).some((key) => !['type', 'class', 'params'].includes(key)))) return true;
   if (Object.values(resources).some((resource) => resource.type === 'environment' && Object.keys(resource).length !== 1)) return true;
   if (Object.values(resources).some((resource) => resource.type === 'service' && (resource.class != null || Object.keys((resource.params ?? {}) as Record<string, unknown>).some((key) => !['workload', 'port'].includes(key))))) return true;
-  if (raw.service && Object.keys(raw.service as Record<string, unknown>).some((key) => key !== 'ports' && key !== 'publicPort')) return true;
+  if (raw.service && Object.keys(raw.service as Record<string, unknown>).some((key) => key !== 'ports' && key !== 'publicPort' && key !== 'publicRoutes')) return true;
   const ports = ((raw.service as { ports?: Record<string, Record<string, unknown>> } | undefined)?.ports ?? {});
   return Object.values(ports).some((port) => Object.keys(port).some((key) => !['port', 'targetPort'].includes(key)));
 }
@@ -77,7 +78,7 @@ function buildScore(form: Form, types: ResourceType[]): Record<string, unknown> 
   }
   const ports: Record<string, unknown> = {};
   for (const port of form.servicePorts) if (port.name && Number(port.port) > 0) ports[port.name] = { port: Number(port.port), targetPort: Number(port.targetPort || port.port) };
-  return { apiVersion: 'score.dev/v1b1', metadata: { name: form.name }, containers, ...(Object.keys(ports).length ? { service: { ports, ...(form.publicPort ? { publicPort: form.publicPort } : {}) } } : {}), ...(Object.keys(resources).length ? { resources } : {}) };
+  return { apiVersion: 'score.dev/v1b1', metadata: { name: form.name }, containers, ...(Object.keys(ports).length ? { service: { ports, ...(form.publicRoutes.length ? { publicRoutes: form.publicRoutes } : {}) } } : {}), ...(Object.keys(resources).length ? { resources } : {}) };
 }
 
 function readForm(score: Record<string, unknown>, keys: ConfigKey[]): Form {
@@ -96,7 +97,8 @@ function readForm(score: Record<string, unknown>, keys: ConfigKey[]): Form {
   if (!form.containers.length) form.containers = [emptyContainer()];
   const ports = ((score.service as { ports?: Record<string, { port: number; targetPort?: number }> } | undefined)?.ports ?? {});
   form.servicePorts = Object.entries(ports).map(([name, port]) => ({ name, port: String(port.port), targetPort: String(port.targetPort ?? port.port) }));
-  form.publicPort = (score.service as { publicPort?: string } | undefined)?.publicPort ?? '';
+  const service = score.service as { publicPort?: string; publicRoutes?: PublicRoute[] } | undefined;
+  form.publicRoutes = [...(service?.publicRoutes ?? []), ...(service?.publicPort ? [{ path: '/', port: service.publicPort }] : [])];
   return form;
 }
 
@@ -137,7 +139,12 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
   }
   async function save() {
     if (blocked) return;
-    if (form.publicPort && !form.servicePorts.some((port) => port.name === form.publicPort && Number(port.port) > 0)) { setError('Choose a declared Service port for public access.'); return; }
+    const seenPaths = new Set<string>();
+    for (const route of form.publicRoutes) {
+      if (!/^\/(?:[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*)?$/.test(route.path) || seenPaths.has(route.path)) { setError('Public paths must be unique URL paths such as / or /api.'); return; }
+      seenPaths.add(route.path);
+      if (!form.servicePorts.some((port) => port.name === route.port && Number(port.port) > 0)) { setError('Choose a declared Service port for every public path.'); return; }
+    }
     if (mode === 'form' || dirty) {
       for (const dependency of form.dependencies) {
         const contract = types.find((item) => item.key === dependency.type);
@@ -175,7 +182,13 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
         <Button onClick={() => updateContainer(ci, { ...container, bindings: [...container.bindings, emptyBinding()] })}>+ Add binding</Button></section>)}
       <Button onClick={() => updateForm({ ...form, containers: [...form.containers, { ...emptyContainer(), name: `container-${form.containers.length + 1}` }] })}>+ Add container</Button>
       <section className="content-panel editor-grid"><div className="section-header"><div><h2>Resource dependencies</h2><p>Choose an existing resource type, then fill its required inputs and use its outputs above.</p></div><Button onClick={() => updateForm({ ...form, dependencies: [...form.dependencies, { alias: '', type: '', className: '', params: {} }] })}>+ Add resource</Button></div>{form.dependencies.map((dep, index) => <div className="editor-grid" key={index}><div className="binding-row"><input aria-label="Resource alias" value={dep.alias} placeholder="db" onChange={(event) => updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, alias: event.target.value } : item) })} /><select aria-label="Resource type" value={dep.type} onChange={(event) => updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, type: event.target.value, params: {} } : item) })}><option value="">Choose type</option>{types.map((type) => <option key={type.key} value={type.key}>{type.key}</option>)}</select><input aria-label="Resource class" value={dep.className} placeholder="default" onChange={(event) => updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, className: event.target.value } : item) })} /><Button tone="quiet" onClick={() => updateForm({ ...form, dependencies: form.dependencies.filter((_, i) => i !== index) })}>Remove</Button></div><div className="field-grid">{types.find((type) => type.key === dep.type)?.inputs?.map((input) => <label key={input.name}>{dep.alias || dep.type} · {input.name}{input.required ? ' *' : ''}{input.type === 'bool' ? <select aria-label={`Resource ${input.name}`} value={dep.params[input.name] ?? ''} onChange={(event) => updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, params: { ...item.params, [input.name]: event.target.value } } : item) })}><option value="">Choose</option><option value="true">True</option><option value="false">False</option></select> : <input aria-label={`Resource ${input.name}`} type={input.type === 'number' ? 'number' : 'text'} value={dep.params[input.name] ?? ''} onChange={(event) => updateForm({ ...form, dependencies: form.dependencies.map((item, i) => i === index ? { ...item, params: { ...item.params, [input.name]: event.target.value } } : item) })} />}</label>)}</div></div>)}</section>
-      <section className="content-panel editor-grid"><div className="section-header"><div><h2>Service ports</h2><p>Internal access for other workloads in {environment}.</p></div><Button onClick={() => updateForm({ ...form, servicePorts: [...form.servicePorts, { name: '', port: '', targetPort: '' }] })}>+ Add port</Button></div>{form.servicePorts.map((port, index) => <div className="binding-row" key={index}><input aria-label="Service port name" value={port.name} placeholder="http" onChange={(event) => updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, name: event.target.value } : item) })} /><input aria-label="Service port" type="number" value={port.port} placeholder="80" onChange={(event) => updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, port: event.target.value } : item) })} /><input aria-label="Container target port" type="number" value={port.targetPort} placeholder="8080" onChange={(event) => updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, targetPort: event.target.value } : item) })} /><Button tone="quiet" onClick={() => updateForm({ ...form, servicePorts: form.servicePorts.filter((_, i) => i !== index) })}>Remove</Button></div>)}<label>Public access port<select aria-label="Public access port" value={form.publicPort} onChange={(event) => updateForm({ ...form, publicPort: event.target.value })}><option value="">Private only</option>{form.servicePorts.filter((port) => port.name && Number(port.port) > 0).map((port) => <option key={port.name} value={port.name}>{port.name} · {port.port}</option>)}</select></label><p>Public access is applied only after Preview → Deploy. DNS and TLS are not configured here.</p></section>
+      <section className="content-panel editor-grid">
+        <div className="section-header"><div><h2>Service ports</h2><p>Internal access for other workloads in {environment}.</p></div><Button onClick={() => updateForm({ ...form, servicePorts: [...form.servicePorts, { name: '', port: '', targetPort: '' }] })}>+ Add port</Button></div>
+        {form.servicePorts.map((port, index) => <div className="binding-row" key={index}><input aria-label="Service port name" value={port.name} placeholder="http" onChange={(event) => updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, name: event.target.value } : item) })} /><input aria-label="Service port" type="number" value={port.port} placeholder="80" onChange={(event) => updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, port: event.target.value } : item) })} /><input aria-label="Container target port" type="number" value={port.targetPort} placeholder="8080" onChange={(event) => updateForm({ ...form, servicePorts: form.servicePorts.map((item, i) => i === index ? { ...item, targetPort: event.target.value } : item) })} /><Button tone="quiet" onClick={() => updateForm({ ...form, servicePorts: form.servicePorts.filter((_, i) => i !== index) })}>Remove</Button></div>)}
+        <div className="section-header"><div><h3>Public paths</h3><p>For example, / for frontend and /api for backend.</p></div><Button onClick={() => updateForm({ ...form, publicRoutes: [...form.publicRoutes, { path: '', port: '' }] })}>+ Add public path</Button></div>
+        {form.publicRoutes.map((route, index) => <div className="binding-row" key={index}><input aria-label="Public path" value={route.path} placeholder="/api" onChange={(event) => updateForm({ ...form, publicRoutes: form.publicRoutes.map((item, i) => i === index ? { ...item, path: event.target.value } : item) })} /><select aria-label="Public Service port" value={route.port} onChange={(event) => updateForm({ ...form, publicRoutes: form.publicRoutes.map((item, i) => i === index ? { ...item, port: event.target.value } : item) })}><option value="">Choose port</option>{form.servicePorts.filter((port) => port.name && Number(port.port) > 0).map((port) => <option key={port.name} value={port.name}>{port.name} · {port.port}</option>)}</select><Button tone="quiet" onClick={() => updateForm({ ...form, publicRoutes: form.publicRoutes.filter((_, i) => i !== index) })}>Remove</Button></div>)}
+        <p>Public access is applied only after Preview → Deploy. DNS and TLS are not configured here.</p>
+      </section>
     </>}
     {!loading ? <div className="form-actions editor-actions"><Button onClick={() => navigate({ name: 'application', applicationId: application.id })}>Cancel</Button><Button tone="primary" disabled={blocked || saving || (mode === 'import' && !imported)} onClick={() => void save()}>Save pending workload</Button></div> : null}
   </section>;

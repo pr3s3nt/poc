@@ -84,7 +84,7 @@ it('preserves PostgreSQL params when editing a workload on the form', async () =
   expect(score.resources.db.params).toEqual({ database: 'catalog_v2', username: 'app' });
 });
 
-it('saves the selected public Service port without deploying', async () => {
+it('saves a public path and Service port without deploying', async () => {
   let saved: Record<string, unknown> | undefined;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
@@ -101,7 +101,9 @@ it('saves the selected public Service port without deploying', async () => {
   await user.click(screen.getByRole('button', { name: '+ Add port' }));
   await user.type(screen.getByLabelText('Service port name'), 'http');
   await user.type(screen.getByLabelText('Service port', { exact: true }), '8080');
-  await user.selectOptions(screen.getByLabelText('Public access port'), 'http');
+  await user.click(screen.getByRole('button', { name: '+ Add public path' }));
+  await user.type(screen.getByLabelText('Public path'), '/');
+  await user.selectOptions(screen.getByLabelText('Public Service port'), 'http');
   await user.click(screen.getByRole('button', { name: 'Save pending workload' }));
-  expect((saved?.score as { service: { publicPort: string } }).service.publicPort).toBe('http');
+  expect((saved?.score as { service: { publicRoutes: { path: string; port: string }[] } }).service.publicRoutes).toEqual([{ path: '/', port: 'http' }]);
 });

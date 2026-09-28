@@ -21,7 +21,7 @@ cleanup() {
   if [[ -n "${NAMESPACE}" ]] && kubectl --context "${KUBE_CONTEXT}" get namespace "${NAMESPACE}" >/dev/null 2>&1; then
     local actual
     actual="$(kubectl --context "${KUBE_CONTEXT}" get namespace "${NAMESPACE}" -o jsonpath='{.metadata.labels.orchestrator\.io/run-id}' 2>/dev/null || true)"
-    if [[ -n "${DEPLOY_RUN_ID}" && "${actual}" == "${DEPLOY_RUN_ID}" && ! -d "${GITOPS_REPO}/applications/${APP_ID}/staging/probe" ]]; then
+    if [[ -n "${DEPLOY_RUN_ID}" && "${actual}" == "${DEPLOY_RUN_ID}" && ! -d "${GITOPS_REPO}/applications/${APP_ID}/staging/probe" && ! -d "${GITOPS_REPO}/applications/${APP_ID}/staging/_routes" ]]; then
       kubectl --context "${KUBE_CONTEXT}" delete namespace "${NAMESPACE}" --wait=true >/dev/null
     else
       echo "scoped namespace retained for diagnosis: ${NAMESPACE}" >&2
@@ -55,7 +55,7 @@ APP_ID="$(curl -fsS -b "${WORK}/cookies" -H 'Content-Type: application/json' \
 [[ -n "${APP_ID}" && "${APP_ID}" != "null" ]]
 NAMESPACE="app-${APP_ID}-staging"
 BASE="${API}/applications/${APP_ID}/environments/staging"
-jq -n --arg image "${IMAGE}" '{apiVersion:"score.dev/v1b1",metadata:{name:"probe"},containers:{main:{image:$image,command:["/bin/sh","-c"],args:["sleep 600"]}}}' \
+jq -n --arg image "${IMAGE}" '{apiVersion:"score.dev/v1b1",metadata:{name:"probe"},containers:{main:{image:$image,command:["/bin/sh","-c"],args:["mkdir -p /tmp/www; printf fleet-ok >/tmp/www/index.html; exec httpd -f -p 8080 -h /tmp/www"]}},service:{ports:{http:{port:8080,targetPort:8080}},publicRoutes:[{path:"/",port:"http"}]}}' \
   | jq '{score:.,version:0}' \
   | curl -fsS -b "${WORK}/cookies" -X PUT -H 'Content-Type: application/json' --data-binary @- "${BASE}/workloads/probe" > "${WORK}/draft.json"
 curl -fsS -b "${WORK}/cookies" -X POST -H 'Content-Type: application/json' --data '{}' "${BASE}/preview" > "${WORK}/preview.json"
@@ -68,7 +68,10 @@ kubectl --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" get deployment probe -o js
 jq -e --arg image "${IMAGE}" '.spec.template.spec.containers[0].image == $image and .spec.template.spec.imagePullSecrets[0].name == "harbor-pull"' "${WORK}/deployment.json" >/dev/null
 kubectl --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" get secret harbor-pull -o json | jq -e '.type == "kubernetes.io/dockerconfigjson"' >/dev/null
 test -f "${GITOPS_REPO}/applications/${APP_ID}/staging/probe/deployment-probe.json"
-if rg -q '"(auth|password|secret)"[[:space:]]*:' "${GITOPS_REPO}/applications/${APP_ID}/staging/probe"; then echo "credential key found in GitOps manifest" >&2; exit 1; fi
+test -f "${GITOPS_REPO}/applications/${APP_ID}/staging/_routes/ingress-orch-public.json"
+kubectl --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" get ingress orch-public -o json > "${WORK}/ingress.json"
+jq -e --arg host "staging.${RUN_ID}.example.com" '.spec.rules[0].host == $host and .spec.rules[0].http.paths[0].backend.service.name == "probe" and (.metadata.labels["orchestrator.io/route-hash"] | length) > 0 and (.metadata.annotations["objectset.rio.cattle.io/id"] | length) > 0' "${WORK}/ingress.json" >/dev/null
+if rg -q '"(auth|password|secret)"[[:space:]]*:' "${GITOPS_REPO}/applications/${APP_ID}/staging/probe" "${GITOPS_REPO}/applications/${APP_ID}/staging/_routes"; then echo "credential key found in GitOps manifest" >&2; exit 1; fi
 
 curl -fsS -b "${WORK}/cookies" "${BASE}/workloads" > "${WORK}/workloads.json"
 jq '{version:.draftVersion}' "${WORK}/workloads.json" | curl -fsS -b "${WORK}/cookies" -X DELETE -H 'Content-Type: application/json' --data-binary @- "${BASE}/workloads/probe" > "${WORK}/delete-draft.json"
@@ -77,4 +80,5 @@ jq -e '(.changes | length) == 1 and .changes[0].action == "REMOVE"' "${WORK}/rem
 jq '{token:.token}' "${WORK}/remove-preview.json" | curl -fsS -b "${WORK}/cookies" -X POST -H 'Content-Type: application/json' --data-binary @- "${BASE}/deploy" > "${WORK}/remove-deploy.json"
 jq -e '.status == "SUCCEEDED"' "${WORK}/remove-deploy.json" >/dev/null
 if kubectl --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" get deployment probe >/dev/null 2>&1; then echo "Fleet did not remove Deployment" >&2; exit 1; fi
+if [[ -d "${GITOPS_REPO}/applications/${APP_ID}/staging/_routes" ]] || kubectl --context "${KUBE_CONTEXT}" -n "${NAMESPACE}" get ingress orch-public >/dev/null 2>&1; then echo "Fleet did not prune public route" >&2; exit 1; fi
 echo "Fleet GitRepo + Harbor kind verification passed"

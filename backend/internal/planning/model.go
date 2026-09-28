@@ -188,17 +188,20 @@ type ModuleVariable struct {
 
 // Request is the input of one planning run.
 type Request struct {
-	OrganizationKey string
-	App             application.Application
-	Env             environment.Environment
-	Connection      application.Connection
-	BaseSet         environment.Document
-	Before          *score.Document
-	After           *score.Document
-	WorkloadID      string
-	RunID           string
-	Action          deployment.Action
-	Catalog         Catalog
-	Active          []resource.ActiveResource
-	Terraform       ModuleInspector
+	// AllowIntermediatePublicRoutes is used only while applying a validated
+	// multi-workload pending change; the final set must pass route validation.
+	AllowIntermediatePublicRoutes bool
+	OrganizationKey               string
+	App                           application.Application
+	Env                           environment.Environment
+	Connection                    application.Connection
+	BaseSet                       environment.Document
+	Before                        *score.Document
+	After                         *score.Document
+	WorkloadID                    string
+	RunID                         string
+	Action                        deployment.Action
+	Catalog                       Catalog
+	Active                        []resource.ActiveResource
+	Terraform                     ModuleInspector
 }

@@ -26,17 +26,18 @@ import (
 
 // DeployCommand is the UC-06 system operation input (OC-08).
 type DeployCommand struct {
-	OrganizationKey  string
-	ApplicationKey   string
-	EnvironmentKey   string
-	WorkloadID       string
-	ScoreBefore      map[string]any
-	ScoreAfter       map[string]any
-	Actor            string
-	Action           domain.Action
-	RunID            string
-	ExpectedPlanHash string
-	ConfigRevisionID string
+	OrganizationKey   string
+	ApplicationKey    string
+	EnvironmentKey    string
+	WorkloadID        string
+	ScoreBefore       map[string]any
+	ScoreAfter        map[string]any
+	Actor             string
+	Action            domain.Action
+	RunID             string
+	ExpectedPlanHash  string
+	ConfigRevisionID  string
+	DeferPublicRoutes bool
 }
 
 // DeployResult is returned to the actor at UC-06 MS-13.
@@ -179,19 +180,20 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 
 	// MS-02..MS-08: planning pipeline.
 	plan, err := s.planner.Plan(planning.Request{
-		OrganizationKey: cmd.OrganizationKey,
-		App:             app,
-		Env:             env,
-		Connection:      conn,
-		BaseSet:         baseSet,
-		Before:          before,
-		After:           after,
-		WorkloadID:      workloadID,
-		RunID:           cmd.RunID,
-		Action:          action,
-		Catalog:         catalog,
-		Active:          active,
-		Terraform:       s.terraform,
+		OrganizationKey:               cmd.OrganizationKey,
+		App:                           app,
+		Env:                           env,
+		Connection:                    conn,
+		BaseSet:                       baseSet,
+		Before:                        before,
+		After:                         after,
+		WorkloadID:                    workloadID,
+		RunID:                         cmd.RunID,
+		Action:                        action,
+		Catalog:                       catalog,
+		Active:                        active,
+		Terraform:                     s.terraform,
+		AllowIntermediatePublicRoutes: cmd.DeferPublicRoutes,
 	})
 	if err != nil {
 		return nil, s.fail(ctx, record, err)
@@ -272,7 +274,12 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 			return nil, s.fail(ctx, record, err)
 		}
 	} else {
-		if err := s.removeWorkload(ctx, planCtx, workloadID, record.ID, plan.BaseSet.Modules[workloadID].Spec.Service); err != nil {
+		if err := s.removeWorkload(ctx, planCtx, workloadID, record.ID); err != nil {
+			return nil, s.fail(ctx, record, err)
+		}
+	}
+	if !cmd.DeferPublicRoutes {
+		if err := s.reconcileRoutes(ctx, app, env, plan.CandidateSet); err != nil {
 			return nil, s.fail(ctx, record, err)
 		}
 	}
@@ -300,7 +307,7 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	return result, nil
 }
 
-func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, workloadID, deploymentID string, priorService *environment.Service) error {
+func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, workloadID, deploymentID string) error {
 	instances, err := s.store.ListWorkloadInstances(ctx, planCtx.App.Key+"/"+planCtx.Env.Key)
 	if err != nil {
 		return err
@@ -329,13 +336,6 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 			instance.Status = domain.InstanceFailed
 			_ = s.store.UpsertWorkloadInstance(ctx, instance)
 			return err
-		}
-		if s.publicRoutes != nil && priorService != nil && priorService.PublicPort != "" {
-			if err := s.publicRoutes.Reconcile(ctx, target, execution.PublicRoute{ApplicationID: planCtx.App.Key, EnvironmentID: planCtx.Env.Key, WorkloadID: workloadID}); err != nil {
-				instance.Status = domain.InstanceFailed
-				_ = s.store.UpsertWorkloadInstance(ctx, instance)
-				return err
-			}
 		}
 		instance.Status = domain.InstanceRemoved
 		instance.AppliedConfigRevisionID = ""
@@ -512,23 +512,6 @@ func (s *Service) applyWorkload(
 		_ = s.store.UpsertWorkloadInstance(ctx, instance)
 		return err
 	}
-	if s.publicRoutes != nil {
-		prior := plan.BaseSet.Modules[workloadID].Spec.Service
-		current := module.Spec.Service
-		if current != nil && current.PublicPort != "" {
-			if err := s.publicRoutes.Reconcile(ctx, target, execution.PublicRoute{ApplicationID: planCtx.App.Key, EnvironmentID: planCtx.Env.Key, WorkloadID: workloadID, Host: publicHost(planCtx.App.Subdomain, planCtx.Env.Key, s.baseDomain), PortName: current.PublicPort}); err != nil {
-				instance.Status = domain.InstanceFailed
-				_ = s.store.UpsertWorkloadInstance(ctx, instance)
-				return err
-			}
-		} else if prior != nil && prior.PublicPort != "" {
-			if err := s.publicRoutes.Reconcile(ctx, target, execution.PublicRoute{ApplicationID: planCtx.App.Key, EnvironmentID: planCtx.Env.Key, WorkloadID: workloadID}); err != nil {
-				instance.Status = domain.InstanceFailed
-				_ = s.store.UpsertWorkloadInstance(ctx, instance)
-				return err
-			}
-		}
-	}
 	instance.Status = domain.InstanceReady
 	instance.ObservedAt = s.clock.Now()
 	return s.store.UpsertWorkloadInstance(ctx, instance)
@@ -539,6 +522,65 @@ func publicHost(subdomain, env, baseDomain string) string {
 		return "staging." + subdomain + "." + baseDomain
 	}
 	return subdomain + "." + baseDomain
+}
+
+// ReconcilePublicRoutes applies the complete current Environment route set.
+// Pending Deploy calls this once after every workload in the batch is ready.
+func (s *Service) ReconcilePublicRoutes(ctx context.Context, appKey, envKey string) error {
+	if s.publicRoutes == nil {
+		return nil
+	}
+	app, err := s.store.GetApplication(ctx, appKey)
+	if err != nil {
+		return err
+	}
+	env, err := s.store.GetEnvironment(ctx, appKey, envKey)
+	if err != nil {
+		return err
+	}
+	set, err := s.store.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
+	if err != nil {
+		return err
+	}
+	return s.reconcileRoutes(ctx, app, env, set.Document)
+}
+
+func (s *Service) reconcileRoutes(ctx context.Context, app appdomain.Application, env environment.Environment, set environment.Document) error {
+	if s.publicRoutes == nil {
+		return nil
+	}
+	if err := planning.ValidatePublicRoutes(set); err != nil {
+		return err
+	}
+	route := execution.PublicRoute{ApplicationID: app.Key, EnvironmentID: env.Key, Host: publicHost(app.Subdomain, env.Key, s.baseDomain)}
+	for _, id := range set.ModuleIDs() {
+		for _, path := range set.Modules[id].Spec.Service.Routes() {
+			route.Paths = append(route.Paths, execution.PublicPath{Path: path.Path, WorkloadID: id, PortName: path.Port})
+		}
+	}
+	instances, err := s.store.ListWorkloadInstances(ctx, app.Key+"/"+env.Key)
+	if err != nil {
+		return err
+	}
+	if len(instances) == 0 {
+		return nil
+	}
+	target := execution.Target{Namespace: env.NamespaceIdentity, Extra: map[string]string{"application": app.Key, "environment": env.Key}}
+	for _, instance := range instances {
+		if namespace, ok := instance.TargetRef["namespace"].(string); ok && namespace != "" {
+			target.Namespace = namespace
+		}
+		if contextName, ok := instance.TargetRef["context"].(string); ok && contextName != "" {
+			target.Context = contextName
+		}
+		if cluster, ok := instance.TargetRef["cluster"].(string); ok {
+			target.ClusterName = cluster
+		}
+		if target.Context != "" {
+			break
+		}
+	}
+	return s.publicRoutes.Reconcile(ctx, target, route)
 }
 
 func (s *Service) loadCatalog(ctx context.Context) (planning.Catalog, map[string]resource.Type, map[string]resource.Definition, error) {
