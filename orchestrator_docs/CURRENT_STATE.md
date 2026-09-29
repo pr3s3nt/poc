@@ -64,6 +64,11 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
   PostgreSQL resource, VSO configuration, Preview → Deploy, Traefik Ingress,
   health và guest-auth API đều pass; namespace/PVC run-scoped đã cleanup.
   Đây là evidence thử nghiệm, không phải một deployment Backstage thường trực.
+- Orchestrator có container image cho API (kèm kubectl) và Web Console (nginx).
+  Trên kind, host Orchestrator đã tự deploy hai image này qua Web Console; bản
+  in-cluster sau đó deploy acceptance app và cả 4 check đều pass. Bản
+  self-hosted này chỉ là demo: nhận admin kubeconfig qua UC-12 secret và giữ
+  state in-memory (IMP-014).
 
 Chi tiết từng lần chạy nằm trong [verification index](verification/README.md);
 evidence lịch sử không chứng minh checkout hiện tại vẫn pass.

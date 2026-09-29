@@ -23,6 +23,10 @@ Harbor-image workload delivery path and its separate Git/registry credentials.
 [Orchestrator PostgreSQL on kind](postgres-kind.md) documents the dedicated
 persistent database installed for the future system store and Terraform state.
 
+[Self-hosted Orchestrator on kind](self-host-kind.md) documents the container
+images and the recorded flow in which the Orchestrator deploys itself and then
+the acceptance app.
+
 Runbook là procedure hiện hành. Kết quả của từng execution phải được ghi thành
 dated record mới trong [verification index](../verification/README.md), không
 ghi đè runbook hoặc evidence cũ.

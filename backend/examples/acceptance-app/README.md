@@ -42,4 +42,6 @@ prints the path to `acceptance-full.webm`, a single video of the browser flow
 from sign-in through the final check page. Browser actions are slowed and key
 screens pause long enough for a person to review them. Evidence stays in an owner-only
 temporary directory, including when the browser test fails; do not publish the
-video without reviewing it for local test data.
+video without reviewing it for local test data. Pass `--human` for a slower
+recording that types into every form with a visible cursor; see the kind
+runbook for publishing it.

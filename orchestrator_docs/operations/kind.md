@@ -73,6 +73,18 @@ review pauses. The video is retained on success and browser-test failure;
 review it for local test data before sharing. It does not test cloud delivery
 or the worker job flow.
 
+For a recording a person can follow, pass `--human`. The script then runs
+`frontend/test/e2e/acceptance-kind-human.mjs`: it enters both workloads through
+the workload form instead of Score import, types every value key by key, moves
+a visible cursor with a click ripple, and submits one job on the deployed app.
+The run takes about five minutes. Publish reviewed recordings as assets of the
+`acceptance-recordings` GitHub pre-release instead of committing them:
+
+```bash
+bash backend/test/integration/acceptance-playwright-kind.sh --human
+gh release upload acceptance-recordings <reviewed-video>.webm
+```
+
 Public Ingress check (run-scoped, separate from the acceptance workload):
 
 ```bash

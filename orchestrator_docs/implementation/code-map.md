@@ -47,6 +47,7 @@ last_reviewed: 2026-09-28
 | Application Preview/Deploy UI | [`frontend/src/features/applications/ApplicationHomePage.tsx`](../../frontend/src/features/applications/ApplicationHomePage.tsx) |
 | UC-09 recent deployments, Environment history/filter and detail UI | [`frontend/src/features/deployments`](../../frontend/src/features/deployments/) |
 | Acceptance workloads | [`backend/examples/acceptance-app`](../../backend/examples/acceptance-app/) |
+| Orchestrator container images (API with kubectl, Web Console on nginx) | [`backend/Dockerfile`](../../backend/Dockerfile), [`backend/deploy/docker-entrypoint.sh`](../../backend/deploy/docker-entrypoint.sh), [`frontend/Dockerfile`](../../frontend/Dockerfile) and [`frontend/deploy/nginx.conf.template`](../../frontend/deploy/nginx.conf.template) |
 | HTTP end-to-end tests | [`backend/test/e2e`](../../backend/test/e2e/) |
 | Planner challenge conformance | [`backend/test/conformance`](../../backend/test/conformance/) |
 | kind/AWS verification | [`backend/test/integration`](../../backend/test/integration/) |

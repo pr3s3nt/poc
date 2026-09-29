@@ -9,6 +9,13 @@ CONTEXT="kind-idp-internal"
 TOKEN_FILE="${VAULT_BACKEND_TOKEN_FILE:-/home/thanhnt1/.local/share/poc-vault/vault-uc12-backend-token}"
 API_PID=""
 VAULT_PID=""
+# --human types into every form with a visible cursor for recorded UI review.
+PLAYWRIGHT_SCRIPT="acceptance-kind.mjs"
+case "${1:-}" in
+  "") ;;
+  --human) PLAYWRIGHT_SCRIPT="acceptance-kind-human.mjs" ;;
+  *) echo "usage: $0 [--human]" >&2; exit 2 ;;
+esac
 
 cleanup() {
   local status=$?
@@ -70,4 +77,4 @@ curl -fsS "${API}/api/v1/healthz" >/dev/null
 
 ORCH_E2E_URL="${API}" ORCH_E2E_RUN_ID="${RUN_ID}" ORCH_E2E_KUBE_CONTEXT="${CONTEXT}" \
   ORCH_E2E_NAMESPACE_FILE="${WORK}/namespace" ORCH_E2E_EVIDENCE_DIR="${WORK}" \
-  node "${ROOT}/../frontend/test/e2e/acceptance-kind.mjs" 2>&1 | tee "${WORK}/playwright.log"
+  node "${ROOT}/../frontend/test/e2e/${PLAYWRIGHT_SCRIPT}" 2>&1 | tee "${WORK}/playwright.log"
