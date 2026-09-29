@@ -51,6 +51,23 @@ do not reuse that setting for production. The script needs the scoped Vault
 backend token file documented in [Vault on kind](vault-kind.md). It neither
 rebuilds nor mirrors the Backstage image to Harbor.
 
+The browser-driven acceptance check deploys the repository's two diagnostic
+workloads through the Web Console, including UC-12 variable/secret references
+and a PostgreSQL resource. Playwright then opens the deployed app and requires
+`PASS` for backend connectivity, environment, secret and database. It uses the
+existing kind cluster, Vault/VSO and a run-scoped namespace:
+
+```bash
+cd frontend && npm run build
+cd ..
+bash backend/test/integration/acceptance-playwright-kind.sh
+```
+
+The script needs the scoped Vault backend token file documented in
+[Vault on kind](vault-kind.md), stores temporary evidence outside the repository,
+and deletes its own namespace after execution. It does not test cloud delivery
+or the worker job flow.
+
 Public Ingress check (run-scoped, separate from the acceptance workload):
 
 ```bash

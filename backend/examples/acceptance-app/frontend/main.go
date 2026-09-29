@@ -33,15 +33,24 @@ type pageData struct {
 	BackendURL string
 	Jobs       []job
 	Error      string
+	Checks     []check
+}
+
+type check struct {
+	Name   string
+	Passed bool
 }
 
 var page = template.Must(template.New("page").Parse(`<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Acceptance application</title></head>
+<head><meta charset="utf-8"><title>Acceptance application</title><style>body{font:16px system-ui;max-width:760px;margin:3rem auto;padding:0 1rem;color:#24292f}table{border-collapse:collapse;width:100%}td,th{padding:.6rem;border-bottom:1px solid #d0d7de;text-align:left}.pass{color:#1a7f37}.fail{color:#cf222e}</style></head>
 <body>
 <h1>Acceptance application</h1>
+<h2>Deployment checks</h2>
+<table id="checks"><tr><th>Check</th><th>Status</th></tr>{{range .Checks}}<tr data-check="{{.Name}}"><td>{{.Name}}</td><td class="{{if .Passed}}pass{{else}}fail{{end}}">{{if .Passed}}PASS{{else}}FAIL{{end}}</td></tr>{{end}}</table>
 <p id="backend">backend: {{.BackendURL}}</p>
 {{if .Error}}<p id="error">backend error: {{.Error}}</p>{{end}}
+<h2>Job flow</h2>
 <form method="post" action="/submit">
   <input type="text" name="payload" value="hello-orchestrator" />
   <button type="submit">Submit job</button>
@@ -67,7 +76,21 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok","workload":"frontend"}`))
 	})
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		data := pageData{BackendURL: backendURL}
+		data := pageData{BackendURL: backendURL, Checks: []check{{Name: "backend connection"}, {Name: "environment"}, {Name: "secret"}, {Name: "database"}}}
+		checksResp, checksErr := client.Get(backendURL + "/api/checks")
+		if checksErr == nil {
+			var body struct {
+				Checks map[string]bool `json:"checks"`
+			}
+			decodeErr := json.NewDecoder(checksResp.Body).Decode(&body)
+			_ = checksResp.Body.Close()
+			if checksResp.StatusCode == http.StatusOK && decodeErr == nil {
+				data.Checks[0].Passed = true
+				for i := 1; i < len(data.Checks); i++ {
+					data.Checks[i].Passed = body.Checks[data.Checks[i].Name]
+				}
+			}
+		}
 		resp, err := client.Get(backendURL + "/api/jobs")
 		if err != nil {
 			data.Error = err.Error()

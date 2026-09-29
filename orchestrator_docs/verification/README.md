@@ -36,3 +36,4 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 | 2026-09-28 | Backstage UC-12/16 Preview → Deploy, PostgreSQL, Ingress and guest API on kind | [Backstage kind end-to-end](2026-09-28-backstage-kind-e2e.md) |
 | 2026-09-29 | Dedicated Orchestrator PostgreSQL installation on kind | [PostgreSQL kind installation](2026-09-29-orchestrator-postgres-kind.md) |
 | 2026-09-29 | UC-04 host kube-context read-only verification on kind | [UC-04 context verifier](2026-09-29-uc04-kind-context.md) |
+| 2026-09-29 | Browser-driven acceptance app deployment, environment/secret/DB checks and cleanup on kind | [Playwright acceptance](2026-09-29-acceptance-playwright-kind.md) |

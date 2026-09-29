@@ -4,6 +4,9 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -57,6 +60,12 @@ func main() {
 			"host":     cfg.Host,
 			"port":     cfg.Port,
 		})
+	})
+	mux.HandleFunc("GET /api/checks", func(w http.ResponseWriter, r *http.Request) {
+		pingCtx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+		checks := acceptanceChecks(os.Getenv("ACCEPTANCE_CONFIG"), os.Getenv("ACCEPTANCE_SECRET"), os.Getenv("ACCEPTANCE_SECRET_SHA256"), store.Ping(pingCtx))
+		writeJSON(w, http.StatusOK, map[string]any{"workload": "backend", "checks": checks})
 	})
 	mux.HandleFunc("POST /api/jobs", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -112,6 +121,18 @@ func main() {
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Printf("backend: %v", err)
 		os.Exit(1)
+	}
+}
+
+// acceptanceChecks deliberately reports only booleans: neither secret contents
+// nor connection credentials may leave the workload through diagnostics.
+func acceptanceChecks(config, secret, expectedSecretHash string, databaseErr error) map[string]bool {
+	hash := sha256.Sum256([]byte(secret))
+	actualHash := hex.EncodeToString(hash[:])
+	return map[string]bool{
+		"environment": config == "acceptance-config-ok",
+		"secret":      secret != "" && len(expectedSecretHash) == len(actualHash) && subtle.ConstantTimeCompare([]byte(actualHash), []byte(expectedSecretHash)) == 1,
+		"database":    databaseErr == nil,
 	}
 }
 
