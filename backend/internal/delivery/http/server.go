@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"orchestrator/internal/adapters/configmemory"
+	"orchestrator/internal/adapters/terraform"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
 	"orchestrator/internal/application/catalog"
@@ -59,7 +60,7 @@ func NewServer(cfg Config) *Server {
 		queries:        cfg.Queries,
 		auth:           cfg.Authentication,
 		applications:   cfg.Applications,
-		catalog:        catalog.NewService(cfg.Store),
+		catalog:        catalog.NewService(cfg.Store, terraform.NewInspector()),
 		configurations: cfg.Configurations,
 		workloads:      cfg.Workloads,
 		pending:        cfg.Pending,
@@ -97,6 +98,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/score-samples", s.handleScoreSamples)
 	s.mux.HandleFunc("GET /api/v1/resource-types", s.handleResourceTypes)
 	s.mux.HandleFunc("POST /api/v1/resource-types", s.handleRegisterResourceType)
+	s.mux.HandleFunc("GET /api/v1/resource-definitions", s.handleResourceDefinitions)
+	s.mux.HandleFunc("POST /api/v1/resource-definitions", s.handleRegisterResourceDefinition)
 	s.mux.HandleFunc("POST /api/v1/deployments", s.handleCreateDeployment)
 	s.mux.HandleFunc("GET /api/v1/deployments", s.handleListDeployments)
 	s.mux.HandleFunc("GET /api/v1/deployments/{id}", s.handleGetDeployment)

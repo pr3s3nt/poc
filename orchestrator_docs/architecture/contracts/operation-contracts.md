@@ -38,6 +38,9 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Use case: UC-03.
 - Preconditions: Resource Type, Driver/connection tồn tại; có ít nhất một
   Matching Criterion; references/rules hợp lệ; output contract tương thích.
+- MVP registration chỉ chấp nhận runtime-supported driver/type pairs và embedded
+  Terraform modules; connection tường minh của Terraform/existing-cluster phải
+  READY trong cùng Organization. Không nhận remote source.
 - Creates: `ResourceDefinition` và một hoặc nhiều `MatchingCriterion`.
 - Postconditions: queryable cho deterministic matching; `{}` tường minh là
   wildcard điểm `0`; optional `execution_profile` filters eligibility before

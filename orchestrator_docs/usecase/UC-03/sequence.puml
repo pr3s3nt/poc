@@ -4,7 +4,7 @@ autonumber
 actor "Platform Engineer" as PE
 boundary ResourceDefinitionController as API
 control ResourceDefinitionService as Service
-control DefinitionValidator as Validator
+entity ResourceDefinition as Validator
 control DriverContractInspector as Inspector
 database ResourceTypeRepository as TypeRepo
 database ConnectionRepository as ConnectionRepo
@@ -12,23 +12,22 @@ database ResourceDefinitionRepository as DefinitionRepo
 
 PE -> API: RegisterResourceDefinition(document, optional profile) [MS-01..MS-02]
 API -> Service: RegisterResourceDefinition(ctx, command)
-Service -> Validator: ValidateStructureAndCriteria(command) [MS-03, BR-07]
+Service -> Validator: Validate() [MS-03, BR-07]
 Validator --> Service: valid
 note right of Validator
 Missing or [] criteria is rejected.
 Explicit {} is wildcard score 0.
 end note
-Service -> TypeRepo: Find(orgID, typeID) [MS-04]
+Service -> TypeRepo: ListResourceTypes(orgID) [MS-04]
 TypeRepo --> Service: ResourceType
-Service -> ConnectionRepo: FindReady(connectionID) [MS-04]
+Service -> ConnectionRepo: GetConnection(connectionID) + READY/org check [MS-04]
 ConnectionRepo --> Service: Connection
-Service -> Validator: ValidateReferencesAndRules(command) [MS-05]
-Validator --> Service: valid
-Service -> DefinitionRepo: Exists(orgID, definitionID) [MS-06]
-DefinitionRepo --> Service: false
-Service -> Inspector: Inspect(definition, resourceType) [MS-07]
+Service -> Service: validateReferences and provision rules [MS-05]
+Service -> Inspector: Inspect(embedded module) [MS-07]
 Inspector --> Service: DriverContract + fingerprint
-Service -> DefinitionRepo: Save(definition, criteria) <<transaction>> [MS-08]
+Service -> DefinitionRepo: ListResourceDefinitions(orgID) [MS-06]
+DefinitionRepo --> Service: no duplicate ID
+Service -> DefinitionRepo: SaveResourceDefinition(orgID, definition) <<transaction>> [MS-08]
 DefinitionRepo --> Service: ResourceDefinition
 Service --> API: ResourceDefinition [MS-09]
 API --> PE: Registered

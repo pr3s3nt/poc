@@ -31,7 +31,7 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-00 | Implemented; local/test baseline | Fixed seeded `developer` account, opaque HttpOnly cookie session, session restore và sign-out đã có; production profile không seed test account. |
 | UC-01 | Implemented; local/test baseline | Authenticated Developer có thể list/create/get Application qua API; service tự sinh ID, staging/production, empty Deployment Sets và namespace identities. `acme` resolve `internal-cluster` như platform default, không hiển thị target chooser. |
 | UC-02 | Local/test registration implemented | Platform Engineer/Admin có thể đăng ký và xem Resource Types trong Organization qua API/UI; seeded catalog vẫn dùng được. PostgreSQL persistence và production-grade RBAC chưa có. |
-| UC-03 | Designed; seed-backed baseline | Resource Definition, profile eligibility trước matching và contract validation đã chạy trong planner; seeded PostgreSQL Definitions dùng được cho Application mới cùng profile. API/UI quản trị chưa có. |
+| UC-03 | Local/test registration implemented | Platform Engineer/Admin có thể đăng ký Definition runtime-supported với criteria, driver inputs và provision rules qua API/UI; planner vẫn có profile guard và matching. PostgreSQL persistence, remote source và production-grade RBAC chưa có. |
 | UC-04 | Designed; partial execution support | Connection/target seed và adapters kind/AWS đã chạy; registration/verification UI và persistence thật chưa có. |
 | UC-05 | Pending-change Preview implemented; broader contract gaps | Planner pipeline, transient Humanitec-shaped Delta và read-only multi-workload Preview/API/UI đã có; broader UC-05 contract coverage còn hạn chế. |
 | UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; optional Fleet GitRepo adapter cho internal kind đã pass Harbor-image deployment. Environment Ingress nhiều path và Fleet `_routes` bundle đã pass kind test với hai workload BusyBox, Fleet revision/prune và cleanup; route failure có route-only retry (unit test), Backstage cụ thể chưa kiểm chứng. DNS/TLS/chuyển controller ra ngoài chưa có. Mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. |
@@ -121,9 +121,9 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 - Conformance loader bỏ Definition thiếu criteria hoặc `criteria: []` khỏi
   challenge catalog và giữ criterion `{}` thành wildcard điểm 0; product planner
   vẫn từ chối catalog có Definition không có criterion.
-- UC-00 có cookie session cho local/test, chưa có production-grade RBAC. UC-03..UC-05
-  và UC-07 chưa có đầy đủ product management flow/UI; UC-02 mới có đăng ký
-  type, chưa có PostgreSQL persistence.
+- UC-00 có cookie session cho local/test, chưa có production-grade RBAC. UC-04,
+  UC-05 và UC-07 chưa có đầy đủ product management flow/UI; UC-02/03 mới có
+  đăng ký catalog, chưa có PostgreSQL persistence.
 - UC-12 fake provider chỉ dành local/test và mất giá trị khi process restart.
   Vault trên kind dùng file storage PVC, cần unseal thủ công sau restart; chưa
   có HA, backup, rotation/revocation tự động hoặc production RBAC. Workload

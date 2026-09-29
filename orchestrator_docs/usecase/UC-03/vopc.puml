@@ -8,15 +8,11 @@ class ResourceDefinitionController <<boundary>> {
 class ResourceDefinitionService <<control>> {
   +RegisterResourceDefinition(ctx, cmd): ResourceDefinition
 }
-class DefinitionValidator <<control>> {
-  +ValidateStructureAndCriteria(cmd)
-  +ValidateReferencesAndRules(definition)
-}
 interface DriverContractInspector {
-  +Inspect(ctx, definition, resourceType): DriverContract
+  +Inspect(module): ModuleContract
 }
 class ResourceDefinition <<entity>> {
-  +Register(cmd, contract): ResourceDefinition
+  +Validate()
 }
 class MatchingCriterion <<entity>> {
   +EnvType: string?
@@ -27,18 +23,16 @@ class MatchingCriterion <<entity>> {
   +Score(context): int
 }
 interface ResourceTypeRepository {
-  +Find(ctx, orgID, id): ResourceType
+  +ListResourceTypes(ctx, orgID): List
 }
 interface ConnectionRepository {
-  +FindReady(ctx, connectionID): Connection
+  +GetConnection(ctx, connectionID): Connection
 }
 interface ResourceDefinitionRepository {
-  +Exists(ctx, orgID, id): bool
-  +Save(ctx, definition, criteria)
-  +FindCandidates(ctx, orgID, resourceType): List
+  +ListResourceDefinitions(ctx, orgID): List
+  +SaveResourceDefinition(ctx, orgID, definition)
 }
 ResourceDefinitionController --> ResourceDefinitionService
-ResourceDefinitionService --> DefinitionValidator
 ResourceDefinitionService --> DriverContractInspector
 ResourceDefinitionService --> ResourceTypeRepository
 ResourceDefinitionService --> ConnectionRepository

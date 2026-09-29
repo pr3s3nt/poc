@@ -136,6 +136,54 @@ func TestResourceTypeRegistrationRequiresPlatformEngineer(t *testing.T) {
 	}
 }
 
+func TestResourceDefinitionRegistrationRequiresPlatformEngineer(t *testing.T) {
+	server, _ := newServer(t, "")
+	payload := []byte(`{"key":"namespace-custom","resourceType":"k8s-namespace","executionProfile":"internal-k8s","driverType":"kubernetes","driverInputs":{"values":{"variables":{"name":"${context.env.namespace}"}}},"criteria":[{}]}`)
+	post := func(client *http.Client) int {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, server.URL+"/api/v1/resource-definitions", bytes.NewReader(payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode
+	}
+	if got := post(http.DefaultClient); got != http.StatusUnauthorized {
+		t.Fatalf("anonymous: %d", got)
+	}
+	if got := post(authenticatedClient(t, server.URL)); got != http.StatusForbidden {
+		t.Fatalf("developer: %d", got)
+	}
+	if status, _ := getJSONClient(t, authenticatedClient(t, server.URL), server.URL+"/api/v1/resource-definitions"); status != http.StatusForbidden {
+		t.Fatalf("developer list: %d", status)
+	}
+	platform := authenticatedClientAs(t, server.URL, "platform-engineer")
+	if got := post(platform); got != http.StatusCreated {
+		t.Fatalf("platform: %d", got)
+	}
+	if got := post(platform); got != http.StatusConflict {
+		t.Fatalf("duplicate: %d", got)
+	}
+	status, body := getJSONClient(t, platform, server.URL+"/api/v1/resource-definitions")
+	if status != http.StatusOK {
+		t.Fatalf("list: %d", status)
+	}
+	found := false
+	for _, item := range body["resourceDefinitions"].([]any) {
+		if item.(map[string]any)["key"] == "namespace-custom" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("registered definition missing from catalog")
+	}
+}
+
 func getJSONClient(t *testing.T, client *http.Client, url string) (int, map[string]any) {
 	t.Helper()
 	resp, err := client.Get(url)

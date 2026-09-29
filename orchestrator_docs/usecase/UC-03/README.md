@@ -21,6 +21,8 @@ run in the planner. Management API/UI and durable catalog persistence remain.
 5. [Planner reference](../../implementation/uc06-planner-reference.md)
 6. [Humanitec/Score compatibility matrix](../../implementation/humanitec-compatibility.md)
 
+UI: [screens](ui/screens.md), [states](ui/states.md).
+
 ## Implementation entry points
 
 - [`backend/internal/domain/resource`](../../../backend/internal/domain/resource/)

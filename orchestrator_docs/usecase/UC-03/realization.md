@@ -28,6 +28,11 @@ ResourceDefinitionService.RegisterResourceDefinition(ctx context.Context, cmd Re
 - `ResourceTypeRepository`, `ConnectionRepository`, `ResourceDefinitionRepository` — persistence ports.
 - `DriverContractInspector` — port kiểm tra Terraform/Kubernetes contract tĩnh.
 
+MVP registration chỉ nhận driver/type pair hiện có. Terraform dùng embedded
+module inspector; Kubernetes/existing-cluster dùng output contract tĩnh của
+executor. HTTP POST kiểm tra Platform Engineer/Admin; list theo Organization.
+UI dùng form có criteria từng dòng và JSON nâng cao cho variables/provision.
+
 ## Trace main flow
 
 | Step | Collaboration |
@@ -46,6 +51,9 @@ Contract inspection hoàn tất trước transaction. Definition thiếu criteri
 từ chối trước persistence; criterion `{}` khai báo tường minh là wildcard điểm
 `0`. Definition hợp lệ và toàn bộ criteria được lưu trong một transaction;
 source fingerprint được lưu cùng Definition metadata.
+
+Local/test store kiểm tra key trong transaction; PostgreSQL unique
+`(organization_id,key)` sẽ là duplicate guard cuối cùng khi adapter đó có mặt.
 
 ## Planned tests
 

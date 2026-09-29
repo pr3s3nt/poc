@@ -75,6 +75,15 @@ last_reviewed: 2026-09-22
 - **BR-07:** Lệnh đăng ký Definition phải có ít nhất một Matching Criterion;
   thiếu criteria hoặc `criteria: []` bị từ chối trước persistence. Một criterion
   `{}` khai báo tường minh là wildcard hợp lệ với specificity `0`.
+- **BR-08 (MVP registration):** Chỉ đăng ký implementation mà runtime hiện có
+  thể chạy: Terraform module nhúng `vpc`, `eks`, `aurora` cho Resource Type
+  tương ứng; Kubernetes cho `k8s-namespace`/`postgres`; existing-cluster cho
+  `k8s-cluster`. Terraform/existing-cluster cần connection tường minh đúng kind,
+  thuộc Organization và `READY`. Kubernetes dùng connection của Application lúc
+  deploy nếu Definition không chỉ định connection riêng.
+- **BR-09:** Đăng ký Terraform Definition phải kiểm tra module tồn tại, các
+  biến được khai báo và output Resource Type có thể được cung cấp. Source URL
+  từ xa không được chấp nhận trong MVP.
 
 ## Luồng nội bộ
 
@@ -104,7 +113,9 @@ UC-03 Register Resource Definition
 - Seed catalog đã có Definitions cho implicit VPC/EKS/namespace, existing cluster, Aurora và PostgreSQL StatefulSet; executor registry chọn Terraform/Kubernetes/existing-cluster adapter theo matched Definition.
 - Planner đã hỗ trợ optional Execution Profile guard trước năm Matching Criteria chuẩn, Driver Inputs, Resource References, provision rules, fixed-point expansion và kiểm tra Terraform contract. Seeded PostgreSQL Definitions áp dụng cho mọi Application cùng profile.
 - Terraform execution của MVP chỉ hỗ trợ các module `vpc`, `eks` và `aurora` được nhúng trong binary. Conformance harness có thể inspect `source.url[@rev][/path]`, nhưng runtime chưa tải hoặc execute Terraform source từ xa.
-- API quản trị, PostgreSQL persistence và nghiệp vụ `RegisterResourceDefinition` vẫn thuộc Phase 6 bước 5; hiện catalog được seed khi process khởi động.
+- API/UI đăng ký và nghiệp vụ `RegisterResourceDefinition` có ở local/test;
+  PostgreSQL persistence và production-grade RBAC còn thiếu. Catalog seed vẫn
+  cung cấp Definition mặc định.
 - Driver enum ngắn, `ConnectionKey`, `source.module` và context placeholder mở
   rộng là contract nội bộ của MVP, không phải Humanitec public contract. Mapping
   boundary và `driver_inputs.secret_refs` được phân loại tại

@@ -13,6 +13,7 @@ export function AppShell({ children, onSignOut, username, role }: PropsWithChild
         <nav className="nav" aria-label="Main navigation">
           <a className="nav-item nav-item-active" href={href({ name: 'applications' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'applications' }); }}>▦ <span>Applications</span></a>
           {isPlatformEngineer ? <a className="nav-item" href={href({ name: 'resource-types' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-types' }); }}>◇ <span>Resource types</span></a> : null}
+          {isPlatformEngineer ? <a className="nav-item" href={href({ name: 'resource-definitions' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-definitions' }); }}>▣ <span>Resource definitions</span></a> : null}
           <span className="nav-item nav-item-disabled">◷ <span>Deployments</span><small>Coming next</small></span>
         </nav>
         <div className="sidebar-footer">
