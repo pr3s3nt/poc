@@ -1,6 +1,7 @@
 export type Route =
   | { name: 'sign-in' }
   | { name: 'applications' }
+  | { name: 'resource-types' }
   | { name: 'create-application' }
   | { name: 'application'; applicationId: string }
   | { name: 'settings'; applicationId: string }
@@ -14,6 +15,7 @@ export function parseRoute(path = window.location.pathname): Route {
   const relative = path.startsWith(base) ? path.slice(base.length) || '/' : path;
   if (relative === '/' || relative === '/sign-in') return { name: 'sign-in' };
   if (relative === '/applications') return { name: 'applications' };
+  if (relative === '/platform/resource-types') return { name: 'resource-types' };
   if (relative === '/applications/new') return { name: 'create-application' };
   const settings = relative.match(/^\/applications\/([^/]+)\/settings$/);
   if (settings?.[1]) return { name: 'settings', applicationId: decodeURIComponent(settings[1]) };
@@ -32,6 +34,7 @@ export function href(route: Route): string {
   switch (route.name) {
     case 'sign-in': return `${base}/sign-in`;
     case 'applications': return `${base}/applications`;
+    case 'resource-types': return `${base}/platform/resource-types`;
     case 'create-application': return `${base}/applications/new`;
     case 'application': return `${base}/applications/${encodeURIComponent(route.applicationId)}`;
     case 'settings': return `${base}/applications/${encodeURIComponent(route.applicationId)}/settings`;

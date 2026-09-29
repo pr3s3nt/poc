@@ -8,21 +8,16 @@ class ResourceTypeController <<boundary>> {
 class ResourceTypeService <<control>> {
   +RegisterResourceType(ctx, cmd): ResourceType
 }
-class SchemaValidator <<control>> {
-  +ValidateResourceTypeSchemas(inputs, outputs)
-}
 class ResourceType <<entity>> {
-  +Register(id, inputSchema, outputSchema): ResourceType
+  +Validate()
   +ValidateInputs(params)
   +ValidateOutputs(outputs)
 }
 interface ResourceTypeRepository {
-  +Exists(ctx, orgID, id): bool
-  +Find(ctx, orgID, id): ResourceType
-  +Save(ctx, resourceType)
+  +ListResourceTypes(ctx, orgID): []ResourceType
+  +SaveResourceType(ctx, orgID, resourceType)
 }
 ResourceTypeController --> ResourceTypeService
-ResourceTypeService --> SchemaValidator
 ResourceTypeService --> ResourceTypeRepository
 ResourceTypeService ..> ResourceType
 @enduml

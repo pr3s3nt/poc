@@ -169,7 +169,7 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		RunID:           cmd.RunID,
 	}
 
-	catalog, types, definitions, err := s.loadCatalog(ctx)
+	catalog, types, definitions, err := s.loadCatalog(ctx, cmd.OrganizationKey)
 	if err != nil {
 		return nil, s.fail(ctx, record, err)
 	}
@@ -583,12 +583,12 @@ func (s *Service) reconcileRoutes(ctx context.Context, app appdomain.Application
 	return s.publicRoutes.Reconcile(ctx, target, route)
 }
 
-func (s *Service) loadCatalog(ctx context.Context) (planning.Catalog, map[string]resource.Type, map[string]resource.Definition, error) {
-	typeList, err := s.store.ListResourceTypes(ctx)
+func (s *Service) loadCatalog(ctx context.Context, organizationKey string) (planning.Catalog, map[string]resource.Type, map[string]resource.Definition, error) {
+	typeList, err := s.store.ListResourceTypes(ctx, organizationKey)
 	if err != nil {
 		return planning.Catalog{}, nil, nil, err
 	}
-	defList, err := s.store.ListResourceDefinitions(ctx)
+	defList, err := s.store.ListResourceDefinitions(ctx, organizationKey)
 	if err != nil {
 		return planning.Catalog{}, nil, nil, err
 	}

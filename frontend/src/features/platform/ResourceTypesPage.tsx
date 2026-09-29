@@ -1,0 +1,53 @@
+import { useEffect, useState, type FormEvent } from 'react';
+import { api } from '../../shared/api/client';
+import { Button } from '../../shared/ui/Button';
+
+type FieldType = 'string' | 'number' | 'bool' | 'any';
+type InputField = { name: string; type: FieldType; required: boolean };
+type OutputField = InputField & { secret: boolean };
+type ResourceType = { key: string; inputs: InputField[]; outputs: OutputField[] };
+
+const newInput = (): InputField => ({ name: '', type: 'string', required: false });
+const newOutput = (): OutputField => ({ name: '', type: 'string', required: false, secret: false });
+
+export function ResourceTypesPage() {
+  const [types, setTypes] = useState<ResourceType[]>([]);
+  const [key, setKey] = useState('');
+  const [inputs, setInputs] = useState<InputField[]>([]);
+  const [outputs, setOutputs] = useState<OutputField[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => { api<{ resourceTypes: ResourceType[] }>('/resource-types').then((result) => setTypes(result.resourceTypes)).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false)); }, []);
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(''); setSaving(true);
+    try {
+      await api('/resource-types', { method: 'POST', body: JSON.stringify({ key: key.trim(), inputs: inputs.map((field) => ({ ...field, name: field.name.trim() })), outputs: outputs.map((field) => ({ ...field, name: field.name.trim() })) }) });
+      const result = await api<{ resourceTypes: ResourceType[] }>('/resource-types');
+      setTypes(result.resourceTypes); setKey(''); setInputs([]); setOutputs([]);
+    } catch (reason) { setError((reason as Error).message); }
+    finally { setSaving(false); }
+  }
+  function renderFields<T extends InputField>(label: string, fields: T[], update: (fields: T[]) => void, create: () => T, secret: boolean) {
+    return <section className="catalog-fields"><div className="section-header"><h3>{label}</h3><Button type="button" onClick={() => update([...fields, create()])}>+ Add {label.toLowerCase().slice(0, -1)}</Button></div>
+      {fields.length === 0 ? <p className="muted">No {label.toLowerCase()} declared.</p> : null}
+      {fields.map((field, index) => <div className="catalog-field-row" key={index}>
+        <label>Name<input aria-label={`${label} ${index + 1} name`} value={field.name} required onChange={(event) => update(fields.map((item, position) => position === index ? { ...item, name: event.target.value } : item))} /></label>
+        <label>Type<select aria-label={`${label} ${index + 1} type`} value={field.type} onChange={(event) => update(fields.map((item, position) => position === index ? { ...item, type: event.target.value as FieldType } : item))}><option>string</option><option>number</option><option>bool</option><option>any</option></select></label>
+        <label className="catalog-check"><input type="checkbox" checked={field.required} onChange={(event) => update(fields.map((item, position) => position === index ? { ...item, required: event.target.checked } : item))} /> Required</label>
+        {secret ? <label className="catalog-check"><input type="checkbox" checked={'secret' in field && field.secret === true} onChange={(event) => update(fields.map((item, position) => position === index ? { ...item, secret: event.target.checked } : item))} /> Secret</label> : null}
+        <Button type="button" tone="quiet" aria-label={`Remove ${label.toLowerCase()} ${index + 1}`} onClick={() => update(fields.filter((_, position) => position !== index))}>Remove</Button>
+      </div>)}
+    </section>;
+  }
+  return <section className="page"><header className="page-header"><div><p className="eyebrow">Platform</p><h1>Resource types</h1><p>Define reusable resource contracts for this organization.</p></div></header>
+    <section className="content-panel"><div className="section-header"><h2>Registered types</h2></div>{loading ? <p>Loading resource types…</p> : types.length === 0 ? <p>No resource types registered yet.</p> : <div className="catalog-list">{types.map((type) => <div key={type.key} className="catalog-entry"><strong>{type.key}</strong><span>{type.inputs?.length ?? 0} inputs · {type.outputs?.length ?? 0} outputs</span></div>)}</div>}</section>
+    <section className="content-panel"><div className="section-header"><div><h2>Register resource type</h2><p>Contracts are independent of the infrastructure provider.</p></div></div>
+      <form className="editor-grid" onSubmit={submit}><label>Resource type ID<input value={key} required onChange={(event) => setKey(event.target.value)} /></label>
+        {renderFields('Inputs', inputs, setInputs, newInput, false)}{renderFields('Outputs', outputs, setOutputs, newOutput, true)}
+        {error ? <div className="form-error" role="alert">{error}</div> : null}<div className="form-actions"><Button type="submit" tone="primary" disabled={saving}>{saving ? 'Registering…' : 'Register resource type'}</Button></div>
+      </form>
+    </section>
+  </section>;
+}

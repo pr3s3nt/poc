@@ -130,11 +130,11 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 	if err != nil {
 		return Preview{}, err
 	}
-	types, err := s.store.ListResourceTypes(ctx)
+	types, err := s.store.ListResourceTypes(ctx, app.OrganizationKey)
 	if err != nil {
 		return Preview{}, err
 	}
-	definitions, err := s.store.ListResourceDefinitions(ctx)
+	definitions, err := s.store.ListResourceDefinitions(ctx, app.OrganizationKey)
 	if err != nil {
 		return Preview{}, err
 	}

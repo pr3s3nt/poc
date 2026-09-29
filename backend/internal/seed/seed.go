@@ -267,14 +267,17 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		if err := store.SaveUserAccount(ctx, identity.UserAccount{ID: "developer", OrganizationKey: o.OrganizationKey, Username: "developer", PasswordHash: passwordHash, Role: identity.RoleDeveloper, Status: identity.AccountActive}); err != nil {
 			return err
 		}
+		if err := store.SaveUserAccount(ctx, identity.UserAccount{ID: "platform-engineer", OrganizationKey: o.OrganizationKey, Username: "platform-engineer", PasswordHash: passwordHash, Role: identity.RolePlatformEngineer, Status: identity.AccountActive}); err != nil {
+			return err
+		}
 	}
 	for _, t := range ResourceTypes() {
-		if err := store.SaveResourceType(ctx, t); err != nil {
+		if err := store.SaveResourceType(ctx, o.OrganizationKey, t); err != nil {
 			return err
 		}
 	}
 	for _, d := range ResourceDefinitions(o) {
-		if err := store.SaveResourceDefinition(ctx, d); err != nil {
+		if err := store.SaveResourceDefinition(ctx, o.OrganizationKey, d); err != nil {
 			return err
 		}
 	}

@@ -113,7 +113,7 @@ func (q *QueryService) GetDeployment(ctx context.Context, deploymentID string) (
 	if err != nil {
 		return nil, err
 	}
-	types, err := q.store.ListResourceTypes(ctx)
+	types, err := q.store.ListResourceTypes(ctx, record.OrganizationKey)
 	if err != nil {
 		return nil, err
 	}

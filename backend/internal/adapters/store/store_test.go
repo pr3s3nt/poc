@@ -88,3 +88,30 @@ func TestTransactRollsBackOnError(t *testing.T) {
 		t.Fatalf("expected the write to be rolled back, got %v", err)
 	}
 }
+
+func TestCatalogIsScopedByOrganization(t *testing.T) {
+	ctx := context.Background()
+	s := New()
+	for _, org := range []string{"acme", "other"} {
+		if err := s.SaveResourceType(ctx, org, resource.Type{Key: "postgres", Outputs: []resource.OutputField{{Name: "host", Type: "string"}}}); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.SaveResourceDefinition(ctx, org, resource.Definition{Key: "postgres-kind", ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, org := range []string{"acme", "other"} {
+		types, err := s.ListResourceTypes(ctx, org)
+		if err != nil || len(types) != 1 || types[0].Key != "postgres" {
+			t.Fatalf("%s types: %#v, %v", org, types, err)
+		}
+		defs, err := s.ListResourceDefinitions(ctx, org)
+		if err != nil || len(defs) != 1 || defs[0].Key != "postgres-kind" {
+			t.Fatalf("%s definitions: %#v, %v", org, defs, err)
+		}
+	}
+	types, err := s.ListResourceTypes(ctx, "unknown")
+	if err != nil || len(types) != 0 {
+		t.Fatalf("unknown organization could read catalog: %#v, %v", types, err)
+	}
+}

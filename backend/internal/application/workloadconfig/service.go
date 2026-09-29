@@ -225,7 +225,11 @@ func (s *Service) validateBindings(ctx context.Context, app, env string, doc sco
 		}
 		entries = rev.Entries
 	}
-	types, err := s.store.ListResourceTypes(ctx)
+	applicationRecord, err := s.store.GetApplication(ctx, app)
+	if err != nil {
+		return err
+	}
+	types, err := s.store.ListResourceTypes(ctx, applicationRecord.OrganizationKey)
 	if err != nil {
 		return err
 	}

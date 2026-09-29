@@ -20,6 +20,8 @@ management API/UI and durable persistence are not yet complete.
 4. [VOPC](vopc.puml)
 5. [Resource domain](../../architecture/domain/domain-objects.md)
 
+UI: [screens](ui/screens.md), [states](ui/states.md).
+
 ## Implementation entry points
 
 - [`backend/internal/domain/resource`](../../../backend/internal/domain/resource/)

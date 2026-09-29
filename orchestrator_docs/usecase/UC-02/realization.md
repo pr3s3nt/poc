@@ -19,10 +19,10 @@ ResourceTypeService.RegisterResourceType(ctx context.Context, cmd RegisterResour
 
 ## Participants
 
-- `ResourceTypeController` — boundary parse command/document.
+- `ResourceTypeController` — HTTP boundary kiểm tra session/role và parse document.
 - `ResourceTypeService` — control validate và persist.
 - `ResourceType` — aggregate chứa ID, input schema, output schema.
-- `SchemaValidator` — kiểm tra JSON Schema subset được hỗ trợ.
+- `ResourceType.Validate` — kiểm tra schema subset được hỗ trợ.
 - `ResourceTypeRepository`, `UnitOfWork` — persistence ports.
 
 ## Trace main flow
@@ -30,14 +30,16 @@ ResourceTypeService.RegisterResourceType(ctx context.Context, cmd RegisterResour
 | Step | Collaboration |
 |---|---|
 | MS-01 | Controller tạo `RegisterResourceTypeCommand`. |
-| MS-02 | Service gọi `SchemaValidator.ValidateResourceTypeSchemas`. |
+| MS-02 | Service gọi `ResourceType.Validate`. |
 | MS-03 | Repository kiểm tra ID trong Organization. |
 | MS-04 | `ResourceType.Register` và repository save trong transaction. |
 | MS-05–MS-06 | Trả aggregate đã lưu; repository trở thành nguồn contract cho planner/UC-03. |
 
 ## Transaction boundary
 
-Validate ngoài transaction; unique check được bảo vệ lại bằng database unique constraint trong transaction save.
+Validate ngoài transaction; local/test adapter kiểm tra key trong transaction. Khi
+chuyển sang PostgreSQL, unique constraint `(organization_id, key)` là chốt cuối
+cùng chống concurrent duplicate.
 
 ## Planned tests
 
@@ -45,3 +47,7 @@ Validate ngoài transaction; unique check được bảo vệ lại bằng datab
 - `TestRegisterResourceType_DuplicateID`.
 - `TestRegisterResourceType_InvalidSchema`.
 - Repository integration test cho schema JSONB và unique key.
+
+Web Console `Platform / Resource types` gọi `GET`/`POST /api/v1/resource-types`;
+POST chỉ cho Platform Engineer/Admin. Contract list và form nằm trong
+`UC-02/ui/`.

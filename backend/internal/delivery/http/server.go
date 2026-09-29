@@ -13,6 +13,7 @@ import (
 	"orchestrator/internal/adapters/configmemory"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
+	"orchestrator/internal/application/catalog"
 	appconfig "orchestrator/internal/application/configuration"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/pending"
@@ -27,6 +28,7 @@ type Server struct {
 	queries        *appsvc.QueryService
 	auth           *authentication.Service
 	applications   *appcreate.Service
+	catalog        *catalog.Service
 	configurations *appconfig.Service
 	workloads      *workloadconfig.Service
 	pending        *pending.Service
@@ -57,6 +59,7 @@ func NewServer(cfg Config) *Server {
 		queries:        cfg.Queries,
 		auth:           cfg.Authentication,
 		applications:   cfg.Applications,
+		catalog:        catalog.NewService(cfg.Store),
 		configurations: cfg.Configurations,
 		workloads:      cfg.Workloads,
 		pending:        cfg.Pending,
@@ -93,6 +96,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/deploy", s.handleDeployPending)
 	s.mux.HandleFunc("GET /api/v1/score-samples", s.handleScoreSamples)
 	s.mux.HandleFunc("GET /api/v1/resource-types", s.handleResourceTypes)
+	s.mux.HandleFunc("POST /api/v1/resource-types", s.handleRegisterResourceType)
 	s.mux.HandleFunc("POST /api/v1/deployments", s.handleCreateDeployment)
 	s.mux.HandleFunc("GET /api/v1/deployments", s.handleListDeployments)
 	s.mux.HandleFunc("GET /api/v1/deployments/{id}", s.handleGetDeployment)
@@ -388,6 +392,10 @@ func writeError(w http.ResponseWriter, err error) {
 		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
 	case errors.Is(err, appconfig.ErrConflict):
 		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
+	case errors.Is(err, catalog.ErrDuplicate):
+		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
+	case errors.Is(err, catalog.ErrInvalid):
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 	case errors.Is(err, configmemory.ErrUnavailable):
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
 	case isValidation(err):

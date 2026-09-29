@@ -66,13 +66,17 @@ func getJSON(t *testing.T, url string) (int, map[string]any) {
 }
 
 func authenticatedClient(t *testing.T, baseURL string) *http.Client {
+	return authenticatedClientAs(t, baseURL, "developer")
+}
+
+func authenticatedClientAs(t *testing.T, baseURL, username string) *http.Client {
 	t.Helper()
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		t.Fatalf("cookie jar: %v", err)
 	}
 	client := &http.Client{Jar: jar}
-	payload, err := json.Marshal(map[string]string{"username": "developer", "password": "test-password"})
+	payload, err := json.Marshal(map[string]string{"username": username, "password": "test-password"})
 	if err != nil {
 		t.Fatalf("sign-in marshal: %v", err)
 	}
@@ -85,6 +89,51 @@ func authenticatedClient(t *testing.T, baseURL string) *http.Client {
 		t.Fatalf("sign-in status %d", resp.StatusCode)
 	}
 	return client
+}
+
+func TestResourceTypeRegistrationRequiresPlatformEngineer(t *testing.T) {
+	server, _ := newServer(t, "")
+	payload := []byte(`{"key":"redis","inputs":[{"name":"size","type":"number"}],"outputs":[{"name":"host","type":"string","required":true}]}`)
+	post := func(client *http.Client) int {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, server.URL+"/api/v1/resource-types", bytes.NewReader(payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode
+	}
+	if got := post(http.DefaultClient); got != http.StatusUnauthorized {
+		t.Fatalf("anonymous registration returned %d", got)
+	}
+	if got := post(authenticatedClient(t, server.URL)); got != http.StatusForbidden {
+		t.Fatalf("developer registration returned %d", got)
+	}
+	platform := authenticatedClientAs(t, server.URL, "platform-engineer")
+	if got := post(platform); got != http.StatusCreated {
+		t.Fatalf("platform registration returned %d", got)
+	}
+	if got := post(platform); got != http.StatusConflict {
+		t.Fatalf("duplicate registration returned %d", got)
+	}
+	status, catalog := getJSONClient(t, platform, server.URL+"/api/v1/resource-types")
+	if status != http.StatusOK {
+		t.Fatalf("catalog status %d", status)
+	}
+	found := false
+	for _, item := range catalog["resourceTypes"].([]any) {
+		if item.(map[string]any)["key"] == "redis" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("registered type was not published to the catalog")
+	}
 }
 
 func getJSONClient(t *testing.T, client *http.Client, url string) (int, map[string]any) {

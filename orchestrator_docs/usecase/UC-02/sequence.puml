@@ -4,17 +4,16 @@ autonumber
 actor "Platform Engineer" as PE
 boundary ResourceTypeController as API
 control ResourceTypeService as Service
-control SchemaValidator as Validator
+entity ResourceType as Validator
 database ResourceTypeRepository as Repo
 
 PE -> API: RegisterResourceType(document) [MS-01]
 API -> Service: RegisterResourceType(ctx, command)
-Service -> Validator: ValidateResourceTypeSchemas(inputs, outputs) [MS-02]
+Service -> Validator: Validate() [MS-02]
 Validator --> Service: valid
-Service -> Repo: Exists(orgID, resourceTypeID) [MS-03]
-Repo --> Service: false
-Service -> Service: ResourceType.Register(command)
-Service -> Repo: Save(resourceType) <<transaction>> [MS-04]
+Service -> Repo: ListResourceTypes(orgID) [MS-03]
+Repo --> Service: no duplicate key
+Service -> Repo: SaveResourceType(orgID, resourceType) <<transaction>> [MS-04]
 Repo --> Service: ResourceType
 Service --> API: ResourceType [MS-05..MS-06]
 API --> PE: Registered

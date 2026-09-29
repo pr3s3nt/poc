@@ -56,10 +56,10 @@ type EnvironmentRepository interface {
 
 // CatalogRepository owns Resource Types and Resource Definitions.
 type CatalogRepository interface {
-	ListResourceTypes(ctx context.Context) ([]resource.Type, error)
-	ListResourceDefinitions(ctx context.Context) ([]resource.Definition, error)
-	SaveResourceType(ctx context.Context, t resource.Type) error
-	SaveResourceDefinition(ctx context.Context, d resource.Definition) error
+	ListResourceTypes(ctx context.Context, organizationKey string) ([]resource.Type, error)
+	ListResourceDefinitions(ctx context.Context, organizationKey string) ([]resource.Definition, error)
+	SaveResourceType(ctx context.Context, organizationKey string, t resource.Type) error
+	SaveResourceDefinition(ctx context.Context, organizationKey string, d resource.Definition) error
 }
 
 // DeploymentRepository owns Deployment records, plan snapshots and node progress.

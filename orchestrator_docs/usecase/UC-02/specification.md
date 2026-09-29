@@ -41,6 +41,12 @@ last_reviewed: 2026-09-21
 - **POST-03:** Output schema có thể dùng để validate resource placeholders và executor outputs.
 - **POST-04:** Platform Engineer có thể tạo Resource Definition cho Resource Type này trong UC-03.
 
+## Giao diện MVP
+
+- Trang `Platform / Resource types` chỉ hiện cho Platform Engineer và Admin.
+- Trang liệt kê Resource Types trong Organization đang đăng nhập và có form tạo mới: ID, danh sách input (name, type, required), danh sách output (name, type, required, secret).
+- Submit thất bại phải giữ nguyên nội dung form và hiển thị lỗi. Không có sửa/xóa trong UC-02.
+
 ## Quy tắc nghiệp vụ
 
 - **BR-01:** Resource Type ID là duy nhất trong Organization.
@@ -62,7 +68,7 @@ UC-02 Register Resource Type
 ## Trạng thái implementation hiện tại
 
 - Seed catalog đã có Resource Types cho workload, VPC, cluster, namespace và PostgreSQL; planner dùng input contract để kiểm tra Score `params` và output contract để kiểm tra placeholder/executor output.
-- API, UI, PostgreSQL persistence và nghiệp vụ `RegisterResourceType` chưa có; catalog hiện được seed khi process khởi động.
+- API/UI đăng ký và nghiệp vụ `RegisterResourceType` đã có cho local/test; PostgreSQL persistence và production-grade RBAC chưa có.
 
 ## Ngoài phạm vi happy path
 

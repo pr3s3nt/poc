@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -490,45 +491,57 @@ func (s *Store) CompareVersionAndSetCurrent(_ context.Context, applicationKey, e
 	return nil
 }
 
-// ListResourceTypes returns the registered Resource Types.
-func (s *Store) ListResourceTypes(context.Context) ([]resource.Type, error) {
+func catalogKey(organizationKey, key string) string { return organizationKey + "/" + key }
+
+// ListResourceTypes returns this Organization's registered Resource Types.
+func (s *Store) ListResourceTypes(_ context.Context, organizationKey string) ([]resource.Type, error) {
 	defer s.rlock()()
-	out := make([]resource.Type, 0, len(s.state.ResourceTypes))
-	for _, t := range s.state.ResourceTypes {
-		out = append(out, t)
+	out := make([]resource.Type, 0)
+	for key, t := range s.state.ResourceTypes {
+		if strings.HasPrefix(key, organizationKey+"/") {
+			out = append(out, t)
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
 	return out, nil
 }
 
-// ListResourceDefinitions returns the registered Resource Definitions.
-func (s *Store) ListResourceDefinitions(context.Context) ([]resource.Definition, error) {
+// ListResourceDefinitions returns this Organization's registered Definitions.
+func (s *Store) ListResourceDefinitions(_ context.Context, organizationKey string) ([]resource.Definition, error) {
 	defer s.rlock()()
-	out := make([]resource.Definition, 0, len(s.state.Definitions))
-	for _, d := range s.state.Definitions {
-		out = append(out, d)
+	out := make([]resource.Definition, 0)
+	for key, d := range s.state.Definitions {
+		if strings.HasPrefix(key, organizationKey+"/") {
+			out = append(out, d)
+		}
 	}
 	resource.SortDefinitions(out)
 	return out, nil
 }
 
-// SaveResourceType registers a Resource Type.
-func (s *Store) SaveResourceType(_ context.Context, t resource.Type) error {
+// SaveResourceType registers a Resource Type for one Organization.
+func (s *Store) SaveResourceType(_ context.Context, organizationKey string, t resource.Type) error {
 	defer s.lock()()
+	if organizationKey == "" {
+		return fmt.Errorf("store: resource type needs an organization")
+	}
 	if err := t.Validate(); err != nil {
 		return err
 	}
-	s.state.ResourceTypes[t.Key] = t
+	s.state.ResourceTypes[catalogKey(organizationKey, t.Key)] = t
 	return nil
 }
 
-// SaveResourceDefinition registers a Resource Definition.
-func (s *Store) SaveResourceDefinition(_ context.Context, d resource.Definition) error {
+// SaveResourceDefinition registers a Resource Definition for one Organization.
+func (s *Store) SaveResourceDefinition(_ context.Context, organizationKey string, d resource.Definition) error {
 	defer s.lock()()
+	if organizationKey == "" {
+		return fmt.Errorf("store: definition needs an organization")
+	}
 	if err := d.Validate(); err != nil {
 		return err
 	}
-	s.state.Definitions[d.Key] = d
+	s.state.Definitions[catalogKey(organizationKey, d.Key)] = d
 	return nil
 }
 

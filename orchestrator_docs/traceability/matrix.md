@@ -31,9 +31,9 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
-| MS-01, MS-02 | `RegisterResourceType`; `UC-02/sequence.puml` | `ResourceTypeService.RegisterResourceType`, `SchemaValidator.ValidateResourceTypeSchemas` | none before validation | OC-03; valid/invalid schema tests |
-| MS-03, MS-04 | same | `ResourceTypeRepository.Exists/Save` | `resource_types`; unique `(org,key)` | OC-03; duplicate/repository tests |
-| MS-05, MS-06 | same | return `ResourceType` / repository read contract | persisted schemas | OC-03; planner catalog integration test |
+| MS-01, MS-02 | `RegisterResourceType`; `UC-02/sequence.puml` | `catalog.Service.RegisterResourceType`, `resource.Type.Validate`, role-gated HTTP POST | none before validation | OC-03; `catalog/service_test.go`, `test/e2e/http_test.go` |
+| MS-03, MS-04 | same | `ListResourceTypes/SaveResourceType` | local/test store scoped by `(org,key)`; PostgreSQL pending | OC-03; duplicate/org-isolation store tests |
+| MS-05, MS-06 | same | return `ResourceType` / repository read contract | persisted schemas | OC-03; planner catalog integration test; `ResourceTypesPage.test.tsx` |
 
 ## UC-03
 
