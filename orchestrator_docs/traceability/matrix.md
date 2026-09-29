@@ -49,10 +49,10 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
-| MS-01, MS-02 | connection registration; `UC-04/sequence.puml` | Controller dispatches `RegisterAWSDriverAccount` or `RegisterKubernetesCluster` | transient credential only | OC-05; profile-specific tests |
-| MS-03 | same | `AWSConnectionVerifier.Verify` / `KubernetesConnectionVerifier.Verify` | Connection `VERIFYING` | OC-05; RBAC/identity tests |
-| MS-04 | same | `SecretStore.Put` | external secret + opaque ref | OC-05; no credential persistence test |
-| MS-05, MS-06 | same | `Connection.MarkReady`, `ConnectionRepository.Save` | `connections.status=READY` | OC-05; repository test |
+| MS-01, MS-02 | connection registration; `UC-04/sequence.puml` | HTTP POST role gate, `connection.Service.RegisterKubernetesCluster` | cluster ID/context only; AWS branch pending | OC-05; `connection/service_test.go`, `test/e2e/http_test.go`, `ConnectionsPage.test.tsx` |
+| MS-03 | same | `kubernetes.ConnectionVerifier.Verify` | read-only API/RBAC verification | OC-05; `TestKindConnectionVerifierReadOnly` |
+| MS-04 | same | local/kind `host-kube-context://` reference; SecretStore path pending | no raw credential persisted | OC-05; service test |
+| MS-05, MS-06 | same | Organization-scoped `SaveConnection` | `connections.status=READY` | OC-05; service/API tests |
 
 ## UC-05
 
@@ -69,7 +69,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
-| MS-01 | `DeployWorkload`; shared/cloud/internal sequences | `DeploymentService.DeployWorkload`, `EnvironmentRepository.LoadPlanningSnapshot`, `DeploymentRepository.Create` | `deployments=PLANNING`, base set/version | OC-08; both-profile tests |
+| MS-01; BR-16 | `DeployWorkload`; shared/cloud/internal sequences | `DeploymentService.DeployWorkload`, `EnvironmentRepository.LoadPlanningSnapshot`, `DeploymentRepository.Create` | `deployments=PLANNING`, Snapshot ID nullable; planning failure may be `FAILED` without Snapshot | OC-08; `TestDeploymentReferencesExactlyOneDeltaSnapshot`, planning-failure query test |
 | MS-02, MS-03 | `PlanningService.Plan` | Score/workload validator/before/`BuildHumanitecDelta` | `deployment_delta_snapshots`, Candidate `deployment_sets` | OC-07/08; Delta shape/invariant and resource-preservation tests; Snapshot persistence/association (`TestDeployWorkload_PersistsOneDeltaSnapshotPerDeployment`, `TestDeploymentReferencesExactlyOneDeltaSnapshot`) |
 | MS-04, MS-05, MS-06; BR-12 | same | profile load, `ResourceDescriptorParser.ParseDescriptorText`, `ImplicitResourceEnricher`, graph builder | canonical descriptors + graph JSON snapshot | OC-07; scoped-token and implicit-resource tests |
 | MS-07, MS-08 | same | matcher, inspector, classifier, scheduler | `deployment_plans`; `PROVISIONING` | OC-07/08; match/contract/DAG tests |
@@ -116,7 +116,7 @@ returns the target and resource outputs.
 |---|---|---|---|---|
 | MS-01, MS-02 | `GetDeployment`; `UC-09/sequence.puml` | `DeploymentQueryService.GetDeployment`, repo reads | Deployment/plan/set snapshot | OC-11; scoped query test |
 | MS-03 | same | resource/workload repository reads | deployment-resource/instance status | OC-11; status assembly test |
-| MS-04, MS-05 | same | `DeploymentViewAssembler.Assemble` | persisted graph/matches/batches | OC-11; view test |
+| MS-04, MS-05; BR-06 | same | `DeploymentViewAssembler.Assemble` | persisted graph/matches/batches if present; no fake Delta/plan on planning failure | OC-11; planning-failure query test |
 | MS-06 | same | `OutputRedactor.RedactSecretOutputs` | no mutation | OC-11; redaction test |
 | MS-07 | same | return `DeploymentView` | read-only | OC-11; no runtime call test |
 | BR-05 | `UC-09/ui/screens.md`, `ui/states.md` | React history/detail/recent components | `GET /deployments`, `GET /deployments/{id}` | `DeploymentPages.test.tsx`; Web Console typecheck/lint/test/build |

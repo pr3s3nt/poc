@@ -57,6 +57,23 @@ Cấu hình credentials và connection cần thiết cho hai Execution Profile `
 - **BR-02:** Domain record chỉ giữ secret reference; secret value không được trả về qua read model thông thường.
 - **BR-03:** UC-04 chỉ đăng ký/xác minh connection, không provision application infrastructure.
 - **BR-04:** Chỉ connection trạng thái `READY` mới được UC-01 và UC-06 sử dụng.
+- **BR-05 (local/kind MVP):** Đăng ký Kubernetes connection bằng cluster ID và
+  tên kube context đã có trên máy chạy backend. Backend xác minh API và các
+  quyền cần thiết bằng context đó, lưu metadata/opaque host-context reference,
+  không nhận hoặc lưu kubeconfig/credential thô. Chạy backend trên host khác cần
+  cấu hình lại cùng context; AWS registration/credential storage qua Secret Store
+  chưa thuộc lát cắt MVP này.
+- **BR-06:** Trong local/kind MVP, Platform Engineer nhập connection ID,
+  cluster ID và kube context. Verifier kiểm tra context tồn tại, API reachable,
+  quyền tạo Namespace cùng Deployment, StatefulSet, Service và Secret trên
+  các namespace mà không tạo resource. Trùng connection ID trong
+  Organization hoặc thiếu quyền thì không lưu connection.
+
+## Giao diện MVP
+
+Trang `Platform / Connections` liệt kê connection thuộc Organization và có
+form đăng ký Kubernetes cluster theo BR-05/BR-06. Không có ô nhập kubeconfig,
+token hoặc AWS access key. AWS registration chưa hiện trong form MVP.
 
 ## Luồng nội bộ
 
@@ -73,7 +90,10 @@ UC-04 Configure Execution Profile Connections
 
 - Seed catalog đã đăng ký internal Kubernetes connection và AWS connection metadata; bootstrap wire Kubernetes, existing-cluster và Terraform adapters theo Execution Profile.
 - Internal verification dùng kube context đã cấu hình; AWS verification dùng local default credential chain, region và account ID truyền khi khởi động process.
-- API/UI đăng ký connection, Secret Store bền vững và workflow verify credential/connectivity của UC-04 chưa có. Terraform vẫn dùng local state directory, chưa có backend registry bền vững.
+- API/UI đăng ký Kubernetes connection bằng host kube context cùng verifier
+  read-only đã có cho local/kind. AWS registration, Secret Store bền vững và
+  PostgreSQL persistence còn thiếu. Terraform vẫn dùng local state directory,
+  chưa có backend registry bền vững.
 
 ## Ngoài phạm vi happy path
 

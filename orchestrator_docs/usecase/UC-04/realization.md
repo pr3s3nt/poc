@@ -27,6 +27,17 @@ ConnectionService.RegisterKubernetesCluster(ctx context.Context, cmd RegisterKub
 - `AWSConnectionVerifier`, `KubernetesConnectionVerifier` — integration ports.
 - `ConnectionRepository`, `UnitOfWork` — persistence ports.
 
+Trong local/kind MVP, `RegisterKubernetesCluster` dùng context đã có trên host:
+Kubernetes verifier kiểm tra API/RBAC read-only, `SecretStore.Put` không được
+gọi. Connection record giữ cluster ID, context, endpoint xác minh và opaque
+`host-kube-context://...` reference; không chứa credential. AWS registration
+vẫn theo thiết kế đầy đủ và chưa triển khai ở lát cắt này.
+
+HTTP `GET/POST /api/v1/connections` lọc theo Organization; POST chỉ cho
+Platform Engineer/Admin. Trước transaction service validate ID và gọi verifier;
+trong transaction kiểm tra Organization/unique key và lưu `READY`. UI contract
+nằm trong `UC-04/ui/`.
+
 ## Trace main flow
 
 | Step | Collaboration |
@@ -40,7 +51,10 @@ ConnectionService.RegisterKubernetesCluster(ctx context.Context, cmd RegisterKub
 
 ## Transaction boundary
 
-External verification và secret write xảy ra trước database transaction. Transaction chỉ lưu connection `READY`; secret cleanup khi DB save lỗi thuộc failure handling ngoài happy path.
+External verification xảy ra trước database transaction. Local/kind host-context
+variant không ghi secret. Full credential-store variant sẽ ghi secret trước
+transaction và cần cleanup nếu DB save lỗi. Transaction chỉ lưu connection
+`READY` sau khi Organization/unique key được kiểm tra.
 
 ## Planned tests
 

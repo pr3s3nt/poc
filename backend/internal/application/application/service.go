@@ -36,7 +36,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 		if err != nil {
 			return err
 		}
-		conn, err := s.store.GetConnection(ctx, org.DefaultConnectionKey)
+		conn, err := s.store.GetConnection(ctx, org.Key, org.DefaultConnectionKey)
 		if err != nil {
 			return err
 		}

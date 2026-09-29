@@ -55,6 +55,9 @@ Cho phép Developer xem trạng thái deployment, Resource Graph và thông tin 
   cho xem status, workload, thời điểm, actor và failure reason. Từ danh sách,
   Developer mở detail gồm graph, batches và resource/workload status; màn hình
   không thay thế runtime logs hoặc tự refresh cluster.
+- **BR-06:** Nếu UC-06 thất bại trong planning trước khi tạo Delta Snapshot,
+  Deployment view vẫn trả status/failure reason; Delta, graph và batches có thể
+  vắng mặt. Không dựng Delta giả hoặc hiển thị plan của lần khác.
 
 ## Luồng nội bộ
 

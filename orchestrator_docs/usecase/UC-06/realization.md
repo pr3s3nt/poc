@@ -42,7 +42,7 @@ WorkloadDeployer.WaitReady(ctx context.Context, target DeploymentTarget, workloa
 
 | Step | Collaboration |
 |---|---|
-| MS-01 | Create Deployment `PLANNING`, load/version current set. |
+| MS-01 | Create Deployment `PLANNING` without Delta Snapshot, load/version current set. Planning failure keeps a `FAILED` record, which may also lack Snapshot (BR-16). |
 | MS-02–MS-03 | Planning pipeline validate/bảo toàn container resources, tạo Humanitec-shaped Delta/Candidate Set và chứng minh invariant. |
 | MS-04–MS-08 | Load profile, resolve descriptor tokens, enrich graph, match/validate/schedule; persist immutable plan snapshot. |
 | MS-09 | Chuyển Deployment `PROVISIONING`, gọi UC-08 với resource-only batches. |
@@ -58,7 +58,13 @@ WorkloadDeployer.WaitReady(ctx context.Context, target DeploymentTarget, workloa
 
 ## Transaction boundary
 
-Không giữ DB transaction qua Terraform/Kubernetes call. Transaction A tạo Deployment và persist immutable Delta Snapshot/Candidate Set/plan snapshot. Mỗi UC-08 node persist progress bằng transaction ngắn. Transaction B sau readiness atomically đổi Environment current-set pointer, save WorkloadInstance và mark Deployment `SUCCEEDED`, với optimistic Environment version.
+Không giữ DB transaction qua Terraform/Kubernetes call. Initial insert tạo
+Deployment `PLANNING` với nullable Snapshot. Transaction A persist immutable
+Delta Snapshot/Candidate Set/plan snapshot và gắn Snapshot trước khi chuyển
+`PROVISIONING`. Một `FAILED` trong planning có thể không có Snapshot. Mỗi UC-08
+node persist progress bằng transaction ngắn. Transaction B sau readiness
+atomically đổi Environment current-set pointer, save WorkloadInstance và mark
+Deployment `SUCCEEDED`, với optimistic Environment version.
 
 ## Planned tests
 

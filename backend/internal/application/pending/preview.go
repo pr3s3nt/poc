@@ -70,7 +70,7 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 	if err != nil {
 		return Preview{}, err
 	}
-	connection, err := s.store.GetConnection(ctx, app.ConnectionKey)
+	connection, err := s.store.GetConnection(ctx, app.OrganizationKey, app.ConnectionKey)
 	if err != nil {
 		return Preview{}, err
 	}

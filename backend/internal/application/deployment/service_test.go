@@ -249,6 +249,9 @@ func TestDeployWorkload_CommitsCurrentSetOnlyAfterReadiness(t *testing.T) {
 	if len(deployments) != 1 || deployments[0].Status != domain.StatusFailed {
 		t.Fatalf("expected one FAILED deployment, got %#v", deployments)
 	}
+	if deployments[0].DeltaSnapshotID == "" {
+		t.Fatal("execution failure must retain the already-created Delta Snapshot")
+	}
 }
 
 func TestGetDeployment_ReturnsPersistedPlanAndStatuses(t *testing.T) {
@@ -278,6 +281,31 @@ func TestGetDeployment_ReturnsPersistedPlanAndStatuses(t *testing.T) {
 	}
 	if len(view.DeploymentSet.ModuleIDs()) != 3 {
 		t.Fatalf("the view must carry the committed Deployment Set, got %v", view.DeploymentSet.ModuleIDs())
+	}
+}
+
+func TestGetDeployment_PlanningFailureHasNoInventedSnapshot(t *testing.T) {
+	ctx := context.Background()
+	app, opts := newApp(t)
+	score := seed.AcceptanceScores(opts)["backend"]
+	score["resources"].(map[string]any)["db"].(map[string]any)["type"] = "unsupported-resource"
+	_, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{
+		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey,
+		EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreAfter: score, Actor: "test",
+	})
+	if err == nil {
+		t.Fatal("expected planning failure")
+	}
+	records, err := app.Queries.ListDeployments(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil || len(records) != 1 {
+		t.Fatalf("deployment records: %#v, %v", records, err)
+	}
+	view, err := app.Queries.GetDeployment(ctx, records[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.Deployment.Status != domain.StatusFailed || view.Deployment.FailureReason == "" || view.Deployment.DeltaSnapshotID != "" || view.Delta != nil || view.Graph != nil || view.PlanHash != "" {
+		t.Fatalf("planning failure must have status but no invented plan: %#v", view)
 	}
 }
 

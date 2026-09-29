@@ -30,8 +30,8 @@ type ApplicationRepository interface {
 	ListApplications(ctx context.Context) ([]application.Application, error)
 	GetApplication(ctx context.Context, key string) (application.Application, error)
 	SaveApplication(ctx context.Context, app application.Application) error
-	GetConnection(ctx context.Context, key string) (application.Connection, error)
-	ListConnections(ctx context.Context) ([]application.Connection, error)
+	GetConnection(ctx context.Context, organizationKey, key string) (application.Connection, error)
+	ListConnections(ctx context.Context, organizationKey string) ([]application.Connection, error)
 	SaveConnection(ctx context.Context, conn application.Connection) error
 }
 

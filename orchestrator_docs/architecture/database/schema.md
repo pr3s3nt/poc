@@ -66,6 +66,12 @@ Only token hashes are persisted. A revoked or expired session is invalid.
 
 Unique: `(organization_id, connection_key)`.
 
+For the local/kind Kubernetes host-context variant, `secret_ref` is an opaque
+`host-kube-context://<context>` reference, not a stored credential. `config`
+keeps only cluster ID, kube context and verified endpoint. Moving the backend
+to another host requires configuring the same context there; this is not the
+future durable credential-store variant.
+
 ### `applications`
 
 | Column | Type | Constraint |
@@ -235,10 +241,20 @@ API/update/archive được deferred tại D05.
 | `base_environment_version` | bigint | NOT NULL |
 | `base_deployment_set_id` | uuid | FK deployment_sets |
 | `candidate_deployment_set_id` | uuid | FK deployment_sets |
-| `delta_snapshot_id` | uuid | FK deployment_delta_snapshots, UNIQUE, NOT NULL |
+| `delta_snapshot_id` | uuid | nullable FK deployment_delta_snapshots, UNIQUE; required for `PROVISIONING`, `DEPLOYING`, `SUCCEEDED` |
 | `started_at`, `finished_at` | timestamptz | lifecycle timestamps |
 
 Index `(environment_id, started_at desc)`.
+
+`delta_snapshot_id IS NULL` nghĩa là planning chưa tạo được Delta Snapshot.
+`PLANNING` và `FAILED` do planning có thể để NULL; một `FAILED` sau planning
+giữ Snapshot đã có. Database CHECK bắt buộc `delta_snapshot_id IS NOT NULL`
+cho `PROVISIONING`, `DEPLOYING`, `SUCCEEDED`. Repository không cho xóa/đổi
+association đã thiết lập; FK và UNIQUE bảo vệ sự tồn tại và một-một.
+
+```sql
+CHECK (status IN ('PLANNING', 'FAILED') OR delta_snapshot_id IS NOT NULL)
+```
 
 ### `deployment_plans`
 
@@ -279,7 +295,9 @@ does not imply every workload has consumed that revision.
 ## Transaction contracts
 
 1. Create Environment: Environment + empty Deployment Set + current pointer atomically.
-2. Create deployment plan: Deployment + DeploymentDeltaSnapshot + Candidate Set + DeploymentPlan atomically; current pointer unchanged.
+2. Create deployment plan: insert Deployment `PLANNING` trước, chưa có Snapshot;
+   sau đó persist DeploymentDeltaSnapshot + Candidate Set + DeploymentPlan và
+   chuyển Deployment sang `PROVISIONING` atomically; current pointer unchanged.
 3. Resource completion: Active Resource upsert + Deployment Resource status atomically per node.
 4. Final deployment commit: compare Environment version, update current pointer/version, mark cloud Application runtime `READY`, upsert Workload Instances and mark Deployment `SUCCEEDED` atomically.
 

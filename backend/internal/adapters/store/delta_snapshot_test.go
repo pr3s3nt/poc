@@ -97,6 +97,15 @@ func TestDeploymentReferencesExactlyOneDeltaSnapshot(t *testing.T) {
 	if err := s.SaveDeployment(ctx, planning); err != nil {
 		t.Fatalf("a PLANNING deployment has no snapshot yet: %v", err)
 	}
+	failedPlanning := planning
+	failedPlanning.Status = deployment.StatusFailed
+	failedPlanning.FailureReason = "planner rejected resource"
+	if err := s.SaveDeployment(ctx, failedPlanning); err != nil {
+		t.Fatalf("planning failure may keep a NULL snapshot: %v", err)
+	}
+	if got, err := s.GetDeployment(ctx, planning.ID); err != nil || got.DeltaSnapshotID != "" || got.Status != deployment.StatusFailed {
+		t.Fatalf("planning failure record: %#v, %v", got, err)
+	}
 	provisioning := planning
 	provisioning.Status = deployment.StatusProvisioning
 	if err := s.SaveDeployment(ctx, provisioning); err == nil {

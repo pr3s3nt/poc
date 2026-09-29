@@ -2,8 +2,9 @@ import type { PropsWithChildren } from 'react';
 import { href, navigate } from './routes';
 import { Button } from '../shared/ui/Button';
 
-export function AppShell({ children, onSignOut, username, role }: PropsWithChildren<{ onSignOut(): void; username: string; role: string }>) {
+export function AppShell({ children, onSignOut, username, role, activeRoute }: PropsWithChildren<{ onSignOut(): void; username: string; role: string; activeRoute: string }>) {
   const isPlatformEngineer = role === 'PLATFORM_ENGINEER' || role === 'ADMIN';
+  const navClass = (name: string) => `nav-item${activeRoute === name ? ' nav-item-active' : ''}`;
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -11,9 +12,10 @@ export function AppShell({ children, onSignOut, username, role }: PropsWithChild
           <span className="wordmark-mark">◆</span> Orchestrator
         </a>
         <nav className="nav" aria-label="Main navigation">
-          <a className="nav-item nav-item-active" href={href({ name: 'applications' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'applications' }); }}>▦ <span>Applications</span></a>
-          {isPlatformEngineer ? <a className="nav-item" href={href({ name: 'resource-types' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-types' }); }}>◇ <span>Resource types</span></a> : null}
-          {isPlatformEngineer ? <a className="nav-item" href={href({ name: 'resource-definitions' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-definitions' }); }}>▣ <span>Resource definitions</span></a> : null}
+          <a className={navClass('applications')} href={href({ name: 'applications' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'applications' }); }}>▦ <span>Applications</span></a>
+          {isPlatformEngineer ? <a className={navClass('resource-types')} href={href({ name: 'resource-types' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-types' }); }}>◇ <span>Resource types</span></a> : null}
+          {isPlatformEngineer ? <a className={navClass('resource-definitions')} href={href({ name: 'resource-definitions' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-definitions' }); }}>▣ <span>Resource definitions</span></a> : null}
+          {isPlatformEngineer ? <a className={navClass('connections')} href={href({ name: 'connections' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'connections' }); }}>⌘ <span>Connections</span></a> : null}
           <span className="nav-item nav-item-disabled">◷ <span>Deployments</span><small>Coming next</small></span>
         </nav>
         <div className="sidebar-footer">

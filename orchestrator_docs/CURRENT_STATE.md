@@ -32,7 +32,7 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-01 | Implemented; local/test baseline | Authenticated Developer có thể list/create/get Application qua API; service tự sinh ID, staging/production, empty Deployment Sets và namespace identities. `acme` resolve `internal-cluster` như platform default, không hiển thị target chooser. |
 | UC-02 | Local/test registration implemented | Platform Engineer/Admin có thể đăng ký và xem Resource Types trong Organization qua API/UI; seeded catalog vẫn dùng được. PostgreSQL persistence và production-grade RBAC chưa có. |
 | UC-03 | Local/test registration implemented | Platform Engineer/Admin có thể đăng ký Definition runtime-supported với criteria, driver inputs và provision rules qua API/UI; planner vẫn có profile guard và matching. PostgreSQL persistence, remote source và production-grade RBAC chưa có. |
-| UC-04 | Designed; partial execution support | Connection/target seed và adapters kind/AWS đã chạy; registration/verification UI và persistence thật chưa có. |
+| UC-04 | Local/kind Kubernetes registration implemented | Platform Engineer/Admin đăng ký cluster ID + host kube context qua API/UI; verifier kiểm tra API/RBAC đọc-only rồi lưu connection `READY` theo Organization. AWS registration, durable credential store và PostgreSQL persistence chưa có. |
 | UC-05 | Pending-change Preview implemented; broader contract gaps | Planner pipeline, transient Humanitec-shaped Delta và read-only multi-workload Preview/API/UI đã có; broader UC-05 contract coverage còn hạn chế. |
 | UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; optional Fleet GitRepo adapter cho internal kind đã pass Harbor-image deployment. Environment Ingress nhiều path và Fleet `_routes` bundle đã pass kind test với hai workload BusyBox, Fleet revision/prune và cleanup; route failure có route-only retry (unit test), Backstage cụ thể chưa kiểm chứng. DNS/TLS/chuyển controller ra ngoài chưa có. Mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. |
 | UC-07 | Update/remove executable for UC-16 | Planner hỗ trợ before/shared rules và Delta; Preview → Deploy update/remove workload trên kind, có partial retry. Fleet GitRepo remove đã pass kind; broader lifecycle UI/history còn thiếu. |
@@ -105,8 +105,9 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 - Runtime chỉ execute ba embedded Terraform modules; remote source execution
   chưa thuộc baseline.
 - `DeploymentDeltaSnapshot` được persist trong JSON snapshot store với
-  association một-một tới Deployment; store chỉ bắt buộc Snapshot khi
-  Deployment rời `PLANNING`, chưa enforce `NOT NULL` của schema (IMP-011).
+  association một-một tới Deployment. Canonical schema cho phép NULL trong
+  `PLANNING` hoặc `FAILED` do planning, và bắt buộc Snapshot từ
+  `PROVISIONING`; PostgreSQL adapter chưa thực thi constraint này.
 - Container resources chỉ được validate theo shape (`cpu`/`memory`, non-empty
   string); Kubernetes quantity semantics và cặp request > limit khai báo chỉ
   được Kubernetes API kiểm khi apply. Nhánh request thiếu lấy limit cùng field

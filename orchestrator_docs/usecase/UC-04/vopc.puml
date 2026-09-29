@@ -10,6 +10,9 @@ class ConnectionService <<control>> {
   +RegisterAWSDriverAccount(ctx, cmd): Connection
   +RegisterKubernetesCluster(ctx, cmd): Connection
 }
+class HostKubeContextVerifier <<adapter>> {
+  +Verify(ctx, kubeContext): Verification
+}
 class Connection <<entity>> {
   +CreatePending(kind, config): Connection
   +MarkReady(secretRef, verification)
@@ -32,6 +35,7 @@ ConnectionService --> SecretStore
 ConnectionService --> ConnectionRepository
 ConnectionService --> AWSConnectionVerifier
 ConnectionService --> KubernetesConnectionVerifier
+ConnectionService --> HostKubeContextVerifier : local/kind MVP
 ConnectionService ..> Connection
 ConnectionVerifier <|.. AWSConnectionVerifier
 ConnectionVerifier <|.. KubernetesConnectionVerifier

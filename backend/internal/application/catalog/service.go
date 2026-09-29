@@ -143,7 +143,7 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 		}
 	}
 	if def.ConnectionKey != "" {
-		conn, err := s.store.GetConnection(ctx, def.ConnectionKey)
+		conn, err := s.store.GetConnection(ctx, org, def.ConnectionKey)
 		if err != nil || conn.OrganizationKey != org || conn.Status != application.ConnectionReady {
 			return fmt.Errorf("connection %q is not READY in this organization", def.ConnectionKey)
 		}

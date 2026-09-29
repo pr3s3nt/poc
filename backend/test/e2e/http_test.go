@@ -14,27 +14,87 @@ import (
 	"strings"
 	"testing"
 
+	connectionapp "orchestrator/internal/application/connection"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/seed"
 )
 
-func newServer(t *testing.T, uiDir string) (*httptest.Server, seed.Options) {
+func newServer(t *testing.T, uiDir string, verifier ...connectionapp.KubernetesVerifier) (*httptest.Server, seed.Options) {
 	t.Helper()
 	seedOptions := seed.Defaults()
 	seedOptions.Region = "us-east-1"
 	seedOptions.AccountID = "000000000000"
 	seedOptions.RunID = "run-e2e"
-	app, err := bootstrap.Build(context.Background(), bootstrap.Options{
+	options := bootstrap.Options{
 		Seed:     seedOptions,
 		Adapters: bootstrap.AdapterFake,
 		UIDir:    uiDir,
-	})
+	}
+	if len(verifier) > 0 {
+		options.ConnectionVerifierOverride = verifier[0]
+	}
+	app, err := bootstrap.Build(context.Background(), options)
 	if err != nil {
 		t.Fatalf("bootstrap: %v", err)
 	}
 	server := httptest.NewServer(app.Server)
 	t.Cleanup(server.Close)
 	return server, seedOptions
+}
+
+type approvedCluster struct{}
+
+func (approvedCluster) Verify(context.Context, string) (connectionapp.KubernetesVerification, error) {
+	return connectionapp.KubernetesVerification{Endpoint: "https://cluster.example", Version: "v1.34"}, nil
+}
+
+func TestRegisterKubernetesConnectionRequiresPlatformEngineer(t *testing.T) {
+	server, _ := newServer(t, "", approvedCluster{})
+	payload := []byte(`{"key":"second-cluster","clusterId":"kind-second","kubeContext":"kind-idp-internal"}`)
+	post := func(client *http.Client) int {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, server.URL+"/api/v1/connections/kubernetes", bytes.NewReader(payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode
+	}
+	if got := post(http.DefaultClient); got != http.StatusUnauthorized {
+		t.Fatalf("anonymous: %d", got)
+	}
+	developer := authenticatedClient(t, server.URL)
+	if got := post(developer); got != http.StatusForbidden {
+		t.Fatalf("developer: %d", got)
+	}
+	platform := authenticatedClientAs(t, server.URL, "platform-engineer")
+	if got := post(platform); got != http.StatusCreated {
+		t.Fatalf("platform: %d", got)
+	}
+	if got := post(platform); got != http.StatusConflict {
+		t.Fatalf("duplicate: %d", got)
+	}
+	status, body := getJSONClient(t, platform, server.URL+"/api/v1/connections")
+	if status != http.StatusOK {
+		t.Fatalf("list: %d", status)
+	}
+	found := false
+	for _, item := range body["connections"].([]any) {
+		if item.(map[string]any)["key"] == "second-cluster" {
+			found = true
+			if item.(map[string]any)["secretRef"] != "host-kube-context://kind-idp-internal" {
+				t.Fatal("credential reference is not host context")
+			}
+		}
+	}
+	if !found {
+		t.Fatal("registered connection not listed")
+	}
 }
 
 func postJSON(t *testing.T, url string, body any) (int, map[string]any) {

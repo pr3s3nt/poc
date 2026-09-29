@@ -10,17 +10,21 @@ boundary KubernetesConnectionVerifier as K8s
 database ConnectionRepository as Repo
 
 PE -> API: Register connection [MS-01..MS-02]
-alt aws-eks [VAR-01]
+alt aws-eks [VAR-01, future credential-store variant]
   API -> Service: RegisterAWSDriverAccount(ctx, command)
   Service -> AWS: Verify(identity, regions, backend) [MS-03]
   AWS --> Service: VerificationResult
 else internal-k8s [VAR-02]
   API -> Service: RegisterKubernetesCluster(ctx, command)
-  Service -> K8s: Verify(endpoint, credential) [MS-03]
+  Service -> K8s: Verify(host kube context, API, RBAC) [MS-03]
   K8s --> Service: VerificationResult
 end
-Service -> Secrets: Put(credentialMaterial) [MS-04]
-Secrets --> Service: SecretReference
+alt AWS/full credential-store variant
+  Service -> Secrets: Put(credentialMaterial) [MS-04]
+  Secrets --> Service: SecretReference
+else local/kind Kubernetes MVP
+  Service -> Service: HostContextReference(context) [MS-04]
+end
 Service -> Service: Connection.MarkReady()
 Service -> Repo: Save(connection) <<transaction>> [MS-05]
 Repo --> Service: Connection

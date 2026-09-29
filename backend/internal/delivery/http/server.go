@@ -16,6 +16,7 @@ import (
 	"orchestrator/internal/application/authentication"
 	"orchestrator/internal/application/catalog"
 	appconfig "orchestrator/internal/application/configuration"
+	connectionapp "orchestrator/internal/application/connection"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/pending"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
@@ -30,6 +31,7 @@ type Server struct {
 	auth           *authentication.Service
 	applications   *appcreate.Service
 	catalog        *catalog.Service
+	connections    *connectionapp.Service
 	configurations *appconfig.Service
 	workloads      *workloadconfig.Service
 	pending        *pending.Service
@@ -41,16 +43,17 @@ type Server struct {
 
 // Config configures the HTTP server.
 type Config struct {
-	Deployments    *appsvc.Service
-	Queries        *appsvc.QueryService
-	Authentication *authentication.Service
-	Applications   *appcreate.Service
-	Configurations *appconfig.Service
-	Workloads      *workloadconfig.Service
-	Pending        *pending.Service
-	Store          persistence.Store
-	SeedOptions    seed.Options
-	UIDir          string
+	Deployments        *appsvc.Service
+	Queries            *appsvc.QueryService
+	Authentication     *authentication.Service
+	Applications       *appcreate.Service
+	ConnectionVerifier connectionapp.KubernetesVerifier
+	Configurations     *appconfig.Service
+	Workloads          *workloadconfig.Service
+	Pending            *pending.Service
+	Store              persistence.Store
+	SeedOptions        seed.Options
+	UIDir              string
 }
 
 // NewServer builds the HTTP handler tree.
@@ -61,6 +64,7 @@ func NewServer(cfg Config) *Server {
 		auth:           cfg.Authentication,
 		applications:   cfg.Applications,
 		catalog:        catalog.NewService(cfg.Store, terraform.NewInspector()),
+		connections:    connectionapp.NewService(cfg.Store, cfg.ConnectionVerifier),
 		configurations: cfg.Configurations,
 		workloads:      cfg.Workloads,
 		pending:        cfg.Pending,
@@ -100,6 +104,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/resource-types", s.handleRegisterResourceType)
 	s.mux.HandleFunc("GET /api/v1/resource-definitions", s.handleResourceDefinitions)
 	s.mux.HandleFunc("POST /api/v1/resource-definitions", s.handleRegisterResourceDefinition)
+	s.mux.HandleFunc("GET /api/v1/connections", s.handleConnections)
+	s.mux.HandleFunc("POST /api/v1/connections/kubernetes", s.handleRegisterKubernetesConnection)
 	s.mux.HandleFunc("POST /api/v1/deployments", s.handleCreateDeployment)
 	s.mux.HandleFunc("GET /api/v1/deployments", s.handleListDeployments)
 	s.mux.HandleFunc("GET /api/v1/deployments/{id}", s.handleGetDeployment)
@@ -399,6 +405,12 @@ func writeError(w http.ResponseWriter, err error) {
 		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
 	case errors.Is(err, catalog.ErrInvalid):
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+	case errors.Is(err, connectionapp.ErrDuplicate):
+		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
+	case errors.Is(err, connectionapp.ErrInvalid):
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+	case errors.Is(err, connectionapp.ErrVerification):
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error()})
 	case errors.Is(err, configmemory.ErrUnavailable):
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
 	case isValidation(err):

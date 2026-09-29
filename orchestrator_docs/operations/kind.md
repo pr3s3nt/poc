@@ -17,6 +17,16 @@ last_reviewed: 2026-09-22
 
 ## Automated verification
 
+The UC-04 host-context verifier can be checked without creating objects:
+
+```bash
+cd backend
+ORCH_KIND_VERIFY=1 go test ./internal/adapters/kubernetes -run TestKindConnectionVerifierReadOnly -count=1 -v
+```
+
+It checks the named context, API, endpoint and create permissions using
+`kubectl auth can-i`; it does not create a namespace or workload.
+
 ```bash
 cd backend
 bash test/integration/kind-verify.sh

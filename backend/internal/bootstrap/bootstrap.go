@@ -20,6 +20,7 @@ import (
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
 	appconfig "orchestrator/internal/application/configuration"
+	"orchestrator/internal/application/connection"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/provisioning"
@@ -76,6 +77,7 @@ type Options struct {
 
 	// Overrides replace individual adapters. Tests use them to inject failures.
 	RegistryOverride              execution.ExecutorRegistry
+	ConnectionVerifierOverride    connection.KubernetesVerifier
 	RendererOverride              execution.WorkloadRenderer
 	DeployerOverride              execution.WorkloadDeployer
 	ConfigurationProviderOverride configport.Provider
@@ -217,18 +219,23 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		pendingChanges.SetImageRegistryHost(opts.HarborRegistryHost)
 	}
 	pendingChanges.SetDeployer(deployments)
+	connectionVerifier := opts.ConnectionVerifierOverride
+	if connectionVerifier == nil {
+		connectionVerifier = k8s.ConnectionVerifier{KubectlPath: opts.KubectlPath}
+	}
 
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
-		Deployments:    deployments,
-		Queries:        queries,
-		Authentication: auth,
-		Applications:   applications,
-		Configurations: configurations,
-		Workloads:      workloads,
-		Pending:        pendingChanges,
-		Store:          st,
-		SeedOptions:    opts.Seed,
-		UIDir:          opts.UIDir,
+		Deployments:        deployments,
+		Queries:            queries,
+		Authentication:     auth,
+		Applications:       applications,
+		ConnectionVerifier: connectionVerifier,
+		Configurations:     configurations,
+		Workloads:          workloads,
+		Pending:            pendingChanges,
+		Store:              st,
+		SeedOptions:        opts.Seed,
+		UIDir:              opts.UIDir,
 	})
 
 	return &App{

@@ -139,7 +139,7 @@ entity deployments {
   status : text
   base_deployment_set_id : uuid <<FK>>
   candidate_deployment_set_id : uuid <<FK>>
-  delta_snapshot_id : uuid <<FK>>
+  delta_snapshot_id : uuid? <<FK,UQ>>
   base_environment_version : bigint
 }
 entity deployment_plans {

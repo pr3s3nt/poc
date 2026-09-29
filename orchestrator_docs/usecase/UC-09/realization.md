@@ -29,7 +29,7 @@ DeploymentQueryService.GetDeployment(ctx context.Context, query GetDeploymentQue
 |---|---|
 | MS-01 | Controller tạo query với Application/Environment/Deployment IDs. |
 | MS-02–MS-03 | Service load Deployment, set snapshot, resource/workload status. |
-| MS-04–MS-05 | Assembler thêm status metadata và persisted graph/matches/batches. |
+| MS-04–MS-05 | Assembler thêm status metadata và persisted graph/matches/batches nếu có; `FAILED` khi planning chưa tạo Snapshot chỉ trả status/failure reason, không dựng Delta/plan giả. |
 | MS-06 | `OutputRedactor.Redact` theo Resource Type output metadata. |
 | MS-07 | Trả immutable `DeploymentView`; không gọi runtime/executor. |
 

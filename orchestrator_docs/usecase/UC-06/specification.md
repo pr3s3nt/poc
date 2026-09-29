@@ -98,6 +98,11 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
   toàn bộ Ingress từ Deployment Set đích. Direct mode dùng Kubernetes API;
   Fleet mode ghi bundle `_routes`, chờ GitRepo quan sát commit và Ingress có
   đúng revision trước khi báo thành công. Gỡ hết path sẽ xóa Ingress.
+- **BR-16:** Deployment có thể chưa có Delta Snapshot khi `PLANNING`; nếu
+  planning thất bại thì record `FAILED` có thể tiếp tục không có Snapshot.
+  Trước khi chuyển sang `PROVISIONING`, Snapshot bất biến phải được lưu và gắn
+  vào Deployment. Mọi trạng thái `PROVISIONING`, `DEPLOYING`, `SUCCEEDED` phải
+  có Snapshot; một association đã thiết lập không được xóa hoặc đổi.
   Host staging là
   `staging.<subdomain>.<base-domain>`, production là
   `<subdomain>.<base-domain>`. Route không được coi là truy cập được từ bên ngoài cho tới khi DNS và

@@ -99,7 +99,7 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	if err != nil {
 		return nil, err
 	}
-	conn, err := s.store.GetConnection(ctx, app.ConnectionKey)
+	conn, err := s.store.GetConnection(ctx, app.OrganizationKey, app.ConnectionKey)
 	if err != nil {
 		return nil, err
 	}

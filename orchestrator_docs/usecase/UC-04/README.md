@@ -9,9 +9,9 @@ last_reviewed: 2026-09-21
 
 ## Delivery state
 
-Designed with partial execution support. Seeded internal/AWS connection data and
-real adapters exist; registration, verification UI and durable persistence do
-not.
+Local/kind Kubernetes registration, verification API/UI and seeded internal/AWS
+connection data exist. AWS registration, durable credential store and PostgreSQL
+persistence remain.
 
 ## Read in this order
 
@@ -20,6 +20,8 @@ not.
 3. [Sequence](sequence.puml)
 4. [VOPC](vopc.puml)
 5. [Connection state machine](../../architecture/state-machines/connection.puml)
+
+UI: [screens](ui/screens.md), [states](ui/states.md).
 
 ## Implementation entry points
 

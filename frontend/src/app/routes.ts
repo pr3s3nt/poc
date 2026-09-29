@@ -3,6 +3,7 @@ export type Route =
   | { name: 'applications' }
   | { name: 'resource-types' }
   | { name: 'resource-definitions' }
+  | { name: 'connections' }
   | { name: 'create-application' }
   | { name: 'application'; applicationId: string }
   | { name: 'settings'; applicationId: string }
@@ -18,6 +19,7 @@ export function parseRoute(path = window.location.pathname): Route {
   if (relative === '/applications') return { name: 'applications' };
   if (relative === '/platform/resource-types') return { name: 'resource-types' };
   if (relative === '/platform/resource-definitions') return { name: 'resource-definitions' };
+  if (relative === '/platform/connections') return { name: 'connections' };
   if (relative === '/applications/new') return { name: 'create-application' };
   const settings = relative.match(/^\/applications\/([^/]+)\/settings$/);
   if (settings?.[1]) return { name: 'settings', applicationId: decodeURIComponent(settings[1]) };
@@ -38,6 +40,7 @@ export function href(route: Route): string {
     case 'applications': return `${base}/applications`;
     case 'resource-types': return `${base}/platform/resource-types`;
     case 'resource-definitions': return `${base}/platform/resource-definitions`;
+    case 'connections': return `${base}/platform/connections`;
     case 'create-application': return `${base}/applications/new`;
     case 'application': return `${base}/applications/${encodeURIComponent(route.applicationId)}`;
     case 'settings': return `${base}/applications/${encodeURIComponent(route.applicationId)}/settings`;

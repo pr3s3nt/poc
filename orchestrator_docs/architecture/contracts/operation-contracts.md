@@ -53,7 +53,12 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Preconditions: credential chỉ tồn tại trong request memory; identity/connectivity/RBAC verify thành công.
 - Creates: secret in Secret Store; `Connection` record với opaque secret reference.
 - Postconditions: Connection `READY`; database không chứa secret value.
-- External side effect: Secret Store write trước database insert.
+- Full credential-store variant: Secret Store write trước database insert;
+  không áp dụng cho local/kind host-context variant.
+- Local/kind Kubernetes MVP: register cluster ID + existing host kube context;
+  verifier performs read-only API/RBAC checks, then persist `READY` metadata
+  and opaque `host-kube-context://` ref. No credential upload or Secret Store
+  write. AWS registration remains designed but unimplemented in this slice.
 
 ## OC-06 `PreviewService.PreviewDeployment`
 
@@ -86,6 +91,9 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Use case: UC-06.
 - Preconditions: PRE-01..PRE-05; Environment version khớp base snapshot.
 - Creates: Deployment, immutable DeploymentDeltaSnapshot, Candidate Set, DeploymentPlan, deployment-resource progress, Active Resources/Workload Instance as execution proceeds.
+- Planning record: `PLANNING` được insert với nullable Snapshot ID; planning
+  failure có thể thành `FAILED` không Snapshot. Transaction tạo plan gắn
+  Snapshot trước khi chuyển `PROVISIONING`; association đã có là immutable.
 - Postconditions: UC-08 complete; workload ready với declared container requests/limits; current-set pointer atomically đổi; AWS Application runtime `READY`; Deployment `SUCCEEDED`.
 - External side effects: Terraform/Kubernetes outside DB transaction.
 - Commit rule: Candidate Set never becomes current before readiness.

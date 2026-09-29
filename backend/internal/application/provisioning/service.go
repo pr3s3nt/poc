@@ -136,7 +136,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	if err != nil {
 		return err
 	}
-	connection, _ := s.store.GetConnection(ctx, connectionKeyFor(def, req.Context))
+	connection, _ := s.store.GetConnection(ctx, req.Context.OrganizationKey, connectionKeyFor(def, req.Context))
 
 	execResult, err := executor.Provision(ctx, execution.ProvisionRequest{
 		DeploymentID:    req.DeploymentID,

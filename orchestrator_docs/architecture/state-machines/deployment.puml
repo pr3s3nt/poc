@@ -9,8 +9,13 @@ PROVISIONING --> FAILED : executor error
 DEPLOYING --> FAILED : render/apply/readiness error
 SUCCEEDED --> [*]
 FAILED --> [*]
+note left of PLANNING
+  Delta Snapshot may be NULL.
+  Attach it before PROVISIONING.
+end note
 note right of FAILED
   Status recording only.
+  Snapshot may be NULL only if planning failed.
   Retry/resume/rollback are out of scope.
 end note
 @enduml

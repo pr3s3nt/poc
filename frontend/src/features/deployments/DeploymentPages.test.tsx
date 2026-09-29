@@ -35,3 +35,14 @@ it('shows a failed deployment and hides raw secret-bearing plan fields', async (
   expect(screen.getByText(/pg-kind/)).toBeInTheDocument();
   expect(screen.queryByText('raw-secret')).not.toBeInTheDocument();
 });
+
+it('shows planning failure without inventing a provision plan', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({
+    deployment: { id: 'dep-3', applicationKey: 'catalog', environmentKey: 'staging', workloadId: 'api', action: 'DEPLOY', status: 'FAILED', failureReason: 'no matching definition' },
+    deploymentSetId: '', planHash: '', graph: null, batches: null, resources: [], workloads: [],
+  })));
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-3" />);
+  expect(await screen.findByText('no matching definition')).toBeInTheDocument();
+  expect(screen.getByText('No provision plan was saved for this deployment.')).toBeInTheDocument();
+  expect(screen.queryByText(/graph nodes/)).not.toBeInTheDocument();
+});

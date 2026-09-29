@@ -387,9 +387,9 @@ func (s *Store) SaveApplication(_ context.Context, app application.Application) 
 }
 
 // GetConnection reads one Connection.
-func (s *Store) GetConnection(_ context.Context, key string) (application.Connection, error) {
+func (s *Store) GetConnection(_ context.Context, organizationKey, key string) (application.Connection, error) {
 	defer s.rlock()()
-	c, ok := s.state.Connections[key]
+	c, ok := s.state.Connections[catalogKey(organizationKey, key)]
 	if !ok {
 		return application.Connection{}, fmt.Errorf("%w: connection %q", persistence.ErrNotFound, key)
 	}
@@ -397,11 +397,13 @@ func (s *Store) GetConnection(_ context.Context, key string) (application.Connec
 }
 
 // ListConnections returns every Connection ordered by key.
-func (s *Store) ListConnections(context.Context) ([]application.Connection, error) {
+func (s *Store) ListConnections(_ context.Context, organizationKey string) ([]application.Connection, error) {
 	defer s.rlock()()
 	out := make([]application.Connection, 0, len(s.state.Connections))
-	for _, c := range s.state.Connections {
-		out = append(out, c)
+	for key, c := range s.state.Connections {
+		if strings.HasPrefix(key, organizationKey+"/") {
+			out = append(out, c)
+		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
 	return out, nil
@@ -410,7 +412,10 @@ func (s *Store) ListConnections(context.Context) ([]application.Connection, erro
 // SaveConnection inserts or updates a Connection.
 func (s *Store) SaveConnection(_ context.Context, conn application.Connection) error {
 	defer s.lock()()
-	s.state.Connections[conn.Key] = conn
+	if conn.OrganizationKey == "" || conn.Key == "" {
+		return fmt.Errorf("store: connection needs organization and key")
+	}
+	s.state.Connections[catalogKey(conn.OrganizationKey, conn.Key)] = conn
 	return nil
 }
 
