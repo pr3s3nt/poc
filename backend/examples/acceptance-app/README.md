@@ -39,6 +39,7 @@ root. It creates a run-scoped Application and namespace, then removes only
 that namespace after the check. It requires the local Vault/VSO installation
 and the scoped backend token file described in the kind runbook. The script
 prints the path to `acceptance-full.webm`, a single video of the browser flow
-from sign-in through the final check page. Evidence stays in an owner-only
+from sign-in through the final check page. Browser actions are slowed and key
+screens pause long enough for a person to review them. Evidence stays in an owner-only
 temporary directory, including when the browser test fails; do not publish the
 video without reviewing it for local test data.

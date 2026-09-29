@@ -67,7 +67,9 @@ The script needs the scoped Vault backend token file documented in
 [Vault on kind](vault-kind.md), stores temporary evidence outside the repository,
 and deletes its own namespace after execution. It prints a `video=...` path to
 `acceptance-full.webm`, covering the browser flow from sign-in to the final
-diagnostic page. The video is retained on success and browser-test failure;
+diagnostic page. Actions run with a short delay and the login, configuration,
+Score import, Preview, Deploy result and final diagnostic screens include
+review pauses. The video is retained on success and browser-test failure;
 review it for local test data before sharing. It does not test cloud delivery
 or the worker job flow.
 
