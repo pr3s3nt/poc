@@ -20,6 +20,9 @@ the run-scoped kind verification cleanup procedure.
 [Fleet GitRepo on kind](fleet-gitrepo-kind.md) documents the optional
 Harbor-image workload delivery path and its separate Git/registry credentials.
 
+[Orchestrator PostgreSQL on kind](postgres-kind.md) documents the dedicated
+persistent database installed for the future system store and Terraform state.
+
 Runbook là procedure hiện hành. Kết quả của từng execution phải được ghi thành
 dated record mới trong [verification index](../verification/README.md), không
 ghi đè runbook hoặc evidence cũ.

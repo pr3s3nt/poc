@@ -99,7 +99,8 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 ## Known limitations and release gate
 
 - System-of-record hiện là in-memory map cộng JSON snapshot; PostgreSQL adapter
-  chưa được hiện thực.
+  chưa được hiện thực. PostgreSQL 16 riêng đã Ready trên kind trong
+  `orchestrator-system` với PVC/Secret; backend chưa kết nối tới nó.
 - Terraform state chưa có durable backend; physical cloud names còn chứa run ID.
 - Runtime chỉ execute ba embedded Terraform modules; remote source execution
   chưa thuộc baseline.

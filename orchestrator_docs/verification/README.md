@@ -34,3 +34,4 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 | 2026-09-28 | Multi-path direct Ingress, Fleet route bundle/prune, no-op Preview and Pod UID | [Public routes recheck](2026-09-28-public-routes-recheck.md) |
 | 2026-09-28 | Official Backstage image import and amd64 Pod smoke test on kind | [Backstage image smoke test](2026-09-28-backstage-image-kind.md) |
 | 2026-09-28 | Backstage UC-12/16 Preview → Deploy, PostgreSQL, Ingress and guest API on kind | [Backstage kind end-to-end](2026-09-28-backstage-kind-e2e.md) |
+| 2026-09-29 | Dedicated Orchestrator PostgreSQL installation on kind | [PostgreSQL kind installation](2026-09-29-orchestrator-postgres-kind.md) |
