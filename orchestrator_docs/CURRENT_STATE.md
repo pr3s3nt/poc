@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-09-28
+last_reviewed: 2026-09-29
 ---
 
 # Current project state
@@ -30,9 +30,9 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 |---|---|---|
 | UC-00 | Implemented; local/test baseline | Fixed seeded `developer` account, opaque HttpOnly cookie session, session restore và sign-out đã có; production profile không seed test account. |
 | UC-01 | Implemented; local/test baseline | Authenticated Developer có thể list/create/get Application qua API; service tự sinh ID, staging/production, empty Deployment Sets và namespace identities. `acme` resolve `internal-cluster` như platform default, không hiển thị target chooser. |
-| UC-02 | Local/test registration implemented | Platform Engineer/Admin có thể đăng ký và xem Resource Types trong Organization qua API/UI; seeded catalog vẫn dùng được. PostgreSQL persistence và production-grade RBAC chưa có. |
-| UC-03 | Local/test registration implemented | Platform Engineer/Admin có thể đăng ký Definition runtime-supported với criteria, driver inputs và provision rules qua API/UI; planner vẫn có profile guard và matching. PostgreSQL persistence, remote source và production-grade RBAC chưa có. |
-| UC-04 | Local/kind Kubernetes registration implemented | Platform Engineer/Admin đăng ký cluster ID + host kube context qua API/UI; verifier kiểm tra API/RBAC đọc-only rồi lưu connection `READY` theo Organization. AWS registration, durable credential store và PostgreSQL persistence chưa có. |
+| UC-02 | Registration implemented | Platform Engineer/Admin có thể đăng ký và xem Resource Types trong Organization qua API/UI; seeded catalog và normalized PostgreSQL persistence dùng được. Production-grade RBAC chưa có. |
+| UC-03 | Registration implemented | Platform Engineer/Admin có thể đăng ký Definition runtime-supported với criteria, driver inputs và provision rules qua API/UI; planner vẫn có profile guard và matching, catalog được persist trong PostgreSQL. Remote source và production-grade RBAC chưa có. |
+| UC-04 | Local/kind Kubernetes registration implemented | Platform Engineer/Admin đăng ký cluster ID + host kube context qua API/UI; verifier kiểm tra API/RBAC đọc-only rồi persist connection `READY` trong PostgreSQL theo Organization. AWS registration và durable credential store chưa có. |
 | UC-05 | Pending-change Preview implemented; broader contract gaps | Planner pipeline, transient Humanitec-shaped Delta và read-only multi-workload Preview/API/UI đã có; broader UC-05 contract coverage còn hạn chế. |
 | UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; optional Fleet GitRepo adapter cho internal kind đã pass Harbor-image deployment. Environment Ingress nhiều path và Fleet `_routes` bundle đã pass kind test với hai workload BusyBox, Fleet revision/prune và cleanup; route failure có route-only retry (unit test), Backstage cụ thể chưa kiểm chứng. DNS/TLS/chuyển controller ra ngoài chưa có. Mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. |
 | UC-07 | Update/remove executable for UC-16 | Planner hỗ trợ before/shared rules và Delta; Preview → Deploy update/remove workload trên kind, có partial retry. Fleet GitRepo remove đã pass kind; broader lifecycle UI/history còn thiếu. |
@@ -44,7 +44,8 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 ## Executable baseline
 
 - Go HTTP API, application services, planner, resource executors, Kubernetes
-  deployer và JSON snapshot store nằm dưới `backend/`.
+  deployer, normalized PostgreSQL adapter và local/test JSON snapshot store nằm
+  dưới `backend/`.
 - Web Console React/TypeScript có sign-in, Applications list/create/home,
   UC-12 Settings, UC-16 editor và Application Preview/Deploy panel. Deployment
   Details UI chưa được nối vào Web Console.
@@ -67,8 +68,9 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 - Orchestrator có container image cho API (kèm kubectl) và Web Console (nginx).
   Trên kind, host Orchestrator đã tự deploy hai image này qua Web Console; bản
   in-cluster sau đó deploy acceptance app và cả 4 check đều pass. Bản
-  self-hosted này chỉ là demo: nhận admin kubeconfig qua UC-12 secret và giữ
-  state in-memory (IMP-014).
+  self-hosted này chỉ là demo: nhận admin kubeconfig qua UC-12 secret; logical
+  state hiện được giữ trong PostgreSQL, nhưng credential delivery vẫn là
+  limitation của IMP-014.
 
 Chi tiết từng lần chạy nằm trong [verification index](verification/README.md);
 evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
@@ -132,8 +134,8 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
   challenge catalog và giữ criterion `{}` thành wildcard điểm 0; product planner
   vẫn từ chối catalog có Definition không có criterion.
 - UC-00 có cookie session cho local/test, chưa có production-grade RBAC. UC-04,
-  UC-05 và UC-07 chưa có đầy đủ product management flow/UI; UC-02/03 mới có
-  đăng ký catalog, chưa có PostgreSQL persistence.
+  UC-05 và UC-07 chưa có đầy đủ product management flow/UI; UC-02/03 đã có đăng
+  ký catalog và PostgreSQL persistence nhưng chưa có đầy đủ lifecycle quản trị.
 - UC-12 fake provider chỉ dành local/test và mất giá trị khi process restart.
   Vault trên kind dùng file storage PVC, cần unseal thủ công sau restart; chưa
   có HA, backup, rotation/revocation tự động hoặc production RBAC. Workload
