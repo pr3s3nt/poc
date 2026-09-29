@@ -65,7 +65,10 @@ bash backend/test/integration/acceptance-playwright-kind.sh
 
 The script needs the scoped Vault backend token file documented in
 [Vault on kind](vault-kind.md), stores temporary evidence outside the repository,
-and deletes its own namespace after execution. It does not test cloud delivery
+and deletes its own namespace after execution. It prints a `video=...` path to
+`acceptance-full.webm`, covering the browser flow from sign-in to the final
+diagnostic page. The video is retained on success and browser-test failure;
+review it for local test data before sharing. It does not test cloud delivery
 or the worker job flow.
 
 Public Ingress check (run-scoped, separate from the acceptance workload):

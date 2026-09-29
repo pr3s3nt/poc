@@ -4,17 +4,20 @@ import { chromium, expect } from '@playwright/test';
 import { createHash, randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { writeFileSync } from 'node:fs';
+import { chmodSync, renameSync, writeFileSync } from 'node:fs';
 
 const baseURL = process.env.ORCH_E2E_URL;
 const runId = process.env.ORCH_E2E_RUN_ID;
 const context = process.env.ORCH_E2E_KUBE_CONTEXT;
-if (!baseURL || !/^[a-z0-9-]+$/.test(runId ?? '') || !context) throw new Error('ORCH_E2E_URL, ORCH_E2E_RUN_ID and ORCH_E2E_KUBE_CONTEXT are required');
+const evidenceDir = process.env.ORCH_E2E_EVIDENCE_DIR;
+if (!baseURL || !/^[a-z0-9-]+$/.test(runId ?? '') || !context || !evidenceDir) throw new Error('ORCH_E2E_URL, ORCH_E2E_RUN_ID, ORCH_E2E_KUBE_CONTEXT and ORCH_E2E_EVIDENCE_DIR are required');
 
 const browser = await chromium.launch({ headless: true });
+const browserContext = await browser.newContext({ recordVideo: { dir: evidenceDir, size: { width: 1280, height: 800 } }, viewport: { width: 1280, height: 800 } });
+const page = await browserContext.newPage();
+const video = page.video();
 let forward;
 try {
-  const page = await browser.newPage();
   page.setDefaultTimeout(30_000);
   await page.goto(`${baseURL}/ui/sign-in`);
   await page.getByLabel('Username').fill('developer');
@@ -79,21 +82,33 @@ try {
   forward.stdout.on('data', (chunk) => { forwardLog += chunk.toString(); });
   forward.stderr.on('data', (chunk) => { forwardLog += chunk.toString(); });
   await expect.poll(() => forwardLog.includes(`Forwarding from 127.0.0.1:${port}`), { timeout: 30_000 }).toBe(true);
-  const appPage = await browser.newPage();
-  await appPage.goto(`http://127.0.0.1:${port}/`);
-  await expect(appPage.getByRole('heading', { name: 'Acceptance application' })).toBeVisible();
+  await page.goto(`http://127.0.0.1:${port}/`);
+  await expect(page.getByRole('heading', { name: 'Acceptance application' })).toBeVisible();
   for (const name of ['backend connection', 'environment', 'secret', 'database']) {
-    await expect(appPage.locator(`[data-check="${name}"]`)).toContainText('PASS');
+    await expect(page.locator(`[data-check="${name}"]`)).toContainText('PASS');
   }
-  const response = await appPage.request.get(`http://127.0.0.1:${port}/api/checks`);
+  const response = await page.request.get(`http://127.0.0.1:${port}/api/checks`);
   expect(response.ok()).toBeTruthy();
   const body = await response.json();
   expect(body.checks).toEqual({ environment: true, secret: true, database: true });
   expect(JSON.stringify(body)).not.toContain(secret);
+  await page.waitForTimeout(1200);
   console.log(`PASS: application=${appId} namespace=${namespace} checks=backend,environment,secret,database`);
 } finally {
-  if (forward) { forward.kill(); await new Promise((resolve) => forward.once('exit', resolve)); }
-  await browser.close();
+  if (forward && forward.exitCode === null && forward.signalCode === null) {
+    forward.kill();
+    await new Promise((resolve) => forward.once('exit', resolve));
+  }
+  try {
+    await browserContext.close();
+    if (video) {
+      const videoPath = `${evidenceDir}/acceptance-full.webm`;
+      renameSync(await video.path(), videoPath);
+      chmodSync(videoPath, 0o600);
+    }
+  } finally {
+    await browser.close();
+  }
 }
 
 async function putKey(page, kind, name, value) {

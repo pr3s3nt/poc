@@ -28,6 +28,9 @@ cleanup() {
       fi
     fi
   fi
+  if [[ -s "${WORK}/acceptance-full.webm" ]]; then
+    echo "video=${WORK}/acceptance-full.webm"
+  fi
   echo "run-id=${RUN_ID} evidence=${WORK} status=${status}"
   exit "${status}"
 }
@@ -66,5 +69,5 @@ for _ in $(seq 1 40); do curl -fsS "${API}/api/v1/healthz" >/dev/null 2>&1 && br
 curl -fsS "${API}/api/v1/healthz" >/dev/null
 
 ORCH_E2E_URL="${API}" ORCH_E2E_RUN_ID="${RUN_ID}" ORCH_E2E_KUBE_CONTEXT="${CONTEXT}" \
-  ORCH_E2E_NAMESPACE_FILE="${WORK}/namespace" \
+  ORCH_E2E_NAMESPACE_FILE="${WORK}/namespace" ORCH_E2E_EVIDENCE_DIR="${WORK}" \
   node "${ROOT}/../frontend/test/e2e/acceptance-kind.mjs" 2>&1 | tee "${WORK}/playwright.log"
