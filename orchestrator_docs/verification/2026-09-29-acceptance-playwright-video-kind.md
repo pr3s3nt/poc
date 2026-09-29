@@ -15,9 +15,10 @@ last_reviewed: 2026-09-29
   creation, UC-12 configuration and UC-16 Score import through Preview,
   successful Deploy and the deployed diagnostic page.
 - Backend connection, environment, secret and database checks all passed.
-- Video: `/tmp/tmp.RH5w8zpFHT/acceptance-full.webm`; WebM, 22.28 seconds,
-  1280x800, 1,226,305 bytes, mode `0600`. Chromium loaded its metadata
-  successfully. The video is local evidence and is not tracked by Git.
+- Video: [recorded browser flow](artifacts/acceptance-playwright-kind-2026-09-29.webm);
+  WebM, 22.28 seconds, 1280x800 and 1,226,305 bytes. Chromium loaded its
+  metadata successfully. The committed artifact contains only this run's local
+  test flow; password and secret inputs are masked by their form controls.
 - The run-scoped namespace was deleted and its absence confirmed. Images loaded
   into the kind node and Vault test revisions remain under the existing test
   lifecycle limitation.
