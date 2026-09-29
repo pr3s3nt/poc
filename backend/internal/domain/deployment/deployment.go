@@ -28,6 +28,7 @@ const (
 // Deployment is one plan-and-execute run against an Environment.
 type Deployment struct {
 	ID                     string     `json:"id"`
+	EnvironmentID          string     `json:"environmentId"`
 	OrganizationKey        string     `json:"organizationKey"`
 	ApplicationKey         string     `json:"applicationKey"`
 	EnvironmentKey         string     `json:"environmentKey"`

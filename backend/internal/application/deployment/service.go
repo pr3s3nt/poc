@@ -144,6 +144,7 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	now := s.clock.Now()
 	record := domain.Deployment{
 		ID:                     ids.New(),
+		EnvironmentID:          env.ID,
 		OrganizationKey:        cmd.OrganizationKey,
 		ApplicationKey:         app.Key,
 		EnvironmentKey:         env.Key,
@@ -204,6 +205,7 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 
 	candidateSet := environment.DeploymentSet{
 		ID:                    ids.New(),
+		EnvironmentID:         env.ID,
 		EnvironmentKey:        env.ApplicationKey + "/" + env.Key,
 		CreatedByDeploymentID: record.ID,
 		Document:              plan.CandidateSet,
@@ -213,7 +215,7 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	if err != nil {
 		return nil, s.fail(ctx, record, err)
 	}
-	deltaSnapshot, err := domain.NewDeploymentDeltaSnapshot(ids.New(), app.Key, plan.Delta, domain.DeltaSnapshotMetadata{
+	deltaSnapshot, err := domain.NewDeploymentDeltaSnapshot(ids.New(), record.ID, plan.Delta, domain.DeltaSnapshotMetadata{
 		ActorRef:   cmd.Actor,
 		Action:     action,
 		WorkloadID: workloadID,

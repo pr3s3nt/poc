@@ -96,7 +96,7 @@ UC-08 Provision Resources
 - Planner đã dựng private/shared/implicit resource nodes, match Definition và tạo provider-first batches; VPC/EKS dùng application scope, namespace dùng environment scope.
 - `ResourceProvisioningService` đã chọn fake, existing-cluster, Kubernetes hoặc Terraform executor theo matched Definition; outputs được validate, truyền sang node phụ thuộc/workload và lưu vào Active Resource/deployment-resource state.
 - Internal path đã provision namespace/PostgreSQL StatefulSet trên kind; cloud path đã provision VPC/EKS/Aurora bằng Terraform trên AWS.
-- State store hiện là in-memory + JSON snapshot và Terraform state nằm trong local run directory; PostgreSQL repository, remote state/locking và lifecycle reconcile đầy đủ chưa có.
+- Normalized PostgreSQL repository đã có cho logical orchestration state; in-memory/JSON vẫn dùng cho local/test. Terraform state vẫn nằm trong local run directory; remote state/locking và lifecycle reconcile đầy đủ chưa có.
 
 ## Ngoài phạm vi happy path
 

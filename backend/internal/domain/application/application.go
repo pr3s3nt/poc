@@ -33,6 +33,7 @@ const (
 
 // Organization is the ownership boundary of every other aggregate.
 type Organization struct {
+	ID                   string `json:"id"`
 	Key                  string `json:"key"`
 	Name                 string `json:"name"`
 	DefaultConnectionKey string `json:"defaultConnectionKey"`
@@ -40,6 +41,7 @@ type Organization struct {
 
 // Application owns exactly one Execution Profile and, for aws-eks, the VPC/EKS scope.
 type Application struct {
+	ID                    string           `json:"id"`
 	Key                   string           `json:"key"`
 	OrganizationKey       string           `json:"organizationKey"`
 	Name                  string           `json:"name"`
@@ -96,6 +98,7 @@ const (
 // Connection is a verified driver account or registered cluster.
 // Only the opaque secret reference is persisted; credential values never are.
 type Connection struct {
+	ID              string           `json:"id"`
 	Key             string           `json:"key"`
 	OrganizationKey string           `json:"organizationKey"`
 	Kind            ConnectionKind   `json:"kind"`

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,13 +31,24 @@ func testSnapshot(t *testing.T, id string) deployment.DeploymentDeltaSnapshot {
 		},
 		Shared: []deployment.JSONPatchOperation{{Op: deployment.PatchReplace, Path: "/cache/params/memory", Value: 4}},
 	}
-	snapshot, err := deployment.NewDeploymentDeltaSnapshot(id, "app", doc,
+	snapshot, err := deployment.NewDeploymentDeltaSnapshot(id, "dep-"+strings.TrimPrefix(id, "snap-"), doc,
 		deployment.DeltaSnapshotMetadata{ActorRef: "dev", Action: deployment.ActionDeploy, WorkloadID: "api"},
 		time.Date(2026, 9, 22, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatalf("snapshot: %v", err)
 	}
 	return snapshot
+}
+
+func saveTestSnapshot(t *testing.T, s *Store, snapshot deployment.DeploymentDeltaSnapshot) error {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := s.GetDeployment(ctx, snapshot.DeploymentID); errors.Is(err, persistence.ErrNotFound) {
+		if err := s.SaveDeployment(ctx, deployment.Deployment{ID: snapshot.DeploymentID, Status: deployment.StatusPlanning}); err != nil {
+			t.Fatalf("save owning deployment: %v", err)
+		}
+	}
+	return s.SaveDeltaSnapshot(ctx, snapshot)
 }
 
 func TestDeltaSnapshotSaveReloadAndImmutability(t *testing.T) {
@@ -47,10 +59,10 @@ func TestDeltaSnapshotSaveReloadAndImmutability(t *testing.T) {
 		t.Fatalf("store: %v", err)
 	}
 	snapshot := testSnapshot(t, "snap-1")
-	if err := s.SaveDeltaSnapshot(ctx, snapshot); err != nil {
+	if err := saveTestSnapshot(t, s, snapshot); err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	if err := s.SaveDeltaSnapshot(ctx, snapshot); !errors.Is(err, persistence.ErrImmutable) {
+	if err := saveTestSnapshot(t, s, snapshot); !errors.Is(err, persistence.ErrImmutable) {
 		t.Fatalf("a snapshot must be written only once, got %v", err)
 	}
 
@@ -87,6 +99,11 @@ func TestDeltaSnapshotRejectsTamperedHash(t *testing.T) {
 func TestDeploymentReferencesExactlyOneDeltaSnapshot(t *testing.T) {
 	ctx := context.Background()
 	s := New()
+	for _, id := range []string{"dep-1", "dep-2"} {
+		if err := s.SaveDeployment(ctx, deployment.Deployment{ID: id, Status: deployment.StatusPlanning}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for _, id := range []string{"snap-1", "snap-2"} {
 		if err := s.SaveDeltaSnapshot(ctx, testSnapshot(t, id)); err != nil {
 			t.Fatalf("save %s: %v", id, err)
@@ -151,6 +168,9 @@ func TestTransactionRollsBackDeltaSnapshot(t *testing.T) {
 	s := New()
 	wantErr := errors.New("boom")
 	err := s.Transact(ctx, func(ctx context.Context) error {
+		if err := s.SaveDeployment(ctx, deployment.Deployment{ID: "dep-1", Status: deployment.StatusPlanning}); err != nil {
+			return err
+		}
 		if err := s.SaveDeltaSnapshot(ctx, testSnapshot(t, "snap-1")); err != nil {
 			return err
 		}
@@ -201,7 +221,7 @@ func TestDeltaSnapshotSaveDoesNotAliasCallerValue(t *testing.T) {
 	s := New()
 	input := testSnapshot(t, "snap-1")
 	pristine := testSnapshot(t, "snap-1")
-	if err := s.SaveDeltaSnapshot(context.Background(), input); err != nil {
+	if err := saveTestSnapshot(t, s, input); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 	mutateNested(&input)
@@ -214,7 +234,7 @@ func TestDeltaSnapshotSaveDoesNotAliasCallerValue(t *testing.T) {
 func TestDeltaSnapshotGetDoesNotAliasStoredState(t *testing.T) {
 	s := New()
 	pristine := testSnapshot(t, "snap-1")
-	if err := s.SaveDeltaSnapshot(context.Background(), testSnapshot(t, "snap-1")); err != nil {
+	if err := saveTestSnapshot(t, s, testSnapshot(t, "snap-1")); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 	first, err := s.GetDeltaSnapshot(context.Background(), "snap-1")

@@ -1,8 +1,8 @@
 ---
 id: I06-11
 artifact: iteration-plan
-status: deferred
-last_reviewed: 2026-09-22
+status: historical
+last_reviewed: 2026-09-29
 related: IMP-001, D04, D08
 ---
 
@@ -45,4 +45,8 @@ viết migration contract tests trước adapter code.
 
 ## Outcome
 
-Chưa thực hiện.
+Implemented normalized repositories and versioned migration ledger for every
+current persistence port. PostgreSQL `UnitOfWork`, Environment optimistic
+commit, Snapshot ownership/lifecycle constraints and restart behavior are
+covered by integration verification. In-memory/JSON remains available for
+local tests; PostgreSQL is selected explicitly by `-database-url-file`.

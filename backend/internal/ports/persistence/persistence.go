@@ -74,8 +74,8 @@ type DeploymentRepository interface {
 }
 
 // DeltaSnapshotRepository owns immutable Deployment Delta Snapshots. A
-// Snapshot is written once and referenced by exactly one Deployment through
-// Deployment.DeltaSnapshotID (deployments.delta_snapshot_id UNIQUE).
+// Snapshot is written once for exactly one Deployment. Its Application is
+// derived through Deployment -> Environment -> Application.
 type DeltaSnapshotRepository interface {
 	SaveDeltaSnapshot(ctx context.Context, snapshot deployment.DeploymentDeltaSnapshot) error
 	GetDeltaSnapshot(ctx context.Context, id string) (deployment.DeploymentDeltaSnapshot, error)

@@ -38,7 +38,7 @@ func TestDeployWorkload_PersistsOneDeltaSnapshotPerDeployment(t *testing.T) {
 		if err := snapshot.Validate(); err != nil {
 			t.Fatalf("snapshot: %v", err)
 		}
-		if snapshot.ApplicationKey != seedOptions.ApplicationKey || snapshot.Metadata.WorkloadID != r.WorkloadID ||
+		if snapshot.Metadata.WorkloadID != r.WorkloadID ||
 			snapshot.Metadata.Action != domain.ActionDeploy || snapshot.Metadata.ActorRef != "test" {
 			t.Fatalf("unexpected snapshot metadata: %#v", snapshot)
 		}

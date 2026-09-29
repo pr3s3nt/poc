@@ -77,6 +77,7 @@ future durable credential-store variant.
 | Column | Type | Constraint |
 |---|---|---|
 | `id` | uuid | PK |
+| `application_key` | text | stable API lookup key, UNIQUE, NOT NULL; generated Applications use the same UUID text as `id`, legacy seed may use a readable alias |
 | `organization_id` | uuid | FK organizations |
 | `name` | text | NOT NULL |
 | `subdomain` | text | normalized DNS label, NOT NULL |
@@ -203,7 +204,7 @@ Placeholder trong `spec` tham chiếu resource bằng `${externals.<name>[.<outp
 | Column | Type | Constraint |
 |---|---|---|
 | `id` | uuid | PK |
-| `application_id` | uuid | FK applications, NOT NULL |
+| `deployment_id` | uuid | FK deployments, UNIQUE, NOT NULL |
 | `document` | jsonb | canonical Humanitec-shaped Delta, NOT NULL |
 | `document_hash` | text | deterministic content fingerprint, NOT NULL |
 | `metadata` | jsonb | actor/source metadata without secrets, NOT NULL |
@@ -228,6 +229,12 @@ shared patch relative với object `shared`.
 Table này không mô hình hóa mutable Humanitec Delta lifecycle. Standalone Delta
 API/update/archive được deferred tại D05.
 
+Snapshot ownership is normalized through `deployment_id`; its Application is
+always derived through Deployment → Environment → Application. This prevents
+orphan Snapshots and mismatched tenant ownership without triggers. The foreign
+key uses `ON DELETE CASCADE` for a future controlled history purge; normal
+product operations do not delete Deployment history.
+
 ### `deployments`
 
 | Column | Type | Constraint |
@@ -241,24 +248,24 @@ API/update/archive được deferred tại D05.
 | `base_environment_version` | bigint | NOT NULL |
 | `base_deployment_set_id` | uuid | FK deployment_sets |
 | `candidate_deployment_set_id` | uuid | FK deployment_sets |
-| `delta_snapshot_id` | uuid | nullable FK deployment_delta_snapshots, UNIQUE; required for `PROVISIONING`, `DEPLOYING`, `SUCCEEDED` |
 | `started_at`, `finished_at` | timestamptz | lifecycle timestamps |
 
 Index `(environment_id, started_at desc)`.
 
-`delta_snapshot_id IS NULL` nghĩa là planning chưa tạo được Delta Snapshot.
-`PLANNING` và `FAILED` do planning có thể để NULL; một `FAILED` sau planning
-giữ Snapshot đã có. Database CHECK bắt buộc `delta_snapshot_id IS NOT NULL`
-cho `PROVISIONING`, `DEPLOYING`, `SUCCEEDED`. Repository không cho xóa/đổi
-association đã thiết lập; FK và UNIQUE bảo vệ sự tồn tại và một-một.
+Không có Snapshot row nghĩa là planning chưa tạo được Delta Snapshot.
+`PLANNING` và `FAILED` do planning có thể chưa có row; một `FAILED` sau planning
+giữ Snapshot đã có. Deferred constraint trigger bắt buộc Deployment ở
+`PROVISIONING`, `DEPLOYING`, `SUCCEEDED` có đúng một Snapshot trước transaction
+commit. `deployment_delta_snapshots.deployment_id UNIQUE NOT NULL` bảo vệ quan
+hệ một-một và cấm Snapshot orphan.
 
 ```sql
-CHECK (status IN ('PLANNING', 'FAILED') OR delta_snapshot_id IS NOT NULL)
+-- enforced by a DEFERRABLE CONSTRAINT TRIGGER across the two tables
 ```
 
 ### `deployment_plans`
 
-One-to-one with Deployment: `deployment_id uuid PK/FK`, `score_before jsonb`, `score_after jsonb`, `resource_graph jsonb`, `matched_definitions jsonb`, `provision_batches jsonb`, `classification jsonb`, `plan_hash text`, `created_at`. Snapshot được tham chiếu qua `deployments.delta_snapshot_id`. Snapshot bất biến ngay khi persist; Plan bất biến sau khi Deployment rời `PLANNING`.
+One-to-one with Deployment: `deployment_id uuid PK/FK`, `score_before jsonb`, `score_after jsonb`, `resource_graph jsonb`, `matched_definitions jsonb`, `provision_batches jsonb`, `classification jsonb`, `plan_hash text`, `created_at`. Snapshot được nối bằng `deployment_delta_snapshots.deployment_id`. Snapshot bất biến ngay khi persist; Plan bất biến sau khi Deployment rời `PLANNING`.
 
 ### `active_resources`
 

@@ -167,17 +167,20 @@ Other endpoints: `GET /api/v1/applications`, `GET /api/v1/score-samples`,
 
 ## 7. State
 
-Without `-state` everything lives in memory and disappears on restart. With
-`-state <file>` the process writes a JSON snapshot after every transaction and
-reloads it on start. Secret values are never written to that file; only opaque
-references are, and the deployment view redacts them.
+Without `-state` or `-database-url-file`, everything lives in memory and
+disappears on restart. With `-state <file>` the process writes a local JSON
+snapshot. With `-database-url-file <path>`, it uses the normalized PostgreSQL
+tables and foreign keys from the canonical schema. Migrations are serialized
+and recorded in `schema_migrations`; repository `UnitOfWork` callbacks use one
+database transaction. Secret values are never written to either store; only
+opaque references are, and the deployment view redacts them.
 
 ## 8. What is not implemented yet
 
 - Screens for UC-01..UC-05 and UC-07: Applications, Environments, Resource Types,
   Resource Definitions, Connections, Preview and update/remove. The catalog comes
   from `internal/seed` at startup.
-- A PostgreSQL adapter for the orchestrator's own state store.
+- Automated PostgreSQL backup/restore scheduling and retention policy.
 - A durable Terraform state backend; state lives under `-terraform-root`.
 - Cloud infrastructure names still carry the run id, so a new run id provisions
   new infrastructure.

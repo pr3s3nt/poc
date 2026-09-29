@@ -42,7 +42,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | MS-01, MS-02, MS-03; BR-07 | `RegisterResourceDefinition`; `UC-03/sequence.puml` | `catalog.Service.RegisterResourceDefinition`, `resource.Definition.Validate`, role-gated HTTP POST | none before validation | OC-04; `catalog/definition_test.go`, `test/e2e/http_test.go`, `ResourceDefinitionsPage.test.tsx` |
 | MS-04, MS-05 | same | type/connection repository reads; `ValidateReferencesAndRules` | `resource_types`, `connections` | OC-04; invalid reference test |
 | MS-06, MS-07 | same | `ListResourceDefinitions`, embedded `terraform.Inspector.Inspect` or static executor output contract | source fingerprint candidate | OC-04; duplicate/remote-source/output validation tests |
-| MS-08, MS-09; BR-07 | same | `SaveResourceDefinition/ListResourceDefinitions` | local/test org-scoped catalog; PostgreSQL tables pending | OC-04; HTTP registration/read test, explicit `{}` wildcard; conformance adapter skips external missing/empty criteria (`TestReadDefinitionsCriteriaShapes`, `TestProductPlannerRejectsCriteriaLessDefinition`) |
+| MS-08, MS-09; BR-07 | same | `SaveResourceDefinition/ListResourceDefinitions` | local/test org-scoped catalog; normalized PostgreSQL `resource_definitions` + `matching_criteria` | OC-04; HTTP registration/read test, explicit `{}` wildcard; conformance adapter skips external missing/empty criteria (`TestReadDefinitionsCriteriaShapes`, `TestProductPlannerRejectsCriteriaLessDefinition`) |
 | BR-01, BR-03 | [ADR-001](../architecture/decisions/ADR-001-profile-resource-scopes.md) | Optional Definition profile guard before unchanged five-field scoring | `TestPlan_NewApplicationMatchesPostgresByExecutionProfile`, invalid-profile validation |
 
 ## UC-04

@@ -10,7 +10,9 @@ var namespacePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`
 
 // Environment is a deployment target that belongs to exactly one Application.
 type Environment struct {
+	ID                     string `json:"id"`
 	Key                    string `json:"key"`
+	ApplicationID          string `json:"applicationId"`
 	ApplicationKey         string `json:"applicationKey"`
 	Name                   string `json:"name"`
 	Type                   string `json:"environmentType"`
@@ -35,6 +37,7 @@ func (e Environment) Validate() error {
 // DeploymentSet is an immutable desired-state snapshot of an Environment.
 type DeploymentSet struct {
 	ID                    string    `json:"id"`
+	EnvironmentID         string    `json:"environmentId"`
 	EnvironmentKey        string    `json:"environmentKey"`
 	CreatedByDeploymentID string    `json:"createdByDeploymentId,omitempty"`
 	Document              Document  `json:"document"`

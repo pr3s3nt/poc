@@ -35,6 +35,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 | 2026-09-28 | Official Backstage image import and amd64 Pod smoke test on kind | [Backstage image smoke test](2026-09-28-backstage-image-kind.md) |
 | 2026-09-28 | Backstage UC-12/16 Preview → Deploy, PostgreSQL, Ingress and guest API on kind | [Backstage kind end-to-end](2026-09-28-backstage-kind-e2e.md) |
 | 2026-09-29 | Dedicated Orchestrator PostgreSQL installation on kind | [PostgreSQL kind installation](2026-09-29-orchestrator-postgres-kind.md) |
+| 2026-09-29 | Normalized PostgreSQL repositories, constraints, restart persistence and backup/restore | [PostgreSQL system store](2026-09-29-postgres-system-store.md) |
 | 2026-09-29 | UC-04 host kube-context read-only verification on kind | [UC-04 context verifier](2026-09-29-uc04-kind-context.md) |
 | 2026-09-29 | Browser-driven acceptance app deployment, environment/secret/DB checks and cleanup on kind | [Playwright acceptance](2026-09-29-acceptance-playwright-kind.md) |
 | 2026-09-29 | Continuous Playwright video from sign-in through deployed diagnostic checks on kind | [Recorded Playwright acceptance](2026-09-29-acceptance-playwright-video-kind.md) · [WebM](artifacts/acceptance-playwright-kind-2026-09-29.webm) |

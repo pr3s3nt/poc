@@ -191,7 +191,7 @@ hard-code Application hay Environment.
 - **UC-06b Execute Deployment:** đã có fake, Kubernetes và Terraform adapters; output propagation; workload render/apply; API/Web Console; in-memory store kèm JSON snapshot. Renderer ánh xạ declared requests/limits nguyên văn; request field thiếu lấy limit cùng field, nếu không có limit thì default `10m`/`32Mi` theo BR-11; kind verification của I06-07 chỉ xác nhận live Deployment cho ba seeded case declared/partial/omitted; nhánh limit fallback và request khai báo vượt limit (giữ nguyên, Kubernetes API reject khi apply) mới được unit-test. Internal happy path đã verify trên kind và cloud happy path đã verify trên AWS; AWS chưa chạy lại sau I06-07.
 - **Fleet GitRepo mode:** internal kind có adapter tùy chọn ghi manifest vào repo GitOps private, đợi Fleet quan sát commit và đúng Deployment revision Ready. Image được kéo từ Harbor bằng namespace-local imagePullSecret; không có bước lấy mã nguồn hoặc build. Đường này đã pass kind create/remove với image mẫu; direct adapter vẫn là mặc định.
 - Mỗi request xử lý đúng một Score/workload. Acceptance flow gọi tuần tự ba deployment `backend`, `worker`, `frontend`; database là shared resource được giữ/reuse qua cùng descriptor.
-- PostgreSQL system-of-record và Terraform state backend bền vững chưa được triển khai; state hiện tại chỉ phù hợp executable baseline/verification.
+- Normalized PostgreSQL system-of-record đã được triển khai; in-memory/JSON vẫn là local/test option. Terraform state backend bền vững chưa được triển khai.
 
 ## Ngoài phạm vi happy path
 

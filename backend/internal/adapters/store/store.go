@@ -253,6 +253,9 @@ func (s *Store) GetOrganization(_ context.Context, key string) (application.Orga
 }
 func (s *Store) SaveOrganization(_ context.Context, org application.Organization) error {
 	defer s.lock()()
+	if org.ID == "" {
+		org.ID = ids.New()
+	}
 	s.state.Organizations[org.Key] = org
 	return nil
 }
@@ -299,7 +302,7 @@ func (s *Store) lock() func() {
 	}
 	s.mu.Lock()
 	return func() {
-		s.persistLocked()
+		_ = s.persistLocked(context.Background())
 		s.mu.Unlock()
 	}
 }
@@ -312,16 +315,18 @@ func (s *Store) rlock() func() {
 	return s.mu.Unlock
 }
 
-func (s *Store) persistLocked() {
+func (s *Store) persistLocked(ctx context.Context) error {
 	if s.snapshotPath == "" || s.inTx {
-		return
+		return nil
 	}
 	b, err := json.MarshalIndent(s.state, "", "  ")
 	if err != nil {
-		return
+		return err
 	}
-	_ = os.MkdirAll(filepath.Dir(s.snapshotPath), 0o755)
-	_ = os.WriteFile(s.snapshotPath, b, 0o600)
+	if err := os.MkdirAll(filepath.Dir(s.snapshotPath), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(s.snapshotPath, b, 0o600)
 }
 
 // Transact runs fn atomically; state is restored when fn returns an error.
@@ -339,7 +344,10 @@ func (s *Store) Transact(ctx context.Context, fn func(ctx context.Context) error
 		s.state = backup
 		return err
 	}
-	s.persistLocked()
+	if err := s.persistLocked(ctx); err != nil {
+		s.state = backup
+		return err
+	}
 	return nil
 }
 
@@ -379,6 +387,9 @@ func (s *Store) GetApplication(_ context.Context, key string) (application.Appli
 // SaveApplication inserts or updates an Application.
 func (s *Store) SaveApplication(_ context.Context, app application.Application) error {
 	defer s.lock()()
+	if app.ID == "" {
+		app.ID = ids.New()
+	}
 	if app.Version == 0 {
 		app.Version = 1
 	}
@@ -415,6 +426,9 @@ func (s *Store) SaveConnection(_ context.Context, conn application.Connection) e
 	if conn.OrganizationKey == "" || conn.Key == "" {
 		return fmt.Errorf("store: connection needs organization and key")
 	}
+	if conn.ID == "" {
+		conn.ID = ids.New()
+	}
 	s.state.Connections[catalogKey(conn.OrganizationKey, conn.Key)] = conn
 	return nil
 }
@@ -449,6 +463,14 @@ func (s *Store) GetEnvironment(_ context.Context, applicationKey, environmentKey
 // SaveEnvironment inserts or updates an Environment.
 func (s *Store) SaveEnvironment(_ context.Context, env environment.Environment) error {
 	defer s.lock()()
+	if env.ID == "" {
+		env.ID = ids.New()
+	}
+	if env.ApplicationID == "" {
+		if app, ok := s.state.Applications[env.ApplicationKey]; ok {
+			env.ApplicationID = app.ID
+		}
+	}
 	if env.Version == 0 {
 		env.Version = 1
 	}
@@ -577,8 +599,12 @@ func (s *Store) checkDeltaSnapshotLocked(d deployment.Deployment) error {
 		}
 		return nil
 	}
-	if _, ok := s.state.DeltaSnapshots[d.DeltaSnapshotID]; !ok {
+	snapshot, ok := s.state.DeltaSnapshots[d.DeltaSnapshotID]
+	if !ok {
 		return fmt.Errorf("%w: delta snapshot %q", persistence.ErrNotFound, d.DeltaSnapshotID)
+	}
+	if snapshot.DeploymentID != d.ID {
+		return fmt.Errorf("%w: delta snapshot %q belongs to deployment %q", persistence.ErrImmutable, d.DeltaSnapshotID, snapshot.DeploymentID)
 	}
 	for id, other := range s.state.Deployments {
 		if id != d.ID && other.DeltaSnapshotID == d.DeltaSnapshotID {
@@ -602,6 +628,14 @@ func (s *Store) SaveDeltaSnapshot(_ context.Context, snapshot deployment.Deploym
 	}
 	if _, ok := s.state.DeltaSnapshots[stored.ID]; ok {
 		return fmt.Errorf("%w: delta snapshot %q already exists", persistence.ErrImmutable, stored.ID)
+	}
+	if _, ok := s.state.Deployments[stored.DeploymentID]; !ok {
+		return fmt.Errorf("%w: deployment %q", persistence.ErrNotFound, stored.DeploymentID)
+	}
+	for _, other := range s.state.DeltaSnapshots {
+		if other.DeploymentID == stored.DeploymentID {
+			return fmt.Errorf("%w: deployment %q already owns a delta snapshot", persistence.ErrImmutable, stored.DeploymentID)
+		}
 	}
 	s.state.DeltaSnapshots[stored.ID] = stored
 	return nil

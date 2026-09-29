@@ -59,7 +59,8 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 				return fmt.Errorf("application: default AWS connection needs a region")
 			}
 		}
-		app := appdomain.Application{Key: ids.New(), OrganizationKey: cmd.OrganizationKey, Name: cmd.Name, Subdomain: cmd.Subdomain, Profile: profile, ConnectionKey: conn.Key, Region: region, RuntimeStatus: status, ConfigurationProvider: "vault"}
+		appID := ids.New()
+		app := appdomain.Application{ID: appID, Key: appID, OrganizationKey: cmd.OrganizationKey, Name: cmd.Name, Subdomain: cmd.Subdomain, Profile: profile, ConnectionKey: conn.Key, Region: region, RuntimeStatus: status, ConfigurationProvider: "vault"}
 		if err := app.Validate(); err != nil {
 			return err
 		}
@@ -67,8 +68,9 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 			return err
 		}
 		for _, key := range []string{"staging", "production"} {
-			set := environment.DeploymentSet{ID: ids.New(), EnvironmentKey: app.Key + "/" + key, Document: environment.NewDocument(), DocumentHash: "empty", CreatedAt: time.Now().UTC()}
-			env := environment.Environment{Key: key, ApplicationKey: app.Key, Name: strings.Title(key), Type: key, NamespaceIdentity: "app-" + app.Key + "-" + key, CurrentDeploymentSetID: set.ID}
+			envID := ids.New()
+			set := environment.DeploymentSet{ID: ids.New(), EnvironmentID: envID, EnvironmentKey: app.Key + "/" + key, Document: environment.NewDocument(), DocumentHash: "empty", CreatedAt: time.Now().UTC()}
+			env := environment.Environment{ID: envID, Key: key, ApplicationID: app.ID, ApplicationKey: app.Key, Name: strings.Title(key), Type: key, NamespaceIdentity: "app-" + app.Key + "-" + key, CurrentDeploymentSetID: set.ID}
 			if err := s.store.SaveDeploymentSet(ctx, set); err != nil {
 				return err
 			}

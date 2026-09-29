@@ -13,6 +13,7 @@ import (
 	"orchestrator/internal/adapters/fake"
 	"orchestrator/internal/adapters/gitops"
 	k8s "orchestrator/internal/adapters/kubernetes"
+	pgstore "orchestrator/internal/adapters/postgres"
 	"orchestrator/internal/adapters/secrets"
 	"orchestrator/internal/adapters/store"
 	tf "orchestrator/internal/adapters/terraform"
@@ -30,6 +31,7 @@ import (
 	"orchestrator/internal/platform/clock"
 	configport "orchestrator/internal/ports/configuration"
 	"orchestrator/internal/ports/execution"
+	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
 )
 
@@ -51,6 +53,7 @@ type Options struct {
 	Seed          seed.Options
 	UIDir         string
 	StatePath     string
+	DatabaseURL   string
 	Adapters      AdapterMode
 	KubectlPath   string
 	TerraformPath string
@@ -85,7 +88,7 @@ type Options struct {
 
 // App holds the built components.
 type App struct {
-	Store       *store.Store
+	Store       persistence.Store
 	Secrets     *secrets.Memory
 	Server      *deliveryhttp.Server
 	Deployments *appsvc.Service
@@ -100,16 +103,28 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		return nil, fmt.Errorf("bootstrap: Fleet GitRepo delivery requires Kubernetes adapters")
 	}
 	var (
-		st  *store.Store
+		st  persistence.Store
 		err error
 	)
-	if opts.StatePath != "" {
+	if opts.DatabaseURL != "" && opts.StatePath != "" {
+		return nil, fmt.Errorf("bootstrap: configure only one of PostgreSQL or JSON state")
+	}
+	if opts.DatabaseURL != "" {
+		pg, openErr := pgstore.Open(ctx, opts.DatabaseURL)
+		if openErr != nil {
+			return nil, openErr
+		}
+		st = pg
+	} else if opts.StatePath != "" {
 		st, err = store.NewWithSnapshot(opts.StatePath)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		st = store.New()
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	if err := seed.Apply(ctx, st, opts.Seed); err != nil {

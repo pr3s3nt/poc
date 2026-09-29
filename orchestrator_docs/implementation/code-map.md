@@ -27,6 +27,7 @@ last_reviewed: 2026-09-28
 | Persistence ports | [`backend/internal/ports/persistence`](../../backend/internal/ports/persistence/) |
 | Execution ports | [`backend/internal/ports/execution`](../../backend/internal/ports/execution/) |
 | In-memory + JSON snapshot store | [`backend/internal/adapters/store`](../../backend/internal/adapters/store/) |
+| Normalized PostgreSQL store and migrations | [`backend/internal/adapters/postgres`](../../backend/internal/adapters/postgres/) |
 | Fake walking-skeleton adapters | [`backend/internal/adapters/fake`](../../backend/internal/adapters/fake/) |
 | Kubernetes executor/deployer | [`backend/internal/adapters/kubernetes`](../../backend/internal/adapters/kubernetes/) |
 | Environment public-path validation, direct/Fleet Ingress reconciliation and route-only retry | [`backend/internal/planning/public_routes.go`](../../backend/internal/planning/public_routes.go), [`backend/internal/adapters/kubernetes/public_routes.go`](../../backend/internal/adapters/kubernetes/public_routes.go), [`backend/internal/adapters/gitops/public_routes.go`](../../backend/internal/adapters/gitops/public_routes.go), [`backend/internal/application/pending`](../../backend/internal/application/pending/), [`frontend/src/features/workloads/WorkloadEditorPage.tsx`](../../frontend/src/features/workloads/WorkloadEditorPage.tsx) |

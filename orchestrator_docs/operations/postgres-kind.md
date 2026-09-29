@@ -38,7 +38,16 @@ For a backend process outside kind, temporarily forward the Service to localhost
 kubectl --context kind-idp-internal -n orchestrator-system port-forward svc/postgres 15432:5432
 ```
 
-The backend currently **does not use this database**. Its system store remains
-the in-memory/JSON snapshot adapter. PostgreSQL schema migration and adapter,
-Terraform `pg` state backend, async reconciliation, UC-10 rollback and UC-11
-resource cleanup are separate work; a Ready Pod does not complete any of them.
+The backend can use this database for durable single-process staging state by
+passing `-database-url-file <path>`, or in its container by supplying
+`ORCHESTRATOR_DATABASE_URL` from a Kubernetes Secret. The entrypoint writes the
+value to an owner-only file and unsets the environment variable before starting
+the Go process. Do not put the URL in a manifest or command argument.
+
+The PostgreSQL adapter writes normalized aggregate tables directly. Foreign
+keys protect ownership, Environment current-set updates use optimistic version
+checks, and `UnitOfWork` maps to one PostgreSQL transaction. Migrations are
+serialized and recorded in `schema_migrations`. One-off `pg_dump`/`pg_restore`
+has been verified; automated schedules, encrypted off-cluster storage and
+retention remain operational release work. Terraform `pg` state backend, async reconciliation, UC-10 rollback and
+UC-11 cleanup are separate work.

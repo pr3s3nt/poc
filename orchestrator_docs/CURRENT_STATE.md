@@ -103,16 +103,19 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 
 ## Known limitations and release gate
 
-- System-of-record hiện là in-memory map cộng JSON snapshot; PostgreSQL adapter
-  chưa được hiện thực. PostgreSQL 16 riêng đã Ready trên kind trong
-  `orchestrator-system` với PVC/Secret; backend chưa kết nối tới nó.
+- Backend hỗ trợ normalized PostgreSQL system of record qua
+  `-database-url-file`; repository ghi trực tiếp dedicated tables, dùng foreign
+  keys/unique constraints, versioned migration ledger và PostgreSQL transaction.
+  In-memory/JSON adapter vẫn là lựa chọn mặc định cho local/test. PostgreSQL 16
+  riêng đã Ready trên kind trong `orchestrator-system` với PVC/Secret; automated
+  backup scheduling/retention vẫn là release gate.
 - Terraform state chưa có durable backend; physical cloud names còn chứa run ID.
 - Runtime chỉ execute ba embedded Terraform modules; remote source execution
   chưa thuộc baseline.
-- `DeploymentDeltaSnapshot` được persist trong JSON snapshot store với
-  association một-một tới Deployment. Canonical schema cho phép NULL trong
-  `PLANNING` hoặc `FAILED` do planning, và bắt buộc Snapshot từ
-  `PROVISIONING`; PostgreSQL adapter chưa thực thi constraint này.
+- `DeploymentDeltaSnapshot` chỉ giữ `deployment_id`; PostgreSQL FK/UNIQUE cấm
+  orphan hoặc nhiều Snapshot cho một Deployment, và deferred constraint trigger
+  bắt buộc Snapshot trước khi Deployment commit ở `PROVISIONING`, `DEPLOYING`
+  hoặc `SUCCEEDED`.
 - Container resources chỉ được validate theo shape (`cpu`/`memory`, non-empty
   string); Kubernetes quantity semantics và cặp request > limit khai báo chỉ
   được Kubernetes API kiểm khi apply. Nhánh request thiếu lấy limit cùng field

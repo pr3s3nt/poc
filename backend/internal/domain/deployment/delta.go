@@ -162,18 +162,18 @@ type DeltaSnapshotMetadata struct {
 // Deployment (architecture/domain/domain-objects.md). It is not the mutable
 // Humanitec Delta entity; that lifecycle is deferred at D05.
 type DeploymentDeltaSnapshot struct {
-	ID             string                `json:"id"`
-	ApplicationKey string                `json:"applicationKey"`
-	Document       DeltaDocument         `json:"document"`
-	DocumentHash   string                `json:"documentHash"`
-	Metadata       DeltaSnapshotMetadata `json:"metadata"`
-	CreatedAt      time.Time             `json:"createdAt"`
+	ID           string                `json:"id"`
+	DeploymentID string                `json:"deploymentId"`
+	Document     DeltaDocument         `json:"document"`
+	DocumentHash string                `json:"documentHash"`
+	Metadata     DeltaSnapshotMetadata `json:"metadata"`
+	CreatedAt    time.Time             `json:"createdAt"`
 }
 
 // NewDeploymentDeltaSnapshot validates the document and fingerprints it.
-func NewDeploymentDeltaSnapshot(id, applicationKey string, doc DeltaDocument, metadata DeltaSnapshotMetadata, createdAt time.Time) (DeploymentDeltaSnapshot, error) {
-	if id == "" || applicationKey == "" {
-		return DeploymentDeltaSnapshot{}, fmt.Errorf("deployment: delta snapshot needs an id and an application key")
+func NewDeploymentDeltaSnapshot(id, deploymentID string, doc DeltaDocument, metadata DeltaSnapshotMetadata, createdAt time.Time) (DeploymentDeltaSnapshot, error) {
+	if id == "" || deploymentID == "" {
+		return DeploymentDeltaSnapshot{}, fmt.Errorf("deployment: delta snapshot needs an id and deployment id")
 	}
 	doc = doc.Normalized()
 	if err := doc.Validate(); err != nil {
@@ -184,19 +184,19 @@ func NewDeploymentDeltaSnapshot(id, applicationKey string, doc DeltaDocument, me
 		return DeploymentDeltaSnapshot{}, err
 	}
 	return DeploymentDeltaSnapshot{
-		ID:             id,
-		ApplicationKey: applicationKey,
-		Document:       doc,
-		DocumentHash:   hash,
-		Metadata:       metadata,
-		CreatedAt:      createdAt,
+		ID:           id,
+		DeploymentID: deploymentID,
+		Document:     doc,
+		DocumentHash: hash,
+		Metadata:     metadata,
+		CreatedAt:    createdAt,
 	}, nil
 }
 
 // Validate checks identity, document rules and the content fingerprint.
 func (s DeploymentDeltaSnapshot) Validate() error {
-	if s.ID == "" || s.ApplicationKey == "" {
-		return fmt.Errorf("deployment: delta snapshot needs an id and an application key")
+	if s.ID == "" || s.DeploymentID == "" {
+		return fmt.Errorf("deployment: delta snapshot needs an id and deployment id")
 	}
 	if err := s.Document.Validate(); err != nil {
 		return err

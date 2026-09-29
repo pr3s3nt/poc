@@ -11,8 +11,9 @@ This procedure runs the Orchestrator as two container workloads deployed by the
 Orchestrator itself, then uses that in-cluster instance to deploy the
 diagnostic acceptance app. It is a kind demonstration with the limits recorded
 as IMP-014 in [deviations](../implementation/deviations.md): the in-cluster API
-receives the host's admin kubeconfig as a UC-12 secret and keeps state in
-memory, so a Pod restart loses Applications and drafts.
+receives the host's admin kubeconfig as a UC-12 secret. When configured with
+`ORCHESTRATOR_DATABASE_URL`, logical state survives Pod restarts in the
+dedicated PostgreSQL instance.
 
 ## Images
 
@@ -27,7 +28,8 @@ owner-only files under `/tmp/orchestrator`, then unsets both values. Supported
 settings: `ORCHESTRATOR_KUBE_CONTEXT`, `ORCHESTRATOR_CLUSTER`,
 `ORCHESTRATOR_VAULT_ADDR`, `ORCHESTRATOR_VAULT_AGENT_ADDR`,
 `ORCHESTRATOR_VAULT_DELIVERY`, `ORCHESTRATOR_ADAPTERS` (default `kubernetes`)
-and `ORCHESTRATOR_LISTEN_ADDR` (default `0.0.0.0:8080`).
+`ORCHESTRATOR_DATABASE_URL` (written to an owner-only runtime file), and
+`ORCHESTRATOR_LISTEN_ADDR` (default `0.0.0.0:8080`).
 
 ## Recorded run
 

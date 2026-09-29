@@ -60,11 +60,11 @@ func TestDeploymentDeltaSnapshot_HashIsDeterministicAndSurvivesReload(t *testing
 	}
 	meta := DeltaSnapshotMetadata{ActorRef: "dev", Action: ActionUpdate, WorkloadID: "api"}
 	at := time.Date(2026, 9, 22, 0, 0, 0, 0, time.UTC)
-	first, err := NewDeploymentDeltaSnapshot("snap-1", "app", doc, meta, at)
+	first, err := NewDeploymentDeltaSnapshot("snap-1", "dep-1", doc, meta, at)
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
-	second, err := NewDeploymentDeltaSnapshot("snap-2", "app", doc, meta, at)
+	second, err := NewDeploymentDeltaSnapshot("snap-2", "dep-2", doc, meta, at)
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
@@ -89,10 +89,10 @@ func TestDeploymentDeltaSnapshot_HashIsDeterministicAndSurvivesReload(t *testing
 }
 
 func TestNewDeploymentDeltaSnapshot_RequiresIdentity(t *testing.T) {
-	if _, err := NewDeploymentDeltaSnapshot("", "app", DeltaDocument{}, DeltaSnapshotMetadata{}, time.Time{}); err == nil {
+	if _, err := NewDeploymentDeltaSnapshot("", "dep", DeltaDocument{}, DeltaSnapshotMetadata{}, time.Time{}); err == nil {
 		t.Fatal("expected an id error")
 	}
 	if _, err := NewDeploymentDeltaSnapshot("id", "", DeltaDocument{}, DeltaSnapshotMetadata{}, time.Time{}); err == nil {
-		t.Fatal("expected an application key error")
+		t.Fatal("expected a deployment id error")
 	}
 }

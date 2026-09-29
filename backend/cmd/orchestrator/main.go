@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"orchestrator/internal/bootstrap"
@@ -21,6 +22,7 @@ func main() {
 	addrFile := flag.String("addr-file", "", "optional file that receives the resolved listen address")
 	uiDir := flag.String("ui-dir", "../frontend/dist", "directory holding the Web Console production bundle")
 	statePath := flag.String("state", "", "optional path of the JSON state snapshot")
+	databaseURLFile := flag.String("database-url-file", os.Getenv("ORCHESTRATOR_DATABASE_URL_FILE"), "path to a file containing the PostgreSQL connection URL")
 	adapters := flag.String("adapters", "fake", "executor adapters: fake, kubernetes or aws")
 	profile := flag.String("profile", opts.Profile, "seed profile: local, test, or production")
 	namespace := flag.String("namespace", opts.NamespaceIdentity, "namespace identity of the internal-k8s environment")
@@ -51,6 +53,19 @@ func main() {
 	harborDockerConfigFile := flag.String("harbor-dockerconfig-file", "", "owner-only Docker config JSON for namespace imagePullSecret")
 	harborPullSecretName := flag.String("harbor-pull-secret", "harbor-pull", "namespace-local imagePullSecret name")
 	flag.Parse()
+	databaseURL := ""
+	if *databaseURLFile != "" {
+		value, err := os.ReadFile(*databaseURLFile)
+		if err != nil {
+			log.Printf("orchestrator: read database URL file: %v", err)
+			os.Exit(1)
+		}
+		databaseURL = strings.TrimSpace(string(value))
+		if databaseURL == "" {
+			log.Print("orchestrator: database URL file is empty")
+			os.Exit(1)
+		}
+	}
 
 	opts.NamespaceIdentity = *namespace
 	opts.Profile = *profile
@@ -97,6 +112,7 @@ func main() {
 		Seed:                   opts,
 		UIDir:                  *uiDir,
 		StatePath:              *statePath,
+		DatabaseURL:            databaseURL,
 		Adapters:               mode,
 		KubectlPath:            *kubectlPath,
 		TerraformPath:          *terraformPath,

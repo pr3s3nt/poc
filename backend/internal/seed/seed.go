@@ -6,6 +6,7 @@ package seed
 
 import (
 	"context"
+	"errors"
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
@@ -256,7 +257,11 @@ func ResourceDefinitions(o Options) []resource.Definition {
 
 // Apply writes the seeded catalog, both Applications and their Environments.
 func Apply(ctx context.Context, store persistence.Store, o Options) error {
-	if err := store.SaveOrganization(ctx, application.Organization{Key: o.OrganizationKey, Name: "Acme", DefaultConnectionKey: o.ConnectionKey}); err != nil {
+	if _, err := store.GetOrganization(ctx, o.OrganizationKey); errors.Is(err, persistence.ErrNotFound) {
+		if err := store.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: o.OrganizationKey, Name: "Acme", DefaultConnectionKey: o.ConnectionKey}); err != nil {
+			return err
+		}
+	} else if err != nil {
 		return err
 	}
 	if o.Profile == "local" || o.Profile == "test" {
@@ -264,10 +269,18 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		if err != nil {
 			return err
 		}
-		if err := store.SaveUserAccount(ctx, identity.UserAccount{ID: "developer", OrganizationKey: o.OrganizationKey, Username: "developer", PasswordHash: passwordHash, Role: identity.RoleDeveloper, Status: identity.AccountActive}); err != nil {
+		if _, err := store.GetUserAccountByUsername(ctx, "developer"); errors.Is(err, persistence.ErrNotFound) {
+			if err := store.SaveUserAccount(ctx, identity.UserAccount{ID: ids.New(), OrganizationKey: o.OrganizationKey, Username: "developer", PasswordHash: passwordHash, Role: identity.RoleDeveloper, Status: identity.AccountActive}); err != nil {
+				return err
+			}
+		} else if err != nil {
 			return err
 		}
-		if err := store.SaveUserAccount(ctx, identity.UserAccount{ID: "platform-engineer", OrganizationKey: o.OrganizationKey, Username: "platform-engineer", PasswordHash: passwordHash, Role: identity.RolePlatformEngineer, Status: identity.AccountActive}); err != nil {
+		if _, err := store.GetUserAccountByUsername(ctx, "platform-engineer"); errors.Is(err, persistence.ErrNotFound) {
+			if err := store.SaveUserAccount(ctx, identity.UserAccount{ID: ids.New(), OrganizationKey: o.OrganizationKey, Username: "platform-engineer", PasswordHash: passwordHash, Role: identity.RolePlatformEngineer, Status: identity.AccountActive}); err != nil {
+				return err
+			}
+		} else if err != nil {
 			return err
 		}
 	}
@@ -283,6 +296,7 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 	}
 
 	internalConnection := application.Connection{
+		ID:              ids.New(),
 		Key:             o.ConnectionKey,
 		OrganizationKey: o.OrganizationKey,
 		Kind:            application.ConnectionKubernetes,
@@ -292,6 +306,7 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		Verification:    map[string]any{"cluster": o.ClusterName, "verified": true},
 	}
 	cloudConnection := application.Connection{
+		ID:              ids.New(),
 		Key:             o.CloudConnectionKey,
 		OrganizationKey: o.OrganizationKey,
 		Kind:            application.ConnectionAWS,
@@ -301,12 +316,17 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		Verification:    map[string]any{"accountId": o.AccountID, "region": o.Region, "verified": true},
 	}
 	for _, conn := range []application.Connection{internalConnection, cloudConnection} {
-		if err := store.SaveConnection(ctx, conn); err != nil {
+		if _, err := store.GetConnection(ctx, conn.OrganizationKey, conn.Key); errors.Is(err, persistence.ErrNotFound) {
+			if err := store.SaveConnection(ctx, conn); err != nil {
+				return err
+			}
+		} else if err != nil {
 			return err
 		}
 	}
 
 	internal := application.Application{
+		ID:              ids.New(),
 		Key:             o.ApplicationKey,
 		OrganizationKey: o.OrganizationKey,
 		Name:            o.ApplicationName,
@@ -317,6 +337,7 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		Version:         1,
 	}
 	cloud := application.Application{
+		ID:              ids.New(),
 		Key:             o.CloudApplicationKey,
 		OrganizationKey: o.OrganizationKey,
 		Name:            o.CloudApplicationName,
@@ -339,20 +360,36 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 	}
 
 	for _, pair := range pairs {
-		if err := pair.app.Validate(); err != nil {
+		if existing, err := store.GetApplication(ctx, pair.app.Key); err == nil {
+			pair.app = existing
+		} else if !errors.Is(err, persistence.ErrNotFound) {
 			return err
+		} else {
+			if err := pair.app.Validate(); err != nil {
+				return err
+			}
+			if err := store.SaveApplication(ctx, pair.app); err != nil {
+				return err
+			}
 		}
-		if err := store.SaveApplication(ctx, pair.app); err != nil {
+		if _, err := store.GetEnvironment(ctx, pair.app.Key, o.EnvironmentKey); err == nil {
+			continue
+		} else if !errors.Is(err, persistence.ErrNotFound) {
 			return err
 		}
 		emptySet := environment.DeploymentSet{
 			ID:             ids.New(),
+			EnvironmentID:  "",
 			EnvironmentKey: pair.app.Key + "/" + o.EnvironmentKey,
 			Document:       environment.NewDocument(),
 			DocumentHash:   "empty",
 		}
+		envID := ids.New()
+		emptySet.EnvironmentID = envID
 		env := environment.Environment{
+			ID:                     envID,
 			Key:                    o.EnvironmentKey,
+			ApplicationID:          pair.app.ID,
 			ApplicationKey:         pair.app.Key,
 			Name:                   o.EnvironmentName,
 			Type:                   o.EnvironmentType,
