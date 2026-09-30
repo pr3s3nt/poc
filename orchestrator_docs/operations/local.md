@@ -30,6 +30,38 @@ Application vẫn còn. Runner không dùng Docker, Kubernetes hoặc cloud và 
 process/file tạm khi thành công; đặt `ORCH_KEEP_EVIDENCE=1` để giữ log khi cần
 điều tra.
 
+## UC-09 human-paced review recording
+
+The local review recording must capture a headed Chromium window, including
+the real address bar, visible pointer movement, clicks and sequential keyboard
+input. Pause at important views so a reviewer can read status, failure reason,
+graph/batches, workload digest and redacted outputs. Do not replace demonstrated
+UI actions with hidden API requests or a fabricated URL overlay.
+
+Deployment-history fixtures may be prepared before recording with fake runtime
+adapters and a private temporary JSON store. Identify that setup explicitly in
+the execution evidence: this is a UI/read-model demonstration, not proof of
+Kubernetes/cloud workload execution. Recorded credentials are only fixed local
+test accounts, with password inputs masked.
+
+Use an isolated Xvfb display and capture it with ffmpeg. Stop owned backend,
+browser, recorder and display processes after the run, but retain the video
+and reviewer frames outside tracked source. Review sampled video frames before
+publishing a uniquely named asset; never overwrite historical recordings.
+
+After building the Web Console, run:
+
+```bash
+bash backend/test/integration/uc09-video-local.sh
+```
+
+The [runner](../../backend/test/integration/uc09-video-local.sh) invokes
+[Playwright](../../frontend/test/e2e/uc09-video-local.mjs), retains an MP4,
+timestamps and sampled frames in a temporary evidence directory, and does not
+touch a cluster. Xvfb, ffmpeg/ffprobe and Chromium are required; native X11
+keyboard input uses xdotool. If it is absent, the runner extracts the Linux
+distribution package into its private work directory without a system install.
+
 ## Run
 
 Fake mode không chạm cluster hoặc cloud account:

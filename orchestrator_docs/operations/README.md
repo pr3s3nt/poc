@@ -2,7 +2,7 @@
 id: OPERATIONS-INDEX
 artifact: operations-index
 status: current
-last_reviewed: 2026-09-28
+last_reviewed: 2026-09-30
 ---
 
 # Operations index
@@ -10,6 +10,7 @@ last_reviewed: 2026-09-28
 | Environment | Runbook | External mutation |
 |---|---|---|
 | Local fake adapters | [Local development](local.md) | No cluster/cloud mutation |
+| UC-09 review video | [Human-paced local recording](local.md#uc-09-human-paced-review-recording) | Local browser/display only; publish reviewed evidence separately |
 | Existing kind cluster | [kind verification](kind.md) | Creates a run-specific namespace and workloads |
 | AWS | [AWS verification](aws.md) | Creates paid VPC/EKS/Aurora/ECR resources, then destroys them |
 

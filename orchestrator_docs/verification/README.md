@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-09-30 | Human-paced UC-09 recording with real address bar, visible pointer, clicks, typing and review pauses | [UC-09 review video](2026-09-30-uc09-human-video-local.md) · [MP4](https://github.com/pr3s3nt/poc/releases/download/acceptance-recordings/uc09-human-local-20260930-043252-720.mp4) |
 | 2026-09-30 | UC-09 authenticated scoped history/detail, immutable workload snapshots and JSON/PostgreSQL browser restart verification | [Local observability](2026-09-30-uc09-local-observability.md) |
 | 2026-09-30 | UC-00/UC-01 local browser onboarding, sign-out/re-login and backend restart persistence | [Local onboarding](2026-09-30-uc00-uc01-local-onboarding.md) |
 | 2026-09-21 | Local walking skeleton and Web Console | [Walking skeleton](2026-09-21-walking-skeleton.md) |
