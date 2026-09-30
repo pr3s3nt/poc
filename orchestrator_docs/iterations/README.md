@@ -11,7 +11,8 @@ last_reviewed: 2026-09-30
 
 - [M02 — Use-case completion](M02-usecase-completion/README.md)
   - [I06-04 — Complete UC-09 observability](M02-usecase-completion/I06-04-uc09-observability/README.md): completed 2026-09-30.
-  - Current handoff: [I06-08 — UC-05 preview](M02-usecase-completion/I06-08-uc05-preview/README.md); queued, not started by the UC-09 task.
+  - [I06-08 — UC-05 preview](M02-usecase-completion/I06-08-uc05-preview/README.md): completed 2026-09-30.
+  - Current handoff: [I06-09 — UC-07 update/remove](M02-usecase-completion/I06-09-uc07-update-remove/README.md); pending implementation/review.
 
 ## Roadmap
 
@@ -22,7 +23,7 @@ last_reviewed: 2026-09-30
    Historical; hoàn thành 2026-09-22.
 3. [M02 — Use-case completion](M02-usecase-completion/README.md): hoàn thiện
    UC-09, UC-05, UC-07 và management flows còn lại của UC-02..04. Current;
-   I06-04 đã hoàn thành; tiếp theo là I06-08.
+   I06-04/I06-08 đã hoàn thành; tiếp theo là I06-09.
 4. [M03 — Production and external compatibility](M03-production-compatibility/README.md):
    IMP-001, rồi IMP-006/007 khi boundary tương ứng được yêu cầu.
 

@@ -58,12 +58,12 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
-| MS-01 | `PreviewDeployment`; `UC-05/sequence.puml` | `PlanningSnapshotRepository.Load` | read current set/version | OC-06; no-mutation test |
+| MS-01 | `PreviewDeployment`; `UC-05/sequence.puml` | `LoadPlanningSnapshot`, `Store.ReadSnapshot` shared with Deploy | one consistent read snapshot, current set/version | OC-06; `TestPreview_ReadsOneConsistentSnapshot`, `TestPostgresPreview_RepeatableReadAndNoWrites` |
 | MS-02, MS-03; BR-07 | `PlanningService.Plan` | `ScoreConverter.ConvertAndValidate`, `WorkloadSpecValidator.ValidateContainerResources` | typed fragment with optional CPU/memory requests/limits | OC-07; Score fixture + container-resource contract tests (`TestParse_ContainerResources*`, `TestFragment_ContainerResourcesStayPerContainer`, `TestPlan_PreservesContainerResourceRequirements`, `TestPlan_ContainerResourcesAddNoGraphNodes`, `TestPlan_ContainerResourceChangeIsModuleRelativePatch`) |
 | MS-04 | same | `BeforeStateValidator.Validate`, `DeltaBuilder.BuildHumanitecDelta` | transient Humanitec-shaped Delta/Candidate | OC-07; shape, relative-patch, array-diff and invariant tests (`internal/planning/delta_test.go`, `internal/planning/jsonpatch`, conformance `assertDelta`) |
 | MS-05 | same | `ImplicitResourceEnricher.Enrich`, `ResourceGraphBuilder.BuildAndExpand`, `DefinitionMatcher.MatchAll` | in-memory graph/matches | OC-07; AWS/internal graph tests |
 | MS-06, MS-07 | same | `DriverContractInspector.InspectContracts`, `ActiveResourceClassifier.Classify`, `BatchScheduler.Schedule` | in-memory plan | OC-07; contract/topology fixtures |
-| MS-08 | `PreviewDeployment` | return `DeploymentPreview` | no write/state transition | OC-06; adapter-not-called test |
+| MS-08 | `PreviewDeployment`, scoped `score-preview` API and Console | `PreviewDeployment`, explicit `Public` view | no write/state transition; no pending token | OC-06; `TestPreview_NoRuntimeMutation`, `TestPreview_MatchesDeployPlan`, `TestUC05ScorePreviewHTTP`, `ScorePreviewPage.test.tsx`; secret/error projection and stale-response tests |
 
 ## UC-06
 

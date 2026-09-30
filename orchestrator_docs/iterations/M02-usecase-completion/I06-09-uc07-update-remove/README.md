@@ -1,8 +1,8 @@
 ---
 id: I06-09
 artifact: iteration-plan
-status: deferred
-last_reviewed: 2026-09-22
+status: current
+last_reviewed: 2026-09-30
 related: UC-07, IMP-004
 ---
 
@@ -40,4 +40,4 @@ last-reference và preserve-other-workload trước khi wire API/UI.
 
 ## Outcome
 
-Chưa thực hiện.
+Current handoff after I06-08 completion; implementation/review still pending.

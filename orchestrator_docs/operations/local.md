@@ -62,6 +62,23 @@ touch a cluster. Xvfb, ffmpeg/ffprobe and Chromium are required; native X11
 keyboard input uses xdotool. If it is absent, the runner extracts the Linux
 distribution package into its private work directory without a system install.
 
+## UC-05 human-paced Score Preview recording
+
+After building the Web Console, run from the repository root:
+
+```bash
+bash backend/test/integration/uc05-video-local.sh
+```
+
+This reuses the headed full-window recording contract above, but performs all
+Application/workload setup through the UI on camera. Seeded local test accounts
+and catalog are the only initial fixtures. It demonstrates invalid input,
+successful standalone Preview, all planning artifacts, scope-change clearing,
+no-change update and absence of a saved preview draft. Runtime adapters are
+fake; it does not prove Kubernetes/cloud execution. MP4, timestamps, logs and
+sampled frames remain outside source. Output directories must be new; never
+overwrite historical evidence.
+
 ## Run
 
 Fake mode không chạm cluster hoặc cloud account:

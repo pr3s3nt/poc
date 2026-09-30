@@ -18,7 +18,9 @@ kiểm chứng trên AWS với VPC, EKS và Aurora rồi cleanup.
 [I06-04 — Complete UC-09 observability](iterations/M02-usecase-completion/I06-04-uc09-observability/README.md)
 thuộc [M02 — Use-case completion](iterations/M02-usecase-completion/README.md)
 đã hoàn thành local verification ngày 2026-09-30. Hạng mục tiếp theo trong M02
-là I06-08 (UC-05); chưa bắt đầu trong lượt UC-09 này.
+là I06-08 (UC-05), nay cũng đã hoàn thành
+[local/API/UI/PostgreSQL verification](verification/2026-09-30-uc05-preview-local.md).
+Tiếp theo là I06-09 (UC-07 update/remove).
 [M00-a — Developer onboarding](iterations/M00-developer-onboarding/README.md) đã
 hoàn thành 2026-09-30 với React UI, authenticated API, session, normalized
 PostgreSQL persistence và local browser restart verification cho UC-00/UC-01.
@@ -34,7 +36,7 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-02 | Registration implemented | Platform Engineer/Admin có thể đăng ký và xem Resource Types trong Organization qua API/UI; seeded catalog và normalized PostgreSQL persistence dùng được. Production-grade RBAC chưa có. |
 | UC-03 | Registration implemented | Platform Engineer/Admin có thể đăng ký Definition runtime-supported với criteria, driver inputs và provision rules qua API/UI; planner vẫn có profile guard và matching, catalog được persist trong PostgreSQL. Remote source và production-grade RBAC chưa có. |
 | UC-04 | Local/kind Kubernetes registration implemented | Platform Engineer/Admin đăng ký cluster ID + host kube context qua API/UI; verifier kiểm tra API/RBAC đọc-only rồi persist connection `READY` trong PostgreSQL theo Organization. AWS registration và durable credential store chưa có. |
-| UC-05 | Pending-change Preview implemented; broader contract gaps | Planner pipeline, transient Humanitec-shaped Delta và read-only multi-workload Preview/API/UI đã có; broader UC-05 contract coverage còn hạn chế. |
+| UC-05 | Implemented; locally verified | Standalone Score Preview service, authenticated scoped API và Console trả Delta/Candidate/graph/matches/batches/classification, consistent snapshot chung với direct Deploy, safe public projection và no-mutation tests. Pending-change Preview vẫn riêng; UI-only human-paced recording đã pass. Không chạy Terraform plan thật. |
 | UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; optional Fleet GitRepo adapter cho internal kind đã pass Harbor-image deployment. Environment Ingress nhiều path và Fleet `_routes` bundle đã pass kind test với hai workload BusyBox, Fleet revision/prune và cleanup; route failure có route-only retry (unit test), Backstage cụ thể chưa kiểm chứng. DNS/TLS/chuyển controller ra ngoài chưa có. Mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. |
 | UC-07 | Update/remove executable for UC-16 | Planner hỗ trợ before/shared rules và Delta; Preview → Deploy update/remove workload trên kind, có partial retry. Fleet GitRepo remove đã pass kind; broader lifecycle UI/history còn thiếu. |
 | UC-08 | Implemented and E2E verified | Kubernetes và Terraform resource execution, output propagation và persistence baseline đã pass. |
@@ -135,7 +137,8 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
   challenge catalog và giữ criterion `{}` thành wildcard điểm 0; product planner
   vẫn từ chối catalog có Definition không có criterion.
 - UC-00 có cookie session cho local/test, chưa có production-grade RBAC. UC-04,
-  UC-05 và UC-07 chưa có đầy đủ product management flow/UI; UC-02/03 đã có đăng
+  UC-07 chưa có đầy đủ product management flow/UI; UC-05 standalone Preview đã
+  có local verification. UC-02/03 đã có đăng
   ký catalog và PostgreSQL persistence nhưng chưa có đầy đủ lifecycle quản trị.
 - UC-12 fake provider chỉ dành local/test và mất giá trị khi process restart.
   Vault trên kind dùng file storage PVC, cần unseal thủ công sau restart; chưa

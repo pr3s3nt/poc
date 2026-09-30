@@ -24,6 +24,7 @@ import (
 	"orchestrator/internal/application/connection"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/pending"
+	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/provisioning"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
 	deliveryhttp "orchestrator/internal/delivery/http"
@@ -93,6 +94,7 @@ type App struct {
 	Server      *deliveryhttp.Server
 	Deployments *appsvc.Service
 	Queries     *appsvc.QueryService
+	Previews    *preview.Service
 	FakeExec    *fake.ResourceExecutor
 	FakeDeploy  *fake.WorkloadDeployer
 }
@@ -240,6 +242,7 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		pendingChanges.SetImageRegistryHost(opts.HarborRegistryHost)
 	}
 	pendingChanges.SetDeployer(deployments)
+	previews := preview.NewService(st, planning.NewService(), tf.NewInspector())
 	connectionVerifier := opts.ConnectionVerifierOverride
 	if connectionVerifier == nil {
 		connectionVerifier = k8s.ConnectionVerifier{KubectlPath: opts.KubectlPath}
@@ -254,6 +257,7 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		Configurations:     configurations,
 		Workloads:          workloads,
 		Pending:            pendingChanges,
+		Previews:           previews,
 		Store:              st,
 		SeedOptions:        opts.Seed,
 		UIDir:              opts.UIDir,
@@ -265,6 +269,7 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		Server:      server,
 		Deployments: deployments,
 		Queries:     queries,
+		Previews:    previews,
 		FakeExec:    fakeExec,
 		FakeDeploy:  fakeDep,
 	}, nil

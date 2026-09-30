@@ -1,8 +1,8 @@
 ---
 id: I06-08-WORK
 artifact: iteration-work-items
-status: deferred
-last_reviewed: 2026-09-22
+status: historical
+last_reviewed: 2026-09-30
 related: I06-08
 ---
 
@@ -15,10 +15,13 @@ related: I06-08
 3. Add HTTP DTO/handler validation and response mapping.
 4. Add Web Console Preview flow and complete UI states.
 5. Add backend/frontend integration tests and update implementation docs.
+6. Record a headed, human-paced UI-only Preview demonstration with visible URL,
+   clicks and typing; independently review before committing/pushing milestone.
 
 ## Handoff checklist
 
-- [ ] Preview calls no resource executor or Kubernetes deployer.
-- [ ] Preview does not persist Deployment or change current set.
-- [ ] Preview/deploy planning outputs match for one versioned snapshot.
-- [ ] IMP-003 removed only after API/UI and tests pass.
+- [x] Preview calls no resource executor or Kubernetes deployer.
+- [x] Preview does not persist Deployment or change current set.
+- [x] Preview/deploy planning outputs match for one versioned snapshot.
+- [x] IMP-003 removed only after API/UI and tests pass.
+- [x] UI-only review recording published after independent review.

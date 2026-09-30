@@ -2,7 +2,7 @@
 id: UC-05-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-30
 ---
 
 # UC-05 — Validate and Preview Score Changes
@@ -60,6 +60,34 @@ Kiểm tra Score và hiển thị thay đổi dự kiến trước khi thực hi
   trung gian của batch chuyển route giữa workload. Khi chỉ còn route sync
   pending, Preview cho retry route-only mà không redeploy workload.
 
+## Standalone Score Preview boundary
+
+Developer có thể mở **Preview Score** từ Application/Environment đang chọn,
+nhập Score after và, với update/remove, Score before cùng Workload ID. Đây là
+input tạm thời: không Save draft, không tạo Deployment, không có nút Deploy
+trong kết quả này. Pending-change Preview của UC-16 vẫn là flow riêng.
+
+Request dùng Score object; UI nhận JSON hoặc YAML và parse trước khi gửi.
+Add cần after và không có before; update cần cả hai; remove cần before và
+không có after. Workload ID bắt buộc, phải tương ứng Score metadata name.
+Run ID là planning context không rỗng, có thể nhập để tái lập phép so sánh;
+không phải authorization context hoặc preview token.
+
+Response chứa Application/Environment scope, base Set ID, Environment version,
+Run ID, plan hash, Delta, Candidate Set, graph, matches, batches và resource
+classification. Snapshot repositories phải được đọc nhất quán trong một
+read-only snapshot; không ghép dữ liệu từ các thời điểm khác nhau.
+
+Không resolve configuration secrets hoặc resource outputs khi preview. Chỉ
+placeholder và secret reference có thể xuất hiện; secret values, connection
+credentials và resolved inputs không được đưa vào response/error/log.
+Client-supplied Score không phải API upload secret; UI nhắc không nhập secret
+literal và dùng configuration placeholder. Kết quả cũ bị xóa khi sửa input
+hoặc đổi scope để tránh hiểu nhầm rằng nó còn phản ánh input mới.
+
+HTTP/UI contract chi tiết ở [UI API mapping](ui/api-mapping.md),
+[screens](ui/screens.md) và [states](ui/states.md).
+
 ## Luồng nội bộ
 
 ```text
@@ -78,7 +106,9 @@ UC-05 Validate and Preview
 - Planner sinh Humanitec-shaped Delta `modules.add/remove/update` và `shared`; patch `modules.update.<id>` relative với module, patch `shared` relative với object shared, array diff theo BR-06 có product tests riêng và conformance so Delta của 27 accepted fixtures. Deployment path của UC-06 persist Delta thành immutable Snapshot riêng; preview không persist Snapshot. Parser validate `containers.*.resources` theo BR-07 và planner giữ requests/limits nguyên văn trong Candidate Set (I06-07).
 - UC-06 đang gọi pipeline này để deploy thật. UC-16 pending-change Preview,
   endpoint và Application home panel đã wire, gồm no-op filtering và route-only
-  retry; broader standalone Score Preview contract vẫn chưa hoàn chỉnh.
+  retry. Standalone Score Preview đã có service, scoped authenticated HTTP API
+  và Web Console riêng; snapshot nhất quán, public response được sanitize,
+  không save draft hoặc tạo Deployment.
 
 ## Ngoài phạm vi happy path
 

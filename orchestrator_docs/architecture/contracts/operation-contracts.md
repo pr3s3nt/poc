@@ -67,6 +67,10 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Returns: `DeploymentPreview` gồm transient Humanitec-shaped Delta, Candidate Set, graph, matches, batches, classification và environment version.
 - Postconditions: không persist Deployment; không gọi executor/deployer; runtime state không đổi.
 - Invariant: base set + Delta = Candidate Set.
+- Standalone HTTP/UI boundary: [UC-05 mapping](../../usecase/UC-05/ui/api-mapping.md).
+  Scope is session-derived and repositories use one consistent read-only
+  snapshot. Explicit DTO excludes connection credentials, secret values and
+  resolved resource inputs. No pending-change deployment token is issued.
 
 ## OC-07 `PlanningService.Plan`
 

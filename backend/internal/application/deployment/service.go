@@ -91,32 +91,14 @@ func NewService(
 
 // DeployWorkload runs the full UC-06 main success scenario.
 func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*DeployResult, error) {
-	app, err := s.store.GetApplication(ctx, cmd.ApplicationKey)
+	// MS-01: read the current Deployment Set, connection, catalog and Active
+	// Resources from one consistent snapshot shared with UC-05 Preview.
+	snapshot, err := LoadPlanningSnapshot(ctx, s.store, cmd.OrganizationKey, cmd.ApplicationKey, cmd.EnvironmentKey)
 	if err != nil {
 		return nil, err
 	}
-	env, err := s.store.GetEnvironment(ctx, cmd.ApplicationKey, cmd.EnvironmentKey)
-	if err != nil {
-		return nil, err
-	}
-	conn, err := s.store.GetConnection(ctx, app.OrganizationKey, app.ConnectionKey)
-	if err != nil {
-		return nil, err
-	}
-	if conn.Status != appdomain.ConnectionReady {
-		return nil, fmt.Errorf("deployment: connection %q is %s, want READY", conn.Key, conn.Status)
-	}
-
-	// MS-01: read the current Deployment Set and create the Deployment record.
-	baseSet := environment.NewDocument()
-	baseSetID := env.CurrentDeploymentSetID
-	if baseSetID != "" {
-		set, err := s.store.GetDeploymentSet(ctx, baseSetID)
-		if err != nil {
-			return nil, err
-		}
-		baseSet = set.Document
-	}
+	app, env, conn := snapshot.App, snapshot.Env, snapshot.Connection
+	baseSet, baseSetID := snapshot.BaseSet, snapshot.BaseSetID
 
 	after, err := parseScore(cmd.ScoreAfter)
 	if err != nil {
@@ -170,14 +152,7 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		RunID:           cmd.RunID,
 	}
 
-	catalog, types, definitions, err := s.loadCatalog(ctx, cmd.OrganizationKey)
-	if err != nil {
-		return nil, s.fail(ctx, record, err)
-	}
-	active, err := s.store.ListActiveResources(ctx, cmd.OrganizationKey)
-	if err != nil {
-		return nil, s.fail(ctx, record, err)
-	}
+	catalog, types, definitions, active := snapshot.Catalog, snapshot.Types, snapshot.Definitions, snapshot.Active
 
 	// MS-02..MS-08: planning pipeline.
 	plan, err := s.planner.Plan(planning.Request{
@@ -583,26 +558,6 @@ func (s *Service) reconcileRoutes(ctx context.Context, app appdomain.Application
 		}
 	}
 	return s.publicRoutes.Reconcile(ctx, target, route)
-}
-
-func (s *Service) loadCatalog(ctx context.Context, organizationKey string) (planning.Catalog, map[string]resource.Type, map[string]resource.Definition, error) {
-	typeList, err := s.store.ListResourceTypes(ctx, organizationKey)
-	if err != nil {
-		return planning.Catalog{}, nil, nil, err
-	}
-	defList, err := s.store.ListResourceDefinitions(ctx, organizationKey)
-	if err != nil {
-		return planning.Catalog{}, nil, nil, err
-	}
-	types := map[string]resource.Type{}
-	for _, t := range typeList {
-		types[t.Key] = t
-	}
-	definitions := map[string]resource.Definition{}
-	for _, d := range defList {
-		definitions[d.Key] = d
-	}
-	return planning.Catalog{Types: types, Definitions: defList}, types, definitions, nil
 }
 
 func (s *Service) fail(ctx context.Context, record domain.Deployment, cause error) error {

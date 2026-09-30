@@ -1,7 +1,7 @@
 ---
 id: I06-08
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-09-30
 related: UC-05, IMP-003
 ---
@@ -38,5 +38,7 @@ Viết no-side-effect application-service tests trước khi wire HTTP/UI.
 
 ## Outcome
 
-Queued after I06-04 completion on 2026-09-30. This is the current roadmap
-handoff pointer; no UC-05 implementation work was performed by the UC-09 task.
+Completed 2026-09-30: standalone service/API/UI, shared consistent planning
+snapshot, safe public projection, no-mutation/parity tests and UI-only review
+recording. IMP-003 closed. [Verification](../../../verification/2026-09-30-uc05-preview-local.md).
+Next: I06-09 update/remove.

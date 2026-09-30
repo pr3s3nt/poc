@@ -19,8 +19,8 @@ database ActiveResourceRepository as ResourceRepo
 
 Developer -> API: PreviewDeployment(query)
 API -> Preview: PreviewDeployment(ctx, query)
-Preview -> EnvRepo: LoadPlanningSnapshot(appID, envID) [MS-01]
-EnvRepo --> Preview: profile + current set + version + definitions
+Preview -> EnvRepo: ReadSnapshot(appID, envID, session Organization) [MS-01]
+EnvRepo --> Preview: app + env + profile + current set + version + catalog + active resources
 Preview -> Planner: Plan(request)
 Planner -> Converter: ConvertAndValidate(before/after Score) [MS-02..MS-03]
 Converter --> Planner: Before/after workload fragments
@@ -38,8 +38,7 @@ Matcher --> Graph: Matched definitions
 Graph --> Planner: ResourceGraph
 Planner -> Inspector: InspectContracts(graph) [MS-06]
 Inspector --> Planner: Valid contracts
-Planner -> ResourceRepo: FindByDescriptors(scope)
-ResourceRepo --> Planner: Active resources
+note right of Planner: Classify using Active Resources\nfrom the same read-only snapshot
 Planner -> Scheduler: Schedule(graph) [MS-07]
 Scheduler --> Planner: Provider-first batches
 Planner --> Preview: DeploymentPlan

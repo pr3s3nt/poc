@@ -57,7 +57,7 @@ class ContainerResourceRequirements <<value>> {
   +Limits: ComputeResources
 }
 interface PlanningSnapshotRepository {
-  +Load(ctx, appID, envID): PlanningSnapshot
+  +ReadSnapshot(ctx, appID, envID, organization): PlanningSnapshot
 }
 PreviewController --> PreviewService
 PreviewService --> PlanningSnapshotRepository

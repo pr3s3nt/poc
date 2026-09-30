@@ -8,6 +8,7 @@ export type Route =
   | { name: 'application'; applicationId: string }
   | { name: 'settings'; applicationId: string }
   | { name: 'workload'; applicationId: string; environment: 'staging' | 'production'; workloadId?: string }
+  | { name: 'score-preview'; applicationId: string; environment: 'staging' | 'production' }
   | { name: 'deployments'; applicationId: string; environment: 'staging' | 'production' }
   | { name: 'deployment'; applicationId: string; environment: 'staging' | 'production'; deploymentId: string };
 
@@ -27,6 +28,8 @@ export function parseRoute(path = window.location.pathname): Route {
   if (workload?.[1] && workload[2] && workload[3]) return { name: 'workload', applicationId: decodeURIComponent(workload[1]), environment: workload[2] as 'staging' | 'production', workloadId: workload[3] === 'new' ? undefined : decodeURIComponent(workload[3]) };
   const deployment = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/deployments\/([^/]+)$/);
   if (deployment?.[1] && deployment[2] && deployment[3]) return { name: 'deployment', applicationId: decodeURIComponent(deployment[1]), environment: deployment[2] as 'staging' | 'production', deploymentId: decodeURIComponent(deployment[3]) };
+  const scorePreview = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/preview$/);
+  if (scorePreview?.[1] && scorePreview[2]) return { name: 'score-preview', applicationId: decodeURIComponent(scorePreview[1]), environment: scorePreview[2] as 'staging' | 'production' };
   const deployments = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/deployments$/);
   if (deployments?.[1] && deployments[2]) return { name: 'deployments', applicationId: decodeURIComponent(deployments[1]), environment: deployments[2] as 'staging' | 'production' };
   const match = relative.match(/^\/applications\/([^/]+)$/);
@@ -45,6 +48,7 @@ export function href(route: Route): string {
     case 'application': return `${base}/applications/${encodeURIComponent(route.applicationId)}`;
     case 'settings': return `${base}/applications/${encodeURIComponent(route.applicationId)}/settings`;
     case 'workload': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/workloads/${route.workloadId ? encodeURIComponent(route.workloadId) : 'new'}`;
+    case 'score-preview': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/preview`;
     case 'deployments': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/deployments`;
     case 'deployment': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/deployments/${encodeURIComponent(route.deploymentId)}`;
   }

@@ -13,7 +13,6 @@ roadmap/deferred capability nằm trong [backlog](../backlog/README.md).
 | ID | Difference | Required interpretation/action |
 |---|---|---|
 | IMP-002 | UC-01 self-service flow đã hoàn tất; UC-02..UC-04 vẫn thiếu một phần production lifecycle/management so với specification, gồm AWS Connection registration và production-grade authorization/credential storage. | Không dùng seed hoặc registration baseline để tuyên bố toàn bộ UC-02..UC-04 complete; UC-01 không còn thuộc deviation này. |
-| IMP-003 | UC-05 có planner core nhưng chưa có preview system operation/API/UI hoàn chỉnh. | Không coi deploy dry-run nội bộ là UC-05 hoàn tất. |
 | IMP-004 | UC-07 planner đã có before/shared rules nhưng update/remove flow và UI chưa hoàn chỉnh. | Không coi conformance cases là full UC-07 delivery. |
 | IMP-006 | Six rejected challenge fixtures mới chỉ so rejection status, chưa so structured `phase/code/path`. | D02 vẫn deferred; không tuyên bố full rejection-contract conformance. |
 | IMP-007 | Terraform inspector hiểu remote source identity nhưng runtime chỉ execute embedded `vpc`/`eks`/`aurora`. | D03 vẫn deferred; không nhận remote module là supported runtime contract. |

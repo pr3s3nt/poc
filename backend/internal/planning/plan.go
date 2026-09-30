@@ -45,12 +45,12 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	var err error
 	if req.Before != nil {
 		if beforeFragment, err = req.Before.Fragment(req.Catalog.Types); err != nil {
-			return nil, err
+			return nil, stageErr(StageScore, err)
 		}
 	}
 	if req.After != nil {
 		if afterFragment, err = req.After.Fragment(req.Catalog.Types); err != nil {
-			return nil, err
+			return nil, stageErr(StageScore, err)
 		}
 	}
 	if err := validateBeforeState(base, req.WorkloadID, beforeFragment); err != nil {
@@ -59,45 +59,45 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 
 	built, err := DeltaBuilder{}.BuildHumanitecDelta(base, req.WorkloadID, beforeFragment, afterFragment)
 	if err != nil {
-		return nil, err
+		return nil, stageErr(StageCandidate, err)
 	}
 	candidate := built.Candidate
 	if !req.AllowIntermediatePublicRoutes {
 		if err := ValidatePublicRoutes(candidate); err != nil {
-			return nil, err
+			return nil, stageErr(StageRoutes, err)
 		}
 	}
 
 	builder := newGraphBuilder(ctx, req.Catalog)
 	namespace, err := builder.enrichProfile()
 	if err != nil {
-		return nil, err
+		return nil, stageErr(StageGraph, err)
 	}
 	if err := builder.buildFromSet(candidate, namespace); err != nil {
-		return nil, err
+		return nil, stageErr(StageGraph, err)
 	}
 
 	matcher, err := newDefinitionMatcher(ctx, req.Catalog)
 	if err != nil {
-		return nil, err
+		return nil, stageErr(StageCatalog, err)
 	}
 	matches := map[string]Match{}
 	refs, err := builder.expand(matcher, matches)
 	if err != nil {
-		return nil, err
+		return nil, stageErr(StageGraph, err)
 	}
 	if err := builder.validateReferenceOutputs(refs, matches, matcher, req.Terraform); err != nil {
-		return nil, err
+		return nil, stageErr(StageReference, err)
 	}
 	contracts, err := builder.inspectTerraform(matches, matcher, req.Terraform)
 	if err != nil {
-		return nil, err
+		return nil, stageErr(StageContract, err)
 	}
 
 	graph := builder.graph()
 	batches, err := scheduleBatches(graph)
 	if err != nil {
-		return nil, err
+		return nil, stageErr(StageSchedule, err)
 	}
 
 	action := req.Action
@@ -159,15 +159,15 @@ func validateBeforeState(base environment.Document, workloadID string, before *s
 	current, exists := base.Modules[workloadID]
 	if before == nil {
 		if exists {
-			return fmt.Errorf("planning: workload %q already exists; a before Score is required", workloadID)
+			return beforeErr(ReasonWorkloadExists, "planning: workload %q already exists; a before Score is required", workloadID)
 		}
 		return nil
 	}
 	if !exists {
-		return fmt.Errorf("planning: workload %q is not part of the current Deployment Set", workloadID)
+		return beforeErr(ReasonWorkloadNotCurrent, "planning: workload %q is not part of the current Deployment Set", workloadID)
 	}
 	if before.WorkloadID != workloadID {
-		return fmt.Errorf("planning: before Score describes workload %q, not %q", before.WorkloadID, workloadID)
+		return beforeErr(ReasonBeforeMismatch, "planning: before Score describes workload %q, not %q", before.WorkloadID, workloadID)
 	}
 	expected, err := canon.Map(before.Module)
 	if err != nil {
@@ -178,14 +178,14 @@ func validateBeforeState(base environment.Document, workloadID string, before *s
 		return err
 	}
 	if !reflect.DeepEqual(expected, actual) {
-		return fmt.Errorf("planning: before Score does not match the current contribution of workload %q", workloadID)
+		return beforeErr(ReasonBeforeMismatch, "planning: before Score does not match the current contribution of workload %q", workloadID)
 	}
 	// The shared contribution of the before Score must match the current set too,
 	// otherwise the plan starts from a snapshot somebody else has already changed.
 	for _, id := range sortedKeys(before.Shared) {
 		current, exists := base.Shared[id]
 		if !exists {
-			return fmt.Errorf("planning: before Score declares shared resource %q which is not in the current Deployment Set", id)
+			return beforeErr(ReasonBeforeMismatch, "planning: before Score declares shared resource %q which is not in the current Deployment Set", id)
 		}
 		expectedShared, err := canon.Map(before.Shared[id])
 		if err != nil {
@@ -196,7 +196,7 @@ func validateBeforeState(base environment.Document, workloadID string, before *s
 			return err
 		}
 		if !reflect.DeepEqual(expectedShared, actualShared) {
-			return fmt.Errorf("planning: before Score does not match the current shared resource %q", id)
+			return beforeErr(ReasonBeforeMismatch, "planning: before Score does not match the current shared resource %q", id)
 		}
 	}
 	return nil

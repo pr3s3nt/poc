@@ -22,6 +22,7 @@ import (
 	connectionapp "orchestrator/internal/application/connection"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/pending"
+	"orchestrator/internal/application/preview"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/ports/persistence"
@@ -39,6 +40,7 @@ type Server struct {
 	configurations *appconfig.Service
 	workloads      *workloadconfig.Service
 	pending        *pending.Service
+	previews       *preview.Service
 	store          persistence.Store
 	seedOptions    seed.Options
 	uiDir          string
@@ -55,6 +57,7 @@ type Config struct {
 	Configurations     *appconfig.Service
 	Workloads          *workloadconfig.Service
 	Pending            *pending.Service
+	Previews           *preview.Service
 	Store              persistence.Store
 	SeedOptions        seed.Options
 	UIDir              string
@@ -72,6 +75,7 @@ func NewServer(cfg Config) *Server {
 		configurations: cfg.Configurations,
 		workloads:      cfg.Workloads,
 		pending:        cfg.Pending,
+		previews:       cfg.Previews,
 		store:          cfg.Store,
 		seedOptions:    cfg.SeedOptions,
 		uiDir:          cfg.UIDir,
@@ -103,6 +107,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/workloads/{workload}/undo", s.handleUndoWorkloadDraft)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/preview", s.handlePreviewPending)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/deploy", s.handleDeployPending)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/score-preview", s.handleScorePreview)
 	s.mux.HandleFunc("GET /api/v1/score-samples", s.handleScoreSamples)
 	s.mux.HandleFunc("GET /api/v1/resource-types", s.handleResourceTypes)
 	s.mux.HandleFunc("POST /api/v1/resource-types", s.handleRegisterResourceType)

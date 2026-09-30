@@ -2,7 +2,7 @@
 id: UC-05-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-30
 ---
 
 # UC-05 — Use Case Realization
@@ -42,11 +42,24 @@ PlanningService.Plan(ctx context.Context, req PlanRequest) (*DeploymentPlan, err
 
 Read-only operation. `DeploymentPreview` chứa Environment version để UC-06 có thể phát hiện preview/snapshot cũ nếu preview được tái sử dụng sau này.
 
-## Planned tests
+Standalone operation load Application, Environment, current Set, connection,
+catalog và Active Resources qua `persistence.Store.ReadSnapshot` trước khi
+gọi shared planner. Snapshot không được ghi và service không nhận executor,
+provisioner hoặc Kubernetes deployer. API dùng explicit preview DTO, không
+serialize toàn bộ Connection/ActiveResource hoặc persisted plan bất kỳ.
+Authorization Organization lấy từ UC-00 session, không từ request body.
+Standalone result không phải pending-change token và không được UC-16 Deploy
+chấp nhận. Xem [HTTP mapping](ui/api-mapping.md).
+
+## Implementation tests
 
 - `TestPreview_NoRuntimeMutation`.
-- `TestPreview_DeltaInvariant`.
-- `TestPreview_HumanitecDeltaShapeAndArrayDiff`.
-- `TestPreview_PreservesContainerResourceRequirements`.
+- `TestPreview_DeltaInvariantAndContainerResources` plus shared planner
+  Delta shape/array-diff conformance tests.
+- `TestPreview_ReadsOneConsistentSnapshot`,
+  `TestPostgresPreview_RepeatableReadAndNoWrites`.
+- `TestPreview_MatchesDeployPlan` for add/update/remove.
 - `TestPreview_AWSImplicitGraph`, `TestPreview_InternalImplicitGraph`.
+- `TestUC05ScorePreviewHTTP`, safe public projection/error tests and
+  `ScorePreviewPage.test.tsx` including obsolete-response rejection.
 - Reuse 33 planner fixtures như Go conformance tests và bổ sung contract tests riêng cho Delta/container resources vì fixture hiện tại không assert hai vùng này.
