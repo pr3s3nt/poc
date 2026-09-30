@@ -13,7 +13,11 @@ Service -> Validator: Validate() [MS-02]
 Validator --> Service: valid
 Service -> Repo: ListResourceTypes(orgID) [MS-03]
 Repo --> Service: no duplicate key
-Service -> Repo: SaveResourceType(orgID, resourceType) <<transaction>> [MS-04]
+Service -> Repo: CreateResourceType(orgID, resourceType) <<transaction>> [MS-04]
+note right of Repo
+Insert-only: database uniqueness is final guard.
+Concurrent duplicate cannot replace a contract.
+end note
 Repo --> Service: ResourceType
 Service --> API: ResourceType [MS-05..MS-06]
 API --> PE: Registered

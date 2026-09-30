@@ -19,7 +19,7 @@ func (v ConnectionVerifier) Verify(parent context.Context, kubeContext string) (
 	cli := NewCLI(v.KubectlPath, kubeContext, "")
 	contexts, err := cli.Run(ctx, nil, "config", "get-contexts", "-o", "name")
 	if err != nil {
-		return connection.KubernetesVerification{}, err
+		return connection.KubernetesVerification{}, fmt.Errorf("%w: %v", connection.ErrContextMissing, err)
 	}
 	found := false
 	for _, name := range strings.Split(string(contexts), "\n") {
@@ -29,11 +29,11 @@ func (v ConnectionVerifier) Verify(parent context.Context, kubeContext string) (
 		}
 	}
 	if !found {
-		return connection.KubernetesVerification{}, fmt.Errorf("kube context %q is not configured on backend host", kubeContext)
+		return connection.KubernetesVerification{}, fmt.Errorf("%w: %q", connection.ErrContextMissing, kubeContext)
 	}
 	out, err := cli.Run(ctx, nil, "version", "-o", "json")
 	if err != nil {
-		return connection.KubernetesVerification{}, err
+		return connection.KubernetesVerification{}, fmt.Errorf("%w: %v", connection.ErrClusterUnreachable, err)
 	}
 	var version struct {
 		ServerVersion struct {
@@ -41,11 +41,11 @@ func (v ConnectionVerifier) Verify(parent context.Context, kubeContext string) (
 		} `json:"serverVersion"`
 	}
 	if err := json.Unmarshal(out, &version); err != nil {
-		return connection.KubernetesVerification{}, err
+		return connection.KubernetesVerification{}, fmt.Errorf("%w: %v", connection.ErrClusterUnreachable, err)
 	}
 	endpoint, err := clusterEndpoint(ctx, cli, kubeContext)
 	if err != nil {
-		return connection.KubernetesVerification{}, err
+		return connection.KubernetesVerification{}, fmt.Errorf("%w: %v", connection.ErrClusterUnreachable, err)
 	}
 	for _, permission := range [][3]string{{"create", "namespaces", ""}, {"create", "deployments", "--all-namespaces"}, {"create", "statefulsets", "--all-namespaces"}, {"create", "services", "--all-namespaces"}, {"create", "secrets", "--all-namespaces"}} {
 		args := []string{"auth", "can-i", permission[0], permission[1]}
@@ -53,11 +53,11 @@ func (v ConnectionVerifier) Verify(parent context.Context, kubeContext string) (
 			args = append(args, permission[2])
 		}
 		allowed, err := cli.Run(ctx, nil, args...)
-		if err != nil {
-			return connection.KubernetesVerification{}, err
+		if err != nil && strings.TrimSpace(string(allowed)) != "no" {
+			return connection.KubernetesVerification{}, fmt.Errorf("%w: %v", connection.ErrClusterUnreachable, err)
 		}
 		if strings.TrimSpace(string(allowed)) != "yes" {
-			return connection.KubernetesVerification{}, fmt.Errorf("kube context %q lacks %s %s permission", kubeContext, permission[0], permission[1])
+			return connection.KubernetesVerification{}, fmt.Errorf("%w: %s %s", connection.ErrPermissionDenied, permission[0], permission[1])
 		}
 	}
 	return connection.KubernetesVerification{Endpoint: endpoint, Version: version.ServerVersion.GitVersion}, nil

@@ -32,7 +32,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
 | MS-01, MS-02 | `RegisterResourceType`; `UC-02/sequence.puml` | `catalog.Service.RegisterResourceType`, `resource.Type.Validate`, role-gated HTTP POST | none before validation | OC-03; `catalog/service_test.go`, `test/e2e/http_test.go` |
-| MS-03, MS-04 | same | `ListResourceTypes/SaveResourceType` | local/test store scoped by `(org,key)`; PostgreSQL pending | OC-03; duplicate/org-isolation store tests |
+| MS-03, MS-04 | same | `ListResourceTypes/CreateResourceType` | insert-only `(org,key)` on memory/JSON/PostgreSQL | OC-03; registration contract, repository/service/HTTP race tests |
 | MS-05, MS-06 | same | return `ResourceType` / repository read contract | persisted schemas | OC-03; planner catalog integration test; `ResourceTypesPage.test.tsx` |
 
 ## UC-03
@@ -42,7 +42,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | MS-01, MS-02, MS-03; BR-07 | `RegisterResourceDefinition`; `UC-03/sequence.puml` | `catalog.Service.RegisterResourceDefinition`, `resource.Definition.Validate`, role-gated HTTP POST | none before validation | OC-04; `catalog/definition_test.go`, `test/e2e/http_test.go`, `ResourceDefinitionsPage.test.tsx` |
 | MS-04, MS-05 | same | type/connection repository reads; `ValidateReferencesAndRules` | `resource_types`, `connections` | OC-04; invalid reference test |
 | MS-06, MS-07 | same | `ListResourceDefinitions`, embedded `terraform.Inspector.Inspect` or static executor output contract | source fingerprint candidate | OC-04; duplicate/remote-source/output validation tests |
-| MS-08, MS-09; BR-07 | same | `SaveResourceDefinition/ListResourceDefinitions` | local/test org-scoped catalog; normalized PostgreSQL `resource_definitions` + `matching_criteria` | OC-04; HTTP registration/read test, explicit `{}` wildcard; conformance adapter skips external missing/empty criteria (`TestReadDefinitionsCriteriaShapes`, `TestProductPlannerRejectsCriteriaLessDefinition`) |
+| MS-08, MS-09; BR-07 | same | `CreateResourceDefinition/ListResourceDefinitions` | insert-only org-scoped catalog; PostgreSQL Definition + criteria atomic transaction | OC-04; registration contract/race/criterion-failure rollback; no-restart HTTP Preview; explicit `{}` wildcard and criteria-shape conformance |
 | BR-01, BR-03 | [ADR-001](../architecture/decisions/ADR-001-profile-resource-scopes.md) | Optional Definition profile guard before unchanged five-field scoring | `TestPlan_NewApplicationMatchesPostgresByExecutionProfile`, invalid-profile validation |
 
 ## UC-04
@@ -52,7 +52,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | MS-01, MS-02 | connection registration; `UC-04/sequence.puml` | HTTP POST role gate, `connection.Service.RegisterKubernetesCluster` | cluster ID/context only; AWS branch pending | OC-05; `connection/service_test.go`, `test/e2e/http_test.go`, `ConnectionsPage.test.tsx` |
 | MS-03 | same | `kubernetes.ConnectionVerifier.Verify` | read-only API/RBAC verification | OC-05; `TestKindConnectionVerifierReadOnly` |
 | MS-04 | same | local/kind `host-kube-context://` reference; SecretStore path pending | no raw credential persisted | OC-05; service test |
-| MS-05, MS-06 | same | Organization-scoped `SaveConnection` | `connections.status=READY` | OC-05; service/API tests |
+| MS-05, MS-06 | same | Organization-scoped `CreateConnection` | insert-only `connections.status=READY` on memory/PostgreSQL | OC-05; registration contract/race/reopen tests; verifier test double for local HTTP success |
 
 ## UC-05
 

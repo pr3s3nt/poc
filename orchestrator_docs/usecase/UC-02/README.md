@@ -9,8 +9,9 @@ last_reviewed: 2026-09-21
 
 ## Delivery state
 
-Designed; Resource Type contracts are consumed by seed/planner/executors, while
-management API/UI and durable persistence are not yet complete.
+Registration API/UI and normalized PostgreSQL persistence are implemented;
+insert-only duplicate guards, scoped contracts and no-restart planner consumption
+are locally verified. New identifier/reserved-key policy remains unresolved.
 
 ## Read in this order
 
@@ -20,7 +21,7 @@ management API/UI and durable persistence are not yet complete.
 4. [VOPC](vopc.puml)
 5. [Resource domain](../../architecture/domain/domain-objects.md)
 
-UI: [screens](ui/screens.md), [states](ui/states.md).
+UI: [screens](ui/screens.md), [states](ui/states.md), [HTTP mapping](ui/api-mapping.md).
 
 ## Implementation entry points
 

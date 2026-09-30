@@ -100,6 +100,14 @@ runner cleans up only its own processes and temporary JSON state.
 
 ## Run
 
+UC-02..04 human-paced registration recording:
+`bash backend/test/integration/uc02-04-video-local.sh` from the repository root.
+It uses a private headed browser and fake/local backend, records the real URL,
+mouse clicks and sequential typing, and creates catalog/Application data via UI.
+It shows a supported Definition consumed by Preview without restarting, seeded
+READY Connections and invalid Connection input, not successful live verification.
+Artifacts stay under `/tmp`; only owned processes and temporary state are cleaned.
+
 Fake mode không chạm cluster hoặc cloud account:
 
 ```bash

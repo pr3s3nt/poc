@@ -23,6 +23,10 @@ var ErrImmutable = errors.New("persistence: immutable record")
 // ErrVersionConflict is returned when an optimistic version check fails.
 var ErrVersionConflict = errors.New("persistence: version conflict")
 
+// ErrDuplicate is returned by insert-only Create operations when the logical
+// key already exists; the existing record is left unchanged.
+var ErrDuplicate = errors.New("persistence: duplicate key")
+
 // ApplicationRepository owns Organization, Application and Connection records.
 type ApplicationRepository interface {
 	GetOrganization(ctx context.Context, key string) (application.Organization, error)
@@ -33,6 +37,10 @@ type ApplicationRepository interface {
 	GetConnection(ctx context.Context, organizationKey, key string) (application.Connection, error)
 	ListConnections(ctx context.Context, organizationKey string) ([]application.Connection, error)
 	SaveConnection(ctx context.Context, conn application.Connection) error
+	// CreateConnection is insert-only registration (UC-04): ErrDuplicate for
+	// an existing (Organization, key), ErrNotFound for a missing Organization.
+	// SaveConnection remains the seed/test upsert.
+	CreateConnection(ctx context.Context, conn application.Connection) error
 }
 
 type IdentityRepository interface {
@@ -60,6 +68,12 @@ type CatalogRepository interface {
 	ListResourceDefinitions(ctx context.Context, organizationKey string) ([]resource.Definition, error)
 	SaveResourceType(ctx context.Context, organizationKey string, t resource.Type) error
 	SaveResourceDefinition(ctx context.Context, organizationKey string, d resource.Definition) error
+	// CreateResourceType and CreateResourceDefinition are insert-only
+	// registration (UC-02/03): ErrDuplicate for an existing (Organization,
+	// key) without touching it, ErrNotFound for a missing Organization or
+	// Resource Type. Save* remain the seed/test upserts.
+	CreateResourceType(ctx context.Context, organizationKey string, t resource.Type) error
+	CreateResourceDefinition(ctx context.Context, organizationKey string, d resource.Definition) error
 }
 
 // DeploymentRepository owns Deployment records, plan snapshots and node progress.

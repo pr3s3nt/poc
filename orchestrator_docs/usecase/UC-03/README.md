@@ -9,8 +9,10 @@ last_reviewed: 2026-09-22
 
 ## Delivery state
 
-Designed; seeded Definitions, profile eligibility, five-field matching and driver contract validation
-run in the planner. Management API/UI and durable catalog persistence remain.
+Runtime-supported Definition registration API/UI and normalized PostgreSQL
+persistence are implemented and locally verified, including atomic criteria,
+duplicate guards and no-restart matching. Driver Inputs shape restrictions remain
+unresolved; registration does not add new runtime drivers.
 
 ## Read in this order
 
@@ -21,7 +23,7 @@ run in the planner. Management API/UI and durable catalog persistence remain.
 5. [Planner reference](../../implementation/uc06-planner-reference.md)
 6. [Humanitec/Score compatibility matrix](../../implementation/humanitec-compatibility.md)
 
-UI: [screens](ui/screens.md), [states](ui/states.md).
+UI: [screens](ui/screens.md), [states](ui/states.md), [HTTP mapping](ui/api-mapping.md).
 
 ## Implementation entry points
 

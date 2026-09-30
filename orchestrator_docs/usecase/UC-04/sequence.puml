@@ -26,7 +26,11 @@ else local/kind Kubernetes MVP
   Service -> Service: HostContextReference(context) [MS-04]
 end
 Service -> Service: Connection.MarkReady()
-Service -> Repo: Save(connection) <<transaction>> [MS-05]
+Service -> Repo: CreateConnection(connection) <<transaction>> [MS-05]
+note right of Repo
+Insert-only registration; duplicate preserves
+existing config, reference and verification.
+end note
 Repo --> Service: Connection
 Service --> API: Connection READY [MS-06]
 API --> PE: Registered

@@ -2,7 +2,7 @@
 id: UC-04-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-30
 ---
 
 # UC-04 — Use Case Realization
@@ -54,7 +54,10 @@ nằm trong `UC-04/ui/`.
 External verification xảy ra trước database transaction. Local/kind host-context
 variant không ghi secret. Full credential-store variant sẽ ghi secret trước
 transaction và cần cleanup nếu DB save lỗi. Transaction chỉ lưu connection
-`READY` sau khi Organization/unique key được kiểm tra.
+`READY` sau khi Organization/unique key được kiểm tra. Registration dùng
+insert-only `CreateConnection`; duplicate kể cả concurrent request không được
+ghi đè config/reference/verification của record đã tồn tại. Seed/upsert
+`SaveConnection` không phải public update API.
 
 ## Planned tests
 

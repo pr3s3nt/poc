@@ -10,8 +10,10 @@ last_reviewed: 2026-09-21
 ## Delivery state
 
 Local/kind Kubernetes registration, verification API/UI and seeded internal/AWS
-connection data exist. AWS registration, durable credential store and PostgreSQL
-persistence remain.
+connection data exist with normalized PostgreSQL persistence and insert-only
+registration. Local tests use an explicit test verifier; the latest UI recording
+does not demonstrate successful live cluster verification. AWS registration and
+durable credential storage remain pending a storage decision.
 
 ## Read in this order
 
@@ -21,7 +23,7 @@ persistence remain.
 4. [VOPC](vopc.puml)
 5. [Connection state machine](../../architecture/state-machines/connection.puml)
 
-UI: [screens](ui/screens.md), [states](ui/states.md).
+UI: [screens](ui/screens.md), [states](ui/states.md), [HTTP mapping](ui/api-mapping.md).
 
 ## Implementation entry points
 

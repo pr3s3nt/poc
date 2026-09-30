@@ -17,6 +17,26 @@ var ErrInvalid = errors.New("connection: invalid registration")
 var ErrDuplicate = errors.New("connection: duplicate id")
 var ErrVerification = errors.New("connection: verification failed")
 
+// Verification failure categories a verifier may wrap. Only their fixed
+// guidance reaches the caller; raw kubectl/provider output never does.
+var (
+	ErrContextMissing     = errors.New("kube context is not configured on the backend host")
+	ErrClusterUnreachable = errors.New("cluster API is not reachable with this context")
+	ErrPermissionDenied   = errors.New("context lacks a required permission")
+)
+
+func verificationError(err error) error {
+	switch {
+	case errors.Is(err, ErrContextMissing):
+		return fmt.Errorf("%w: the kube context is not configured on the backend host; configure it there first", ErrVerification)
+	case errors.Is(err, ErrPermissionDenied):
+		return fmt.Errorf("%w: the context lacks a required permission (create namespaces, and deployments, statefulsets, services and secrets in all namespaces)", ErrVerification)
+	case errors.Is(err, ErrClusterUnreachable):
+		return fmt.Errorf("%w: the cluster API could not be reached with this context", ErrVerification)
+	}
+	return fmt.Errorf("%w: check that the context exists on the backend host, its API is reachable and it has the required permissions", ErrVerification)
+}
+
 var connectionKeyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,40}$`)
 
 type KubernetesVerification struct {
@@ -56,10 +76,10 @@ func (s *Service) RegisterKubernetesCluster(ctx context.Context, org string, cmd
 	}
 	verified, err := s.verifier.Verify(ctx, cmd.KubeContext)
 	if err != nil {
-		return application.Connection{}, fmt.Errorf("%w: %v", ErrVerification, err)
+		return application.Connection{}, verificationError(err)
 	}
 	if verified.Endpoint == "" {
-		return application.Connection{}, fmt.Errorf("%w: cluster endpoint is empty", ErrVerification)
+		return application.Connection{}, verificationError(ErrClusterUnreachable)
 	}
 	conn := application.Connection{
 		Key: cmd.Key, OrganizationKey: org, Kind: application.ConnectionKubernetes,
@@ -81,8 +101,12 @@ func (s *Service) RegisterKubernetesCluster(ctx context.Context, org string, cmd
 				return fmt.Errorf("%w: connection %q", ErrDuplicate, cmd.Key)
 			}
 		}
-		return s.store.SaveConnection(ctx, conn)
+		// Insert-only: the repository insert is the final duplicate guard.
+		return s.store.CreateConnection(ctx, conn)
 	})
+	if errors.Is(err, persistence.ErrDuplicate) {
+		return application.Connection{}, fmt.Errorf("%w: connection %q", ErrDuplicate, cmd.Key)
+	}
 	if err != nil {
 		return application.Connection{}, err
 	}

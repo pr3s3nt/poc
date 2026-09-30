@@ -32,6 +32,8 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Creates: `ResourceType` contract.
 - Postconditions: available cho Score validation và Resource Definition registration.
 - Persistence: insert `resource_types`; unique constraint là final duplicate guard.
+- Registration repository operation is insert-only; concurrent duplicate returns
+  conflict without overwriting the winning contract. Seed Save/upsert is separate.
 
 ## OC-04 `ResourceDefinitionService.RegisterResourceDefinition`
 
@@ -45,7 +47,9 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Postconditions: queryable cho deterministic matching; `{}` tường minh là
   wildcard điểm `0`; optional `execution_profile` filters eligibility before
   scoring the five standard criteria; source fingerprint được ghi nếu có.
-- Persistence: definition + criteria atomically.
+- Persistence: insert-only definition + criteria atomically; concurrent duplicate
+  conflicts without changing the existing Definition/criteria. Seed Save/upsert
+  is separate from public registration.
 
 ## OC-05 `ConnectionService.RegisterAWSDriverAccount` / `RegisterKubernetesCluster`
 
@@ -53,6 +57,8 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Preconditions: credential chỉ tồn tại trong request memory; identity/connectivity/RBAC verify thành công.
 - Creates: secret in Secret Store; `Connection` record với opaque secret reference.
 - Postconditions: Connection `READY`; database không chứa secret value.
+- Persistence: registration insert-only; duplicate conflicts without replacing
+  config/secret reference/verification, including concurrent requests.
 - Full credential-store variant: Secret Store write trước database insert;
   không áp dụng cho local/kind host-context variant.
 - Local/kind Kubernetes MVP: register cluster ID + existing host kube context;

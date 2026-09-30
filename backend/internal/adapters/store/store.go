@@ -484,6 +484,26 @@ func (s *Store) SaveConnection(ctx context.Context, conn application.Connection)
 	return nil
 }
 
+// CreateConnection inserts a Connection; an existing key is ErrDuplicate.
+func (s *Store) CreateConnection(ctx context.Context, conn application.Connection) error {
+	defer s.lock(ctx)()
+	if conn.OrganizationKey == "" || conn.Key == "" {
+		return fmt.Errorf("store: connection needs organization and key")
+	}
+	if _, ok := s.state.Organizations[conn.OrganizationKey]; !ok {
+		return fmt.Errorf("%w: organization %q", persistence.ErrNotFound, conn.OrganizationKey)
+	}
+	key := catalogKey(conn.OrganizationKey, conn.Key)
+	if _, exists := s.state.Connections[key]; exists {
+		return fmt.Errorf("%w: connection %q", persistence.ErrDuplicate, conn.Key)
+	}
+	if conn.ID == "" {
+		conn.ID = ids.New()
+	}
+	s.state.Connections[key] = conn
+	return nil
+}
+
 func envKey(applicationKey, environmentKey string) string {
 	return applicationKey + "/" + environmentKey
 }
@@ -607,6 +627,49 @@ func (s *Store) SaveResourceType(ctx context.Context, organizationKey string, t 
 		return err
 	}
 	s.state.ResourceTypes[catalogKey(organizationKey, t.Key)] = t
+	return nil
+}
+
+// CreateResourceType inserts a Resource Type; an existing key is ErrDuplicate.
+func (s *Store) CreateResourceType(ctx context.Context, organizationKey string, t resource.Type) error {
+	defer s.lock(ctx)()
+	if _, ok := s.state.Organizations[organizationKey]; !ok {
+		return fmt.Errorf("%w: organization %q", persistence.ErrNotFound, organizationKey)
+	}
+	if err := t.Validate(); err != nil {
+		return err
+	}
+	key := catalogKey(organizationKey, t.Key)
+	if _, exists := s.state.ResourceTypes[key]; exists {
+		return fmt.Errorf("%w: resource type %q", persistence.ErrDuplicate, t.Key)
+	}
+	s.state.ResourceTypes[key] = t
+	return nil
+}
+
+// CreateResourceDefinition inserts a Definition with its criteria; an
+// existing key is ErrDuplicate and the existing Definition is unchanged.
+func (s *Store) CreateResourceDefinition(ctx context.Context, organizationKey string, d resource.Definition) error {
+	defer s.lock(ctx)()
+	if _, ok := s.state.Organizations[organizationKey]; !ok {
+		return fmt.Errorf("%w: organization %q", persistence.ErrNotFound, organizationKey)
+	}
+	if _, ok := s.state.ResourceTypes[catalogKey(organizationKey, d.ResourceTypeKey)]; !ok {
+		return fmt.Errorf("%w: resource type %q", persistence.ErrNotFound, d.ResourceTypeKey)
+	}
+	if d.ConnectionKey != "" {
+		if _, ok := s.state.Connections[catalogKey(organizationKey, d.ConnectionKey)]; !ok {
+			return fmt.Errorf("%w: connection %q", persistence.ErrNotFound, d.ConnectionKey)
+		}
+	}
+	if err := d.Validate(); err != nil {
+		return err
+	}
+	key := catalogKey(organizationKey, d.Key)
+	if _, exists := s.state.Definitions[key]; exists {
+		return fmt.Errorf("%w: resource definition %q", persistence.ErrDuplicate, d.Key)
+	}
+	s.state.Definitions[key] = d
 	return nil
 }
 

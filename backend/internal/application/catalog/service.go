@@ -18,6 +18,14 @@ import (
 var ErrInvalid = errors.New("catalog: invalid document")
 var ErrDuplicate = errors.New("catalog: duplicate id")
 
+// internalError marks a platform-side failure found while validating a
+// document (store, module inspector). It is returned unwrapped so it never
+// becomes an ErrInvalid validation message.
+type internalError struct{ err error }
+
+func (e *internalError) Error() string { return e.err.Error() }
+func (e *internalError) Unwrap() error { return e.err }
+
 type Service struct {
 	store     persistence.Store
 	inspector planning.ModuleInspector
@@ -49,8 +57,13 @@ func (s *Service) RegisterResourceType(ctx context.Context, organizationKey stri
 				return fmt.Errorf("%w: resource type %q", ErrDuplicate, typ.Key)
 			}
 		}
-		return s.store.SaveResourceType(ctx, organizationKey, typ)
+		// Insert-only: the list check gives a clear message; the repository
+		// insert is the final duplicate guard (OC-03).
+		return s.store.CreateResourceType(ctx, organizationKey, typ)
 	})
+	if errors.Is(err, persistence.ErrDuplicate) {
+		return resource.Type{}, fmt.Errorf("%w: resource type %q", ErrDuplicate, typ.Key)
+	}
 	if err != nil {
 		return resource.Type{}, err
 	}
@@ -79,6 +92,10 @@ func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKe
 		return resource.Definition{}, fmt.Errorf("%w: unknown resource type %q", ErrInvalid, def.ResourceTypeKey)
 	}
 	if err := s.validateDriver(ctx, organizationKey, &def, typ); err != nil {
+		var internal *internalError
+		if errors.As(err, &internal) {
+			return resource.Definition{}, internal.err
+		}
 		return resource.Definition{}, fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
 	if err := validateReferences(def, types); err != nil {
@@ -97,8 +114,11 @@ func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKe
 				return fmt.Errorf("%w: resource definition %q", ErrDuplicate, def.Key)
 			}
 		}
-		return s.store.SaveResourceDefinition(ctx, organizationKey, def)
+		return s.store.CreateResourceDefinition(ctx, organizationKey, def)
 	})
+	if errors.Is(err, persistence.ErrDuplicate) {
+		return resource.Definition{}, fmt.Errorf("%w: resource definition %q", ErrDuplicate, def.Key)
+	}
 	if err != nil {
 		return resource.Definition{}, err
 	}
@@ -144,6 +164,9 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 	}
 	if def.ConnectionKey != "" {
 		conn, err := s.store.GetConnection(ctx, org, def.ConnectionKey)
+		if err != nil && !errors.Is(err, persistence.ErrNotFound) {
+			return &internalError{err: err}
+		}
 		if err != nil || conn.OrganizationKey != org || conn.Status != application.ConnectionReady {
 			return fmt.Errorf("connection %q is not READY in this organization", def.ConnectionKey)
 		}
@@ -164,11 +187,13 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 	}
 	if def.DriverType == resource.DriverTerraform {
 		if s.inspector == nil {
-			return fmt.Errorf("Terraform contract inspector is unavailable")
+			return &internalError{err: errors.New("catalog: Terraform contract inspector is unavailable")}
 		}
 		contract, err := s.inspector.Inspect(module)
 		if err != nil {
-			return err
+			// Module inspection is a platform failure, not a problem with the
+			// caller's document: never report it as validation (UC-03 mapping).
+			return &internalError{err: err}
 		}
 		provided := map[string]bool{}
 		for name := range variables {

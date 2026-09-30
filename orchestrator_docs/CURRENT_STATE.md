@@ -22,7 +22,9 @@ là I06-08 (UC-05), nay cũng đã hoàn thành
 [local/API/UI/PostgreSQL verification](verification/2026-09-30-uc05-preview-local.md).
 I06-09 (UC-07 update/remove) cũng đã hoàn thành
 [local API/UI/PostgreSQL verification](verification/2026-09-30-uc07-update-remove-local.md).
-Tiếp theo là I06-10 (UC-02..04 registration/management còn thiếu); lựa chọn
+I06-10 đã hoàn thành [registration hardening safe slice](verification/2026-09-30-registration-hardening-local.md): insert-only duplicate guards,
+safe errors, truthful UI reload states và no-restart catalog usage. I06-10/M02
+chưa đóng; identifier/Driver Inputs policy còn mở. Lựa chọn
 credential storage cho AWS Connection cần xác nhận trước phần implementation
 phụ thuộc quyết định đó.
 [M00-a — Developer onboarding](iterations/M00-developer-onboarding/README.md) đã

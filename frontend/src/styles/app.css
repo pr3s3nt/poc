@@ -50,3 +50,4 @@ a { color: inherit; }
 @media (max-width:800px) { .form-grid { grid-template-columns:1fr; } }
 .form-hints { display:grid; gap:4px; margin:0; color:var(--muted); }
 .plan-hash { overflow-wrap:anywhere; font-size:12px; }
+.form-fieldset { border:0; margin:0; padding:0; min-width:0; }

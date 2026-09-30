@@ -27,11 +27,13 @@ Service -> Inspector: Inspect(embedded module) [MS-07]
 Inspector --> Service: DriverContract + fingerprint
 Service -> DefinitionRepo: ListResourceDefinitions(orgID) [MS-06]
 DefinitionRepo --> Service: no duplicate ID
-Service -> DefinitionRepo: SaveResourceDefinition(orgID, definition) <<transaction>> [MS-08]
+Service -> DefinitionRepo: CreateResourceDefinition(orgID, definition) <<transaction>> [MS-08]
 DefinitionRepo --> Service: ResourceDefinition
 Service --> API: ResourceDefinition [MS-09]
 API --> PE: Registered
 note right of DefinitionRepo
+Insert-only Definition and criteria in one transaction.
+Concurrent duplicate cannot replace either.
 Planning first filters by Definition profile,
 then scores the five standard criteria.
 end note

@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-30
 ---
 
 # UC-03 — Use Case Realization
@@ -52,8 +52,10 @@ từ chối trước persistence; criterion `{}` khai báo tường minh là wil
 `0`. Definition hợp lệ và toàn bộ criteria được lưu trong một transaction;
 source fingerprint được lưu cùng Definition metadata.
 
-Local/test store kiểm tra key trong transaction; PostgreSQL unique
-`(organization_id,key)` sẽ là duplicate guard cuối cùng khi adapter đó có mặt.
+Registration dùng insert-only `CreateResourceDefinition` trong transaction,
+không dùng seed/upsert `SaveResourceDefinition`. PostgreSQL unique
+`(organization_id,key)` là final duplicate guard kể cả concurrent requests.
+Lệnh trùng key không được sửa Definition hay xóa/thay criteria của lệnh đã thắng.
 
 ## Planned tests
 

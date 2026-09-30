@@ -2,7 +2,7 @@
 id: UC-02-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-30
 ---
 
 # UC-02 — Use Case Realization
@@ -37,9 +37,13 @@ ResourceTypeService.RegisterResourceType(ctx context.Context, cmd RegisterResour
 
 ## Transaction boundary
 
-Validate ngoài transaction; local/test adapter kiểm tra key trong transaction. Khi
-chuyển sang PostgreSQL, unique constraint `(organization_id, key)` là chốt cuối
-cùng chống concurrent duplicate.
+Validate ngoài transaction; registration dùng repository insert-only
+`CreateResourceType`, không dùng seed/upsert `SaveResourceType`. Unique constraint
+`(organization_id, key)` là chốt cuối cùng chống concurrent duplicate trên
+PostgreSQL. Hai lệnh đăng ký cùng key chỉ được có một lệnh thành công; lệnh còn
+lại trả duplicate và không đổi record đầu tiên. List precheck chỉ giúp thông báo
+lỗi, không thay thế constraint/insert semantics. Save/upsert được giữ riêng cho
+seed/test, không trở thành public update capability.
 
 ## Planned tests
 
