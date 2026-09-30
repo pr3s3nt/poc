@@ -82,12 +82,22 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Public-route rule: `service.publicRoutes` (and legacy `publicPort` for `/`)
   survives the Candidate Set; planning rejects duplicate/invalid paths or
   undeclared Service ports in the complete Environment state.
+- Service-reference rule: `${context.service.<workload>.<port>}` must resolve
+  in the final Candidate Environment. Single-operation Preview/Deploy validate
+  the Candidate; pending multi-workload Preview validates the final batch state
+  and may permit intermediate references only while executing that already
+  validated batch, as for public routes. No runtime change starts for an
+  invalid final Candidate.
 - Before-state rule: module và từng shared entry do `before Score` khai báo phải deep-equal current set.
 - Candidate rule: một shared ID mới không được ghi đè entry khác nội dung; shared entry bị workload bỏ chỉ rời Candidate khi không còn module khác tham chiếu.
 - Descriptor rule: `@app`, `@env`, `@connection` được resolve từ planning
   context trước khi parse descriptor; `@` kế thừa class/ID hiện tại giữ nguyên
   semantics.
 - Postconditions: graph là DAG; mỗi resource node match đúng một Definition; contracts valid; provider-first batches; workload node không thuộc resource-execution batches.
+- Unreferenced classification for an Environment denotes `READY` resources
+  absent from its desired graph within that Environment/shared/workload scope.
+  Already-unreferenced, failed/provisioning and Application-wide resources are
+  not candidates for that Environment's status-marking operation.
 - Side effects: none.
 
 ## OC-08 `DeploymentService.DeployWorkload`
@@ -120,6 +130,10 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Updates: only target workload contribution and legitimately owned shared contribution through Humanitec-shaped module/shared Delta; conflicting shared ID is rejected before execution.
 - Postconditions: other modules preserved; referenced shared resources preserved; stale resource `UNREFERENCED`; no destroy.
 - Commit rule: same optimistic final transaction as OC-08.
+- `UNREFERENCED` markers commit with current pointer/`SUCCEEDED`, after runtime
+  success; failure/rollback leaves them unchanged. Preserve resource identity,
+  outputs and executor state. Console dispatch uses
+  [UC-07 pending-flow mapping](../../usecase/UC-07/ui/api-mapping.md).
 
 ## OC-10 `ResourceProvisioningService.Provision`
 
@@ -132,6 +146,9 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Boundary: container CPU/memory requests/limits are not UC-08 resources; UC-06 Workload Renderer applies them to manifests.
 
 ## OC-11 `DeploymentQueryService.ListDeployments` / `GetDeployment`
+
+Failure reasons use UC-09 BR-07 safe summaries. Unknown legacy error text is
+replaced in list/detail projection, without mutating history.
 
 - Use case: UC-09.
 - Preconditions: authenticated Organization plus explicit Application and

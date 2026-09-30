@@ -1,7 +1,7 @@
 ---
 id: I06-10-WORK
 artifact: iteration-work-items
-status: deferred
+status: current
 last_reviewed: 2026-09-30
 related: I06-10
 ---

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { navigate } from '../../app/routes';
 import type { Application, EnvironmentKey } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
+import { ApiError } from '../../shared/api/client';
 import { getConfiguration, type ConfigKey } from '../configuration/api';
 import { getResourceTypes, getWorkloads, parseScoreImport, saveWorkload, type ResourceType, type Workload } from './api';
 
@@ -116,18 +117,52 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
   const [error, setError] = useState('');
   const [blocked, setBlocked] = useState(false);
   const [advancedScore, setAdvancedScore] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  // A 409 on Save marks the page stale: input is kept, Save is disabled until
+  // the user reloads and reviews the current state; nothing is re-sent.
+  const [stale, setStale] = useState(false);
+  const [reloading, setReloading] = useState(false);
+  const [current, setCurrent] = useState<{ version: number; score?: Record<string, unknown>; state?: string }>();
+  const [reloadError, setReloadError] = useState('');
+  // Scope/unmount guard for reloadCurrent: a late reply for another scope or
+  // after leaving the page is dropped.
+  const scope = useRef(0);
+  useEffect(() => () => { scope.current += 1; }, []);
 
   useEffect(() => {
     let cancelled = false;
+    scope.current += 1;
+    setStale(false); setCurrent(undefined); setReloadError('');
+    setLoading(true); setLoadFailed(false); setError('');
     Promise.all([getConfiguration(application.id, environment), getWorkloads(application.id, environment), getResourceTypes()]).then(([config, list, catalog]) => {
       if (cancelled) return;
       setKeys(config.keys); setWorkloads(list.workloads); setTypes(catalog.resourceTypes); setVersion(list.draftVersion);
       const existing = list.workloads.find((item) => item.id === workloadId);
       if (existing?.score) { setForm(readForm(existing.score, config.keys)); setImported(existing.score); setBlocked(false); const advanced = needsScoreEditor(existing.score, catalog.resourceTypes); setAdvancedScore(advanced); if (advanced) setMode('import'); }
       else if (workloadId) { setForm({ ...emptyForm(), name: workloadId }); setBlocked(true); setError(existing ? 'This deployed workload has no editable Score draft yet. Editing is disabled to avoid losing its existing configuration.' : 'Workload not found in this environment.'); }
-    }).catch((err: Error) => { if (!cancelled) setError(err.message); }).finally(() => { if (!cancelled) setLoading(false); });
+    }).catch((err: Error) => { if (!cancelled) { setError(err.message); setLoadFailed(true); } }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [application.id, environment, workloadId]);
+  }, [application.id, environment, workloadId, loadAttempt]);
+
+  // Reloads the Environment's current drafts without touching the form.
+  async function reloadCurrent() {
+    const at = scope.current;
+    setReloading(true); setReloadError('');
+    try {
+      const [config, list] = await Promise.all([getConfiguration(application.id, environment), getWorkloads(application.id, environment)]);
+      if (at !== scope.current) return;
+      const id = workloadId ?? form.name;
+      const item = list.workloads.find((entry) => entry.id === id);
+      setKeys(config.keys); setWorkloads(list.workloads); setVersion(list.draftVersion);
+      setCurrent({ version: list.draftVersion, score: item?.score, state: item?.state || (item ? 'deployed' : 'absent') });
+      setStale(false); setError('');
+    } catch (err) {
+      if (at === scope.current) setReloadError(`Could not reload the current state: ${(err as Error).message}. Your edits are kept; try again.`);
+    } finally {
+      if (at === scope.current) setReloading(false);
+    }
+  }
 
   function updateForm(next: Form) { setForm(next); setDirty(true); }
   function updateContainer(index: number, next: ContainerForm) { const containers = [...form.containers]; containers[index] = next; updateForm({ ...form, containers }); }
@@ -138,7 +173,7 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
     catch (err) { setError((err as Error).message); }
   }
   async function save() {
-    if (blocked) return;
+    if (blocked || stale) return;
     const seenPaths = new Set<string>();
     for (const route of form.publicRoutes) {
       if (!/^\/(?:[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*)?$/.test(route.path) || seenPaths.has(route.path)) { setError('Public paths must be unique URL paths such as / or /api.'); return; }
@@ -161,7 +196,10 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
     if (!id) { setError('Workload name is required.'); return; }
     setSaving(true); setError('');
     try { await saveWorkload(application.id, environment, id, score, version); navigate({ name: 'application', applicationId: application.id }); }
-    catch (err) { setError((err as Error).message); }
+    catch (err) {
+      if (err instanceof ApiError && err.status === 409) { setStale(true); setCurrent(undefined); setReloadError(''); }
+      else setError((err as Error).message);
+    }
     finally { setSaving(false); }
   }
   const candidateServices = workloads.filter((item) => item.id !== form.name && item.state !== 'PENDING_DELETE' && item.servicePorts?.length);
@@ -171,7 +209,9 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
     <header className="page-header application-header"><div><p className="eyebrow">{environment} · Workload configuration</p><h1>{workloadId ? `Edit ${workloadId}` : 'Add workload'}</h1><p>Save a draft first. Preview and Deploy happen separately.</p></div><Button onClick={() => navigate({ name: 'settings', applicationId: application.id })}>Variables &amp; Secrets</Button></header>
     <div className="tabs" role="tablist"><button className={mode === 'form' ? 'tab tab-active' : 'tab'} disabled={advancedScore} onClick={() => setMode('form')}>Enter on form</button><button className={mode === 'import' ? 'tab tab-active' : 'tab'} onClick={() => setMode('import')}>Import Score</button></div>
     {advancedScore ? <p className="feature-note">This Score contains fields the form cannot preserve. Upload an updated Score file to edit it without losing those fields.</p> : null}
-    {error ? <div className="form-error" role="alert">{error}</div> : null}
+    {error ? <div className="form-error" role="alert">{error}{loadFailed ? <> <Button onClick={() => setLoadAttempt((value) => value + 1)}>Retry</Button></> : null}</div> : null}
+    {stale ? <div className="form-error" role="alert" aria-label="Stale workload drafts">Workloads in {environment} changed after this page loaded. Your edits are kept but were not saved. Reload the current state, review it, then save again. <Button disabled={reloading} onClick={() => void reloadCurrent()}>{reloading ? 'Reloading…' : 'Reload current state'}</Button>{reloadError ? <p>{reloadError}</p> : null}</div> : null}
+    {current ? <div className="form-info" role="status">Reloaded draft version {current.version}. Current state of this workload: {current.state === 'absent' ? 'not present' : current.state === 'deployed' ? 'deployed, no pending change' : current.state === 'PENDING_DELETE' ? 'pending deletion' : 'pending change'}. Your edits below are unchanged; review them and save again if they still apply.{current.score ? <details><summary>Current Score</summary><pre className="score-preview">{JSON.stringify(current.score, null, 2)}</pre></details> : null}</div> : null}
     {loading ? <p>Loading workload options…</p> : mode === 'import' ? <section className="content-panel"><h2>Import one Score file</h2><p>YAML or JSON. The same reference rules apply as the form; importing does not save or deploy.</p><input aria-label="Score file" type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />{imported ? <><p>Parsed workload: <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><pre className="score-preview">{JSON.stringify(imported, null, 2)}</pre></> : null}</section> : <>
       <section className="content-panel editor-grid"><h2>Basic information</h2><label>Workload name<input value={form.name} disabled={Boolean(workloadId)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="frontend" /></label></section>
       {form.containers.map((container, ci) => <section className="content-panel editor-grid" key={ci}><div className="section-header"><h2>Container {ci + 1}</h2>{form.containers.length > 1 ? <Button tone="danger" onClick={() => updateForm({ ...form, containers: form.containers.filter((_, index) => index !== ci) })}>Remove</Button> : null}</div><div className="field-grid"><label>Name<input value={container.name} onChange={(event) => updateContainer(ci, { ...container, name: event.target.value })} /></label><label>Image<input value={container.image} onChange={(event) => updateContainer(ci, { ...container, image: event.target.value })} placeholder="registry.example/app:tag" /></label></div><div className="field-grid field-grid-four"><label>CPU request<input value={container.cpuRequest} onChange={(event) => updateContainer(ci, { ...container, cpuRequest: event.target.value })} placeholder="100m" /></label><label>Memory request<input value={container.memoryRequest} onChange={(event) => updateContainer(ci, { ...container, memoryRequest: event.target.value })} placeholder="128Mi" /></label><label>CPU limit<input value={container.cpuLimit} onChange={(event) => updateContainer(ci, { ...container, cpuLimit: event.target.value })} /></label><label>Memory limit<input value={container.memoryLimit} onChange={(event) => updateContainer(ci, { ...container, memoryLimit: event.target.value })} /></label></div><h3>Environment variables &amp; secrets</h3><p>Select a source; direct values are not allowed. Application keys come from {environment} settings.</p>
@@ -190,6 +230,6 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
         <p>Public access is applied only after Preview → Deploy. DNS and TLS are not configured here.</p>
       </section>
     </>}
-    {!loading ? <div className="form-actions editor-actions"><Button onClick={() => navigate({ name: 'application', applicationId: application.id })}>Cancel</Button><Button tone="primary" disabled={blocked || saving || (mode === 'import' && !imported)} onClick={() => void save()}>Save pending workload</Button></div> : null}
+    {!loading ? <div className="form-actions editor-actions"><Button onClick={() => navigate({ name: 'application', applicationId: application.id })}>Cancel</Button><Button tone="primary" disabled={blocked || saving || stale || loadFailed || (mode === 'import' && !imported)} onClick={() => void save()}>Save pending workload</Button></div> : null}
   </section>;
 }

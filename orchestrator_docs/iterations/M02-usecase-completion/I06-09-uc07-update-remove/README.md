@@ -1,7 +1,7 @@
 ---
 id: I06-09
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-09-30
 related: UC-07, IMP-004
 ---
@@ -33,11 +33,12 @@ before-state, shared ownership và current-set transaction invariants.
 - Current set chỉ commit sau runtime success; conflicts fail trước side effect.
 - Validation suites pass và IMP-004 được xóa.
 
-## First next action
-
-Viết application-service tests cho before mismatch, shared conflict,
-last-reference và preserve-other-workload trước khi wire API/UI.
-
 ## Outcome
 
-Current handoff after I06-08 completion; implementation/review still pending.
+Completed 2026-09-30 through the existing UC-16 pending flow: final-transaction
+UNREFERENCED marking, final Service-reference validation, scoped strict HTTP,
+safe failures and stale/busy/reload UI states. Memory/PostgreSQL and frontend
+checks passed; UI-only human-paced recording reviewed and published. IMP-004
+removed. See [evidence](../../../verification/2026-09-30-uc07-update-remove-local.md).
+No live cluster/cloud rerun or Application-wide cleanup was performed.
+Next: [I06-10](../I06-10-uc01-04-management/README.md).

@@ -47,27 +47,10 @@ func public(kind error, format string, args ...any) error {
 	return &PublicError{Kind: kind, Message: fmt.Sprintf(format, args...)}
 }
 
-// Fixed public sentences. Planner messages are never echoed: any stage can
-// quote catalog, Definition, Terraform module or other persisted module
-// content, so Preview fails closed to these sentences.
+// Planner messages are never echoed (planning.PublicMessage). These stages
+// are caused by the caller's Score or before-state.
 var (
-	beforeMessages = map[string]string{
-		planning.ReasonWorkloadExists:     "the workload already exists in the current Deployment Set; use update with scoreBefore",
-		planning.ReasonWorkloadNotCurrent: "the workload is not part of the current Deployment Set; use deploy to add it",
-		planning.ReasonBeforeMismatch:     "scoreBefore does not match the current Deployment Set for this workload; refresh it from the currently deployed Score",
-	}
-	stageMessages = map[planning.Stage]string{
-		planning.StageScore:     "the Score does not satisfy the registered Resource Type contracts (unregistered type, invalid params or unknown resource output)",
-		planning.StageBefore:    "scoreBefore does not match the current Deployment Set for this workload",
-		planning.StageCandidate: "the Candidate Deployment Set cannot be built from this Score, for example because a shared resource conflicts with the current one",
-		planning.StageRoutes:    "public routes of the resulting Environment are invalid: a duplicate path or an undeclared Service port",
-		planning.StageCatalog:   "the registered Resource Definitions cannot be used for planning; ask a platform engineer to check them",
-		planning.StageGraph:     "the Resource Graph cannot be built or matched for this Score; check resource types, classes and ids against the registered Resource Definitions",
-		planning.StageReference: "a resource reference cannot be resolved against the matched Resource Definitions",
-		planning.StageContract:  "a matched Resource Definition has an invalid Terraform contract; ask a platform engineer to check it",
-		planning.StageSchedule:  "the Resource Graph has a dependency cycle",
-	}
-	callerStages = map[planning.Stage]bool{planning.StageScore: true, planning.StageBefore: true, planning.StageCandidate: true, planning.StageRoutes: true}
+	callerStages = map[planning.Stage]bool{planning.StageScore: true, planning.StageBefore: true, planning.StageCandidate: true, planning.StageRoutes: true, planning.StageServiceRefs: true}
 )
 
 // publicPlanningError maps a staged planner failure to a fixed sentence.
@@ -77,13 +60,7 @@ func publicPlanningError(err error) error {
 	if !errors.As(err, &stage) {
 		return err
 	}
-	message, ok := beforeMessages[stage.Reason]
-	if !ok {
-		message, ok = stageMessages[stage.Stage]
-	}
-	if !ok {
-		message = "planning failed for this Score"
-	}
+	message, _ := planning.PublicMessage(err)
 	kind := ErrPlanningRejected
 	if callerStages[stage.Stage] {
 		kind = ErrInvalidScore

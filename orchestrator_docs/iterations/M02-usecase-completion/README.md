@@ -18,9 +18,9 @@ M00-a để Developer có onboarding flow dùng thử trước.
 
 1. [I06-04 — UC-09 observability](I06-04-uc09-observability/README.md): hoàn thành
    local/browser/PostgreSQL verification ngày 2026-09-30, đóng IMP-005.
-2. [I06-08 — UC-05 preview](I06-08-uc05-preview/README.md).
-3. [I06-09 — UC-07 update/remove](I06-09-uc07-update-remove/README.md).
-4. [I06-10 — remaining UC-02..04 management](I06-10-uc01-04-management/README.md).
+2. [I06-08 — UC-05 preview](I06-08-uc05-preview/README.md): completed local verification 2026-09-30, closed IMP-003.
+3. [I06-09 — UC-07 update/remove](I06-09-uc07-update-remove/README.md): completed local verification 2026-09-30, closed IMP-004.
+4. [I06-10 — remaining UC-02..04 management](I06-10-uc01-04-management/README.md): current; gap audit and AWS credential decision pending.
 
 ## Milestone exit criteria
 

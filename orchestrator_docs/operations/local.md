@@ -79,6 +79,25 @@ fake; it does not prove Kubernetes/cloud execution. MP4, timestamps, logs and
 sampled frames remain outside source. Output directories must be new; never
 overwrite historical evidence.
 
+## UC-07 human-paced update/remove recording
+
+After building the Web Console, run from the repository root:
+
+```bash
+bash backend/test/integration/uc07-video-local.sh
+```
+
+The [runner](../../backend/test/integration/uc07-video-local.sh) invokes
+[Playwright](../../frontend/test/e2e/uc07-video-local.mjs) on a fresh local test
+store. Application and workload creation, Preview/Deploy, update, Delete
+cancel/confirm, Undo and history/detail navigation use only UI input on camera.
+The native confirmation is answered by real X11 keyboard input. Removal shows
+that an unused resource becomes unreferenced, not destroyed, while another
+workload remains. The full-window recording includes the address bar, visible
+pointer and sequential typing. Fake runtime adapters mean this is not proof of
+live Kubernetes/AWS effects. Reviewer artifacts remain outside source; the
+runner cleans up only its own processes and temporary JSON state.
+
 ## Run
 
 Fake mode không chạm cluster hoặc cloud account:

@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-09-30 | UC-07 update/remove, shared-resource preservation, PostgreSQL atomic marker/restart, strict scoped API/UI and human-paced UI-only recording | [Update/remove verification](2026-09-30-uc07-update-remove-local.md) · [MP4](https://github.com/pr3s3nt/poc/releases/download/acceptance-recordings/uc07-human-local-20260930-073724-10075.mp4) |
 | 2026-09-30 | Standalone Score Preview, consistent memory/PostgreSQL snapshot, no mutation, safe API/UI and human-paced UI-only recording | [Preview verification](2026-09-30-uc05-preview-local.md) · [MP4](https://github.com/pr3s3nt/poc/releases/download/acceptance-recordings/uc05-human-local-20260930-065714-19834.mp4) |
 | 2026-09-30 | Human-paced UC-09 recording with real address bar, visible pointer, clicks, typing and review pauses | [UC-09 review video](2026-09-30-uc09-human-video-local.md) · [MP4](https://github.com/pr3s3nt/poc/releases/download/acceptance-recordings/uc09-human-local-20260930-043252-720.mp4) |
 | 2026-09-30 | UC-09 authenticated scoped history/detail, immutable workload snapshots and JSON/PostgreSQL browser restart verification | [Local observability](2026-09-30-uc09-local-observability.md) |

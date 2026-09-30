@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { WorkloadEditorPage } from './WorkloadEditorPage';
@@ -34,6 +34,81 @@ it('saves an Application key as a Score reference, not a copied value', async ()
   expect(score.containers.main.variables.BACKEND_URL).toBe('${resources.env.API_URL}');
   expect(score.resources.env.type).toBe('environment');
   expect(JSON.stringify(saved)).not.toContain('https://internal.example');
+});
+
+it('keeps edits after a save conflict, blocks Save until an explicit reload, and never resends on its own', async () => {
+  const puts: number[] = [];
+  let lists = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith('/configuration')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
+    if (init?.method === 'PUT') {
+      puts.push((JSON.parse(String(init.body)) as { version: number }).version);
+      return puts.length === 1 ? Response.json({ error: 'workloads changed since they were loaded; reload and try again' }, { status: 409 }) : Response.json({ draftVersion: 6, workloads: [] });
+    }
+    lists += 1;
+    return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', draftVersion: lists === 1 ? 4 : 5, workloads: lists === 1 ? [] : [{ id: 'web', state: 'PENDING_UPSERT', ready: false, score: { metadata: { name: 'web' }, containers: { main: { image: 'other:v9' } } } }] });
+  }));
+  const user = userEvent.setup();
+  render(<WorkloadEditorPage application={application} environment="staging" />);
+  await screen.findByRole('heading', { name: 'Basic information' });
+  await user.type(screen.getByLabelText('Workload name'), 'web');
+  await user.type(screen.getByLabelText('Image'), 'mine:v1');
+  await user.click(screen.getByRole('button', { name: 'Save pending workload' }));
+  expect(await screen.findByText(/changed after this page loaded/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Save pending workload' })).toBeDisabled();
+  expect(screen.getByLabelText('Image')).toHaveValue('mine:v1');
+  expect(puts).toEqual([4]);
+  await user.click(screen.getByRole('button', { name: 'Reload current state' }));
+  expect(await screen.findByText(/Reloaded draft version 5/)).toBeInTheDocument();
+  expect(screen.getByText(/pending change/)).toBeInTheDocument();
+  expect(screen.getByLabelText('Image')).toHaveValue('mine:v1');
+  expect(puts).toEqual([4]);
+  await user.click(screen.getByRole('button', { name: 'Save pending workload' }));
+  expect(puts).toEqual([4, 5]);
+});
+
+it('keeps the stale panel and retry when reloading the current state fails', async () => {
+  let lists = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith('/configuration')) return Response.json({ keys: [] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
+    if (init?.method === 'PUT') return Response.json({ error: 'conflict' }, { status: 409 });
+    lists += 1;
+    return lists === 2 ? Response.json({ error: 'unavailable' }, { status: 500 }) : Response.json({ draftVersion: lists, workloads: [] });
+  }));
+  const user = userEvent.setup();
+  render(<WorkloadEditorPage application={application} environment="staging" />);
+  await screen.findByRole('heading', { name: 'Basic information' });
+  await user.type(screen.getByLabelText('Workload name'), 'web');
+  await user.type(screen.getByLabelText('Image'), 'mine:v1');
+  await user.click(screen.getByRole('button', { name: 'Save pending workload' }));
+  await user.click(await screen.findByRole('button', { name: 'Reload current state' }));
+  const panel = screen.getByLabelText('Stale workload drafts');
+  expect(await within(panel).findByText(/Could not reload the current state/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Save pending workload' })).toBeDisabled();
+  await user.click(within(panel).getByRole('button', { name: 'Reload current state' }));
+  expect(await screen.findByText(/Reloaded draft version 3/)).toBeInTheDocument();
+  expect(screen.queryByLabelText('Stale workload drafts')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Image')).toHaveValue('mine:v1');
+});
+
+it('offers retry when the editor cannot load', async () => {
+  let calls = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
+    if (url.endsWith('/configuration')) return Response.json({ keys: [] });
+    calls += 1;
+    return calls === 1 ? Response.json({ error: 'unavailable' }, { status: 500 }) : Response.json({ draftVersion: 1, workloads: [] });
+  }));
+  const user = userEvent.setup();
+  render(<WorkloadEditorPage application={application} environment="staging" />);
+  await user.click(await screen.findByRole('button', { name: 'Retry' }));
+  expect(await screen.findByRole('heading', { name: 'Basic information' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Save pending workload' })).toBeEnabled();
 });
 
 it('requires PostgreSQL inputs and saves them as Score resource params', async () => {

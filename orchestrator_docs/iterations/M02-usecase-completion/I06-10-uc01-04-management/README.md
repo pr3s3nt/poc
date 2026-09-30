@@ -1,7 +1,7 @@
 ---
 id: I06-10
 artifact: iteration-plan
-status: deferred
+status: current
 last_reviewed: 2026-09-30
 related: UC-02, UC-03, UC-04, IMP-002
 ---
@@ -43,4 +43,7 @@ thành ở I00-00 và không được mở lại trong iteration này.
 
 ## Outcome
 
-Chưa thực hiện.
+Current handoff after I06-09. Registration gap audit is in progress; AWS
+credential storage/runtime binding requires an explicit user decision before
+implementing the dependent branch. No live AWS/kind verification is authorized
+by this local implementation milestone.

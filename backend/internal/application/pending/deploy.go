@@ -97,7 +97,7 @@ func (s *Service) Deploy(ctx context.Context, appKey, envKey, actor, token strin
 			DeferPublicRoutes: true,
 		})
 		if deployErr != nil {
-			report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "FAILED", Error: deployErr.Error()})
+			report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "FAILED", Error: publicDeployError(deployErr)})
 			report.Status = statusFor(report.Results)
 			appendSkipped(&report, preview.Changes[index+1:])
 			return report, nil
@@ -124,7 +124,7 @@ func (s *Service) Deploy(ctx context.Context, appKey, envKey, actor, token strin
 			}
 			return nil
 		}); err != nil {
-			report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "FAILED", DeploymentID: result.DeploymentID, Error: "deployed but failed to record applied revision: " + err.Error()})
+			report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "FAILED", DeploymentID: result.DeploymentID, Error: "deployed, but the applied configuration revision could not be recorded; preview again to retry"})
 			report.Status = statusFor(report.Results)
 			appendSkipped(&report, preview.Changes[index+1:])
 			return report, nil
@@ -137,7 +137,7 @@ func (s *Service) Deploy(ctx context.Context, appKey, envKey, actor, token strin
 	if len(preview.Changes) > 0 || preview.RoutePending {
 		if err := s.deployer.ReconcilePublicRoutes(ctx, appKey, envKey); err != nil {
 			report.Status = "PARTIAL"
-			return report, fmt.Errorf("pending: workloads applied but public routes failed: %w", err)
+			return report, ErrRouteReconcile
 		}
 		if err := s.setRoutePending(ctx, appKey, envKey, false); err != nil {
 			return report, err
@@ -155,6 +155,17 @@ func (s *Service) setRoutePending(ctx context.Context, appKey, envKey string, pe
 		env.PublicRoutesPending = pending
 		return s.store.SaveEnvironment(ctx, env)
 	})
+}
+
+// ErrRouteReconcile reports that workloads committed but public routes did not;
+// the route cause stays out of the public message.
+var ErrRouteReconcile = errors.New("pending: workloads were applied but public routes could not be reconciled; preview again to retry public routes")
+
+// publicDeployError is the per-workload text of the Deploy report: the same
+// safe summary the failed Deployment persists, never executor, driver,
+// Kubernetes or catalog text.
+func publicDeployError(err error) string {
+	return appsvc.PublicFailure(err)
 }
 
 func isNotFound(err error) bool { return errors.Is(err, persistence.ErrNotFound) }

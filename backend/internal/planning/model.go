@@ -150,7 +150,11 @@ type Plan struct {
 	Terraform      []TerraformContract      `json:"terraform"`
 	Batches        [][]string               `json:"batches"`
 	Classification Classification           `json:"classification"`
-	PlanHash       string                   `json:"planHash"`
+	// UnreferencedResources are the Active Resources the deployment marks
+	// UNREFERENCED in its final transaction (UC-07 MS-07). Not persisted with
+	// the plan and not part of the plan hash.
+	UnreferencedResources []resource.ActiveResource `json:"-"`
+	PlanHash              string                    `json:"planHash"`
 }
 
 // Catalog is the read-only registry planning matches against.
@@ -188,20 +192,22 @@ type ModuleVariable struct {
 
 // Request is the input of one planning run.
 type Request struct {
-	// AllowIntermediatePublicRoutes is used only while applying a validated
-	// multi-workload pending change; the final set must pass route validation.
-	AllowIntermediatePublicRoutes bool
-	OrganizationKey               string
-	App                           application.Application
-	Env                           environment.Environment
-	Connection                    application.Connection
-	BaseSet                       environment.Document
-	Before                        *score.Document
-	After                         *score.Document
-	WorkloadID                    string
-	RunID                         string
-	Action                        deployment.Action
-	Catalog                       Catalog
-	Active                        []resource.ActiveResource
-	Terraform                     ModuleInspector
+	// AllowIntermediateEnvironmentState skips the complete-Environment rules
+	// (public routes, Service references; UC-07 BR-08) for one step of a
+	// multi-workload pending batch whose FINAL state the caller has already
+	// validated. Single-operation Preview/Deploy must leave it false.
+	AllowIntermediateEnvironmentState bool
+	OrganizationKey                   string
+	App                               application.Application
+	Env                               environment.Environment
+	Connection                        application.Connection
+	BaseSet                           environment.Document
+	Before                            *score.Document
+	After                             *score.Document
+	WorkloadID                        string
+	RunID                             string
+	Action                            deployment.Action
+	Catalog                           Catalog
+	Active                            []resource.ActiveResource
+	Terraform                         ModuleInspector
 }

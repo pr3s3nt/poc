@@ -62,9 +62,12 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		return nil, stageErr(StageCandidate, err)
 	}
 	candidate := built.Candidate
-	if !req.AllowIntermediatePublicRoutes {
+	if !req.AllowIntermediateEnvironmentState {
 		if err := ValidatePublicRoutes(candidate); err != nil {
 			return nil, stageErr(StageRoutes, err)
+		}
+		if err := ValidateServiceReferences(candidate); err != nil {
+			return nil, stageErr(StageServiceRefs, err)
 		}
 	}
 
@@ -117,6 +120,7 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		Batches:        batches,
 		Classification: classify(ctx, graph, req.Active),
 	}
+	plan.UnreferencedResources = unreferencedResources(ctx, graph, req.Active)
 	if req.Before != nil {
 		if plan.ScoreBefore, err = canon.Map(req.Before); err != nil {
 			return nil, err
@@ -394,15 +398,41 @@ func classify(ctx Context, g Graph, active []resource.ActiveResource) Classifica
 			out.New = append(out.New, n.Descriptor)
 		}
 	}
-	for _, a := range active {
-		if desired[a.LogicalKey()] || !ownedByEnvironment(ctx, a.Scope) {
-			continue
-		}
+	// Unreferenced follows the same policy as the final marker, so the count
+	// shown before Deploy is what the deployment will mark.
+	for _, a := range unreferencedResources(ctx, g, active) {
 		out.Unreferenced = append(out.Unreferenced, a.Descriptor.String())
 	}
 	sort.Strings(out.Existing)
 	sort.Strings(out.New)
 	sort.Strings(out.Unreferenced)
+	return out
+}
+
+// unreferencedResources returns the Active Resources this Environment's
+// deployment marks UNREFERENCED (UC-07 MS-07): READY (the only state machine
+// source of READY -> UNREFERENCED), owned by the Environment's own scopes,
+// absent from the desired graph, identified by full logical identity.
+// Application scope is shared by every Environment of the Application, so one
+// Environment's plan never marks it; application-wide cleanup is unsupported.
+func unreferencedResources(ctx Context, g Graph, active []resource.ActiveResource) []resource.ActiveResource {
+	desired := map[string]bool{}
+	for _, n := range g.Nodes {
+		if n.Kind != NodeResource {
+			continue
+		}
+		if d, err := resource.ParseDescriptor(n.Descriptor); err == nil {
+			desired[resource.LogicalKey(ctx.OrganizationKey, d, n.Scope)] = true
+		}
+	}
+	out := []resource.ActiveResource{}
+	for _, a := range active {
+		if a.Status != resource.StatusReady || a.OrganizationKey != ctx.OrganizationKey || a.Scope.Type == resource.ScopeApplication || desired[a.LogicalKey()] || !ownedByEnvironment(ctx, a.Scope) {
+			continue
+		}
+		out = append(out, a)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].LogicalKey() < out[j].LogicalKey() })
 	return out
 }
 

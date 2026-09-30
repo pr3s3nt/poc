@@ -21,3 +21,5 @@ existence information.
 Detail never triggers runtime refresh. It omits resource resolved inputs and
 returns secret outputs only as the canonical redacted marker. Planning failure
 may legitimately return no Delta, graph, matches, batches or workload rows.
+History and detail project safe failure summaries, not unknown raw legacy
+adapter error text; the read operation never rewrites persisted history.

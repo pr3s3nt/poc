@@ -103,6 +103,9 @@ func TestUC05ScorePreviewHTTP(t *testing.T) {
 		if resp, _ := call(t, client, http.MethodPost, endpoint, huge); resp.StatusCode != http.StatusRequestEntityTooLarge {
 			t.Errorf("oversized body = %d", resp.StatusCode)
 		}
+		if resp, _ := call(t, client, http.MethodPost, endpoint, validJSON+strings.Repeat(" ", 3<<20)); resp.StatusCode != http.StatusRequestEntityTooLarge {
+			t.Errorf("oversized trailing whitespace = %d", resp.StatusCode)
+		}
 	})
 
 	t.Run("scope", func(t *testing.T) {

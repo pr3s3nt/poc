@@ -98,6 +98,7 @@ func (q *QueryService) ListDeployments(ctx context.Context, query ListDeployment
 			if query.Status != "" && record.Status != query.Status {
 				continue
 			}
+			record.FailureReason = SafeFailureReason(record.FailureReason)
 			out = append(out, record)
 		}
 		return nil
@@ -135,6 +136,7 @@ func assembleView(ctx context.Context, st persistence.Store, query GetDeployment
 	if record.OrganizationKey != query.OrganizationKey || record.ApplicationKey != query.ApplicationKey || record.EnvironmentKey != query.EnvironmentKey {
 		return nil, persistence.ErrNotFound
 	}
+	record.FailureReason = SafeFailureReason(record.FailureReason)
 	view := &View{Deployment: record, DeploymentSet: environment.NewDocument()}
 
 	setID := record.CandidateDeploymentSet

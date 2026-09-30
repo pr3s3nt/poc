@@ -58,6 +58,9 @@ Cho phép Developer xem trạng thái deployment, Resource Graph và thông tin 
 - **BR-06:** Nếu UC-06 thất bại trong planning trước khi tạo Delta Snapshot,
   Deployment view vẫn trả status/failure reason; Delta, graph và batches có thể
   vắng mặt. Không dựng Delta giả hoặc hiển thị plan của lần khác.
+- **BR-07:** Failure reason là safe summary, không raw executor/store/catalog
+  error có thể chứa secret. Với record cũ chứa reason không nhận diện là safe
+  summary, query thay bằng hướng dẫn lỗi tổng quát; không ghi lại lịch sử.
 
 ## Luồng nội bộ
 

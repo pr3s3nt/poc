@@ -3,6 +3,7 @@ package deployment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -26,17 +27,20 @@ import (
 
 // DeployCommand is the UC-06 system operation input (OC-08).
 type DeployCommand struct {
-	OrganizationKey   string
-	ApplicationKey    string
-	EnvironmentKey    string
-	WorkloadID        string
-	ScoreBefore       map[string]any
-	ScoreAfter        map[string]any
-	Actor             string
-	Action            domain.Action
-	RunID             string
-	ExpectedPlanHash  string
-	ConfigRevisionID  string
+	OrganizationKey  string
+	ApplicationKey   string
+	EnvironmentKey   string
+	WorkloadID       string
+	ScoreBefore      map[string]any
+	ScoreAfter       map[string]any
+	Actor            string
+	Action           domain.Action
+	RunID            string
+	ExpectedPlanHash string
+	ConfigRevisionID string
+	// DeferPublicRoutes is set only by the UC-16 pending batch, whose final
+	// Environment state Preview validated: routes reconcile after the batch
+	// and this step may plan an intermediate Environment state.
 	DeferPublicRoutes bool
 }
 
@@ -156,26 +160,28 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 
 	// MS-02..MS-08: planning pipeline.
 	plan, err := s.planner.Plan(planning.Request{
-		OrganizationKey:               cmd.OrganizationKey,
-		App:                           app,
-		Env:                           env,
-		Connection:                    conn,
-		BaseSet:                       baseSet,
-		Before:                        before,
-		After:                         after,
-		WorkloadID:                    workloadID,
-		RunID:                         cmd.RunID,
-		Action:                        action,
-		Catalog:                       catalog,
-		Active:                        active,
-		Terraform:                     s.terraform,
-		AllowIntermediatePublicRoutes: cmd.DeferPublicRoutes,
+		OrganizationKey: cmd.OrganizationKey,
+		App:             app,
+		Env:             env,
+		Connection:      conn,
+		BaseSet:         baseSet,
+		Before:          before,
+		After:           after,
+		WorkloadID:      workloadID,
+		RunID:           cmd.RunID,
+		Action:          action,
+		Catalog:         catalog,
+		Active:          active,
+		Terraform:       s.terraform,
+		// Only the pending batch sets DeferPublicRoutes, after validating its
+		// final Environment state; direct deploys keep full validation.
+		AllowIntermediateEnvironmentState: cmd.DeferPublicRoutes,
 	})
 	if err != nil {
 		return nil, s.fail(ctx, record, err)
 	}
 	if cmd.ExpectedPlanHash != "" && plan.PlanHash != cmd.ExpectedPlanHash {
-		return nil, s.fail(ctx, record, fmt.Errorf("deployment: preview plan is stale"))
+		return nil, s.fail(ctx, record, ErrStalePlan)
 	}
 
 	candidateSet := environment.DeploymentSet{
@@ -266,6 +272,9 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		if err := s.store.CompareVersionAndSetCurrent(ctx, app.Key, env.Key, record.BaseEnvironmentVersion, candidateSet.ID); err != nil {
 			return err
 		}
+		if err := s.markUnreferenced(ctx, cmd.OrganizationKey, record.ID, plan.UnreferencedResources); err != nil {
+			return err
+		}
 		if app.Profile == appdomain.ProfileAWSEKS && app.RuntimeStatus != appdomain.RuntimeReady {
 			app.RuntimeStatus = appdomain.RuntimeReady
 			if err := s.store.SaveApplication(ctx, app); err != nil {
@@ -282,6 +291,35 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 
 	result.Status = record.Status
 	return result, nil
+}
+
+// markUnreferenced records UC-07 MS-07 inside the final transaction: each
+// Active Resource the plan no longer references moves READY -> UNREFERENCED.
+// It is a metadata update only; nothing is destroyed. The record is re-read
+// in the transaction so identity, outputs, executor state and fingerprint are
+// kept, and resources in any other state are left to their own transitions.
+func (s *Service) markUnreferenced(ctx context.Context, organizationKey, deploymentID string, unreferenced []resource.ActiveResource) error {
+	for _, planned := range unreferenced {
+		if planned.OrganizationKey != organizationKey {
+			continue
+		}
+		current, err := s.store.FindByLogicalIdentity(ctx, organizationKey, planned.Descriptor, planned.Scope)
+		if errors.Is(err, persistence.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if current.Status != resource.StatusReady {
+			continue
+		}
+		current.Status = resource.StatusUnreferenced
+		current.LastDeploymentID = deploymentID
+		if _, err := s.store.UpsertActiveResource(ctx, current); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, workloadID, deploymentID string) error {
@@ -563,7 +601,7 @@ func (s *Service) reconcileRoutes(ctx context.Context, app appdomain.Application
 func (s *Service) fail(ctx context.Context, record domain.Deployment, cause error) error {
 	finished := s.clock.Now()
 	record.Status = domain.StatusFailed
-	record.FailureReason = cause.Error()
+	record.FailureReason = PublicFailure(cause)
 	record.FinishedAt = &finished
 	_ = s.store.SaveDeployment(ctx, record)
 	return cause

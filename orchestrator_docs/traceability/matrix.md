@@ -90,8 +90,10 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | MS-05 | `ResourceProvisioningService.Provision` | UC-08 methods | desired resources `READY` | OC-10; reconciliation test |
 | MS-06 | update/remove | `WorkloadDeployer.Apply/WaitReady` or `Delete` | workload `READY` or `REMOVED` | OC-09; update/remove adapter tests |
 | VAR-03 | Fleet GitRepo remove | `gitops.Deployer.Remove` | scoped bundle path removed; Fleet prunes Deployment/Service before state commit | `fleet-gitrepo-kind-verify.sh`; kind delete/cleanup evidence |
-| MS-07 | remove/update | `ActiveResourceRepository.MarkUnreferenced` | `active_resources=UNREFERENCED`; no destroy | OC-09; no-destroy test |
-| MS-08 | final commit | current pointer + `MarkSucceeded` | atomic set/deployment state | OC-09; transaction test |
+| MS-07 | remove/update | `Service.markUnreferenced`, `FindByLogicalIdentity/UpsertActiveResource` | Environment-owned READY → UNREFERENCED; preserve outputs/state; no destroy or Application-wide cleanup | OC-09; `TestRemoveWorkload_PreservesSharedDatabaseAndMarksLastReference`, scope and re-reference tests |
+| MS-08 | final commit | `CompareVersionAndSetCurrent`, marker upserts, `SaveDeployment` | atomic current pointer/marker/SUCCEEDED; rollback on failure | OC-09; `TestUnreferencedMarking_RollsBackWithFailedRuntimeOrCommit`, `TestPostgresRemove_CommitsSetStatusAndMarkerAtomically` |
+| BR-08 | Candidate validation; pending final batch | `ValidateServiceReferences` | no runtime mutation for dangling Service; consumer/provider batch remove allowed | OC-07/09; `TestRemovingReferencedServiceIsBlockedUnlessConsumerGoesToo`, `TestDirectRemovalOfReferencedServiceFailsBeforeSideEffects` |
+| Console delivery boundary | UC-16 scoped pending API | strict draft/version/token decoding; Application home/editor | confirmation/Undo, stale/busy/obsolete-response guards; safe results/history failures | `TestUC07PendingDraftHTTPContract`, `TestDeployReportDoesNotEchoRuntimeErrors`, `TestDeploymentHistoryHidesUnsafeFailureReasons`, frontend tests and local recording |
 
 ## UC-08
 

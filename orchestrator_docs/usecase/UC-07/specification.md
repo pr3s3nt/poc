@@ -2,7 +2,7 @@
 id: UC-07-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-28
+last_reviewed: 2026-09-30
 ---
 
 # UC-07 — Update or Remove Workload
@@ -69,6 +69,24 @@ Cập nhật hoặc xóa một workload trong Environment mà vẫn giữ nguyê
 - **BR-05:** Nếu workload khai báo một shared ID đã tồn tại với type/class/params khác, và chính workload đó chưa khai báo shared ID này trong `before Score`, planning phải từ chối vì xung đột thay vì ghi đè.
 - **BR-06:** Khi workload thôi khai báo một shared resource, entry chỉ rời Deployment Set nếu không còn module nào tham chiếu nó. Đây là phần mở rộng so với planner challenge, nơi entry bị xóa ngay theo khai báo của workload.
 - **BR-07:** Add/remove/update module phải nằm lần lượt trong `modules.add`, `modules.remove`, `modules.update`; update patch relative với module và shared patch relative với shared object, gồm array diff deterministic theo UC-05 BR-05/BR-06.
+- **BR-08:** Candidate Environment không được giữ Service reference tới
+  workload/cổng đã bị loại. Pending batch kiểm tra trạng thái cuối cùng, cho
+  phép xóa consumer và provider cùng batch; không từ chối chỉ vì trạng thái
+  trung gian. Quy tắc này hiện thực yêu cầu Service validity của UC-16/OC-17.
+
+## Console/API delivery boundary
+
+Console dùng luồng UC-16 đang có: Edit và Save pending draft; Delete có xác
+nhận nêu Workload/Environment và có Undo; Preview changes rồi người dùng bấm
+Deploy. Save/Delete/Undo không thay đổi runtime. Không thêm một luồng Deploy
+ngầm hoặc một API public update/remove song song chỉ vì tên operation thiết kế.
+Application service vẫn thực hiện semantics `UpdateWorkload`/`RemoveWorkload`
+qua orchestration chung của UC-06. Before lấy từ current deployed contribution,
+không dùng pending draft làm before.
+
+Xem [screens](ui/screens.md), [states](ui/states.md) và
+[HTTP mapping](ui/api-mapping.md). Những artifact này bổ sung mapping delivery,
+không mở scope sang rollback/recovery/concurrent workload updates.
 
 ## Luồng nội bộ
 
@@ -86,8 +104,9 @@ UC-07 Update or Remove Workload
 ## Trạng thái implementation hiện tại
 
 - Planner đã validate module và từng shared entry trong `before Score`, từ chối shared conflict, tạo Candidate Set và giữ nguyên các module khác. Planner sinh Delta theo BR-07: module add/remove/update nằm trong `modules.add/remove/update`, patch relative với module hoặc object shared và array semantics theo UC-05 BR-06 được test; conformance so Delta cho 27 accepted fixtures.
-- Shared entry chỉ bị loại khi workload thôi khai báo và không còn module khác tham chiếu; planner đã phân loại Active Resource thành `existing`, `new` và `unreferenced`.
-- UC-16 Preview → Deploy đã wire runtime update/delete theo từng workload. Fleet GitRepo remove đã pass kind; image/resource update qua Fleet chưa có external verification riêng.
+- Shared entry chỉ bị loại khi workload thôi khai báo và không còn module khác tham chiếu. Final transaction persist `UNREFERENCED` cho READY resources thuộc Environment/shared/workload scope và không còn trong desired graph; không destroy, không mark Application-wide resources từ một Environment riêng lẻ.
+- Candidate cuối cùng được kiểm tra Service references; pending batch có thể xóa cả consumer/provider mà không bị chặn vì trạng thái trung gian.
+- UC-16 Preview → Deploy update/delete theo từng workload có scoped strict API và Console confirmation/Undo, busy/stale/reload states, per-workload report và history navigation. Memory/PostgreSQL rollback/restart tests và local fake-runtime UI recording kiểm chứng milestone này. Fleet GitRepo remove đã pass kind trong evidence cũ; image/resource update qua Fleet chưa có external verification riêng.
 
 ## Ngoài phạm vi happy path
 

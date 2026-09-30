@@ -16,5 +16,5 @@ related: UC-09
 | Detail | Loading | Keep Application/Environment navigation and show an explicit busy state. |
 | Detail | Not found | Show scoped not-found without a retry action; this includes a Deployment outside the session Organization/Application/Environment. |
 | Detail | API error | Show a retryable error without rendering stale detail. |
-| Detail | Failed | Show persisted failure reason and last recorded states. If planning failed before Snapshot, leave Delta/graph/batches absent rather than inventing them. |
+| Detail | Failed | Show safe failure summary and last recorded states. Unknown legacy raw reasons become generic safe guidance. If planning failed before Snapshot, leave Delta/graph/batches absent rather than inventing them. |
 | Detail | Succeeded | Show persisted plan, graph, batches, resource/workload states and redacted outputs. |

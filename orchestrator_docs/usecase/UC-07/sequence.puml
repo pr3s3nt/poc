@@ -17,7 +17,7 @@ database DeploymentSetRepository as SetRepo
 
 Developer -> API: UpdateWorkload / RemoveWorkload
 API -> Service: command
-Service -> EnvRepo: LoadPlanningSnapshot() [MS-01]
+Service -> EnvRepo: LoadPlanningSnapshot via ReadSnapshot() [MS-01]
 EnvRepo --> Service: Current set + before contribution + version
 Service -> Planner: Plan(before, after) [MS-02..MS-04]
 Planner -> BeforeValidator: Validate(current, workloadID, before) [MS-02, BR-01]
@@ -43,7 +43,7 @@ alt Update [VAR-01]
 else Remove [VAR-02]
   Service -> Deployer: Delete(workloadRef) [MS-06]
 end
-Service -> ResourceRepo: MarkUnreferenced(classification.unreferenced) [MS-07]
+Service -> ResourceRepo: MarkUnreferenced(classification.unreferenced) <<final transaction>> [MS-07]
 note right: No destroy call
 Service -> EnvRepo: CompareVersionAndSetCurrent(candidate) <<final transaction>> [MS-08]
 Service -> DeploymentRepo: MarkSucceeded() <<final transaction>>

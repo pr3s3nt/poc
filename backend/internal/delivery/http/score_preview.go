@@ -45,7 +45,9 @@ func (s *Server) handleScorePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request body must contain exactly one JSON object"})
+		if !writeTooLarge(w, err) {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request body must contain exactly one JSON object"})
+		}
 		return
 	}
 	before, err := scoreObject("scoreBefore", req.ScoreBefore)

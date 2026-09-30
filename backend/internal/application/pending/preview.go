@@ -187,9 +187,11 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 		} else if before != nil {
 			action = domain.ActionUpdate
 		}
-		plan, err := s.planner.Plan(planning.Request{OrganizationKey: app.OrganizationKey, App: app, Env: env, Connection: connection, BaseSet: base, Before: before, After: after, WorkloadID: id, Action: action, Catalog: catalog, Active: active, Terraform: s.terraform, RunID: preview.RunID, AllowIntermediatePublicRoutes: true})
+		plan, err := s.planner.Plan(planning.Request{OrganizationKey: app.OrganizationKey, App: app, Env: env, Connection: connection, BaseSet: base, Before: before, After: after, WorkloadID: id, Action: action, Catalog: catalog, Active: active, Terraform: s.terraform, RunID: preview.RunID,
+			// Each step may be intermediate; the final batch state is validated below.
+			AllowIntermediateEnvironmentState: true})
 		if err != nil {
-			return Preview{}, err
+			return Preview{}, publicPlanningError(id, err)
 		}
 		if draft.State == environment.DraftUpsert && before != nil {
 			same, err := equivalentSets(base, plan.CandidateSet)
@@ -209,11 +211,29 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 		preview.Changes = append(preview.Changes, Change{WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, PlanHash: plan.PlanHash})
 		base = plan.CandidateSet
 	}
+	// Route and Service-reference rules apply to the final batch state only.
 	if err := planning.ValidatePublicRoutes(base); err != nil {
-		return Preview{}, err
+		return Preview{}, publicPlanningError("", &planning.StageError{Stage: planning.StageRoutes, Err: err})
+	}
+	if err := planning.ValidateServiceReferences(base); err != nil {
+		return Preview{}, publicPlanningError("", &planning.StageError{Stage: planning.StageServiceRefs, Err: err})
 	}
 	preview.Token, err = canon.Hash(preview)
 	return preview, err
+}
+
+// publicPlanningError replaces a raw planner message, which may quote
+// catalog, Definition or other persisted content, with a fixed sentence.
+// Unstaged errors are internal and returned unchanged.
+func publicPlanningError(workloadID string, err error) error {
+	message, ok := planning.PublicMessage(err)
+	if !ok {
+		return err
+	}
+	if workloadID != "" {
+		return fmt.Errorf("%w: workload %s: %s", ErrInvalid, workloadID, message)
+	}
+	return fmt.Errorf("%w: %s", ErrInvalid, message)
 }
 
 func equivalentSets(a, b environment.Document) (bool, error) {

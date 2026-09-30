@@ -3,6 +3,7 @@ package pending_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	tf "orchestrator/internal/adapters/terraform"
@@ -160,8 +161,8 @@ func TestFailedRouteCanRetryWithoutRestartingWorkload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", preview.Token); err == nil {
-		t.Fatal("route failure was not reported")
+	if _, err := svc.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", preview.Token); !errors.Is(err, pending.ErrRouteReconcile) || strings.Contains(err.Error(), "route unavailable") {
+		t.Fatalf("route failure not reported safely: %v", err)
 	}
 	previousApplies := len(app.FakeDeploy.Applied)
 	retry, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)

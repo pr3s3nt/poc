@@ -9,5 +9,9 @@ PROVISIONING --> FAILED : executor/output validation error
 FAILED --> [*]
 note right of UNREFERENCED
   No automatic destroy in MVP.
+  Environment-owned READY resources only;
+  mark with successful current-set commit.
+  Application-wide resources require
+  cross-Environment ownership evidence.
 end note
 @enduml
