@@ -7,7 +7,7 @@ import { Status } from '../../shared/ui/Status';
 import { deleteWorkload, deployChanges, getWorkloads, previewChanges, undoWorkloadDelete, type DeployReport, type PendingPreview, type WorkloadList } from '../workloads/api';
 import { RecentDeployments } from '../deployments/RecentDeployments';
 
-export function ApplicationHomePage({ application }: { application: Application }) {
+export function ApplicationHomePage({ application, created = false }: { application: Application; created?: boolean }) {
   const [environment, setEnvironment] = useState<EnvironmentKey>('staging');
   const [data, setData] = useState<WorkloadList>();
   const [error, setError] = useState('');
@@ -47,6 +47,7 @@ export function ApplicationHomePage({ application }: { application: Application 
   const workloads = data?.workloads ?? [];
   return <section className="page application-home"><button className="back-link" onClick={() => navigate({ name: 'applications' })}>← Applications</button>
     <header className="page-header application-header"><div><p className="eyebrow">Application</p><h1>{application.name}</h1><p>{endpointFor(application, 'production')}</p></div><Button onClick={() => navigate({ name: 'settings', applicationId: application.id })}>Variables &amp; Secrets</Button></header>
+    {created ? <div className="form-success" role="status">Application created. Staging and production are ready; nothing has been deployed yet.</div> : null}
     <div className="tabs" role="tablist"><button className={environment === 'staging' ? 'tab tab-active' : 'tab'} onClick={() => setEnvironment('staging')}>Staging<span>{endpointFor(application, 'staging')}</span></button><button className={environment === 'production' ? 'tab tab-active' : 'tab'} onClick={() => setEnvironment('production')}>Production<span>{endpointFor(application, 'production')}</span></button></div>
     <section className="content-panel"><div className="section-header"><div><h2>Workloads</h2><p>Configuration for {environment}; saving here does not deploy.</p></div><Button onClick={() => navigate({ name: 'workload', applicationId: application.id, environment })}>+ Add workload</Button></div>
       {error ? <div className="form-error" role="alert">{error}</div> : null}

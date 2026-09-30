@@ -38,6 +38,17 @@ ALTER TABLE sessions ALTER COLUMN user_account_id SET NOT NULL;
 ALTER TABLE sessions ADD FOREIGN KEY(user_account_id) REFERENCES user_accounts(id);
 `
 
+// migration3 makes Application Name unique per Organization regardless of
+// case. It fails with a clear message when existing rows already collide.
+const migration3 = `
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM applications GROUP BY organization_id, lower(name) HAVING count(*) > 1) THEN
+    RAISE EXCEPTION 'applications contain names that differ only by case within one organization; rename them before upgrading';
+  END IF;
+END $$;
+CREATE UNIQUE INDEX IF NOT EXISTS applications_organization_lower_name_key ON applications(organization_id, lower(name));
+`
+
 type querier interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	Query(context.Context, string, ...any) (pgx.Rows, error)
@@ -87,7 +98,7 @@ func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	for _, item := range []struct {
 		version int
 		sql     string
-	}{{1, migration}, {2, migration2}} {
+	}{{1, migration}, {2, migration2}, {3, migration3}} {
 		var applied bool
 		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)`, item.version).Scan(&applied); err != nil {
 			return err

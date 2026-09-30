@@ -1,8 +1,8 @@
 ---
 id: I06-04-WORK
 artifact: iteration-work-items
-status: deferred
-last_reviewed: 2026-09-23
+status: current
+last_reviewed: 2026-09-30
 related: I06-04
 ---
 

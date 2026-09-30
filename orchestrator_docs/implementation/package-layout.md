@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-PACKAGE-LAYOUT
 artifact: package-layout
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-30
 ---
 
 # Backend and Frontend Layout
@@ -18,6 +18,8 @@ backend/
 ├── go.mod                                  # module orchestrator
 ├── cmd/orchestrator/                       # API process entrypoint
 ├── internal/delivery/http/                 # controllers, request/response mapping, /ui static delivery
+├── internal/application/authentication/    # UC-00 sign-in/session service
+├── internal/application/application/       # UC-01 self-service Application creation
 ├── internal/application/deployment/        # UC-06, UC-07, UC-09
 ├── internal/application/provisioning/      # UC-08
 ├── internal/domain/application/            # Organization, Application, ExecutionProfile, Connection
@@ -28,6 +30,7 @@ backend/
 ├── internal/ports/persistence/             # repository and UnitOfWork interfaces
 ├── internal/ports/execution/               # ResourceExecutor, renderer, deployer, secret store
 ├── internal/adapters/store/                # Phase 6 state store: in-memory repositories + file snapshot
+├── internal/adapters/postgres/             # normalized PostgreSQL repositories and migrations
 ├── internal/adapters/fake/                 # fake ResourceExecutor/WorkloadDeployer cho walking skeleton
 ├── internal/adapters/kubernetes/           # resource executor + workload deployer (kubectl transport)
 ├── internal/adapters/terraform/            # Terraform executor, embedded modules, HCL contract inspector
@@ -35,7 +38,7 @@ backend/
 ├── internal/seed/                          # Humanitec-style seed catalog cho Phase 6
 ├── internal/platform/                      # clock, IDs, logging, config
 ├── test/e2e/                               # HTTP end-to-end tests (fake adapters)
-├── test/integration/                       # kind/AWS integration tests (build tags)
+├── test/integration/                       # local browser, PostgreSQL, kind/AWS integration runners
 ├── test/integration/deployctl/             # drives deployments through the HTTP API
 ├── test/integration/costreport/            # AWS Pricing API estimate before apply
 ├── test/conformance/                       # product planner vs the 33 challenge fixtures
@@ -48,7 +51,8 @@ frontend/                                   # Orchestrator Web Console
 ├── src/features/{workloads,deployments}/   # future use-case features, added when scheduled
 ├── src/shared/{types,ui}/                  # shared UI primitives and client-side types
 ├── src/styles/                             # design tokens và styles theo concern
-└── src/test/                               # Vitest setup
+├── src/test/                               # Vitest setup
+└── test/e2e/                               # Playwright browser flows
 ```
 
 ## Rules
@@ -63,18 +67,15 @@ frontend/                                   # Orchestrator Web Console
 - Frontend dùng React + TypeScript strict + Vite, Vitest/Testing Library; ưu tiên React state/reducer và minimal router trước khi thêm framework khác.
 - Root `frontend/` là web console quản trị. Acceptance application frontend là
   test workload riêng tại `backend/examples/acceptance-app/frontend/`.
-- Chưa tạo placeholder package cho UC-01..UC-04 admin services, UC-05 preview
-  service hoặc AWS connection registration. Chỉ thêm package khi increment đó
-  có executable implementation và tests.
+- Chỉ thêm package khi increment có executable implementation và tests; không
+  tạo placeholder cho deferred management gaps.
 
 ## Phase 6 implementation notes
 
-- **State store:** `internal/adapters/store` hiện thực các repository port bằng in-memory aggregate
-  map cộng file snapshot (JSON) để state sống qua restart. Schema PostgreSQL trong
-  `architecture/database/schema.md` vẫn là thiết kế chuẩn của system of record; adapter
-  `internal/adapters/postgres` được hoãn sang Phase 6 bước 5 vì Phase 6 bước 1–3 chỉ cần
-  logical identity, lifecycle và plan snapshot. Transaction contract được giữ nguyên bằng
-  `UnitOfWork` nên việc thay adapter không đổi application service.
+- **State store:** `internal/adapters/store` hiện thực in-memory/JSON local-test
+  repositories; `internal/adapters/postgres` hiện thực normalized system of
+  record theo canonical schema, migration ledger và PostgreSQL transaction.
+  Cả hai dùng chung repository/UnitOfWork ports.
 - **Kubernetes transport:** `internal/adapters/kubernetes` gọi `kubectl` với `--context` đã resolve
   thay vì nhúng client-go. Adapter vẫn là implementation của port `execution.ResourceExecutor`
   và `execution.WorkloadDeployer`; lựa chọn này giữ module không có dependency nặng và dùng

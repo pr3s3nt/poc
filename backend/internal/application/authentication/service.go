@@ -24,17 +24,30 @@ type Identity struct {
 	Role                              identity.Role
 }
 type Service struct {
-	store persistence.Store
-	now   func() time.Time
+	store    persistence.Store
+	now      func() time.Time
+	rejected map[string]bool
 }
 
-func NewService(store persistence.Store) *Service {
-	return &Service{store: store, now: func() time.Time { return time.Now().UTC() }}
+// NewService builds the UC-00 service. Sign-in and session restore are refused
+// for rejectedAccountIDs; the production profile passes the fixed local/test
+// accounts so a reused database never accepts them (UC-00 BR-05). The set is
+// fixed at construction and only read afterwards.
+func NewService(store persistence.Store, rejectedAccountIDs ...string) *Service {
+	rejected := make(map[string]bool, len(rejectedAccountIDs))
+	for _, id := range rejectedAccountIDs {
+		rejected[strings.ToLower(id)] = true
+	}
+	return &Service{store: store, now: func() time.Time { return time.Now().UTC() }, rejected: rejected}
+}
+
+func (s *Service) accepted(account identity.UserAccount) bool {
+	return account.Status == identity.AccountActive && !s.rejected[strings.ToLower(account.ID)]
 }
 
 func (s *Service) SignIn(ctx context.Context, username, rawPassword string) (string, Identity, error) {
 	account, err := s.store.GetUserAccountByUsername(ctx, strings.ToLower(strings.TrimSpace(username)))
-	if err != nil || account.Status != identity.AccountActive || !password.Verify(account.PasswordHash, rawPassword) {
+	if err != nil || !s.accepted(account) || !password.Verify(account.PasswordHash, rawPassword) {
 		return "", Identity{}, ErrInvalidCredentials
 	}
 	raw := make([]byte, 32)
@@ -55,7 +68,7 @@ func (s *Service) IdentityForToken(ctx context.Context, token string) (Identity,
 		return Identity{}, ErrUnauthorized
 	}
 	account, err := s.store.GetUserAccount(ctx, session.UserAccountID)
-	if err != nil || account.Status != identity.AccountActive {
+	if err != nil || !s.accepted(account) {
 		return Identity{}, ErrUnauthorized
 	}
 	return Identity{UserID: account.ID, OrganizationKey: account.OrganizationKey, Username: account.Username, Role: account.Role}, nil

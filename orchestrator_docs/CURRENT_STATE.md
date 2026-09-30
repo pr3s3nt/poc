@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-09-29
+last_reviewed: 2026-09-30
 ---
 
 # Current project state
@@ -16,11 +16,11 @@ thực. Internal happy path đã được kiểm chứng trên kind; cloud happy
 kiểm chứng trên AWS với VPC, EKS và Aurora rồi cleanup.
 
 Active iteration là
-[I00-00 — UC-00 and UC-01 developer onboarding](iterations/M00-developer-onboarding/I00-00-uc00-uc01-developer-onboarding/README.md)
-thuộc [M00-a — Developer onboarding](iterations/M00-developer-onboarding/README.md).
-M00-a đã có React UI, API, session và JSON snapshot persistence cho
-sign-in/self-service Application ở local/test baseline. I06-04 được
-reprioritize sang deferred.
+[I06-04 — Complete UC-09 observability](iterations/M02-usecase-completion/I06-04-uc09-observability/README.md)
+thuộc [M02 — Use-case completion](iterations/M02-usecase-completion/README.md).
+[M00-a — Developer onboarding](iterations/M00-developer-onboarding/README.md) đã
+hoàn thành 2026-09-30 với React UI, authenticated API, session, normalized
+PostgreSQL persistence và local browser restart verification cho UC-00/UC-01.
 [M01 — Contract hardening](iterations/M01-contract-hardening/README.md) đã hoàn
 thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 
@@ -28,8 +28,8 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 
 | UC | State | Current conclusion |
 |---|---|---|
-| UC-00 | Implemented; local/test baseline | Fixed seeded `developer` account, opaque HttpOnly cookie session, session restore và sign-out đã có; production profile không seed test account. |
-| UC-01 | Implemented; local/test baseline | Authenticated Developer có thể list/create/get Application qua API; service tự sinh ID, staging/production, empty Deployment Sets và namespace identities. `acme` resolve `internal-cluster` như platform default, không hiển thị target chooser. |
+| UC-00 | Implemented; locally E2E verified | Fixed local/test accounts, opaque HttpOnly cookie session, restore/expiry/revocation và sign-out đã có; production profile không seed hoặc chấp nhận fixed credential từ state mới hay legacy. |
+| UC-01 | Implemented; locally E2E verified | Authenticated Developer list/create/get Application qua API/UI; service tự sinh ID, staging/production, empty Deployment Sets và namespace identities. Create không deploy; browser restart test xác nhận durable local state. |
 | UC-02 | Registration implemented | Platform Engineer/Admin có thể đăng ký và xem Resource Types trong Organization qua API/UI; seeded catalog và normalized PostgreSQL persistence dùng được. Production-grade RBAC chưa có. |
 | UC-03 | Registration implemented | Platform Engineer/Admin có thể đăng ký Definition runtime-supported với criteria, driver inputs và provision rules qua API/UI; planner vẫn có profile guard và matching, catalog được persist trong PostgreSQL. Remote source và production-grade RBAC chưa có. |
 | UC-04 | Local/kind Kubernetes registration implemented | Platform Engineer/Admin đăng ký cluster ID + host kube context qua API/UI; verifier kiểm tra API/RBAC đọc-only rồi persist connection `READY` trong PostgreSQL theo Organization. AWS registration và durable credential store chưa có. |

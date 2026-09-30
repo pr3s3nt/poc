@@ -1,8 +1,8 @@
 ---
 id: I00-00-WORK
 artifact: iteration-work-items
-status: current
-last_reviewed: 2026-09-23
+status: historical
+last_reviewed: 2026-09-30
 related: I00-00
 ---
 
@@ -27,12 +27,12 @@ related: I00-00
 
 ## Handoff checklist
 
-- [ ] No password, raw session token, credential or secret value appears in
+- [x] No password, raw session token, credential or secret value appears in
   logs, API response, UI state or test snapshot.
-- [ ] Fixed test accounts are unavailable outside local/test profile.
-- [ ] UI never submits trusted Organization ID or role; backend derives both
+- [x] Fixed test accounts are unavailable outside local/test profile.
+- [x] UI never submits trusted Organization ID or role; backend derives both
   from authenticated session.
-- [ ] Create Application has no runtime infrastructure or deploy side effect.
-- [ ] Every screen has loading, validation, API error and success/empty states.
-- [ ] Existing deploy/detail UI remains reachable until its replacement flows
+- [x] Create Application has no runtime infrastructure or deploy side effect.
+- [x] Every screen has loading, validation, API error and success/empty states.
+- [x] Existing deploy/detail UI remains reachable until its replacement flows
   are designed in later use cases.

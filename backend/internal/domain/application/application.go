@@ -7,6 +7,7 @@ import (
 )
 
 var keyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,40}$`)
+var dnsLabelPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
 // ExecutionProfile is the execution policy bound to an Application (UC-01).
 type ExecutionProfile string
@@ -61,7 +62,7 @@ func (a Application) Validate() error {
 	}
 	// Legacy seeded planning fixtures predate UC-01 self-service creation and
 	// have no public endpoint. UC-01's creation service always requires it.
-	if a.Subdomain != "" && !keyPattern.MatchString(a.Subdomain) {
+	if a.Subdomain != "" && !dnsLabelPattern.MatchString(a.Subdomain) {
 		return fmt.Errorf("application: invalid subdomain %q", a.Subdomain)
 	}
 	if !a.Profile.Valid() {

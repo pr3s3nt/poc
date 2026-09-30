@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-09-27
+last_reviewed: 2026-09-30
 ---
 
 # Database Schema
@@ -88,8 +88,10 @@ future durable credential-store variant.
 | `version` | bigint | optimistic version |
 | `configuration_provider` | text | `vault` in the first implementation; one provider per Application |
 
-`id` is system-generated and immutable. Unique: `(organization_id, name)` and
-`subdomain` globally within the configured platform base domain.
+`id` is system-generated and immutable. Application Name is unique within an
+Organization without regard to case, enforced by a unique index on
+`(organization_id, lower(name))`. `subdomain` is normalized to lowercase and
+unique globally within the configured platform base domain.
 
 ### `environments`
 

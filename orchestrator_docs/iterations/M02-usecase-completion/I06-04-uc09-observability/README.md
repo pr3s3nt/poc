@@ -1,8 +1,8 @@
 ---
 id: I06-04
 artifact: iteration-plan
-status: deferred
-last_reviewed: 2026-09-23
+status: current
+last_reviewed: 2026-09-30
 related: UC-09, IMP-005
 ---
 
@@ -45,9 +45,9 @@ thành hoặc bỏ scope.
 
 ## First next action
 
-Sau M01, lập lại gap list bám từng UC-09 `MS-nn` trên checkout mới trước khi
-tiếp tục code.
+Lập lại gap list bám từng UC-09 `MS-nn` trên checkout hiện tại trước khi tiếp
+tục code.
 
 ## Outcome
 
-Reprioritized sau M00-a; chưa hoàn thành.
+Được kích hoạt lại sau khi M00-a hoàn thành ngày 2026-09-30; chưa hoàn thành.

@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-30
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -13,19 +13,19 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
-| MS-01, MS-02 | `SignIn`; `UC-00/sequence.puml` | `AuthenticationService.SignIn`, `UserAccountRepository.FindActiveByUsername`, `PasswordHasher.Verify` | read active `user_accounts`; no session on failure | OC-00; invalid-password/disabled-account tests |
-| MS-03 | same | identity-context builder | User ID, Organization ID, role | OC-00; organization/role context test |
-| MS-04 | same | random-token generator, `SessionRepository.Save` | token-hash-only `sessions` record | OC-00; no-raw-token persistence test |
-| MS-05 | authentication middleware | session lookup and context injection | authenticated request context | OC-00; protected-route and sign-out tests |
+| MS-01, MS-02 | `SignIn`; `UC-00/sequence.puml` | `authentication.Service.SignIn`, account lookup, `password.Verify` | read active `user_accounts`; no session on failure | OC-00; `authentication/service_test.go`, `test/e2e/onboarding_test.go` |
+| MS-03 | same | session identity builder | User ID, Organization key, role | OC-00; Organization/role and cross-Organization HTTP tests |
+| MS-04 | same | random-token generator, `SaveSession` | token-hash-only `sessions` record | OC-00; raw-token persistence and response-leak tests |
+| MS-05 | authentication middleware | session lookup and context injection | authenticated request context | OC-00; protected-route, expiry, revocation, production-profile and Playwright tests |
 
 ## UC-01
 
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
-| MS-01, MS-02 | `CreateApplication`; `UC-01/sequence.puml` | `ApplicationService.CreateApplication`, subdomain validator | `applications`; unique Name/Subdomain | OC-01; invalid/duplicate subdomain tests |
-| MS-03, MS-04 | same | default-target resolver, `ConnectionRepository.FindReady`, `Application.Create` | Application system ID, profile/connection binding; AWS `PENDING`, internal `READY` | OC-01; target-resolution tests |
-| MS-05, MS-06 | same | `Environment.Create`, `DeploymentSet.Empty`, `NamespaceIdentity.ForEnvironment` | exactly `staging` and `production`; `environments`, `deployment_sets` | OC-01; atomic default-environment test |
-| MS-07, MS-08 | same | endpoint derivation, `ApplicationRepository.Save` | derived desired endpoints; atomic Application/Environment/current-set write | OC-01; endpoint derivation and no-infrastructure test |
+| MS-01, MS-02 | `CreateApplication`; `UC-01/sequence.puml` | `application.Service.Create`, strict HTTP decoder, DNS-label validator | `applications`; case-insensitive Organization Name and global normalized Subdomain constraints | OC-01; service, HTTP and PostgreSQL constraint tests |
+| MS-03, MS-04 | same | default-target resolver, Connection repository, Application creation | Application system ID, profile/connection binding; AWS `PENDING`, internal `READY` | OC-01; ready/not-ready and target-resolution tests |
+| MS-05, MS-06 | same | Environment and empty Deployment Set creation | exactly `staging` and `production`; `environments`, `deployment_sets` | OC-01; transaction rollback, HTTP and PostgreSQL persistence tests |
+| MS-07, MS-08 | same | endpoint derivation, Application persistence | derived desired endpoints; atomic Application/Environment/current-set write | OC-01; no-deploy-side-effect frontend/HTTP/Playwright tests |
 
 ## UC-02
 

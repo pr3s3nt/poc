@@ -1,9 +1,9 @@
 ---
 id: I00-00
 artifact: iteration-plan
-status: current
-last_reviewed: 2026-09-23
-related: UC-00, UC-01, IMP-002, IMP-012
+status: historical
+last_reviewed: 2026-09-30
+related: UC-00, UC-01, IMP-002
 ---
 
 # I00-00 — UC-00 and UC-01 developer onboarding
@@ -57,11 +57,20 @@ trình liên tục, nhưng mỗi screen/state vẫn trace về UC-00 hoặc UC-0
 - Go test/build, frontend typecheck/lint/test/build, docs checker and relevant
   local integration validation pass.
 
-## First next action
-
-Create the paired UC-00/UC-01 screen-flow and API-state map before creating
-backend or frontend implementation tasks.
-
 ## Outcome
 
-Chưa thực hiện.
+Hoàn thành 2026-09-30; mọi exit criterion pass.
+
+- UC-00 có fixed local/test accounts, password-hash verification, opaque
+  `HttpOnly` session, restore, expiry/revocation và sign-out. Production không
+  seed hoặc chấp nhận fixed credential, kể cả state legacy dùng random account
+  ID.
+- UC-01 chỉ nhận Name/Subdomain, sinh Application ID, resolve default target và
+  tạo atomically đúng `staging`/`production` cùng empty Deployment Sets; create
+  không deploy hay provision runtime.
+- React Console có restore/loading/empty/error/success/session-expired states;
+  browser test xác nhận sign-in → create → sign-out → sign-in → backend restart
+  vẫn giữ Application.
+- Backend test/build, frontend typecheck/lint/test/build, local Playwright và
+  documentation validation pass. Evidence:
+  [UC-00/UC-01 local onboarding](../../../verification/2026-09-30-uc00-uc01-local-onboarding.md).

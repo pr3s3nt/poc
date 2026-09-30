@@ -3,6 +3,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -16,6 +17,27 @@ import (
 
 var subdomainPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
+// Sentinel errors let delivery map UC-01 failures without parsing messages.
+var (
+	ErrInvalid        = errors.New("application: invalid input")
+	ErrDuplicate      = errors.New("application: already exists")
+	ErrTargetNotReady = errors.New("application: default execution target is not ready")
+)
+
+// FieldError names the Developer-editable field (name or subdomain) that failed.
+type FieldError struct {
+	Field string
+	Err   error
+	msg   string
+}
+
+func (e *FieldError) Error() string { return e.msg }
+func (e *FieldError) Unwrap() error { return e.Err }
+
+func fieldError(field string, err error, msg string) error {
+	return &FieldError{Field: field, Err: err, msg: "application: " + msg}
+}
+
 type CreateCommand struct{ OrganizationKey, Name, Subdomain, BaseDomain string }
 type Result struct {
 	Application  appdomain.Application
@@ -27,8 +49,11 @@ func NewService(store persistence.Store) *Service { return &Service{store: store
 func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error) {
 	cmd.Name = strings.TrimSpace(cmd.Name)
 	cmd.Subdomain = strings.ToLower(strings.TrimSpace(cmd.Subdomain))
-	if cmd.Name == "" || !subdomainPattern.MatchString(cmd.Subdomain) {
-		return Result{}, fmt.Errorf("application: name and valid subdomain are required")
+	if cmd.Name == "" {
+		return Result{}, fieldError("name", ErrInvalid, "application name is required")
+	}
+	if !subdomainPattern.MatchString(cmd.Subdomain) {
+		return Result{}, fieldError("subdomain", ErrInvalid, "subdomain must be a DNS label of lowercase letters, numbers and hyphens")
 	}
 	var result Result
 	err := s.store.Transact(ctx, func(ctx context.Context) error {
@@ -41,22 +66,25 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 			return err
 		}
 		if conn.Status != appdomain.ConnectionReady {
-			return fmt.Errorf("application: default connection is not ready")
+			return ErrTargetNotReady
 		}
 		apps, err := s.store.ListApplications(ctx)
 		if err != nil {
 			return err
 		}
 		for _, existing := range apps {
-			if existing.Subdomain == cmd.Subdomain || (existing.OrganizationKey == cmd.OrganizationKey && strings.EqualFold(existing.Name, cmd.Name)) {
-				return fmt.Errorf("application: name or subdomain already exists")
+			if existing.OrganizationKey == cmd.OrganizationKey && strings.EqualFold(existing.Name, cmd.Name) {
+				return fieldError("name", ErrDuplicate, "application name already exists in the organization")
+			}
+			if existing.Subdomain == cmd.Subdomain {
+				return fieldError("subdomain", ErrDuplicate, "subdomain is already in use")
 			}
 		}
 		profile, region, status := appdomain.ProfileInternalK8s, "", appdomain.RuntimeReady
 		if conn.Kind == appdomain.ConnectionAWS {
 			profile, region, status = appdomain.ProfileAWSEKS, conn.ConfigString("region"), appdomain.RuntimePending
 			if region == "" {
-				return fmt.Errorf("application: default AWS connection needs a region")
+				return fmt.Errorf("%w: default AWS connection needs a region", ErrTargetNotReady)
 			}
 		}
 		appID := ids.New()
@@ -65,6 +93,10 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 			return err
 		}
 		if err := s.store.SaveApplication(ctx, app); err != nil {
+			// Unique Name/Subdomain constraints are the final duplicate guard.
+			if errors.Is(err, persistence.ErrImmutable) {
+				return fmt.Errorf("%w: %v", ErrDuplicate, err)
+			}
 			return err
 		}
 		for _, key := range []string{"staging", "production"} {

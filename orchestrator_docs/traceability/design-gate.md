@@ -2,7 +2,7 @@
 id: DESIGN-GATE
 artifact: design-gate-review
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-30
 ---
 
 # Design Gate Review
@@ -144,8 +144,12 @@ lịch sử vẫn có giá trị trong phạm vi behavior đã kiểm chứng, k
 chứng cho Delta Snapshot hoặc container resources; kind rerun của I06-07 là bằng
 chứng internal happy path hiện tại.
 
-## UC-00 follow-up
+## UC-00 targeted follow-up — PASS 2026-09-30
 
-UC-00 không thuộc decision PASS lịch sử ở trên. Trước khi implementation,
-targeted review phải xác nhận password/session handling, Organization/role
-request context, fixed-test-account isolation và UC-00 traceability.
+Targeted review đã xác nhận password hash verification, opaque token chỉ lưu
+dạng hash, `HttpOnly` session cookie, sign-out/revocation, Organization/role lấy
+từ authenticated context và fixed-test-account isolation. Production profile
+không seed hoặc chấp nhận fixed account, kể cả account legacy có random ID khi
+credential vẫn là fixed test credential. HTTP, frontend và local Playwright
+coverage được trace trong matrix; execution record nằm tại
+[UC-00/UC-01 local onboarding](../verification/2026-09-30-uc00-uc01-local-onboarding.md).

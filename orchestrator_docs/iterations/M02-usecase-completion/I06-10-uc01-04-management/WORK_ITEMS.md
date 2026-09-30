@@ -2,7 +2,7 @@
 id: I06-10-WORK
 artifact: iteration-work-items
 status: deferred
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-30
 related: I06-10
 ---
 
@@ -10,9 +10,9 @@ related: I06-10
 
 ## Implementation order
 
-1. Reconcile UC-01..04 traceability against current seed/domain/store code.
-2. Implement application services and repository behavior in dependency order,
-   starting UC-01 atomic Application + default-Environment creation.
+1. Reconcile remaining UC-02..04 traceability against current code and tests.
+2. Complete application services and repository behavior for remaining
+   Resource Type, Resource Definition and Connection gaps.
 3. Add HTTP contracts with validation and stable identifiers.
 4. Add Web Console management flows and complete UI states.
 5. Add planner integration proving newly registered catalog/connections work.
@@ -24,6 +24,5 @@ related: I06-10
 - [ ] Resource Definition registration enforces at least one criterion.
 - [ ] Connection persists only opaque secret references.
 - [ ] Newly created data is usable without process restart.
-- [ ] UC-01 accepts only Name/Subdomain, creates exactly `staging` and
-  `production`, and never provisions infrastructure.
-- [ ] IMP-002 removed only when all four happy paths are delivered.
+- [ ] I00-00 UC-01 behavior remains covered by regression tests.
+- [ ] IMP-002 removed only when all remaining UC-02..04 gaps are delivered.

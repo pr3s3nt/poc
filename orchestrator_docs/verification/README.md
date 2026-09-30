@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-09-28
+last_reviewed: 2026-09-30
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-09-30 | UC-00/UC-01 local browser onboarding, sign-out/re-login and backend restart persistence | [Local onboarding](2026-09-30-uc00-uc01-local-onboarding.md) |
 | 2026-09-21 | Local walking skeleton and Web Console | [Walking skeleton](2026-09-21-walking-skeleton.md) |
 | 2026-09-21 | Internal Kubernetes happy path and cleanup | [kind happy path](2026-09-21-kind-happy-path.md) |
 | 2026-09-21 | AWS VPC/EKS/Aurora happy path, cost and cleanup | [AWS happy path](2026-09-21-aws-happy-path.md) |

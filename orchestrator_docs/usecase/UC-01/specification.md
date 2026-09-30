@@ -2,7 +2,7 @@
 id: UC-01-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-30
 ---
 
 # UC-01 — Create Application
@@ -84,9 +84,19 @@ UC-01 Create Application
 
 ## Trạng thái implementation hiện tại
 
-- Baseline chỉ có Application/Environment seed (`acceptance`, `acceptance-cloud`) với Environment `dev`; API/Web Console có thể liệt kê chúng.
-- Baseline chưa có API/UI tạo Application, Application ID tự sinh theo UC-01, default target theo Organization, Subdomain/desired endpoint hoặc hai Environment cố định.
-- Planning context đã dùng Application, Environment, profile, connection, region, namespace identity và runtime status; VPC/EKS có application scope.
+- Authenticated Developer có thể tạo Application qua API/Web Console chỉ với
+  Name và Subdomain. Backend sinh Application ID, resolve default Connection
+  `READY` của Organization và không nhận Organization/role/profile/Connection
+  từ request.
+- Một transaction tạo Application, đúng hai Environment `staging`/`production`
+  và hai Deployment Set rỗng. Desired endpoint được UI suy ra từ Subdomain và
+  platform base domain; UC-01 không provision infrastructure hoặc workload.
+- In-memory/JSON adapter phục vụ local/test; normalized PostgreSQL adapter đã
+  persist Application/Environment/Deployment Set và giữ state qua backend
+  restart. Seed `acceptance` với Environment `dev` vẫn là planning fixture độc
+  lập, không đại diện cho output UC-01.
+- Planning context dùng Application, Environment, profile, connection, region,
+  namespace identity và runtime status; VPC/EKS có application scope.
 
 ## Ngoài phạm vi happy path
 

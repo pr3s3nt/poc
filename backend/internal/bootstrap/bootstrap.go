@@ -187,7 +187,13 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		deployments.SetImagePullSecret(opts.HarborPullSecretName)
 	}
 	queries := appsvc.NewQueryService(st)
-	auth := authentication.NewService(st)
+	var rejectedAccountIDs []string
+	if !seed.AllowsFixedTestAccounts(opts.Seed.Profile) {
+		if rejectedAccountIDs, err = seed.FixedTestAccountIDsIn(ctx, st); err != nil {
+			return nil, fmt.Errorf("bootstrap: find fixed test accounts: %w", err)
+		}
+	}
+	auth := authentication.NewService(st, rejectedAccountIDs...)
 	applications := appcreate.NewService(st)
 	var configProvider configport.Provider
 	if opts.ConfigurationProviderOverride != nil {

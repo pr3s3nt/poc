@@ -2,7 +2,7 @@
 id: RUNBOOK-LOCAL
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-30
 ---
 
 # Local development with fake adapters
@@ -15,6 +15,20 @@ go build ./...
 go test ./...
 (cd ../frontend && npm ci && npm run typecheck && npm run lint && npm test && npm run build)
 ```
+
+Kiểm tra onboarding UC-00/UC-01 bằng Chromium thật, fake adapters và JSON state
+riêng trong thư mục tạm:
+
+```bash
+cd backend
+bash test/integration/onboarding-playwright-local.sh
+```
+
+Runner sign in, tạo Application chỉ từ Name/Subdomain, kiểm tra đúng
+`staging`/`production`, sign out/sign in lại, restart backend và xác nhận
+Application vẫn còn. Runner không dùng Docker, Kubernetes hoặc cloud và tự dọn
+process/file tạm khi thành công; đặt `ORCH_KEEP_EVIDENCE=1` để giữ log khi cần
+điều tra.
 
 ## Run
 

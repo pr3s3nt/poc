@@ -255,6 +255,50 @@ func ResourceDefinitions(o Options) []resource.Definition {
 	}
 }
 
+// Stable IDs of the UC-00 accounts seeded only for local/test. Production
+// denies exactly these accounts, not every account with the same username.
+const (
+	FixedDeveloperAccountID        = "5eed0000-0000-4000-8000-000000000001"
+	FixedPlatformEngineerAccountID = "5eed0000-0000-4000-8000-000000000002"
+)
+
+// FixedTestPassword is the shared password of the fixed local/test accounts.
+const FixedTestPassword = "test-password"
+
+// FixedTestAccountIDs lists the stable IDs of the fixed local/test accounts.
+func FixedTestAccountIDs() []string {
+	return []string{FixedDeveloperAccountID, FixedPlatformEngineerAccountID}
+}
+
+// fixedTestUsernames lists the usernames of the fixed local/test accounts.
+var fixedTestUsernames = []string{"developer", "platform-engineer"}
+
+// FixedTestAccountIDsIn returns the stable fixed IDs plus the IDs of legacy
+// fixed accounts found in the store. Accounts seeded before stable IDs had
+// random IDs; one counts as fixed only when its username is a fixed username
+// AND its stored hash verifies the fixed password. An account that shares the
+// username but has another password is not a fixed test account.
+func FixedTestAccountIDsIn(ctx context.Context, store persistence.Store) ([]string, error) {
+	out := FixedTestAccountIDs()
+	for _, username := range fixedTestUsernames {
+		account, err := store.GetUserAccountByUsername(ctx, username)
+		if errors.Is(err, persistence.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if password.Verify(account.PasswordHash, FixedTestPassword) {
+			out = append(out, account.ID)
+		}
+	}
+	return out, nil
+}
+
+// AllowsFixedTestAccounts reports whether the profile may seed and accept the
+// fixed local/test accounts.
+func AllowsFixedTestAccounts(profile string) bool { return profile == "local" || profile == "test" }
+
 // Apply writes the seeded catalog, both Applications and their Environments.
 func Apply(ctx context.Context, store persistence.Store, o Options) error {
 	if _, err := store.GetOrganization(ctx, o.OrganizationKey); errors.Is(err, persistence.ErrNotFound) {
@@ -264,20 +308,20 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 	} else if err != nil {
 		return err
 	}
-	if o.Profile == "local" || o.Profile == "test" {
-		passwordHash, err := password.Hash("test-password")
+	if AllowsFixedTestAccounts(o.Profile) {
+		passwordHash, err := password.Hash(FixedTestPassword)
 		if err != nil {
 			return err
 		}
 		if _, err := store.GetUserAccountByUsername(ctx, "developer"); errors.Is(err, persistence.ErrNotFound) {
-			if err := store.SaveUserAccount(ctx, identity.UserAccount{ID: ids.New(), OrganizationKey: o.OrganizationKey, Username: "developer", PasswordHash: passwordHash, Role: identity.RoleDeveloper, Status: identity.AccountActive}); err != nil {
+			if err := store.SaveUserAccount(ctx, identity.UserAccount{ID: FixedDeveloperAccountID, OrganizationKey: o.OrganizationKey, Username: "developer", PasswordHash: passwordHash, Role: identity.RoleDeveloper, Status: identity.AccountActive}); err != nil {
 				return err
 			}
 		} else if err != nil {
 			return err
 		}
 		if _, err := store.GetUserAccountByUsername(ctx, "platform-engineer"); errors.Is(err, persistence.ErrNotFound) {
-			if err := store.SaveUserAccount(ctx, identity.UserAccount{ID: ids.New(), OrganizationKey: o.OrganizationKey, Username: "platform-engineer", PasswordHash: passwordHash, Role: identity.RolePlatformEngineer, Status: identity.AccountActive}); err != nil {
+			if err := store.SaveUserAccount(ctx, identity.UserAccount{ID: FixedPlatformEngineerAccountID, OrganizationKey: o.OrganizationKey, Username: "platform-engineer", PasswordHash: passwordHash, Role: identity.RolePlatformEngineer, Status: identity.AccountActive}); err != nil {
 				return err
 			}
 		} else if err != nil {

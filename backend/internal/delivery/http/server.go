@@ -3,8 +3,10 @@
 package http
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -239,17 +241,64 @@ func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request)
 		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
 		return
 	}
+	// Only Name and Subdomain are accepted; Organization, role, profile and
+	// Connection come from the session and platform defaults (UC-01 BR-07).
 	var req createApplicationRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON body"})
+	if err := decodeSingleObject(r, &req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request must be one JSON object with only name and subdomain"})
 		return
 	}
 	result, err := s.applications.Create(r.Context(), appcreate.CreateCommand{OrganizationKey: identity.OrganizationKey, Name: req.Name, Subdomain: req.Subdomain, BaseDomain: s.seedOptions.BaseDomain})
 	if err != nil {
-		writeError(w, err)
+		writeCreateApplicationError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"application": applicationView{Key: result.Application.Key, Name: result.Application.Name, Subdomain: result.Application.Subdomain, Profile: string(result.Application.Profile), RuntimeStatus: string(result.Application.RuntimeStatus)}})
+	view := applicationView{Key: result.Application.Key, Name: result.Application.Name, Subdomain: result.Application.Subdomain, Profile: string(result.Application.Profile), RuntimeStatus: string(result.Application.RuntimeStatus), Region: result.Application.Region}
+	for _, env := range result.Environments {
+		view.Environments = append(view.Environments, environmentView{Key: env.Key, Name: env.Name, Type: env.Type, NamespaceIdentity: env.NamespaceIdentity, CurrentDeploymentSetID: env.CurrentDeploymentSetID, Version: env.Version})
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"application": view})
+}
+
+// decodeSingleObject decodes exactly one JSON object with no unknown fields
+// and nothing after it.
+func decodeSingleObject(r *http.Request, into any) error {
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		return err
+	}
+	if trimmed := bytes.TrimSpace(body); len(trimmed) == 0 || trimmed[0] != '{' {
+		return errors.New("body is not a JSON object")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(into); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return errors.New("body has trailing data after the JSON object")
+	}
+	return nil
+}
+
+// writeCreateApplicationError maps UC-01 failures to 400 (field validation),
+// 409 (duplicate Name/Subdomain) and 422 (default target not ready).
+func writeCreateApplicationError(w http.ResponseWriter, err error) {
+	body := map[string]any{"error": err.Error()}
+	var fieldErr *appcreate.FieldError
+	if errors.As(err, &fieldErr) {
+		body["field"] = fieldErr.Field
+	}
+	switch {
+	case errors.Is(err, appcreate.ErrInvalid):
+		writeJSON(w, http.StatusBadRequest, body)
+	case errors.Is(err, appcreate.ErrDuplicate):
+		writeJSON(w, http.StatusConflict, body)
+	case errors.Is(err, appcreate.ErrTargetNotReady):
+		writeJSON(w, http.StatusUnprocessableEntity, body)
+	default:
+		writeError(w, err)
+	}
 }
 func (s *Server) handleGetApplication(w http.ResponseWriter, r *http.Request) {
 	identity, ok := s.sessionIdentity(r)
