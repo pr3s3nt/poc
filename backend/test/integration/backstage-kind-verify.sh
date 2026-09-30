@@ -120,6 +120,6 @@ curl -fsS -H "Host: ${HOST}" "http://127.0.0.1:18381/.backstage/health/v1/readin
 curl -fsS -H "Host: ${HOST}" "http://127.0.0.1:18381/api/auth/guest/refresh" |
   jq -e '.backstageIdentity.token | type == "string" and length > 0' >/dev/null
 DEPLOYMENT_ID="$(jq -r '.results[0].deploymentId' "${WORK}/deploy.json")"
-curl -fsS -b "${WORK}/cookies" "${API}/deployments/${DEPLOYMENT_ID}" > "${WORK}/deployment-view.json"
+curl -fsS -b "${WORK}/cookies" "${BASE}/deployments/${DEPLOYMENT_ID}" > "${WORK}/deployment-view.json"
 jq -e '.deployment.status == "SUCCEEDED" and (.resources | any(.resourceType == "postgres"))' "${WORK}/deployment-view.json" >/dev/null
 echo "Backstage kind verification passed: ${PUBLIC_URL}"

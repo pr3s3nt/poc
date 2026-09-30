@@ -114,12 +114,12 @@ returns the target and resource outputs.
 
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
-| MS-01, MS-02 | `GetDeployment`; `UC-09/sequence.puml` | `DeploymentQueryService.GetDeployment`, repo reads | Deployment/plan/set snapshot | OC-11; scoped query test |
-| MS-03 | same | resource/workload repository reads | deployment-resource/instance status | OC-11; status assembly test |
+| MS-01, MS-02 | `ListDeployments` / `GetDeployment`; `UC-09/sequence.puml` | authenticated scoped query service, repo reads | Deployment/plan/set snapshot | OC-11; session/Organization/Application/Environment scope tests |
+| MS-03 | same | deployment resource/workload snapshot repository reads | `deployment_resources`, `deployment_workloads` | OC-11; snapshot immutability and status assembly tests |
 | MS-04, MS-05; BR-06 | same | `DeploymentViewAssembler.Assemble` | persisted graph/matches/batches if present; no fake Delta/plan on planning failure | OC-11; planning-failure query test |
-| MS-06 | same | `OutputRedactor.RedactSecretOutputs` | no mutation | OC-11; redaction test |
+| MS-06 | same | output redactor; omit resolved inputs | no mutation | OC-11; encoded-response secret/input absence test |
 | MS-07 | same | return `DeploymentView` | read-only | OC-11; no runtime call test |
-| BR-05 | `UC-09/ui/screens.md`, `ui/states.md` | React history/detail/recent components | `GET /deployments`, `GET /deployments/{id}` | `DeploymentPages.test.tsx`; Web Console typecheck/lint/test/build |
+| BR-05 | `UC-09/ui/screens.md`, `ui/states.md`, `ui/api-mapping.md` | React history/detail/recent components | scoped Application/Environment deployment GET routes | frontend state/filter tests and local Playwright |
 
 ## UC-12 — MVP implementation trace
 

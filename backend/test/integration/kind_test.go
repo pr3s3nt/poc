@@ -39,7 +39,7 @@ func TestKindInternalVerification(t *testing.T) {
 	queries := appsvc.NewQueryService(st)
 	target := kubeTarget{Context: kubeContext}
 
-	deployments, err := queries.ListDeployments(ctx, seedOptions.ApplicationKey, seedOptions.EnvironmentKey)
+	deployments, err := queries.ListDeployments(ctx, appsvc.ListDeploymentsQuery{OrganizationKey: seedOptions.OrganizationKey, ApplicationKey: seedOptions.ApplicationKey, EnvironmentKey: seedOptions.EnvironmentKey})
 	if err != nil {
 		t.Fatalf("list deployments: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestKindInternalVerification(t *testing.T) {
 	}
 	latest := deployments[0]
 
-	view, err := queries.GetDeployment(ctx, latest.ID)
+	view, err := queries.GetDeployment(ctx, appsvc.GetDeploymentQuery{OrganizationKey: seedOptions.OrganizationKey, ApplicationKey: seedOptions.ApplicationKey, EnvironmentKey: seedOptions.EnvironmentKey, DeploymentID: latest.ID})
 	if err != nil {
 		t.Fatalf("deployment view: %v", err)
 	}

@@ -387,10 +387,15 @@ func TestUC01CreateApplicationOverHTTP(t *testing.T) {
 			t.Fatalf("%s workloads = %d %s", env, resp.StatusCode, body)
 		}
 	}
-	resp, body = call(t, client, http.MethodGet, server.URL+"/api/v1/deployments?application="+key, "")
-	deployments, _ := decode(t, body)["deployments"].([]any)
-	if resp.StatusCode != http.StatusOK || len(deployments) != 0 || len(app.FakeDeploy.Applied) != deploymentsBefore {
-		t.Fatalf("create must have no deploy side effect: %d %s", resp.StatusCode, body)
+	for _, env := range []string{"staging", "production"} {
+		resp, body = call(t, client, http.MethodGet, server.URL+"/api/v1/applications/"+key+"/environments/"+env+"/deployments", "")
+		deployments, _ := decode(t, body)["deployments"].([]any)
+		if resp.StatusCode != http.StatusOK || len(deployments) != 0 {
+			t.Fatalf("create must have no %s deployment: %d %s", env, resp.StatusCode, body)
+		}
+	}
+	if len(app.FakeDeploy.Applied) != deploymentsBefore {
+		t.Fatal("create must have no deploy side effect")
 	}
 
 	for _, tc := range []struct {

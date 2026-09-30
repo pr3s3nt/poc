@@ -293,6 +293,21 @@ Unique: `(organization_id, descriptor, scope_type, scope_id)`.
 
 Columns: `deployment_id FK`, `node_descriptor text`, `active_resource_id FK nullable`, `status text`, `resolved_inputs jsonb`, `output_snapshot jsonb`, `batch_index int`, timestamps. PK `(deployment_id, node_descriptor)`.
 
+### `deployment_workloads`
+
+Per-Deployment workload execution snapshot: `deployment_id FK`, `workload_id
+text`, `status text`, `target_ref jsonb`, `manifest_digest text`,
+`applied_config_revision_id uuid nullable` and `observed_at timestamptz`. Primary
+key is `(deployment_id, workload_id)`. A row may be updated while its owning
+Deployment is running and is immutable after the Deployment reaches a terminal
+state. UC-09 reads this table, not the mutable current `workload_instances`
+row, so an older Deployment never shows status from a later run.
+
+When upgrading stores that predate this snapshot, only the latest known
+`workload_instances` row can be backfilled to its `last_deployment_id`. Earlier
+runs have no recoverable workload snapshot and return no workload rows; the
+migration must not copy current state to every historical Deployment.
+
 ### `workload_instances`
 
 Columns: `id uuid PK`, `environment_id FK`, `workload_id text`, `last_deployment_id FK`, `applied_config_revision_id uuid FK configuration_revisions nullable`, `target_ref jsonb`, `manifest_digest text`, `status text`, `observed_at timestamptz`. Unique `(environment_id, workload_id)`.
@@ -308,8 +323,10 @@ does not imply every workload has consumed that revision.
    sau đó persist DeploymentDeltaSnapshot + Candidate Set + DeploymentPlan và
    chuyển Deployment sang `PROVISIONING` atomically; current pointer unchanged.
 3. Resource completion: Active Resource upsert + Deployment Resource status atomically per node.
-4. Final deployment commit: compare Environment version, update current pointer/version, mark cloud Application runtime `READY`, upsert Workload Instances and mark Deployment `SUCCEEDED` atomically.
+4. Workload execution progress: update the current Workload Instance and the
+   owning Deployment's workload snapshot together.
+5. Final deployment commit: compare Environment version, update current pointer/version, mark cloud Application runtime `READY`, upsert Workload Instances and mark Deployment `SUCCEEDED` atomically.
 
 ## Secret rule
 
-Credential values and secret resource outputs are never stored directly. `secret_ref` or structured secret references are stored; UC-09 redacts fields marked secret by contract metadata.
+Credential values and secret resource outputs are never stored directly. `secret_ref` or structured secret references are stored; UC-09 redacts fields marked secret by contract metadata and never returns persisted resource `resolved_inputs`.

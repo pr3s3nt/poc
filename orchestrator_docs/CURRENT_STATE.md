@@ -15,9 +15,10 @@ architecture cho UC-06/UC-08 cùng query path tối thiểu của UC-09 đã đ�
 thực. Internal happy path đã được kiểm chứng trên kind; cloud happy path đã được
 kiểm chứng trên AWS với VPC, EKS và Aurora rồi cleanup.
 
-Active iteration là
 [I06-04 — Complete UC-09 observability](iterations/M02-usecase-completion/I06-04-uc09-observability/README.md)
-thuộc [M02 — Use-case completion](iterations/M02-usecase-completion/README.md).
+thuộc [M02 — Use-case completion](iterations/M02-usecase-completion/README.md)
+đã hoàn thành local verification ngày 2026-09-30. Hạng mục tiếp theo trong M02
+là I06-08 (UC-05); chưa bắt đầu trong lượt UC-09 này.
 [M00-a — Developer onboarding](iterations/M00-developer-onboarding/README.md) đã
 hoàn thành 2026-09-30 với React UI, authenticated API, session, normalized
 PostgreSQL persistence và local browser restart verification cho UC-00/UC-01.
@@ -37,7 +38,7 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; optional Fleet GitRepo adapter cho internal kind đã pass Harbor-image deployment. Environment Ingress nhiều path và Fleet `_routes` bundle đã pass kind test với hai workload BusyBox, Fleet revision/prune và cleanup; route failure có route-only retry (unit test), Backstage cụ thể chưa kiểm chứng. DNS/TLS/chuyển controller ra ngoài chưa có. Mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. |
 | UC-07 | Update/remove executable for UC-16 | Planner hỗ trợ before/shared rules và Delta; Preview → Deploy update/remove workload trên kind, có partial retry. Fleet GitRepo remove đã pass kind; broader lifecycle UI/history còn thiếu. |
 | UC-08 | Implemented and E2E verified | Kubernetes và Terraform resource execution, output propagation và persistence baseline đã pass. |
-| UC-09 | Partially implemented | Backend list/detail, Delta Snapshot, graph, batches, resources, workloads và redacted outputs đã có. React Console hiển thị recent deployments, Environment history/filter và detail. Cross-deployment comparison và live status chưa có. |
+| UC-09 | Implemented; locally E2E verified | Authenticated Organization/Application/Environment-scoped history/filter và detail; consistent read snapshots, per-Deployment workload history, fail-closed output redaction và không trả resolved inputs. React loading/error/not-found/retry và browser redeploy/restart checks đã pass. Comparison và live status ngoài scope. |
 | UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và VSO → namespace Secret → Pod `secretKeyRef` đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
 | UC-16 | MVP path implemented | Form/Score import, typed resource params, public path + Service port rows, draft save/delete/undo, references, edit deployed workload bằng reconstructed Score, Preview → Deploy và partial retry đã có. Preview bỏ qua no-op draft nhưng giữ UC-12 revision update. Kind đã kiểm tra multi-path BusyBox `/` + `/api`, Fleet route và no-op Pod UID; Backstage cụ thể và broader update/cloud path chưa kiểm chứng. |
 
@@ -47,8 +48,8 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
   deployer, normalized PostgreSQL adapter và local/test JSON snapshot store nằm
   dưới `backend/`.
 - Web Console React/TypeScript có sign-in, Applications list/create/home,
-  UC-12 Settings, UC-16 editor và Application Preview/Deploy panel. Deployment
-  Details UI chưa được nối vào Web Console.
+  UC-12 Settings, UC-16 editor, Application Preview/Deploy panel và UC-09
+  recent deployments/history/detail với authenticated scoped read API.
 - Planner product conformance chạy đủ 33 fixture: 27 accepted cases so sánh
   Humanitec-shaped Delta, Candidate Set/graph/matching/batches/classification/
   Terraform artifacts và kiểm `base + delta = candidate`; 6 rejected cases hiện

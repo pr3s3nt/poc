@@ -90,8 +90,12 @@ type ActiveResourceRepository interface {
 
 // WorkloadInstanceRepository owns applied workload state per Environment.
 type WorkloadInstanceRepository interface {
+	// UpsertWorkloadProgress atomically updates the current Environment state
+	// and the snapshot owned by w.LastDeploymentID while that Deployment runs.
+	UpsertWorkloadProgress(ctx context.Context, w deployment.WorkloadInstance) error
 	UpsertWorkloadInstance(ctx context.Context, w deployment.WorkloadInstance) error
 	ListWorkloadInstances(ctx context.Context, environmentKey string) ([]deployment.WorkloadInstance, error)
+	ListDeploymentWorkloads(ctx context.Context, deploymentID string) ([]deployment.WorkloadSnapshot, error)
 }
 
 // ConfigurationRepository owns immutable UC-12 revision metadata, not values.
@@ -114,6 +118,14 @@ type UnitOfWork interface {
 	Transact(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
+// ReadSnapshot runs read-only queries against one consistent view of state.
+// The view passed to fn must only be read: writes through it are rejected or
+// discarded and never persisted. Nested inside Transact, fn reads the current
+// transaction.
+type ReadSnapshot interface {
+	ReadSnapshot(ctx context.Context, fn func(ctx context.Context, view Store) error) error
+}
+
 // Store aggregates every repository port behind one adapter.
 type Store interface {
 	ApplicationRepository
@@ -127,4 +139,5 @@ type Store interface {
 	ConfigurationRepository
 	WorkloadDraftRepository
 	UnitOfWork
+	ReadSnapshot
 }

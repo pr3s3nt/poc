@@ -44,8 +44,8 @@ func TestProvision_PostgresOutputContractEquivalentAcrossProfiles(t *testing.T) 
 	want := []string{"database", "host", "password", "port", "username"}
 
 	for _, profile := range []application.ExecutionProfile{application.ProfileInternalK8s, application.ProfileAWSEKS} {
-		app, _, _, deploymentID := deployBackend(t, profile)
-		view, err := app.Queries.GetDeployment(ctx, deploymentID)
+		app, seedOptions, applicationKey, deploymentID := deployBackend(t, profile)
+		view, err := app.Queries.GetDeployment(ctx, appsvc.GetDeploymentQuery{OrganizationKey: seedOptions.OrganizationKey, ApplicationKey: applicationKey, EnvironmentKey: seedOptions.EnvironmentKey, DeploymentID: deploymentID})
 		if err != nil {
 			t.Fatalf("get deployment: %v", err)
 		}

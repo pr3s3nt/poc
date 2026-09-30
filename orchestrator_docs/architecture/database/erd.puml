@@ -123,7 +123,7 @@ entity deployment_sets {
 }
 entity deployment_delta_snapshots {
   * id : uuid <<PK>>
-  * application_id : uuid <<FK>>
+  * deployment_id : uuid <<FK,UQ>>
   --
   document : jsonb
   document_hash : text
@@ -139,7 +139,6 @@ entity deployments {
   status : text
   base_deployment_set_id : uuid <<FK>>
   candidate_deployment_set_id : uuid <<FK>>
-  delta_snapshot_id : uuid? <<FK,UQ>>
   base_environment_version : bigint
 }
 entity deployment_plans {
@@ -185,6 +184,16 @@ entity workload_instances {
   manifest_digest : text
   status : text
 }
+entity deployment_workloads {
+  * deployment_id : uuid <<PK,FK>>
+  * workload_id : text <<PK>>
+  --
+  status : text
+  target_ref : jsonb
+  manifest_digest : text
+  applied_config_revision_id : uuid <<FK>>
+  observed_at : timestamptz
+}
 
 organizations ||--o{ connections
 organizations ||--o{ user_accounts
@@ -194,7 +203,6 @@ organizations ||--o{ resource_types
 organizations ||--o{ resource_definitions
 applications }o--|| connections
 applications ||--o{ environments
-applications ||--o{ deployment_delta_snapshots
 environments ||--o{ deployment_sets
 environments ||--o{ deployments
 environments ||--o{ workload_instances
@@ -203,14 +211,16 @@ environments ||--o{ workload_drafts
 environments }o--o| configuration_revisions : desired
 configuration_revisions ||--o{ configuration_revision_entries
 configuration_revisions ||--o{ workload_instances : applied
+configuration_revisions ||--o{ deployment_workloads : applied
 environments }o--o| deployment_sets : current
 resource_types ||--o{ resource_definitions
 resource_definitions ||--|{ matching_criteria
 deployments ||--|| deployment_plans
 deployments }o--|| deployment_sets : base
 deployments }o--|| deployment_sets : candidate
-deployments ||--|| deployment_delta_snapshots : delta_snapshot
+deployments ||--o| deployment_delta_snapshots : delta_snapshot
 deployments ||--o{ deployment_resources
+deployments ||--o{ deployment_workloads
 resource_definitions ||--o{ active_resources
 active_resources ||--o{ deployment_resources
 deployments ||--o{ active_resources : last

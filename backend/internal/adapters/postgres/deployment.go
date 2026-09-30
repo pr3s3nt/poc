@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/platform/ids"
@@ -28,6 +29,12 @@ func scanDeployment(row pgx.Row) (deployment.Deployment, error) {
 	return v, err
 }
 func (s *Store) GetDeployment(ctx context.Context, id string) (deployment.Deployment, error) {
+	// Deployment IDs arrive from request paths. A value that is not a UUID
+	// cannot identify a Deployment, so it is missing rather than a SQL error.
+	var parsed pgtype.UUID
+	if err := parsed.Scan(id); err != nil {
+		return deployment.Deployment{}, fmt.Errorf("%w: deployment %q", persistence.ErrNotFound, id)
+	}
 	v, err := scanDeployment(s.q(ctx).QueryRow(ctx, deploymentSelect+` WHERE d.id=$1::uuid`, id))
 	if err != nil {
 		return v, fmt.Errorf("postgres: get deployment: %w", translate(err))
@@ -153,9 +160,45 @@ func (s *Store) UpsertWorkloadInstance(ctx context.Context, v deployment.Workloa
 	if err != nil {
 		return err
 	}
-	_, err = s.q(ctx).Exec(ctx, `INSERT INTO workload_instances(id,environment_id,workload_id,last_deployment_id,applied_config_revision_id,target_ref,manifest_digest,status,observed_at) SELECT $1::uuid,e.id,$3,$4::uuid,NULLIF($5,'')::uuid,$6,$7,$8,$9 FROM environments e JOIN applications a ON a.id=e.application_id WHERE a.application_key||'/'||e.environment_key=$2 ON CONFLICT(environment_id,workload_id) DO UPDATE SET last_deployment_id=EXCLUDED.last_deployment_id,applied_config_revision_id=EXCLUDED.applied_config_revision_id,target_ref=EXCLUDED.target_ref,manifest_digest=EXCLUDED.manifest_digest,status=EXCLUDED.status,observed_at=EXCLUDED.observed_at`, v.ID, v.EnvironmentKey, v.WorkloadID, v.LastDeploymentID, v.AppliedConfigRevisionID, target, v.ManifestDigest, v.Status, v.ObservedAt)
-	return translate(err)
+	tag, err := s.q(ctx).Exec(ctx, `INSERT INTO workload_instances(id,environment_id,workload_id,last_deployment_id,applied_config_revision_id,target_ref,manifest_digest,status,observed_at) SELECT $1::uuid,e.id,$3,$4::uuid,NULLIF($5,'')::uuid,$6,$7,$8,$9 FROM environments e JOIN applications a ON a.id=e.application_id WHERE a.application_key||'/'||e.environment_key=$2 ON CONFLICT(environment_id,workload_id) DO UPDATE SET last_deployment_id=EXCLUDED.last_deployment_id,applied_config_revision_id=EXCLUDED.applied_config_revision_id,target_ref=EXCLUDED.target_ref,manifest_digest=EXCLUDED.manifest_digest,status=EXCLUDED.status,observed_at=EXCLUDED.observed_at`, v.ID, v.EnvironmentKey, v.WorkloadID, v.LastDeploymentID, v.AppliedConfigRevisionID, target, v.ManifestDigest, v.Status, v.ObservedAt)
+	if err != nil {
+		return translate(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: environment %q", persistence.ErrNotFound, v.EnvironmentKey)
+	}
+	return nil
 }
+
+// UpsertWorkloadProgress records mutable current state and the owning
+// Deployment snapshot in one transaction. The owning Deployment row is locked
+// FOR UPDATE first, which serializes this write with the terminal status
+// transition: once SUCCEEDED/FAILED commits, no later progress can land.
+func (s *Store) UpsertWorkloadProgress(ctx context.Context, v deployment.WorkloadInstance) error {
+	return s.Transact(ctx, func(ctx context.Context) error {
+		var status, environmentKey string
+		err := s.q(ctx).QueryRow(ctx, `SELECT d.status,a.application_key||'/'||e.environment_key FROM deployments d JOIN environments e ON e.id=d.environment_id JOIN applications a ON a.id=e.application_id WHERE d.id=$1::uuid FOR UPDATE OF d`, v.LastDeploymentID).Scan(&status, &environmentKey)
+		if err != nil {
+			return fmt.Errorf("postgres: lock deployment %q: %w", v.LastDeploymentID, translate(err))
+		}
+		if environmentKey != v.EnvironmentKey {
+			return fmt.Errorf("%w: deployment %q in environment %q", persistence.ErrNotFound, v.LastDeploymentID, v.EnvironmentKey)
+		}
+		if deployment.Status(status) == deployment.StatusSucceeded || deployment.Status(status) == deployment.StatusFailed {
+			return fmt.Errorf("%w: workload snapshot for terminal deployment %q", persistence.ErrImmutable, v.LastDeploymentID)
+		}
+		if err := s.UpsertWorkloadInstance(ctx, v); err != nil {
+			return err
+		}
+		target, err := jsonBytes(v.TargetRef)
+		if err != nil {
+			return err
+		}
+		_, err = s.q(ctx).Exec(ctx, `INSERT INTO deployment_workloads(deployment_id,workload_id,status,target_ref,manifest_digest,applied_config_revision_id,observed_at) VALUES($1::uuid,$2,$3,$4,$5,NULLIF($6,'')::uuid,$7) ON CONFLICT(deployment_id,workload_id) DO UPDATE SET status=EXCLUDED.status,target_ref=EXCLUDED.target_ref,manifest_digest=EXCLUDED.manifest_digest,applied_config_revision_id=EXCLUDED.applied_config_revision_id,observed_at=EXCLUDED.observed_at`, v.LastDeploymentID, v.WorkloadID, v.Status, target, v.ManifestDigest, v.AppliedConfigRevisionID, v.ObservedAt)
+		return translate(err)
+	})
+}
+
 func (s *Store) ListWorkloadInstances(ctx context.Context, envKey string) ([]deployment.WorkloadInstance, error) {
 	rows, err := s.q(ctx).Query(ctx, `SELECT w.id::text,a.application_key||'/'||e.environment_key,w.workload_id,w.last_deployment_id::text,COALESCE(w.applied_config_revision_id::text,''),w.target_ref,w.manifest_digest,w.status,w.observed_at FROM workload_instances w JOIN environments e ON e.id=w.environment_id JOIN applications a ON a.id=e.application_id WHERE a.application_key||'/'||e.environment_key=$1 ORDER BY w.workload_id`, envKey)
 	if err != nil {
@@ -170,6 +213,27 @@ func (s *Store) ListWorkloadInstances(ctx context.Context, envKey string) ([]dep
 			return nil, err
 		}
 		_ = unmarshalJSON(b, &v.TargetRef)
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) ListDeploymentWorkloads(ctx context.Context, deploymentID string) ([]deployment.WorkloadSnapshot, error) {
+	rows, err := s.q(ctx).Query(ctx, `SELECT deployment_id::text,workload_id,COALESCE(applied_config_revision_id::text,''),target_ref,manifest_digest,status,observed_at FROM deployment_workloads WHERE deployment_id=$1::uuid ORDER BY workload_id`, deploymentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []deployment.WorkloadSnapshot
+	for rows.Next() {
+		var v deployment.WorkloadSnapshot
+		var target []byte
+		if err = rows.Scan(&v.DeploymentID, &v.WorkloadID, &v.AppliedConfigRevisionID, &target, &v.ManifestDigest, &v.Status, &v.ObservedAt); err != nil {
+			return nil, err
+		}
+		if err = unmarshalJSON(target, &v.TargetRef); err != nil {
+			return nil, err
+		}
 		out = append(out, v)
 	}
 	return out, rows.Err()

@@ -162,8 +162,13 @@ Rules that bite first:
   planner refuses to plan from a snapshot it cannot prove. The console has no
   field for it yet, so a redeploy goes through the API.
 
-Other endpoints: `GET /api/v1/applications`, `GET /api/v1/score-samples`,
-`GET /api/v1/deployments`, `GET /api/v1/deployments/{id}`.
+Other endpoints: `GET /api/v1/applications`, `GET /api/v1/score-samples`.
+
+Authenticated deployment reads use
+`GET /api/v1/applications/{applicationId}/environments/{environment}/deployments`
+and the same path followed by `/{deploymentId}` for detail. History accepts an
+optional `?status=SUCCEEDED` lifecycle filter. Reads are scoped to the session's
+Organization; a Deployment outside the selected scope returns `404`.
 
 ## 7. State
 

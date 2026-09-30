@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-09-28
+last_reviewed: 2026-09-30
 ---
 
 # Operation Contracts
@@ -127,11 +127,16 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Idempotency key: logical identity `(organization, descriptor, scope_type, scope_id)` plus executor state.
 - Boundary: container CPU/memory requests/limits are not UC-08 resources; UC-06 Workload Renderer applies them to manifests.
 
-## OC-11 `DeploymentQueryService.GetDeployment`
+## OC-11 `DeploymentQueryService.ListDeployments` / `GetDeployment`
 
 - Use case: UC-09.
-- Preconditions: scoped Deployment exists and actor is authorized at boundary.
-- Returns: persisted status, set snapshot, graph, matches, batches, resource/workload status and non-secret outputs.
+- Preconditions: authenticated Organization plus explicit Application and
+  Environment scope; detail additionally requires a Deployment in that exact
+  scope. Optional list status is one valid Deployment lifecycle state.
+- Returns: newest-first filtered history, or persisted detail with set snapshot,
+  graph, matches, batches, deployment-resource progress, per-Deployment
+  workload snapshots and non-secret outputs. Resource resolved inputs are not
+  returned.
 - Postconditions: no mutation and no runtime adapter call.
 
 ## OC-12 `ApplicationConfigurationService.ListKeys` / `PutKey` / `RenameKey` / `DeleteKey`

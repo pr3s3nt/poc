@@ -1,8 +1,8 @@
 ---
 id: I06-08
 artifact: iteration-plan
-status: deferred
-last_reviewed: 2026-09-22
+status: current
+last_reviewed: 2026-09-30
 related: UC-05, IMP-003
 ---
 
@@ -38,4 +38,5 @@ Viết no-side-effect application-service tests trước khi wire HTTP/UI.
 
 ## Outcome
 
-Chưa thực hiện.
+Queued after I06-04 completion on 2026-09-30. This is the current roadmap
+handoff pointer; no UC-05 implementation work was performed by the UC-09 task.

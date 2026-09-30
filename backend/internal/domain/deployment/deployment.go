@@ -96,3 +96,15 @@ type WorkloadInstance struct {
 	Status                  InstanceStatus `json:"status"`
 	ObservedAt              time.Time      `json:"observedAt"`
 }
+
+// WorkloadSnapshot is the state observed for one workload during one
+// Deployment. Unlike WorkloadInstance, it is never advanced by a later run.
+type WorkloadSnapshot struct {
+	DeploymentID            string         `json:"deploymentId"`
+	WorkloadID              string         `json:"workloadId"`
+	AppliedConfigRevisionID string         `json:"appliedConfigRevisionId,omitempty"`
+	TargetRef               map[string]any `json:"targetRef"`
+	ManifestDigest          string         `json:"manifestDigest"`
+	Status                  InstanceStatus `json:"status"`
+	ObservedAt              time.Time      `json:"observedAt"`
+}

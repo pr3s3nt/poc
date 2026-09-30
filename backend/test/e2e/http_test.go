@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -15,11 +16,19 @@ import (
 	"testing"
 
 	connectionapp "orchestrator/internal/application/connection"
+	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/bootstrap"
+	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 )
 
 func newServer(t *testing.T, uiDir string, verifier ...connectionapp.KubernetesVerifier) (*httptest.Server, seed.Options) {
+	t.Helper()
+	server, seedOptions, _ := newServerApp(t, uiDir, verifier...)
+	return server, seedOptions
+}
+
+func newServerApp(t *testing.T, uiDir string, verifier ...connectionapp.KubernetesVerifier) (*httptest.Server, seed.Options, *bootstrap.App) {
 	t.Helper()
 	seedOptions := seed.Defaults()
 	seedOptions.Region = "us-east-1"
@@ -39,7 +48,7 @@ func newServer(t *testing.T, uiDir string, verifier ...connectionapp.KubernetesV
 	}
 	server := httptest.NewServer(app.Server)
 	t.Cleanup(server.Close)
-	return server, seedOptions
+	return server, seedOptions, app
 }
 
 type approvedCluster struct{}
@@ -288,7 +297,7 @@ func TestHTTPDeploymentEndToEnd(t *testing.T) {
 		lastID, _ = created["deploymentId"].(string)
 	}
 
-	status, view := getJSON(t, server.URL+"/api/v1/deployments/"+lastID)
+	status, view := getJSONClient(t, client, server.URL+"/api/v1/applications/"+seedOptions.ApplicationKey+"/environments/"+seedOptions.EnvironmentKey+"/deployments/"+lastID)
 	if status != http.StatusOK {
 		t.Fatalf("deployment view returned %d", status)
 	}
@@ -296,8 +305,8 @@ func TestHTTPDeploymentEndToEnd(t *testing.T) {
 		t.Fatalf("the deployment view is missing plan artifacts: %v", view)
 	}
 	workloads, _ := view["workloads"].([]any)
-	if len(workloads) != 3 {
-		t.Fatalf("expected three workloads in the view, got %v", workloads)
+	if len(workloads) != 1 || workloads[0].(map[string]any)["lastDeploymentId"] != lastID {
+		t.Fatalf("expected this Deployment's workload snapshot, got %v", workloads)
 	}
 	resources, _ := view["resources"].([]any)
 	if len(resources) == 0 {
@@ -307,6 +316,9 @@ func TestHTTPDeploymentEndToEnd(t *testing.T) {
 		row := item.(map[string]any)
 		if row["resourceType"] != "postgres" {
 			continue
+		}
+		if _, leaked := row["resolvedInputs"]; leaked {
+			t.Fatalf("the API must omit resolved resource inputs: %v", row)
 		}
 		outputs := row["outputs"].(map[string]any)
 		if outputs["password"] != "***redacted***" {
@@ -329,10 +341,77 @@ func TestHTTPRejectsInvalidScore(t *testing.T) {
 }
 
 func TestHTTPDeploymentNotFound(t *testing.T) {
-	server, _ := newServer(t, "")
-	status, _ := getJSON(t, server.URL+"/api/v1/deployments/does-not-exist")
+	server, seedOptions := newServer(t, "")
+	client := authenticatedClient(t, server.URL)
+	status, _ := getJSONClient(t, client, server.URL+"/api/v1/applications/"+seedOptions.ApplicationKey+"/environments/"+seedOptions.EnvironmentKey+"/deployments/does-not-exist")
 	if status != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", status)
+	}
+}
+
+func TestHTTPDeploymentHistoryScopeFilterPlanningFailureAndSafeJSON(t *testing.T) {
+	server, seedOptions := newServer(t, "")
+	base := server.URL + "/api/v1/applications/" + seedOptions.ApplicationKey + "/environments/" + seedOptions.EnvironmentKey + "/deployments"
+	if status, _ := getJSON(t, base); status != http.StatusUnauthorized {
+		t.Fatalf("anonymous history returned %d", status)
+	}
+	client := authenticatedClient(t, server.URL)
+	scores := seed.AcceptanceScores(seedOptions)
+	status, created := postJSON(t, server.URL+"/api/v1/deployments", map[string]any{
+		"applicationKey": seedOptions.ApplicationKey, "environmentKey": seedOptions.EnvironmentKey,
+		"workloadId": "backend", "actor": "history-test", "score": scores["backend"],
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("successful deployment = %d %v", status, created)
+	}
+	successID := created["deploymentId"].(string)
+	invalid := seed.AcceptanceScores(seedOptions)["backend"]
+	invalid["resources"].(map[string]any)["db"].(map[string]any)["type"] = "unsupported-resource"
+	status, _ = postJSON(t, server.URL+"/api/v1/deployments", map[string]any{
+		"applicationKey": seedOptions.ApplicationKey, "environmentKey": seedOptions.EnvironmentKey,
+		"workloadId": "broken", "actor": "history-test", "score": invalid,
+	})
+	if status != http.StatusBadRequest {
+		t.Fatalf("planning failure request = %d", status)
+	}
+
+	status, history := getJSONClient(t, client, base)
+	rows := history["deployments"].([]any)
+	if status != http.StatusOK || len(rows) != 2 || rows[0].(map[string]any)["status"] != "FAILED" {
+		t.Fatalf("newest-first history = %d %v", status, history)
+	}
+	status, failed := getJSONClient(t, client, base+"?status=FAILED")
+	if status != http.StatusOK || len(failed["deployments"].([]any)) != 1 {
+		t.Fatalf("server-side failed filter = %d %v", status, failed)
+	}
+	if status, _ := getJSONClient(t, client, base+"?status=BOGUS"); status != http.StatusBadRequest {
+		t.Fatalf("invalid status filter returned %d", status)
+	}
+	wrongScope := server.URL + "/api/v1/applications/" + seedOptions.ApplicationKey + "/environments/not-this-environment/deployments/" + successID
+	if status, _ := getJSONClient(t, client, wrongScope); status != http.StatusNotFound {
+		t.Fatalf("cross-environment detail returned %d", status)
+	}
+
+	response, err := client.Get(base + "/" + successID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := io.ReadAll(response.Body)
+	response.Body.Close()
+	if err != nil || response.StatusCode != http.StatusOK {
+		t.Fatalf("detail = %d %s %v", response.StatusCode, encoded, err)
+	}
+	if bytes.Contains(encoded, []byte(`"resolvedInputs"`)) {
+		t.Fatalf("encoded response leaked resolved inputs: %s", encoded)
+	}
+	if !bytes.Contains(encoded, []byte(appsvc.RedactedValue)) {
+		t.Fatalf("encoded response lacks redacted secret marker: %s", encoded)
+	}
+
+	failedID := rows[0].(map[string]any)["id"].(string)
+	status, detail := getJSONClient(t, client, base+"/"+failedID)
+	if status != http.StatusOK || detail["graph"] != nil || detail["delta"] != nil || len(detail["workloads"].([]any)) != 0 {
+		t.Fatalf("planning failure detail = %d %v", status, detail)
 	}
 }
 
@@ -375,7 +454,45 @@ func TestUIServesBundleAndBrowserFallback(t *testing.T) {
 
 // TestHTTPUsesTheConfiguredRunID proves a request that carries no run id — the
 // body the Web Console sends — still produces run-scoped cloud resource names.
+// Resolved inputs are not part of the UC-09 read contract, so the persisted
+// Deployment Resource rows are inspected through the store port instead.
 func TestHTTPUsesTheConfiguredRunID(t *testing.T) {
+	server, seedOptions, app := newServerApp(t, "")
+	scores := seed.AcceptanceScores(seedOptions)
+
+	status, created := postJSON(t, server.URL+"/api/v1/deployments", map[string]any{
+		"applicationKey": seedOptions.CloudApplicationKey,
+		"environmentKey": seedOptions.EnvironmentKey,
+		"workloadId":     "backend",
+		"actor":          "web-console",
+		"score":          scores["backend"],
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("deploy returned %d: %v", status, created)
+	}
+	deploymentID, _ := created["deploymentId"].(string)
+
+	rows, err := app.Store.ListDeploymentResources(context.Background(), deploymentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, row := range rows {
+		if row.ResourceTypeKey != "k8s-cluster" {
+			continue
+		}
+		name, _ := row.ResolvedInputs["name"].(string)
+		if !strings.HasSuffix(name, seedOptions.RunID) {
+			t.Fatalf("cloud resource name %q does not carry the configured run id %q", name, seedOptions.RunID)
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("the cloud deployment has no k8s-cluster resource: %v", rows)
+	}
+}
+
+func TestHTTPDeploymentReadsRequireScopedSessionAndHideResolvedInputs(t *testing.T) {
 	server, seedOptions := newServer(t, "")
 	scores := seed.AcceptanceScores(seedOptions)
 
@@ -391,7 +508,15 @@ func TestHTTPUsesTheConfiguredRunID(t *testing.T) {
 	}
 	deploymentID, _ := created["deploymentId"].(string)
 
-	_, view := getJSON(t, server.URL+"/api/v1/deployments/"+deploymentID)
+	path := server.URL + "/api/v1/applications/" + seedOptions.CloudApplicationKey + "/environments/" + seedOptions.EnvironmentKey + "/deployments/" + deploymentID
+	if status, _ := getJSON(t, path); status != http.StatusUnauthorized {
+		t.Fatalf("anonymous detail returned %d", status)
+	}
+	client := authenticatedClient(t, server.URL)
+	status, view := getJSONClient(t, client, path)
+	if status != http.StatusOK {
+		t.Fatalf("scoped detail returned %d: %v", status, view)
+	}
 	resources, _ := view["resources"].([]any)
 	found := false
 	for _, item := range resources {
@@ -399,14 +524,62 @@ func TestHTTPUsesTheConfiguredRunID(t *testing.T) {
 		if row["resourceType"] != "k8s-cluster" {
 			continue
 		}
-		inputs, _ := row["resolvedInputs"].(map[string]any)
-		name, _ := inputs["name"].(string)
-		if !strings.HasSuffix(name, seedOptions.RunID) {
-			t.Fatalf("cloud resource name %q does not carry the configured run id %q", name, seedOptions.RunID)
+		if _, leaked := row["resolvedInputs"]; leaked {
+			t.Fatalf("resolved inputs leaked: %v", row)
 		}
 		found = true
 	}
 	if !found {
 		t.Fatalf("the cloud deployment has no k8s-cluster resource: %v", resources)
+	}
+}
+
+// TestHTTPDeploymentReadsOnPostgres runs the scoped read contract against a
+// fresh local PostgreSQL database, where a non-UUID path segment must still be
+// a plain 404 and storage errors must never reach the client.
+func TestHTTPDeploymentReadsOnPostgres(t *testing.T) {
+	databaseURL := persistencetest.FreshPostgresDatabase(t)
+	seedOptions := seed.Defaults()
+	seedOptions.RunID = "run-e2e"
+	app, err := bootstrap.Build(context.Background(), bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake, DatabaseURL: databaseURL})
+	if err != nil {
+		t.Fatalf("bootstrap: %v", err)
+	}
+	// Cleanups run last-in first-out: close the pool before the database drop.
+	if closer, ok := app.Store.(interface{ Close() }); ok {
+		t.Cleanup(closer.Close)
+	}
+	server := httptest.NewServer(app.Server)
+	t.Cleanup(server.Close)
+	client := authenticatedClient(t, server.URL)
+	base := server.URL + "/api/v1/applications/" + seedOptions.ApplicationKey + "/environments/" + seedOptions.EnvironmentKey + "/deployments"
+
+	for _, id := range []string{"does-not-exist", "00000000-0000-4000-8000-000000000000"} {
+		response, err := client.Get(base + "/" + id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		if response.StatusCode != http.StatusNotFound || bytes.Contains(body, []byte("uuid")) || bytes.Contains(body, []byte("SQLSTATE")) {
+			t.Fatalf("detail %q = %d %s", id, response.StatusCode, body)
+		}
+	}
+
+	status, created := postJSON(t, server.URL+"/api/v1/deployments", map[string]any{
+		"applicationKey": seedOptions.ApplicationKey, "environmentKey": seedOptions.EnvironmentKey,
+		"workloadId": "backend", "actor": "postgres-test", "score": seed.AcceptanceScores(seedOptions)["backend"],
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("deploy = %d %v", status, created)
+	}
+	id := created["deploymentId"].(string)
+	status, view := getJSONClient(t, client, base+"/"+id)
+	workloads, _ := view["workloads"].([]any)
+	if status != http.StatusOK || len(workloads) != 1 || workloads[0].(map[string]any)["lastDeploymentId"] != id {
+		t.Fatalf("detail = %d %v", status, view)
+	}
+	if status, _ := getJSONClient(t, client, server.URL+"/api/v1/applications/"+seedOptions.ApplicationKey+"/environments/not-this-environment/deployments/"+id); status != http.StatusNotFound {
+		t.Fatalf("cross-environment detail = %d", status)
 	}
 }

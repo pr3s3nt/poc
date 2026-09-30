@@ -331,18 +331,18 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 		instance.Status = domain.InstanceRemoving
 		instance.LastDeploymentID = deploymentID
 		instance.ObservedAt = s.clock.Now()
-		if err := s.store.UpsertWorkloadInstance(ctx, instance); err != nil {
+		if err := s.store.UpsertWorkloadProgress(ctx, instance); err != nil {
 			return err
 		}
 		if err := s.deployer.Remove(ctx, target, workloadID); err != nil {
 			instance.Status = domain.InstanceFailed
-			_ = s.store.UpsertWorkloadInstance(ctx, instance)
+			_ = s.store.UpsertWorkloadProgress(ctx, instance)
 			return err
 		}
 		instance.Status = domain.InstanceRemoved
 		instance.AppliedConfigRevisionID = ""
 		instance.ObservedAt = s.clock.Now()
-		return s.store.UpsertWorkloadInstance(ctx, instance)
+		return s.store.UpsertWorkloadProgress(ctx, instance)
 	}
 	return fmt.Errorf("deployment: workload %q has no applied instance", workloadID)
 }
@@ -497,26 +497,26 @@ func (s *Service) applyWorkload(
 		Status:                  domain.InstanceApplying,
 		ObservedAt:              s.clock.Now(),
 	}
-	if err := s.store.UpsertWorkloadInstance(ctx, instance); err != nil {
+	if err := s.store.UpsertWorkloadProgress(ctx, instance); err != nil {
 		return err
 	}
 
 	if err := s.deployer.Apply(ctx, target, manifests); err != nil {
 		instance.Status = domain.InstanceFailed
 		instance.ObservedAt = s.clock.Now()
-		_ = s.store.UpsertWorkloadInstance(ctx, instance)
+		_ = s.store.UpsertWorkloadProgress(ctx, instance)
 		return err
 	}
 	refs := []execution.WorkloadRef{{Kind: "Deployment", Name: workloadID, Namespace: target.Namespace}}
 	if err := s.deployer.WaitReady(ctx, target, refs); err != nil {
 		instance.Status = domain.InstanceFailed
 		instance.ObservedAt = s.clock.Now()
-		_ = s.store.UpsertWorkloadInstance(ctx, instance)
+		_ = s.store.UpsertWorkloadProgress(ctx, instance)
 		return err
 	}
 	instance.Status = domain.InstanceReady
 	instance.ObservedAt = s.clock.Now()
-	return s.store.UpsertWorkloadInstance(ctx, instance)
+	return s.store.UpsertWorkloadProgress(ctx, instance)
 }
 
 func publicHost(subdomain, env, baseDomain string) string {

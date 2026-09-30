@@ -49,6 +49,28 @@ END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS applications_organization_lower_name_key ON applications(organization_id, lower(name));
 `
 
+// migration4 adds immutable-per-run workload history. Earlier installations
+// never recorded that history, and it is not reconstructed: the backfill is
+// latest-only. Each current workload_instances row becomes the snapshot of its
+// last_deployment_id; every older Deployment keeps no workload rows instead of
+// showing state from a later run.
+const migration4 = `
+CREATE TABLE IF NOT EXISTS deployment_workloads (
+  deployment_id uuid NOT NULL REFERENCES deployments(id) ON DELETE CASCADE,
+  workload_id text NOT NULL,
+  status text NOT NULL,
+  target_ref jsonb NOT NULL,
+  manifest_digest text NOT NULL,
+  applied_config_revision_id uuid REFERENCES configuration_revisions(id),
+  observed_at timestamptz NOT NULL,
+  PRIMARY KEY(deployment_id, workload_id)
+);
+INSERT INTO deployment_workloads(deployment_id,workload_id,status,target_ref,manifest_digest,applied_config_revision_id,observed_at)
+SELECT last_deployment_id,workload_id,status,target_ref,manifest_digest,applied_config_revision_id,observed_at
+FROM workload_instances
+ON CONFLICT(deployment_id,workload_id) DO NOTHING;
+`
+
 type querier interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	Query(context.Context, string, ...any) (pgx.Rows, error)
@@ -98,7 +120,7 @@ func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	for _, item := range []struct {
 		version int
 		sql     string
-	}{{1, migration}, {2, migration2}, {3, migration3}} {
+	}{{1, migration}, {2, migration2}, {3, migration3}, {4, migration4}} {
 		var applied bool
 		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)`, item.version).Scan(&applied); err != nil {
 			return err
@@ -144,6 +166,22 @@ func (s *Store) Transact(ctx context.Context, fn func(context.Context) error) er
 		return translate(err)
 	}
 	return nil
+}
+
+// ReadSnapshot runs fn in one REPEATABLE READ READ ONLY transaction, so every
+// query sees the same committed snapshot and no GET can persist a change.
+// Inside Transact, fn reads the enclosing transaction.
+func (s *Store) ReadSnapshot(ctx context.Context, fn func(context.Context, persistence.Store) error) error {
+	if _, nested := ctx.Value(txKey{}).(pgx.Tx); nested {
+		return fn(ctx, s)
+	}
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return fmt.Errorf("postgres: begin read snapshot: %w", err)
+	}
+	// Nothing may be kept from a read, so the transaction always rolls back.
+	defer tx.Rollback(ctx)
+	return fn(context.WithValue(ctx, txKey{}, tx), s)
 }
 
 func translate(err error) error {

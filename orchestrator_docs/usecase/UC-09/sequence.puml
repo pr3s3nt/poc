@@ -9,8 +9,8 @@ control OutputRedactor as Redactor
 database DeploymentRepository as DeploymentRepo
 database DeploymentSetRepository as SetRepo
 database DeploymentResourceRepository as DeploymentResourceRepo
-database ActiveResourceRepository as ResourceRepo
-database WorkloadInstanceRepository as WorkloadRepo
+database ResourceTypeRepository as TypeRepo
+database DeploymentWorkloadRepository as WorkloadRepo
 
 Developer -> API: GetDeployment(appID, envID, deploymentID) [MS-01]
 API -> Service: GetDeployment(ctx, query)
@@ -19,9 +19,9 @@ DeploymentRepo --> Service: Deployment + persisted plan
 Service -> SetRepo: FindSnapshot(candidateSetID)
 SetRepo --> Service: DeploymentSet
 Service -> DeploymentResourceRepo: ListByDeployment(deploymentID) [MS-03]
-DeploymentResourceRepo --> Service: Resource statuses
-Service -> ResourceRepo: FindByIDs(activeResourceIDs)
-ResourceRepo --> Service: Active Resources + outputs
+DeploymentResourceRepo --> Service: Resource statuses + persisted output snapshots
+Service -> TypeRepo: ListByOrganization(session.organization)
+TypeRepo --> Service: Output classification contracts
 Service -> WorkloadRepo: ListByDeployment(deploymentID)
 WorkloadRepo --> Service: Workload statuses
 Service -> Assembler: Assemble(all snapshots) [MS-04..MS-05]

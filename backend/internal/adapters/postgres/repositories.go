@@ -221,7 +221,7 @@ func (s *Store) ListEnvironments(ctx context.Context, app string) ([]environment
 	return out, rows.Err()
 }
 func (s *Store) CompareVersionAndSetCurrent(ctx context.Context, app, key string, expected int64, setID string) error {
-	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET current_deployment_set_id=$4::uuid,version=version+1 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.version=$3`, app, key, expected, setID)
+	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET current_deployment_set_id=$4::uuid,version=e.version+1 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.version=$3`, app, key, expected, setID)
 	if err != nil {
 		return translate(err)
 	}

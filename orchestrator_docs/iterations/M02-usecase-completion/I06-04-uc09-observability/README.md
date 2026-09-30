@@ -1,7 +1,7 @@
 ---
 id: I06-04
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-09-30
 related: UC-09, IMP-005
 ---
@@ -43,11 +43,33 @@ thành hoặc bỏ scope.
 - Go test/build/vet, frontend typecheck/lint/test/build và docs checker pass.
 - IMP-005 được xóa và dated verification record được link tại outcome.
 
-## First next action
+## Completed work order
 
-Lập lại gap list bám từng UC-09 `MS-nn` trên checkout hiện tại trước khi tiếp
-tục code.
+Đóng audit gaps theo thứ tự: authenticated scoped read contract →
+per-Deployment workload snapshot và secret-safe view → frontend states/filter
+→ local browser verification.
+
+## Audit 2026-09-30
+
+- List/detail artifacts, newest-first ordering, graph/matches/batches,
+  deployment resources and output redaction đã có.
+- GET deployment endpoints hiện không yêu cầu session và detail chỉ nhận ID,
+  nên chưa bảo đảm Organization/Application/Environment scope ở backend.
+- Detail lấy `workload_instances` hiện tại của Environment; deployment cũ có
+  thể hiển thị state của run mới hơn. Canonical schema cần
+  `deployment_workloads` snapshot.
+- `ResourceView` đang serialize `resolvedInputs`; trường này không thuộc UC-09
+  read contract và phải bị loại khỏi response.
+- Status filter hiện chỉ lọc client-side; API mapping mới sở hữu validation và
+  server-side filter. UI tests còn thiếu not-found/API-error/retry và browser
+  flow thật.
 
 ## Outcome
 
-Được kích hoạt lại sau khi M00-a hoàn thành ngày 2026-09-30; chưa hoàn thành.
+Completed 2026-09-30. Authenticated scoped history/filter and detail, consistent
+read snapshots, per-Deployment workload history, fail-closed output redaction,
+React states and local browser redeploy/restart verification are implemented.
+IMP-005 is closed. Memory/JSON and disposable local PostgreSQL tests passed;
+kind/AWS/cloud verification was not run in this iteration.
+
+Evidence: [UC-09 local verification](../../../verification/2026-09-30-uc09-local-observability.md).

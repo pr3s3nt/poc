@@ -36,7 +36,7 @@ func TestAWSCloudVerification(t *testing.T) {
 	}
 	queries := appsvc.NewQueryService(st)
 
-	deployments, err := queries.ListDeployments(ctx, seedOptions.CloudApplicationKey, seedOptions.EnvironmentKey)
+	deployments, err := queries.ListDeployments(ctx, appsvc.ListDeploymentsQuery{OrganizationKey: seedOptions.OrganizationKey, ApplicationKey: seedOptions.CloudApplicationKey, EnvironmentKey: seedOptions.EnvironmentKey})
 	if err != nil {
 		t.Fatalf("list deployments: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestAWSCloudVerification(t *testing.T) {
 	}
 	target := kubeTarget{Kubeconfig: kubeconfig, Context: clusterName}
 
-	view, err := queries.GetDeployment(ctx, latest.ID)
+	view, err := queries.GetDeployment(ctx, appsvc.GetDeploymentQuery{OrganizationKey: seedOptions.OrganizationKey, ApplicationKey: seedOptions.CloudApplicationKey, EnvironmentKey: seedOptions.EnvironmentKey, DeploymentID: latest.ID})
 	if err != nil {
 		t.Fatalf("deployment view: %v", err)
 	}

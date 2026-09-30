@@ -2,7 +2,7 @@
 id: UC-09-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-09-28
+last_reviewed: 2026-09-30
 related: UC-09
 ---
 
@@ -13,6 +13,8 @@ related: UC-09
 | Recent/history | Loading/empty | Keep selected Environment visible; show loading or no deployments, never mock rows. |
 | Recent/history | Ready | Show newest first, status filter, and detail links. |
 | Recent/history | Error | Show error and retry without claiming empty history. |
-| Detail | Loading/not found | Keep Application/Environment navigation; show loading or scoped not-found. |
+| Detail | Loading | Keep Application/Environment navigation and show an explicit busy state. |
+| Detail | Not found | Show scoped not-found without a retry action; this includes a Deployment outside the session Organization/Application/Environment. |
+| Detail | API error | Show a retryable error without rendering stale detail. |
 | Detail | Failed | Show persisted failure reason and last recorded states. If planning failed before Snapshot, leave Delta/graph/batches absent rather than inventing them. |
 | Detail | Succeeded | Show persisted plan, graph, batches, resource/workload states and redacted outputs. |

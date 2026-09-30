@@ -2,7 +2,7 @@
 id: DOMAIN-OBJECTS
 artifact: domain-persistence-classification
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-30
 ---
 
 # Domain Objects and Persistence Classification
@@ -18,7 +18,7 @@ last_reviewed: 2026-09-23
 | Resource Type | `ResourceType` | input/output schema | Contract độc lập implementation. |
 | Resource Definition | `ResourceDefinition` | optional Execution Profile guard, Matching Criteria, driver inputs, provision rules | Cùng Resource Type và profile hợp lệ; criteria match deterministic; output contract tương thích. |
 | Connection | `Connection` | verification metadata | Chỉ secret reference được persist; chỉ `READY` được sử dụng. |
-| Deployment | `Deployment` | `DeploymentDeltaSnapshot`, `DeploymentPlan`, deployment-resource progress | Delta Snapshot immutable ngay khi persist; Plan immutable khi Deployment rời `PLANNING`; `SUCCEEDED` chỉ sau workload readiness. |
+| Deployment | `Deployment` | `DeploymentDeltaSnapshot`, `DeploymentPlan`, deployment-resource progress, deployment-workload snapshots | Delta Snapshot immutable ngay khi persist; Plan immutable khi Deployment rời `PLANNING`; workload snapshot chỉ đổi khi Deployment đang chạy; `SUCCEEDED` chỉ sau workload readiness. |
 | Active Resource | `ActiveResource` | executor state, outputs | Logical identity unique theo Organization + descriptor + scope. |
 | Workload Instance | `WorkloadInstance` | manifest digest/status | Unique theo Environment + workload ID. |
 
@@ -34,7 +34,7 @@ separate database aggregate.
 | Kind | Objects | Persisted form |
 |---|---|---|
 | Entity | `UserAccount`, `Session`, `Application`, `Environment`, `Connection`, `ResourceType`, `ResourceDefinition`, `DeploymentSet`, `DeploymentDeltaSnapshot`, `Deployment`, `DeploymentPlan`, `ActiveResource`, `WorkloadInstance` | Dedicated tables. |
-| Child entity | `MatchingCriterion`, `DeploymentResource` | Dedicated child/join tables. |
+| Child entity | `MatchingCriterion`, `DeploymentResource`, `DeploymentWorkload` | Dedicated child/join tables. |
 | Value object | `ExecutionProfile`, `NamespaceIdentity`, `ResourceDescriptor`, `ResourceScope`, `DeploymentStatus`, `ResourceStatus`, `DriverType`, `OutputBinding`, `DeploymentTarget`, `ModuleDelta`, `JSONPatchOperation`, `ContainerResourceRequirements`, `ComputeResources` | Scalar/JSONB columns; validated at construction. |
 | Planning document | `WorkloadFragment`, `CandidateDeploymentSet`, `ResourceGraph`, `ProvisionBatch` | Immutable JSONB snapshot in `deployment_plans`; typed Go model in memory. |
 | Result | `ProvisionResult`, `DeploymentResult`, `DeploymentPreview`, `DeploymentView` | DTO/read model, not aggregate roots. |

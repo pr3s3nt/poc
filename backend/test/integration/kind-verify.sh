@@ -108,8 +108,13 @@ kubectl --context "${CONTEXT}" get secret -n "${NAMESPACE}" -o name | tee "${EVI
 
 DEPLOYMENT_ID="$(cat "${DEPLOYMENT_ID_FILE}")"
 echo "=== verifying the Web Console against deployment ${DEPLOYMENT_ID}"
-curl -s "http://${API_ADDR}/api/v1/deployments/${DEPLOYMENT_ID}" > "${EVIDENCE}/deployment-view.json"
-curl -s -o /dev/null -w "ui:%{http_code}\n" "http://${API_ADDR}/ui/deployments/${DEPLOYMENT_ID}" | tee "${EVIDENCE}/ui-status.txt"
+# UC-09 reads require a session; use the fixed local developer account.
+COOKIE_JAR="${WORK}/uc09-cookies"
+curl -fsS -c "${COOKIE_JAR}" -H 'Content-Type: application/json' \
+  -d '{"username":"developer","password":"test-password"}' \
+  "http://${API_ADDR}/api/v1/auth/sign-in" > /dev/null
+curl -fsS -b "${COOKIE_JAR}" "http://${API_ADDR}/api/v1/applications/acceptance/environments/dev/deployments/${DEPLOYMENT_ID}" > "${EVIDENCE}/deployment-view.json"
+curl -s -o /dev/null -w "ui:%{http_code}\n" "http://${API_ADDR}/ui/applications/acceptance/environments/dev/deployments/${DEPLOYMENT_ID}" | tee "${EVIDENCE}/ui-status.txt"
 (
   cd "${ROOT}/../frontend"
   ORCHESTRATOR_LIVE_URL="http://${API_ADDR}" ORCHESTRATOR_LIVE_DEPLOYMENT_ID="${DEPLOYMENT_ID}" \

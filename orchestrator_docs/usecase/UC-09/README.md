@@ -2,18 +2,19 @@
 id: UC-09-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-30
 ---
 
 # UC-09 context — Observe deployment
 
 ## Delivery state
 
-Partially implemented; backend list/detail, graph, batches, resources,
-workloads and redacted outputs are available. React Web Console now offers
-recent deployments, Environment history with a status filter, and a persisted
-detail view. Cross-deployment state comparison, live status and PostgreSQL read
-model remain deferred.
+Implemented and locally browser-verified. Authenticated list/detail APIs enforce
+Organization/Application/Environment scope; history supports server-side status
+filtering and detail reads consistent per-Deployment snapshots. Resource inputs
+are omitted and output visibility fails closed. React loading/error/not-found
+states and JSON restart persistence are covered by executable tests.
+Cross-deployment comparison and live runtime refresh remain out of scope.
 
 ## Read in this order
 
@@ -21,9 +22,10 @@ model remain deferred.
 2. [Realization](realization.md)
 3. [Sequence](sequence.puml)
 4. [VOPC](vopc.puml)
-5. [Deferred I06-04 iteration](../../iterations/M02-usecase-completion/I06-04-uc09-observability/README.md)
-6. [Deployment state machine](../../architecture/state-machines/deployment.puml)
-7. [Web Console screens](ui/screens.md) and [states](ui/states.md)
+5. [UI/API mapping](ui/api-mapping.md)
+6. [Active I06-04 iteration](../../iterations/M02-usecase-completion/I06-04-uc09-observability/README.md)
+7. [Deployment state machine](../../architecture/state-machines/deployment.puml)
+8. [Web Console screens](ui/screens.md) and [states](ui/states.md)
 
 ## Implementation entry points
 

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/pending"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
+	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
 )
@@ -109,8 +111,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/connections", s.handleConnections)
 	s.mux.HandleFunc("POST /api/v1/connections/kubernetes", s.handleRegisterKubernetesConnection)
 	s.mux.HandleFunc("POST /api/v1/deployments", s.handleCreateDeployment)
-	s.mux.HandleFunc("GET /api/v1/deployments", s.handleListDeployments)
-	s.mux.HandleFunc("GET /api/v1/deployments/{id}", s.handleGetDeployment)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/deployments", s.handleListDeployments)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/deployments/{deployment}", s.handleGetDeployment)
 	s.mux.HandleFunc("/ui/", s.handleUI)
 	s.mux.HandleFunc("/", s.handleRoot)
 }
@@ -385,18 +387,38 @@ func (s *Server) handleCreateDeployment(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleListDeployments(w http.ResponseWriter, r *http.Request) {
-	list, err := s.queries.ListDeployments(r.Context(), r.URL.Query().Get("application"), r.URL.Query().Get("environment"))
+	identity, ok := s.sessionIdentity(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		return
+	}
+	list, err := s.queries.ListDeployments(r.Context(), appsvc.ListDeploymentsQuery{
+		OrganizationKey: identity.OrganizationKey, ApplicationKey: r.PathValue("id"),
+		EnvironmentKey: r.PathValue("env"), Status: domain.Status(r.URL.Query().Get("status")),
+	})
 	if err != nil {
-		writeError(w, err)
+		if errors.Is(err, appsvc.ErrInvalidStatus) {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			return
+		}
+		writeDeploymentReadError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"deployments": list})
 }
 
 func (s *Server) handleGetDeployment(w http.ResponseWriter, r *http.Request) {
-	view, err := s.queries.GetDeployment(r.Context(), r.PathValue("id"))
+	identity, ok := s.sessionIdentity(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		return
+	}
+	view, err := s.queries.GetDeployment(r.Context(), appsvc.GetDeploymentQuery{
+		OrganizationKey: identity.OrganizationKey, ApplicationKey: r.PathValue("id"),
+		EnvironmentKey: r.PathValue("env"), DeploymentID: r.PathValue("deployment"),
+	})
 	if err != nil {
-		writeError(w, err)
+		writeDeploymentReadError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
@@ -440,6 +462,17 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 
 // writeError maps domain errors onto HTTP status codes. The MVP uses sentinel
 // errors for persistence and message prefixes for validation failures.
+// writeDeploymentReadError maps UC-09 read failures without echoing storage
+// details: any scope mismatch is a plain 404, anything else a retryable 500.
+func writeDeploymentReadError(w http.ResponseWriter, err error) {
+	if errors.Is(err, persistence.ErrNotFound) {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "deployment not found"})
+		return
+	}
+	log.Printf("deployment read failed: %v", err)
+	writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "deployment read failed; retry"})
+}
+
 func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, persistence.ErrNotFound):

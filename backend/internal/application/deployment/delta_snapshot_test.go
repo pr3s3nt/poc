@@ -73,7 +73,7 @@ func TestDeployWorkload_PersistsOneDeltaSnapshotPerDeployment(t *testing.T) {
 			t.Fatal("the persisted plan must not carry a whole-document delta")
 		}
 
-		view, err := app.Queries.GetDeployment(ctx, r.DeploymentID)
+		view, err := app.Queries.GetDeployment(ctx, appsvc.GetDeploymentQuery{OrganizationKey: seedOptions.OrganizationKey, ApplicationKey: seedOptions.ApplicationKey, EnvironmentKey: seedOptions.EnvironmentKey, DeploymentID: r.DeploymentID})
 		if err != nil {
 			t.Fatalf("view: %v", err)
 		}

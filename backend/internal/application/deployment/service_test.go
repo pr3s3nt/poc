@@ -242,7 +242,7 @@ func TestDeployWorkload_CommitsCurrentSetOnlyAfterReadiness(t *testing.T) {
 		t.Fatalf("the current Deployment Set must not move on failure: %#v -> %#v", before, after)
 	}
 
-	deployments, err := app.Queries.ListDeployments(ctx, seedOptions.ApplicationKey, seedOptions.EnvironmentKey)
+	deployments, err := app.Queries.ListDeployments(ctx, appsvc.ListDeploymentsQuery{OrganizationKey: seedOptions.OrganizationKey, ApplicationKey: seedOptions.ApplicationKey, EnvironmentKey: seedOptions.EnvironmentKey})
 	if err != nil {
 		t.Fatalf("list deployments: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestGetDeployment_ReturnsPersistedPlanAndStatuses(t *testing.T) {
 	results := deployAll(t, app, seedOptions)
 	last := results[len(results)-1]
 
-	view, err := app.Queries.GetDeployment(ctx, last.DeploymentID)
+	view, err := app.Queries.GetDeployment(ctx, appsvc.GetDeploymentQuery{OrganizationKey: seedOptions.OrganizationKey, ApplicationKey: seedOptions.ApplicationKey, EnvironmentKey: seedOptions.EnvironmentKey, DeploymentID: last.DeploymentID})
 	if err != nil {
 		t.Fatalf("get deployment: %v", err)
 	}
@@ -276,8 +276,8 @@ func TestGetDeployment_ReturnsPersistedPlanAndStatuses(t *testing.T) {
 	if len(view.Resources) == 0 {
 		t.Fatal("the view must carry resource progress")
 	}
-	if len(view.Workloads) != 3 {
-		t.Fatalf("the view must list frontend, backend and worker, got %d", len(view.Workloads))
+	if len(view.Workloads) != 1 || view.Workloads[0].WorkloadID != last.WorkloadID {
+		t.Fatalf("the view must list only this Deployment's workload snapshot, got %#v", view.Workloads)
 	}
 	if len(view.DeploymentSet.ModuleIDs()) != 3 {
 		t.Fatalf("the view must carry the committed Deployment Set, got %v", view.DeploymentSet.ModuleIDs())
@@ -296,11 +296,11 @@ func TestGetDeployment_PlanningFailureHasNoInventedSnapshot(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected planning failure")
 	}
-	records, err := app.Queries.ListDeployments(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	records, err := app.Queries.ListDeployments(ctx, appsvc.ListDeploymentsQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey})
 	if err != nil || len(records) != 1 {
 		t.Fatalf("deployment records: %#v, %v", records, err)
 	}
-	view, err := app.Queries.GetDeployment(ctx, records[0].ID)
+	view, err := app.Queries.GetDeployment(ctx, appsvc.GetDeploymentQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, DeploymentID: records[0].ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +315,7 @@ func TestGetDeployment_RedactsSecretOutputs(t *testing.T) {
 	results := deployAll(t, app, seedOptions)
 
 	for _, r := range results {
-		view, err := app.Queries.GetDeployment(ctx, r.DeploymentID)
+		view, err := app.Queries.GetDeployment(ctx, appsvc.GetDeploymentQuery{OrganizationKey: seedOptions.OrganizationKey, ApplicationKey: seedOptions.ApplicationKey, EnvironmentKey: seedOptions.EnvironmentKey, DeploymentID: r.DeploymentID})
 		if err != nil {
 			t.Fatalf("get deployment: %v", err)
 		}

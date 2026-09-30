@@ -2,7 +2,7 @@
 id: UC-09-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-30
 ---
 
 # UC-09 — View Deployment Status and Resource Graph
@@ -72,10 +72,15 @@ UC-09 View Deployment Status
 
 ## Trạng thái implementation hiện tại
 
-- Deployment, plan snapshot, resource progress, Active Resources và Workload Instances đã được lưu trong state store; query API trả status, graph, batches, resources, workloads và redacted outputs.
+- Deployment, plan snapshot, resource progress và Active Resources đã được lưu
+  trong state store. Detail đọc per-Deployment workload snapshot, không đọc
+  mutable current Environment state.
 - React Web Console có recent deployments, danh sách theo Environment với bộ
   lọc status và trang detail dùng persisted query API.
-- Cross-deployment comparison, live status và PostgreSQL read model chưa hoàn thiện.
+- Authenticated Organization scoping, không trả `resolvedInputs`, server-side
+  status filter và loading/error/not-found tests đã được hiện thực. Local
+  browser test xác nhận snapshot không đổi sau redeploy và backend restart.
+  Cross-deployment comparison và live status không thuộc happy path.
 
 ## Ngoài phạm vi happy path
 

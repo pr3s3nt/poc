@@ -45,7 +45,7 @@ try {
     expect(response.status()).toBe(200);
     const environments = (await response.json()).application.environments.map((item) => item.key).sort();
     expect(environments).toEqual(['production', 'staging']);
-    const deployments = await (await page.request.get(`${baseURL}/api/v1/deployments?application=${appId}`)).json();
+    const deployments = await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/staging/deployments`)).json();
     expect(deployments.deployments ?? []).toHaveLength(0);
   }
 

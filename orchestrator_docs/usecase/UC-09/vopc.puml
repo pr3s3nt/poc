@@ -24,10 +24,10 @@ interface DeploymentSetRepository {
 interface DeploymentResourceRepository {
   +ListByDeployment(ctx, deploymentID): List
 }
-interface ActiveResourceRepository {
-  +FindByIDs(ctx, ids): List
+interface ResourceTypeRepository {
+  +ListByOrganization(ctx, organization): List
 }
-interface WorkloadInstanceRepository {
+interface DeploymentWorkloadRepository {
   +ListByDeployment(ctx, deploymentID): List
 }
 DeploymentQueryController --> DeploymentQueryService
@@ -36,7 +36,7 @@ DeploymentQueryService --> OutputRedactor
 DeploymentQueryService --> DeploymentRepository
 DeploymentQueryService --> DeploymentSetRepository
 DeploymentQueryService --> DeploymentResourceRepository
-DeploymentQueryService --> ActiveResourceRepository
-DeploymentQueryService --> WorkloadInstanceRepository
+DeploymentQueryService --> ResourceTypeRepository
+DeploymentQueryService --> DeploymentWorkloadRepository
 DeploymentQueryService ..> DeploymentView
 @enduml
