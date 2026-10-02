@@ -25,7 +25,8 @@ export function ResourceTypesPage() {
     event.preventDefault();
     if (saving) return;
     setError(''); setNotice(''); setSaving(true);
-    const submitted = key.trim();
+    // The backend owns the ID rule (UC-02 BR-05); send the ID exactly as typed.
+    const submitted = key;
     try {
       await api('/resource-types', { method: 'POST', body: JSON.stringify({ key: submitted, inputs: inputs.map((field) => ({ ...field, name: field.name.trim() })), outputs: outputs.map((field) => ({ ...field, name: field.name.trim() })) }) });
     } catch (reason) { setError((reason as Error).message); setSaving(false); return; }
@@ -48,7 +49,8 @@ export function ResourceTypesPage() {
   return <section className="page"><header className="page-header"><div><p className="eyebrow">Platform</p><h1>Resource types</h1><p>Define reusable resource contracts for this organization.</p></div></header>
     <section className="content-panel"><div className="section-header"><h2>Registered types</h2></div>{loadError ? <div className="form-error" role="alert" aria-label="List error">{loadError} <Button type="button" onClick={() => void reload()}>Retry</Button></div> : loading ? <p>Loading resource types…</p> : types.length === 0 ? <p>No resource types registered yet.</p> : <div className="catalog-list">{types.map((type) => <div key={type.key} className="catalog-entry"><strong>{type.key}</strong><span>{type.inputs?.length ?? 0} inputs · {type.outputs?.length ?? 0} outputs</span></div>)}</div>}</section>
     <section className="content-panel"><div className="section-header"><div><h2>Register resource type</h2><p>Contracts are independent of the infrastructure provider.</p></div></div>
-      <form onSubmit={submit}><fieldset className="editor-grid form-fieldset" disabled={saving} aria-busy={saving}><label>Resource type ID<input value={key} required onChange={(event) => setKey(event.target.value)} /></label>
+      <form onSubmit={submit}><fieldset className="editor-grid form-fieldset" disabled={saving} aria-busy={saving}><label>Resource type ID<input value={key} required aria-describedby="resource-type-id-hint" onChange={(event) => setKey(event.target.value)} /></label>
+        <p id="resource-type-id-hint" className="feature-note">Use lowercase letters, digits and hyphens only, for example <code>postgres-ha</code>. The ID is not changed for you. <code>environment</code> and <code>service</code> are reserved.</p>
         {renderFields('Inputs', inputs, setInputs, newInput, false)}{renderFields('Outputs', outputs, setOutputs, newOutput, true)}
         {error ? <div className="form-error" role="alert">{error}</div> : null}{notice ? <div className="form-success" role="status">{notice}</div> : null}<div className="form-actions"><Button type="submit" tone="primary" disabled={saving}>{saving ? 'Registering…' : 'Register resource type'}</Button></div>
       </fieldset></form>

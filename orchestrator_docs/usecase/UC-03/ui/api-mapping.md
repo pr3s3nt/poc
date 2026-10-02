@@ -2,7 +2,7 @@
 id: UC-03-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-02
 related: UC-03
 ---
 
@@ -20,3 +20,7 @@ Validation of the caller's own document remains actionable. A duplicate cannot
 replace the original Definition/criteria. Newly registered matching Definitions
 are visible to planning without restart. No remote execution or secret Driver
 Inputs are added by this mapping.
+
+## Registration policy
+
+Definition ID and Driver Inputs follow specification BR-10–BR-14. Unknown nested keys, unsupported variables, nulls and wrong literal types return 400 with a safe field path; advanced JSON preserves valid placeholders. Form retains input on failure.

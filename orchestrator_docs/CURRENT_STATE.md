@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-02
 ---
 
 # Current project state
@@ -24,9 +24,9 @@ I06-09 (UC-07 update/remove) cũng đã hoàn thành
 [local API/UI/PostgreSQL verification](verification/2026-09-30-uc07-update-remove-local.md).
 I06-10 đã hoàn thành [registration hardening safe slice](verification/2026-09-30-registration-hardening-local.md): insert-only duplicate guards,
 safe errors, truthful UI reload states và no-restart catalog usage. I06-10/M02
-chưa đóng; identifier/Driver Inputs policy còn mở. Lựa chọn
-credential storage cho AWS Connection cần xác nhận trước phần implementation
-phụ thuộc quyết định đó.
+chưa đóng; identifier/Driver Inputs policy đã được chốt và hoàn thành local code/API/UI
+validation ngày 2026-10-02. AWS access key + Vault storage đã được chọn
+theo ADR-009; phần AWS onboarding chưa triển khai.
 [M00-a — Developer onboarding](iterations/M00-developer-onboarding/README.md) đã
 hoàn thành 2026-09-30 với React UI, authenticated API, session, normalized
 PostgreSQL persistence và local browser restart verification cho UC-00/UC-01.
@@ -163,3 +163,17 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 Các vấn đề deferred được theo dõi tại [backlog](backlog/README.md); khác biệt
 thiết kế–implementation nằm tại
 [known deviations](implementation/deviations.md).
+
+## Accepted decisions and verified local hardening (2026-10-02)
+
+New public Resource Type/Definition ID policy and Driver Inputs schema checking
+are implemented in UC-02/03. UC-16 validates all non-virtual dependencies on
+Save/import before mutation. Backend full test/build and frontend
+typecheck/lint/72 tests/build passed; code review required and verified fixes
+for malformed nested placeholders and namespace name supply. See
+[local evidence](verification/2026-10-02-catalog-workload-validation-local.md). IMP-002 remains open for the residual
+AWS onboarding and arbitrary-Type/runtime-pair boundaries.
+AWS access key + Vault storage has been selected in
+[ADR-009](architecture/decisions/ADR-009-aws-access-key-storage.md); the decision
+resolves credential selection, not AWS registration/executor delivery. AWS
+onboarding and live kind/AWS verification remain separate work.

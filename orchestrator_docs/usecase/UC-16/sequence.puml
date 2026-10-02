@@ -16,7 +16,7 @@ UI -> Catalog: List eligible references [MS-03..MS-05]
 Catalog --> UI: UC-12 keys, resource inputs/outputs, Services/ports
 Dev -> UI: Choose references, public paths and save [MS-04..MS-07]
 UI -> Config: Validate and save desired configuration
-Config -> Catalog: Verify scope, output class, Service/port [MS-06]
+Config -> Catalog: Validate all resource params and references\n(scope, output class, Service/port) [MS-06, BR-14]
 Catalog --> Config: Validated references
 Config -> Store: Save pending change [MS-07]
 Store --> UI: Pending status

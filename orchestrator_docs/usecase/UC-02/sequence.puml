@@ -9,7 +9,7 @@ database ResourceTypeRepository as Repo
 
 PE -> API: RegisterResourceType(document) [MS-01]
 API -> Service: RegisterResourceType(ctx, command)
-Service -> Validator: Validate() [MS-02]
+Service -> Validator: Validate schemas + public ID/reserved keys [MS-02, BR-05..BR-06]
 Validator --> Service: valid
 Service -> Repo: ListResourceTypes(orgID) [MS-03]
 Repo --> Service: no duplicate key

@@ -2,7 +2,7 @@
 id: UC-02-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-02
 related: UC-02
 ---
 
@@ -17,3 +17,7 @@ Success is 201, validation 400, duplicate 409, missing session 401, wrong role
 Registration never updates an existing contract, even with concurrent requests.
 New contracts are available to Score validation without restart. Runtime matching
 still requires a supported Definition; registration does not add a new executor.
+
+## Registration policy
+
+New IDs follow specification BR-05; `environment` and `service` are reserved (BR-06). Invalid IDs return 400 without normalization; form retains user input and explains lowercase letters, digits and hyphens.

@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-02
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -166,3 +166,14 @@ local tests; create and configuration-only redeploy are verified on kind.
 | MS-04–MS-05 | [Specification](../usecase/UC-16/specification.md) BR-02–BR-05 | UC-12, resource-output and same-Environment Service references; no literal binding or secret disclosure | Source eligibility, missing key/output/port, cross-Environment rejection and secret redaction |
 | MS-06–MS-07 | [Realization](../usecase/UC-16/realization.md) | Validate then save pending desired change; current Deployment Set/runtime unchanged | Field errors, pending-save and no-runtime-mutation tests |
 | VAR-01–VAR-02 | [States](../usecase/UC-16/ui/states.md) | Score import uses same rules; deletion requires confirmation and supports Undo | Literal-import rejection, import parity and pending-delete/undo tests |
+
+## 2026-10-02 implemented validation policy — local verification
+
+| Requirement | Realization / contract | Required coverage |
+|---|---|---|
+| UC-02 BR-05/BR-06, UC-03 BR-10 | Existing registration validators; OC-03/OC-04 | `TestRegisterResourceType_PublicIDPolicy`, `TestRegisterResourceDefinition_PublicIDPolicy`, `TestRegisterResourceDefinition_SeededShapesStillRegister`, `TestUC02UC03RegistrationPolicyHTTP`; frontend ID-error/form retention tests |
+| UC-03 BR-11–BR-14 | Definition validation + DriverContractInspector; OC-04 | `TestRegisterResourceDefinition_StrictDriverInputs`, `TestRegisterResourceDefinition_PlaceholderAwareTyping`, `TestRegisterResourceDefinition_NamespaceNameFromTypeContract`; nested-placeholder rejection and required-string namespace exception regression coverage |
+| UC-16 BR-14 | Shared Save/ValidateImport validation; OC-16 | `TestSaveAndImportValidateUnboundResourceParams`, `TestResourceParamValidationStoreFailureIsInternal`, `TestUC16ResourceParamsRejectedOnSaveAndImportHTTP`; editor Save/import rejection tests |
+| UC-04 BR-07 | ADR-009; SecretStore variant of OC-05 | Accepted design only; AWS credential registration/execution not delivered by local hardening |
+
+Execution: [2026-10-02 local validation evidence](../verification/2026-10-02-catalog-workload-validation-local.md).

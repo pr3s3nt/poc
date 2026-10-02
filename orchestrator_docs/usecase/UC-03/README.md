@@ -2,7 +2,7 @@
 id: UC-03-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-02
 ---
 
 # UC-03 context — Register Resource Definition
@@ -11,8 +11,8 @@ last_reviewed: 2026-09-22
 
 Runtime-supported Definition registration API/UI and normalized PostgreSQL
 persistence are implemented and locally verified, including atomic criteria,
-duplicate guards and no-restart matching. Driver Inputs shape restrictions remain
-unresolved; registration does not add new runtime drivers.
+duplicate guards and no-restart matching. Driver Inputs policy in specification BR-11–BR-14 is implemented and locally
+verified on 2026-10-02; registration does not add new runtime drivers.
 
 ## Read in this order
 

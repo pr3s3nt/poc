@@ -22,7 +22,7 @@ Service -> TypeRepo: ListResourceTypes(orgID) [MS-04]
 TypeRepo --> Service: ResourceType
 Service -> ConnectionRepo: GetConnection(connectionID) + READY/org check [MS-04]
 ConnectionRepo --> Service: Connection
-Service -> Service: validateReferences and provision rules [MS-05]
+Service -> Service: validate Driver Inputs shape/types/placeholders\nand references/provision rules [MS-05, BR-11..BR-14]
 Service -> Inspector: Inspect(embedded module) [MS-07]
 Inspector --> Service: DriverContract + fingerprint
 Service -> DefinitionRepo: ListResourceDefinitions(orgID) [MS-06]

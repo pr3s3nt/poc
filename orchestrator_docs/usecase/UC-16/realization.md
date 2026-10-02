@@ -2,7 +2,7 @@
 id: UC-16-REALIZATION
 artifact: use-case-realization
 status: draft
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-02
 ---
 
 # UC-16 — Use Case Realization (design pending)
@@ -47,3 +47,7 @@ Application keys use the virtual Score `environment` resource and
 UC-16 has no runtime side effects. UC-05 reads pending desired configuration to
 produce preview; UC-06/UC-07 apply an approved change later against the pinned
 draft version and UC-12 revision.
+
+## Input validation collaboration
+
+MS-06 validates all declared resource params against the Organization Resource Type catalog, not only resource outputs used by bindings. Save and ValidateImport share this path before any desired-state write. Failed validation never advances the draft version. See specification BR-14.

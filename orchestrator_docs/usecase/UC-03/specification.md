@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-02
 ---
 
 # UC-03 — Register Resource Definition and Matching Criteria
@@ -113,9 +113,9 @@ UC-03 Register Resource Definition
 - Seed catalog đã có Definitions cho implicit VPC/EKS/namespace, existing cluster, Aurora và PostgreSQL StatefulSet; executor registry chọn Terraform/Kubernetes/existing-cluster adapter theo matched Definition.
 - Planner đã hỗ trợ optional Execution Profile guard trước năm Matching Criteria chuẩn, Driver Inputs, Resource References, provision rules, fixed-point expansion và kiểm tra Terraform contract. Seeded PostgreSQL Definitions áp dụng cho mọi Application cùng profile.
 - Terraform execution của MVP chỉ hỗ trợ các module `vpc`, `eks` và `aurora` được nhúng trong binary. Conformance harness có thể inspect `source.url[@rev][/path]`, nhưng runtime chưa tải hoặc execute Terraform source từ xa.
-- API/UI đăng ký và nghiệp vụ `RegisterResourceDefinition` có ở local/test;
-  PostgreSQL persistence và production-grade RBAC còn thiếu. Catalog seed vẫn
-  cung cấp Definition mặc định.
+- API/UI đăng ký và nghiệp vụ `RegisterResourceDefinition` cùng normalized
+  PostgreSQL persistence đã có; production-grade RBAC còn thiếu. Catalog seed
+  vẫn cung cấp Definition mặc định.
 - Driver enum ngắn, `ConnectionKey`, `source.module` và context placeholder mở
   rộng là contract nội bộ của MVP, không phải Humanitec public contract. Mapping
   boundary và `driver_inputs.secret_refs` được phân loại tại
@@ -130,3 +130,37 @@ UC-03 Register Resource Definition
 - **OOS-05:** Secret Driver Inputs và credential rotation.
 - **OOS-06:** RBAC chi tiết và audit history.
 - **OOS-07:** Tải, cache và execute Terraform source từ xa; MVP runtime chỉ dùng module nhúng đã kiểm soát.
+
+## Registration validation policy (2026-10-02)
+
+- **BR-10:** New public Definition IDs follow UC-02 BR-05. Existing catalog
+  entries and referenced Resource Type IDs are not renamed or revalidated as
+  newly created IDs. Definition IDs have a separate namespace from Type IDs.
+- **BR-11:** Driver Inputs are a strict known-field object: only `values` at
+  root, and `variables` plus Terraform-only `source` within `values`.
+  `values` and `variables` are required objects. Kubernetes/existing-cluster
+  must omit `source`; Terraform source contains only the supported `module`.
+  Reject unknown fields, wrong container shapes and null values before saving.
+- **BR-12:** Validate variable names and literal types against the selected
+  driver contract. Terraform uses the embedded module's declared types,
+  including element types of lists/maps. Kubernetes namespace accepts only
+  `name: string`; Kubernetes PostgreSQL accepts `database`, `username`, `image`,
+  `storage`, `namespace` (all strings); existing-cluster accepts `name` and
+  `kubeContext` (strings). PostgreSQL options and existing-cluster values may
+  be omitted where runtime supplies a default/connection value; namespace name
+  must be supplied by Definition or a required string `name` input in its
+  Resource Type contract; an optional/wrong-type input does not satisfy this
+  requirement. Terraform
+  required inputs may be supplied by Resource Type params or executor as
+  defined in BR-09; do not require those values at registration.
+- **BR-13:** Valid context/resource placeholders remain supported. A complete
+  placeholder can defer value-type checking until planning/execution; literal
+  values and the literal elements of collections are checked at registration.
+  Malformed placeholders, including nested `${...}` inside an unescaped
+  placeholder body, are rejected. Interpolated strings are only suitable
+  for string fields; escaped placeholders remain literals. Validation errors
+  identify the field without quoting its submitted value.
+- **BR-14:** No raw credential or secret Driver Input support is added. Reject
+  `secret_refs`, credential fields and executor-owned `master_password`; the
+  Kubernetes PostgreSQL executor continues generating its password. AWS access
+  keys belong to UC-04 Secret Store, never a Definition.

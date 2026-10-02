@@ -2,7 +2,7 @@
 id: UC-02-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-10-02
 ---
 
 # UC-02 — Register Resource Type
@@ -68,7 +68,7 @@ UC-02 Register Resource Type
 ## Trạng thái implementation hiện tại
 
 - Seed catalog đã có Resource Types cho workload, VPC, cluster, namespace và PostgreSQL; planner dùng input contract để kiểm tra Score `params` và output contract để kiểm tra placeholder/executor output.
-- API/UI đăng ký và nghiệp vụ `RegisterResourceType` đã có cho local/test; PostgreSQL persistence và production-grade RBAC chưa có.
+- API/UI đăng ký và nghiệp vụ `RegisterResourceType` cùng normalized PostgreSQL persistence đã có; production-grade RBAC chưa có.
 
 ## Ngoài phạm vi happy path
 
@@ -77,3 +77,16 @@ UC-02 Register Resource Type
 - **OOS-03:** Kiểm tra ảnh hưởng tới Resource Definitions và Active Resources hiện có.
 - **OOS-04:** Custom validation ngoài JSON Schema.
 - **OOS-05:** RBAC chi tiết và audit history.
+
+## Registration identifier policy (2026-10-02)
+
+- **BR-05:** New public Resource Type IDs must be non-empty and contain only
+  ASCII lowercase letters, digits and hyphens (`^[a-z0-9-]+$`). Reject invalid
+  IDs; do not trim, lowercase or rename them silently. This policy does not
+  change Application IDs, workload IDs, schema field names or connection IDs.
+- **BR-06:** `environment` and `service` are reserved virtual Score Resource
+  Types and cannot be registered as user catalog entries. Existing seeded
+  catalog entries remain protected by insert-only duplicate semantics.
+- Existing catalog reads, seed/import fixtures and planning remain compatible:
+  this policy is enforced at new public registration, not by rewriting legacy
+  records or broadening the planner's identifier restrictions.

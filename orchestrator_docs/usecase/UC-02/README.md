@@ -2,7 +2,7 @@
 id: UC-02-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-10-02
 ---
 
 # UC-02 context — Register Resource Type
@@ -11,7 +11,8 @@ last_reviewed: 2026-09-21
 
 Registration API/UI and normalized PostgreSQL persistence are implemented;
 insert-only duplicate guards, scoped contracts and no-restart planner consumption
-are locally verified. New identifier/reserved-key policy remains unresolved.
+are locally verified. Identifier/reserved-key policy in specification BR-05/BR-06 is implemented
+and locally verified on 2026-10-02; legacy reads and fixtures remain compatible.
 
 ## Read in this order
 

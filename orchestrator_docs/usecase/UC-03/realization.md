@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-02
 ---
 
 # UC-03 — Use Case Realization
@@ -66,3 +66,7 @@ Lệnh trùng key không được sửa Definition hay xóa/thay criteria của 
 - `TestRegisterDefinition_RequiresAtLeastOneCriterion`.
 - `TestMatching_ExplicitEmptyCriterionIsWildcard`.
 - `TestConformanceLoader_SkipsDefinitionWithoutCriteria`.
+
+## Input validation collaboration
+
+Definition registration validates the public ID and strict Driver Inputs shape, variable names/literal types and placeholders before insert, per specification BR-10–BR-14. DriverContractInspector supplies embedded Terraform types; static executor contracts supply Kubernetes/existing-cluster types. Errors carry field paths, not submitted values. Existing criteria, connection, output and insert-only checks remain required.

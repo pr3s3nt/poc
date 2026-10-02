@@ -70,7 +70,8 @@ func TestRegisterResourceDefinition_RejectsConnectionAndProfileMisuse(t *testing
 	for name, mutate := range cases {
 		var def resource.Definition
 		mutate(&def)
-		def.Key = "negative-" + strings.ReplaceAll(name, " ", "-")
+		// Keys satisfy UC-03 BR-10 so each case fails for its own reason.
+		def.Key = "negative-" + strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(name, " ", "-"), "/", "-"))
 		if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); !errors.Is(err, catalog.ErrInvalid) {
 			t.Errorf("%s: want ErrInvalid, got %v", name, err)
 		}

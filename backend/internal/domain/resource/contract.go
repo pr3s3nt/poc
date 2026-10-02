@@ -102,6 +102,10 @@ func (t Type) ValidateParams(params map[string]any) error {
 	return nil
 }
 
+// CheckValue reports whether value has the declared input type. The error
+// names the expected type only, never the value.
+func (f InputField) CheckValue(value any) error { return checkType(f.Type, value) }
+
 // Output returns the named output contract entry.
 func (t Type) Output(name string) (OutputField, bool) {
 	for _, o := range t.Outputs {

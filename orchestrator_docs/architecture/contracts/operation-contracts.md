@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-02
 ---
 
 # Operation Contracts
@@ -222,3 +222,14 @@ replaced in list/detail projection, without mutating history.
 - Domain errors are typed Go errors; delivery maps them to API status later.
 - Failed external execution may mark Deployment/Resource `FAILED`, but retry/resume/rollback remains outside current happy path.
 - Secret values never enter logs, plan hash input exposed to clients, database JSONB or UC-09 view.
+
+## Registration and desired-input validation (2026-10-02)
+
+- OC-03/OC-04 apply the new-public-ID policy in UC-02 BR-05 and UC-03 BR-10;
+  OC-03 also rejects virtual Resource Type keys per UC-02 BR-06. Legacy reads,
+  fixture catalog loads and planner matching are not migration targets.
+- OC-04 enforces UC-03 BR-11–BR-14 before persistence: known nested fields,
+  runtime driver variable schemas, placeholder-aware type checks and no raw
+  credential inputs. Invalid documents return actionable safe validation.
+- OC-16 enforces UC-16 BR-14 on both Save and ValidateImport before mutation.
+  Backend owns enforcement even when a caller bypasses form validation.

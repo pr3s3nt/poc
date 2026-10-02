@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-02
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-02 | UC-02/03 ID and Driver Inputs policy; UC-16 Save/import params; Claude code-only implementation and two-round review | [Local validation hardening](2026-10-02-catalog-workload-validation-local.md) |
 | 2026-09-30 | UC-02..04 insert-only registration, safe errors, PostgreSQL race/rollback/reopen, truthful UI and no-restart matching | [Registration hardening](2026-09-30-registration-hardening-local.md) · [MP4](https://github.com/pr3s3nt/poc/releases/download/acceptance-recordings/uc02-04-human-local-20260930-080921.mp4) |
 | 2026-09-30 | UC-07 update/remove, shared-resource preservation, PostgreSQL atomic marker/restart, strict scoped API/UI and human-paced UI-only recording | [Update/remove verification](2026-09-30-uc07-update-remove-local.md) · [MP4](https://github.com/pr3s3nt/poc/releases/download/acceptance-recordings/uc07-human-local-20260930-073724-10075.mp4) |
 | 2026-09-30 | Standalone Score Preview, consistent memory/PostgreSQL snapshot, no mutation, safe API/UI and human-paced UI-only recording | [Preview verification](2026-09-30-uc05-preview-local.md) · [MP4](https://github.com/pr3s3nt/poc/releases/download/acceptance-recordings/uc05-human-local-20260930-065714-19834.mp4) |

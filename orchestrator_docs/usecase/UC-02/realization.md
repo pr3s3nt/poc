@@ -2,7 +2,7 @@
 id: UC-02-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-02
 ---
 
 # UC-02 — Use Case Realization
@@ -55,3 +55,7 @@ seed/test, không trở thành public update capability.
 Web Console `Platform / Resource types` gọi `GET`/`POST /api/v1/resource-types`;
 POST chỉ cho Platform Engineer/Admin. Contract list và form nằm trong
 `UC-02/ui/`.
+
+## Input validation collaboration
+
+New public registration validates the ID and reserved virtual Type keys before persistence, per specification BR-05/BR-06. The existing validation participant performs this check; no new persistence entity or transaction is introduced.

@@ -2,7 +2,7 @@
 id: UC-16-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-09-24
+last_reviewed: 2026-10-02
 related: UC-16
 ---
 
@@ -25,3 +25,10 @@ related: UC-16
 | Import | Parsing/invalid | Show file progress or field-level error; direct literal binding is rejected. |
 | Save | Submitting/error/success | Prevent double submit; preserve form on error; return to Application home with pending label on success. |
 | Delete | Confirm/cancel/success | Require confirmation; cancel does nothing; success shows pending deletion and Undo. |
+
+## Resource input errors
+
+Save and Score import reject invalid resource params with safe field paths under
+UC-16 BR-14. Preserve unsaved editor/import content; do not report a saved draft
+or advance displayed draft version after rejection. Backend validation also
+covers imported dependencies unused by container bindings.

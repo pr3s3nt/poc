@@ -2,7 +2,7 @@
 id: UC-16-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-02
 ---
 
 # UC-16 context — Manage workload configuration
@@ -11,7 +11,9 @@ last_reviewed: 2026-09-27
 
 Specification and UI design approved. UC-01 Application home now links to
 UC-16 draft list/editor and UC-12 settings. Form, Score import and draft
-save/delete/undo are implemented with reference validation. Editing a deployed
+save/delete/undo are implemented with reference validation. Save and Score
+import also validate all non-virtual dependency params against the Resource Type
+catalog before mutation (local code/API/UI checks on 2026-10-02). Editing a deployed
 workload without a saved draft reconstructs a reference-based Score from the
 current Deployment Set. Preview → Deploy and runtime reference resolution are
 implemented; create and configuration-only redeploy have kind verification.

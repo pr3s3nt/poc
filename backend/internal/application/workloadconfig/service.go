@@ -237,6 +237,9 @@ func (s *Service) validateBindings(ctx context.Context, app, env string, doc sco
 	for _, typ := range types {
 		typeMap[typ.Key] = typ
 	}
+	if err := validateResourceParams(doc, typeMap); err != nil {
+		return err
+	}
 	for containerName, container := range doc.Containers {
 		for key, value := range container.Variables {
 			match := bindingPattern.FindStringSubmatch(value)
@@ -271,6 +274,48 @@ func (s *Service) validateBindings(ctx context.Context, app, env string, doc sco
 				if _, ok := typ.Output(output); !ok {
 					return fmt.Errorf("%w: resource %s has no output %s", ErrInvalid, alias, output)
 				}
+			}
+		}
+	}
+	return nil
+}
+
+// validateResourceParams checks every declared non-virtual resource, bound or
+// not, against the Organization Resource Type catalog (UC-16 BR-14). It uses
+// the Score planning input subset plus an explicit null rejection. Errors
+// name the field path, never the submitted value.
+func validateResourceParams(doc score.Document, types map[string]resource.Type) error {
+	for _, alias := range doc.ResourceAliases() {
+		spec := doc.Resources[alias]
+		if spec.Type == "environment" || spec.Type == "service" {
+			continue // virtual resources keep their dedicated validation
+		}
+		path := "resources." + alias
+		typ, ok := types[spec.Type]
+		if !ok {
+			return fmt.Errorf("%w: %s.type is not a registered resource type", ErrInvalid, path)
+		}
+		names := make([]string, 0, len(spec.Params))
+		for name := range spec.Params {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			field, ok := typ.Input(name)
+			if !ok {
+				return fmt.Errorf("%w: %s.params.%s is not declared by resource type %s", ErrInvalid, path, name, typ.Key)
+			}
+			value := spec.Params[name]
+			if value == nil {
+				return fmt.Errorf("%w: %s.params.%s must not be null", ErrInvalid, path, name)
+			}
+			if err := field.CheckValue(value); err != nil {
+				return fmt.Errorf("%w: %s.params.%s must be %s", ErrInvalid, path, name, field.Type)
+			}
+		}
+		for _, field := range typ.Inputs {
+			if _, ok := spec.Params[field.Name]; field.Required && !ok {
+				return fmt.Errorf("%w: %s.params.%s is required by resource type %s", ErrInvalid, path, field.Name, typ.Key)
 			}
 		}
 	}

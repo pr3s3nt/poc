@@ -2,7 +2,7 @@
 id: UC-04-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-10-02
 ---
 
 # UC-04 — Configure Execution Profile Connections
@@ -91,8 +91,8 @@ UC-04 Configure Execution Profile Connections
 - Seed catalog đã đăng ký internal Kubernetes connection và AWS connection metadata; bootstrap wire Kubernetes, existing-cluster và Terraform adapters theo Execution Profile.
 - Internal verification dùng kube context đã cấu hình; AWS verification dùng local default credential chain, region và account ID truyền khi khởi động process.
 - API/UI đăng ký Kubernetes connection bằng host kube context cùng verifier
-  read-only đã có cho local/kind. AWS registration, Secret Store bền vững và
-  PostgreSQL persistence còn thiếu. Terraform vẫn dùng local state directory,
+  read-only cùng normalized PostgreSQL persistence đã có cho local/kind. AWS
+  registration và Secret Store cho connection còn thiếu. Terraform vẫn dùng local state directory,
   chưa có backend registry bền vững.
 
 ## Ngoài phạm vi happy path
@@ -101,3 +101,11 @@ UC-04 Configure Execution Profile Connections
 - **OOS-02:** Humanitec-style Agent, private cluster tunnel và GitOps mode.
 - **OOS-03:** Cài đặt Operator tự động và credential rotation.
 - **OOS-04:** Health monitoring, reconnect, RBAC chi tiết và audit history.
+
+## Accepted AWS credential choice
+
+- **BR-07:** The first AWS registration flow accepts access key ID and secret
+  access key through the dedicated credential write boundary. Storage and
+  resolution follow [ADR-009](../../architecture/decisions/ADR-009-aws-access-key-storage.md).
+  The existing local/kind form remains unchanged until full AWS registration,
+  verification and executor credential resolution are delivered.

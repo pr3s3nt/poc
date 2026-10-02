@@ -2,7 +2,7 @@
 id: UC-16-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-02
 related: UC-01, UC-05, UC-06, UC-07, UC-12
 ---
 
@@ -125,7 +125,23 @@ của Environment đang chọn.
 
 Đã có UI/API lưu draft, đánh dấu xóa/hoàn tác, import Score và validation
 tham chiếu Application key, resource output, Service/cổng cùng Environment.
+Save và import kiểm tra toàn bộ non-virtual resource params theo input contract
+trước khi ghi draft; local code/API/UI tests đã pass ngày 2026-10-02.
 Planner/executor resolve tham chiếu `environment` và `service`; Application home
 có Preview → Deploy của các draft. Workload đã deploy không có draft được tái
 tạo thành Score tham chiếu để sửa trên form. Kind đã kiểm chứng create,
 configuration-only redeploy và remove; broader cloud path chưa kiểm chứng lại.
+
+## Save/import input contract enforcement
+
+- **BR-14:** MS-06 validates every declared non-virtual resource dependency,
+  including dependencies with no container binding, against its registered
+  Resource Type. Unknown Type, undeclared param, missing required input, null
+  or wrong literal type is rejected before draft persistence and before a
+  successful Score import response. Form and import share this rule. Virtual
+  `environment`/`service` resources follow their existing dedicated contracts.
+  Use the same supported input subset as Score planning; do not introduce
+  generic JSON Schema or change the direct Score API.
+- Errors identify `resources.<alias>.params.<field>` (or the resource Type)
+  without including submitted values. Failed validation leaves drafts, draft
+  version, current Deployment Set and runtime untouched.

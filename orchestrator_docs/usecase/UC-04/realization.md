@@ -2,7 +2,7 @@
 id: UC-04-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-02
 ---
 
 # UC-04 — Use Case Realization
@@ -64,3 +64,10 @@ ghi đè config/reference/verification của record đã tồn tại. Seed/upser
 - `TestRegisterAWSDriverAccount_StoresOnlySecretReference`.
 - `TestRegisterKubernetesCluster_VerifiesRBAC`.
 - `TestConnectionRecord_DoesNotContainCredentialMaterial`.
+
+## AWS credential design decision
+
+[ADR-009](../../architecture/decisions/ADR-009-aws-access-key-storage.md) selects
+AWS access keys in a dedicated Vault KV v2 Organization/Connection namespace.
+The SecretStore/verifier/cleanup and executor resolution path is a separate
+implementation step; local host-context registration does not call this store.

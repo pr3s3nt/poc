@@ -2,7 +2,7 @@
 id: ADR-INDEX
 artifact: decision-index
 status: current
-last_reviewed: 2026-09-28
+last_reviewed: 2026-10-02
 ---
 
 # Architecture Decision Records
@@ -15,3 +15,5 @@ last_reviewed: 2026-09-28
 - [ADR-006 — Per-Application configuration provider and Vault Agent delivery](ADR-006-application-configuration-provider.md)
 - [ADR-007 — Fleet GitRepo workload delivery on internal kind](ADR-007-fleet-gitrepo-workload-delivery.md)
 - [ADR-008 — VSO native Secret delivery for UC-12](ADR-008-vso-native-secret-delivery.md)
+
+- [ADR-009 — AWS access-key credential storage](ADR-009-aws-access-key-storage.md)

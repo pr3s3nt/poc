@@ -2,7 +2,7 @@
 id: DOMAIN-OBJECTS
 artifact: domain-persistence-classification
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-02
 ---
 
 # Domain Objects and Persistence Classification
@@ -94,3 +94,11 @@ Deployment Set.
 - Deployment creation persists Deployment + immutable Delta Snapshot + Candidate Set + Plan before external execution.
 - Each resource result is persisted after its external call in a short transaction.
 - Final deployment transaction performs optimistic Environment version check, updates current-set pointer, workload instances and Deployment `SUCCEEDED` atomically.
+
+## New public catalog registration
+
+Identifier validation is owned by UC-02 BR-05/BR-06 and UC-03 BR-10, at the
+registration service boundary. Existing catalog objects and planner fixtures
+are not migrated. Driver Inputs validation follows UC-03 BR-11–BR-14, using
+embedded module contracts or static runtime driver contracts before insertion.
+No new aggregate, table or persistence uniqueness rule is introduced.

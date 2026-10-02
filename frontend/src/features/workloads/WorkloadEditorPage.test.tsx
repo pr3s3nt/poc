@@ -182,3 +182,51 @@ it('saves a public path and Service port without deploying', async () => {
   await user.click(screen.getByRole('button', { name: 'Save pending workload' }));
   expect((saved?.score as { service: { publicRoutes: { path: string; port: string }[] } }).service.publicRoutes).toEqual([{ path: '/', port: 'http' }]);
 });
+
+it('shows a backend resource param rejection, keeps the form and does not report a saved draft', async () => {
+  const puts: unknown[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith('/configuration')) return Response.json({ keys: [] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', inputs: [{ name: 'database', type: 'string', required: true }], outputs: [{ name: 'host' }] }] });
+    if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body))); return Response.json({ error: 'workloadconfig: invalid input: resources.db.params.database is required by resource type postgres' }, { status: 400 }); }
+    return Response.json({ draftVersion: 3, workloads: [] });
+  }));
+  const user = userEvent.setup();
+  render(<WorkloadEditorPage application={application} environment="staging" />);
+  await screen.findByRole('heading', { name: 'Basic information' });
+  await user.type(screen.getByLabelText('Workload name'), 'backend');
+  await user.type(screen.getByLabelText('Image'), 'example.invalid/backend:test');
+  await user.click(screen.getByRole('button', { name: '+ Add resource' }));
+  await user.type(screen.getByLabelText('Resource alias'), 'db');
+  await user.selectOptions(screen.getByLabelText('Resource type'), 'postgres');
+  await user.type(screen.getByLabelText('Resource database'), 'catalog');
+  await user.click(screen.getByRole('button', { name: 'Save pending workload' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('resources.db.params.database is required');
+  expect(puts).toHaveLength(1);
+  expect((puts[0] as { version: number }).version).toBe(3);
+  expect(screen.getByRole('heading', { name: 'Add workload' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Workload name')).toHaveValue('backend');
+  expect(screen.getByLabelText('Resource database')).toHaveValue('catalog');
+  expect(screen.getByRole('button', { name: 'Save pending workload' })).toBeEnabled();
+});
+
+it('shows a Score import rejection without presenting the file as parsed', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith('/configuration')) return Response.json({ keys: [] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
+    if (url.endsWith('/workloads/parse')) return Response.json({ error: 'workloadconfig: invalid input: resources.cache.type is not a registered resource type' }, { status: 400 });
+    return Response.json({ draftVersion: 0, workloads: [] });
+  }));
+  const user = userEvent.setup();
+  render(<WorkloadEditorPage application={application} environment="staging" />);
+  await screen.findByRole('heading', { name: 'Basic information' });
+  await user.click(screen.getByRole('button', { name: 'Import Score' }));
+  const content = 'apiVersion: score.dev/v1b1\nmetadata:\n  name: api\n';
+  // jsdom File has no text(); provide it so the page reads the upload.
+  const file = Object.assign(new File([content], 'score.yaml', { type: 'text/yaml' }), { text: async () => content });
+  await user.upload(screen.getByLabelText('Score file'), file);
+  expect(await screen.findByRole('alert')).toHaveTextContent('resources.cache.type is not a registered resource type');
+  expect(screen.queryByText(/Parsed workload/)).not.toBeInTheDocument();
+});

@@ -41,6 +41,12 @@ func NewService(store persistence.Store, inspector ...planning.ModuleInspector) 
 
 // RegisterResourceType validates and creates a contract in one Organization.
 func (s *Service) RegisterResourceType(ctx context.Context, organizationKey string, typ resource.Type) (resource.Type, error) {
+	if err := validatePublicID("resource type", typ.Key); err != nil {
+		return resource.Type{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
+	if reservedTypeKeys[typ.Key] {
+		return resource.Type{}, fmt.Errorf("%w: resource type %q is a reserved virtual Score type", ErrInvalid, typ.Key)
+	}
 	if err := typ.Validate(); err != nil {
 		return resource.Type{}, fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
@@ -72,6 +78,9 @@ func (s *Service) RegisterResourceType(ctx context.Context, organizationKey stri
 
 // RegisterResourceDefinition accepts only runtime-supported driver/type pairs.
 func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKey string, def resource.Definition) (resource.Definition, error) {
+	if err := validatePublicID("resource definition", def.Key); err != nil {
+		return resource.Definition{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
 	if err := def.Validate(); err != nil {
 		return resource.Definition{}, fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
@@ -126,6 +135,10 @@ func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKe
 }
 
 func (s *Service) validateDriver(ctx context.Context, org string, def *resource.Definition, typ resource.Type) error {
+	variables, err := validateDriverInputShape(*def)
+	if err != nil {
+		return err
+	}
 	module := ""
 	switch def.DriverType {
 	case resource.DriverTerraform:
@@ -177,14 +190,6 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 			return fmt.Errorf("Kubernetes driver requires cluster connection")
 		}
 	}
-	values, hasValues := def.DriverInputs["values"].(map[string]any)
-	if !hasValues {
-		return fmt.Errorf("driverInputs.values must be an object")
-	}
-	variables, hasVariables := values["variables"].(map[string]any)
-	if !hasVariables {
-		return fmt.Errorf("driverInputs.values.variables must be an object")
-	}
 	if def.DriverType == resource.DriverTerraform {
 		if s.inspector == nil {
 			return &internalError{err: errors.New("catalog: Terraform contract inspector is unavailable")}
@@ -195,11 +200,11 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 			// caller's document: never report it as validation (UC-03 mapping).
 			return &internalError{err: err}
 		}
+		if err := validateTerraformVariables(contract, variables); err != nil {
+			return err
+		}
 		provided := map[string]bool{}
 		for name := range variables {
-			if _, ok := contract.Variables[name]; !ok {
-				return fmt.Errorf("module %q does not declare variable %q", module, name)
-			}
 			provided[name] = true
 		}
 		for _, input := range typ.Inputs {
@@ -227,6 +232,9 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 		}
 		def.SourceFingerpr = contract.Fingerprint
 	} else {
+		if err := validateStaticVariables(*def, typ, variables); err != nil {
+			return err
+		}
 		allowed := map[string]map[string]bool{
 			"k8s-namespace": {"name": true},
 			"postgres":      {"host": true, "port": true, "database": true, "username": true, "password": true},
@@ -248,10 +256,15 @@ func validateReferences(def resource.Definition, types []resource.Type) error {
 	}
 	context := planning.Context{App: application.Application{Key: "sample-app"}, Env: environment.Environment{Key: "staging"}, Connection: application.Connection{Key: "sample-connection"}}
 	current := &planning.Node{Descriptor: def.ResourceTypeKey + ".default#sample", Class: "default"}
+	// Errors name the field path only; the submitted value is never echoed
+	// (UC-03 BR-13).
 	check := func(path, value string) error {
+		if _, err := classifyPlaceholders(value); err != nil {
+			return fmt.Errorf("%s contains a malformed placeholder", path)
+		}
 		refs, err := placeholder.Refs(value)
 		if err != nil {
-			return fmt.Errorf("%s: %w", path, err)
+			return fmt.Errorf("%s contains a malformed placeholder", path)
 		}
 		for _, ref := range refs {
 			if ref.Kind != placeholder.KindResource {
@@ -259,15 +272,14 @@ func validateReferences(def resource.Definition, types []resource.Type) error {
 			}
 			descriptor, err := planning.ParseDescriptorText(ref.Resource, current, context)
 			if err != nil {
-				return fmt.Errorf("%s: invalid resource reference %q: %w", path, ref.Resource, err)
+				return fmt.Errorf("%s contains an invalid resource reference", path)
 			}
-			providerType := descriptor.Type
-			provider, ok := byKey[providerType]
+			provider, ok := byKey[descriptor.Type]
 			if !ok {
-				return fmt.Errorf("%s: unknown provider type %q", path, providerType)
+				return fmt.Errorf("%s references an unregistered provider resource type", path)
 			}
 			if _, ok := provider.Output(ref.OutputKey); !ok {
-				return fmt.Errorf("%s: provider %q has no output %q", path, providerType, ref.OutputKey)
+				return fmt.Errorf("%s references an output its provider resource type does not declare", path)
 			}
 		}
 		return nil
