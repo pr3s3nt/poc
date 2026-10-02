@@ -177,3 +177,21 @@ local tests; create and configuration-only redeploy are verified on kind.
 | UC-04 BR-07 | ADR-009; SecretStore variant of OC-05 | Accepted design only; AWS credential registration/execution not delivered by local hardening |
 
 Execution: [2026-10-02 local validation evidence](../verification/2026-10-02-catalog-workload-validation-local.md).
+
+## UC-16 existing Application-key selection — local implementation trace
+
+| Requirement | Design / contract | Regression coverage |
+|---|---|---|
+| MS-04/MS-05, BR-15 | UC-16 checklist screens/sequence; OC-16 | Tick variable/secret with same-name reference, scoped keys, no value copy/secret display, no implicit selection |
+| BR-16 | Optional name override; validation before serialization | Alias/reset, empty name and collision with Application/resource/Service names, allowed names across containers |
+| BR-17 | Lossless Binding projection | Uncheck isolation, Edit/import aliases, multiple names for one key, unchanged advanced Score path |
+| BR-18 | Unavailable/loading/error states; other sources editor | Missing key retained and blocks Save, empty/error distinction, Retry, resource/Service flows and submitting/stale guards |
+
+Coverage is implemented in
+[`WorkloadEditorKeys.test.tsx`](../../frontend/src/features/workloads/WorkloadEditorKeys.test.tsx):
+same-name selections, explicit aliases/reset, variable/resource/Service
+collisions, per-container isolation, Edit/import multiple aliases, missing
+keys, catalog loading/error/Retry, stale reload and real-scope resets.
+Deferred responses cover catalog, file read/parse, Save and reload;
+prototype-member dictionary names remain own properties through serialization.
+Execution evidence: [local picker verification](../verification/2026-10-02-workload-key-picker-local.md).

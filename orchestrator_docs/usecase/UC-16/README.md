@@ -19,6 +19,10 @@ current Deployment Set. Preview → Deploy and runtime reference resolution are
 implemented; create and configuration-only redeploy have kind verification.
 Resource dependency inputs, including PostgreSQL `database` and `username`,
 are editable on the form and persisted as Score params.
+Per-container Application variable/secret checklists select existing UC-12 keys
+with same-name defaults and optional aliases. Resource/Service references use
+a separate editor. Missing keys, duplicate container names and late replies
+from a previous scope cannot silently replace or drop selected bindings.
 One optional Service port can be selected as the Environment's public entry;
 it remains pending until Preview → Deploy.
 

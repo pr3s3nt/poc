@@ -35,13 +35,13 @@ của Environment đang chọn.
    Developer cũng có thể nạp một file Score.
 3. **MS-03:** Developer khai báo container, image, Service/cổng, tài nguyên và
    resource dependencies cần dùng.
-4. **MS-04:** Với mỗi biến môi trường của container, Developer chọn một nguồn:
-   variable của Application đã cấu hình cho Environment này trong UC-12; output
-   không bí mật của resource dependency; hoặc Service/cổng của workload khác
-   trong cùng Environment.
-5. **MS-05:** Với mỗi secret của container, Developer chọn secret của Application
-   đã cấu hình cho Environment này trong UC-12 hoặc output bí mật của resource
-   dependency.
+4. **MS-04:** Với mỗi container, Developer tick các Application variables đã
+   cấu hình trong UC-12 cho Environment này. Tên biến trong container mặc định
+   bằng tên key; chỉ nhập tên khác khi cần. Output resource không bí mật và
+   Service/cổng của workload khác được thêm ở mục nguồn khác riêng.
+5. **MS-05:** Developer tick Application secrets từ danh sách key cùng
+   Environment; không nhập lại tên hoặc giá trị. Có thể chọn tên khác trong
+   container, hoặc thêm output bí mật của resource dependency ở mục nguồn khác.
 6. **MS-06:** Hệ thống kiểm tra cấu hình và tham chiếu. Nếu nạp Score, hệ thống
    hiển thị nội dung đã đọc để Developer kiểm tra trước khi lưu.
 7. **MS-07:** Developer lưu. Hệ thống lưu cấu hình mong muốn cho đúng Environment,
@@ -145,3 +145,42 @@ configuration-only redeploy và remove; broader cloud path chưa kiểm chứng 
 - Errors identify `resources.<alias>.params.<field>` (or the resource Type)
   without including submitted values. Failed validation leaves drafts, draft
   version, current Deployment Set and runtime untouched.
+
+## Select existing Application keys
+
+- **BR-15:** Each container presents existing UC-12 keys for the selected
+  Application/Environment as separate Variables and Secrets checklists. A new
+  container starts with no keys selected. Checking a key creates a reference
+  using the key name as the container variable name. Only selected keys are
+  used; new Settings keys are never automatically selected. Values are neither
+  re-entered nor copied. Secret values are never displayed in this picker.
+- **BR-16:** Each selected key has an optional "Use a different container name"
+  control. For example `DATABASE_PASSWORD` can map to `PGPASSWORD`. Turning
+  off the override restores the key name. Container names must be non-empty
+  and unique among all bindings in that container, including resource and
+  Service sources. A collision or incomplete selected binding blocks form
+  Save with an actionable error; no silent overwrite, suffix or normalization.
+  Names may repeat in different containers.
+- **BR-17:** Unchecking a key removes its Application-key bindings only in
+  that container. Other keys, containers and resource/Service bindings remain.
+  Edit and supported Score import restore the selected keys and original
+  container names. If an imported/existing Score maps one key to multiple
+  container names, preserve all mappings and expose them for review/edit;
+  do not collapse them to a single default name. Unchecking removes those
+  mappings for that container. Complex Score import keeps its existing
+  lossless advanced path.
+- **BR-18:** A selected key that no longer exists remains visible as an
+  unavailable reference with its original container name. The user can remove
+  it or correct it; it must not disappear silently or be replaced with another
+  key. Missing catalog/loading/error states are distinct from an empty key
+  list, and form Save is blocked until selected key references can be checked.
+  Changing Application, Environment or workload starts the destination editor
+  from its own draft/empty state; selections, aliases and imported Score from
+  the previous scope must not carry over. Late responses from the previous
+  scope are ignored. Same-scope stale reload continues preserving local edits.
+  Resource-output and Service bindings remain explicit under a separate
+  "Other sources" section, without Application-variable/secret source rows.
+- Checklist actions only edit desired form state. Persistence continues using
+  `containers.<container>.variables.<name>: ${resources.env.KEY}` with the
+  virtual `resources.env` resource. No API, database schema, provider permission
+  or Preview/Deploy lifecycle change is introduced.

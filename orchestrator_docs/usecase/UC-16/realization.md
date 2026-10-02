@@ -14,8 +14,10 @@ Application keys use the virtual Score `environment` resource and
 
 ## Responsibilities
 
-- Workload configuration boundary: present and parse form/Score input; never
-  offer a literal variable/secret value field.
+- Workload configuration boundary: present per-container UC-12 Variables and
+  Secrets checklists, optional container-name overrides, and a separate
+  resource/Service source editor; never offer a literal value field. Retain
+  binding references as the form model so no new persistence model is needed.
 - Reference catalog: list UC-12 keys for the selected Application/Environment,
   declared resource inputs and outputs by classification, and same-Environment workload
   Services and ports.
@@ -36,8 +38,8 @@ Application keys use the virtual Score `environment` resource and
 |---|---|
 | MS-01–MS-02 | Read selected Environment's workload list and open the form or Score importer. |
 | MS-03 | Collect workload fields, declared resource dependencies and typed input params from Resource Type contracts; reject missing required inputs. |
-| MS-04–MS-05 | Read eligible UC-12, resource-output and Service references; keep values of secrets hidden. |
-| MS-06 | Validate each reference against scope, output classification and target Service/port; return field-level errors on failure. |
+| MS-04–MS-05 | Load scoped UC-12 key metadata; tick per-container keys with same-name defaults and optional overrides. Restore all existing/imported mappings; keep resource/Service sources separate and secret values hidden. |
+| MS-06 | Validate selected-key availability and per-container name uniqueness before Score serialization; then validate references, output classification and target Service/port using the existing backend contracts. Retain input on failure. |
 | MS-07 | Save desired configuration, return pending status and a UC-05 Preview affordance. |
 | VAR-01 | Parse one imported Score, run the same validation and show the resulting form before save. |
 | VAR-02 | Confirm deletion, mark desired change pending and permit Undo before deploy. |
@@ -51,3 +53,14 @@ draft version and UC-12 revision.
 ## Input validation collaboration
 
 MS-06 validates all declared resource params against the Organization Resource Type catalog, not only resource outputs used by bindings. Save and ValidateImport share this path before any desired-state write. Failed validation never advances the draft version. See specification BR-14.
+
+## Checklist projection
+
+The UI projects the existing `Binding` collection onto scoped key metadata.
+Selection does not store key values or a new API field. Existing mappings,
+including aliases and multiple names referencing the same key, are retained.
+Unavailable referenced keys remain visible until explicitly removed/corrected.
+Validate collisions across Application/resource/Service bindings before
+building the variables map, so serialization cannot overwrite an earlier
+binding. Selection is independent for each container. Loading failure must
+not permit saving an empty substitute for a previously configured workload.

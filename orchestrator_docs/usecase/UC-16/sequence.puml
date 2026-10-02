@@ -14,7 +14,9 @@ Store --> UI: Workloads + pending changes
 Dev -> UI: Add/Edit, form or Score import [MS-02]
 UI -> Catalog: List eligible references [MS-03..MS-05]
 Catalog --> UI: UC-12 keys, resource inputs/outputs, Services/ports
-Dev -> UI: Choose references, public paths and save [MS-04..MS-07]
+Dev -> UI: Tick UC-12 keys per container, optional aliases,\nother sources and public paths [MS-04..MS-05, BR-15..BR-18]
+UI -> UI: Validate selected keys + per-container name uniqueness
+Dev -> UI: Save desired configuration [MS-07]
 UI -> Config: Validate and save desired configuration
 Config -> Catalog: Validate all resource params and references\n(scope, output class, Service/port) [MS-06, BR-14]
 Catalog --> Config: Validated references

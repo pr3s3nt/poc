@@ -2,7 +2,7 @@
 id: UC-16-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-09-24
+last_reviewed: 2026-10-02
 related: UC-16
 ---
 
@@ -26,8 +26,9 @@ Edit uses the same form and shows the current workload name.
 
 | Group | Input |
 |---|---|
-| Environment variables | Each row has container variable name, source type and source picker. Types: Application variable (UC-12), non-secret resource output, or another workload's Service/cổng in this Environment. No direct-value field. |
-| Secrets | Each row has container secret name, source type and source picker. Types: Application secret (UC-12) or secret resource output. Values are never shown. |
+| Application variables | Per-container checklist of UC-12 Variable key names in this Environment. Tick to use the same name; expand "Use a different container name" only for aliases. No value field or repeated Application-source selection. |
+| Application secrets | Separate checklist of Secret key names with the same optional alias control. Values are never shown or requested. |
+| Other sources | Explicit container name and resource-output or workload-Service picker. No Application variable/secret options in this row editor; Application keys are selected above. |
 | Resource output picker | Select declared dependency, then eligible output from its contract; secret classification determines which group can use it. |
 | Resource dependency inputs | After selecting Resource Type, show its declared input fields with required indicators and type-appropriate controls. PostgreSQL exposes required `database` and `username`; editing preserves saved params. |
 | Workload Service picker | Select a non-deleted workload in the same Environment that declares a Service, then select a declared port; show the resulting internal endpoint as read-only explanation. |
@@ -55,3 +56,24 @@ and offers Undo. It remains visible in Preview changes.
 Saving or marking deletion returns to Application home. A visible pending
 indicator leads to UC-05 Preview changes. No Deploy action is silently
 performed by this screen.
+
+## Existing-key selection behavior
+
+- Render keyboard-accessible labelled checkboxes under Variables and Secrets
+  for each container. Newly added containers start unchecked. Display the key
+  name and selected container name; do not show catalog values in this picker.
+- For `DATABASE_PASSWORD`, a checked key defaults to container name
+  `DATABASE_PASSWORD`. Expanding "Use a different container name" reveals an
+  input where the user can enter `PGPASSWORD`. Removing the override resets
+  the name to `DATABASE_PASSWORD`.
+- Edit/import preselect existing keys and reveal differing aliases. Multiple
+  names already mapped to the same key remain visible and editable. Unchecking
+  removes those mappings from that container only.
+- Unavailable selected keys appear explicitly with their original names and
+  removal affordance. Empty Variables/Secrets sections explain that keys are
+  created in Application Settings; API failure has Retry, not an empty state.
+- All selected/added names must be complete and unique within their container.
+  Conflicts with Application/resource/Service mappings keep the form and block
+  Save; identical names in another container are allowed.
+- Freeze key-selection and alias controls during a pending Save. A stale Save
+  preserves selection/aliases and uses the existing reload/review flow.

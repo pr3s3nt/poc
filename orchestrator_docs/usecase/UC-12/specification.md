@@ -2,7 +2,7 @@
 id: UC-12-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-02
 related: UC-01, UC-05, UC-06, UC-07, UC-16
 ---
 
@@ -124,3 +124,10 @@ revision, Vault KV v2 adapter, resolution tham chiếu khi Preview/Deploy và
 applied revision theo workload. VSO/Secret delivery theo ADR-008 đã được kiểm
 chứng trên kind; Agent Injector vẫn là đường tương thích cũ. Fake mode dùng
 provider bộ nhớ. HA, backup và secret lifecycle production chưa thuộc MVP.
+
+## Workload reuse
+
+UC-16 MS-04/MS-05 and BR-15–BR-18 own the selection UI: Developer ticks existing
+keys per container, using the key name by default and an optional container
+alias. UC-12 continues owning key/value creation and revision history; workload
+selection never creates a second key or copies its value.

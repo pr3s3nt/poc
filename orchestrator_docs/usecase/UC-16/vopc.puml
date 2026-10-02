@@ -9,7 +9,7 @@ class "Desired workload change" as Change <<entity>>
 interface "Desired configuration store" as Store
 
 UI --> Config : validate/save/delete
-UI --> Catalog : eligible sources
+UI --> Catalog : scoped UC-12 keys and other sources
 Config --> Catalog : verify references
 Config --> Store : persist pending change
 Store ..> Change

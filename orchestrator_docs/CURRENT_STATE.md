@@ -177,3 +177,13 @@ AWS access key + Vault storage has been selected in
 [ADR-009](architecture/decisions/ADR-009-aws-access-key-storage.md); the decision
 resolves credential selection, not AWS registration/executor delivery. AWS
 onboarding and live kind/AWS verification remain separate work.
+
+## UC-16 Application-key picker delivered (2026-10-02)
+
+Per-container Variables/Secrets checklists with same-name defaults, optional
+aliases and separate resource/Service sources are accepted under UC-16
+BR-15–BR-18 and implemented in the Console. Same-scope stale reload retains
+edits; real Application/Environment/workload changes reset local selections
+and ignore late old replies. Frontend typecheck/lint/107 tests/build and local
+HTTP browser checks passed. See [picker evidence](verification/2026-10-02-workload-key-picker-local.md).
+Runtime API, configuration storage and Preview/Deploy behavior are unchanged.

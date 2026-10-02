@@ -25,13 +25,14 @@ it('saves an Application key as a Score reference, not a copied value', async ()
   await screen.findByRole('heading', { name: 'Basic information' });
   await user.type(screen.getByLabelText('Workload name'), 'frontend');
   await user.type(screen.getByLabelText('Image'), 'example.invalid/frontend:test');
-  await user.click(screen.getByRole('button', { name: '+ Add binding' }));
-  await user.type(screen.getByLabelText('Container variable name'), 'BACKEND_URL');
-  await user.selectOptions(screen.getByLabelText('Application key'), 'API_URL');
+  await user.click(within(screen.getByRole('group', { name: 'Application variables for main' })).getByRole('checkbox', { name: 'API_URL' }));
+  await user.click(screen.getByRole('checkbox', { name: 'Use a different container name for API_URL' }));
+  await user.clear(screen.getByLabelText('Container name for API_URL'));
+  await user.type(screen.getByLabelText('Container name for API_URL'), 'BACKEND_URL');
   await user.click(screen.getByRole('button', { name: 'Save pending workload' }));
   expect(saved).toBeDefined();
   const score = saved?.score as { containers: { main: { variables: Record<string, string> } }; resources: { env: { type: string } } };
-  expect(score.containers.main.variables.BACKEND_URL).toBe('${resources.env.API_URL}');
+  expect(score.containers.main.variables).toEqual({ BACKEND_URL: '${resources.env.API_URL}' });
   expect(score.resources.env.type).toBe('environment');
   expect(JSON.stringify(saved)).not.toContain('https://internal.example');
 });

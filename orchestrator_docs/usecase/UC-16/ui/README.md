@@ -2,7 +2,7 @@
 id: UC-16-UI
 artifact: use-case-ui-design
 status: current
-last_reviewed: 2026-09-24
+last_reviewed: 2026-10-02
 related: UC-16, UC-01, UC-05, UC-12
 ---
 
@@ -12,8 +12,10 @@ related: UC-16, UC-01, UC-05, UC-12
 
 From the UC-01 Application home, Developer selects `staging` or `production`,
 then adds, edits or marks a workload for deletion. A form is the default; Score
-import is optional. Variable and secret rows select references rather than
-accepting raw values. Saving creates pending configuration; Preview changes and
+import is optional. Developer ticks existing Application variables/secrets
+per container; container names default to key names, with optional overrides.
+Resource outputs and Services use a separate source editor. No values are
+re-entered or copied. Saving creates pending configuration; Preview changes and
 Deploy are separate steps.
 One optional declared Service port can be chosen as the public entry; the
 Environment host is configured only on Deploy, not on Save.

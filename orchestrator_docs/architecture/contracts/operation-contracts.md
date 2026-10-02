@@ -233,3 +233,13 @@ replaced in list/detail projection, without mutating history.
   credential inputs. Invalid documents return actionable safe validation.
 - OC-16 enforces UC-16 BR-14 on both Save and ValidateImport before mutation.
   Backend owns enforcement even when a caller bypasses form validation.
+
+## UC-16 existing-key selection delivery boundary
+
+UC-16 BR-15–BR-18 changes the Console selection UI only. Checkbox selections
+and optional container-name overrides serialize to the existing environment
+resource references of OC-16. Validate complete/unique per-container names
+before serialization; preserve import/edit mappings and unavailable references.
+No new API payload, persistence column or configuration revision is introduced.
+Only explicitly selected keys are used. OC-17, Vault bundle scoping and
+Preview/Deploy behavior remain unchanged.
