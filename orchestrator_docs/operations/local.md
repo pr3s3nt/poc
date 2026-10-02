@@ -2,7 +2,7 @@
 id: RUNBOOK-LOCAL
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-02
 ---
 
 # Local development with fake adapters
@@ -107,6 +107,8 @@ mouse clicks and sequential typing, and creates catalog/Application data via UI.
 It shows a supported Definition consumed by Preview without restarting, seeded
 READY Connections and invalid Connection input, not successful live verification.
 Artifacts stay under `/tmp`; only owned processes and temporary state are cleaned.
+For successful live kind connection verification, use the explicit `--kind`
+mode described in the [kind recording runbook](kind.md#human-review-recording-for-the-current-workload-editor); this mode contacts the existing cluster read-only.
 
 Fake mode không chạm cluster hoặc cloud account:
 

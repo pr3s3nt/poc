@@ -195,3 +195,14 @@ keys, catalog loading/error/Retry, stale reload and real-scope resets.
 Deferred responses cover catalog, file read/parse, Save and reload;
 prototype-member dictionary names remain own properties through serialization.
 Execution evidence: [local picker verification](../verification/2026-10-02-workload-key-picker-local.md).
+
+
+## 2026-10-02 human UI execution trace
+
+[Reviewed recordings](../verification/2026-10-02-human-ui-kind-recordings.md)
+exercise UC-12 registration, UC-16 BR-15 checklist selection and BR-17 Edit
+restoration, UC-05/06 Preview/deployment, UC-02 Type registration/duplicates,
+UC-03 ID/Driver Inputs validation, and UC-04 BR-05/BR-06 real read-only
+connection verification to READY. Developer Preview consumes the newly
+registered Definition without restart. This does not extend runtime support
+for arbitrary Resource Types, AWS onboarding or production RBAC.

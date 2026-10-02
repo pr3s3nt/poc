@@ -7,7 +7,9 @@ import { expect } from '@playwright/test';
 export const TYPE_DELAY = 85;
 export const LONG_TYPE_DELAY = 30;
 
-export function createHuman(page) {
+// Options: selectNative(h, select, label) operates a native <select> popup
+// in headed recordings (see video.mjs); without it choose() uses selectOption.
+export function createHuman(page, { selectNative } = {}) {
   const cursor = { x: 640, y: 400 };
 
   async function pause(milliseconds) {
@@ -91,6 +93,7 @@ export function createHuman(page) {
   // Headless Chromium does not paint native <select> popups, so the cursor
   // clicks the control and the option is chosen by its visible label.
   async function choose(locator, label) {
+    if (selectNative) return selectNative(human, locator, label);
     await expect(locator).toBeVisible();
     await moveTo(locator);
     await page.evaluate(() => window.__pwCursorPulse?.());
@@ -104,7 +107,8 @@ export function createHuman(page) {
     await page.mouse.move(cursor.x, cursor.y);
   }
 
-  return { page, pause, moveTo, click, type, paste, choose, showCursor };
+  const human = { page, pause, moveTo, click, type, paste, choose, showCursor };
+  return human;
 }
 
 export async function signIn(h) {
@@ -132,7 +136,9 @@ export async function createApplication(h, name, subdomain) {
 }
 
 // Opens Variables & Secrets, saves each entry and returns to the Application.
-// Entries: { kind: 'variable' | 'secret', name, value, paste? }.
+// Entries: { kind: 'variable' | 'secret', name, value, paste?, delay? }.
+// Each save waits for the PUT reply and the closed editor before the saved
+// row is matched, so a typed-but-unsaved name never satisfies the check.
 export async function putKeys(h, applicationName, entries) {
   const { page } = h;
   await h.click(page.getByRole('button', { name: 'Variables & Secrets' }));
@@ -143,10 +149,22 @@ export async function putKeys(h, applicationName, entries) {
     await h.type(page.getByLabel('Key name'), entry.name);
     const field = page.getByLabel(entry.kind === 'secret' ? 'New secret value' : 'Value');
     if (entry.paste) await h.paste(field, entry.value);
-    else await h.type(field, entry.value, { delay: entry.value.length > 32 ? LONG_TYPE_DELAY : TYPE_DELAY });
+    else await h.type(field, entry.value, { delay: entry.delay ?? (entry.value.length > 32 ? LONG_TYPE_DELAY : TYPE_DELAY) });
+    const saved = page.waitForResponse((response) => response.request().method() === 'PUT'
+      && new URL(response.url()).pathname.endsWith(`/configuration/keys/${encodeURIComponent(entry.name)}`));
     await h.click(page.getByRole('button', { name: 'Save pending change' }));
-    await expect(section).toContainText(entry.name);
-    if (entry.kind === 'secret') await expect(section).not.toContainText(entry.value.slice(0, 16));
+    const response = await saved;
+    if (!response.ok()) throw new Error(`saving ${entry.kind} ${entry.name} returned HTTP ${response.status()}`);
+    await expect(page.getByLabel('Key name')).toHaveCount(0);
+    const row = section.locator('.settings-table-row').filter({ has: page.locator('strong').getByText(entry.name, { exact: true }) });
+    await expect(row).toHaveCount(1);
+    if (entry.kind === 'secret') {
+      await expect(row).toContainText('Configured');
+      // Boolean form: a failure message must not echo the secret.
+      expect(await section.evaluate((element, value) => element.textContent.includes(value), entry.value), 'secret value rendered').toBe(false);
+    } else {
+      await expect(row).toContainText(entry.value);
+    }
     await h.pause(1200);
   }
   await h.click(page.getByRole('button', { name: `← ${applicationName}` }));
@@ -154,9 +172,15 @@ export async function putKeys(h, applicationName, entries) {
 }
 
 // Enters one workload through the workload form. Spec: name, image,
-// resource?, bindings[], port { name, port, targetPort }, publicPath?.
+// container? (default main), resource?, bindings[], port { name, port,
+// targetPort }, publicPath?. Bindings with source 'Application variable' or
+// 'Application secret' tick the existing key in the container's checklist
+// (name !== key reveals the alias field); every other binding is one
+// "Other sources" row, indexed among those rows only. Returns the Score sent
+// by the successful Save.
 export async function addWorkload(h, spec) {
   const { page } = h;
+  const container = spec.container ?? 'main';
   await h.click(page.getByRole('button', { name: '+ Add workload' }));
   await expect(page.getByRole('button', { name: 'Enter on form' })).toBeVisible();
   await h.pause(1000);
@@ -171,13 +195,25 @@ export async function addWorkload(h, spec) {
     for (const [name, value] of Object.entries(spec.resource.params)) await h.type(page.getByLabel(`Resource ${name}`, { exact: true }), value);
   }
 
-  const bindingRows = page.locator('.binding-row').filter({ has: page.getByLabel('Container variable name', { exact: true }) });
-  for (const [index, binding] of spec.bindings.entries()) {
-    await h.click(page.getByRole('button', { name: '+ Add binding' }));
-    const row = bindingRows.nth(index);
+  const isKey = (binding) => binding.source === 'Application variable' || binding.source === 'Application secret';
+  for (const binding of spec.bindings.filter(isKey)) {
+    const group = page.getByRole('group', { name: `${binding.source === 'Application secret' ? 'Application secrets' : 'Application variables'} for ${container}`, exact: true });
+    const box = group.getByRole('checkbox', { name: binding.key, exact: true });
+    await h.click(box);
+    await expect(box).toBeChecked();
+    if (binding.name !== binding.key) {
+      await h.click(group.getByRole('checkbox', { name: `Use a different container name for ${binding.key}`, exact: true }));
+      await h.type(group.getByLabel(`Container name for ${binding.key}`, { exact: true }), binding.name, { replace: true });
+    }
+  }
+
+  const otherRows = page.locator('.binding-row').filter({ has: page.getByLabel('Container variable name', { exact: true }) });
+  for (const [index, binding] of spec.bindings.filter((binding) => !isKey(binding)).entries()) {
+    await h.click(page.getByRole('button', { name: '+ Add other source' }));
+    const row = otherRows.nth(index);
     await h.type(row.getByLabel('Container variable name', { exact: true }), binding.name);
-    await h.choose(row.getByLabel('Reference source', { exact: true }), binding.source);
-    if (binding.key) await h.choose(row.getByLabel('Application key', { exact: true }), binding.key);
+    // A new row starts as Resource output; only another source is chosen.
+    if (binding.source !== 'Resource output') await h.choose(row.getByLabel('Reference source', { exact: true }), binding.source);
     if (binding.alias) {
       await h.choose(row.getByLabel('Resource dependency', { exact: true }), binding.alias);
       await h.choose(row.getByLabel('Resource output', { exact: true }), binding.output);
@@ -198,23 +234,32 @@ export async function addWorkload(h, spec) {
     await h.choose(page.getByLabel('Public Service port', { exact: true }), `${spec.port.name} · ${spec.port.port}`);
   }
   await h.pause(1500);
+  const saved = page.waitForResponse((response) => response.request().method() === 'PUT'
+    && new URL(response.url()).pathname.endsWith(`/workloads/${encodeURIComponent(spec.name)}`));
   await h.click(page.getByRole('button', { name: 'Save pending workload' }));
+  const response = await saved;
+  if (!response.ok()) throw new Error(`saving workload ${spec.name} returned HTTP ${response.status()}`);
   await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();
   await h.pause(1500);
+  return response.request().postDataJSON().score;
 }
 
-export async function previewAndDeploy(h, workloadNames) {
+// mark(label), when given, records the 'preview' and 'deploy-succeeded' phases.
+export async function previewAndDeploy(h, workloadNames, { mark } = {}) {
   const { page } = h;
   await h.click(page.getByRole('button', { name: 'Preview changes' }));
   const preview = page.getByLabel('Deployment preview');
   await expect(preview).toContainText(`${workloadNames.length} workload(s) affected`, { timeout: 120_000 });
   await h.moveTo(preview);
+  mark?.('preview');
   await h.pause(4000);
   await h.click(page.getByRole('button', { name: 'Deploy these changes' }));
   const result = page.getByLabel('Deployment result');
   await expect(result).toContainText('Deploy succeeded', { timeout: 600_000 });
-  for (const name of workloadNames) await expect(result).toContainText(`${name}: succeeded`);
+  // Result rows read "<workload> · <action>: <status>".
+  for (const name of workloadNames) await expect(result.locator('li').filter({ hasText: new RegExp(`^${name} · [a-z]+: succeeded`) })).toHaveCount(1);
   await h.moveTo(result);
+  mark?.('deploy-succeeded');
   await h.pause(5000);
 }
 
@@ -270,7 +315,7 @@ export async function reviewAcceptancePage(h, runId, secret) {
   }
   const body = await page.evaluate(async () => (await fetch('/api/checks')).json());
   expect(body.checks).toEqual({ environment: true, secret: true, database: true });
-  expect(JSON.stringify(body)).not.toContain(secret);
+  expect(JSON.stringify(body).includes(secret), 'secret value in /api/checks').toBe(false);
 
   const payload = `hello from ${runId}`;
   await h.type(page.locator('input[name="payload"]'), payload, { replace: true });

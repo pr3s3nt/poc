@@ -11,8 +11,8 @@ last_reviewed: 2026-10-02
 
 Local/kind Kubernetes registration, verification API/UI and seeded internal/AWS
 connection data exist with normalized PostgreSQL persistence and insert-only
-registration. Local tests use an explicit test verifier; the latest UI recording
-does not demonstrate successful live cluster verification. AWS registration and
+registration. Local tests use an explicit test verifier; the 2026-10-02 UI recording demonstrates successful live cluster verification
+to READY ([evidence](../../verification/2026-10-02-human-ui-kind-recordings.md)). AWS registration and
 durable credential storage remain unimplemented; access key + Vault storage
 has been accepted in [ADR-009](../../architecture/decisions/ADR-009-aws-access-key-storage.md).
 

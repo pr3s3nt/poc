@@ -2,7 +2,7 @@
 id: RUNBOOK-KIND
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-02
 ---
 
 # kind verification
@@ -77,12 +77,15 @@ For a recording a person can follow, pass `--human`. The script then runs
 `frontend/test/e2e/acceptance-kind-human.mjs`: it enters both workloads through
 the workload form instead of Score import, types every value key by key, moves
 a visible cursor with a click ripple, and submits one job on the deployed app.
-The run takes about five minutes. Publish reviewed recordings as assets of the
-`acceptance-recordings` GitHub pre-release instead of committing them:
+The headed recording includes tabs/address bar and takes approximately 4–6
+minutes plus image build/preflight. It writes `acceptance-review.mp4`, phase
+marks, probe/decode results, settled frames and cleanup evidence. Publish
+reviewed recordings as assets of the `acceptance-recordings` GitHub pre-release
+instead of committing them:
 
 ```bash
 bash backend/test/integration/acceptance-playwright-kind.sh --human
-gh release upload acceptance-recordings <reviewed-video>.webm
+gh release upload acceptance-recordings <reviewed-run-specific-video>.mp4
 ```
 
 Public Ingress check (run-scoped, separate from the acceptance workload):
@@ -124,3 +127,70 @@ Stop the port-forward to close the temporary path.
 - Sau cleanup không còn object mang run ID; cluster vẫn tồn tại.
 
 Ghi kết quả thành dated record mới dưới `orchestrator_docs/verification/`.
+
+## Human review recording for the current workload editor
+
+The `--human` acceptance path must use the current UC-16 form: Application
+variable/secret bindings are selected by checkbox, same-name mappings require
+no retyping, and an explicit name override is used only for aliases. Resource
+outputs and workload Services use Other sources. Every shown product mutation
+uses the browser UI; API response observation and Kubernetes readiness/cleanup
+checks may assert results, but do not replace UI actions or seed fixtures.
+
+Record a headed Chromium window, including real tabs/address bar, visible
+cursor and deliberate typing (about 80–120 ms per character), with readable
+pauses after Settings, workload save, Preview, Deploy and application checks.
+Native select popups must be visible and operated through keyboard input in
+headed mode. Use a private display and retain recordings on failure. Capture
+phase timestamps and validate complete video decoding, dimensions/duration
+and settled frames before publication. Login and secret inputs stay masked;
+do not record terminal output or credential/state files. Publish only reviewed
+video files with new run-specific names to `acceptance-recordings`; do not
+replace old assets or commit generated recordings.
+
+The run uses the existing `kind-idp-internal` cluster and existing Vault/VSO,
+builds/loads acceptance images, deploys only run-owned namespaces, checks the
+diagnostic app through the browser and verifies cleanup. Explicitly clear
+unintended database/credential-file environment defaults in temporary backend
+runners. Do not change the current kube context, persistent platform services
+or existing workloads. The scoped Vault token is consumed only by the backend
+and is never shown in logs/video.
+
+A separate Platform Engineer recording is an independent scenario, executed
+after the Developer deployment recording. Its identity and target environment
+must be confirmed before a cloud/account-dependent step. Local seeded test
+accounts do not prove production RBAC. Record actual validation/registration
+results and accurately distinguish live cluster verification from fake-adapter
+checks. Update dated verification evidence with outcomes, reviewed asset links
+and cleanup observations; a video is not evidence of success unless assertions
+passed.
+
+For the approved Platform Engineer scenario, use the seeded
+`platform-engineer` identity against a temporary backend configured with the
+real Kubernetes connection verifier. Register a valid Resource Type and a
+PostgreSQL Definition, demonstrate duplicate/invalid ID and Driver Inputs
+rejections without losing form content, and register a run-unique connection
+for `kind-idp-internal`. Assert READY after actual read-only API/permission
+verification. Switch to Developer and use standalone Score Preview to show
+that the newly registered Definition participates in matching. No AWS account
+or credential onboarding is included. Catalog/connection state is temporary;
+this scenario does not need to deploy an additional workload.
+
+Commands for the two review recordings, in order:
+
+```bash
+cd frontend && npm run build
+cd ..
+bash backend/test/integration/acceptance-playwright-kind.sh --human
+bash backend/test/integration/uc02-04-video-local.sh --kind
+```
+
+The Platform runner writes `uc02-04-kind-review.mp4`; its default mode without
+`--kind` remains local. Its fake execution adapters do not perform deployment,
+but the CLI independently wires the real Kubernetes connection verifier, so
+`--kind` registration checks the actual host context/API/RBAC. Namespace cleanup
+in the Developer run does not remove Vault value revisions, per-deployment ACL
+policies/auth roles or acceptance images loaded into kind/local Docker. Record
+these existing lifecycle limits with each execution result. Confirm namespace
+absence via a successful Kubernetes response, never by interpreting a generic
+API failure as NotFound. Vault forwarding uses a run-owned dynamic local port.

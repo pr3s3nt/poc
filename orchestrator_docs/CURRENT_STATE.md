@@ -187,3 +187,14 @@ edits; real Application/Environment/workload changes reset local selections
 and ignore late old replies. Frontend typecheck/lint/107 tests/build and local
 HTTP browser checks passed. See [picker evidence](verification/2026-10-02-workload-key-picker-local.md).
 Runtime API, configuration storage and Preview/Deploy behavior are unchanged.
+
+## Human UI verification on kind (2026-10-02)
+
+The current UC-16 Application-key picker was exercised in a browser-driven
+acceptance deployment on kind with Vault/VSO: backend/frontend deployed,
+reference selections survived Edit and all diagnostic checks passed. A separate
+Platform Engineer recording covered Type/Definition registration and validation,
+actual Kubernetes connection verification to READY, then Developer Preview
+consumption. Both human-paced full-window MP4s were reviewed and published;
+see [execution evidence](verification/2026-10-02-human-ui-kind-recordings.md).
+This adds live UI verification, not production RBAC or AWS onboarding delivery.
