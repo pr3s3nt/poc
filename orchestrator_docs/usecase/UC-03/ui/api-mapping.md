@@ -24,3 +24,11 @@ Inputs are added by this mapping.
 ## Registration policy
 
 Definition ID and Driver Inputs follow specification BR-10–BR-14. Unknown nested keys, unsupported variables, nulls and wrong literal types return 400 with a safe field path; advanced JSON preserves valid placeholders. Form retains input on failure.
+
+## Workload renderer variant (ADR-010)
+
+The same Definition registration endpoint accepts Type `workload`, driver
+`score-k8s`, profile `internal-k8s`, and `values.variables.render_bundle`.
+The Console supplies an installed bundle ID and hides connection/provision/
+arbitrary-variable inputs for this variant. Server-owned `sourceFingerprint`
+pins the bundle; unavailable bundles and unsupported pairs are validation errors.

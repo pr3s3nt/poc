@@ -14,6 +14,7 @@ const (
 	DriverKubernetes      DriverType = "kubernetes"
 	DriverExistingCluster DriverType = "existing-cluster"
 	DriverEcho            DriverType = "echo"
+	DriverScoreK8s        DriverType = "score-k8s"
 )
 
 // MatchContext carries the values a Matching Criterion is evaluated against.
@@ -159,7 +160,7 @@ func (d Definition) Validate() error {
 		return fmt.Errorf("resource: definition %q has unknown execution profile %q", d.Key, d.ExecutionProfile)
 	}
 	switch d.DriverType {
-	case DriverTerraform, DriverKubernetes, DriverExistingCluster, DriverEcho:
+	case DriverTerraform, DriverKubernetes, DriverExistingCluster, DriverEcho, DriverScoreK8s:
 	default:
 		return fmt.Errorf("resource: definition %q has unknown driver %q", d.Key, d.DriverType)
 	}

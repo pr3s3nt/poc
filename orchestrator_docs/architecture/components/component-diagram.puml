@@ -49,4 +49,17 @@ Terraform --> AWS
 K8sExecutor --> Kubernetes
 Existing --> Kubernetes : verify/resolve target
 Persistence --> DB
+component "Definition-selected rendering" as Rendering
+component "Native renderer" as Native
+component "score-k8s adapter" as ScoreAdapter
+artifact "Pinned score-k8s CLI" as ScoreCLI
+Deploy --> Rendering : preflight; resolved bindings + selection
+Rendering --> Native : default; shared platform policy
+Rendering --> ScoreAdapter : selected immutable bundle
+ScoreAdapter --> ScoreCLI : private workspace; output-only provisioner
+Rendering --> Workload : validated manifests
+note right of ScoreAdapter
+No database/namespace provisioning.
+Only Secret references enter CLI workspace.
+end note
 @enduml

@@ -48,3 +48,22 @@ describe('UC-03 definition registration', () => {
     expect(variables).toHaveValue('{"storage":20,"image":"${context.app.id}"}');
   });
 });
+
+it('registers a workload rendering bundle without infrastructure options', async () => {
+  let created: Record<string, unknown> | undefined;
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') { created = JSON.parse(String(init.body)) as Record<string, unknown>; return Response.json({}); }
+    if (String(url).endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'workload' }, { key: 'postgres' }] });
+    return Response.json({ resourceDefinitions: [] });
+  }));
+  render(<ResourceDefinitionsPage />);
+  await screen.findByRole('option', { name: 'workload' });
+  fireEvent.change(screen.getByLabelText('Driver'), { target: { value: 'score-k8s' } });
+  fireEvent.change(screen.getByLabelText('Definition ID'), { target: { value: 'workload-score' } });
+  expect(screen.getByLabelText('Resource Type')).toHaveValue('workload');
+  expect(screen.getByLabelText('Execution profile')).toBeDisabled();
+  expect(screen.queryByLabelText('Connection key')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Register resource definition' }));
+  await screen.findByText('Registered resource definition workload-score.');
+  expect(created).toMatchObject({ resourceType: 'workload', executionProfile: 'internal-k8s', driverType: 'score-k8s', connectionKey: '', provision: {}, driverInputs: { values: { variables: { render_bundle: 'score-k8s-internal-v1' } } } });
+});

@@ -254,4 +254,29 @@ ResourceProvisioningService --> ActiveResourceRepository
 ResourceProvisioningService --> DeploymentResourceRepository
 DeploymentQueryService --> DeploymentRepository
 DeploymentQueryService --> ActiveResourceRepository
+class RenderBundle <<value>> {
+  +ID: string
+  +Version: string
+  +BinaryDigest: string
+  +Digest: string
+}
+class RenderingSelection <<value>> {
+  +DefinitionKey: string
+  +DefinitionHash: string
+  +DriverType: DriverType
+}
+interface RenderPreflight {
+  +ValidateSelection(ctx, selected)
+}
+class ScoreK8sRenderer <<adapter>> {
+  +Render(ctx, request): List<Manifest>
+  +Bundles(): Map
+}
+PlanningService ..> RenderBundle : startup catalog
+ResourceDefinitionService ..> RenderBundle : validation + fingerprint
+RenderingSelection *-- RenderBundle
+DeploymentPlan *-- RenderingSelection : per workload
+ScoreK8sRenderer ..|> WorkloadRenderer
+ScoreK8sRenderer ..|> RenderPreflight
+DeploymentService --> RenderPreflight : before UC-08
 @enduml

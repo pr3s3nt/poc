@@ -7,6 +7,7 @@ import (
 	"orchestrator/internal/adapters/store"
 	"orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning/score"
 )
 
@@ -38,5 +39,17 @@ func TestChangedReferencedConfigurationStillUpdatesNoopModule(t *testing.T) {
 	changed, err := usesChangedConfiguration(ctx, st, module, desired, "applied")
 	if err != nil || !changed {
 		t.Fatalf("referenced configuration revision was ignored: %v", err)
+	}
+}
+
+func TestLegacyWorkloadWithoutPlanUsesNativeRendering(t *testing.T) {
+	st := store.New()
+	same, err := sameRendering(context.Background(), st, "legacy-deployment", "backend", resource.RenderingSelection{})
+	if err != nil || !same {
+		t.Fatal("legacy native rendering failed", err)
+	}
+	same, err = sameRendering(context.Background(), st, "legacy-deployment", "backend", resource.RenderingSelection{DriverType: resource.DriverScoreK8s})
+	if err != nil || same {
+		t.Fatal("new renderer incorrectly treated as already applied", err)
 	}
 }

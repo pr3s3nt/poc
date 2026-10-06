@@ -57,3 +57,13 @@ Không có distributed transaction. Mỗi external provision call nằm ngoài D
 - `TestProvision_ReusesApplicationScopedVPCAndEKS`.
 - `TestProvision_InternalUsesExistingCluster`.
 - `TestProvision_PostgresOutputContractEquivalentAcrossProfiles`.
+
+## Definition-selected workload rendering collaboration
+
+See [ADR-010](../../architecture/decisions/ADR-010-score-k8s-workload-rendering.md)
+and [rendering contract](../../architecture/contracts/workload-rendering.md).
+Catalog validates the installed bundle; shared planning selects/pins the renderer.
+UC-06 validates availability before provisioning, then dispatches the existing
+WorkloadRenderer port after output binding. UC-08 still executes resource-only
+batches. Kubernetes/Fleet apply/readiness and Environment route ownership stay
+in their existing adapters. No database transaction spans a CLI/external call.

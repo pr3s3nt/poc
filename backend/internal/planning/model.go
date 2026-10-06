@@ -136,10 +136,11 @@ type Classification struct {
 
 // Plan is the immutable planning artifact persisted with a Deployment.
 type Plan struct {
-	WorkloadID  string            `json:"workloadId"`
-	Action      deployment.Action `json:"action"`
-	ScoreBefore map[string]any    `json:"scoreBefore,omitempty"`
-	ScoreAfter  map[string]any    `json:"scoreAfter,omitempty"`
+	Rendering   map[string]resource.RenderingSelection `json:"rendering,omitempty"`
+	WorkloadID  string                                 `json:"workloadId"`
+	Action      deployment.Action                      `json:"action"`
+	ScoreBefore map[string]any                         `json:"scoreBefore,omitempty"`
+	ScoreAfter  map[string]any                         `json:"scoreAfter,omitempty"`
 	// Delta is the transient Humanitec-shaped Delta document. It is not part
 	// of the persisted plan: UC-06/07 persist it as a DeploymentDeltaSnapshot.
 	Delta          deployment.DeltaDocument `json:"-"`

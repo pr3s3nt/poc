@@ -40,6 +40,7 @@ func main() {
 	terraformRoot := flag.String("terraform-root", "", "directory holding Terraform run state")
 	terraformCache := flag.String("terraform-plugin-cache", os.Getenv("TF_PLUGIN_CACHE_DIR"), "Terraform provider cache directory")
 	kubectlPath := flag.String("kubectl", "kubectl", "kubectl binary")
+	scorePath := flag.String("score-k8s", "", "explicit path to pinned score-k8s 0.15.0 renderer (optional)")
 	terraformPath := flag.String("terraform", "terraform", "terraform binary")
 	vaultAddress := flag.String("vault-address", os.Getenv("ORCHESTRATOR_VAULT_ADDR"), "Vault API address for UC-12")
 	vaultTokenFile := flag.String("vault-token-file", os.Getenv("ORCHESTRATOR_VAULT_TOKEN_FILE"), "path to scoped Vault token file for UC-12")
@@ -109,6 +110,7 @@ func main() {
 	}
 
 	app, err := bootstrap.Build(context.Background(), bootstrap.Options{
+		ScoreK8sPath:           *scorePath,
 		Seed:                   opts,
 		UIDir:                  *uiDir,
 		StatePath:              *statePath,

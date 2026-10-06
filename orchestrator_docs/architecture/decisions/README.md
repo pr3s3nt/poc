@@ -2,7 +2,7 @@
 id: ADR-INDEX
 artifact: decision-index
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-06
 ---
 
 # Architecture Decision Records
@@ -17,3 +17,8 @@ last_reviewed: 2026-10-02
 - [ADR-008 — VSO native Secret delivery for UC-12](ADR-008-vso-native-secret-delivery.md)
 
 - [ADR-009 — AWS access-key credential storage](ADR-009-aws-access-key-storage.md)
+
+## Workload rendering
+
+- [ADR-010 — Definition-selected workload rendering with score-k8s](ADR-010-score-k8s-workload-rendering.md)
+  — accepted; internal-k8s registration/Preview/Deploy integration, with separate live verification.

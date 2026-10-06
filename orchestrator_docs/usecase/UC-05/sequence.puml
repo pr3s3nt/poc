@@ -39,9 +39,12 @@ Graph --> Planner: ResourceGraph
 Planner -> Inspector: InspectContracts(graph) [MS-06]
 Inspector --> Planner: Valid contracts
 note right of Planner: Classify using Active Resources\nfrom the same read-only snapshot
+Planner -> Matcher: Select workload renderer Definitions (default class)
+Matcher --> Planner: Definition/content hash + installed bundle/version/digests
 Planner -> Scheduler: Schedule(graph) [MS-07]
 Scheduler --> Planner: Provider-first batches
-Planner --> Preview: DeploymentPlan
+Planner --> Preview: DeploymentPlan + pinned rendering intent (no CLI execution)
 Preview --> API: DeploymentPreview [MS-08]
 API --> Developer: Preview (no runtime mutation)
+
 @enduml

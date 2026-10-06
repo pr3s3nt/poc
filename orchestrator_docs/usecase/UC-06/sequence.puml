@@ -32,6 +32,10 @@ alt planning fails before Delta Snapshot
   Service -> DeploymentRepo: MarkFailed(reason, snapshot=NULL)
   Service --> API: Planning error
 else plan succeeded
+opt Definition-selected score-k8s
+  Service -> Renderer: ValidateSelection(pinned Definition/bundle/binary digest) [BR-17]
+  Renderer --> Service: available (failure stops before provisioning)
+end
 Service -> DeltaSnapshotRepo: Save(immutable snapshot) <<transaction A>>
 Service -> SetRepo: Save(candidateSet) <<transaction A>>
 Service -> DeploymentRepo: SavePlan, attach snapshot, mark PROVISIONING <<transaction A>>
@@ -39,7 +43,7 @@ Service -> Provisioner: Provision(plan.ResourceBatches) [MS-09]
 Provisioner --> Service: ProvisionResult(outputs, target)
 Service -> Resolver: ResolveWorkloadBindings(candidate, outputs) [MS-10]
 Resolver --> Service: Resolved workload
-Service -> Renderer: Render(resolved workload, target, requests/limits) [MS-11]
+Service -> Renderer: Render(resolved workload, pinned selection, target, requests/limits) [MS-11]
 Renderer --> Service: Manifests
 Service -> Deployer: Apply(target, manifests)
 Service -> Deployer: WaitReady(target, workloadRefs)
@@ -55,4 +59,5 @@ Service -> DeploymentRepo: MarkSucceeded() <<transaction B>>
 Service --> API: DeploymentResult [MS-13]
 API --> Developer: SUCCEEDED
 end
+
 @enduml

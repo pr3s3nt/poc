@@ -203,3 +203,18 @@ hard-code Application hay Environment.
 - **OOS-06:** Scheduled deletion và deprovision.
 - **OOS-07:** RBAC và approval workflow.
 - **OOS-08:** Humanitec-compatible standalone Delta API, asynchronous deployment và incremental deployment mode.
+
+## Definition-selected rendering
+
+- **BR-17:** Plan pins workload renderer selection per Candidate module. UC-06
+  validates the selected runtime before resource provisioning, resolves outputs
+  via existing bindings, then invokes the selected renderer after UC-08.
+- **BR-18:** score-k8s receives normalized Score plus resolved output-only
+  bindings and Secret references. Disable default provisioners; no database,
+  PVC, namespace or cloud provisioning occurs in generation. Existing names,
+  selectors, Secret delivery, probes, ports, replica and BR-11 semantics remain.
+- **BR-19:** A selected renderer failure has no automatic fallback. Validate
+  generated objects before apply; existing readiness/current-set/Fleet/route
+  rules continue. Workspace state is disposable, private and never published.
+
+See [workload rendering contract](../../architecture/contracts/workload-rendering.md).

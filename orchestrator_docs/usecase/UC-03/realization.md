@@ -70,3 +70,13 @@ Lệnh trùng key không được sửa Definition hay xóa/thay criteria của 
 ## Input validation collaboration
 
 Definition registration validates the public ID and strict Driver Inputs shape, variable names/literal types and placeholders before insert, per specification BR-10–BR-14. DriverContractInspector supplies embedded Terraform types; static executor contracts supply Kubernetes/existing-cluster types. Errors carry field paths, not submitted values. Existing criteria, connection, output and insert-only checks remain required.
+
+## Definition-selected workload rendering collaboration
+
+See [ADR-010](../../architecture/decisions/ADR-010-score-k8s-workload-rendering.md)
+and [rendering contract](../../architecture/contracts/workload-rendering.md).
+Catalog validates the installed bundle; shared planning selects/pins the renderer.
+UC-06 validates availability before provisioning, then dispatches the existing
+WorkloadRenderer port after output binding. UC-08 still executes resource-only
+batches. Kubernetes/Fleet apply/readiness and Environment route ownership stay
+in their existing adapters. No database transaction spans a CLI/external call.

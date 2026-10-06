@@ -35,7 +35,7 @@ separate database aggregate.
 |---|---|---|
 | Entity | `UserAccount`, `Session`, `Application`, `Environment`, `Connection`, `ResourceType`, `ResourceDefinition`, `DeploymentSet`, `DeploymentDeltaSnapshot`, `Deployment`, `DeploymentPlan`, `ActiveResource`, `WorkloadInstance` | Dedicated tables. |
 | Child entity | `MatchingCriterion`, `DeploymentResource`, `DeploymentWorkload` | Dedicated child/join tables. |
-| Value object | `ExecutionProfile`, `NamespaceIdentity`, `ResourceDescriptor`, `ResourceScope`, `DeploymentStatus`, `ResourceStatus`, `DriverType`, `OutputBinding`, `DeploymentTarget`, `ModuleDelta`, `JSONPatchOperation`, `ContainerResourceRequirements`, `ComputeResources` | Scalar/JSONB columns; validated at construction. |
+| Value object | `ExecutionProfile`, `NamespaceIdentity`, `ResourceDescriptor`, `ResourceScope`, `DeploymentStatus`, `ResourceStatus`, `DriverType`, `OutputBinding`, `DeploymentTarget`, `ModuleDelta`, `JSONPatchOperation`, `ContainerResourceRequirements`, `ComputeResources`, `RenderBundle`, `RenderingSelection` | Scalar/JSONB columns; validated at construction. |
 | Planning document | `WorkloadFragment`, `CandidateDeploymentSet`, `ResourceGraph`, `ProvisionBatch` | Immutable JSONB snapshot in `deployment_plans`; typed Go model in memory. |
 | Result | `ProvisionResult`, `DeploymentResult`, `DeploymentPreview`, `DeploymentView` | DTO/read model, not aggregate roots. |
 
@@ -102,3 +102,11 @@ registration service boundary. Existing catalog objects and planner fixtures
 are not migrated. Driver Inputs validation follows UC-03 BR-11–BR-14, using
 embedded module contracts or static runtime driver contracts before insertion.
 No new aggregate, table or persistence uniqueness rule is introduced.
+
+## Rendering values (ADR-010)
+
+`RenderBundle` is immutable startup configuration (ID, version, binary/content
+digests), not an Active Resource. `RenderingSelection` pins a workload
+Definition/content hash and bundle in deployment plan JSON. Neither stores
+credentials or changes resource/workload scope relationships. Native rendering
+uses an omitted selection entry, including legacy plans without this metadata.

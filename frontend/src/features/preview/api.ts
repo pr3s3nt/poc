@@ -22,7 +22,10 @@ export type PreviewNode = { descriptor: string; kind: 'workload' | 'resource'; r
 export type PreviewEdge = { consumer: string; provider: string; reason: string; path?: string };
 export type PreviewMatch = { descriptor: string; definitionKey: string; driverType: string; specificity: number };
 
+export type RenderingSelection = { definitionKey: string; driverType: string; bundle: { id: string; version: string; digest: string } };
+
 export type ScorePreview = {
+  rendering?: Record<string, RenderingSelection>;
   applicationKey: string;
   environmentKey: EnvironmentKey;
   baseSetId: string;

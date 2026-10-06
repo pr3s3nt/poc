@@ -141,6 +141,9 @@ func (d Document) Fragment(types map[string]resource.Type) (*Fragment, error) {
 	}
 	for _, alias := range d.ResourceAliases() {
 		spec := d.Resources[alias]
+		if spec.Type == "workload" {
+			return nil, fmt.Errorf("score: workload is a rendering type and cannot be declared as a dependency")
+		}
 		if spec.Type == "environment" || spec.Type == "service" {
 			if err := validateVirtualResource(alias, spec); err != nil {
 				return nil, err

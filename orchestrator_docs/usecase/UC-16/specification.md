@@ -184,3 +184,12 @@ configuration-only redeploy và remove; broader cloud path chưa kiểm chứng 
   `containers.<container>.variables.<name>: ${resources.env.KEY}` with the
   virtual `resources.env` resource. No API, database schema, provider permission
   or Preview/Deploy lifecycle change is introduced.
+
+## ADR-010 renderer-only pending updates
+
+BR-13 no-op suppression also requires unchanged rendering intent. Compare the
+current selected Definition/bundle with the workload's last deployment plan.
+A selection change is an update even without a saved Score draft; Preview pins
+it through the plan hash and Deploy rejects an obsolete token before execution.
+Configuration revision handling and resource/update/remove identities remain
+as specified above.

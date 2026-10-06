@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-06
 ---
 
 # Operation Contracts
@@ -202,7 +202,7 @@ replaced in list/detail projection, without mutating history.
 ## OC-17 `PreviewService.PreviewDesired` / `DeploymentService.DeployPreview`
 
 - Use cases: UC-05/06/07 with pending UC-12/UC-16 changes. Preview is read-only
-  and identifies every affected workload, including those referencing changed
+  and identifies every affected workload, including those whose selected workload renderer changed and those referencing changed
   values; missing keys/Services block Deploy.
 - Deploy requires the exact preview token and rejects any changed draft,
   configuration revision or base Deployment Set/version. It pins a separate
@@ -243,3 +243,11 @@ before serialization; preserve import/edit mappings and unavailable references.
 No new API payload, persistence column or configuration revision is introduced.
 Only explicitly selected keys are used. OC-17, Vault bundle scoping and
 Preview/Deploy behavior remain unchanged.
+
+## Workload rendering extension (ADR-010)
+
+OC-04 validates the supported workload/bundle pair before registration. OC-06/07
+pin safe rendering selection in plan hashes. OC-08 validates runtime availability
+before UC-08, dispatches rendering after outputs and preserves readiness/commit
+rules. OC-10 excludes workload Definitions from infrastructure execution.
+See [rendering contract](workload-rendering.md) for the detailed boundary.

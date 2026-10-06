@@ -25,6 +25,7 @@ import (
 	"orchestrator/internal/application/preview"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
 	domain "orchestrator/internal/domain/deployment"
+	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
 )
@@ -49,6 +50,7 @@ type Server struct {
 
 // Config configures the HTTP server.
 type Config struct {
+	RenderBundles      map[string]resource.RenderBundle
 	Deployments        *appsvc.Service
 	Queries            *appsvc.QueryService
 	Authentication     *authentication.Service
@@ -81,6 +83,7 @@ func NewServer(cfg Config) *Server {
 		uiDir:          cfg.UIDir,
 		mux:            http.NewServeMux(),
 	}
+	s.catalog.SetRenderBundles(cfg.RenderBundles)
 	s.routes()
 	return s
 }

@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-06
 ---
 
 # Database Schema
@@ -330,3 +330,12 @@ does not imply every workload has consumed that revision.
 ## Secret rule
 
 Credential values and secret resource outputs are never stored directly. `secret_ref` or structured secret references are stored; UC-09 redacts fields marked secret by contract metadata and never returns persisted resource `resolved_inputs`.
+
+## ADR-010 rendering intent persistence
+
+Rendering selections (Definition/content hash, driver, bundle/version/content
+digest) are additive non-secret fields inside the immutable deployment plan JSON
+and therefore its plan hash. Resource Definition driver_type is text; inputs and
+source fingerprint retain existing storage. No new table/column or secret storage
+is introduced. Pending Preview hashes bind the rendering intent through existing
+per-workload plan hashes. Logical resource and workload identities are unchanged.

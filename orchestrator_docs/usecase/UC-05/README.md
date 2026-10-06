@@ -15,6 +15,16 @@ direct Deploy use the shared planner; standalone Preview and Deploy load one
 consistent planning snapshot. Preview remains read-only and its public view
 excludes sensitive planning details.
 
+## Definition-selected workload rendering
+
+Preview pins the selected workload Definition and rendering bundle in its
+plan hash and exposes safe provenance. It remains read-only; final manifests
+require outputs from UC-08. Pending changes detect renderer-only updates.
+
+See [ADR-010](../../architecture/decisions/ADR-010-score-k8s-workload-rendering.md)
+and the [rendering contract](../../architecture/contracts/workload-rendering.md).
+Local verification does not claim live kind/AWS execution.
+
 ## Read in this order
 
 1. [Specification](specification.md)

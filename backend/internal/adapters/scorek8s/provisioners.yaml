@@ -1,0 +1,6 @@
+- uri: template://orchestrator/resolved-bindings
+  type: orchestrator-bindings
+  outputs: |
+    {{ range $key, $entry := .Params }}
+    {{ $key }}: {{ if $entry.secret }}{{ encodeSecretRef $entry.name $entry.key | quote }}{{ else }}{{ $entry.value | quote }}{{ end }}
+    {{ end }}

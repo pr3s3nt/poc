@@ -13,7 +13,7 @@ export const deleteWorkload = (app: string, env: EnvironmentKey, id: string, ver
 export const undoWorkloadDelete = (app: string, env: EnvironmentKey, id: string, version: number) => api<WorkloadList>(`${item(app, env, id)}/undo`, { method: 'POST', body: JSON.stringify({ version }) });
 export const parseScoreImport = (app: string, env: EnvironmentKey, content: string) => api<{ score: Record<string, unknown> }>(`${base(app, env)}/parse`, { method: 'POST', body: JSON.stringify({ content }) });
 
-export type PendingChange = { workloadId: string; action: 'DEPLOY' | 'UPDATE' | 'REMOVE'; delta: Record<string, unknown>; resources: { existing: string[]; new: string[]; unreferenced: string[] }; planHash: string };
+export type PendingChange = { rendering?: { definitionKey: string; driverType: string; bundle: { id: string; version: string } }; workloadId: string; action: 'DEPLOY' | 'UPDATE' | 'REMOVE'; delta: Record<string, unknown>; resources: { existing: string[]; new: string[]; unreferenced: string[] }; planHash: string };
 export type PendingPreview = { token: string; applicationKey: string; environmentKey: EnvironmentKey; baseDeploymentSetId: string; baseVersion: number; draftVersion: number; routePending?: boolean; configRevisionId?: string; changes: PendingChange[] };
 export const previewChanges = (app: string, env: EnvironmentKey) => api<PendingPreview>(`/applications/${encodeURIComponent(app)}/environments/${env}/preview`, { method: 'POST', body: '{}' });
 export type DeployReport = { status: 'SUCCEEDED' | 'PARTIAL' | 'FAILED'; results: { workloadId: string; action: string; status: 'SUCCEEDED' | 'FAILED' | 'SKIPPED'; deploymentId?: string; error?: string }[] };

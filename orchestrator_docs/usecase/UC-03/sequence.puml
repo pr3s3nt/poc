@@ -20,11 +20,18 @@ Explicit {} is wildcard score 0.
 end note
 Service -> TypeRepo: ListResourceTypes(orgID) [MS-04]
 TypeRepo --> Service: ResourceType
+opt Infrastructure driver with explicit connection
 Service -> ConnectionRepo: GetConnection(connectionID) + READY/org check [MS-04]
 ConnectionRepo --> Service: Connection
+end
 Service -> Service: validate Driver Inputs shape/types/placeholders\nand references/provision rules [MS-05, BR-11..BR-14]
-Service -> Inspector: Inspect(embedded module) [MS-07]
-Inspector --> Service: DriverContract + fingerprint
+alt score-k8s workload Definition
+  Service -> Service: Validate installed immutable RenderBundle [BR-15/16]
+  Service -> Service: Pin server-owned bundle fingerprint
+else infrastructure Definition
+  Service -> Inspector: Inspect(embedded module) [MS-07]
+  Inspector --> Service: DriverContract + fingerprint
+end
 Service -> DefinitionRepo: ListResourceDefinitions(orgID) [MS-06]
 DefinitionRepo --> Service: no duplicate ID
 Service -> DefinitionRepo: CreateResourceDefinition(orgID, definition) <<transaction>> [MS-08]
@@ -37,4 +44,5 @@ Concurrent duplicate cannot replace either.
 Planning first filters by Definition profile,
 then scores the five standard criteria.
 end note
+
 @enduml

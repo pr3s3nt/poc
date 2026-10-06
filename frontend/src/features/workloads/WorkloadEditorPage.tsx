@@ -154,7 +154,7 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
     setLoading(true); setLoadFailed(false); setError('');
     Promise.all([getWorkloads(application.id, environment), getResourceTypes()]).then(([list, catalog]) => {
       if (cancelled) return;
-      setWorkloads(list.workloads); setTypes(catalog.resourceTypes); setVersion(list.draftVersion);
+      setWorkloads(list.workloads); setTypes(catalog.resourceTypes.filter((type) => type.key !== 'workload')); setVersion(list.draftVersion);
       const existing = list.workloads.find((item) => item.id === workloadId);
       if (existing?.score) { setForm(readForm(existing.score)); setImported(existing.score); setBlocked(false); const advanced = needsScoreEditor(existing.score, catalog.resourceTypes); setAdvancedScore(advanced); if (advanced) setMode('import'); }
       else if (workloadId) { setForm({ ...emptyForm(), name: workloadId }); setBlocked(true); setError(existing ? 'This deployed workload has no editable Score draft yet. Editing is disabled to avoid losing its existing configuration.' : 'Workload not found in this environment.'); }

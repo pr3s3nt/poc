@@ -36,4 +36,9 @@ loop Each provider-first batch [MS-09]
   end
 end
 Service --> Caller: ProvisionResult [MS-10]
+
+note over Service
+Workload renderer Definitions are not provision batches.
+UC-06 renders after these outputs exist; score-k8s cannot recreate infrastructure.
+end note
 @enduml

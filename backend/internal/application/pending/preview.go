@@ -24,11 +24,12 @@ var ErrStalePreview = errors.New("pending: preview is stale; preview changes aga
 var ErrInvalid = errors.New("pending: invalid desired configuration")
 
 type Change struct {
-	WorkloadID string                  `json:"workloadId"`
-	Action     domain.Action           `json:"action"`
-	Delta      domain.DeltaDocument    `json:"delta"`
-	Resources  planning.Classification `json:"resources"`
-	PlanHash   string                  `json:"planHash"`
+	Rendering  resource.RenderingSelection `json:"rendering"`
+	WorkloadID string                      `json:"workloadId"`
+	Action     domain.Action               `json:"action"`
+	Delta      domain.DeltaDocument        `json:"delta"`
+	Resources  planning.Classification     `json:"resources"`
+	PlanHash   string                      `json:"planHash"`
 }
 
 type Preview struct {
@@ -105,31 +106,6 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 		instanceByID[instance.WorkloadID] = instance
 	}
 
-	pending := map[string]environment.WorkloadDraft{}
-	for _, draft := range drafts {
-		pending[draft.WorkloadID] = draft
-	}
-	for id, module := range set.Document.Modules {
-		if _, exists := pending[id]; exists {
-			continue
-		}
-		changed, err := usesChangedConfiguration(ctx, s.store, module, desired, instanceByID[id].AppliedConfigRevisionID)
-		if err != nil {
-			return Preview{}, err
-		}
-		if !changed {
-			continue
-		}
-		raw, err := workloadconfig.ReconstructScore(id, module, set.Document)
-		if err != nil {
-			return Preview{}, fmt.Errorf("%w: workload %s cannot be rebuilt: %v", ErrInvalid, id, err)
-		}
-		pending[id] = environment.WorkloadDraft{ApplicationKey: appKey, EnvironmentKey: envKey, WorkloadID: id, State: environment.DraftUpsert, Score: raw}
-	}
-	ordered, err := orderDrafts(pending)
-	if err != nil {
-		return Preview{}, err
-	}
 	types, err := s.store.ListResourceTypes(ctx, app.OrganizationKey)
 	if err != nil {
 		return Preview{}, err
@@ -147,6 +123,40 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 		typeMap[typ.Key] = typ
 	}
 	catalog := planning.Catalog{Types: typeMap, Definitions: definitions}
+
+	pending := map[string]environment.WorkloadDraft{}
+	for _, draft := range drafts {
+		pending[draft.WorkloadID] = draft
+	}
+	for id, module := range set.Document.Modules {
+		if _, exists := pending[id]; exists {
+			continue
+		}
+		changed, err := usesChangedConfiguration(ctx, s.store, module, desired, instanceByID[id].AppliedConfigRevisionID)
+		if err != nil {
+			return Preview{}, err
+		}
+		selected, err := s.planner.SelectWorkloadRendering(app, env, id, catalog)
+		if err != nil {
+			return Preview{}, publicPlanningError(id, err)
+		}
+		unchangedRenderer, err := sameRendering(ctx, s.store, instanceByID[id].LastDeploymentID, id, selected)
+		if err != nil {
+			return Preview{}, err
+		}
+		if !changed && unchangedRenderer {
+			continue
+		}
+		raw, err := workloadconfig.ReconstructScore(id, module, set.Document)
+		if err != nil {
+			return Preview{}, fmt.Errorf("%w: workload %s cannot be rebuilt: %v", ErrInvalid, id, err)
+		}
+		pending[id] = environment.WorkloadDraft{ApplicationKey: appKey, EnvironmentKey: envKey, WorkloadID: id, State: environment.DraftUpsert, Score: raw}
+	}
+	ordered, err := orderDrafts(pending)
+	if err != nil {
+		return Preview{}, err
+	}
 	preview := Preview{ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, RoutePending: env.PublicRoutesPending, ConfigRevisionID: scope.DesiredRevisionID, Changes: []Change{}}
 	// Keep the execution identity stable across revisions of one environment.
 	// The preview token separately pins the mutable base/draft/configuration state.
@@ -204,11 +214,17 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 					return Preview{}, err
 				}
 				if !changed {
-					continue
+					sameRenderer, err := sameRendering(ctx, s.store, instanceByID[id].LastDeploymentID, id, plan.Rendering[id])
+					if err != nil {
+						return Preview{}, err
+					}
+					if sameRenderer {
+						continue
+					}
 				}
 			}
 		}
-		preview.Changes = append(preview.Changes, Change{WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, PlanHash: plan.PlanHash})
+		preview.Changes = append(preview.Changes, Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, PlanHash: plan.PlanHash})
 		base = plan.CandidateSet
 	}
 	// Route and Service-reference rules apply to the final batch state only.
@@ -341,4 +357,32 @@ func orderDrafts(drafts map[string]environment.WorkloadDraft) ([]string, error) 
 		}
 	}
 	return ordered, nil
+}
+
+func sameRendering(ctx context.Context, st persistence.Store, deploymentID, workloadID string, selected resource.RenderingSelection) (bool, error) {
+	if deploymentID == "" {
+		return selected.DriverType == "", nil
+	}
+	snapshot, err := st.GetPlan(ctx, deploymentID)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return selected.DriverType == "", nil
+	}
+	if err != nil {
+		return false, err
+	}
+	selections, _ := snapshot["rendering"].(map[string]any)
+	old := selections[workloadID]
+	if old == nil {
+		return selected.DriverType == "", nil
+	}
+	a, err := canon.Hash(old)
+	if err != nil {
+		return false, err
+	}
+	selectedMap, err := canon.Map(selected)
+	if err != nil {
+		return false, err
+	}
+	b, err := canon.Hash(selectedMap)
+	return a == b, err
 }

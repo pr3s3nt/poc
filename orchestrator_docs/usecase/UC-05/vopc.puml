@@ -76,4 +76,8 @@ PlanningService --> ActiveResourceClassifier
 PlanningService ..> DeploymentPlan
 PlanningService ..> DeploymentDeltaDocument
 ScoreConverter ..> ContainerResourceRequirements
+class RenderBundle <<value>>
+class RenderingSelection <<value>>
+PlanningService ..> RenderingSelection : deterministic selection + plan hash
+RenderingSelection *-- RenderBundle
 @enduml
