@@ -7,12 +7,14 @@
 // target, text is typed key by key, native <select> popups are answered with
 // X11 keys. API replies are only read to assert results.
 //
-// Local mode (default) contacts no cluster: it shows the seeded Connection
-// and an ID rejection only. With ORCH_E2E_KIND_CONTEXT set (--kind), the
-// backend's real kubectl verifier checks that existing host context: a
-// missing context is rejected and a run-unique Connection is registered
-// READY after the read-only API/permission checks. No kubeconfig content is
-// entered anywhere.
+// The UC-04 segment uses the current kubeconfig upload form and contacts no
+// cluster in either mode: an invalid pasted document is rejected, a synthetic
+// single-context kubeconfig is inspected (safe metadata only) and Check and
+// save is refused because this runner configures no Connection credential
+// store, so nothing is verified or saved. The synthetic token is a fixed
+// placeholder, not a credential. ORCH_E2E_KIND_CONTEXT (--kind) changes only
+// the evidence names; the successful upload of the real kind context is
+// recorded by backend/test/integration/uc04-kubeconfig-video-local.sh --kind.
 import { expect } from '@playwright/test';
 import { writeFileSync } from 'node:fs';
 import { createApplication, createHuman, installCursor, TYPE_DELAY } from './human.mjs';
@@ -29,7 +31,28 @@ if (!/^[a-z0-9-]+$/.test(runId)) throw new Error('ORCH_E2E_RUN_ID must be a DNS 
 const { width, height } = screenSize(env);
 const kindContext = env.ORCH_E2E_KIND_CONTEXT;
 const videoPath = `${evidenceDir}/${kindContext ? 'uc02-04-kind-review.mp4' : 'uc02-04-review.mp4'}`;
-const connectionId = `kind-${runId.replace(/[^0-9]/g, '').slice(-8)}`;
+const connectionName = `Demo cluster ${runId.replace(/[^0-9]/g, '').slice(-6)}`;
+const kindUploadRunner = 'backend/test/integration/uc04-kubeconfig-video-local.sh --kind';
+// Synthetic single-context kubeconfig. The endpoint is never contacted.
+const syntheticToken = 'synthetic-placeholder-token-not-a-credential';
+const syntheticKubeconfig = [
+  'apiVersion: v1',
+  'kind: Config',
+  'clusters:',
+  '- name: demo-cluster',
+  '  cluster:',
+  '    server: https://demo-cluster.invalid:6443',
+  'users:',
+  '- name: demo-user',
+  '  user:',
+  `    token: ${syntheticToken}`,
+  'contexts:',
+  '- name: demo',
+  '  context:',
+  '    cluster: demo-cluster',
+  '    user: demo-user',
+  'current-context: demo',
+].join('\n');
 
 const READ = 3000;
 const LONG_READ = 4500;
@@ -195,60 +218,79 @@ try {
   await h.pause(READ);
 
   // 6. Connections. The seeded entry is listed READY by seeding, not by
-  // verification. An invalid ID is rejected before any verification.
+  // verification. The legacy ID/context form is gone; registration uses the
+  // kubeconfig upload form.
   await h.click(page.getByRole('link', { name: /Connections/ }));
   await expect(page.getByRole('heading', { name: 'Connections', level: 1 })).toBeVisible();
-  const seeded = page.locator('.catalog-entry').first();
-  await expect(seeded).toContainText('context');
+  await expect(page).toHaveURL(`${baseURL}/ui/platform/connections`);
+  const seeded = page.getByRole('table', { name: 'Registered connections' }).locator('tbody tr').first();
   await expect(seeded).toContainText('READY');
+  await expect(page.getByLabel('Connection ID')).toHaveCount(0);
   await h.moveTo(seeded);
   mark('connections-list');
   await h.pause(READ);
-  const connectionField = page.getByLabel('Connection ID');
-  const contextField = page.getByLabel('Kube context');
-  const registerCluster = page.getByRole('button', { name: 'Register cluster' });
-  await h.type(connectionField, 'Bad ID');
-  await h.type(page.getByLabel('Cluster ID'), kindContext ? 'idp-internal' : 'demo');
-  await h.type(contextField, `no-such-context-${connectionId}`);
-  await h.click(registerCluster);
-  await expect(formError()).toContainText('valid connection ID');
-  await expect(connectionField).toHaveValue('Bad ID');
+
+  const inspectResponse = () => page.waitForResponse((response) => response.request().method() === 'POST'
+    && new URL(response.url()).pathname === '/api/v1/connections/kubernetes/inspect');
+  await h.type(page.getByLabel('Connection name'), connectionName);
+  await h.click(page.getByLabel('Paste kubeconfig'));
+  const content = page.getByLabel('Kubeconfig content');
+  await expect(content).toHaveClass(/masked-text/);
+  await h.paste(content, 'this is not a kubeconfig');
+  let inspected = inspectResponse();
+  await h.click(page.getByRole('button', { name: 'Inspect kubeconfig' }));
+  expect((await inspected).status()).toBe(400);
+  await expect(formError()).toContainText('not a valid kubeconfig');
+  await expect(page.getByLabel('Connection name')).toHaveValue(connectionName);
   await h.moveTo(formError());
   mark('connection-invalid');
   await h.pause(READ);
 
-  let verification;
-  if (kindContext) {
-    // Real verifier: a context that does not exist on the backend host.
-    await h.type(connectionField, connectionId, { replace: true });
-    await h.click(registerCluster);
-    await expect(formError()).toContainText('kube context is not configured on the backend host', { timeout: 60_000 });
-    await expect(contextField).toHaveValue(`no-such-context-${connectionId}`);
-    await h.moveTo(formError());
-    mark('connection-context-missing');
-    await h.pause(READ);
+  // A synthetic single-context kubeconfig: the backend lists safe metadata
+  // only and the only context is selected automatically.
+  // Clear the rejected text first; a paste inserts at the caret.
+  await h.click(content);
+  await page.keyboard.press('Control+A');
+  await page.keyboard.press('Delete');
+  await expect(content).toHaveValue('');
+  await h.paste(content, syntheticKubeconfig);
+  await expect(content).toHaveValue(syntheticKubeconfig);
+  inspected = inspectResponse();
+  await h.click(page.getByRole('button', { name: 'Inspect kubeconfig' }));
+  const inspection = await inspected;
+  expect(inspection.status()).toBe(200);
+  const { contexts } = await inspection.json();
+  expect(contexts).toEqual([{ name: 'demo', cluster: 'demo-cluster', endpoint: 'https://demo-cluster.invalid:6443' }]);
+  const summary = page.getByLabel('Selected destination');
+  await expect(summary).toContainText('Context demo');
+  await expect(summary).toContainText('Endpoint https://demo-cluster.invalid:6443');
+  await h.moveTo(summary);
+  mark('connection-context-inspected');
+  await h.pause(READ);
 
-    // Existing kind context: read-only API/permission checks, then READY.
-    await h.type(contextField, kindContext, { replace: true });
-    const registered = page.waitForResponse((response) => response.request().method() === 'POST'
-      && new URL(response.url()).pathname === '/api/v1/connections/kubernetes', { timeout: 60_000 });
-    await h.click(registerCluster);
-    const response = await registered;
-    expect(response.status()).toBe(201);
-    const created = await response.json();
-    expect(created.key).toBe(connectionId);
-    expect(created.status).toBe('READY');
-    expect(created.verification?.verified).toBe(true);
-    expect(created.verification?.endpoint).toMatch(/^https:\/\//);
-    expect(created.config).toMatchObject({ cluster: 'idp-internal', kubeContext: kindContext });
-    verification = { connectionId, status: created.status, serverVersion: created.verification.serverVersion };
-    await expect(page.getByRole('status')).toHaveText(`Registered connection ${connectionId}.`);
-    const entry = page.locator('.catalog-entry').filter({ has: page.getByText(connectionId, { exact: true }) });
-    await expect(entry).toContainText(`KUBERNETES · cluster idp-internal · context ${kindContext} · READY`);
-    await h.moveTo(entry);
-    mark('connection-verified-ready');
-    await h.pause(LONG_READ);
-  }
+  // No Connection credential store is configured: Check and save fails
+  // closed before any cluster call and nothing is saved.
+  const rejected = page.waitForResponse((response) => response.request().method() === 'POST'
+    && new URL(response.url()).pathname === '/api/v1/connections/kubernetes');
+  await h.click(page.getByRole('button', { name: 'Check and save' }));
+  expect((await rejected).status()).toBe(503);
+  await expect(formError()).toContainText('no connection was saved');
+  await expect(page.getByLabel('Connection name')).toHaveValue(connectionName);
+  const list = await page.request.get(`${baseURL}/api/v1/connections`);
+  expect(list.status()).toBe(200);
+  expect((await list.json()).connections.some((item) => item.name === connectionName)).toBe(false);
+  // The retained form keeps the pasted document only inside the masked field;
+  // it must not appear anywhere else in the page.
+  await expect(content).toHaveClass(/masked-text/);
+  const outsideField = await page.locator('html').evaluate((root) => {
+    const copy = root.cloneNode(true);
+    for (const field of copy.querySelectorAll('textarea.masked-text')) field.remove();
+    return copy.outerHTML;
+  });
+  if (outsideField.includes(syntheticToken)) throw new Error('kubeconfig content is rendered in the page');
+  await h.moveTo(formError());
+  mark('connection-store-unavailable');
+  await h.pause(LONG_READ);
   await signOut();
   mark('platform-engineer-signed-out');
 
@@ -273,8 +315,9 @@ try {
   mark('signed-out');
   await h.pause(READ);
 
-  writeFileSync(`${evidenceDir}/run.json`, JSON.stringify({ applicationId, ...(verification ? { connection: verification } : {}) }, null, 2));
-  console.log(`PASS: uc02-04 video${kindContext ? ` connection=${connectionId} READY` : ''} application=${applicationId} marks=${marks.length}`);
+  writeFileSync(`${evidenceDir}/run.json`, JSON.stringify({ applicationId, connection: { status: 'NOT_SAVED', reason: 'no connection credential store', kindUploadRunner } }, null, 2));
+  console.log(`PASS: uc02-04 video application=${applicationId} connection=not-saved marks=${marks.length}`);
+  if (kindContext) console.log(`NOTE: the successful kind kubeconfig upload is recorded by ${kindUploadRunner}`);
 } finally {
   try {
     if (recorder) await stopRecording(recorder);

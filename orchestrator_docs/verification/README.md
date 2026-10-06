@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-06
 ---
 
 # Verification evidence
@@ -13,6 +13,8 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-06 | UC-04 desktop form/list layout correction, keyboard focus review and revised read-only kind recording | [Connections UI review](2026-10-06-uc04-connections-ui.md) |
+| 2026-10-06 | UC-04 kubeconfig upload API/UI, scoped Vault credentials, executor target resolution, Claude review, isolated PostgreSQL and published read-only kind video | [Upload verification](2026-10-06-uc04-kubeconfig-upload.md) |
 | 2026-10-02 | Human-paced Developer kind deployment with current key picker; Platform Engineer catalog validation and live connection READY, reviewed published MP4s | [Human UI recordings](2026-10-02-human-ui-kind-recordings.md) |
 | 2026-10-02 | UC-16 existing-key checklists, aliases, scope/late-response guards and lossless form projection; four-round Claude review | [Local picker verification](2026-10-02-workload-key-picker-local.md) |
 | 2026-10-02 | UC-02/03 ID and Driver Inputs policy; UC-16 Save/import params; Claude code-only implementation and two-round review | [Local validation hardening](2026-10-02-catalog-workload-validation-local.md) |

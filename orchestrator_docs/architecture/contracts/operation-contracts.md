@@ -51,20 +51,24 @@ Các contract dưới đây dùng tên method cố định cho realization và G
   conflicts without changing the existing Definition/criteria. Seed Save/upsert
   is separate from public registration.
 
-## OC-05 `ConnectionService.RegisterAWSDriverAccount` / `RegisterKubernetesCluster`
+## OC-05 `ConnectionService.InspectKubeconfig` / `RegisterKubeconfig` / `RegisterKubernetesCluster` / `RegisterAWSDriverAccount`
 
-- Use case: UC-04.
-- Preconditions: credential chỉ tồn tại trong request memory; identity/connectivity/RBAC verify thành công.
-- Creates: secret in Secret Store; `Connection` record với opaque secret reference.
-- Postconditions: Connection `READY`; database không chứa secret value.
-- Persistence: registration insert-only; duplicate conflicts without replacing
-  config/secret reference/verification, including concurrent requests.
-- Full credential-store variant: Secret Store write trước database insert;
-  không áp dụng cho local/kind host-context variant.
-- Local/kind Kubernetes MVP: register cluster ID + existing host kube context;
-  verifier performs read-only API/RBAC checks, then persist `READY` metadata
-  and opaque `host-kube-context://` ref. No credential upload or Secret Store
-  write. AWS registration remains designed but unimplemented in this slice.
+- Use case: [UC-04](../../usecase/UC-04/specification.md).
+- Inspect: role/org gated, bounded document, parse/validate; returns context,
+  cluster and endpoint only. No secret/Connection write or cluster request.
+- Register upload: name/document/context, revalidate selected context; no external
+  file/exec dependencies. Read-only API/RBAC verification before any persistence.
+- Creates: immutable scoped credential object then insert-only `READY` Connection.
+  Generated key collision resolves without overwrite; no default linkage change.
+- Postconditions: no secret bytes in logical state/public response; credential
+  accessible internally only for the owning Organization/Connection.
+- Failure: no READY on verification/store failure; database failure cleans only
+  attempt's credential, with bounded cleanup independent of canceled request.
+- Public DTO/errors exclude secret refs/raw parser/provider output.
+- Explicit legacy host-context registration/records remain compatible, never a
+  fallback for upload failures. AWS operation is future design under ADR-009.
+- Execution uses [credential resolution](../connection-credentials.md); no secret
+  material or temporary paths are persisted in Target/outputs/state/snapshots.
 
 ## OC-06 `PreviewService.PreviewDeployment`
 

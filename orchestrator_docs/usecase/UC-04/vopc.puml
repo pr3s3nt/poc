@@ -1,42 +1,51 @@
 @startuml
-title VOPC - UC-04 Configure Connections
+title VOPC - UC-04 Connections
 left to right direction
 skinparam classAttributeIconSize 0
 class ConnectionController <<boundary>> {
-  +RegisterAWSDriverAccount(command)
-  +RegisterKubernetesCluster(command)
+  +InspectKubeconfig(document)
+  +RegisterKubeconfig(command)
+  +RegisterKubernetesCluster(command): legacy
+  +RegisterAWSDriverAccount(command): future
 }
 class ConnectionService <<control>> {
-  +RegisterAWSDriverAccount(ctx, cmd): Connection
-  +RegisterKubernetesCluster(ctx, cmd): Connection
+  +InspectKubeconfig(ctx, org, document): ContextMetadata
+  +RegisterKubeconfig(ctx, org, cmd): Connection
 }
-class HostKubeContextVerifier <<adapter>> {
-  +Verify(ctx, kubeContext): Verification
+class KubeconfigParser <<control>> {
+  +Inspect(document): ContextMetadata
+  +Normalize(document, context): SelectedCredential
 }
+class KubernetesConnectionVerifier <<adapter>> {
+  +Verify(ctx, selectedCredential): Verification
+}
+class AWSConnectionVerifier <<future adapter>>
 class Connection <<entity>> {
-  +CreatePending(kind, config): Connection
-  +MarkReady(secretRef, verification)
+  +Name
+  +Kind
+  +AuthenticationType
+  +SecretRef
+  +Status
 }
-interface SecretStore {
-  +Put(ctx, credential): SecretReference
-  +Get(ctx, reference): Credential
+interface ConnectionCredentialStore {
+  +Put(ctx, org, key, credential): Reference
+  +Get(ctx, org, key, reference): Credential
+  +Delete(ctx, org, key, reference)
 }
-interface ConnectionVerifier {
-  +Verify(ctx, config, credential): VerificationResult
-}
-class AWSConnectionVerifier <<adapter>>
-class KubernetesConnectionVerifier <<adapter>>
 interface ConnectionRepository {
-  +Save(ctx, connection)
-  +FindReady(ctx, id): Connection
+  +Create(ctx, connection)
+  +FindReady(ctx, org, key): Connection
+}
+class ConnectionCredentialResolver <<control>> {
+  +Resolve(ctx, opaqueTarget): ScopedCredential
 }
 ConnectionController --> ConnectionService
-ConnectionService --> SecretStore
+ConnectionService --> KubeconfigParser
+ConnectionService --> ConnectionCredentialStore
 ConnectionService --> ConnectionRepository
-ConnectionService --> AWSConnectionVerifier
 ConnectionService --> KubernetesConnectionVerifier
-ConnectionService --> HostKubeContextVerifier : local/kind MVP
+ConnectionService --> AWSConnectionVerifier : future
 ConnectionService ..> Connection
-ConnectionVerifier <|.. AWSConnectionVerifier
-ConnectionVerifier <|.. KubernetesConnectionVerifier
+ConnectionCredentialResolver --> ConnectionRepository
+ConnectionCredentialResolver --> ConnectionCredentialStore
 @enduml

@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-06
 ---
 
 # Current project state
@@ -41,7 +41,7 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-01 | Implemented; locally E2E verified | Authenticated Developer list/create/get Application qua API/UI; service tự sinh ID, staging/production, empty Deployment Sets và namespace identities. Create không deploy; browser restart test xác nhận durable local state. |
 | UC-02 | Registration implemented | Platform Engineer/Admin có thể đăng ký và xem Resource Types trong Organization qua API/UI; seeded catalog và normalized PostgreSQL persistence dùng được. Production-grade RBAC chưa có. |
 | UC-03 | Registration implemented | Platform Engineer/Admin có thể đăng ký Definition runtime-supported với criteria, driver inputs và provision rules qua API/UI; planner vẫn có profile guard và matching, catalog được persist trong PostgreSQL. Remote source và production-grade RBAC chưa có. |
-| UC-04 | Local/kind Kubernetes registration implemented | Platform Engineer/Admin đăng ký cluster ID + host kube context qua API/UI; verifier kiểm tra API/RBAC đọc-only rồi persist connection `READY` trong PostgreSQL theo Organization. AWS registration và durable credential store chưa có. |
+| UC-04 | Kubernetes kubeconfig onboarding implemented and verified | Platform Engineer/Admin nhập tên, upload/dán kubeconfig, inspect/chọn context rồi verify API/RBAC read-only và lưu `READY`. Vault KV v2 lưu scoped credential; metadata/name/authentication type ở PostgreSQL, migration/race/reopen đã pass isolated local. Executor resolve credential bằng opaque target identity; host-context cũ tương thích. Live kind upload và video đã pass ngày 2026-10-06; AWS infrastructure identity onboarding vẫn future scope theo ADR-009. |
 | UC-05 | Implemented; locally verified | Standalone Score Preview service, authenticated scoped API và Console trả Delta/Candidate/graph/matches/batches/classification, consistent snapshot chung với direct Deploy, safe public projection và no-mutation tests. Pending-change Preview vẫn riêng; UI-only human-paced recording đã pass. Không chạy Terraform plan thật. |
 | UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; optional Fleet GitRepo adapter cho internal kind đã pass Harbor-image deployment. Environment Ingress nhiều path và Fleet `_routes` bundle đã pass kind test với hai workload BusyBox, Fleet revision/prune và cleanup; route failure có route-only retry (unit test), Backstage cụ thể chưa kiểm chứng. DNS/TLS/chuyển controller ra ngoài chưa có. Mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. |
 | UC-07 | Implemented; locally verified | UC-16 scoped Preview → Deploy update/remove, before/shared invariants, final Service validation, confirmation/Undo và busy/stale/reload UI states. READY resource marking UNREFERENCED commit cùng current set/SUCCEEDED; PostgreSQL rollback/reopen và UI-only recording pass. Không destroy/rollback; Application-wide cleanup ngoài scope. Fleet remove kind evidence là lịch sử, chưa rerun live cho mốc này. |
@@ -198,3 +198,24 @@ actual Kubernetes connection verification to READY, then Developer Preview
 consumption. Both human-paced full-window MP4s were reviewed and published;
 see [execution evidence](verification/2026-10-02-human-ui-kind-recordings.md).
 This adds live UI verification, not production RBAC or AWS onboarding delivery.
+
+## UC-04 upload delivery (2026-10-06)
+
+[Approved specification](usecase/UC-04/specification.md), realization/shared
+design, contracts, schema, UI and traceability are aligned with the Kubernetes
+upload implementation. [Verification](verification/2026-10-06-uc04-kubeconfig-upload.md)
+records code review, Go/frontend gates, disposable PostgreSQL tests and the
+published kind read-only upload video. Direct executor resolution and
+restart/remove are locally tested with stub kubectl; live workload deployment
+using uploaded credential was not exercised by this registration recording.
+
+The [desktop UI review](verification/2026-10-06-uc04-connections-ui.md) covers
+corrected Upload/Paste controls, readable form/action placement, aligned list
+columns and keyboard focus, with a revised published registration demo.
+
+Connection credential store is explicit configuration: durable Vault for real
+execution/persistent state, memory only for fake/no-persistent-state tests,
+default none returns 503 for upload registration. New registration does not
+change Organization default; UC-03 matching Definition can consume the new
+Connection. Fleet fixed-cluster mode rejects credential-backed targets. AWS
+registration and Terraform account credential resolution remain deferred.

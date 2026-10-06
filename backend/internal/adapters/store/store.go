@@ -248,6 +248,12 @@ func NewWithSnapshot(path string) (*Store, error) {
 	}
 	s.state = loaded
 	s.state.ensureMaps()
+	// Snapshots written before Connection name/authentication type existed
+	// read with the legacy defaults; unknown shapes stay empty and fail
+	// closed when execution resolves them.
+	for key, conn := range s.state.Connections {
+		s.state.Connections[key] = legacyConnection(conn)
+	}
 	if history, ok := fields["deploymentWorkloads"]; !ok || string(history) == "null" {
 		s.state.backfillLatestWorkloadSnapshots()
 	}
@@ -480,8 +486,18 @@ func (s *Store) SaveConnection(ctx context.Context, conn application.Connection)
 	if conn.ID == "" {
 		conn.ID = ids.New()
 	}
-	s.state.Connections[catalogKey(conn.OrganizationKey, conn.Key)] = conn
+	s.state.Connections[catalogKey(conn.OrganizationKey, conn.Key)] = legacyConnection(conn)
 	return nil
+}
+
+func legacyConnection(conn application.Connection) application.Connection {
+	if normalized, err := conn.WithLegacyDefaults(); err == nil {
+		return normalized
+	}
+	if conn.Name == "" {
+		conn.Name = conn.Key
+	}
+	return conn
 }
 
 // CreateConnection inserts a Connection; an existing key is ErrDuplicate.
@@ -496,6 +512,10 @@ func (s *Store) CreateConnection(ctx context.Context, conn application.Connectio
 	key := catalogKey(conn.OrganizationKey, conn.Key)
 	if _, exists := s.state.Connections[key]; exists {
 		return fmt.Errorf("%w: connection %q", persistence.ErrDuplicate, conn.Key)
+	}
+	conn, err := conn.WithLegacyDefaults()
+	if err != nil {
+		return err
 	}
 	if conn.ID == "" {
 		conn.ID = ids.New()

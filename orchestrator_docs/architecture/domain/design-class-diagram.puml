@@ -20,8 +20,10 @@ package "Application Services" {
     +RegisterResourceDefinition(ctx, cmd): ResourceDefinition
   }
   class ConnectionService {
+    +InspectKubeconfig(ctx, org, document): ContextMetadata
     +RegisterAWSDriverAccount(ctx, cmd): Connection
-    +RegisterKubernetesCluster(ctx, cmd): Connection
+    +RegisterKubeconfig(ctx, cmd): Connection
+    +RegisterKubernetesCluster(ctx, cmd): legacy
   }
   class PreviewService {
     +PreviewDeployment(ctx, query): DeploymentPreview
@@ -84,6 +86,7 @@ package "Execution" {
   }
   class TerraformExecutor
   class KubernetesExecutor
+  class ConnectionCredentialResolver
   class ExistingClusterAdapter
 }
 
@@ -113,6 +116,8 @@ package "Domain" {
     +Version: int64
   }
   class Connection <<aggregate>> {
+    +Name: string
+    +AuthenticationType: ConnectionAuthenticationType
     +Kind: ConnectionKind
     +SecretRef: SecretReference
     +Status: ConnectionStatus
@@ -179,6 +184,11 @@ package "Ports" {
   interface DeploymentResourceRepository
   interface WorkloadInstanceRepository
   interface SecretStore
+  interface ConnectionCredentialStore {
+    +Put(ctx, org, key, credential): Reference
+    +Get(ctx, org, key, ref): Credential
+    +Delete(ctx, org, key, ref)
+  }
 }
 
 PreviewService --> PlanningService
@@ -243,7 +253,12 @@ ResourceTypeService --> ResourceTypeRepository
 ResourceDefinitionService --> ResourceDefinitionRepository
 ResourceDefinitionService --> ResourceTypeRepository
 ConnectionService --> ConnectionRepository
-ConnectionService --> SecretStore
+ConnectionService --> ConnectionCredentialStore
+ConnectionCredentialResolver --> ConnectionCredentialStore
+ConnectionCredentialResolver --> ConnectionRepository
+KubernetesExecutor --> ConnectionCredentialResolver
+ExistingClusterAdapter --> ConnectionCredentialResolver
+WorkloadDeployer --> ConnectionCredentialResolver
 DeploymentService --> EnvironmentRepository
 DeploymentService --> ApplicationRepository
 DeploymentService --> DeploymentSetRepository

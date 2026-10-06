@@ -165,30 +165,33 @@ checks. Update dated verification evidence with outcomes, reviewed asset links
 and cleanup observations; a video is not evidence of success unless assertions
 passed.
 
-For the approved Platform Engineer scenario, use the seeded
-`platform-engineer` identity against a temporary backend configured with the
-real Kubernetes connection verifier. Register a valid Resource Type and a
-PostgreSQL Definition, demonstrate duplicate/invalid ID and Driver Inputs
-rejections without losing form content, and register a run-unique connection
-for `kind-idp-internal`. Assert READY after actual read-only API/permission
-verification. Switch to Developer and use standalone Score Preview to show
-that the newly registered Definition participates in matching. No AWS account
-or credential onboarding is included. Catalog/connection state is temporary;
-this scenario does not need to deploy an additional workload.
+For Platform Engineer catalog validation, use the local `uc02-04` runner:
+Resource Type/Definition validation and no-restart Developer Preview remain
+covered there. For Connection upload, use the separate `uc04-kubeconfig` runner:
+invalid document and unsupported auth rejection, safe context selection,
+read-only kind verification, scoped secret storage and READY list. All use the
+seeded `platform-engineer` identity and temporary backend. No AWS onboarding
+or additional workload deployment is performed by either Platform scenario.
 
-Commands for the two review recordings, in order:
+Commands for the review recordings:
 
 ```bash
 cd frontend && npm run build
 cd ..
 bash backend/test/integration/acceptance-playwright-kind.sh --human
-bash backend/test/integration/uc02-04-video-local.sh --kind
+bash backend/test/integration/uc02-04-video-local.sh
+bash backend/test/integration/uc04-kubeconfig-video-local.sh --kind
 ```
 
-The Platform runner writes `uc02-04-kind-review.mp4`; its default mode without
-`--kind` remains local. Its fake execution adapters do not perform deployment,
-but the CLI independently wires the real Kubernetes connection verifier, so
-`--kind` registration checks the actual host context/API/RBAC. Namespace cleanup
+The UC-04 runner writes `uc04-kubeconfig-kind-review.mp4`. It uploads a private
+flattened selected-context kubeconfig, verifies API/RBAC read-only and stores
+credential in a run-owned isolated Vault test container. Executor adapters
+remain fake, so this recording creates no cluster objects and does not replace
+platform Vault policies. The local `uc02-04-video-local.sh` runner retains
+catalog/Preview and validation coverage; its legacy `--kind` option no longer
+performs live connection registration.
+
+Namespace cleanup
 in the Developer run does not remove Vault value revisions, per-deployment ACL
 policies/auth roles or acceptance images loaded into kind/local Docker. Record
 these existing lifecycle limits with each execution result. Confirm namespace

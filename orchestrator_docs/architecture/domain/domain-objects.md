@@ -17,7 +17,7 @@ last_reviewed: 2026-10-02
 | Environment | `Environment` | namespace identity, current-set pointer, public-route pending flag | Thuộc một Application; UC-01 tạo đúng `staging` và `production`; desired endpoint được suy ra từ Application Subdomain và Environment key; current Deployment Set chỉ đổi trong final deployment transaction. Route pending cho phép retry sau lỗi Fleet mà không restart workload. |
 | Resource Type | `ResourceType` | input/output schema | Contract độc lập implementation. |
 | Resource Definition | `ResourceDefinition` | optional Execution Profile guard, Matching Criteria, driver inputs, provision rules | Cùng Resource Type và profile hợp lệ; criteria match deterministic; output contract tương thích. |
-| Connection | `Connection` | verification metadata | Chỉ secret reference được persist; chỉ `READY` được sử dụng. |
+| Connection | `Connection` | name, kind, authentication type, non-secret config, verification metadata | Chỉ secret reference được persist; chỉ `READY` được sử dụng. |
 | Deployment | `Deployment` | `DeploymentDeltaSnapshot`, `DeploymentPlan`, deployment-resource progress, deployment-workload snapshots | Delta Snapshot immutable ngay khi persist; Plan immutable khi Deployment rời `PLANNING`; workload snapshot chỉ đổi khi Deployment đang chạy; `SUCCEEDED` chỉ sau workload readiness. |
 | Active Resource | `ActiveResource` | executor state, outputs | Logical identity unique theo Organization + descriptor + scope. |
 | Workload Instance | `WorkloadInstance` | manifest digest/status | Unique theo Environment + workload ID. |
@@ -102,3 +102,11 @@ registration service boundary. Existing catalog objects and planner fixtures
 are not migrated. Driver Inputs validation follows UC-03 BR-11–BR-14, using
 embedded module contracts or static runtime driver contracts before insertion.
 No new aggregate, table or persistence uniqueness rule is introduced.
+
+## Connection execution credentials
+
+[Shared credential design](../connection-credentials.md) owns credential store
+and execution resolution. Authentication type is separate from destination kind;
+new Kubernetes records use uploaded selected-context config. AWS identity is
+for infrastructure provisioning; ADR-009 owns its storage decision. Legacy
+host-context records remain compatible, and public DTOs exclude secret refs.

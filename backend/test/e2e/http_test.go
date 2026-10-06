@@ -96,8 +96,13 @@ func TestRegisterKubernetesConnectionRequiresPlatformEngineer(t *testing.T) {
 	for _, item := range body["connections"].([]any) {
 		if item.(map[string]any)["key"] == "second-cluster" {
 			found = true
-			if item.(map[string]any)["secretRef"] != "host-kube-context://kind-idp-internal" {
-				t.Fatal("credential reference is not host context")
+			// The public DTO never exposes the secret reference, even for
+			// legacy host-context records.
+			if _, exposed := item.(map[string]any)["secretRef"]; exposed {
+				t.Fatal("public connection DTO exposes secretRef")
+			}
+			if item.(map[string]any)["authenticationType"] != "HOST_CONTEXT" || item.(map[string]any)["name"] != "second-cluster" {
+				t.Fatalf("legacy registration is not a named host-context connection: %v", item)
 			}
 		}
 	}

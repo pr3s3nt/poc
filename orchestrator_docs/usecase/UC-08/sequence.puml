@@ -7,6 +7,7 @@ control ActiveResourceResolver as ActiveResolver
 control OutputBindingResolver as BindingResolver
 control ExecutorRegistry as Registry
 boundary ResourceExecutor as Executor
+control ConnectionCredentialResolver as Credentials
 control OutputContractValidator as Validator
 database ActiveResourceRepository as ResourceRepo
 database DeploymentResourceRepository as DeploymentResourceRepo
@@ -27,7 +28,9 @@ loop Each provider-first batch [MS-09]
     Service -> Registry: Resolve(driverType) [MS-04]
     Registry --> Service: ResourceExecutor
     Service -> Executor: Provision(resource, inputs, priorState) [MS-05]
-    Executor --> Service: ExecutionResult(state, outputs)
+    Executor -> Credentials: Resolve selected Connection when credential-backed
+    Credentials --> Executor: private invocation credential + cleanup
+    Executor --> Service: ExecutionResult(safe state/outputs, opaque target)
     Service -> Validator: Validate(resourceType, outputs) [MS-06]
     Validator --> Service: valid
     Service -> ResourceRepo: UpsertReady(activeResource) <<short transaction>> [MS-07]

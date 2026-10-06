@@ -100,15 +100,17 @@ runner cleans up only its own processes and temporary JSON state.
 
 ## Run
 
-UC-02..04 human-paced registration recording:
+UC-02/03 catalog and UC-04 validation recording:
 `bash backend/test/integration/uc02-04-video-local.sh` from the repository root.
-It uses a private headed browser and fake/local backend, records the real URL,
-mouse clicks and sequential typing, and creates catalog/Application data via UI.
-It shows a supported Definition consumed by Preview without restarting, seeded
-READY Connections and invalid Connection input, not successful live verification.
-Artifacts stay under `/tmp`; only owned processes and temporary state are cleaned.
-For successful live kind connection verification, use the explicit `--kind`
-mode described in the [kind recording runbook](kind.md#human-review-recording-for-the-current-workload-editor); this mode contacts the existing cluster read-only.
+It uses a private headed browser and local backend, records the real URL,
+mouse clicks and typing, and creates catalog/Application data via UI. It shows
+a supported Definition consumed by Preview without restart, seeded READY
+Connections, invalid uploaded-document rejection, single-context inspection and
+503 when no credential store is configured. No new Connection becomes READY.
+The legacy `--kind` argument affects evidence naming only; it no longer contacts
+a cluster. Use `bash backend/test/integration/uc04-kubeconfig-video-local.sh --kind`
+for successful live read-only upload registration. Both scripts clean up only
+run-owned processes/state; videos remain outside Git.
 
 Fake mode không chạm cluster hoặc cloud account:
 
@@ -135,3 +137,55 @@ Mở `http://127.0.0.1:8080/ui/`. API cùng origin nằm dưới `/api/v1/`.
 State không có `-state` sẽ mất khi process dừng. Với `-state <file>`, JSON
 snapshot không chứa secret value; file vẫn là local runtime data và không được
 commit.
+
+## UC-04 kubeconfig review recording
+
+Run `bash backend/test/integration/uc04-kubeconfig-video-local.sh --kind` for
+successful upload registration. The [Playwright script](../../frontend/test/e2e/uc04-kubeconfig-video-local.mjs)
+and [shell runner](../../backend/test/integration/uc04-kubeconfig-video-local.sh)
+implement the demonstration. Without `--kind`, the script is explicitly
+simulated and demonstrates rejection of an unreachable endpoint, not READY. The recording must
+show real browser interactions: sign-in, invalid/unsupported input, file upload,
+multiple-context selection, inspected cluster/endpoint, Check and save, READY
+list and cleared credential input. No route mocks or API-created Connection may
+stand in for UI registration. Inspect metadata and READY list are asserted.
+
+Use an isolated local test backend and private temporary directory. Local fake
+adapters/memory credential store may demonstrate UI only; label such evidence
+as simulated. For live read-only verification, explicitly target only existing
+`kind-idp-internal`, write flattened selected kubeconfig directly to a private
+file without printing it, and upload that file without showing its contents.
+No external AWS/other Kubernetes contexts or persistent Vault policy changes
+are needed. Local isolated Vault test service may exercise the durable adapter;
+any token is generated test-only, scoped to Connection credentials and consumed
+by file path. Stop/remove only run-owned processes/container and credential
+files after verification. Do not alter existing platform Vault or workloads.
+
+Private headed Chromium/Xvfb/ffmpeg records a human-paced flow with cursor,
+address bar and read pauses, using existing video helpers where possible. Never
+record real kubeconfig/credential text or terminal output. Failed/incomplete
+runs remain local. Reviewer checks assertions, exit status, full MP4 decode and
+settled frames before publication. Upload a new run-unique MP4 to existing
+`acceptance-recordings` release, without replacing assets; download and compare
+SHA-256 before reporting its URL. Video stays outside Git. This user request
+authorizes demo and video upload, not code commit/push or AWS provisioning.
+
+### UC-04 credential store configuration
+
+Upload inspection is available without a store; successful registration requires
+one. Configure the durable adapter with `-connection-credential-store vault`,
+`-connection-vault-address <Vault API URL>`,
+`-connection-vault-token-file <owner-only scoped token path>` and
+`-connection-vault-mount <KV v2 mount>` (default `kv`). Equivalent environment
+variables are `ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE`,
+`ORCHESTRATOR_CONNECTION_VAULT_ADDR` and
+`ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE`. These are separate from UC-12 flags.
+The scoped token needs create/read on the Connection data namespace and delete
+on its metadata namespace for rollback; workload policies must not grant access.
+Setting flags does not install or modify policies on an existing Vault server.
+
+Default `none` rejects new upload registration with 503 instead of falling back
+to host credentials. Explicit `memory` supports local fake adapters with no
+persistent JSON/PostgreSQL state only; it is not durable and is refused for real
+execution. The new recording runner provisions its own test Vault, so no
+existing platform policy change is required for the demo.

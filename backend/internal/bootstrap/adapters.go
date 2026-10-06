@@ -27,10 +27,14 @@ func (r registry) Resolve(driver resource.DriverType) (execution.ResourceExecuto
 
 // realAdapters wires the cluster and cloud executors used outside the walking
 // skeleton. Kubernetes mode covers internal-k8s; AWS mode adds Terraform.
-func realAdapters(opts Options) (execution.ExecutorRegistry, execution.WorkloadRenderer, execution.WorkloadDeployer, error) {
+func realAdapters(opts Options, credentials execution.KubeconfigSource) (execution.ExecutorRegistry, execution.WorkloadRenderer, execution.WorkloadDeployer, error) {
+	kubernetesExecutor := k8s.NewExecutor(opts.KubectlPath)
+	kubernetesExecutor.Credentials = credentials
+	existingCluster := k8s.NewExistingClusterAdapter(opts.KubectlPath)
+	existingCluster.Credentials = credentials
 	executors := map[resource.DriverType]execution.ResourceExecutor{
-		resource.DriverKubernetes:      k8s.NewExecutor(opts.KubectlPath),
-		resource.DriverExistingCluster: k8s.NewExistingClusterAdapter(opts.KubectlPath),
+		resource.DriverKubernetes:      kubernetesExecutor,
+		resource.DriverExistingCluster: existingCluster,
 	}
 	if opts.Adapters == AdapterAWS {
 		terraformExecutor, err := newTerraformExecutor(opts)
@@ -39,7 +43,9 @@ func realAdapters(opts Options) (execution.ExecutorRegistry, execution.WorkloadR
 		}
 		executors[resource.DriverTerraform] = terraformExecutor
 	}
-	deployer := execution.WorkloadDeployer(k8s.NewDeployer(opts.KubectlPath))
+	direct := k8s.NewDeployer(opts.KubectlPath)
+	direct.Credentials = credentials
+	deployer := execution.WorkloadDeployer(direct)
 	if opts.WorkloadDelivery == "fleet-gitrepo" {
 		if opts.Adapters != AdapterKubernetes {
 			return nil, nil, nil, fmt.Errorf("bootstrap: Fleet GitRepo delivery is only supported on internal Kubernetes")

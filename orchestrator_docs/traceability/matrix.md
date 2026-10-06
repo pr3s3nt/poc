@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-06
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -47,12 +47,20 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 
 ## UC-04
 
+Kubernetes upload implementation and local/isolated PostgreSQL tests pass on
+2026-10-06. [Video verification and review](../verification/2026-10-06-uc04-kubeconfig-upload.md)
+are recorded separately. AWS remains future scope.
+
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
-| MS-01, MS-02 | connection registration; `UC-04/sequence.puml` | HTTP POST role gate, `connection.Service.RegisterKubernetesCluster` | cluster ID/context only; AWS branch pending | OC-05; `connection/service_test.go`, `test/e2e/http_test.go`, `ConnectionsPage.test.tsx` |
-| MS-03 | same | `kubernetes.ConnectionVerifier.Verify` | read-only API/RBAC verification | OC-05; `TestKindConnectionVerifierReadOnly` |
-| MS-04 | same | local/kind `host-kube-context://` reference; SecretStore path pending | no raw credential persisted | OC-05; service test |
-| MS-05, MS-06 | same | Organization-scoped `CreateConnection` | insert-only `connections.status=READY` on memory/PostgreSQL | OC-05; registration contract/race/reopen tests; verifier test double for local HTTP success |
+| MS-01..03; VAR-01 | inspect; `UC-04/sequence.puml` | HTTP Controller, InspectKubeconfig, parser | transient safe context metadata | OC-05; `TestInspectKubeconfig_ListsSafeMetadataOfValidContexts`, `TestKubeconfig_RequiresAPIVersionAndKind`, `TestUC04UploadHTTPContract`, `ConnectionsPage.test.tsx` |
+| MS-04..05; BR-06..08 | upload register, verify | Service.RegisterKubeconfig, verifier.VerifyKubeconfig | read-only API/RBAC | OC-05; `TestNormalizeKubeconfig_RejectionsAreSafeAndCategorized`, `TestVerifyKubeconfig_ReadOnlyChecksWithSelectedContextOnly` |
+| MS-06; BR-02,09,10 | credential Put | scoped CredentialStore | external immutable secret, no database bytes | OC-05; `TestConnectionCredentials_ScopedCreateOnlyLifecycle`, `TestConnectionCredentials_RejectsOutOfScopeReferencesWithoutRequests`, `TestCredentialResolver_FailsClosed`, `TestCredentialTarget_KubectlFailuresNeverEchoOutput` |
+| MS-07; BR-01,15,16 | CreateConnection | repository + UnitOfWork | name/auth type, insert-only READY, default unchanged | OC-05; `TestRegisterKubeconfig_ConcurrentSameNameGetsDistinctKeys`, `TestMigration5BackfillsConnectionNameAndAuthentication`, `TestPostgresKubeconfigRegistrationRaceAndReopen`, `TestSnapshotConnectionsReadWithLegacyDefaults` |
+| MS-08..09 | public response/reload | DTO, ConnectionsPage | no response secret; catalog consumption | OC-05; `TestUC04UploadHTTPContract`, frontend registration/state tests, dedicated Playwright runner |
+| ERR-07..08 | write/cleanup failures | CredentialStore.Delete | only own attempt cleaned with bounded context | OC-05; `TestRegisterKubeconfig_FailuresSaveNothingReady`, `TestUC04UploadWithoutCredentialStoreFailsClosed` |
+| BR-10; POST-03 | execution credential resolution | resolver, Kubernetes adapters | opaque target identity only | `TestCredentialTarget_DeployerUsesScopedPrivateKubeconfig`, `TestCredentialTarget_RoutesVSOAndExecutorUseScopedCredential`, `TestExistingCluster_CredentialBackedConnectionIsAuthoritative`, `TestCredentialBackedTarget_RemovalAfterRestart`, `TestFleetRejectsCredentialBackedTargets` |
+| VAR-02; BR-11..12,14 | future AWS register | AWS verifier/resolver, Terraform | ADR-009 credential namespace | designed; not implemented by upload slice |
 
 ## UC-05
 

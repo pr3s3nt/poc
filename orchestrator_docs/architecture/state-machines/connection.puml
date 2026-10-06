@@ -1,12 +1,20 @@
 @startuml
-title Connection State Machine
-[*] --> VERIFYING : registration request
-VERIFYING --> READY : identity/connectivity/RBAC valid + secret stored
-VERIFYING --> REJECTED : verification fails
+title Connection Registration State Machine
+[*] --> VERIFYING : supported registration request
+VERIFYING --> STORING : identity/connectivity/permissions valid
+VERIFYING --> REJECTED : parse/auth/verification fails
+STORING --> READY : credential stored + Connection insert committed
+STORING --> REJECTED : store/insert fails; cleanup own attempt
 READY --> [*]
 REJECTED --> [*]
 note right of READY
-  Credential rotation and health monitoring
-  are outside current MVP.
+Only READY is persisted as a Connection.
+VERIFYING/STORING/REJECTED describe request stages.
+Registration does not change Organization default.
+READY records a verification, not live health.
+end note
+note right of REJECTED
+No resource provisioning during registration.
+Cleanup failures are observable operational errors.
 end note
 @enduml

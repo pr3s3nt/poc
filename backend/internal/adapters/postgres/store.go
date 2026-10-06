@@ -71,6 +71,23 @@ FROM workload_instances
 ON CONFLICT(deployment_id,workload_id) DO NOTHING;
 `
 
+// migration5 adds the Connection display name and authentication type
+// (UC-04). Legacy rows read their key as name; legacy Kubernetes rows are the
+// host-context variant and legacy AWS rows are process-configured
+// AWS_ACCESS_KEY metadata. This does not claim seeded AWS rows hold durable
+// credentials. The check keeps authentication type compatible with kind.
+const migration5 = `
+ALTER TABLE connections ADD COLUMN IF NOT EXISTS name text;
+ALTER TABLE connections ADD COLUMN IF NOT EXISTS authentication_type text;
+UPDATE connections SET name=connection_key WHERE name IS NULL OR name='';
+UPDATE connections SET authentication_type=CASE kind WHEN 'KUBERNETES' THEN 'HOST_CONTEXT' ELSE 'AWS_ACCESS_KEY' END WHERE authentication_type IS NULL OR authentication_type='';
+ALTER TABLE connections ALTER COLUMN name SET NOT NULL;
+ALTER TABLE connections ALTER COLUMN authentication_type SET NOT NULL;
+ALTER TABLE connections ADD CONSTRAINT connections_authentication_type_check CHECK (
+  (kind='KUBERNETES' AND authentication_type IN ('HOST_CONTEXT','KUBECONFIG')) OR
+  (kind='AWS' AND authentication_type='AWS_ACCESS_KEY'));
+`
+
 type querier interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	Query(context.Context, string, ...any) (pgx.Rows, error)
@@ -120,7 +137,7 @@ func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	for _, item := range []struct {
 		version int
 		sql     string
-	}{{1, migration}, {2, migration2}, {3, migration3}, {4, migration4}} {
+	}{{1, migration}, {2, migration2}, {3, migration3}, {4, migration4}, {5, migration5}} {
 		var applied bool
 		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)`, item.version).Scan(&applied); err != nil {
 			return err

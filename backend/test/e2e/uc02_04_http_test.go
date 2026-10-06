@@ -101,7 +101,13 @@ func TestUC02UC04ManagementHTTPContract(t *testing.T) {
 				t.Errorf("%s %s = %d %s", path, name, resp.StatusCode, out)
 			}
 		}
-		if resp, _ := call(t, pe, http.MethodPost, server.URL+path, `{"key":"`+strings.Repeat("x", 1<<20)+`"}`); resp.StatusCode != http.StatusRequestEntityTooLarge {
+		// Connection bodies carry a kubeconfig of up to 1 MiB, so their JSON
+		// envelope is bounded at 8 MiB to allow escaping.
+		limit := 1 << 20
+		if path == "/api/v1/connections/kubernetes" {
+			limit = 8 << 20
+		}
+		if resp, _ := call(t, pe, http.MethodPost, server.URL+path, `{"key":"`+strings.Repeat("x", limit)+`"}`); resp.StatusCode != http.StatusRequestEntityTooLarge {
 			t.Errorf("%s oversize = %d", path, resp.StatusCode)
 		}
 		if resp, _ := call(t, dev, http.MethodPost, server.URL+path, typeBody); resp.StatusCode != http.StatusForbidden {
@@ -183,7 +189,7 @@ func concurrentRegistration(t *testing.T, baseURL string, client *http.Client) {
 		}
 		_, body := call(t, client, http.MethodGet, baseURL+tc.list, "")
 		want := map[bool]string{true: "race-a", false: "race-b"}[winner == 0]
-		for _, key := range []string{`"race-type"`, `"race-def"`, `"race-cluster"`} {
+		for _, key := range []string{`"key":"race-type"`, `"key":"race-def"`, `"key":"race-cluster"`} {
 			if strings.Contains(tc.a, key) && strings.Count(body, key) != 1 {
 				t.Fatalf("%s: winner record %s missing or repeated: %s", tc.path, key, body)
 			}

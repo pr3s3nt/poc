@@ -11,13 +11,38 @@ import (
 )
 
 // Target is the resolved deployment target of a workload or Kubernetes resource.
+//
+// Organization and Connection are the opaque execution identity of a
+// credential-backed (KUBECONFIG) Connection. Adapters resolve its credential
+// through KubeconfigSource at each operation; no credential bytes or temporary
+// paths are ever stored in a Target. Legacy host-context targets leave both
+// empty and use Context/Kubeconfig as before.
 type Target struct {
-	Kind        string            `json:"kind"`
-	Context     string            `json:"context,omitempty"`
-	Kubeconfig  string            `json:"kubeconfig,omitempty"`
-	ClusterName string            `json:"clusterName,omitempty"`
-	Namespace   string            `json:"namespace,omitempty"`
-	Extra       map[string]string `json:"extra,omitempty"`
+	Kind         string            `json:"kind"`
+	Context      string            `json:"context,omitempty"`
+	Kubeconfig   string            `json:"kubeconfig,omitempty"`
+	ClusterName  string            `json:"clusterName,omitempty"`
+	Namespace    string            `json:"namespace,omitempty"`
+	Organization string            `json:"organization,omitempty"`
+	Connection   string            `json:"connection,omitempty"`
+	Extra        map[string]string `json:"extra,omitempty"`
+}
+
+// CredentialBacked reports whether the target must be reached with a
+// Connection credential instead of the backend host's kube configuration.
+func (t Target) CredentialBacked() bool { return t.Connection != "" }
+
+// Explicit reports whether the target names a cluster rather than relying on
+// the host's default kube context.
+func (t Target) Explicit() bool {
+	return t.CredentialBacked() || t.Context != "" || t.Kubeconfig != ""
+}
+
+// KubeconfigSource resolves the normalized selected-context kubeconfig of a
+// credential-backed target. It fails closed for a missing, foreign, non-READY
+// or non-KUBECONFIG Connection and never falls back to host credentials.
+type KubeconfigSource interface {
+	ResolveKubeconfig(ctx context.Context, target Target) ([]byte, error)
 }
 
 // PublicRoute is the complete HTTP route set of one Environment.

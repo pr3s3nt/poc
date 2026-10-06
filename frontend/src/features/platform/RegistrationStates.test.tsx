@@ -13,10 +13,20 @@ type User = ReturnType<typeof userEvent.setup>;
 const pages: { name: string; page: () => ReactElement; list: string; field: string; item: Record<string, unknown>; idLabel: string; fill: (user: User) => Promise<void>; submit: string; empty: string }[] = [
   { name: 'UC-02 types', page: () => <ResourceTypesPage />, list: '/resource-types', field: 'resourceTypes', item: { key: 'cache', inputs: [], outputs: [] }, idLabel: 'Resource type ID', fill: async (user) => { await user.type(screen.getByLabelText('Resource type ID'), 'cache'); }, submit: 'Register resource type', empty: 'No resource types registered yet.' },
   { name: 'UC-03 definitions', page: () => <ResourceDefinitionsPage />, list: '/resource-definitions', field: 'resourceDefinitions', item: { key: 'pg-fast', resourceType: 'postgres', driverType: 'kubernetes', criteria: [{}] }, idLabel: 'Definition ID', fill: async (user) => { await user.type(screen.getByLabelText('Definition ID'), 'pg-fast'); await user.selectOptions(screen.getByLabelText('Resource Type'), 'postgres'); }, submit: 'Register resource definition', empty: 'No resource definitions registered yet.' },
-  { name: 'UC-04 connections', page: () => <ConnectionsPage />, list: '/connections', field: 'connections', item: { key: 'fast', kind: 'KUBERNETES', status: 'READY', config: { cluster: 'c', kubeContext: 'kind-fast' } }, idLabel: 'Connection ID', fill: async (user) => { await user.type(screen.getByLabelText('Connection ID'), 'fast'); await user.type(screen.getByLabelText('Cluster ID'), 'c'); await user.type(screen.getByLabelText('Kube context'), 'kind-fast'); }, submit: 'Register cluster', empty: 'No connections registered yet.' },
+  { name: 'UC-04 connections', page: () => <ConnectionsPage />, list: '/connections', field: 'connections', item: { key: 'fast', name: 'fast', kind: 'KUBERNETES', status: 'READY', config: { cluster: 'c', kubeContext: 'kind-fast' } }, idLabel: 'Connection name', fill: async (user) => {
+    await user.type(screen.getByLabelText('Connection name'), 'fast');
+    await user.click(screen.getByLabelText('Paste kubeconfig'));
+    await user.click(screen.getByLabelText('Kubeconfig content'));
+    await user.paste('apiVersion: v1');
+    await user.click(screen.getByRole('button', { name: 'Inspect kubeconfig' }));
+    await screen.findByLabelText('Selected destination');
+  }, submit: 'Check and save', empty: 'No connections registered yet.' },
 ];
 
 afterEach(() => vi.unstubAllGlobals());
+
+// UC-04 inspection answer: one context, auto-selected by the page.
+const inspected = () => Response.json({ contexts: [{ name: 'kind-fast', cluster: 'c', endpoint: 'https://c.example' }] });
 
 // stub serves the page's list from `lists` (a queue of responses) and POST
 // from `post`; resource types are always available for the Definition form.
@@ -24,6 +34,7 @@ function stub(list: string, lists: (() => Response)[], post: () => Response) {
   const calls = { posts: 0 };
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (init?.method === 'POST' && url.endsWith('/inspect')) return inspected();
     if (init?.method === 'POST') { calls.posts += 1; return post(); }
     if (url.endsWith(list)) return (lists.shift() ?? lists[0] ?? (() => Response.json({})))();
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres' }] });
@@ -65,6 +76,7 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
     const calls = stub(list, [listed([]), listed([item])], () => undefined as unknown as Response);
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
+      if (init?.method === 'POST' && url.endsWith('/inspect')) return inspected();
       if (init?.method === 'POST') { calls.posts += 1; return new Promise<Response>((done) => { release = done; }); }
       if (url.endsWith(list)) return listed(calls.posts ? [item] : [])();
       return Response.json({ resourceTypes: [{ key: 'postgres' }] });
@@ -104,14 +116,21 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
 });
 
 describe('UC-04 connection list', () => {
-  it('shows cluster ID and kube context for READY connections only', async () => {
+  it('shows name, type, destination and status for READY connections only', async () => {
     stub('/connections', [() => Response.json({ connections: [
       { key: 'ready-one', kind: 'KUBERNETES', status: 'READY', config: { cluster: 'kind-a', kubeContext: 'kind-ctx-a' } },
+      { key: 'lab', name: 'Lab cluster', kind: 'KUBERNETES', authenticationType: 'KUBECONFIG', status: 'READY', config: { cluster: 'lab-c', endpoint: 'https://lab.example' } },
+      { key: 'aws-main', name: 'AWS main', kind: 'AWS', status: 'READY', config: { region: 'eu-west-1' } },
       { key: 'pending-one', kind: 'KUBERNETES', status: 'VERIFYING', config: { cluster: 'kind-b', kubeContext: 'kind-ctx-b' } },
     ] })], () => Response.json({}, { status: 201 }));
     render(<ConnectionsPage />);
-    expect(await screen.findByText('ready-one')).toBeInTheDocument();
-    expect(screen.getByText(/cluster kind-a · context kind-ctx-a · READY/)).toBeInTheDocument();
+    const table = await screen.findByRole('table', { name: 'Registered connections' });
+    expect(within(table).getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Name', 'Type', 'Destination', 'Status']);
+    const cells = (text: string) => within(screen.getByText(text).closest('tr') as HTMLElement).getAllByRole('cell').map((cell) => cell.textContent);
+    expect(cells('ready-one')).toEqual(['ready-one', 'KUBERNETES', 'Cluster kind-a', 'READY']);
+    expect(cells('Lab cluster')).toEqual(['Lab clusterlab', 'KUBERNETES', 'Cluster lab-cEndpoint https://lab.example', 'READY']);
+    // AWS records show their own fields, never empty Kubernetes ones.
+    expect(cells('AWS main')).toEqual(['AWS mainaws-main', 'AWS', 'Region eu-west-1', 'READY']);
     expect(screen.queryByText('pending-one')).not.toBeInTheDocument();
   });
 });

@@ -2,7 +2,7 @@
 id: UC-06-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-06
 ---
 
 # UC-06 — Use Case Realization
@@ -75,3 +75,14 @@ Deployment `SUCCEEDED`, với optimistic Environment version.
 - `TestDeployWorkload_RendersDeclaredContainerResources`.
 - `TestParseDescriptorText_ExpandsScopedTokens`.
 - `TestDeployAcceptance_FrontendBackendWorkerSharedDatabase`.
+
+## UC-04 credential-backed target integration
+
+[Shared credential design](../../architecture/connection-credentials.md) owns
+resolution. Carry only Organization/Connection identity through fresh and
+reused resource targets and persisted WorkloadInstance TargetRef. Resolve
+credential at each adapter call; never persist normalized kubeconfig or temp
+paths in outputs/state/plan. Missing/not-READY Connection fails closed. Restore
+the same scoped target for removal and route reconciliation after restart.
+Legacy host-context targets stay supported. This is the approved design for
+UC-04 upload delivery; implementation evidence is tracked in current state.

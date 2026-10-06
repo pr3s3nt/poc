@@ -31,6 +31,8 @@ entity connections {
   * organization_id : uuid <<FK>>
   --
   connection_key : text
+  name : text
+  authentication_type : text
   kind : text
   secret_ref : text
   status : text

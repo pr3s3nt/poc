@@ -92,3 +92,26 @@ func TestScopeRejectsPathTraversalAndWrongCluster(t *testing.T) {
 		t.Fatal("wrong cluster accepted")
 	}
 }
+
+func TestFleetRejectsCredentialBackedTargets(t *testing.T) {
+	d := &Deployer{opts: Options{KubeContext: "kind-idp-internal"}}
+	// Same context name as the fixed cluster, but a credential-backed
+	// Connection: Fleet must not deliver it with the seed context.
+	target := execution.Target{Context: "kind-idp-internal", Namespace: "app-a-staging", Organization: "acme", Connection: "lab",
+		Extra: map[string]string{"application": "a", "environment": "staging", "deployment": "d1"}}
+	ctx := context.Background()
+	manifest := execution.Manifest{Kind: "Deployment", Name: "api", Namespace: "app-a-staging", Object: map[string]any{
+		"metadata": map[string]any{"labels": map[string]any{"orchestrator.io/deployment-id": "d1"}}}}
+	if err := d.Apply(ctx, target, []execution.Manifest{manifest}); err == nil || !strings.Contains(err.Error(), "credential-backed") {
+		t.Fatalf("apply: %v", err)
+	}
+	if err := d.WaitReady(ctx, target, []execution.WorkloadRef{{Kind: "Deployment", Name: "api"}}); err == nil || !strings.Contains(err.Error(), "credential-backed") {
+		t.Fatalf("wait: %v", err)
+	}
+	if err := d.Remove(ctx, target, "api"); err == nil || !strings.Contains(err.Error(), "credential-backed") {
+		t.Fatalf("remove: %v", err)
+	}
+	if err := d.Reconcile(ctx, target, execution.PublicRoute{ApplicationID: "a", EnvironmentID: "staging"}); err == nil || !strings.Contains(err.Error(), "credential-backed") {
+		t.Fatalf("routes: %v", err)
+	}
+}

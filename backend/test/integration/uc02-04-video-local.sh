@@ -5,14 +5,14 @@
 # catalog exist; every shown step is a UI action.
 #
 # Usage: uc02-04-video-local.sh [--kind]
-#   default  no cluster is contacted; the seeded Connection and an ID
-#            rejection are shown.
-#   --kind   the backend's real kubectl Connection verifier (always wired by
-#            cmd/orchestrator, independent of -adapters) checks the existing
-#            kind-idp-internal context read-only: a missing context is
-#            rejected and a run-unique Connection becomes READY. Executor
-#            adapters stay fake, so no Kubernetes object is created; the
-#            Connection exists only in this run's temporary state.
+#   The UC-04 segment uses the kubeconfig upload form and contacts no
+#   cluster: an invalid document is rejected, a synthetic single-context
+#   kubeconfig is inspected and Check and save fails closed (503) because no
+#   Connection credential store is configured; nothing is saved.
+#   --kind   accepted for compatibility; it changes only the evidence names
+#            and does not register a Connection. The successful upload of
+#            the existing kind context is recorded by
+#            uc04-kubeconfig-video-local.sh --kind.
 #
 # Requires Xvfb, ffmpeg, ffprobe and xdotool (see video-lib.sh).
 #
@@ -33,8 +33,7 @@ RUN_ID="uc02-04-${KIND_CONTEXT:+kind-}video-$(date -u +%Y%m%d%H%M%S)-${RANDOM}"
 SCREEN="${ORCH_VIDEO_SCREEN:-1440x900}"
 MIN_SECONDS="${ORCH_VIDEO_MIN_SECONDS:-90}"
 VIDEO_NAME="uc02-04${KIND_CONTEXT:+-kind}-review.mp4"
-MIN_MARKS=17
-[[ -z "${KIND_CONTEXT}" ]] || MIN_MARKS=19
+MIN_MARKS=19
 PIDS=()
 
 # Always write into a directory this run creates, so earlier evidence or any
@@ -72,20 +71,20 @@ video_require_tools
 video_require_fresh_dist "${REPO}"
 XDOTOOL="$(video_xdotool)"
 if [[ -n "${KIND_CONTEXT}" ]]; then
-  # Read-only preflight; the current context is neither read nor changed.
-  kubectl config get-contexts -o name | grep -qx "${KIND_CONTEXT}" || { echo "context ${KIND_CONTEXT} is not configured" >&2; exit 1; }
-  kubectl --context "${KIND_CONTEXT}" version -o json >/dev/null
+  echo "note: this runner registers no Connection; record the kind kubeconfig upload with uc04-kubeconfig-video-local.sh --kind" >&2
 fi
 
 (cd "${ROOT}" && go build -o "${WORK}/orchestrator" ./cmd/orchestrator)
 # Temporary JSON state only: inherited database/Vault/Terraform/AWS defaults
-# are dropped and the corresponding flags are explicitly blank.
+# are dropped and the corresponding flags are explicitly blank. No Connection
+# credential store is configured, so kubeconfig upload fails closed.
 env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_VAULT_ADDR -u ORCHESTRATOR_VAULT_TOKEN_FILE \
+  -u ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE -u ORCHESTRATOR_CONNECTION_VAULT_ADDR -u ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE \
   -u ORCHESTRATOR_VAULT_AGENT_ADDR -u TF_PLUGIN_CACHE_DIR -u AWS_PROFILE -u AWS_REGION -u AWS_DEFAULT_REGION \
   -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN \
   "${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" -state "${WORK}/state.json" \
   -database-url-file "" -vault-address "" -vault-token-file "" -vault-agent-address "" \
-  -adapters fake -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" \
+  -connection-credential-store none -adapters fake -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" \
   > "${WORK}/orchestrator.log" 2>&1 &
 PIDS+=($!)
 for _ in $(seq 1 80); do [[ -s "${WORK}/api-addr" ]] && break; sleep 0.25; done

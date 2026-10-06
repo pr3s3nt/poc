@@ -52,3 +52,55 @@ a { color: inherit; }
 .plan-hash { overflow-wrap:anywhere; font-size:12px; }
 .form-fieldset { border:0; margin:0; padding:0; min-width:0; }
 .key-picker { display:grid; gap:12px; }.key-picker ul { display:grid; gap:8px; margin:0; padding:0; list-style:none; }.key-group { margin:0; border:1px solid var(--border-muted); border-radius:6px; padding:10px 14px 12px; min-width:0; }.key-group legend { padding:0 4px; font-size:14px; font-weight:600; }.key-picker .key-option { display:inline-flex; align-items:center; gap:8px; font-weight:400; }.key-picker input[type=checkbox] { width:auto; margin:0; padding:0; border:0; }.key-mapping { display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; margin:6px 0 0 26px; font-size:13px; }.key-picker .key-mapping label:not(.key-option) { display:flex; align-items:center; gap:8px; font-weight:400; }.key-picker .key-mapping input:not([type=checkbox]) { width:220px; padding:5px 8px; }
+.masked-text { -webkit-text-security:disc; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+
+/* UC-04 Connections: registration column and connection table */
+.connection-register { max-width:720px; }
+.connection-register .section-header p { margin:4px 0 0; color:var(--muted); font-size:14px; }
+.connection-form { display:grid; gap:18px; }
+.connection-field { display:grid; gap:6px; font-size:14px; font-weight:600; min-width:0; }
+.connection-form input:not([type=radio]):not([type=checkbox]):not([type=file]),.connection-form select,.connection-form textarea { min-width:0; width:100%; border:1px solid var(--border); border-radius:6px; padding:8px 10px; background:var(--surface); color:var(--ink); font:inherit; font-weight:400; }
+.connection-form textarea { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; resize:vertical; }
+.connection-form input:focus,.connection-form select:focus,.connection-form textarea:focus { outline:2px solid var(--blue); outline-offset:-1px; }
+.connection-source { display:grid; gap:14px; border:1px solid var(--border-muted); border-radius:6px; padding:14px; background:#f6f8fa; }
+.source-choices { display:inline-grid; grid-auto-flow:column; justify-self:start; border:1px solid var(--border); border-radius:6px; background:var(--surface); overflow:hidden; }
+.source-choice { display:inline-flex; align-items:center; gap:8px; padding:7px 14px; font-size:14px; font-weight:600; cursor:pointer; }
+.source-choice + .source-choice { border-left:1px solid var(--border); }
+.source-choice input,.inline-check input { width:auto; margin:0; accent-color:var(--blue); }
+.source-choice:has(input:checked) { background:#ddf4ff; color:var(--blue-dark); }
+.inline-check:has(input:focus-visible),.file-picker-button:focus-within { outline:2px solid var(--blue); outline-offset:2px; }
+.source-choice:has(input:focus-visible) { outline:2px solid var(--blue-dark); outline-offset:-4px; }
+.source-choice input:focus-visible,.inline-check input:focus-visible { outline:none; }
+.file-picker { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+.file-picker-button { position:relative; display:inline-flex; align-items:center; cursor:pointer; }
+.file-picker-button input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.file-picker-name { min-width:0; color:var(--muted); font-size:13px; font-weight:400; overflow-wrap:anywhere; }
+.source-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px; }
+.inline-check { display:inline-flex; align-items:center; gap:8px; padding:2px 6px; border-radius:6px; font-size:14px; font-weight:400; cursor:pointer; }
+.connection-destination { display:grid; gap:12px; border:1px solid #b6e3ff; border-radius:6px; background:#f1f8ff; padding:14px; }
+.destination-summary { display:grid; gap:8px; margin:0; font-size:14px; }
+.destination-summary div { display:grid; grid-template-columns:90px minmax(0,1fr); gap:12px; }
+.destination-summary dt { color:var(--muted); font-weight:600; }
+.destination-summary dd { margin:0; color:var(--ink); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; overflow-wrap:anywhere; }
+.connection-footer { display:flex; justify-content:flex-end; border-top:1px solid var(--border-muted); padding-top:16px; }
+.connection-table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:14px; }
+.connection-table th { padding:8px 12px; border-bottom:1px solid var(--border); background:#f6f8fa; color:var(--muted); font-size:12px; font-weight:600; text-align:left; }
+.connection-table td { padding:12px; border-bottom:1px solid var(--border-muted); vertical-align:top; overflow-wrap:anywhere; }
+.connection-table th:nth-child(1) { width:28%; }.connection-table th:nth-child(2) { width:16%; }.connection-table th:nth-child(4) { width:14%; }
+.connection-key { display:block; margin-top:2px; color:var(--muted); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; }
+.destination-line { display:block; }
+.destination-line + .destination-line { margin-top:2px; }
+.status-badge { display:inline-block; border:1px solid var(--border); border-radius:999px; padding:2px 10px; background:#f6f8fa; color:var(--muted); font-size:12px; font-weight:600; }
+.status-badge-ready { border-color:#4ac26b; background:#dafbe1; color:#116329; }
+@media (max-width:640px) {
+  .connection-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+  .connection-table,.connection-table tbody,.connection-table tr,.connection-table td { display:block; width:100%; }
+  .connection-table tr { padding:8px 0; border-bottom:1px solid var(--border-muted); }
+  .connection-table td { padding:4px 0; border:0; }
+  .connection-table td::before { content:attr(data-label); display:block; color:var(--muted); font-size:12px; font-weight:600; }
+  .destination-summary div { grid-template-columns:1fr; gap:2px; }
+  .source-choices { grid-auto-flow:row; justify-self:stretch; }
+  .source-choice + .source-choice { border-left:0; border-top:1px solid var(--border); }
+}
+/* Narrow shell: the navigation scrolls inside the sidebar instead of widening the page. */
+@media (max-width:760px) { .app-shell { grid-template-columns:minmax(0,1fr); }.sidebar { min-width:0; }.nav { min-width:0; overflow-x:auto; }.nav-item { flex:none; white-space:nowrap; } }

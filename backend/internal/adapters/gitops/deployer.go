@@ -62,7 +62,15 @@ func New(opts Options) (*Deployer, error) {
 
 func (d *Deployer) cli() k8s.CLI { return k8s.NewCLI(d.opts.KubectlPath, d.opts.KubeContext, "") }
 
+var errFleetCredentialTarget = errors.New("gitops: Fleet GitRepo delivery does not support credential-backed connection targets; use direct delivery")
+
 func (d *Deployer) scope(target execution.Target, workload string) (string, error) {
+	// Fleet delivery is fixed to the configured cluster (ADR-007). A
+	// credential-backed Connection target fails closed even if its selected
+	// context has the same name; it never silently uses the seed context.
+	if target.CredentialBacked() {
+		return "", errFleetCredentialTarget
+	}
 	if target.Context != d.opts.KubeContext || target.Namespace == "" || target.Extra == nil {
 		return "", fmt.Errorf("gitops: workload target is not the configured kind cluster")
 	}
@@ -74,6 +82,9 @@ func (d *Deployer) scope(target execution.Target, workload string) (string, erro
 }
 
 func (d *Deployer) Apply(ctx context.Context, target execution.Target, manifests []execution.Manifest) error {
+	if target.CredentialBacked() {
+		return errFleetCredentialTarget
+	}
 	var workload, deploymentID string
 	var public []execution.Manifest
 	var private []map[string]any

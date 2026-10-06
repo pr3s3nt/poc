@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"orchestrator/internal/adapters/configmemory"
+	"orchestrator/internal/adapters/credentialmemory"
 	"orchestrator/internal/adapters/fake"
 	"orchestrator/internal/adapters/gitops"
 	k8s "orchestrator/internal/adapters/kubernetes"
@@ -31,6 +32,7 @@ import (
 	"orchestrator/internal/planning"
 	"orchestrator/internal/platform/clock"
 	configport "orchestrator/internal/ports/configuration"
+	"orchestrator/internal/ports/credentials"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
@@ -79,9 +81,21 @@ type Options struct {
 	HarborDockerConfigFile string
 	HarborPullSecretName   string
 
+	// ConnectionCredentialStore selects the UC-04 Connection credential
+	// store: "" (none; upload registration fails closed with 503), "vault"
+	// (durable KV v2, scoped token read from ConnectionVaultTokenFile) or
+	// "memory" (explicit non-durable local/test store, only with fake
+	// adapters and no persistent state).
+	ConnectionCredentialStore string
+	ConnectionVaultAddress    string
+	ConnectionVaultTokenFile  string
+	ConnectionVaultMount      string
+
 	// Overrides replace individual adapters. Tests use them to inject failures.
 	RegistryOverride              execution.ExecutorRegistry
 	ConnectionVerifierOverride    connection.KubernetesVerifier
+	KubeconfigVerifierOverride    connection.KubeconfigVerifier
+	ConnectionCredentialsOverride credentials.Store
 	RendererOverride              execution.WorkloadRenderer
 	DeployerOverride              execution.WorkloadDeployer
 	ConfigurationProviderOverride configport.Provider
@@ -89,14 +103,16 @@ type Options struct {
 
 // App holds the built components.
 type App struct {
-	Store       persistence.Store
-	Secrets     *secrets.Memory
-	Server      *deliveryhttp.Server
-	Deployments *appsvc.Service
-	Queries     *appsvc.QueryService
-	Previews    *preview.Service
-	FakeExec    *fake.ResourceExecutor
-	FakeDeploy  *fake.WorkloadDeployer
+	// ConnectionCredentials is nil when no credential store is configured.
+	ConnectionCredentials credentials.Store
+	Store                 persistence.Store
+	Secrets               *secrets.Memory
+	Server                *deliveryhttp.Server
+	Deployments           *appsvc.Service
+	Queries               *appsvc.QueryService
+	Previews              *preview.Service
+	FakeExec              *fake.ResourceExecutor
+	FakeDeploy            *fake.WorkloadDeployer
 }
 
 // Build wires every component and seeds the catalog.
@@ -133,6 +149,12 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		return nil, err
 	}
 
+	connectionCredentials, err := connectionCredentialStore(opts)
+	if err != nil {
+		return nil, err
+	}
+	credentialResolver := connection.NewCredentialResolver(st, connectionCredentials)
+
 	secretStore := secrets.NewMemory()
 	c := opts.Clock
 	if c == nil {
@@ -154,7 +176,7 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		renderer = kubernetesRenderer()
 		deployer = fakeDep
 	case AdapterKubernetes, AdapterAWS:
-		registry, renderer, deployer, err = realAdapters(opts)
+		registry, renderer, deployer, err = realAdapters(opts, credentialResolver)
 		if err != nil {
 			return nil, err
 		}
@@ -182,7 +204,7 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 			}
 			deployments.SetPublicRouteManager(fleet, opts.Seed.BaseDomain)
 		} else {
-			deployments.SetPublicRouteManager(&k8s.PublicRoutes{KubectlPath: opts.KubectlPath}, opts.Seed.BaseDomain)
+			deployments.SetPublicRouteManager(&k8s.PublicRoutes{KubectlPath: opts.KubectlPath, Credentials: credentialResolver}, opts.Seed.BaseDomain)
 		}
 	}
 	if opts.WorkloadDelivery == "fleet-gitrepo" {
@@ -232,7 +254,7 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		if opts.Adapters != AdapterKubernetes || opts.VaultAddress == "" || opts.VaultTokenFile == "" || opts.VaultAgentAddress == "" {
 			return nil, fmt.Errorf("bootstrap: VSO delivery requires Kubernetes adapters and configured Vault API/in-cluster address")
 		}
-		deployments.SetConfigSecretSynchronizer(&k8s.VSOSynchronizer{KubectlPath: opts.KubectlPath})
+		deployments.SetConfigSecretSynchronizer(&k8s.VSOSynchronizer{KubectlPath: opts.KubectlPath, Credentials: credentialResolver})
 	} else if vaultDelivery != "" && vaultDelivery != "agent" {
 		return nil, fmt.Errorf("bootstrap: unknown Vault delivery %q", vaultDelivery)
 	}
@@ -247,30 +269,70 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	if connectionVerifier == nil {
 		connectionVerifier = k8s.ConnectionVerifier{KubectlPath: opts.KubectlPath}
 	}
+	kubeconfigVerifier := opts.KubeconfigVerifierOverride
+	if kubeconfigVerifier == nil {
+		kubeconfigVerifier = k8s.ConnectionVerifier{KubectlPath: opts.KubectlPath}
+	}
 
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
-		Deployments:        deployments,
-		Queries:            queries,
-		Authentication:     auth,
-		Applications:       applications,
-		ConnectionVerifier: connectionVerifier,
-		Configurations:     configurations,
-		Workloads:          workloads,
-		Pending:            pendingChanges,
-		Previews:           previews,
-		Store:              st,
-		SeedOptions:        opts.Seed,
-		UIDir:              opts.UIDir,
+		Deployments:           deployments,
+		Queries:               queries,
+		Authentication:        auth,
+		Applications:          applications,
+		ConnectionVerifier:    connectionVerifier,
+		KubeconfigVerifier:    kubeconfigVerifier,
+		ConnectionCredentials: connectionCredentials,
+		Configurations:        configurations,
+		Workloads:             workloads,
+		Pending:               pendingChanges,
+		Previews:              previews,
+		Store:                 st,
+		SeedOptions:           opts.Seed,
+		UIDir:                 opts.UIDir,
 	})
 
 	return &App{
-		Store:       st,
-		Secrets:     secretStore,
-		Server:      server,
-		Deployments: deployments,
-		Queries:     queries,
-		Previews:    previews,
-		FakeExec:    fakeExec,
-		FakeDeploy:  fakeDep,
+		ConnectionCredentials: connectionCredentials,
+		Store:                 st,
+		Secrets:               secretStore,
+		Server:                server,
+		Deployments:           deployments,
+		Queries:               queries,
+		Previews:              previews,
+		FakeExec:              fakeExec,
+		FakeDeploy:            fakeDep,
 	}, nil
+}
+
+// connectionCredentialStore builds the UC-04 credential store. The memory store
+// is never selected silently: it must be requested and is refused for real
+// adapters or persistent state, where a READY Connection would outlive its
+// credential. With no store, upload registration fails closed.
+func connectionCredentialStore(opts Options) (credentials.Store, error) {
+	if opts.ConnectionCredentialsOverride != nil {
+		return opts.ConnectionCredentialsOverride, nil
+	}
+	switch opts.ConnectionCredentialStore {
+	case "", "none":
+		return nil, nil
+	case "memory":
+		if (opts.Adapters != "" && opts.Adapters != AdapterFake) || opts.DatabaseURL != "" || opts.StatePath != "" {
+			return nil, fmt.Errorf("bootstrap: the memory connection credential store is only for fake adapters without persistent state")
+		}
+		return credentialmemory.New(), nil
+	case "vault":
+		if opts.ConnectionVaultAddress == "" || opts.ConnectionVaultTokenFile == "" {
+			return nil, fmt.Errorf("bootstrap: the Vault connection credential store needs an address and a token file")
+		}
+		token, err := os.ReadFile(opts.ConnectionVaultTokenFile)
+		if err != nil {
+			return nil, fmt.Errorf("bootstrap: read connection credential token file")
+		}
+		mount := opts.ConnectionVaultMount
+		if mount == "" {
+			mount = "kv"
+		}
+		return vault.NewConnectionCredentials(opts.ConnectionVaultAddress, strings.TrimSpace(string(token)), mount, nil)
+	}
+	return nil, fmt.Errorf("bootstrap: unknown connection credential store %q", opts.ConnectionCredentialStore)
 }

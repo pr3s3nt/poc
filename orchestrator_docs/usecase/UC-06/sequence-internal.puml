@@ -12,6 +12,7 @@ control OutputBindingResolver as Resolver
 control WorkloadRenderer as Renderer
 boundary WorkloadDeployer as WorkloadK8s
 boundary PublicRouteManager as Routes
+control ConnectionCredentialResolver as Credentials
 database DeploymentRepository as Repo
 
 Developer -> Service: DeployWorkload(Score, app, env)
@@ -22,7 +23,9 @@ Enricher --> Planner: existing cluster + env namespace
 Planner --> Service: Humanitec-shaped Delta + graph:\nworkload -> namespace -> existing cluster\nworkload -> postgres StatefulSet -> existing cluster [MS-03..MS-08]
 Service -> Provisioner: Provision(resource batches) [MS-09]
 Provisioner -> ExistingCluster: Provision(cluster reference)
-ExistingCluster --> Provisioner: Kubernetes target
+ExistingCluster -> Credentials: Resolve scoped selected Connection
+Credentials --> ExistingCluster: private invocation credential
+ExistingCluster --> Provisioner: opaque Kubernetes target (org + connection)
 Provisioner -> ResourceK8s: Provision(namespace, target)
 ResourceK8s --> Provisioner: namespace output
 Provisioner -> ResourceK8s: Provision(PostgreSQL StatefulSet/Service)
@@ -33,12 +36,18 @@ Resolver --> Service: Resolved target workload
 Service -> Renderer: Render(target workload manifests, requests/limits) [MS-11]
 Renderer --> Service: Service/Deployment manifests
 Service -> WorkloadK8s: Apply(internal target, manifests)
+WorkloadK8s -> Credentials: Resolve scoped credential for this invocation
+Credentials --> WorkloadK8s: private kubeconfig + cleanup
 Service -> WorkloadK8s: WaitReady(target workload)
 WorkloadK8s --> Service: Ready
 opt Direct UC-06 (pending batch defers until all affected workloads ready)
   Service -> Routes: Reconcile Environment Ingress from Candidate Set
   Routes --> Service: Ingress applied or Fleet bundle observed
 end
+note over Provisioner, Repo
+Fresh/reused resource targets retain Connection identity.
+Workload TargetRef persists identity, never secret/temp path.
+end note
 Service -> Repo: Commit set/resources/workloads/SUCCEEDED [MS-12]
 Service --> Developer: DeploymentResult [MS-13]
 note over Developer, Service

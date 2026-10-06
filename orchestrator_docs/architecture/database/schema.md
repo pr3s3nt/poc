@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-06
 ---
 
 # Database Schema
@@ -57,6 +57,8 @@ Only token hashes are persisted. A revoked or expired session is invalid.
 | `id` | uuid | PK |
 | `organization_id` | uuid | FK organizations, NOT NULL |
 | `connection_key` | text | NOT NULL |
+| `name` | text | NOT NULL; legacy rows backfill connection_key |
+| `authentication_type` | text | NOT NULL; `HOST_CONTEXT`, `KUBECONFIG` or future `AWS_ACCESS_KEY`; kind-compatible |
 | `kind` | text | `AWS` or `KUBERNETES` |
 | `config` | jsonb | non-secret config, NOT NULL |
 | `secret_ref` | text | NOT NULL |
@@ -66,11 +68,18 @@ Only token hashes are persisted. A revoked or expired session is invalid.
 
 Unique: `(organization_id, connection_key)`.
 
-For the local/kind Kubernetes host-context variant, `secret_ref` is an opaque
-`host-kube-context://<context>` reference, not a stored credential. `config`
-keeps only cluster ID, kube context and verified endpoint. Moving the backend
-to another host requires configuring the same context there; this is not the
-future durable credential-store variant.
+New kubeconfig records store cluster/context/endpoint metadata and a scoped
+opaque credential reference. Secret values never enter config/verification.
+`name` and `authentication_type` are additive columns; migration backfills
+legacy Kubernetes as `HOST_CONTEXT`, AWS as `AWS_ACCESS_KEY` legacy process
+metadata. Missing new JSON fields retain explicit legacy compatibility.
+AWS migration does not claim seeded metadata has durable credentials.
+Registration is insert-only; generated key collisions never overwrite rows or
+change Organization default. Existing reference formats must stay compatible.
+
+Host-context records use `host-kube-context://<context>` and still require the
+same host context. New records use credential store independently of host.
+See [credential design](../connection-credentials.md).
 
 ### `applications`
 

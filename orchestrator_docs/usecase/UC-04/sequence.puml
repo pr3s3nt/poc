@@ -1,37 +1,48 @@
 @startuml
-title UC-04 - Configure Execution Profile Connections
-autonumber
-actor "Platform Engineer" as PE
+title UC-04 - Inspect and Register Connection
+actor "Platform Engineer / Admin" as PE
 boundary ConnectionController as API
 control ConnectionService as Service
-boundary SecretStore as Secrets
-boundary AWSConnectionVerifier as AWS
+control KubeconfigParser as Parser
 boundary KubernetesConnectionVerifier as K8s
+boundary AWSConnectionVerifier as AWS
+boundary ConnectionCredentialStore as Secrets
 database ConnectionRepository as Repo
-
-PE -> API: Register connection [MS-01..MS-02]
-alt aws-eks [VAR-01, future credential-store variant]
-  API -> Service: RegisterAWSDriverAccount(ctx, command)
-  Service -> AWS: Verify(identity, regions, backend) [MS-03]
-  AWS --> Service: VerificationResult
-else internal-k8s [VAR-02]
-  API -> Service: RegisterKubernetesCluster(ctx, command)
-  Service -> K8s: Verify(host kube context, API, RBAC) [MS-03]
-  K8s --> Service: VerificationResult
+PE -> API: Inspect kubeconfig [MS-01..03, VAR-01]
+API -> Service: InspectKubeconfig(org, document)
+Service -> Parser: Parse supported contexts
+Parser --> Service: safe context/cluster/endpoint metadata
+Service --> API: metadata only (no write/network)
+API --> PE: select context + review destination
+PE -> API: Check and save [MS-04]
+alt Kubernetes [VAR-01, first delivery]
+  API -> Service: RegisterKubeconfig(org, name, document, context)
+  Service -> Parser: Revalidate + normalize selected context
+  Parser --> Service: selected config (request memory)
+  Service -> K8s: Verify(config), no resource creation [MS-05]
+  K8s --> Service: safe VerificationResult
+else AWS [VAR-02, future delivery]
+  API -> Service: RegisterAWSDriverAccount(org, command)
+  Service -> AWS: Verify(identity, regions, backend, provisioning permissions)
+  AWS --> Service: safe VerificationResult
 end
-alt AWS/full credential-store variant
-  Service -> Secrets: Put(credentialMaterial) [MS-04]
-  Secrets --> Service: SecretReference
-else local/kind Kubernetes MVP
-  Service -> Service: HostContextReference(context) [MS-04]
+Service -> Service: Generate unique key from name
+Service -> Secrets: Put(org, key, immutable attempt, credential) [MS-06]
+Secrets --> Service: opaque reference
+Service -> Repo: CreateConnection(READY) <<transaction>> [MS-07]
+alt Insert succeeds
+  Repo --> Service: committed Connection
+  Service --> API: public metadata DTO [MS-08..09]
+  API --> PE: Registered; clear credential; reload list
+else Insert fails
+  Repo --> Service: failure
+  Service -> Secrets: Delete only own attempt (bounded cleanup)
+  Service --> API: safe failure; report cleanup error if any
+  API --> PE: Registration failed
 end
-Service -> Service: Connection.MarkReady()
-Service -> Repo: CreateConnection(connection) <<transaction>> [MS-05]
 note right of Repo
-Insert-only registration; duplicate preserves
-existing config, reference and verification.
+No overwrite on collision/concurrency.
+Organization default is unchanged.
+No secret bytes in logical state.
 end note
-Repo --> Service: Connection
-Service --> API: Connection READY [MS-06]
-API --> PE: Registered
 @enduml

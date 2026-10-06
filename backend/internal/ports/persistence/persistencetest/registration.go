@@ -120,7 +120,42 @@ func Registration(t *testing.T, st persistence.Store) RegistrationFixture {
 		t.Fatalf("connection in missing Organization: %v", err)
 	}
 	assertConnection(t, st, conn)
+	legacy, _ := st.GetConnection(ctx, "reg-acme", "reg-cluster")
+	if legacy.Name != "reg-cluster" || legacy.AuthenticationType != application.AuthHostContext {
+		t.Fatalf("legacy connection defaults: name %q, authentication %q", legacy.Name, legacy.AuthenticationType)
+	}
+	connectionAuthentication(t, st)
 	return RegistrationFixture{Organization: "reg-acme", Type: typ, Definition: def, Connection: conn}
+}
+
+// connectionAuthentication checks the UC-04 name/authentication type columns:
+// an uploaded-kubeconfig record round-trips, and an incompatible or unknown
+// authentication type is rejected without a row.
+func connectionAuthentication(t *testing.T, st persistence.Store) {
+	t.Helper()
+	ctx := context.Background()
+	uploaded := application.Connection{Key: "reg-upload", Name: "Uploaded Cluster", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes,
+		AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionReady,
+		Config:    map[string]any{"cluster": "c3", "kubeContext": "ctx-3", "endpoint": "https://c3.example"},
+		SecretRef: "kv2://kv/orchestrator/connections/reg-acme/reg-upload/credentials/00000000-0000-4000-8000-000000000001", Verification: map[string]any{"verified": true}}
+	if err := st.CreateConnection(ctx, uploaded); err != nil {
+		t.Fatalf("create uploaded connection: %v", err)
+	}
+	got, err := st.GetConnection(ctx, "reg-acme", "reg-upload")
+	if err != nil || got.Name != "Uploaded Cluster" || got.AuthenticationType != application.AuthKubeconfig || got.SecretRef != uploaded.SecretRef {
+		t.Fatalf("uploaded connection = %+v, %v", got, err)
+	}
+	for name, bad := range map[string]application.Connection{
+		"incompatible": {Key: "reg-bad-auth", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthAWSAccessKey, Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "x", Verification: map[string]any{}},
+		"unknown ref":  {Key: "reg-bad-ref", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "https://elsewhere", Verification: map[string]any{}},
+	} {
+		if err := st.CreateConnection(ctx, bad); err == nil {
+			t.Fatalf("%s authentication accepted", name)
+		}
+		if _, err := st.GetConnection(ctx, "reg-acme", bad.Key); !errors.Is(err, persistence.ErrNotFound) {
+			t.Fatalf("%s left a row: %v", name, err)
+		}
+	}
 }
 
 // AssertRegistration re-reads a RegistrationFixture, e.g. after reopen.
@@ -193,6 +228,7 @@ func assertConnection(t *testing.T, st persistence.Store, want application.Conne
 		t.Fatal(err)
 	}
 	if got.Key != want.Key || got.OrganizationKey != want.OrganizationKey || got.Kind != want.Kind || got.SecretRef != want.SecretRef ||
+		got.AuthenticationType == "" || got.Name == "" ||
 		!reflect.DeepEqual(got.Config, want.Config) || got.Status != want.Status || !reflect.DeepEqual(got.Verification, want.Verification) {
 		t.Fatalf("connection = %+v, want %+v", got, want)
 	}

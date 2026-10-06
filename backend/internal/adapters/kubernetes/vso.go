@@ -14,10 +14,11 @@ import (
 type VSOSynchronizer struct {
 	KubectlPath string
 	Timeout     time.Duration
+	Credentials execution.KubeconfigSource
 }
 
 func (s *VSOSynchronizer) Sync(ctx context.Context, target execution.Target, bundle execution.ConfigBundle) error {
-	if target.Context == "" && target.Kubeconfig == "" {
+	if !target.Explicit() {
 		return fmt.Errorf("vso: explicit Kubernetes target required")
 	}
 	if target.Namespace == "" || bundle.Address == "" || bundle.Mount == "" || bundle.Path == "" || bundle.Role == "" || bundle.ServiceAccount == "" || bundle.SecretName == "" || len(bundle.Keys) == 0 {
@@ -26,7 +27,11 @@ func (s *VSOSynchronizer) Sync(ctx context.Context, target execution.Target, bun
 	if !strings.HasPrefix(bundle.SecretName, "orch-") {
 		return fmt.Errorf("vso: invalid destination Secret name")
 	}
-	cli := NewCLI(s.KubectlPath, target.Context, target.Kubeconfig)
+	cli, cleanup, err := OpenCLI(ctx, s.KubectlPath, s.Credentials, target)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
 	ns := target.Namespace
 	auth := bundle.SecretName + "-auth"
 	objects := []map[string]any{

@@ -79,6 +79,10 @@ func (s *Store) CreateConnection(ctx context.Context, v application.Connection) 
 	if v.ID == "" {
 		v.ID = ids.New()
 	}
+	v, err := v.WithLegacyDefaults()
+	if err != nil {
+		return err
+	}
 	config, err := jsonBytes(v.Config)
 	if err != nil {
 		return err
@@ -87,14 +91,12 @@ func (s *Store) CreateConnection(ctx context.Context, v application.Connection) 
 	if err != nil {
 		return err
 	}
-	return s.Transact(ctx, func(ctx context.Context) error {
-		var id string
-		err := s.q(ctx).QueryRow(ctx, `INSERT INTO connections(id,organization_id,connection_key,kind,config,secret_ref,status,verification) SELECT $1::uuid,o.id,$3,$4,$5,$6,$7,$8 FROM organizations o WHERE o.organization_key=$2 RETURNING id::text`, v.ID, v.OrganizationKey, v.Key, v.Kind, config, v.SecretRef, v.Status, verification).Scan(&id)
-		if err != nil {
-			return registrationError(err, "connection "+v.Key)
-		}
-		// Same default-connection linkage as the seed SaveConnection.
-		_, err = s.q(ctx).Exec(ctx, `UPDATE organizations SET default_connection_id=$1::uuid WHERE organization_key=$2 AND default_connection_key=$3`, id, v.OrganizationKey, v.Key)
-		return translate(err)
-	})
+	// Insert-only registration never changes the Organization default
+	// connection (UC-04 BR-16); only the seed SaveConnection links it.
+	var id string
+	err = s.q(ctx).QueryRow(ctx, `INSERT INTO connections(id,organization_id,connection_key,kind,config,secret_ref,status,verification,name,authentication_type) SELECT $1::uuid,o.id,$3,$4,$5,$6,$7,$8,$9,$10 FROM organizations o WHERE o.organization_key=$2 RETURNING id::text`, v.ID, v.OrganizationKey, v.Key, v.Kind, config, v.SecretRef, v.Status, verification, v.Name, v.AuthenticationType).Scan(&id)
+	if err != nil {
+		return registrationError(err, "connection "+v.Key)
+	}
+	return nil
 }

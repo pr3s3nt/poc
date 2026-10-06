@@ -2,72 +2,84 @@
 id: UC-04-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-06
 ---
 
 # UC-04 — Use Case Realization
 
-## Trách nhiệm
+## Trách nhiệm và delivery boundary
 
-Đăng ký và xác minh AWS Driver Account hoặc internal Kubernetes connection mà không lưu credential thô trong domain/database record.
+Thực hiện [specification đã duyệt](specification.md): đăng ký Kubernetes từ
+kubeconfig trước; AWS account provisioning theo ADR-009 ở giai đoạn sau.
+Host-context records cũ vẫn được resolve; UI mới không yêu cầu host setup.
 
 ## System operations
 
-```go
-ConnectionService.RegisterAWSDriverAccount(ctx context.Context, cmd RegisterAWSDriverAccountCommand) (*Connection, error)
-ConnectionService.RegisterKubernetesCluster(ctx context.Context, cmd RegisterKubernetesClusterCommand) (*Connection, error)
-```
+- `InspectKubeconfig(ctx, org, document)` trả context/cluster/endpoint metadata,
+  không trả credential, không lưu secret hoặc Connection, không gọi cluster.
+- `RegisterKubeconfig(ctx, org, name, document, context)` parse/validate
+  lại document, verify, ghi credential rồi insert Connection `READY`.
+- `RegisterKubernetesCluster(ctx, org, key, clusterId, kubeContext)` keeps the
+  explicit legacy API contract and does not accept uploaded credential.
+- `RegisterAWSDriverAccount(ctx, org, command)` là operation thiết kế tương lai;
+  không publish endpoint cho đến khi verification/executor resolution hoàn tất.
 
 ## Participants
 
-- `ConnectionController` — boundary chọn operation theo profile.
-- `ConnectionService` — control lưu secret, verify và persist connection.
-- `Connection` — aggregate với kind, config, secret reference, status.
-- `SecretStore` — port lưu credential và trả opaque reference.
-- `AWSConnectionVerifier`, `KubernetesConnectionVerifier` — integration ports.
-- `ConnectionRepository`, `UnitOfWork` — persistence ports.
+- `ConnectionController`: session Organization + Platform Engineer/Admin gate,
+  bounded strict request decoder, public metadata DTO.
+- `ConnectionService`: name/key generation, parser, verifier, secret lifecycle,
+  Organization lookup và insert-only repository transaction.
+- `KubeconfigParser`: YAML/JSON parser; kiểm tra context references; chỉ nhận
+  embedded token hoặc embedded client certificate/key; xuất normalized config
+  chỉ chứa selected context và dữ liệu cần thiết.
+- `KubernetesConnectionVerifier`: API/RBAC read-only bằng selected config,
+  deadline và safe error categories; không dùng credential host.
+- `ConnectionCredentialStore`: scope-aware Put/Get/Delete, opaque immutable refs,
+  riêng khỏi UC-12 workload values; không public secret-read operation.
+- `ConnectionCredentialResolver`: kiểm tra Organization/kind/authentication type,
+  resolve reference cho adapter trong thời gian thực thi; fail closed.
+- `ConnectionRepository`, `UnitOfWork`: insert-only, unique Organization/key.
 
-Trong local/kind MVP, `RegisterKubernetesCluster` dùng context đã có trên host:
-Kubernetes verifier kiểm tra API/RBAC read-only, `SecretStore.Put` không được
-gọi. Connection record giữ cluster ID, context, endpoint xác minh và opaque
-`host-kube-context://...` reference; không chứa credential. AWS registration
-vẫn theo thiết kế đầy đủ và chưa triển khai ở lát cắt này.
+## Flow và transaction boundary
 
-HTTP `GET/POST /api/v1/connections` lọc theo Organization; POST chỉ cho
-Platform Engineer/Admin. Trước transaction service validate ID và gọi verifier;
-trong transaction kiểm tra Organization/unique key và lưu `READY`. UI contract
-nằm trong `UC-04/ui/`.
+MS-01..03: UI gửi kubeconfig qua inspect boundary rồi chọn context. MS-04..05:
+register tự parse/validate lại payload; metadata do client cung cấp không được
+coi là trusted. Chỉ selected context được sử dụng; rejected external-file/exec
+material không được chuyển cho kubectl. Verify trước database transaction.
 
-## Trace main flow
+MS-06: Put credential với object ID mới, immutable theo Organization + generated
+Connection key + attempt ID. MS-07: transaction kiểm tra Organization và insert
+Connection `READY`; database unique constraint là final concurrent guard.
+Generated key derives from name, bounded readable slug + collision suffix;
+collision never updates another record. Registration does not change default.
 
-| Step | Collaboration |
-|---|---|
-| MS-01–MS-02 | Controller dispatch AWS/Kubernetes command. |
-| MS-03 | Service gọi verifier tương ứng với credential chỉ ở memory. |
-| MS-04 | `SecretStore.Put` trả secret reference. |
-| MS-05–MS-06 | `Connection.MarkReady`, save record không chứa secret value. |
-| VAR-01 | AWS verifier kiểm tra principal, region/backend và quyền tối thiểu. |
-| VAR-02 | Kubernetes verifier kiểm tra API/RBAC cần cho namespace/workload/resource. |
+Insert failure: Delete chỉ immutable credential của attempt đó, bằng bounded
+cleanup context không bị request cancellation hủy ngay. Cleanup error phải
+observable bằng safe reference, không làm registration có vẻ thành công.
+No automatic retry that duplicates a successful insert after a lost response.
 
-## Transaction boundary
+MS-08..09: trả public DTO, clear submitted credential on success, reload list;
+reload error separate from committed registration. Read DTO excludes secretRef
+and verification/provider details that can contain credentials.
 
-External verification xảy ra trước database transaction. Local/kind host-context
-variant không ghi secret. Full credential-store variant sẽ ghi secret trước
-transaction và cần cleanup nếu DB save lỗi. Transaction chỉ lưu connection
-`READY` sau khi Organization/unique key được kiểm tra. Registration dùng
-insert-only `CreateConnection`; duplicate kể cả concurrent request không được
-ghi đè config/reference/verification của record đã tồn tại. Seed/upsert
-`SaveConnection` không phải public update API.
+## Execution integration
 
-## Planned tests
+Shared design: [Connection credentials](../../architecture/connection-credentials.md).
+Resource execution resolves matched Definition's Connection; workload target
+retains opaque Organization/Connection identity and secret reference only.
+Each Kubernetes operation resolves a private short-lived kubeconfig file,
+mode 0600 in private directory, removes it after the subprocess finishes. Never
+persist the file path or content in plans, Target outputs, executor state or
+snapshots. Apply/readiness/remove/public routes/VSO must use the selected target.
+Legacy host-context resolution remains explicit; registered credentials never
+fall back to host default. AWS Terraform credential resolution is designed,
+not enabled by this Kubernetes delivery.
 
-- `TestRegisterAWSDriverAccount_StoresOnlySecretReference`.
-- `TestRegisterKubernetesCluster_VerifiesRBAC`.
-- `TestConnectionRecord_DoesNotContainCredentialMaterial`.
+## Validation and traces
 
-## AWS credential design decision
-
-[ADR-009](../../architecture/decisions/ADR-009-aws-access-key-storage.md) selects
-AWS access keys in a dedicated Vault KV v2 Organization/Connection namespace.
-The SecretStore/verifier/cleanup and executor resolution path is a separate
-implementation step; local host-context registration does not call this store.
+Inspect/register HTTP role/Organization and limits; parser rejection and selected
+context; normalized secret-only persistence; key collision/concurrency;
+verification failure; store failure/cleanup; safe DTO/errors; scoped resolution;
+Kubernetes provision/apply/remove/readiness/route paths; legacy compatibility.
+Tests and actual delivery are recorded in traceability/current state after code.

@@ -2,19 +2,29 @@
 id: UC-04-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-06
 ---
 
 # UC-04 context — Configure execution connections
 
 ## Delivery state
 
-Local/kind Kubernetes registration, verification API/UI and seeded internal/AWS
-connection data exist with normalized PostgreSQL persistence and insert-only
-registration. Local tests use an explicit test verifier; the 2026-10-02 UI recording demonstrates successful live cluster verification
-to READY ([evidence](../../verification/2026-10-02-human-ui-kind-recordings.md)). AWS registration and
-durable credential storage remain unimplemented; access key + Vault storage
-has been accepted in [ADR-009](../../architecture/decisions/ADR-009-aws-access-key-storage.md).
+Kubernetes onboarding by name + upload/paste kubeconfig + context selection is
+implemented. Inspect/register API/UI, scoped Vault KV v2 credential store,
+PostgreSQL migration/backfill/race/reopen and direct executor resolution are
+locally verified. The [2026-10-06 evidence](../../verification/2026-10-06-uc04-kubeconfig-upload.md)
+includes live read-only kind verification to READY and a reviewed published
+video. The registration video uses fake workload adapters and does not prove
+live workload deployment on the uploaded Connection.
+
+The [desktop UI correction](../../verification/2026-10-06-uc04-connections-ui.md)
+records the revised form controls/list layout and reviewed replacement recording.
+
+Existing host-context connections/legacy API remain compatible. Default
+Connection selection is unchanged; UC-03 matching Definitions can reference
+new Connections. AWS identity for infrastructure provisioning remains future
+scope under [ADR-009](../../architecture/decisions/ADR-009-aws-access-key-storage.md).
+Fleet fixed-cluster delivery rejects credential-backed targets.
 
 ## Read in this order
 
@@ -28,6 +38,10 @@ UI: [screens](ui/screens.md), [states](ui/states.md), [HTTP mapping](ui/api-mapp
 
 ## Implementation entry points
 
+- [`shared credential design`](../../architecture/connection-credentials.md)
+- [`backend/internal/application/connection`](../../../backend/internal/application/connection/)
+- [`backend/internal/ports/credentials`](../../../backend/internal/ports/credentials/)
+- [`backend/internal/adapters/vault/connection_credentials.go`](../../../backend/internal/adapters/vault/connection_credentials.go)
 - [`backend/internal/domain/application`](../../../backend/internal/domain/application/)
 - [`backend/internal/adapters/kubernetes`](../../../backend/internal/adapters/kubernetes/)
 - [`backend/internal/adapters/terraform`](../../../backend/internal/adapters/terraform/)

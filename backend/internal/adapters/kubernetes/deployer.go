@@ -12,6 +12,8 @@ import (
 type Deployer struct {
 	KubectlPath string
 	Timeout     time.Duration
+	// Credentials resolves credential-backed targets; nil fails them closed.
+	Credentials execution.KubeconfigSource
 }
 
 // NewDeployer returns the Kubernetes workload deployer.
@@ -28,13 +30,21 @@ func (d *Deployer) Apply(ctx context.Context, target execution.Target, manifests
 	for _, m := range manifests {
 		objects = append(objects, m.Object)
 	}
-	cli := NewCLI(d.KubectlPath, target.Context, target.Kubeconfig)
+	cli, cleanup, err := OpenCLI(ctx, d.KubectlPath, d.Credentials, target)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
 	return cli.Apply(ctx, objects)
 }
 
 // WaitReady blocks until every referenced object reports readiness.
 func (d *Deployer) WaitReady(ctx context.Context, target execution.Target, refs []execution.WorkloadRef) error {
-	cli := NewCLI(d.KubectlPath, target.Context, target.Kubeconfig)
+	cli, cleanup, err := OpenCLI(ctx, d.KubectlPath, d.Credentials, target)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
 	for _, ref := range refs {
 		namespace := ref.Namespace
 		if namespace == "" {
@@ -57,10 +67,14 @@ func (d *Deployer) Remove(ctx context.Context, target execution.Target, workload
 	if target.Namespace == "" {
 		return fmt.Errorf("kubernetes: remove without a namespace")
 	}
-	if target.Context == "" && target.Kubeconfig == "" {
+	if !target.Explicit() {
 		return fmt.Errorf("kubernetes: remove without an explicit cluster target")
 	}
-	cli := NewCLI(d.KubectlPath, target.Context, target.Kubeconfig)
+	cli, cleanup, err := OpenCLI(ctx, d.KubectlPath, d.Credentials, target)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
 	if err := cli.Delete(ctx, target.Namespace, "deployment", workloadID); err != nil {
 		return err
 	}

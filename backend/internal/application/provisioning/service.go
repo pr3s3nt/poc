@@ -4,9 +4,11 @@ package provisioning
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
+	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
@@ -16,6 +18,8 @@ import (
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/ports/persistence"
 )
+
+var errConnectionUnavailable = errors.New("the Connection must exist and be READY")
 
 // Request is the input of one UC-08 run.
 type Request struct {
@@ -136,7 +140,19 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	if err != nil {
 		return err
 	}
-	connection, _ := s.store.GetConnection(ctx, req.Context.OrganizationKey, connectionKeyFor(def, req.Context))
+	// A missing or non-READY Connection fails before execution instead of
+	// becoming an empty Connection (UC-04 BR-04/BR-10).
+	connection, err := s.store.GetConnection(ctx, req.Context.OrganizationKey, connectionKeyFor(def, req.Context))
+	if err == nil && (connection.Status != appdomain.ConnectionReady || connection.OrganizationKey != req.Context.OrganizationKey) {
+		err = fmt.Errorf("connection is not READY in this organization")
+	}
+	if err != nil {
+		progress.Status = deployment.ResourceFailed
+		finished := s.clock.Now()
+		progress.FinishedAt = &finished
+		_ = s.store.SaveDeploymentResource(ctx, progress)
+		return fmt.Errorf("provisioning: %s: connection %q is unavailable: %w", descriptor, connectionKeyFor(def, req.Context), errConnectionUnavailable)
+	}
 
 	execResult, err := executor.Provision(ctx, execution.ProvisionRequest{
 		DeploymentID:    req.DeploymentID,
@@ -350,6 +366,12 @@ func ResolveTarget(graph planning.Graph, result *Result, descriptor string) exec
 				target.ClusterName = stringOutput(outputs, "name")
 				target.Context = stringOutput(outputs, "kubeContext")
 				target.Kubeconfig = stringOutput(outputs, "kubeconfig")
+				// Credential-backed clusters carry only their opaque
+				// Organization/Connection identity, never credential bytes.
+				if resolved, ok := result.Targets[provider]; ok && resolved.CredentialBacked() {
+					target.Organization, target.Connection = resolved.Organization, resolved.Connection
+					target.Kubeconfig = ""
+				}
 			case planning.TypeNamespace:
 				if target.Namespace == "" {
 					target.Namespace = stringOutput(outputs, "name")

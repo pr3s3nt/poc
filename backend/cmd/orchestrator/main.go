@@ -52,6 +52,10 @@ func main() {
 	harborRegistryHost := flag.String("harbor-registry", "", "Harbor registry host:port used in workload image references")
 	harborDockerConfigFile := flag.String("harbor-dockerconfig-file", "", "owner-only Docker config JSON for namespace imagePullSecret")
 	harborPullSecretName := flag.String("harbor-pull-secret", "harbor-pull", "namespace-local imagePullSecret name")
+	connectionCredentialStore := flag.String("connection-credential-store", os.Getenv("ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE"), "UC-04 Connection credential store: none (upload registration unavailable), vault, or memory (fake adapters without persistent state only)")
+	connectionVaultAddress := flag.String("connection-vault-address", os.Getenv("ORCHESTRATOR_CONNECTION_VAULT_ADDR"), "Vault API address of the Connection credential store")
+	connectionVaultTokenFile := flag.String("connection-vault-token-file", os.Getenv("ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE"), "path to the scoped Vault token file of the Connection credential store")
+	connectionVaultMount := flag.String("connection-vault-mount", "kv", "KV v2 mount of the Connection credential store")
 	flag.Parse()
 	databaseURL := ""
 	if *databaseURLFile != "" {
@@ -131,6 +135,11 @@ func main() {
 		HarborRegistryHost:     *harborRegistryHost,
 		HarborDockerConfigFile: *harborDockerConfigFile,
 		HarborPullSecretName:   *harborPullSecretName,
+
+		ConnectionCredentialStore: *connectionCredentialStore,
+		ConnectionVaultAddress:    *connectionVaultAddress,
+		ConnectionVaultTokenFile:  *connectionVaultTokenFile,
+		ConnectionVaultMount:      *connectionVaultMount,
 	})
 	if err != nil {
 		log.Printf("orchestrator: startup failed: %v", err)

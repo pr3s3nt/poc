@@ -15,6 +15,7 @@ Shared design này hợp nhất UC-00 đến UC-09 sau realization.
 - [Consolidated design classes](domain/design-class-diagram.puml)
 - [Component boundaries](components/component-diagram.puml)
 - [Database schema](database/schema.md) và [ERD](database/erd.puml)
+- [Connection credentials and execution identity](connection-credentials.md)
 - [Operation contracts](contracts/operation-contracts.md)
 - [Shared Web Console UI](ui/README.md)
 - [State machines](state-machines/README.md)

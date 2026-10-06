@@ -332,14 +332,8 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 			continue
 		}
 		target := execution.Target{Namespace: planCtx.Env.NamespaceIdentity, Extra: map[string]string{"application": planCtx.App.Key, "environment": planCtx.Env.Key}}
-		if value, ok := instance.TargetRef["namespace"].(string); ok && value != "" {
-			target.Namespace = value
-		}
-		if value, ok := instance.TargetRef["context"].(string); ok {
-			target.Context = value
-		}
-		if value, ok := instance.TargetRef["cluster"].(string); ok {
-			target.ClusterName = value
+		if err := restoreTarget(&target, instance.TargetRef, planCtx.OrganizationKey); err != nil {
+			return err
 		}
 		instance.Status = domain.InstanceRemoving
 		instance.LastDeploymentID = deploymentID
@@ -387,6 +381,9 @@ func (s *Service) applyWorkload(
 	target.Extra = map[string]string{"application": planCtx.App.Key, "environment": planCtx.Env.Key, "deployment": record.ID}
 	if target.Namespace == "" {
 		return fmt.Errorf("deployment: workload %q has no resolved namespace", workloadID)
+	}
+	if target.CredentialBacked() && target.Organization != planCtx.OrganizationKey {
+		return fmt.Errorf("deployment: workload %q target belongs to another organization", workloadID)
 	}
 	var revision configuration.Revision
 	if configRevisionID != "" {
@@ -505,7 +502,7 @@ func (s *Service) applyWorkload(
 		WorkloadID:              workloadID,
 		LastDeploymentID:        record.ID,
 		AppliedConfigRevisionID: configRevisionID,
-		TargetRef:               map[string]any{"cluster": target.ClusterName, "namespace": target.Namespace, "context": target.Context},
+		TargetRef:               targetRef(target),
 		ManifestDigest:          digest,
 		Status:                  domain.InstanceApplying,
 		ObservedAt:              s.clock.Now(),
@@ -580,22 +577,54 @@ func (s *Service) reconcileRoutes(ctx context.Context, app appdomain.Application
 	if len(instances) == 0 {
 		return nil
 	}
-	target := execution.Target{Namespace: env.NamespaceIdentity, Extra: map[string]string{"application": app.Key, "environment": env.Key}}
+	base := execution.Target{Namespace: env.NamespaceIdentity, Extra: map[string]string{"application": app.Key, "environment": env.Key}}
+	target := base
 	for _, instance := range instances {
-		if namespace, ok := instance.TargetRef["namespace"].(string); ok && namespace != "" {
-			target.Namespace = namespace
+		candidate := base
+		candidate.Extra = map[string]string{"application": app.Key, "environment": env.Key}
+		if err := restoreTarget(&candidate, instance.TargetRef, app.OrganizationKey); err != nil {
+			return err
 		}
-		if contextName, ok := instance.TargetRef["context"].(string); ok && contextName != "" {
-			target.Context = contextName
-		}
-		if cluster, ok := instance.TargetRef["cluster"].(string); ok {
-			target.ClusterName = cluster
-		}
-		if target.Context != "" {
+		target = candidate
+		if candidate.Explicit() {
 			break
 		}
 	}
 	return s.publicRoutes.Reconcile(ctx, target, route)
+}
+
+// targetRef is the persisted WorkloadInstance target: cluster, namespace,
+// context and, for credential-backed Connections, only the opaque
+// Organization/Connection identity. No credential or temporary path.
+func targetRef(target execution.Target) map[string]any {
+	ref := map[string]any{"cluster": target.ClusterName, "namespace": target.Namespace, "context": target.Context}
+	if target.CredentialBacked() {
+		ref["organization"] = target.Organization
+		ref["connection"] = target.Connection
+	}
+	return ref
+}
+
+// restoreTarget rebuilds a target from a persisted TargetRef so removal and
+// route reconciliation after a restart reach the same scoped cluster. A
+// credential-backed reference of another Organization fails closed.
+func restoreTarget(target *execution.Target, ref map[string]any, organizationKey string) error {
+	text := func(key string) string {
+		value, _ := ref[key].(string)
+		return value
+	}
+	if namespace := text("namespace"); namespace != "" {
+		target.Namespace = namespace
+	}
+	target.Context = text("context")
+	target.ClusterName = text("cluster")
+	if connection := text("connection"); connection != "" {
+		if text("organization") != organizationKey {
+			return fmt.Errorf("deployment: workload target belongs to another organization")
+		}
+		target.Organization, target.Connection = organizationKey, connection
+	}
+	return nil
 }
 
 func (s *Service) fail(ctx context.Context, record domain.Deployment, cause error) error {

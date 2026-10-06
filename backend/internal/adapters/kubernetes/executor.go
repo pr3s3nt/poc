@@ -17,6 +17,7 @@ import (
 type Executor struct {
 	KubectlPath string
 	Timeout     time.Duration
+	Credentials execution.KubeconfigSource
 }
 
 // NewExecutor returns the Kubernetes resource executor.
@@ -26,7 +27,11 @@ func NewExecutor(kubectlPath string) *Executor {
 
 // Provision implements execution.ResourceExecutor for the kubernetes driver.
 func (e *Executor) Provision(ctx context.Context, req execution.ProvisionRequest) (execution.ProvisionResult, error) {
-	cli := NewCLI(e.KubectlPath, req.Target.Context, req.Target.Kubeconfig)
+	cli, cleanup, err := OpenCLI(ctx, e.KubectlPath, e.Credentials, req.Target)
+	if err != nil {
+		return execution.ProvisionResult{}, err
+	}
+	defer cleanup()
 	switch req.ResourceType {
 	case "k8s-namespace":
 		return e.provisionNamespace(ctx, cli, req)

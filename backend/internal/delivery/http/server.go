@@ -25,6 +25,7 @@ import (
 	"orchestrator/internal/application/preview"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
 	domain "orchestrator/internal/domain/deployment"
+	"orchestrator/internal/ports/credentials"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
 )
@@ -54,13 +55,17 @@ type Config struct {
 	Authentication     *authentication.Service
 	Applications       *appcreate.Service
 	ConnectionVerifier connectionapp.KubernetesVerifier
-	Configurations     *appconfig.Service
-	Workloads          *workloadconfig.Service
-	Pending            *pending.Service
-	Previews           *preview.Service
-	Store              persistence.Store
-	SeedOptions        seed.Options
-	UIDir              string
+	// KubeconfigVerifier and ConnectionCredentials enable UC-04 upload
+	// registration. Without a credential store it answers 503.
+	KubeconfigVerifier    connectionapp.KubeconfigVerifier
+	ConnectionCredentials credentials.Store
+	Configurations        *appconfig.Service
+	Workloads             *workloadconfig.Service
+	Pending               *pending.Service
+	Previews              *preview.Service
+	Store                 persistence.Store
+	SeedOptions           seed.Options
+	UIDir                 string
 }
 
 // NewServer builds the HTTP handler tree.
@@ -81,6 +86,7 @@ func NewServer(cfg Config) *Server {
 		uiDir:          cfg.UIDir,
 		mux:            http.NewServeMux(),
 	}
+	s.connections.SetKubeconfigRegistration(cfg.KubeconfigVerifier, cfg.ConnectionCredentials)
 	s.routes()
 	return s
 }
@@ -115,6 +121,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/resource-definitions", s.handleRegisterResourceDefinition)
 	s.mux.HandleFunc("GET /api/v1/connections", s.handleConnections)
 	s.mux.HandleFunc("POST /api/v1/connections/kubernetes", s.handleRegisterKubernetesConnection)
+	s.mux.HandleFunc("POST /api/v1/connections/kubernetes/inspect", s.handleInspectKubeconfig)
 	s.mux.HandleFunc("POST /api/v1/deployments", s.handleCreateDeployment)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/deployments", s.handleListDeployments)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/deployments/{deployment}", s.handleGetDeployment)

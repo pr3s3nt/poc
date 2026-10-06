@@ -16,13 +16,20 @@ var routePort = regexp.MustCompile(`^[a-z](?:[a-z0-9-]*[a-z0-9])?$`)
 
 // PublicRoutes owns only the one orchestrator Ingress in an Environment
 // namespace. It does not configure DNS, TLS or the controller's external port.
-type PublicRoutes struct{ KubectlPath string }
+type PublicRoutes struct {
+	KubectlPath string
+	Credentials execution.KubeconfigSource
+}
 
 func (r *PublicRoutes) Reconcile(ctx context.Context, target execution.Target, route execution.PublicRoute) error {
-	if target.Namespace == "" || (target.Context == "" && target.Kubeconfig == "") || route.ApplicationID == "" || route.EnvironmentID == "" {
+	if target.Namespace == "" || !target.Explicit() || route.ApplicationID == "" || route.EnvironmentID == "" {
 		return fmt.Errorf("kubernetes: public route requires scoped target and owner")
 	}
-	cli := NewCLI(r.KubectlPath, target.Context, target.Kubeconfig)
+	cli, cleanup, err := OpenCLI(ctx, r.KubectlPath, r.Credentials, target)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
 	object, exists, err := cli.Get(ctx, target.Namespace, "ingress", publicIngressName)
 	if err != nil {
 		return err
