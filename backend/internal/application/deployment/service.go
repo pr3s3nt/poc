@@ -184,6 +184,15 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		return nil, s.fail(ctx, record, ErrStalePlan)
 	}
 
+	if validator, ok := s.renderer.(execution.RenderPreflight); ok {
+		for _, selection := range plan.Rendering {
+			if err := validator.ValidateSelection(ctx, selection); err != nil {
+				return nil, s.fail(ctx, record, err)
+			}
+		}
+	} else if len(plan.Rendering) > 0 {
+		return nil, s.fail(ctx, record, fmt.Errorf("deployment: selected renderer is unavailable"))
+	}
 	candidateSet := environment.DeploymentSet{
 		ID:                    ids.New(),
 		EnvironmentID:         env.ID,
@@ -477,6 +486,7 @@ func (s *Service) applyWorkload(
 	}
 
 	manifests, err := s.renderer.Render(ctx, execution.RenderRequest{
+		Selection:        plan.Rendering[workloadID],
 		WorkloadID:       workloadID,
 		Module:           module,
 		Namespace:        target.Namespace,

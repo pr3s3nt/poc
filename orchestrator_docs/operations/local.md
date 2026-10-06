@@ -2,7 +2,7 @@
 id: RUNBOOK-LOCAL
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-06
 ---
 
 # Local development with fake adapters
@@ -189,3 +189,38 @@ to host credentials. Explicit `memory` supports local fake adapters with no
 persistent JSON/PostgreSQL state only; it is not durable and is refused for real
 execution. The new recording runner provisions its own test Vault, so no
 existing platform policy change is required for the demo.
+
+## Optional Definition-selected score-k8s rendering
+
+Install a trusted score-k8s **0.15.0** binary on the backend host. Enable it with
+an explicit path; startup rejects an unavailable binary or another version:
+
+```bash
+cd backend
+go run ./cmd/orchestrator -adapters fake -score-k8s /absolute/path/to/score-k8s
+```
+
+On Web Console → Resource definitions, choose **score-k8s workload renderer**.
+The form selects Type `workload`, profile `internal-k8s`, and bundle
+`score-k8s-internal-v1`; add the Application/Environment matching criteria before
+registering. Empty criteria is a wildcard affecting every matching internal
+Application. Database and namespace Definitions remain independent.
+
+Preview Score shows Definition/renderer version without running the CLI. Saved
+workload changes use the normal Preview → Deploy flow. Rendering-only Definition
+changes also appear as pending updates. No matching renderer Definition means
+the built-in Kubernetes renderer. An explicitly selected unavailable renderer
+fails; there is no fallback after selection.
+
+The bundle fingerprint includes the configured binary and embedded adapter/
+provisioner source. Changing either invalidates an existing Definition's bundle
+fingerprint; restart the backend and register a new Definition with criteria
+that win matching, then Preview again. Ties are rejected. This initial API does
+not update/delete Definitions. The CLI is not downloaded at render time or
+installed automatically in deployment images.
+
+For local CLI tests, put the pinned binary on PATH and run `go test ./...` from
+`backend`. CLI-dependent tests skip when absent; synthetic preflight/failure and
+pure selection tests still run. Each render uses a private temporary workspace,
+cleans it afterward, strips inherited host credentials and permits only
+output-only bindings. Live cluster/cloud verification is a separate operation.

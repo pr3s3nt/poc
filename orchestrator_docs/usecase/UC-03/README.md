@@ -12,7 +12,17 @@ last_reviewed: 2026-10-02
 Runtime-supported Definition registration API/UI and normalized PostgreSQL
 persistence are implemented and locally verified, including atomic criteria,
 duplicate guards and no-restart matching. Driver Inputs policy in specification BR-11–BR-14 is implemented and locally
-verified on 2026-10-02; registration does not add new runtime drivers.
+verified on 2026-10-02; the score-k8s extension is described below.
+
+## Definition-selected workload rendering
+
+Definitions of type `workload` can select the installed score-k8s rendering
+bundle for `internal-k8s`. Registration validates the pair, strict inputs and
+server-owned fingerprint; it does not accept inline templates or commands.
+
+See [ADR-010](../../architecture/decisions/ADR-010-score-k8s-workload-rendering.md)
+and the [rendering contract](../../architecture/contracts/workload-rendering.md).
+Local verification does not claim live kind/AWS execution.
 
 ## Read in this order
 

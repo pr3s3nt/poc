@@ -50,6 +50,23 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và VSO → namespace Secret → Pod `secretKeyRef` đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
 | UC-16 | MVP path implemented | Form/Score import, typed resource params, public path + Service port rows, draft save/delete/undo, references, edit deployed workload bằng reconstructed Score, Preview → Deploy và partial retry đã có. Preview bỏ qua no-op draft nhưng giữ UC-12 revision update. Kind đã kiểm tra multi-path BusyBox `/` + `/api`, Fleet route và no-op Pod UID; Backstage cụ thể và broader update/cloud path chưa kiểm chứng. |
 
+## Definition-selected rendering (2026-10-06)
+
+[ADR-010](architecture/decisions/ADR-010-score-k8s-workload-rendering.md) is accepted.
+Registration → standalone/pending Preview → Deploy supports optional score-k8s
+0.15.0 on internal-k8s through an installed immutable bundle. The native renderer
+remains the default. Plans pin Definition/bundle/binary content, pending detects
+renderer-only updates, and preflight runs before UC-08 side effects. Resources
+are still provisioned by their existing executors; output-only CLI bindings carry
+non-secret values and Secret references. Shared policy preserves resources,
+probes, replicas, pull references, VSO refs and Agent injection.
+
+[Local evidence](verification/2026-10-06-score-k8s-rendering-local.md) covers the
+real CLI with fake infrastructure/delivery, HTTP flow and JSON-state reopen.
+No live kind, Fleet/VSO readiness, PostgreSQL database mutation or AWS run was
+performed for this extension. The configured CLI is an external process
+prerequisite; current deployment images do not automatically install it.
+
 ## Executable baseline
 
 - Go HTTP API, application services, planner, resource executors, Kubernetes

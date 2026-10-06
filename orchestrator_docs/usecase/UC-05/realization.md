@@ -63,3 +63,13 @@ chấp nhận. Xem [HTTP mapping](ui/api-mapping.md).
 - `TestUC05ScorePreviewHTTP`, safe public projection/error tests and
   `ScorePreviewPage.test.tsx` including obsolete-response rejection.
 - Reuse 33 planner fixtures như Go conformance tests và bổ sung contract tests riêng cho Delta/container resources vì fixture hiện tại không assert hai vùng này.
+
+## Definition-selected workload rendering collaboration
+
+See [ADR-010](../../architecture/decisions/ADR-010-score-k8s-workload-rendering.md)
+and [rendering contract](../../architecture/contracts/workload-rendering.md).
+Catalog validates the installed bundle; shared planning selects/pins the renderer.
+UC-06 validates availability before provisioning, then dispatches the existing
+WorkloadRenderer port after output binding. UC-08 still executes resource-only
+batches. Kubernetes/Fleet apply/readiness and Environment route ownership stay
+in their existing adapters. No database transaction spans a CLI/external call.

@@ -27,6 +27,7 @@ func (e *internalError) Error() string { return e.err.Error() }
 func (e *internalError) Unwrap() error { return e.err }
 
 type Service struct {
+	bundles   map[string]resource.RenderBundle
 	store     persistence.Store
 	inspector planning.ModuleInspector
 }
@@ -141,6 +142,13 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 	}
 	module := ""
 	switch def.DriverType {
+	case resource.DriverScoreK8s:
+		if err := resource.ValidateRenderDefinition(*def, typ, s.bundles); err != nil {
+			return err
+		}
+		bundle := s.bundles[variables["render_bundle"].(string)]
+		def.SourceFingerpr = bundle.Digest
+		return nil
 	case resource.DriverTerraform:
 		module, _ = def.Source()["module"].(string)
 		valid := map[string]string{"vpc": "vpc", "eks": "k8s-cluster", "aurora": "postgres"}
@@ -296,6 +304,9 @@ func validateReferences(def resource.Definition, types []resource.Type) error {
 			return fmt.Errorf("invalid provision descriptor %q: %w", key, err)
 		}
 		providerType := descriptor.Type
+		if providerType == "workload" {
+			return fmt.Errorf("workload rendering cannot be co-provisioned")
+		}
 		if _, ok := byKey[providerType]; !ok {
 			return fmt.Errorf("provision descriptor %q has unknown type", key)
 		}
@@ -304,4 +315,8 @@ func validateReferences(def resource.Definition, types []resource.Type) error {
 		}
 	}
 	return nil
+}
+
+func (s *Service) SetRenderBundles(bundles map[string]resource.RenderBundle) {
+	s.bundles = resource.CopyRenderBundles(bundles)
 }

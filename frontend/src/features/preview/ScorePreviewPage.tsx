@@ -111,9 +111,10 @@ function List({ items, empty }: { items: string[]; empty: string }) {
 }
 
 function PreviewResult({ result }: { result: ScorePreview }) {
+  const renderer = result.rendering?.[result.workloadId];
   return <section className="preview-result" aria-label="Score preview result">
     <section className="content-panel"><div className="section-header"><div><h2>Preview · {result.workloadId} · {result.action}</h2><p>Read-only result. Nothing was saved or deployed; deploy through the normal workload flow.</p></div></div>
-      <dl className="detail-grid"><div><dt>Environment</dt><dd>{result.applicationKey} / {result.environmentKey}</dd></div><div><dt>Base Deployment Set</dt><dd>{result.baseSetId || 'empty'}</dd></div><div><dt>Environment version</dt><dd>{result.baseVersion}</dd></div><div><dt>Run ID</dt><dd>{result.runId}</dd></div><div><dt>Plan hash</dt><dd><code className="plan-hash" title={result.planHash}>{result.planHash}</code></dd></div></dl></section>
+      <dl className="detail-grid"><div><dt>Environment</dt><dd>{result.applicationKey} / {result.environmentKey}</dd></div><div><dt>Base Deployment Set</dt><dd>{result.baseSetId || 'empty'}</dd></div><div><dt>Environment version</dt><dd>{result.baseVersion}</dd></div><div><dt>Run ID</dt><dd>{result.runId}</dd></div><div><dt>Workload renderer</dt><dd>{renderer ? `${renderer.driverType} ${renderer.bundle.version} · ${renderer.definitionKey}` : 'Built-in Kubernetes'}</dd></div><div><dt>Plan hash</dt><dd><code className="plan-hash" title={result.planHash}>{result.planHash}</code></dd></div></dl></section>
     <section className="content-panel"><h2>Delta</h2><DeltaSummary result={result} /></section>
     <section className="content-panel"><h2>Resource changes</h2><div className="detail-grid">
       <div><h3>New ({result.classification.new.length})</h3><List items={result.classification.new} empty="None" /></div>

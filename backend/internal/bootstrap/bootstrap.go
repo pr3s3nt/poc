@@ -15,6 +15,7 @@ import (
 	"orchestrator/internal/adapters/gitops"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	pgstore "orchestrator/internal/adapters/postgres"
+	"orchestrator/internal/adapters/scorek8s"
 	"orchestrator/internal/adapters/secrets"
 	"orchestrator/internal/adapters/store"
 	tf "orchestrator/internal/adapters/terraform"
@@ -29,6 +30,7 @@ import (
 	"orchestrator/internal/application/provisioning"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
 	deliveryhttp "orchestrator/internal/delivery/http"
+	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/platform/clock"
 	configport "orchestrator/internal/ports/configuration"
@@ -60,6 +62,7 @@ type Options struct {
 	Adapters      AdapterMode
 	KubectlPath   string
 	TerraformPath string
+	ScoreK8sPath  string
 	TerraformRoot string
 
 	// TerraformPluginCache keeps provider downloads shared between workspaces.
@@ -194,8 +197,18 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		deployer = opts.DeployerOverride
 	}
 
+	var bundles map[string]resource.RenderBundle
+	if opts.ScoreK8sPath != "" {
+		scoreRenderer, err := scorek8s.New(ctx, opts.ScoreK8sPath, renderer)
+		if err != nil {
+			return nil, err
+		}
+		bundles = scoreRenderer.Bundles()
+		renderer = scoreRenderer
+	}
+	planner := planning.NewService(bundles)
 	prov := provisioning.NewService(st, registry, secretStore, c)
-	deployments := appsvc.NewService(st, planning.NewService(), prov, renderer, deployer, tf.NewInspector(), c)
+	deployments := appsvc.NewService(st, planner, prov, renderer, deployer, tf.NewInspector(), c)
 	if opts.Adapters == AdapterKubernetes {
 		if opts.WorkloadDelivery == "fleet-gitrepo" {
 			fleet, ok := deployer.(*gitops.Deployer)
@@ -259,12 +272,12 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		return nil, fmt.Errorf("bootstrap: unknown Vault delivery %q", vaultDelivery)
 	}
 	workloads := workloadconfig.NewService(st)
-	pendingChanges := pending.NewService(st, planning.NewService(), workloads, tf.NewInspector())
+	pendingChanges := pending.NewService(st, planner, workloads, tf.NewInspector())
 	if opts.WorkloadDelivery == "fleet-gitrepo" {
 		pendingChanges.SetImageRegistryHost(opts.HarborRegistryHost)
 	}
 	pendingChanges.SetDeployer(deployments)
-	previews := preview.NewService(st, planning.NewService(), tf.NewInspector())
+	previews := preview.NewService(st, planner, tf.NewInspector())
 	connectionVerifier := opts.ConnectionVerifierOverride
 	if connectionVerifier == nil {
 		connectionVerifier = k8s.ConnectionVerifier{KubectlPath: opts.KubectlPath}
@@ -275,6 +288,7 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	}
 
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
+		RenderBundles:         bundles,
 		Deployments:           deployments,
 		Queries:               queries,
 		Authentication:        auth,

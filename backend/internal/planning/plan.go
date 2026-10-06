@@ -14,11 +14,19 @@ import (
 )
 
 // Service is the deterministic planning pipeline shared by UC-05, UC-06 and UC-07.
-type Service struct{}
+type Service struct {
+	bundles map[string]resource.RenderBundle
+}
 
-// NewService returns the planning service. Planning has no dependencies and no
-// side effects (OC-07).
-func NewService() *Service { return &Service{} }
+// NewService captures immutable rendering configuration. Planning performs no
+// I/O or side effects (OC-07).
+func NewService(bundles ...map[string]resource.RenderBundle) *Service {
+	s := &Service{}
+	if len(bundles) > 0 {
+		s.bundles = resource.CopyRenderBundles(bundles[0])
+	}
+	return s
+}
 
 // Plan runs the full pipeline and returns an immutable Deployment Plan.
 func (s *Service) Plan(req Request) (*Plan, error) {
@@ -120,6 +128,10 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		Batches:        batches,
 		Classification: classify(ctx, graph, req.Active),
 	}
+	plan.Rendering, err = s.selectRendering(ctx, graph, matcher, req.Catalog)
+	if err != nil {
+		return nil, stageErr(StageCatalog, err)
+	}
 	plan.UnreferencedResources = unreferencedResources(ctx, graph, req.Active)
 	if req.Before != nil {
 		if plan.ScoreBefore, err = canon.Map(req.Before); err != nil {
@@ -131,14 +143,18 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 			return nil, err
 		}
 	}
-	hash, err := canon.Hash(map[string]any{
+	hashInput := map[string]any{
 		"workloadId":   plan.WorkloadID,
 		"candidateSet": plan.CandidateSet,
 		"graph":        plan.Graph,
 		"matches":      plan.Matches,
 		"terraform":    plan.Terraform,
 		"batches":      plan.Batches,
-	})
+	}
+	if len(plan.Rendering) > 0 {
+		hashInput["rendering"] = plan.Rendering
+	}
+	hash, err := canon.Hash(hashInput)
 	if err != nil {
 		return nil, err
 	}

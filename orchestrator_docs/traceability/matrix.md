@@ -35,6 +35,18 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | MS-03, MS-04 | same | `ListResourceTypes/CreateResourceType` | insert-only `(org,key)` on memory/JSON/PostgreSQL | OC-03; registration contract, repository/service/HTTP race tests |
 | MS-05, MS-06 | same | return `ResourceType` / repository read contract | persisted schemas | OC-03; planner catalog integration test; `ResourceTypesPage.test.tsx` |
 
+## Definition-selected workload rendering (ADR-010)
+
+| Requirement / boundary | Implementation | Local evidence |
+|---|---|---|
+| UC-03 BR-15/16 registration | `resource.ValidateRenderDefinition`, catalog bundle registry and Console form | `catalog/rendering_test.go`, `ResourceDefinitionsPage.test.tsx`, `test/e2e/rendering_http_test.go` |
+| UC-05 BR-09/10; UC-06 BR-17 plan pinning/preflight | `planning/rendering.go`, deployment preflight, additive plan JSON | `planning/rendering_test.go`, `deployment/scorek8s_test.go` |
+| UC-06 BR-18/19; UC-08 BR-07 output-only rendering | `adapters/scorek8s`, shared platform policy and existing delivery | `scorek8s/renderer_test.go`, `deployment/scorek8s_test.go` |
+| UC-07/12/16 identity, configuration, no-op and stale token preservation | pending renderer comparison with last persisted plan; unchanged Secret/delivery owners | `pending/rendering_test.go`, existing pending/configuration/remove tests, CLI Agent/VSO reference tests |
+
+See [rendering contract](../architecture/contracts/workload-rendering.md).
+Local CLI tests use fake executors/deployers; live kind/AWS remains unverified.
+
 ## UC-03
 
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |

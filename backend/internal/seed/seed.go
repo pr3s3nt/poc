@@ -124,6 +124,7 @@ func Defaults() Options {
 // Inputs are the keys a Score document may pass as `params`.
 func ResourceTypes() []resource.Type {
 	return []resource.Type{
+		{Key: "workload"},
 		{
 			Key:     "k8s-namespace",
 			Outputs: []resource.OutputField{{Name: "name", Type: "string", Required: true}},

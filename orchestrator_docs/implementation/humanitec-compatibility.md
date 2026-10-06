@@ -2,7 +2,7 @@
 id: HUMANITEC-COMPATIBILITY
 artifact: compatibility-matrix
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-06
 ---
 
 # Humanitec and Score compatibility matrix
@@ -53,3 +53,16 @@ test contract và có migration cho dữ liệu/client hiện tại.
 - [Humanitec Namespace resource](https://developer.humanitec.com/platform-orchestrator/docs/integration-and-extensions/containerization/namespaces/) — canonical `namespace` output.
 - [Score specification reference](https://docs.score.dev/docs/score-specification/score-spec-reference/) — container resources and probe shapes.
 - [`PROBLEM.md`](../../orchestrator_reference/humanitec-planner-challenge-v4/PROBLEM.md) — planner challenge subset, matching and criteria behavior.
+
+## Definition-selected score-k8s rendering (ADR-010)
+
+**Product extension:** a `workload` Definition with the internal `score-k8s`
+driver selects an installed immutable bundle for internal-k8s. Workload identity
+remains `workload.default#modules.<id>`; public Score validation is unchanged,
+except that `workload` is reserved for renderer selection and cannot be declared
+as a dependency. This is not Humanitec Generic Workload/Template Driver API
+compatibility. The adapter uses upstream Score only internally, after product
+bindings resolve, and disables upstream infrastructure provisioners.
+
+See [ADR-010](../architecture/decisions/ADR-010-score-k8s-workload-rendering.md)
+and [rendering contract](../architecture/contracts/workload-rendering.md).

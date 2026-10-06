@@ -37,6 +37,7 @@ type WorkloadView struct {
 
 // View is the read-only UC-09 deployment view.
 type View struct {
+	Rendering      any                   `json:"rendering,omitempty"`
 	Deployment     domain.Deployment     `json:"deployment"`
 	DeploymentSet  environment.Document  `json:"deploymentSet"`
 	SetID          string                `json:"deploymentSetId"`
@@ -170,6 +171,7 @@ func assembleView(ctx context.Context, st persistence.Store, query GetDeployment
 	if plan != nil {
 		view.Graph = plan["graph"]
 		view.Matches = plan["matches"]
+		view.Rendering = plan["rendering"]
 		view.Batches = plan["batches"]
 		view.Classification = plan["classification"]
 		if h, ok := plan["planHash"].(string); ok {

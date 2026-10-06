@@ -13,6 +13,16 @@ Implemented and end-to-end verified for internal PostgreSQL/Kubernetes and AWS
 VPC/EKS/Aurora resource nodes. Container CPU/memory requests belong to UC-06
 workload rendering and are explicitly outside UC-08 resource-node execution.
 
+## Definition-selected workload rendering
+
+Workload rendering stays outside resource matching and provision batches.
+Database/namespace identity, provisioning and credentials remain owned by UC-08;
+score-k8s receives only resolved values and references in UC-06.
+
+See [ADR-010](../../architecture/decisions/ADR-010-score-k8s-workload-rendering.md)
+and the [rendering contract](../../architecture/contracts/workload-rendering.md).
+Local verification does not claim live kind/AWS execution.
+
 ## Read in this order
 
 1. [Specification](specification.md)

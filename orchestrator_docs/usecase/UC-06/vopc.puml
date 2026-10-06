@@ -95,4 +95,13 @@ DeploymentService ..> DeploymentSet
 DeploymentService ..> ProvisionResult
 WorkloadRenderer ..> ContainerResourceRequirements
 ContainerResourceRequirements *-- ComputeResources
+class RenderBundle <<value>>
+class RenderingSelection <<value>>
+interface RenderPreflight {
+  +ValidateSelection(ctx, selected)
+}
+DeploymentService --> RenderPreflight : before resource provisioning
+DeploymentPlan *-- RenderingSelection
+RenderingSelection *-- RenderBundle
+WorkloadRenderer ..> RenderingSelection
 @enduml

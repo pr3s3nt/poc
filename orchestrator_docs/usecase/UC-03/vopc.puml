@@ -39,4 +39,7 @@ ResourceDefinitionService --> ConnectionRepository
 ResourceDefinitionService --> ResourceDefinitionRepository
 ResourceDefinitionService ..> ResourceDefinition
 ResourceDefinition "1" *-- "1..*" MatchingCriterion
+class RenderBundle <<value>>
+class RenderingSelection <<value>>
+ResourceDefinitionService ..> RenderBundle : installed contract/fingerprint
 @enduml

@@ -14,6 +14,7 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/planning/score"
 	"orchestrator/internal/ports/persistence"
@@ -214,20 +215,21 @@ const RedactedValue = appsvc.RedactedValue
 
 // View is the explicit, sanitized HTTP projection of a DeploymentPreview.
 type View struct {
-	ApplicationKey string                  `json:"applicationKey"`
-	EnvironmentKey string                  `json:"environmentKey"`
-	BaseSetID      string                  `json:"baseSetId"`
-	BaseVersion    int64                   `json:"baseVersion"`
-	RunID          string                  `json:"runId"`
-	WorkloadID     string                  `json:"workloadId"`
-	Action         string                  `json:"action"`
-	PlanHash       string                  `json:"planHash"`
-	Delta          domain.DeltaDocument    `json:"delta"`
-	CandidateSet   environment.Document    `json:"candidateSet"`
-	Graph          GraphView               `json:"graph"`
-	Matches        []MatchView             `json:"matches"`
-	Batches        [][]string              `json:"batches"`
-	Classification planning.Classification `json:"classification"`
+	Rendering      map[string]resource.RenderingSelection `json:"rendering,omitempty"`
+	ApplicationKey string                                 `json:"applicationKey"`
+	EnvironmentKey string                                 `json:"environmentKey"`
+	BaseSetID      string                                 `json:"baseSetId"`
+	BaseVersion    int64                                  `json:"baseVersion"`
+	RunID          string                                 `json:"runId"`
+	WorkloadID     string                                 `json:"workloadId"`
+	Action         string                                 `json:"action"`
+	PlanHash       string                                 `json:"planHash"`
+	Delta          domain.DeltaDocument                   `json:"delta"`
+	CandidateSet   environment.Document                   `json:"candidateSet"`
+	Graph          GraphView                              `json:"graph"`
+	Matches        []MatchView                            `json:"matches"`
+	Batches        [][]string                             `json:"batches"`
+	Classification planning.Classification                `json:"classification"`
 }
 
 // GraphView omits node parameter values, which may come from Definition
@@ -265,6 +267,7 @@ func (p *DeploymentPreview) Public() (View, error) {
 		return View{}, err
 	}
 	view := View{
+		Rendering:      resource.CopyRendering(p.Plan.Rendering),
 		ApplicationKey: p.ApplicationKey, EnvironmentKey: p.EnvironmentKey,
 		BaseSetID: p.BaseSetID, BaseVersion: p.BaseVersion, RunID: p.RunID,
 		WorkloadID: p.WorkloadID, Action: p.Action, PlanHash: p.Plan.PlanHash,

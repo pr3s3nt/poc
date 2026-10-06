@@ -2,7 +2,7 @@
 id: ARCHITECTURE-INDEX
 artifact: architecture-index
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-10-06
 ---
 
 # Shared Architecture Baseline
@@ -17,6 +17,8 @@ Shared design này hợp nhất UC-00 đến UC-09 sau realization.
 - [Database schema](database/schema.md) và [ERD](database/erd.puml)
 - [Connection credentials and execution identity](connection-credentials.md)
 - [Operation contracts](contracts/operation-contracts.md)
+- [Workload rendering contract](contracts/workload-rendering.md) — Definition-selected
+  score-k8s rendering for internal-k8s.
 - [Shared Web Console UI](ui/README.md)
 - [State machines](state-machines/README.md)
 - [Architecture decisions](decisions/README.md)

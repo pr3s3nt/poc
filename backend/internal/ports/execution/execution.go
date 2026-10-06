@@ -108,6 +108,7 @@ type Manifest struct {
 
 // RenderRequest describes a workload whose bindings are already resolved.
 type RenderRequest struct {
+	Selection        resource.RenderingSelection
 	WorkloadID       string
 	Module           environment.Module
 	Namespace        string
@@ -164,4 +165,9 @@ type WorkloadDeployer interface {
 type SecretStore interface {
 	Put(ctx context.Context, name string, value string) (string, error)
 	Get(ctx context.Context, ref string) (string, bool)
+}
+
+// RenderPreflight validates pinned renderer availability before infrastructure side effects.
+type RenderPreflight interface {
+	ValidateSelection(context.Context, resource.RenderingSelection) error
 }

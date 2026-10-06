@@ -164,3 +164,16 @@ UC-03 Register Resource Definition
   `secret_refs`, credential fields and executor-owned `master_password`; the
   Kubernetes PostgreSQL executor continues generating its password. AWS access
   keys belong to UC-04 Secret Store, never a Definition.
+
+## Workload rendering Definitions
+
+- **BR-15:** `workload` may use `score-k8s` only with `internal-k8s`, no connection
+  override/provision rules/resource inputs/outputs, and exactly one literal
+  `render_bundle` variable referring to the installed `score-k8s-internal-v1`
+  bundle. Unknown/unavailable bundles fail before insert; server-owned source
+  fingerprint records the bundle digest. Existing BR-11 nesting remains valid.
+- **BR-16:** Registration does not accept templates, command provisioners, URLs
+  or raw credentials. Workload execution belongs to UC-06 after UC-08 outputs;
+  the driver is not registered as a resource provisioner.
+
+See [workload rendering contract](../../architecture/contracts/workload-rendering.md).

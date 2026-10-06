@@ -106,3 +106,11 @@ UC-08 Provision Resources
 - **OOS-04:** Scheduled deletion, detach và deprovision.
 - **OOS-05:** Secret outputs và credential rotation.
 - **OOS-06:** Drift detection.
+
+## Workload rendering boundary
+
+- **BR-07:** A workload Definition selects UC-06 rendering but is excluded from
+  UC-08 batches. UC-08 remains sole owner of infrastructure identity and outputs;
+  score-k8s consumes those outputs and cannot provision their resources again.
+
+See [workload rendering contract](../../architecture/contracts/workload-rendering.md).

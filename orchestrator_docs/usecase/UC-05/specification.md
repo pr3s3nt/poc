@@ -54,8 +54,10 @@ Kiểm tra Score và hiển thị thay đổi dự kiến trước khi thực hi
 - **BR-06:** Delta deterministic; array được diff theo index chung, remove đuôi từ index lớn xuống nhỏ và add đuôi bằng path `/-`.
 - **BR-07:** `containers.*.resources` chỉ nhận `requests`/`limits` với `cpu` và `memory`; mọi field đều optional, nhưng field đã khai báo phải là non-empty string. `null`, number, empty string, branch hoặc resource key khác bị reject. Giá trị hợp lệ phải được bảo toàn nguyên văn từ Score sang Candidate Deployment Set. Validation của planner dừng ở shape này, không kiểm Kubernetes quantity semantics; Kubernetes API kiểm quantity khi workload được apply.
 - **BR-08:** Với UC-16 pending changes, Preview bỏ qua draft có Candidate
-  Deployment Set tương đương current và không dùng key UC-12 đã đổi revision.
-  Nếu key tham chiếu đã đổi revision thì vẫn preview update. Preview kiểm tra
+  Deployment Set tương đương current, renderer không đổi và không dùng key UC-12
+  đã đổi revision.
+  Nếu key tham chiếu đã đổi revision hoặc Definition/bundle renderer đã đổi
+  so với plan lần deploy gần nhất thì vẫn preview update. Preview kiểm tra
   public path trên trạng thái Environment cuối cùng, không từ chối trạng thái
   trung gian của batch chuyển route giữa workload. Khi chỉ còn route sync
   pending, Preview cho retry route-only mà không redeploy workload.
@@ -117,3 +119,15 @@ UC-05 Validate and Preview
 - **OOS-03:** Chi phí dự kiến hoặc policy evaluation.
 - **OOS-04:** So sánh preview với runtime state thực tế.
 - **OOS-05:** Preview Terraform plan thật.
+
+## Workload renderer selection
+
+- **BR-09:** Preview selects workload Definitions with the existing matching
+  rules and pins Definition content plus bundle/binary/patch digest in its plan
+  hash. No matching workload Definition selects the built-in native renderer.
+  Missing bundle or ambiguous Definition fails before execution.
+- **BR-10:** Preview exposes safe renderer selection only, never secret outputs
+  or final manifests requiring outputs from unprovisioned resources. It performs
+  no score-k8s generation or provisioning.
+
+See [workload rendering contract](../../architecture/contracts/workload-rendering.md).

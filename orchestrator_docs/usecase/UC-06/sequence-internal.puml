@@ -21,6 +21,10 @@ Service -> Planner: Plan(request) [MS-02..MS-04]
 Planner -> Enricher: Enrich(profile=internal-k8s) [MS-05]
 Enricher --> Planner: existing cluster + env namespace
 Planner --> Service: Humanitec-shaped Delta + graph:\nworkload -> namespace -> existing cluster\nworkload -> postgres StatefulSet -> existing cluster [MS-03..MS-08]
+opt Definition-selected score-k8s
+  Service -> Renderer: ValidateSelection(pinned bundle/binary) before side effects
+  Renderer --> Service: available
+end
 Service -> Provisioner: Provision(resource batches) [MS-09]
 Provisioner -> ExistingCluster: Provision(cluster reference)
 ExistingCluster -> Credentials: Resolve scoped selected Connection
@@ -33,8 +37,10 @@ ResourceK8s --> Provisioner: postgres outputs
 Provisioner --> Service: outputs + internal target
 Service -> Resolver: ResolveWorkloadBindings(postgres outputs) [MS-10]
 Resolver --> Service: Resolved target workload
-Service -> Renderer: Render(target workload manifests, requests/limits) [MS-11]
-Renderer --> Service: Service/Deployment manifests
+Service -> Renderer: Render(normalized workload, output-only bindings, pinned bundle) [MS-11]
+Renderer -> Renderer: score-k8s init (no defaults), generate, controlled patches
+Renderer -> Renderer: Validate protected identity/namespace/Secret refs
+Renderer --> Service: validated Service/Deployment + Secret/Agent auxiliary objects
 Service -> WorkloadK8s: Apply(internal target, manifests)
 WorkloadK8s -> Credentials: Resolve scoped credential for this invocation
 Credentials --> WorkloadK8s: private kubeconfig + cleanup
@@ -54,4 +60,5 @@ note over Developer, Service
 Acceptance verification repeats this operation for
 backend, worker and frontend Scores in that order.
 end note
+
 @enduml

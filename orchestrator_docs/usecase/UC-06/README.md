@@ -19,6 +19,17 @@ a Harbor image; UC-08 resource provisioning remains direct.
 Internal kind now supports an optional Environment public entry via Traefik
 Ingress after workload readiness; DNS/TLS and controller exposure are separate.
 
+## Definition-selected workload rendering
+
+Definition-selected score-k8s rendering runs after UC-08 resolves outputs.
+The adapter normalizes the product Score subset, bridges Secret references and
+validates protected fields before existing delivery/readiness/current-set commit.
+The built-in renderer remains the default when no renderer Definition matches.
+
+See [ADR-010](../../architecture/decisions/ADR-010-score-k8s-workload-rendering.md)
+and the [rendering contract](../../architecture/contracts/workload-rendering.md).
+Local verification does not claim live kind/AWS execution.
+
 ## Read in this order
 
 1. [Specification](specification.md)
