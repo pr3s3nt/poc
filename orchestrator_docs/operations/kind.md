@@ -88,6 +88,16 @@ bash backend/test/integration/acceptance-playwright-kind.sh --human
 gh release upload acceptance-recordings <reviewed-run-specific-video>.mp4
 ```
 
+Definition-selected score-k8s rendering (needs score-k8s 0.15.0 on `PATH`) is
+verified with a headed, recorded browser run: a Platform Engineer registers a
+renderer Definition scoped to the run's Application/staging, Preview shows its
+provenance and Deploy applies through the real adapters. The runner logs each
+score-k8s CLI call through a wrapper and cleans only its namespace:
+
+```bash
+bash backend/test/integration/template-engine-playwright-kind.sh
+```
+
 Public Ingress check (run-scoped, separate from the acceptance workload):
 
 ```bash

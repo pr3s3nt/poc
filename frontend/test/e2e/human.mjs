@@ -186,6 +186,9 @@ export async function addWorkload(h, spec) {
   await h.pause(1000);
   await h.type(page.getByLabel('Workload name', { exact: true }), spec.name);
   await h.type(page.getByLabel('Image', { exact: true }), spec.image);
+  // Optional container resources: { cpuRequest, memoryRequest, cpuLimit, memoryLimit }.
+  const quantities = [['CPU request', 'cpuRequest'], ['Memory request', 'memoryRequest'], ['CPU limit', 'cpuLimit'], ['Memory limit', 'memoryLimit']];
+  for (const [label, field] of quantities) if (spec.resources?.[field]) await h.type(page.getByLabel(label, { exact: true }), spec.resources[field]);
 
   if (spec.resource) {
     await h.click(page.getByRole('button', { name: '+ Add resource' }));
