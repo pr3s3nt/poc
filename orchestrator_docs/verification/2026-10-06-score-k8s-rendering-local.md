@@ -40,6 +40,19 @@ isolated JSON state. They do not prove cluster readiness or real database reuse.
 - The public HTTP flow enforces platform registration role, exposes safe renderer
   provenance in standalone Preview, performs no Preview side effects, and uses
   draft → pending Preview → token-based Deploy successfully.
+- Review correction (2026-10-06): resolved non-secret values containing `$`, `$$`,
+  `${...}`, `$${...}`, `x$${y}`, multiline/quoted/template-like text and the empty
+  string now match the native renderer's env values exactly. Every `$` is escaped
+  for score-k8s substitution; an empty value, which score-k8s omits, is restored
+  only for the named container/env entry before the unchanged protected-field
+  validation. Secret references and identity checks are not relaxed. Covered by
+  real-CLI tests `TestRealCLIPreservesResolvedPlainValuesLikeNative` and
+  `TestRealCLIRestoresEmptyValueOnlyForNamedContainerAndKeepsSecretRefs`.
+- Renderer upgrade A → B (2026-10-06): an existing Definition registered under
+  bundle A previews successfully on installed bundle B and pins B; the A token is
+  rejected before provisioning, a fresh B token deploys, and pending reports the
+  renderer-only change without a draft. Unavailable ID, ties and binary drift
+  remain rejected. The registration fingerprint is no longer an equality gate.
 - A changed binary fails preflight before provisioning. Generation failure does
   not apply a workload or advance the current Deployment Set.
 

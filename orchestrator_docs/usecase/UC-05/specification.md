@@ -124,8 +124,10 @@ UC-05 Validate and Preview
 
 - **BR-09:** Preview selects workload Definitions with the existing matching
   rules and pins Definition content plus bundle/binary/patch digest in its plan
-  hash. No matching workload Definition selects the built-in native renderer.
-  Missing bundle or ambiguous Definition fails before execution.
+  hash. The installed bundle is pinned per Plan, so after a renderer upgrade the
+  same Definition selects the new bundle and earlier previews/tokens are stale.
+  No matching workload Definition selects the built-in native renderer.
+  Missing bundle ID or ambiguous Definition fails before execution.
 - **BR-10:** Preview exposes safe renderer selection only, never secret outputs
   or final manifests requiring outputs from unprovisioned resources. It performs
   no score-k8s generation or provisioning.

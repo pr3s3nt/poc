@@ -29,11 +29,22 @@ criteria:
   - app_id: shop
 ```
 
-`render_bundle` is a platform-managed immutable identifier, not a file path or
-URL. A bundle resolves to exact renderer version/binary digest, adapter contract
+`render_bundle` is a platform-managed stable selector, not a file path or
+URL. Its installed bundle snapshot resolves to exact renderer version/binary digest, adapter contract
 version and content digests of the ordered provisioner/patch files. The
 inspector must verify availability before registration/planning. An unknown,
-mutable or incompatible bundle fails before persistence/provisioning.
+uncontrolled or incompatible bundle fails before persistence/provisioning.
+
+`render_bundle` is only the stable selector. The immutable snapshot is the bundle
+installed in the running backend; every Plan pins it. The Definition's server-owned
+`sourceFingerprint` records the digest at registration for audit and remains in the
+Definition content hash, but it is **not** compared with the installed bundle at
+planning or Deploy. After upgrade A → B the same existing Definition selects B:
+Preview/Deploy artifacts pinned to A are stale (plan hash and pending token change),
+a fresh Preview pins B, and pending detects the renderer-only change even without
+a Score draft. Re-registration or Definition update/retire is not required and no
+such API exists. An unknown ID, ambiguous match or binary drift between startup
+and Deploy still fails before UC-08.
 
 Driver Inputs deliberately retain `values.variables`; no generic
 `source`, `secret_refs`, inline command or template-upload API is added. The initial bundle is embedded in the backend and pins score-k8s 0.15.0,

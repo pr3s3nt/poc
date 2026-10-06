@@ -54,8 +54,8 @@ func ValidateRenderDefinition(def Definition, typ Type, bundles map[string]Rende
 	if !installed || bundle.ID != id || bundle.Digest == "" || bundle.BinaryDigest == "" || bundle.Version == "" {
 		return fmt.Errorf("render bundle is unavailable")
 	}
-	if def.SourceFingerpr != "" && def.SourceFingerpr != bundle.Digest {
-		return fmt.Errorf("render bundle fingerprint changed; register a new Definition")
-	}
+	// Definition.SourceFingerpr is registration-time audit provenance. It stays in
+	// the Definition hash but is not compared with the installed bundle: plans pin
+	// the installed snapshot, so an upgrade only makes older plans stale.
 	return nil
 }

@@ -63,6 +63,9 @@ probes, replicas, pull references, VSO refs and Agent injection.
 
 [Local evidence](verification/2026-10-06-score-k8s-rendering-local.md) covers the
 real CLI with fake infrastructure/delivery, HTTP flow and JSON-state reopen.
+After a renderer upgrade the same Definition selects the installed bundle; old
+previews are stale and pending proposes a renderer-only update (registration
+fingerprint is audit-only).
 No live kind, Fleet/VSO readiness, PostgreSQL database mutation or AWS run was
 performed for this extension. The configured CLI is an external process
 prerequisite; current deployment images do not automatically install it.

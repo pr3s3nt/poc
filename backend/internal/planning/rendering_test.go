@@ -4,6 +4,7 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning/score"
+	"orchestrator/internal/platform/canon"
 	"strings"
 	"testing"
 )
@@ -47,12 +48,42 @@ func TestRendererMatchingPinsContentAndPreservesInfrastructure(t *testing.T) {
 		t.Fatalf("tie: %v", err)
 	}
 }
-func TestRenderingBundleChangeAndWorkloadDependencyAreRejected(t *testing.T) {
+
+// SourceFingerpr is registration provenance. A Definition registered under bundle
+// A still plans under installed bundle B, pins B, and changes the plan hash.
+func TestRenderingBundleUpgradeKeepsDefinitionAndPinsInstalledBundle(t *testing.T) {
 	req := testRequest(t, application.ProfileInternalK8s, "backend")
-	def := resource.Definition{Key: "render", ResourceTypeKey: "workload", ExecutionProfile: "internal-k8s", DriverType: resource.DriverScoreK8s, SourceFingerpr: "old-bundle", DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed"}}}, Criteria: []resource.Criterion{{}}}
+	def := resource.Definition{Key: "render", ResourceTypeKey: "workload", ExecutionProfile: "internal-k8s", DriverType: resource.DriverScoreK8s, SourceFingerpr: "bundle-a", DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed"}}}, Criteria: []resource.Criterion{{}}}
 	req.Catalog.Definitions = append(req.Catalog.Definitions, def)
-	if _, err := NewService(map[string]resource.RenderBundle{"installed": {ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "changed"}}).Plan(req); err == nil {
-		t.Fatal("changed fingerprint accepted")
+	a := resource.RenderBundle{ID: "installed", Version: "0.15.0", BinaryDigest: "binary-a", Digest: "bundle-a"}
+	b := resource.RenderBundle{ID: "installed", Version: "0.15.0", BinaryDigest: "binary-b", Digest: "bundle-b"}
+	planA, err := NewService(map[string]resource.RenderBundle{"installed": a}).Plan(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	planB, err := NewService(map[string]resource.RenderBundle{"installed": b}).Plan(req)
+	if err != nil {
+		t.Fatalf("existing Definition rejected after bundle upgrade: %v", err)
+	}
+	if planA.Rendering["backend"].Bundle != a || planB.Rendering["backend"].Bundle != b {
+		t.Fatal("plans must pin the installed bundle snapshot")
+	}
+	if planA.PlanHash == planB.PlanHash {
+		t.Fatal("bundle upgrade must change the plan hash")
+	}
+	if planA.Rendering["backend"].DefinitionHash != planB.Rendering["backend"].DefinitionHash {
+		t.Fatal("Definition content hash must not depend on the installed bundle")
+	}
+	changed := def
+	changed.SourceFingerpr = "other"
+	h1, _ := canon.Hash(def)
+	h2, _ := canon.Hash(changed)
+	if h1 == h2 {
+		t.Fatal("registration fingerprint must stay in the Definition content hash")
+	}
+	// Unavailable selector ID still fails.
+	if _, err := NewService(map[string]resource.RenderBundle{"other": b}).Plan(req); err == nil {
+		t.Fatal("unavailable bundle ID accepted")
 	}
 }
 

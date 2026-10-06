@@ -170,8 +170,10 @@ UC-03 Register Resource Definition
 - **BR-15:** `workload` may use `score-k8s` only with `internal-k8s`, no connection
   override/provision rules/resource inputs/outputs, and exactly one literal
   `render_bundle` variable referring to the installed `score-k8s-internal-v1`
-  bundle. Unknown/unavailable bundles fail before insert; server-owned source
-  fingerprint records the bundle digest. Existing BR-11 nesting remains valid.
+  bundle ID. Unknown/unavailable bundles fail before insert; the server-owned source
+  fingerprint records the bundle digest at registration as audit provenance only
+  (it is not a later equality gate; plans pin the installed bundle snapshot).
+  Existing BR-11 nesting remains valid.
 - **BR-16:** Registration does not accept templates, command provisioners, URLs
   or raw credentials. Workload execution belongs to UC-06 after UC-08 outputs;
   the driver is not registered as a resource provisioner.

@@ -212,12 +212,17 @@ changes also appear as pending updates. No matching renderer Definition means
 the built-in Kubernetes renderer. An explicitly selected unavailable renderer
 fails; there is no fallback after selection.
 
-The bundle fingerprint includes the configured binary and embedded adapter/
-provisioner source. Changing either invalidates an existing Definition's bundle
-fingerprint; restart the backend and register a new Definition with criteria
-that win matching, then Preview again. Ties are rejected. This initial API does
-not update/delete Definitions. The CLI is not downloaded at render time or
-installed automatically in deployment images.
+The bundle digest includes the configured binary and embedded adapter/
+provisioner source. After changing either, restart the backend: the same existing
+Definition selects the newly installed bundle. Previews/tokens made before the
+restart are stale and rejected before provisioning; Pending shows a renderer-only
+update even with no Score draft, so Preview again and Deploy. Do not register a
+new winning Definition for an upgrade (that older procedure is superseded and
+would create an ambiguous tie). The registration-time fingerprint is audit
+provenance only. A changed binary without restart, an unavailable bundle ID and
+ties are still rejected. The initial API does not update/delete Definitions. The
+CLI is not downloaded at render time or installed automatically in deployment
+images.
 
 For local CLI tests, put the pinned binary on PATH and run `go test ./...` from
 `backend`. CLI-dependent tests skip when absent; synthetic preflight/failure and

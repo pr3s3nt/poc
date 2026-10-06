@@ -40,7 +40,8 @@ are not ordinary provision batches. The baseline used only the native renderer b
 4. score-k8s is a replaceable implementation behind a rendering port. Direct
    Kubernetes/Fleet delivery, readiness, per-workload results, route reconciliation
    and final current-set commit stay in the existing application services.
-5. Driver Inputs reference an immutable platform rendering bundle. The bundle
+5. Driver Inputs select a platform rendering bundle by stable ID. Each plan pins
+   the installed immutable bundle snapshot. The snapshot
    fixes the exact renderer version, ordered output-only provisioners and patch
    templates. Definition registration does not accept arbitrary commands,
    mutable remote URLs or credentials. Registration fields and validation are
@@ -58,7 +59,16 @@ are not ordinary provision batches. The baseline used only the native renderer b
    persist or publish `.score-k8s` state. Stable workload names and output-only
    provisioners are required so fresh workspace GUIDs cannot change deployment
    identity. Stateful/random provisioners are excluded from this first slice.
-9. Keep the current renderer available for existing deployments and comparison.
+9. `render_bundle` is a stable selector ID, not an immutable snapshot. Each Plan
+   pins the immutable bundle installed in the running process (version, binary
+   digest, adapter/provisioner digest). The Definition's server-owned
+   `sourceFingerprint` records the bundle digest seen at registration as audit
+   provenance only; it is not a runtime equality gate and remains part of the
+   Definition content hash. After an upgrade A → B the same Definition selects
+   B; Preview/Deploy tokens pinned to A are stale and pending detects the
+   renderer-only change. No Definition update/retire operation is added.
+   Unavailable IDs, ambiguous matches and binary drift still fail.
+10. Keep the current renderer available for existing deployments and comparison.
    Enable score-k8s only by explicit reviewed selection. A failed score-k8s render
    fails the deployment; it must not silently fall back to a different renderer.
 

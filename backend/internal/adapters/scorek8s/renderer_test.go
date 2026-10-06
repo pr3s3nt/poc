@@ -133,3 +133,106 @@ func TestNormalizationExcludesRawSecretsWithoutCLI(t *testing.T) {
 		t.Fatal("malformed generated Deployment accepted")
 	}
 }
+
+// Resolved non-secret outputs reach Render as PlainEnv (deployment.applyWorkload).
+// Every value must come out exactly as the native renderer emits it.
+func TestRealCLIPreservesResolvedPlainValuesLikeNative(t *testing.T) {
+	r := installed(t)
+	values := map[string]string{
+		"EMPTY":      "",
+		"DOLLAR":     "a$b",
+		"DOLLAR2":    "$$",
+		"PRICE":      "cost $$5",
+		"BRACE":      "${literal}",
+		"ESCBRACE":   "$${literal}",
+		"MIXED":      "x$${y}",
+		"TRAILING":   "end$",
+		"MULTILINE":  "line1\nline2\n",
+		"QUOTES":     "a\"b'c\\d",
+		"TEMPLATE":   "{{ fail \"x\" }} {{ .Params }}",
+		"REFLIKE":    "${resources.bindings.b0}",
+		"YAMLISH":    "- a: b\n# c",
+		"NULLWORD":   "null",
+		"UNICODE":    "héllo ✓ $",
+		"ONLYSPACES": "  ",
+	}
+	for name, value := range values {
+		req := request(r)
+		req.ConfigSecretName, req.ConfigSecretKeys = "", nil
+		req.PlainEnv = map[string]map[string]string{"main": {name: value}}
+		manifests, err := r.Render(context.Background(), req)
+		if err != nil {
+			t.Fatalf("%s=%q: %v", name, value, err)
+		}
+		found := false
+		for _, m := range manifests {
+			if m.Kind != "Deployment" {
+				continue
+			}
+			for _, e := range m.Object["spec"].(map[string]any)["template"].(map[string]any)["spec"].(map[string]any)["containers"].([]any)[0].(map[string]any)["env"].([]any) {
+				entry := e.(map[string]any)
+				if entry["name"] == name {
+					got, ok := entry["value"].(string)
+					if !ok || got != value {
+						t.Fatalf("%s: got %#v want %q", name, entry["value"], value)
+					}
+					found = true
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("%s missing from generated env", name)
+		}
+	}
+}
+
+// Empty restoration is scoped to the same container and env name and never
+// widens to Secret references.
+func TestRealCLIRestoresEmptyValueOnlyForNamedContainerAndKeepsSecretRefs(t *testing.T) {
+	r := installed(t)
+	req := request(r)
+	req.Module.Spec.Containers["side"] = environment.Container{Image: "busybox:1"}
+	req.PlainEnv = map[string]map[string]string{"main": {"EMPTY": "", "FULL": "x"}, "side": {"FULL": "y"}}
+	req.SecretEnv = map[string]map[string]string{"main": {"PGPASSWORD": "database-secret-sentinel"}}
+	manifests, err := r.Render(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range manifests {
+		if m.Kind != "Deployment" {
+			continue
+		}
+		for _, c := range m.Object["spec"].(map[string]any)["template"].(map[string]any)["spec"].(map[string]any)["containers"].([]any) {
+			container := c.(map[string]any)
+			for _, e := range container["env"].([]any) {
+				entry := e.(map[string]any)
+				switch {
+				case container["name"] == "main" && entry["name"] == "EMPTY":
+					if v, ok := entry["value"]; !ok || v != "" {
+						t.Fatalf("empty not restored: %#v", entry)
+					}
+				case entry["name"] == "PGPASSWORD":
+					if _, ok := entry["value"]; ok || entry["valueFrom"] == nil {
+						t.Fatalf("secret ref changed: %#v", entry)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestRestoreEmptyEnvLeavesUnnamedEntriesAlone(t *testing.T) {
+	policy := []execution.Manifest{{Kind: "Deployment", Object: map[string]any{"spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": []any{
+		map[string]any{"name": "main", "env": []any{map[string]any{"name": "EMPTY", "value": ""}}}}}}}}}}
+	entry := map[string]any{"name": "OTHER"}
+	secret := map[string]any{"name": "EMPTY", "valueFrom": map[string]any{"secretKeyRef": map[string]any{"name": "s", "key": "k"}}}
+	generated := []execution.Manifest{{Kind: "Deployment", Object: map[string]any{"spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": []any{
+		map[string]any{"name": "main", "env": []any{entry, secret}}}}}}}}}
+	restoreEmptyEnv(generated, policy)
+	if _, ok := entry["value"]; ok {
+		t.Fatal("unrelated entry gained a value")
+	}
+	if _, ok := secret["value"]; ok {
+		t.Fatal("Secret reference gained a value")
+	}
+}

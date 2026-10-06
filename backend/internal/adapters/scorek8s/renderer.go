@@ -203,6 +203,7 @@ func (r *Renderer) Render(ctx context.Context, req execution.RenderRequest) ([]e
 	if !seen["Deployment"] || seen["Service"] != (req.Module.Spec.Service != nil && len(req.Module.Spec.Service.Ports) > 0) {
 		return nil, fmt.Errorf("score-k8s: incomplete generated workload")
 	}
+	restoreEmptyEnv(generated, policy)
 	if err := validateObjects(generated, policy); err != nil {
 		return nil, err
 	}
@@ -291,6 +292,56 @@ func normalize(req execution.RenderRequest, policy []execution.Manifest) (map[st
 	// Convert kind markers into a protected template. Dynamic JSON data stays quoted.
 	return doc, patches, extras, nil
 }
+
+// restoreEmptyEnv puts back explicit empty plain values. score-k8s omits an
+// empty variable's value; the native policy emits value "". Only entries named
+// by the policy for the same container, with neither value nor valueFrom, change;
+// validateObjects then still compares the complete env with the policy.
+func restoreEmptyEnv(generated, policy []execution.Manifest) {
+	empty := map[string]map[string]bool{}
+	for _, c := range podContainers(policy) {
+		for _, item := range asList(c["env"]) {
+			e, _ := item.(map[string]any)
+			if v, ok := e["value"].(string); ok && v == "" {
+				name, _ := c["name"].(string)
+				if empty[name] == nil {
+					empty[name] = map[string]bool{}
+				}
+				empty[name][e["name"].(string)] = true
+			}
+		}
+	}
+	for _, c := range podContainers(generated) {
+		cn, _ := c["name"].(string)
+		for _, item := range asList(c["env"]) {
+			e, _ := item.(map[string]any)
+			name, _ := e["name"].(string)
+			_, hasValue := e["value"]
+			_, hasFrom := e["valueFrom"]
+			if empty[cn][name] && !hasValue && !hasFrom {
+				e["value"] = ""
+			}
+		}
+	}
+}
+func asList(v any) []any { l, _ := v.([]any); return l }
+func podContainers(ms []execution.Manifest) []map[string]any {
+	out := []map[string]any{}
+	for _, m := range ms {
+		if m.Kind != "Deployment" {
+			continue
+		}
+		spec, _ := m.Object["spec"].(map[string]any)
+		tpl, _ := spec["template"].(map[string]any)
+		pod, _ := tpl["spec"].(map[string]any)
+		for _, entry := range asList(pod["containers"]) {
+			if c, ok := entry.(map[string]any); ok {
+				out = append(out, c)
+			}
+		}
+	}
+	return out
+}
 func patch(kind, path string, value any) map[string]any {
 	return map[string]any{"op": "set", "path": path, "value": value, "kind": kind}
 }
@@ -303,7 +354,7 @@ func escapeScore(value any) any {
 		}
 		return out
 	case string:
-		return strings.ReplaceAll(v, "${", "$${")
+		return strings.ReplaceAll(v, "$", "$$")
 	default:
 		return value
 	}
