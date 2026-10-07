@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-07 | Uploaded nondefault Connection selected through human UI; real kind Deploy/diagnostics, host-fallback rejection control, reviewed MP4 and cleanup | [Live connection selection](2026-10-07-application-connection-selection-kind.md) |
 | 2026-10-07 | Application-level connection selection, scoped choices, target guards and fake-adapter Playwright create/deploy/restart | [Connection selection verification](2026-10-07-application-connection-selection-local.md) |
 | 2026-10-07 | Four-service Docker Compose, browser kubeconfig Save with simulated API, scoped Vault token and persistence across container replacement | [Local Compose verification](2026-10-07-docker-compose-local.md) |
 | 2026-10-06 | UC-04 desktop form/list layout correction, keyboard focus review and revised read-only kind recording | [Connections UI review](2026-10-06-uc04-connections-ui.md) |

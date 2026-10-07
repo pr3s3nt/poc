@@ -2,7 +2,7 @@
 id: RUNBOOK-KIND
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-07
 ---
 
 # kind verification
@@ -207,3 +207,40 @@ policies/auth roles or acceptance images loaded into kind/local Docker. Record
 these existing lifecycle limits with each execution result. Confirm namespace
 absence via a successful Kubernetes response, never by interpreting a generic
 API failure as NotFound. Vault forwarding uses a run-owned dynamic local port.
+
+## Application-selected uploaded Connection recording
+
+For UC-01 selection through a credential-backed Kubernetes Connection, run:
+
+```bash
+cd frontend && npm run build
+cd ..
+bash backend/test/integration/application-connection-kind-video.sh
+```
+
+The [runner](../../backend/test/integration/application-connection-kind-video.sh)
+uses real Kubernetes executors on the existing `kind-idp-internal` cluster.
+The [human browser flow](../../frontend/test/e2e/application-connection-kind-human.mjs)
+registers an uploaded Connection and matching existing-cluster Definition via
+Platform Engineer UI, then signs in as Developer, chooses that nondefault
+Connection when creating an Application, configures workloads through forms,
+Previews/Deploys, and opens the deployed diagnostic app. Connection/Definition/
+Application/configuration mutations are UI actions; API reads and Kubernetes
+readiness/cleanup assertions are observers.
+
+An isolated run-owned Vault container stores the Connection credential; UC-12
+configuration uses the existing scoped platform Vault token by file path.
+The backend's private host-context credential is deliberately invalid, while
+the uploaded selected credential is valid, so successful workload execution
+proves it did not fall back to host authentication. Both logical Connections
+refer to the same physical kind cluster; this does not demonstrate deployment
+between two distinct clusters. Never display private kubeconfig/token files.
+
+Use the full-window recording/review/publication rules above. The runner keeps
+MP4, phase marks, settled frames, diagnostic/readiness assertions and cleanup
+proof outside Git under `/tmp/poc-application-connection-live-review/` by default
+(`ORCH_RESULT_DIR` overrides the base directory). It deletes only its owned
+namespace, temporary processes, private files and credential Vault container;
+platform Vault value revisions/policies and loaded images have the existing
+lifecycle limits. Review completed successful evidence before uploading a
+uniquely named MP4 to `acceptance-recordings`; never replace older assets.

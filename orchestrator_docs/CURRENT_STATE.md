@@ -256,3 +256,16 @@ Definition must be supplied by Platform Engineer for a new Connection.
 covers Go test/build, frontend gates, Playwright selection, mismatch blocking,
 fake deployment in staging/production, and persistence across backend restart.
 It does not establish live Kubernetes/AWS execution or expand AWS registration.
+
+## Selected uploaded Connection — live kind verification (2026-10-07)
+
+[Human UI live verification](verification/2026-10-07-application-connection-selection-kind.md)
+now covers Platform Engineer Connection upload and matching Definition via UI,
+Developer nondefault selection at Application creation, and staging Deploy of
+real backend/frontend/PostgreSQL with Vault/VSO diagnostic PASS. The backend's
+private host credential was deliberately rejected, proving use of the uploaded
+Connection credential. Shared production-tab binding was observed; live
+production deployment and independent-cluster switching were not exercised.
+The reviewed 7m12s MP4 is published and run-owned namespace/credential container
+cleanup was verified. Existing platform Vault revision/policy/image lifecycle
+limits remain; AWS registration/execution scope is unchanged.

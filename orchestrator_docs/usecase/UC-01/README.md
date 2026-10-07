@@ -37,3 +37,7 @@ desired endpoints remain unprovisioned until UC-06.
 API/UI selection, safe Developer choices, shared Environment binding, internal
 and AWS target Definition guards, and local fake-adapter Playwright create/deploy/
 restart verification are implemented. See [verification](../../verification/2026-10-07-application-connection-selection-local.md).
+
+[Live kind recording](../../verification/2026-10-07-application-connection-selection-kind.md)
+also verifies creation with an uploaded nondefault Connection and real staging
+workload/database/Vault execution using UI interactions (2026-10-07).

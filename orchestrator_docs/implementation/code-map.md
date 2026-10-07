@@ -105,3 +105,8 @@ links trong cùng logical change.
   [HTTP contract tests](../../backend/test/e2e/application_connection_http_test.go).
 - [Local Playwright runner](../../backend/test/integration/application-connection-playwright-local.sh),
   [browser flow](../../frontend/test/e2e/application-connection-local.mjs).
+
+- [UC-01/04 live kind recording runner](../../backend/test/integration/application-connection-kind-video.sh)
+  and [human UI scenario](../../frontend/test/e2e/application-connection-kind-human.mjs)
+  cover uploaded Connection selection with real executors and diagnostics;
+  [live evidence](../verification/2026-10-07-application-connection-selection-kind.md).
