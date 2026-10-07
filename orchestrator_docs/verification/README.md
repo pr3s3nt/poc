@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-07 | Four-service Docker Compose, browser kubeconfig Save with simulated API, scoped Vault token and persistence across container replacement | [Local Compose verification](2026-10-07-docker-compose-local.md) |
 | 2026-10-06 | UC-04 desktop form/list layout correction, keyboard focus review and revised read-only kind recording | [Connections UI review](2026-10-06-uc04-connections-ui.md) |
 | 2026-10-06 | UC-04 kubeconfig upload API/UI, scoped Vault credentials, executor target resolution, Claude review, isolated PostgreSQL and published read-only kind video | [Upload verification](2026-10-06-uc04-kubeconfig-upload.md) |
 

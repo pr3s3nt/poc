@@ -1,0 +1,13 @@
+# Optional local-source build, used when private Harbor images are unavailable.
+# Paths resolve relative to the first Compose file at the repository root.
+services:
+  postgres:
+    image: postgres:16-alpine
+  backend:
+    image: orchestrator-backend:compose-check
+    build:
+      context: ./backend
+  frontend:
+    image: orchestrator-frontend:compose-check
+    build:
+      context: ./frontend
