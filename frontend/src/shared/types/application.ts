@@ -10,6 +10,10 @@ export interface Application {
   id: string;
   name: string;
   subdomain: string;
+  /** Saved Connection binding shared by both Environments (UC-01 BR-08). */
+  connectionKey: string;
+  profile: string;
+  region?: string;
   workloads: Record<EnvironmentKey, readonly Workload[]>;
 }
 

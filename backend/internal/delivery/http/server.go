@@ -123,6 +123,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/resource-types", s.handleRegisterResourceType)
 	s.mux.HandleFunc("GET /api/v1/resource-definitions", s.handleResourceDefinitions)
 	s.mux.HandleFunc("POST /api/v1/resource-definitions", s.handleRegisterResourceDefinition)
+	s.mux.HandleFunc("GET /api/v1/application-connections", s.handleApplicationConnections)
 	s.mux.HandleFunc("GET /api/v1/connections", s.handleConnections)
 	s.mux.HandleFunc("POST /api/v1/connections/kubernetes", s.handleRegisterKubernetesConnection)
 	s.mux.HandleFunc("POST /api/v1/connections/kubernetes/inspect", s.handleInspectKubeconfig)
@@ -160,6 +161,7 @@ type applicationView struct {
 	Name          string            `json:"name"`
 	Subdomain     string            `json:"subdomain"`
 	Profile       string            `json:"executionProfile"`
+	ConnectionKey string            `json:"connectionKey"`
 	RuntimeStatus string            `json:"runtimeStatus"`
 	Region        string            `json:"region,omitempty"`
 	Environments  []environmentView `json:"environments"`
@@ -232,7 +234,7 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		view := applicationView{
-			Key: a.Key, Name: a.Name, Subdomain: a.Subdomain, Profile: string(a.Profile),
+			Key: a.Key, Name: a.Name, Subdomain: a.Subdomain, Profile: string(a.Profile), ConnectionKey: a.ConnectionKey,
 			RuntimeStatus: string(a.RuntimeStatus), Region: a.Region,
 			Environments: make([]environmentView, 0, len(envs)),
 		}
@@ -251,6 +253,35 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 type createApplicationRequest struct {
 	Name      string `json:"name"`
 	Subdomain string `json:"subdomain"`
+	// ConnectionKey stays raw so omission, null and "" can be told apart.
+	ConnectionKey json.RawMessage `json:"connectionKey"`
+}
+
+// handleApplicationConnections lists the READY Connection choices of the
+// session Organization. Any authenticated member may read it; the payload is
+// minimal and unrelated to UC-04 management (platform-only).
+func (s *Server) handleApplicationConnections(w http.ResponseWriter, r *http.Request) {
+	identity, ok := s.sessionIdentity(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		return
+	}
+	choices, err := s.applications.ListChoices(r.Context(), identity.OrganizationKey)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	type choiceView struct {
+		Key    string `json:"key"`
+		Name   string `json:"name"`
+		Kind   string `json:"kind"`
+		Status string `json:"status"`
+	}
+	views := make([]choiceView, 0, len(choices.Connections))
+	for _, c := range choices.Connections {
+		views = append(views, choiceView{Key: c.Key, Name: c.Name, Kind: string(c.Kind), Status: string(c.Status)})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"connections": views, "defaultConnectionKey": choices.DefaultConnectionKey})
 }
 
 func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request) {
@@ -259,19 +290,29 @@ func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request)
 		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
 		return
 	}
-	// Only Name and Subdomain are accepted; Organization, role, profile and
-	// Connection come from the session and platform defaults (UC-01 BR-07).
+	// Name, Subdomain and the optional Connection key are accepted;
+	// Organization and role come from the session, profile and region from the
+	// selected Connection (UC-01 BR-07). Everything else is rejected.
 	var req createApplicationRequest
 	if err := decodeSingleObject(r, &req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request must be one JSON object with only name and subdomain"})
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request must be one JSON object with only name, subdomain and connectionKey"})
 		return
 	}
-	result, err := s.applications.Create(r.Context(), appcreate.CreateCommand{OrganizationKey: identity.OrganizationKey, Name: req.Name, Subdomain: req.Subdomain, BaseDomain: s.seedOptions.BaseDomain})
+	cmd := appcreate.CreateCommand{OrganizationKey: identity.OrganizationKey, Name: req.Name, Subdomain: req.Subdomain, BaseDomain: s.seedOptions.BaseDomain}
+	if req.ConnectionKey != nil {
+		var key string
+		if err := json.Unmarshal(req.ConnectionKey, &key); err != nil || bytes.Equal(bytes.TrimSpace(req.ConnectionKey), []byte("null")) {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "connectionKey must be a non-blank string when present", "field": "connectionKey"})
+			return
+		}
+		cmd.ConnectionKey = &key
+	}
+	result, err := s.applications.Create(r.Context(), cmd)
 	if err != nil {
 		writeCreateApplicationError(w, err)
 		return
 	}
-	view := applicationView{Key: result.Application.Key, Name: result.Application.Name, Subdomain: result.Application.Subdomain, Profile: string(result.Application.Profile), RuntimeStatus: string(result.Application.RuntimeStatus), Region: result.Application.Region}
+	view := applicationView{Key: result.Application.Key, Name: result.Application.Name, Subdomain: result.Application.Subdomain, Profile: string(result.Application.Profile), ConnectionKey: result.Application.ConnectionKey, RuntimeStatus: string(result.Application.RuntimeStatus), Region: result.Application.Region}
 	for _, env := range result.Environments {
 		view.Environments = append(view.Environments, environmentView{Key: env.Key, Name: env.Name, Type: env.Type, NamespaceIdentity: env.NamespaceIdentity, CurrentDeploymentSetID: env.CurrentDeploymentSetID, Version: env.Version})
 	}
@@ -300,7 +341,7 @@ func decodeSingleObject(r *http.Request, into any) error {
 }
 
 // writeCreateApplicationError maps UC-01 failures to 400 (field validation),
-// 409 (duplicate Name/Subdomain) and 422 (default target not ready).
+// 409 (duplicate Name/Subdomain) and 422 (selected target unavailable).
 func writeCreateApplicationError(w http.ResponseWriter, err error) {
 	body := map[string]any{"error": err.Error()}
 	var fieldErr *appcreate.FieldError
@@ -338,7 +379,7 @@ func (s *Server) handleGetApplication(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	view := applicationView{Key: app.Key, Name: app.Name, Subdomain: app.Subdomain, Profile: string(app.Profile), RuntimeStatus: string(app.RuntimeStatus)}
+	view := applicationView{Key: app.Key, Name: app.Name, Subdomain: app.Subdomain, Profile: string(app.Profile), ConnectionKey: app.ConnectionKey, RuntimeStatus: string(app.RuntimeStatus), Region: app.Region}
 	for _, env := range envs {
 		view.Environments = append(view.Environments, environmentView{Key: env.Key, Name: env.Name, Type: env.Type, NamespaceIdentity: env.NamespaceIdentity, CurrentDeploymentSetID: env.CurrentDeploymentSetID, Version: env.Version})
 	}

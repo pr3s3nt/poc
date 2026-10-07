@@ -6,7 +6,7 @@ import type { ConfigKey } from '../configuration/api';
 import type { ResourceType, Workload } from './api';
 import type { Application } from '../../shared/types/application';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', connectionKey: 'internal-cluster', profile: 'internal-k8s', workloads: { staging: [], production: [] } };
 const SECRET_VALUE = 'p4ss-never-shown';
 const VARIABLE_VALUE = 'https://internal.example';
 const catalogKeys: ConfigKey[] = [
@@ -357,7 +357,7 @@ it('serializes selected key names that match Object prototype members as own con
   expect(variables.toString).toBe('${resources.env.toString}');
 });
 
-const otherApplication: Application = { id: 'billing', name: 'Billing', subdomain: 'billing', workloads: { staging: [], production: [] } };
+const otherApplication: Application = { id: 'billing', name: 'Billing', subdomain: 'billing', connectionKey: 'internal-cluster', profile: 'internal-k8s', workloads: { staging: [], production: [] } };
 
 async function stagePasswordAlias(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('checkbox', { name: 'DATABASE_PASSWORD' }));

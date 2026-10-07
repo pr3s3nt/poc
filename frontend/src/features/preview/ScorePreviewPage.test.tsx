@@ -5,7 +5,7 @@ import type { Application } from '../../shared/types/application';
 import { ScorePreviewPage } from './ScorePreviewPage';
 import { parseScoreText } from './parseScore';
 
-const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', workloads: { staging: [], production: [] } };
+const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', connectionKey: 'internal-cluster', profile: 'internal-k8s', workloads: { staging: [], production: [] } };
 const yamlScore = 'apiVersion: score.dev/v1b1\nmetadata:\n  name: api\ncontainers:\n  main:\n    image: example.invalid/api:v1\n';
 const result = (overrides: Record<string, unknown> = {}) => ({
   applicationKey: 'shop', environmentKey: 'staging', baseSetId: 'set-1', baseVersion: 3, runId: 'run-7', workloadId: 'api', action: 'deploy',
@@ -155,4 +155,9 @@ it('accepts one JSON or YAML Score object only', () => {
   expect(parseScoreText('a: 1\n---\nb: 2')).toEqual({ ok: false, error: 'must contain exactly one document.' });
   expect(parseScoreText('- a')).toEqual({ ok: false, error: 'must be a Score object.' });
   expect(parseScoreText('   ')).toEqual({ ok: false, error: 'is required.' });
+});
+
+it('shows the Application connection binding that planning will use', () => {
+  render(<ScorePreviewPage application={{ ...application, connectionKey: 'lab' }} environment="production" />);
+  expect(screen.getByLabelText('Execution target')).toHaveTextContent('Connection lab · profile internal-k8s');
 });

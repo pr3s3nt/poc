@@ -17,6 +17,12 @@ const fastPostgres = `{"key":"postgres-fast","resourceType":"postgres","executio
 	`"driverInputs":{"values":{"variables":{"image":"postgres:17-alpine","storage":"2Gi","namespace":"${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"}}},` +
 	`"criteria":[{"class":"fast"}]}`
 
+// fastCluster is the matching internal cluster Definition a Platform Engineer
+// registers for a new Connection (UC-06 BR-20); nothing is copied automatically.
+const fastCluster = `{"key":"cluster-fast","resourceType":"k8s-cluster","executionProfile":"internal-k8s","driverType":"existing-cluster","connectionKey":"fast-cluster",` +
+	`"driverInputs":{"values":{"variables":{"name":"${context.connection.cluster}","kubeContext":"${context.connection.context}"}}},` +
+	`"criteria":[{"class":"internal","res_id":"connections.fast-cluster"}]}`
+
 // TestUC02UC04RegistrationIsUsableWithoutRestart registers a Connection, a
 // runtime-supported PostgreSQL Definition for class "fast" and a new Resource
 // Type over HTTP, then uses them from a Developer session on the same process:
@@ -27,6 +33,7 @@ func TestUC02UC04RegistrationIsUsableWithoutRestart(t *testing.T) {
 	pe := authenticatedClientAs(t, server.URL, "platform-engineer")
 	for _, tc := range []struct{ path, body string }{
 		{"/api/v1/connections/kubernetes", `{"key":"fast-cluster","clusterId":"fast","kubeContext":"kind-fast"}`},
+		{"/api/v1/resource-definitions", fastCluster},
 		{"/api/v1/resource-definitions", fastPostgres},
 		{"/api/v1/resource-types", `{"key":"cache","inputs":[{"name":"size","type":"number","required":true}],"outputs":[{"name":"host","type":"string","required":true}]}`},
 	} {
@@ -36,7 +43,7 @@ func TestUC02UC04RegistrationIsUsableWithoutRestart(t *testing.T) {
 	}
 
 	dev := authenticatedClient(t, server.URL)
-	status, created := requestJSON(t, dev, http.MethodPost, server.URL+"/api/v1/applications", map[string]any{"name": "Catalog Use", "subdomain": "catalog-use"})
+	status, created := requestJSON(t, dev, http.MethodPost, server.URL+"/api/v1/applications", map[string]any{"name": "Catalog Use", "subdomain": "catalog-use", "connectionKey": "fast-cluster"})
 	if status != http.StatusCreated {
 		t.Fatalf("create Application: %d %v", status, created)
 	}

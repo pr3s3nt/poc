@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-28
+last_reviewed: 2026-10-07
 ---
 
 # UC-06 — Deploy Workload
@@ -218,3 +218,7 @@ hard-code Application hay Environment.
   rules continue. Workspace state is disposable, private and never published.
 
 See [workload rendering contract](../../architecture/contracts/workload-rendering.md).
+
+## Application connection binding
+
+- **BR-20:** Mọi Environment dùng connection đã lưu của Application. Preview/Deploy UI hiển thị connection key/profile. Với `internal-k8s`, matching existing-cluster và Kubernetes resource Definitions chỉ hợp lệ khi explicit connection (nếu có) bằng Application connection; không override target đã chọn. Sai khác được reject khi planning trước provisioning/workload apply; matching specificity/tie semantics không thay đổi. Với `aws-eks`, Terraform Definitions cho VPC và EKS (`vpc` và `k8s-cluster`) cũng phải dùng Application connection, để không provision đích workload trong AWS account khác. External resource Definitions như database vẫn giữ Driver Account riêng. Platform Engineer phải đăng ký matching cluster Definition cho connection mới (resource ID `connections.<key>` hoặc Application criterion); không tự copy Definition hay fallback về cluster mặc định.

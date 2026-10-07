@@ -2,7 +2,7 @@
 id: UC-04-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-07
 ---
 
 # UC-04 — Configure Execution Profile Connections
@@ -56,7 +56,7 @@ thủ công trên máy chạy backend đối với luồng đăng ký mới.
 6. **MS-06:** Orchestrator lưu credential qua Secret Store và nhận secret reference.
 7. **MS-07:** Orchestrator lưu Connection thuộc Organization với trạng thái `READY`.
 8. **MS-08:** Orchestrator thông báo thành công và hiển thị Connection trong danh sách.
-9. **MS-09:** Connection sẵn sàng để Application sử dụng theo UC-01 và Resource Definition tham chiếu theo UC-03.
+9. **MS-09:** Connection sẵn sàng để Developer chọn khi tạo Application theo UC-01 và Resource Definition tham chiếu theo UC-03.
 
 ## Luồng biến thể
 

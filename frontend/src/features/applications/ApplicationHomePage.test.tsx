@@ -1,10 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ApplicationHomePage } from './ApplicationHomePage';
 import type { Application } from '../../shared/types/application';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', connectionKey: 'internal-cluster', profile: 'internal-k8s', workloads: { staging: [], production: [] } };
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -27,8 +27,10 @@ it('previews pending changes and deploys only after confirmation', async () => {
   await user.click(screen.getByRole('button', { name: 'Preview changes' }));
   expect(await screen.findByRole('heading', { name: 'Preview for staging' })).toBeInTheDocument();
   expect(deployToken).toBe('');
+  expect(within(screen.getByLabelText('Deployment preview')).getByLabelText('Execution target')).toHaveTextContent('Connection internal-cluster · profile internal-k8s');
   await user.click(screen.getByRole('button', { name: 'Deploy these changes' }));
   expect(await screen.findByRole('heading', { name: 'Deploy succeeded' })).toBeInTheDocument();
+  expect(within(screen.getByLabelText('Deployment result')).getByLabelText('Execution target')).toHaveTextContent('internal-cluster');
   expect(deployToken).toBe('pinned-preview');
 });
 
@@ -237,4 +239,11 @@ it('ignores a late Preview after switching Environment and blocks switching duri
   resolveDeploy(Response.json({ status: 'SUCCEEDED', results: [{ workloadId: 'api', action: 'REMOVE', status: 'SUCCEEDED', deploymentId: 'dep-9' }] }));
   expect(await screen.findByRole('link', { name: 'view deployment' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /^Staging/ })).toBeEnabled();
+});
+
+it('shows the saved connection binding of a non-default Application on the home header', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ draftVersion: 0, workloads: [], deployments: [] })));
+  render(<ApplicationHomePage application={{ ...application, connectionKey: 'lab', profile: 'aws-eks', region: 'us-east-1' }} />);
+  expect(screen.getAllByLabelText('Execution target')[0]).toHaveTextContent('Connection lab · profile aws-eks · region us-east-1 · both environments');
+  await screen.findByText('No workloads in this environment yet.');
 });

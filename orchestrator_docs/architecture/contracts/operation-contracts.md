@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-07
 ---
 
 # Operation Contracts
@@ -20,7 +20,9 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 ## OC-01 `ApplicationService.CreateApplication`
 
 - Use case: UC-01 MS-01–MS-08.
-- Preconditions: Organization tồn tại; default execution target có connection `READY`; Name/Subdomain hợp lệ và chưa trùng.
+- Preconditions: Organization tồn tại; selected (or omitted-key default) Connection belongs to session Organization, has supported kind and is `READY`; Name/Subdomain hợp lệ và chưa trùng.
+- Input: `name`, `subdomain`, optional `connectionKey`; blank/null explicit key is `400`, unavailable/foreign/not-ready/unsupported key is safe `422` field `connectionKey`; no fallback for invalid explicit key. Profile/region are derived server-side.
+- Query: `GET /api/v1/application-connections` for authenticated Organization members returns only READY supported `{key,name,kind,status}` (AWS needs nonempty region) and `defaultConnectionKey` (empty if ineligible); does not grant UC-04 management permission.
 - Creates: system-ID `Application` với profile/connection binding, cùng `staging` và `production` Environments, immutable empty Deployment Sets và stable namespace identities.
 - Postconditions: AWS Application `PENDING`; internal Application bind existing cluster; desired endpoints được suy ra nhưng chưa có infrastructure, workload hoặc route/ingress.
 - Persistence: insert Application, hai Environment, hai Deployment Set và current pointers atomically trong một transaction.
@@ -149,6 +151,7 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 
 - Use case: UC-08.
 - Preconditions: persisted immutable plan; resource-only DAG/batches; matched Definitions; connections `READY`.
+- Target binding: UC-06 BR-20 checks winning internal cluster/Kubernetes and AWS Terraform VPC/EKS Definitions against the saved Application connection; UC-08 BR-07 rechecks before executor calls. Other external provider resources retain their explicit Driver Account.
 - For each node: resolve prior state and inputs -> executor provision/reconcile -> validate outputs -> atomically persist Active Resource + deployment-resource progress.
 - Returns: `ProvisionResult` mapping descriptor to outputs and deployment target.
 - Postconditions: all desired resource nodes `READY`; output bindings available for workload render.

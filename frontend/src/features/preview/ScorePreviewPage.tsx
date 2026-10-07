@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { navigate } from '../../app/routes';
+import { ApplicationTarget } from '../../shared/ui/ApplicationTarget';
 import type { Application, EnvironmentKey } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
 import { ApiError } from '../../shared/api/client';
@@ -69,7 +70,7 @@ export function ScorePreviewPage({ application, environment }: { application: Ap
   const hint = actions.find((item) => item.value === action)?.hint;
   return <section className="page preview-page">
     <button className="back-link" onClick={() => navigate({ name: 'application', applicationId: application.id })}>← {application.name}</button>
-    <header className="page-header"><div><p className="eyebrow">{application.name} · {environment}</p><h1>Preview Score</h1><p>Validate a Score and see the planned changes for <strong>{application.name}</strong> in <strong>{environment}</strong>. Nothing is saved or deployed.</p></div></header>
+    <header className="page-header"><div><p className="eyebrow">{application.name} · {environment}</p><h1>Preview Score</h1><p>Validate a Score and see the planned changes for <strong>{application.name}</strong> in <strong>{environment}</strong>. Nothing is saved or deployed.</p><ApplicationTarget application={application} /></div></header>
     <div className="tabs" role="tablist" aria-label="Environment">{(['staging', 'production'] as const).map((env) => <button key={env} role="tab" aria-selected={environment === env} className={environment === env ? 'tab tab-active' : 'tab'} onClick={() => navigate({ name: 'score-preview', applicationId: application.id, environment: env })}>{env === 'staging' ? 'Staging' : 'Production'}</button>)}</div>
     <form className="content-panel preview-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       <p className="form-note" role="note">Do not paste secret values. Reference configuration with placeholders such as <code>{'${resources.env.API_TOKEN}'}</code>.</p>

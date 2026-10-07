@@ -12,6 +12,7 @@ package "Application Services" {
   }
   class ApplicationService {
     +CreateApplication(ctx, cmd): Application
+    +ListApplicationConnections(ctx, organization): SafeChoices
   }
   class ResourceTypeService {
     +RegisterResourceType(ctx, cmd): ResourceType

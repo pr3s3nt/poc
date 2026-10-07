@@ -13,6 +13,7 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/execution"
+	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
 )
 
@@ -95,6 +96,7 @@ func credentialBackedApp(t *testing.T, status application.ConnectionStatus) (*bo
 	}); err != nil {
 		t.Fatal(err)
 	}
+	bindApplicationToConnection(t, app.Store, opts.ApplicationKey, "lab")
 	if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, resource.Definition{
 		Key: "cluster-lab", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
 		ExecutionProfile: "internal-k8s", ConnectionKey: "lab",
@@ -104,6 +106,22 @@ func credentialBackedApp(t *testing.T, status application.ConnectionStatus) (*bo
 		t.Fatal(err)
 	}
 	return app, opts, executor, deployer
+}
+
+// bindApplicationToConnection is test setup only (no product retarget API
+// exists): it rebinds a seeded Application to the Connection before any
+// Active Resource exists, as UC-01 selection would have done at creation.
+func bindApplicationToConnection(t *testing.T, store persistence.Store, applicationKey, connectionKey string) {
+	t.Helper()
+	ctx := context.Background()
+	stored, err := store.GetApplication(ctx, applicationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored.ConnectionKey = connectionKey
+	if err := store.SaveApplication(ctx, stored); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestCredentialBackedTarget_PropagatesOpaqueIdentityThroughDeployAndRemove(t *testing.T) {
@@ -175,7 +193,7 @@ func TestCredentialBackedTarget_NotReadyConnectionFailsBeforeExecution(t *testin
 	app, opts, executor, deployer := credentialBackedApp(t, application.ConnectionVerifying)
 	scores := seed.AcceptanceScores(opts)
 	_, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test"})
-	if err == nil || !strings.Contains(err.Error(), "unavailable") {
+	if err == nil || !(strings.Contains(err.Error(), "unavailable") || strings.Contains(err.Error(), "not READY")) {
 		t.Fatalf("deploy with a non-READY connection: %v", err)
 	}
 	for _, req := range executor.requests {

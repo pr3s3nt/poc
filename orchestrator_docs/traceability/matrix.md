@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-07
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -23,9 +23,10 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
 | MS-01, MS-02 | `CreateApplication`; `UC-01/sequence.puml` | `application.Service.Create`, strict HTTP decoder, DNS-label validator | `applications`; case-insensitive Organization Name and global normalized Subdomain constraints | OC-01; service, HTTP and PostgreSQL constraint tests |
-| MS-03, MS-04 | same | default-target resolver, Connection repository, Application creation | Application system ID, profile/connection binding; AWS `PENDING`, internal `READY` | OC-01; ready/not-ready and target-resolution tests |
+| MS-03, MS-04 | same | selected-target resolver (legacy default omission), scoped READY Connection query, Application creation | Application system ID, profile/connection binding; AWS `PENDING`, internal `READY` | OC-01; ready/not-ready, explicit non-default/foreign/missing target, safe choices, persistence and Playwright selection tests |
 | MS-05, MS-06 | same | Environment and empty Deployment Set creation | exactly `staging` and `production`; `environments`, `deployment_sets` | OC-01; transaction rollback, HTTP and PostgreSQL persistence tests |
 | MS-07, MS-08 | same | endpoint derivation, Application persistence | derived desired endpoints; atomic Application/Environment/current-set write | OC-01; no-deploy-side-effect frontend/HTTP/Playwright tests |
+| UC-01 BR-07/08; UC-05 BR-11; UC-06 BR-20; UC-08 BR-07 | scoped target resolution, shared snapshot, matching and executor binding validation | selected connection UI/API, `planning.ConnectionMismatch` + planner/provisioning guard | one Application binding for all Environments | explicit choice, unsafe/foreign choice, mismatch rejection, [HTTP](../../backend/test/e2e/application_connection_http_test.go), [planner](../../backend/internal/planning/connection_binding_test.go), [execution](../../backend/internal/application/deployment/selected_target_test.go), [Playwright](../../frontend/test/e2e/application-connection-local.mjs) |
 
 ## UC-02
 

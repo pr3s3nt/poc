@@ -2,7 +2,7 @@
 id: RUNBOOK-LOCAL
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-07
 ---
 
 # Local development with fake adapters
@@ -229,3 +229,18 @@ For local CLI tests, put the pinned binary on PATH and run `go test ./...` from
 pure selection tests still run. Each render uses a private temporary workspace,
 cleans it afterward, strips inherited host credentials and permits only
 output-only bindings. Live cluster/cloud verification is a separate operation.
+
+## Application connection selection browser check
+
+Build the Web Console, then from `backend/` run:
+
+```bash
+bash test/integration/application-connection-playwright-local.sh
+```
+
+This uses fake runtime adapters, JSON state and a read-only kubectl stand-in.
+Platform-authenticated API setup registers a second Connection and its matching
+cluster Definition; Developer UI selects it, checks Preview/Deploy in both
+Environments, and verifies binding after restart. No cluster/cloud mutation.
+Use `ORCH_KEEP_EVIDENCE=1` to retain logs/screenshots, or
+`ORCH_EVIDENCE_DIR=/tmp/new-directory` for a new private evidence directory.

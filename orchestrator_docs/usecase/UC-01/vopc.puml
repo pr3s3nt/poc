@@ -7,9 +7,10 @@ class ApplicationController <<boundary>> {
 }
 class ApplicationService <<control>> {
   +CreateApplication(ctx, cmd): Application
+  +ListApplicationConnections(ctx, organizationID): SafeChoices
 }
-interface DefaultExecutionTargetResolver {
-  +Resolve(ctx, organizationID): ExecutionTarget
+interface ExecutionTargetResolver {
+  +Resolve(ctx, organizationID, connectionKey?): ExecutionTarget
 }
 class Application <<entity>> {
   +Create(generatedID, profile, connection): Application
@@ -21,7 +22,7 @@ class DeploymentSet <<entity>> {
   +Empty(environmentID): DeploymentSet
 }
 interface ConnectionRepository {
-  +FindReady(ctx, connectionID): Connection
+  +FindReady(ctx, organizationID, connectionID): Connection
 }
 interface ApplicationRepository {
   +FindByID(ctx, id): Application
@@ -34,7 +35,7 @@ interface DeploymentSetRepository {
   +SaveAndSetCurrent(ctx, set)
 }
 ApplicationController --> ApplicationService
-ApplicationService --> DefaultExecutionTargetResolver
+ApplicationService --> ExecutionTargetResolver
 ApplicationService --> ConnectionRepository
 ApplicationService --> ApplicationRepository
 ApplicationService --> EnvironmentRepository

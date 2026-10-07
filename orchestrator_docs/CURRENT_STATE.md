@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-07
 ---
 
 # Current project state
@@ -239,3 +239,20 @@ default none returns 503 for upload registration. New registration does not
 change Organization default; UC-03 matching Definition can consume the new
 Connection. Fleet fixed-cluster mode rejects credential-backed targets. AWS
 registration and Terraform account credential resolution remain deferred.
+
+## UC-01 Application connection selection (2026-10-07)
+
+Developer can select a READY Connection when creating an Application; default
+is preselected, and old API requests omitting connectionKey retain default
+behavior. Choices are Organization-scoped and expose no credentials. Profile
+and AWS region derive server-side. All Environments use the saved Application
+binding; there is no existing-Application retarget API. Preview/Deploy UI shows
+connection key/profile, and rejects conflicting internal cluster/Kubernetes or
+AWS VPC/EKS Definition connections before execution. External provider
+resources retain explicit Driver Account semantics. A matching cluster
+Definition must be supplied by Platform Engineer for a new Connection.
+
+[Local verification](verification/2026-10-07-application-connection-selection-local.md)
+covers Go test/build, frontend gates, Playwright selection, mismatch blocking,
+fake deployment in staging/production, and persistence across backend restart.
+It does not establish live Kubernetes/AWS execution or expand AWS registration.

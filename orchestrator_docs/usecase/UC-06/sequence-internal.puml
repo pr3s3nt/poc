@@ -19,7 +19,9 @@ Developer -> Service: DeployWorkload(Score, app, env)
 Service -> Repo: Create PLANNING [MS-01]
 Service -> Planner: Plan(request) [MS-02..MS-04]
 Planner -> Enricher: Enrich(profile=internal-k8s) [MS-05]
-Enricher --> Planner: existing cluster + env namespace
+Enricher --> Planner: selected Application cluster + env namespace
+Planner -> Planner: Match Definitions; validate internal connection binding [BR-20]
+note right of Planner: Mismatch fails planning before execution; no default fallback
 Planner --> Service: Humanitec-shaped Delta + graph:\nworkload -> namespace -> existing cluster\nworkload -> postgres StatefulSet -> existing cluster [MS-03..MS-08]
 opt Definition-selected score-k8s
   Service -> Renderer: ValidateSelection(pinned bundle/binary) before side effects

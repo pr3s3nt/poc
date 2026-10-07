@@ -2,7 +2,7 @@
 id: UC-01-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-07
 ---
 
 # UC-01 — Create Application
@@ -25,7 +25,7 @@ Cho phép Developer tạo Application để khai báo và deploy workload.
 - **PRE-01:** Organization đã tồn tại.
 - **PRE-02:** Developer đã được xác thực và thuộc Organization.
 - **PRE-03:** Platform đã cấu hình base domain và default execution target cho Organization.
-- **PRE-04:** Connection của default execution target có trạng thái `READY`.
+- **PRE-04:** Organization có ít nhất một Connection được hỗ trợ, trạng thái `READY`.
 
 ## Trigger
 
@@ -33,9 +33,9 @@ Cho phép Developer tạo Application để khai báo và deploy workload.
 
 ## Main success scenario
 
-1. **MS-01:** Developer nhập Application Name và Subdomain.
+1. **MS-01:** Developer nhập Application Name, Subdomain và chọn Connection. Default của Organization được chọn sẵn nếu nằm trong danh sách hợp lệ.
 2. **MS-02:** Orchestrator kiểm tra thông tin hợp lệ và Subdomain chưa được sử dụng trong base domain platform.
-3. **MS-03:** Orchestrator tự tạo Application ID duy nhất và lấy default execution target của Organization.
+3. **MS-03:** Orchestrator tự tạo Application ID duy nhất và resolve Connection được chọn trong Organization của session; nếu request cũ bỏ `connectionKey`, resolve default của Organization.
 4. **MS-04:** Orchestrator tạo Application với runtime configuration của target đó.
 5. **MS-05:** Orchestrator tự tạo hai Environment `staging` và `production` thuộc Application.
 6. **MS-06:** Orchestrator khởi tạo Deployment Set rỗng và namespace identity riêng cho mỗi Environment.
@@ -44,8 +44,8 @@ Cho phép Developer tạo Application để khai báo và deploy workload.
 
 ## Luồng biến thể trong happy path
 
-- **VAR-01 — `aws-eks`:** default execution target cung cấp AWS connection và region; UC-01 chưa tạo VPC/EKS.
-- **VAR-02 — `internal-k8s`:** default execution target cung cấp Kubernetes connection đang `READY`.
+- **VAR-01 — `aws-eks`:** Connection được chọn cung cấp AWS connection và region; UC-01 chưa tạo VPC/EKS.
+- **VAR-02 — `internal-k8s`:** Connection được chọn cung cấp Kubernetes connection đang `READY`.
 
 ## Hậu điều kiện
 
@@ -58,13 +58,13 @@ Cho phép Developer tạo Application để khai báo và deploy workload.
 ## Quy tắc nghiệp vụ
 
 - **BR-01:** Application ID do hệ thống sinh, bất biến và duy nhất toàn cục.
-- **BR-02:** Developer chỉ nhập Application Name và Subdomain; Name là duy nhất trong Organization.
+- **BR-02:** Developer nhập Application Name, Subdomain và chọn Connection; Name là duy nhất trong Organization.
 - **BR-03:** Subdomain là DNS label hợp lệ, được chuẩn hóa lowercase và duy nhất trong base domain platform.
 - **BR-04:** Mỗi Application có đúng hai Environment hệ thống tạo: `staging` và `production`.
 - **BR-05:** Production desired endpoint là `<subdomain>.<base-domain>`; staging desired endpoint là `staging.<subdomain>.<base-domain>`.
 - **BR-06:** Desired endpoint chưa được provision trong UC-01; UC-06 tạo hoặc cập nhật route/ingress sau khi workload sẵn sàng.
-- **BR-07:** Execution target được lấy từ default của Organization; Developer không quản lý Connection, credential, cluster, region, Resource Type hoặc Resource Definition qua UC-01.
-- **BR-08:** Execution Profile không đổi sau khi Application có Active Resources.
+- **BR-07:** Developer được chọn Connection `READY` thuộc Organization của session (kind Kubernetes hoặc AWS). Backend suy ra Execution Profile và region từ Connection; không nhận Organization, role, profile, region hoặc credential từ request. Connection không tồn tại/ngoài Organization trả cùng lỗi an toàn `422` với field `connectionKey`; not-ready hoặc kind không hỗ trợ cũng trả `422`. Không fallback khi một key tường minh không hợp lệ. AWS cần region không rỗng. Danh sách lựa chọn loại AWS thiếu region; `defaultConnectionKey` trong response là key nếu default đủ điều kiện, nếu không là chuỗi rỗng. API cũ bỏ key vẫn dùng default; key rỗng hoặc null tường minh trả `400` với field `connectionKey`.
+- **BR-08:** Connection và Execution Profile được lưu ở Application, dùng chung cho mọi Environment. UC-01 không cung cấp thao tác đổi connection/profile của Application đã tồn tại; đăng ký Connection hoặc thay default không đổi binding đã lưu.
 - **BR-09:** `aws-eks` dùng VPC/EKS scope Application; `internal-k8s` dùng cluster đã đăng ký.
 - **BR-10:** Namespace identity có scope Environment và ổn định qua các deployment.
 
@@ -74,7 +74,7 @@ Cho phép Developer tạo Application để khai báo và deploy workload.
 UC-01 Create Application
 ├── Validate Application Name and Subdomain
 ├── Generate Application ID
-├── Resolve Organization default execution target
+├── Resolve selected Organization-scoped Connection (legacy omission uses default)
 ├── Create Application
 ├── Create staging and production Environments
 ├── Initialize Deployment Sets and namespace identities
@@ -84,10 +84,10 @@ UC-01 Create Application
 
 ## Trạng thái implementation hiện tại
 
-- Authenticated Developer có thể tạo Application qua API/Web Console chỉ với
-  Name và Subdomain. Backend sinh Application ID, resolve default Connection
-  `READY` của Organization và không nhận Organization/role/profile/Connection
-  từ request.
+- Authenticated API/Web Console implement selected connection creation and safe
+  Organization-scoped choices (2026-10-07); omitted-key API callers still use
+  default. Shared Application binding survives backend restart. See
+  [verification](../../verification/2026-10-07-application-connection-selection-local.md).
 - Một transaction tạo Application, đúng hai Environment `staging`/`production`
   và hai Deployment Set rỗng. Desired endpoint được UI suy ra từ Subdomain và
   platform base domain; UC-01 không provision infrastructure hoặc workload.
@@ -102,6 +102,6 @@ UC-01 Create Application
 
 - **OOS-01:** Sửa Name hoặc Subdomain sau khi Application được tạo.
 - **OOS-02:** Thêm, xóa, đổi tên, clone hoặc promotion Environment.
-- **OOS-03:** Chọn target khác default của Organization, hoặc quản lý Connection/credential/cluster.
+- **OOS-03:** Đổi connection của Application đã tồn tại hoặc quản lý Connection/credential/cluster.
 - **OOS-04:** DNS ownership verification, certificate lifecycle, custom domain và external DNS provisioning.
 - **OOS-05:** RBAC chi tiết, concurrent update và audit history.

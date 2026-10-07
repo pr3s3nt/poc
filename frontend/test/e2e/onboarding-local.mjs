@@ -63,11 +63,11 @@ try {
     await page.getByLabel('Subdomain').fill(subdomain);
     await expect(page.getByText(`staging.${subdomain}.example.com`)).toBeVisible();
     await page.getByRole('button', { name: 'Create application' }).click();
-    await expect(page.getByRole('status')).toContainText('Application created.');
+    await expect(page.locator('.form-success')).toContainText('Application created.');
     const appId = new URL(page.url()).pathname.match(/\/ui\/applications\/([0-9a-f-]{36})$/)?.[1];
     if (!appId) throw new Error(`unexpected Application URL ${page.url()}`);
     await expectApplicationHome(appId);
-    expect(createBodies.map((body) => JSON.parse(body ?? '{}'))).toEqual([{ name, subdomain }]);
+    expect(createBodies.map((body) => JSON.parse(body ?? '{}'))).toEqual([{ name, subdomain, connectionKey: 'internal-cluster' }]);
 
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page.getByLabel('Username')).toBeVisible();

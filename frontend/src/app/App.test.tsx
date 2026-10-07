@@ -6,7 +6,8 @@ import { App } from './App';
 type Handler = (url: string, init?: RequestInit) => Response | Promise<Response> | undefined;
 
 let authenticated: boolean;
-let applications: { key: string; name: string; subdomain: string }[];
+type StubApplication = { key: string; name: string; subdomain: string; connectionKey?: string; executionProfile?: string };
+let applications: StubApplication[];
 let requests: { url: string; method: string; body?: string }[];
 let override: Handler | undefined;
 
@@ -21,11 +22,12 @@ function stubBackend() {
     if (url.endsWith('/auth/sign-out')) { authenticated = false; return new Response(null, { status: 204 }); }
     if (!authenticated) return Response.json({ error: 'unauthorized' }, { status: 401 });
     if (url.endsWith('/applications') && init?.method === 'POST') {
-      const body = JSON.parse(String(init.body)) as { name: string; subdomain: string };
-      const created = { key: 'generated-id', name: body.name, subdomain: body.subdomain };
+      const body = JSON.parse(String(init.body)) as { name: string; subdomain: string; connectionKey: string };
+      const created = { key: 'generated-id', name: body.name, subdomain: body.subdomain, connectionKey: body.connectionKey, executionProfile: 'internal-k8s' };
       applications.push(created);
       return Response.json({ application: { ...created, environments: [{ key: 'staging' }, { key: 'production' }] } }, { status: 201 });
     }
+    if (url.endsWith('/application-connections')) return Response.json({ connections: [{ key: 'internal-cluster', name: 'Internal cluster', kind: 'KUBERNETES', status: 'READY' }, { key: 'lab', name: 'Lab', kind: 'KUBERNETES', status: 'READY' }], defaultConnectionKey: 'internal-cluster' });
     if (url.endsWith('/applications')) return Response.json({ applications });
     if (url.includes('/workloads')) return Response.json({ draftVersion: 0, workloads: [] });
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
@@ -44,7 +46,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/ui/sign-in');
     authenticated = false;
-    applications = [{ key: 'payment', name: 'Payment', subdomain: 'payment' }];
+    applications = [{ key: 'payment', name: 'Payment', subdomain: 'payment', connectionKey: 'internal-cluster', executionProfile: 'internal-k8s' }];
     requests = [];
     override = undefined;
     stubBackend();
@@ -97,22 +99,24 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(await screen.findByText('Payment')).toBeInTheDocument();
   });
 
-  it('creates an application from name and subdomain only and shows both environments', async () => {
+  it('creates an application with the chosen connection and shows its binding on both environments', async () => {
     const user = userEvent.setup();
     render(<App />);
     await signIn(user);
     await user.click(screen.getAllByRole('button', { name: /create application/i })[0]!);
     await user.type(screen.getByLabelText('Application name'), 'Catalog');
     await user.type(screen.getByLabelText('Subdomain'), 'Catalog');
+    await user.selectOptions(await screen.findByLabelText('Connection'), 'lab');
     await user.click(screen.getByRole('button', { name: 'Create application' }));
 
     expect(await screen.findByRole('heading', { name: 'Catalog' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Execution target')).toHaveTextContent('Connection lab · profile internal-k8s · both environments');
     expect(screen.getByRole('status')).toHaveTextContent('Application created.');
     expect(screen.getByText('staging.catalog.example.com')).toBeInTheDocument();
     expect(screen.getAllByText('catalog.example.com')).toHaveLength(2);
     expect(screen.getByRole('button', { name: /Staging/ })).toHaveClass('tab-active');
     const create = requests.find((request) => request.method === 'POST' && request.url.endsWith('/applications'));
-    expect(JSON.parse(create?.body ?? '{}')).toEqual({ name: 'Catalog', subdomain: 'catalog' });
+    expect(JSON.parse(create?.body ?? '{}')).toEqual({ name: 'Catalog', subdomain: 'catalog', connectionKey: 'lab' });
     expect(requests.some((request) => /\/(deploy|preview|deployments)$/.test(request.url) && request.method === 'POST')).toBe(false);
   });
 

@@ -2,7 +2,7 @@
 id: UC-05-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-07
 ---
 
 # UC-05 — Use Case Realization
@@ -73,3 +73,13 @@ UC-06 validates availability before provisioning, then dispatches the existing
 WorkloadRenderer port after output binding. UC-08 still executes resource-only
 batches. Kubernetes/Fleet apply/readiness and Environment route ownership stay
 in their existing adapters. No database transaction spans a CLI/external call.
+
+## Selected Application connection
+
+Shared snapshot loading resolves the persisted Application connection in session
+Organization for every Environment. Matching validates internal existing-cluster
+and Kubernetes Definition connection equality, plus AWS Terraform VPC/EKS
+connection equality before any executor call; UC-08
+rechecks the binding before execution. Existing specificity and tie rules stay
+unchanged. Application response exposes safe `connectionKey`; Preview/Deploy UI
+shows this key and derived profile. See UC-01 BR-07/08 and UC-06 BR-20.

@@ -104,3 +104,4 @@ a { color: inherit; }
 }
 /* Narrow shell: the navigation scrolls inside the sidebar instead of widening the page. */
 @media (max-width:760px) { .app-shell { grid-template-columns:minmax(0,1fr); }.sidebar { min-width:0; }.nav { min-width:0; overflow-x:auto; }.nav-item { flex:none; white-space:nowrap; } }
+.create-form select { width:100%; border:1px solid var(--border); border-radius:6px; padding:8px 10px; background:var(--surface); color:var(--ink); font:inherit; }.create-form select:focus { outline:2px solid #0969da; outline-offset:-1px; border-color:#0969da; }.create-form .form-info .button { margin-left:12px; }.application-target { margin:6px 0 0; color:var(--muted); font-size:13px; }.application-target strong { color:var(--ink); }

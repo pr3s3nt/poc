@@ -2,14 +2,15 @@
 id: UC-05-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-07
 related: UC-05
 ---
 
 # UC-05 screens
 
 Application home provides **Preview Score** for the selected Environment.
-The standalone page visibly identifies Application and Environment, provides
+The standalone page visibly identifies Application, Environment and the persisted Application
+connection key/profile, provides
 action, Workload ID, Run ID and labeled Score before/after JSON/YAML editors.
 Action hides irrelevant editors; validation never silently changes input.
 Warn users to use configuration placeholders instead of literal secrets.

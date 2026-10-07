@@ -21,7 +21,7 @@ database WorkloadInstanceRepository as WorkloadRepo
 Developer -> API: DeployWorkload(command)
 API -> Service: DeployWorkload(ctx, command)
 Service -> EnvRepo: LoadPlanningSnapshot(appID, envID) [MS-01]
-EnvRepo --> Service: Snapshot + version
+EnvRepo --> Service: Snapshot + version + persisted Application Connection
 Service -> DeploymentRepo: Create(PLANNING, snapshot=NULL)
 DeploymentRepo --> Service: Deployment
 Service -> Planner: Plan(request) [MS-02..MS-08]

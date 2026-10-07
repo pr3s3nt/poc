@@ -4,18 +4,22 @@ autonumber
 actor Developer as Dev
 boundary ApplicationController as API
 control ApplicationService as Service
-control DefaultExecutionTargetResolver as TargetResolver
+control ExecutionTargetResolver as TargetResolver
 database ConnectionRepository as ConnectionRepo
 database ApplicationRepository as AppRepo
 database EnvironmentRepository as EnvRepo
 database DeploymentSetRepository as SetRepo
 
-Dev -> API: CreateApplication(name, subdomain) [MS-01]
+Dev -> API: ListApplicationConnections(session Organization)
+API -> ConnectionRepo: ListReadySupported(organizationID)
+ConnectionRepo --> API: safe choices + Organization default key
+API --> Dev: select default or another READY connection
+Dev -> API: CreateApplication(name, subdomain, connectionKey?) [MS-01]
 API -> Service: CreateApplication(ctx, command)
 Service -> Service: Validate name/subdomain [MS-02]
-Service -> TargetResolver: Resolve(organizationID) [MS-03]
-TargetResolver --> Service: default target
-Service -> ConnectionRepo: FindReady(target.connectionID)
+Service -> TargetResolver: Resolve(organizationID, connectionKey?) [MS-03]
+TargetResolver --> Service: selected target; default only if key omitted
+Service -> ConnectionRepo: FindReady(organizationID, target.connectionID)
 ConnectionRepo --> Service: Connection
 Service -> Service: Application.Create(generatedID, target) [MS-04]
 Service -> Service: Create staging/production\nDeploymentSet.Empty()\nNamespaceIdentity.ForEnvironment() [MS-05..MS-06]

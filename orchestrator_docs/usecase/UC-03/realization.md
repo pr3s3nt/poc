@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-07
 ---
 
 # UC-03 — Use Case Realization
@@ -80,3 +80,12 @@ UC-06 validates availability before provisioning, then dispatches the existing
 WorkloadRenderer port after output binding. UC-08 still executes resource-only
 batches. Kubernetes/Fleet apply/readiness and Environment route ownership stay
 in their existing adapters. No database transaction spans a CLI/external call.
+
+## Selected Application connection compatibility
+
+Registration still validates explicit Connection ownership/readiness. At planning
+time, UC-06 BR-20 rejects a winning internal existing-cluster/Kubernetes
+Definition whose explicit Connection differs from the Application binding.
+AWS Terraform VPC/EKS uses the same target-binding guard; external database
+Driver Accounts remain explicit. Specificity and tie handling remain unchanged; Platform Engineer supplies a
+matching Definition for a newly selected Connection.

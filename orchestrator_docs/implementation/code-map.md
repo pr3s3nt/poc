@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-07
 ---
 
 # Design-to-code map
@@ -92,3 +92,16 @@ Container resource requests/limits (UC-05 BR-07, UC-06 BR-11):
 
 Nếu path/module thay đổi, cập nhật map này cùng imports, build tooling, runbook và
 links trong cùng logical change.
+
+## UC-01 selected Application connection (2026-10-07)
+
+- [Creation and safe choices](../../backend/internal/application/application/service.go),
+  [HTTP views/endpoints](../../backend/internal/delivery/http/server.go),
+  [Create UI](../../frontend/src/features/applications/CreateApplicationPage.tsx),
+  [target label](../../frontend/src/shared/ui/ApplicationTarget.tsx).
+- [Shared binding predicate and winning-match guard](../../backend/internal/planning/match.go),
+  [executor guard](../../backend/internal/application/provisioning/service.go),
+  [selected target execution tests](../../backend/internal/application/deployment/selected_target_test.go),
+  [HTTP contract tests](../../backend/test/e2e/application_connection_http_test.go).
+- [Local Playwright runner](../../backend/test/integration/application-connection-playwright-local.sh),
+  [browser flow](../../frontend/test/e2e/application-connection-local.mjs).

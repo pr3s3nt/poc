@@ -2,7 +2,7 @@
 id: UC-06-PLANNER-REFERENCE
 artifact: technical-reference-analysis
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-07
 ---
 
 # UC-06 Planner Reference Analysis
@@ -213,3 +213,11 @@ diff, structured error hay container resource preservation.
 ## 11. Kết luận
 
 Planner challenge giải quyết tốt phần deterministic desired-state planning: Score -> Humanitec-shaped Delta/Candidate Set -> expanded Resource Graph -> Definition match -> Terraform contract -> provider-first batches. Nó chưa giải quyết phần làm nên orchestrator chạy thật: implicit profile infrastructure, stateful driver execution, runtime output propagation, Kubernetes deployment và persistence/transaction boundary. Fixture coverage cũng không thay thế contract review cho field không xuất hiện trong testcase. Realization UC-06/UC-08 phải dùng pipeline trên làm lõi planning nhưng thiết kế rõ các ranh giới còn thiếu này.
+
+## Product extension: selected Application connection
+
+UC-06 BR-20 adds binding validation after normal Definition selection for
+internal existing-cluster/Kubernetes resources and AWS Terraform VPC/EKS. A winning Definition with a
+conflicting explicit connection fails planning; candidates are not filtered by
+connection and specificity/tie semantics remain unchanged. This product safety
+rule is outside the reference challenge contract.

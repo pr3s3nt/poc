@@ -2,7 +2,7 @@
 id: UC-16-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-07
 related: UC-16
 ---
 
@@ -14,7 +14,9 @@ The existing UC-01 Application home keeps visible Staging/Production tabs.
 The selected Environment shows its workload list, pending-change labels,
 `+ Add workload`, Edit/Delete actions and `Preview changes`. A link to the
 Application-level Variables & Secrets settings opens UC-12. Preview is scoped
-to the selected Environment, never to both at once.
+to the selected Environment, never to both at once. The pending Preview/Deploy
+panel displays the persisted Application connection key/profile (UC-01 BR-08);
+both Environments use this same target.
 
 ## Add/Edit workload
 

@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-07
 ---
 
 # Database Schema
@@ -20,8 +20,11 @@ PostgreSQL là system of record cho logical orchestration state. JSONB chỉ dù
 | `name` | text | NOT NULL |
 | `default_connection_id` | uuid | FK connections, NOT NULL for onboarding-enabled Organization |
 
-The default connection is platform configuration, resolved server-side during
-UC-01; it is never supplied or selected by a Developer.
+The default connection is platform configuration. UC-01 preselects it in the UI
+and resolves it server-side only for requests omitting connectionKey. A Developer
+may select another READY Connection in the same Organization. The existing
+applications.connection_id stores that binding for all Environments; no new
+column or migration is required.
 
 ### `user_accounts`
 

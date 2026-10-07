@@ -2,7 +2,7 @@
 id: UC-05-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-07
 ---
 
 # UC-05 — Validate and Preview Score Changes
@@ -133,3 +133,7 @@ UC-05 Validate and Preview
   no score-k8s generation or provisioning.
 
 See [workload rendering contract](../../architecture/contracts/workload-rendering.md).
+
+## Application connection binding
+
+- **BR-11:** Preview dùng Connection đã lưu của Application, không lấy lại default. UI hiển thị connection key/profile của Application. Internal cluster/Kubernetes hoặc AWS Terraform VPC/EKS Definition chỉ định connection khác Application gây planning validation error trước mọi side effect; không âm thầm chuyển target.

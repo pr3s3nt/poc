@@ -2,7 +2,7 @@
 id: UC-01-UI
 artifact: use-case-ui-design
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-10-07
 related: UC-01, UC-05, UC-07, UC-09, UC-16
 ---
 
@@ -11,7 +11,7 @@ related: UC-01, UC-05, UC-07, UC-09, UC-16
 ## UX outcome
 
 Developer lands on Applications home after sign-in, creates an Application with
-Name/Subdomain, then sees a single Application home with `staging` and
+Name/Subdomain/Connection, then sees a single Application home with `staging` and
 `production` tabs. The selected Environment displays its Workloads and recent
 deployments.
 

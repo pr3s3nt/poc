@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-07
 ---
 
 # UC-03 — Register Resource Definition and Matching Criteria
@@ -80,7 +80,7 @@ last_reviewed: 2026-10-02
   tương ứng; Kubernetes cho `k8s-namespace`/`postgres`; existing-cluster cho
   `k8s-cluster`. Terraform/existing-cluster cần connection tường minh đúng kind,
   thuộc Organization và `READY`. Kubernetes dùng connection của Application lúc
-  deploy nếu Definition không chỉ định connection riêng.
+  deploy nếu Definition không chỉ định connection riêng. Với `internal-k8s`, existing-cluster/Kubernetes Definition có connection tường minh phải trùng Application connection khi được match; sai khác gây planning error (UC-06 BR-20). Quy tắc này cũng áp dụng cho Terraform VPC/EKS của `aws-eks`; external resources như database giữ explicit Driver Account semantics.
 - **BR-09:** Đăng ký Terraform Definition phải kiểm tra module tồn tại, các
   biến được khai báo và output Resource Type có thể được cung cấp. Source URL
   từ xa không được chấp nhận trong MVP.

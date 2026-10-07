@@ -2,7 +2,7 @@
 id: UC-08-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-07
 ---
 
 # UC-08 — Provision Infrastructure and Application Resources
@@ -114,3 +114,7 @@ UC-08 Provision Resources
   score-k8s consumes those outputs and cannot provision their resources again.
 
 See [workload rendering contract](../../architecture/contracts/workload-rendering.md).
+
+## Application connection binding
+
+- **BR-07:** Internal existing-cluster/Kubernetes resource execution dùng Application connection. Explicit Definition connection khác Application bị reject trước gọi executor; đây là defense-in-depth cho plan từ UC-06. Với `aws-eks`, Terraform VPC/EKS Definitions cũng phải dùng Application connection và bị reject khi sai khác trước executor. External resources như database vẫn giữ explicit Driver Account semantics; AWS onboarding không được mở rộng trong thay đổi này.

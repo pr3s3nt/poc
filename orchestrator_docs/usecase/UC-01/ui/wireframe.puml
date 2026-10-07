@@ -15,6 +15,7 @@ salt
   {
     <b>Payment</b>
     payment.example.com
+    Connection: team-cluster (internal-k8s)
 
     [ Staging ]   [ Production ]
 

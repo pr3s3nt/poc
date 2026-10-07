@@ -2,7 +2,7 @@
 id: DOMAIN-OBJECTS
 artifact: domain-persistence-classification
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-07
 ---
 
 # Domain Objects and Persistence Classification
@@ -118,3 +118,11 @@ digests), not an Active Resource. `RenderingSelection` pins a workload
 Definition/content hash and bundle in deployment plan JSON. Neither stores
 credentials or changes resource/workload scope relationships. Native rendering
 uses an omitted selection entry, including legacy plans without this metadata.
+
+## Application execution binding
+
+UC-01 BR-07/08 owns creation-time Connection selection. The existing Application
+connection/profile/region is persisted once and shared by every Environment;
+Organization default changes never retarget existing Applications. UC-06 BR-20
+and UC-08 BR-07 reject conflicting internal and AWS VPC/EKS Definition targets. No new aggregate
+or Environment-level connection is introduced.

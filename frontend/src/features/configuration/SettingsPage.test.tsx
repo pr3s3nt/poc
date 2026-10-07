@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { SettingsPage } from './SettingsPage';
 import type { Application } from '../../shared/types/application';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', connectionKey: 'internal-cluster', profile: 'internal-k8s', workloads: { staging: [], production: [] } };
 
 afterEach(() => vi.unstubAllGlobals());
 
