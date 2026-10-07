@@ -30,10 +30,7 @@ func TestScoreK8sPublicDefinitionPreviewDeploy(t *testing.T) {
 	if resp, out := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", body); resp.StatusCode != http.StatusCreated {
 		t.Fatalf("registration: %d %s", resp.StatusCode, out)
 	}
-	status, created := requestJSON(t, dev, http.MethodPost, server.URL+"/api/v1/applications", map[string]any{"name": "Rendered App", "subdomain": "rendered-app"})
-	if status != http.StatusCreated {
-		t.Fatal(status, created)
-	}
+	created := createConfiguredApplication(t, dev, server.URL, "Rendered App", "rendered-app", "internal-cluster")
 	appKey := created["application"].(map[string]any)["key"].(string)
 	base := server.URL + "/api/v1/applications/" + appKey + "/environments/staging"
 	score := previewScore("api")

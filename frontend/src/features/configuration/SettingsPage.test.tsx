@@ -3,8 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { SettingsPage } from './SettingsPage';
 import type { Application } from '../../shared/types/application';
+import { bothConfigured } from '../../test/targets';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', connectionKey: 'internal-cluster', profile: 'internal-k8s', workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured('internal-cluster'), workloads: { staging: [], production: [] } };
 
 afterEach(() => vi.unstubAllGlobals());
 

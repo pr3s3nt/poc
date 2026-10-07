@@ -3,26 +3,24 @@ id: UC-01-UI-API
 artifact: use-case-ui-api-mapping
 status: current
 last_reviewed: 2026-10-07
-related: UC-01, OC-01
 ---
 
 # UC-01 UI API mapping
 
-The UI submits only Name, Subdomain and selected connectionKey. Backend derives
-Organization identity from UC-00 session and profile/region from the scoped
-Connection through OC-01. UC-04 management endpoints remain platform-only.
+Session owns Organization/role. Profiles/regions are derived from scoped
+Connection; public payloads exclude credentials, SecretRef/config/verification.
 
-| UI action | Proposed HTTP contract | Success handling | Failure handling |
-|---|---|---|---|
-| Load Applications home | `GET /api/v1/applications` | Render Applications belonging to session Organization. | `401` redirects Sign in; other failures show retryable list error. |
-| Load connection choices | `GET /api/v1/application-connections` | `{connections: [{key, name, kind, status}], defaultConnectionKey}`; READY Kubernetes/AWS choices (AWS requires nonempty region); default key is empty when ineligible, no config, verification, SecretRef or credential. Authenticated Organization scope. | `401` signs in; retryable loading errors and empty state block submit. |
-| Submit create form | `POST /api/v1/applications` with `name`, `subdomain`, `connectionKey` (old callers may omit key); unknown fields are rejected | Navigate to created Application home; selected tab is `staging`. | `400` maps validation to the returned `field`; `409` identifies duplicate Name/Subdomain; `422` with field `connectionKey` reports an unavailable selected/default target; explicit blank/null key returns `400`; all failures retain form input. |
-| Load Application home | `GET /api/v1/applications/{applicationId}` | Render Application, two Environment summaries, Workloads and recent deployments. | `404` shows scoped not-found state; `401` redirects Sign in. |
+| UI action | HTTP contract | Result/error |
+|---|---|---|
+| Applications home | `GET /api/v1/applications` | Session-scoped apps with Environment summaries/targets. |
+| Create | `POST /api/v1/applications` body `{name, subdomain}` only | Application plus two UNCONFIGURED Environments. Unknown `connectionKey` rejected 400; Name/Subdomain validation and duplicate guards remain. |
+| App home | `GET /api/v1/applications/{app}` | Environment entries include safe connectionKey, executionProfile, region, runtimeStatus, infrastructureScope and version; empty target reports UNCONFIGURED. No shared Application target. |
+| Connection choices | `GET /api/v1/application-connections` | Existing safe scoped READY choices and eligible default marker retained, now consumed in Environment Settings. Default never persisted automatically. |
+| Set once | `PUT /api/v1/applications/{app}/environments/{env}/connection` body `{connectionKey, expectedVersion}` | Persist Environment target once and return safe Environment view. 400 invalid key/version/body; 404 scoped app/env; 422 unavailable/foreign/nonREADY/unsupported/AWS-without-region key; 409 already set (including same key) or stale version. |
 
-Workload actions intentionally have no M00-a HTTP mapping. UC-16 owns the
-configuration contracts; UC-05 owns preview and UC-06/UC-07 own runtime
-application. Those contracts must be designed before the buttons become active.
-
-Create/list/get Application views include safe persisted `connectionKey` and
-derived profile; no credentials. Application home, standalone Score Preview and
-pending Preview/Deploy show this binding for both Environments.
+Client retains form on failure, reloads authoritative Environment after 409 and
+renders locked binding when winner exists. On unavailable choice refresh, clear
+removed selection, never silently substitute default. Ignore late replies from
+another app/env or unmounted screen. Choices authorization does not grant UC-04
+credential management. Preview/Deploy consume stored Environment target only;
+UNCONFIGURED failure 422 field connectionKey links to Settings.

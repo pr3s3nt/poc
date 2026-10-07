@@ -43,7 +43,7 @@ UI dùng form có criteria từng dòng và JSON nâng cao cho variables/provisi
 | MS-06 | Repository/unique constraint bảo vệ Definition ID. |
 | MS-07 | `DriverContractInspector.Inspect` đối chiếu outputs với Resource Type. |
 | MS-08–MS-09 | Save Definition + criteria atomically và publish qua repository query. |
-| VAR-01/VAR-02 | Filter Definition by Application profile, then match criteria; driver type/connection khác nhau, service flow không đổi. |
+| VAR-01/VAR-02 | Filter Definition by Environment profile, then match criteria; driver type/connection khác nhau, service flow không đổi. |
 
 ## Transaction boundary
 
@@ -81,11 +81,11 @@ WorkloadRenderer port after output binding. UC-08 still executes resource-only
 batches. Kubernetes/Fleet apply/readiness and Environment route ownership stay
 in their existing adapters. No database transaction spans a CLI/external call.
 
-## Selected Application connection compatibility
+## Selected Environment connection compatibility
 
 Registration still validates explicit Connection ownership/readiness. At planning
 time, UC-06 BR-20 rejects a winning internal existing-cluster/Kubernetes
-Definition whose explicit Connection differs from the Application binding.
+Definition whose explicit Connection differs from the Environment binding.
 AWS Terraform VPC/EKS uses the same target-binding guard; external database
 Driver Accounts remain explicit. Specificity and tie handling remain unchanged; Platform Engineer supplies a
 matching Definition for a newly selected Connection.

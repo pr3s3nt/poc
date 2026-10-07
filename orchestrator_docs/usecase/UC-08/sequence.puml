@@ -25,7 +25,7 @@ loop Each provider-first batch [MS-09]
     ActiveResolver --> Service: Existing state
     Service -> BindingResolver: ResolveInputs(node, completedOutputs) [MS-03]
     BindingResolver --> Service: Resolved inputs
-    Service -> Service: Validate target Definition connection equals Application binding [BR-07]
+    Service -> Service: Validate target Definition connection equals Environment binding [BR-07]
     Service -> Registry: Resolve(driverType) [MS-04]
     Registry --> Service: ResourceExecutor
     Service -> Executor: Provision(resource, inputs, priorState) [MS-05]

@@ -21,7 +21,7 @@ database WorkloadInstanceRepository as WorkloadRepo
 Developer -> API: DeployWorkload(command)
 API -> Service: DeployWorkload(ctx, command)
 Service -> EnvRepo: LoadPlanningSnapshot(appID, envID) [MS-01]
-EnvRepo --> Service: Snapshot + version + persisted Application Connection
+EnvRepo --> Service: Snapshot + version + configured Environment Connection/profile/region/scope
 Service -> DeploymentRepo: Create(PLANNING, snapshot=NULL)
 DeploymentRepo --> Service: Deployment
 Service -> Planner: Plan(request) [MS-02..MS-08]
@@ -54,7 +54,7 @@ opt internal kind, direct deploy
 end
 Service -> EnvRepo: CompareVersionAndSetCurrent(version, candidateSet) <<transaction B>> [MS-12]
 Service -> WorkloadRepo: UpsertReady(instances) <<transaction B>>
-Service -> AppRepo: MarkRuntimeReadyIfCloud(applicationID) <<transaction B>>
+Service -> EnvRepo: MarkRuntimeReadyIfCloud(environmentID) <<transaction B>>
 Service -> DeploymentRepo: MarkSucceeded() <<transaction B>>
 Service --> API: DeploymentResult [MS-13]
 API --> Developer: SUCCEEDED

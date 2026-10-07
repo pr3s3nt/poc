@@ -6,7 +6,10 @@ package seed
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"reflect"
+	"strings"
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
@@ -203,8 +206,8 @@ func ResourceDefinitions(o Options) []resource.Definition {
 			DriverType:      resource.DriverTerraform,
 			ConnectionKey:   o.CloudConnectionKey,
 			DriverInputs: driverInputs("eks", map[string]any{
-				"name":               "${context.app.id}-${context.run.id}",
-				"subnet_ids":         "${resources['vpc.default#applications.@app'].outputs.subnetIds}",
+				"name":               "${context.infra.resourceName}",
+				"subnet_ids":         "${resources['vpc.default#@infra'].outputs.subnetIds}",
 				"kubernetes_version": cloud.KubernetesVersion,
 				"node_instance_type": cloud.NodeInstanceType,
 				"node_capacity_type": cloud.NodeCapacityType,
@@ -219,7 +222,7 @@ func ResourceDefinitions(o Options) []resource.Definition {
 			DriverType:      resource.DriverTerraform,
 			ConnectionKey:   o.CloudConnectionKey,
 			DriverInputs: driverInputs("vpc", map[string]any{
-				"name": "${context.app.id}-${context.run.id}",
+				"name": "${context.infra.resourceName}",
 				"cidr": cloud.VPCCidr,
 			}),
 			Criteria: []resource.Criterion{{}},
@@ -243,13 +246,13 @@ func ResourceDefinitions(o Options) []resource.Definition {
 			DriverType:       resource.DriverTerraform,
 			ConnectionKey:    o.CloudConnectionKey,
 			DriverInputs: driverInputs("aurora", map[string]any{
-				"name":           "${context.app.id}-${context.run.id}",
+				"name":           "${context.infra.resourceName}",
 				"engine_version": cloud.AuroraEngineVersion,
 				"min_capacity":   cloud.AuroraMinACU,
 				"max_capacity":   cloud.AuroraMaxACU,
-				"vpc_id":         "${resources['vpc.default#applications.@app'].outputs.id}",
-				"vpc_cidr":       "${resources['vpc.default#applications.@app'].outputs.cidr}",
-				"subnet_ids":     "${resources['vpc.default#applications.@app'].outputs.subnetIds}",
+				"vpc_id":         "${resources['vpc.default#@infra'].outputs.id}",
+				"vpc_cidr":       "${resources['vpc.default#@infra'].outputs.cidr}",
+				"subnet_ids":     "${resources['vpc.default#@infra'].outputs.subnetIds}",
 			}),
 			Criteria: []resource.Criterion{{}},
 		},
@@ -334,10 +337,8 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 			return err
 		}
 	}
-	for _, d := range ResourceDefinitions(o) {
-		if err := store.SaveResourceDefinition(ctx, o.OrganizationKey, d); err != nil {
-			return err
-		}
+	if err := refreshSeededDefinitions(ctx, store, o); err != nil {
+		return err
 	}
 
 	internalConnection := application.Connection{
@@ -376,9 +377,6 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		OrganizationKey: o.OrganizationKey,
 		Name:            o.ApplicationName,
 		Subdomain:       "acceptance",
-		Profile:         application.ProfileInternalK8s,
-		ConnectionKey:   o.ConnectionKey,
-		RuntimeStatus:   application.RuntimeReady,
 		Version:         1,
 	}
 	cloud := application.Application{
@@ -387,21 +385,23 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		OrganizationKey: o.OrganizationKey,
 		Name:            o.CloudApplicationName,
 		Subdomain:       "acceptance-cloud",
-		Profile:         application.ProfileAWSEKS,
-		ConnectionKey:   o.CloudConnectionKey,
-		Region:          o.Region,
-		RuntimeStatus:   application.RuntimePending,
 		Version:         1,
 	}
 
+	// The acceptance fixtures keep their historical target semantics: the
+	// Environment is bound once with LEGACY_APPLICATION infrastructure scope,
+	// exactly what the migration of an old bound Application produces.
 	type appEnv struct {
 		app       application.Application
 		namespace string
+		binding   persistence.EnvironmentBinding
 	}
-	pairs := []appEnv{{app: internal, namespace: o.NamespaceIdentity}}
+	pairs := []appEnv{{app: internal, namespace: o.NamespaceIdentity, binding: persistence.EnvironmentBinding{
+		ConnectionKey: o.ConnectionKey, Profile: application.ProfileInternalK8s, RuntimeStatus: application.RuntimeReady, Scope: environment.ScopeLegacyApplication}}}
 	if o.Region != "" {
 		// The cloud Application is only usable once a region is configured.
-		pairs = append(pairs, appEnv{app: cloud, namespace: o.CloudNamespaceIdentity})
+		pairs = append(pairs, appEnv{app: cloud, namespace: o.CloudNamespaceIdentity, binding: persistence.EnvironmentBinding{
+			ConnectionKey: o.CloudConnectionKey, Profile: application.ProfileAWSEKS, Region: o.Region, RuntimeStatus: application.RuntimePending, Scope: environment.ScopeLegacyApplication}})
 	}
 
 	for _, pair := range pairs {
@@ -417,7 +417,14 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 				return err
 			}
 		}
-		if _, err := store.GetEnvironment(ctx, pair.app.Key, o.EnvironmentKey); err == nil {
+		if existing, err := store.GetEnvironment(ctx, pair.app.Key, o.EnvironmentKey); err == nil {
+			if existing.Configured() {
+				continue
+			}
+			pair.binding.ApplicationKey, pair.binding.EnvironmentKey, pair.binding.ExpectedVersion = pair.app.Key, o.EnvironmentKey, existing.Version
+			if _, err := store.BindEnvironment(ctx, pair.binding); err != nil {
+				return err
+			}
 			continue
 		} else if !errors.Is(err, persistence.ErrNotFound) {
 			return err
@@ -450,11 +457,103 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 			if err := store.SaveDeploymentSet(ctx, emptySet); err != nil {
 				return err
 			}
-			return store.SaveEnvironment(ctx, env)
+			if err := store.SaveEnvironment(ctx, env); err != nil {
+				return err
+			}
+			pair.binding.ApplicationKey, pair.binding.EnvironmentKey, pair.binding.ExpectedVersion = pair.app.Key, o.EnvironmentKey, env.Version
+			_, err := store.BindEnvironment(ctx, pair.binding)
+			return err
 		})
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// refreshSeededDefinitions creates the missing seeded Definitions and upgrades
+// only the exact earlier seeded AWS infrastructure form. Every other existing
+// record is Platform-owned and is never rewritten: not a same-key Definition of
+// another type, not one that differs only in driver inputs, and not one that
+// carries a source fingerprint. An AWS record is upgraded only when it has no
+// fingerprint, is structurally the seeded record and its driver inputs equal a
+// known earlier seeded template exactly (ADR-011).
+func refreshSeededDefinitions(ctx context.Context, store persistence.Store, o Options) error {
+	existing, err := store.ListResourceDefinitions(ctx, o.OrganizationKey)
+	if err != nil {
+		return err
+	}
+	stored := map[string]resource.Definition{}
+	for _, d := range existing {
+		stored[d.Key] = d
+	}
+	for _, seeded := range ResourceDefinitions(o) {
+		current, found := stored[seeded.Key]
+		if found && !upgradableSeededAWS(current, seeded) {
+			continue
+		}
+		if err := store.SaveResourceDefinition(ctx, o.OrganizationKey, seeded); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func isInfrastructureKey(key string) bool {
+	return key == "vpc-aws" || key == "cluster-aws-eks" || key == "postgres-aws-aurora"
+}
+
+// upgradableSeededAWS reports whether current is an unmodified earlier seeded
+// AWS infrastructure Definition that differs from seeded only by its template.
+func upgradableSeededAWS(current, seeded resource.Definition) bool {
+	if !isInfrastructureKey(seeded.Key) || current.SourceFingerpr != "" || !sameStructure(current, seeded) {
+		return false
+	}
+	for _, old := range earlierInfrastructureInputs(seeded.DriverInputs) {
+		if sameValue(current.DriverInputs, old) {
+			return true
+		}
+	}
+	return false
+}
+
+// earlierInfrastructureInputs reconstructs the two earlier seeded driver
+// inputs from the current ones: the original application-scoped VPC reference
+// with the `<app>-<run>` name, and the interim `@infra` reference with the
+// `<infra.name>-<run>` name.
+func earlierInfrastructureInputs(inputs map[string]any) []map[string]any {
+	raw, err := json.Marshal(inputs)
+	if err != nil {
+		return nil
+	}
+	var out []map[string]any
+	for _, replacer := range []*strings.Replacer{
+		strings.NewReplacer("vpc.default#@infra", "vpc.default#applications.@app", "${context.infra.resourceName}", "${context.app.id}-${context.run.id}"),
+		strings.NewReplacer("${context.infra.resourceName}", "${context.infra.name}-${context.run.id}"),
+	} {
+		var decoded map[string]any
+		if json.Unmarshal([]byte(replacer.Replace(string(raw))), &decoded) == nil {
+			out = append(out, decoded)
+		}
+	}
+	return out
+}
+
+func sameStructure(a, b resource.Definition) bool {
+	return a.ResourceTypeKey == b.ResourceTypeKey && a.ExecutionProfile == b.ExecutionProfile && a.DriverType == b.DriverType &&
+		a.ConnectionKey == b.ConnectionKey && sameValue(a.Criteria, b.Criteria) && sameValue(a.Provision, b.Provision)
+}
+
+// sameValue compares two values by their canonical JSON form.
+func sameValue(a, b any) bool {
+	left, errLeft := json.Marshal(a)
+	right, errRight := json.Marshal(b)
+	if errLeft != nil || errRight != nil {
+		return false
+	}
+	var l, r any
+	if json.Unmarshal(left, &l) != nil || json.Unmarshal(right, &r) != nil {
+		return false
+	}
+	return reflect.DeepEqual(l, r)
 }

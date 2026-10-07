@@ -23,7 +23,7 @@ func (s *Service) selectRendering(ctx Context, graph Graph, matcher *definitionM
 		eligible := false
 		matchCtx := resource.MatchContext{EnvironmentType: ctx.Env.Type, ApplicationID: ctx.App.Key, EnvironmentID: ctx.Env.Key, ResourceID: descriptorID(node.Descriptor), Class: node.Class}
 		for _, def := range renderMatcher.list {
-			if def.ExecutionProfile != "" && def.ExecutionProfile != string(ctx.App.Profile) {
+			if def.ExecutionProfile != "" && def.ExecutionProfile != string(ctx.Env.Profile) {
 				continue
 			}
 			if _, _, ok := def.BestCriterion(matchCtx); ok {

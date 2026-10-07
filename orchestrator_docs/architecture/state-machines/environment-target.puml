@@ -1,0 +1,17 @@
+@startuml
+title Environment Connection - set once
+[*] --> UNCONFIGURED : new Application Environment
+UNCONFIGURED --> CONFIGURED : SetConnection(READY scoped key, expectedVersion)\nCAS unset + version; persist derived profile/region/scope
+CONFIGURED --> CONFIGURED : repeat/change/unset request rejected 409
+note right of CONFIGURED
+Immutable Connection/profile/region/scope.
+AWS runtime PENDING -> READY separately.
+Legacy binding migration enters CONFIGURED
+with LEGACY_APPLICATION scope.
+end note
+note left of UNCONFIGURED
+Draft/config edits are allowed.
+Preview/Deploy rejected 422.
+No default fallback.
+end note
+@enduml

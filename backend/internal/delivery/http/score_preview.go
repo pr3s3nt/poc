@@ -124,6 +124,9 @@ func safeDecodeMessage(err error) string {
 // Anything else is a generic retryable 500, and the raw error is not logged
 // because store or adapter errors may quote configuration content.
 func writeScorePreviewError(w http.ResponseWriter, err error) {
+	if writeUnconfigured(w, err) {
+		return
+	}
 	var public *preview.PublicError
 	switch {
 	case errors.Is(err, persistence.ErrNotFound):

@@ -1,41 +1,53 @@
 #!/usr/bin/env bash
-# Live, recorded UC-01 Application-level Connection selection on the existing
-# kind-idp-internal cluster (real Kubernetes adapters, no fakes or mocks).
+# Live, recorded UC-01 per-Environment Connection selection (ADR-011) on the
+# existing kind-idp-internal cluster (real Kubernetes adapters, no fakes or
+# mocks).
 #
-# A Platform Engineer uploads a kubeconfig (new READY nondefault Connection)
-# and registers the matching existing-cluster Definition; a Developer creates
-# an Application selecting that Connection, deploys the diagnostic acceptance
-# workloads with PostgreSQL and UC-12 references, and the browser checks the
-# deployed app. Every shown mutation is a UI action.
+# A Platform Engineer uploads the same kubeconfig twice (two READY nondefault
+# logical Connections) and registers the matching existing-cluster Definition
+# for staging's; a Developer creates an UNCONFIGURED Application, sees Preview
+# refuse it, sets staging and production to different Connections once in
+# Environment Settings (locked, still locked after a refresh and a backend
+# restart), deploys the diagnostic acceptance workloads to staging with
+# PostgreSQL and UC-12 references, and the browser checks the deployed app.
+# Every shown mutation is a UI action.
 #
-# Identity: the uploaded Connection and the seeded default point at the same
+# LIMIT: both logical Connections point at the same physical kind cluster and
+# credential, so this proves independent logical bindings and execution on the
+# selected one, not two physical clusters. Production is bound but not
+# deployed, so no production namespace or workload exists.
+#
+# Identity: the uploaded Connections and the seeded default point at the same
 # physical cluster and credential. To prove the uploaded credential drives
 # execution, the backend process runs with a private KUBECONFIG whose host
 # context carries an invalid token: any fallback to the host context fails.
 #
 # Safety: existing kind-idp-internal only; the current context is never
 # changed; every command passes --context. Only this run's namespace (label
-# checked) is deleted. The Connection credential goes to a run-owned Vault dev
+# checked) is deleted. The Connection credentials go to a run-owned Vault dev
 # container; the platform Vault is used as the runbook describes (scoped token
 # file consumed by path). Credential files live in a private directory that is
 # removed on exit. Evidence stays outside Git.
 #
-# Output: /tmp/poc-application-connection-live-review/<run id>/
-# (application-connection-kind-<run id>.mp4, marks.json, ffprobe.json,
-# frames/, checks.txt, run.json, logs).
+# Output: /tmp/poc-environment-connection-review/<run id>/
+# (environment-connection-kind-<run id>.mp4, marks.json, ffprobe.json,
+# frames/, checks.txt, run.json, persisted-binding.json, logs).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO="$(cd "${ROOT}/.." && pwd)"
-RUN_ID="appconn-kind-$(date -u +%Y%m%d%H%M%S)-${RANDOM}"
+RUN_ID="envconn-kind-$(date -u +%Y%m%d%H%M%S)-${RANDOM}"
 CONTEXT="kind-idp-internal"
 TOKEN_FILE="${VAULT_BACKEND_TOKEN_FILE:-/home/thanhnt1/.local/share/poc-vault/vault-uc12-backend-token}"
 SCREEN="${ORCH_VIDEO_SCREEN:-1440x900}"
 VAULT_IMAGE="${ORCH_VIDEO_VAULT_IMAGE:-hashicorp/vault:1.20}"
-VIDEO_NAME="application-connection-kind-${RUN_ID}.mp4"
-OUT_BASE="${ORCH_RESULT_DIR:-/tmp/poc-application-connection-live-review}"
+VIDEO_NAME="environment-connection-kind-${RUN_ID}.mp4"
+OUT_BASE="${ORCH_RESULT_DIR:-/tmp/poc-environment-connection-review}"
 VAULT_CONTAINER=""
 PIDS=()
+BACKEND_PID=""
+BROWSER_PGID=""
+NODE_PID=""
 
 WORK="${OUT_BASE}/${RUN_ID}"
 [[ ! -e "${WORK}" ]] || { echo "${WORK} already exists" >&2; exit 1; }
@@ -52,9 +64,42 @@ namespace_lookup() {
   kubectl --context "${CONTEXT}" get namespace "$1" --ignore-not-found -o name
 }
 
+# Only the session launched by this runner is terminated, including descendants.
+stop_browser_group() {
+  [[ -n "${BROWSER_PGID}" ]] || return 0
+  kill -TERM -- "-${BROWSER_PGID}" 2>/dev/null || true
+  for _ in $(seq 1 20); do
+    kill -0 -- "-${BROWSER_PGID}" 2>/dev/null || break
+    sleep 0.1
+  done
+  kill -KILL -- "-${BROWSER_PGID}" 2>/dev/null || true
+  [[ -z "${NODE_PID}" ]] || { wait "${NODE_PID}" 2>/dev/null || true; }
+  NODE_PID=""
+  if ps -eo pgid=,stat= | awk -v group="${BROWSER_PGID}" '$1 == group && $2 !~ /^Z/ { alive=1 } END { exit !alive }'; then
+    echo "cleanup: recording process group ${BROWSER_PGID} still running" >&2
+    return 1
+  fi
+  echo "cleanup: recording process group ${BROWSER_PGID} stopped"
+  BROWSER_PGID=""
+}
+
+stop_backend() {
+  [[ -n "${BACKEND_PID}" ]] || return 0
+  kill "${BACKEND_PID}" 2>/dev/null || true
+  for _ in $(seq 1 50); do
+    kill -0 "${BACKEND_PID}" 2>/dev/null || break
+    sleep 0.1
+  done
+  kill -KILL "${BACKEND_PID}" 2>/dev/null || true
+  wait "${BACKEND_PID}" 2>/dev/null || true
+  BACKEND_PID=""
+}
+
 cleanup() {
   local status=$?
   local pid
+  stop_browser_group || status=1
+  stop_backend
   for pid in "${PIDS[@]}"; do kill "${pid}" 2>/dev/null || true; done
   for pid in "${PIDS[@]}"; do wait "${pid}" 2>/dev/null || true; done
   if [[ -s "${WORK}/namespace" ]]; then
@@ -87,6 +132,16 @@ cleanup() {
       fi
     fi
   fi
+  if [[ -s "${WORK}/run.json" ]]; then
+    local production_ns present_production
+    production_ns="app-$(jq -r .applicationId "${WORK}/run.json")-production"
+    if present_production="$(namespace_lookup "${production_ns}")" && [[ -z "${present_production}" ]]; then
+      echo "cleanup: production namespace ${production_ns} absent (never created)" >> "${WORK}/cleanup.txt"
+    else
+      echo "cleanup: production namespace ${production_ns} unexpectedly present or lookup failed" >&2
+      status=1
+    fi
+  fi
   if [[ -n "${VAULT_CONTAINER}" ]]; then docker rm -f "${VAULT_CONTAINER}" >/dev/null 2>&1 || true; fi
   rm -rf "${PRIVATE}"
   rm -f "${WORK}/state.json"
@@ -117,6 +172,7 @@ video_require_tools
 video_require_fresh_dist "${REPO}"
 XDOTOOL="$(video_xdotool)"
 command -v docker >/dev/null
+command -v setsid >/dev/null
 kubectl config get-contexts -o name | grep -qx "${CONTEXT}"
 kubectl --context "${CONTEXT}" version -o json >/dev/null
 umask 077
@@ -193,38 +249,72 @@ done
 go build -o "${WORK}/orchestrator" ./cmd/orchestrator
 kill -0 "${VAULT_PF_PID}" 2>/dev/null
 
-env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_VAULT_ADDR -u ORCHESTRATOR_VAULT_TOKEN_FILE \
-  -u ORCHESTRATOR_VAULT_AGENT_ADDR -u ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE -u ORCHESTRATOR_CONNECTION_VAULT_ADDR \
-  -u ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE -u TF_PLUGIN_CACHE_DIR -u AWS_PROFILE -u AWS_REGION -u AWS_DEFAULT_REGION \
-  -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN \
-  KUBECONFIG="${HOSTCFG}" \
-  "${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" -state "${WORK}/state.json" -database-url-file "" \
-  -adapters kubernetes -kube-context "${CONTEXT}" -cluster idp-internal -run-id "${RUN_ID}" \
-  -vault-address "${PLATFORM_VAULT}" -vault-token-file "${TOKEN_FILE}" \
-  -vault-agent-address http://vault-uc12.vault.svc:8200 -vault-delivery vso \
-  -connection-credential-store vault -connection-vault-address "${CONN_VAULT}" \
-  -connection-vault-token-file "${PRIVATE}/connection-vault-token" -connection-vault-mount secret \
-  -ui-dir "${REPO}/frontend/dist" > "${WORK}/orchestrator.log" 2>&1 &
-PIDS+=($!)
-for _ in $(seq 1 80); do [[ -s "${WORK}/api-addr" ]] && break; sleep 0.5; done
-[[ -s "${WORK}/api-addr" ]] || { echo "backend did not start; see ${WORK}/orchestrator.log" >&2; exit 1; }
-API="http://$(<"${WORK}/api-addr")"
-for _ in $(seq 1 40); do curl -fsS "${API}/api/v1/healthz" >/dev/null 2>&1 && break; sleep 0.5; done
-curl -fsS "${API}/api/v1/healthz" >/dev/null
+API_PORT="$(node -e 'const s=require("net").createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close()})')"
+# start_backend <label>: the same flags and JSON state every time, so a restart
+# reads the persisted Environment bindings back.
+start_backend() {
+  local label="$1"
+  rm -f "${WORK}/api-addr"
+  env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_VAULT_ADDR -u ORCHESTRATOR_VAULT_TOKEN_FILE \
+    -u ORCHESTRATOR_VAULT_AGENT_ADDR -u ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE -u ORCHESTRATOR_CONNECTION_VAULT_ADDR \
+    -u ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE -u TF_PLUGIN_CACHE_DIR -u AWS_PROFILE -u AWS_REGION -u AWS_DEFAULT_REGION \
+    -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN \
+    KUBECONFIG="${HOSTCFG}" \
+    "${WORK}/orchestrator" -addr "127.0.0.1:${API_PORT}" -addr-file "${WORK}/api-addr" -state "${WORK}/state.json" -database-url-file "" \
+    -adapters kubernetes -kube-context "${CONTEXT}" -cluster idp-internal -run-id "${RUN_ID}" \
+    -vault-address "${PLATFORM_VAULT}" -vault-token-file "${TOKEN_FILE}" \
+    -vault-agent-address http://vault-uc12.vault.svc:8200 -vault-delivery vso \
+    -connection-credential-store vault -connection-vault-address "${CONN_VAULT}" \
+    -connection-vault-token-file "${PRIVATE}/connection-vault-token" -connection-vault-mount secret \
+    -ui-dir "${REPO}/frontend/dist" >> "${WORK}/orchestrator-${label}.log" 2>&1 &
+  BACKEND_PID=$!
+  for _ in $(seq 1 80); do [[ -s "${WORK}/api-addr" ]] && break; sleep 0.5; done
+  [[ -s "${WORK}/api-addr" ]] || { echo "backend did not start; see ${WORK}/orchestrator-${label}.log" >&2; return 1; }
+  for _ in $(seq 1 40); do curl -fsS "http://127.0.0.1:${API_PORT}/api/v1/healthz" >/dev/null 2>&1 && return 0; sleep 0.5; done
+  echo "backend is not healthy" >&2
+  return 1
+}
+
+start_backend first
+API="http://127.0.0.1:${API_PORT}"
 
 video_start_xvfb "${SCREEN}"
-DISPLAY="${VIDEO_DISPLAY}" ORCH_E2E_SCREEN="${SCREEN}" ORCH_E2E_XDOTOOL="${XDOTOOL}" \
+setsid env DISPLAY="${VIDEO_DISPLAY}" ORCH_E2E_SCREEN="${SCREEN}" ORCH_E2E_XDOTOOL="${XDOTOOL}" \
   ORCH_E2E_URL="${API}" ORCH_E2E_RUN_ID="${RUN_ID}" ORCH_E2E_KUBE_CONTEXT="${CONTEXT}" \
   ORCH_E2E_NAMESPACE_FILE="${WORK}/namespace" ORCH_E2E_EVIDENCE_DIR="${WORK}" \
   ORCH_E2E_KUBECONFIG_FILE="${UPLOAD}" ORCH_E2E_VIDEO_NAME="${VIDEO_NAME}" \
-  node "${REPO}/frontend/test/e2e/application-connection-kind-human.mjs" 2>&1 | tee "${WORK}/playwright.log"
-[[ "${PIPESTATUS[0]}" == "0" ]]
+  node "${REPO}/frontend/test/e2e/application-connection-kind-human.mjs" > "${WORK}/playwright.log" 2>&1 &
+NODE_PID=$!
+BROWSER_PGID=${NODE_PID}
+BROWSER_DEADLINE=$((SECONDS + 1200))
+# The browser flow asks the runner to restart the API (same flags, state file
+# and port) once both bindings are locked, then continues after a refresh.
+while kill -0 "${NODE_PID}" 2>/dev/null; do
+  (( SECONDS < BROWSER_DEADLINE )) || { echo "browser flow exceeded 1200 seconds" >&2; exit 1; }
+  if [[ -e "${WORK}/restart-request" ]]; then
+    rm -f "${WORK}/restart-request"
+    stop_backend
+    start_backend restarted
+    note "restart: API restarted on the same state file and port"
+    : > "${WORK}/restart-done"
+  fi
+  sleep 0.5
+done
+browser_status=0
+wait "${NODE_PID}" || browser_status=$?
+NODE_PID=""
+cat "${WORK}/playwright.log"
+(( browser_status == 0 )) || exit "${browser_status}"
+stop_browser_group
+sleep 1
 
 # Observer assertions on the live cluster and persisted state.
 NS="$(<"${WORK}/namespace")"
 APP="$(jq -r .applicationId "${WORK}/run.json")"
-KEY="$(jq -r .connectionKey "${WORK}/run.json")"
-[[ "${KEY}" =~ ^[a-z0-9-]+$ && "${KEY}" != "internal-cluster" ]]
+STAGING_KEY="$(jq -r .stagingKey "${WORK}/run.json")"
+PRODUCTION_KEY="$(jq -r .productionKey "${WORK}/run.json")"
+[[ "${STAGING_KEY}" =~ ^[a-z0-9-]+$ && "${STAGING_KEY}" != "internal-cluster" ]]
+[[ "${PRODUCTION_KEY}" =~ ^[a-z0-9-]+$ && "${PRODUCTION_KEY}" != "internal-cluster" && "${PRODUCTION_KEY}" != "${STAGING_KEY}" ]]
 kubectl --context "${CONTEXT}" get namespace "${NS}" -o jsonpath='{.metadata.labels}' > "${WORK}/namespace-labels.json"
 kubectl --context "${CONTEXT}" -n "${NS}" get deployment,statefulset,service,pod -o wide > "${WORK}/k8s-workloads.txt"
 for deployment in backend frontend; do
@@ -235,19 +325,55 @@ done
 kubectl --context "${CONTEXT}" -n "${NS}" get service backend frontend -o name | sed 's/^/k8s: /' | tee -a "${WORK}/checks.txt"
 [[ -z "$(kubectl --context "${CONTEXT}" -n "${NS}" get pod --no-headers | grep -v -E ' (Running|Completed) ' || true)" ]]
 note "k8s: all pods in ${NS} Running/Completed"
-# Persisted Application and Active Resource bindings (names/keys only).
+PRODUCTION_NS="app-${APP}-production"
+[[ -z "$(namespace_lookup "${PRODUCTION_NS}")" ]]
+note "k8s: production namespace ${PRODUCTION_NS} does not exist (production is bound but not deployed)"
+
+# Persisted Environment bindings, Application and Active Resources (names/keys only).
 node -e '
-  const [path, app, key] = process.argv.slice(1);
+  const [path, app, stagingKey, productionKey] = process.argv.slice(1);
   const state = JSON.parse(require("fs").readFileSync(path, "utf8"));
-  const apps = Object.values(state.applications ?? {}).filter((a) => JSON.stringify(a).includes(app));
-  const found = apps.find((a) => (a.id ?? a.ID ?? a.Id) === app || a.connectionKey || a.ConnectionKey);
-  const conn = found && (found.connectionKey ?? found.ConnectionKey);
+  const application = state.applications?.[app];
+  const staging = state.environments?.[`${app}/staging`];
+  const production = state.environments?.[`${app}/production`];
+  const fail = (message) => { console.error(message); process.exit(1); };
+  if (!application || application.connectionKey || application.executionProfile || application.region) fail("the Application must carry no execution target");
+  const check = (env, key, label) => {
+    if (!env || env.connectionKey !== key || env.executionProfile !== "internal-k8s" || env.runtimeStatus !== "READY" || env.infrastructureScope !== "ENVIRONMENT") fail(`${label} binding is not the selected locked Environment binding`);
+  };
+  check(staging, stagingKey, "staging");
+  check(production, productionKey, "production");
   const active = Object.entries(state.activeResources ?? {}).filter(([k]) => k.includes(app));
-  const out = { applicationConnection: conn, activeResources: active.map(([k, v]) => ({ id: k.split("|")[1], connectionKey: v.connectionKey })) };
-  console.log(JSON.stringify(out));
-  if (conn !== key || !active.length || active.some(([, v]) => v.connectionKey !== key)) process.exit(1);
-' "${WORK}/state.json" "${APP}" "${KEY}" | tee "${WORK}/persisted-binding.json"
-note "persisted: Application and every Active Resource bound to ${KEY}"
+  if (!active.length) fail("no staging Active Resources");
+  if (active.some(([, v]) => v.connectionKey !== stagingKey)) fail("an Active Resource is not bound to the staging Connection");
+  const everything = Object.entries(state.activeResources ?? {});
+  if (everything.some(([k, v]) => k.includes(`connections.${productionKey}`) || v.connectionKey === productionKey)) fail("production Connection executed something");
+  const instances = Object.values(state.workloadInstances ?? {}).filter((w) => JSON.stringify(w).includes(app));
+  if (!instances.length || instances.some((w) => w.targetRef?.connection !== stagingKey)) fail("workload TargetRef is not the staging Connection");
+  const deployments = Object.values(state.deployments ?? {}).filter((d) => d.applicationKey === app);
+  if (!deployments.length || deployments.some((d) => d.environmentKey !== "staging" || d.executionProfile !== "internal-k8s")) fail("unexpected deployments");
+  console.log(JSON.stringify({
+    application: { connectionKey: application.connectionKey ?? "", executionProfile: application.executionProfile ?? "" },
+    environments: { staging: { connectionKey: staging.connectionKey, version: staging.version, scope: staging.infrastructureScope }, production: { connectionKey: production.connectionKey, version: production.version, scope: production.infrastructureScope } },
+    activeResources: active.map(([k, v]) => ({ id: k.split("|")[1], connectionKey: v.connectionKey })),
+    workloadTargetConnections: [...new Set(instances.map((w) => w.targetRef.connection))],
+    deployments: deployments.map((d) => ({ environment: d.environmentKey, status: d.status })),
+  }));
+' "${WORK}/state.json" "${APP}" "${STAGING_KEY}" "${PRODUCTION_KEY}" | tee "${WORK}/persisted-binding.json"
+note "persisted: Application unbound; staging=${STAGING_KEY} production=${PRODUCTION_KEY} locked; every Active Resource and workload TargetRef bound to ${STAGING_KEY}"
+
+# Final API read-back after the restart: both bindings are served and a repeat set is refused.
+curl -fsS -c "${PRIVATE}/jar" -H 'Content-Type: application/json' -d '{"username":"developer","password":"test-password"}' "${API}/api/v1/auth/sign-in" >/dev/null
+curl -fsS -b "${PRIVATE}/jar" "${API}/api/v1/applications/${APP}" > "${WORK}/application-view.json"
+[[ "$(jq -r '.application.environments[] | select(.key=="staging") | .connectionKey' "${WORK}/application-view.json")" == "${STAGING_KEY}" ]]
+[[ "$(jq -r '.application.environments[] | select(.key=="production") | .connectionKey' "${WORK}/application-view.json")" == "${PRODUCTION_KEY}" ]]
+[[ "$(jq -r '[.application.environments[] | select(.configured == true)] | length' "${WORK}/application-view.json")" == "2" ]]
+for environment in staging production; do
+  status="$(curl -s -o "${WORK}/repeat-${environment}.json" -w '%{http_code}' -b "${PRIVATE}/jar" -X PUT -H 'Content-Type: application/json' \
+    -d "{\"connectionKey\":\"internal-cluster\",\"expectedVersion\":1}" "${API}/api/v1/applications/${APP}/environments/${environment}/connection")"
+  [[ "${status}" == "409" && "$(jq -r .code "${WORK}/repeat-${environment}.json")" == "ALREADY_CONFIGURED" ]]
+done
+note "api: both bindings served after restart; repeat sets answer 409 ALREADY_CONFIGURED"
 # The uploaded credential must not appear in any evidence file.
 node -e '
   const fs = require("fs");
@@ -259,8 +385,12 @@ node -e '
     if (values.some((v) => text.includes(v))) { console.error(`credential material found in ${file}`); process.exit(1); }
   }
   console.log(`no-credential-in-artifacts files=${files.length} values=${values.length}`);
-' "${UPLOAD}" "${WORK}/orchestrator.log" "${WORK}/playwright.log" "${WORK}/run.json" "${WORK}/marks.json" "${WORK}/state.json" "${WORK}/k8s-workloads.txt" "${WORK}/checks.txt" | tee -a "${WORK}/checks.txt"
+' "${UPLOAD}" "${WORK}/orchestrator-first.log" "${WORK}/orchestrator-restarted.log" "${WORK}/playwright.log" "${WORK}/run.json" "${WORK}/marks.json" "${WORK}/state.json" "${WORK}/k8s-workloads.txt" "${WORK}/checks.txt" "${WORK}/application-view.json" "${WORK}/persisted-binding.json" | tee -a "${WORK}/checks.txt"
 [[ "$(kubectl config current-context)" == "${CURRENT_BEFORE}" ]]
 note "current kubectl context unchanged: ${CURRENT_BEFORE}"
+# Record the run for the result report (no credential material).
+jq -n --arg run "${RUN_ID}" --arg app "${APP}" --arg staging "${STAGING_KEY}" --arg production "${PRODUCTION_KEY}" --arg ns "${NS}" \
+  '{runId:$run, applicationId:$app, stagingConnection:$staging, productionConnection:$production, stagingNamespace:$ns, limit:"both logical Connections point at the same physical kind cluster"}' > "${WORK}/summary.json"
 
-video_validate "${WORK}/${VIDEO_NAME}" "${SCREEN}" "${ORCH_VIDEO_MIN_SECONDS:-300}" 18 job-submitted
+stop_backend
+video_validate "${WORK}/${VIDEO_NAME}" "${SCREEN}" "${ORCH_VIDEO_MIN_SECONDS:-420}" 30 job-submitted

@@ -29,8 +29,10 @@ type RuntimeStatus string
 
 // Application runtime statuses.
 const (
-	RuntimePending RuntimeStatus = "PENDING"
-	RuntimeReady   RuntimeStatus = "READY"
+	// RuntimeUnconfigured is an Environment whose target is not set yet.
+	RuntimeUnconfigured RuntimeStatus = "UNCONFIGURED"
+	RuntimePending      RuntimeStatus = "PENDING"
+	RuntimeReady        RuntimeStatus = "READY"
 )
 
 // Organization is the ownership boundary of every other aggregate.
@@ -41,7 +43,10 @@ type Organization struct {
 	DefaultConnectionKey string `json:"defaultConnectionKey"`
 }
 
-// Application owns exactly one Execution Profile and, for aws-eks, the VPC/EKS scope.
+// Application owns identity and configuration provider. Profile, ConnectionKey,
+// Region and RuntimeStatus are legacy data of Applications created before
+// ADR-011: new Applications keep them empty (UNCONFIGURED) and every execution
+// target belongs to an Environment.
 type Application struct {
 	ID                    string           `json:"id"`
 	Key                   string           `json:"key"`
@@ -66,11 +71,15 @@ func (a Application) Validate() error {
 	if a.Subdomain != "" && !dnsLabelPattern.MatchString(a.Subdomain) {
 		return fmt.Errorf("application: invalid subdomain %q", a.Subdomain)
 	}
+	if a.ConnectionKey == "" {
+		// New Application (ADR-011): no legacy target at all.
+		if a.Profile != "" || a.Region != "" {
+			return fmt.Errorf("application: application %q has a target without a connection", a.Key)
+		}
+		return nil
+	}
 	if !a.Profile.Valid() {
 		return fmt.Errorf("application: invalid execution profile %q", a.Profile)
-	}
-	if a.ConnectionKey == "" {
-		return fmt.Errorf("application: application %q has no connection", a.Key)
 	}
 	if a.Profile == ProfileAWSEKS && a.Region == "" {
 		return fmt.Errorf("application: aws-eks application %q needs a region", a.Key)

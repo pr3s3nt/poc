@@ -130,18 +130,22 @@ func Load(root, name string) (*Case, error) {
 		Key:             appKey,
 		OrganizationKey: stringAt(context, "org_id"),
 		Name:            appKey,
-		Profile:         application.ProfileInternalK8s,
-		ConnectionKey:   syntheticConnectionKey,
-		RuntimeStatus:   application.RuntimeReady,
 		Version:         1,
 	}
+	// Explicit legacy compatibility context: the fixtures predate the
+	// Environment-owned binding and are planned as a migrated LEGACY_APPLICATION
+	// binding. This is test-only; the product never falls back to a target.
 	env := environment.Environment{
-		Key:               envKey,
-		ApplicationKey:    appKey,
-		Name:              envKey,
-		Type:              stringAt(context, "env_type"),
-		NamespaceIdentity: syntheticNamespace,
-		Version:           1,
+		ConnectionKey:       syntheticConnectionKey,
+		Profile:             application.ProfileInternalK8s,
+		RuntimeStatus:       application.RuntimeReady,
+		InfrastructureScope: environment.ScopeLegacyApplication,
+		Key:                 envKey,
+		ApplicationKey:      appKey,
+		Name:                envKey,
+		Type:                stringAt(context, "env_type"),
+		NamespaceIdentity:   syntheticNamespace,
+		Version:             1,
 	}
 	planCtx := planning.Context{OrganizationKey: app.OrganizationKey, App: app, Env: env}
 

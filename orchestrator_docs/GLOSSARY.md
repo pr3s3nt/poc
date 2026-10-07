@@ -12,8 +12,8 @@ last_reviewed: 2026-09-23
 | Organization | Biên sở hữu Application, Resource Type, Resource Definition và Connection. |
 | User Account | Internal account thuộc một Organization, có username, password hash, role và status. |
 | Session | Opaque authenticated session gắn với User Account; database chỉ lưu token hash. |
-| Application | Đơn vị ứng dụng sở hữu một Execution Profile cố định; với `aws-eks`, đây cũng là scope VPC/EKS. |
-| Environment | Môi trường thuộc một Application, có current Deployment Set và namespace identity riêng. |
+| Application | Đơn vị ứng dụng sở hữu identity và configuration provider; execution binding thuộc Environment. |
+| Environment | Môi trường thuộc Application, có set-once Connection/Profile/region, current Deployment Set và namespace riêng; AWS mới có VPC/EKS riêng. |
 | Execution Profile | Chính sách `aws-eks` hoặc `internal-k8s`, quyết định target và tập Definition phù hợp. |
 | Connection | Metadata và secret reference dùng để truy cập AWS identity hoặc Kubernetes target đã đăng ký. |
 | Score | Tài liệu khai báo desired state của đúng một workload. |

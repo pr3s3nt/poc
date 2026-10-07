@@ -29,3 +29,14 @@ UC-04 upload gap IMP-015 was resolved on 2026-10-06 after parser/error/restart
 review corrections, isolated PostgreSQL verification and the
 [reviewed upload recording](../verification/2026-10-06-uc04-kubeconfig-upload.md).
 AWS onboarding remains in IMP-002 and the specification's later delivery scope.
+
+## IMP-016 — Environment connection design transition (resolved 2026-10-07)
+
+User replaced Application binding with Environment Settings set-once, including
+AWS Environment scopes. Canonical [ADR-011](../architecture/decisions/ADR-011-environment-execution-binding.md)
+and UC-01 specify the new behavior. Code, migration and UI implement that design;
+live kind verification and final local gates passed. Seed preservation assertions
+now compare deterministic complete JSON values; the recording runner terminates
+its owned browser process group and bounds the flow/restart waits.
+See [reviewed evidence](../verification/2026-10-07-environment-connection-kind.md).
+No remaining design/code deviation is tracked by this transition record.

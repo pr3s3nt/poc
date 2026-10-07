@@ -24,10 +24,7 @@ func previewScore(name string) map[string]any {
 func TestUC05ScorePreviewHTTP(t *testing.T) {
 	server, _, app := newServerApp(t, "")
 	client := authenticatedClient(t, server.URL)
-	status, created := requestJSON(t, client, http.MethodPost, server.URL+"/api/v1/applications", map[string]any{"name": "Preview Test", "subdomain": "preview-test"})
-	if status != http.StatusCreated {
-		t.Fatalf("create Application: %d %v", status, created)
-	}
+	created := createConfiguredApplication(t, client, server.URL, "Preview Test", "preview-test", "internal-cluster")
 	key := created["application"].(map[string]any)["key"].(string)
 	base := server.URL + "/api/v1/applications/" + key + "/environments/staging"
 	endpoint := base + "/score-preview"
@@ -141,7 +138,8 @@ func TestUC05ScorePreviewHTTP(t *testing.T) {
 	t.Run("not ready connection is a safe 400", func(t *testing.T) {
 		ctx := context.Background()
 		a, _ := app.Store.GetApplication(ctx, key)
-		conn, _ := app.Store.GetConnection(ctx, a.OrganizationKey, a.ConnectionKey)
+		e, _ := app.Store.GetEnvironment(ctx, key, "staging")
+		conn, _ := app.Store.GetConnection(ctx, a.OrganizationKey, e.ConnectionKey)
 		saved := conn
 		conn.Status = appdomain.ConnectionVerifying
 		if err := app.Store.SaveConnection(ctx, conn); err != nil {

@@ -31,7 +31,7 @@ var (
 	ErrInvalidScore = errors.New("preview: invalid Score")
 	// ErrPlanningRejected reports a catalog-side planning failure.
 	ErrPlanningRejected = errors.New("preview: planning rejected")
-	// ErrNotReady reports that the Application connection is not READY.
+	// ErrNotReady reports that the Environment connection is not READY.
 	ErrNotReady = errors.New("preview: connection not ready")
 )
 
@@ -123,7 +123,7 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 	}
 	snapshot, err := appsvc.LoadPlanningSnapshot(ctx, s.store, q.OrganizationKey, q.ApplicationKey, q.EnvironmentKey)
 	if errors.Is(err, appsvc.ErrConnectionNotReady) {
-		return nil, public(ErrNotReady, "the Application connection is not READY; ask a platform engineer to verify it")
+		return nil, public(ErrNotReady, "the Environment connection is not READY; ask a platform engineer to verify it")
 	}
 	if err != nil {
 		return nil, err

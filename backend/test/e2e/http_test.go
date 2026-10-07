@@ -588,3 +588,22 @@ func TestHTTPDeploymentReadsOnPostgres(t *testing.T) {
 		t.Fatalf("cross-environment detail = %d", status)
 	}
 }
+
+// createConfiguredApplication creates an Application over HTTP (name and
+// subdomain only) and sets the same Connection on staging and production
+// through the set-once endpoint, as a Developer would in Environment Settings.
+func createConfiguredApplication(t *testing.T, client *http.Client, baseURL, name, subdomain, connectionKey string) map[string]any {
+	t.Helper()
+	status, created := requestJSON(t, client, http.MethodPost, baseURL+"/api/v1/applications", map[string]any{"name": name, "subdomain": subdomain})
+	if status != http.StatusCreated {
+		t.Fatalf("create Application: %d %v", status, created)
+	}
+	app := created["application"].(map[string]any)
+	for _, env := range app["environments"].([]any) {
+		view := env.(map[string]any)
+		if status, out := requestJSON(t, client, http.MethodPut, baseURL+"/api/v1/applications/"+app["key"].(string)+"/environments/"+view["key"].(string)+"/connection", map[string]any{"connectionKey": connectionKey, "expectedVersion": view["version"]}); status != http.StatusOK {
+			t.Fatalf("set %s connection: %d %v", view["key"], status, out)
+		}
+	}
+	return created
+}

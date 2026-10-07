@@ -20,11 +20,9 @@ PostgreSQL là system of record cho logical orchestration state. JSONB chỉ dù
 | `name` | text | NOT NULL |
 | `default_connection_id` | uuid | FK connections, NOT NULL for onboarding-enabled Organization |
 
-The default connection is platform configuration. UC-01 preselects it in the UI
-and resolves it server-side only for requests omitting connectionKey. A Developer
-may select another READY Connection in the same Organization. The existing
-applications.connection_id stores that binding for all Environments; no new
-column or migration is required.
+The Organization default is only a marker in Environment Settings choices.
+UC-01 creates UNCONFIGURED Environments and never resolves a default. Target
+is set exactly once per Environment; see [ADR-011](../decisions/ADR-011-environment-execution-binding.md).
 
 ### `user_accounts`
 
@@ -93,10 +91,10 @@ See [credential design](../connection-credentials.md).
 | `organization_id` | uuid | FK organizations |
 | `name` | text | NOT NULL |
 | `subdomain` | text | normalized DNS label, NOT NULL |
-| `execution_profile` | text | `aws-eks` or `internal-k8s` |
-| `connection_id` | uuid | FK connections |
-| `region` | text | required for `aws-eks` |
-| `runtime_status` | text | `PENDING` or `READY` |
+| `execution_profile` | text | legacy only: `aws-eks`/`internal-k8s`; empty for new unbound Application |
+| `connection_id` | uuid | nullable FK connections; retained legacy binding, NULL for new Application |
+| `region` | text | legacy only; empty for new Application |
+| `runtime_status` | text | legacy PENDING/READY; UNCONFIGURED for new Application |
 | `version` | bigint | optimistic version |
 | `configuration_provider` | text | `vault` in the first implementation; one provider per Application |
 
@@ -114,6 +112,11 @@ unique globally within the configured platform base domain.
 | `environment_key` | text | NOT NULL |
 | `name`, `environment_type` | text | NOT NULL |
 | `namespace_identity` | text | NOT NULL |
+| `connection_id` | uuid | nullable FK connections; NULL means UNCONFIGURED, never inherit Organization default |
+| `execution_profile` | text | empty while unset, else aws-eks/internal-k8s derived from selected Connection |
+| `region` | text | empty while unset/internal; nonempty for configured AWS |
+| `runtime_status` | text | UNCONFIGURED, PENDING (AWS not provisioned), READY |
+| `infrastructure_scope` | text | ENVIRONMENT for new, LEGACY_APPLICATION only for migrated bindings |
 | `current_deployment_set_id` | uuid | nullable FK deployment_sets, deferred |
 | `version` | bigint | optimistic version |
 | `draft_version` | bigint | optimistic UC-16 draft version |
@@ -122,7 +125,15 @@ unique globally within the configured platform base domain.
 
 `environment_key` is system-owned and limited to `staging` or `production`.
 Unique: `(application_id, environment_key)` and `(application_id, namespace_identity)`.
-The application-creation transaction inserts exactly those two rows.
+The application-creation transaction inserts exactly those two rows, unset.
+
+SetConnection uses an atomic unset + version compare-and-set within the owning
+Organization; increments version and freezes connection/profile/region/scope.
+Normal Save and runtime updates cannot replace binding. Migration copies old
+Application targets into old Environments exactly once and locks them with
+LEGACY_APPLICATION; an idempotent rerun leaves new unbound rows unconfigured.
+Retain old AWS resource identity/state and all old namespace/workload TargetRefs.
+JSON loader applies equivalent legacy conversion only for old bound apps.
 
 ### `configuration_revisions`
 
@@ -351,3 +362,14 @@ and therefore its plan hash. Resource Definition driver_type is text; inputs and
 source fingerprint retain existing storage. No new table/column or secret storage
 is introduced. Pending Preview hashes bind the rendering intent through existing
 per-workload plan hashes. Logical resource and workload identities are unchanged.
+
+## Environment target migration constraints (ADR-011)
+
+Nullable legacy applications.connection_id is preserved; new Applications write
+NULL connection, empty profile/region, runtime UNCONFIGURED. Add Environment target
+columns with empty profile/region, UNCONFIGURED runtime, ENVIRONMENT scope defaults.
+Backfill only unset Environments whose Application has non-NULL legacy connection;
+copy all target fields and mark LEGACY_APPLICATION. Reopen is idempotent.
+Consistency CHECK and immutable binding trigger protect configured connection,
+profile, region and scope. Runtime status/version updates remain legal. Atomic
+SetConnection verifies ownership and READY selection plus unset/expected version.

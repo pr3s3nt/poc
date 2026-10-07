@@ -103,8 +103,9 @@ shared classes; [Connection ERD](database/erd.puml) contains scalar identity.
 
 ## Consumption and compatibility choices
 
-UC-01 continues selecting Organization default; UC-04 does not add a Developer
-connection picker. A new Connection can be consumed by registering an
+UC-01 Environment Settings selects a READY Connection once, without default
+fallback. Each Environment owns profile/region and credential identity (ADR-011).
+A new Connection also requires registering an
 `existing-cluster` Resource Definition with its Connection key and matching
 criteria for the desired Application/Environment (UC-03). Existing seed
 Definition remains untouched. For uploaded records, the selected context in

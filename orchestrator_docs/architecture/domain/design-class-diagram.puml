@@ -13,6 +13,7 @@ package "Application Services" {
   class ApplicationService {
     +CreateApplication(ctx, cmd): Application
     +ListApplicationConnections(ctx, organization): SafeChoices
+    +SetConnection(ctx, cmd): Environment
   }
   class ResourceTypeService {
     +RegisterResourceType(ctx, cmd): ResourceType
@@ -107,12 +108,16 @@ package "Domain" {
     +ID: ApplicationID
     +Name: string
     +Subdomain: string
-    +Profile: ExecutionProfile
-    +RuntimeStatus: ApplicationRuntimeStatus
+    +ConfigurationProvider: string
   }
   class Environment <<aggregate>> {
     +ID: EnvironmentID
     +DesiredEndpoint(): Hostname
+    +ConnectionKey: string
+    +Profile: ExecutionProfile
+    +Region: string
+    +RuntimeStatus: EnvironmentRuntimeStatus
+    +InfrastructureScope: InfrastructureScope
     +Namespace: NamespaceIdentity
     +Version: int64
   }
@@ -223,7 +228,7 @@ PlanningService --> ActiveResourceClassifier
 
 Organization "1" o-- "0..*" Application
 Application "1" *-- "0..*" Environment
-Application --> Connection
+Environment --> Connection : set once
 Environment "1" --> "1" DeploymentSet : current
 Environment "1" o-- "0..*" Deployment
 Deployment "1" *-- "1" DeploymentPlan
@@ -244,7 +249,8 @@ ContainerResourceRequirements *-- ComputeResources
 ApplicationService --> ApplicationRepository
 ApplicationService --> EnvironmentRepository
 ApplicationService --> ConnectionRepository
-ApplicationService --> DefaultExecutionTargetResolver
+ApplicationService --> EnvironmentRepository : SetConnection once
+ApplicationService --> ConnectionRepository : scoped validation
 AuthenticationService --> PasswordHasher
 AuthenticationService --> UserAccountRepository
 AuthenticationService --> SessionRepository

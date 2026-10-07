@@ -93,9 +93,9 @@ Container resource requests/limits (UC-05 BR-07, UC-06 BR-11):
 Nếu path/module thay đổi, cập nhật map này cùng imports, build tooling, runbook và
 links trong cùng logical change.
 
-## UC-01 selected Application connection (2026-10-07)
+## Connection selection implementation paths (2026-10-07)
 
-- [Creation and safe choices](../../backend/internal/application/application/service.go),
+- [Application creation and safe choices](../../backend/internal/application/application/service.go),
   [HTTP views/endpoints](../../backend/internal/delivery/http/server.go),
   [Create UI](../../frontend/src/features/applications/CreateApplicationPage.tsx),
   [target label](../../frontend/src/shared/ui/ApplicationTarget.tsx).
@@ -110,3 +110,15 @@ links trong cùng logical change.
   and [human UI scenario](../../frontend/test/e2e/application-connection-kind-human.mjs)
   cover uploaded Connection selection with real executors and diagnostics;
   [live evidence](../verification/2026-10-07-application-connection-selection-kind.md).
+
+Environment Settings set-once transition follows
+[ADR-011](../architecture/decisions/ADR-011-environment-execution-binding.md);
+resolver/service and migration paths are mapped below.
+Prior Application-selection evidence above is historical; scripts now follow Environment Settings.
+
+## Environment binding implementation (ADR-011)
+
+- [Domain](../../backend/internal/domain/environment/environment.go), [set-once service](../../backend/internal/application/application/service.go), [target resolver](../../backend/internal/application/target/target.go).
+- [PostgreSQL migration 6](../../backend/internal/adapters/postgres/store.go), [SQL binding](../../backend/internal/adapters/postgres/repositories.go), [JSON binding/load](../../backend/internal/adapters/store/store.go), [adapter contract](../../backend/internal/ports/persistence/persistencetest/binding.go).
+- [Settings connection section](../../frontend/src/features/configuration/EnvironmentConnection.tsx), [Settings routes](../../frontend/src/app/routes.ts), [new AWS scope tests](../../backend/internal/planning/environment_scope_test.go).
+- [Live runner](../../backend/test/integration/application-connection-kind-video.sh), [human scenario](../../frontend/test/e2e/application-connection-kind-human.mjs), [reviewed evidence/video](../verification/2026-10-07-environment-connection-kind.md).

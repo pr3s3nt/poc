@@ -109,7 +109,7 @@ func TestUC01ApplicationConnectionChoiceEmptyWhenDefaultNotReady(t *testing.T) {
 	}
 }
 
-func TestUC01CreateApplicationConnectionSelection(t *testing.T) {
+func TestUC01EnvironmentConnectionSetOnceOverHTTP(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "state.json")
 	app, server := buildOnboardingApp(t, "test", statePath)
 	ctx := context.Background()
@@ -122,110 +122,171 @@ func TestUC01CreateApplicationConnectionSelection(t *testing.T) {
 	}
 	saveConnection(t, app.Store, appdomain.Connection{ID: "c-foreign", Key: "foreign", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady})
 	client := authenticatedClient(t, server.URL)
-	create := func(body string) (int, map[string]any) {
+	request := func(method, path, body string) (int, map[string]any) {
 		t.Helper()
-		resp, out := call(t, client, http.MethodPost, server.URL+"/api/v1/applications", body)
+		resp, out := call(t, client, method, server.URL+path, body)
 		return resp.StatusCode, decode(t, out)
 	}
 
-	// Omission keeps the Organization default.
-	status, out := create(`{"name":"Legacy","subdomain":"legacy"}`)
+	// Create takes only name and subdomain and starts both Environments unset,
+	// without consulting the Organization default.
+	status, out := request(http.MethodPost, "/api/v1/applications", `{"name":"Payments","subdomain":"payments"}`)
 	view := out["application"].(map[string]any)
-	if status != http.StatusCreated || view["connectionKey"] != "internal-cluster" || view["executionProfile"] != "internal-k8s" {
-		t.Fatalf("default create = %d %v", status, out)
+	appKey := view["key"].(string)
+	if status != http.StatusCreated || len(view) != 4 {
+		t.Fatalf("create = %d %v", status, out)
 	}
-
-	// Explicit non-default internal target.
-	status, out = create(`{"name":"Lab App","subdomain":"lab-app","connectionKey":"lab"}`)
-	view = out["application"].(map[string]any)
-	labKey := view["key"].(string)
-	if status != http.StatusCreated || view["connectionKey"] != "lab" || view["executionProfile"] != "internal-k8s" || len(view["environments"].([]any)) != 2 {
-		t.Fatalf("lab create = %d %v", status, out)
+	envs := map[string]map[string]any{}
+	for _, raw := range view["environments"].([]any) {
+		env := raw.(map[string]any)
+		envs[env["key"].(string)] = env
+		if env["configured"] != false || env["connectionKey"] != "" || env["runtimeStatus"] != "UNCONFIGURED" || env["executionProfile"] != "" || env["version"] != float64(1) {
+			t.Fatalf("environment must be UNCONFIGURED: %v", env)
+		}
 	}
-	stored, err := app.Store.GetApplication(ctx, labKey)
-	if err != nil || stored.ConnectionKey != "lab" || stored.Profile != appdomain.ProfileInternalK8s {
-		t.Fatalf("persisted binding = %+v %v", stored, err)
-	}
-
-	// AWS derives profile, region and PENDING status from the Connection.
-	status, out = create(`{"name":"Cloud App","subdomain":"cloud-app","connectionKey":"aws-account"}`)
-	view = out["application"].(map[string]any)
-	if status != http.StatusCreated || view["executionProfile"] != "aws-eks" || view["region"] != "us-east-1" || view["runtimeStatus"] != "PENDING" || view["connectionKey"] != "aws-account" {
-		t.Fatalf("aws create = %d %v", status, out)
-	}
-
-	// Strict body: explicit blank/null/non-string is a field 400, never a fallback.
 	for _, body := range []string{
-		`{"name":"N1","subdomain":"n1","connectionKey":""}`,
-		`{"name":"N2","subdomain":"n2","connectionKey":"   "}`,
-		`{"name":"N3","subdomain":"n3","connectionKey":null}`,
-		`{"name":"N3b","subdomain":"n3b","connectionKey" :   null  }`,
-		`{"name":"N4","subdomain":"n4","connectionKey":7}`,
-		`{"name":"N5","subdomain":"n5","connectionKey":["lab"]}`,
+		`{"name":"E","subdomain":"e","connectionKey":"lab"}`, `{"name":"E","subdomain":"e","connectionKey":null}`,
+		`{"name":"E","subdomain":"e","executionProfile":"aws-eks"}`, `{"name":"E","subdomain":"e","region":"x"}`,
 	} {
-		status, out := create(body)
-		if status != http.StatusBadRequest || out["field"] != "connectionKey" {
+		if status, _ := request(http.MethodPost, "/api/v1/applications", body); status != http.StatusBadRequest {
+			t.Fatalf("%s = %d", body, status)
+		}
+	}
+	// Unset Preview and Deploy are a safe 422 before any side effect.
+	for _, path := range []string{"/preview", "/deploy"} {
+		body := `{}`
+		if path == "/deploy" {
+			body = `{"token":"x"}`
+		}
+		status, out := request(http.MethodPost, "/api/v1/applications/"+appKey+"/environments/staging"+path, body)
+		if status != http.StatusUnprocessableEntity || out["field"] != "connectionKey" || out["code"] != "ENVIRONMENT_UNCONFIGURED" {
+			t.Fatalf("unconfigured %s = %d %v", path, status, out)
+		}
+	}
+	// Every delivery boundary answers the same safe 422: the direct deployment
+	// API and the standalone Score preview too.
+	score := `{"apiVersion":"score.dev/v1b1","metadata":{"name":"api"},"containers":{"main":{"image":"example.invalid/api:v1"}}}`
+	for name, call := range map[string]struct{ path, body string }{
+		"direct deployment": {"/api/v1/deployments", `{"applicationKey":"` + appKey + `","environmentKey":"staging","workloadId":"api","score":` + score + `}`},
+		"score preview":     {"/api/v1/applications/" + appKey + "/environments/staging/score-preview", `{"workloadId":"api","action":"deploy","runId":"r1","scoreAfter":` + score + `}`},
+	} {
+		status, out := request(http.MethodPost, call.path, call.body)
+		if status != http.StatusUnprocessableEntity || out["code"] != "ENVIRONMENT_UNCONFIGURED" || out["field"] != "connectionKey" {
+			t.Fatalf("unconfigured %s = %d %v", name, status, out)
+		}
+	}
+	if applied := len(app.FakeDeploy.Applied); applied != 0 {
+		t.Fatalf("an unconfigured request applied %d manifests", applied)
+	}
+	set := func(env, key string, version any) (int, map[string]any) {
+		body, _ := json.Marshal(map[string]any{"connectionKey": key, "expectedVersion": version})
+		return request(http.MethodPut, "/api/v1/applications/"+appKey+"/environments/"+env+"/connection", string(body))
+	}
+
+	// Staging selects lab; production stays unset and picks AWS independently.
+	status, out = set("staging", "lab", 1)
+	staging := out["environment"].(map[string]any)
+	if status != http.StatusOK || staging["connectionKey"] != "lab" || staging["connectionName"] != "Lab" || staging["connectionKind"] != "KUBERNETES" || staging["executionProfile"] != "internal-k8s" || staging["runtimeStatus"] != "READY" || staging["infrastructureScope"] != "ENVIRONMENT" || staging["version"] != float64(2) {
+		t.Fatalf("set staging = %d %v", status, out)
+	}
+	status, out = request(http.MethodGet, "/api/v1/applications/"+appKey, "")
+	for _, raw := range out["application"].(map[string]any)["environments"].([]any) {
+		env := raw.(map[string]any)
+		if env["key"] == "production" && (env["configured"] != false || env["version"] != float64(1)) {
+			t.Fatalf("production changed by staging: %v", env)
+		}
+	}
+	status, out = set("production", "aws-account", 1)
+	production := out["environment"].(map[string]any)
+	if status != http.StatusOK || production["executionProfile"] != "aws-eks" || production["region"] != "us-east-1" || production["runtimeStatus"] != "PENDING" || production["infrastructureScope"] != "ENVIRONMENT" {
+		t.Fatalf("set production = %d %v", status, out)
+	}
+	// Application stays unbound.
+	stored, err := app.Store.GetApplication(ctx, appKey)
+	if err != nil || stored.ConnectionKey != "" || stored.Profile != "" || stored.Region != "" {
+		t.Fatalf("application leaked target: %+v %v", stored, err)
+	}
+
+	// Repeats are 409 ALREADY_CONFIGURED whatever the key or version.
+	for _, attempt := range []struct {
+		key     string
+		version any
+	}{{"lab", 2}, {"lab", 1}, {"internal-cluster", 2}, {"aws-account", 99}} {
+		status, out := set("staging", attempt.key, attempt.version)
+		if status != http.StatusConflict || out["code"] != "ALREADY_CONFIGURED" {
+			t.Fatalf("repeat %v = %d %v", attempt, status, out)
+		}
+	}
+	// Strict body and typed failures on a fresh unset Environment.
+	status, out = request(http.MethodPost, "/api/v1/applications", `{"name":"Other","subdomain":"other"}`)
+	appKey = out["application"].(map[string]any)["key"].(string)
+	for _, body := range []string{
+		`{"connectionKey":"","expectedVersion":1}`, `{"connectionKey":"  ","expectedVersion":1}`, `{"connectionKey":null,"expectedVersion":1}`,
+		`{"connectionKey":7,"expectedVersion":1}`, `{"expectedVersion":1}`, `{"connectionKey":"lab"}`, `{"connectionKey":"lab","expectedVersion":0}`,
+		`{"connectionKey":"lab","expectedVersion":"1"}`, `{"connectionKey":"lab","expectedVersion":1,"executionProfile":"aws-eks"}`,
+	} {
+		if status, out := request(http.MethodPut, "/api/v1/applications/"+appKey+"/environments/staging/connection", body); status != http.StatusBadRequest {
 			t.Fatalf("%s = %d %v", body, status, out)
 		}
 	}
-	// Unavailable choices share one safe 422; no fallback to the default.
 	messages := map[string]bool{}
 	for _, key := range []string{"missing", "foreign", "pending", "odd", "noregion"} {
-		status, out := create(`{"name":"U-` + key + `","subdomain":"u-` + key + `","connectionKey":"` + key + `"}`)
-		if status != http.StatusUnprocessableEntity || out["field"] != "connectionKey" {
+		status, out := set("staging", key, 1)
+		if status != http.StatusUnprocessableEntity || out["field"] != "connectionKey" || strings.Contains(out["error"].(string), key) {
 			t.Fatalf("%s = %d %v", key, status, out)
 		}
 		messages[out["error"].(string)] = true
-		if strings.Contains(out["error"].(string), key) {
-			t.Fatalf("error echoes %q: %v", key, out)
-		}
 	}
 	if len(messages) != 1 {
 		t.Fatalf("422 messages differ by cause: %v", messages)
 	}
-	_, body := call(t, client, http.MethodGet, server.URL+"/api/v1/applications", "")
-	if n := len(decode(t, body)["applications"].([]any)); n != 5 { // two seeded fixtures plus the three created above
-		t.Fatalf("rejected requests created Applications: %d (%s)", n, body)
+	status, out = set("staging", "lab", 5)
+	if status != http.StatusConflict || out["code"] != "STALE_VERSION" {
+		t.Fatalf("stale = %d %v", status, out)
 	}
-	// Other trusted fields stay rejected.
-	for _, body := range []string{`{"name":"E","subdomain":"e","executionProfile":"aws-eks"}`, `{"name":"E","subdomain":"e","region":"x"}`} {
-		if status, _ := create(body); status != http.StatusBadRequest {
-			t.Fatalf("%s = %d", body, status)
-		}
+	if status, _ := request(http.MethodPut, "/api/v1/applications/missing/environments/staging/connection", `{"connectionKey":"lab","expectedVersion":1}`); status != http.StatusNotFound {
+		t.Fatalf("missing application = %d", status)
+	}
+	if status, _ := request(http.MethodPut, "/api/v1/applications/"+appKey+"/environments/nope/connection", `{"connectionKey":"lab","expectedVersion":1}`); status != http.StatusNotFound {
+		t.Fatalf("missing environment = %d", status)
+	}
+	if resp, _ := call(t, http.DefaultClient, http.MethodPut, server.URL+"/api/v1/applications/"+appKey+"/environments/staging/connection", `{"connectionKey":"lab","expectedVersion":1}`); resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("anonymous = %d", resp.StatusCode)
+	}
+	// Another Organization cannot see or set the Environment.
+	hash, _ := password.Hash("test-password")
+	if err := app.Store.SaveUserAccount(ctx, identity.UserAccount{ID: "user-globex", OrganizationKey: "globex", Username: "globex-developer", PasswordHash: hash, Role: identity.RoleDeveloper, Status: identity.AccountActive}); err != nil {
+		t.Fatal(err)
+	}
+	foreign := authenticatedClientAs(t, server.URL, "globex-developer")
+	if resp, _ := call(t, foreign, http.MethodPut, server.URL+"/api/v1/applications/"+appKey+"/environments/staging/connection", `{"connectionKey":"foreign","expectedVersion":1}`); resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("foreign organization = %d", resp.StatusCode)
+	}
+	if env, _ := app.Store.GetEnvironment(ctx, appKey, "staging"); env.Configured() {
+		t.Fatalf("rejected requests mutated: %+v", env)
 	}
 
-	// GET and list expose the same safe binding.
-	_, body = call(t, client, http.MethodGet, server.URL+"/api/v1/applications/"+labKey, "")
-	if decode(t, body)["application"].(map[string]any)["connectionKey"] != "lab" || strings.Contains(body, "memory://") {
-		t.Fatalf("get = %s", body)
-	}
-	_, body = call(t, client, http.MethodGet, server.URL+"/api/v1/applications", "")
-	if !strings.Contains(body, `"connectionKey":"lab"`) {
-		t.Fatalf("list = %s", body)
-	}
-
-	// A later default change does not move any stored binding, and bindings
-	// survive a backend restart.
+	// Changing the Organization default later moves nothing, and the bindings
+	// survive a backend restart (JSON store).
 	if err := app.Store.SaveOrganization(ctx, appdomain.Organization{ID: "org-acme", Key: "acme", Name: "Acme", DefaultConnectionKey: "lab"}); err != nil {
 		t.Fatal(err)
 	}
 	server.Close()
 	_, restarted := buildOnboardingApp(t, "test", statePath)
-	_, body = call(t, authenticatedClient(t, restarted.URL), http.MethodGet, restarted.URL+"/api/v1/applications/"+labKey, "")
-	if decode(t, body)["application"].(map[string]any)["connectionKey"] != "lab" {
-		t.Fatalf("binding lost across restart: %s", body)
-	}
-	_, body = call(t, authenticatedClient(t, restarted.URL), http.MethodGet, restarted.URL+"/api/v1/applications", "")
-	bindings := map[string]string{}
+	_, body := call(t, authenticatedClient(t, restarted.URL), http.MethodGet, restarted.URL+"/api/v1/applications", "")
+	found := map[string]string{}
 	for _, raw := range decode(t, body)["applications"].([]any) {
 		view := raw.(map[string]any)
-		bindings[view["name"].(string)] = view["connectionKey"].(string)
+		for _, e := range view["environments"].([]any) {
+			env := e.(map[string]any)
+			found[view["name"].(string)+"/"+env["key"].(string)] = env["connectionKey"].(string)
+		}
 	}
-	if bindings["Legacy"] != "internal-cluster" || bindings["Lab App"] != "lab" || bindings["Cloud App"] != "aws-account" {
-		t.Fatalf("default change moved stored bindings: %v", bindings)
+	if found["Payments/staging"] != "lab" || found["Payments/production"] != "aws-account" || found["Other/staging"] != "" || found["Other/production"] != "" {
+		t.Fatalf("bindings after restart: %v", found)
 	}
-	_, body = call(t, authenticatedClient(t, restarted.URL), http.MethodGet, restarted.URL+"/api/v1/application-connections", "")
-	if decode(t, body)["defaultConnectionKey"] != "lab" {
-		t.Fatalf("new default must apply to later creates only: %s", body)
+	// The seeded acceptance fixtures keep their historical LEGACY_APPLICATION binding.
+	if found["Acceptance/dev"] == "" && !strings.Contains(body, `"infrastructureScope":"LEGACY_APPLICATION"`) {
+		t.Fatalf("legacy seeded binding lost: %s", body)
 	}
 }

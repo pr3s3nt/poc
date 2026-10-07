@@ -6,23 +6,24 @@ import (
 	"sort"
 
 	"orchestrator/internal/domain/application"
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 )
 
 // ErrConnectionMismatch reports a Definition for the Application's target
-// whose explicit Connection differs from the Application binding (UC-06
+// whose explicit Connection differs from the Environment binding (UC-06
 // BR-20): internal-k8s existing-cluster/Kubernetes Definitions and aws-eks
 // Terraform VPC/EKS Definitions. The selected target is never silently replaced.
-var ErrConnectionMismatch = errors.New("planning: definition connection differs from the application connection")
+var ErrConnectionMismatch = errors.New("planning: definition connection differs from the environment connection")
 
 // ConnectionMismatch reports whether def would retarget the Application's
 // saved Connection. External resources (for example databases) keep their own
 // explicit Driver Account and are never reported.
-func ConnectionMismatch(app application.Application, def resource.Definition) bool {
-	if def.ConnectionKey == "" || def.ConnectionKey == app.ConnectionKey {
+func ConnectionMismatch(env environment.Environment, def resource.Definition) bool {
+	if def.ConnectionKey == "" || def.ConnectionKey == env.ConnectionKey {
 		return false
 	}
-	switch app.Profile {
+	switch env.Profile {
 	case application.ProfileInternalK8s:
 		return def.DriverType == resource.DriverExistingCluster || def.DriverType == resource.DriverKubernetes
 	case application.ProfileAWSEKS:
@@ -33,12 +34,12 @@ func ConnectionMismatch(app application.Application, def resource.Definition) bo
 
 // checkApplicationConnection validates the winning Definition. Matching order,
 // specificity and ties are unchanged; this only rejects the winner.
-func checkApplicationConnection(app application.Application, def resource.Definition) error {
-	if !ConnectionMismatch(app, def) {
+func checkEnvironmentConnection(env environment.Environment, def resource.Definition) error {
+	if !ConnectionMismatch(env, def) {
 		return nil
 	}
-	return stageErr(StageCatalog, fmt.Errorf("%w: definition %q uses connection %q but application %q is bound to %q",
-		ErrConnectionMismatch, def.Key, def.ConnectionKey, app.Key, app.ConnectionKey))
+	return stageErr(StageCatalog, fmt.Errorf("%w: definition %q uses connection %q but environment %q of application %q is bound to %q",
+		ErrConnectionMismatch, def.Key, def.ConnectionKey, env.Key, env.ApplicationKey, env.ConnectionKey))
 }
 
 // definitionMatcher selects the most specific Resource Definition for each
@@ -93,7 +94,7 @@ func (m *definitionMatcher) match(node *Node) (Match, error) {
 	bestScore := -1
 
 	for _, def := range m.list {
-		if def.ResourceTypeKey != node.ResourceType || (def.ExecutionProfile != "" && def.ExecutionProfile != string(m.ctx.App.Profile)) {
+		if def.ResourceTypeKey != node.ResourceType || (def.ExecutionProfile != "" && def.ExecutionProfile != string(m.ctx.Env.Profile)) {
 			continue
 		}
 		criterion, score, ok := def.BestCriterion(ctx)
@@ -114,7 +115,7 @@ func (m *definitionMatcher) match(node *Node) (Match, error) {
 			node.Descriptor, node.ResourceType, node.Class)
 	case 1:
 		def := best[0].def
-		if err := checkApplicationConnection(m.ctx.App, def); err != nil {
+		if err := checkEnvironmentConnection(m.ctx.Env, def); err != nil {
 			return Match{}, err
 		}
 		return Match{

@@ -22,13 +22,14 @@ export function ApplicationHomePage({ application, created = false }: { applicat
   const [busy, setBusy] = useState<Busy>('');
   const [deployReport, setDeployReport] = useState<DeployReport>();
   const [reload, setReload] = useState(0);
+  const [needsTarget, setNeedsTarget] = useState(false);
   // Bumped on every Environment switch: a response started for an earlier
   // scope is ignored instead of being shown under the new Environment.
   const scope = useRef(0);
 
   useEffect(() => {
     const current = ++scope.current;
-    setData(undefined); setPreview(undefined); setDeployReport(undefined); setLoading(true); setError(''); setNotice(''); setBusy('');
+    setData(undefined); setPreview(undefined); setDeployReport(undefined); setLoading(true); setError(''); setNotice(''); setBusy(''); setNeedsTarget(false);
     getWorkloads(application.id, environment)
       .then((result) => { if (current === scope.current) setData(result); })
       .catch((err: Error) => { if (current === scope.current) setError(err.message); })
@@ -41,7 +42,7 @@ export function ApplicationHomePage({ application, created = false }: { applicat
   // mutation can run against the pre-change list or race the reload.
   async function run<T>(kind: Busy, request: () => Promise<T>, apply: (value: T) => void | Promise<void>) {
     const current = scope.current;
-    setBusy(kind); setError(''); setNotice('');
+    setBusy(kind); setError(''); setNotice(''); setNeedsTarget(false);
     try {
       const value = await request();
       if (current === scope.current) await apply(value);
@@ -51,6 +52,9 @@ export function ApplicationHomePage({ application, created = false }: { applicat
       if (err instanceof ApiError && err.status === 409) {
         const reloaded = await reloadList(current);
         if (reloaded && current === scope.current) setNotice(`Workloads in ${environment} changed since this page loaded or was previewed. The list was reloaded; review it and preview again.`);
+      } else if (err instanceof ApiError && err.status === 422 && err.field === 'connectionKey') {
+        // UNCONFIGURED Environment: nothing was planned or deployed.
+        setError(err.message); setNeedsTarget(true);
       } else {
         setError((err as Error).message);
       }
@@ -98,16 +102,16 @@ export function ApplicationHomePage({ application, created = false }: { applicat
   const workloads = data?.workloads ?? [];
   const locked = busy !== '' || loading || !data;
   return <section className="page application-home"><button className="back-link" disabled={busy === 'deploy'} onClick={() => navigate({ name: 'applications' })}>← Applications</button>
-    <header className="page-header application-header"><div><p className="eyebrow">Application</p><h1>{application.name}</h1><p>{endpointFor(application, 'production')}</p><ApplicationTarget application={application} /></div><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'settings', applicationId: application.id })}>Variables &amp; Secrets</Button></header>
-    {created ? <div className="form-success" role="status">Application created. Staging and production are ready; nothing has been deployed yet.</div> : null}
+    <header className="page-header application-header"><div><p className="eyebrow">Application</p><h1>{application.name}</h1><p>{endpointFor(application, 'production')}</p><ApplicationTarget application={application} environment={environment} /></div><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>Environment settings</Button></header>
+    {created ? <div className="form-success" role="status">Application created. Choose each environment's connection in Environment settings before previewing or deploying; nothing has been deployed yet.</div> : null}
     <div className="tabs" role="tablist"><button className={environment === 'staging' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('staging')}>Staging<span>{endpointFor(application, 'staging')}</span></button><button className={environment === 'production' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('production')}>Production<span>{endpointFor(application, 'production')}</span></button></div>
     <section className="content-panel"><div className="section-header"><div><h2>Workloads</h2><p>Configuration for {environment}; saving here does not deploy.</p></div><span><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'score-preview', applicationId: application.id, environment })}>Preview Score</Button><Button disabled={locked} onClick={() => navigate({ name: 'workload', applicationId: application.id, environment })}>+ Add workload</Button></span></div>
-      {error ? <div className="form-error" role="alert">{error}{!data && !loading ? <> <Button onClick={() => void reloadList(scope.current)}>Retry</Button></> : null}</div> : null}
+      {error ? <div className="form-error" role="alert">{error}{needsTarget ? <> <Button onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>Open Environment settings</Button></> : null}{!data && !loading ? <> <Button onClick={() => void reloadList(scope.current)}>Retry</Button></> : null}</div> : null}
       {notice ? <div className="form-info" role="status">{notice}</div> : null}
       {loading ? <p>Loading workloads…</p> : workloads.length ? <div className="workload-table"><div className="table-head"><span>Name</span><span>Status</span><span>Actions</span></div>{workloads.map((workload) => <div className="table-row" key={workload.id}><span className="workload-name"><span className="workload-icon">◫</span>{workload.id}</span><Status tone={workload.state ? 'draft' : 'good'}>{workload.state === 'PENDING_DELETE' ? 'Pending deletion' : workload.state === 'PENDING_UPSERT' ? 'Pending change' : 'Ready'}</Status><span>{workload.state === 'PENDING_DELETE' ? <Button tone="quiet" disabled={locked} onClick={() => changeDeletion(workload.id, true)}>{busy === `undo:${workload.id}` ? 'Restoring…' : 'Undo'}</Button> : <><Button tone="quiet" disabled={locked || !workload.score} onClick={() => navigate({ name: 'workload', applicationId: application.id, environment, workloadId: workload.id })}>Edit</Button><Button tone="danger" disabled={locked} onClick={() => changeDeletion(workload.id, false)}>{busy === `delete:${workload.id}` ? 'Marking…' : 'Delete'}</Button></>}</span></div>)}</div> : data ? <div className="section-empty">No workloads in this environment yet.</div> : null}
       <div className="form-actions"><Button tone="primary" disabled={locked} onClick={loadPreview}>{busy === 'preview' ? 'Calculating preview…' : 'Preview changes'}</Button></div>
-      {preview ? <div className="content-panel" aria-label="Deployment preview"><h3>Preview for {environment}</h3><ApplicationTarget application={application} /><p>{preview.changes.length} workload(s) affected · draft v{preview.draftVersion} · configuration {preview.configRevisionId ? preview.configRevisionId.slice(0, 8) : 'empty'}</p>{preview.changes.length ? <ul>{preview.changes.map((change) => <li key={change.workloadId}><strong>{change.workloadId}</strong> · {change.action.toLowerCase()} · {change.rendering?.driverType ? `${change.rendering.driverType} ${change.rendering.bundle.version} (${change.rendering.definitionKey})` : 'built-in Kubernetes'} · {change.resources.new.length} new resource(s){change.resources.unreferenced.length ? ` · ${change.resources.unreferenced.length} resource(s) will become unreferenced (not destroyed)` : ''}</li>)}</ul> : <p>{preview.routePending ? 'Public routes need reconciliation; workloads will not restart.' : 'No workload changes to deploy.'}</p>}<Button tone="primary" disabled={busy !== '' || (preview.changes.length === 0 && !preview.routePending)} onClick={deployPreview}>{busy === 'deploy' ? 'Deploying…' : preview.routePending && preview.changes.length === 0 ? 'Retry public routes' : 'Deploy these changes'}</Button></div> : null}
-      {deployReport ? <div className="content-panel" aria-label="Deployment result"><h3>Deploy {deployReport.status.toLowerCase()}</h3><ApplicationTarget application={application} /><ul>{deployReport.results.map((result) => <li key={result.workloadId}>{result.workloadId} · {result.action.toLowerCase()}: {result.status.toLowerCase()}{result.deploymentId ? <> · <a href="#" onClick={(event) => { event.preventDefault(); navigate({ name: 'deployment', applicationId: application.id, environment, deploymentId: result.deploymentId as string }); }}>view deployment</a></> : null}{result.error ? ` — ${result.error}` : ''}</li>)}</ul>{deployReport.status !== 'SUCCEEDED' ? <p>Unfinished changes stay pending. Preview again to retry them; nothing is rolled back automatically.</p> : null}</div> : null}
+      {preview ? <div className="content-panel" aria-label="Deployment preview"><h3>Preview for {environment}</h3><ApplicationTarget application={application} environment={environment} /><p>{preview.changes.length} workload(s) affected · draft v{preview.draftVersion} · configuration {preview.configRevisionId ? preview.configRevisionId.slice(0, 8) : 'empty'}</p>{preview.changes.length ? <ul>{preview.changes.map((change) => <li key={change.workloadId}><strong>{change.workloadId}</strong> · {change.action.toLowerCase()} · {change.rendering?.driverType ? `${change.rendering.driverType} ${change.rendering.bundle.version} (${change.rendering.definitionKey})` : 'built-in Kubernetes'} · {change.resources.new.length} new resource(s){change.resources.unreferenced.length ? ` · ${change.resources.unreferenced.length} resource(s) will become unreferenced (not destroyed)` : ''}</li>)}</ul> : <p>{preview.routePending ? 'Public routes need reconciliation; workloads will not restart.' : 'No workload changes to deploy.'}</p>}<Button tone="primary" disabled={busy !== '' || (preview.changes.length === 0 && !preview.routePending)} onClick={deployPreview}>{busy === 'deploy' ? 'Deploying…' : preview.routePending && preview.changes.length === 0 ? 'Retry public routes' : 'Deploy these changes'}</Button></div> : null}
+      {deployReport ? <div className="content-panel" aria-label="Deployment result"><h3>Deploy {deployReport.status.toLowerCase()}</h3><ApplicationTarget application={application} environment={environment} /><ul>{deployReport.results.map((result) => <li key={result.workloadId}>{result.workloadId} · {result.action.toLowerCase()}: {result.status.toLowerCase()}{result.deploymentId ? <> · <a href="#" onClick={(event) => { event.preventDefault(); navigate({ name: 'deployment', applicationId: application.id, environment, deploymentId: result.deploymentId as string }); }}>view deployment</a></> : null}{result.error ? ` — ${result.error}` : ''}</li>)}</ul>{deployReport.status !== 'SUCCEEDED' ? <p>Unfinished changes stay pending. Preview again to retry them; nothing is rolled back automatically.</p> : null}</div> : null}
     </section>
     <RecentDeployments applicationId={application.id} environment={environment} refreshKey={`${reload}`} />
   </section>;

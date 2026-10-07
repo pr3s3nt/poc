@@ -5,103 +5,75 @@ status: current
 last_reviewed: 2026-10-07
 ---
 
-# UC-01 — Create Application
+# UC-01 — Create Application and configure Environment target
 
-## Mục tiêu
+## Mục tiêu và actor
 
-Cho phép Developer tạo Application để khai báo và deploy workload.
-
-## Primary actor
-
-- Developer
-
-## Supporting actor
-
-- Platform Engineer
-- Organization Administrator
+Developer tạo Application rồi chọn Connection riêng trong Settings từng Environment.
+Organization và role lấy từ session UC-00. Platform Engineer đăng ký Connection
+và matching Definitions qua UC-03/04.
 
 ## Tiền điều kiện
 
 - **PRE-01:** Organization đã tồn tại.
-- **PRE-02:** Developer đã được xác thực và thuộc Organization.
-- **PRE-03:** Platform đã cấu hình base domain và default execution target cho Organization.
-- **PRE-04:** Organization có ít nhất một Connection được hỗ trợ, trạng thái `READY`.
+- **PRE-02:** Developer đã xác thực và thuộc Organization.
+- **PRE-03:** Platform đã cấu hình base domain; tạo Application không cần default Connection.
+- **PRE-04:** Khi set Environment target, có Connection được hỗ trợ, `READY` trong Organization.
 
-## Trigger
+## Trigger và main success scenario
 
-**TRG-01:** Developer yêu cầu tạo một Application.
+- **TRG-01:** Developer yêu cầu tạo Application.
+1. **MS-01:** Developer nhập Name và Subdomain; không chọn Connection ở cấp Application.
+2. **MS-02:** Orchestrator validate Name/Subdomain và uniqueness.
+3. **MS-03:** Orchestrator sinh Application ID bất biến.
+4. **MS-04:** Tạo Application với configuration provider của platform, không execution target.
+5. **MS-05:** Tạo hai Environment `staging` và `production`, target `UNCONFIGURED`.
+6. **MS-06:** Khởi tạo empty Deployment Sets và stable namespace identity cho mỗi Environment.
+7. **MS-07:** Suy ra desired endpoints, chưa provision infrastructure/workloads/routes.
+8. **MS-08:** Persist atomically và mở Application home với staging được chọn.
 
-## Main success scenario
+## Environment Settings flow
 
-1. **MS-01:** Developer nhập Application Name, Subdomain và chọn Connection. Default của Organization được chọn sẵn nếu nằm trong danh sách hợp lệ.
-2. **MS-02:** Orchestrator kiểm tra thông tin hợp lệ và Subdomain chưa được sử dụng trong base domain platform.
-3. **MS-03:** Orchestrator tự tạo Application ID duy nhất và resolve Connection được chọn trong Organization của session; nếu request cũ bỏ `connectionKey`, resolve default của Organization.
-4. **MS-04:** Orchestrator tạo Application với runtime configuration của target đó.
-5. **MS-05:** Orchestrator tự tạo hai Environment `staging` và `production` thuộc Application.
-6. **MS-06:** Orchestrator khởi tạo Deployment Set rỗng và namespace identity riêng cho mỗi Environment.
-7. **MS-07:** Orchestrator hiển thị desired endpoint cho mỗi Environment.
-8. **MS-08:** Orchestrator lưu Application và Environments, rồi trả về Application context cho Developer.
-
-## Luồng biến thể trong happy path
-
-- **VAR-01 — `aws-eks`:** Connection được chọn cung cấp AWS connection và region; UC-01 chưa tạo VPC/EKS.
-- **VAR-02 — `internal-k8s`:** Connection được chọn cung cấp Kubernetes connection đang `READY`.
+- **TRG-02:** Developer mở Settings của Environment đang chọn.
+- **ES-01:** Hiển thị target chưa cấu hình hoặc binding đã lưu chỉ đọc.
+- **ES-02:** Với `UNCONFIGURED`, load safe READY choices của Organization, hiển thị tên/key/kind và default marker. Không tự set default; chọn trên UI chưa persist.
+- **ES-03:** Developer chọn một Connection và bấm `Set connection`; thông báo rõ lựa chọn không thể đổi sau khi lưu.
+- **ES-04:** Backend kiểm tra Organization, READY, kind/region và expected Environment version trong transaction.
+- **ES-05:** Atomic set-once lưu connection/profile/region/runtime status/infrastructure scope, tăng Environment version; trả binding chỉ đọc.
+- **ES-06:** Environment kia giữ nguyên; refresh/restart vẫn khóa binding đã set.
 
 ## Hậu điều kiện
 
-- **POST-01:** Application thuộc Organization của Developer và có Application ID do hệ thống sinh.
-- **POST-02:** Application có đúng hai Environment: `staging` và `production`.
-- **POST-03:** Mỗi Environment có Deployment Set rỗng, namespace identity riêng và desired endpoint.
-- **POST-04:** Chưa có workload hoặc runtime infrastructure nào được provision.
-- **POST-05:** Application và Environment sẵn sàng được sử dụng trong UC-05 và UC-06.
+- **POST-01:** Application thuộc Organization; system ID bất biến.
+- **POST-02:** Đúng hai Environment staging/production.
+- **POST-03:** Mỗi Environment có empty Set, stable namespace và desired endpoint.
+- **POST-04:** UC-01 không gọi executor hoặc provision runtime.
+- **POST-05:** Chỉ Environment đã set target mới Preview/Deploy; draft và variables/secrets có thể chuẩn bị trước.
 
 ## Quy tắc nghiệp vụ
 
-- **BR-01:** Application ID do hệ thống sinh, bất biến và duy nhất toàn cục.
-- **BR-02:** Developer nhập Application Name, Subdomain và chọn Connection; Name là duy nhất trong Organization.
-- **BR-03:** Subdomain là DNS label hợp lệ, được chuẩn hóa lowercase và duy nhất trong base domain platform.
-- **BR-04:** Mỗi Application có đúng hai Environment hệ thống tạo: `staging` và `production`.
-- **BR-05:** Production desired endpoint là `<subdomain>.<base-domain>`; staging desired endpoint là `staging.<subdomain>.<base-domain>`.
-- **BR-06:** Desired endpoint chưa được provision trong UC-01; UC-06 tạo hoặc cập nhật route/ingress sau khi workload sẵn sàng.
-- **BR-07:** Developer được chọn Connection `READY` thuộc Organization của session (kind Kubernetes hoặc AWS). Backend suy ra Execution Profile và region từ Connection; không nhận Organization, role, profile, region hoặc credential từ request. Connection không tồn tại/ngoài Organization trả cùng lỗi an toàn `422` với field `connectionKey`; not-ready hoặc kind không hỗ trợ cũng trả `422`. Không fallback khi một key tường minh không hợp lệ. AWS cần region không rỗng. Danh sách lựa chọn loại AWS thiếu region; `defaultConnectionKey` trong response là key nếu default đủ điều kiện, nếu không là chuỗi rỗng. API cũ bỏ key vẫn dùng default; key rỗng hoặc null tường minh trả `400` với field `connectionKey`.
-- **BR-08:** Connection và Execution Profile được lưu ở Application, dùng chung cho mọi Environment. UC-01 không cung cấp thao tác đổi connection/profile của Application đã tồn tại; đăng ký Connection hoặc thay default không đổi binding đã lưu.
-- **BR-09:** `aws-eks` dùng VPC/EKS scope Application; `internal-k8s` dùng cluster đã đăng ký.
-- **BR-10:** Namespace identity có scope Environment và ổn định qua các deployment.
+- **BR-01:** Application ID do hệ thống sinh, bất biến, unique toàn cục.
+- **BR-02:** Name unique không phân biệt hoa thường trong Organization; create nhận đúng Name/Subdomain.
+- **BR-03:** Subdomain là DNS label lowercase, unique trong platform base domain.
+- **BR-04:** Application có đúng hai Environment hệ thống tạo staging/production.
+- **BR-05:** Endpoints `<subdomain>.<base-domain>` và `staging.<subdomain>.<base-domain>`.
+- **BR-06:** Desired endpoint chưa provision cho đến UC-06.
+- **BR-07:** Set Connection chỉ chấp nhận READY Kubernetes/AWS của session Organization; AWS cần region không rỗng. Backend suy profile/region; không nhận profile/region/credential/Organization từ request. Missing/foreign/not-ready/unsupported đều safe `422` field `connectionKey`; blank/null/missing key `400`. Không fallback default.
+- **BR-08:** Binding thuộc Environment và chỉ được set thành công một lần, kể cả chưa deploy. Mọi request set lại, kể cả cùng key, trả `409`; không có reset/unset/replace. Hai Environment độc lập, được khác connection/kind/profile/region. Đổi Organization default hoặc đăng ký Connection không thay binding.
+- **BR-09:** AWS VPC/EKS mới có Environment scope và identity riêng; không reuse hạ tầng staging cho production. Migration giữ nguyên target và identity application-scope của legacy AWS bằng marker `LEGACY_APPLICATION`, không migrate/destroy/reprovision tài nguyên cũ. Xem [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).
+- **BR-10:** Namespace identity Environment ổn định; connection selection không đổi namespace.
+- **BR-11:** Atomic compare-and-set theo expected Environment version, unset binding và Organization ownership. Concurrent sets chỉ một thành công; stale request `409`; rejection không mutate. Normal save/current-set/runtime operations không được ghi đè binding.
+- **BR-12:** Application/JSON/SQL cũ được backfill binding xuống từng Environment một lần, giữ nguyên profile/region/runtime và namespace, coi là đã set/khóa kể cả chưa từng deploy. Migration idempotent; không backfill default vào Application mới chưa cấu hình.
+- **BR-13:** API create mới reject `connectionKey` như unknown field `400`; không giữ luồng tự set hai Environment từ create. Old persisted data được giữ; old create clients phải cập nhật. Safe Application read/list trả target trong từng Environment, không đại diện bằng một Application target.
+- **BR-14:** UNCONFIGURED Preview/Deploy trả safe `422` field `connectionKey` và UI dẫn tới Environment Settings; không gọi executor, không tạo provisioning/deployment side effects. Changes to binding version/hash invalidate prior previews; snapshot/plan pins selected target.
 
-## Luồng nội bộ
+## Ngoài phạm vi
 
-```text
-UC-01 Create Application
-├── Validate Application Name and Subdomain
-├── Generate Application ID
-├── Resolve selected Organization-scoped Connection (legacy omission uses default)
-├── Create Application
-├── Create staging and production Environments
-├── Initialize Deployment Sets and namespace identities
-├── Derive desired endpoints
-└── Persist configuration
-```
+Sửa Name/Subdomain; thêm/xóa/clone/promotion Environment; chuyển target sau set;
+AWS credential onboarding mới (giữ scope ADR-009 hiện tại); AWS cloud execution
+không nằm trong kiểm chứng này. UC-12 sở hữu variables/secrets, không sở hữu target binding.
 
-## Trạng thái implementation hiện tại
+## Delivery state
 
-- Authenticated API/Web Console implement selected connection creation and safe
-  Organization-scoped choices (2026-10-07); omitted-key API callers still use
-  default. Shared Application binding survives backend restart. See
-  [verification](../../verification/2026-10-07-application-connection-selection-local.md).
-- Một transaction tạo Application, đúng hai Environment `staging`/`production`
-  và hai Deployment Set rỗng. Desired endpoint được UI suy ra từ Subdomain và
-  platform base domain; UC-01 không provision infrastructure hoặc workload.
-- In-memory/JSON adapter phục vụ local/test; normalized PostgreSQL adapter đã
-  persist Application/Environment/Deployment Set và giữ state qua backend
-  restart. Seed `acceptance` với Environment `dev` vẫn là planning fixture độc
-  lập, không đại diện cho output UC-01.
-- Planning context dùng Application, Environment, profile, connection, region,
-  namespace identity và runtime status; VPC/EKS có application scope.
-
-## Ngoài phạm vi happy path
-
-- **OOS-01:** Sửa Name hoặc Subdomain sau khi Application được tạo.
-- **OOS-02:** Thêm, xóa, đổi tên, clone hoặc promotion Environment.
-- **OOS-03:** Đổi connection của Application đã tồn tại hoặc quản lý Connection/credential/cluster.
-- **OOS-04:** DNS ownership verification, certificate lifecycle, custom domain và external DNS provisioning.
-- **OOS-05:** RBAC chi tiết, concurrent update và audit history.
+Thiết kế per-Environment set-once được chốt 2026-10-07; implementation cũ cấp
+Application đang được thay thế. Evidence ngày trước mô tả behavior lịch sử.

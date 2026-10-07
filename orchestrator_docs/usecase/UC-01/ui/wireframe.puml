@@ -15,9 +15,13 @@ salt
   {
     <b>Payment</b>
     payment.example.com
-    Connection: team-cluster (internal-k8s)
 
     [ Staging ]   [ Production ]
+    Staging connection: not configured
+    [ Environment Settings ]
+    Deployment connection: ^Choose connection^
+    Set once; cannot change after saving.
+    [ Set connection ]
 
     <b>Workloads</b>                                  [ + Add workload ]
     {#

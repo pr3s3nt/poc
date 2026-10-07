@@ -20,12 +20,22 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 ## OC-01 `ApplicationService.CreateApplication`
 
 - Use case: UC-01 MS-01–MS-08.
-- Preconditions: Organization tồn tại; selected (or omitted-key default) Connection belongs to session Organization, has supported kind and is `READY`; Name/Subdomain hợp lệ và chưa trùng.
-- Input: `name`, `subdomain`, optional `connectionKey`; blank/null explicit key is `400`, unavailable/foreign/not-ready/unsupported key is safe `422` field `connectionKey`; no fallback for invalid explicit key. Profile/region are derived server-side.
-- Query: `GET /api/v1/application-connections` for authenticated Organization members returns only READY supported `{key,name,kind,status}` (AWS needs nonempty region) and `defaultConnectionKey` (empty if ineligible); does not grant UC-04 management permission.
-- Creates: system-ID `Application` với profile/connection binding, cùng `staging` và `production` Environments, immutable empty Deployment Sets và stable namespace identities.
-- Postconditions: AWS Application `PENDING`; internal Application bind existing cluster; desired endpoints được suy ra nhưng chưa có infrastructure, workload hoặc route/ingress.
-- Persistence: insert Application, hai Environment, hai Deployment Set và current pointers atomically trong một transaction.
+- Preconditions: authenticated Developer and Organization; valid unique name/subdomain; no default Connection required.
+- Input: name/subdomain only; unknown create connectionKey rejected 400.
+- Creates: Application identity/provider, staging/production UNCONFIGURED Environments, empty Sets and stable namespaces, atomically.
+- No external provision; desired endpoints remain unprovisioned.
+- Query: GET /api/v1/application-connections retains safe Organization-scoped READY choices/default marker for Settings, no credentials or UC-04 management rights.
+
+## OC-01b `ApplicationService.SetConnection`
+
+- Use case: UC-01 ES-01..06, BR-07..14.
+- Input: scoped app/env, connectionKey and expectedVersion; session Organization/role only.
+- Preconditions: Environment unset; supported READY Connection in Organization; AWS nonempty region.
+- Transaction: scoped ownership + unset/version CAS + derive profile/region/runtime, store binding and increment Environment version. No external call.
+- Immutable: any repeat including same key 409; no reset/change. Normal Save cannot overwrite target.
+- Failure: malformed/missing/blank/null key/version 400; scoped missing app/env 404; unavailable/foreign/nonREADY/unsupported Connection 422 field connectionKey; stale/alreadyset 409, no mutation.
+- Result: safe Environment binding/profile/region/status/scope/version. Other Environment unchanged.
+- Migration: preserve old bindings as locked with LEGACY_APPLICATION; new AWS ENVIRONMENT VPC/EKS; see ADR-011.
 
 ## OC-03 `ResourceTypeService.RegisterResourceType`
 
@@ -102,7 +112,7 @@ Các contract dưới đây dùng tên method cố định cho realization và G
   invalid final Candidate.
 - Before-state rule: module và từng shared entry do `before Score` khai báo phải deep-equal current set.
 - Candidate rule: một shared ID mới không được ghi đè entry khác nội dung; shared entry bị workload bỏ chỉ rời Candidate khi không còn module khác tham chiếu.
-- Descriptor rule: `@app`, `@env`, `@connection` được resolve từ planning
+- Descriptor rule: `@app`, `@env`, `@connection`, `@infra` được resolve từ planning
   context trước khi parse descriptor; `@` kế thừa class/ID hiện tại giữ nguyên
   semantics.
 - Postconditions: graph là DAG; mỗi resource node match đúng một Definition; contracts valid; provider-first batches; workload node không thuộc resource-execution batches.
@@ -120,7 +130,7 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Planning record: `PLANNING` được insert với nullable Snapshot ID; planning
   failure có thể thành `FAILED` không Snapshot. Transaction tạo plan gắn
   Snapshot trước khi chuyển `PROVISIONING`; association đã có là immutable.
-- Postconditions: UC-08 complete; workload ready với declared container requests/limits; current-set pointer atomically đổi; AWS Application runtime `READY`; Deployment `SUCCEEDED`.
+- Postconditions: UC-08 complete; workload ready với declared container requests/limits; current-set pointer atomically đổi; AWS Environment runtime `READY`; Deployment `SUCCEEDED`.
 - External side effects: Terraform/Kubernetes outside DB transaction.
 - Commit rule: Candidate Set never becomes current before readiness.
 - Internal-kind route rule: after affected workloads are ready, reconcile the
@@ -151,7 +161,7 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 
 - Use case: UC-08.
 - Preconditions: persisted immutable plan; resource-only DAG/batches; matched Definitions; connections `READY`.
-- Target binding: UC-06 BR-20 checks winning internal cluster/Kubernetes and AWS Terraform VPC/EKS Definitions against the saved Application connection; UC-08 BR-07 rechecks before executor calls. Other external provider resources retain their explicit Driver Account.
+- Target binding: UC-06 BR-20 checks winning internal cluster/Kubernetes and AWS Terraform VPC/EKS Definitions against the saved Environment connection; UC-08 BR-07 rechecks before executor calls. Other external provider resources retain their explicit Driver Account.
 - For each node: resolve prior state and inputs -> executor provision/reconcile -> validate outputs -> atomically persist Active Resource + deployment-resource progress.
 - Returns: `ProvisionResult` mapping descriptor to outputs and deployment target.
 - Postconditions: all desired resource nodes `READY`; output bindings available for workload render.

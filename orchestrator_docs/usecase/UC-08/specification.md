@@ -93,7 +93,7 @@ UC-08 Provision Resources
 
 ## Trạng thái implementation hiện tại
 
-- Planner đã dựng private/shared/implicit resource nodes, match Definition và tạo provider-first batches; VPC/EKS dùng application scope, namespace dùng environment scope.
+- Planner đã dựng private/shared/implicit resource nodes, match Definition và tạo provider-first batches; new VPC/EKS and namespace use environment scope; legacy AWS identity remains application-scoped (ADR-011).
 - `ResourceProvisioningService` đã chọn fake, existing-cluster, Kubernetes hoặc Terraform executor theo matched Definition; outputs được validate, truyền sang node phụ thuộc/workload và lưu vào Active Resource/deployment-resource state.
 - Internal path đã provision namespace/PostgreSQL StatefulSet trên kind; cloud path đã provision VPC/EKS/Aurora bằng Terraform trên AWS.
 - Normalized PostgreSQL repository đã có cho logical orchestration state; in-memory/JSON vẫn dùng cho local/test. Terraform state vẫn nằm trong local run directory; remote state/locking và lifecycle reconcile đầy đủ chưa có.
@@ -115,6 +115,6 @@ UC-08 Provision Resources
 
 See [workload rendering contract](../../architecture/contracts/workload-rendering.md).
 
-## Application connection binding
+## Environment connection binding
 
-- **BR-07:** Internal existing-cluster/Kubernetes resource execution dùng Application connection. Explicit Definition connection khác Application bị reject trước gọi executor; đây là defense-in-depth cho plan từ UC-06. Với `aws-eks`, Terraform VPC/EKS Definitions cũng phải dùng Application connection và bị reject khi sai khác trước executor. External resources như database vẫn giữ explicit Driver Account semantics; AWS onboarding không được mở rộng trong thay đổi này.
+- **BR-07:** Internal Kubernetes and AWS VPC/EKS execution must use pinned Environment connection; mismatch rejected before executor. External resource Driver Account semantics remain. Reuse validates persisted resource connection identity; do not execute against another Environment target. New AWS infrastructure uses Environment scope; legacy AWS retains old Application descriptors/state under ADR-011.

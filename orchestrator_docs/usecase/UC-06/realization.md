@@ -48,12 +48,12 @@ WorkloadDeployer.WaitReady(ctx context.Context, target DeploymentTarget, workloa
 | MS-09 | Chuyển Deployment `PROVISIONING`, gọi UC-08 với resource-only batches. |
 | MS-10 | `OutputBindingResolver.ResolveWorkloadBindings`. |
 | MS-11 | `WorkloadRenderer.Render` ánh xạ typed container requests/limits -> Kubernetes resources theo BR-11: giá trị khai báo giữ nguyên, request field thiếu lấy limit cùng field, thiếu cả hai thì nhận default `10m`/`32Mi`, limits chỉ gồm field khai báo; renderer không sửa module input. Sau đó `WorkloadDeployer.Apply` -> `WaitReady`; internal kind reconcile toàn bộ Ingress sau khi các workload bị ảnh hưởng Ready. Fleet mode ghi/chờ bundle `_routes`. |
-| MS-12 | Final transaction version-check Environment, set current Deployment Set, save instances/resources, mark AWS Application runtime `READY` và Deployment `SUCCEEDED`. |
+| MS-12 | Final transaction version-check Environment, set current Deployment Set, save instances/resources, mark AWS Environment runtime `READY` và Deployment `SUCCEEDED`. |
 | MS-13 | Trả `DeploymentResult`. |
 
 ## Profile realization
 
-- `aws-eks`: `ImplicitResourceEnricher` thêm application-scoped VPC/EKS; UC-08 dùng Terraform Executor cho VPC, EKS, Aurora; target lấy từ EKS outputs.
+- `aws-eks`: `ImplicitResourceEnricher` thêm Environment-scoped VPC/EKS (legacy preserves Application scope); UC-08 dùng Terraform Executor cho VPC, EKS, Aurora; target lấy từ EKS outputs.
 - `internal-k8s`: enricher thêm existing cluster provider; UC-08 dùng connection adapter và Kubernetes Executor cho namespace/PostgreSQL; target lấy từ connection outputs.
 
 ## Transaction boundary
@@ -97,12 +97,13 @@ WorkloadRenderer port after output binding. UC-08 still executes resource-only
 batches. Kubernetes/Fleet apply/readiness and Environment route ownership stay
 in their existing adapters. No database transaction spans a CLI/external call.
 
-## Selected Application connection
+## Selected Environment connection
 
-Shared snapshot loading resolves the persisted Application connection in session
-Organization for every Environment. Matching validates internal existing-cluster
-and Kubernetes Definition connection equality, plus AWS Terraform VPC/EKS
-connection equality before any executor call; UC-08
-rechecks the binding before execution. Existing specificity and tie rules stay
-unchanged. Application response exposes safe `connectionKey`; Preview/Deploy UI
-shows this key and derived profile. See UC-01 BR-07/08 and UC-06 BR-20.
+Shared snapshot loader resolves persisted Environment target in session
+Organization; UNCONFIGURED fails before planning/execution. Definition guards and
+UC-08 defense-in-depth compare against this Environment connection. Context,
+version, scope mode and nonsecret target metadata are pinned into hashes/snapshots.
+New AWS enrichment produces Environment-scoped VPC/EKS; legacy AWS keeps original
+Application identity via [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).
+Target binding cannot change after set; runtime READY update is Environment-only.
+UI/query use selected Environment or deployment-pinned target, no Application target.

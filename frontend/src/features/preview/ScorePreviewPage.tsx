@@ -60,6 +60,7 @@ export function ScorePreviewPage({ application, environment }: { application: Ap
       if (current !== generation.current) return;
       if (err instanceof ApiError && err.status === 401) return;
       if (err instanceof ApiError && (err.status === 400 || err.status === 413)) setFailure({ kind: 'validation', message: err.message });
+      else if (err instanceof ApiError && err.status === 422 && err.field === 'connectionKey') setFailure({ kind: 'error', message: `${err.message}. Open Environment settings for ${environment} and choose a connection.` });
       else if (err instanceof ApiError && err.status === 404) setFailure({ kind: 'error', message: 'This Application or Environment is not available.' });
       else setFailure({ kind: 'error', message: 'Preview failed. Try again.' });
     } finally {
@@ -70,7 +71,7 @@ export function ScorePreviewPage({ application, environment }: { application: Ap
   const hint = actions.find((item) => item.value === action)?.hint;
   return <section className="page preview-page">
     <button className="back-link" onClick={() => navigate({ name: 'application', applicationId: application.id })}>← {application.name}</button>
-    <header className="page-header"><div><p className="eyebrow">{application.name} · {environment}</p><h1>Preview Score</h1><p>Validate a Score and see the planned changes for <strong>{application.name}</strong> in <strong>{environment}</strong>. Nothing is saved or deployed.</p><ApplicationTarget application={application} /></div></header>
+    <header className="page-header"><div><p className="eyebrow">{application.name} · {environment}</p><h1>Preview Score</h1><p>Validate a Score and see the planned changes for <strong>{application.name}</strong> in <strong>{environment}</strong>. Nothing is saved or deployed.</p><ApplicationTarget application={application} environment={environment} /></div></header>
     <div className="tabs" role="tablist" aria-label="Environment">{(['staging', 'production'] as const).map((env) => <button key={env} role="tab" aria-selected={environment === env} className={environment === env ? 'tab tab-active' : 'tab'} onClick={() => navigate({ name: 'score-preview', applicationId: application.id, environment: env })}>{env === 'staging' ? 'Staging' : 'Production'}</button>)}</div>
     <form className="content-panel preview-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       <p className="form-note" role="note">Do not paste secret values. Reference configuration with placeholders such as <code>{'${resources.env.API_TOKEN}'}</code>.</p>

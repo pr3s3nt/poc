@@ -43,8 +43,11 @@ try {
     await expect(page.getByRole('button', { name: new RegExp(`Production.*${subdomain}\\.example\\.com`) })).toBeVisible();
     const response = await page.request.get(`${baseURL}/api/v1/applications/${appId}`);
     expect(response.status()).toBe(200);
-    const environments = (await response.json()).application.environments.map((item) => item.key).sort();
-    expect(environments).toEqual(['production', 'staging']);
+    const view = (await response.json()).application;
+    expect(view.environments.map((item) => item.key).sort()).toEqual(['production', 'staging']);
+    // A new Application starts with both Environments UNCONFIGURED, before and after a restart.
+    for (const item of view.environments) expect([item.configured, item.connectionKey, item.runtimeStatus]).toEqual([false, '', 'UNCONFIGURED']);
+    await expect(page.getByLabel('Execution target').first()).toContainText('Staging has no execution connection yet');
     const deployments = await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/staging/deployments`)).json();
     expect(deployments.deployments ?? []).toHaveLength(0);
   }
@@ -67,7 +70,7 @@ try {
     const appId = new URL(page.url()).pathname.match(/\/ui\/applications\/([0-9a-f-]{36})$/)?.[1];
     if (!appId) throw new Error(`unexpected Application URL ${page.url()}`);
     await expectApplicationHome(appId);
-    expect(createBodies.map((body) => JSON.parse(body ?? '{}'))).toEqual([{ name, subdomain, connectionKey: 'internal-cluster' }]);
+    expect(createBodies.map((body) => JSON.parse(body ?? '{}'))).toEqual([{ name, subdomain }]);
 
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page.getByLabel('Username')).toBeVisible();

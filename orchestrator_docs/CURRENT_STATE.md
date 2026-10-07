@@ -240,32 +240,27 @@ change Organization default; UC-03 matching Definition can consume the new
 Connection. Fleet fixed-cluster mode rejects credential-backed targets. AWS
 registration and Terraform account credential resolution remain deferred.
 
-## UC-01 Application connection selection (2026-10-07)
+## Environment execution binding (2026-10-07)
 
-Developer can select a READY Connection when creating an Application; default
-is preselected, and old API requests omitting connectionKey retain default
-behavior. Choices are Organization-scoped and expose no credentials. Profile
-and AWS region derive server-side. All Environments use the saved Application
-binding; there is no existing-Application retarget API. Preview/Deploy UI shows
-connection key/profile, and rejects conflicting internal cluster/Kubernetes or
-AWS VPC/EKS Definition connections before execution. External provider
-resources retain explicit Driver Account semantics. A matching cluster
-Definition must be supplied by Platform Engineer for a new Connection.
+Developer creates an Application from Name/Subdomain; staging/production start
+UNCONFIGURED. Each Environment Settings explicitly sets one Organization READY
+Connection once, then shows a locked binding even before deployment. Repeated
+sets return 409; defaults never retarget or auto-bind. Independent profile/region
+and mixed Kubernetes/AWS targets are supported. Preview/Deploy use the Environment
+binding, reject unconfigured targets and Definition target conflicts safely.
+Legacy SQL/JSON binding is backfilled/locked without changing existing namespace,
+TargetRef or AWS application-scope state. New AWS VPC/EKS are Environment-scoped,
+with bounded provider-safe names; AWS credential onboarding remains deferred.
 
-[Local verification](verification/2026-10-07-application-connection-selection-local.md)
-covers Go test/build, frontend gates, Playwright selection, mismatch blocking,
-fake deployment in staging/production, and persistence across backend restart.
-It does not establish live Kubernetes/AWS execution or expand AWS registration.
+[Verification/video](verification/2026-10-07-environment-connection-kind.md)
+covers real kind upload, two independent logical bindings, refresh/restart lock,
+unconfigured Preview rejection, staging backend/frontend/PostgreSQL deployment
+and Vault/VSO diagnostic PASS. Both Connections use the same physical cluster;
+production is bound but not deployed. AWS scope/name semantics are covered by
+local tests, not a cloud run. Run-owned resources/private credentials were removed.
+Final review and validation passed, including isolated PostgreSQL race tests,
+deterministic seed preservation tests and run-owned browser cleanup checks.
 
-## Selected uploaded Connection — live kind verification (2026-10-07)
-
-[Human UI live verification](verification/2026-10-07-application-connection-selection-kind.md)
-now covers Platform Engineer Connection upload and matching Definition via UI,
-Developer nondefault selection at Application creation, and staging Deploy of
-real backend/frontend/PostgreSQL with Vault/VSO diagnostic PASS. The backend's
-private host credential was deliberately rejected, proving use of the uploaded
-Connection credential. Shared production-tab binding was observed; live
-production deployment and independent-cluster switching were not exercised.
-The reviewed 7m12s MP4 is published and run-owned namespace/credential container
-cleanup was verified. Existing platform Vault revision/policy/image lifecycle
-limits remain; AWS registration/execution scope is unchanged.
+Previous [Application-selection local evidence](verification/2026-10-07-application-connection-selection-local.md)
+and [kind evidence](verification/2026-10-07-application-connection-selection-kind.md)
+remain historical; their Application-wide selection is superseded by ADR-011.

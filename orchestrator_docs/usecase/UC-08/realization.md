@@ -54,7 +54,7 @@ Không có distributed transaction. Mỗi external provision call nằm ngoài D
 ## Planned tests
 
 - `TestProvision_ProviderOutputsFeedConsumerInputs`.
-- `TestProvision_ReusesApplicationScopedVPCAndEKS`.
+- New Environment-scoped AWS identity isolation and legacy Application VPC/EKS reuse tests.
 - `TestProvision_InternalUsesExistingCluster`.
 - `TestProvision_PostgresOutputContractEquivalentAcrossProfiles`.
 
@@ -79,12 +79,13 @@ WorkloadRenderer port after output binding. UC-08 still executes resource-only
 batches. Kubernetes/Fleet apply/readiness and Environment route ownership stay
 in their existing adapters. No database transaction spans a CLI/external call.
 
-## Selected Application connection
+## Selected Environment connection
 
-Shared snapshot loading resolves the persisted Application connection in session
-Organization for every Environment. Matching validates internal existing-cluster
-and Kubernetes Definition connection equality, plus AWS Terraform VPC/EKS
-connection equality before any executor call; UC-08
-rechecks the binding before execution. Existing specificity and tie rules stay
-unchanged. Application response exposes safe `connectionKey`; Preview/Deploy UI
-shows this key and derived profile. See UC-01 BR-07/08 and UC-06 BR-20.
+Shared snapshot loader resolves persisted Environment target in session
+Organization; UNCONFIGURED fails before planning/execution. Definition guards and
+UC-08 defense-in-depth compare against this Environment connection. Context,
+version, scope mode and nonsecret target metadata are pinned into hashes/snapshots.
+New AWS enrichment produces Environment-scoped VPC/EKS; legacy AWS keeps original
+Application identity via [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).
+Target binding cannot change after set; runtime READY update is Environment-only.
+UI/query use selected Environment or deployment-pinned target, no Application target.

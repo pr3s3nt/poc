@@ -11,9 +11,9 @@ related: UC-01, UC-05, UC-07, UC-09, UC-16
 ## UX outcome
 
 Developer lands on Applications home after sign-in, creates an Application with
-Name/Subdomain/Connection, then sees a single Application home with `staging` and
+Name/Subdomain, then sees a single Application home with `staging` and
 `production` tabs. The selected Environment displays its Workloads and recent
-deployments.
+deployments. Connection is set exactly once in each Environment Settings; see [screens](screens.md).
 
 Add/Edit/Delete workload affordances are visible in this home because that is
 where a Developer expects them. Their configuration behavior belongs to

@@ -145,13 +145,13 @@ func (b *graphBuilder) enrichProfile() (*Node, error) {
 		return nil, err
 	}
 
-	switch b.ctx.App.Profile {
+	switch b.ctx.Env.Profile {
 	case application.ProfileAWSEKS:
-		vpcDescriptor, err := VPCDescriptor(b.ctx.App.Key)
+		vpcDescriptor, err := VPCDescriptor(b.ctx)
 		if err != nil {
 			return nil, err
 		}
-		eksDescriptor, err := EKSDescriptor(b.ctx.App.Key)
+		eksDescriptor, err := EKSDescriptor(b.ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -164,7 +164,7 @@ func (b *graphBuilder) enrichProfile() (*Node, error) {
 		b.addEdge(eksDescriptor.String(), vpcDescriptor.String(), ReasonProfile, "")
 		b.addEdge(namespace.Descriptor, eksDescriptor.String(), ReasonProfile, "")
 	case application.ProfileInternalK8s:
-		clusterDescriptor, err := InternalClusterDescriptor(b.ctx.Connection.Key)
+		clusterDescriptor, err := InternalClusterDescriptor(b.ctx.Env.ConnectionKey)
 		if err != nil {
 			return nil, err
 		}
@@ -173,7 +173,7 @@ func (b *graphBuilder) enrichProfile() (*Node, error) {
 		}
 		b.addEdge(namespace.Descriptor, clusterDescriptor.String(), ReasonProfile, "")
 	default:
-		return nil, fmt.Errorf("planning: unsupported execution profile %q", b.ctx.App.Profile)
+		return nil, fmt.Errorf("planning: unsupported execution profile %q", b.ctx.Env.Profile)
 	}
 	return namespace, nil
 }

@@ -14,6 +14,7 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/execution"
+	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
 )
 
@@ -62,12 +63,29 @@ func selectedTargetApp(t *testing.T, definitionConnection string) (*bootstrap.Ap
 			t.Fatal(err)
 		}
 	}
-	key := "second"
-	created, err := application.NewService(app.Store).Create(ctx, application.CreateCommand{OrganizationKey: opts.OrganizationKey, Name: "Second App", Subdomain: "second-app", ConnectionKey: &key})
+	return app, opts, executor, deployer, newBoundApplication(t, app.Store, opts.OrganizationKey, "Second App", "second-app", "second", "second")
+}
+
+// newBoundApplication creates an Application through UC-01 and sets the given
+// Connection on each Environment (staging, production) through the product
+// set-once operation. Pass an empty key to leave that Environment unset.
+func newBoundApplication(t *testing.T, store persistence.Store, organizationKey, name, subdomain, stagingKey, productionKey string) string {
+	t.Helper()
+	ctx := context.Background()
+	svc := application.NewService(store)
+	created, err := svc.Create(ctx, application.CreateCommand{OrganizationKey: organizationKey, Name: name, Subdomain: subdomain})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return app, opts, executor, deployer, created.Application.Key
+	for env, key := range map[string]string{"staging": stagingKey, "production": productionKey} {
+		if key == "" {
+			continue
+		}
+		if _, err := svc.SetConnection(ctx, application.SetConnectionCommand{OrganizationKey: organizationKey, ApplicationKey: created.Application.Key, EnvironmentKey: env, ConnectionKey: key, ExpectedVersion: 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return created.Application.Key
 }
 
 func deployBackendTo(app *bootstrap.App, opts seed.Options, applicationKey, environment string) error {
@@ -132,5 +150,100 @@ func TestSelectedTarget_DefinitionForAnotherConnectionIsRejected(t *testing.T) {
 	}
 	if len(executor.requests) != 0 || len(deployer.targets) != 0 {
 		t.Fatalf("executor ran %d times, applies %d", len(executor.requests), len(deployer.targets))
+	}
+}
+
+// registerSecondCluster saves a READY Kubernetes Connection with its matching
+// cluster Definition so an Environment can select it.
+func registerCluster(t *testing.T, app *bootstrap.App, organizationKey, key string) {
+	t.Helper()
+	ctx := context.Background()
+	if err := app.Store.SaveConnection(ctx, domain.Connection{ID: "conn-" + key, Key: key, Name: key, OrganizationKey: organizationKey, Kind: domain.ConnectionKubernetes, AuthenticationType: domain.AuthHostContext, Status: domain.ConnectionReady, Config: map[string]any{"cluster": key + "-cluster", "kubeContext": key}, SecretRef: "host-kube-context://" + key}); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Store.SaveResourceDefinition(ctx, organizationKey, resource.Definition{
+		Key: "cluster-" + key, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
+		ExecutionProfile: "internal-k8s", ConnectionKey: key,
+		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
+		Criteria:     []resource.Criterion{{Class: "internal", ResourceID: "connections." + key}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Each Environment of one Application deploys to its own selected Connection;
+// nothing falls back to the Application, the Organization default or the other
+// Environment (ADR-011).
+func TestSelectedTarget_EnvironmentsDeployToTheirOwnConnectionIndependently(t *testing.T) {
+	executor := &hostContextExecutor{credentialExecutor: credentialExecutor{fake: fake.NewResourceExecutor()}}
+	deployer := &targetDeployer{WorkloadDeployer: fake.NewWorkloadDeployer()}
+	app, opts := newApp(t, func(o *bootstrap.Options) { o.RegistryOverride = executor; o.DeployerOverride = deployer })
+	registerCluster(t, app, opts.OrganizationKey, "stage-cluster")
+	registerCluster(t, app, opts.OrganizationKey, "prod-cluster")
+	key := newBoundApplication(t, app.Store, opts.OrganizationKey, "Split App", "split-app", "stage-cluster", "prod-cluster")
+
+	for _, env := range []string{"staging", "production"} {
+		before := len(deployer.targets)
+		if err := deployBackendTo(app, opts, key, env); err != nil {
+			t.Fatalf("deploy %s: %v", env, err)
+		}
+		want := map[string]string{"staging": "stage-cluster", "production": "prod-cluster"}[env]
+		if len(deployer.targets) == before {
+			t.Fatalf("%s applied nothing", env)
+		}
+		for _, target := range deployer.targets[before:] {
+			if target.Context != want || target.ClusterName != want+"-cluster" {
+				t.Fatalf("%s applied to %#v, want %s", env, target, want)
+			}
+		}
+	}
+	for _, req := range executor.requests {
+		if req.Connection.Key == "internal-cluster" {
+			t.Fatalf("%s executed on the Organization default", req.Descriptor)
+		}
+	}
+}
+
+// An UNCONFIGURED Environment fails deploy with the typed error before a
+// Deployment, a plan, a provisioning call or any apply exists, while draft and
+// configuration-style reads of the Environment keep working.
+func TestUnconfiguredEnvironmentFailsDeployBeforeAnySideEffect(t *testing.T) {
+	executor := &hostContextExecutor{credentialExecutor: credentialExecutor{fake: fake.NewResourceExecutor()}}
+	deployer := &targetDeployer{WorkloadDeployer: fake.NewWorkloadDeployer()}
+	app, opts := newApp(t, func(o *bootstrap.Options) { o.RegistryOverride = executor; o.DeployerOverride = deployer })
+	key := newBoundApplication(t, app.Store, opts.OrganizationKey, "Unset App", "unset-app", "", "")
+
+	err := deployBackendTo(app, opts, key, "staging")
+	if !errors.Is(err, planning.ErrEnvironmentUnconfigured) {
+		t.Fatalf("deploy = %v", err)
+	}
+	if len(executor.requests) != 0 || len(deployer.targets) != 0 || len(app.FakeDeploy.Applied) != 0 {
+		t.Fatalf("side effects: %d executor calls, %d applies", len(executor.requests), len(app.FakeDeploy.Applied))
+	}
+	if deployments, _ := app.Store.ListDeployments(context.Background(), key, "staging"); len(deployments) != 0 {
+		t.Fatalf("a Deployment was recorded: %+v", deployments)
+	}
+	if _, err := app.Store.GetEnvironment(context.Background(), key, "staging"); err != nil {
+		t.Fatalf("environment still readable: %v", err)
+	}
+}
+
+// A binding set after a preview changes the Environment version and the pinned
+// target, so a deploy cannot reuse a plan made for another target.
+func TestPlanHashDiffersBetweenTargetsOfTheSameWorkload(t *testing.T) {
+	app, opts, _, _, _ := selectedTargetApp(t, "second")
+	registerCluster(t, app, opts.OrganizationKey, "third")
+	scores := seed.AcceptanceScores(opts)
+	hashes := map[string]string{}
+	for _, tc := range []struct{ name, subdomain, key string }{{"On Second", "on-second", "second"}, {"On Third", "on-third", "third"}} {
+		appKey := newBoundApplication(t, app.Store, opts.OrganizationKey, tc.name, tc.subdomain, tc.key, "")
+		result, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: appKey, EnvironmentKey: "staging", WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test", RunID: "run-1"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		hashes[tc.key] = result.PlanHash
+	}
+	if hashes["second"] == hashes["third"] {
+		t.Fatalf("plans for different targets share a hash: %v", hashes)
 	}
 }

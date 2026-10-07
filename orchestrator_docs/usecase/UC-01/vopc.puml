@@ -1,48 +1,39 @@
 @startuml
-title VOPC - UC-01 Create Application
+title VOPC - UC-01 Environment set-once target
 left to right direction
-skinparam classAttributeIconSize 0
-class ApplicationController <<boundary>> {
-  +CreateApplication(command)
-}
+class ApplicationController <<boundary>>
 class ApplicationService <<control>> {
-  +CreateApplication(ctx, cmd): Application
-  +ListApplicationConnections(ctx, organizationID): SafeChoices
+ +CreateApplication(name, subdomain)
+ +ListApplicationConnections(org): SafeChoices
+ +SetConnection(org, app, env, key, expectedVersion): Environment
 }
-interface ExecutionTargetResolver {
-  +Resolve(ctx, organizationID, connectionKey?): ExecutionTarget
-}
+class EnvironmentConnectionController <<boundary>>
 class Application <<entity>> {
-  +Create(generatedID, profile, connection): Application
+ +Identity
+ +ConfigurationProvider
 }
 class Environment <<entity>> {
-  +Create(application, staging|production): Environment
+ +ConnectionKey
+ +ExecutionProfile
+ +Region
+ +RuntimeStatus
+ +InfrastructureScope
+ +Version
 }
-class DeploymentSet <<entity>> {
-  +Empty(environmentID): DeploymentSet
-}
-interface ConnectionRepository {
-  +FindReady(ctx, organizationID, connectionID): Connection
-}
-interface ApplicationRepository {
-  +FindByID(ctx, id): Application
-  +Save(ctx, application)
-}
+class DeploymentSet <<entity>>
+interface ConnectionRepository
+interface ApplicationRepository
 interface EnvironmentRepository {
-  +Save(ctx, environment)
+ +SetConnectionOnce(expectedVersion, target)
 }
-interface DeploymentSetRepository {
-  +SaveAndSetCurrent(ctx, set)
-}
+interface DeploymentSetRepository
 ApplicationController --> ApplicationService
-ApplicationService --> ExecutionTargetResolver
-ApplicationService --> ConnectionRepository
+EnvironmentConnectionController --> ApplicationService
 ApplicationService --> ApplicationRepository
 ApplicationService --> EnvironmentRepository
 ApplicationService --> DeploymentSetRepository
-ApplicationService ..> Application
-ApplicationService ..> Environment
-ApplicationService ..> DeploymentSet
-Application "1" *-- "0..*" Environment
+ApplicationService --> EnvironmentRepository : SetConnection once
+ApplicationService --> ConnectionRepository
+Application "1" *-- "2" Environment
 Environment "1" --> "1" DeploymentSet : current
 @enduml

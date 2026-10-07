@@ -16,10 +16,7 @@ import (
 func TestUC07PendingDraftHTTPContract(t *testing.T) {
 	server, _, app := newServerApp(t, "")
 	client := authenticatedClient(t, server.URL)
-	status, created := requestJSON(t, client, http.MethodPost, server.URL+"/api/v1/applications", map[string]any{"name": "Update Remove", "subdomain": "update-remove"})
-	if status != http.StatusCreated {
-		t.Fatalf("create Application: %d %v", status, created)
-	}
+	created := createConfiguredApplication(t, client, server.URL, "Update Remove", "update-remove", "internal-cluster")
 	key := created["application"].(map[string]any)["key"].(string)
 	base := server.URL + "/api/v1/applications/" + key + "/environments/staging"
 	draft := previewScore("api")

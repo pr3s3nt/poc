@@ -245,7 +245,7 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
 
   return <section className="page workload-editor">
     <button className="back-link" onClick={() => navigate({ name: 'application', applicationId: application.id })}>← {application.name} / {environment}</button>
-    <header className="page-header application-header"><div><p className="eyebrow">{environment} · Workload configuration</p><h1>{workloadId ? `Edit ${workloadId}` : 'Add workload'}</h1><p>Save a draft first. Preview and Deploy happen separately.</p></div><Button onClick={() => navigate({ name: 'settings', applicationId: application.id })}>Variables &amp; Secrets</Button></header>
+    <header className="page-header application-header"><div><p className="eyebrow">{environment} · Workload configuration</p><h1>{workloadId ? `Edit ${workloadId}` : 'Add workload'}</h1><p>Save a draft first. Preview and Deploy happen separately.</p></div><Button onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>Variables &amp; Secrets</Button></header>
     <div className="tabs" role="tablist"><button className={mode === 'form' ? 'tab tab-active' : 'tab'} disabled={advancedScore} onClick={() => setMode('form')}>Enter on form</button><button className={mode === 'import' ? 'tab tab-active' : 'tab'} onClick={() => setMode('import')}>Import Score</button></div>
     {advancedScore ? <p className="feature-note">This Score contains fields the form cannot preserve. Upload an updated Score file to edit it without losing those fields.</p> : null}
     {error ? <div className="form-error" role="alert">{error}{loadFailed ? <> <Button onClick={() => setLoadAttempt((value) => value + 1)}>Retry</Button></> : null}</div> : null}

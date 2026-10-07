@@ -39,6 +39,9 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	if req.WorkloadID == "" {
 		return nil, fmt.Errorf("planning: workload id is required")
 	}
+	if !req.Env.Configured() {
+		return nil, &StageError{Stage: StageCatalog, Reason: ReasonUnconfigured, Err: ErrEnvironmentUnconfigured}
+	}
 	ctx := Context{
 		OrganizationKey: req.OrganizationKey,
 		App:             req.App,
@@ -127,6 +130,7 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		Terraform:      contracts,
 		Batches:        batches,
 		Classification: classify(ctx, graph, req.Active),
+		Target:         req.Env.Binding(),
 	}
 	plan.Rendering, err = s.selectRendering(ctx, graph, matcher, req.Catalog)
 	if err != nil {
@@ -150,6 +154,7 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		"matches":      plan.Matches,
 		"terraform":    plan.Terraform,
 		"batches":      plan.Batches,
+		"target":       plan.Target,
 	}
 	if len(plan.Rendering) > 0 {
 		hashInput["rendering"] = plan.Rendering

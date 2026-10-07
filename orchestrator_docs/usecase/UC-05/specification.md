@@ -21,7 +21,7 @@ Kiểm tra Score và hiển thị thay đổi dự kiến trước khi thực hi
 - **PRE-01:** Application và Environment đã tồn tại.
 - **PRE-02:** Environment có Deployment Set hiện tại, kể cả Deployment Set rỗng.
 - **PRE-03:** Các Resource Type và Resource Definition cần thiết đã được đăng ký.
-- **PRE-04:** Application có Execution Profile và connection trạng thái `READY`.
+- **PRE-04:** Environment đã set Execution Profile và Connection trạng thái `READY`.
 
 ## Trigger
 
@@ -134,6 +134,6 @@ UC-05 Validate and Preview
 
 See [workload rendering contract](../../architecture/contracts/workload-rendering.md).
 
-## Application connection binding
+## Environment connection binding
 
-- **BR-11:** Preview dùng Connection đã lưu của Application, không lấy lại default. UI hiển thị connection key/profile của Application. Internal cluster/Kubernetes hoặc AWS Terraform VPC/EKS Definition chỉ định connection khác Application gây planning validation error trước mọi side effect; không âm thầm chuyển target.
+- **BR-11:** Preview resolves the configured Environment connection/profile/region, never Organization default or a shared Application target. UNCONFIGURED is rejected 422 field connectionKey before side effects. UI shows selected Environment target. Internal Kubernetes and AWS VPC/EKS Definition conflicts against that target fail planning. Environment binding/version/scope are pinned to preview/hash; see ADR-011.

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
@@ -6,7 +6,10 @@ import { App } from './App';
 type Handler = (url: string, init?: RequestInit) => Response | Promise<Response> | undefined;
 
 let authenticated: boolean;
-type StubApplication = { key: string; name: string; subdomain: string; connectionKey?: string; executionProfile?: string };
+type StubEnvironment = { key: string; version: number; configured: boolean; connectionKey: string; connectionName?: string; connectionKind?: string; executionProfile: string; region?: string; runtimeStatus: string; infrastructureScope: string };
+type StubApplication = { key: string; name: string; subdomain: string; environments: StubEnvironment[] };
+const unset = (key: string): StubEnvironment => ({ key, version: 1, configured: false, connectionKey: '', executionProfile: '', runtimeStatus: 'UNCONFIGURED', infrastructureScope: 'ENVIRONMENT' });
+const bound = (key: string, connectionKey: string): StubEnvironment => ({ key, version: 2, configured: true, connectionKey, connectionName: connectionKey, connectionKind: 'KUBERNETES', executionProfile: 'internal-k8s', runtimeStatus: 'READY', infrastructureScope: 'ENVIRONMENT' });
 let applications: StubApplication[];
 let requests: { url: string; method: string; body?: string }[];
 let override: Handler | undefined;
@@ -22,13 +25,23 @@ function stubBackend() {
     if (url.endsWith('/auth/sign-out')) { authenticated = false; return new Response(null, { status: 204 }); }
     if (!authenticated) return Response.json({ error: 'unauthorized' }, { status: 401 });
     if (url.endsWith('/applications') && init?.method === 'POST') {
-      const body = JSON.parse(String(init.body)) as { name: string; subdomain: string; connectionKey: string };
-      const created = { key: 'generated-id', name: body.name, subdomain: body.subdomain, connectionKey: body.connectionKey, executionProfile: 'internal-k8s' };
+      const body = JSON.parse(String(init.body)) as { name: string; subdomain: string };
+      const created: StubApplication = { key: 'generated-id', name: body.name, subdomain: body.subdomain, environments: [unset('staging'), unset('production')] };
       applications.push(created);
-      return Response.json({ application: { ...created, environments: [{ key: 'staging' }, { key: 'production' }] } }, { status: 201 });
+      return Response.json({ application: created }, { status: 201 });
+    }
+    const set = url.match(/\/applications\/([^/]+)\/environments\/([^/]+)\/connection$/);
+    if (set && init?.method === 'PUT') {
+      const body = JSON.parse(String(init.body)) as { connectionKey: string; expectedVersion: number };
+      const env = applications.find((item) => item.key === set[1])?.environments.find((item) => item.key === set[2]);
+      if (!env) return Response.json({ error: 'not found' }, { status: 404 });
+      if (env.configured) return Response.json({ error: 'this environment already has a connection; it cannot be changed', code: 'ALREADY_CONFIGURED' }, { status: 409 });
+      Object.assign(env, bound(env.key, body.connectionKey));
+      return Response.json({ environment: env });
     }
     if (url.endsWith('/application-connections')) return Response.json({ connections: [{ key: 'internal-cluster', name: 'Internal cluster', kind: 'KUBERNETES', status: 'READY' }, { key: 'lab', name: 'Lab', kind: 'KUBERNETES', status: 'READY' }], defaultConnectionKey: 'internal-cluster' });
     if (url.endsWith('/applications')) return Response.json({ applications });
+    if (url.includes('/configuration')) return Response.json({ applicationKey: 'x', environmentKey: 'staging', version: 0, keys: [] });
     if (url.includes('/workloads')) return Response.json({ draftVersion: 0, workloads: [] });
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
     return Response.json({});
@@ -46,7 +59,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/ui/sign-in');
     authenticated = false;
-    applications = [{ key: 'payment', name: 'Payment', subdomain: 'payment', connectionKey: 'internal-cluster', executionProfile: 'internal-k8s' }];
+    applications = [{ key: 'payment', name: 'Payment', subdomain: 'payment', environments: [bound('staging', 'internal-cluster'), bound('production', 'internal-cluster')] }];
     requests = [];
     override = undefined;
     stubBackend();
@@ -99,25 +112,64 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(await screen.findByText('Payment')).toBeInTheDocument();
   });
 
-  it('creates an application with the chosen connection and shows its binding on both environments', async () => {
+  it('creates an application without a connection and sets each environment once in Settings', async () => {
     const user = userEvent.setup();
     render(<App />);
     await signIn(user);
     await user.click(screen.getAllByRole('button', { name: /create application/i })[0]!);
     await user.type(screen.getByLabelText('Application name'), 'Catalog');
     await user.type(screen.getByLabelText('Subdomain'), 'Catalog');
-    await user.selectOptions(await screen.findByLabelText('Connection'), 'lab');
+    expect(screen.queryByLabelText('Connection')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Create application' }));
 
     expect(await screen.findByRole('heading', { name: 'Catalog' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Execution target')).toHaveTextContent('Connection lab · profile internal-k8s · both environments');
+    expect(screen.getByLabelText('Execution target')).toHaveTextContent('Staging has no execution connection yet');
     expect(screen.getByRole('status')).toHaveTextContent('Application created.');
-    expect(screen.getByText('staging.catalog.example.com')).toBeInTheDocument();
-    expect(screen.getAllByText('catalog.example.com')).toHaveLength(2);
     expect(screen.getByRole('button', { name: /Staging/ })).toHaveClass('tab-active');
     const create = requests.find((request) => request.method === 'POST' && request.url.endsWith('/applications'));
-    expect(JSON.parse(create?.body ?? '{}')).toEqual({ name: 'Catalog', subdomain: 'catalog', connectionKey: 'lab' });
+    expect(JSON.parse(create?.body ?? '{}')).toEqual({ name: 'Catalog', subdomain: 'catalog' });
+
+    // Staging picks lab in Settings; production stays unset.
+    await user.click(screen.getByRole('button', { name: 'Environment settings' }));
+    await user.selectOptions(await screen.findByLabelText('Connection for Staging'), 'lab');
+    await user.click(screen.getByRole('button', { name: 'Set connection' }));
+    expect(await screen.findByText('Locked')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Set connection' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    const put = requests.find((request) => request.method === 'PUT' && request.url.endsWith('/environments/staging/connection'));
+    expect(JSON.parse(put?.body ?? '{}')).toEqual({ connectionKey: 'lab', expectedVersion: 1 });
+    await user.click(screen.getByRole('tab', { name: 'Production' }));
+    expect(await screen.findByLabelText('Connection for Production')).toHaveValue('');
+    expect(screen.getByText('Not configured')).toBeInTheDocument();
     expect(requests.some((request) => /\/(deploy|preview|deployments)$/.test(request.url) && request.method === 'POST')).toBe(false);
+    // Back home the cached target shows the staging binding only.
+    await user.click(screen.getByRole('button', { name: /← Catalog/ }));
+    expect(await screen.findByLabelText('Execution target')).toHaveTextContent('Staging · Connection lab (lab)');
+    await user.click(screen.getByRole('button', { name: /^Production/ }));
+    expect(screen.getByLabelText('Execution target')).toHaveTextContent('Production has no execution connection yet');
+  });
+
+  it('keeps the Settings Environment aligned with the URL across tab clicks and back/forward', async () => {
+    const user = userEvent.setup();
+    window.history.replaceState({}, '', '/ui/applications/payment/settings?environment=production');
+    authenticated = true;
+    render(<App />);
+    expect(await screen.findByRole('tab', { name: 'Production' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByLabelText('Execution connection')).toHaveTextContent('Production deploys to this connection');
+    await waitFor(() => expect(requests.some((request) => request.url.includes('/environments/production/configuration'))).toBe(true));
+    // A tab click keeps the URL aligned, so a reload opens the same scope.
+    await user.click(screen.getByRole('tab', { name: 'Staging' }));
+    await waitFor(() => expect(window.location.search).toBe('?environment=staging'));
+    expect(screen.getByRole('tab', { name: 'Staging' })).toHaveAttribute('aria-selected', 'true');
+    // Back/forward to another scope re-scopes both the connection panel and the configuration.
+    window.history.pushState({}, '', '/ui/applications/payment/settings?environment=production');
+    await act(async () => { window.dispatchEvent(new PopStateEvent('popstate')); });
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Production' })).toHaveAttribute('aria-selected', 'true'));
+    expect(screen.getByLabelText('Execution connection')).toHaveTextContent('Production deploys to this connection');
+    window.history.pushState({}, '', '/ui/applications/payment/settings');
+    await act(async () => { window.dispatchEvent(new PopStateEvent('popstate')); });
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Staging' })).toHaveAttribute('aria-selected', 'true'));
+    expect(screen.getByLabelText('Execution connection')).toHaveTextContent('Staging deploys to this connection');
   });
 
   it('returns to sign-in with a notice when the session expires', async () => {

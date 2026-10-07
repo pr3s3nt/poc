@@ -7,61 +7,35 @@ last_reviewed: 2026-10-07
 
 # UC-01 — Use Case Realization
 
-## Trách nhiệm
+## Trách nhiệm và system operations
 
-Tạo Application self-service từ Name/Subdomain/Connection, resolve selected execution target
-trong Organization và atomically tạo `staging`/`production` cùng Deployment Set
-rỗng, namespace identity và desired endpoint. Không provision infrastructure.
-
-## System operations
-
-```go
-ApplicationService.CreateApplication(ctx context.Context, cmd CreateApplicationCommand) (*Application, error)
-```
-
-`CreateApplicationCommand` chứa session-derived Organization ID, Name, Subdomain
-và optional ConnectionKey (omission tương thích API cũ).
-`ExecutionTargetResolver` load selected Connection trong Organization, kiểm tra
-READY/kind/region rồi trả profile, connection và optional AWS region. Default
-chỉ được dùng khi client bỏ key, không dùng khi key tường minh không hợp lệ.
-`ListApplicationConnections` trả safe READY choices và defaultConnectionKey
-cho authenticated member; không mở quyền UC-04 quản lý Connection. ID và hai Environment được
-hệ thống tạo, không nằm trong command.
+`ApplicationService.CreateApplication` validates Name/Subdomain and session
+Organization, generates identity, saves Application and two UNCONFIGURED
+Environments/empty Sets atomically. It does not resolve a Connection.
+`ApplicationService.ListApplicationConnections` supplies safe Organization READY
+choices for Environment Settings; UC-04 management privileges are unchanged.
+`ApplicationService.SetConnection` takes session Organization, app/env,
+connection key and expected version. In one transaction it checks ownership,
+unset binding/version, validates Connection and derives profile/region/runtime,
+then atomically persists immutable binding and increments version. No external
+calls and no runtime provisioning. Any existing binding returns conflict.
 
 ## Participants
 
-- `ApplicationController` — boundary nhận create command của Developer.
-- `ApplicationService` — control validate Name/Subdomain, resolve target và điều phối transaction.
-- `ExecutionTargetResolver` — resolve selected Connection hoặc default khi omitted; validate scoped target.
-- `Application`, `Environment`, `DeploymentSet`, `NamespaceIdentity` — domain entities/value objects.
-- `ConnectionRepository` — đọc connection `READY` của target đã resolve.
-- `ApplicationRepository`, `EnvironmentRepository`, `DeploymentSetRepository` — persistence ports.
-- `UnitOfWork` — transaction cho từng aggregate creation.
+ApplicationController, ApplicationService, EnvironmentConnectionController,
+ApplicationService.SetConnection (Environment target responsibility), scoped ExecutionTargetResolver, Application,
+Environment, DeploymentSet and persistence UnitOfWork/repositories. Repository
+provides compare-and-set binding and prevents normal Save from replacing it.
 
-## Trace main flow
+## Trace and validation
 
-| Step | Collaboration |
-|---|---|
-| MS-01–MS-02 | Controller -> `CreateApplication` -> validate Name/Subdomain and uniqueness. |
-| MS-03–MS-04 | Service -> resolve selected Organization-scoped target -> load ready connection -> `Application.Create` with generated ID. |
-| MS-05–MS-06 | Service -> `Environment.Create(staging/production)` + `DeploymentSet.Empty` + `NamespaceIdentity.ForEnvironment`. |
-| MS-07–MS-08 | Service derives desired endpoints, then saves Application, both Environments and current-set pointers atomically. |
-| VAR-01 | Resolve AWS connection/region; runtime status `PENDING`, không provision VPC/EKS. |
-| VAR-02 | Resolve Kubernetes connection `READY`; bind cluster ID. |
+MS-01/02 validate name/subdomain; MS-03/04 generate Application without target;
+MS-05/06 create staging/production, empty Sets/namespaces; MS-07/08 persist context.
+ES-01/02 load Environment and choices; ES-03/04 validate selected target;
+ES-05/06 CAS unset binding, bump version and return locked view.
 
-## Transaction boundary
-
-Một transaction tạo Application, hai Environment và hai Deployment Set rỗng
-atomically; không có external infrastructure call. Unique Name/Subdomain là
-duplicate guard cuối cùng của persistence.
-
-## Planned tests
-
-- Default omission compatibility, explicit non-default selection, rejected blank/null,
-  foreign/missing/not-ready/unsupported connection, AWS region, list scope/redaction,
-  consistent staging/production binding and persistence/restart.
-- `TestCreateApplication_UsesOrganizationDefaultTarget`.
-- `TestCreateApplication_CreatesStagingAndProductionWithEmptyDeploymentSets`.
-- `TestCreateApplication_RejectsInvalidOrDuplicateSubdomain`.
-- Repository integration test cho unique `(organization_id, name)`, global
-  Subdomain và exactly-two default Environment rows.
+Test unconfigured creation without default, independent Environment targets,
+set once including same-key repeat, foreign/notREADY/blank/region errors, concurrent
+version race, save overwrite guards, legacy migration/restart and no external
+side effects. Shared target/identity compatibility is owned by
+[ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).

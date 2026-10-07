@@ -4,6 +4,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -23,9 +24,12 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
+	"orchestrator/internal/application/target"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
 	domain "orchestrator/internal/domain/deployment"
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/credentials"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
@@ -106,6 +110,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/applications", s.handleApplications)
 	s.mux.HandleFunc("POST /api/v1/applications", s.handleCreateApplication)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}", s.handleGetApplication)
+	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/connection", s.handleSetEnvironmentConnection)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/configuration", s.handleGetConfiguration)
 	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handlePutConfigurationKey)
 	s.mux.HandleFunc("PATCH /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handleRenameConfigurationKey)
@@ -154,17 +159,41 @@ type environmentView struct {
 	NamespaceIdentity      string `json:"namespaceIdentity"`
 	CurrentDeploymentSetID string `json:"currentDeploymentSetId"`
 	Version                int64  `json:"version"`
+	// Target (ADR-011): safe nonsecret binding of this Environment.
+	Configured          bool   `json:"configured"`
+	ConnectionKey       string `json:"connectionKey"`
+	ConnectionName      string `json:"connectionName,omitempty"`
+	ConnectionKind      string `json:"connectionKind,omitempty"`
+	Profile             string `json:"executionProfile"`
+	Region              string `json:"region,omitempty"`
+	RuntimeStatus       string `json:"runtimeStatus"`
+	InfrastructureScope string `json:"infrastructureScope"`
 }
 
 type applicationView struct {
-	Key           string            `json:"key"`
-	Name          string            `json:"name"`
-	Subdomain     string            `json:"subdomain"`
-	Profile       string            `json:"executionProfile"`
-	ConnectionKey string            `json:"connectionKey"`
-	RuntimeStatus string            `json:"runtimeStatus"`
-	Region        string            `json:"region,omitempty"`
-	Environments  []environmentView `json:"environments"`
+	Key          string            `json:"key"`
+	Name         string            `json:"name"`
+	Subdomain    string            `json:"subdomain"`
+	Environments []environmentView `json:"environments"`
+}
+
+// environmentViewOf projects an Environment with its safe Connection labels.
+func (s *Server) environmentViewOf(ctx context.Context, organizationKey string, e environment.Environment) environmentView {
+	v := environmentView{
+		Key: e.Key, Name: e.Name, Type: e.Type, NamespaceIdentity: e.NamespaceIdentity,
+		CurrentDeploymentSetID: e.CurrentDeploymentSetID, Version: e.Version,
+		Configured: e.Configured(), ConnectionKey: e.ConnectionKey, Profile: string(e.Profile), Region: e.Region,
+		RuntimeStatus: string(e.Status()), InfrastructureScope: string(e.Scope()),
+	}
+	if e.Configured() {
+		if conn, err := s.store.GetConnection(ctx, organizationKey, e.ConnectionKey); err == nil {
+			v.ConnectionName, v.ConnectionKind = conn.Name, string(conn.Kind)
+			if v.ConnectionName == "" {
+				v.ConnectionName = conn.Key
+			}
+		}
+	}
+	return v
 }
 
 const sessionCookie = "orchestrator_session"
@@ -234,16 +263,11 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		view := applicationView{
-			Key: a.Key, Name: a.Name, Subdomain: a.Subdomain, Profile: string(a.Profile), ConnectionKey: a.ConnectionKey,
-			RuntimeStatus: string(a.RuntimeStatus), Region: a.Region,
+			Key: a.Key, Name: a.Name, Subdomain: a.Subdomain,
 			Environments: make([]environmentView, 0, len(envs)),
 		}
 		for _, e := range envs {
-			view.Environments = append(view.Environments, environmentView{
-				Key: e.Key, Name: e.Name, Type: e.Type,
-				NamespaceIdentity: e.NamespaceIdentity, CurrentDeploymentSetID: e.CurrentDeploymentSetID,
-				Version: e.Version,
-			})
+			view.Environments = append(view.Environments, s.environmentViewOf(r.Context(), a.OrganizationKey, e))
 		}
 		out = append(out, view)
 	}
@@ -253,8 +277,6 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 type createApplicationRequest struct {
 	Name      string `json:"name"`
 	Subdomain string `json:"subdomain"`
-	// ConnectionKey stays raw so omission, null and "" can be told apart.
-	ConnectionKey json.RawMessage `json:"connectionKey"`
 }
 
 // handleApplicationConnections lists the READY Connection choices of the
@@ -290,33 +312,94 @@ func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request)
 		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
 		return
 	}
-	// Name, Subdomain and the optional Connection key are accepted;
-	// Organization and role come from the session, profile and region from the
-	// selected Connection (UC-01 BR-07). Everything else is rejected.
+	// Only Name and Subdomain are accepted; Organization and role come from the
+	// session. The execution target is set later, once per Environment
+	// (UC-01 BR-13). Everything else, including connectionKey, is rejected.
 	var req createApplicationRequest
 	if err := decodeSingleObject(r, &req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request must be one JSON object with only name, subdomain and connectionKey"})
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request must be one JSON object with only name and subdomain"})
 		return
 	}
 	cmd := appcreate.CreateCommand{OrganizationKey: identity.OrganizationKey, Name: req.Name, Subdomain: req.Subdomain, BaseDomain: s.seedOptions.BaseDomain}
-	if req.ConnectionKey != nil {
-		var key string
-		if err := json.Unmarshal(req.ConnectionKey, &key); err != nil || bytes.Equal(bytes.TrimSpace(req.ConnectionKey), []byte("null")) {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "connectionKey must be a non-blank string when present", "field": "connectionKey"})
-			return
-		}
-		cmd.ConnectionKey = &key
-	}
 	result, err := s.applications.Create(r.Context(), cmd)
 	if err != nil {
 		writeCreateApplicationError(w, err)
 		return
 	}
-	view := applicationView{Key: result.Application.Key, Name: result.Application.Name, Subdomain: result.Application.Subdomain, Profile: string(result.Application.Profile), ConnectionKey: result.Application.ConnectionKey, RuntimeStatus: string(result.Application.RuntimeStatus), Region: result.Application.Region}
+	view := applicationView{Key: result.Application.Key, Name: result.Application.Name, Subdomain: result.Application.Subdomain}
 	for _, env := range result.Environments {
-		view.Environments = append(view.Environments, environmentView{Key: env.Key, Name: env.Name, Type: env.Type, NamespaceIdentity: env.NamespaceIdentity, CurrentDeploymentSetID: env.CurrentDeploymentSetID, Version: env.Version})
+		view.Environments = append(view.Environments, s.environmentViewOf(r.Context(), identity.OrganizationKey, env))
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"application": view})
+}
+
+type setConnectionRequest struct {
+	ConnectionKey   json.RawMessage `json:"connectionKey"`
+	ExpectedVersion json.RawMessage `json:"expectedVersion"`
+}
+
+// Fixed 409 sentences; the UI distinguishes them to reload the Environment.
+const (
+	conflictAlreadyConfigured = "this environment already has a connection; it cannot be changed"
+	conflictStaleVersion      = "the environment changed since it was loaded; reload and try again"
+)
+
+// handleSetEnvironmentConnection sets the Environment target exactly once
+// (UC-01 ES-03..06). Session Organization scopes the Application.
+func (s *Server) handleSetEnvironmentConnection(w http.ResponseWriter, r *http.Request) {
+	identity, ok := s.sessionIdentity(r)
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		return
+	}
+	var req setConnectionRequest
+	if err := decodeSingleObject(r, &req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request must be one JSON object with only connectionKey and expectedVersion"})
+		return
+	}
+	var key string
+	if req.ConnectionKey == nil || json.Unmarshal(req.ConnectionKey, &key) != nil || strings.TrimSpace(key) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "connectionKey must be a non-blank string", "field": "connectionKey"})
+		return
+	}
+	var version int64
+	if req.ExpectedVersion == nil || json.Unmarshal(req.ExpectedVersion, &version) != nil || version <= 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "expectedVersion must be a positive integer", "field": "expectedVersion"})
+		return
+	}
+	env, err := s.applications.SetConnection(r.Context(), appcreate.SetConnectionCommand{
+		OrganizationKey: identity.OrganizationKey, ApplicationKey: r.PathValue("id"), EnvironmentKey: r.PathValue("env"),
+		ConnectionKey: key, ExpectedVersion: version,
+	})
+	switch {
+	case err == nil:
+		writeJSON(w, http.StatusOK, map[string]any{"environment": s.environmentViewOf(r.Context(), identity.OrganizationKey, env)})
+	case errors.Is(err, appcreate.ErrAlreadyConfigured):
+		writeJSON(w, http.StatusConflict, map[string]any{"error": conflictAlreadyConfigured, "code": "ALREADY_CONFIGURED"})
+	case errors.Is(err, appcreate.ErrStaleVersion):
+		writeJSON(w, http.StatusConflict, map[string]any{"error": conflictStaleVersion, "code": "STALE_VERSION"})
+	case errors.Is(err, persistence.ErrNotFound):
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not found"})
+	default:
+		writeCreateApplicationError(w, err)
+	}
+}
+
+// writeUnconfigured answers the target failures of Preview and Deploy with a
+// safe 422 on connectionKey; it reports whether it did. The messages are fixed
+// sentences and never name the Connection.
+func writeUnconfigured(w http.ResponseWriter, err error) bool {
+	switch {
+	case errors.Is(err, planning.ErrEnvironmentUnconfigured):
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": appsvc.FailureUnconfigured, "field": "connectionKey", "code": "ENVIRONMENT_UNCONFIGURED"})
+	case errors.Is(err, target.ErrInconsistent):
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": appsvc.FailureInconsistent, "field": "connectionKey", "code": "ENVIRONMENT_TARGET_INCONSISTENT"})
+	case errors.Is(err, appsvc.ErrConnectionNotReady):
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": appsvc.FailureNotReady, "field": "connectionKey", "code": "CONNECTION_NOT_READY"})
+	default:
+		return false
+	}
+	return true
 }
 
 // decodeSingleObject decodes exactly one JSON object with no unknown fields
@@ -379,9 +462,9 @@ func (s *Server) handleGetApplication(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	view := applicationView{Key: app.Key, Name: app.Name, Subdomain: app.Subdomain, Profile: string(app.Profile), ConnectionKey: app.ConnectionKey, RuntimeStatus: string(app.RuntimeStatus), Region: app.Region}
+	view := applicationView{Key: app.Key, Name: app.Name, Subdomain: app.Subdomain}
 	for _, env := range envs {
-		view.Environments = append(view.Environments, environmentView{Key: env.Key, Name: env.Name, Type: env.Type, NamespaceIdentity: env.NamespaceIdentity, CurrentDeploymentSetID: env.CurrentDeploymentSetID, Version: env.Version})
+		view.Environments = append(view.Environments, s.environmentViewOf(r.Context(), app.OrganizationKey, env))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"application": view})
 }
@@ -531,6 +614,9 @@ func writeDeploymentReadError(w http.ResponseWriter, err error) {
 }
 
 func writeError(w http.ResponseWriter, err error) {
+	if writeUnconfigured(w, err) {
+		return
+	}
 	switch {
 	case errors.Is(err, persistence.ErrNotFound):
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": err.Error()})

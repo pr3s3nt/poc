@@ -47,11 +47,9 @@ func fieldError(field string, err error, msg string) error {
 }
 
 // CreateCommand carries session-derived Organization and Developer input.
-// ConnectionKey nil means the caller omitted it (legacy default); a non-nil
-// blank value is invalid and never falls back to the default.
+// Create takes no Connection: Environments start UNCONFIGURED (ADR-011).
 type CreateCommand struct {
 	OrganizationKey, Name, Subdomain, BaseDomain string
-	ConnectionKey                                *string
 }
 
 // Choice is the safe projection of a selectable Connection.
@@ -124,28 +122,10 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 	if !subdomainPattern.MatchString(cmd.Subdomain) {
 		return Result{}, fieldError("subdomain", ErrInvalid, "subdomain must be a DNS label of lowercase letters, numbers and hyphens")
 	}
-	if cmd.ConnectionKey != nil && strings.TrimSpace(*cmd.ConnectionKey) == "" {
-		return Result{}, fieldError(connectionKeyField, ErrInvalid, "connectionKey must not be blank")
-	}
 	var result Result
 	err := s.store.Transact(ctx, func(ctx context.Context) error {
-		org, err := s.store.GetOrganization(ctx, cmd.OrganizationKey)
-		if err != nil {
+		if _, err := s.store.GetOrganization(ctx, cmd.OrganizationKey); err != nil {
 			return err
-		}
-		wanted := org.DefaultConnectionKey
-		if cmd.ConnectionKey != nil {
-			wanted = strings.TrimSpace(*cmd.ConnectionKey)
-		}
-		conn, err := s.store.GetConnection(ctx, org.Key, wanted)
-		if errors.Is(err, persistence.ErrNotFound) {
-			return fieldError(connectionKeyField, ErrTargetNotReady, targetUnavailableMsg)
-		}
-		if err != nil {
-			return err
-		}
-		if !eligible(org.Key, conn) {
-			return fieldError(connectionKeyField, ErrTargetNotReady, targetUnavailableMsg)
 		}
 		apps, err := s.store.ListApplications(ctx)
 		if err != nil {
@@ -159,12 +139,8 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 				return fieldError("subdomain", ErrDuplicate, "subdomain is already in use")
 			}
 		}
-		profile, region, status := appdomain.ProfileInternalK8s, "", appdomain.RuntimeReady
-		if conn.Kind == appdomain.ConnectionAWS {
-			profile, region, status = appdomain.ProfileAWSEKS, conn.ConfigString("region"), appdomain.RuntimePending
-		}
 		appID := ids.New()
-		app := appdomain.Application{ID: appID, Key: appID, OrganizationKey: cmd.OrganizationKey, Name: cmd.Name, Subdomain: cmd.Subdomain, Profile: profile, ConnectionKey: conn.Key, Region: region, RuntimeStatus: status, ConfigurationProvider: "vault"}
+		app := appdomain.Application{ID: appID, Key: appID, OrganizationKey: cmd.OrganizationKey, Name: cmd.Name, Subdomain: cmd.Subdomain, RuntimeStatus: appdomain.RuntimeUnconfigured, ConfigurationProvider: "vault"}
 		if err := app.Validate(); err != nil {
 			return err
 		}
@@ -178,7 +154,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 		for _, key := range []string{"staging", "production"} {
 			envID := ids.New()
 			set := environment.DeploymentSet{ID: ids.New(), EnvironmentID: envID, EnvironmentKey: app.Key + "/" + key, Document: environment.NewDocument(), DocumentHash: "empty", CreatedAt: time.Now().UTC()}
-			env := environment.Environment{ID: envID, Key: key, ApplicationID: app.ID, ApplicationKey: app.Key, Name: strings.Title(key), Type: key, NamespaceIdentity: "app-" + app.Key + "-" + key, CurrentDeploymentSetID: set.ID}
+			env := environment.Environment{ID: envID, Key: key, ApplicationID: app.ID, ApplicationKey: app.Key, Name: strings.Title(key), Type: key, NamespaceIdentity: "app-" + app.Key + "-" + key, CurrentDeploymentSetID: set.ID, Version: 1, RuntimeStatus: appdomain.RuntimeUnconfigured, InfrastructureScope: environment.ScopeEnvironment}
 			if err := s.store.SaveDeploymentSet(ctx, set); err != nil {
 				return err
 			}
@@ -191,4 +167,81 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 		return nil
 	})
 	return result, err
+}
+
+// Failures of SetConnection that delivery maps to 409.
+var (
+	ErrAlreadyConfigured = errors.New("application: environment connection is already configured")
+	ErrStaleVersion      = errors.New("application: environment changed; reload it")
+	ErrNotFound          = persistence.ErrNotFound
+)
+
+// SetConnectionCommand carries session-derived Organization and the request.
+type SetConnectionCommand struct {
+	OrganizationKey, ApplicationKey, EnvironmentKey, ConnectionKey string
+	ExpectedVersion                                                int64
+}
+
+// SetConnection sets the execution Connection of one Environment exactly once
+// (UC-01 ES-03..06). Nothing outside the Environment changes and no external
+// system is called.
+func (s *Service) SetConnection(ctx context.Context, cmd SetConnectionCommand) (environment.Environment, error) {
+	cmd.ConnectionKey = strings.TrimSpace(cmd.ConnectionKey)
+	if cmd.ConnectionKey == "" {
+		return environment.Environment{}, fieldError(connectionKeyField, ErrInvalid, "connectionKey must not be blank")
+	}
+	if cmd.ExpectedVersion <= 0 {
+		return environment.Environment{}, fieldError("expectedVersion", ErrInvalid, "expectedVersion is required")
+	}
+	var out environment.Environment
+	err := s.store.Transact(ctx, func(ctx context.Context) error {
+		app, err := s.store.GetApplication(ctx, cmd.ApplicationKey)
+		if err != nil {
+			return err
+		}
+		if app.OrganizationKey != cmd.OrganizationKey {
+			return fmt.Errorf("%w: application %q", persistence.ErrNotFound, cmd.ApplicationKey)
+		}
+		env, err := s.store.GetEnvironment(ctx, cmd.ApplicationKey, cmd.EnvironmentKey)
+		if err != nil {
+			return err
+		}
+		// The configured check precedes every other validation, so a repeat
+		// (even with the same key) never reveals anything about the Connection.
+		if env.Configured() {
+			return ErrAlreadyConfigured
+		}
+		conn, err := s.store.GetConnection(ctx, cmd.OrganizationKey, cmd.ConnectionKey)
+		if errors.Is(err, persistence.ErrNotFound) {
+			return fieldError(connectionKeyField, ErrTargetNotReady, targetUnavailableMsg)
+		}
+		if err != nil {
+			return err
+		}
+		if !eligible(cmd.OrganizationKey, conn) {
+			return fieldError(connectionKeyField, ErrTargetNotReady, targetUnavailableMsg)
+		}
+		profile, region, status := appdomain.ProfileInternalK8s, "", appdomain.RuntimeReady
+		if conn.Kind == appdomain.ConnectionAWS {
+			profile, region, status = appdomain.ProfileAWSEKS, conn.ConfigString("region"), appdomain.RuntimePending
+		}
+		bound, err := s.store.BindEnvironment(ctx, persistence.EnvironmentBinding{
+			ApplicationKey: cmd.ApplicationKey, EnvironmentKey: cmd.EnvironmentKey, ConnectionKey: conn.Key,
+			Profile: profile, Region: region, RuntimeStatus: status, Scope: environment.ScopeEnvironment,
+			ExpectedVersion: cmd.ExpectedVersion,
+		})
+		switch {
+		case errors.Is(err, persistence.ErrBindingConfigured):
+			return ErrAlreadyConfigured
+		case errors.Is(err, persistence.ErrVersionConflict):
+			return ErrStaleVersion
+		case errors.Is(err, persistence.ErrNotFound):
+			return fieldError(connectionKeyField, ErrTargetNotReady, targetUnavailableMsg)
+		case err != nil:
+			return err
+		}
+		out = bound
+		return nil
+	})
+	return out, err
 }

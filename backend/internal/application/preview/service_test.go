@@ -484,7 +484,8 @@ func TestPreview_ScopeAndConnection(t *testing.T) {
 		t.Fatalf("missing environment: %v", err)
 	}
 	a, _ := app.Store.GetApplication(ctx, opts.ApplicationKey)
-	conn, _ := app.Store.GetConnection(ctx, a.OrganizationKey, a.ConnectionKey)
+	e, _ := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	conn, _ := app.Store.GetConnection(ctx, a.OrganizationKey, e.ConnectionKey)
 	conn.Status = appdomain.ConnectionVerifying
 	if err := app.Store.SaveConnection(ctx, conn); err != nil {
 		t.Fatal(err)

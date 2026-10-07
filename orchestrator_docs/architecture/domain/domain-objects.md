@@ -13,8 +13,8 @@ last_reviewed: 2026-10-07
 |---|---|---|---|
 | User Account | `UserAccount` | password hash, Organization identity, role, status | Username unique; chỉ `ACTIVE` account được authenticate; plaintext password không persist. |
 | Session | `Session` | token hash, expiry, lifecycle status | Opaque token chỉ tồn tại ở browser/request memory; token hash unique và session revoked/expired không authenticate được. |
-| Application | `Application` | system ID, name, subdomain, Execution Profile binding | ID do hệ thống sinh; profile cố định khi đã có Active Resource; AWS scope sở hữu tối đa một VPC/EKS descriptor. |
-| Environment | `Environment` | namespace identity, current-set pointer, public-route pending flag | Thuộc một Application; UC-01 tạo đúng `staging` và `production`; desired endpoint được suy ra từ Application Subdomain và Environment key; current Deployment Set chỉ đổi trong final deployment transaction. Route pending cho phép retry sau lỗi Fleet mà không restart workload. |
+| Application | `Application` | system ID, name, subdomain, configuration provider | ID do hệ thống sinh; execution binding belongs to Environment; legacy AWS scope retained only for migration. |
+| Environment | `Environment` | namespace identity, set-once connection/profile/region/runtime/scope, current-set pointer, public-route pending flag | Thuộc một Application; UC-01 tạo đúng `staging` và `production`; desired endpoint được suy ra từ Application Subdomain và Environment key; current Deployment Set chỉ đổi trong final deployment transaction. Route pending cho phép retry sau lỗi Fleet mà không restart workload. |
 | Resource Type | `ResourceType` | input/output schema | Contract độc lập implementation. |
 | Resource Definition | `ResourceDefinition` | optional Execution Profile guard, Matching Criteria, driver inputs, provision rules | Cùng Resource Type và profile hợp lệ; criteria match deterministic; output contract tương thích. |
 | Connection | `Connection` | name, kind, authentication type, non-secret config, verification metadata | Chỉ secret reference được persist; chỉ `READY` được sử dụng. |
@@ -119,10 +119,13 @@ Definition/content hash and bundle in deployment plan JSON. Neither stores
 credentials or changes resource/workload scope relationships. Native rendering
 uses an omitted selection entry, including legacy plans without this metadata.
 
-## Application execution binding
+## Environment execution binding
 
-UC-01 BR-07/08 owns creation-time Connection selection. The existing Application
-connection/profile/region is persisted once and shared by every Environment;
-Organization default changes never retarget existing Applications. UC-06 BR-20
-and UC-08 BR-07 reject conflicting internal and AWS VPC/EKS Definition targets. No new aggregate
-or Environment-level connection is introduced.
+UC-01 BR-07..14 and [ADR-011](../decisions/ADR-011-environment-execution-binding.md)
+own set-once Environment target. New Environments are UNCONFIGURED; targets may
+have different kinds/regions/profiles in one Application. SetConnection is atomic,
+scoped, versioned and immutable even before deploy. Runtime status may advance
+without changing target. New AWS VPC/EKS have Environment scope; migrated legacy
+AWS bindings keep application-scope identity/state. Canonical Environment resolver
+feeds planner/matcher/executors/queries; Application legacy fields do not select
+new targets. Preview/Deploy require configured binding.

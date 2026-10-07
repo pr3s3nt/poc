@@ -104,7 +104,7 @@ func TestCredentialBackedTarget_RemovalAfterRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bindApplicationToConnection(t, first.app.Store, opts.ApplicationKey, created.Key)
+	opts.ApplicationKey, opts.EnvironmentKey = newBoundApplication(t, first.app.Store, opts.OrganizationKey, "Lab App", "lab-app", created.Key, ""), "staging"
 	if err := first.app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, resource.Definition{
 		Key: "cluster-lab", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
 		ExecutionProfile: "internal-k8s", ConnectionKey: created.Key,

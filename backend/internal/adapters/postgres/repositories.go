@@ -142,7 +142,9 @@ func (s *Store) SaveApplication(ctx context.Context, v application.Application) 
 	if v.Version == 0 {
 		v.Version = 1
 	}
-	_, err := s.q(ctx).Exec(ctx, `INSERT INTO applications(id,application_key,organization_id,name,subdomain,execution_profile,connection_id,region,runtime_status,version,configuration_provider) SELECT $1::uuid,$2,o.id,$4,$5,$6,c.id,$8,$9,$10,$11 FROM organizations o JOIN connections c ON c.organization_id=o.id AND c.connection_key=$7 WHERE o.organization_key=$3 ON CONFLICT(id) DO UPDATE SET application_key=EXCLUDED.application_key,name=EXCLUDED.name,subdomain=EXCLUDED.subdomain,runtime_status=EXCLUDED.runtime_status,version=EXCLUDED.version,configuration_provider=EXCLUDED.configuration_provider`, v.ID, v.Key, v.OrganizationKey, v.Name, v.Subdomain, v.Profile, v.ConnectionKey, v.Region, v.RuntimeStatus, v.Version, v.ConfigurationProvider)
+	// Legacy target columns are never written by a save (ADR-011): a new
+	// Application is stored unbound and an existing one keeps its legacy data.
+	_, err := s.q(ctx).Exec(ctx, `INSERT INTO applications(id,application_key,organization_id,name,subdomain,execution_profile,connection_id,region,runtime_status,version,configuration_provider) SELECT $1::uuid,$2,o.id,$4,$5,'',NULL,'','UNCONFIGURED',$6,$7 FROM organizations o WHERE o.organization_key=$3 ON CONFLICT(id) DO UPDATE SET application_key=EXCLUDED.application_key,name=EXCLUDED.name,subdomain=EXCLUDED.subdomain,version=EXCLUDED.version,configuration_provider=EXCLUDED.configuration_provider`, v.ID, v.Key, v.OrganizationKey, v.Name, v.Subdomain, v.Version, v.ConfigurationProvider)
 	if err != nil {
 		return fmt.Errorf("postgres: save application: %w", translate(err))
 	}
@@ -154,7 +156,7 @@ func scanApp(row pgx.Row) (application.Application, error) {
 	return v, err
 }
 
-const appSelect = `SELECT a.id::text,a.application_key,o.organization_key,a.name,a.subdomain,a.execution_profile,c.connection_key,a.region,a.runtime_status,a.version,a.configuration_provider FROM applications a JOIN organizations o ON o.id=a.organization_id JOIN connections c ON c.id=a.connection_id`
+const appSelect = `SELECT a.id::text,a.application_key,o.organization_key,a.name,a.subdomain,a.execution_profile,COALESCE(c.connection_key,''),a.region,a.runtime_status,a.version,a.configuration_provider FROM applications a JOIN organizations o ON o.id=a.organization_id LEFT JOIN connections c ON c.id=a.connection_id`
 
 func (s *Store) GetApplication(ctx context.Context, key string) (application.Application, error) {
 	v, err := scanApp(s.q(ctx).QueryRow(ctx, appSelect+` WHERE a.application_key=$1`, key))
@@ -194,11 +196,11 @@ func (s *Store) SaveEnvironment(ctx context.Context, v environment.Environment) 
 	return nil
 }
 
-const envSelect = `SELECT e.id::text,e.environment_key,a.id::text,a.application_key,e.name,e.environment_type,e.namespace_identity,COALESCE(e.current_deployment_set_id::text,''),e.version,e.draft_version,e.public_routes_pending FROM environments e JOIN applications a ON a.id=e.application_id`
+const envSelect = `SELECT e.id::text,e.environment_key,a.id::text,a.application_key,e.name,e.environment_type,e.namespace_identity,COALESCE(e.current_deployment_set_id::text,''),e.version,e.draft_version,e.public_routes_pending,COALESCE(ec.connection_key,''),e.execution_profile,e.region,e.runtime_status,e.infrastructure_scope FROM environments e JOIN applications a ON a.id=e.application_id LEFT JOIN connections ec ON ec.id=e.connection_id`
 
 func scanEnv(row pgx.Row) (environment.Environment, error) {
 	var v environment.Environment
-	err := row.Scan(&v.ID, &v.Key, &v.ApplicationID, &v.ApplicationKey, &v.Name, &v.Type, &v.NamespaceIdentity, &v.CurrentDeploymentSetID, &v.Version, &v.DraftVersion, &v.PublicRoutesPending)
+	err := row.Scan(&v.ID, &v.Key, &v.ApplicationID, &v.ApplicationKey, &v.Name, &v.Type, &v.NamespaceIdentity, &v.CurrentDeploymentSetID, &v.Version, &v.DraftVersion, &v.PublicRoutesPending, &v.ConnectionKey, &v.Profile, &v.Region, &v.RuntimeStatus, &v.InfrastructureScope)
 	return v, err
 }
 func (s *Store) GetEnvironment(ctx context.Context, app, key string) (environment.Environment, error) {
@@ -217,13 +219,51 @@ func (s *Store) ListEnvironments(ctx context.Context, app string) ([]environment
 	var out []environment.Environment
 	for rows.Next() {
 		var v environment.Environment
-		if err = rows.Scan(&v.ID, &v.Key, &v.ApplicationID, &v.ApplicationKey, &v.Name, &v.Type, &v.NamespaceIdentity, &v.CurrentDeploymentSetID, &v.Version, &v.DraftVersion, &v.PublicRoutesPending); err != nil {
+		if err = rows.Scan(&v.ID, &v.Key, &v.ApplicationID, &v.ApplicationKey, &v.Name, &v.Type, &v.NamespaceIdentity, &v.CurrentDeploymentSetID, &v.Version, &v.DraftVersion, &v.PublicRoutesPending, &v.ConnectionKey, &v.Profile, &v.Region, &v.RuntimeStatus, &v.InfrastructureScope); err != nil {
 			return nil, err
 		}
 		out = append(out, v)
 	}
 	return out, rows.Err()
 }
+
+// BindEnvironment sets the binding of an unset Environment once. The single
+// UPDATE carries the unset check, expected version and Organization/Connection
+// scope, so concurrent callers produce exactly one winner.
+func (s *Store) BindEnvironment(ctx context.Context, b persistence.EnvironmentBinding) (environment.Environment, error) {
+	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET connection_id=c.id,execution_profile=$4,region=$5,runtime_status=$6,infrastructure_scope=$7,version=e.version+1
+FROM applications a, connections c WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND c.organization_id=a.organization_id AND c.connection_key=$3
+AND e.connection_id IS NULL AND e.version=$8`, b.ApplicationKey, b.EnvironmentKey, b.ConnectionKey, b.Profile, b.Region, b.RuntimeStatus, b.Scope, b.ExpectedVersion)
+	if err != nil {
+		return environment.Environment{}, fmt.Errorf("postgres: bind environment: %w", translate(err))
+	}
+	if tag.RowsAffected() == 0 {
+		current, err := s.GetEnvironment(ctx, b.ApplicationKey, b.EnvironmentKey)
+		switch {
+		case err != nil:
+			return environment.Environment{}, err
+		case current.Configured():
+			return environment.Environment{}, persistence.ErrBindingConfigured
+		case current.Version != b.ExpectedVersion:
+			return environment.Environment{}, persistence.ErrVersionConflict
+		}
+		return environment.Environment{}, fmt.Errorf("%w: connection %q", persistence.ErrNotFound, b.ConnectionKey)
+	}
+	return s.GetEnvironment(ctx, b.ApplicationKey, b.EnvironmentKey)
+}
+
+// UpdateRuntimeStatus advances the runtime status of a configured Environment.
+func (s *Store) UpdateRuntimeStatus(ctx context.Context, app, key string, status application.RuntimeStatus) error {
+	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET runtime_status=$3 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.connection_id IS NOT NULL AND $3 IN ('PENDING','READY')`, app, key, status)
+	if err != nil {
+		return translate(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: environment runtime status", persistence.ErrImmutable)
+	}
+	return nil
+}
+
 func (s *Store) CompareVersionAndSetCurrent(ctx context.Context, app, key string, expected int64, setID string) error {
 	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET current_deployment_set_id=$4::uuid,version=e.version+1 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.version=$3`, app, key, expected, setID)
 	if err != nil {

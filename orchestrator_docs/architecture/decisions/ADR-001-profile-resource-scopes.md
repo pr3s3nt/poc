@@ -13,7 +13,7 @@ Status: Accepted — 2026-09-20.
 
 Planning uses one shared core. `ImplicitResourceEnricher` adds infrastructure from Execution Profile:
 
-- `aws-eks`: VPC and EKS with Application scope; namespace with Environment scope.
+- `aws-eks`: new VPC/EKS with Environment scope per [ADR-011](ADR-011-environment-execution-binding.md); migrated legacy targets retain Application scope; namespace Environment-scoped.
 - `internal-k8s`: reference to registered existing cluster; namespace with Environment scope.
 - Score resources retain private/shared identity; `postgres` matches profile-specific Definition.
 
@@ -27,6 +27,6 @@ remains profile-neutral for shared Definitions and conformance fixtures;
 
 ## Consequences
 
-- VPC/EKS are reused across Environments of one Application.
+- New VPC/EKS are isolated per Environment; only legacy migrated AWS targets reuse Application infrastructure (ADR-011).
 - Aurora and StatefulSet can expose one Resource Type output contract.
 - Descriptor/scope uniqueness must be enforced in database and executor state.

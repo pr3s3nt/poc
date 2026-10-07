@@ -356,7 +356,7 @@ func TestUC01CreateApplicationOverHTTP(t *testing.T) {
 	}
 	created := decode(t, body)["application"].(map[string]any)
 	key := created["key"].(string)
-	if created["subdomain"] != "catalog" || created["executionProfile"] != "internal-k8s" || created["runtimeStatus"] != "READY" || len(key) != 36 {
+	if created["subdomain"] != "catalog" || created["executionProfile"] != nil || created["connectionKey"] != nil || created["runtimeStatus"] != nil || len(key) != 36 {
 		t.Fatalf("created application = %v", created)
 	}
 	assertEnvironments := func(view map[string]any) {
@@ -453,10 +453,11 @@ func TestAuthenticationMiddleware_UsesSessionOrganizationAndRole(t *testing.T) {
 	if resp, _ := call(t, globex, http.MethodGet, server.URL+"/api/v1/applications/"+key, ""); resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("cross-organization get = %d", resp.StatusCode)
 	}
-	// Globex default target is not READY, so its Developer cannot create.
+	// Creation needs no execution target: a Developer whose Organization default
+	// is not READY can still create, and the Environments stay UNCONFIGURED.
 	resp, body = call(t, globex, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Catalog","subdomain":"globex-catalog"}`)
-	if resp.StatusCode != http.StatusUnprocessableEntity {
-		t.Fatalf("not-ready target create = %d %s", resp.StatusCode, body)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create without target = %d %s", resp.StatusCode, body)
 	}
 	resp, body = call(t, acme, http.MethodGet, server.URL+"/api/v1/applications", "")
 	found := false

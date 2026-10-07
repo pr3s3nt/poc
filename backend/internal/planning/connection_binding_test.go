@@ -17,17 +17,17 @@ func labCluster(connection string) resource.Definition {
 	}
 }
 
-// UC-06 BR-20: the Application connection selects the cluster node; a winning
+// UC-06 BR-20: the Environment connection selects the cluster node; a winning
 // existing-cluster Definition for another connection is rejected, not used.
-func TestPlan_InternalApplicationConnectionMustMatchWinningClusterDefinition(t *testing.T) {
+func TestPlan_InternalEnvironmentConnectionMustMatchWinningClusterDefinition(t *testing.T) {
 	req := testRequest(t, application.ProfileInternalK8s, "backend")
-	req.App.ConnectionKey = "lab"
+	req.Env.ConnectionKey = "lab"
 	req.Connection.Key = "lab"
 
 	// Only the seeded cluster Definition (connection internal-cluster) matches.
 	_, err := NewService().Plan(req)
 	if !errors.Is(err, ErrConnectionMismatch) {
-		t.Fatalf("seed definition must not retarget the lab application: %v", err)
+		t.Fatalf("seed definition must not retarget the lab Environment: %v", err)
 	}
 	if message, ok := PublicMessage(err); !ok || !IsPublicMessage(message) {
 		t.Fatalf("mismatch must use a fixed public message: %q %v", message, ok)
@@ -53,7 +53,7 @@ func TestPlan_InternalApplicationConnectionMustMatchWinningClusterDefinition(t *
 	}
 }
 
-func TestPlan_KubernetesDefinitionConnectionMustMatchInternalApplication(t *testing.T) {
+func TestPlan_KubernetesDefinitionConnectionMustMatchInternalEnvironment(t *testing.T) {
 	req := testRequest(t, application.ProfileInternalK8s, "backend")
 	for i, def := range req.Catalog.Definitions {
 		if def.Key == "namespace-kubernetes" {
@@ -65,7 +65,7 @@ func TestPlan_KubernetesDefinitionConnectionMustMatchInternalApplication(t *test
 	}
 	for i, def := range req.Catalog.Definitions {
 		if def.Key == "namespace-kubernetes" {
-			req.Catalog.Definitions[i].ConnectionKey = req.App.ConnectionKey
+			req.Catalog.Definitions[i].ConnectionKey = req.Env.ConnectionKey
 		}
 	}
 	if _, err := NewService().Plan(req); err != nil {
@@ -81,9 +81,9 @@ func withConnection(req *Request, key, connection string) {
 	}
 }
 
-// UC-06 BR-20 for aws-eks: Terraform VPC and EKS must use the Application
+// UC-06 BR-20 for aws-eks: Terraform VPC and EKS must use the Environment
 // account; external databases keep their own Driver Account.
-func TestPlan_AWSTargetTerraformDefinitionsMustUseApplicationConnection(t *testing.T) {
+func TestPlan_AWSTargetTerraformDefinitionsMustUseEnvironmentConnection(t *testing.T) {
 	req := testRequest(t, application.ProfileAWSEKS, "backend")
 	if _, err := NewService().Plan(req); err != nil {
 		t.Fatalf("matching account: %v", err)

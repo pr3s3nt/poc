@@ -41,7 +41,7 @@ entity connections {
 entity applications {
   * id : uuid <<PK>>
   * organization_id : uuid <<FK>>
-  * connection_id : uuid <<FK>>
+  connection_id : uuid <<FK,legacy>>
   --
   name : text
   subdomain : text
@@ -56,6 +56,11 @@ entity environments {
   * application_id : uuid <<FK>>
   --
   environment_key : text
+  connection_id : uuid <<FK,nullable>>
+  execution_profile : text
+  region : text
+  runtime_status : text
+  infrastructure_scope : text
   namespace_identity : text
   current_deployment_set_id : uuid <<FK>>
   version : bigint
@@ -203,7 +208,8 @@ user_accounts ||--o{ sessions
 organizations ||--o{ applications
 organizations ||--o{ resource_types
 organizations ||--o{ resource_definitions
-applications }o--|| connections
+applications }o--o| connections : legacy
+environments }o--o| connections : set once
 applications ||--o{ environments
 environments ||--o{ deployment_sets
 environments ||--o{ deployments

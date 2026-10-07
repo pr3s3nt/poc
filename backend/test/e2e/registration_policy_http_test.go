@@ -79,10 +79,7 @@ func TestUC02UC03RegistrationPolicyHTTP(t *testing.T) {
 func TestUC16ResourceParamsRejectedOnSaveAndImportHTTP(t *testing.T) {
 	server, _ := newServer(t, "")
 	client := authenticatedClient(t, server.URL)
-	status, created := requestJSON(t, client, http.MethodPost, server.URL+"/api/v1/applications", map[string]any{"name": "Params Test", "subdomain": "params-test"})
-	if status != http.StatusCreated {
-		t.Fatalf("create Application: %d %v", status, created)
-	}
+	created := createConfiguredApplication(t, client, server.URL, "Params Test", "params-test", "internal-cluster")
 	base := server.URL + "/api/v1/applications/" + created["application"].(map[string]any)["key"].(string) + "/environments/staging"
 	scoreWith := func(params map[string]any) map[string]any {
 		return map[string]any{

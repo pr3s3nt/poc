@@ -3,20 +3,19 @@ id: UC-01-UI-STATES
 artifact: use-case-ui-states
 status: current
 last_reviewed: 2026-10-07
-related: UC-01
 ---
 
 # UC-01 UI states
 
-| Screen | State | UI behavior |
+| Screen | State | Behavior |
 |---|---|---|
-| Applications home | Loading | Render list skeleton; preserve sidebar. |
-| Applications home | Empty | Explain first Application and show `+ Create application`. |
-| Applications home | API error | Show retryable callout; do not substitute seed/mock data. |
-| Create Application | Connections loading/error/empty | Disable submit until choices loaded; retry errors without losing fields; empty state asks Platform Engineer to register a READY connection. Ignore stale/unmounted replies. |
-| Create Application | Validation | Inline Name/Subdomain/Connection messages and URL preview remains visible. |
-| Create Application | Submitting | `Creating application…`; prevent duplicate submit. |
-| Create Application | API error | Retain entered fields and selected connection; show form-level error. Refresh choices on unavailable-target errors. Preserve a still-valid explicit selection; if it is removed, clear it and require a new explicit choice. Never replace a failed user-selected target with default automatically. |
-| Create Application | Success | Navigate to Application home with `staging` selected and success callout. |
-| Application home | No workloads | Explain that workload editing is coming next; keep disabled Add action visible. |
-| Application home | No deployments | Show `No deployments yet` without treating it as an error. |
+| Apps home | Loading/empty/error | Skeleton, create CTA, retry; no substitute mocks. |
+| Create | Validation/submitting/error/success | Name/Subdomain field errors, prevent duplicate submit, retain input, navigate staging. No connection choice request. |
+| Settings target | UNCONFIGURED | Explain set once; load safe choices, explicit selection required. |
+| Settings target | Choices loading/error/empty | Disable Set; retry; keep variables/secrets usable; ask PE to register READY choice when empty. |
+| Settings target | Saving | Disable duplicate submit and selector; scope changes cancel/ignore obsolete replies. |
+| Settings target | Validation/unavailable error | Retain fields; safe inline error; refresh choices and clear missing selected key, no silent default. |
+| Settings target | Conflict | Reload authoritative Environment; show saved winner as locked or stale-version retry. |
+| Settings target | Configured | Safe key/profile/region read-only; binding persists refresh/restart. |
+| Home/Preview | UNCONFIGURED | Settings link and block Preview/Deploy; editing drafts remains enabled. |
+| Environment tabs | Switch | Target, settings, preview token and responses follow current scope; never leak previous tab's selection/binding. |

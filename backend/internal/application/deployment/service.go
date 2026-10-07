@@ -134,7 +134,7 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		OrganizationKey:        cmd.OrganizationKey,
 		ApplicationKey:         app.Key,
 		EnvironmentKey:         env.Key,
-		ExecutionProfile:       string(app.Profile),
+		ExecutionProfile:       string(env.Profile),
 		Action:                 action,
 		WorkloadID:             workloadID,
 		ActorRef:               cmd.Actor,
@@ -284,9 +284,8 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		if err := s.markUnreferenced(ctx, cmd.OrganizationKey, record.ID, plan.UnreferencedResources); err != nil {
 			return err
 		}
-		if app.Profile == appdomain.ProfileAWSEKS && app.RuntimeStatus != appdomain.RuntimeReady {
-			app.RuntimeStatus = appdomain.RuntimeReady
-			if err := s.store.SaveApplication(ctx, app); err != nil {
+		if env.Profile == appdomain.ProfileAWSEKS && env.RuntimeStatus != appdomain.RuntimeReady {
+			if err := s.store.UpdateRuntimeStatus(ctx, app.Key, env.Key, appdomain.RuntimeReady); err != nil {
 				return err
 			}
 		}

@@ -1,10 +1,11 @@
-// Local UC-01 Application connection selection verification. Headless Chromium
+// Local UC-01 per-Environment connection (ADR-011) verification. Headless Chromium
 // drives the Web Console served by a local fake-adapter backend with JSON
 // state. Invoked by backend/test/integration/application-connection-playwright-local.sh,
 // once per phase: "create" before the backend restart and "restart" after it.
 // A Platform Engineer session registers the second Connection and its matching
 // cluster Definition through the same authenticated API the console uses; the
-// Developer session then works only through the UI.
+// Developer session then works only through the UI. The set-once rule is also
+// probed through the API (negative requests only, never as a fixture).
 import { chromium, expect } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -19,6 +20,7 @@ if (!/^[a-z0-9-]+$/.test(runId)) throw new Error('ORCH_E2E_RUN_ID must be a DNS 
 const name = `Lab App ${runId}`;
 const subdomain = runId;
 const labKey = 'lab-cluster';
+const byKey = (view, pick) => Object.fromEntries(view.environments.map((item) => [item.key, pick(item)]));
 const scoreFor = (workload) => `apiVersion: score.dev/v1b1\nmetadata:\n  name: ${workload}\ncontainers:\n  main:\n    image: example.invalid/api:v1\n`;
 
 const browser = await chromium.launch({ headless: true });
@@ -41,15 +43,33 @@ try {
     await target.getByRole('button', { name: 'Sign in' }).click();
     await expect(target.getByRole('heading', { name: 'Your applications' })).toBeVisible();
   }
-  async function expectTarget(label) {
-    await expect(page.getByLabel('Execution target').first()).toContainText(`Connection ${labKey} · profile internal-k8s · both environments`, { timeout: 15_000 });
+  const targetText = (environment, key) => `${environment === 'staging' ? 'Staging' : 'Production'} · Connection ${key} (${key}) · profile internal-k8s`;
+  async function expectTarget(label, environment = 'staging', key = labKey) {
+    await expect(page.getByLabel('Execution target').first()).toContainText(targetText(environment, key), { timeout: 15_000 });
     return label;
+  }
+  async function setConnection(environment, key) {
+    await page.getByRole('button', { name: 'Environment settings' }).click();
+    await expect(page.getByRole('heading', { name: 'Environment settings', level: 1 })).toBeVisible();
+    if (environment === 'production') await page.getByRole('tab', { name: 'Production' }).click();
+    const title = environment === 'staging' ? 'Staging' : 'Production';
+    const select = page.getByLabel(`Connection for ${title}`);
+    await expect(select).toHaveValue('');
+    await select.selectOption(key);
+    const put = page.waitForResponse((response) => response.request().method() === 'PUT' && new URL(response.url()).pathname.endsWith(`/environments/${environment}/connection`));
+    await page.getByRole('button', { name: 'Set connection' }).click();
+    expect((await put).status()).toBe(200);
+    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Set connection' })).toHaveCount(0);
+    await expect(page.getByLabel(`Connection for ${title}`)).toHaveCount(0);
   }
   async function previewScore(environment, workload = 'api') {
     await page.getByRole('button', { name: 'Preview Score' }).click();
     await expect(page.getByRole('heading', { name: 'Preview Score' })).toBeVisible();
-    await expectTarget('score-preview');
-    if (environment === 'production') await page.getByRole('tab', { name: 'Production' }).click();
+    // The page opens on the Environment tab selected at home; switch when needed.
+    const tab = page.getByRole('tab', { name: environment === 'production' ? 'Production' : 'Staging' });
+    if ((await tab.getAttribute('aria-selected')) !== 'true') await tab.click();
+    await expectTarget('score-preview', environment, environment === 'production' ? 'internal-cluster' : labKey);
     await page.getByLabel('Workload ID').fill(workload);
     await page.getByLabel('Run ID').fill('run-1');
     await page.getByLabel('Score after (YAML or JSON)').fill(scoreFor(workload));
@@ -85,39 +105,67 @@ try {
     await platformPage.getByRole('link', { name: /Connections/ }).click();
     await expect(platformPage.getByText(labKey).first()).toBeVisible();
 
-    // Developer: default preselected, explicit non-default choice.
+    // Developer: the create form asks for name and subdomain only.
     await signIn(page, 'developer');
     await page.getByRole('button', { name: '+ Create application' }).first().click();
-    const select = page.getByLabel('Connection');
-    await expect(select).toHaveValue('internal-cluster');
-    await expect(select.locator('option')).toHaveText([/internal-cluster.*default/, new RegExp(labKey)]);
+    await expect(page.getByLabel('Connection')).toHaveCount(0);
     await page.getByLabel('Application name').fill(name);
     await page.getByLabel('Subdomain').fill(subdomain);
-    await select.selectOption(labKey);
     await shot('create-form');
     await page.getByRole('button', { name: 'Create application' }).click();
     await expect(page.getByText('Application created.')).toBeVisible();
     const appId = new URL(page.url()).pathname.match(/\/ui\/applications\/([0-9a-f-]{36})$/)?.[1];
     if (!appId) throw new Error(`unexpected Application URL ${page.url()}`);
-    expect(createBodies.map((body) => JSON.parse(body ?? '{}'))).toEqual([{ name, subdomain, connectionKey: labKey }]);
-    await expectTarget('home');
-    await page.getByRole('button', { name: /Production/ }).click();
-    await expectTarget('home-production');
-    await shot('home');
-    const view = (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}`)).json()).application;
-    expect(view.connectionKey).toBe(labKey);
-    expect(view.executionProfile).toBe('internal-k8s');
+    expect(createBodies.map((body) => JSON.parse(body ?? '{}'))).toEqual([{ name, subdomain }]);
+    const apiView = async () => (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}`)).json()).application;
+    let view = await apiView();
+    expect(byKey(view, (item) => [item.configured, item.runtimeStatus])).toEqual({ staging: [false, 'UNCONFIGURED'], production: [false, 'UNCONFIGURED'] });
     expect(JSON.stringify(view)).not.toMatch(/secret|kubeconfig|token/i);
+    await expect(page.getByLabel('Execution target').first()).toContainText('Staging has no execution connection yet');
+    await page.getByRole('button', { name: /Production/ }).click();
+    await expect(page.getByLabel('Execution target').first()).toContainText('Production has no execution connection yet');
+    await shot('home-unconfigured');
     await page.getByRole('button', { name: /Staging/ }).click();
 
+    // UNCONFIGURED Preview is a safe 422 with guidance; drafts still work.
+    await saveWorkload('staging');
+    await page.getByRole('button', { name: 'Preview changes' }).click();
+    await expect(page.getByRole('alert')).toContainText('set one in Environment Settings');
+    await expect(page.getByLabel('Deployment preview')).toHaveCount(0);
+    await shot('preview-unconfigured');
+    expect((await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/staging/deployments`)).json()).deployments ?? []).toHaveLength(0);
+
+    // Staging selects the nondefault lab Connection; production stays unset.
+    await page.getByRole('button', { name: 'Open Environment settings' }).click();
+    const select = page.getByLabel('Connection for Staging');
+    await expect(select).toHaveValue('');
+    await expect(select.locator('option')).toHaveText([/Choose a connection/, /internal-cluster.*default/, new RegExp(labKey)]);
+    await select.selectOption(labKey);
+    const staged = page.waitForResponse((response) => response.request().method() === 'PUT');
+    await page.getByRole('button', { name: 'Set connection' }).click();
+    expect((await staged).status()).toBe(200);
+    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
+    await shot('staging-locked');
+    await page.getByRole('tab', { name: 'Production' }).click();
+    await expect(page.getByLabel('Connection for Production')).toHaveValue('');
+    view = await apiView();
+    expect(byKey(view, (item) => item.connectionKey)).toEqual({ staging: labKey, production: '' });
+    // Set-once is enforced by the API too (negative probes only).
+    for (const key of [labKey, 'internal-cluster']) {
+      const again = await page.request.put(`${baseURL}/api/v1/applications/${appId}/environments/staging/connection`, { data: { connectionKey: key, expectedVersion: 2 } });
+      expect(again.status()).toBe(409);
+      expect((await again.json()).code).toBe('ALREADY_CONFIGURED');
+    }
+    await page.getByRole('button', { name: `← ${name}` }).click();
+    await expectTarget('home');
+
     // Negative: the seeded internal-cluster Definition must not silently
-    // retarget this Application before a matching Definition is registered.
+    // retarget staging before a matching Definition is registered.
     await previewScore('staging');
     await expect(page.getByRole('alert')).toContainText('Resource Definitions');
     await expect(page.getByRole('region', { name: 'Score preview result' })).toHaveCount(0);
     await shot('preview-before-definition');
     await page.getByRole('button', { name: `← ${name}` }).click();
-    await saveWorkload('staging');
     await page.getByRole('button', { name: 'Preview changes' }).click();
     await expect(page.getByRole('alert')).toBeVisible();
     await expect(page.getByLabel('Deployment preview')).toHaveCount(0);
@@ -132,32 +180,37 @@ try {
     } });
     expect(definition.status()).toBe(201);
 
-    // Developer: Score Preview matches the new Definition in both Environments.
-    for (const environment of ['staging', 'production']) {
-      await page.goto(`${baseURL}/ui/applications/${appId}`);
-      const matches = await matchedDefinitions(environment);
-      await expect(matches).toContainText(`cluster-${labKey}`);
-      await expect(matches).not.toContainText('cluster-internal-registered');
-      if (environment === 'staging') await shot('score-preview-matched');
-    }
+    // Staging preview matches the lab Definition and deploys on lab only.
+    await page.goto(`${baseURL}/ui/applications/${appId}`);
+    const matches = await matchedDefinitions('staging');
+    await expect(matches).toContainText(`cluster-${labKey}`);
+    await expect(matches).not.toContainText('cluster-internal-registered');
+    await shot('score-preview-matched');
+    await page.goto(`${baseURL}/ui/applications/${appId}`);
+    await page.getByRole('button', { name: 'Preview changes' }).click();
+    const preview = page.getByLabel('Deployment preview');
+    await expect(preview).toContainText('1 workload(s) affected');
+    await expect(preview.getByLabel('Execution target')).toContainText(targetText('staging', labKey));
+    await page.getByRole('button', { name: 'Deploy these changes' }).click();
+    const result = page.getByLabel('Deployment result');
+    await expect(result).toContainText('Deploy succeeded', { timeout: 60_000 });
+    await expect(result.getByLabel('Execution target')).toContainText(targetText('staging', labKey));
+    await shot('deployed-staging');
 
-    // Pending Preview/Deploy succeed on the selected target in both Environments.
-    for (const environment of ['staging', 'production']) {
-      await page.goto(`${baseURL}/ui/applications/${appId}`);
-      if (environment === 'production') {
-        await page.getByRole('button', { name: /Production/ }).click();
-        await saveWorkload(environment);
-      }
-      await page.getByRole('button', { name: 'Preview changes' }).click();
-      const preview = page.getByLabel('Deployment preview');
-      await expect(preview).toContainText('1 workload(s) affected');
-      await expect(preview.getByLabel('Execution target')).toContainText(`Connection ${labKey}`);
-      await page.getByRole('button', { name: 'Deploy these changes' }).click();
-      const result = page.getByLabel('Deployment result');
-      await expect(result).toContainText('Deploy succeeded', { timeout: 60_000 });
-      await expect(result.getByLabel('Execution target')).toContainText(`Connection ${labKey}`);
-      await shot(`deployed-${environment}`);
-    }
+    // Production independently chooses the default cluster Connection and
+    // plans with the seeded Definition, not the lab one.
+    await page.getByRole('button', { name: /Production/ }).click();
+    await setConnection('production', 'internal-cluster');
+    await page.getByRole('button', { name: `← ${name}` }).click();
+    await page.getByRole('button', { name: /Production/ }).click();
+    await expectTarget('home-production', 'production', 'internal-cluster');
+    await shot('production-locked');
+    const productionMatches = await matchedDefinitions('production');
+    await expect(productionMatches).toContainText('cluster-internal-registered');
+    await expect(productionMatches).not.toContainText(`cluster-${labKey}`);
+    await shot('production-score-preview');
+    view = await apiView();
+    expect(byKey(view, (item) => [item.connectionKey, item.configured])).toEqual({ staging: [labKey, true], production: ['internal-cluster', true] });
     writeFileSync(env.ORCH_E2E_APP_FILE, appId, { mode: 0o600 });
   } else if (phase === 'restart') {
     const appId = readFileSync(env.ORCH_E2E_APP_FILE, 'utf8').trim();
@@ -166,22 +219,30 @@ try {
     await expect(page).toHaveURL(new RegExp(`/ui/applications/${appId}$`));
     await expectTarget('home');
     await page.getByRole('button', { name: /Production/ }).click();
-    await expectTarget('home-production');
+    await expectTarget('home-production', 'production', 'internal-cluster');
     const view = (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}`)).json()).application;
-    expect(view.connectionKey).toBe(labKey);
+    expect(byKey(view, (item) => [item.connectionKey, item.infrastructureScope])).toEqual({ staging: [labKey, 'ENVIRONMENT'], production: ['internal-cluster', 'ENVIRONMENT'] });
+    // Settings are read-only after a restart too.
+    await page.getByRole('button', { name: 'Environment settings' }).click();
+    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Set connection' })).toHaveCount(0);
+    await page.getByRole('button', { name: `← ${name}` }).click();
+    await page.getByRole('button', { name: /Staging/ }).click();
     const matches = await matchedDefinitions('staging', 'probe');
     await expect(matches).toContainText(`cluster-${labKey}`);
     await shot('restart-score-preview');
-    // Persisted Active Resource evidence: the cluster ran on the selected Connection only.
+    // Persisted Active Resource evidence: staging's cluster ran on lab only.
     const raw = readFileSync(env.ORCH_E2E_STATE_FILE, 'utf8');
-    const active = Object.entries(JSON.parse(raw).activeResources).filter(([key]) => key.includes(appId));
-    expect(active.map(([key]) => key.split('|')[1].split('#')[0]).sort()).toEqual(['k8s-cluster.internal', 'k8s-namespace.default', 'k8s-namespace.default']);
-    for (const [key, resource] of active) expect(resource.connectionKey, key).toBe(labKey);
+    const state = JSON.parse(raw);
+    const active = Object.entries(state.activeResources).filter(([key]) => key.includes(appId) || key.includes('connections.'));
+    const cluster = active.find(([key]) => key.includes('k8s-cluster.internal#connections.' + labKey));
+    expect(cluster?.[1].connectionKey).toBe(labKey);
+    expect(Object.keys(state.activeResources).some((key) => key.includes('connections.internal-cluster') && key.includes(appId))).toBe(false);
     expect(raw).not.toMatch(/BEGIN [A-Z ]*PRIVATE KEY/);
   } else {
     throw new Error(`unknown phase ${phase}`);
   }
-  console.log(`application connection ${phase}: ok`);
+  console.log(`environment connection ${phase}: ok`);
 } finally {
   await browser.close();
 }

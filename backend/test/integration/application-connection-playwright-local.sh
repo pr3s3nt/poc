@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Local UC-01 connection-selection verification without Docker, kind or cloud:
-# a fake-adapter backend with JSON state and a read-only kubectl stand-in
-# serves the built Web Console. A Platform Engineer registers a second
-# Connection and a matching cluster Definition, a Developer selects that
-# Connection when creating an Application, previews and deploys, then the
-# backend restarts on the same state and the binding must remain.
+# Local UC-01 per-Environment connection verification without Docker, kind or
+# cloud: a fake-adapter backend with JSON state and a read-only kubectl
+# stand-in serves the built Web Console. A Platform Engineer registers a
+# second Connection and a matching cluster Definition; a Developer creates an
+# Application (UNCONFIGURED), sets staging to that Connection once in Settings
+# and production to the default independently, previews and deploys, then the
+# backend restarts on the same state and both locked bindings must remain.
 # Set ORCH_KEEP_EVIDENCE=1 to keep logs and state in the temporary directory;
 # ORCH_EVIDENCE_DIR=<new path> keeps them there instead.
 set -euo pipefail
@@ -80,4 +81,4 @@ stop_backend
 
 start_backend restarted
 run_phase restart
-echo "application connection verification passed: application=$(<"${WORK}/application-id")"
+echo "environment connection verification passed: application=$(<"${WORK}/application-id")"

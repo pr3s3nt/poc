@@ -6,14 +6,31 @@ export interface Workload {
   status: 'Ready' | 'Draft';
 }
 
+/**
+ * Safe, nonsecret execution binding of one Environment (ADR-011). It is set
+ * once in Environment Settings and never changes afterwards.
+ */
+export interface EnvironmentTarget {
+  configured: boolean;
+  connectionKey: string;
+  connectionName?: string;
+  connectionKind?: string;
+  profile: string;
+  region?: string;
+  runtimeStatus: string;
+  infrastructureScope: string;
+  /** Authoritative Environment version; sent as expectedVersion when setting. */
+  version: number;
+}
+
+export const unconfiguredTarget: EnvironmentTarget = { configured: false, connectionKey: '', profile: '', runtimeStatus: 'UNCONFIGURED', infrastructureScope: 'ENVIRONMENT', version: 1 };
+
 export interface Application {
   id: string;
   name: string;
   subdomain: string;
-  /** Saved Connection binding shared by both Environments (UC-01 BR-08). */
-  connectionKey: string;
-  profile: string;
-  region?: string;
+  /** Execution target per Environment; the Application itself has none. */
+  environments: Record<EnvironmentKey, EnvironmentTarget>;
   workloads: Record<EnvironmentKey, readonly Workload[]>;
 }
 

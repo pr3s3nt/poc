@@ -15,7 +15,7 @@ The selected Environment shows its workload list, pending-change labels,
 `+ Add workload`, Edit/Delete actions and `Preview changes`. A link to the
 Application-level Variables & Secrets settings opens UC-12. Preview is scoped
 to the selected Environment, never to both at once. The pending Preview/Deploy
-panel displays the persisted Application connection key/profile (UC-01 BR-08);
+panel displays the persisted selected Environment connection key/profile (UC-01 BR-08);
 both Environments use this same target.
 
 ## Add/Edit workload

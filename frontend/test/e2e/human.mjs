@@ -121,8 +121,41 @@ export async function signIn(h) {
   await h.pause(1500);
 }
 
-// Returns the Application id parsed from the detail page URL.
-export async function createApplication(h, name, subdomain) {
+// Sets the execution Connection of each listed Environment once through
+// Environment Settings (UC-01 ES-03..06) and returns to the Application.
+// targets: { staging?: connectionKey, production?: connectionKey }. The option
+// is found by its "(key)" label, the choice is typed by the real select popup,
+// and the PUT reply plus the read-only "Locked" state are awaited.
+export async function setEnvironmentConnections(h, applicationName, targets) {
+  const { page } = h;
+  await h.click(page.getByRole('button', { name: 'Environment settings' }));
+  await expect(page.getByRole('heading', { name: 'Environment settings', level: 1 })).toBeVisible();
+  for (const [environment, key] of Object.entries(targets)) {
+    const title = environment === 'staging' ? 'Staging' : 'Production';
+    await h.click(page.getByRole('tab', { name: title }));
+    const select = page.getByLabel(`Connection for ${title}`);
+    await expect(select).toHaveValue('');
+    const label = (await select.locator('option').allTextContents()).find((text) => text.includes(`(${key})`));
+    if (!label) throw new Error(`connection ${key} is not offered for ${environment}`);
+    await h.choose(select, label);
+    await expect(select).toHaveValue(key);
+    const saved = page.waitForResponse((response) => response.request().method() === 'PUT'
+      && new URL(response.url()).pathname.endsWith(`/environments/${environment}/connection`));
+    await h.click(page.getByRole('button', { name: 'Set connection' }));
+    const response = await saved;
+    if (!response.ok()) throw new Error(`setting ${environment} connection returned HTTP ${response.status()}`);
+    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
+    await h.pause(1200);
+  }
+  await h.click(page.getByRole('button', { name: `← ${applicationName}` }));
+  await h.pause(1200);
+}
+
+// Returns the Application id parsed from the detail page URL. By default both
+// Environments are set to the seeded cluster Connection afterwards, which keeps
+// the older flows that deploy to the default cluster unchanged; pass
+// { connections: null } to leave both UNCONFIGURED, or an explicit map.
+export async function createApplication(h, name, subdomain, { connections = { staging: 'internal-cluster', production: 'internal-cluster' } } = {}) {
   const { page } = h;
   await h.click(page.getByRole('button', { name: /create application|new application/i }).first());
   await h.type(page.getByLabel('Application name'), name);
@@ -132,16 +165,17 @@ export async function createApplication(h, name, subdomain) {
   await h.pause(1500);
   const appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];
   if (!appId || !/^[a-z0-9-]+$/.test(appId)) throw new Error(`invalid application id: ${appId}`);
+  if (connections) await setEnvironmentConnections(h, name, connections);
   return appId;
 }
 
-// Opens Variables & Secrets, saves each entry and returns to the Application.
+// Opens Environment settings (staging), saves each entry and returns to the Application.
 // Entries: { kind: 'variable' | 'secret', name, value, paste?, delay? }.
 // Each save waits for the PUT reply and the closed editor before the saved
 // row is matched, so a typed-but-unsaved name never satisfies the check.
 export async function putKeys(h, applicationName, entries) {
   const { page } = h;
-  await h.click(page.getByRole('button', { name: 'Variables & Secrets' }));
+  await h.click(page.getByRole('button', { name: 'Environment settings' }));
   await h.pause(1000);
   for (const entry of entries) {
     const section = page.locator(`section[aria-label="${entry.kind === 'secret' ? 'Secrets' : 'Environment variables'}"]`);

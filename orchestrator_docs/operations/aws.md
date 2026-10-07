@@ -36,7 +36,7 @@ workload qua HTTP API, kiểm job flow/Web Console, rồi cleanup trong EXIT tra
 
 ## Required runtime assertions
 
-- VPC và EKS application-scoped; Aurora cung cấp shared postgres contract.
+- New VPC/EKS are Environment-scoped; legacy AWS bindings retain Application scope under ADR-011. Aurora retains shared postgres contract.
 - Backend/worker nhận database outputs; secret không xuất hiện plaintext trong
   manifests, logs, state hoặc UC-09 view.
 - Không tạo Service `LoadBalancer`; verification dùng port-forward.
@@ -54,3 +54,17 @@ workload qua HTTP API, kiểm job flow/Web Console, rồi cleanup trong EXIT tra
 
 Không dùng wildcard hoặc account/region-wide deletion. `terraform destroy`
 thành công không đủ; AWS API/tag query mới là cleanup evidence cuối.
+
+## Environment target selection (ADR-011)
+
+Before Preview/Deploy, set the Environment Connection once in Settings. Region
+and execution profile derive from that AWS Connection; two new Environments have
+separate VPC/EKS descriptors, Terraform workspace paths and cloud name stems.
+Never edit a configured binding or move its state to another account/region.
+Legacy migration locks the old Connection and preserves application-scope identity
+and existing physical names; it does not migrate cloud resources. See
+[ADR-011](../architecture/decisions/ADR-011-environment-execution-binding.md).
+
+The current implementation task verifies AWS scope with local tests only. Existing
+AWS credential onboarding limitations remain. A future cloud run still requires
+the explicit external-verification authorization and preflight/cleanup above.

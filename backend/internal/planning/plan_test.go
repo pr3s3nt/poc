@@ -40,16 +40,17 @@ func testRequest(t *testing.T, profile application.ExecutionProfile, workload st
 		t.Fatalf("score: %v", err)
 	}
 
-	app := application.Application{
-		Key: appKey, OrganizationKey: o.OrganizationKey, Name: appKey,
-		Profile: profile, ConnectionKey: connectionKey, Version: 1,
-	}
-	if profile == application.ProfileAWSEKS {
-		app.Region = o.Region
-	}
+	app := application.Application{Key: appKey, OrganizationKey: o.OrganizationKey, Name: appKey, Version: 1}
+	// Seeded fixtures keep the historical LEGACY_APPLICATION infrastructure
+	// scope; new-scope behavior is covered with environmentScoped.
 	env := environment.Environment{
 		Key: o.EnvironmentKey, ApplicationKey: appKey, Name: o.EnvironmentName,
 		Type: o.EnvironmentType, NamespaceIdentity: namespace, Version: 1,
+		ConnectionKey: connectionKey, Profile: profile, RuntimeStatus: application.RuntimeReady,
+		InfrastructureScope: environment.ScopeLegacyApplication,
+	}
+	if profile == application.ProfileAWSEKS {
+		env.Region = o.Region
 	}
 	conn := application.Connection{Key: connectionKey, Status: application.ConnectionReady,
 		Config: map[string]any{"cluster": o.ClusterName, "kubeContext": o.KubeContext}}

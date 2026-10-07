@@ -19,5 +19,6 @@ describe('console routes', () => {
   it('encodes application IDs when constructing a link', () => {
     expect(href({ name: 'application', applicationId: 'payment api' })).toBe('/ui/applications/payment%20api');
     expect(href({ name: 'settings', applicationId: 'payment api' })).toBe('/ui/applications/payment%20api/settings');
+    expect(href({ name: 'settings', applicationId: 'payment', environment: 'production' })).toBe('/ui/applications/payment/settings?environment=production');
   });
 });

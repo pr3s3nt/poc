@@ -121,7 +121,7 @@ func (r *countingRegistry) Resolve(resource.DriverType) (execution.ResourceExecu
 
 // TestProvision_InternalDefinitionConnectionMismatchFailsBeforeExecutor covers
 // UC-08 BR-07 defense in depth: a plan that bypassed planning cannot retarget
-// the Application's saved Connection, and external accounts keep their
+// the Environment's saved Connection, and external accounts keep their
 // explicit Driver Account semantics.
 func TestProvision_InternalDefinitionConnectionMismatchFailsBeforeExecutor(t *testing.T) {
 	ctx := context.Background()
@@ -142,7 +142,7 @@ func TestProvision_InternalDefinitionConnectionMismatchFailsBeforeExecutor(t *te
 		def := resource.Definition{Key: "cluster-other", ResourceTypeKey: "k8s-cluster", DriverType: driver, ConnectionKey: "other", ExecutionProfile: "internal-k8s", Criteria: []resource.Criterion{{}}}
 		_, err := service.Provision(ctx, provisioning.Request{
 			DeploymentID: "dep-1", RunID: "run-1",
-			Context: planning.Context{OrganizationKey: seedOptions.OrganizationKey, App: application.Application{Key: "a", OrganizationKey: seedOptions.OrganizationKey, Profile: application.ProfileInternalK8s, ConnectionKey: "lab"}, Env: environment.Environment{Key: "staging"}},
+			Context: planning.Context{OrganizationKey: seedOptions.OrganizationKey, App: application.Application{Key: "a", OrganizationKey: seedOptions.OrganizationKey}, Env: environment.Environment{Key: "staging", Profile: application.ProfileInternalK8s, ConnectionKey: "lab"}},
 			Plan: &planning.Plan{
 				Graph:   planning.Graph{Nodes: []planning.Node{{Descriptor: descriptor, Kind: planning.NodeResource, ResourceType: "k8s-cluster", Class: "internal", Scope: resource.Scope{Type: resource.ScopeApplication, ID: "a"}}}},
 				Matches: map[string]planning.Match{descriptor: {Descriptor: descriptor, DefinitionKey: def.Key, DriverType: driver, ConnectionKey: "other"}},
@@ -151,7 +151,7 @@ func TestProvision_InternalDefinitionConnectionMismatchFailsBeforeExecutor(t *te
 			Types:       map[string]resource.Type{"k8s-cluster": {Key: "k8s-cluster"}},
 			Definitions: map[string]resource.Definition{def.Key: def},
 		})
-		if err == nil || !strings.Contains(err.Error(), "differs from the Application connection") {
+		if err == nil || !strings.Contains(err.Error(), "differs from the Environment connection") {
 			t.Fatalf("%s mismatch error = %v", driver, err)
 		}
 		if registry.calls != 0 {
@@ -160,7 +160,7 @@ func TestProvision_InternalDefinitionConnectionMismatchFailsBeforeExecutor(t *te
 	}
 }
 
-// aws-eks: Terraform VPC/EKS Definitions must use the Application account
+// aws-eks: Terraform VPC/EKS Definitions must use the Environment account
 // before any executor call; an external database Definition is not checked.
 func TestProvision_AWSTargetDefinitionConnectionMismatchFailsBeforeExecutor(t *testing.T) {
 	ctx := context.Background()
@@ -181,7 +181,7 @@ func TestProvision_AWSTargetDefinitionConnectionMismatchFailsBeforeExecutor(t *t
 		def := resource.Definition{Key: "def-" + resourceType, ResourceTypeKey: resourceType, DriverType: resource.DriverTerraform, ConnectionKey: connection, ExecutionProfile: "aws-eks", Criteria: []resource.Criterion{{}}}
 		_, err := service.Provision(ctx, provisioning.Request{
 			DeploymentID: "dep-1", RunID: "run-1",
-			Context: planning.Context{OrganizationKey: seedOptions.OrganizationKey, App: application.Application{Key: "a", OrganizationKey: seedOptions.OrganizationKey, Profile: application.ProfileAWSEKS, ConnectionKey: "aws-a", Region: "us-east-1"}, Env: environment.Environment{Key: "staging"}},
+			Context: planning.Context{OrganizationKey: seedOptions.OrganizationKey, App: application.Application{Key: "a", OrganizationKey: seedOptions.OrganizationKey}, Env: environment.Environment{Key: "staging", Profile: application.ProfileAWSEKS, ConnectionKey: "aws-a", Region: "us-east-1"}},
 			Plan: &planning.Plan{
 				Graph:   planning.Graph{Nodes: []planning.Node{{Descriptor: descriptor, Kind: planning.NodeResource, ResourceType: resourceType, Class: "default", Scope: resource.Scope{Type: resource.ScopeApplication, ID: "a"}}}},
 				Matches: map[string]planning.Match{descriptor: {Descriptor: descriptor, DefinitionKey: def.Key, DriverType: def.DriverType, ConnectionKey: connection}},
@@ -194,7 +194,7 @@ func TestProvision_AWSTargetDefinitionConnectionMismatchFailsBeforeExecutor(t *t
 	}
 	for _, resourceType := range []string{"vpc", "k8s-cluster"} {
 		err, calls := run(resourceType, "aws-b")
-		if err == nil || !strings.Contains(err.Error(), "differs from the Application connection") || calls != 0 {
+		if err == nil || !strings.Contains(err.Error(), "differs from the Environment connection") || calls != 0 {
 			t.Fatalf("%s mismatch: err=%v executor calls=%d", resourceType, err, calls)
 		}
 		// Same account passes the guard and reaches the executor.

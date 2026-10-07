@@ -1,14 +1,22 @@
 ---
 id: D09
 artifact: backlog-item
-status: deferred
+status: superseded
 last_reviewed: 2026-10-07
 related: [UC-01, UC-03, UC-04, UC-06, UC-08]
 ---
 
 # D09 — Application cluster Connection ownership
 
-## Problem
+## Resolution
+
+User resolved target ownership as per-Environment Settings set-once on 2026-10-07,
+including AWS isolation. [ADR-011](../architecture/decisions/ADR-011-environment-execution-binding.md)
+and UC-01 now own the accepted design; original alternatives below are historical.
+Implementation transition is tracked in IMP-016; do not interpret this record as
+an open choice between Application or Environment ownership.
+
+## Original problem
 
 Luồng triển khai lên Kubernetes có hai cấp có thể chọn cluster đích:
 Application giữ Connection lấy từ Organization default khi tạo; Resource

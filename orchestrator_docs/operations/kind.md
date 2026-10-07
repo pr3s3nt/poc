@@ -208,9 +208,9 @@ these existing lifecycle limits with each execution result. Confirm namespace
 absence via a successful Kubernetes response, never by interpreting a generic
 API failure as NotFound. Vault forwarding uses a run-owned dynamic local port.
 
-## Application-selected uploaded Connection recording
+## Environment-selected uploaded Connection recording
 
-For UC-01 selection through a credential-backed Kubernetes Connection, run:
+For UC-01 Environment Settings set-once selection through a credential-backed Kubernetes Connection, run:
 
 ```bash
 cd frontend && npm run build
@@ -221,9 +221,9 @@ bash backend/test/integration/application-connection-kind-video.sh
 The [runner](../../backend/test/integration/application-connection-kind-video.sh)
 uses real Kubernetes executors on the existing `kind-idp-internal` cluster.
 The [human browser flow](../../frontend/test/e2e/application-connection-kind-human.mjs)
-registers an uploaded Connection and matching existing-cluster Definition via
-Platform Engineer UI, then signs in as Developer, chooses that nondefault
-Connection when creating an Application, configures workloads through forms,
+registers two uploaded logical Connections and a matching staging existing-cluster Definition via
+Platform Engineer UI, then signs in as Developer, creates an unconfigured Application, then sets the nondefault
+Connection once in staging Environment Settings and separately sets production, configures workloads through forms,
 Previews/Deploys, and opens the deployed diagnostic app. Connection/Definition/
 Application/configuration mutations are UI actions; API reads and Kubernetes
 readiness/cleanup assertions are observers.
@@ -238,9 +238,11 @@ between two distinct clusters. Never display private kubeconfig/token files.
 
 Use the full-window recording/review/publication rules above. The runner keeps
 MP4, phase marks, settled frames, diagnostic/readiness assertions and cleanup
-proof outside Git under `/tmp/poc-application-connection-live-review/` by default
+proof outside Git under `/tmp/poc-environment-connection-review/` by default
 (`ORCH_RESULT_DIR` overrides the base directory). It deletes only its owned
-namespace, temporary processes, private files and credential Vault container;
+namespaces, temporary processes, private files and credential Vault container;
 platform Vault value revisions/policies and loaded images have the existing
 lifecycle limits. Review completed successful evidence before uploading a
 uniquely named MP4 to `acceptance-recordings`; never replace older assets.
+
+Replay now follows [Environment set-once verification](../verification/2026-10-07-environment-connection-kind.md): new app initially unconfigured, two independent stored bindings, restart/lock, real staging deployment. Production is bound but not deployed; both Connections use the same physical kind cluster.

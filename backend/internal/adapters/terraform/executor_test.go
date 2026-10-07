@@ -158,3 +158,27 @@ func TestModulesAreEmbedded(t *testing.T) {
 		}
 	}
 }
+
+// ADR-011: new AWS Environments derive distinct workspaces (and so state) from
+// their Environment descriptors; a legacy Environment keeps the exact
+// application-scoped workspace it always used.
+func TestWorkspaceNamesSeparateEnvironmentScopedInfrastructureFromLegacy(t *testing.T) {
+	names := map[string]string{
+		"legacy vpc":     workspaceName("vpc.default#applications.pay"),
+		"legacy eks":     workspaceName("k8s-cluster.eks#applications.pay"),
+		"staging vpc":    workspaceName("vpc.default#environments.pay.staging"),
+		"production vpc": workspaceName("vpc.default#environments.pay.production"),
+		"staging eks":    workspaceName("k8s-cluster.eks#environments.pay.staging"),
+		"production eks": workspaceName("k8s-cluster.eks#environments.pay.production"),
+	}
+	if names["legacy vpc"] != "vpc-default-applications-pay" || names["legacy eks"] != "k8s-cluster-eks-applications-pay" {
+		t.Fatalf("legacy workspaces changed: %v", names)
+	}
+	seen := map[string]string{}
+	for label, name := range names {
+		if other, dup := seen[name]; dup {
+			t.Fatalf("%s and %s share workspace %q", label, other, name)
+		}
+		seen[name] = label
+	}
+}

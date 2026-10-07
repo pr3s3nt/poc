@@ -60,10 +60,7 @@ func requestJSON(t *testing.T, client *http.Client, method, url string, body any
 func TestUC12UC16HTTPDraftFlow(t *testing.T) {
 	server, _ := newServer(t, "")
 	client := authenticatedClient(t, server.URL)
-	status, created := requestJSON(t, client, http.MethodPost, server.URL+"/api/v1/applications", map[string]any{"name": "Draft Test", "subdomain": "draft-test"})
-	if status != http.StatusCreated {
-		t.Fatalf("create Application: %d %v", status, created)
-	}
+	created := createConfiguredApplication(t, client, server.URL, "Draft Test", "draft-test", "internal-cluster")
 	app := created["application"].(map[string]any)["key"].(string)
 	base := server.URL + "/api/v1/applications/" + app + "/environments/staging"
 	secret := "never-show-this-secret"
@@ -148,10 +145,7 @@ func TestPendingDeployPartialFailureCanRetryOnlyRemainingWorkload(t *testing.T) 
 	server := httptest.NewServer(app.Server)
 	defer server.Close()
 	client := authenticatedClient(t, server.URL)
-	status, created := requestJSON(t, client, http.MethodPost, server.URL+"/api/v1/applications", map[string]any{"name": "Partial Test", "subdomain": "partial-test"})
-	if status != http.StatusCreated {
-		t.Fatalf("create: %d %v", status, created)
-	}
+	created := createConfiguredApplication(t, client, server.URL, "Partial Test", "partial-test", "internal-cluster")
 	appKey := created["application"].(map[string]any)["key"].(string)
 	base := server.URL + "/api/v1/applications/" + appKey + "/environments/staging"
 	backend := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "backend"}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/backend:test"}}, "service": map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}}}

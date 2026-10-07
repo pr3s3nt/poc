@@ -42,7 +42,10 @@ try {
 
   const secret = randomBytes(32).toString('hex');
   const secretHash = createHash('sha256').update(secret).digest('hex');
-  await page.getByRole('button', { name: 'Variables & Secrets' }).click();
+  await page.getByRole('button', { name: 'Environment settings' }).click();
+  await page.getByLabel('Connection for Staging').selectOption('internal-cluster');
+  await page.getByRole('button', { name: 'Set connection' }).click();
+  await expect(page.getByText('Locked', { exact: true })).toBeVisible();
   await reviewPause(page, 1800);
   await putKey(page, 'variable', 'ACCEPTANCE_CONFIG', 'acceptance-config-ok');
   await putKey(page, 'variable', 'ACCEPTANCE_SECRET_SHA256', secretHash);

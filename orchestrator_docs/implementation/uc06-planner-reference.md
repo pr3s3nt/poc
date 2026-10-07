@@ -108,7 +108,7 @@ Không đưa các thành phần sau vào domain/API sản phẩm:
 
 ### 6.1 Planning
 
-- `ExecutionProfileResourceEnricher` để thêm VPC/EKS theo Application cho `aws-eks`, existing cluster cho `internal-k8s`, và namespace theo Environment.
+- `ExecutionProfileResourceEnricher` để thêm VPC/EKS theo Environment cho new `aws-eks` (legacy Application scope giữ nguyên), existing cluster cho `internal-k8s`, và namespace theo Environment.
 - Scope-aware descriptor/identity cho Application, Environment, workload và shared resource.
 - Registry/repository thật cho Application, Environment, Resource Type, Resource Definition, connection và Active Resource.
 - JSON Schema validation đầy đủ; challenge chỉ chặn unknown top-level input keys, chưa kiểm tra required/type/nested constraints đầy đủ.
@@ -214,10 +214,11 @@ diff, structured error hay container resource preservation.
 
 Planner challenge giải quyết tốt phần deterministic desired-state planning: Score -> Humanitec-shaped Delta/Candidate Set -> expanded Resource Graph -> Definition match -> Terraform contract -> provider-first batches. Nó chưa giải quyết phần làm nên orchestrator chạy thật: implicit profile infrastructure, stateful driver execution, runtime output propagation, Kubernetes deployment và persistence/transaction boundary. Fixture coverage cũng không thay thế contract review cho field không xuất hiện trong testcase. Realization UC-06/UC-08 phải dùng pipeline trên làm lõi planning nhưng thiết kế rõ các ranh giới còn thiếu này.
 
-## Product extension: selected Application connection
+## Product extension: selected Environment connection
 
-UC-06 BR-20 adds binding validation after normal Definition selection for
-internal existing-cluster/Kubernetes resources and AWS Terraform VPC/EKS. A winning Definition with a
-conflicting explicit connection fails planning; candidates are not filtered by
-connection and specificity/tie semantics remain unchanged. This product safety
-rule is outside the reference challenge contract.
+UC-01 Settings set-once target feeds one Environment resolver. New AWS implicit
+VPC/EKS use Environment scope; legacy AWS keeps existing Application identity.
+Matching guards and UC-08 validate selected Environment target without changing
+specificity/ties. Context app.profile/app.region aliases project Environment
+values only for legacy Definition contracts; canonical env values and pinned
+connection/scope determine execution. See [ADR-011](../architecture/decisions/ADR-011-environment-execution-binding.md).

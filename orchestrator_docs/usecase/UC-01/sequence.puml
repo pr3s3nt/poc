@@ -1,33 +1,32 @@
 @startuml
-title UC-01 - Create Application
+title UC-01 - Create Application and set Environment Connection once
 autonumber
 actor Developer as Dev
 boundary ApplicationController as API
 control ApplicationService as Service
-control ExecutionTargetResolver as TargetResolver
-database ConnectionRepository as ConnectionRepo
-database ApplicationRepository as AppRepo
-database EnvironmentRepository as EnvRepo
-database DeploymentSetRepository as SetRepo
-
-Dev -> API: ListApplicationConnections(session Organization)
-API -> ConnectionRepo: ListReadySupported(organizationID)
-ConnectionRepo --> API: safe choices + Organization default key
-API --> Dev: select default or another READY connection
-Dev -> API: CreateApplication(name, subdomain, connectionKey?) [MS-01]
-API -> Service: CreateApplication(ctx, command)
-Service -> Service: Validate name/subdomain [MS-02]
-Service -> TargetResolver: Resolve(organizationID, connectionKey?) [MS-03]
-TargetResolver --> Service: selected target; default only if key omitted
-Service -> ConnectionRepo: FindReady(organizationID, target.connectionID)
-ConnectionRepo --> Service: Connection
-Service -> Service: Application.Create(generatedID, target) [MS-04]
-Service -> Service: Create staging/production\nDeploymentSet.Empty()\nNamespaceIdentity.ForEnvironment() [MS-05..MS-06]
-Service -> Service: Derive desired endpoints [MS-07]
-Service -> AppRepo: Save(application) <<transaction>>
-Service -> EnvRepo: Save(staging, production) <<transaction>>
-Service -> SetRepo: SaveAndSetCurrent(emptySets) <<transaction>>
-SetRepo --> Service: Application context
-Service --> API: Application + Environments [MS-08]
-API --> Dev: Created
+control "ApplicationService.SetConnection" as Target
+database ApplicationRepository as Apps
+database EnvironmentRepository as Envs
+database ConnectionRepository as Connections
+database DeploymentSetRepository as Sets
+Dev -> API: CreateApplication(name, subdomain)
+API -> Service: Validate and generate Application ID
+Service -> Apps: Save identity/provider <<transaction>>
+Service -> Envs: Save staging/production UNCONFIGURED <<transaction>>
+Service -> Sets: Save empty Sets/current pointers <<transaction>>
+Service --> Dev: Application with independent unset targets
+Dev -> API: Open selected Environment Settings
+API -> Connections: List session Organization READY supported choices
+Connections --> Dev: safe choices; default marker only
+Dev -> API: SetConnection(app, env, key, expectedVersion)
+API -> Target: SetConnection(session Organization, command)
+Target -> Envs: Check scoped ownership, unset binding/version <<transaction>>
+Target -> Connections: Validate READY kind/region in Organization <<transaction>>
+Target -> Envs: CAS unset target, bump version, freeze binding <<transaction>>
+Envs --> Target: configured Environment or conflict
+Target --> Dev: read-only target; other Environment unchanged
+note over Target,Envs
+Any second set is 409, including same key.
+No external provisioning; no default fallback.
+end note
 @enduml

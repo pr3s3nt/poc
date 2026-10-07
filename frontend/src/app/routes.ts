@@ -6,7 +6,7 @@ export type Route =
   | { name: 'connections' }
   | { name: 'create-application' }
   | { name: 'application'; applicationId: string }
-  | { name: 'settings'; applicationId: string }
+  | { name: 'settings'; applicationId: string; environment?: 'staging' | 'production' }
   | { name: 'workload'; applicationId: string; environment: 'staging' | 'production'; workloadId?: string }
   | { name: 'score-preview'; applicationId: string; environment: 'staging' | 'production' }
   | { name: 'deployments'; applicationId: string; environment: 'staging' | 'production' }
@@ -23,7 +23,10 @@ export function parseRoute(path = window.location.pathname): Route {
   if (relative === '/platform/connections') return { name: 'connections' };
   if (relative === '/applications/new') return { name: 'create-application' };
   const settings = relative.match(/^\/applications\/([^/]+)\/settings$/);
-  if (settings?.[1]) return { name: 'settings', applicationId: decodeURIComponent(settings[1]) };
+  if (settings?.[1]) {
+    const environment = new URLSearchParams(path === window.location.pathname ? window.location.search : '').get('environment');
+    return { name: 'settings', applicationId: decodeURIComponent(settings[1]), ...(environment === 'staging' || environment === 'production' ? { environment } : {}) };
+  }
   const workload = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/workloads\/(new|[^/]+)$/);
   if (workload?.[1] && workload[2] && workload[3]) return { name: 'workload', applicationId: decodeURIComponent(workload[1]), environment: workload[2] as 'staging' | 'production', workloadId: workload[3] === 'new' ? undefined : decodeURIComponent(workload[3]) };
   const deployment = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/deployments\/([^/]+)$/);
@@ -46,12 +49,19 @@ export function href(route: Route): string {
     case 'connections': return `${base}/platform/connections`;
     case 'create-application': return `${base}/applications/new`;
     case 'application': return `${base}/applications/${encodeURIComponent(route.applicationId)}`;
-    case 'settings': return `${base}/applications/${encodeURIComponent(route.applicationId)}/settings`;
+    case 'settings': return `${base}/applications/${encodeURIComponent(route.applicationId)}/settings${route.environment ? `?environment=${route.environment}` : ''}`;
     case 'workload': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/workloads/${route.workloadId ? encodeURIComponent(route.workloadId) : 'new'}`;
     case 'score-preview': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/preview`;
     case 'deployments': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/deployments`;
     case 'deployment': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/deployments/${encodeURIComponent(route.deploymentId)}`;
   }
+}
+
+// Updates the URL without adding a history entry, so a reload or a shared link
+// keeps the scope the user is looking at (for example the Settings Environment tab).
+export function replaceRoute(route: Route): void {
+  window.history.replaceState({}, '', href(route));
+  window.dispatchEvent(new Event('orchestrator:navigate'));
 }
 
 export function navigate(route: Route): void {

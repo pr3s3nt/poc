@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"orchestrator/internal/application/target"
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -12,9 +13,9 @@ import (
 	"orchestrator/internal/ports/persistence"
 )
 
-// ErrConnectionNotReady reports that the Application connection cannot be
+// ErrConnectionNotReady reports that the Environment connection cannot be
 // used for planning (UC-05 PRE-04, UC-06 PRE-04).
-var ErrConnectionNotReady = errors.New("deployment: connection is not READY")
+var ErrConnectionNotReady = target.ErrConnectionNotReady
 
 // ErrStalePlan reports that planning no longer matches the pinned preview.
 var ErrStalePlan = errors.New("deployment: preview plan is stale")
@@ -24,10 +25,12 @@ var ErrStalePlan = errors.New("deployment: preview plan is stale")
 // executor, driver, Kubernetes, store or catalog text. The typed cause is
 // still returned to callers for errors.Is decisions.
 const (
-	FailureStale    = "the Environment changed after this change was planned; preview changes again"
-	FailureNotReady = "the Application connection is not READY; ask a platform engineer to verify it"
-	FailureRuntime  = "runtime deployment failed during resource provisioning, workload apply/readiness or removal; preview changes again to retry"
-	FailureNotFound = "a required Application, Environment or catalog record was not found"
+	FailureStale        = "the Environment changed after this change was planned; preview changes again"
+	FailureUnconfigured = "the Environment has no execution connection; set one in Environment Settings"
+	FailureInconsistent = "the Environment execution target is inconsistent; ask a platform engineer to review it"
+	FailureNotReady     = "the Environment connection is not READY; ask a platform engineer to verify it"
+	FailureRuntime      = "runtime deployment failed during resource provisioning, workload apply/readiness or removal; preview changes again to retry"
+	FailureNotFound     = "a required Application, Environment or catalog record was not found"
 )
 
 // FailureLegacy replaces a stored FailureReason that is not a known safe
@@ -39,7 +42,7 @@ const FailureLegacy = "deployment failed; its recorded diagnostic is not shown. 
 // empty) and FailureLegacy otherwise.
 func SafeFailureReason(reason string) string {
 	switch reason {
-	case "", FailureStale, FailureNotReady, FailureRuntime, FailureNotFound:
+	case "", FailureStale, FailureNotReady, FailureUnconfigured, FailureInconsistent, FailureRuntime, FailureNotFound:
 		return reason
 	}
 	if planning.IsPublicMessage(reason) {
@@ -55,6 +58,10 @@ func PublicFailure(err error) string {
 		return FailureStale
 	case errors.Is(err, ErrConnectionNotReady):
 		return FailureNotReady
+	case errors.Is(err, planning.ErrEnvironmentUnconfigured):
+		return FailureUnconfigured
+	case errors.Is(err, target.ErrInconsistent):
+		return FailureInconsistent
 	case errors.Is(err, persistence.ErrNotFound):
 		return FailureNotFound
 	}
@@ -96,12 +103,9 @@ func LoadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 		if err != nil {
 			return err
 		}
-		conn, err := view.GetConnection(ctx, app.OrganizationKey, app.ConnectionKey)
+		conn, err := target.Resolve(ctx, view, app.OrganizationKey, env)
 		if err != nil {
 			return err
-		}
-		if conn.Status != appdomain.ConnectionReady {
-			return fmt.Errorf("%w: connection %q is %s, want READY", ErrConnectionNotReady, conn.Key, conn.Status)
 		}
 		base := environment.NewDocument()
 		if env.CurrentDeploymentSetID != "" {

@@ -5,8 +5,9 @@ import type { Application } from '../../shared/types/application';
 import { DeploymentDetailsPage } from './DeploymentDetailsPage';
 import { DeploymentHistoryPage } from './DeploymentHistoryPage';
 import { RecentDeployments } from './RecentDeployments';
+import { bothConfigured } from '../../test/targets';
 
-const application: Application = { id: 'catalog/app', name: 'Catalog', subdomain: 'catalog', connectionKey: 'internal-cluster', profile: 'internal-k8s', workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog/app', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured('internal-cluster'), workloads: { staging: [], production: [] } };
 const deployment = (overrides: Record<string, unknown> = {}) => ({
   id: 'dep-1', applicationKey: 'catalog/app', environmentKey: 'staging', workloadId: 'frontend',
   action: 'DEPLOY', status: 'SUCCEEDED', actorRef: 'developer', startedAt: '2026-09-01T10:00:00Z',

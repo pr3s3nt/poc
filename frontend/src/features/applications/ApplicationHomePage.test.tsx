@@ -3,8 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ApplicationHomePage } from './ApplicationHomePage';
 import type { Application } from '../../shared/types/application';
+import { bothConfigured, configuredTarget } from '../../test/targets';
+import { unconfiguredTarget } from '../../shared/types/application';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', connectionKey: 'internal-cluster', profile: 'internal-k8s', workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured('internal-cluster'), workloads: { staging: [], production: [] } };
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -27,7 +29,7 @@ it('previews pending changes and deploys only after confirmation', async () => {
   await user.click(screen.getByRole('button', { name: 'Preview changes' }));
   expect(await screen.findByRole('heading', { name: 'Preview for staging' })).toBeInTheDocument();
   expect(deployToken).toBe('');
-  expect(within(screen.getByLabelText('Deployment preview')).getByLabelText('Execution target')).toHaveTextContent('Connection internal-cluster · profile internal-k8s');
+  expect(within(screen.getByLabelText('Deployment preview')).getByLabelText('Execution target')).toHaveTextContent('Staging · Connection internal-cluster (internal-cluster) · profile internal-k8s');
   await user.click(screen.getByRole('button', { name: 'Deploy these changes' }));
   expect(await screen.findByRole('heading', { name: 'Deploy succeeded' })).toBeInTheDocument();
   expect(within(screen.getByLabelText('Deployment result')).getByLabelText('Execution target')).toHaveTextContent('internal-cluster');
@@ -241,9 +243,31 @@ it('ignores a late Preview after switching Environment and blocks switching duri
   expect(screen.getByRole('button', { name: /^Staging/ })).toBeEnabled();
 });
 
-it('shows the saved connection binding of a non-default Application on the home header', async () => {
+it('shows the target of the selected Environment only and switches with the tab', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ draftVersion: 0, workloads: [], deployments: [] })));
-  render(<ApplicationHomePage application={{ ...application, connectionKey: 'lab', profile: 'aws-eks', region: 'us-east-1' }} />);
-  expect(screen.getAllByLabelText('Execution target')[0]).toHaveTextContent('Connection lab · profile aws-eks · region us-east-1 · both environments');
+  const user = userEvent.setup();
+  render(<ApplicationHomePage application={{ ...application, environments: { staging: configuredTarget('lab', { connectionName: 'Lab' }), production: configuredTarget('cloud', { connectionName: 'Cloud', connectionKind: 'AWS', profile: 'aws-eks', region: 'us-east-1', runtimeStatus: 'PENDING' }) } }} />);
+  expect(screen.getAllByLabelText('Execution target')[0]).toHaveTextContent('Staging · Connection Lab (lab) · profile internal-k8s');
   await screen.findByText('No workloads in this environment yet.');
+  await user.click(screen.getByRole('button', { name: /^Production/ }));
+  expect(screen.getAllByLabelText('Execution target')[0]).toHaveTextContent('Production · Connection Cloud (cloud) · profile aws-eks · region us-east-1');
+  expect(screen.getAllByLabelText('Execution target')[0]).not.toHaveTextContent('Lab');
+});
+
+it('guides an UNCONFIGURED Environment to its settings and surfaces the safe 422 from Preview', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith('/preview') && init?.method === 'POST') return Response.json({ error: 'the Environment has no execution connection; set one in Environment Settings', field: 'connectionKey', code: 'ENVIRONMENT_UNCONFIGURED' }, { status: 422 });
+    return Response.json({ draftVersion: 0, workloads: [], deployments: [] });
+  }));
+  const user = userEvent.setup();
+  render(<ApplicationHomePage application={{ ...application, environments: { staging: unconfiguredTarget, production: configuredTarget('lab') } }} />);
+  expect(screen.getAllByLabelText('Execution target')[0]).toHaveTextContent('Staging has no execution connection yet');
+  await screen.findByText('No workloads in this environment yet.');
+  await user.click(screen.getByRole('button', { name: 'Preview changes' }));
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('set one in Environment Settings');
+  await user.click(within(alert).getByRole('button', { name: 'Open Environment settings' }));
+  expect(window.location.pathname).toBe('/ui/applications/catalog/settings');
+  expect(window.location.search).toBe('?environment=staging');
 });

@@ -27,6 +27,22 @@ var ErrVersionConflict = errors.New("persistence: version conflict")
 // key already exists; the existing record is left unchanged.
 var ErrDuplicate = errors.New("persistence: duplicate key")
 
+// ErrBindingConfigured is returned when an Environment execution binding is
+// already set. A binding is set exactly once and never replaced.
+var ErrBindingConfigured = errors.New("persistence: environment binding already configured")
+
+// EnvironmentBinding is the atomic set-once write of an Environment target.
+// ExpectedVersion guards a stale UI; the unset check is authoritative.
+type EnvironmentBinding struct {
+	ApplicationKey, EnvironmentKey string
+	ConnectionKey                  string
+	Profile                        application.ExecutionProfile
+	Region                         string
+	RuntimeStatus                  application.RuntimeStatus
+	Scope                          environment.InfrastructureScope
+	ExpectedVersion                int64
+}
+
 // ApplicationRepository owns Organization, Application and Connection records.
 type ApplicationRepository interface {
 	GetOrganization(ctx context.Context, key string) (application.Organization, error)
@@ -55,7 +71,16 @@ type IdentityRepository interface {
 type EnvironmentRepository interface {
 	ListEnvironments(ctx context.Context, applicationKey string) ([]environment.Environment, error)
 	GetEnvironment(ctx context.Context, applicationKey, environmentKey string) (environment.Environment, error)
+	// SaveEnvironment never writes the execution binding of an existing or new
+	// Environment; BindEnvironment is the only way to set it.
 	SaveEnvironment(ctx context.Context, env environment.Environment) error
+	// BindEnvironment sets the binding of an unset Environment exactly once and
+	// increments its version. ErrBindingConfigured when already set (even to the
+	// same key), ErrVersionConflict when unset but ExpectedVersion is stale,
+	// ErrNotFound for a missing connection or Environment. Nothing else changes.
+	BindEnvironment(ctx context.Context, b EnvironmentBinding) (environment.Environment, error)
+	// UpdateRuntimeStatus advances PENDING/READY of a configured Environment.
+	UpdateRuntimeStatus(ctx context.Context, applicationKey, environmentKey string, status application.RuntimeStatus) error
 	GetDeploymentSet(ctx context.Context, id string) (environment.DeploymentSet, error)
 	SaveDeploymentSet(ctx context.Context, set environment.DeploymentSet) error
 	// CompareVersionAndSetCurrent performs the optimistic final commit of UC-06 MS-12.

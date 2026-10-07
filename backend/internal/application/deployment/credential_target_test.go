@@ -13,7 +13,6 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/execution"
-	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
 )
 
@@ -90,13 +89,26 @@ func credentialBackedApp(t *testing.T, status application.ConnectionStatus) (*bo
 	ctx := context.Background()
 	if err := app.Store.SaveConnection(ctx, application.Connection{
 		Key: "lab", Name: "Lab", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionKubernetes,
-		AuthenticationType: application.AuthKubeconfig, Status: status,
+		AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionReady,
 		Config:    map[string]any{"cluster": "lab-cluster", "kubeContext": "lab", "endpoint": "https://lab.example"},
 		SecretRef: "memory://local/orchestrator/connections/acme/lab/credentials/00000000-0000-4000-8000-000000000000",
 	}); err != nil {
 		t.Fatal(err)
 	}
-	bindApplicationToConnection(t, app.Store, opts.ApplicationKey, "lab")
+	// A UC-01 Application whose staging Environment selected the Connection;
+	// the seeded acceptance binding is immutable and stays untouched.
+	opts.ApplicationKey, opts.EnvironmentKey = newBoundApplication(t, app.Store, opts.OrganizationKey, "Lab App", "lab-app", "lab", ""), "staging"
+	if status != application.ConnectionReady {
+		// The Connection degrades after the Environment selected it.
+		stored, err := app.Store.GetConnection(ctx, opts.OrganizationKey, "lab")
+		if err != nil {
+			t.Fatal(err)
+		}
+		stored.Status = status
+		if err := app.Store.SaveConnection(ctx, stored); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, resource.Definition{
 		Key: "cluster-lab", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
 		ExecutionProfile: "internal-k8s", ConnectionKey: "lab",
@@ -106,22 +118,6 @@ func credentialBackedApp(t *testing.T, status application.ConnectionStatus) (*bo
 		t.Fatal(err)
 	}
 	return app, opts, executor, deployer
-}
-
-// bindApplicationToConnection is test setup only (no product retarget API
-// exists): it rebinds a seeded Application to the Connection before any
-// Active Resource exists, as UC-01 selection would have done at creation.
-func bindApplicationToConnection(t *testing.T, store persistence.Store, applicationKey, connectionKey string) {
-	t.Helper()
-	ctx := context.Background()
-	stored, err := store.GetApplication(ctx, applicationKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	stored.ConnectionKey = connectionKey
-	if err := store.SaveApplication(ctx, stored); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestCredentialBackedTarget_PropagatesOpaqueIdentityThroughDeployAndRemove(t *testing.T) {

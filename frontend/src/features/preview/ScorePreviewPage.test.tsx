@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
-import type { Application } from '../../shared/types/application';
+import { unconfiguredTarget, type Application } from '../../shared/types/application';
 import { ScorePreviewPage } from './ScorePreviewPage';
 import { parseScoreText } from './parseScore';
+import { bothConfigured, configuredTarget } from '../../test/targets';
 
-const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', connectionKey: 'internal-cluster', profile: 'internal-k8s', workloads: { staging: [], production: [] } };
+const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured('internal-cluster'), workloads: { staging: [], production: [] } };
 const yamlScore = 'apiVersion: score.dev/v1b1\nmetadata:\n  name: api\ncontainers:\n  main:\n    image: example.invalid/api:v1\n';
 const result = (overrides: Record<string, unknown> = {}) => ({
   applicationKey: 'shop', environmentKey: 'staging', baseSetId: 'set-1', baseVersion: 3, runId: 'run-7', workloadId: 'api', action: 'deploy',
@@ -87,6 +88,17 @@ it('shows server validation as actionable and failures with retry, never a stale
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
+it('explains an UNCONFIGURED Environment instead of showing a plan', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: 'the Environment has no execution connection; set one in Environment Settings', field: 'connectionKey', code: 'ENVIRONMENT_UNCONFIGURED' }, { status: 422 })));
+  const user = userEvent.setup();
+  render(<ScorePreviewPage application={{ ...application, environments: { staging: unconfiguredTarget, production: configuredTarget('lab') } }} environment="staging" />);
+  expect(screen.getByLabelText('Execution target')).toHaveTextContent('Staging has no execution connection yet');
+  await fill(user);
+  await user.click(screen.getByRole('button', { name: 'Preview' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Open Environment settings for staging');
+  expect(screen.queryByText(/No workload change/)).not.toBeInTheDocument();
+});
+
 it('disables duplicate submits and ignores a response for input that changed', async () => {
   let resolve: (value: Response) => void = () => undefined;
   const fetcher = vi.fn(() => new Promise<Response>((done) => { resolve = done; }));
@@ -157,7 +169,7 @@ it('accepts one JSON or YAML Score object only', () => {
   expect(parseScoreText('   ')).toEqual({ ok: false, error: 'is required.' });
 });
 
-it('shows the Application connection binding that planning will use', () => {
-  render(<ScorePreviewPage application={{ ...application, connectionKey: 'lab' }} environment="production" />);
-  expect(screen.getByLabelText('Execution target')).toHaveTextContent('Connection lab · profile internal-k8s');
+it('shows the Environment connection binding that planning will use', () => {
+  render(<ScorePreviewPage application={{ ...application, environments: { staging: configuredTarget('internal-cluster'), production: configuredTarget('lab') } }} environment="production" />);
+  expect(screen.getByLabelText('Execution target')).toHaveTextContent('Production · Connection lab (lab) · profile internal-k8s');
 });

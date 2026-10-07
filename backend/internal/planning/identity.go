@@ -45,14 +45,15 @@ func SharedDescriptor(sharedID string, entry environment.ResourceEntry) (resourc
 	return resource.NewDescriptor(entry.Type, entryClass(entry), PathShared+sharedID)
 }
 
-// VPCDescriptor returns the application-scoped VPC node of the aws-eks profile.
-func VPCDescriptor(applicationKey string) (resource.Descriptor, error) {
-	return resource.NewDescriptor(TypeVPC, ClassDefault, PathApplications+applicationKey)
+// VPCDescriptor returns the VPC node of the aws-eks profile: Application
+// scoped for a LEGACY_APPLICATION binding, Environment scoped otherwise.
+func VPCDescriptor(ctx Context) (resource.Descriptor, error) {
+	return resource.NewDescriptor(TypeVPC, ClassDefault, ctx.InfraPath())
 }
 
-// EKSDescriptor returns the application-scoped EKS node of the aws-eks profile.
-func EKSDescriptor(applicationKey string) (resource.Descriptor, error) {
-	return resource.NewDescriptor(TypeCluster, ClassEKS, PathApplications+applicationKey)
+// EKSDescriptor returns the EKS node of the aws-eks profile, scoped like the VPC.
+func EKSDescriptor(ctx Context) (resource.Descriptor, error) {
+	return resource.NewDescriptor(TypeCluster, ClassEKS, ctx.InfraPath())
 }
 
 // InternalClusterDescriptor returns the registered-cluster node of internal-k8s.
@@ -96,15 +97,16 @@ func ScopeFor(ctx Context, d resource.Descriptor) (resource.Scope, error) {
 
 // ParseDescriptorText reads a Resource Reference descriptor written as
 // `TYPE[.CLASS][#ID]`. A missing or `@` class or ID is inherited from the node
-// that owns the reference. Inside the ID, the tokens `@app`, `@env` and
-// `@connection` expand to the current Application, Environment and Connection
-// key, which keeps a Definition reusable across Applications.
+// that owns the reference. Inside the ID, the tokens `@app`, `@env`, `@connection` and
+// `@infra` expand to the current Application, Environment and Connection
+// key and the AWS infrastructure path, which keeps a Definition reusable across Applications.
 func ParseDescriptorText(raw string, current *Node, ctx Context) (resource.Descriptor, error) {
 	raw = strings.TrimSpace(raw)
 	raw = strings.NewReplacer(
 		"@app", ctx.App.Key,
 		"@env", ctx.Env.Key,
 		"@connection", ctx.Connection.Key,
+		"@infra", ctx.InfraPath(),
 	).Replace(raw)
 	if raw == "" {
 		return resource.Descriptor{}, fmt.Errorf("planning: empty resource reference")

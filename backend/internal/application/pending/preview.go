@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	appsvc "orchestrator/internal/application/deployment"
+	"orchestrator/internal/application/target"
 	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/domain/configuration"
 	domain "orchestrator/internal/domain/deployment"
@@ -71,12 +72,12 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 	if err != nil {
 		return Preview{}, err
 	}
-	connection, err := s.store.GetConnection(ctx, app.OrganizationKey, app.ConnectionKey)
+	connection, err := target.Resolve(ctx, s.store, app.OrganizationKey, env)
+	if errors.Is(err, target.ErrConnectionNotReady) {
+		return Preview{}, fmt.Errorf("%w: connection is not ready", ErrInvalid)
+	}
 	if err != nil {
 		return Preview{}, err
-	}
-	if connection.Status != "READY" {
-		return Preview{}, fmt.Errorf("%w: connection is not ready", ErrInvalid)
 	}
 	set, err := s.store.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
 	if err != nil {

@@ -230,7 +230,7 @@ pure selection tests still run. Each render uses a private temporary workspace,
 cleans it afterward, strips inherited host credentials and permits only
 output-only bindings. Live cluster/cloud verification is a separate operation.
 
-## Application connection selection browser check
+## Environment connection Settings browser check
 
 Build the Web Console, then from `backend/` run:
 
@@ -238,9 +238,10 @@ Build the Web Console, then from `backend/` run:
 bash test/integration/application-connection-playwright-local.sh
 ```
 
-This uses fake runtime adapters, JSON state and a read-only kubectl stand-in.
+This script follows ADR-011 Environment Settings with fake runtime adapters,
+JSON state and a read-only kubectl stand-in.
 Platform-authenticated API setup registers a second Connection and its matching
-cluster Definition; Developer UI selects it, checks Preview/Deploy in both
-Environments, and verifies binding after restart. No cluster/cloud mutation.
+cluster Definition; Developer UI creates an unconfigured app, sets separate Environment targets once,
+checks Preview/Deploy and lock after restart. No cluster/cloud mutation.
 Use `ORCH_KEEP_EVIDENCE=1` to retain logs/screenshots, or
 `ORCH_EVIDENCE_DIR=/tmp/new-directory` for a new private evidence directory.

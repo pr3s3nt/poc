@@ -43,10 +43,7 @@ func TestUC02UC04RegistrationIsUsableWithoutRestart(t *testing.T) {
 	}
 
 	dev := authenticatedClient(t, server.URL)
-	status, created := requestJSON(t, dev, http.MethodPost, server.URL+"/api/v1/applications", map[string]any{"name": "Catalog Use", "subdomain": "catalog-use", "connectionKey": "fast-cluster"})
-	if status != http.StatusCreated {
-		t.Fatalf("create Application: %d %v", status, created)
-	}
+	created := createConfiguredApplication(t, dev, server.URL, "Catalog Use", "catalog-use", "fast-cluster")
 	base := server.URL + "/api/v1/applications/" + created["application"].(map[string]any)["key"].(string) + "/environments/staging"
 	scoreWith := func(resources map[string]any) map[string]any {
 		score := previewScore("api")

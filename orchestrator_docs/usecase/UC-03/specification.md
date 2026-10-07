@@ -79,8 +79,8 @@ last_reviewed: 2026-10-07
   thể chạy: Terraform module nhúng `vpc`, `eks`, `aurora` cho Resource Type
   tương ứng; Kubernetes cho `k8s-namespace`/`postgres`; existing-cluster cho
   `k8s-cluster`. Terraform/existing-cluster cần connection tường minh đúng kind,
-  thuộc Organization và `READY`. Kubernetes dùng connection của Application lúc
-  deploy nếu Definition không chỉ định connection riêng. Với `internal-k8s`, existing-cluster/Kubernetes Definition có connection tường minh phải trùng Application connection khi được match; sai khác gây planning error (UC-06 BR-20). Quy tắc này cũng áp dụng cho Terraform VPC/EKS của `aws-eks`; external resources như database giữ explicit Driver Account semantics.
+  thuộc Organization và `READY`. Kubernetes dùng connection của Environment lúc
+  deploy nếu Definition không chỉ định connection riêng. Với `internal-k8s`, existing-cluster/Kubernetes Definition có connection tường minh phải trùng Environment connection khi được match; sai khác gây planning error (UC-06 BR-20). Quy tắc này cũng áp dụng cho Terraform VPC/EKS của `aws-eks`; external resources như database giữ explicit Driver Account semantics.
 - **BR-09:** Đăng ký Terraform Definition phải kiểm tra module tồn tại, các
   biến được khai báo và output Resource Type có thể được cung cấp. Source URL
   từ xa không được chấp nhận trong MVP.
@@ -111,7 +111,7 @@ UC-03 Register Resource Definition
 ## Trạng thái implementation hiện tại
 
 - Seed catalog đã có Definitions cho implicit VPC/EKS/namespace, existing cluster, Aurora và PostgreSQL StatefulSet; executor registry chọn Terraform/Kubernetes/existing-cluster adapter theo matched Definition.
-- Planner đã hỗ trợ optional Execution Profile guard trước năm Matching Criteria chuẩn, Driver Inputs, Resource References, provision rules, fixed-point expansion và kiểm tra Terraform contract. Seeded PostgreSQL Definitions áp dụng cho mọi Application cùng profile.
+- Planner đã hỗ trợ optional Execution Profile guard trước năm Matching Criteria chuẩn, Driver Inputs, Resource References, provision rules, fixed-point expansion và kiểm tra Terraform contract. Seeded PostgreSQL Definitions áp dụng cho mọi Environment cùng profile.
 - Terraform execution của MVP chỉ hỗ trợ các module `vpc`, `eks` và `aurora` được nhúng trong binary. Conformance harness có thể inspect `source.url[@rev][/path]`, nhưng runtime chưa tải hoặc execute Terraform source từ xa.
 - API/UI đăng ký và nghiệp vụ `RegisterResourceDefinition` cùng normalized
   PostgreSQL persistence đã có; production-grade RBAC còn thiếu. Catalog seed
@@ -179,3 +179,15 @@ UC-03 Register Resource Definition
   the driver is not registered as a resource provisioner.
 
 See [workload rendering contract](../../architecture/contracts/workload-rendering.md).
+
+## Environment execution target references
+
+UC-01 Settings set-once target and [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md)
+provide canonical Environment profile/region. AWS infrastructure references may
+use `vpc.default#@infra`; parser expands @infra to new Environment path or legacy
+Application path. Cloud names use context.infra.resourceName (legacy exact app-run, new bounded
+Environment-specific hash identifier); context.infra.name is a readable stem only.
+Seeded Definitions use these scope-aware values. Platform-authored hardcoded
+application VPC/EKS references are valid only in legacy scope; new Environment
+planning rejects them with guidance rather than introducing cross-environment
+resources. Definition specificity, tie handling and external Driver Accounts remain.

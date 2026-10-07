@@ -254,10 +254,38 @@ func NewWithSnapshot(path string) (*Store, error) {
 	for key, conn := range s.state.Connections {
 		s.state.Connections[key] = legacyConnection(conn)
 	}
+	s.state.migrateLegacyBindings()
 	if history, ok := fields["deploymentWorkloads"]; !ok || string(history) == "null" {
 		s.state.backfillLatestWorkloadSnapshots()
 	}
 	return s, nil
+}
+
+// migrateLegacyBindings copies the former Application target onto each unset
+// Environment of an old bound Application and locks it as LEGACY_APPLICATION
+// (ADR-011). New Applications carry no connection, so they stay UNCONFIGURED
+// and the rule is safe to apply on every load. Organization default is never
+// consulted; Application identity, namespaces and TargetRefs are untouched.
+func (s *state) migrateLegacyBindings() {
+	for key, env := range s.Environments {
+		if env.ConnectionKey != "" {
+			if env.InfrastructureScope == "" {
+				env.InfrastructureScope = environment.ScopeEnvironment
+				s.Environments[key] = env
+			}
+			continue
+		}
+		app, ok := s.Applications[env.ApplicationKey]
+		if !ok || app.ConnectionKey == "" {
+			// A new Application: make the SQL defaults explicit in the loaded row.
+			env.RuntimeStatus, env.InfrastructureScope = application.RuntimeUnconfigured, environment.ScopeEnvironment
+			s.Environments[key] = env
+			continue
+		}
+		env.ConnectionKey, env.Profile, env.Region = app.ConnectionKey, app.Profile, app.Region
+		env.RuntimeStatus, env.InfrastructureScope = app.RuntimeStatus, environment.ScopeLegacyApplication
+		s.Environments[key] = env
+	}
 }
 
 // backfillLatestWorkloadSnapshots upgrades a JSON snapshot written before
@@ -450,6 +478,14 @@ func (s *Store) SaveApplication(ctx context.Context, app application.Application
 	if app.Version == 0 {
 		app.Version = 1
 	}
+	// Legacy target fields are read-only data (ADR-011): a save keeps what is
+	// stored and a new Application is created unbound.
+	stored := s.state.Applications[app.Key]
+	app.Profile, app.ConnectionKey, app.Region = stored.Profile, stored.ConnectionKey, stored.Region
+	app.RuntimeStatus = stored.RuntimeStatus
+	if app.ConnectionKey == "" {
+		app.RuntimeStatus = application.RuntimeUnconfigured
+	}
 	s.state.Applications[app.Key] = app
 	return nil
 }
@@ -565,7 +601,64 @@ func (s *Store) SaveEnvironment(ctx context.Context, env environment.Environment
 	if env.Version == 0 {
 		env.Version = 1
 	}
-	s.state.Environments[envKey(env.ApplicationKey, env.Key)] = env
+	// The execution binding is never writable here (ADR-011): keep what is
+	// stored, or leave a new Environment UNCONFIGURED.
+	key := envKey(env.ApplicationKey, env.Key)
+	stored, existed := s.state.Environments[key]
+	env.ConnectionKey, env.Profile, env.Region = stored.ConnectionKey, stored.Profile, stored.Region
+	env.RuntimeStatus, env.InfrastructureScope = stored.RuntimeStatus, stored.InfrastructureScope
+	if !existed {
+		// Stored rows carry the SQL defaults explicitly, not through helpers.
+		env.RuntimeStatus, env.InfrastructureScope = application.RuntimeUnconfigured, environment.ScopeEnvironment
+	}
+	s.state.Environments[key] = env
+	return nil
+}
+
+// BindEnvironment sets the Environment binding once, under the store lock.
+func (s *Store) BindEnvironment(ctx context.Context, b persistence.EnvironmentBinding) (environment.Environment, error) {
+	defer s.lock(ctx)()
+	key := envKey(b.ApplicationKey, b.EnvironmentKey)
+	env, ok := s.state.Environments[key]
+	if !ok {
+		return environment.Environment{}, fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
+	}
+	app, ok := s.state.Applications[b.ApplicationKey]
+	if !ok {
+		return environment.Environment{}, fmt.Errorf("%w: application %q", persistence.ErrNotFound, b.ApplicationKey)
+	}
+	if _, ok := s.state.Connections[catalogKey(app.OrganizationKey, b.ConnectionKey)]; !ok {
+		return environment.Environment{}, fmt.Errorf("%w: connection %q", persistence.ErrNotFound, b.ConnectionKey)
+	}
+	if env.Configured() {
+		return environment.Environment{}, fmt.Errorf("%w: environment %s", persistence.ErrBindingConfigured, key)
+	}
+	if env.Version != b.ExpectedVersion {
+		return environment.Environment{}, fmt.Errorf("%w: environment %s is at version %d, request used %d", persistence.ErrVersionConflict, key, env.Version, b.ExpectedVersion)
+	}
+	if !b.Scope.Valid() || !b.Profile.Valid() || b.RuntimeStatus == "" || b.RuntimeStatus == application.RuntimeUnconfigured {
+		return environment.Environment{}, fmt.Errorf("store: invalid environment binding for %s", key)
+	}
+	env.ConnectionKey, env.Profile, env.Region = b.ConnectionKey, b.Profile, b.Region
+	env.RuntimeStatus, env.InfrastructureScope = b.RuntimeStatus, b.Scope
+	env.Version++
+	s.state.Environments[key] = env
+	return env, nil
+}
+
+// UpdateRuntimeStatus advances the runtime status of a configured Environment.
+func (s *Store) UpdateRuntimeStatus(ctx context.Context, applicationKey, environmentKey string, status application.RuntimeStatus) error {
+	defer s.lock(ctx)()
+	key := envKey(applicationKey, environmentKey)
+	env, ok := s.state.Environments[key]
+	if !ok {
+		return fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
+	}
+	if !env.Configured() || (status != application.RuntimePending && status != application.RuntimeReady) {
+		return fmt.Errorf("%w: environment %s runtime status", persistence.ErrImmutable, key)
+	}
+	env.RuntimeStatus = status
+	s.state.Environments[key] = env
 	return nil
 }
 

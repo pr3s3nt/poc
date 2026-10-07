@@ -51,7 +51,7 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 
 ## Luồng biến thể trong happy path
 
-- **VAR-01 — `aws-eks`:** tại MS-05, thêm implicit VPC và EKS có Resource Descriptor scope Application; tại MS-09, UC-08 tái sử dụng hoặc provision VPC -> EKS trước Aurora/workload.
+- **VAR-01 — `aws-eks`:** tại MS-05, thêm implicit VPC/EKS scope Environment (legacy AWS giữ Application scope theo ADR-011); tại MS-09, UC-08 tái sử dụng hoặc provision VPC -> EKS trước Aurora/workload.
 - **VAR-02 — `internal-k8s`:** tại MS-05, thêm provider node tham chiếu cluster connection có sẵn; UC-08 không tạo VPC/EKS và provision namespace/PostgreSQL trên cluster đó.
 - **VAR-03 — Fleet GitRepo trên internal kind:** tại MS-11, khi platform cấu
   hình mode này, Orchestrator ghi workload manifests không bí mật vào repo
@@ -74,7 +74,7 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 ## Quy tắc nghiệp vụ
 
 - **BR-01:** Planning phải duy trì invariant `current + Delta = Candidate`.
-- **BR-02:** Resource Descriptor là identity ổn định; VPC/EKS scope Application, namespace scope Environment, Score dependency dùng declared scope.
+- **BR-02:** Resource Descriptor là identity ổn định; new VPC/EKS scope Environment (legacy AWS application scope theo ADR-011), namespace scope Environment, Score dependency dùng declared scope.
 - **BR-03:** Execution Profile chỉ enrich graph/context; provider-specific execution được chọn qua Resource Definition và executor adapter.
 - **BR-04:** Graph phải là DAG và batches phải đặt mọi provider trước consumer.
 - **BR-05:** Chỉ commit Candidate Deployment Set thành current sau khi UC-08 và workload apply hoàn tất thành công.
@@ -84,7 +84,7 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 - **BR-09:** Trước khi execute, planner phải đối chiếu resource input và driver variable với Terraform module contract và ghi lại source fingerprint.
 - **BR-10:** Deployment Delta dùng shape Humanitec `modules.add/remove/update` và `shared`; module update patch relative với module, shared patch relative với shared object, array diff theo index và `/-`.
 - **BR-11:** `containers.*.resources.requests/limits` chỉ gồm `cpu`/`memory`, phải đi nguyên vẹn qua Score fragment, Candidate Deployment Set và workload renderer; renderer không được thay giá trị đã khai báo bằng giá trị hard-code. Request của từng field (`cpu`, `memory`) được chọn theo thứ tự: request đã khai báo; nếu request thiếu thì limit đã khai báo của cùng field; nếu thiếu cả hai thì platform default `cpu: 10m` hoặc `memory: 32Mi`. Limits chỉ chứa các field được khai báo và không có default. Giá trị suy ra không được ghi ngược vào Score fragment hoặc Candidate Deployment Set.
-- **BR-12:** Khi parse Resource Reference, token `@app`, `@env` và
+- **BR-12:** Khi parse Resource Reference, token `@app`, `@env`, `@infra` và
   `@connection` trong phần Resource ID được thay bằng key của Application,
   Environment và Connection hiện tại trước khi tạo descriptor. Đây là product
   extension; ký hiệu `@` dùng để kế thừa class/ID hiện tại vẫn giữ semantics
@@ -150,7 +150,7 @@ workload -> k8s-namespace -> existing-k8s-cluster
 workload -> postgres-statefulset -> existing-k8s-cluster
 ```
 
-VPC/EKS có scope theo Application; namespace có scope theo Environment; PostgreSQL có scope theo dependency khai báo trong Score.
+VPC/EKS mới có scope theo Environment (legacy AWS giữ scope Application); namespace có scope theo Environment; PostgreSQL có scope theo dependency khai báo trong Score.
 
 Hai sơ đồ trên là hình dạng tối thiểu sinh ra từ Score và Execution Profile. Resource Definition được
 phép bổ sung edge cho chính resource của nó bằng Resource Reference trong driver inputs
@@ -172,17 +172,17 @@ Resource ID là đường dẫn trong Deployment Set, không phải tên tự đ
 | Workload | `workload.default#modules.<workload-id>` |
 | Private dependency của workload | `<type>.<class>#modules.<workload-id>.externals.<name>` |
 | Shared dependency | `<type>.<class>#shared.<shared-id>` |
-| VPC implicit (`aws-eks`) | `vpc.default#applications.<app-id>` |
-| EKS implicit (`aws-eks`) | `k8s-cluster.eks#applications.<app-id>` |
+| VPC implicit (`aws-eks`) | `vpc.default#environments.<app-id>.<env-id>` (legacy: `applications.<app-id>`) |
+| EKS implicit (`aws-eks`) | `k8s-cluster.eks#environments.<app-id>.<env-id>` (legacy: `applications.<app-id>`) |
 | Cluster đã đăng ký (`internal-k8s`) | `k8s-cluster.internal#connections.<connection-id>` |
 | Namespace của Environment | `k8s-namespace.default#environments.<app-id>.<env-id>` |
 
 Ba dòng đầu là contract chung với Humanitec. Bốn dòng implicit là phần mở rộng của orchestrator và
 dùng cùng quy ước `<scope>.<path>` để identity luôn suy ra được từ scope.
 
-Theo BR-12, trong Resource Reference, ngoài `@` kế thừa class/ID của node hiện tại, orchestrator cho phép ba token
-`@app`, `@env` và `@connection` bên trong phần ID. Chúng được thay bằng Application key, Environment key
-và Connection key đang xử lý, nhờ vậy một Resource Definition tham chiếu hạ tầng implicit mà không phải
+Theo BR-12, trong Resource Reference, ngoài `@` kế thừa class/ID của node hiện tại, orchestrator cho phép các token
+`@app`, `@env`, `@connection` và `@infra` bên trong phần ID. Chúng được thay bằng Application key, Environment key
+và Connection key đang xử lý; @infra là AWS infrastructure path theo ADR-011, nhờ vậy một Resource Definition tham chiếu hạ tầng implicit mà không phải
 hard-code Application hay Environment.
 
 ## Trạng thái implementation hiện tại
@@ -219,6 +219,6 @@ hard-code Application hay Environment.
 
 See [workload rendering contract](../../architecture/contracts/workload-rendering.md).
 
-## Application connection binding
+## Environment connection binding
 
-- **BR-20:** Mọi Environment dùng connection đã lưu của Application. Preview/Deploy UI hiển thị connection key/profile. Với `internal-k8s`, matching existing-cluster và Kubernetes resource Definitions chỉ hợp lệ khi explicit connection (nếu có) bằng Application connection; không override target đã chọn. Sai khác được reject khi planning trước provisioning/workload apply; matching specificity/tie semantics không thay đổi. Với `aws-eks`, Terraform Definitions cho VPC và EKS (`vpc` và `k8s-cluster`) cũng phải dùng Application connection, để không provision đích workload trong AWS account khác. External resource Definitions như database vẫn giữ Driver Account riêng. Platform Engineer phải đăng ký matching cluster Definition cho connection mới (resource ID `connections.<key>` hoặc Application criterion); không tự copy Definition hay fallback về cluster mặc định.
+- **BR-20:** Every deployment resolves and pins the configured Environment target, never a shared Application binding/default. Internal Kubernetes and AWS Terraform VPC/EKS Definition connection must equal selected Environment connection; reject conflicts before execution. External database Definitions keep their Driver Account. Matching specificity/ties remain unchanged. New AWS scopes are ENVIRONMENT; legacy bindings preserve application-scope resource identity via ADR-011. UNCONFIGURED Preview/Deploy is rejected 422 field connectionKey before executor/provisioning. Platform Engineer must supply matching cluster Definitions, no silent copy/fallback.

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { navigate } from '../../app/routes';
-import type { Application, EnvironmentKey } from '../../shared/types/application';
+import { navigate, replaceRoute } from '../../app/routes';
+import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
+import { EnvironmentConnection } from './EnvironmentConnection';
 import { deleteKey, getConfiguration, putKey, renameKey, type ConfigKey, type Configuration, type KeyKind } from './api';
 
 type Form = { kind: KeyKind; name: string; value: string; editing?: string };
 type Action = { kind: 'rename' | 'delete'; key: ConfigKey; newName: string };
 
-export function SettingsPage({ application }: { application: Application }) {
-  const [environment, setEnvironment] = useState<EnvironmentKey>('staging');
+export function SettingsPage({ application, initialEnvironment = 'staging', onTargetChange }: { application: Application; initialEnvironment?: EnvironmentKey; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
+  const [environment, setEnvironment] = useState<EnvironmentKey>(initialEnvironment);
   const [data, setData] = useState<Configuration>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -60,8 +61,9 @@ export function SettingsPage({ application }: { application: Application }) {
 
   return <section className="page settings-page">
     <button className="back-link" onClick={() => navigate({ name: 'application', applicationId: application.id })}>← {application.name}</button>
-    <header className="page-header application-header"><div><p className="eyebrow">Application settings</p><h1>Variables &amp; Secrets</h1><p>Configure values separately for staging and production. Use Preview changes on the Application page to see what still needs deployment.</p></div>{data && data.version > 0 ? <span className="pending-pill">Desired revision v{data.version}</span> : null}</header>
-    <div className="tabs" role="tablist" aria-label="Environment">{(['staging', 'production'] as const).map((env) => <button key={env} role="tab" aria-selected={env === environment} className={env === environment ? 'tab tab-active' : 'tab'} onClick={() => setEnvironment(env)}>{env === 'staging' ? 'Staging' : 'Production'}</button>)}</div>
+    <header className="page-header application-header"><div><p className="eyebrow">Application settings</p><h1>Environment settings</h1><p>Choose each environment's execution connection once, and configure values separately for staging and production. Use Preview changes on the Application page to see what still needs deployment.</p></div>{data && data.version > 0 ? <span className="pending-pill">Desired revision v{data.version}</span> : null}</header>
+    <div className="tabs" role="tablist" aria-label="Environment">{(['staging', 'production'] as const).map((env) => <button key={env} role="tab" aria-selected={env === environment} className={env === environment ? 'tab tab-active' : 'tab'} onClick={() => { setEnvironment(env); replaceRoute({ name: 'settings', applicationId: application.id, environment: env }); }}>{env === 'staging' ? 'Staging' : 'Production'}</button>)}</div>
+    <EnvironmentConnection application={application} environment={environment} onTargetChange={onTargetChange ?? (() => undefined)} />
     {error ? <div className="form-error" role="alert">{error}</div> : null}
     {loading ? <p>Loading configuration…</p> : null}
     {!loading && data ? <>{section('VARIABLE', 'Environment variables')}{section('SECRET', 'Secrets')}</> : null}

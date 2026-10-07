@@ -151,6 +151,8 @@ type Plan struct {
 	Terraform      []TerraformContract      `json:"terraform"`
 	Batches        [][]string               `json:"batches"`
 	Classification Classification           `json:"classification"`
+	// Target pins the nonsecret Environment execution binding the plan used.
+	Target environment.Binding `json:"target"`
 	// UnreferencedResources are the Active Resources the deployment marks
 	// UNREFERENCED in its final transaction (UC-07 MS-07). Not persisted with
 	// the plan and not part of the plan hash.

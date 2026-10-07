@@ -20,7 +20,7 @@ database ActiveResourceRepository as ResourceRepo
 Developer -> API: PreviewDeployment(query)
 API -> Preview: PreviewDeployment(ctx, query)
 Preview -> EnvRepo: ReadSnapshot(appID, envID, session Organization) [MS-01]
-EnvRepo --> Preview: app + persisted connection + env + profile + current set + version + catalog + active resources
+EnvRepo --> Preview: app + configured env connection/profile/region/scope + current set + version + catalog + active resources
 Preview -> Planner: Plan(request)
 Planner -> Converter: ConvertAndValidate(before/after Score) [MS-02..MS-03]
 Converter --> Planner: Before/after workload fragments
@@ -34,7 +34,7 @@ Planner -> Enricher: Enrich(candidate, profile) [MS-05]
 Enricher --> Planner: Implicit resources
 Planner -> Graph: BuildAndExpand(candidate, implicit) [MS-05]
 Graph -> Matcher: MatchAll(nodes, context)
-Matcher -> Matcher: Validate internal Definition connection equals Application binding
+Matcher -> Matcher: Validate internal Definition connection equals Environment binding
 Matcher --> Graph: Matched definitions or safe planning error
 Graph --> Planner: ResourceGraph
 Planner -> Inspector: InspectContracts(graph) [MS-06]

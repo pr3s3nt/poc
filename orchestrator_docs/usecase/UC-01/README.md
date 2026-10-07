@@ -9,10 +9,12 @@ last_reviewed: 2026-10-07
 
 ## Delivery state
 
-Implemented for local/test: authenticated Developer can list, create and read
-Applications. Creation accepts an Organization-scoped READY Connection selection, with
-default omission compatibility for old clients (2026-10-07), then atomically creates `staging`/`production` and empty sets;
-desired endpoints remain unprovisioned until UC-06.
+Environment Settings set-once design accepted 2026-10-07, including independent
+AWS targets/VPC/EKS and locked legacy migration ([ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md)).
+Code/API/UI binding and legacy migration are implemented; real kind staging
+deployment and separate stored Environment bindings are [verified](../../verification/2026-10-07-environment-connection-kind.md).
+Final review and validation passed. Previous Application selection
+verification below is historical evidence, not current target requirement.
 
 ## Read in this order
 
@@ -32,7 +34,7 @@ desired endpoints remain unprovisioned until UC-06.
 - [`backend/internal/application/application`](../../../backend/internal/application/application/)
 - [`frontend/src/features/applications`](../../../frontend/src/features/applications/)
 
-## Application connection selection delivery (2026-10-07)
+## Historical Application connection selection delivery (2026-10-07)
 
 API/UI selection, safe Developer choices, shared Environment binding, internal
 and AWS target Definition guards, and local fake-adapter Playwright create/deploy/

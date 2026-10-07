@@ -13,3 +13,5 @@ last_reviewed: 2026-09-21
 - [Connection](connection.puml): verification before use.
 
 `FAILED` records terminal execution failure so status does not remain misleading. Automated retry, resume, rollback and cleanup are not implied and remain outside MVP happy path.
+
+- [Environment target set-once](environment-target.puml) — UC-01 Settings, UNCONFIGURED gating and immutable binding; [ADR-011](../decisions/ADR-011-environment-execution-binding.md).

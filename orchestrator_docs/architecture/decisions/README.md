@@ -22,3 +22,5 @@ last_reviewed: 2026-10-06
 
 - [ADR-010 — Definition-selected workload rendering with score-k8s](ADR-010-score-k8s-workload-rendering.md)
   — accepted; internal-k8s registration/Preview/Deploy integration, with separate live verification.
+
+- [ADR-011 — Environment execution binding set once](ADR-011-environment-execution-binding.md) — independent Kubernetes/AWS Environment targets, new Environment-scoped VPC/EKS and explicit legacy compatibility.

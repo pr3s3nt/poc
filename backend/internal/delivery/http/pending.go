@@ -60,6 +60,9 @@ func (s *Server) handleDeployPending(w http.ResponseWriter, r *http.Request) {
 // messages are user-derived or fixed; anything else is a generic retryable
 // error whose cause is not returned or logged.
 func writePendingError(w http.ResponseWriter, err error) {
+	if writeUnconfigured(w, err) {
+		return
+	}
 	switch {
 	case errors.Is(err, persistence.ErrNotFound):
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not found"})

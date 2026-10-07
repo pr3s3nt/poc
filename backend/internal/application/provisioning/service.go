@@ -20,7 +20,7 @@ import (
 )
 
 var errConnectionUnavailable = errors.New("the Connection must exist and be READY")
-var errConnectionMismatch = errors.New("the Definition connection differs from the Application connection")
+var errConnectionMismatch = errors.New("the Definition connection differs from the Environment connection")
 
 // Request is the input of one UC-08 run.
 type Request struct {
@@ -138,8 +138,8 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	}
 
 	// Defense in depth for UC-08 BR-07: a target Definition (internal cluster,
-	// Kubernetes, or aws-eks Terraform VPC/EKS) must not retarget the Application's saved Connection.
-	if planning.ConnectionMismatch(req.Context.App, def) {
+	// Kubernetes, or aws-eks Terraform VPC/EKS) must not retarget the Environment's saved Connection.
+	if planning.ConnectionMismatch(req.Context.Env, def) {
 		progress.Status = deployment.ResourceFailed
 		finished := s.clock.Now()
 		progress.FinishedAt = &finished
@@ -294,7 +294,7 @@ func connectionKeyFor(def resource.Definition, ctx planning.Context) string {
 	if def.ConnectionKey != "" {
 		return def.ConnectionKey
 	}
-	return ctx.App.ConnectionKey
+	return ctx.Env.ConnectionKey
 }
 
 func mapOrEmpty(m map[string]any) map[string]any {
