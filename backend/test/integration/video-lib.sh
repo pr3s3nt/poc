@@ -107,3 +107,28 @@ video_validate() {
   done
   echo "video=${video} duration=${duration}s frames=$(find "${WORK}/frames" -name '*.png' | wc -l)"
 }
+
+# video_require_secret_store <api-url> <store-key>: proves, as the seeded local
+# Developer, that the Organization offers the named READY Secret Store and
+# exports it as ORCH_E2E_SECRET_STORE for the browser flow. Flows that write a
+# Secret into a new Environment must select a store through the UI; the product
+# never falls back to one. The store checked here is the explicit platform
+# store the backend seeds from its Vault flags (key platform-vault); it is
+# separate from the Connection credential store (-connection-vault-*).
+# The password is the fixed local/test account; nothing secret is printed.
+video_require_secret_store() {
+  local api="$1" key="$2" jar choices
+  jar="$(mktemp)"
+  choices="$(mktemp)"
+  if ! curl --connect-timeout 5 --max-time 30 -fsS -c "${jar}" -H 'Content-Type: application/json' \
+      -d '{"username":"developer","password":"test-password"}' "${api}/api/v1/auth/sign-in" >/dev/null \
+    || ! curl --connect-timeout 5 --max-time 30 -fsS -b "${jar}" "${api}/api/v1/secret-store-choices" > "${choices}" \
+    || ! jq -e --arg key "${key}" '.secretStores | any(.key == $key and .status == "READY")' "${choices}" >/dev/null; then
+    rm -f "${jar}" "${choices}"
+    echo "secret store ${key} is not offered READY by ${api}; start the backend with -vault-address/-vault-token-file so it seeds the platform store" >&2
+    return 1
+  fi
+  rm -f "${jar}" "${choices}"
+  export ORCH_E2E_SECRET_STORE="${key}"
+  echo "secret store ${key} is READY and will be selected through the UI"
+}

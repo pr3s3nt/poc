@@ -138,6 +138,7 @@ for _ in $(seq 1 80); do [[ -s "${WORK}/api-addr" ]] && break; sleep 0.5; done
 API="http://$(<"${WORK}/api-addr")"
 for _ in $(seq 1 40); do curl -fsS "${API}/api/v1/healthz" >/dev/null 2>&1 && break; sleep 0.5; done
 curl -fsS "${API}/api/v1/healthz" >/dev/null
+video_require_secret_store "${API}" platform-vault
 
 if [[ -z "${HUMAN}" ]]; then
   ORCH_E2E_URL="${API}" ORCH_E2E_RUN_ID="${RUN_ID}" ORCH_E2E_KUBE_CONTEXT="${CONTEXT}" \

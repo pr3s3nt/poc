@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { useState } from 'react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { SettingsPage } from './SettingsPage';
@@ -7,7 +8,7 @@ import { configuredTarget } from '../../test/targets';
 
 const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: { staging: configuredTarget('internal-cluster', { secretStoreKey: 'vault-a', secretStoreName: 'Vault A' }), production: configuredTarget('internal-cluster') }, workloads: { staging: [], production: [] } };
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 it('shows separate environment tabs and never displays saved secret values', async () => {
   const calls: string[] = [];
@@ -121,4 +122,43 @@ it('holds an open rename or delete confirmation while busy', async () => {
   expect(screen.getByLabelText('New key name')).toHaveValue('LOGS');
   view.rerender(<SettingsPage application={application} />);
   expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+});
+
+it('notices an operation started elsewhere by polling an idle editor, holds submission and releases it, keeping the text', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const op = { id: 'op7', kind: 'DEPLOY' as const, status: 'ACTIVE' as const, stage: 'DEPLOY web', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: false };
+  let remote = application.environments.staging;
+  const env = (t: typeof remote) => ({ key: 'staging', version: t.version, configured: t.configured, connectionKey: t.connectionKey, executionProfile: t.profile, runtimeStatus: t.runtimeStatus, infrastructureScope: t.infrastructureScope, secretStoreKey: t.secretStoreKey, targetGeneration: t.targetGeneration, runtimeExists: t.runtimeExists, activeOperation: t.activeOperation });
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith('/applications/catalog')) return Response.json({ application: { environments: [env(remote)] } });
+    if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [] });
+    if (url.endsWith('/application-connections')) return Response.json({ connections: [] });
+    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
+    return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [{ name: 'LOG_LEVEL', kind: 'VARIABLE', value: 'debug', configured: true, usedBy: [] }] });
+  }));
+  function Host() {
+    const [current, setCurrent] = useState(application);
+    return <SettingsPage application={current} onTargetChange={(_id, key, target) => setCurrent((c) => ({ ...c, environments: { ...c.environments, [key]: target } }))} />;
+  }
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  render(<Host />);
+  await screen.findByText('LOG_LEVEL');
+  await user.click(screen.getByRole('button', { name: 'Edit' }));
+  await user.clear(screen.getByLabelText('Value'));
+  await user.type(screen.getByLabelText('Value'), 'trace');
+  expect(screen.getByRole('button', { name: 'Save pending change' })).toBeEnabled();
+  // Another user or process starts an operation: only the server knows.
+  remote = { ...remote, activeOperation: op };
+  await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
+  expect(await screen.findByRole('heading', { name: 'Operation in progress' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Save pending change' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Rename' })).toBeDisabled();
+  expect(screen.getByLabelText('Value')).toHaveValue('trace');
+  // The operation ends.
+  remote = { ...remote, activeOperation: undefined };
+  await act(async () => { await vi.advanceTimersByTimeAsync(3500); });
+  expect(screen.queryByRole('heading', { name: 'Operation in progress' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Save pending change' })).toBeEnabled();
+  expect(screen.getByLabelText('Value')).toHaveValue('trace');
 });

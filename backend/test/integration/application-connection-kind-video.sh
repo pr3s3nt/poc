@@ -277,6 +277,7 @@ start_backend() {
 
 start_backend first
 API="http://127.0.0.1:${API_PORT}"
+video_require_secret_store "${API}" platform-vault
 
 video_start_xvfb "${SCREEN}"
 setsid env DISPLAY="${VIDEO_DISPLAY}" ORCH_E2E_SCREEN="${SCREEN}" ORCH_E2E_XDOTOOL="${XDOTOOL}" \

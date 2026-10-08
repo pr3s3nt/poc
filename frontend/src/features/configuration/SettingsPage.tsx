@@ -3,6 +3,7 @@ import { navigate, replaceRoute } from '../../app/routes';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
 import { EnvironmentConnection } from './EnvironmentConnection';
+import { useEnvironmentBusy } from '../environment/useEnvironmentBusy';
 import { OperationBanner } from '../environment/OperationBanner';
 import { SecretStoreSelection } from '../environment/SecretStoreSelection';
 import { TransitionPanel } from '../environment/TransitionPanel';
@@ -30,9 +31,10 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
   const [transitionTo, setTransitionTo] = useState<string>();
   const [needStore, setNeedStore] = useState(false);
   // An active or interrupted Environment operation holds every configuration write
-  // (the server answers 409 ENVIRONMENT_BUSY). Open editors keep their text and
+  // (the server answers 409 ENVIRONMENT_BUSY). The state is also polled while idle, so an
+  // operation started elsewhere is noticed. Open editors keep their text and
   // simply cannot submit until the target no longer reports an operation.
-  const busy = Boolean(application.environments[environment].activeOperation);
+  const busy = useEnvironmentBusy(application, environment, onTargetChange);
 
   useEffect(() => {
     let cancelled = false;

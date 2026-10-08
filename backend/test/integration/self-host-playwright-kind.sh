@@ -18,6 +18,8 @@ IN_CLUSTER_VAULT="http://vault-uc12.vault.svc:8200"
 TOKEN_FILE="${VAULT_BACKEND_TOKEN_FILE:-/home/thanhnt1/.local/share/poc-vault/vault-uc12-backend-token}"
 SCREEN="1280x900"
 PIDS=()
+# shellcheck source=video-lib.sh
+source "${ROOT}/test/integration/video-lib.sh"
 
 delete_owned_namespace() {
   local file="$1" namespace app_id actual
@@ -105,6 +107,7 @@ for _ in $(seq 1 80); do [[ -s "${WORK}/api-addr" ]] && break; sleep 0.5; done
 API="http://$(<"${WORK}/api-addr")"
 for _ in $(seq 1 40); do curl -fsS "${API}/api/v1/healthz" >/dev/null 2>&1 && break; sleep 0.5; done
 curl -fsS "${API}/api/v1/healthz" >/dev/null
+video_require_secret_store "${API}" platform-vault
 
 # WSLg owns :0, so pick the first free display from :90.
 DISPLAY_NUMBER=""

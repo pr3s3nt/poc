@@ -73,9 +73,19 @@ APP_ID="$(curl -fsS -b "${WORK}/cookies" -H 'Content-Type: application/json' \
 NAMESPACE="app-${APP_ID}-staging"
 BASE="${API}/applications/${APP_ID}/environments/staging"
 
+# A new Environment has neither a deployment Connection nor a Secret Store. Both
+# are selected explicitly (no fallback): the seeded cluster Connection and the
+# explicit platform store the backend seeds from its Vault flags.
+env_version() { curl -fsS -b "${WORK}/cookies" "${API}/applications/${APP_ID}" | jq -r '.application.environments[] | select(.key == "staging") | .version'; }
+jq -n --argjson v "$(env_version)" '{connectionKey:"internal-cluster",expectedVersion:$v}' \
+  | curl -fsS -b "${WORK}/cookies" -X PUT -H 'Content-Type: application/json' --data-binary @- "${BASE}/connection" >/dev/null
+jq -n --argjson v "$(env_version)" --argjson c "$(curl -fsS -b "${WORK}/cookies" "${BASE}/configuration" | jq '.version')" \
+  '{secretStoreKey:"platform-vault",expectedVersion:$v,expectedConfigVersion:$c}' \
+  | curl -fsS -b "${WORK}/cookies" -X PUT -H 'Content-Type: application/json' --data-binary @- "${BASE}/secret-store" >/dev/null
+
 TEST_VALUE="kind-test-${RUN_ID}"
 curl -fsS -b "${WORK}/cookies" -X PUT -H 'Content-Type: application/json' \
-  --data "{\"kind\":\"SECRET\",\"value\":\"${TEST_VALUE}\",\"version\":0}" \
+  --data "{\"kind\":\"SECRET\",\"value\":\"${TEST_VALUE}\",\"version\":$(curl -fsS -b "${WORK}/cookies" "${BASE}/configuration" | jq -r .version)}" \
   "${BASE}/configuration/keys/API_TOKEN" > "${WORK}/configuration.json"
 if rg -q "${TEST_VALUE}" "${WORK}/configuration.json"; then echo "secret leaked in API response" >&2; exit 1; fi
 
@@ -101,7 +111,7 @@ kubectl --context "${CONTEXT}" -n "${NAMESPACE}" exec deployment/probe -- sh -c 
 if rg -q "${TEST_VALUE}" "${WORK}/state.json" "${WORK}/deployment.json"; then echo "secret leaked to state or Deployment" >&2; exit 1; fi
 
 curl -fsS -b "${WORK}/cookies" -X PUT -H 'Content-Type: application/json' \
-  --data "{\"kind\":\"SECRET\",\"value\":\"rotated-${TEST_VALUE}\",\"version\":1}" \
+  --data "{\"kind\":\"SECRET\",\"value\":\"rotated-${TEST_VALUE}\",\"version\":$(curl -fsS -b "${WORK}/cookies" "${BASE}/configuration" | jq -r .version)}" \
   "${BASE}/configuration/keys/API_TOKEN" > "${WORK}/rotation.json"
 curl -fsS -b "${WORK}/cookies" -X POST -H 'Content-Type: application/json' --data '{}' "${BASE}/preview" > "${WORK}/rotation-preview.json"
 jq -e '.changes | length == 1' "${WORK}/rotation-preview.json" >/dev/null
