@@ -17,6 +17,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { acceptanceApp, addWorkload, createHuman, installCursor, putKeys, TYPE_DELAY } from './human.mjs';
+import { assertNoSecretLeaks } from './secret-scan.mjs';
 import { launchHeaded, nativeSelect, screenSize, startRecording, stopRecording, x11Input } from './video.mjs';
 
 const env = process.env;
@@ -76,10 +77,12 @@ try {
   const mark = (label) => marks.push({ label, seconds: Number(((Date.now() - startedAt) / 1000).toFixed(1)) });
 
   const secretValues = [tokenA, tokenB];
-  const noSecretsOnScreen = async (extra = []) => {
-    const text = await page.evaluate(() => document.body.innerText);
-    const html = await page.content();
-    for (const value of [...secretValues, ...extra]) if (text.includes(value) || html.includes(value)) throw new Error('secret material is rendered in the page');
+  // Structural scan (see secret-scan.mjs). `activeField` marks the one password
+  // input the person is deliberately filling in; its value is the only place a
+  // token may exist, and only while it is typed and masked. Without it nothing
+  // is exempt.
+  const noSecretsOnScreen = async (extra = [], { activeField = false } = {}) => {
+    await assertNoSecretLeaks(page, [...secretValues, ...extra], { allow: activeField ? ['input[type="password"]'] : [] });
   };
   async function signIn(user) {
     await h.showCursor();
@@ -111,7 +114,8 @@ try {
     await h.type(page.getByLabel(/^Kubernetes auth mount/), store.auth, { replace: true });
     await h.paste(page.getByLabel(/^Token/), store.token);
     await expect(page.getByLabel(/^Token/)).toHaveAttribute('type', 'password');
-    await noSecretsOnScreen();
+    // The pasted token lives only in the masked field (React mirrors it into that input's value attribute).
+    await noSecretsOnScreen([], { activeField: true });
     mark(`${slug(store.name)}-form`);
     const registered = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/v1/secret-stores', { timeout: 90_000 });
     await h.click(page.getByRole('button', { name: 'Verify and register' }));
