@@ -2,6 +2,7 @@
 // on a form being filled in (React mirrors the typed token into the password
 // input's value attribute), while the structural scan accepts exactly that field
 // and nothing else. Uses the real Secret stores page.
+/* global document, window -- the jsdom test environment provides them. */
 import { createElement } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

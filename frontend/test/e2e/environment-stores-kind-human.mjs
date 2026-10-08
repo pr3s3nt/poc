@@ -11,7 +11,6 @@
 // Every shown product mutation is a UI action. kubectl here only OBSERVES
 // (replicas, rows, ingress owners); no secret value, token or dump content is
 // printed, typed into a log or written to evidence.
-/* global document -- page.evaluate callbacks run in the browser. */
 import { expect } from '@playwright/test';
 import { createHash, randomBytes } from 'node:crypto';
 import { execFileSync } from 'node:child_process';

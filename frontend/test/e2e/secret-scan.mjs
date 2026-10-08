@@ -13,6 +13,7 @@
 // allowance gets no exemption. Reports name locations, never the secret.
 
 // Self-contained on purpose: Playwright serializes this function into the page.
+/* global document -- the default document is the page's own when serialized into the browser. */
 export function scanDocument({ values, allow = [] }, doc = document) {
   const needles = values.filter((value) => typeof value === 'string' && value.length >= 8);
   const hit = (text) => needles.length > 0 && typeof text === 'string' && needles.some((needle) => text.includes(needle));
