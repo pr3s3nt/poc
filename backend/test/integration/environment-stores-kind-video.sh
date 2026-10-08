@@ -110,7 +110,7 @@ cleanup() {
   # Application namespaces: only those carrying this run's application label.
   local app=""
   [[ -s "${WORK}/run.json" ]] && app="$(jq -r .applicationId "${WORK}/run.json" 2>/dev/null || true)"
-  [[ -n "${app}" ]] || app="$(<"${WORK}/application-id" 2>/dev/null || true)"
+  if [[ -z "${app}" && -s "${WORK}/application-id" ]]; then app="$(<"${WORK}/application-id")"; fi
   if [[ -n "${app}" && "${app}" =~ ^[a-z0-9-]+$ ]]; then
     # Only namespaces proven to be this run's are removed: managed by the
     # orchestrator, labelled with this application AND this run id.
@@ -294,17 +294,32 @@ API="http://127.0.0.1:${API_PORT}"
 SOURCE_NAME="Source cluster"; DEST_NAME="Destination cluster"
 SOURCE_KEY="source-cluster"; DEST_KEY="destination-cluster"
 signin() { curl -fsS -c "${PRIVATE}/jar-$1" -H 'Content-Type: application/json' -d "{\"username\":\"$1\",\"password\":\"test-password\"}" "${API}/api/v1/auth/sign-in" >/dev/null; }
+# api_post <jar-user> <path> <output-file>: POSTs the JSON on stdin. On a non-2xx
+# status it prints the endpoint, the status and ONLY the response's error/code/
+# field strings (never the request body or any other response member), so a
+# setup failure is diagnosable without exposing credentials.
+api_post() {
+  local user="$1" path="$2" out="$3" status
+  status="$(curl -sS -o "${out}" -w '%{http_code}' -b "${PRIVATE}/jar-${user}" -H 'Content-Type: application/json' --data-binary @- "${API}${path}")" || { echo "setup: POST ${path} did not complete" >&2; return 1; }
+  if [[ "${status}" != 2* ]]; then
+    echo "setup: POST ${path} returned HTTP ${status}: $(jq -r '[.error, .code, .field] | map(select(type == "string")) | map(.[0:300]) | join(" | ")' "${out}" 2>/dev/null || echo 'non-JSON response')" >&2
+    return 1
+  fi
+}
 signin platform-engineer
 for pair in "${SOURCE_NAME}:${SOURCE_KEY}" "${DEST_NAME}:${DEST_KEY}"; do
   name="${pair%%:*}"; key="${pair##*:}"
   jq -n --arg name "${name}" --rawfile cfg "${UPLOAD}" --arg ctx "${CONTEXT}" '{name:$name,kubeconfig:$cfg,context:$ctx}' \
-    | curl -fsS -b "${PRIVATE}/jar-platform-engineer" -H 'Content-Type: application/json' --data-binary @- "${API}/api/v1/connections/kubernetes" > "${WORK}/connection-${key}.json"
+    | api_post platform-engineer /api/v1/connections/kubernetes "${WORK}/connection-${key}.json"
   [[ "$(jq -r .key "${WORK}/connection-${key}.json")" == "${key}" && "$(jq -r .status "${WORK}/connection-${key}.json")" == "READY" ]]
+  # The Definition reads the Connection's own cluster/kubeContext config through
+  # the planner's context.connection.* placeholders; existing-cluster requires
+  # the internal-k8s profile.
   jq -n --arg key "cluster-${key}" --arg conn "${key}" \
-    '{key:$key,resourceType:"k8s-cluster",driverType:"existing-cluster",connectionKey:$conn,
+    '{key:$key,resourceType:"k8s-cluster",executionProfile:"internal-k8s",driverType:"existing-cluster",connectionKey:$conn,
       driverInputs:{values:{variables:{name:"${context.connection.cluster}",kubeContext:"${context.connection.context}"}}},
       criteria:[{res_id:("connections."+$conn),class:"internal"}]}' \
-    | curl -fsS -b "${PRIVATE}/jar-platform-engineer" -H 'Content-Type: application/json' --data-binary @- "${API}/api/v1/resource-definitions" >/dev/null
+    | api_post platform-engineer /api/v1/resource-definitions "${WORK}/definition-${key}.json"
 done
 note "setup: two READY credential-backed Connections (${SOURCE_KEY}, ${DEST_KEY}) to the same physical cluster, each with its matching cluster Definition"
 
