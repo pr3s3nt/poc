@@ -11,6 +11,10 @@ Status: Accepted
 Date: 2026-09-28
 Supersedes: ADR-006 decision 4 and 8 (Vault Agent file delivery)
 
+Per-Environment store selection and ordinary Variable storage now follow
+[ADR-012](ADR-012-environment-stores-and-transitions.md); scoped immutable secret
+bundles and Kubernetes-native delivery remain required.
+
 ## Context
 
 The Agent Injector produces a file which the workload image must source before

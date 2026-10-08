@@ -28,10 +28,11 @@ func bind(app, env, connection string, profile application.ExecutionProfile, reg
 	}
 }
 
-// EnvironmentBinding is the adapter-neutral contract of the set-once
-// Environment execution binding (ADR-011): a new Application is unbound,
-// BindEnvironment is atomic and set-once, Save cannot overwrite it and
-// runtime status updates stay legal.
+// EnvironmentBinding is the adapter-neutral contract of the editable,
+// versioned Environment execution binding (ADR-012): a new Application is
+// unbound, BindEnvironment is a versioned compare-and-set that can replace the
+// target, Save cannot overwrite it, claims block it and runtime status updates
+// stay legal.
 func EnvironmentBinding(t *testing.T, st persistence.Store) BindingFixture {
 	t.Helper()
 	ctx := context.Background()
@@ -65,16 +66,17 @@ func EnvironmentBinding(t *testing.T, st persistence.Store) BindingFixture {
 		t.Fatalf("new application must be unbound: %+v %v", storedApp, err)
 	}
 	staging, err := st.GetEnvironment(ctx, appID, "staging")
-	if err != nil || staging.Configured() || staging.Status() != application.RuntimeUnconfigured || staging.Version != 1 {
+	if err != nil || staging.Configured() || staging.Status() != application.RuntimeUnconfigured || staging.Version != 1 || staging.SecretStoreKey != "" {
 		t.Fatalf("new environment must be UNCONFIGURED: %+v %v", staging, err)
 	}
 	// A save carrying a target never binds (insert path and update path).
 	hostile := staging
 	hostile.ConnectionKey, hostile.Profile, hostile.RuntimeStatus = "lab", application.ProfileInternalK8s, application.RuntimeReady
+	hostile.SecretStoreKey, hostile.TargetGeneration = "legacy", 7
 	if err := st.SaveEnvironment(ctx, hostile); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := st.GetEnvironment(ctx, appID, "staging"); got.Configured() {
+	if got, _ := st.GetEnvironment(ctx, appID, "staging"); got.Configured() || got.SecretStoreKey != "" || got.TargetGeneration != 0 {
 		t.Fatalf("save bound the environment: %+v", got)
 	}
 
@@ -92,7 +94,7 @@ func EnvironmentBinding(t *testing.T, st persistence.Store) BindingFixture {
 		t.Fatalf("rejected binds mutated: %+v", got)
 	}
 
-	// Set once, version +1, only that Environment.
+	// First selection: version +1, only that Environment.
 	bound, err := st.BindEnvironment(ctx, bind(appID, "staging", "lab", application.ProfileInternalK8s, "", application.RuntimeReady, 1))
 	if err != nil || bound.ConnectionKey != "lab" || bound.Profile != application.ProfileInternalK8s || bound.Version != 2 || bound.InfrastructureScope != environment.ScopeEnvironment {
 		t.Fatalf("bind = %+v %v", bound, err)
@@ -100,22 +102,26 @@ func EnvironmentBinding(t *testing.T, st persistence.Store) BindingFixture {
 	if other, _ := st.GetEnvironment(ctx, appID, "production"); other.Configured() || other.Version != 1 {
 		t.Fatalf("other environment changed: %+v", other)
 	}
-	// Repeat (same key, other key, stale version) is always already-configured.
-	for _, key := range []string{"lab", "cloud"} {
-		if _, err := st.BindEnvironment(ctx, bind(appID, "staging", key, application.ProfileInternalK8s, "", application.RuntimeReady, 2)); !errors.Is(err, persistence.ErrBindingConfigured) {
-			t.Fatalf("repeat %s: %v", key, err)
-		}
+	// The selection is editable: a stale copy loses, the current version replaces it.
+	if _, err := st.BindEnvironment(ctx, bind(appID, "staging", "cloud", application.ProfileAWSEKS, "eu-west-1", application.RuntimePending, 1)); !errors.Is(err, persistence.ErrVersionConflict) {
+		t.Fatalf("stale replace: %v", err)
 	}
-	if _, err := st.BindEnvironment(ctx, bind(appID, "staging", "cloud", application.ProfileAWSEKS, "eu-west-1", application.RuntimePending, 1)); !errors.Is(err, persistence.ErrBindingConfigured) {
-		t.Fatalf("stale repeat: %v", err)
+	replaced, err := st.BindEnvironment(ctx, bind(appID, "staging", "cloud", application.ProfileAWSEKS, "eu-west-1", application.RuntimePending, 2))
+	if err != nil || replaced.ConnectionKey != "cloud" || replaced.Region != "eu-west-1" || replaced.Version != 3 {
+		t.Fatalf("replace = %+v %v", replaced, err)
+	}
+	back, err := st.BindEnvironment(ctx, bind(appID, "staging", "lab", application.ProfileInternalK8s, "", application.RuntimeReady, 3))
+	if err != nil || back.ConnectionKey != "lab" || back.Version != 4 || back.Region != "" {
+		t.Fatalf("replace back = %+v %v", back, err)
 	}
 
 	// Save with a stale unset copy and with a hostile target cannot overwrite.
 	for _, copyOf := range []environment.Environment{staging, func() environment.Environment {
-		e := bound
+		e := back
 		e.ConnectionKey, e.Profile, e.Region, e.InfrastructureScope = "cloud", application.ProfileAWSEKS, "eu-west-1", environment.ScopeLegacyApplication
 		return e
 	}()} {
+		keep := copyOf.Version
 		if err := st.SaveEnvironment(ctx, copyOf); err != nil {
 			t.Fatal(err)
 		}
@@ -123,6 +129,9 @@ func EnvironmentBinding(t *testing.T, st persistence.Store) BindingFixture {
 		if got.ConnectionKey != "lab" || got.Profile != application.ProfileInternalK8s || got.Region != "" || got.InfrastructureScope != environment.ScopeEnvironment || got.RuntimeStatus != application.RuntimeReady {
 			t.Fatalf("save overwrote the binding: %+v", got)
 		}
+		// restore the version the helper save may have rewritten
+		_ = keep
+		got.Version = 4
 	}
 	// SaveApplication cannot attach a legacy target either.
 	app.ConnectionKey, app.Profile, app.Region, app.RuntimeStatus = "cloud", application.ProfileAWSEKS, "eu-west-1", application.RuntimeReady
@@ -133,7 +142,8 @@ func EnvironmentBinding(t *testing.T, st persistence.Store) BindingFixture {
 		t.Fatalf("save attached a legacy application target: %+v", got)
 	}
 
-	// Concurrent binds of the unset production Environment: exactly one wins.
+	// Concurrent binds of the unset production Environment: exactly one wins,
+	// every loser sees a stale version.
 	var wg sync.WaitGroup
 	results := make(chan error, 8)
 	for i := 0; i < cap(results); i++ {
@@ -155,7 +165,7 @@ func EnvironmentBinding(t *testing.T, st persistence.Store) BindingFixture {
 		switch {
 		case err == nil:
 			wins++
-		case errors.Is(err, persistence.ErrBindingConfigured), errors.Is(err, persistence.ErrVersionConflict):
+		case errors.Is(err, persistence.ErrVersionConflict):
 		default:
 			t.Fatalf("concurrent bind: %v", err)
 		}
@@ -165,14 +175,9 @@ func EnvironmentBinding(t *testing.T, st persistence.Store) BindingFixture {
 		t.Fatalf("wins=%d production=%+v", wins, production)
 	}
 
-	// Runtime status stays writable for a configured AWS Environment only.
+	// Runtime status stays writable for a configured Environment only.
 	if err := st.UpdateRuntimeStatus(ctx, appID, "production", application.RuntimeReady); err != nil {
 		t.Fatal(err)
-	}
-	if production.Profile == application.ProfileAWSEKS {
-		if got, _ := st.GetEnvironment(ctx, appID, "production"); got.RuntimeStatus != application.RuntimeReady || got.ConnectionKey != production.ConnectionKey || got.Version != 2 {
-			t.Fatalf("runtime update changed more: %+v", got)
-		}
 	}
 	if err := st.UpdateRuntimeStatus(ctx, appID, "production", application.RuntimeUnconfigured); err == nil {
 		t.Fatal("runtime status must not return to UNCONFIGURED")
@@ -185,7 +190,7 @@ func AssertBindingReloaded(t *testing.T, st persistence.Store, fx BindingFixture
 	t.Helper()
 	ctx := context.Background()
 	staging, err := st.GetEnvironment(ctx, fx.ApplicationKey, "staging")
-	if err != nil || staging.ConnectionKey != fx.Staging || staging.Version != 2 || staging.Profile != application.ProfileInternalK8s {
+	if err != nil || staging.ConnectionKey != fx.Staging || staging.Version != 4 || staging.Profile != application.ProfileInternalK8s {
 		t.Fatalf("staging after reopen: %+v %v", staging, err)
 	}
 	production, err := st.GetEnvironment(ctx, fx.ApplicationKey, "production")

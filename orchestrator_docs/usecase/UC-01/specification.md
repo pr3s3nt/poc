@@ -5,75 +5,94 @@ status: current
 last_reviewed: 2026-10-07
 ---
 
-# UC-01 — Create Application and configure Environment target
+# UC-01 — Create Application and configure Environment destinations
 
 ## Mục tiêu và actor
 
-Developer tạo Application rồi chọn Connection riêng trong Settings từng Environment.
-Organization và role lấy từ session UC-00. Platform Engineer đăng ký Connection
-và matching Definitions qua UC-03/04.
+Developer tạo Application, chọn và thay đổi Deployment Connection và Secret Store
+Connection riêng cho staging/production. Platform Engineer đăng ký các đích qua
+UC-04; UC-12 quản lý variables/secrets. [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md)
+owns shared transition/admission/recovery design.
 
 ## Tiền điều kiện
 
-- **PRE-01:** Organization đã tồn tại.
-- **PRE-02:** Developer đã xác thực và thuộc Organization.
-- **PRE-03:** Platform đã cấu hình base domain; tạo Application không cần default Connection.
-- **PRE-04:** Khi set Environment target, có Connection được hỗ trợ, `READY` trong Organization.
+- **PRE-01:** Organization tồn tại và Developer đã đăng nhập với quyền Application.
+- **PRE-02:** Platform base domain đã cấu hình; tạo Application không cần default.
+- **PRE-03:** Khi chọn đích, có READY Connection đúng loại thuộc Organization.
 
-## Trigger và main success scenario
+## Main success scenario
 
-- **TRG-01:** Developer yêu cầu tạo Application.
-1. **MS-01:** Developer nhập Name và Subdomain; không chọn Connection ở cấp Application.
-2. **MS-02:** Orchestrator validate Name/Subdomain và uniqueness.
-3. **MS-03:** Orchestrator sinh Application ID bất biến.
-4. **MS-04:** Tạo Application với configuration provider của platform, không execution target.
-5. **MS-05:** Tạo hai Environment `staging` và `production`, target `UNCONFIGURED`.
-6. **MS-06:** Khởi tạo empty Deployment Sets và stable namespace identity cho mỗi Environment.
-7. **MS-07:** Suy ra desired endpoints, chưa provision infrastructure/workloads/routes.
-8. **MS-08:** Persist atomically và mở Application home với staging được chọn.
+1. **MS-01:** Developer nhập Name/Subdomain; không chọn đích ở cấp Application.
+2. **MS-02:** Validate tên và subdomain, uniqueness.
+3. **MS-03:** Sinh system Application ID bất biến.
+4. **MS-04:** Tạo Application identity, không chọn provider/Connection mặc định.
+5. **MS-05:** Tạo staging/production với hai lựa chọn đích chưa cấu hình.
+6. **MS-06:** Tạo empty Deployment Sets và namespace identity cơ sở.
+7. **MS-07:** Suy ra desired endpoints, chưa provision workload/hạ tầng/routes.
+8. **MS-08:** Persist atomically, mở Application home staging.
 
 ## Environment Settings flow
 
-- **TRG-02:** Developer mở Settings của Environment đang chọn.
-- **ES-01:** Hiển thị target chưa cấu hình hoặc binding đã lưu chỉ đọc.
-- **ES-02:** Với `UNCONFIGURED`, load safe READY choices của Organization, hiển thị tên/key/kind và default marker. Không tự set default; chọn trên UI chưa persist.
-- **ES-03:** Developer chọn một Connection và bấm `Set connection`; thông báo rõ lựa chọn không thể đổi sau khi lưu.
-- **ES-04:** Backend kiểm tra Organization, READY, kind/region và expected Environment version trong transaction.
-- **ES-05:** Atomic set-once lưu connection/profile/region/runtime status/infrastructure scope, tăng Environment version; trả binding chỉ đọc.
-- **ES-06:** Environment kia giữ nguyên; refresh/restart vẫn khóa binding đã set.
+- **ES-01:** Hiển thị hai mục Deployment Connection và Secret Store Connection,
+  version hiện tại, pending/runtime destinations và operation đang chạy nếu có.
+- **ES-02:** Load safe READY Organization choices cho từng loại; không auto-select default.
+- **ES-03:** Developer chọn đích và Save với expectedVersion. Có thể đổi sau lưu.
+- **ES-04:** Backend validate ownership, capability, READY và version; operation
+  đang chạy trả 409. Không tin profile/region/Organization từ client.
+- **ES-05:** Đích triển khai chưa có runtime: CAS metadata. Có runtime: chọn
+  deploy-new hoặc migrate PostgreSQL with downtime; hiển thị impact và yêu cầu
+  xác nhận downtime trước migration. Kho secret: copy theo UC-12 trước commit.
+- **ES-06:** Trả version/operation progress; Environment khác không đổi. Refresh
+  và restart phải hiển thị đúng persisted selection/progress, không khóa vĩnh viễn.
 
 ## Hậu điều kiện
 
-- **POST-01:** Application thuộc Organization; system ID bất biến.
-- **POST-02:** Đúng hai Environment staging/production.
-- **POST-03:** Mỗi Environment có empty Set, stable namespace và desired endpoint.
-- **POST-04:** UC-01 không gọi executor hoặc provision runtime.
-- **POST-05:** Chỉ Environment đã set target mới Preview/Deploy; draft và variables/secrets có thể chuẩn bị trước.
+- **POST-01:** Application thuộc Organization; đúng hai Environment độc lập.
+- **POST-02:** Initial create không có external side effects.
+- **POST-03:** Secret store change chỉ commit khi copy thành công. Migration chỉ
+  đổi active runtime/current Set sau restore/readiness/cutover thành công.
+- **POST-04:** Secret bytes không xuất hiện trong public metadata, logs hoặc artifacts.
 
 ## Quy tắc nghiệp vụ
 
-- **BR-01:** Application ID do hệ thống sinh, bất biến, unique toàn cục.
-- **BR-02:** Name unique không phân biệt hoa thường trong Organization; create nhận đúng Name/Subdomain.
-- **BR-03:** Subdomain là DNS label lowercase, unique trong platform base domain.
-- **BR-04:** Application có đúng hai Environment hệ thống tạo staging/production.
-- **BR-05:** Endpoints `<subdomain>.<base-domain>` và `staging.<subdomain>.<base-domain>`.
-- **BR-06:** Desired endpoint chưa provision cho đến UC-06.
-- **BR-07:** Set Connection chỉ chấp nhận READY Kubernetes/AWS của session Organization; AWS cần region không rỗng. Backend suy profile/region; không nhận profile/region/credential/Organization từ request. Missing/foreign/not-ready/unsupported đều safe `422` field `connectionKey`; blank/null/missing key `400`. Không fallback default.
-- **BR-08:** Binding thuộc Environment và chỉ được set thành công một lần, kể cả chưa deploy. Mọi request set lại, kể cả cùng key, trả `409`; không có reset/unset/replace. Hai Environment độc lập, được khác connection/kind/profile/region. Đổi Organization default hoặc đăng ký Connection không thay binding.
-- **BR-09:** AWS VPC/EKS mới có Environment scope và identity riêng; không reuse hạ tầng staging cho production. Migration giữ nguyên target và identity application-scope của legacy AWS bằng marker `LEGACY_APPLICATION`, không migrate/destroy/reprovision tài nguyên cũ. Xem [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).
-- **BR-10:** Namespace identity Environment ổn định; connection selection không đổi namespace.
-- **BR-11:** Atomic compare-and-set theo expected Environment version, unset binding và Organization ownership. Concurrent sets chỉ một thành công; stale request `409`; rejection không mutate. Normal save/current-set/runtime operations không được ghi đè binding.
-- **BR-12:** Application/JSON/SQL cũ được backfill binding xuống từng Environment một lần, giữ nguyên profile/region/runtime và namespace, coi là đã set/khóa kể cả chưa từng deploy. Migration idempotent; không backfill default vào Application mới chưa cấu hình.
-- **BR-13:** API create mới reject `connectionKey` như unknown field `400`; không giữ luồng tự set hai Environment từ create. Old persisted data được giữ; old create clients phải cập nhật. Safe Application read/list trả target trong từng Environment, không đại diện bằng một Application target.
-- **BR-14:** UNCONFIGURED Preview/Deploy trả safe `422` field `connectionKey` và UI dẫn tới Environment Settings; không gọi executor, không tạo provisioning/deployment side effects. Changes to binding version/hash invalidate prior previews; snapshot/plan pins selected target.
+- **BR-01:** System Application ID bất biến, unique; Name unique không phân biệt hoa thường trong Organization.
+- **BR-02:** Subdomain lowercase DNS label, unique trong platform base domain.
+- **BR-03:** Đúng staging/production; endpoints `<subdomain>.<base-domain>` và `staging.<subdomain>.<base-domain>`.
+- **BR-04:** Không có Application-wide selected target/provider hay implicit fallback.
+- **BR-05:** Hai Connection lựa chọn thuộc Environment, độc lập, cho phép thay đổi.
+- **BR-06:** Execution Connection chỉ READY Kubernetes/AWS đúng Organization;
+  AWS cần region. Secret store chỉ READY supported store cùng Organization.
+- **BR-07:** Strict request validation; missing/blank/null key/version 400; scoped
+  missing app/env 404; unavailable/foreign/unsupported target safe 422; stale or
+  active operation 409. Same key/current version no-op không migrate/copy lại.
+- **BR-08:** CAS theo version, claim operation nguyên tử; normal Save không được
+  bypass selection validation/operation ownership. Không giữ DB transaction khi gọi mạng.
+- **BR-09:** Settings/config/draft thay đổi làm Preview cũ hết hiệu lực. Deploy
+  admission kiểm tra đầy đủ snapshot và claim operation trong một transaction.
+- **BR-10:** Draft/variable editing được phép trước chọn đích. Secret write cần
+  kho đã chọn; Preview/Deploy cần execution target và secret store nếu có secret.
+- **BR-11:** Source/destination generation tách tài nguyên/state cả khi hai keys
+  dùng cùng cluster. Old deployments/resources giữ original targets. Generation 0
+  và migrated LEGACY_APPLICATION giữ identity cũ đến khi chuyển rõ ràng.
+- **BR-12:** Chuyển triển khai không reuse current resources ở nơi cũ. Deploy-new
+  tạo hệ thống mới; migrate-data dừng ghi, backup/restore PostgreSQL tương thích,
+  deploy/verify/cutover; không tự chuyển arbitrary storage hoặc tự xóa nơi cũ.
+  Transition Preview hiển thị toàn bộ desired Set sau merge drafts và desired
+  config revision, gồm workload không đổi. Cutover thành công consume đúng pinned
+  drafts; thất bại giữ pending edits. Workload bị xóa khỏi desired không được
+  xóa ngầm ở nguồn; DB nguồn không có mapping bị reject trước quiesce.
+- **BR-13:** Lỗi trước cutover giữ source authoritative, khôi phục writers/routes
+  nếu có thể và báo trạng thái recovery thật. Cleanup source là thao tác riêng,
+  chỉ generation cũ owned/unreferenced; không tự rollback dữ liệu sau cutover.
+- **BR-14:** Create vẫn chỉ Name/Subdomain; unknown connectionKey bị reject 400.
 
 ## Ngoài phạm vi
 
-Sửa Name/Subdomain; thêm/xóa/clone/promotion Environment; chuyển target sau set;
-AWS credential onboarding mới (giữ scope ADR-009 hiện tại); AWS cloud execution
-không nằm trong kiểm chứng này. UC-12 sở hữu variables/secrets, không sở hữu target binding.
+Environment clone/promotion, thêm Environment, zero-downtime transfer, arbitrary
+DB/storage migration, AWS onboarding mới, tự động reverse migration. AWS live
+verification không được cấp quyền trong task này.
 
 ## Delivery state
 
-Thiết kế per-Environment set-once được chốt 2026-10-07; implementation cũ cấp
-Application đang được thay thế. Evidence ngày trước mô tả behavior lịch sử.
+Thiết kế ADR-012 accepted; implementation status và evidence ở CURRENT_STATE.
+Bản set-once ADR-011 là hành vi lịch sử đang được thay thế.

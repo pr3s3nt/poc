@@ -38,6 +38,8 @@ func newServerApp(t *testing.T, uiDir string, verifier ...connectionapp.Kubernet
 		Seed:     seedOptions,
 		Adapters: bootstrap.AdapterFake,
 		UIDir:    uiDir,
+		// Fake mode keeps platform credentials in memory so Secret Stores can register.
+		ConnectionCredentialStore: "memory",
 	}
 	if len(verifier) > 0 {
 		options.ConnectionVerifierOverride = verifier[0]
@@ -606,4 +608,35 @@ func createConfiguredApplication(t *testing.T, client *http.Client, baseURL, nam
 		}
 	}
 	return created
+}
+
+// registerSecretStore registers a store as the platform engineer and returns its key.
+func registerSecretStore(t *testing.T, baseURL, name string) string {
+	t.Helper()
+	pe := authenticatedClientAs(t, baseURL, "platform-engineer")
+	status, out := requestJSON(t, pe, http.MethodPost, baseURL+"/api/v1/secret-stores", map[string]any{
+		"name": name, "backendAddress": "http://vault.example:8200", "workloadAddress": "http://vault.vault.svc:8200", "token": "e2e-token-" + name,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("register secret store %s: %d %v", name, status, out)
+	}
+	return out["key"].(string)
+}
+
+// selectSecretStore selects a store for an Environment as the Developer.
+func selectSecretStore(t *testing.T, client *http.Client, baseURL, app, env, storeKey string) {
+	t.Helper()
+	base := baseURL + "/api/v1/applications/" + app + "/environments/" + env
+	_, application := requestJSON(t, client, http.MethodGet, baseURL+"/api/v1/applications/"+app, nil)
+	var version float64
+	for _, raw := range application["application"].(map[string]any)["environments"].([]any) {
+		if view := raw.(map[string]any); view["key"] == env {
+			version = view["version"].(float64)
+		}
+	}
+	_, config := requestJSON(t, client, http.MethodGet, base+"/configuration", nil)
+	status, out := requestJSON(t, client, http.MethodPut, base+"/secret-store", map[string]any{"secretStoreKey": storeKey, "expectedVersion": version, "expectedConfigVersion": config["version"]})
+	if status != http.StatusOK {
+		t.Fatalf("select secret store: %d %v", status, out)
+	}
 }

@@ -137,3 +137,17 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 ## Environment connection binding
 
 - **BR-11:** Preview resolves the configured Environment connection/profile/region, never Organization default or a shared Application target. UNCONFIGURED is rejected 422 field connectionKey before side effects. UI shows selected Environment target. Internal Kubernetes and AWS VPC/EKS Definition conflicts against that target fail planning. Environment binding/version/scope are pinned to preview/hash; see ADR-011.
+
+## Editable destination and transition consistency (ADR-012)
+
+Preview pins execution/store bindings, target generation, Environment version,
+current Set, desired config revision/version and draft version. Deploy validates
+this complete snapshot and acquires an Environment operation claim atomically;
+stale token or competing operation returns safe 409 before external side effects.
+Settings/config/draft writes cannot interleave with admitted execution. No DB
+transaction spans network calls. Changing destination forces complete redeploy,
+never reuses old-target resource executor state/applied workload identity.
+Old resources and historical executions resolve their stored targets for queries,
+recovery and cleanup. Explicit PostgreSQL transfer quiesces writers and restores
+before destination apps/routes become live. See
+[ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).

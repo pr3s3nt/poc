@@ -14,7 +14,7 @@ export function screenSize(env) {
 export async function launchHeaded({ width, height }) {
   return chromium.launch({
     headless: false,
-    args: ['--window-position=0,0', `--window-size=${width},${height}`, '--test-type', '--no-first-run', '--password-store=basic'],
+    args: ['--window-position=0,0', `--window-size=${width},${height}`, '--test-type', '--no-first-run', '--password-store=basic', ...(process.env.ORCH_E2E_BROWSER_ARGS ? process.env.ORCH_E2E_BROWSER_ARGS.split('|') : [])],
     ignoreDefaultArgs: ['--enable-automation'],
   });
 }

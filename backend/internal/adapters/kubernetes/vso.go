@@ -2,6 +2,8 @@ package kubernetes
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -21,7 +23,7 @@ func (s *VSOSynchronizer) Sync(ctx context.Context, target execution.Target, bun
 	if !target.Explicit() {
 		return fmt.Errorf("vso: explicit Kubernetes target required")
 	}
-	if target.Namespace == "" || bundle.Address == "" || bundle.Mount == "" || bundle.Path == "" || bundle.Role == "" || bundle.ServiceAccount == "" || bundle.SecretName == "" || len(bundle.Keys) == 0 {
+	if target.Namespace == "" || bundle.StoreKey == "" || bundle.AuthMount == "" || bundle.Address == "" || bundle.Mount == "" || bundle.Path == "" || bundle.Role == "" || bundle.ServiceAccount == "" || bundle.SecretName == "" || len(bundle.Keys) == 0 {
 		return fmt.Errorf("vso: incomplete workload bundle")
 	}
 	if !strings.HasPrefix(bundle.SecretName, "orch-") {
@@ -34,12 +36,25 @@ func (s *VSOSynchronizer) Sync(ctx context.Context, target execution.Target, bun
 	defer cleanup()
 	ns := target.Namespace
 	auth := bundle.SecretName + "-auth"
+	// The VaultConnection name includes the store identity, so a second store
+	// in the same namespace never overwrites an object that Secrets synced for
+	// older deployments still use.
+	connection := VaultConnectionName(bundle.StoreKey)
+	connectionSpec := map[string]any{"address": bundle.Address, "skipTLSVerify": false}
 	objects := []map[string]any{
 		{"apiVersion": "v1", "kind": "ServiceAccount", "metadata": map[string]any{"name": bundle.ServiceAccount, "namespace": ns}},
-		{"apiVersion": "secrets.hashicorp.com/v1beta1", "kind": "VaultConnection", "metadata": map[string]any{"name": "orch-vault", "namespace": ns}, "spec": map[string]any{"address": bundle.Address, "skipTLSVerify": false}},
-		{"apiVersion": "secrets.hashicorp.com/v1beta1", "kind": "VaultAuth", "metadata": map[string]any{"name": auth, "namespace": ns}, "spec": map[string]any{"vaultConnectionRef": "orch-vault", "method": "kubernetes", "mount": "kubernetes", "kubernetes": map[string]any{"role": bundle.Role, "serviceAccount": bundle.ServiceAccount}}},
-		{"apiVersion": "secrets.hashicorp.com/v1beta1", "kind": "VaultStaticSecret", "metadata": map[string]any{"name": bundle.SecretName, "namespace": ns}, "spec": map[string]any{"vaultAuthRef": auth, "type": "kv-v2", "mount": bundle.Mount, "path": bundle.Path, "refreshAfter": "1m", "hmacSecretData": true, "destination": map[string]any{"create": true, "name": bundle.SecretName}}},
 	}
+	if bundle.CAPEM != "" {
+		// A CA certificate is public data; it lets VSO verify a private-CA store.
+		caName := connection + "-ca"
+		objects = append(objects, map[string]any{"apiVersion": "v1", "kind": "Secret", "metadata": map[string]any{"name": caName, "namespace": ns}, "type": "Opaque", "stringData": map[string]any{"ca.crt": bundle.CAPEM}})
+		connectionSpec["caCertSecretRef"] = caName
+	}
+	objects = append(objects, []map[string]any{
+		{"apiVersion": "secrets.hashicorp.com/v1beta1", "kind": "VaultConnection", "metadata": map[string]any{"name": connection, "namespace": ns}, "spec": connectionSpec},
+		{"apiVersion": "secrets.hashicorp.com/v1beta1", "kind": "VaultAuth", "metadata": map[string]any{"name": auth, "namespace": ns}, "spec": map[string]any{"vaultConnectionRef": connection, "method": "kubernetes", "mount": bundle.AuthMount, "kubernetes": map[string]any{"role": bundle.Role, "serviceAccount": bundle.ServiceAccount}}},
+		{"apiVersion": "secrets.hashicorp.com/v1beta1", "kind": "VaultStaticSecret", "metadata": map[string]any{"name": bundle.SecretName, "namespace": ns}, "spec": map[string]any{"vaultAuthRef": auth, "type": "kv-v2", "mount": bundle.Mount, "path": bundle.Path, "refreshAfter": "1m", "hmacSecretData": true, "destination": map[string]any{"create": true, "name": bundle.SecretName}}},
+	}...)
 	if err := cli.Apply(ctx, objects); err != nil {
 		return fmt.Errorf("vso: apply synchronization objects: %w", err)
 	}
@@ -60,6 +75,12 @@ func (s *VSOSynchronizer) Sync(ctx context.Context, target execution.Target, bun
 		case <-time.After(time.Second):
 		}
 	}
+}
+
+// VaultConnectionName is the per-store VaultConnection object name.
+func VaultConnectionName(storeKey string) string {
+	sum := sha256.Sum256([]byte(storeKey))
+	return "orch-vault-" + hex.EncodeToString(sum[:4])
 }
 
 func hasBundleKeys(secret map[string]any, keys map[string]map[string]string) bool {

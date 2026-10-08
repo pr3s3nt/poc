@@ -48,4 +48,14 @@ ConnectionService --> AWSConnectionVerifier : future
 ConnectionService ..> Connection
 ConnectionCredentialResolver --> ConnectionRepository
 ConnectionCredentialResolver --> ConnectionCredentialStore
+class SecretStoreController <<boundary>>
+class SecretStoreService <<control>>
+class VaultStoreVerifier <<adapter>>
+class SecretStoreConnection <<entity>>
+interface SecretStoreRepository
+SecretStoreController --> SecretStoreService
+SecretStoreService --> VaultStoreVerifier
+SecretStoreService --> SecretStoreRepository
+SecretStoreService --> ConnectionCredentialStore : platform credential scope
+SecretStoreService ..> SecretStoreConnection
 @enduml

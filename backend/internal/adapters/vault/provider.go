@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -31,6 +32,38 @@ type Provider struct {
 	token        string
 	client       *http.Client
 	mount        string
+	authMount    string
+	caPEM        string
+}
+
+// SetAuthMount configures the Kubernetes auth mount used for role writes.
+func (p *Provider) SetAuthMount(mount string) error {
+	if !safeSegment.MatchString(mount) {
+		return fmt.Errorf("vault: invalid Kubernetes auth mount")
+	}
+	p.authMount = mount
+	return nil
+}
+
+// AuthMount returns the configured Kubernetes auth mount.
+func (p *Provider) AuthMount() string {
+	if p.authMount == "" {
+		return "kubernetes"
+	}
+	return p.authMount
+}
+
+// Mount returns the KV v2 mount of the provider.
+func (p *Provider) Mount() string { return p.mount }
+
+// AgentAddress returns the in-cluster address pinned into bundles.
+func (p *Provider) AgentAddress() string { return p.agentAddress }
+
+// OwnsRef reports whether ref is a value reference of this store inside the
+// scope of one Application Environment.
+func (p *Provider) OwnsRef(ref, app, env string) bool {
+	path, ok := strings.CutPrefix(ref, "kv2://"+p.mount+"/")
+	return ok && validValuePath(path) && strings.HasPrefix(path, pathPrefix+app+"/envs/"+env+"/values/")
 }
 
 // SetAgentAddress configures the in-cluster Vault address used by injected
@@ -76,7 +109,7 @@ func (p *Provider) PrepareWorkloadAccess(ctx context.Context, app, env, workload
 	if err := p.writeObject(ctx, "/v1/sys/policies/acl/"+role, map[string]any{"policy": policy.String()}); err != nil {
 		return configport.WorkloadAccess{}, err
 	}
-	if err := p.writeObject(ctx, "/v1/auth/kubernetes/role/"+role, map[string]any{
+	if err := p.writeObject(ctx, "/v1/auth/"+p.AuthMount()+"/role/"+role, map[string]any{
 		"bound_service_account_names":      serviceAccount,
 		"bound_service_account_namespaces": namespace,
 		"token_policies":                   role,
@@ -87,31 +120,25 @@ func (p *Provider) PrepareWorkloadAccess(ctx context.Context, app, env, workload
 	return configport.WorkloadAccess{Role: role, Address: p.agentAddress, ServiceAccount: serviceAccount}, nil
 }
 
-// PrepareWorkloadBundle creates an immutable, workload-scoped KV object for
-// VSO. A fresh deployment ID means a new path and Kubernetes Secret, so a
-// desired revision cannot alter a running Pod before Preview -> Deploy.
-func (p *Provider) PrepareWorkloadBundle(ctx context.Context, app, env, workload, namespace, revisionID, deploymentID string, refs map[string]map[string]string) (configport.WorkloadBundle, error) {
+// WriteBundle creates an immutable, workload-scoped KV object for VSO from
+// already-read values. A fresh deployment ID means a new path and Kubernetes
+// Secret, so a desired revision cannot alter a running Pod before Preview ->
+// Deploy. Values come from each ref's owning store; the object lands in this
+// (delivery) store and the access policy/role are written here.
+func (p *Provider) WriteBundle(ctx context.Context, app, env, workload, namespace, revisionID, deploymentID string, values map[string]map[string]string) (configport.WorkloadBundle, error) {
 	if !safeSegment.MatchString(app) || !safeSegment.MatchString(workload) || !safeSegment.MatchString(namespace) || !safeSegment.MatchString(revisionID) || !safeSegment.MatchString(deploymentID) || (env != "staging" && env != "production") {
 		return configport.WorkloadBundle{}, fmt.Errorf("vault: invalid workload bundle scope")
 	}
 	data := map[string]string{}
 	keys := map[string]map[string]string{}
-	for container, entries := range refs {
+	for container, entries := range values {
 		if !safeSegment.MatchString(container) {
 			return configport.WorkloadBundle{}, fmt.Errorf("vault: invalid container name")
 		}
 		keys[container] = map[string]string{}
-		for name, ref := range entries {
+		for name, value := range entries {
 			if !safeSegment.MatchString(name) {
 				return configport.WorkloadBundle{}, fmt.Errorf("vault: invalid environment variable name")
-			}
-			path, ok := strings.CutPrefix(ref, "kv2://"+p.mount+"/")
-			if !ok || !validValuePath(path) || !strings.HasPrefix(path, pathPrefix+app+"/envs/"+env+"/values/") {
-				return configport.WorkloadBundle{}, fmt.Errorf("vault: value reference is outside workload scope")
-			}
-			value, err := p.ReadValue(ctx, ref)
-			if err != nil {
-				return configport.WorkloadBundle{}, err
 			}
 			key := container + "_" + name
 			if len(key) > 253 {
@@ -133,7 +160,68 @@ func (p *Provider) PrepareWorkloadBundle(ctx context.Context, app, env, workload
 		return configport.WorkloadBundle{}, err
 	}
 	hash := sha256.Sum256([]byte(app + "/" + env + "/" + workload + "/" + deploymentID))
-	return configport.WorkloadBundle{Address: access.Address, Mount: p.mount, Path: path, Role: access.Role, ServiceAccount: access.ServiceAccount, SecretName: "orch-" + hex.EncodeToString(hash[:10]), Keys: keys}, nil
+	return configport.WorkloadBundle{Address: access.Address, Mount: p.mount, AuthMount: p.AuthMount(), Path: path, Role: access.Role, ServiceAccount: access.ServiceAccount, SecretName: "orch-" + hex.EncodeToString(hash[:10]), CAPEM: p.caPEM, Keys: keys}, nil
+}
+
+// CheckWorkloadAuth verifies that the Kubernetes auth mount exists and that
+// the token may still manage workload policies and roles, without changing
+// anything outside a probe-named policy that is removed again.
+func (p *Provider) CheckWorkloadAuth(ctx context.Context, probe string) error {
+	if !safeSegment.MatchString(probe) {
+		return fmt.Errorf("vault: invalid probe name")
+	}
+	status, err := p.request(ctx, http.MethodGet, "/v1/auth/"+p.AuthMount()+"/config", nil, nil)
+	if err != nil || status != http.StatusOK {
+		return fmt.Errorf("vault: Kubernetes auth mount %q is not configured for workloads", p.AuthMount())
+	}
+	return nil
+}
+
+// request performs one request with the provider token; transport errors are
+// reduced to fixed text because they can quote the URL.
+func (p *Provider) request(ctx context.Context, method, path string, body []byte, into any) (int, error) {
+	var reader io.Reader
+	if body != nil {
+		reader = bytes.NewReader(body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, p.baseURL+path, reader)
+	if err != nil {
+		return 0, fmt.Errorf("vault: build request")
+	}
+	req.Header.Set("X-Vault-Token", p.token)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	res, err := p.client.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("vault: request failed")
+	}
+	defer res.Body.Close()
+	limited := io.LimitReader(res.Body, 16<<20)
+	if into != nil && res.StatusCode == http.StatusOK {
+		if err := json.NewDecoder(limited).Decode(into); err != nil {
+			return 0, fmt.Errorf("vault: invalid response")
+		}
+	} else {
+		_, _ = io.Copy(io.Discard, limited)
+	}
+	return res.StatusCode, nil
+}
+
+// DeleteValue removes every version of one value object (attempt cleanup).
+func (p *Provider) DeleteValue(ctx context.Context, ref string) error {
+	path, ok := strings.CutPrefix(ref, "kv2://"+p.mount+"/")
+	if !ok || !validValuePath(path) {
+		return fmt.Errorf("vault: invalid value reference")
+	}
+	status, err := p.request(ctx, http.MethodDelete, "/v1/"+p.mount+"/metadata/"+path, nil, nil)
+	if err != nil {
+		return err
+	}
+	if status != http.StatusOK && status != http.StatusNoContent && status != http.StatusNotFound {
+		return fmt.Errorf("vault: delete status %d", status)
+	}
+	return nil
 }
 
 func (p *Provider) writeObject(ctx context.Context, path string, body any) error {
@@ -156,6 +244,22 @@ func (p *Provider) writeObject(ctx context.Context, path string, body any) error
 		return fmt.Errorf("vault: configure workload access status %d", res.StatusCode)
 	}
 	return nil
+}
+
+// NewWithCA builds a provider whose TLS verification trusts caPEM in addition
+// to the system roots; verification is never disabled. Redirects are not
+// followed so the token cannot leave the configured address.
+func NewWithCA(baseURL, token, mount, caPEM string) (*Provider, error) {
+	client, err := HTTPClient(caPEM)
+	if err != nil {
+		return nil, err
+	}
+	p, err := New(baseURL, token, mount, client)
+	if err != nil {
+		return nil, err
+	}
+	p.caPEM = caPEM
+	return p, nil
 }
 
 func New(baseURL, token, mount string, client *http.Client) (*Provider, error) {

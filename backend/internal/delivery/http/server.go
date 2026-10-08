@@ -22,9 +22,12 @@ import (
 	appconfig "orchestrator/internal/application/configuration"
 	connectionapp "orchestrator/internal/application/connection"
 	appsvc "orchestrator/internal/application/deployment"
+	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
+	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/application/target"
+	"orchestrator/internal/application/transition"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
@@ -43,6 +46,9 @@ type Server struct {
 	applications   *appcreate.Service
 	catalog        *catalog.Service
 	connections    *connectionapp.Service
+	secretStores   *secretstores.Service
+	operations     *envops.Manager
+	transitions    *transition.Service
 	configurations *appconfig.Service
 	workloads      *workloadconfig.Service
 	pending        *pending.Service
@@ -66,6 +72,9 @@ type Config struct {
 	KubeconfigVerifier    connectionapp.KubeconfigVerifier
 	ConnectionCredentials credentials.Store
 	Configurations        *appconfig.Service
+	SecretStores          *secretstores.Service
+	Operations            *envops.Manager
+	Transitions           *transition.Service
 	Workloads             *workloadconfig.Service
 	Pending               *pending.Service
 	Previews              *preview.Service
@@ -83,6 +92,9 @@ func NewServer(cfg Config) *Server {
 		applications:   cfg.Applications,
 		catalog:        catalog.NewService(cfg.Store, terraform.NewInspector()),
 		connections:    connectionapp.NewService(cfg.Store, cfg.ConnectionVerifier),
+		secretStores:   cfg.SecretStores,
+		operations:     cfg.Operations,
+		transitions:    cfg.Transitions,
 		configurations: cfg.Configurations,
 		workloads:      cfg.Workloads,
 		pending:        cfg.Pending,
@@ -111,6 +123,17 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/applications", s.handleCreateApplication)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}", s.handleGetApplication)
 	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/connection", s.handleSetEnvironmentConnection)
+	s.mux.HandleFunc("GET /api/v1/secret-stores", s.handleListSecretStores)
+	s.mux.HandleFunc("POST /api/v1/secret-stores", s.handleRegisterSecretStore)
+	s.mux.HandleFunc("GET /api/v1/secret-store-choices", s.handleSecretStoreChoices)
+	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/secret-store", s.handleSetSecretStore)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/connection-transition/preview", s.handlePreviewTransition)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/connection-transitions", s.handleExecuteTransition)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/connection-transitions", s.handleListTransitions)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/connection-transitions/{tid}", s.handleGetTransition)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/connection-transitions/{tid}/cleanup-source", s.handleCleanupSource)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/operations", s.handleListOperations)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/operations/{opid}/recover", s.handleRecoverOperation)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/configuration", s.handleGetConfiguration)
 	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handlePutConfigurationKey)
 	s.mux.HandleFunc("PATCH /api/v1/applications/{id}/environments/{env}/configuration/keys/{key}", s.handleRenameConfigurationKey)
@@ -168,6 +191,15 @@ type environmentView struct {
 	Region              string `json:"region,omitempty"`
 	RuntimeStatus       string `json:"runtimeStatus"`
 	InfrastructureScope string `json:"infrastructureScope"`
+	// ADR-012: independent secret-store selection, target generation and the
+	// operation currently owning the Environment (nonsecret).
+	SecretStoreKey   string         `json:"secretStoreKey"`
+	SecretStoreName  string         `json:"secretStoreName,omitempty"`
+	TargetGeneration int64          `json:"targetGeneration"`
+	DraftVersion     int64          `json:"draftVersion"`
+	ActiveOperation  *operationView `json:"activeOperation,omitempty"`
+	// RuntimeExists means a target change needs an explicit transition.
+	RuntimeExists bool `json:"runtimeExists"`
 }
 
 type applicationView struct {
@@ -184,6 +216,24 @@ func (s *Server) environmentViewOf(ctx context.Context, organizationKey string, 
 		CurrentDeploymentSetID: e.CurrentDeploymentSetID, Version: e.Version,
 		Configured: e.Configured(), ConnectionKey: e.ConnectionKey, Profile: string(e.Profile), Region: e.Region,
 		RuntimeStatus: string(e.Status()), InfrastructureScope: string(e.Scope()),
+		SecretStoreKey: e.SecretStoreKey, TargetGeneration: e.TargetGeneration, DraftVersion: e.DraftVersion,
+	}
+	if e.SecretStoreKey != "" {
+		v.SecretStoreName = e.SecretStoreKey
+		if store, err := s.store.GetSecretStore(ctx, organizationKey, e.SecretStoreKey); err == nil && store.Name != "" {
+			v.SecretStoreName = store.Name
+		}
+	}
+	if e.Configured() {
+		if exists, err := envops.HasRuntime(ctx, s.store, organizationKey, e); err == nil {
+			v.RuntimeExists = exists
+		}
+	}
+	if e.Busy() {
+		if op, err := s.store.GetOperation(ctx, e.ActiveOperationID); err == nil {
+			view := operationViewOf(op)
+			v.ActiveOperation = &view
+		}
 	}
 	if e.Configured() {
 		if conn, err := s.store.GetConnection(ctx, organizationKey, e.ConnectionKey); err == nil {
@@ -249,7 +299,7 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 	}
 	apps, err := s.store.ListApplications(r.Context())
 	if err != nil {
-		writeError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	out := make([]applicationView, 0, len(apps))
@@ -259,7 +309,7 @@ func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 		}
 		envs, err := s.store.ListEnvironments(r.Context(), a.Key)
 		if err != nil {
-			writeError(w, err)
+			s.writeError(w, err)
 			return
 		}
 		view := applicationView{
@@ -290,7 +340,7 @@ func (s *Server) handleApplicationConnections(w http.ResponseWriter, r *http.Req
 	}
 	choices, err := s.applications.ListChoices(r.Context(), identity.OrganizationKey)
 	if err != nil {
-		writeError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	type choiceView struct {
@@ -323,7 +373,7 @@ func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request)
 	cmd := appcreate.CreateCommand{OrganizationKey: identity.OrganizationKey, Name: req.Name, Subdomain: req.Subdomain, BaseDomain: s.seedOptions.BaseDomain}
 	result, err := s.applications.Create(r.Context(), cmd)
 	if err != nil {
-		writeCreateApplicationError(w, err)
+		s.writeCreateApplicationError(w, err)
 		return
 	}
 	view := applicationView{Key: result.Application.Key, Name: result.Application.Name, Subdomain: result.Application.Subdomain}
@@ -340,8 +390,8 @@ type setConnectionRequest struct {
 
 // Fixed 409 sentences; the UI distinguishes them to reload the Environment.
 const (
-	conflictAlreadyConfigured = "this environment already has a connection; it cannot be changed"
-	conflictStaleVersion      = "the environment changed since it was loaded; reload and try again"
+	conflictStaleVersion  = "the environment changed since it was loaded; reload and try again"
+	conflictRuntimeExists = "this environment already has runtime resources; use a connection transition to change its destination"
 )
 
 // handleSetEnvironmentConnection sets the Environment target exactly once
@@ -374,14 +424,16 @@ func (s *Server) handleSetEnvironmentConnection(w http.ResponseWriter, r *http.R
 	switch {
 	case err == nil:
 		writeJSON(w, http.StatusOK, map[string]any{"environment": s.environmentViewOf(r.Context(), identity.OrganizationKey, env)})
-	case errors.Is(err, appcreate.ErrAlreadyConfigured):
-		writeJSON(w, http.StatusConflict, map[string]any{"error": conflictAlreadyConfigured, "code": "ALREADY_CONFIGURED"})
+	case errors.Is(err, appcreate.ErrRuntimeExists):
+		writeJSON(w, http.StatusConflict, map[string]any{"error": conflictRuntimeExists, "code": "RUNTIME_EXISTS"})
+	case errors.Is(err, persistence.ErrEnvironmentBusy):
+		s.writeBusy(w, err)
 	case errors.Is(err, appcreate.ErrStaleVersion):
 		writeJSON(w, http.StatusConflict, map[string]any{"error": conflictStaleVersion, "code": "STALE_VERSION"})
 	case errors.Is(err, persistence.ErrNotFound):
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not found"})
 	default:
-		writeCreateApplicationError(w, err)
+		s.writeCreateApplicationError(w, err)
 	}
 }
 
@@ -425,7 +477,7 @@ func decodeSingleObject(r *http.Request, into any) error {
 
 // writeCreateApplicationError maps UC-01 failures to 400 (field validation),
 // 409 (duplicate Name/Subdomain) and 422 (selected target unavailable).
-func writeCreateApplicationError(w http.ResponseWriter, err error) {
+func (s *Server) writeCreateApplicationError(w http.ResponseWriter, err error) {
 	body := map[string]any{"error": err.Error()}
 	var fieldErr *appcreate.FieldError
 	if errors.As(err, &fieldErr) {
@@ -439,7 +491,7 @@ func writeCreateApplicationError(w http.ResponseWriter, err error) {
 	case errors.Is(err, appcreate.ErrTargetNotReady):
 		writeJSON(w, http.StatusUnprocessableEntity, body)
 	default:
-		writeError(w, err)
+		s.writeError(w, err)
 	}
 }
 func (s *Server) handleGetApplication(w http.ResponseWriter, r *http.Request) {
@@ -450,7 +502,7 @@ func (s *Server) handleGetApplication(w http.ResponseWriter, r *http.Request) {
 	}
 	app, err := s.store.GetApplication(r.Context(), r.PathValue("id"))
 	if err != nil {
-		writeError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	if app.OrganizationKey != identity.OrganizationKey {
@@ -459,7 +511,7 @@ func (s *Server) handleGetApplication(w http.ResponseWriter, r *http.Request) {
 	}
 	envs, err := s.store.ListEnvironments(r.Context(), app.Key)
 	if err != nil {
-		writeError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	view := applicationView{Key: app.Key, Name: app.Name, Subdomain: app.Subdomain}
@@ -520,7 +572,7 @@ func (s *Server) handleCreateDeployment(w http.ResponseWriter, r *http.Request) 
 		RunID:           runID,
 	})
 	if err != nil {
-		writeError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, result)
@@ -613,8 +665,8 @@ func writeDeploymentReadError(w http.ResponseWriter, err error) {
 	writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "deployment read failed; retry"})
 }
 
-func writeError(w http.ResponseWriter, err error) {
-	if writeUnconfigured(w, err) {
+func (s *Server) writeError(w http.ResponseWriter, err error) {
+	if writeUnconfigured(w, err) || s.writeEnvironmentError(w, err) {
 		return
 	}
 	switch {

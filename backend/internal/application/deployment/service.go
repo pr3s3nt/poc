@@ -8,7 +8,9 @@ import (
 	"sort"
 	"strings"
 
+	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/provisioning"
+	"orchestrator/internal/application/target"
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
 	domain "orchestrator/internal/domain/deployment"
@@ -42,6 +44,19 @@ type DeployCommand struct {
 	// Environment state Preview validated: routes reconcile after the batch
 	// and this step may plan an intermediate Environment state.
 	DeferPublicRoutes bool
+
+	// Destination, BaseSetID and HoldSet are set only by the transition
+	// service under its own claim (ADR-012). Destination replaces the stored
+	// binding and generation for this run without touching the Environment
+	// row; BaseSetID chains the planning base across workloads; HoldSet keeps
+	// the current Set, runtime status and Unreferenced marks untouched until
+	// the atomic cutover commit.
+	Destination *environment.Environment
+	BaseSetID   string
+	HoldSet     bool
+	// ProvisionOnly stops after UC-08 provisioning: no workload is applied,
+	// no route reconciled and no Set committed (transition PROVISIONING).
+	ProvisionOnly bool
 }
 
 // DeployResult is returned to the actor at UC-06 MS-13.
@@ -50,6 +65,8 @@ type DeployResult struct {
 	Status       domain.Status `json:"status"`
 	PlanHash     string        `json:"planHash"`
 	WorkloadID   string        `json:"workloadId"`
+	// CandidateSetID is the Set this run produced (chained by transitions).
+	CandidateSetID string `json:"-"`
 }
 
 // Service orchestrates plan, provision, render, apply and commit.
@@ -61,15 +78,26 @@ type Service struct {
 	deployer        execution.WorkloadDeployer
 	terraform       planning.ModuleInspector
 	clock           clock.Clock
-	configProvider  configport.Provider
+	registry        configport.Registry
+	ops             *envops.Manager
 	imagePullSecret string
 	configSync      execution.ConfigSecretSynchronizer
 	publicRoutes    execution.PublicRouteManager
 	baseDomain      string
 }
 
-func (s *Service) SetConfigurationProvider(provider configport.Provider) { s.configProvider = provider }
-func (s *Service) SetImagePullSecret(name string)                        { s.imagePullSecret = name }
+func (s *Service) SetStoreRegistry(registry configport.Registry) { s.registry = registry }
+
+// SetOperations shares the Environment claim manager with the other services.
+func (s *Service) SetOperations(ops *envops.Manager) { s.ops = ops }
+
+func (s *Service) operations() *envops.Manager {
+	if s.ops == nil {
+		s.ops = envops.NewManager(s.store)
+	}
+	return s.ops
+}
+func (s *Service) SetImagePullSecret(name string) { s.imagePullSecret = name }
 func (s *Service) SetConfigSecretSynchronizer(sync execution.ConfigSecretSynchronizer) {
 	s.configSync = sync
 }
@@ -93,8 +121,42 @@ func NewService(
 	}
 }
 
-// DeployWorkload runs the full UC-06 main success scenario.
+// DeployWorkload runs the full UC-06 main success scenario. A caller that
+// already holds the Environment claim passes a context carrying it (batch,
+// transition, recovery); a direct deploy claims the Environment itself,
+// atomically with its snapshot pins and before any side effect.
 func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*DeployResult, error) {
+	if persistence.OperationFrom(ctx) != "" {
+		return s.deployWorkload(ctx, cmd)
+	}
+	snapshot, err := LoadPlanningSnapshot(ctx, s.store, cmd.OrganizationKey, cmd.ApplicationKey, cmd.EnvironmentKey)
+	if err != nil {
+		return nil, err
+	}
+	lease, err := s.operations().Begin(ctx, envops.Claim{
+		ApplicationKey: cmd.ApplicationKey, EnvironmentKey: cmd.EnvironmentKey, Kind: environment.OpDeploy,
+		Pins: environment.OperationPins{
+			CheckEnvVersion: true, EnvVersion: snapshot.Env.Version,
+			CheckSet: true, CurrentSetID: snapshot.Env.CurrentDeploymentSetID,
+			CheckBinding: true, Binding: snapshot.Env.Binding(),
+		},
+		Detail: map[string]any{"workload": cmd.WorkloadID},
+	})
+	if err != nil {
+		return nil, err
+	}
+	result, err := s.deployWorkload(lease.Ctx, cmd)
+	if err != nil {
+		_ = lease.End(environment.OpFailed, PublicFailure(err))
+		return nil, err
+	}
+	if endErr := lease.End(environment.OpSucceeded, ""); endErr != nil {
+		return result, endErr
+	}
+	return result, nil
+}
+
+func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*DeployResult, error) {
 	// MS-01: read the current Deployment Set, connection, catalog and Active
 	// Resources from one consistent snapshot shared with UC-05 Preview.
 	snapshot, err := LoadPlanningSnapshot(ctx, s.store, cmd.OrganizationKey, cmd.ApplicationKey, cmd.EnvironmentKey)
@@ -103,6 +165,20 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	}
 	app, env, conn := snapshot.App, snapshot.Env, snapshot.Connection
 	baseSet, baseSetID := snapshot.BaseSet, snapshot.BaseSetID
+	if cmd.Destination != nil {
+		env = *cmd.Destination
+		conn, err = target.Resolve(ctx, s.store, app.OrganizationKey, env)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cmd.BaseSetID != "" {
+		chained, err := s.store.GetDeploymentSet(ctx, cmd.BaseSetID)
+		if err != nil {
+			return nil, err
+		}
+		baseSet, baseSetID = chained.Document, chained.ID
+	}
 
 	after, err := parseScore(cmd.ScoreAfter)
 	if err != nil {
@@ -128,6 +204,10 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	}
 
 	now := s.clock.Now()
+	recordAction := action
+	if cmd.ProvisionOnly {
+		recordAction = domain.ActionProvision
+	}
 	record := domain.Deployment{
 		ID:                     ids.New(),
 		EnvironmentID:          env.ID,
@@ -135,7 +215,9 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		ApplicationKey:         app.Key,
 		EnvironmentKey:         env.Key,
 		ExecutionProfile:       string(env.Profile),
-		Action:                 action,
+		ConnectionKey:          env.ConnectionKey,
+		TargetGeneration:       env.TargetGeneration,
+		Action:                 recordAction,
 		WorkloadID:             workloadID,
 		ActorRef:               cmd.Actor,
 		Status:                 domain.StatusPlanning,
@@ -241,6 +323,11 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	}
 	record = planned
 
+	// Secret delivery must be usable before any infrastructure is touched.
+	if err := s.preflightSecretDelivery(ctx, cmd, env, plan, workloadID, after != nil); err != nil {
+		return nil, s.fail(ctx, record, err)
+	}
+
 	// MS-09: UC-08 provisions resource-only batches.
 	provisionResult, err := s.provisioning.Provision(ctx, provisioning.Request{
 		DeploymentID: record.ID,
@@ -254,12 +341,21 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		return nil, s.fail(ctx, record, err)
 	}
 
+	result := &DeployResult{DeploymentID: record.ID, PlanHash: plan.PlanHash, WorkloadID: workloadID, CandidateSetID: candidateSet.ID}
+	if cmd.ProvisionOnly {
+		finished := s.clock.Now()
+		record.Status = domain.StatusSucceeded
+		record.FinishedAt = &finished
+		if err := s.store.SaveDeployment(ctx, record); err != nil {
+			return nil, s.fail(ctx, record, err)
+		}
+		result.Status = record.Status
+		return result, nil
+	}
 	record.Status = domain.StatusDeploying
 	if err := s.store.SaveDeployment(ctx, record); err != nil {
 		return nil, s.fail(ctx, record, err)
 	}
-
-	result := &DeployResult{DeploymentID: record.ID, PlanHash: plan.PlanHash, WorkloadID: workloadID}
 
 	if after != nil {
 		if err := s.applyWorkload(ctx, &record, planCtx, plan, provisionResult, types, workloadID, cmd.ConfigRevisionID); err != nil {
@@ -277,16 +373,20 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	}
 
 	// Transaction B: optimistic commit of the current Deployment Set (MS-12).
+	// A transition holds the pointer: the target and Set move together at cutover.
+	result.CandidateSetID = candidateSet.ID
 	if err := s.store.Transact(ctx, func(ctx context.Context) error {
-		if err := s.store.CompareVersionAndSetCurrent(ctx, app.Key, env.Key, record.BaseEnvironmentVersion, candidateSet.ID); err != nil {
-			return err
-		}
-		if err := s.markUnreferenced(ctx, cmd.OrganizationKey, record.ID, plan.UnreferencedResources); err != nil {
-			return err
-		}
-		if env.Profile == appdomain.ProfileAWSEKS && env.RuntimeStatus != appdomain.RuntimeReady {
-			if err := s.store.UpdateRuntimeStatus(ctx, app.Key, env.Key, appdomain.RuntimeReady); err != nil {
+		if !cmd.HoldSet {
+			if err := s.store.CompareVersionAndSetCurrent(ctx, app.Key, env.Key, record.BaseEnvironmentVersion, candidateSet.ID); err != nil {
 				return err
+			}
+			if err := s.markUnreferenced(ctx, cmd.OrganizationKey, record.ID, plan.UnreferencedResources); err != nil {
+				return err
+			}
+			if env.Profile == appdomain.ProfileAWSEKS && env.RuntimeStatus != appdomain.RuntimeReady {
+				if err := s.store.UpdateRuntimeStatus(ctx, app.Key, env.Key, appdomain.RuntimeReady); err != nil {
+					return err
+				}
 			}
 		}
 		finished := s.clock.Now()
@@ -331,7 +431,7 @@ func (s *Service) markUnreferenced(ctx context.Context, organizationKey, deploym
 }
 
 func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, workloadID, deploymentID string) error {
-	instances, err := s.store.ListWorkloadInstances(ctx, planCtx.App.Key+"/"+planCtx.Env.Key)
+	instances, err := s.store.ListWorkloadInstancesFor(ctx, planCtx.App.Key+"/"+planCtx.Env.Key, planCtx.Env.TargetGeneration)
 	if err != nil {
 		return err
 	}
@@ -339,7 +439,7 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 		if instance.WorkloadID != workloadID {
 			continue
 		}
-		target := execution.Target{Namespace: planCtx.Env.NamespaceIdentity, Extra: map[string]string{"application": planCtx.App.Key, "environment": planCtx.Env.Key}}
+		target := execution.Target{Namespace: planCtx.Env.Namespace(), Extra: map[string]string{"application": planCtx.App.Key, "environment": planCtx.Env.Key}}
 		if err := restoreTarget(&target, instance.TargetRef, planCtx.OrganizationKey); err != nil {
 			return err
 		}
@@ -406,14 +506,14 @@ func (s *Service) applyWorkload(
 
 	plainEnv := map[string]map[string]string{}
 	secretEnv := map[string]map[string]string{}
-	vaultBindings := map[string]map[string]string{}
-	valueRefs := []string{}
+	storeRefs := map[string]map[string]configport.StoreRef{}
 	containerNames := module.ContainerNames()
+	deliveryStore := planCtx.Env.SecretStoreKey
 	for _, containerName := range containerNames {
 		container := module.Spec.Containers[containerName]
 		plainEnv[containerName] = map[string]string{}
 		secretEnv[containerName] = map[string]string{}
-		vaultBindings[containerName] = map[string]string{}
+		storeRefs[containerName] = map[string]configport.StoreRef{}
 		keys := make([]string, 0, len(container.Variables))
 		for key := range container.Variables {
 			keys = append(keys, key)
@@ -427,8 +527,12 @@ func (s *Service) applyWorkload(
 				if !exists || configRevisionID == "" {
 					return fmt.Errorf("deployment: Application key %s is not in the pinned revision", configKey)
 				}
-				vaultBindings[containerName][key] = entry.ValueRef
-				valueRefs = append(valueRefs, entry.ValueRef)
+				if !entry.UsesStore() {
+					// Ordinary Variables are Orchestrator metadata, not secret delivery.
+					plainEnv[containerName][key] = entry.Value
+					continue
+				}
+				storeRefs[containerName][key] = configport.StoreRef{StoreKey: entry.StoreKey, ValueRef: entry.ValueRef}
 				continue
 			}
 			isSecret, err := bindsSecret(raw, node.Bindings, plan.Graph, types)
@@ -453,34 +557,55 @@ func (s *Service) applyWorkload(
 			}
 		}
 	}
+	for name, refs := range storeRefs {
+		if len(refs) == 0 {
+			delete(storeRefs, name)
+		}
+	}
 
 	var vaultInjection *execution.VaultInjection
 	var configSecretName string
 	var configSecretKeys map[string]map[string]string
-	if len(valueRefs) > 0 {
+	var secretDelivery map[string]any
+	if len(storeRefs) > 0 {
+		if s.registry == nil || deliveryStore == "" {
+			return configport.ErrNoStore
+		}
 		if s.configSync != nil {
-			preparer, ok := s.configProvider.(configport.WorkloadBundlePreparer)
-			if !ok {
-				return fmt.Errorf("deployment: VSO workload bundle provider is not configured")
-			}
-			bundle, err := preparer.PrepareWorkloadBundle(ctx, planCtx.App.Key, planCtx.Env.Key, workloadID, target.Namespace, configRevisionID, record.ID, vaultBindings)
+			bundle, err := s.registry.PrepareBundle(ctx, configport.BundleRequest{
+				OrganizationKey: planCtx.OrganizationKey, ApplicationKey: planCtx.App.Key, EnvironmentKey: planCtx.Env.Key, WorkloadID: workloadID,
+				Namespace: target.Namespace, RevisionID: configRevisionID, DeploymentID: record.ID, DeliveryStoreKey: deliveryStore, Refs: storeRefs,
+			})
 			if err != nil {
 				return err
 			}
-			if err := s.configSync.Sync(ctx, target, execution.ConfigBundle{Address: bundle.Address, Mount: bundle.Mount, Path: bundle.Path, Role: bundle.Role, ServiceAccount: bundle.ServiceAccount, SecretName: bundle.SecretName, Keys: bundle.Keys}); err != nil {
+			if err := s.configSync.Sync(ctx, target, execution.ConfigBundle{StoreKey: bundle.StoreKey, Address: bundle.Address, Mount: bundle.Mount, AuthMount: bundle.AuthMount, Path: bundle.Path, Role: bundle.Role, ServiceAccount: bundle.ServiceAccount, SecretName: bundle.SecretName, CAPEM: bundle.CAPEM, Keys: bundle.Keys}); err != nil {
 				return err
 			}
 			configSecretName, configSecretKeys = bundle.SecretName, bundle.Keys
+			secretDelivery = map[string]any{"storeKey": bundle.StoreKey, "address": bundle.Address, "authMount": bundle.AuthMount, "mount": bundle.Mount, "path": bundle.Path, "secretName": bundle.SecretName}
 		} else {
-			preparer, ok := s.configProvider.(configport.WorkloadAccessPreparer)
-			if !ok {
-				return fmt.Errorf("deployment: Vault workload access is not configured")
+			refs := []string{}
+			bindings := map[string]map[string]string{}
+			for container, entries := range storeRefs {
+				bindings[container] = map[string]string{}
+				for name, ref := range entries {
+					if ref.StoreKey != deliveryStore {
+						return fmt.Errorf("deployment: agent delivery cannot mix secret stores")
+					}
+					refs = append(refs, ref.ValueRef)
+					bindings[container][name] = ref.ValueRef
+				}
 			}
-			access, err := preparer.PrepareWorkloadAccess(ctx, planCtx.App.Key, planCtx.Env.Key, workloadID, target.Namespace, configRevisionID, valueRefs)
+			access, err := s.registry.PrepareAccess(ctx, configport.AccessRequest{
+				OrganizationKey: planCtx.OrganizationKey, ApplicationKey: planCtx.App.Key, EnvironmentKey: planCtx.Env.Key, WorkloadID: workloadID,
+				Namespace: target.Namespace, RevisionID: configRevisionID, StoreKey: deliveryStore, Refs: refs,
+			})
 			if err != nil {
 				return err
 			}
-			vaultInjection = &execution.VaultInjection{Address: access.Address, Role: access.Role, ServiceAccount: access.ServiceAccount, Bindings: vaultBindings}
+			vaultInjection = &execution.VaultInjection{Address: access.Address, Role: access.Role, ServiceAccount: access.ServiceAccount, Bindings: bindings}
+			secretDelivery = map[string]any{"storeKey": deliveryStore, "address": access.Address}
 		}
 	}
 
@@ -511,7 +636,8 @@ func (s *Service) applyWorkload(
 		WorkloadID:              workloadID,
 		LastDeploymentID:        record.ID,
 		AppliedConfigRevisionID: configRevisionID,
-		TargetRef:               targetRef(target),
+		Generation:              planCtx.Env.TargetGeneration,
+		TargetRef:               withDelivery(targetRef(target), secretDelivery),
 		ManifestDigest:          digest,
 		Status:                  domain.InstanceApplying,
 		ObservedAt:              s.clock.Now(),
@@ -567,26 +693,89 @@ func (s *Service) ReconcilePublicRoutes(ctx context.Context, appKey, envKey stri
 }
 
 func (s *Service) reconcileRoutes(ctx context.Context, app appdomain.Application, env environment.Environment, set environment.Document) error {
+	return s.routesFor(ctx, app, env, set, false)
+}
+
+// ReconcileRoutesFor applies the complete Environment-owned route set of one
+// target generation from a Deployment Set (transition cutover).
+func (s *Service) ReconcileRoutesFor(ctx context.Context, appKey string, env environment.Environment, set environment.Document) error {
+	app, err := s.store.GetApplication(ctx, appKey)
+	if err != nil {
+		return err
+	}
+	return s.routesFor(ctx, app, env, set, false)
+}
+
+// RemoveRoutesFor deletes the Environment-owned Ingress at one generation.
+func (s *Service) RemoveRoutesFor(ctx context.Context, appKey string, env environment.Environment) error {
+	app, err := s.store.GetApplication(ctx, appKey)
+	if err != nil {
+		return err
+	}
+	return s.routesFor(ctx, app, env, environment.NewDocument(), true)
+}
+
+// RoutesManaged reports whether a public route manager is configured.
+func (s *Service) RoutesManaged() bool { return s.publicRoutes != nil }
+
+// GenerationTarget rebuilds the execution target of one generation from its
+// persisted workload instance, or from the Connection when none exists yet.
+func (s *Service) GenerationTarget(ctx context.Context, app appdomain.Application, env environment.Environment) (execution.Target, error) {
+	instances, err := s.store.ListWorkloadInstancesFor(ctx, app.Key+"/"+env.Key, env.TargetGeneration)
+	if err != nil {
+		return execution.Target{}, err
+	}
+	base := execution.Target{Namespace: env.Namespace(), Extra: map[string]string{"application": app.Key, "environment": env.Key}}
+	for _, instance := range instances {
+		candidate := base
+		candidate.Extra = map[string]string{"application": app.Key, "environment": env.Key}
+		if err := restoreTarget(&candidate, instance.TargetRef, app.OrganizationKey); err != nil {
+			return execution.Target{}, err
+		}
+		if candidate.Explicit() {
+			return candidate, nil
+		}
+	}
+	conn, err := s.store.GetConnection(ctx, app.OrganizationKey, env.ConnectionKey)
+	if err != nil {
+		return execution.Target{}, err
+	}
+	return ConnectionTarget(app.OrganizationKey, env, conn), nil
+}
+
+// ConnectionTarget builds the Kubernetes target of an Environment generation
+// directly from its Connection (used before any workload exists there).
+func ConnectionTarget(organizationKey string, env environment.Environment, conn appdomain.Connection) execution.Target {
+	target := execution.Target{Kind: "kubernetes", Namespace: env.Namespace(), Context: conn.ConfigString("kubeContext"), ClusterName: conn.ConfigString("cluster")}
+	if conn.CredentialBacked() {
+		target.Organization, target.Connection = organizationKey, conn.Key
+	}
+	return target
+}
+
+func (s *Service) routesFor(ctx context.Context, app appdomain.Application, env environment.Environment, set environment.Document, remove bool) error {
 	if s.publicRoutes == nil {
 		return nil
 	}
-	if err := planning.ValidatePublicRoutes(set); err != nil {
-		return err
-	}
 	route := execution.PublicRoute{ApplicationID: app.Key, EnvironmentID: env.Key, Host: publicHost(app.Subdomain, env.Key, s.baseDomain)}
-	for _, id := range set.ModuleIDs() {
-		for _, path := range set.Modules[id].Spec.Service.Routes() {
-			route.Paths = append(route.Paths, execution.PublicPath{Path: path.Path, WorkloadID: id, PortName: path.Port})
+	if !remove {
+		if err := planning.ValidatePublicRoutes(set); err != nil {
+			return err
+		}
+		for _, id := range set.ModuleIDs() {
+			for _, path := range set.Modules[id].Spec.Service.Routes() {
+				route.Paths = append(route.Paths, execution.PublicPath{Path: path.Path, WorkloadID: id, PortName: path.Port})
+			}
 		}
 	}
-	instances, err := s.store.ListWorkloadInstances(ctx, app.Key+"/"+env.Key)
+	instances, err := s.store.ListWorkloadInstancesFor(ctx, app.Key+"/"+env.Key, env.TargetGeneration)
 	if err != nil {
 		return err
 	}
 	if len(instances) == 0 {
 		return nil
 	}
-	base := execution.Target{Namespace: env.NamespaceIdentity, Extra: map[string]string{"application": app.Key, "environment": env.Key}}
+	base := execution.Target{Namespace: env.Namespace(), Extra: map[string]string{"application": app.Key, "environment": env.Key}}
 	target := base
 	for _, instance := range instances {
 		candidate := base
@@ -600,6 +789,55 @@ func (s *Service) reconcileRoutes(ctx context.Context, app appdomain.Application
 		}
 	}
 	return s.publicRoutes.Reconcile(ctx, target, route)
+}
+
+// withDelivery pins the nonsecret secret-delivery metadata of the store that
+// served a workload, so history keeps the actual store, address and auth mount.
+func withDelivery(ref map[string]any, delivery map[string]any) map[string]any {
+	if delivery != nil {
+		ref["secretDelivery"] = delivery
+	}
+	return ref
+}
+
+// preflightSecretDelivery refuses a deploy whose secrets cannot be delivered
+// before any provisioning side effect: a store must be selected and its
+// workload Kubernetes auth must verify.
+func (s *Service) preflightSecretDelivery(ctx context.Context, cmd DeployCommand, env environment.Environment, plan *planning.Plan, workloadID string, applying bool) error {
+	if !applying || cmd.ConfigRevisionID == "" {
+		return nil
+	}
+	module, ok := plan.CandidateSet.Modules[workloadID]
+	if !ok {
+		return nil
+	}
+	revision, err := s.store.GetConfigurationRevision(ctx, cmd.ConfigRevisionID)
+	if err != nil {
+		return err
+	}
+	needs := false
+	for _, containerName := range module.ContainerNames() {
+		for _, raw := range module.Spec.Containers[containerName].Variables {
+			if strings.HasPrefix(raw, "${context.uc12.") && strings.HasSuffix(raw, "}") {
+				if revision.Entries[strings.TrimSuffix(strings.TrimPrefix(raw, "${context.uc12."), "}")].UsesStore() {
+					needs = true
+				}
+			}
+		}
+	}
+	if !needs {
+		return nil
+	}
+	if env.SecretStoreKey == "" || s.registry == nil {
+		return configport.ErrNoStore
+	}
+	return s.registry.CheckWorkloadAuth(ctx, cmd.OrganizationKey, env.SecretStoreKey)
+}
+
+// RestoreTarget rebuilds a target from a persisted TargetRef (exported for
+// target transitions); a foreign-Organization reference fails closed.
+func RestoreTarget(target *execution.Target, ref map[string]any, organizationKey string) error {
+	return restoreTarget(target, ref, organizationKey)
 }
 
 // targetRef is the persisted WorkloadInstance target: cluster, namespace,

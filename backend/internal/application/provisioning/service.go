@@ -179,6 +179,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		DriverType:      match.DriverType,
 		Module:          moduleName(def),
 		Inputs:          mapOrEmpty(inputMap),
+		Generation:      req.Context.Env.TargetGeneration,
 		PriorState:      priorState,
 		Connection:      connection,
 		Target:          target,

@@ -7,22 +7,21 @@ last_reviewed: 2026-10-07
 
 # UC-01 UI screens
 
-Applications home lists name, hostname and separate staging/production summaries.
-Create Application contains only Application name and Subdomain with URL preview.
-Creation does not require Connection/default readiness.
+Create Application contains Name/Subdomain only. Home and Settings have staging/
+production tabs and separate target summaries. Settings includes independently
+editable Deployment Connection and Secret Store Connection selectors, safe names
+and explicit Save; no permanent lock. Ordinary variables work before store set.
 
-Application home has Staging/Production tabs; target label belongs to the selected
-Environment, never a header implying one target for both. Display `Connection not
-configured` with Settings action for UNCONFIGURED. Workload draft/config editing
-remains available; Preview/Deploy require configured target. Show selected key,
-profile, AWS region and locked status for configured Environment. Recent deployments link to the existing UC-09 history/detail; persisted plans
-keep the deployment target pinned rather than deriving it from defaults.
+For a deployed Environment, changing execution target opens an explicit transition
+form: destination, deploy-new or migrate PostgreSQL, logical resource mapping,
+impact and downtime acknowledgement. Preview identifies added/updated/removed
+workloads, unchanged workloads to redeploy, and pending configuration changes.
+Preview then execute with exact token.
+Show persisted stages/source-destination status, recovery errors and retained
+source cleanup action. Show the persisted authoritative destination and actual
+writer/route compensation outcome, including source quiesce failures after
+cutover. Never present a failed/partial transition as successful.
 
-Environment Settings integrates a `Deployment connection` section in the existing
-Environment-scoped Settings page alongside UC-12 variables/secrets. Scope is visible
-in heading/tab. UNCONFIGURED: safe READY dropdown, explicit select, and `Set
-connection` button with explanation `You can set this connection only once. It
-cannot be changed after saving.` Choices may mark default but do not preselect or
-auto-save it. Selection may change freely before Save. After successful set show
-read-only target; no Change, Reset, Unset or Replace action. Other Environment stays
-unconfigured until explicitly set. No extra confirmation dialog is required.
+Changing secret store explains that Secrets are copied first and running workloads
+move after Preview/Deploy. Secret values are never displayed. On 409 show latest
+selection and require review/resubmit; active-operation busy is temporary.

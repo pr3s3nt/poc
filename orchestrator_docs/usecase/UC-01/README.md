@@ -7,7 +7,7 @@ last_reviewed: 2026-10-07
 
 # UC-01 context — Create Application
 
-## Delivery state
+## Historical delivery state (ADR-011)
 
 Environment Settings set-once design accepted 2026-10-07, including independent
 AWS targets/VPC/EKS and locked legacy migration ([ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md)).
@@ -43,3 +43,10 @@ restart verification are implemented. See [verification](../../verification/2026
 [Live kind recording](../../verification/2026-10-07-application-connection-selection-kind.md)
 also verifies creation with an uploaded nondefault Connection and real staging
 workload/database/Vault execution using UI interactions (2026-10-07).
+
+## Current change in progress
+
+[ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md)
+supersedes permanent target lock/Application provider selection. Specifications
+now include editable per-Environment destinations and Vault stores/transitions;
+implementation status is tracked in CURRENT_STATE, not inferred from old evidence.

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	appsvc "orchestrator/internal/application/deployment"
+	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/target"
 	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/domain/configuration"
@@ -34,16 +35,21 @@ type Change struct {
 }
 
 type Preview struct {
-	Token            string   `json:"token"`
-	ApplicationKey   string   `json:"applicationKey"`
-	EnvironmentKey   string   `json:"environmentKey"`
-	BaseSetID        string   `json:"baseDeploymentSetId"`
-	BaseVersion      int64    `json:"baseVersion"`
-	DraftVersion     int64    `json:"draftVersion"`
-	RoutePending     bool     `json:"routePending,omitempty"`
-	ConfigRevisionID string   `json:"configRevisionId,omitempty"`
-	RunID            string   `json:"runId"`
-	Changes          []Change `json:"changes"`
+	Token          string `json:"token"`
+	ApplicationKey string `json:"applicationKey"`
+	EnvironmentKey string `json:"environmentKey"`
+	BaseSetID      string `json:"baseDeploymentSetId"`
+	BaseVersion    int64  `json:"baseVersion"`
+	DraftVersion   int64  `json:"draftVersion"`
+	// ConfigVersion, Binding and SecretStoreKey pin the rest of the snapshot
+	// (ADR-012): any Settings, configuration or draft change invalidates the token.
+	ConfigVersion    int64               `json:"configVersion"`
+	Binding          environment.Binding `json:"binding"`
+	SecretStoreKey   string              `json:"secretStoreKey,omitempty"`
+	RoutePending     bool                `json:"routePending,omitempty"`
+	ConfigRevisionID string              `json:"configRevisionId,omitempty"`
+	RunID            string              `json:"runId"`
+	Changes          []Change            `json:"changes"`
 }
 
 type Service struct {
@@ -53,6 +59,17 @@ type Service struct {
 	terraform         planning.ModuleInspector
 	deployer          *appsvc.Service
 	imageRegistryHost string
+	ops               *envops.Manager
+}
+
+// SetOperations shares the Environment claim manager with the other services.
+func (s *Service) SetOperations(ops *envops.Manager) { s.ops = ops }
+
+func (s *Service) operations() *envops.Manager {
+	if s.ops == nil {
+		s.ops = envops.NewManager(s.store)
+	}
+	return s.ops
 }
 
 func NewService(store persistence.Store, planner *planning.Service, workloads *workloadconfig.Service, inspector planning.ModuleInspector) *Service {
@@ -158,7 +175,8 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 	if err != nil {
 		return Preview{}, err
 	}
-	preview := Preview{ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, RoutePending: env.PublicRoutesPending, ConfigRevisionID: scope.DesiredRevisionID, Changes: []Change{}}
+	preview := Preview{ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, RoutePending: env.PublicRoutesPending, ConfigRevisionID: scope.DesiredRevisionID,
+		ConfigVersion: scope.Version, Binding: env.Binding(), SecretStoreKey: env.SecretStoreKey, Changes: []Change{}}
 	// Keep the execution identity stable across revisions of one environment.
 	// The preview token separately pins the mutable base/draft/configuration state.
 	pinHash, err := canon.Hash([]string{appKey, envKey})
@@ -386,4 +404,10 @@ func sameRendering(ctx context.Context, st persistence.Store, deploymentID, work
 	}
 	b, err := canon.Hash(selectedMap)
 	return a == b, err
+}
+
+// OrderDrafts returns workload IDs in Service-reference dependency order; a
+// target transition deploys the complete Environment in the same order.
+func OrderDrafts(drafts map[string]environment.WorkloadDraft) ([]string, error) {
+	return orderDrafts(drafts)
 }

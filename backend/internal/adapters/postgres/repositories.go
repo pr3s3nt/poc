@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -183,24 +184,31 @@ func (s *Store) ListApplications(ctx context.Context) ([]application.Application
 }
 
 func (s *Store) SaveEnvironment(ctx context.Context, v environment.Environment) error {
+	return s.fenced(ctx, func(ctx context.Context) error { return s.fencedSaveEnvironment(ctx, v) })
+}
+
+func (s *Store) fencedSaveEnvironment(ctx context.Context, v environment.Environment) error {
 	if v.ID == "" {
 		v.ID = ids.New()
 	}
 	if v.Version == 0 {
 		v.Version = 1
 	}
-	_, err := s.q(ctx).Exec(ctx, `INSERT INTO environments(id,application_id,environment_key,name,environment_type,namespace_identity,current_deployment_set_id,version,draft_version,public_routes_pending) SELECT $1::uuid,a.id,$3,$4,$5,$6,NULLIF($7,'')::uuid,$8,$9,$10 FROM applications a WHERE a.application_key=$2 ON CONFLICT(application_id,environment_key) DO UPDATE SET name=EXCLUDED.name,environment_type=EXCLUDED.environment_type,namespace_identity=EXCLUDED.namespace_identity,current_deployment_set_id=EXCLUDED.current_deployment_set_id,version=EXCLUDED.version,draft_version=EXCLUDED.draft_version,public_routes_pending=EXCLUDED.public_routes_pending`, v.ID, v.ApplicationKey, v.Key, v.Name, v.Type, v.NamespaceIdentity, v.CurrentDeploymentSetID, v.Version, v.DraftVersion, v.PublicRoutesPending)
+	tag, err := s.q(ctx).Exec(ctx, `INSERT INTO environments(id,application_id,environment_key,name,environment_type,namespace_identity,current_deployment_set_id,version,draft_version,public_routes_pending) SELECT $1::uuid,a.id,$3,$4,$5,$6,NULLIF($7,'')::uuid,$8,$9,$10 FROM applications a WHERE a.application_key=$2 ON CONFLICT(application_id,environment_key) DO UPDATE SET name=EXCLUDED.name,environment_type=EXCLUDED.environment_type,namespace_identity=EXCLUDED.namespace_identity,current_deployment_set_id=EXCLUDED.current_deployment_set_id,version=EXCLUDED.version,draft_version=EXCLUDED.draft_version,public_routes_pending=EXCLUDED.public_routes_pending WHERE environments.active_operation_id IS NULL OR environments.active_operation_id=NULLIF($11,'')::uuid`, v.ID, v.ApplicationKey, v.Key, v.Name, v.Type, v.NamespaceIdentity, v.CurrentDeploymentSetID, v.Version, v.DraftVersion, v.PublicRoutesPending, persistence.OperationFrom(ctx))
 	if err != nil {
 		return fmt.Errorf("postgres: save environment: %w", translate(err))
+	}
+	if tag.RowsAffected() == 0 {
+		return persistence.Busy(v.ApplicationKey, v.Key)
 	}
 	return nil
 }
 
-const envSelect = `SELECT e.id::text,e.environment_key,a.id::text,a.application_key,e.name,e.environment_type,e.namespace_identity,COALESCE(e.current_deployment_set_id::text,''),e.version,e.draft_version,e.public_routes_pending,COALESCE(ec.connection_key,''),e.execution_profile,e.region,e.runtime_status,e.infrastructure_scope FROM environments e JOIN applications a ON a.id=e.application_id LEFT JOIN connections ec ON ec.id=e.connection_id`
+const envSelect = `SELECT e.id::text,e.environment_key,a.id::text,a.application_key,e.name,e.environment_type,e.namespace_identity,COALESCE(e.current_deployment_set_id::text,''),e.version,e.draft_version,e.public_routes_pending,COALESCE(ec.connection_key,''),e.execution_profile,e.region,e.runtime_status,e.infrastructure_scope,e.target_generation,e.generation_high,COALESCE(ss.store_key,''),COALESCE(e.active_operation_id::text,'') FROM environments e JOIN applications a ON a.id=e.application_id LEFT JOIN connections ec ON ec.id=e.connection_id LEFT JOIN secret_store_connections ss ON ss.id=e.secret_store_id`
 
 func scanEnv(row pgx.Row) (environment.Environment, error) {
 	var v environment.Environment
-	err := row.Scan(&v.ID, &v.Key, &v.ApplicationID, &v.ApplicationKey, &v.Name, &v.Type, &v.NamespaceIdentity, &v.CurrentDeploymentSetID, &v.Version, &v.DraftVersion, &v.PublicRoutesPending, &v.ConnectionKey, &v.Profile, &v.Region, &v.RuntimeStatus, &v.InfrastructureScope)
+	err := row.Scan(&v.ID, &v.Key, &v.ApplicationID, &v.ApplicationKey, &v.Name, &v.Type, &v.NamespaceIdentity, &v.CurrentDeploymentSetID, &v.Version, &v.DraftVersion, &v.PublicRoutesPending, &v.ConnectionKey, &v.Profile, &v.Region, &v.RuntimeStatus, &v.InfrastructureScope, &v.TargetGeneration, &v.GenerationHigh, &v.SecretStoreKey, &v.ActiveOperationID)
 	return v, err
 }
 func (s *Store) GetEnvironment(ctx context.Context, app, key string) (environment.Environment, error) {
@@ -218,8 +226,8 @@ func (s *Store) ListEnvironments(ctx context.Context, app string) ([]environment
 	defer rows.Close()
 	var out []environment.Environment
 	for rows.Next() {
-		var v environment.Environment
-		if err = rows.Scan(&v.ID, &v.Key, &v.ApplicationID, &v.ApplicationKey, &v.Name, &v.Type, &v.NamespaceIdentity, &v.CurrentDeploymentSetID, &v.Version, &v.DraftVersion, &v.PublicRoutesPending, &v.ConnectionKey, &v.Profile, &v.Region, &v.RuntimeStatus, &v.InfrastructureScope); err != nil {
+		v, err := scanEnv(rows)
+		if err != nil {
 			return nil, err
 		}
 		out = append(out, v)
@@ -227,55 +235,165 @@ func (s *Store) ListEnvironments(ctx context.Context, app string) ([]environment
 	return out, rows.Err()
 }
 
-// BindEnvironment sets the binding of an unset Environment once. The single
-// UPDATE carries the unset check, expected version and Organization/Connection
-// scope, so concurrent callers produce exactly one winner.
+// ownerArg is the SQL operation-owner argument; empty means no owner.
+func ownerArg(ctx context.Context) string { return persistence.OperationFrom(ctx) }
+
+// classifyEnvWrite explains why a guarded environment UPDATE matched no row.
+func (s *Store) classifyEnvWrite(ctx context.Context, app, env string, expected int64, checkVersion bool, fallback ...error) error {
+	current, err := s.GetEnvironment(ctx, app, env)
+	switch {
+	case err != nil:
+		return err
+	case current.ActiveOperationID != "" && current.ActiveOperationID != ownerArg(ctx):
+		return persistence.Busy(app, env)
+	case checkVersion && current.Version != expected:
+		return persistence.ErrVersionConflict
+	}
+	if len(fallback) > 0 {
+		return fallback[0]
+	}
+	return nil
+}
+
+// BindEnvironment replaces the binding with one guarded UPDATE: expected
+// version, Organization/Connection scope and claim owner in a single statement.
 func (s *Store) BindEnvironment(ctx context.Context, b persistence.EnvironmentBinding) (environment.Environment, error) {
-	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET connection_id=c.id,execution_profile=$4,region=$5,runtime_status=$6,infrastructure_scope=$7,version=e.version+1
+	var out0 environment.Environment
+	err := s.fenced(ctx, func(ctx context.Context) error {
+		var err error
+		out0, err = s.fencedBindEnvironment(ctx, b)
+		return err
+	})
+	return out0, err
+}
+
+func (s *Store) fencedBindEnvironment(ctx context.Context, b persistence.EnvironmentBinding) (environment.Environment, error) {
+	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET connection_id=c.id,execution_profile=$4,region=$5,runtime_status=$6,infrastructure_scope=$7,target_generation=$8,generation_high=GREATEST(e.generation_high,$8),version=e.version+1
 FROM applications a, connections c WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND c.organization_id=a.organization_id AND c.connection_key=$3
-AND e.connection_id IS NULL AND e.version=$8`, b.ApplicationKey, b.EnvironmentKey, b.ConnectionKey, b.Profile, b.Region, b.RuntimeStatus, b.Scope, b.ExpectedVersion)
+AND e.version=$9 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($10,'')::uuid)
+AND $8>=0 AND ($8<=e.generation_high OR $8=e.target_generation)`, b.ApplicationKey, b.EnvironmentKey, b.ConnectionKey, b.Profile, b.Region, b.RuntimeStatus, b.Scope, b.Generation, b.ExpectedVersion, ownerArg(ctx))
 	if err != nil {
 		return environment.Environment{}, fmt.Errorf("postgres: bind environment: %w", translate(err))
 	}
 	if tag.RowsAffected() == 0 {
-		current, err := s.GetEnvironment(ctx, b.ApplicationKey, b.EnvironmentKey)
-		switch {
-		case err != nil:
+		if err := s.classifyEnvWrite(ctx, b.ApplicationKey, b.EnvironmentKey, b.ExpectedVersion, true); err != nil {
 			return environment.Environment{}, err
-		case current.Configured():
-			return environment.Environment{}, persistence.ErrBindingConfigured
-		case current.Version != b.ExpectedVersion:
-			return environment.Environment{}, persistence.ErrVersionConflict
 		}
 		return environment.Environment{}, fmt.Errorf("%w: connection %q", persistence.ErrNotFound, b.ConnectionKey)
 	}
 	return s.GetEnvironment(ctx, b.ApplicationKey, b.EnvironmentKey)
 }
 
+// SelectSecretStore replaces the secret-store selection with one guarded UPDATE.
+func (s *Store) SelectSecretStore(ctx context.Context, sel persistence.SecretStoreSelection) (environment.Environment, error) {
+	var out0 environment.Environment
+	err := s.fenced(ctx, func(ctx context.Context) error {
+		var err error
+		out0, err = s.fencedSelectSecretStore(ctx, sel)
+		return err
+	})
+	return out0, err
+}
+
+func (s *Store) fencedSelectSecretStore(ctx context.Context, sel persistence.SecretStoreSelection) (environment.Environment, error) {
+	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET secret_store_id=ss.id,version=e.version+1
+FROM applications a, secret_store_connections ss WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND ss.organization_id=a.organization_id AND ss.store_key=$3
+AND e.version=$4 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($5,'')::uuid)`, sel.ApplicationKey, sel.EnvironmentKey, sel.StoreKey, sel.ExpectedVersion, ownerArg(ctx))
+	if err != nil {
+		return environment.Environment{}, fmt.Errorf("postgres: select secret store: %w", translate(err))
+	}
+	if tag.RowsAffected() == 0 {
+		if err := s.classifyEnvWrite(ctx, sel.ApplicationKey, sel.EnvironmentKey, sel.ExpectedVersion, true); err != nil {
+			return environment.Environment{}, err
+		}
+		return environment.Environment{}, fmt.Errorf("%w: secret store %q", persistence.ErrNotFound, sel.StoreKey)
+	}
+	return s.GetEnvironment(ctx, sel.ApplicationKey, sel.EnvironmentKey)
+}
+
 // UpdateRuntimeStatus advances the runtime status of a configured Environment.
 func (s *Store) UpdateRuntimeStatus(ctx context.Context, app, key string, status application.RuntimeStatus) error {
-	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET runtime_status=$3 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.connection_id IS NOT NULL AND $3 IN ('PENDING','READY')`, app, key, status)
+	return s.fenced(ctx, func(ctx context.Context) error { return s.fencedUpdateRuntimeStatus(ctx, app, key, status) })
+}
+
+func (s *Store) fencedUpdateRuntimeStatus(ctx context.Context, app, key string, status application.RuntimeStatus) error {
+	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET runtime_status=$3 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.connection_id IS NOT NULL AND $3 IN ('PENDING','READY') AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($4,'')::uuid)`, app, key, status, ownerArg(ctx))
 	if err != nil {
 		return translate(err)
 	}
 	if tag.RowsAffected() == 0 {
+		if err := s.classifyEnvWrite(ctx, app, key, 0, false); err != nil {
+			return err
+		}
 		return fmt.Errorf("%w: environment runtime status", persistence.ErrImmutable)
 	}
 	return nil
 }
 
-func (s *Store) CompareVersionAndSetCurrent(ctx context.Context, app, key string, expected int64, setID string) error {
-	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET current_deployment_set_id=$4::uuid,version=e.version+1 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.version=$3`, app, key, expected, setID)
+// SetPublicRoutesPending changes only the route flag.
+func (s *Store) SetPublicRoutesPending(ctx context.Context, app, key string, pending bool) error {
+	return s.fenced(ctx, func(ctx context.Context) error { return s.fencedSetPublicRoutesPending(ctx, app, key, pending) })
+}
+
+func (s *Store) fencedSetPublicRoutesPending(ctx context.Context, app, key string, pending bool) error {
+	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET public_routes_pending=$3 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($4,'')::uuid)`, app, key, pending, ownerArg(ctx))
 	if err != nil {
 		return translate(err)
 	}
 	if tag.RowsAffected() == 0 {
+		if err := s.classifyEnvWrite(ctx, app, key, 0, false); err != nil {
+			return err
+		}
+		return fmt.Errorf("%w: environment %s/%s", persistence.ErrNotFound, app, key)
+	}
+	return nil
+}
+
+// AllocateGeneration reserves the next target generation for the owner.
+func (s *Store) AllocateGeneration(ctx context.Context, app, key string) (int64, error) {
+	var out0 int64
+	err := s.fenced(ctx, func(ctx context.Context) error {
+		var err error
+		out0, err = s.fencedAllocateGeneration(ctx, app, key)
+		return err
+	})
+	return out0, err
+}
+
+func (s *Store) fencedAllocateGeneration(ctx context.Context, app, key string) (int64, error) {
+	var generation int64
+	err := s.q(ctx).QueryRow(ctx, `UPDATE environments e SET generation_high=GREATEST(e.generation_high,e.target_generation)+1 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.active_operation_id=NULLIF($3,'')::uuid RETURNING e.generation_high`, app, key, ownerArg(ctx)).Scan(&generation)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, fmt.Errorf("%w: generation allocation needs the owning operation", persistence.ErrEnvironmentBusy)
+	}
+	return generation, translate(err)
+}
+
+func (s *Store) CompareVersionAndSetCurrent(ctx context.Context, app, key string, expected int64, setID string) error {
+	return s.fenced(ctx, func(ctx context.Context) error {
+		return s.fencedCompareVersionAndSetCurrent(ctx, app, key, expected, setID)
+	})
+}
+
+func (s *Store) fencedCompareVersionAndSetCurrent(ctx context.Context, app, key string, expected int64, setID string) error {
+	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET current_deployment_set_id=$4::uuid,version=e.version+1 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.version=$3 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($5,'')::uuid)`, app, key, expected, setID, ownerArg(ctx))
+	if err != nil {
+		return translate(err)
+	}
+	if tag.RowsAffected() == 0 {
+		if err := s.classifyEnvWrite(ctx, app, key, expected, true); err != nil {
+			return err
+		}
 		return persistence.ErrVersionConflict
 	}
 	return nil
 }
 
 func (s *Store) SaveDeploymentSet(ctx context.Context, v environment.DeploymentSet) error {
+	return s.fenced(ctx, func(ctx context.Context) error { return s.fencedSaveDeploymentSet(ctx, v) })
+}
+
+func (s *Store) fencedSaveDeploymentSet(ctx context.Context, v environment.DeploymentSet) error {
 	doc, err := jsonBytes(v.Document)
 	if err != nil {
 		return err

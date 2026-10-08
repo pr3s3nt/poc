@@ -126,6 +126,55 @@ CREATE TRIGGER environments_binding_immutable BEFORE UPDATE ON environments
   FOR EACH ROW EXECUTE FUNCTION environments_binding_immutable();
 `
 
+// migration7 implements ADR-012: separate Secret Store Connections, editable
+// Environment selections with target generations, persisted operation claims
+// and transition records. The permanent binding trigger is dropped; binding
+// writes are guarded by the dedicated versioned commands and claim owner.
+// No Vault network I/O happens here; legacy store backfill runs at startup.
+const migration7 = `
+CREATE TABLE IF NOT EXISTS secret_store_connections (
+  id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id),
+  store_key text NOT NULL, name text NOT NULL, provider text NOT NULL CHECK (provider IN ('VAULT_KV_V2')),
+  backend_address text NOT NULL, workload_address text NOT NULL, kv_mount text NOT NULL, auth_mount text NOT NULL,
+  tls_ca_pem text NOT NULL DEFAULT '', credential_ref text NOT NULL DEFAULT '', status text NOT NULL CHECK (status IN ('READY','REJECTED')),
+  legacy boolean NOT NULL DEFAULT false, verification jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(organization_id, store_key)
+);
+ALTER TABLE environments ADD COLUMN IF NOT EXISTS secret_store_id uuid REFERENCES secret_store_connections(id);
+ALTER TABLE environments ADD COLUMN IF NOT EXISTS target_generation bigint NOT NULL DEFAULT 0;
+ALTER TABLE environments ADD COLUMN IF NOT EXISTS generation_high bigint NOT NULL DEFAULT 0;
+ALTER TABLE environments ADD COLUMN IF NOT EXISTS active_operation_id uuid;
+CREATE TABLE IF NOT EXISTS environment_operations (
+  id uuid PRIMARY KEY, environment_id uuid NOT NULL REFERENCES environments(id),
+  kind text NOT NULL, owner_instance text NOT NULL, fence bigint NOT NULL DEFAULT 1, status text NOT NULL, stage text NOT NULL DEFAULT '',
+  pins jsonb NOT NULL, detail jsonb NOT NULL DEFAULT '{}'::jsonb, failure text NOT NULL DEFAULT '',
+  started_at timestamptz NOT NULL, updated_at timestamptz NOT NULL, heartbeat_at timestamptz NOT NULL,
+  deadline timestamptz NOT NULL, finished_at timestamptz
+);
+CREATE UNIQUE INDEX IF NOT EXISTS environment_operations_one_holder ON environment_operations(environment_id)
+  WHERE status IN ('ACTIVE','INTERRUPTED','RECOVERING');
+DO $$ BEGIN
+  ALTER TABLE environments ADD CONSTRAINT environments_active_operation_fk
+    FOREIGN KEY(active_operation_id) REFERENCES environment_operations(id) DEFERRABLE INITIALLY DEFERRED;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+CREATE TABLE IF NOT EXISTS environment_transitions (
+  id uuid PRIMARY KEY, environment_id uuid NOT NULL REFERENCES environments(id), operation_id uuid NOT NULL,
+  status text NOT NULL, stage text NOT NULL, document jsonb NOT NULL,
+  created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL
+);
+CREATE INDEX IF NOT EXISTS environment_transitions_env_idx ON environment_transitions(environment_id, created_at DESC);
+DROP TRIGGER IF EXISTS environments_binding_immutable ON environments;
+DROP FUNCTION IF EXISTS environments_binding_immutable();
+ALTER TABLE configuration_revision_entries ALTER COLUMN value_ref DROP NOT NULL;
+ALTER TABLE configuration_revision_entries ADD COLUMN IF NOT EXISTS store_key text NOT NULL DEFAULT '';
+ALTER TABLE configuration_revision_entries ADD COLUMN IF NOT EXISTS variable_value text;
+ALTER TABLE workload_instances ADD COLUMN IF NOT EXISTS generation bigint NOT NULL DEFAULT 0;
+ALTER TABLE workload_instances DROP CONSTRAINT IF EXISTS workload_instances_environment_id_workload_id_key;
+CREATE UNIQUE INDEX IF NOT EXISTS workload_instances_env_generation_workload_key ON workload_instances(environment_id, generation, workload_id);
+ALTER TABLE deployments ADD COLUMN IF NOT EXISTS connection_key text NOT NULL DEFAULT '';
+ALTER TABLE deployments ADD COLUMN IF NOT EXISTS target_generation bigint NOT NULL DEFAULT 0;
+`
+
 type querier interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	Query(context.Context, string, ...any) (pgx.Rows, error)
@@ -175,7 +224,7 @@ func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	for _, item := range []struct {
 		version int
 		sql     string
-	}{{1, migration}, {2, migration2}, {3, migration3}, {4, migration4}, {5, migration5}, {6, migration6}} {
+	}{{1, migration}, {2, migration2}, {3, migration3}, {4, migration4}, {5, migration5}, {6, migration6}, {7, migration7}} {
 		var applied bool
 		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)`, item.version).Scan(&applied); err != nil {
 			return err

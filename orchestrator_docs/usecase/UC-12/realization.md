@@ -55,3 +55,13 @@ configuration and UC-16 workload references against a pinned revision and
 draft version. A stale Preview cannot deploy. Deploy updates per-workload
 applied revisions and restarts only affected workloads. Partial failure is
 reported with individual outcomes and can be retried.
+
+## Revised provider boundary (ADR-012)
+
+Environment secret-store selection supersedes Application-wide provider. Variables
+are revision values in Orchestrator; Secrets are immutable refs with owning store.
+SecretStoreResolver resolves old refs as well as current selection. Store switch
+claims Environment, copies desired values outside transaction, then atomically
+commits new revision/selection. Old applied refs/bundles remain unchanged. VSO
+connection/auth objects are store-specific; next Preview marks secret consumers
+pending even when bytes are equal. See [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).

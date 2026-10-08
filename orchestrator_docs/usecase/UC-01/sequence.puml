@@ -1,32 +1,38 @@
 @startuml
-title UC-01 - Create Application and set Environment Connection once
+title UC-01 - Editable Environment destinations
 autonumber
 actor Developer as Dev
-boundary ApplicationController as API
-control ApplicationService as Service
-control "ApplicationService.SetConnection" as Target
-database ApplicationRepository as Apps
-database EnvironmentRepository as Envs
-database ConnectionRepository as Connections
-database DeploymentSetRepository as Sets
+boundary SettingsController as API
+control ApplicationService as Apps
+control EnvironmentSettingsService as Settings
+control EnvironmentTransitionService as Transition
+database UnitOfWork as DB
+participant SecretStoreResolver as Stores
+participant PostgreSQLTransfer as PG
 Dev -> API: CreateApplication(name, subdomain)
-API -> Service: Validate and generate Application ID
-Service -> Apps: Save identity/provider <<transaction>>
-Service -> Envs: Save staging/production UNCONFIGURED <<transaction>>
-Service -> Sets: Save empty Sets/current pointers <<transaction>>
-Service --> Dev: Application with independent unset targets
-Dev -> API: Open selected Environment Settings
-API -> Connections: List session Organization READY supported choices
-Connections --> Dev: safe choices; default marker only
-Dev -> API: SetConnection(app, env, key, expectedVersion)
-API -> Target: SetConnection(session Organization, command)
-Target -> Envs: Check scoped ownership, unset binding/version <<transaction>>
-Target -> Connections: Validate READY kind/region in Organization <<transaction>>
-Target -> Envs: CAS unset target, bump version, freeze binding <<transaction>>
-Envs --> Target: configured Environment or conflict
-Target --> Dev: read-only target; other Environment unchanged
-note over Target,Envs
-Any second set is 409, including same key.
-No external provisioning; no default fallback.
+API -> Apps: Validate/create identity and two unset Environments
+Apps -> DB: Atomic create, no defaults or runtime
+Dev -> API: Save initial/change Connection(expectedVersion)
+API -> Settings: Scoped validation
+Settings -> DB: CAS version, require no active owner
+DB --> Dev: New version or 409 stale/busy
+Dev -> API: Change secret store(expectedVersion, configVersion)
+API -> Settings: Claim operation atomically
+Settings -> Stores: Copy immutable desired Secrets and verify
+Settings -> DB: Commit store/revision under owner + versions
+DB --> Dev: Pending Preview/Deploy or safe failure
+Dev -> API: Preview target migration(destination, mappings)
+API -> Transition: Validate complete snapshot/capability
+Transition --> Dev: Pinned token and downtime impact
+Dev -> API: Execute(token, acknowledgeDowntime)
+API -> Transition: Admit snapshot and claim owner atomically
+Transition -> PG: Quiesce writers; backup; provision; restore; verify
+Transition -> Transition: Full redeploy, readiness, route cutover
+Transition -> DB: Commit destination/current Set; retain source generation
+DB --> Dev: Result/progress/recovery, no secret bytes
+note over Transition,DB
+Network calls outside transactions.
+Settings/config/draft writes blocked only while operation owns Environment.
+Old targets retained for explicit recovery/cleanup.
 end note
 @enduml

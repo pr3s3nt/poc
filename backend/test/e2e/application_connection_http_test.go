@@ -109,7 +109,7 @@ func TestUC01ApplicationConnectionChoiceEmptyWhenDefaultNotReady(t *testing.T) {
 	}
 }
 
-func TestUC01EnvironmentConnectionSetOnceOverHTTP(t *testing.T) {
+func TestUC01EnvironmentConnectionEditableOverHTTP(t *testing.T) {
 	statePath := filepath.Join(t.TempDir(), "state.json")
 	app, server := buildOnboardingApp(t, "test", statePath)
 	ctx := context.Background()
@@ -207,15 +207,25 @@ func TestUC01EnvironmentConnectionSetOnceOverHTTP(t *testing.T) {
 		t.Fatalf("application leaked target: %+v %v", stored, err)
 	}
 
-	// Repeats are 409 ALREADY_CONFIGURED whatever the key or version.
+	// Same key at the current version is a no-op; a stale version is 409
+	// STALE_VERSION; another key at the current version replaces the target
+	// (no permanent lock, ADR-012).
+	status, out = set("staging", "lab", 2)
+	if status != http.StatusOK || out["environment"].(map[string]any)["version"] != float64(2) {
+		t.Fatalf("same key no-op = %d %v", status, out)
+	}
 	for _, attempt := range []struct {
 		key     string
 		version any
-	}{{"lab", 2}, {"lab", 1}, {"internal-cluster", 2}, {"aws-account", 99}} {
+	}{{"lab", 1}, {"internal-cluster", 1}, {"aws-account", 99}} {
 		status, out := set("staging", attempt.key, attempt.version)
-		if status != http.StatusConflict || out["code"] != "ALREADY_CONFIGURED" {
-			t.Fatalf("repeat %v = %d %v", attempt, status, out)
+		if status != http.StatusConflict || out["code"] != "STALE_VERSION" {
+			t.Fatalf("stale %v = %d %v", attempt, status, out)
 		}
+	}
+	status, out = set("staging", "internal-cluster", 2)
+	if edited := out["environment"].(map[string]any); status != http.StatusOK || edited["connectionKey"] != "internal-cluster" || edited["version"] != float64(3) {
+		t.Fatalf("change connection = %d %v", status, out)
 	}
 	// Strict body and typed failures on a fresh unset Environment.
 	status, out = request(http.MethodPost, "/api/v1/applications", `{"name":"Other","subdomain":"other"}`)
@@ -282,7 +292,7 @@ func TestUC01EnvironmentConnectionSetOnceOverHTTP(t *testing.T) {
 			found[view["name"].(string)+"/"+env["key"].(string)] = env["connectionKey"].(string)
 		}
 	}
-	if found["Payments/staging"] != "lab" || found["Payments/production"] != "aws-account" || found["Other/staging"] != "" || found["Other/production"] != "" {
+	if found["Payments/staging"] != "internal-cluster" || found["Payments/production"] != "aws-account" || found["Other/staging"] != "" || found["Other/production"] != "" {
 		t.Fatalf("bindings after restart: %v", found)
 	}
 	// The seeded acceptance fixtures keep their historical LEGACY_APPLICATION binding.

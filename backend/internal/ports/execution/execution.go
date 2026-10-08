@@ -73,7 +73,10 @@ type ProvisionRequest struct {
 	// Module names the Terraform module of the matched Definition source.
 	Module string
 	// Inputs are the resolved driver variables merged with the resource params.
-	Inputs     map[string]any
+	Inputs map[string]any
+	// Generation is the target generation of the Environment run. Executors
+	// that keep local state (Terraform workspaces) isolate generations >= 1.
+	Generation int64
 	PriorState map[string]any
 	Connection application.Connection
 	Target     Target
@@ -129,8 +132,9 @@ type ConfigSecretSynchronizer interface {
 }
 
 type ConfigBundle struct {
-	Address, Mount, Path, Role, ServiceAccount, SecretName string
-	Keys                                                   map[string]map[string]string
+	StoreKey, Address, Mount, AuthMount, Path, Role, ServiceAccount, SecretName string
+	CAPEM                                                                       string
+	Keys                                                                        map[string]map[string]string
 }
 
 // VaultInjection supplies only opaque immutable value references to the
@@ -170,4 +174,79 @@ type SecretStore interface {
 // RenderPreflight validates pinned renderer availability before infrastructure side effects.
 type RenderPreflight interface {
 	ValidateSelection(context.Context, resource.RenderingSelection) error
+}
+
+// WorkloadScaler quiesces and restores the writers of one Environment
+// generation (ADR-012 target transitions).
+type WorkloadScaler interface {
+	// Replicas reports the desired replica count of a workload and whether it exists.
+	Replicas(ctx context.Context, target Target, workloadID string) (int, bool, error)
+	// Scale sets the desired replicas and, when scaling to zero, waits until no
+	// Pod of the workload remains.
+	Scale(ctx context.Context, target Target, workloadID string, replicas int) error
+}
+
+// PostgresResource identifies one Kubernetes-managed PostgreSQL resource. It
+// carries no credential: the adapter reaches the server through the Pod's
+// local socket and declares unsupported anything that requires a password.
+type PostgresResource struct {
+	Target    Target
+	Namespace string
+	Name      string // StatefulSet and Service name; the Pod is "<name>-0"
+	Database  string
+	Username  string
+}
+
+// PostgresInventory is the schema/table/row-count fingerprint of a database.
+type PostgresInventory struct {
+	ServerVersionNum int
+	// Tables maps "schema.table" to its row count.
+	Tables map[string]int64
+}
+
+// PostgresArchive is a private on-Pod backup handle; it holds no bytes.
+type PostgresArchive struct {
+	Pod    string
+	Dir    string
+	SHA256 string
+	Bytes  int64
+}
+
+// PostgresTransfer backs up, streams and restores PostgreSQL 16 (ADR-012).
+type PostgresTransfer interface {
+	// Inspect proves the server is reachable and reports version and row counts.
+	Inspect(ctx context.Context, res PostgresResource) (PostgresInventory, error)
+	// Backup writes a custom-format archive to the private (0700/0600) path
+	// named by want.Dir on the source Pod and returns its handle. The caller
+	// chooses and records the path first, so a crash leaves a known handle. On
+	// failure the adapter removes whatever it created under that path.
+	Backup(ctx context.Context, res PostgresResource, want PostgresArchive) (PostgresArchive, error)
+	// Restore streams the archive into the destination database. The bytes
+	// pass through the orchestrator process only as a pipe and are verified
+	// against the archive hash; nothing is stored in the orchestrator.
+	Restore(ctx context.Context, src PostgresResource, archive PostgresArchive, dst PostgresResource) error
+	// RemoveArchive deletes the private archive and its directory.
+	RemoveArchive(ctx context.Context, src PostgresResource, archive PostgresArchive) error
+}
+
+// RouteInspector reports whether the Environment-owned public Ingress exists
+// at a target, so cutover can prove which side serves the host.
+type RouteInspector interface {
+	HasPublicRoute(ctx context.Context, target Target, applicationID, environmentID string) (bool, error)
+}
+
+// NamespaceCleaner deletes one retained generation namespace after verifying
+// that it carries the orchestrator ownership labels of the Environment.
+type NamespaceCleaner interface {
+	DeleteOwnedNamespace(ctx context.Context, target Target, namespace, applicationID, environmentID string) error
+}
+
+// TargetProbe proves a destination is reachable with its Connection credential
+// and may create the objects a deployment needs, before anything is stopped.
+type TargetProbe interface {
+	Probe(ctx context.Context, target Target) error
+	// ClusterIdentity returns a stable physical identity of the cluster behind
+	// a target (not a Connection key or kube context string), so two logical
+	// Connections can be proven to reach the same cluster and ingress controller.
+	ClusterIdentity(ctx context.Context, target Target) (string, error)
 }

@@ -1,38 +1,21 @@
 @startuml
 salt
 {
-  {
-    <b>Orchestrator</b>
-    Applications
-    Deployments
-
-
-
-    Minh Nguyen
-    Developer
-    Sign out
-  }
-  {
-    <b>Payment</b>
-    payment.example.com
-
-    [ Staging ]   [ Production ]
-    Staging connection: not configured
-    [ Environment Settings ]
-    Deployment connection: ^Choose connection^
-    Set once; cannot change after saving.
-    [ Set connection ]
-
-    <b>Workloads</b>                                  [ + Add workload ]
-    {#
-      Name | Status | Actions
-      payment-api | Ready | Edit   Delete
-      payment-worker | Draft | Edit   Delete
-    }
-    Workload editing is available in the next use case.
-
-    <b>Recent deployments</b>
-    No deployments yet
-  }
+ <b>Payment / Settings</b>
+ [ Staging ] | [ Production ]
+ <b>Deployment connection</b>
+ ^Choose READY Connection^ | [ Save / Preview transition ]
+ <b>Secret store connection</b>
+ ^Choose READY Vault store^ | [ Save and copy secrets ]
+ Current version: 12
+ Preview becomes stale when settings change.
+ <b>Transition</b>
+ Mode: ^Deploy new / Migrate PostgreSQL^
+ Source resource: ^postgres.default^
+ [ Acknowledge downtime ] | [ Preview ] | [ Execute ]
+ Progress: Backup -> Restore -> Verify -> Cutover
+ Source retained | [ Review cleanup ]
+ <b>Variables and Secrets</b>
+ [ Add variable ] | [ Add secret ]
 }
 @enduml

@@ -24,3 +24,5 @@ last_reviewed: 2026-10-06
   — accepted; internal-k8s registration/Preview/Deploy integration, with separate live verification.
 
 - [ADR-011 — Environment execution binding set once](ADR-011-environment-execution-binding.md) — independent Kubernetes/AWS Environment targets, new Environment-scoped VPC/EKS and explicit legacy compatibility.
+
+- [ADR-012 — Environment stores and transitions](ADR-012-environment-stores-and-transitions.md) — editable destinations, atomic admission, Vault transfer and PostgreSQL migration with downtime.

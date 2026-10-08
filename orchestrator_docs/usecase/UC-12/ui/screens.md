@@ -51,3 +51,10 @@ be updated automatically and Preview will reject unresolved references.
 `Continue` is available; the warning is not a hard block. Value update shows
 affected workloads and explains that runtime changes only after Preview and
 Deploy.
+
+## Secret Store Connection
+
+Selected Environment Settings displays the chosen store and editable READY choices.
+Unset state allows ordinary Variable edits, but Secret Add asks to select a store.
+Change-store action shows copying/verification, success/pending-deploy or safe error.
+No raw Secret, store token or backup content appears in the UI.

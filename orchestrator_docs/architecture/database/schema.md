@@ -21,8 +21,8 @@ PostgreSQL là system of record cho logical orchestration state. JSONB chỉ dù
 | `default_connection_id` | uuid | FK connections, NOT NULL for onboarding-enabled Organization |
 
 The Organization default is only a marker in Environment Settings choices.
-UC-01 creates UNCONFIGURED Environments and never resolves a default. Target
-is set exactly once per Environment; see [ADR-011](../decisions/ADR-011-environment-execution-binding.md).
+UC-01 creates UNCONFIGURED Environments and never resolves a default. Targets are independently editable with versions and explicit transitions; see
+[ADR-012](../decisions/ADR-012-environment-stores-and-transitions.md).
 
 ### `user_accounts`
 
@@ -96,7 +96,7 @@ See [credential design](../connection-credentials.md).
 | `region` | text | legacy only; empty for new Application |
 | `runtime_status` | text | legacy PENDING/READY; UNCONFIGURED for new Application |
 | `version` | bigint | optimistic version |
-| `configuration_provider` | text | `vault` in the first implementation; one provider per Application |
+| `configuration_provider` | text | legacy only; current Secret Store selection belongs to Environment |
 
 `id` is system-generated and immutable. Application Name is unique within an
 Organization without regard to case, enforced by a unique index on
@@ -127,13 +127,11 @@ unique globally within the configured platform base domain.
 Unique: `(application_id, environment_key)` and `(application_id, namespace_identity)`.
 The application-creation transaction inserts exactly those two rows, unset.
 
-SetConnection uses an atomic unset + version compare-and-set within the owning
-Organization; increments version and freezes connection/profile/region/scope.
-Normal Save and runtime updates cannot replace binding. Migration copies old
-Application targets into old Environments exactly once and locks them with
-LEGACY_APPLICATION; an idempotent rerun leaves new unbound rows unconfigured.
-Retain old AWS resource identity/state and all old namespace/workload TargetRefs.
-JSON loader applies equivalent legacy conversion only for old bound apps.
+Selection changes use Environment.version CAS and operation-owner checks, not a
+permanent immutable-binding trigger. Dedicated binding commands own writes;
+ordinary Save cannot bypass them. Generation 0 retains old identities; later
+targets are isolated. Legacy conversion is idempotent and has no default fallback.
+See [ADR-012](../decisions/ADR-012-environment-stores-and-transitions.md).
 
 ### `configuration_revisions`
 
@@ -156,10 +154,12 @@ revisions. Revision rows contain no values.
 | `revision_id` | uuid | PK/FK configuration_revisions |
 | `key_name` | text | PK; valid environment variable name |
 | `kind` | text | `VARIABLE` or `SECRET` |
-| `value_ref` | text | opaque immutable Vault KV v2 reference, NOT NULL |
+| `value_ref` | text | immutable Secret ref or legacy Variable ref; nullable for new ordinary Variable |
+| `store_key` | text | owning store identity for Secret/legacy refs |
+| `variable_value` | text | ordinary Variable value only; NULL for Secret |
 
-The primary key gives one namespace across Variable and Secret. No raw values
-are stored in this table or in the JSON snapshot adapter.
+The primary key gives one namespace across Variable and Secret. Secret plaintext is forbidden; ordinary Variable values are allowed in this table
+and JSON state. Legacy Variable refs materialize outside schema migrations.
 
 ### `workload_drafts`
 
@@ -363,7 +363,10 @@ source fingerprint retain existing storage. No new table/column or secret storag
 is introduced. Pending Preview hashes bind the rendering intent through existing
 per-workload plan hashes. Logical resource and workload identities are unchanged.
 
-## Environment target migration constraints (ADR-011)
+## Historical Environment target migration constraints (ADR-011)
+
+Permanent immutability described below is superseded by ADR-012; generation-0
+backfill/identity preservation remains.
 
 Nullable legacy applications.connection_id is preserved; new Applications write
 NULL connection, empty profile/region, runtime UNCONFIGURED. Add Environment target
@@ -373,3 +376,43 @@ copy all target fields and mark LEGACY_APPLICATION. Reopen is idempotent.
 Consistency CHECK and immutable binding trigger protect configured connection,
 profile, region and scope. Runtime status/version updates remain legal. Atomic
 SetConnection verifies ownership and READY selection plus unset/expected version.
+
+## Environment stores and transitions (ADR-012 migration)
+
+Add Organization-owned `secret_store_connections`: immutable ID/key/name/provider,
+backend/workload addresses, KV/auth mounts, nonsecret TLS configuration,
+credential_ref/status/timestamps. Unique `(organization_id, store_key)`. References
+must be Organization-scoped. Credential bytes live only in platform credential store.
+
+Extend `environments` with selected store key/FK, target_generation bigint default
+0, active_operation_id nullable, selected/active runtime generation metadata as
+needed for transition staging. Environment.version remains Settings CAS. Remove
+permanent binding immutability trigger through additive versioned migration; retain
+consistency checks and enforce dedicated CAS/owner commands. Do not clear bindings.
+
+Add `environment_operations`: ID, Environment FK, owner, fencing generation
+(bigint starting at 1, incremented on recovery), kind, status/stage,
+source/destination binding JSON (nonsecret), pinned Environment/draft/config
+versions/current Set, start/update/deadline, safe failure/recovery metadata.
+Unique active owner per Environment, enforced by row claim or partial unique
+index. Claim/release and version guards run inside one transaction. A restart
+preserves INTERRUPTED recovery state; no automatic expiry bypass of live owner.
+Ownership must change on recovery (owner identity or a monotonic fencing token).
+Heartbeat, release and every owner-only write, including transition bookkeeping,
+check the current ownership atomically; a reused operation ID is insufficient.
+Persist safe confirmation/audit metadata that prior execution was stopped before
+recovery takes ownership. Enforce recorded deadlines on executor contexts.
+
+Add persisted transition/retained-target records: operation ID, target generation,
+source/destination TargetRefs, old Set, resource/executor state identity, writer
+replicas at source and attempt-owned destination, private backup handle/hash,
+source authority/quiesce/needs-attention/cleanup state and stage results. Historical target/resource
+records must not be overwritten by new generation. Extend ActiveResource identity
+and applied WorkloadInstance/deployment snapshot identity with target generation
+or retain equivalent immutable generation-owned records. Generation 0 IDs and
+all old plan/state remain valid; new Terraform/namespace identities are isolated.
+
+Secret refs/revisions pin store identity; old applied refs are immutable. New
+Variable values are metadata, never Secret values. Legacy explicit platform-store
+backfill preserves refs; Vault network reads are excluded from SQL migrations.
+JSON and SQL adapters expose equivalent CAS/claim/transition persistence semantics.

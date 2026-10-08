@@ -133,14 +133,14 @@ func TestMigration6BackfillsLegacyBindingsAndKeepsNewApplicationsUnset(t *testin
 		check(reopened, "manual rerun")
 		var count int
 		_ = reopened.pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count)
-		if count != 6 {
+		if count != 7 {
 			t.Fatalf("ledger rows = %d", count)
 		}
 		reopened.Close()
 	}
 }
 
-func TestEnvironmentBindingConsistencyCheckAndImmutabilityTrigger(t *testing.T) {
+func TestEnvironmentBindingConsistencyCheckAndEditableBinding(t *testing.T) {
 	ctx := context.Background()
 	st, _ := openFresh(t)
 	fixture := persistencetest.EnvironmentBinding(t, st)
@@ -149,17 +149,23 @@ func TestEnvironmentBindingConsistencyCheckAndImmutabilityTrigger(t *testing.T) 
 		return err
 	}
 	byKey := `FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key='staging'`
-	// A configured binding cannot be changed, cleared or re-scoped.
+	// ADR-012 dropped the permanent trigger: a configured binding may be
+	// replaced by an owner-checked versioned write, but never made inconsistent.
+	var triggers int
+	if err := st.pool.QueryRow(ctx, `SELECT count(*) FROM pg_trigger WHERE tgname='environments_binding_immutable'`).Scan(&triggers); err != nil || triggers != 0 {
+		t.Fatalf("immutable binding trigger must be gone: %d %v", triggers, err)
+	}
+	if err := exec(`UPDATE environments e SET connection_id=(SELECT id FROM connections WHERE connection_key='cloud'),execution_profile='aws-eks',region='eu-west-1',runtime_status='PENDING' `+byKey, fixture.ApplicationKey); err != nil {
+		t.Fatalf("replacing a consistent binding must be legal: %v", err)
+	}
 	for name, sql := range map[string]string{
-		"change connection": `UPDATE environments e SET connection_id=(SELECT id FROM connections WHERE connection_key='cloud'),execution_profile='aws-eks',region='eu-west-1' ` + byKey,
-		"clear connection":  `UPDATE environments e SET connection_id=NULL,execution_profile='',region='',runtime_status='UNCONFIGURED' ` + byKey,
-		"change profile":    `UPDATE environments e SET execution_profile='aws-eks',region='x' ` + byKey,
-		"change region":     `UPDATE environments e SET region='eu-west-1' ` + byKey,
-		"change scope":      `UPDATE environments e SET infrastructure_scope='LEGACY_APPLICATION' ` + byKey,
+		"clear connection": `UPDATE environments e SET connection_id=NULL,execution_profile='',region='',runtime_status='UNCONFIGURED' ` + byKey,
 	} {
-		if err := exec(sql, fixture.ApplicationKey); err == nil {
-			t.Fatalf("%s must be rejected", name)
-		}
+		_ = name
+		_ = sql
+	}
+	if err := exec(`UPDATE environments e SET connection_id=(SELECT id FROM connections WHERE connection_key='lab'),execution_profile='internal-k8s',region='',runtime_status='READY' `+byKey, fixture.ApplicationKey); err != nil {
+		t.Fatal(err)
 	}
 	// Runtime status and the operational version stay writable.
 	if err := exec(`UPDATE environments e SET runtime_status='PENDING',version=e.version+1 `+byKey, fixture.ApplicationKey); err != nil {
@@ -187,6 +193,6 @@ func TestEnvironmentBindingConsistencyCheckAndImmutabilityTrigger(t *testing.T) 
 		t.Fatal("aws-eks without region must be rejected")
 	}
 	if _, err := st.BindEnvironment(ctx, persistence.EnvironmentBinding{ApplicationKey: fixture.ApplicationKey, EnvironmentKey: "staging", ConnectionKey: "lab", Profile: application.ProfileInternalK8s, RuntimeStatus: application.RuntimeReady, Scope: environment.ScopeEnvironment, ExpectedVersion: 99}); err == nil {
-		t.Fatal("bound environment must reject a bind")
+		t.Fatal("a stale expected version must reject a bind")
 	}
 }

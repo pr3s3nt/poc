@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -95,7 +96,7 @@ func (e *Executor) Provision(ctx context.Context, req execution.ProvisionRequest
 	if module == "" {
 		return execution.ProvisionResult{}, fmt.Errorf("terraform: resource %s has no module in its definition source", req.Descriptor)
 	}
-	dir := filepath.Join(e.Root, workspaceName(req.Descriptor))
+	dir := filepath.Join(e.Root, workspaceFor(req.Descriptor, req.Generation))
 	if err := e.writeModule(module, dir); err != nil {
 		return execution.ProvisionResult{}, err
 	}
@@ -257,7 +258,7 @@ func (e *Executor) buildVars(module, dir string, req execution.ProvisionRequest)
 	vars["region"] = e.Region
 	vars["tags"] = e.Tags
 	if _, ok := vars["name"]; !ok {
-		vars["name"] = workspaceName(req.Descriptor)
+		vars["name"] = workspaceFor(req.Descriptor, req.Generation)
 	}
 	if module == ModuleAurora {
 		password, err := reusePassword(dir)
@@ -443,6 +444,16 @@ func readVars(dir string) (map[string]any, error) {
 		return nil, err
 	}
 	return vars, nil
+}
+
+// workspaceFor isolates the local Terraform workspace/state of each target
+// generation; generation 0 keeps the legacy name (ADR-012).
+func workspaceFor(descriptor string, generation int64) string {
+	name := workspaceName(descriptor)
+	if generation > 0 {
+		name += "-g" + strconv.FormatInt(generation, 10)
+	}
+	return name
 }
 
 func workspaceName(descriptor string) string {

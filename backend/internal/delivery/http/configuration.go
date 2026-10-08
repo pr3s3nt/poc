@@ -29,7 +29,7 @@ func (s *Server) handleGetConfiguration(w http.ResponseWriter, r *http.Request) 
 	}
 	view, err := s.configurations.List(r.Context(), app, env)
 	if err != nil {
-		writeError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
@@ -53,7 +53,7 @@ func (s *Server) handlePutConfigurationKey(w http.ResponseWriter, r *http.Reques
 	}
 	view, err := s.configurations.Put(r.Context(), app, env, r.PathValue("key"), req.Kind, req.Value, req.Version)
 	if err != nil {
-		writeError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
@@ -76,7 +76,7 @@ func (s *Server) handleRenameConfigurationKey(w http.ResponseWriter, r *http.Req
 	}
 	view, err := s.configurations.Rename(r.Context(), app, env, r.PathValue("key"), req.NewName, req.Version)
 	if err != nil {
-		writeError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
@@ -98,7 +98,7 @@ func (s *Server) handleDeleteConfigurationKey(w http.ResponseWriter, r *http.Req
 	}
 	view, err := s.configurations.Delete(r.Context(), app, env, r.PathValue("key"), req.Version)
 	if err != nil {
-		writeError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, view)

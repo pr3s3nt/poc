@@ -16,6 +16,7 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
           {isPlatformEngineer ? <a className={navClass('resource-types')} href={href({ name: 'resource-types' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-types' }); }}>◇ <span>Resource types</span></a> : null}
           {isPlatformEngineer ? <a className={navClass('resource-definitions')} href={href({ name: 'resource-definitions' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-definitions' }); }}>▣ <span>Resource definitions</span></a> : null}
           {isPlatformEngineer ? <a className={navClass('connections')} href={href({ name: 'connections' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'connections' }); }}>⌘ <span>Connections</span></a> : null}
+          {isPlatformEngineer ? <a className={navClass('secret-stores')} href={href({ name: 'secret-stores' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'secret-stores' }); }}>⚿ <span>Secret stores</span></a> : null}
           <span className="nav-item nav-item-disabled">◷ <span>Deployments</span><small>Coming next</small></span>
         </nav>
         <div className="sidebar-footer">

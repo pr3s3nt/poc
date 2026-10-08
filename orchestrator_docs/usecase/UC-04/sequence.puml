@@ -45,4 +45,10 @@ No overwrite on collision/concurrency.
 Organization default is unchanged.
 No secret bytes in logical state.
 end note
+PE -> API: Register Secret Store Connection [SS-01..06]
+API -> Service: Role/org-gated Vault register command
+Service -> Service: Verify KV v2/capabilities, cleanup own probe
+Service -> Secrets: Put scoped immutable store token
+Service -> Repo: Insert separate SecretStoreConnection READY
+Service --> PE: Safe metadata, never token/ref
 @enduml

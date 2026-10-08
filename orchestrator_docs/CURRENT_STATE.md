@@ -264,3 +264,26 @@ deterministic seed preservation tests and run-owned browser cleanup checks.
 Previous [Application-selection local evidence](verification/2026-10-07-application-connection-selection-local.md)
 and [kind evidence](verification/2026-10-07-application-connection-selection-kind.md)
 remain historical; their Application-wide selection is superseded by ADR-011.
+
+## Environment secret stores and editable destinations — implementation checkpoint
+
+[ADR-012](architecture/decisions/ADR-012-environment-stores-and-transitions.md)
+replaces permanent selection lock with versioned editable per-Environment execution
+and Secret Store Connections, atomic admission, Vault transfer and PostgreSQL
+migration with downtime. This checkpoint is committed at the user's request;
+feature acceptance remains incomplete.
+
+Backend/frontend code and canonical design are present. Initial compilation,
+recovery fencing, PostgreSQL command, routing preflight and Preview impact defects
+were corrected. Independent Go race/PostgreSQL integration/vet/build and frontend
+typecheck/lint/tests/build checks passed on 2026-10-08. Claude reports a real-kind
+PostgreSQL adapter transfer/cleanup test passed; the full two-Vault human UI flow
+and video are not yet verified.
+
+Remaining review covers recovery polling after a failed attempt, disabling
+conflicting configuration/draft submissions during an operation, and recording
+runner failure cleanup (early application ID, owned backend process group and
+bounded network calls). Existing acceptance helpers must explicitly select a
+store before new-Environment secret writes. IMP-017 remains open. The pre-existing
+AWS integration-tag test has an EKSDescriptor argument mismatch; no live AWS run
+is authorized or claimed. Prior set-once evidence remains historical.

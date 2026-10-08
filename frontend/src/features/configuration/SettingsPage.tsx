@@ -3,10 +3,20 @@ import { navigate, replaceRoute } from '../../app/routes';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
 import { EnvironmentConnection } from './EnvironmentConnection';
+import { OperationBanner } from '../environment/OperationBanner';
+import { SecretStoreSelection } from '../environment/SecretStoreSelection';
+import { TransitionPanel } from '../environment/TransitionPanel';
 import { deleteKey, getConfiguration, putKey, renameKey, type ConfigKey, type Configuration, type KeyKind } from './api';
 
 type Form = { kind: KeyKind; name: string; value: string; editing?: string };
 type Action = { kind: 'rename' | 'delete'; key: ConfigKey; newName: string };
+
+// 409 conflicts are shown with the server sentence; the page then reloads the
+// authoritative configuration so the user resubmits against the latest version.
+function describe(err: unknown): string {
+  const message = (err as Error).message;
+  return (err as { status?: number }).status === 409 ? `${message} The latest values were reloaded; review them and try again.` : message;
+}
 
 export function SettingsPage({ application, initialEnvironment = 'staging', onTargetChange }: { application: Application; initialEnvironment?: EnvironmentKey; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
   const [environment, setEnvironment] = useState<EnvironmentKey>(initialEnvironment);
@@ -16,6 +26,9 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
   const [form, setForm] = useState<Form>();
   const [action, setAction] = useState<Action>();
   const [saving, setSaving] = useState(false);
+  const [reloadCount, setReloadCount] = useState(0);
+  const [transitionTo, setTransitionTo] = useState<string>();
+  const [needStore, setNeedStore] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -24,9 +37,11 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
     setForm(undefined);
     setAction(undefined);
     setError('');
+    setTransitionTo(undefined);
+    setNeedStore(false);
     getConfiguration(application.id, environment).then((result) => { if (!cancelled) setData(result); }).catch((err: Error) => { if (!cancelled) setError(err.message); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [application.id, environment]);
+  }, [application.id, environment, reloadCount]);
 
   async function saveForm() {
     if (!form || !data) return;
@@ -34,8 +49,15 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
     try {
       const result = await putKey(application.id, environment, form.name.trim(), form.kind, form.value, data.version);
       setData(result); setForm(undefined);
-    } catch (err) { setError((err as Error).message); }
+    } catch (err) { setError(describe(err)); await refreshOn409(err); }
     finally { setSaving(false); }
+  }
+
+  // After a conflict the authoritative configuration replaces the stale copy
+  // without clearing the message; the user reviews it and resubmits explicitly.
+  async function refreshOn409(err: unknown) {
+    if ((err as { status?: number }).status !== 409) return;
+    try { setData(await getConfiguration(application.id, environment)); } catch { /* the message already says to retry */ }
   }
 
   async function confirmAction() {
@@ -46,24 +68,29 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
         ? await renameKey(application.id, environment, action.key.name, action.newName.trim(), data.version)
         : await deleteKey(application.id, environment, action.key.name, data.version);
       setData(result); setAction(undefined);
-    } catch (err) { setError((err as Error).message); }
+    } catch (err) { setError(describe(err)); await refreshOn409(err); }
     finally { setSaving(false); }
   }
 
   function section(kind: KeyKind, title: string) {
     const keys = data?.keys.filter((key) => key.kind === kind) ?? [];
     return <section className="content-panel" aria-label={title}>
-      <div className="section-header"><div><h2>{title}</h2><p>{kind === 'SECRET' ? 'Values are hidden after saving.' : 'Reusable across workloads in this environment.'}</p></div><Button onClick={() => { setAction(undefined); setForm({ kind, name: '', value: '' }); }}>+ Add {kind === 'SECRET' ? 'secret' : 'variable'}</Button></div>
+      <div className="section-header"><div><h2>{title}</h2><p>{kind === 'SECRET' ? 'Values are hidden after saving.' : 'Reusable across workloads in this environment.'}</p></div><Button onClick={() => { setAction(undefined); if (kind === 'SECRET' && !application.environments[environment].secretStoreKey) { setForm(undefined); setNeedStore(true); return; } setNeedStore(false); setForm({ kind, name: '', value: '' }); }}>+ Add {kind === 'SECRET' ? 'secret' : 'variable'}</Button></div>
       {keys.length === 0 ? <div className="section-empty">No {title.toLowerCase()} configured in {environment}.</div> : <div className="settings-table"><div className="settings-table-head"><span>Name</span><span>{kind === 'SECRET' ? 'Status' : 'Value'}</span><span>Used by</span><span>Actions</span></div>
         {keys.map((key) => <div className="settings-table-row" key={key.name}><strong>{key.name}</strong><span className={kind === 'SECRET' ? 'muted' : ''}>{kind === 'SECRET' ? 'Configured' : key.value}</span><span>{key.usedBy.length ? key.usedBy.join(', ') : '—'}</span><span className="row-actions"><Button tone="quiet" onClick={() => { setAction(undefined); setForm({ kind, name: key.name, value: kind === 'SECRET' ? '' : key.value ?? '', editing: key.name }); }}>{kind === 'SECRET' ? 'Update' : 'Edit'}</Button><Button tone="quiet" onClick={() => { setForm(undefined); setAction({ kind: 'rename', key, newName: key.name }); }}>Rename</Button><Button tone="danger" onClick={() => { setForm(undefined); setAction({ kind: 'delete', key, newName: '' }); }}>Delete</Button></span></div>)}</div>}
     </section>;
   }
 
+  const change = onTargetChange ?? (() => undefined);
   return <section className="page settings-page">
     <button className="back-link" onClick={() => navigate({ name: 'application', applicationId: application.id })}>← {application.name}</button>
-    <header className="page-header application-header"><div><p className="eyebrow">Application settings</p><h1>Environment settings</h1><p>Choose each environment's execution connection once, and configure values separately for staging and production. Use Preview changes on the Application page to see what still needs deployment.</p></div>{data && data.version > 0 ? <span className="pending-pill">Desired revision v{data.version}</span> : null}</header>
+    <header className="page-header application-header"><div><p className="eyebrow">Application settings</p><h1>Environment settings</h1><p>Choose and change each environment's deployment connection and secret store, and configure values separately for staging and production. Use Preview changes on the Application page to see what still needs deployment.</p></div>{data && data.version > 0 ? <span className="pending-pill">Desired revision v{data.version}</span> : null}</header>
     <div className="tabs" role="tablist" aria-label="Environment">{(['staging', 'production'] as const).map((env) => <button key={env} role="tab" aria-selected={env === environment} className={env === environment ? 'tab tab-active' : 'tab'} onClick={() => { setEnvironment(env); replaceRoute({ name: 'settings', applicationId: application.id, environment: env }); }}>{env === 'staging' ? 'Staging' : 'Production'}</button>)}</div>
-    <EnvironmentConnection application={application} environment={environment} onTargetChange={onTargetChange ?? (() => undefined)} />
+    <OperationBanner application={application} environment={environment} onTargetChange={change} />
+    <EnvironmentConnection application={application} environment={environment} onTargetChange={change} onStartTransition={(destination) => setTransitionTo(destination)} />
+    {transitionTo !== undefined || application.environments[environment].runtimeExists ? <TransitionPanel application={application} environment={environment} initialDestination={transitionTo ?? ''} onTargetChange={change} /> : null}
+    <SecretStoreSelection application={application} environment={environment} configVersion={data?.version ?? 0} onTargetChange={change} onConfigurationChanged={() => setReloadCount((value) => value + 1)} />
+    {needStore ? <div className="form-info" role="status">Select a secret store above before adding a Secret. Environment variables can be added without one.</div> : null}
     {error ? <div className="form-error" role="alert">{error}</div> : null}
     {loading ? <p>Loading configuration…</p> : null}
     {!loading && data ? <>{section('VARIABLE', 'Environment variables')}{section('SECRET', 'Secrets')}</> : null}

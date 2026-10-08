@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"orchestrator/internal/application/envops"
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/platform/ids"
@@ -171,9 +172,13 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 
 // Failures of SetConnection that delivery maps to 409.
 var (
-	ErrAlreadyConfigured = errors.New("application: environment connection is already configured")
-	ErrStaleVersion      = errors.New("application: environment changed; reload it")
-	ErrNotFound          = persistence.ErrNotFound
+	// ErrRuntimeExists means the Environment already has runtime state, so the
+	// target can only change through the explicit transition flow.
+	ErrRuntimeExists = errors.New("application: environment has runtime resources; use a connection transition")
+	ErrStaleVersion  = errors.New("application: environment changed; reload it")
+	ErrNotFound      = persistence.ErrNotFound
+	// ErrBusy wraps persistence.ErrEnvironmentBusy for delivery.
+	ErrBusy = persistence.ErrEnvironmentBusy
 )
 
 // SetConnectionCommand carries session-derived Organization and the request.
@@ -182,9 +187,10 @@ type SetConnectionCommand struct {
 	ExpectedVersion                                                int64
 }
 
-// SetConnection sets the execution Connection of one Environment exactly once
-// (UC-01 ES-03..06). Nothing outside the Environment changes and no external
-// system is called.
+// SetConnection selects or changes the execution Connection of one Environment
+// before any runtime exists (UC-01 ES-03..06, ADR-012). Selecting the same key
+// at the current version is an idempotent no-op. It is one versioned metadata
+// write: no provisioning and no external call.
 func (s *Service) SetConnection(ctx context.Context, cmd SetConnectionCommand) (environment.Environment, error) {
 	cmd.ConnectionKey = strings.TrimSpace(cmd.ConnectionKey)
 	if cmd.ConnectionKey == "" {
@@ -206,10 +212,16 @@ func (s *Service) SetConnection(ctx context.Context, cmd SetConnectionCommand) (
 		if err != nil {
 			return err
 		}
-		// The configured check precedes every other validation, so a repeat
-		// (even with the same key) never reveals anything about the Connection.
-		if env.Configured() {
-			return ErrAlreadyConfigured
+		if env.Busy() {
+			return persistence.Busy(cmd.ApplicationKey, cmd.EnvironmentKey)
+		}
+		if env.Version != cmd.ExpectedVersion {
+			return ErrStaleVersion
+		}
+		if env.Configured() && env.ConnectionKey == cmd.ConnectionKey {
+			// Same key at the current version: nothing changes, nothing is rechecked.
+			out = env
+			return nil
 		}
 		conn, err := s.store.GetConnection(ctx, cmd.OrganizationKey, cmd.ConnectionKey)
 		if errors.Is(err, persistence.ErrNotFound) {
@@ -221,6 +233,15 @@ func (s *Service) SetConnection(ctx context.Context, cmd SetConnectionCommand) (
 		if !eligible(cmd.OrganizationKey, conn) {
 			return fieldError(connectionKeyField, ErrTargetNotReady, targetUnavailableMsg)
 		}
+		if env.Configured() {
+			exists, err := envops.HasRuntime(ctx, s.store, cmd.OrganizationKey, env)
+			if err != nil {
+				return err
+			}
+			if exists {
+				return ErrRuntimeExists
+			}
+		}
 		profile, region, status := appdomain.ProfileInternalK8s, "", appdomain.RuntimeReady
 		if conn.Kind == appdomain.ConnectionAWS {
 			profile, region, status = appdomain.ProfileAWSEKS, conn.ConfigString("region"), appdomain.RuntimePending
@@ -228,11 +249,9 @@ func (s *Service) SetConnection(ctx context.Context, cmd SetConnectionCommand) (
 		bound, err := s.store.BindEnvironment(ctx, persistence.EnvironmentBinding{
 			ApplicationKey: cmd.ApplicationKey, EnvironmentKey: cmd.EnvironmentKey, ConnectionKey: conn.Key,
 			Profile: profile, Region: region, RuntimeStatus: status, Scope: environment.ScopeEnvironment,
-			ExpectedVersion: cmd.ExpectedVersion,
+			Generation: env.TargetGeneration, ExpectedVersion: cmd.ExpectedVersion,
 		})
 		switch {
-		case errors.Is(err, persistence.ErrBindingConfigured):
-			return ErrAlreadyConfigured
 		case errors.Is(err, persistence.ErrVersionConflict):
 			return ErrStaleVersion
 		case errors.Is(err, persistence.ErrNotFound):

@@ -56,7 +56,8 @@ thủ công trên máy chạy backend đối với luồng đăng ký mới.
 6. **MS-06:** Orchestrator lưu credential qua Secret Store và nhận secret reference.
 7. **MS-07:** Orchestrator lưu Connection thuộc Organization với trạng thái `READY`.
 8. **MS-08:** Orchestrator thông báo thành công và hiển thị Connection trong danh sách.
-9. **MS-09:** Connection sẵn sàng để Developer chọn khi tạo Application theo UC-01 và Resource Definition tham chiếu theo UC-03.
+9. **MS-09:** Connection sẵn sàng để Developer chọn trong Environment Settings
+   theo UC-01 hoặc Resource Definition tham chiếu theo UC-03.
 
 ## Luồng biến thể
 
@@ -116,7 +117,7 @@ cập vào một EKS cluster không thay thế bước xác minh quyền provisi
 - **BR-01:** Connection thuộc một Organization và có ID duy nhất trong Organization. Hệ thống tạo ID từ tên kết nối và xử lý xung đột để không ghi đè Connection hiện có.
 - **BR-02:** Credential được lưu qua Secret Store. Domain/database record của Connection chỉ giữ metadata và secret reference.
 - **BR-03:** UC-04 chỉ đăng ký và xác minh Connection; provisioning thuộc UC-06 và UC-08.
-- **BR-04:** Chỉ Connection trạng thái `READY` mới được sử dụng khi tạo Application hoặc triển khai.
+- **BR-04:** Chỉ Connection READY mới được chọn trong Environment Settings hoặc triển khai.
 - **BR-05:** Luồng đăng ký Kubernetes mới nhận kubeconfig qua upload hoặc nội dung được dán; không yêu cầu context có sẵn trên host backend.
 - **BR-06:** Giai đoạn đầu hỗ trợ token nhúng hoặc chứng chỉ/private key nhúng, cùng thông tin cluster và cấu hình xác minh TLS cần thiết.
 - **BR-07:** Giai đoạn đầu không hỗ trợ credential tham chiếu file bên ngoài hoặc xác thực qua `exec`. Hệ thống không thực thi lệnh từ kubeconfig tải lên.
@@ -158,3 +159,21 @@ xuất hiện trong giao diện giai đoạn đầu.
 Trạng thái triển khai thực tế được theo dõi tại [CURRENT_STATE.md](../../CURRENT_STATE.md).
 Realization, diagrams, contracts, shared design và traceability sẽ được cập nhật
 theo specification sau khi bản này được duyệt.
+
+## Secret Store Connection registration (current feature scope)
+
+- **SS-01:** Platform Engineer/Admin mở Platform → Secret stores, nhập name,
+  Vault backend/workload addresses, KV v2 mount, Kubernetes auth mount, TLS
+  settings và token trong concealed field; generated key, không phải user-supplied ID.
+- **SS-02:** Backend role/org gates, strict bounded validation, verify KV v2
+  capabilities bằng probe path của attempt; cleanup probe trước READY.
+- **SS-03:** Token lưu trong platform credential store riêng; insert metadata
+  scoped READY store; persistence failure cleanup attempt credential như UC-04.
+- **SS-04:** List/detail và Developer choices chỉ safe metadata; không token,
+  credential ref, raw Vault error hoặc secret-read API. Store đăng ký không tự chọn.
+- **SS-05:** Hai Vault stores có thể khác endpoint/mount/auth; addresses identity
+  không được sửa dưới existing key. Workload auth phải hợp lệ trước Deploy.
+- **SS-06:** First provider VAULT_KV_V2. Platform/backend credentials không thuộc
+  selected workload secret store. Missing configuration fails closed; no fallback.
+
+Supporting flow/design: [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).

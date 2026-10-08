@@ -12,6 +12,6 @@ last_reviewed: 2026-09-21
 - [Workload Instance](workload-instance.puml): apply/readiness/update/removal.
 - [Connection](connection.puml): verification before use.
 
-`FAILED` records terminal execution failure so status does not remain misleading. Automated retry, resume, rollback and cleanup are not implied and remain outside MVP happy path.
+`FAILED` records terminal execution failure so status does not remain misleading. Generic automated retry/resume/rollback remain outside MVP. Explicit Environment transition compensation/recovery/source cleanup are scoped by ADR-012.
 
-- [Environment target set-once](environment-target.puml) — UC-01 Settings, UNCONFIGURED gating and immutable binding; [ADR-011](../decisions/ADR-011-environment-execution-binding.md).
+- [Environment destinations and operation admission](environment-target.puml) — editable versioned selections, temporary operation claim and interrupted recovery; [ADR-012](../decisions/ADR-012-environment-stores-and-transitions.md).

@@ -118,3 +118,17 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 ## Environment connection binding
 
 - **BR-07:** Internal Kubernetes and AWS VPC/EKS execution must use pinned Environment connection; mismatch rejected before executor. External resource Driver Account semantics remain. Reuse validates persisted resource connection identity; do not execute against another Environment target. New AWS infrastructure uses Environment scope; legacy AWS retains old Application descriptors/state under ADR-011.
+
+## Editable destination and transition consistency (ADR-012)
+
+Preview pins execution/store bindings, target generation, Environment version,
+current Set, desired config revision/version and draft version. Deploy validates
+this complete snapshot and acquires an Environment operation claim atomically;
+stale token or competing operation returns safe 409 before external side effects.
+Settings/config/draft writes cannot interleave with admitted execution. No DB
+transaction spans network calls. Changing destination forces complete redeploy,
+never reuses old-target resource executor state/applied workload identity.
+Old resources and historical executions resolve their stored targets for queries,
+recovery and cleanup. Explicit PostgreSQL transfer quiesces writers and restores
+before destination apps/routes become live. See
+[ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).

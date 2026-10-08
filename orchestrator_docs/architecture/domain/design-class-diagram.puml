@@ -14,6 +14,8 @@ package "Application Services" {
     +CreateApplication(ctx, cmd): Application
     +ListApplicationConnections(ctx, organization): SafeChoices
     +SetConnection(ctx, cmd): Environment
+    +PreviewTransition(ctx, cmd): TransitionPreview
+    +ExecuteTransition(ctx, cmd): EnvironmentOperation
   }
   class ResourceTypeService {
     +RegisterResourceType(ctx, cmd): ResourceType
@@ -92,6 +94,29 @@ package "Execution" {
   class ExistingClusterAdapter
 }
 
+package "Environment Transitions" {
+ class SecretStoreConnection <<aggregate>> {
+  +OrganizationKey: string
+  +StoreKey: string
+  +Provider: VaultKVv2
+  +CredentialRef: opaque
+ }
+ class SecretStoreResolver
+ class EnvironmentSettingsService
+ class EnvironmentTransitionService
+ class EnvironmentOperation <<entity>> {
+  +Owner: string
+  +Stage: string
+  +PinnedVersions: object
+  +SourceTarget: object
+  +DestinationTarget: object
+ }
+ interface PostgreSQLTransfer {
+  +Preflight(ctx, request)
+  +BackupRestore(ctx, request)
+  +Verify(ctx, request)
+ }
+}
 package "Domain" {
   class Organization <<entity>>
   class UserAccount <<aggregate>> {
@@ -113,6 +138,9 @@ package "Domain" {
   class Environment <<aggregate>> {
     +ID: EnvironmentID
     +DesiredEndpoint(): Hostname
+    +SecretStoreKey: string
+    +TargetGeneration: int64
+    +ActiveOperationID: string
     +ConnectionKey: string
     +Profile: ExecutionProfile
     +Region: string
@@ -228,7 +256,7 @@ PlanningService --> ActiveResourceClassifier
 
 Organization "1" o-- "0..*" Application
 Application "1" *-- "0..*" Environment
-Environment --> Connection : set once
+Environment --> Connection : versioned selection
 Environment "1" --> "1" DeploymentSet : current
 Environment "1" o-- "0..*" Deployment
 Deployment "1" *-- "1" DeploymentPlan
@@ -249,7 +277,7 @@ ContainerResourceRequirements *-- ComputeResources
 ApplicationService --> ApplicationRepository
 ApplicationService --> EnvironmentRepository
 ApplicationService --> ConnectionRepository
-ApplicationService --> EnvironmentRepository : SetConnection once
+ApplicationService --> EnvironmentRepository : versioned CAS
 ApplicationService --> ConnectionRepository : scoped validation
 AuthenticationService --> PasswordHasher
 AuthenticationService --> UserAccountRepository
@@ -301,4 +329,11 @@ DeploymentPlan *-- RenderingSelection : per workload
 ScoreK8sRenderer ..|> WorkloadRenderer
 ScoreK8sRenderer ..|> RenderPreflight
 DeploymentService --> RenderPreflight : before UC-08
+Environment --> SecretStoreConnection : versioned selection
+Environment "1" o-- "0..*" EnvironmentOperation
+EnvironmentSettingsService --> SecretStoreResolver
+EnvironmentSettingsService --> EnvironmentRepository : CAS + claim
+EnvironmentTransitionService --> PostgreSQLTransfer
+EnvironmentTransitionService --> DeploymentService : pinned destination
+EnvironmentTransitionService --> EnvironmentOperation : persisted stages
 @enduml

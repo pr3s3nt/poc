@@ -10,6 +10,7 @@ import (
 
 	"orchestrator/internal/adapters/store"
 	appdomain "orchestrator/internal/domain/application"
+	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/ports/persistence"
 )
@@ -225,31 +226,77 @@ func TestSetConnection_SetsEachEnvironmentIndependentlyAndOnce(t *testing.T) {
 	if stored.ConnectionKey != "" || stored.Profile != "" || stored.Region != "" || stored.RuntimeStatus != appdomain.RuntimeUnconfigured {
 		t.Fatalf("application leaked target: %+v", stored)
 	}
-	// Same key, another key and an unset-style retry are all already configured.
-	for _, key := range []string{"lab", "default", "cloud"} {
-		fresh, _ := st.GetEnvironment(ctx, app, "staging")
-		if _, err := svc.SetConnection(ctx, setCommand(fresh, "acme", app, "staging", key)); !errors.Is(err, ErrAlreadyConfigured) {
-			t.Fatalf("repeat %s: %v", key, err)
-		}
-		// Even a stale version reports already configured, not stale.
-		stale := setCommand(fresh, "acme", app, "staging", key)
-		stale.ExpectedVersion = 1
-		if _, err := svc.SetConnection(ctx, stale); !errors.Is(err, ErrAlreadyConfigured) {
-			t.Fatalf("stale repeat %s: %v", key, err)
-		}
+	// Same key at the current version is an idempotent no-op: no version bump.
+	fresh, _ := st.GetEnvironment(ctx, app, "staging")
+	noop, err := svc.SetConnection(ctx, setCommand(fresh, "acme", app, "staging", "lab"))
+	if err != nil || noop.Version != fresh.Version || noop.ConnectionKey != "lab" {
+		t.Fatalf("same-key no-op: %+v %v", noop, err)
+	}
+	// A stale version loses even for the same key.
+	stale := setCommand(fresh, "acme", app, "staging", "lab")
+	stale.ExpectedVersion = 1
+	if _, err := svc.SetConnection(ctx, stale); !errors.Is(err, ErrStaleVersion) {
+		t.Fatalf("stale same-key: %v", err)
+	}
+	// Before any runtime exists the target is editable with the current version.
+	changed, err := svc.SetConnection(ctx, setCommand(fresh, "acme", app, "staging", "default"))
+	if err != nil || changed.ConnectionKey != "default" || changed.Version != fresh.Version+1 {
+		t.Fatalf("change connection: %+v %v", changed, err)
+	}
+	// The previous version can no longer write.
+	if _, err := svc.SetConnection(ctx, setCommand(fresh, "acme", app, "staging", "cloud")); !errors.Is(err, ErrStaleVersion) {
+		t.Fatalf("old version after change: %v", err)
 	}
 	after, _ := st.GetEnvironment(ctx, app, "staging")
-	if after.ConnectionKey != "lab" || after.Version != bound.Version {
-		t.Fatalf("rejected repeats mutated staging: %+v", after)
+	if after.ConnectionKey != "default" || after.Version != changed.Version {
+		t.Fatalf("rejected writes mutated staging: %+v", after)
 	}
 }
 
-func TestSetConnection_StaleVersionIsDistinctFromAlreadyConfigured(t *testing.T) {
+func TestSetConnection_BusyEnvironmentRejectsAndRuntimeRequiresTransition(t *testing.T) {
+	ctx := context.Background()
+	svc, st, created := newUnconfigured(t, choiceConnections()...)
+	app := created.Application.Key
+	env, _ := st.GetEnvironment(ctx, app, "staging")
+	bound, err := svc.SetConnection(ctx, setCommand(env, "acme", app, "staging", "lab"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A held claim blocks the write before anything is read from the Connection.
+	op, err := st.ClaimEnvironment(ctx, persistence.OperationClaim{ApplicationKey: app, EnvironmentKey: "staging", Owner: "p", Kind: environment.OpDeploy})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.SetConnection(ctx, setCommand(bound, "acme", app, "staging", "default")); !errors.Is(err, persistence.ErrEnvironmentBusy) {
+		t.Fatalf("busy: %v", err)
+	}
+	if err := st.ReleaseOperation(ctx, persistence.Owner{OperationID: op.ID, Owner: op.Owner, Fence: op.Fence}, environment.OpSucceeded, ""); err != nil {
+		t.Fatal(err)
+	}
+	// Runtime state (an applied workload instance) forces the transition flow.
+	deploymentID := "11111111-1111-4111-8111-111111111111"
+	if err := st.SaveDeployment(ctx, deployment.Deployment{ID: deploymentID, EnvironmentID: bound.ID, ApplicationKey: app, EnvironmentKey: "staging", Status: deployment.StatusPlanning}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.UpsertWorkloadInstance(ctx, deployment.WorkloadInstance{EnvironmentKey: app + "/staging", WorkloadID: "web", LastDeploymentID: deploymentID, Status: deployment.InstanceReady}); err != nil {
+		t.Fatal(err)
+	}
+	current, _ := st.GetEnvironment(ctx, app, "staging")
+	if _, err := svc.SetConnection(ctx, setCommand(current, "acme", app, "staging", "default")); !errors.Is(err, ErrRuntimeExists) {
+		t.Fatalf("runtime exists: %v", err)
+	}
+	// Same key remains a harmless no-op even with runtime.
+	if _, err := svc.SetConnection(ctx, setCommand(current, "acme", app, "staging", "lab")); err != nil {
+		t.Fatalf("same key with runtime: %v", err)
+	}
+}
+
+func TestSetConnection_StaleVersionIsDistinct(t *testing.T) {
 	ctx := context.Background()
 	svc, st, created := newUnconfigured(t, choiceConnections()...)
 	app := created.Application.Key
 	cmd := SetConnectionCommand{OrganizationKey: "acme", ApplicationKey: app, EnvironmentKey: "staging", ConnectionKey: "lab", ExpectedVersion: 7}
-	if _, err := svc.SetConnection(ctx, cmd); !errors.Is(err, ErrStaleVersion) || errors.Is(err, ErrAlreadyConfigured) {
+	if _, err := svc.SetConnection(ctx, cmd); !errors.Is(err, ErrStaleVersion) {
 		t.Fatalf("stale expected version: %v", err)
 	}
 	env, _ := st.GetEnvironment(ctx, app, "staging")
@@ -321,7 +368,7 @@ func TestSetConnection_ConcurrentRequestsHaveOneWinner(t *testing.T) {
 		switch {
 		case err == nil:
 			wins++
-		case errors.Is(err, ErrAlreadyConfigured), errors.Is(err, ErrStaleVersion):
+		case errors.Is(err, ErrStaleVersion):
 			conflicts++
 		default:
 			t.Fatalf("unexpected: %v", err)

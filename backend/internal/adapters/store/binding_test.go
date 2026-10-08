@@ -41,3 +41,21 @@ func TestNewEnvironmentIsStoredWithExplicitDefaults(t *testing.T) {
 		t.Fatalf("stored row = %+v", raw)
 	}
 }
+
+func TestEnvironmentOperationsContract(t *testing.T) {
+	persistencetest.EnvironmentOperations(t, New())
+}
+
+func TestEnvironmentOperationsSurviveJSONRestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	first, err := NewWithSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture := persistencetest.EnvironmentOperations(t, first)
+	reopened, err := NewWithSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	persistencetest.AssertOperationsReloaded(t, reopened, fixture)
+}

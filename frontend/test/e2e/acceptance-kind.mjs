@@ -44,8 +44,8 @@ try {
   const secretHash = createHash('sha256').update(secret).digest('hex');
   await page.getByRole('button', { name: 'Environment settings' }).click();
   await page.getByLabel('Connection for Staging').selectOption('internal-cluster');
-  await page.getByRole('button', { name: 'Set connection' }).click();
-  await expect(page.getByText('Locked', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Save connection' }).click();
+  await expect(page.getByText('Generation 0', { exact: true })).toBeVisible();
   await reviewPause(page, 1800);
   await putKey(page, 'variable', 'ACCEPTANCE_CONFIG', 'acceptance-config-ok');
   await putKey(page, 'variable', 'ACCEPTANCE_SECRET_SHA256', secretHash);

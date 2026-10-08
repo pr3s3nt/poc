@@ -83,3 +83,12 @@ context; normalized secret-only persistence; key collision/concurrency;
 verification failure; store failure/cleanup; safe DTO/errors; scoped resolution;
 Kubernetes provision/apply/remove/readiness/route paths; legacy compatibility.
 Tests and actual delivery are recorded in traceability/current state after code.
+
+## Secret stores
+
+SecretStoreController/Service use PE/Admin gates, scoped insert-only store
+repository, VaultStoreVerifier and existing platform credential port. Verify
+KV v2/capabilities and attempt-owned probe cleanup, persist token privately then
+metadata in local transaction; failure cleanup cannot touch another registration.
+SecretStoreResolver produces scoped provider/delivery config, never raw public
+credentials. This is separate from execution Connection kind/matching.

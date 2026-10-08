@@ -25,9 +25,12 @@ import (
 	appconfig "orchestrator/internal/application/configuration"
 	"orchestrator/internal/application/connection"
 	appsvc "orchestrator/internal/application/deployment"
+	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/provisioning"
+	"orchestrator/internal/application/secretstores"
+	"orchestrator/internal/application/transition"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
 	deliveryhttp "orchestrator/internal/delivery/http"
 	"orchestrator/internal/domain/resource"
@@ -101,7 +104,10 @@ type Options struct {
 	ConnectionCredentialsOverride credentials.Store
 	RendererOverride              execution.WorkloadRenderer
 	DeployerOverride              execution.WorkloadDeployer
-	ConfigurationProviderOverride configport.Provider
+	// StoreRegistryOverride and SecretStoreVerifierOverride replace the
+	// workload secret-store registry and the registration verifier (tests).
+	StoreRegistryOverride       configport.Registry
+	SecretStoreVerifierOverride configport.Verifier
 }
 
 // App holds the built components.
@@ -116,6 +122,19 @@ type App struct {
 	Previews              *preview.Service
 	FakeExec              *fake.ResourceExecutor
 	FakeDeploy            *fake.WorkloadDeployer
+	// Configurations and Pending are the UC-12 and UC-05/06 services.
+	Configurations *appconfig.Service
+	Pending        *pending.Service
+	// Workloads is the UC-16 draft editor service.
+	Workloads *workloadconfig.Service
+	// Operations is the shared Environment claim manager.
+	Operations *envops.Manager
+	// StoreRegistry resolves workload secret stores.
+	StoreRegistry configport.Registry
+	// Transitions runs Environment target transitions.
+	Transitions *transition.Service
+	// FakeCluster is the in-memory Kubernetes stand-in of fake mode.
+	FakeCluster *fake.Cluster
 }
 
 // Build wires every component and seeds the catalog.
@@ -232,40 +251,51 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	}
 	auth := authentication.NewService(st, rejectedAccountIDs...)
 	applications := appcreate.NewService(st)
-	var configProvider configport.Provider
-	if opts.ConfigurationProviderOverride != nil {
-		configProvider = opts.ConfigurationProviderOverride
-	} else if opts.VaultAddress != "" && opts.VaultTokenFile != "" {
-		tokenBytes, err := os.ReadFile(opts.VaultTokenFile)
-		if err != nil {
-			return nil, fmt.Errorf("bootstrap: read Vault token file: %w", err)
+	operations := envops.NewManager(st)
+	var storeRegistry configport.Registry
+	var storeVerifier configport.Verifier
+	switch {
+	case opts.StoreRegistryOverride != nil:
+		storeRegistry = opts.StoreRegistryOverride
+	case opts.VaultAddress != "" || connectionCredentials != nil && opts.Adapters != "" && opts.Adapters != AdapterFake:
+		var legacy *vault.LegacyConfig
+		if opts.VaultAddress != "" && opts.VaultTokenFile != "" {
+			tokenBytes, err := os.ReadFile(opts.VaultTokenFile)
+			if err != nil {
+				return nil, fmt.Errorf("bootstrap: read Vault token file: %w", err)
+			}
+			legacy = &vault.LegacyConfig{Address: strings.TrimRight(opts.VaultAddress, "/"), AgentAddress: opts.VaultAgentAddress, Mount: "kv", AuthMount: "kubernetes", Token: strings.TrimSpace(string(tokenBytes))}
 		}
-		provider, err := vault.New(opts.VaultAddress, strings.TrimSpace(string(tokenBytes)), "kv", nil)
-		if err != nil {
+		storeRegistry = vault.NewRegistry(st, connectionCredentials, legacy)
+		if err := seedLegacyStore(ctx, st, opts, legacy); err != nil {
 			return nil, err
 		}
-		if opts.VaultAgentAddress != "" {
-			if err := provider.SetAgentAddress(opts.VaultAgentAddress); err != nil {
-				return nil, err
-			}
-		}
-		configProvider = provider
-	} else if opts.Adapters == "" || opts.Adapters == AdapterFake {
-		configProvider = configmemory.New()
-	} else {
-		configProvider = configmemory.Unavailable{}
+	case opts.Adapters == "" || opts.Adapters == AdapterFake:
+		storeRegistry = configmemory.NewRegistry(st)
+	default:
+		storeRegistry = configmemory.Unavailable{}
 	}
-	configurations := appconfig.NewService(st, configProvider)
-	deployments.SetConfigurationProvider(configProvider)
+	switch {
+	case opts.SecretStoreVerifierOverride != nil:
+		storeVerifier = opts.SecretStoreVerifierOverride
+	case opts.Adapters == "" || opts.Adapters == AdapterFake:
+		storeVerifier = configmemory.Verifier{}
+	default:
+		storeVerifier = vault.Verifier{}
+	}
+	configurations := appconfig.NewService(st, storeRegistry, operations)
+	secretStoreService := secretstores.NewService(st, storeVerifier, connectionCredentials)
+	deployments.SetStoreRegistry(storeRegistry)
+	deployments.SetOperations(operations)
 	vaultDelivery := opts.VaultDelivery
-	if vaultDelivery == "auto" && opts.Adapters == AdapterKubernetes && opts.VaultAddress != "" {
+	if vaultDelivery == "auto" && opts.Adapters == AdapterKubernetes {
 		vaultDelivery = "vso"
 	} else if vaultDelivery == "auto" {
 		vaultDelivery = "agent"
 	}
 	if vaultDelivery == "vso" {
-		if opts.Adapters != AdapterKubernetes || opts.VaultAddress == "" || opts.VaultTokenFile == "" || opts.VaultAgentAddress == "" {
-			return nil, fmt.Errorf("bootstrap: VSO delivery requires Kubernetes adapters and configured Vault API/in-cluster address")
+		if opts.Adapters != AdapterKubernetes {
+			return nil, fmt.Errorf("bootstrap: VSO delivery requires Kubernetes adapters")
 		}
 		deployments.SetConfigSecretSynchronizer(&k8s.VSOSynchronizer{KubectlPath: opts.KubectlPath, Credentials: credentialResolver})
 	} else if vaultDelivery != "" && vaultDelivery != "agent" {
@@ -277,6 +307,7 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		pendingChanges.SetImageRegistryHost(opts.HarborRegistryHost)
 	}
 	pendingChanges.SetDeployer(deployments)
+	pendingChanges.SetOperations(operations)
 	previews := preview.NewService(st, planner, tf.NewInspector())
 	connectionVerifier := opts.ConnectionVerifierOverride
 	if connectionVerifier == nil {
@@ -287,7 +318,27 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		kubeconfigVerifier = k8s.ConnectionVerifier{KubectlPath: opts.KubectlPath}
 	}
 
+	transitions := transition.New(st, planner, tf.NewInspector(), deployments, operations)
+	transitions.SetStoreRegistry(storeRegistry)
+	transitions.SetWorkloads(workloads)
+	transitions.SetDirectDelivery(opts.WorkloadDelivery != "fleet-gitrepo")
+	var fakeCluster *fake.Cluster
+	switch opts.Adapters {
+	case "", AdapterFake:
+		fakeCluster = fake.NewCluster()
+		fakeDep.AttachCluster(fakeCluster)
+		fakeExec.AttachCluster(fakeCluster)
+		deployments.SetPublicRouteManager(fakeCluster, opts.Seed.BaseDomain)
+		transitions.SetCluster(fakeCluster, fakeCluster, fakeCluster, fakeCluster)
+		transitions.SetProbe(fakeCluster)
+	case AdapterKubernetes:
+		kubeTransition := &k8s.Transition{KubectlPath: opts.KubectlPath, Credentials: credentialResolver}
+		transitions.SetCluster(kubeTransition, kubeTransition, kubeTransition, kubeTransition)
+		transitions.SetProbe(kubeTransition)
+	}
+
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
+		Transitions:           transitions,
 		RenderBundles:         bundles,
 		Deployments:           deployments,
 		Queries:               queries,
@@ -297,6 +348,8 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		KubeconfigVerifier:    kubeconfigVerifier,
 		ConnectionCredentials: connectionCredentials,
 		Configurations:        configurations,
+		SecretStores:          secretStoreService,
+		Operations:            operations,
 		Workloads:             workloads,
 		Pending:               pendingChanges,
 		Previews:              previews,
@@ -315,6 +368,13 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		Previews:              previews,
 		FakeExec:              fakeExec,
 		FakeDeploy:            fakeDep,
+		Operations:            operations,
+		Configurations:        configurations,
+		Pending:               pendingChanges,
+		Workloads:             workloads,
+		StoreRegistry:         storeRegistry,
+		Transitions:           transitions,
+		FakeCluster:           fakeCluster,
 	}, nil
 }
 

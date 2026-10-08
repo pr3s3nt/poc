@@ -222,3 +222,17 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 ## Environment connection binding
 
 - **BR-20:** Every deployment resolves and pins the configured Environment target, never a shared Application binding/default. Internal Kubernetes and AWS Terraform VPC/EKS Definition connection must equal selected Environment connection; reject conflicts before execution. External database Definitions keep their Driver Account. Matching specificity/ties remain unchanged. New AWS scopes are ENVIRONMENT; legacy bindings preserve application-scope resource identity via ADR-011. UNCONFIGURED Preview/Deploy is rejected 422 field connectionKey before executor/provisioning. Platform Engineer must supply matching cluster Definitions, no silent copy/fallback.
+
+## Editable destination and transition consistency (ADR-012)
+
+Preview pins execution/store bindings, target generation, Environment version,
+current Set, desired config revision/version and draft version. Deploy validates
+this complete snapshot and acquires an Environment operation claim atomically;
+stale token or competing operation returns safe 409 before external side effects.
+Settings/config/draft writes cannot interleave with admitted execution. No DB
+transaction spans network calls. Changing destination forces complete redeploy,
+never reuses old-target resource executor state/applied workload identity.
+Old resources and historical executions resolve their stored targets for queries,
+recovery and cleanup. Explicit PostgreSQL transfer quiesces writers and restores
+before destination apps/routes become live. See
+[ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).

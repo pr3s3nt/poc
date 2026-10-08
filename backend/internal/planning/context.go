@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"orchestrator/internal/domain/application"
@@ -46,7 +47,12 @@ func (c Context) ResourceName() string {
 	if c.LegacyInfrastructure() {
 		return c.App.Key + "-" + c.RunID
 	}
-	sum := sha256.Sum256([]byte(c.App.Key + "\x00" + c.Env.Key + "\x00" + c.RunID))
+	identity := c.App.Key + "\x00" + c.Env.Key + "\x00" + c.RunID
+	if c.Env.TargetGeneration > 0 {
+		// A later target generation must never reuse a provider-visible name.
+		identity += "\x00g" + strconv.FormatInt(c.Env.TargetGeneration, 10)
+	}
+	sum := sha256.Sum256([]byte(identity))
 	return "orch-" + nameStem(c.App.Key, 8, "app") + "-" + nameStem(c.Env.Key, 10, "env") + "-" + hex.EncodeToString(sum[:])[:24]
 }
 
@@ -73,7 +79,7 @@ func (c Context) InfraPath() string {
 	if c.LegacyInfrastructure() {
 		return PathApplications + c.App.Key
 	}
-	return PathEnvironments + c.App.Key + "." + c.Env.Key
+	return PathEnvironments + c.App.Key + "." + c.Env.Key + environment.GenerationScopeSuffix(c.Env.TargetGeneration)
 }
 
 // Values renders the flat context map used for placeholder resolution. The
@@ -99,7 +105,7 @@ func (c Context) Values() map[string]any {
 		"env.key":            c.Env.Key,
 		"env.name":           c.Env.Name,
 		"env.type":           c.Env.Type,
-		"env.namespace":      c.Env.NamespaceIdentity,
+		"env.namespace":      c.Env.Namespace(),
 		"connection.key":     c.Connection.Key,
 		"connection.kind":    string(c.Connection.Kind),
 		"connection.cluster": c.Connection.ConfigString("cluster"),

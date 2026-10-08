@@ -38,6 +38,33 @@ entity connections {
   status : text
   config : jsonb
 }
+entity secret_store_connections {
+ * id : uuid <<PK>>
+ * organization_id : uuid <<FK>>
+ --
+ store_key : text
+ provider : text
+ name : text
+ backend_address : text
+ workload_address : text
+ kv_mount : text
+ auth_mount : text
+ credential_ref : text
+ status : text
+}
+entity environment_operations {
+ * id : uuid <<PK>>
+ * environment_id : uuid <<FK>>
+ --
+ kind : text
+ owner : text
+ status : text
+ stage : text
+ pinned_versions : jsonb
+ source_target : jsonb
+ destination_target : jsonb
+ recovery_metadata : jsonb
+}
 entity applications {
   * id : uuid <<PK>>
   * organization_id : uuid <<FK>>
@@ -61,6 +88,9 @@ entity environments {
   region : text
   runtime_status : text
   infrastructure_scope : text
+  secret_store_id : uuid <<FK,nullable>>
+  target_generation : bigint
+  active_operation_id : uuid <<FK,nullable>>
   namespace_identity : text
   current_deployment_set_id : uuid <<FK>>
   version : bigint
@@ -81,6 +111,8 @@ entity configuration_revision_entries {
   --
   kind : text
   value_ref : text
+  store_key : text
+  variable_value : text
 }
 entity workload_drafts {
   * environment_id : uuid <<PK,FK>>
@@ -209,7 +241,7 @@ organizations ||--o{ applications
 organizations ||--o{ resource_types
 organizations ||--o{ resource_definitions
 applications }o--o| connections : legacy
-environments }o--o| connections : set once
+environments }o--o| connections : versioned selection
 applications ||--o{ environments
 environments ||--o{ deployment_sets
 environments ||--o{ deployments
@@ -233,4 +265,7 @@ resource_definitions ||--o{ active_resources
 active_resources ||--o{ deployment_resources
 deployments ||--o{ active_resources : last
 deployments ||--o{ workload_instances : last
+organizations ||--o{ secret_store_connections
+secret_store_connections ||--o{ environments : selected store
+environments ||--o{ environment_operations
 @enduml

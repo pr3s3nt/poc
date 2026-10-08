@@ -20,3 +20,9 @@ last_reviewed: 2026-10-06
 - Registered/list error: keep success distinct from reload failure, offer Retry
   list without repeating registration. Unknown network outcome does not claim
   registration failure as proof that nothing was saved; do not auto-resubmit.
+
+## Secret store registration
+
+Loading/empty/error list states; form validation, verifying, saving, safe failure
+and committed-success/list-refresh states. Disable duplicate registration, retain
+nonsecret fields after errors, never return/prefill tokens or raw provider errors.

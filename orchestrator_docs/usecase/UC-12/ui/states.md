@@ -20,3 +20,10 @@ related: UC-12
 | Save | Submitting/error | Prevent double submit and retain context after failure; do not expose secret values in errors. |
 | Save | Pending | Show pending badge, affected workloads and Preview changes for selected Environment. |
 | Preview handoff | Missing reference | Explain that user must repair workload bindings in UC-16 before Deploy. |
+
+## Store transfer and concurrency
+
+Unset store blocks Secret write, not Variable write. Store transfer shows progress
+and disables duplicate actions. 409 stale version requires reload/review; active
+Environment operation temporarily blocks configuration edits. Copy failure leaves
+old selection active; successful copy shows pending Preview/Deploy for consumers.

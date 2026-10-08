@@ -64,6 +64,12 @@ func TestUC12UC16HTTPDraftFlow(t *testing.T) {
 	app := created["application"].(map[string]any)["key"].(string)
 	base := server.URL + "/api/v1/applications/" + app + "/environments/staging"
 	secret := "never-show-this-secret"
+	// A Secret needs an explicitly selected store; Variables do not.
+	status, rejected := requestJSON(t, client, http.MethodPut, base+"/configuration/keys/API_TOKEN", map[string]any{"kind": "SECRET", "value": secret, "version": 0})
+	if status != http.StatusUnprocessableEntity || rejected["field"] != "secretStoreKey" || strings.Contains(toJSON(t, rejected), secret) {
+		t.Fatalf("secret without a store: %d %v", status, rejected)
+	}
+	selectSecretStore(t, client, server.URL, app, "staging", registerSecretStore(t, server.URL, "Draft Vault"))
 	status, config := requestJSON(t, client, http.MethodPut, base+"/configuration/keys/API_TOKEN", map[string]any{"kind": "SECRET", "value": secret, "version": 0})
 	if status != http.StatusOK || strings.Contains(toJSON(t, config), secret) {
 		t.Fatalf("secret value leaked or save failed: %d %v", status, config)

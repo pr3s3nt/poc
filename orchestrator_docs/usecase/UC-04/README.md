@@ -47,3 +47,10 @@ UI: [screens](ui/screens.md), [states](ui/states.md), [HTTP mapping](ui/api-mapp
 - [`backend/internal/adapters/terraform`](../../../backend/internal/adapters/terraform/)
 - [`backend/internal/bootstrap`](../../../backend/internal/bootstrap/)
 - [`backend/internal/seed`](../../../backend/internal/seed/)
+
+## Current change in progress
+
+[ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md)
+supersedes permanent target lock/Application provider selection. Specifications
+now include editable per-Environment destinations and Vault stores/transitions;
+implementation status is tracked in CURRENT_STATE, not inferred from old evidence.

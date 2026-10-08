@@ -112,7 +112,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(await screen.findByText('Payment')).toBeInTheDocument();
   });
 
-  it('creates an application without a connection and sets each environment once in Settings', async () => {
+  it('creates an application without a connection and sets each environment independently in Settings', async () => {
     const user = userEvent.setup();
     render(<App />);
     await signIn(user);
@@ -132,15 +132,15 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     // Staging picks lab in Settings; production stays unset.
     await user.click(screen.getByRole('button', { name: 'Environment settings' }));
     await user.selectOptions(await screen.findByLabelText('Connection for Staging'), 'lab');
-    await user.click(screen.getByRole('button', { name: 'Set connection' }));
-    expect(await screen.findByText('Locked')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Set connection' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save connection' }));
+    expect(await screen.findByText('Generation 0')).toBeInTheDocument();
+    expect(screen.getByLabelText('Connection for Staging')).toHaveValue('lab');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     const put = requests.find((request) => request.method === 'PUT' && request.url.endsWith('/environments/staging/connection'));
     expect(JSON.parse(put?.body ?? '{}')).toEqual({ connectionKey: 'lab', expectedVersion: 1 });
     await user.click(screen.getByRole('tab', { name: 'Production' }));
     expect(await screen.findByLabelText('Connection for Production')).toHaveValue('');
-    expect(screen.getByText('Not configured')).toBeInTheDocument();
+    expect(screen.getAllByText('Not configured').length).toBeGreaterThan(0);
     expect(requests.some((request) => /\/(deploy|preview|deployments)$/.test(request.url) && request.method === 'POST')).toBe(false);
     // Back home the cached target shows the staging binding only.
     await user.click(screen.getByRole('button', { name: /← Catalog/ }));

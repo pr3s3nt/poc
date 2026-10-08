@@ -6,9 +6,23 @@ export interface Workload {
   status: 'Ready' | 'Draft';
 }
 
+/** Safe projection of the operation currently owning an Environment (ADR-012). */
+export interface EnvironmentOperation {
+  id: string;
+  kind: string;
+  status: 'ACTIVE' | 'INTERRUPTED' | 'RECOVERING' | string;
+  stage?: string;
+  startedAt: string;
+  updatedAt: string;
+  heartbeatAt: string;
+  failure?: string;
+  recoverable: boolean;
+}
+
 /**
- * Safe, nonsecret execution binding of one Environment (ADR-011). It is set
- * once in Environment Settings and never changes afterwards.
+ * Safe, nonsecret selections of one Environment (ADR-012): the execution
+ * Connection and the workload Secret Store are both editable, versioned and
+ * independent; neither is locked.
  */
 export interface EnvironmentTarget {
   configured: boolean;
@@ -19,11 +33,18 @@ export interface EnvironmentTarget {
   region?: string;
   runtimeStatus: string;
   infrastructureScope: string;
-  /** Authoritative Environment version; sent as expectedVersion when setting. */
+  /** Authoritative Environment version; sent as expectedVersion when saving. */
   version: number;
+  secretStoreKey: string;
+  secretStoreName?: string;
+  targetGeneration: number;
+  draftVersion: number;
+  /** Runtime resources exist, so a destination change is an explicit transition. */
+  runtimeExists: boolean;
+  activeOperation?: EnvironmentOperation;
 }
 
-export const unconfiguredTarget: EnvironmentTarget = { configured: false, connectionKey: '', profile: '', runtimeStatus: 'UNCONFIGURED', infrastructureScope: 'ENVIRONMENT', version: 1 };
+export const unconfiguredTarget: EnvironmentTarget = { configured: false, connectionKey: '', profile: '', runtimeStatus: 'UNCONFIGURED', infrastructureScope: 'ENVIRONMENT', version: 1, secretStoreKey: '', targetGeneration: 0, draftVersion: 0, runtimeExists: false };
 
 export interface Application {
   id: string;

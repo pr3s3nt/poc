@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	appsvc "orchestrator/internal/application/deployment"
+	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/workloadconfig"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
@@ -27,8 +28,11 @@ type DeployReport struct {
 
 func (s *Service) SetDeployer(deployer *appsvc.Service) { s.deployer = deployer }
 
-// Deploy accepts only the current preview token. Successful workloads are
-// committed one by one, so a later failure is visible and retryable.
+// Deploy accepts only the current preview token. It claims the Environment in
+// one local transaction that re-verifies every pinned version and identity,
+// then executes under that claim; no executor call precedes a successful claim.
+// Successful workloads are committed one by one, so a later failure is visible
+// and retryable.
 func (s *Service) Deploy(ctx context.Context, appKey, envKey, actor, token string) (DeployReport, error) {
 	preview, err := s.Preview(ctx, appKey, envKey)
 	if err != nil {
@@ -44,15 +48,59 @@ func (s *Service) Deploy(ctx context.Context, appKey, envKey, actor, token strin
 	if err != nil {
 		return DeployReport{}, err
 	}
+	lease, err := s.operations().Begin(ctx, envops.Claim{
+		ApplicationKey: appKey, EnvironmentKey: envKey, Kind: environment.OpDeploy,
+		Pins: environment.OperationPins{
+			CheckEnvVersion: true, EnvVersion: preview.BaseVersion,
+			CheckDraftVersion: true, DraftVersion: preview.DraftVersion,
+			CheckConfigVersion: true, ConfigVersion: preview.ConfigVersion,
+			CheckSet: true, CurrentSetID: preview.BaseSetID,
+			CheckRevision: true, DesiredRevisionID: preview.ConfigRevisionID,
+			CheckBinding: true, Binding: preview.Binding,
+			CheckStore: true, SecretStoreKey: preview.SecretStoreKey,
+		},
+		Detail: map[string]any{"changes": len(preview.Changes)},
+	})
+	if errors.Is(err, persistence.ErrVersionConflict) {
+		return DeployReport{}, ErrStalePreview
+	}
+	if err != nil {
+		return DeployReport{}, err
+	}
+	report, err := s.deployClaimed(lease, app.OrganizationKey, appKey, envKey, actor, preview)
+	status, failure := environment.OpSucceeded, ""
+	if err != nil || report.Status != "SUCCEEDED" {
+		status, failure = environment.OpFailed, "the deploy did not complete: "+report.Status
+	}
+	if endErr := lease.End(status, failure); endErr != nil && err == nil {
+		err = endErr
+	}
+	return report, err
+}
+
+func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, actor string, preview Preview) (DeployReport, error) {
+	ctx := lease.Ctx
 	report := DeployReport{Status: "SUCCEEDED", Results: []WorkloadResult{}}
 	if len(preview.Changes) > 0 {
-		if err := s.setRoutePending(ctx, appKey, envKey, true); err != nil {
+		if err := s.store.SetPublicRoutesPending(ctx, appKey, envKey, true); err != nil {
 			return report, err
 		}
 	}
 	expectedEnvVersion := preview.BaseVersion
 	expectedDraftVersion := preview.DraftVersion
 	for index, change := range preview.Changes {
+		if lease.Lost() || ctx.Err() != nil {
+			report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "FAILED", Error: ErrInterrupted.Error()})
+			report.Status = statusFor(report.Results)
+			appendSkipped(&report, preview.Changes[index+1:])
+			return report, nil
+		}
+		if err := lease.Stage("DEPLOY "+change.WorkloadID, nil); err != nil {
+			report.Results = append(report.Results, WorkloadResult{WorkloadID: change.WorkloadID, Action: change.Action, Status: "FAILED", Error: ErrInterrupted.Error()})
+			report.Status = statusFor(report.Results)
+			appendSkipped(&report, preview.Changes[index+1:])
+			return report, nil
+		}
 		env, err := s.store.GetEnvironment(ctx, appKey, envKey)
 		if err != nil {
 			return report, err
@@ -89,7 +137,7 @@ func (s *Service) Deploy(ctx context.Context, appKey, envKey, actor, token strin
 			after = before
 		}
 		result, deployErr := s.deployer.DeployWorkload(ctx, appsvc.DeployCommand{
-			OrganizationKey: app.OrganizationKey, ApplicationKey: appKey, EnvironmentKey: envKey,
+			OrganizationKey: orgKey, ApplicationKey: appKey, EnvironmentKey: envKey,
 			WorkloadID: change.WorkloadID, ScoreBefore: before, ScoreAfter: after, Action: change.Action,
 			Actor: actor, RunID: preview.RunID,
 			ExpectedPlanHash:  change.PlanHash,
@@ -139,23 +187,15 @@ func (s *Service) Deploy(ctx context.Context, appKey, envKey, actor, token strin
 			report.Status = "PARTIAL"
 			return report, ErrRouteReconcile
 		}
-		if err := s.setRoutePending(ctx, appKey, envKey, false); err != nil {
+		if err := s.store.SetPublicRoutesPending(ctx, appKey, envKey, false); err != nil {
 			return report, err
 		}
 	}
 	return report, nil
 }
 
-func (s *Service) setRoutePending(ctx context.Context, appKey, envKey string, pending bool) error {
-	return s.store.Transact(ctx, func(ctx context.Context) error {
-		env, err := s.store.GetEnvironment(ctx, appKey, envKey)
-		if err != nil {
-			return err
-		}
-		env.PublicRoutesPending = pending
-		return s.store.SaveEnvironment(ctx, env)
-	})
-}
+// ErrInterrupted reports that the claim was lost; the owner stopped executing.
+var ErrInterrupted = errors.New("the operation was interrupted; preview changes again")
 
 // ErrRouteReconcile reports that workloads committed but public routes did not;
 // the route cause stays out of the public message.

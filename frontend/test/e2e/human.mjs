@@ -121,7 +121,7 @@ export async function signIn(h) {
   await h.pause(1500);
 }
 
-// Sets the execution Connection of each listed Environment once through
+// Sets the execution Connection of each listed Environment through
 // Environment Settings (UC-01 ES-03..06) and returns to the Application.
 // targets: { staging?: connectionKey, production?: connectionKey }. The option
 // is found by its "(key)" label, the choice is typed by the real select popup,
@@ -141,10 +141,10 @@ export async function setEnvironmentConnections(h, applicationName, targets) {
     await expect(select).toHaveValue(key);
     const saved = page.waitForResponse((response) => response.request().method() === 'PUT'
       && new URL(response.url()).pathname.endsWith(`/environments/${environment}/connection`));
-    await h.click(page.getByRole('button', { name: 'Set connection' }));
+    await h.click(page.getByRole('button', { name: 'Save connection' }));
     const response = await saved;
     if (!response.ok()) throw new Error(`setting ${environment} connection returned HTTP ${response.status()}`);
-    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
+    await expect(page.getByText('Generation 0', { exact: true })).toBeVisible();
     await h.pause(1200);
   }
   await h.click(page.getByRole('button', { name: `← ${applicationName}` }));

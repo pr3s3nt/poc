@@ -17,6 +17,17 @@ var serviceReference = regexp.MustCompile(`\$\{context\.service\.([A-Za-z0-9_-]+
 // ReconstructScore exposes only reference-based workload configurations to the
 // UC-16 editor. Legacy literals may contain secrets and are never returned.
 func ReconstructScore(workload string, module environment.Module, set environment.Document) (map[string]any, error) {
+	return reconstruct(workload, module, set, false)
+}
+
+// ReconstructForRedeploy rebuilds a Score for an exact redeploy of an applied
+// module (target transitions). Literal bindings are kept verbatim: they are
+// already what runs, are never shown to an editor and never leave the backend.
+func ReconstructForRedeploy(workload string, module environment.Module, set environment.Document) (map[string]any, error) {
+	return reconstruct(workload, module, set, true)
+}
+
+func reconstruct(workload string, module environment.Module, set environment.Document, literals bool) (map[string]any, error) {
 	if module.Profile != environment.ModuleProfile {
 		return nil, fmt.Errorf("workloadconfig: unsupported deployed workload profile")
 	}
@@ -50,7 +61,7 @@ func ReconstructScore(workload string, module environment.Module, set environmen
 		delete(body, "id")
 		variables := map[string]any{}
 		for key, value := range container.Variables {
-			if setReference.FindString(value) != value && configReference.FindString(value) != value && serviceReference.FindString(value) != value {
+			if !literals && setReference.FindString(value) != value && configReference.FindString(value) != value && serviceReference.FindString(value) != value {
 				return nil, fmt.Errorf("workloadconfig: legacy literal binding cannot be shown in editor")
 			}
 			value = setReference.ReplaceAllStringFunc(value, func(ref string) string {

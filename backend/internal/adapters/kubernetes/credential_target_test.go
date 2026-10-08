@@ -170,7 +170,7 @@ func TestCredentialTarget_FailsClosedWithoutHostFallback(t *testing.T) {
 			t.Fatalf("%s routes: %v", name, err)
 		}
 		vso := &VSOSynchronizer{KubectlPath: kubectl, Credentials: source}
-		bundle := execution.ConfigBundle{Address: "http://vault", Mount: "kv", Path: "p", Role: "r", ServiceAccount: "sa", SecretName: "orch-x", Keys: map[string]map[string]string{"main": {"A": "main_A"}}}
+		bundle := execution.ConfigBundle{StoreKey: "store-a", AuthMount: "kubernetes", Address: "http://vault", Mount: "kv", Path: "p", Role: "r", ServiceAccount: "sa", SecretName: "orch-x", Keys: map[string]map[string]string{"main": {"A": "main_A"}}}
 		if err := vso.Sync(ctx, target, bundle); !errors.Is(err, ErrCredentialTarget) {
 			t.Fatalf("%s vso: %v", name, err)
 		}
@@ -196,7 +196,7 @@ func TestCredentialTarget_RoutesVSOAndExecutorUseScopedCredential(t *testing.T) 
 		t.Fatal(err)
 	}
 	t.Setenv("STUB_GET", `{"data":{"main_A":"b3BhcXVl"}}`)
-	bundle := execution.ConfigBundle{Address: "http://vault", Mount: "kv", Path: "p", Role: "r", ServiceAccount: "sa", SecretName: "orch-x", Keys: map[string]map[string]string{"main": {"A": "main_A"}}}
+	bundle := execution.ConfigBundle{StoreKey: "store-a", AuthMount: "kubernetes", Address: "http://vault", Mount: "kv", Path: "p", Role: "r", ServiceAccount: "sa", SecretName: "orch-x", Keys: map[string]map[string]string{"main": {"A": "main_A"}}}
 	if err := (&VSOSynchronizer{KubectlPath: kubectl, Credentials: resolver, Timeout: time.Second}).Sync(ctx, target, bundle); err != nil {
 		t.Fatal(err)
 	}

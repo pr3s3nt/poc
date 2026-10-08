@@ -62,4 +62,17 @@ note right of ScoreAdapter
 No database/namespace provisioning.
 Only Secret references enter CLI workspace.
 end note
+component "Environment Settings / Transition Services" as Transitions
+component "Scoped Secret Store Resolver" as StoreResolver
+component "PostgreSQL Backup / Restore Adapter" as Transfer
+cloud "Selected Vault KV v2 stores" as VaultStores
+API --> Transitions
+Transitions --> Persistence : atomic operation admission/stages
+Transitions --> Transfer : quiesce, backup, restore, verify
+Transfer --> Kubernetes : explicit retained/new targets
+Transitions --> Deploy : pinned generation, full rollout
+Transitions --> StoreResolver : copy / verify before commit
+StoreResolver --> Secrets : platform credentials only
+StoreResolver --> VaultStores : immutable values/bundles
+Workload --> VaultStores : VSO scoped auth/read
 @enduml

@@ -20,7 +20,7 @@ func TestDraftAndPendingErrorsNeverEchoOrLogStoreDetail(t *testing.T) {
 	log.SetOutput(&logs)
 	defer log.SetOutput(previous)
 
-	for name, write := range map[string]func(http.ResponseWriter, error){"draft": writeDraftError, "pending": writePendingError} {
+	for name, write := range map[string]func(http.ResponseWriter, error){"draft": (&Server{}).writeDraftError, "pending": writePendingError} {
 		for _, tc := range []struct {
 			err    error
 			status int

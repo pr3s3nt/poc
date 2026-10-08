@@ -40,3 +40,20 @@ now compare deterministic complete JSON values; the recording runner terminates
 its owned browser process group and bounds the flow/restart waits.
 See [reviewed evidence](../verification/2026-10-07-environment-connection-kind.md).
 No remaining design/code deviation is tracked by this transition record.
+
+## IMP-017 — Editable Environment stores/transitions acceptance gap
+
+User accepted ADR-012 on 2026-10-07 and requested the current implementation
+checkpoint be committed on 2026-10-08 before final acceptance. Backend/frontend
+replacement code and canonical specs/schema are present. Compilation, owner/fencing,
+PostgreSQL commands, routing preflight and visible Preview impact were corrected;
+independent Go race/PostgreSQL integration/vet/build and frontend gates passed.
+
+Remaining review: recovery polling after failed recovery, active-operation UI
+submission guards, recording runner failure cleanup/process ownership/timeouts,
+and explicit store selection in affected acceptance scenarios. Full real-kind
+(two Vault stores/VSO) human Playwright recording and final acceptance are pending.
+The existing integration-tag AWS test in the baseline passes a string to
+EKSDescriptor's Context parameter; this checkpoint does not claim it passes or
+perform an AWS run. See CURRENT_STATE for current limits. Do not weaken canonical
+requirements or use adapter unit tests as evidence of a completed human live flow.

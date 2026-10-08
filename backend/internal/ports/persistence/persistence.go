@@ -4,6 +4,7 @@ package persistence
 import (
 	"context"
 	"errors"
+	"time"
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
@@ -11,6 +12,7 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/secretstore"
 )
 
 // ErrNotFound is returned when an aggregate does not exist.
@@ -27,12 +29,70 @@ var ErrVersionConflict = errors.New("persistence: version conflict")
 // key already exists; the existing record is left unchanged.
 var ErrDuplicate = errors.New("persistence: duplicate key")
 
-// ErrBindingConfigured is returned when an Environment execution binding is
-// already set. A binding is set exactly once and never replaced.
-var ErrBindingConfigured = errors.New("persistence: environment binding already configured")
+// ErrEnvironmentBusy is returned when a write or claim meets an Environment
+// owned by another active, interrupted or recovering operation (ADR-012).
+var ErrEnvironmentBusy = errors.New("persistence: environment has an active operation")
 
-// EnvironmentBinding is the atomic set-once write of an Environment target.
-// ExpectedVersion guards a stale UI; the unset check is authoritative.
+// RecoveryWindow bounds one recovery attempt: recovery gets a fresh deadline so
+// an expired original operation can still be compensated.
+const RecoveryWindow = 30 * time.Minute
+
+// ErrRecoveryUnconfirmed is returned when recovery lacks an explicit
+// confirmation that the prior execution has stopped.
+var ErrRecoveryUnconfirmed = errors.New("persistence: recovery needs confirmation that the prior execution stopped")
+
+// ErrOperationLost is returned to an operation owner whose claim was taken
+// over by recovery; the owner must stop executing.
+var ErrOperationLost = errors.New("persistence: operation claim was lost")
+
+// BusyError is ErrEnvironmentBusy for one Environment, so delivery can show
+// the owning operation without parsing text.
+type BusyError struct{ ApplicationKey, EnvironmentKey string }
+
+func (e *BusyError) Error() string {
+	return "persistence: environment " + e.ApplicationKey + "/" + e.EnvironmentKey + " has an active operation"
+}
+
+// Is reports ErrEnvironmentBusy.
+func (e *BusyError) Is(target error) bool { return target == ErrEnvironmentBusy }
+
+// Busy returns the busy error of one Environment.
+func Busy(applicationKey, environmentKey string) error {
+	return &BusyError{ApplicationKey: applicationKey, EnvironmentKey: environmentKey}
+}
+
+type ownerKey struct{}
+
+// Owner is the fenced identity of an Environment claim holder: the operation,
+// the process-level owner string and the fence incremented by each recovery.
+type Owner struct {
+	OperationID string
+	Owner       string
+	Fence       int64
+}
+
+// WithOwner marks ctx as carrying the claim owner. Owner-only repository
+// writes succeed only for the current (Owner, Fence) of the operation, so a
+// paused former owner cannot mutate state after recovery took the claim.
+func WithOwner(ctx context.Context, owner Owner) context.Context {
+	return context.WithValue(ctx, ownerKey{}, owner)
+}
+
+// OwnerFrom returns the claim owner carried by ctx.
+func OwnerFrom(ctx context.Context) (Owner, bool) {
+	owner, ok := ctx.Value(ownerKey{}).(Owner)
+	return owner, ok
+}
+
+// OperationFrom returns the operation ID carried by ctx, if any.
+func OperationFrom(ctx context.Context) string {
+	owner, _ := OwnerFrom(ctx)
+	return owner.OperationID
+}
+
+// EnvironmentBinding is the versioned write of an Environment execution
+// target. A write succeeds only at ExpectedVersion, advances the version and,
+// when the Environment is claimed, only for the owning operation in ctx.
 type EnvironmentBinding struct {
 	ApplicationKey, EnvironmentKey string
 	ConnectionKey                  string
@@ -40,7 +100,25 @@ type EnvironmentBinding struct {
 	Region                         string
 	RuntimeStatus                  application.RuntimeStatus
 	Scope                          environment.InfrastructureScope
+	// Generation is the target generation written with the binding.
+	Generation      int64
+	ExpectedVersion int64
+}
+
+// SecretStoreSelection is the versioned write of the Environment secret store.
+type SecretStoreSelection struct {
+	ApplicationKey, EnvironmentKey string
+	StoreKey                       string
 	ExpectedVersion                int64
+}
+
+// OperationClaim asks to own an Environment after verifying its pins.
+type OperationClaim struct {
+	ID, ApplicationKey, EnvironmentKey, Owner string
+	Kind                                      environment.OperationKind
+	Pins                                      environment.OperationPins
+	Detail                                    map[string]any
+	Deadline                                  time.Time
 }
 
 // ApplicationRepository owns Organization, Application and Connection records.
@@ -71,20 +149,78 @@ type IdentityRepository interface {
 type EnvironmentRepository interface {
 	ListEnvironments(ctx context.Context, applicationKey string) ([]environment.Environment, error)
 	GetEnvironment(ctx context.Context, applicationKey, environmentKey string) (environment.Environment, error)
-	// SaveEnvironment never writes the execution binding of an existing or new
-	// Environment; BindEnvironment is the only way to set it.
+	// SaveEnvironment is the seed/creation upsert. It never writes the
+	// execution binding, store selection, generation or claim of an existing
+	// Environment; dedicated commands own them.
 	SaveEnvironment(ctx context.Context, env environment.Environment) error
-	// BindEnvironment sets the binding of an unset Environment exactly once and
-	// increments its version. ErrBindingConfigured when already set (even to the
-	// same key), ErrVersionConflict when unset but ExpectedVersion is stale,
-	// ErrNotFound for a missing connection or Environment. Nothing else changes.
+	// BindEnvironment replaces the execution binding with one versioned write.
+	// ErrVersionConflict when ExpectedVersion is stale, ErrEnvironmentBusy when
+	// another operation owns the Environment, ErrNotFound for a missing
+	// Environment or foreign/missing Connection.
 	BindEnvironment(ctx context.Context, b EnvironmentBinding) (environment.Environment, error)
+	// SelectSecretStore replaces the secret-store selection with one versioned
+	// write; same errors as BindEnvironment.
+	SelectSecretStore(ctx context.Context, s SecretStoreSelection) (environment.Environment, error)
 	// UpdateRuntimeStatus advances PENDING/READY of a configured Environment.
 	UpdateRuntimeStatus(ctx context.Context, applicationKey, environmentKey string, status application.RuntimeStatus) error
+	// SetPublicRoutesPending changes only the route flag, without a version bump.
+	SetPublicRoutesPending(ctx context.Context, applicationKey, environmentKey string, pending bool) error
+	// AllocateGeneration reserves the next target generation of an Environment
+	// for the owning operation and returns it.
+	AllocateGeneration(ctx context.Context, applicationKey, environmentKey string) (int64, error)
 	GetDeploymentSet(ctx context.Context, id string) (environment.DeploymentSet, error)
 	SaveDeploymentSet(ctx context.Context, set environment.DeploymentSet) error
 	// CompareVersionAndSetCurrent performs the optimistic final commit of UC-06 MS-12.
 	CompareVersionAndSetCurrent(ctx context.Context, applicationKey, environmentKey string, expectedVersion int64, setID string) error
+}
+
+// SecretStoreRepository owns Organization-scoped workload Secret Store records.
+type SecretStoreRepository interface {
+	// CreateSecretStore is insert-only: ErrDuplicate for an existing
+	// (Organization, key), ErrNotFound for a missing Organization.
+	CreateSecretStore(ctx context.Context, store secretstore.Store) error
+	GetSecretStore(ctx context.Context, organizationKey, key string) (secretstore.Store, error)
+	ListSecretStores(ctx context.Context, organizationKey string) ([]secretstore.Store, error)
+	// BackfillLegacySecretStore stamps the explicit legacy store identity on
+	// pre-ADR-012 configuration entries that carry a value ref but no store key
+	// and selects it on Environments that already have configuration. Idempotent;
+	// refs and revision identities are unchanged and no Environment version moves.
+	BackfillLegacySecretStore(ctx context.Context, organizationKey, storeKey string) error
+}
+
+// OperationRepository owns the persisted Environment operation claims and
+// transition records (ADR-012).
+type OperationRepository interface {
+	// ClaimEnvironment verifies pins and claims the Environment in one local
+	// transaction: ErrEnvironmentBusy when claimed, ErrVersionConflict when a
+	// pinned version or identity differs.
+	ClaimEnvironment(ctx context.Context, claim OperationClaim) (environment.Operation, error)
+	GetOperation(ctx context.Context, id string) (environment.Operation, error)
+	// ActiveOperation returns the operation holding the Environment, if any.
+	ActiveOperation(ctx context.Context, applicationKey, environmentKey string) (environment.Operation, bool, error)
+	ListOperations(ctx context.Context, applicationKey, environmentKey string, limit int) ([]environment.Operation, error)
+	// HeartbeatOperation extends a live claim of owner; ErrOperationLost when
+	// the claim no longer belongs to the fenced owner.
+	HeartbeatOperation(ctx context.Context, owner Owner, stage string, detail map[string]any) error
+	// ReleaseOperation moves a claim to a terminal status and frees the
+	// Environment atomically.
+	ReleaseOperation(ctx context.Context, owner Owner, status environment.OperationStatus, failure string) error
+	// MarkInterrupted flags ACTIVE claims whose heartbeat is older than
+	// staleBefore as INTERRUPTED. The claim stays held; nothing is released.
+	MarkInterrupted(ctx context.Context, staleBefore time.Time) (int, error)
+	// SuspendOperation returns a held claim to INTERRUPTED with a visible failure,
+	// without releasing the Environment. The current fenced owner uses it when a
+	// compensation or recovery step failed, so the claim keeps demanding operator
+	// action instead of being freed under a false safe outcome.
+	SuspendOperation(ctx context.Context, owner Owner, failure string) error
+	// BeginRecovery moves an INTERRUPTED claim to RECOVERING for newOwner and
+	// increments its fence. confirmedBy records who confirmed that the prior
+	// execution is stopped; an empty value is rejected. Stale heartbeat alone
+	// never authorizes recovery.
+	BeginRecovery(ctx context.Context, id, newOwner, confirmedBy string) (environment.Operation, error)
+	SaveTransition(ctx context.Context, t environment.Transition) error
+	GetTransition(ctx context.Context, id string) (environment.Transition, error)
+	ListTransitions(ctx context.Context, applicationKey, environmentKey string) ([]environment.Transition, error)
 }
 
 // CatalogRepository owns Resource Types and Resource Definitions.
@@ -133,7 +269,10 @@ type WorkloadInstanceRepository interface {
 	// and the snapshot owned by w.LastDeploymentID while that Deployment runs.
 	UpsertWorkloadProgress(ctx context.Context, w deployment.WorkloadInstance) error
 	UpsertWorkloadInstance(ctx context.Context, w deployment.WorkloadInstance) error
+	// ListWorkloadInstances returns the instances of the Environment's current
+	// target generation; ListWorkloadInstancesFor returns one chosen generation.
 	ListWorkloadInstances(ctx context.Context, environmentKey string) ([]deployment.WorkloadInstance, error)
+	ListWorkloadInstancesFor(ctx context.Context, environmentKey string, generation int64) ([]deployment.WorkloadInstance, error)
 	ListDeploymentWorkloads(ctx context.Context, deploymentID string) ([]deployment.WorkloadSnapshot, error)
 }
 
@@ -177,6 +316,8 @@ type Store interface {
 	WorkloadInstanceRepository
 	ConfigurationRepository
 	WorkloadDraftRepository
+	SecretStoreRepository
+	OperationRepository
 	UnitOfWork
 	ReadSnapshot
 }

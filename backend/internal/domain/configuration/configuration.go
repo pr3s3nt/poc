@@ -11,10 +11,23 @@ const (
 	Secret   Kind = "SECRET"
 )
 
+// Entry is one revision key. A Variable carries its ordinary Value in
+// Orchestrator metadata; a Secret carries the owning StoreKey plus an opaque
+// ValueRef. A legacy Variable keeps its original ValueRef/StoreKey with an
+// empty Value until a successful edit or store transition materializes it.
+// Every field is a string, so entries stay comparable.
 type Entry struct {
 	Kind     Kind   `json:"kind"`
-	ValueRef string `json:"valueRef"`
+	ValueRef string `json:"valueRef,omitempty"`
+	StoreKey string `json:"storeKey,omitempty"`
+	Value    string `json:"value,omitempty"`
 }
+
+// LegacyVariable reports a Variable that still reads through a store ref.
+func (e Entry) LegacyVariable() bool { return e.Kind == Variable && e.Value == "" && e.ValueRef != "" }
+
+// UsesStore reports whether the entry bytes live in a secret store.
+func (e Entry) UsesStore() bool { return e.Kind == Secret || e.LegacyVariable() }
 
 type Revision struct {
 	ID             string           `json:"id"`
@@ -36,8 +49,14 @@ func (r Revision) Validate() error {
 		return fmt.Errorf("configuration: incomplete revision identity")
 	}
 	for name, entry := range r.Entries {
-		if name == "" || (entry.Kind != Variable && entry.Kind != Secret) || entry.ValueRef == "" {
+		if name == "" || (entry.Kind != Variable && entry.Kind != Secret) {
 			return fmt.Errorf("configuration: invalid entry %q", name)
+		}
+		if entry.Kind == Secret && (entry.ValueRef == "" || entry.Value != "") {
+			return fmt.Errorf("configuration: invalid secret entry %q", name)
+		}
+		if entry.Kind == Variable && entry.Value == "" && entry.ValueRef == "" {
+			return fmt.Errorf("configuration: invalid variable entry %q", name)
 		}
 	}
 	return nil

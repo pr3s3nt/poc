@@ -7,7 +7,9 @@ last_reviewed: 2026-10-07
 
 # ADR-011 — Environment execution binding set once
 
-Status: Accepted — 2026-10-07, theo quyết định người dùng.
+Status: Superseded in part — permanent set-once selection/admission/UI rules are
+replaced by [ADR-012](ADR-012-environment-stores-and-transitions.md). This record
+preserves historical design and generation-0 scope/naming/legacy decisions.
 Supersedes the shared Application target and new AWS scopes in ADR-001;
 ADR-001 legacy identity remains supported as documented below.
 

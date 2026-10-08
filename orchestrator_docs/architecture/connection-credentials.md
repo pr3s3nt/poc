@@ -128,3 +128,13 @@ operator responsibility; this change must reject URL userinfo and unsafe
 schemes and must not introduce redirects to unvalidated credential destinations.
 Kubeconfig parser validation must sanitize attacker-controlled names/endpoints
 so inspection cannot echo credential fields disguised as metadata in errors.
+
+## Workload secret-store registration and selection
+
+[ADR-012](decisions/ADR-012-environment-stores-and-transitions.md) adds separate
+SecretStoreConnection metadata and Environment selection. Vault access tokens are
+stored in the existing platform credential vault under Organization/store/attempt
+scope, never recursively inside the workload's selected store. Resolver validates
+scope/provider/READY and returns private client credentials; public choices exclude
+refs/tokens. VSO bundle metadata pins store addresses/mount/auth and store-specific
+object names; old deployments do not follow a changed Settings selection.

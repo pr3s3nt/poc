@@ -13,7 +13,7 @@ related: UC-01, UC-05, UC-07, UC-09, UC-16
 Developer lands on Applications home after sign-in, creates an Application with
 Name/Subdomain, then sees a single Application home with `staging` and
 `production` tabs. The selected Environment displays its Workloads and recent
-deployments. Connection is set exactly once in each Environment Settings; see [screens](screens.md).
+deployments. Execution and Secret Store Connections are independently editable in each Environment Settings with version checks and explicit transitions; see [screens](screens.md).
 
 Add/Edit/Delete workload affordances are visible in this home because that is
 where a Developer expects them. Their configuration behavior belongs to

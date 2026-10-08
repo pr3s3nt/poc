@@ -141,7 +141,14 @@ func TestPrepareWorkloadBundleWritesScopedImmutableData(t *testing.T) {
 		t.Fatal(err)
 	}
 	ref := "kv2://kv/orchestrator/apps/app-1/envs/staging/values/source"
-	bundle, err := provider.PrepareWorkloadBundle(context.Background(), "app-1", "staging", "frontend", "app-staging", "revision-1", "deployment-1", map[string]map[string]string{"main": {"API_TOKEN": ref}})
+	if !provider.OwnsRef(ref, "app-1", "staging") || provider.OwnsRef("kv2://kv/orchestrator/apps/app-2/envs/staging/values/source", "app-1", "staging") {
+		t.Fatal("ref ownership must be scoped to the Application Environment")
+	}
+	value, err := provider.ReadValue(context.Background(), ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := provider.WriteBundle(context.Background(), "app-1", "staging", "frontend", "app-staging", "revision-1", "deployment-1", map[string]map[string]string{"main": {"API_TOKEN": value}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,8 +160,5 @@ func TestPrepareWorkloadBundleWritesScopedImmutableData(t *testing.T) {
 	}
 	if bundle.Keys["main"]["API_TOKEN"] != "main_API_TOKEN" || bundle.SecretName == "" || bundle.Role == "" {
 		t.Fatal("wrong bundle metadata")
-	}
-	if _, err := provider.PrepareWorkloadBundle(context.Background(), "app-1", "staging", "frontend", "app-staging", "revision-1", "deployment-2", map[string]map[string]string{"main": {"API_TOKEN": "kv2://kv/orchestrator/apps/app-2/envs/staging/values/source"}}); err == nil {
-		t.Fatal("cross-Application reference accepted")
 	}
 }

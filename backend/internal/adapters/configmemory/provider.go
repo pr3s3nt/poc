@@ -37,8 +37,4 @@ func (p *Provider) ReadValue(_ context.Context, ref string) (string, error) {
 	return value, nil
 }
 
-func (p *Provider) PrepareWorkloadAccess(_ context.Context, _, _, workload, _, _ string, _ []string) (configport.WorkloadAccess, error) {
-	return configport.WorkloadAccess{Role: "fake", Address: "http://vault-uc12.vault.svc:8200", ServiceAccount: workload + "-vault"}, nil
-}
-
 var _ configport.Provider = (*Provider)(nil)

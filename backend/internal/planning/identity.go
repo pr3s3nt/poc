@@ -62,8 +62,8 @@ func InternalClusterDescriptor(connectionKey string) (resource.Descriptor, error
 }
 
 // NamespaceDescriptor returns the Environment-scoped namespace node.
-func NamespaceDescriptor(applicationKey, environmentKey string) (resource.Descriptor, error) {
-	return resource.NewDescriptor(TypeNamespace, ClassDefault, PathEnvironments+applicationKey+"."+environmentKey)
+func NamespaceDescriptor(applicationKey, environmentKey string, generation int64) (resource.Descriptor, error) {
+	return resource.NewDescriptor(TypeNamespace, ClassDefault, PathEnvironments+applicationKey+"."+environmentKey+environment.GenerationScopeSuffix(generation))
 }
 
 func entryClass(entry environment.ResourceEntry) string {
@@ -75,7 +75,7 @@ func entryClass(entry environment.ResourceEntry) string {
 
 // ScopeFor derives the Active Resource scope from the identity path.
 func ScopeFor(ctx Context, d resource.Descriptor) (resource.Scope, error) {
-	envScope := ctx.App.Key + "." + ctx.Env.Key
+	envScope := environment.ScopeID(ctx.App.Key, ctx.Env.Key, ctx.Env.TargetGeneration)
 	switch {
 	case strings.HasPrefix(d.ID, PathModules):
 		rest := strings.TrimPrefix(d.ID, PathModules)
@@ -103,6 +103,9 @@ func ScopeFor(ctx Context, d resource.Descriptor) (resource.Scope, error) {
 func ParseDescriptorText(raw string, current *Node, ctx Context) (resource.Descriptor, error) {
 	raw = strings.TrimSpace(raw)
 	raw = strings.NewReplacer(
+		// The Environment path carries the target generation, so Definitions
+		// written as environments.@app.@env resolve to the generation's namespace.
+		"environments.@app.@env", PathEnvironments+ctx.App.Key+"."+ctx.Env.Key+environment.GenerationScopeSuffix(ctx.Env.TargetGeneration),
 		"@app", ctx.App.Key,
 		"@env", ctx.Env.Key,
 		"@connection", ctx.Connection.Key,

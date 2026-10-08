@@ -12,6 +12,10 @@ Date: 2026-09-26
 
 Vault Agent delivery in decision 4 and 8 is superseded by [ADR-008](ADR-008-vso-native-secret-delivery.md); the provider/revision decisions remain accepted.
 
+Application-level provider selection, Variable storage and deferred provider migration
+are superseded by [ADR-012](ADR-012-environment-stores-and-transitions.md).
+Immutable revisions and secret-redaction requirements remain.
+
 ## Context
 
 UC-12 manages Variables & Secrets for the two Environments of each Application.

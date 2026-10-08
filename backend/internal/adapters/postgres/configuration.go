@@ -26,7 +26,7 @@ func (s *Store) GetConfigurationRevision(ctx context.Context, id string) (config
 	if err != nil {
 		return v, translate(err)
 	}
-	rows, err := s.q(ctx).Query(ctx, `SELECT key_name,kind,value_ref FROM configuration_revision_entries WHERE revision_id=$1::uuid`, id)
+	rows, err := s.q(ctx).Query(ctx, `SELECT key_name,kind,COALESCE(value_ref,''),store_key,COALESCE(variable_value,'') FROM configuration_revision_entries WHERE revision_id=$1::uuid`, id)
 	if err != nil {
 		return v, err
 	}
@@ -34,7 +34,7 @@ func (s *Store) GetConfigurationRevision(ctx context.Context, id string) (config
 	for rows.Next() {
 		var name string
 		var e configuration.Entry
-		if err = rows.Scan(&name, &e.Kind, &e.ValueRef); err != nil {
+		if err = rows.Scan(&name, &e.Kind, &e.ValueRef, &e.StoreKey, &e.Value); err != nil {
 			return v, err
 		}
 		v.Entries[name] = e
@@ -42,15 +42,22 @@ func (s *Store) GetConfigurationRevision(ctx context.Context, id string) (config
 	return v, rows.Err()
 }
 func (s *Store) CommitConfigurationRevision(ctx context.Context, expected int64, v configuration.Revision) error {
+	return s.fenced(ctx, func(ctx context.Context) error { return s.fencedCommitConfigurationRevision(ctx, expected, v) })
+}
+
+func (s *Store) fencedCommitConfigurationRevision(ctx context.Context, expected int64, v configuration.Revision) error {
 	if err := v.Validate(); err != nil {
 		return err
 	}
 	return s.Transact(ctx, func(ctx context.Context) error {
-		var envID string
+		var envID, active string
 		var current int64
-		err := s.q(ctx).QueryRow(ctx, `SELECT e.id::text,COALESCE(cr.version,0) FROM environments e JOIN applications a ON a.id=e.application_id LEFT JOIN configuration_revisions cr ON cr.id=e.desired_config_revision_id WHERE a.application_key=$1 AND e.environment_key=$2 FOR UPDATE OF e`, v.ApplicationKey, v.EnvironmentKey).Scan(&envID, &current)
+		err := s.q(ctx).QueryRow(ctx, `SELECT e.id::text,COALESCE(cr.version,0),COALESCE(e.active_operation_id::text,'') FROM environments e JOIN applications a ON a.id=e.application_id LEFT JOIN configuration_revisions cr ON cr.id=e.desired_config_revision_id WHERE a.application_key=$1 AND e.environment_key=$2 FOR UPDATE OF e`, v.ApplicationKey, v.EnvironmentKey).Scan(&envID, &current, &active)
 		if err != nil {
 			return translate(err)
+		}
+		if active != "" && active != ownerArg(ctx) {
+			return persistence.Busy(v.ApplicationKey, v.EnvironmentKey)
 		}
 		if current != expected || v.Version != expected+1 {
 			return persistence.ErrVersionConflict
@@ -59,7 +66,7 @@ func (s *Store) CommitConfigurationRevision(ctx context.Context, expected int64,
 			return translate(err)
 		}
 		for name, e := range v.Entries {
-			if _, err = s.q(ctx).Exec(ctx, `INSERT INTO configuration_revision_entries(revision_id,key_name,kind,value_ref) VALUES($1::uuid,$2,$3,$4)`, v.ID, name, e.Kind, e.ValueRef); err != nil {
+			if _, err = s.q(ctx).Exec(ctx, `INSERT INTO configuration_revision_entries(revision_id,key_name,kind,value_ref,store_key,variable_value) VALUES($1::uuid,$2,$3,NULLIF($4,''),$5,NULLIF($6,''))`, v.ID, name, e.Kind, e.ValueRef, e.StoreKey, e.Value); err != nil {
 				return translate(err)
 			}
 		}
@@ -103,6 +110,10 @@ func (s *Store) GetWorkloadDraft(ctx context.Context, app, env, workload string)
 	return v, err
 }
 func (s *Store) SaveWorkloadDraft(ctx context.Context, expected int64, v environment.WorkloadDraft) error {
+	return s.fenced(ctx, func(ctx context.Context) error { return s.fencedSaveWorkloadDraft(ctx, expected, v) })
+}
+
+func (s *Store) fencedSaveWorkloadDraft(ctx context.Context, expected int64, v environment.WorkloadDraft) error {
 	if v.WorkloadID == "" || (v.State != environment.DraftUpsert && v.State != environment.DraftDelete) || (v.State == environment.DraftUpsert && v.Score == nil) {
 		return fmt.Errorf("postgres: invalid workload draft")
 	}
@@ -114,23 +125,27 @@ func (s *Store) SaveWorkloadDraft(ctx context.Context, expected int64, v environ
 		}
 		score = b
 	}
-	tag, err := s.q(ctx).Exec(ctx, `WITH bumped AS (UPDATE environments e SET draft_version=draft_version+1 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.draft_version=$3 RETURNING e.id) INSERT INTO workload_drafts(environment_id,workload_id,score_document,state) SELECT id,$4,$5,$6 FROM bumped ON CONFLICT(environment_id,workload_id) DO UPDATE SET score_document=EXCLUDED.score_document,state=EXCLUDED.state,updated_at=now()`, v.ApplicationKey, v.EnvironmentKey, expected, v.WorkloadID, score, v.State)
+	tag, err := s.q(ctx).Exec(ctx, `WITH bumped AS (UPDATE environments e SET draft_version=draft_version+1 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.draft_version=$3 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($7,'')::uuid) RETURNING e.id) INSERT INTO workload_drafts(environment_id,workload_id,score_document,state) SELECT id,$4,$5,$6 FROM bumped ON CONFLICT(environment_id,workload_id) DO UPDATE SET score_document=EXCLUDED.score_document,state=EXCLUDED.state,updated_at=now()`, v.ApplicationKey, v.EnvironmentKey, expected, v.WorkloadID, score, v.State, ownerArg(ctx))
 	if err != nil {
 		return translate(err)
 	}
 	if tag.RowsAffected() == 0 {
-		return persistence.ErrVersionConflict
+		return s.classifyEnvWrite(ctx, v.ApplicationKey, v.EnvironmentKey, 0, false, persistence.ErrVersionConflict)
 	}
 	return nil
 }
 func (s *Store) DeleteWorkloadDraft(ctx context.Context, app, env, workload string, expected int64) error {
+	return s.fenced(ctx, func(ctx context.Context) error { return s.fencedDeleteWorkloadDraft(ctx, app, env, workload, expected) })
+}
+
+func (s *Store) fencedDeleteWorkloadDraft(ctx context.Context, app, env, workload string, expected int64) error {
 	return s.Transact(ctx, func(ctx context.Context) error {
-		tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET draft_version=draft_version+1 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.draft_version=$3`, app, env, expected)
+		tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET draft_version=draft_version+1 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND e.draft_version=$3 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($4,'')::uuid)`, app, env, expected, ownerArg(ctx))
 		if err != nil {
 			return translate(err)
 		}
 		if tag.RowsAffected() == 0 {
-			return persistence.ErrVersionConflict
+			return s.classifyEnvWrite(ctx, app, env, 0, false, persistence.ErrVersionConflict)
 		}
 		tag, err = s.q(ctx).Exec(ctx, `DELETE FROM workload_drafts w USING environments e,applications a WHERE w.environment_id=e.id AND e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND w.workload_id=$3`, app, env, workload)
 		if err != nil {

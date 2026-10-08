@@ -21,6 +21,7 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/secretstore"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
 )
@@ -45,6 +46,9 @@ type state struct {
 	ConfigScopes        map[string]configuration.Scope                `json:"configurationScopes"`
 	ConfigRevisions     map[string]configuration.Revision             `json:"configurationRevisions"`
 	WorkloadDrafts      map[string]environment.WorkloadDraft          `json:"workloadDrafts"`
+	SecretStores        map[string]secretstore.Store                  `json:"secretStores"`
+	Operations          map[string]environment.Operation              `json:"environmentOperations"`
+	Transitions         map[string]environment.Transition             `json:"environmentTransitions"`
 }
 
 func newState() *state {
@@ -68,6 +72,9 @@ func newState() *state {
 		ConfigScopes:        map[string]configuration.Scope{},
 		ConfigRevisions:     map[string]configuration.Revision{},
 		WorkloadDrafts:      map[string]environment.WorkloadDraft{},
+		SecretStores:        map[string]secretstore.Store{},
+		Operations:          map[string]environment.Operation{},
+		Transitions:         map[string]environment.Transition{},
 	}
 }
 
@@ -92,6 +99,15 @@ func (s *state) ensureMaps() {
 	}
 	if s.DeploymentWorkloads == nil {
 		s.DeploymentWorkloads = map[string]deployment.WorkloadSnapshot{}
+	}
+	if s.SecretStores == nil {
+		s.SecretStores = map[string]secretstore.Store{}
+	}
+	if s.Operations == nil {
+		s.Operations = map[string]environment.Operation{}
+	}
+	if s.Transitions == nil {
+		s.Transitions = map[string]environment.Transition{}
 	}
 }
 
@@ -128,6 +144,9 @@ func (s *Store) SaveWorkloadDraft(ctx context.Context, expected int64, draft env
 	if !ok {
 		return fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
 	}
+	if err := s.ownerCheck(ctx, env); err != nil {
+		return err
+	}
 	if env.DraftVersion != expected {
 		return persistence.ErrVersionConflict
 	}
@@ -146,6 +165,9 @@ func (s *Store) DeleteWorkloadDraft(ctx context.Context, app, envKeyName, worklo
 	env, ok := s.state.Environments[key]
 	if !ok {
 		return fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
+	}
+	if err := s.ownerCheck(ctx, env); err != nil {
+		return err
 	}
 	if env.DraftVersion != expected {
 		return persistence.ErrVersionConflict
@@ -194,8 +216,12 @@ func (s *Store) CommitConfigurationRevision(ctx context.Context, expectedVersion
 		return err
 	}
 	key := envKey(revision.ApplicationKey, revision.EnvironmentKey)
-	if _, ok := s.state.Environments[key]; !ok {
+	env, ok := s.state.Environments[key]
+	if !ok {
 		return fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
+	}
+	if err := s.ownerCheck(ctx, env); err != nil {
+		return err
 	}
 	scope := s.state.ConfigScopes[key]
 	if scope.Version != expectedVersion || revision.Version != expectedVersion+1 {
@@ -601,12 +627,19 @@ func (s *Store) SaveEnvironment(ctx context.Context, env environment.Environment
 	if env.Version == 0 {
 		env.Version = 1
 	}
-	// The execution binding is never writable here (ADR-011): keep what is
-	// stored, or leave a new Environment UNCONFIGURED.
+	// The binding, store selection, generation and claim are never writable
+	// here (ADR-012): keep what is stored, or leave a new Environment unset.
 	key := envKey(env.ApplicationKey, env.Key)
 	stored, existed := s.state.Environments[key]
+	if existed {
+		if err := s.ownerCheck(ctx, stored); err != nil {
+			return err
+		}
+	}
 	env.ConnectionKey, env.Profile, env.Region = stored.ConnectionKey, stored.Profile, stored.Region
 	env.RuntimeStatus, env.InfrastructureScope = stored.RuntimeStatus, stored.InfrastructureScope
+	env.TargetGeneration, env.GenerationHigh = stored.TargetGeneration, stored.GenerationHigh
+	env.SecretStoreKey, env.ActiveOperationID = stored.SecretStoreKey, stored.ActiveOperationID
 	if !existed {
 		// Stored rows carry the SQL defaults explicitly, not through helpers.
 		env.RuntimeStatus, env.InfrastructureScope = application.RuntimeUnconfigured, environment.ScopeEnvironment
@@ -615,7 +648,32 @@ func (s *Store) SaveEnvironment(ctx context.Context, env environment.Environment
 	return nil
 }
 
-// BindEnvironment sets the Environment binding once, under the store lock.
+// ownerCheck rejects a write against an Environment claimed by another operation.
+func (s *Store) ownerCheck(ctx context.Context, env environment.Environment) error {
+	if err := s.fence(ctx); err != nil {
+		return err
+	}
+	if env.ActiveOperationID == "" || env.ActiveOperationID == persistence.OperationFrom(ctx) {
+		return nil
+	}
+	return persistence.Busy(env.ApplicationKey, env.Key)
+}
+
+// fence rejects a write whose context carries a claim owner that recovery or a
+// release has superseded. A context without an owner is not fenced.
+func (s *Store) fence(ctx context.Context) error {
+	owner, ok := persistence.OwnerFrom(ctx)
+	if !ok {
+		return nil
+	}
+	op, found := s.state.Operations[owner.OperationID]
+	if !found || op.Owner != owner.Owner || op.Fence != owner.Fence || (op.Status != environment.OpActive && op.Status != environment.OpRecovering) {
+		return persistence.ErrOperationLost
+	}
+	return nil
+}
+
+// BindEnvironment replaces the Environment binding with one versioned write.
 func (s *Store) BindEnvironment(ctx context.Context, b persistence.EnvironmentBinding) (environment.Environment, error) {
 	defer s.lock(ctx)()
 	key := envKey(b.ApplicationKey, b.EnvironmentKey)
@@ -630,17 +688,48 @@ func (s *Store) BindEnvironment(ctx context.Context, b persistence.EnvironmentBi
 	if _, ok := s.state.Connections[catalogKey(app.OrganizationKey, b.ConnectionKey)]; !ok {
 		return environment.Environment{}, fmt.Errorf("%w: connection %q", persistence.ErrNotFound, b.ConnectionKey)
 	}
-	if env.Configured() {
-		return environment.Environment{}, fmt.Errorf("%w: environment %s", persistence.ErrBindingConfigured, key)
+	if err := s.ownerCheck(ctx, env); err != nil {
+		return environment.Environment{}, err
 	}
 	if env.Version != b.ExpectedVersion {
 		return environment.Environment{}, fmt.Errorf("%w: environment %s is at version %d, request used %d", persistence.ErrVersionConflict, key, env.Version, b.ExpectedVersion)
 	}
-	if !b.Scope.Valid() || !b.Profile.Valid() || b.RuntimeStatus == "" || b.RuntimeStatus == application.RuntimeUnconfigured {
+	if !b.Scope.Valid() || !b.Profile.Valid() || b.RuntimeStatus == "" || b.RuntimeStatus == application.RuntimeUnconfigured || b.Generation < 0 || b.Generation > env.GenerationHigh && b.Generation != env.TargetGeneration {
 		return environment.Environment{}, fmt.Errorf("store: invalid environment binding for %s", key)
 	}
 	env.ConnectionKey, env.Profile, env.Region = b.ConnectionKey, b.Profile, b.Region
 	env.RuntimeStatus, env.InfrastructureScope = b.RuntimeStatus, b.Scope
+	env.TargetGeneration = b.Generation
+	if b.Generation > env.GenerationHigh {
+		env.GenerationHigh = b.Generation
+	}
+	env.Version++
+	s.state.Environments[key] = env
+	return env, nil
+}
+
+// SelectSecretStore replaces the secret-store selection with one versioned write.
+func (s *Store) SelectSecretStore(ctx context.Context, sel persistence.SecretStoreSelection) (environment.Environment, error) {
+	defer s.lock(ctx)()
+	key := envKey(sel.ApplicationKey, sel.EnvironmentKey)
+	env, ok := s.state.Environments[key]
+	if !ok {
+		return environment.Environment{}, fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
+	}
+	app, ok := s.state.Applications[sel.ApplicationKey]
+	if !ok {
+		return environment.Environment{}, fmt.Errorf("%w: application %q", persistence.ErrNotFound, sel.ApplicationKey)
+	}
+	if _, ok := s.state.SecretStores[catalogKey(app.OrganizationKey, sel.StoreKey)]; !ok {
+		return environment.Environment{}, fmt.Errorf("%w: secret store %q", persistence.ErrNotFound, sel.StoreKey)
+	}
+	if err := s.ownerCheck(ctx, env); err != nil {
+		return environment.Environment{}, err
+	}
+	if env.Version != sel.ExpectedVersion {
+		return environment.Environment{}, fmt.Errorf("%w: environment %s is at version %d, request used %d", persistence.ErrVersionConflict, key, env.Version, sel.ExpectedVersion)
+	}
+	env.SecretStoreKey = sel.StoreKey
 	env.Version++
 	s.state.Environments[key] = env
 	return env, nil
@@ -654,12 +743,50 @@ func (s *Store) UpdateRuntimeStatus(ctx context.Context, applicationKey, environ
 	if !ok {
 		return fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
 	}
+	if err := s.ownerCheck(ctx, env); err != nil {
+		return err
+	}
 	if !env.Configured() || (status != application.RuntimePending && status != application.RuntimeReady) {
 		return fmt.Errorf("%w: environment %s runtime status", persistence.ErrImmutable, key)
 	}
 	env.RuntimeStatus = status
 	s.state.Environments[key] = env
 	return nil
+}
+
+// SetPublicRoutesPending changes only the route flag.
+func (s *Store) SetPublicRoutesPending(ctx context.Context, applicationKey, environmentKey string, pending bool) error {
+	defer s.lock(ctx)()
+	key := envKey(applicationKey, environmentKey)
+	env, ok := s.state.Environments[key]
+	if !ok {
+		return fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
+	}
+	if err := s.ownerCheck(ctx, env); err != nil {
+		return err
+	}
+	env.PublicRoutesPending = pending
+	s.state.Environments[key] = env
+	return nil
+}
+
+// AllocateGeneration reserves the next target generation for the owner.
+func (s *Store) AllocateGeneration(ctx context.Context, applicationKey, environmentKey string) (int64, error) {
+	defer s.lock(ctx)()
+	key := envKey(applicationKey, environmentKey)
+	env, ok := s.state.Environments[key]
+	if !ok {
+		return 0, fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
+	}
+	if env.ActiveOperationID == "" || env.ActiveOperationID != persistence.OperationFrom(ctx) {
+		return 0, fmt.Errorf("%w: generation allocation needs the owning operation", persistence.ErrEnvironmentBusy)
+	}
+	if env.GenerationHigh < env.TargetGeneration {
+		env.GenerationHigh = env.TargetGeneration
+	}
+	env.GenerationHigh++
+	s.state.Environments[key] = env
+	return env.GenerationHigh, nil
 }
 
 // GetDeploymentSet reads one immutable Deployment Set.
@@ -675,6 +802,9 @@ func (s *Store) GetDeploymentSet(ctx context.Context, id string) (environment.De
 // SaveDeploymentSet stores an immutable Deployment Set.
 func (s *Store) SaveDeploymentSet(ctx context.Context, set environment.DeploymentSet) error {
 	defer s.lock(ctx)()
+	if err := s.fence(ctx); err != nil {
+		return err
+	}
 	if set.ID == "" {
 		return fmt.Errorf("store: deployment set needs an id")
 	}
@@ -689,6 +819,9 @@ func (s *Store) CompareVersionAndSetCurrent(ctx context.Context, applicationKey,
 	env, ok := s.state.Environments[key]
 	if !ok {
 		return fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
+	}
+	if err := s.ownerCheck(ctx, env); err != nil {
+		return err
 	}
 	if env.Version != expectedVersion {
 		return fmt.Errorf("%w: environment %s is at version %d, plan used %d", persistence.ErrVersionConflict, key, env.Version, expectedVersion)
@@ -802,6 +935,9 @@ func (s *Store) SaveResourceDefinition(ctx context.Context, organizationKey stri
 // SaveDeployment inserts or updates a Deployment record.
 func (s *Store) SaveDeployment(ctx context.Context, d deployment.Deployment) error {
 	defer s.lock(ctx)()
+	if err := s.fence(ctx); err != nil {
+		return err
+	}
 	if d.ID == "" {
 		return fmt.Errorf("store: deployment needs an id")
 	}
@@ -846,6 +982,9 @@ func (s *Store) checkDeltaSnapshotLocked(d deployment.Deployment) error {
 // reach the stored Snapshot.
 func (s *Store) SaveDeltaSnapshot(ctx context.Context, snapshot deployment.DeploymentDeltaSnapshot) error {
 	defer s.lock(ctx)()
+	if err := s.fence(ctx); err != nil {
+		return err
+	}
 	stored, err := cloneDeltaSnapshot(snapshot)
 	if err != nil {
 		return err
@@ -929,6 +1068,9 @@ func (s *Store) ListDeployments(ctx context.Context, applicationKey, environment
 // SavePlan stores the immutable plan snapshot of a Deployment.
 func (s *Store) SavePlan(ctx context.Context, deploymentID string, plan map[string]any) error {
 	defer s.lock(ctx)()
+	if err := s.fence(ctx); err != nil {
+		return err
+	}
 	s.state.Plans[deploymentID] = plan
 	return nil
 }
@@ -946,6 +1088,9 @@ func (s *Store) GetPlan(ctx context.Context, deploymentID string) (map[string]an
 // SaveDeploymentResource records per-node progress of a Deployment.
 func (s *Store) SaveDeploymentResource(ctx context.Context, r deployment.Resource) error {
 	defer s.lock(ctx)()
+	if err := s.fence(ctx); err != nil {
+		return err
+	}
 	list := s.state.DeployResources[r.DeploymentID]
 	for i, existing := range list {
 		if existing.NodeDescriptor == r.NodeDescriptor {
@@ -997,6 +1142,9 @@ func (s *Store) ListActiveResources(ctx context.Context, organizationKey string)
 // UpsertActiveResource inserts or updates an Active Resource by logical identity.
 func (s *Store) UpsertActiveResource(ctx context.Context, a resource.ActiveResource) (resource.ActiveResource, error) {
 	defer s.lock(ctx)()
+	if err := s.fence(ctx); err != nil {
+		return resource.ActiveResource{}, err
+	}
 	key := a.LogicalKey()
 	existing, ok := s.state.ActiveResources[key]
 	now := time.Now().UTC()
@@ -1019,7 +1167,10 @@ func (s *Store) UpsertActiveResource(ctx context.Context, a resource.ActiveResou
 // UpsertWorkloadInstance records applied workload state.
 func (s *Store) UpsertWorkloadInstance(ctx context.Context, w deployment.WorkloadInstance) error {
 	defer s.lock(ctx)()
-	key := w.EnvironmentKey + "/" + w.WorkloadID
+	if err := s.fence(ctx); err != nil {
+		return err
+	}
+	key := instanceKey(w.EnvironmentKey, w.Generation, w.WorkloadID)
 	existing, ok := s.state.WorkloadInstances[key]
 	if ok {
 		w.ID = existing.ID
@@ -1031,9 +1182,20 @@ func (s *Store) UpsertWorkloadInstance(ctx context.Context, w deployment.Workloa
 	return nil
 }
 
+// instanceKey keeps the generation-0 key shape of earlier snapshots.
+func instanceKey(environmentKey string, generation int64, workloadID string) string {
+	if generation <= 0 {
+		return environmentKey + "/" + workloadID
+	}
+	return fmt.Sprintf("%s/g%d/%s", environmentKey, generation, workloadID)
+}
+
 // UpsertWorkloadProgress atomically records current and per-Deployment state.
 func (s *Store) UpsertWorkloadProgress(ctx context.Context, w deployment.WorkloadInstance) error {
 	defer s.lock(ctx)()
+	if err := s.fence(ctx); err != nil {
+		return err
+	}
 	record, ok := s.state.Deployments[w.LastDeploymentID]
 	if !ok || envKey(record.ApplicationKey, record.EnvironmentKey) != w.EnvironmentKey {
 		return fmt.Errorf("%w: deployment %q in environment %q", persistence.ErrNotFound, w.LastDeploymentID, w.EnvironmentKey)
@@ -1041,7 +1203,7 @@ func (s *Store) UpsertWorkloadProgress(ctx context.Context, w deployment.Workloa
 	if record.Status == deployment.StatusSucceeded || record.Status == deployment.StatusFailed {
 		return fmt.Errorf("%w: workload snapshot for terminal deployment %q", persistence.ErrImmutable, record.ID)
 	}
-	key := w.EnvironmentKey + "/" + w.WorkloadID
+	key := instanceKey(w.EnvironmentKey, w.Generation, w.WorkloadID)
 	existing, ok := s.state.WorkloadInstances[key]
 	if ok {
 		w.ID = existing.ID
@@ -1058,15 +1220,25 @@ func (s *Store) UpsertWorkloadProgress(ctx context.Context, w deployment.Workloa
 // ListWorkloadInstances returns the workload instances of an Environment.
 func (s *Store) ListWorkloadInstances(ctx context.Context, environmentKey string) ([]deployment.WorkloadInstance, error) {
 	defer s.rlock(ctx)()
+	return s.listInstancesLocked(environmentKey, s.state.Environments[environmentKey].TargetGeneration), nil
+}
+
+// ListWorkloadInstancesFor returns the instances of one target generation.
+func (s *Store) ListWorkloadInstancesFor(ctx context.Context, environmentKey string, generation int64) ([]deployment.WorkloadInstance, error) {
+	defer s.rlock(ctx)()
+	return s.listInstancesLocked(environmentKey, generation), nil
+}
+
+func (s *Store) listInstancesLocked(environmentKey string, generation int64) []deployment.WorkloadInstance {
 	var out []deployment.WorkloadInstance
 	for _, w := range s.state.WorkloadInstances {
-		if w.EnvironmentKey == environmentKey {
+		if w.EnvironmentKey == environmentKey && w.Generation == generation {
 			w.TargetRef = copyMap(w.TargetRef)
 			out = append(out, w)
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].WorkloadID < out[j].WorkloadID })
-	return out, nil
+	return out
 }
 
 // ListDeploymentWorkloads returns immutable history for exactly one run.

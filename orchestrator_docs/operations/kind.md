@@ -246,3 +246,14 @@ lifecycle limits. Review completed successful evidence before uploading a
 uniquely named MP4 to `acceptance-recordings`; never replace older assets.
 
 Replay now follows [Environment set-once verification](../verification/2026-10-07-environment-connection-kind.md): new app initially unconfigured, two independent stored bindings, restart/lock, real staging deployment. Production is bound but not deployed; both Connections use the same physical kind cluster.
+
+## Environment store/target transition verification
+
+Use existing kind-idp-internal explicitly, run-owned Vault KV v2 stores/auth paths
+and namespaces isolated by target generation. No AWS/other context mutation.
+Verify Vault backend capability AND workload auth/VSO access. Create a nonempty
+PostgreSQL record before migration, stop source writers, backup/restore and check
+record content after destination rollout/Ingress cutover. Keep source generation
+until explicit cleanup; inspect owned labels before deletion. Video/artifacts
+must exclude tokens, Secret bytes and dump contents. Cleanup run-owned stores,
+private data and owned namespaces; retain operator releases/context unchanged.

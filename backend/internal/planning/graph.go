@@ -136,7 +136,7 @@ func (b *graphBuilder) graph() Graph {
 // enrichProfile adds the implicit infrastructure of the Execution Profile
 // (UC-06 MS-05, VAR-01 and VAR-02) and returns the namespace node.
 func (b *graphBuilder) enrichProfile() (*Node, error) {
-	nsDescriptor, err := NamespaceDescriptor(b.ctx.App.Key, b.ctx.Env.Key)
+	nsDescriptor, err := NamespaceDescriptor(b.ctx.App.Key, b.ctx.Env.Key, b.ctx.Env.TargetGeneration)
 	if err != nil {
 		return nil, err
 	}

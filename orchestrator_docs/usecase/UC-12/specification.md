@@ -80,10 +80,9 @@ cùng Environment có thể tham chiếu và tái sử dụng.
   cấu hình workload.
 - **BR-07:** Resource outputs và Service của workload khác không phải key do
   UC-12 quản lý; UC-16 cho chọn trực tiếp các nguồn đó.
-- **BR-08:** Mỗi Application có một provider cấu hình cho Variables & Secrets.
-  Cùng một giao diện quản lý và tham chiếu được dùng bất kể provider; provider
-  đầu tiên cho môi trường kind là Vault. Staging và Production có vùng dữ liệu
-  tách biệt trong provider đã chọn.
+- **BR-08:** Mỗi Environment chọn Secret Store Connection riêng qua Settings;
+  hỗ trợ Vault KV v2 trước. Variable lưu trong Orchestrator; Secret lưu ở kho
+  được chọn với refs bất biến mang store identity. Không kế thừa provider cấp Application.
 - **BR-09:** Lưu thay đổi tạo revision cấu hình mong muốn nhưng không thay
   revision đã áp dụng. Workload đang chạy và Pod được tạo trước Deploy phải tiếp
   tục dùng revision đã áp dụng. Preview xác định workload bị ảnh hưởng; chỉ
@@ -115,7 +114,8 @@ cùng Environment có thể tham chiếu và tái sử dụng.
 
 - **OOS-01:** Form cấu hình workload và sửa tham chiếu; thuộc UC-16.
 - **OOS-02:** Preview và Deploy; thuộc UC-05, UC-06 và UC-07.
-- **OOS-03:** Di chuyển giữa providers và tự động rollback sau Deploy thất bại.
+- **OOS-03:** Provider ngoài Vault KV v2 và tự động rollback sau Deploy thất bại;
+  chuyển giữa các Vault stores nằm trong phạm vi theo BR-15..19.
 
 ## Trạng thái implementation hiện tại
 
@@ -131,3 +131,23 @@ UC-16 MS-04/MS-05 and BR-15–BR-18 own the selection UI: Developer ticks existi
 keys per container, using the key name by default and an optional container
 alias. UC-12 continues owning key/value creation and revision history; workload
 selection never creates a second key or copies its value.
+
+## Environment secret-store transitions
+
+- **BR-15:** Chưa chọn kho thì variable operations vẫn hoạt động; Secret write
+  trả 422 secretStoreKey và dẫn tới Settings. Legacy explicit platform Vault
+  store/references được backfill, không đổi giá trị/revision runtime.
+- **BR-16:** Đổi kho dùng expected Environment/config versions và operation claim.
+  Đọc refs từ đúng owning store, copy immutable desired Secret values sang kho
+  mới, verify rồi commit selection và revision cùng transaction. Không copy
+  Variable vào kho secret và không thay các revisions đã áp dụng.
+- **BR-17:** Copy failure giữ selection/revision cũ; cleanup chỉ object của attempt.
+  Old values/bundles giữ nguyên để Pods/history còn dùng; không xóa kho referenced.
+- **BR-18:** Store identity/delivery change làm mọi workload dùng Secret bị pending
+  kể cả giá trị không đổi; Preview pin store identity, desired revision và versions.
+- **BR-19:** Active deploy/migration/store-copy chặn concurrent Settings/config/draft
+  writes bằng safe 409. Không có secret plaintext trong DB/plan/API/log/recording.
+
+**VAR-04 — Change store:** Developer chọn store READY khác trong Settings;
+hiển thị impact; copy/verify/commit, báo progress hoặc safe recovery failure.
+Quy tắc shared: [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).

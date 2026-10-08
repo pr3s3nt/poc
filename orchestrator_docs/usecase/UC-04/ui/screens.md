@@ -41,3 +41,11 @@ READY status badge. Do not show empty Kubernetes fields for AWS records. On narr
 screens, stack content or use accessible scrolling without overflowing the page.
 Preserve source-switch invalidation, credential masking, single-context automatic
 selection, error retention and successful-save clearing behavior.
+
+## Secret stores
+
+Platform navigation adds Secret stores. List displays name/provider/backend and
+workload addresses/mount/status. Registration form has name, Vault addresses,
+KV/auth mounts, optional trusted CA and concealed token. Check and save verifies
+before showing READY; clear token after success. Developers see only safe choices
+in Environment Settings, not the privileged registration form.

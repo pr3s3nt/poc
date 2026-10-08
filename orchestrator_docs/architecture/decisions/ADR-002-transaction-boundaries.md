@@ -19,3 +19,9 @@ Never hold a PostgreSQL transaction while Terraform, cloud or Kubernetes calls r
 - Deployment/Resource progress is observable through UC-09.
 - Executor operations require logical idempotency/state references.
 - Retry/resume policy remains future scope, but persisted state is sufficient to design it later.
+
+## Environment transition extension
+
+[ADR-012](ADR-012-environment-stores-and-transitions.md) adds atomic persisted
+operation admission and explicit stage recovery/compensation/cleanup. External
+calls still remain outside transactions; no distributed atomicity is promised.

@@ -23,16 +23,23 @@ const (
 	ActionDeploy Action = "DEPLOY"
 	ActionUpdate Action = "UPDATE"
 	ActionRemove Action = "REMOVE"
+	// ActionProvision pre-provisions destination resources of a target
+	// transition before any destination workload starts.
+	ActionProvision Action = "PROVISION"
 )
 
 // Deployment is one plan-and-execute run against an Environment.
 type Deployment struct {
-	ID                     string     `json:"id"`
-	EnvironmentID          string     `json:"environmentId"`
-	OrganizationKey        string     `json:"organizationKey"`
-	ApplicationKey         string     `json:"applicationKey"`
-	EnvironmentKey         string     `json:"environmentKey"`
-	ExecutionProfile       string     `json:"executionProfile"`
+	ID               string `json:"id"`
+	EnvironmentID    string `json:"environmentId"`
+	OrganizationKey  string `json:"organizationKey"`
+	ApplicationKey   string `json:"applicationKey"`
+	EnvironmentKey   string `json:"environmentKey"`
+	ExecutionProfile string `json:"executionProfile"`
+	// ConnectionKey and TargetGeneration record the actual execution target
+	// of this run (ADR-012); history never derives them from the current binding.
+	ConnectionKey          string     `json:"connectionKey,omitempty"`
+	TargetGeneration       int64      `json:"targetGeneration,omitempty"`
 	Action                 Action     `json:"action"`
 	WorkloadID             string     `json:"workloadId"`
 	ActorRef               string     `json:"actorRef"`
@@ -86,8 +93,11 @@ const (
 
 // WorkloadInstance is the applied state of one workload inside an Environment.
 type WorkloadInstance struct {
-	ID                      string         `json:"id"`
-	EnvironmentKey          string         `json:"environmentKey"`
+	ID             string `json:"id"`
+	EnvironmentKey string `json:"environmentKey"`
+	// Generation is the target generation owning this row. Rows of different
+	// generations coexist so a replacement target never overwrites the source.
+	Generation              int64          `json:"generation,omitempty"`
 	WorkloadID              string         `json:"workloadId"`
 	LastDeploymentID        string         `json:"lastDeploymentId"`
 	AppliedConfigRevisionID string         `json:"appliedConfigRevisionId,omitempty"`

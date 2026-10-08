@@ -458,7 +458,7 @@ func unreferencedResources(ctx Context, g Graph, active []resource.ActiveResourc
 }
 
 func ownedByEnvironment(ctx Context, scope resource.Scope) bool {
-	envScope := ctx.App.Key + "." + ctx.Env.Key
+	envScope := environment.ScopeID(ctx.App.Key, ctx.Env.Key, ctx.Env.TargetGeneration)
 	switch scope.Type {
 	case resource.ScopeApplication:
 		return scope.ID == ctx.App.Key

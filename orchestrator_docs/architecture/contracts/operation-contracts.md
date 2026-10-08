@@ -22,11 +22,13 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Use case: UC-01 MS-01–MS-08.
 - Preconditions: authenticated Developer and Organization; valid unique name/subdomain; no default Connection required.
 - Input: name/subdomain only; unknown create connectionKey rejected 400.
-- Creates: Application identity/provider, staging/production UNCONFIGURED Environments, empty Sets and stable namespaces, atomically.
+- Creates: Application identity, staging/production UNCONFIGURED Environments, empty Sets and stable namespaces, atomically.
 - No external provision; desired endpoints remain unprovisioned.
 - Query: GET /api/v1/application-connections retains safe Organization-scoped READY choices/default marker for Settings, no credentials or UC-04 management rights.
 
-## OC-01b `ApplicationService.SetConnection`
+## Historical OC-01b `ApplicationService.SetConnection` (ADR-011)
+
+Superseded by the Editable Environment destinations contracts below.
 
 - Use case: UC-01 ES-01..06, BR-07..14.
 - Input: scoped app/env, connectionKey and expectedVersion; session Organization/role only.
@@ -268,3 +270,41 @@ pin safe rendering selection in plan hashes. OC-08 validates runtime availabilit
 before UC-08, dispatches rendering after outputs and preserves readiness/commit
 rules. OC-10 excludes workload Definitions from infrastructure execution.
 See [rendering contract](workload-rendering.md) for the detailed boundary.
+
+## Editable Environment destinations (supersedes OC-01b set-once)
+
+- `ApplicationService.SetConnection`: existing PUT connection route retains
+  `{connectionKey, expectedVersion}`; initial/pre-runtime changes are scoped CAS,
+  configured same key/current version no-op, stale version 409 STALE_VERSION,
+  active operation 409 ENVIRONMENT_BUSY. Runtime replacement requires explicit
+  transition command; no hidden runtime migration inside metadata Save.
+- `SecretStoreService.Register` / `List`: PE/Admin POST/GET `/api/v1/secret-stores`;
+  registration accepts name, provider, backendAddress, workloadAddress, mount,
+  authMount, TLS config and concealed token. Strict bounded input; safe DTO only.
+  Developer GET `/api/v1/secret-store-choices` yields scoped READY choices.
+- `EnvironmentSettingsService.SetSecretStore`: PUT
+  `/api/v1/applications/{app}/environments/{env}/secret-store` with
+  `{secretStoreKey, expectedVersion, expectedConfigVersion}`; operation claim,
+  immutable copy/verify, CAS selection+new desired revision. No old ref rewrite.
+- `EnvironmentTransitionService.Preview` / `Execute`: Environment-scoped
+  `/connection-transition/preview` then POST `/connection-transitions` with
+  server-issued preview token, destination key, mode `DEPLOY_NEW` or
+  `MIGRATE_POSTGRES`, resource mapping and `acknowledgeDowntime` for migration.
+  Token pins all source/destination identities/capability/versions; admission is
+  atomic. Preview includes pending draft/config impact and every resulting desired
+  workload; successful cutover commits the desired Set and consumes only pinned
+  drafts. Failure preserves pending edits and the authoritative source Set.
+  GET transition detail/progress is scoped and safe; explicit recovery
+  and source-generation cleanup endpoints reject current/referenced targets.
+  Recovery requires explicit confirmation that prior execution has stopped; stale
+  heartbeat alone cannot authorize takeover. Release and internal writes check
+  current owner/fencing token, including transition status/compensation writes.
+- Pending/standalone execution admission must use persisted operation ownership;
+  rechecking token followed by an unlocked executor call is insufficient.
+- Selected-store resolution returns typed opaque ref `{storeKey, valueRef}` or an
+  equivalent versioned encoding; no raw values in refs. Variable revisions carry
+  ordinary values in metadata, never Secret values. Legacy raw Vault refs resolve
+  only through explicit backfilled legacy store identity.
+
+Transition states, failures and retained recovery artifacts follow
+[ADR-012](../decisions/ADR-012-environment-stores-and-transitions.md).

@@ -26,7 +26,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | MS-03, MS-04 | same | generate Application identity/provider, no target resolution | Application ID; new Environment targets UNCONFIGURED | OC-01; creation without default and no provisioning |
 | MS-05, MS-06 | same | Environment and empty Deployment Set creation | exactly `staging` and `production`; `environments`, `deployment_sets` | OC-01; transaction rollback, HTTP and PostgreSQL persistence tests |
 | MS-07, MS-08 | same | endpoint derivation, Application persistence | derived desired endpoints; atomic Application/Environment/current-set write | OC-01; no-deploy-side-effect frontend/HTTP/Playwright tests |
-| UC-01 ES-01..06, BR-07..14; UC-05 BR-11; UC-06 BR-20; UC-08 BR-07 | scoped target resolution, shared snapshot, matching and executor binding validation | Environment Settings atomic set-once UI/API, resolver, `planning.ConnectionMismatch` + provisioning guard | immutable per-Environment binding; new AWS Environment identities, legacy backfill locked | explicit choice, unsafe/foreign choice, mismatch rejection, [HTTP](../../backend/test/e2e/application_connection_http_test.go), [planner](../../backend/internal/planning/connection_binding_test.go), [execution](../../backend/internal/application/deployment/selected_target_test.go), ADR-011 migration/concurrency/save-guard/new AWS identity tests; [human Settings/live kind evidence](../verification/2026-10-07-environment-connection-kind.md) |
+| UC-01 ES-01..06, BR-07..14; UC-05 BR-11; UC-06 BR-20; UC-08 BR-07 | scoped target resolution, shared snapshot, matching and executor binding validation | Historical ADR-011 Environment Settings set-once UI/API (superseded by ADR-012 rows below), resolver, `planning.ConnectionMismatch` + provisioning guard | generation-0 identities/legacy backfill; permanent lock superseded by ADR-012 | explicit choice, unsafe/foreign choice, mismatch rejection, [HTTP](../../backend/test/e2e/application_connection_http_test.go), [planner](../../backend/internal/planning/connection_binding_test.go), [execution](../../backend/internal/application/deployment/selected_target_test.go), ADR-011 migration/concurrency/save-guard/new AWS identity tests; [human Settings/live kind evidence](../verification/2026-10-07-environment-connection-kind.md) |
 
 ## UC-02
 
@@ -227,3 +227,15 @@ UC-03 ID/Driver Inputs validation, and UC-04 BR-05/BR-06 real read-only
 connection verification to READY. Developer Preview consumes the newly
 registered Definition without restart. This does not extend runtime support
 for arbitrary Resource Types, AWS onboarding or production RBAC.
+
+## ADR-012 planned implementation/verification
+
+| Requirement | Canonical design | Required evidence |
+|---|---|---|
+| UC-04 SS-01..06 | ADR-012 Secret Store Connection | scoped Vault verify/register/redaction/probe cleanup tests |
+| UC-01 ES-01..06 / BR-05..13 | ADR-012 versions/transitions | Settings CAS/busy, generation isolation, migration/recovery/cleanup |
+| UC-12 BR-15..19 | ADR-012 copy/provider refs | copy failure atomicity, old refs preserved, variable conversion, VSO per-store |
+| UC-05/06/08 admission | ADR-012 atomic owner claim | PostgreSQL concurrent processes, stale token before side effects, crash recovery |
+| PostgreSQL migration | ADR-012 first-delivery scope | real kind record backup/restore/readiness/route cutover, human video |
+
+Rows above describe acceptance work, not a claim of completed implementation.

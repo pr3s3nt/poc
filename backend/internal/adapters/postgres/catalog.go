@@ -126,6 +126,16 @@ func (s *Store) ListResourceDefinitions(ctx context.Context, org string) ([]reso
 }
 
 func (s *Store) UpsertActiveResource(ctx context.Context, v resource.ActiveResource) (resource.ActiveResource, error) {
+	var out0 resource.ActiveResource
+	err := s.fenced(ctx, func(ctx context.Context) error {
+		var err error
+		out0, err = s.fencedUpsertActiveResource(ctx, v)
+		return err
+	})
+	return out0, err
+}
+
+func (s *Store) fencedUpsertActiveResource(ctx context.Context, v resource.ActiveResource) (resource.ActiveResource, error) {
 	if v.ID == "" {
 		v.ID = ids.New()
 	}

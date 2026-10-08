@@ -14,8 +14,16 @@ import (
 
 // ResourceExecutor returns deterministic outputs for every supported resource type.
 type ResourceExecutor struct {
-	mu    sync.Mutex
-	Calls []execution.ProvisionRequest
+	mu      sync.Mutex
+	Calls   []execution.ProvisionRequest
+	cluster *Cluster
+}
+
+// AttachCluster lets provisioned PostgreSQL resources appear in a fake Cluster.
+func (e *ResourceExecutor) AttachCluster(c *Cluster) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.cluster = c
 }
 
 // NewResourceExecutor returns an empty fake executor.
@@ -46,7 +54,7 @@ func (e *ResourceExecutor) Provision(_ context.Context, req execution.ProvisionR
 			Outputs: map[string]any{
 				"name":        "fake-" + req.ApplicationKey,
 				"endpoint":    "https://fake-cluster.invalid",
-				"kubeContext": "fake-context",
+				"kubeContext": contextInput(req.Inputs),
 			},
 			State: map[string]any{"driver": "fake", "descriptor": req.Descriptor},
 		}, nil
@@ -61,6 +69,12 @@ func (e *ResourceExecutor) Provision(_ context.Context, req execution.ProvisionR
 			db = "app"
 		}
 		host := fmt.Sprintf("%s.%s.svc.cluster.local", id, req.Target.Namespace)
+		e.mu.Lock()
+		cluster := e.cluster
+		e.mu.Unlock()
+		if cluster != nil {
+			cluster.EnsureDatabase(req.Target, id)
+		}
 		return execution.ProvisionResult{
 			Outputs: map[string]any{
 				"host":     host,
@@ -69,7 +83,7 @@ func (e *ResourceExecutor) Provision(_ context.Context, req execution.ProvisionR
 				"username": "app",
 				"password": "fake-password-" + req.Descriptor,
 			},
-			State: map[string]any{"driver": "fake", "descriptor": req.Descriptor},
+			State: map[string]any{"driver": "fake", "descriptor": req.Descriptor, "kind": "StatefulSet", "name": id, "namespace": req.Target.Namespace},
 		}, nil
 	default:
 		return execution.ProvisionResult{}, fmt.Errorf("fake: no output template for resource type %q", req.ResourceType)
@@ -113,6 +127,7 @@ type AppliedWorkload struct {
 // WorkloadDeployer records manifests instead of contacting a cluster.
 type WorkloadDeployer struct {
 	mu      sync.Mutex
+	cluster *Cluster
 	Applied []AppliedWorkload
 	Ready   []execution.WorkloadRef
 	Removed []string
@@ -121,11 +136,22 @@ type WorkloadDeployer struct {
 // NewWorkloadDeployer returns an empty fake deployer.
 func NewWorkloadDeployer() *WorkloadDeployer { return &WorkloadDeployer{} }
 
+// AttachCluster lets applied Deployments appear in a fake Cluster.
+func (d *WorkloadDeployer) AttachCluster(c *Cluster) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.cluster = c
+}
+
 // Apply records the manifests.
 func (d *WorkloadDeployer) Apply(_ context.Context, target execution.Target, manifests []execution.Manifest) error {
 	d.mu.Lock()
-	defer d.mu.Unlock()
 	d.Applied = append(d.Applied, AppliedWorkload{Target: target, Manifests: manifests})
+	cluster := d.cluster
+	d.mu.Unlock()
+	if cluster != nil {
+		cluster.Observe(target, manifests)
+	}
 	return nil
 }
 
@@ -163,3 +189,12 @@ var (
 	_ execution.ExecutorRegistry = Registry{}
 	_ execution.WorkloadDeployer = (*WorkloadDeployer)(nil)
 )
+
+// contextInput returns the Connection's kube context when the Definition passes
+// it, so two logical Connections can name two fake clusters.
+func contextInput(inputs map[string]any) string {
+	if v := stringInput(inputs, "kubeContext"); v != "" {
+		return v
+	}
+	return "fake-context"
+}

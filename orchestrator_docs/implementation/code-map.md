@@ -111,14 +111,27 @@ links trong cùng logical change.
   cover uploaded Connection selection with real executors and diagnostics;
   [live evidence](../verification/2026-10-07-application-connection-selection-kind.md).
 
-Environment Settings set-once transition follows
+Historical Environment Settings set-once delivery follows
 [ADR-011](../architecture/decisions/ADR-011-environment-execution-binding.md);
 resolver/service and migration paths are mapped below.
 Prior Application-selection evidence above is historical; scripts now follow Environment Settings.
 
 ## Environment binding implementation (ADR-011)
 
-- [Domain](../../backend/internal/domain/environment/environment.go), [set-once service](../../backend/internal/application/application/service.go), [target resolver](../../backend/internal/application/target/target.go).
+- [Domain](../../backend/internal/domain/environment/environment.go), [binding service](../../backend/internal/application/application/service.go), [target resolver](../../backend/internal/application/target/target.go).
 - [PostgreSQL migration 6](../../backend/internal/adapters/postgres/store.go), [SQL binding](../../backend/internal/adapters/postgres/repositories.go), [JSON binding/load](../../backend/internal/adapters/store/store.go), [adapter contract](../../backend/internal/ports/persistence/persistencetest/binding.go).
 - [Settings connection section](../../frontend/src/features/configuration/EnvironmentConnection.tsx), [Settings routes](../../frontend/src/app/routes.ts), [new AWS scope tests](../../backend/internal/planning/environment_scope_test.go).
 - [Live runner](../../backend/test/integration/application-connection-kind-video.sh), [human scenario](../../frontend/test/e2e/application-connection-kind-human.mjs), [reviewed evidence/video](../verification/2026-10-07-environment-connection-kind.md).
+
+
+## Environment stores and transitions (ADR-012 checkpoint)
+
+This is code navigation, not completion evidence. Current review and live
+verification status remain in CURRENT_STATE and IMP-017.
+
+- [Secret Store domain](../../backend/internal/domain/secretstore/), [registration service](../../backend/internal/application/secretstores/), [Vault registry/verifier](../../backend/internal/adapters/vault/), [registration UI](../../frontend/src/features/platform/SecretStoresPage.tsx).
+- [Configuration and copy-first store switch](../../backend/internal/application/configuration/), [store selection UI](../../frontend/src/features/environment/SecretStoreSelection.tsx), [VSO delivery](../../backend/internal/adapters/kubernetes/vso.go).
+- [Operation manager and fencing tests](../../backend/internal/application/envops/), [SQL operations](../../backend/internal/adapters/postgres/operations.go), [JSON operations](../../backend/internal/adapters/store/ops.go), [persistence contracts](../../backend/internal/ports/persistence/persistence.go).
+- [Transition service/tests](../../backend/internal/application/transition/), [real Kubernetes scale/backup/restore/cleanup adapter](../../backend/internal/adapters/kubernetes/transition.go), [HTTP routes](../../backend/internal/delivery/http/transitions.go).
+- [Transition UI](../../frontend/src/features/environment/TransitionPanel.tsx), [operation/recovery UI](../../frontend/src/features/environment/OperationBanner.tsx), [frontend transition tests](../../frontend/src/features/environment/environment.test.tsx).
+- [Generation identity tests](../../backend/internal/planning/generation_test.go), [namespace generation tests](../../backend/internal/domain/environment/generation_test.go), [Terraform executor](../../backend/internal/adapters/terraform/executor.go).

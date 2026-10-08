@@ -182,3 +182,18 @@ func TestWorkspaceNamesSeparateEnvironmentScopedInfrastructureFromLegacy(t *test
 		seen[name] = label
 	}
 }
+
+func TestWorkspaceForIsolatesTargetGenerations(t *testing.T) {
+	d := "postgres.default#shared.acceptance-db"
+	if workspaceFor(d, 0) != workspaceName(d) {
+		t.Fatal("generation 0 must keep the legacy workspace and state")
+	}
+	seen := map[string]int64{}
+	for g := int64(0); g < 5; g++ {
+		w := workspaceFor("vpc.default#environments.pay.staging", g)
+		if previous, dup := seen[w]; dup {
+			t.Fatalf("generations %d and %d share workspace %q", previous, g, w)
+		}
+		seen[w] = g
+	}
+}

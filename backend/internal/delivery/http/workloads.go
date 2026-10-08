@@ -41,7 +41,7 @@ func (s *Server) handleParseWorkloadScore(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if err := s.workloads.ValidateImport(r.Context(), app, env, score); err != nil {
-		writeDraftError(w, err)
+		s.writeDraftError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"score": score})
@@ -54,7 +54,7 @@ func (s *Server) handleListWorkloadDrafts(w http.ResponseWriter, r *http.Request
 	}
 	view, err := s.workloads.List(r.Context(), app, env)
 	if err != nil {
-		writeDraftError(w, err)
+		s.writeDraftError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
@@ -107,10 +107,12 @@ func writeDecodeError(w http.ResponseWriter, err error) {
 // writeDraftError maps UC-16/UC-07 draft errors: validation messages come
 // from the caller's own Score or fixed workloadconfig text; store and other
 // unknown errors are a generic retryable 500 without cause.
-func writeDraftError(w http.ResponseWriter, err error) {
+func (s *Server) writeDraftError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, persistence.ErrNotFound):
 		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not found"})
+	case errors.Is(err, persistence.ErrEnvironmentBusy):
+		s.writeBusy(w, err)
 	case errors.Is(err, persistence.ErrVersionConflict):
 		writeJSON(w, http.StatusConflict, map[string]any{"error": "workloads changed since they were loaded; reload and try again"})
 	case errors.Is(err, workloadconfig.ErrInvalid), strings.HasPrefix(err.Error(), "score:"), strings.HasPrefix(err.Error(), "workloadconfig:"):
@@ -150,7 +152,7 @@ func (s *Server) handleSaveWorkloadDraft(w http.ResponseWriter, r *http.Request)
 	}
 	view, err := s.workloads.Save(r.Context(), app, env, r.PathValue("workload"), req.Score, *req.Version)
 	if err != nil {
-		writeDraftError(w, err)
+		s.writeDraftError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
@@ -185,7 +187,7 @@ func (s *Server) handleWorkloadDraftAction(w http.ResponseWriter, r *http.Reques
 		view, err = s.workloads.Delete(r.Context(), app, env, r.PathValue("workload"), *req.Version)
 	}
 	if err != nil {
-		writeDraftError(w, err)
+		s.writeDraftError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, view)

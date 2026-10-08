@@ -1,5 +1,5 @@
 @startuml
-title VOPC - UC-01 Environment set-once target
+title VOPC - UC-01 Editable Environment destinations
 left to right direction
 class ApplicationController <<boundary>>
 class ApplicationService <<control>> {
@@ -10,9 +10,12 @@ class ApplicationService <<control>> {
 class EnvironmentConnectionController <<boundary>>
 class Application <<entity>> {
  +Identity
- +ConfigurationProvider
+ +IdentityOnly
 }
 class Environment <<entity>> {
+ +SecretStoreKey
+ +TargetGeneration
+ +OperationID
  +ConnectionKey
  +ExecutionProfile
  +Region
@@ -24,7 +27,7 @@ class DeploymentSet <<entity>>
 interface ConnectionRepository
 interface ApplicationRepository
 interface EnvironmentRepository {
- +SetConnectionOnce(expectedVersion, target)
+ +ChangeConnectionCAS(expectedVersion, target)
 }
 interface DeploymentSetRepository
 ApplicationController --> ApplicationService
@@ -32,8 +35,16 @@ EnvironmentConnectionController --> ApplicationService
 ApplicationService --> ApplicationRepository
 ApplicationService --> EnvironmentRepository
 ApplicationService --> DeploymentSetRepository
-ApplicationService --> EnvironmentRepository : SetConnection once
+ApplicationService --> EnvironmentRepository : Version CAS + admission
 ApplicationService --> ConnectionRepository
 Application "1" *-- "2" Environment
 Environment "1" --> "1" DeploymentSet : current
+class SecretStoreConnection <<entity>>
+class EnvironmentOperation <<entity>>
+class EnvironmentTransitionService <<control>>
+interface SecretStoreRepository
+Environment --> SecretStoreConnection
+Environment --> EnvironmentOperation
+EnvironmentTransitionService --> EnvironmentRepository
+EnvironmentTransitionService --> SecretStoreRepository
 @enduml

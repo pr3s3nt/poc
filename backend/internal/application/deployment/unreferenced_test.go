@@ -173,13 +173,6 @@ func TestUnreferencedMarking_RollsBackWithFailedRuntimeOrCommit(t *testing.T) {
 		"runtime remove fails": func(d *hookDeployer, _ *bootstrap.App, _ seed.Options) {
 			d.removeErr = errors.New("remove failed")
 		},
-		"final version conflict": func(d *hookDeployer, app *bootstrap.App, opts seed.Options) {
-			d.onRemove = func() {
-				env, _ := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
-				env.Version++
-				_ = app.Store.SaveEnvironment(ctx, env)
-			}
-		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			app, opts, deployer := uc07App(t)
@@ -205,6 +198,39 @@ func TestUnreferencedMarking_RollsBackWithFailedRuntimeOrCommit(t *testing.T) {
 				t.Fatalf("latest Deployment = %s, want FAILED", list[0].Status)
 			}
 		})
+	}
+}
+
+// A foreign write cannot interleave with an admitted deploy: the claim rejects
+// it as busy, so the final commit never meets a stale version (ADR-012).
+func TestEnvironmentWritesDuringAdmittedDeployAreRejected(t *testing.T) {
+	ctx := context.Background()
+	app, opts, deployer := uc07App(t)
+	backend := seed.AcceptanceScores(opts)["backend"]
+	if _, err := uc07Deploy(t, app, opts, "backend", nil, backend); err != nil {
+		t.Fatal(err)
+	}
+	env, _ := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	var bindErr, saveErr, draftErr error
+	deployer.onRemove = func() {
+		_, bindErr = app.Store.BindEnvironment(ctx, persistence.EnvironmentBinding{
+			ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, ConnectionKey: env.ConnectionKey,
+			Profile: env.Profile, Region: env.Region, RuntimeStatus: env.RuntimeStatus, Scope: env.Scope(), ExpectedVersion: env.Version,
+		})
+		saveErr = app.Store.SetPublicRoutesPending(ctx, opts.ApplicationKey, opts.EnvironmentKey, true)
+		draftErr = app.Store.DeleteWorkloadDraft(ctx, opts.ApplicationKey, opts.EnvironmentKey, "backend", env.DraftVersion)
+	}
+	if _, err := uc07Deploy(t, app, opts, "backend", backend, nil); err != nil {
+		t.Fatalf("admitted deploy failed: %v", err)
+	}
+	for name, err := range map[string]error{"bind": bindErr, "routes flag": saveErr, "draft": draftErr} {
+		if !errors.Is(err, persistence.ErrEnvironmentBusy) {
+			t.Fatalf("%s during an admitted deploy: %v", name, err)
+		}
+	}
+	after, _ := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if after.Busy() {
+		t.Fatal("the claim must be released when the deploy ends")
 	}
 }
 

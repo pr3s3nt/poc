@@ -1,34 +1,33 @@
 @startuml
-title UC-12 - Manage Application variables and secrets (design)
+title UC-12 - Environment store selection and immutable revisions
 autonumber
 actor Developer as Dev
-boundary "Application Settings UI" as UI
-control "Configuration control" as Config
-entity "Workload reference lookup" as Refs
-database "Revision metadata" as Store
-participant "Configuration provider" as Provider
-
-Dev -> UI: Open Settings; select Staging or Production [MS-01]
-UI -> Config: List variable and secret keys(application, environment)
-Config -> Store: Read names, variable values or secret status
-Store --> UI: Both scoped key lists
-Dev -> UI: Add/update key value [MS-02]
-UI -> Config: Validate and save desired change [MS-03]
-Config -> Provider: Write immutable desired revision
-Provider --> Config: Revision reference
-Config -> Store: Save desired revision reference; keep applied reference
-Config -> Refs: Find referencing workloads [MS-04]
-Refs --> UI: Affected workload names
-UI --> Dev: Pending Preview -> Deploy
-
-alt Rename or delete [VAR-01..VAR-02]
-  Dev -> UI: Request rename/delete
-  UI -> Refs: Find referencing workloads
-  Refs --> UI: Affected workload names
-  UI --> Dev: Warning; references are not rewritten
-  Dev -> UI: Confirm
-  UI -> Config: Save pending rename/delete
-  Config -> Provider: Write new desired revision
-  Config -> Store: Save desired reference only
+boundary SettingsUI as UI
+control ConfigurationService as Config
+database UnitOfWork as DB
+participant OldStore as Old
+participant NewStore as New
+Dev -> UI: Save variable/secret(version)
+UI -> Config: Scoped key validation and no active operation
+alt ordinary Variable
+ Config -> DB: New revision with ordinary value
+else Secret
+ Config -> New: Write immutable value to selected scoped store
+ New --> Config: Opaque store-owned ref
+ Config -> DB: CAS desired revision with ref only
 end
+Dev -> UI: Change selected store(env/config versions)
+UI -> Config: Claim scoped Environment operation
+Config -> DB: Atomic version validation + owner claim
+loop every desired Secret
+ Config -> Old: Read original owning-store ref privately
+ Config -> New: Copy immutable value and verify
+end
+Config -> DB: Atomic new desired revision + store selection, release owner
+DB --> Dev: Pending consumer rollout, safe metadata
+note over Old,New
+Old applied refs/bundles remain valid.
+Failure keeps old selection and cleans attempt-owned objects only.
+No Secret bytes in UI/DB/logs.
+end note
 @enduml

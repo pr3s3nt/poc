@@ -12,8 +12,14 @@ class "Vault KV adapter" as Vault
 
 UI --> Config : add/update/rename/delete
 Config --> Refs : affected workloads
-Config --> Store : desired/applied revision refs
-Config --> Provider : scoped revision read/write
+Config --> Store : Variable values + immutable Secret refs
+Config --> Provider : selected/owning store Secret read/write
 Provider <|.. Vault
 Store ..> Key
+class SecretStoreResolver <<control>>
+class SecretStoreConnection <<entity>>
+class EnvironmentOperation <<entity>>
+Config --> SecretStoreResolver
+SecretStoreResolver --> SecretStoreConnection
+Config --> EnvironmentOperation : atomic copy admission
 @enduml

@@ -38,3 +38,13 @@ errors. Non-READY records and failures do not disclose sensitive fields.
 
 See [shared credential design](../../../architecture/connection-credentials.md)
 for store/executor scope and legacy compatibility.
+
+## Secret Store Connection API
+
+PE/Admin GET/POST `/api/v1/secret-stores`, strict bounded register payload:
+name/provider/backendAddress/workloadAddress/mount/authMount/TLS/token. Only
+VAULT_KV_V2/token is supported initially. Create verifies attempt-owned probe and
+capabilities, cleans probe, stores credential privately and insert-only metadata;
+201 only after all required steps. Errors remain safe as above.
+Developer GET `/api/v1/secret-store-choices` returns scoped READY metadata only.
+No token, credential ref, arbitrary secret-read or delete endpoint is exposed.

@@ -31,3 +31,10 @@ The legacy Agent path remains available outside VSO mode; see
 
 See [VSO kind verification](../../verification/2026-09-28-uc12-vso-kind.md) for
 the observed VSO path and its limitations.
+
+## Current change in progress
+
+[ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md)
+supersedes permanent target lock/Application provider selection. Specifications
+now include editable per-Environment destinations and Vault stores/transitions;
+implementation status is tracked in CURRENT_STATE, not inferred from old evidence.
