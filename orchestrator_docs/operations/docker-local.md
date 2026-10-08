@@ -2,7 +2,7 @@
 id: RUNBOOK-DOCKER-LOCAL
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-08
 ---
 
 # Personal-machine Docker Compose
@@ -10,7 +10,13 @@ last_reviewed: 2026-10-07
 The root [Compose file](../../docker-compose.yml) runs PostgreSQL, the backend,
 the Web Console and persistent Vault. It configures the UC-04
 [Connection credential store](../architecture/connection-credentials.md).
-It does not configure UC-12 workload secret delivery or install a Kubernetes cluster.
+The local Vault also supplies an explicitly seeded `platform-vault` Secret Store
+through the existing configured-platform-Vault bootstrap. Separate scoped tokens
+serve Connection credentials and application secrets. Its metadata is persisted
+in PostgreSQL; token and secret values stay in Vault/private token volumes.
+New Environments still select a store explicitly in Settings. Compose enables
+local secret storage; Kubernetes workload delivery additionally needs a reachable
+Vault address and Kubernetes auth configured for the selected cluster.
 
 ## Start
 
@@ -21,40 +27,51 @@ docker compose up -d
 docker compose ps
 ```
 
-The default backend/frontend images use the user's Harbor registry; authenticate
-with `docker login harbor.stg.exampledevops.com` first if required. The PostgreSQL
-image uses `harbor.stg.srvdevops.com`. Images must contain the current Connection
-upload implementation and Docker entrypoint. Override image references with
-`BACKEND_IMAGE`, `FRONTEND_IMAGE`, `POSTGRES_IMAGE` or `VAULT_IMAGE` in the shell
-or an ignored root `.env` file. Public PostgreSQL can use `POSTGRES_IMAGE=postgres:16`.
+The default backend/frontend images build from current repository source and
+PostgreSQL/Vault use public images, so no private Harbor login or source override
+is required. Override image references with `BACKEND_IMAGE`, `FRONTEND_IMAGE`,
+`POSTGRES_IMAGE` or `VAULT_IMAGE` in the shell or an ignored root `.env` file.
+Use `docker compose up -d --build` after source changes to rebuild existing images.
 
-Open <http://localhost:3000/ui/>. The backend is at <http://localhost:8080>.
+Open <http://localhost:3001/ui/>. The backend is at <http://localhost:8080>.
 Override the host ports with `FRONTEND_PORT` and `BACKEND_PORT` when needed.
 PostgreSQL and Vault are reachable only inside the Compose network.
 The local profile seeds `platform-engineer` and `developer` accounts with password
 `test-password`. Existing database contents remain authoritative.
 
-If Harbor cannot be reached, build current source with the
-[source override](../../deploy/local/compose.source.yml):
+The [source override](../../deploy/local/compose.source.yml) remains compatible
+with existing commands, but is optional:
 
 ```bash
 docker compose -f docker-compose.yml -f deploy/local/compose.source.yml up -d --build --wait
 ```
 
-On the verification machine port 3000 belongs to another application, so use:
+Port 3001 avoids another application already listening on port 3000 on the
+verification machine. Override the port if needed:
 
 ```bash
-FRONTEND_PORT=3001 docker compose -f docker-compose.yml -f deploy/local/compose.source.yml up -d --build --wait
+FRONTEND_PORT=3002 docker compose up -d --build --wait
 ```
 
-Then open <http://localhost:3001/ui/>. Use the same override and port on subsequent
+Then open <http://localhost:3002/ui/>. Use the same override and port on subsequent
 Compose commands to retain this image/port selection.
 
 Vault starts with file storage, initializes once, unseals automatically, enables
-KV v2 at `kv` and creates a scoped periodic token. The backend waits for
+KV v2 at `kv` and creates separate scoped periodic tokens. The backend waits for
 PostgreSQL and Vault health checks. No manual token copy is needed. The Vault
-supervisor renews the token every minute; the token period is 768 hours.
-The token file is owned by backend UID 65532 and mounted read-only into backend.
+supervisor renews both tokens every minute; each token period is 768 hours.
+Token files are owned by backend UID 65532 and mounted read-only into backend.
+The application token can manage application value/bundle paths and workload
+policies/roles; it cannot read Connection credentials. The credential token
+cannot read application secrets. Root/unseal material stays inaccessible to backend.
+
+Sign in, open Platform → Secret stores to see `Platform Vault (legacy)` (key
+`platform-vault`), then select it in an Environment's Settings before adding a
+secret. This is the existing explicitly configured platform-store compatibility
+record, not a newly registered cluster-auth-verified store. Kubernetes auth is
+checked before secret-dependent Deploy. Set `VAULT_WORKLOAD_ADDRESS` to an address
+reachable from the selected cluster before the initial seed when preparing live
+workload delivery; Compose does not install or mutate that cluster.
 
 This configuration is for a personal machine: Vault uses HTTP on the private
 Docker network, and its root token and single unseal key are retained in a
@@ -72,8 +89,9 @@ docker compose logs --tail=100 vault backend frontend
 ```
 
 Named volumes retain PostgreSQL data, Vault data, bootstrap material and the
-Connection token through ordinary `down`/`up` and container replacement.
-Back up all four volumes together. `docker compose down -v` deletes them and
+scoped tokens through ordinary `down`/`up` and container replacement.
+Back up the database, Vault data/bootstrap and both token volumes together.
+`docker compose down -v` deletes them and
 loses applications, accounts, Connections and credentials.
 
 If the scoped token expires after more than 768 hours offline or is revoked,
@@ -90,6 +108,9 @@ uses read-only cluster verification; deployment is an explicit subsequent action
 To use an uploaded Connection for execution, register a matching `existing-cluster`
 Resource Definition as described in the shared credential design.
 
-The [local verification](../verification/2026-10-07-docker-compose-local.md)
-covers source-built images and a simulated Kubernetes API. The user's private
-Harbor images remain unverified because registry access timed out.
+The [Vault bootstrap verification](../verification/2026-10-08-compose-vault-bootstrap.md)
+covers default source builds, the seeded database store, browser variable/secret
+writes against real Vault, token isolation and persistence after container
+replacement. The [earlier local verification](../verification/2026-10-07-docker-compose-local.md)
+covers Connection registration against a simulated Kubernetes API. Live cluster
+authentication and workload delivery are not established by these Compose checks.

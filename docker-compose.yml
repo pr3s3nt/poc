@@ -2,7 +2,7 @@ name: orchestrator-local
 
 services:
   postgres:
-    image: ${POSTGRES_IMAGE:-harbor.stg.srvdevops.com/postgres/postgres:16}
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
     environment:
       POSTGRES_DB: orchestrator
       POSTGRES_USER: orchestrator
@@ -27,9 +27,11 @@ services:
       - ./deploy/local/vault.hcl:/local/vault.hcl:ro
       - ./deploy/local/start-vault.sh:/local/start-vault.sh:ro
       - ./deploy/local/connections-policy.hcl:/local/connections-policy.hcl:ro
+      - ./deploy/local/applications-policy.hcl:/local/applications-policy.hcl:ro
       - vault-data:/vault/data
       - vault-bootstrap:/vault/bootstrap
       - connection-token:/connection-token
+      - app-token:/app-token
     healthcheck:
       test: ["CMD-SHELL", "test -f /tmp/vault-ready && vault status >/dev/null 2>&1"]
       interval: 5s
@@ -40,7 +42,9 @@ services:
     networks: [orchestrator-net]
 
   backend:
-    image: ${BACKEND_IMAGE:-harbor.stg.exampledevops.com/platform-orchestrator/backend:v1}
+    image: ${BACKEND_IMAGE:-orchestrator-backend:local}
+    build:
+      context: ./backend
     ports: ["127.0.0.1:${BACKEND_PORT:-8080}:8080"]
     environment:
       ORCHESTRATOR_LISTEN_ADDR: 0.0.0.0:8080
@@ -49,8 +53,14 @@ services:
       ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE: vault
       ORCHESTRATOR_CONNECTION_VAULT_ADDR: http://vault:8200
       ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE: /run/connection-token/token
+      # Explicit platform Vault store (ADR-012 legacy bootstrap). The agent
+      # address is what workload Pods use, not necessarily the Compose name.
+      ORCHESTRATOR_VAULT_ADDR: http://vault:8200
+      ORCHESTRATOR_VAULT_TOKEN_FILE: /run/app-token/token
+      ORCHESTRATOR_VAULT_AGENT_ADDR: ${VAULT_WORKLOAD_ADDRESS:-http://vault:8200}
     volumes:
       - connection-token:/run/connection-token:ro
+      - app-token:/run/app-token:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/api/v1/healthz"]
       interval: 5s
@@ -65,8 +75,10 @@ services:
     networks: [orchestrator-net]
 
   frontend:
-    image: ${FRONTEND_IMAGE:-harbor.stg.exampledevops.com/platform-orchestrator/frontend:v1}
-    ports: ["127.0.0.1:${FRONTEND_PORT:-3000}:8080"]
+    image: ${FRONTEND_IMAGE:-orchestrator-frontend:local}
+    build:
+      context: ./frontend
+    ports: ["127.0.0.1:${FRONTEND_PORT:-3001}:8080"]
     environment:
       BACKEND_URL: http://backend:8080
     depends_on:
@@ -89,3 +101,4 @@ volumes:
   vault-data:
   vault-bootstrap:
   connection-token:
+  app-token:
