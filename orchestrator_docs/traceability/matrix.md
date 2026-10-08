@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-08
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -228,7 +228,7 @@ connection verification to READY. Developer Preview consumes the newly
 registered Definition without restart. This does not extend runtime support
 for arbitrary Resource Types, AWS onboarding or production RBAC.
 
-## ADR-012 planned implementation/verification
+## ADR-012 implementation/verification
 
 | Requirement | Canonical design | Required evidence |
 |---|---|---|
@@ -238,4 +238,9 @@ for arbitrary Resource Types, AWS onboarding or production RBAC.
 | UC-05/06/08 admission | ADR-012 atomic owner claim | PostgreSQL concurrent processes, stale token before side effects, crash recovery |
 | PostgreSQL migration | ADR-012 first-delivery scope | real kind record backup/restore/readiness/route cutover, human video |
 
-Rows above describe acceptance work, not a claim of completed implementation.
+The implementation and local gates above are complemented by the
+[2026-10-08 real-kind human recording](../verification/2026-10-08-environment-stores-kind.md):
+two stores, VSO rollout, stale-preview rejection, PostgreSQL restoration, generation
+isolation, actual Ingress traffic, restart and explicit cleanup. The live evidence
+uses two logical Connections on one physical cluster. Recovery/fencing failure
+paths use local tests; no distinct-cluster DNS or AWS migration is claimed.

@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-08
 ---
 
 # Known design and implementation deviations
@@ -41,7 +41,7 @@ its owned browser process group and bounds the flow/restart waits.
 See [reviewed evidence](../verification/2026-10-07-environment-connection-kind.md).
 No remaining design/code deviation is tracked by this transition record.
 
-## IMP-017 — Editable Environment stores/transitions acceptance gap
+## IMP-017 — Editable Environment stores/transitions acceptance gap (resolved 2026-10-08)
 
 User accepted ADR-012 on 2026-10-07 and requested the current implementation
 checkpoint be committed on 2026-10-08 before final acceptance. Backend/frontend
@@ -49,11 +49,16 @@ replacement code and canonical specs/schema are present. Compilation, owner/fenc
 PostgreSQL commands, routing preflight and visible Preview impact were corrected;
 independent Go race/PostgreSQL integration/vet/build and frontend gates passed.
 
-Remaining review: recovery polling after failed recovery, active-operation UI
-submission guards, recording runner failure cleanup/process ownership/timeouts,
-and explicit store selection in affected acceptance scenarios. Full real-kind
-(two Vault stores/VSO) human Playwright recording and final acceptance are pending.
+Review corrected recovery polling, idle-to-busy refresh, configuration/draft
+submission guards, failure cleanup/process ownership/timeouts and explicit store
+selection. The [reviewed real-kind recording](../verification/2026-10-08-environment-stores-kind.md)
+passed with two workload Vault stores/VSO, actual PostgreSQL data migration,
+stale-preview rejection, Ingress traffic, restart persistence and explicit cleanup.
+Final local Go race/PostgreSQL/vet/build and frontend 153-test gates passed.
+This resolves the first direct-Kubernetes delivery acceptance gap; distinct-cluster
+DNS transfer and AWS/Aurora migration are not claimed. Historical evidence remains
+unchanged. Other legacy recorder changes have syntax checks, not fresh live evidence.
 The existing integration-tag AWS test in the baseline passes a string to
-EKSDescriptor's Context parameter; this checkpoint does not claim it passes or
+EKSDescriptor's Context parameter; this delivery does not claim it passes or
 perform an AWS run. See CURRENT_STATE for current limits. Do not weaken canonical
-requirements or use adapter unit tests as evidence of a completed human live flow.
+requirements or extend this recording beyond its documented live scope.

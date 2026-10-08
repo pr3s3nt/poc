@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-08
 ---
 
 # Design-to-code map
@@ -124,10 +124,10 @@ Prior Application-selection evidence above is historical; scripts now follow Env
 - [Live runner](../../backend/test/integration/application-connection-kind-video.sh), [human scenario](../../frontend/test/e2e/application-connection-kind-human.mjs), [reviewed evidence/video](../verification/2026-10-07-environment-connection-kind.md).
 
 
-## Environment stores and transitions (ADR-012 checkpoint)
+## Environment stores and transitions (ADR-012)
 
-This is code navigation, not completion evidence. Current review and live
-verification status remain in CURRENT_STATE and IMP-017.
+This is code navigation. Current limits remain in CURRENT_STATE; first-delivery
+live evidence is in the [reviewed recording](../verification/2026-10-08-environment-stores-kind.md).
 
 - [Secret Store domain](../../backend/internal/domain/secretstore/), [registration service](../../backend/internal/application/secretstores/), [Vault registry/verifier](../../backend/internal/adapters/vault/), [registration UI](../../frontend/src/features/platform/SecretStoresPage.tsx).
 - [Configuration and copy-first store switch](../../backend/internal/application/configuration/), [store selection UI](../../frontend/src/features/environment/SecretStoreSelection.tsx), [VSO delivery](../../backend/internal/adapters/kubernetes/vso.go).
@@ -135,3 +135,4 @@ verification status remain in CURRENT_STATE and IMP-017.
 - [Transition service/tests](../../backend/internal/application/transition/), [real Kubernetes scale/backup/restore/cleanup adapter](../../backend/internal/adapters/kubernetes/transition.go), [HTTP routes](../../backend/internal/delivery/http/transitions.go).
 - [Transition UI](../../frontend/src/features/environment/TransitionPanel.tsx), [operation/recovery UI](../../frontend/src/features/environment/OperationBanner.tsx), [frontend transition tests](../../frontend/src/features/environment/environment.test.tsx).
 - [Generation identity tests](../../backend/internal/planning/generation_test.go), [namespace generation tests](../../backend/internal/domain/environment/generation_test.go), [Terraform executor](../../backend/internal/adapters/terraform/executor.go).
+- [Human real-kind recorder](../../backend/test/integration/environment-stores-kind-video.sh), [browser scenario](../../frontend/test/e2e/environment-stores-kind-human.mjs), [ownership identity observer](../../backend/test/integration/runidentity/main.go), [masked-input leak checks](../../frontend/test/e2e/secret-scan.mjs).

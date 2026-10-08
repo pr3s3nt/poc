@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-08
 ---
 
 # Current project state
@@ -265,25 +265,32 @@ Previous [Application-selection local evidence](verification/2026-10-07-applicat
 and [kind evidence](verification/2026-10-07-application-connection-selection-kind.md)
 remain historical; their Application-wide selection is superseded by ADR-011.
 
-## Environment secret stores and editable destinations — implementation checkpoint
+## Environment secret stores and editable destinations — verified first delivery
 
 [ADR-012](architecture/decisions/ADR-012-environment-stores-and-transitions.md)
 replaces permanent selection lock with versioned editable per-Environment execution
 and Secret Store Connections, atomic admission, Vault transfer and PostgreSQL
-migration with downtime. This checkpoint is committed at the user's request;
-feature acceptance remains incomplete.
+migration with downtime. The first direct-Kubernetes delivery is implemented and
+verified by the [real-kind human recording](verification/2026-10-08-environment-stores-kind.md).
 
 Backend/frontend code and canonical design are present. Initial compilation,
 recovery fencing, PostgreSQL command, routing preflight and Preview impact defects
 were corrected. Independent Go race/PostgreSQL integration/vet/build and frontend
-typecheck/lint/tests/build checks passed on 2026-10-08. Claude reports a real-kind
-PostgreSQL adapter transfer/cleanup test passed; the full two-Vault human UI flow
-and video are not yet verified.
+typecheck/lint/153 tests/build checks passed on 2026-10-08. The full human UI flow
+passed on real kind with two workload Vault stores, separate platform credential
+storage, scoped tokens, distinct VSO auth mounts, PostgreSQL migration and actual
+Ingress HTTP/data checks. The reviewed H.264 recording has 33 phase marks and
+full decode/frame validation; test namespaces, temporary Vaults and credentials
+were cleaned after the run.
 
-Remaining review covers recovery polling after a failed attempt, disabling
-conflicting configuration/draft submissions during an operation, and recording
-runner failure cleanup (early application ID, owned backend process group and
-bounded network calls). Existing acceptance helpers must explicitly select a
-store before new-Environment secret writes. IMP-017 remains open. The pre-existing
-AWS integration-tag test has an EKSDescriptor argument mismatch; no live AWS run
+Review corrected recovery polling after a failed attempt, idle-to-busy UI refresh,
+configuration/draft submission guards, early application-ID capture, owned process
+groups, bounded calls and deterministic transition ownership cleanup. Current
+acceptance helpers explicitly select a store before secret writes and current
+Connection runners follow editable ADR-012 behavior. IMP-017 is resolved for this
+delivery. The live run proves two logical Connections on one physical kind
+cluster; it does not prove distinct-cluster/DNS transfer or AWS/Aurora migration.
+Recovery/fencing failure paths are covered by local tests rather than this happy-path
+recording. Other updated legacy runners were syntax-checked, not all replayed live.
+The pre-existing AWS integration-tag test has an EKSDescriptor argument mismatch; no live AWS run
 is authorized or claimed. Prior set-once evidence remains historical.

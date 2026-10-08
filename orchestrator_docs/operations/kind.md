@@ -2,7 +2,7 @@
 id: RUNBOOK-KIND
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-08
 ---
 
 # kind verification
@@ -210,7 +210,7 @@ API failure as NotFound. Vault forwarding uses a run-owned dynamic local port.
 
 ## Environment-selected uploaded Connection recording
 
-For UC-01 Environment Settings set-once selection through a credential-backed Kubernetes Connection, run:
+For UC-01 editable Environment Settings selection through a credential-backed Kubernetes Connection, run:
 
 ```bash
 cd frontend && npm run build
@@ -223,7 +223,8 @@ uses real Kubernetes executors on the existing `kind-idp-internal` cluster.
 The [human browser flow](../../frontend/test/e2e/application-connection-kind-human.mjs)
 registers two uploaded logical Connections and a matching staging existing-cluster Definition via
 Platform Engineer UI, then signs in as Developer, creates an unconfigured Application, then sets the nondefault
-Connection once in staging Environment Settings and separately sets production, configures workloads through forms,
+Connection in staging Environment Settings and separately sets production, verifies that an empty
+Environment can be rebound, configures workloads through forms,
 Previews/Deploys, and opens the deployed diagnostic app. Connection/Definition/
 Application/configuration mutations are UI actions; API reads and Kubernetes
 readiness/cleanup assertions are observers.
@@ -245,9 +246,41 @@ platform Vault value revisions/policies and loaded images have the existing
 lifecycle limits. Review completed successful evidence before uploading a
 uniquely named MP4 to `acceptance-recordings`; never replace older assets.
 
-Replay now follows [Environment set-once verification](../verification/2026-10-07-environment-connection-kind.md): new app initially unconfigured, two independent stored bindings, restart/lock, real staging deployment. Production is bound but not deployed; both Connections use the same physical kind cluster.
+Replay follows ADR-012: a new app starts unconfigured, each Environment keeps its own
+editable binding after refresh/restart, and changing a destination with existing
+runtime requires a transition. Production is bound but not deployed; both
+Connections use the same physical kind cluster. The
+[set-once recording](../verification/2026-10-07-environment-connection-kind.md)
+is historical evidence of the superseded ADR-011 behavior.
 
 ## Environment store/target transition verification
+
+Build the console and run the dedicated human recorder locally:
+
+```bash
+cd frontend && npm run build
+cd ..
+bash backend/test/integration/environment-stores-kind-video.sh
+```
+
+The runner creates two workload Vault dev stores with scoped backend tokens and
+distinct Kubernetes auth mounts, plus a separate platform credential Vault.
+Platform Engineer registers both workload stores through the UI; Developer selects
+the Connection and store per Environment, deploys a job, switches stores and rolls
+out VSO references, rejects a stale two-tab Preview, migrates PostgreSQL, checks
+destination HTTP/data and refresh/restart persistence, then explicitly cleans the
+source generation. Both logical Connections target the same physical kind cluster.
+The default `video` mode is the acceptance flow; `ORCH_RUN_MODE=probe` checks setup
+only and supplies no human-flow evidence.
+
+Artifacts stay under `/tmp/poc-environment-stores-review/live/<run-id>/` by default
+(`ORCH_RESULT_DIR` overrides the base). A successful default run includes an H.264 MP4 at
+1440×900, at least 420 seconds and 30 phase marks, full decode/frame
+checks, safe persisted/API projections and cleanup proof. Review successful
+evidence before uploading its unique video name to `acceptance-recordings`.
+Cleanup proves source ownership by the original run identity and destination
+ownership by the exact generation namespace and deterministic transition identity;
+both also require the Application/Environment and managed-by labels.
 
 Use existing kind-idp-internal explicitly, run-owned Vault KV v2 stores/auth paths
 and namespaces isolated by target generation. No AWS/other context mutation.

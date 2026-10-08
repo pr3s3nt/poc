@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-08
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-08 | Editable per-Environment Connections/stores, two real Vaults/VSO, stale-preview rejection, PostgreSQL migration, route/restart/cleanup and reviewed human MP4 | [Environment stores/transitions](2026-10-08-environment-stores-kind.md) |
 | 2026-10-07 | Environment Settings set-once targets, legacy migration, independent AWS scope tests and real kind human UI recording | [Environment connection verification](2026-10-07-environment-connection-kind.md) |
 | 2026-10-07 | Uploaded nondefault Connection selected through human UI; real kind Deploy/diagnostics, host-fallback rejection control, reviewed MP4 and cleanup | [Live connection selection](2026-10-07-application-connection-selection-kind.md) |
 | 2026-10-07 | Application-level connection selection, scoped choices, target guards and fake-adapter Playwright create/deploy/restart | [Connection selection verification](2026-10-07-application-connection-selection-local.md) |
