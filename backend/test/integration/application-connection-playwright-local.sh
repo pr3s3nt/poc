@@ -3,9 +3,9 @@
 # cloud: a fake-adapter backend with JSON state and a read-only kubectl
 # stand-in serves the built Web Console. A Platform Engineer registers a
 # second Connection and a matching cluster Definition; a Developer creates an
-# Application (UNCONFIGURED), sets staging to that Connection once in Settings
+# Application (UNCONFIGURED), saves staging with that Connection in Settings
 # and production to the default independently, previews and deploys, then the
-# backend restarts on the same state and both locked bindings must remain.
+# backend restarts on the same state and both saved (still editable) bindings must remain.
 # Set ORCH_KEEP_EVIDENCE=1 to keep logs and state in the temporary directory;
 # ORCH_EVIDENCE_DIR=<new path> keeps them there instead.
 set -euo pipefail

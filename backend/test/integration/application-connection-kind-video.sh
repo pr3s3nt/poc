@@ -6,9 +6,10 @@
 # A Platform Engineer uploads the same kubeconfig twice (two READY nondefault
 # logical Connections) and registers the matching existing-cluster Definition
 # for staging's; a Developer creates an UNCONFIGURED Application, sees Preview
-# refuse it, sets staging and production to different Connections once in
-# Environment Settings (locked, still locked after a refresh and a backend
-# restart), deploys the diagnostic acceptance workloads to staging with
+# refuse it, sets staging and production to different Connections in Environment
+# Settings (editable: kept after a refresh and a backend restart, an empty
+# Environment may be rebound, and once staging has runtime resources a different
+# destination requires a transition), deploys the diagnostic acceptance workloads to staging with
 # PostgreSQL and UC-12 references, and the browser checks the deployed app.
 # Every shown mutation is a UI action.
 #
@@ -289,7 +290,7 @@ NODE_PID=$!
 BROWSER_PGID=${NODE_PID}
 BROWSER_DEADLINE=$((SECONDS + 1200))
 # The browser flow asks the runner to restart the API (same flags, state file
-# and port) once both bindings are locked, then continues after a refresh.
+# and port) once both bindings are saved, then continues after a refresh.
 while kill -0 "${NODE_PID}" 2>/dev/null; do
   (( SECONDS < BROWSER_DEADLINE )) || { echo "browser flow exceeded 1200 seconds" >&2; exit 1; }
   if [[ -e "${WORK}/restart-request" ]]; then
@@ -340,7 +341,7 @@ node -e '
   const fail = (message) => { console.error(message); process.exit(1); };
   if (!application || application.connectionKey || application.executionProfile || application.region) fail("the Application must carry no execution target");
   const check = (env, key, label) => {
-    if (!env || env.connectionKey !== key || env.executionProfile !== "internal-k8s" || env.runtimeStatus !== "READY" || env.infrastructureScope !== "ENVIRONMENT") fail(`${label} binding is not the selected locked Environment binding`);
+    if (!env || env.connectionKey !== key || env.executionProfile !== "internal-k8s" || env.runtimeStatus !== "READY" || env.infrastructureScope !== "ENVIRONMENT") fail(`${label} binding is not the selected Environment binding`);
   };
   check(staging, stagingKey, "staging");
   check(production, productionKey, "production");
@@ -361,7 +362,7 @@ node -e '
     deployments: deployments.map((d) => ({ environment: d.environmentKey, status: d.status })),
   }));
 ' "${WORK}/state.json" "${APP}" "${STAGING_KEY}" "${PRODUCTION_KEY}" | tee "${WORK}/persisted-binding.json"
-note "persisted: Application unbound; staging=${STAGING_KEY} production=${PRODUCTION_KEY} locked; every Active Resource and workload TargetRef bound to ${STAGING_KEY}"
+note "persisted: Application unbound; staging=${STAGING_KEY} production=${PRODUCTION_KEY} (rebound from the default); every Active Resource and workload TargetRef bound to ${STAGING_KEY}"
 
 # Final API read-back after the restart: both bindings are served and a repeat set is refused.
 curl -fsS -c "${PRIVATE}/jar" -H 'Content-Type: application/json' -d '{"username":"developer","password":"test-password"}' "${API}/api/v1/auth/sign-in" >/dev/null
@@ -369,12 +370,23 @@ curl -fsS -b "${PRIVATE}/jar" "${API}/api/v1/applications/${APP}" > "${WORK}/app
 [[ "$(jq -r '.application.environments[] | select(.key=="staging") | .connectionKey' "${WORK}/application-view.json")" == "${STAGING_KEY}" ]]
 [[ "$(jq -r '.application.environments[] | select(.key=="production") | .connectionKey' "${WORK}/application-view.json")" == "${PRODUCTION_KEY}" ]]
 [[ "$(jq -r '[.application.environments[] | select(.configured == true)] | length' "${WORK}/application-view.json")" == "2" ]]
-for environment in staging production; do
-  status="$(curl -s -o "${WORK}/repeat-${environment}.json" -w '%{http_code}' -b "${PRIVATE}/jar" -X PUT -H 'Content-Type: application/json' \
-    -d "{\"connectionKey\":\"internal-cluster\",\"expectedVersion\":1}" "${API}/api/v1/applications/${APP}/environments/${environment}/connection")"
-  [[ "${status}" == "409" && "$(jq -r .code "${WORK}/repeat-${environment}.json")" == "ALREADY_CONFIGURED" ]]
-done
-note "api: both bindings served after restart; repeat sets answer 409 ALREADY_CONFIGURED"
+# Read-only-in-effect probes (each is refused or a no-op and must leave the bindings
+# unchanged): staging has runtime resources, so a different destination at the
+# CURRENT version is refused with RUNTIME_EXISTS; production has none, so only a
+# stale version is refused (STALE_VERSION). No permanent lock is expected.
+env_field() { jq -r --arg env "$1" --arg field "$2" '.application.environments[] | select(.key == $env) | .[$field]' "${WORK}/application-view.json"; }
+STAGING_VERSION="$(env_field staging version)"
+PRODUCTION_VERSION="$(env_field production version)"
+(( PRODUCTION_VERSION > 1 ))
+status="$(curl -s -o "${WORK}/probe-staging.json" -w '%{http_code}' -b "${PRIVATE}/jar" -X PUT -H 'Content-Type: application/json' \
+  -d "{\"connectionKey\":\"internal-cluster\",\"expectedVersion\":${STAGING_VERSION}}" "${API}/api/v1/applications/${APP}/environments/staging/connection")"
+[[ "${status}" == "409" && "$(jq -r .code "${WORK}/probe-staging.json")" == "RUNTIME_EXISTS" ]]
+status="$(curl -s -o "${WORK}/probe-production.json" -w '%{http_code}' -b "${PRIVATE}/jar" -X PUT -H 'Content-Type: application/json' \
+  -d "{\"connectionKey\":\"internal-cluster\",\"expectedVersion\":1}" "${API}/api/v1/applications/${APP}/environments/production/connection")"
+[[ "${status}" == "409" && "$(jq -r .code "${WORK}/probe-production.json")" == "STALE_VERSION" ]]
+curl -fsS -b "${PRIVATE}/jar" "${API}/api/v1/applications/${APP}" > "${WORK}/application-view-after-probes.json"
+[[ "$(jq -S '[.application.environments[] | {key, connectionKey, version}]' "${WORK}/application-view.json")" == "$(jq -S '[.application.environments[] | {key, connectionKey, version}]' "${WORK}/application-view-after-probes.json")" ]]
+note "api: both bindings served after restart; staging refuses a direct change (409 RUNTIME_EXISTS, transition required), production refuses a stale version (409 STALE_VERSION); refused probes left every binding and version unchanged"
 # The uploaded credential must not appear in any evidence file.
 node -e '
   const fs = require("fs");

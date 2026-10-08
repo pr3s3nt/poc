@@ -57,11 +57,13 @@ try {
     await expect(select).toHaveValue('');
     await select.selectOption(key);
     const put = page.waitForResponse((response) => response.request().method() === 'PUT' && new URL(response.url()).pathname.endsWith(`/environments/${environment}/connection`));
-    await page.getByRole('button', { name: 'Set connection' }).click();
+    await page.getByRole('button', { name: 'Save connection' }).click();
     expect((await put).status()).toBe(200);
-    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Set connection' })).toHaveCount(0);
-    await expect(page.getByLabel(`Connection for ${title}`)).toHaveCount(0);
+    // Saved, not locked: the selection stays editable and an unchanged one has nothing to save.
+    await expect(page.getByText('Generation 0', { exact: true })).toBeVisible();
+    await expect(page.getByLabel(`Connection for ${title}`)).toBeEnabled();
+    await expect(page.getByLabel(`Connection for ${title}`)).toHaveValue(key);
+    await expect(page.getByRole('button', { name: 'Save connection' })).toBeDisabled();
   }
   async function previewScore(environment, workload = 'api') {
     await page.getByRole('button', { name: 'Preview Score' }).click();
@@ -120,7 +122,8 @@ try {
     const apiView = async () => (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}`)).json()).application;
     let view = await apiView();
     expect(byKey(view, (item) => [item.configured, item.runtimeStatus])).toEqual({ staging: [false, 'UNCONFIGURED'], production: [false, 'UNCONFIGURED'] });
-    expect(JSON.stringify(view)).not.toMatch(/secret|kubeconfig|token/i);
+    // secretStoreKey is the public Secret Store selection (a key, never a credential), so only that field name is exempt.
+    expect(JSON.stringify(view).replaceAll('"secretStoreKey"', '')).not.toMatch(/secret|kubeconfig|token/i);
     await expect(page.getByLabel('Execution target').first()).toContainText('Staging has no execution connection yet');
     await page.getByRole('button', { name: /Production/ }).click();
     await expect(page.getByLabel('Execution target').first()).toContainText('Production has no execution connection yet');
@@ -139,23 +142,28 @@ try {
     await page.getByRole('button', { name: 'Open Environment settings' }).click();
     const select = page.getByLabel('Connection for Staging');
     await expect(select).toHaveValue('');
-    await expect(select.locator('option')).toHaveText([/Choose a connection/, /internal-cluster.*default/, new RegExp(labKey)]);
+    await expect(select.locator('option')).toHaveText([/Choose a connection/, /internal-cluster \(internal-cluster\)/, new RegExp(labKey)]);
     await select.selectOption(labKey);
     const staged = page.waitForResponse((response) => response.request().method() === 'PUT');
-    await page.getByRole('button', { name: 'Set connection' }).click();
+    await page.getByRole('button', { name: 'Save connection' }).click();
     expect((await staged).status()).toBe(200);
-    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
-    await shot('staging-locked');
+    await expect(page.getByText('Generation 0', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Connection for Staging')).toBeEnabled();
+    await shot('staging-saved');
     await page.getByRole('tab', { name: 'Production' }).click();
     await expect(page.getByLabel('Connection for Production')).toHaveValue('');
     view = await apiView();
     expect(byKey(view, (item) => item.connectionKey)).toEqual({ staging: labKey, production: '' });
-    // Set-once is enforced by the API too (negative probes only).
-    for (const key of [labKey, 'internal-cluster']) {
-      const again = await page.request.put(`${baseURL}/api/v1/applications/${appId}/environments/staging/connection`, { data: { connectionKey: key, expectedVersion: 2 } });
-      expect(again.status()).toBe(409);
-      expect((await again.json()).code).toBe('ALREADY_CONFIGURED');
-    }
+    // Versions are enforced by the API (probes that change nothing): a stale version is
+    // refused, and the same selection at the current version is an idempotent no-op.
+    const savedStaging = view.environments.find((item) => item.key === 'staging');
+    const stagingConnectionURL = `${baseURL}/api/v1/applications/${appId}/environments/staging/connection`;
+    const stale = await page.request.put(stagingConnectionURL, { data: { connectionKey: 'internal-cluster', expectedVersion: savedStaging.version - 1 } });
+    expect(stale.status()).toBe(409);
+    expect((await stale.json()).code).toBe('STALE_VERSION');
+    const noop = await page.request.put(stagingConnectionURL, { data: { connectionKey: labKey, expectedVersion: savedStaging.version } });
+    expect(noop.status()).toBe(200);
+    expect((await apiView()).environments.find((item) => item.key === 'staging')).toMatchObject({ connectionKey: labKey, version: savedStaging.version });
     await page.getByRole('button', { name: `← ${name}` }).click();
     await expectTarget('home');
 
@@ -204,7 +212,7 @@ try {
     await page.getByRole('button', { name: `← ${name}` }).click();
     await page.getByRole('button', { name: /Production/ }).click();
     await expectTarget('home-production', 'production', 'internal-cluster');
-    await shot('production-locked');
+    await shot('production-saved');
     const productionMatches = await matchedDefinitions('production');
     await expect(productionMatches).toContainText('cluster-internal-registered');
     await expect(productionMatches).not.toContainText(`cluster-${labKey}`);
@@ -222,10 +230,12 @@ try {
     await expectTarget('home-production', 'production', 'internal-cluster');
     const view = (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}`)).json()).application;
     expect(byKey(view, (item) => [item.connectionKey, item.infrastructureScope])).toEqual({ staging: [labKey, 'ENVIRONMENT'], production: ['internal-cluster', 'ENVIRONMENT'] });
-    // Settings are read-only after a restart too.
+    // The saved selection survives a restart and stays editable (no runtime exists yet).
     await page.getByRole('button', { name: 'Environment settings' }).click();
-    await expect(page.getByText('Locked', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Set connection' })).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Staging' }).click();
+    await expect(page.getByText('Generation 0', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Connection for Staging')).toHaveValue(labKey);
+    await expect(page.getByLabel('Connection for Staging')).toBeEnabled();
     await page.getByRole('button', { name: `← ${name}` }).click();
     await page.getByRole('button', { name: /Staging/ }).click();
     const matches = await matchedDefinitions('staging', 'probe');

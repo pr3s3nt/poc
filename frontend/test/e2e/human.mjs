@@ -125,7 +125,7 @@ export async function signIn(h) {
 // Environment Settings (UC-01 ES-03..06) and returns to the Application.
 // targets: { staging?: connectionKey, production?: connectionKey }. The option
 // is found by its "(key)" label, the choice is typed by the real select popup,
-// and the PUT reply plus the read-only "Locked" state are awaited.
+// and the PUT reply plus the saved "Generation" state are awaited.
 export async function setEnvironmentConnections(h, applicationName, targets) {
   const { page } = h;
   await h.click(page.getByRole('button', { name: 'Environment settings' }));

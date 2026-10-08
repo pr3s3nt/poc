@@ -8,11 +8,14 @@
 // same physical cluster, an honest limit of this proof) and registers the
 // matching existing-cluster Resource Definition for staging's; a Developer
 // creates an UNCONFIGURED Application, sees Preview refuse it, then sets
-// staging and production to different Connections once in Environment Settings
-// (locked afterwards, still locked after a page refresh and a backend restart),
+// staging and production to different Connections in Environment Settings (the
+// selection stays editable, survives a page refresh and a backend restart, and an
+// empty production Environment is rebound; once staging has runtime resources a
+// different destination needs a reviewed transition, never a plain Save),
 // enters the diagnostic workloads through the workload form, then Previews and
 // Deploys staging. API calls are only used to assert what the UI saved and for
-// negative once-only probes that are never part of the shown flow. Credential
+// no-state-change probes (stale version, idempotent repeat, runtime-exists) that
+// are never part of the shown flow. Credential
 // material is checked to never appear on screen or in any asserted response.
 /* global document -- page.evaluate callbacks run in the browser. */
 import { expect } from '@playwright/test';
@@ -225,7 +228,7 @@ try {
   mark('preview-refused');
   await h.pause(READ);
 
-  // 5. Staging Settings: choose once, locked. Nothing is preselected.
+  // 5. Staging Settings: nothing is preselected; the saved selection stays editable (ADR-012).
   await h.click(refusal.getByRole('button', { name: 'Open Environment settings' }));
   await expect(page.getByRole('heading', { name: 'Environment settings', level: 1 })).toBeVisible();
   const panel = page.getByLabel('Execution connection');
@@ -235,7 +238,7 @@ try {
   const options = await stagingSelect.locator('option').allTextContents();
   const stagingLabel = options.find((text) => text.includes(`(${stagingKey})`));
   expect(stagingLabel, 'staging Connection offered').toBeTruthy();
-  expect(options.some((text) => text.includes(`(${defaultKey})`) && text.includes('default'))).toBe(true);
+  expect(options.some((text) => text.includes(`(${defaultKey})`))).toBe(true);
   await h.moveTo(stagingSelect);
   mark('staging-choices');
   await h.pause(READ);
@@ -247,72 +250,99 @@ try {
   mark('staging-selected');
   await h.pause(LONG_READ);
   const stagingPut = page.waitForRequest((request) => request.method() === 'PUT' && new URL(request.url()).pathname.endsWith('/environments/staging/connection'));
-  await h.click(page.getByRole('button', { name: 'Set connection' }));
+  await h.click(page.getByRole('button', { name: 'Save connection' }));
   expect((await stagingPut).postDataJSON()).toEqual({ connectionKey: stagingKey, expectedVersion: 1 });
-  await expect(panel).toContainText('Locked');
-  await expect(page.getByRole('button', { name: 'Set connection' })).toHaveCount(0);
-  await expect(page.getByLabel('Connection for Staging')).toHaveCount(0);
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(panel).toContainText('Generation 0');
+  await expect(panel).toContainText(stagingName);
+  // Nothing is locked: the control stays editable, and an unchanged selection has nothing to save.
+  await expect(page.getByLabel('Connection for Staging')).toBeEnabled();
+  await expect(page.getByLabel('Connection for Staging')).toHaveValue(stagingKey);
+  await expect(page.getByRole('button', { name: 'Save connection' })).toBeDisabled();
+  await expect(page.getByText(/Locked/)).toHaveCount(0);
+  view = await apiView();
+  const stagingSaved = byKey(view, (item) => ({ key: item.connectionKey, version: item.version })).staging;
+  expect(stagingSaved.key).toBe(stagingKey);
   await h.moveTo(panel);
-  mark('staging-locked');
+  mark('staging-saved-editable');
   await h.pause(LONG_READ);
-  // Once-only is enforced by the API too: negative probes, outside the shown flow.
-  for (const key of [stagingKey, defaultKey]) {
-    const again = await page.request.put(`${baseURL}/api/v1/applications/${encodeURIComponent(appId)}/environments/staging/connection`, { data: { connectionKey: key, expectedVersion: 2 } });
-    expect(again.status()).toBe(409);
-    expect((await again.json()).code).toBe('ALREADY_CONFIGURED');
-  }
-  // A refresh keeps it locked.
+  // Observer probes that change nothing: a stale version is refused, and the same
+  // selection at the current version is an idempotent no-op.
+  const putStaging = (connectionKey, expectedVersion) => page.request.put(`${baseURL}/api/v1/applications/${encodeURIComponent(appId)}/environments/staging/connection`, { data: { connectionKey, expectedVersion } });
+  const stale = await putStaging(defaultKey, stagingSaved.version - 1);
+  expect(stale.status()).toBe(409);
+  expect((await stale.json()).code).toBe('STALE_VERSION');
+  const noop = await putStaging(stagingKey, stagingSaved.version);
+  expect(noop.status()).toBe(200);
+  expect(byKey(await apiView(), (item) => ({ key: item.connectionKey, version: item.version })).staging).toEqual(stagingSaved);
+  // A refresh keeps the saved selection, still editable.
   x11.keys(['F5']);
-  await expect(page.getByLabel('Execution connection')).toContainText('Locked');
-  await expect(page.getByRole('button', { name: 'Set connection' })).toHaveCount(0);
-  mark('staging-locked-after-refresh');
+  await expect(page.getByLabel('Execution connection')).toContainText(stagingName);
+  await expect(page.getByLabel('Connection for Staging')).toHaveValue(stagingKey);
+  await expect(page.getByLabel('Connection for Staging')).toBeEnabled();
+  mark('staging-saved-after-refresh');
   await h.pause(SHORT_READ);
 
-  // 6. Production is still unset and chooses another logical Connection independently.
+  // 6. Production is still unset. It first saves the default Connection, then
+  //    rebinds to its own: an Environment without runtime resources may change.
   await h.click(page.getByRole('tab', { name: 'Production' }));
   await expect(page.getByLabel('Execution connection')).toContainText('Not configured');
   const productionSelect = page.getByLabel('Connection for Production');
   await expect(productionSelect).toHaveValue('');
-  const productionLabel = (await productionSelect.locator('option').allTextContents()).find((text) => text.includes(`(${productionKey})`));
+  const productionOptions = await productionSelect.locator('option').allTextContents();
+  const defaultLabel = productionOptions.find((text) => text.includes(`(${defaultKey})`));
+  const productionLabel = productionOptions.find((text) => text.includes(`(${productionKey})`));
+  expect(defaultLabel, 'default Connection offered').toBeTruthy();
   expect(productionLabel, 'production Connection offered').toBeTruthy();
   mark('production-still-unset');
   await h.pause(SHORT_READ);
+  await h.choose(productionSelect, defaultLabel);
+  await expect(productionSelect).toHaveValue(defaultKey);
+  const firstProductionPut = page.waitForRequest((request) => request.method() === 'PUT' && new URL(request.url()).pathname.endsWith('/environments/production/connection'));
+  await h.click(page.getByRole('button', { name: 'Save connection' }));
+  expect((await firstProductionPut).postDataJSON()).toEqual({ connectionKey: defaultKey, expectedVersion: 1 });
+  await expect(page.getByLabel('Execution connection')).toContainText('Generation 0');
+  const firstProduction = byKey(await apiView(), (item) => ({ key: item.connectionKey, version: item.version })).production;
+  expect(firstProduction.key).toBe(defaultKey);
+  mark('production-saved-default');
+  await h.pause(READ);
   await h.choose(productionSelect, productionLabel);
   await expect(productionSelect).toHaveValue(productionKey);
   await h.moveTo(productionSelect);
-  mark('production-selected');
+  mark('production-rebind-selected');
   await h.pause(READ);
   const productionPut = page.waitForRequest((request) => request.method() === 'PUT' && new URL(request.url()).pathname.endsWith('/environments/production/connection'));
-  await h.click(page.getByRole('button', { name: 'Set connection' }));
-  expect((await productionPut).postDataJSON()).toEqual({ connectionKey: productionKey, expectedVersion: 1 });
-  await expect(page.getByLabel('Execution connection')).toContainText('Locked');
+  await h.click(page.getByRole('button', { name: 'Save connection' }));
+  expect((await productionPut).postDataJSON()).toEqual({ connectionKey: productionKey, expectedVersion: firstProduction.version });
   await expect(page.getByLabel('Execution connection')).toContainText(productionName);
+  await expect(page.getByLabel('Connection for Production')).toBeEnabled();
   await h.moveTo(page.getByLabel('Execution connection'));
-  mark('production-locked');
+  mark('production-rebound');
   await h.pause(LONG_READ);
   view = await apiView();
   expect(byKey(view, (item) => [item.connectionKey, item.executionProfile, item.infrastructureScope, item.configured]))
     .toEqual({ staging: [stagingKey, 'internal-k8s', 'ENVIRONMENT', true], production: [productionKey, 'internal-k8s', 'ENVIRONMENT', true] });
-  expect(JSON.stringify(view)).not.toMatch(/secret|kubeconfig|token/i);
+  expect(byKey(view, (item) => item.version).production).toBeGreaterThan(firstProduction.version);
+  // secretStoreKey is the public Secret Store selection (a key, never a credential), so only that field name is exempt.
+  expect(JSON.stringify(view).replaceAll('"secretStoreKey"', '')).not.toMatch(/secret|kubeconfig|token/i);
   for (const value of secretValues) expect(JSON.stringify(view)).not.toContain(value);
   await h.click(page.getByRole('tab', { name: 'Staging' }));
   await expect(page.getByLabel('Execution connection')).toContainText(stagingName);
   await h.moveTo(page.getByLabel('Execution connection'));
-  mark('staging-tab-still-locked');
+  mark('staging-tab-keeps-its-own');
   await h.pause(SHORT_READ);
 
-  // 7. A backend restart keeps both bindings locked. The runner restarts the
-  //    API on the same state file and port when asked.
+  // 7. A backend restart keeps both bindings, still editable. The runner restarts
+  //    the API on the same state file and port when asked.
   writeFileSync(`${evidenceDir}/restart-request`, 'restart');
   await expect.poll(() => existsSync(`${evidenceDir}/restart-done`), { timeout: 120_000, intervals: [500] }).toBe(true);
   x11.keys(['F5']);
-  await expect(page.getByLabel('Execution connection')).toContainText('Locked', { timeout: 30_000 });
-  await expect(page.getByRole('button', { name: 'Set connection' })).toHaveCount(0);
-  mark('locked-after-backend-restart');
+  await expect(page.getByLabel('Execution connection')).toContainText(stagingName, { timeout: 30_000 });
+  await expect(page.getByLabel('Connection for Staging')).toBeEnabled();
+  mark('saved-after-backend-restart');
   await h.pause(READ);
   await h.click(page.getByRole('tab', { name: 'Production' }));
   await expect(page.getByLabel('Execution connection')).toContainText(productionName);
+  await expect(page.getByLabel('Connection for Production')).toHaveValue(productionKey);
   await h.pause(SHORT_READ);
 
   // 8. Back home: each Environment shows its own target.
@@ -362,6 +392,30 @@ try {
   mark('deploy-succeeded');
   await h.pause(5000);
   await noSecretOnScreen();
+
+  // 10b. Staging now has runtime resources: a different destination is no longer a
+  //      plain Save but a reviewed transition (nothing is clicked or changed).
+  x11.keys(['F5']);
+  await expect(page.getByLabel('Deployment result')).toHaveCount(0); // the refresh reloads the current state
+  await h.click(page.getByRole('button', { name: 'Environment settings' }));
+  await expect(page.getByLabel('Execution connection')).toContainText(stagingName);
+  const liveSelect = page.getByLabel('Connection for Staging');
+  await expect(liveSelect).toBeEnabled();
+  const liveOptions = await liveSelect.locator('option').allTextContents();
+  await h.choose(liveSelect, liveOptions.find((text) => text.includes(`(${defaultKey})`)));
+  await expect(page.getByRole('button', { name: 'Review transition…' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save connection' })).toHaveCount(0);
+  await h.moveTo(page.getByRole('button', { name: 'Review transition…' }));
+  mark('runtime-requires-transition');
+  await h.pause(READ);
+  await h.choose(liveSelect, liveOptions.find((text) => text.includes(`(${stagingKey})`)));
+  const liveBefore = byKey(await apiView(), (item) => ({ key: item.connectionKey, version: item.version })).staging;
+  const direct = await putStaging(defaultKey, liveBefore.version);
+  expect(direct.status()).toBe(409);
+  expect((await direct.json()).code).toBe('RUNTIME_EXISTS');
+  expect(byKey(await apiView(), (item) => ({ key: item.connectionKey, version: item.version })).staging).toEqual(liveBefore);
+  await h.click(page.getByRole('button', { name: `← ${applicationName}` }));
+  await h.pause(SHORT_READ);
 
   // 11. Open the deployed app through a local port-forward started off screen
   // and check every diagnostic row.
