@@ -145,7 +145,20 @@ cleanup() {
     fi
   fi
   # Reviewer identity (run-owned).
-  timeout 60 kubectl --context "${CONTEXT}" delete clusterrolebinding "orch-${RUN_ID}-reviewer" --ignore-not-found >/dev/null 2>&1 || status=1
+  # The global binding is deleted only when its run label, roleRef and single
+  # subject are exactly what this run created; anything else is left untouched.
+  local binding="orch-${RUN_ID}-reviewer" proof
+  if proof="$(timeout 60 kubectl --context "${CONTEXT}" get clusterrolebinding "${binding}" --ignore-not-found -o jsonpath='{.metadata.labels.orchestrator\.io/run-id}|{.roleRef.kind}/{.roleRef.name}|{range .subjects[*]}{.kind}/{.namespace}/{.name};{end}' 2>/dev/null)"; then
+    if [[ -z "${proof}" ]]; then
+      :
+    elif [[ "${proof}" == "${RUN_ID}|ClusterRole/system:auth-delegator|ServiceAccount/${REVIEWER_NS}/reviewer;" ]]; then
+      timeout 60 kubectl --context "${CONTEXT}" delete clusterrolebinding "${binding}" --ignore-not-found >/dev/null 2>&1 || status=1
+    else
+      echo "cleanup: clusterrolebinding ${binding} does not match this run's label, roleRef and subject; left untouched" >&2; status=1
+    fi
+  else
+    echo "cleanup: clusterrolebinding ${binding} lookup failed" >&2; status=1
+  fi
   timeout 150 kubectl --context "${CONTEXT}" delete namespace "${REVIEWER_NS}" --ignore-not-found --wait=true --timeout=120s >/dev/null 2>&1 || status=1
   if [[ -z "$(namespace_lookup "${REVIEWER_NS}" 2>/dev/null)" ]] && ! kubectl --context "${CONTEXT}" get clusterrolebinding "orch-${RUN_ID}-reviewer" >/dev/null 2>&1; then
     echo "cleanup: reviewer namespace and ClusterRoleBinding removed" | tee -a "${WORK}/cleanup.txt"
@@ -206,6 +219,7 @@ kubectl --context "${CONTEXT}" create namespace "${REVIEWER_NS}" >/dev/null
 kubectl --context "${CONTEXT}" label namespace "${REVIEWER_NS}" "orchestrator.io/run-id=${RUN_ID}" >/dev/null
 kubectl --context "${CONTEXT}" -n "${REVIEWER_NS}" create serviceaccount reviewer >/dev/null
 kubectl --context "${CONTEXT}" create clusterrolebinding "orch-${RUN_ID}-reviewer" --clusterrole=system:auth-delegator --serviceaccount="${REVIEWER_NS}:reviewer" >/dev/null
+kubectl --context "${CONTEXT}" label clusterrolebinding "orch-${RUN_ID}-reviewer" "orchestrator.io/run-id=${RUN_ID}" >/dev/null
 kubectl --context "${CONTEXT}" -n "${REVIEWER_NS}" create token reviewer --duration=4h > "${PRIVATE}/reviewer.jwt"
 kubectl config view --raw --minify --flatten --context "${CONTEXT}" -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' | base64 -d > "${PRIVATE}/cluster-ca.pem"
 CONTROL_PLANE="$(docker ps --filter 'name=idp-internal-control-plane' --format '{{.Names}}' | head -1)"
