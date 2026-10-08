@@ -112,16 +112,30 @@ cleanup() {
   [[ -s "${WORK}/run.json" ]] && app="$(jq -r .applicationId "${WORK}/run.json" 2>/dev/null || true)"
   if [[ -z "${app}" && -s "${WORK}/application-id" ]]; then app="$(<"${WORK}/application-id")"; fi
   if [[ -n "${app}" && "${app}" =~ ^[a-z0-9-]+$ ]]; then
-    # Only namespaces proven to be this run's are removed: managed by the
-    # orchestrator, labelled with this application AND this run id.
-    local labels managed run_label
+    # Only namespaces proven to be exactly this run's are removed, by exact name:
+    #  * the source generation: app-<app>-staging, run id = this run;
+    #  * the destination generation 1 created by the transition: the deterministic
+    #    name and the deterministic transition run id derived from THIS application,
+    #    staging and generation (runidentity uses the product's own functions).
+    # Both must also carry managed-by=orchestrator, this application and staging.
+    # No other namespace is touched, whatever its labels.
+    local source_ns="app-${app}-staging" destination_ns="" destination_run="" identity labels managed environment run_label owned
+    if [[ -x "${WORK}/tools/runidentity" ]] && identity="$(timeout 30 "${WORK}/tools/runidentity" "${app}" staging 1 2>/dev/null)"; then
+      destination_ns="$(jq -r '.namespace // empty' <<<"${identity}")"
+      destination_run="$(jq -r '.runId // empty' <<<"${identity}")"
+    fi
     for ns in $(timeout 60 kubectl --context "${CONTEXT}" get namespace -l "orchestrator.io/application=${app}" -o name 2>/dev/null | sed 's#namespace/##'); do
-      labels="$(timeout 60 kubectl --context "${CONTEXT}" get namespace "${ns}" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}{" "}{.metadata.labels.orchestrator\.io/run-id}' 2>/dev/null || true)"
-      managed="${labels%% *}"; run_label="${labels#* }"
-      if [[ "${managed}" == "orchestrator" && "${run_label}" == "${RUN_ID}" ]]; then
+      labels="$(timeout 60 kubectl --context "${CONTEXT}" get namespace "${ns}" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}{"|"}{.metadata.labels.orchestrator\.io/environment}{"|"}{.metadata.labels.orchestrator\.io/run-id}' 2>/dev/null || true)"
+      IFS='|' read -r managed environment run_label <<<"${labels}"
+      owned=""
+      if [[ "${managed}" == "orchestrator" && "${environment}" == "staging" ]]; then
+        if [[ "${ns}" == "${source_ns}" && "${run_label}" == "${RUN_ID}" ]]; then owned=1
+        elif [[ -n "${destination_ns}" && -n "${destination_run}" && "${ns}" == "${destination_ns}" && "${run_label}" == "${destination_run}" ]]; then owned=1; fi
+      fi
+      if [[ -n "${owned}" ]]; then
         timeout 330 kubectl --context "${CONTEXT}" delete namespace "${ns}" --ignore-not-found --wait=true --timeout=300s >/dev/null || status=1
       else
-        echo "cleanup: namespace ${ns} is not proven to belong to run ${RUN_ID}; left untouched" >&2; status=1
+        echo "cleanup: namespace ${ns} is not proven to belong to this run (expected ${source_ns} or ${destination_ns:-<unknown>}); left untouched" >&2; status=1
       fi
     done
     if [[ -n "$(timeout 60 kubectl --context "${CONTEXT}" get namespace -l "orchestrator.io/application=${app}" -o name 2>/dev/null)" ]]; then
@@ -158,6 +172,8 @@ trap 'exit 143' TERM
 # ---------------------------------------------------------------- preflight
 CURRENT_BEFORE="$(kubectl config current-context)"
 video_require_tools
+mkdir -p "${WORK}/tools"
+(cd "${ROOT}" && go build -o "${WORK}/tools/runidentity" ./test/integration/runidentity)
 command -v docker >/dev/null; command -v setsid >/dev/null; command -v jq >/dev/null; command -v node >/dev/null
 if [[ "${MODE}" == "video" ]]; then
   video_require_fresh_dist "${REPO}"
@@ -391,7 +407,7 @@ done
 [[ -z "$(kubectl --context "${CONTEXT}" -n "${DST_NS}" get pod --no-headers | grep -v -E ' (Running|Completed) ' || true)" ]]
 HOST="$(jq -r .stagingHost "${WORK}/run.json")"
 curl -fsS -H "Host: ${HOST}" "http://127.0.0.1:${TRAEFIK_PORT}/api/checks" > "${WORK}/http-checks.json"
-[[ "$(jq -c .checks "${WORK}/http-checks.json")" == '{"environment":true,"secret":true,"database":true}' ]]
+jq -e '.checks | (keys | sort) == ["database", "environment", "secret"] and .environment == true and .secret == true and .database == true' "${WORK}/http-checks.json" >/dev/null
 note "http: destination served /api/checks through Traefik with Host ${HOST}"
 signin developer
 curl -fsS -b "${PRIVATE}/jar-developer" "${API}/api/v1/applications/${APP}/environments/staging/connection-transitions" > "${WORK}/transitions.json"

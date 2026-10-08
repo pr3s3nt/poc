@@ -276,7 +276,7 @@ func (r *runner) destCommand(id string, provisionOnly bool, base string) appsvc.
 	return appsvc.DeployCommand{
 		OrganizationKey: r.p.app.OrganizationKey, ApplicationKey: r.p.app.Key, EnvironmentKey: r.p.env.Key,
 		WorkloadID: id, ScoreBefore: before, ScoreAfter: r.p.scores[id], Action: action,
-		Actor: actorOr(r.actor), RunID: "transition-" + shortHash(r.p.app.Key, r.p.env.Key, fmt.Sprint(dest.TargetGeneration)),
+		Actor: actorOr(r.actor), RunID: RunIDFor(r.p.app.Key, r.p.env.Key, dest.TargetGeneration),
 		ConfigRevisionID: r.p.scope.Revision, DeferPublicRoutes: true,
 		Destination: &dest, BaseSetID: base, HoldSet: true, ProvisionOnly: provisionOnly,
 	}

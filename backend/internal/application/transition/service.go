@@ -487,7 +487,7 @@ func (s *Service) preflightRouting(ctx context.Context, p *prepared) error {
 // plan hashes. It performs no I/O.
 func (s *Service) planDestination(p *prepared) error {
 	base := p.set.Document
-	runID := "transition-" + shortHash(p.app.Key, p.env.Key, fmt.Sprint(p.dest.TargetGeneration))
+	runID := RunIDFor(p.app.Key, p.env.Key, p.dest.TargetGeneration)
 	request := func(id string, before, after map[string]any, action deployment.Action, base environment.Document) (*planning.Plan, error) {
 		var beforeDoc, afterDoc *score.Document
 		var err error
@@ -552,6 +552,13 @@ func (s *Service) planDestination(p *prepared) error {
 	}
 	p.finalDoc = base
 	return nil
+}
+
+// RunIDFor is the deterministic run identity stamped on every object a
+// transition creates for one Application, Environment and destination target
+// generation. Observers derive the same value to prove ownership.
+func RunIDFor(applicationKey, environmentKey string, generation int64) string {
+	return "transition-" + shortHash(applicationKey, environmentKey, fmt.Sprint(generation))
 }
 
 func shortHash(parts ...string) string {
