@@ -43,6 +43,7 @@ services:
 
   backend:
     image: ${BACKEND_IMAGE:-orchestrator-backend:local}
+    pull_policy: build
     build:
       context: ./backend
     ports: ["127.0.0.1:${BACKEND_PORT:-8080}:8080"]
@@ -79,6 +80,7 @@ services:
 
   frontend:
     image: ${FRONTEND_IMAGE:-orchestrator-frontend:local}
+    pull_policy: build
     build:
       context: ./frontend
     ports: ["127.0.0.1:${FRONTEND_PORT:-3001}:8080"]

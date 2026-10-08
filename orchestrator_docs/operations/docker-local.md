@@ -32,7 +32,14 @@ The default backend/frontend images build from current repository source and
 PostgreSQL/Vault use public images, so no private Harbor login or source override
 is required. Override image references with `BACKEND_IMAGE`, `FRONTEND_IMAGE`,
 `POSTGRES_IMAGE` or `VAULT_IMAGE` in the shell or an ignored root `.env` file.
-Use `docker compose up -d --build` after source changes to rebuild existing images.
+Backend and frontend use `pull_policy: build`, so ordinary `docker compose up -d`
+checks their source builds even when a local image already exists; unchanged layers
+use the Docker build cache. `BACKEND_IMAGE`/`FRONTEND_IMAGE` select output image tags.
+The backend Dockerfile uses the requested `mirror.gcr.io` base images and
+development-only HTTP/insecure download settings; kubectl checksum validation
+remains enabled. The frontend uses the requested mirrored Node/nginx bases and
+build-stage development npm TLS settings. PostgreSQL/Vault image overrides still
+select runtime images.
 
 Open <http://localhost:3001/ui/>. The backend is at <http://localhost:8080>.
 Override the host ports with `FRONTEND_PORT` and `BACKEND_PORT` when needed.
