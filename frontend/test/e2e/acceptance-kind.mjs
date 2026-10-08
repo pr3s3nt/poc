@@ -47,6 +47,9 @@ try {
   await page.getByRole('button', { name: 'Save connection' }).click();
   await expect(page.getByText('Generation 0', { exact: true })).toBeVisible();
   await reviewPause(page, 1800);
+  // A new Environment has no secret store; the run's configured store is chosen explicitly.
+  await selectSecretStore(page, process.env.ORCH_E2E_SECRET_STORE);
+  await reviewPause(page, 1200);
   await putKey(page, 'variable', 'ACCEPTANCE_CONFIG', 'acceptance-config-ok');
   await putKey(page, 'variable', 'ACCEPTANCE_SECRET_SHA256', secretHash);
   await putKey(page, 'secret', 'ACCEPTANCE_SECRET', secret);
@@ -123,6 +126,23 @@ try {
   } finally {
     await browser.close();
   }
+}
+
+// Selects the Secret Store (by key or name) for Staging via the Settings UI.
+async function selectSecretStore(page, store) {
+  const wanted = (store ?? '').trim();
+  if (!wanted) throw new Error('writing a secret needs a selected Secret Store: set ORCH_E2E_SECRET_STORE to the key or name of a READY store registered for this run');
+  const select = page.getByLabel('Secret store for Staging');
+  await expect(select).toBeVisible();
+  const option = (await select.locator('option').evaluateAll((options) => options.map((item) => ({ value: item.value, text: item.textContent ?? '' }))))
+    .find((item) => item.value && (item.value === wanted || item.text.startsWith(`${wanted} (`)));
+  if (!option) throw new Error(`secret store ${wanted} is not offered for Staging`);
+  if ((await select.inputValue()) === option.value) return;
+  await select.selectOption(option.value);
+  const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && new URL(response.url()).pathname.endsWith('/environments/staging/secret-store'));
+  await page.getByRole('button', { name: 'Save secret store' }).click();
+  if (!(await saved).ok()) throw new Error('selecting the Staging secret store failed');
+  await expect(page.getByRole('button', { name: 'Save secret store' })).toBeDisabled();
 }
 
 async function putKey(page, kind, name, value) {

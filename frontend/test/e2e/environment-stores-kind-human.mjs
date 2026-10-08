@@ -141,6 +141,8 @@ try {
   await h.pause(SHORT_READ);
   const appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];
   if (!appId || !/^[a-z0-9-]+$/.test(appId)) throw new Error(`invalid application id: ${appId}`);
+  // Recorded before any runtime effect so the wrapper's cleanup knows the application even if this run fails.
+  writeFileSync(`${evidenceDir}/application-id`, `${appId}\n`, { mode: 0o600 });
   const sourceNamespace = `app-${appId}-staging`;
 
   await h.click(page.getByRole('button', { name: 'Environment settings' }));
@@ -195,7 +197,7 @@ try {
   const secret = randomBytes(32).toString('hex');
   const secretHash = createHash('sha256').update(secret).digest('hex');
   const app = acceptanceApp(runId, secret, secretHash);
-  await putKeys(h, applicationName, app.keys.map((key) => ({ ...key, delay: TYPE_DELAY })));
+  await putKeys(h, applicationName, app.keys.map((key) => ({ ...key, delay: TYPE_DELAY })), { secretStore: stores[0].name });
   await noSecretsOnScreen([secret]);
   mark('settings-saved');
   const [backend, frontend] = app.workloads;

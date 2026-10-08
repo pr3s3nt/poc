@@ -271,3 +271,25 @@ it('guides an UNCONFIGURED Environment to its settings and surfaces the safe 422
   expect(window.location.pathname).toBe('/ui/applications/catalog/settings');
   expect(window.location.search).toBe('?environment=staging');
 });
+
+it('disables draft Delete and Undo while an environment operation runs and enables them after release', async () => {
+  const calls: string[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (init?.method && init.method !== 'GET') calls.push(`${init.method} ${url}`);
+    if (url.endsWith('/workloads')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', draftVersion: 1, workloads: [{ id: 'frontend', ready: true, score: {} }, { id: 'old', state: 'PENDING_DELETE', ready: true }] });
+    return Response.json({}, { status: 404 });
+  }));
+  const busyApp: Application = { ...application, environments: { ...application.environments, staging: { ...application.environments.staging, activeOperation: { id: 'op1', kind: 'DEPLOY', status: 'ACTIVE', stage: 'DEPLOY web', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: false } } } };
+  const view = render(<ApplicationHomePage application={application} />);
+  await screen.findByText('frontend');
+  expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
+  view.rerender(<ApplicationHomePage application={busyApp} />);
+  expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
+  expect(screen.getByText(/Draft changes are paused/)).toBeInTheDocument();
+  view.rerender(<ApplicationHomePage application={application} />);
+  expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled();
+  expect(calls).toEqual([]);
+});

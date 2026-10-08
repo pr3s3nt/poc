@@ -169,14 +169,52 @@ export async function createApplication(h, name, subdomain, { connections = { st
   return appId;
 }
 
+// The Secret Store that new-Environment secret writes must use. There is no
+// product fallback: the store registered for the run is named by the operator,
+// by key or by name, in ORCH_E2E_SECRET_STORE.
+export function configuredSecretStore(env = process.env) {
+  return (env.ORCH_E2E_SECRET_STORE ?? '').trim();
+}
+
+// Selects a READY Secret Store for ONE Environment through Settings (UC-12 /
+// ADR-012). Must be called on the Environment settings page. An Environment that
+// already uses the wanted store is left alone; otherwise the select is chosen
+// from its popup and the PUT reply is awaited.
+export async function selectSecretStore(h, environment, store) {
+  const { page } = h;
+  if (!store) throw new Error('writing a secret needs a selected Secret Store: set ORCH_E2E_SECRET_STORE to the key or name of a READY store registered for this run');
+  const title = environment === 'staging' ? 'Staging' : 'Production';
+  await h.click(page.getByRole('tab', { name: title }));
+  const select = page.getByLabel(`Secret store for ${title}`);
+  await expect(select).toBeVisible();
+  const label = (await select.locator('option').allTextContents()).find((text) => text.includes(`(${store})`) || text.startsWith(`${store} (`));
+  if (!label) throw new Error(`secret store ${store} is not offered for ${environment}`);
+  const selected = await select.inputValue();
+  const wanted = await select.locator('option').evaluateAll((options, text) => options.find((option) => option.textContent === text)?.value, label);
+  if (selected === wanted) return;
+  await h.choose(select, label);
+  await expect(select).toHaveValue(wanted);
+  const saved = page.waitForResponse((response) => response.request().method() === 'PUT'
+    && new URL(response.url()).pathname.endsWith(`/environments/${environment}/secret-store`));
+  await h.click(page.getByRole('button', { name: 'Save secret store' }));
+  const response = await saved;
+  if (!response.ok()) throw new Error(`selecting the ${environment} secret store returned HTTP ${response.status()}`);
+  await expect(page.getByRole('button', { name: 'Save secret store' })).toBeDisabled();
+  await h.pause(1200);
+}
+
 // Opens Environment settings (staging), saves each entry and returns to the Application.
-// Entries: { kind: 'variable' | 'secret', name, value, paste?, delay? }.
+// Entries: { kind: 'variable' | 'secret', name, value, paste?, delay? }. Any
+// secret entry first selects the configured Secret Store (ORCH_E2E_SECRET_STORE
+// or options.secretStore); there is no implicit store.
 // Each save waits for the PUT reply and the closed editor before the saved
 // row is matched, so a typed-but-unsaved name never satisfies the check.
-export async function putKeys(h, applicationName, entries) {
+export async function putKeys(h, applicationName, entries, { secretStore = configuredSecretStore() } = {}) {
   const { page } = h;
   await h.click(page.getByRole('button', { name: 'Environment settings' }));
   await h.pause(1000);
+  // A new Environment has no secret store: choose the run's configured one first.
+  if (entries.some((entry) => entry.kind === 'secret')) await selectSecretStore(h, 'staging', secretStore);
   for (const entry of entries) {
     const section = page.locator(`section[aria-label="${entry.kind === 'secret' ? 'Secrets' : 'Environment variables'}"]`);
     await h.click(section.getByRole('button', { name: `+ Add ${entry.kind}` }));

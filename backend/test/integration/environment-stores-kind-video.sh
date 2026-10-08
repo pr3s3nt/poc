@@ -53,7 +53,9 @@ mkdir -m 0700 "${PRIVATE}"
 # shellcheck source=video-lib.sh
 source "${ROOT}/test/integration/video-lib.sh"
 
-namespace_lookup() { kubectl --context "${CONTEXT}" get namespace "$1" --ignore-not-found -o name; }
+# Every HTTP call is bounded; a hung endpoint must fail the run, not stall it.
+curl() { command curl --connect-timeout 5 --max-time 60 "$@"; }
+namespace_lookup() { timeout 60 kubectl --context "${CONTEXT}" get namespace "$1" --ignore-not-found -o name; }
 note() { echo "$*" | tee -a "${WORK}/checks.txt"; }
 synthetic_token() { head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
 
@@ -72,45 +74,71 @@ stop_browser_group() {
   BROWSER_PGID=""
 }
 
+# The backend runs in its own session/process group (setsid), so TERM then KILL
+# of that group ends it and any child it started, and nothing else.
 stop_backend() {
   [[ -n "${BACKEND_PID}" ]] || return 0
-  kill "${BACKEND_PID}" 2>/dev/null || true
-  for _ in $(seq 1 50); do kill -0 "${BACKEND_PID}" 2>/dev/null || break; sleep 0.1; done
-  kill -KILL "${BACKEND_PID}" 2>/dev/null || true
+  local group="${BACKEND_PID}"
+  kill -TERM -- "-${group}" 2>/dev/null || true
+  for _ in $(seq 1 50); do kill -0 -- "-${group}" 2>/dev/null || break; sleep 0.1; done
+  kill -KILL -- "-${group}" 2>/dev/null || true
+  for _ in $(seq 1 20); do kill -0 -- "-${group}" 2>/dev/null || break; sleep 0.1; done
   wait "${BACKEND_PID}" 2>/dev/null || true
   BACKEND_PID=""
+  if ps -eo pgid=,stat= | awk -v group="${group}" '$1 == group && $2 !~ /^Z/ { alive=1 } END { exit !alive }'; then
+    echo "cleanup: backend process group ${group} still running" >&2
+    return 1
+  fi
+  echo "cleanup: backend process group ${group} stopped"
+}
+
+# Background helpers (port-forward) get a bounded TERM/KILL as well.
+stop_pid() {
+  local pid="$1"
+  kill -TERM "${pid}" 2>/dev/null || true
+  for _ in $(seq 1 30); do kill -0 "${pid}" 2>/dev/null || break; sleep 0.1; done
+  kill -KILL "${pid}" 2>/dev/null || true
+  wait "${pid}" 2>/dev/null || true
 }
 
 cleanup() {
   local status=$?
   local pid name ns
   stop_browser_group || status=1
-  stop_backend
-  for pid in "${PIDS[@]}"; do kill "${pid}" 2>/dev/null || true; done
-  for pid in "${PIDS[@]}"; do wait "${pid}" 2>/dev/null || true; done
+  stop_backend || status=1
+  for pid in "${PIDS[@]}"; do stop_pid "${pid}"; done
   # Application namespaces: only those carrying this run's application label.
   local app=""
   [[ -s "${WORK}/run.json" ]] && app="$(jq -r .applicationId "${WORK}/run.json" 2>/dev/null || true)"
   [[ -n "${app}" ]] || app="$(<"${WORK}/application-id" 2>/dev/null || true)"
   if [[ -n "${app}" && "${app}" =~ ^[a-z0-9-]+$ ]]; then
-    for ns in $(kubectl --context "${CONTEXT}" get namespace -l "orchestrator.io/application=${app}" -o name 2>/dev/null | sed 's#namespace/##'); do
-      kubectl --context "${CONTEXT}" delete namespace "${ns}" --ignore-not-found --wait=true --timeout=300s >/dev/null || status=1
+    # Only namespaces proven to be this run's are removed: managed by the
+    # orchestrator, labelled with this application AND this run id.
+    local labels managed run_label
+    for ns in $(timeout 60 kubectl --context "${CONTEXT}" get namespace -l "orchestrator.io/application=${app}" -o name 2>/dev/null | sed 's#namespace/##'); do
+      labels="$(timeout 60 kubectl --context "${CONTEXT}" get namespace "${ns}" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}{" "}{.metadata.labels.orchestrator\.io/run-id}' 2>/dev/null || true)"
+      managed="${labels%% *}"; run_label="${labels#* }"
+      if [[ "${managed}" == "orchestrator" && "${run_label}" == "${RUN_ID}" ]]; then
+        timeout 330 kubectl --context "${CONTEXT}" delete namespace "${ns}" --ignore-not-found --wait=true --timeout=300s >/dev/null || status=1
+      else
+        echo "cleanup: namespace ${ns} is not proven to belong to run ${RUN_ID}; left untouched" >&2; status=1
+      fi
     done
-    if [[ -n "$(kubectl --context "${CONTEXT}" get namespace -l "orchestrator.io/application=${app}" -o name 2>/dev/null)" ]]; then
+    if [[ -n "$(timeout 60 kubectl --context "${CONTEXT}" get namespace -l "orchestrator.io/application=${app}" -o name 2>/dev/null)" ]]; then
       echo "cleanup: application namespaces still exist" >&2; status=1
     else
       echo "cleanup: no namespace labelled orchestrator.io/application=${app} remains" | tee -a "${WORK}/cleanup.txt"
     fi
   fi
   # Reviewer identity (run-owned).
-  kubectl --context "${CONTEXT}" delete clusterrolebinding "orch-${RUN_ID}-reviewer" --ignore-not-found >/dev/null 2>&1 || status=1
-  kubectl --context "${CONTEXT}" delete namespace "${REVIEWER_NS}" --ignore-not-found --wait=true --timeout=120s >/dev/null 2>&1 || status=1
+  timeout 60 kubectl --context "${CONTEXT}" delete clusterrolebinding "orch-${RUN_ID}-reviewer" --ignore-not-found >/dev/null 2>&1 || status=1
+  timeout 150 kubectl --context "${CONTEXT}" delete namespace "${REVIEWER_NS}" --ignore-not-found --wait=true --timeout=120s >/dev/null 2>&1 || status=1
   if [[ -z "$(namespace_lookup "${REVIEWER_NS}" 2>/dev/null)" ]] && ! kubectl --context "${CONTEXT}" get clusterrolebinding "orch-${RUN_ID}-reviewer" >/dev/null 2>&1; then
     echo "cleanup: reviewer namespace and ClusterRoleBinding removed" | tee -a "${WORK}/cleanup.txt"
   else
     echo "cleanup: reviewer identity still present" >&2; status=1
   fi
-  for name in "${CONTAINERS[@]}"; do docker rm -f "${name}" >/dev/null 2>&1 || true; done
+  for name in "${CONTAINERS[@]}"; do timeout 60 docker rm -f "${name}" >/dev/null 2>&1 || true; done
   for name in "${CONTAINERS[@]}"; do
     if docker container inspect "${name}" >/dev/null 2>&1; then echo "WARNING: container ${name} still present" >&2; status=1
     else echo "cleanup: container ${name} removed" | tee -a "${WORK}/cleanup.txt"; fi
@@ -242,7 +270,7 @@ API_PORT="$(node -e 'const s=require("net").createServer();s.listen(0,"127.0.0.1
 start_backend() {
   local label="$1"
   rm -f "${WORK}/api-addr"
-  env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_VAULT_ADDR -u ORCHESTRATOR_VAULT_TOKEN_FILE \
+  setsid env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_VAULT_ADDR -u ORCHESTRATOR_VAULT_TOKEN_FILE \
     -u ORCHESTRATOR_VAULT_AGENT_ADDR -u ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE -u ORCHESTRATOR_CONNECTION_VAULT_ADDR \
     -u ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE -u TF_PLUGIN_CACHE_DIR -u AWS_PROFILE -u AWS_REGION -u AWS_DEFAULT_REGION \
     -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN \

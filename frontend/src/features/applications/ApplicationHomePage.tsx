@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { navigate } from '../../app/routes';
-import type { Application, EnvironmentKey } from '../../shared/types/application';
+import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { endpointFor } from '../../shared/types/application';
 import { ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { Status } from '../../shared/ui/Status';
 import { ApplicationTarget } from '../../shared/ui/ApplicationTarget';
 import { deleteWorkload, deployChanges, getWorkloads, previewChanges, undoWorkloadDelete, type DeployReport, type PendingPreview, type WorkloadList } from '../workloads/api';
+import { useEnvironmentBusy } from '../environment/useEnvironmentBusy';
 import { RecentDeployments } from '../deployments/RecentDeployments';
 
 // One mutation or read that must not overlap another (UC-07 UI states).
 type Busy = '' | 'preview' | 'deploy' | `delete:${string}` | `undo:${string}`;
 
-export function ApplicationHomePage({ application, created = false }: { application: Application; created?: boolean }) {
+export function ApplicationHomePage({ application, created = false, onTargetChange }: { application: Application; created?: boolean; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
   const [environment, setEnvironment] = useState<EnvironmentKey>('staging');
+  // Draft Delete/Undo are Environment writes: held while an operation owns it.
+  const environmentBusy = useEnvironmentBusy(application, environment, onTargetChange);
   const [data, setData] = useState<WorkloadList>();
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -77,7 +80,7 @@ export function ApplicationHomePage({ application, created = false }: { applicat
   }
 
   function changeDeletion(id: string, undo: boolean) {
-    if (!data) return;
+    if (!data || environmentBusy) return;
     if (!undo && !window.confirm(`Mark ${id} for deletion in ${environment}? Running workloads will not change until Deploy.`)) return;
     const version = data.draftVersion;
     setDeployReport(undefined);
@@ -107,8 +110,9 @@ export function ApplicationHomePage({ application, created = false }: { applicat
     <div className="tabs" role="tablist"><button className={environment === 'staging' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('staging')}>Staging<span>{endpointFor(application, 'staging')}</span></button><button className={environment === 'production' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('production')}>Production<span>{endpointFor(application, 'production')}</span></button></div>
     <section className="content-panel"><div className="section-header"><div><h2>Workloads</h2><p>Configuration for {environment}; saving here does not deploy.</p></div><span><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'score-preview', applicationId: application.id, environment })}>Preview Score</Button><Button disabled={locked} onClick={() => navigate({ name: 'workload', applicationId: application.id, environment })}>+ Add workload</Button></span></div>
       {error ? <div className="form-error" role="alert">{error}{needsTarget ? <> <Button onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>Open Environment settings</Button></> : null}{!data && !loading ? <> <Button onClick={() => void reloadList(scope.current)}>Retry</Button></> : null}</div> : null}
+      {environmentBusy ? <div className="form-info" role="status">An environment operation is running in {environment}. Draft changes are paused until it ends.</div> : null}
       {notice ? <div className="form-info" role="status">{notice}</div> : null}
-      {loading ? <p>Loading workloads…</p> : workloads.length ? <div className="workload-table"><div className="table-head"><span>Name</span><span>Status</span><span>Actions</span></div>{workloads.map((workload) => <div className="table-row" key={workload.id}><span className="workload-name"><span className="workload-icon">◫</span>{workload.id}</span><Status tone={workload.state ? 'draft' : 'good'}>{workload.state === 'PENDING_DELETE' ? 'Pending deletion' : workload.state === 'PENDING_UPSERT' ? 'Pending change' : 'Ready'}</Status><span>{workload.state === 'PENDING_DELETE' ? <Button tone="quiet" disabled={locked} onClick={() => changeDeletion(workload.id, true)}>{busy === `undo:${workload.id}` ? 'Restoring…' : 'Undo'}</Button> : <><Button tone="quiet" disabled={locked || !workload.score} onClick={() => navigate({ name: 'workload', applicationId: application.id, environment, workloadId: workload.id })}>Edit</Button><Button tone="danger" disabled={locked} onClick={() => changeDeletion(workload.id, false)}>{busy === `delete:${workload.id}` ? 'Marking…' : 'Delete'}</Button></>}</span></div>)}</div> : data ? <div className="section-empty">No workloads in this environment yet.</div> : null}
+      {loading ? <p>Loading workloads…</p> : workloads.length ? <div className="workload-table"><div className="table-head"><span>Name</span><span>Status</span><span>Actions</span></div>{workloads.map((workload) => <div className="table-row" key={workload.id}><span className="workload-name"><span className="workload-icon">◫</span>{workload.id}</span><Status tone={workload.state ? 'draft' : 'good'}>{workload.state === 'PENDING_DELETE' ? 'Pending deletion' : workload.state === 'PENDING_UPSERT' ? 'Pending change' : 'Ready'}</Status><span>{workload.state === 'PENDING_DELETE' ? <Button tone="quiet" disabled={locked || environmentBusy} onClick={() => changeDeletion(workload.id, true)}>{busy === `undo:${workload.id}` ? 'Restoring…' : 'Undo'}</Button> : <><Button tone="quiet" disabled={locked || !workload.score} onClick={() => navigate({ name: 'workload', applicationId: application.id, environment, workloadId: workload.id })}>Edit</Button><Button tone="danger" disabled={locked || environmentBusy} onClick={() => changeDeletion(workload.id, false)}>{busy === `delete:${workload.id}` ? 'Marking…' : 'Delete'}</Button></>}</span></div>)}</div> : data ? <div className="section-empty">No workloads in this environment yet.</div> : null}
       <div className="form-actions"><Button tone="primary" disabled={locked} onClick={loadPreview}>{busy === 'preview' ? 'Calculating preview…' : 'Preview changes'}</Button></div>
       {preview ? <div className="content-panel" aria-label="Deployment preview"><h3>Preview for {environment}</h3><ApplicationTarget application={application} environment={environment} /><p>{preview.changes.length} workload(s) affected · draft v{preview.draftVersion} · configuration {preview.configRevisionId ? preview.configRevisionId.slice(0, 8) : 'empty'}</p>{preview.changes.length ? <ul>{preview.changes.map((change) => <li key={change.workloadId}><strong>{change.workloadId}</strong> · {change.action.toLowerCase()} · {change.rendering?.driverType ? `${change.rendering.driverType} ${change.rendering.bundle.version} (${change.rendering.definitionKey})` : 'built-in Kubernetes'} · {change.resources.new.length} new resource(s){change.resources.unreferenced.length ? ` · ${change.resources.unreferenced.length} resource(s) will become unreferenced (not destroyed)` : ''}</li>)}</ul> : <p>{preview.routePending ? 'Public routes need reconciliation; workloads will not restart.' : 'No workload changes to deploy.'}</p>}<Button tone="primary" disabled={busy !== '' || (preview.changes.length === 0 && !preview.routePending)} onClick={deployPreview}>{busy === 'deploy' ? 'Deploying…' : preview.routePending && preview.changes.length === 0 ? 'Retry public routes' : 'Deploy these changes'}</Button></div> : null}
       {deployReport ? <div className="content-panel" aria-label="Deployment result"><h3>Deploy {deployReport.status.toLowerCase()}</h3><ApplicationTarget application={application} environment={environment} /><ul>{deployReport.results.map((result) => <li key={result.workloadId}>{result.workloadId} · {result.action.toLowerCase()}: {result.status.toLowerCase()}{result.deploymentId ? <> · <a href="#" onClick={(event) => { event.preventDefault(); navigate({ name: 'deployment', applicationId: application.id, environment, deploymentId: result.deploymentId as string }); }}>view deployment</a></> : null}{result.error ? ` — ${result.error}` : ''}</li>)}</ul>{deployReport.status !== 'SUCCEEDED' ? <p>Unfinished changes stay pending. Preview again to retry them; nothing is rolled back automatically.</p> : null}</div> : null}

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { navigate } from '../../app/routes';
-import type { Application, EnvironmentKey } from '../../shared/types/application';
+import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
 import { ApiError } from '../../shared/api/client';
+import { useEnvironmentBusy } from '../environment/useEnvironmentBusy';
 import { getConfiguration } from '../configuration/api';
 import { getResourceTypes, getWorkloads, parseScoreImport, saveWorkload, type ResourceType, type Workload } from './api';
 import { ApplicationKeyPicker } from './ApplicationKeyPicker';
@@ -112,7 +113,9 @@ function readForm(score: Record<string, unknown>): Form {
   return form;
 }
 
-export function WorkloadEditorPage({ application, environment, workloadId }: { application: Application; environment: EnvironmentKey; workloadId?: string }) {
+export function WorkloadEditorPage({ application, environment, workloadId, onTargetChange }: { application: Application; environment: EnvironmentKey; workloadId?: string; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
+  // Environment operations hold draft writes: Save stays disabled, text is kept.
+  const environmentBusy = useEnvironmentBusy(application, environment, onTargetChange);
   const [form, setForm] = useState<Form>(emptyForm);
   const [catalog, setCatalog] = useState<KeyCatalog>({ status: 'loading' });
   const [catalogAttempt, setCatalogAttempt] = useState(0);
@@ -207,6 +210,7 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
     catch (err) { if (at === scope.current) setError((err as Error).message); }
   }
   async function save() {
+    if (environmentBusy) return;
     if (blocked || stale) return;
     const seenPaths = new Set<string>();
     for (const route of form.publicRoutes) {
@@ -272,6 +276,7 @@ export function WorkloadEditorPage({ application, environment, workloadId }: { a
         <p>Public access is applied only after Preview → Deploy. DNS and TLS are not configured here.</p>
       </section>
     </>}
-    {!loading ? <div className="form-actions editor-actions"><Button onClick={() => navigate({ name: 'application', applicationId: application.id })}>Cancel</Button><Button tone="primary" disabled={blocked || saving || stale || loadFailed || (mode === 'import' && !imported)} onClick={() => void save()}>Save pending workload</Button></div> : null}
+    {!loading && environmentBusy ? <div className="form-info" role="status">An environment operation is running in {environment}. Your edits are kept; save again when it ends.</div> : null}
+    {!loading ? <div className="form-actions editor-actions"><Button onClick={() => navigate({ name: 'application', applicationId: application.id })}>Cancel</Button><Button tone="primary" disabled={environmentBusy || blocked || saving || stale || loadFailed || (mode === 'import' && !imported)} onClick={() => void save()}>Save pending workload</Button></div> : null}
   </section>;
 }

@@ -232,3 +232,30 @@ it('shows a Score import rejection without presenting the file as parsed', async
   expect(await screen.findByRole('alert')).toHaveTextContent('resources.cache.type is not a registered resource type');
   expect(screen.queryByText(/Parsed workload/)).not.toBeInTheDocument();
 });
+
+it('disables Save while an environment operation runs, keeps the typed text and re-enables on release', async () => {
+  const puts: string[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (init?.method === 'PUT') { puts.push(url); return Response.json({ draftVersion: 1, workloads: [] }); }
+    if (url.endsWith('/configuration')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
+    return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', draftVersion: 0, workloads: [] });
+  }));
+  const busyApp: Application = { ...application, environments: { ...application.environments, staging: { ...application.environments.staging, activeOperation: { id: 'op1', kind: 'DEPLOY', status: 'ACTIVE', stage: 'DEPLOY web', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: false } } } };
+  const user = userEvent.setup();
+  const view = render(<WorkloadEditorPage application={application} environment="staging" />);
+  await screen.findByRole('heading', { name: 'Basic information' });
+  await user.type(screen.getByLabelText('Workload name'), 'web');
+  await user.type(screen.getByLabelText('Image'), 'mine:v1');
+  view.rerender(<WorkloadEditorPage application={busyApp} environment="staging" />);
+  expect(screen.getByRole('button', { name: 'Save pending workload' })).toBeDisabled();
+  expect(screen.getByRole('status')).toHaveTextContent('operation is running');
+  expect(screen.getByLabelText('Image')).toHaveValue('mine:v1');
+  expect(puts).toEqual([]);
+  view.rerender(<WorkloadEditorPage application={application} environment="staging" />);
+  expect(screen.getByRole('button', { name: 'Save pending workload' })).toBeEnabled();
+  expect(screen.getByLabelText('Image')).toHaveValue('mine:v1');
+  await user.click(screen.getByRole('button', { name: 'Save pending workload' }));
+  expect(puts).toHaveLength(1);
+});

@@ -29,6 +29,10 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
   const [reloadCount, setReloadCount] = useState(0);
   const [transitionTo, setTransitionTo] = useState<string>();
   const [needStore, setNeedStore] = useState(false);
+  // An active or interrupted Environment operation holds every configuration write
+  // (the server answers 409 ENVIRONMENT_BUSY). Open editors keep their text and
+  // simply cannot submit until the target no longer reports an operation.
+  const busy = Boolean(application.environments[environment].activeOperation);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,7 +48,7 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
   }, [application.id, environment, reloadCount]);
 
   async function saveForm() {
-    if (!form || !data) return;
+    if (!form || !data || busy) return;
     setSaving(true); setError('');
     try {
       const result = await putKey(application.id, environment, form.name.trim(), form.kind, form.value, data.version);
@@ -61,7 +65,7 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
   }
 
   async function confirmAction() {
-    if (!action || !data) return;
+    if (!action || !data || busy) return;
     setSaving(true); setError('');
     try {
       const result = action.kind === 'rename'
@@ -75,9 +79,9 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
   function section(kind: KeyKind, title: string) {
     const keys = data?.keys.filter((key) => key.kind === kind) ?? [];
     return <section className="content-panel" aria-label={title}>
-      <div className="section-header"><div><h2>{title}</h2><p>{kind === 'SECRET' ? 'Values are hidden after saving.' : 'Reusable across workloads in this environment.'}</p></div><Button onClick={() => { setAction(undefined); if (kind === 'SECRET' && !application.environments[environment].secretStoreKey) { setForm(undefined); setNeedStore(true); return; } setNeedStore(false); setForm({ kind, name: '', value: '' }); }}>+ Add {kind === 'SECRET' ? 'secret' : 'variable'}</Button></div>
+      <div className="section-header"><div><h2>{title}</h2><p>{kind === 'SECRET' ? 'Values are hidden after saving.' : 'Reusable across workloads in this environment.'}</p></div><Button disabled={busy} onClick={() => { setAction(undefined); if (kind === 'SECRET' && !application.environments[environment].secretStoreKey) { setForm(undefined); setNeedStore(true); return; } setNeedStore(false); setForm({ kind, name: '', value: '' }); }}>+ Add {kind === 'SECRET' ? 'secret' : 'variable'}</Button></div>
       {keys.length === 0 ? <div className="section-empty">No {title.toLowerCase()} configured in {environment}.</div> : <div className="settings-table"><div className="settings-table-head"><span>Name</span><span>{kind === 'SECRET' ? 'Status' : 'Value'}</span><span>Used by</span><span>Actions</span></div>
-        {keys.map((key) => <div className="settings-table-row" key={key.name}><strong>{key.name}</strong><span className={kind === 'SECRET' ? 'muted' : ''}>{kind === 'SECRET' ? 'Configured' : key.value}</span><span>{key.usedBy.length ? key.usedBy.join(', ') : '—'}</span><span className="row-actions"><Button tone="quiet" onClick={() => { setAction(undefined); setForm({ kind, name: key.name, value: kind === 'SECRET' ? '' : key.value ?? '', editing: key.name }); }}>{kind === 'SECRET' ? 'Update' : 'Edit'}</Button><Button tone="quiet" onClick={() => { setForm(undefined); setAction({ kind: 'rename', key, newName: key.name }); }}>Rename</Button><Button tone="danger" onClick={() => { setForm(undefined); setAction({ kind: 'delete', key, newName: '' }); }}>Delete</Button></span></div>)}</div>}
+        {keys.map((key) => <div className="settings-table-row" key={key.name}><strong>{key.name}</strong><span className={kind === 'SECRET' ? 'muted' : ''}>{kind === 'SECRET' ? 'Configured' : key.value}</span><span>{key.usedBy.length ? key.usedBy.join(', ') : '—'}</span><span className="row-actions"><Button tone="quiet" disabled={busy} onClick={() => { setAction(undefined); setForm({ kind, name: key.name, value: kind === 'SECRET' ? '' : key.value ?? '', editing: key.name }); }}>{kind === 'SECRET' ? 'Update' : 'Edit'}</Button><Button tone="quiet" disabled={busy} onClick={() => { setForm(undefined); setAction({ kind: 'rename', key, newName: key.name }); }}>Rename</Button><Button tone="danger" disabled={busy} onClick={() => { setForm(undefined); setAction({ kind: 'delete', key, newName: '' }); }}>Delete</Button></span></div>)}</div>}
     </section>;
   }
 
@@ -94,7 +98,7 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
     {error ? <div className="form-error" role="alert">{error}</div> : null}
     {loading ? <p>Loading configuration…</p> : null}
     {!loading && data ? <>{section('VARIABLE', 'Environment variables')}{section('SECRET', 'Secrets')}</> : null}
-    {form ? <div className="content-panel inline-editor"><div className="section-header"><h2>{form.editing ? (form.kind === 'SECRET' ? 'Replace secret' : 'Edit variable') : (form.kind === 'SECRET' ? 'Add secret' : 'Add variable')}</h2></div><label>Key name<input value={form.name} disabled={Boolean(form.editing)} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="API_URL" /></label><label>{form.kind === 'SECRET' ? 'New secret value' : 'Value'}<input type={form.kind === 'SECRET' ? 'password' : 'text'} autoComplete="off" value={form.value} onChange={(event) => setForm({ ...form, value: event.target.value })} /></label><div className="form-actions"><Button onClick={() => setForm(undefined)}>Cancel</Button><Button tone="primary" disabled={saving || !form.name.trim() || !form.value} onClick={saveForm}>Save pending change</Button></div></div> : null}
-    {action ? <div className="content-panel inline-editor" role="dialog" aria-label={`${action.kind} ${action.key.name}`}><h2>{action.kind === 'rename' ? 'Rename' : 'Delete'} {action.key.name}?</h2>{action.key.usedBy.length ? <p className="warning-text">Referenced by {action.key.usedBy.join(', ')}. References will not be updated automatically; Preview will reject missing keys until you edit those workloads.</p> : <p>This changes {environment} only. Running workloads stay unchanged until Deploy.</p>}{action.kind === 'rename' ? <label>New key name<input value={action.newName} onChange={(event) => setAction({ ...action, newName: event.target.value })} /></label> : null}<div className="form-actions"><Button onClick={() => setAction(undefined)}>Cancel</Button><Button tone={action.kind === 'delete' ? 'danger' : 'primary'} disabled={saving || (action.kind === 'rename' && !action.newName.trim())} onClick={confirmAction}>Continue</Button></div></div> : null}
+    {form ? <div className="content-panel inline-editor"><div className="section-header"><h2>{form.editing ? (form.kind === 'SECRET' ? 'Replace secret' : 'Edit variable') : (form.kind === 'SECRET' ? 'Add secret' : 'Add variable')}</h2></div><label>Key name<input value={form.name} disabled={Boolean(form.editing)} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="API_URL" /></label><label>{form.kind === 'SECRET' ? 'New secret value' : 'Value'}<input type={form.kind === 'SECRET' ? 'password' : 'text'} autoComplete="off" value={form.value} onChange={(event) => setForm({ ...form, value: event.target.value })} /></label>{busy ? <p className="form-info" role="status">An environment operation is running. Your text is kept; submit again when it ends.</p> : null}<div className="form-actions"><Button onClick={() => setForm(undefined)}>Cancel</Button><Button tone="primary" disabled={busy || saving || !form.name.trim() || !form.value} onClick={saveForm}>Save pending change</Button></div></div> : null}
+    {action ? <div className="content-panel inline-editor" role="dialog" aria-label={`${action.kind} ${action.key.name}`}><h2>{action.kind === 'rename' ? 'Rename' : 'Delete'} {action.key.name}?</h2>{action.key.usedBy.length ? <p className="warning-text">Referenced by {action.key.usedBy.join(', ')}. References will not be updated automatically; Preview will reject missing keys until you edit those workloads.</p> : <p>This changes {environment} only. Running workloads stay unchanged until Deploy.</p>}{action.kind === 'rename' ? <label>New key name<input value={action.newName} onChange={(event) => setAction({ ...action, newName: event.target.value })} /></label> : null}{busy ? <p className="form-info" role="status">An environment operation is running. Confirm again when it ends.</p> : null}<div className="form-actions"><Button onClick={() => setAction(undefined)}>Cancel</Button><Button tone={action.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || saving || (action.kind === 'rename' && !action.newName.trim())} onClick={confirmAction}>Continue</Button></div></div> : null}
   </section>;
 }

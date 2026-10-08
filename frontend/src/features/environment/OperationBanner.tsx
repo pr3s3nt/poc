@@ -16,33 +16,36 @@ export function OperationBanner({ application, environment, onTargetChange, poll
   const [recovering, setRecovering] = useState(false);
   const [result, setResult] = useState<RecoveryResult>();
   const [error, setError] = useState('');
-  const generation = useRef(0);
-  useEffect(() => { generation.current += 1; setConfirmed(false); setResult(undefined); setError(''); setRecovering(false); }, [application.id, environment]);
-  useEffect(() => () => { generation.current += 1; }, []);
+  // scope changes only when the Application/Environment changes or the banner unmounts;
+  // recovery attempts never touch it, so polling keeps working after a failed recovery.
+  const scope = useRef(0);
+  useEffect(() => { scope.current += 1; setConfirmed(false); setResult(undefined); setError(''); setRecovering(false); }, [application.id, environment]);
+  useEffect(() => () => { scope.current += 1; }, []);
   useEffect(() => {
     if (!operation) return;
-    const current = generation.current;
+    const current = scope.current;
     const timer = window.setInterval(() => {
-      fetchEnvironment(application.id, environment).then((latest) => { if (latest && current === generation.current) onTargetChange(application.id, environment, latest); }).catch(() => undefined);
+      fetchEnvironment(application.id, environment).then((latest) => { if (latest && current === scope.current) onTargetChange(application.id, environment, latest); }).catch(() => undefined);
     }, pollMs);
     return () => window.clearInterval(timer);
   }, [operation?.id, application.id, environment, pollMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function recover() {
     if (!operation || !confirmed || recovering) return;
-    const current = ++generation.current;
+    const current = scope.current;
     setRecovering(true); setError('');
     try {
       const response = await recoverOperation(application.id, environment, operation.id);
-      if (current !== generation.current) return;
+      if (current !== scope.current) return;
       setResult(response.recovery);
       const latest = await fetchEnvironment(application.id, environment);
+      if (current !== scope.current) return;
       if (latest) onTargetChange(application.id, environment, latest);
     } catch (err) {
-      if (current !== generation.current) return;
+      if (current !== scope.current) return;
       setError(err instanceof ApiError ? err.message : 'Recovery could not be started. Try again.');
     } finally {
-      if (current === generation.current) setRecovering(false);
+      if (current === scope.current) setRecovering(false);
     }
   }
 

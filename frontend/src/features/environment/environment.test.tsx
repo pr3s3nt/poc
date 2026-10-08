@@ -160,6 +160,30 @@ it('offers explicit recovery only after the stop confirmation and reports an inc
   expect(JSON.parse(String(post?.[1]?.body))).toEqual({ priorExecutionStopped: true });
 });
 
+it('keeps polling after a failed recovery so later status changes of the same operation appear', async () => {
+  const op = (status: 'INTERRUPTED' | 'ACTIVE') => ({ id: 'op9', kind: 'TRANSITION' as const, status, stage: 'DEPLOYING', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: status === 'INTERRUPTED' });
+  const interrupted = configuredTarget('lab', { activeOperation: op('INTERRUPTED') });
+  let latest = interrupted;
+  stub((url, init) => {
+    if (url.endsWith('/operations/op9/recover') && init?.method === 'POST') return Response.json({ error: 'recovery did not complete', code: 'RECOVERY_INCOMPLETE' }, { status: 409 });
+    if (url.endsWith('/applications/catalog')) return Response.json({ application: { environments: [envJson(latest)] } });
+  });
+  const user = userEvent.setup();
+  function Host() {
+    const [application, setApplication] = useState(app(interrupted));
+    return <OperationBanner application={application} environment="staging" pollMs={30} onTargetChange={(_i, env, t) => setApplication((c) => ({ ...c, environments: { ...c.environments, [env]: t } }))} />;
+  }
+  render(<Host />);
+  await user.click(screen.getByLabelText('I confirm the interrupted operation has stopped'));
+  await user.click(screen.getByRole('button', { name: 'Recover environment' }));
+  expect(await screen.findByRole('alert')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Recover environment' })).toBeEnabled();
+  latest = configuredTarget('lab', { activeOperation: op('ACTIVE') });
+  expect(await screen.findByRole('heading', { name: 'Operation in progress' })).toBeInTheDocument();
+  latest = configuredTarget('lab');
+  await waitFor(() => expect(screen.queryByRole('region', { name: 'Environment operation' })).not.toBeInTheDocument());
+});
+
 it('polls an active operation and clears the banner when it ends', async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   let done = false;
@@ -219,4 +243,20 @@ it('reports a source that could not be stopped and an interruption after the cut
   render(<Panel target={configuredTarget('lab2', { runtimeExists: true })} />);
   expect(await screen.findByText(/destination is live and authoritative/)).toBeInTheDocument();
   expect(screen.queryByText(/source generation remains authoritative/)).not.toBeInTheDocument();
+});
+
+it('learns about a started and a released operation by polling when the page was opened earlier', async () => {
+  const { useEnvironmentBusy } = await import('./useEnvironmentBusy');
+  let latest = configuredTarget('lab');
+  stub((url) => url.endsWith('/applications/catalog') ? Response.json({ application: { environments: [envJson(latest)] } }) : undefined);
+  function Probe() {
+    const busy = useEnvironmentBusy(app(configuredTarget('lab')), 'staging', undefined, 20);
+    return <span>{busy ? 'busy' : 'idle'}</span>;
+  }
+  render(<Probe />);
+  expect(screen.getByText('idle')).toBeInTheDocument();
+  latest = configuredTarget('lab', { activeOperation: { id: 'op1', kind: 'DEPLOY', status: 'ACTIVE', stage: 'x', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: false } });
+  expect(await screen.findByText('busy')).toBeInTheDocument();
+  latest = configuredTarget('lab');
+  expect(await screen.findByText('idle')).toBeInTheDocument();
 });
