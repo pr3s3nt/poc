@@ -53,11 +53,14 @@ services:
       ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE: vault
       ORCHESTRATOR_CONNECTION_VAULT_ADDR: http://vault:8200
       ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE: /run/connection-token/token
-      # Explicit platform Vault store (ADR-012 legacy bootstrap). The agent
-      # address is what workload Pods use, not necessarily the Compose name.
-      ORCHESTRATOR_VAULT_ADDR: http://vault:8200
-      ORCHESTRATOR_VAULT_TOKEN_FILE: /run/app-token/token
-      ORCHESTRATOR_VAULT_AGENT_ADDR: ${VAULT_WORKLOAD_ADDRESS:-http://vault:8200}
+      # Explicit opt-in: seed the bundled Vault as the ordinary verified store
+      # platform-vault. The token file is bootstrap input only; runtime resolves
+      # the store's credential reference from the Connection credential store.
+      # The workload address is what Pods use, not necessarily the Compose name.
+      ORCHESTRATOR_PLATFORM_VAULT_BOOTSTRAP: "true"
+      ORCHESTRATOR_PLATFORM_VAULT_ADDR: http://vault:8200
+      ORCHESTRATOR_PLATFORM_VAULT_WORKLOAD_ADDR: ${VAULT_WORKLOAD_ADDRESS:-http://vault:8200}
+      ORCHESTRATOR_PLATFORM_VAULT_TOKEN_FILE: /run/app-token/token
     volumes:
       - connection-token:/run/connection-token:ro
       - app-token:/run/app-token:ro

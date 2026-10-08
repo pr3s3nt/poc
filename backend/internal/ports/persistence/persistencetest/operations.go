@@ -3,6 +3,7 @@ package persistencetest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -361,6 +362,8 @@ func EnvironmentOperations(t *testing.T, st persistence.Store) OperationFixture 
 	if e, _ := st.GetEnvironment(ctx, legacyApp, "production"); e.SecretStoreKey != "" {
 		t.Fatalf("environment without configuration must stay unselected: %+v", e)
 	}
+	assertManagedAdmission(t, st, org, legacyApp, legacyRev, legacyRef)
+
 	// New Applications never auto-select the legacy store.
 	if fresh := newOperationApp(t, st, org); true {
 		if e, _ := st.GetEnvironment(ctx, fresh, "staging"); e.SecretStoreKey != "" {
@@ -397,10 +400,153 @@ func AssertOperationsReloaded(t *testing.T, st persistence.Store, fx OperationFi
 	if err != nil || env.SecretStoreKey != "vault-b" || env.TargetGeneration != 1 || env.GenerationHigh != 2 || env.Busy() || env.Version != 4 {
 		t.Fatalf("environment after reopen: %+v %v", env, err)
 	}
+	if managed, err := st.GetSecretStore(ctx, fx.OrganizationKey, "platform-vault"); err != nil || managed.Legacy || managed.CredentialRef != managedRef2 || managed.Verification["bootstrap"] != "compose" {
+		t.Fatalf("managed store after reopen: %+v %v", managed, err)
+	}
 	if ops, err := st.ListOperations(ctx, fx.ApplicationKey, "staging", 5); err != nil || len(ops) != 1 || ops[0].Status != environment.OpRecovered {
 		t.Fatalf("operations after reopen: %+v %v", ops, err)
 	}
 	if old, _ := st.ListWorkloadInstancesFor(ctx, fx.ApplicationKey+"/staging", 0); len(old) != 1 {
 		t.Fatalf("generation 0 instance lost after reopen: %+v", old)
+	}
+}
+
+const (
+	managedRef1 = "kv2://kv/orchestrator/connections/opsorg/ss-platform-vault/credentials/00000000-0000-4000-8000-000000000001"
+	managedRef2 = "kv2://kv/orchestrator/connections/opsorg/ss-platform-vault/credentials/00000000-0000-4000-8000-000000000002"
+)
+
+// assertManagedAdmission is the contract of the Compose bootstrap admission:
+// compare-and-set conversion/refresh that keeps the row identity and every
+// reference, and refuses stale, duplicate and mismatched admissions unchanged.
+func assertManagedAdmission(t *testing.T, st persistence.Store, org, legacyApp string, legacyRev configuration.Revision, legacyRef string) {
+	t.Helper()
+	ctx := context.Background()
+	prior, err := st.GetSecretStore(ctx, org, "platform-vault")
+	if err != nil || !prior.Legacy || prior.ID == "" {
+		t.Fatalf("legacy prior: %+v %v", prior, err)
+	}
+	next := prior
+	next.Name, next.Legacy, next.CredentialRef, next.Verification = "Platform Vault", false, managedRef1, map[string]any{"bootstrap": "compose", "verified": true}
+	admit := func(s secretstore.Store, id string, legacy bool, ref string) (secretstore.Store, error) {
+		return st.AdmitManagedSecretStore(ctx, persistence.ManagedStoreAdmission{Store: s, ExpectedID: id, ExpectedLegacy: legacy, ExpectedCredentialRef: ref})
+	}
+	unchanged := func(label string) {
+		t.Helper()
+		got, err := st.GetSecretStore(ctx, org, "platform-vault")
+		if err != nil || !got.Legacy || got.CredentialRef != prior.CredentialRef || got.Name != prior.Name || got.ID != prior.ID {
+			t.Fatalf("%s changed the record: %+v %v", label, got, err)
+		}
+	}
+	if _, err := admit(next, "", false, ""); !errors.Is(err, persistence.ErrDuplicate) {
+		t.Fatalf("create over an existing record: %v", err)
+	}
+	unchanged("duplicate create")
+	for label, args := range map[string]struct {
+		id     string
+		legacy bool
+		ref    string
+	}{
+		"stale id":          {ids.New(), true, prior.CredentialRef},
+		"wrong legacy flag": {prior.ID, false, prior.CredentialRef},
+		"wrong credential":  {prior.ID, true, managedRef2},
+	} {
+		if _, err := admit(next, args.id, args.legacy, args.ref); !errors.Is(err, persistence.ErrVersionConflict) {
+			t.Fatalf("%s: %v", label, err)
+		}
+		unchanged(label)
+	}
+	for label, mutate := range map[string]func(*secretstore.Store){
+		"backend":    func(s *secretstore.Store) { s.BackendAddress = "http://other.example:8200" },
+		"workload":   func(s *secretstore.Store) { s.WorkloadAddress = "http://other.svc:8200" },
+		"mount":      func(s *secretstore.Store) { s.Mount = "other" },
+		"auth mount": func(s *secretstore.Store) { s.AuthMount = "other" },
+	} {
+		mismatch := next
+		mutate(&mismatch)
+		if _, err := admit(mismatch, prior.ID, true, prior.CredentialRef); !errors.Is(err, persistence.ErrImmutable) {
+			t.Fatalf("%s identity mismatch: %v", label, err)
+		}
+		unchanged(label)
+	}
+	missingOrg := next
+	missingOrg.OrganizationKey = "missing-org"
+	if _, err := admit(missingOrg, "", false, ""); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("missing organization: %v", err)
+	}
+
+	converted, err := admit(next, prior.ID, true, prior.CredentialRef)
+	if err != nil || converted.ID != prior.ID || converted.Legacy || converted.CredentialRef != managedRef1 || converted.Name != "Platform Vault" || !converted.CreatedAt.Equal(prior.CreatedAt) || converted.Status != secretstore.StatusReady {
+		t.Fatalf("conversion: %+v %v", converted, err)
+	}
+	if _, err := admit(next, prior.ID, true, prior.CredentialRef); !errors.Is(err, persistence.ErrVersionConflict) {
+		t.Fatalf("replayed conversion must lose the compare-and-set: %v", err)
+	}
+	got, err := st.GetConfigurationRevision(ctx, legacyRev.ID)
+	if err != nil || got.Entries["OLD_VAR"].StoreKey != "platform-vault" || got.Entries["OLD_VAR"].ValueRef != legacyRef || got.Entries["OLD_SEC"].StoreKey != "platform-vault" {
+		t.Fatalf("conversion changed value references: %+v %v", got.Entries, err)
+	}
+	if e, _ := st.GetEnvironment(ctx, legacyApp, "staging"); e.SecretStoreKey != "platform-vault" || e.Version != 1 {
+		t.Fatalf("conversion changed the Environment selection: %+v", e)
+	}
+
+	refreshed := next
+	refreshed.CredentialRef = managedRef2
+	if out, err := admit(refreshed, prior.ID, false, managedRef1); err != nil || out.CredentialRef != managedRef2 || out.ID != prior.ID {
+		t.Fatalf("refresh: %+v %v", out, err)
+	}
+	if _, err := admit(refreshed, prior.ID, false, managedRef1); !errors.Is(err, persistence.ErrVersionConflict) {
+		t.Fatalf("stale refresh: %v", err)
+	}
+
+	// A missing record is created insert-style.
+	fresh := testStore("otherorg", "platform-vault")
+	fresh.Name = "Platform Vault"
+	if out, err := admit(fresh, "", false, ""); err != nil || out.ID == "" || out.CredentialRef != fresh.CredentialRef || out.Legacy {
+		t.Fatalf("create: %+v %v", out, err)
+	}
+	if _, err := admit(fresh, "", false, ""); !errors.Is(err, persistence.ErrDuplicate) {
+		t.Fatalf("second create: %v", err)
+	}
+	if _, err := admit(fresh, ids.New(), false, fresh.CredentialRef); !errors.Is(err, persistence.ErrVersionConflict) {
+		t.Fatalf("stale id: %v", err)
+	}
+
+	// Concurrent refreshes of one prior state: exactly one wins, the rest lose
+	// the compare-and-set and leave the winner's record intact.
+	created, _ := st.GetSecretStore(ctx, "otherorg", "platform-vault")
+	const racers = 8
+	results := make(chan error, racers)
+	refs := make([]string, racers)
+	var wg sync.WaitGroup
+	for i := 0; i < racers; i++ {
+		refs[i] = fmt.Sprintf("kv2://kv/orchestrator/connections/otherorg/ss-platform-vault/credentials/00000000-0000-4000-8000-0000000001%02d", i)
+		wg.Add(1)
+		go func(ref string) {
+			defer wg.Done()
+			attempt := fresh
+			attempt.CredentialRef = ref
+			_, err := admit(attempt, created.ID, false, created.CredentialRef)
+			results <- err
+		}(refs[i])
+	}
+	wg.Wait()
+	close(results)
+	wins := 0
+	for err := range results {
+		switch {
+		case err == nil:
+			wins++
+		case !errors.Is(err, persistence.ErrVersionConflict):
+			t.Fatalf("racer lost with an unexpected error: %v", err)
+		}
+	}
+	winner, _ := st.GetSecretStore(ctx, "otherorg", "platform-vault")
+	known := false
+	for _, ref := range refs {
+		known = known || ref == winner.CredentialRef
+	}
+	if wins != 1 || !known || winner.ID != created.ID {
+		t.Fatalf("concurrent admission: wins=%d winner=%+v", wins, winner)
 	}
 }

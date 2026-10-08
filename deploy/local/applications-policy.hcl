@@ -1,4 +1,5 @@
-# Platform Vault store token (ADR-012 legacy store): application values,
+# Platform Vault store token (bootstrap input for the ordinary platform-vault
+# store, ADR-012): application values,
 # workload bundles and workload role/policy management only. It has no access
 # to Connection credentials, other mounts or the root token.
 path "auth/token/lookup-self" {

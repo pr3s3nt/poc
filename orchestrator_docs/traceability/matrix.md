@@ -233,6 +233,7 @@ for arbitrary Resource Types, AWS onboarding or production RBAC.
 | Requirement | Canonical design | Required evidence |
 |---|---|---|
 | UC-04 SS-01..06 | ADR-012 Secret Store Connection | scoped Vault verify/register/redaction/probe cleanup tests |
+| UC-04 SS-07..08 | ADR-012 local Compose registration bootstrap; UC-04 realization/sequence | `secretstores/bootstrap_test.go`, `bootstrap/platformvault_test.go`, `vault/bootstrap_test.go`, shared managed-admission persistence contract and [real Docker/video verification](../verification/2026-10-08-compose-vault-normal-store.md) |
 | UC-01 ES-01..06 / BR-05..13 | ADR-012 versions/transitions | Settings CAS/busy, generation isolation, migration/recovery/cleanup |
 | UC-12 BR-15..19 | ADR-012 copy/provider refs | copy failure atomicity, old refs preserved, variable conversion, VSO per-store |
 | UC-05/06/08 admission | ADR-012 atomic owner claim | PostgreSQL concurrent processes, stale token before side effects, crash recovery |

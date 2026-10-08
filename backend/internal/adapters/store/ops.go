@@ -60,6 +60,60 @@ func (s *Store) ListSecretStores(ctx context.Context, organizationKey string) ([
 	return out, nil
 }
 
+// AdmitManagedSecretStore creates, converts or refreshes the bootstrap store as
+// one compare-and-set step.
+//
+// It runs as one Transact so a failed snapshot write restores the prior state
+// and is returned, instead of being dropped by the plain write lock.
+func (s *Store) AdmitManagedSecretStore(ctx context.Context, adm persistence.ManagedStoreAdmission) (secretstore.Store, error) {
+	if s.inTx(ctx) {
+		return s.admitManagedSecretStore(ctx, adm)
+	}
+	var out secretstore.Store
+	err := s.Transact(ctx, func(ctx context.Context) error {
+		var err error
+		out, err = s.admitManagedSecretStore(ctx, adm)
+		return err
+	})
+	return out, err
+}
+
+func (s *Store) admitManagedSecretStore(ctx context.Context, adm persistence.ManagedStoreAdmission) (secretstore.Store, error) {
+	defer s.lock(ctx)()
+	next := adm.Store
+	if _, ok := s.state.Organizations[next.OrganizationKey]; !ok {
+		return secretstore.Store{}, fmt.Errorf("%w: organization %q", persistence.ErrNotFound, next.OrganizationKey)
+	}
+	if err := next.Validate(); err != nil {
+		return secretstore.Store{}, err
+	}
+	key := catalogKey(next.OrganizationKey, next.Key)
+	current, exists := s.state.SecretStores[key]
+	if adm.ExpectedID == "" {
+		if exists {
+			return secretstore.Store{}, fmt.Errorf("%w: secret store %q", persistence.ErrDuplicate, next.Key)
+		}
+		if next.ID == "" {
+			next.ID = ids.New()
+		}
+		if next.CreatedAt.IsZero() {
+			next.CreatedAt = time.Now().UTC()
+		}
+		s.state.SecretStores[key] = next
+		return next, nil
+	}
+	if !exists || current.ID != adm.ExpectedID || current.Legacy != adm.ExpectedLegacy || current.CredentialRef != adm.ExpectedCredentialRef {
+		return secretstore.Store{}, fmt.Errorf("%w: secret store %q changed", persistence.ErrVersionConflict, next.Key)
+	}
+	if !current.SameEndpoint(next) {
+		return secretstore.Store{}, fmt.Errorf("%w: secret store %q endpoint identity", persistence.ErrImmutable, next.Key)
+	}
+	current.Name, current.CredentialRef, current.Legacy = next.Name, next.CredentialRef, false
+	current.Status, current.Verification = next.Status, next.Verification
+	s.state.SecretStores[key] = current
+	return current, nil
+}
+
 // BackfillLegacySecretStore stamps the explicit legacy identity, idempotently.
 func (s *Store) BackfillLegacySecretStore(ctx context.Context, organizationKey, storeKey string) error {
 	defer s.lock(ctx)()

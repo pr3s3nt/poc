@@ -58,4 +58,6 @@ SecretStoreService --> VaultStoreVerifier
 SecretStoreService --> SecretStoreRepository
 SecretStoreService --> ConnectionCredentialStore : platform credential scope
 SecretStoreService ..> SecretStoreConnection
+class ComposeSecretStoreBootstrap <<boundary>>
+ComposeSecretStoreBootstrap --> SecretStoreService : shared managed-store admission
 @enduml

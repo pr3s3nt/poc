@@ -416,3 +416,10 @@ Secret refs/revisions pin store identity; old applied refs are immutable. New
 Variable values are metadata, never Secret values. Legacy explicit platform-store
 backfill preserves refs; Vault network reads are excluded from SQL migrations.
 JSON and SQL adapters expose equivalent CAS/claim/transition persistence semantics.
+
+Local Compose bootstrap (UC-04 SS-07..08) retains the existing
+`secret_store_connections` schema. Its explicit managed-store admission may
+atomically convert matching `platform-vault` legacy metadata or refresh a token's
+opaque credential reference after verification, preserving the row ID/key and
+endpoint/mount identity. CAS checks protect concurrent startup. No secret/token
+plaintext is stored, and Environment/revision/value references remain unchanged.

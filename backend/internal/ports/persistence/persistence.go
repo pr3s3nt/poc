@@ -186,6 +186,30 @@ type SecretStoreRepository interface {
 	// and selects it on Environments that already have configuration. Idempotent;
 	// refs and revision identities are unchanged and no Environment version moves.
 	BackfillLegacySecretStore(ctx context.Context, organizationKey, storeKey string) error
+	// AdmitManagedSecretStore is the only non-insert write of a store record. It
+	// atomically creates the record (ExpectedID empty), converts a legacy record
+	// or replaces the credential reference of a managed record, after checking
+	// the prior state. See ManagedStoreAdmission.
+	AdmitManagedSecretStore(ctx context.Context, admission ManagedStoreAdmission) (secretstore.Store, error)
+}
+
+// ManagedStoreAdmission is the compare-and-set admission of the explicitly
+// configured Compose bootstrap store. Store is the complete nonlegacy READY
+// record to publish, with its already persisted CredentialRef. The Expected*
+// fields describe the prior state the caller verified against:
+//
+//   - ExpectedID empty: no record may exist (ErrDuplicate otherwise);
+//   - otherwise the record must still have that ID, ExpectedLegacy and
+//     ExpectedCredentialRef (ErrVersionConflict otherwise) and the same
+//     endpoint identity as Store (ErrImmutable otherwise).
+//
+// Admission keeps the record ID, key, creation time and endpoints, so every
+// Environment selection, revision entry and bundle reference is unchanged.
+type ManagedStoreAdmission struct {
+	Store                 secretstore.Store
+	ExpectedID            string
+	ExpectedLegacy        bool
+	ExpectedCredentialRef string
 }
 
 // OperationRepository owns the persisted Environment operation claims and

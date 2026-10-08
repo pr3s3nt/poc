@@ -102,3 +102,11 @@ func (s Store) Validate() error {
 	}
 	return nil
 }
+
+// SameEndpoint reports whether two records address the same Vault: provider,
+// backend and workload addresses, mounts and trust anchor. Name, credential
+// and verification are not part of the endpoint identity.
+func (s Store) SameEndpoint(o Store) bool {
+	return s.Provider == o.Provider && s.BackendAddress == o.BackendAddress && s.WorkloadAddress == o.WorkloadAddress &&
+		s.Mount == o.Mount && s.AuthMount == o.AuthMount && strings.TrimSpace(s.TLSCAPEM) == strings.TrimSpace(o.TLSCAPEM)
+}

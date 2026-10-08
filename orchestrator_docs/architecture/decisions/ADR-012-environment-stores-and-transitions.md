@@ -44,6 +44,34 @@ removes the probe and records READY only after verification/credential persisten
 Workload Kubernetes-auth availability is checked before secret-dependent deploy;
 backend connectivity alone is not proof of workload access.
 
+### Local Compose registration bootstrap
+
+The bundled Vault is seeded as an ordinary verified SecretStoreConnection,
+`platform-vault` / `Platform Vault`, legacy=false. Bootstrap is explicitly opt-in,
+uses the same input validation, Vault verifier and platform credential persistence
+as interactive registration, and never supplies a special runtime token fallback.
+A private application token file is bootstrap input only; backend runtime resolves
+the store's credential reference through the platform credential store. Platform
+credential storage keeps its separate configured token and ACL.
+
+Restart must retain one record and avoid redundant credential objects. Existing
+Compose compatibility records may be converted atomically after successful verify
+and credential persistence while preserving ID/key, endpoint/mount identity,
+Environment selections and immutable references. A conflicting identity must stop
+bootstrap rather than overwrite user registration. Any new immutable credential
+created for failed admission is cleaned up using the registration cleanup rules.
+A bootstrap token replacement may refresh the managed store's credential reference
+without changing endpoint identity or Environment versions; CAS admission protects
+against concurrent startup and cleanup never deletes the winner's credential.
+The safe `verification.bootstrap=compose` marker identifies managed ordinary
+records for token refresh; an unmarked user registration cannot be overwritten.
+Managed records in other Organizations that already own applications are included
+in conversion and subsequent token refresh. Normal interactive registration
+remains insert-only. This exception applies only
+to explicitly configured Compose bootstrap, not arbitrary runtime stores. Existing
+non-Compose legacy flags remain supported. Workload auth is still checked before
+Deploy; Compose does not configure an external cluster.
+
 ## Versions and atomic execution admission
 
 Settings write uses expected Environment version; configuration edits retain

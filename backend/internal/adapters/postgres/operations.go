@@ -83,6 +83,56 @@ func (s *Store) ListSecretStores(ctx context.Context, org string) ([]secretstore
 	return out, rows.Err()
 }
 
+// AdmitManagedSecretStore creates, converts or refreshes the bootstrap store.
+// The prior row is locked so concurrent startups serialize; a concurrent insert
+// is stopped by the unique (organization, key) index.
+func (s *Store) AdmitManagedSecretStore(ctx context.Context, adm persistence.ManagedStoreAdmission) (secretstore.Store, error) {
+	next := adm.Store
+	if err := next.Validate(); err != nil {
+		return secretstore.Store{}, err
+	}
+	var out secretstore.Store
+	err := s.Transact(ctx, func(ctx context.Context) error {
+		if adm.ExpectedID == "" {
+			if err := s.CreateSecretStore(ctx, next); err != nil {
+				return err
+			}
+			var err error
+			out, err = s.GetSecretStore(ctx, next.OrganizationKey, next.Key)
+			return err
+		}
+		var lockedID string
+		err := s.q(ctx).QueryRow(ctx, `SELECT ss.id::text FROM secret_store_connections ss JOIN organizations o ON o.id=ss.organization_id WHERE o.organization_key=$1 AND ss.store_key=$2 FOR UPDATE OF ss`, next.OrganizationKey, next.Key).Scan(&lockedID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: secret store %q changed", persistence.ErrVersionConflict, next.Key)
+		}
+		if err != nil {
+			return translate(err)
+		}
+		current, err := s.GetSecretStore(ctx, next.OrganizationKey, next.Key)
+		if err != nil {
+			return err
+		}
+		if current.ID != adm.ExpectedID || current.Legacy != adm.ExpectedLegacy || current.CredentialRef != adm.ExpectedCredentialRef {
+			return fmt.Errorf("%w: secret store %q changed", persistence.ErrVersionConflict, next.Key)
+		}
+		if !current.SameEndpoint(next) {
+			return fmt.Errorf("%w: secret store %q endpoint identity", persistence.ErrImmutable, next.Key)
+		}
+		verification, err := jsonBytes(next.Verification)
+		if err != nil {
+			return err
+		}
+		if _, err := s.q(ctx).Exec(ctx, `UPDATE secret_store_connections SET name=$2, credential_ref=$3, status=$4, legacy=false, verification=$5 WHERE id=$1::uuid AND credential_ref=$6 AND legacy=$7`,
+			current.ID, next.Name, next.CredentialRef, next.Status, verification, adm.ExpectedCredentialRef, adm.ExpectedLegacy); err != nil {
+			return translate(err)
+		}
+		out, err = s.GetSecretStore(ctx, next.OrganizationKey, next.Key)
+		return err
+	})
+	return out, err
+}
+
 // BackfillLegacySecretStore stamps the explicit legacy identity, idempotently.
 func (s *Store) BackfillLegacySecretStore(ctx context.Context, org, storeKey string) error {
 	return s.Transact(ctx, func(ctx context.Context) error {

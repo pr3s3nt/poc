@@ -11,7 +11,8 @@ The root [Compose file](../../docker-compose.yml) runs PostgreSQL, the backend,
 the Web Console and persistent Vault. It configures the UC-04
 [Connection credential store](../architecture/connection-credentials.md).
 The local Vault also supplies an explicitly seeded `platform-vault` Secret Store
-through the existing configured-platform-Vault bootstrap. Separate scoped tokens
+through explicit local registration bootstrap. It is an ordinary verified store,
+using the same validation and credential storage as stores registered in the UI. Separate scoped tokens
 serve Connection credentials and application secrets. Its metadata is persisted
 in PostgreSQL; token and secret values stay in Vault/private token volumes.
 New Environments still select a store explicitly in Settings. Compose enables
@@ -65,13 +66,32 @@ The application token can manage application value/bundle paths and workload
 policies/roles; it cannot read Connection credentials. The credential token
 cannot read application secrets. Root/unseal material stays inaccessible to backend.
 
-Sign in, open Platform → Secret stores to see `Platform Vault (legacy)` (key
+Compose sets `ORCHESTRATOR_PLATFORM_VAULT_BOOTSTRAP=true` with
+`ORCHESTRATOR_PLATFORM_VAULT_ADDR`, `ORCHESTRATOR_PLATFORM_VAULT_WORKLOAD_ADDR`
+and `ORCHESTRATOR_PLATFORM_VAULT_TOKEN_FILE`. The last variable points to the
+private application token used during registration/bootstrap, not a runtime
+fallback. Ordinary store resolution reads the persisted credential reference
+from the configured platform credential store. Compose therefore does not set
+legacy `ORCHESTRATOR_VAULT_ADDR` or `ORCHESTRATOR_VAULT_TOKEN_FILE`.
+`ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE` remains the separate credential-store
+authentication configuration; users adding other Vaults do not add backend flags.
+
+Sign in, open Platform → Secret stores to see `Platform Vault` (key
 `platform-vault`), then select it in an Environment's Settings before adding a
-secret. This is the existing explicitly configured platform-store compatibility
-record, not a newly registered cluster-auth-verified store. Kubernetes auth is
+secret. Bootstrap verifies KV v2, backend permissions and probe cleanup before recording
+READY; this does not verify workload Kubernetes auth. The store token is persisted
+privately in the platform credential store, and runtime resolves its opaque
+reference. The application token file is bootstrap input only. Kubernetes auth is
 checked before secret-dependent Deploy. Set `VAULT_WORKLOAD_ADDRESS` to an address
 reachable from the selected cluster before the initial seed when preparing live
 workload delivery; Compose does not install or mutate that cluster.
+
+Existing Compose legacy records are upgraded in place after verification, retaining
+store identity, selected Environments and secret references. Restart does not create
+duplicate stores or token credentials. A conflicting endpoint/mount identity fails
+startup rather than overwriting another registration. Application token replacement
+can refresh the managed credential on backend startup. Legacy Vault flags remain
+available for non-Compose compatibility, but are not enabled by this Compose profile.
 
 This configuration is for a personal machine: Vault uses HTTP on the private
 Docker network, and its root token and single unseal key are retained in a
@@ -108,7 +128,7 @@ uses read-only cluster verification; deployment is an explicit subsequent action
 To use an uploaded Connection for execution, register a matching `existing-cluster`
 Resource Definition as described in the shared credential design.
 
-The [Vault bootstrap verification](../verification/2026-10-08-compose-vault-bootstrap.md)
+The [ordinary-store verification](../verification/2026-10-08-compose-vault-normal-store.md)
 covers default source builds, the seeded database store, browser variable/secret
 writes against real Vault, token isolation and persistence after container
 replacement. The [earlier local verification](../verification/2026-10-07-docker-compose-local.md)

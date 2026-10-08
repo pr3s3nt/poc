@@ -57,7 +57,20 @@ func main() {
 	connectionVaultAddress := flag.String("connection-vault-address", os.Getenv("ORCHESTRATOR_CONNECTION_VAULT_ADDR"), "Vault API address of the Connection credential store")
 	connectionVaultTokenFile := flag.String("connection-vault-token-file", os.Getenv("ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE"), "path to the scoped Vault token file of the Connection credential store")
 	connectionVaultMount := flag.String("connection-vault-mount", "kv", "KV v2 mount of the Connection credential store")
+	platformVaultBootstrap := flag.Bool("platform-vault-bootstrap", envBool("ORCHESTRATOR_PLATFORM_VAULT_BOOTSTRAP"), "explicit opt-in: register the bundled Compose Vault as the ordinary verified store platform-vault at startup")
+	platformVaultAddress := flag.String("platform-vault-address", os.Getenv("ORCHESTRATOR_PLATFORM_VAULT_ADDR"), "Vault API address of the platform-vault bootstrap")
+	platformVaultWorkloadAddress := flag.String("platform-vault-workload-address", os.Getenv("ORCHESTRATOR_PLATFORM_VAULT_WORKLOAD_ADDR"), "Vault address used by workload Pods (default: the API address)")
+	platformVaultTokenFile := flag.String("platform-vault-token-file", os.Getenv("ORCHESTRATOR_PLATFORM_VAULT_TOKEN_FILE"), "bootstrap-only file holding the application-scoped Vault token")
+	platformVaultMount := flag.String("platform-vault-mount", os.Getenv("ORCHESTRATOR_PLATFORM_VAULT_MOUNT"), "KV v2 mount of the platform-vault bootstrap (default kv)")
+	platformVaultAuthMount := flag.String("platform-vault-auth-mount", os.Getenv("ORCHESTRATOR_PLATFORM_VAULT_AUTH_MOUNT"), "Kubernetes auth mount of the platform-vault bootstrap (default kubernetes)")
 	flag.Parse()
+	var platformVault *bootstrap.PlatformVaultBootstrap
+	if *platformVaultBootstrap {
+		platformVault = &bootstrap.PlatformVaultBootstrap{
+			Address: strings.TrimRight(*platformVaultAddress, "/"), WorkloadAddress: strings.TrimRight(*platformVaultWorkloadAddress, "/"),
+			TokenFile: *platformVaultTokenFile, Mount: *platformVaultMount, AuthMount: *platformVaultAuthMount,
+		}
+	}
 	databaseURL := ""
 	if *databaseURLFile != "" {
 		value, err := os.ReadFile(*databaseURLFile)
@@ -138,6 +151,8 @@ func main() {
 		HarborDockerConfigFile: *harborDockerConfigFile,
 		HarborPullSecretName:   *harborPullSecretName,
 
+		PlatformVault: platformVault,
+
 		ConnectionCredentialStore: *connectionCredentialStore,
 		ConnectionVaultAddress:    *connectionVaultAddress,
 		ConnectionVaultTokenFile:  *connectionVaultTokenFile,
@@ -167,4 +182,10 @@ func main() {
 		log.Printf("orchestrator: %v", err)
 		os.Exit(1)
 	}
+}
+
+// envBool reads an opt-in switch; only "true" or "1" enables it.
+func envBool(name string) bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv(name)))
+	return v == "true" || v == "1"
 }

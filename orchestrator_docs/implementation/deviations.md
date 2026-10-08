@@ -62,3 +62,15 @@ The existing integration-tag AWS test in the baseline passes a string to
 EKSDescriptor's Context parameter; this delivery does not claim it passes or
 perform an AWS run. See CURRENT_STATE for current limits. Do not weaken canonical
 requirements or extend this recording beyond its documented live scope.
+
+## IMP-018 — Compose store bootstrap correction (resolved 2026-10-08)
+
+Compose initially seeded a configured-platform legacy store with an application
+runtime token file. User clarified that the bundled Vault must be an ordinary
+verified store, equivalent to one added by a Platform Engineer. UC-04 SS-07..08
+and ADR-012 now require shared validation/verification/credential persistence,
+idempotent startup and in-place conversion preserving existing secret references.
+Shared normal-store bootstrap, managed CAS admission and regression tests now
+implement that correction. [Real Docker/UI verification](../verification/2026-10-08-compose-vault-normal-store.md)
+passed fresh seed, in-place upgrade, two-Vault browser writes, runtime without
+bootstrap and token replacement. Historical legacy evidence remains unchanged.

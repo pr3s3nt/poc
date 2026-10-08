@@ -51,4 +51,20 @@ Service -> Service: Verify KV v2/capabilities, cleanup own probe
 Service -> Secrets: Put scoped immutable store token
 Service -> Repo: Insert separate SecretStoreConnection READY
 Service --> PE: Safe metadata, never token/ref
+boundary ComposeBootstrap as Bootstrap
+Bootstrap -> Service: Ensure managed platform-vault [SS-07..08]
+Service -> Service: Shared validation + Vault verifier + probe cleanup
+Service -> Secrets: Read existing scoped credential / Put own replacement
+Service -> Repo: CAS admit matching identity <<transaction>>
+note right of Repo
+Preserve ID/key/endpoints and Environment references.
+Create ordinary store or convert matching Compose legacy.
+Concurrent loser never cleans winner credential.
+end note
+alt Admission fails
+  Service -> Secrets: Delete only own attempt credential
+  Service --> Bootstrap: Safe failure; stop backend startup
+else Admitted or unchanged
+  Service --> Bootstrap: Ordinary verified store; runtime resolves credential ref
+end
 @enduml

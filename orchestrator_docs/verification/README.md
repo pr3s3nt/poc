@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-08 | Ordinary verified Compose Vault seed, legacy-preserving conversion, real two-Vault human UI recording, credential-reference runtime and token refresh | [Normal Compose Vault store](2026-10-08-compose-vault-normal-store.md) |
 | 2026-10-08 | Default source-built Compose, automatic platform Vault database seed, real Vault UI secret writes, token ACL isolation and restart persistence | [Compose Vault bootstrap](2026-10-08-compose-vault-bootstrap.md) |
 | 2026-10-08 | Editable per-Environment Connections/stores, two real Vaults/VSO, stale-preview rejection, PostgreSQL migration, route/restart/cleanup and reviewed human MP4 | [Environment stores/transitions](2026-10-08-environment-stores-kind.md) |
 | 2026-10-07 | Environment Settings set-once targets, legacy migration, independent AWS scope tests and real kind human UI recording | [Environment connection verification](2026-10-07-environment-connection-kind.md) |

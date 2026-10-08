@@ -101,6 +101,7 @@ package "Environment Transitions" {
   +Provider: VaultKVv2
   +CredentialRef: opaque
  }
+ class ComposeSecretStoreBootstrap
  class SecretStoreResolver
  class EnvironmentSettingsService
  class EnvironmentTransitionService
@@ -329,6 +330,7 @@ DeploymentPlan *-- RenderingSelection : per workload
 ScoreK8sRenderer ..|> WorkloadRenderer
 ScoreK8sRenderer ..|> RenderPreflight
 DeploymentService --> RenderPreflight : before UC-08
+ComposeSecretStoreBootstrap --> SecretStoreConnection : verified managed registration
 Environment --> SecretStoreConnection : versioned selection
 Environment "1" o-- "0..*" EnvironmentOperation
 EnvironmentSettingsService --> SecretStoreResolver

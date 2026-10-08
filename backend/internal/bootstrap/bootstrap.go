@@ -97,6 +97,12 @@ type Options struct {
 	ConnectionVaultTokenFile  string
 	ConnectionVaultMount      string
 
+	// PlatformVault, when set, is the explicit opt-in Compose bootstrap of the
+	// bundled Vault as an ordinary verified store (UC-04 SS-07/08). It is
+	// independent of the legacy VaultAddress/VaultTokenFile options and cannot
+	// be combined with them.
+	PlatformVault *PlatformVaultBootstrap
+
 	// Overrides replace individual adapters. Tests use them to inject failures.
 	RegistryOverride              execution.ExecutorRegistry
 	ConnectionVerifierOverride    connection.KubernetesVerifier
@@ -108,6 +114,12 @@ type Options struct {
 	// workload secret-store registry and the registration verifier (tests).
 	StoreRegistryOverride       configport.Registry
 	SecretStoreVerifierOverride configport.Verifier
+}
+
+// PlatformVaultBootstrap is the input of the Compose Vault bootstrap. TokenFile
+// is read once at startup; it is bootstrap input only and never a runtime path.
+type PlatformVaultBootstrap struct {
+	Address, WorkloadAddress, TokenFile, Mount, AuthMount string
 }
 
 // App holds the built components.
@@ -254,10 +266,13 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	operations := envops.NewManager(st)
 	var storeRegistry configport.Registry
 	var storeVerifier configport.Verifier
+	if opts.PlatformVault != nil && (opts.VaultAddress != "" || opts.VaultTokenFile != "") {
+		return nil, fmt.Errorf("bootstrap: the platform Vault bootstrap cannot be combined with the legacy Vault options")
+	}
 	switch {
 	case opts.StoreRegistryOverride != nil:
 		storeRegistry = opts.StoreRegistryOverride
-	case opts.VaultAddress != "" || connectionCredentials != nil && opts.Adapters != "" && opts.Adapters != AdapterFake:
+	case opts.VaultAddress != "" || opts.PlatformVault != nil || connectionCredentials != nil && opts.Adapters != "" && opts.Adapters != AdapterFake:
 		var legacy *vault.LegacyConfig
 		if opts.VaultAddress != "" && opts.VaultTokenFile != "" {
 			tokenBytes, err := os.ReadFile(opts.VaultTokenFile)
@@ -278,6 +293,9 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	switch {
 	case opts.SecretStoreVerifierOverride != nil:
 		storeVerifier = opts.SecretStoreVerifierOverride
+	case opts.PlatformVault != nil:
+		// An explicit bootstrap must reach the real Vault in every adapter mode.
+		storeVerifier = vault.Verifier{}
 	case opts.Adapters == "" || opts.Adapters == AdapterFake:
 		storeVerifier = configmemory.Verifier{}
 	default:
@@ -285,6 +303,11 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	}
 	configurations := appconfig.NewService(st, storeRegistry, operations)
 	secretStoreService := secretstores.NewService(st, storeVerifier, connectionCredentials)
+	if opts.PlatformVault != nil {
+		if err := seedPlatformVault(ctx, st, secretStoreService, opts); err != nil {
+			return nil, err
+		}
+	}
 	deployments.SetStoreRegistry(storeRegistry)
 	deployments.SetOperations(operations)
 	vaultDelivery := opts.VaultDelivery

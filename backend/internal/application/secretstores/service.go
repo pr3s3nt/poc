@@ -115,13 +115,12 @@ func validCA(pemText string) error {
 	return nil
 }
 
-// Register verifies the store, stores its token privately and inserts a READY
-// record. A failure after the credential was written removes only this
-// attempt's credential.
-func (s *Service) Register(ctx context.Context, org string, cmd RegisterCommand) (secretstore.Store, error) {
+// prepare validates one registration input and returns the unsaved record and
+// the trimmed token. Interactive registration and Compose bootstrap share it.
+func prepare(org string, cmd RegisterCommand) (secretstore.Store, string, error) {
 	name, err := validName(cmd.Name)
 	if err != nil {
-		return secretstore.Store{}, err
+		return secretstore.Store{}, "", err
 	}
 	mount, authMount := strings.TrimSpace(cmd.Mount), strings.TrimSpace(cmd.AuthMount)
 	if mount == "" {
@@ -139,19 +138,30 @@ func (s *Service) Register(ctx context.Context, org string, cmd RegisterCommand)
 		secretstore.ValidateAddress(record.BackendAddress), secretstore.ValidateAddress(record.WorkloadAddress),
 	} {
 		if check != nil {
-			return secretstore.Store{}, fmt.Errorf("%w: backend and workload addresses must be http(s) URLs without credentials", ErrInvalid)
+			return secretstore.Store{}, "", fmt.Errorf("%w: backend and workload addresses must be http(s) URLs without credentials", ErrInvalid)
 		}
 	}
 	if !secretstore.ValidMount(mount) || !secretstore.ValidMount(authMount) {
-		return secretstore.Store{}, fmt.Errorf("%w: mounts may contain only letters, digits, hyphen and underscore", ErrInvalid)
+		return secretstore.Store{}, "", fmt.Errorf("%w: mounts may contain only letters, digits, hyphen and underscore", ErrInvalid)
 	}
 	if err := validCA(record.TLSCAPEM); err != nil {
-		return secretstore.Store{}, err
+		return secretstore.Store{}, "", err
 	}
 	if err := validToken(cmd.Token); err != nil {
+		return secretstore.Store{}, "", err
+	}
+	return record, strings.TrimSpace(cmd.Token), nil
+}
+
+// Register verifies the store, stores its token privately and inserts a READY
+// record. A failure after the credential was written removes only this
+// attempt's credential.
+func (s *Service) Register(ctx context.Context, org string, cmd RegisterCommand) (secretstore.Store, error) {
+	record, token, err := prepare(org, cmd)
+	if err != nil {
 		return secretstore.Store{}, err
 	}
-	token := strings.TrimSpace(cmd.Token)
+	name := record.Name
 	if s.credentials == nil {
 		return secretstore.Store{}, ErrCredentialStore
 	}
@@ -161,9 +171,7 @@ func (s *Service) Register(ctx context.Context, org string, cmd RegisterCommand)
 	if _, err := s.store.GetOrganization(ctx, org); err != nil {
 		return secretstore.Store{}, err
 	}
-	verification, err := s.verifier.Verify(ctx, configport.VerifyRequest{
-		BackendAddress: record.BackendAddress, Mount: mount, AuthMount: authMount, CAPEM: record.TLSCAPEM, Token: token,
-	})
+	verification, err := s.verifier.Verify(ctx, verifyRequest(record, token))
 	if err != nil {
 		return secretstore.Store{}, verificationError(err)
 	}
@@ -203,6 +211,10 @@ func (s *Service) Register(ctx context.Context, org string, cmd RegisterCommand)
 		}
 	}
 	return secretstore.Store{}, fmt.Errorf("secret store: could not allocate a unique store key; retry")
+}
+
+func verifyRequest(record secretstore.Store, token string) configport.VerifyRequest {
+	return configport.VerifyRequest{BackendAddress: record.BackendAddress, Mount: record.Mount, AuthMount: record.AuthMount, CAPEM: record.TLSCAPEM, Token: token}
 }
 
 func verificationError(err error) error {

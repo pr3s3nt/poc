@@ -240,14 +240,18 @@ change Organization default; UC-03 matching Definition can consume the new
 Connection. Fleet fixed-cluster mode rejects credential-backed targets. AWS
 registration and Terraform account credential resolution remain deferred.
 
-Local Compose now builds backend/frontend source by default and runs public
-PostgreSQL/Vault images. It explicitly seeds `platform-vault` through the existing
-configured-platform compatibility bootstrap, using separate private scoped tokens
-for Connection credentials and application values. New Environments select the
-store in Settings. [Real Docker/UI verification](verification/2026-10-08-compose-vault-bootstrap.md)
-passed secret writes, PostgreSQL reference-only persistence, ACL isolation and
-full container replacement without duplicate seeding. Workload delivery still
-requires Vault reachability and Kubernetes auth for the selected cluster.
+Local Compose builds backend/frontend source by default and runs public
+PostgreSQL/Vault images. Explicit bootstrap now registers `platform-vault` /
+`Platform Vault` as an ordinary verified store (legacy=false), using the shared
+Vault verifier and private platform credential store. Runtime resolves its opaque
+credential reference; the application token file is bootstrap input only.
+Existing Compose compatibility records convert in place with store identity,
+Environment selections and immutable secret references preserved. New Environments
+select stores explicitly. Bootstrap is idempotent, checks endpoint identity and
+can refresh only managed credentials after successful verification/CAS admission.
+Workload delivery still requires Vault reachability and Kubernetes auth for the
+selected cluster. [Normal-store verification](verification/2026-10-08-compose-vault-normal-store.md)
+records the new implementation; the earlier legacy-bootstrap evidence is historical.
 
 ## Environment execution binding (2026-10-07)
 
