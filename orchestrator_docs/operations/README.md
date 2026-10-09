@@ -19,6 +19,10 @@ last_reviewed: 2026-10-09
 VSO, its sealed/init handoff and the legacy Agent Injector. It is separate from
 the run-scoped kind verification cleanup procedure.
 
+[Triển khai acceptance app thủ công lên k8s-4f](acceptance-app-manual-k8s4f.md)
+hướng dẫn Connection, Vault/VSO, Secret Store, image và FE/BE/PostgreSQL qua Console.
+Ứng dụng được giữ lại sau khi thao tác; không có cleanup tự động như E2E runner.
+
 [Fleet GitRepo on kind](fleet-gitrepo-kind.md) documents the optional
 Harbor-image workload delivery path and its separate Git/registry credentials.
 
