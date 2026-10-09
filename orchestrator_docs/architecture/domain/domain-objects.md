@@ -2,7 +2,7 @@
 id: DOMAIN-OBJECTS
 artifact: domain-persistence-classification
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-09
 ---
 
 # Domain Objects and Persistence Classification
@@ -140,3 +140,13 @@ is persisted admission/transition state; old targets/resources survive in immuta
 retained-generation records. ConfigurationEntry contains ordinary Variable value
 or owning store key + opaque Secret ref. SecretStoreResolver and PostgreSQLTransfer
 are ports/adapters; application services coordinate copy, generation and cutover.
+
+## Implicit internal cluster binding
+
+[ADR-013](../decisions/ADR-013-implicit-existing-cluster.md) adds a trusted
+system execution binding for the profile-enriched internal cluster node. It
+uses a reserved ResourceDefinition identity for existing persistence FKs,
+bypasses weighted matching, and resolves the pinned Environment Connection.
+Existing logical descriptor/Application scope and historical targets stay intact;
+no new domain table or cluster creation is introduced. Other Definition matching
+and the common Kubernetes target contract remain unchanged.

@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-09
 ---
 
 # Known design and implementation deviations
@@ -74,3 +74,16 @@ Shared normal-store bootstrap, managed CAS admission and regression tests now
 implement that correction. [Real Docker/UI verification](../verification/2026-10-08-compose-vault-normal-store.md)
 passed fresh seed, in-place upgrade, two-Vault browser writes, runtime without
 bootstrap and token replacement. Historical legacy evidence remains unchanged.
+
+## IMP-019 — Implicit existing-cluster binding (resolved 2026-10-09)
+
+User accepted [ADR-013](../architecture/decisions/ADR-013-implicit-existing-cluster.md).
+Canonical design removes internal per-cluster Definition registration/matching.
+Claude implemented code/tests via tmux; Codex reviewed and independently validated
+planner/provisioning, scoped targets, reserved-key/collision handling, admission
+ordering, pure Preview, JSON reopen/retry/remove and Console projection.
+Cloud/PostgreSQL matching remains unchanged. Go tests/build, targeted race suites,
+frontend gates and fake-adapter browser create/deploy/restart passed.
+See [local evidence](../verification/2026-10-09-implicit-existing-cluster-local.md).
+No live cluster/cloud or PostgreSQL mutation was performed; local FK simulation
+is not real PostgreSQL integration proof.

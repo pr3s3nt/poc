@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-09
 ---
 
 # Design-to-code map
@@ -137,3 +137,22 @@ live evidence is in the [reviewed recording](../verification/2026-10-08-environm
 - [Transition UI](../../frontend/src/features/environment/TransitionPanel.tsx), [operation/recovery UI](../../frontend/src/features/environment/OperationBanner.tsx), [frontend transition tests](../../frontend/src/features/environment/environment.test.tsx).
 - [Generation identity tests](../../backend/internal/planning/generation_test.go), [namespace generation tests](../../backend/internal/domain/environment/generation_test.go), [Terraform executor](../../backend/internal/adapters/terraform/executor.go).
 - [Human real-kind recorder](../../backend/test/integration/environment-stores-kind-video.sh), [browser scenario](../../frontend/test/e2e/environment-stores-kind-human.mjs), [ownership identity observer](../../backend/test/integration/runidentity/main.go), [masked-input leak checks](../../frontend/test/e2e/secret-scan.mjs).
+
+## Implicit internal cluster (ADR-013)
+
+- [Trusted Definition and binding validation](../../backend/internal/planning/builtin.go),
+  [default matcher bypass](../../backend/internal/planning/match.go) and
+  [planner contract tests](../../backend/internal/planning/connection_binding_test.go).
+- [Idempotent execution admission](../../backend/internal/application/provisioning/builtin.go),
+  [execution/Connection checks](../../backend/internal/application/provisioning/service.go),
+  [race/collision/FK ordering tests](../../backend/internal/application/provisioning/builtin_test.go).
+- [Read-only Preview projection](../../backend/internal/application/preview/service.go),
+  [pure Preview tests](../../backend/internal/application/preview/service_test.go),
+  [Console binding display](../../frontend/src/features/preview/ScorePreviewPage.tsx).
+- [JSON reopen/retry/remove tests](../../backend/internal/application/deployment/builtin_cluster_test.go),
+  [stored-target guard](../../backend/internal/application/deployment/service_restore_test.go),
+  [public reserved-key guard](../../backend/internal/application/catalog/service.go),
+  [legacy seed preservation](../../backend/internal/seed/binding_test.go).
+- [Explicit reference compatibility](../../backend/test/conformance/loader.go),
+  [local browser flow](../../frontend/test/e2e/application-connection-local.mjs) and
+  [local execution evidence](../verification/2026-10-09-implicit-existing-cluster-local.md).

@@ -79,7 +79,17 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	if !ok {
 		return fmt.Errorf("provisioning: node %q has no matched definition", descriptor)
 	}
+	if err := planning.ValidateBuiltinMatch(req.Context, node, match); err != nil {
+		return err
+	}
 	def, ok := req.Definitions[match.DefinitionKey]
+	if match.DefinitionKey == planning.BuiltinClusterKey {
+		// ADR-013: the effective definition is trusted code, never a stored copy.
+		def, ok = planning.BuiltinClusterDefinition(), true
+		if err := EnsureBuiltinCluster(ctx, s.store, req.Context.OrganizationKey); err != nil {
+			return err
+		}
+	}
 	if !ok {
 		return fmt.Errorf("provisioning: definition %q is not registered", match.DefinitionKey)
 	}
@@ -97,7 +107,11 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	if err != nil {
 		return fmt.Errorf("provisioning: resolve driver variables of %s: %w", descriptor, err)
 	}
-	params, err := placeholder.ExpandTree(mapOrEmpty(node.Params), resolver)
+	nodeParams := node.Params
+	if match.DefinitionKey == planning.BuiltinClusterKey {
+		nodeParams = nil // the Environment Connection is the only input source
+	}
+	params, err := placeholder.ExpandTree(mapOrEmpty(nodeParams), resolver)
 	if err != nil {
 		return fmt.Errorf("provisioning: resolve params of %s: %w", descriptor, err)
 	}
@@ -147,15 +161,15 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		return fmt.Errorf("provisioning: %s: %w", descriptor, errConnectionMismatch)
 	}
 
-	executor, err := s.registry.Resolve(match.DriverType)
-	if err != nil {
-		return err
-	}
 	// A missing or non-READY Connection fails before execution instead of
 	// becoming an empty Connection (UC-04 BR-04/BR-10).
 	connection, err := s.store.GetConnection(ctx, req.Context.OrganizationKey, connectionKeyFor(def, req.Context))
 	if err == nil && (connection.Status != appdomain.ConnectionReady || connection.OrganizationKey != req.Context.OrganizationKey) {
 		err = fmt.Errorf("connection is not READY in this organization")
+	}
+	if err == nil && match.DefinitionKey == planning.BuiltinClusterKey &&
+		(connection.Kind != appdomain.ConnectionKubernetes || connection.Key != req.Context.Env.ConnectionKey) {
+		err = fmt.Errorf("connection is not the Kubernetes Environment connection")
 	}
 	if err != nil {
 		progress.Status = deployment.ResourceFailed
@@ -163,6 +177,11 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		progress.FinishedAt = &finished
 		_ = s.store.SaveDeploymentResource(ctx, progress)
 		return fmt.Errorf("provisioning: %s: connection %q is unavailable: %w", descriptor, connectionKeyFor(def, req.Context), errConnectionUnavailable)
+	}
+
+	executor, err := s.registry.Resolve(match.DriverType)
+	if err != nil {
+		return err
 	}
 
 	execResult, err := executor.Provision(ctx, execution.ProvisionRequest{

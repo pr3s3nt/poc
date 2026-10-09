@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-09
 ---
 
 # UC-03 — Register Resource Definition and Matching Criteria
@@ -43,20 +43,20 @@ last_reviewed: 2026-10-07
 ## Luồng biến thể trong happy path
 
 - **VAR-01 — `aws-eks`:** Definitions của `vpc`, `k8s-cluster` và `postgres` dùng Terraform Driver cùng AWS Driver Account.
-- **VAR-02 — `internal-k8s`:** `k8s-cluster` resolve connection có sẵn; `postgres` và namespace dùng Kubernetes executor.
+- **VAR-02 — `internal-k8s`:** cluster node ngầm resolve Environment Connection, không yêu cầu đăng ký/matching Definition riêng; `postgres` và namespace vẫn matching Definition dùng Kubernetes executor.
 
 ## Hậu điều kiện
 
 - **POST-01:** Resource Definition được lưu với ID duy nhất trong Organization.
 - **POST-02:** Definition liên kết với một Resource Type và một Driver hợp lệ.
 - **POST-03:** Cloud Definitions có thể provision VPC, EKS và Aurora bằng Terraform.
-- **POST-04:** Internal Definitions có thể đại diện cluster có sẵn và provision PostgreSQL StatefulSet bằng Kubernetes executor.
+- **POST-04:** Internal Definitions provision namespace/PostgreSQL bằng Kubernetes executor; cluster có sẵn dùng system binding theo ADR-013.
 - **POST-05:** Hai PostgreSQL Definitions cùng triển khai contract outputs của Resource Type `postgres`.
 - **POST-06:** Driver Inputs và provision rules sẵn sàng cho quá trình dựng Resource Graph.
 
 ## Quy tắc nghiệp vụ
 
-- **BR-01:** Definition chỉ được xét cho node có cùng Resource Type và có `execution_profile` trống hoặc bằng profile của Application. Profile là điều kiện lọc trước matching, không cộng điểm specificity.
+- **BR-01:** Definition chỉ được xét cho node có cùng Resource Type và có `execution_profile` trống hoặc bằng profile của Environment. Profile là điều kiện lọc trước matching, không cộng điểm specificity.
 - **BR-02:** Matching chọn criterion hợp lệ có specificity cao nhất; happy path yêu cầu đúng một Definition thắng.
 - **BR-03:** `execution_profile` là thuộc tính của Definition, không phải field Matching Criterion. Hai Definition PostgreSQL theo profile dùng cùng 5 field chuẩn để xét context sau khi lọc profile; `env_type` vẫn là loại Environment, không đại diện target nội bộ/cloud.
 - **BR-06:** Matching Criteria chỉ gồm năm field chuẩn với trọng số cố định:
@@ -80,7 +80,7 @@ last_reviewed: 2026-10-07
   tương ứng; Kubernetes cho `k8s-namespace`/`postgres`; existing-cluster cho
   `k8s-cluster`. Terraform/existing-cluster cần connection tường minh đúng kind,
   thuộc Organization và `READY`. Kubernetes dùng connection của Environment lúc
-  deploy nếu Definition không chỉ định connection riêng. Với `internal-k8s`, existing-cluster/Kubernetes Definition có connection tường minh phải trùng Environment connection khi được match; sai khác gây planning error (UC-06 BR-20). Quy tắc này cũng áp dụng cho Terraform VPC/EKS của `aws-eks`; external resources như database giữ explicit Driver Account semantics.
+  deploy nếu Definition không chỉ định connection riêng. Với `internal-k8s`, Kubernetes Definition có connection tường minh phải trùng Environment connection khi được match; sai khác gây planning error (UC-06 BR-20). Existing-cluster Definition đăng ký qua API chỉ giữ compatibility; node cluster implicit không match nó (ADR-013). Quy tắc này cũng áp dụng cho Terraform VPC/EKS của `aws-eks`; external resources như database giữ explicit Driver Account semantics.
 - **BR-09:** Đăng ký Terraform Definition phải kiểm tra module tồn tại, các
   biến được khai báo và output Resource Type có thể được cung cấp. Source URL
   từ xa không được chấp nhận trong MVP.
@@ -191,3 +191,9 @@ Seeded Definitions use these scope-aware values. Platform-authored hardcoded
 application VPC/EKS references are valid only in legacy scope; new Environment
 planning rejects them with guidance rather than introducing cross-environment
 resources. Definition specificity, tie handling and external Driver Accounts remain.
+
+## Implicit internal cluster binding
+
+- **BR-17:** Internal cluster node bypasses user Definition matching; system-owned reserved Definition keys cannot be registered publicly. Existing authored cluster Definitions remain readable for compatibility but do not control the implicit node. Other resource matching/weights remain unchanged.
+
+See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).

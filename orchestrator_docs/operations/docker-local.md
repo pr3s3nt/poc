@@ -2,7 +2,7 @@
 id: RUNBOOK-DOCKER-LOCAL
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-09
 ---
 
 # Personal-machine Docker Compose
@@ -132,8 +132,9 @@ Uploaded kubeconfig must contain an endpoint reachable from the backend
 container; `127.0.0.1` in that endpoint refers to the container itself. External
 credential commands/files in uploaded kubeconfig are rejected. Registration
 uses read-only cluster verification; deployment is an explicit subsequent action.
-To use an uploaded Connection for execution, register a matching `existing-cluster`
-Resource Definition as described in the shared credential design.
+For internal-k8s execution, select the uploaded Connection in Environment Settings.
+ADR-013 supplies its implicit existing-cluster node without user Definition
+registration; namespace/PostgreSQL Definitions and workload Vault auth are still required.
 
 The [ordinary-store verification](../verification/2026-10-08-compose-vault-normal-store.md)
 covers default source builds, the seeded database store, browser variable/secret

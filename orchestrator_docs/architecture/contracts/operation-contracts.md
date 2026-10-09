@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-09
 ---
 
 # Operation Contracts
@@ -117,7 +117,7 @@ Superseded by the Editable Environment destinations contracts below.
 - Descriptor rule: `@app`, `@env`, `@connection`, `@infra` được resolve từ planning
   context trước khi parse descriptor; `@` kế thừa class/ID hiện tại giữ nguyên
   semantics.
-- Postconditions: graph là DAG; mỗi resource node match đúng một Definition; contracts valid; provider-first batches; workload node không thuộc resource-execution batches.
+- Postconditions: graph là DAG; mỗi resource node có một matched Definition hoặc trusted implicit-cluster binding; contracts valid; provider-first batches; workload node không thuộc resource-execution batches.
 - Unreferenced classification for an Environment denotes `READY` resources
   absent from its desired graph within that Environment/shared/workload scope.
   Already-unreferenced, failed/provisioning and Application-wide resources are
@@ -308,3 +308,14 @@ See [rendering contract](workload-rendering.md) for the detailed boundary.
 
 Transition states, failures and retained recovery artifacts follow
 [ADR-012](../decisions/ADR-012-environment-stores-and-transitions.md).
+
+## Implicit cluster execution binding (ADR-013)
+
+OC-07 binds the internal profile cluster node directly to the pinned Environment
+Connection through a trusted system Definition, exempt from catalog matching.
+OC-06/OC-07 Preview/planning never persist it. OC-10 admits the reserved system
+record idempotently before FK-dependent progress/resource writes, validates scope,
+READY/kind/target and uses existing-cluster; catalog contents cannot override it.
+Other nodes still require exactly one matching Definition. Cloud VPC/EKS/Aurora
+contracts and external Driver Accounts remain unchanged. See
+[ADR-013](../decisions/ADR-013-implicit-existing-cluster.md).

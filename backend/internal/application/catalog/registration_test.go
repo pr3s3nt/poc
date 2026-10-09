@@ -33,6 +33,16 @@ func seededDefinition(t *testing.T, opts seed.Options, key string) resource.Defi
 			return d
 		}
 	}
+	if key == "cluster-internal-registered" {
+		// Historical authored existing-cluster shape (no longer seeded, ADR-013);
+		// registration of such Definitions stays supported.
+		return resource.Definition{
+			Key: key, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, ConnectionKey: opts.ConnectionKey,
+			DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{
+				"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
+			Criteria: []resource.Criterion{{Class: "internal"}},
+		}
+	}
 	t.Fatalf("no seeded definition %s", key)
 	return resource.Definition{}
 }

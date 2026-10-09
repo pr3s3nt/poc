@@ -2,7 +2,7 @@
 id: ADR-001
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-10-09
 ---
 
 # ADR-001 — Execution-profile Resource Enrichment and Scopes
@@ -14,7 +14,7 @@ Status: Accepted — 2026-09-20.
 Planning uses one shared core. `ImplicitResourceEnricher` adds infrastructure from Execution Profile:
 
 - `aws-eks`: new VPC/EKS with Environment scope per [ADR-011](ADR-011-environment-execution-binding.md); migrated legacy targets retain Application scope; namespace Environment-scoped.
-- `internal-k8s`: reference to registered existing cluster; namespace with Environment scope.
+- `internal-k8s`: implicit existing-cluster node bound directly to the Environment Connection, without user Definition matching ([ADR-013](ADR-013-implicit-existing-cluster.md)); namespace with Environment scope.
 - Score resources retain private/shared identity; `postgres` matches profile-specific Definition.
 
 Provider choice is expressed through context + Resource Definition + executor registry, not provider-specific branches scattered through DeploymentService.

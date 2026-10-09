@@ -20,6 +20,10 @@ type Context struct {
 	Connection      application.Connection
 	DeploymentID    string
 	RunID           string
+	// ReferenceCluster restores planner-reference Definition matching for the
+	// internal cluster node. Only the conformance harness sets it; the product
+	// default is the ADR-013 Environment-bound builtin cluster.
+	ReferenceCluster bool
 }
 
 // LegacyInfrastructure reports whether the Environment keeps the

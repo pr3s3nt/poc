@@ -52,7 +52,11 @@ func testRequest(t *testing.T, profile application.ExecutionProfile, workload st
 	if profile == application.ProfileAWSEKS {
 		env.Region = o.Region
 	}
-	conn := application.Connection{Key: connectionKey, Status: application.ConnectionReady,
+	kind := application.ConnectionKubernetes
+	if profile == application.ProfileAWSEKS {
+		kind = application.ConnectionAWS
+	}
+	conn := application.Connection{Key: connectionKey, Kind: kind, OrganizationKey: o.OrganizationKey, Status: application.ConnectionReady,
 		Config: map[string]any{"cluster": o.ClusterName, "kubeContext": o.KubeContext}}
 
 	return Request{

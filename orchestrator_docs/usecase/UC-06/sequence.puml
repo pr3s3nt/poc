@@ -27,6 +27,7 @@ DeploymentRepo --> Service: Deployment
 Service -> Planner: Plan(request) [MS-02..MS-08]
 Planner -> DescriptorParser: ParseDescriptorText(reference, node, context) [BR-12]
 DescriptorParser --> Planner: Canonical descriptor
+Planner -> Planner: Internal cluster system binding; other/cloud resource matching [BR-21]
 Planner --> Service: Plan with Humanitec-shaped Delta\nand typed container resources
 alt planning fails before Delta Snapshot
   Service -> DeploymentRepo: MarkFailed(reason, snapshot=NULL)

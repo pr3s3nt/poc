@@ -2,7 +2,7 @@
 id: RUNBOOK-LOCAL
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-09
 ---
 
 # Local development with fake adapters
@@ -238,10 +238,11 @@ Build the Web Console, then from `backend/` run:
 bash test/integration/application-connection-playwright-local.sh
 ```
 
-This script follows ADR-011 Environment Settings with fake runtime adapters,
+This script follows ADR-012 Environment Settings and ADR-013 implicit cluster
+binding with fake runtime adapters,
 JSON state and a read-only kubectl stand-in.
-Platform-authenticated API setup registers a second Connection and its matching
-cluster Definition; Developer UI creates an unconfigured app, sets separate Environment targets once,
-checks Preview/Deploy and lock after restart. No cluster/cloud mutation.
+Platform-authenticated API setup registers a second Connection without a cluster
+Definition; Developer UI creates an unconfigured app, selects separate Environment
+targets, checks Preview/Deploy and persisted bindings after restart. No cluster/cloud mutation.
 Use `ORCH_KEEP_EVIDENCE=1` to retain logs/screenshots, or
 `ORCH_EVIDENCE_DIR=/tmp/new-directory` for a new private evidence directory.

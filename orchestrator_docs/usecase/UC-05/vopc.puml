@@ -30,7 +30,7 @@ class ResourceGraphBuilder <<control>> {
   +BuildAndExpand(candidate, implicit, definitions): ResourceGraph
 }
 class DefinitionMatcher <<control>> {
-  +MatchAll(graph, context): MatchedDefinitions
+  +MatchRemainingResources(graph, context): MatchedDefinitions
 }
 class DriverContractInspector <<control>> {
   +InspectContracts(graph): Contracts
@@ -80,4 +80,10 @@ class RenderBundle <<value>>
 class RenderingSelection <<value>>
 PlanningService ..> RenderingSelection : deterministic selection + plan hash
 RenderingSelection *-- RenderBundle
+note right of ImplicitResourceEnricher
+Internal existing-cluster receives system binding
+from Environment Connection (ADR-013).
+No catalog write or user matching in Preview.
+end note
+
 @enduml

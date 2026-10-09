@@ -2,7 +2,7 @@
 id: OPERATIONS-INDEX
 artifact: operations-index
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-09
 ---
 
 # Operations index
@@ -32,3 +32,5 @@ the acceptance app.
 Runbook là procedure hiện hành. Kết quả của từng execution phải được ghi thành
 dated record mới trong [verification index](../verification/README.md), không
 ghi đè runbook hoặc evidence cũ.
+
+[Codex điều phối Claude qua tmux](claude-tmux.md) quy định procedure code/review/validation/commit/push và cleanup session riêng của task.

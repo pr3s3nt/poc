@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-09
 ---
 
 # UC-03 — Use Case Realization
@@ -89,3 +89,12 @@ Definition whose explicit Connection differs from the Environment binding.
 AWS Terraform VPC/EKS uses the same target-binding guard; external database
 Driver Accounts remain explicit. Specificity and tie handling remain unchanged; Platform Engineer supplies a
 matching Definition for a newly selected Connection.
+
+## Implicit internal cluster collaboration
+
+[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
+changes only internal cluster binding: the enricher supplies the provider node,
+trusted system binding bypasses criteria matching, and UC-08 resolves the selected
+Environment Connection through existing-cluster. Preview is pure; execution
+admits the reserved system Definition before persistence writes. Other resource
+Definitions, executor scheduling and output propagation remain unchanged.

@@ -194,6 +194,8 @@ func Load(root, name string) (*Case, error) {
 			Catalog:         catalog,
 			Active:          active,
 			Terraform:       &FixtureInspector{Sources: sources},
+			// Reference fixtures predate the ADR-013 builtin cluster binding.
+			ReferenceCluster: true,
 		},
 		Expected: *expected,
 	}, nil

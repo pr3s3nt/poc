@@ -2,7 +2,7 @@
 id: UC-03-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-09
 ---
 
 # UC-03 context — Register Resource Definition
@@ -40,3 +40,11 @@ UI: [screens](ui/screens.md), [states](ui/states.md), [HTTP mapping](ui/api-mapp
 - [`backend/internal/domain/resource`](../../../backend/internal/domain/resource/)
 - [`backend/internal/planning`](../../../backend/internal/planning/)
 - [`backend/internal/seed`](../../../backend/internal/seed/)
+
+## Implicit internal cluster delivery (2026-10-09)
+
+[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
+removes per-cluster user Definition registration/matching for internal-k8s.
+Default planning, system binding, persistence admission and Console projection
+are implemented and [locally verified](../../verification/2026-10-09-implicit-existing-cluster-local.md).
+Other resource/cloud matching remains unchanged; no new live cluster/cloud proof.

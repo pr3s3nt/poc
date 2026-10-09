@@ -16,7 +16,7 @@ Developer -> Service: DeployWorkload(Score, app, env)
 Service -> Repo: Create PLANNING [MS-01]
 Service -> Planner: Plan(request) [MS-02..MS-04]
 Planner -> Enricher: Enrich(profile=aws-eks) [MS-05]
-Enricher --> Planner: app VPC + app EKS + env namespace
+Enricher --> Planner: env VPC + env EKS + env namespace (legacy app scope preserved)
 Planner -> Planner: Match Definitions; validate VPC/EKS Connection equals Environment binding [BR-20]
 note right of Planner: Different AWS account fails before Terraform execution
 Planner --> Service: Humanitec-shaped Delta + graph:\nworkload -> namespace -> EKS -> VPC\nworkload -> Aurora -> VPC [MS-03..MS-08]

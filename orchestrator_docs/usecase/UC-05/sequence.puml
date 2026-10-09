@@ -33,7 +33,8 @@ Delta --> Planner: transient DeploymentDeltaDocument + CandidateSet
 Planner -> Enricher: Enrich(candidate, profile) [MS-05]
 Enricher --> Planner: Implicit resources
 Planner -> Graph: BuildAndExpand(candidate, implicit) [MS-05]
-Graph -> Matcher: MatchAll(nodes, context)
+Graph -> Graph: Bind implicit internal cluster from Environment (no catalog write)
+Graph -> Matcher: Match remaining resource nodes (AWS cluster included)
 Matcher -> Matcher: Validate internal Definition connection equals Environment binding
 Matcher --> Graph: Matched definitions or safe planning error
 Graph --> Planner: ResourceGraph

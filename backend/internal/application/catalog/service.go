@@ -79,6 +79,9 @@ func (s *Service) RegisterResourceType(ctx context.Context, organizationKey stri
 
 // RegisterResourceDefinition accepts only runtime-supported driver/type pairs.
 func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKey string, def resource.Definition) (resource.Definition, error) {
+	if def.Key == planning.BuiltinClusterKey {
+		return resource.Definition{}, fmt.Errorf("%w: resource definition key %q is reserved for the system", ErrInvalid, def.Key)
+	}
 	if err := validatePublicID("resource definition", def.Key); err != nil {
 		return resource.Definition{}, fmt.Errorf("%w: %v", ErrInvalid, err)
 	}

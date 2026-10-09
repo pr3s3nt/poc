@@ -3,6 +3,7 @@ package catalog_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/planning"
 	"strings"
 	"testing"
 
@@ -292,5 +293,15 @@ func TestRegisterResourceDefinition_NamespaceNameFromTypeContract(t *testing.T) 
 	saveNamespaceType(resource.InputField{Name: "name", Type: "string", Required: true})
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, ns); err != nil {
 		t.Fatalf("namespace name supplied by Type contract: %v", err)
+	}
+}
+
+// ADR-013: the builtin cluster key is reserved for the system.
+func TestRegisterResourceDefinition_RejectsReservedBuiltinKey(t *testing.T) {
+	ctx := context.Background()
+	_, svc, opts := seededCatalog(t, terraform.NewInspector())
+	def := planning.BuiltinClusterDefinition()
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); !errors.Is(err, catalog.ErrInvalid) {
+		t.Fatalf("reserved key = %v", err)
 	}
 }

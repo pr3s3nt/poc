@@ -2,7 +2,7 @@
 id: UC-05-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-09
 ---
 
 # UC-05 — Use Case Realization
@@ -82,5 +82,14 @@ UC-08 defense-in-depth compare against this Environment connection. Context,
 version, scope mode and nonsecret target metadata are pinned into hashes/snapshots.
 New AWS enrichment produces Environment-scoped VPC/EKS; legacy AWS keeps original
 Application identity via [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).
-Target binding cannot change after set; runtime READY update is Environment-only.
+Target changes use ADR-012 versioned admission/transition; runtime READY update is Environment-only.
 UI/query use selected Environment or deployment-pinned target, no Application target.
+
+## Implicit internal cluster collaboration
+
+[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
+changes only internal cluster binding: the enricher supplies the provider node,
+trusted system binding bypasses criteria matching, and UC-08 resolves the selected
+Environment Connection through existing-cluster. Preview is pure; execution
+admits the reserved system Definition before persistence writes. Other resource
+Definitions, executor scheduling and output propagation remain unchanged.

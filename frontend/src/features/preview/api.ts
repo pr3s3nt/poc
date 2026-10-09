@@ -20,7 +20,7 @@ export type PreviewDelta = {
 
 export type PreviewNode = { descriptor: string; kind: 'workload' | 'resource'; resourceType: string; class: string; origins: string[]; workloadId?: string; paramKeys: string[]; bindings: Record<string, string> };
 export type PreviewEdge = { consumer: string; provider: string; reason: string; path?: string };
-export type PreviewMatch = { descriptor: string; definitionKey: string; driverType: string; specificity: number };
+export type PreviewMatch = { descriptor: string; definitionKey: string; driverType: string; specificity: number; binding?: string; connectionKey?: string };
 
 export type RenderingSelection = { definitionKey: string; driverType: string; bundle: { id: string; version: string; digest: string } };
 

@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-09
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -42,7 +42,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 |---|---|---|
 | UC-03 BR-15/16 registration | `resource.ValidateRenderDefinition`, catalog bundle registry and Console form | `catalog/rendering_test.go`, `ResourceDefinitionsPage.test.tsx`, `test/e2e/rendering_http_test.go`; upgrade A → B: `planning/rendering_test.go`, `pending/rendering_test.go` |
 | UC-05 BR-09/10; UC-06 BR-17 plan pinning/preflight | `planning/rendering.go`, deployment preflight, additive plan JSON | `planning/rendering_test.go`, `deployment/scorek8s_test.go` |
-| UC-06 BR-18/19; UC-08 BR-07 output-only rendering | `adapters/scorek8s`, shared platform policy and existing delivery | `scorek8s/renderer_test.go`, `deployment/scorek8s_test.go` |
+| UC-06 BR-18/19; UC-08 BR-09 output-only rendering | `adapters/scorek8s`, shared platform policy and existing delivery | `scorek8s/renderer_test.go`, `deployment/scorek8s_test.go` |
 | UC-07/12/16 identity, configuration, no-op and stale token preservation | pending renderer comparison with last persisted plan; unchanged Secret/delivery owners | `pending/rendering_test.go`, existing pending/configuration/remove tests, CLI Agent/VSO reference tests |
 
 See [rendering contract](../architecture/contracts/workload-rendering.md).
@@ -245,3 +245,17 @@ two stores, VSO rollout, stale-preview rejection, PostgreSQL restoration, genera
 isolation, actual Ingress traffic, restart and explicit cleanup. The live evidence
 uses two logical Connections on one physical cluster. Recovery/fencing failure
 paths use local tests; no distinct-cluster DNS or AWS migration is claimed.
+
+## Implicit internal cluster binding (ADR-013)
+
+| Requirements | Collaboration / contract | Persistence / compatibility | Validation |
+|---|---|---|---|
+| UC-03 BR-17; UC-04 BR-17 | System-owned cluster binding, no per-cluster registration; ADR-013 | Reserved Definition key, preserve authored history | `catalog/policy_test.go`; `planning/connection_binding_test.go`; `provisioning/builtin_test.go` |
+| UC-05 BR-12; UC-06 BR-21 | Enrichment creates internal cluster provider; bypass matching, visible in Preview; OC-07 | Deterministic binding/hash, no Preview writes | `planning/connection_binding_test.go`; `preview/service_test.go`; `ScorePreviewPage.test.tsx` |
+| UC-08 BR-08; UC-07 internal compatibility | Existing-cluster executor through UC-08; OC-10; shared Kubernetes target | Idempotent FK admission, READY/org/kind checks, restore old targets, ADR-012 generation | `provisioning/builtin_test.go`; `deployment/builtin_cluster_test.go`; existing transition, cloud planning and output-contract suites |
+
+Test paths are under `backend/internal/` unless the Console test is named.
+Code navigation is in [code map](../implementation/code-map.md#implicit-internal-cluster-adr-013).
+[Local evidence](../verification/2026-10-09-implicit-existing-cluster-local.md)
+records Codex review/checks and fake-adapter browser restart; no live cloud,
+cluster or PostgreSQL integration proof.

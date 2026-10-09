@@ -2,7 +2,7 @@
 id: UC-04-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-09
 ---
 
 # UC-04 — Configure Execution Profile Connections
@@ -188,3 +188,9 @@ theo specification sau khi bản này được duyệt.
   không overwrite kho người dùng. Legacy configuration ngoài Compose vẫn tương thích.
 
 Supporting flow/design: [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).
+
+## Implicit internal cluster binding
+
+- **BR-17:** A READY Kubernetes Connection selected by an Environment is sufficient to bind its implicit existing-cluster node; no additional per-cluster Definition registration is required. Selection/registration does not provision workloads or cloud infrastructure.
+
+See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).

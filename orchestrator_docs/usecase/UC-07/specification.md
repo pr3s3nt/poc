@@ -2,7 +2,7 @@
 id: UC-07-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-09
 ---
 
 # UC-07 — Update or Remove Workload
@@ -115,3 +115,10 @@ UC-07 Update or Remove Workload
 - **OOS-03:** Scheduled deletion và deprovision resource.
 - **OOS-04:** Recovery khi update Kubernetes thất bại.
 - **OOS-05:** Canary, blue/green hoặc progressive delivery.
+
+## Internal cluster compatibility
+
+Update/remove/retry uses the implicit cluster binding of
+[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
+Historical targets remain usable without a new user cluster Definition; binding
+changes remain governed by ADR-012 and never silently retarget old resources.

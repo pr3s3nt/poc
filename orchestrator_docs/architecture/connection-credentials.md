@@ -2,7 +2,7 @@
 id: CONNECTION-CREDENTIAL-DESIGN
 artifact: shared-design
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-09
 ---
 
 # Connection credentials and execution identity
@@ -103,12 +103,13 @@ shared classes; [Connection ERD](database/erd.puml) contains scalar identity.
 
 ## Consumption and compatibility choices
 
-UC-01 Environment Settings selects a READY Connection once, without default
-fallback. Each Environment owns profile/region and credential identity (ADR-011).
-A new Connection also requires registering an
-`existing-cluster` Resource Definition with its Connection key and matching
-criteria for the desired Application/Environment (UC-03). Existing seed
-Definition remains untouched. For uploaded records, the selected context in
+UC-01 Environment Settings selects a READY Connection with editable transitions
+under ADR-012, without default fallback. For internal-k8s the planner creates an
+implicit existing-cluster node directly from that binding; no per-Connection
+Resource Definition registration is needed. [ADR-013](decisions/ADR-013-implicit-existing-cluster.md)
+owns the system Definition, matching bypass and persistence compatibility.
+Existing authored/seed cluster Definitions remain readable but cannot redirect
+this implicit node. Namespace/PostgreSQL and AWS resources still use matching.  For uploaded records, the selected context in
 Connection is authoritative; Definition kubeContext/name driver values cannot
 redirect the credential to another context or host. For legacy records the
 existing input contract is preserved. Reused ActiveResource restores opaque

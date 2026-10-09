@@ -3,7 +3,6 @@ package deployment_test
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"orchestrator/internal/adapters/fake"
@@ -129,27 +128,68 @@ func TestSelectedTarget_MatchingDefinitionDeploysToSelectedConnection(t *testing
 	}
 }
 
-// Without a matching Definition the seed internal-cluster Definition would
-// silently retarget the Application; planning must refuse before any executor.
-func TestSelectedTarget_MissingMatchingDefinitionFailsBeforeExecutorOrApply(t *testing.T) {
+// ADR-013: no cluster Definition is needed; the Environment Connection backs the
+// implicit builtin cluster, which is admitted before progress is written.
+func TestSelectedTarget_NoClusterDefinitionNeeded(t *testing.T) {
 	app, opts, executor, deployer, key := selectedTargetApp(t, "")
-	err := deployBackendTo(app, opts, key, "staging")
-	if err == nil || !errors.Is(err, planning.ErrConnectionMismatch) {
+	if err := deployBackendTo(app, opts, key, "staging"); err != nil {
 		t.Fatalf("deploy = %v", err)
 	}
-	if len(executor.requests) != 0 || len(deployer.targets) != 0 || len(app.FakeDeploy.Applied) != 0 {
-		t.Fatalf("side effects before planning rejection: %d executor calls, %d applies", len(executor.requests), len(app.FakeDeploy.Applied))
-	}
+	assertBuiltinCluster(t, app, opts, executor, deployer)
 }
 
-func TestSelectedTarget_DefinitionForAnotherConnectionIsRejected(t *testing.T) {
+// An authored cluster Definition for another Connection neither retargets nor
+// rejects the implicit cluster.
+func TestSelectedTarget_AuthoredDefinitionForAnotherConnectionIsIgnored(t *testing.T) {
 	app, opts, executor, deployer, key := selectedTargetApp(t, "internal-cluster")
-	err := deployBackendTo(app, opts, key, "staging")
-	if err == nil || !errors.Is(err, planning.ErrConnectionMismatch) || strings.Contains(err.Error(), "memory://") {
+	if err := deployBackendTo(app, opts, key, "staging"); err != nil {
 		t.Fatalf("deploy = %v", err)
 	}
-	if len(executor.requests) != 0 || len(deployer.targets) != 0 {
-		t.Fatalf("executor ran %d times, applies %d", len(executor.requests), len(deployer.targets))
+	assertBuiltinCluster(t, app, opts, executor, deployer)
+}
+
+func assertBuiltinCluster(t *testing.T, app *bootstrap.App, opts seed.Options, executor *hostContextExecutor, deployer *targetDeployer) {
+	t.Helper()
+	if len(executor.requests) == 0 || len(deployer.targets) == 0 {
+		t.Fatalf("executor calls %d, applies %d", len(executor.requests), len(deployer.targets))
+	}
+	for _, req := range executor.requests {
+		if req.ResourceType != "k8s-cluster" {
+			continue
+		}
+		if req.Connection.Key != "second" || req.DefinitionKey != planning.BuiltinClusterKey {
+			t.Fatalf("cluster ran with connection %q definition %q", req.Connection.Key, req.DefinitionKey)
+		}
+	}
+	for _, target := range deployer.targets {
+		if target.Context != "second" {
+			t.Fatalf("workload applied to %#v", target)
+		}
+	}
+	defs, err := app.Store.ListResourceDefinitions(context.Background(), opts.OrganizationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	for _, d := range defs {
+		if d.Key == planning.BuiltinClusterKey {
+			found++
+			if !planning.IsBuiltinClusterDefinition(d) {
+				t.Fatalf("admitted definition differs from the trusted one: %+v", d)
+			}
+		}
+	}
+	if found != 1 {
+		t.Fatalf("builtin definition admitted %d times", found)
+	}
+	active, err := app.Store.ListActiveResources(context.Background(), opts.OrganizationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range active {
+		if a.Descriptor.Type == "k8s-cluster" && a.DefinitionKey != planning.BuiltinClusterKey {
+			t.Fatalf("active cluster definition = %q", a.DefinitionKey)
+		}
 	}
 }
 

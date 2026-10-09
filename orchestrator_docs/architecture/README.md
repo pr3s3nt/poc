@@ -2,7 +2,7 @@
 id: ARCHITECTURE-INDEX
 artifact: architecture-index
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-09
 ---
 
 # Shared Architecture Baseline
@@ -36,3 +36,5 @@ domain -> no delivery/application/adapter package
 Planning là deterministic core, provisioning thực thi resource nodes, workload deployment chỉ chạy sau khi resource outputs đã sẵn sàng.
 
 Orchestrator Web Console là React + TypeScript application riêng, chỉ giao tiếp với Go backend qua same-origin JSON API. Nó khác với acceptance frontend workload mà orchestrator triển khai lên Kubernetes.
+
+Internal cluster binding follows [ADR-013](decisions/ADR-013-implicit-existing-cluster.md); cloud infrastructure and application resources retain Definition matching.

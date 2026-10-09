@@ -94,7 +94,7 @@ thay đổi, sửa nguồn chuẩn trước rồi mới sửa dependent artifact
    xác minh cleanup theo `orchestrator_docs/operations/aws.md`.
 5. Không commit `node_modules`, `dist`, coverage, binary, kubeconfig, local
    snapshot hoặc Terraform state.
-6. Không commit hay push nếu người dùng không yêu cầu.
+6. Commit/push theo authorization của task hoặc quy trình Codex/Claude bên dưới; không commit thay đổi ngoài task.
 
 ## Validation
 
@@ -120,3 +120,21 @@ không làm mất công việc có sẵn của người dùng.
 
 Handoff phải nêu ngắn gọn: outcome, vùng thay đổi, checks đã chạy, checks bỏ qua
 và lý do, cùng mọi user-owned change còn lại.
+
+## Codex điều phối và Claude thực hiện code
+
+Với task cần sửa code/test, Codex sửa canonical documentation và điều phối;
+Claude thực hiện code/test qua lệnh `clauded` trong session tmux riêng của task.
+Codex giao phạm vi, nguồn chuẩn, acceptance criteria và checks cụ thể; Claude
+không sửa documentation, commit/push hoặc deploy. Codex review diff, chạy checks
+và gửi phản hồi vào cùng session đến khi đáp ứng yêu cầu. Không tự thay Claude
+bằng Codex coding khi công cụ lỗi; báo tình trạng và tiếp tục phần độc lập.
+
+Với task change/build, quy trình mặc định đã được người dùng cho phép là Codex
+commit và push các thay đổi thuộc task sau review/validation thành công. Chỉ dẫn
+riêng của task (ví dụ không commit/push) được ưu tiên. Review/explanation không
+phát sinh commit. Không stage thay đổi có sẵn ngoài task; không force-push.
+
+Codex đóng session tmux do task tạo sau khi hoàn thành, hoặc sau khi đã lưu
+handoff nếu task bị chặn/hủy; không đóng session của người dùng. Xem
+[runbook Claude qua tmux](orchestrator_docs/operations/claude-tmux.md).

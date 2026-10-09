@@ -2,7 +2,7 @@
 id: UC-06-PLANNER-REFERENCE
 artifact: technical-reference-analysis
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-09
 ---
 
 # UC-06 Planner Reference Analysis
@@ -222,3 +222,11 @@ Matching guards and UC-08 validate selected Environment target without changing
 specificity/ties. Context app.profile/app.region aliases project Environment
 values only for legacy Definition contracts; canonical env values and pinned
 connection/scope determine execution. See [ADR-011](../architecture/decisions/ADR-011-environment-execution-binding.md).
+
+## Product implicit cluster binding
+
+Product internal-k8s enrichment follows
+[ADR-013](../architecture/decisions/ADR-013-implicit-existing-cluster.md): its
+cluster node bypasses authored Definition matching and uses a trusted system
+binding. Reference fixtures without product enrichment retain reference matching.
+Cloud and other product resource matching remain profile-filtered/deterministic.

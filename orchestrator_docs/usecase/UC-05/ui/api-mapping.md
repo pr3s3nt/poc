@@ -2,7 +2,7 @@
 id: UC-05-UI-API
 artifact: use-case-ui-api-mapping
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-09
 related: UC-05, OC-06
 ---
 
@@ -45,3 +45,13 @@ sanitized view rather than an executable Deployment Set.
 
 Existing `POST .../preview` remains UC-16 pending changes; this endpoint
 does not save drafts or confer permission to Deploy these changes.
+
+## Implicit cluster binding projection
+
+Each `matches` row keeps `descriptor`, `definitionKey`, `driverType` and
+`specificity`. The implicit internal cluster adds `binding` with value
+`environment-connection` and safe `connectionKey`; its system Definition key
+is `builtin-existing-cluster` and specificity `-1` denotes bypassed matching.
+Normal catalog matches omit these optional binding fields. This is internal
+product metadata, not a Humanitec matching contract. Credential/reference bytes
+and resolved inputs remain excluded. Preview never admits the system record.

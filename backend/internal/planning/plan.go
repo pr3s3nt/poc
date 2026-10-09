@@ -43,11 +43,15 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		return nil, &StageError{Stage: StageCatalog, Reason: ReasonUnconfigured, Err: ErrEnvironmentUnconfigured}
 	}
 	ctx := Context{
-		OrganizationKey: req.OrganizationKey,
-		App:             req.App,
-		Env:             req.Env,
-		Connection:      req.Connection,
-		RunID:           req.RunID,
+		OrganizationKey:  req.OrganizationKey,
+		App:              req.App,
+		Env:              req.Env,
+		Connection:       req.Connection,
+		RunID:            req.RunID,
+		ReferenceCluster: req.ReferenceCluster,
+	}
+	if err := ctx.checkImplicitConnection(); err != nil {
+		return nil, stageErr(StageCatalog, err)
 	}
 
 	base := normalize(req.BaseSet)

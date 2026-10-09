@@ -52,7 +52,18 @@ type definitionMatcher struct {
 
 func newDefinitionMatcher(ctx Context, catalog Catalog) (*definitionMatcher, error) {
 	m := &definitionMatcher{ctx: ctx, defs: map[string]resource.Definition{}}
-	defs := append([]resource.Definition(nil), catalog.Definitions...)
+	var defs []resource.Definition
+	for _, d := range catalog.Definitions {
+		if d.Key == BuiltinClusterKey {
+			// A stored copy is only history of the system admission; it never
+			// takes part in matching and must equal the trusted definition.
+			if !IsBuiltinClusterDefinition(d) {
+				return nil, ErrReservedDefinition
+			}
+			continue
+		}
+		defs = append(defs, d)
+	}
 	resource.SortDefinitions(defs)
 	for _, d := range defs {
 		if err := d.Validate(); err != nil {
@@ -67,6 +78,11 @@ func newDefinitionMatcher(ctx Context, catalog Catalog) (*definitionMatcher, err
 		m.defs[d.Key] = d
 	}
 	m.list = defs
+	if !ctx.ReferenceCluster && ctx.Env.Profile == application.ProfileInternalK8s {
+		if _, ok := catalog.Types[TypeCluster]; ok {
+			m.defs[BuiltinClusterKey] = BuiltinClusterDefinition()
+		}
+	}
 	return m, nil
 }
 
@@ -77,6 +93,24 @@ func (m *definitionMatcher) definition(key string) (resource.Definition, bool) {
 
 // match returns the winning definition for one node.
 func (m *definitionMatcher) match(node *Node) (Match, error) {
+	if m.ctx.isImplicitCluster(node) {
+		// ADR-013: the Environment Connection selects this node; authored
+		// Definitions and ties cannot redirect it.
+		if _, ok := m.defs[BuiltinClusterKey]; !ok {
+			return Match{}, fmt.Errorf("planning: resource type %q is not registered", TypeCluster)
+		}
+		if len(node.Params) > 0 {
+			return Match{}, fmt.Errorf("planning: %s is bound to the environment connection and accepts no params", node.Descriptor)
+		}
+		return Match{
+			Descriptor:    node.Descriptor,
+			DefinitionKey: BuiltinClusterKey,
+			DriverType:    resource.DriverExistingCluster,
+			ConnectionKey: m.ctx.Env.ConnectionKey,
+			Specificity:   -1,
+			Binding:       BindingEnvironmentConnection,
+		}, nil
+	}
 	ctx := resource.MatchContext{
 		EnvironmentType: m.ctx.Env.Type,
 		ApplicationID:   m.ctx.App.Key,

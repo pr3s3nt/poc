@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-09
 ---
 
 # Current project state
@@ -307,3 +307,22 @@ Recovery/fencing failure paths are covered by local tests rather than this happy
 recording. Other updated legacy runners were syntax-checked, not all replayed live.
 The pre-existing AWS integration-tag test has an EKSDescriptor argument mismatch; no live AWS run
 is authorized or claimed. Prior set-once evidence remains historical.
+
+## Implicit internal cluster binding — locally verified 2026-10-09
+
+[ADR-013](architecture/decisions/ADR-013-implicit-existing-cluster.md) removes
+per-cluster user Definition registration by binding an implicit existing-cluster
+node to the Environment Connection. Product planner now uses this by default;
+the reference harness explicitly retains reference matching. Execution admits a
+reserved system Definition before FK-dependent writes; public registration and
+foreign-content collisions fail closed. Existing descriptor/Application scope,
+historical Definitions and target restoration remain compatible. New seeds no
+longer create the authored internal cluster Definition. Console shows the
+Environment Connection binding; namespace/PostgreSQL and cloud matching remain.
+
+[Local evidence](verification/2026-10-09-implicit-existing-cluster-local.md) records
+Go tests/build, targeted race suites, frontend typecheck/lint/154 tests/build,
+syntax checks and fake-adapter browser create/deploy/restart with no per-cluster
+Definition registration. IMP-019 is resolved for this delivery. No live Kubernetes,
+AWS or PostgreSQL integration run was performed. FK ordering is locally simulated;
+existing transition tests pass, without a new live transition proof.

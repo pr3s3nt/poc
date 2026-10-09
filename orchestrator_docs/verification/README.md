@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-09
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-09 | Implicit internal cluster binding, reserved Definition admission/race/FK ordering, Console projection and fake-adapter browser restart | [Implicit cluster local delivery](2026-10-09-implicit-existing-cluster-local.md) |
 | 2026-10-08 | Requested backend/frontend Dockerfiles, automatic Compose rebuild and final local startup/UI smoke | [Dockerfile/Compose refresh](2026-10-08-dockerfile-compose-refresh.md) |
 | 2026-10-08 | Ordinary verified Compose Vault seed, legacy-preserving conversion, real two-Vault human UI recording, credential-reference runtime and token refresh | [Normal Compose Vault store](2026-10-08-compose-vault-normal-store.md) |
 | 2026-10-08 | Default source-built Compose, automatic platform Vault database seed, real Vault UI secret writes, token ACL isolation and restart persistence | [Compose Vault bootstrap](2026-10-08-compose-vault-bootstrap.md) |

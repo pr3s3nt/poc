@@ -2,7 +2,7 @@
 id: UC-05-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-09
 ---
 
 # UC-05 context — Validate and preview Score changes
@@ -42,3 +42,11 @@ Local verification does not claim live kind/AWS execution.
 - [`HTTP boundary`](../../../backend/internal/delivery/http/score_preview.go)
 - [`Web Console`](../../../frontend/src/features/preview/)
 - [`backend/test/conformance`](../../../backend/test/conformance/)
+
+## Implicit internal cluster delivery (2026-10-09)
+
+[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
+removes per-cluster user Definition registration/matching for internal-k8s.
+Default planning, system binding, persistence admission and Console projection
+are implemented and [locally verified](../../verification/2026-10-09-implicit-existing-cluster-local.md).
+Other resource/cloud matching remains unchanged; no new live cluster/cloud proof.

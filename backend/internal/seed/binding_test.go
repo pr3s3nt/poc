@@ -154,7 +154,7 @@ func TestApplyKeepsSameStructureNonAWSDefinitionWithCustomInputs(t *testing.T) {
 	if err := seed.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"cluster-internal-registered", "postgres-internal-statefulset"} {
+	for _, key := range []string{"postgres-internal-statefulset"} {
 		d := definitionByKey(t, st, opts.OrganizationKey, key)
 		if d.SourceFingerpr != "" {
 			t.Fatalf("%s unexpectedly carries a fingerprint", key)
@@ -167,7 +167,7 @@ func TestApplyKeepsSameStructureNonAWSDefinitionWithCustomInputs(t *testing.T) {
 	if err := seed.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"cluster-internal-registered", "postgres-internal-statefulset"} {
+	for _, key := range []string{"postgres-internal-statefulset"} {
 		got := definitionByKey(t, st, opts.OrganizationKey, key)
 		if !strings.Contains(toString(got.DriverInputs), "authored-${context.app.id}") || !strings.Contains(toString(got.DriverInputs), "custom-context") {
 			t.Fatalf("%s custom inputs overwritten: %+v", key, got.DriverInputs)
@@ -225,7 +225,7 @@ func TestApplyKeepsPlatformAuthoredDefinitionsOfSeededKeys(t *testing.T) {
 	if err := seed.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
-	cluster := definitionByKey(t, st, opts.OrganizationKey, "cluster-internal-registered")
+	cluster := resource.Definition{Key: "cluster-internal-registered", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, ConnectionKey: opts.ConnectionKey}
 	cluster.Criteria = []resource.Criterion{{ApplicationID: "only-mine", Class: "internal"}}
 	cluster.DriverInputs = map[string]any{"values": map[string]any{"variables": map[string]any{"name": "authored"}}}
 	if err := st.SaveResourceDefinition(ctx, opts.OrganizationKey, cluster); err != nil {

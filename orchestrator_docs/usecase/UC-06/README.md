@@ -2,7 +2,7 @@
 id: UC-06-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-28
+last_reviewed: 2026-10-09
 ---
 
 # UC-06 context — Deploy Workload
@@ -48,3 +48,11 @@ Local verification does not claim live kind/AWS execution.
 
 The Web Console Application home now exposes the UC-12/16 pending-change
 Preview → Deploy flow. Broader UC-06 deployment-details UI is still deferred.
+
+## Implicit internal cluster delivery (2026-10-09)
+
+[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
+removes per-cluster user Definition registration/matching for internal-k8s.
+Default planning, system binding, persistence admission and Console projection
+are implemented and [locally verified](../../verification/2026-10-09-implicit-existing-cluster-local.md).
+Other resource/cloud matching remains unchanged; no new live cluster/cloud proof.

@@ -2,7 +2,7 @@
 # Local UC-01 per-Environment connection verification without Docker, kind or
 # cloud: a fake-adapter backend with JSON state and a read-only kubectl
 # stand-in serves the built Web Console. A Platform Engineer registers a
-# second Connection and a matching cluster Definition; a Developer creates an
+# second Connection (no cluster Definition is needed, ADR-013); a Developer creates an
 # Application (UNCONFIGURED), saves staging with that Connection in Settings
 # and production to the default independently, previews and deploys, then the
 # backend restarts on the same state and both saved (still editable) bindings must remain.

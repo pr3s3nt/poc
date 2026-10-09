@@ -2,7 +2,7 @@
 id: UC-05-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-09
 ---
 
 # UC-05 — Validate and Preview Score Changes
@@ -151,3 +151,9 @@ Old resources and historical executions resolve their stored targets for queries
 recovery and cleanup. Explicit PostgreSQL transfer quiesces writers and restores
 before destination apps/routes become live. See
 [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).
+
+## Implicit internal cluster binding
+
+- **BR-12:** Preview shows the implicit existing-cluster node and system execution binding derived from the pinned Environment Connection for internal-k8s, without matching user cluster Definitions or writing a system catalog record. Cloud/resource matching and no-mutation guarantees remain.
+
+See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).

@@ -2,7 +2,7 @@
 id: UC-04-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-09
 ---
 
 # UC-04 — Use Case Realization
@@ -66,7 +66,8 @@ and verification/provider details that can contain credentials.
 ## Execution integration
 
 Shared design: [Connection credentials](../../architecture/connection-credentials.md).
-Resource execution resolves matched Definition's Connection; workload target
+Resource execution resolves the matched Definition's Connection, or the pinned
+Environment Connection for the implicit internal cluster; workload target
 retains opaque Organization/Connection identity and secret reference only.
 Each Kubernetes operation resolves a private short-lived kubeconfig file,
 mode 0600 in private directory, removes it after the subprocess finishes. Never
@@ -99,3 +100,12 @@ admission checks matching identity and expected prior credential before creating
 converting the Compose legacy record or refreshing its bootstrap credential.
 Concurrent losers clean only their own attempt objects. Runtime uses the ordinary
 SecretStoreResolver; conversion preserves store ID and existing references.
+
+## Implicit internal cluster collaboration
+
+[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
+changes only internal cluster binding: the enricher supplies the provider node,
+trusted system binding bypasses criteria matching, and UC-08 resolves the selected
+Environment Connection through existing-cluster. Preview is pure; execution
+admits the reserved system Definition before persistence writes. Other resource
+Definitions, executor scheduling and output propagation remain unchanged.

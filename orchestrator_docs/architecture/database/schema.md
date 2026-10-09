@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-09
 ---
 
 # Database Schema
@@ -423,3 +423,12 @@ atomically convert matching `platform-vault` legacy metadata or refresh a token'
 opaque credential reference after verification, preserving the row ID/key and
 endpoint/mount identity. CAS checks protect concurrent startup. No secret/token
 plaintext is stored, and Environment/revision/value references remain unchanged.
+
+## System existing-cluster Definition compatibility
+
+[ADR-013](../decisions/ADR-013-implicit-existing-cluster.md) keeps existing
+Definition FKs and tables unchanged. Execution admits a reserved system-owned
+`builtin-existing-cluster` row idempotently before dependent resource/progress
+writes; public registration cannot claim this key. Preview performs no writes.
+Existing authored Definitions/history remain intact. Connection identity stays on
+Active Resource and plan binding; no per-Connection user Definition is needed.

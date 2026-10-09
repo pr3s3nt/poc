@@ -304,7 +304,7 @@ try {
   await h.type(page.getByLabel('Run ID'), 'catalog-demo');
   await h.type(page.getByLabel('Score after (YAML or JSON)'), score, { delay: TYPE_DELAY });
   await h.click(page.getByRole('button', { name: 'Preview', exact: true }));
-  const matches = page.locator('section.content-panel').filter({ has: page.getByRole('heading', { name: 'Matched Resource Definitions' }) });
+  const matches = page.locator('section.content-panel').filter({ has: page.getByRole('heading', { name: 'Resource execution bindings' }) });
   await expect(matches).toContainText('postgres-fast');
   await h.moveTo(matches.getByText('postgres-fast'));
   mark('preview-matches-new-definition');

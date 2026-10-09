@@ -440,7 +440,7 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 			continue
 		}
 		target := execution.Target{Namespace: planCtx.Env.Namespace(), Extra: map[string]string{"application": planCtx.App.Key, "environment": planCtx.Env.Key}}
-		if err := restoreTarget(&target, instance.TargetRef, planCtx.OrganizationKey); err != nil {
+		if err := restoreEnvironmentTarget(&target, instance.TargetRef, planCtx.OrganizationKey, planCtx.Env.ConnectionKey); err != nil {
 			return err
 		}
 		instance.Status = domain.InstanceRemoving
@@ -729,7 +729,7 @@ func (s *Service) GenerationTarget(ctx context.Context, app appdomain.Applicatio
 	for _, instance := range instances {
 		candidate := base
 		candidate.Extra = map[string]string{"application": app.Key, "environment": env.Key}
-		if err := restoreTarget(&candidate, instance.TargetRef, app.OrganizationKey); err != nil {
+		if err := restoreEnvironmentTarget(&candidate, instance.TargetRef, app.OrganizationKey, env.ConnectionKey); err != nil {
 			return execution.Target{}, err
 		}
 		if candidate.Explicit() {
@@ -780,7 +780,7 @@ func (s *Service) routesFor(ctx context.Context, app appdomain.Application, env 
 	for _, instance := range instances {
 		candidate := base
 		candidate.Extra = map[string]string{"application": app.Key, "environment": env.Key}
-		if err := restoreTarget(&candidate, instance.TargetRef, app.OrganizationKey); err != nil {
+		if err := restoreEnvironmentTarget(&candidate, instance.TargetRef, app.OrganizationKey, env.ConnectionKey); err != nil {
 			return err
 		}
 		target = candidate
@@ -832,6 +832,19 @@ func (s *Service) preflightSecretDelivery(ctx context.Context, cmd DeployCommand
 		return configport.ErrNoStore
 	}
 	return s.registry.CheckWorkloadAuth(ctx, cmd.OrganizationKey, env.SecretStoreKey)
+}
+
+// restoreEnvironmentTarget restores a stored target and rejects a credential
+// reference that names a Connection other than the one the Environment
+// generation is pinned to; the stored identity is never trusted blindly.
+func restoreEnvironmentTarget(target *execution.Target, ref map[string]any, organizationKey, connectionKey string) error {
+	if err := restoreTarget(target, ref, organizationKey); err != nil {
+		return err
+	}
+	if target.Connection != "" && target.Connection != connectionKey {
+		return fmt.Errorf("deployment: workload target uses a connection other than the environment connection")
+	}
+	return nil
 }
 
 // RestoreTarget rebuilds a target from a persisted TargetRef (exported for

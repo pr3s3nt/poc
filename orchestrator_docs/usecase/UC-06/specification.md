@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-09
 ---
 
 # UC-06 — Deploy Workload
@@ -41,7 +41,7 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 4. **MS-04:** Orchestrator đọc Execution Profile và runtime configuration của Application.
 5. **MS-05:** Orchestrator enrich graph theo VAR-01 hoặc VAR-02.
 6. **MS-06:** Orchestrator thêm namespace có identity theo Environment và resource dependencies từ Score.
-7. **MS-07:** Orchestrator match Resource Definitions rồi expand Resource References và provision rules tới fixed point; `postgres` được chọn thành Aurora hoặc StatefulSet theo Matching Criteria của Application.
+7. **MS-07:** Orchestrator bind internal cluster ngầm từ Environment Connection, match Resource Definitions cho các resource còn lại rồi expand Resource References và provision rules tới fixed point; `postgres` được chọn thành Aurora hoặc StatefulSet theo profile và Matching Criteria của Environment.
 8. **MS-08:** Orchestrator validate graph/contracts và tính provider-first provision batches.
 9. **MS-09:** UC-06 `«include»` UC-08 để provision/reuse resources theo dependency order.
 10. **MS-10:** Orchestrator nhận resource outputs và resolve các binding của workload.
@@ -75,7 +75,7 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 
 - **BR-01:** Planning phải duy trì invariant `current + Delta = Candidate`.
 - **BR-02:** Resource Descriptor là identity ổn định; new VPC/EKS scope Environment (legacy AWS application scope theo ADR-011), namespace scope Environment, Score dependency dùng declared scope.
-- **BR-03:** Execution Profile chỉ enrich graph/context; provider-specific execution được chọn qua Resource Definition và executor adapter.
+- **BR-03:** Execution Profile chỉ enrich graph/context; provider-specific execution được chọn qua Resource Definition và executor adapter; internal cluster dùng trusted system binding theo ADR-013, không matching catalog.
 - **BR-04:** Graph phải là DAG và batches phải đặt mọi provider trước consumer.
 - **BR-05:** Chỉ commit Candidate Deployment Set thành current sau khi UC-08 và workload apply hoàn tất thành công.
 - **BR-06:** Resource output chỉ được binding nếu thuộc output contract của Resource Type/Definition.
@@ -221,7 +221,7 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 
 ## Environment connection binding
 
-- **BR-20:** Every deployment resolves and pins the configured Environment target, never a shared Application binding/default. Internal Kubernetes and AWS Terraform VPC/EKS Definition connection must equal selected Environment connection; reject conflicts before execution. External database Definitions keep their Driver Account. Matching specificity/ties remain unchanged. New AWS scopes are ENVIRONMENT; legacy bindings preserve application-scope resource identity via ADR-011. UNCONFIGURED Preview/Deploy is rejected 422 field connectionKey before executor/provisioning. Platform Engineer must supply matching cluster Definitions, no silent copy/fallback.
+- **BR-20:** Every deployment resolves and pins the configured Environment target, never a shared Application binding/default. Internal Kubernetes and AWS Terraform VPC/EKS Definition connection must equal selected Environment connection; reject conflicts before execution. External database Definitions keep their Driver Account. Matching specificity/ties remain unchanged. New AWS scopes are ENVIRONMENT; legacy bindings preserve application-scope resource identity via ADR-011. UNCONFIGURED Preview/Deploy is rejected 422 field connectionKey before executor/provisioning. For internal-k8s the implicit cluster node binds directly to the Environment Connection under ADR-013, bypassing authored cluster Definition matching. AWS cluster Definitions remain required; no default/host fallback.
 
 ## Editable destination and transition consistency (ADR-012)
 
@@ -236,3 +236,9 @@ Old resources and historical executions resolve their stored targets for queries
 recovery and cleanup. Explicit PostgreSQL transfer quiesces writers and restores
 before destination apps/routes become live. See
 [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).
+
+## Implicit internal cluster binding
+
+- **BR-21:** Internal-k8s creates an implicit existing-cluster provider from the pinned Environment Connection, bypasses user Definition matching for that node, and executes it through UC-08 before downstream Kubernetes consumers. Namespace/PostgreSQL and AWS VPC/EKS/Aurora retain matching.
+
+See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).

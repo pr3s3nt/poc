@@ -4,8 +4,7 @@
 # mocks).
 #
 # A Platform Engineer uploads the same kubeconfig twice (two READY nondefault
-# logical Connections) and registers the matching existing-cluster Definition
-# for staging's; a Developer creates an UNCONFIGURED Application, sees Preview
+# logical Connections; no cluster Definition is registered, ADR-013); a Developer creates an UNCONFIGURED Application, sees Preview
 # refuse it, sets staging and production to different Connections in Environment
 # Settings (editable: kept after a refresh and a backend restart, an empty
 # Environment may be rebound, and once staging has runtime resources a different

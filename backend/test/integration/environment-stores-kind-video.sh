@@ -342,16 +342,8 @@ for pair in "${SOURCE_NAME}:${SOURCE_KEY}" "${DEST_NAME}:${DEST_KEY}"; do
   jq -n --arg name "${name}" --rawfile cfg "${UPLOAD}" --arg ctx "${CONTEXT}" '{name:$name,kubeconfig:$cfg,context:$ctx}' \
     | api_post platform-engineer /api/v1/connections/kubernetes "${WORK}/connection-${key}.json"
   [[ "$(jq -r .key "${WORK}/connection-${key}.json")" == "${key}" && "$(jq -r .status "${WORK}/connection-${key}.json")" == "READY" ]]
-  # The Definition reads the Connection's own cluster/kubeContext config through
-  # the planner's context.connection.* placeholders; existing-cluster requires
-  # the internal-k8s profile.
-  jq -n --arg key "cluster-${key}" --arg conn "${key}" \
-    '{key:$key,resourceType:"k8s-cluster",executionProfile:"internal-k8s",driverType:"existing-cluster",connectionKey:$conn,
-      driverInputs:{values:{variables:{name:"${context.connection.cluster}",kubeContext:"${context.connection.context}"}}},
-      criteria:[{res_id:("connections."+$conn),class:"internal"}]}' \
-    | api_post platform-engineer /api/v1/resource-definitions "${WORK}/definition-${key}.json"
 done
-note "setup: two READY credential-backed Connections (${SOURCE_KEY}, ${DEST_KEY}) to the same physical cluster, each with its matching cluster Definition"
+note "setup: two READY credential-backed Connections (${SOURCE_KEY}, ${DEST_KEY}) to the same physical cluster; the implicit cluster node needs no Definition (ADR-013)"
 
 kubectl --context "${CONTEXT}" -n traefik port-forward svc/traefik :80 > "${WORK}/traefik-port-forward.log" 2>&1 &
 PIDS+=($!)

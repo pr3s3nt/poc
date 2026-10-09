@@ -2,7 +2,7 @@
 id: ADR-011
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-09
 ---
 
 # ADR-011 — Environment execution binding set once
@@ -10,6 +10,8 @@ last_reviewed: 2026-10-07
 Status: Superseded in part — permanent set-once selection/admission/UI rules are
 replaced by [ADR-012](ADR-012-environment-stores-and-transitions.md). This record
 preserves historical design and generation-0 scope/naming/legacy decisions.
+The internal cluster user-Definition matching requirement is replaced by
+[ADR-013](ADR-013-implicit-existing-cluster.md); other target guards remain.
 Supersedes the shared Application target and new AWS scopes in ADR-001;
 ADR-001 legacy identity remains supported as documented below.
 

@@ -190,17 +190,6 @@ func ResourceDefinitions(o Options) []resource.Definition {
 			Criteria:        []resource.Criterion{{}},
 		},
 		{
-			Key:             "cluster-internal-registered",
-			ResourceTypeKey: "k8s-cluster",
-			DriverType:      resource.DriverExistingCluster,
-			ConnectionKey:   o.ConnectionKey,
-			DriverInputs: driverInputs("", map[string]any{
-				"name":        "${context.connection.cluster}",
-				"kubeContext": "${context.connection.context}",
-			}),
-			Criteria: []resource.Criterion{{Class: "internal"}},
-		},
-		{
 			Key:             "cluster-aws-eks",
 			ResourceTypeKey: "k8s-cluster",
 			DriverType:      resource.DriverTerraform,

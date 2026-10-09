@@ -2,7 +2,7 @@
 id: UC-08-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-09
 ---
 
 # UC-08 context — Provision resources
@@ -37,3 +37,11 @@ Local verification does not claim live kind/AWS execution.
 - [`backend/internal/adapters/kubernetes`](../../../backend/internal/adapters/kubernetes/)
 - [`backend/internal/adapters/terraform`](../../../backend/internal/adapters/terraform/)
 - [`backend/internal/ports/execution`](../../../backend/internal/ports/execution/)
+
+## Implicit internal cluster delivery (2026-10-09)
+
+[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
+removes per-cluster user Definition registration/matching for internal-k8s.
+Default planning, system binding, persistence admission and Console projection
+are implemented and [locally verified](../../verification/2026-10-09-implicit-existing-cluster-local.md).
+Other resource/cloud matching remains unchanged; no new live cluster/cloud proof.

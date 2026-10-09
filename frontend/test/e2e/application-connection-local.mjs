@@ -2,8 +2,8 @@
 // drives the Web Console served by a local fake-adapter backend with JSON
 // state. Invoked by backend/test/integration/application-connection-playwright-local.sh,
 // once per phase: "create" before the backend restart and "restart" after it.
-// A Platform Engineer session registers the second Connection and its matching
-// cluster Definition through the same authenticated API the console uses; the
+// A Platform Engineer session registers the second Connection (no cluster
+// Definition is needed, ADR-013) through the same authenticated API the console uses; the
 // Developer session then works only through the UI. The set-once rule is also
 // probed through the API (negative requests only, never as a fixture).
 import { chromium, expect } from '@playwright/test';
@@ -80,7 +80,7 @@ try {
   async function matchedDefinitions(environment, workload = 'api') {
     await previewScore(environment, workload);
     const region = page.getByRole('region', { name: 'Score preview result' });
-    await expect(region).toContainText('Matched Resource Definitions');
+    await expect(region).toContainText('Resource execution bindings');
     return region;
   }
   async function saveWorkload(environment) {
@@ -100,7 +100,7 @@ try {
   }
 
   if (phase === 'create') {
-    // Platform Engineer registers the second Connection (no matching Definition yet).
+    // Platform Engineer registers the second Connection (no cluster Definition is needed).
     await signIn(platformPage, 'platform-engineer');
     const registered = await platformPage.request.post(`${baseURL}/api/v1/connections/kubernetes`, { data: { key: labKey, clusterId: 'lab', kubeContext: 'lab-context' } });
     expect(registered.status()).toBe(201);
@@ -167,32 +167,18 @@ try {
     await page.getByRole('button', { name: `← ${name}` }).click();
     await expectTarget('home');
 
-    // Negative: the seeded internal-cluster Definition must not silently
-    // retarget staging before a matching Definition is registered.
+    // ADR-013: no cluster Definition is registered; staging previews and plans
+    // the implicit cluster from its Environment Connection.
     await previewScore('staging');
-    await expect(page.getByRole('alert')).toContainText('Resource Definitions');
-    await expect(page.getByRole('region', { name: 'Score preview result' })).toHaveCount(0);
-    await shot('preview-before-definition');
+    await expect(page.getByRole('region', { name: 'Score preview result' })).toContainText(`Environment connection ${labKey}`);
+    await shot('preview-environment-connection');
     await page.getByRole('button', { name: `← ${name}` }).click();
-    await page.getByRole('button', { name: 'Preview changes' }).click();
-    await expect(page.getByRole('alert')).toBeVisible();
-    await expect(page.getByLabel('Deployment preview')).toHaveCount(0);
-    expect((await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/staging/deployments`)).json()).deployments ?? []).toHaveLength(0);
-    await shot('pending-preview-blocked');
 
-    // Platform Engineer registers the matching cluster Definition.
-    const definition = await platformPage.request.post(`${baseURL}/api/v1/resource-definitions`, { data: {
-      key: `cluster-${labKey}`, resourceType: 'k8s-cluster', executionProfile: 'internal-k8s', driverType: 'existing-cluster', connectionKey: labKey,
-      driverInputs: { values: { variables: { name: '${context.connection.cluster}', kubeContext: '${context.connection.context}' } } },
-      criteria: [{ class: 'internal', res_id: `connections.${labKey}` }],
-    } });
-    expect(definition.status()).toBe(201);
-
-    // Staging preview matches the lab Definition and deploys on lab only.
+    // Staging preview binds the lab Connection and deploys on lab only.
     await page.goto(`${baseURL}/ui/applications/${appId}`);
     const matches = await matchedDefinitions('staging');
-    await expect(matches).toContainText(`cluster-${labKey}`);
-    await expect(matches).not.toContainText('cluster-internal-registered');
+    await expect(matches).toContainText(`Environment connection ${labKey}`);
+    await expect(matches).not.toContainText('internal-cluster');
     await shot('score-preview-matched');
     await page.goto(`${baseURL}/ui/applications/${appId}`);
     await page.getByRole('button', { name: 'Preview changes' }).click();
@@ -206,7 +192,7 @@ try {
     await shot('deployed-staging');
 
     // Production independently chooses the default cluster Connection and
-    // plans with the seeded Definition, not the lab one.
+    // plans from its own Environment Connection, not the lab one.
     await page.getByRole('button', { name: /Production/ }).click();
     await setConnection('production', 'internal-cluster');
     await page.getByRole('button', { name: `← ${name}` }).click();
@@ -214,8 +200,8 @@ try {
     await expectTarget('home-production', 'production', 'internal-cluster');
     await shot('production-saved');
     const productionMatches = await matchedDefinitions('production');
-    await expect(productionMatches).toContainText('cluster-internal-registered');
-    await expect(productionMatches).not.toContainText(`cluster-${labKey}`);
+    await expect(productionMatches).toContainText('Environment connection internal-cluster');
+    await expect(productionMatches).not.toContainText(labKey);
     await shot('production-score-preview');
     view = await apiView();
     expect(byKey(view, (item) => [item.connectionKey, item.configured])).toEqual({ staging: [labKey, true], production: ['internal-cluster', true] });
@@ -239,7 +225,7 @@ try {
     await page.getByRole('button', { name: `← ${name}` }).click();
     await page.getByRole('button', { name: /Staging/ }).click();
     const matches = await matchedDefinitions('staging', 'probe');
-    await expect(matches).toContainText(`cluster-${labKey}`);
+    await expect(matches).toContainText(`Environment connection ${labKey}`);
     await shot('restart-score-preview');
     // Persisted Active Resource evidence: staging's cluster ran on lab only.
     const raw = readFileSync(env.ORCH_E2E_STATE_FILE, 'utf8');

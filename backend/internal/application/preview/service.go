@@ -257,6 +257,10 @@ type MatchView struct {
 	DefinitionKey string `json:"definitionKey"`
 	DriverType    string `json:"driverType"`
 	Specificity   int    `json:"specificity"`
+	// Binding and ConnectionKey are set only for the Environment-bound
+	// builtin cluster (ADR-013).
+	Binding       string `json:"binding,omitempty"`
+	ConnectionKey string `json:"connectionKey,omitempty"`
 }
 
 // Public renders the sanitized view. It deep-copies the Candidate Set before
@@ -300,7 +304,7 @@ func (p *DeploymentPreview) Public() (View, error) {
 	sort.Strings(descriptors)
 	for _, d := range descriptors {
 		m := p.Plan.Matches[d]
-		view.Matches = append(view.Matches, MatchView{Descriptor: m.Descriptor, DefinitionKey: m.DefinitionKey, DriverType: string(m.DriverType), Specificity: m.Specificity})
+		view.Matches = append(view.Matches, MatchView{Descriptor: m.Descriptor, DefinitionKey: m.DefinitionKey, DriverType: string(m.DriverType), Specificity: m.Specificity, Binding: m.Binding, ConnectionKey: bindingConnection(m)})
 	}
 	for _, batch := range p.Plan.Batches {
 		view.Batches = append(view.Batches, append([]string{}, batch...))
@@ -358,4 +362,12 @@ func copyDocument(set environment.Document) (environment.Document, error) {
 		out.Shared = map[string]environment.ResourceEntry{}
 	}
 	return out, nil
+}
+
+// bindingConnection exposes the Connection key only for the Environment-bound match.
+func bindingConnection(m planning.Match) string {
+	if m.Binding == "" {
+		return ""
+	}
+	return m.ConnectionKey
 }

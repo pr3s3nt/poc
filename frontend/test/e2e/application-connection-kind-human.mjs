@@ -5,8 +5,8 @@
 //
 // Every shown product mutation is a UI action: a Platform Engineer uploads the
 // kubeconfig twice (two READY nondefault logical Connections that point at the
-// same physical cluster, an honest limit of this proof) and registers the
-// matching existing-cluster Resource Definition for staging's; a Developer
+// same physical cluster, an honest limit of this proof; no cluster Definition is
+// needed, ADR-013); a Developer
 // creates an UNCONFIGURED Application, sees Preview refuse it, then sets
 // staging and production to different Connections in Environment Settings (the
 // selection stays editable, survives a page refresh and a backend restart, and an
@@ -48,7 +48,6 @@ const productionName = `Production kind ${suffix}`;
 const slug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 const stagingKey = slug(stagingName);
 const productionKey = slug(productionName);
-const definitionKey = `cluster-${stagingKey}`;
 const defaultKey = 'internal-cluster';
 
 // Credential values of the uploaded file: compared in-process only.
@@ -162,26 +161,8 @@ try {
   await uploadConnection(stagingName, stagingKey, 'staging-connection');
   await uploadConnection(productionName, productionKey, 'production-connection');
 
-  // 2. Matching existing-cluster Definition for the staging Connection:
-  //    Resource ID connections.<key>. (Production is not deployed in this proof.)
-  await h.click(page.getByRole('link', { name: /Resource definitions/ }));
-  await expect(page.getByRole('heading', { name: 'Resource definitions', level: 1 })).toBeVisible();
-  await h.type(page.getByLabel('Definition ID'), definitionKey);
-  await h.choose(page.getByLabel('Resource Type'), 'k8s-cluster');
-  await h.choose(page.locator('select').filter({ has: page.locator('option[value="existing-cluster"]') }), 'Existing cluster');
-  await h.type(page.getByLabel('Connection key'), stagingKey);
-  await h.type(page.getByLabel('Criterion 1 Resource ID'), `connections.${stagingKey}`);
-  await h.type(page.getByLabel('Criterion 1 Class'), 'internal');
-  await h.type(page.getByLabel('Driver variables (JSON object)'), '{"name":"${context.connection.cluster}"}', { replace: true });
-  mark('definition-filled');
-  await h.pause(SHORT_READ);
-  await h.click(page.getByRole('button', { name: 'Register resource definition' }));
-  await expect(page.getByRole('status')).toHaveText(`Registered resource definition ${definitionKey}.`);
-  const definitionEntry = page.locator('.catalog-entry').filter({ has: page.getByText(definitionKey, { exact: true }) });
-  await expect(definitionEntry).toContainText('k8s-cluster · internal-k8s · existing-cluster · 1 criteria');
-  await h.moveTo(definitionEntry);
-  mark('definition-registered');
-  await h.pause(LONG_READ);
+  // 2. No cluster Definition is registered: the Environment Connection backs the
+  //    implicit cluster node (ADR-013).
   await signOut();
   mark('platform-engineer-signed-out');
 
@@ -439,7 +420,7 @@ try {
   mark('job-submitted');
   await h.pause(READ);
 
-  writeFileSync(`${evidenceDir}/run.json`, JSON.stringify({ applicationId: appId, namespace, stagingKey, productionKey, defaultKey, definitionKey }, null, 2));
+  writeFileSync(`${evidenceDir}/run.json`, JSON.stringify({ applicationId: appId, namespace, stagingKey, productionKey, defaultKey }, null, 2));
   console.log(`PASS: application=${appId} namespace=${namespace} staging=${stagingKey} production=${productionKey} checks=backend,environment,secret,database,job-submit marks=${marks.length}`);
 } finally {
   if (forward && forward.exitCode === null && forward.signalCode === null) {

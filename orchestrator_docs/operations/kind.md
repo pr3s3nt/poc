@@ -2,7 +2,7 @@
 id: RUNBOOK-KIND
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-09
 ---
 
 # kind verification
@@ -221,11 +221,11 @@ bash backend/test/integration/application-connection-kind-video.sh
 The [runner](../../backend/test/integration/application-connection-kind-video.sh)
 uses real Kubernetes executors on the existing `kind-idp-internal` cluster.
 The [human browser flow](../../frontend/test/e2e/application-connection-kind-human.mjs)
-registers two uploaded logical Connections and a matching staging existing-cluster Definition via
-Platform Engineer UI, then signs in as Developer, creates an unconfigured Application, then sets the nondefault
+registers two uploaded logical Connections via Platform Engineer UI; the
+internal cluster node is bound implicitly without per-cluster Definition registration, then signs in as Developer, creates an unconfigured Application, then sets the nondefault
 Connection in staging Environment Settings and separately sets production, verifies that an empty
 Environment can be rebound, configures workloads through forms,
-Previews/Deploys, and opens the deployed diagnostic app. Connection/Definition/
+Previews/Deploys, and opens the deployed diagnostic app. Connection/
 Application/configuration mutations are UI actions; API reads and Kubernetes
 readiness/cleanup assertions are observers.
 
@@ -290,3 +290,10 @@ record content after destination rollout/Ingress cutover. Keep source generation
 until explicit cleanup; inspect owned labels before deletion. Video/artifacts
 must exclude tokens, Secret bytes and dump contents. Cleanup run-owned stores,
 private data and owned namespaces; retain operator releases/context unchanged.
+
+## ADR-013 internal cluster onboarding
+
+New internal deployments select the uploaded Environment Connection directly;
+no per-cluster Definition is required. Historical recordings above may show
+manual Definition registration. Their evidence remains historical. The implicit
+node and system Definition follow [ADR-013](../architecture/decisions/ADR-013-implicit-existing-cluster.md).

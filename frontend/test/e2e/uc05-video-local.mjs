@@ -175,8 +175,8 @@ try {
   await h.moveTo(panel('Provision order').locator('ol > li').first());
   mark('provision-order');
   await h.pause(READ);
-  await expect(panel('Matched Resource Definitions')).toContainText('postgres-internal-statefulset');
-  await h.moveTo(panel('Matched Resource Definitions').getByText('postgres-internal-statefulset'));
+  await expect(panel('Resource execution bindings')).toContainText('postgres-internal-statefulset');
+  await h.moveTo(panel('Resource execution bindings').getByText('postgres-internal-statefulset'));
   mark('matches');
   await h.pause(READ);
   await expect(panel('Resource Graph')).toContainText('→');

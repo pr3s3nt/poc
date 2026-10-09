@@ -2,7 +2,7 @@
 id: UC-08-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-09
 ---
 
 # UC-08 — Provision Infrastructure and Application Resources
@@ -25,7 +25,7 @@ Provision implicit infrastructure cùng private/shared resources theo dependency
 ## Tiền điều kiện
 
 - **PRE-01:** Resource Graph đã được dựng và là DAG.
-- **PRE-02:** Mỗi resource node đã match đúng một Resource Definition.
+- **PRE-02:** Mỗi resource node có đúng một execution binding: matched Definition hoặc system existing-cluster binding theo ADR-013.
 - **PRE-03:** Driver, Driver Account/connection và credentials cần thiết đã sẵn sàng.
 - **PRE-04:** Resource Descriptor và scope Application, Environment hoặc workload đã được xác định.
 - **PRE-05:** Provision batches đặt provider trước consumer.
@@ -39,7 +39,7 @@ Provision implicit infrastructure cùng private/shared resources theo dependency
 1. **MS-01:** Orchestrator nhận Resource Graph và provider-first provision batches.
 2. **MS-02:** Với từng node trong batch hiện tại, Orchestrator tìm Active Resource theo descriptor/scope để resolve state có thể tái sử dụng.
 3. **MS-03:** Orchestrator resolve context values, resource inputs và outputs của các provider đã hoàn thành.
-4. **MS-04:** Orchestrator chọn executor từ matched Resource Definition và Execution Profile.
+4. **MS-04:** Orchestrator chọn executor từ matched Definition hoặc trusted system cluster binding và Execution Profile.
 5. **MS-05:** Executor provision/reconcile resource theo VAR-01 hoặc VAR-02.
 6. **MS-06:** Executor trả resource state và outputs theo Resource Type contract.
 7. **MS-07:** Orchestrator lưu Active Resource gồm descriptor, Definition ID, scope, executor state và outputs.
@@ -109,7 +109,7 @@ UC-08 Provision Resources
 
 ## Workload rendering boundary
 
-- **BR-07:** A workload Definition selects UC-06 rendering but is excluded from
+- **BR-09:** A workload Definition selects UC-06 rendering but is excluded from
   UC-08 batches. UC-08 remains sole owner of infrastructure identity and outputs;
   score-k8s consumes those outputs and cannot provision their resources again.
 
@@ -132,3 +132,9 @@ Old resources and historical executions resolve their stored targets for queries
 recovery and cleanup. Explicit PostgreSQL transfer quiesces writers and restores
 before destination apps/routes become live. See
 [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).
+
+## Implicit internal cluster binding
+
+- **BR-08:** Internal existing-cluster uses the system execution binding from the plan, validates the scoped READY Kubernetes Connection, and resolves/checks the existing cluster without creation. Admit the reserved system Definition idempotently before FK-dependent writes, never in Preview. Preserve legacy descriptors/targets and fail closed on collision or target mismatch.
+
+See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).

@@ -338,4 +338,11 @@ EnvironmentSettingsService --> EnvironmentRepository : CAS + claim
 EnvironmentTransitionService --> PostgreSQLTransfer
 EnvironmentTransitionService --> DeploymentService : pinned destination
 EnvironmentTransitionService --> EnvironmentOperation : persisted stages
+note right of ImplicitResourceEnricher
+ADR-013: internal cluster node binds directly
+to pinned Environment Connection through a trusted
+system Definition; no criteria matching.
+AWS and other resources retain DefinitionMatcher.
+end note
+
 @enduml

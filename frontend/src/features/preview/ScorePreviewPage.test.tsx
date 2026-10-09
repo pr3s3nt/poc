@@ -51,6 +51,22 @@ it('parses YAML locally and shows every planning artifact without save or deploy
   expect(screen.queryByRole('button', { name: /deploy|save/i })).not.toBeInTheDocument();
 });
 
+it('renders the builtin cluster as the Environment connection and keeps normal Definition rows', async () => {
+  const matches = [
+    { descriptor: 'k8s-cluster.internal#connections.lab', definitionKey: 'builtin-existing-cluster', driverType: 'existing-cluster', specificity: -1, binding: 'environment-connection', connectionKey: 'lab' },
+    { descriptor: 'k8s-namespace.default#environments.shop.staging', definitionKey: 'namespace-kubernetes', driverType: 'kubernetes', specificity: 0 },
+  ];
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(result({ matches }))));
+  const user = userEvent.setup();
+  render(<ScorePreviewPage application={application} environment="staging" />);
+  await fill(user);
+  await user.click(screen.getByRole('button', { name: 'Preview' }));
+  const region = await screen.findByRole('region', { name: 'Score preview result' });
+  expect(region).toHaveTextContent('Environment connection lab');
+  expect(region).not.toHaveTextContent('builtin-existing-cluster');
+  expect(region).toHaveTextContent('namespace-kubernetes');
+});
+
 it('keeps input and blocks the request on local validation errors', async () => {
   const fetcher = vi.fn();
   vi.stubGlobal('fetch', fetcher);

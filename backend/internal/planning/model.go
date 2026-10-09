@@ -105,6 +105,9 @@ type Match struct {
 	ConnectionKey string              `json:"connectionKey,omitempty"`
 	Specificity   int                 `json:"specificity"`
 	Criterion     resource.Criterion  `json:"criterion"`
+	// Binding is set only when the Environment Connection selected the
+	// Definition (ADR-013); catalog matches leave it empty.
+	Binding string `json:"binding,omitempty"`
 }
 
 // TerraformContract is the planning-time inspection of a Terraform module
@@ -200,17 +203,20 @@ type Request struct {
 	// multi-workload pending batch whose FINAL state the caller has already
 	// validated. Single-operation Preview/Deploy must leave it false.
 	AllowIntermediateEnvironmentState bool
-	OrganizationKey                   string
-	App                               application.Application
-	Env                               environment.Environment
-	Connection                        application.Connection
-	BaseSet                           environment.Document
-	Before                            *score.Document
-	After                             *score.Document
-	WorkloadID                        string
-	RunID                             string
-	Action                            deployment.Action
-	Catalog                           Catalog
-	Active                            []resource.ActiveResource
-	Terraform                         ModuleInspector
+	// ReferenceCluster opts out of the ADR-013 Environment-bound cluster and
+	// keeps planner-reference Definition matching. Conformance harness only.
+	ReferenceCluster bool
+	OrganizationKey  string
+	App              application.Application
+	Env              environment.Environment
+	Connection       application.Connection
+	BaseSet          environment.Document
+	Before           *score.Document
+	After            *score.Document
+	WorkloadID       string
+	RunID            string
+	Action           deployment.Action
+	Catalog          Catalog
+	Active           []resource.ActiveResource
+	Terraform        ModuleInspector
 }

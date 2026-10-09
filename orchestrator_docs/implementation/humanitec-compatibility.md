@@ -2,7 +2,7 @@
 id: HUMANITEC-COMPATIBILITY
 artifact: compatibility-matrix
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-09
 ---
 
 # Humanitec and Score compatibility matrix
@@ -32,7 +32,7 @@ resources hoặc các dòng khác trong bảng này.
 | Terraform source | Humanitec-compatible remote source dùng `url`/`rev`/`path`. | Runtime MVP dùng `source.module` trỏ tới module nhúng; inspector mới hiểu remote identity. | Product extension + runtime gap | IMP-007, D03, D06 |
 | Context placeholders | Các key aligned là `org.id`, `app.id`, `env.id`, `env.type`, `res.id`, `res.class`, `res.type`. | MVP còn mở rộng `org.key`, `app.key/name/profile/region`, `env.key/name/namespace`, `connection.key/kind/cluster/context`, `deployment.id`, `run.id`. | Aligned core + product extension | D06 |
 | Descriptor tokens | Humanitec reference contract không yêu cầu token `@app`, `@env`, `@connection`. | MVP dùng các token này để tạo identity ổn định cho implicit resources. | Product extension | UC-06 BR-12, D06 |
-| Implicit infrastructure and scopes | Planner reference v4 không tự thêm VPC/EKS/namespace; điều này không đại diện toàn bộ graph nội bộ của Humanitec. | Execution Profile tự enrich VPC → EKS → namespace; VPC/EKS có Application scope, namespace có Environment scope và descriptor dùng `applications.*`/`environments.*`/`connections.*`. | Product extension | ADR-001, UC-06 BR-02/03 |
+| Implicit infrastructure and scopes | Planner reference v4 không tự thêm VPC/EKS/namespace; điều này không đại diện toàn bộ graph nội bộ của Humanitec. | Execution Profile tự enrich VPC → EKS → namespace; VPC/EKS mới có Environment scope (legacy giữ Application scope), namespace có Environment scope và descriptor dùng `applications.*`/`environments.*`/`connections.*`. | Product extension | ADR-001, UC-06 BR-02/03 |
 | Container resources | Score dùng `containers.*.resources.requests/limits` cho `cpu` và `memory`. | Parser nhận đúng subset `cpu`/`memory` dạng non-empty string và giữ typed values nguyên văn tới Kubernetes Deployment; request field thiếu lấy limit cùng field, nếu không có thì default `10m`/`32Mi` khi render; limits không có default. Số JSON và Kubernetes quantity semantic validation không được hỗ trợ ở planner. | Aligned (subset) | UC-05 BR-07, UC-06 BR-11, [I06-07 evidence](../verification/2026-09-22-imp009-container-resources.md) |
 | Probes | Score dùng `livenessProbe`/`readinessProbe` với nested `httpGet`. | MVP model hiện dùng probe phẳng `{path, port}`. | Deferred compatibility | D06 |
 | Replicas | Score workload contract không có top-level `replicas`. | MVP chấp nhận top-level `replicas` như extension. | Product extension | D06 |
@@ -66,3 +66,12 @@ bindings resolve, and disables upstream infrastructure provisioners.
 
 See [ADR-010](../architecture/decisions/ADR-010-score-k8s-workload-rendering.md)
 and [rendering contract](../architecture/contracts/workload-rendering.md).
+
+## Implicit existing-cluster binding (ADR-013)
+
+**Product extension:** internal profile cluster binds directly to Environment
+Connection, with a reserved system Definition, additive Match `binding` and safe
+Connection key metadata. Its specificity `-1` denotes bypassed criteria matching.
+Reference fixture catalogs retain reference matching through explicit harness
+compatibility; all other product resource and cloud matching remains unchanged.
+See [ADR-013](../architecture/decisions/ADR-013-implicit-existing-cluster.md).

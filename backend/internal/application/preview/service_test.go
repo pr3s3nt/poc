@@ -647,8 +647,12 @@ func TestPreview_PublicViewRedactsWithoutChangingPlan(t *testing.T) {
 		}
 	}
 	for _, m := range top["matches"].([]any) {
-		if len(m.(map[string]any)) != 4 {
-			t.Fatalf("match exposes extra fields: %v", m)
+		for field := range m.(map[string]any) {
+			switch field {
+			case "descriptor", "definitionKey", "driverType", "specificity", "binding", "connectionKey":
+			default:
+				t.Fatalf("match exposes extra field %s: %v", field, m)
+			}
 		}
 	}
 }
@@ -840,5 +844,40 @@ func TestPreview_PublicViewUsesStableEmptyCollections(t *testing.T) {
 	}
 	if !reflect.DeepEqual(view.Batches, result.Plan.Batches) {
 		t.Fatal("batches changed in the view")
+	}
+}
+
+// ADR-013: Preview reports the builtin binding but never admits the system
+// Definition, and is deterministic.
+func TestPreview_BuiltinClusterIsReadOnlyAndDeterministic(t *testing.T) {
+	app, opts := newApp(t, false)
+	svc := newPreview(app.Store)
+	q := query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"])
+	first, err := svc.PreviewDeployment(context.Background(), q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := svc.PreviewDeployment(context.Background(), q)
+	if err != nil || first.Plan.PlanHash != second.Plan.PlanHash {
+		t.Fatalf("preview must be deterministic: %v", err)
+	}
+	found := false
+	view, err := first.Public()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range view.Matches {
+		if m.DefinitionKey == planning.BuiltinClusterKey {
+			found = m.Binding == planning.BindingEnvironmentConnection && m.ConnectionKey == opts.ConnectionKey
+		}
+	}
+	if !found {
+		t.Fatal("preview does not expose the builtin binding")
+	}
+	defs, _ := app.Store.ListResourceDefinitions(context.Background(), opts.OrganizationKey)
+	for _, d := range defs {
+		if d.Key == planning.BuiltinClusterKey {
+			t.Fatal("preview admitted the system definition")
+		}
 	}
 }
