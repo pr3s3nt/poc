@@ -163,3 +163,13 @@ live evidence is in the [reviewed recording](../verification/2026-10-08-environm
 - [Retained Console Connection helper](../../frontend/test/e2e/k8s4f-register.mjs)
   and [optional kind networking](../../deploy/local/compose.kind.yml) support
   private kubeconfig registration/reuse from the Docker Console.
+- [Retained Docker Console dev runner](../../backend/test/integration/k8s4f-dev-playwright.sh),
+  [human scenario](../../frontend/test/e2e/k8s4f-dev-human.mjs),
+  [workload Vault setup](../../deploy/local/workload-vault/start.sh) and
+  [port-forward supervisor](../../backend/test/integration/retained-port-forward.sh)
+  prepare and retain the new physical K8S-4F sample deployment.
+- [Caption generation](../../frontend/test/e2e/captions.mjs),
+  [ASS rendering](../../frontend/test/e2e/render-captions.mjs) and
+  [two-session video assembly](../../backend/test/integration/k8s4f-dev-compose-video.sh)
+  keep Vietnamese captions below the browser window; title cards disclose the
+  separate recorded sessions.

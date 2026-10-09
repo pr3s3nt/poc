@@ -23,6 +23,10 @@ the run-scoped kind verification cleanup procedure.
 hướng dẫn Connection, Vault/VSO, Secret Store, image và FE/BE/PostgreSQL qua Console.
 Ứng dụng được giữ lại sau khi thao tác; không có cleanup tự động như E2E runner.
 
+[Môi trường dev K8S-4F mới](k8s4f-dev.md) phân biệt cụm vật lý `kind-k8s-4f`
+và Connection mới `K8S-4F` (`k8s-4f-2`) với Connection cũ trên `idp-internal`;
+ghi cách truy cập IDP, frontend và dữ liệu được giữ lại.
+
 [Fleet GitRepo on kind](fleet-gitrepo-kind.md) documents the optional
 Harbor-image workload delivery path and its separate Git/registry credentials.
 

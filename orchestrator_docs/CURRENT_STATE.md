@@ -331,3 +331,12 @@ builtin binding and ownership-checked cleanup. No AWS or SQL-system-store
 integration run was performed. FK ordering is locally simulated; existing
 transition tests pass, without a new live transition proof. Persistent Console
 workload Vault auth was not established by the isolated test.
+
+The subsequent [retained dev deployment](verification/2026-10-09-k8s4f-dev-retained.md)
+uses the persistent Docker Console to deploy sample FE/BE/PostgreSQL onto the
+new physical `kind-k8s-4f` cluster. New Connection `K8S-4F` (`k8s-4f-2`), a
+dedicated persistent workload Vault and VSO establish actual secret delivery;
+readiness/PVC, diagnostics and reload persistence pass. Both sample attempt and
+final Applications remain deployed. The reviewed Vietnamese-captioned video
+joins registration and successful deployment sessions explicitly. See the
+[dev runbook](operations/k8s4f-dev.md) for URLs/restart and token lifetime limits.
