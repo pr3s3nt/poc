@@ -257,5 +257,8 @@ paths use local tests; no distinct-cluster DNS or AWS migration is claimed.
 Test paths are under `backend/internal/` unless the Console test is named.
 Code navigation is in [code map](../implementation/code-map.md#implicit-internal-cluster-adr-013).
 [Local evidence](../verification/2026-10-09-implicit-existing-cluster-local.md)
-records Codex review/checks and fake-adapter browser restart; no live cloud,
-cluster or PostgreSQL integration proof.
+records Codex review/checks and fake-adapter browser restart.
+[Real kind evidence](../verification/2026-10-09-k8s4f-live.md) covers retained
+kubeconfig Connection registration and the isolated real-adapter Playwright
+FE/BE/PostgreSQL flow, builtin binding and cleanup. No cloud or SQL-system-store
+integration proof is claimed.

@@ -308,7 +308,7 @@ recording. Other updated legacy runners were syntax-checked, not all replayed li
 The pre-existing AWS integration-tag test has an EKSDescriptor argument mismatch; no live AWS run
 is authorized or claimed. Prior set-once evidence remains historical.
 
-## Implicit internal cluster binding — locally verified 2026-10-09
+## Implicit internal cluster binding — local and kind verified 2026-10-09
 
 [ADR-013](architecture/decisions/ADR-013-implicit-existing-cluster.md) removes
 per-cluster user Definition registration by binding an implicit existing-cluster
@@ -323,6 +323,11 @@ Environment Connection binding; namespace/PostgreSQL and cloud matching remain.
 [Local evidence](verification/2026-10-09-implicit-existing-cluster-local.md) records
 Go tests/build, targeted race suites, frontend typecheck/lint/154 tests/build,
 syntax checks and fake-adapter browser create/deploy/restart with no per-cluster
-Definition registration. IMP-019 is resolved for this delivery. No live Kubernetes,
-AWS or PostgreSQL integration run was performed. FK ordering is locally simulated;
-existing transition tests pass, without a new live transition proof.
+Definition registration. IMP-019 is resolved for this delivery.
+[Real kind evidence](verification/2026-10-09-k8s4f-live.md) additionally covers
+retained `k8s-4f` registration in the Docker Console and a separate isolated
+real-adapter Playwright FE/BE/PostgreSQL Deploy, diagnostic/job submission,
+builtin binding and ownership-checked cleanup. No AWS or SQL-system-store
+integration run was performed. FK ordering is locally simulated; existing
+transition tests pass, without a new live transition proof. Persistent Console
+workload Vault auth was not established by the isolated test.

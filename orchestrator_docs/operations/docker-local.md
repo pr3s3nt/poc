@@ -132,6 +132,26 @@ Uploaded kubeconfig must contain an endpoint reachable from the backend
 container; `127.0.0.1` in that endpoint refers to the container itself. External
 credential commands/files in uploaded kubeconfig are rejected. Registration
 uses read-only cluster verification; deployment is an explicit subsequent action.
+For an existing local kind cluster, use the optional network overlay on every
+Compose recreation:
+
+```bash
+docker compose -f docker-compose.yml -f deploy/local/compose.kind.yml up -d --build --wait
+```
+
+The external `kind` Docker network must already exist. A flattened, single-context
+upload can use `https://idp-internal-control-plane:6443` for this machine's
+`kind-idp-internal` cluster; preserve its CA and embedded credentials. Keep the
+upload private and outside Git. The overlay only attaches backend networking;
+it does not install workload Vault auth or deploy Kubernetes resources.
+The registration-only Playwright helper verifies or reuses an existing matching
+Connection without overwriting it:
+
+```bash
+cd frontend
+node test/e2e/k8s4f-register.mjs --base-url http://127.0.0.1:3001 --kubeconfig /private/path/kubeconfig --name k8s-4f
+```
+
 For internal-k8s execution, select the uploaded Connection in Environment Settings.
 ADR-013 supplies its implicit existing-cluster node without user Definition
 registration; namespace/PostgreSQL Definitions and workload Vault auth are still required.

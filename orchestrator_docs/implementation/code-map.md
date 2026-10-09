@@ -156,3 +156,10 @@ live evidence is in the [reviewed recording](../verification/2026-10-08-environm
 - [Explicit reference compatibility](../../backend/test/conformance/loader.go),
   [local browser flow](../../frontend/test/e2e/application-connection-local.mjs) and
   [local execution evidence](../verification/2026-10-09-implicit-existing-cluster-local.md).
+- [Real kind runner](../../backend/test/integration/application-connection-kind-video.sh)
+  and [human browser flow](../../frontend/test/e2e/application-connection-kind-human.mjs)
+  support an exact staging Connection name, isolated workload Vault and
+  ownership-checked cleanup.
+- [Retained Console Connection helper](../../frontend/test/e2e/k8s4f-register.mjs)
+  and [optional kind networking](../../deploy/local/compose.kind.yml) support
+  private kubeconfig registration/reuse from the Docker Console.

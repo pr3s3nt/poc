@@ -297,3 +297,26 @@ New internal deployments select the uploaded Environment Connection directly;
 no per-cluster Definition is required. Historical recordings above may show
 manual Definition registration. Their evidence remains historical. The implicit
 node and system Definition follow [ADR-013](../architecture/decisions/ADR-013-implicit-existing-cluster.md).
+
+To run the existing human Playwright flow with an exact staging Connection name:
+
+```bash
+ORCH_E2E_STAGING_CONNECTION_NAME=k8s-4f bash backend/test/integration/application-connection-kind-video.sh
+```
+
+This starts an isolated backend with real Kubernetes adapters, a run-owned
+Connection credential Vault and a separate workload Vault on the kind network.
+The workload store is registered through the API during setup using a scoped
+token, then selected in the UI. Its Kubernetes auth uses a run-owned reviewer
+ServiceAccount/ClusterRoleBinding; these and both Vault containers are removed
+on exit. The persistent `vault-uc12` token/policy are not used or changed.
+It does not deploy through the persistent Docker
+Console. Register a retained Connection there separately using the
+[Compose procedure](docker-local.md). Both uploads target the same existing kind
+cluster; the production logical Connection is bound but never deployed.
+The host-context credential is deliberately invalid, proving execution uses the
+uploaded credential. The runner checks FE/BE availability, PostgreSQL StatefulSet
+readiness/PVC binding, live diagnostic/job behavior and the builtin cluster
+Definition. Cleanup requires managed-by, Application, Environment and the exact
+deployment run ID observed from Preview before namespace deletion, then verifies
+absence using a successful API lookup. Existing Vault/VSO releases are retained.

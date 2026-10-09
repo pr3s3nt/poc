@@ -25,9 +25,17 @@
 # Safety: existing kind-idp-internal only; the current context is never
 # changed; every command passes --context. Only this run's namespace (label
 # checked) is deleted. The Connection credentials go to a run-owned Vault dev
-# container; the platform Vault is used as the runbook describes (scoped token
-# file consumed by path). Credential files live in a private directory that is
+# container. The workload Secret Store is a second run-owned Vault dev container
+# on the kind network with its own Kubernetes auth mount (trusting this cluster
+# through a run-owned reviewer ServiceAccount) and a SCOPED token, registered as
+# an ordinary store; the persistent vault-uc12 and its token, policy and roles
+# are never used or changed. Credential files live in a private directory that is
 # removed on exit. Evidence stays outside Git.
+#
+# Optional ORCH_E2E_STAGING_CONNECTION_NAME names the uploaded staging
+# Connection exactly (for example k8s-4f; its key is the slug of the name). The
+# default is the dynamic "Staging kind <suffix>" name. The production Connection
+# name always stays dynamic.
 #
 # Output: /tmp/poc-environment-connection-review/<run id>/
 # (environment-connection-kind-<run id>.mp4, marks.json, ffprobe.json,
@@ -38,16 +46,23 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO="$(cd "${ROOT}/.." && pwd)"
 RUN_ID="envconn-kind-$(date -u +%Y%m%d%H%M%S)-${RANDOM}"
 CONTEXT="kind-idp-internal"
-TOKEN_FILE="${VAULT_BACKEND_TOKEN_FILE:-/home/thanhnt1/.local/share/poc-vault/vault-uc12-backend-token}"
 SCREEN="${ORCH_VIDEO_SCREEN:-1440x900}"
 VAULT_IMAGE="${ORCH_VIDEO_VAULT_IMAGE:-hashicorp/vault:1.20}"
 VIDEO_NAME="environment-connection-kind-${RUN_ID}.mp4"
 OUT_BASE="${ORCH_RESULT_DIR:-/tmp/poc-environment-connection-review}"
 VAULT_CONTAINER=""
+STORE_CONTAINER=""
+REVIEWER_NS="orch-${RUN_ID}-reviewer"
 PIDS=()
 BACKEND_PID=""
 BROWSER_PGID=""
 NODE_PID=""
+
+STAGING_CONNECTION_NAME="${ORCH_E2E_STAGING_CONNECTION_NAME:-}"
+if [[ -n "${STAGING_CONNECTION_NAME}" && ! "${STAGING_CONNECTION_NAME}" =~ ^[A-Za-z0-9]([A-Za-z0-9 -]{0,60}[A-Za-z0-9])?$ ]]; then
+  echo "ORCH_E2E_STAGING_CONNECTION_NAME must be 1-62 letters, digits, spaces or hyphens" >&2
+  exit 1
+fi
 
 WORK="${OUT_BASE}/${RUN_ID}"
 [[ ! -e "${WORK}" ]] || { echo "${WORK} already exists" >&2; exit 1; }
@@ -111,13 +126,21 @@ cleanup() {
         echo "cleanup: namespace ${namespace} lookup failed" >&2
         status=1
       elif [[ -n "${present}" ]]; then
-        if ! actual="$(kubectl --context "${CONTEXT}" get namespace "${namespace}" -o jsonpath='{.metadata.labels.orchestrator\.io/application}')"; then
+        # Delete only a namespace proven to be this run's: managed-by, application,
+        # environment and the deployment run id the UI preview returned (the
+        # executor stamps that pending-<hash> id, not the harness RUN_ID).
+        local expected_run=""
+        [[ -s "${WORK}/deployment-run-id" ]] && expected_run="$(<"${WORK}/deployment-run-id")"
+        if [[ ! "${expected_run}" =~ ^pending-[0-9a-f]{16}$ ]]; then
+          echo "namespace ${namespace} retained: no observed deployment run id" >&2
+          status=1
+        elif ! actual="$(kubectl --context "${CONTEXT}" get namespace "${namespace}" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}|{.metadata.labels.orchestrator\.io/application}|{.metadata.labels.orchestrator\.io/environment}|{.metadata.labels.orchestrator\.io/run-id}')"; then
           echo "cleanup: namespace ${namespace} label lookup failed" >&2
           status=1
-        elif [[ "${actual}" == "${app_id}" ]]; then
+        elif [[ "${actual}" == "orchestrator|${app_id}|staging|${expected_run}" ]]; then
           kubectl --context "${CONTEXT}" delete namespace "${namespace}" --ignore-not-found --wait=true --timeout=300s >/dev/null || status=1
         else
-          echo "namespace ${namespace} retained: application label mismatch" >&2
+          echo "namespace ${namespace} retained: managed-by/application/environment/deployment-run-id label mismatch" >&2
           status=1
         fi
       fi
@@ -141,6 +164,43 @@ cleanup() {
       echo "cleanup: production namespace ${production_ns} unexpectedly present or lookup failed" >&2
       status=1
     fi
+  fi
+  # Run-owned reviewer identity: the global binding is deleted only when its run
+  # label, roleRef and single subject are exactly what this run created.
+  if [[ -e "${WORK}/reviewer-created" ]]; then
+    local binding="orch-${RUN_ID}-reviewer" proof
+    if proof="$(timeout 60 kubectl --context "${CONTEXT}" get clusterrolebinding "${binding}" --ignore-not-found -o jsonpath='{.metadata.labels.orchestrator\.io/run-id}|{.roleRef.kind}/{.roleRef.name}|{range .subjects[*]}{.kind}/{.namespace}/{.name};{end}' 2>/dev/null)"; then
+      if [[ -z "${proof}" ]]; then
+        :
+      elif [[ "${proof}" == "${RUN_ID}|ClusterRole/system:auth-delegator|ServiceAccount/${REVIEWER_NS}/reviewer;" ]]; then
+        timeout 60 kubectl --context "${CONTEXT}" delete clusterrolebinding "${binding}" --ignore-not-found >/dev/null 2>&1 || status=1
+      else
+        echo "cleanup: clusterrolebinding ${binding} does not match this run; left untouched" >&2; status=1
+      fi
+    else
+      echo "cleanup: clusterrolebinding ${binding} lookup failed" >&2; status=1
+    fi
+    if [[ "$(timeout 60 kubectl --context "${CONTEXT}" get namespace "${REVIEWER_NS}" --ignore-not-found -o jsonpath='{.metadata.labels.orchestrator\.io/run-id}' 2>/dev/null || echo lookup-failed)" == "${RUN_ID}" ]]; then
+      timeout 150 kubectl --context "${CONTEXT}" delete namespace "${REVIEWER_NS}" --ignore-not-found --wait=true --timeout=120s >/dev/null 2>&1 || status=1
+    fi
+    # Absence needs a successful --ignore-not-found read that returns nothing; a
+    # lookup error is never treated as "removed".
+    local ns_left crb_left
+    if ns_left="$(timeout 60 kubectl --context "${CONTEXT}" get namespace "${REVIEWER_NS}" --ignore-not-found -o name 2>/dev/null)" \
+      && crb_left="$(timeout 60 kubectl --context "${CONTEXT}" get clusterrolebinding "${binding}" --ignore-not-found -o name 2>/dev/null)"; then
+      if [[ -z "${ns_left}" && -z "${crb_left}" ]]; then
+        echo "cleanup: reviewer namespace and ClusterRoleBinding absent (successful API lookups)" >> "${WORK}/cleanup.txt"
+      else
+        echo "cleanup: reviewer identity still present" >&2; status=1
+      fi
+    else
+      echo "cleanup: reviewer identity absence not verified: lookup failed" >&2; status=1
+    fi
+  fi
+  if [[ -n "${STORE_CONTAINER}" ]]; then
+    docker rm -f "${STORE_CONTAINER}" >/dev/null 2>&1 || true
+    if docker container inspect "${STORE_CONTAINER}" >/dev/null 2>&1; then echo "WARNING: Vault container ${STORE_CONTAINER} is still present" >&2; status=1
+    else echo "cleanup: Vault container ${STORE_CONTAINER} removed" >> "${WORK}/cleanup.txt"; fi
   fi
   if [[ -n "${VAULT_CONTAINER}" ]]; then docker rm -f "${VAULT_CONTAINER}" >/dev/null 2>&1 || true; fi
   rm -rf "${PRIVATE}"
@@ -166,13 +226,14 @@ synthetic_token() { head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
 note() { echo "$*" | tee -a "${WORK}/checks.txt"; }
 
 CURRENT_BEFORE="$(kubectl config current-context)"
-[[ -s "${TOKEN_FILE}" ]]
 [[ -d "${REPO}/frontend/node_modules/@playwright/test" ]]
 video_require_tools
 video_require_fresh_dist "${REPO}"
 XDOTOOL="$(video_xdotool)"
 command -v docker >/dev/null
 command -v setsid >/dev/null
+command -v jq >/dev/null
+docker network inspect kind >/dev/null
 kubectl config get-contexts -o name | grep -qx "${CONTEXT}"
 kubectl --context "${CONTEXT}" version -o json >/dev/null
 umask 077
@@ -204,22 +265,71 @@ WHO_HOST="$(kubectl --context "${CONTEXT}" auth whoami -o jsonpath='{.status.use
 WHO_UPLOAD="$(kubectl --kubeconfig "${UPLOAD}" auth whoami -o jsonpath='{.status.userInfo.username}' 2>/dev/null || echo unknown)"
 note "identity: default host context user=${WHO_HOST}; uploaded kubeconfig user=${WHO_UPLOAD}"
 
-kubectl --context "${CONTEXT}" -n vault wait --for=condition=Ready pod/vault-uc12-0 --timeout=60s >/dev/null
 kubectl --context "${CONTEXT}" -n vault-secrets-operator-system rollout status deployment/vault-secrets-operator-controller-manager --timeout=60s >/dev/null
-kubectl --context "${CONTEXT}" -n vault port-forward svc/vault-uc12 :8200 > "${WORK}/vault-port-forward.log" 2>&1 &
-VAULT_PF_PID=$!
-PIDS+=("${VAULT_PF_PID}")
-VAULT_PORT=""
-for _ in $(seq 1 40); do
-  kill -0 "${VAULT_PF_PID}" 2>/dev/null || { echo "Vault port-forward exited" >&2; exit 1; }
-  VAULT_PORT="$(sed -n 's/^Forwarding from 127\.0\.0\.1:\([0-9][0-9]*\) -> 8200$/\1/p' "${WORK}/vault-port-forward.log" | head -n 1)"
-  [[ -n "${VAULT_PORT}" ]] && break
-  sleep 0.5
-done
-[[ -n "${VAULT_PORT}" ]]
-PLATFORM_VAULT="http://127.0.0.1:${VAULT_PORT}"
-for _ in $(seq 1 40); do curl -fsS "${PLATFORM_VAULT}/v1/sys/seal-status" > "${WORK}/seal-status.json" 2>/dev/null && break; sleep 0.5; done
-[[ "$(jq -r .sealed "${WORK}/seal-status.json")" == "false" ]]
+note "preflight: Vault Secrets Operator ready (the persistent vault-uc12 is not used)"
+
+# Run-owned Kubernetes auth identity: Vault's TokenReview reviewer.
+# Created with its run-id label in one request, so cleanup can always prove ownership.
+: > "${WORK}/reviewer-created"
+kubectl --context "${CONTEXT}" create -f - >/dev/null <<MANIFEST
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${REVIEWER_NS}
+  labels:
+    orchestrator.io/run-id: ${RUN_ID}
+MANIFEST
+kubectl --context "${CONTEXT}" -n "${REVIEWER_NS}" create serviceaccount reviewer >/dev/null
+kubectl --context "${CONTEXT}" create clusterrolebinding "orch-${RUN_ID}-reviewer" --clusterrole=system:auth-delegator --serviceaccount="${REVIEWER_NS}:reviewer" >/dev/null
+kubectl --context "${CONTEXT}" label clusterrolebinding "orch-${RUN_ID}-reviewer" "orchestrator.io/run-id=${RUN_ID}" >/dev/null
+kubectl --context "${CONTEXT}" -n "${REVIEWER_NS}" create token reviewer --duration=4h > "${PRIVATE}/reviewer.jwt"
+kubectl config view --raw --minify --flatten --context "${CONTEXT}" -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' | base64 -d > "${PRIVATE}/cluster-ca.pem"
+CONTROL_PLANE="$(docker ps --filter 'name=idp-internal-control-plane' --format '{{.Names}}' | head -1)"
+[[ -n "${CONTROL_PLANE}" ]]
+K8S_HOST="https://${CONTROL_PLANE}:6443"
+
+# Run-owned workload Secret Store: Vault dev container on the kind network (Pods
+# reach it by IP) with a Kubernetes auth mount and a SCOPED token, never root.
+STORE_CONTAINER="orch-${RUN_ID}-store"
+STORE_ROOT="$(synthetic_token)"
+printf 'X-Vault-Token: %s\n' "${STORE_ROOT}" > "${PRIVATE}/store-root-header"
+printf 'VAULT_DEV_ROOT_TOKEN_ID=%s\nVAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200\n' "${STORE_ROOT}" > "${PRIVATE}/store-vault.env"
+unset STORE_ROOT
+docker run -d --rm --name "${STORE_CONTAINER}" --label "orchestrator.run-id=${RUN_ID}" --cap-add IPC_LOCK --network kind \
+  --env-file "${PRIVATE}/store-vault.env" -p 127.0.0.1::8200 "${VAULT_IMAGE}" server -dev >/dev/null
+STORE_PORT="$(docker port "${STORE_CONTAINER}" 8200/tcp | head -1 | sed 's/.*://')"
+STORE_IP="$(docker inspect -f '{{(index .NetworkSettings.Networks "kind").IPAddress}}' "${STORE_CONTAINER}")"
+STORE_HOST="http://127.0.0.1:${STORE_PORT}"
+STORE_CLUSTER="http://${STORE_IP}:8200"
+for _ in $(seq 1 60); do curl -fsS "${STORE_HOST}/v1/sys/health" >/dev/null 2>&1 && break; sleep 0.5; done
+curl -fsS "${STORE_HOST}/v1/sys/health" >/dev/null
+curl -fsS -H @"${PRIVATE}/store-root-header" -X POST "${STORE_HOST}/v1/sys/auth/kubernetes" -d '{"type":"kubernetes"}' >/dev/null
+jq -n --arg host "${K8S_HOST}" --rawfile ca "${PRIVATE}/cluster-ca.pem" --rawfile jwt "${PRIVATE}/reviewer.jwt" \
+  '{kubernetes_host:$host, kubernetes_ca_cert:$ca, token_reviewer_jwt:$jwt}' \
+  | curl -fsS -H @"${PRIVATE}/store-root-header" -X POST "${STORE_HOST}/v1/auth/kubernetes/config" --data-binary @- >/dev/null
+cat > "${PRIVATE}/store-policy.hcl" <<'POLICY'
+path "auth/token/lookup-self" { capabilities = ["read"] }
+path "sys/capabilities-self" { capabilities = ["update"] }
+path "sys/internal/ui/mounts/*" { capabilities = ["read"] }
+path "secret/data/orchestrator/apps/*" { capabilities = ["create", "read", "update"] }
+path "secret/metadata/orchestrator/apps/*" { capabilities = ["read", "list", "delete"] }
+path "sys/policies/acl/orch-*" { capabilities = ["create", "update", "read"] }
+path "auth/kubernetes/role/orch-*" { capabilities = ["create", "update", "read"] }
+path "auth/kubernetes/config" { capabilities = ["read"] }
+POLICY
+jq -n --rawfile p "${PRIVATE}/store-policy.hcl" '{policy:$p}' \
+  | curl -fsS -H @"${PRIVATE}/store-root-header" -X PUT "${STORE_HOST}/v1/sys/policies/acl/orch-workload-store" --data-binary @- >/dev/null
+curl -fsS -H @"${PRIVATE}/store-root-header" -X POST "${STORE_HOST}/v1/auth/token/create" \
+  -d '{"policies":["orch-workload-store"],"no_default_policy":true,"ttl":"4h"}' \
+  | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const t=JSON.parse(s).auth?.client_token;if(!t)process.exit(1);process.stdout.write(t)})' \
+  > "${PRIVATE}/store-token"
+[[ -s "${PRIVATE}/store-token" ]]
+# Early auth preflight (the call behind CheckWorkloadAuth), status only: a store
+# that cannot verify workload auth fails here in seconds, not after the deploy.
+printf 'X-Vault-Token: %s\n' "$(<"${PRIVATE}/store-token")" > "${PRIVATE}/store-header"
+auth_status="$(curl -sS -o /dev/null -w '%{http_code}' -H @"${PRIVATE}/store-header" "${STORE_HOST}/v1/auth/kubernetes/config")"
+[[ "${auth_status}" == "200" ]] || { echo "preflight: scoped store token cannot read auth/kubernetes/config (HTTP ${auth_status})" >&2; exit 1; }
+note "preflight: run-owned workload store ${STORE_CLUSTER} with Kubernetes auth; scoped token reads auth/kubernetes/config (HTTP 200)"
 
 # Run-owned Vault dev container for Connection credentials.
 VAULT_CONTAINER="orch-${RUN_ID}"
@@ -247,7 +357,6 @@ for workload in frontend backend; do
   kind load docker-image "acceptance-${workload}:${RUN_ID}" --name idp-internal
 done
 go build -o "${WORK}/orchestrator" ./cmd/orchestrator
-kill -0 "${VAULT_PF_PID}" 2>/dev/null
 
 API_PORT="$(node -e 'const s=require("net").createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close()})')"
 # start_backend <label>: the same flags and JSON state every time, so a restart
@@ -262,8 +371,7 @@ start_backend() {
     KUBECONFIG="${HOSTCFG}" \
     "${WORK}/orchestrator" -addr "127.0.0.1:${API_PORT}" -addr-file "${WORK}/api-addr" -state "${WORK}/state.json" -database-url-file "" \
     -adapters kubernetes -kube-context "${CONTEXT}" -cluster idp-internal -run-id "${RUN_ID}" \
-    -vault-address "${PLATFORM_VAULT}" -vault-token-file "${TOKEN_FILE}" \
-    -vault-agent-address http://vault-uc12.vault.svc:8200 -vault-delivery vso \
+    -vault-delivery vso \
     -connection-credential-store vault -connection-vault-address "${CONN_VAULT}" \
     -connection-vault-token-file "${PRIVATE}/connection-vault-token" -connection-vault-mount secret \
     -ui-dir "${REPO}/frontend/dist" >> "${WORK}/orchestrator-${label}.log" 2>&1 &
@@ -277,13 +385,29 @@ start_backend() {
 
 start_backend first
 API="http://127.0.0.1:${API_PORT}"
-video_require_secret_store "${API}" platform-vault
+# Register the run-owned store as an ordinary verified Secret Store (REST setup,
+# not part of the shown flow) with the scoped token; it must verify READY with
+# working Kubernetes auth before any browser or deploy work starts.
+curl -fsS -c "${PRIVATE}/jar-pe" -H 'Content-Type: application/json' -d '{"username":"platform-engineer","password":"test-password"}' "${API}/api/v1/auth/sign-in" >/dev/null
+store_status="$(jq -n --arg b "${STORE_HOST}" --arg w "${STORE_CLUSTER}" --rawfile t "${PRIVATE}/store-token"   '{name:"Run store",backendAddress:$b,workloadAddress:$w,mount:"secret",authMount:"kubernetes",token:($t|rtrimstr("\n"))}'   | curl -sS -o "${WORK}/secret-store.json" -w '%{http_code}' -b "${PRIVATE}/jar-pe" -H 'Content-Type: application/json' --data-binary @- "${API}/api/v1/secret-stores")"
+if [[ "${store_status}" != 2* ]] || [[ "$(jq -r '.status // empty' "${WORK}/secret-store.json" 2>/dev/null)" != "READY" ]]; then
+  # Fixed text plus allowlisted fields only; the raw reply (which may echo input) is discarded.
+  echo "secret store registration failed: HTTP ${store_status} status=$(jq -r '.status // "unknown"' "${WORK}/secret-store.json" 2>/dev/null | head -c 40) code=$(jq -r '.code // "none"' "${WORK}/secret-store.json" 2>/dev/null | head -c 40)" >&2
+  rm -f "${WORK}/secret-store.json"
+  exit 1
+fi
+STORE_KEY="$(jq -r .key "${WORK}/secret-store.json")"
+note "store: ${STORE_KEY} registered READY (kubernetesAuth=$(jq -r '.verification.kubernetesAuth // "unknown"' "${WORK}/secret-store.json"))"
+# Keep only an allowlisted projection (no credential reference or verification detail).
+jq '{key, name, status, authMount, mount, kubernetesAuth: .verification.kubernetesAuth}' "${WORK}/secret-store.json" > "${WORK}/secret-store.safe.json" && mv "${WORK}/secret-store.safe.json" "${WORK}/secret-store.json"
+video_require_secret_store "${API}" "${STORE_KEY}"
 
 video_start_xvfb "${SCREEN}"
 setsid env DISPLAY="${VIDEO_DISPLAY}" ORCH_E2E_SCREEN="${SCREEN}" ORCH_E2E_XDOTOOL="${XDOTOOL}" \
   ORCH_E2E_URL="${API}" ORCH_E2E_RUN_ID="${RUN_ID}" ORCH_E2E_KUBE_CONTEXT="${CONTEXT}" \
   ORCH_E2E_NAMESPACE_FILE="${WORK}/namespace" ORCH_E2E_EVIDENCE_DIR="${WORK}" \
   ORCH_E2E_KUBECONFIG_FILE="${UPLOAD}" ORCH_E2E_VIDEO_NAME="${VIDEO_NAME}" \
+  ORCH_E2E_STAGING_CONNECTION_NAME="${STAGING_CONNECTION_NAME}" \
   node "${REPO}/frontend/test/e2e/application-connection-kind-human.mjs" > "${WORK}/playwright.log" 2>&1 &
 NODE_PID=$!
 BROWSER_PGID=${NODE_PID}
@@ -317,12 +441,28 @@ PRODUCTION_KEY="$(jq -r .productionKey "${WORK}/run.json")"
 [[ "${STAGING_KEY}" =~ ^[a-z0-9-]+$ && "${STAGING_KEY}" != "internal-cluster" ]]
 [[ "${PRODUCTION_KEY}" =~ ^[a-z0-9-]+$ && "${PRODUCTION_KEY}" != "internal-cluster" && "${PRODUCTION_KEY}" != "${STAGING_KEY}" ]]
 kubectl --context "${CONTEXT}" get namespace "${NS}" -o jsonpath='{.metadata.labels}' > "${WORK}/namespace-labels.json"
+DEPLOY_RUN_ID="$(<"${WORK}/deployment-run-id")"
+[[ "${DEPLOY_RUN_ID}" =~ ^pending-[0-9a-f]{16}$ && "$(jq -r .deploymentRunId "${WORK}/run.json")" == "${DEPLOY_RUN_ID}" ]]
+[[ "$(kubectl --context "${CONTEXT}" get namespace "${NS}" -o jsonpath='{.metadata.labels.orchestrator\.io/run-id}')" == "${DEPLOY_RUN_ID}" ]]
+note "k8s: namespace ${NS} carries the observed deployment run id ${DEPLOY_RUN_ID} (not the harness id)"
 kubectl --context "${CONTEXT}" -n "${NS}" get deployment,statefulset,service,pod -o wide > "${WORK}/k8s-workloads.txt"
 for deployment in backend frontend; do
   kubectl --context "${CONTEXT}" -n "${NS}" rollout status "deployment/${deployment}" --timeout=60s >/dev/null
   [[ "$(kubectl --context "${CONTEXT}" -n "${NS}" get "deployment/${deployment}" -o jsonpath='{.status.availableReplicas}')" -ge 1 ]]
   note "k8s: deployment/${deployment} available in ${NS}"
 done
+# PostgreSQL (StatefulSet) Ready and every PVC Bound.
+mapfile -t STATEFULSETS < <(kubectl --context "${CONTEXT}" -n "${NS}" get statefulset -o name)
+(( ${#STATEFULSETS[@]} >= 1 ))
+for sts in "${STATEFULSETS[@]}"; do
+  kubectl --context "${CONTEXT}" -n "${NS}" rollout status "${sts}" --timeout=120s >/dev/null
+  [[ "$(kubectl --context "${CONTEXT}" -n "${NS}" get "${sts}" -o jsonpath='{.status.readyReplicas}')" -ge 1 ]]
+  note "k8s: ${sts} Ready in ${NS}"
+done
+PVC_PHASES="$(kubectl --context "${CONTEXT}" -n "${NS}" get pvc -o jsonpath='{range .items[*]}{.metadata.name}={.status.phase}{"\n"}{end}')"
+[[ -n "${PVC_PHASES}" ]]
+if grep -v '=Bound$' <<<"${PVC_PHASES}" | grep -q .; then echo "a PVC in ${NS} is not Bound" >&2; exit 1; fi
+note "k8s: PVCs Bound in ${NS}: $(tr '\n' ' ' <<<"${PVC_PHASES}")"
 kubectl --context "${CONTEXT}" -n "${NS}" get service backend frontend -o name | sed 's/^/k8s: /' | tee -a "${WORK}/checks.txt"
 [[ -z "$(kubectl --context "${CONTEXT}" -n "${NS}" get pod --no-headers | grep -v -E ' (Running|Completed) ' || true)" ]]
 note "k8s: all pods in ${NS} Running/Completed"
@@ -347,6 +487,16 @@ node -e '
   const active = Object.entries(state.activeResources ?? {}).filter(([k]) => k.includes(app));
   if (!active.length) fail("no staging Active Resources");
   if (active.some(([, v]) => v.connectionKey !== stagingKey)) fail("an Active Resource is not bound to the staging Connection");
+  // ADR-013: the Environment Connection backs the implicit cluster through the
+  // system-owned builtin-existing-cluster Definition; no cluster Definition was authored.
+  // resourceDefinitions is the JSON store collection (seeded Definitions): it must be
+  // present and non-empty, or the authored-Definition check below would prove nothing.
+  if (!state.resourceDefinitions || !Object.keys(state.resourceDefinitions).length) fail("resourceDefinitions collection missing or empty: the Definition assertion would be vacuous");
+  const authoredClusters = Object.values(state.resourceDefinitions).filter((d) => d.driverType === "existing-cluster" && d.key !== "builtin-existing-cluster");
+  if (authoredClusters.length) fail("an authored cluster Definition exists");
+  const builtinUsed = active.filter(([, v]) => v.definitionKey === "builtin-existing-cluster");
+  if (!builtinUsed.length) fail("builtin-existing-cluster was not used by an Active Resource");
+  if (builtinUsed.some(([, v]) => v.connectionKey !== stagingKey)) fail("builtin-existing-cluster is not bound to the staging Connection");
   const everything = Object.entries(state.activeResources ?? {});
   if (everything.some(([k, v]) => k.includes(`connections.${productionKey}`) || v.connectionKey === productionKey)) fail("production Connection executed something");
   const instances = Object.values(state.workloadInstances ?? {}).filter((w) => JSON.stringify(w).includes(app));
@@ -356,12 +506,15 @@ node -e '
   console.log(JSON.stringify({
     application: { connectionKey: application.connectionKey ?? "", executionProfile: application.executionProfile ?? "" },
     environments: { staging: { connectionKey: staging.connectionKey, version: staging.version, scope: staging.infrastructureScope }, production: { connectionKey: production.connectionKey, version: production.version, scope: production.infrastructureScope } },
-    activeResources: active.map(([k, v]) => ({ id: k.split("|")[1], connectionKey: v.connectionKey })),
+    activeResources: active.map(([k, v]) => ({ id: k.split("|")[1], connectionKey: v.connectionKey, definitionKey: v.definitionKey })),
+    builtinClusterResources: builtinUsed.length,
+    authoredClusterDefinitions: authoredClusters.length,
+    definitionsInStore: Object.keys(state.resourceDefinitions).length,
     workloadTargetConnections: [...new Set(instances.map((w) => w.targetRef.connection))],
     deployments: deployments.map((d) => ({ environment: d.environmentKey, status: d.status })),
   }));
 ' "${WORK}/state.json" "${APP}" "${STAGING_KEY}" "${PRODUCTION_KEY}" | tee "${WORK}/persisted-binding.json"
-note "persisted: Application unbound; staging=${STAGING_KEY} production=${PRODUCTION_KEY} (rebound from the default); every Active Resource and workload TargetRef bound to ${STAGING_KEY}"
+note "persisted: Application unbound; staging=${STAGING_KEY} production=${PRODUCTION_KEY} (rebound from the default); every Active Resource and workload TargetRef bound to ${STAGING_KEY}; builtin-existing-cluster used, no authored cluster Definition"
 
 # Final API read-back after the restart: both bindings are served and a repeat set is refused.
 curl -fsS -c "${PRIVATE}/jar" -H 'Content-Type: application/json' -d '{"username":"developer","password":"test-password"}' "${API}/api/v1/auth/sign-in" >/dev/null
@@ -387,10 +540,14 @@ curl -fsS -b "${PRIVATE}/jar" "${API}/api/v1/applications/${APP}" > "${WORK}/app
 [[ "$(jq -S '[.application.environments[] | {key, connectionKey, version}]' "${WORK}/application-view.json")" == "$(jq -S '[.application.environments[] | {key, connectionKey, version}]' "${WORK}/application-view-after-probes.json")" ]]
 note "api: both bindings served after restart; staging refuses a direct change (409 RUNTIME_EXISTS, transition required), production refuses a stale version (409 STALE_VERSION); refused probes left every binding and version unchanged"
 # The uploaded credential must not appear in any evidence file.
-node -e '
+EXTRA_SECRET_FILES="${PRIVATE}/store-token:${PRIVATE}/connection-vault-token:${PRIVATE}/reviewer.jwt" node -e '
   const fs = require("fs");
   const [upload, ...files] = process.argv.slice(1);
   const values = [...fs.readFileSync(upload, "utf8").matchAll(/^\s*(?:token|client-key-data|client-certificate-data):\s*(\S+)\s*$/gm)].map((m) => m[1]).filter((v) => v.length >= 12);
+  // Run-owned tokens and the reviewer JWT must not appear either (whole-file values).
+  for (const extra of (process.env.EXTRA_SECRET_FILES || "").split(":").filter(Boolean)) {
+    if (fs.existsSync(extra)) { const v = fs.readFileSync(extra, "utf8").trim(); if (v.length >= 12) values.push(v); }
+  }
   for (const file of files) {
     if (!fs.existsSync(file)) continue;
     const text = fs.readFileSync(file, "utf8");
@@ -402,7 +559,7 @@ node -e '
 note "current kubectl context unchanged: ${CURRENT_BEFORE}"
 # Record the run for the result report (no credential material).
 jq -n --arg run "${RUN_ID}" --arg app "${APP}" --arg staging "${STAGING_KEY}" --arg production "${PRODUCTION_KEY}" --arg ns "${NS}" \
-  '{runId:$run, applicationId:$app, stagingConnection:$staging, productionConnection:$production, stagingNamespace:$ns, limit:"both logical Connections point at the same physical kind cluster"}' > "${WORK}/summary.json"
+  '{runId:$run, applicationId:$app, stagingConnection:$staging, productionConnection:$production, stagingNamespace:$ns, clusterDefinition:"builtin-existing-cluster", authoredClusterDefinitions:0, limit:"both logical Connections point at the same physical kind cluster"}' > "${WORK}/summary.json"
 
 stop_backend
-video_validate "${WORK}/${VIDEO_NAME}" "${SCREEN}" "${ORCH_VIDEO_MIN_SECONDS:-420}" 30 job-submitted
+video_validate "${WORK}/${VIDEO_NAME}" "${SCREEN}" "${ORCH_VIDEO_MIN_SECONDS:-420}" 31 job-submitted

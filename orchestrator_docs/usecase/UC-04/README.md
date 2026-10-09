@@ -62,4 +62,7 @@ implementation status is tracked in CURRENT_STATE, not inferred from old evidenc
 removes per-cluster user Definition registration/matching for internal-k8s.
 Default planning, system binding, persistence admission and Console projection
 are implemented and [locally verified](../../verification/2026-10-09-implicit-existing-cluster-local.md).
-Other resource/cloud matching remains unchanged; no new live cluster/cloud proof.
+Other resource/cloud matching remains unchanged.
+[Real kind verification](../../verification/2026-10-09-k8s4f-live.md) now covers
+retained `k8s-4f` registration and isolated real-adapter FE/BE/PostgreSQL execution
+with the builtin binding. No cloud proof is claimed.

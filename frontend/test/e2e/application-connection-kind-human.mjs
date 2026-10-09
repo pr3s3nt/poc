@@ -43,10 +43,14 @@ const videoPath = `${evidenceDir}/${env.ORCH_E2E_VIDEO_NAME}`;
 const suffix = runId.replace(/[^0-9]/g, '').slice(-6);
 // The first word of a name is what the native select types ahead, so the two
 // logical Connections start with different words.
-const stagingName = `Staging kind ${suffix}`;
+// ORCH_E2E_STAGING_CONNECTION_NAME makes the staging Connection name exact
+// (for example k8s-4f); empty keeps the dynamic default.
+const stagingName = env.ORCH_E2E_STAGING_CONNECTION_NAME || `Staging kind ${suffix}`;
 const productionName = `Production kind ${suffix}`;
 const slug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 const stagingKey = slug(stagingName);
+if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(stagingKey) || stagingKey === 'internal-cluster') throw new Error(`invalid staging Connection key: ${stagingKey}`);
+if (env.ORCH_E2E_STAGING_CONNECTION_NAME && stagingKey !== env.ORCH_E2E_STAGING_CONNECTION_NAME.toLowerCase().replace(/ /g, '-')) throw new Error('staging Connection name does not map to a plain key');
 const productionKey = slug(productionName);
 const defaultKey = 'internal-cluster';
 
@@ -357,7 +361,14 @@ try {
   await expectTarget(page, 'staging', stagingName, stagingKey);
 
   // 10. Preview and Deploy show the persisted staging Connection, then deploy for real.
+  // The namespace run-id label is the deployment run id the preview returns
+  // (pending-<hash>), not the harness id: record it for the observer and cleanup.
+  const previewed = page.waitForResponse((response) => response.request().method() === 'POST'
+    && new URL(response.url()).pathname.endsWith(`/applications/${appId}/environments/staging/preview`));
   await h.click(page.getByRole('button', { name: 'Preview changes' }));
+  const previewBody = await (await previewed).json();
+  if (!/^pending-[0-9a-f]{16}$/.test(previewBody.runId ?? '')) throw new Error('preview returned no deployment run id');
+  writeFileSync(`${evidenceDir}/deployment-run-id`, previewBody.runId, { mode: 0o600 });
   const preview = page.getByLabel('Deployment preview');
   await expect(preview).toContainText('2 workload(s) affected', { timeout: 120_000 });
   await expectTarget(preview, 'staging', stagingName, stagingKey);
@@ -366,7 +377,10 @@ try {
   await h.pause(4000);
   await h.click(page.getByRole('button', { name: 'Deploy these changes' }));
   const result = page.getByLabel('Deployment result');
-  await expect(result).toContainText('Deploy succeeded', { timeout: 600_000 });
+  // Wait for any terminal result so an explicit failure fails promptly; only the
+  // ongoing deploy keeps the long timeout.
+  await expect(result).toContainText(/Deploy (succeeded|failed|partial)/, { timeout: 600_000 });
+  await expect(result, 'Deploy must succeed').toContainText('Deploy succeeded', { timeout: 5_000 });
   for (const name of ['backend', 'frontend']) await expect(result.locator('li').filter({ hasText: new RegExp(`^${name} · [a-z]+: succeeded`) })).toHaveCount(1);
   await expectTarget(result, 'staging', stagingName, stagingKey);
   await h.moveTo(result.getByLabel('Execution target'));
@@ -376,7 +390,7 @@ try {
 
   // 10b. Staging now has runtime resources: a different destination is no longer a
   //      plain Save but a reviewed transition (nothing is clicked or changed).
-  x11.keys(['F5']);
+  await page.reload({ waitUntil: 'domcontentloaded' }); // real browser reload; the result lives only in page state
   await expect(page.getByLabel('Deployment result')).toHaveCount(0); // the refresh reloads the current state
   await h.click(page.getByRole('button', { name: 'Environment settings' }));
   await expect(page.getByLabel('Execution connection')).toContainText(stagingName);
@@ -420,7 +434,7 @@ try {
   mark('job-submitted');
   await h.pause(READ);
 
-  writeFileSync(`${evidenceDir}/run.json`, JSON.stringify({ applicationId: appId, namespace, stagingKey, productionKey, defaultKey }, null, 2));
+  writeFileSync(`${evidenceDir}/run.json`, JSON.stringify({ applicationId: appId, namespace, stagingKey, productionKey, defaultKey, deploymentRunId: previewBody.runId }, null, 2));
   console.log(`PASS: application=${appId} namespace=${namespace} staging=${stagingKey} production=${productionKey} checks=backend,environment,secret,database,job-submit marks=${marks.length}`);
 } finally {
   if (forward && forward.exitCode === null && forward.signalCode === null) {

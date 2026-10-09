@@ -1,0 +1,11 @@
+# Optional overlay: attach the backend to the external Docker network "kind" so
+# kubeconfig endpoints such as https://idp-internal-control-plane:6443 resolve
+# from the backend container and survive container recreation.
+# Requires the kind cluster (and so the "kind" network) to exist already.
+# Usage: docker compose -f docker-compose.yml -f deploy/local/compose.kind.yml up -d
+services:
+  backend:
+    networks: [orchestrator-net, kind]
+networks:
+  kind:
+    external: true
