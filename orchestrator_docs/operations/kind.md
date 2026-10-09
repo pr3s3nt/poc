@@ -140,6 +140,14 @@ Ghi kết quả thành dated record mới dưới `orchestrator_docs/verificatio
 
 ## Human review recording for the current workload editor
 
+Các task code/test mới theo [quy trình Claude qua tmux](claude-tmux.md): Claude
+chạy scenario Playwright và recording với thao tác dễ theo dõi, ưu tiên phụ đề
+tiếng Việt theo từng bước ở dưới video. Codex review evidence sau khi hoàn tất
+và kiểm tra tiến độ theo nhịp 4 phút, không theo dõi pane/video liên tục.
+Caption là yêu cầu cho workflow recording kế tiếp; không suy ra các runner/video
+historical đã có caption. Test kind vẫn cần authorization external mutation và
+ownership/cleanup như safety boundary ở trên.
+
 The `--human` acceptance path must use the current UC-16 form: Application
 variable/secret bindings are selected by checkbox, same-name mappings require
 no retyping, and an explicit name override is used only for aliases. Resource

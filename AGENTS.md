@@ -126,9 +126,26 @@ và lý do, cùng mọi user-owned change còn lại.
 Với task cần sửa code/test, Codex sửa canonical documentation và điều phối;
 Claude thực hiện code/test qua lệnh `clauded` trong session tmux riêng của task.
 Codex giao phạm vi, nguồn chuẩn, acceptance criteria và checks cụ thể; Claude
-không sửa documentation, commit/push hoặc deploy. Codex review diff, chạy checks
+không sửa documentation hoặc commit/push. Claude implement và chạy code/test
+trong phạm vi được giao; chỉ deploy/mutate external state để kiểm thử khi người
+dùng đã cho phép môi trường và hành động đó, và Codex đã giao rõ phạm vi/cleanup.
+Codex review diff, xác minh kết quả checks độc lập
 và gửi phản hồi vào cùng session đến khi đáp ứng yêu cầu. Không tự thay Claude
 bằng Codex coding khi công cụ lỗi; báo tình trạng và tiếp tục phần độc lập.
+
+Với task code/test có luồng Web Console, Claude phải chạy Playwright quay màn
+hình thao tác tương tự người dùng: browser headed, cursor/click rõ, nhập liệu và
+pause đủ đọc, dùng UI cho các bước product của scenario. Ưu tiên phụ đề tiếng Việt
+ở dưới video cho từng bước (mục đích, thao tác, kết quả), không che UI hoặc lộ
+secret. Giữ video/phase marks và kết quả assertion cả khi fail; handoff có đường
+dẫn evidence và phân biệt adapter thật/fake. Test thuần unit/CLI không phải dựng
+video giả; ghi rõ vì sao không có browser scenario. Chi tiết theo runbook bên dưới.
+
+Codex kiểm tra tiến độ Claude qua tmux/log theo nhịp **4 phút (240 giây)** khi
+Claude đang chạy bình thường, không capture pane/poll log liên tục. Mỗi lần chỉ
+đọc phần mới/tóm tắt nhỏ và diff cần review. Kiểm tra sớm khi có lỗi/blocker,
+completion, yêu cầu của người dùng hoặc sự cố cần xử lý; thông báo tiến độ không
+đòi hỏi đọc lại pane. Khi chờ, tuân thủ giới hạn thời gian chờ của môi trường.
 
 Với task change/build, quy trình mặc định đã được người dùng cho phép là Codex
 commit và push các thay đổi thuộc task sau review/validation thành công. Chỉ dẫn
