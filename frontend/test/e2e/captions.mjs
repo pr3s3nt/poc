@@ -7,6 +7,12 @@ import { writeFileSync } from 'node:fs';
 const MAX_CUE_SECONDS = 14;
 const MIN_CUE_SECONDS = 1.5;
 
+// Refactor runners caption only in Vietnamese; any other locale is rejected.
+export function requireCaptionLocale(locale) {
+  if (locale !== 'vi') throw new Error(`unsupported caption locale "${locale}"; only vi exists`);
+  return locale;
+}
+
 export function createCaptions(secondsSinceStart) {
   const cues = [];
   return {

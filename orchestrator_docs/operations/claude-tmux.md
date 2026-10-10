@@ -2,7 +2,7 @@
 id: RUNBOOK-CLAUDE-TMUX
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-10
 ---
 
 # Codex điều phối Claude qua tmux
@@ -92,3 +92,26 @@ thầm chuyển code sang agent khác. Authorization commit/push không cấp qu
    credential và không che UI. Evidence ở ngoài Git; handoff link/path video,
    captions, checks và giới hạn. Không tự publish/upload recording khi chưa được
    yêu cầu. Cleanup chỉ các process/session/resource của task theo authorization.
+
+## Runner refactor Console local
+
+Sau khi build frontend, chạy tại repository root, với evidence path mới ở
+ngoài repository cho mỗi lần chạy:
+
+```bash
+bash backend/test/integration/refactor-ui-local.sh --scenario T01 --headed --captions vi --evidence /tmp/poc-refactor-T01-20261010-01
+```
+
+`--scenario` dispatch task đã có scenario; task chưa đăng ký bị từ chối trước
+khi khởi động. `--headed` và `--captions vi` là bắt buộc. Wrapper chuyển
+`--evidence` sang `ORCH_VIDEO_DIR`; không ghi đè thư mục đã tồn tại. Dùng chung
+`video-lib.sh`, helpers human input/recording/captions và fake backend với JSON
+state disposable. Không đọc `.env`, không kết nối retained DB/cluster/cloud.
+Các thao tác product đi qua UI; API read chỉ phục vụ assertions.
+
+Evidence giữ raw/captioned MP4, captions, marks, assertions và result, kể cả
+scenario fail. Phụ đề nằm trong strip dưới cửa sổ browser. Cleanup chỉ process
+thuộc run và state tạm; không xóa evidence, không upload. Locator role/label
+của trang chưa Việt hóa dùng nhãn hiện tại tới task chuyển trang đó. Khi thêm
+scenario, chạy `bash -n` runner và checks frontend tương ứng; review decode,
+frame, captions và assertions theo procedure ở trên.

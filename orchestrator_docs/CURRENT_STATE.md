@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-10
 ---
 
 # Current project state
@@ -340,3 +340,12 @@ readiness/PVC, diagnostics and reload persistence pass. Both sample attempt and
 final Applications remain deployed. The reviewed Vietnamese-captioned video
 joins registration and successful deployment sessions explicitly. See the
 [dev runbook](operations/k8s4f-dev.md) for URLs/restart and token lifetime limits.
+
+## Console refactor foundation — T01
+
+Thuật ngữ nhãn tiếng Việt đã chốt trong [glossary](GLOSSARY.md#nhãn-web-console-vi-01).
+Runner refactor local và locator role/label theo trang đã implement; headed
+sign-in/navigation/sign-out smoke, assertion-failure retention và signal cleanup
+đã kiểm trên fake adapters. [Evidence T01](verification/2026-10-10-T01-refactor-foundation.md).
+Các trang hiện giữ nhãn cũ tới task Việt hóa tương ứng; chưa có thay đổi matching,
+API hoặc deploy retained K8S-4F trong T01.

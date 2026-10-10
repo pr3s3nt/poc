@@ -107,7 +107,12 @@ export function createHuman(page, { selectNative } = {}) {
     await page.mouse.move(cursor.x, cursor.y);
   }
 
-  const human = { page, pause, moveTo, click, type, paste, choose, showCursor };
+  // Reading pause scaled to the caption: about 60 ms per character, 2-6 s.
+  async function read(text = '') {
+    await pause(Math.min(6000, Math.max(2000, text.length * 60)));
+  }
+
+  const human = { page, pause, moveTo, click, type, paste, choose, showCursor, read };
   return human;
 }
 
@@ -400,6 +405,12 @@ export async function reviewAcceptancePage(h, runId, secret) {
   await h.showCursor();
   await h.moveTo(job);
   await h.pause(6000);
+}
+
+// Asserts the injected pointer exists and moves with the real mouse, so a
+// recording always shows where the human-paced click lands.
+export async function expectVisibleCursor(page) {
+  await expect.poll(() => page.evaluate(() => typeof window.__pwCursorPulse === 'function' && Boolean(document.querySelector('svg path[fill="#111"]')))).toBe(true);
 }
 
 // Runs in every page before its scripts. Draws an arrow that follows real

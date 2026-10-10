@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-10
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-10 | T01 Vietnamese terminology, reusable local fake runner, headed smoke and failure/cleanup evidence | [Refactor foundation](2026-10-10-T01-refactor-foundation.md) |
 | 2026-10-09 | Persistent Docker Console deploy to new physical kind-k8s-4f, retained FE/BE/PostgreSQL and reviewed captioned GitHub video | [K8S-4F dev retained deployment](2026-10-09-k8s4f-dev-retained.md) |
 | 2026-10-09 | Retained k8s-4f Console Connection, real kind FE/BE/PostgreSQL Playwright, implicit cluster binding and cleanup | [k8s-4f live verification](2026-10-09-k8s4f-live.md) |
 | 2026-10-09 | Implicit internal cluster binding, reserved Definition admission/race/FK ordering, Console projection and fake-adapter browser restart | [Implicit cluster local delivery](2026-10-09-implicit-existing-cluster-local.md) |
