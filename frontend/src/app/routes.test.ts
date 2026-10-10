@@ -16,6 +16,11 @@ describe('console routes', () => {
     expect(parseRoute('/ui/applications/payment%20api/environments/staging/deployments/deploy-1')).toEqual({ name: 'deployment', applicationId: 'payment api', environment: 'staging', deploymentId: 'deploy-1' });
   });
 
+  it('routes the rendering templates page', () => {
+    expect(parseRoute('/ui/platform/rendering-templates')).toEqual({ name: 'rendering-templates' });
+    expect(href({ name: 'rendering-templates' })).toBe('/ui/platform/rendering-templates');
+  });
+
   it('encodes application IDs when constructing a link', () => {
     expect(href({ name: 'application', applicationId: 'payment api' })).toBe('/ui/applications/payment%20api');
     expect(href({ name: 'settings', applicationId: 'payment api' })).toBe('/ui/applications/payment%20api/settings');

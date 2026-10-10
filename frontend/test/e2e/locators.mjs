@@ -11,6 +11,7 @@ export const TRANSLATED = {
   applications: false,
   resourceTypes: false,
   resourceDefinitions: true,
+  renderingTemplates: true,
   connections: false,
   secretStores: false,
 };
@@ -27,6 +28,7 @@ const TABLES = {
     navApplications: { role: 'link', vi: 'Ứng dụng', current: 'Applications' },
     navResourceTypes: { role: 'link', vi: 'Loại tài nguyên', current: 'Resource types' },
     navResourceDefinitions: { role: 'link', vi: 'Cấu hình tài nguyên', current: 'Resource definitions' },
+    navRenderingTemplates: { role: 'link', vi: 'Mẫu dựng ứng dụng', current: 'Mẫu dựng ứng dụng' },
     navConnections: { role: 'link', vi: 'Kết nối', current: 'Connections' },
     navSecretStores: { role: 'link', vi: 'Kho bí mật', current: 'Secret stores' },
   },
@@ -50,6 +52,13 @@ const TABLES = {
     showAdvanced: { role: 'button', vi: 'Hiện nâng cao', current: 'Hiện nâng cao' },
     hideAdvanced: { role: 'button', vi: 'Ẩn nâng cao', current: 'Ẩn nâng cao' },
     submit: { role: 'button', vi: 'Đăng ký cấu hình tài nguyên', current: 'Đăng ký cấu hình tài nguyên' },
+  },
+  // T03 page is Vietnamese from the start; `current` equals `vi`.
+  renderingTemplates: {
+    heading: { role: 'heading', level: 1, vi: 'Mẫu dựng ứng dụng', current: 'Mẫu dựng ứng dụng' },
+    id: { role: 'label', vi: 'ID mẫu', current: 'ID mẫu' },
+    bundle: { role: 'label', vi: 'ID bundle dựng ứng dụng', current: 'ID bundle dựng ứng dụng' },
+    submit: { role: 'button', vi: 'Đăng ký mẫu dựng ứng dụng', current: 'Đăng ký mẫu dựng ứng dụng' },
   },
   connections: {
     heading: { role: 'heading', level: 1, vi: 'Kết nối', current: 'Connections' },

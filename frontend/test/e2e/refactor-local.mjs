@@ -6,9 +6,9 @@
 // Every product step is a UI action; API reads only assert results. Marks,
 // captions, assertions and the video are written also when a step fails.
 import { expect } from '@playwright/test';
-import { appendFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { requireCaptionLocale, createCaptions } from './captions.mjs';
-import { createHuman, expectVisibleCursor, installCursor } from './human.mjs';
+import { addWorkload, createApplication, createHuman, expectVisibleCursor, installCursor } from './human.mjs';
 import { assertTablesComplete, locators } from './locators.mjs';
 import { launchHeaded, screenSize, startRecording, stopRecording, x11Input } from './video.mjs';
 
@@ -391,6 +391,197 @@ export const SCENARIOS = {
     caption('Bước 11: Đăng xuất; phiên bị thu hồi');
     await h.click(ui('shell', 'signOut'));
     await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(3000);
+  },
+
+  // T03: trang Mẫu dựng ứng dụng. Fake adapters + a test-local score-k8s stub
+  // whose `generate` always fails (wrapper passes -score-k8s). Phases:
+  //   Developer creates two Applications and a workload each (UI);
+  //   Platform Engineer registers a template for ONE Application (UI);
+  //   Developer runs Preview (pure planning: selection only) and Deploy (the
+  //   render phase) on both. Preview never renders (ADR-010); the render
+  //   failure is produced by the Deploy path of the real product backend, with
+  //   a fake deliverer and the stub binary. Limit: the stub proves the product
+  //   path propagates a renderer failure; it is not the real score-k8s output.
+  async T03({ page, h, ui, caption, mark, check, baseURL }) {
+    const log = process.env.ORCH_E2E_SCORE_K8S_LOG;
+    if (!log) throw new Error('ORCH_E2E_SCORE_K8S_LOG is required for T03 (set by refactor-ui-local.sh)');
+    const calls = () => (existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean).map((line) => line.split('\t')[1]) : []);
+    const definitions = async () => (await (await page.request.get(`${baseURL}/api/v1/resource-definitions`)).json()).resourceDefinitions;
+    const editor = page.locator('.criteria-editor');
+    const select = (text) => editor.locator('label').filter({ hasText: text }).locator('select');
+    const formAlert = () => page.locator('form .form-error[role="alert"]');
+    const optionLabel = (locator, value) => locator.locator('option').evaluateAll((options, wanted) => options.find((option) => option.value === wanted)?.textContent, value);
+    const workload = { name: 'web', image: 'registry.example/web:t03', bindings: [], port: { name: 'http', port: '8080', targetPort: '8080' } };
+    const NATIVE_NAME = 'T03 Native App';
+    const TEMPLATE_NAME = 'T03 Template App';
+    const signInAs = async (username) => {
+      await h.type(ui('signIn', 'username'), username);
+      await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+      await h.click(ui('signIn', 'submit'));
+      await expect(ui('applications', 'heading')).toBeVisible();
+    };
+    const signOut = async () => {
+      await h.click(ui('shell', 'signOut'));
+      await expect(ui('signIn', 'username')).toBeVisible();
+    };
+    const openApplication = async (name) => {
+      await h.click(page.getByRole('button', { name: new RegExp(name) }));
+      await expect(page.getByRole('heading', { name })).toBeVisible();
+    };
+
+    caption('Bước 1: Lập trình viên đăng nhập và tạo hai ứng dụng, mỗi ứng dụng một workload');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await signInAs('developer');
+    const nativeId = await createApplication(h, NATIVE_NAME, 't03-native');
+    await addWorkload(h, workload);
+    await h.click(ui('shell', 'navApplications'));
+    const templateId = await createApplication(h, TEMPLATE_NAME, 't03-template');
+    await addWorkload(h, workload);
+    check(`developer created applications ${nativeId} and ${templateId}, each with workload web, through the UI`);
+    mark('applications-prepared');
+    await h.read('Hai ứng dụng đã sẵn sàng, mỗi ứng dụng có workload web');
+    await signOut();
+
+    caption('Bước 2: Kỹ sư nền tảng mở trang Mẫu dựng ứng dụng; danh sách trống, có hướng dẫn tiếng Việt');
+    await signInAs('platform-engineer');
+    await h.click(ui('shell', 'navRenderingTemplates'));
+    await expect(ui('renderingTemplates', 'heading')).toBeVisible();
+    await expect(page).toHaveURL(`${baseURL}/ui/platform/rendering-templates`);
+    await expect(page.getByText('Chưa có mẫu dựng ứng dụng nào.')).toBeVisible();
+    await expect(page.getByText(/Mẫu là tùy chọn và chỉ dùng cho cluster nội bộ/)).toBeVisible();
+    await expect(page.getByText(/không chuyển âm thầm sang renderer mặc định/)).toBeVisible();
+    await expect(page.getByText(/chưa phải bộ chọn từ danh sách bundle đã cài/)).toBeVisible();
+    check('sidebar peer link opens /ui/platform/rendering-templates; empty list, optional/internal-only/no-fallback guidance and explicit-bundle note shown');
+    mark('templates-page');
+    await h.read('Mẫu là tùy chọn, chỉ cho cluster nội bộ; mẫu đã chọn render lỗi sẽ báo lỗi');
+
+    caption('Bước 3: Form không có trường hạ tầng; editor Điều kiện áp dụng là editor chung');
+    for (const label of [/Kết nối/, /Terraform/, /module/i, /JSON/, /Quy tắc tạo tài nguyên/, /Loại tài nguyên/, /Cách tạo/]) await expect(page.getByLabel(label)).toHaveCount(0);
+    const modes = await editor.getByRole('radio').evaluateAll((radios) => radios.map((radio) => radio.closest('label')?.textContent?.trim().split('\n')[0] ?? ''));
+    expect(modes.length, 'four criteria modes').toBe(4);
+    check('no Connection/Terraform/module/JSON/type/driver controls; criteria editor shows 4 modes');
+    mark('no-infrastructure-fields');
+    await h.moveTo(editor);
+    await h.read('Chỉ có ID mẫu, ID bundle và Điều kiện áp dụng');
+
+    caption('Bước 4: Nhập bundle không tồn tại; máy chủ từ chối, ID, bundle và điều kiện được giữ');
+    await h.type(ui('renderingTemplates', 'id'), 'tpl-web');
+    await h.type(ui('renderingTemplates', 'bundle'), 'bundle-khong-co');
+    await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
+    await h.choose(select(/^Ứng dụng(?! mẫu)/), await optionLabel(select(/^Ứng dụng(?! mẫu)/), templateId));
+    await h.choose(select(/^Môi trường \(tùy chọn\)/), await optionLabel(select(/^Môi trường \(tùy chọn\)/), 'staging'));
+    await h.click(ui('renderingTemplates', 'submit'));
+    await expect(formAlert()).toContainText('Máy chủ từ chối mẫu này');
+    await expect(formAlert()).toContainText('bundle có thể chưa được cài');
+    expect(await formAlert().innerText()).not.toMatch(/bundle-khong-co|unavailable|not installed|invalid/i);
+    await expect(ui('renderingTemplates', 'id')).toHaveValue('tpl-web');
+    await expect(ui('renderingTemplates', 'bundle')).toHaveValue('bundle-khong-co');
+    await expect(select(/^Ứng dụng(?! mẫu)/)).toHaveValue(templateId);
+    await expect(select(/^Môi trường \(tùy chọn\)/)).toHaveValue('staging');
+    expect((await definitions()).some((item) => item.key === 'tpl-web')).toBe(false);
+    check('unavailable bundle: safe Vietnamese error without raw detail, ID/bundle/criteria kept, nothing registered');
+    mark('bundle-rejected');
+    await h.moveTo(formAlert());
+    await h.read('Bundle không có sẵn: dữ liệu đã nhập vẫn còn và chưa lưu gì');
+
+    caption('Bước 5: Nhập đúng bundle score-k8s-internal-v1 rồi đăng ký mẫu cho ứng dụng thứ hai');
+    await h.type(ui('renderingTemplates', 'bundle'), 'score-k8s-internal-v1', { replace: true });
+    await h.click(ui('renderingTemplates', 'submit'));
+    await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng ứng dụng tpl-web.' })).toBeVisible();
+    const entry = page.locator('.catalog-entry').filter({ has: page.getByText('tpl-web', { exact: true }) });
+    await expect(entry).toContainText('Bundle: score-k8s-internal-v1 · 1 điều kiện áp dụng');
+    await expect(ui('renderingTemplates', 'id')).toHaveValue('');
+    await expect(ui('renderingTemplates', 'bundle')).toHaveValue('');
+    const stored = (await definitions()).find((item) => item.key === 'tpl-web');
+    expect(stored).toMatchObject({ resourceType: 'workload', driverType: 'score-k8s', executionProfile: 'internal-k8s', criteria: [{ app_id: templateId, env_id: 'staging' }] });
+    expect(stored.driverInputs.values.variables).toEqual({ render_bundle: 'score-k8s-internal-v1' });
+    expect(stored.driverInputs.values.source, 'no source').toBeUndefined();
+    expect(stored.connectionKey ?? '', 'no connection').toBe('');
+    expect(stored.provision ?? {}, 'no provision').toEqual({});
+    check('registered tpl-web: workload/score-k8s/internal-k8s, variables only render_bundle, criteria app+staging, no connection/provision/source, listed with bundle and criteria count');
+    mark('template-registered');
+    await h.moveTo(entry);
+    await h.read('Đã đăng ký tpl-web; danh sách hiện ID, bundle và số điều kiện');
+
+    caption('Bước 6: Đăng ký lại cùng ID; báo trùng ID bằng tiếng Việt và giữ form');
+    await h.type(ui('renderingTemplates', 'id'), 'tpl-web');
+    await h.type(ui('renderingTemplates', 'bundle'), 'score-k8s-internal-v1');
+    await h.click(ui('renderingTemplates', 'submit'));
+    await expect(formAlert()).toContainText('ID mẫu đã tồn tại');
+    await expect(ui('renderingTemplates', 'id')).toHaveValue('tpl-web');
+    await expect(ui('renderingTemplates', 'bundle')).toHaveValue('score-k8s-internal-v1');
+    expect((await definitions()).filter((item) => item.key === 'tpl-web')).toHaveLength(1);
+    check('duplicate 409: Vietnamese message, form kept, the original template unchanged');
+    mark('duplicate-rejected');
+    await h.moveTo(formAlert());
+    await h.read('ID đã tồn tại; Definition gốc không bị thay thế');
+    await signOut();
+
+    caption('Bước 7: Xem trước ứng dụng không có mẫu khớp; dùng renderer mặc định (built-in Kubernetes)');
+    await signInAs('developer');
+    await openApplication(NATIVE_NAME);
+    await h.click(page.getByRole('button', { name: 'Preview changes' }));
+    const preview = page.getByLabel('Deployment preview');
+    await expect(preview).toContainText('1 workload(s) affected', { timeout: 60_000 });
+    await expect(preview.locator('li').filter({ hasText: /^web / })).toContainText('built-in Kubernetes');
+    await expect(preview.locator('li').filter({ hasText: /^web / })).not.toContainText('score-k8s');
+    check('Preview, application without matching template: native renderer (built-in Kubernetes), no score-k8s provenance');
+    mark('preview-native');
+    await h.moveTo(preview);
+    await h.read('Không có mẫu khớp thì dùng renderer mặc định');
+    expect(calls(), 'Preview never runs the renderer').toEqual([]);
+    check('Preview ran no score-k8s call (pure planning)');
+
+    caption('Bước 8: Triển khai ứng dụng này; renderer mặc định thành công, không gọi score-k8s');
+    await h.click(page.getByRole('button', { name: 'Deploy these changes' }));
+    const nativeResult = page.getByLabel('Deployment result');
+    await expect(nativeResult).toContainText('Deploy succeeded', { timeout: 120_000 });
+    expect(calls(), 'native deploy does not call the template renderer').toEqual([]);
+    check('Deploy of the native application succeeded (fake deliverer) with zero score-k8s stub calls');
+    mark('deploy-native-ok');
+    await h.moveTo(nativeResult);
+    await h.read('Triển khai bằng renderer mặc định thành công');
+
+    caption('Bước 9: Xem trước ứng dụng có mẫu khớp; hệ thống chọn đúng mẫu tpl-web');
+    await h.click(ui('shell', 'navApplications'));
+    await openApplication(TEMPLATE_NAME);
+    await h.click(page.getByRole('button', { name: 'Preview changes' }));
+    const templatePreview = page.getByLabel('Deployment preview');
+    await expect(templatePreview).toContainText('1 workload(s) affected', { timeout: 60_000 });
+    await expect(templatePreview.locator('li').filter({ hasText: /^web / })).toContainText('score-k8s 0.15.0 (tpl-web)');
+    await expect(templatePreview.locator('li').filter({ hasText: /^web / })).not.toContainText('built-in Kubernetes');
+    check('Preview, application matching criteria: selected template tpl-web (score-k8s 0.15.0), not native');
+    mark('preview-template');
+    expect(calls(), 'Preview selection did not run the renderer').toEqual([]);
+    await h.moveTo(templatePreview);
+    await h.read('Mẫu khớp điều kiện được chọn, thông tin mẫu hiện trong bản xem trước');
+
+    caption('Bước 10: Triển khai; mẫu đã chọn render lỗi nên báo lỗi, không chuyển sang renderer mặc định');
+    await h.click(page.getByRole('button', { name: 'Deploy these changes' }));
+    const failedResult = page.getByLabel('Deployment result');
+    await expect(failedResult).toContainText('Deploy failed', { timeout: 120_000 });
+    await expect(failedResult.locator('li').filter({ hasText: /^web · / })).toContainText('failed');
+    await expect(failedResult).not.toContainText('Deploy succeeded');
+    await expect(failedResult).toContainText('Unfinished changes stay pending');
+    const stubCalls = calls();
+    expect(stubCalls.some((line) => line.startsWith('generate ')), 'selected renderer was invoked and failed').toBe(true);
+    check(`Deploy with selected template failed through the product Deploy path (stub generate exit 1); stub calls: ${stubCalls.length}`);
+    mark('deploy-render-failed');
+    await h.moveTo(failedResult);
+    await h.read('Mẫu được chọn render lỗi: báo lỗi, workload vẫn chờ triển khai');
+
+    caption('Bước 11: Xem trước lại; workload vẫn chờ triển khai bằng mẫu, chưa bị renderer mặc định thay thế');
+    await h.click(page.getByRole('button', { name: 'Preview changes' }));
+    const again = page.getByLabel('Deployment preview');
+    await expect(again).toContainText('1 workload(s) affected', { timeout: 60_000 });
+    await expect(again.locator('li').filter({ hasText: /^web / })).toContainText('score-k8s 0.15.0 (tpl-web)');
+    check('after the render failure web is still a pending change selecting tpl-web: nothing was committed, no native fallback');
+    mark('preview-after-failure');
+    await h.read('Workload vẫn là thay đổi chờ xử lý và vẫn chọn mẫu tpl-web');
+    await signOut();
     mark('signed-out');
     await h.pause(3000);
   },

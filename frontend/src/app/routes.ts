@@ -3,6 +3,7 @@ export type Route =
   | { name: 'applications' }
   | { name: 'resource-types' }
   | { name: 'resource-definitions' }
+  | { name: 'rendering-templates' }
   | { name: 'connections' }
   | { name: 'secret-stores' }
   | { name: 'create-application' }
@@ -21,6 +22,7 @@ export function parseRoute(path = window.location.pathname): Route {
   if (relative === '/applications') return { name: 'applications' };
   if (relative === '/platform/resource-types') return { name: 'resource-types' };
   if (relative === '/platform/resource-definitions') return { name: 'resource-definitions' };
+  if (relative === '/platform/rendering-templates') return { name: 'rendering-templates' };
   if (relative === '/platform/connections') return { name: 'connections' };
   if (relative === '/platform/secret-stores') return { name: 'secret-stores' };
   if (relative === '/applications/new') return { name: 'create-application' };
@@ -48,6 +50,7 @@ export function href(route: Route): string {
     case 'applications': return `${base}/applications`;
     case 'resource-types': return `${base}/platform/resource-types`;
     case 'resource-definitions': return `${base}/platform/resource-definitions`;
+    case 'rendering-templates': return `${base}/platform/rendering-templates`;
     case 'connections': return `${base}/platform/connections`;
     case 'secret-stores': return `${base}/platform/secret-stores`;
     case 'create-application': return `${base}/applications/new`;

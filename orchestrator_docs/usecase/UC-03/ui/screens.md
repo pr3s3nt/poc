@@ -10,7 +10,7 @@ related: UC-03
 
 Trang Cấu hình tài nguyên liệt kê cấu hình thuộc Organization hiện tại, gồm
 ID, loại tài nguyên, phạm vi triển khai, driver và số điều kiện áp dụng. Không
-hiển thị cấu hình `workload`; trang Mẫu dựng ứng dụng thuộc T03. Cấu hình
+hiển thị cấu hình `workload`; các cấu hình này nằm ở trang Mẫu dựng ứng dụng. Cấu hình
 `existing-cluster` nếu có chỉ đọc và mang nhãn “Hệ thống”. Không có sửa/xóa;
 đăng ký chỉ dành Kỹ sư nền tảng/Quản trị viên.
 
@@ -64,3 +64,22 @@ môi trường (`env_type`). Xem trước phạm vi ở frontend chỉ là trợ
 cấu hình cùng type không kết luận ambiguous hoặc Definition thắng. Không gọi
 endpoint matching mới, không lưu hoặc provision khi xem trước. Editor có thể
 được dùng lại cho Mẫu dựng ứng dụng ở T03.
+
+## Trang Mẫu dựng ứng dụng (T03)
+
+Trang `/ui/platform/rendering-templates` nằm ngang hàng các trang catalog trong
+sidebar, chỉ Kỹ sư nền tảng/Quản trị viên truy cập. Danh sách chỉ lấy Definitions
+có `resourceType: workload`, hiển thị ID kỹ thuật, bundle ID và điều kiện áp dụng.
+Form gồm ID mẫu, ID bundle dựng ứng dụng và editor Điều kiện áp dụng T02B.
+ID tuân thủ chữ thường/số/gạch ngang, không có friendly name.
+
+Type `workload`, driver `score-k8s` và profile `internal-k8s` là giá trị ngầm;
+không có controls Connection, provision, module hoặc JSON variables tùy ý.
+Bundle ID được nhập tường minh theo API hiện tại; trợ giúp nói rõ đây chưa phải
+bộ chọn danh sách bundle đã cài (T18). Không suy availability từ ID hard-code.
+
+Mẫu là tùy chọn, chỉ dùng cho cluster nội bộ. Hệ thống tự chọn theo criteria
+hiện hành; không có mẫu khớp thì dùng renderer mặc định. Mẫu được chọn render
+lỗi phải báo lỗi, không chuyển âm thầm sang renderer mặc định. Không có binding
+mới cho Environment hoặc upload template. Text/aria-label/trạng thái dùng Việt;
+technical IDs/payload giữ nguyên. Lưu mẫu không tự Preview/Deploy.

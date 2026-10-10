@@ -46,3 +46,14 @@ related: UC-03
 - Context xem trước chưa đủ có trạng thái cần thêm context. Cảnh báo chồng
   lấn chỉ nêu nguy cơ; không coi trợ giúp frontend là matching authoritative.
 - Submit lỗi giữ chế độ, criteria và metadata; submit thành công reset wildcard.
+
+## Trạng thái Mẫu dựng ứng dụng (T03)
+
+- Loading/empty/error/ready của list phân biệt rõ; lỗi có Thử lại, không giả empty.
+- ID rỗng/sai shape hoặc bundle rỗng có validation Việt trước POST.
+- Saving khóa form đã gửi. Duplicate, bundle không hợp lệ/không có sẵn hoặc lỗi
+  server giữ ID, bundle và criteria; thông báo Việt an toàn, không lộ raw error.
+- Created reset form/criteria và báo ID đã đăng ký; reload lỗi giữ thông báo đã
+  lưu, Thử lại chỉ tải list, không gửi lại POST.
+- Editor dùng các trạng thái T02B; loading/late replies không ghi đè edits.
+- Developer không thấy navigation và không render form khi mở deep link.

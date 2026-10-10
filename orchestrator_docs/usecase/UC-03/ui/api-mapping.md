@@ -64,3 +64,15 @@ Bốn chế độ đều serialize theo năm field hiện hành; wildcard là `[
 field rỗng. Không đổi registration contract, specificity hoặc profile guard.
 Xem trước phạm vi/cảnh báo frontend không persist/provision và không gọi
 endpoint mới. Matching preview authoritative chỉ được bổ sung ở T19.
+
+## Trang Mẫu dựng ứng dụng projection (T03)
+
+GET `/resource-definitions` cung cấp list scoped theo Organization; UI lọc
+`resourceType === "workload"`. GET `/applications` phục vụ editor criteria chung.
+POST cùng endpoint gửi `key`, `resourceType: "workload"`,
+`driverType: "score-k8s"`, `executionProfile: "internal-k8s"`,
+`driverInputs: {values: {variables: {render_bundle: <ID người dùng nhập>}}}`
+và criteria chuẩn. Không gửi connection override, provision hoặc source.
+Không thêm endpoint bundle/matching-preview ở T03; bundle list thuộc T18.
+Status/scoping/insert-only và BR-15/16 không đổi. Frontend giữ form khi POST
+lỗi, 409 có thông báo trùng ID Việt, lỗi bundle có thông báo Việt an toàn.

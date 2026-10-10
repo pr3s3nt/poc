@@ -102,21 +102,22 @@ try {
   // 2. Platform Engineer: register the renderer Definition for this app only.
   mark('platform-sign-in');
   await signInAs('platform-engineer');
-  await h.click(page.getByRole('link', { name: /Resource definitions/ }));
-  await expect(page.getByRole('heading', { name: 'Resource definitions' })).toBeVisible();
+  await h.click(page.getByRole('link', { name: /Mẫu dựng ứng dụng/ }));
+  await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1 })).toBeVisible();
   await h.pause(2000);
   const definitionKey = `render-${runId}`.slice(0, 63);
-  await h.type(page.getByRole('textbox', { name: 'Definition ID' }), definitionKey);
-  await h.choose(page.getByRole('combobox', { name: 'Driver', exact: true }), 'score-k8s workload renderer');
-  await expect(page.getByRole('textbox', { name: 'Rendering bundle' })).toHaveValue('score-k8s-internal-v1');
-  await h.moveTo(page.getByRole('textbox', { name: 'Rendering bundle' }));
+  await h.type(page.getByLabel('ID mẫu', { exact: true }), definitionKey);
+  // The bundle ID is typed explicitly (T03: no installed-bundle list until T18).
+  await h.type(page.getByLabel('ID bundle dựng ứng dụng', { exact: true }), 'score-k8s-internal-v1');
   await h.pause(3000);
-  await h.type(page.getByLabel('Criterion 1 Application ID'), appId);
-  await h.type(page.getByLabel('Criterion 1 Environment ID'), 'staging');
+  const criteria = page.locator('.criteria-editor');
+  await h.click(criteria.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
+  await h.type(page.getByLabel('Điều kiện 1 ID ứng dụng'), appId);
+  await h.type(page.getByLabel('Điều kiện 1 ID môi trường'), 'staging');
   await h.pause(3000);
-  await h.click(page.getByRole('button', { name: 'Register resource definition' }));
-  await expect(page.getByRole('status').filter({ hasText: `Registered resource definition ${definitionKey}` })).toBeVisible();
-  await expect(page.locator('.catalog-entry').filter({ hasText: definitionKey })).toContainText('workload · internal-k8s · score-k8s · 1 criteria');
+  await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng' }));
+  await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký mẫu dựng ứng dụng ${definitionKey}` })).toBeVisible();
+  await expect(page.locator('.catalog-entry').filter({ hasText: definitionKey })).toContainText('Bundle: score-k8s-internal-v1 · 1 điều kiện áp dụng');
   await h.moveTo(page.locator('.catalog-entry').filter({ hasText: definitionKey }));
   mark('definition-registered');
   await h.pause(KEY_SCREEN);

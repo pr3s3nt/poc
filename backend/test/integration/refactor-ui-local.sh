@@ -9,6 +9,8 @@
 # rejected before anything starts. No Docker, cluster, cloud, database, Vault or
 # .env: inherited external configuration is dropped. NEW_PATH must not exist
 # and must be outside the repository; it is kept, also on failure.
+# T03 additionally passes -score-k8s with a test-local stub (stubs/score-k8s-render-fail-stub.sh)
+# whose `generate` always fails; calls are logged in NEW_PATH/score-k8s-stub/score-k8s-calls.log.
 # Debug only: ORCH_REFACTOR_INJECT_FAILURE=after-sign-in makes T01 fail on
 # purpose to check that video, marks and assertions survive a failure.
 #
@@ -95,6 +97,16 @@ video_require_tools
 video_require_fresh_dist "${REPO}"
 XDOTOOL="$(video_xdotool)"
 
+# T03 only: a controlled score-k8s stand-in. No real renderer binary is used.
+SCORE_ARGS=()
+if [[ "${SCENARIO}" == T03 ]]; then
+  mkdir -m 0700 "${WORK}/score-k8s-stub"
+  cp "${ROOT}/test/integration/stubs/score-k8s-render-fail-stub.sh" "${WORK}/score-k8s-stub/score-k8s"
+  chmod 0755 "${WORK}/score-k8s-stub/score-k8s"
+  SCORE_ARGS=(-score-k8s "${WORK}/score-k8s-stub/score-k8s")
+  export ORCH_E2E_SCORE_K8S_LOG="${WORK}/score-k8s-stub/score-k8s-calls.log"
+fi
+
 (cd "${ROOT}" && go build -o "${WORK}/orchestrator" ./cmd/orchestrator)
 # Temporary JSON state only: inherited database/Vault/Terraform/AWS/Kubernetes
 # configuration is dropped and the matching flags are explicitly blank.
@@ -105,7 +117,7 @@ env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_VAULT_ADDR -u ORCHESTRATOR
   -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN \
   "${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" -state "${WORK}/state.json" \
   -database-url-file "" -vault-address "" -vault-token-file "" -vault-agent-address "" \
-  -connection-credential-store none -adapters fake -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" \
+  -connection-credential-store none ${SCORE_ARGS[@]+"${SCORE_ARGS[@]}"} -adapters fake -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" \
   > "${WORK}/orchestrator.log" 2>&1 &
 PIDS+=($!)
 for _ in $(seq 1 80); do [[ -s "${WORK}/api-addr" ]] && break; sleep 0.25; done

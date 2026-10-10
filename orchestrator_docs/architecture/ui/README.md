@@ -56,3 +56,11 @@ Scenario đi qua UI, có headed browser, cursor/click, pause để đọc và ph
 ở dưới video. Giữ video, phase marks và assertions cả khi fail; evidence fake
 không chứng minh adapter thật. Quy trình chạy và cleanup nằm trong
 [Claude tmux runbook](../../operations/claude-tmux.md).
+
+## Navigation Mẫu dựng ứng dụng (T03)
+
+Sidebar cung cấp mục “Mẫu dựng ứng dụng” ngang hàng catalog tài nguyên tại
+`/ui/platform/rendering-templates`, cùng gate PLATFORM_ENGINEER/ADMIN. Developer
+không thấy mục này và không render trang qua deep link. Trang thuộc
+[UC-03 screens](../../usecase/UC-03/ui/screens.md); không thêm cách chọn mẫu
+hoặc binding Environment. Các nhãn shell khác được Việt hóa ở T10.

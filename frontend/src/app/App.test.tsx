@@ -202,4 +202,29 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     await waitFor(() => expect(requests.some((request) => request.url.includes('/deployments'))).toBe(true));
     expect(screen.queryByText('Application not found')).not.toBeInTheDocument();
   });
+  describe.each(['PLATFORM_ENGINEER', 'ADMIN'])('rendering templates page for %s (T03)', (role) => {
+    it('shows the peer sidebar link and renders the page at the deep link', async () => {
+      authenticated = true;
+      window.history.replaceState({}, '', '/ui/platform/rendering-templates');
+      override = (url) => url.endsWith('/auth/session') ? Response.json({ user: { Username: 'platform', Role: role } })
+        : url.endsWith('/resource-definitions') ? Response.json({ resourceDefinitions: [] }) : undefined;
+      render(<App />);
+      expect(await screen.findByRole('heading', { name: 'Mẫu dựng ứng dụng' })).toBeInTheDocument();
+      const link = screen.getByRole('link', { name: /Mẫu dựng ứng dụng/ });
+      expect(link).toHaveAttribute('href', '/ui/platform/rendering-templates');
+      expect(link).toHaveClass('nav-item-active');
+      expect(screen.getByRole('link', { name: /Resource definitions/ })).not.toHaveClass('nav-item-active');
+    });
+  });
+
+  it('hides the rendering templates link and page from a developer deep link', async () => {
+    authenticated = true;
+    window.history.replaceState({}, '', '/ui/platform/rendering-templates');
+    render(<App />);
+    await screen.findByRole('navigation', { name: 'Main navigation' });
+    expect(screen.queryByRole('link', { name: /Mẫu dựng ứng dụng/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Mẫu dựng ứng dụng' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('ID bundle dựng ứng dụng')).not.toBeInTheDocument();
+    expect(requests.some((request) => request.url.endsWith('/resource-definitions'))).toBe(false);
+  });
 });

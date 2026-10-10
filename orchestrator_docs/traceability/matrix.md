@@ -40,7 +40,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 
 | Requirement / boundary | Implementation | Local evidence |
 |---|---|---|
-| UC-03 BR-15/16 registration | `resource.ValidateRenderDefinition`, catalog bundle registry; Console renderer form removed at T02, separate page pending T03 | `catalog/rendering_test.go`, `test/e2e/rendering_http_test.go`; upgrade A → B: `planning/rendering_test.go`, `pending/rendering_test.go` |
+| UC-03 BR-15/16 registration | `resource.ValidateRenderDefinition`, catalog bundle registry; Console `RenderingTemplatesPage` with PE/Admin gate and shared criteria editor | `catalog/rendering_test.go`, `test/e2e/rendering_http_test.go`; upgrade A → B: `planning/rendering_test.go`, `pending/rendering_test.go` |
 | UC-05 BR-09/10; UC-06 BR-17 plan pinning/preflight | `planning/rendering.go`, deployment preflight, additive plan JSON | `planning/rendering_test.go`, `deployment/scorek8s_test.go` |
 | UC-06 BR-18/19; UC-08 BR-09 output-only rendering | `adapters/scorek8s`, shared platform policy and existing delivery | `scorek8s/renderer_test.go`, `deployment/scorek8s_test.go` |
 | UC-07/12/16 identity, configuration, no-op and stale token preservation | pending renderer comparison with last persisted plan; unchanged Secret/delivery owners | `pending/rendering_test.go`, existing pending/configuration/remove tests, CLI Agent/VSO reference tests |
@@ -63,7 +63,7 @@ BR-01/03/08/10–14 và contract đăng ký. `ResourceDefinitionsPage.test.tsx`
 kiểm auto driver/module/profile, profile rỗng, READY/kind dropdown, giữ form và
 safe errors; `RegistrationStates.test.tsx` kiểm freeze/committed reload/no replay.
 Scenario T02 trong `frontend/test/e2e/refactor-local.mjs` kiểm product UI trên
-backend fake; renderer page và renderer browser scenario tiếp tục ở T03.
+backend fake; renderer page và renderer browser scenario được tách ở T03.
 Execution: [T02 local verification](../verification/2026-10-10-T02-resource-form.md).
 
 T02B projection theo [UI screens](../usecase/UC-03/ui/screens.md) giữ
@@ -72,6 +72,15 @@ BR-01/03/06/07: `CriteriaEditor.test.tsx` và
 round-trip, copy độc lập, giữ edits khi tải/lỗi/late response và profile tách
 khỏi env_type. Cảnh báo overlap/xem trước phạm vi chỉ là trợ giúp frontend;
 matching authoritative thuộc T19, matcher/contract đăng ký không đổi.
+
+
+T03 projection theo [UI screens](../usecase/UC-03/ui/screens.md) giữ BR-15/16
+và ADR-010: `RenderingTemplatesPage.test.tsx` kiểm workload-only list, payload
+ngầm, không override/provision/source, ID/bundle errors và committed reload;
+`App.test.tsx` kiểm PE/Admin/Developer gates, `routes.test.ts` kiểm deep link.
+Scenario T03 kiểm đăng ký qua UI, native/selected renderer Preview và selected
+render failure qua Deploy với fake infrastructure/delivery + CLI stub local.
+Preview chỉ chọn renderer, không chạy render/provision; bundle list thuộc T18.
 
 ## UC-04
 
