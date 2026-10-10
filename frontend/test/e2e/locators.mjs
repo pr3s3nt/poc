@@ -10,7 +10,7 @@ export const TRANSLATED = {
   shell: false,
   applications: false,
   resourceTypes: false,
-  resourceDefinitions: false,
+  resourceDefinitions: true,
   connections: false,
   secretStores: false,
 };
@@ -36,8 +36,20 @@ const TABLES = {
   resourceTypes: {
     heading: { role: 'heading', level: 1, vi: 'Loại tài nguyên', current: 'Resource types' },
   },
+  // T02 translated this page; `current` equals `vi` for its entries.
   resourceDefinitions: {
     heading: { role: 'heading', level: 1, vi: 'Cấu hình tài nguyên', current: 'Resource definitions' },
+    id: { role: 'label', vi: 'ID cấu hình', current: 'ID cấu hình' },
+    type: { role: 'label', wrapsOptions: true, vi: 'Loại tài nguyên', current: 'Loại tài nguyên' },
+    driver: { role: 'label', wrapsOptions: true, vi: 'Cách tạo', current: 'Cách tạo' },
+    scope: { role: 'label', wrapsOptions: true, vi: 'Phạm vi triển khai', current: 'Phạm vi triển khai' },
+    awsConnection: { role: 'label', wrapsOptions: true, vi: 'Kết nối AWS', current: 'Kết nối AWS' },
+    kubeConnection: { role: 'label', wrapsOptions: true, vi: 'Kết nối riêng cho cluster (tùy chọn)', current: 'Kết nối riêng cho cluster (tùy chọn)' },
+    variables: { role: 'label', wrapsOptions: true, vi: 'Tham số cấu hình (JSON object)', current: 'Tham số cấu hình (JSON object)' },
+    criterionClass: { role: 'label', vi: 'Điều kiện 1 Class', current: 'Điều kiện 1 Class' },
+    showAdvanced: { role: 'button', vi: 'Hiện nâng cao', current: 'Hiện nâng cao' },
+    hideAdvanced: { role: 'button', vi: 'Ẩn nâng cao', current: 'Ẩn nâng cao' },
+    submit: { role: 'button', vi: 'Đăng ký cấu hình tài nguyên', current: 'Đăng ký cấu hình tài nguyên' },
   },
   connections: {
     heading: { role: 'heading', level: 1, vi: 'Kết nối', current: 'Connections' },
@@ -58,7 +70,9 @@ export function locate(page, group, key) {
   const entry = TABLES[group]?.[key];
   if (!entry) throw new Error(`unknown locator ${group}.${key}`);
   const name = labelFor(group, key);
-  if (entry.role === 'label') return page.getByLabel(name, { exact: true });
+  // A label that wraps a <select> also contains the option texts, so Playwright
+  // cannot match it exactly; those entries use a substring match (`wrapsOptions`).
+  if (entry.role === 'label') return page.getByLabel(name, { exact: !entry.wrapsOptions });
   // A nav link's name starts with a decorative glyph ("◇ Resource types"), so
   // it matches the label as the last words of the name.
   const options = { name: entry.role === 'link' ? new RegExp(`(^|\\s)${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) : name, exact: true };

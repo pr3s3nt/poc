@@ -50,6 +50,24 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và VSO → namespace Secret → Pod `secretKeyRef` đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
 | UC-16 | MVP path implemented | Form/Score import, typed resource params, public path + Service port rows, draft save/delete/undo, references, edit deployed workload bằng reconstructed Score, Preview → Deploy và partial retry đã có. Preview bỏ qua no-op draft nhưng giữ UC-12 revision update. Kind đã kiểm tra multi-path BusyBox `/` + `/api`, Fleet route và no-op Pod UID; Backstage cụ thể và broader update/cloud path chưa kiểm chứng. |
 
+## Console refactor T02 (2026-10-10)
+
+[Local verification](verification/2026-10-10-T02-resource-form.md): frontend
+checks và headed fake scenario pass; video/visibility và payload reviewed.
+
+Form Cấu hình tài nguyên dùng tiếng Việt và chỉ cho đăng ký
+Terraform/Kubernetes; driver/module tự chọn theo type, Terraform khóa `aws-eks`,
+Kubernetes có Cluster nội bộ/Dùng chung. Connection lấy từ list org-scoped,
+lọc READY đúng kind; Kubernetes mặc định dùng Connection của Môi trường,
+override nằm ở nâng cao. Terraform vẫn cần AWS Connection tường minh tới T16.
+JSON/criteria và lựa chọn theo driver được giữ khi đổi controls hoặc submit lỗi.
+
+Workload Definitions không còn ở list/form resource; trang Mẫu dựng ứng dụng
+được triển khai ở T03. Backend rendering/API vẫn giữ nguyên. Runner live
+`frontend/test/e2e/template-engine-kind-human.mjs` còn dùng form renderer cũ và
+chưa chạy lại; phải cập nhật route/locator tại T03 trước khi dùng. Exact
+matching-preview và code-based error mapping vẫn thuộc T19/T20.
+
 ## Definition-selected rendering (2026-10-06)
 
 [ADR-010](architecture/decisions/ADR-010-score-k8s-workload-rendering.md) is accepted.

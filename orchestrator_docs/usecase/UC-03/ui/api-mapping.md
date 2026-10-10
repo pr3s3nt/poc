@@ -2,7 +2,7 @@
 id: UC-03-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-10
 related: UC-03
 ---
 
@@ -32,3 +32,22 @@ The same Definition registration endpoint accepts Type `workload`, driver
 The Console supplies an installed bundle ID and hides connection/provision/
 arbitrary-variable inputs for this variant. Server-owned `sourceFingerprint`
 pins the bundle; unavailable bundles and unsupported pairs are validation errors.
+
+## Resource form projection (T02)
+
+Form Cấu hình tài nguyên dùng GET `/resource-types`, `/resource-definitions`
+và `/connections`; các list do server scope theo Organization của phiên.
+Lọc workload khỏi list/type selector và không cung cấp driver existing-cluster
+trong form. Đây là projection UI; public API compatibility chỉ đổi tại T17,
+workload renderer contract phía trên vẫn được giữ cho T03.
+
+POST giữ body/semantics hiện hành: Terraform gửi `executionProfile: "aws-eks"`,
+`connectionKey` AWS READY và embedded `source.module` theo type; Kubernetes gửi
+`executionProfile: "internal-k8s"` hoặc `""`, bỏ `source` và mặc định
+`connectionKey: ""`. Override Kubernetes chỉ lấy READY kind KUBERNETES và gửi
+key kỹ thuật. Criteria giữ năm field, loại field rỗng; wildcard gửi `[{}]`.
+Không thay matcher, backend defaults, seed hay Driver Inputs policy.
+
+Frontend kiểm ID rỗng/shape và JSON trước POST; 409 có thông báo trùng ID Việt.
+Các lỗi khác có fallback Việt an toàn và giữ form; không parse/regex raw backend
+English message. Mapping field/code đầy đủ thuộc T20.

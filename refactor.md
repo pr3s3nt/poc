@@ -1256,7 +1256,7 @@ Các khoảng Txx–Tyy gồm toàn bộ task trong khoảng; T02B ghi riêng kh
 | ID | Tên ngắn | Phụ thuộc | Trạng thái | Ghi chú/evidence path |
 |---|---|---|---|---|
 | T01 | Chốt thuật ngữ và runner/locator dùng chung | Không | DONE | V-D/V-FE/V-UI pass; fake headed smoke, failure retention/cleanup reviewed. Evidence: `orchestrator_docs/verification/2026-10-10-T01-refactor-foundation.md`; `/tmp/poc-refactor-T01-pass-1791628004`. |
-| T02 | Form tạo Cấu hình tài nguyên | T01 | TODO | — |
+| T02 | Form tạo Cấu hình tài nguyên | T01 | DONE | V-D/V-FE (169 tests)/V-UI(T02), T01 locator regression pass; fake headed video reviewed, advanced visibility/prototype lookup fixes verified. Evidence: `orchestrator_docs/verification/2026-10-10-T02-resource-form.md`; `/tmp/poc-refactor-T02-final-20261010181542`. |
 | T02B | Editor Điều kiện áp dụng dùng chung | T01, T02 | TODO | — |
 | T03 | Trang Mẫu dựng ứng dụng | T01, T02, T02B | TODO | — |
 | T04 | Trang Loại tài nguyên | T01, T02 | TODO | — |

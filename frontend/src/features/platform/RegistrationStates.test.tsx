@@ -7,12 +7,14 @@ import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
 import { ResourceTypesPage } from './ResourceTypesPage';
 
 type User = ReturnType<typeof userEvent.setup>;
+type Labels = { listError: string; retry: string; registered: RegExp };
+const english: Labels = { listError: 'List error', retry: 'Retry', registered: /Registered/ };
 
 // One registration page: its list endpoint/field, how to fill it, the field
 // that must be kept on failure and a created row.
-const pages: { name: string; page: () => ReactElement; list: string; field: string; item: Record<string, unknown>; idLabel: string; fill: (user: User) => Promise<void>; submit: string; empty: string }[] = [
+const pages: { name: string; page: () => ReactElement; list: string; field: string; item: Record<string, unknown>; idLabel: string; fill: (user: User) => Promise<void>; submit: string; empty: string; labels?: Labels; failure?: string }[] = [
   { name: 'UC-02 types', page: () => <ResourceTypesPage />, list: '/resource-types', field: 'resourceTypes', item: { key: 'cache', inputs: [], outputs: [] }, idLabel: 'Resource type ID', fill: async (user) => { await user.type(screen.getByLabelText('Resource type ID'), 'cache'); }, submit: 'Register resource type', empty: 'No resource types registered yet.' },
-  { name: 'UC-03 definitions', page: () => <ResourceDefinitionsPage />, list: '/resource-definitions', field: 'resourceDefinitions', item: { key: 'pg-fast', resourceType: 'postgres', driverType: 'kubernetes', criteria: [{}] }, idLabel: 'Definition ID', fill: async (user) => { await user.type(screen.getByLabelText('Definition ID'), 'pg-fast'); await user.selectOptions(screen.getByLabelText('Resource Type'), 'postgres'); }, submit: 'Register resource definition', empty: 'No resource definitions registered yet.' },
+  { name: 'UC-03 definitions', page: () => <ResourceDefinitionsPage />, list: '/resource-definitions', field: 'resourceDefinitions', item: { key: 'pg-fast', resourceType: 'postgres', driverType: 'kubernetes', criteria: [{}] }, idLabel: 'ID cấu hình', fill: async (user) => { await user.type(screen.getByLabelText('ID cấu hình'), 'pg-fast'); await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'postgres'); }, submit: 'Đăng ký cấu hình tài nguyên', empty: 'Chưa có cấu hình tài nguyên nào.', labels: { listError: 'Lỗi tải danh sách', retry: 'Thử lại', registered: /Đã đăng ký/ }, failure: 'ID cấu hình đã tồn tại. Hãy đổi ID rồi thử lại.' },
   { name: 'UC-04 connections', page: () => <ConnectionsPage />, list: '/connections', field: 'connections', item: { key: 'fast', name: 'fast', kind: 'KUBERNETES', status: 'READY', config: { cluster: 'c', kubeContext: 'kind-fast' } }, idLabel: 'Connection name', fill: async (user) => {
     await user.type(screen.getByLabelText('Connection name'), 'fast');
     await user.click(screen.getByLabelText('Paste kubeconfig'));
@@ -38,12 +40,13 @@ function stub(list: string, lists: (() => Response)[], post: () => Response) {
     if (init?.method === 'POST') { calls.posts += 1; return post(); }
     if (url.endsWith(list)) return (lists.shift() ?? lists[0] ?? (() => Response.json({})))();
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres' }] });
+    if (url.endsWith('/connections')) return Response.json({ connections: [] });
     return Response.json({}, { status: 404 });
   }));
   return calls;
 }
 
-describe.each(pages)('$name registration states', ({ page, list, field, item, idLabel, fill, submit, empty }) => {
+describe.each(pages)('$name registration states', ({ page, list, field, item, idLabel, fill, submit, empty, labels = english, failure = 'duplicate id' }) => {
   const listed = (items: unknown[]) => () => Response.json({ [field]: items });
   const failed = () => Response.json({ error: 'unavailable' }, { status: 500 });
 
@@ -51,9 +54,9 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
     const user = userEvent.setup();
     stub(list, [failed, listed([])], () => Response.json({}, { status: 201 }));
     render(page());
-    const alert = await screen.findByRole('alert', { name: 'List error' });
+    const alert = await screen.findByRole('alert', { name: labels.listError });
     expect(screen.queryByText(empty)).not.toBeInTheDocument();
-    await user.click(within(alert).getByRole('button', { name: 'Retry' }));
+    await user.click(within(alert).getByRole('button', { name: labels.retry }));
     expect(await screen.findByText(empty)).toBeInTheDocument();
   });
 
@@ -64,7 +67,7 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
     await screen.findByText(empty);
     await fill(user);
     await user.click(screen.getByRole('button', { name: submit }));
-    expect(await screen.findByText('duplicate id')).toBeInTheDocument();
+    expect(await screen.findByText(failure)).toBeInTheDocument();
     expect(screen.getByLabelText(idLabel)).not.toHaveValue('');
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(calls.posts).toBe(1);
@@ -90,7 +93,7 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
     await user.type(idField, 'next-draft');
     expect(idField).not.toHaveValue(expect.stringContaining('next-draft'));
     release(Response.json(item, { status: 201 }));
-    expect(await screen.findByRole('status')).toHaveTextContent(/Registered/);
+    expect(await screen.findByRole('status')).toHaveTextContent(labels.registered);
     expect(screen.getByLabelText(idLabel)).toBeEnabled();
     expect(screen.getByLabelText(idLabel)).toHaveValue('');
     await user.type(screen.getByLabelText(idLabel), 'next-draft');
@@ -105,11 +108,11 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
     await screen.findByText(empty);
     await fill(user);
     await user.click(screen.getByRole('button', { name: submit }));
-    expect(await screen.findByRole('status')).toHaveTextContent(/Registered/);
+    expect(await screen.findByRole('status')).toHaveTextContent(labels.registered);
     expect(screen.getByLabelText(idLabel)).toHaveValue('');
-    const alert = await screen.findByRole('alert', { name: 'List error' });
+    const alert = await screen.findByRole('alert', { name: labels.listError });
     expect(screen.getByRole('button', { name: submit })).toBeEnabled();
-    await user.click(within(alert).getByRole('button', { name: 'Retry' }));
+    await user.click(within(alert).getByRole('button', { name: labels.retry }));
     expect(await screen.findByText(String(item.key))).toBeInTheDocument();
     expect(calls.posts).toBe(1);
   });

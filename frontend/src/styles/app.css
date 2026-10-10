@@ -111,3 +111,6 @@ a { color: inherit; }
 .transition-preview,.transition-progress,.retained-source,.operation-banner .recovery { margin-top:16px; border-top:1px solid var(--border-muted); padding-top:14px; }.warning-text { color:#9a6700; }
 .environment-connection select,.secret-store-selection select,.transition-panel select { width:100%; max-width:560px; border:1px solid var(--border); border-radius:6px; padding:8px 10px; background:var(--surface); color:var(--ink); font:inherit; margin:6px 0; }
 .create-form textarea,.create-form-secrets textarea { width:100%; border:1px solid var(--border); border-radius:6px; padding:8px 10px; font:inherit; }
+
+.form-warning { border:1px solid #d4a72c; border-radius:6px; background:#fff8c5; color:#7d4e00; padding:10px 12px; font-size:14px; }
+#definition-advanced[hidden] { display:none; }

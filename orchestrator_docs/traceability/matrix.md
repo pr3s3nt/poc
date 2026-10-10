@@ -40,7 +40,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 
 | Requirement / boundary | Implementation | Local evidence |
 |---|---|---|
-| UC-03 BR-15/16 registration | `resource.ValidateRenderDefinition`, catalog bundle registry and Console form | `catalog/rendering_test.go`, `ResourceDefinitionsPage.test.tsx`, `test/e2e/rendering_http_test.go`; upgrade A → B: `planning/rendering_test.go`, `pending/rendering_test.go` |
+| UC-03 BR-15/16 registration | `resource.ValidateRenderDefinition`, catalog bundle registry; Console renderer form removed at T02, separate page pending T03 | `catalog/rendering_test.go`, `test/e2e/rendering_http_test.go`; upgrade A → B: `planning/rendering_test.go`, `pending/rendering_test.go` |
 | UC-05 BR-09/10; UC-06 BR-17 plan pinning/preflight | `planning/rendering.go`, deployment preflight, additive plan JSON | `planning/rendering_test.go`, `deployment/scorek8s_test.go` |
 | UC-06 BR-18/19; UC-08 BR-09 output-only rendering | `adapters/scorek8s`, shared platform policy and existing delivery | `scorek8s/renderer_test.go`, `deployment/scorek8s_test.go` |
 | UC-07/12/16 identity, configuration, no-op and stale token preservation | pending renderer comparison with last persisted plan; unchanged Secret/delivery owners | `pending/rendering_test.go`, existing pending/configuration/remove tests, CLI Agent/VSO reference tests |
@@ -57,6 +57,14 @@ Local CLI tests use fake executors/deployers; live kind/AWS remains unverified.
 | MS-06, MS-07 | same | `ListResourceDefinitions`, embedded `terraform.Inspector.Inspect` or static executor output contract | source fingerprint candidate | OC-04; duplicate/remote-source/output validation tests |
 | MS-08, MS-09; BR-07 | same | `CreateResourceDefinition/ListResourceDefinitions` | insert-only org-scoped catalog; PostgreSQL Definition + criteria atomic transaction | OC-04; registration contract/race/criterion-failure rollback; no-restart HTTP Preview; explicit `{}` wildcard and criteria-shape conformance |
 | BR-01, BR-03 | [ADR-001](../architecture/decisions/ADR-001-profile-resource-scopes.md) | Optional Definition profile guard before unchanged five-field scoring | `TestPlan_NewApplicationMatchesPostgresByExecutionProfile`, invalid-profile validation |
+
+T02 projection theo [UC-03 UI screens](../usecase/UC-03/ui/screens.md) giữ
+BR-01/03/08/10–14 và contract đăng ký. `ResourceDefinitionsPage.test.tsx`
+kiểm auto driver/module/profile, profile rỗng, READY/kind dropdown, giữ form và
+safe errors; `RegistrationStates.test.tsx` kiểm freeze/committed reload/no replay.
+Scenario T02 trong `frontend/test/e2e/refactor-local.mjs` kiểm product UI trên
+backend fake; renderer page và renderer browser scenario tiếp tục ở T03.
+Execution: [T02 local verification](../verification/2026-10-10-T02-resource-form.md).
 
 ## UC-04
 

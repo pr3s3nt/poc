@@ -160,19 +160,20 @@ try {
   // 5. PostgreSQL Definition for class "fast": an invalid ID and strict
   // Driver Inputs are rejected with the form kept, then it registers.
   await h.click(page.getByRole('link', { name: /Resource definitions/ }));
-  await expect(page.getByRole('heading', { name: 'Resource definitions', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Cấu hình tài nguyên', level: 1 })).toBeVisible();
   await expect(page).toHaveURL(`${baseURL}/ui/platform/resource-definitions`);
-  const definitionId = page.getByLabel('Definition ID');
-  const variablesField = page.getByLabel('Driver variables (JSON object)');
-  const registerDefinition = page.getByRole('button', { name: 'Register resource definition' });
+  const definitionId = page.getByLabel('ID cấu hình');
+  const variablesField = page.getByLabel('Tham số cấu hình (JSON object)');
+  const registerDefinition = page.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên' });
   await h.type(definitionId, 'Postgres Fast');
-  await h.choose(page.getByLabel('Resource Type'), 'postgres');
+  await h.choose(page.getByLabel('Loại tài nguyên'), 'postgres');
+  await h.click(page.getByRole('button', { name: 'Hiện nâng cao' }));
   await h.type(variablesField, driverVariables, { replace: true, delay: TYPE_DELAY });
-  await h.type(page.getByLabel('Criterion 1 Class'), 'fast');
+  await h.type(page.getByLabel('Điều kiện 1 Class'), 'fast');
   mark('definition-filled');
   await h.pause(SHORT_READ);
   await h.click(registerDefinition);
-  await expect(formError()).toContainText('ID must be non-empty and contain only lowercase letters, digits and hyphens');
+  await expect(formError()).toContainText('ID chỉ gồm chữ thường a-z, số 0-9 và dấu gạch ngang');
   await expect(definitionId).toHaveValue('Postgres Fast');
   await expect(variablesField).toHaveValue(driverVariables);
   await h.moveTo(formError());
@@ -183,7 +184,7 @@ try {
   const unsupported = '{"image":"postgres:17-alpine","replicas":"2"}';
   await h.type(variablesField, unsupported, { replace: true });
   await h.click(registerDefinition);
-  await expect(formError()).toContainText('driverInputs.values.variables.replicas is not supported by the kubernetes driver for postgres');
+  await expect(formError()).toContainText('Máy chủ từ chối cấu hình này');
   await expect(variablesField).toHaveValue(unsupported);
   await h.moveTo(formError());
   mark('definition-unsupported-input');
@@ -192,18 +193,18 @@ try {
   const wrongType = '{"storage":2}';
   await h.type(variablesField, wrongType, { replace: true });
   await h.click(registerDefinition);
-  await expect(formError()).toContainText('driverInputs.values.variables.storage must be string');
+  await expect(formError()).toContainText('Máy chủ từ chối cấu hình này');
   await expect(variablesField).toHaveValue(wrongType);
-  await expect(page.getByLabel('Criterion 1 Class')).toHaveValue('fast');
+  await expect(page.getByLabel('Điều kiện 1 Class')).toHaveValue('fast');
   await h.moveTo(formError());
   mark('definition-wrong-type');
   await h.pause(READ);
 
   await h.type(variablesField, driverVariables, { replace: true, delay: TYPE_DELAY });
   await h.click(registerDefinition);
-  await expect(page.getByRole('status')).toHaveText('Registered resource definition postgres-fast.');
+  await expect(page.getByRole('status')).toHaveText('Đã đăng ký cấu hình tài nguyên postgres-fast.');
   const definitionEntry = page.locator('.catalog-entry').filter({ has: page.getByText('postgres-fast', { exact: true }) });
-  await expect(definitionEntry).toContainText('postgres · internal-k8s · kubernetes · 1 criteria');
+  await expect(definitionEntry).toContainText('postgres · Cluster nội bộ · Tạo trong cluster (Kubernetes) · 1 điều kiện áp dụng');
   await h.moveTo(definitionEntry);
   mark('definition-registered');
   await h.pause(READ);
@@ -211,7 +212,7 @@ try {
   // Duplicate: the registered ID is rejected again.
   await h.type(definitionId, 'postgres-fast');
   await h.click(registerDefinition);
-  await expect(formError()).toContainText('duplicate id');
+  await expect(formError()).toContainText('ID cấu hình đã tồn tại');
   await expect(definitionId).toHaveValue('postgres-fast');
   await h.moveTo(formError());
   mark('definition-duplicate');
