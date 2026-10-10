@@ -35,8 +35,8 @@ Không tự chọn một Connection hoặc tạo Connection trong form này. Tr�
 Kubernetes nêu rõ Connection riêng phải trùng Connection của Môi trường khi
 matching; lựa chọn này không cho phép retarget sang cluster khác.
 
-Điều kiện áp dụng giữ editor từng dòng với năm field chuẩn; dòng rỗng là
-wildcard tường minh. Modes/copy/preview thuộc T02B/T19. Phần nâng cao chứa
+Điều kiện áp dụng dùng editor chung T02B bên dưới; matching preview chính xác
+thuộc T19. Phần nâng cao chứa
 Tham số cấu hình và Quy tắc tạo tài nguyên liên quan dưới dạng JSON object;
 giữ placeholder/JSON keys và giải thích validation/không nhận credential.
 Đổi driver/type cập nhật controls hợp lệ nhưng giữ dữ liệu đã nhập để người
@@ -47,3 +47,20 @@ Nhãn, trợ giúp, aria-label và trạng thái trang dùng tiếng Việt theo
 technical IDs, module, driver, payload và tên người dùng giữ nguyên. Lỗi server
 chưa có code mapping đầy đủ dùng thông báo Việt an toàn, không regex dịch raw
 message (VI-03 thuộc T20).
+
+## Editor Điều kiện áp dụng dùng chung (T02B)
+
+Bốn chế độ: “Mọi nơi” gửi `[{}]`; “Theo loại môi trường” chỉ gửi
+`env_type`; “Theo ứng dụng (+ môi trường)” dùng dropdown ứng dụng và môi
+trường thuộc ứng dụng, gửi `app_id`/`env_id` thực; “Tùy chỉnh nâng cao” giữ
+năm field chuẩn và nhiều dòng. Chỉ hiện controls của chế độ đang chọn.
+Criteria không biểu diễn lossless trong chế độ đơn giản phải được giữ ở nâng
+cao; chuyển chế độ cần lựa chọn tường minh trước khi thay dữ liệu đó.
+
+Sao chép điều kiện từ cấu hình khác tạo bản độc lập, không liên kết sống.
+Tóm tắt phạm vi phân biệt Phạm vi triển khai (`executionProfile`) với Loại
+môi trường (`env_type`). Xem trước phạm vi ở frontend chỉ là trợ giúp: thiếu
+`class`/`res_id` phải báo cần thêm context; cảnh báo nguy cơ chồng lấn với
+cấu hình cùng type không kết luận ambiguous hoặc Definition thắng. Không gọi
+endpoint matching mới, không lưu hoặc provision khi xem trước. Editor có thể
+được dùng lại cho Mẫu dựng ứng dụng ở T03.

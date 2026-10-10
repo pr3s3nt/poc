@@ -224,6 +224,176 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(3000);
   },
+
+  // T02B: editor Điều kiện áp dụng. Platform Engineer, fake adapters; seeded
+  // application acceptance (environment dev, type development)
+  // and definitions namespace/vpc/postgres (internal-k8s postgres is [{}]).
+  async T02B({ page, h, ui, caption, mark, check, baseURL }) {
+    const definitions = async () => (await (await page.request.get(`${baseURL}/api/v1/resource-definitions`)).json()).resourceDefinitions;
+    const definition = async (key) => (await definitions()).find((item) => item.key === key);
+    const editor = page.locator('.criteria-editor');
+    const mode = (name) => editor.getByRole('radio', { name });
+    const select = (text) => editor.locator('label').filter({ hasText: text }).locator('select');
+    const group = (name) => page.getByRole('group', { name });
+    const registered = (key) => expect(page.getByRole('status').filter({ hasText: `Đã đăng ký cấu hình tài nguyên ${key}.` })).toBeVisible();
+    const APP = 'Acceptance Application (acceptance)';
+    const ENV = 'Development (dev) · loại development';
+
+    caption('Bước 1: Kỹ sư nền tảng đăng nhập bằng tài khoản thử nghiệm cục bộ');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'platform-engineer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    mark('applications');
+
+    caption('Bước 2: Mở Cấu hình tài nguyên, chọn Loại tài nguyên postgres; chế độ mặc định là Mọi nơi');
+    await h.click(ui('shell', 'navResourceDefinitions'));
+    await expect(ui('resourceDefinitions', 'heading')).toBeVisible();
+    await h.type(ui('resourceDefinitions', 'id'), 'pg-t02b-all');
+    await h.choose(ui('resourceDefinitions', 'type'), 'postgres');
+    await expect(mode(/Mọi nơi/)).toBeChecked();
+    await expect(editor.getByLabel('Loại môi trường', { exact: true })).toHaveCount(0);
+    await expect(group('Tóm tắt phạm vi áp dụng')).toContainText('Mọi nơi (không giới hạn)');
+    await expect(group('Tóm tắt phạm vi áp dụng')).toContainText('Phạm vi triển khai (executionProfile): Cluster nội bộ');
+    check('mode Mọi nơi default: no extra controls, summary shows scope and profile apart from env_type');
+    mark('mode-all');
+    await h.moveTo(group('Tóm tắt phạm vi áp dụng'));
+    await h.read('Mọi nơi: không có ô nhập nào, phạm vi triển khai tách khỏi loại môi trường');
+
+    caption('Bước 3: Cảnh báo nguy cơ chồng lấn với cấu hình postgres cùng phạm vi; không kết luận matching chính xác');
+    const overlap = group('Cảnh báo nguy cơ chồng lấn');
+    await expect(overlap).toContainText('postgres-internal-statefulset');
+    await expect(overlap).not.toContainText('postgres-aws-aurora');
+    expect(await overlap.innerText()).not.toMatch(/ambiguous|thắng|winner|mơ hồ/i);
+    await expect(overlap).toContainText('chưa phải kết quả matching chính xác');
+    check('overlap warning names same type/profile Definition only, no ambiguity/winner claim');
+    mark('overlap-warning');
+    await h.moveTo(overlap);
+    await h.read('Chỉ là cảnh báo nguy cơ chồng lấn, không phải kết quả matching');
+
+    caption('Bước 4: Đăng ký với Mọi nơi; payload gửi [{}]');
+    await h.click(ui('resourceDefinitions', 'submit'));
+    await registered('pg-t02b-all');
+    expect((await definition('pg-t02b-all')).criteria).toEqual([{}]);
+    check('registered pg-t02b-all: criteria [{}]');
+    mark('all-registered');
+    await h.pause(SHORT_READ);
+
+    caption('Bước 5: Chế độ Theo loại môi trường chỉ hiện một ô; nhập development');
+    await h.type(ui('resourceDefinitions', 'id'), 'pg-t02b-env');
+    await h.click(mode(/Theo loại môi trường/));
+    await expect(editor.getByLabel('Loại môi trường', { exact: true })).toBeVisible();
+    await expect(editor.getByLabel('Ứng dụng', { exact: true })).toHaveCount(0);
+    await h.type(editor.getByLabel('Loại môi trường', { exact: true }), 'development');
+    await expect(group('Tóm tắt phạm vi áp dụng')).toContainText('Loại môi trường (env_type): development');
+    await expect(group('Tóm tắt phạm vi áp dụng')).toContainText('không phải Loại môi trường (env_type)');
+    mark('mode-env-type');
+    await h.read('Loại môi trường là điều kiện riêng, khác phạm vi triển khai');
+    await h.click(ui('resourceDefinitions', 'submit'));
+    await registered('pg-t02b-env');
+    expect((await definition('pg-t02b-env')).criteria).toEqual([{ env_type: 'development' }]);
+    check('registered pg-t02b-env: criteria env_type only');
+    mark('env-type-registered');
+
+    caption('Bước 6: Chế độ Theo ứng dụng (+ môi trường): chọn ứng dụng và môi trường thật từ danh sách');
+    await h.type(ui('resourceDefinitions', 'id'), 'pg-t02b-app');
+    await h.click(mode(/Theo ứng dụng/));
+    const appOptions = await select(/^Ứng dụng(?! mẫu)/).locator('option').evaluateAll((options) => options.map((option) => option.value));
+    expect(appOptions).toEqual(['', 'acceptance']);
+    await expect(select(/^Môi trường \(tùy chọn\)/)).toBeDisabled();
+    await h.choose(select(/^Ứng dụng(?! mẫu)/), APP);
+    const envOptions = await select(/^Môi trường \(tùy chọn\)/).locator('option').evaluateAll((options) => options.map((option) => option.value));
+    expect(envOptions).toEqual(['', 'dev']);
+    await h.choose(select(/^Môi trường \(tùy chọn\)/), ENV);
+    await expect(group('Tóm tắt phạm vi áp dụng')).toContainText('Ứng dụng (app_id): Acceptance Application (acceptance)');
+    await expect(group('Tóm tắt phạm vi áp dụng')).toContainText('Môi trường (env_id): dev');
+    check('app/env dropdown: real IDs from GET /api/v1/applications, environment follows the application');
+    mark('mode-app-env');
+    await h.read('Ứng dụng và môi trường dùng ID thật từ máy chủ');
+
+    caption('Bước 7: Xem trước phạm vi thiếu context; báo cần thêm res_id và Class, không lưu gì');
+    const preview = group(/Xem trước phạm vi/);
+    await expect(preview).toContainText('Cần thêm context: ứng dụng và môi trường mẫu, ID tài nguyên (res_id), Class');
+    await h.choose(select(/^Ứng dụng mẫu/), APP);
+    await h.choose(select(/^Môi trường mẫu/), 'Development (dev)');
+    await expect(preview).toContainText('Cần thêm context: ID tài nguyên (res_id), Class');
+    mark('preview-incomplete');
+    await h.moveTo(preview);
+    await h.read('Chưa đủ context nên chưa đánh giá điều kiện');
+    await h.type(editor.getByLabel('ID tài nguyên mẫu (res_id)'), 'db');
+    await h.type(editor.getByLabel('Class mẫu'), 'fast');
+    await expect(preview).not.toContainText('Cần thêm context');
+    await expect(preview).toContainText('Điều kiện 1: thỏa context mẫu');
+    await expect(preview).toContainText('không phải kết quả matching chính xác');
+    expect((await definition('pg-t02b-app')) === undefined, 'preview did not register').toBe(true);
+    check('preview: incomplete context asks for more, complete context is assistive only, nothing persisted');
+    mark('preview-complete');
+    await h.read('Đủ context: chỉ là gợi ý ở giao diện, chưa lưu');
+    await h.click(ui('resourceDefinitions', 'submit'));
+    await registered('pg-t02b-app');
+    expect((await definition('pg-t02b-app')).criteria).toEqual([{ app_id: 'acceptance', env_id: 'dev' }]);
+    check('registered pg-t02b-app: criteria app_id + env_id real IDs');
+    mark('app-env-registered');
+
+    caption('Bước 8: Tùy chỉnh nâng cao: năm field và nhiều dòng điều kiện');
+    await h.type(ui('resourceDefinitions', 'id'), 'pg-t02b-adv');
+    await h.click(mode(/Tùy chỉnh nâng cao/));
+    for (const label of ['Loại môi trường', 'ID ứng dụng', 'ID môi trường', 'ID tài nguyên', 'Class']) await expect(editor.getByLabel(`Điều kiện 1 ${label}`)).toBeVisible();
+    await h.type(editor.getByLabel('Điều kiện 1 Loại môi trường'), 'development');
+    await h.type(editor.getByLabel('Điều kiện 1 Class'), 'fast');
+    await h.click(editor.getByRole('button', { name: '+ Thêm điều kiện' }));
+    await h.type(editor.getByLabel('Điều kiện 2 ID ứng dụng'), 'acceptance-cloud');
+    await h.type(editor.getByLabel('Điều kiện 2 ID tài nguyên'), 'db');
+    mark('mode-advanced');
+    await h.read('Hai dòng điều kiện là lựa chọn thay thế nhau');
+
+    caption('Bước 9: Chuyển sang Mọi nơi bị chặn vì sẽ mất điều kiện nâng cao; chọn Giữ lại');
+    await h.click(mode(/Mọi nơi/));
+    const confirmGroup = group('Xác nhận thay đổi điều kiện');
+    await expect(confirmGroup).toContainText('sẽ bị bỏ');
+    await expect(mode(/Tùy chỉnh nâng cao/)).toBeChecked();
+    mark('switch-blocked');
+    await h.moveTo(confirmGroup);
+    await h.read('Không âm thầm mất điều kiện nâng cao');
+    await h.click(confirmGroup.getByRole('button', { name: 'Giữ điều kiện nâng cao' }));
+    await expect(editor.getByLabel('Điều kiện 2 ID tài nguyên')).toHaveValue('db');
+    await expect(confirmGroup).toHaveCount(0);
+    check('advanced round-trip: unsafe switch blocked, both rows kept after Giữ điều kiện nâng cao');
+    mark('advanced-kept');
+    await h.click(ui('resourceDefinitions', 'submit'));
+    await registered('pg-t02b-adv');
+    expect((await definition('pg-t02b-adv')).criteria).toEqual([{ env_type: 'development', class: 'fast' }, { app_id: 'acceptance-cloud', res_id: 'db' }]);
+    check('registered pg-t02b-adv: two criterion rows, five-field contract');
+    mark('advanced-registered');
+
+    caption('Bước 10: Sao chép điều kiện từ cluster-aws-eks; bản sao độc lập, mở ở chế độ nâng cao');
+    await h.type(ui('resourceDefinitions', 'id'), 'pg-t02b-copy');
+    await h.choose(select(/^Sao chép điều kiện/), 'cluster-aws-eks (k8s-cluster)');
+    await h.click(editor.getByRole('button', { name: 'Sao chép điều kiện' }));
+    await expect(mode(/Tùy chỉnh nâng cao/)).toBeChecked();
+    await expect(editor.getByLabel('Điều kiện 1 Class')).toHaveValue('eks');
+    await h.type(editor.getByLabel('Điều kiện 1 Class'), 'eks-copy', { replace: true });
+    const source = await definition('cluster-aws-eks');
+    expect(source.criteria).toEqual([{ class: 'eks' }]);
+    check('copy: criteria copied as independent value, editing the copy leaves the source Definition unchanged');
+    mark('copied');
+    await h.read('Sửa bản sao không làm đổi cấu hình nguồn');
+    await h.click(ui('resourceDefinitions', 'submit'));
+    await registered('pg-t02b-copy');
+    expect((await definition('pg-t02b-copy')).criteria).toEqual([{ class: 'eks-copy' }]);
+    expect((await definition('cluster-aws-eks')).criteria).toEqual([{ class: 'eks' }]);
+    check('registered pg-t02b-copy: copied criteria edited independently');
+    mark('copy-registered');
+    await h.pause(SHORT_READ);
+
+    caption('Bước 11: Đăng xuất; phiên bị thu hồi');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(3000);
+  },
 };
 
 export function parseArgs(argv) {

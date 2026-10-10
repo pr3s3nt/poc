@@ -1257,7 +1257,7 @@ Các khoảng Txx–Tyy gồm toàn bộ task trong khoảng; T02B ghi riêng kh
 |---|---|---|---|---|
 | T01 | Chốt thuật ngữ và runner/locator dùng chung | Không | DONE | V-D/V-FE/V-UI pass; fake headed smoke, failure retention/cleanup reviewed. Evidence: `orchestrator_docs/verification/2026-10-10-T01-refactor-foundation.md`; `/tmp/poc-refactor-T01-pass-1791628004`. |
 | T02 | Form tạo Cấu hình tài nguyên | T01 | DONE | V-D/V-FE (169 tests)/V-UI(T02), T01 locator regression pass; fake headed video reviewed, advanced visibility/prototype lookup fixes verified. Evidence: `orchestrator_docs/verification/2026-10-10-T02-resource-form.md`; `/tmp/poc-refactor-T02-final-20261010181542`. |
-| T02B | Editor Điều kiện áp dụng dùng chung | T01, T02 | TODO | — |
+| T02B | Editor Điều kiện áp dụng dùng chung | T01, T02 | DONE | V-D/V-FE (193 tests)/V-UI(T02B) và T02 regression pass; fake headed video reviewed; wildcard row preservation/late replies verified. Evidence: `orchestrator_docs/verification/2026-10-10-T02B-criteria-editor.md`; `/tmp/poc-refactor-T02B-final4-1791634101`. Một lượt fail đầu bị xóa nhầm, ghi rõ trong evidence record. |
 | T03 | Trang Mẫu dựng ứng dụng | T01, T02, T02B | TODO | — |
 | T04 | Trang Loại tài nguyên | T01, T02 | TODO | — |
 | T05 | Trang Kho bí mật | T01 | TODO | — |

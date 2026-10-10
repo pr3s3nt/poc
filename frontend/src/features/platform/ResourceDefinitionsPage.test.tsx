@@ -7,12 +7,17 @@ type Body = Record<string, unknown>;
 type Backend = {
   types?: string[]; definitions?: Body[]; connections?: Body[]; post?: () => Response;
   typesFail?: boolean; connectionsFail?: boolean; definitionLists?: (() => Response)[];
+  applications?: Body[]; applicationsFail?: boolean; applicationLists?: (() => Response | Promise<Response>)[];
 };
 const defaultConnections = [
   { key: 'aws-ready', name: 'AWS chính', kind: 'AWS', status: 'READY' },
   { key: 'aws-pending', kind: 'AWS', status: 'VERIFYING' },
   { key: 'kube-ready', name: 'Cluster dev', kind: 'KUBERNETES', status: 'READY' },
   { key: 'kube-pending', kind: 'KUBERNETES', status: 'FAILED' },
+];
+const defaultApplications = [
+  { key: 'shop', name: 'Cửa hàng', environments: [{ key: 'staging', name: 'Staging', environmentType: 'staging' }, { key: 'production', name: 'Production', environmentType: 'production' }] },
+  { key: 'blog', name: 'blog', environments: [{ key: 'dev', name: 'Development', environmentType: 'development' }] },
 ];
 const allTypes = ['vpc', 'k8s-cluster', 'k8s-namespace', 'postgres', 'workload', 'cache'];
 
@@ -29,6 +34,11 @@ function backend(options: Backend = {}) {
     }
     gets.push(url);
     if (url.endsWith('/resource-types')) return state.typesFail ? Response.json({ error: 'boom' }, { status: 500 }) : Response.json({ resourceTypes: (state.types ?? allTypes).map((key) => ({ key })) });
+    if (url.endsWith('/applications')) {
+      const next = state.applicationLists?.shift();
+      if (next) return next();
+      return state.applicationsFail ? Response.json({ error: 'boom' }, { status: 500 }) : Response.json({ applications: state.applications ?? defaultApplications });
+    }
     if (url.endsWith('/connections')) return state.connectionsFail ? Response.json({ error: 'boom' }, { status: 500 }) : Response.json({ connections: state.connections ?? defaultConnections });
     const next = state.definitionLists?.shift();
     return next ? next() : Response.json({ resourceDefinitions: state.definitions ?? [] });
@@ -100,6 +110,7 @@ describe('UC-03 definition registration form', () => {
     await user.click(screen.getByRole('button', { name: 'Hiện nâng cao' }));
     fireEvent.change(field('Tham số cấu hình (JSON object)'), { target: { value: '{"storage":"2Gi"}' } });
     fireEvent.change(field('Quy tắc tạo tài nguyên liên quan (JSON object)'), { target: { value: '{"keep":true}' } });
+    await user.click(screen.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
     await user.type(field('Điều kiện 1 Class'), 'fast');
     await user.selectOptions(field('Kết nối riêng cho cluster (tùy chọn)'), 'kube-ready');
     await user.selectOptions(field('Phạm vi triển khai'), '');
@@ -237,6 +248,7 @@ describe('UC-03 definition registration form', () => {
     await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
     await user.click(screen.getByRole('button', { name: 'Hiện nâng cao' }));
     fireEvent.change(field('Tham số cấu hình (JSON object)'), { target: { value: '{"name":"orch"}' } });
+    await user.click(screen.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
     await user.type(field('Điều kiện 1 Class'), 'fast');
     await submit(user);
     expect(await screen.findByRole('alert')).toHaveTextContent('ID cấu hình đã tồn tại. Hãy đổi ID rồi thử lại.');
@@ -336,5 +348,137 @@ describe('UC-03 definition registration form', () => {
     await submit(user);
     expect(await screen.findByRole('alert')).toHaveTextContent('Chọn một Loại tài nguyên được hỗ trợ.');
     expect(posted).toHaveLength(0);
+  });
+
+  describe('criteria editor (T02B)', () => {
+    const radio = (name: RegExp) => screen.getByRole('radio', { name });
+    async function start(user: ReturnType<typeof userEvent.setup>, id: string, options: Backend = {}) {
+      const state = backend(options);
+      render(<ResourceDefinitionsPage />);
+      await screen.findByRole('option', { name: 'vpc' });
+      await user.type(field('ID cấu hình'), id);
+      await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
+      return state;
+    }
+
+    it('posts [{}], env_type, real app/env IDs and several advanced rows without changing the rest of the payload', async () => {
+      const user = userEvent.setup();
+      const { posted } = await start(user, 'ns-modes');
+      await submit(user);
+      await screen.findByRole('status');
+      expect(posted[0]?.criteria).toEqual([{}]);
+      await user.type(field('ID cấu hình'), 'ns-env');
+      await user.click(radio(/Theo loại môi trường/));
+      await user.type(field('Loại môi trường'), 'staging');
+      await submit(user);
+      await waitFor(() => expect(posted).toHaveLength(2));
+      expect(posted[1]).toMatchObject({ key: 'ns-env', criteria: [{ env_type: 'staging' }], executionProfile: 'internal-k8s' });
+      await screen.findByText(/Đã đăng ký cấu hình tài nguyên ns-env/);
+      expect(radio(/Mọi nơi/)).toBeChecked(); // success resets to the wildcard
+      await user.type(field('ID cấu hình'), 'ns-app');
+      await user.click(radio(/Theo ứng dụng/));
+      await waitFor(() => expect(within(field('Ứng dụng')).getByRole('option', { name: 'Cửa hàng (shop)' })).toBeInTheDocument());
+      await user.selectOptions(field('Ứng dụng'), 'shop');
+      await user.selectOptions(field('Môi trường (tùy chọn)'), 'production');
+      await submit(user);
+      await waitFor(() => expect(posted).toHaveLength(3));
+      expect(posted[2]?.criteria).toEqual([{ app_id: 'shop', env_id: 'production' }]);
+      await screen.findByText(/Đã đăng ký cấu hình tài nguyên ns-app/);
+      await user.type(field('ID cấu hình'), 'ns-adv');
+      await user.click(radio(/Tùy chỉnh nâng cao/));
+      await user.type(field('Điều kiện 1 Class'), 'fast');
+      await user.click(screen.getByRole('button', { name: '+ Thêm điều kiện' }));
+      await user.type(field('Điều kiện 2 ID tài nguyên'), 'db');
+      await submit(user);
+      await waitFor(() => expect(posted).toHaveLength(4));
+      expect(posted[3]?.criteria).toEqual([{ class: 'fast' }, { res_id: 'db' }]);
+    });
+
+    it('refuses to submit an incomplete simple mode instead of registering a wildcard', async () => {
+      const user = userEvent.setup();
+      const { posted } = await start(user, 'ns-incomplete');
+      await user.click(radio(/Theo loại môi trường/));
+      await submit(user);
+      expect(await screen.findByRole('alert')).toHaveTextContent('Nhập loại môi trường');
+      await user.click(radio(/Theo ứng dụng/));
+      await submit(user);
+      expect(await screen.findByRole('alert')).toHaveTextContent('Chọn ứng dụng');
+      expect(posted).toHaveLength(0);
+    });
+
+    it('keeps criteria after a failed submit and offers the copy source from the registered list', async () => {
+      const user = userEvent.setup();
+      const { posted } = await start(user, 'ns-copy', { definitions: [{ key: 'pg-adv', resourceType: 'postgres', executionProfile: 'internal-k8s', driverType: 'kubernetes', criteria: [{ env_type: 'staging', class: 'fast' }, { app_id: 'shop' }] }], post: () => Response.json({ error: 'x' }, { status: 500 }) });
+      await waitFor(() => expect(within(field('Sao chép điều kiện từ cấu hình khác')).getByRole('option', { name: 'pg-adv (postgres)' })).toBeInTheDocument());
+      await user.selectOptions(field('Sao chép điều kiện từ cấu hình khác'), 'pg-adv');
+      await user.click(screen.getByRole('button', { name: 'Sao chép điều kiện' }));
+      expect(radio(/Tùy chỉnh nâng cao/)).toBeChecked();
+      await submit(user);
+      expect(await screen.findByRole('alert')).toHaveTextContent('Máy chủ gặp lỗi');
+      expect(radio(/Tùy chỉnh nâng cao/)).toBeChecked();
+      expect(field('Điều kiện 1 Class')).toHaveValue('fast');
+      expect(field('Điều kiện 2 ID ứng dụng')).toHaveValue('shop');
+      expect(posted[0]?.criteria).toEqual([{ env_type: 'staging', class: 'fast' }, { app_id: 'shop' }]);
+    });
+
+    it('does not let a late or failed applications reply change edits, and retries only that list', async () => {
+      const user = userEvent.setup();
+      let release: (response: Response) => void = () => undefined;
+      const { gets, posted } = backend({ applicationLists: [() => new Promise<Response>((resolve) => { release = resolve; })] });
+      render(<ResourceDefinitionsPage />);
+      await screen.findByRole('option', { name: 'vpc' });
+      await user.click(radio(/Theo ứng dụng/));
+      expect(within(field('Ứng dụng')).getByRole('option', { name: 'Đang tải ứng dụng…' })).toBeInTheDocument();
+      await user.click(radio(/Tùy chỉnh nâng cao/));
+      await user.type(field('Điều kiện 1 Class'), 'fast');
+      release(Response.json({ error: 'late' }, { status: 500 }));
+      const alert = await screen.findByRole('alert', { name: 'Lỗi tải ứng dụng' });
+      expect(field('Điều kiện 1 Class')).toHaveValue('fast');
+      await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
+      await waitFor(() => expect(screen.queryByRole('alert', { name: 'Lỗi tải ứng dụng' })).not.toBeInTheDocument());
+      expect(gets.filter((url) => url.endsWith('/applications'))).toHaveLength(2);
+      expect(field('Điều kiện 1 Class')).toHaveValue('fast');
+      expect(posted).toHaveLength(0);
+    });
+
+    it('keeps typed criteria and the chosen mode when the applications reply arrives late and succeeds', async () => {
+      const user = userEvent.setup();
+      let release: (response: Response) => void = () => undefined;
+      const { posted } = backend({ applicationLists: [() => new Promise<Response>((resolve) => { release = resolve; })] });
+      render(<ResourceDefinitionsPage />);
+      await screen.findByRole('option', { name: 'vpc' });
+      await user.type(field('ID cấu hình'), 'ns-late');
+      await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
+      await user.click(radio(/Tùy chỉnh nâng cao/));
+      await user.type(field('Điều kiện 1 ID ứng dụng'), 'typed-before');
+      await user.click(screen.getByRole('button', { name: '+ Thêm điều kiện' }));
+      await user.type(field('Điều kiện 2 Class'), 'fast');
+      release(Response.json({ applications: defaultApplications }));
+      await user.click(radio(/Theo ứng dụng/)).catch(() => undefined);
+      // Advanced rows are not representable as one app row: the late list neither applied nor dropped anything.
+      expect(screen.getByRole('group', { name: 'Xác nhận thay đổi điều kiện' })).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Giữ điều kiện nâng cao' }));
+      expect(field('Điều kiện 1 ID ứng dụng')).toHaveValue('typed-before');
+      expect(field('Điều kiện 2 Class')).toHaveValue('fast');
+      expect(field('ID cấu hình')).toHaveValue('ns-late');
+      await submit(user);
+      await waitFor(() => expect(posted).toHaveLength(1));
+      expect(posted[0]?.criteria).toEqual([{ app_id: 'typed-before' }, { class: 'fast' }]);
+    });
+
+    it('warns about possible overlap with a same type/profile Definition without calling it a winner or ambiguity, and never posts while previewing', async () => {
+      const user = userEvent.setup();
+      const { posted, gets } = await start(user, 'ns-overlap', { definitions: [{ key: 'ns-other', resourceType: 'k8s-namespace', executionProfile: 'internal-k8s', driverType: 'kubernetes', criteria: [{}] }, { key: 'ns-aws', resourceType: 'k8s-namespace', executionProfile: 'aws-eks', driverType: 'kubernetes', criteria: [{}] }] });
+      const warning = await screen.findByRole('group', { name: 'Cảnh báo nguy cơ chồng lấn' });
+      expect(warning).toHaveTextContent('ns-other');
+      expect(warning).not.toHaveTextContent('ns-aws');
+      expect(warning.textContent).not.toMatch(/ambiguous|thắng|winner|mơ hồ/i);
+      const summary = screen.getByRole('group', { name: 'Tóm tắt phạm vi áp dụng' });
+      expect(summary).toHaveTextContent('Phạm vi triển khai (executionProfile): Cluster nội bộ');
+      await user.selectOptions(field('Ứng dụng mẫu'), 'shop');
+      expect(screen.getByRole('group', { name: /Xem trước phạm vi/ })).toHaveTextContent('Cần thêm context');
+      expect(posted).toHaveLength(0);
+      expect(gets.every((url) => !/preview|match/.test(url))).toBe(true);
+    });
   });
 });

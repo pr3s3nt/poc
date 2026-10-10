@@ -1,19 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
+import { CriteriaEditor, draftToCriteria, emptyDraft, type ApplicationOption, type Criterion, type CriteriaDraft } from './CriteriaEditor';
 import { useCatalogList } from './useCatalogList';
 
 type ResourceType = { key: string };
-type Criterion = { env_type: string; app_id: string; env_id: string; res_id: string; class: string };
-type Definition = { key: string; resourceType: string; executionProfile?: string; driverType: string; criteria?: Criterion[] };
+type APIApplication = { key: string; name?: string; environments?: { key: string; name?: string; environmentType?: string; executionProfile?: string }[] };
+type Definition = { key: string; resourceType: string; executionProfile?: string; driverType: string; criteria?: Partial<Criterion>[] };
 type Connection = { key: string; name?: string; kind: string; status: string };
 type Driver = 'terraform' | 'kubernetes';
-
-const emptyCriterion = (): Criterion => ({ env_type: '', app_id: '', env_id: '', res_id: '', class: '' });
-const criterionFields: { key: keyof Criterion; label: string }[] = [
-  { key: 'env_type', label: 'Loại môi trường' }, { key: 'app_id', label: 'ID ứng dụng' },
-  { key: 'env_id', label: 'ID môi trường' }, { key: 'res_id', label: 'ID tài nguyên' }, { key: 'class', label: 'Class' },
-];
 
 // Resource Types the runtime can create today, with the drivers it accepts and
 // the embedded Terraform module each one maps to (backend catalog policy).
@@ -54,12 +49,15 @@ const listFailure = () => 'Không tải được dữ liệu từ máy chủ.';
 const loadTypes = async () => (await api<{ resourceTypes: ResourceType[] }>('/resource-types')).resourceTypes ?? [];
 const loadDefinitions = async () => (await api<{ resourceDefinitions: Definition[] }>('/resource-definitions')).resourceDefinitions ?? [];
 const loadConnections = async () => (await api<{ connections: Connection[] }>('/connections')).connections ?? [];
+// Real application/environment IDs (keys) for the criteria editor; never derived from names.
+const loadApplications = async (): Promise<ApplicationOption[]> => ((await api<{ applications: APIApplication[] }>('/applications')).applications ?? []).map((app) => ({ key: app.key, name: app.name ?? app.key, environments: (app.environments ?? []).map((env) => ({ key: env.key, name: env.name ?? env.key, environmentType: env.environmentType ?? '', executionProfile: env.executionProfile ?? '' })) }));
 const connectionLabel = (connection: Connection) => (connection.name && connection.name !== connection.key ? `${connection.name} (${connection.key})` : connection.key);
 
 export function ResourceDefinitionsPage() {
   const typeList = useCatalogList(loadTypes, listFailure);
   const definitionList = useCatalogList(loadDefinitions, listFailure);
   const connectionList = useCatalogList(loadConnections, listFailure);
+  const applicationList = useCatalogList(loadApplications, listFailure);
   const types = typeList.items.filter((type) => type.key !== 'workload');
   const definitions = definitionList.items.filter((definition) => definition.resourceType !== 'workload' && definition.driverType !== 'score-k8s');
   const [saving, setSaving] = useState(false);
@@ -76,7 +74,7 @@ export function ResourceDefinitionsPage() {
   const [kubeConnection, setKubeConnection] = useState('');
   const [variables, setVariables] = useState('{}');
   const [provision, setProvision] = useState('{}');
-  const [criteria, setCriteria] = useState<Criterion[]>([emptyCriterion()]);
+  const [criteriaDraft, setCriteriaDraft] = useState<CriteriaDraft>(emptyDraft);
 
   const rule = own(supported, resourceType);
   const driver: Driver | '' = rule ? (rule.drivers.length === 1 ? (rule.drivers[0] ?? '') : postgresDriver) : '';
@@ -103,17 +101,18 @@ export function ResourceDefinitionsPage() {
       if (!kubeConnections.some((connection) => connection.key === kubeConnection)) { setAdvanced(true); setError('Kết nối riêng đã chọn không còn sẵn sàng. Chọn lại hoặc dùng Kết nối của Môi trường.'); return; }
       connectionKey = kubeConnection;
     }
+    const { criteria: cleanCriteria, problem } = draftToCriteria(criteriaDraft);
+    if (problem) { setError(problem); return; }
     const values: Record<string, unknown> = { variables: inputVariables };
     if (driver === 'terraform') values.source = { module: rule.module };
     const profile = driver === 'terraform' ? 'aws-eks' : kubeProfile;
-    const cleanCriteria = criteria.map((criterion) => Object.fromEntries(Object.entries(criterion).filter(([, value]) => value.trim() !== '')));
     const submitted = key;
     setSaving(true);
     try {
       await api('/resource-definitions', { method: 'POST', body: JSON.stringify({ key: submitted, resourceType, executionProfile: profile, driverType: driver, connectionKey, driverInputs: { values }, provision: provisionRules, criteria: cleanCriteria }) });
     } catch (reason) { setError(describeFailure(reason)); setSaving(false); return; }
     // Committed: report it and reset the submitted form before reloading.
-    setNotice(`Đã đăng ký cấu hình tài nguyên ${submitted}.`); setKey(''); setVariables('{}'); setProvision('{}'); setCriteria([emptyCriterion()]); setSaving(false);
+    setNotice(`Đã đăng ký cấu hình tài nguyên ${submitted}.`); setKey(''); setVariables('{}'); setProvision('{}'); setCriteriaDraft(emptyDraft()); setSaving(false);
     await definitionList.reload();
   }
 
@@ -135,7 +134,7 @@ export function ResourceDefinitionsPage() {
         {driver === 'terraform' ? <><label>Kết nối AWS<select value={awsConnection} aria-required="true" aria-describedby="aws-connection-hint" onChange={(event) => setAwsConnection(event.target.value)}><option value="">{connectionsPending ? 'Đang tải kết nối…' : 'Chọn Kết nối AWS'}</option>{awsConnections.map((connection) => <option key={connection.key} value={connection.key}>{connectionLabel(connection)}</option>)}</select></label>
           <p id="aws-connection-hint" className="feature-note">Terraform cần một Kết nối AWS sẵn sàng. Form chỉ liệt kê Kết nối AWS sẵn sàng của Tổ chức và không tự chọn hộ.{!connectionList.loading && !connectionList.loadError && awsConnections.length === 0 ? ' Hiện chưa có Kết nối AWS sẵn sàng.' : ''}</p></> : null}
         {connectionList.loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải kết nối">Không tải được danh sách kết nối. Dữ liệu đã nhập được giữ nguyên. <Button type="button" onClick={() => { void connectionList.reload(); }}>Thử lại</Button></div> : null}
-        <section className="catalog-fields"><div className="section-header"><div><h3>Điều kiện áp dụng</h3><p>Dòng để trống là wildcard tường minh.</p></div><Button type="button" onClick={() => setCriteria([...criteria, emptyCriterion()])}>+ Thêm điều kiện</Button></div>{criteria.map((criterion, index) => <div className="catalog-criterion" key={index}>{criterionFields.map(({ key: field, label }) => <label key={field}>{label}<input aria-label={`Điều kiện ${index + 1} ${label}`} value={criterion[field]} onChange={(event) => setCriteria(criteria.map((item, position) => position === index ? { ...item, [field]: event.target.value } : item))} /></label>)}<Button type="button" tone="quiet" disabled={criteria.length === 1} onClick={() => setCriteria(criteria.filter((_, position) => position !== index))}>Xóa</Button></div>)}</section>
+        <CriteriaEditor draft={criteriaDraft} onChange={setCriteriaDraft} applications={{ items: applicationList.items, loading: applicationList.loading, error: applicationList.loadError, onRetry: () => { void applicationList.reload(); } }} sources={{ items: definitions, loading: definitionList.loading, error: definitionList.loadError, onRetry: () => { void definitionList.reload(); } }} resourceType={resourceType} profile={driver === 'terraform' ? 'aws-eks' : kubeProfile} profileLabel={own(scopeLabels, driver === 'terraform' ? 'aws-eks' : kubeProfile)} />
         <div className="section-header"><div><h3>Nâng cao</h3><p>Tham số cấu hình, Quy tắc tạo tài nguyên liên quan và Kết nối riêng cho cluster. Thu gọn không xóa dữ liệu đã nhập.</p></div><Button type="button" aria-expanded={advanced} aria-controls="definition-advanced" onClick={() => setAdvanced(!advanced)}>{advanced ? 'Ẩn nâng cao' : 'Hiện nâng cao'}</Button></div>
         <div id="definition-advanced" hidden={!advanced} className="editor-grid">
           <label>Tham số cấu hình (JSON object)<textarea value={variables} rows={6} spellCheck={false} aria-describedby="driver-variables-hint" onChange={(event) => setVariables(event.target.value)} /></label>

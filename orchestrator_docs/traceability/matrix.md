@@ -66,6 +66,13 @@ Scenario T02 trong `frontend/test/e2e/refactor-local.mjs` kiểm product UI trê
 backend fake; renderer page và renderer browser scenario tiếp tục ở T03.
 Execution: [T02 local verification](../verification/2026-10-10-T02-resource-form.md).
 
+T02B projection theo [UI screens](../usecase/UC-03/ui/screens.md) giữ
+BR-01/03/06/07: `CriteriaEditor.test.tsx` và
+`ResourceDefinitionsPage.test.tsx` kiểm bốn chế độ, wildcard/nhiều dòng
+round-trip, copy độc lập, giữ edits khi tải/lỗi/late response và profile tách
+khỏi env_type. Cảnh báo overlap/xem trước phạm vi chỉ là trợ giúp frontend;
+matching authoritative thuộc T19, matcher/contract đăng ký không đổi.
+
 ## UC-04
 
 Kubernetes upload implementation and local/isolated PostgreSQL tests pass on

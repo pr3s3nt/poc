@@ -51,3 +51,16 @@ Không thay matcher, backend defaults, seed hay Driver Inputs policy.
 Frontend kiểm ID rỗng/shape và JSON trước POST; 409 có thông báo trùng ID Việt.
 Các lỗi khác có fallback Việt an toàn và giữ form; không parse/regex raw backend
 English message. Mapping field/code đầy đủ thuộc T20.
+
+## Editor criteria projection (T02B)
+
+GET `/api/v1/applications` cung cấp ứng dụng và metadata môi trường thực của
+Organization trong phiên cho dropdown. Không suy ID từ tên hoặc dùng
+`env_type` thay `env_id`. GET `/resource-definitions` cung cấp nguồn copy;
+chỉ sao chép `criteria` thành giá trị độc lập. Loading/error/retry không làm
+phát sinh POST và không thay criteria đang sửa.
+
+Bốn chế độ đều serialize theo năm field hiện hành; wildcard là `[{}]`, loại
+field rỗng. Không đổi registration contract, specificity hoặc profile guard.
+Xem trước phạm vi/cảnh báo frontend không persist/provision và không gọi
+endpoint mới. Matching preview authoritative chỉ được bổ sung ở T19.

@@ -33,3 +33,16 @@ related: UC-03
   trước đó; controls và payload chỉ dùng driver/type đang có hiệu lực.
 - Created/reload error phân biệt đăng ký thành công với lỗi tải danh sách;
   Thử lại chỉ tải list, không đăng ký lại.
+
+## Trạng thái editor T02B
+
+- Tải/lỗi danh sách ứng dụng có thông báo Việt và Thử lại; không sửa criteria
+  đang nhập. Môi trường chỉ lấy từ ứng dụng tương ứng; response đến muộn hoặc
+  refresh không ghi đè edits/lựa chọn mới.
+- Criteria nâng cao nhiều dòng hoặc chứa field không biểu diễn được trong chế
+  độ đơn giản được giữ lossless; không âm thầm bỏ field khi chuyển chế độ.
+- Copy chỉ áp dụng khi người dùng thao tác tường minh, clone các dòng; thay
+  đổi nguồn hoặc tải lại catalog không cập nhật bản đã sao chép.
+- Context xem trước chưa đủ có trạng thái cần thêm context. Cảnh báo chồng
+  lấn chỉ nêu nguy cơ; không coi trợ giúp frontend là matching authoritative.
+- Submit lỗi giữ chế độ, criteria và metadata; submit thành công reset wildcard.
