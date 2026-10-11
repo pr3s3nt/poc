@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { navigate } from '../../app/routes';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { endpointFor } from '../../shared/types/application';
-import { ApiError } from '../../shared/api/client';
+import { ApiError, isBusy, isStaleConflict } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { Status } from '../../shared/ui/Status';
 import { ApplicationTarget } from '../../shared/ui/ApplicationTarget';
@@ -70,14 +70,16 @@ export function ApplicationHomePage({ application, created = false, onTargetChan
     } catch (err) {
       if (current !== scope.current) return;
       setPreview(undefined);
-      if (err instanceof ApiError && err.status === 409) {
+      if (isBusy(err)) {
+        setError((err as ApiError).message);
+      } else if (isStaleConflict(err)) {
         const reloaded = await reloadList(current);
         if (reloaded && current === scope.current) setNotice(`Workload trong ${environment} đã thay đổi kể từ khi trang được tải hoặc xem trước. Danh sách đã được tải lại; hãy kiểm tra và xem trước lại.`);
-      } else if (err instanceof ApiError && err.status === 422 && err.field === 'connectionKey') {
+      } else if (err instanceof ApiError && err.code === 'ENVIRONMENT_UNCONFIGURED') {
         // UNCONFIGURED Environment: nothing was planned or deployed.
         setError('Môi trường chưa có kết nối triển khai. Hãy chọn kết nối trong Cài đặt môi trường; chưa có gì được lập kế hoạch hoặc triển khai.'); setNeedsTarget(true);
       } else {
-        setError(failureMessage(kind));
+        setError(err instanceof ApiError && err.code ? `${failureMessage(kind)} ${err.message}` : failureMessage(kind));
       }
     } finally {
       if (current === scope.current) setBusy('');

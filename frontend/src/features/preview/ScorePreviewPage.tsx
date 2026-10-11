@@ -61,11 +61,10 @@ export function ScorePreviewPage({ application, environment }: { application: Ap
     } catch (err) {
       if (current !== generation.current) return;
       if (err instanceof ApiError && err.status === 401) return;
-      // Raw backend/parser text is never shown: T20 adds code-based messages.
-      if (err instanceof ApiError && err.status === 400) setFailure({ kind: 'validation', message: 'Máy chủ không chấp nhận dữ liệu xem trước. Kiểm tra ID Workload, ID lần chạy và Score rồi thử lại.' });
-      else if (err instanceof ApiError && err.status === 413) setFailure({ kind: 'validation', message: 'Score quá lớn để xem trước. Hãy rút gọn Score rồi thử lại.' });
-      else if (err instanceof ApiError && err.status === 422 && err.field === 'connectionKey') setFailure({ kind: 'error', message: `Môi trường ${environment} chưa có kết nối triển khai. Hãy mở Cài đặt môi trường của ${environment} và chọn kết nối; chưa có gì được lập kế hoạch hoặc triển khai.` });
-      else if (err instanceof ApiError && err.status === 404) setFailure({ kind: 'error', message: 'Không tìm thấy ứng dụng hoặc môi trường này.' });
+      // Only the stable code selects text; raw backend/parser text is never shown.
+      if (err instanceof ApiError && (err.code === 'ENVIRONMENT_UNCONFIGURED')) setFailure({ kind: 'error', message: `Môi trường ${environment} chưa có kết nối triển khai. Hãy mở Cài đặt môi trường của ${environment} và chọn kết nối; chưa có gì được lập kế hoạch hoặc triển khai.` });
+      else if (err instanceof ApiError && (err.status === 400 || err.status === 413)) setFailure({ kind: 'validation', message: err.message });
+      else if (err instanceof ApiError) setFailure({ kind: 'error', message: err.message });
       else setFailure({ kind: 'error', message: 'Không thể xem trước Score. Hãy thử lại.' });
     } finally {
       if (current === generation.current) setPreviewing(false);

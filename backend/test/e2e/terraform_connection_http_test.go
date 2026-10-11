@@ -40,7 +40,7 @@ func TestTerraformVPCEKSRegistrationRejectsConnectionHTTP(t *testing.T) {
 		for _, key := range []string{"aws-account", "missing-account"} {
 			body["connectionKey"] = key
 			status, out := requestJSON(t, pe, http.MethodPost, url, body)
-			if status != http.StatusBadRequest || !strings.Contains(toJSON(t, out), "leave connectionKey empty") || strings.Contains(toJSON(t, out), key) {
+			if status != http.StatusBadRequest || out["code"] != "INVALID_REQUEST" || out["field"] != "definition.connectionKey" || strings.Contains(toJSON(t, out), key) {
 				t.Fatalf("%s with %q: %d %v", seeded.Key, key, status, out)
 			}
 		}

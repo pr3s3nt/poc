@@ -141,7 +141,7 @@ it('prevents duplicate submit and maps a duplicate subdomain to its field keepin
   expect(screen.getByRole('button', { name: 'Đang tạo ứng dụng…' })).toBeDisabled();
   expect(nameInput()).toBeDisabled();
   expect(subdomainInput()).toBeDisabled();
-  fail(new ApiError(409, 'application: subdomain is already in use', 'subdomain'));
+  fail(new ApiError(409, 'DUPLICATE', 'subdomain'));
   expect(await screen.findByText('Subdomain này đã được sử dụng.')).toBeInTheDocument();
   expect(nameInput()).toHaveValue('Catalog');
   expect(subdomainInput()).toHaveValue('catalog');
@@ -155,15 +155,15 @@ it('prevents duplicate submit and maps a duplicate subdomain to its field keepin
 
 it('maps a duplicate name and shows a safe Vietnamese fallback only on explicit retry', async () => {
   const onCreate = vi.fn()
-    .mockRejectedValueOnce(new ApiError(409, 'application: application name already exists in the organization', 'name'))
-    .mockRejectedValueOnce(new ApiError(500, 'boom'));
+    .mockRejectedValueOnce(new ApiError(409, 'DUPLICATE', 'name'))
+    .mockRejectedValueOnce(new ApiError(500, 'INTERNAL_ERROR'));
   const user = userEvent.setup();
   render(<CreateApplicationPage onCreate={onCreate} />);
   await fill('Catalog', '');
   expect(await screen.findByText('Tên ứng dụng này đã tồn tại.')).toBeInTheDocument();
   expect(onCreate).toHaveBeenCalledTimes(1);
   await user.click(submitButton());
-  expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tạo ứng dụng. Hãy thử lại.');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tạo ứng dụng. Máy chủ gặp lỗi không xác định.');
   expect(screen.queryByText(/boom/)).not.toBeInTheDocument();
   expect(onCreate).toHaveBeenCalledTimes(2);
   expect(subdomainInput()).toHaveValue('catalog');
@@ -171,7 +171,7 @@ it('maps a duplicate name and shows a safe Vietnamese fallback only on explicit 
 });
 
 it('maps invalid backend field errors to Vietnamese field messages', async () => {
-  const onCreate = vi.fn().mockRejectedValueOnce(new ApiError(400, 'invalid subdomain', 'subdomain'));
+  const onCreate = vi.fn().mockRejectedValueOnce(new ApiError(400, 'INVALID_REQUEST', 'subdomain'));
   render(<CreateApplicationPage onCreate={onCreate} />);
   await fill('Catalog', '');
   expect(await screen.findByText(/Chỉ dùng chữ thường không dấu, số và dấu gạch ngang; bắt đầu/)).toBeInTheDocument();

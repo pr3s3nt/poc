@@ -61,7 +61,7 @@ it('shows a copy failure without changing the selection and a stale 409 with the
   mode = 'stale';
   await user.click(screen.getByRole('button', { name: 'Lưu kho bí mật' }));
   await waitFor(() => expect(screen.getByLabelText('Kho bí mật cho Staging')).toHaveValue('vault-b'));
-  expect(screen.getByRole('alert')).toHaveTextContent('changed since it was loaded');
+  expect(screen.getByRole('alert')).toHaveTextContent('Dữ liệu đã thay đổi kể từ lần tải trước');
 });
 
 it('hides secret-store details until choices load and offers retry when none exist', async () => {
@@ -121,7 +121,7 @@ it('rejects a stale preview with the server message and requires a new preview',
   await user.click(await screen.findByRole('button', { name: 'Xem trước chuyển đích' }));
   await user.click(await screen.findByLabelText(/ứng dụng sẽ bị dừng/));
   await user.click(screen.getByRole('button', { name: 'Bắt đầu chuyển đích' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('preview is stale');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Bản xem trước đã cũ');
   expect(screen.queryByLabelText('Xem trước chuyển đích')).not.toBeInTheDocument();
 });
 
@@ -133,9 +133,11 @@ it('resumes a running transition after a refresh and shows failure with compensa
   });
   render(<Panel target={configuredTarget('lab', { runtimeExists: true })} />);
   expect(await screen.findByLabelText('Tiến trình chuyển đích')).toHaveTextContent('Chuyển đích đang chạy');
-  expect(await screen.findByText(/the database restore failed/, { selector: '[role="alert"]' })).toBeInTheDocument();
-  expect(screen.getByLabelText('Vấn đề khi khôi phục')).toHaveTextContent('source NOT restored');
-  expect(screen.getByLabelText('Các bước khôi phục')).toHaveTextContent('stopped destination workload backend');
+  expect(await screen.findByText(/Chuyển đích không thành công và chưa hoàn tất/, { selector: '[role="alert"]' })).toBeInTheDocument();
+  // Backend failure/compensation sentences are English summaries: only counts are shown.
+  expect(screen.getByLabelText('Vấn đề khi khôi phục')).toHaveTextContent('Cần xử lý thủ công 1 bước');
+  expect(screen.getByLabelText('Các bước khôi phục')).toHaveTextContent('Đã thực hiện 1 bước');
+  expect(document.body).not.toHaveTextContent(/database restore failed|source NOT restored|stopped destination/);
 });
 
 it('offers explicit recovery only after the stop confirmation and reports an incomplete recovery', async () => {
@@ -337,4 +339,44 @@ it('does not review a destination that is no longer an eligible READY choice', a
   expect(await screen.findByText('Kết nối đích đã chọn không còn Sẵn sàng. Hãy chọn lại.')).toBeInTheDocument();
   expect(screen.getByLabelText('Kết nối đích')).toHaveValue('');
   expect(screen.getByRole('button', { name: 'Xem trước chuyển đích' })).toBeDisabled();
+});
+
+it('treats ENVIRONMENT_BUSY as busy, not stale: no reload, selection and Save stay', async () => {
+  stub((url, init) => {
+    if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: stores });
+    if (init?.method === 'PUT') return Response.json({ error: 'busy', code: 'ENVIRONMENT_BUSY' }, { status: 409 });
+  });
+  const user = userEvent.setup();
+  render(<Store target={configuredTarget('lab', { secretStoreKey: 'vault-a', version: 5 })} />);
+  await user.selectOptions(await screen.findByLabelText('Kho bí mật cho Staging'), 'vault-b');
+  await user.click(screen.getByRole('button', { name: 'Lưu kho bí mật' }));
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('Môi trường đang bận');
+  expect(alert).not.toHaveTextContent('Đã tải lại');
+  expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith('/applications/catalog'))).toBe(false);
+  expect(screen.getByLabelText('Kho bí mật cho Staging')).toHaveValue('vault-b');
+  expect(screen.getByRole('button', { name: 'Lưu kho bí mật' })).toBeEnabled();
+});
+
+it('claims a reload only after the GET succeeds: a failed stale reload keeps the pick, blocks Save and needs an explicit reload', async () => {
+  let reloads = 0;
+  stub((url, init) => {
+    if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: stores });
+    if (init?.method === 'PUT') return Response.json({ error: 'stale', code: 'STALE_VERSION' }, { status: 409 });
+    if (url.endsWith('/applications/catalog')) { reloads += 1; return reloads === 1 ? Response.json({ error: 'down' }, { status: 503 }) : Response.json({ application: { environments: [envJson(configuredTarget('lab', { secretStoreKey: 'vault-a', version: 8 }))] } }); }
+  });
+  const user = userEvent.setup();
+  render(<Store target={configuredTarget('lab', { secretStoreKey: 'vault-a', version: 5 })} />);
+  await user.selectOptions(await screen.findByLabelText('Kho bí mật cho Staging'), 'vault-b');
+  await user.click(screen.getByRole('button', { name: 'Lưu kho bí mật' }));
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('Chưa tải lại được lựa chọn mới nhất');
+  expect(alert).not.toHaveTextContent('Đã tải lại lựa chọn mới nhất');
+  expect(screen.getByLabelText('Kho bí mật cho Staging')).toHaveValue('vault-b');
+  expect(screen.getByRole('button', { name: 'Lưu kho bí mật' })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: 'Tải lại trạng thái' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Lưu kho bí mật' })).toBeEnabled());
+  expect(screen.getByRole('status')).toHaveTextContent('Đã tải lại lựa chọn mới nhất');
+  const puts = vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'PUT');
+  expect(puts).toHaveLength(1);
 });

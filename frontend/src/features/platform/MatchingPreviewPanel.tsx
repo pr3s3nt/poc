@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { fieldNote } from '../../shared/api/errors';
 import { api, ApiError, sessionExpiredEvent } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 
@@ -42,7 +43,7 @@ function describeCriterion(criterion?: Criterion): string {
 function describeTransport(reason: unknown): string {
   if (!(reason instanceof ApiError)) return 'Chưa nhận được phản hồi từ máy chủ nên chưa có kết quả matching. Đây không phải kết quả matching; dữ liệu đã nhập được giữ nguyên.';
   switch (reason.status) {
-    case 400: return 'Máy chủ từ chối cấu hình đang nhập để kiểm tra matching (ID, Loại tài nguyên hoặc điều kiện không hợp lệ, hoặc ID dành riêng cho hệ thống).';
+    case 400: return 'Máy chủ từ chối cấu hình đang nhập để kiểm tra matching (ID, Loại tài nguyên hoặc điều kiện không hợp lệ, hoặc ID dành riêng cho hệ thống).' + fieldNote(reason.field);
     case 401: return 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.';
     case 403: return 'Bạn không có quyền kiểm tra matching. Chỉ Kỹ sư nền tảng hoặc Quản trị viên được dùng.';
     case 404: return 'Không tìm thấy ứng dụng hoặc môi trường mẫu trong Tổ chức của bạn.';

@@ -69,7 +69,7 @@ it('shows the server sentence and reloads on a 409 conflict', async () => {
   await user.type(screen.getByPlaceholderText('API_URL'), 'MODE');
   await user.type(screen.getByLabelText('Giá trị'), 'blue');
   await user.click(screen.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('busy with another operation');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Môi trường đang bận');
   expect(puts).toBe(1);
 });
 
@@ -286,4 +286,59 @@ it('ignores a conflict reply after the page unmounted, without reloading the con
   view.unmount();
   await act(async () => { state.release(Response.json({ error: 'stale', code: 'STALE_VERSION' }, { status: 409 })); });
   expect(state.configGets).toBe(before);
+});
+
+it('claims a reload only after the GET succeeds: a failed stale reload keeps the editor, blocks writes and needs an explicit reload', async () => {
+  let gets = 0;
+  let puts = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (init?.method === 'PUT' && url.includes('/configuration/')) { puts += 1; return Response.json({ error: 'stale', code: 'STALE_VERSION' }, { status: 409 }); }
+    if (url.endsWith('/secret-store-choices') || url.endsWith('/application-connections')) return Response.json({ secretStores: [], connections: [] });
+    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
+    if (url.endsWith('/configuration')) { gets += 1; return gets === 2 ? Response.json({ error: 'down' }, { status: 503 }) : Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: gets, keys: [] }); }
+    return Response.json({});
+  }));
+  const user = userEvent.setup();
+  render(<SettingsPage application={application} />);
+  await user.click(await screen.findByRole('button', { name: '+ Thêm biến' }));
+  await user.type(screen.getByPlaceholderText('API_URL'), 'MODE');
+  await user.type(screen.getByLabelText('Giá trị'), 'blue');
+  await user.click(screen.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('Chưa tải lại được cấu hình mới nhất');
+  expect(alert).not.toHaveTextContent('Đã tải lại giá trị mới nhất');
+  expect(screen.getByLabelText('Giá trị')).toHaveValue('blue');
+  expect(screen.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: 'Tải lại cấu hình' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' })).toBeEnabled());
+  expect(screen.getByLabelText('Giá trị')).toHaveValue('blue');
+  expect(puts).toBe(1);
+});
+
+it('does not carry a failed stale reload gate from staging into production, and shows no operation notice for it', async () => {
+  let stagingGets = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (init?.method === 'PUT' && url.includes('/staging/configuration/')) return Response.json({ error: 'stale', code: 'STALE_VERSION' }, { status: 409 });
+    if (url.endsWith('/secret-store-choices') || url.endsWith('/application-connections')) return Response.json({ secretStores: [], connections: [] });
+    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
+    if (url.endsWith('/staging/configuration')) { stagingGets += 1; return stagingGets === 2 ? Response.json({ error: 'down' }, { status: 503 }) : Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] }); }
+    return Response.json({ applicationKey: 'catalog', environmentKey: 'production', version: 1, keys: [] });
+  }));
+  const user = userEvent.setup();
+  render(<SettingsPage application={application} />);
+  await user.click(await screen.findByRole('button', { name: '+ Thêm biến' }));
+  await user.type(screen.getByPlaceholderText('API_URL'), 'MODE');
+  await user.type(screen.getByLabelText('Giá trị'), 'blue');
+  await user.click(screen.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
+  expect(await screen.findByRole('button', { name: 'Tải lại cấu hình' })).toBeInTheDocument();
+  expect(screen.queryByText(/Một thao tác trên môi trường đang chạy/)).not.toBeInTheDocument();
+  await user.click(screen.getByRole('tab', { name: 'Production' }));
+  expect(await screen.findByText('Chưa có biến nào trong production.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Tải lại cấu hình' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '+ Thêm biến' })).toBeEnabled();
+  await user.click(screen.getByRole('tab', { name: 'Staging' }));
+  await screen.findByText('Chưa có biến nào trong staging.');
+  expect(screen.getByRole('button', { name: '+ Thêm biến' })).toBeEnabled();
 });

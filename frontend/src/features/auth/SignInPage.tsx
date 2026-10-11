@@ -22,7 +22,7 @@ export function SignInPage({ onSuccess, notice }: { onSuccess(username: string, 
     const submitted = password;
     setPassword('');
     onSuccess(username, submitted).catch((err: unknown) => {
-      setError(err instanceof ApiError && err.status === 401 ? 'Tên đăng nhập hoặc mật khẩu không đúng.' : 'Không thể đăng nhập. Kiểm tra kết nối và thử lại.');
+      setError(err instanceof ApiError && err.code === 'INVALID_CREDENTIALS' ? 'Tên đăng nhập hoặc mật khẩu không đúng.' : 'Không thể đăng nhập. Kiểm tra kết nối và thử lại.');
       setSubmitting(false);
     });
   }

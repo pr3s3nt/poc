@@ -31,7 +31,7 @@ func TestSecretStoreRegistrationIsPlatformOnlyAndNeverLeaksTheTokenOrRefs(t *tes
 	}
 	// Bad token, unknown field, bad address and an attacker-style name stay safe.
 	status, bad := requestJSON(t, pe, http.MethodPost, server.URL+"/api/v1/secret-stores", map[string]any{"name": "Bad", "backendAddress": "http://v:8200", "workloadAddress": "http://v:8200", "token": "bad-token"})
-	if status != http.StatusUnprocessableEntity || strings.Contains(toJSON(t, bad), "bad-token") || !strings.Contains(toJSON(t, bad), "rejected the token") {
+	if status != http.StatusUnprocessableEntity || strings.Contains(toJSON(t, bad), "bad-token") || bad["code"] != "VERIFICATION_FAILED" {
 		t.Fatalf("bad token: %d %v", status, bad)
 	}
 	for name, payload := range map[string]map[string]any{
@@ -206,7 +206,7 @@ func TestTransitionOverHTTPPreviewExecuteProgressAndCleanup(t *testing.T) {
 			}
 		}
 	}
-	if status, out := requestJSON(t, developer, http.MethodPut, base+"/connection", map[string]any{"connectionKey": "lab2", "expectedVersion": version}); status != http.StatusConflict || out["code"] != "RUNTIME_EXISTS" {
+	if status, out := requestJSON(t, developer, http.MethodPut, base+"/connection", map[string]any{"connectionKey": "lab2", "expectedVersion": version}); status != http.StatusConflict || out["code"] != "TRANSITION_REQUIRED" {
 		t.Fatalf("save with runtime: %d %v", status, out)
 	}
 	if status, out := requestJSON(t, developer, http.MethodPost, base+"/connection-transition/preview", map[string]any{"destinationKey": "internal-cluster", "mode": "DEPLOY_NEW"}); status != http.StatusUnprocessableEntity || out["field"] != "destinationKey" {

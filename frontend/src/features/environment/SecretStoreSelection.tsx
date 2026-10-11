@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ApiError } from '../../shared/api/client';
+import { ApiError, isBusy, isStaleConflict } from '../../shared/api/client';
 import { toTarget } from '../../shared/api/environment';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
@@ -25,6 +25,8 @@ export function SecretStoreSelection({ application, environment, configVersion, 
   const [choices, setChoices] = useState<State>({ status: 'loading' });
   const [picked, setPicked] = useState<string>();
   const [saving, setSaving] = useState(false);
+  // A stale conflict whose reload failed: saving stays off until a reload succeeds.
+  const [needsReload, setNeedsReload] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -34,7 +36,7 @@ export function SecretStoreSelection({ application, environment, configVersion, 
   // user is still on and never of one they have left.
   const scope = useRef(0);
   useEffect(() => () => { generation.current += 1; scope.current += 1; }, []);
-  useEffect(() => { scope.current += 1; generation.current += 1; setPicked(undefined); setError(''); setNotice(''); setSaving(false); }, [application.id, environment]);
+  useEffect(() => { scope.current += 1; generation.current += 1; setPicked(undefined); setError(''); setNotice(''); setSaving(false); setNeedsReload(false); }, [application.id, environment]);
   useEffect(() => {
     const current = ++generation.current;
     setChoices({ status: 'loading' });
@@ -53,8 +55,24 @@ export function SecretStoreSelection({ application, environment, configVersion, 
   const suggested = picked === undefined && Boolean(suggestion) && selected === suggestion?.key;
   const lostPick = picked !== undefined && picked !== '' && selected === '' && choices.status === 'ready';
 
+  // True only when the authoritative GET succeeded and returned this Environment.
+  async function reloadLatest(current: number): Promise<boolean> {
+    try {
+      const latest = await fetchEnvironment(application.id, environment);
+      if (!latest) return false;
+      if (current === generation.current) { onTargetChange(application.id, environment, latest); onConfigurationChanged(); }
+      return true;
+    } catch { return false; }
+  }
+
+  async function retryReload() {
+    const current = ++generation.current;
+    if (await reloadLatest(current) && current === generation.current) { setNeedsReload(false); setError(''); setNotice('Đã tải lại lựa chọn mới nhất; xem lại rồi lưu nếu vẫn muốn đổi.'); }
+    else if (current === generation.current) setError('Vẫn chưa tải lại được trạng thái môi trường. Lựa chọn của bạn được giữ nguyên; hãy thử lại.');
+  }
+
   async function save() {
-    if (!selected || saving || busy) return;
+    if (!selected || saving || busy || needsReload) return;
     const current = ++generation.current;
     const mine = scope.current;
     setSaving(true); setError(''); setNotice('');
@@ -66,16 +84,22 @@ export function SecretStoreSelection({ application, environment, configVersion, 
       if (current === generation.current) { setPicked(undefined); setNotice(!result.changed ? 'Đã chọn kho này; không sao chép gì thêm.' : `Đã lưu kho bí mật. ${result.copiedSecrets} bí mật đã được sao chép và xác minh. Hãy Xem trước và Triển khai để chuyển các workload đang chạy.`); }
     } catch (err) {
       if (current !== generation.current) return;
-      if (err instanceof ApiError && err.status === 409) {
-        setError(`${err.message} Đã tải lại lựa chọn mới nhất; xem lại rồi bấm Lưu kho bí mật nếu vẫn muốn đổi.`);
-        try { const latest = await fetchEnvironment(application.id, environment); if (latest && current === generation.current) { onTargetChange(application.id, environment, latest); onConfigurationChanged(); } } catch { /* reload hint above */ }
-      } else if (err instanceof ApiError && err.status === 502) {
+      if (isBusy(err)) {
+        setError((err as ApiError).message);
+      } else if (isStaleConflict(err)) {
+        const base = (err as ApiError).message;
+        const reloaded = await reloadLatest(current);
+        if (current !== generation.current) return;
+        setNeedsReload(!reloaded);
+        setError(reloaded ? `${base} Đã tải lại lựa chọn mới nhất; xem lại rồi bấm Lưu kho bí mật nếu vẫn muốn đổi.` : `${base} Chưa tải lại được lựa chọn mới nhất; lựa chọn của bạn được giữ nguyên. Bấm “Tải lại trạng thái” rồi xem lại trước khi lưu.`);
+      } else if (err instanceof ApiError && err.code === 'SECRET_COPY_FAILED') {
         setError('Không sao chép được các bí mật sang kho mới. Kho cũ vẫn đang được chọn và không có gì thay đổi.');
       } else if (err instanceof ApiError && err.status === 422) {
-        setError('Kho bí mật đã chọn không còn khả dụng. Hãy chọn kho khác.');
+        setError(err.code === 'SECRET_STORE_UNAVAILABLE' ? 'Kho bí mật đã chọn không còn khả dụng. Hãy chọn kho khác.' : err.message);
         setAttempt((value) => value + 1);
       } else {
-        setError('Không lưu được kho bí mật. Hãy thử lại.');
+        // A network failure does not prove the selection was not saved.
+        setError(err instanceof ApiError ? `Không lưu được kho bí mật. ${err.message}` : 'Không lưu được kho bí mật. Chưa rõ kết quả; hãy tải lại môi trường trước khi thử lại.');
       }
     } finally {
       if (current === generation.current) setSaving(false);
@@ -84,7 +108,7 @@ export function SecretStoreSelection({ application, environment, configVersion, 
 
   return <section className="content-panel secret-store-selection" aria-label="Kho bí mật">
     <div className="section-header"><div><h2>Kho bí mật</h2><p>{target.secretStoreKey ? `${title} lưu Bí mật trong kho này. Biến vẫn lưu trong Orchestrator.` : `${title} chưa có kho bí mật. Biến dùng được khi chưa có kho; cần chọn kho mới thêm được Bí mật.`}</p></div><span className="pending-pill">{target.secretStoreKey ? (target.secretStoreName || target.secretStoreKey) : 'Chưa chọn'}</span></div>
-    {error ? <div className="form-error" role="alert">{error}</div> : null}
+    {error ? <div className="form-error" role="alert">{error}{needsReload ? <Button type="button" onClick={() => void retryReload()}>Tải lại trạng thái</Button> : null}</div> : null}
     {notice ? <div className="form-success" role="status">{notice}</div> : null}
     {busy ? <div className="form-info" role="status">Một thao tác đang chạy trên môi trường này. Cài đặt chỉ đọc cho đến khi thao tác kết thúc.</div> : null}
     {choices.status === 'loading' ? <p role="status" aria-busy="true">Đang tải danh sách kho bí mật…</p> : null}
@@ -100,7 +124,7 @@ export function SecretStoreSelection({ application, environment, configVersion, 
       {lostPick ? <div className="form-info" role="status">Kho bạn chọn trước đó không còn Sẵn sàng. Hãy chọn lại.</div> : null}
       {!target.secretStoreKey && stores.length > 1 && !selected ? <small>Có nhiều kho Sẵn sàng; hãy tự chọn một kho, hệ thống không chọn thay bạn.</small> : null}
       <small>Đổi kho sẽ sao chép các Bí mật hiện tại sang kho mới trước và xác minh từng bản sao. Nếu một bản sao lỗi, kho cũ vẫn được giữ. Workload đang chạy giữ giá trị cũ cho đến lần Triển khai tiếp theo.</small>
-      <div className="form-actions"><Button tone="primary" disabled={!selected || saving || busy || selected === target.secretStoreKey} onClick={() => void save()}>{saving ? 'Đang sao chép bí mật…' : 'Lưu kho bí mật'}</Button></div>
+      <div className="form-actions"><Button tone="primary" disabled={!selected || saving || busy || needsReload || selected === target.secretStoreKey} onClick={() => void save()}>{saving ? 'Đang sao chép bí mật…' : 'Lưu kho bí mật'}</Button></div>
     </> : null}
   </section>;
 }

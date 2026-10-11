@@ -26,7 +26,7 @@ it('disables the form while submitting and clears the password', async () => {
   expect(screen.getByRole('button', { name: 'Đang đăng nhập…' })).toBeDisabled();
   expect(screen.getByLabelText('Tên đăng nhập')).toBeDisabled();
   expect(screen.getByLabelText('Mật khẩu')).toHaveValue('');
-  fail(new ApiError(401, 'invalid credentials'));
+  fail(new ApiError(401, 'INVALID_CREDENTIALS'));
   expect(await screen.findByRole('alert')).toHaveTextContent('Tên đăng nhập hoặc mật khẩu không đúng.');
   expect(screen.getByRole('button', { name: 'Đăng nhập' })).toBeEnabled();
 });
@@ -49,7 +49,7 @@ it('shows the session-ended notice', () => {
 });
 
 it('masks the password input and never shows raw backend errors', async () => {
-  const onSuccess = vi.fn(async () => { throw new ApiError(500, 'pq: connection refused'); });
+  const onSuccess = vi.fn(async () => { throw new ApiError(500, 'INTERNAL_ERROR'); });
   const user = userEvent.setup();
   render(<SignInPage onSuccess={onSuccess} />);
   expect(screen.getByLabelText('Mật khẩu')).toHaveAttribute('type', 'password');

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { specificGuidance } from '../../shared/api/errors';
 import { api, ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { snapshotKey, type ApiEnvironment } from './environmentSnapshot';
@@ -17,9 +18,11 @@ const loadBundles = async () => ((await api<{ renderBundles: InstalledBundle[] }
 // Real application/environment IDs (keys) for the criteria editor; never derived from names.
 const loadApplications = async (): Promise<ApplicationOption[]> => ((await api<{ applications: APIApplication[] }>('/applications')).applications ?? []).map((app) => ({ key: app.key, name: app.name ?? app.key, environments: (app.environments ?? []).map((env) => ({ key: env.key, name: env.name ?? env.key, environmentType: env.environmentType ?? '', executionProfile: env.executionProfile ?? '', snapshotKey: snapshotKey(env) })) }));
 
-// Raw backend messages are English and unstable: map by HTTP status only.
+// Specific guidance comes from the stable error code; raw backend text is never shown.
 function describeFailure(reason: unknown): string {
   if (!(reason instanceof ApiError)) return 'Chưa nhận được phản hồi từ máy chủ nên chưa rõ kết quả: mẫu có thể đã được đăng ký. Hãy tải lại danh sách trước khi thử lại.';
+  const specific = specificGuidance(reason.code, reason.message, reason.field);
+  if (specific) return `Máy chủ từ chối mẫu. ${specific}`;
   switch (reason.status) {
     case 400: return 'Máy chủ từ chối mẫu này. Kiểm tra ID mẫu, bundle dựng ứng dụng đã chọn (bundle có thể không còn khả dụng; hãy làm mới danh sách bundle) và Điều kiện áp dụng rồi thử lại.';
     case 401: return 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.';

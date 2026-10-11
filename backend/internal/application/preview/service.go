@@ -39,6 +39,10 @@ var (
 type PublicError struct {
 	Kind    error
 	Message string
+	// Stage and Reason are the planner enums of a staged planning failure;
+	// they are server-defined and safe to expose. Empty for other kinds.
+	Stage  planning.Stage
+	Reason string
 }
 
 func (e *PublicError) Error() string        { return e.Message }
@@ -66,7 +70,9 @@ func publicPlanningError(err error) error {
 	if callerStages[stage.Stage] {
 		kind = ErrInvalidScore
 	}
-	return public(kind, "%s", message)
+	failure := public(kind, "%s", message).(*PublicError)
+	failure.Stage, failure.Reason = stage.Stage, stage.Reason
+	return failure
 }
 
 // Actions accepted by the standalone Preview contract.

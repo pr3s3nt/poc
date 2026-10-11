@@ -4254,6 +4254,278 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(3000);
   },
+
+  // T20: stable-code errors in Vietnamese. Real fake-adapter backend for auth,
+  // duplicate, invalid ID, invalid variable, stale and kubeconfig errors.
+  // BUSY, copy failure and an unknown code are PROJECTION MOCKS (page.route),
+  // each labelled in its caption: no real operation, store or provider runs.
+  async T20({ page, h, ui, caption, mark, check, baseURL }) {
+    const CANARY = process.env.ORCH_E2E_CANARY || 'T20-CANARY-secret-9f3a7c';
+    const MOCK_RAW = 'T20-MOCK-RAW-LEAK-pq-password';
+    const NAME = 'T20 Lỗi theo mã';
+    const realBodies = [];
+    const mocked = new Set();
+    page.on('response', async (response) => {
+      if (response.status() < 400 || !response.url().includes('/api/v1/') || mocked.has(response.url())) return;
+      realBodies.push({ url: response.url(), status: response.status(), body: await response.text().catch(() => '') });
+    });
+    const alertOf = () => page.getByRole('alert');
+    // Brings the error sentence into the recorded viewport before the phase mark and the reading pause.
+    const reveal = async (locator = alertOf().first()) => { await locator.evaluate((element) => element.scrollIntoView({ block: 'center', behavior: 'smooth' })); await h.pause(900); };
+    const noRaw = async () => {
+      const text = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
+      expect(text, 'page text must not hold the canary or mocked raw text').not.toContain(CANARY);
+      expect(text).not.toContain(MOCK_RAW);
+    };
+    const expectBody = async (pending, status, code) => {
+      const reply = await pending;
+      expect(reply.status()).toBe(status);
+      const body = await reply.json();
+      expect(body.code).toBe(code);
+      expect(typeof body.error).toBe('string');
+      expect(JSON.stringify(body)).not.toContain(CANARY);
+      return body;
+    };
+    const waitFor = (method, suffix) => page.waitForResponse((reply) => reply.request().method() === method && new URL(reply.url()).pathname.endsWith(suffix));
+
+    caption('Bước 1 (thật): Nhà phát triển nhập sai mật khẩu; Console chỉ hiện câu tiếng Việt theo mã INVALID_CREDENTIALS');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'developer');
+    await h.type(ui('signIn', 'password'), 'wrong-password');
+    const badSignIn = waitFor('POST', '/auth/sign-in');
+    await h.click(ui('signIn', 'submit'));
+    await expectBody(badSignIn, 401, 'INVALID_CREDENTIALS');
+    await expect(alertOf()).toHaveText('Tên đăng nhập hoặc mật khẩu không đúng.');
+    check('REAL: auth: HTTP 401 code INVALID_CREDENTIALS shows the Vietnamese sentence; no raw English');
+    await reveal();
+    mark('auth-error');
+    await h.read('Sai mật khẩu: thông báo tiếng Việt, không tiết lộ tài khoản hay trường nào sai');
+
+    caption('Bước 2 (thật): Đăng nhập đúng rồi tạo ứng dụng; Staging dùng cluster mặc định');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD, { replace: true });
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    const appId = await createApplication(h, NAME, 't20-loi-theo-ma', { connections: { staging: 'internal-cluster' } });
+    mark('setup-app');
+
+    caption('Bước 3 (thật): Tạo lại ứng dụng cùng tên; mã DUPLICATE hiện ở ô Tên, bản nháp được giữ');
+    await h.click(ui('shell', 'navApplications'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await h.click(page.getByRole('button', { name: '+ Tạo ứng dụng' }).first());
+    await h.type(page.getByLabel('Tên ứng dụng'), NAME);
+    await h.type(page.getByLabel('Subdomain'), 't20-trung-ten', { replace: true });
+    const dup = waitFor('POST', '/applications');
+    await h.click(page.getByRole('button', { name: 'Tạo ứng dụng' }));
+    await expectBody(dup, 409, 'DUPLICATE');
+    await expect(page.getByText('Tên ứng dụng này đã tồn tại.')).toBeVisible();
+    await expect(page.getByLabel('Subdomain')).toHaveValue('t20-trung-ten');
+    check('REAL: duplicate: 409 DUPLICATE with field name shows the field message and keeps the draft');
+    await reveal(page.getByText('Tên ứng dụng này đã tồn tại.'));
+    mark('duplicate-app');
+    await h.read('Trùng tên ứng dụng: thông báo ở đúng ô, nội dung đang nhập được giữ');
+
+    caption('Bước 4 (thật): Mở Cài đặt môi trường và thêm biến tên không hợp lệ, giá trị là chuỗi bí mật giả (canary); mã INVALID_VARIABLE, giá trị không hiện lại');
+    await page.goto(`${baseURL}/ui/applications/${appId}`);
+    await h.click(page.getByRole('button', { name: 'Cài đặt môi trường' }));
+    await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
+    const variables = page.locator('section[aria-label="Biến"]');
+    await h.click(variables.getByRole('button', { name: '+ Thêm biến' }));
+    await h.type(page.getByLabel('Tên key'), 'BAD-NAME');
+    await h.type(page.getByLabel('Giá trị'), CANARY, { delay: 20 });
+    const invalid = waitFor('PUT', '/configuration/keys/BAD-NAME');
+    await h.click(page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
+    await expectBody(invalid, 400, 'INVALID_VARIABLE');
+    await expect(alertOf().first()).toContainText('Tên, giá trị hoặc tham chiếu biến không hợp lệ');
+    expect(await alertOf().first().innerText()).not.toContain(CANARY);
+    check('REAL: invalid variable: 400 INVALID_VARIABLE shows fixed Vietnamese text without the submitted value');
+    await reveal();
+    mark('invalid-variable');
+    await h.read('Biến sai: thông báo tiếng Việt, giá trị đã nhập không bị lặp lại');
+
+    caption('Bước 5 (thật): Hai phiên cùng sửa cấu hình; phiên thứ hai lưu trước nên phiên đầu nhận STALE_VERSION và tải lại');
+    await h.type(page.getByLabel('Tên key'), 'T20_FIRST', { replace: true });
+    await h.type(page.getByLabel('Giá trị'), 'one', { replace: true });
+    const second = await page.context().newPage();
+    await second.goto(`${baseURL}/ui/applications/${appId}`);
+    const secondH = createHuman(second);
+    await secondH.click(second.getByRole('button', { name: 'Cài đặt môi trường' }));
+    await secondH.click(second.locator('section[aria-label="Biến"]').getByRole('button', { name: '+ Thêm biến' }));
+    await secondH.type(second.getByLabel('Tên key'), 'T20_OTHER');
+    await secondH.type(second.getByLabel('Giá trị'), 'other');
+    const okSave = second.waitForResponse((reply) => reply.request().method() === 'PUT' && reply.url().endsWith('/configuration/keys/T20_OTHER'));
+    await secondH.click(second.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
+    expect((await okSave).status()).toBe(200);
+    await second.close();
+    await page.bringToFront();
+    const stale = waitFor('PUT', '/configuration/keys/T20_FIRST');
+    await h.click(page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
+    await expectBody(stale, 409, 'STALE_VERSION');
+    await expect(alertOf().first()).toContainText('Dữ liệu đã thay đổi kể từ lần tải trước');
+    await expect(alertOf().first()).toContainText('Đã tải lại giá trị mới nhất');
+    await expect(variables.locator('.settings-table-row').filter({ hasText: 'T20_OTHER' })).toHaveCount(1);
+    check('REAL: stale: 409 STALE_VERSION; the reload claim appears only after the authoritative GET succeeded; the other session variable is now listed; edit kept');
+    await reveal();
+    mark('stale-version');
+    await h.read('Dữ liệu cũ: đã tải lại thật; bản đang nhập vẫn còn, lưu lại là thao tác chủ động');
+
+    caption('Bước 6 (MÔ PHỎNG projection): Máy chủ trả ENVIRONMENT_BUSY; thông báo bận, không tải lại và không mất bản nhập');
+    let projection = 'busy';
+    const configUrl = '**/api/v1/applications/*/environments/staging/configuration/keys/*';
+    await page.route(configUrl, async (route) => {
+      if (route.request().method() !== 'PUT' || projection === 'off') { await route.continue(); return; }
+      mocked.add(route.request().url());
+      if (projection === 'busy') await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: `busy ${MOCK_RAW}`, code: 'ENVIRONMENT_BUSY' }) });
+      else await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: `pq: password=${MOCK_RAW}`, code: 'SOMETHING_FROM_THE_FUTURE', field: 'user.alias', params: { stage: MOCK_RAW } }) });
+    });
+    let configGets = 0;
+    page.on('request', (request) => { if (request.method() === 'GET' && new URL(request.url()).pathname.endsWith('/environments/staging/configuration')) configGets += 1; });
+    const getsBefore = configGets;
+    await h.click(page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
+    await expect(alertOf().first()).toContainText('Môi trường đang bận');
+    await expect(alertOf().first()).not.toContainText('Đã tải lại');
+    await h.pause(800);
+    expect(configGets).toBe(getsBefore);
+    await expect(page.getByLabel('Tên key')).toHaveValue('T20_FIRST');
+    await expect(page.getByLabel('Giá trị')).toHaveValue('one');
+    await noRaw();
+    check('PROJECTION: BUSY projection: fixed busy sentence, no configuration reload, form values kept, raw mocked text absent');
+    await reveal();
+    mark('busy-projection');
+    await h.read('Bận (mô phỏng): giữ nguyên bản nhập, không coi là dữ liệu cũ');
+
+    caption('Bước 7 (MÔ PHỎNG projection): Mã lỗi lạ từ tương lai; Console dùng câu dự phòng tiếng Việt, không hiện chữ gốc');
+    projection = 'unknown';
+    await h.click(page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
+    await expect(alertOf().first()).toContainText('Máy chủ gặp lỗi không xác định');
+    await noRaw();
+    check('PROJECTION: unknown-code projection: HTTP 500 fallback Vietnamese; raw English, unknown field and params never shown');
+    await reveal();
+    mark('unknown-projection');
+    await h.read('Mã lạ (mô phỏng): câu dự phòng tiếng Việt an toàn');
+    projection = 'off';
+    await page.unroute(configUrl);
+
+    caption('Bước 8 (MÔ PHỎNG projection): Thiết lập mô phỏng Staging đang chọn Kho A; chuyển sang Kho B bị SECRET_COPY_FAILED, Kho A vẫn được chọn');
+    // PROJECTION SETUP (not a real store): the Environment read is patched so Staging reports the bound store "kho-a";
+    // choices and the store PUT are mocked too. No Vault, no copy and no real store-selection write happen.
+    const stores = [{ key: 'kho-a', name: 'Kho A', provider: 'VAULT_KV_V2', status: 'READY' }, { key: 'kho-b', name: 'Kho B', provider: 'VAULT_KV_V2', status: 'READY' }];
+    let storePuts = 0;
+    const patchStaging = (environments) => environments?.map((item) => (item.key === 'staging' ? { ...item, secretStoreKey: 'kho-a', secretStoreName: 'Kho A' } : item));
+    await page.route(/\/api\/v1\/applications(\/[^/]+)?$/, async (route) => {
+      if (route.request().method() !== 'GET') { await route.continue(); return; }
+      const reply = await route.fetch();
+      const body = await reply.json();
+      if (body.applications) body.applications = body.applications.map((item) => ({ ...item, environments: patchStaging(item.environments) }));
+      if (body.application) body.application = { ...body.application, environments: patchStaging(body.application.environments) };
+      mocked.add(route.request().url());
+      await route.fulfill({ response: reply, json: body });
+    });
+    await page.route('**/api/v1/secret-store-choices', async (route) => { mocked.add(route.request().url()); await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ secretStores: stores }) }); });
+    await page.route('**/api/v1/applications/*/environments/staging/secret-store', async (route) => {
+      if (route.request().method() !== 'PUT') { await route.continue(); return; }
+      storePuts += 1;
+      mocked.add(route.request().url());
+      await route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: `copy failed ${MOCK_RAW}`, code: 'SECRET_COPY_FAILED' }) });
+    });
+    await page.goto(`${baseURL}/ui/applications`);
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await page.goto(`${baseURL}/ui/applications/${appId}`);
+    await h.click(page.getByRole('button', { name: 'Cài đặt môi trường' }));
+    await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
+    const storeSelect = page.getByLabel('Kho bí mật cho Staging');
+    await expect(storeSelect).toBeVisible();
+    await expect(storeSelect).toHaveValue('kho-a');
+    check('PROJECTION: copy projection setup (MOCK): Staging reads as bound to kho-a; the real backend still has no store bound');
+    const storeLabel = (await storeSelect.locator('option').allTextContents()).find((text) => text.includes('Kho B'));
+    if (!storeLabel) throw new Error('mocked store Kho B is not offered');
+    await h.choose(storeSelect, storeLabel);
+    await expect(storeSelect).toHaveValue('kho-b');
+    await h.click(page.getByRole('button', { name: 'Lưu kho bí mật' }));
+    await expect(alertOf().first()).toContainText('Kho cũ vẫn đang được chọn và không có gì thay đổi');
+    expect(storePuts).toBe(1);
+    await noRaw();
+    await reveal();
+    mark('copy-failed-alert-visible');
+    await h.read('Sao chép bí mật lỗi (mô phỏng): thông báo hiện rõ, Kho A vẫn là kho đã lưu');
+    await h.pause(1500);
+    expect(storePuts).toBe(1);
+    // The persisted view is still the previous store: reload the (patched) Environment and read it back.
+    await page.reload();
+    await expect(page.getByLabel('Kho bí mật cho Staging')).toHaveValue('kho-a');
+    check('PROJECTION: SECRET_COPY_FAILED projection: Vietnamese copy-failure sentence; exactly one store PUT, no automatic replay; after a reload the previous store kho-a is still the selected one (the Environment read is a labelled projection patch, not a real store binding)');
+    await h.moveTo(storeSelect);
+    await h.read('Sau khi tải lại: Kho A vẫn được chọn (mô phỏng)');
+    mark('copy-failed-after-reload');
+    await page.unroute(/\/api\/v1\/applications(\/[^/]+)?$/);
+    await page.unroute('**/api/v1/secret-store-choices');
+    await page.unroute('**/api/v1/applications/*/environments/staging/secret-store');
+
+    caption('Bước 9 (thật): Kỹ sư nền tảng đăng ký loại tài nguyên với ID sai chứa chuỗi giả (canary); mã INVALID_ID kèm nhãn trường');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    await h.type(ui('signIn', 'username'), 'platform-engineer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await h.click(ui('shell', 'navResourceTypes'));
+    await expect(ui('resourceTypes', 'heading')).toBeVisible();
+    await h.type(ui('resourceTypes', 'id'), `Bad_${CANARY}`);
+    const badId = waitFor('POST', '/resource-types');
+    await h.click(ui('resourceTypes', 'submit'));
+    await expectBody(badId, 400, 'INVALID_ID');
+    await expect(alertOf().first()).toContainText('ID không đúng quy tắc đặt tên');
+    await expect(alertOf().first()).toContainText('ID loại tài nguyên');
+    expect(await alertOf().first().innerText()).not.toContain(CANARY);
+    check('REAL: invalid ID: 400 INVALID_ID with trusted field type.key; the submitted ID is not echoed');
+    await reveal();
+    mark('invalid-id');
+    await h.read('ID sai: thông báo cụ thể, không lặp lại ID đã gửi');
+
+    caption('Bước 10 (thật): Đăng ký hai lần cùng một loại tài nguyên; lần hai nhận DUPLICATE và không ghi đè');
+    await h.type(ui('resourceTypes', 'id'), 't20-bo-nho', { replace: true });
+    const first = waitFor('POST', '/resource-types');
+    await h.click(ui('resourceTypes', 'submit'));
+    expect((await first).status()).toBe(201);
+    await expect(page.getByRole('status').filter({ hasText: 't20-bo-nho' }).first()).toBeVisible();
+    await h.type(ui('resourceTypes', 'id'), 't20-bo-nho', { replace: true });
+    const again = waitFor('POST', '/resource-types');
+    await h.click(ui('resourceTypes', 'submit'));
+    await expectBody(again, 409, 'DUPLICATE');
+    await expect(alertOf().first()).toContainText('ID loại tài nguyên đã tồn tại');
+    check('REAL: duplicate type: 201 then 409 DUPLICATE; the first registration is untouched');
+    await reveal();
+    mark('duplicate-type');
+    await h.read('Trùng ID: không ghi đè bản đã đăng ký');
+
+    caption('Bước 11 (thật): Dán kubeconfig sai có chứa chuỗi bí mật giả (canary, không phải thông tin thật); lỗi KUBECONFIG_* không hiện lại nội dung');
+    await h.click(ui('shell', 'navConnections'));
+    await expect(ui('connections', 'heading')).toBeVisible();
+    await h.click(ui('connections', 'sourcePaste'));
+    const inspect = waitFor('POST', '/connections/kubernetes/inspect');
+    await h.paste(ui('connections', 'content'), `not: [valid kubeconfig ${CANARY}`);
+    const inspected = await inspect;
+    expect(inspected.status()).toBe(400);
+    const inspectBody = await inspected.json();
+    expect(inspectBody.code).toMatch(/^KUBECONFIG_/);
+    expect(JSON.stringify(inspectBody)).not.toContain(CANARY);
+    await expect(alertOf().first()).toBeVisible();
+    expect(await alertOf().first().innerText()).not.toContain(CANARY);
+    check(`REAL: kubeconfig: 400 ${inspectBody.code}; the pasted secret is not echoed by the API or the alert`);
+    await reveal();
+    mark('kubeconfig-error');
+    await h.read('Kubeconfig sai: thông báo cụ thể, không lặp lại nội dung đã dán');
+
+    for (const item of realBodies) {
+      expect(item.body, `${item.status} ${item.url} leaked canary`).not.toContain(CANARY);
+      expect(item.body).not.toContain(MOCK_RAW);
+    }
+    check(`REAL: all ${realBodies.length} real error responses carry neither the submitted canary nor raw provider text`);
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(3000);
+  },
 };
 
 export function parseArgs(argv) {

@@ -97,8 +97,7 @@ export function validate(form: Form): Problems {
   return problems;
 }
 
-// Fixed Vietnamese guidance by HTTP status. Raw backend text is never shown;
-// stable error codes for the whole Console are T20.
+// Fixed Vietnamese guidance by stable code or HTTP status. Raw backend text is never shown.
 export function failureGuidance(error: unknown): string {
   if (!(error instanceof ApiError)) return 'Chưa nhận được phản hồi từ máy chủ nên chưa biết kho đã được lưu hay chưa. Token đã bị xóa. Hãy tải lại danh sách để kiểm tra trước khi đăng ký lại; Console không tự gửi lại.';
   switch (error.status) {

@@ -2,7 +2,7 @@
 id: UC-16-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 related: UC-16
 ---
 
@@ -85,7 +85,7 @@ performed by this screen.
 Trang editor dùng nhãn tiếng Việt theo [glossary](../../../GLOSSARY.md#nhãn-web-console-vi-01),
 bao gồm validation frontend, aria-label, trạng thái tải/rỗng/lỗi và key picker.
 Giữ `Workload`, `Container`, `Service`, `staging`/`production`, technical IDs,
-image, Score keys và payload. Mapping lỗi backend theo code thuộc T20.
+image, Score keys và payload. Mapping lỗi backend theo contract code T20.
 
 - Phần cơ bản giữ tên Workload, Container/image, key picker, resource alias/type
   và các input có kiểu, Service port và đường dẫn công khai.

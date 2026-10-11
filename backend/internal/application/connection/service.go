@@ -53,11 +53,11 @@ const permissionGuidance = "create namespaces, and deployments, statefulsets, se
 func verificationError(err error) error {
 	switch {
 	case errors.Is(err, ErrContextMissing):
-		return fmt.Errorf("%w: the kube context is not configured on the backend host; configure it there first", ErrVerification)
+		return categorize(ErrContextMissing, fmt.Errorf("%w: the kube context is not configured on the backend host; configure it there first", ErrVerification))
 	case errors.Is(err, ErrPermissionDenied):
-		return fmt.Errorf("%w: the context lacks a required permission (%s)", ErrVerification, permissionGuidance)
+		return categorize(ErrPermissionDenied, fmt.Errorf("%w: the context lacks a required permission (%s)", ErrVerification, permissionGuidance))
 	case errors.Is(err, ErrClusterUnreachable):
-		return fmt.Errorf("%w: the cluster API could not be reached with this context", ErrVerification)
+		return categorize(ErrClusterUnreachable, fmt.Errorf("%w: the cluster API could not be reached with this context", ErrVerification))
 	}
 	return fmt.Errorf("%w: check that the context exists on the backend host, its API is reachable and it has the required permissions", ErrVerification)
 }
@@ -66,14 +66,27 @@ func verificationError(err error) error {
 func kubeconfigVerificationError(err error) error {
 	switch {
 	case errors.Is(err, ErrPermissionDenied):
-		return fmt.Errorf("%w: the selected context lacks a required permission (%s)", ErrVerification, permissionGuidance)
+		return categorize(ErrPermissionDenied, fmt.Errorf("%w: the selected context lacks a required permission (%s)", ErrVerification, permissionGuidance))
 	case errors.Is(err, ErrAuthentication):
-		return fmt.Errorf("%w: the cluster rejected the credential of the selected context; check that the token or client certificate is current", ErrVerification)
+		return categorize(ErrAuthentication, fmt.Errorf("%w: the cluster rejected the credential of the selected context; check that the token or client certificate is current", ErrVerification))
 	case errors.Is(err, ErrClusterUnreachable):
-		return fmt.Errorf("%w: the cluster API could not be reached at the selected endpoint; check the server address, network access and TLS settings", ErrVerification)
+		return categorize(ErrClusterUnreachable, fmt.Errorf("%w: the cluster API could not be reached at the selected endpoint; check the server address, network access and TLS settings", ErrVerification))
 	}
 	return fmt.Errorf("%w: check that the selected endpoint is reachable, the credential is accepted and it has the required permissions", ErrVerification)
 }
+
+// categorized keeps the verification message while also matching the failure
+// category, so delivery can pick a specific fixed sentence without parsing.
+type categorized struct {
+	category error
+	err      error
+}
+
+func (e *categorized) Error() string        { return e.err.Error() }
+func (e *categorized) Unwrap() error        { return e.err }
+func (e *categorized) Is(target error) bool { return target == e.category }
+
+func categorize(category, err error) error { return &categorized{category: category, err: err} }
 
 var connectionKeyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,40}$`)
 

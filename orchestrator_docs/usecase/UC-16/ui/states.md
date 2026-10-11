@@ -2,7 +2,7 @@
 id: UC-16-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 related: UC-16
 ---
 
@@ -61,4 +61,14 @@ covers imported dependencies unused by container bindings.
 | Key catalog | Không tự chọn keys/secrets mới; thiếu key/loading/error khác empty và không lộ giá trị. |
 
 Tất cả nhãn và validation frontend trên editor/key picker dùng tiếng Việt;
-backend error envelope/mapping hoàn chỉnh thuộc T20. API/Score semantics không đổi.
+backend error envelope/mapping theo contract lỗi T20. API/Score semantics không đổi.
+
+## Lỗi theo code — T20
+
+Áp dụng [public HTTP error contract](../../../architecture/contracts/operation-contracts.md#public-http-error-contract--t20--vi-03)
+và [shared error presentation](../../../architecture/ui/README.md#trình-bày-lỗi-theo-code--t20--vi-03).
+Known code chọn hướng dẫn Việt cụ thể; unknown/missing code dùng fallback Việt
+an toàn, không hiển thị/parse raw `error`, submitted values hoặc provider cause.
+Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
+BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
+không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.

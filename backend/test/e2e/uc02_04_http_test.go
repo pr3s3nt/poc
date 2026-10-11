@@ -71,12 +71,12 @@ func TestUC02UC04RegistrationIsUsableWithoutRestart(t *testing.T) {
 	// only because no Definition can provision the new Type (graph stage).
 	for _, params := range []map[string]any{{"size": "big"}, {}, {"size": 1, "extra": true}} {
 		status, out := preview(map[string]any{"c": map[string]any{"type": "cache", "params": params}})
-		if status != http.StatusBadRequest || !strings.Contains(toJSON(t, out), "Resource Type contracts") {
+		if status != http.StatusBadRequest || out["code"] != "INVALID_SCORE" || toJSON(t, out["params"]) != `{"stage":"score"}` {
 			t.Fatalf("invalid cache params %v: %d %v", params, status, out)
 		}
 	}
 	status, rejected := preview(map[string]any{"c": map[string]any{"type": "cache", "params": map[string]any{"size": 2}}})
-	if status != http.StatusBadRequest || !strings.Contains(toJSON(t, rejected), "Resource Graph cannot be built or matched") {
+	if status != http.StatusBadRequest || rejected["code"] != "PLANNING_REJECTED" || toJSON(t, rejected["params"]) != `{"stage":"graph"}` {
 		t.Fatalf("cache without a Definition: %d %v", status, rejected)
 	}
 }
@@ -124,7 +124,7 @@ func TestUC02UC04ManagementHTTPContract(t *testing.T) {
 			t.Errorf("developer %s = %d", path, resp.StatusCode)
 		}
 	}
-	if resp, body := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-types", `{"key":"broken","outputs":[{"name":"url","type":"object"}]}`); resp.StatusCode != http.StatusBadRequest || !strings.Contains(body, "unsupported type") {
+	if resp, body := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-types", `{"key":"broken","outputs":[{"name":"url","type":"object"}]}`); resp.StatusCode != http.StatusBadRequest || !strings.Contains(body, `"code":"INVALID_REQUEST"`) || !strings.Contains(body, `"field":"type.schema"`) || strings.Contains(body, "unsupported type") {
 		t.Errorf("invalid schema = %d %s", resp.StatusCode, body)
 	}
 	concurrentRegistration(t, server.URL, pe)

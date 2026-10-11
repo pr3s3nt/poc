@@ -102,19 +102,40 @@ func TestUC16ResourceParamsRejectedOnSaveAndImportHTTP(t *testing.T) {
 		saveStatus, saved := requestJSON(t, client, http.MethodPut, base+"/workloads/api", map[string]any{"score": score, "version": 0})
 		for label, out := range map[string]map[string]any{"import": imported, "save": saved} {
 			msg := toJSON(t, out)
-			if !strings.Contains(msg, tc.path) || strings.Contains(msg, policySentinel) {
-				t.Errorf("%s %s: want safe path %s, got %v", name, label, tc.path, out)
+			// UC-16 BR-14: the registered resource Type identifies the failure; the alias,
+			// param names and values are never echoed.
+			params, _ := out["params"].(map[string]any)
+			if out["code"] != "INVALID_SCORE" || params["resourceType"] != "postgres" || len(params) != 1 ||
+				strings.Contains(msg, policySentinel) || strings.Contains(msg, `"db"`) || strings.Contains(msg, tc.path) ||
+				strings.Contains(msg, "storage") || strings.Contains(msg, "username") {
+				t.Errorf("%s %s: want INVALID_SCORE naming only Type postgres, got %v", name, label, out)
 			}
 		}
 		if importStatus != http.StatusBadRequest || saveStatus != http.StatusBadRequest || imported["error"] != saved["error"] {
 			t.Errorf("%s: import %d %v, save %d %v", name, importStatus, imported, saveStatus, saved)
 		}
 	}
+	// An unregistered Type is never echoed: a fixed field and no params.
+	unknown := map[string]any{
+		"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": "api"},
+		"containers": map[string]any{"main": map[string]any{"image": "example.invalid/api:v1"}},
+		"resources":  map[string]any{"db": map[string]any{"type": "Unknown-" + policySentinel, "params": map[string]any{"x": policySentinel}}},
+	}
+	importStatus, imported := requestJSON(t, client, http.MethodPost, base+"/workloads/parse", map[string]any{"content": toJSON(t, unknown)})
+	saveStatus, saved := requestJSON(t, client, http.MethodPut, base+"/workloads/api", map[string]any{"score": unknown, "version": 0})
+	for label, out := range map[string]map[string]any{"import": imported, "save": saved} {
+		if out["code"] != "INVALID_SCORE" || out["field"] != "resources" || out["params"] != nil || strings.Contains(toJSON(t, out), policySentinel) {
+			t.Errorf("unknown type %s: %v", label, out)
+		}
+	}
+	if importStatus != http.StatusBadRequest || saveStatus != http.StatusBadRequest {
+		t.Errorf("unknown type statuses %d %d", importStatus, saveStatus)
+	}
 	status, view := requestJSON(t, client, http.MethodGet, base+"/workloads", nil)
 	if status != http.StatusOK || view["draftVersion"] != float64(0) || len(view["workloads"].([]any)) != 0 {
 		t.Fatalf("rejected saves mutated drafts: %d %v", status, view)
 	}
-	status, saved := requestJSON(t, client, http.MethodPut, base+"/workloads/api", map[string]any{"score": scoreWith(map[string]any{"database": "shop", "username": "app"}), "version": 0})
+	status, saved = requestJSON(t, client, http.MethodPut, base+"/workloads/api", map[string]any{"score": scoreWith(map[string]any{"database": "shop", "username": "app"}), "version": 0})
 	if status != http.StatusOK || saved["draftVersion"] != float64(1) {
 		t.Fatalf("valid save: %d %v", status, saved)
 	}

@@ -2,7 +2,7 @@
 id: UC-05-UI-API
 artifact: use-case-ui-api-mapping
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-12
 related: UC-05, OC-06
 ---
 
@@ -55,3 +55,13 @@ is `builtin-existing-cluster` and specificity `-1` denotes bypassed matching.
 Normal catalog matches omit these optional binding fields. This is internal
 product metadata, not a Humanitec matching contract. Credential/reference bytes
 and resolved inputs remain excluded. Preview never admits the system record.
+
+## Lỗi theo code — T20
+
+Áp dụng [public HTTP error contract](../../../architecture/contracts/operation-contracts.md#public-http-error-contract--t20--vi-03)
+và [shared error presentation](../../../architecture/ui/README.md#trình-bày-lỗi-theo-code--t20--vi-03).
+Known code chọn hướng dẫn Việt cụ thể; unknown/missing code dùng fallback Việt
+an toàn, không hiển thị/parse raw `error`, submitted values hoặc provider cause.
+Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
+BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
+không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.

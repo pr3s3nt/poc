@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-12
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -389,3 +389,13 @@ records local checks; no new browser or live/database integration proof.
 | ADR-010 unchanged selection/payload, Preview pure | Existing registration/planner; T03 locator adaptation | Headed T18 selected template Preview, T03 regression; Go conformance |
 
 Evidence: [T18 local verification](../verification/2026-10-11-T18-render-bundles.md).
+
+## T20 — VI-03 public error codes
+
+| Requirement | Design/code | Verification |
+|---|---|---|
+| Stable codes/fields/safe params, no raw provider/submitted secrets | Public HTTP error contract in OC; apierror.go and typed error producers | apierror_test.go canary/status/code/field/params/decoder tests; verification category tests; HTTP/e2e suite |
+| Vietnamese known/unknown errors for all Console flows | Shared UI error design and UC-00/01/02/03/04/05/07/09/12/16 mappings/states; shared client/errors | client.test.ts malformed/prototype/unknown/401/PUT+POST no-replay; page tests and headed T20 |
+| Preserve scoping/CAS/BUSY/stale/reload safety and selected renderer behavior | Existing service/planner contracts; code-first page controls and authoritative reload gates | Go conformance; scope-switch/reload-failure/retained-edit frontend tests; T01 regression; fake T20 two-tab stale and labelled BUSY/copy/unknown mocks |
+
+Evidence and exact limits: [T20 verification](../verification/2026-10-12-T20-console-errors.md).

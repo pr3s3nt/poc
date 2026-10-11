@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/secretstore"
-	configport "orchestrator/internal/ports/configuration"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -59,7 +57,7 @@ func (s *Server) handleListSecretStores(w http.ResponseWriter, r *http.Request) 
 	}
 	stores, err := s.secretStores.List(r.Context(), org)
 	if err != nil {
-		writeManagementError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	views := make([]secretStoreView, 0, len(stores))
@@ -72,12 +70,12 @@ func (s *Server) handleListSecretStores(w http.ResponseWriter, r *http.Request) 
 func (s *Server) handleSecretStoreChoices(w http.ResponseWriter, r *http.Request) {
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		writeCode(w, codeUnauthorized, "")
 		return
 	}
 	stores, err := s.secretStores.Choices(r.Context(), identity.OrganizationKey)
 	if err != nil {
-		writeManagementError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	views := make([]storeChoiceView, 0, len(stores))
@@ -113,27 +111,10 @@ func (s *Server) handleRegisterSecretStore(w http.ResponseWriter, r *http.Reques
 		Mount: body.Mount, AuthMount: body.AuthMount, TLSCAPEM: body.TLSCAPEM, Token: body.Token,
 	})
 	if err != nil {
-		writeSecretStoreError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, publicSecretStore(created))
-}
-
-// writeSecretStoreError maps registration failures to fixed safe guidance.
-func writeSecretStoreError(w http.ResponseWriter, err error) {
-	var cleanup *secretstores.CleanupError
-	switch {
-	case errors.Is(err, secretstores.ErrInvalid):
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
-	case errors.Is(err, secretstores.ErrVerification):
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error()})
-	case errors.Is(err, secretstores.ErrCredentialStore):
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
-	case errors.As(err, &cleanup):
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": cleanup.Error()})
-	default:
-		writeManagementError(w, err)
-	}
 }
 
 type setSecretStoreBody struct {
@@ -145,32 +126,32 @@ type setSecretStoreBody struct {
 func (s *Server) handleSetSecretStore(w http.ResponseWriter, r *http.Request) {
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		writeCode(w, codeUnauthorized, "")
 		return
 	}
 	var req setSecretStoreBody
 	if err := decodeSingleObject(r, &req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request must be one JSON object with only secretStoreKey, expectedVersion and expectedConfigVersion"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	var key string
 	if req.SecretStoreKey == nil || json.Unmarshal(req.SecretStoreKey, &key) != nil || key == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "secretStoreKey must be a non-blank string", "field": "secretStoreKey"})
+		writeCode(w, codeInvalidRequest, "secretStoreKey")
 		return
 	}
 	var version, configVersion int64
 	if req.ExpectedVersion == nil || json.Unmarshal(req.ExpectedVersion, &version) != nil || version <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "expectedVersion must be a positive integer", "field": "expectedVersion"})
+		writeCode(w, codeInvalidRequest, "expectedVersion")
 		return
 	}
 	if req.ExpectedConfigVersion == nil || json.Unmarshal(req.ExpectedConfigVersion, &configVersion) != nil || configVersion < 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "expectedConfigVersion must be a non-negative integer", "field": "expectedConfigVersion"})
+		writeCode(w, codeInvalidRequest, "expectedConfigVersion")
 		return
 	}
 	appKey, envKey := r.PathValue("id"), r.PathValue("env")
 	app, err := s.store.GetApplication(r.Context(), appKey)
 	if err != nil || app.OrganizationKey != identity.OrganizationKey || (envKey != "staging" && envKey != "production") {
-		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not found"})
+		writeCode(w, codeNotFound, "")
 		return
 	}
 	result, err := s.configurations.SetSecretStore(r.Context(), appconfig.SwitchCommand{
@@ -207,43 +188,18 @@ func operationViewOf(op environment.Operation) operationView {
 	}
 }
 
-// writeBusy answers 409 ENVIRONMENT_BUSY with the visible owner, never details.
-func (s *Server) writeBusy(w http.ResponseWriter, err error) {
-	body := map[string]any{"error": "the environment is busy with another operation; wait for it to finish or review its status", "code": "ENVIRONMENT_BUSY"}
+// busyExtra adds the visible owner of a busy Environment to the response: the
+// safe operation projection, never details.
+func (s *Server) busyExtra(err error) map[string]any {
 	var held *envops.ErrBusy
 	var keyed *persistence.BusyError
 	switch {
 	case errors.As(err, &held):
-		body["operation"] = operationViewOf(held.Operation)
+		return map[string]any{"operation": operationViewOf(held.Operation)}
 	case errors.As(err, &keyed) && s != nil && s.store != nil:
 		if op, ok, getErr := s.store.ActiveOperation(context.Background(), keyed.ApplicationKey, keyed.EnvironmentKey); getErr == nil && ok {
-			body["operation"] = operationViewOf(op)
+			return map[string]any{"operation": operationViewOf(op)}
 		}
 	}
-	writeJSON(w, http.StatusConflict, body)
-}
-
-// writeEnvironmentError maps the ADR-012 failures shared by every route; it
-// reports whether it handled err. Messages are fixed and never quote stores.
-func (s *Server) writeEnvironmentError(w http.ResponseWriter, err error) bool {
-	switch {
-	case errors.Is(err, persistence.ErrEnvironmentBusy):
-		s.writeBusy(w, err)
-	case errors.Is(err, persistence.ErrVersionConflict):
-		writeJSON(w, http.StatusConflict, map[string]any{"error": conflictStaleVersion, "code": "STALE_VERSION"})
-	case errors.Is(err, appconfig.ErrNoStore):
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "select a secret store in Environment Settings before adding a secret", "field": "secretStoreKey", "code": "SECRET_STORE_REQUIRED"})
-	case errors.Is(err, configport.ErrStoreUnavailable):
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": "the selected secret store is not available", "field": "secretStoreKey", "code": "SECRET_STORE_UNAVAILABLE"})
-	case errors.Is(err, appconfig.ErrLegacyUnreadable):
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": appconfig.ErrLegacyUnreadable.Error(), "code": "LEGACY_VALUE_UNREADABLE"})
-	case errors.Is(err, appconfig.ErrStoreCopy):
-		log.Printf("secret store copy failed: %v", errors.Unwrap(err) != nil)
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": appconfig.ErrStoreCopy.Error(), "code": "SECRET_COPY_FAILED"})
-	case errors.Is(err, persistence.ErrOperationLost):
-		writeJSON(w, http.StatusConflict, map[string]any{"error": "the operation was interrupted; review its status", "code": "OPERATION_LOST"})
-	default:
-		return false
-	}
-	return true
+	return nil
 }

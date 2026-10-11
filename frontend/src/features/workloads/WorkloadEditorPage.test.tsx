@@ -71,6 +71,26 @@ it('keeps edits after a save conflict, blocks Save until an explicit reload, and
   expect(puts).toEqual([4, 5]);
 });
 
+it('does not treat ENVIRONMENT_BUSY (409) as a stale draft: edits stay, no stale panel, Save stays available', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith('/configuration')) return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
+    if (init?.method === 'PUT') return Response.json({ error: 'busy', code: 'ENVIRONMENT_BUSY' }, { status: 409 });
+    return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', draftVersion: 4, workloads: [] });
+  }));
+  const user = userEvent.setup();
+  render(<WorkloadEditorPage application={application} environment="staging" />);
+  await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
+  await user.type(screen.getByLabelText('Tên Workload'), 'web');
+  await user.type(screen.getByLabelText('Ảnh Container'), 'mine:v1');
+  await user.click(screen.getByRole('button', { name: 'Lưu draft Workload' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Môi trường đang bận');
+  expect(screen.queryByText(/đã thay đổi sau khi trang này được tải/)).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Ảnh Container')).toHaveValue('mine:v1');
+  expect(screen.getByRole('button', { name: 'Lưu draft Workload' })).toBeEnabled();
+});
+
 it('keeps the stale panel and retry when reloading the current state fails', async () => {
   let lists = 0;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -167,7 +187,7 @@ it('shows a backend resource param rejection, keeps the form and does not report
     const url = String(input);
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', inputs: [{ name: 'database', type: 'string', required: true }], outputs: [{ name: 'host' }] }] });
-    if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body))); return Response.json({ error: 'workloadconfig: invalid input: resources.db.params.database is required by resource type postgres' }, { status: 400 }); }
+    if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body))); return Response.json({ error: 'workloadconfig: invalid input: resources.db.params.database is required by resource type postgres', code: 'INVALID_SCORE', params: { resourceType: 'postgres' } }, { status: 400 }); }
     return Response.json({ draftVersion: 3, workloads: [] });
   }));
   const user = userEvent.setup();
@@ -180,7 +200,8 @@ it('shows a backend resource param rejection, keeps the form and does not report
   await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'postgres');
   await user.type(screen.getByLabelText('Tham số database'), 'catalog');
   await user.click(screen.getByRole('button', { name: 'Lưu draft Workload' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('resources.db.params.database is required');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Tham số của tài nguyên thuộc loại postgres chưa đúng');
+  expect(screen.getByRole('alert')).not.toHaveTextContent(/resources\.db|workloadconfig/);
   expect(puts).toHaveLength(1);
   expect((puts[0] as { version: number }).version).toBe(3);
   expect(screen.getByRole('heading', { name: 'Thêm Workload' })).toBeInTheDocument();
@@ -194,7 +215,7 @@ it('shows a Score import rejection without presenting the file as parsed', async
     const url = String(input);
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
-    if (url.endsWith('/workloads/parse')) return Response.json({ error: 'workloadconfig: invalid input: resources.cache.type is not a registered resource type' }, { status: 400 });
+    if (url.endsWith('/workloads/parse')) return Response.json({ error: 'workloadconfig: invalid input: resources.cache.type is not a registered resource type', code: 'INVALID_VARIABLE' }, { status: 400 });
     return Response.json({ draftVersion: 0, workloads: [] });
   }));
   const user = userEvent.setup();
@@ -205,7 +226,7 @@ it('shows a Score import rejection without presenting the file as parsed', async
   // jsdom File has no text(); provide it so the page reads the upload.
   const file = Object.assign(new File([content], 'score.yaml', { type: 'text/yaml' }), { text: async () => content });
   await user.upload(screen.getByLabelText('File Score'), file);
-  expect(await screen.findByRole('alert')).toHaveTextContent('resources.cache.type is not a registered resource type');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Tên, giá trị hoặc tham chiếu biến không hợp lệ');
   expect(screen.queryByText(/Đã phân tích Workload/)).not.toBeInTheDocument();
 });
 

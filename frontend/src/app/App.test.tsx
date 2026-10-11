@@ -344,7 +344,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     });
 
     it('shows the invalid-credentials message and keeps the form usable', async () => {
-      override = (url) => url.endsWith('/auth/sign-in') ? Response.json({ error: 'invalid' }, { status: 401 }) : undefined;
+      override = (url) => url.endsWith('/auth/sign-in') ? Response.json({ error: 'invalid', code: 'INVALID_CREDENTIALS' }, { status: 401 }) : undefined;
       const user = userEvent.setup();
       render(<App />);
       await user.type(await screen.findByLabelText('Tên đăng nhập'), 'developer');

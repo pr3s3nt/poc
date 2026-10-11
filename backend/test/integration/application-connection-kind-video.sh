@@ -524,7 +524,7 @@ curl -fsS -b "${PRIVATE}/jar" "${API}/api/v1/applications/${APP}" > "${WORK}/app
 [[ "$(jq -r '[.application.environments[] | select(.configured == true)] | length' "${WORK}/application-view.json")" == "2" ]]
 # Read-only-in-effect probes (each is refused or a no-op and must leave the bindings
 # unchanged): staging has runtime resources, so a different destination at the
-# CURRENT version is refused with RUNTIME_EXISTS; production has none, so only a
+# CURRENT version is refused with TRANSITION_REQUIRED; production has none, so only a
 # stale version is refused (STALE_VERSION). No permanent lock is expected.
 env_field() { jq -r --arg env "$1" --arg field "$2" '.application.environments[] | select(.key == $env) | .[$field]' "${WORK}/application-view.json"; }
 STAGING_VERSION="$(env_field staging version)"
@@ -532,13 +532,13 @@ PRODUCTION_VERSION="$(env_field production version)"
 (( PRODUCTION_VERSION > 1 ))
 status="$(curl -s -o "${WORK}/probe-staging.json" -w '%{http_code}' -b "${PRIVATE}/jar" -X PUT -H 'Content-Type: application/json' \
   -d "{\"connectionKey\":\"internal-cluster\",\"expectedVersion\":${STAGING_VERSION}}" "${API}/api/v1/applications/${APP}/environments/staging/connection")"
-[[ "${status}" == "409" && "$(jq -r .code "${WORK}/probe-staging.json")" == "RUNTIME_EXISTS" ]]
+[[ "${status}" == "409" && "$(jq -r .code "${WORK}/probe-staging.json")" == "TRANSITION_REQUIRED" ]]
 status="$(curl -s -o "${WORK}/probe-production.json" -w '%{http_code}' -b "${PRIVATE}/jar" -X PUT -H 'Content-Type: application/json' \
   -d "{\"connectionKey\":\"internal-cluster\",\"expectedVersion\":1}" "${API}/api/v1/applications/${APP}/environments/production/connection")"
 [[ "${status}" == "409" && "$(jq -r .code "${WORK}/probe-production.json")" == "STALE_VERSION" ]]
 curl -fsS -b "${PRIVATE}/jar" "${API}/api/v1/applications/${APP}" > "${WORK}/application-view-after-probes.json"
 [[ "$(jq -S '[.application.environments[] | {key, connectionKey, version}]' "${WORK}/application-view.json")" == "$(jq -S '[.application.environments[] | {key, connectionKey, version}]' "${WORK}/application-view-after-probes.json")" ]]
-note "api: both bindings served after restart; staging refuses a direct change (409 RUNTIME_EXISTS, transition required), production refuses a stale version (409 STALE_VERSION); refused probes left every binding and version unchanged"
+note "api: both bindings served after restart; staging refuses a direct change (409 TRANSITION_REQUIRED, transition required), production refuses a stale version (409 STALE_VERSION); refused probes left every binding and version unchanged"
 # The uploaded credential must not appear in any evidence file.
 EXTRA_SECRET_FILES="${PRIVATE}/store-token:${PRIVATE}/connection-vault-token:${PRIVATE}/reviewer.jwt" node -e '
   const fs = require("fs");

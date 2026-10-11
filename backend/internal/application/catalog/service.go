@@ -19,6 +19,30 @@ import (
 var ErrInvalid = errors.New("catalog: invalid document")
 var ErrDuplicate = errors.New("catalog: duplicate id")
 
+// ErrInvalidID refines ErrInvalid for a registration ID that breaks the public
+// ID rules; such errors also match ErrInvalid.
+var ErrInvalidID = errors.New("catalog: invalid id")
+
+// FieldError is an ErrInvalid at a fixed, server-defined field path (never a
+// caller-supplied alias, key or value), so delivery can point at the failing
+// part of a document without echoing its content.
+type FieldError struct {
+	Field string
+	err   error
+}
+
+func (e *FieldError) Error() string        { return e.err.Error() }
+func (e *FieldError) Unwrap() error        { return e.err }
+func (e *FieldError) Is(target error) bool { return target == ErrInvalid }
+
+func invalidField(field string, err error) error { return &FieldError{Field: field, err: err} }
+
+type invalidIDError struct{ err error }
+
+func (e *invalidIDError) Error() string        { return e.err.Error() }
+func (e *invalidIDError) Unwrap() error        { return e.err }
+func (e *invalidIDError) Is(target error) bool { return target == ErrInvalidID }
+
 // internalError marks a platform-side failure found while validating a
 // document (store, module inspector). It is returned unwrapped so it never
 // becomes an ErrInvalid validation message.
@@ -44,13 +68,13 @@ func NewService(store persistence.Store, inspector ...planning.ModuleInspector) 
 // RegisterResourceType validates and creates a contract in one Organization.
 func (s *Service) RegisterResourceType(ctx context.Context, organizationKey string, typ resource.Type) (resource.Type, error) {
 	if err := validatePublicID("resource type", typ.Key); err != nil {
-		return resource.Type{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+		return resource.Type{}, &invalidIDError{err: invalidField("type.key", fmt.Errorf("%w: %v", ErrInvalid, err))}
 	}
 	if reservedTypeKeys[typ.Key] {
-		return resource.Type{}, fmt.Errorf("%w: resource type %q is a reserved virtual Score type", ErrInvalid, typ.Key)
+		return resource.Type{}, invalidField("type.key", fmt.Errorf("%w: resource type %q is a reserved virtual Score type", ErrInvalid, typ.Key))
 	}
 	if err := typ.Validate(); err != nil {
-		return resource.Type{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+		return resource.Type{}, invalidField("type.schema", fmt.Errorf("%w: %v", ErrInvalid, err))
 	}
 	err := s.store.Transact(ctx, func(ctx context.Context) error {
 		if _, err := s.store.GetOrganization(ctx, organizationKey); err != nil {
@@ -81,18 +105,18 @@ func (s *Service) RegisterResourceType(ctx context.Context, organizationKey stri
 // RegisterResourceDefinition accepts only runtime-supported driver/type pairs.
 func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKey string, def resource.Definition) (resource.Definition, error) {
 	if def.Key == planning.BuiltinClusterKey {
-		return resource.Definition{}, fmt.Errorf("%w: resource definition key %q is reserved for the system", ErrInvalid, def.Key)
+		return resource.Definition{}, invalidField("definition.key", fmt.Errorf("%w: resource definition key %q is reserved for the system", ErrInvalid, def.Key))
 	}
 	if def.DriverType == resource.DriverExistingCluster {
 		// ADR-013/UC-03 BR-08: the existing-cluster binding is a system
 		// Definition; public registration is rejected for every key.
-		return resource.Definition{}, fmt.Errorf("%w: driver %q cannot be registered publicly", ErrInvalid, def.DriverType)
+		return resource.Definition{}, invalidField("definition.driverType", fmt.Errorf("%w: driver %q cannot be registered publicly", ErrInvalid, def.DriverType))
 	}
 	if err := validatePublicID("resource definition", def.Key); err != nil {
-		return resource.Definition{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+		return resource.Definition{}, &invalidIDError{err: invalidField("definition.key", fmt.Errorf("%w: %v", ErrInvalid, err))}
 	}
 	if err := def.Validate(); err != nil {
-		return resource.Definition{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+		return resource.Definition{}, invalidField("definition.schema", fmt.Errorf("%w: %v", ErrInvalid, err))
 	}
 	def.SourceFingerpr = "" // Server-owned metadata; never trust a submitted fingerprint.
 	types, err := s.store.ListResourceTypes(ctx, organizationKey)
@@ -108,17 +132,21 @@ func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKe
 		}
 	}
 	if !found {
-		return resource.Definition{}, fmt.Errorf("%w: unknown resource type %q", ErrInvalid, def.ResourceTypeKey)
+		return resource.Definition{}, invalidField("definition.resourceType", fmt.Errorf("%w: unknown resource type %q", ErrInvalid, def.ResourceTypeKey))
 	}
 	if err := s.validateDriver(ctx, organizationKey, &def, typ); err != nil {
 		var internal *internalError
 		if errors.As(err, &internal) {
 			return resource.Definition{}, internal.err
 		}
-		return resource.Definition{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+		var fieldErr *FieldError
+		if errors.As(err, &fieldErr) {
+			return resource.Definition{}, err
+		}
+		return resource.Definition{}, invalidField("definition.driver", fmt.Errorf("%w: %v", ErrInvalid, err))
 	}
 	if err := validateReferences(def, types); err != nil {
-		return resource.Definition{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+		return resource.Definition{}, invalidField("definition.references", fmt.Errorf("%w: %v", ErrInvalid, err))
 	}
 	err = s.store.Transact(ctx, func(ctx context.Context) error {
 		if _, err := s.store.GetOrganization(ctx, organizationKey); err != nil {
@@ -184,11 +212,11 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 		// UC-03 BR-08: VPC/EKS always run on the Environment AWS connection, so
 		// any key (even one equal to a target) is rejected before it is looked up.
 		if def.ConnectionKey != "" {
-			return fmt.Errorf("Terraform %s definitions use the Environment AWS connection; leave connectionKey empty", module)
+			return invalidField("definition.connectionKey", fmt.Errorf("Terraform %s definitions use the Environment AWS connection; leave connectionKey empty", module))
 		}
 	} else if def.DriverType == resource.DriverTerraform {
 		if def.ConnectionKey == "" {
-			return fmt.Errorf("driver requires an explicit connection")
+			return invalidField("definition.connectionKey", fmt.Errorf("driver requires an explicit connection"))
 		}
 	}
 	if def.ConnectionKey != "" {
@@ -197,13 +225,13 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 			return &internalError{err: err}
 		}
 		if err != nil || conn.OrganizationKey != org || conn.Status != application.ConnectionReady {
-			return fmt.Errorf("connection %q is not READY in this organization", def.ConnectionKey)
+			return invalidField("definition.connectionKey", fmt.Errorf("connection %q is not READY in this organization", def.ConnectionKey))
 		}
 		if def.DriverType == resource.DriverTerraform && conn.Kind != application.ConnectionAWS {
-			return fmt.Errorf("Terraform requires AWS connection")
+			return invalidField("definition.connectionKey", fmt.Errorf("Terraform requires AWS connection"))
 		}
 		if def.DriverType != resource.DriverTerraform && conn.Kind != application.ConnectionKubernetes {
-			return fmt.Errorf("Kubernetes driver requires cluster connection")
+			return invalidField("definition.connectionKey", fmt.Errorf("Kubernetes driver requires cluster connection"))
 		}
 	}
 	if def.DriverType == resource.DriverTerraform {

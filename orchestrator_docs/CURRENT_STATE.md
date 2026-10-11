@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # Current project state
@@ -552,3 +552,17 @@ bị diễn giải thành không khớp; system node không do authored criteria
 Go/conformance/build và frontend checks pass local; browser dùng backend thật
 với fake adapters/state tạm, transport 500 là projection mock. SQL/kind/AWS
 opt-in và retained K8S-4F không được chạy hoặc thay đổi trong T19.
+
+## Console error contract T20 (2026-10-12)
+
+Các handler Console dùng stable error code và câu an toàn cố định; field và
+planner params chỉ từ allowlist, không echo submitted values/raw provider/decode
+text. Unknown cause thành lỗi nội bộ, không phân loại bằng prefix tiếng Anh.
+Client chỉ dùng code/status và metadata đã kiểm để chọn hướng dẫn Việt.
+BUSY không bị coi là stale; reload stale chỉ báo thành công sau GET thành công,
+failed reload giữ edits và khóa writes tới khi reload/review, scope đổi reset gate.
+Retry mutation vẫn tường minh; không đổi scoping/CAS/planner/renderer semantics.
+
+[Verification T20](verification/2026-10-12-T20-console-errors.md) ghi checks và
+headed local fake evidence; BUSY/unknown/copy failure là projection mocks.
+Không PostgreSQL/kind/AWS opt-in hoặc retained K8S-4F mutation trong task này.

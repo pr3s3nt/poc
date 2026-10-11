@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { navigate, replaceRoute } from '../../app/routes';
+import { ApiError, isStaleConflict } from '../../shared/api/client';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
 import { environmentTitle } from '../environment/labels';
@@ -13,11 +14,11 @@ import { deleteKey, getConfiguration, putKey, renameKey, type ConfigKey, type Co
 type Form = { kind: KeyKind; name: string; value: string; editing?: string };
 type Action = { kind: 'rename' | 'delete'; key: ConfigKey; newName: string };
 
-// 409 conflicts are shown with the server sentence; the page then reloads the
-// authoritative configuration so the user resubmits against the latest version.
+// Text comes from the stable error code. A network failure never claims the
+// change was not saved; reload outcome wording is added only after the GET result is known.
 function describe(err: unknown): string {
-  const message = (err as Error).message;
-  return (err as { status?: number }).status === 409 ? `${message} Đã tải lại giá trị mới nhất; hãy xem lại rồi thử lại.` : message;
+  if (!(err instanceof ApiError)) return 'Chưa nhận được phản hồi từ máy chủ nên chưa rõ thay đổi đã được lưu hay chưa. Hãy tải lại cấu hình trước khi thử lại; Console không tự gửi lại.';
+  return err.message;
 }
 
 export function SettingsPage({ application, initialEnvironment = 'staging', onTargetChange }: { application: Application; initialEnvironment?: EnvironmentKey; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
@@ -31,6 +32,8 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
   const [reloadCount, setReloadCount] = useState(0);
   const [transitionTo, setTransitionTo] = useState<string>();
   const [needStore, setNeedStore] = useState(false);
+  // Set when a stale conflict could not reload the authoritative configuration: writes stay off until a reload succeeds.
+  const [reloadNeeded, setReloadNeeded] = useState(false);
   // scope changes with the Application/Environment; a mutation or reload reply
   // that belongs to an older scope is dropped instead of showing another
   // Environment's data. seq orders replies inside one scope: only the newest
@@ -47,7 +50,8 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
   // (the server answers 409 ENVIRONMENT_BUSY). The state is also polled while idle, so an
   // operation started elsewhere is noticed. Open editors keep their text and
   // simply cannot submit until the target no longer reports an operation.
-  const busy = useEnvironmentBusy(application, environment, onTargetChange);
+  const operationBusy = useEnvironmentBusy(application, environment, onTargetChange);
+  const busy = operationBusy || reloadNeeded;
 
   // Leaving the page invalidates every pending reply.
   useEffect(() => () => { scope.current += 1; seq.current += 1; }, []);
@@ -62,6 +66,7 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
     setError('');
     setTransitionTo(undefined);
     setNeedStore(false);
+    setReloadNeeded(false);
     setLoading(true);
   }, [application.id, environment]);
 
@@ -71,7 +76,7 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
     const mine = scope.current;
     const order = ++seq.current;
     getConfiguration(application.id, environment)
-      .then((result) => { if (mine === scope.current && order === seq.current) setData(result); })
+      .then((result) => { if (mine === scope.current && order === seq.current) { setData(result); setReloadNeeded(false); } })
       .catch(() => { if (mine === scope.current && order === seq.current) setError('Không tải được cấu hình. Hãy thử lại.'); })
       .finally(() => { if (mine === scope.current) setLoading(false); });
   }, [application.id, environment, reloadCount]);
@@ -89,8 +94,11 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
       if (touched === editor.current) done();
     } catch (err) {
       if (mine !== scope.current) return;
-      setError(describe(err));
-      await refreshOn409(err, mine);
+      const base = describe(err);
+      setError(base);
+      const refreshed = await refreshOn409(err, mine);
+      if (refreshed === 'ok' && mine === scope.current) setError(`${base} Đã tải lại giá trị mới nhất; hãy xem lại rồi thử lại.`);
+      if (refreshed === 'failed' && mine === scope.current) { setReloadNeeded(true); setError(`${base} Chưa tải lại được cấu hình mới nhất; bản chỉnh sửa của bạn được giữ nguyên. Bấm “Tải lại cấu hình” rồi xem lại trước khi lưu.`); }
     } finally {
       if (mine === scope.current) setSaving(false);
     }
@@ -105,13 +113,24 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
   // After a conflict the authoritative configuration replaces the stale copy
   // without clearing the message or the editor; the user reviews it and
   // resubmits explicitly.
-  async function refreshOn409(err: unknown, mine: number) {
-    if ((err as { status?: number }).status !== 409) return;
+  // Reports whether the authoritative GET succeeded: 'skipped' when the error is not a stale conflict.
+  async function refreshOn409(err: unknown, mine: number): Promise<'ok' | 'failed' | 'skipped'> {
+    if (!isStaleConflict(err)) return 'skipped';
     const order = ++seq.current;
     try {
       const latest = await getConfiguration(application.id, environment);
-      if (mine === scope.current && order === seq.current) setData(latest);
-    } catch { /* the message already says to retry */ }
+      if (mine === scope.current && order === seq.current) { setData(latest); setReloadNeeded(false); }
+      return 'ok';
+    } catch { return 'failed'; }
+  }
+
+  async function retryReload() {
+    const mine = scope.current;
+    const order = ++seq.current;
+    try {
+      const latest = await getConfiguration(application.id, environment);
+      if (mine === scope.current && order === seq.current) { setData(latest); setReloadNeeded(false); setError(''); }
+    } catch { if (mine === scope.current) setError('Vẫn chưa tải lại được cấu hình. Bản chỉnh sửa được giữ nguyên; hãy thử lại.'); }
   }
 
   async function confirmAction() {
@@ -143,10 +162,10 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
     {transitionTo !== undefined || application.environments[environment].runtimeExists ? <TransitionPanel application={application} environment={environment} initialDestination={transitionTo ?? ''} onTargetChange={change} /> : null}
     <SecretStoreSelection application={application} environment={environment} configVersion={data?.version ?? 0} onTargetChange={change} onConfigurationChanged={() => setReloadCount((value) => value + 1)} />
     {needStore && !hasStore ? <div className="form-info" role="status">Hãy chọn kho bí mật ở trên trước khi thêm Bí mật. Biến môi trường thì thêm được mà không cần kho.</div> : null}
-    {error ? <div className="form-error" role="alert">{error}{!data && !loading ? <Button type="button" onClick={() => { setError(''); setLoading(true); setReloadCount((value) => value + 1); }}>Thử lại</Button> : null}</div> : null}
+    {error ? <div className="form-error" role="alert">{error}{reloadNeeded ? <Button type="button" onClick={() => void retryReload()}>Tải lại cấu hình</Button> : null}{!data && !loading ? <Button type="button" onClick={() => { setError(''); setLoading(true); setReloadCount((value) => value + 1); }}>Thử lại</Button> : null}</div> : null}
     {loading ? <p>Đang tải cấu hình…</p> : null}
     {!loading && data ? <>{section('VARIABLE', 'Biến')}{section('SECRET', 'Bí mật')}</> : null}
-    {form ? <div className="content-panel inline-editor"><div className="section-header"><h2>{form.editing ? (form.kind === 'SECRET' ? 'Thay bí mật' : 'Sửa biến') : (form.kind === 'SECRET' ? 'Thêm bí mật' : 'Thêm biến')}</h2></div><label>Tên key<input value={form.name} disabled={Boolean(form.editing)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="API_URL" /></label><label>{form.kind === 'SECRET' ? 'Giá trị bí mật mới' : 'Giá trị'}<input type={form.kind === 'SECRET' ? 'password' : 'text'} autoComplete="off" value={form.value} onChange={(event) => updateForm({ ...form, value: event.target.value })} /></label>{form.kind === 'SECRET' ? <p className="form-info">Giá trị chỉ được nhập vào đây, được che khi nhập và không bao giờ được đọc lại.</p> : null}{busy ? <p className="form-info" role="status">Một thao tác trên môi trường đang chạy. Nội dung bạn nhập được giữ nguyên; hãy gửi lại khi thao tác kết thúc.</p> : null}<div className="form-actions"><Button onClick={() => updateForm(undefined)}>Hủy</Button><Button tone="primary" disabled={busy || saving || !form.name.trim() || !form.value} onClick={saveForm}>Lưu thay đổi chờ triển khai</Button></div></div> : null}
-    {action ? <div className="content-panel inline-editor" role="dialog" aria-label={`${action.kind === 'rename' ? 'Đổi tên' : 'Xóa'} ${action.key.name}`}><h2>{action.kind === 'rename' ? 'Đổi tên' : 'Xóa'} {action.key.name}?</h2>{action.key.usedBy.length ? <p className="warning-text">Đang được tham chiếu bởi {action.key.usedBy.join(', ')}. Các tham chiếu sẽ không được cập nhật tự động; Xem trước sẽ từ chối key bị thiếu cho đến khi bạn tự sửa các workload đó.</p> : <p>Thay đổi này chỉ áp dụng cho {title}. Các workload đang chạy giữ nguyên cho đến khi Triển khai.</p>}{action.kind === 'rename' ? <label>Tên key mới<input value={action.newName} onChange={(event) => updateAction({ ...action, newName: event.target.value })} /></label> : null}{busy ? <p className="form-info" role="status">Một thao tác trên môi trường đang chạy. Hãy xác nhận lại khi thao tác kết thúc.</p> : null}<div className="form-actions"><Button onClick={() => updateAction(undefined)}>Hủy</Button><Button tone={action.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || saving || (action.kind === 'rename' && !action.newName.trim())} onClick={confirmAction}>Tiếp tục</Button></div></div> : null}
+    {form ? <div className="content-panel inline-editor"><div className="section-header"><h2>{form.editing ? (form.kind === 'SECRET' ? 'Thay bí mật' : 'Sửa biến') : (form.kind === 'SECRET' ? 'Thêm bí mật' : 'Thêm biến')}</h2></div><label>Tên key<input value={form.name} disabled={Boolean(form.editing)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="API_URL" /></label><label>{form.kind === 'SECRET' ? 'Giá trị bí mật mới' : 'Giá trị'}<input type={form.kind === 'SECRET' ? 'password' : 'text'} autoComplete="off" value={form.value} onChange={(event) => updateForm({ ...form, value: event.target.value })} /></label>{form.kind === 'SECRET' ? <p className="form-info">Giá trị chỉ được nhập vào đây, được che khi nhập và không bao giờ được đọc lại.</p> : null}{operationBusy ? <p className="form-info" role="status">Một thao tác trên môi trường đang chạy. Nội dung bạn nhập được giữ nguyên; hãy gửi lại khi thao tác kết thúc.</p> : null}<div className="form-actions"><Button onClick={() => updateForm(undefined)}>Hủy</Button><Button tone="primary" disabled={busy || saving || !form.name.trim() || !form.value} onClick={saveForm}>Lưu thay đổi chờ triển khai</Button></div></div> : null}
+    {action ? <div className="content-panel inline-editor" role="dialog" aria-label={`${action.kind === 'rename' ? 'Đổi tên' : 'Xóa'} ${action.key.name}`}><h2>{action.kind === 'rename' ? 'Đổi tên' : 'Xóa'} {action.key.name}?</h2>{action.key.usedBy.length ? <p className="warning-text">Đang được tham chiếu bởi {action.key.usedBy.join(', ')}. Các tham chiếu sẽ không được cập nhật tự động; Xem trước sẽ từ chối key bị thiếu cho đến khi bạn tự sửa các workload đó.</p> : <p>Thay đổi này chỉ áp dụng cho {title}. Các workload đang chạy giữ nguyên cho đến khi Triển khai.</p>}{action.kind === 'rename' ? <label>Tên key mới<input value={action.newName} onChange={(event) => updateAction({ ...action, newName: event.target.value })} /></label> : null}{operationBusy ? <p className="form-info" role="status">Một thao tác trên môi trường đang chạy. Hãy xác nhận lại khi thao tác kết thúc.</p> : null}<div className="form-actions"><Button onClick={() => updateAction(undefined)}>Hủy</Button><Button tone={action.kind === 'delete' ? 'danger' : 'primary'} disabled={busy || saving || (action.kind === 'rename' && !action.newName.trim())} onClick={confirmAction}>Tiếp tục</Button></div></div> : null}
   </section>;
 }

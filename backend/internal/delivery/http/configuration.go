@@ -10,13 +10,13 @@ import (
 func (s *Server) authorizedConfiguration(w http.ResponseWriter, r *http.Request) (string, string, bool) {
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		writeCode(w, codeUnauthorized, "")
 		return "", "", false
 	}
 	appKey, envKey := r.PathValue("id"), r.PathValue("env")
 	app, err := s.store.GetApplication(r.Context(), appKey)
 	if err != nil || app.OrganizationKey != identity.OrganizationKey || (envKey != "staging" && envKey != "production") {
-		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not found"})
+		writeCode(w, codeNotFound, "")
 		return "", "", false
 	}
 	return appKey, envKey, true
@@ -48,7 +48,7 @@ func (s *Server) handlePutConfigurationKey(w http.ResponseWriter, r *http.Reques
 	}
 	var req putConfigurationKeyRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON body"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	view, err := s.configurations.Put(r.Context(), app, env, r.PathValue("key"), req.Kind, req.Value, req.Version)
@@ -71,7 +71,7 @@ func (s *Server) handleRenameConfigurationKey(w http.ResponseWriter, r *http.Req
 	}
 	var req renameConfigurationKeyRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON body"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	view, err := s.configurations.Rename(r.Context(), app, env, r.PathValue("key"), req.NewName, req.Version)
@@ -93,7 +93,7 @@ func (s *Server) handleDeleteConfigurationKey(w http.ResponseWriter, r *http.Req
 	}
 	var req deleteConfigurationKeyRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON body"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	view, err := s.configurations.Delete(r.Context(), app, env, r.PathValue("key"), req.Version)

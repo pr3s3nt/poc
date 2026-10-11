@@ -13,6 +13,7 @@
 # whose `generate` always fails; calls are logged in NEW_PATH/score-k8s-stub/score-k8s-calls.log.
 # T16 additionally passes a fake AWS region/account so the seeded aws-account Connection can bind an Environment.
 # T05, T06 and T07 additionally use in-memory state with the explicit memory credential store (no state file, no Vault).
+# T20 submits a synthetic canary secret (ORCH_E2E_CANARY) through the UI; after the run the backend log must not contain it.
 # Debug only: ORCH_REFACTOR_INJECT_FAILURE=after-sign-in makes T01 fail on
 # purpose to check that video, marks and assertions survive a failure.
 #
@@ -140,6 +141,9 @@ for _ in $(seq 1 40); do curl -fsS "${API}/api/v1/healthz" >/dev/null 2>&1 && br
 curl -fsS "${API}/api/v1/healthz" >/dev/null
 printf '{"scenario":"%s","runId":"%s","adapters":"fake","captions":"%s"}\n' "${SCENARIO}" "${RUN_ID}" "${CAPTIONS}" > "${WORK}/run.json"
 
+CANARY=""
+if [[ "${SCENARIO}" == T20 ]]; then CANARY="T20-CANARY-${RANDOM}${RANDOM}-secret"; export ORCH_E2E_CANARY="${CANARY}"; fi
+
 video_start_xvfb "${SCREEN}"
 RAW="${WORK}/${SCENARIO}-raw.mp4"
 STATUS=0
@@ -155,6 +159,11 @@ NODE_PGID="${NODE_PID}"
 wait "${NODE_PID}" || STATUS=$?
 NODE_PID=""
 sleep 1
+
+# T20: the backend log must hold neither the submitted canary nor decode text.
+if [[ -n "${CANARY}" ]]; then
+  if grep -qF -- "${CANARY}" "${WORK}/orchestrator.log"; then echo "T20 canary found in orchestrator.log" >&2; printf 'FAIL canary found in orchestrator.log\n' >> "${WORK}/assertions.txt"; STATUS=1; else printf 'PASS backend log holds no submitted canary\n' >> "${WORK}/assertions.txt"; fi
+fi
 
 # Captions below the browser area, never over the UI. Built also after a
 # failed run so the failure can be reviewed.

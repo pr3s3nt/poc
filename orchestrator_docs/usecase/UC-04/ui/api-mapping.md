@@ -2,7 +2,7 @@
 id: UC-04-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # UC-04 Connection HTTP mapping
@@ -50,7 +50,7 @@ Không gửi UI source, timer, suggested-name ownership hay client summary.
 Gợi ý tên từ safe context metadata chỉ là draft, không thay key generation
 hoặc Organization defaults. Các giới hạn document/name hiện hành giữ nguyên.
 Trang dùng hướng dẫn tiếng Việt cố định theo status/operation và fallback an
-toàn, không hiển thị raw English/provider error; stable code mapping thuộc T20.
+toàn, không hiển thị raw English/provider error; stable code mapping theo contract lỗi T20.
 Khi inspect response mất hoặc đến muộn không tự register. Với register network
 failure, thông báo chưa biết đã lưu hay chưa và reload list trước retry.
 
@@ -82,4 +82,14 @@ guard, parse X.509 và verify thật; FE shape check không chứng minh trust.
 GET dùng safe `verification.verified`, `kvVersion`, `capabilities`, `probe`
 và `kubernetesAuth` khi có; không suy auth từ READY. Text lỗi trang dùng
 hướng dẫn Việt cố định theo HTTP status, không dịch regex/raw error; stable
-code mapping toàn Console thuộc T20. Không mở rộng Developer choices DTO.
+code mapping toàn Console theo contract lỗi T20. Không mở rộng Developer choices DTO.
+
+## Lỗi theo code — T20
+
+Áp dụng [public HTTP error contract](../../../architecture/contracts/operation-contracts.md#public-http-error-contract--t20--vi-03)
+và [shared error presentation](../../../architecture/ui/README.md#trình-bày-lỗi-theo-code--t20--vi-03).
+Known code chọn hướng dẫn Việt cụ thể; unknown/missing code dùng fallback Việt
+an toàn, không hiển thị/parse raw `error`, submitted values hoặc provider cause.
+Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
+BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
+không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.

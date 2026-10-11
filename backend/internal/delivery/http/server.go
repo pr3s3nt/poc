@@ -8,13 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"orchestrator/internal/adapters/configmemory"
 	"orchestrator/internal/adapters/terraform"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
@@ -26,13 +24,11 @@ import (
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/secretstores"
-	"orchestrator/internal/application/target"
 	"orchestrator/internal/application/transition"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/credentials"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
@@ -258,12 +254,12 @@ type signInRequest struct {
 func (s *Server) handleSignIn(w http.ResponseWriter, r *http.Request) {
 	var req signInRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON body"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	token, identity, err := s.auth.SignIn(r.Context(), req.Username, req.Password)
 	if err != nil {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "invalid credentials"})
+		writeCode(w, codeInvalidCredentials, "")
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 8 * 60 * 60})
@@ -280,7 +276,7 @@ func (s *Server) sessionIdentity(r *http.Request) (authentication.Identity, bool
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		writeCode(w, codeUnauthorized, "")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"user": identity})
@@ -296,7 +292,7 @@ func (s *Server) handleSignOut(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleApplications(w http.ResponseWriter, r *http.Request) {
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		writeCode(w, codeUnauthorized, "")
 		return
 	}
 	apps, err := s.store.ListApplications(r.Context())
@@ -337,7 +333,7 @@ type createApplicationRequest struct {
 func (s *Server) handleApplicationConnections(w http.ResponseWriter, r *http.Request) {
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		writeCode(w, codeUnauthorized, "")
 		return
 	}
 	choices, err := s.applications.ListChoices(r.Context(), identity.OrganizationKey)
@@ -361,7 +357,7 @@ func (s *Server) handleApplicationConnections(w http.ResponseWriter, r *http.Req
 func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request) {
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		writeCode(w, codeUnauthorized, "")
 		return
 	}
 	// Only Name and Subdomain are accepted; Organization and role come from the
@@ -369,13 +365,13 @@ func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request)
 	// (UC-01 BR-13). Everything else, including connectionKey, is rejected.
 	var req createApplicationRequest
 	if err := decodeSingleObject(r, &req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request must be one JSON object with only name and subdomain"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	cmd := appcreate.CreateCommand{OrganizationKey: identity.OrganizationKey, Name: req.Name, Subdomain: req.Subdomain, BaseDomain: s.seedOptions.BaseDomain}
 	result, err := s.applications.Create(r.Context(), cmd)
 	if err != nil {
-		s.writeCreateApplicationError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	view := applicationView{Key: result.Application.Key, Name: result.Application.Name, Subdomain: result.Application.Subdomain}
@@ -390,70 +386,38 @@ type setConnectionRequest struct {
 	ExpectedVersion json.RawMessage `json:"expectedVersion"`
 }
 
-// Fixed 409 sentences; the UI distinguishes them to reload the Environment.
-const (
-	conflictStaleVersion  = "the environment changed since it was loaded; reload and try again"
-	conflictRuntimeExists = "this environment already has runtime resources; use a connection transition to change its destination"
-)
-
 // handleSetEnvironmentConnection sets the Environment target exactly once
 // (UC-01 ES-03..06). Session Organization scopes the Application.
 func (s *Server) handleSetEnvironmentConnection(w http.ResponseWriter, r *http.Request) {
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		writeCode(w, codeUnauthorized, "")
 		return
 	}
 	var req setConnectionRequest
 	if err := decodeSingleObject(r, &req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request must be one JSON object with only connectionKey and expectedVersion"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	var key string
 	if req.ConnectionKey == nil || json.Unmarshal(req.ConnectionKey, &key) != nil || strings.TrimSpace(key) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "connectionKey must be a non-blank string", "field": "connectionKey"})
+		writeCode(w, codeInvalidRequest, "connectionKey")
 		return
 	}
 	var version int64
 	if req.ExpectedVersion == nil || json.Unmarshal(req.ExpectedVersion, &version) != nil || version <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "expectedVersion must be a positive integer", "field": "expectedVersion"})
+		writeCode(w, codeInvalidRequest, "expectedVersion")
 		return
 	}
 	env, err := s.applications.SetConnection(r.Context(), appcreate.SetConnectionCommand{
 		OrganizationKey: identity.OrganizationKey, ApplicationKey: r.PathValue("id"), EnvironmentKey: r.PathValue("env"),
 		ConnectionKey: key, ExpectedVersion: version,
 	})
-	switch {
-	case err == nil:
-		writeJSON(w, http.StatusOK, map[string]any{"environment": s.environmentViewOf(r.Context(), identity.OrganizationKey, env)})
-	case errors.Is(err, appcreate.ErrRuntimeExists):
-		writeJSON(w, http.StatusConflict, map[string]any{"error": conflictRuntimeExists, "code": "RUNTIME_EXISTS"})
-	case errors.Is(err, persistence.ErrEnvironmentBusy):
-		s.writeBusy(w, err)
-	case errors.Is(err, appcreate.ErrStaleVersion):
-		writeJSON(w, http.StatusConflict, map[string]any{"error": conflictStaleVersion, "code": "STALE_VERSION"})
-	case errors.Is(err, persistence.ErrNotFound):
-		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not found"})
-	default:
-		s.writeCreateApplicationError(w, err)
+	if err != nil {
+		s.writeError(w, err)
+		return
 	}
-}
-
-// writeUnconfigured answers the target failures of Preview and Deploy with a
-// safe 422 on connectionKey; it reports whether it did. The messages are fixed
-// sentences and never name the Connection.
-func writeUnconfigured(w http.ResponseWriter, err error) bool {
-	switch {
-	case errors.Is(err, planning.ErrEnvironmentUnconfigured):
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": appsvc.FailureUnconfigured, "field": "connectionKey", "code": "ENVIRONMENT_UNCONFIGURED"})
-	case errors.Is(err, target.ErrInconsistent):
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": appsvc.FailureInconsistent, "field": "connectionKey", "code": "ENVIRONMENT_TARGET_INCONSISTENT"})
-	case errors.Is(err, appsvc.ErrConnectionNotReady):
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": appsvc.FailureNotReady, "field": "connectionKey", "code": "CONNECTION_NOT_READY"})
-	default:
-		return false
-	}
-	return true
+	writeJSON(w, http.StatusOK, map[string]any{"environment": s.environmentViewOf(r.Context(), identity.OrganizationKey, env)})
 }
 
 // decodeSingleObject decodes exactly one JSON object with no unknown fields
@@ -477,29 +441,10 @@ func decodeSingleObject(r *http.Request, into any) error {
 	return nil
 }
 
-// writeCreateApplicationError maps UC-01 failures to 400 (field validation),
-// 409 (duplicate Name/Subdomain) and 422 (selected target unavailable).
-func (s *Server) writeCreateApplicationError(w http.ResponseWriter, err error) {
-	body := map[string]any{"error": err.Error()}
-	var fieldErr *appcreate.FieldError
-	if errors.As(err, &fieldErr) {
-		body["field"] = fieldErr.Field
-	}
-	switch {
-	case errors.Is(err, appcreate.ErrInvalid):
-		writeJSON(w, http.StatusBadRequest, body)
-	case errors.Is(err, appcreate.ErrDuplicate):
-		writeJSON(w, http.StatusConflict, body)
-	case errors.Is(err, appcreate.ErrTargetNotReady):
-		writeJSON(w, http.StatusUnprocessableEntity, body)
-	default:
-		s.writeError(w, err)
-	}
-}
 func (s *Server) handleGetApplication(w http.ResponseWriter, r *http.Request) {
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		writeCode(w, codeUnauthorized, "")
 		return
 	}
 	app, err := s.store.GetApplication(r.Context(), r.PathValue("id"))
@@ -508,7 +453,7 @@ func (s *Server) handleGetApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if app.OrganizationKey != identity.OrganizationKey {
-		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not found"})
+		writeCode(w, codeNotFound, "")
 		return
 	}
 	envs, err := s.store.ListEnvironments(r.Context(), app.Key)
@@ -543,15 +488,15 @@ type createDeploymentRequest struct {
 func (s *Server) handleCreateDeployment(w http.ResponseWriter, r *http.Request) {
 	var req createDeploymentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON body"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	if req.ApplicationKey == "" || req.EnvironmentKey == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "applicationKey and environmentKey are required"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	if req.Score == nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "score is required"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	actor := req.Actor
@@ -583,7 +528,7 @@ func (s *Server) handleCreateDeployment(w http.ResponseWriter, r *http.Request) 
 func (s *Server) handleListDeployments(w http.ResponseWriter, r *http.Request) {
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		writeCode(w, codeUnauthorized, "")
 		return
 	}
 	list, err := s.queries.ListDeployments(r.Context(), appsvc.ListDeploymentsQuery{
@@ -592,10 +537,10 @@ func (s *Server) handleListDeployments(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, appsvc.ErrInvalidStatus) {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			writeCode(w, codeInvalidRequest, "status")
 			return
 		}
-		writeDeploymentReadError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"deployments": list})
@@ -604,7 +549,7 @@ func (s *Server) handleListDeployments(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetDeployment(w http.ResponseWriter, r *http.Request) {
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
-		writeJSON(w, http.StatusUnauthorized, map[string]any{"error": "unauthorized"})
+		writeCode(w, codeUnauthorized, "")
 		return
 	}
 	view, err := s.queries.GetDeployment(r.Context(), appsvc.GetDeploymentQuery{
@@ -612,7 +557,7 @@ func (s *Server) handleGetDeployment(w http.ResponseWriter, r *http.Request) {
 		EnvironmentKey: r.PathValue("env"), DeploymentID: r.PathValue("deployment"),
 	})
 	if err != nil {
-		writeDeploymentReadError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
@@ -652,59 +597,4 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(body)
-}
-
-// writeError maps domain errors onto HTTP status codes. The MVP uses sentinel
-// errors for persistence and message prefixes for validation failures.
-// writeDeploymentReadError maps UC-09 read failures without echoing storage
-// details: any scope mismatch is a plain 404, anything else a retryable 500.
-func writeDeploymentReadError(w http.ResponseWriter, err error) {
-	if errors.Is(err, persistence.ErrNotFound) {
-		writeJSON(w, http.StatusNotFound, map[string]any{"error": "deployment not found"})
-		return
-	}
-	log.Printf("deployment read failed: %v", err)
-	writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "deployment read failed; retry"})
-}
-
-func (s *Server) writeError(w http.ResponseWriter, err error) {
-	if writeUnconfigured(w, err) || s.writeEnvironmentError(w, err) {
-		return
-	}
-	switch {
-	case errors.Is(err, persistence.ErrNotFound):
-		writeJSON(w, http.StatusNotFound, map[string]any{"error": err.Error()})
-	case errors.Is(err, persistence.ErrVersionConflict):
-		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
-	case errors.Is(err, pending.ErrStalePreview):
-		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
-	case errors.Is(err, appconfig.ErrConflict):
-		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
-	case errors.Is(err, catalog.ErrDuplicate):
-		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
-	case errors.Is(err, catalog.ErrInvalid):
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
-	case errors.Is(err, connectionapp.ErrDuplicate):
-		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
-	case errors.Is(err, connectionapp.ErrInvalid):
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
-	case errors.Is(err, connectionapp.ErrVerification):
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": err.Error()})
-	case errors.Is(err, configmemory.ErrUnavailable):
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
-	case isValidation(err):
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
-	default:
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
-	}
-}
-
-func isValidation(err error) bool {
-	msg := err.Error()
-	for _, prefix := range []string{"score:", "planning:", "environment:", "resource:", "application:", "configuration:", "workloadconfig:", "pending:"} {
-		if strings.HasPrefix(msg, prefix) {
-			return true
-		}
-	}
-	return false
 }

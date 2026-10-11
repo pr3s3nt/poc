@@ -2,7 +2,7 @@
 id: UC-03-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 related: UC-03
 ---
 
@@ -52,7 +52,7 @@ Không thay matcher, profile/criteria hoặc Driver Inputs policy. T16 chỉ tha
 
 Frontend kiểm ID rỗng/shape và JSON trước POST; 409 có thông báo trùng ID Việt.
 Các lỗi khác có fallback Việt an toàn và giữ form; không parse/regex raw backend
-English message. Mapping field/code đầy đủ thuộc T20.
+English message. Mapping field/code theo contract lỗi T20.
 
 ## Editor criteria projection (T02B)
 
@@ -94,3 +94,13 @@ chưa lưu và context tường minh từ editor chung ở cả hai form. Profil
 target do server load; payload criteria/driver values không dịch. 200 matching
 statuses tách khỏi 4xx/5xx transport/validation errors. Kết quả không đảm bảo Save
 hoặc Deploy và không thay POST registration; retry không tự replay registration.
+
+## Lỗi theo code — T20
+
+Áp dụng [public HTTP error contract](../../../architecture/contracts/operation-contracts.md#public-http-error-contract--t20--vi-03)
+và [shared error presentation](../../../architecture/ui/README.md#trình-bày-lỗi-theo-code--t20--vi-03).
+Known code chọn hướng dẫn Việt cụ thể; unknown/missing code dùng fallback Việt
+an toàn, không hiển thị/parse raw `error`, submitted values hoặc provider cause.
+Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
+BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
+không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.

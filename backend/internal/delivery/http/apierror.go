@@ -1,0 +1,440 @@
+package http
+
+import (
+	"errors"
+	"log"
+	"net/http"
+	"regexp"
+
+	"orchestrator/internal/adapters/configmemory"
+	appcreate "orchestrator/internal/application/application"
+	"orchestrator/internal/application/authentication"
+	"orchestrator/internal/application/catalog"
+	appconfig "orchestrator/internal/application/configuration"
+	connectionapp "orchestrator/internal/application/connection"
+	appsvc "orchestrator/internal/application/deployment"
+	"orchestrator/internal/application/pending"
+	"orchestrator/internal/application/preview"
+	"orchestrator/internal/application/secretstores"
+	"orchestrator/internal/application/target"
+	"orchestrator/internal/application/transition"
+	"orchestrator/internal/application/workloadconfig"
+	"orchestrator/internal/planning"
+	"orchestrator/internal/planning/score"
+	configport "orchestrator/internal/ports/configuration"
+	"orchestrator/internal/ports/credentials"
+	"orchestrator/internal/ports/persistence"
+)
+
+// Public HTTP error contract (T20 / VI-03). Every error response is
+// {"error": <fixed sentence>, "code": <stable code>} plus an optional trusted
+// "field" and "params". The sentence is chosen from the code, never from
+// err.Error(): cause text can quote submitted values, credentials, provider
+// output or catalog content. Clients choose their own wording from the code.
+const (
+	codeInvalidRequest            = "INVALID_REQUEST"
+	codeInvalidID                 = "INVALID_ID"
+	codeInvalidVariable           = "INVALID_VARIABLE"
+	codeInvalidScore              = "INVALID_SCORE"
+	codePlanningRejected          = "PLANNING_REJECTED"
+	codeDuplicate                 = "DUPLICATE"
+	codeUnauthorized              = "UNAUTHORIZED"
+	codeInvalidCredentials        = "INVALID_CREDENTIALS"
+	codeForbidden                 = "FORBIDDEN"
+	codeNotFound                  = "NOT_FOUND"
+	codeRequestTooLarge           = "REQUEST_TOO_LARGE"
+	codeStaleVersion              = "STALE_VERSION"
+	codeStalePreview              = "STALE_PREVIEW"
+	codeEnvironmentBusy           = "ENVIRONMENT_BUSY"
+	codeEnvironmentUnconfigured   = "ENVIRONMENT_UNCONFIGURED"
+	codeConnectionUnavailable     = "CONNECTION_UNAVAILABLE"
+	codeVerificationFailed        = "VERIFICATION_FAILED"
+	codeVerifyContextMissing      = "VERIFICATION_CONTEXT_MISSING"
+	codeVerifyUnreachable         = "VERIFICATION_UNREACHABLE"
+	codeVerifyPermissionDenied    = "VERIFICATION_PERMISSION_DENIED"
+	codeVerifyCredentialRejected  = "VERIFICATION_CREDENTIAL_REJECTED"
+	codeKubeconfigInvalid         = "KUBECONFIG_INVALID"
+	codeKubeconfigNoContext       = "KUBECONFIG_NO_VALID_CONTEXT"
+	codeKubeconfigContextRequired = "KUBECONFIG_CONTEXT_REQUIRED"
+	codeKubeconfigContextNotFound = "KUBECONFIG_CONTEXT_NOT_FOUND"
+	codeKubeconfigUnsupportedAuth = "KUBECONFIG_UNSUPPORTED_AUTH"
+	codeKubeconfigUnsupportedSet  = "KUBECONFIG_UNSUPPORTED_CLUSTER"
+	codeKubeconfigInvalidServer   = "KUBECONFIG_INVALID_SERVER"
+	codeKubeconfigInvalidTLS      = "KUBECONFIG_INVALID_TLS"
+	codeSecretStoreRequired       = "SECRET_STORE_REQUIRED"
+	codeSecretStoreUnavailable    = "SECRET_STORE_UNAVAILABLE"
+	codeSecretCopyFailed          = "SECRET_COPY_FAILED"
+	codeLegacyValueUnreadable     = "LEGACY_VALUE_UNREADABLE"
+	codeTransitionRequired        = "TRANSITION_REQUIRED"
+	codeTransitionUnsupported     = "TRANSITION_UNSUPPORTED"
+	codeTransitionSameDestination = "TRANSITION_SAME_DESTINATION"
+	codeDestinationUnavailable    = "DESTINATION_UNAVAILABLE"
+	codeNoRuntime                 = "NO_RUNTIME"
+	codeDowntimeAckRequired       = "DOWNTIME_ACK_REQUIRED"
+	codeRecoveryConfirmRequired   = "RECOVERY_CONFIRMATION_REQUIRED"
+	codeCleanupRefused            = "CLEANUP_REFUSED"
+	codeNotRecoverable            = "NOT_RECOVERABLE"
+	codeRecoveryIncomplete        = "RECOVERY_INCOMPLETE"
+	codeOperationLost             = "OPERATION_LOST"
+	codeRouteReconcileFailed      = "ROUTE_RECONCILE_FAILED"
+	codeServiceUnavailable        = "SERVICE_UNAVAILABLE"
+	codeInternal                  = "INTERNAL_ERROR"
+)
+
+type publicError struct {
+	status  int
+	message string
+}
+
+var publicErrors = map[string]publicError{
+	codeInvalidRequest:            {http.StatusBadRequest, "the request is not valid"},
+	codeInvalidID:                 {http.StatusBadRequest, "the id does not follow the id rules"},
+	codeInvalidVariable:           {http.StatusBadRequest, "a variable name, value or reference is not valid"},
+	codeInvalidScore:              {http.StatusBadRequest, "the Score or its resource parameters are not valid"},
+	codePlanningRejected:          {http.StatusBadRequest, "the change cannot be planned"},
+	codeDuplicate:                 {http.StatusConflict, "an item with this identity already exists"},
+	codeUnauthorized:              {http.StatusUnauthorized, "sign-in is required"},
+	codeInvalidCredentials:        {http.StatusUnauthorized, "sign-in failed"},
+	codeForbidden:                 {http.StatusForbidden, "access is not allowed"},
+	codeNotFound:                  {http.StatusNotFound, "not found"},
+	codeRequestTooLarge:           {http.StatusRequestEntityTooLarge, "the request is too large"},
+	codeStaleVersion:              {http.StatusConflict, "the data changed since it was loaded"},
+	codeStalePreview:              {http.StatusConflict, "the preview is stale"},
+	codeEnvironmentBusy:           {http.StatusConflict, "the environment is busy with another operation"},
+	codeEnvironmentUnconfigured:   {http.StatusUnprocessableEntity, "the environment has no connection selected"},
+	codeConnectionUnavailable:     {http.StatusUnprocessableEntity, "the connection is not available"},
+	codeVerificationFailed:        {http.StatusUnprocessableEntity, "verification failed"},
+	codeVerifyContextMissing:      {http.StatusUnprocessableEntity, "verification failed: the context is not configured on the backend host"},
+	codeVerifyUnreachable:         {http.StatusUnprocessableEntity, "verification failed: the endpoint could not be reached"},
+	codeVerifyPermissionDenied:    {http.StatusUnprocessableEntity, "verification failed: a required permission is missing"},
+	codeVerifyCredentialRejected:  {http.StatusUnprocessableEntity, "verification failed: the credential was rejected"},
+	codeKubeconfigInvalid:         {http.StatusBadRequest, "the kubeconfig is not valid"},
+	codeKubeconfigNoContext:       {http.StatusBadRequest, "the kubeconfig has no usable context"},
+	codeKubeconfigContextRequired: {http.StatusBadRequest, "a kubeconfig context must be selected"},
+	codeKubeconfigContextNotFound: {http.StatusBadRequest, "the selected kubeconfig context was not found"},
+	codeKubeconfigUnsupportedAuth: {http.StatusBadRequest, "the kubeconfig authentication method is not supported"},
+	codeKubeconfigUnsupportedSet:  {http.StatusBadRequest, "the kubeconfig cluster setting is not supported"},
+	codeKubeconfigInvalidServer:   {http.StatusBadRequest, "the kubeconfig server address is not valid"},
+	codeKubeconfigInvalidTLS:      {http.StatusBadRequest, "the kubeconfig TLS data is not valid"},
+	codeSecretStoreRequired:       {http.StatusUnprocessableEntity, "a secret store must be selected"},
+	codeSecretStoreUnavailable:    {http.StatusUnprocessableEntity, "the selected secret store is not available"},
+	codeSecretCopyFailed:          {http.StatusBadGateway, "secrets could not be copied to the new store"},
+	codeLegacyValueUnreadable:     {http.StatusUnprocessableEntity, "a legacy value could not be read"},
+	codeTransitionRequired:        {http.StatusConflict, "the environment has runtime resources; use a connection transition"},
+	codeTransitionUnsupported:     {http.StatusUnprocessableEntity, "this transition is not supported"},
+	codeTransitionSameDestination: {http.StatusUnprocessableEntity, "the destination must differ from the current connection"},
+	codeDestinationUnavailable:    {http.StatusUnprocessableEntity, "the destination is not available"},
+	codeNoRuntime:                 {http.StatusConflict, "the environment has no runtime resources"},
+	codeDowntimeAckRequired:       {http.StatusUnprocessableEntity, "downtime must be acknowledged"},
+	codeRecoveryConfirmRequired:   {http.StatusUnprocessableEntity, "recovery needs confirmation that the prior execution stopped"},
+	codeCleanupRefused:            {http.StatusConflict, "the source cannot be cleaned up"},
+	codeNotRecoverable:            {http.StatusConflict, "the operation cannot be recovered now"},
+	codeRecoveryIncomplete:        {http.StatusConflict, "recovery did not complete"},
+	codeOperationLost:             {http.StatusConflict, "the operation was interrupted"},
+	codeRouteReconcileFailed:      {http.StatusBadGateway, "workloads were applied but public routes could not be reconciled"},
+	codeServiceUnavailable:        {http.StatusServiceUnavailable, "a required service is not available"},
+	codeInternal:                  {http.StatusInternalServerError, "the request failed"},
+}
+
+// Trusted response fields. A field is echoed only when it is in this set:
+// request keys, aliases, names and values never are.
+var trustedFields = map[string]bool{
+	"name": true, "subdomain": true, "connectionKey": true, "expectedVersion": true, "expectedConfigVersion": true,
+	"secretStoreKey": true, "destinationKey": true, "acknowledgeDowntime": true, "priorExecutionStopped": true,
+	"resources": true, "status": true, "scoreBefore": true, "scoreAfter": true, "version": true, "token": true, "kubeconfig": true,
+	"type.key": true, "type.schema": true, "definition.schema": true, "definition.driver": true, "definition.references": true,
+	"definition.key": true, "definition.resourceType": true, "definition.executionProfile": true,
+	"definition.driverType": true, "definition.criteria": true, "definition.connectionKey": true,
+	"context.applicationId": true, "context.environmentId": true, "context.resourceId": true, "context.class": true,
+}
+
+// technicalID bounds a registered resource Type key echoed as a param: lowercase
+// letters, digits and hyphens, at most 63 characters (the public ID rule).
+var technicalID = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
+
+// Planner enums allowed as params; the server defines them.
+var (
+	trustedStages = map[string]bool{
+		string(planning.StageScore): true, string(planning.StageBefore): true, string(planning.StageCandidate): true,
+		string(planning.StageRoutes): true, string(planning.StageServiceRefs): true, string(planning.StageCatalog): true,
+		string(planning.StageGraph): true, string(planning.StageReference): true, string(planning.StageContract): true,
+		string(planning.StageSchedule): true,
+	}
+	trustedReasons = map[string]bool{
+		planning.ReasonWorkloadExists: true, planning.ReasonWorkloadNotCurrent: true, planning.ReasonBeforeMismatch: true,
+		planning.ReasonLegacyInfrastructure: true, planning.ReasonUnconfigured: true,
+	}
+)
+
+// failure is the classified public form of one error.
+type failure struct {
+	status int // optional override that preserves a pre-contract status
+	code   string
+	field  string
+	params map[string]string
+	extra  map[string]any
+}
+
+// extraKeys are the only additional response keys: the visible operation owner
+// and the recovery result DTO. They never replace code, error, field or params.
+var extraKeys = []string{"operation", "recovery"}
+
+// safeParams keeps only allow-listed planner stage/reason values.
+func safeParams(in map[string]string) map[string]string {
+	out := map[string]string{}
+	if v, ok := in["resourceType"]; ok && technicalID.MatchString(v) {
+		out["resourceType"] = v
+	}
+	if v, ok := in["stage"]; ok && trustedStages[v] {
+		out["stage"] = v
+	}
+	if v, ok := in["reason"]; ok && trustedReasons[v] {
+		out["reason"] = v
+	}
+	return out
+}
+
+func plannerParams(stage planning.Stage, reason string) map[string]string {
+	params := map[string]string{}
+	if trustedStages[string(stage)] {
+		params["stage"] = string(stage)
+	}
+	if trustedReasons[reason] {
+		params["reason"] = reason
+	}
+	if len(params) == 0 {
+		return nil
+	}
+	return params
+}
+
+// writeCode answers with a fixed envelope for code and an optional trusted field.
+func writeCode(w http.ResponseWriter, code, field string) {
+	writeFailure(w, failure{code: code, field: field})
+}
+
+func writeFailure(w http.ResponseWriter, f failure) {
+	spec, ok := publicErrors[f.code]
+	if !ok {
+		f.code, spec = codeInternal, publicErrors[codeInternal]
+	}
+	if f.status != 0 {
+		spec.status = f.status
+	}
+	body := map[string]any{"error": spec.message, "code": f.code}
+	if trustedFields[f.field] {
+		body["field"] = f.field
+	}
+	if params := safeParams(f.params); len(params) > 0 {
+		body["params"] = params
+	}
+	for _, key := range extraKeys {
+		if value, ok := f.extra[key]; ok {
+			body[key] = value
+		}
+	}
+	writeJSON(w, spec.status, body)
+}
+
+// kubeconfigCodes maps each typed kubeconfig sentinel to its code.
+var kubeconfigCodes = []struct {
+	err  error
+	code string
+}{
+	{connectionapp.ErrKubeconfigInvalid, codeKubeconfigInvalid},
+	{connectionapp.ErrNoValidContext, codeKubeconfigNoContext},
+	{connectionapp.ErrContextRequired, codeKubeconfigContextRequired},
+	{connectionapp.ErrContextNotFound, codeKubeconfigContextNotFound},
+	{connectionapp.ErrUnsupportedAuthentication, codeKubeconfigUnsupportedAuth},
+	{connectionapp.ErrUnsupportedClusterSetting, codeKubeconfigUnsupportedSet},
+	{connectionapp.ErrInvalidServer, codeKubeconfigInvalidServer},
+	{connectionapp.ErrInvalidTLS, codeKubeconfigInvalidTLS},
+}
+
+var verificationCodes = []struct {
+	err  error
+	code string
+}{
+	{connectionapp.ErrContextMissing, codeVerifyContextMissing},
+	{connectionapp.ErrPermissionDenied, codeVerifyPermissionDenied},
+	{connectionapp.ErrAuthentication, codeVerifyCredentialRejected},
+	{connectionapp.ErrClusterUnreachable, codeVerifyUnreachable},
+}
+
+// classify maps typed errors to a public failure. It never reads err.Error().
+// An error without a typed class fails closed as INTERNAL_ERROR (ok == false).
+func classify(err error) (failure, bool) {
+	var (
+		fieldErr   *appcreate.FieldError
+		previewErr *catalog.PreviewInvalidError
+		catalogErr *catalog.FieldError
+		published  *preview.PublicError
+		stageErr   *planning.StageError
+		unsupport  *transition.UnsupportedError
+		paramErr   *workloadconfig.ParamError
+	)
+	switch {
+	case errors.Is(err, planning.ErrEnvironmentUnconfigured):
+		return failure{code: codeEnvironmentUnconfigured, field: "connectionKey"}, true
+	case errors.Is(err, preview.ErrNotReady):
+		// Standalone Preview has always answered 400 here; keep it.
+		return failure{status: http.StatusBadRequest, code: codeConnectionUnavailable, field: "connectionKey"}, true
+	case errors.Is(err, target.ErrInconsistent), errors.Is(err, appsvc.ErrConnectionNotReady),
+		errors.Is(err, appcreate.ErrTargetNotReady), errors.Is(err, catalog.ErrTargetUnavailable):
+		return failure{code: codeConnectionUnavailable, field: "connectionKey"}, true
+	case errors.Is(err, persistence.ErrEnvironmentBusy):
+		return failure{code: codeEnvironmentBusy}, true
+	case errors.Is(err, persistence.ErrVersionConflict), errors.Is(err, appcreate.ErrStaleVersion):
+		return failure{code: codeStaleVersion}, true
+	case errors.Is(err, pending.ErrStalePreview), errors.Is(err, transition.ErrStaleToken):
+		return failure{code: codeStalePreview}, true
+	case errors.Is(err, appcreate.ErrRuntimeExists):
+		return failure{code: codeTransitionRequired}, true
+	case errors.Is(err, appconfig.ErrNoStore):
+		return failure{code: codeSecretStoreRequired, field: "secretStoreKey"}, true
+	case errors.Is(err, configport.ErrStoreUnavailable):
+		return failure{code: codeSecretStoreUnavailable, field: "secretStoreKey"}, true
+	case errors.Is(err, appconfig.ErrLegacyUnreadable):
+		return failure{code: codeLegacyValueUnreadable}, true
+	case errors.Is(err, appconfig.ErrStoreCopy):
+		return failure{code: codeSecretCopyFailed}, true
+	case errors.Is(err, persistence.ErrOperationLost):
+		return failure{code: codeOperationLost}, true
+	case errors.Is(err, pending.ErrRouteReconcile):
+		return failure{code: codeRouteReconcileFailed}, true
+	case errors.Is(err, persistence.ErrNotFound), errors.Is(err, catalog.ErrPreviewNotFound):
+		return failure{code: codeNotFound}, true
+	case errors.Is(err, authentication.ErrInvalidCredentials):
+		return failure{code: codeInvalidCredentials}, true
+	case errors.Is(err, authentication.ErrUnauthorized):
+		return failure{code: codeUnauthorized}, true
+	case errors.Is(err, connectionapp.ErrKubeconfigTooLarge):
+		return failure{code: codeRequestTooLarge}, true
+	case errors.Is(err, connectionapp.ErrCredentialStore), errors.Is(err, secretstores.ErrCredentialStore),
+		errors.Is(err, credentials.ErrUnavailable), errors.Is(err, configmemory.ErrUnavailable):
+		return failure{code: codeServiceUnavailable}, true
+	case errors.Is(err, transition.ErrNoRuntime):
+		return failure{code: codeNoRuntime}, true
+	case errors.Is(err, transition.ErrSameDestination):
+		return failure{code: codeTransitionSameDestination, field: "destinationKey"}, true
+	case errors.Is(err, transition.ErrDestinationFailed):
+		return failure{code: codeDestinationUnavailable, field: "destinationKey"}, true
+	case errors.Is(err, transition.ErrAcknowledge):
+		return failure{code: codeDowntimeAckRequired, field: "acknowledgeDowntime"}, true
+	case errors.Is(err, persistence.ErrRecoveryUnconfirmed):
+		return failure{code: codeRecoveryConfirmRequired, field: "priorExecutionStopped"}, true
+	case errors.Is(err, transition.ErrCleanupRefused):
+		return failure{code: codeCleanupRefused}, true
+	case errors.Is(err, transition.ErrNotRecoverable):
+		return failure{code: codeNotRecoverable}, true
+	case errors.Is(err, transition.ErrRecoveryIncomplete):
+		return failure{code: codeRecoveryIncomplete}, true
+	case errors.As(err, &unsupport):
+		return failure{code: codeTransitionUnsupported}, true
+	case transition.IsInvalid(err):
+		return failure{code: codeInvalidRequest}, true
+	case errors.Is(err, catalog.ErrDuplicate), errors.Is(err, connectionapp.ErrDuplicate), errors.Is(err, appcreate.ErrDuplicate),
+		errors.Is(err, appconfig.ErrConflict):
+		f := failure{code: codeDuplicate}
+		if errors.As(err, &fieldErr) {
+			f.field = fieldErr.Field
+		}
+		return f, true
+	case errors.As(err, &published):
+		f := failure{params: plannerParams(published.Stage, published.Reason)}
+		switch {
+		case errors.Is(err, preview.ErrInvalidScore):
+			f.code = codeInvalidScore
+		case errors.Is(err, preview.ErrPlanningRejected):
+			f.code = codePlanningRejected
+		default:
+			f.code = codeInvalidRequest
+		}
+		return f, true
+	case errors.As(err, &stageErr):
+		return failure{code: codePlanningRejected, params: plannerParams(stageErr.Stage, stageErr.Reason)}, true
+	case errors.Is(err, catalog.ErrInvalidID):
+		return failure{code: codeInvalidID, field: idField(err)}, true
+	case errors.Is(err, catalog.ErrInvalid):
+		f := failure{code: codeInvalidRequest}
+		if errors.As(err, &previewErr) {
+			f.field = previewErr.Field
+		} else if errors.As(err, &catalogErr) {
+			f.field = catalogErr.Field
+		}
+		return f, true
+	case errors.Is(err, connectionapp.ErrVerification):
+		for _, candidate := range verificationCodes {
+			if errors.Is(err, candidate.err) {
+				return failure{code: candidate.code}, true
+			}
+		}
+		return failure{code: codeVerificationFailed}, true
+	case errors.Is(err, secretstores.ErrVerification):
+		return failure{code: codeVerificationFailed}, true
+	case errors.Is(err, connectionapp.ErrInvalid):
+		for _, candidate := range kubeconfigCodes {
+			if errors.Is(err, candidate.err) {
+				return failure{code: candidate.code}, true
+			}
+		}
+		return failure{code: codeInvalidRequest}, true
+	case errors.Is(err, appcreate.ErrInvalid):
+		f := failure{code: codeInvalidRequest}
+		if errors.As(err, &fieldErr) {
+			f.field = fieldErr.Field
+		}
+		return f, true
+	case errors.As(err, &paramErr):
+		f := failure{code: codeInvalidScore}
+		if technicalID.MatchString(paramErr.Type) {
+			f.params = map[string]string{"resourceType": paramErr.Type}
+		}
+		return f, true
+	case errors.Is(err, workloadconfig.ErrUnknownResourceType):
+		return failure{code: codeInvalidScore, field: "resources"}, true
+	case errors.Is(err, workloadconfig.ErrInvalidVariable), errors.Is(err, appconfig.ErrInvalid):
+		return failure{code: codeInvalidVariable}, true
+	case errors.Is(err, workloadconfig.ErrInvalidRequest), errors.Is(err, secretstores.ErrInvalid), errors.Is(err, pending.ErrInvalid),
+		errors.Is(err, appsvc.ErrInvalidStatus):
+		return failure{code: codeInvalidRequest}, true
+	case errors.Is(err, workloadconfig.ErrInvalid), errors.Is(err, score.ErrInvalid):
+		return failure{code: codeInvalidScore}, true
+	}
+	return failure{}, false
+}
+
+// writeError answers any application error with the public contract. A busy
+// Environment also carries its visible operation owner. Unclassified errors,
+// and errors that only hold cleanup references, are a fixed 500 whose cause
+// is neither returned nor logged.
+func (s *Server) writeError(w http.ResponseWriter, err error) {
+	f, ok := classify(err)
+	if !ok {
+		var connectionCleanup *connectionapp.CleanupError
+		var storeCleanup *secretstores.CleanupError
+		switch {
+		case errors.As(err, &connectionCleanup):
+			log.Printf("request failed: credential cleanup incomplete (reference %s)", connectionCleanup.Reference)
+		case errors.As(err, &storeCleanup):
+			log.Printf("request failed: credential cleanup incomplete (reference %s)", storeCleanup.Reference)
+		default:
+			log.Printf("request failed: unclassified internal error (%T)", err)
+		}
+		writeCode(w, codeInternal, "")
+		return
+	}
+	if f.code == codeEnvironmentBusy {
+		f.extra = s.busyExtra(err)
+	}
+	writeFailure(w, f)
+}
+
+// idField names the fixed ID field of a catalog registration failure.
+func idField(err error) string {
+	var fieldErr *catalog.FieldError
+	if errors.As(err, &fieldErr) {
+		return fieldErr.Field
+	}
+	return ""
+}

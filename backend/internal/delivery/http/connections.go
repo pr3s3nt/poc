@@ -64,7 +64,7 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 	connections, err := s.store.ListConnections(r.Context(), org)
 	if err != nil {
-		writeManagementError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	views := make([]connectionView, 0, len(connections))
@@ -85,12 +85,12 @@ func (s *Server) handleInspectKubeconfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if body.Kubeconfig == nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "kubeconfig is required"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	contexts, err := s.connections.InspectKubeconfig(r.Context(), "", *body.Kubeconfig)
 	if err != nil {
-		writeConnectionError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"contexts": contexts})
@@ -122,7 +122,7 @@ func (s *Server) handleRegisterKubernetesConnection(w http.ResponseWriter, r *ht
 	upload := body.Name != nil || body.Kubeconfig != nil || body.Context != nil
 	legacy := body.Key != nil || body.ClusterID != nil || body.KubeContext != nil
 	if upload && legacy {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "use either {name, kubeconfig, context} or the legacy {key, clusterId, kubeContext} body, not both"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	var (
@@ -135,7 +135,7 @@ func (s *Server) handleRegisterKubernetesConnection(w http.ResponseWriter, r *ht
 		created, err = s.connections.RegisterKubeconfig(r.Context(), org, connectionapp.RegisterKubeconfigCommand{Name: deref(body.Name), Kubeconfig: deref(body.Kubeconfig), Context: deref(body.Context)})
 	}
 	if err != nil {
-		writeConnectionError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, publicConnection(created))
@@ -148,22 +148,6 @@ func deref(value *string) string {
 	return *value
 }
 
-// writeConnectionError maps UC-04 failures. Messages are fixed guidance; raw
-// parser, kubectl and Vault errors never reach the response or the log.
-func writeConnectionError(w http.ResponseWriter, err error) {
-	var cleanup *connectionapp.CleanupError
-	switch {
-	case errors.Is(err, connectionapp.ErrKubeconfigTooLarge):
-		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{"error": err.Error()})
-	case errors.Is(err, connectionapp.ErrCredentialStore):
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": err.Error()})
-	case errors.As(err, &cleanup):
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": cleanup.Error()})
-	default:
-		writeManagementError(w, err)
-	}
-}
-
 // decodeConnectionBody reads one bounded JSON object whose top-level keys are
 // exact-case members of allowed, each at most once, with string values only
 // and nothing after the object.
@@ -171,26 +155,26 @@ func decodeConnectionBody(w http.ResponseWriter, r *http.Request, allowed map[st
 	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, connectionEnvelopeLimit))
 	if err != nil {
 		if !writeTooLarge(w, err) {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request body could not be read"})
+			writeCode(w, codeInvalidRequest, "")
 		}
 		return false
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	var object json.RawMessage
 	if err := decoder.Decode(&object); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request body must be one JSON object"})
+		writeCode(w, codeInvalidRequest, "")
 		return false
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request body must contain exactly one JSON object"})
+		writeCode(w, codeInvalidRequest, "")
 		return false
 	}
 	if !exactObjectKeys(object, allowed) {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request body has unknown, duplicate or non-string fields"})
+		writeCode(w, codeInvalidRequest, "")
 		return false
 	}
 	if err := json.Unmarshal(object, dst); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request body has unknown, duplicate or non-string fields"})
+		writeCode(w, codeInvalidRequest, "")
 		return false
 	}
 	return true

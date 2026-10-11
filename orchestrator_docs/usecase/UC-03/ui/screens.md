@@ -2,7 +2,7 @@
 id: UC-03-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 related: UC-03
 ---
 
@@ -46,7 +46,7 @@ cách tạo đang chọn. Không tự xem trước hoặc triển khai.
 Nhãn, trợ giúp, aria-label và trạng thái trang dùng tiếng Việt theo glossary;
 technical IDs, module, driver, payload và tên người dùng giữ nguyên. Lỗi server
 chưa có code mapping đầy đủ dùng thông báo Việt an toàn, không regex dịch raw
-message (VI-03 thuộc T20).
+message (VI-03 theo contract lỗi T20).
 
 ## Editor Điều kiện áp dụng dùng chung (T02B)
 

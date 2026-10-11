@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # Operation Contracts
@@ -238,7 +238,7 @@ replaced in list/detail projection, without mutating history.
 ## Shared error/consistency rules
 
 - Optimistic conflict uses Environment `version`; no last-write-wins on current-set pointer.
-- Domain errors are typed Go errors; delivery maps them to API status later.
+- Domain errors are typed Go errors; delivery maps them to HTTP status and the stable public error contract below.
 - Failed external execution may mark Deployment/Resource `FAILED`, but retry/resume/rollback remains outside current happy path.
 - Secret values never enter logs, plan hash input exposed to clients, database JSONB or UC-09 view.
 
@@ -362,3 +362,67 @@ contracts and external Driver Accounts remain unchanged. See
 - Client: kết quả gắn candidate/context request; đổi input hoặc session/scope
   xóa/invalidate result, late reply không cập nhật; lỗi transport tách khỏi trạng
   thái matching, retry chỉ gửi phép tính read-only.
+
+## Public HTTP error contract — T20 / VI-03
+
+Mọi lỗi HTTP của các luồng Console UC-00/01/02/03/04/05/07/09/12/16 có
+`code` ổn định và `error` là câu cố định an toàn, không phải `err.Error()`.
+`field` tùy chọn chỉ từ tên field/schema path được server kiểm soát; không
+sao chép unknown JSON key, resource alias, tên biến hoặc giá trị do caller gửi.
+Không nhận diện lỗi bằng prefix/substring câu tiếng Anh. Dùng sentinel/typed
+error và stage/reason của planner; lỗi chưa phân loại fail closed thành lỗi nội bộ.
+HTTP status, org/app/env scoping, CAS, fencing và transaction semantics giữ nguyên.
+
+| Code | HTTP | Ý nghĩa/hành động Console |
+|---|---|---|
+| `INVALID_REQUEST` | 400 | Body/field không hợp lệ; giữ draft để sửa. |
+| `INVALID_ID` | 400 | ID sai quy tắc; không normalize. |
+| `INVALID_VARIABLE` | 400 | Tên/giá trị/tham chiếu biến không hợp lệ; không trả giá trị. |
+| `INVALID_SCORE` | 400 | Score/import/resource params không hợp lệ. |
+| `PLANNING_REJECTED` | 400 | Không thể lập kế hoạch; không provision/fallback. |
+| `DUPLICATE` | 409 | Trùng định danh trong scope; không overwrite. |
+| `UNAUTHORIZED` | 401 | Thiếu/hết phiên; giữ session-expiry flow. |
+| `INVALID_CREDENTIALS` | 401 | Đăng nhập sai, không tiết lộ tài khoản hay field nào sai. |
+| `FORBIDDEN` | 403 | Không đủ quyền; không lộ tenant khác. |
+| `NOT_FOUND` | 404 | Không tìm thấy hoặc không truy cập được trong scope. |
+| `REQUEST_TOO_LARGE` | 413 | Giảm kích thước body/document. |
+| `STALE_VERSION` / `STALE_PREVIEW` | 409 | Reload/review hoặc Xem trước lại; không tự gửi mutation. |
+| `ENVIRONMENT_BUSY` | 409 | Đợi/xem trạng thái operation; giữ edits. |
+| `ENVIRONMENT_UNCONFIGURED` | 422 | Chọn kết nối trong Cài đặt môi trường, field `connectionKey`. |
+| `CONNECTION_UNAVAILABLE` | 422 (UC-05 standalone READY rejection giữ 400) | Kết nối không hợp lệ/không READY trong scope. |
+| `VERIFICATION_FAILED` | 422 | Xác minh kết nối/kho thất bại; không trả provider diagnostics. |
+| `VERIFICATION_CONTEXT_MISSING` / `VERIFICATION_UNREACHABLE` / `VERIFICATION_PERMISSION_DENIED` / `VERIFICATION_CREDENTIAL_REJECTED` | 422 | Typed context/network/permission/auth rejection; hướng dẫn cố định, không raw cause. |
+| `KUBECONFIG_INVALID` / `KUBECONFIG_NO_VALID_CONTEXT` / `KUBECONFIG_CONTEXT_REQUIRED` / `KUBECONFIG_CONTEXT_NOT_FOUND` | 400 | Document/context không hợp lệ hoặc chưa chọn; inspect/review lại. |
+| `KUBECONFIG_UNSUPPORTED_AUTH` / `KUBECONFIG_UNSUPPORTED_CLUSTER` / `KUBECONFIG_INVALID_SERVER` / `KUBECONFIG_INVALID_TLS` | 400 | Phương thức/cluster setting/server/TLS không hợp lệ; không chạy plugins/files ngoài. |
+| `SECRET_STORE_REQUIRED` / `SECRET_STORE_UNAVAILABLE` | 422 | Chọn/kiểm tra kho, field `secretStoreKey`. |
+| `SECRET_COPY_FAILED` | 502 | Copy không thành công; selection/revision cũ giữ nguyên. |
+| `LEGACY_VALUE_UNREADABLE` | 422 | Không đọc được giá trị cũ; code tạm đến cleanup T24. |
+| `TRANSITION_REQUIRED` | 409 | Có runtime; dùng flow chuyển kết nối tường minh. |
+| `TRANSITION_UNSUPPORTED` | 422 | Chế độ chuyển không được hỗ trợ. |
+| `TRANSITION_SAME_DESTINATION` / `DESTINATION_UNAVAILABLE` | 422 | Chọn đích khác/hợp lệ; không suy fallback. |
+| `NO_RUNTIME` | 409 | Không có runtime để chuyển. |
+| `DOWNTIME_ACK_REQUIRED` / `RECOVERY_CONFIRMATION_REQUIRED` | 422 | Cần xác nhận theo flow hiện hành. |
+| `CLEANUP_REFUSED` / `NOT_RECOVERABLE` / `RECOVERY_INCOMPLETE` | 409 | Cleanup/recovery không được phép hoặc chưa hoàn tất; giữ hướng dẫn can thiệp. |
+| `OPERATION_LOST` | 409 | Operation đã gián đoạn/mất ownership; không tự takeover. |
+| `ROUTE_RECONCILE_FAILED` | 502 | Workload đã được áp dụng; Preview lại để retry route, không tự restart. |
+| `SERVICE_UNAVAILABLE` | 503 | Provider/credential store không sẵn sàng; không hiển thị cause. |
+| `INTERNAL_ERROR` | 500 | Lỗi không phân loại; fallback Việt an toàn. |
+
+`params` tùy chọn là object metadata an toàn; T20 cho phép `stage`/`reason`
+từ enum planner do server định nghĩa, và `resourceType` từ Type đã đăng ký trong
+scoped catalog để giữ hướng dẫn UC-16 BR-14. `resourceType` phải qua giới hạn ID
+kỹ thuật (ASCII chữ thường/số/gạch ngang, bắt đầu bằng chữ/số, tối đa 63 ký tự); không phản chiếu
+unknown Type do caller gửi. Unknown Type dùng field cố định `resources` và
+hướng dẫn kiểm catalog. Không gồm param values hoặc unknown param keys. Bỏ unknown keys/values; không trả submitted
+values, credential refs, kubeconfig, token, provider output hoặc raw decode text.
+Có thể thêm code cụ thể cho typed validation/kubeconfig nếu cùng safety/status
+contract và có mapper/test; không thêm behavior mới. Không thêm correlation ID
+nếu chưa có cơ chế server phát sinh/kiểm soát. Không log raw cause chứa secrets.
+
+Client đọc code/field/params, chọn câu Việt hard-code theo glossary. Unknown,
+missing hoặc malformed code dùng fallback Việt theo thao tác/status an toàn;
+không đọc `error` để dịch hay phân loại. Field/params không được nội suy trực tiếp
+vào UI nếu chưa qua allowlist. Retry read và mutation vẫn tường minh, không tự
+replay POST/PUT/DELETE. Selected renderer failure giữ nguyên lỗi, không chuyển
+sang native. Planner classification/conformance và historical safe-summary
+projection không thay đổi bởi public HTTP envelope.

@@ -106,7 +106,7 @@ it('on a stale-version 409 shows the message, reloads the latest Environment and
   render(<Host initial={{ ...base, environments: { staging: configuredTarget('cloud', { version: 3 }), production: unconfiguredTarget } }} />);
   await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'lab');
   await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('changed since it was loaded');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Dữ liệu đã thay đổi kể từ lần tải trước');
   await waitFor(() => expect(screen.getByText('Thế hệ 0')).toBeInTheDocument());
   expect(puts).toBe(1);
   await user.selectOptions(screen.getByLabelText('Kết nối cho Staging'), 'lab');
@@ -121,14 +121,29 @@ it('shows ENVIRONMENT_BUSY as a temporary message', async () => {
   render(<Host initial={{ ...base, environments: { staging: configuredTarget('lab', { version: 3 }), production: unconfiguredTarget } }} />);
   await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'other');
   await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('busy with another operation');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Môi trường đang bận');
+  // Busy is not a version conflict: no reload of the Environment and the pick stays.
+  expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).endsWith('/applications/catalog'))).toBe(false);
+  expect(screen.getByLabelText('Kết nối cho Staging')).toHaveValue('other');
+  expect(screen.getByRole('alert')).not.toHaveTextContent('Đã tải lại');
+});
+
+it('chooses by code, not status: unknown or hostile 409 codes show the safe status fallback and never raw text', async () => {
+  stub((_url, init) => init?.method === 'PUT' ? Response.json({ error: 'raw english boom', code: '__proto__', field: 'constructor', params: { stage: 'x' } }, { status: 409 }) : undefined);
+  const user = userEvent.setup();
+  render(<Host initial={{ ...base, environments: { staging: configuredTarget('lab', { version: 3 }), production: unconfiguredTarget } }} />);
+  await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'other');
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('xung đột');
+  expect(alert).not.toHaveTextContent(/raw english|boom|constructor/);
 });
 
 it('treats an unavailable connection as a safe 422 and reloads the choices', async () => {
   let loads = 0;
   stub((url, init) => {
     if (url.endsWith('/application-connections')) { loads += 1; }
-    if (init?.method === 'PUT') return Response.json({ error: 'the selected connection is not available' }, { status: 422 });
+    if (init?.method === 'PUT') return Response.json({ error: 'the selected connection is not available', code: 'CONNECTION_UNAVAILABLE' }, { status: 422 });
   });
   const user = userEvent.setup();
   render(<Host />);
@@ -229,7 +244,7 @@ it('keeps the user pick when the list is reloaded and flags a pick that is no lo
   let connections = [lab, other];
   stub((url, init) => {
     if (url.endsWith('/application-connections')) return Response.json({ connections });
-    if (init?.method === 'PUT') return Response.json({ error: 'the selected connection is not available' }, { status: 422 });
+    if (init?.method === 'PUT') return Response.json({ error: 'the selected connection is not available', code: 'CONNECTION_UNAVAILABLE' }, { status: 422 });
   });
   const user = userEvent.setup();
   render(<Host />);
@@ -250,7 +265,7 @@ it('shows a placeholder, not the bound option, when the pick of a configured Env
   let connections = [lab, other];
   stub((url, init) => {
     if (url.endsWith('/application-connections')) return Response.json({ connections });
-    if (init?.method === 'PUT') return Response.json({ error: 'the selected connection is not available' }, { status: 422 });
+    if (init?.method === 'PUT') return Response.json({ error: 'the selected connection is not available', code: 'CONNECTION_UNAVAILABLE' }, { status: 422 });
   });
   const user = userEvent.setup();
   render(<Host initial={{ ...base, environments: { staging: configuredTarget('lab', { connectionName: 'Lab' }), production: unconfiguredTarget } }} />);
@@ -298,4 +313,24 @@ it('shows profile and region as read-only facts without any control', async () =
   expect(panel.getByText('Đang chờ (PENDING)')).toBeInTheDocument();
   expect(panel.queryByLabelText(/Phạm vi triển khai|Region/)).not.toBeInTheDocument();
   expect(panel.getAllByRole('combobox')).toHaveLength(1);
+});
+
+it('claims a reload only after the GET succeeds: a failed stale reload keeps the pick, blocks Save and needs an explicit reload', async () => {
+  let reloads = 0;
+  stub((url, init) => {
+    if (init?.method === 'PUT') return Response.json({ error: 'stale', code: 'STALE_VERSION' }, { status: 409 });
+    if (url.endsWith('/applications/catalog')) { reloads += 1; return reloads === 1 ? Response.json({ error: 'down' }, { status: 503 }) : Response.json({ application: { environments: [envJson('staging', configuredTarget('cloud', { version: 7 })), envJson('production', unconfiguredTarget)] } }); }
+  });
+  const user = userEvent.setup();
+  render(<Host initial={{ ...base, environments: { staging: configuredTarget('cloud', { version: 3 }), production: unconfiguredTarget } }} />);
+  await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'lab');
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('Chưa tải lại được trạng thái mới nhất');
+  expect(alert).not.toHaveTextContent('Đã tải lại trạng thái mới nhất');
+  expect(screen.getByLabelText('Kết nối cho Staging')).toHaveValue('lab');
+  expect(screen.getByRole('button', { name: 'Lưu kết nối' })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: 'Tải lại trạng thái' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Lưu kết nối' })).toBeEnabled());
+  expect(vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'PUT')).toHaveLength(1);
 });

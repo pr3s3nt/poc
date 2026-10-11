@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { navigate } from '../../app/routes';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
-import { ApiError } from '../../shared/api/client';
+import { ApiError, describeError, isBusy, isStaleConflict } from '../../shared/api/client';
 import { useEnvironmentBusy } from '../environment/useEnvironmentBusy';
 import { getConfiguration } from '../configuration/api';
 import { getResourceTypes, getWorkloads, parseScoreImport, saveWorkload, type ResourceType, type Workload } from './api';
@@ -201,7 +201,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
       const existing = list.workloads.find((item) => item.id === workloadId);
       if (existing?.score) { setForm(readForm(existing.score)); setImported(existing.score); setBlocked(false); const advanced = needsScoreEditor(existing.score, catalog.resourceTypes); setAdvancedScore(advanced); if (advanced) setMode('import'); }
       else if (workloadId) { setForm({ ...emptyForm(), name: workloadId }); setBlocked(true); setError(existing ? 'Workload đã triển khai này chưa có draft Score có thể sửa. Việc sửa bị tắt để tránh làm mất cấu hình hiện có.' : 'Không tìm thấy Workload trong môi trường này.'); }
-    }).catch((err: Error) => { if (!cancelled) { setError(err.message || 'Không tải được cấu hình Workload.'); setLoadFailed(true); } }).finally(() => { if (!cancelled) setLoading(false); });
+    }).catch((err: unknown) => { if (!cancelled) { setError(describeError(err, 'Không tải được cấu hình Workload. Kiểm tra kết nối rồi thử lại.')); setLoadFailed(true); } }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [application.id, environment, workloadId, loadAttempt]);
 
@@ -211,7 +211,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
     let cancelled = false;
     setCatalog({ status: 'loading' });
     getConfiguration(application.id, environment).then((config) => { if (!cancelled) setCatalog({ status: 'ready', keys: config.keys ?? [] }); })
-      .catch((err: Error) => { if (!cancelled) setCatalog({ status: 'error', message: err.message }); });
+      .catch((err: unknown) => { if (!cancelled) setCatalog({ status: 'error', message: describeError(err, 'Chưa nhận được phản hồi từ máy chủ') }); });
     return () => { cancelled = true; };
   }, [application.id, environment, loadAttempt, catalogAttempt]);
 
@@ -228,7 +228,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
       setCurrent({ version: list.draftVersion, score: item?.score, state: item?.state || (item ? 'deployed' : 'absent') });
       setStale(false); setError('');
     } catch (err) {
-      if (at === scope.current) setReloadError(`Không tải lại được trạng thái hiện tại: ${(err as Error).message}. Bản chỉnh sửa của bạn được giữ nguyên; hãy thử lại.`);
+      if (at === scope.current) setReloadError(`Không tải lại được trạng thái hiện tại: ${describeError(err, 'Chưa nhận được phản hồi từ máy chủ.')} Bản chỉnh sửa của bạn được giữ nguyên; hãy thử lại.`);
     } finally {
       if (at === scope.current) setReloading(false);
     }
@@ -256,7 +256,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
       if (at !== scope.current) return;
       setImported(result.score); setForm(readForm(result.score)); setAdvancedScore(needsScoreEditor(result.score, types)); setDirty(false);
     }
-    catch (err) { if (at === scope.current) setError((err as Error).message || 'Không nhập được file Score.'); }
+    catch (err) { if (at === scope.current) setError(describeError(err, 'Không nhập được file Score. Kiểm tra file và kết nối rồi thử lại.')); }
   }
   async function save() {
     if (environmentBusy) return;
@@ -291,8 +291,9 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
     try { await saveWorkload(application.id, environment, id, score, version); if (at === scope.current) navigate({ name: 'application', applicationId: application.id }); }
     catch (err) {
       if (at !== scope.current) return;
-      if (err instanceof ApiError && err.status === 409) { setStale(true); setCurrent(undefined); setReloadError(''); }
-      else setError((err as Error).message || 'Không lưu được draft Workload.');
+      if (isBusy(err)) setError((err as ApiError).message);
+      else if (isStaleConflict(err)) { setStale(true); setCurrent(undefined); setReloadError(''); }
+      else setError(err instanceof ApiError ? err.message : 'Chưa nhận được phản hồi từ máy chủ nên chưa rõ draft đã được lưu hay chưa. Hãy tải lại trạng thái hiện tại trước khi lưu lại; Console không tự gửi lại.');
     }
     finally { if (at === scope.current) setSaving(false); }
   }
@@ -310,7 +311,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
     {current ? <div className="form-info" role="status">Đã tải lại draft phiên bản {current.version}. Trạng thái hiện tại của Workload này: {currentState}. Các chỉnh sửa bên dưới không đổi; hãy xem lại và lưu lại nếu vẫn áp dụng.{current.score ? <details><summary>Score hiện tại</summary><pre className="score-preview">{JSON.stringify(current.score, null, 2)}</pre></details> : null}</div> : null}
     {loading ? <p>Đang tải tùy chọn Workload…</p> : mode === 'import' ? <section className="content-panel"><h2>Nhập một file Score</h2><p>YAML hoặc JSON. Áp dụng cùng quy tắc tham chiếu như form; nhập file không lưu hay triển khai.</p><input aria-label="File Score" type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />{imported ? <><p>Đã phân tích Workload: <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><pre className="score-preview">{JSON.stringify(imported, null, 2)}</pre></> : null}</section> : <>
       <section className="content-panel editor-grid"><h2>Thông tin cơ bản</h2><label>Tên Workload<input value={form.name} disabled={Boolean(workloadId)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="frontend" /></label></section>
-      {catalog.status === 'error' ? <div className="form-error" role="alert">Không tải được biến và bí mật của ứng dụng: {catalog.message}. Các lựa chọn của bạn được giữ nguyên. <Button onClick={() => setCatalogAttempt((value) => value + 1)}>Thử tải lại key</Button></div> : null}
+      {catalog.status === 'error' ? <div className="form-error" role="alert">Không tải được biến và bí mật của ứng dụng. {catalog.message} Các lựa chọn của bạn được giữ nguyên. <Button onClick={() => setCatalogAttempt((value) => value + 1)}>Thử tải lại key</Button></div> : null}
       {form.containers.map((container, ci) => <section className="content-panel editor-grid" key={ci}><div className="section-header"><h2>Container {ci + 1}</h2>{form.containers.length > 1 ? <Button tone="danger" onClick={() => updateForm({ ...form, containers: form.containers.filter((_, index) => index !== ci) })}>Xóa</Button> : null}</div><div className="field-grid"><label>Tên Container<input value={container.name} onChange={(event) => updateContainer(ci, { ...container, name: event.target.value })} /></label><label>Ảnh Container<input value={container.image} onChange={(event) => updateContainer(ci, { ...container, image: event.target.value })} placeholder="registry.example/app:tag" /></label></div>
         <Advanced label={`Container ${ci + 1}`} summary={`Yêu cầu hiệu lực: CPU ${effectiveRequest(container.cpuRequest, container.cpuLimit, DEFAULT_CPU_REQUEST)} · Bộ nhớ ${effectiveRequest(container.memoryRequest, container.memoryLimit, DEFAULT_MEMORY_REQUEST)}. Giới hạn: CPU ${container.cpuLimit || 'chưa đặt'} · Bộ nhớ ${container.memoryLimit || 'chưa đặt'}.`}>
           <div className="field-grid field-grid-four"><label>Yêu cầu CPU<input value={container.cpuRequest} onChange={(event) => updateContainer(ci, { ...container, cpuRequest: event.target.value })} placeholder="100m" /></label><label>Yêu cầu bộ nhớ<input value={container.memoryRequest} onChange={(event) => updateContainer(ci, { ...container, memoryRequest: event.target.value })} placeholder="128Mi" /></label><label>Giới hạn CPU<input value={container.cpuLimit} onChange={(event) => updateContainer(ci, { ...container, cpuLimit: event.target.value })} /></label><label>Giới hạn bộ nhớ<input value={container.memoryLimit} onChange={(event) => updateContainer(ci, { ...container, memoryLimit: event.target.value })} /></label></div>

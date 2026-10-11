@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
+import { specificGuidance, fieldNote } from '../../shared/api/errors';
 import { href, navigate } from '../../app/routes';
 import { api, ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
@@ -20,10 +21,12 @@ const driverText = (driver: string, module: string) => (driver === 'terraform' ?
 const copyInputs = (fields: Partial<InputField>[] | null | undefined): InputField[] => (fields ?? []).map((field) => ({ name: field.name ?? '', type: field.type ?? 'string', required: field.required === true }));
 const copyOutputs = (fields: Partial<OutputField>[] | null | undefined): OutputField[] => (fields ?? []).map((field) => ({ name: field.name ?? '', type: field.type ?? 'string', required: field.required === true, secret: field.secret === true }));
 
-// Raw backend messages are English and unstable: map by HTTP status only (code mapping: T20).
+// Specific guidance comes from the stable error code; raw backend text is never shown.
 function describeFailure(reason: unknown): string {
   if (!(reason instanceof ApiError)) return 'Chưa nhận được phản hồi từ máy chủ nên chưa rõ kết quả: loại tài nguyên có thể đã được đăng ký. Hãy tải lại danh sách trước khi thử lại.';
-  const field = reason.field ? ` Trường liên quan: ${reason.field}.` : '';
+  const field = fieldNote(reason.field);
+  const specific = specificGuidance(reason.code, reason.message, reason.field);
+  if (specific) return `Máy chủ từ chối loại tài nguyên. ${specific}`;
   switch (reason.status) {
     case 400: return `Máy chủ từ chối loại tài nguyên này. Kiểm tra ID (chữ thường, số, dấu gạch ngang; environment và service là ID dành riêng) và tên các tham số rồi thử lại.${field}`;
     case 401: return 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.';

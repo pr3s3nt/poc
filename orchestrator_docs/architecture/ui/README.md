@@ -2,7 +2,7 @@
 id: UI-ARCHITECTURE-INDEX
 artifact: shared-ui-design
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # Shared Web Console UI
@@ -47,7 +47,7 @@ trình tự triển khai, không phải chế độ tiếng Anh của sản ph�
 
 Giữ nguyên tên do người dùng đặt, technical IDs, enums/payload, `staging`,
 `production`, image, descriptor, module, key, JSON, placeholder và URL. Không
-Việt hóa raw backend error bằng regex; mapping lỗi theo code thuộc task riêng.
+Việt hóa raw backend error bằng regex; mapping lỗi theo code theo contract T20 bên dưới.
 Accessible name phải mô tả mục đích control. Browser tests dùng role/label và
 nhãn chuẩn theo trang, không thay assertions bằng pause hoặc bỏ kiểm accessibility.
 
@@ -78,3 +78,18 @@ Nút “Đăng xuất” giữ behavior hiện tại. Shared missing-application
 “Không tìm thấy ứng dụng”; loading “Đang tải ứng dụng…”; lỗi tải “Không thể tải
 danh sách ứng dụng.” và nút “Thử lại”. T10 không dịch nội dung list/home/preview/
 history/details thuộc T11–T15, không đổi parsing unknown routes.
+
+## Trình bày lỗi theo code — T20 / VI-03
+
+API client giữ status/code/field/params từ
+[public error contract](../contracts/operation-contracts.md#public-http-error-contract--t20--vi-03)
+và chỉ tạo message tiếng Việt an toàn. Mọi trang dùng code cho lỗi known;
+unknown/missing/malformed code và lỗi network có fallback Việt theo thao tác.
+Không parse hoặc hiển thị raw English/provider/decoder messages. Không nội suy
+unknown field/params hoặc correlation không được server kiểm soát vào alert.
+
+Validation/duplicate giữ draft; Secret Store failure xóa token theo UC-04.
+BUSY giữ edits và khóa conflicting actions; stale yêu cầu reload/review hoặc
+Preview mới. Session expiry vẫn theo UC-00. Retry GET không replay mutation,
+và lỗi network của mutation không chứng minh chưa lưu. Loading/error/not-found
+và committed-success/reload-failure vẫn tách biệt; scope đổi bỏ late replies.

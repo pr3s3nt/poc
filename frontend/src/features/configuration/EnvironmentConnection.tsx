@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, ApiError } from '../../shared/api/client';
+import { api, ApiError, isBusy, isStaleConflict } from '../../shared/api/client';
 import { toTarget, type APIEnvironment } from '../../shared/api/environment';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
@@ -32,6 +32,8 @@ export function EnvironmentConnection({ application, environment, onTargetChange
   // `picked` is the user's own selection; undefined means "no pending edit".
   const [picked, setPicked] = useState<string>();
   const [saving, setSaving] = useState(false);
+  // A stale conflict whose reload failed: saving stays off until a reload succeeds.
+  const [needsReload, setNeedsReload] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -42,7 +44,7 @@ export function EnvironmentConnection({ application, environment, onTargetChange
   const generation = useRef(0);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current += 1; }; }, []);
-  useEffect(() => { generation.current += 1; setPicked(undefined); setError(''); setNotice(''); setSaving(false); }, [application.id, environment]);
+  useEffect(() => { generation.current += 1; setPicked(undefined); setError(''); setNotice(''); setSaving(false); setNeedsReload(false); }, [application.id, environment]);
   useEffect(() => {
     const current = ++generation.current;
     setChoices({ status: 'loading' });
@@ -64,16 +66,25 @@ export function EnvironmentConnection({ application, environment, onTargetChange
   const suggested = picked === undefined && Boolean(suggestion) && selected === suggestion?.key;
   const lostPick = picked !== undefined && picked !== '' && selected === '' && choices.status === 'ready';
 
-  async function reloadEnvironment(current: number) {
+  // True only when the authoritative GET succeeded and returned this Environment.
+  async function reloadEnvironment(current: number): Promise<boolean> {
     try {
       const response = await api<{ application: { environments?: APIEnvironment[] } }>(`/applications/${encodeURIComponent(application.id)}`);
       const item = response.application.environments?.find((env) => env.key === environment);
-      if (item && (current === generation.current || !mounted.current)) onTargetChange(application.id, environment, toTarget(item));
-    } catch { /* the notice already tells the user to reload */ }
+      if (!item) return false;
+      if (current === generation.current || !mounted.current) onTargetChange(application.id, environment, toTarget(item));
+      return true;
+    } catch { return false; }
+  }
+
+  async function retryReload() {
+    const current = ++generation.current;
+    if (await reloadEnvironment(current) && current === generation.current) { setNeedsReload(false); setError(''); setNotice('Đã tải lại trạng thái mới nhất; xem lại lựa chọn rồi lưu nếu vẫn muốn đổi.'); }
+    else if (current === generation.current) setError('Vẫn chưa tải lại được trạng thái môi trường. Lựa chọn của bạn được giữ nguyên; hãy thử lại.');
   }
 
   async function save() {
-    if (!selected || saving || busy) return;
+    if (!selected || saving || busy || needsReload) return;
     const current = ++generation.current;
     setSaving(true); setError(''); setNotice('');
     try {
@@ -82,14 +93,21 @@ export function EnvironmentConnection({ application, environment, onTargetChange
       if (current === generation.current) { setPicked(undefined); setNotice(selected === target.connectionKey ? 'Đã chọn kết nối này; không có gì thay đổi.' : 'Đã lưu kết nối. Xem trước và Triển khai sẽ dùng kết nối này.'); }
     } catch (err) {
       if (current !== generation.current) return;
-      if (err instanceof ApiError && err.status === 409) {
-        setError(`${err.message} Đã tải lại trạng thái mới nhất; xem lại lựa chọn rồi bấm Lưu kết nối nếu vẫn muốn đổi.`);
-        await reloadEnvironment(current);
+      if (isBusy(err)) {
+        // Busy is not a version conflict: nothing is reloaded and the selection is kept.
+        setError((err as ApiError).message);
+      } else if (isStaleConflict(err) || (err instanceof ApiError && err.code === 'TRANSITION_REQUIRED')) {
+        const base = (err as ApiError).message;
+        const reloaded = await reloadEnvironment(current);
+        if (current !== generation.current) return;
+        setNeedsReload(!reloaded);
+        setError(reloaded ? `${base} Đã tải lại trạng thái mới nhất; xem lại lựa chọn rồi bấm Lưu kết nối nếu vẫn muốn đổi.` : `${base} Chưa tải lại được trạng thái mới nhất; lựa chọn của bạn được giữ nguyên. Bấm “Tải lại trạng thái” rồi xem lại trước khi lưu.`);
       } else if (err instanceof ApiError && err.status === 422) {
-        setError('Kết nối đã chọn không còn khả dụng. Hãy chọn kết nối khác.');
+        setError(err.code === 'CONNECTION_UNAVAILABLE' ? 'Kết nối đã chọn không còn khả dụng. Hãy chọn kết nối khác.' : err.message);
         setAttempt((value) => value + 1);
       } else {
-        setError('Không lưu được kết nối. Hãy thử lại.');
+        // A network failure does not prove the connection was not saved.
+        setError(err instanceof ApiError ? `Không lưu được kết nối. ${err.message}` : 'Không lưu được kết nối. Chưa rõ kết quả; hãy tải lại trạng thái môi trường trước khi thử lại.');
       }
     } finally {
       if (current === generation.current) setSaving(false);
@@ -109,7 +127,7 @@ export function EnvironmentConnection({ application, environment, onTargetChange
       <dt>Trạng thái runtime</dt><dd>{statusLabel(target.runtimeStatus)}</dd>
       {target.infrastructureScope === 'LEGACY_APPLICATION' ? <><dt>Hạ tầng</dt><dd>Theo ứng dụng (binding đã di chuyển)</dd></> : null}
     </dl> : null}
-    {error ? <div className="form-error" role="alert">{error}</div> : null}
+    {error ? <div className="form-error" role="alert">{error}{needsReload ? <Button type="button" onClick={() => void retryReload()}>Tải lại trạng thái</Button> : null}</div> : null}
     {notice ? <div className="form-success" role="status">{notice}</div> : null}
     {busy ? <div className="form-info" role="status">Một thao tác đang chạy trên môi trường này. Cài đặt chỉ đọc cho đến khi thao tác kết thúc.</div> : null}
     {choices.status === 'loading' ? <p role="status" aria-busy="true">Đang tải danh sách kết nối…</p> : null}
@@ -128,7 +146,7 @@ export function EnvironmentConnection({ application, environment, onTargetChange
         ? <><small>Môi trường này đã có tài nguyên runtime. Đổi đích triển khai sẽ tạo một thế hệ mới, có thể kèm chuyển dữ liệu PostgreSQL, và giữ thế hệ cũ để bạn xem lại.</small>
           <div className="form-actions"><Button tone="primary" disabled={busy || !selected} onClick={() => onStartTransition?.(selected)}>Xem lại chuyển đích…</Button></div></>
         : <><small>{target.configured ? 'Chỉ lưu được kết nối khác khi chưa có tài nguyên runtime.' : 'Chọn một kết nối rồi bấm Lưu. Bạn có thể đổi lại sau.'}</small>
-          <div className="form-actions"><Button tone="primary" disabled={!selected || saving || busy || (!changed && target.configured)} onClick={() => void save()}>{saving ? 'Đang lưu kết nối…' : 'Lưu kết nối'}</Button></div></>}
+          <div className="form-actions"><Button tone="primary" disabled={!selected || saving || busy || needsReload || (!changed && target.configured)} onClick={() => void save()}>{saving ? 'Đang lưu kết nối…' : 'Lưu kết nối'}</Button></div></>}
     </> : null}
   </section>;
 }

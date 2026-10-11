@@ -5,12 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"net/http"
 	"strings"
-
-	"orchestrator/internal/application/workloadconfig"
-	"orchestrator/internal/ports/persistence"
 
 	"gopkg.in/yaml.v3"
 )
@@ -26,22 +22,22 @@ func (s *Server) handleParseWorkloadScore(w http.ResponseWriter, r *http.Request
 	}
 	var req parseWorkloadRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 3<<20)).Decode(&req); err != nil || strings.TrimSpace(req.Content) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "Score file is required"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	decoder := yaml.NewDecoder(strings.NewReader(req.Content))
 	var score map[string]any
 	if err := decoder.Decode(&score); err != nil || score == nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid Score YAML/JSON"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	var extra any
 	if err := decoder.Decode(&extra); err != io.EOF {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "Score file must contain exactly one document"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	if err := s.workloads.ValidateImport(r.Context(), app, env, score); err != nil {
-		s.writeDraftError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"score": score})
@@ -54,7 +50,7 @@ func (s *Server) handleListWorkloadDrafts(w http.ResponseWriter, r *http.Request
 	}
 	view, err := s.workloads.List(r.Context(), app, env)
 	if err != nil {
-		s.writeDraftError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
@@ -70,12 +66,12 @@ func decodeStrict(w http.ResponseWriter, r *http.Request, limit int64, dst any) 
 		return false
 	}
 	if trimmed := bytes.TrimSpace(raw); len(trimmed) == 0 || trimmed[0] != '{' {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request body must be one JSON object"})
+		writeCode(w, codeInvalidRequest, "")
 		return false
 	}
 	if err := body.Decode(&struct{}{}); err != io.EOF {
 		if !writeTooLarge(w, err) {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "request body must contain exactly one JSON object"})
+			writeCode(w, codeInvalidRequest, "")
 		}
 		return false
 	}
@@ -94,39 +90,20 @@ func writeTooLarge(w http.ResponseWriter, err error) bool {
 	if !errors.As(err, &tooLarge) {
 		return false
 	}
-	writeJSON(w, http.StatusRequestEntityTooLarge, map[string]any{"error": "request body is too large"})
+	writeCode(w, codeRequestTooLarge, "")
 	return true
 }
 
 func writeDecodeError(w http.ResponseWriter, err error) {
 	if !writeTooLarge(w, err) {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid JSON body: " + safeDecodeMessage(err)})
-	}
-}
-
-// writeDraftError maps UC-16/UC-07 draft errors: validation messages come
-// from the caller's own Score or fixed workloadconfig text; store and other
-// unknown errors are a generic retryable 500 without cause.
-func (s *Server) writeDraftError(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, persistence.ErrNotFound):
-		writeJSON(w, http.StatusNotFound, map[string]any{"error": "not found"})
-	case errors.Is(err, persistence.ErrEnvironmentBusy):
-		s.writeBusy(w, err)
-	case errors.Is(err, persistence.ErrVersionConflict):
-		writeJSON(w, http.StatusConflict, map[string]any{"error": "workloads changed since they were loaded; reload and try again"})
-	case errors.Is(err, workloadconfig.ErrInvalid), strings.HasPrefix(err.Error(), "score:"), strings.HasPrefix(err.Error(), "workloadconfig:"):
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
-	default:
-		log.Printf("workload draft request failed: internal error (%T)", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "the request failed; retry"})
+		writeCode(w, codeInvalidRequest, "")
 	}
 }
 
 // requiredVersion rejects an omitted, null or negative draft version.
 func requiredVersion(w http.ResponseWriter, version *int64) bool {
 	if version == nil || *version < 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "version is required and must be a nonnegative integer"})
+		writeCode(w, codeInvalidRequest, "")
 		return false
 	}
 	return true
@@ -147,12 +124,12 @@ func (s *Server) handleSaveWorkloadDraft(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if req.Score == nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "valid Score JSON is required"})
+		writeCode(w, codeInvalidRequest, "")
 		return
 	}
 	view, err := s.workloads.Save(r.Context(), app, env, r.PathValue("workload"), req.Score, *req.Version)
 	if err != nil {
-		s.writeDraftError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
@@ -187,7 +164,7 @@ func (s *Server) handleWorkloadDraftAction(w http.ResponseWriter, r *http.Reques
 		view, err = s.workloads.Delete(r.Context(), app, env, r.PathValue("workload"), *req.Version)
 	}
 	if err != nil {
-		s.writeDraftError(w, err)
+		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, view)

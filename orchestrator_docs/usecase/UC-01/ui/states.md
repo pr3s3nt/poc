@@ -2,7 +2,7 @@
 id: UC-01-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # UC-01 UI states
@@ -31,7 +31,7 @@ last_reviewed: 2026-10-11
 - BUSY: giữ nội dung đang sửa, khóa writes cho tới khi operation kết thúc.
 - Cùng target: không copy/migrate; thông báo no-op đúng thực tế.
 - Loading/error/empty/stale/copy failure/progress/confirmation và aria-label dùng
-  tiếng Việt; IDs/enums/payload không dịch. VI-03 mapping toàn backend thuộc T20.
+  tiếng Việt; IDs/enums/payload không dịch. VI-03 áp dụng contract lỗi T20.
 
 ## T09 — Gợi ý subdomain và tạo ứng dụng
 
@@ -42,7 +42,7 @@ last_reviewed: 2026-10-11
 - Duplicate name/subdomain: lỗi đúng field tiếng Việt, giữ nội dung để sửa/retry.
 - Lỗi khác: fallback tiếng Việt an toàn, giữ form; retry chỉ khi người dùng submit.
 - Success: điều hướng ứng dụng mới ở staging; staging/production, IDs và payload
-  giữ nguyên. Không hiển thị raw backend errors; mapping tổng thể thuộc T20.
+  giữ nguyên. Không hiển thị raw backend errors; mapping tổng thể theo contract lỗi T20.
 
 ## T11 — Trạng thái danh sách ứng dụng
 
@@ -68,6 +68,16 @@ last_reviewed: 2026-10-11
   thao tác thử lại riêng, không restart Workload ngoài semantics hiện tại.
 - Failed/partial: báo kết quả từng Workload; thay đổi chưa xong vẫn pending,
   không rollback tự động. Lỗi dùng fallback Việt an toàn, không hiển thị raw
-  backend/provider error hoặc giá trị key/bí mật; mapping tổng thể thuộc T20.
+  backend/provider error hoặc giá trị key/bí mật; mapping tổng thể theo contract lỗi T20.
 - Đổi app/môi trường: bỏ phản hồi cũ sai context cho list/preview/result/history;
   IDs và graph data giữ nguyên. Triển khai đang chạy giữ các khóa điều hướng.
+
+## Lỗi theo code — T20
+
+Áp dụng [public HTTP error contract](../../../architecture/contracts/operation-contracts.md#public-http-error-contract--t20--vi-03)
+và [shared error presentation](../../../architecture/ui/README.md#trình-bày-lỗi-theo-code--t20--vi-03).
+Known code chọn hướng dẫn Việt cụ thể; unknown/missing code dùng fallback Việt
+an toàn, không hiển thị/parse raw `error`, submitted values hoặc provider cause.
+Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
+BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
+không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.

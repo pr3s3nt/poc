@@ -44,7 +44,7 @@ export function OperationBanner({ application, environment, onTargetChange, poll
       if (latest) onTargetChange(application.id, environment, latest);
     } catch (err) {
       if (current !== scope.current) return;
-      setError(err instanceof ApiError ? err.message : 'Không bắt đầu được việc khôi phục. Hãy thử lại.');
+      setError(err instanceof ApiError ? err.message : 'Chưa nhận được phản hồi từ máy chủ nên chưa rõ việc khôi phục đã bắt đầu hay chưa. Hãy tải lại trạng thái trước khi thử lại; Console không tự gửi lại.');
     } finally {
       if (current === scope.current) setRecovering(false);
     }
@@ -61,6 +61,6 @@ export function OperationBanner({ application, environment, onTargetChange, poll
       </div> : null}
     </> : null}
     {error ? <div className="form-error" role="alert">{error}</div> : null}
-    {result ? <div className="form-info" role="status"><strong>Kết quả khôi phục:</strong> {result.outcome}{result.compensationFailed?.length ? <ul>{result.compensationFailed.map((item) => <li key={item}>Cần xử lý: {item}</li>)}</ul> : null}</div> : null}
+    {result ? <div className="form-info" role="status"><strong>Kết quả khôi phục:</strong> {result.compensationFailed?.length ? `Khôi phục chưa trọn vẹn: còn ${result.compensationFailed.length} bước cần xử lý thủ công. Môi trường vẫn được giữ cho tới khi xử lý xong.` : 'Khôi phục đã hoàn tất.'}</div> : null}
   </section>;
 }

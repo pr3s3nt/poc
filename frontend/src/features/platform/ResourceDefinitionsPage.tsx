@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { specificGuidance, fieldNote } from '../../shared/api/errors';
 import { api, ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { snapshotKey, type ApiEnvironment } from './environmentSnapshot';
@@ -22,10 +23,12 @@ function objectJSON(value: string, label: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
-// Raw backend messages are English and unstable: map by HTTP status only.
+// Specific guidance comes from the stable error code; raw backend text is never shown.
 function describeFailure(reason: unknown): string {
   if (!(reason instanceof ApiError)) return 'Chưa nhận được phản hồi từ máy chủ nên chưa rõ kết quả: cấu hình có thể đã được đăng ký. Hãy tải lại danh sách trước khi thử lại.';
-  const field = reason.field ? ` Trường liên quan: ${reason.field}.` : '';
+  const field = fieldNote(reason.field);
+  const specific = specificGuidance(reason.code, reason.message, reason.field);
+  if (specific) return `Máy chủ từ chối cấu hình. ${specific}`;
   switch (reason.status) {
     case 400: return `Máy chủ từ chối cấu hình này. Kiểm tra ID, Tham số cấu hình, Quy tắc tạo tài nguyên liên quan và Kết nối rồi thử lại.${field}`;
     case 401: return 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.';

@@ -18,6 +18,58 @@ import (
 )
 
 var ErrInvalid = errors.New("workloadconfig: invalid input")
+
+// ErrInvalidVariable refines ErrInvalid for a container variable or Resource
+// binding that cannot be accepted; ErrInvalidRequest refines it for a request
+// that is not a Score problem. Both still match ErrInvalid.
+var (
+	ErrInvalidVariable = errors.New("workloadconfig: invalid variable binding")
+	ErrInvalidRequest  = errors.New("workloadconfig: invalid request")
+	// ErrUnknownResourceType refines ErrInvalid for a Score resource whose type is
+	// not registered; the submitted type string is never carried.
+	ErrUnknownResourceType = errors.New("workloadconfig: resource type is not registered")
+)
+
+// ParamError is an ErrInvalid for the params of a resource whose Type is
+// registered. Type is the catalog key (never the caller's string), so delivery
+// can name the Type without the alias, an unknown param key or any value.
+type ParamError struct {
+	Type string
+	err  error
+}
+
+func (e *ParamError) Error() string {
+	if e.err == nil {
+		return ErrInvalid.Error()
+	}
+	return e.err.Error()
+}
+func (e *ParamError) Unwrap() error {
+	if e.err == nil {
+		return ErrInvalid
+	}
+	return e.err
+}
+
+func paramError(typ resource.Type, format string, args ...any) error {
+	return &ParamError{Type: typ.Key, err: fmt.Errorf("%w: "+format, append([]any{ErrInvalid}, args...)...)}
+}
+
+// refined is an ErrInvalid that also matches a more specific kind while its
+// message stays unchanged.
+type refined struct {
+	kind error
+	err  error
+}
+
+func (e *refined) Error() string        { return e.err.Error() }
+func (e *refined) Unwrap() error        { return e.err }
+func (e *refined) Is(target error) bool { return target == e.kind }
+
+func refine(kind error, format string, args ...any) error {
+	return &refined{kind: kind, err: fmt.Errorf("%w: "+format, append([]any{ErrInvalid}, args...)...)}
+}
+
 var bindingPattern = regexp.MustCompile(`^\$\{resources\.([A-Za-z0-9_-]+)\.([A-Za-z_][A-Za-z0-9_-]*)\}$`)
 
 type Item struct {
@@ -198,7 +250,7 @@ func (s *Service) Undo(ctx context.Context, app, env, workload string, expectedV
 		return View{}, err
 	}
 	if draft.State != environment.DraftDelete {
-		return View{}, ErrInvalid
+		return View{}, refine(ErrInvalidRequest, "undo needs a pending delete")
 	}
 	if draft.Score != nil {
 		draft.State = environment.DraftUpsert
@@ -244,35 +296,38 @@ func (s *Service) validateBindings(ctx context.Context, app, env string, doc sco
 		for key, value := range container.Variables {
 			match := bindingPattern.FindStringSubmatch(value)
 			if match == nil {
-				return fmt.Errorf("%w: container %s variable %s must be one reference", ErrInvalid, containerName, key)
+				return refine(ErrInvalidVariable, "container %s variable %s must be one reference", containerName, key)
 			}
 			alias, output := match[1], match[2]
 			resourceSpec, ok := doc.Resources[alias]
 			if !ok {
-				return fmt.Errorf("%w: undeclared resource %s", ErrInvalid, alias)
+				return refine(ErrInvalidVariable, "undeclared resource %s", alias)
 			}
 			switch resourceSpec.Type {
 			case "environment":
 				if alias != "env" || resourceSpec.ID != "" {
-					return fmt.Errorf("%w: Application keys require resources.env", ErrInvalid)
+					return refine(ErrInvalidVariable, "Application keys require resources.env")
 				}
 				if _, ok := entries[output]; !ok {
-					return fmt.Errorf("%w: Application key %s is not configured in %s", ErrInvalid, output, env)
+					return refine(ErrInvalidVariable, "Application key %s is not configured in %s", output, env)
 				}
 			case "service":
 				if output != "url" {
-					return fmt.Errorf("%w: service output must be url", ErrInvalid)
+					return refine(ErrInvalidVariable, "service output must be url")
 				}
 				if err := s.validateService(ctx, app, env, doc.Metadata.Name, resourceSpec); err != nil {
+					if errors.Is(err, ErrInvalid) {
+						return &refined{kind: ErrInvalidVariable, err: err}
+					}
 					return err
 				}
 			default:
 				typ, ok := typeMap[resourceSpec.Type]
 				if !ok {
-					return fmt.Errorf("%w: unknown resource type %s", ErrInvalid, resourceSpec.Type)
+					return refine(ErrInvalidVariable, "unknown resource type %s", resourceSpec.Type)
 				}
 				if _, ok := typ.Output(output); !ok {
-					return fmt.Errorf("%w: resource %s has no output %s", ErrInvalid, alias, output)
+					return refine(ErrInvalidVariable, "resource %s has no output %s", alias, output)
 				}
 			}
 		}
@@ -293,7 +348,7 @@ func validateResourceParams(doc score.Document, types map[string]resource.Type) 
 		path := "resources." + alias
 		typ, ok := types[spec.Type]
 		if !ok {
-			return fmt.Errorf("%w: %s.type is not a registered resource type", ErrInvalid, path)
+			return refine(ErrUnknownResourceType, "%s.type is not a registered resource type", path)
 		}
 		names := make([]string, 0, len(spec.Params))
 		for name := range spec.Params {
@@ -303,19 +358,19 @@ func validateResourceParams(doc score.Document, types map[string]resource.Type) 
 		for _, name := range names {
 			field, ok := typ.Input(name)
 			if !ok {
-				return fmt.Errorf("%w: %s.params.%s is not declared by resource type %s", ErrInvalid, path, name, typ.Key)
+				return paramError(typ, "%s.params.%s is not declared by resource type %s", path, name, typ.Key)
 			}
 			value := spec.Params[name]
 			if value == nil {
-				return fmt.Errorf("%w: %s.params.%s must not be null", ErrInvalid, path, name)
+				return paramError(typ, "%s.params.%s must not be null", path, name)
 			}
 			if err := field.CheckValue(value); err != nil {
-				return fmt.Errorf("%w: %s.params.%s must be %s", ErrInvalid, path, name, field.Type)
+				return paramError(typ, "%s.params.%s must be %s", path, name, field.Type)
 			}
 		}
 		for _, field := range typ.Inputs {
 			if _, ok := spec.Params[field.Name]; field.Required && !ok {
-				return fmt.Errorf("%w: %s.params.%s is required by resource type %s", ErrInvalid, path, field.Name, typ.Key)
+				return paramError(typ, "%s.params.%s is required by resource type %s", path, field.Name, typ.Key)
 			}
 		}
 	}

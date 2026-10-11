@@ -73,7 +73,7 @@ func TestUC07PendingDraftHTTPContract(t *testing.T) {
 		t.Fatal("second save failed")
 	}
 	resp, body := call(t, client, http.MethodPost, base+"/deploy", `{"token":"`+token+`"}`)
-	if resp.StatusCode != http.StatusConflict || !strings.Contains(body, "preview changes again") {
+	if resp.StatusCode != http.StatusConflict || !strings.Contains(body, `"code":"STALE_PREVIEW"`) {
 		t.Fatalf("stale token = %d %s", resp.StatusCode, body)
 	}
 

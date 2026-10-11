@@ -86,7 +86,7 @@ func TestUC00SignInSessionRestoreAndSignOut(t *testing.T) {
 
 	for _, creds := range []string{`{"username":"developer","password":"wrong"}`, `{"username":"nobody","password":"test-password"}`} {
 		resp, body := call(t, client, http.MethodPost, server.URL+"/api/v1/auth/sign-in", creds)
-		if resp.StatusCode != http.StatusUnauthorized || len(resp.Cookies()) != 0 || decode(t, body)["error"] != "invalid credentials" {
+		if resp.StatusCode != http.StatusUnauthorized || len(resp.Cookies()) != 0 || decode(t, body)["code"] != "INVALID_CREDENTIALS" {
 			t.Fatalf("invalid sign-in = %d %v %s", resp.StatusCode, resp.Cookies(), body)
 		}
 	}

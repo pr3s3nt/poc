@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # Design-to-code map
@@ -279,3 +279,18 @@ See [local evidence](../verification/2026-10-11-T17-existing-cluster-registratio
   trong CriteriaEditor/resource/template forms.
 - [Headed T19 scenario](../../frontend/test/e2e/refactor-local.mjs); existing
   local fake runner, no retained DB/cluster/cloud mutation.
+
+## T20 stable HTTP errors and Vietnamese presentation
+
+- [HTTP classifier/envelope](../../backend/internal/delivery/http/apierror.go)
+  và [code/status/secret safety tests](../../backend/internal/delivery/http/apierror_test.go)
+  dùng typed errors trong catalog/connection/preview/workloadconfig/Score;
+  all Console handlers share the boundary, no raw English prefix classifier.
+- [Client](../../frontend/src/shared/api/client.ts),
+  [Vietnamese mappings and metadata allowlists](../../frontend/src/shared/api/errors.ts),
+  [client safety/retry tests](../../frontend/src/shared/api/client.test.ts).
+- Settings/EnvironmentConnection/SecretStoreSelection/WorkloadEditor/ApplicationHome
+  phân biệt BUSY/stale và giữ scope/edits; stale reload failure gates có tests.
+- [Headed T20 scenario](../../frontend/test/e2e/refactor-local.mjs) và
+  [fake runner](../../backend/test/integration/refactor-ui-local.sh) kiểm real
+  local HTTP errors và labelled projection mocks; [evidence](../verification/2026-10-12-T20-console-errors.md).

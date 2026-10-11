@@ -149,7 +149,7 @@ func TestUC05ScorePreviewHTTP(t *testing.T) {
 		resp, body := call(t, client, http.MethodPost, endpoint, validJSON)
 		var out map[string]string
 		_ = json.Unmarshal([]byte(body), &out)
-		if resp.StatusCode != http.StatusBadRequest || strings.Contains(out["error"], conn.Key) || !strings.Contains(out["error"], "not READY") {
+		if resp.StatusCode != http.StatusBadRequest || strings.Contains(body, conn.Key) || out["code"] != "CONNECTION_UNAVAILABLE" || out["field"] != "connectionKey" {
 			t.Fatalf("not ready = %d %s", resp.StatusCode, body)
 		}
 	})

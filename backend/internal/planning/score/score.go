@@ -4,6 +4,7 @@ package score
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -51,8 +52,26 @@ type Fragment struct {
 	Shared     map[string]environment.ResourceEntry
 }
 
-// Parse reads a Score document from JSON bytes.
+// ErrInvalid classifies every failure to read or validate a caller-supplied
+// Score document, so delivery needs no message parsing.
+var ErrInvalid = errors.New("score: invalid document")
+
+type invalidError struct{ err error }
+
+func (e *invalidError) Error() string        { return e.err.Error() }
+func (e *invalidError) Unwrap() error        { return e.err }
+func (e *invalidError) Is(target error) bool { return target == ErrInvalid }
+
+// Parse reads a Score document from JSON bytes. Failures match ErrInvalid.
 func Parse(b []byte) (*Document, error) {
+	doc, err := parse(b)
+	if err != nil {
+		return nil, &invalidError{err: err}
+	}
+	return doc, nil
+}
+
+func parse(b []byte) (*Document, error) {
 	dec := json.NewDecoder(strings.NewReader(string(b)))
 	dec.DisallowUnknownFields()
 	var doc Document
@@ -72,7 +91,7 @@ func Parse(b []byte) (*Document, error) {
 func FromMap(m map[string]any) (*Document, error) {
 	b, err := json.Marshal(m)
 	if err != nil {
-		return nil, fmt.Errorf("score: marshal: %w", err)
+		return nil, &invalidError{err: fmt.Errorf("score: marshal: %w", err)}
 	}
 	return Parse(b)
 }

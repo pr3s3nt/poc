@@ -96,8 +96,8 @@ it('shows server validation and failures in safe Vietnamese with retry, never ra
   let call = 0;
   vi.stubGlobal('fetch', vi.fn(async () => {
     call += 1;
-    if (call === 1) return Response.json({ error: 'scoreAfter metadata.name "web" does not match workloadId "api"' }, { status: 400 });
-    if (call === 2) return Response.json({ error: 'preview failed; retry token=SECRET-1' }, { status: 500 });
+    if (call === 1) return Response.json({ error: 'scoreAfter metadata.name "web" does not match workloadId "api"', code: 'INVALID_REQUEST' }, { status: 400 });
+    if (call === 2) return Response.json({ error: 'preview failed; retry token=SECRET-1', code: 'INTERNAL_ERROR' }, { status: 500 });
     return Response.json(result({ delta: {} }));
   }));
   const user = userEvent.setup();
@@ -105,12 +105,12 @@ it('shows server validation and failures in safe Vietnamese with retry, never ra
   await fill(user);
   await user.click(screen.getByRole('button', { name: 'Xem trước' }));
   const first = await screen.findByRole('alert');
-  expect(first).toHaveTextContent('Không thể xem trước: Máy chủ không chấp nhận dữ liệu xem trước.');
+  expect(first).toHaveTextContent('Không thể xem trước: Dữ liệu gửi lên không hợp lệ.');
   expect(first).not.toHaveTextContent(/metadata\.name "web"|does not match/);
   expect(screen.queryByRole('button', { name: 'Thử lại' })).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Xem trước' }));
   const second = await screen.findByRole('alert');
-  expect(second).toHaveTextContent('Không thể xem trước Score. Hãy thử lại.');
+  expect(second).toHaveTextContent('Máy chủ gặp lỗi không xác định');
   expect(second).not.toHaveTextContent(/SECRET|preview failed/);
   await user.click(screen.getByRole('button', { name: 'Thử lại' }));
   expect(await screen.findByText(/Không có thay đổi Workload/)).toBeInTheDocument();
@@ -118,9 +118,10 @@ it('shows server validation and failures in safe Vietnamese with retry, never ra
 });
 
 it.each([
-  [413, { error: 'body too large: raw' }, 'Score quá lớn để xem trước', false],
-  [404, { error: 'application "shop" not found' }, 'Không tìm thấy ứng dụng hoặc môi trường này.', true],
-  [422, { error: 'other 422 raw', field: 'other' }, 'Không thể xem trước Score. Hãy thử lại.', true],
+  [413, { error: 'body too large: raw', code: 'REQUEST_TOO_LARGE' }, 'Nội dung gửi lên quá lớn', false],
+  [404, { error: 'application "shop" not found', code: 'NOT_FOUND' }, 'Không tìm thấy hoặc không truy cập được mục này.', true],
+  [422, { error: 'other 422 raw', field: 'other', code: '__proto__' }, 'Máy chủ không chấp nhận yêu cầu này.', true],
+  [422, { error: 'raw', code: 'CONNECTION_UNAVAILABLE', field: 'connectionKey' }, 'Kết nối không hợp lệ hoặc chưa sẵn sàng', true],
 ])('maps HTTP %i to a Vietnamese message without raw backend text', async (status, body, text, retry) => {
   const fetcher = vi.fn(async () => Response.json(body, { status }));
   vi.stubGlobal('fetch', fetcher);
@@ -180,6 +181,18 @@ it('sends update and remove payloads with only the relevant Score editors and ke
   await user.click(screen.getByRole('button', { name: 'Xem trước' }));
   await screen.findByRole('region', { name: 'Kết quả xem trước Score' });
   expect(body()).toEqual({ workloadId: 'api', action: 'remove', runId: 'run-7', scoreBefore: { metadata: { name: 'api' }, v: 1 } });
+});
+
+it('explains a planner rejection by its allow-listed stage and ignores unknown params', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: 'raw planner SECRET', code: 'PLANNING_REJECTED', params: { stage: 'graph', reason: 'SECRET', extra: 'SECRET' } }, { status: 400 })));
+  const user = userEvent.setup();
+  render(<ScorePreviewPage application={application} environment="staging" />);
+  await fill(user);
+  await user.click(screen.getByRole('button', { name: 'Xem trước' }));
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('Không thể lập kế hoạch');
+  expect(alert).toHaveTextContent('đồ thị tài nguyên');
+  expect(alert).not.toHaveTextContent(/SECRET|raw planner/);
 });
 
 it('explains an UNCONFIGURED Environment instead of showing a plan', async () => {

@@ -266,10 +266,10 @@ it('saves resource output and workload Service bindings from Other sources, whic
 
 it('shows key catalog loading and a retryable error distinct from an empty list, and blocks Save until loaded', async () => {
   let release: (response: Response) => void = () => undefined;
-  const { puts } = serve({ configuration: (call) => call === 1 ? Response.json({ error: 'settings unavailable' }, { status: 503 }) : new Promise<Response>((resolve) => { release = resolve; }) });
+  const { puts } = serve({ configuration: (call) => call === 1 ? Response.json({ error: 'settings unavailable', code: 'SERVICE_UNAVAILABLE' }, { status: 503 }) : new Promise<Response>((resolve) => { release = resolve; }) });
   const user = userEvent.setup();
   await newWorkload(user);
-  expect(await screen.findByText(/Không tải được biến và bí mật của ứng dụng: settings unavailable/)).toBeInTheDocument();
+  expect(await screen.findByText(/Không tải được biến và bí mật của ứng dụng\. Dịch vụ cần thiết chưa sẵn sàng/)).toBeInTheDocument();
   expect(screen.queryByText(/chưa có/)).not.toBeInTheDocument();
   expect(screen.queryByRole('checkbox', { name: 'API_URL' })).not.toBeInTheDocument();
   await user.click(save());
@@ -308,8 +308,8 @@ it('freezes key selection and container name controls while Save is pending', as
   expect(screen.getByRole('checkbox', { name: 'Dùng tên Container khác cho API_URL' })).toBeDisabled();
   expect(screen.getByLabelText('Tên trong Container cho API_URL')).toBeDisabled();
   expect(screen.getByRole('button', { name: '+ Thêm nguồn khác' })).toBeDisabled();
-  release(Response.json({ error: 'temporarily unavailable' }, { status: 503 }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('temporarily unavailable');
+  release(Response.json({ error: 'temporarily unavailable', code: 'SERVICE_UNAVAILABLE' }, { status: 503 }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Dịch vụ cần thiết chưa sẵn sàng');
   expect(screen.getByRole('checkbox', { name: 'API_URL' })).toBeEnabled();
   expect(screen.getByRole('checkbox', { name: 'API_URL' })).toBeChecked();
 });

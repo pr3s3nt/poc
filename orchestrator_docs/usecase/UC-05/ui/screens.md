@@ -2,7 +2,7 @@
 id: UC-05-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 related: UC-05
 ---
 
@@ -24,7 +24,7 @@ thực thi, đồ thị và tài liệu Delta/Candidate Deployment Set. Nhãn gi
 bản đã lọc dữ liệu nhạy cảm và giá trị `***redacted***`; không diễn giải marker
 thành dữ liệu thực. Kết nối ngầm được gọi là **Kết nối của môi trường**.
 Lỗi API chưa có mapping code đầy đủ dùng fallback Việt an toàn, không hiện
-raw backend/parser error hoặc dịch bằng regex; mapping code đầy đủ thuộc T20.
+raw backend/parser error hoặc dịch bằng regex; mapping code theo contract lỗi T20.
 
 Application home provides **Preview Score** for the selected Environment.
 The standalone page visibly identifies Application, Environment and the persisted Environment

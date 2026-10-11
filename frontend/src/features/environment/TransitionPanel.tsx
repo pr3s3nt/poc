@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ApiError } from '../../shared/api/client';
+import { ApiError, isStaleConflict } from '../../shared/api/client';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
 import { statusLabel } from './labels';
@@ -91,12 +91,11 @@ export function TransitionPanel({ application, environment, initialDestination =
     return () => window.clearInterval(timer);
   }, [detail?.id, detail?.status, application.id, environment, pollMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function explain(err: unknown): string {
-    if (err instanceof ApiError) {
-      if (err.status === 409) return err.message;
-      if (err.status === 422) return err.message;
-    }
-    return 'Yêu cầu không thành công. Hãy thử lại.';
+  function explain(err: unknown, mutation = false): string {
+    if (err instanceof ApiError) return err.message;
+    return mutation
+      ? 'Chưa nhận được phản hồi từ máy chủ nên chưa rõ kết quả: việc chuyển kết nối có thể đã bắt đầu. Hãy xem lịch sử chuyển kết nối trước khi thử lại; Console không tự gửi lại.'
+      : 'Yêu cầu không thành công. Hãy thử lại.';
   }
 
   // A destination that is no longer an eligible choice (not READY, or now the source) is never reviewed or executed.
@@ -130,13 +129,14 @@ export function TransitionPanel({ application, environment, initialDestination =
       if (env && current === generation.current) onTargetChange(application.id, environment, env);
     } catch (err) {
       if (current !== generation.current) return;
-      if (err instanceof ApiError && err.status === 409) {
-        // Stale preview or a busy environment: the old token is useless; review again.
+      if (isStaleConflict(err)) {
+        // Stale preview: the old token is useless; review again. A busy
+        // Environment keeps the reviewed preview and the user's choices.
         setPreview(undefined);
         const env = await fetchEnvironment(application.id, environment).catch(() => undefined);
         if (env && current === generation.current) onTargetChange(application.id, environment, env);
       }
-      setError(explain(err));
+      setError(explain(err, true));
     } finally {
       if (current === generation.current) setBusy(false);
     }
@@ -150,7 +150,7 @@ export function TransitionPanel({ application, environment, initialDestination =
       const response = await cleanupSource(application.id, environment, id);
       if (current === generation.current) { setDetail(response.transition); setHistory((items) => items.map((item) => item.id === id ? response.transition : item)); }
     } catch (err) {
-      if (current === generation.current) setError(explain(err));
+      if (current === generation.current) setError(explain(err, true));
     } finally {
       if (current === generation.current) setBusy(false);
     }
@@ -187,15 +187,15 @@ export function TransitionPanel({ application, environment, initialDestination =
       <h3>Chuyển đích {detail.status === 'RUNNING' ? 'đang chạy' : statusLabel(detail.status)}</h3>
       <ol className="stage-list">{stages.filter((stage) => detail.mode === 'MIGRATE_POSTGRES' || !['QUIESCING', 'BACKUP', 'RESTORING'].includes(stage)).map((stage) => {
         const result = detail.stages.find((item) => item.stage === stage);
-        return <li key={stage} data-status={result?.status ?? 'PENDING'}><strong>{stageLabel[stage] ?? stage}</strong> <code>{stage}</code> <span>{statusLabel(result?.status ?? 'PENDING')}</span>{result?.message ? <em> — {result.message}</em> : null}</li>;
+        return <li key={stage} data-status={result?.status ?? 'PENDING'}><strong>{stageLabel[stage] ?? stage}</strong> <code>{stage}</code> <span>{statusLabel(result?.status ?? 'PENDING')}</span>{result?.status === 'FAILED' ? <em> — Bước này không thành công. Console không hiển thị chi tiết kỹ thuật; hãy làm theo hướng dẫn can thiệp nếu có.</em> : null}</li>;
       })}</ol>
       {running ? <p role="status" aria-busy="true">Đang xử lý… tiến trình được lưu và vẫn còn sau khi tải lại trang.</p> : null}
       {detail.status === 'SUCCEEDED' && detail.sourceState === 'RETAINED_QUIESCED' ? <div className="form-success" role="status">Đích đang chạy. Thế hệ nguồn được giữ lại ở trạng thái dừng (dữ liệu còn nguyên) cho đến khi bạn dọn dẹp.</div> : null}
       {detail.status === 'SUCCEEDED' && detail.sourceState === 'CLEANED' ? <div className="form-success" role="status">Đích đang chạy và thế hệ nguồn đã được dọn dẹp.</div> : null}
       {detail.status === 'SUCCEEDED' && detail.sourceState === 'NEEDS_ATTENTION' ? <div className="form-error" role="alert">Đích đang chạy nhưng một hoặc nhiều workload nguồn không dừng được. Hãy tự dừng chúng trước khi dọn dẹp: nguồn CHƯA ở trạng thái dừng.</div> : null}
-      {detail.status === 'FAILED' || detail.status === 'INTERRUPTED' ? <div className="form-error" role="alert">{detail.failure || 'Chuyển đích chưa hoàn tất.'} {authorityText(detail)}</div> : null}
-      {detail.compensation?.length ? <ul aria-label="Các bước khôi phục">{detail.compensation.map((item) => <li key={item}>{item}</li>)}</ul> : null}
-      {detail.compensationFailed?.length ? <ul className="warning-text" aria-label="Vấn đề khi khôi phục">{detail.compensationFailed.map((item) => <li key={item}>Cần xử lý: {item}</li>)}</ul> : null}
+      {detail.status === 'FAILED' || detail.status === 'INTERRUPTED' ? <div className="form-error" role="alert">{detail.status === 'INTERRUPTED' ? 'Chuyển đích bị gián đoạn và chưa hoàn tất.' : 'Chuyển đích không thành công và chưa hoàn tất.'} {authorityText(detail)}</div> : null}
+      {detail.compensation?.length ? <p aria-label="Các bước khôi phục">Đã thực hiện {detail.compensation.length} bước khôi phục tự động.</p> : null}
+      {detail.compensationFailed?.length ? <p className="warning-text" aria-label="Vấn đề khi khôi phục">Cần xử lý thủ công {detail.compensationFailed.length} bước khôi phục chưa hoàn tất; nguồn có thể chưa được khôi phục.</p> : null}
       {detail.backupRetained ? <p className="warning-text">Một bản sao lưu riêng vẫn còn trên Pod nguồn và cần người vận hành xử lý.</p> : null}
     </div> : null}
     {retained && !running ? <div className="retained-source" aria-label="Nguồn được giữ lại">

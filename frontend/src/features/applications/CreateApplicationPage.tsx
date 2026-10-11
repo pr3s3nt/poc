@@ -28,10 +28,10 @@ export function suggestSubdomain(name: string): string {
 
 function describeCreateError(err: unknown): { fields: FieldErrors; form?: string } {
   if (err instanceof ApiError && (err.field === 'name' || err.field === 'subdomain')) {
-    if (err.status === 409) return { fields: err.field === 'name' ? { name: 'Tên ứng dụng này đã tồn tại.' } : { subdomain: 'Subdomain này đã được sử dụng.' } };
-    if (err.status === 400) return { fields: err.field === 'name' ? { name: nameRequired } : { subdomain: subdomainInvalid } };
+    if (err.code === 'DUPLICATE') return { fields: err.field === 'name' ? { name: 'Tên ứng dụng này đã tồn tại.' } : { subdomain: 'Subdomain này đã được sử dụng.' } };
+    if (err.code === 'INVALID_REQUEST') return { fields: err.field === 'name' ? { name: nameRequired } : { subdomain: subdomainInvalid } };
   }
-  return { fields: {}, form: 'Không thể tạo ứng dụng. Hãy thử lại.' };
+  return { fields: {}, form: err instanceof ApiError && err.status !== 400 && err.status !== 409 ? `Không thể tạo ứng dụng. ${err.message}` : 'Không thể tạo ứng dụng. Hãy thử lại.' };
 }
 
 // UC-01: only Name and Subdomain. Each Environment chooses its own execution

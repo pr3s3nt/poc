@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { api, ApiError } from '../../shared/api/client';
+import { specificGuidance } from '../../shared/api/errors';
 import { Button } from '../../shared/ui/Button';
 import { useCatalogList } from './useCatalogList';
 
@@ -25,13 +26,13 @@ function readText(file: File): Promise<string> {
 const loadConnections = async () => (await api<{ connections: Connection[] }>('/connections')).connections ?? [];
 
 // Fixed Vietnamese guidance by operation and HTTP status. Raw backend or
-// provider text never reaches the page; stable error codes are T20.
+// provider text never reaches the page; specific guidance comes from stable error codes.
 const listFailure = () => 'Không tải được danh sách kết nối. Kiểm tra kết nối mạng rồi thử lại; dữ liệu trong form được giữ nguyên.';
 
 function inspectGuidance(reason: unknown): string {
   if (!(reason instanceof ApiError)) return 'Chưa kiểm tra được kubeconfig vì chưa nhận được phản hồi từ máy chủ. Nhấn “Kiểm tra lại kubeconfig”.';
   switch (reason.status) {
-    case 400: case 422: return 'Không đọc được kubeconfig. Kiểm tra file hợp lệ, có context dùng token hoặc client certificate nhúng sẵn, rồi kiểm tra lại.';
+    case 400: case 422: return `Không đọc được kubeconfig. ${specificGuidance(reason.code, reason.message) ?? 'Kiểm tra file hợp lệ, có context dùng token hoặc client certificate nhúng sẵn, rồi kiểm tra lại.'}`;
     case 401: return 'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi kiểm tra lại kubeconfig.';
     case 403: return 'Tài khoản không có quyền đọc kubeconfig. Cần vai trò Kỹ sư nền tảng hoặc Quản trị.';
     case 413: return 'Kubeconfig lớn hơn 1 MiB. Rút gọn nội dung rồi thử lại.';
@@ -43,12 +44,12 @@ function registerGuidance(reason: unknown): string {
   // No HTTP status: the request may or may not have reached the backend.
   if (!(reason instanceof ApiError)) return 'Chưa nhận được phản hồi từ máy chủ nên chưa biết kết nối đã được lưu hay chưa. Hãy tải lại danh sách để kiểm tra trước khi đăng ký lại; Console không tự gửi lại.';
   switch (reason.status) {
-    case 400: return 'Máy chủ từ chối dữ liệu đăng ký. Kiểm tra tên kết nối, kubeconfig và context rồi thử lại.';
+    case 400: return `Máy chủ từ chối dữ liệu đăng ký. ${reason.code && reason.code !== 'INVALID_REQUEST' ? specificGuidance(reason.code, reason.message) ?? '' : 'Kiểm tra tên kết nối, kubeconfig và context rồi thử lại.'}`;
     case 401: return 'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử lại.';
     case 403: return 'Tài khoản không có quyền đăng ký kết nối. Cần vai trò Kỹ sư nền tảng hoặc Quản trị.';
     case 409: return 'Không đăng ký được vì tên hoặc khóa kết nối đã tồn tại. Đổi tên kết nối rồi thử lại.';
     case 413: return 'Dữ liệu đăng ký quá lớn. Rút gọn kubeconfig rồi thử lại.';
-    case 422: return 'Không xác minh được cluster nên chưa lưu kết nối. Kiểm tra endpoint, thông tin xác thực trong kubeconfig và quyền của context, rồi thử lại.';
+    case 422: return `Không xác minh được cluster nên chưa lưu kết nối. ${reason.code && reason.code !== 'VERIFICATION_FAILED' ? reason.message : 'Kiểm tra endpoint, thông tin xác thực trong kubeconfig và quyền của context, rồi thử lại.'}`;
     case 503: return 'Kho lưu thông tin xác thực của nền tảng chưa sẵn sàng. Liên hệ quản trị nền tảng rồi thử lại.';
     default: return reason.status >= 500 ? 'Máy chủ gặp lỗi khi đăng ký. Kết nối có thể chưa được lưu; tải lại danh sách để kiểm tra.' : 'Không đăng ký được kết nối. Kiểm tra dữ liệu rồi thử lại.';
   }
