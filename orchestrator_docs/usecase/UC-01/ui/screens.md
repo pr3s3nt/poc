@@ -39,3 +39,17 @@ không có lựa chọn thì hướng dẫn đăng ký đích và cho thử lạ
 Các nhãn tiến trình, chuyển đích, tác động, downtime và recovery dùng tiếng Việt.
 Giữ Preview rồi xác nhận execution; migration vẫn cần xác nhận downtime và
 recovery vẫn cần xác nhận operation cũ đã dừng. Không thay đổi API semantics.
+
+## T09 — Tạo ứng dụng (APP-01, VI-02)
+
+Form chỉ có Tên ứng dụng và Subdomain; nhãn, hướng dẫn, nút, validation và
+aria-label dùng tiếng Việt. Gợi ý subdomain từ tên bằng slug lowercase DNS label
+(chuyển dấu tiếng Việt, gồm đ/Đ; gom ký tự phân cách thành dấu gạch ngang,
+bỏ gạch ngang đầu/cuối và giới hạn 63 ký tự). Tên không tạo được slug thì để
+gợi ý rỗng và yêu cầu nhập subdomain hợp lệ. Gợi ý chỉ hỗ trợ nhập liệu, không
+đảm bảo uniqueness; backend vẫn quyết định ID và kiểm tra trùng.
+
+Tên thay đổi cập nhật gợi ý đến khi người dùng sửa subdomain lần đầu, kể cả
+xóa trống; sau đó giữ nguyên lựa chọn thủ công. Preview hiển thị endpoints
+staging/production theo contract, không provision. Submit chỉ gửi name/subdomain;
+tạo thành công mở Application home staging. Không thêm lựa chọn đích/provider.

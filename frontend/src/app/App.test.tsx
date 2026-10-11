@@ -117,10 +117,12 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     render(<App />);
     await signIn(user);
     await user.click(screen.getAllByRole('button', { name: /create application/i })[0]!);
-    await user.type(screen.getByLabelText('Application name'), 'Catalog');
+    await user.type(screen.getByLabelText('Tên ứng dụng'), 'Catalog');
+    expect(screen.getByLabelText('Subdomain')).toHaveValue('catalog');
+    await user.clear(screen.getByLabelText('Subdomain'));
     await user.type(screen.getByLabelText('Subdomain'), 'Catalog');
     expect(screen.queryByLabelText('Connection')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Create application' }));
+    await user.click(screen.getByRole('button', { name: 'Tạo ứng dụng' }));
 
     expect(await screen.findByRole('heading', { name: 'Catalog' })).toBeInTheDocument();
     expect(screen.getByLabelText('Execution target')).toHaveTextContent('Staging has no execution connection yet');

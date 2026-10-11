@@ -1264,7 +1264,7 @@ Các khoảng Txx–Tyy gồm toàn bộ task trong khoảng; T02B ghi riêng kh
 | T06 | Trang Kết nối | T01 | DONE | V-D/V-FE (270 tests)/V-UI(T06), T01 regression pass; auto-inspect/name/stale guards, headed video decoded/reviewed. Backend local parser/422; success 201/list là projection mock, không live mutation. Evidence: `orchestrator_docs/verification/2026-10-11-T06-connections.md`; `/tmp/poc-T06-evidence-20261011-run3`. |
 | T07 | Trang Environment Settings | T01 | DONE | V-D/V-FE (289 tests)/V-UI(T07), T01 regression pass; single READY draft, explicit Save, editor/scope guards reviewed. Fake/memory adapters; transition/recovery và failure states projection mock. Evidence: `orchestrator_docs/verification/2026-10-11-T07-environment-settings.md`; `/tmp/poc-T07-evidence-review-1791695443`. |
 | T08 | Trang Workload editor | T01 | DONE | V-D/V-FE (301 tests)/V-UI(T08), T03 helper regression pass; fake headed video decoded/reviewed, typed params/overrides/aliases và route retention verified. Secret catalog/stale/BUSY projection mock. Evidence: `orchestrator_docs/verification/2026-10-11-T08-workload-editor.md`; `/tmp/poc-T08-handoff-20261011/evidence-T08-run2`. |
-| T09 | Trang Tạo ứng dụng | T01 | TODO | — |
+| T09 | Trang Tạo ứng dụng | T01 | DONE | V-D/V-FE (309 tests)/V-UI(T09), T01/T08 regression pass; slug/manual-clear guards, Vietnamese errors, payload/navigation verified; fake headed video decoded/reviewed, async 500 mock. Evidence: `orchestrator_docs/verification/2026-10-11-T09-create-application.md`; `/tmp/poc-T09-evidence-run2`. |
 | T10 | Đăng nhập và shared shell | T01 | TODO | — |
 | T11 | Danh sách ứng dụng | T01, T10 | TODO | — |
 | T12 | Application home | T01, T10 | TODO | — |

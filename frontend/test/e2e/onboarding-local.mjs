@@ -62,10 +62,10 @@ try {
     if (!session?.httpOnly) throw new Error('session cookie must be HttpOnly');
 
     await page.getByRole('button', { name: '+ Create application' }).first().click();
-    await page.getByLabel('Application name').fill(name);
+    await page.getByLabel('Tên ứng dụng').fill(name);
     await page.getByLabel('Subdomain').fill(subdomain);
     await expect(page.getByText(`staging.${subdomain}.example.com`)).toBeVisible();
-    await page.getByRole('button', { name: 'Create application' }).click();
+    await page.getByRole('button', { name: 'Tạo ứng dụng' }).click();
     await expect(page.locator('.form-success')).toContainText('Application created.');
     const appId = new URL(page.url()).pathname.match(/\/ui\/applications\/([0-9a-f-]{36})$/)?.[1];
     if (!appId) throw new Error(`unexpected Application URL ${page.url()}`);

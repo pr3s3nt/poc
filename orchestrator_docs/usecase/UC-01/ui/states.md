@@ -32,3 +32,14 @@ last_reviewed: 2026-10-11
 - Cùng target: không copy/migrate; thông báo no-op đúng thực tế.
 - Loading/error/empty/stale/copy failure/progress/confirmation và aria-label dùng
   tiếng Việt; IDs/enums/payload không dịch. VI-03 mapping toàn backend thuộc T20.
+
+## T09 — Gợi ý subdomain và tạo ứng dụng
+
+- Draft chưa sửa subdomain: thay tên cập nhật gợi ý; không gọi API.
+- Subdomain đã sửa: thay tên không ghi đè, kể cả khi subdomain bị xóa trống.
+- Empty/invalid: lỗi field tiếng Việt, không POST; preview giữ endpoint draft.
+- Submitting: khóa form và chặn submit lặp; không tự chọn Connection/provider.
+- Duplicate name/subdomain: lỗi đúng field tiếng Việt, giữ nội dung để sửa/retry.
+- Lỗi khác: fallback tiếng Việt an toàn, giữ form; retry chỉ khi người dùng submit.
+- Success: điều hướng ứng dụng mới ở staging; staging/production, IDs và payload
+  giữ nguyên. Không hiển thị raw backend errors; mapping tổng thể thuộc T20.

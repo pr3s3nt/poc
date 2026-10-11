@@ -2111,6 +2111,184 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(3000);
   },
+
+  // T09: trang Tạo ứng dụng. Developer. Backend thật (fake adapters, state tạm) trả lời tạo ứng dụng, phát hiện trùng tên/subdomain và
+  // dựng Application home. Điều kiện thật: slug gợi ý, giữ subdomain thủ công, validation phía client, 409 trùng name/subdomain do backend
+  // trả, payload POST và điều hướng. MOCK (page.route, ghi chú tại chỗ dùng): đúng một POST /applications bị giữ ~2s rồi trả 500 để dựng
+  // lỗi bất đồng bộ và kiểm tra chặn submit lặp; backend fake không tạo được lỗi này. Không có MOCK nào cho kết quả tạo thành công.
+  async T09({ page, h, ui, caption, mark, check, baseURL }) {
+    const posts = []; // every POST /api/v1/applications the browser sent (incl. the mocked failing one)
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/applications') posts.push(request.postDataJSON());
+    });
+    const mock = { failNext: 0 };
+    // MOCK: the next POST /applications is held, then answered 500 without reaching the backend.
+    await page.route('**/api/v1/applications', async (route) => {
+      if (route.request().method() !== 'POST' || mock.failNext === 0) { await route.continue(); return; }
+      mock.failNext -= 1;
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'internal secret detail xyz' }) });
+    });
+    const nameField = () => page.getByLabel('Tên ứng dụng', { exact: true });
+    const subdomainField = () => page.getByLabel('Subdomain', { exact: true });
+    const submitButton = () => page.getByRole('button', { name: 'Tạo ứng dụng', exact: true });
+    const preview = () => page.getByRole('group', { name: 'Endpoint sẽ được tạo' });
+    const openForm = async () => {
+      await h.click(page.getByRole('button', { name: '+ Create application' }).first());
+      await expect(page.getByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeVisible();
+      await expect(page.getByRole('form', { name: 'Tạo ứng dụng' })).toBeVisible();
+    };
+    const signInAs = async (username) => {
+      await h.type(ui('signIn', 'username'), username);
+      await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+      await h.click(ui('signIn', 'submit'));
+      await expect(ui('applications', 'heading')).toBeVisible();
+    };
+    const FIRST = 'T09 Thanh toán Điện tử';
+
+    caption('Bước 1: Lập trình viên đăng nhập và mở form Tạo ứng dụng; chỉ có Tên ứng dụng và Subdomain, không có lựa chọn kết nối');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await signInAs('developer');
+    await openForm();
+    await expect(page.getByRole('textbox')).toHaveCount(2);
+    await expect(page.getByRole('combobox')).toHaveCount(0);
+    await expect(preview()).toContainText('staging.ten-ung-dung.example.com');
+    check('create form: Vietnamese heading/form name, exactly 2 text inputs, no combobox/connection choice, placeholder preview');
+    mark('create-form');
+    await h.read('Form chỉ có tên và subdomain; kết nối chọn sau trong Cài đặt môi trường');
+
+    caption('Bước 2: Nhập tên có dấu tiếng Việt; subdomain tự gợi ý thành slug không dấu, đ/Đ thành d; sửa tên thì gợi ý đổi theo');
+    await h.type(nameField(), FIRST);
+    await expect(subdomainField()).toHaveValue('t09-thanh-toan-dien-tu');
+    await expect(preview()).toContainText('staging.t09-thanh-toan-dien-tu.example.com');
+    await h.type(nameField(), `${FIRST} Mới`, { replace: true });
+    await expect(subdomainField()).toHaveValue('t09-thanh-toan-dien-tu-moi');
+    await h.type(nameField(), 'T09 Thanh toán Điện tử', { replace: true });
+    await expect(subdomainField()).toHaveValue('t09-thanh-toan-dien-tu');
+    expect(posts).toHaveLength(0);
+    check('suggestion: "T09 Thanh toán Điện tử" -> t09-thanh-toan-dien-tu, follows name edits and preview; no POST yet');
+    mark('suggestion');
+    await h.read('Gợi ý chỉ hỗ trợ nhập liệu; chưa gọi API');
+
+    caption('Bước 3: Người dùng sửa subdomain; từ đó đổi tên không ghi đè lựa chọn thủ công');
+    await h.type(subdomainField(), 't09-pay', { replace: true });
+    await h.type(nameField(), `${FIRST} hai`, { replace: true, delay: 80 });
+    await expect(nameField()).toHaveValue('T09 Thanh toán Điện tử hai');
+    await expect(subdomainField()).toHaveValue('t09-pay');
+    await expect(preview()).toContainText('staging.t09-pay.example.com');
+    check('custom subdomain t09-pay kept after the name changed; preview follows the subdomain');
+    mark('custom-kept');
+    await h.read('Subdomain thủ công được giữ nguyên');
+
+    caption('Bước 4: Xóa trống subdomain rồi đổi tên: vẫn không tự gợi lại; bấm Tạo ứng dụng báo lỗi field, không gửi POST');
+    await h.type(subdomainField(), '', { replace: true });
+    await h.type(nameField(), `${FIRST} ba`, { replace: true, delay: 80 });
+    await expect(subdomainField()).toHaveValue('');
+    await h.click(submitButton());
+    await expect(page.getByText('Nhập subdomain.')).toBeVisible();
+    await expect(subdomainField()).toHaveAttribute('aria-invalid', 'true');
+    expect(posts).toHaveLength(0);
+    check('cleared subdomain stays empty after a name edit; empty submit shows "Nhập subdomain." and sends no POST');
+    mark('cleared-empty');
+    await h.read('Subdomain bị xóa trống nên không còn gợi ý; lỗi tiếng Việt, không POST');
+
+    caption('Bước 5: Subdomain không hợp lệ (Bad_Label) và tên rỗng: lỗi đúng field tiếng Việt, preview giữ nguyên bản nháp, không POST');
+    await h.type(subdomainField(), 'Bad_Label', { replace: true });
+    await h.type(nameField(), '', { replace: true });
+    await h.click(submitButton());
+    await expect(page.getByText('Nhập tên ứng dụng.')).toBeVisible();
+    await expect(page.getByText(/Chỉ dùng chữ thường không dấu, số và dấu gạch ngang; bắt đầu/)).toBeVisible();
+    await expect(preview()).toContainText('staging.bad_label.example.com');
+    expect(posts).toHaveLength(0);
+    check('invalid input: name and subdomain Vietnamese field errors, preview keeps draft bad_label, no POST');
+    mark('invalid');
+    await h.read('Lỗi nhập liệu hiển thị trên từng field; chưa gửi gì lên backend');
+
+    caption('Bước 6: Tạo ứng dụng đầu tiên (backend thật); POST chỉ gửi name và subdomain, rồi mở Application home ở staging');
+    await h.type(nameField(), FIRST, { replace: true });
+    await h.type(subdomainField(), 't09-pay', { replace: true });
+    const created = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/applications');
+    await h.click(submitButton());
+    expect((await created).postDataJSON()).toEqual({ name: FIRST, subdomain: 't09-pay' });
+    await expect(page.getByRole('heading', { name: FIRST })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Staging/ })).toHaveClass(/tab-active/);
+    const appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];
+    if (!appId || !/^[a-z0-9-]+$/.test(appId)) throw new Error(`invalid application id: ${appId}`);
+    const stored = (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}`)).json()).application;
+    expect(stored.name).toBe(FIRST);
+    expect(stored.subdomain).toBe('t09-pay');
+    check(`create (real fake backend): payload exactly {name, subdomain}; navigated to application ${appId} with Staging tab active; backend GET confirms name/subdomain`);
+    mark('created');
+    await h.read('Ứng dụng đã tạo; payload chỉ có name và subdomain');
+
+    caption('Bước 7: Tạo ứng dụng thứ hai trùng tên: backend trả 409, lỗi hiện đúng ở field Tên ứng dụng và bản nháp được giữ');
+    await h.click(ui('shell', 'navApplications'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await openForm();
+    await h.type(nameField(), FIRST, { replace: true });
+    await h.type(subdomainField(), 't09-other', { replace: true });
+    const before = posts.length;
+    await h.click(submitButton());
+    await expect(page.getByText('Tên ứng dụng này đã tồn tại.')).toBeVisible();
+    await expect(nameField()).toHaveValue(FIRST);
+    await expect(subdomainField()).toHaveValue('t09-other');
+    expect(posts).toHaveLength(before + 1);
+    expect(posts.at(-1)).toEqual({ name: FIRST, subdomain: 't09-other' });
+    check('duplicate name (backend 409): Vietnamese error on the name field, draft kept, one POST with name/subdomain only');
+    mark('duplicate-name');
+    await h.read('Trùng tên: lỗi ở field tên, nội dung vẫn còn để sửa');
+
+    caption('Bước 8: Đổi tên rồi dùng lại subdomain đã có: backend trả 409, lỗi hiện ở field Subdomain');
+    await h.type(nameField(), 'T09 Ứng dụng khác', { replace: true });
+    await expect(subdomainField()).toHaveValue('t09-other'); // manual edit survives the name change
+    await h.type(subdomainField(), 't09-pay', { replace: true });
+    const beforeSub = posts.length;
+    await h.click(submitButton());
+    await expect(page.getByText('Subdomain này đã được sử dụng.')).toBeVisible();
+    await expect(nameField()).toHaveValue('T09 Ứng dụng khác');
+    await expect(subdomainField()).toHaveValue('t09-pay');
+    expect(posts).toHaveLength(beforeSub + 1);
+    check('duplicate subdomain (backend 409): Vietnamese error on the subdomain field, draft kept, no automatic retry');
+    mark('duplicate-subdomain');
+    await h.read('Trùng subdomain: lỗi ở field subdomain; không tự thử lại');
+
+    caption('Bước 9: Lỗi bất đồng bộ (MOCK 500 sau ~2s): form khóa, nút đổi trạng thái, không gửi lặp; lỗi chung tiếng Việt, không lộ chi tiết backend');
+    await h.type(subdomainField(), 't09-async', { replace: true });
+    mock.failNext = 1;
+    const beforeAsync = posts.length;
+    await h.click(submitButton());
+    await expect(page.getByRole('button', { name: 'Đang tạo ứng dụng…' })).toBeDisabled();
+    await expect(nameField()).toBeDisabled();
+    await expect(subdomainField()).toBeDisabled();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('alert')).toHaveText('Không thể tạo ứng dụng. Hãy thử lại.');
+    await expect(page.getByText('internal secret detail')).toHaveCount(0);
+    await expect(nameField()).toHaveValue('T09 Ứng dụng khác');
+    await expect(subdomainField()).toHaveValue('t09-async');
+    await expect(submitButton()).toBeEnabled();
+    expect(posts).toHaveLength(beforeAsync + 1);
+    check('async failure (MOCKED 500): fields and button locked while pending, exactly one POST, generic Vietnamese alert without backend text, draft kept');
+    mark('async-failure');
+    await h.read('Lỗi chung an toàn; thử lại chỉ khi người dùng bấm lại');
+
+    caption('Bước 10: Người dùng bấm thử lại (backend thật): tạo thành công và mở Application home staging');
+    const retried = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/applications');
+    await h.click(submitButton());
+    expect((await retried).postDataJSON()).toEqual({ name: 'T09 Ứng dụng khác', subdomain: 't09-async' });
+    await expect(page.getByRole('heading', { name: 'T09 Ứng dụng khác' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Staging/ })).toHaveClass(/tab-active/);
+    expect(posts).toHaveLength(beforeAsync + 2);
+    check('explicit retry (real backend): POST {name, subdomain} only, navigated to the new application home with Staging active');
+    mark('retry-created');
+    await h.read('Thử lại thành công; điều hướng sang ứng dụng mới');
+
+    caption('Bước 11: Đăng xuất; phiên bị thu hồi');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(3000);
+  },
 };
 
 export function parseArgs(argv) {

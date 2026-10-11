@@ -164,9 +164,9 @@ export async function setEnvironmentConnections(h, applicationName, targets) {
 export async function createApplication(h, name, subdomain, { connections = { staging: 'internal-cluster', production: 'internal-cluster' } } = {}) {
   const { page } = h;
   await h.click(page.getByRole('button', { name: /create application|new application/i }).first());
-  await h.type(page.getByLabel('Application name'), name);
-  await h.type(page.getByLabel('Subdomain'), subdomain);
-  await h.click(page.getByRole('button', { name: 'Create application' }));
+  await h.type(page.getByLabel('Tên ứng dụng'), name);
+  await h.type(page.getByLabel('Subdomain'), subdomain, { replace: true });
+  await h.click(page.getByRole('button', { name: 'Tạo ứng dụng' }));
   await expect(page.getByRole('heading', { name })).toBeVisible();
   await h.pause(1500);
   const appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];

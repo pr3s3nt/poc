@@ -194,6 +194,15 @@ and operation components provide Vietnamese static/accessibility text.
 state/fake adapters with explicitly marked projection mocks; it proves no live
 migration. Backend error mapping remains T20; rename-reference rewrite remains T30.
 
+## T09 — Tạo ứng dụng UI
+
+[CreateApplicationPage](../../frontend/src/features/applications/CreateApplicationPage.tsx)
+và tests sở hữu slug suggestion, manual-edit guard, validation/error tiếng Việt
+và contract name/subdomain. [Scenario T09](../../frontend/test/e2e/refactor-local.mjs)
+kiểm UI creation/duplicates qua backend fake; async 500 là projection mock.
+[Verification](../verification/2026-10-11-T09-create-application.md) ghi evidence
+và giới hạn; human helper và runners cũ dùng label mới, replace subdomain gợi ý.
+
 ## T08 — Workload editor UI
 
 [Verification](../verification/2026-10-11-T08-workload-editor.md) traces WL-01/02

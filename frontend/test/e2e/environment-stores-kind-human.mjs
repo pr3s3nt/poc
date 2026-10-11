@@ -138,9 +138,9 @@ try {
   // ---- 2. Developer: application, per-Environment connection and store ----------
   await signIn('developer');
   await h.click(page.getByRole('button', { name: /create application|new application/i }).first());
-  await h.type(page.getByLabel('Application name'), applicationName);
-  await h.type(page.getByLabel('Subdomain'), subdomain);
-  await h.click(page.getByRole('button', { name: 'Create application' }));
+  await h.type(page.getByLabel('Tên ứng dụng'), applicationName);
+  await h.type(page.getByLabel('Subdomain'), subdomain, { replace: true });
+  await h.click(page.getByRole('button', { name: 'Tạo ứng dụng' }));
   await expect(page.getByRole('heading', { name: applicationName })).toBeVisible();
   await h.pause(SHORT_READ);
   const appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];

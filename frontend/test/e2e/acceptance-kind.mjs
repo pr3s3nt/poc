@@ -29,10 +29,10 @@ try {
   await reviewPause(page, 1500);
   await page.getByRole('button', { name: /create application|new application/i }).first().click();
   await reviewPause(page, 1200);
-  await page.getByLabel('Application name').fill(`Acceptance ${runId}`);
+  await page.getByLabel('Tên ứng dụng').fill(`Acceptance ${runId}`);
   await page.getByLabel('Subdomain').fill(runId);
   await reviewPause(page, 1000);
-  await page.getByRole('button', { name: 'Create application' }).click();
+  await page.getByRole('button', { name: 'Tạo ứng dụng' }).click();
   await expect(page.getByRole('heading', { name: `Acceptance ${runId}` })).toBeVisible();
   await reviewPause(page, 2000);
   const appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];

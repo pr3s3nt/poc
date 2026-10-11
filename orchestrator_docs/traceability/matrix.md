@@ -309,6 +309,13 @@ integration proof is claimed.
 | UC-01 ES-02/03, ENV-01 | UC-01 UI screens/states T07: single READY draft only, explicit Save; no default/fallback | EnvironmentConnection and SecretStoreSelection; unit tests for one/many/none, existing binding, stale/reload and scope | [T07 local verification](../verification/2026-10-11-T07-environment-settings.md) |
 | UC-12 BR-03/05/16..19; VI-02/04/05 | UC-12 UI screens/states T07: masked Secret, rename warnings, copy failure/BUSY, retained editor | SettingsPage/environment tests; headed T07 fake-adapter and marked mock scenario | [T07 local verification](../verification/2026-10-11-T07-environment-settings.md) |
 
+## T09 — Tạo ứng dụng frontend trace
+
+| Requirement | UI design | Code/test | Evidence |
+|---|---|---|---|
+| APP-01, UC-01 MS-01/02, BR-01/02/14 | UC-01 UI screens/states T09: gợi ý slug, giữ manual edits, name/subdomain only | CreateApplicationPage và tests; T09 UI tạo/trùng/validation/payload/navigation | [T09 local verification](../verification/2026-10-11-T09-create-application.md) |
+| VI-02/04/05 | Vietnamese labels/errors, retain draft, explicit retry | 309 frontend tests; headed fake T09, async 500 mock được ghi rõ | [T09 evidence](../verification/2026-10-11-T09-create-application.md) |
+
 ## T08 — Workload editor frontend trace
 
 | Requirement | UI design | Implementation/tests | Evidence |
