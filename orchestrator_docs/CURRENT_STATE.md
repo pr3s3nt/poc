@@ -174,7 +174,7 @@ capability metadata authoritative vẫn chờ T31, code error mapping đầy đ�
 Mẫu dựng ứng dụng tại `/ui/platform/rendering-templates` dành PE/Admin đã có
 list workload-only, ID/bundle ID và editor criteria chung. POST giữ BR-15/16,
 không connection override/provision/source. Form/error/help dùng tiếng Việt;
-bundle ID nhập tường minh, installed-bundle selector còn chờ T18.
+T18 đã thay nhập bundle ID bằng selector từ registry; xem mục T18 bên dưới.
 
 Headed local scenario kiểm native/selected renderer Preview và selected render
 failure/no fallback qua Deploy. Infrastructure/delivery fake, score-k8s là stub
@@ -516,3 +516,19 @@ drivers. Trusted builtin construction, executor and FK admission are unchanged.
 Existing records/history remain readable; no retained database or cluster was
 mutated. ReferenceCluster conformance remains unchanged.
 See [T17 local evidence](verification/2026-10-11-T17-existing-cluster-registration.md).
+
+## Console refactor T18 (2026-10-11)
+
+GET `/api/v1/render-bundles` dành PE/Admin với session Organization trả danh
+sách ID/version/status AVAILABLE an toàn từ registry bất biến của backend,
+được sắp theo ID và dùng cùng availability predicate với registration.
+Trang Mẫu dựng ứng dụng chọn từ API: một bundle tự chọn khi draft chưa chọn,
+nhiều bundle cần chọn tường minh, rỗng/loading/error khóa đăng ký và có hướng
+dẫn/retry Việt. Refresh không thay lựa chọn cũ; option mất availability vẫn
+hiển thị và không submit. POST giữ nguyên payload và revalidate trước insert.
+
+[Local verification](verification/2026-10-11-T18-render-bundles.md) ghi HTTP
+permissions/metadata/no-insert, frontend selector guards và headed fake scenario.
+Registry một bundle/registration/Preview dùng backend local thật với fake adapters
+và binary stub; 0/n/error là projection mocks. Không chứng minh renderer binary
+thật hoặc live cluster/cloud; PostgreSQL opt-in không chạy. Matching/ADR-010 giữ nguyên.

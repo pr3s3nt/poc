@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"orchestrator/internal/domain/application"
@@ -326,6 +327,26 @@ func validateReferences(def resource.Definition, types []resource.Type) error {
 
 func (s *Service) SetRenderBundles(bundles map[string]resource.RenderBundle) {
 	s.bundles = resource.CopyRenderBundles(bundles)
+}
+
+// InstalledRenderBundle is the safe, read-only view of an available bundle.
+type InstalledRenderBundle struct {
+	ID      string `json:"id"`
+	Version string `json:"version"`
+	Status  string `json:"status"`
+}
+
+// ListRenderBundles returns metadata of available installed bundles sorted by ID.
+// It reads only the immutable in-process registry.
+func (s *Service) ListRenderBundles() []InstalledRenderBundle {
+	out := []InstalledRenderBundle{}
+	for id, b := range s.bundles {
+		if resource.RenderBundleAvailable(s.bundles, id) {
+			out = append(out, InstalledRenderBundle{ID: b.ID, Version: b.Version, Status: "AVAILABLE"})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
 }
 
 // inheritsEnvironmentConnection reports whether a Terraform module takes its AWS

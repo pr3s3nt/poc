@@ -50,7 +50,7 @@ related: UC-03
 ## Trạng thái Mẫu dựng ứng dụng (T03)
 
 - Loading/empty/error/ready của list phân biệt rõ; lỗi có Thử lại, không giả empty.
-- ID rỗng/sai shape hoặc bundle rỗng có validation Việt trước POST.
+- ID rỗng/sai shape hoặc chưa chọn bundle hợp lệ có validation Việt trước POST.
 - Saving khóa form đã gửi. Duplicate, bundle không hợp lệ/không có sẵn hoặc lỗi
   server giữ ID, bundle và criteria; thông báo Việt an toàn, không lộ raw error.
 - Created reset form/criteria và báo ID đã đăng ký; reload lỗi giữ thông báo đã
@@ -64,3 +64,12 @@ CTA từ UC-02 mở `/ui/platform/resource-definitions?resourceType=<key>`.
 Chỉ chọn sẵn type khi catalog tải thành công xác nhận key thuộc whitelist của
 form T02; query thiếu/không hỗ trợ không tạo lựa chọn hợp lệ. Prefill không
 gửi POST hoặc ghi đè dữ liệu người dùng khi reload/response đến muộn.
+
+## Bundle selector (T18)
+
+Loading/error/empty của bundle list tách khỏi list mẫu; khóa submit cho đến khi
+có lựa chọn AVAILABLE trong list tải thành công. Lỗi có Thử lại, giữ form;
+refresh/late replies không đổi lựa chọn đã sửa. Lựa chọn đã mất availability
+được giữ để giải thích nhưng không submit. Sau Created, draft mới áp dụng lại
+quy tắc một bundle tự chọn/nhiều bundle chọn tường minh. POST unavailable giữ
+ID/bundle/criteria và thông báo Việt; retry GET không tự replay POST.

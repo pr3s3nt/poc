@@ -2,7 +2,7 @@
 id: WORKLOAD-RENDERING-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-11
 ---
 
 # Definition-selected workload rendering — contract
@@ -219,3 +219,16 @@ and side-effect free. Before any UC-08 provisioning, Deploy verifies that the
 selected binary still matches the captured digest. Restarts capture a changed
 binary digest and invalidate previously previewed plan hashes. The configured
 binary path is platform configuration, not an API field or Driver Input.
+
+## Installed bundle metadata query (T18)
+
+`GET /api/v1/render-bundles` requires an authenticated session Organization and
+Platform Engineer/Admin role (401 without session, 403 for other roles).
+Returns 200 `{"renderBundles":[{"id":"<installed ID>","version":"<version>","status":"AVAILABLE"}]}`;
+empty registry returns an empty array. Entries are sorted by ID and included
+only when map key equals nonempty ID and version, digest and binary digest are
+nonempty, matching registration availability. This is safe metadata from the
+immutable process registry shared by Organizations, never a scan or renderer call.
+No paths, binaries, template source, digests, credentials or persistence are
+exposed or mutated. Registration revalidates the selected ID independently;
+query results do not guarantee subsequent registration or execution availability.

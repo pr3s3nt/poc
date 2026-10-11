@@ -10,6 +10,15 @@ database ResourceTypeRepository as TypeRepo
 database ConnectionRepository as ConnectionRepo
 database ResourceDefinitionRepository as DefinitionRepo
 
+opt Discover installed workload bundles [BR-18/19, OC-04b]
+PE -> API: GET /api/v1/render-bundles
+API -> API: Authenticate session org and PE/Admin
+API -> Service: ListRenderBundles()
+Service -> Service: Filter immutable registry by registration availability\nSort safe ID/version/AVAILABLE metadata
+Service --> API: renderBundles (possibly empty)
+API --> PE: 200 safe metadata
+end
+
 PE -> API: RegisterResourceDefinition(document, optional profile) [MS-01..MS-02]
 API -> Service: RegisterResourceDefinition(ctx, command)
 Service -> Validator: Validate() [MS-03, BR-07]

@@ -446,6 +446,14 @@ export const SCENARIOS = {
     await h.read('Hai ứng dụng đã sẵn sàng, mỗi ứng dụng có workload web');
     await signOut();
 
+    // MOCK (projection of GET /render-bundles): the real backend lists exactly one installed bundle
+    // (score-k8s-internal-v1 from the stub). One extra entry makes the list explicit and lets step 4
+    // select a bundle the server does not have; POST /resource-definitions stays real and rejects it.
+    await page.route('**/api/v1/render-bundles', async (route) => {
+      const response = await route.fetch();
+      const data = await response.json();
+      await route.fulfill({ response, json: { renderBundles: [...data.renderBundles, { id: 'bundle-khong-co', version: '0.0.0', status: 'AVAILABLE' }] } });
+    });
     caption('Bước 2: Kỹ sư nền tảng mở trang Mẫu dựng ứng dụng; danh sách trống, có hướng dẫn tiếng Việt');
     await signInAs('platform-engineer');
     await h.click(ui('shell', 'navRenderingTemplates'));
@@ -454,8 +462,8 @@ export const SCENARIOS = {
     await expect(page.getByText('Chưa có mẫu dựng ứng dụng nào.')).toBeVisible();
     await expect(page.getByText(/Mẫu là tùy chọn và chỉ dùng cho cluster nội bộ/)).toBeVisible();
     await expect(page.getByText(/không chuyển âm thầm sang renderer mặc định/)).toBeVisible();
-    await expect(page.getByText(/chưa phải bộ chọn từ danh sách bundle đã cài/)).toBeVisible();
-    check('sidebar peer link opens /ui/platform/rendering-templates; empty list, optional/internal-only/no-fallback guidance and explicit-bundle note shown');
+    await expect(page.getByText(/Một bundle duy nhất được chọn sẵn; nhiều bundle cần chọn tường minh/)).toBeVisible();
+    check('sidebar peer link opens /ui/platform/rendering-templates; empty list, optional/internal-only/no-fallback guidance and bundle-selector note shown');
     mark('templates-page');
     await h.read('Mẫu là tùy chọn, chỉ cho cluster nội bộ; mẫu đã chọn render lỗi sẽ báo lỗi');
 
@@ -470,13 +478,13 @@ export const SCENARIOS = {
 
     caption('Bước 4: Nhập bundle không tồn tại; máy chủ từ chối, ID, bundle và điều kiện được giữ');
     await h.type(ui('renderingTemplates', 'id'), 'tpl-web');
-    await h.type(ui('renderingTemplates', 'bundle'), 'bundle-khong-co');
+    await h.choose(ui('renderingTemplates', 'bundle'), 'bundle-khong-co (phiên bản 0.0.0)');
     await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
     await h.choose(select(/^Ứng dụng(?! mẫu)/), await optionLabel(select(/^Ứng dụng(?! mẫu)/), templateId));
     await h.choose(select(/^Môi trường \(tùy chọn\)/), await optionLabel(select(/^Môi trường \(tùy chọn\)/), 'staging'));
     await h.click(ui('renderingTemplates', 'submit'));
     await expect(formAlert()).toContainText('Máy chủ từ chối mẫu này');
-    await expect(formAlert()).toContainText('bundle có thể chưa được cài');
+    await expect(formAlert()).toContainText('bundle có thể không còn khả dụng');
     expect(await formAlert().innerText()).not.toMatch(/bundle-khong-co|unavailable|not installed|invalid/i);
     await expect(ui('renderingTemplates', 'id')).toHaveValue('tpl-web');
     await expect(ui('renderingTemplates', 'bundle')).toHaveValue('bundle-khong-co');
@@ -489,7 +497,7 @@ export const SCENARIOS = {
     await h.read('Bundle không có sẵn: dữ liệu đã nhập vẫn còn và chưa lưu gì');
 
     caption('Bước 5: Nhập đúng bundle score-k8s-internal-v1 rồi đăng ký mẫu cho ứng dụng thứ hai');
-    await h.type(ui('renderingTemplates', 'bundle'), 'score-k8s-internal-v1', { replace: true });
+    await h.choose(ui('renderingTemplates', 'bundle'), 'score-k8s-internal-v1 (phiên bản 0.15.0)');
     await h.click(ui('renderingTemplates', 'submit'));
     await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng ứng dụng tpl-web.' })).toBeVisible();
     const entry = page.locator('.catalog-entry').filter({ has: page.getByText('tpl-web', { exact: true }) });
@@ -509,7 +517,7 @@ export const SCENARIOS = {
 
     caption('Bước 6: Đăng ký lại cùng ID; báo trùng ID bằng tiếng Việt và giữ form');
     await h.type(ui('renderingTemplates', 'id'), 'tpl-web');
-    await h.type(ui('renderingTemplates', 'bundle'), 'score-k8s-internal-v1');
+    await h.choose(ui('renderingTemplates', 'bundle'), 'score-k8s-internal-v1 (phiên bản 0.15.0)');
     await h.click(ui('renderingTemplates', 'submit'));
     await expect(formAlert()).toContainText('ID mẫu đã tồn tại');
     await expect(ui('renderingTemplates', 'id')).toHaveValue('tpl-web');
@@ -3857,6 +3865,208 @@ export const SCENARIOS = {
     await h.read('Xem trước chọn đúng cấu hình VPC, EKS và Aurora đã đăng ký');
     await h.click(ui('shell', 'signOut'));
     await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(3000);
+  },
+
+  // T18: bộ chọn bundle dựng ứng dụng từ GET /api/v1/render-bundles. Fake adapters + the T03 score-k8s stub
+  // (wrapper passes -score-k8s), so the REAL backend lists exactly one installed bundle and registers/plans for real.
+  // MOCKS (page.route, projections of GET /render-bundles only; every POST/Preview stays real): 'empty' (0 bundle),
+  // 'error' (list failure), 'hold'/'many' (the real bundle + one extra entry the server does not have, so the list has n
+  // entries and the user can select an unavailable one). The stub is not the real score-k8s: Preview only proves selection.
+  async T18({ page, h, ui, caption, mark, check, baseURL }) {
+    const log = process.env.ORCH_E2E_SCORE_K8S_LOG;
+    if (!log) throw new Error('ORCH_E2E_SCORE_K8S_LOG is required for T18 (set by refactor-ui-local.sh)');
+    const calls = () => (existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean).length : 0);
+    const NAME = 'T18 Mẫu dựng ứng dụng';
+    const TEMPLATE = 'tpl-t18';
+    const EXTRA = { id: 'score-k8s-bundle-gone', version: '0.0.1', status: 'AVAILABLE' };
+    const json = (status, body) => ({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    const mock = { mode: 'real', gate: Promise.resolve(), release: () => {}, listCalls: 0 };
+    const posts = [];
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/resource-definitions') posts.push(request.postDataJSON());
+    });
+    await page.route('**/api/v1/render-bundles', async (route) => {
+      mock.listCalls += 1;
+      if (mock.mode === 'real') { await route.continue(); return; }
+      if (mock.mode === 'empty') { await route.fulfill(json(200, { renderBundles: [] })); return; }
+      if (mock.mode === 'error') { await route.fulfill(json(500, { error: 'sentinel-internal-detail /srv/bundles' })); return; }
+      const response = await route.fetch();
+      const data = await response.json();
+      if (mock.mode === 'hold') await mock.gate;
+      await route.fulfill({ response, json: { renderBundles: [...data.renderBundles, EXTRA] } });
+    });
+    const definitions = async () => (await (await page.request.get(`${baseURL}/api/v1/resource-definitions`)).json()).resourceDefinitions;
+    const editor = page.locator('.criteria-editor');
+    const select = (text) => editor.locator('label').filter({ hasText: text }).locator('select');
+    const optionLabel = (locator, value) => locator.locator('option').evaluateAll((options, wanted) => options.find((option) => option.value === wanted)?.textContent, value);
+    const bundle = () => ui('renderingTemplates', 'bundle');
+    const submit = () => ui('renderingTemplates', 'submit');
+    const alertWith = (name) => page.getByRole('alert', { name });
+    const workload = { name: 'web', image: 'registry.example/web:t18', bindings: [], port: { name: 'http', port: '8080', targetPort: '8080' } };
+    const signInAs = async (username) => {
+      await h.type(ui('signIn', 'username'), username);
+      await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+      await h.click(ui('signIn', 'submit'));
+      await expect(ui('applications', 'heading')).toBeVisible();
+    };
+    const signOut = async () => {
+      await h.click(ui('shell', 'signOut'));
+      await expect(ui('signIn', 'username')).toBeVisible();
+    };
+
+    caption('Bước 1: Lập trình viên đăng nhập và tạo ứng dụng có workload web; API danh sách bundle từ chối vai trò này');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await signInAs('developer');
+    const appId = await createApplication(h, NAME, 't18-mau-dung');
+    await addWorkload(h, workload);
+    expect((await page.request.get(`${baseURL}/api/v1/render-bundles`)).status()).toBe(403);
+    check(`developer created application ${appId} with workload web through the UI; ASSERTION (API read): GET /render-bundles as developer -> 403`);
+    mark('application-prepared');
+    await h.read('Ứng dụng đã sẵn sàng; Lập trình viên không đọc được danh sách bundle');
+    await signOut();
+
+    caption('Bước 2: Kỹ sư nền tảng đăng nhập; ASSERTION (API đọc): danh sách chỉ có ID, phiên bản và trạng thái AVAILABLE');
+    await signInAs('platform-engineer');
+    const listed = await page.request.get(`${baseURL}/api/v1/render-bundles`);
+    expect(listed.status()).toBe(200);
+    const listedBody = await listed.json();
+    expect(Object.keys(listedBody)).toEqual(['renderBundles']);
+    expect(listedBody.renderBundles).toHaveLength(1);
+    const real = listedBody.renderBundles[0];
+    expect(Object.keys(real).sort()).toEqual(['id', 'status', 'version']);
+    expect(real.status).toBe('AVAILABLE');
+    expect(JSON.stringify(listedBody)).not.toMatch(/digest|path|binary|source|token|secret/i);
+    const REAL_LABEL = `${real.id} (phiên bản ${real.version})`;
+    check(`API (read, real backend): one installed bundle ${real.id} ${real.version}, keys id/version/status only, no digest/path/binary/source`);
+    mark('api-list');
+    await h.read('API chỉ trả ID, phiên bản và trạng thái AVAILABLE của bundle đã cài');
+
+    caption('Bước 3: Registry không có bundle (mock rỗng): form khóa đăng ký và hướng dẫn liên hệ Kỹ sư nền tảng');
+    mock.mode = 'empty';
+    await h.click(ui('shell', 'navRenderingTemplates'));
+    await expect(ui('renderingTemplates', 'heading')).toBeVisible();
+    await expect(alertWith('Chưa có bundle')).toContainText('Hãy liên hệ Kỹ sư nền tảng');
+    await expect(bundle()).toBeDisabled();
+    await expect(submit()).toBeDisabled();
+    await h.type(ui('renderingTemplates', 'id'), TEMPLATE);
+    await expect(submit()).toBeDisabled();
+    expect(posts).toHaveLength(0);
+    check('zero bundles (mock projection): Vietnamese guidance, selector and submit disabled, ID draft typed, no POST');
+    mark('zero-bundles');
+    await h.moveTo(alertWith('Chưa có bundle'));
+    await h.read('Không có bundle thì không thể đăng ký mẫu');
+
+    caption('Bước 4: Lỗi tải danh sách (mock 500): thông báo Việt an toàn, ID mẫu đã nhập được giữ, vẫn khóa đăng ký');
+    mock.mode = 'error';
+    await h.click(page.getByRole('button', { name: 'Làm mới danh sách bundle' }));
+    await expect(alertWith('Lỗi tải bundle')).toContainText('Không tải được danh sách bundle đã cài.');
+    expect(await alertWith('Lỗi tải bundle').innerText()).not.toMatch(/sentinel-internal-detail|\/srv/);
+    await expect(ui('renderingTemplates', 'id')).toHaveValue(TEMPLATE);
+    await expect(submit()).toBeDisabled();
+    expect(posts).toHaveLength(0);
+    check('list error (mock 500): safe Vietnamese message without raw detail, draft ID kept, submit disabled, no POST');
+    mark('list-error');
+    await h.moveTo(alertWith('Lỗi tải bundle'));
+    await h.read('Lỗi tải danh sách: dữ liệu đã nhập được giữ và có nút thử lại');
+
+    caption('Bước 5: Thử lại khi có hai bundle (đang tải khóa chọn): không tự chọn, phải chọn tường minh');
+    mock.mode = 'hold';
+    mock.gate = new Promise((resolve) => { mock.release = resolve; });
+    await h.click(page.getByRole('button', { name: 'Thử lại tải bundle' }));
+    await expect(page.getByText('Đang tải danh sách bundle đã cài…')).toBeVisible();
+    await expect(bundle()).toBeDisabled();
+    await expect(submit()).toBeDisabled();
+    await h.read('Đang tải: đăng ký và chọn bundle bị khóa');
+    mock.release();
+    await expect(bundle()).toBeEnabled();
+    await expect(bundle()).toHaveValue('');
+    await expect(ui('renderingTemplates', 'id')).toHaveValue(TEMPLATE);
+    await expect(submit()).toBeEnabled();
+    check('n bundles (mock projection: real + one extra): loading locks selector/submit; after reply nothing is auto-selected; draft ID kept');
+    mark('many-bundles');
+    await h.moveTo(bundle());
+    await h.read('Có nhiều bundle thì không tự chọn');
+    await h.click(submit());
+    await expect(page.getByRole('alert').filter({ hasText: 'Chọn bundle dựng ứng dụng.' })).toBeVisible();
+    expect(posts).toHaveLength(0);
+    check('submit without an explicit selection: Vietnamese validation, no POST');
+    mark('select-required');
+
+    caption('Bước 6: Chọn bundle mà máy chủ không còn có; POST bị từ chối, ID, bundle và điều kiện được giữ');
+    await h.choose(bundle(), `${EXTRA.id} (phiên bản ${EXTRA.version})`);
+    await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
+    await h.choose(select(/^Ứng dụng(?! mẫu)/), await optionLabel(select(/^Ứng dụng(?! mẫu)/), appId));
+    await h.choose(select(/^Môi trường \(tùy chọn\)/), await optionLabel(select(/^Môi trường \(tùy chọn\)/), 'staging'));
+    await h.click(submit());
+    const rejected = page.getByRole('alert').filter({ hasText: 'Máy chủ từ chối mẫu này' });
+    await expect(rejected).toContainText('bundle có thể không còn khả dụng');
+    expect(await rejected.innerText()).not.toMatch(/unavailable|not installed|invalid|score-k8s-bundle-gone/i);
+    await expect(ui('renderingTemplates', 'id')).toHaveValue(TEMPLATE);
+    await expect(bundle()).toHaveValue(EXTRA.id);
+    await expect(select(/^Ứng dụng(?! mẫu)/)).toHaveValue(appId);
+    await expect(select(/^Môi trường \(tùy chọn\)/)).toHaveValue('staging');
+    expect(posts).toHaveLength(1);
+    expect(posts[0].driverInputs.values.variables).toEqual({ render_bundle: EXTRA.id });
+    expect((await definitions()).some((item) => item.key === TEMPLATE)).toBe(false);
+    check('POST with the unavailable bundle (real backend 400): safe message, ID/bundle/criteria kept, nothing registered');
+    mark('unavailable-post');
+    await h.moveTo(rejected);
+    await h.read('Máy chủ kiểm tra lại bundle khi đăng ký và từ chối trước khi lưu');
+
+    caption('Bước 7: Làm mới danh sách (backend thật, một bundle): lựa chọn cũ không còn khả dụng, không thể gửi, không bị đổi hộ');
+    mock.mode = 'real';
+    await h.click(page.getByRole('button', { name: 'Làm mới danh sách bundle' }));
+    await expect(alertWith('Bundle không còn khả dụng')).toContainText(EXTRA.id);
+    await expect(bundle()).toHaveValue(EXTRA.id);
+    await expect(ui('renderingTemplates', 'id')).toHaveValue(TEMPLATE);
+    await expect(page.getByRole('option', { name: `${EXTRA.id} (không còn khả dụng)` })).toBeAttached();
+    await expect(submit()).toBeDisabled();
+    expect(posts).toHaveLength(1);
+    check('refresh to the real list: selected bundle stays as a visible option flagged unavailable; submit is disabled; no second POST; selection not replaced');
+    mark('stale-selection');
+    await h.moveTo(alertWith('Bundle không còn khả dụng'));
+    await h.read('Lựa chọn không còn trong danh sách thì không thể gửi');
+
+    caption('Bước 8: Chọn bundle đã cài rồi đăng ký mẫu; sau khi lưu, form mới tự chọn bundle duy nhất');
+    await h.choose(bundle(), REAL_LABEL);
+    await h.click(submit());
+    await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký mẫu dựng ứng dụng ${TEMPLATE}.` })).toBeVisible();
+    const entry = page.locator('.catalog-entry').filter({ has: page.getByText(TEMPLATE, { exact: true }) });
+    await expect(entry).toContainText(`Bundle: ${real.id} · 1 điều kiện áp dụng`);
+    await expect(ui('renderingTemplates', 'id')).toHaveValue('');
+    await expect(bundle()).toHaveValue(real.id);
+    expect(posts).toHaveLength(2);
+    const stored = (await definitions()).find((item) => item.key === TEMPLATE);
+    expect(stored).toMatchObject({ resourceType: 'workload', driverType: 'score-k8s', executionProfile: 'internal-k8s', criteria: [{ app_id: appId, env_id: 'staging' }] });
+    expect(stored.driverInputs.values.variables).toEqual({ render_bundle: real.id });
+    expect(posts[1].driverInputs.values.variables).toEqual({ render_bundle: real.id });
+    check(`registered ${TEMPLATE} with render_bundle ${real.id} (payload unchanged shape); a single installed bundle is auto-selected for the next draft`);
+    mark('template-registered');
+    await h.moveTo(entry);
+    await h.read('Đã đăng ký; form mới tự chọn bundle duy nhất đã cài');
+    await signOut();
+
+    caption('Bước 9: Lập trình viên Xem trước ứng dụng; hệ thống chọn đúng mẫu tpl-t18 (renderer fake/stub, chưa render)');
+    await signInAs('developer');
+    await h.click(page.getByRole('button', { name: new RegExp(NAME) }));
+    await expect(page.getByRole('heading', { name: NAME })).toBeVisible();
+    await h.click(page.getByRole('button', { name: 'Xem trước thay đổi' }));
+    const preview = page.getByLabel('Xem trước triển khai');
+    await expect(preview).toContainText('1 Workload bị ảnh hưởng', { timeout: 60_000 });
+    await expect(preview.locator('li').filter({ hasText: /^web / })).toContainText(`score-k8s ${real.version} (${TEMPLATE})`);
+    expect(calls(), 'Preview never runs the renderer').toBe(0);
+    check(`Preview (real backend, fake adapters, stub binary): selected template ${TEMPLATE} with score-k8s ${real.version}; zero stub calls`);
+    mark('preview-template');
+    await h.moveTo(preview);
+    await h.read('Xem trước chọn đúng mẫu đã đăng ký từ bundle đã chọn');
+    await signOut();
+
+    caption('Bước 10: Chưa đăng nhập, API danh sách bundle trả 401');
+    expect((await page.request.get(`${baseURL}/api/v1/render-bundles`)).status()).toBe(401);
+    check('ASSERTION (API read): GET /render-bundles without session -> 401');
     mark('signed-out');
     await h.pause(3000);
   },

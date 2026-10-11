@@ -107,8 +107,8 @@ try {
   await h.pause(2000);
   const definitionKey = `render-${runId}`.slice(0, 63);
   await h.type(page.getByLabel('ID mẫu', { exact: true }), definitionKey);
-  // The bundle ID is typed explicitly (T03: no installed-bundle list until T18).
-  await h.type(page.getByLabel('ID bundle dựng ứng dụng', { exact: true }), 'score-k8s-internal-v1');
+  // T18: the installed bundle comes from GET /render-bundles; the only installed bundle is selected automatically.
+  await expect(page.getByLabel('Bundle dựng ứng dụng', { exact: true })).toHaveValue('score-k8s-internal-v1');
   await h.pause(3000);
   const criteria = page.locator('.criteria-editor');
   await h.click(criteria.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));

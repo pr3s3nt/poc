@@ -276,7 +276,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     await screen.findByRole('navigation', { name: 'Điều hướng chính' });
     expect(screen.queryByRole('link', { name: /Mẫu dựng ứng dụng/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Mẫu dựng ứng dụng' })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('ID bundle dựng ứng dụng')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Bundle dựng ứng dụng')).not.toBeInTheDocument();
     expect(requests.some((request) => request.url.endsWith('/resource-definitions'))).toBe(false);
   });
   describe('Resource Types to Definitions navigation (T04)', () => {

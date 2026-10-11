@@ -70,13 +70,14 @@ endpoint matching mới, không lưu hoặc provision khi xem trước. Editor c
 Trang `/ui/platform/rendering-templates` nằm ngang hàng các trang catalog trong
 sidebar, chỉ Kỹ sư nền tảng/Quản trị viên truy cập. Danh sách chỉ lấy Definitions
 có `resourceType: workload`, hiển thị ID kỹ thuật, bundle ID và điều kiện áp dụng.
-Form gồm ID mẫu, ID bundle dựng ứng dụng và editor Điều kiện áp dụng T02B.
+Form gồm ID mẫu, bộ chọn Bundle dựng ứng dụng và editor Điều kiện áp dụng T02B.
 ID tuân thủ chữ thường/số/gạch ngang, không có friendly name.
 
 Type `workload`, driver `score-k8s` và profile `internal-k8s` là giá trị ngầm;
 không có controls Connection, provision, module hoặc JSON variables tùy ý.
-Bundle ID được nhập tường minh theo API hiện tại; trợ giúp nói rõ đây chưa phải
-bộ chọn danh sách bundle đã cài (T18). Không suy availability từ ID hard-code.
+Bundle lấy từ GET `/api/v1/render-bundles`, hiển thị ID/version. Một bundle tự
+chọn khi chưa có lựa chọn; nhiều bundle cần chọn tường minh. Không có bundle
+thì khóa đăng ký và hướng dẫn liên hệ Kỹ sư nền tảng. Không hard-code bundle ID.
 
 Mẫu là tùy chọn, chỉ dùng cho cluster nội bộ. Hệ thống tự chọn theo criteria
 hiện hành; không có mẫu khớp thì dùng renderer mặc định. Mẫu được chọn render

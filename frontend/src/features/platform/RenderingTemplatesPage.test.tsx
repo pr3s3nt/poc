@@ -1,10 +1,11 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RenderingTemplatesPage } from './RenderingTemplatesPage';
 
 type Body = Record<string, unknown>;
-type Backend = { definitions?: Body[]; post?: () => Response; definitionLists?: (() => Response)[] };
+type Backend = { definitions?: Body[]; post?: () => Response; definitionLists?: (() => Response)[]; bundles?: Body[]; bundleLists?: (() => Response | Promise<Response>)[] };
+const bundleWeb = { id: 'bundle-web', version: '0.15.0', status: 'AVAILABLE' };
 const applications = [{ key: 'shop', name: 'Cửa hàng', environments: [{ key: 'staging', name: 'Staging', environmentType: 'staging' }] }];
 const template = { key: 'web-tpl', resourceType: 'workload', driverType: 'score-k8s', executionProfile: 'internal-k8s', driverInputs: { values: { variables: { render_bundle: 'bundle-web' } } }, criteria: [{ env_type: 'staging' }] };
 const other = { key: 'pg-main', resourceType: 'postgres', driverType: 'kubernetes', executionProfile: 'internal-k8s', criteria: [{}] };
@@ -17,6 +18,7 @@ function backend(options: Backend = {}) {
     if (init?.method === 'POST') { posted.push(JSON.parse(String(init.body)) as Body); return (options.post ?? (() => Response.json({}, { status: 201 })))(); }
     gets.push(url);
     if (url.endsWith('/applications')) return Response.json({ applications });
+    if (url.endsWith('/render-bundles')) { const nextBundles = options.bundleLists?.shift(); return nextBundles ? nextBundles() : Response.json({ renderBundles: options.bundles ?? [bundleWeb] }); }
     const next = options.definitionLists?.shift();
     return next ? next() : Response.json({ resourceDefinitions: options.definitions ?? [] });
   }));
@@ -28,9 +30,10 @@ afterEach(() => vi.unstubAllGlobals());
 const field = (label: string) => screen.getByLabelText(label);
 const submitName = 'Đăng ký mẫu dựng ứng dụng';
 const submitButton = () => screen.getByRole('button', { name: submitName });
-async function fill(user: ReturnType<typeof userEvent.setup>, id = 'web-tpl', bundle = 'bundle-web') {
+const bundleSelect = () => screen.getByLabelText('Bundle dựng ứng dụng');
+async function fill(user: ReturnType<typeof userEvent.setup>, id = 'web-tpl', bundle = '') {
   await user.type(field('ID mẫu'), id);
-  if (bundle) await user.type(field('ID bundle dựng ứng dụng'), bundle);
+  if (bundle) await user.selectOptions(bundleSelect(), bundle);
 }
 
 describe('UC-03 rendering templates page (T03)', () => {
@@ -48,7 +51,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     expect(await screen.findByText('Chưa có mẫu dựng ứng dụng nào.')).toBeInTheDocument();
     expect(screen.getByText(/Mẫu là tùy chọn và chỉ dùng cho cluster nội bộ/)).toBeInTheDocument();
     expect(screen.getByText(/không chuyển âm thầm sang renderer mặc định/)).toBeInTheDocument();
-    expect(screen.getByText(/chưa phải bộ chọn từ danh sách bundle đã cài/)).toBeInTheDocument();
+    expect(screen.getByText(/Một bundle duy nhất được chọn sẵn; nhiều bundle cần chọn tường minh/)).toBeInTheDocument();
   });
 
   it('posts only workload/score-k8s/internal-k8s with render_bundle and criteria', async () => {
@@ -64,7 +67,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     expect(posted[0]).not.toHaveProperty('driverInputs.values.source');
     expect(await screen.findByText(/Bundle: bundle-web/)).toBeInTheDocument();
     expect(field('ID mẫu')).toHaveValue('');
-    expect(field('ID bundle dựng ứng dụng')).toHaveValue('');
+    expect(bundleSelect()).toHaveValue('bundle-web');
   });
 
   it('shows no infrastructure controls and reuses the shared criteria editor', async () => {
@@ -76,7 +79,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     expect(screen.getByText(/Phạm vi triển khai \(executionProfile\):/)).toHaveTextContent('Cluster nội bộ');
   });
 
-  it('validates ID shape and required bundle before any POST', async () => {
+  it('validates ID shape before any POST', async () => {
     const user = userEvent.setup();
     const { posted } = backend();
     render(<RenderingTemplatesPage />);
@@ -90,12 +93,11 @@ describe('UC-03 rendering templates page (T03)', () => {
     await user.clear(field('ID mẫu'));
     await user.type(field('ID mẫu'), 'ok-id');
     await user.click(submitButton());
-    expect(await screen.findByRole('alert')).toHaveTextContent('Nhập ID bundle dựng ứng dụng.');
-    expect(posted).toHaveLength(0);
+    expect(posted).toHaveLength(1);
   });
 
   it.each([
-    ['unavailable bundle (400)', 400, 'bundle not installed: secret-detail', /bundle có thể chưa được cài/],
+    ['unavailable bundle (400)', 400, 'bundle not installed: secret-detail', /bundle có thể không còn khả dụng/],
     ['duplicate (409)', 409, 'duplicate id', /ID mẫu đã tồn tại/],
     ['server error (500)', 500, 'stack trace internals', /Máy chủ gặp lỗi/],
   ])('keeps ID, bundle and criteria on %s with a safe Vietnamese message', async (_name, status, raw, message) => {
@@ -103,7 +105,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     const { posted } = backend({ post: () => Response.json({ error: raw }, { status }) });
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
-    await fill(user, 'web-tpl', 'missing-bundle');
+    await fill(user);
     await user.click(screen.getByLabelText(/Theo loại môi trường/));
     await user.type(screen.getByLabelText('Loại môi trường'), 'staging');
     await user.click(submitButton());
@@ -111,7 +113,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     expect(alert).toHaveTextContent(message);
     expect(alert).not.toHaveTextContent(raw);
     expect(field('ID mẫu')).toHaveValue('web-tpl');
-    expect(field('ID bundle dựng ứng dụng')).toHaveValue('missing-bundle');
+    expect(bundleSelect()).toHaveValue('bundle-web');
     expect(screen.getByLabelText('Loại môi trường')).toHaveValue('staging');
     expect(submitButton()).toBeEnabled();
     expect(screen.queryByText(/Đã đăng ký mẫu/)).not.toBeInTheDocument();
@@ -123,14 +125,16 @@ describe('UC-03 rendering templates page (T03)', () => {
     let release: (response: Response) => void = () => undefined;
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       if (init?.method === 'POST') return new Promise<Response>((done) => { release = done; });
-      return String(input).endsWith('/applications') ? Response.json({ applications }) : Response.json({ resourceDefinitions: [] });
+      const url = String(input);
+      if (url.endsWith('/render-bundles')) return Response.json({ renderBundles: [bundleWeb] });
+      return url.endsWith('/applications') ? Response.json({ applications }) : Response.json({ resourceDefinitions: [] });
     }));
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
     await fill(user);
     await user.click(submitButton());
     expect(field('ID mẫu')).toBeDisabled();
-    expect(field('ID bundle dựng ứng dụng')).toBeDisabled();
+    expect(bundleSelect()).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Đang đăng ký…' })).toBeDisabled();
     release(Response.json({}, { status: 201 }));
     expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký');
@@ -162,5 +166,155 @@ describe('UC-03 rendering templates page (T03)', () => {
     expect(await screen.findByText('web-tpl')).toBeInTheDocument();
     expect(gets.length).toBeGreaterThan(before);
     expect(posted).toHaveLength(1);
+  });
+
+  describe('installed bundle selector (T18)', () => {
+    const second = { id: 'bundle-b', version: '1.0.0', status: 'AVAILABLE' };
+    it('reads the bundle list from the API and auto-selects a single bundle', async () => {
+      const { gets } = backend();
+      render(<RenderingTemplatesPage />);
+      await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      expect(gets.some((url) => url.endsWith('/render-bundles'))).toBe(true);
+      expect(bundleSelect()).toHaveValue('bundle-web');
+      expect(screen.getByRole('option', { name: 'bundle-web (phiên bản 0.15.0)' })).toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: /bundle/i })).not.toBeInTheDocument();
+    });
+
+    it('requires an explicit choice with several bundles and posts the chosen ID', async () => {
+      const user = userEvent.setup();
+      const { posted } = backend({ bundles: [bundleWeb, second] });
+      render(<RenderingTemplatesPage />);
+      await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      expect(bundleSelect()).toHaveValue('');
+      await user.type(field('ID mẫu'), 'web-tpl');
+      await user.click(submitButton());
+      expect(await screen.findByRole('alert')).toHaveTextContent('Chọn bundle dựng ứng dụng.');
+      expect(posted).toHaveLength(0);
+      await user.selectOptions(bundleSelect(), 'bundle-b');
+      await user.click(submitButton());
+      expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký mẫu dựng ứng dụng web-tpl.');
+      expect(posted[0]).toMatchObject({ driverInputs: { values: { variables: { render_bundle: 'bundle-b' } } } });
+      expect(bundleSelect()).toHaveValue('');
+    });
+
+    it('blocks submit and guides in Vietnamese when no bundle is installed', async () => {
+      const user = userEvent.setup();
+      const { posted } = backend({ bundles: [] });
+      render(<RenderingTemplatesPage />);
+      const alert = await screen.findByRole('alert', { name: 'Chưa có bundle' });
+      expect(alert).toHaveTextContent('Hãy liên hệ Kỹ sư nền tảng');
+      expect(bundleSelect()).toBeDisabled();
+      expect(submitButton()).toBeDisabled();
+      await user.type(field('ID mẫu'), 'web-tpl');
+      expect(submitButton()).toBeDisabled();
+      expect(posted).toHaveLength(0);
+    });
+
+    it('blocks submit while loading, keeps the draft on list error and retries without POST', async () => {
+      const user = userEvent.setup();
+      let release: (response: Response) => void = () => undefined;
+      const { posted } = backend({ bundleLists: [() => new Promise<Response>((done) => { release = done; })] });
+      render(<RenderingTemplatesPage />);
+      await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      expect(screen.getByText('Đang tải danh sách bundle đã cài…')).toBeInTheDocument();
+      expect(submitButton()).toBeDisabled();
+      await user.type(field('ID mẫu'), 'web-tpl');
+      release(Response.json({ error: 'boom' }, { status: 500 }));
+      const alert = await screen.findByRole('alert', { name: 'Lỗi tải bundle' });
+      expect(alert).toHaveTextContent('Không tải được danh sách bundle đã cài.');
+      expect(alert).not.toHaveTextContent('boom');
+      expect(field('ID mẫu')).toHaveValue('web-tpl');
+      expect(submitButton()).toBeDisabled();
+      await user.click(within(alert).getByRole('button', { name: 'Thử lại tải bundle' }));
+      await waitFor(() => expect(bundleSelect()).toHaveValue('bundle-web'));
+      expect(field('ID mẫu')).toHaveValue('web-tpl');
+      expect(submitButton()).toBeEnabled();
+      expect(posted).toHaveLength(0);
+    });
+
+    it('keeps the user choice when a refresh or late reply arrives', async () => {
+      const user = userEvent.setup();
+      let release: (response: Response) => void = () => undefined;
+      backend({ bundles: [bundleWeb, second], bundleLists: [() => Response.json({ renderBundles: [bundleWeb, second] }), () => new Promise<Response>((done) => { release = done; })] });
+      render(<RenderingTemplatesPage />);
+      await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      await user.selectOptions(bundleSelect(), 'bundle-b');
+      await user.click(screen.getByRole('button', { name: 'Làm mới danh sách bundle' }));
+      release(Response.json({ renderBundles: [bundleWeb, second] }));
+      await waitFor(() => expect(bundleSelect()).toBeEnabled());
+      expect(bundleSelect()).toHaveValue('bundle-b');
+    });
+
+    it('does not auto-select over an explicit choice when a refresh returns a single other bundle', async () => {
+      const user = userEvent.setup();
+      const { posted } = backend({ bundles: [bundleWeb, second], bundleLists: [() => Response.json({ renderBundles: [bundleWeb, second] }), () => Response.json({ renderBundles: [bundleWeb] })] });
+      render(<RenderingTemplatesPage />);
+      await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      await user.selectOptions(bundleSelect(), 'bundle-b');
+      await user.type(field('ID mẫu'), 'web-tpl');
+      await user.click(screen.getByRole('button', { name: 'Làm mới danh sách bundle' }));
+      const alert = await screen.findByRole('alert', { name: 'Bundle không còn khả dụng' });
+      expect(alert).toHaveTextContent('bundle-b');
+      expect(bundleSelect()).toHaveValue('bundle-b');
+      expect(field('ID mẫu')).toHaveValue('web-tpl');
+      expect(submitButton()).toBeDisabled();
+      expect(posted).toHaveLength(0);
+      await user.selectOptions(bundleSelect(), 'bundle-web');
+      await user.click(submitButton());
+      await waitFor(() => expect(posted).toHaveLength(1));
+      expect(posted[0]).toMatchObject({ driverInputs: { values: { variables: { render_bundle: 'bundle-web' } } } });
+    });
+
+    it('keeps draft and selection when POST reports the bundle unavailable and does not replay on list retry', async () => {
+      const user = userEvent.setup();
+      const { posted } = backend({ bundles: [bundleWeb, second], post: () => Response.json({ error: 'render bundle is unavailable' }, { status: 400 }) });
+      render(<RenderingTemplatesPage />);
+      await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      await fill(user, 'web-tpl', 'bundle-b');
+      await user.click(submitButton());
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent(/bundle có thể không còn khả dụng/);
+      expect(alert).not.toHaveTextContent('render bundle is unavailable');
+      expect(field('ID mẫu')).toHaveValue('web-tpl');
+      expect(bundleSelect()).toHaveValue('bundle-b');
+      await user.click(screen.getByRole('button', { name: 'Làm mới danh sách bundle' }));
+      await waitFor(() => expect(bundleSelect()).toBeEnabled());
+      expect(posted).toHaveLength(1);
+    });
+
+    it('keeps a missing selected option visible and unsubmittable through refresh, error and empty', async () => {
+      const user = userEvent.setup();
+      let release: (response: Response) => void = () => undefined;
+      const { posted } = backend({ bundles: [bundleWeb, second], bundleLists: [
+        () => Response.json({ renderBundles: [bundleWeb, second] }),
+        () => Response.json({ renderBundles: [bundleWeb] }),
+        () => new Promise<Response>((done) => { release = done; }),
+        () => Response.json({ error: 'boom' }, { status: 500 }),
+        () => Response.json({ renderBundles: [] }),
+      ] });
+      render(<RenderingTemplatesPage />);
+      await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+      await user.selectOptions(bundleSelect(), 'bundle-b');
+      await user.type(field('ID mẫu'), 'web-tpl');
+      const kept = () => { expect(bundleSelect()).toHaveValue('bundle-b'); expect(screen.getByRole('option', { name: /^bundle-b \(/ })).toBeInTheDocument(); expect(submitButton()).toBeDisabled(); };
+      await user.click(screen.getByRole('button', { name: 'Làm mới danh sách bundle' }));
+      await screen.findByRole('alert', { name: 'Bundle không còn khả dụng' });
+      expect(screen.getByRole('option', { name: 'bundle-b (không còn khả dụng)' })).toBeInTheDocument();
+      kept();
+      await user.click(screen.getByRole('button', { name: 'Làm mới danh sách bundle' }));
+      await screen.findByText('Đang tải danh sách bundle đã cài…');
+      expect(screen.getByRole('option', { name: 'bundle-b (chưa xác nhận khả dụng)' })).toBeInTheDocument();
+      kept();
+      release(Response.json({ renderBundles: [bundleWeb] }));
+      await screen.findByRole('alert', { name: 'Bundle không còn khả dụng' });
+      await user.click(screen.getByRole('button', { name: 'Làm mới danh sách bundle' }));
+      await screen.findByRole('alert', { name: 'Lỗi tải bundle' });
+      kept();
+      await user.click(screen.getByRole('button', { name: 'Thử lại tải bundle' }));
+      await screen.findByRole('alert', { name: 'Chưa có bundle' });
+      kept();
+      expect(field('ID mẫu')).toHaveValue('web-tpl');
+      expect(posted).toHaveLength(0);
+    });
   });
 });

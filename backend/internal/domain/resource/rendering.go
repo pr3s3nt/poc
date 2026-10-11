@@ -34,6 +34,13 @@ func CopyRendering(in map[string]RenderingSelection) map[string]RenderingSelecti
 	return out
 }
 
+// RenderBundleAvailable is the single availability predicate shared by
+// registration and installed-bundle discovery.
+func RenderBundleAvailable(bundles map[string]RenderBundle, id string) bool {
+	bundle, installed := bundles[id]
+	return installed && id != "" && bundle.ID == id && bundle.Digest != "" && bundle.BinaryDigest != "" && bundle.Version != ""
+}
+
 func ValidateRenderDefinition(def Definition, typ Type, bundles map[string]RenderBundle) error {
 	if def.ResourceTypeKey != "workload" || def.ExecutionProfile != "internal-k8s" || def.DriverType != DriverScoreK8s {
 		return fmt.Errorf("score-k8s requires workload and internal-k8s")
@@ -50,8 +57,7 @@ func ValidateRenderDefinition(def Definition, typ Type, bundles map[string]Rende
 	if !ok || len(variables) != 1 || !literal || id == "" {
 		return fmt.Errorf("render_bundle must be one installed literal bundle ID")
 	}
-	bundle, installed := bundles[id]
-	if !installed || bundle.ID != id || bundle.Digest == "" || bundle.BinaryDigest == "" || bundle.Version == "" {
+	if !RenderBundleAvailable(bundles, id) {
 		return fmt.Errorf("render bundle is unavailable")
 	}
 	// Definition.SourceFingerpr is registration-time audit provenance. It stays in

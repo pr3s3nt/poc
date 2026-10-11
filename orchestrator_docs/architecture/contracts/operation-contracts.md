@@ -319,3 +319,16 @@ READY/kind/target and uses existing-cluster; catalog contents cannot override it
 Other nodes still require exactly one matching Definition. Cloud VPC/EKS/Aurora
 contracts and external Driver Accounts remain unchanged. See
 [ADR-013](../decisions/ADR-013-implicit-existing-cluster.md).
+
+## OC-04b `ResourceDefinitionService.ListRenderBundles`
+
+- Use case: UC-03 BR-18/19; HTTP GET `/api/v1/render-bundles`.
+- Preconditions: authenticated Organization session, Platform Engineer/Admin.
+- Returns: `renderBundles` array with only ID/version/status `AVAILABLE`, sorted
+  by ID; empty array when no valid installed entries. Same immutable registry
+  and availability predicate as OC-04, shared process configuration across orgs.
+- Read only: no repository, inspector, binary, provider or credential call;
+  no registration, planning, render or persistence. No source/path/digest exposure.
+- Console selects one only for an unselected draft; multiple require explicit
+  selection. Loading/error/empty block submit; retry preserves edits and late
+  replies cannot overwrite a user choice. POST revalidates availability.

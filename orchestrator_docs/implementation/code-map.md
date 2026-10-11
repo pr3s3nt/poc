@@ -252,3 +252,15 @@ T17 public registration rejection is in the catalog service linked above, with
 [service regression tests](../../backend/internal/application/catalog/registration_test.go)
 and [HTTP regressions](../../backend/test/e2e/uc02_04_http_test.go).
 See [local evidence](../verification/2026-10-11-T17-existing-cluster-registration.md).
+
+## T18 installed bundle discovery and selector
+
+- [Catalog safe query](../../backend/internal/application/catalog/service.go)
+  uses [shared availability predicate](../../backend/internal/domain/resource/rendering.go).
+- [HTTP endpoint](../../backend/internal/delivery/http/resource_definitions.go)
+  and [permissions/safety/registration tests](../../backend/internal/delivery/http/render_bundles_test.go).
+- [Console selector](../../frontend/src/features/platform/RenderingTemplatesPage.tsx)
+  and [unit guards](../../frontend/src/features/platform/RenderingTemplatesPage.test.tsx).
+- [Headed T18/T03 scenarios](../../frontend/test/e2e/refactor-local.mjs),
+  [fake runner](../../backend/test/integration/refactor-ui-local.sh),
+  [local evidence](../verification/2026-10-11-T18-render-bundles.md).

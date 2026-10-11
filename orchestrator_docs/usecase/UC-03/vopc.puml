@@ -4,9 +4,11 @@ left to right direction
 skinparam classAttributeIconSize 0
 class ResourceDefinitionController <<boundary>> {
   +RegisterResourceDefinition(document)
+  +ListRenderBundles(sessionOrg, role)
 }
 class ResourceDefinitionService <<control>> {
   +RegisterResourceDefinition(ctx, cmd): ResourceDefinition
+  +ListRenderBundles(): SafeBundleMetadata[]
 }
 interface DriverContractInspector {
   +Inspect(module): ModuleContract

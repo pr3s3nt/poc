@@ -38,3 +38,10 @@ func (s *Server) handleRegisterResourceDefinition(w http.ResponseWriter, r *http
 	}
 	writeJSON(w, http.StatusCreated, created)
 }
+
+func (s *Server) handleRenderBundles(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.platformActor(w, r); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"renderBundles": s.catalog.ListRenderBundles()})
+}

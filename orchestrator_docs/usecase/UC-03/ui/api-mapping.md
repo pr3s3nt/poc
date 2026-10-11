@@ -73,9 +73,10 @@ GET `/resource-definitions` cung cấp list scoped theo Organization; UI lọc
 `resourceType === "workload"`. GET `/applications` phục vụ editor criteria chung.
 POST cùng endpoint gửi `key`, `resourceType: "workload"`,
 `driverType: "score-k8s"`, `executionProfile: "internal-k8s"`,
-`driverInputs: {values: {variables: {render_bundle: <ID người dùng nhập>}}}`
+`driverInputs: {values: {variables: {render_bundle: <ID đã chọn từ registry>}}}`
 và criteria chuẩn. Không gửi connection override, provision hoặc source.
-Không thêm endpoint bundle/matching-preview ở T03; bundle list thuộc T18.
+GET `/api/v1/render-bundles` theo OC-04b trả `renderBundles` với ID/version/status
+`AVAILABLE`; chỉ PE/Admin, session org bắt buộc. Không thêm matching-preview ở T18.
 Status/scoping/insert-only và BR-15/16 không đổi. Frontend giữ form khi POST
 lỗi, 409 có thông báo trùng ID Việt, lỗi bundle có thông báo Việt an toàn.
 

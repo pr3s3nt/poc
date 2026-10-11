@@ -65,7 +65,7 @@ const TABLES = {
   renderingTemplates: {
     heading: { role: 'heading', level: 1, vi: 'Mẫu dựng ứng dụng', current: 'Mẫu dựng ứng dụng' },
     id: { role: 'label', vi: 'ID mẫu', current: 'ID mẫu' },
-    bundle: { role: 'label', vi: 'ID bundle dựng ứng dụng', current: 'ID bundle dựng ứng dụng' },
+    bundle: { role: 'label', wrapsOptions: true, vi: 'Bundle dựng ứng dụng', current: 'Bundle dựng ứng dụng' },
     submit: { role: 'button', vi: 'Đăng ký mẫu dựng ứng dụng', current: 'Đăng ký mẫu dựng ứng dụng' },
   },
   // T06 translated this page; `current` equals `vi` for its entries.

@@ -97,3 +97,12 @@ Definitions, executor scheduling and output propagation remain unchanged.
 Public existing-cluster rejection does not invoke system admission. Trusted
 planning/UC-08 construction and idempotent FK admission remain internal;
 ReferenceCluster conformance fixtures bypass public registration unchanged.
+
+## Installed bundle metadata collaboration (T18)
+
+RenderBundleController authenticates the session Organization and PE/Admin role,
+then calls Catalog `ListRenderBundles` on its copied immutable installed registry.
+Catalog applies BR-15 availability checks and returns sorted ID/version/AVAILABLE
+metadata only (OC-04b). No repository or external operation participates.
+Console independently loads this list for its selector and preserves user edits
+on retries/late replies; registration still validates the selected ID before insert.

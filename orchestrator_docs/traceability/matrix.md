@@ -89,7 +89,7 @@ ngầm, không override/provision/source, ID/bundle errors và committed reload;
 `App.test.tsx` kiểm PE/Admin/Developer gates, `routes.test.ts` kiểm deep link.
 Scenario T03 kiểm đăng ký qua UI, native/selected renderer Preview và selected
 render failure qua Deploy với fake infrastructure/delivery + CLI stub local.
-Preview chỉ chọn renderer, không chạy render/provision; bundle list thuộc T18.
+Preview chỉ chọn renderer, không chạy render/provision; bundle selector được hoàn tất ở T18 bên dưới.
 
 ## UC-04
 
@@ -370,3 +370,14 @@ SQL opt-in and real AWS/cluster verification are not claimed by local evidence.
 
 [T17 evidence](../verification/2026-10-11-T17-existing-cluster-registration.md)
 records local checks; no new browser or live/database integration proof.
+
+## T18 installed bundle list and Console selector
+
+| Requirement | Realization/code | Verification |
+|---|---|---|
+| UC-03 BR-18; OC-04b: PE/Admin session org, safe immutable registry metadata only | Catalog ListRenderBundles, shared RenderBundleAvailable; GET handler | TestRenderBundlesAuthAndRole, TestRenderBundlesEmptyIsArray, TestRenderBundlesSortedSafeMetadataOnly |
+| BR-15/18: no persistence/external calls; POST revalidates availability | Registry query and registration share predicate | TestRenderBundlesReadOnlyAndRegistrationRevalidates; unavailable real local POST in T18 |
+| BR-19: 0/1/n, loading/error/retry, preserve selection/draft, stale option blocked | RenderingTemplatesPage selector; UI screens/states/API mapping | RenderingTemplatesPage.test.tsx; headed T18 with explicit projection mocks |
+| ADR-010 unchanged selection/payload, Preview pure | Existing registration/planner; T03 locator adaptation | Headed T18 selected template Preview, T03 regression; Go conformance |
+
+Evidence: [T18 local verification](../verification/2026-10-11-T18-render-bundles.md).

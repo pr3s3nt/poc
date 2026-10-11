@@ -165,8 +165,7 @@ UC-03 Register Resource Definition
 
 - **BR-15:** `workload` may use `score-k8s` only with `internal-k8s`, no connection
   override/provision rules/resource inputs/outputs, and exactly one literal
-  `render_bundle` variable referring to the installed `score-k8s-internal-v1`
-  bundle ID. Unknown/unavailable bundles fail before insert; the server-owned source
+  `render_bundle` variable referring to an available installed bundle ID. Unknown/unavailable bundles fail before insert; the server-owned source
   fingerprint records the bundle digest at registration as audit provenance only
   (it is not a later equality gate; plans pin the installed bundle snapshot).
   Existing BR-11 nesting remains valid.
@@ -193,3 +192,19 @@ resources. Definition specificity, tie handling and external Driver Accounts rem
 - **BR-17:** Internal cluster node bypasses user Definition matching; mọi public registration dùng driver `existing-cluster` bị từ chối trước insert; system-owned reserved Definition keys cannot be registered publicly for any driver. Existing authored cluster Definitions remain readable for compatibility but do not control the implicit node. Other resource matching/weights remain unchanged.
 
 See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
+
+## Installed bundle discovery (T18)
+
+- **BR-18:** Platform Engineer/Admin của Organization đã authenticate được đọc
+  registry bundle bất biến của backend đang chạy qua GET `/api/v1/render-bundles`.
+  Response chỉ gồm ID, version và status `AVAILABLE` cho entries thỏa cùng
+  availability checks của BR-15; bỏ entries không hợp lệ. Registry dùng chung
+  giữa các Organization; quyền truy cập lấy từ session, không nhận org từ request.
+  Không trả digest, path, binary, template source hoặc credentials; không gọi
+  renderer, inspector, persistence hay provider. Danh sách sắp theo ID, rỗng là `[]`.
+- **BR-19:** Console lấy lựa chọn từ endpoint: không có bundle thì khóa đăng ký
+  và hướng dẫn liên hệ Kỹ sư nền tảng; một bundle tự chọn khi draft chưa có lựa
+  chọn; nhiều bundle cần chọn tường minh. Loading/error khóa đăng ký, có retry
+  và giữ ID/criteria/lựa chọn; refresh và late replies không ghi đè lựa chọn
+  người dùng. Lựa chọn không còn trong list không được submit; server vẫn kiểm
+  availability tại POST và từ chối trước insert nếu bundle không còn available.
