@@ -2,7 +2,7 @@ export type Route =
   | { name: 'sign-in' }
   | { name: 'applications' }
   | { name: 'resource-types' }
-  | { name: 'resource-definitions' }
+  | { name: 'resource-definitions'; resourceType?: string }
   | { name: 'rendering-templates' }
   | { name: 'connections' }
   | { name: 'secret-stores' }
@@ -17,18 +17,25 @@ export type Route =
 const base = '/ui';
 
 export function parseRoute(path = window.location.pathname): Route {
-  const relative = path.startsWith(base) ? path.slice(base.length) || '/' : path;
+  const queryAt = path.indexOf('?');
+  const pathname = queryAt === -1 ? path : path.slice(0, queryAt);
+  const search = queryAt === -1 ? (path === window.location.pathname ? window.location.search : '') : path.slice(queryAt);
+  const relative = pathname.startsWith(base) ? pathname.slice(base.length) || '/' : pathname;
   if (relative === '/' || relative === '/sign-in') return { name: 'sign-in' };
   if (relative === '/applications') return { name: 'applications' };
   if (relative === '/platform/resource-types') return { name: 'resource-types' };
-  if (relative === '/platform/resource-definitions') return { name: 'resource-definitions' };
+  if (relative === '/platform/resource-definitions') {
+    // Raw query value: the page validates it against the loaded catalog (T04).
+    const resourceType = new URLSearchParams(search).get('resourceType');
+    return { name: 'resource-definitions', ...(resourceType ? { resourceType } : {}) };
+  }
   if (relative === '/platform/rendering-templates') return { name: 'rendering-templates' };
   if (relative === '/platform/connections') return { name: 'connections' };
   if (relative === '/platform/secret-stores') return { name: 'secret-stores' };
   if (relative === '/applications/new') return { name: 'create-application' };
   const settings = relative.match(/^\/applications\/([^/]+)\/settings$/);
   if (settings?.[1]) {
-    const environment = new URLSearchParams(path === window.location.pathname ? window.location.search : '').get('environment');
+    const environment = new URLSearchParams(search).get('environment');
     return { name: 'settings', applicationId: decodeURIComponent(settings[1]), ...(environment === 'staging' || environment === 'production' ? { environment } : {}) };
   }
   const workload = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/workloads\/(new|[^/]+)$/);
@@ -49,7 +56,7 @@ export function href(route: Route): string {
     case 'sign-in': return `${base}/sign-in`;
     case 'applications': return `${base}/applications`;
     case 'resource-types': return `${base}/platform/resource-types`;
-    case 'resource-definitions': return `${base}/platform/resource-definitions`;
+    case 'resource-definitions': return `${base}/platform/resource-definitions${route.resourceType ? `?resourceType=${encodeURIComponent(route.resourceType)}` : ''}`;
     case 'rendering-templates': return `${base}/platform/rendering-templates`;
     case 'connections': return `${base}/platform/connections`;
     case 'secret-stores': return `${base}/platform/secret-stores`;

@@ -36,6 +36,15 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | MS-03, MS-04 | same | `ListResourceTypes/CreateResourceType` | insert-only `(org,key)` on memory/JSON/PostgreSQL | OC-03; registration contract, repository/service/HTTP race tests |
 | MS-05, MS-06 | same | return `ResourceType` / repository read contract | persisted schemas | OC-03; planner catalog integration test; `ResourceTypesPage.test.tsx` |
 
+T04 UI projection theo [UC-02 screens](../usecase/UC-02/ui/screens.md) giữ
+BR-01/02/05/06 và OC-03. `ResourceTypesPage.test.tsx` kiểm schema GET, copy
+độc lập/flags/types, duplicate giữ draft, tiếng Việt và whitelist/custom CTA;
+`RegistrationStates.test.tsx` kiểm freeze/committed reload/no replay.
+`ResourceDefinitionsPage.test.tsx`, `routes.test.ts` và `App.test.tsx` kiểm
+query prefill theo catalog/whitelist, không POST và không ghi đè lựa chọn.
+Scenario T04 kiểm details → copy/sửa → duplicate → đăng ký ID mới → supported
+CTA và custom no-CTA trên backend fake; không mở rộng executor/API.
+
 ## Definition-selected workload rendering (ADR-010)
 
 | Requirement / boundary | Implementation | Local evidence |

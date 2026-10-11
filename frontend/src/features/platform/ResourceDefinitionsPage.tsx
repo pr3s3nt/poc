@@ -1,27 +1,16 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { CriteriaEditor, draftToCriteria, emptyDraft, type ApplicationOption, type Criterion, type CriteriaDraft } from './CriteriaEditor';
 import { useCatalogList } from './useCatalogList';
+import { own, supported, type Driver } from './resourceSupport';
 
 type ResourceType = { key: string };
 type APIApplication = { key: string; name?: string; environments?: { key: string; name?: string; environmentType?: string; executionProfile?: string }[] };
 type Definition = { key: string; resourceType: string; executionProfile?: string; driverType: string; criteria?: Partial<Criterion>[] };
 type Connection = { key: string; name?: string; kind: string; status: string };
-type Driver = 'terraform' | 'kubernetes';
-
-// Resource Types the runtime can create today, with the drivers it accepts and
-// the embedded Terraform module each one maps to (backend catalog policy).
-const supported: Record<string, { drivers: Driver[]; module: string }> = {
-  vpc: { drivers: ['terraform'], module: 'vpc' },
-  'k8s-cluster': { drivers: ['terraform'], module: 'eks' },
-  'k8s-namespace': { drivers: ['kubernetes'], module: '' },
-  postgres: { drivers: ['kubernetes', 'terraform'], module: 'aurora' },
-};
 const driverLabels: Record<string, string> = { terraform: 'Tạo trên AWS (Terraform)', kubernetes: 'Tạo trong cluster (Kubernetes)', 'existing-cluster': 'Cluster có sẵn (existing-cluster)' };
 const scopeLabels: Record<string, string> = { 'aws-eks': 'AWS', 'internal-k8s': 'Cluster nội bộ', '': 'Dùng chung' };
-// Keys come from users and the API ("constructor" is a valid ID): own-property lookups only.
-const own = <T,>(table: Record<string, T>, key: string): T | undefined => (Object.hasOwn(table, key) ? table[key] : undefined);
 const idShape = /^[a-z0-9-]+$/;
 
 function objectJSON(value: string, label: string): Record<string, unknown> {
@@ -53,7 +42,9 @@ const loadConnections = async () => (await api<{ connections: Connection[] }>('/
 const loadApplications = async (): Promise<ApplicationOption[]> => ((await api<{ applications: APIApplication[] }>('/applications')).applications ?? []).map((app) => ({ key: app.key, name: app.name ?? app.key, environments: (app.environments ?? []).map((env) => ({ key: env.key, name: env.name ?? env.key, environmentType: env.environmentType ?? '', executionProfile: env.executionProfile ?? '' })) }));
 const connectionLabel = (connection: Connection) => (connection.name && connection.name !== connection.key ? `${connection.name} (${connection.key})` : connection.key);
 
-export function ResourceDefinitionsPage() {
+// initialResourceType comes from the Resource Types CTA query (UC-03 UI): it is
+// applied once, after the catalog confirms a supported key, and never over a choice.
+export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialResourceType?: string } = {}) {
   const typeList = useCatalogList(loadTypes, listFailure);
   const definitionList = useCatalogList(loadDefinitions, listFailure);
   const connectionList = useCatalogList(loadConnections, listFailure);
@@ -75,6 +66,13 @@ export function ResourceDefinitionsPage() {
   const [variables, setVariables] = useState('{}');
   const [provision, setProvision] = useState('{}');
   const [criteriaDraft, setCriteriaDraft] = useState<CriteriaDraft>(emptyDraft);
+
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current || typeList.loading || typeList.loadError) return;
+    prefilled.current = true;
+    if (initialResourceType !== '' && own(supported, initialResourceType) && typeList.items.some((type) => type.key === initialResourceType)) setResourceType((current) => (current === '' ? initialResourceType : current));
+  }, [typeList.loading, typeList.loadError, typeList.items, initialResourceType]);
 
   const rule = own(supported, resourceType);
   const driver: Driver | '' = rule ? (rule.drivers.length === 1 ? (rule.drivers[0] ?? '') : postgresDriver) : '';

@@ -2,7 +2,7 @@
 id: UC-02-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-11
 related: UC-02
 ---
 
@@ -19,3 +19,14 @@ related: UC-02
   lại catalog được báo riêng với Retry. Không giữ nguyên form như thể POST chưa
   thành công hoặc tự đăng ký lại. Lỗi tải ban đầu có Retry và không giả danh
   empty catalog.
+
+## Trạng thái T04
+
+- Chi tiết hiển thị schema nhận từ GET, kể cả schema rỗng; không sửa catalog.
+- Sao chép tạo draft độc lập, ID rỗng; người dùng sửa/xác nhận trước đăng ký.
+  Reload không ghi đè draft. Saving khóa copy và controls của form đang gửi.
+- Duplicate 409 giữ ID/schema và báo lỗi Việt; không cập nhật record nguồn.
+- Loading/empty/error/retry phân biệt rõ, dùng tiếng Việt; lỗi server dùng
+  fallback Việt an toàn, không hiển thị raw English error. Mapping code ở T20.
+- Created/load error vẫn báo đã đăng ký; Retry chỉ GET, không lặp POST.
+- CTA chỉ có cho type hỗ trợ; custom contract không có CTA triển khai.

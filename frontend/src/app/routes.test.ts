@@ -21,6 +21,28 @@ describe('console routes', () => {
     expect(href({ name: 'rendering-templates' })).toBe('/ui/platform/rendering-templates');
   });
 
+  it('carries the resourceType query of the definitions page and drops an empty one', () => {
+    expect(parseRoute('/ui/platform/resource-definitions')).toEqual({ name: 'resource-definitions' });
+    expect(parseRoute('/ui/platform/resource-definitions?resourceType=postgres')).toEqual({ name: 'resource-definitions', resourceType: 'postgres' });
+    expect(parseRoute('/ui/platform/resource-definitions?resourceType=')).toEqual({ name: 'resource-definitions' });
+    expect(parseRoute('/ui/platform/resource-definitions?other=1')).toEqual({ name: 'resource-definitions' });
+    // Raw value: validation against the catalog belongs to the page.
+    expect(parseRoute('/ui/platform/resource-definitions?resourceType=constructor')).toEqual({ name: 'resource-definitions', resourceType: 'constructor' });
+    expect(parseRoute('/ui/platform/resource-definitions?resourceType=a%20b')).toEqual({ name: 'resource-definitions', resourceType: 'a b' });
+    expect(href({ name: 'resource-definitions' })).toBe('/ui/platform/resource-definitions');
+    expect(href({ name: 'resource-definitions', resourceType: 'k8s-cluster' })).toBe('/ui/platform/resource-definitions?resourceType=k8s-cluster');
+    expect(href({ name: 'resource-definitions', resourceType: 'a b&c' })).toBe('/ui/platform/resource-definitions?resourceType=a%20b%26c');
+  });
+
+  it('reads the query of the current location when the path has none, and keeps settings parsing', () => {
+    window.history.replaceState({}, '', '/ui/platform/resource-definitions?resourceType=vpc');
+    expect(parseRoute()).toEqual({ name: 'resource-definitions', resourceType: 'vpc' });
+    window.history.replaceState({}, '', '/ui/applications/shop/settings?environment=production');
+    expect(parseRoute()).toEqual({ name: 'settings', applicationId: 'shop', environment: 'production' });
+    expect(parseRoute('/ui/applications/shop/settings?environment=staging')).toEqual({ name: 'settings', applicationId: 'shop', environment: 'staging' });
+    window.history.replaceState({}, '', '/');
+  });
+
   it('encodes application IDs when constructing a link', () => {
     expect(href({ name: 'application', applicationId: 'payment api' })).toBe('/ui/applications/payment%20api');
     expect(href({ name: 'settings', applicationId: 'payment api' })).toBe('/ui/applications/payment%20api/settings');

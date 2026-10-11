@@ -585,6 +585,157 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(3000);
   },
+  // T04: trang Loại tài nguyên. Platform Engineer, fake adapters, catalog dựng
+  // sẵn (postgres có inputs/outputs và password secret). Schema tùy chỉnh được
+  // tạo qua UI bằng cách sao chép; không seed bằng API.
+  async T04({ page, h, ui, caption, mark, check, baseURL }) {
+    const types = async () => (await (await page.request.get(`${baseURL}/api/v1/resource-types`)).json()).resourceTypes;
+    const definitions = async () => (await (await page.request.get(`${baseURL}/api/v1/resource-definitions`)).json()).resourceDefinitions;
+    const entry = (key) => page.locator('.catalog-entry').filter({ has: page.locator('strong', { hasText: new RegExp(`^${key}$`) }) });
+    const formAlert = () => page.locator('form .form-error[role="alert"]');
+    const ctas = () => page.getByRole('link', { name: /^Tạo Cấu hình tài nguyên cho / });
+    const cells = async (table) => table.locator('tbody tr').evaluateAll((rows) => rows.map((row) => [...row.querySelectorAll('td')].map((cell) => cell.textContent)));
+    let definitionCount = 0;
+
+    caption('Bước 1: Kỹ sư nền tảng đăng nhập bằng tài khoản thử nghiệm cục bộ');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'platform-engineer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    mark('applications');
+
+    caption('Bước 2: Mở trang Loại tài nguyên; nhãn hỗ trợ theo đúng bốn type có cách tạo');
+    await h.click(ui('shell', 'navResourceTypes'));
+    await expect(ui('resourceTypes', 'heading')).toBeVisible();
+    await expect(page).toHaveURL(`${baseURL}/ui/platform/resource-types`);
+    for (const key of ['vpc', 'k8s-cluster', 'k8s-namespace', 'postgres']) await expect(entry(key)).toContainText('Có cách tạo hỗ trợ');
+    await expect(entry('workload')).toContainText('Chỉ có contract');
+    await expect(entry('postgres')).toContainText('Kubernetes hoặc Terraform/aurora');
+    await expect(entry('vpc')).toContainText('Terraform/vpc');
+    await expect(entry('k8s-cluster')).toContainText('Terraform/eks');
+    await expect(ctas()).toHaveCount(4);
+    await expect(entry('workload').getByRole('link', { name: 'Mẫu dựng ứng dụng' })).toBeVisible();
+    await expect(entry('workload').getByRole('link', { name: /Tạo Cấu hình tài nguyên/ })).toHaveCount(0);
+    check('list: vpc/k8s-cluster/k8s-namespace/postgres labelled "Có cách tạo hỗ trợ" with drivers; workload "Chỉ có contract" pointing to Mẫu dựng ứng dụng; exactly 4 definition CTAs');
+    mark('types-page');
+    await h.moveTo(entry('postgres'));
+    await h.read('Chỉ bốn type có cách tạo được gắn nhãn hỗ trợ; workload đi qua Mẫu dựng ứng dụng');
+
+    caption('Bước 3: Xem schema của postgres; tên, kiểu, bắt buộc và bí mật lấy nguyên từ máy chủ');
+    await h.click(page.getByRole('button', { name: 'Xem schema postgres' }));
+    const inputsTable = page.getByRole('table', { name: 'Đầu vào của postgres' });
+    const outputsTable = page.getByRole('table', { name: 'Đầu ra của postgres' });
+    await expect(inputsTable).toBeVisible();
+    expect(await cells(inputsTable)).toEqual([['database', 'string', 'Có'], ['username', 'string', 'Có']]);
+    expect(await cells(outputsTable)).toEqual([
+      ['host', 'string', 'Có', 'Không'], ['port', 'number', 'Có', 'Không'], ['database', 'string', 'Có', 'Không'],
+      ['username', 'string', 'Có', 'Không'], ['password', 'string', 'Có', 'Có']]);
+    check('postgres details: 2 inputs and 5 outputs with type/required/secret exactly as GET; only password is secret');
+    mark('postgres-details');
+    await h.moveTo(outputsTable);
+    await h.read('Chỉ password là bí mật; không có sửa, xóa hay phiên bản schema');
+    await expect(page.getByRole('button', { name: /sửa|xóa loại|phiên bản/i })).toHaveCount(0);
+
+    caption('Bước 4: Sao chép schema sang bản nháp; ID để trống, giữ nguyên kiểu và cờ');
+    await h.click(page.getByRole('button', { name: 'Sao chép schema postgres' }));
+    await expect(ui('resourceTypes', 'id')).toHaveValue('');
+    await expect(ui('resourceTypes', 'id')).toBeFocused();
+    await expect(page.getByLabel('Đầu vào 1 tên')).toHaveValue('database');
+    await expect(page.getByLabel('Đầu vào 1 bắt buộc')).toBeChecked();
+    await expect(page.getByLabel('Đầu ra 2 kiểu')).toHaveValue('number');
+    await expect(page.getByLabel('Đầu ra 5 tên')).toHaveValue('password');
+    await expect(page.getByLabel('Đầu ra 5 bí mật')).toBeChecked();
+    await expect(page.getByLabel('Đầu ra 1 bí mật')).not.toBeChecked();
+    await expect(page.getByText(/Bản nháp sao chép từ/)).toContainText('postgres');
+    check('copy: blank ID, 2 inputs + 5 outputs with types/required/secret preserved, no request sent');
+    mark('schema-copied');
+    await h.moveTo(page.getByText(/Bản nháp sao chép từ/));
+    await h.read('Bản nháp độc lập: nhập ID mới và sửa schema trước khi đăng ký');
+
+    caption('Bước 5: Sửa tên input thứ nhất; nhập ID postgres đã tồn tại; máy chủ từ chối và giữ bản nháp');
+    await h.type(page.getByLabel('Đầu vào 1 tên'), 'dbname', { replace: true });
+    await h.type(ui('resourceTypes', 'id'), 'postgres');
+    await h.click(ui('resourceTypes', 'submit'));
+    await expect(formAlert()).toContainText('ID loại tài nguyên đã tồn tại');
+    expect(await formAlert().innerText()).not.toMatch(/already exists|duplicate|conflict/i);
+    await expect(ui('resourceTypes', 'id')).toHaveValue('postgres');
+    await expect(page.getByLabel('Đầu vào 1 tên')).toHaveValue('dbname');
+    await expect(page.getByLabel('Đầu ra 5 bí mật')).toBeChecked();
+    const original = (await types()).find((item) => item.key === 'postgres');
+    expect(original.inputs.map((field) => field.name)).toEqual(['database', 'username']);
+    expect((await types()).filter((item) => item.key === 'postgres')).toHaveLength(1);
+    check('duplicate 409: Vietnamese message without raw text, ID and edited draft kept, stored postgres schema unchanged (inputs database, username)');
+    mark('duplicate-rejected');
+    await h.moveTo(formAlert());
+    await h.read('ID đã tồn tại; schema postgres gốc không bị ghi đè, bản nháp vẫn còn');
+
+    caption('Bước 6: Đổi sang ID mới postgres-ha và đăng ký lại bản nháp đã sửa');
+    await h.type(ui('resourceTypes', 'id'), 'postgres-ha', { replace: true });
+    await h.click(ui('resourceTypes', 'submit'));
+    await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký loại tài nguyên postgres-ha.' })).toBeVisible();
+    await expect(ui('resourceTypes', 'id')).toHaveValue('');
+    const stored = await types();
+    const copy = stored.find((item) => item.key === 'postgres-ha');
+    expect(copy.inputs).toEqual([{ name: 'dbname', type: 'string', required: true }, { name: 'username', type: 'string', required: true }]);
+    expect(copy.outputs.map((field) => [field.name, field.type, field.required === true, field.secret === true])).toEqual([
+      ['host', 'string', true, false], ['port', 'number', true, false], ['database', 'string', true, false],
+      ['username', 'string', true, false], ['password', 'string', true, true]]);
+    expect(stored.find((item) => item.key === 'postgres').inputs.map((field) => field.name)).toEqual(['database', 'username']);
+    check('registered postgres-ha from the edited copy: flags/types preserved, postgres untouched');
+    mark('custom-registered');
+    await h.moveTo(entry('postgres-ha'));
+    await h.read('Đã đăng ký postgres-ha');
+
+    caption('Bước 7: postgres-ha chỉ có contract; không có nút tạo Cấu hình tài nguyên');
+    await expect(entry('postgres-ha')).toContainText('Chỉ có contract');
+    await expect(entry('postgres-ha').getByRole('link', { name: /Tạo Cấu hình tài nguyên/ })).toHaveCount(0);
+    await expect(entry('postgres-ha')).not.toContainText('Cách tạo:');
+    await expect(ctas()).toHaveCount(4);
+    check('custom postgres-ha: "Chỉ có contract", no creation method text, still exactly 4 CTAs');
+    mark('custom-no-cta');
+    await h.read('postgres-ha chỉ là contract, không được quảng bá là triển khai được');
+
+    caption('Bước 8: Bấm Tạo Cấu hình tài nguyên của postgres; form được chọn sẵn Loại postgres');
+    definitionCount = (await definitions()).length;
+    await h.click(page.getByRole('link', { name: 'Tạo Cấu hình tài nguyên cho postgres' }));
+    await expect(ui('resourceDefinitions', 'heading')).toBeVisible();
+    await expect(page).toHaveURL(`${baseURL}/ui/platform/resource-definitions?resourceType=postgres`);
+    await expect(ui('resourceDefinitions', 'type')).toHaveValue('postgres');
+    await expect(ui('resourceDefinitions', 'driver')).toHaveValue('kubernetes');
+    expect((await definitions()).length, 'CTA registers nothing').toBe(definitionCount);
+    check('supported CTA: /resource-definitions?resourceType=postgres, Loại tài nguyên preselected, no definition created');
+    mark('cta-prefill');
+    await h.moveTo(ui('resourceDefinitions', 'type'));
+    await h.read('Loại tài nguyên đã được chọn sẵn; chưa đăng ký hay triển khai gì');
+
+    caption('Bước 9: Mở thẳng liên kết với type chỉ có contract; không chọn sẵn gì');
+    await page.goto(`${baseURL}/ui/platform/resource-definitions?resourceType=postgres-ha`);
+    await expect(ui('resourceDefinitions', 'heading')).toBeVisible();
+    await expect(ui('resourceDefinitions', 'type').locator('option[value="postgres"]')).toBeAttached();
+    await expect(ui('resourceDefinitions', 'type')).toHaveValue('');
+    check('custom/invalid query postgres-ha: no preselection');
+    mark('invalid-query-no-prefill');
+    await h.moveTo(ui('resourceDefinitions', 'type'));
+    await h.read('Query không hợp lệ thì không chọn type nào');
+
+    caption('Bước 10: Quay lại Loại tài nguyên; workload dẫn sang Mẫu dựng ứng dụng, không có CTA');
+    await h.click(ui('shell', 'navResourceTypes'));
+    await expect(ui('resourceTypes', 'heading')).toBeVisible();
+    await h.click(entry('workload').getByRole('link', { name: 'Mẫu dựng ứng dụng' }));
+    await expect(ui('renderingTemplates', 'heading')).toBeVisible();
+    await expect(page).toHaveURL(`${baseURL}/ui/platform/rendering-templates`);
+    check('workload guidance link opens Mẫu dựng ứng dụng');
+    mark('workload-templates');
+    await h.read('workload được tạo bằng Mẫu dựng ứng dụng');
+
+    caption('Bước 11: Đăng xuất; phiên bị thu hồi');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(3000);
+  },
 };
 
 export function parseArgs(argv) {

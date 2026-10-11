@@ -2,7 +2,7 @@
 id: UC-03-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-11
 related: UC-03
 ---
 
@@ -83,3 +83,10 @@ hiện hành; không có mẫu khớp thì dùng renderer mặc định. Mẫu �
 lỗi phải báo lỗi, không chuyển âm thầm sang renderer mặc định. Không có binding
 mới cho Environment hoặc upload template. Text/aria-label/trạng thái dùng Việt;
 technical IDs/payload giữ nguyên. Lưu mẫu không tự Preview/Deploy.
+
+## Điều hướng từ Loại tài nguyên (T04)
+
+CTA từ UC-02 mở `/ui/platform/resource-definitions?resourceType=<key>`.
+Chỉ chọn sẵn type khi catalog tải thành công xác nhận key thuộc whitelist của
+form T02; query thiếu/không hỗ trợ không tạo lựa chọn hợp lệ. Prefill không
+gửi POST hoặc ghi đè dữ liệu người dùng khi reload/response đến muộn.

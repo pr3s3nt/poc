@@ -9,7 +9,7 @@ export const TRANSLATED = {
   signIn: false,
   shell: false,
   applications: false,
-  resourceTypes: false,
+  resourceTypes: true,
   resourceDefinitions: true,
   renderingTemplates: true,
   connections: false,
@@ -35,8 +35,11 @@ const TABLES = {
   applications: {
     heading: { role: 'heading', level: 1, vi: 'Ứng dụng của bạn', current: 'Your applications' },
   },
+  // T04 translated this page; `current` equals `vi` for its entries.
   resourceTypes: {
-    heading: { role: 'heading', level: 1, vi: 'Loại tài nguyên', current: 'Resource types' },
+    heading: { role: 'heading', level: 1, vi: 'Loại tài nguyên', current: 'Loại tài nguyên' },
+    id: { role: 'label', vi: 'ID loại tài nguyên', current: 'ID loại tài nguyên' },
+    submit: { role: 'button', vi: 'Đăng ký loại tài nguyên', current: 'Đăng ký loại tài nguyên' },
   },
   // T02 translated this page; `current` equals `vi` for its entries.
   resourceDefinitions: {

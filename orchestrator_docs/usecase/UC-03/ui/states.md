@@ -2,7 +2,7 @@
 id: UC-03-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-11
 related: UC-03
 ---
 
@@ -57,3 +57,10 @@ related: UC-03
   lưu, Thử lại chỉ tải list, không gửi lại POST.
 - Editor dùng các trạng thái T02B; loading/late replies không ghi đè edits.
 - Developer không thấy navigation và không render form khi mở deep link.
+
+## Điều hướng từ Loại tài nguyên (T04)
+
+CTA từ UC-02 mở `/ui/platform/resource-definitions?resourceType=<key>`.
+Chỉ chọn sẵn type khi catalog tải thành công xác nhận key thuộc whitelist của
+form T02; query thiếu/không hỗ trợ không tạo lựa chọn hợp lệ. Prefill không
+gửi POST hoặc ghi đè dữ liệu người dùng khi reload/response đến muộn.

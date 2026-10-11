@@ -1259,7 +1259,7 @@ Các khoảng Txx–Tyy gồm toàn bộ task trong khoảng; T02B ghi riêng kh
 | T02 | Form tạo Cấu hình tài nguyên | T01 | DONE | V-D/V-FE (169 tests)/V-UI(T02), T01 locator regression pass; fake headed video reviewed, advanced visibility/prototype lookup fixes verified. Evidence: `orchestrator_docs/verification/2026-10-10-T02-resource-form.md`; `/tmp/poc-refactor-T02-final-20261010181542`. |
 | T02B | Editor Điều kiện áp dụng dùng chung | T01, T02 | DONE | V-D/V-FE (193 tests)/V-UI(T02B) và T02 regression pass; fake headed video reviewed; wildcard row preservation/late replies verified. Evidence: `orchestrator_docs/verification/2026-10-10-T02B-criteria-editor.md`; `/tmp/poc-refactor-T02B-final4-1791634101`. Một lượt fail đầu bị xóa nhầm, ghi rõ trong evidence record. |
 | T03 | Trang Mẫu dựng ứng dụng | T01, T02, T02B | DONE | V-D/V-FE (208 tests)/V-UI(T03), T02/T02B regression pass; fake headed video decoded/reviewed; selected render failure via local CLI stub, no live mutation. Evidence: `orchestrator_docs/verification/2026-10-10-T03-rendering-templates.md`; `/tmp/poc-refactor-T03-20261010220616-2298126`. |
-| T04 | Trang Loại tài nguyên | T01, T02 | TODO | — |
+| T04 | Trang Loại tài nguyên | T01, T02 | DONE | V-D/V-FE (246 tests)/V-UI(T04), T02/T03 regression pass; fake headed video decoded/reviewed, schema copy/duplicate/support CTA/prefill verified. Evidence: `orchestrator_docs/verification/2026-10-11-T04-resource-types.md`; `/tmp/poc-refactor-T04-100929`. |
 | T05 | Trang Kho bí mật | T01 | TODO | — |
 | T06 | Trang Kết nối | T01 | TODO | — |
 | T07 | Trang Environment Settings | T01 | TODO | — |

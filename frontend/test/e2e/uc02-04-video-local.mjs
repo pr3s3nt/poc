@@ -115,44 +115,44 @@ try {
 
   // 2. Resource Type: valid registration.
   await h.click(page.getByRole('link', { name: /Resource types/ }));
-  await expect(page.getByRole('heading', { name: 'Resource types', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Loại tài nguyên', level: 1 })).toBeVisible();
   await expect(page).toHaveURL(`${baseURL}/ui/platform/resource-types`);
-  await h.type(page.getByLabel('Resource type ID'), 'cache');
-  await h.click(page.getByRole('button', { name: '+ Add input' }));
-  await h.type(page.getByLabel('Inputs 1 name'), 'size');
-  await h.choose(page.getByLabel('Inputs 1 type'), 'number');
-  await h.click(page.locator('.catalog-field-row').first().getByLabel('Required'));
-  await h.click(page.getByRole('button', { name: '+ Add output' }));
-  await h.type(page.getByLabel('Outputs 1 name'), 'host');
+  await h.type(page.getByLabel('ID loại tài nguyên'), 'cache');
+  await h.click(page.getByRole('button', { name: '+ Thêm tham số đầu vào' }));
+  await h.type(page.getByLabel('Đầu vào 1 tên'), 'size');
+  await h.choose(page.getByLabel('Đầu vào 1 kiểu'), 'number');
+  await h.click(page.getByLabel('Đầu vào 1 bắt buộc'));
+  await h.click(page.getByRole('button', { name: '+ Thêm tham số đầu ra' }));
+  await h.type(page.getByLabel('Đầu ra 1 tên'), 'host');
   await h.pause(1200);
-  await h.click(page.getByRole('button', { name: 'Register resource type' }));
-  await expect(page.getByRole('status')).toHaveText('Registered resource type cache.');
+  await h.click(page.getByRole('button', { name: 'Đăng ký loại tài nguyên' }));
+  await expect(page.getByRole('status')).toHaveText('Đã đăng ký loại tài nguyên cache.');
   const typeList = page.locator('.catalog-entry').filter({ has: page.getByText('cache', { exact: true }) });
-  await expect(typeList).toContainText('1 inputs · 1 outputs');
+  await expect(typeList).toContainText('1 đầu vào · 1 đầu ra');
   await h.moveTo(typeList);
   mark('type-registered');
   await h.pause(READ);
 
   // 3. Duplicate: the same ID is rejected and the form is kept.
-  await h.type(page.getByLabel('Resource type ID'), 'cache');
-  await h.click(page.getByRole('button', { name: '+ Add output' }));
-  await h.type(page.getByLabel('Outputs 1 name'), 'url');
-  await h.click(page.getByRole('button', { name: 'Register resource type' }));
-  await expect(formError()).toContainText('duplicate id');
-  await expect(page.getByLabel('Resource type ID')).toHaveValue('cache');
+  await h.type(page.getByLabel('ID loại tài nguyên'), 'cache');
+  await h.click(page.getByRole('button', { name: '+ Thêm tham số đầu ra' }));
+  await h.type(page.getByLabel('Đầu ra 1 tên'), 'url');
+  await h.click(page.getByRole('button', { name: 'Đăng ký loại tài nguyên' }));
+  await expect(formError()).toContainText('ID loại tài nguyên đã tồn tại');
+  await expect(page.getByLabel('ID loại tài nguyên')).toHaveValue('cache');
   await h.moveTo(formError());
   mark('type-duplicate');
   await h.pause(READ);
 
   // 4. Invalid: two inputs with the same name.
-  await h.type(page.getByLabel('Resource type ID'), 'broken', { replace: true });
-  await h.click(page.getByRole('button', { name: '+ Add input' }));
-  await h.type(page.getByLabel('Inputs 1 name'), 'size');
-  await h.click(page.getByRole('button', { name: '+ Add input' }));
-  await h.type(page.getByLabel('Inputs 2 name'), 'size');
-  await h.click(page.getByRole('button', { name: 'Register resource type' }));
-  await expect(formError()).toContainText('duplicate input "size"');
-  await expect(page.getByLabel('Inputs 2 name')).toHaveValue('size');
+  await h.type(page.getByLabel('ID loại tài nguyên'), 'broken', { replace: true });
+  await h.click(page.getByRole('button', { name: '+ Thêm tham số đầu vào' }));
+  await h.type(page.getByLabel('Đầu vào 1 tên'), 'size');
+  await h.click(page.getByRole('button', { name: '+ Thêm tham số đầu vào' }));
+  await h.type(page.getByLabel('Đầu vào 2 tên'), 'size');
+  await h.click(page.getByRole('button', { name: 'Đăng ký loại tài nguyên' }));
+  await expect(formError()).toContainText('Máy chủ từ chối loại tài nguyên này');
+  await expect(page.getByLabel('Đầu vào 2 tên')).toHaveValue('size');
   await h.moveTo(formError());
   mark('type-invalid');
   await h.pause(READ);

@@ -350,6 +350,89 @@ describe('UC-03 definition registration form', () => {
     expect(posted).toHaveLength(0);
   });
 
+  describe('resourceType prefill from the Resource Types CTA (T04)', () => {
+    const typeSelect = () => field('Loại tài nguyên') as HTMLSelectElement;
+
+    it.each(['vpc', 'k8s-cluster', 'k8s-namespace', 'postgres'])('selects %s after the catalog loaded, without any POST', async (type) => {
+      const { posted } = backend();
+      render(<ResourceDefinitionsPage initialResourceType={type} />);
+      await screen.findByRole('option', { name: 'vpc' });
+      await waitFor(() => expect(typeSelect()).toHaveValue(type));
+      expect(posted).toEqual([]);
+      expect(field('Cách tạo')).not.toHaveValue('');
+    });
+
+    it.each([['', 'missing'], ['workload', 'workload'], ['cache', 'unsupported custom type'], ['constructor', 'inherited property'], ['toString', 'inherited property'], ['VPC', 'wrong case'], ['unknown-type', 'unknown key'], ['vpc ', 'untrimmed key']])('leaves no selection for query %j (%s)', async (type) => {
+      const { posted } = backend({ types: [...allTypes, 'constructor', 'toString'] });
+      render(<ResourceDefinitionsPage initialResourceType={type} />);
+      await screen.findByRole('option', { name: 'vpc' });
+      await new Promise((done) => setTimeout(done, 30));
+      expect(typeSelect()).toHaveValue('');
+      expect(posted).toEqual([]);
+    });
+
+    it('does not select a supported key the catalog does not contain', async () => {
+      backend({ types: ['k8s-namespace'] });
+      render(<ResourceDefinitionsPage initialResourceType="vpc" />);
+      await screen.findByRole('option', { name: 'k8s-namespace' });
+      await new Promise((done) => setTimeout(done, 30));
+      expect(typeSelect()).toHaveValue('');
+    });
+
+    it('waits for a late catalog response and then selects, without clobbering the typed ID', async () => {
+      const user = userEvent.setup();
+      let release: () => void = () => undefined;
+      const gate = new Promise<void>((done) => { release = done; });
+      vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.endsWith('/resource-types')) { await gate; return Response.json({ resourceTypes: allTypes.map((key) => ({ key })) }); }
+        if (url.endsWith('/connections')) return Response.json({ connections: defaultConnections });
+        if (url.endsWith('/applications')) return Response.json({ applications: defaultApplications });
+        return Response.json({ resourceDefinitions: [] });
+      }));
+      render(<ResourceDefinitionsPage initialResourceType="postgres" />);
+      await screen.findByText('Chưa có cấu hình tài nguyên nào.');
+      expect(typeSelect()).toHaveValue('');
+      await user.type(field('ID cấu hình'), 'my-pg');
+      release();
+      await waitFor(() => expect(typeSelect()).toHaveValue('postgres'));
+      expect(field('ID cấu hình')).toHaveValue('my-pg');
+    });
+
+    it('applies the prefill once: a later reload or a user choice is never overwritten', async () => {
+      const user = userEvent.setup();
+      backend();
+      render(<ResourceDefinitionsPage initialResourceType="vpc" />);
+      await waitFor(() => expect(typeSelect()).toHaveValue('vpc'));
+      await user.selectOptions(typeSelect(), 'k8s-namespace');
+      expect(typeSelect()).toHaveValue('k8s-namespace');
+      await user.selectOptions(typeSelect(), '');
+      expect(typeSelect()).toHaveValue('');
+      await new Promise((done) => setTimeout(done, 30));
+      expect(typeSelect()).toHaveValue('');
+    });
+
+    it('prefills after a failed load is retried and keeps the form data', async () => {
+      const user = userEvent.setup();
+      const { state } = backend({ typesFail: true });
+      render(<ResourceDefinitionsPage initialResourceType="k8s-cluster" />);
+      const alert = await screen.findByRole('alert', { name: 'Lỗi tải loại tài nguyên' });
+      await user.type(field('ID cấu hình'), 'cluster-a');
+      expect(typeSelect()).toHaveValue('');
+      state.typesFail = false;
+      await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
+      await waitFor(() => expect(typeSelect()).toHaveValue('k8s-cluster'));
+      expect(field('ID cấu hình')).toHaveValue('cluster-a');
+    });
+
+    it('does not prefill when the catalog never loads', async () => {
+      backend({ typesFail: true });
+      render(<ResourceDefinitionsPage initialResourceType="vpc" />);
+      await screen.findByRole('alert', { name: 'Lỗi tải loại tài nguyên' });
+      expect(typeSelect()).toHaveValue('');
+    });
+  });
+
   describe('criteria editor (T02B)', () => {
     const radio = (name: RegExp) => screen.getByRole('radio', { name });
     async function start(user: ReturnType<typeof userEvent.setup>, id: string, options: Backend = {}) {

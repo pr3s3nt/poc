@@ -2,7 +2,7 @@
 id: UC-03-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-11
 related: UC-03
 ---
 
@@ -76,3 +76,10 @@ và criteria chuẩn. Không gửi connection override, provision hoặc source.
 Không thêm endpoint bundle/matching-preview ở T03; bundle list thuộc T18.
 Status/scoping/insert-only và BR-15/16 không đổi. Frontend giữ form khi POST
 lỗi, 409 có thông báo trùng ID Việt, lỗi bundle có thông báo Việt an toàn.
+
+## Điều hướng từ Loại tài nguyên (T04)
+
+CTA từ UC-02 mở `/ui/platform/resource-definitions?resourceType=<key>`.
+Chỉ chọn sẵn type khi catalog tải thành công xác nhận key thuộc whitelist của
+form T02; query thiếu/không hỗ trợ không tạo lựa chọn hợp lệ. Prefill không
+gửi POST hoặc ghi đè dữ liệu người dùng khi reload/response đến muộn.

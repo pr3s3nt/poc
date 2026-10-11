@@ -227,4 +227,47 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(screen.queryByLabelText('ID bundle dựng ứng dụng')).not.toBeInTheDocument();
     expect(requests.some((request) => request.url.endsWith('/resource-definitions'))).toBe(false);
   });
+  describe('Resource Types to Definitions navigation (T04)', () => {
+    const catalog = (url: string) => url.endsWith('/auth/session') ? Response.json({ user: { Username: 'platform', Role: 'PLATFORM_ENGINEER' } })
+      : url.endsWith('/resource-types') ? Response.json({ resourceTypes: ['vpc', 'postgres', 'postgres-ha', 'workload'].map((key) => ({ key, inputs: [], outputs: [] })) })
+      : url.endsWith('/resource-definitions') ? Response.json({ resourceDefinitions: [] })
+      : url.endsWith('/connections') ? Response.json({ connections: [] }) : undefined;
+
+    it('opens the definitions form with the type chosen from the CTA, without any POST', async () => {
+      const user = userEvent.setup();
+      authenticated = true;
+      window.history.replaceState({}, '', '/ui/platform/resource-types');
+      override = catalog;
+      render(<App />);
+      await user.click(await screen.findByRole('link', { name: 'Tạo Cấu hình tài nguyên cho postgres' }));
+      expect(window.location.pathname + window.location.search).toBe('/ui/platform/resource-definitions?resourceType=postgres');
+      expect(await screen.findByRole('heading', { name: 'Cấu hình tài nguyên' })).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('postgres'));
+      expect(requests.filter((request) => request.method === 'POST')).toEqual([]);
+    });
+
+    it.each(['/ui/platform/resource-definitions', '/ui/platform/resource-definitions?resourceType=postgres-ha', '/ui/platform/resource-definitions?resourceType=workload', '/ui/platform/resource-definitions?resourceType=nope'])('selects nothing for deep link %s', async (path) => {
+      authenticated = true;
+      window.history.replaceState({}, '', path);
+      override = catalog;
+      render(<App />);
+      await screen.findByRole('option', { name: 'vpc' });
+      expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('');
+    });
+
+    it('selects a supported type from a deep link and keeps the choice when the user navigates away and back without a query', async () => {
+      const user = userEvent.setup();
+      authenticated = true;
+      window.history.replaceState({}, '', '/ui/platform/resource-definitions?resourceType=vpc');
+      override = catalog;
+      render(<App />);
+      await waitFor(() => expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('vpc'));
+      await user.click(screen.getByRole('link', { name: /Resource types/ }));
+      expect(await screen.findByRole('heading', { name: 'Loại tài nguyên' })).toBeInTheDocument();
+      await user.click(screen.getByRole('link', { name: /Resource definitions/ }));
+      await screen.findByRole('option', { name: 'vpc' });
+      expect(window.location.search).toBe('');
+      expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('');
+    });
+  });
 });

@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-11
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-11 | T04 Vietnamese Resource Types details/copy, support labels, Definition prefill and headed fake evidence | [Resource Types](2026-10-11-T04-resource-types.md) |
 | 2026-10-10 | T02 Vietnamese resource form, auto driver/module/profile, READY Connection dropdowns, metadata retention and headed fake evidence | [Resource form](2026-10-10-T02-resource-form.md) |
 | 2026-10-10 | T01 Vietnamese terminology, reusable local fake runner, headed smoke and failure/cleanup evidence | [Refactor foundation](2026-10-10-T01-refactor-foundation.md) |
 | 2026-10-09 | Persistent Docker Console deploy to new physical kind-k8s-4f, retained FE/BE/PostgreSQL and reviewed captioned GitHub video | [K8S-4F dev retained deployment](2026-10-09-k8s4f-dev-retained.md) |
