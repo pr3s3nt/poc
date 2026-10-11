@@ -223,62 +223,262 @@ it('uses the same scoped endpoint and explicit states for recent deployments', a
   expect(fetcher.mock.calls[0]?.[0]).toBe('/api/v1/applications/catalog%2Fapp/environments/staging/deployments');
 });
 
-it('shows persisted detail, redacted output and never renders resolved inputs', async () => {
-  const fetcher = vi.fn(async (_input: string | URL | Request) => Response.json(detail({
-    resources: [{ descriptor: 'db', resourceType: 'postgres', definitionKey: 'pg-kind', status: 'READY', outputs: { host: 'db.internal', password: '***redacted***' }, resolvedInputs: { password: 'raw-secret' } }],
+const detailEntries = () => document.body.textContent ?? '';
+
+it('shows persisted Vietnamese detail, redacted output and never renders resolved inputs', async () => {
+  const fetcher = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) => Response.json(detail({
+    resources: [{ descriptor: 'db', resourceType: 'postgres', definitionKey: 'pg-kind', status: 'READY', outputs: { host: 'db.internal', port: 5432, password: '***redacted***', nested: { token: 'raw-nested-secret' } }, resolvedInputs: { password: 'raw-secret' } }],
   })));
   vi.stubGlobal('fetch', fetcher);
   render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep/1" />);
 
-  expect(screen.getByRole('status')).toHaveTextContent('Loading deployment…');
+  expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
+  expect(screen.getByRole('status')).toHaveTextContent('Đang tải chi tiết triển khai…');
   expect(await screen.findAllByText(/pg-kind/)).toHaveLength(2);
-  expect(screen.getByText(/password=\*\*\*redacted\*\*\*/)).toBeInTheDocument();
-  expect(screen.queryByText('raw-secret')).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Chi tiết triển khai', level: 1 })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '← Lịch sử triển khai staging' })).toBeInTheDocument();
+  expect(screen.getByText('Đầu ra: host=db.internal, port=5432, password=Đã che, nested=[giá trị đã ẩn]')).toBeInTheDocument();
+  expect(detailEntries()).not.toContain('raw-secret');
+  expect(detailEntries()).not.toContain('raw-nested-secret');
+  expect(detailEntries()).not.toContain('***redacted***');
   expect(screen.getByText('sha256:dep-1-manifest')).toBeInTheDocument();
+  expect(screen.getByText('Thành công')).toBeInTheDocument();
+  expect(screen.getByText('Sẵn sàng · pg-kind')).toBeInTheDocument();
+  expect(screen.getByText('Đang chạy')).toBeInTheDocument();
+  expect(screen.getByText('frontend · triển khai')).toBeInTheDocument();
+  expect(screen.getByText('developer')).toBeInTheDocument();
+  expect(screen.getByText(new Date('2026-09-01T10:00:00Z').toLocaleString('vi-VN'))).toBeInTheDocument();
+  expect(screen.getByText('1 nút đồ thị · 0 phụ thuộc · kế hoạch 0123456789ab')).toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   expect(fetcher.mock.calls[0]?.[0]).toBe('/api/v1/applications/catalog%2Fapp/environments/staging/deployments/dep%2F1');
 });
 
-it('shows planning failure without inventing a provision plan', async () => {
+it('keeps graph direction, matched Definition, technical IDs and batch order of the snapshot', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({
-    deployment: deployment({ id: 'dep-3', workloadId: 'api', status: 'FAILED', failureReason: 'no matching definition' }),
+    graph: { nodes: [{ descriptor: 'db', kind: 'resource' }, { descriptor: 'app/web', kind: 'workload' }], edges: [{ consumer: 'app/web', provider: 'db' }] },
+    matches: { db: { definitionKey: 'pg-kind', driverType: 'fake' } }, batches: [['db'], ['app/web', 'cache']],
+  }))));
+  render(<DeploymentDetailsPage application={application} environment="production" deploymentId="dep-1" />);
+  expect(await screen.findByText('db · resource · pg-kind')).toBeInTheDocument();
+  expect(screen.getByText('app/web · workload')).toBeInTheDocument();
+  expect(screen.getByText('app/web → db')).toBeInTheDocument();
+  expect(Array.from(screen.getByText('Các đợt tạo tài nguyên').nextElementSibling?.children ?? []).map((item) => item.textContent)).toEqual(['db', 'app/web, cache']);
+  expect(screen.getByText('set-1')).toBeInTheDocument();
+  expect(screen.getByText('Catalog · production')).toBeInTheDocument();
+});
+
+it.each([
+  ['SUCCEEDED', 'Thành công'], ['FAILED', 'Thất bại'], ['DEPLOYING', 'Đang triển khai'],
+  ['PROVISIONING', 'Đang tạo tài nguyên'], ['PLANNING', 'Đang lập kế hoạch'],
+])('translates the %s deployment badge without leaking the enum', async (status, label) => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({ deployment: deployment({ status }) }))));
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  expect(await screen.findByText(label, { selector: '.status' })).toBeInTheDocument();
+  expect(detailEntries()).not.toContain(status);
+});
+
+it.each([['UPDATE', 'cập nhật'], ['REMOVE', 'gỡ bỏ'], ['MYSTERY', 'MYSTERY']])('translates action %s', async (action, label) => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({ deployment: deployment({ action }) }))));
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  expect(await screen.findByText(`frontend · ${label}`)).toBeInTheDocument();
+});
+
+it('translates known resource/Workload states and passes unknown or inherited keys through unchanged', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({
+    resources: [
+      { descriptor: 'a', resourceType: 'postgres', definitionKey: '', status: 'PENDING', outputs: {} },
+      { descriptor: 'b', resourceType: '', definitionKey: 'k', status: 'constructor', outputs: {} },
+      { descriptor: 'c', resourceType: 'postgres', definitionKey: 'k2', status: 'UNREFERENCED', outputs: {} },
+    ],
+    workloads: [{ workloadId: 'w1', status: 'INTERRUPTED', manifestDigest: 'sha256:x', lastDeploymentId: 'dep-1', observedAt: '' }, { workloadId: 'w3', status: 'APPLYING', manifestDigest: 'sha256:z', lastDeploymentId: 'dep-1', observedAt: '' }, { workloadId: 'w2', status: 'WEIRD', manifestDigest: 'sha256:y', lastDeploymentId: 'dep-1', observedAt: '' }],
+  }))));
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  expect(await screen.findByText('Đang chờ · chưa có cấu hình tài nguyên')).toBeInTheDocument();
+  expect(screen.getByText('constructor · k')).toBeInTheDocument();
+  expect(screen.getByText('Bị gián đoạn')).toBeInTheDocument();
+  expect(screen.getByText('WEIRD')).toBeInTheDocument();
+  expect(screen.getByText('Không còn được tham chiếu · k2')).toBeInTheDocument();
+  expect(screen.getByText('Đang áp dụng')).toBeInTheDocument();
+});
+
+it('shows Vietnamese empty states for Workload, resources and batches', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({ resources: [], workloads: [], batches: [], graph: { nodes: [], edges: [] } }))));
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  expect(await screen.findByText('Chưa ghi nhận trạng thái Workload nào.')).toBeInTheDocument();
+  expect(screen.getByText('Chưa ghi nhận trạng thái tài nguyên nào.')).toBeInTheDocument();
+  expect(screen.getByText('Chưa ghi nhận đợt tạo tài nguyên nào.')).toBeInTheDocument();
+});
+
+it('shows a safe Vietnamese failure guidance, never the raw failure reason, and no fake plan', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({
+    deployment: deployment({ id: 'dep-3', workloadId: 'api', status: 'FAILED', failureReason: 'dial tcp 10.0.0.5: token=raw-failure-secret' }),
     deploymentSetId: '', planHash: '', graph: null, matches: null, batches: null, resources: [], workloads: [],
   }))));
   render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-3" />);
 
-  expect(await screen.findByText('no matching definition')).toBeInTheDocument();
-  expect(screen.getByText('No provision plan was saved for this deployment.')).toBeInTheDocument();
-  expect(screen.queryByText(/graph nodes/)).not.toBeInTheDocument();
+  expect(await screen.findByRole('alert')).toHaveTextContent('Triển khai không hoàn tất.');
+  expect(screen.getByText('Thất bại', { selector: '.status' })).toBeInTheDocument();
+  expect(detailEntries()).not.toContain('raw-failure-secret');
+  expect(detailEntries()).not.toContain('dial tcp');
+  expect(screen.getByText('Không có kế hoạch tạo tài nguyên được lưu cho triển khai này.')).toBeInTheDocument();
+  expect(screen.queryByText(/nút đồ thị/)).not.toBeInTheDocument();
+  expect(screen.queryByText('Các đợt tạo tài nguyên')).not.toBeInTheDocument();
 });
 
-it('shows scoped not-found without offering a retry', async () => {
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'not found' }), { status: 404 })));
+it('uses the same generic guidance for an unknown failure reason on a non-failed status', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({ deployment: deployment({ status: 'DEPLOYING', failureReason: 'something brand new' }) }))));
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  expect(await screen.findByRole('alert')).toHaveTextContent('Triển khai không hoàn tất.');
+  expect(detailEntries()).not.toContain('something brand new');
+});
+
+it('shows scoped not-found without retry or raw error', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'tenant-x row hidden' }), { status: 404 })));
   render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="missing" />);
 
-  expect(await screen.findByRole('heading', { name: 'Deployment not found' })).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Không tìm thấy triển khai' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Thử lại' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(detailEntries()).not.toContain('tenant-x');
 });
 
-it('clears stale detail while loading a new deployment and retries API errors', async () => {
+it('hides raw API errors and retries with GET only', async () => {
+  const fetcher = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'password=hunter2' }), { status: 500 }))
+    .mockResolvedValueOnce(Response.json(detail()));
+  vi.stubGlobal('fetch', fetcher);
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải chi tiết triển khai.');
+  expect(detailEntries()).not.toContain('hunter2');
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Thử lại' }));
+  expect(await screen.findByText('frontend · triển khai')).toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(fetcher.mock.calls.every(([, init]) => init?.method === undefined || init.method === 'GET')).toBe(true);
+});
+
+it('Tải lại re-reads the stored snapshot with GET only and offers no rollback or live status', async () => {
+  const fetcher = vi.fn(async (_input: string | URL | Request, _init?: RequestInit) => Response.json(detail()));
+  vi.stubGlobal('fetch', fetcher);
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  await screen.findByText('frontend · triển khai');
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Tải lại' }));
+  await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+  expect(fetcher.mock.calls[1]?.[0]).toBe(fetcher.mock.calls[0]?.[0]);
+  expect(fetcher.mock.calls.every(([, init]) => init?.method === undefined || init.method === 'GET')).toBe(true);
+  expect(screen.queryByRole('button', { name: /rollback|khôi phục|hoàn tác/i })).not.toBeInTheDocument();
+  expect(detailEntries()).not.toMatch(/Loading|Refresh|Retry|Started|Finished/);
+});
+
+it('clears stale detail while loading a new deployment and ignores its late failure after switching again', async () => {
   let rejectSecond: ((reason?: unknown) => void) | undefined;
   const second = new Promise<Response>((_resolve, reject) => { rejectSecond = reject; });
   const fetcher = vi.fn()
     .mockResolvedValueOnce(Response.json(detail()))
     .mockReturnValueOnce(second)
-    .mockResolvedValueOnce(Response.json(detail({ deployment: deployment({ id: 'dep-2', workloadId: 'backend' }) })));
+    .mockResolvedValueOnce(Response.json(detail({ deployment: deployment({ id: 'dep-3', workloadId: 'backend' }) })));
   vi.stubGlobal('fetch', fetcher);
   const view = render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
-  expect(await screen.findByText('frontend · deploy')).toBeInTheDocument();
+  expect(await screen.findByText('frontend · triển khai')).toBeInTheDocument();
 
   view.rerender(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-2" />);
-  expect(screen.getByRole('status')).toHaveTextContent('Loading deployment…');
-  expect(screen.queryByText('frontend · deploy')).not.toBeInTheDocument();
-  rejectSecond?.(new Error('offline'));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Could not load deployment details.');
-  expect(screen.queryByText('frontend · deploy')).not.toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('Đang tải chi tiết triển khai…');
+  expect(screen.queryByText('frontend · triển khai')).not.toBeInTheDocument();
+  view.rerender(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-3" />);
+  expect(await screen.findByText('backend · triển khai')).toBeInTheDocument();
+  await act(async () => { rejectSecond?.(new Error('offline')); });
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.getByText('backend · triển khai')).toBeInTheDocument();
+});
 
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }));
-  expect(await screen.findByText('backend · deploy')).toBeInTheDocument();
-  await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
+it('ignores a late detail of an obsolete deployment ID', async () => {
+  const pending: Record<string, { resolve: (value: Response) => void }> = {};
+  vi.stubGlobal('fetch', vi.fn((input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith('/dep-new')) return Promise.resolve(Response.json(detail({ deployment: deployment({ id: 'dep-new', workloadId: 'new-work' }) })));
+    return new Promise<Response>((resolve) => { pending[url] = { resolve }; });
+  }));
+  const view = render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-old" />);
+  view.rerender(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-new" />);
+  expect(await screen.findByText('new-work · triển khai')).toBeInTheDocument();
+  const oldKey = Object.keys(pending)[0] as string;
+  await act(async () => { pending[oldKey]?.resolve(Response.json(detail({ deployment: deployment({ id: 'dep-old', workloadId: 'old-work' }) }))); });
+  expect(screen.queryByText(/old-work/)).not.toBeInTheDocument();
+  expect(screen.getByText('new-work · triển khai')).toBeInTheDocument();
+  expect(screen.getByText('dep-new')).toBeInTheDocument();
+});
+
+it('ignores a late 404 of an obsolete deployment ID', async () => {
+  const pending: Record<string, (value: Response) => void> = {};
+  vi.stubGlobal('fetch', vi.fn((input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith('/dep-new')) return Promise.resolve(Response.json(detail({ deployment: deployment({ id: 'dep-new', workloadId: 'new-work' }) })));
+    return new Promise<Response>((resolve) => { pending[url] = resolve; });
+  }));
+  const view = render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-old" />);
+  view.rerender(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-new" />);
+  expect(await screen.findByText('new-work · triển khai')).toBeInTheDocument();
+  const oldKey = Object.keys(pending)[0] as string;
+  await act(async () => { pending[oldKey]?.(Response.json({ error: 'not found' }, { status: 404 })); });
+  expect(screen.queryByText('Không tìm thấy triển khai')).not.toBeInTheDocument();
+  expect(screen.getByText('new-work · triển khai')).toBeInTheDocument();
+});
+
+it('ignores a late 404 and a late failure of an obsolete Application scope', async () => {
+  const other: Application = { ...application, id: 'billing/app', name: 'Billing' };
+  const pending: Record<string, (value: Response) => void> = {};
+  vi.stubGlobal('fetch', vi.fn((input: string | URL | Request) => {
+    const url = String(input);
+    if (url.includes('billing%2Fapp')) return Promise.resolve(Response.json(detail({ deployment: deployment({ applicationKey: 'billing/app', workloadId: 'billing-work' }) })));
+    return new Promise<Response>((resolve) => { pending[url] = resolve; });
+  }));
+  const view = render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  const oldKey = Object.keys(pending)[0] as string;
+  view.rerender(<DeploymentDetailsPage application={other} environment="staging" deploymentId="dep-1" />);
+  expect(await screen.findByText('billing-work · triển khai')).toBeInTheDocument();
+  await act(async () => { pending[oldKey]?.(Response.json({ error: 'not found' }, { status: 404 })); });
+  expect(screen.queryByText('Không tìm thấy triển khai')).not.toBeInTheDocument();
+  expect(screen.getByText('billing-work · triển khai')).toBeInTheDocument();
+  view.rerender(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-2" />);
+  const secondKey = Object.keys(pending).find((key) => key.endsWith('/dep-2')) as string;
+  view.rerender(<DeploymentDetailsPage application={other} environment="staging" deploymentId="dep-1" />);
+  expect(await screen.findByText('billing-work · triển khai')).toBeInTheDocument();
+  await act(async () => { pending[secondKey]?.(Response.json({ error: 'boom' }, { status: 500 })); });
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+it('ignores a late reply of the previous scope after switching Environment and Application', async () => {
+  const other: Application = { ...application, id: 'billing/app', name: 'Billing' };
+  const pending: Record<string, (value: Response) => void> = {};
+  vi.stubGlobal('fetch', vi.fn((input: string | URL | Request) => {
+    const url = String(input);
+    if (url.includes('billing%2Fapp')) return Promise.resolve(Response.json(detail({ deployment: deployment({ applicationKey: 'billing/app', workloadId: 'billing-work' }) })));
+    if (url.includes('/production/')) return Promise.resolve(Response.json(detail({ deployment: deployment({ environmentKey: 'production', workloadId: 'prod-work' }) })));
+    return new Promise<Response>((resolve) => { pending[url] = resolve; });
+  }));
+  const view = render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  const stagingKey = Object.keys(pending)[0] as string;
+  view.rerender(<DeploymentDetailsPage application={application} environment="production" deploymentId="dep-1" />);
+  expect(await screen.findByText('prod-work · triển khai')).toBeInTheDocument();
+  await act(async () => { pending[stagingKey]?.(Response.json(detail({ deployment: deployment({ workloadId: 'staging-stale' }) }))); });
+  expect(screen.queryByText(/staging-stale/)).not.toBeInTheDocument();
+  view.rerender(<DeploymentDetailsPage application={other} environment="production" deploymentId="dep-1" />);
+  expect(await screen.findByText('billing-work · triển khai')).toBeInTheDocument();
+  expect(screen.getByText('Billing · production')).toBeInTheDocument();
+  expect(screen.queryByText(/prod-work/)).not.toBeInTheDocument();
+});
+
+it('ignores a late reply of a previous read attempt after an explicit reload', async () => {
+  const resolvers: ((value: Response) => void)[] = [];
+  vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((resolve) => { resolvers.push(resolve); })));
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Tải lại' }));
+  await waitFor(() => expect(resolvers).toHaveLength(2));
+  await act(async () => { resolvers[1]?.(Response.json(detail({ deployment: deployment({ workloadId: 'fresh' }) }))); });
+  expect(await screen.findByText('fresh · triển khai')).toBeInTheDocument();
+  await act(async () => { resolvers[0]?.(Response.json(detail({ deployment: deployment({ workloadId: 'stale-attempt' }) }))); });
+  expect(screen.queryByText(/stale-attempt/)).not.toBeInTheDocument();
+  expect(screen.getByText('fresh · triển khai')).toBeInTheDocument();
 });
 
 it('localizes recent deployment actions and statuses and hides raw load errors', async () => {

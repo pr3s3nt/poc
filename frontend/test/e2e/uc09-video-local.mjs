@@ -161,29 +161,30 @@ try {
   // 6. Failed detail: persisted reason, no invented plan or workload rows.
   await h.click(entries.nth(1));
   await expect(page).toHaveURL(new RegExp(`/deployments/${fixtures.failedDeploymentId}$`));
-  await expect(page.getByRole('heading', { name: 'broken · deploy' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'broken · triển khai' })).toBeVisible();
   const reason = page.locator('.form-error[role="alert"]');
-  await expect(reason).toContainText(fixtures.failureReason);
+  await expect(reason).toContainText('Triển khai không hoàn tất.');
+  await expect(page.locator('body')).not.toContainText(fixtures.failureReason);
   await h.moveTo(reason);
   mark('failed-detail-reason');
   await h.pause(LONG_READ);
-  await expect(page.getByText('No workload status was recorded.')).toBeVisible();
-  await expect(page.getByText('No provision plan was saved for this deployment.')).toBeVisible();
-  await h.moveTo(page.getByText('No provision plan was saved for this deployment.'));
+  await expect(page.getByText('Chưa ghi nhận trạng thái Workload nào.')).toBeVisible();
+  await expect(page.getByText('Không có kế hoạch tạo tài nguyên được lưu cho triển khai này.')).toBeVisible();
+  await h.moveTo(page.getByText('Không có kế hoạch tạo tài nguyên được lưu cho triển khai này.'));
   mark('failed-detail-no-plan');
   await h.pause(READ);
 
   // 7. Newest successful detail (the redeploy): workload snapshot, redacted
   // outputs, graph and provision batches.
-  await h.click(page.getByRole('button', { name: '← staging deployment history' }));
+  await h.click(page.getByRole('button', { name: '← Lịch sử triển khai staging' }));
   await expect(entries).toHaveCount(3);
   await h.click(entries.nth(0));
   await expect(page).toHaveURL(new RegExp(`/deployments/${fixtures.secondDeploymentId}$`));
-  await expect(page.getByRole('heading', { name: /^backend · (deploy|update)$/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^backend · (triển khai|cập nhật)$/ })).toBeVisible();
   await reviewSuccessfulDetail(h, fixtures.secondDigest, 'redeploy');
 
   // 8. Older successful detail keeps its own workload snapshot.
-  await h.click(page.getByRole('button', { name: '← staging deployment history' }));
+  await h.click(page.getByRole('button', { name: '← Lịch sử triển khai staging' }));
   await expect(entries).toHaveCount(3);
   await h.click(entries.nth(2));
   await expect(page).toHaveURL(new RegExp(`/deployments/${fixtures.firstDeploymentId}$`));
@@ -202,10 +203,10 @@ try {
   await h.pause(SHORT_READ);
   x11.keys(['Return']);
   await expect(page).toHaveURL(outOfScope);
-  await expect(page.getByRole('heading', { name: 'Deployment not found' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Retry' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Không tìm thấy triển khai' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Thử lại' })).toHaveCount(0);
   await h.showCursor();
-  await h.moveTo(page.getByRole('heading', { name: 'Deployment not found' }));
+  await h.moveTo(page.getByRole('heading', { name: 'Không tìm thấy triển khai' }));
   mark('scoped-not-found');
   await h.pause(LONG_READ);
 
@@ -229,27 +230,27 @@ try {
 
 async function reviewSuccessfulDetail(h, digest, label) {
   const { page } = h;
-  const workloads = page.locator('section.content-panel').filter({ has: page.getByRole('heading', { name: 'Workloads' }) });
-  await expect(workloads).toContainText('READY');
+  const workloads = page.locator('section.content-panel').filter({ has: page.getByRole('heading', { name: 'Workload' }) });
+  await expect(workloads).toContainText('Sẵn sàng');
   await expect(workloads.getByText(digest, { exact: true })).toBeVisible();
   await h.moveTo(workloads.getByText(digest, { exact: true }));
   marks.push({ label: `${label}-workload-digest`, seconds: Number(((Date.now() - startedAt) / 1000).toFixed(1)) });
   await h.pause(READ);
 
-  const outputs = page.getByText(/password=\*\*\*redacted\*\*\*/);
+  const outputs = page.getByText(/password=Đã che/);
   await expect(outputs).toBeVisible();
   await expect(page.locator('body')).not.toContainText('resolvedInputs');
   await h.moveTo(outputs);
   marks.push({ label: `${label}-redacted-outputs`, seconds: Number(((Date.now() - startedAt) / 1000).toFixed(1)) });
   await h.pause(LONG_READ);
 
-  const plan = page.locator('section.content-panel').filter({ has: page.getByRole('heading', { name: 'Provision plan' }) });
-  await expect(plan).toContainText(/\d+ graph nodes/);
-  await expect(plan.getByRole('heading', { name: 'Nodes' })).toBeVisible();
-  await h.moveTo(plan.getByRole('heading', { name: 'Nodes' }));
+  const plan = page.locator('section.content-panel').filter({ has: page.getByRole('heading', { name: 'Kế hoạch tạo tài nguyên' }) });
+  await expect(plan).toContainText(/\d+ nút đồ thị/);
+  await expect(plan.getByRole('heading', { name: 'Nút' })).toBeVisible();
+  await h.moveTo(plan.getByRole('heading', { name: 'Nút' }));
   marks.push({ label: `${label}-graph`, seconds: Number(((Date.now() - startedAt) / 1000).toFixed(1)) });
   await h.pause(READ);
-  const batches = plan.getByRole('heading', { name: 'Provision batches' });
+  const batches = plan.getByRole('heading', { name: 'Các đợt tạo tài nguyên' });
   await expect(batches).toBeVisible();
   await expect(plan.locator('ol > li').first()).toBeVisible();
   await h.moveTo(plan.locator('ol > li').first());

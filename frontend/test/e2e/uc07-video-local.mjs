@@ -187,12 +187,12 @@ try {
 
   // 6. History and the remove Deployment detail.
   await h.click(removed.getByRole('link', { name: 'xem triển khai' }));
-  await expect(page.getByRole('heading', { name: 'api · remove' })).toBeVisible();
-  await expect(page.locator('.status').first()).toHaveText('SUCCEEDED');
-  await h.moveTo(page.getByRole('heading', { name: 'api · remove' }));
+  await expect(page.getByRole('heading', { name: 'api · gỡ bỏ' })).toBeVisible();
+  await expect(page.locator('.status').first()).toHaveText('Thành công');
+  await h.moveTo(page.getByRole('heading', { name: 'api · gỡ bỏ' }));
   mark('remove-detail');
   await h.pause(LONG_READ);
-  await h.click(page.getByRole('button', { name: '← staging deployment history' }));
+  await h.click(page.getByRole('button', { name: '← Lịch sử triển khai staging' }));
   await expect(page.getByRole('heading', { name: 'Deployments', level: 1 })).toBeVisible();
   const entries = page.locator('button.deployment-entry');
   await expect(entries).toHaveCount(4);

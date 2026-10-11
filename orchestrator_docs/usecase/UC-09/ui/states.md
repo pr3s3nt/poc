@@ -29,3 +29,19 @@ related: UC-09
   backend error vào UI và không coi lỗi là danh sách rỗng.
 - Đổi app/env/filter hoặc retry xóa danh sách cũ khi tải; phản hồi đến muộn của
   scope/filter cũ không thay kết quả hiện tại. Payload enum và API không đổi.
+
+## Trạng thái chi tiết tiếng Việt — T15
+
+- Loading: “Đang tải chi tiết triển khai…” với role status và aria-busy; giữ
+  navigation Application/Environment, xóa detail cũ khi scope/ID thay đổi.
+- Not found/inaccessible: “Không tìm thấy triển khai” cùng giải thích an toàn
+  trong scope đã chọn; không có nút “Thử lại”, không tiết lộ tenant khác.
+- API error: “Không thể tải chi tiết triển khai.” và nút “Thử lại”; không hiện
+  raw error, không render detail cũ. Retry chỉ đọc API theo thao tác tường minh.
+- Failed: badge “Thất bại”, hướng dẫn Việt an toàn; không có plan thì ghi
+  “Không có kế hoạch tạo tài nguyên được lưu cho triển khai này.”, không dựng
+  graph/batches giả. Unknown failure dùng fallback, không thay từ bằng regex.
+- Succeeded: badge “Thành công”, dữ liệu persisted và output đã che. Các enum
+  khác được dịch nhãn nhưng không đổi dữ liệu API; empty Workload/tài nguyên/
+  batches có thông báo Việt. Phản hồi hoặc lỗi đến muộn của app/env/ID/lượt đọc
+  cũ không thay kết quả hiện tại.

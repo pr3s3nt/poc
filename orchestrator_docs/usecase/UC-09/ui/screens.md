@@ -35,3 +35,20 @@ Danh sách giữ thứ tự server và scope Application/Environment đang chọ
 Mở một dòng giữ nguyên deployment ID trong route detail. Tải lại chỉ đọc lịch
 sử đã lưu, không refresh cluster hoặc provision. Không thêm so sánh deployment;
 Việt hóa nội dung trang detail thuộc T15.
+
+## Chi tiết triển khai — T15
+
+Trang có tiêu đề “Chi tiết triển khai”, liên kết về lịch sử của môi trường và
+nút “Tải lại” chỉ đọc snapshot đã lưu. Nhãn metadata, trạng thái triển khai/
+Workload/tài nguyên, hành động, graph và các đợt tạo tài nguyên dùng tiếng Việt;
+thời gian dùng locale vi-VN. Workload/Container/Service, tên người dùng, IDs,
+descriptor, output keys, đường dẫn, module và staging/production giữ nguyên.
+Scope và danh tính lịch sử lấy từ Deployment đã chọn; không thay bằng đích
+hiện tại của Environment hoặc thêm thông tin đích mà API không trả.
+
+Thông báo thất bại dùng hướng dẫn tiếng Việt an toàn, không hiển thị nguyên văn
+failure reason hoặc lỗi transport. Output bí mật có nhãn “Đã che”; marker
+`***redacted***` không được diễn giải thành giá trị thật. Outputs đã phân loại
+non-secret giữ nguyên dữ liệu; resolved inputs không được render. Graph giữ
+hướng consumer → provider, matched Definition và thứ tự batches của snapshot.
+Không thêm rollback, log hoặc live refresh.

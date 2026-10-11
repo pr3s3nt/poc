@@ -3406,6 +3406,254 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(3000);
   },
+
+  // T15: Chi tiết triển khai. Developer. PRODUCT (UI, backend fake thật với fake deliverer, state tạm): đăng nhập, tạo ứng dụng, thêm 2 draft Workload, Xem trước và
+  // Triển khai thật (2 Deployment SUCCEEDED), mở lịch sử rồi chi tiết thật: nhãn tiếng Việt, ID/digest/thời gian vi-VN, plan thật (có hoặc không, theo API), 404 thật khi
+  // mở ID của staging dưới production. MOCK (page.route trên GET .../deployments/<id>, mỗi lần dùng ghi vào mocks.json, backend KHÔNG thay đổi): (1) snapshot thành công
+  // giả có graph/matches/batches, output nested + marker che + resolvedInputs giả; (2) FAILED không plan kèm lý do thô giả; (3) trạng thái đang chạy giả; (4) 404 giả;
+  // (5) 500 giả kèm chuỗi bí mật giả rồi Thử lại đến backend thật; (6) phản hồi chi tiết giữ bằng cổng điều khiển, đổi sang deployment khác, rồi nhả phản hồi muộn.
+  // Mock chỉ là chiếu giao diện, không chứng minh adapter thật. Sau khi Triển khai, mọi request không phải GET bị cấm.
+  async T15({ page, h, ui, caption, mark, check, baseURL }) {
+    const NAME = 'T15 Chi tiết triển khai';
+    const RAW = 'provider said token=ABC-SECRET-777';
+    const NESTED = 'NESTED-SECRET-555';
+    const RESOLVED = 'RESOLVED-INPUT-999';
+    const mocks = [];
+    const mocked = (what) => { mocks.push(what); appendFileSync(`${process.env.ORCH_E2E_EVIDENCE_DIR}/mocks.json`, `${JSON.stringify({ at: new Date().toISOString(), what })}\n`); };
+    const writes = [];
+    const detailGets = [];
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (request.method() !== 'GET') { writes.push(`${request.method()} ${url.pathname}`); return; }
+      if (/\/deployments\/[^/]+$/.test(url.pathname)) detailGets.push(`${url.pathname.split('/environments/')[1]}`);
+    });
+    let appId = '';
+    const spec = (name) => ({ name, image: `registry.example/${name}:t15`, bindings: [], port: { name: 'http', port: '8080', targetPort: '8080' } });
+    const apiList = async (environment) => (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/${environment}/deployments`)).json()).deployments ?? [];
+    const apiDetail = async (environment, id) => (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/${environment}/deployments/${encodeURIComponent(id)}`)).json();
+    const entries = () => page.locator('button.deployment-entry');
+    const body = async () => page.locator('body').innerText();
+    const routeFor = (id) => new RegExp(`/environments/staging/deployments/${id}$`);
+    const noLeak = async () => expect(await body()).not.toMatch(/ABC-SECRET|token=|provider said|NESTED-SECRET|RESOLVED-INPUT|\*\*\*redacted\*\*\*/);
+    const noEnglish = async () => expect(await body()).not.toMatch(/Deployment details|deployment history|Loading|Refresh|Retry|Started|Finished|Triggered|Provision plan|Resources\b|Workloads\b|not found|graph nodes|Could not load/);
+    const heading = () => page.getByRole('heading', { name: 'Chi tiết triển khai', level: 1 });
+    const fulfill = (route, payload, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) });
+    let apiId = ''; let webId = '';
+    const deployment = (id, overrides = {}) => ({ id, applicationKey: appId, environmentKey: 'staging', action: 'DEPLOY', workloadId: 'api', actorRef: 'developer', status: 'SUCCEEDED', startedAt: '2026-09-01T10:00:00Z', finishedAt: '2026-09-01T10:02:00Z', ...overrides });
+    const openDetail = async (text) => {
+      await h.click(entries().filter({ hasText: text }));
+      await expect(heading()).toBeVisible();
+    };
+
+    caption('Bước 1: Lập trình viên đăng nhập và tạo ứng dụng mới');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'developer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    appId = await createApplication(h, NAME, 't15-chi-tiet-trien-khai');
+    check('new application (real backend): both Environments connected through the UI');
+    mark('home-created');
+
+    caption('Bước 2: Thêm hai Workload api và web rồi Xem trước và Triển khai thật (fake deliverer)');
+    await addWorkload(h, spec('api'));
+    await previewAndDeploy(h, ['api']);
+    await addWorkload(h, spec('web'));
+    await previewAndDeploy(h, ['web']);
+    const afterDeploy = writes.length;
+    const real = await apiList('staging');
+    expect(real.map((item) => `${item.workloadId}/${item.action}/${item.status}`)).toEqual(['web/DEPLOY/SUCCEEDED', 'api/DEPLOY/SUCCEEDED']);
+    webId = real[0].id; apiId = real[1].id;
+    check('two real Deployments created through the UI (fake deliverer): web newest, then api, both DEPLOY/SUCCEEDED');
+    mark('deployed');
+
+    caption('Bước 3: Mở Xem tất cả rồi mở chi tiết triển khai api thật: nhãn tiếng Việt, ID và thời gian vi-VN, không còn tiếng Anh');
+    await h.click(page.getByRole('button', { name: /^Staging/i }));
+    await h.click(page.getByRole('button', { name: 'Xem tất cả' }));
+    await expect(entries()).toHaveCount(2);
+    await openDetail('api · triển khai');
+    await expect(page).toHaveURL(`${baseURL}/ui/applications/${appId}/environments/staging/deployments/${encodeURIComponent(apiId)}`);
+    const realDetail = await apiDetail('staging', apiId);
+    const started = await page.evaluate((iso) => new Date(iso).toLocaleString('vi-VN'), real[1].startedAt);
+    await expect(page.getByRole('heading', { name: 'api · triển khai' })).toBeVisible();
+    await expect(page.getByText(apiId, { exact: true })).toBeVisible();
+    await expect(page.locator('.status', { hasText: 'Thành công' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '← Lịch sử triển khai staging' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Tải lại' })).toBeVisible();
+    await expect(page.getByText(`${NAME} · staging`)).toBeVisible();
+    await expect(page.locator('dd', { hasText: started }).first()).toBeVisible();
+    await expect(page.locator('dt', { hasText: 'Người thực hiện' })).toBeVisible();
+    await expect(page.locator('dd', { hasText: real[1].actorRef }).first()).toBeVisible();
+    for (const item of realDetail.workloads ?? []) await expect(page.getByText(item.manifestDigest, { exact: true })).toBeVisible();
+    await noEnglish();
+    expect(await body()).not.toMatch(/SUCCEEDED|\bDEPLOY\b|Rollback|Hoàn tác/);
+    const planned = Boolean(realDetail.planHash);
+    if (planned) await expect(page.getByRole('heading', { name: 'Kế hoạch tạo tài nguyên' })).toBeVisible();
+    else await expect(page.getByText('Không có kế hoạch tạo tài nguyên được lưu cho triển khai này.')).toBeVisible();
+    check(`real detail: Vietnamese title/labels/badge, deployment ID ${apiId}, vi-VN time "${started}", actor and ${realDetail.workloads?.length ?? 0} workload digest(s) from API; plan saved=${planned}; no English leftovers or raw enums`);
+    mark('detail-real');
+    await h.moveTo(page.getByRole('heading', { name: 'api · triển khai' }));
+    await h.read('Chi tiết thật bằng tiếng Việt; ID và digest giữ nguyên');
+
+    caption('Bước 4: MOCK snapshot thành công giả: graph consumer → provider, Definition, batches, output nested và marker che; Workload lịch sử khác trạng thái hiện tại');
+    const successMock = {
+      deployment: deployment(apiId), deploymentSetId: 'set-snapshot-1', planHash: 'abcdef0123456789deadbeef',
+      graph: { nodes: [{ descriptor: 'db', kind: 'resource' }, { descriptor: 'app/web', kind: 'workload' }], edges: [{ consumer: 'app/web', provider: 'db' }] },
+      matches: { db: { definitionKey: 'pg-kind', driverType: 'fake' } }, batches: [['db'], ['app/web', 'cache']],
+      resources: [{ descriptor: 'db', resourceType: 'postgres', definitionKey: 'pg-kind', status: 'READY', outputs: { host: 'db.internal', port: 5432, password: '***redacted***', nested: { token: NESTED } }, resolvedInputs: { password: RESOLVED } }, { descriptor: 'old-cache', resourceType: 'redis', definitionKey: 'redis-kind', status: 'UNREFERENCED', outputs: {} }],
+      workloads: [{ workloadId: 'api', status: 'RUNNING', manifestDigest: 'sha256:historical-api-digest', lastDeploymentId: apiId, observedAt: '2026-09-01T10:01:00Z' }],
+    };
+    await page.route(routeFor(apiId), async (route) => { mocked('GET staging deployment detail answered with fake success snapshot (graph, matches, batches, redacted + nested outputs, fake resolvedInputs)'); await fulfill(route, successMock); });
+    await h.click(page.getByRole('button', { name: 'Tải lại' }));
+    await expect(page.getByText('set-snapshot-1')).toBeVisible();
+    await expect(page.getByText('Tập triển khai', { exact: true })).toBeVisible();
+    await expect(page.getByText('Deployment Set', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('sha256:historical-api-digest')).toBeVisible();
+    await expect(page.getByText('Đang chạy', { exact: true })).toBeVisible();
+    await expect(page.getByText('Sẵn sàng · pg-kind')).toBeVisible();
+    await expect(page.getByText('Không còn được tham chiếu · redis-kind')).toBeVisible();
+    await expect(page.getByText('Đầu ra: host=db.internal, port=5432, password=Đã che, nested=[giá trị đã ẩn]')).toBeVisible();
+    await expect(page.getByText('2 nút đồ thị · 1 phụ thuộc · kế hoạch abcdef012345')).toBeVisible();
+    await expect(page.getByText('db · resource · pg-kind')).toBeVisible();
+    await expect(page.getByText('app/web → db')).toBeVisible();
+    expect(await page.locator('ol > li').allInnerTexts()).toEqual(['db', 'app/web, cache']);
+    await noLeak();
+    await noEnglish();
+    check('success projection (MOCKED detail): graph direction app/web → db, matched Definition, batch order [db],[app/web, cache], historical digest/IDs unchanged, secret marker shown as "Đã che", nested value and resolvedInputs never rendered');
+    mark('mock-success');
+    await h.moveTo(page.getByText('password=Đã che', { exact: false }));
+    await h.read('Output bí mật hiện là Đã che; giá trị lồng nhau và resolved inputs không bao giờ hiện (dữ liệu giả)');
+    await page.unroute(routeFor(apiId));
+
+    caption('Bước 5: MOCK FAILED không có plan kèm lý do thô giả: chỉ hiện hướng dẫn tiếng Việt an toàn, không dựng graph giả');
+    const failedMock = { deployment: deployment(apiId, { status: 'FAILED', failureReason: RAW, finishedAt: undefined }), deploymentSetId: '', planHash: '', graph: null, matches: null, batches: null, resources: [], workloads: [] };
+    await page.route(routeFor(apiId), async (route) => { mocked('GET staging deployment detail answered with fake FAILED detail without plan and with secret-like failureReason'); await fulfill(route, failedMock); });
+    await h.click(page.getByRole('button', { name: 'Tải lại' }));
+    await expect(page.getByRole('alert')).toContainText('Triển khai không hoàn tất.');
+    await expect(page.getByRole('alert')).toContainText('Xem trước các thay đổi rồi triển khai lại');
+    await expect(page.getByRole('alert')).not.toContainText('Definition');
+    await expect(page.locator('.status', { hasText: 'Thất bại' })).toBeVisible();
+    await expect(page.getByText('Không có kế hoạch tạo tài nguyên được lưu cho triển khai này.')).toBeVisible();
+    await expect(page.getByText('Chưa ghi nhận trạng thái Workload nào.')).toBeVisible();
+    await expect(page.getByText('Chưa ghi nhận trạng thái tài nguyên nào.')).toBeVisible();
+    await expect(page.getByText(/nút đồ thị/)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Các đợt tạo tài nguyên' })).toHaveCount(0);
+    await noLeak();
+    check('failed projection (MOCKED detail): "Thất bại" badge, safe Vietnamese guidance without raw failureReason, no plan/graph/batches, Vietnamese empty states');
+    mark('mock-failed');
+    await h.moveTo(page.getByRole('alert'));
+    await h.read('Thất bại: chỉ hướng dẫn an toàn, không có plan giả (dữ liệu giả)');
+    await page.unroute(routeFor(apiId));
+
+    caption('Bước 6: MOCK các trạng thái đang chạy PLANNING, PROVISIONING, DEPLOYING: nhãn tiếng Việt, không lộ enum');
+    let phase = 'PLANNING';
+    await page.route(routeFor(apiId), async (route) => { mocked(`GET staging deployment detail answered with fake ${phase} detail`); await fulfill(route, { ...failedMock, deployment: deployment(apiId, { status: phase, failureReason: undefined, finishedAt: undefined }) }); });
+    for (const [status, label] of [['PLANNING', 'Đang lập kế hoạch'], ['PROVISIONING', 'Đang tạo tài nguyên'], ['DEPLOYING', 'Đang triển khai']]) {
+      phase = status;
+      await h.click(page.getByRole('button', { name: 'Tải lại' }));
+      await expect(page.locator('.status', { hasText: label })).toBeVisible();
+      await expect(page.getByRole('alert')).toHaveCount(0);
+      expect(await body()).not.toContain(status);
+      await h.read(`${label} (dữ liệu giả)`);
+    }
+    await page.unroute(routeFor(apiId));
+    check('in-progress projections (MOCKED detail): PLANNING/PROVISIONING/DEPLOYING render Vietnamese badges, no raw enum, no failure alert');
+    mark('mock-running');
+
+    caption('Bước 7: Không tìm thấy: MOCK 404 giả, rồi 404 thật khi mở deployment ID của staging dưới production; không có nút Thử lại');
+    await page.route(routeFor(apiId), async (route) => { mocked('GET staging deployment detail answered with fake 404'); await fulfill(route, { error: 'tenant-other row hidden' }, 404); });
+    await h.click(page.getByRole('button', { name: 'Tải lại' }));
+    await expect(page.getByRole('heading', { name: 'Không tìm thấy triển khai' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Thử lại' })).toHaveCount(0);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    expect(await body()).not.toContain('tenant-other');
+    await page.unroute(routeFor(apiId));
+    mark('mock-404');
+    await h.read('Không tìm thấy trong phạm vi đã chọn; không tiết lộ chi tiết (404 giả)');
+    await page.goto(`${baseURL}/ui/applications/${appId}/environments/production/deployments/${encodeURIComponent(apiId)}`);
+    await expect(page.getByRole('heading', { name: 'Không tìm thấy triển khai' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Thử lại' })).toHaveCount(0);
+    await expect(page.getByText('Triển khai này không tồn tại trong ứng dụng và môi trường đã chọn.')).toBeVisible();
+    expect(detailGets.at(-1)).toBe(`production/deployments/${apiId}`);
+    check('not found: MOCKED 404 and REAL 404 (staging deployment ID opened under production) show Vietnamese heading/explanation, no Thử lại, no leaked backend text');
+    mark('real-404');
+    await h.read('404 thật khi mở ID của staging dưới production');
+
+    caption('Bước 8: MOCK 500 giả kèm chuỗi bí mật giả: thông báo an toàn, không dữ liệu cũ; Thử lại đến backend thật');
+    await page.goto(`${baseURL}/ui/applications/${appId}/environments/staging/deployments/${encodeURIComponent(webId)}`);
+    await expect(heading()).toBeVisible();
+    let failOnce = true;
+    await page.route(routeFor(webId), async (route) => {
+      if (failOnce) { failOnce = false; mocked('GET staging deployment detail answered with fake 500 once (secret-like raw text must not render)'); await fulfill(route, { error: RAW }, 500); return; }
+      await route.continue();
+    });
+    await h.click(page.getByRole('button', { name: 'Tải lại' }));
+    await expect(page.getByRole('alert')).toContainText('Không thể tải chi tiết triển khai.');
+    await expect(page.getByRole('heading', { name: 'web · triển khai' })).toHaveCount(0);
+    await noLeak();
+    mark('mock-500');
+    await h.moveTo(page.getByRole('alert'));
+    await h.read('Lỗi an toàn bằng tiếng Việt, không lộ nội dung thô (500 giả)');
+    const before = detailGets.length;
+    await h.click(page.getByRole('alert').getByRole('button', { name: 'Thử lại' }));
+    await expect(page.getByRole('heading', { name: 'web · triển khai' })).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    expect(detailGets.slice(before)).toEqual([`staging/deployments/${webId}`]);
+    await page.unroute(routeFor(webId));
+    check('error (MOCKED 500 once): Vietnamese safe alert with Thử lại, stale detail cleared, no raw text; retry issued one explicit GET to the real backend and showed the real detail');
+    mark('retry-ok');
+    await h.read('Thử lại thành công với dữ liệu thật');
+
+    caption('Bước 9: MOCK giữ phản hồi chi tiết api bằng cổng điều khiển, chuyển sang deployment web, tải xong rồi mới nhả phản hồi muộn');
+    let releaseLate = () => undefined;
+    const lateGate = new Promise((resolve) => { releaseLate = resolve; });
+    let lateFulfilled = false;
+    await page.route(routeFor(apiId), async (route) => {
+      mocked('GET staging deployment detail of the previous ID held on an explicit gate (released only after the other deployment loaded), then answered with a fake late snapshot');
+      await lateGate;
+      await fulfill(route, { ...successMock, deployment: deployment(apiId, { workloadId: 'late-stale-workload' }) });
+      lateFulfilled = true;
+    });
+    await h.click(page.getByRole('button', { name: '← Lịch sử triển khai staging' }));
+    await expect(entries()).toHaveCount(2);
+    await h.click(entries().filter({ hasText: 'api · triển khai' }));
+    await expect(page.getByRole('status')).toHaveAttribute('aria-busy', 'true');
+    await expect(page.getByRole('status')).toContainText('Đang tải chi tiết triển khai…');
+    await expect(page.getByRole('heading', { name: /triển khai$/ }).filter({ hasText: 'web' })).toHaveCount(0);
+    mark('loading');
+    await h.read('Đang tải: dữ liệu cũ đã bị xóa, trạng thái có aria-busy');
+    await page.goBack();
+    await expect(entries()).toHaveCount(2);
+    await h.click(entries().filter({ hasText: 'web · triển khai' }));
+    await expect(page.getByRole('heading', { name: 'web · triển khai' })).toBeVisible();
+    expect(lateFulfilled).toBe(false);
+    const lateResponse = page.waitForResponse((response) => response.url().endsWith(`/deployments/${apiId}`));
+    releaseLate();
+    await (await lateResponse).finished();
+    await expect.poll(() => lateFulfilled).toBe(true);
+    // Two animation frames: the page has run the settled fetch continuation before the no-stale assertions.
+    await page.evaluate('new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    await expect(page.getByText('late-stale-workload')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'web · triển khai' })).toBeVisible();
+    await expect(page.getByText(webId, { exact: true })).toBeVisible();
+    await expect(page.getByRole('status')).toHaveCount(0);
+    await page.unroute(routeFor(apiId));
+    check('late reply (MOCKED gate): api detail held, user moved to web; reply released only after web loaded and completed, then ignored (still web, no late-stale-workload)');
+    mark('late-detail');
+    await h.read('Phản hồi muộn của deployment cũ không thay kết quả hiện tại');
+
+    caption('Bước 10: Xác minh chỉ đọc: không có rollback hay trạng thái live, mọi request sau Triển khai đều là GET; đăng xuất');
+    expect(writes.slice(afterDeploy)).toEqual([]);
+    expect(await body()).not.toMatch(/Rollback|Hoàn tác|Khôi phục/);
+    expect(await apiList('staging')).toHaveLength(2);
+    check(`read-only (real): zero non-GET requests after the product Deploy steps; deployments still 2; mocks used (${mocks.length} activations, see mocks.json); mocks are UI projections only, not proof of a real adapter`);
+    mark('read-only');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(3000);
+  },
 };
 
 export function parseArgs(argv) {

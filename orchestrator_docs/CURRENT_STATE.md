@@ -50,6 +50,16 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và VSO → namespace Secret → Pod `secretKeyRef` đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
 | UC-16 | MVP path implemented | Form/Score import, typed resource params, public path + Service port rows, draft save/delete/undo, references, edit deployed workload bằng reconstructed Score, Preview → Deploy và partial retry đã có. Preview bỏ qua no-op draft nhưng giữ UC-12 revision update. Kind đã kiểm tra multi-path BusyBox `/` + `/api`, Fleet route và no-op Pod UID; Backstage cụ thể và broader update/cloud path chưa kiểm chứng. |
 
+## Console refactor T15 (2026-10-11)
+
+[Local verification](verification/2026-10-11-T15-deployment-details.md): chi tiết
+triển khai dùng tiếng Việt cho metadata, trạng thái, graph/batches và UI states;
+giữ snapshot/IDs/API và thời gian vi-VN. Failure dùng hướng dẫn an toàn, output
+bí mật hiện “Đã che”, nested outputs và resolved inputs không render. Scope/ID/
+lượt đọc cũ không ghi đè kết quả mới. 375 frontend tests và headed fake T15 pass,
+video decoded/reviewed; graph/redaction/failure/status/delay dùng projection mocks.
+Không external mutation/live proof; mapping lỗi chi tiết thuộc T20.
+
 ## Console refactor T13 (2026-10-11)
 
 [Local verification](verification/2026-10-11-T13-score-preview.md): standalone

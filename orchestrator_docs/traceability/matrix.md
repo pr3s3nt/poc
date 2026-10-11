@@ -183,6 +183,12 @@ returns the target and resource outputs.
 | MS-07 | same | return `DeploymentView` | read-only | OC-11; no runtime call test |
 | BR-05 | `UC-09/ui/screens.md`, `ui/states.md`, `ui/api-mapping.md` | React history/detail/recent components | scoped Application/Environment deployment GET routes | frontend state/filter tests and local Playwright |
 
+T15 VI-02/04/05 và UC-09 BR-01..07: [UI screens/states](../usecase/UC-09/ui/screens.md),
+DeploymentDetailsPage và DeploymentPages tests kiểm nhãn Việt, snapshot IDs,
+redaction, no-plan, safe errors, GET-only và obsolete scope/ID/attempt replies;
+[T15 local evidence](../verification/2026-10-11-T15-deployment-details.md) phân biệt
+backend fake và projection mocks, không external mutation.
+
 ## UC-12 — MVP implementation trace
 
 UC-12 specification and UI are approved. [ADR-006](../architecture/decisions/ADR-006-application-configuration-provider.md)

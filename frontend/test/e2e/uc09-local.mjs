@@ -71,18 +71,18 @@ try {
 
     await brokenEntry.click();
     await expect(page).toHaveURL(new RegExp(`/deployments/${data.failedDeploymentId}$`));
-    await expect(page.getByRole('heading', { name: 'broken · deploy' })).toBeVisible();
-    await expect(page.getByText('No provision plan was saved for this deployment.')).toBeVisible();
-    await expect(page.getByText('No workload status was recorded.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'broken · triển khai' })).toBeVisible();
+    await expect(page.getByText('Không có kế hoạch tạo tài nguyên được lưu cho triển khai này.')).toBeVisible();
+    await expect(page.getByText('Chưa ghi nhận trạng thái Workload nào.')).toBeVisible();
 
     // Each backend run shows its own workload snapshot, never the newer one.
     for (const [id, digest] of [[data.firstDeploymentId, data.firstDigest], [data.secondDeploymentId, data.secondDigest]]) {
       await page.goto(`${baseURL}/ui/applications/${detailPath(id)}`);
-      await expect(page.getByRole('heading', { name: /^backend · (deploy|update)$/ })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /^backend · (triển khai|cập nhật)$/ })).toBeVisible();
       await expect(page.getByText(id, { exact: true })).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible();
-      await expect(page.getByText(/password=\*\*\*redacted\*\*\*/)).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Provision plan' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Tài nguyên' })).toBeVisible();
+      await expect(page.getByText(/password=Đã che/)).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Kế hoạch tạo tài nguyên' })).toBeVisible();
       await expect(page.getByText(digest, { exact: true })).toBeVisible();
 
       const snapshot = await workloadSnapshot(id);
