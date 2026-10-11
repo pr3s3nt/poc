@@ -88,11 +88,10 @@ ALTER TABLE connections ADD CONSTRAINT connections_authentication_type_check CHE
   (kind='AWS' AND authentication_type='AWS_ACCESS_KEY'));
 `
 
-// migration6 moves the execution binding from Application to Environment
-// (ADR-011). Order matters: additive columns, nullable Application binding,
-// one-time backfill of old bound Applications, then consistency CHECK and the
-// immutability trigger. New Applications persist connection_id NULL, so the
-// backfill predicate never matches them and a rerun leaves them UNCONFIGURED.
+// migration6 adds the Environment execution binding (ADR-011). Order matters:
+// additive columns, nullable Application binding, then consistency CHECK and
+// the immutability trigger. It never copies an Application target onto an
+// Environment (T26): migration9 refuses a database that still holds one.
 const migration6 = `
 ALTER TABLE environments ADD COLUMN IF NOT EXISTS connection_id uuid REFERENCES connections(id);
 ALTER TABLE environments ADD COLUMN IF NOT EXISTS execution_profile text NOT NULL DEFAULT '';
@@ -100,9 +99,6 @@ ALTER TABLE environments ADD COLUMN IF NOT EXISTS region text NOT NULL DEFAULT '
 ALTER TABLE environments ADD COLUMN IF NOT EXISTS runtime_status text NOT NULL DEFAULT 'UNCONFIGURED';
 ALTER TABLE environments ADD COLUMN IF NOT EXISTS infrastructure_scope text NOT NULL DEFAULT 'ENVIRONMENT';
 ALTER TABLE applications ALTER COLUMN connection_id DROP NOT NULL;
-UPDATE environments e SET connection_id=a.connection_id, execution_profile=a.execution_profile, region=a.region,
-  runtime_status=a.runtime_status, infrastructure_scope='LEGACY_APPLICATION'
-FROM applications a WHERE a.id=e.application_id AND e.connection_id IS NULL AND a.connection_id IS NOT NULL;
 DO $$ BEGIN
   ALTER TABLE environments ADD CONSTRAINT environments_binding_consistent CHECK (
     (connection_id IS NULL AND runtime_status='UNCONFIGURED' AND execution_profile='' AND region='') OR
@@ -187,6 +183,29 @@ ALTER TABLE deployments ADD COLUMN IF NOT EXISTS connection_key text NOT NULL DE
 ALTER TABLE deployments ADD COLUMN IF NOT EXISTS target_generation bigint NOT NULL DEFAULT 0;
 `
 
+// legacyApplicationReset is the marker of the migration9 refusal.
+const legacyApplicationReset = "application execution target data requires a development reset"
+
+// migration9 removes the Application execution target and provider columns
+// (T26). It is a transitional, destructive alteration for fresh task state and
+// does no backfill: a database whose Applications still hold a target, a
+// runtime status other than UNCONFIGURED or a provider fails closed before any
+// column is dropped, so no target data is lost silently. T28 replaces the
+// migration chain with a clean baseline.
+const migration9 = `
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM applications WHERE connection_id IS NOT NULL OR execution_profile<>'' OR region<>''
+      OR runtime_status<>'UNCONFIGURED' OR configuration_provider<>'') THEN
+    RAISE EXCEPTION '` + legacyApplicationReset + `' USING ERRCODE='P0001';
+  END IF;
+END $$;
+ALTER TABLE applications DROP COLUMN IF EXISTS execution_profile;
+ALTER TABLE applications DROP COLUMN IF EXISTS connection_id;
+ALTER TABLE applications DROP COLUMN IF EXISTS region;
+ALTER TABLE applications DROP COLUMN IF EXISTS runtime_status;
+ALTER TABLE applications DROP COLUMN IF EXISTS configuration_provider;
+`
+
 type querier interface {
 	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 	Query(context.Context, string, ...any) (pgx.Rows, error)
@@ -227,6 +246,16 @@ func Open(ctx context.Context, databaseURL string) (*Store, error) {
 // constraint or row details.
 var ErrLegacyConnectionData = errors.New("postgres: the database holds legacy Kubernetes connections that are no longer supported; reset the development database and upload the connections again")
 
+// ErrLegacyApplicationData means an Application still holds a former execution
+// target or provider. It is never converted to an Environment binding; the
+// development database must be reset (T29). The text carries no row details.
+var ErrLegacyApplicationData = errors.New("postgres: the database holds Applications with a retired execution target or provider; reset the development database (Application target conversion is unsupported)")
+
+func isLegacyApplicationData(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "P0001" && pgErr.Message == legacyApplicationReset
+}
+
 // isLegacyConnectionData reports whether err is the check violation of the
 // KUBECONFIG-only connection authentication constraint (SQLSTATE 23514).
 func isLegacyConnectionData(err error) bool {
@@ -249,7 +278,7 @@ func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	for _, item := range []struct {
 		version int
 		sql     string
-	}{{1, migration}, {2, migration2}, {3, migration3}, {4, migration4}, {5, migration5}, {6, migration6}, {7, migration7}, {8, migration8}} {
+	}{{1, migration}, {2, migration2}, {3, migration3}, {4, migration4}, {5, migration5}, {6, migration6}, {7, migration7}, {8, migration8}, {9, migration9}} {
 		var applied bool
 		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)`, item.version).Scan(&applied); err != nil {
 			return err
@@ -260,6 +289,9 @@ func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		if _, err = tx.Exec(ctx, item.sql); err != nil {
 			if item.version == 8 && isLegacyConnectionData(err) {
 				return ErrLegacyConnectionData
+			}
+			if item.version == 9 && isLegacyApplicationData(err) {
+				return ErrLegacyApplicationData
 			}
 			return fmt.Errorf("postgres: apply migration %d: %w", item.version, err)
 		}

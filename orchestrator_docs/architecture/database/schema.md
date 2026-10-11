@@ -93,17 +93,18 @@ See [credential design](../connection-credentials.md).
 | `organization_id` | uuid | FK organizations |
 | `name` | text | NOT NULL |
 | `subdomain` | text | normalized DNS label, NOT NULL |
-| `execution_profile` | text | legacy only: `aws-eks`/`internal-k8s`; empty for new unbound Application |
-| `connection_id` | uuid | nullable FK connections; retained legacy binding, NULL for new Application |
-| `region` | text | legacy only; empty for new Application |
-| `runtime_status` | text | legacy PENDING/READY; UNCONFIGURED for new Application |
 | `version` | bigint | optimistic version |
-| `configuration_provider` | text | legacy only; current Secret Store selection belongs to Environment |
 
 `id` is system-generated and immutable. Application Name is unique within an
 Organization without regard to case, enforced by a unique index on
 `(organization_id, lower(name))`. `subdomain` is normalized to lowercase and
 unique globally within the configured platform base domain.
+
+T26 removes all Application execution/provider columns. Old Application-bound
+state is unsupported and must fail startup with a safe reset-required error,
+without copying target fields, exposing row values or rewriting historical
+targets. The transitional SQL chain is only for fresh task state; retained dev
+state must not be upgraded before the separately approved T29 reset.
 
 ### `environments`
 
@@ -132,7 +133,7 @@ The application-creation transaction inserts exactly those two rows, unset.
 Selection changes use Environment.version CAS and operation-owner checks, not a
 permanent immutable-binding trigger. Dedicated binding commands own writes;
 ordinary Save cannot bypass them. Generation 0 retains old identities; later
-targets are isolated. Legacy conversion is idempotent and has no default fallback.
+targets are isolated. No Application target conversion/default fallback is supported (T26).
 See [ADR-012](../decisions/ADR-012-environment-stores-and-transitions.md).
 
 ### `configuration_revisions`
@@ -353,7 +354,7 @@ does not imply every workload has consumed that revision.
 3. Resource completion: Active Resource upsert + Deployment Resource status atomically per node.
 4. Workload execution progress: update the current Workload Instance and the
    owning Deployment's workload snapshot together.
-5. Final deployment commit: compare Environment version, update current pointer/version, mark cloud Application runtime `READY`, upsert Workload Instances and mark Deployment `SUCCEEDED` atomically.
+5. Final deployment commit: compare Environment version, update current pointer/version, mark AWS Environment runtime `READY`, upsert Workload Instances and mark Deployment `SUCCEEDED` atomically.
 
 ## Secret rule
 
@@ -370,8 +371,15 @@ per-workload plan hashes. Logical resource and workload identities are unchanged
 
 ## Historical Environment target migration constraints (ADR-011)
 
-Permanent immutability described below is superseded by ADR-012; generation-0
-backfill/identity preservation remains.
+Historical migration description below is superseded by T26 for Application
+columns/backfill and ADR-012 for permanent immutability. Current Application
+schema contains only identity/current metadata; execution/store binding is
+Environment-owned. T26 removes Application-to-Environment backfill, drops the
+five obsolete Application columns on fresh task state and must not be deployed
+against retained dev state before the T29 approved reset. T28 replaces the
+transitional migration chain with a clean baseline. Historical target snapshots
+and generation/version/fencing/scoped FKs remain. LEGACY_APPLICATION scope is
+removed separately in T27. The following paragraph records historical design only.
 
 Nullable legacy applications.connection_id is preserved; new Applications write
 NULL connection, empty profile/region, runtime UNCONFIGURED. Add Environment target

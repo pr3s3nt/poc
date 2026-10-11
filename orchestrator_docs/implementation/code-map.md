@@ -329,3 +329,18 @@ cover rejection and strict nested fields. The
 [`editor`](../../frontend/src/features/workloads/WorkloadEditorPage.tsx) never
 converts old drafts; the existing route manager and pending retry retain their
 ownership. [Local verification](../verification/2026-10-12-T25-public-routes.md).
+
+## T26 — Identity-only Application persistence
+
+- `backend/internal/domain/application/application.go` defines Application identity
+  and current metadata only; `application/application/service.go` creates identity
+  and two unconfigured Environments.
+- `adapters/store/store.go` owns identity Save/Get/List, retired-target startup
+  rejection and independent Environment defaults; no Application target backfill.
+- `adapters/postgres/repositories.go` reads/writes only Application metadata;
+  `postgres/store.go` removes binding backfill and supplies transitional migration 9
+  with safe reset-required rejection before obsolete columns are dropped.
+- Domain serialization/service tests, JSON `legacy_binding_test.go`, shared
+  `persistencetest/binding.go` and `workloads.go` cover metadata, binding independence
+  and historical target preservation. PostgreSQL fresh/reopen/rejection tests are
+  updated but unexecuted; see [T26 evidence](../verification/2026-10-12-T26-application-metadata.md).

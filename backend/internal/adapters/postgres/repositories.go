@@ -143,9 +143,7 @@ func (s *Store) SaveApplication(ctx context.Context, v application.Application) 
 	if v.Version == 0 {
 		v.Version = 1
 	}
-	// Legacy target columns are never written by a save (ADR-011): a new
-	// Application is stored unbound and an existing one keeps its legacy data.
-	_, err := s.q(ctx).Exec(ctx, `INSERT INTO applications(id,application_key,organization_id,name,subdomain,execution_profile,connection_id,region,runtime_status,version,configuration_provider) SELECT $1::uuid,$2,o.id,$4,$5,'',NULL,'','UNCONFIGURED',$6,$7 FROM organizations o WHERE o.organization_key=$3 ON CONFLICT(id) DO UPDATE SET application_key=EXCLUDED.application_key,name=EXCLUDED.name,subdomain=EXCLUDED.subdomain,version=EXCLUDED.version,configuration_provider=EXCLUDED.configuration_provider`, v.ID, v.Key, v.OrganizationKey, v.Name, v.Subdomain, v.Version, v.ConfigurationProvider)
+	_, err := s.q(ctx).Exec(ctx, `INSERT INTO applications(id,application_key,organization_id,name,subdomain,version) SELECT $1::uuid,$2,o.id,$4,$5,$6 FROM organizations o WHERE o.organization_key=$3 ON CONFLICT(id) DO UPDATE SET application_key=EXCLUDED.application_key,name=EXCLUDED.name,subdomain=EXCLUDED.subdomain,version=EXCLUDED.version`, v.ID, v.Key, v.OrganizationKey, v.Name, v.Subdomain, v.Version)
 	if err != nil {
 		return fmt.Errorf("postgres: save application: %w", translate(err))
 	}
@@ -153,11 +151,11 @@ func (s *Store) SaveApplication(ctx context.Context, v application.Application) 
 }
 func scanApp(row pgx.Row) (application.Application, error) {
 	var v application.Application
-	err := row.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Name, &v.Subdomain, &v.Profile, &v.ConnectionKey, &v.Region, &v.RuntimeStatus, &v.Version, &v.ConfigurationProvider)
+	err := row.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Name, &v.Subdomain, &v.Version)
 	return v, err
 }
 
-const appSelect = `SELECT a.id::text,a.application_key,o.organization_key,a.name,a.subdomain,a.execution_profile,COALESCE(c.connection_key,''),a.region,a.runtime_status,a.version,a.configuration_provider FROM applications a JOIN organizations o ON o.id=a.organization_id LEFT JOIN connections c ON c.id=a.connection_id`
+const appSelect = `SELECT a.id::text,a.application_key,o.organization_key,a.name,a.subdomain,a.version FROM applications a JOIN organizations o ON o.id=a.organization_id`
 
 func (s *Store) GetApplication(ctx context.Context, key string) (application.Application, error) {
 	v, err := scanApp(s.q(ctx).QueryRow(ctx, appSelect+` WHERE a.application_key=$1`, key))
@@ -175,7 +173,7 @@ func (s *Store) ListApplications(ctx context.Context) ([]application.Application
 	var out []application.Application
 	for rows.Next() {
 		var v application.Application
-		if err = rows.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Name, &v.Subdomain, &v.Profile, &v.ConnectionKey, &v.Region, &v.RuntimeStatus, &v.Version, &v.ConfigurationProvider); err != nil {
+		if err = rows.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Name, &v.Subdomain, &v.Version); err != nil {
 			return nil, err
 		}
 		out = append(out, v)

@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -52,8 +53,11 @@ func TestCreateApplication_CreatesUnconfiguredEnvironmentsWithoutAnyConnection(t
 		t.Fatal(err)
 	}
 	app := result.Application
-	if app.OrganizationKey != "acme" || app.Profile != "" || app.ConnectionKey != "" || app.Region != "" || app.RuntimeStatus != appdomain.RuntimeUnconfigured {
-		t.Fatalf("application must carry no target: %+v", app)
+	if app.OrganizationKey != "acme" || app.Name != "Payment" {
+		t.Fatalf("application identity = %+v", app)
+	}
+	if b, err := json.Marshal(app); err != nil || strings.Contains(string(b), "executionProfile") || strings.Contains(string(b), "connectionKey") || strings.Contains(string(b), "runtimeStatus") || strings.Contains(string(b), "region") || strings.Contains(string(b), "configurationProvider") {
+		t.Fatalf("application JSON carries retired fields: %s %v", b, err)
 	}
 	if !uuidPattern.MatchString(app.ID) || app.Key != app.ID || app.Subdomain != "payment" {
 		t.Fatalf("generated identity/subdomain = %q %q %q", app.ID, app.Key, app.Subdomain)
@@ -221,10 +225,9 @@ func TestSetConnection_SetsEachEnvironmentIndependentlyAndOnce(t *testing.T) {
 	if err != nil || cloud.Profile != appdomain.ProfileAWSEKS || cloud.Region != "eu-west-1" || cloud.RuntimeStatus != appdomain.RuntimePending || cloud.InfrastructureScope != environment.ScopeEnvironment {
 		t.Fatalf("production binding = %+v %v", cloud, err)
 	}
-	// Application itself never receives the projected target.
-	stored, _ := st.GetApplication(ctx, app)
-	if stored.ConnectionKey != "" || stored.Profile != "" || stored.Region != "" || stored.RuntimeStatus != appdomain.RuntimeUnconfigured {
-		t.Fatalf("application leaked target: %+v", stored)
+	// Application stays identity-only after Environment bindings.
+	if stored, err := st.GetApplication(ctx, app); err != nil || stored.Key != app {
+		t.Fatalf("application = %+v %v", stored, err)
 	}
 	// Same key at the current version is an idempotent no-op: no version bump.
 	fresh, _ := st.GetEnvironment(ctx, app, "staging")

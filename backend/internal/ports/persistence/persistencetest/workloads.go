@@ -16,6 +16,13 @@ import (
 	"orchestrator/internal/seed"
 )
 
+// Historical target recorded on every fixture Deployment; Application saves
+// and reopen must never change it.
+const (
+	historyConnection = "history-target"
+	historyGeneration = int64(3)
+)
+
 // Fixture is what a contract run created, so adapter tests can reopen the
 // store and check the same rows survived a restart.
 type Fixture struct {
@@ -37,7 +44,7 @@ func SaveDeployment(t *testing.T, st persistence.Store, opts seed.Options, statu
 	record := deployment.Deployment{
 		ID: ids.New(), EnvironmentID: env.ID, OrganizationKey: opts.OrganizationKey,
 		ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey,
-		ExecutionProfile: "internal-k8s", Action: deployment.ActionDeploy, WorkloadID: "api",
+		ExecutionProfile: "internal-k8s", ConnectionKey: historyConnection, TargetGeneration: historyGeneration, Action: deployment.ActionDeploy, WorkloadID: "api",
 		ActorRef: "contract", Status: status, BaseEnvironmentVersion: env.Version, StartedAt: startedAt,
 	}
 	record.Status = deployment.StatusPlanning
@@ -170,6 +177,7 @@ func AssertReloaded(t *testing.T, st persistence.Store, fixture Fixture) {
 	if got := listOne(t, st, fixture.SecondID); !sameSnapshot(got, fixture.SecondState) {
 		t.Fatalf("second snapshot after reload = %#v, want %#v", got, fixture.SecondState)
 	}
+	assertHistoricalTarget(t, st, fixture)
 	late := deployment.WorkloadInstance{
 		EnvironmentKey: fixture.Options.ApplicationKey + "/" + fixture.Options.EnvironmentKey, WorkloadID: "api",
 		LastDeploymentID: fixture.FirstID, TargetRef: map[string]any{}, Status: deployment.InstanceFailed, ObservedAt: time.Now().UTC(),
@@ -294,4 +302,37 @@ func containsID(list []deployment.Deployment, id string) bool {
 		}
 	}
 	return false
+}
+
+// AssertApplicationSaveKeepsHistory saves the Application again (Save carries
+// identity only) and checks that the recorded Deployment targets and workload
+// TargetRef snapshots are unchanged.
+func AssertApplicationSaveKeepsHistory(t *testing.T, st persistence.Store, fixture Fixture) {
+	t.Helper()
+	ctx := context.Background()
+	app, err := st.GetApplication(ctx, fixture.Options.ApplicationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.Name += " renamed"
+	if err := st.SaveApplication(ctx, app); err != nil {
+		t.Fatal(err)
+	}
+	assertHistoricalTarget(t, st, fixture)
+	if got := listOne(t, st, fixture.FirstID); !sameSnapshot(got, fixture.FirstReady) {
+		t.Fatalf("application save changed first snapshot: %#v", got)
+	}
+	if got := listOne(t, st, fixture.SecondID); !sameSnapshot(got, fixture.SecondState) {
+		t.Fatalf("application save changed second snapshot: %#v", got)
+	}
+}
+
+func assertHistoricalTarget(t *testing.T, st persistence.Store, fixture Fixture) {
+	t.Helper()
+	for _, id := range []string{fixture.FirstID, fixture.SecondID} {
+		d, err := st.GetDeployment(context.Background(), id)
+		if err != nil || d.ConnectionKey != historyConnection || d.TargetGeneration != historyGeneration {
+			t.Fatalf("historical deployment target changed: %+v %v", d, err)
+		}
+	}
 }

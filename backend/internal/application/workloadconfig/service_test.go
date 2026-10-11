@@ -17,7 +17,7 @@ func testWorkloadService(t *testing.T) (*Service, *store.Store) {
 	t.Helper()
 	ctx := context.Background()
 	st := store.New()
-	if err := st.SaveApplication(ctx, application.Application{Key: "app", ConfigurationProvider: "vault"}); err != nil {
+	if err := st.SaveApplication(ctx, application.Application{Key: "app"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"staging", "production"} {

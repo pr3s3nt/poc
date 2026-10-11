@@ -613,3 +613,18 @@ Decoder giữ strict nested validation; literal binding security, nhiều path,
 port ownership, no-op/route-only retry và T08 controls giữ nguyên. Full Go/build/
 conformance, frontend 429 tests và headed T25/T08 pass với fake adapters.
 Không kiểm PostgreSQL opt-in, kind/AWS/Vault thật hoặc mutate retained state.
+
+## T26 — Application metadata cleanup (2026-10-12)
+
+Application domain and SQL/JSON Save/Get/List now carry only identity/current
+metadata; execution profile/Connection/region/runtime and configuration provider
+fields are removed. Environment bindings remain independent; Application saves
+and JSON restart preserve historical Deployment targets/generations and workload
+TargetRef snapshots. Application-to-Environment backfill is removed; retained
+meaningful/malformed old target data fails startup with a safe reset-required error.
+Transitional SQL migration 9 prepares fresh state, but PostgreSQL integration was
+not executed (no authorized disposable DB). Full uncached Go/conformance/build,
+targeted race and docs/PlantUML checks pass. No browser/UI change or external mutation.
+See [T26 evidence](verification/2026-10-12-T26-application-metadata.md).
+Retained dev state requires the separately approved T29 reset before use; T27
+scope/seed cleanup and T28 final baseline remain pending.

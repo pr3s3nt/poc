@@ -2,7 +2,7 @@
 id: ADR-011
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # ADR-011 — Environment execution binding set once
@@ -17,7 +17,17 @@ ADR-001 legacy identity remains supported as documented below.
 
 ## Decision
 
-Application identity/provider remain Application-owned. Execution Connection,
+T26 (LEG-01) supersedes the retained Application target/provider columns and
+Application-to-Environment migration below. Application owns only identity and
+current metadata (ID/key, Organization, name, subdomain and version). It has no
+profile, connection, region, runtime status or configuration provider. No old
+Application binding is copied or consulted. Environment owns all execution/store
+selections; immutable historical targets, generation/version/fencing and
+Organization scoping are preserved. Development state requires reset before use
+(T29); T28 supplies the final fresh baseline. LEGACY_APPLICATION scope and seed
+identity/template cleanup remain T27, independently of removing Application fields.
+
+Application identity remains Application-owned. Execution Connection,
 Execution Profile, region and runtime status belong to Environment. New
 Applications create staging/production UNCONFIGURED without any Connection;
 Developer selects in each Environment Settings and sets exactly once. Both
@@ -84,7 +94,7 @@ AWS enrichment includes both nodes, so normal deploy keeps them referenced.
 Internal existing-cluster descriptor remains `connections.<key>`; namespace and
 workloads remain Environment-scoped. No cluster is provisioned by connection set.
 
-## Legacy migration
+## Historical legacy migration (superseded by T26)
 
 SQL additive Environment columns store nullable connection_id, execution_profile,
 region, runtime_status and infrastructure_scope. New Environment scope defaults
@@ -112,8 +122,8 @@ Preview show currently selected Environment binding and switch safely on tabs.
 UC-12 config/draft operations work while UNCONFIGURED. Safe choices contain no
 credentials or verification data. Same organization scoping and role rules remain.
 
-Validate SQL pre-change migration/reopen/idempotence and atomic race, JSON legacy
-restart, independent kinds/regions, AWS distinct descriptors/workspaces, legacy
+Validate current identity-only Application SQL/JSON reopen and atomic race,
+independent kinds/regions, AWS distinct descriptors/workspaces, legacy
 AWS reuse, matching conflict and immutable save guards. Live proof uses existing
 kind-idp-internal through real Kubernetes adapter, human UI recording; AWS
 behavior is tested without cloud mutation. No AWS cloud run is authorized.

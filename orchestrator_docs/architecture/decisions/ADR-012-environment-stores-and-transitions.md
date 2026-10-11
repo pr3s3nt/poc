@@ -97,8 +97,11 @@ alone is insufficient for PostgreSQL multi-process concurrency.
 New Applications create unconfigured execution and secret-store selections;
 ordinary variables/drafts work immediately. Writing a secret requires an
 explicit selected store. Missing store configuration fails closed; no store or
-reference identity is fabricated or backfilled. Old Application provider metadata
-removal belongs to T26.
+reference identity is fabricated or backfilled. T26 removes Application provider
+and legacy execution target metadata from domain and persistence. Execution and
+Secret Store selections belong only to Environment; Application Save/Get/List
+carry identity and current metadata only. Old Application binding migration is
+unsupported; retained target snapshots and generation/fencing remain unchanged.
 
 Before runtime resources exist, changing execution selection is a versioned
 metadata operation, with no provisioning. Same selected key may be an idempotent

@@ -201,10 +201,10 @@ func TestUC01EnvironmentConnectionEditableOverHTTP(t *testing.T) {
 	if status != http.StatusOK || production["executionProfile"] != "aws-eks" || production["region"] != "us-east-1" || production["runtimeStatus"] != "PENDING" || production["infrastructureScope"] != "ENVIRONMENT" {
 		t.Fatalf("set production = %d %v", status, out)
 	}
-	// Application stays unbound.
+	// Application stays identity-only.
 	stored, err := app.Store.GetApplication(ctx, appKey)
-	if err != nil || stored.ConnectionKey != "" || stored.Profile != "" || stored.Region != "" {
-		t.Fatalf("application leaked target: %+v %v", stored, err)
+	if err != nil || stored.Key != appKey {
+		t.Fatalf("application = %+v %v", stored, err)
 	}
 
 	// Same key at the current version is a no-op; a stale version is 409

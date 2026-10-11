@@ -9,7 +9,7 @@ last_reviewed: 2026-10-12
 
 ## Mục tiêu
 
-Triển khai Score workload theo Execution Profile của Application, tự động chuẩn bị hạ tầng cần thiết và đưa workload lên Kubernetes.
+Triển khai Score workload theo Execution Profile của Environment, tự động chuẩn bị hạ tầng cần thiết và đưa workload lên Kubernetes.
 
 ## Primary actors
 
@@ -24,7 +24,7 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 ## Tiền điều kiện
 
 - **PRE-01:** Application và Environment đã tồn tại.
-- **PRE-02:** Application đã chọn `aws-eks` hoặc `internal-k8s` trong UC-01.
+- **PRE-02:** Environment đã cấu hình Connection; profile `aws-eks` hoặc `internal-k8s` được suy ra từ Connection theo UC-01, không đọc từ Application.
 - **PRE-03:** AWS Driver Account hoặc internal cluster connection trạng thái `READY` đã được cấu hình trong UC-04.
 - **PRE-04:** Các Resource Type và Resource Definition cần thiết đã được đăng ký.
 - **PRE-05:** Score document hợp lệ, mô tả đúng một workload và mọi container resource requests/limits khai báo đều đúng Score subset.
@@ -38,7 +38,7 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 1. **MS-01:** Orchestrator tạo Deployment record và đọc Deployment Set hiện tại của Environment.
 2. **MS-02:** Orchestrator validate Score và chuyển nó thành workload fragment, bảo toàn container CPU/memory requests/limits.
 3. **MS-03:** Orchestrator tạo Humanitec-shaped Deployment Delta và Candidate Deployment Set.
-4. **MS-04:** Orchestrator đọc Execution Profile và runtime configuration của Application.
+4. **MS-04:** Orchestrator resolve và pin Execution Profile, Connection, region và runtime configuration của Environment; Application chỉ cung cấp identity/current metadata.
 5. **MS-05:** Orchestrator enrich graph theo VAR-01 hoặc VAR-02.
 6. **MS-06:** Orchestrator thêm namespace có identity theo Environment và resource dependencies từ Score.
 7. **MS-07:** Orchestrator bind internal cluster ngầm từ Environment Connection, match Resource Definitions cho các resource còn lại rồi expand Resource References và provision rules tới fixed point; `postgres` được chọn thành Aurora hoặc StatefulSet theo profile và Matching Criteria của Environment.
@@ -63,8 +63,8 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
 ## Hậu điều kiện
 
 - **POST-01:** Resource dependencies đã được provision hoặc tái sử dụng.
-- **POST-02:** Cloud Application có đúng một VPC và một EKS theo descriptor được dùng lại cho các Environment/deployment sau.
-- **POST-03:** Internal Application sử dụng cluster có sẵn và không tạo VPC/EKS.
+- **POST-02:** AWS Environment có VPC/EKS theo descriptor/scope/generation đã pin, được dùng lại cho deployment cùng đích; không lấy target từ Application.
+- **POST-03:** Internal Environment sử dụng cluster có sẵn và không tạo VPC/EKS.
 - **POST-04:** Environment có Kubernetes namespace riêng.
 - **POST-05:** Workload đã được apply lên Kubernetes với container requests/limits đúng như Score khi có khai báo.
 - **POST-06:** Candidate Deployment Set trở thành current Deployment Set của Environment.

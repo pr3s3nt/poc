@@ -68,15 +68,11 @@ entity environment_operations {
 entity applications {
   * id : uuid <<PK>>
   * organization_id : uuid <<FK>>
-  connection_id : uuid <<FK,legacy>>
   --
+  application_key : text <<UQ>>
   name : text
   subdomain : text
-  execution_profile : text
-  region : text
-  runtime_status : text
   version : bigint
-  configuration_provider : text
 }
 entity environments {
   * id : uuid <<PK>>
@@ -240,7 +236,6 @@ user_accounts ||--o{ sessions
 organizations ||--o{ applications
 organizations ||--o{ resource_types
 organizations ||--o{ resource_definitions
-applications }o--o| connections : legacy
 environments }o--o| connections : versioned selection
 applications ||--o{ environments
 environments ||--o{ deployment_sets

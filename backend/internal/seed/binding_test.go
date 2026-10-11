@@ -31,9 +31,9 @@ func TestApplyBindsAcceptanceFixturesAsLockedLegacyAndIsIdempotent(t *testing.T)
 	if err != nil || aws.ConnectionKey != opts.CloudConnectionKey || aws.Region != "us-east-1" || aws.RuntimeStatus != application.RuntimePending || aws.InfrastructureScope != environment.ScopeLegacyApplication {
 		t.Fatalf("acceptance-cloud env = %+v %v", aws, err)
 	}
-	// The seeded Applications carry no target of their own.
-	if a, _ := st.GetApplication(ctx, opts.ApplicationKey); a.ConnectionKey != "" || a.Profile != "" {
-		t.Fatalf("seeded application leaked a target: %+v", a)
+	// The seeded Applications are identity-only; targets live on Environments.
+	if a, err := st.GetApplication(ctx, opts.ApplicationKey); err != nil || a.Key != opts.ApplicationKey {
+		t.Fatalf("seeded application = %+v %v", a, err)
 	}
 }
 

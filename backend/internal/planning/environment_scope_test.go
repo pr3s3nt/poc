@@ -247,10 +247,6 @@ func TestContext_ValuesResolveTheSelectedEnvironment(t *testing.T) {
 	if legacy.Values()["infra.name"] != "pay" {
 		t.Fatalf("legacy infra.name = %v", legacy.Values()["infra.name"])
 	}
-	// The Application value object is never mutated by the projection.
-	if req.App.Profile != "" || req.App.Region != "" {
-		t.Fatalf("application leaked: %+v", req.App)
-	}
 }
 
 func TestContext_AppProfileRegionAliasesAreUnknown(t *testing.T) {
@@ -272,11 +268,9 @@ func TestContext_AppProfileRegionAliasesAreUnknown(t *testing.T) {
 	}
 }
 
-func TestContext_EnvProfileRegionIgnoreLegacyApplicationFields(t *testing.T) {
+func TestContext_EnvProfileRegionComeFromEnvironment(t *testing.T) {
 	req := scopedAWSRequest(t, "pay", "production")
 	req.Env.Region = "eu-west-1"
-	req.App.Profile = application.ProfileInternalK8s
-	req.App.Region = "us-east-1"
 	ctx := Context{OrganizationKey: req.OrganizationKey, App: req.App, Env: req.Env}
 	cases := map[string]string{
 		"${context.env.profile}":                       "aws-eks",

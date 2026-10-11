@@ -26,6 +26,7 @@ func TestWorkloadSnapshotContractSurvivesJSONReload(t *testing.T) {
 		t.Fatal(err)
 	}
 	fixture := persistencetest.WorkloadSnapshots(t, first)
+	persistencetest.AssertApplicationSaveKeepsHistory(t, first, fixture)
 	reopened, err := NewWithSnapshot(path)
 	if err != nil {
 		t.Fatal(err)

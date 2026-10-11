@@ -23,7 +23,7 @@ Mỗi main-flow step được ánh xạ tới operation, PlantUML sequence, clas
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
 | MS-01, MS-02 | `CreateApplication`; `UC-01/sequence.puml` | `application.Service.Create`, strict HTTP decoder, DNS-label validator | `applications`; case-insensitive Organization Name and global normalized Subdomain constraints | OC-01; service, HTTP and PostgreSQL constraint tests |
-| MS-03, MS-04 | same | generate Application identity/provider, no target resolution | Application ID; new Environment targets UNCONFIGURED | OC-01; creation without default and no provisioning |
+| MS-03, MS-04 | same | generate Application identity/current metadata, no target/provider persistence or resolution | Application ID; new Environment targets UNCONFIGURED | OC-01; creation without default and no provisioning |
 | MS-05, MS-06 | same | Environment and empty Deployment Set creation | exactly `staging` and `production`; `environments`, `deployment_sets` | OC-01; transaction rollback, HTTP and PostgreSQL persistence tests |
 | MS-07, MS-08 | same | endpoint derivation, Application persistence | derived desired endpoints; atomic Application/Environment/current-set write | OC-01; no-deploy-side-effect frontend/HTTP/Playwright tests |
 | UC-01 ES-01..06, BR-07..14; UC-05 BR-11; UC-06 BR-20; UC-08 BR-07 | scoped target resolution, shared snapshot, matching and executor binding validation | Historical ADR-011 Environment Settings set-once UI/API (superseded by ADR-012 rows below), resolver, `planning.ConnectionMismatch` + provisioning guard | generation-0 identities/legacy backfill; permanent lock superseded by ADR-012 | explicit choice, unsafe/foreign choice, mismatch rejection, [HTTP](../../backend/test/e2e/application_connection_http_test.go), [planner](../../backend/internal/planning/connection_binding_test.go), [execution](../../backend/internal/application/deployment/selected_target_test.go), ADR-011 migration/concurrency/save-guard/new AWS identity tests; [human Settings/live kind evidence](../verification/2026-10-07-environment-connection-kind.md) |
@@ -438,3 +438,17 @@ Evidence and exact limits: [T20 verification](../verification/2026-10-12-T20-con
 | UC-16 BR-12; UC-06 public routing; OC-07 | `Service.UnmarshalJSON`, Score parser, workloadconfig Save/ValidateImport/List: only publicRoutes, no conversion or state write on alias error | `TestServiceRejectsAnyPublicPort`, `TestPublicPortIsRejectedEverywhere`, `TestPublicPortIsRejectedWithoutWritingDraft`, `TestListFailsOnDraftWithPublicPort`, `TestHTTPRejectsRemovedPublicPortWithoutStateChange` |
 | Strict Score input; VI-03 | Nested Service fields stay strict; stable INVALID_SCORE/service.publicPort and safe Vietnamese mapping | `TestServiceDecodingIsStrictAtEveryDepth`, `TestScoreRejectsUnknownServiceKeysAtEveryDepth`, HTTP/classifier and editor tests |
 | T08 route controls; explicit Save → Preview | Multi-route import/edit/save/reopen, no serialize alias or fallback; protected literal policy unchanged | Full backend/frontend suites, headed T25 and T08 regression; [local evidence](../verification/2026-10-12-T25-public-routes.md) |
+
+## T26 — Application metadata ownership (LEG-01)
+
+UC-01 BR-04/MS-03..06, UC-06 PRE-02/MS-04/BR-20 and OC-01 map to the
+identity-only Application domain/create service and SQL/JSON repositories.
+`domain/application/application_test.go`, Application service tests and
+`adapters/store/legacy_binding_test.go` assert serialization, no binding fallback
+and safe retained-target rejection. Shared `persistencetest/binding.go` verifies
+independent Environment selection and metadata save/reopen. `workloads.go` plus
+JSON workload-history tests verify historical Connection/generation/TargetRef
+survive Application saves and reopen. PostgreSQL counterparts compile but are
+skipped without an authorized disposable DB. Existing unconfigured Preview/Deploy
+and conformance suites pass; fixtures/app.id and scope semantics are unchanged.
+See [T26 evidence](../verification/2026-10-12-T26-application-metadata.md).

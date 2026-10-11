@@ -20,7 +20,7 @@ func paramsWorkloadService(t *testing.T) (*Service, *store.Store) {
 	if err := st.SaveOrganization(ctx, application.Organization{Key: "acme", Name: "Acme"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SaveApplication(ctx, application.Application{Key: "app", OrganizationKey: "acme", ConfigurationProvider: "vault"}); err != nil {
+	if err := st.SaveApplication(ctx, application.Application{Key: "app", OrganizationKey: "acme"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.SaveResourceType(ctx, "acme", resource.Type{

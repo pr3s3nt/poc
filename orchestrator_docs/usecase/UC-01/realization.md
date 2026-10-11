@@ -2,13 +2,16 @@
 id: UC-01-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-12
 ---
 
 # UC-01 — Use Case Realization
 
 ApplicationService.CreateApplication creates identity, two unconfigured
-Environments/empty Sets atomically without resolving defaults. Existing
+Environments/empty Sets atomically without resolving defaults. ApplicationRepository
+Save/Get/List persist only identity/current metadata; no target/provider fields
+or Application-to-Environment legacy backfill remain (T26). JSON/SQL reopening
+preserves independently selected Environment bindings and historical target snapshots. Existing
 ApplicationService.SetConnection becomes versioned change before runtime exists;
 normal Save cannot bypass the dedicated command. EnvironmentSettingsService
 selects SecretStoreConnection using ConfigurationService's immutable copy control.

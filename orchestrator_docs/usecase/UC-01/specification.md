@@ -2,7 +2,7 @@
 id: UC-01-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-12
 ---
 
 # UC-01 — Create Application and configure Environment destinations
@@ -58,7 +58,7 @@ owns shared transition/admission/recovery design.
 - **BR-01:** System Application ID bất biến, unique; Name unique không phân biệt hoa thường trong Organization.
 - **BR-02:** Subdomain lowercase DNS label, unique trong platform base domain.
 - **BR-03:** Đúng staging/production; endpoints `<subdomain>.<base-domain>` và `staging.<subdomain>.<base-domain>`.
-- **BR-04:** Không có Application-wide selected target/provider hay implicit fallback.
+- **BR-04:** Application chỉ giữ identity/config metadata hiện hành: ID/key, Organization, Name, Subdomain và version. Không lưu profile, Connection, region, runtime status hoặc configuration provider; không có Application-wide target/provider hay implicit fallback. Không backfill binding cũ từ Application; historical target snapshots vẫn giữ nguyên.
 - **BR-05:** Hai Connection lựa chọn thuộc Environment, độc lập, cho phép thay đổi.
 - **BR-06:** Execution Connection chỉ READY Kubernetes/AWS đúng Organization;
   AWS cần region. Secret store chỉ READY supported store cùng Organization.

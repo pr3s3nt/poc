@@ -23,6 +23,7 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - Preconditions: authenticated Developer and Organization; valid unique name/subdomain; no default Connection required.
 - Input: name/subdomain only; unknown create connectionKey rejected 400.
 - Creates: Application identity, staging/production UNCONFIGURED Environments, empty Sets and stable namespaces, atomically.
+- Application Save/Get/List store only ID/key, Organization, name, subdomain and version; no profile/connection/region/runtime/provider fields or binding backfill from Application (T26). Environment owns execution/store selections; historical target snapshots and operation generation/fencing are preserved.
 - No external provision; desired endpoints remain unprovisioned.
 - Query: GET /api/v1/application-connections retains safe Organization-scoped READY choices/default marker for Settings, no credentials or UC-04 management rights.
 

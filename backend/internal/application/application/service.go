@@ -141,7 +141,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 			}
 		}
 		appID := ids.New()
-		app := appdomain.Application{ID: appID, Key: appID, OrganizationKey: cmd.OrganizationKey, Name: cmd.Name, Subdomain: cmd.Subdomain, RuntimeStatus: appdomain.RuntimeUnconfigured, ConfigurationProvider: "vault"}
+		app := appdomain.Application{ID: appID, Key: appID, OrganizationKey: cmd.OrganizationKey, Name: cmd.Name, Subdomain: cmd.Subdomain}
 		if err := app.Validate(); err != nil {
 			return err
 		}

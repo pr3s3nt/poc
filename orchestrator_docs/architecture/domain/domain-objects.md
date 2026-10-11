@@ -13,7 +13,7 @@ last_reviewed: 2026-10-12
 |---|---|---|---|
 | User Account | `UserAccount` | password hash, Organization identity, role, status | Username unique; chỉ `ACTIVE` account được authenticate; plaintext password không persist. |
 | Session | `Session` | token hash, expiry, lifecycle status | Opaque token chỉ tồn tại ở browser/request memory; token hash unique và session revoked/expired không authenticate được. |
-| Application | `Application` | system ID, name, subdomain; legacy provider metadata | ID do hệ thống sinh; execution binding belongs to Environment; legacy AWS scope retained only for migration. |
+| Application | `Application` | system ID/key, Organization, name, subdomain, version | ID do hệ thống sinh; không có target/provider fields; execution/store binding chỉ thuộc Environment, không backfill từ Application (T26). |
 | Environment | `Environment` | namespace identity, versioned connection/store/generation/profile/region/runtime/scope, current-set pointer, public-route pending flag | Thuộc một Application; UC-01 tạo đúng `staging` và `production`; desired endpoint được suy ra từ Application Subdomain và Environment key; current Deployment Set chỉ đổi trong final deployment transaction. Route pending cho phép retry sau lỗi Fleet mà không restart workload. |
 | Resource Type | `ResourceType` | input/output schema | Contract độc lập implementation. |
 | Resource Definition | `ResourceDefinition` | optional Execution Profile guard, Matching Criteria, driver inputs, provision rules | Cùng Resource Type và profile hợp lệ; criteria match deterministic; output contract tương thích. |

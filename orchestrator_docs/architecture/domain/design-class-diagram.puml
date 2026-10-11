@@ -135,7 +135,9 @@ package "Domain" {
     +ID: ApplicationID
     +Name: string
     +Subdomain: string
-    +ConfigurationProvider: string
+    +Key: string
+    +OrganizationKey: string
+    +Version: int64
   }
   class Environment <<aggregate>> {
     +ID: EnvironmentID

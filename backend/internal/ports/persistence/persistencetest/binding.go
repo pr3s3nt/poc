@@ -60,10 +60,24 @@ func EnvironmentBinding(t *testing.T, st persistence.Store) BindingFixture {
 		}
 	}
 
-	// New Application and Environments are unbound; the legacy columns stay empty.
+	// The Application keeps identity and current metadata only; its
+	// Environments are unconfigured.
 	storedApp, err := st.GetApplication(ctx, appID)
-	if err != nil || storedApp.ConnectionKey != "" || storedApp.Profile != "" || storedApp.Region != "" || storedApp.RuntimeStatus != application.RuntimeUnconfigured {
-		t.Fatalf("new application must be unbound: %+v %v", storedApp, err)
+	if err != nil || storedApp != app {
+		t.Fatalf("application must round-trip identity only: %+v %v", storedApp, err)
+	}
+	if apps, err := st.ListApplications(ctx); err != nil {
+		t.Fatal(err)
+	} else {
+		found := false
+		for _, a := range apps {
+			if a.Key == appID {
+				found = a == app
+			}
+		}
+		if !found {
+			t.Fatalf("list must return the identity-only application: %+v", apps)
+		}
 	}
 	staging, err := st.GetEnvironment(ctx, appID, "staging")
 	if err != nil || staging.Configured() || staging.Status() != application.RuntimeUnconfigured || staging.Version != 1 || staging.SecretStoreKey != "" {
@@ -133,13 +147,19 @@ func EnvironmentBinding(t *testing.T, st persistence.Store) BindingFixture {
 		_ = keep
 		got.Version = 4
 	}
-	// SaveApplication cannot attach a legacy target either.
-	app.ConnectionKey, app.Profile, app.Region, app.RuntimeStatus = "cloud", application.ProfileAWSEKS, "eu-west-1", application.RuntimeReady
+	// Saving the Application leaves independent Environment bindings alone.
+	app.Name = "Bound renamed"
 	if err := st.SaveApplication(ctx, app); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := st.GetApplication(ctx, appID); got.ConnectionKey != "" || got.Profile != "" || got.Region != "" {
-		t.Fatalf("save attached a legacy application target: %+v", got)
+	if got, _ := st.GetApplication(ctx, appID); got != app {
+		t.Fatalf("application save lost identity: %+v", got)
+	}
+	if got, _ := st.GetEnvironment(ctx, appID, "staging"); got.ConnectionKey != "lab" || got.Version != 4 {
+		t.Fatalf("application save changed staging binding: %+v", got)
+	}
+	if got, _ := st.GetEnvironment(ctx, appID, "production"); got.Configured() || got.Version != 1 {
+		t.Fatalf("application save bound production: %+v", got)
 	}
 
 	// Concurrent binds of the unset production Environment: exactly one wins,
@@ -198,7 +218,7 @@ func AssertBindingReloaded(t *testing.T, st persistence.Store, fx BindingFixture
 		t.Fatalf("production after reopen: %+v %v", production, err)
 	}
 	app, err := st.GetApplication(ctx, fx.ApplicationKey)
-	if err != nil || app.ConnectionKey != "" || app.RuntimeStatus != application.RuntimeUnconfigured {
-		t.Fatalf("application after reopen must stay unbound: %+v %v", app, err)
+	if err != nil || app.Key != fx.ApplicationKey || app.Name != "Bound renamed" {
+		t.Fatalf("application after reopen must keep identity only: %+v %v", app, err)
 	}
 }

@@ -44,7 +44,7 @@ WorkloadDeployer.WaitReady(ctx context.Context, target DeploymentTarget, workloa
 |---|---|
 | MS-01 | Create Deployment `PLANNING` without Delta Snapshot, load/version current set. Planning failure keeps a `FAILED` record, which may also lack Snapshot (BR-16). |
 | MS-02–MS-03 | Planning pipeline validate/bảo toàn container resources, tạo Humanitec-shaped Delta/Candidate Set và chứng minh invariant. |
-| MS-04–MS-08 | Load profile, resolve descriptor tokens, enrich graph, match/validate/schedule; persist immutable plan snapshot. |
+| MS-04–MS-08 | Resolve/pin Environment target/profile (Application identity only), resolve descriptor tokens, enrich graph, match/validate/schedule; persist immutable plan snapshot. |
 | MS-09 | Chuyển Deployment `PROVISIONING`, gọi UC-08 với resource-only batches. |
 | MS-10 | `OutputBindingResolver.ResolveWorkloadBindings`. |
 | MS-11 | `WorkloadRenderer.Render` ánh xạ typed container requests/limits -> Kubernetes resources theo BR-11: giá trị khai báo giữ nguyên, request field thiếu lấy limit cùng field, thiếu cả hai thì nhận default `10m`/`32Mi`, limits chỉ gồm field khai báo; renderer không sửa module input. Sau đó `WorkloadDeployer.Apply` -> `WaitReady`; internal kind reconcile toàn bộ Ingress sau khi các workload bị ảnh hưởng Ready. Fleet mode ghi/chờ bundle `_routes`. |

@@ -25,6 +25,7 @@ func openFresh(t *testing.T) (*Store, string) {
 func TestPostgresWorkloadSnapshotContractSurvivesRestart(t *testing.T) {
 	first, url := openFresh(t)
 	fixture := persistencetest.WorkloadSnapshots(t, first)
+	persistencetest.AssertApplicationSaveKeepsHistory(t, first, fixture)
 	first.Close()
 	reopened, err := Open(context.Background(), url)
 	if err != nil {

@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -15,8 +17,8 @@ import (
 // preChangeSchema installs migrations 1..5 (the schema before ADR-011) and a
 // ledger so Open applies only the new migrations over real old rows.
 // kubernetesAuth is the historical authentication type of the Kubernetes rows:
-// HOST_CONTEXT is rejected by migration 8; KUBECONFIG lets the ADR-011 binding
-// backfill be exercised.
+// HOST_CONTEXT is rejected by migration 8; KUBECONFIG reaches migration 9, which
+// rejects the retained Application targets (T26).
 func preChangeSchema(t *testing.T, url, kubernetesAuth string) {
 	t.Helper()
 	ctx := context.Background()
@@ -64,79 +66,84 @@ func preChangeSchema(t *testing.T, url, kubernetesAuth string) {
 	}
 }
 
-func TestMigration6BackfillsLegacyBindingsAndKeepsNewApplicationsUnset(t *testing.T) {
+// A database whose Applications still hold a retired execution target is
+// refused by migration 9 before any column is dropped: nothing is converted to
+// an Environment binding and nothing is lost silently (T26). Reset is T29.
+func TestMigration9RejectsRetainedApplicationTargetsWithoutMutation(t *testing.T) {
 	ctx := context.Background()
 	url := persistencetest.FreshPostgresDatabase(t)
 	preChangeSchema(t, url, "KUBECONFIG")
+	st, err := Open(ctx, url)
+	if err == nil {
+		st.Close()
+		t.Fatal("database with retained Application targets opened")
+	}
+	if !errors.Is(err, ErrLegacyApplicationData) || strings.Contains(err.Error(), "constraint") {
+		t.Fatalf("open error = %v", err)
+	}
+	conn, err := pgx.Connect(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(ctx)
+	var columns, ledger, bound int
+	if err := conn.QueryRow(ctx, `SELECT count(*) FROM information_schema.columns WHERE table_name='applications' AND column_name IN ('execution_profile','connection_id','region','runtime_status','configuration_provider')`).Scan(&columns); err != nil || columns != 5 {
+		t.Fatalf("retained Application columns were altered: %d %v", columns, err)
+	}
+	if err := conn.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&ledger); err != nil || ledger != 5 {
+		t.Fatalf("ledger changed: %d %v", ledger, err)
+	}
+	if err := conn.QueryRow(ctx, `SELECT count(*) FROM applications WHERE connection_id IS NOT NULL`).Scan(&bound); err != nil || bound != 2 {
+		t.Fatalf("retained Application rows changed: %d %v", bound, err)
+	}
+}
 
+// A fresh database holds identity-only Applications: Save/Get/List carry no
+// target, new Environments stay unconfigured and reopening is idempotent.
+func TestApplicationIdentityOnlyFreshAndReopen(t *testing.T) {
+	ctx := context.Background()
+	url := persistencetest.FreshPostgresDatabase(t)
 	st, err := Open(ctx, url)
 	if err != nil {
 		t.Fatal(err)
 	}
-	check := func(st *Store, label string) {
-		t.Helper()
-		for _, key := range []string{"staging", "production"} {
-			e, err := st.GetEnvironment(ctx, "old-k8s", key)
-			if err != nil || e.ConnectionKey != "lab" || e.Profile != application.ProfileInternalK8s || e.RuntimeStatus != application.RuntimeReady || e.InfrastructureScope != environment.ScopeLegacyApplication {
-				t.Fatalf("%s: legacy k8s %s = %+v %v", label, key, e, err)
-			}
-		}
-		aws, err := st.GetEnvironment(ctx, "old-aws", "staging")
-		if err != nil || aws.ConnectionKey != "cloud" || aws.Profile != application.ProfileAWSEKS || aws.Region != "eu-west-1" || aws.RuntimeStatus != application.RuntimePending || aws.InfrastructureScope != environment.ScopeLegacyApplication {
-			t.Fatalf("%s: legacy aws = %+v %v", label, aws, err)
-		}
-		if e, _ := st.GetEnvironment(ctx, "old-k8s", "staging"); e.Version != 5 || e.NamespaceIdentity != "app-old-k8s-staging" {
-			t.Fatalf("%s: backfill changed version/namespace: %+v", label, e)
-		}
-		// The retained legacy Application data is untouched and readable.
-		app, err := st.GetApplication(ctx, "old-k8s")
-		if err != nil || app.ConnectionKey != "lab" || app.Profile != application.ProfileInternalK8s || app.RuntimeStatus != application.RuntimeReady || app.Version != 3 {
-			t.Fatalf("%s: legacy application = %+v %v", label, app, err)
-		}
-		org, _ := st.GetOrganization(ctx, "acme")
-		if org.DefaultConnectionKey != "default" {
-			t.Fatalf("%s: default changed: %+v", label, org)
-		}
+	if err := st.SaveOrganization(ctx, application.Organization{ID: "55555555-5555-4555-8555-555555555555", Key: "acme", Name: "Acme"}); err != nil {
+		t.Fatal(err)
 	}
-	check(st, "first open")
-
-	// A new Application after the migration persists no legacy target and is
-	// never backfilled by later runs, whatever the Organization default is.
 	fresh := application.Application{ID: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", Key: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", OrganizationKey: "acme", Name: "Fresh", Subdomain: "fresh", Version: 1}
 	if err := st.SaveApplication(ctx, fresh); err != nil {
 		t.Fatal(err)
 	}
 	for _, key := range []string{"staging", "production"} {
-		if err := st.SaveEnvironment(ctx, environment.Environment{ID: "", Key: key, ApplicationID: fresh.ID, ApplicationKey: fresh.Key, Name: key, Type: key, NamespaceIdentity: "app-fresh-" + key, Version: 1}); err != nil {
+		if err := st.SaveEnvironment(ctx, environment.Environment{Key: key, ApplicationID: fresh.ID, ApplicationKey: fresh.Key, Name: key, Type: key, NamespaceIdentity: "app-fresh-" + key, Version: 1}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	var nullConnection bool
-	if err := st.pool.QueryRow(ctx, `SELECT connection_id IS NULL AND execution_profile='' AND region='' AND runtime_status='UNCONFIGURED' FROM applications WHERE application_key=$1`, fresh.Key).Scan(&nullConnection); err != nil || !nullConnection {
-		t.Fatalf("new application row must be unbound: %v %v", nullConnection, err)
+	var columns int
+	if err := st.pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.columns WHERE table_name='applications' AND column_name IN ('execution_profile','connection_id','region','runtime_status','configuration_provider')`).Scan(&columns); err != nil || columns != 0 {
+		t.Fatalf("retired Application columns remain: %d %v", columns, err)
 	}
 	st.Close()
-
 	for i := 0; i < 2; i++ {
 		reopened, err := Open(ctx, url)
 		if err != nil {
 			t.Fatalf("reopen %d: %v", i, err)
 		}
-		check(reopened, "reopen")
+		if got, err := reopened.GetApplication(ctx, fresh.Key); err != nil || got != fresh {
+			t.Fatalf("reopen %d: application = %+v %v", i, got, err)
+		}
+		if list, err := reopened.ListApplications(ctx); err != nil || len(list) != 1 || list[0] != fresh {
+			t.Fatalf("reopen %d: list = %+v %v", i, list, err)
+		}
 		for _, key := range []string{"staging", "production"} {
 			e, err := reopened.GetEnvironment(ctx, fresh.Key, key)
 			if err != nil || e.Configured() || e.Status() != application.RuntimeUnconfigured || e.InfrastructureScope != environment.ScopeEnvironment {
-				t.Fatalf("reopen %d: new application %s must stay UNCONFIGURED: %+v %v", i, key, e, err)
+				t.Fatalf("reopen %d: %s must stay UNCONFIGURED: %+v %v", i, key, e, err)
 			}
 		}
-		// The migration body itself is idempotent when re-run by hand.
-		if _, err := reopened.pool.Exec(ctx, migration6); err != nil {
-			t.Fatalf("re-running the migration: %v", err)
-		}
-		check(reopened, "manual rerun")
 		var count int
 		_ = reopened.pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count)
-		if count != 8 {
+		if count != 9 {
 			t.Fatalf("ledger rows = %d", count)
 		}
 		reopened.Close()

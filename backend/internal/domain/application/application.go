@@ -10,7 +10,8 @@ import (
 var keyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,40}$`)
 var dnsLabelPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
-// ExecutionProfile is the execution policy bound to an Application (UC-01).
+// ExecutionProfile is the execution policy resolved from an Environment target
+// (UC-01).
 type ExecutionProfile string
 
 // Execution profiles supported by the MVP.
@@ -24,10 +25,10 @@ func (p ExecutionProfile) Valid() bool {
 	return p == ProfileAWSEKS || p == ProfileInternalK8s
 }
 
-// RuntimeStatus tracks whether application-scoped infrastructure exists.
+// RuntimeStatus tracks whether Environment-scoped infrastructure exists.
 type RuntimeStatus string
 
-// Application runtime statuses.
+// Runtime statuses.
 const (
 	// RuntimeUnconfigured is an Environment whose target is not set yet.
 	RuntimeUnconfigured RuntimeStatus = "UNCONFIGURED"
@@ -43,22 +44,15 @@ type Organization struct {
 	DefaultConnectionKey string `json:"defaultConnectionKey"`
 }
 
-// Application owns identity and configuration provider. Profile, ConnectionKey,
-// Region and RuntimeStatus are legacy data of Applications created before
-// ADR-011: new Applications keep them empty (UNCONFIGURED) and every execution
-// target belongs to an Environment.
+// Application owns identity and current metadata only. Every execution and
+// store binding belongs to an Environment (ADR-011/ADR-012).
 type Application struct {
-	ID                    string           `json:"id"`
-	Key                   string           `json:"key"`
-	OrganizationKey       string           `json:"organizationKey"`
-	Name                  string           `json:"name"`
-	Subdomain             string           `json:"subdomain"`
-	Profile               ExecutionProfile `json:"executionProfile"`
-	ConnectionKey         string           `json:"connectionKey"`
-	Region                string           `json:"region,omitempty"`
-	RuntimeStatus         RuntimeStatus    `json:"runtimeStatus"`
-	Version               int64            `json:"version"`
-	ConfigurationProvider string           `json:"configurationProvider,omitempty"`
+	ID              string `json:"id"`
+	Key             string `json:"key"`
+	OrganizationKey string `json:"organizationKey"`
+	Name            string `json:"name"`
+	Subdomain       string `json:"subdomain"`
+	Version         int64  `json:"version"`
 }
 
 // Validate reports whether the Application satisfies UC-01 business rules.
@@ -66,23 +60,10 @@ func (a Application) Validate() error {
 	if !keyPattern.MatchString(a.Key) {
 		return fmt.Errorf("application: invalid application key %q", a.Key)
 	}
-	// Legacy seeded planning fixtures predate UC-01 self-service creation and
-	// have no public endpoint. UC-01's creation service always requires it.
+	// Seeded planning fixtures predate UC-01 self-service creation and have no
+	// public endpoint. UC-01's creation service always requires it.
 	if a.Subdomain != "" && !dnsLabelPattern.MatchString(a.Subdomain) {
 		return fmt.Errorf("application: invalid subdomain %q", a.Subdomain)
-	}
-	if a.ConnectionKey == "" {
-		// New Application (ADR-011): no legacy target at all.
-		if a.Profile != "" || a.Region != "" {
-			return fmt.Errorf("application: application %q has a target without a connection", a.Key)
-		}
-		return nil
-	}
-	if !a.Profile.Valid() {
-		return fmt.Errorf("application: invalid execution profile %q", a.Profile)
-	}
-	if a.Profile == ProfileAWSEKS && a.Region == "" {
-		return fmt.Errorf("application: aws-eks application %q needs a region", a.Key)
 	}
 	return nil
 }

@@ -5,8 +5,10 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -271,6 +273,9 @@ func NewWithSnapshot(path string) (*Store, error) {
 	if err := json.Unmarshal(b, &fields); err != nil {
 		return nil, fmt.Errorf("store: parse snapshot: %w", err)
 	}
+	if err := rejectRetainedApplicationTargets(fields["applications"]); err != nil {
+		return nil, err
+	}
 	loaded := newState()
 	if err := json.Unmarshal(b, loaded); err != nil {
 		return nil, fmt.Errorf("store: parse snapshot: %w", err)
@@ -284,19 +289,60 @@ func NewWithSnapshot(path string) (*Store, error) {
 	for key, conn := range s.state.Connections {
 		s.state.Connections[key] = legacyConnection(conn)
 	}
-	s.state.migrateLegacyBindings()
+	s.state.initializeEnvironmentDefaults()
 	if history, ok := fields["deploymentWorkloads"]; !ok || string(history) == "null" {
 		s.state.backfillLatestWorkloadSnapshots()
 	}
 	return s, nil
 }
 
-// migrateLegacyBindings copies the former Application target onto each unset
-// Environment of an old bound Application and locks it as LEGACY_APPLICATION
-// (ADR-011). New Applications carry no connection, so they stay UNCONFIGURED
-// and the rule is safe to apply on every load. Organization default is never
-// consulted; Application identity, namespaces and TargetRefs are untouched.
-func (s *state) migrateLegacyBindings() {
+// rejectRetainedApplicationTargets fails closed on a snapshot whose Application
+// still carries a former execution target or provider (T26). Those fields no
+// longer exist; loading would silently drop the target and never convert it to
+// an Environment binding. The error asks for a development reset. Unbound
+// Applications (UNCONFIGURED, nothing else set) lose no data and load normally.
+func rejectRetainedApplicationTargets(raw json.RawMessage) error {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil
+	}
+	var apps map[string]map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &apps); err != nil {
+		return fmt.Errorf("store: parse snapshot: %w", err)
+	}
+	// Absent, null and "" carry no target. Any other value, including a
+	// non-string one, is retired data that would be dropped: fail closed.
+	retained := func(app map[string]json.RawMessage, field string, ignore ...string) bool {
+		value, ok := app[field]
+		if !ok || string(bytes.TrimSpace(value)) == "null" {
+			return false
+		}
+		var v string
+		if json.Unmarshal(value, &v) != nil {
+			return true
+		}
+		if v == "" {
+			return false
+		}
+		for _, i := range ignore {
+			if v == i {
+				return false
+			}
+		}
+		return true
+	}
+	for _, app := range apps {
+		if retained(app, "executionProfile") || retained(app, "connectionKey") || retained(app, "region") ||
+			retained(app, "configurationProvider") || retained(app, "runtimeStatus", string(application.RuntimeUnconfigured)) {
+			return errors.New("store: snapshot holds a retired Application execution target or provider; reset the development state (Application target conversion is unsupported)")
+		}
+	}
+	return nil
+}
+
+// initializeEnvironmentDefaults makes the unconfigured defaults explicit in loaded
+// Environment rows. Execution and store bindings are never derived from the
+// Application and the Organization default is never consulted.
+func (s *state) initializeEnvironmentDefaults() {
 	for key, env := range s.Environments {
 		if env.ConnectionKey != "" {
 			if env.InfrastructureScope == "" {
@@ -305,15 +351,7 @@ func (s *state) migrateLegacyBindings() {
 			}
 			continue
 		}
-		app, ok := s.Applications[env.ApplicationKey]
-		if !ok || app.ConnectionKey == "" {
-			// A new Application: make the SQL defaults explicit in the loaded row.
-			env.RuntimeStatus, env.InfrastructureScope = application.RuntimeUnconfigured, environment.ScopeEnvironment
-			s.Environments[key] = env
-			continue
-		}
-		env.ConnectionKey, env.Profile, env.Region = app.ConnectionKey, app.Profile, app.Region
-		env.RuntimeStatus, env.InfrastructureScope = app.RuntimeStatus, environment.ScopeLegacyApplication
+		env.RuntimeStatus, env.InfrastructureScope = application.RuntimeUnconfigured, environment.ScopeEnvironment
 		s.Environments[key] = env
 	}
 }
@@ -507,14 +545,6 @@ func (s *Store) SaveApplication(ctx context.Context, app application.Application
 	}
 	if app.Version == 0 {
 		app.Version = 1
-	}
-	// Legacy target fields are read-only data (ADR-011): a save keeps what is
-	// stored and a new Application is created unbound.
-	stored := s.state.Applications[app.Key]
-	app.Profile, app.ConnectionKey, app.Region = stored.Profile, stored.ConnectionKey, stored.Region
-	app.RuntimeStatus = stored.RuntimeStatus
-	if app.ConnectionKey == "" {
-		app.RuntimeStatus = application.RuntimeUnconfigured
 	}
 	s.state.Applications[app.Key] = app
 	return nil
