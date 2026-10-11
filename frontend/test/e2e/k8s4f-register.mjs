@@ -54,7 +54,7 @@ try {
   await page.getByLabel('Tên đăng nhập').fill('platform-engineer');
   await page.getByLabel('Mật khẩu').fill('test-password');
   await page.getByRole('button', { name: 'Đăng nhập' }).click();
-  await expect(page.getByRole('heading', { name: 'Your applications' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
   await page.getByRole('link', { name: /(^|\s)Kết nối$/ }).click();
   await expect(page.getByRole('heading', { name: 'Kết nối', level: 1 })).toBeVisible();
 

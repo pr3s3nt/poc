@@ -24,7 +24,7 @@ try {
     await page.getByLabel('Tên đăng nhập').fill('developer');
     await page.getByLabel('Mật khẩu').fill('test-password');
     await page.getByRole('button', { name: 'Đăng nhập' }).click();
-    await expect(page.getByRole('heading', { name: 'Your applications' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
   }
 
   async function api(method, path, data) {

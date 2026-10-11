@@ -57,9 +57,15 @@ export function nativeSelect(x11) {
 }
 
 // Starts ffmpeg and fails fast when it cannot open the display or exits early.
+// ffmpeg.spawnedAtMs is the wall clock taken right before spawn: video time 0 is
+// the first grabbed frame, shortly after it. Runners must base caption and mark
+// times on it, not on when this function returns (the early-exit wait below
+// adds 1.5s that is already inside the video).
 export async function startRecording({ display, width, height, videoPath }) {
+  const spawnedAtMs = Date.now();
   const ffmpeg = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-n', '-f', 'x11grab', '-draw_mouse', '0', '-framerate', '15', '-video_size', `${width}x${height}`, '-i', display,
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', videoPath], { stdio: ['pipe', 'ignore', 'inherit'] });
+  ffmpeg.spawnedAtMs = spawnedAtMs;
   ffmpeg.exitPromise = new Promise((resolve) => {
     ffmpeg.once('error', (error) => resolve({ error }));
     ffmpeg.once('exit', (code, signal) => resolve({ code, signal }));

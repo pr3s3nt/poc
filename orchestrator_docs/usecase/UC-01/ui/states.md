@@ -43,3 +43,15 @@ last_reviewed: 2026-10-11
 - Lỗi khác: fallback tiếng Việt an toàn, giữ form; retry chỉ khi người dùng submit.
 - Success: điều hướng ứng dụng mới ở staging; staging/production, IDs và payload
   giữ nguyên. Không hiển thị raw backend errors; mapping tổng thể thuộc T20.
+
+## T11 — Trạng thái danh sách ứng dụng
+
+- Loading: skeleton có role status, aria-busy và nhãn “Đang tải ứng dụng”.
+- Empty: “Bắt đầu với ứng dụng mới”, hướng dẫn tiếng Việt và nút Tạo ứng dụng.
+- Error: alert “Không thể tải danh sách ứng dụng.” và nút “Thử lại”; không
+  thay lỗi bằng danh sách giả hoặc hiện raw backend error.
+- Retry: chỉ đọc lại danh sách khi người dùng bấm; tải thành công hiển thị
+  dữ liệu thật theo thứ tự trả về, giữ tên/URL kỹ thuật.
+- Ready: mọi text tĩnh trên trang/cards dùng tiếng Việt; staging/production
+  giữ nguyên. Card và nút tạo dùng thao tác accessible hiện có, deep links
+  giữ route/Application ID; không tự mutation khi tải hoặc mở ứng dụng.

@@ -52,7 +52,7 @@ async function signIn(user: ReturnType<typeof userEvent.setup>) {
   await user.type(await screen.findByLabelText('Tên đăng nhập'), 'developer');
   await user.type(screen.getByLabelText('Mật khẩu'), 'test-password');
   await user.click(screen.getByRole('button', { name: 'Đăng nhập' }));
-  await screen.findByRole('heading', { name: 'Your applications' });
+  await screen.findByRole('heading', { name: 'Ứng dụng của bạn' });
 }
 
 describe('developer onboarding shell (UC-00/UC-01)', () => {
@@ -77,7 +77,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
   it('restores an existing session without showing sign-in', async () => {
     authenticated = true;
     render(<App />);
-    expect(await screen.findByRole('heading', { name: 'Your applications' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Ứng dụng của bạn' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Mật khẩu')).not.toBeInTheDocument();
     expect(window.location.pathname).toBe('/ui/applications');
   });
@@ -95,9 +95,9 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     let release: () => void = () => undefined;
     override = (url) => url.endsWith('/applications') ? new Promise<Response>((resolve) => { release = () => resolve(Response.json({ applications: [] })); }) as unknown as Response : undefined;
     render(<App />);
-    expect(await screen.findByRole('status', { name: 'Loading applications' })).toBeInTheDocument();
+    expect(await screen.findByRole('status', { name: 'Đang tải ứng dụng' })).toBeInTheDocument();
     release();
-    expect(await screen.findByRole('heading', { name: 'Start a new application' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Bắt đầu với ứng dụng mới' })).toBeInTheDocument();
   });
 
   it('shows a retryable list error without substituting data', async () => {
@@ -106,17 +106,66 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     override = (url) => url.endsWith('/applications') && failures-- > 0 ? Response.json({ error: 'database unavailable' }, { status: 500 }) : undefined;
     const user = userEvent.setup();
     render(<App />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load applications.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải danh sách ứng dụng.');
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/database unavailable/);
+    expect(screen.queryByText(/database unavailable/)).not.toBeInTheDocument();
     expect(screen.queryByText('Payment')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await user.click(screen.getByRole('button', { name: 'Thử lại' }));
     expect(await screen.findByText('Payment')).toBeInTheDocument();
+  });
+
+  it('lists several applications in returned order with Vietnamese card labels and deep links', async () => {
+    authenticated = true;
+    applications = [
+      { key: 'zeta', name: 'Zeta', subdomain: 'zeta', environments: [unset('staging'), unset('production')] },
+      { key: 'alpha', name: 'Alpha', subdomain: 'alpha', environments: [unset('staging'), unset('production')] },
+    ];
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByText('Không gian làm việc')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Ứng dụng của bạn', level: 1 })).toBeInTheDocument();
+    const cards = (await screen.findAllByText(/^(Zeta|Alpha)$/)).map((node) => node.textContent);
+    expect(cards).toEqual(['Zeta', 'Alpha']);
+    expect(screen.getAllByText('Sẵn sàng cấu hình')).toHaveLength(4);
+    expect(screen.getAllByText('staging')).toHaveLength(2);
+    expect(screen.getAllByText('production')).toHaveLength(2);
+    expect(screen.queryByText(/^(Staging|Production)$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ready to configure|Workspace/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Alpha/ }));
+    expect(window.location.pathname).toBe('/ui/applications/alpha');
+    expect(await screen.findByRole('heading', { name: 'Alpha' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['header button', 0],
+    ['empty-state button', 1],
+  ])('opens the create form from the %s and creates nothing', async (_label, index) => {
+    authenticated = true;
+    applications = [];
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: 'Bắt đầu với ứng dụng mới' })).toBeInTheDocument();
+    const buttons = screen.getAllByRole('button', { name: '+ Tạo ứng dụng' });
+    expect(buttons).toHaveLength(2);
+    await user.click(buttons[index]!);
+    expect(await screen.findAllByRole('form', { name: 'Tạo ứng dụng' })).toHaveLength(1);
+    expect(requests.some((request) => request.method === 'POST')).toBe(false);
+  });
+
+  it('restores an application deep link on initial load', async () => {
+    authenticated = true;
+    window.history.replaceState({}, '', '/ui/applications/payment');
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: 'Payment' })).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/ui/applications/payment');
   });
 
   it('creates an application without a connection and sets each environment independently in Settings', async () => {
     const user = userEvent.setup();
     render(<App />);
     await signIn(user);
-    await user.click(screen.getAllByRole('button', { name: /create application/i })[0]!);
+    await user.click(screen.getAllByRole('button', { name: '+ Tạo ứng dụng' })[0]!);
     await user.type(screen.getByLabelText('Tên ứng dụng'), 'Catalog');
     expect(screen.getByLabelText('Subdomain')).toHaveValue('catalog');
     await user.clear(screen.getByLabelText('Subdomain'));
@@ -323,6 +372,8 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       const user = userEvent.setup();
       render(<App />);
       expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải danh sách ứng dụng.');
+      expect(screen.getByRole('alert')).not.toHaveTextContent(/database unavailable/);
+      expect(screen.queryByText(/database unavailable/)).not.toBeInTheDocument();
       await user.click(screen.getByRole('button', { name: 'Thử lại' }));
       await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
     });

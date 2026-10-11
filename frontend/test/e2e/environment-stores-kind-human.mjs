@@ -89,7 +89,7 @@ try {
     await h.type(page.getByLabel('Tên đăng nhập'), user);
     await h.type(page.getByLabel('Mật khẩu'), 'test-password');
     await h.click(page.getByRole('button', { name: 'Đăng nhập' }));
-    await expect(page.getByRole('heading', { name: /applications/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
     await h.pause(SHORT_READ);
   }
   async function signOut() {
@@ -137,7 +137,7 @@ try {
 
   // ---- 2. Developer: application, per-Environment connection and store ----------
   await signIn('developer');
-  await h.click(page.getByRole('button', { name: /create application|new application/i }).first());
+  await h.click(page.getByRole('button', { name: '+ Tạo ứng dụng' }).first());
   await h.type(page.getByLabel('Tên ứng dụng'), applicationName);
   await h.type(page.getByLabel('Subdomain'), subdomain, { replace: true });
   await h.click(page.getByRole('button', { name: 'Tạo ứng dụng' }));

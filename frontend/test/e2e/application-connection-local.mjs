@@ -41,7 +41,7 @@ try {
     await target.getByLabel('Tên đăng nhập').fill(username);
     await target.getByLabel('Mật khẩu').fill('test-password');
     await target.getByRole('button', { name: 'Đăng nhập' }).click();
-    await expect(target.getByRole('heading', { name: 'Your applications' })).toBeVisible();
+    await expect(target.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
   }
   const targetText = (environment, key) => `${environment === 'staging' ? 'Staging' : 'Production'} · Connection ${key} (${key}) · profile internal-k8s`;
   async function expectTarget(label, environment = 'staging', key = labKey) {
@@ -108,7 +108,7 @@ try {
 
     // Developer: the create form asks for name and subdomain only.
     await signIn(page, 'developer');
-    await page.getByRole('button', { name: '+ Create application' }).first().click();
+    await page.getByRole('button', { name: '+ Tạo ứng dụng' }).first().click();
     await expect(page.getByLabel('Connection')).toHaveCount(0);
     await page.getByLabel('Tên ứng dụng').fill(name);
     await page.getByLabel('Subdomain').fill(subdomain);

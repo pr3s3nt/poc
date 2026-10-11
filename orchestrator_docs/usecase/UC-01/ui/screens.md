@@ -53,3 +53,13 @@ Tên thay đổi cập nhật gợi ý đến khi người dùng sửa subdomain
 xóa trống; sau đó giữ nguyên lựa chọn thủ công. Preview hiển thị endpoints
 staging/production theo contract, không provision. Submit chỉ gửi name/subdomain;
 tạo thành công mở Application home staging. Không thêm lựa chọn đích/provider.
+
+## T11 — Danh sách ứng dụng (VI-02/04/05)
+
+Trang dùng tiêu đề “Ứng dụng của bạn”, nhãn “Không gian làm việc”, hướng dẫn
+và nút “Tạo ứng dụng” bằng tiếng Việt. Cards giữ nguyên tên ứng dụng, endpoint,
+thứ tự dữ liệu và điều hướng tới Application home; các nhãn môi trường giữ
+`staging`/`production`, nhãn trạng thái hiện có dùng “Sẵn sàng cấu hình”. Đây là
+Việt hóa cách trình bày hiện có, không thay cách suy ra trạng thái môi trường.
+Nút tạo ứng dụng ở header và trạng thái rỗng mở cùng form tạo hiện có.
+Không thêm search/filter hoặc thay API/payload.

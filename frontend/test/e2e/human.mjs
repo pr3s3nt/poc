@@ -122,7 +122,7 @@ export async function signIn(h) {
   await h.type(h.page.getByLabel('Tên đăng nhập'), 'developer');
   await h.type(h.page.getByLabel('Mật khẩu'), 'test-password');
   await h.click(h.page.getByRole('button', { name: 'Đăng nhập' }));
-  await expect(h.page.getByRole('heading', { name: /applications/i })).toBeVisible();
+  await expect(h.page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
   await h.pause(1500);
 }
 
@@ -163,7 +163,7 @@ export async function setEnvironmentConnections(h, applicationName, targets) {
 // { connections: null } to leave both UNCONFIGURED, or an explicit map.
 export async function createApplication(h, name, subdomain, { connections = { staging: 'internal-cluster', production: 'internal-cluster' } } = {}) {
   const { page } = h;
-  await h.click(page.getByRole('button', { name: /create application|new application/i }).first());
+  await h.click(page.getByRole('button', { name: '+ Tạo ứng dụng' }).first());
   await h.type(page.getByLabel('Tên ứng dụng'), name);
   await h.type(page.getByLabel('Subdomain'), subdomain, { replace: true });
   await h.click(page.getByRole('button', { name: 'Tạo ứng dụng' }));

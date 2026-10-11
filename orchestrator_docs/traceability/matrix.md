@@ -323,3 +323,9 @@ integration proof is claimed.
 | WL-01/02, UC-16 MS-03/BR-11/14 | UC-16 UI screens/states T08: advanced resources/class/target-port, effective summaries | WorkloadEditorPage and editor tests: defaults omitted, typed number/bool, imported overrides retained | [T08 local verification](../verification/2026-10-11-T08-workload-editor.md) |
 | UC-16 BR-12, VI-02/04/05 | Explicit Add-route, one valid port suggestion, invalid target retained | Editor tests and headed T08: unique/multiple/invalid ports, no PUT on invalid route, no retarget | [T08 local verification](../verification/2026-10-11-T08-workload-editor.md) |
 | UC-16 BR-15–18 | Vietnamese key picker, no implicit keys, aliases/scope guards | WorkloadEditorKeys regressions; T08 mock Secret catalog/stale/BUSY explicitly marked; T03 human-helper regression | [T08 local verification](../verification/2026-10-11-T08-workload-editor.md) |
+
+## T11 — Danh sách ứng dụng frontend trace
+
+| Requirement | UI design | Code/test | Evidence |
+|---|---|---|---|
+| VI-02/04/05 | UC-01 UI screens/states T11: Vietnamese cards, accessible loading/empty/error/retry, unchanged data/routes | ApplicationsPage; App tests về list order, hai create CTA, explicit retry và initial deep link; headed T11 reload/card flow | [T11 local verification](../verification/2026-10-11-T11-applications-list.md) |

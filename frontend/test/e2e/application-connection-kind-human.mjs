@@ -99,7 +99,7 @@ try {
     await h.type(page.getByLabel('Tên đăng nhập'), user);
     await h.type(page.getByLabel('Mật khẩu'), 'test-password');
     await h.click(page.getByRole('button', { name: 'Đăng nhập' }));
-    await expect(page.getByRole('heading', { name: 'Your applications' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
     await h.pause(SHORT_READ);
   }
   async function signOut() {
@@ -172,7 +172,7 @@ try {
 
   // 3. Developer creates an Application: name and subdomain only.
   await signIn('developer');
-  await h.click(page.getByRole('button', { name: /create application|new application/i }).first());
+  await h.click(page.getByRole('button', { name: '+ Tạo ứng dụng' }).first());
   await expect(page.getByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeVisible();
   const applicationName = `Environment ${runId}`;
   await h.type(page.getByLabel('Tên ứng dụng'), applicationName);

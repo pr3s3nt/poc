@@ -8,7 +8,7 @@ import { expect } from '@playwright/test';
 export const TRANSLATED = {
   signIn: true,
   shell: true,
-  applications: false,
+  applications: true,
   resourceTypes: true,
   resourceDefinitions: true,
   renderingTemplates: true,
@@ -34,7 +34,11 @@ const TABLES = {
     navSecretStores: { role: 'link', vi: 'Kho bí mật', current: 'Kho bí mật' },
   },
   applications: {
-    heading: { role: 'heading', level: 1, vi: 'Ứng dụng của bạn', current: 'Your applications' },
+    heading: { role: 'heading', level: 1, vi: 'Ứng dụng của bạn', current: 'Ứng dụng của bạn' },
+    create: { role: 'button', vi: '+ Tạo ứng dụng', current: '+ Tạo ứng dụng' },
+    loading: { role: 'status', vi: 'Đang tải ứng dụng', current: 'Đang tải ứng dụng' },
+    emptyHeading: { role: 'heading', level: 2, vi: 'Bắt đầu với ứng dụng mới', current: 'Bắt đầu với ứng dụng mới' },
+    retry: { role: 'button', vi: 'Thử lại', current: 'Thử lại' },
   },
   // T04 translated this page; `current` equals `vi` for its entries.
   resourceTypes: {

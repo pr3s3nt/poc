@@ -2134,7 +2134,7 @@ export const SCENARIOS = {
     const submitButton = () => page.getByRole('button', { name: 'Tạo ứng dụng', exact: true });
     const preview = () => page.getByRole('group', { name: 'Endpoint sẽ được tạo' });
     const openForm = async () => {
-      await h.click(page.getByRole('button', { name: '+ Create application' }).first());
+      await h.click(page.getByRole('button', { name: '+ Tạo ứng dụng' }).first());
       await expect(page.getByRole('heading', { name: 'Tạo ứng dụng', level: 1 })).toBeVisible();
       await expect(page.getByRole('form', { name: 'Tạo ứng dụng' })).toBeVisible();
     };
@@ -2469,6 +2469,159 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(3000);
   },
+
+  // T11: Danh sách ứng dụng. Developer. PRODUCT (UI, backend fake thật, state tạm): đăng nhập, tạo 2 ứng dụng qua form, mở card, deep link và
+  // reload. Backend fake đã seed sẵn các ứng dụng acceptance nên danh sách nhiều ứng dụng là dữ liệu thật. MOCK (page.route, ghi chú tại
+  // chỗ dùng): chỉ GET /api/v1/applications trả {applications: []} một lần (trạng thái rỗng), bị giữ ~2.5s (đang tải) và trả 500 một lần
+  // (lỗi/thử lại); backend fake không tạo được ba trạng thái này.
+  async T11({ page, h, ui, caption, mark, check, baseURL }) {
+    const posts = [];
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/applications') posts.push(request.postDataJSON());
+    });
+    const mock = { holdMs: 0, failNext: 0, emptyNext: 0, gets: 0 };
+    // MOCK: GET /applications is held (loading), answered empty or answered 500 (error) on demand; otherwise it reaches the backend.
+    await page.route('**/api/v1/applications', async (route) => {
+      if (route.request().method() !== 'GET') { await route.continue(); return; }
+      mock.gets += 1;
+      if (mock.holdMs > 0) { const ms = mock.holdMs; mock.holdMs = 0; await new Promise((resolve) => setTimeout(resolve, ms)); }
+      if (mock.emptyNext > 0) {
+        mock.emptyNext -= 1;
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ applications: [] }) });
+        return;
+      }
+      if (mock.failNext > 0) {
+        mock.failNext -= 1;
+        await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'internal secret detail xyz' }) });
+        return;
+      }
+      await route.continue();
+    });
+    const FIRST = 'T11 Thanh toán';
+    const SECOND = 'T11 Danh mục';
+    const apiList = async () => (await (await page.request.get(`${baseURL}/api/v1/applications`)).json()).applications;
+    const cards = () => page.locator('button.application-card');
+    const createButtons = () => ui('applications', 'create');
+
+    caption('Bước 1: Lập trình viên đăng nhập; danh sách thật của backend (đã seed sẵn) hiển thị nhãn tiếng Việt');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'developer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await expect(page.getByText('Không gian làm việc', { exact: true })).toBeVisible();
+    await expect(page.getByText('Tạo ứng dụng, sau đó triển khai lên staging hoặc production.', { exact: true })).toBeVisible();
+    await expect(createButtons()).toHaveCount(1);
+    const seeded = await apiList();
+    expect(seeded.length).toBeGreaterThan(0);
+    await expect(cards()).toHaveCount(seeded.length);
+    check('initial list (real backend, seeded apps): Vietnamese eyebrow/title/hint, header create button, one card per backend application');
+    mark('initial-list');
+    await h.read('Danh sách ban đầu: nhãn tiếng Việt, số card bằng dữ liệu backend');
+
+    caption('Bước 2: Danh sách rỗng (MOCK GET trả rỗng): nhãn tiếng Việt; nút Tạo ứng dụng trong khung rỗng mở form tạo hiện có, chưa gửi dữ liệu');
+    mock.emptyNext = 1;
+    await page.reload();
+    await expect(ui('applications', 'emptyHeading')).toBeVisible();
+    await expect(page.getByText('Tạo ứng dụng để có môi trường staging và production.', { exact: true })).toBeVisible();
+    await expect(createButtons()).toHaveCount(2);
+    await expect(cards()).toHaveCount(0);
+    await h.read('Trạng thái rỗng tiếng Việt: nút tạo ở header và trong khung rỗng');
+    await h.click(createButtons().nth(1));
+    await expect(page.getByRole('form', { name: 'Tạo ứng dụng' })).toBeVisible();
+    expect(posts).toHaveLength(0);
+    check('empty state (MOCKED empty reply): Vietnamese heading/hint, header and empty create buttons; empty button opens the create form; no POST sent');
+    mark('empty-create-cta');
+    await h.click(ui('shell', 'navApplications'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+
+    caption('Bước 3: Tạo hai ứng dụng qua form (thao tác sản phẩm), mở form bằng nút Tạo ứng dụng ở header');
+    await createApplication(h, FIRST, 't11-thanh-toan', { connections: null });
+    await h.click(ui('shell', 'navApplications'));
+    await createApplication(h, SECOND, 't11-danh-muc', { connections: null });
+    expect(posts).toEqual([{ name: FIRST, subdomain: 't11-thanh-toan' }, { name: SECOND, subdomain: 't11-danh-muc' }]);
+    check('two applications created through the UI (header create button); each POST has only name/subdomain');
+    mark('apps-created');
+    await h.read('Đã tạo hai ứng dụng bằng giao diện');
+
+    await h.click(ui('shell', 'navApplications'));
+    caption('Bước 4: Danh sách nhiều ứng dụng: thứ tự, tên, URL production và nhãn môi trường khớp dữ liệu backend');
+    await page.reload(); // the list lives in app state and is refetched on load: reload shows the backend order
+    const apps = await apiList();
+    expect(apps).toHaveLength(seeded.length + 2);
+    await expect(cards()).toHaveCount(apps.length);
+    for (const [index, app] of apps.entries()) {
+      const card = cards().nth(index);
+      await expect(card.locator('strong')).toHaveText(app.name);
+      await expect(card.locator('small').first()).toHaveText(`${app.subdomain}.example.com`);
+      await expect(card.getByText('staging', { exact: true })).toBeVisible();
+      await expect(card.getByText('production', { exact: true })).toBeVisible();
+      await expect(card.getByText('Sẵn sàng cấu hình', { exact: true })).toHaveCount(2);
+    }
+    expect(apps.map((app) => app.name)).toEqual(expect.arrayContaining([FIRST, SECOND]));
+    await expect(page.getByText('Ready to configure')).toHaveCount(0);
+    await expect(page.getByRole('searchbox')).toHaveCount(0);
+    check('multi-app list (real backend): card order, names and production URLs equal GET /applications (seeded + 2 created); labels literal lowercase staging/production, status "Sẵn sàng cấu hình"; no search box');
+    mark('multi-list');
+    await h.read('Danh sách giữ thứ tự, tên và URL của dữ liệu thật');
+
+    caption('Bước 5: Tải lại trang khi API chậm (MOCK giữ GET ~4.5s): hiện trạng thái đang tải accessible, rồi hiện đúng dữ liệu');
+    mock.holdMs = 4500;
+    await page.reload();
+    await expect(ui('applications', 'loading')).toHaveAttribute('aria-busy', 'true');
+    await h.read('Đang tải ứng dụng: skeleton có role status');
+    await expect(cards()).toHaveCount(apps.length);
+    expect(await cards().locator('strong').allTextContents()).toEqual(apps.map((app) => app.name));
+    check('loading (MOCKED hold): role=status aria-busy "Đang tải ứng dụng", then the same cards in the same order');
+    mark('loading');
+
+    caption('Bước 6: Lỗi tải danh sách (MOCK 500): thông báo tiếng Việt, không lộ lỗi backend, không dữ liệu giả; bấm Thử lại mới đọc lại');
+    mock.failNext = 1;
+    await page.reload();
+    await expect(page.getByRole('alert')).toContainText('Không thể tải danh sách ứng dụng.');
+    await expect(page.getByRole('alert')).not.toContainText('internal secret');
+    await expect(page.getByText(/internal secret detail|xyz/)).toHaveCount(0);
+    expect(await page.locator('body').innerText()).not.toContain('internal secret detail xyz');
+    await expect(cards()).toHaveCount(0);
+    const getsBefore = mock.gets;
+    await h.read('Lỗi tải: không có danh sách giả, không lộ chi tiết backend');
+    expect(mock.gets).toBe(getsBefore);
+    await h.click(ui('applications', 'retry'));
+    await expect(cards()).toHaveCount(apps.length);
+    expect(mock.gets).toBe(getsBefore + 1);
+    expect(await cards().locator('strong').allTextContents()).toEqual(apps.map((app) => app.name));
+    check('error (MOCKED 500): Vietnamese alert, no raw backend text, no cards, no automatic retry; one explicit retry GET restores the same cards in order');
+    mark('error-retry');
+
+    caption('Bước 7: Mở card ứng dụng; điều hướng đến Application home đúng ID, không gửi thêm POST');
+    const postsBefore = posts.length;
+    await h.click(cards().nth(1));
+    await expect(page).toHaveURL(new RegExp(`/ui/applications/${apps[1].key}$`));
+    await expect(page.getByRole('heading', { name: apps[1].name })).toBeVisible();
+    expect(posts).toHaveLength(postsBefore);
+    check('card click opens /ui/applications/<id> of that application; no mutation request');
+    mark('card-navigation');
+    await h.read('Card mở Application home đúng ứng dụng');
+
+    caption('Bước 8: Tải lại deep link ứng dụng rồi quay lại danh sách; URL và dữ liệu giữ nguyên');
+    await page.reload();
+    await expect(page).toHaveURL(new RegExp(`/ui/applications/${apps[1].key}$`));
+    await expect(page.getByRole('heading', { name: apps[1].name })).toBeVisible();
+    await h.click(ui('shell', 'navApplications'));
+    await expect(cards()).toHaveCount(apps.length);
+    await expect(page).toHaveURL(/\/ui\/applications$/);
+    expect(await apiList()).toEqual(apps);
+    check('deep link survives reload; list returns; backend applications unchanged (T11 never mutates)');
+    mark('deep-link-reload');
+    await h.read('Deep link giữ nguyên sau tải lại; dữ liệu không đổi');
+
+    caption('Bước 9: Đăng xuất; phiên bị thu hồi');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(3000);
+  },
 };
 
 export function parseArgs(argv) {
@@ -2546,7 +2699,7 @@ async function main() {
     await page.waitForTimeout(1500);
     x11.focusBrowser();
     recorder = await startRecording({ display: env.DISPLAY, width, height, videoPath });
-    startedAt = Date.now();
+    startedAt = recorder.spawnedAtMs;
     await page.waitForTimeout(1500);
     const mark = (label) => marks.push({ label, seconds: Number(((Date.now() - startedAt) / 1000).toFixed(1)) });
     const fail = async (message) => { appendFileSync(assertionsPath, `FAIL ${message}\n`); await expect(message, message).toBe(''); };

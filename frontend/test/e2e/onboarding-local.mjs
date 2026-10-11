@@ -33,7 +33,7 @@ try {
     await page.getByLabel('Tên đăng nhập').fill('developer');
     await page.getByLabel('Mật khẩu').fill('test-password');
     await page.getByRole('button', { name: 'Đăng nhập' }).click();
-    await expect(page.getByRole('heading', { name: 'Your applications' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
     await expect(page).toHaveURL(/\/ui\/applications$/);
   }
 
@@ -61,7 +61,7 @@ try {
     const session = cookies.find((cookie) => cookie.name === 'orchestrator_session');
     if (!session?.httpOnly) throw new Error('session cookie must be HttpOnly');
 
-    await page.getByRole('button', { name: '+ Create application' }).first().click();
+    await page.getByRole('button', { name: '+ Tạo ứng dụng' }).first().click();
     await page.getByLabel('Tên ứng dụng').fill(name);
     await page.getByLabel('Subdomain').fill(subdomain);
     await expect(page.getByText(`staging.${subdomain}.example.com`)).toBeVisible();

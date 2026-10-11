@@ -25,9 +25,9 @@ try {
   await page.getByLabel('Mật khẩu').fill('test-password');
   await reviewPause(page, 1000);
   await page.getByRole('button', { name: 'Đăng nhập' }).click();
-  await expect(page.getByRole('heading', { name: /applications/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
   await reviewPause(page, 1500);
-  await page.getByRole('button', { name: /create application|new application/i }).first().click();
+  await page.getByRole('button', { name: '+ Tạo ứng dụng' }).first().click();
   await reviewPause(page, 1200);
   await page.getByLabel('Tên ứng dụng').fill(`Acceptance ${runId}`);
   await page.getByLabel('Subdomain').fill(runId);

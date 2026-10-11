@@ -122,7 +122,7 @@ try {
   await h.type(page.getByLabel('Tên đăng nhập'), 'developer');
   await h.type(page.getByLabel('Mật khẩu'), 'test-password');
   await h.click(page.getByRole('button', { name: 'Đăng nhập' }));
-  await expect(page.getByRole('heading', { name: 'Your applications' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
   const applicationId = await createApplication(h, applicationName, subdomain);
   mark('application-created');
 
