@@ -207,6 +207,9 @@ func (s *Store) GetConfigurationRevision(ctx context.Context, id string) (config
 	if !ok {
 		return configuration.Revision{}, fmt.Errorf("%w: configuration revision %q", persistence.ErrNotFound, id)
 	}
+	if err := revision.Validate(); err != nil {
+		return configuration.Revision{}, err
+	}
 	return copyConfigurationRevision(revision), nil
 }
 

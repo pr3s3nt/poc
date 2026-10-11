@@ -102,8 +102,7 @@ func (s *Service) SetSecretStore(ctx context.Context, cmd SwitchCommand) (Switch
 		if err := lease.Stage(fmt.Sprintf("COPY %d/%d", index+1, len(names)), nil); err != nil {
 			return fail(err)
 		}
-		switch {
-		case entry.Kind == configuration.Secret:
+		if entry.Kind == configuration.Secret {
 			value, err := s.readEntry(lease.Ctx, l.org, entry)
 			if err != nil {
 				return fail(fmt.Errorf("%w: a secret could not be read from its current store", ErrStoreCopy))
@@ -121,13 +120,6 @@ func (s *Service) SetSecretStore(ctx context.Context, cmd SwitchCommand) (Switch
 			}
 			entries[name] = configuration.Entry{Kind: configuration.Secret, ValueRef: ref, StoreKey: cmd.StoreKey}
 			copied++
-			changed = true
-		case entry.LegacyVariable():
-			value, err := s.readEntry(lease.Ctx, l.org, entry)
-			if err != nil {
-				return fail(err)
-			}
-			entries[name] = configuration.Entry{Kind: configuration.Variable, Value: value}
 			changed = true
 		}
 	}
@@ -206,8 +198,6 @@ func safeFailure(err error) string {
 		return "the environment or its configuration changed during the copy"
 	case errors.Is(err, persistence.ErrEnvironmentBusy):
 		return "the environment is busy"
-	case errors.Is(err, ErrLegacyUnreadable):
-		return ErrLegacyUnreadable.Error()
 	}
 	return "the secret store change failed"
 }

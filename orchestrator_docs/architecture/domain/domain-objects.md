@@ -140,7 +140,9 @@ SecretStore legacy flags and backfill/conversion; bootstrap manages ordinary
 stores through marker, endpoint identity and expected credential CAS. EnvironmentOperation
 is persisted admission/transition state; old targets/resources survive in immutable
 retained-generation records. ConfigurationEntry contains ordinary Variable value
-or owning store key + opaque Secret ref. SecretStoreResolver and PostgreSQLTransfer
+or owning store key + opaque Secret ref, never both. T24 rejects store-backed
+Variable formats and removes materialization; Variable CRUD has no store calls
+and store switches preserve Variables while copying only Secrets. SecretStoreResolver and PostgreSQLTransfer
 are ports/adapters; application services coordinate copy, generation and cutover.
 
 ## Implicit internal cluster binding

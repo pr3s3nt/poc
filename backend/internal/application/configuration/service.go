@@ -24,9 +24,6 @@ var (
 	// ErrNoStore is the 422 secretStoreKey failure of a Secret write without
 	// a selected store.
 	ErrNoStore = configport.ErrNoStore
-	// ErrLegacyUnreadable reports a legacy Variable whose explicit legacy
-	// store cannot be read; state is preserved and the edit is refused.
-	ErrLegacyUnreadable = errors.New("configuration: a legacy value could not be read from its store; restore access to that store and retry")
 	// ErrStoreCopy reports a failed secret copy; selection and revision are unchanged.
 	ErrStoreCopy = errors.New("configuration: secrets could not be copied to the new store; the selection was not changed")
 )
@@ -39,10 +36,8 @@ type KeyView struct {
 	Value      *string            `json:"value,omitempty"`
 	Configured bool               `json:"configured"`
 	UsedBy     []string           `json:"usedBy"`
-	// StoreKey names the store owning a Secret or unmigrated legacy Variable.
+	// StoreKey names the store owning a Secret.
 	StoreKey string `json:"storeKey,omitempty"`
-	// Legacy marks a Variable still read through its legacy store ref.
-	Legacy bool `json:"legacy,omitempty"`
 }
 
 type View struct {
@@ -123,54 +118,30 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 		}
 		item := KeyView{Name: name, Kind: entry.Kind, Configured: true, UsedBy: usedBy, StoreKey: entry.StoreKey}
 		if entry.Kind == configuration.Variable {
-			if entry.LegacyVariable() {
-				item.Legacy = true
-				// A legacy value is read through its explicit store; an
-				// unreadable one shows no value instead of failing the list.
-				if value, err := s.readEntry(ctx, l.org, entry); err == nil {
-					item.Value = &value
-				}
-			} else {
-				value := entry.Value
-				item.Value = &value
-			}
+			value := entry.Value
+			item.Value = &value
 		}
 		out.Keys = append(out.Keys, item)
 	}
 	return out, nil
 }
 
-// readEntry reads one store-backed entry through its owning store.
+var errSecretUnreadable = errors.New("configuration: a secret could not be read from its store")
+
+// readEntry reads one Secret through its explicit owning store.
 func (s *Service) readEntry(ctx context.Context, org string, entry configuration.Entry) (string, error) {
 	if entry.StoreKey == "" {
-		return "", ErrLegacyUnreadable
+		return "", errSecretUnreadable
 	}
 	provider, err := s.registry.Provider(ctx, org, entry.StoreKey)
 	if err != nil {
-		return "", ErrLegacyUnreadable
+		return "", errSecretUnreadable
 	}
 	value, err := provider.ReadValue(ctx, entry.ValueRef)
 	if err != nil {
-		return "", ErrLegacyUnreadable
+		return "", errSecretUnreadable
 	}
 	return value, nil
-}
-
-// materialize converts every legacy Variable of entries into an ordinary
-// Variable value. Reads happen before any transaction; a failure refuses the
-// edit and changes nothing.
-func (s *Service) materialize(ctx context.Context, org string, entries map[string]configuration.Entry) error {
-	for name, entry := range entries {
-		if !entry.LegacyVariable() {
-			continue
-		}
-		value, err := s.readEntry(ctx, org, entry)
-		if err != nil {
-			return err
-		}
-		entries[name] = configuration.Entry{Kind: configuration.Variable, Value: value}
-	}
-	return nil
 }
 
 func (s *Service) checkVersion(l loaded, expected int64) error {
@@ -198,9 +169,6 @@ func (s *Service) Put(ctx context.Context, app, env, name string, kind configura
 		return View{}, fmt.Errorf("%w: key %q already exists with another type", ErrConflict, name)
 	}
 	entries := copyEntries(l.revision.Entries)
-	if err := s.materialize(ctx, l.org, entries); err != nil {
-		return View{}, err
-	}
 	var written string
 	var provider configport.Provider
 	if kind == configuration.Secret {
@@ -256,9 +224,6 @@ func (s *Service) Rename(ctx context.Context, app, env, oldName, newName string,
 		return View{}, ErrConflict
 	}
 	entries := copyEntries(l.revision.Entries)
-	if err := s.materialize(ctx, l.org, entries); err != nil {
-		return View{}, err
-	}
 	entries[newName] = entries[oldName]
 	delete(entries, oldName)
 	if err := s.commit(ctx, app, env, l.scope.Version, entries); err != nil {
@@ -280,9 +245,6 @@ func (s *Service) Delete(ctx context.Context, app, env, name string, expectedVer
 	}
 	entries := copyEntries(l.revision.Entries)
 	delete(entries, name)
-	if err := s.materialize(ctx, l.org, entries); err != nil {
-		return View{}, err
-	}
 	if err := s.commit(ctx, app, env, l.scope.Version, entries); err != nil {
 		return View{}, err
 	}

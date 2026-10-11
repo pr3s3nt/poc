@@ -1,5 +1,5 @@
-// Package configuration models UC-12 desired Application values without
-// storing the values themselves in orchestrator state.
+// Package configuration models UC-12 desired Application values: Variables
+// carry ordinary values in metadata, Secrets are external immutable refs.
 package configuration
 
 import "fmt"
@@ -11,11 +11,10 @@ const (
 	Secret   Kind = "SECRET"
 )
 
-// Entry is one revision key. A Variable carries its ordinary Value in
-// Orchestrator metadata; a Secret carries the owning StoreKey plus an opaque
-// ValueRef. A legacy Variable keeps its original ValueRef/StoreKey with an
-// empty Value until a successful edit or store transition materializes it.
-// Every field is a string, so entries stay comparable.
+// Entry is one revision key. A Variable carries only a nonempty ordinary Value
+// in Orchestrator metadata. A Secret carries only its explicit owning StoreKey
+// plus an opaque immutable ValueRef. Every field is a string, so entries stay
+// comparable.
 type Entry struct {
 	Kind     Kind   `json:"kind"`
 	ValueRef string `json:"valueRef,omitempty"`
@@ -23,11 +22,23 @@ type Entry struct {
 	Value    string `json:"value,omitempty"`
 }
 
-// LegacyVariable reports a Variable that still reads through a store ref.
-func (e Entry) LegacyVariable() bool { return e.Kind == Variable && e.Value == "" && e.ValueRef != "" }
-
-// UsesStore reports whether the entry bytes live in a secret store.
-func (e Entry) UsesStore() bool { return e.Kind == Secret || e.LegacyVariable() }
+// Validate rejects entries that mix Variable and Secret fields, including old
+// store-backed Variables. There is no read or conversion fallback.
+func (e Entry) Validate() error {
+	switch e.Kind {
+	case Variable:
+		if e.Value == "" || e.ValueRef != "" || e.StoreKey != "" {
+			return fmt.Errorf("variable must carry only a metadata value")
+		}
+	case Secret:
+		if e.ValueRef == "" || e.StoreKey == "" || e.Value != "" {
+			return fmt.Errorf("secret must carry only an owning store and value ref")
+		}
+	default:
+		return fmt.Errorf("unknown kind")
+	}
+	return nil
+}
 
 type Revision struct {
 	ID             string           `json:"id"`
@@ -49,14 +60,11 @@ func (r Revision) Validate() error {
 		return fmt.Errorf("configuration: incomplete revision identity")
 	}
 	for name, entry := range r.Entries {
-		if name == "" || (entry.Kind != Variable && entry.Kind != Secret) {
+		if name == "" {
 			return fmt.Errorf("configuration: invalid entry %q", name)
 		}
-		if entry.Kind == Secret && (entry.ValueRef == "" || entry.Value != "") {
-			return fmt.Errorf("configuration: invalid secret entry %q", name)
-		}
-		if entry.Kind == Variable && entry.Value == "" && entry.ValueRef == "" {
-			return fmt.Errorf("configuration: invalid variable entry %q", name)
+		if err := entry.Validate(); err != nil {
+			return fmt.Errorf("configuration: invalid entry %q: %w", name, err)
 		}
 	}
 	return nil

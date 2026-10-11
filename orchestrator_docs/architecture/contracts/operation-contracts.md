@@ -311,8 +311,11 @@ See [rendering contract](workload-rendering.md) for the detailed boundary.
   equivalent versioned encoding; no raw values in refs. Variable revisions carry
   ordinary values in metadata, never Secret values. Store identity must be explicit;
   runtime resolves scoped private credentials only. No legacy flags/global token,
-  store backfill or Compose conversion (T23). Legacy Variable materialization
-  removal remains T24.
+  store backfill or Compose conversion (T23). Variables have only metadata Value,
+  no StoreKey/ValueRef; CRUD never invokes a store. Old store-backed Variables
+  are invalid, with no materialization/backfill (T24). Store switch copies only
+  Secrets and preserves Variables and old applied owning-store refs. Public
+  configuration DTOs have no Legacy field.
 
 Transition states, failures and retained recovery artifacts follow
 [ADR-012](../decisions/ADR-012-environment-stores-and-transitions.md).
@@ -404,7 +407,6 @@ HTTP status, org/app/env scoping, CAS, fencing và transaction semantics giữ n
 | `KUBECONFIG_UNSUPPORTED_AUTH` / `KUBECONFIG_UNSUPPORTED_CLUSTER` / `KUBECONFIG_INVALID_SERVER` / `KUBECONFIG_INVALID_TLS` | 400 | Phương thức/cluster setting/server/TLS không hợp lệ; không chạy plugins/files ngoài. |
 | `SECRET_STORE_REQUIRED` / `SECRET_STORE_UNAVAILABLE` | 422 | Chọn/kiểm tra kho, field `secretStoreKey`. |
 | `SECRET_COPY_FAILED` | 502 | Copy không thành công; selection/revision cũ giữ nguyên. |
-| `LEGACY_VALUE_UNREADABLE` | 422 | Không đọc được giá trị cũ; code tạm đến cleanup T24. |
 | `TRANSITION_REQUIRED` | 409 | Có runtime; dùng flow chuyển kết nối tường minh. |
 | `TRANSITION_UNSUPPORTED` | 422 | Chế độ chuyển không được hỗ trợ. |
 | `TRANSITION_SAME_DESTINATION` / `DESTINATION_UNAVAILABLE` | 422 | Chọn đích khác/hợp lệ; không suy fallback. |

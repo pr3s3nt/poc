@@ -83,6 +83,9 @@ cùng Environment có thể tham chiếu và tái sử dụng.
 - **BR-08:** Mỗi Environment chọn Secret Store Connection riêng qua Settings;
   hỗ trợ Vault KV v2 trước. Variable lưu trong Orchestrator; Secret lưu ở kho
   được chọn với refs bất biến mang store identity. Không kế thừa provider cấp Application.
+  Variable chỉ chứa Value trong metadata, không StoreKey/ValueRef; CRUD không gọi
+  Vault. Không đọc/materialize Variable refs cũ; format cũ bị từ chối và cần reset dev.
+  DTO cấu hình không có Legacy field.
 - **BR-09:** Lưu thay đổi tạo revision cấu hình mong muốn nhưng không thay
   revision đã áp dụng. Workload đang chạy và Pod được tạo trước Deploy phải tiếp
   tục dùng revision đã áp dụng. Preview xác định workload bị ảnh hưởng; chỉ

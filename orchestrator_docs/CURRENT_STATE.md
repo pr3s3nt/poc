@@ -418,6 +418,15 @@ Workload delivery still requires Vault reachability and Kubernetes auth for the
 selected cluster. [Normal-store verification](verification/2026-10-08-compose-vault-normal-store.md)
 records the new implementation; the earlier legacy-bootstrap evidence is historical.
 
+T24 removes store-backed Variable reads/materialization and the Legacy configuration
+DTO/error code. Variables require metadata Value only; Secrets require explicit
+owning store/ref only. JSON and PostgreSQL revision reads/writes reject mixed or
+old Variable formats; no retained data conversion is performed. Variable CRUD/list
+never resolves Vault, and store switching copies only desired Secrets while
+preserving Variables and old immutable Secret refs. Local service/API tests prove
+these boundaries; PostgreSQL opt-in/live Vault are not reverified. T28 owns the
+fresh SQL constraint baseline and T29 the approved retained-dev reset.
+
 ## Environment execution binding (2026-10-07)
 
 Developer creates an Application from Name/Subdomain; staging/production start

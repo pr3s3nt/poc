@@ -79,7 +79,6 @@ func TestWriteErrorCodesStatusesAndFields(t *testing.T) {
 		{"no store", appconfig.ErrNoStore, 422, "SECRET_STORE_REQUIRED", "secretStoreKey"},
 		{"store unavailable", configport.ErrStoreUnavailable, 422, "SECRET_STORE_UNAVAILABLE", "secretStoreKey"},
 		{"copy failed", fmt.Errorf("%w: %s", appconfig.ErrStoreCopy, canary), 502, "SECRET_COPY_FAILED", ""},
-		{"legacy", appconfig.ErrLegacyUnreadable, 422, "LEGACY_VALUE_UNREADABLE", ""},
 		{"operation lost", persistence.ErrOperationLost, 409, "OPERATION_LOST", ""},
 		{"route reconcile", pending.ErrRouteReconcile, 502, "ROUTE_RECONCILE_FAILED", ""},
 		{"runtime exists", appcreate.ErrRuntimeExists, 409, "TRANSITION_REQUIRED", ""},

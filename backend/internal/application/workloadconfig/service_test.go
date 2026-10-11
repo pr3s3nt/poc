@@ -43,7 +43,7 @@ func testScore(name string, vars map[string]string, resources map[string]any) ma
 func TestWorkloadDraftRejectsLiteralAndStaleVersion(t *testing.T) {
 	ctx := context.Background()
 	svc, st := testWorkloadService(t)
-	if err := st.CommitConfigurationRevision(ctx, 0, configuration.Revision{ID: "config-1", ApplicationKey: "app", EnvironmentKey: "staging", Version: 1, Entries: map[string]configuration.Entry{"API_URL": {Kind: configuration.Variable, ValueRef: "ref"}}}); err != nil {
+	if err := st.CommitConfigurationRevision(ctx, 0, configuration.Revision{ID: "config-1", ApplicationKey: "app", EnvironmentKey: "staging", Version: 1, Entries: map[string]configuration.Entry{"API_URL": {Kind: configuration.Variable, Value: "ref"}}}); err != nil {
 		t.Fatal(err)
 	}
 	resources := map[string]any{"env": map[string]any{"type": "environment"}}

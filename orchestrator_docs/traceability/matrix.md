@@ -229,6 +229,14 @@ lifecycle are not covered.
 | VAR-01–VAR-03 | [States](../usecase/UC-12/ui/states.md) | Warning but allow rename/delete; no automatic reference repair; secret replacement hidden | Warning/confirm, broken-reference Preview rejection and secret-update tests |
 | BR-08–BR-10, BR-14 | [ADR-006](../architecture/decisions/ADR-006-application-configuration-provider.md), [ADR-008](../architecture/decisions/ADR-008-vso-native-secret-delivery.md) | Per-Application provider; immutable desired/applied revisions; VSO Secret with `secretKeyRef` on kind | Provider isolation, pending-vs-applied revision, VSO Secret synchronization and restart tests |
 
+T24 / UC-12 BR-03, BR-08, BR-15–19 follows current ADR-012 rather than the
+historical per-Application provider above. Domain/repository validation rejects
+store-backed Variables; configuration service spy tests prove no store calls for
+Variable CRUD/list alongside Secrets, safe DTOs, Secret-only copy, preserved
+Variables/old owning-store refs and failed-copy/version/BUSY safety. HTTP tests
+cover configuration redaction and invalid old-format rejection. See
+[T24 local evidence](../verification/2026-10-12-T24-metadata-variables.md).
+
 ## UC-16 — MVP implementation trace
 
 UC-16 specification and UI are approved. Draft save/delete/undo, Score import

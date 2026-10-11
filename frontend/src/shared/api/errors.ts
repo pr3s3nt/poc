@@ -35,7 +35,6 @@ const messageTable = {
   SECRET_STORE_REQUIRED: 'Hãy chọn kho bí mật trong Cài đặt môi trường trước khi thêm bí mật.',
   SECRET_STORE_UNAVAILABLE: 'Kho bí mật đã chọn không sẵn sàng. Kiểm tra kho hoặc chọn kho khác.',
   SECRET_COPY_FAILED: 'Không sao chép được bí mật sang kho mới. Lựa chọn kho và phiên bản cũ được giữ nguyên.',
-  LEGACY_VALUE_UNREADABLE: 'Không đọc được giá trị cũ. Khôi phục quyền truy cập kho chứa giá trị đó rồi thử lại.',
   TRANSITION_REQUIRED: 'Môi trường đã có tài nguyên runtime. Hãy dùng luồng chuyển kết nối để đổi đích.',
   TRANSITION_UNSUPPORTED: 'Chế độ chuyển kết nối này chưa được hỗ trợ.',
   TRANSITION_SAME_DESTINATION: 'Hãy chọn kết nối đích khác kết nối hiện tại.',

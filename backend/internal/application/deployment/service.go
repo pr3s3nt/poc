@@ -527,7 +527,7 @@ func (s *Service) applyWorkload(
 				if !exists || configRevisionID == "" {
 					return fmt.Errorf("deployment: Application key %s is not in the pinned revision", configKey)
 				}
-				if !entry.UsesStore() {
+				if entry.Kind != configuration.Secret {
 					// Ordinary Variables are Orchestrator metadata, not secret delivery.
 					plainEnv[containerName][key] = entry.Value
 					continue
@@ -819,7 +819,7 @@ func (s *Service) preflightSecretDelivery(ctx context.Context, cmd DeployCommand
 	for _, containerName := range module.ContainerNames() {
 		for _, raw := range module.Spec.Containers[containerName].Variables {
 			if strings.HasPrefix(raw, "${context.uc12.") && strings.HasSuffix(raw, "}") {
-				if revision.Entries[strings.TrimSuffix(strings.TrimPrefix(raw, "${context.uc12."), "}")].UsesStore() {
+				if revision.Entries[strings.TrimSuffix(strings.TrimPrefix(raw, "${context.uc12."), "}")].Kind == configuration.Secret {
 					needs = true
 				}
 			}

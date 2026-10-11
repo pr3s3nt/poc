@@ -33,6 +33,13 @@ func newServer(t *testing.T, uiDir string, verifier ...connectionapp.KubeconfigV
 
 func newServerApp(t *testing.T, uiDir string, verifier ...connectionapp.KubeconfigVerifier) (*httptest.Server, seed.Options, *bootstrap.App) {
 	t.Helper()
+	return newServerAppWith(t, uiDir, nil, verifier...)
+}
+
+// newServerAppWith lets a test adjust the bootstrap options (state path,
+// registry spy) before the app is built.
+func newServerAppWith(t *testing.T, uiDir string, mutate func(*bootstrap.Options), verifier ...connectionapp.KubeconfigVerifier) (*httptest.Server, seed.Options, *bootstrap.App) {
+	t.Helper()
 	seedOptions := seed.Defaults()
 	seedOptions.Region = "us-east-1"
 	seedOptions.AccountID = "000000000000"
@@ -47,6 +54,9 @@ func newServerApp(t *testing.T, uiDir string, verifier ...connectionapp.Kubeconf
 	}
 	if len(verifier) > 0 {
 		options.KubeconfigVerifierOverride = verifier[0]
+	}
+	if mutate != nil {
+		mutate(&options)
 	}
 	app, err := bootstrap.Build(context.Background(), options)
 	if err != nil {

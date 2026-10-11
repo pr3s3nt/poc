@@ -48,7 +48,7 @@ type WorkloadBundle struct {
 }
 
 // BundleRequest asks the delivery store to host one workload's bundle. Each
-// ref is read through its own owning store, so legacy and migrated refs mix.
+// ref is read through its own owning store, so historical and current refs mix.
 type BundleRequest struct {
 	OrganizationKey, ApplicationKey, EnvironmentKey, WorkloadID string
 	Namespace, RevisionID, DeploymentID                         string

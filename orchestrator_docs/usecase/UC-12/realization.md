@@ -27,11 +27,12 @@ HTTP and snapshot operations are specified in the shared operation contract.
   applied revision per workload. New values belong to an immutable pending
   revision; an applied revision is not overwritten on save. Key names share
   one namespace across Variables and Secrets.
-- Configuration provider: persist immutable key values under Application and
-  Environment scope in Vault KV v2. The state store holds opaque value refs
-  inside immutable revision metadata, not raw values. Variable reads may
-  expose values; secret reads expose only name/configured status at the
-  application boundary.
+- Configuration control: persist Variable values directly in immutable revision
+  metadata without invoking a store for list, add, update, rename or delete.
+  Reject store-backed Variable formats; no materialization or backfill.
+- Configuration provider: persist only immutable Secret values in the selected
+  scoped store. Revision metadata holds explicit owning StoreKey and opaque
+  ValueRef, never Secret bytes; reads expose only safe configured metadata.
 - Workload runtime: Vault bundles only the selected keys for a pinned deploy.
   VSO synchronizes that bundle to a namespace-local Kubernetes Secret. The
   Pod uses `secretKeyRef` for each environment variable; a new Pod is required
@@ -63,7 +64,8 @@ are revision values in Orchestrator; Secrets are immutable refs with owning stor
 SecretStoreResolver resolves immutable refs through their explicit owning store
 and scoped private credential reference, as well as current selection. T23
 removes store identity backfill, legacy store conversion and global-token fallback. Store switch
-claims Environment, copies desired values outside transaction, then atomically
+claims Environment, copies only desired Secrets outside transaction, preserves
+Variables exactly, then atomically
 commits new revision/selection. Old applied refs/bundles remain unchanged. VSO
 connection/auth objects are store-specific; next Preview marks secret consumers
 pending even when bytes are equal. See [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).

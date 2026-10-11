@@ -39,7 +39,11 @@ func (s *Store) GetConfigurationRevision(ctx context.Context, id string) (config
 		}
 		v.Entries[name] = e
 	}
-	return v, rows.Err()
+	if err = rows.Err(); err != nil {
+		return v, err
+	}
+	// Old store-backed Variables are invalid; they are never read or converted.
+	return v, v.Validate()
 }
 func (s *Store) CommitConfigurationRevision(ctx context.Context, expected int64, v configuration.Revision) error {
 	return s.fenced(ctx, func(ctx context.Context) error { return s.fencedCommitConfigurationRevision(ctx, expected, v) })

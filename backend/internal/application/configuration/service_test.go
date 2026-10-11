@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -329,7 +330,100 @@ func TestStoreSwitchRejectsForeignAndUnknownStores(t *testing.T) {
 	}
 }
 
-func TestLegacyVariablesAreReadableAndMaterializeOnEdit(t *testing.T) {
+// spyRegistry counts every store resolution so tests can prove which
+// operations never reach a store.
+type spyRegistry struct {
+	configport.Registry
+	mu    sync.Mutex
+	calls int
+}
+
+func (r *spyRegistry) Provider(ctx context.Context, organizationKey, storeKey string) (configport.Provider, error) {
+	r.mu.Lock()
+	r.calls++
+	r.mu.Unlock()
+	return r.Registry.Provider(ctx, organizationKey, storeKey)
+}
+
+func (r *spyRegistry) count() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.calls
+}
+
+func TestVariableOperationsNeverInvokeRegistryEvenWithSecretSiblings(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	f.selectStore(t, "staging", "vault-a")
+	if _, err := f.svc.Put(ctx, appKey, "staging", "TOKEN", domain.Secret, "s3cret", 0); err != nil {
+		t.Fatal(err)
+	}
+	spy := &spyRegistry{Registry: f.registry}
+	svc := NewService(f.st, spy, envops.NewManager(f.st))
+	view, err := svc.Put(ctx, appKey, "staging", "MODE", domain.Variable, "blue", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view, err = svc.Put(ctx, appKey, "staging", "MODE", domain.Variable, "green", view.Version); err != nil {
+		t.Fatal(err)
+	}
+	if view, err = svc.Rename(ctx, appKey, "staging", "MODE", "MODE2", view.Version); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = svc.List(ctx, appKey, "staging"); err != nil {
+		t.Fatal(err)
+	}
+	if view, err = svc.Delete(ctx, appKey, "staging", "MODE2", view.Version); err != nil {
+		t.Fatal(err)
+	}
+	if spy.count() != 0 {
+		t.Fatalf("variable CRUD/list resolved a store %d time(s)", spy.count())
+	}
+	// Secret DTO is redacted and carries no legacy marker.
+	data, _ := json.Marshal(view)
+	if strings.Contains(string(data), "s3cret") || strings.Contains(string(data), "kv2://") || strings.Contains(strings.ToLower(string(data)), "legacy") {
+		t.Fatalf("secret DTO leaked: %s", data)
+	}
+	// With no store configured at all, Variables still never reach a registry.
+	spy2 := &spyRegistry{Registry: f.registry}
+	svc2 := NewService(f.st, spy2, envops.NewManager(f.st))
+	if _, err := svc2.Put(ctx, appKey, "production", "A", domain.Variable, "1", 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc2.List(ctx, appKey, "production"); err != nil || spy2.count() != 0 {
+		t.Fatalf("unconfigured store: calls=%d err=%v", spy2.count(), err)
+	}
+}
+
+func TestDomainRejectsStoreBackedVariablesAndMixedEntries(t *testing.T) {
+	rev := func(e domain.Entry) domain.Revision {
+		return domain.Revision{ID: "r", ApplicationKey: appKey, EnvironmentKey: "staging", Version: 1, Entries: map[string]domain.Entry{"K": e}}
+	}
+	for name, e := range map[string]domain.Entry{
+		"variable with ref":        {Kind: domain.Variable, ValueRef: "kv2://x", StoreKey: "vault-a"},
+		"variable value and ref":   {Kind: domain.Variable, Value: "v", ValueRef: "kv2://x"},
+		"variable value and store": {Kind: domain.Variable, Value: "v", StoreKey: "vault-a"},
+		"empty variable":           {Kind: domain.Variable},
+		"secret with value":        {Kind: domain.Secret, ValueRef: "kv2://x", StoreKey: "vault-a", Value: "v"},
+		"secret without store":     {Kind: domain.Secret, ValueRef: "kv2://x"},
+		"secret without ref":       {Kind: domain.Secret, StoreKey: "vault-a"},
+		"unknown kind":             {Kind: "OTHER", Value: "v"},
+	} {
+		if err := rev(e).Validate(); err == nil {
+			t.Errorf("%s accepted", name)
+		}
+	}
+	for name, e := range map[string]domain.Entry{
+		"variable": {Kind: domain.Variable, Value: "v"},
+		"secret":   {Kind: domain.Secret, ValueRef: "kv2://x", StoreKey: "vault-a"},
+	} {
+		if err := rev(e).Validate(); err != nil {
+			t.Errorf("%s rejected: %v", name, err)
+		}
+	}
+}
+
+func TestPersistedLegacyVariableIsRejectedWithoutReadOrConversion(t *testing.T) {
 	ctx := context.Background()
 	f := newFixture(t)
 	provider, _ := f.registry.Provider(ctx, org, "vault-a")
@@ -338,32 +432,136 @@ func TestLegacyVariablesAreReadableAndMaterializeOnEdit(t *testing.T) {
 		t.Fatal(err)
 	}
 	legacy := domain.Revision{ID: ids.New(), ApplicationKey: appKey, EnvironmentKey: "staging", Version: 1, Entries: map[string]domain.Entry{"OLD": {Kind: domain.Variable, ValueRef: ref, StoreKey: "vault-a"}}}
-	if err := f.st.CommitConfigurationRevision(ctx, 0, legacy); err != nil {
+	if err := f.st.CommitConfigurationRevision(ctx, 0, legacy); err == nil {
+		t.Fatal("legacy variable accepted by persistence")
+	}
+	// A retained snapshot that already holds the old format fails to load the
+	// revision, so every operation refuses it without any store read.
+	view, err := f.svc.Put(ctx, appKey, "staging", "OLD", domain.Variable, "legacy-marker", 0)
+	if err != nil {
 		t.Fatal(err)
 	}
-	view, err := f.svc.List(ctx, appKey, "staging")
-	if err != nil || view.Keys[0].Value == nil || *view.Keys[0].Value != "legacy-value" || !view.Keys[0].Legacy {
-		t.Fatalf("legacy list: %+v %v", view, err)
+	data, err := os.ReadFile(f.path)
+	if err != nil {
+		t.Fatal(err)
 	}
-	// An unreadable legacy store refuses the edit and preserves state.
+	old := strings.Replace(string(data), `"value": "legacy-marker"`, `"valueRef": "`+ref+`", "storeKey": "vault-a"`, 1)
+	if old == string(data) {
+		old = strings.Replace(string(data), `"value":"legacy-marker"`, `"valueRef":"`+ref+`","storeKey":"vault-a"`, 1)
+	}
+	if old == string(data) {
+		t.Fatal("snapshot layout changed; cannot seed old-format variable")
+	}
+	if err := os.WriteFile(f.path, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := store.NewWithSnapshot(f.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spy := &spyRegistry{Registry: configmemory.NewRegistry(reopened)}
+	svc := NewService(reopened, spy, envops.NewManager(reopened))
+	env, _ := reopened.GetEnvironment(ctx, appKey, "staging")
+	if _, err := svc.List(ctx, appKey, "staging"); err == nil {
+		t.Fatal("list read an old-format variable")
+	}
+	if _, err := svc.Put(ctx, appKey, "staging", "NEW", domain.Variable, "x", view.Version); err == nil {
+		t.Fatal("put converted an old-format variable")
+	}
+	if _, err := svc.Rename(ctx, appKey, "staging", "OLD", "OLD2", view.Version); err == nil {
+		t.Fatal("rename converted an old-format variable")
+	}
+	if _, err := svc.Delete(ctx, appKey, "staging", "OLD", view.Version); err == nil {
+		t.Fatal("delete accepted an old-format variable")
+	}
+	if _, err := svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: view.Version}); err == nil {
+		t.Fatal("store switch converted an old-format variable")
+	}
+	if spy.count() != 0 {
+		t.Fatalf("old-format variable triggered %d store resolution(s)", spy.count())
+	}
+	if scope, _ := reopened.GetConfigurationScope(ctx, appKey, "staging"); scope.Version != view.Version || scope.DesiredRevisionID != view.RevisionID {
+		t.Fatalf("rejected operations changed state: %+v", scope)
+	}
+}
+
+func TestStoreSwitchCopiesOnlySecretsAndKeepsVariablesExactly(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	f.selectStore(t, "staging", "vault-a")
+	if _, err := f.svc.Put(ctx, appKey, "staging", "PW", domain.Secret, "pw-1", 0); err != nil {
+		t.Fatal(err)
+	}
+	view, err := f.svc.Put(ctx, appKey, "staging", "MODE", domain.Variable, "blue", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, _ := f.st.GetConfigurationRevision(ctx, view.RevisionID)
+	env, _ := f.st.GetEnvironment(ctx, appKey, "staging")
+	spy := &spyRegistry{Registry: f.registry}
+	svc := NewService(f.st, spy, envops.NewManager(f.st))
+	result, err := svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: view.Version})
+	if err != nil || result.Copied != 1 {
+		t.Fatalf("switch: %+v %v", result, err)
+	}
+	// One new-store provider plus one owning-store read of the single Secret.
+	if spy.count() != 2 {
+		t.Fatalf("store resolutions = %d, want 2 (target + one Secret)", spy.count())
+	}
+	scope, _ := f.st.GetConfigurationScope(ctx, appKey, "staging")
+	after, _ := f.st.GetConfigurationRevision(ctx, scope.DesiredRevisionID)
+	if after.Entries["MODE"] != before.Entries["MODE"] {
+		t.Fatalf("variable changed: %+v", after.Entries["MODE"])
+	}
+	if after.Entries["PW"].StoreKey != "vault-b" || before.Entries["PW"].StoreKey != "vault-a" {
+		t.Fatalf("secret ownership: new=%+v old=%+v", after.Entries["PW"], before.Entries["PW"])
+	}
+	reread, err := f.st.GetConfigurationRevision(ctx, view.RevisionID)
+	if err != nil || len(reread.Entries) != len(before.Entries) {
+		t.Fatalf("historical revision re-read: %+v %v", reread, err)
+	}
+	for name, entry := range before.Entries {
+		if reread.Entries[name] != entry {
+			t.Fatalf("historical entry %s changed after switch: %+v -> %+v", name, entry, reread.Entries[name])
+		}
+	}
+	if f.registry.Values(org, "vault-b") != 1 {
+		t.Fatalf("new store holds %d values, want only the Secret", f.registry.Values(org, "vault-b"))
+	}
+}
+
+func TestStoreSwitchFailsSafelyForUnavailableOrMismatchedSecretStore(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	f.selectStore(t, "staging", "vault-a")
+	if _, err := f.svc.Put(ctx, appKey, "staging", "PW", domain.Secret, "pw-1", 0); err != nil {
+		t.Fatal(err)
+	}
+	env, _ := f.st.GetEnvironment(ctx, appKey, "staging")
+	scope, _ := f.st.GetConfigurationScope(ctx, appKey, "staging")
+	cmd := SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: scope.Version}
+	// The owning store is unreadable: copy fails, nothing changes.
 	f.registry.FailReads("vault-a", true)
-	if _, err := f.svc.Put(ctx, appKey, "staging", "NEW", domain.Variable, "x", 1); !errors.Is(err, ErrLegacyUnreadable) {
-		t.Fatalf("unreadable legacy: %v", err)
-	}
-	if scope, _ := f.st.GetConfigurationScope(ctx, appKey, "staging"); scope.Version != 1 || scope.DesiredRevisionID != legacy.ID {
-		t.Fatalf("failed edit changed state: %+v", scope)
+	if _, err := f.svc.SetSecretStore(ctx, cmd); !errors.Is(err, ErrStoreCopy) {
+		t.Fatalf("unreadable owner: %v", err)
 	}
 	f.registry.FailReads("vault-a", false)
-	if view, err = f.svc.Put(ctx, appKey, "staging", "NEW", domain.Variable, "x", 1); err != nil {
+	// The persisted Secret names a store that does not hold its ref.
+	revision, _ := f.st.GetConfigurationRevision(ctx, scope.DesiredRevisionID)
+	entry := revision.Entries["PW"]
+	mismatch := domain.Revision{ID: ids.New(), ApplicationKey: appKey, EnvironmentKey: "staging", Version: scope.Version + 1, Entries: map[string]domain.Entry{"PW": {Kind: domain.Secret, ValueRef: entry.ValueRef, StoreKey: "vault-b"}}}
+	if err := f.st.CommitConfigurationRevision(ctx, scope.Version, mismatch); err != nil {
 		t.Fatal(err)
 	}
-	next, _ := f.st.GetConfigurationRevision(ctx, view.RevisionID)
-	if e := next.Entries["OLD"]; e.Value != "legacy-value" || e.ValueRef != "" || e.StoreKey != "" {
-		t.Fatalf("legacy variable not materialized: %+v", e)
+	cmd.ExpectedConfigVersion = mismatch.Version
+	if _, err := f.svc.SetSecretStore(ctx, cmd); !errors.Is(err, ErrStoreCopy) || strings.Contains(err.Error(), "pw-1") {
+		t.Fatalf("mismatched owner: %v", err)
 	}
-	// The old revision is untouched.
-	if old, _ := f.st.GetConfigurationRevision(ctx, legacy.ID); old.Entries["OLD"].ValueRef != ref {
-		t.Fatalf("old revision changed: %+v", old.Entries["OLD"])
+	if got, _ := f.st.GetEnvironment(ctx, appKey, "staging"); got.SecretStoreKey != "vault-a" || got.Version != env.Version || got.Busy() {
+		t.Fatalf("failed switch changed environment: %+v", got)
+	}
+	if f.registry.Values(org, "vault-b") != 0 {
+		t.Fatal("failed switch left attempt objects")
 	}
 }
 

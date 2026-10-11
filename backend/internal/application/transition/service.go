@@ -335,7 +335,7 @@ func (s *Service) usesStoreBackedConfiguration(ctx context.Context, p *prepared)
 		for _, container := range module.Spec.Containers {
 			for _, raw := range container.Variables {
 				if strings.HasPrefix(raw, "${context.uc12.") && strings.HasSuffix(raw, "}") {
-					if revision.Entries[strings.TrimSuffix(strings.TrimPrefix(raw, "${context.uc12."), "}")].UsesStore() {
+					if revision.Entries[strings.TrimSuffix(strings.TrimPrefix(raw, "${context.uc12."), "}")].Kind == configuration.Secret {
 						return true, nil
 					}
 				}

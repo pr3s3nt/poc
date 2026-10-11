@@ -192,8 +192,8 @@ Concurrent CAS saves; edit between Preview/Deploy; admission races with config,
 draft and Settings; two backend instances sharing PostgreSQL; persisted interrupted
 claim; independent Environments; store registration scope/redaction/probe cleanup;
 copy failure/CAS conflict and retained old refs; provider selection on delivery;
-ordinary store private credential resolution and bootstrap CAS; Variable legacy
-materialization cleanup remains T24; target generation identity and
+ordinary store private credential resolution and bootstrap CAS; metadata-only
+Variable CRUD without store calls, Secret-only store copy; target generation identity and
 force-redeploy; unsupported migration preflight; writer quiescing, backup/restore,
 route failure, source preservation and explicit cleanup. Real kind/Vault human
 Playwright recording must show two stores, a store transfer, stale-preview conflict
@@ -222,12 +222,15 @@ refs stay with their original stores; next successful Deploy moves workloads to
 the new store. Same key/current versions is a no-op. Failed attempt copy objects
 are immutable and scoped; cleanup failure is recorded safely, never reported as
 successful rollback. No store/old-value delete UI is required in first delivery.
-New Variable entries store an ordinary value, Secret entries store owning store
-key plus opaque ref. Legacy Variable refs remain readable only when an explicit owning ordinary
-store with a private credential ref exists; T23 does not create/backfill that
-identity. They are materialized into ordinary Variable metadata on a successful edit
-or store transition; never do network I/O inside SQL schema migrations. Missing
-legacy access produces actionable failure and preserves state.
+Variable entries carry only ordinary nonempty values in metadata; they never
+carry StoreKey or ValueRef. Secret entries carry an explicit owning store key and
+opaque immutable ref, never a metadata value. T24 supersedes legacy Variable
+reads/materialization: old store-backed Variable formats are invalid and require
+the separately approved dev reset, with no read, rewrite or migration fallback.
+Variable CRUD never invokes Vault, including when other entries are Secrets.
+Store changes copy only desired Secrets and preserve Variables exactly; historical
+Secret refs retain their owning store. Public configuration DTOs have no Legacy
+field and never return Secret bytes or opaque refs.
 
 First automatic PostgreSQL transfer supports Kubernetes-managed PostgreSQL 16
 resources on direct Kubernetes delivery. Preflight resolves explicit logical

@@ -156,12 +156,14 @@ revisions. Revision rows contain no values.
 | `revision_id` | uuid | PK/FK configuration_revisions |
 | `key_name` | text | PK; valid environment variable name |
 | `kind` | text | `VARIABLE` or `SECRET` |
-| `value_ref` | text | immutable Secret ref or legacy Variable ref; nullable for new ordinary Variable |
-| `store_key` | text | owning store identity for Secret/legacy refs |
+| `value_ref` | text | immutable Secret ref; NULL for Variable |
+| `store_key` | text | explicit owning store identity for Secret; empty for Variable |
 | `variable_value` | text | ordinary Variable value only; NULL for Secret |
 
 The primary key gives one namespace across Variable and Secret. Secret plaintext is forbidden; ordinary Variable values are allowed in this table
-and JSON state. Legacy Variable refs materialize outside schema migrations.
+and JSON state. Variable entries require nonempty variable_value and no store/ref;
+Secret entries require explicit store/ref and no variable_value. Old store-backed
+Variables are invalid; no materialization, backfill or network migration (T24).
 
 ### `workload_drafts`
 
@@ -417,7 +419,8 @@ all old plan/state remain valid; new Terraform/namespace identities are isolated
 Secret refs/revisions pin store identity; old applied refs are immutable. New
 Variable values are metadata, never Secret values. Store identities are explicit;
 T23 removes legacy platform-store backfill. Vault network reads are excluded
-from SQL migrations. Legacy Variable materialization removal belongs to T24.
+from SQL migrations. T24 removes legacy Variable reads/materialization; the fresh
+SQL constraint baseline is consolidated in T28, without converting retained data.
 JSON and SQL adapters expose equivalent CAS/claim/transition persistence semantics.
 
 Local Compose bootstrap (UC-04 SS-07..08) retains the existing

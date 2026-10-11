@@ -303,3 +303,16 @@ aliases. [`context regression tests`](../../backend/internal/planning/environmen
 cover unknown resolution/placeholder expansion, conflicting old Application
 fields and independent Environment values. No conformance adapter is needed:
 reference fixtures do not use these aliases.
+
+## T24 — Metadata Variables and immutable Secret ownership
+
+- [Configuration domain](../../backend/internal/domain/configuration/configuration.go)
+  validates mutually exclusive Variable Value and Secret StoreKey/ValueRef.
+- [Configuration service/tests](../../backend/internal/application/configuration/)
+  own store-free Variable CRUD, Secret-only store copy and legacy-format rejection.
+- [JSON revision repository](../../backend/internal/adapters/store/store.go) and
+  [SQL revision repository](../../backend/internal/adapters/postgres/configuration.go)
+  validate reads and writes; no Variable-ref conversion is supported.
+- [HTTP error mapping](../../backend/internal/delivery/http/apierror.go) and
+  [Console errors](../../frontend/src/shared/api/errors.ts) drop the obsolete
+  LEGACY_VALUE_UNREADABLE code. Deployment/transition test Secret kind directly.
