@@ -2,10 +2,25 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-11
 ---
 
 # Current project state
+
+## Development task worker (2026-10-11)
+
+`tools/issueflow/` là Go module riêng trong repository, không thuộc runtime
+Orchestrator. Bản đang triển khai nhận GitHub Issues tuần tự, chạy Codex điều
+phối và coding agent qua tmux, giữ state/timer quota và xuất evidence lên GitHub
+Release assets. CLI smoke và test/race với fake providers đã pass ở lần kiểm tra
+độc lập; vòng Claude cloud tự báo hoàn thành, feedback và quota/restart có offline
+tests. Hai smoke tmux thật bị sandbox của Codex chặn; Claude báo pass không skip.
+Chưa bật worker nhận task thật, chưa ghi GitHub hoặc chạy cloud smoke. Không
+tuyên bố đã hỗ trợ OpenCode/Kimi hay đã kiểm chứng trên project khác.
+Xem [thiết kế](architecture/issue-workflow.md),
+[runbook](operations/issueflow.md) và
+[offline verification](verification/2026-10-11-issueflow-offline.md), cùng
+[gap cloud](implementation/deviations.md#imp-020--unattended-claude-cloud-completion-transport-open).
 
 ## Lifecycle position
 

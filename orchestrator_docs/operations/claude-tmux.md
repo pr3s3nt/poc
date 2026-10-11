@@ -18,6 +18,13 @@ local không tự cấp quyền kind/AWS. Task thuần tài liệu không cần 
 
 ## Procedure
 
+Với task nhận từ GitHub Issues, supervisor áp dụng
+[thiết kế workflow](../architecture/issue-workflow.md): chỉ một task, worktree
+riêng, checkpoint/timer ngoài model và control CLI cho Codex điều khiển coder.
+Claude cloud được phép push branch riêng theo exception trong AGENTS.md;
+Codex review/tích hợp, Claude local không commit/push. Các bước review, recording,
+validation và cleanup bên dưới vẫn áp dụng. Nhịp theo dõi là 240 giây.
+
 1. Codex kiểm tra git status, đọc INDEX/nguồn chuẩn, ghi nhận user-owned changes.
 2. Chốt canonical docs trước code; ghi deviation khi design chưa được implement.
 3. Kiểm tra `tmux` và `clauded` bằng shell tương tác. `clauded` có thể là alias;

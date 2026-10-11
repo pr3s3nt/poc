@@ -65,3 +65,39 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  issueflow:
+    # Development tool for the GitHub Issues workflow; separate module, no
+    # product code, no network and no model: fake gh/tmux/codex/claude only.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/issueflow
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tools/issueflow/go.mod
+          cache: false
+
+      - name: Install tmux for the real-tmux smoke tests
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends --yes tmux
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test -count=1 ./...
+        env:
+          ISSUEFLOW_REQUIRE_TMUX: "1"
+
+      - name: Race-test
+        run: go test -race -count=1 ./...
+        env:
+          ISSUEFLOW_REQUIRE_TMUX: "1"

@@ -138,6 +138,20 @@ live evidence is in the [reviewed recording](../verification/2026-10-08-environm
 - [Generation identity tests](../../backend/internal/planning/generation_test.go), [namespace generation tests](../../backend/internal/domain/environment/generation_test.go), [Terraform executor](../../backend/internal/adapters/terraform/executor.go).
 - [Human real-kind recorder](../../backend/test/integration/environment-stores-kind-video.sh), [browser scenario](../../frontend/test/e2e/environment-stores-kind-human.mjs), [ownership identity observer](../../backend/test/integration/runidentity/main.go), [masked-input leak checks](../../frontend/test/e2e/secret-scan.mjs).
 
+## Development task worker
+
+- [CLI](../../tools/issueflow/cmd/issueflow/main.go) và
+  [configuration](../../tools/issueflow/internal/config/config.go).
+- [Supervisor](../../tools/issueflow/internal/sup/sup.go),
+  [durable state](../../tools/issueflow/internal/state/store.go),
+  [local coder](../../tools/issueflow/internal/agent/local.go) và
+  [cloud transport](../../tools/issueflow/internal/agent/cloud.go).
+- [Evidence validation](../../tools/issueflow/internal/evidence/evidence.go) và
+  [publication](../../tools/issueflow/internal/evidence/publish.go).
+- [Canonical workflow](../architecture/issue-workflow.md) và
+  [worker runbook](../operations/issueflow.md). Đây là tool phát triển riêng;
+  các link code không thay thế requirement và không chứng minh live integration.
+
 ## Implicit internal cluster (ADR-013)
 
 - [Trusted Definition and binding validation](../../backend/internal/planning/builtin.go),

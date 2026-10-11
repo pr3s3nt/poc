@@ -1,0 +1,30 @@
+{
+  "repo": "OWNER/NAME",
+  "repo_path": "/abs/path/to/the/checkout",
+  "base_branch": "main",
+  "state_dir": "/abs/path/outside/git/issueflow-state",
+  "worktree_root": "/abs/path/outside/git/issueflow-worktrees",
+  "owner_logins": ["your-github-login"],
+
+  "poll_seconds": 240,
+  "quiet_seconds": 20,
+
+  "coordinator": { "command": "codex", "args": ["--yolo", "--json"], "turn_timeout_seconds": 7200 },
+
+  "coder": {
+    "adapter": "claude-local",
+    "command": "clauded",
+    "fallback": [],
+    "trust_unnumbered_keys": []
+  },
+
+  "cloud": { "mode": "off", "command": "claude" },
+
+  "checks": [
+    { "name": "backend", "cmd": "cd backend && go test ./... && go build ./..." }
+  ],
+
+  "timeouts": { "cloud_seconds": 120, "gh_seconds": 60, "git_seconds": 120, "tmux_seconds": 30, "checks_seconds": 3600, "media_seconds": 900 },
+
+  "quota": { "margin_seconds": 90, "backoff_seconds": [900, 1800, 3600, 7200, 10800] }
+}

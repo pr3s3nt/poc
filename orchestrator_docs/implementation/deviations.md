@@ -87,3 +87,20 @@ frontend gates and fake-adapter browser create/deploy/restart passed.
 See [local evidence](../verification/2026-10-09-implicit-existing-cluster-local.md).
 No live cluster/cloud or PostgreSQL mutation was performed; local FK simulation
 is not real PostgreSQL integration proof.
+
+## IMP-020 — Unattended Claude cloud completion transport (open)
+
+[Development workflow design](../architecture/issue-workflow.md) requires
+Codex to supervise cloud feedback/results after local quota exhaustion. Official
+CLI documentation establishes create/send/teleport but not a verified machine-readable
+status/result/stop transport for this user's account. The in-progress adapter
+now implements an automatic branch JSON idle acknowledgment protocol, including
+same-session feedback, quota wake and late-write gates. Offline tests pass; the
+actual account's create/send response format, agent adherence and end-to-end
+GitHub/cloud exchange have not been verified. This remains an operational
+verification gap, not a change to the required automatic workflow. Do not report
+unattended cloud fallback as working until completion, feedback and import have
+been verified. Keep a cloud writer's lease and stop the queue while status is
+unknown and no valid idle acknowledgment exists; credit entitlement alone is
+not operational verification. The acknowledgment is from a trusted agent, not
+an independent observation that the remote process terminated.

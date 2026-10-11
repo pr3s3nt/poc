@@ -56,6 +56,8 @@ thay đổi, sửa nguồn chuẩn trước rồi mới sửa dependent artifact
 
 - `backend/` chứa Go product module, tests và acceptance workloads.
 - `frontend/` là Orchestrator Web Console.
+- `tools/issueflow/` là công cụ phát triển Go nhận GitHub Issues; không thuộc
+  runtime Orchestrator và không import domain product để điều phối coding agent.
 - `backend/examples/acceptance-app/` là workload kiểm chứng, không phải
   Web Console.
 - `orchestrator_docs/` chứa documentation; không chứa runtime product code.
@@ -104,6 +106,7 @@ Chạy validation tương ứng với phạm vi thay đổi:
 |---|---|
 | Documentation | `python3 scripts/check_docs.py` và `git diff --check` |
 | Go backend/product | `cd backend && go test ./... && go build ./...` |
+| Issueflow development tool | `cd tools/issueflow && go test ./... && go test -race ./... && go vet ./... && go build ./...` |
 | Web Console | `cd frontend && npm run typecheck && npm run lint && npm test && npm run build` |
 | Shell | `bash -n <changed scripts>` |
 | PlantUML | checker tài liệu; CI yêu cầu PlantUML |
@@ -132,6 +135,15 @@ dùng đã cho phép môi trường và hành động đó, và Codex đã giao 
 Codex review diff, xác minh kết quả checks độc lập
 và gửi phản hồi vào cùng session đến khi đáp ứng yêu cầu. Không tự thay Claude
 bằng Codex coding khi công cụ lỗi; báo tình trạng và tiếp tục phần độc lập.
+
+Workflow GitHub Issues dùng supervisor ngoài model theo
+[thiết kế workflow](orchestrator_docs/architecture/issue-workflow.md).
+Coding agent có thể thay qua adapter được cấu hình; hiện dùng Claude.
+Riêng fallback Claude cloud, người dùng đã cho phép commit/push vào branch riêng
+của task để Codex fetch/review/tích hợp; không push branch tích hợp/main hoặc tự
+merge. Exception này không áp dụng cho Claude local. Documentation cho người
+đọc luôn do Codex viết. Supervisor chạy Codex bằng `codex --yolo`, lưu checkpoint
+và timer để phục hồi quota; chỉ xử lý một task, dừng hàng chờ khi cần quyết định.
 
 Với task code/test có luồng Web Console, Claude phải chạy Playwright quay màn
 hình thao tác tương tự người dùng: browser headed, cursor/click rõ, nhập liệu và

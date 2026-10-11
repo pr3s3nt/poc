@@ -11,6 +11,9 @@ Shared design này hợp nhất UC-00 đến UC-09 sau realization.
 
 ## Artifact map
 
+- [GitHub Issues development workflow](issue-workflow.md) — công cụ phát triển,
+  không thuộc runtime Orchestrator.
+
 - [Domain and persistence classification](domain/domain-objects.md)
 - [Consolidated design classes](domain/design-class-diagram.puml)
 - [Component boundaries](components/component-diagram.puml)

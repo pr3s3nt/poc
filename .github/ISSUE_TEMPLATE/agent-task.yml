@@ -1,0 +1,58 @@
+name: Agent task
+description: A task for the sequential issueflow worker (one Issue at a time, Codex coordinates, a coding agent implements).
+title: "[agent] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The worker only takes Issues that were **created by a configured owner login** and had the label
+        `agent:ready` **applied by that same owner**. Add `agent:ready` yourself when the text below is final;
+        this template does not add it. The Issue text is snapshotted when the task is claimed.
+
+        Optional labels (owner only): `agent:browser` (a headed browser scenario is required; a cli-only
+        evidence report will be rejected), `agent:local-only` (never use the cloud fallback),
+        `agent:external-verify` (checks may use the database/kind opt-ins; otherwise they are cleared).
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What outcome is wanted, and why.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and canonical documents
+      description: Use case or architecture documents to read first, paths that may change, and what must not change.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Observable conditions that make the task done.
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Checks
+      description: Commands that must pass on the finished content (the supervisor runs them itself).
+      placeholder: "cd backend && go test ./... && go build ./..."
+    validations:
+      required: true
+  - type: dropdown
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Choose "browser" only for Web Console flows (also add the `agent:browser` label). CLI-only tasks publish check logs and a manifest, never a video.
+      options:
+        - cli-only (check logs and manifest)
+        - browser scenario (headed, captions, assertions, frame review)
+    validations:
+      required: true
+  - type: textarea
+    id: external
+    attributes:
+      label: External mutation
+      description: Anything outside the worktree that is explicitly allowed (cluster, cloud, database). Leave empty for none. Nothing is deployed or mutated unless stated here and in the checks.

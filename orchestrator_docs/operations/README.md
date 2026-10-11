@@ -42,3 +42,6 @@ dated record mới trong [verification index](../verification/README.md), không
 ghi đè runbook hoặc evidence cũ.
 
 [Codex điều phối Claude qua tmux](claude-tmux.md) quy định procedure code/review/validation/commit/push và cleanup session riêng của task.
+
+[Worker nhận GitHub Issues](issueflow.md) hướng dẫn công cụ phát triển theo
+[thiết kế workflow](../architecture/issue-workflow.md), độc lập runtime sản phẩm.
