@@ -2,6 +2,7 @@ package gitops
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -113,5 +114,37 @@ func TestFleetRejectsCredentialBackedTargets(t *testing.T) {
 	}
 	if err := d.Reconcile(ctx, target, execution.PublicRoute{ApplicationID: "a", EnvironmentID: "staging"}); err == nil || !strings.Contains(err.Error(), "credential-backed") {
 		t.Fatalf("routes: %v", err)
+	}
+}
+
+// T22: every non-credential target (context-only, empty, explicit kubeconfig
+// path) and empty readiness refs fail closed in every public path before any
+// Git write or cluster call; the repository stays untouched.
+func TestFleetRejectsAllTargetsBeforeAnySideEffect(t *testing.T) {
+	d := &Deployer{opts: Options{KubeContext: "kind-idp-internal", RepoDir: t.TempDir(), KubectlPath: "/nonexistent/kubectl"}}
+	extra := map[string]string{"application": "a", "environment": "staging", "deployment": "d1"}
+	targets := map[string]execution.Target{
+		"context only":  {Context: "kind-idp-internal", Namespace: "app-a-staging", Extra: extra},
+		"empty":         {Namespace: "app-a-staging", Extra: extra},
+		"explicit path": {Context: "kind-idp-internal", Kubeconfig: filepath.Join(t.TempDir(), "eks.kubeconfig"), Namespace: "app-a-staging", Extra: extra},
+	}
+	ctx := context.Background()
+	manifest := execution.Manifest{Kind: "Deployment", Name: "api", Namespace: "app-a-staging", Object: map[string]any{
+		"metadata": map[string]any{"labels": map[string]any{"orchestrator.io/deployment-id": "d1"}}}}
+	for label, target := range targets {
+		for name, err := range map[string]error{
+			"apply":        d.Apply(ctx, target, []execution.Manifest{manifest}),
+			"wait":         d.WaitReady(ctx, target, []execution.WorkloadRef{{Kind: "Deployment", Name: "api"}}),
+			"wait no refs": d.WaitReady(ctx, target, nil),
+			"remove":       d.Remove(ctx, target, "api"),
+			"routes":       d.Reconcile(ctx, target, execution.PublicRoute{ApplicationID: "a", EnvironmentID: "staging"}),
+		} {
+			if !errors.Is(err, errFleetUnavailable) {
+				t.Errorf("%s %s: %v", label, name, err)
+			}
+		}
+	}
+	if entries, _ := os.ReadDir(d.opts.RepoDir); len(entries) != 0 {
+		t.Fatalf("repository touched: %v", entries)
 	}
 }

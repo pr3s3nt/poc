@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"orchestrator/internal/bootstrap/bootstraptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -18,6 +19,7 @@ import (
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/platform/password"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 // UC-00/UC-01 onboarding over HTTP: sign-in, session restore, sign-out and
@@ -29,7 +31,7 @@ func buildOnboardingApp(t *testing.T, profile, statePath string) (*bootstrap.App
 	seedOptions.Profile = profile
 	seedOptions.Region = "us-east-1"
 	seedOptions.AccountID = "000000000000"
-	app, err := bootstrap.Build(context.Background(), bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake, StatePath: statePath})
+	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake, StatePath: statePath})
 	if err != nil {
 		t.Fatalf("bootstrap: %v", err)
 	}
@@ -201,7 +203,7 @@ func writeLegacyAccountState(t *testing.T, statePath string, passwords map[strin
 	}
 	opts := seed.Defaults()
 	opts.Profile = "production"
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	accountIDs := map[string]string{}

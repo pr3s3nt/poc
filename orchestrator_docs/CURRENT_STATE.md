@@ -41,7 +41,7 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-01 | Implemented; locally E2E verified | Authenticated Developer list/create/get Application qua API/UI; service tự sinh ID, staging/production, empty Deployment Sets và namespace identities. Create không deploy; browser restart test xác nhận durable local state. |
 | UC-02 | Registration implemented | Platform Engineer/Admin có thể đăng ký và xem Resource Types trong Organization qua API/UI; seeded catalog và normalized PostgreSQL persistence dùng được. Production-grade RBAC chưa có. |
 | UC-03 | Registration implemented | Platform Engineer/Admin có thể đăng ký Definition runtime-supported với criteria, driver inputs và provision rules qua API/UI; planner vẫn có profile guard và matching, catalog được persist trong PostgreSQL. Remote source và production-grade RBAC chưa có. |
-| UC-04 | Kubernetes kubeconfig onboarding implemented and verified | Platform Engineer/Admin nhập tên, upload/dán kubeconfig, inspect/chọn context rồi verify API/RBAC read-only và lưu `READY`. Vault KV v2 lưu scoped credential; metadata/name/authentication type ở PostgreSQL, migration/race/reopen đã pass isolated local. Executor resolve credential bằng opaque target identity; host-context cũ tương thích. Live kind upload và video đã pass ngày 2026-10-06; AWS infrastructure identity onboarding vẫn future scope theo ADR-009. |
+| UC-04 | Kubernetes kubeconfig onboarding implemented and verified | Platform Engineer/Admin nhập tên, upload/dán kubeconfig, inspect/chọn context rồi verify API/RBAC read-only và lưu `READY`. Vault KV v2 lưu scoped credential; metadata/name/authentication type ở PostgreSQL, migration/race/reopen đã pass isolated local. Executor resolve credential bằng opaque target identity; T22 bỏ host-context/API body cũ, seed thiếu credential ở VERIFYING. Live kind upload và video đã pass ngày 2026-10-06; AWS infrastructure identity onboarding vẫn future scope theo ADR-009. |
 | UC-05 | Implemented; locally verified | Standalone Score Preview service, authenticated scoped API và Console trả Delta/Candidate/graph/matches/batches/classification, consistent snapshot chung với direct Deploy, safe public projection và no-mutation tests. Pending-change Preview vẫn riêng; UI-only human-paced recording đã pass. Không chạy Terraform plan thật. |
 | UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; optional Fleet GitRepo adapter cho internal kind đã pass Harbor-image deployment. Environment Ingress nhiều path và Fleet `_routes` bundle đã pass kind test với hai workload BusyBox, Fleet revision/prune và cleanup; route failure có route-only retry (unit test), Backstage cụ thể chưa kiểm chứng. DNS/TLS/chuyển controller ra ngoài chưa có. Mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. |
 | UC-07 | Implemented; locally verified | UC-16 scoped Preview → Deploy update/remove, before/shared invariants, final Service validation, confirmation/Undo và busy/stale/reload UI states. READY resource marking UNREFERENCED commit cùng current set/SUCCEEDED; PostgreSQL rollback/reopen và UI-only recording pass. Không destroy/rollback; Application-wide cleanup ngoài scope. Fleet remove kind evidence là lịch sử, chưa rerun live cho mốc này. |
@@ -143,7 +143,7 @@ Một context tự chọn; nhiều context không đoán theo current-context. T
 theo cluster/context chỉ khi chưa sửa; tên custom hoặc xóa trống được giữ.
 Đổi document/source vô hiệu summary và file-read/inspect pending. Inspect không
 lưu; kiểm tra/lưu vẫn tường minh. Kubeconfig paste mặc định che, lỗi dùng hướng
-dẫn Việt an toàn, API/backend/HOST_CONTEXT giữ nguyên. Headed local pass;
+dẫn Việt an toàn; T06 giữ API/backend/HOST_CONTEXT tại thời điểm đó, T22 đã bỏ HOST_CONTEXT. Headed local pass;
 parser/422 được kiểm qua backend local, success 201/list là mock projection,
 không chứng minh cluster/credential persistence thật. T20/T22 vẫn deferred.
 
@@ -268,7 +268,8 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
   root `frontend/` theo ADR-005.
 - Planning deterministic và side-effect free.
 - UC-08 chỉ execute resource nodes; UC-06 apply workload sau khi có outputs.
-- Optional `fleet-gitrepo` mode ghi non-secret workload manifests vào private
+- Historical `fleet-gitrepo` mode (T22 hiện chặn trước Git/cluster mutation vì
+  chưa có explicit credential transport) ghi non-secret workload manifests vào private
   GitOps repo; Fleet triển khai workload, còn UC-08 vẫn trực tiếp quản lý
   namespace/resource. Harbor chứa image, không có GitHub source build trong
   đường này. Image-pull credential nằm ở namespace Secret, không nằm trong Git.
@@ -395,7 +396,13 @@ Connection credential store is explicit configuration: durable Vault for real
 execution/persistent state, memory only for fake/no-persistent-state tests,
 default none returns 503 for upload registration. New registration does not
 change Organization default; UC-03 matching Definition can consume the new
-Connection. Fleet fixed-cluster mode rejects credential-backed targets. AWS
+Connection. T22 removes host-context execution: Kubernetes seed without credential
+is VERIFYING, upload is the only registration body, and context-only targets fail
+closed. Fleet fixed-cluster mode is currently unavailable before Git/cluster
+mutation for all targets; adding explicit Fleet credential delivery is separate
+scope. Direct uploaded KUBECONFIG and Terraform-generated EKS path targets remain
+supported. Existing HOST_CONTEXT PostgreSQL rows require the approved dev reset,
+not silent conversion. AWS
 registration and Terraform account credential resolution remain deferred.
 
 Local Compose builds backend/frontend source by default and runs public
@@ -575,3 +582,13 @@ errors, including whole and interpolated placeholders; no rewrite/fallback.
 Application identity and infrastructure scope/naming remain unchanged. Go suite,
 build and uncached planning/conformance passed locally; no SQL opt-in or external
 mutation. See [T21 evidence](verification/2026-10-12-T21-context-aliases.md).
+
+## T22 — Explicit Kubernetes credential boundary
+
+[Local verification](verification/2026-10-12-T22-explicit-kubeconfig.md) covers
+upload-only registration, missing/foreign credential rejection, seed VERIFYING,
+scoped target restore/cancellation cleanup and Fleet rejection before side
+effects. Go/conformance/build, frontend 425 tests/build and headed fake T01/T07
+plus application-connection local restart pass. SQL integration/live checks
+were not run. Retained dev resources remain untouched; old HOST_CONTEXT DB
+requires approved reset. Historical SQL startup migrations remain until T28.

@@ -17,25 +17,26 @@ import (
 	"orchestrator/internal/seed"
 )
 
-// hostContextExecutor behaves like the existing-cluster adapter for a
-// HOST_CONTEXT Connection: the cluster node reports the Connection's own
-// cluster and kube context as the Target of every dependent node.
-type hostContextExecutor struct{ credentialExecutor }
+// scopedClusterExecutor is a fake existing-cluster executor for a synthetic
+// KUBECONFIG Connection: the cluster node reports the Connection's own cluster
+// and kube context as the Target of every dependent node (no real credential).
+type scopedClusterExecutor struct{ credentialExecutor }
 
-func (e *hostContextExecutor) Resolve(resource.DriverType) (execution.ResourceExecutor, error) {
+func (e *scopedClusterExecutor) Resolve(resource.DriverType) (execution.ResourceExecutor, error) {
 	return e, nil
 }
 
-func (e *hostContextExecutor) Provision(ctx context.Context, req execution.ProvisionRequest) (execution.ProvisionResult, error) {
-	if req.ResourceType == "k8s-cluster" && req.Connection.AuthenticationType == domain.AuthHostContext {
+func (e *scopedClusterExecutor) Provision(ctx context.Context, req execution.ProvisionRequest) (execution.ProvisionResult, error) {
+	if req.ResourceType == "k8s-cluster" && req.Connection.AuthenticationType == domain.AuthKubeconfig {
 		e.mu.Lock()
 		e.requests = append(e.requests, req)
 		e.mu.Unlock()
 		conn := req.Connection
 		return execution.ProvisionResult{
 			Outputs: map[string]any{"name": conn.ConfigString("cluster"), "endpoint": "https://" + conn.Key + ".invalid", "kubeContext": conn.ConfigString("kubeContext")},
-			State:   map[string]any{"driver": "existing-cluster", "kubeContext": conn.ConfigString("kubeContext")},
-			Target:  &execution.Target{Kind: "kubernetes", Context: conn.ConfigString("kubeContext"), ClusterName: conn.ConfigString("cluster")},
+			State:   map[string]any{"driver": "existing-cluster", "kubeContext": conn.ConfigString("kubeContext"), "organization": req.OrganizationKey, "connection": conn.Key},
+			// Opaque scoped identity, as the real adapter reports it.
+			Target: &execution.Target{Kind: "kubernetes", Context: conn.ConfigString("kubeContext"), ClusterName: conn.ConfigString("cluster"), Organization: req.OrganizationKey, Connection: conn.Key},
 		}, nil
 	}
 	return e.credentialExecutor.Provision(ctx, req)
@@ -43,13 +44,13 @@ func (e *hostContextExecutor) Provision(ctx context.Context, req execution.Provi
 
 // selectedTargetApp creates an Application through UC-01 with a non-default
 // Connection and returns it, with fake adapters that record every request.
-func selectedTargetApp(t *testing.T, definitionConnection string) (*bootstrap.App, seed.Options, *hostContextExecutor, *targetDeployer, string) {
+func selectedTargetApp(t *testing.T, definitionConnection string) (*bootstrap.App, seed.Options, *scopedClusterExecutor, *targetDeployer, string) {
 	t.Helper()
-	executor := &hostContextExecutor{credentialExecutor: credentialExecutor{fake: fake.NewResourceExecutor()}}
+	executor := &scopedClusterExecutor{credentialExecutor: credentialExecutor{fake: fake.NewResourceExecutor()}}
 	deployer := &targetDeployer{WorkloadDeployer: fake.NewWorkloadDeployer()}
 	app, opts := newApp(t, func(o *bootstrap.Options) { o.RegistryOverride = executor; o.DeployerOverride = deployer })
 	ctx := context.Background()
-	if err := app.Store.SaveConnection(ctx, domain.Connection{ID: "conn-second", Key: "second", Name: "Second", OrganizationKey: opts.OrganizationKey, Kind: domain.ConnectionKubernetes, AuthenticationType: domain.AuthHostContext, Status: domain.ConnectionReady, Config: map[string]any{"cluster": "second-cluster", "kubeContext": "second"}, SecretRef: "host-kube-context://second"}); err != nil {
+	if err := app.Store.SaveConnection(ctx, domain.Connection{ID: "conn-second", Key: "second", Name: "Second", OrganizationKey: opts.OrganizationKey, Kind: domain.ConnectionKubernetes, AuthenticationType: domain.AuthKubeconfig, Status: domain.ConnectionReady, Config: map[string]any{"cluster": "second-cluster", "kubeContext": "second"}, SecretRef: "fake-credential://second"}); err != nil {
 		t.Fatal(err)
 	}
 	if definitionConnection != "" {
@@ -107,7 +108,7 @@ func TestSelectedTarget_MatchingDefinitionDeploysToSelectedConnection(t *testing
 		t.Fatalf("apply targets = %#v", deployer.targets)
 	}
 	for _, target := range deployer.targets {
-		if target.Kind != "kubernetes" || target.Context != "second" || target.ClusterName != "second-cluster" {
+		if target.Kind != "kubernetes" || target.Context != "second" || target.ClusterName != "second-cluster" || target.Connection != "second" || target.Organization != opts.OrganizationKey {
 			t.Fatalf("workload applied to %#v, want the selected second cluster", target)
 		}
 	}
@@ -148,7 +149,7 @@ func TestSelectedTarget_AuthoredDefinitionForAnotherConnectionIsIgnored(t *testi
 	assertBuiltinCluster(t, app, opts, executor, deployer)
 }
 
-func assertBuiltinCluster(t *testing.T, app *bootstrap.App, opts seed.Options, executor *hostContextExecutor, deployer *targetDeployer) {
+func assertBuiltinCluster(t *testing.T, app *bootstrap.App, opts seed.Options, executor *scopedClusterExecutor, deployer *targetDeployer) {
 	t.Helper()
 	if len(executor.requests) == 0 || len(deployer.targets) == 0 {
 		t.Fatalf("executor calls %d, applies %d", len(executor.requests), len(deployer.targets))
@@ -198,7 +199,7 @@ func assertBuiltinCluster(t *testing.T, app *bootstrap.App, opts seed.Options, e
 func registerCluster(t *testing.T, app *bootstrap.App, organizationKey, key string) {
 	t.Helper()
 	ctx := context.Background()
-	if err := app.Store.SaveConnection(ctx, domain.Connection{ID: "conn-" + key, Key: key, Name: key, OrganizationKey: organizationKey, Kind: domain.ConnectionKubernetes, AuthenticationType: domain.AuthHostContext, Status: domain.ConnectionReady, Config: map[string]any{"cluster": key + "-cluster", "kubeContext": key}, SecretRef: "host-kube-context://" + key}); err != nil {
+	if err := app.Store.SaveConnection(ctx, domain.Connection{ID: "conn-" + key, Key: key, Name: key, OrganizationKey: organizationKey, Kind: domain.ConnectionKubernetes, AuthenticationType: domain.AuthKubeconfig, Status: domain.ConnectionReady, Config: map[string]any{"cluster": key + "-cluster", "kubeContext": key}, SecretRef: "fake-credential://" + key}); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Store.SaveResourceDefinition(ctx, organizationKey, resource.Definition{
@@ -215,7 +216,7 @@ func registerCluster(t *testing.T, app *bootstrap.App, organizationKey, key stri
 // nothing falls back to the Application, the Organization default or the other
 // Environment (ADR-011).
 func TestSelectedTarget_EnvironmentsDeployToTheirOwnConnectionIndependently(t *testing.T) {
-	executor := &hostContextExecutor{credentialExecutor: credentialExecutor{fake: fake.NewResourceExecutor()}}
+	executor := &scopedClusterExecutor{credentialExecutor: credentialExecutor{fake: fake.NewResourceExecutor()}}
 	deployer := &targetDeployer{WorkloadDeployer: fake.NewWorkloadDeployer()}
 	app, opts := newApp(t, func(o *bootstrap.Options) { o.RegistryOverride = executor; o.DeployerOverride = deployer })
 	registerCluster(t, app, opts.OrganizationKey, "stage-cluster")
@@ -232,7 +233,7 @@ func TestSelectedTarget_EnvironmentsDeployToTheirOwnConnectionIndependently(t *t
 			t.Fatalf("%s applied nothing", env)
 		}
 		for _, target := range deployer.targets[before:] {
-			if target.Context != want || target.ClusterName != want+"-cluster" {
+			if target.Context != want || target.ClusterName != want+"-cluster" || target.Connection != want || target.Organization == "" {
 				t.Fatalf("%s applied to %#v, want %s", env, target, want)
 			}
 		}
@@ -248,7 +249,7 @@ func TestSelectedTarget_EnvironmentsDeployToTheirOwnConnectionIndependently(t *t
 // Deployment, a plan, a provisioning call or any apply exists, while draft and
 // configuration-style reads of the Environment keep working.
 func TestUnconfiguredEnvironmentFailsDeployBeforeAnySideEffect(t *testing.T) {
-	executor := &hostContextExecutor{credentialExecutor: credentialExecutor{fake: fake.NewResourceExecutor()}}
+	executor := &scopedClusterExecutor{credentialExecutor: credentialExecutor{fake: fake.NewResourceExecutor()}}
 	deployer := &targetDeployer{WorkloadDeployer: fake.NewWorkloadDeployer()}
 	app, opts := newApp(t, func(o *bootstrap.Options) { o.RegistryOverride = executor; o.DeployerOverride = deployer })
 	key := newBoundApplication(t, app.Store, opts.OrganizationKey, "Unset App", "unset-app", "", "")

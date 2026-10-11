@@ -8,6 +8,7 @@ import (
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 // TestPostgresPreview_RepeatableReadAndNoWrites runs Preview against a
@@ -22,7 +23,7 @@ func TestPostgresPreview_RepeatableReadAndNoWrites(t *testing.T) {
 	t.Cleanup(st.Close)
 	opts := seed.Defaults()
 	opts.RunID = runID
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	env, err := st.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)

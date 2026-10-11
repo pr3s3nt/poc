@@ -14,6 +14,7 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 func seededCatalog(t *testing.T, inspector planning.ModuleInspector) (*store.Store, *catalog.Service, seed.Options) {
@@ -21,7 +22,7 @@ func seededCatalog(t *testing.T, inspector planning.ModuleInspector) (*store.Sto
 	ctx := context.Background()
 	st := store.New()
 	opts := seed.Defaults()
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	return st, catalog.NewService(st, inspector), opts

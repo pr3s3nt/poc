@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"orchestrator/internal/adapters/credentialmemory"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
@@ -26,7 +27,7 @@ func TestUC02UC04RegistrationIsUsableWithoutRestart(t *testing.T) {
 	server, _ := newServer(t, "", approvedCluster{})
 	pe := authenticatedClientAs(t, server.URL, "platform-engineer")
 	for _, tc := range []struct{ path, body string }{
-		{"/api/v1/connections/kubernetes", `{"key":"fast-cluster","clusterId":"fast","kubeContext":"kind-fast"}`},
+		{"/api/v1/connections/kubernetes", uploadBody("Fast cluster")},
 		{"/api/v1/resource-definitions", fastPostgres},
 		{"/api/v1/resource-types", `{"key":"cache","inputs":[{"name":"size","type":"number","required":true}],"outputs":[{"name":"host","type":"string","required":true}]}`},
 	} {
@@ -133,7 +134,7 @@ func TestUC02UC04ManagementHTTPContract(t *testing.T) {
 func TestUC02UC04ConcurrentRegistrationOnPostgres(t *testing.T) {
 	databaseURL := persistencetest.FreshPostgresDatabase(t)
 	opts := seed.Defaults()
-	app, err := bootstrap.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, DatabaseURL: databaseURL, ConnectionVerifierOverride: approvedCluster{}})
+	app, err := bootstrap.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, DatabaseURL: databaseURL, KubeconfigVerifierOverride: approvedCluster{}, ConnectionCredentialsOverride: credentialmemory.New()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,12 +148,12 @@ func TestUC02UC04ConcurrentRegistrationOnPostgres(t *testing.T) {
 
 // concurrentRegistration posts two different documents with the same key at
 // once for each registration endpoint: one 201, one 409, winner unchanged.
+// Concurrent uploads of one display name both succeed with distinct keys.
 func concurrentRegistration(t *testing.T, baseURL string, client *http.Client) {
 	t.Helper()
 	for _, tc := range []struct{ path, list, a, b string }{
 		{"/api/v1/resource-types", "/api/v1/resource-types", `{"key":"race-type","outputs":[{"name":"host","type":"string"}]}`, `{"key":"race-type","inputs":[{"name":"size","type":"number"}],"outputs":[{"name":"host","type":"string"}]}`},
 		{"/api/v1/resource-definitions", "/api/v1/resource-definitions", strings.Replace(strings.Replace(fastPostgres, `"postgres-fast"`, `"race-def"`, 1), `,"connectionKey":"fast-cluster"`, ``, 1), strings.Replace(strings.Replace(strings.Replace(fastPostgres, `"postgres-fast"`, `"race-def"`, 1), `,"connectionKey":"fast-cluster"`, ``, 1), `{"class":"fast"}`, `{"class":"slow"},{}`, 1)},
-		{"/api/v1/connections/kubernetes", "/api/v1/connections", `{"key":"race-cluster","clusterId":"race-a","kubeContext":"ctx-a"}`, `{"key":"race-cluster","clusterId":"race-b","kubeContext":"ctx-b"}`},
 	} {
 		statuses := make([]int, 2)
 		var wg sync.WaitGroup
@@ -185,7 +186,6 @@ func concurrentRegistration(t *testing.T, baseURL string, client *http.Client) {
 			t.Fatalf("%s: statuses %v, want one 201 and one 409", tc.path, statuses)
 		}
 		_, body := call(t, client, http.MethodGet, baseURL+tc.list, "")
-		want := map[bool]string{true: "race-a", false: "race-b"}[winner == 0]
 		for _, key := range []string{`"key":"race-type"`, `"key":"race-def"`, `"key":"race-cluster"`} {
 			if strings.Contains(tc.a, key) && strings.Count(body, key) != 1 {
 				t.Fatalf("%s: winner record %s missing or repeated: %s", tc.path, key, body)
@@ -200,11 +200,40 @@ func concurrentRegistration(t *testing.T, baseURL string, client *http.Client) {
 			if strings.Contains(body, `"class":"slow"`) != (winner == 1) {
 				t.Fatalf("definition winner %d not stored: %s", winner, body)
 			}
-		default:
-			if !strings.Contains(body, want) || strings.Contains(body, map[bool]string{true: "race-b", false: "race-a"}[winner == 0]) {
-				t.Fatalf("connection winner %d not stored: %s", winner, body)
-			}
 		}
+	}
+	concurrentUploads(t, baseURL, client)
+}
+
+func concurrentUploads(t *testing.T, baseURL string, client *http.Client) {
+	t.Helper()
+	statuses := make([]int, 2)
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for i := range statuses {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/connections/kubernetes", strings.NewReader(uploadBody("Race cluster")))
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			resp.Body.Close()
+			statuses[i] = resp.StatusCode
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	if statuses[0] != http.StatusCreated || statuses[1] != http.StatusCreated {
+		t.Fatalf("concurrent uploads: statuses %v, want both 201", statuses)
+	}
+	_, body := call(t, client, http.MethodGet, baseURL+"/api/v1/connections", "")
+	if strings.Count(body, `"name":"Race cluster"`) != 2 {
+		t.Fatalf("concurrent uploads must keep two distinct records: %s", body)
 	}
 }
 
@@ -213,7 +242,7 @@ func concurrentRegistration(t *testing.T, baseURL string, client *http.Client) {
 func TestPublicRegistrationRejectsExistingClusterDriver(t *testing.T) {
 	server, _ := newServer(t, "", approvedCluster{})
 	pe := authenticatedClientAs(t, server.URL, "platform-engineer")
-	if resp, body := call(t, pe, http.MethodPost, server.URL+"/api/v1/connections/kubernetes", `{"key":"fast-cluster","clusterId":"fast","kubeContext":"kind-fast"}`); resp.StatusCode != http.StatusCreated {
+	if resp, body := call(t, pe, http.MethodPost, server.URL+"/api/v1/connections/kubernetes", uploadBody("Fast cluster")); resp.StatusCode != http.StatusCreated {
 		t.Fatalf("connection = %d %s", resp.StatusCode, body)
 	}
 	list := func() string {

@@ -2,7 +2,7 @@
 id: DOMAIN-OBJECTS
 artifact: domain-persistence-classification
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-12
 ---
 
 # Domain Objects and Persistence Classification
@@ -108,8 +108,8 @@ No new aggregate, table or persistence uniqueness rule is introduced.
 [Shared credential design](../connection-credentials.md) owns credential store
 and execution resolution. Authentication type is separate from destination kind;
 new Kubernetes records use uploaded selected-context config. AWS identity is
-for infrastructure provisioning; ADR-009 owns its storage decision. Legacy
-host-context records remain compatible, and public DTOs exclude secret refs.
+for infrastructure provisioning; ADR-009 owns its storage decision. Kubernetes requires explicit scoped KUBECONFIG; HOST_CONTEXT and missing
+authentication fail closed. Public DTOs exclude secret refs.
 
 ## Rendering values (ADR-010)
 

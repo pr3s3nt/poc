@@ -10,13 +10,14 @@ import (
 	"orchestrator/internal/application/catalog"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 func TestRegisterResourceDefinition_ContractsAndOrganization(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
 	opts := seed.Defaults()
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	svc := catalog.NewService(st, terraform.NewInspector())
@@ -62,7 +63,7 @@ func TestRegisterResourceDefinition_KubernetesAndOutputMismatch(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
 	opts := seed.Defaults()
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	svc := catalog.NewService(st, terraform.NewInspector())

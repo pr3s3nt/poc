@@ -122,8 +122,20 @@ STATE_ARGS=(-state "${WORK}/state.json") STORE_MODE=none
 if [[ "${SCENARIO}" == T05 || "${SCENARIO}" == T06 || "${SCENARIO}" == T07 ]]; then STATE_ARGS=(); STORE_MODE=memory; fi
 
 (cd "${ROOT}" && go build -o "${WORK}/orchestrator" ./cmd/orchestrator)
+# The product seed leaves the cluster record VERIFYING without a credential.
+# Fake local workflows opt in to explicit synthetic READY metadata (no cluster).
+if [[ ${#STATE_ARGS[@]} -gt 0 ]]; then
+  (cd "${ROOT}" && go run ./test/integration/readystate -state "${WORK}/state.json")
+fi
 # Temporary JSON state only: inherited database/Vault/Terraform/AWS/Kubernetes
 # configuration is dropped and the matching flags are explicitly blank.
+if [[ "${STORE_MODE}" == memory ]]; then
+  # Test-only launcher: fake adapters + memory credential store, seeded cluster
+  # marked READY in that same store (setup only; assertions stay in the UI/API).
+  (cd "${ROOT}" && go build -o "${WORK}/fakeserver" ./test/integration/fakeserver)
+  "${WORK}/fakeserver" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" ${SCORE_ARGS[@]+"${SCORE_ARGS[@]}"} ${REGION_ARGS[@]+"${REGION_ARGS[@]}"} \
+    -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" > "${WORK}/orchestrator.log" 2>&1 &
+else
 env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_VAULT_ADDR -u ORCHESTRATOR_VAULT_TOKEN_FILE \
   -u ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE -u ORCHESTRATOR_CONNECTION_VAULT_ADDR -u ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE \
   -u ORCHESTRATOR_VAULT_AGENT_ADDR -u ORCHESTRATOR_POSTGRES_TEST_URL -u ORCH_KIND_VERIFY -u KUBECONFIG \
@@ -133,6 +145,7 @@ env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_VAULT_ADDR -u ORCHESTRATOR
   -database-url-file "" -vault-address "" -vault-token-file "" -vault-agent-address "" \
   -connection-credential-store "${STORE_MODE}" ${SCORE_ARGS[@]+"${SCORE_ARGS[@]}"} ${REGION_ARGS[@]+"${REGION_ARGS[@]}"} -adapters fake -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" \
   > "${WORK}/orchestrator.log" 2>&1 &
+fi
 PIDS+=($!)
 for _ in $(seq 1 80); do [[ -s "${WORK}/api-addr" ]] && break; sleep 0.25; done
 [[ -s "${WORK}/api-addr" ]] || { echo "backend did not start; see ${WORK}/orchestrator.log" >&2; exit 1; }

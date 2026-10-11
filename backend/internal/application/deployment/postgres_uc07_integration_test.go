@@ -20,6 +20,7 @@ import (
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 // markerFailure fails the UNREFERENCED marker write inside the final
@@ -60,7 +61,7 @@ func TestPostgresRemove_CommitsSetStatusAndMarkerAtomically(t *testing.T) {
 	}
 	defer func() { st.Close() }()
 	opts := seed.Defaults()
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	store := &markerFailure{Store: st}

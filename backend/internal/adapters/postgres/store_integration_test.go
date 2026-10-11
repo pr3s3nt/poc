@@ -11,6 +11,7 @@ import (
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 func TestNormalizedStoreRestartAndSnapshotConstraints(t *testing.T) {
@@ -24,7 +25,7 @@ func TestNormalizedStoreRestartAndSnapshotConstraints(t *testing.T) {
 		t.Fatal(err)
 	}
 	opts := seed.Defaults()
-	if err = seed.Apply(ctx, first, opts); err != nil {
+	if err = seedtest.Apply(ctx, first, opts); err != nil {
 		t.Fatal(err)
 	}
 	env, err := first.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)

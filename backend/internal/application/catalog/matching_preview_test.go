@@ -15,6 +15,7 @@ import (
 	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 func previewCandidate(key string, criteria ...resource.Criterion) resource.Definition {
@@ -562,7 +563,7 @@ func TestPreviewMatching_AWSInfrastructureConflictButAuroraExternalAccountDoesNo
 	st := store.New()
 	opts := seed.Defaults()
 	opts.Region, opts.AccountID = "us-east-1", "000000000000"
-	if err := seed.Apply(context.Background(), st, opts); err != nil {
+	if err := seedtest.Apply(context.Background(), st, opts); err != nil {
 		t.Fatal(err)
 	}
 	svc := catalog.NewService(st)

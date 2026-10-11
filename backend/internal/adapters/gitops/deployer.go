@@ -64,6 +64,21 @@ func (d *Deployer) cli() k8s.CLI { return k8s.NewCLI(d.opts.KubectlPath, d.opts.
 
 var errFleetCredentialTarget = errors.New("gitops: Fleet GitRepo delivery does not support credential-backed connection targets; use direct delivery")
 
+// errFleetUnavailable: Fleet delivery was fixed to the host kube context of the
+// configured kind cluster. T22 removed host defaults and Fleet has no explicit
+// execution identity, so every non-credential target (context-only or explicit
+// kubeconfig path) fails closed before any Git write or cluster call. Direct
+// delivery keeps supporting explicit generated kubeconfig paths.
+var errFleetUnavailable = errors.New("gitops: Fleet GitRepo delivery is unavailable because it has no explicit cluster credential; use direct delivery")
+
+// guard rejects every target before any side effect.
+func guard(target execution.Target) error {
+	if target.CredentialBacked() {
+		return errFleetCredentialTarget
+	}
+	return errFleetUnavailable
+}
+
 func (d *Deployer) scope(target execution.Target, workload string) (string, error) {
 	// Fleet delivery is fixed to the configured cluster (ADR-007). A
 	// credential-backed Connection target fails closed even if its selected
@@ -82,8 +97,8 @@ func (d *Deployer) scope(target execution.Target, workload string) (string, erro
 }
 
 func (d *Deployer) Apply(ctx context.Context, target execution.Target, manifests []execution.Manifest) error {
-	if target.CredentialBacked() {
-		return errFleetCredentialTarget
+	if err := guard(target); err != nil {
+		return err
 	}
 	var workload, deploymentID string
 	var public []execution.Manifest
@@ -182,6 +197,9 @@ func (d *Deployer) ensurePullSecret(ctx context.Context, namespace string) error
 }
 
 func (d *Deployer) WaitReady(ctx context.Context, target execution.Target, refs []execution.WorkloadRef) error {
+	if err := guard(target); err != nil {
+		return err
+	}
 	if len(refs) != 1 || refs[0].Kind != "Deployment" {
 		return fmt.Errorf("gitops: expected one Deployment readiness reference")
 	}
@@ -228,6 +246,9 @@ func deploymentLabel(object map[string]any) string {
 }
 
 func (d *Deployer) Remove(ctx context.Context, target execution.Target, workloadID string) error {
+	if err := guard(target); err != nil {
+		return err
+	}
 	path, err := d.scope(target, workloadID)
 	if err != nil {
 		return err

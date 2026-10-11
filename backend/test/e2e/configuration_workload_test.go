@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"orchestrator/internal/bootstrap"
+	"orchestrator/internal/bootstrap/bootstraptest"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/seed"
 )
@@ -144,7 +145,7 @@ func TestUC12UC16HTTPDraftFlow(t *testing.T) {
 
 func TestPendingDeployPartialFailureCanRetryOnlyRemainingWorkload(t *testing.T) {
 	failer := &frontendFailDeployer{fail: true}
-	app, err := bootstrap.Build(context.Background(), bootstrap.Options{Seed: seed.Defaults(), Adapters: bootstrap.AdapterFake, DeployerOverride: failer})
+	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: seed.Defaults(), Adapters: bootstrap.AdapterFake, DeployerOverride: failer})
 	if err != nil {
 		t.Fatal(err)
 	}

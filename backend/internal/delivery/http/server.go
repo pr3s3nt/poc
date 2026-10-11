@@ -57,12 +57,11 @@ type Server struct {
 
 // Config configures the HTTP server.
 type Config struct {
-	RenderBundles      map[string]resource.RenderBundle
-	Deployments        *appsvc.Service
-	Queries            *appsvc.QueryService
-	Authentication     *authentication.Service
-	Applications       *appcreate.Service
-	ConnectionVerifier connectionapp.KubernetesVerifier
+	RenderBundles  map[string]resource.RenderBundle
+	Deployments    *appsvc.Service
+	Queries        *appsvc.QueryService
+	Authentication *authentication.Service
+	Applications   *appcreate.Service
 	// KubeconfigVerifier and ConnectionCredentials enable UC-04 upload
 	// registration. Without a credential store it answers 503.
 	KubeconfigVerifier    connectionapp.KubeconfigVerifier
@@ -87,7 +86,7 @@ func NewServer(cfg Config) *Server {
 		auth:           cfg.Authentication,
 		applications:   cfg.Applications,
 		catalog:        catalog.NewService(cfg.Store, terraform.NewInspector()),
-		connections:    connectionapp.NewService(cfg.Store, cfg.ConnectionVerifier),
+		connections:    connectionapp.NewService(cfg.Store),
 		secretStores:   cfg.SecretStores,
 		operations:     cfg.Operations,
 		transitions:    cfg.Transitions,

@@ -96,17 +96,13 @@ func (s *Server) handleInspectKubeconfig(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, map[string]any{"contexts": contexts})
 }
 
-// registerConnectionBody accepts exactly one of two explicit shapes: the
-// upload body {name,kubeconfig,context} or the legacy host-context body
-// {key,clusterId,kubeContext}. A mixed document is rejected; neither shape
-// falls back to the other.
+// registerConnectionBody is the only accepted registration shape: the upload
+// body {name,kubeconfig,context}. Any other field (including the removed
+// {key,clusterId,kubeContext} body) is rejected by decodeConnectionBody.
 type registerConnectionBody struct {
-	Name        *string `json:"name"`
-	Kubeconfig  *string `json:"kubeconfig"`
-	Context     *string `json:"context"`
-	Key         *string `json:"key"`
-	ClusterID   *string `json:"clusterId"`
-	KubeContext *string `json:"kubeContext"`
+	Name       *string `json:"name"`
+	Kubeconfig *string `json:"kubeconfig"`
+	Context    *string `json:"context"`
 }
 
 func (s *Server) handleRegisterKubernetesConnection(w http.ResponseWriter, r *http.Request) {
@@ -115,25 +111,11 @@ func (s *Server) handleRegisterKubernetesConnection(w http.ResponseWriter, r *ht
 		return
 	}
 	var body registerConnectionBody
-	allowed := map[string]bool{"name": true, "kubeconfig": true, "context": true, "key": true, "clusterId": true, "kubeContext": true}
+	allowed := map[string]bool{"name": true, "kubeconfig": true, "context": true}
 	if !decodeConnectionBody(w, r, allowed, &body) {
 		return
 	}
-	upload := body.Name != nil || body.Kubeconfig != nil || body.Context != nil
-	legacy := body.Key != nil || body.ClusterID != nil || body.KubeContext != nil
-	if upload && legacy {
-		writeCode(w, codeInvalidRequest, "")
-		return
-	}
-	var (
-		created application.Connection
-		err     error
-	)
-	if legacy {
-		created, err = s.connections.RegisterKubernetesCluster(r.Context(), org, connectionapp.RegisterKubernetesCommand{Key: deref(body.Key), ClusterID: deref(body.ClusterID), KubeContext: deref(body.KubeContext)})
-	} else {
-		created, err = s.connections.RegisterKubeconfig(r.Context(), org, connectionapp.RegisterKubeconfigCommand{Name: deref(body.Name), Kubeconfig: deref(body.Kubeconfig), Context: deref(body.Context)})
-	}
+	created, err := s.connections.RegisterKubeconfig(r.Context(), org, connectionapp.RegisterKubeconfigCommand{Name: deref(body.Name), Kubeconfig: deref(body.Kubeconfig), Context: deref(body.Context)})
 	if err != nil {
 		s.writeError(w, err)
 		return

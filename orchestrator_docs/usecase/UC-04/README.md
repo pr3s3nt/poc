@@ -2,7 +2,7 @@
 id: UC-04-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-12
 ---
 
 # UC-04 context — Configure execution connections
@@ -20,7 +20,7 @@ live workload deployment on the uploaded Connection.
 The [desktop UI correction](../../verification/2026-10-06-uc04-connections-ui.md)
 records the revised form controls/list layout and reviewed replacement recording.
 
-Existing host-context connections/legacy API remain compatible. Default
+T22 removes host-context execution and the legacy registration body. Kubernetes requires explicit scoped KUBECONFIG; seed without credential remains VERIFYING. Default
 Connection selection does not change Organization defaults. Internal cluster
 binding follows ADR-013 without per-cluster Definition registration; other
 UC-03 matching Definitions can reference new Connections. AWS identity for infrastructure provisioning remains future

@@ -2,7 +2,7 @@
 id: ADR-007
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-09-28
+last_reviewed: 2026-10-12
 ---
 
 # ADR-007 — Fleet GitRepo workload delivery on internal kind
@@ -53,6 +53,15 @@ namespaces and resource dependencies directly.
 7. A failed route reconciliation after committed workloads leaves a durable
    `publicRoutesPending` flag on the Environment. Preview/Deploy can then retry
    only the route bundle without restarting those workloads.
+
+## T22 credential boundary
+
+T22 removes HOST_CONTEXT execution, including the fixed host-context transport
+used by this optional mode. Credential-backed Fleet targets remain unsupported
+under the existing UC-04 boundary. Context-only targets must fail before Git
+writes/pushes or cluster calls. Direct delivery with scoped KUBECONFIG is the
+current supported internal Kubernetes path. Fleet credential onboarding is not
+added by T22; the historical proof below does not establish current availability.
 
 ## Consequences
 

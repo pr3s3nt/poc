@@ -18,6 +18,7 @@ import (
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 // insertBarrier holds the first CreateConnection of two racers until both
@@ -61,7 +62,7 @@ func TestPostgresKubeconfigRegistrationRaceAndReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	opts := seed.Defaults()
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	before, err := st.GetOrganization(ctx, opts.OrganizationKey)
@@ -70,7 +71,7 @@ func TestPostgresKubeconfigRegistrationRaceAndReopen(t *testing.T) {
 	}
 	creds := credentialmemory.New()
 	barrier := &insertBarrier{Store: st, release: make(chan struct{})}
-	svc := connection.NewService(barrier, nil)
+	svc := connection.NewService(barrier)
 	svc.SetKubeconfigRegistration(&kubeconfigVerifier{}, creds)
 	doc := ct.Document(ct.TokenContext("lab", "https://lab.example", secretToken))
 	results := make([]application.Connection, 2)
@@ -130,7 +131,7 @@ func TestPostgresKubeconfigRegistrationRaceAndReopen(t *testing.T) {
 		}
 	}
 	seeded, err := reopened.GetConnection(ctx, opts.OrganizationKey, opts.ConnectionKey)
-	if err != nil || seeded.AuthenticationType != application.AuthHostContext || seeded.Name == "" {
+	if err != nil || seeded.AuthenticationType != application.AuthKubeconfig || seeded.Name == "" {
 		t.Fatalf("seeded connection after reopen: %#v %v", seeded, err)
 	}
 }

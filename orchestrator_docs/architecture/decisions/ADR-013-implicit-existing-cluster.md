@@ -2,7 +2,7 @@
 id: ADR-013
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # ADR-013 — Implicit existing-cluster node from Environment binding
@@ -56,7 +56,8 @@ authorized T29 reset, with no new deletion API or registration compatibility;
 new execution ignores authored existing-cluster Definitions for this implicit
 node. The system record must not become an editable matching policy.
 
-Retain legacy host-context execution and existing descriptors. Reopen/retry/remove
+T22 supersedes host-context compatibility: only explicit scoped KUBECONFIG
+Connections execute internal Kubernetes. Keep existing descriptors. Reopen/retry/remove
 and destination transitions keep stored target identity and scoped credentials.
 Conformance fixtures without product profile enrichment keep their reference
 matching behavior; do not rewrite historical verification evidence.
@@ -78,6 +79,6 @@ external database Driver Account semantics are unchanged.
 Prove no cluster Definition is needed, authored matching/ties cannot redirect
 this node, deterministic read-only Preview, binding pinning, READY/kind/org
 checks, real persistence FK admission behavior without external mutation,
-legacy target restoration, retry/remove/transition correctness and unchanged
+scoped target restoration, old host-target rejection, retry/remove/transition correctness and unchanged
 AWS VPC/EKS/Aurora matching/dependency contracts. Live cluster/cloud verification
 requires separate user scope; local checks do not prove live connectivity.

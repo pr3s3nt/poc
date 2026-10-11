@@ -91,5 +91,6 @@ reused resource targets and persisted WorkloadInstance TargetRef. Resolve
 credential at each adapter call; never persist normalized kubeconfig or temp
 paths in outputs/state/plan. Missing/not-READY Connection fails closed. Restore
 the same scoped target for removal and route reconciliation after restart.
-Legacy host-context targets stay supported. This is the approved design for
-UC-04 upload delivery; implementation evidence is tracked in current state.
+T22 removes host-context targets: context-only/unscoped execution fails closed.
+Internal Kubernetes requires scoped KUBECONFIG; explicit Terraform-generated
+EKS kubeconfig paths remain supported. Implementation evidence is tracked in current state.

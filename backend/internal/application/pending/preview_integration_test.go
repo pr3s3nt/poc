@@ -11,6 +11,7 @@ import (
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/bootstrap"
+	"orchestrator/internal/bootstrap/bootstraptest"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/seed"
@@ -41,7 +42,7 @@ func scoreFor(name, image string, public bool) map[string]any {
 func fixture(t *testing.T) (*bootstrap.App, *workloadconfig.Service, *pending.Service, seed.Options) {
 	t.Helper()
 	opts := seed.Defaults()
-	app, err := bootstrap.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake})
+	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)
 	}

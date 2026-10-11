@@ -63,6 +63,9 @@ fi
 [[ -x "${XDOTOOL}" ]] || { echo "xdotool is required for native address-bar input" >&2; exit 1; }
 
 (cd "${ROOT}" && go build -o "${WORK}/orchestrator" ./cmd/orchestrator)
+# The product seed leaves the cluster record VERIFYING without a credential.
+# Fake local workflows opt in to explicit synthetic READY metadata (no cluster).
+(cd "${ROOT}" && go run ./test/integration/readystate -state "${WORK}/state.json")
 "${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" -state "${WORK}/state.json" \
   -adapters fake -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" \
   > "${WORK}/orchestrator.log" 2>&1 &

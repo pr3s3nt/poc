@@ -105,7 +105,6 @@ type Options struct {
 
 	// Overrides replace individual adapters. Tests use them to inject failures.
 	RegistryOverride              execution.ExecutorRegistry
-	ConnectionVerifierOverride    connection.KubernetesVerifier
 	KubeconfigVerifierOverride    connection.KubeconfigVerifier
 	ConnectionCredentialsOverride credentials.Store
 	RendererOverride              execution.WorkloadRenderer
@@ -332,10 +331,6 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	pendingChanges.SetDeployer(deployments)
 	pendingChanges.SetOperations(operations)
 	previews := preview.NewService(st, planner, tf.NewInspector())
-	connectionVerifier := opts.ConnectionVerifierOverride
-	if connectionVerifier == nil {
-		connectionVerifier = k8s.ConnectionVerifier{KubectlPath: opts.KubectlPath}
-	}
 	kubeconfigVerifier := opts.KubeconfigVerifierOverride
 	if kubeconfigVerifier == nil {
 		kubeconfigVerifier = k8s.ConnectionVerifier{KubectlPath: opts.KubectlPath}
@@ -367,7 +362,6 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		Queries:               queries,
 		Authentication:        auth,
 		Applications:          applications,
-		ConnectionVerifier:    connectionVerifier,
 		KubeconfigVerifier:    kubeconfigVerifier,
 		ConnectionCredentials: connectionCredentials,
 		Configurations:        configurations,

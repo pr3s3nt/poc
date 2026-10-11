@@ -76,8 +76,8 @@ func Registration(t *testing.T, st persistence.Store) RegistrationFixture {
 	}
 	assertDefinition(t, st, "reg-acme", def)
 
-	conn := application.Connection{Key: "reg-cluster", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady,
-		Config: map[string]any{"cluster": "c1", "kubeContext": "ctx-1"}, SecretRef: "host-kube-context://ctx-1", Verification: map[string]any{"verified": true}}
+	conn := application.Connection{Key: "reg-cluster", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionReady,
+		Config: map[string]any{"cluster": "c1", "kubeContext": "ctx-1"}, SecretRef: "fake-credential://ctx-1", Verification: map[string]any{"verified": true}}
 	if err := st.CreateConnection(ctx, conn); err != nil {
 		t.Fatalf("create connection: %v", err)
 	}
@@ -110,7 +110,7 @@ func Registration(t *testing.T, st persistence.Store) RegistrationFixture {
 	}
 
 	other := conn
-	other.ID, other.Config, other.SecretRef = "", map[string]any{"cluster": "c2", "kubeContext": "ctx-2"}, "host-kube-context://ctx-2"
+	other.ID, other.Config, other.SecretRef = "", map[string]any{"cluster": "c2", "kubeContext": "ctx-2"}, "fake-credential://ctx-2"
 	if err := st.CreateConnection(ctx, other); !errors.Is(err, persistence.ErrDuplicate) {
 		t.Fatalf("duplicate connection: %v", err)
 	}
@@ -120,9 +120,9 @@ func Registration(t *testing.T, st persistence.Store) RegistrationFixture {
 		t.Fatalf("connection in missing Organization: %v", err)
 	}
 	assertConnection(t, st, conn)
-	legacy, _ := st.GetConnection(ctx, "reg-acme", "reg-cluster")
-	if legacy.Name != "reg-cluster" || legacy.AuthenticationType != application.AuthHostContext {
-		t.Fatalf("legacy connection defaults: name %q, authentication %q", legacy.Name, legacy.AuthenticationType)
+	stored, _ := st.GetConnection(ctx, "reg-acme", "reg-cluster")
+	if stored.Name != "reg-cluster" || stored.AuthenticationType != application.AuthKubeconfig {
+		t.Fatalf("connection defaults: name %q, authentication %q", stored.Name, stored.AuthenticationType)
 	}
 	connectionAuthentication(t, st)
 	return RegistrationFixture{Organization: "reg-acme", Type: typ, Definition: def, Connection: conn}
@@ -147,6 +147,7 @@ func connectionAuthentication(t *testing.T, st persistence.Store) {
 	}
 	for name, bad := range map[string]application.Connection{
 		"incompatible": {Key: "reg-bad-auth", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthAWSAccessKey, Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "x", Verification: map[string]any{}},
+		"host context": {Key: "reg-bad-host", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, AuthenticationType: "HOST_CONTEXT", Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "fake-credential://x", Verification: map[string]any{}},
 		"unknown ref":  {Key: "reg-bad-ref", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "https://elsewhere", Verification: map[string]any{}},
 	} {
 		if err := st.CreateConnection(ctx, bad); err == nil {

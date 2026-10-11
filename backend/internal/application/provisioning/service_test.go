@@ -10,6 +10,7 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/provisioning"
 	"orchestrator/internal/bootstrap"
+	"orchestrator/internal/bootstrap/bootstraptest"
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -28,7 +29,7 @@ func deployBackend(t *testing.T, profile application.ExecutionProfile) (*bootstr
 	if profile == application.ProfileAWSEKS {
 		applicationKey = seedOptions.CloudApplicationKey
 	}
-	app, err := bootstrap.Build(context.Background(), bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
+	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatalf("bootstrap: %v", err)
 	}
@@ -126,12 +127,12 @@ func (r *countingRegistry) Resolve(resource.DriverType) (execution.ResourceExecu
 func TestProvision_InternalDefinitionConnectionMismatchFailsBeforeExecutor(t *testing.T) {
 	ctx := context.Background()
 	seedOptions := seed.Defaults()
-	app, err := bootstrap.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
+	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, key := range []string{"lab", "other"} {
-		if err := app.Store.SaveConnection(ctx, application.Connection{ID: key, Key: key, OrganizationKey: seedOptions.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthHostContext}); err != nil {
+		if err := app.Store.SaveConnection(ctx, application.Connection{ID: key, Key: key, OrganizationKey: seedOptions.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthKubeconfig}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -165,7 +166,7 @@ func TestProvision_InternalDefinitionConnectionMismatchFailsBeforeExecutor(t *te
 func TestProvision_AWSTargetDefinitionConnectionMismatchFailsBeforeExecutor(t *testing.T) {
 	ctx := context.Background()
 	seedOptions := seed.Defaults()
-	app, err := bootstrap.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
+	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +261,7 @@ func TestProvision_AWSVPCAndEKSInheritEnvironmentConnection(t *testing.T) {
 	seedOptions := seed.Defaults()
 	for _, resourceType := range []string{"vpc", "k8s-cluster"} {
 		for _, target := range []string{"aws-a", "aws-b"} {
-			app, err := bootstrap.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
+			app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -294,7 +295,7 @@ func TestProvision_AWSVPCAndEKSInheritEnvironmentConnection(t *testing.T) {
 func TestProvision_AuroraKeepsExplicitAccountAndNeverInherits(t *testing.T) {
 	ctx := context.Background()
 	seedOptions := seed.Defaults()
-	app, err := bootstrap.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
+	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,7 +326,7 @@ func TestProvision_AuroraKeepsExplicitAccountAndNeverInherits(t *testing.T) {
 func TestProvision_MalformedVPCKeyIsRejectedWithoutFallback(t *testing.T) {
 	ctx := context.Background()
 	seedOptions := seed.Defaults()
-	app, err := bootstrap.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
+	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,7 +352,7 @@ func TestProvision_ReuseNeverCrossesAccounts(t *testing.T) {
 		{"aurora", "postgres", "aws-a", "aws-a", "aws-b", "aws-a"},
 	}
 	for _, c := range cases {
-		app, err := bootstrap.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
+		app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -384,7 +385,7 @@ func TestProvision_ReuseNeverCrossesAccounts(t *testing.T) {
 func TestProvision_EffectiveAWSConnectionUnavailableFailsBeforeExecutor(t *testing.T) {
 	ctx := context.Background()
 	seedOptions := seed.Defaults()
-	app, err := bootstrap.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
+	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +394,7 @@ func TestProvision_EffectiveAWSConnectionUnavailableFailsBeforeExecutor(t *testi
 	if err := app.Store.SaveConnection(ctx, application.Connection{ID: "pending", Key: "pending", OrganizationKey: org, Kind: application.ConnectionAWS, Status: application.ConnectionVerifying, AuthenticationType: application.AuthAWSAccessKey}); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Store.SaveConnection(ctx, application.Connection{ID: "kube", Key: "kube", OrganizationKey: org, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthHostContext}); err != nil {
+	if err := app.Store.SaveConnection(ctx, application.Connection{ID: "kube", Key: "kube", OrganizationKey: org, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthKubeconfig}); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Store.SaveOrganization(ctx, application.Organization{Key: "globex", Name: "Globex"}); err != nil {

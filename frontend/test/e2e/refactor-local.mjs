@@ -1599,7 +1599,7 @@ export const SCENARIOS = {
     await expect(page.getByLabel('Giá trị', { exact: true })).toHaveValue('đang gõ dở');
     mock.storePut.push('busy');
     await h.click(page.getByRole('button', { name: 'Lưu kho bí mật' }));
-    await expect(storePanel().getByRole('alert')).toContainText('busy with another operation');
+    await expect(storePanel().getByRole('alert')).toContainText('Môi trường đang bận');
     expect(countWrites('/secret-store') >= 3).toBe(true);
     check('stale (MOCKED 409) and BUSY (MOCKED 409): messages shown, draft choice and typed text kept, no store change');
     mark('stale-busy');
@@ -1743,8 +1743,10 @@ export const SCENARIOS = {
     await h.click(banner.getByLabel('Tôi xác nhận thao tác bị gián đoạn đã dừng hẳn'));
     await h.click(banner.getByRole('button', { name: 'Khôi phục môi trường' }));
     await expect(banner).toContainText('Kết quả khôi phục:');
-    await expect(banner).toContainText('Cần xử lý: dừng workload đích web');
-    check('recovery (MOCKED API): disabled until the stop confirmation, then result and "Cần xử lý" item shown in Vietnamese');
+    await expect(banner).toContainText('còn 1 bước cần xử lý thủ công');
+    // Safe summary only: the raw remaining-step detail must not be shown.
+    await expect(banner).not.toContainText('dừng workload đích web');
+    check('recovery (MOCKED API): disabled until the stop confirmation, then a safe Vietnamese summary of the remaining manual step is shown; raw step detail is absent');
     mark('recovery');
     await h.moveTo(banner);
     await h.read('Khôi phục chỉ chạy sau xác nhận tường minh');

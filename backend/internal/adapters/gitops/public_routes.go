@@ -14,6 +14,9 @@ import (
 // Reconcile stores the Environment Ingress in its own Fleet bundle and waits
 // for the exact desired route revision to be observed on the cluster.
 func (d *Deployer) Reconcile(ctx context.Context, target execution.Target, route execution.PublicRoute) error {
+	if err := guard(target); err != nil {
+		return err
+	}
 	if route.ApplicationID != target.Extra["application"] || route.EnvironmentID != target.Extra["environment"] {
 		return fmt.Errorf("gitops: route target scope mismatch")
 	}

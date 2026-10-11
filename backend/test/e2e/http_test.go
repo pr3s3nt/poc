@@ -15,53 +15,77 @@ import (
 	"strings"
 	"testing"
 
+	"orchestrator/internal/adapters/credentialmemory"
 	connectionapp "orchestrator/internal/application/connection"
+	ct "orchestrator/internal/application/connection/connectiontest"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/bootstrap"
+	"orchestrator/internal/bootstrap/bootstraptest"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 )
 
-func newServer(t *testing.T, uiDir string, verifier ...connectionapp.KubernetesVerifier) (*httptest.Server, seed.Options) {
+func newServer(t *testing.T, uiDir string, verifier ...connectionapp.KubeconfigVerifier) (*httptest.Server, seed.Options) {
 	t.Helper()
 	server, seedOptions, _ := newServerApp(t, uiDir, verifier...)
 	return server, seedOptions
 }
 
-func newServerApp(t *testing.T, uiDir string, verifier ...connectionapp.KubernetesVerifier) (*httptest.Server, seed.Options, *bootstrap.App) {
+func newServerApp(t *testing.T, uiDir string, verifier ...connectionapp.KubeconfigVerifier) (*httptest.Server, seed.Options, *bootstrap.App) {
 	t.Helper()
 	seedOptions := seed.Defaults()
 	seedOptions.Region = "us-east-1"
 	seedOptions.AccountID = "000000000000"
 	seedOptions.RunID = "run-e2e"
+	credentials := credentialmemory.New()
 	options := bootstrap.Options{
 		Seed:     seedOptions,
 		Adapters: bootstrap.AdapterFake,
 		UIDir:    uiDir,
 		// Fake mode keeps platform credentials in memory so Secret Stores can register.
-		ConnectionCredentialStore: "memory",
+		ConnectionCredentialsOverride: credentials,
 	}
 	if len(verifier) > 0 {
-		options.ConnectionVerifierOverride = verifier[0]
+		options.KubeconfigVerifierOverride = verifier[0]
 	}
 	app, err := bootstrap.Build(context.Background(), options)
 	if err != nil {
 		t.Fatalf("bootstrap: %v", err)
 	}
+	prepareSeedCluster(t, app, credentials, seedOptions)
 	server := httptest.NewServer(app.Server)
 	t.Cleanup(server.Close)
 	return server, seedOptions, app
 }
 
+// prepareSeedCluster gives the seeded cluster record explicit synthetic
+// credentials. The product seed is VERIFYING without credentials; fake e2e
+// workflows opt in to a READY scoped fake credential here and nowhere else.
+func prepareSeedCluster(t *testing.T, app *bootstrap.App, creds *credentialmemory.Store, opts seed.Options) {
+	t.Helper()
+	if err := ct.PrepareReady(context.Background(), app.Store, creds, opts.OrganizationKey, opts.ConnectionKey, opts.KubeContext, opts.ClusterName); err != nil {
+		t.Fatalf("prepare seeded cluster: %v", err)
+	}
+}
+
+// uploadBody is the strict upload registration body of a synthetic kubeconfig.
+func uploadBody(name string) string {
+	body, err := json.Marshal(map[string]string{"name": name, "kubeconfig": ct.Single("ctx", "https://cluster.example", "synthetic-token-0123456789"), "context": "ctx"})
+	if err != nil {
+		panic(err)
+	}
+	return string(body)
+}
+
 type approvedCluster struct{}
 
-func (approvedCluster) Verify(context.Context, string) (connectionapp.KubernetesVerification, error) {
+func (approvedCluster) VerifyKubeconfig(context.Context, connectionapp.SelectedKubeconfig) (connectionapp.KubernetesVerification, error) {
 	return connectionapp.KubernetesVerification{Endpoint: "https://cluster.example", Version: "v1.34"}, nil
 }
 
 func TestRegisterKubernetesConnectionRequiresPlatformEngineer(t *testing.T) {
 	server, _ := newServer(t, "", approvedCluster{})
-	payload := []byte(`{"key":"second-cluster","clusterId":"kind-second","kubeContext":"kind-idp-internal"}`)
+	payload := []byte(uploadBody("Second cluster"))
 	post := func(client *http.Client) int {
 		t.Helper()
 		req, err := http.NewRequest(http.MethodPost, server.URL+"/api/v1/connections/kubernetes", bytes.NewReader(payload))
@@ -87,8 +111,9 @@ func TestRegisterKubernetesConnectionRequiresPlatformEngineer(t *testing.T) {
 	if got := post(platform); got != http.StatusCreated {
 		t.Fatalf("platform: %d", got)
 	}
-	if got := post(platform); got != http.StatusConflict {
-		t.Fatalf("duplicate: %d", got)
+	// Upload registration is insert-only: the same name gets a new key.
+	if got := post(platform); got != http.StatusCreated {
+		t.Fatalf("same name: %d", got)
 	}
 	status, body := getJSONClient(t, platform, server.URL+"/api/v1/connections")
 	if status != http.StatusOK {
@@ -98,13 +123,12 @@ func TestRegisterKubernetesConnectionRequiresPlatformEngineer(t *testing.T) {
 	for _, item := range body["connections"].([]any) {
 		if item.(map[string]any)["key"] == "second-cluster" {
 			found = true
-			// The public DTO never exposes the secret reference, even for
-			// legacy host-context records.
+			// The public DTO never exposes the secret reference.
 			if _, exposed := item.(map[string]any)["secretRef"]; exposed {
 				t.Fatal("public connection DTO exposes secretRef")
 			}
-			if item.(map[string]any)["authenticationType"] != "HOST_CONTEXT" || item.(map[string]any)["name"] != "second-cluster" {
-				t.Fatalf("legacy registration is not a named host-context connection: %v", item)
+			if item.(map[string]any)["authenticationType"] != "KUBECONFIG" || item.(map[string]any)["name"] != "Second cluster" {
+				t.Fatalf("registration is not a named KUBECONFIG connection: %v", item)
 			}
 		}
 	}
@@ -548,7 +572,8 @@ func TestHTTPDeploymentReadsOnPostgres(t *testing.T) {
 	databaseURL := persistencetest.FreshPostgresDatabase(t)
 	seedOptions := seed.Defaults()
 	seedOptions.RunID = "run-e2e"
-	app, err := bootstrap.Build(context.Background(), bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake, DatabaseURL: databaseURL})
+	// The deploy below needs the seeded cluster READY (fake-only setup, ID kept).
+	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake, DatabaseURL: databaseURL})
 	if err != nil {
 		t.Fatalf("bootstrap: %v", err)
 	}

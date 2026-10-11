@@ -333,10 +333,13 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		Key:             o.ConnectionKey,
 		OrganizationKey: o.OrganizationKey,
 		Kind:            application.ConnectionKubernetes,
-		Config:          map[string]any{"cluster": o.ClusterName, "kubeContext": o.KubeContext},
-		SecretRef:       "secret://connections/" + o.ConnectionKey,
-		Status:          application.ConnectionReady,
-		Verification:    map[string]any{"cluster": o.ClusterName, "verified": true},
+		// The seeded Kubernetes record is explicit KUBECONFIG metadata without an
+		// uploaded credential: VERIFYING with an empty reference, never READY.
+		// It satisfies the Organization default marker but cannot execute.
+		AuthenticationType: application.AuthKubeconfig,
+		Config:             map[string]any{"cluster": o.ClusterName, "kubeContext": o.KubeContext},
+		Status:             application.ConnectionVerifying,
+		Verification:       map[string]any{"cluster": o.ClusterName, "verified": false},
 	}
 	cloudConnection := application.Connection{
 		ID:              ids.New(),

@@ -11,6 +11,7 @@ import (
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 func TestCreateApplicationPersistsExactlyTwoEnvironmentsAndUniqueGuards(t *testing.T) {
@@ -24,7 +25,7 @@ func TestCreateApplicationPersistsExactlyTwoEnvironmentsAndUniqueGuards(t *testi
 		t.Fatal(err)
 	}
 	opts := seed.Defaults()
-	if err = seed.Apply(ctx, first, opts); err != nil {
+	if err = seedtest.Apply(ctx, first, opts); err != nil {
 		t.Fatal(err)
 	}
 	suffix := strings.Split(ids.New(), "-")[0]
@@ -104,7 +105,7 @@ func TestMigration3CaseInsensitiveNameIndex(t *testing.T) {
 	}
 
 	opts := seed.Defaults()
-	if err = seed.Apply(ctx, store, opts); err != nil {
+	if err = seedtest.Apply(ctx, store, opts); err != nil {
 		t.Fatal(err)
 	}
 	app, err := store.GetApplication(ctx, opts.ApplicationKey)

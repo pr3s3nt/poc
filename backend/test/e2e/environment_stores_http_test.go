@@ -169,8 +169,8 @@ func TestTransitionOverHTTPPreviewExecuteProgressAndCleanup(t *testing.T) {
 	app.Transitions.SetAsync(false)
 	developer := authenticatedClient(t, server.URL)
 	ctx := context.Background()
-	conn := appdomain.Connection{ID: ids.New(), Key: "lab2", Name: "Second", OrganizationKey: opts.OrganizationKey, Kind: appdomain.ConnectionKubernetes, AuthenticationType: appdomain.AuthHostContext, Status: appdomain.ConnectionReady,
-		Config: map[string]any{"cluster": "second", "kubeContext": "second-context", "endpoint": "https://second.invalid"}, SecretRef: "host-kube-context://second-context", Verification: map[string]any{}}
+	conn := appdomain.Connection{ID: ids.New(), Key: "lab2", Name: "Second", OrganizationKey: opts.OrganizationKey, Kind: appdomain.ConnectionKubernetes, AuthenticationType: appdomain.AuthKubeconfig, Status: appdomain.ConnectionReady,
+		Config: map[string]any{"cluster": "second", "kubeContext": "second-context", "endpoint": "https://second.invalid"}, SecretRef: "fake-credential://second-context", Verification: map[string]any{}}
 	if err := app.Store.SaveConnection(ctx, conn); err != nil {
 		t.Fatal(err)
 	}

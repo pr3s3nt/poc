@@ -282,14 +282,66 @@ func TestVerifyKubeconfig_ReadOnlyChecksWithSelectedContextOnly(t *testing.T) {
 	}
 }
 
-func TestLegacyTargetKeepsHostContext(t *testing.T) {
+// Context-only and empty targets never reach kubectl: host kube configuration
+// is not a default (T22).
+func TestContextOnlyTargetFailsClosedWithoutRunningKubectl(t *testing.T) {
 	kubectl, logPath := installStub(t)
 	deployer := &Deployer{KubectlPath: kubectl}
-	if err := deployer.Remove(context.Background(), execution.Target{Context: "kind-idp-internal", Namespace: "ns"}, "api"); err != nil {
+	for name, target := range map[string]execution.Target{
+		"context only": {Context: "kind-idp-internal", Namespace: "ns"},
+		"empty":        {Namespace: "ns"},
+	} {
+		if err := deployer.Remove(context.Background(), target, "api"); err == nil {
+			t.Fatalf("%s target was accepted", name)
+		}
+		if _, _, err := OpenCLI(context.Background(), kubectl, nil, target); !errors.Is(err, ErrCredentialTarget) {
+			t.Fatalf("%s OpenCLI: %v", name, err)
+		}
+	}
+	if _, err := NewCLI(kubectl, "kind-idp-internal", "").Run(context.Background(), nil, "get", "pods"); !errors.Is(err, ErrHostKubeconfig) {
+		t.Fatalf("low-level Run without kubeconfig: %v", err)
+	}
+	// A nonexistent or directory kubeconfig path never reaches kubectl either.
+	for name, path := range map[string]string{"missing file": filepath.Join(t.TempDir(), "absent"), "directory": t.TempDir()} {
+		if _, err := NewCLI(kubectl, "eks", path).Run(context.Background(), nil, "get", "pods"); !errors.Is(err, ErrHostKubeconfig) {
+			t.Fatalf("%s: %v", name, err)
+		}
+	}
+	if log, err := os.ReadFile(logPath); err == nil && strings.TrimSpace(string(log)) != "" {
+		t.Fatalf("kubectl ran for a host-default target: %s", log)
+	}
+}
+
+// A Terraform-generated kubeconfig path is an explicit target and keeps working.
+func TestExplicitKubeconfigPathTargetStillRuns(t *testing.T) {
+	kubectl, logPath := installStub(t)
+	path := filepath.Join(t.TempDir(), "eks.kubeconfig")
+	if err := os.WriteFile(path, []byte("apiVersion: v1\nkind: Config\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	deployer := &Deployer{KubectlPath: kubectl}
+	if err := deployer.Remove(context.Background(), execution.Target{Context: "eks-cluster", Kubeconfig: path, Namespace: "ns"}, "api"); err != nil {
 		t.Fatal(err)
 	}
 	log := readLog(t, logPath)
-	if strings.Contains(log, "--kubeconfig") || !strings.Contains(log, "--context kind-idp-internal") {
-		t.Fatalf("legacy target changed: %s", log)
+	if !strings.Contains(log, "--kubeconfig "+path) || !strings.Contains(log, "--context eks-cluster") {
+		t.Fatalf("explicit kubeconfig target changed: %s", log)
+	}
+}
+
+// An existing-cluster Connection that is not KUBECONFIG never reaches kubectl.
+func TestExistingClusterRejectsNonKubeconfigConnections(t *testing.T) {
+	kubectl, logPath := installStub(t)
+	adapter := NewExistingClusterAdapter(kubectl)
+	for name, auth := range map[string]application.AuthenticationType{"host context": "HOST_CONTEXT", "missing": ""} {
+		_, err := adapter.Provision(context.Background(), execution.ProvisionRequest{OrganizationKey: "acme", Connection: application.Connection{
+			Key: "lab", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: auth,
+			Config: map[string]any{"kubeContext": "kind-idp-internal", "cluster": "c"}}})
+		if err == nil {
+			t.Fatalf("%s connection was provisioned", name)
+		}
+	}
+	if log, err := os.ReadFile(logPath); err == nil && strings.TrimSpace(string(log)) != "" {
+		t.Fatalf("kubectl ran for a host connection: %s", log)
 	}
 }

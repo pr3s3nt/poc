@@ -29,7 +29,6 @@ package "Application Services" {
     +InspectKubeconfig(ctx, org, document): ContextMetadata
     +RegisterAWSDriverAccount(ctx, cmd): Connection
     +RegisterKubeconfig(ctx, cmd): Connection
-    +RegisterKubernetesCluster(ctx, cmd): legacy
   }
   class PreviewService {
     +PreviewDeployment(ctx, query): DeploymentPreview

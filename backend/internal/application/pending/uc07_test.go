@@ -12,6 +12,7 @@ import (
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/bootstrap"
+	"orchestrator/internal/bootstrap/bootstraptest"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/seed"
@@ -119,7 +120,7 @@ func (sentinelDeployer) Remove(context.Context, execution.Target, string) error 
 func TestDeployReportDoesNotEchoRuntimeErrors(t *testing.T) {
 	ctx := context.Background()
 	opts := seed.Defaults()
-	app, err := bootstrap.Build(ctx, bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, DeployerOverride: sentinelDeployer{}})
+	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, DeployerOverride: sentinelDeployer{}})
 	if err != nil {
 		t.Fatal(err)
 	}

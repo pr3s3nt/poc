@@ -7,6 +7,7 @@ import (
 	"orchestrator/internal/application/catalog"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 	"testing"
 )
 
@@ -14,7 +15,7 @@ func TestRenderingRegistrationRejectsUnavailableOrInfrastructureInputs(t *testin
 	ctx := context.Background()
 	st := store.New()
 	opts := seed.Defaults()
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	svc := catalog.NewService(st)

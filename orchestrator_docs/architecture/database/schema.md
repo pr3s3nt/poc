@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-12
 ---
 
 # Database Schema
@@ -18,7 +18,7 @@ PostgreSQL là system of record cho logical orchestration state. JSONB chỉ dù
 | `id` | uuid | PK |
 | `organization_key` | text | UNIQUE, NOT NULL |
 | `name` | text | NOT NULL |
-| `default_connection_id` | uuid | FK connections, NOT NULL for onboarding-enabled Organization |
+| `default_connection_id` | uuid | nullable FK connections; when present references an existing scoped record |
 
 The Organization default is only a marker in Environment Settings choices.
 UC-01 creates UNCONFIGURED Environments and never resolves a default. Targets are independently editable with versions and explicit transitions; see
@@ -59,11 +59,11 @@ Only token hashes are persisted. A revoked or expired session is invalid.
 | `organization_id` | uuid | FK organizations, NOT NULL |
 | `connection_key` | text | NOT NULL |
 | `name` | text | NOT NULL; legacy rows backfill connection_key |
-| `authentication_type` | text | NOT NULL; `HOST_CONTEXT`, `KUBECONFIG` or future `AWS_ACCESS_KEY`; kind-compatible |
+| `authentication_type` | text | NOT NULL; `KUBECONFIG` or future `AWS_ACCESS_KEY`; kind-compatible |
 | `kind` | text | `AWS` or `KUBERNETES` |
 | `config` | jsonb | non-secret config, NOT NULL |
 | `secret_ref` | text | NOT NULL |
-| `status` | text | `READY` in MVP |
+| `status` | text | `VERIFYING`, `READY` or `REJECTED` |
 | `verification` | jsonb | principal/cluster metadata, NOT NULL |
 | `created_at`, `updated_at` | timestamptz | NOT NULL |
 
@@ -71,15 +71,17 @@ Unique: `(organization_id, connection_key)`.
 
 New kubeconfig records store cluster/context/endpoint metadata and a scoped
 opaque credential reference. Secret values never enter config/verification.
-`name` and `authentication_type` are additive columns; migration backfills
-legacy Kubernetes as `HOST_CONTEXT`, AWS as `AWS_ACCESS_KEY` legacy process
-metadata. Missing new JSON fields retain explicit legacy compatibility.
-AWS migration does not claim seeded metadata has durable credentials.
-Registration is insert-only; generated key collisions never overwrite rows or
-change Organization default. Existing reference formats must stay compatible.
+Kubernetes authentication is explicitly KUBECONFIG; missing authentication or
+HOST_CONTEXT is rejected without inference. AWS process-configured seed semantics
+remain unchanged. Registration is insert-only; generated key collisions never
+overwrite rows or change Organization default.
 
-Host-context records use `host-kube-context://<context>` and still require the
-same host context. New records use credential store independently of host.
+A seeded Kubernetes marker without uploaded private credential is VERIFYING,
+with no fabricated credential reference or successful verification. It may satisfy
+the Organization default FK but is not selectable or executable. New Applications
+still create UNCONFIGURED Environments. No Kubernetes legacy data conversion is
+provided; retained dev state is reset separately in T29. T28 replaces the remaining
+versioned schema startup machinery with the current fresh baseline.
 See [credential design](../connection-credentials.md).
 
 ### `applications`

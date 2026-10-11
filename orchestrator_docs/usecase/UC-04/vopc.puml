@@ -5,7 +5,6 @@ skinparam classAttributeIconSize 0
 class ConnectionController <<boundary>> {
   +InspectKubeconfig(document)
   +RegisterKubeconfig(command)
-  +RegisterKubernetesCluster(command): legacy
   +RegisterAWSDriverAccount(command): future
 }
 class ConnectionService <<control>> {

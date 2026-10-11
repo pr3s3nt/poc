@@ -105,7 +105,8 @@ T06 CN-01/02 UI behavior: [canonical UI states](../usecase/UC-04/ui/states.md),
 `ConnectionsPage.test.tsx` (auto-inspect/debounce, single/multi context, name
 ownership, stale file-read/inspect, retry/unmount, safe errors), T06 headed local
 scenario and [evidence](../verification/2026-10-11-T06-connections.md).
-Inspect/register contracts and HOST_CONTEXT compatibility remain unchanged.
+T06 preserved the API at that checkpoint; T22 now removes HOST_CONTEXT and
+the old registration body under UC-04 BR-15.
 
 Kubernetes upload implementation and local/isolated PostgreSQL tests pass on
 2026-10-06. [Video verification and review](../verification/2026-10-06-uc04-kubeconfig-upload.md)
@@ -116,11 +117,20 @@ are recorded separately. AWS remains future scope.
 | MS-01..03; VAR-01 | inspect; `UC-04/sequence.puml` | HTTP Controller, InspectKubeconfig, parser | transient safe context metadata | OC-05; `TestInspectKubeconfig_ListsSafeMetadataOfValidContexts`, `TestKubeconfig_RequiresAPIVersionAndKind`, `TestUC04UploadHTTPContract`, `ConnectionsPage.test.tsx` |
 | MS-04..05; BR-06..08 | upload register, verify | Service.RegisterKubeconfig, verifier.VerifyKubeconfig | read-only API/RBAC | OC-05; `TestNormalizeKubeconfig_RejectionsAreSafeAndCategorized`, `TestVerifyKubeconfig_ReadOnlyChecksWithSelectedContextOnly` |
 | MS-06; BR-02,09,10 | credential Put | scoped CredentialStore | external immutable secret, no database bytes | OC-05; `TestConnectionCredentials_ScopedCreateOnlyLifecycle`, `TestConnectionCredentials_RejectsOutOfScopeReferencesWithoutRequests`, `TestCredentialResolver_FailsClosed`, `TestCredentialTarget_KubectlFailuresNeverEchoOutput` |
-| MS-07; BR-01,15,16 | CreateConnection | repository + UnitOfWork | name/auth type, insert-only READY, default unchanged | OC-05; `TestRegisterKubeconfig_ConcurrentSameNameGetsDistinctKeys`, `TestMigration5BackfillsConnectionNameAndAuthentication`, `TestPostgresKubeconfigRegistrationRaceAndReopen`, `TestSnapshotConnectionsReadWithLegacyDefaults` |
+| MS-07; BR-01,15,16 | CreateConnection | repository + UnitOfWork | name/auth type, insert-only READY, default unchanged | OC-05; `TestRegisterKubeconfig_ConcurrentSameNameGetsDistinctKeys`, `TestFreshSchemaSeedsVerifyingKubeconfigAndRejectsHostContext`, `TestPostgresKubeconfigRegistrationRaceAndReopen`, `TestSnapshotConnectionsReadWithLegacyDefaults` |
 | MS-08..09 | public response/reload | DTO, ConnectionsPage | no response secret; catalog consumption | OC-05; `TestUC04UploadHTTPContract`, frontend registration/state tests, dedicated Playwright runner |
 | ERR-07..08 | write/cleanup failures | CredentialStore.Delete | only own attempt cleaned with bounded context | OC-05; `TestRegisterKubeconfig_FailuresSaveNothingReady`, `TestUC04UploadWithoutCredentialStoreFailsClosed` |
 | BR-10; POST-03 | execution credential resolution | resolver, Kubernetes adapters | opaque target identity only | `TestCredentialTarget_DeployerUsesScopedPrivateKubeconfig`, `TestCredentialTarget_RoutesVSOAndExecutorUseScopedCredential`, `TestExistingCluster_CredentialBackedConnectionIsAuthoritative`, `TestCredentialBackedTarget_RemovalAfterRestart`, `TestFleetRejectsCredentialBackedTargets` |
 | VAR-02; BR-11..12,14 | future AWS register | AWS verifier/resolver, Terraform | ADR-009 credential namespace | designed; not implemented by upload slice |
+
+## T22 explicit Kubernetes credentials
+
+| Requirement | Collaboration / contract | Validation |
+|---|---|---|
+| UC-04 BR-15; OC-05 | upload-only HTTP/service; explicit auth/kind compatibility; scoped resolver | `TestUC04UploadHTTPContract` rejects old/mixed body before verifier/secret/row effects; `TestWithLegacyDefaultsNeverInfersKubernetesAuthentication`; resolver negative scope/ref/auth tests |
+| UC-04 BR-10/15; UC-06 BR-20; UC-08 BR-07/08 | ExistingClusterAdapter and OpenCLI/CLI.Run reject host defaults; keep explicit Terraform EKS kubeconfig path | `TestContextOnlyTargetFailsClosedWithoutRunningKubectl`, `TestExistingClusterRejectsNonKubeconfigConnections`, `TestExplicitKubeconfigPathTargetStillRuns`; existing temp cleanup/cancellation/redaction/restart tests |
+| UC-04 BR-15/16; schema default marker | seed KUBECONFIG/VERIFYING, no private ref; new Application remains UNCONFIGURED | `TestSeedKubernetesRecordIsVerifyingWithoutCredential`, `TestProductSeedClusterIsVerifyingAndApplicationCreateStillWorks`; SQL FK/authentication tests are opt-in, not executed in T22 |
+| ADR-007 T22 boundary | Fleet context-only/scoped Connection targets unsupported, before Git/cluster mutation | guard tests and full conformance; no live Fleet proof |
 
 ## UC-05
 

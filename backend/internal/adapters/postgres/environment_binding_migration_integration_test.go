@@ -13,8 +13,11 @@ import (
 )
 
 // preChangeSchema installs migrations 1..5 (the schema before ADR-011) and a
-// ledger so Open applies only the new migration over real old rows.
-func preChangeSchema(t *testing.T, url string) {
+// ledger so Open applies only the new migrations over real old rows.
+// kubernetesAuth is the historical authentication type of the Kubernetes rows:
+// HOST_CONTEXT is rejected by migration 8; KUBECONFIG lets the ADR-011 binding
+// backfill be exercised.
+func preChangeSchema(t *testing.T, url, kubernetesAuth string) {
 	t.Helper()
 	ctx := context.Background()
 	conn, err := pgx.Connect(ctx, url)
@@ -42,8 +45,8 @@ func preChangeSchema(t *testing.T, url string) {
 	stmts := []string{
 		`INSERT INTO organizations(id,organization_key,name,default_connection_key) VALUES('` + org + `','acme','Acme','default')`,
 		`INSERT INTO connections(id,organization_id,connection_key,kind,config,secret_ref,status,verification,name,authentication_type) VALUES
-		 ('` + defc + `','` + org + `','default','KUBERNETES','{}','host-kube-context://default','READY','{}','default','HOST_CONTEXT'),
-		 ('` + lab + `','` + org + `','lab','KUBERNETES','{}','host-kube-context://lab','READY','{}','lab','HOST_CONTEXT'),
+		 ('` + defc + `','` + org + `','default','KUBERNETES','{}','fake-credential://default','READY','{}','default','` + kubernetesAuth + `'),
+		 ('` + lab + `','` + org + `','lab','KUBERNETES','{}','fake-credential://lab','READY','{}','lab','` + kubernetesAuth + `'),
 		 ('` + cloud + `','` + org + `','cloud','AWS','{"region":"eu-west-1"}','secret://connections/cloud','READY','{}','cloud','AWS_ACCESS_KEY')`,
 		`UPDATE organizations SET default_connection_id='` + defc + `' WHERE id='` + org + `'`,
 		`INSERT INTO applications(id,application_key,organization_id,name,subdomain,execution_profile,connection_id,region,runtime_status,version,configuration_provider) VALUES
@@ -64,7 +67,7 @@ func preChangeSchema(t *testing.T, url string) {
 func TestMigration6BackfillsLegacyBindingsAndKeepsNewApplicationsUnset(t *testing.T) {
 	ctx := context.Background()
 	url := persistencetest.FreshPostgresDatabase(t)
-	preChangeSchema(t, url)
+	preChangeSchema(t, url, "KUBECONFIG")
 
 	st, err := Open(ctx, url)
 	if err != nil {
@@ -133,7 +136,7 @@ func TestMigration6BackfillsLegacyBindingsAndKeepsNewApplicationsUnset(t *testin
 		check(reopened, "manual rerun")
 		var count int
 		_ = reopened.pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count)
-		if count != 7 {
+		if count != 8 {
 			t.Fatalf("ledger rows = %d", count)
 		}
 		reopened.Close()

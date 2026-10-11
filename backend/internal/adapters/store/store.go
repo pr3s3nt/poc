@@ -275,8 +275,9 @@ func NewWithSnapshot(path string) (*Store, error) {
 	s.state = loaded
 	s.state.ensureMaps()
 	// Snapshots written before Connection name/authentication type existed
-	// read with the legacy defaults; unknown shapes stay empty and fail
-	// closed when execution resolves them.
+	// read with the AWS seed default only. Kubernetes records without an
+	// explicit KUBECONFIG type are never inferred; they stay unresolved and
+	// fail closed when execution resolves them.
 	for key, conn := range s.state.Connections {
 		s.state.Connections[key] = legacyConnection(conn)
 	}

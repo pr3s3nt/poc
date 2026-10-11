@@ -1,6 +1,5 @@
 // Package connection implements UC-04 Connection registration: the kubeconfig
-// upload flow with a scoped credential store, and the explicit legacy
-// host-context compatibility flow.
+// upload flow with a scoped credential store. There is no host-context flow.
 package connection
 
 import (
@@ -8,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/url"
-	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -50,18 +47,6 @@ var (
 
 const permissionGuidance = "create namespaces, and deployments, statefulsets, services and secrets in all namespaces"
 
-func verificationError(err error) error {
-	switch {
-	case errors.Is(err, ErrContextMissing):
-		return categorize(ErrContextMissing, fmt.Errorf("%w: the kube context is not configured on the backend host; configure it there first", ErrVerification))
-	case errors.Is(err, ErrPermissionDenied):
-		return categorize(ErrPermissionDenied, fmt.Errorf("%w: the context lacks a required permission (%s)", ErrVerification, permissionGuidance))
-	case errors.Is(err, ErrClusterUnreachable):
-		return categorize(ErrClusterUnreachable, fmt.Errorf("%w: the cluster API could not be reached with this context", ErrVerification))
-	}
-	return fmt.Errorf("%w: check that the context exists on the backend host, its API is reachable and it has the required permissions", ErrVerification)
-}
-
 // kubeconfigVerificationError maps upload verification failures (ERR-05/06).
 func kubeconfigVerificationError(err error) error {
 	switch {
@@ -88,8 +73,6 @@ func (e *categorized) Is(target error) bool { return target == e.category }
 
 func categorize(category, err error) error { return &categorized{category: category, err: err} }
 
-var connectionKeyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,40}$`)
-
 const (
 	maxNameLength      = 100
 	maxKeySlugLength   = 32
@@ -102,11 +85,6 @@ type KubernetesVerification struct {
 	Version  string
 }
 
-// KubernetesVerifier checks the host's named context without creating objects.
-type KubernetesVerifier interface {
-	Verify(ctx context.Context, kubeContext string) (KubernetesVerification, error)
-}
-
 // KubeconfigVerifier checks the API and RBAC of a normalized selected-context
 // kubeconfig without creating objects and without host credentials.
 type KubeconfigVerifier interface {
@@ -115,28 +93,20 @@ type KubeconfigVerifier interface {
 
 type Service struct {
 	store       persistence.Store
-	verifier    KubernetesVerifier
 	kubeconfig  KubeconfigVerifier
 	credentials credentials.Store
 }
 
-// NewService wires the legacy host-context verifier. Upload registration also
-// needs SetKubeconfigRegistration.
-func NewService(store persistence.Store, verifier KubernetesVerifier) *Service {
-	return &Service{store: store, verifier: verifier}
+// NewService returns the Connection service. Upload registration needs
+// SetKubeconfigRegistration; without it registration fails closed.
+func NewService(store persistence.Store) *Service {
+	return &Service{store: store}
 }
 
 // SetKubeconfigRegistration wires the upload verifier and credential store.
 // A nil store makes upload registration fail with ErrCredentialStore.
 func (s *Service) SetKubeconfigRegistration(verifier KubeconfigVerifier, store credentials.Store) {
 	s.kubeconfig, s.credentials = verifier, store
-}
-
-// RegisterKubernetesCommand is the explicit legacy host-context body.
-type RegisterKubernetesCommand struct {
-	Key         string `json:"key"`
-	ClusterID   string `json:"clusterId"`
-	KubeContext string `json:"kubeContext"`
 }
 
 // RegisterKubeconfigCommand is the upload body (UC-04 VAR-01).
@@ -308,56 +278,4 @@ func keySlug(name string) string {
 		slug = "connection"
 	}
 	return slug
-}
-
-// RegisterKubernetesCluster is the explicit legacy host-context registration.
-// It is never a fallback for upload failures.
-func (s *Service) RegisterKubernetesCluster(ctx context.Context, org string, cmd RegisterKubernetesCommand) (application.Connection, error) {
-	cmd.Key = strings.TrimSpace(cmd.Key)
-	cmd.ClusterID = strings.TrimSpace(cmd.ClusterID)
-	cmd.KubeContext = strings.TrimSpace(cmd.KubeContext)
-	if !connectionKeyPattern.MatchString(cmd.Key) || !connectionKeyPattern.MatchString(cmd.ClusterID) || cmd.KubeContext == "" || strings.ContainsAny(cmd.KubeContext, "\x00\n\r") {
-		return application.Connection{}, fmt.Errorf("%w: valid connection ID, cluster ID and kube context are required", ErrInvalid)
-	}
-	if s.verifier == nil {
-		return application.Connection{}, fmt.Errorf("%w: Kubernetes verifier is unavailable", ErrVerification)
-	}
-	verified, err := s.verifier.Verify(ctx, cmd.KubeContext)
-	if err != nil {
-		return application.Connection{}, verificationError(err)
-	}
-	if verified.Endpoint == "" {
-		return application.Connection{}, verificationError(ErrClusterUnreachable)
-	}
-	conn := application.Connection{
-		Key: cmd.Key, Name: cmd.Key, OrganizationKey: org,
-		Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthHostContext,
-		Config:       map[string]any{"cluster": cmd.ClusterID, "kubeContext": cmd.KubeContext, "endpoint": verified.Endpoint},
-		SecretRef:    "host-kube-context://" + url.PathEscape(cmd.KubeContext),
-		Status:       application.ConnectionReady,
-		Verification: map[string]any{"verified": true, "endpoint": verified.Endpoint, "serverVersion": verified.Version},
-	}
-	err = s.store.Transact(ctx, func(ctx context.Context) error {
-		if _, err := s.store.GetOrganization(ctx, org); err != nil {
-			return err
-		}
-		connections, err := s.store.ListConnections(ctx, org)
-		if err != nil {
-			return err
-		}
-		for _, existing := range connections {
-			if existing.Key == cmd.Key {
-				return fmt.Errorf("%w: connection %q", ErrDuplicate, cmd.Key)
-			}
-		}
-		// Insert-only: the repository insert is the final duplicate guard.
-		return s.store.CreateConnection(ctx, conn)
-	})
-	if errors.Is(err, persistence.ErrDuplicate) {
-		return application.Connection{}, fmt.Errorf("%w: connection %q", ErrDuplicate, cmd.Key)
-	}
-	if err != nil {
-		return application.Connection{}, err
-	}
-	return conn, nil
 }

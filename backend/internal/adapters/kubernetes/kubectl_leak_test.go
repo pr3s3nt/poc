@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -171,14 +172,19 @@ func TestCredentialTarget_TypedCategoriesKeepBehavior(t *testing.T) {
 	}
 }
 
-// TestLegacyTarget_KeepsKubectlDiagnostics checks host-context targets still
-// report kubectl stderr, with the same typed category.
-func TestLegacyTarget_KeepsKubectlDiagnostics(t *testing.T) {
+// TestExplicitPathTarget_KeepsKubectlDiagnostics checks explicit kubeconfig
+// path targets (Terraform-generated) still report kubectl stderr, with the same
+// typed category.
+func TestExplicitPathTarget_KeepsKubectlDiagnostics(t *testing.T) {
 	kubectl, _ := installStub(t)
 	t.Setenv("STUB_LEAK", " delete ")
 	t.Setenv("STUB_LEAK_MSG", "Error from server (Forbidden): deployments.apps is forbidden for host user")
-	err := (&Deployer{KubectlPath: kubectl}).Remove(context.Background(), execution.Target{Context: "kind-idp-internal", Namespace: "ns"}, "api")
+	path := filepath.Join(t.TempDir(), "eks.kubeconfig")
+	if err := os.WriteFile(path, []byte("apiVersion: v1\nkind: Config\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := (&Deployer{KubectlPath: kubectl}).Remove(context.Background(), execution.Target{Context: "eks-cluster", Kubeconfig: path, Namespace: "ns"}, "api")
 	if !errors.Is(err, ErrForbidden) || !strings.Contains(err.Error(), "forbidden for host user") {
-		t.Fatalf("legacy diagnostics lost: %v", err)
+		t.Fatalf("explicit-path diagnostics lost: %v", err)
 	}
 }

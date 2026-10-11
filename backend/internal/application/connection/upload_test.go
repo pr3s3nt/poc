@@ -97,7 +97,7 @@ func uploadFixture(t *testing.T) (*store.Store, *credentialmemory.Store, *kubeco
 	}
 	creds := credentialmemory.New()
 	v := &kubeconfigVerifier{}
-	svc := connection.NewService(st, nil)
+	svc := connection.NewService(st)
 	svc.SetKubeconfigRegistration(v, creds)
 	return st, creds, v, svc
 }
@@ -198,7 +198,7 @@ func TestRegisterKubeconfig_FailuresSaveNothingReady(t *testing.T) {
 	})
 	t.Run("no store", func(t *testing.T) {
 		st, _, v, _ := uploadFixture(t)
-		svc := connection.NewService(st, nil)
+		svc := connection.NewService(st)
 		svc.SetKubeconfigRegistration(v, nil)
 		if _, err := svc.RegisterKubeconfig(ctx, "acme", cmd); !errors.Is(err, connection.ErrCredentialStore) {
 			t.Fatalf("got %v", err)
@@ -248,7 +248,7 @@ func TestRegisterKubeconfig_FailuresSaveNothingReady(t *testing.T) {
 		// The request is cancelled deterministically while the insert fails.
 		st := &failingStore{Store: base, createErr: errors.New("db down"), onCreate: cancel}
 		creds := &recordingCredentials{Store: mem}
-		svc := connection.NewService(st, nil)
+		svc := connection.NewService(st)
 		svc.SetKubeconfigRegistration(v, creds)
 		if _, err := svc.RegisterKubeconfig(cancelled, "acme", cmd); err == nil {
 			t.Fatal("insert failure reported success")
@@ -277,7 +277,7 @@ func TestRegisterKubeconfig_FailuresSaveNothingReady(t *testing.T) {
 		base, _, v, _ := uploadFixture(t)
 		st := &failingStore{Store: base, createErr: errors.New("db down")}
 		creds := &deleteFailing{Store: credentialmemory.New()}
-		svc := connection.NewService(st, nil)
+		svc := connection.NewService(st)
 		svc.SetKubeconfigRegistration(v, creds)
 		_, err := svc.RegisterKubeconfig(ctx, "acme", cmd)
 		var cleanup *connection.CleanupError
@@ -302,7 +302,7 @@ func TestCredentialResolver_FailsClosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SaveConnection(ctx, application.Connection{Key: "legacy", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Config: map[string]any{"kubeContext": "ctx"}, SecretRef: "host-kube-context://ctx", Status: application.ConnectionReady}); err != nil {
+	if err := st.SaveConnection(ctx, application.Connection{Key: "legacy", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, AuthenticationType: "HOST_CONTEXT", Config: map[string]any{"kubeContext": "ctx"}, SecretRef: "fake-credential://ctx", Status: application.ConnectionReady}); err != nil {
 		t.Fatal(err)
 	}
 	notReady := created

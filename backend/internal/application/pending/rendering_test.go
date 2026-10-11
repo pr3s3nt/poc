@@ -10,6 +10,7 @@ import (
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/bootstrap"
+	"orchestrator/internal/bootstrap/bootstraptest"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/seed"
@@ -26,7 +27,7 @@ func TestRendererDefinitionChangeTriggersPendingUpdateAndStaleToken(t *testing.T
 		t.Skip("local score-k8s unavailable")
 	}
 	opts := seed.Defaults()
-	app, err := bootstrap.Build(ctx, bootstrap.Options{Seed: opts, ScoreK8sPath: path})
+	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: opts, ScoreK8sPath: path})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +94,7 @@ func restart(t *testing.T, state, binary string) (*bootstrap.App, *pending.Servi
 	t.Helper()
 	ctx := context.Background()
 	opts := seed.Defaults()
-	app, err := bootstrap.Build(ctx, bootstrap.Options{Seed: opts, ScoreK8sPath: binary, StatePath: state})
+	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: opts, ScoreK8sPath: binary, StatePath: state})
 	if err != nil {
 		t.Fatal(err)
 	}

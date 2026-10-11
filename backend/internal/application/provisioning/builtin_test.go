@@ -20,13 +20,14 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 func TestEnsureBuiltinCluster_IdempotentAndFailsClosedOnCollision(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
 	opts := seed.Defaults()
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 2; i++ {
@@ -52,7 +53,7 @@ func TestEnsureBuiltinCluster_IdempotentAndFailsClosedOnCollision(t *testing.T) 
 	foreign := planning.BuiltinClusterDefinition()
 	foreign.Criteria = []resource.Criterion{{ApplicationID: "mine"}}
 	other := store.New()
-	if err := seed.Apply(ctx, other, opts); err != nil {
+	if err := seedtest.Apply(ctx, other, opts); err != nil {
 		t.Fatal(err)
 	}
 	if err := other.SaveResourceDefinition(ctx, opts.OrganizationKey, foreign); err != nil {
@@ -101,10 +102,10 @@ func TestProvision_BuiltinClusterRechecksStoredConnection(t *testing.T) {
 	}
 	for name, mutate := range cases {
 		st := store.New()
-		if err := seed.Apply(ctx, st, opts); err != nil {
+		if err := seedtest.Apply(ctx, st, opts); err != nil {
 			t.Fatal(err)
 		}
-		conn := application.Connection{ID: "lab", Key: "lab", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthHostContext}
+		conn := application.Connection{ID: "lab", Key: "lab", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthKubeconfig}
 		if mutate != nil {
 			mutate(&conn)
 			if err := st.SaveConnection(ctx, conn); err != nil {
@@ -142,7 +143,7 @@ func TestProvision_BuiltinClusterRejectsForgedMatch(t *testing.T) {
 	}
 	for name, forge := range forgeries {
 		st := store.New()
-		if err := seed.Apply(ctx, st, opts); err != nil {
+		if err := seedtest.Apply(ctx, st, opts); err != nil {
 			t.Fatal(err)
 		}
 		service := provisioning.NewService(st, &countingRegistry{}, secrets.NewMemory(), clock.System{})
@@ -162,7 +163,7 @@ func TestEnsureBuiltinCluster_ConcurrentAdmissionStoresOneRecord(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
 	opts := seed.Defaults()
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	errs := make(chan error, 8)
@@ -234,10 +235,10 @@ func TestProvision_BuiltinAdmissionPrecedesFKDependentWrites(t *testing.T) {
 	opts := seed.Defaults()
 	opts.OrganizationKey = "acme"
 	inner := store.New()
-	if err := seed.Apply(ctx, inner, opts); err != nil {
+	if err := seedtest.Apply(ctx, inner, opts); err != nil {
 		t.Fatal(err)
 	}
-	if err := inner.SaveConnection(ctx, application.Connection{ID: "lab", Key: "lab", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthHostContext, Config: map[string]any{"cluster": "c", "kubeContext": "k"}}); err != nil {
+	if err := inner.SaveConnection(ctx, application.Connection{ID: "lab", Key: "lab", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthKubeconfig, Config: map[string]any{"cluster": "c", "kubeContext": "k"}}); err != nil {
 		t.Fatal(err)
 	}
 	types := map[string]resource.Type{}
@@ -264,7 +265,7 @@ func TestEnsureBuiltinCluster_ConcurrentCollisionPreservesContent(t *testing.T) 
 	ctx := context.Background()
 	st := store.New()
 	opts := seed.Defaults()
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	foreign := planning.BuiltinClusterDefinition()

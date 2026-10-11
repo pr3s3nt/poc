@@ -11,44 +11,11 @@ import (
 	"orchestrator/internal/application/connection"
 )
 
-// ConnectionVerifier validates a Kubernetes Connection without mutating
-// Kubernetes: either an existing host kube context (legacy) or an uploaded,
-// normalized selected-context kubeconfig.
+// ConnectionVerifier validates an uploaded, normalized selected-context
+// kubeconfig without mutating Kubernetes.
 type ConnectionVerifier struct{ KubectlPath string }
 
 const verifyTimeout = 30 * time.Second
-
-func (v ConnectionVerifier) Verify(parent context.Context, kubeContext string) (connection.KubernetesVerification, error) {
-	ctx, cancel := context.WithTimeout(parent, verifyTimeout)
-	defer cancel()
-	cli := NewCLI(v.KubectlPath, kubeContext, "")
-	contexts, err := cli.Run(ctx, nil, "config", "get-contexts", "-o", "name")
-	if err != nil {
-		return connection.KubernetesVerification{}, fmt.Errorf("%w: %v", connection.ErrContextMissing, err)
-	}
-	found := false
-	for _, name := range strings.Split(string(contexts), "\n") {
-		if strings.TrimSpace(name) == kubeContext {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return connection.KubernetesVerification{}, fmt.Errorf("%w: %q", connection.ErrContextMissing, kubeContext)
-	}
-	version, err := apiVersion(ctx, cli)
-	if err != nil {
-		return connection.KubernetesVerification{}, err
-	}
-	endpoint, err := clusterEndpoint(ctx, cli, kubeContext)
-	if err != nil {
-		return connection.KubernetesVerification{}, fmt.Errorf("%w: %v", connection.ErrClusterUnreachable, err)
-	}
-	if err := checkPermissions(ctx, cli); err != nil {
-		return connection.KubernetesVerification{}, err
-	}
-	return connection.KubernetesVerification{Endpoint: endpoint, Version: version}, nil
-}
 
 // VerifyKubeconfig checks API reachability, authentication and the VAR-01
 // permissions with only the uploaded selected context. The document is
@@ -117,6 +84,5 @@ func unauthorized(err error) bool {
 }
 
 var (
-	_ connection.KubernetesVerifier = ConnectionVerifier{}
 	_ connection.KubeconfigVerifier = ConnectionVerifier{}
 )

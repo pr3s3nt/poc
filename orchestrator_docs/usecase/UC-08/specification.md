@@ -135,7 +135,7 @@ before destination apps/routes become live. See
 
 ## Implicit internal cluster binding
 
-- **BR-08:** Internal existing-cluster uses the system execution binding from the plan, validates the scoped READY Kubernetes Connection, and resolves/checks the existing cluster without creation. Admit the reserved system Definition idempotently before FK-dependent writes, never in Preview. Preserve legacy descriptors/targets and fail closed on collision or target mismatch.
+- **BR-08:** Internal existing-cluster uses the system execution binding from the plan, validates the scoped READY Kubernetes Connection, and resolves/checks the existing cluster without creation. Admit the reserved system Definition idempotently before FK-dependent writes, never in Preview. Preserve descriptors and scoped KUBECONFIG targets; reject host-context or missing credentials per UC-04 BR-15, and fail closed on collision or target mismatch.
 
 See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
 

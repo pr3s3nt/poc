@@ -13,6 +13,7 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/bootstrap"
+	"orchestrator/internal/bootstrap/bootstraptest"
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
 	domain "orchestrator/internal/domain/deployment"
@@ -193,7 +194,7 @@ func newApp(t *testing.T, cloud bool) (*bootstrap.App, seed.Options) {
 	if cloud {
 		opts.Region, opts.AccountID = "us-east-1", "000000000000"
 	}
-	app, err := bootstrap.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake})
+	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatalf("bootstrap: %v", err)
 	}

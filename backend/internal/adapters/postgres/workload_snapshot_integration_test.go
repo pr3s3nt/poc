@@ -8,6 +8,7 @@ import (
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 func openFresh(t *testing.T) (*Store, string) {
@@ -49,7 +50,7 @@ func TestMigration4BackfillsLatestRunOnly(t *testing.T) {
 	ctx := context.Background()
 	st, url := openFresh(t)
 	opts := seed.Defaults()
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now().UTC().Truncate(time.Second)

@@ -73,6 +73,9 @@ run_phase() {
 
 mkdir -p "${WORK}/screenshots"
 (cd "${ROOT}" && go build -o "${WORK}/orchestrator" ./cmd/orchestrator)
+# The product seed leaves the cluster record VERIFYING without a credential.
+# Fake local workflows opt in to explicit synthetic READY metadata (no cluster).
+(cd "${ROOT}" && go run ./test/integration/readystate -state "${WORK}/state.json" -connection lab-cluster=lab-context:lab)
 
 start_backend first
 run_phase create

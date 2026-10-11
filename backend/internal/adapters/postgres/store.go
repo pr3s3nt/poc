@@ -126,6 +126,17 @@ CREATE TRIGGER environments_binding_immutable BEFORE UPDATE ON environments
   FOR EACH ROW EXECUTE FUNCTION environments_binding_immutable();
 `
 
+// migration8 removes Kubernetes HOST_CONTEXT (T22). The constraint accepts only
+// KUBECONFIG for Kubernetes. It is validated against existing rows: a database
+// still holding HOST_CONTEXT records fails this migration and startup, and must
+// be reset (T29); records are never converted to a fabricated READY KUBECONFIG.
+const migration8 = `
+ALTER TABLE connections DROP CONSTRAINT IF EXISTS connections_authentication_type_check;
+ALTER TABLE connections ADD CONSTRAINT connections_authentication_type_check CHECK (
+  (kind='KUBERNETES' AND authentication_type='KUBECONFIG') OR
+  (kind='AWS' AND authentication_type='AWS_ACCESS_KEY'));
+`
+
 // migration7 implements ADR-012: separate Secret Store Connections, editable
 // Environment selections with target generations, persisted operation claims
 // and transition records. The permanent binding trigger is dropped; binding
@@ -209,6 +220,19 @@ func Open(ctx context.Context, databaseURL string) (*Store, error) {
 	return &Store{pool: pool}, nil
 }
 
+// ErrLegacyConnectionData means the database still holds Kubernetes
+// Connections written before T22 (HOST_CONTEXT or untyped). They are not
+// converted; the development database must be reset. The text carries no SQL,
+// constraint or row details.
+var ErrLegacyConnectionData = errors.New("postgres: the database holds legacy Kubernetes connections that are no longer supported; reset the development database and upload the connections again")
+
+// isLegacyConnectionData reports whether err is the check violation of the
+// KUBECONFIG-only connection authentication constraint (SQLSTATE 23514).
+func isLegacyConnectionData(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23514" && pgErr.ConstraintName == "connections_authentication_type_check"
+}
+
 func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -224,7 +248,7 @@ func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	for _, item := range []struct {
 		version int
 		sql     string
-	}{{1, migration}, {2, migration2}, {3, migration3}, {4, migration4}, {5, migration5}, {6, migration6}, {7, migration7}} {
+	}{{1, migration}, {2, migration2}, {3, migration3}, {4, migration4}, {5, migration5}, {6, migration6}, {7, migration7}, {8, migration8}} {
 		var applied bool
 		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)`, item.version).Scan(&applied); err != nil {
 			return err
@@ -233,6 +257,9 @@ func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 			continue
 		}
 		if _, err = tx.Exec(ctx, item.sql); err != nil {
+			if item.version == 8 && isLegacyConnectionData(err) {
+				return ErrLegacyConnectionData
+			}
 			return fmt.Errorf("postgres: apply migration %d: %w", item.version, err)
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO schema_migrations(version) VALUES($1)`, item.version); err != nil {

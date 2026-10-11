@@ -112,8 +112,6 @@ type AuthenticationType string
 
 // Authentication types of the shared credential design.
 const (
-	// AuthHostContext is the legacy Kubernetes kube context on the backend host.
-	AuthHostContext AuthenticationType = "HOST_CONTEXT"
 	// AuthKubeconfig is an uploaded, normalized selected-context kubeconfig
 	// held by the Connection credential store.
 	AuthKubeconfig AuthenticationType = "KUBECONFIG"
@@ -124,7 +122,7 @@ const (
 // Compatible reports whether the authentication type belongs to the kind.
 func (t AuthenticationType) Compatible(kind ConnectionKind) bool {
 	switch t {
-	case AuthHostContext, AuthKubeconfig:
+	case AuthKubeconfig:
 		return kind == ConnectionKubernetes
 	case AuthAWSAccessKey:
 		return kind == ConnectionAWS
@@ -147,27 +145,22 @@ type Connection struct {
 	Verification       map[string]any     `json:"verification"`
 }
 
-// Legacy reference shapes written before authentication types existed.
-const (
-	legacyHostContextRef = "host-kube-context://"
-	legacySeedRef        = "secret://connections/"
-)
+// legacySeedRef is the process-configured AWS seed reference shape.
+const legacySeedRef = "secret://connections/"
 
-// WithLegacyDefaults fills Name and AuthenticationType of records written
-// before those fields existed. A missing name reads as the key; a missing
-// authentication type is inferred only from the known legacy reference
-// shapes. Unknown or kind-incompatible types fail closed.
+// WithLegacyDefaults fills Name of records written before it existed. A
+// Kubernetes Connection must declare KUBECONFIG explicitly: a missing type or
+// any type other than KUBECONFIG is never inferred. Only the process-configured
+// AWS seed reference infers its type. Unknown or kind-incompatible types fail
+// closed.
 func (c Connection) WithLegacyDefaults() (Connection, error) {
 	if c.Name == "" {
 		c.Name = c.Key
 	}
 	if c.AuthenticationType == "" {
-		switch {
-		case c.Kind == ConnectionKubernetes && (strings.HasPrefix(c.SecretRef, legacyHostContextRef) || strings.HasPrefix(c.SecretRef, legacySeedRef)):
-			c.AuthenticationType = AuthHostContext
-		case c.Kind == ConnectionAWS && strings.HasPrefix(c.SecretRef, legacySeedRef):
+		if c.Kind == ConnectionAWS && strings.HasPrefix(c.SecretRef, legacySeedRef) {
 			c.AuthenticationType = AuthAWSAccessKey
-		default:
+		} else {
 			return c, fmt.Errorf("application: connection %q has an unknown authentication type", c.Key)
 		}
 	}
@@ -178,7 +171,7 @@ func (c Connection) WithLegacyDefaults() (Connection, error) {
 }
 
 // CredentialBacked reports whether execution must resolve the credential from
-// the Connection credential store instead of the backend host.
+// the Connection credential store; no host credential exists.
 func (c Connection) CredentialBacked() bool { return c.AuthenticationType == AuthKubeconfig }
 
 // ConfigString reads a non-secret configuration string.

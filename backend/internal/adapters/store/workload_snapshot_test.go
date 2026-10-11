@@ -12,6 +12,7 @@ import (
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 func TestWorkloadSnapshotContract(t *testing.T) {
@@ -71,7 +72,7 @@ func legacyState(t *testing.T, path string) (older, latest deployment.Deployment
 		t.Fatal(err)
 	}
 	opts := seed.Defaults()
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now().UTC().Truncate(time.Second)

@@ -2,7 +2,7 @@
 id: CONNECTION-CREDENTIAL-DESIGN
 artifact: shared-design
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-12
 ---
 
 # Connection credentials and execution identity
@@ -19,16 +19,16 @@ identity for VPC/EKS/Aurora/Terraform state, not merely an EKS login.
 
 Common fields: Organization, stable key, display name, kind, authentication type,
 non-secret config, opaque secret reference, status and verification metadata.
-Kinds stay `KUBERNETES` / `AWS`. Authentication types:
+Kinds stay `KUBERNETES` / `AWS`. Authentication types (T22 removes HOST_CONTEXT):
 
 | Type | Kind | Resolution |
 |---|---|---|
-| `HOST_CONTEXT` | Kubernetes legacy | Existing host context, explicit compatibility path |
 | `KUBECONFIG` | Kubernetes new | Normalized selected-context config from scoped credential store |
 | `AWS_ACCESS_KEY` | AWS future | Access key pair in Vault according to ADR-009 |
 
-Legacy missing display name reads as key; missing auth type is inferred only for
-known legacy metadata/reference shape. Unknown type/reference fails closed.
+Missing display name can read as key. Kubernetes authentication must be explicit
+KUBECONFIG; missing type, HOST_CONTEXT and missing scoped credential fail closed.
+Existing AWS process-configured metadata remains unchanged.
 AWS seeded records are legacy process configuration, not proof of new AWS
 credential flow. No generic arbitrary command authentication provider exists.
 
@@ -88,7 +88,10 @@ cleanup runs on success/error/cancellation. Retain scope identity through
 existing-cluster resource output, dependency target resolution and deployment
 Target restoration. All namespace/provision/deploy/readiness/remove/Ingress/VSO
 calls must obey this identity. Fail closed on missing secret; never use host
-credentials for KUBECONFIG references. Legacy context targets continue to work.
+credentials for KUBECONFIG references. Unscoped context-only targets fail closed.
+Explicit kubeconfig paths generated
+by Terraform EKS remain supported; they never resolve a host default. The low-level
+kubectl transport requires an explicit kubeconfig for every invocation.
 
 Future AWS resolver yields account credential only to the selected Terraform
 subprocess environment, never global env, variables, arguments or workload.
@@ -111,17 +114,18 @@ owns the system Definition, matching bypass and persistence compatibility.
 Existing authored/seed cluster Definitions remain readable but cannot redirect
 this implicit node. Namespace/PostgreSQL and AWS resources still use matching.  For uploaded records, the selected context in
 Connection is authoritative; Definition kubeContext/name driver values cannot
-redirect the credential to another context or host. For legacy records the
-existing input contract is preserved. Reused ActiveResource restores opaque
+redirect the credential to another context or host. There is no legacy Kubernetes
+input or authentication compatibility. Reused ActiveResource restores opaque
 identity from its persisted Connection key, not transient Target output alone.
 Lookup failure/not-READY must fail before execution, not silently become an
 empty Connection. New target identity survives cached resources and workload
 TargetRef for removal/route reconciliation after restart.
 
 Fleet GitRepo delivery is scoped to the fixed cluster by ADR-007. It must fail
-closed if a credential-backed target is not supported, never silently use its
-configured seed context. Expanding Fleet multi-cluster delivery is not in this
-change. Direct delivery supports new Connection targets.
+closed before any Git/cluster mutation: credential-backed targets remain
+unsupported and T22 removes its host-context transport. No explicit Fleet
+credential delivery is added by this change. Direct delivery supports new
+Connection targets.
 
 Endpoint selection supports user-supplied cluster URLs because internal and
 local cluster addresses are valid product targets. Network access controls are

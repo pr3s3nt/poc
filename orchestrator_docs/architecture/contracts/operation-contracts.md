@@ -65,7 +65,7 @@ Superseded by the Editable Environment destinations contracts below.
   conflicts without changing the existing Definition/criteria. Seed Save/upsert
   is separate from public registration.
 
-## OC-05 `ConnectionService.InspectKubeconfig` / `RegisterKubeconfig` / `RegisterKubernetesCluster` / `RegisterAWSDriverAccount`
+## OC-05 `ConnectionService.InspectKubeconfig` / `RegisterKubeconfig` / `RegisterAWSDriverAccount`
 
 - Use case: [UC-04](../../usecase/UC-04/specification.md).
 - Inspect: role/org gated, bounded document, parse/validate; returns context,
@@ -79,8 +79,10 @@ Superseded by the Editable Environment destinations contracts below.
 - Failure: no READY on verification/store failure; database failure cleans only
   attempt's credential, with bounded cleanup independent of canceled request.
 - Public DTO/errors exclude secret refs/raw parser/provider output.
-- Explicit legacy host-context registration/records remain compatible, never a
-  fallback for upload failures. AWS operation is future design under ADR-009.
+- Reject the old `{key,clusterId,kubeContext}` body, including mixed upload bodies.
+  Kubernetes execution requires explicit scoped KUBECONFIG; missing credentials,
+  HOST_CONTEXT or inferred authentication fail closed. AWS operation is future
+  design under ADR-009. Seed without credential is VERIFYING, never READY.
 - Execution uses [credential resolution](../connection-credentials.md); no secret
   material or temporary paths are persisted in Target/outputs/state/snapshots.
 

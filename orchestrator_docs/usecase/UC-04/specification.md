@@ -2,7 +2,7 @@
 id: UC-04-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-12
 ---
 
 # UC-04 — Configure Execution Profile Connections
@@ -128,7 +128,7 @@ cập vào một EKS cluster không thay thế bước xác minh quyền provisi
 - **BR-12:** AWS chỉ đạt `READY` sau khi xác minh danh tính, region, Terraform backend và quyền provisioning cần thiết. Đăng nhập hoặc STS identity thành công chưa đủ.
 - **BR-13:** Trạng thái `READY` phản ánh kết quả xác minh tại thời điểm đăng ký; không cam kết giám sát kết nối liên tục.
 - **BR-14:** Loại Connection và phương thức xác thực phải được phân biệt để có thể bổ sung phương thức xác thực AWS sau này mà không thay đổi ý nghĩa của Connection hoặc tham chiếu từ Resource Definition.
-- **BR-15:** Connection host-context hiện có tiếp tục hoạt động theo cơ chế hiện tại; không tự động chuyển đổi hoặc xóa cấu hình cũ.
+- **BR-15:** Kubernetes Connection chỉ dùng `KUBECONFIG` với credential riêng đúng Organization/Connection. Từ chối body cũ `{key,clusterId,kubeContext}`, `HOST_CONTEXT`, thiếu authentication type hoặc thiếu credential; không inference, chuyển đổi hay fallback sang host. Seed thiếu credential không được READY; default marker có thể tham chiếu record VERIFYING nhưng không làm Environment tự cấu hình.
 - **BR-16:** Đăng ký Connection mới không tự động thay đổi connection mặc định của Organization.
 
 ## Giao diện giai đoạn đầu
@@ -150,7 +150,7 @@ xuất hiện trong giao diện giai đoạn đầu.
 - **OOS-01:** Triển khai AWS onboarding, AWS verification và executor credential resolution.
 - **OOS-02:** Tạo cluster Kubernetes từ form đăng ký.
 - **OOS-03:** Xác thực Kubernetes qua `exec` hoặc file credential bên ngoài.
-- **OOS-04:** Sửa/xóa Connection và chuyển đổi Connection host-context hiện có.
+- **OOS-04:** Sửa/xóa Connection và migration dữ liệu Connection cũ; reset dev thuộc T29.
 - **OOS-05:** Credential rotation, health monitoring, reconnect và audit history.
 - **OOS-06:** Humanitec-style Agent, private-cluster tunnel, GitOps mode và cài đặt Operator tự động.
 

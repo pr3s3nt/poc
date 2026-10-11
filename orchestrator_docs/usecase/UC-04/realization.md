@@ -2,7 +2,7 @@
 id: UC-04-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-12
 ---
 
 # UC-04 — Use Case Realization
@@ -11,7 +11,7 @@ last_reviewed: 2026-10-09
 
 Thực hiện [specification đã duyệt](specification.md): đăng ký Kubernetes từ
 kubeconfig trước; AWS account provisioning theo ADR-009 ở giai đoạn sau.
-Host-context records cũ vẫn được resolve; UI mới không yêu cầu host setup.
+Kubernetes chỉ resolve scoped KUBECONFIG; không có host-context registration hoặc execution.
 
 ## System operations
 
@@ -19,8 +19,6 @@ Host-context records cũ vẫn được resolve; UI mới không yêu cầu host
   không trả credential, không lưu secret hoặc Connection, không gọi cluster.
 - `RegisterKubeconfig(ctx, org, name, document, context)` parse/validate
   lại document, verify, ghi credential rồi insert Connection `READY`.
-- `RegisterKubernetesCluster(ctx, org, key, clusterId, kubeContext)` keeps the
-  explicit legacy API contract and does not accept uploaded credential.
 - `RegisterAWSDriverAccount(ctx, org, command)` là operation thiết kế tương lai;
   không publish endpoint cho đến khi verification/executor resolution hoàn tất.
 
@@ -73,8 +71,8 @@ Each Kubernetes operation resolves a private short-lived kubeconfig file,
 mode 0600 in private directory, removes it after the subprocess finishes. Never
 persist the file path or content in plans, Target outputs, executor state or
 snapshots. Apply/readiness/remove/public routes/VSO must use the selected target.
-Legacy host-context resolution remains explicit; registered credentials never
-fall back to host default. AWS Terraform credential resolution is designed,
+Missing/unknown authentication and missing scoped credentials fail closed; no
+host default is consulted. AWS Terraform credential resolution is designed,
 not enabled by this Kubernetes delivery.
 
 ## Validation and traces
@@ -82,7 +80,7 @@ not enabled by this Kubernetes delivery.
 Inspect/register HTTP role/Organization and limits; parser rejection and selected
 context; normalized secret-only persistence; key collision/concurrency;
 verification failure; store failure/cleanup; safe DTO/errors; scoped resolution;
-Kubernetes provision/apply/remove/readiness/route paths; legacy compatibility.
+Kubernetes provision/apply/remove/readiness/route paths; old-body/authentication rejection and cancellation cleanup.
 Tests and actual delivery are recorded in traceability/current state after code.
 
 ## Secret stores

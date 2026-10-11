@@ -2,8 +2,11 @@
 // drives the Web Console served by a local fake-adapter backend with JSON
 // state. Invoked by backend/test/integration/application-connection-playwright-local.sh,
 // once per phase: "create" before the backend restart and "restart" after it.
-// A Platform Engineer session registers the second Connection (no cluster
-// Definition is needed, ADR-013) through the same authenticated API the console uses; the
+// The local state file is prepared by backend/test/integration/readystate with
+// explicit synthetic READY KUBECONFIG metadata for the default and the second
+// Connection (the old host-context registration body no longer exists and
+// a fake local backend has no durable credential store for uploads). A Platform
+// Engineer session only verifies the second Connection is listed; the
 // Developer session then works only through the UI. The set-once rule is also
 // probed through the API (negative requests only, never as a fixture).
 import { chromium, expect } from '@playwright/test';
@@ -99,10 +102,11 @@ try {
   }
 
   if (phase === 'create') {
-    // Platform Engineer registers the second Connection (no cluster Definition is needed).
+    // Platform Engineer sees the prepared second Connection (explicit synthetic metadata).
     await signIn(platformPage, 'platform-engineer');
-    const registered = await platformPage.request.post(`${baseURL}/api/v1/connections/kubernetes`, { data: { key: labKey, clusterId: 'lab', kubeContext: 'lab-context' } });
-    expect(registered.status()).toBe(201);
+    const listed = await platformPage.request.get(`${baseURL}/api/v1/connections`);
+    expect(listed.status()).toBe(200);
+    expect((await listed.json()).connections.find((item) => item.key === labKey)).toMatchObject({ authenticationType: 'KUBECONFIG', status: 'READY' });
     await platformPage.getByRole('link', { name: /(^|\s)Kết nối$/ }).click();
     await expect(platformPage.getByText(labKey).first()).toBeVisible();
 

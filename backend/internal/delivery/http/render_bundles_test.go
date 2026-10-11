@@ -15,13 +15,14 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/platform/password"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 func bundleTestServer(t *testing.T, bundles map[string]resource.RenderBundle) (*Server, *httptest.Server, *store.Store) {
 	t.Helper()
 	st := store.New()
 	opts := seed.Defaults()
-	if err := seed.Apply(context.Background(), st, opts); err != nil {
+	if err := seedtest.Apply(context.Background(), st, opts); err != nil {
 		t.Fatal(err)
 	}
 	hash, err := password.Hash(seed.FixedTestPassword)

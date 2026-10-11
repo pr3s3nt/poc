@@ -71,7 +71,7 @@ func EnvironmentOperations(t *testing.T, st persistence.Store) OperationFixture 
 		t.Fatal(err)
 	}
 	for _, key := range []string{"lab", "lab2"} {
-		if err := st.SaveConnection(ctx, application.Connection{ID: ids.New(), Key: key, Name: key, OrganizationKey: org, Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthHostContext, Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "host-kube-context://" + key, Verification: map[string]any{}}); err != nil {
+		if err := st.SaveConnection(ctx, application.Connection{ID: ids.New(), Key: key, Name: key, OrganizationKey: org, Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "fake-credential://" + key, Verification: map[string]any{}}); err != nil {
 			t.Fatal(err)
 		}
 	}

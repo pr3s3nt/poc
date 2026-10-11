@@ -41,7 +41,7 @@ func EnvironmentBinding(t *testing.T, st persistence.Store) BindingFixture {
 		t.Fatal(err)
 	}
 	for _, c := range []application.Connection{
-		{ID: ids.New(), Key: "lab", Name: "Lab", OrganizationKey: org, Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthHostContext, Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "host-kube-context://lab", Verification: map[string]any{}},
+		{ID: ids.New(), Key: "lab", Name: "Lab", OrganizationKey: org, Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "fake-credential://lab", Verification: map[string]any{}},
 		{ID: ids.New(), Key: "cloud", Name: "Cloud", OrganizationKey: org, Kind: application.ConnectionAWS, AuthenticationType: application.AuthAWSAccessKey, Status: application.ConnectionReady, Config: map[string]any{"region": "eu-west-1"}, SecretRef: "secret://connections/cloud", Verification: map[string]any{}},
 	} {
 		if err := st.SaveConnection(ctx, c); err != nil {

@@ -45,7 +45,7 @@ var (
 // CommandError is one failed kubectl invocation. For credential-backed targets
 // it never carries kubectl output: an API server or proxy may echo submitted
 // credential bytes, so only the operation, a fixed category and the process
-// status are reported. Legacy host-context targets keep kubectl diagnostics.
+// status are reported. Only explicit kubeconfig path targets keep kubectl diagnostics.
 type CommandError struct {
 	// Operation is the orchestrator-built kubectl arguments, without
 	// --kubeconfig or --context.
@@ -54,7 +54,7 @@ type CommandError struct {
 	Category error
 	// Process is the process status (exit status, signal or context error).
 	Process error
-	// diagnostics is raw kubectl stderr, kept for legacy targets only.
+	// diagnostics is raw kubectl stderr, kept for explicit-path targets only.
 	diagnostics string
 }
 
@@ -116,12 +116,17 @@ func (e credentialTargetError) Error() string   { return ErrCredentialTarget.Err
 func (e credentialTargetError) Unwrap() []error { return []error{ErrCredentialTarget, e.cause} }
 
 // OpenCLI returns the kubectl transport of one target and a cleanup function
-// that must run after the operation. Legacy targets use their host context or
-// kubeconfig path. Credential-backed targets resolve the Connection's
+// that must run after the operation. A target without a scoped Connection must
+// carry an explicit kubeconfig path (such as a Terraform-generated one); a
+// context-only or empty target fails closed and never uses host defaults.
+// Credential-backed targets resolve the Connection's
 // normalized kubeconfig into a private mode-0600 file in a private directory
 // that cleanup removes; the path is never stored in a Target or output.
 func OpenCLI(ctx context.Context, path string, source execution.KubeconfigSource, target execution.Target) (CLI, func(), error) {
 	if !target.CredentialBacked() {
+		if target.Kubeconfig == "" {
+			return CLI{}, func() {}, ErrCredentialTarget
+		}
 		return NewCLI(path, target.Context, target.Kubeconfig), func() {}, nil
 	}
 	if source == nil {
@@ -155,7 +160,12 @@ func materialize(path, kubeContext string, document []byte) (CLI, func(), error)
 	return cli, cleanup, nil
 }
 
-// NewCLI returns a kubectl transport for one target.
+// ErrHostKubeconfig is returned by CLI.Run when no explicit kubeconfig file is
+// set. The transport never lets kubectl pick the host's default configuration.
+var ErrHostKubeconfig = errors.New("kubernetes: an explicit kubeconfig is required; the host kube configuration is never used")
+
+// NewCLI returns a kubectl transport for one target. An empty kubeconfig makes
+// every Run fail closed.
 func NewCLI(path, kubeContext, kubeconfig string) CLI {
 	if path == "" {
 		path = "kubectl"
@@ -176,6 +186,14 @@ func (c CLI) baseArgs() []string {
 
 // Run executes kubectl and returns stdout. Stdin is used for apply payloads.
 func (c CLI) Run(ctx context.Context, stdin []byte, args ...string) ([]byte, error) {
+	if c.Kubeconfig == "" {
+		return nil, ErrHostKubeconfig
+	}
+	// A missing explicit file never reaches kubectl, so no default loading
+	// rule can take over.
+	if info, err := os.Stat(c.Kubeconfig); err != nil || info.IsDir() {
+		return nil, ErrHostKubeconfig
+	}
 	full := append(c.baseArgs(), args...)
 	cmd := exec.CommandContext(ctx, c.Path, full...)
 	if stdin != nil {

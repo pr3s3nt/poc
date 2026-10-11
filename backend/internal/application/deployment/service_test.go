@@ -8,6 +8,7 @@ import (
 
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/bootstrap"
+	"orchestrator/internal/bootstrap/bootstraptest"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/seed"
@@ -20,7 +21,7 @@ func newApp(t *testing.T, opts ...func(*bootstrap.Options)) (*bootstrap.App, see
 	for _, apply := range opts {
 		apply(&buildOptions)
 	}
-	app, err := bootstrap.Build(context.Background(), buildOptions)
+	app, err := bootstraptest.Build(context.Background(), buildOptions)
 	if err != nil {
 		t.Fatalf("bootstrap: %v", err)
 	}

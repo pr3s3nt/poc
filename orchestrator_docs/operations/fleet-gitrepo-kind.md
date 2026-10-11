@@ -2,7 +2,7 @@
 id: RUNBOOK-FLEET-GITREPO-KIND
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-09-28
+last_reviewed: 2026-10-12
 ---
 
 # Fleet GitRepo delivery on kind
@@ -10,6 +10,15 @@ last_reviewed: 2026-09-28
 This optional UC-06/07 mode uses Fleet on `kind-idp-internal`. It does not
 build images: UC-16 Score images must already exist in Harbor. UC-08 still
 creates namespaces and resource dependencies through its Kubernetes executor.
+
+## Current availability after T22
+
+The historical fixed host-context delivery below cannot execute after T22.
+Context-only targets fail before Git/cluster mutation, and scoped KUBECONFIG
+Fleet targets remain unsupported. Use direct delivery. Re-enabling Fleet with
+explicit credential identity needs a separately scoped design/implementation;
+T22 does not add a new credential flag or onboarding flow. Retain these commands
+as setup provenance, not a current executable acceptance procedure.
 
 ## Bootstrap state
 

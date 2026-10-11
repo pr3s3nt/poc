@@ -8,15 +8,18 @@ import (
 	"testing"
 	"time"
 
+	"orchestrator/internal/adapters/credentialmemory"
 	"orchestrator/internal/adapters/postgres"
 	"orchestrator/internal/adapters/terraform"
 	"orchestrator/internal/application/catalog"
 	"orchestrator/internal/application/connection"
+	ct "orchestrator/internal/application/connection/connectiontest"
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 // barrierStore holds every Create* call until both racers reach it, so both
@@ -105,7 +108,7 @@ func raceServices(t *testing.T, label string, calls [2]func() error, duplicate e
 
 type readyCluster struct{}
 
-func (readyCluster) Verify(context.Context, string) (connection.KubernetesVerification, error) {
+func (readyCluster) VerifyKubeconfig(context.Context, connection.SelectedKubeconfig) (connection.KubernetesVerification, error) {
 	return connection.KubernetesVerification{Endpoint: "https://cluster.example"}, nil
 }
 
@@ -120,7 +123,7 @@ func TestPostgresRegistrationServicesRaceOnSameKey(t *testing.T) {
 	}
 	t.Cleanup(st.Close)
 	opts := seed.Defaults()
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	org := opts.OrganizationKey
@@ -170,18 +173,41 @@ func TestPostgresRegistrationServicesRaceOnSameKey(t *testing.T) {
 		t.Fatalf("definition: stored %+v, winner %+v", storedDefs, defs[w])
 	}
 
+	// Two concurrent uploads of the same display name must both succeed with
+	// distinct generated keys: the insert-only unique constraint is the final
+	// guard and nothing existing is overwritten.
 	connBarrier := newBarrier(st)
-	conns := connection.NewService(connBarrier, readyCluster{})
-	commands := [2]connection.RegisterKubernetesCommand{{Key: "race-cluster", ClusterID: "a", KubeContext: "ctx-a"}, {Key: "race-cluster", ClusterID: "b", KubeContext: "ctx-b"}}
-	w = raceServices(t, "connection", [2]func() error{
-		func() error { _, err := conns.RegisterKubernetesCluster(ctx, org, commands[0]); return err },
-		func() error { _, err := conns.RegisterKubernetesCluster(ctx, org, commands[1]); return err },
-	}, connection.ErrDuplicate)
-	requireBothArrived(t, "connection", connBarrier)
-	got, err := st.GetConnection(ctx, org, "race-cluster")
-	wantConfig := map[string]any{"cluster": commands[w].ClusterID, "kubeContext": commands[w].KubeContext, "endpoint": "https://cluster.example"}
-	if err != nil || got.Kind != application.ConnectionKubernetes || got.Status != application.ConnectionReady || !reflect.DeepEqual(got.Config, wantConfig) || got.SecretRef != "host-kube-context://"+commands[w].KubeContext || got.Verification["endpoint"] != "https://cluster.example" {
-		t.Fatalf("connection: stored %+v (%v), winner %+v", got, err, commands[w])
+	conns := connection.NewService(connBarrier)
+	conns.SetKubeconfigRegistration(readyCluster{}, credentialmemory.New())
+	document := ct.Single("race", "https://cluster.example", "race-token-0123456789")
+	var wg sync.WaitGroup
+	results := make([]application.Connection, 2)
+	errs := make([]error, 2)
+	for i := range results {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			results[i], errs[i] = conns.RegisterKubeconfig(ctx, org, connection.RegisterKubeconfigCommand{Name: "Race cluster", Kubeconfig: document, Context: "race"})
+		}(i)
+	}
+	wg.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("racing upload %d: %v", i, err)
+		}
+	}
+	// The loser retries with the next free key, so it reaches Create again.
+	if connBarrier.arrivals() < 2 {
+		t.Fatalf("connection: %d racer(s) reached Create, want at least 2", connBarrier.arrivals())
+	}
+	if results[0].Key == results[1].Key {
+		t.Fatalf("racing uploads share key %q", results[0].Key)
+	}
+	for _, created := range results {
+		got, err := st.GetConnection(ctx, org, created.Key)
+		if err != nil || got.Kind != application.ConnectionKubernetes || got.AuthenticationType != application.AuthKubeconfig || got.Status != application.ConnectionReady || got.SecretRef == "" {
+			t.Fatalf("connection %q: stored %+v (%v)", created.Key, got, err)
+		}
 	}
 }
 

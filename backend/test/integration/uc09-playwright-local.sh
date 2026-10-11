@@ -67,6 +67,11 @@ else
 fi
 
 (cd "${ROOT}" && go build -o "${WORK}/orchestrator" ./cmd/orchestrator)
+# The product seed leaves the cluster record VERIFYING without a credential.
+# Fake local workflows opt in to explicit synthetic READY metadata (no cluster).
+if [[ "${STATE_ARGS[0]:-}" == "-state" ]]; then
+  (cd "${ROOT}" && go run ./test/integration/readystate -state "${WORK}/state.json")
+fi
 start_backend first
 run_phase create
 stop_backend

@@ -10,8 +10,8 @@ import (
 )
 
 // Snapshots written before UC-04 upload have no Connection name or
-// authentication type; known legacy shapes read with defaults and unknown
-// shapes stay unresolved so execution fails closed.
+// authentication type; the AWS seed shape reads with a default; Kubernetes
+// legacy shapes stay unresolved (never HOST_CONTEXT) so execution fails closed.
 func TestSnapshotConnectionsReadWithLegacyDefaults(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
 	snapshot := `{"connections":{
@@ -26,7 +26,7 @@ func TestSnapshotConnectionsReadWithLegacyDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	for key, want := range map[string]application.AuthenticationType{"internal-cluster": application.AuthHostContext, "aws-account": application.AuthAWSAccessKey, "odd": ""} {
+	for key, want := range map[string]application.AuthenticationType{"internal-cluster": "", "aws-account": application.AuthAWSAccessKey, "odd": ""} {
 		conn, err := st.GetConnection(ctx, "acme", key)
 		if err != nil {
 			t.Fatal(err)

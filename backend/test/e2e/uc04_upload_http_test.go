@@ -31,7 +31,7 @@ func uploadServer(t *testing.T, withStore bool) (*httptest.Server, *uploadVerifi
 	t.Helper()
 	verifier := &uploadVerifier{}
 	store := credentialmemory.New()
-	options := bootstrap.Options{Seed: seed.Defaults(), Adapters: bootstrap.AdapterFake, KubeconfigVerifierOverride: verifier, ConnectionVerifierOverride: approvedCluster{}}
+	options := bootstrap.Options{Seed: seed.Defaults(), Adapters: bootstrap.AdapterFake, KubeconfigVerifierOverride: verifier}
 	if withStore {
 		options.ConnectionCredentialsOverride = store
 	}
@@ -152,10 +152,23 @@ func TestUC04UploadHTTPContract(t *testing.T) {
 		t.Fatalf("collision: %d %s", resp.StatusCode, body)
 	}
 
-	// The legacy host-context shape remains an explicit, separate contract.
-	resp, body = call(t, pe, http.MethodPost, register, `{"key":"legacy-one","clusterId":"kind-a","kubeContext":"kind-idp-internal"}`)
-	if resp.StatusCode != http.StatusCreated || decode(t, body)["authenticationType"] != "HOST_CONTEXT" || strings.Contains(body, "secretRef") {
-		t.Fatalf("legacy register: %d %s", resp.StatusCode, body)
+	// The old {key,clusterId,kubeContext} body and any mixed document are
+	// rejected with 400 and no effect: no verification, credential or row.
+	before, _ := app.Store.ListConnections(context.Background(), "acme")
+	calls, stored := verifier.calls, store.Len()
+	for name, payload := range map[string]string{
+		"old body":    `{"key":"legacy-one","clusterId":"kind-a","kubeContext":"kind-idp-internal"}`,
+		"mixed body":  jsonBody(t, map[string]string{"name": "Mixed", "kubeconfig": doc, "context": "dev", "key": "legacy-one", "clusterId": "kind-a", "kubeContext": "kind-idp-internal"}),
+		"old context": jsonBody(t, map[string]string{"name": "Mixed", "kubeconfig": doc, "context": "dev", "kubeContext": "kind-idp-internal"}),
+	} {
+		resp, body = call(t, pe, http.MethodPost, register, payload)
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("%s: %d %s", name, resp.StatusCode, body)
+		}
+	}
+	after, _ := app.Store.ListConnections(context.Background(), "acme")
+	if verifier.calls != calls || store.Len() != stored || len(after) != len(before) {
+		t.Fatalf("rejected body had effects: verifier %d->%d, credentials %d->%d, connections %d->%d", calls, verifier.calls, stored, store.Len(), len(before), len(after))
 	}
 }
 
@@ -171,5 +184,33 @@ func TestUC04UploadWithoutCredentialStoreFailsClosed(t *testing.T) {
 		if conn.Key == "lab" {
 			t.Fatal("READY connection saved without a credential store")
 		}
+	}
+}
+
+// T22: the product seed has an explicit KUBECONFIG record without credentials.
+// It is VERIFYING (never READY), satisfies the Organization default marker,
+// is not a selectable/executable choice, and does not block Application
+// creation, which still yields UNCONFIGURED Environments.
+func TestProductSeedClusterIsVerifyingAndApplicationCreateStillWorks(t *testing.T) {
+	opts := seed.Defaults()
+	app, err := bootstrap.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake})
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(app.Server)
+	t.Cleanup(server.Close)
+	ctx := context.Background()
+	seeded, err := app.Store.GetConnection(ctx, opts.OrganizationKey, opts.ConnectionKey)
+	if err != nil || seeded.AuthenticationType != "KUBECONFIG" || seeded.Status != "VERIFYING" || seeded.SecretRef != "" || seeded.Verification["verified"] != false {
+		t.Fatalf("seeded cluster = %+v, %v", seeded, err)
+	}
+	org, err := app.Store.GetOrganization(ctx, opts.OrganizationKey)
+	if err != nil || org.DefaultConnectionKey != opts.ConnectionKey {
+		t.Fatalf("organization default = %+v, %v", org, err)
+	}
+	dev := authenticatedClient(t, server.URL)
+	resp, body := call(t, dev, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Seeded Cluster App","subdomain":"seeded-app"}`)
+	if resp.StatusCode != http.StatusCreated || strings.Contains(body, `"configured":true`) {
+		t.Fatalf("create application: %d %s", resp.StatusCode, body)
 	}
 }

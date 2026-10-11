@@ -95,7 +95,7 @@ func TestCredentialBackedTarget_RemovalAfterRestart(t *testing.T) {
 	scores := seed.AcceptanceScores(opts)
 
 	first := startInstance(t, statePath, kubectl, creds)
-	registration := connection.NewService(first.app.Store, nil)
+	registration := connection.NewService(first.app.Store)
 	registration.SetKubeconfigRegistration(uploadVerifier{}, creds)
 	created, err := registration.RegisterKubeconfig(ctx, opts.OrganizationKey, connection.RegisterKubeconfigCommand{
 		Name: "Lab", Context: "lab",

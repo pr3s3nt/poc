@@ -13,6 +13,7 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/transition"
 	"orchestrator/internal/bootstrap"
+	"orchestrator/internal/bootstrap/bootstraptest"
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -45,7 +46,7 @@ func newHarness(t *testing.T, mutate ...func(*bootstrap.Options)) *harness {
 	for _, m := range mutate {
 		m(&options)
 	}
-	app, err := bootstrap.Build(context.Background(), options)
+	app, err := bootstraptest.Build(context.Background(), options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,8 +54,8 @@ func newHarness(t *testing.T, mutate ...func(*bootstrap.Options)) *harness {
 	h := &harness{t: t, app: app, opts: opts, cluster: app.FakeCluster, service: app.Transitions, scores: seed.AcceptanceScores(opts)}
 	ctx := context.Background()
 	conn := appdomain.Connection{ID: ids.New(), Key: destKey, Name: "Second cluster", OrganizationKey: opts.OrganizationKey, Kind: appdomain.ConnectionKubernetes,
-		AuthenticationType: appdomain.AuthHostContext, Status: appdomain.ConnectionReady, Config: map[string]any{"cluster": "fake-second", "kubeContext": "fake-second-context", "endpoint": "https://second.invalid"},
-		SecretRef: "host-kube-context://fake-second-context", Verification: map[string]any{}}
+		AuthenticationType: appdomain.AuthKubeconfig, Status: appdomain.ConnectionReady, Config: map[string]any{"cluster": "fake-second", "kubeContext": "fake-second-context", "endpoint": "https://second.invalid"},
+		SecretRef: "fake-credential://fake-second-context", Verification: map[string]any{}}
 	if err := app.Store.SaveConnection(ctx, conn); err != nil {
 		t.Fatal(err)
 	}

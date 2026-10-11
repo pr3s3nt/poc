@@ -15,6 +15,7 @@ import (
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 )
 
 func TestQueryServiceScopesFiltersAndOrdersHistory(t *testing.T) {
@@ -121,7 +122,7 @@ func queryFixture(t *testing.T) (*countingStore, seed.Options, string) {
 	ctx := context.Background()
 	st := store.New()
 	opts := seed.Defaults()
-	if err := seed.Apply(ctx, st, opts); err != nil {
+	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
 	record := persistencetest.SaveDeployment(t, st, opts, domain.StatusFailed, time.Now().UTC())

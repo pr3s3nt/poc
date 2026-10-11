@@ -15,17 +15,26 @@ last_reviewed: 2026-10-09
   test.
 - Cleanup verification là một phần bắt buộc của run.
 
+## T22 runner compatibility
+
+Seeded Kubernetes metadata is VERIFYING without an uploaded credential. The
+older `kind-verify.sh`, `acceptance-playwright-kind.sh`,
+`backstage-kind-verify.sh`, `fleet-gitrepo-kind-verify.sh`,
+`public-ingress-kind-verify.sh`, `uc12-kind-verify.sh` and
+`template-engine-playwright-kind.sh` still depend on historical seeded READY
+host-context state. They are not valid current acceptance runs; do not infer
+current functionality from their older recordings. Explicit scoped upload/store
+setup and approved real rebuild are tracked by T29. Fleet credential delivery
+requires separate implementation under ADR-007. T22 only runs stub/local checks
+and does not mutate the retained cluster.
+
 ## Automated verification
 
-The UC-04 host-context verifier can be checked without creating objects:
-
-```bash
-cd backend
-ORCH_KIND_VERIFY=1 go test ./internal/adapters/kubernetes -run TestKindConnectionVerifierReadOnly -count=1 -v
-```
-
-It checks the named context, API, endpoint and create permissions using
-`kubectl auth can-i`; it does not create a namespace or workload.
+T22 removes the historical host-context verifier. UC-04 verification requires
+an explicitly uploaded kubeconfig and selected context, using only read-only
+API/RBAC calls. Local credential tests use stub kubectl; real kind verification
+requires separate user authorization and the scoped upload procedure below.
+Historical recordings remain evidence of their original commits.
 
 ```bash
 cd backend

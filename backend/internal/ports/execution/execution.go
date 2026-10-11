@@ -15,8 +15,9 @@ import (
 // Organization and Connection are the opaque execution identity of a
 // credential-backed (KUBECONFIG) Connection. Adapters resolve its credential
 // through KubeconfigSource at each operation; no credential bytes or temporary
-// paths are ever stored in a Target. Legacy host-context targets leave both
-// empty and use Context/Kubeconfig as before.
+// paths are ever stored in a Target. Otherwise only an explicit Kubeconfig file
+// path (for example the one a Terraform EKS run generated) can reach a cluster;
+// a Context alone never selects a host default.
 type Target struct {
 	Kind         string            `json:"kind"`
 	Context      string            `json:"context,omitempty"`
@@ -32,10 +33,10 @@ type Target struct {
 // Connection credential instead of the backend host's kube configuration.
 func (t Target) CredentialBacked() bool { return t.Connection != "" }
 
-// Explicit reports whether the target names a cluster rather than relying on
-// the host's default kube context.
+// Explicit reports whether the target names a credential: a scoped Connection
+// or an explicit kubeconfig path. A context name alone is not explicit.
 func (t Target) Explicit() bool {
-	return t.CredentialBacked() || t.Context != "" || t.Kubeconfig != ""
+	return t.CredentialBacked() || t.Kubeconfig != ""
 }
 
 // KubeconfigSource resolves the normalized selected-context kubeconfig of a
