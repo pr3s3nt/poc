@@ -184,7 +184,7 @@ func TestPublicRouteFollowsReadyWorkloadAndCanBeRemoved(t *testing.T) {
 	app.Deployments.SetPublicRouteManager(routes, "example.com")
 	before := seed.AcceptanceScores(opts)["frontend"]
 	after := seed.AcceptanceScores(opts)["frontend"]
-	after["service"].(map[string]any)["publicPort"] = "http"
+	after["service"].(map[string]any)["publicRoutes"] = []any{map[string]any{"path": "/", "port": "http"}}
 	cmd := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "frontend", ScoreBefore: before, ScoreAfter: after, Actor: "test"}
 	if _, err := app.Deployments.DeployWorkload(context.Background(), cmd); err != nil {
 		t.Fatal(err)

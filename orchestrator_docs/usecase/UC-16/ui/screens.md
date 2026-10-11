@@ -114,3 +114,11 @@ Trang ứng dụng giữ scope môi trường đã chọn, với entry points �
 Lưu draft quay về danh sách có nhãn Chờ thay đổi; không triển khai ngầm.
 Tab và payload giữ `staging`/`production`; missing key chỉ có metadata an toàn,
 không hiện giá trị. Chuyển môi trường không nhận phản hồi của scope cũ.
+
+## T25 — Import đường dẫn công khai
+
+Form chỉ serialize `service.publicRoutes`. Import có `service.publicPort` báo
+lỗi tiếng Việt theo `INVALID_SCORE`, giữ nội dung để sửa, không tạo route `/`
+và không tự lưu. Draft/current projection cũ chứa field này bị từ chối rõ;
+không mở form với routes bị bỏ mất. Valid import/edit giữ đầy đủ nhiều routes,
+Service ports và overrides; Lưu → Xem trước vẫn là các bước tường minh.

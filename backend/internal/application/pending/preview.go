@@ -272,7 +272,7 @@ func publicPlanningError(workloadID string, err error) error {
 }
 
 func equivalentSets(a, b environment.Document) (bool, error) {
-	// Compare effective Service defaults and the legacy publicPort alias.
+	// Compare effective Service defaults and canonical route order.
 	a = canonicalServices(a)
 	b = canonicalServices(b)
 	left, err := canon.Hash(a)

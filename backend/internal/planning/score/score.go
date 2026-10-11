@@ -119,7 +119,7 @@ func (d Document) Validate() error {
 	}
 	if d.Service != nil {
 		seen := map[string]bool{}
-		for _, route := range d.Service.Routes() {
+		for _, route := range d.Service.PublicRoutes {
 			if !publicPathPattern.MatchString(route.Path) || seen[route.Path] {
 				return fmt.Errorf("score: invalid or duplicate public path %q", route.Path)
 			}

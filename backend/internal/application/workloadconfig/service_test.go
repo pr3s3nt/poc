@@ -132,3 +132,43 @@ func TestReconstructDeployedReferenceWorkload(t *testing.T) {
 		t.Fatal("legacy literal should not be exposed in the editor")
 	}
 }
+
+func TestPublicPortIsRejectedWithoutWritingDraft(t *testing.T) {
+	ctx := context.Background()
+	svc, st := testWorkloadService(t)
+	for name, publicPort := range map[string]any{"value": "http", "empty": "", "null": nil} {
+		for _, withRoutes := range []bool{false, true} {
+			raw := testScore("api", nil, nil)
+			service := map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicPort": publicPort}
+			if withRoutes {
+				service["publicRoutes"] = []any{map[string]any{"path": "/api", "port": "http"}}
+			}
+			raw["service"] = service
+			if _, err := svc.Save(ctx, "app", "staging", "api", raw, 0); !errors.Is(err, score.ErrInvalid) || !errors.Is(err, environment.ErrPublicPortRemoved) {
+				t.Fatalf("%s routes=%v: Save want INVALID_SCORE class, got %v", name, withRoutes, err)
+			}
+			if err := svc.ValidateImport(ctx, "app", "staging", raw); !errors.Is(err, environment.ErrPublicPortRemoved) {
+				t.Fatalf("%s routes=%v: ValidateImport got %v", name, withRoutes, err)
+			}
+		}
+	}
+	if env, err := st.GetEnvironment(ctx, "app", "staging"); err != nil || env.DraftVersion != 0 {
+		t.Fatalf("rejected Save advanced the draft version: %+v, %v", env, err)
+	}
+	if drafts, err := st.ListWorkloadDrafts(ctx, "app", "staging"); err != nil || len(drafts) != 0 {
+		t.Fatalf("rejected Save wrote a draft: %+v, %v", drafts, err)
+	}
+}
+
+func TestListFailsOnDraftWithPublicPort(t *testing.T) {
+	ctx := context.Background()
+	svc, st := testWorkloadService(t)
+	raw := testScore("api", nil, nil)
+	raw["service"] = map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicPort": "http"}
+	if err := st.SaveWorkloadDraft(ctx, 0, environment.WorkloadDraft{ApplicationKey: "app", EnvironmentKey: "staging", WorkloadID: "api", State: environment.DraftUpsert, Score: raw}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.List(ctx, "app", "staging"); !errors.Is(err, environment.ErrPublicPortRemoved) {
+		t.Fatalf("List must fail explicitly, got %v", err)
+	}
+}

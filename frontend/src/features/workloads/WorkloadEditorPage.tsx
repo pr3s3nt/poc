@@ -39,7 +39,7 @@ function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): 
   if (Object.values(resources).some((resource) => Object.keys(resource).some((key) => !['type', 'class', 'params'].includes(key)))) return true;
   if (Object.values(resources).some((resource) => resource.type === 'environment' && Object.keys(resource).length !== 1)) return true;
   if (Object.values(resources).some((resource) => resource.type === 'service' && (resource.class != null || Object.keys((resource.params ?? {}) as Record<string, unknown>).some((key) => !['workload', 'port'].includes(key))))) return true;
-  if (raw.service && Object.keys(raw.service as Record<string, unknown>).some((key) => key !== 'ports' && key !== 'publicPort' && key !== 'publicRoutes')) return true;
+  if (raw.service && Object.keys(raw.service as Record<string, unknown>).some((key) => key !== 'ports' && key !== 'publicRoutes')) return true;
   const ports = ((raw.service as { ports?: Record<string, Record<string, unknown>> } | undefined)?.ports ?? {});
   return Object.values(ports).some((port) => Object.keys(port).some((key) => !['port', 'targetPort'].includes(key)));
 }
@@ -148,10 +148,18 @@ function readForm(score: Record<string, unknown>): Form {
   if (!form.containers.length) form.containers = [emptyContainer()];
   const ports = ((score.service as { ports?: Record<string, { port: number; targetPort?: number }> } | undefined)?.ports ?? {});
   form.servicePorts = Object.entries(ports).map(([name, port]) => ({ name, port: String(port.port), targetPort: String(port.targetPort ?? port.port) }));
-  const service = score.service as { publicPort?: string; publicRoutes?: PublicRoute[] } | undefined;
-  form.publicRoutes = [...(service?.publicRoutes ?? []), ...(service?.publicPort ? [{ path: '/', port: service.publicPort }] : [])];
+  form.publicRoutes = [...((score.service as { publicRoutes?: PublicRoute[] } | undefined)?.publicRoutes ?? [])];
   return form;
 }
+
+// `service.publicPort` was removed; a draft that still has it is never opened
+// as a form because the route it declared would be dropped or rewritten.
+function hasRemovedPublicPort(score: Record<string, unknown>): boolean {
+  const service = score.service;
+  return typeof service === 'object' && service !== null && Object.prototype.hasOwnProperty.call(service, 'publicPort');
+}
+
+const removedPublicPortMessage = 'Draft Score còn khai báo publicPort, trường này không còn được hỗ trợ. Khai báo đường dẫn bằng publicRoutes; hệ thống không tự chuyển đổi.';
 
 export function WorkloadEditorPage({ application, environment, workloadId, onTargetChange }: { application: Application; environment: EnvironmentKey; workloadId?: string; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
   // Environment operations hold draft writes: Save stays disabled, text is kept.
@@ -199,7 +207,8 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
       if (cancelled) return;
       setWorkloads(list.workloads); setTypes(catalog.resourceTypes.filter((type) => type.key !== 'workload')); setVersion(list.draftVersion);
       const existing = list.workloads.find((item) => item.id === workloadId);
-      if (existing?.score) { setForm(readForm(existing.score)); setImported(existing.score); setBlocked(false); const advanced = needsScoreEditor(existing.score, catalog.resourceTypes); setAdvancedScore(advanced); if (advanced) setMode('import'); }
+      if (existing?.score && hasRemovedPublicPort(existing.score)) { setForm({ ...emptyForm(), name: workloadId ?? '' }); setBlocked(true); setError(removedPublicPortMessage); }
+      else if (existing?.score) { setForm(readForm(existing.score)); setImported(existing.score); setBlocked(false); const advanced = needsScoreEditor(existing.score, catalog.resourceTypes); setAdvancedScore(advanced); if (advanced) setMode('import'); }
       else if (workloadId) { setForm({ ...emptyForm(), name: workloadId }); setBlocked(true); setError(existing ? 'Workload đã triển khai này chưa có draft Score có thể sửa. Việc sửa bị tắt để tránh làm mất cấu hình hiện có.' : 'Không tìm thấy Workload trong môi trường này.'); }
     }).catch((err: unknown) => { if (!cancelled) { setError(describeError(err, 'Không tải được cấu hình Workload. Kiểm tra kết nối rồi thử lại.')); setLoadFailed(true); } }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

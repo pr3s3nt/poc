@@ -763,7 +763,11 @@ func (s *Service) routesFor(ctx context.Context, app appdomain.Application, env 
 			return err
 		}
 		for _, id := range set.ModuleIDs() {
-			for _, path := range set.Modules[id].Spec.Service.Routes() {
+			var paths []environment.PublicPath
+			if service := set.Modules[id].Spec.Service; service != nil {
+				paths = service.PublicRoutes
+			}
+			for _, path := range paths {
 				route.Paths = append(route.Paths, execution.PublicPath{Path: path.Path, WorkloadID: id, PortName: path.Port})
 			}
 		}

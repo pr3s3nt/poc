@@ -2,7 +2,7 @@
 id: UC-16-UI
 artifact: use-case-ui-design
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 related: UC-16, UC-01, UC-05, UC-12
 ---
 
@@ -42,4 +42,5 @@ và [trạng thái](states.md#t08--trạng-thái-nâng-cao-và-cổng-công-khai
 progressive disclosure, tóm tắt defaults và lựa chọn một cổng sau thao tác thêm
 route. Editor/key picker dùng tiếng Việt; giữ Score semantics, typed params,
 import lossless, aliases, BUSY/stale guards và explicit Save → Preview → Deploy.
-T25 sở hữu removal `publicPort`; T30 sở hữu rename references.
+T25 chỉ nhận `publicRoutes`, từ chối import/draft `publicPort` mà không tự chuyển
+đổi; T30 sở hữu rename references.

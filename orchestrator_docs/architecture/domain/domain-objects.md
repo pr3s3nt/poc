@@ -24,7 +24,8 @@ last_reviewed: 2026-10-12
 
 `DeploymentSet.modules.<workload>.spec.service.publicRoutes` is an optional
 orchestrator extension mapping public URL paths to declared Service ports.
-Paths are unique across the Environment; legacy `publicPort` aliases `/`.
+Paths are unique across the Environment; `publicPort` is rejected, with no alias
+conversion or route fallback.
 The resulting Environment-owned Ingress is runtime state of the internal-kind
 `PublicRouteManager`, reconciled after workload readiness. It is not a
 separate database aggregate.

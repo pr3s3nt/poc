@@ -72,3 +72,10 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
+
+## T25 — Field route đã loại bỏ
+
+Import hoặc draft có `service.publicPort` (kể cả rỗng/null hoặc cùng publicRoutes)
+bị từ chối với thông báo Việt an toàn; không chuyển sang form/lưu thành công
+và không tạo route mặc định. Giữ nội dung import/edits để sửa. Routes hợp lệ
+round-trip đầy đủ; đổi/xóa cổng vẫn chặn lưu theo T08, không retarget.

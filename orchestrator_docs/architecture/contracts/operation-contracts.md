@@ -105,8 +105,12 @@ Superseded by the Editable Environment destinations contracts below.
 - Returns: deterministic `DeploymentPlan` với plan hash.
 - Delta rule: output có `modules.add/remove/update` và `shared`; module/shared patches có relative root đúng contract, array diff deterministic và `base + delta = candidate`.
 - Workload rule: optional `containers.*.resources.requests/limits` được validate và bảo toàn trong Candidate module; không biến thành resource node.
-- Public-route rule: `service.publicRoutes` (and legacy `publicPort` for `/`)
-  survives the Candidate Set; planning rejects duplicate/invalid paths or
+- Public-route rule: `service.publicRoutes` survives the Candidate Set;
+  `service.publicPort` is rejected at Score/public projection boundaries, including
+  empty/null values and when publicRoutes is also present. Public Score/import
+  errors use `INVALID_SCORE`; rejection never writes desired/runtime state. No
+  automatic conversion of old drafts or route fallback is permitted; planning
+  rejects duplicate/invalid paths or
   undeclared Service ports in the complete Environment state.
 - Service-reference rule: `${context.service.<workload>.<port>}` must resolve
   in the final Candidate Environment. Single-operation Preview/Deploy validate

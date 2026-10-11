@@ -2,7 +2,7 @@
 id: UC-16-REALIZATION
 artifact: use-case-realization
 status: draft
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-12
 ---
 
 # UC-16 — Use Case Realization (design pending)
@@ -64,3 +64,11 @@ Validate collisions across Application/resource/Service bindings before
 building the variables map, so serialization cannot overwrite an earlier
 binding. Selection is independent for each container. Loading failure must
 not permit saving an empty substitute for a previously configured workload.
+
+## T25 — Public routing boundary
+
+Save and ValidateImport accept only `service.publicRoutes`. Reject `publicPort`
+before writing a draft or advancing its version; the UI retains the import/error
+for correction without converting it to `/`. Current-set reconstruction and
+public projection reject the removed field rather than silently dropping it.
+Protected container literal/reference validation remains in force.

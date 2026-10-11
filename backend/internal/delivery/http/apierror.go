@@ -19,6 +19,7 @@ import (
 	"orchestrator/internal/application/target"
 	"orchestrator/internal/application/transition"
 	"orchestrator/internal/application/workloadconfig"
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/planning/score"
 	configport "orchestrator/internal/ports/configuration"
@@ -144,6 +145,7 @@ var trustedFields = map[string]bool{
 	"definition.key": true, "definition.resourceType": true, "definition.executionProfile": true,
 	"definition.driverType": true, "definition.criteria": true, "definition.connectionKey": true,
 	"context.applicationId": true, "context.environmentId": true, "context.resourceId": true, "context.class": true,
+	"service.publicPort": true,
 }
 
 // technicalID bounds a registered resource Type key echoed as a param: lowercase
@@ -394,6 +396,8 @@ func classify(err error) (failure, bool) {
 	case errors.Is(err, workloadconfig.ErrInvalidRequest), errors.Is(err, secretstores.ErrInvalid), errors.Is(err, pending.ErrInvalid),
 		errors.Is(err, appsvc.ErrInvalidStatus):
 		return failure{code: codeInvalidRequest}, true
+	case errors.Is(err, environment.ErrPublicPortRemoved):
+		return failure{code: codeInvalidScore, field: "service.publicPort"}, true
 	case errors.Is(err, workloadconfig.ErrInvalid), errors.Is(err, score.ErrInvalid):
 		return failure{code: codeInvalidScore}, true
 	}

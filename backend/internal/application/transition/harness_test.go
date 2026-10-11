@@ -67,7 +67,7 @@ func newHarness(t *testing.T, mutate ...func(*bootstrap.Options)) *harness {
 	}
 	// The acceptance frontend gets a public route so cutover has an Ingress to move.
 	service := h.scores["frontend"]["service"].(map[string]any)
-	service["publicPort"] = "http"
+	service["publicRoutes"] = []any{map[string]any{"path": "/", "port": "http"}}
 	for _, id := range seed.AcceptanceOrder() {
 		if _, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{
 			OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey,

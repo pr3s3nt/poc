@@ -4640,6 +4640,126 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(2000);
   },
+  // T25: chỉ publicRoutes. Developer. PRODUCT (UI, backend thật với fake adapters, state tạm): đăng nhập, tạo ứng dụng, nhập Score nhiều route hợp lệ,
+  // sửa image, Lưu draft, Xem trước (adapter fake, không có Ingress cluster thật), rồi nhập Score còn publicPort bị backend từ chối INVALID_SCORE.
+  // Không có MOCK page.route. Các GET/PUT bằng page.request chỉ để kiểm tra kết quả/âm tính, không là bước sản phẩm; adapter Kubernetes là fake.
+  async T25({ page, h, ui, caption, mark, check, baseURL }) {
+    const NAME = 'T25 Public routes';
+    const editor = (key) => ui('workloadEditor', key);
+    const putCalls = [];
+    page.on('request', (request) => { if (request.method() === 'PUT' && /\/environments\/staging\/workloads\/[^/]+$/.test(new URL(request.url()).pathname)) putCalls.push(request.url()); });
+    const stored = async (appId) => (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/staging/workloads`)).json());
+    const importScore = async (name, score) => editor('scoreFile').setInputFiles({ name, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(score)) });
+    const base = (name, service) => ({ apiVersion: 'score.dev/v1b1', metadata: { name }, containers: { main: { image: `registry.example/${name}:t25` } }, service });
+    const ports = { http: { port: 8080, targetPort: 8080 }, admin: { port: 9000, targetPort: 9000 } };
+    const routes = [{ path: '/', port: 'http' }, { path: '/admin', port: 'admin' }];
+    const editedRoutes = [{ path: '/', port: 'http' }, { path: '/ops', port: 'admin' }];
+
+    caption('Bước 1: Lập trình viên đăng nhập và tạo ứng dụng dùng backend fake adapters (Kubernetes là fake, không phải cluster thật)');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'developer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    const appId = await createApplication(h, NAME, 't25-routes');
+    mark('prepared');
+    check('setup via UI: application created with fake internal-cluster target (fake adapter, no real cluster)');
+
+    caption('Bước 2: Nhập Score có hai publicRoutes hợp lệ (/ và /admin); form hiện đủ hai đường dẫn, chưa lưu gì');
+    await h.click(page.getByRole('button', { name: '+ Thêm Workload' }));
+    await expect(page.getByRole('heading', { name: 'Thêm Workload', level: 1 })).toBeVisible();
+    await h.click(editor('importTab'));
+    await importScore('web.json', base('web', { ports, publicRoutes: routes }));
+    await expect(page.getByText('Đã phân tích Workload:')).toContainText('web');
+    await h.click(editor('formTab'));
+    await expect(editor('routePath')).toHaveCount(2);
+    await expect(editor('routePath').nth(0)).toHaveValue('/');
+    await expect(editor('routePath').nth(1)).toHaveValue('/admin');
+    expect(putCalls.length).toBe(0);
+    expect((await stored(appId)).workloads).toHaveLength(0);
+    check('valid import (real backend parse): two routes shown in the form, no PUT and no draft written yet');
+    mark('imported-valid');
+    await h.read('Hai route hợp lệ đã vào form; nhập chưa lưu');
+
+    caption('Bước 3: Sửa image và đổi route /admin thành /ops bằng form rồi Lưu draft; Score lưu đúng hai publicRoutes đã sửa, không có publicPort');
+    await h.type(editor('image'), 'registry.example/web:t25-v2', { replace: true });
+    await h.type(editor('routePath').nth(1), '/ops', { replace: true });
+    await expect(editor('routePath').nth(1)).toHaveValue('/ops');
+    mark('edited');
+    const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && new URL(response.url()).pathname.endsWith('/workloads/web'));
+    await h.click(editor('save'));
+    const response = await saved;
+    expect(response.status()).toBe(200);
+    const sent = response.request().postDataJSON().score;
+    expect(sent.service).toEqual({ ports, publicRoutes: editedRoutes });
+    expect(JSON.stringify(sent)).not.toContain('publicPort');
+    const afterSave = await stored(appId);
+    const savedWeb = afterSave.workloads.find((item) => item.id === 'web').score;
+    expect(savedWeb.service).toEqual({ ports, publicRoutes: editedRoutes });
+    expect(savedWeb.containers.main.image).toBe('registry.example/web:t25-v2');
+    check('PUT payload and stored draft (backend GET) hold exactly the edited routes / and /ops, edited image, no publicPort');
+    mark('saved');
+    await h.read('Draft lưu đúng hai route đã sửa');
+
+    caption('Bước 3b: Mở lại Sửa web; hai route / và /ops được khôi phục đầy đủ từ draft, rồi Hủy về trang ứng dụng');
+    await h.click(page.getByRole('button', { name: 'Sửa', exact: true }));
+    await expect(page.getByRole('heading', { name: 'Sửa web', level: 1 })).toBeVisible();
+    await expect(editor('routePath')).toHaveCount(2);
+    await expect(editor('routePath').nth(0)).toHaveValue('/');
+    await expect(editor('routePath').nth(1)).toHaveValue('/ops');
+    await expect(editor('routePort').nth(0)).toHaveValue('http');
+    await expect(editor('routePort').nth(1)).toHaveValue('admin');
+    check('reopened Edit restores both routes: / -> http and /ops -> admin');
+    mark('reopened');
+    await h.read('Form sửa khôi phục đủ hai route');
+    await h.click(page.getByRole('button', { name: 'Hủy', exact: true }));
+    await expect(page.getByRole('heading', { name: 'Workload', exact: true })).toBeVisible();
+
+    caption('Bước 4: Xem trước thay đổi (adapter fake): một Workload bị ảnh hưởng; Triển khai vẫn là thao tác riêng, không bấm');
+    await h.click(page.getByRole('button', { name: 'Xem trước thay đổi' }));
+    await expect(page.getByLabel('Xem trước triển khai')).toContainText('1 Workload bị ảnh hưởng', { timeout: 120_000 });
+    await h.moveTo(page.getByLabel('Xem trước triển khai'));
+    check('Preview (real backend planner, fake adapter): 1 Workload affected with two valid routes; nothing deployed');
+    mark('preview');
+    await h.read('Xem trước đọc từ backend thật, adapter fake; chưa triển khai');
+
+    caption('Bước 5: Nhập Score cũ còn service.publicPort; backend từ chối INVALID_SCORE, giao diện báo tiếng Việt, không tạo route / và không lưu');
+    const putsBefore = putCalls.length;
+    const draftsBefore = JSON.stringify(await stored(appId));
+    await h.click(page.getByRole('button', { name: '+ Thêm Workload' }));
+    await expect(page.getByRole('heading', { name: 'Thêm Workload', level: 1 })).toBeVisible();
+    await h.click(editor('importTab'));
+    await importScore('old.json', base('old', { ports: { http: { port: 8080 } }, publicPort: 'http' }));
+    const alert = page.getByRole('alert');
+    await expect(alert).toContainText('publicPort không còn được hỗ trợ');
+    await expect(alert).toContainText('publicRoutes');
+    await expect(page.getByText('Đã phân tích Workload:')).toHaveCount(0);
+    expect(putCalls.length).toBe(putsBefore);
+    expect(JSON.stringify(await stored(appId))).toBe(draftsBefore);
+    check('old alias import: Vietnamese rejection naming publicRoutes, no parsed panel, no PUT, draft list byte-identical (no conversion to "/")');
+    mark('alias-rejected');
+    await h.moveTo(alert);
+    await h.read('publicPort bị từ chối; không tự chuyển thành route /');
+
+    caption('Bước 6 (kiểm tra âm tính, không phải thao tác sản phẩm): lưu thẳng qua API với publicPort rỗng/null/cùng publicRoutes đều bị 400 INVALID_SCORE');
+    const version = (await stored(appId)).draftVersion;
+    for (const publicPort of ['', null, 'http']) {
+      const reply = await page.request.put(`${baseURL}/api/v1/applications/${appId}/environments/staging/workloads/old`, { data: { version, score: base('old', { ports: { http: { port: 8080 } }, publicRoutes: [{ path: '/x', port: 'http' }], publicPort }) } });
+      expect(reply.status()).toBe(400);
+      expect((await reply.json()).code).toBe('INVALID_SCORE');
+    }
+    const finalList = await stored(appId);
+    expect(finalList.draftVersion).toBe(version);
+    expect(finalList.workloads.map((item) => item.id)).toEqual(['web']);
+    check('API negative probe: empty, null and with-routes publicPort all 400 INVALID_SCORE; draft version and list unchanged');
+    mark('api-negative');
+
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(2000);
+  },
 };
 
 export function parseArgs(argv) {

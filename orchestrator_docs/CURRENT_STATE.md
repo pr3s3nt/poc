@@ -120,7 +120,8 @@ Score không tự thêm capacity. Thêm route chỉ tự chọn đúng một c�
 port rename/delete/invalid giữ đích cũ và chặn lưu, không retarget. Typed params,
 key aliases, stale/BUSY/scope guards giữ nguyên. Headed T08 và T03 regression
 pass với fake adapters; Secret catalog/stale/BUSY là projection mock. Backend
-error mapping T20 và publicPort removal T25 còn chờ; không live mutation.
+error mapping T20 và publicPort removal T25 đã hoàn tất theo các record riêng;
+không live mutation.
 
 ## Console refactor T07 (2026-10-11)
 
@@ -601,3 +602,14 @@ effects. Go/conformance/build, frontend 425 tests/build and headed fake T01/T07
 plus application-connection local restart pass. SQL integration/live checks
 were not run. Retained dev resources remain untouched; old HOST_CONTEXT DB
 requires approved reset. Historical SQL startup migrations remain until T28.
+
+## Public route cleanup T25 (2026-10-12)
+
+[Local verification](verification/2026-10-12-T25-public-routes.md): product chỉ
+nhận `service.publicRoutes`; field `publicPort` bị từ chối kể cả rỗng/null/cùng
+routes, với HTTP `INVALID_SCORE` và hướng dẫn Việt an toàn. Không convert draft
+cũ, không route fallback; dữ liệu cũ chứa alias cần sửa/reset dev theo T29.
+Decoder giữ strict nested validation; literal binding security, nhiều path,
+port ownership, no-op/route-only retry và T08 controls giữ nguyên. Full Go/build/
+conformance, frontend 429 tests và headed T25/T08 pass với fake adapters.
+Không kiểm PostgreSQL opt-in, kind/AWS/Vault thật hoặc mutate retained state.

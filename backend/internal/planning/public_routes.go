@@ -14,7 +14,7 @@ func ValidatePublicRoutes(set environment.Document) error {
 		if service == nil {
 			continue
 		}
-		for _, route := range service.Routes() {
+		for _, route := range service.PublicRoutes {
 			if route.Path == "" || route.Path[0] != '/' || route.Path != "/" && (route.Path[len(route.Path)-1] == '/' || containsInvalidPath(route.Path)) {
 				return fmt.Errorf("planning: invalid public path %q", route.Path)
 			}

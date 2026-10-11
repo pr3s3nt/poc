@@ -430,3 +430,11 @@ Evidence and exact limits: [T20 verification](../verification/2026-10-12-T20-con
 |---|---|---|
 | UC-04 SS-06..08; UC-12 BR-15; ADR-012 | Scoped private credential-only Vault registry, no legacy flags/backfill/conversion; `TestRegistryCredentialResolutionFailsClosed`; bootstrap fresh/restart/refresh, probe cleanup and failed-attempt cleanup tests | [T23 local evidence](../verification/2026-10-12-T23-ordinary-secret-stores.md) |
 | UC-04 SS-04,08; managed credential CAS | SQL/JSON managed admission checks ID/ref/marker/endpoint; shared persistence contract rejects unmarked user refresh; public DTO has no legacy/token/ref; frontend ordinary labels | Same evidence; SQL integration skipped by opt-in gate, headed fake T23 and regression coverage recorded separately |
+
+## T25 — Public route alias removal
+
+| Requirement | Design/code | Verification |
+|---|---|---|
+| UC-16 BR-12; UC-06 public routing; OC-07 | `Service.UnmarshalJSON`, Score parser, workloadconfig Save/ValidateImport/List: only publicRoutes, no conversion or state write on alias error | `TestServiceRejectsAnyPublicPort`, `TestPublicPortIsRejectedEverywhere`, `TestPublicPortIsRejectedWithoutWritingDraft`, `TestListFailsOnDraftWithPublicPort`, `TestHTTPRejectsRemovedPublicPortWithoutStateChange` |
+| Strict Score input; VI-03 | Nested Service fields stay strict; stable INVALID_SCORE/service.publicPort and safe Vietnamese mapping | `TestServiceDecodingIsStrictAtEveryDepth`, `TestScoreRejectsUnknownServiceKeysAtEveryDepth`, HTTP/classifier and editor tests |
+| T08 route controls; explicit Save → Preview | Multi-route import/edit/save/reopen, no serialize alias or fallback; protected literal policy unchanged | Full backend/frontend suites, headed T25 and T08 regression; [local evidence](../verification/2026-10-12-T25-public-routes.md) |

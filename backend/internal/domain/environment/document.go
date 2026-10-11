@@ -2,6 +2,9 @@
 package environment
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 )
@@ -28,7 +31,6 @@ type Port struct {
 // Service exposes workload ports inside the cluster.
 type Service struct {
 	Ports        map[string]Port `json:"ports"`
-	PublicPort   string          `json:"publicPort,omitempty"`
 	PublicRoutes []PublicPath    `json:"publicRoutes,omitempty"`
 }
 
@@ -38,16 +40,25 @@ type PublicPath struct {
 	Port string `json:"port"`
 }
 
-// Routes includes the legacy publicPort alias without changing stored documents.
-func (s *Service) Routes() []PublicPath {
-	if s == nil {
-		return nil
+// ErrPublicPortRemoved reports a Service that declares the removed
+// `publicPort` field. Only `publicRoutes` is supported; the field is never
+// converted into a route and never silently dropped.
+var ErrPublicPortRemoved = errors.New("environment: service.publicPort is not supported; declare service.publicRoutes")
+
+// UnmarshalJSON rejects any presence of `publicPort` (empty, null or next to
+// `publicRoutes`) so no decoder of a Score, draft or Deployment Set drops it.
+func (s *Service) UnmarshalJSON(b []byte) error {
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(b, &keys); err == nil {
+		if _, present := keys["publicPort"]; present {
+			return ErrPublicPortRemoved
+		}
 	}
-	routes := append([]PublicPath(nil), s.PublicRoutes...)
-	if s.PublicPort != "" {
-		routes = append(routes, PublicPath{Path: "/", Port: s.PublicPort})
-	}
-	return routes
+	// Strict like the Score decoder: unknown keys at any depth are rejected.
+	type plain Service
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	return dec.Decode((*plain)(s))
 }
 
 // Canonical returns an equivalent Service shape for no-op comparisons.
@@ -57,8 +68,7 @@ func (s *Service) Canonical() *Service {
 		return nil
 	}
 	out := *s
-	out.PublicRoutes = s.Routes()
-	out.PublicPort = ""
+	out.PublicRoutes = append([]PublicPath(nil), s.PublicRoutes...)
 	sort.Slice(out.PublicRoutes, func(i, j int) bool { return out.PublicRoutes[i].Path < out.PublicRoutes[j].Path })
 	out.Ports = make(map[string]Port, len(s.Ports))
 	for name, port := range s.Ports {

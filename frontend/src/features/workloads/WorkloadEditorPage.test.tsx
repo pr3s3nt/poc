@@ -514,3 +514,46 @@ it('blocks Save with Vietnamese validation for an invalid Workload name and keep
   expect(screen.getByLabelText('Ảnh Container')).toHaveValue('example.invalid/x:v1');
   expect(puts).toEqual([]);
 });
+
+it('round-trips several publicRoutes unchanged and never serializes publicPort', async () => {
+  const score = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1' } }, service: { ports: { http: { port: 8080 }, admin: { port: 9000 } }, publicRoutes: [{ path: '/', port: 'http' }, { path: '/admin', port: 'admin' }] } };
+  const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', score }] });
+  const user = userEvent.setup();
+  render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+  await screen.findByRole('heading', { name: 'Sửa api' });
+  expect(screen.getAllByLabelText('Đường dẫn công khai')).toHaveLength(2);
+  await user.click(saveButton());
+  expect(puts[0]!.score.service).toEqual(score.service);
+  expect(JSON.stringify(puts[0])).not.toContain('publicPort');
+});
+
+it('rejects an import with publicPort in Vietnamese, keeps the form and converts nothing', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith('/configuration')) return Response.json({ keys: [] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [] });
+    if (url.endsWith('/workloads/parse')) return Response.json({ error: 'raw SECRET', code: 'INVALID_SCORE', field: 'service.publicPort' }, { status: 400 });
+    return Response.json({ draftVersion: 0, workloads: [] });
+  }));
+  const user = userEvent.setup();
+  render(<WorkloadEditorPage application={application} environment="staging" />);
+  await screen.findByRole('heading', { name: 'Thông tin cơ bản' });
+  await user.click(screen.getByRole('button', { name: 'Nhập Score' }));
+  const content = '{"apiVersion":"score.dev/v1b1","metadata":{"name":"api"},"service":{"publicPort":"http"}}';
+  const file = Object.assign(new File([content], 'score.json', { type: 'application/json' }), { text: async () => content });
+  await user.upload(screen.getByLabelText('File Score'), file);
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('publicRoutes');
+  expect(alert).not.toHaveTextContent('SECRET');
+  expect(screen.queryByText(/Đã phân tích Workload/)).not.toBeInTheDocument();
+});
+
+it('does not open a draft that still declares publicPort and does not drop its route', async () => {
+  const score = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1' } }, service: { ports: { http: { port: 8080 } }, publicPort: 'http' } };
+  const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', score }] });
+  render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+  expect(await screen.findByRole('alert')).toHaveTextContent('publicRoutes');
+  expect(screen.queryByLabelText('Đường dẫn công khai')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Lưu draft Workload' })).toBeDisabled();
+  expect(puts).toHaveLength(0);
+});

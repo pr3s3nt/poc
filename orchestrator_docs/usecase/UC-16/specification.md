@@ -2,7 +2,7 @@
 id: UC-16-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-12
 related: UC-01, UC-05, UC-06, UC-07, UC-12
 ---
 
@@ -105,8 +105,10 @@ của Environment đang chọn.
 - **BR-12:** Mỗi workload có thể khai báo nhiều public route `{path, port}`;
   `path` là URL prefix bắt đầu bằng `/`, `port` là tên Service port đã khai báo.
   Preview kiểm tra path hợp lệ và không trùng trong toàn Environment; `/` và
-  `/api` được phép ở hai workload. `service.publicPort` cũ tương đương route
-  `{path: "/", port: publicPort}`. Save chỉ lưu desired state; Deploy mới
+  `/api` được phép ở hai workload. Chỉ nhận `service.publicRoutes`; mọi field
+  `service.publicPort` bị từ chối, kể cả rỗng/null hoặc đi kèm publicRoutes,
+  không tự chuyển draft cũ. HTTP trả code ổn định `INVALID_SCORE` và không
+  thay đổi draft/version/current set/runtime. Save chỉ lưu desired state; Deploy mới
   tạo/cập nhật hoặc gỡ route của Environment.
 - **BR-13:** Draft có nội dung ngữ nghĩa giống current Deployment Set không
   tạo thay đổi trong Preview; thay đổi revision UC-12 của key workload đang

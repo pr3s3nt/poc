@@ -559,7 +559,7 @@ func appRuntimeReady(environment.Environment) appdomain.RuntimeStatus { return a
 
 func hasRoutes(doc environment.Document) bool {
 	for _, id := range doc.ModuleIDs() {
-		if len(doc.Modules[id].Spec.Service.Routes()) > 0 {
+		if service := doc.Modules[id].Spec.Service; service != nil && len(service.PublicRoutes) > 0 {
 			return true
 		}
 	}

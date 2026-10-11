@@ -220,7 +220,8 @@ Deployment Sets are immutable. Canonical shape:
 
 For the internal-kind public route extension, each workload module may carry
 `spec.service.publicRoutes: [{path, port}]`, where `port` names a declared
-`spec.service.ports` entry. The legacy `spec.service.publicPort` denotes `/`.
+`spec.service.ports` entry. `spec.service.publicPort` is not accepted in current
+product documents; old drafts are not converted automatically (dev reset T29).
 Paths are unique across the Environment; multiple workloads may be public on
 distinct paths. The route itself is one Environment-owned Kubernetes Ingress,
 not a secret or database row.

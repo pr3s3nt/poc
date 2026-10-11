@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-12 | T25 publicRoutes-only input, safe no-write alias rejection and headed fake route edit/reopen | [Public routes cleanup](2026-10-12-T25-public-routes.md) |
 | 2026-10-12 | T22 upload-only registration, scoped KUBECONFIG, host-default rejection and local regressions | [Explicit Kubernetes credentials](2026-10-12-T22-explicit-kubeconfig.md) |
 | 2026-10-11 | T19 exact matching preview, scoped snapshot/no writes and headed fake evidence | [Matching preview](2026-10-11-T19-matching-preview.md) |
 | 2026-10-11 | T06 Vietnamese Connections, auto-inspect, name ownership, stale replies and headed local evidence | [Connections](2026-10-11-T06-connections.md) |

@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # UC-06 — Deploy Workload
@@ -107,8 +107,9 @@ Triển khai Score workload theo Execution Profile của Application, tự độ
   `staging.<subdomain>.<base-domain>`, production là
   `<subdomain>.<base-domain>`. Route không được coi là truy cập được từ bên ngoài cho tới khi DNS và
   đường vào Ingress Controller được cấu hình; TLS/cloud ingress nằm ngoài MVP.
-  `service.publicRoutes` và alias `service.publicPort` là extension của orchestrator trên Score subset hiện tại,
-  không phải khẳng định field chuẩn của Score.
+  `service.publicRoutes` là extension của orchestrator trên Score subset hiện tại,
+  không phải khẳng định field chuẩn của Score. `service.publicPort` không được nhận
+  ở Score hoặc public Deployment Set projection, không rewrite hay fallback sang route `/`.
 - **BR-15:** Nếu workload trong batch đã apply nhưng route reconcile lỗi,
   Environment giữ trạng thái `publicRoutesPending`. Preview kế tiếp cho phép
   retry riêng route từ current Deployment Set, không redeploy/restart workload;

@@ -316,3 +316,16 @@ reference fixtures do not use these aliases.
 - [HTTP error mapping](../../backend/internal/delivery/http/apierror.go) and
   [Console errors](../../frontend/src/shared/api/errors.ts) drop the obsolete
   LEGACY_VALUE_UNREADABLE code. Deployment/transition test Secret kind directly.
+
+## T25 — Current public routing input
+
+UC-16 BR-12/UC-06 routing use only `publicRoutes`.
+[`Service` decoder](../../backend/internal/domain/environment/document.go)
+rejects the removed alias in Score and Deployment Set JSON;
+[`Score tests`](../../backend/internal/planning/score/score_test.go),
+[`domain tests`](../../backend/internal/domain/environment/service_test.go) and
+[`HTTP no-write tests`](../../backend/test/e2e/public_port_removed_test.go)
+cover rejection and strict nested fields. The
+[`editor`](../../frontend/src/features/workloads/WorkloadEditorPage.tsx) never
+converts old drafts; the existing route manager and pending retry retain their
+ownership. [Local verification](../verification/2026-10-12-T25-public-routes.md).

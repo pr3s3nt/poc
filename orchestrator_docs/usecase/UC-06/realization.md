@@ -117,3 +117,10 @@ trusted system binding bypasses criteria matching, and UC-08 resolves the select
 Environment Connection through existing-cluster. Preview is pure; execution
 admits the reserved system Definition before persistence writes. Other resource
 Definitions, executor scheduling and output propagation remain unchanged.
+
+## T25 — Public route input
+
+Score parsing and public Deployment Set projection reject `service.publicPort`;
+only `publicRoutes` reaches Candidate validation and rendering. Multi-path,
+same-host ownership, declared-port validation and route-only retry remain intact.
+No alias conversion or default route is introduced.

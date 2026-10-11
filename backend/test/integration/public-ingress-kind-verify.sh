@@ -50,7 +50,7 @@ NAMESPACE="app-${APP_ID}-staging"
 BASE="${API}/applications/${APP_ID}/environments/staging"
 HOST="staging.${RUN_ID}.example.com"
 
-jq -n '{apiVersion:"score.dev/v1b1",metadata:{name:"probe"},containers:{main:{image:"busybox:1.37",command:["/bin/sh","-c"],args:["printf ingress-ok >/tmp/index.html; exec httpd -f -p 8080 -h /tmp"],readinessProbe:{path:"/",port:8080}}},service:{ports:{http:{port:8080,targetPort:8080}},publicPort:"http"}}' \
+jq -n '{apiVersion:"score.dev/v1b1",metadata:{name:"probe"},containers:{main:{image:"busybox:1.37",command:["/bin/sh","-c"],args:["printf ingress-ok >/tmp/index.html; exec httpd -f -p 8080 -h /tmp"],readinessProbe:{path:"/",port:8080}}},service:{ports:{http:{port:8080,targetPort:8080}},publicRoutes:[{path:"/",port:"http"}]}}' \
   | jq '{score:.,version:0}' \
   | curl -fsS -b "${WORK}/cookies" -X PUT -H 'Content-Type: application/json' --data-binary @- "${BASE}/workloads/probe" > "${WORK}/draft.json"
 curl -fsS -b "${WORK}/cookies" -X POST -H 'Content-Type: application/json' --data '{}' "${BASE}/preview" > "${WORK}/preview.json"

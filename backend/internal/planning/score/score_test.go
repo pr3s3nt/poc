@@ -1,8 +1,11 @@
 package score
 
 import (
+	"encoding/json"
+	"errors"
 	"testing"
 
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 )
 
@@ -58,18 +61,40 @@ func fragment(t *testing.T, doc map[string]any) *Fragment {
 
 func TestPublicServicePortMustExist(t *testing.T) {
 	doc := base()
-	doc["service"] = map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicPort": "missing"}
+	doc["service"] = map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicRoutes": []any{map[string]any{"path": "/", "port": "missing"}}}
 	if _, err := FromMap(doc); err == nil {
 		t.Fatal("accepted undeclared public port")
 	}
-	doc["service"].(map[string]any)["publicPort"] = "http"
+	doc["service"].(map[string]any)["publicRoutes"] = []any{map[string]any{"path": "/", "port": "http"}}
 	parsed, err := FromMap(doc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	fragment, err := parsed.Fragment(types())
-	if err != nil || fragment.Module.Spec.Service.PublicPort != "http" {
-		t.Fatalf("public port was not preserved: %v", err)
+	if err != nil || len(fragment.Module.Spec.Service.PublicRoutes) != 1 || fragment.Module.Spec.Service.PublicRoutes[0].Port != "http" {
+		t.Fatalf("public route was not preserved: %v", err)
+	}
+}
+
+func TestPublicPortIsRejectedEverywhere(t *testing.T) {
+	routes := []any{map[string]any{"path": "/api", "port": "http"}}
+	for name, publicPort := range map[string]any{"value": "http", "empty": "", "null": nil} {
+		for _, withRoutes := range []bool{false, true} {
+			doc := base()
+			service := map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicPort": publicPort}
+			if withRoutes {
+				service["publicRoutes"] = routes
+			}
+			doc["service"] = service
+			_, err := FromMap(doc)
+			if !errors.Is(err, ErrInvalid) || !errors.Is(err, environment.ErrPublicPortRemoved) {
+				t.Fatalf("%s withRoutes=%v: want ErrInvalid and ErrPublicPortRemoved, got %v", name, withRoutes, err)
+			}
+		}
+	}
+	var service environment.Service
+	if err := json.Unmarshal([]byte(`{"ports":{"http":{"port":80}},"publicPort":null}`), &service); !errors.Is(err, environment.ErrPublicPortRemoved) {
+		t.Fatalf("stored projection decoded removed field: %v", err)
 	}
 }
 
@@ -218,5 +243,19 @@ func TestFragmentRewritesVirtualConfigurationAndServiceWithoutProvisioning(t *te
 	vars := fragment.Module.Spec.Containers["main"].Variables
 	if vars["TOKEN"] != "${context.uc12.API_TOKEN}" || vars["BACKEND_URL"] != "${context.service.backend.http}" {
 		t.Fatalf("unexpected virtual references: %+v", vars)
+	}
+}
+
+func TestScoreRejectsUnknownServiceKeysAtEveryDepth(t *testing.T) {
+	for name, service := range map[string]map[string]any{
+		"service key": {"ports": map[string]any{"http": map[string]any{"port": 8080}}, "extra": 1},
+		"port key":    {"ports": map[string]any{"http": map[string]any{"port": 8080, "bogus": 1}}},
+		"route key":   {"ports": map[string]any{"http": map[string]any{"port": 8080}}, "publicRoutes": []any{map[string]any{"path": "/", "port": "http", "bogus": 1}}},
+	} {
+		doc := base()
+		doc["service"] = service
+		if _, err := FromMap(doc); !errors.Is(err, ErrInvalid) {
+			t.Errorf("%s: want ErrInvalid, got %v", name, err)
+		}
 	}
 }

@@ -34,7 +34,7 @@ func (r *routeRecorder) Reconcile(_ context.Context, _ execution.Target, route e
 func scoreFor(name, image string, public bool) map[string]any {
 	service := map[string]any{"ports": map[string]any{"http": map[string]any{"port": 8080}}}
 	if public {
-		service["publicPort"] = "http"
+		service["publicRoutes"] = []any{map[string]any{"path": "/", "port": "http"}}
 	}
 	return map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": name}, "containers": map[string]any{"main": map[string]any{"image": image}}, "service": service}
 }

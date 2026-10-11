@@ -120,7 +120,11 @@ func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 		}
 		item := Item{ID: draft.WorkloadID, State: draft.State, Score: draft.Score, Ready: set.Document.Modules[draft.WorkloadID].Profile != ""}
 		if draft.State == environment.DraftUpsert {
-			if parsed, err := score.FromMap(draft.Score); err == nil {
+			parsed, err := score.FromMap(draft.Score)
+			if errors.Is(err, environment.ErrPublicPortRemoved) {
+				return View{}, err // an old draft is never shown with its route dropped
+			}
+			if err == nil {
 				item.ServicePorts = portNames(parsed.Service)
 			}
 		}

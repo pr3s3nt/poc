@@ -101,7 +101,7 @@ const knownFields: ReadonlySet<string> = new Set([
   'acknowledgeDowntime', 'priorExecutionStopped', 'resources', 'status', 'scoreBefore', 'scoreAfter', 'version', 'token', 'kubeconfig',
   'type.key', 'type.schema', 'definition.schema', 'definition.driver', 'definition.references', 'definition.key',
   'definition.resourceType', 'definition.executionProfile', 'definition.driverType', 'definition.criteria',
-  'definition.connectionKey', 'context.applicationId', 'context.environmentId', 'context.resourceId', 'context.class',
+  'definition.connectionKey', 'context.applicationId', 'context.environmentId', 'context.resourceId', 'context.class', 'service.publicPort',
 ]);
 
 export function knownCode(code: unknown): code is string { return has(errorMessages, code); }
@@ -122,6 +122,9 @@ export function messageFor(status: number, code?: string, params?: ErrorParams, 
   const base = (knownCode(code) ? errorMessages[code] : undefined) ?? fallbackByStatus(status);
   if (code === 'INVALID_SCORE' && params?.resourceType) {
     return `${base} Tham số của tài nguyên thuộc loại ${params.resourceType} chưa đúng: kiểm tra tham số đã khai báo, kiểu giá trị và trường bắt buộc của loại này.`;
+  }
+  if (code === 'INVALID_SCORE' && field === 'service.publicPort') {
+    return `${base} Trường publicPort không còn được hỗ trợ; khai báo đường dẫn công khai bằng publicRoutes. Hệ thống không tự chuyển đổi hay lưu thay đổi.`;
   }
   if (code === 'INVALID_SCORE' && field === 'resources') {
     return `${base} Một tài nguyên trong Score dùng loại chưa được đăng ký; hãy chọn loại tài nguyên đã đăng ký.`;

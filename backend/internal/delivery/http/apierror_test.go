@@ -21,6 +21,7 @@ import (
 	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/application/transition"
 	"orchestrator/internal/application/workloadconfig"
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/planning/score"
 	configport "orchestrator/internal/ports/configuration"
@@ -58,6 +59,7 @@ func TestWriteErrorCodesStatusesAndFields(t *testing.T) {
 		field  string
 	}{
 		{"score invalid", fmt.Errorf("score: %s bad: %w", canary, score.ErrInvalid), 400, "INVALID_SCORE", ""},
+		{"removed publicPort", fmt.Errorf("score: service.publicPort: %w", environment.ErrPublicPortRemoved), 400, "INVALID_SCORE", "service.publicPort"},
 		{"workload score", fmt.Errorf("%w: %s", workloadconfig.ErrInvalid, canary), 400, "INVALID_SCORE", ""},
 		{"workload variable", fmt.Errorf("x %s: %w", canary, workloadconfig.ErrInvalidVariable), 400, "INVALID_VARIABLE", ""},
 		{"config invalid", fmt.Errorf("%s: %w", canary, appconfig.ErrInvalid), 400, "INVALID_VARIABLE", ""},
