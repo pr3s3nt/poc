@@ -264,3 +264,18 @@ See [local evidence](../verification/2026-10-11-T17-existing-cluster-registratio
 - [Headed T18/T03 scenarios](../../frontend/test/e2e/refactor-local.mjs),
   [fake runner](../../backend/test/integration/refactor-ui-local.sh),
   [local evidence](../verification/2026-10-11-T18-render-bundles.md).
+
+## T19 single-context matching preview
+
+- [Catalog read service](../../backend/internal/application/catalog/matching_preview.go)
+  và [tests](../../backend/internal/application/catalog/matching_preview_test.go):
+  one scoped ReadSnapshot, in-memory candidate replacement, domain weights và
+  winning ConnectionMismatch guard, deterministic snapshot marker; no writes.
+- [HTTP route](../../backend/internal/delivery/http/resource_definitions.go),
+  [safe boundary tests](../../backend/internal/delivery/http/matching_preview_test.go).
+- [Shared panel](../../frontend/src/features/platform/MatchingPreviewPanel.tsx),
+  [panel/integration tests](../../frontend/src/features/platform/MatchingPreviewPanel.test.tsx),
+  [Environment metadata fingerprint](../../frontend/src/features/platform/environmentSnapshot.ts)
+  trong CriteriaEditor/resource/template forms.
+- [Headed T19 scenario](../../frontend/test/e2e/refactor-local.mjs); existing
+  local fake runner, no retained DB/cluster/cloud mutation.

@@ -186,8 +186,8 @@ Runner live template đã đổi route/locator, chỉ kiểm syntax, chưa rerun
 [Local verification](verification/2026-10-10-T02B-criteria-editor.md): editor
 Điều kiện áp dụng dùng chung đã có bốn chế độ, dropdown app/env IDs thực,
 copy độc lập và giữ criteria nâng cao/nhiều dòng khi chuyển mode. Xem trước
-phạm vi và cảnh báo overlap là trợ giúp frontend; matching authoritative còn
-chờ T19. Payload/matcher không đổi; headed fake evidence không chứng minh
+phạm vi và cảnh báo overlap vẫn là trợ giúp frontend; matching authoritative
+đã được bổ sung ở T19 (xem mục bên dưới). Payload/matcher không đổi; headed fake evidence không chứng minh
 live provisioning. T03 dùng lại editor cho Mẫu dựng ứng dụng.
 
 ## Console refactor T02 (2026-10-10)
@@ -206,7 +206,7 @@ Workload Definitions không còn ở list/form resource; trang Mẫu dựng ứn
 đã được triển khai riêng ở T03. Backend rendering/API vẫn giữ nguyên. Runner live
 `frontend/test/e2e/template-engine-kind-human.mjs` đã cập nhật route/locator tại
 T03 nhưng chưa chạy lại live. Exact
-matching-preview và code-based error mapping vẫn thuộc T19/T20.
+matching-preview đã bổ sung ở T19; code-based error mapping vẫn thuộc T20.
 
 ## Definition-selected rendering (2026-10-06)
 
@@ -532,3 +532,23 @@ permissions/metadata/no-insert, frontend selector guards và headed fake scenari
 Registry một bundle/registration/Preview dùng backend local thật với fake adapters
 và binary stub; 0/n/error là projection mocks. Không chứng minh renderer binary
 thật hoặc live cluster/cloud; PostgreSQL opt-in không chạy. Matching/ADR-010 giữ nguyên.
+
+## Console refactor T19 (2026-10-11)
+
+POST `/api/v1/resource-definitions/matching-preview` đã có PE/Admin/session-org
+gate, bounded strict safe input, scoped read-only snapshot app/env/READY target/
+catalog và candidate replacement chỉ trong memory. Trả eligibility, best
+criterion/score, unique winner hoặc winning ties, winning Connection conflict,
+incomplete/system-binding/native-renderer và deterministic snapshot marker/version.
+Weights/profile/ties, match.go, reference fixtures và full graph Preview không đổi.
+Không write, inspect, render, provision hoặc secret resolution; kết quả không
+bảo đảm registration/deploy, không phát token.
+
+Hai form resource/template có control chung “Kiểm tra matching” dùng draft chưa
+lưu/context mẫu. Input/context/metadata/session đổi thì invalidate result/pending;
+transport errors tách khỏi matching states, retry tường minh. INCOMPLETE không
+bị diễn giải thành không khớp; system node không do authored criteria điều khiển.
+[Local verification](verification/2026-10-11-T19-matching-preview.md):
+Go/conformance/build và frontend checks pass local; browser dùng backend thật
+với fake adapters/state tạm, transport 500 là projection mock. SQL/kind/AWS
+opt-in và retained K8S-4F không được chạy hoặc thay đổi trong T19.

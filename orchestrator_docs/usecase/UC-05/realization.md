@@ -93,3 +93,9 @@ trusted system binding bypasses criteria matching, and UC-08 resolves the select
 Environment Connection through existing-cluster. Preview is pure; execution
 admits the reserved system Definition before persistence writes. Other resource
 Definitions, executor scheduling and output propagation remain unchanged.
+
+## Matching preview boundary (T19)
+
+Catalog `PreviewMatching` của UC-03 dùng cùng domain weighted criteria và
+ConnectionMismatch guard nhưng không gọi full PlanningService.Plan. Kết quả
+không là input admission cho UC-05/06; shared planner tiếp tục kiểm snapshot mới.

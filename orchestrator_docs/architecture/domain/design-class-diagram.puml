@@ -23,6 +23,7 @@ package "Application Services" {
   class ResourceDefinitionService {
     +RegisterResourceDefinition(ctx, cmd): ResourceDefinition
     +ListRenderBundles(): SafeBundleMetadata[]
+    +PreviewMatching(ctx, org, query): MatchingPreview
   }
   class ConnectionService {
     +InspectKubeconfig(ctx, org, document): ContextMetadata
@@ -346,4 +347,5 @@ system Definition; no criteria matching.
 AWS and other resources retain DefinitionMatcher.
 end note
 
+ResourceDefinitionService ..> DefinitionMatcher : pure criteria + connection guard
 @enduml

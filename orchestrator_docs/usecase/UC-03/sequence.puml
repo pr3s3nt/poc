@@ -19,6 +19,16 @@ Service --> API: renderBundles (possibly empty)
 API --> PE: 200 safe metadata
 end
 
+opt Read-only matching preview [BR-20..22, OC-04c]
+PE -> API: POST matching-preview(candidate, explicit context)
+API -> API: Authenticate session org and PE/Admin
+API -> Service: PreviewMatching(ctx, org, query)
+Service -> Service: ReadSnapshot scoped app/env/target/types/definitions\nReplace same-key candidate only in memory
+Service -> Service: BestCriterion + profile eligibility + ConnectionMismatch\nNo registration/inspection/admission/write
+Service --> API: incomplete or winner/ties/conflict + snapshot marker
+API --> PE: 200 safe snapshot result
+end
+
 PE -> API: RegisterResourceDefinition(document, optional profile) [MS-01..MS-02]
 API -> Service: RegisterResourceDefinition(ctx, command)
 Service -> Validator: Validate() [MS-03, BR-07]

@@ -208,3 +208,27 @@ See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
   và giữ ID/criteria/lựa chọn; refresh và late replies không ghi đè lựa chọn
   người dùng. Lựa chọn không còn trong list không được submit; server vẫn kiểm
   availability tại POST và từ chối trước insert nếu bundle không còn available.
+
+## Matching preview trước đăng ký (T19)
+
+- **BR-20:** PE/Admin có thể gửi Definition chưa lưu và context tường minh tới
+  POST `/api/v1/resource-definitions/matching-preview`. Organization lấy từ
+  session; app/env phải tồn tại trong Organization đó. Profile, env_type và
+  Connection lấy từ Environment trong một read-only snapshot, không tin giá trị
+  target do client gửi. Context gồm `applicationId`, `environmentId`, `resourceId`
+  và `class`; thiếu resourceId/class trả `INCOMPLETE`, không kết luận tie.
+- **BR-21:** Snapshot catalog chỉ thay Definition cùng key bằng candidate trong
+  bộ nhớ. Dùng `BestCriterion` và `ConnectionMismatch` của planner; BR-01/06
+  giữ nguyên. Trả eligibility và criterion/score tốt nhất từng Definition,
+  winner hoặc các ties ở điểm thắng cao nhất. Tie thấp hơn không ambiguous.
+  Connection conflict chỉ chặn winner duy nhất; không chọn ứng viên thay thế.
+  Đúng implicit internal k8s-cluster node (class internal, res_id của
+  Connection descriptor) giữ system binding ADR-013, không materialize record;
+  workload không có match giữ native renderer, không chạy rendering.
+- **BR-22:** Kết quả chỉ phản ánh snapshot đã đọc: marker deterministic từ
+  catalog/Environment target và version, không phải save/deploy token. Không
+  registration, insert, system admission, inspector/executor, Vault, kube/cloud
+  calls hoặc SQL writes. Snapshot reads qua persistence được phép. Không validate
+  đầy đủ Driver Inputs/output contract hoặc bảo đảm candidate đăng ký được;
+  registration và planner vẫn kiểm lại độc lập. Request bounded/known-field;
+  response/error không chứa inputs, credentials, raw provider diagnostics.

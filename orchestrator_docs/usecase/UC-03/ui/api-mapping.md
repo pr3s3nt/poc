@@ -65,7 +65,7 @@ phát sinh POST và không thay criteria đang sửa.
 Bốn chế độ đều serialize theo năm field hiện hành; wildcard là `[{}]`, loại
 field rỗng. Không đổi registration contract, specificity hoặc profile guard.
 Xem trước phạm vi/cảnh báo frontend không persist/provision và không gọi
-endpoint mới. Matching preview authoritative chỉ được bổ sung ở T19.
+endpoint mới. Matching preview authoritative dùng OC-04c ở T19.
 
 ## Trang Mẫu dựng ứng dụng projection (T03)
 
@@ -86,3 +86,11 @@ CTA từ UC-02 mở `/ui/platform/resource-definitions?resourceType=<key>`.
 Chỉ chọn sẵn type khi catalog tải thành công xác nhận key thuộc whitelist của
 form T02; query thiếu/không hỗ trợ không tạo lựa chọn hợp lệ. Prefill không
 gửi POST hoặc ghi đè dữ liệu người dùng khi reload/response đến muộn.
+
+## Matching preview API (T19)
+
+POST `/api/v1/resource-definitions/matching-preview` theo OC-04c nhận candidate
+chưa lưu và context tường minh từ editor chung ở cả hai form. Profile/env_type/
+target do server load; payload criteria/driver values không dịch. 200 matching
+statuses tách khỏi 4xx/5xx transport/validation errors. Kết quả không đảm bảo Save
+hoặc Deploy và không thay POST registration; retry không tự replay registration.

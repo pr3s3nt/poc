@@ -157,3 +157,9 @@ before destination apps/routes become live. See
 - **BR-12:** Preview shows the implicit existing-cluster node and system execution binding derived from the pinned Environment Connection for internal-k8s, without matching user cluster Definitions or writing a system catalog record. Cloud/resource matching and no-mutation guarantees remain.
 
 See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
+
+## Ranh giới với matching preview (T19)
+
+UC-03 BR-20–22 chỉ tính matching một context/candidate theo OC-04c; không tạo
+Delta, Candidate Set hoặc graph, không thay UC-05 và không phát deploy token.
+UC-05/06 vẫn đọc snapshot mới và kiểm toàn bộ planner/contract độc lập.

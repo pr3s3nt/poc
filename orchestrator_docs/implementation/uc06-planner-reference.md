@@ -233,3 +233,10 @@ Product internal-k8s enrichment follows
 cluster node bypasses authored Definition matching and uses a trusted system
 binding. Reference fixtures without product enrichment retain reference matching.
 Cloud and other product resource matching remain profile-filtered/deterministic.
+
+## Single-context catalog matching preview (T19)
+
+UC-03 BR-20–22/OC-04c reuse pure domain BestCriterion và ConnectionMismatch.
+Type/profile filter, weights 1/2/4/8/16, equal winning ambiguity giữ nguyên;
+không đổi match.go hoặc fixtures. Candidate replacement chỉ trong memory của
+snapshot scoped; kết quả không chứng minh full graph hoặc registration validity.

@@ -73,3 +73,15 @@ refresh/late replies không đổi lựa chọn đã sửa. Lựa chọn đã m�
 được giữ để giải thích nhưng không submit. Sau Created, draft mới áp dụng lại
 quy tắc một bundle tự chọn/nhiều bundle chọn tường minh. POST unavailable giữ
 ID/bundle/criteria và thông báo Việt; retry GET không tự replay POST.
+
+## Matching preview states (T19)
+
+Idle/incomplete/loading/result/transport-error tách biệt. Input candidate (kể cả
+ID, JSON, bundle, Connection, criteria), context, scope/session đổi thì invalidate
+result và pending reply; refresh context metadata không khiến result cũ còn đúng.
+Không xóa edits khi lỗi/retry; không cho late request A thay result của request B.
+Status AMBIGUOUS chỉ từ winning ties server; conflict không có fallback candidate.
+Snapshot marker/version hiện cùng lời nhắc kiểm lại ở registration/planner.
+INCOMPLETE ghi ứng viên đủ eligibility là chưa đánh giá do thiếu context, không
+diễn giải matched=false thành không khớp; SYSTEM_BINDING ghi không xét criteria
+của authored Definitions vì node dùng binding hệ thống.

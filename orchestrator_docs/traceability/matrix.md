@@ -91,6 +91,14 @@ Scenario T03 kiểm đăng ký qua UI, native/selected renderer Preview và sele
 render failure qua Deploy với fake infrastructure/delivery + CLI stub local.
 Preview chỉ chọn renderer, không chạy render/provision; bundle selector được hoàn tất ở T18 bên dưới.
 
+## T19 single-context matching preview
+
+| Requirement | Collaboration / contract | Validation |
+|---|---|---|
+| UC-03 BR-20–22; OC-04c | `catalog.Service.PreviewMatching`, one scoped `ReadSnapshot`, same-key replacement in memory; domain BestCriterion and ConnectionMismatch; [sequence](../usecase/UC-03/sequence.puml) | `catalog/matching_preview_test.go`, `delivery/http/matching_preview_test.go`: weights/profile/winning ties, scope/target/system/native, safe errors and no mutation |
+| UC-03 UI exact preview | shared `MatchingPreviewPanel` in CriteriaEditor/resource/template forms; full unsaved candidate + explicit context, separate transport status, snapshot warning | `MatchingPreviewPanel.test.tsx`, headed scenario T19: input/metadata/session/late reply guards, wildcard/class/tie/non-overlap/incomplete |
+| UC-05/06 unchanged full graph boundary | separate fresh snapshot/planner validation; exact preview issues no token or admission | full Go/conformance suite; match.go and reference fixtures unchanged |
+
 ## UC-04
 
 T06 CN-01/02 UI behavior: [canonical UI states](../usecase/UC-04/ui/states.md),

@@ -1,0 +1,103 @@
+import { useEffect, useRef, useState } from 'react';
+import { api, ApiError, sessionExpiredEvent } from '../../shared/api/client';
+import { Button } from '../../shared/ui/Button';
+
+// Exact single-context matching preview (UC-03 BR-20..22, OC-04c). The server
+// computes it from a read-only snapshot; nothing is saved. The result belongs
+// to exactly one candidate+context (its signature): any input, scope or
+// session change drops the result and ignores a reply still in flight.
+
+export type MatchingCandidateInput = { definition: Record<string, unknown> | null; problem: string };
+export type MatchingSample = { applicationId: string; environmentId: string; resourceId: string; class: string };
+
+type Criterion = { env_type?: string; app_id?: string; env_id?: string; res_id?: string; class?: string };
+type Result = {
+  status: 'INCOMPLETE' | 'MATCHED' | 'NO_MATCH' | 'AMBIGUOUS' | 'CONNECTION_CONFLICT' | 'SYSTEM_BINDING' | 'NATIVE_RENDERER';
+  missingFields?: string[];
+  candidates?: { key: string; eligible: boolean; matched: boolean; bestCriterion?: Criterion; score?: number }[];
+  winner?: { key: string; score: number };
+  ties?: string[];
+  connectionConflict?: { definitionKey: string; connectionKey: string; targetConnectionKey: string };
+  snapshot?: { marker: string; environmentVersion: number };
+};
+type State = { phase: 'idle' } | { phase: 'loading' } | { phase: 'result'; result: Result } | { phase: 'error'; message: string };
+
+const statusText: Record<Result['status'], string> = {
+  INCOMPLETE: 'Chưa đủ context để kết luận',
+  MATCHED: 'Có một cấu hình thắng',
+  NO_MATCH: 'Không có cấu hình nào khớp',
+  AMBIGUOUS: 'Mơ hồ: nhiều cấu hình cùng điểm cao nhất',
+  CONNECTION_CONFLICT: 'Cấu hình thắng xung đột Kết nối với Môi trường',
+  SYSTEM_BINDING: 'Hệ thống gắn tự động theo Kết nối của Môi trường',
+  NATIVE_RENDERER: 'Không có mẫu khớp: dùng renderer mặc định',
+};
+const fieldText: Record<string, string> = { resourceId: 'ID tài nguyên (res_id)', class: 'Class' };
+
+function describeCriterion(criterion?: Criterion): string {
+  const parts = Object.entries(criterion ?? {}).filter(([, value]) => typeof value === 'string' && value !== '').map(([key, value]) => `${key}=${value}`);
+  return parts.length === 0 ? 'mọi nơi' : parts.join(', ');
+}
+
+// Transport/validation failures are never shown as a matching result.
+function describeTransport(reason: unknown): string {
+  if (!(reason instanceof ApiError)) return 'Chưa nhận được phản hồi từ máy chủ nên chưa có kết quả matching. Đây không phải kết quả matching; dữ liệu đã nhập được giữ nguyên.';
+  switch (reason.status) {
+    case 400: return 'Máy chủ từ chối cấu hình đang nhập để kiểm tra matching (ID, Loại tài nguyên hoặc điều kiện không hợp lệ, hoặc ID dành riêng cho hệ thống).';
+    case 401: return 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.';
+    case 403: return 'Bạn không có quyền kiểm tra matching. Chỉ Kỹ sư nền tảng hoặc Quản trị viên được dùng.';
+    case 404: return 'Không tìm thấy ứng dụng hoặc môi trường mẫu trong Tổ chức của bạn.';
+    case 413: return 'Nội dung cấu hình quá lớn để kiểm tra. Hãy rút gọn rồi thử lại.';
+    case 422: return 'Môi trường mẫu chưa có đích thực thi hợp lệ (chưa chọn Kết nối) nên chưa thể kiểm tra matching.';
+    default: return 'Máy chủ gặp lỗi khi kiểm tra matching. Đây không phải kết quả matching; hãy thử lại.';
+  }
+}
+
+export function MatchingPreviewPanel({ candidate, sample, scopeKey = '' }: { candidate: MatchingCandidateInput; sample: MatchingSample; scopeKey?: string }) {
+  const [state, setState] = useState<State>({ phase: 'idle' });
+  const seq = useRef(0);
+  const body = candidate.definition === null ? '' : JSON.stringify({ definition: candidate.definition, context: { applicationId: sample.applicationId, environmentId: sample.environmentId, resourceId: sample.resourceId.trim(), class: sample.class.trim() } });
+  const signature = `${scopeKey}\u0000${body}`;
+
+  // Any change of candidate, context or scope invalidates the result and the pending reply.
+  useEffect(() => { seq.current += 1; setState({ phase: 'idle' }); }, [signature]);
+  useEffect(() => {
+    const expire = () => { seq.current += 1; setState({ phase: 'idle' }); };
+    window.addEventListener(sessionExpiredEvent, expire);
+    return () => { seq.current += 1; window.removeEventListener(sessionExpiredEvent, expire); }; // unmount: ignore any late reply
+  }, []);
+
+  const noScope = sample.applicationId === '' || sample.environmentId === '';
+  const blocked = candidate.definition === null ? candidate.problem : noScope ? 'Chọn ứng dụng và môi trường mẫu để kiểm tra matching chính xác.' : '';
+
+  async function run() {
+    if (blocked || state.phase === 'loading') return;
+    const request = ++seq.current;
+    setState({ phase: 'loading' });
+    try {
+      const result = await api<Result>('/resource-definitions/matching-preview', { method: 'POST', body });
+      if (request === seq.current) setState({ phase: 'result', result });
+    } catch (reason) {
+      if (request === seq.current) setState({ phase: 'error', message: describeTransport(reason) });
+    }
+  }
+
+  const result = state.phase === 'result' ? state.result : null;
+  return <div className="criteria-preview matching-preview" role="group" aria-label="Kiểm tra matching chính xác">
+    <h4>Kiểm tra matching chính xác</h4>
+    <p className="feature-note">Máy chủ tính trên snapshot hiện tại với cấu hình đang nhập (chưa lưu) và context mẫu ở trên. Không lưu, không tạo tài nguyên, không thay Xem trước toàn bộ. Khác với cảnh báo nguy cơ và xem trước phạm vi chạy trong trình duyệt.</p>
+    {blocked ? <p>{blocked}</p> : null}
+    <div className="form-actions"><Button type="button" onClick={() => { void run(); }} disabled={blocked !== '' || state.phase === 'loading'}>Kiểm tra matching</Button></div>
+    {state.phase === 'loading' ? <p role="status">Đang kiểm tra matching…</p> : null}
+    {state.phase === 'error' ? <div className="form-error" role="alert" aria-label="Lỗi kiểm tra matching">{state.message} <Button type="button" onClick={() => { void run(); }}>Thử lại kiểm tra matching</Button></div> : null}
+    {result ? <div role="region" aria-label="Kết quả matching chính xác">
+      <p><strong>{statusText[result.status] ?? 'Trạng thái không xác định'}</strong></p>
+      {result.status === 'INCOMPLETE' ? <p>Cần bổ sung context: {(result.missingFields ?? []).map((field) => fieldText[field] ?? field).join(', ')}. Chưa kết luận tie hay cấu hình thắng.</p> : null}
+      {result.status === 'SYSTEM_BINDING' ? <p>Nút cluster nội bộ này do hệ thống gắn theo Kết nối của Môi trường; cấu hình tự viết không điều khiển nút này nên không có cấu hình thắng hoặc hòa.</p> : null}
+      {result.winner ? <p>Cấu hình thắng: <strong>{result.winner.key}</strong> (điểm {result.winner.score}).</p> : null}
+      {result.ties && result.ties.length > 0 ? <p>Các cấu hình đang hòa ở điểm cao nhất: <strong>{result.ties.join(', ')}</strong>. Theo snapshot này, matching mơ hồ cho tới khi các điều kiện thay đổi; kết quả thật vẫn do hệ thống kiểm tra lại.</p> : null}
+      {result.connectionConflict ? <p>Cấu hình thắng {result.connectionConflict.definitionKey} dùng Kết nối {result.connectionConflict.connectionKey}, khác Kết nối {result.connectionConflict.targetConnectionKey} của Môi trường. Hệ thống không chọn cấu hình thay thế.</p> : null}
+      {(result.candidates ?? []).length > 0 ? <ul aria-label="Chi tiết từng cấu hình">{(result.candidates ?? []).map((item) => <li key={item.key}><strong>{item.key}</strong>: {!item.eligible ? 'không đủ điều kiện (khác phạm vi triển khai)' : result.status === 'INCOMPLETE' ? 'chưa đánh giá do thiếu context' : result.status === 'SYSTEM_BINDING' ? 'không xét điều kiện: node dùng binding hệ thống' : item.matched ? `khớp, điểm ${item.score ?? 0}, điều kiện tốt nhất: ${describeCriterion(item.bestCriterion)}` : 'đủ điều kiện nhưng không khớp context'}</li>)}</ul> : null}
+      {result.snapshot ? <p className="feature-note">Snapshot {result.snapshot.marker.slice(0, 12)} · phiên bản môi trường {result.snapshot.environmentVersion}. Kết quả theo snapshot; hệ thống vẫn kiểm tra lại khi đăng ký và triển khai.</p> : null}
+    </div> : null}
+  </div>;
+}

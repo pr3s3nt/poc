@@ -106,3 +106,16 @@ Catalog applies BR-15 availability checks and returns sorted ID/version/AVAILABL
 metadata only (OC-04b). No repository or external operation participates.
 Console independently loads this list for its selector and preserves user edits
 on retries/late replies; registration still validates the selected ID before insert.
+
+## Matching preview collaboration (T19)
+
+`ResourceDefinitionService.PreviewMatching(ctx, org, query)` nhận candidate và
+context theo OC-04c. Controller kiểm session PE/Admin và strict bounded body.
+Service dùng `ReadSnapshot` lấy scoped Application/Environment/Connection,
+Resource Types và Definitions; không đọc config secrets/Active Resources.
+Thay candidate cùng key chỉ trong copy catalog. DefinitionMatcher collaboration
+reuse domain `BestCriterion`, profile filter và `planning.ConnectionMismatch`;
+không sửa ranking/ties trong match.go. Trả safe result và snapshot marker, không
+transaction write, registration/inspector hoặc system admission. Incomplete
+context trả trạng thái riêng trước kết luận matching. UI của hai form dùng chung
+operation; edits/scope changes làm kết quả pending/cũ mất hiệu lực.

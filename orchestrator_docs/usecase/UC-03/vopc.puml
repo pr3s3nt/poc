@@ -9,6 +9,7 @@ class ResourceDefinitionController <<boundary>> {
 class ResourceDefinitionService <<control>> {
   +RegisterResourceDefinition(ctx, cmd): ResourceDefinition
   +ListRenderBundles(): SafeBundleMetadata[]
+    +PreviewMatching(ctx, org, query): MatchingPreview
 }
 interface DriverContractInspector {
   +Inspect(module): ModuleContract
@@ -44,4 +45,6 @@ ResourceDefinition "1" *-- "1..*" MatchingCriterion
 class RenderBundle <<value>>
 class RenderingSelection <<value>>
 ResourceDefinitionService ..> RenderBundle : installed contract/fingerprint
+class DefinitionMatcher <<control>>
+ResourceDefinitionService ..> DefinitionMatcher : pure criteria + connection guard
 @enduml

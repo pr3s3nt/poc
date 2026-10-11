@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { Button } from '../../shared/ui/Button';
+import { MatchingPreviewPanel, type MatchingCandidateInput } from './MatchingPreviewPanel';
 
 // Shared "Điều kiện áp dụng" editor (UC-03 T02B). It edits the five-field
 // Matching Criteria contract and serializes it unchanged; modes are only a
@@ -10,7 +11,7 @@ export type CriterionField = 'env_type' | 'app_id' | 'env_id' | 'res_id' | 'clas
 export type Criterion = Record<CriterionField, string>;
 export type CriteriaMode = 'all' | 'env_type' | 'app_env' | 'advanced';
 export type CriteriaDraft = { mode: CriteriaMode; rows: Criterion[] };
-export type EnvironmentOption = { key: string; name: string; environmentType: string; executionProfile?: string };
+export type EnvironmentOption = { key: string; name: string; environmentType: string; executionProfile?: string; /** Opaque non-secret target/version fingerprint of the Environment DTO; a change invalidates exact previews. */ snapshotKey?: string };
 export type ApplicationOption = { key: string; name: string; environments: EnvironmentOption[] };
 export type CriteriaSource = { key: string; resourceType: string; executionProfile?: string; criteria?: Partial<Criterion>[] };
 export type ListState<T> = { items: readonly T[]; loading: boolean; error: string; onRetry(): void };
@@ -103,7 +104,7 @@ function describeRow(row: Record<string, string>, applications: readonly Applica
 
 type Pending = { kind: 'mode'; target: CriteriaMode } | { kind: 'copy'; source: string; draft: CriteriaDraft };
 
-export function CriteriaEditor({ draft, onChange, applications, sources, resourceType = '', profile = '', profileLabel = '' }: {
+export function CriteriaEditor({ draft, onChange, applications, sources, resourceType = '', profile = '', profileLabel = '', matching, scopeKey = '' }: {
   draft: CriteriaDraft;
   onChange(next: CriteriaDraft): void;
   applications: ListState<ApplicationOption>;
@@ -113,6 +114,10 @@ export function CriteriaEditor({ draft, onChange, applications, sources, resourc
   resourceType?: string;
   profile?: string;
   profileLabel?: string;
+  /** Full unsaved candidate for the exact server-side matching preview (T19); omitted = panel hidden. */
+  matching?: MatchingCandidateInput;
+  /** Session/scope identity: a change invalidates the exact preview result. */
+  scopeKey?: string;
 }) {
   const id = useId();
   const [pending, setPending] = useState<Pending | null>(null);
@@ -214,5 +219,7 @@ export function CriteriaEditor({ draft, onChange, applications, sources, resourc
         : <><p>Context mẫu: loại môi trường (env_type) {context.env_type || '(không có)'}, ứng dụng {context.app_id}, môi trường {context.env_id}.</p>
           {profileState === 'unknown' ? <p>Chưa biết phạm vi triển khai của môi trường mẫu (chưa cấu hình?). Thỏa điều kiện chưa có nghĩa là cấu hình được xét.</p> : <p>Phạm vi triển khai (executionProfile) của môi trường mẫu phù hợp với cấu hình này; đây là bộ lọc riêng, tách khỏi năm field điều kiện.</p>}<ul>{criteria.map((item, index) => <li key={index}>Điều kiện {index + 1}: {applies(item) ? 'thỏa context mẫu' : 'không thỏa context mẫu'}</li>)}</ul></>}
     </div>
+
+    {matching ? <MatchingPreviewPanel candidate={matching} scopeKey={`${scopeKey}|${sampleEnv?.environmentType ?? ''}|${sampleEnv?.executionProfile ?? ''}|${sampleEnv?.snapshotKey ?? ''}|apps:${applications.loading ? 'loading' : 'idle'}:${applications.error}|defs:${sources.loading ? 'loading' : 'idle'}:${sources.error}|${JSON.stringify(sources.items.map((item) => [item.key, item.resourceType, item.executionProfile ?? '', item.criteria ?? []]))}`} sample={{ applicationId: sample.app, environmentId: sampleApp && sampleEnv ? sample.env : '', resourceId: sample.resId, class: sample.cls }} /> : null}
   </section>;
 }

@@ -332,3 +332,33 @@ contracts and external Driver Accounts remain unchanged. See
 - Console selects one only for an unselected draft; multiple require explicit
   selection. Loading/error/empty block submit; retry preserves edits and late
   replies cannot overwrite a user choice. POST revalidates availability.
+
+## OC-04c `ResourceDefinitionService.PreviewMatching`
+
+- Use case: UC-03 BR-20–22; không thay UC-05 full graph Preview.
+- HTTP: POST `/api/v1/resource-definitions/matching-preview`; PE/Admin và org từ
+  session; 401/403 authorization, scoped missing app/env 404, invalid strict
+  document 400, oversize 413, unavailable/inconsistent target 422, generic 500.
+- Input: `{definition: <unsaved Definition>, context: {applicationId,
+  environmentId, resourceId, class}}`. Không nhận org/profile/Connection context.
+  Definition shape có bound body như registration; chỉ structural matching
+  validation, không gọi registration hoặc driver contract inspection.
+- Reads: một `ReadSnapshot` scoped app/env/target/types/definitions; candidate
+  replaces only same-key entry in memory. Reserved system key/public
+  existing-cluster candidate bị từ chối; persisted system binding không bị đổi.
+- Returns 200: `status` trong `INCOMPLETE`, `MATCHED`, `NO_MATCH`, `AMBIGUOUS`,
+  `CONNECTION_CONFLICT`, `SYSTEM_BINDING`, `NATIVE_RENDERER`; `missingFields`,
+  `candidates` (key, eligible, matched, bestCriterion/score nếu match), `winner`
+  hoặc `ties`, `connectionConflict`, `snapshot` (marker và environmentVersion).
+  Candidate eligibility gồm type/profile; score chỉ tính năm criteria. Incomplete
+  không có winner/ties. Ties là sorted keys có winning score, không gồm tie thấp.
+  Winner conflict giữ winner và báo conflict, không retarget/fallback.
+  SYSTEM_BINDING chỉ cho đúng implicit descriptor/class theo ADR-013;
+  workload chỉ xét score-k8s như renderer selection của planner.
+- Marker là content hash catalog và Environment matching/target identity/version
+  trước candidate replacement; không hash credentials, không phải mutation token.
+- Creates/updates: none. No system materialization, store write, secret resolution,
+  inspector, render, provision hoặc external call. Các read SQL được phép.
+- Client: kết quả gắn candidate/context request; đổi input hoặc session/scope
+  xóa/invalidate result, late reply không cập nhật; lỗi transport tách khỏi trạng
+  thái matching, retry chỉ gửi phép tính read-only.

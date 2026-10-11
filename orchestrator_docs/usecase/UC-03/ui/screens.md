@@ -36,7 +36,7 @@ Kubernetes nêu rõ Connection riêng phải trùng Connection của Môi trư�
 matching; lựa chọn này không cho phép retarget sang cluster khác.
 
 Điều kiện áp dụng dùng editor chung T02B bên dưới; matching preview chính xác
-thuộc T19. Phần nâng cao chứa
+dùng OC-04c bên dưới. Phần nâng cao chứa
 Tham số cấu hình và Quy tắc tạo tài nguyên liên quan dưới dạng JSON object;
 giữ placeholder/JSON keys và giải thích validation/không nhận credential.
 Đổi driver/type cập nhật controls hợp lệ nhưng giữ dữ liệu đã nhập để người
@@ -61,8 +61,8 @@ Sao chép điều kiện từ cấu hình khác tạo bản độc lập, không
 Tóm tắt phạm vi phân biệt Phạm vi triển khai (`executionProfile`) với Loại
 môi trường (`env_type`). Xem trước phạm vi ở frontend chỉ là trợ giúp: thiếu
 `class`/`res_id` phải báo cần thêm context; cảnh báo nguy cơ chồng lấn với
-cấu hình cùng type không kết luận ambiguous hoặc Definition thắng. Không gọi
-endpoint matching mới, không lưu hoặc provision khi xem trước. Editor có thể
+cấu hình cùng type không kết luận ambiguous hoặc Definition thắng. Trợ giúp
+này không gọi endpoint; không lưu hoặc provision khi xem trước. Editor có thể
 được dùng lại cho Mẫu dựng ứng dụng ở T03.
 
 ## Trang Mẫu dựng ứng dụng (T03)
@@ -91,3 +91,13 @@ CTA từ UC-02 mở `/ui/platform/resource-definitions?resourceType=<key>`.
 Chỉ chọn sẵn type khi catalog tải thành công xác nhận key thuộc whitelist của
 form T02; query thiếu/không hỗ trợ không tạo lựa chọn hợp lệ. Prefill không
 gửi POST hoặc ghi đè dữ liệu người dùng khi reload/response đến muộn.
+
+## Matching preview chính xác (T19)
+
+Hai form Cấu hình tài nguyên/Mẫu dựng ứng dụng có thao tác tường minh “Kiểm tra
+matching” trong editor chung, dùng draft Definition đầy đủ đang nhập và context
+ứng dụng/môi trường/ID tài nguyên/Class mẫu. Không tự save hoặc full graph Preview.
+Hiển thị eligibility, criterion/score, winner/ties hoặc conflict bằng tiếng Việt;
+INCOMPLETE yêu cầu bổ sung context, transport failure có Thử lại riêng.
+Hiển thị marker/version snapshot và nhắc “Kết quả theo snapshot; hệ thống vẫn
+kiểm tra lại khi đăng ký và triển khai”. Giữ cảnh báo nguy cơ frontend riêng.

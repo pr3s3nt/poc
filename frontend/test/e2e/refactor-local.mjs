@@ -4070,6 +4070,190 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(3000);
   },
+
+  // T19: kiểm tra matching chính xác (POST /resource-definitions/matching-preview). Backend thật, fake adapters,
+  // JSON state tạm. Mọi bước sản phẩm đi qua UI. MOCK duy nhất: một lần page.route trả 500 cho matching-preview để
+  // chứng minh lỗi transport tách khỏi kết quả matching; mọi kết quả matching khác là phản hồi thật của backend.
+  async T19({ page, h, ui, caption, mark, check, baseURL }) {
+    const NAME = 'T19 Matching chính xác';
+    const json = (status, body) => ({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    const previews = [];
+    const registrations = [];
+    page.on('request', (request) => {
+      const path = new URL(request.url()).pathname;
+      if (request.method() !== 'POST') return;
+      if (path === '/api/v1/resource-definitions/matching-preview') previews.push(request.postDataJSON());
+      if (path === '/api/v1/resource-definitions') registrations.push(request.postDataJSON());
+    });
+    const mock = { fail: false };
+    await page.route('**/api/v1/resource-definitions/matching-preview', async (route) => {
+      if (mock.fail) { mock.fail = false; await route.fulfill(json(500, { error: 'sentinel-internal-detail /srv/secret' })); return; }
+      await route.continue();
+    });
+    const apiDefinitions = async () => (await (await page.request.get(`${baseURL}/api/v1/resource-definitions`)).json()).resourceDefinitions;
+    const editor = page.locator('.criteria-editor');
+    const panel = page.getByRole('group', { name: 'Kiểm tra matching chính xác' });
+    const result = page.getByRole('region', { name: 'Kết quả matching chính xác' });
+    const run = panel.getByRole('button', { name: 'Kiểm tra matching' });
+    const sample = (label) => editor.locator('label').filter({ hasText: label }).locator('select, input');
+    const optionLabel = (locator, value) => locator.locator('option').evaluateAll((options, wanted) => options.find((option) => option.value === wanted)?.textContent, value);
+    const classRow = () => ui('resourceDefinitions', 'criterionClass');
+    const registered = (key) => expect(page.getByRole('status').filter({ hasText: `Đã đăng ký cấu hình tài nguyên ${key}.` })).toBeVisible();
+    let appId = '';
+
+    caption('SETUP (qua giao diện): Lập trình viên đăng nhập và tạo ứng dụng; Staging dùng Kết nối internal-cluster');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'developer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    appId = await createApplication(h, NAME, 't19-matching');
+    check(`setup via UI: application ${appId} created; Staging bound to the fake internal-cluster Connection (not a product step of T19)`);
+    mark('setup-app');
+    await h.read('Thiết lập: ứng dụng và môi trường Staging để làm context mẫu');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+
+    caption('Bước 1: Kỹ sư nền tảng đăng nhập, mở Cấu hình tài nguyên và nhập cấu hình postgres chưa lưu (điều kiện Mọi nơi)');
+    await h.type(ui('signIn', 'username'), 'platform-engineer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await h.click(ui('shell', 'navResourceDefinitions'));
+    await expect(ui('resourceDefinitions', 'heading')).toBeVisible();
+    await h.type(ui('resourceDefinitions', 'id'), 'pg-t19-wild');
+    await h.choose(ui('resourceDefinitions', 'type'), 'postgres');
+    await expect(ui('resourceDefinitions', 'driver')).toHaveValue('kubernetes');
+    await expect(ui('resourceDefinitions', 'scope')).toHaveValue('internal-k8s');
+    await expect(run).toBeDisabled();
+    await expect(panel).toContainText('Chọn ứng dụng và môi trường mẫu');
+    check('exact preview is disabled with a Vietnamese reason until app/env sample context is chosen');
+    mark('draft-wild');
+    await h.read('Chưa chọn context mẫu thì chưa thể kiểm tra matching chính xác');
+
+    caption('Bước 2: Chọn ứng dụng, môi trường, ID tài nguyên và Class mẫu rồi bấm Kiểm tra matching');
+    await h.choose(sample('Ứng dụng mẫu'), await optionLabel(sample('Ứng dụng mẫu'), appId));
+    await h.choose(sample('Môi trường mẫu'), await optionLabel(sample('Môi trường mẫu'), 'staging'));
+    await h.type(sample('ID tài nguyên mẫu (res_id)'), 'db');
+    await h.type(sample('Class mẫu'), 'default');
+    await h.click(run);
+    await expect(result).toContainText('Mơ hồ: nhiều cấu hình cùng điểm cao nhất');
+    await expect(result).toContainText('pg-t19-wild, postgres-internal-statefulset');
+    await expect(result.getByRole('list', { name: 'Chi tiết từng cấu hình' })).toContainText(/postgres-aws-aurora: không đủ điều kiện/);
+    await expect(result).toContainText('Kết quả theo snapshot; hệ thống vẫn kiểm tra lại khi đăng ký và triển khai');
+    expect(previews).toHaveLength(1);
+    expect(previews[0].definition).toMatchObject({ key: 'pg-t19-wild', resourceType: 'postgres', driverType: 'kubernetes', executionProfile: 'internal-k8s', criteria: [{}] });
+    expect(previews[0].context).toEqual({ applicationId: appId, environmentId: 'staging', resourceId: 'db', class: 'default' });
+    expect(Object.keys(previews[0].context).sort()).toEqual(['applicationId', 'class', 'environmentId', 'resourceId']);
+    expect(registrations).toHaveLength(0);
+    expect((await apiDefinitions()).some((item) => item.key === 'pg-t19-wild')).toBe(false);
+    check('wildcard/shared vs AWS (real backend): AMBIGUOUS ties pg-t19-wild + postgres-internal-statefulset; postgres-aws-aurora ineligible by profile; snapshot warning shown; candidate NOT registered; context body has exactly 4 fields');
+    mark('wildcard-ties');
+    await h.moveTo(result);
+    await h.read('Cấu hình wildcard hòa điểm với cấu hình dùng chung; cấu hình AWS bị loại theo phạm vi');
+    await expect(editor.getByRole('group', { name: 'Cảnh báo nguy cơ chồng lấn' })).toBeVisible();
+    await expect(editor.getByRole('group', { name: 'Xem trước phạm vi (trợ giúp ở giao diện)' })).toContainText('không phải kết quả matching chính xác');
+    check('the frontend-only overlap hint and local scope preview remain separate, clearly labelled as not the exact result');
+
+    caption('Bước 3: Sửa điều kiện sang Class “fast”: kết quả cũ biến mất; Class mẫu “fast” thì điểm cao hơn loại hòa thấp hơn');
+    await h.click(editor.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
+    await expect(result).toHaveCount(1); // wildcard payload [{}] is identical in both modes: the result is still valid
+    await h.type(classRow(), 'fast');
+    await expect(result).toHaveCount(0);
+    await h.type(sample('Class mẫu'), 'fast', { replace: true });
+    await expect(result).toHaveCount(0);
+    check('editing criteria/mode/context drops the previous exact result without clearing the draft');
+    await h.click(run);
+    await expect(result).toContainText('Có một cấu hình thắng');
+    await expect(result).toContainText('Cấu hình thắng: pg-t19-wild (điểm 16)');
+    await expect(result).not.toContainText('Các cấu hình đang hòa');
+    await expect(result.getByRole('list', { name: 'Chi tiết từng cấu hình' })).toContainText(/postgres-internal-statefulset: khớp, điểm 0/);
+    check('class specific: winner pg-t19-wild score 16; the lower tie postgres-internal-statefulset (score 0) is listed but is not ambiguous');
+    mark('class-winner');
+    await h.moveTo(result);
+    await h.read('Điểm class 16 thắng điểm 0: không còn mơ hồ');
+
+    caption('Bước 4: Đăng ký cấu hình này qua giao diện (hành vi đăng ký không đổi), rồi nhập cấu hình thứ hai cùng điều kiện Class “fast”');
+    await h.click(ui('resourceDefinitions', 'submit'));
+    await registered('pg-t19-wild');
+    expect(registrations).toHaveLength(1);
+    expect(registrations[0]).toMatchObject({ key: 'pg-t19-wild', criteria: [{ class: 'fast' }] });
+    await h.type(ui('resourceDefinitions', 'id'), 'pg-t19-twin');
+    await h.choose(ui('resourceDefinitions', 'type'), 'postgres');
+    await h.click(editor.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
+    await h.type(classRow(), 'fast');
+    await h.choose(sample('Ứng dụng mẫu'), await optionLabel(sample('Ứng dụng mẫu'), appId));
+    await h.choose(sample('Môi trường mẫu'), await optionLabel(sample('Môi trường mẫu'), 'staging'));
+    await h.type(sample('ID tài nguyên mẫu (res_id)'), 'db', { replace: true });
+    await h.type(sample('Class mẫu'), 'fast', { replace: true });
+    await h.click(run);
+    await expect(result).toContainText('Mơ hồ: nhiều cấu hình cùng điểm cao nhất');
+    await expect(result).toContainText('pg-t19-twin, pg-t19-wild');
+    await expect(result).not.toContainText('postgres-internal-statefulset, ');
+    check('exact tie: registered pg-t19-wild and the unsaved pg-t19-twin both score 16 -> AMBIGUOUS ties only at the winning score (shared score 0 not in ties)');
+    mark('exact-tie');
+    await h.moveTo(result);
+    await h.read('Hai cấu hình cùng điểm cao nhất vẫn mơ hồ, trước khi lưu cấu hình thứ hai');
+
+    caption('Bước 5: Đổi điều kiện sang Class “slow” (không giao với context “fast”): cấu hình mới không khớp, cấu hình đã đăng ký thắng');
+    await h.type(classRow(), 'slow', { replace: true });
+    await expect(result).toHaveCount(0);
+    await h.click(run);
+    await expect(result).toContainText('Cấu hình thắng: pg-t19-wild (điểm 16)');
+    await expect(result.getByRole('list', { name: 'Chi tiết từng cấu hình' })).toContainText(/pg-t19-twin: đủ điều kiện nhưng không khớp context/);
+    check('non-overlap: candidate class slow vs context fast is eligible but not matched; the registered pg-t19-wild wins alone');
+    mark('non-overlap');
+    await h.moveTo(result);
+    await h.read('Điều kiện không giao nhau thì cấu hình mới không tham gia thắng/hòa');
+
+    caption('Bước 6: Xóa ID tài nguyên mẫu: máy chủ trả “Chưa đủ context”, không kết luận hòa hay thắng');
+    await h.type(sample('ID tài nguyên mẫu (res_id)'), '', { replace: true });
+    await expect(result).toHaveCount(0);
+    await h.click(run);
+    await expect(result).toContainText('Chưa đủ context để kết luận');
+    await expect(result).toContainText('Cần bổ sung context: ID tài nguyên (res_id)');
+    await expect(result).not.toContainText('Cấu hình thắng:');
+    await expect(result).not.toContainText('đang hòa');
+    await expect(result.getByRole('list', { name: 'Chi tiết từng cấu hình' })).toContainText(/pg-t19-twin: chưa đánh giá do thiếu context/);
+    await expect(result.getByRole('list', { name: 'Chi tiết từng cấu hình' })).not.toContainText('không khớp context');
+    check('incomplete (real backend 200 INCOMPLETE): missing res_id reported; no winner and no ties');
+    mark('incomplete');
+    await h.moveTo(result);
+    await h.read('Thiếu ID tài nguyên thì chưa kết luận gì');
+
+    caption('Bước 7 (MOCK): Lỗi transport 500 hiển thị riêng, không phải kết quả matching; chỉ Thử lại thủ công mới gửi lại');
+    await h.type(sample('ID tài nguyên mẫu (res_id)'), 'db');
+    mock.fail = true;
+    const before = previews.length;
+    await h.click(run);
+    const failure = page.getByRole('alert', { name: 'Lỗi kiểm tra matching' });
+    await expect(failure).toContainText('Đây không phải kết quả matching');
+    expect(await failure.innerText()).not.toMatch(/sentinel-internal-detail|\/srv/);
+    await expect(result).toHaveCount(0);
+    await expect(ui('resourceDefinitions', 'id')).toHaveValue('pg-t19-twin');
+    await h.pause(1500);
+    expect(previews.length).toBe(before + 1);
+    check('transport 500 (MOCK via page.route): safe Vietnamese error separate from matching statuses; draft kept; no automatic retry');
+    mark('transport-error');
+    await h.moveTo(failure);
+    await h.read('Lỗi mạng/máy chủ tách khỏi kết quả matching');
+    await h.click(page.getByRole('button', { name: 'Thử lại kiểm tra matching' }));
+    await expect(result).toContainText('Cấu hình thắng: pg-t19-wild (điểm 16)');
+    expect(previews.length).toBe(before + 2);
+    check('explicit retry sends the read-only calculation again and shows the real result');
+    mark('retry-result');
+    await h.read('Thử lại thủ công cho kết quả thật');
+
+    const stored = await apiDefinitions();
+    expect(stored.some((item) => item.key === 'pg-t19-twin')).toBe(false);
+    expect(registrations).toHaveLength(1);
+    check('no preview persisted the unsaved candidate: only pg-t19-wild was registered (by the explicit UI submit)');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(3000);
+  },
 };
 
 export function parseArgs(argv) {
