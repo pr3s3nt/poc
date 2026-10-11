@@ -1221,6 +1221,531 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(3000);
   },
+
+  // T07: Cài đặt môi trường. Developer + Platform Engineer, fake adapters, bộ nhớ memory credential store.
+  // Backend thật (fake adapters) trả lời mọi thao tác đọc/ghi sản phẩm. Các MOCK (page.route) chỉ dùng để dựng
+  // trạng thái mà backend fake không tạo được: chỉ-1/không READY choice, copy failure/stale/busy, usedBy, và
+  // projection transition/operation đã chạy. Mỗi MOCK được ghi chú ở chỗ dùng.
+  async T07({ page, h, ui, caption, mark, check, baseURL }) {
+    const GOOD_TOKEN = 'synthetic-scoped-token-t07';
+    const SECRET_VALUE = 'synthetic-t07-secret-value-0123';
+    const APP_NAME = 'T07 Settings';
+    const writes = []; // every non-GET request that can persist an Environment binding or configuration
+    page.on('request', (request) => {
+      const { pathname } = new URL(request.url());
+      if (request.method() !== 'GET' && /\/api\/v1\/applications\/[^/]+\/environments\//.test(pathname)) writes.push(`${request.method()} ${pathname.replace(/^.*\/environments\//, '')}`);
+    });
+    const countWrites = (needle) => writes.filter((line) => line.includes(needle)).length;
+
+    // ---- MOCK state -------------------------------------------------------------------
+    const mock = {
+      connections: 'real', // 'real' | 'none' | 'multi' | 'other-only'  (projection of /application-connections)
+      stores: 'real', // 'real' | 'none'
+      storePut: [], // queue of one-shot replies for PUT .../secret-store: 'copy' | 'stale' | 'busy'
+      configPut: [], // queue for PUT .../configuration/keys/*: 'stale'
+      usedBy: false, // inject usedBy ['web'] on LOG_LEVEL
+      envPatch: {}, // Environment projection patched into GET /applications/{id}
+      gate: { armed: false, promise: Promise.resolve(), release: () => {} },
+      transition: { phase: 'none', polls: 0 },
+    };
+    const EXTRA_READY = { key: 'lab-cluster', name: 'Cluster lab', kind: 'KUBERNETES', status: 'READY' };
+    const EXTRA_PENDING = { key: 'pending-cluster', name: 'Cluster chờ', kind: 'KUBERNETES', status: 'PENDING' };
+    const EXTRA_ODD = { key: 'odd-target', name: 'Đích lạ', kind: 'OTHER', status: 'READY' };
+    const json = (status, body) => ({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    await page.route('**/api/v1/application-connections', async (route) => {
+      if (mock.connections === 'real') { await route.continue(); return; }
+      if (mock.connections === 'none') { await route.fulfill(json(200, { connections: [] })); return; }
+      const response = await route.fetch();
+      const data = await response.json();
+      // multi: the real list plus one more READY Connection and two that must be filtered out (not READY, unknown kind).
+      if (mock.connections === 'multi') { await route.fulfill({ response, json: { ...data, connections: [...data.connections, EXTRA_READY, EXTRA_PENDING, EXTRA_ODD] } }); return; }
+      await route.fulfill({ response, json: { ...data, connections: [EXTRA_READY] } });
+    });
+    await page.route('**/api/v1/secret-store-choices', async (route) => {
+      if (mock.stores === 'real') { await route.continue(); return; }
+      await route.fulfill(json(200, { secretStores: [] }));
+    });
+    await page.route('**/api/v1/applications/*/environments/*/secret-store', async (route) => {
+      const mode = route.request().method() === 'PUT' ? mock.storePut.shift() : undefined;
+      if (!mode) { await route.continue(); return; }
+      if (mode === 'copy') await route.fulfill(json(502, { error: 'copy failed', code: 'SECRET_COPY_FAILED' }));
+      else if (mode === 'stale') await route.fulfill(json(409, { error: 'the environment changed since it was loaded; reload and try again', code: 'STALE_VERSION' }));
+      else await route.fulfill(json(409, { error: 'the environment is busy with another operation', code: 'ENVIRONMENT_BUSY' }));
+    });
+    await page.route('**/api/v1/applications/*/environments/*/configuration/keys/*', async (route) => {
+      if (route.request().method() !== 'PUT') { await route.continue(); return; }
+      if (mock.configPut[0] === 'stale') { mock.configPut.shift(); await route.fulfill(json(409, { error: 'the configuration changed since it was loaded', code: 'STALE_VERSION' })); return; }
+      if (mock.gate.armed) { mock.gate.armed = false; await mock.gate.promise; }
+      await route.continue();
+    });
+    await page.route('**/api/v1/applications/*/environments/*/configuration', async (route) => {
+      if (route.request().method() !== 'GET' || !mock.usedBy) { await route.continue(); return; }
+      const response = await route.fetch();
+      const data = await response.json();
+      await route.fulfill({ response, json: { ...data, keys: data.keys.map((key) => key.name === 'LOG_LEVEL' ? { ...key, usedBy: ['web'] } : key) } });
+    });
+    await page.route('**/api/v1/applications/*', async (route) => {
+      if (route.request().method() !== 'GET' || Object.keys(mock.envPatch).length === 0) { await route.continue(); return; }
+      const response = await route.fetch();
+      const data = await response.json();
+      if (data.application?.environments) data.application.environments = data.application.environments.map((env) => ({ ...env, ...(mock.envPatch[env.key] ?? {}) }));
+      await route.fulfill({ response, json: data });
+    });
+    // MOCK transition API (the fake backend has no deployed runtime to move): preview, execute, progress, cleanup, recovery.
+    const stage = (name, status, message) => ({ stage: name, status, message, startedAt: '2026-10-11T00:00:00Z' });
+    const endpoint = (key, name, generation, namespace) => ({ connectionKey: key, connectionName: name, executionProfile: 'internal-k8s', generation, namespace });
+    const SOURCE = endpoint('internal-cluster', 'Cluster nội bộ', 0, 't07-ns');
+    const DEST = endpoint('lab-cluster', 'Cluster lab', 1, 't07-ns-g1');
+    const detail = (over) => ({ id: 'tr-t07', operationId: 'op-t07', mode: 'MIGRATE_POSTGRES', stage: 'BACKUP', status: 'RUNNING', source: SOURCE, destination: DEST, sourceState: 'AUTHORITATIVE', authority: 'SOURCE', stages: [stage('PREFLIGHT', 'SUCCEEDED')], canCleanupSource: false, createdAt: '', updatedAt: '', ...over });
+    const finished = () => detail({ status: 'SUCCEEDED', stage: 'CUTOVER', sourceState: 'RETAINED_QUIESCED', authority: 'DESTINATION', stages: [stage('PREFLIGHT', 'SUCCEEDED'), stage('BACKUP', 'SUCCEEDED'), stage('CUTOVER', 'SUCCEEDED')], canCleanupSource: true });
+    const cleaned = () => ({ ...finished(), sourceState: 'CLEANED', canCleanupSource: false });
+    await page.route('**/connection-transition/preview', async (route) => {
+      await route.fulfill(json(200, { preview: { token: 'tok-t07', mode: 'MIGRATE_POSTGRES', source: SOURCE, destination: DEST, downtimeRequired: true, notes: [], mappings: [{ sourceDescriptor: 'postgres.default#shared.db', destinationDescriptor: 'postgres.default#shared.db' }], workloads: [{ workloadId: 'web', action: 'UNCHANGED', configChanged: true }, { workloadId: 'api', action: 'UPDATED' }, { workloadId: 'batch', action: 'REMOVED' }] } }));
+    });
+    await page.route('**/connection-transitions**', async (route) => {
+      const request = route.request();
+      const { pathname } = new URL(request.url());
+      if (request.method() === 'POST' && pathname.endsWith('/cleanup-source')) { mock.transition.phase = 'cleaned'; await route.fulfill(json(200, { transition: cleaned() })); return; }
+      if (request.method() === 'POST') { mock.transition = { phase: 'running', polls: 0 }; await route.fulfill(json(202, { transition: detail({}) })); return; }
+      if (mock.transition.phase === 'none') { await route.fulfill(json(200, { transitions: [] })); return; }
+      if (pathname.endsWith('/tr-t07')) {
+        mock.transition.polls += 1;
+        if (mock.transition.phase === 'running' && mock.transition.polls >= 3) { mock.transition.phase = 'done'; mock.envPatch.staging = { connectionKey: 'lab-cluster', connectionName: 'Cluster lab', connectionKind: 'KUBERNETES', targetGeneration: 1, runtimeExists: true, configured: true }; }
+        await route.fulfill(json(200, { transition: mock.transition.phase === 'running' ? detail({ stage: 'RESTORING', stages: [stage('PREFLIGHT', 'SUCCEEDED'), stage('BACKUP', 'SUCCEEDED'), stage('RESTORING', 'RUNNING')] }) : mock.transition.phase === 'cleaned' ? cleaned() : finished() }));
+        return;
+      }
+      await route.fulfill(json(200, { transitions: [mock.transition.phase === 'running' ? detail({}) : mock.transition.phase === 'cleaned' ? cleaned() : finished()] }));
+    });
+    await page.route('**/operations/op-t07/recover', async (route) => {
+      mock.envPatch = {};
+      await route.fulfill(json(200, { recovery: { operationId: 'op-t07', kind: 'TRANSITION', outcome: 'đã khôi phục nguồn nhưng còn bước cần xử lý', compensationFailed: ['dừng workload đích web'] } }));
+    });
+
+    // ---- helpers ----------------------------------------------------------------------
+    const signInAs = async (username) => {
+      await h.type(ui('signIn', 'username'), username);
+      await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+      await h.click(ui('signIn', 'submit'));
+      await expect(ui('applications', 'heading')).toBeVisible();
+    };
+    const signOut = async () => { await h.click(ui('shell', 'signOut')); await expect(ui('signIn', 'username')).toBeVisible(); };
+    const registerStore = async (name, address) => {
+      await h.click(ui('shell', 'navSecretStores'));
+      await expect(ui('secretStores', 'heading')).toBeVisible();
+      await h.type(ui('secretStores', 'name'), name);
+      await h.type(ui('secretStores', 'backend'), address);
+      await h.click(ui('secretStores', 'showAdvanced'));
+      await h.click(ui('secretStores', 'sameAddress'));
+      await h.paste(ui('secretStores', 'token'), GOOD_TOKEN);
+      await h.click(ui('secretStores', 'submit'));
+      await expect(page.getByRole('status').filter({ hasText: `Kho bí mật "${name}" đã sẵn sàng` })).toBeVisible();
+    };
+    const envApi = async (key) => {
+      const response = await page.request.get(`${baseURL}/api/v1/applications/${appId}`);
+      return (await response.json()).application.environments.find((env) => env.key === key);
+    };
+    const openSettings = async (environment = 'Staging') => {
+      await h.click(page.getByRole('button', { name: new RegExp(APP_NAME) }));
+      await expect(page.getByRole('heading', { name: APP_NAME })).toBeVisible();
+      await h.click(page.getByRole('button', { name: 'Environment settings' }));
+      await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
+      if (environment !== 'Staging') await h.click(page.getByRole('tab', { name: environment }));
+    };
+    const tab = async (name) => { await h.click(page.getByRole('tab', { name })); await expect(page.getByRole('tab', { name })).toHaveAttribute('aria-selected', 'true'); };
+    const connectionPanel = () => page.getByLabel('Kết nối triển khai', { exact: true });
+    const storePanel = () => page.getByLabel('Kho bí mật', { exact: true });
+    const connSelect = (title) => page.getByLabel(`Kết nối cho ${title}`);
+    const storeSelect = (title) => page.getByLabel(`Kho bí mật cho ${title}`);
+    const suggestion = () => page.getByText(/Gợi ý chưa lưu/);
+    const sectionOf = (label) => page.locator(`section[aria-label="${label}"]`);
+    const row = (name) => page.locator('.settings-table-row').filter({ has: page.locator('strong', { hasText: new RegExp(`^${name}$`) }) });
+    const noLeak = async () => { const { assertNoSecretLeaks } = await import('./secret-scan.mjs'); await assertNoSecretLeaks(page, [SECRET_VALUE, GOOD_TOKEN], { allow: ['input[type="password"]'] }); };
+    const addVariable = async (name, value) => {
+      await h.click(sectionOf('Biến').getByRole('button', { name: '+ Thêm biến' }));
+      await h.type(page.getByLabel('Tên key'), name);
+      await h.type(page.getByLabel('Giá trị', { exact: true }), value);
+      await h.click(page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
+      await expect(row(name)).toBeVisible();
+    };
+    let appId = '';
+
+    // ---- 1. Developer prepares an application with no binding --------------------------
+    caption('Bước 1: Nhà phát triển đăng nhập và tạo ứng dụng; chưa gán kết nối nào cho staging hay production');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await signInAs('developer');
+    appId = await createApplication(h, APP_NAME, 't07-settings', { connections: null });
+    expect((await envApi('staging')).configured, 'staging starts unconfigured').toBeFalsy();
+    check(`developer created ${appId} through the UI; both Environments unconfigured`);
+    mark('app-created');
+    await h.read('Ứng dụng mới chưa có kết nối hay kho bí mật');
+
+    // ---- 2. One READY connection (real list): suggested draft, nothing persisted ---------------
+    caption('Bước 2: Trang Cài đặt môi trường; backend fake chỉ có một kết nối Sẵn sàng nên staging được gợi ý nó trong bản nháp chưa lưu');
+    await h.click(page.getByRole('button', { name: 'Environment settings' }));
+    await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Staging' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Production' })).toBeVisible();
+    await expect(connSelect('Staging')).toHaveValue('internal-cluster');
+    await expect(suggestion()).toContainText('không phải mặc định của tổ chức');
+    await expect(connectionPanel()).toContainText('Chưa cấu hình');
+    expect(await connSelect('Staging').locator('option').count(), 'placeholder + the one READY connection').toBe(2);
+    expect(countWrites('/connection'), 'nothing persisted yet').toBe(0);
+    expect((await envApi('staging')).configured, 'API still unconfigured: suggestion is only a draft').toBeFalsy();
+    check('one READY (real fake backend): draft suggested with the unsaved / not-an-Organization-default note; 0 binding writes; API unconfigured');
+    mark('single-suggested-real');
+    await h.moveTo(suggestion());
+    await h.read('Gợi ý chỉ là bản nháp, không phải mặc định hay fallback của tổ chức');
+
+    // ---- 3. Secret store: none READY ----------------------------------------------------
+    caption('Bước 3: Chưa có kho bí mật nào; trang hướng dẫn đăng ký kho và cho thử lại. Biến vẫn thêm được, Bí mật thì chưa');
+    await expect(storePanel()).toContainText('Chưa có kho bí mật Sẵn sàng');
+    await expect(storePanel().getByRole('button', { name: 'Thử lại' })).toBeVisible();
+    await h.click(sectionOf('Bí mật').getByRole('button', { name: '+ Thêm bí mật' }));
+    await expect(page.getByText(/Hãy chọn kho bí mật ở trên trước khi thêm Bí mật/)).toBeVisible();
+    await expect(page.getByLabel('Tên key')).toHaveCount(0);
+    await addVariable('LOG_LEVEL', 'debug');
+    await expect(row('LOG_LEVEL')).toContainText('debug');
+    check('no READY store (real): guidance + Thử lại, Secret add blocked, ordinary variable saved');
+    mark('no-store');
+    await h.read('Không có kho: hướng dẫn đăng ký, Bí mật bị chặn, Biến vẫn lưu được');
+
+    // ---- 4. Connections: none (MOCK) then retry -----------------------------------------
+    caption('Bước 4: (MOCK danh sách rỗng) Không có kết nối Sẵn sàng; hướng dẫn nhờ Kỹ sư nền tảng và Thử lại sẽ tải lại danh sách');
+    mock.connections = 'none';
+    await tab('Production');
+    await tab('Staging');
+    await expect(connectionPanel()).toContainText('Chưa có kết nối Sẵn sàng');
+    await expect(connSelect('Staging')).toHaveCount(0);
+    await h.click(connectionPanel().getByRole('button', { name: 'Thử lại' }));
+    await expect(connectionPanel()).toContainText('Chưa có kết nối Sẵn sàng');
+    mock.connections = 'real';
+    await h.click(connectionPanel().getByRole('button', { name: 'Thử lại' }));
+    await expect(connSelect('Staging')).toHaveValue('internal-cluster');
+    expect(countWrites('/connection'), 'retry persisted nothing').toBe(0);
+    check('no READY connection (MOCKED empty projection): guidance, retry reloads; real list restores the suggestion; 0 binding writes');
+    mark('no-connection');
+    await h.read('Thử lại chỉ tải lại danh sách, không đổi binding');
+
+    // ---- 5. Several READY connections (MOCK): explicit choice and Save ---------------------------
+    caption('Bước 5: (MOCK thêm một kết nối Sẵn sàng, một Đang chờ, một loại lạ) Có nhiều lựa chọn hợp lệ nên không điền sẵn; chọn tường minh rồi Lưu');
+    mock.connections = 'multi';
+    await tab('Production');
+    await tab('Staging');
+    await expect(connSelect('Staging')).toHaveValue('');
+    await expect(suggestion()).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Lưu kết nối' })).toBeDisabled();
+    expect(await connSelect('Staging').locator('option').count(), 'placeholder + 2 eligible READY (pending/unknown kind filtered)').toBe(3);
+    await expect(connSelect('Staging').locator('option', { hasText: 'pending-cluster' })).toHaveCount(0);
+    await expect(connSelect('Staging').locator('option', { hasText: 'odd-target' })).toHaveCount(0);
+    mark('multiple-choices');
+    await h.moveTo(connSelect('Staging'));
+    await h.read('Có nhiều lựa chọn hợp lệ thì người dùng tự chọn; kết nối chưa sẵn sàng hoặc loại lạ bị lọc');
+    const stagingOption = (await connSelect('Staging').locator('option').allTextContents()).find((text) => text.includes('(internal-cluster)'));
+    await h.choose(connSelect('Staging'), stagingOption);
+    await expect(connSelect('Staging')).toHaveValue('internal-cluster');
+    expect(countWrites('/connection'), 'selecting alone persists nothing').toBe(0);
+    expect((await envApi('staging')).configured, 'API still unconfigured before Save').toBeFalsy();
+    const putStaging = page.waitForRequest((request) => request.method() === 'PUT' && request.url().endsWith('/environments/staging/connection'));
+    await h.click(page.getByRole('button', { name: 'Lưu kết nối' }));
+    expect((await putStaging).postDataJSON()).toEqual({ connectionKey: 'internal-cluster', expectedVersion: 1 });
+    await expect(connectionPanel()).toContainText('Thế hệ 0');
+    await expect(connectionPanel()).toContainText('internal-k8s');
+    await expect(connectionPanel().getByRole('combobox')).toHaveCount(1);
+    expect((await envApi('staging')).connectionKey).toBe('internal-cluster');
+    check('multiple eligible (MOCKED list, real PUT): no preselection, ineligible filtered, explicit Save sent {connectionKey, expectedVersion:1}; profile read-only');
+    mark('staging-saved');
+    await h.moveTo(connectionPanel());
+    await h.read('Chỉ nút Lưu mới đổi binding; phạm vi triển khai là thông tin chỉ đọc');
+
+    // ---- 6. Production: single READY suggestion survives tab switch and reload ----------------------
+    caption('Bước 6: Danh sách thật chỉ có một kết nối Sẵn sàng; production được gợi ý lại, rời tab và tải lại trang vẫn chưa lưu');
+    mock.connections = 'real';
+    await tab('Production');
+    await expect(connSelect('Production')).toHaveValue('internal-cluster');
+    await expect(suggestion()).toContainText('không phải mặc định của tổ chức');
+    await tab('Staging');
+    await tab('Production');
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Production' })).toHaveAttribute('aria-selected', 'true');
+    await expect(connSelect('Production')).toHaveValue('internal-cluster');
+    expect((await envApi('production')).configured, 'still unsaved after reload').toBeFalsy();
+    mark('production-draft');
+    await h.read('Gợi ý chỉ được tính lại từ danh sách; chưa có binding nào được ghi');
+    await h.click(page.getByRole('button', { name: 'Lưu kết nối' }));
+    await expect(connectionPanel()).toContainText('Thế hệ 0');
+    await expect(suggestion()).toHaveCount(0);
+    expect((await envApi('production')).connectionKey).toBe('internal-cluster');
+    check('production draft only a derived suggestion across tab switch/reload (API unconfigured); explicit Save wrote the binding');
+    mark('production-saved');
+    await h.read('Chỉ sau khi bấm Lưu production mới có binding');
+
+    caption('Bước 7: (MOCK chỉ còn Cluster lab) Binding đã cấu hình của production không bao giờ bị đổi sang lựa chọn duy nhất khác');
+    mock.connections = 'other-only';
+    await tab('Staging');
+    await tab('Production');
+    await expect(connSelect('Production')).toHaveValue('internal-cluster');
+    await expect(suggestion()).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Lưu kết nối' })).toBeDisabled();
+    expect((await envApi('production')).connectionKey).toBe('internal-cluster');
+    mock.connections = 'real';
+    check('bound Environment never retargeted although exactly one other READY connection is listed; Save disabled (same-key no-op)');
+    mark('bound-not-retargeted');
+    await h.read('Đã có binding thì không có gợi ý nào thay được binding đó');
+
+    // ---- 9. Stores: one READY store suggested ---------------------------------------------
+    caption('Bước 9: Kỹ sư nền tảng đăng ký Kho T07 A (backend fake, token chỉ nhập vào ô được che)');
+    await signOut();
+    await signInAs('platform-engineer');
+    await registerStore('Kho T07 A', 'http://vault-t07-a.local:8200');
+    await noLeak();
+    check('Kho T07 A registered through the UI (real fake backend); token never on screen');
+    mark('store-a-registered');
+    await signOut();
+
+    caption('Bước 10: Nhà phát triển mở lại cài đặt; chỉ có một kho Sẵn sàng nên được gợi ý trong draft chưa lưu, rồi bấm Lưu kho bí mật');
+    await signInAs('developer');
+    await openSettings();
+    await expect(storeSelect('Staging')).toHaveValue(/.+/);
+    await expect(storePanel().getByText(/Gợi ý chưa lưu/)).toContainText('không phải mặc định của tổ chức');
+    await expect(storePanel()).toContainText('Chưa chọn');
+    expect((await envApi('staging')).secretStoreKey ?? '', 'store not persisted by suggestion').toBe('');
+    expect(countWrites('/secret-store'), 'no store write before Save').toBe(0);
+    await h.click(page.getByRole('button', { name: 'Lưu kho bí mật' }));
+    await expect(storePanel()).toContainText('Đã lưu kho bí mật');
+    await expect(storePanel().locator('.pending-pill')).toContainText('Kho T07 A');
+    const storeAKey = (await envApi('staging')).secretStoreKey;
+    expect(storeAKey).toBeTruthy();
+    check('one READY store (real): unsaved suggestion, API unchanged until Save, then explicit Save bound it');
+    mark('store-a-saved');
+    await h.read('Gợi ý một kho chỉ là draft cho đến khi Lưu');
+
+    // ---- 11. Secret forms ----------------------------------------------------------------
+    caption('Bước 11: Thêm Bí mật API_TOKEN; ô nhập bị che, sau khi lưu chỉ hiện "Đã cấu hình" và không bao giờ đọc lại giá trị');
+    await h.click(sectionOf('Bí mật').getByRole('button', { name: '+ Thêm bí mật' }));
+    await expect(page.getByLabel('Giá trị bí mật mới')).toHaveAttribute('type', 'password');
+    await h.type(page.getByLabel('Tên key'), 'API_TOKEN');
+    await h.paste(page.getByLabel('Giá trị bí mật mới'), SECRET_VALUE);
+    await noLeak();
+    await h.click(page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
+    await expect(row('API_TOKEN')).toContainText('Đã cấu hình');
+    await noLeak();
+    await h.click(row('API_TOKEN').getByRole('button', { name: 'Cập nhật' }));
+    await expect(page.getByLabel('Giá trị bí mật mới')).toHaveValue('');
+    await h.click(page.getByRole('button', { name: 'Hủy' }));
+    check('secret: masked input, saved row shows only "Đã cấu hình", update form starts empty, value never in page text/attributes/storage');
+    mark('secret-saved');
+    await h.read('Giá trị bí mật chỉ nhập vào, không bao giờ hiển thị lại');
+
+    // ---- 12. Second store: bound stays, same-key no-op, explicit choice ---------------------
+    caption('Bước 12: Đăng ký thêm Kho T07 B. Staging đã gán kho A nên không bị đổi; production chưa có kho phải tự chọn');
+    await signOut();
+    await signInAs('platform-engineer');
+    await registerStore('Kho T07 B', 'http://vault-t07-b.local:8200');
+    await signOut();
+    await signInAs('developer');
+    await openSettings();
+    await expect(storeSelect('Staging')).toHaveValue(storeAKey);
+    await expect(page.getByRole('button', { name: 'Lưu kho bí mật' })).toBeDisabled();
+    await tab('Production');
+    await expect(storeSelect('Production')).toHaveValue('');
+    await expect(storePanel().getByText(/Gợi ý chưa lưu/)).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Lưu kho bí mật' })).toBeDisabled();
+    check('two READY stores: bound staging store unchanged and Save disabled (no copy for the same key); production not preselected');
+    mark('two-stores');
+    await h.read('Nhiều kho thì tự chọn; chọn lại cùng kho không sao chép');
+
+    const prodStoreB = (await storeSelect('Production').locator('option').allTextContents()).find((text) => text.startsWith('Kho T07 B'));
+    await h.choose(storeSelect('Production'), prodStoreB);
+    expect((await envApi('production')).secretStoreKey ?? '').toBe('');
+    await h.click(page.getByRole('button', { name: 'Lưu kho bí mật' }));
+    await expect(storePanel()).toContainText('Đã lưu kho bí mật');
+    expect((await envApi('production')).secretStoreKey).toBeTruthy();
+    check('production: explicit choice + Save bound store B; nothing before Save');
+    mark('production-store-b');
+    await tab('Staging');
+
+    // ---- 13. Copy failure / stale / busy keep pending text -----------------------------------
+    caption('Bước 13: Mở form biến và gõ dở, rồi đổi kho A sang B. (MOCK) lỗi sao chép, stale, BUSY; kho cũ giữ nguyên và chữ đang gõ không mất');
+    await h.click(sectionOf('Biến').getByRole('button', { name: '+ Thêm biến' }));
+    await h.type(page.getByLabel('Tên key'), 'DRAFT_NOTE');
+    await h.type(page.getByLabel('Giá trị', { exact: true }), 'đang gõ dở');
+    const storeB = (await storeSelect('Staging').locator('option').allTextContents()).find((text) => text.startsWith('Kho T07 B'));
+    await h.choose(storeSelect('Staging'), storeB);
+    mock.storePut.push('copy');
+    await h.click(page.getByRole('button', { name: 'Lưu kho bí mật' }));
+    await expect(storePanel().getByRole('alert')).toContainText('Kho cũ vẫn đang được chọn và không có gì thay đổi');
+    expect((await envApi('staging')).secretStoreKey).toBe(storeAKey);
+    await expect(page.getByLabel('Giá trị', { exact: true })).toHaveValue('đang gõ dở');
+    check('copy failure (MOCKED 502): Vietnamese message, API keeps store A, open variable text kept');
+    mark('copy-failure');
+    await h.moveTo(storePanel().getByRole('alert'));
+    await h.read('Sao chép lỗi thì kho cũ giữ nguyên');
+
+    mock.storePut.push('stale');
+    await h.click(page.getByRole('button', { name: 'Lưu kho bí mật' }));
+    await expect(storePanel().getByRole('alert')).toContainText('Đã tải lại lựa chọn mới nhất');
+    await expect(storeSelect('Staging')).toHaveValue(/.+/);
+    await expect(page.getByLabel('Giá trị', { exact: true })).toHaveValue('đang gõ dở');
+    mock.storePut.push('busy');
+    await h.click(page.getByRole('button', { name: 'Lưu kho bí mật' }));
+    await expect(storePanel().getByRole('alert')).toContainText('busy with another operation');
+    expect(countWrites('/secret-store') >= 3).toBe(true);
+    check('stale (MOCKED 409) and BUSY (MOCKED 409): messages shown, draft choice and typed text kept, no store change');
+    mark('stale-busy');
+    await h.read('Stale hoặc BUSY không xóa lựa chọn và chữ đang gõ');
+
+    caption('Bước 14: Lưu thật A sang B: bí mật được sao chép trước khi commit; làm mới cấu hình không xóa form đang mở');
+    await h.click(page.getByRole('button', { name: 'Lưu kho bí mật' }));
+    await expect(storePanel()).toContainText('1 bí mật đã được sao chép và xác minh');
+    expect((await envApi('staging')).secretStoreKey).not.toBe(storeAKey);
+    await expect(page.getByLabel('Giá trị', { exact: true })).toHaveValue('đang gõ dở');
+    await expect(page.getByLabel('Tên key')).toHaveValue('DRAFT_NOTE');
+    await h.click(page.getByRole('button', { name: 'Hủy' }));
+    check('real store change A->B: 1 secret copied+verified; configuration reload kept the open editor text');
+    mark('store-changed');
+    await h.read('Sao chép được xác minh rồi mới đổi kho');
+
+    // ---- 15. Late reply across Environment switch -------------------------------------------
+    caption('Bước 15: Bấm lưu một biến ở staging nhưng phản hồi bị giữ (MOCK); chuyển sang production rồi thả phản hồi; production không bị lẫn dữ liệu staging');
+    mock.gate.promise = new Promise((resolve) => { mock.gate.release = resolve; });
+    mock.gate.armed = true;
+    await h.click(sectionOf('Biến').getByRole('button', { name: '+ Thêm biến' }));
+    await h.type(page.getByLabel('Tên key'), 'STAGING_LATE');
+    await h.type(page.getByLabel('Giá trị', { exact: true }), 'muộn');
+    await h.click(page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
+    await tab('Production');
+    await expect(sectionOf('Biến')).toBeVisible();
+    mock.gate.release();
+    await page.waitForTimeout(1500);
+    await expect(row('STAGING_LATE')).toHaveCount(0);
+    await expect(row('LOG_LEVEL')).toHaveCount(0);
+    await tab('Staging');
+    await expect(row('STAGING_LATE')).toBeVisible();
+    check('late save reply of staging did not appear on production; staging shows the saved key after returning');
+    mark('late-reply');
+    await h.read('Phản hồi muộn không ghi sang môi trường khác');
+
+    // ---- 16. Rename/delete warnings and BUSY/stale configuration -----------------------------
+    caption('Bước 16: (MOCK usedBy) Đổi tên/Xóa key đang được workload dùng; hộp thoại cảnh báo tham chiếu không tự được cập nhật');
+    mock.usedBy = true;
+    await tab('Production');
+    await tab('Staging');
+    await h.click(row('LOG_LEVEL').getByRole('button', { name: 'Đổi tên' }));
+    await expect(page.getByRole('dialog', { name: 'Đổi tên LOG_LEVEL' })).toContainText('Đang được tham chiếu bởi web. Các tham chiếu sẽ không được cập nhật tự động');
+    await h.click(page.getByRole('button', { name: 'Hủy' }));
+    await h.click(row('LOG_LEVEL').getByRole('button', { name: 'Xóa' }));
+    await expect(page.getByRole('dialog', { name: 'Xóa LOG_LEVEL' })).toContainText('không được cập nhật tự động');
+    await h.click(page.getByRole('button', { name: 'Hủy' }));
+    mock.usedBy = false;
+    check('rename/delete dialogs warn that references are not rewritten (MOCKED usedBy projection); both cancelled, nothing written');
+    mark('rename-delete-warning');
+    await h.read('T07 chỉ đổi nhãn; việc sửa tham chiếu thuộc về người dùng');
+
+    caption('Bước 17: Đổi tên thật một key không được tham chiếu rồi xóa nó; phiên bản cấu hình tăng, giá trị kỹ thuật giữ nguyên');
+    await addVariable('TEMP_NOTE', 'x1');
+    await h.click(row('TEMP_NOTE').getByRole('button', { name: 'Đổi tên' }));
+    await expect(page.getByRole('dialog', { name: 'Đổi tên TEMP_NOTE' })).toContainText('chỉ áp dụng cho Staging');
+    await h.type(page.getByLabel('Tên key mới'), 'TEMP_RENAMED', { replace: true });
+    await h.click(page.getByRole('button', { name: 'Tiếp tục' }));
+    await expect(row('TEMP_RENAMED')).toContainText('x1');
+    await h.click(row('TEMP_RENAMED').getByRole('button', { name: 'Xóa' }));
+    await h.click(page.getByRole('button', { name: 'Tiếp tục' }));
+    await expect(row('TEMP_RENAMED')).toHaveCount(0);
+    check('real rename and delete of an unreferenced variable through the dialogs');
+    mark('rename-delete-real');
+
+    caption('Bước 18: (MOCK) Phiên bản cấu hình cũ bị 409; thông báo yêu cầu xem lại. Rồi một thao tác môi trường chạy: form giữ chữ, nút Lưu khóa');
+    await h.click(sectionOf('Biến').getByRole('button', { name: '+ Thêm biến' }));
+    await h.type(page.getByLabel('Tên key'), 'STALE_NOTE');
+    await h.type(page.getByLabel('Giá trị', { exact: true }), 'giữ nguyên');
+    mock.configPut.push('stale');
+    await h.click(page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
+    await expect(page.getByRole('alert').filter({ hasText: 'Đã tải lại giá trị mới nhất' })).toBeVisible();
+    await expect(page.getByLabel('Giá trị', { exact: true })).toHaveValue('giữ nguyên');
+    mock.envPatch.staging = { activeOperation: { id: 'op-busy', kind: 'DEPLOY', status: 'ACTIVE', stage: 'DEPLOYING', startedAt: '2026-10-11T00:00:00Z', updatedAt: '2026-10-11T00:00:00Z', heartbeatAt: '2026-10-11T00:00:00Z', recoverable: false } };
+    await expect(page.getByRole('heading', { name: 'Thao tác đang chạy' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' })).toBeDisabled();
+    await expect(page.getByLabel('Giá trị', { exact: true })).toHaveValue('giữ nguyên');
+    await expect(connSelect('Staging')).toBeDisabled();
+    mark('busy-locked');
+    await h.moveTo(page.getByRole('heading', { name: 'Thao tác đang chạy' }));
+    await h.read('Đang BUSY: giữ nội dung form nhưng không cho gửi');
+    mock.envPatch = {};
+    await expect(page.getByRole('heading', { name: 'Thao tác đang chạy' })).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' })).toBeEnabled();
+    await expect(page.getByLabel('Giá trị', { exact: true })).toHaveValue('giữ nguyên');
+    await h.click(page.getByRole('button', { name: 'Hủy' }));
+    check('stale configuration 409 (MOCKED) kept the editor; polled BUSY (MOCKED projection) disabled submit and kept text; release re-enabled it');
+    mark('busy-released');
+
+    // ---- 19. Transition: preview, downtime, progress, cleanup ---------------------------------
+    caption('Bước 19: (MOCK projection đã có runtime) Chọn kết nối khác thì phải xem lại chuyển đích; không có nút Lưu im lặng');
+    mock.envPatch.staging = { runtimeExists: true };
+    mock.connections = 'multi';
+    await tab('Production');
+    await tab('Staging');
+    await expect(page.getByRole('region', { name: 'Chuyển đích kết nối' })).toBeVisible({ timeout: 15_000 });
+    const labOption = (await connSelect('Staging').locator('option').allTextContents()).find((text) => text.includes('(lab-cluster)'));
+    await h.choose(connSelect('Staging'), labOption);
+    await expect(page.getByRole('button', { name: 'Lưu kết nối' })).toHaveCount(0);
+    const before = countWrites('staging/connection');
+    await h.click(page.getByRole('button', { name: 'Xem lại chuyển đích…' }));
+    await expect(page.getByLabel('Kết nối đích')).toHaveValue('lab-cluster');
+    expect(countWrites('staging/connection'), 'reviewing the transition persists no binding').toBe(before);
+    mark('transition-open');
+    await h.read('Đã có runtime thì đổi đích phải qua Xem trước và xác nhận');
+
+    caption('Bước 20: Xem trước chuyển đích: workload không đổi/cập nhật/bị gỡ, ánh xạ cơ sở dữ liệu; phải xác nhận downtime mới bắt đầu');
+    const panel = page.getByRole('region', { name: 'Chuyển đích kết nối' });
+    await h.click(panel.getByRole('button', { name: 'Xem trước chuyển đích' }));
+    const impact = panel.getByLabel('Xem trước chuyển đích');
+    await expect(impact).toContainText('Triển khai lại, không đổi · nhận cấu hình mới hơn');
+    await expect(impact).toContainText('Triển khai lại kèm thay đổi nháp đang chờ');
+    await expect(impact).toContainText('Bị gỡ — không có ở đích (nguồn không bị đụng tới)');
+    await expect(impact.getByLabel('Ánh xạ cơ sở dữ liệu')).toContainText('postgres.default#shared.db → postgres.default#shared.db');
+    await expect(impact.getByRole('button', { name: 'Bắt đầu chuyển đích' })).toBeDisabled();
+    await h.moveTo(impact);
+    await h.read('Preview liệt kê tác động; nút bắt đầu bị khóa cho đến khi xác nhận downtime');
+    await h.click(impact.getByLabel(/ứng dụng sẽ bị dừng trong lúc dữ liệu được sao chép/));
+    await h.click(impact.getByRole('button', { name: 'Bắt đầu chuyển đích' }));
+    await expect(panel.getByLabel('Tiến trình chuyển đích')).toContainText('Chuyển đích đang chạy');
+    await expect(panel.getByLabel('Tiến trình chuyển đích')).toContainText('Khôi phục dữ liệu', { timeout: 30_000 });
+    mark('transition-running');
+    await h.read('Tiến trình dùng nhãn tiếng Việt; mã stage kỹ thuật giữ nguyên');
+    await expect(page.getByText('Đích đang chạy. Thế hệ nguồn được giữ lại ở trạng thái dừng')).toBeVisible({ timeout: 60_000 });
+    await expect(panel.getByRole('button', { name: 'Dọn dẹp thế hệ nguồn' })).toBeVisible();
+    check('transition (MOCKED API): preview impact in Vietnamese, downtime acknowledgement gate, progress, retained source with explicit cleanup action');
+    mark('transition-done');
+    await h.read('Nguồn được giữ lại cho đến khi bạn tự dọn dẹp');
+    await h.click(panel.getByRole('button', { name: 'Dọn dẹp thế hệ nguồn' }));
+    await expect(page.getByText('Đích đang chạy và thế hệ nguồn đã được dọn dẹp.')).toBeVisible();
+    mark('source-cleaned');
+
+    // ---- 21. Recovery of an interrupted operation (MOCK) ---------------------------------------
+    caption('Bước 21: (MOCK) Một thao tác bị gián đoạn: chỉ khi xác nhận tiến trình cũ đã dừng mới khôi phục được');
+    mock.envPatch.staging = { activeOperation: { id: 'op-t07', kind: 'TRANSITION', status: 'INTERRUPTED', stage: 'DEPLOYING', startedAt: '2026-10-11T00:00:00Z', updatedAt: '2026-10-11T00:00:00Z', heartbeatAt: '2026-10-11T00:00:00Z', recoverable: true } };
+    const banner = page.getByRole('region', { name: 'Thao tác trên môi trường' });
+    await expect(banner.getByRole('heading', { name: 'Thao tác bị gián đoạn' })).toBeVisible({ timeout: 15_000 });
+    await expect(banner.getByRole('button', { name: 'Khôi phục môi trường' })).toBeDisabled();
+    await h.moveTo(banner);
+    await h.read('Heartbeat cũ chưa chứng minh tiến trình đã dừng');
+    await h.click(banner.getByLabel('Tôi xác nhận thao tác bị gián đoạn đã dừng hẳn'));
+    await h.click(banner.getByRole('button', { name: 'Khôi phục môi trường' }));
+    await expect(banner).toContainText('Kết quả khôi phục:');
+    await expect(banner).toContainText('Cần xử lý: dừng workload đích web');
+    check('recovery (MOCKED API): disabled until the stop confirmation, then result and "Cần xử lý" item shown in Vietnamese');
+    mark('recovery');
+    await h.moveTo(banner);
+    await h.read('Khôi phục chỉ chạy sau xác nhận tường minh');
+    await noLeak();
+
+    caption('Bước 22: Đăng xuất; phiên bị thu hồi');
+    await signOut();
+    mark('signed-out');
+    await h.pause(3000);
+  },
 };
 
 export function parseArgs(argv) {

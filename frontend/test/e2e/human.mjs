@@ -134,22 +134,23 @@ export async function signIn(h) {
 export async function setEnvironmentConnections(h, applicationName, targets) {
   const { page } = h;
   await h.click(page.getByRole('button', { name: 'Environment settings' }));
-  await expect(page.getByRole('heading', { name: 'Environment settings', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
   for (const [environment, key] of Object.entries(targets)) {
     const title = environment === 'staging' ? 'Staging' : 'Production';
     await h.click(page.getByRole('tab', { name: title }));
-    const select = page.getByLabel(`Connection for ${title}`);
-    await expect(select).toHaveValue('');
+    const select = page.getByLabel(`Kết nối cho ${title}`);
+    // With exactly one READY Connection the page may suggest it as an unsaved draft; the explicit choice below still applies.
+    await expect(select).toBeVisible();
     const label = (await select.locator('option').allTextContents()).find((text) => text.includes(`(${key})`));
     if (!label) throw new Error(`connection ${key} is not offered for ${environment}`);
     await h.choose(select, label);
     await expect(select).toHaveValue(key);
     const saved = page.waitForResponse((response) => response.request().method() === 'PUT'
       && new URL(response.url()).pathname.endsWith(`/environments/${environment}/connection`));
-    await h.click(page.getByRole('button', { name: 'Save connection' }));
+    await h.click(page.getByRole('button', { name: 'Lưu kết nối' }));
     const response = await saved;
     if (!response.ok()) throw new Error(`setting ${environment} connection returned HTTP ${response.status()}`);
-    await expect(page.getByText('Generation 0', { exact: true })).toBeVisible();
+    await expect(page.getByText('Thế hệ 0', { exact: true })).toBeVisible();
     await h.pause(1200);
   }
   await h.click(page.getByRole('button', { name: `← ${applicationName}` }));
@@ -183,28 +184,29 @@ export function configuredSecretStore(env = process.env) {
 
 // Selects a READY Secret Store for ONE Environment through Settings (UC-12 /
 // ADR-012). Must be called on the Environment settings page. An Environment that
-// already uses the wanted store is left alone; otherwise the select is chosen
+// already persisted the wanted store (Save disabled) is left alone; otherwise the select is chosen
 // from its popup and the PUT reply is awaited.
 export async function selectSecretStore(h, environment, store) {
   const { page } = h;
   if (!store) throw new Error('writing a secret needs a selected Secret Store: set ORCH_E2E_SECRET_STORE to the key or name of a READY store registered for this run');
   const title = environment === 'staging' ? 'Staging' : 'Production';
   await h.click(page.getByRole('tab', { name: title }));
-  const select = page.getByLabel(`Secret store for ${title}`);
+  const select = page.getByLabel(`Kho bí mật cho ${title}`);
   await expect(select).toBeVisible();
   const label = (await select.locator('option').allTextContents()).find((text) => text.includes(`(${store})`) || text.startsWith(`${store} (`));
   if (!label) throw new Error(`secret store ${store} is not offered for ${environment}`);
   const selected = await select.inputValue();
   const wanted = await select.locator('option').evaluateAll((options, text) => options.find((option) => option.textContent === text)?.value, label);
-  if (selected === wanted) return;
+  // A single READY store may be pre-filled as an unsaved suggestion: only a disabled Save proves it is already bound.
+  if (selected === wanted && await page.getByRole('button', { name: 'Lưu kho bí mật' }).isDisabled()) return;
   await h.choose(select, label);
   await expect(select).toHaveValue(wanted);
   const saved = page.waitForResponse((response) => response.request().method() === 'PUT'
     && new URL(response.url()).pathname.endsWith(`/environments/${environment}/secret-store`));
-  await h.click(page.getByRole('button', { name: 'Save secret store' }));
+  await h.click(page.getByRole('button', { name: 'Lưu kho bí mật' }));
   const response = await saved;
   if (!response.ok()) throw new Error(`selecting the ${environment} secret store returned HTTP ${response.status()}`);
-  await expect(page.getByRole('button', { name: 'Save secret store' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Lưu kho bí mật' })).toBeDisabled();
   await h.pause(1200);
 }
 
@@ -221,22 +223,22 @@ export async function putKeys(h, applicationName, entries, { secretStore = confi
   // A new Environment has no secret store: choose the run's configured one first.
   if (entries.some((entry) => entry.kind === 'secret')) await selectSecretStore(h, 'staging', secretStore);
   for (const entry of entries) {
-    const section = page.locator(`section[aria-label="${entry.kind === 'secret' ? 'Secrets' : 'Environment variables'}"]`);
-    await h.click(section.getByRole('button', { name: `+ Add ${entry.kind}` }));
-    await h.type(page.getByLabel('Key name'), entry.name);
-    const field = page.getByLabel(entry.kind === 'secret' ? 'New secret value' : 'Value');
+    const section = page.locator(`section[aria-label="${entry.kind === 'secret' ? 'Bí mật' : 'Biến'}"]`);
+    await h.click(section.getByRole('button', { name: `+ Thêm ${entry.kind === 'secret' ? 'bí mật' : 'biến'}` }));
+    await h.type(page.getByLabel('Tên key'), entry.name);
+    const field = page.getByLabel(entry.kind === 'secret' ? 'Giá trị bí mật mới' : 'Giá trị');
     if (entry.paste) await h.paste(field, entry.value);
     else await h.type(field, entry.value, { delay: entry.delay ?? (entry.value.length > 32 ? LONG_TYPE_DELAY : TYPE_DELAY) });
     const saved = page.waitForResponse((response) => response.request().method() === 'PUT'
       && new URL(response.url()).pathname.endsWith(`/configuration/keys/${encodeURIComponent(entry.name)}`));
-    await h.click(page.getByRole('button', { name: 'Save pending change' }));
+    await h.click(page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
     const response = await saved;
     if (!response.ok()) throw new Error(`saving ${entry.kind} ${entry.name} returned HTTP ${response.status()}`);
-    await expect(page.getByLabel('Key name')).toHaveCount(0);
+    await expect(page.getByLabel('Tên key')).toHaveCount(0);
     const row = section.locator('.settings-table-row').filter({ has: page.locator('strong').getByText(entry.name, { exact: true }) });
     await expect(row).toHaveCount(1);
     if (entry.kind === 'secret') {
-      await expect(row).toContainText('Configured');
+      await expect(row).toContainText('Đã cấu hình');
       // Boolean form: a failure message must not echo the secret.
       expect(await section.evaluate((element, value) => element.textContent.includes(value), entry.value), 'secret value rendered').toBe(false);
     } else {

@@ -35,14 +35,14 @@ it('selects a store with both versions, reports the copy and keeps the selector 
   });
   const user = userEvent.setup();
   render(<Store target={configuredTarget('lab', { secretStoreKey: 'vault-a', version: 5 })} onConfig={onConfig} />);
-  await user.selectOptions(await screen.findByLabelText('Secret store for Staging'), 'vault-b');
-  await user.click(screen.getByRole('button', { name: 'Save secret store' }));
-  expect(await screen.findByRole('status')).toHaveTextContent('2 secret(s) were copied and verified');
+  await user.selectOptions(await screen.findByLabelText('Kho bí mật cho Staging'), 'vault-b');
+  await user.click(screen.getByRole('button', { name: 'Lưu kho bí mật' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('2 bí mật đã được sao chép và xác minh');
   const put = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PUT');
   expect(String(put?.[0])).toBe('/api/v1/applications/catalog/environments/staging/secret-store');
   expect(JSON.parse(String(put?.[1]?.body))).toEqual({ secretStoreKey: 'vault-b', expectedVersion: 5, expectedConfigVersion: 4 });
   expect(onConfig).toHaveBeenCalled();
-  expect(screen.getByLabelText('Secret store for Staging')).toBeEnabled();
+  expect(screen.getByLabelText('Kho bí mật cho Staging')).toBeEnabled();
 });
 
 it('shows a copy failure without changing the selection and a stale 409 with the reloaded selection', async () => {
@@ -54,13 +54,13 @@ it('shows a copy failure without changing the selection and a stale 409 with the
   });
   const user = userEvent.setup();
   render(<Store target={configuredTarget('lab', { secretStoreKey: 'vault-a', version: 5 })} />);
-  await user.selectOptions(await screen.findByLabelText('Secret store for Staging'), 'vault-b');
-  await user.click(screen.getByRole('button', { name: 'Save secret store' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('previous store is still selected and nothing changed');
-  expect(screen.getByLabelText('Secret store for Staging')).toHaveValue('vault-b');
+  await user.selectOptions(await screen.findByLabelText('Kho bí mật cho Staging'), 'vault-b');
+  await user.click(screen.getByRole('button', { name: 'Lưu kho bí mật' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Kho cũ vẫn đang được chọn và không có gì thay đổi');
+  expect(screen.getByLabelText('Kho bí mật cho Staging')).toHaveValue('vault-b');
   mode = 'stale';
-  await user.click(screen.getByRole('button', { name: 'Save secret store' }));
-  await waitFor(() => expect(screen.getByLabelText('Secret store for Staging')).toHaveValue('vault-b'));
+  await user.click(screen.getByRole('button', { name: 'Lưu kho bí mật' }));
+  await waitFor(() => expect(screen.getByLabelText('Kho bí mật cho Staging')).toHaveValue('vault-b'));
   expect(screen.getByRole('alert')).toHaveTextContent('changed since it was loaded');
 });
 
@@ -69,10 +69,10 @@ it('hides secret-store details until choices load and offers retry when none exi
   stub((url) => url.endsWith('/secret-store-choices') ? (ok ? Response.json({ secretStores: stores }) : Response.json({ secretStores: [] })) : undefined);
   const user = userEvent.setup();
   render(<Store target={configuredTarget('lab')} />);
-  expect(await screen.findByText(/No READY secret store is available/)).toBeInTheDocument();
+  expect(await screen.findByText(/Chưa có kho bí mật Sẵn sàng/)).toBeInTheDocument();
   ok = true;
-  await user.click(screen.getByRole('button', { name: 'Retry' }));
-  expect(await screen.findByLabelText('Secret store for Staging')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Thử lại' }));
+  expect(await screen.findByLabelText('Kho bí mật cho Staging')).toBeInTheDocument();
 });
 
 const preview = { token: 'tok1', mode: 'MIGRATE_POSTGRES', source: { connectionKey: 'lab', connectionName: 'Lab', executionProfile: 'internal-k8s', generation: 0, namespace: 'ns' }, destination: { connectionKey: 'lab2', connectionName: 'Lab 2', executionProfile: 'internal-k8s', generation: 1, namespace: 'ns-g1-abcd1234' }, workloads: [{ workloadId: 'backend', action: 'UNCHANGED' }], mappings: [{ sourceDescriptor: 'postgres.default#shared.db', destinationDescriptor: 'postgres.default#shared.db' }], downtimeRequired: true, notes: ['Application writers stop before the backup.'] };
@@ -96,17 +96,17 @@ it('previews, requires the downtime acknowledgement, executes with the exact tok
   });
   const user = userEvent.setup();
   render(<Panel target={configuredTarget('lab', { runtimeExists: true })} />);
-  await user.click(await screen.findByRole('button', { name: 'Preview transition' }));
-  const impact = await screen.findByLabelText('Transition preview');
+  await user.click(await screen.findByRole('button', { name: 'Xem trước chuyển đích' }));
+  const impact = await screen.findByLabelText('Xem trước chuyển đích');
   expect(within(impact).getByText(/backend/)).toBeInTheDocument();
-  expect(within(impact).getByLabelText('Database mapping')).toHaveTextContent('postgres.default#shared.db → postgres.default#shared.db');
-  expect(within(impact).getByRole('button', { name: 'Start transition' })).toBeDisabled();
-  await user.click(within(impact).getByLabelText(/application is stopped while its data is copied/));
-  await user.click(within(impact).getByRole('button', { name: 'Start transition' }));
+  expect(within(impact).getByLabelText('Ánh xạ cơ sở dữ liệu')).toHaveTextContent('postgres.default#shared.db → postgres.default#shared.db');
+  expect(within(impact).getByRole('button', { name: 'Bắt đầu chuyển đích' })).toBeDisabled();
+  await user.click(within(impact).getByLabelText(/ứng dụng sẽ bị dừng trong lúc dữ liệu được sao chép/));
+  await user.click(within(impact).getByRole('button', { name: 'Bắt đầu chuyển đích' }));
   const post = vi.mocked(fetch).mock.calls.find(([url, init]) => String(url).endsWith('/connection-transitions') && init?.method === 'POST');
   expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({ destinationKey: 'lab2', mode: 'MIGRATE_POSTGRES', token: 'tok1', acknowledgeDowntime: true });
-  expect(await screen.findByText('The destination is live. The source generation is retained and quiesced (data kept) until you clean it up.')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Clean up source generation' })).toBeInTheDocument();
+  expect(await screen.findByText('Đích đang chạy. Thế hệ nguồn được giữ lại ở trạng thái dừng (dữ liệu còn nguyên) cho đến khi bạn dọn dẹp.')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Dọn dẹp thế hệ nguồn' })).toBeInTheDocument();
 });
 
 it('rejects a stale preview with the server message and requires a new preview', async () => {
@@ -118,11 +118,11 @@ it('rejects a stale preview with the server message and requires a new preview',
   });
   const user = userEvent.setup();
   render(<Panel target={configuredTarget('lab', { runtimeExists: true })} />);
-  await user.click(await screen.findByRole('button', { name: 'Preview transition' }));
-  await user.click(await screen.findByLabelText(/application is stopped/));
-  await user.click(screen.getByRole('button', { name: 'Start transition' }));
+  await user.click(await screen.findByRole('button', { name: 'Xem trước chuyển đích' }));
+  await user.click(await screen.findByLabelText(/ứng dụng sẽ bị dừng/));
+  await user.click(screen.getByRole('button', { name: 'Bắt đầu chuyển đích' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('preview is stale');
-  expect(screen.queryByLabelText('Transition preview')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Xem trước chuyển đích')).not.toBeInTheDocument();
 });
 
 it('resumes a running transition after a refresh and shows failure with compensation problems', async () => {
@@ -132,10 +132,10 @@ it('resumes a running transition after a refresh and shows failure with compensa
     if (url.endsWith('/connection-transitions')) return Response.json({ transitions: [detail({})] });
   });
   render(<Panel target={configuredTarget('lab', { runtimeExists: true })} />);
-  expect(await screen.findByLabelText('Transition progress')).toHaveTextContent('Transition in progress');
+  expect(await screen.findByLabelText('Tiến trình chuyển đích')).toHaveTextContent('Chuyển đích đang chạy');
   expect(await screen.findByText(/the database restore failed/, { selector: '[role="alert"]' })).toBeInTheDocument();
-  expect(screen.getByLabelText('Recovery problems')).toHaveTextContent('source NOT restored');
-  expect(screen.getByLabelText('Recovery steps')).toHaveTextContent('stopped destination workload backend');
+  expect(screen.getByLabelText('Vấn đề khi khôi phục')).toHaveTextContent('source NOT restored');
+  expect(screen.getByLabelText('Các bước khôi phục')).toHaveTextContent('stopped destination workload backend');
 });
 
 it('offers explicit recovery only after the stop confirmation and reports an incomplete recovery', async () => {
@@ -150,10 +150,10 @@ it('offers explicit recovery only after the stop confirmation and reports an inc
     return <OperationBanner application={application} environment="staging" pollMs={50} onTargetChange={(_i, env, t) => setApplication((c) => ({ ...c, environments: { ...c.environments, [env]: t } }))} />;
   }
   render(<Host />);
-  expect(screen.getByRole('heading', { name: 'Operation interrupted' })).toBeInTheDocument();
-  const button = screen.getByRole('button', { name: 'Recover environment' });
+  expect(screen.getByRole('heading', { name: 'Thao tác bị gián đoạn' })).toBeInTheDocument();
+  const button = screen.getByRole('button', { name: 'Khôi phục môi trường' });
   expect(button).toBeDisabled();
-  await user.click(screen.getByLabelText('I confirm the interrupted operation has stopped'));
+  await user.click(screen.getByLabelText('Tôi xác nhận thao tác bị gián đoạn đã dừng hẳn'));
   await user.click(button);
   expect(await screen.findByRole('alert')).toBeInTheDocument();
   const post = vi.mocked(fetch).mock.calls.find(([url]) => String(url).endsWith('/recover'));
@@ -174,14 +174,14 @@ it('keeps polling after a failed recovery so later status changes of the same op
     return <OperationBanner application={application} environment="staging" pollMs={30} onTargetChange={(_i, env, t) => setApplication((c) => ({ ...c, environments: { ...c.environments, [env]: t } }))} />;
   }
   render(<Host />);
-  await user.click(screen.getByLabelText('I confirm the interrupted operation has stopped'));
-  await user.click(screen.getByRole('button', { name: 'Recover environment' }));
+  await user.click(screen.getByLabelText('Tôi xác nhận thao tác bị gián đoạn đã dừng hẳn'));
+  await user.click(screen.getByRole('button', { name: 'Khôi phục môi trường' }));
   expect(await screen.findByRole('alert')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Recover environment' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Khôi phục môi trường' })).toBeEnabled();
   latest = configuredTarget('lab', { activeOperation: op('ACTIVE') });
-  expect(await screen.findByRole('heading', { name: 'Operation in progress' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Thao tác đang chạy' })).toBeInTheDocument();
   latest = configuredTarget('lab');
-  await waitFor(() => expect(screen.queryByRole('region', { name: 'Environment operation' })).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.queryByRole('region', { name: 'Thao tác trên môi trường' })).not.toBeInTheDocument());
 });
 
 it('polls an active operation and clears the banner when it ends', async () => {
@@ -194,10 +194,10 @@ it('polls an active operation and clears the banner when it ends', async () => {
     return <OperationBanner application={application} environment="staging" pollMs={100} onTargetChange={(_i, env, t) => setApplication((c) => ({ ...c, environments: { ...c.environments, [env]: t } }))} />;
   }
   render(<Host />);
-  expect(screen.getByRole('heading', { name: 'Operation in progress' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Thao tác đang chạy' })).toBeInTheDocument();
   done = true;
   await act(async () => { await vi.advanceTimersByTimeAsync(300); });
-  await waitFor(() => expect(screen.queryByRole('region', { name: 'Environment operation' })).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.queryByRole('region', { name: 'Thao tác trên môi trường' })).not.toBeInTheDocument());
 });
 
 it('renders the reviewed draft and configuration impact and keeps removed workloads apart from redeployed ones', async () => {
@@ -214,17 +214,17 @@ it('renders the reviewed draft and configuration impact and keeps removed worklo
   });
   const user = userEvent.setup();
   render(<Panel target={configuredTarget('lab', { runtimeExists: true })} />);
-  await user.click(await screen.findByRole('button', { name: 'Preview transition' }));
-  const list = await screen.findByRole('list', { name: 'Workload impact' });
+  await user.click(await screen.findByRole('button', { name: 'Xem trước chuyển đích' }));
+  const list = await screen.findByRole('list', { name: 'Tác động lên workload' });
   const row = (name: string) => within(list).getByText(name).closest('li') as HTMLElement;
-  expect(row('backend')).toHaveTextContent('Redeployed unchanged · picks up newer configuration');
-  expect(row('frontend')).toHaveTextContent('Redeployed with a pending draft change');
-  expect(row('extra')).toHaveTextContent('Added from a pending draft');
-  expect(row('worker')).toHaveTextContent('Removed — absent at the destination (the source is not touched)');
-  expect(row('worker')).not.toHaveTextContent('Redeployed');
+  expect(row('backend')).toHaveTextContent('Triển khai lại, không đổi · nhận cấu hình mới hơn');
+  expect(row('frontend')).toHaveTextContent('Triển khai lại kèm thay đổi nháp đang chờ');
+  expect(row('extra')).toHaveTextContent('Thêm từ bản nháp đang chờ');
+  expect(row('worker')).toHaveTextContent('Bị gỡ — không có ở đích (nguồn không bị đụng tới)');
+  expect(row('worker')).not.toHaveTextContent('Triển khai lại');
   expect(row('worker')).toHaveAttribute('data-action', 'REMOVED');
-  expect(screen.getByText(/Pending draft changes marked above are applied by this transition/)).toBeInTheDocument();
-  expect(screen.getByText(/newest configuration revision is applied/)).toBeInTheDocument();
+  expect(screen.getByText(/Các thay đổi nháp đang chờ được đánh dấu ở trên/)).toBeInTheDocument();
+  expect(screen.getByText(/Bản cấu hình mới nhất được áp dụng/)).toBeInTheDocument();
 });
 
 it('reports a source that could not be stopped and an interruption after the cutover truthfully', async () => {
@@ -235,14 +235,14 @@ it('reports a source that could not be stopped and an interruption after the cut
     if (url.endsWith('/connection-transitions')) return Response.json({ transitions: [detail({ status: 'RUNNING' })] });
   });
   const { unmount } = render(<Panel target={configuredTarget('lab2', { runtimeExists: true })} />);
-  expect(await screen.findByText(/source workloads could not be stopped/)).toBeInTheDocument();
-  expect(screen.queryByText(/retained and quiesced/)).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Clean up source generation' })).not.toBeInTheDocument();
+  expect(await screen.findByText(/workload nguồn không dừng được/)).toBeInTheDocument();
+  expect(screen.queryByText(/giữ lại ở trạng thái dừng/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Dọn dẹp thế hệ nguồn' })).not.toBeInTheDocument();
   unmount();
   current = detail({ status: 'INTERRUPTED', stage: 'CUTOVER', authority: 'DESTINATION', failure: 'the process stopped' });
   render(<Panel target={configuredTarget('lab2', { runtimeExists: true })} />);
-  expect(await screen.findByText(/destination is live and authoritative/)).toBeInTheDocument();
-  expect(screen.queryByText(/source generation remains authoritative/)).not.toBeInTheDocument();
+  expect(await screen.findByText(/đích đang chạy và là nguồn chuẩn/)).toBeInTheDocument();
+  expect(screen.queryByText(/Thế hệ nguồn vẫn là nguồn chuẩn/)).not.toBeInTheDocument();
 });
 
 it('learns about a started and a released operation by polling when the page was opened earlier', async () => {
@@ -259,4 +259,82 @@ it('learns about a started and a released operation by polling when the page was
   expect(await screen.findByText('busy')).toBeInTheDocument();
   latest = configuredTarget('lab');
   expect(await screen.findByText('idle')).toBeInTheDocument();
+});
+
+const pendingStore = { key: 'vault-p', name: 'Vault P', provider: 'VAULT_KV_V2', status: 'PENDING' };
+
+it('suggests the only READY store as an unsaved draft and persists nothing before Save', async () => {
+  const saved = configuredTarget('lab', { secretStoreKey: 'vault-a', version: 6 });
+  stub((url, init) => {
+    if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [pendingStore, stores[0]] });
+    if (init?.method === 'PUT') return Response.json({ environment: envJson(saved), changed: true, copiedSecrets: 0 });
+  });
+  const user = userEvent.setup();
+  render(<Store target={configuredTarget('lab')} />);
+  const select = await screen.findByLabelText('Kho bí mật cho Staging');
+  expect(select).toHaveValue('vault-a');
+  expect(screen.getByText(/Gợi ý chưa lưu/)).toHaveTextContent('không phải mặc định của tổ chức');
+  expect(within(select).queryByRole('option', { name: /Vault P/ })).not.toBeInTheDocument();
+  expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false);
+  expect(screen.getByText('Chưa chọn')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Lưu kho bí mật' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Đã lưu kho bí mật');
+  expect(JSON.parse(String(vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PUT')?.[1]?.body))).toMatchObject({ secretStoreKey: 'vault-a', expectedVersion: 2 });
+});
+
+it('does not suggest several stores and never retargets a bound store; same store is a no-op', async () => {
+  stub((url) => url.endsWith('/secret-store-choices') ? Response.json({ secretStores: stores }) : undefined);
+  const first = render(<Store target={configuredTarget('lab')} />);
+  expect(await screen.findByLabelText('Kho bí mật cho Staging')).toHaveValue('');
+  expect(screen.queryByText(/Gợi ý chưa lưu/)).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Lưu kho bí mật' })).toBeDisabled();
+  first.unmount();
+  stub((url) => url.endsWith('/secret-store-choices') ? Response.json({ secretStores: [stores[1]] }) : undefined);
+  render(<Store target={configuredTarget('lab', { secretStoreKey: 'vault-a', secretStoreName: 'Vault A' })} />);
+  const select = await screen.findByLabelText('Kho bí mật cho Staging');
+  expect(select).toHaveValue('vault-a');
+  expect(screen.getByRole('button', { name: 'Lưu kho bí mật' })).toBeDisabled();
+});
+
+it('keeps the user pick when the Environment target is refreshed', async () => {
+  stub((url) => url.endsWith('/secret-store-choices') ? Response.json({ secretStores: stores }) : undefined);
+  const user = userEvent.setup();
+  const view = render(<Store target={configuredTarget('lab')} />);
+  await user.selectOptions(await screen.findByLabelText('Kho bí mật cho Staging'), 'vault-b');
+  view.rerender(<Store target={configuredTarget('lab', { version: 3 })} />);
+  expect(screen.getByLabelText('Kho bí mật cho Staging')).toHaveValue('vault-b');
+});
+
+it('refreshes the configuration only for the scope that saved the store, but still reports the saved target', async () => {
+  const saved = configuredTarget('lab', { secretStoreKey: 'vault-b', version: 6 });
+  let release: (response: Response) => void = () => undefined;
+  stub((url, init) => {
+    if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: stores });
+    if (init?.method === 'PUT') return new Promise<Response>((resolve) => { release = resolve; });
+  });
+  const onConfig = vi.fn();
+  const onTarget = vi.fn();
+  function Switch() {
+    const [environment, setEnvironment] = useState<'staging' | 'production'>('staging');
+    const application = { ...app(configuredTarget('lab', { secretStoreKey: 'vault-a', version: 5 })), environments: { staging: configuredTarget('lab', { secretStoreKey: 'vault-a', version: 5 }), production: configuredTarget('lab', { secretStoreKey: 'vault-a', version: 5 }) } };
+    return <><button onClick={() => setEnvironment('production')}>Sang production</button><SecretStoreSelection application={application} environment={environment} configVersion={4} onConfigurationChanged={onConfig} onTargetChange={onTarget} /></>;
+  }
+  const user = userEvent.setup();
+  render(<Switch />);
+  await user.selectOptions(await screen.findByLabelText('Kho bí mật cho Staging'), 'vault-b');
+  await user.click(screen.getByRole('button', { name: 'Lưu kho bí mật' }));
+  await user.click(screen.getByRole('button', { name: 'Sang production' }));
+  await screen.findByLabelText('Kho bí mật cho Production');
+  await act(async () => { release(Response.json({ environment: envJson(saved), changed: true, copiedSecrets: 1 })); });
+  expect(onTarget).toHaveBeenCalledWith('catalog', 'staging', expect.objectContaining({ secretStoreKey: 'vault-b' }));
+  expect(onConfig).not.toHaveBeenCalled();
+  expect(screen.queryByText(/Đã lưu kho bí mật/)).not.toBeInTheDocument();
+});
+
+it('does not review a destination that is no longer an eligible READY choice', async () => {
+  stub((url) => url.endsWith('/application-connections') ? Response.json({ connections: [{ key: 'lab3', name: 'Lab 3', kind: 'KUBERNETES', status: 'READY' }] }) : undefined);
+  render(<Panel target={configuredTarget('lab', { runtimeExists: true })} />);
+  expect(await screen.findByText('Kết nối đích đã chọn không còn Sẵn sàng. Hãy chọn lại.')).toBeInTheDocument();
+  expect(screen.getByLabelText('Kết nối đích')).toHaveValue('');
+  expect(screen.getByRole('button', { name: 'Xem trước chuyển đích' })).toBeDisabled();
 });

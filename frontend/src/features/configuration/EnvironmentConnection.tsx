@@ -3,16 +3,24 @@ import { api, ApiError } from '../../shared/api/client';
 import { toTarget, type APIEnvironment } from '../../shared/api/environment';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
+import { environmentTitle, profileLabel, statusLabel } from '../environment/labels';
 
 type Choice = { key: string; name: string; kind: string; status: string };
 type ChoicesState = { status: 'loading' | 'error' } | { status: 'ready'; connections: readonly Choice[] };
 
 export { toTarget };
 const kindLabel = (kind?: string) => kind === 'AWS' ? 'AWS' : 'Kubernetes';
+const eligibleKinds = new Set(['KUBERNETES', 'AWS']);
+// Only a READY Connection of a deployable kind is a safe choice.
+const isEligible = (item: Choice) => item.status === 'READY' && eligibleKinds.has(item.kind);
 
 // Editable execution Connection of ONE Environment (UC-01 ES-01..06, ADR-012).
 // Before runtime exists Save is a versioned metadata change; once resources
 // exist a different destination is an explicit transition, never a silent Save.
+// With no binding and exactly one eligible Connection that one is only SUGGESTED
+// in the draft (not an Organization default or fallback); nothing persists
+// until the user presses Save. The draft is derived, never copied from a reply,
+// so a reload or a late response cannot overwrite what the user chose.
 export function EnvironmentConnection({ application, environment, onTargetChange, onStartTransition }: {
   application: Application; environment: EnvironmentKey;
   onTargetChange(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void;
@@ -21,7 +29,8 @@ export function EnvironmentConnection({ application, environment, onTargetChange
   const target = application.environments[environment];
   const busy = Boolean(target.activeOperation);
   const [choices, setChoices] = useState<ChoicesState>({ status: 'loading' });
-  const [selected, setSelected] = useState(target.connectionKey);
+  // `picked` is the user's own selection; undefined means "no pending edit".
+  const [picked, setPicked] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -33,7 +42,7 @@ export function EnvironmentConnection({ application, environment, onTargetChange
   const generation = useRef(0);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current += 1; }; }, []);
-  useEffect(() => { generation.current += 1; setSelected(application.environments[environment].connectionKey); setError(''); setNotice(''); setSaving(false); }, [application.id, environment]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { generation.current += 1; setPicked(undefined); setError(''); setNotice(''); setSaving(false); }, [application.id, environment]);
   useEffect(() => {
     const current = ++generation.current;
     setChoices({ status: 'loading' });
@@ -42,15 +51,24 @@ export function EnvironmentConnection({ application, environment, onTargetChange
       .catch(() => { if (current === generation.current) setChoices({ status: 'error' }); });
   }, [application.id, environment, attempt]);
 
+  const title = environmentTitle(environment);
+  const eligible = choices.status === 'ready' ? choices.connections.filter(isEligible) : [];
+  // The bound Connection stays selectable even if it is no longer READY, so the
+  // select always shows what is really configured.
+  const bound = choices.status === 'ready' && target.configured && !eligible.some((item) => item.key === target.connectionKey)
+    ? [choices.connections.find((item) => item.key === target.connectionKey) ?? { key: target.connectionKey, name: target.connectionName || target.connectionKey, kind: target.connectionKind ?? '', status: target.runtimeStatus }] : [];
+  const options = [...bound, ...eligible];
+  const suggestion = !target.configured && eligible.length === 1 ? eligible[0] : undefined;
+  const candidate = picked ?? (target.configured ? target.connectionKey : suggestion?.key ?? '');
+  const selected = options.some((item) => item.key === candidate) ? candidate : '';
+  const suggested = picked === undefined && Boolean(suggestion) && selected === suggestion?.key;
+  const lostPick = picked !== undefined && picked !== '' && selected === '' && choices.status === 'ready';
+
   async function reloadEnvironment(current: number) {
     try {
       const response = await api<{ application: { environments?: APIEnvironment[] } }>(`/applications/${encodeURIComponent(application.id)}`);
       const item = response.application.environments?.find((env) => env.key === environment);
-      if (item && (current === generation.current || !mounted.current)) {
-        const latest = toTarget(item);
-        onTargetChange(application.id, environment, latest);
-        if (current === generation.current) setSelected((value) => value === target.connectionKey ? latest.connectionKey : value);
-      }
+      if (item && (current === generation.current || !mounted.current)) onTargetChange(application.id, environment, toTarget(item));
     } catch { /* the notice already tells the user to reload */ }
   }
 
@@ -61,54 +79,56 @@ export function EnvironmentConnection({ application, environment, onTargetChange
     try {
       const response = await api<{ environment: APIEnvironment }>(`/applications/${encodeURIComponent(application.id)}/environments/${environment}/connection`, { method: 'PUT', body: JSON.stringify({ connectionKey: selected, expectedVersion: target.version }) });
       onTargetChange(application.id, environment, toTarget(response.environment));
-      if (current === generation.current) setNotice(selected === target.connectionKey ? 'Already selected; nothing changed.' : 'Connection saved. Preview and Deploy now use it.');
+      if (current === generation.current) { setPicked(undefined); setNotice(selected === target.connectionKey ? 'Đã chọn kết nối này; không có gì thay đổi.' : 'Đã lưu kết nối. Xem trước và Triển khai sẽ dùng kết nối này.'); }
     } catch (err) {
       if (current !== generation.current) return;
       if (err instanceof ApiError && err.status === 409) {
-        setError(err.message);
+        setError(`${err.message} Đã tải lại trạng thái mới nhất; xem lại lựa chọn rồi bấm Lưu kết nối nếu vẫn muốn đổi.`);
         await reloadEnvironment(current);
       } else if (err instanceof ApiError && err.status === 422) {
-        setError('The selected connection is no longer available. Choose another connection.');
+        setError('Kết nối đã chọn không còn khả dụng. Hãy chọn kết nối khác.');
         setAttempt((value) => value + 1);
       } else {
-        setError('Could not save the connection. Try again.');
+        setError('Không lưu được kết nối. Hãy thử lại.');
       }
     } finally {
       if (current === generation.current) setSaving(false);
     }
   }
 
-  const title = environment === 'staging' ? 'Staging' : 'Production';
-  const ready = choices.status === 'ready' && choices.connections.length > 0;
+  const ready = choices.status === 'ready' && options.length > 0;
   const changed = selected !== target.connectionKey;
   const needsTransition = target.configured && target.runtimeExists && changed;
-  return <section className="content-panel environment-connection" aria-label="Execution connection">
-    <div className="section-header"><div><h2>Deployment connection</h2><p>{target.configured ? `${title} deploys to this connection. You can change it; the change is versioned.` : `${title} has no connection yet, so it cannot be previewed or deployed. Variables and workload drafts can still be prepared.`}</p></div><span className="pending-pill">{target.configured ? `Generation ${target.targetGeneration}` : 'Not configured'}</span></div>
+  return <section className="content-panel environment-connection" aria-label="Kết nối triển khai">
+    <div className="section-header"><div><h2>Kết nối triển khai</h2><p>{target.configured ? `${title} triển khai tới kết nối này. Bạn có thể đổi kết nối; mỗi thay đổi có phiên bản.` : `${title} chưa có kết nối nên chưa thể xem trước hoặc triển khai. Vẫn có thể chuẩn bị biến và bản nháp workload.`}</p></div><span className="pending-pill">{target.configured ? `Thế hệ ${target.targetGeneration}` : 'Chưa cấu hình'}</span></div>
     {target.configured ? <dl className="connection-facts">
-      <dt>Connection</dt><dd><strong>{target.connectionName || target.connectionKey}</strong> ({target.connectionKey})</dd>
-      <dt>Kind</dt><dd>{kindLabel(target.connectionKind)}</dd>
-      <dt>Execution profile</dt><dd>{target.profile}</dd>
-      {target.region ? <><dt>Region</dt><dd>{target.region}</dd></> : null}
-      <dt>Runtime status</dt><dd>{target.runtimeStatus}</dd>
-      {target.infrastructureScope === 'LEGACY_APPLICATION' ? <><dt>Infrastructure</dt><dd>Application-scoped (migrated binding)</dd></> : null}
+      <dt>Kết nối</dt><dd><strong>{target.connectionName || target.connectionKey}</strong> ({target.connectionKey})</dd>
+      <dt>Loại</dt><dd>{kindLabel(target.connectionKind)}</dd>
+      <dt>Phạm vi triển khai</dt><dd>{profileLabel(target.profile)}</dd>
+      {target.region ? <><dt>Vùng</dt><dd>{target.region}</dd></> : null}
+      <dt>Trạng thái runtime</dt><dd>{statusLabel(target.runtimeStatus)}</dd>
+      {target.infrastructureScope === 'LEGACY_APPLICATION' ? <><dt>Hạ tầng</dt><dd>Theo ứng dụng (binding đã di chuyển)</dd></> : null}
     </dl> : null}
     {error ? <div className="form-error" role="alert">{error}</div> : null}
     {notice ? <div className="form-success" role="status">{notice}</div> : null}
-    {busy ? <div className="form-info" role="status">An operation is running on this environment. Settings are read-only until it finishes.</div> : null}
-    {choices.status === 'loading' ? <p role="status" aria-busy="true">Loading connections…</p> : null}
-    {choices.status === 'error' ? <div className="form-error" role="alert">Could not load connections.<Button type="button" onClick={() => setAttempt((value) => value + 1)}>Retry</Button></div> : null}
-    {choices.status === 'ready' && choices.connections.length === 0 ? <div className="form-info" role="status">No READY connection is available. Ask a Platform Engineer to register one, then retry.<Button type="button" onClick={() => setAttempt((value) => value + 1)}>Retry</Button></div> : null}
+    {busy ? <div className="form-info" role="status">Một thao tác đang chạy trên môi trường này. Cài đặt chỉ đọc cho đến khi thao tác kết thúc.</div> : null}
+    {choices.status === 'loading' ? <p role="status" aria-busy="true">Đang tải danh sách kết nối…</p> : null}
+    {choices.status === 'error' ? <div className="form-error" role="alert">Không tải được danh sách kết nối.<Button type="button" onClick={() => setAttempt((value) => value + 1)}>Thử lại</Button></div> : null}
+    {choices.status === 'ready' && options.length === 0 ? <div className="form-info" role="status">Chưa có kết nối Sẵn sàng (READY) để chọn. Nhờ Kỹ sư nền tảng đăng ký kết nối rồi bấm Thử lại.<Button type="button" onClick={() => setAttempt((value) => value + 1)}>Thử lại</Button></div> : null}
     {ready ? <>
-      <label htmlFor="environment-connection">Connection for {title}</label>
-      <select id="environment-connection" value={selected} disabled={saving || busy} onChange={(event) => { setSelected(event.target.value); setNotice(''); }}>
-        {!target.configured ? <option value="" disabled>Choose a connection</option> : null}
-        {choices.connections.map((item) => <option key={item.key} value={item.key}>{item.name} ({item.key}) · {kindLabel(item.kind)}</option>)}
+      <label htmlFor="environment-connection">Kết nối cho {title}</label>
+      <select id="environment-connection" value={selected} disabled={saving || busy} onChange={(event) => { setPicked(event.target.value); setNotice(''); }}>
+        {!target.configured || !selected ? <option value="" disabled>Chọn một kết nối</option> : null}
+        {options.map((item) => <option key={item.key} value={item.key}>{item.name} ({item.key}) · {kindLabel(item.kind)}{item.status !== 'READY' ? ` · ${statusLabel(item.status)}` : ''}</option>)}
       </select>
+      {suggested ? <div className="form-info" role="status">Gợi ý chưa lưu: <strong>{suggestion?.name}</strong> là kết nối Sẵn sàng duy nhất. Đây chỉ là lựa chọn nháp, không phải mặc định của tổ chức; môi trường chỉ dùng kết nối này sau khi bạn bấm Lưu kết nối.</div> : null}
+      {lostPick ? <div className="form-info" role="status">Kết nối bạn chọn trước đó không còn Sẵn sàng. Hãy chọn lại.</div> : null}
+      {!target.configured && options.length > 1 && !selected ? <small>Có nhiều kết nối Sẵn sàng; hãy tự chọn một kết nối, hệ thống không chọn thay bạn.</small> : null}
       {needsTransition
-        ? <><small>This environment already has runtime resources. Changing its destination deploys a new generation, with an optional PostgreSQL data transfer, and keeps the old one for review.</small>
-          <div className="form-actions"><Button tone="primary" disabled={busy} onClick={() => onStartTransition?.(selected)}>Review transition…</Button></div></>
-        : <><small>{target.configured ? 'Saving a different connection is allowed only while no runtime resources exist.' : 'Choose a connection and save it. You can change it later.'}</small>
-          <div className="form-actions"><Button tone="primary" disabled={!selected || saving || busy || (!changed && target.configured)} onClick={() => void save()}>{saving ? 'Saving connection…' : 'Save connection'}</Button></div></>}
+        ? <><small>Môi trường này đã có tài nguyên runtime. Đổi đích triển khai sẽ tạo một thế hệ mới, có thể kèm chuyển dữ liệu PostgreSQL, và giữ thế hệ cũ để bạn xem lại.</small>
+          <div className="form-actions"><Button tone="primary" disabled={busy || !selected} onClick={() => onStartTransition?.(selected)}>Xem lại chuyển đích…</Button></div></>
+        : <><small>{target.configured ? 'Chỉ lưu được kết nối khác khi chưa có tài nguyên runtime.' : 'Chọn một kết nối rồi bấm Lưu. Bạn có thể đổi lại sau.'}</small>
+          <div className="form-actions"><Button tone="primary" disabled={!selected || saving || busy || (!changed && target.configured)} onClick={() => void save()}>{saving ? 'Đang lưu kết nối…' : 'Lưu kết nối'}</Button></div></>}
     </> : null}
   </section>;
 }

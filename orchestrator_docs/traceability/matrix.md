@@ -301,3 +301,10 @@ records Codex review/checks and fake-adapter browser restart.
 kubeconfig Connection registration and the isolated real-adapter Playwright
 FE/BE/PostgreSQL flow, builtin binding and cleanup. No cloud or SQL-system-store
 integration proof is claimed.
+
+## T07 — Environment Settings frontend trace
+
+| Requirement | UI design | Implementation/checks | Evidence |
+|---|---|---|---|
+| UC-01 ES-02/03, ENV-01 | UC-01 UI screens/states T07: single READY draft only, explicit Save; no default/fallback | EnvironmentConnection and SecretStoreSelection; unit tests for one/many/none, existing binding, stale/reload and scope | [T07 local verification](../verification/2026-10-11-T07-environment-settings.md) |
+| UC-12 BR-03/05/16..19; VI-02/04/05 | UC-12 UI screens/states T07: masked Secret, rename warnings, copy failure/BUSY, retained editor | SettingsPage/environment tests; headed T07 fake-adapter and marked mock scenario | [T07 local verification](../verification/2026-10-11-T07-environment-settings.md) |

@@ -45,18 +45,18 @@ it('lists choices without a preselection and saves the first selection with the 
   const calls = stub((_url, init) => init?.method === 'PUT' ? Response.json({ environment: envJson('staging', bound) }) : undefined);
   const user = userEvent.setup();
   render(<Host />);
-  const select = await screen.findByLabelText('Connection for Staging');
+  const select = await screen.findByLabelText('Kết nối cho Staging');
   expect(select).toHaveValue('');
-  expect(screen.getByRole('button', { name: 'Save connection' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Lưu kết nối' })).toBeDisabled();
   await user.selectOptions(select, 'lab');
   expect(calls.some((call) => call.startsWith('PUT'))).toBe(false);
-  await user.click(screen.getByRole('button', { name: 'Save connection' }));
-  expect(await screen.findByText('Generation 0')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
+  expect(await screen.findByText('Thế hệ 0')).toBeInTheDocument();
   expect(String(putOf()?.[0])).toBe('/api/v1/applications/catalog/environments/staging/connection');
   expect(JSON.parse(String(putOf()?.[1]?.body))).toEqual({ connectionKey: 'lab', expectedVersion: 1 });
   // Not locked: the selector stays editable, and saving the same key is disabled.
-  expect(screen.getByLabelText('Connection for Staging')).toBeEnabled();
-  expect(screen.getByRole('button', { name: 'Save connection' })).toBeDisabled();
+  expect(screen.getByLabelText('Kết nối cho Staging')).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Lưu kết nối' })).toBeDisabled();
 });
 
 it('changes a configured connection before runtime exists using the new version and a distinct kind', async () => {
@@ -65,13 +65,13 @@ it('changes a configured connection before runtime exists using the new version 
   stub((_url, init) => init?.method === 'PUT' ? Response.json({ environment: envJson('staging', aws) }) : undefined);
   const user = userEvent.setup();
   render(<Host initial={{ ...base, environments: { staging: start, production: unconfiguredTarget } }} />);
-  await user.selectOptions(await screen.findByLabelText('Connection for Staging'), 'cloud');
-  await user.click(screen.getByRole('button', { name: 'Save connection' }));
-  expect(await screen.findByText('aws-eks')).toBeInTheDocument();
+  await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'cloud');
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
+  expect(await screen.findByText('AWS (aws-eks)')).toBeInTheDocument();
   expect(JSON.parse(String(putOf()?.[1]?.body))).toEqual({ connectionKey: 'cloud', expectedVersion: 3 });
   expect(screen.getByText('us-east-1')).toBeInTheDocument();
   await user.click(screen.getByRole('tab', { name: 'Production' }));
-  expect(await screen.findByLabelText('Connection for Production')).toHaveValue('');
+  expect(await screen.findByLabelText('Kết nối cho Production')).toHaveValue('');
 });
 
 it('requires an explicit transition once runtime exists and never sends a silent PUT', async () => {
@@ -79,11 +79,11 @@ it('requires an explicit transition once runtime exists and never sends a silent
   const calls = stub();
   const user = userEvent.setup();
   render(<Host initial={{ ...base, environments: { staging: deployed, production: unconfiguredTarget } }} />);
-  await user.selectOptions(await screen.findByLabelText('Connection for Staging'), 'other');
-  expect(screen.queryByRole('button', { name: 'Save connection' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Review transition…' }));
-  expect(await screen.findByRole('region', { name: 'Connection transition' })).toBeInTheDocument();
-  expect(screen.getByLabelText('Destination connection')).toHaveValue('other');
+  await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'other');
+  expect(screen.queryByRole('button', { name: 'Lưu kết nối' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Xem lại chuyển đích…' }));
+  expect(await screen.findByRole('region', { name: 'Chuyển đích kết nối' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Kết nối đích')).toHaveValue('other');
   expect(calls.some((call) => call.startsWith('PUT') && call.includes('/connection'))).toBe(false);
 });
 
@@ -91,8 +91,8 @@ it('blocks edits while an operation owns the Environment', async () => {
   const busy = configuredTarget('lab', { activeOperation: { id: 'op1', kind: 'DEPLOY', status: 'ACTIVE', stage: 'DEPLOY web', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: false } });
   stub();
   render(<Host initial={{ ...base, environments: { staging: busy, production: unconfiguredTarget } }} />);
-  expect(await screen.findByLabelText('Connection for Staging')).toBeDisabled();
-  expect(screen.getByRole('region', { name: 'Environment operation' })).toHaveTextContent('Operation in progress');
+  expect(await screen.findByLabelText('Kết nối cho Staging')).toBeDisabled();
+  expect(screen.getByRole('region', { name: 'Thao tác trên môi trường' })).toHaveTextContent('Thao tác đang chạy');
 });
 
 it('on a stale-version 409 shows the message, reloads the latest Environment and resubmits only on request', async () => {
@@ -104,13 +104,13 @@ it('on a stale-version 409 shows the message, reloads the latest Environment and
   });
   const user = userEvent.setup();
   render(<Host initial={{ ...base, environments: { staging: configuredTarget('cloud', { version: 3 }), production: unconfiguredTarget } }} />);
-  await user.selectOptions(await screen.findByLabelText('Connection for Staging'), 'lab');
-  await user.click(screen.getByRole('button', { name: 'Save connection' }));
+  await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'lab');
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('changed since it was loaded');
-  await waitFor(() => expect(screen.getByText('Generation 0')).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText('Thế hệ 0')).toBeInTheDocument());
   expect(puts).toBe(1);
-  await user.selectOptions(screen.getByLabelText('Connection for Staging'), 'lab');
-  await user.click(screen.getByRole('button', { name: 'Save connection' }));
+  await user.selectOptions(screen.getByLabelText('Kết nối cho Staging'), 'lab');
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
   await waitFor(() => expect(puts).toBe(2));
   expect(JSON.parse(String(vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'PUT')[1]?.[1]?.body))).toEqual({ connectionKey: 'lab', expectedVersion: 7 });
 });
@@ -119,8 +119,8 @@ it('shows ENVIRONMENT_BUSY as a temporary message', async () => {
   stub((_url, init) => init?.method === 'PUT' ? Response.json({ error: 'the environment is busy with another operation; wait for it to finish or review its status', code: 'ENVIRONMENT_BUSY' }, { status: 409 }) : undefined);
   const user = userEvent.setup();
   render(<Host initial={{ ...base, environments: { staging: configuredTarget('lab', { version: 3 }), production: unconfiguredTarget } }} />);
-  await user.selectOptions(await screen.findByLabelText('Connection for Staging'), 'other');
-  await user.click(screen.getByRole('button', { name: 'Save connection' }));
+  await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'other');
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('busy with another operation');
 });
 
@@ -132,9 +132,9 @@ it('treats an unavailable connection as a safe 422 and reloads the choices', asy
   });
   const user = userEvent.setup();
   render(<Host />);
-  await user.selectOptions(await screen.findByLabelText('Connection for Staging'), 'lab');
-  await user.click(screen.getByRole('button', { name: 'Save connection' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('no longer available');
+  await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'lab');
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('không còn khả dụng');
   await waitFor(() => expect(loads).toBeGreaterThan(1));
 });
 
@@ -145,14 +145,14 @@ it('handles an empty list and a failed list with retry', async () => {
   });
   const user = userEvent.setup();
   render(<Host />);
-  const region = () => within(screen.getByRole('region', { name: 'Execution connection' }));
-  expect(await screen.findByText('Could not load connections.')).toBeInTheDocument();
+  const region = () => within(screen.getByRole('region', { name: 'Kết nối triển khai' }));
+  expect(await screen.findByText('Không tải được danh sách kết nối.')).toBeInTheDocument();
   mode = 'empty';
-  await user.click(region().getByRole('button', { name: 'Retry' }));
-  expect(await screen.findByText(/No READY connection is available/)).toBeInTheDocument();
+  await user.click(region().getByRole('button', { name: 'Thử lại' }));
+  expect(await screen.findByText(/Chưa có kết nối Sẵn sàng/)).toBeInTheDocument();
   mode = 'ok';
-  await user.click(region().getByRole('button', { name: 'Retry' }));
-  expect(await screen.findByLabelText('Connection for Staging')).toBeInTheDocument();
+  await user.click(region().getByRole('button', { name: 'Thử lại' }));
+  expect(await screen.findByLabelText('Kết nối cho Staging')).toBeInTheDocument();
 });
 
 it('ignores a late set result for an Environment the user left, but caches it for its own Environment', async () => {
@@ -161,11 +161,141 @@ it('ignores a late set result for an Environment the user left, but caches it fo
   stub((_url, init) => init?.method === 'PUT' ? new Promise<Response>((resolve) => { release = resolve; }) : undefined);
   const user = userEvent.setup();
   render(<Host />);
-  await user.selectOptions(await screen.findByLabelText('Connection for Staging'), 'lab');
-  await user.click(screen.getByRole('button', { name: 'Save connection' }));
+  await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'lab');
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
   await user.click(screen.getByRole('tab', { name: 'Production' }));
   release(Response.json({ environment: envJson('staging', bound) }));
-  expect(await screen.findByLabelText('Connection for Production')).toHaveValue('');
+  expect(await screen.findByLabelText('Kết nối cho Production')).toHaveValue('');
   await user.click(screen.getByRole('tab', { name: 'Staging' }));
-  await waitFor(() => expect(screen.getByLabelText('Connection for Staging')).toHaveValue('lab'));
+  await waitFor(() => expect(screen.getByLabelText('Kết nối cho Staging')).toHaveValue('lab'));
+});
+
+const pending = { key: 'pending', name: 'Pending', kind: 'KUBERNETES', status: 'PENDING' };
+const unknownKind = { key: 'odd', name: 'Odd', kind: 'OTHER', status: 'READY' };
+
+it('suggests the only eligible READY connection as an unsaved draft and persists nothing until Save', async () => {
+  const bound = configuredTarget('lab', { connectionName: 'Lab', version: 2 });
+  const calls = stub((url, init) => {
+    if (url.endsWith('/application-connections')) return Response.json({ connections: [pending, unknownKind, lab] });
+    if (init?.method === 'PUT') return Response.json({ environment: envJson('staging', bound) });
+  });
+  const user = userEvent.setup();
+  render(<Host />);
+  const select = await screen.findByLabelText('Kết nối cho Staging');
+  expect(select).toHaveValue('lab');
+  expect(screen.getByText(/Gợi ý chưa lưu/)).toHaveTextContent('không phải mặc định của tổ chức');
+  expect(within(select).queryByRole('option', { name: /Pending/ })).not.toBeInTheDocument();
+  expect(within(select).queryByRole('option', { name: /Odd/ })).not.toBeInTheDocument();
+  expect(calls.some((call) => call.startsWith('PUT'))).toBe(false);
+  expect(screen.getByText('Chưa cấu hình')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
+  expect(await screen.findByText('Thế hệ 0')).toBeInTheDocument();
+  expect(JSON.parse(String(putOf()?.[1]?.body))).toEqual({ connectionKey: 'lab', expectedVersion: 1 });
+  expect(screen.queryByText(/Gợi ý chưa lưu/)).not.toBeInTheDocument();
+});
+
+it('does not suggest with several READY connections, none, or when a binding exists', async () => {
+  stub();
+  const first = render(<Host />);
+  expect(await screen.findByLabelText('Kết nối cho Staging')).toHaveValue('');
+  expect(screen.queryByText(/Gợi ý chưa lưu/)).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Lưu kết nối' })).toBeDisabled();
+  first.unmount();
+  stub((url) => url.endsWith('/application-connections') ? Response.json({ connections: [lab, other] }) : undefined);
+  render(<Host initial={{ ...base, environments: { staging: configuredTarget('cloud', { connectionName: 'Cloud', connectionKind: 'AWS' }), production: unconfiguredTarget } }} />);
+  // The bound Connection is kept in the list and is never retargeted to another one.
+  const select = await screen.findByLabelText('Kết nối cho Staging');
+  expect(select).toHaveValue('cloud');
+  expect(screen.queryByText(/Gợi ý chưa lưu/)).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Lưu kết nối' })).toBeDisabled();
+});
+
+it('never retargets a configured binding although exactly one other READY connection exists', async () => {
+  stub((url) => url.endsWith('/application-connections') ? Response.json({ connections: [other] }) : undefined);
+  const calls = vi.mocked(fetch);
+  render(<Host initial={{ ...base, environments: { staging: configuredTarget('lab', { connectionName: 'Lab' }), production: unconfiguredTarget } }} />);
+  expect(await screen.findByLabelText('Kết nối cho Staging')).toHaveValue('lab');
+  expect(calls.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false);
+});
+
+it('guides registration when no eligible connection exists and offers retry', async () => {
+  stub((url) => url.endsWith('/application-connections') ? Response.json({ connections: [pending, unknownKind] }) : undefined);
+  render(<Host />);
+  expect(await screen.findByText(/Chưa có kết nối Sẵn sàng/)).toHaveTextContent('Kỹ sư nền tảng đăng ký kết nối');
+  expect(screen.queryByLabelText('Kết nối cho Staging')).not.toBeInTheDocument();
+});
+
+it('keeps the user pick when the list is reloaded and flags a pick that is no longer READY', async () => {
+  let connections = [lab, other];
+  stub((url, init) => {
+    if (url.endsWith('/application-connections')) return Response.json({ connections });
+    if (init?.method === 'PUT') return Response.json({ error: 'the selected connection is not available' }, { status: 422 });
+  });
+  const user = userEvent.setup();
+  render(<Host />);
+  await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'other');
+  connections = [lab, other];
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('không còn khả dụng');
+  // The reload finished: the pick is still what the user chose, not a refreshed default.
+  await waitFor(() => expect(screen.getByLabelText('Kết nối cho Staging')).toHaveValue('other'));
+  connections = [lab];
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
+  await waitFor(() => expect(screen.getByText(/không còn Sẵn sàng/)).toBeInTheDocument());
+  expect(screen.getByLabelText('Kết nối cho Staging')).toHaveValue('');
+  expect(screen.getByRole('button', { name: 'Lưu kết nối' })).toBeDisabled();
+});
+
+it('shows a placeholder, not the bound option, when the pick of a configured Environment disappears', async () => {
+  let connections = [lab, other];
+  stub((url, init) => {
+    if (url.endsWith('/application-connections')) return Response.json({ connections });
+    if (init?.method === 'PUT') return Response.json({ error: 'the selected connection is not available' }, { status: 422 });
+  });
+  const user = userEvent.setup();
+  render(<Host initial={{ ...base, environments: { staging: configuredTarget('lab', { connectionName: 'Lab' }), production: unconfiguredTarget } }} />);
+  const select = await screen.findByLabelText('Kết nối cho Staging');
+  expect(select).toHaveValue('lab');
+  expect(within(select).queryByRole('option', { name: 'Chọn một kết nối' })).not.toBeInTheDocument();
+  await user.selectOptions(select, 'other');
+  connections = [lab];
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
+  await waitFor(() => expect(screen.getByText(/không còn Sẵn sàng/)).toBeInTheDocument());
+  const lost = screen.getByLabelText('Kết nối cho Staging') as HTMLSelectElement;
+  expect(lost).toHaveValue('');
+  expect(within(lost).getByRole('option', { name: 'Chọn một kết nối' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Lưu kết nối' })).toBeDisabled();
+});
+
+it('keeps a pending pick after a stale 409 reload and saves again with the new version', async () => {
+  const latest = configuredTarget('cloud', { connectionName: 'Cloud', version: 9 });
+  stub((url, init) => {
+    if (init?.method === 'PUT') return Response.json({ error: 'stale', code: 'STALE_VERSION' }, { status: 409 });
+    if (url.endsWith('/applications/catalog')) return Response.json({ application: { environments: [envJson('staging', latest), envJson('production', unconfiguredTarget)] } });
+  });
+  const user = userEvent.setup();
+  render(<Host initial={{ ...base, environments: { staging: configuredTarget('lab', { version: 3 }), production: unconfiguredTarget } }} />);
+  await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'other');
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Đã tải lại trạng thái mới nhất');
+  await waitFor(() => expect(screen.getByText('Cloud')).toBeInTheDocument());
+  expect(screen.getByLabelText('Kết nối cho Staging')).toHaveValue('other');
+  await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
+  const puts = vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'PUT');
+  await waitFor(() => expect(puts.length).toBeGreaterThan(0));
+  await waitFor(() => expect(vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'PUT').length).toBe(2));
+  expect(JSON.parse(String(vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'PUT')[1]?.[1]?.body))).toEqual({ connectionKey: 'other', expectedVersion: 9 });
+});
+
+it('shows profile and region as read-only facts without any control', async () => {
+  stub();
+  render(<Host initial={{ ...base, environments: { staging: configuredTarget('cloud', { connectionName: 'Cloud', connectionKind: 'AWS', profile: 'aws-eks', region: 'us-east-1', runtimeStatus: 'PENDING' }), production: unconfiguredTarget } }} />);
+  const panel = within(await screen.findByRole('region', { name: 'Kết nối triển khai' }));
+  expect(panel.getByText('AWS (aws-eks)')).toBeInTheDocument();
+  expect(panel.getByText('Vùng')).toBeInTheDocument();
+  expect(panel.queryByText('Region')).not.toBeInTheDocument();
+  expect(panel.getByText('us-east-1')).toBeInTheDocument();
+  expect(panel.getByText('Đang chờ (PENDING)')).toBeInTheDocument();
+  expect(panel.queryByLabelText(/Phạm vi triển khai|Region/)).not.toBeInTheDocument();
+  expect(panel.getAllByRole('combobox')).toHaveLength(1);
 });

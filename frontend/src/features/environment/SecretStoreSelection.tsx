@@ -3,6 +3,7 @@ import { ApiError } from '../../shared/api/client';
 import { toTarget } from '../../shared/api/environment';
 import type { Application, EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
+import { environmentTitle, statusLabel } from './labels';
 import { fetchEnvironment, listStoreChoices, setSecretStore, type StoreChoice } from './api';
 
 type State = { status: 'loading' | 'error' } | { status: 'ready'; stores: readonly StoreChoice[] };
@@ -10,6 +11,10 @@ type State = { status: 'loading' | 'error' } | { status: 'ready'; stores: readon
 // Editable Secret Store Connection of ONE Environment (UC-01/UC-12, ADR-012).
 // Changing it copies the desired Secrets first and commits only when every copy
 // verified; running workloads move after the next Preview and Deploy.
+// With no binding and exactly one READY store, that store is only SUGGESTED in
+// the draft (not an Organization default or fallback); nothing persists until
+// Save. The draft is derived from `picked`, so a reload or a late response never
+// overwrites the user's choice, and a bound store is never retargeted.
 export function SecretStoreSelection({ application, environment, configVersion, onTargetChange, onConfigurationChanged }: {
   application: Application; environment: EnvironmentKey; configVersion: number;
   onTargetChange(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void;
@@ -18,65 +23,84 @@ export function SecretStoreSelection({ application, environment, configVersion, 
   const target = application.environments[environment];
   const busy = Boolean(target.activeOperation);
   const [choices, setChoices] = useState<State>({ status: 'loading' });
-  const [selected, setSelected] = useState(target.secretStoreKey);
+  const [picked, setPicked] = useState<string>();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [attempt, setAttempt] = useState(0);
   const generation = useRef(0);
-  useEffect(() => () => { generation.current += 1; }, []);
-  useEffect(() => { generation.current += 1; setSelected(application.environments[environment].secretStoreKey); setError(''); setNotice(''); setSaving(false); }, [application.id, environment]); // eslint-disable-line react-hooks/exhaustive-deps
+  // `scope` changes only with the Application/Environment or unmount (not with a
+  // choices reload), so a saved store refreshes the configuration of the page the
+  // user is still on and never of one they have left.
+  const scope = useRef(0);
+  useEffect(() => () => { generation.current += 1; scope.current += 1; }, []);
+  useEffect(() => { scope.current += 1; generation.current += 1; setPicked(undefined); setError(''); setNotice(''); setSaving(false); }, [application.id, environment]);
   useEffect(() => {
     const current = ++generation.current;
     setChoices({ status: 'loading' });
     listStoreChoices().then((stores) => { if (current === generation.current) setChoices({ status: 'ready', stores }); }).catch(() => { if (current === generation.current) setChoices({ status: 'error' }); });
   }, [application.id, environment, attempt]);
 
+  const title = environmentTitle(environment);
+  const eligible = choices.status === 'ready' ? choices.stores.filter((item) => item.status === 'READY') : [];
+  // The bound store stays listed even if it is no longer READY.
+  const bound = choices.status === 'ready' && target.secretStoreKey && !eligible.some((item) => item.key === target.secretStoreKey)
+    ? [choices.stores.find((item) => item.key === target.secretStoreKey) ?? { key: target.secretStoreKey, name: target.secretStoreName || target.secretStoreKey, provider: '', status: '' }] : [];
+  const stores = [...bound, ...eligible];
+  const suggestion = !target.secretStoreKey && eligible.length === 1 ? eligible[0] : undefined;
+  const candidate = picked ?? (target.secretStoreKey || suggestion?.key || '');
+  const selected = stores.some((item) => item.key === candidate) ? candidate : '';
+  const suggested = picked === undefined && Boolean(suggestion) && selected === suggestion?.key;
+  const lostPick = picked !== undefined && picked !== '' && selected === '' && choices.status === 'ready';
+
   async function save() {
     if (!selected || saving || busy) return;
     const current = ++generation.current;
+    const mine = scope.current;
     setSaving(true); setError(''); setNotice('');
     try {
       const result = await setSecretStore(application.id, environment, selected, target.version, configVersion);
+      // The confirmed result belongs to the Environment it was saved for; only the refresh is scope-bound.
       onTargetChange(application.id, environment, toTarget(result.environment));
-      onConfigurationChanged();
-      if (current === generation.current) setNotice(!result.changed ? 'Already selected; nothing was copied.' : `Secret store saved. ${result.copiedSecrets} secret(s) were copied and verified. Preview and Deploy now to move running workloads.`);
+      if (mine === scope.current) onConfigurationChanged();
+      if (current === generation.current) { setPicked(undefined); setNotice(!result.changed ? 'Đã chọn kho này; không sao chép gì thêm.' : `Đã lưu kho bí mật. ${result.copiedSecrets} bí mật đã được sao chép và xác minh. Hãy Xem trước và Triển khai để chuyển các workload đang chạy.`); }
     } catch (err) {
       if (current !== generation.current) return;
       if (err instanceof ApiError && err.status === 409) {
-        setError(err.message);
-        try { const latest = await fetchEnvironment(application.id, environment); if (latest && current === generation.current) { onTargetChange(application.id, environment, latest); onConfigurationChanged(); setSelected(latest.secretStoreKey); } } catch { /* reload hint below */ }
+        setError(`${err.message} Đã tải lại lựa chọn mới nhất; xem lại rồi bấm Lưu kho bí mật nếu vẫn muốn đổi.`);
+        try { const latest = await fetchEnvironment(application.id, environment); if (latest && current === generation.current) { onTargetChange(application.id, environment, latest); onConfigurationChanged(); } } catch { /* reload hint above */ }
       } else if (err instanceof ApiError && err.status === 502) {
-        setError('The secrets could not be copied to the new store. The previous store is still selected and nothing changed.');
+        setError('Không sao chép được các bí mật sang kho mới. Kho cũ vẫn đang được chọn và không có gì thay đổi.');
       } else if (err instanceof ApiError && err.status === 422) {
-        setError('The selected secret store is not available. Choose another store.');
+        setError('Kho bí mật đã chọn không còn khả dụng. Hãy chọn kho khác.');
         setAttempt((value) => value + 1);
       } else {
-        setError('Could not save the secret store. Try again.');
+        setError('Không lưu được kho bí mật. Hãy thử lại.');
       }
     } finally {
       if (current === generation.current) setSaving(false);
     }
   }
 
-  const title = environment === 'staging' ? 'Staging' : 'Production';
-  const stores = choices.status === 'ready' ? choices.stores : [];
-  return <section className="content-panel secret-store-selection" aria-label="Secret store">
-    <div className="section-header"><div><h2>Secret store</h2><p>{target.secretStoreKey ? `${title} stores Secrets in this store. Variables stay in Orchestrator.` : `${title} has no secret store. Variables work without one; selecting a store is required to add a Secret.`}</p></div><span className="pending-pill">{target.secretStoreKey ? (target.secretStoreName || target.secretStoreKey) : 'Not selected'}</span></div>
+  return <section className="content-panel secret-store-selection" aria-label="Kho bí mật">
+    <div className="section-header"><div><h2>Kho bí mật</h2><p>{target.secretStoreKey ? `${title} lưu Bí mật trong kho này. Biến vẫn lưu trong Orchestrator.` : `${title} chưa có kho bí mật. Biến dùng được khi chưa có kho; cần chọn kho mới thêm được Bí mật.`}</p></div><span className="pending-pill">{target.secretStoreKey ? (target.secretStoreName || target.secretStoreKey) : 'Chưa chọn'}</span></div>
     {error ? <div className="form-error" role="alert">{error}</div> : null}
     {notice ? <div className="form-success" role="status">{notice}</div> : null}
-    {busy ? <div className="form-info" role="status">An operation is running on this environment. Settings are read-only until it finishes.</div> : null}
-    {choices.status === 'loading' ? <p role="status" aria-busy="true">Loading secret stores…</p> : null}
-    {choices.status === 'error' ? <div className="form-error" role="alert">Could not load secret stores.<Button type="button" onClick={() => setAttempt((value) => value + 1)}>Retry</Button></div> : null}
-    {choices.status === 'ready' && stores.length === 0 ? <div className="form-info" role="status">No READY secret store is available. Ask a Platform Engineer to register one, then retry.<Button type="button" onClick={() => setAttempt((value) => value + 1)}>Retry</Button></div> : null}
+    {busy ? <div className="form-info" role="status">Một thao tác đang chạy trên môi trường này. Cài đặt chỉ đọc cho đến khi thao tác kết thúc.</div> : null}
+    {choices.status === 'loading' ? <p role="status" aria-busy="true">Đang tải danh sách kho bí mật…</p> : null}
+    {choices.status === 'error' ? <div className="form-error" role="alert">Không tải được danh sách kho bí mật.<Button type="button" onClick={() => setAttempt((value) => value + 1)}>Thử lại</Button></div> : null}
+    {choices.status === 'ready' && stores.length === 0 ? <div className="form-info" role="status">Chưa có kho bí mật Sẵn sàng (READY) để chọn. Nhờ Kỹ sư nền tảng đăng ký kho rồi bấm Thử lại.<Button type="button" onClick={() => setAttempt((value) => value + 1)}>Thử lại</Button></div> : null}
     {stores.length > 0 ? <>
-      <label htmlFor="environment-secret-store">Secret store for {title}</label>
-      <select id="environment-secret-store" value={selected} disabled={saving || busy} onChange={(event) => { setSelected(event.target.value); setNotice(''); }}>
-        {!target.secretStoreKey ? <option value="" disabled>Choose a secret store</option> : null}
-        {stores.map((item) => <option key={item.key} value={item.key}>{item.name} ({item.key}){item.legacy ? ' · legacy platform store' : ''}</option>)}
+      <label htmlFor="environment-secret-store">Kho bí mật cho {title}</label>
+      <select id="environment-secret-store" value={selected} disabled={saving || busy} onChange={(event) => { setPicked(event.target.value); setNotice(''); }}>
+        {!target.secretStoreKey || !selected ? <option value="" disabled>Chọn một kho bí mật</option> : null}
+        {stores.map((item) => <option key={item.key} value={item.key}>{item.name} ({item.key}){item.legacy ? ' · kho nền tảng cũ' : ''}{item.status && item.status !== 'READY' ? ` · ${statusLabel(item.status)}` : ''}</option>)}
       </select>
-      <small>Changing the store copies the current Secrets into the new store first and verifies every copy. If any copy fails the previous store stays selected. Running workloads keep their old values until the next Deploy.</small>
-      <div className="form-actions"><Button tone="primary" disabled={!selected || saving || busy || selected === target.secretStoreKey} onClick={() => void save()}>{saving ? 'Copying secrets…' : 'Save secret store'}</Button></div>
+      {suggested ? <div className="form-info" role="status">Gợi ý chưa lưu: <strong>{suggestion?.name}</strong> là kho bí mật Sẵn sàng duy nhất. Đây chỉ là lựa chọn nháp, không phải mặc định của tổ chức; môi trường chỉ dùng kho này sau khi bạn bấm Lưu kho bí mật.</div> : null}
+      {lostPick ? <div className="form-info" role="status">Kho bạn chọn trước đó không còn Sẵn sàng. Hãy chọn lại.</div> : null}
+      {!target.secretStoreKey && stores.length > 1 && !selected ? <small>Có nhiều kho Sẵn sàng; hãy tự chọn một kho, hệ thống không chọn thay bạn.</small> : null}
+      <small>Đổi kho sẽ sao chép các Bí mật hiện tại sang kho mới trước và xác minh từng bản sao. Nếu một bản sao lỗi, kho cũ vẫn được giữ. Workload đang chạy giữ giá trị cũ cho đến lần Triển khai tiếp theo.</small>
+      <div className="form-actions"><Button tone="primary" disabled={!selected || saving || busy || selected === target.secretStoreKey} onClick={() => void save()}>{saving ? 'Đang sao chép bí mật…' : 'Lưu kho bí mật'}</Button></div>
     </> : null}
   </section>;
 }

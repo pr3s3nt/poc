@@ -150,27 +150,27 @@ try {
   const sourceNamespace = `app-${appId}-staging`;
 
   await h.click(page.getByRole('button', { name: 'Environment settings' }));
-  await expect(page.getByRole('heading', { name: 'Environment settings', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
   const optionLabel = async (select, needle) => {
     const label = (await select.locator('option').allTextContents()).find((text) => text.includes(needle));
     if (!label) throw new Error(`option ${needle} is not offered`);
     return label;
   };
   async function selectConnection(title, key) {
-    const select = page.getByLabel(`Connection for ${title}`);
+    const select = page.getByLabel(`Kết nối cho ${title}`);
     await h.choose(select, await optionLabel(select, `(${key})`));
     await expect(select).toHaveValue(key);
     const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && new URL(response.url()).pathname.endsWith('/connection'));
-    await h.click(page.getByRole('button', { name: 'Save connection' }));
+    await h.click(page.getByRole('button', { name: 'Lưu kết nối' }));
     expect((await saved).status()).toBe(200);
-    await expect(page.getByText('Generation 0', { exact: true })).toBeVisible();
+    await expect(page.getByText('Thế hệ 0', { exact: true })).toBeVisible();
     await h.pause(1000);
   }
   async function selectStore(title, storeName, expectCopied) {
-    const select = page.getByLabel(`Secret store for ${title}`);
+    const select = page.getByLabel(`Kho bí mật cho ${title}`);
     await h.choose(select, await optionLabel(select, storeName));
     const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && new URL(response.url()).pathname.endsWith('/secret-store'), { timeout: 120_000 });
-    await h.click(page.getByRole('button', { name: 'Save secret store' }));
+    await h.click(page.getByRole('button', { name: 'Lưu kho bí mật' }));
     const response = await saved;
     expect(response.status(), 'secret store save').toBe(200);
     await expect(page.getByRole('status').filter({ hasText: 'Secret store saved' })).toContainText(`${expectCopied} secret(s) were copied`);
@@ -179,10 +179,10 @@ try {
   await selectConnection('Staging', sourceKey);
   mark('staging-connection');
   // A Secret needs a store: the prompt appears before any store is chosen, but a variable does not.
-  await h.click(page.locator('section[aria-label="Secrets"]').getByRole('button', { name: '+ Add secret' }));
-  await expect(page.getByText(/Select a secret store above before adding a Secret/)).toBeVisible();
-  await expect(page.getByLabel('Key name')).toHaveCount(0);
-  await h.moveTo(page.getByText(/Select a secret store above/));
+  await h.click(page.locator('section[aria-label="Bí mật"]').getByRole('button', { name: '+ Thêm bí mật' }));
+  await expect(page.getByText(/Hãy chọn kho bí mật ở trên trước khi thêm Bí mật/)).toBeVisible();
+  await expect(page.getByLabel('Tên key')).toHaveCount(0);
+  await h.moveTo(page.getByText(/Hãy chọn kho bí mật ở trên/));
   mark('secret-needs-store');
   await h.pause(READ);
   await selectStore('Staging', stores[0].name, 0);
@@ -193,7 +193,7 @@ try {
   mark('production-store-beta');
   await expect(page.getByText('Beta vault').first()).toBeVisible();
   await h.click(page.getByRole('tab', { name: 'Staging' }));
-  await expect(page.getByLabel('Secret store for Staging')).toHaveValue(/alpha-vault/);
+  await expect(page.getByLabel('Kho bí mật cho Staging')).toHaveValue(/alpha-vault/);
   await h.click(page.getByRole('button', { name: `← ${applicationName}` }));
   await h.pause(1200);
 
@@ -263,10 +263,10 @@ try {
 
   // ---- 4. Move secrets to the second store; running workloads follow after Deploy --
   await page.goto(`${baseURL}/ui/applications/${appId}/settings?environment=staging`);
-  await expect(page.getByRole('heading', { name: 'Environment settings', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
   const vscBefore = kube('-n', sourceNamespace, 'get', 'vaultstaticsecret', '-o', 'jsonpath={.items[*].spec.path}');
   await selectStore('Staging', stores[1].name, 1);
-  await expect(page.getByLabel('Secret store for Staging')).toHaveValue(/beta-vault/);
+  await expect(page.getByLabel('Kho bí mật cho Staging')).toHaveValue(/beta-vault/);
   mark('store-copied');
   await h.pause(READ);
   await h.click(page.getByRole('button', { name: `← ${applicationName}` }));
@@ -283,19 +283,19 @@ try {
 
   // ---- 5. Transition preview, stale rejection from a second tab, execution -------
   await page.goto(`${baseURL}/ui/applications/${appId}/settings?environment=staging`);
-  await expect(page.getByRole('heading', { name: 'Environment settings', level: 1 })).toBeVisible();
-  const connectionSelect = page.getByLabel('Connection for Staging');
+  await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
+  const connectionSelect = page.getByLabel('Kết nối cho Staging');
   await h.choose(connectionSelect, await optionLabel(connectionSelect, `(${destKey})`));
   await expect(page.getByText(/already has runtime resources/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Save connection' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Lưu kết nối' })).toHaveCount(0);
   mark('runtime-requires-transition');
   await h.pause(READ);
-  await h.click(page.getByRole('button', { name: 'Review transition…' }));
+  await h.click(page.getByRole('button', { name: 'Xem lại chuyển đích…' }));
   const panel = page.getByRole('region', { name: 'Connection transition' });
-  await expect(panel.getByLabel('Destination connection')).toHaveValue(destKey);
-  await h.click(panel.getByRole('button', { name: 'Preview transition' }));
-  const impact = panel.getByLabel('Transition preview');
-  await expect(impact).toContainText('Redeployed unchanged', { timeout: 120_000 });
+  await expect(panel.getByLabel('Kết nối đích')).toHaveValue(destKey);
+  await h.click(panel.getByRole('button', { name: 'Xem trước chuyển đích' }));
+  const impact = panel.getByLabel('Xem trước chuyển đích');
+  await expect(impact).toContainText('Triển khai lại, không đổi', { timeout: 120_000 });
   await expect(impact.getByLabel('Database mapping')).toContainText('postgres.default#modules.backend.externals.db');
   await h.moveTo(impact);
   mark('transition-preview');
@@ -306,13 +306,13 @@ try {
   await second.goto(`${baseURL}/ui/applications/${appId}/settings?environment=staging`);
   await second.bringToFront();
   const h2 = createHuman(second, { selectNative: nativeSelect(x11) });
-  await expect(second.getByRole('heading', { name: 'Environment settings', level: 1 })).toBeVisible();
+  await expect(second.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
   await h2.showCursor();
-  await h2.click(second.locator('section[aria-label="Environment variables"]').getByRole('button', { name: '+ Add variable' }));
-  await h2.type(second.getByLabel('Key name'), 'RELEASE_NOTE');
-  await h2.type(second.getByLabel('Value'), 'second-tab-edit');
+  await h2.click(second.locator('section[aria-label="Biến"]').getByRole('button', { name: '+ Thêm biến' }));
+  await h2.type(second.getByLabel('Tên key'), 'RELEASE_NOTE');
+  await h2.type(second.getByLabel('Giá trị'), 'second-tab-edit');
   const edited = second.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith('/configuration/keys/RELEASE_NOTE'));
-  await h2.click(second.getByRole('button', { name: 'Save pending change' }));
+  await h2.click(second.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
   expect((await edited).status()).toBe(200);
   await expect(second.locator('.settings-table-row').filter({ hasText: 'RELEASE_NOTE' })).toBeVisible();
   mark('second-tab-edit');
@@ -321,12 +321,12 @@ try {
   await page.bringToFront();
   x11.focusBrowser();
   await h.showCursor();
-  await h.click(impact.getByLabel(/application is stopped while its data is copied/));
+  await h.click(impact.getByLabel(/ứng dụng sẽ bị dừng trong lúc dữ liệu được sao chép/));
   const stale = page.waitForResponse((response) => response.request().method() === 'POST' && response.url().endsWith('/connection-transitions'));
-  await h.click(impact.getByRole('button', { name: 'Start transition' }));
+  await h.click(impact.getByRole('button', { name: 'Bắt đầu chuyển đích' }));
   expect((await stale).status(), 'stale preview').toBe(409);
   await expect(panel.getByRole('alert')).toContainText('preview is stale');
-  await expect(panel.getByLabel('Transition preview')).toHaveCount(0);
+  await expect(panel.getByLabel('Xem trước chuyển đích')).toHaveCount(0);
   mark('stale-preview-rejected');
   await h.moveTo(panel.getByRole('alert'));
   await h.pause(READ);
@@ -334,20 +334,20 @@ try {
   checks('conflict: stale transition Preview was rejected before any destination namespace existed');
 
   // Preview again (now includes the second tab's change), acknowledge, run.
-  await h.click(panel.getByRole('button', { name: 'Preview transition' }));
-  await expect(panel.getByLabel('Transition preview')).toContainText('Redeployed unchanged', { timeout: 120_000 });
-  await h.moveTo(panel.getByLabel('Transition preview'));
+  await h.click(panel.getByRole('button', { name: 'Xem trước chuyển đích' }));
+  await expect(panel.getByLabel('Xem trước chuyển đích')).toContainText('Triển khai lại, không đổi', { timeout: 120_000 });
+  await h.moveTo(panel.getByLabel('Xem trước chuyển đích'));
   mark('transition-preview-2');
   await h.pause(SHORT_READ);
-  await h.click(panel.getByLabel(/application is stopped while its data is copied/));
+  await h.click(panel.getByLabel(/ứng dụng sẽ bị dừng trong lúc dữ liệu được sao chép/));
   const started = page.waitForResponse((response) => response.request().method() === 'POST' && response.url().endsWith('/connection-transitions'));
-  await h.click(panel.getByRole('button', { name: 'Start transition' }));
+  await h.click(panel.getByRole('button', { name: 'Bắt đầu chuyển đích' }));
   expect((await started).status()).toBe(202);
-  await expect(panel.getByLabel('Transition progress')).toBeVisible();
+  await expect(panel.getByLabel('Tiến trình chuyển đích')).toBeVisible();
   mark('transition-started');
-  await h.moveTo(panel.getByLabel('Transition progress'));
-  await expect(panel.getByText('The destination is live. The source generation is retained and quiesced')).toBeVisible({ timeout: 1_200_000 });
-  await h.moveTo(panel.getByLabel('Transition progress'));
+  await h.moveTo(panel.getByLabel('Tiến trình chuyển đích'));
+  await expect(panel.getByText('Đích đang chạy. Thế hệ nguồn được giữ lại ở trạng thái dừng')).toBeVisible({ timeout: 1_200_000 });
+  await h.moveTo(panel.getByLabel('Tiến trình chuyển đích'));
   mark('transition-succeeded');
   await h.pause(LONG_READ);
   await noSecretsOnScreen([secret]);
@@ -378,25 +378,25 @@ try {
 
   // ---- 7. Refresh and backend restart keep the persisted truth -------------------
   await page.goto(`${baseURL}/ui/applications/${appId}/settings?environment=staging`);
-  await expect(page.getByText('Generation 1', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('Connection for Staging')).toHaveValue(destKey);
-  await expect(page.getByLabel('Secret store for Staging')).toHaveValue(/beta-vault/);
+  await expect(page.getByText('Thế hệ 1', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Kết nối cho Staging')).toHaveValue(destKey);
+  await expect(page.getByLabel('Kho bí mật cho Staging')).toHaveValue(/beta-vault/);
   mark('refresh-consistent');
   await h.pause(SHORT_READ);
   writeFileSync(`${evidenceDir}/restart-request`, 'restart');
   await expect.poll(() => existsSync(`${evidenceDir}/restart-done`), { timeout: 120_000 }).toBe(true);
   await page.reload();
-  await expect(page.getByText('Generation 1', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Clean up source generation' })).toBeVisible();
-  await h.moveTo(page.getByRole('button', { name: 'Clean up source generation' }));
+  await expect(page.getByText('Thế hệ 1', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Dọn dẹp thế hệ nguồn' })).toBeVisible();
+  await h.moveTo(page.getByRole('button', { name: 'Dọn dẹp thế hệ nguồn' }));
   mark('restart-consistent');
   await h.pause(READ);
 
   // ---- 8. Explicit cleanup of the retained source generation ----------------------
   const cleaned = page.waitForResponse((response) => response.request().method() === 'POST' && response.url().endsWith('/cleanup-source'), { timeout: 400_000 });
-  await h.click(page.getByRole('button', { name: 'Clean up source generation' }));
+  await h.click(page.getByRole('button', { name: 'Dọn dẹp thế hệ nguồn' }));
   expect((await cleaned).status()).toBe(200);
-  await expect(page.getByText('The destination is live and the source generation was cleaned up.')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText('Đích đang chạy và thế hệ nguồn đã được dọn dẹp.')).toBeVisible({ timeout: 60_000 });
   mark('cleanup-done');
   expect(kubeTry('get', 'namespace', sourceNamespace, '--ignore-not-found', '-o', 'name').trim()).toBe('');
   expect(rows(destNamespace, destDb)).toBe('1');

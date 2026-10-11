@@ -180,3 +180,16 @@ live evidence is in the [reviewed recording](../verification/2026-10-08-environm
   [two-session video assembly](../../backend/test/integration/k8s4f-dev-compose-video.sh)
   keep Vietnamese captions below the browser window; title cards disclose the
   separate recorded sessions.
+
+## T07 — Environment Settings UI
+
+[Environment Settings verification](../verification/2026-10-11-T07-environment-settings.md)
+traces ENV-01 and VI-02/04/05. Draft-only single READY suggestions and explicit
+Save live in [EnvironmentConnection](../../frontend/src/features/configuration/EnvironmentConnection.tsx)
+and [SecretStoreSelection](../../frontend/src/features/environment/SecretStoreSelection.tsx).
+[SettingsPage](../../frontend/src/features/configuration/SettingsPage.tsx) retains
+open editors on refresh and scopes late replies; environment labels, transition
+and operation components provide Vietnamese static/accessibility text.
+[Local scenario T07](../../frontend/test/e2e/refactor-local.mjs) uses memory
+state/fake adapters with explicitly marked projection mocks; it proves no live
+migration. Backend error mapping remains T20; rename-reference rewrite remains T30.

@@ -131,16 +131,16 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
 
     // Staging picks lab in Settings; production stays unset.
     await user.click(screen.getByRole('button', { name: 'Environment settings' }));
-    await user.selectOptions(await screen.findByLabelText('Connection for Staging'), 'lab');
-    await user.click(screen.getByRole('button', { name: 'Save connection' }));
-    expect(await screen.findByText('Generation 0')).toBeInTheDocument();
-    expect(screen.getByLabelText('Connection for Staging')).toHaveValue('lab');
+    await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'lab');
+    await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
+    expect(await screen.findByText('Thế hệ 0')).toBeInTheDocument();
+    expect(screen.getByLabelText('Kết nối cho Staging')).toHaveValue('lab');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     const put = requests.find((request) => request.method === 'PUT' && request.url.endsWith('/environments/staging/connection'));
     expect(JSON.parse(put?.body ?? '{}')).toEqual({ connectionKey: 'lab', expectedVersion: 1 });
     await user.click(screen.getByRole('tab', { name: 'Production' }));
-    expect(await screen.findByLabelText('Connection for Production')).toHaveValue('');
-    expect(screen.getAllByText('Not configured').length).toBeGreaterThan(0);
+    expect(await screen.findByLabelText('Kết nối cho Production')).toHaveValue('');
+    expect(screen.getAllByText('Chưa cấu hình').length).toBeGreaterThan(0);
     expect(requests.some((request) => /\/(deploy|preview|deployments)$/.test(request.url) && request.method === 'POST')).toBe(false);
     // Back home the cached target shows the staging binding only.
     await user.click(screen.getByRole('button', { name: /← Catalog/ }));
@@ -155,7 +155,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     authenticated = true;
     render(<App />);
     expect(await screen.findByRole('tab', { name: 'Production' })).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByLabelText('Execution connection')).toHaveTextContent('Production deploys to this connection');
+    expect(await screen.findByLabelText('Kết nối triển khai')).toHaveTextContent('Production triển khai tới kết nối này');
     await waitFor(() => expect(requests.some((request) => request.url.includes('/environments/production/configuration'))).toBe(true));
     // A tab click keeps the URL aligned, so a reload opens the same scope.
     await user.click(screen.getByRole('tab', { name: 'Staging' }));
@@ -165,11 +165,11 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     window.history.pushState({}, '', '/ui/applications/payment/settings?environment=production');
     await act(async () => { window.dispatchEvent(new PopStateEvent('popstate')); });
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Production' })).toHaveAttribute('aria-selected', 'true'));
-    expect(screen.getByLabelText('Execution connection')).toHaveTextContent('Production deploys to this connection');
+    expect(screen.getByLabelText('Kết nối triển khai')).toHaveTextContent('Production triển khai tới kết nối này');
     window.history.pushState({}, '', '/ui/applications/payment/settings');
     await act(async () => { window.dispatchEvent(new PopStateEvent('popstate')); });
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Staging' })).toHaveAttribute('aria-selected', 'true'));
-    expect(screen.getByLabelText('Execution connection')).toHaveTextContent('Staging deploys to this connection');
+    expect(screen.getByLabelText('Kết nối triển khai')).toHaveTextContent('Staging triển khai tới kết nối này');
   });
 
   it('returns to sign-in with a notice when the session expires', async () => {

@@ -50,20 +50,20 @@ try {
   }
   async function setConnection(environment, key) {
     await page.getByRole('button', { name: 'Environment settings' }).click();
-    await expect(page.getByRole('heading', { name: 'Environment settings', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
     if (environment === 'production') await page.getByRole('tab', { name: 'Production' }).click();
     const title = environment === 'staging' ? 'Staging' : 'Production';
-    const select = page.getByLabel(`Connection for ${title}`);
+    const select = page.getByLabel(`Kết nối cho ${title}`);
     await expect(select).toHaveValue('');
     await select.selectOption(key);
     const put = page.waitForResponse((response) => response.request().method() === 'PUT' && new URL(response.url()).pathname.endsWith(`/environments/${environment}/connection`));
-    await page.getByRole('button', { name: 'Save connection' }).click();
+    await page.getByRole('button', { name: 'Lưu kết nối' }).click();
     expect((await put).status()).toBe(200);
     // Saved, not locked: the selection stays editable and an unchanged one has nothing to save.
-    await expect(page.getByText('Generation 0', { exact: true })).toBeVisible();
-    await expect(page.getByLabel(`Connection for ${title}`)).toBeEnabled();
-    await expect(page.getByLabel(`Connection for ${title}`)).toHaveValue(key);
-    await expect(page.getByRole('button', { name: 'Save connection' })).toBeDisabled();
+    await expect(page.getByText('Thế hệ 0', { exact: true })).toBeVisible();
+    await expect(page.getByLabel(`Kết nối cho ${title}`)).toBeEnabled();
+    await expect(page.getByLabel(`Kết nối cho ${title}`)).toHaveValue(key);
+    await expect(page.getByRole('button', { name: 'Lưu kết nối' })).toBeDisabled();
   }
   async function previewScore(environment, workload = 'api') {
     await page.getByRole('button', { name: 'Preview Score' }).click();
@@ -140,18 +140,18 @@ try {
 
     // Staging selects the nondefault lab Connection; production stays unset.
     await page.getByRole('button', { name: 'Open Environment settings' }).click();
-    const select = page.getByLabel('Connection for Staging');
+    const select = page.getByLabel('Kết nối cho Staging');
     await expect(select).toHaveValue('');
-    await expect(select.locator('option')).toHaveText([/Choose a connection/, /internal-cluster \(internal-cluster\)/, new RegExp(labKey)]);
+    await expect(select.locator('option')).toHaveText([/Chọn một kết nối/, /internal-cluster \(internal-cluster\)/, new RegExp(labKey)]);
     await select.selectOption(labKey);
     const staged = page.waitForResponse((response) => response.request().method() === 'PUT');
-    await page.getByRole('button', { name: 'Save connection' }).click();
+    await page.getByRole('button', { name: 'Lưu kết nối' }).click();
     expect((await staged).status()).toBe(200);
-    await expect(page.getByText('Generation 0', { exact: true })).toBeVisible();
-    await expect(page.getByLabel('Connection for Staging')).toBeEnabled();
+    await expect(page.getByText('Thế hệ 0', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Kết nối cho Staging')).toBeEnabled();
     await shot('staging-saved');
     await page.getByRole('tab', { name: 'Production' }).click();
-    await expect(page.getByLabel('Connection for Production')).toHaveValue('');
+    await expect(page.getByLabel('Kết nối cho Production')).toHaveValue('');
     view = await apiView();
     expect(byKey(view, (item) => item.connectionKey)).toEqual({ staging: labKey, production: '' });
     // Versions are enforced by the API (probes that change nothing): a stale version is
@@ -219,9 +219,9 @@ try {
     // The saved selection survives a restart and stays editable (no runtime exists yet).
     await page.getByRole('button', { name: 'Environment settings' }).click();
     await page.getByRole('tab', { name: 'Staging' }).click();
-    await expect(page.getByText('Generation 0', { exact: true })).toBeVisible();
-    await expect(page.getByLabel('Connection for Staging')).toHaveValue(labKey);
-    await expect(page.getByLabel('Connection for Staging')).toBeEnabled();
+    await expect(page.getByText('Thế hệ 0', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Kết nối cho Staging')).toHaveValue(labKey);
+    await expect(page.getByLabel('Kết nối cho Staging')).toBeEnabled();
     await page.getByRole('button', { name: `← ${name}` }).click();
     await page.getByRole('button', { name: /Staging/ }).click();
     const matches = await matchedDefinitions('staging', 'probe');

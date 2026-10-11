@@ -215,10 +215,10 @@ try {
 
   // 5. Staging Settings: nothing is preselected; the saved selection stays editable (ADR-012).
   await h.click(refusal.getByRole('button', { name: 'Open Environment settings' }));
-  await expect(page.getByRole('heading', { name: 'Environment settings', level: 1 })).toBeVisible();
-  const panel = page.getByLabel('Execution connection');
-  await expect(panel).toContainText('Not configured');
-  const stagingSelect = page.getByLabel('Connection for Staging');
+  await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
+  const panel = page.getByLabel('Kết nối triển khai');
+  await expect(panel).toContainText('Chưa cấu hình');
+  const stagingSelect = page.getByLabel('Kết nối cho Staging');
   await expect(stagingSelect).toHaveValue('');
   const options = await stagingSelect.locator('option').allTextContents();
   const stagingLabel = options.find((text) => text.includes(`(${stagingKey})`));
@@ -235,14 +235,14 @@ try {
   mark('staging-selected');
   await h.pause(LONG_READ);
   const stagingPut = page.waitForRequest((request) => request.method() === 'PUT' && new URL(request.url()).pathname.endsWith('/environments/staging/connection'));
-  await h.click(page.getByRole('button', { name: 'Save connection' }));
+  await h.click(page.getByRole('button', { name: 'Lưu kết nối' }));
   expect((await stagingPut).postDataJSON()).toEqual({ connectionKey: stagingKey, expectedVersion: 1 });
-  await expect(panel).toContainText('Generation 0');
+  await expect(panel).toContainText('Thế hệ 0');
   await expect(panel).toContainText(stagingName);
   // Nothing is locked: the control stays editable, and an unchanged selection has nothing to save.
-  await expect(page.getByLabel('Connection for Staging')).toBeEnabled();
-  await expect(page.getByLabel('Connection for Staging')).toHaveValue(stagingKey);
-  await expect(page.getByRole('button', { name: 'Save connection' })).toBeDisabled();
+  await expect(page.getByLabel('Kết nối cho Staging')).toBeEnabled();
+  await expect(page.getByLabel('Kết nối cho Staging')).toHaveValue(stagingKey);
+  await expect(page.getByRole('button', { name: 'Lưu kết nối' })).toBeDisabled();
   await expect(page.getByText(/Locked/)).toHaveCount(0);
   view = await apiView();
   const stagingSaved = byKey(view, (item) => ({ key: item.connectionKey, version: item.version })).staging;
@@ -261,17 +261,17 @@ try {
   expect(byKey(await apiView(), (item) => ({ key: item.connectionKey, version: item.version })).staging).toEqual(stagingSaved);
   // A refresh keeps the saved selection, still editable.
   x11.keys(['F5']);
-  await expect(page.getByLabel('Execution connection')).toContainText(stagingName);
-  await expect(page.getByLabel('Connection for Staging')).toHaveValue(stagingKey);
-  await expect(page.getByLabel('Connection for Staging')).toBeEnabled();
+  await expect(page.getByLabel('Kết nối triển khai')).toContainText(stagingName);
+  await expect(page.getByLabel('Kết nối cho Staging')).toHaveValue(stagingKey);
+  await expect(page.getByLabel('Kết nối cho Staging')).toBeEnabled();
   mark('staging-saved-after-refresh');
   await h.pause(SHORT_READ);
 
   // 6. Production is still unset. It first saves the default Connection, then
   //    rebinds to its own: an Environment without runtime resources may change.
   await h.click(page.getByRole('tab', { name: 'Production' }));
-  await expect(page.getByLabel('Execution connection')).toContainText('Not configured');
-  const productionSelect = page.getByLabel('Connection for Production');
+  await expect(page.getByLabel('Kết nối triển khai')).toContainText('Chưa cấu hình');
+  const productionSelect = page.getByLabel('Kết nối cho Production');
   await expect(productionSelect).toHaveValue('');
   const productionOptions = await productionSelect.locator('option').allTextContents();
   const defaultLabel = productionOptions.find((text) => text.includes(`(${defaultKey})`));
@@ -283,9 +283,9 @@ try {
   await h.choose(productionSelect, defaultLabel);
   await expect(productionSelect).toHaveValue(defaultKey);
   const firstProductionPut = page.waitForRequest((request) => request.method() === 'PUT' && new URL(request.url()).pathname.endsWith('/environments/production/connection'));
-  await h.click(page.getByRole('button', { name: 'Save connection' }));
+  await h.click(page.getByRole('button', { name: 'Lưu kết nối' }));
   expect((await firstProductionPut).postDataJSON()).toEqual({ connectionKey: defaultKey, expectedVersion: 1 });
-  await expect(page.getByLabel('Execution connection')).toContainText('Generation 0');
+  await expect(page.getByLabel('Kết nối triển khai')).toContainText('Thế hệ 0');
   const firstProduction = byKey(await apiView(), (item) => ({ key: item.connectionKey, version: item.version })).production;
   expect(firstProduction.key).toBe(defaultKey);
   mark('production-saved-default');
@@ -296,11 +296,11 @@ try {
   mark('production-rebind-selected');
   await h.pause(READ);
   const productionPut = page.waitForRequest((request) => request.method() === 'PUT' && new URL(request.url()).pathname.endsWith('/environments/production/connection'));
-  await h.click(page.getByRole('button', { name: 'Save connection' }));
+  await h.click(page.getByRole('button', { name: 'Lưu kết nối' }));
   expect((await productionPut).postDataJSON()).toEqual({ connectionKey: productionKey, expectedVersion: firstProduction.version });
-  await expect(page.getByLabel('Execution connection')).toContainText(productionName);
-  await expect(page.getByLabel('Connection for Production')).toBeEnabled();
-  await h.moveTo(page.getByLabel('Execution connection'));
+  await expect(page.getByLabel('Kết nối triển khai')).toContainText(productionName);
+  await expect(page.getByLabel('Kết nối cho Production')).toBeEnabled();
+  await h.moveTo(page.getByLabel('Kết nối triển khai'));
   mark('production-rebound');
   await h.pause(LONG_READ);
   view = await apiView();
@@ -311,8 +311,8 @@ try {
   expect(JSON.stringify(view).replaceAll('"secretStoreKey"', '')).not.toMatch(/secret|kubeconfig|token/i);
   for (const value of secretValues) expect(JSON.stringify(view)).not.toContain(value);
   await h.click(page.getByRole('tab', { name: 'Staging' }));
-  await expect(page.getByLabel('Execution connection')).toContainText(stagingName);
-  await h.moveTo(page.getByLabel('Execution connection'));
+  await expect(page.getByLabel('Kết nối triển khai')).toContainText(stagingName);
+  await h.moveTo(page.getByLabel('Kết nối triển khai'));
   mark('staging-tab-keeps-its-own');
   await h.pause(SHORT_READ);
 
@@ -321,13 +321,13 @@ try {
   writeFileSync(`${evidenceDir}/restart-request`, 'restart');
   await expect.poll(() => existsSync(`${evidenceDir}/restart-done`), { timeout: 120_000, intervals: [500] }).toBe(true);
   x11.keys(['F5']);
-  await expect(page.getByLabel('Execution connection')).toContainText(stagingName, { timeout: 30_000 });
-  await expect(page.getByLabel('Connection for Staging')).toBeEnabled();
+  await expect(page.getByLabel('Kết nối triển khai')).toContainText(stagingName, { timeout: 30_000 });
+  await expect(page.getByLabel('Kết nối cho Staging')).toBeEnabled();
   mark('saved-after-backend-restart');
   await h.pause(READ);
   await h.click(page.getByRole('tab', { name: 'Production' }));
-  await expect(page.getByLabel('Execution connection')).toContainText(productionName);
-  await expect(page.getByLabel('Connection for Production')).toHaveValue(productionKey);
+  await expect(page.getByLabel('Kết nối triển khai')).toContainText(productionName);
+  await expect(page.getByLabel('Kết nối cho Production')).toHaveValue(productionKey);
   await h.pause(SHORT_READ);
 
   // 8. Back home: each Environment shows its own target.
@@ -393,14 +393,14 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded' }); // real browser reload; the result lives only in page state
   await expect(page.getByLabel('Deployment result')).toHaveCount(0); // the refresh reloads the current state
   await h.click(page.getByRole('button', { name: 'Environment settings' }));
-  await expect(page.getByLabel('Execution connection')).toContainText(stagingName);
-  const liveSelect = page.getByLabel('Connection for Staging');
+  await expect(page.getByLabel('Kết nối triển khai')).toContainText(stagingName);
+  const liveSelect = page.getByLabel('Kết nối cho Staging');
   await expect(liveSelect).toBeEnabled();
   const liveOptions = await liveSelect.locator('option').allTextContents();
   await h.choose(liveSelect, liveOptions.find((text) => text.includes(`(${defaultKey})`)));
-  await expect(page.getByRole('button', { name: 'Review transition…' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Save connection' })).toHaveCount(0);
-  await h.moveTo(page.getByRole('button', { name: 'Review transition…' }));
+  await expect(page.getByRole('button', { name: 'Xem lại chuyển đích…' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Lưu kết nối' })).toHaveCount(0);
+  await h.moveTo(page.getByRole('button', { name: 'Xem lại chuyển đích…' }));
   mark('runtime-requires-transition');
   await h.pause(READ);
   await h.choose(liveSelect, liveOptions.find((text) => text.includes(`(${stagingKey})`)));

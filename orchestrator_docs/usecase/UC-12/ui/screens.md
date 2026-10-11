@@ -2,7 +2,7 @@
 id: UC-12-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-09-24
+last_reviewed: 2026-10-11
 related: UC-12
 ---
 
@@ -58,3 +58,17 @@ Selected Environment Settings displays the chosen store and editable READY choic
 Unset state allows ordinary Variable edits, but Secret Add asks to select a store.
 Change-store action shows copying/verification, success/pending-deploy or safe error.
 No raw Secret, store token or backup content appears in the UI.
+
+## T07 — Nhãn và lựa chọn Kho bí mật
+
+Trang dùng “Cài đặt môi trường”, “Biến”, “Bí mật”, “Tên key”, “Giá trị”,
+“Workload sử dụng”, “Đổi tên”, “Xóa”, “Lưu thay đổi chờ triển khai” và
+“Xem trước”/“Triển khai” theo glossary. Tab vẫn là `staging`/`production`.
+Secret input được che và không điền giá trị đã lưu. Dialog đổi tên/xóa nêu
+Environment, workload bị ảnh hưởng và việc người dùng phải tự sửa tham chiếu;
+T07 chỉ đổi nhãn, không rewrite references (CFG-01 behavior thuộc T30).
+
+Khi chưa có kho và chỉ có một READY store hợp lệ, selector gợi ý draft chưa lưu,
+không tạo binding hoặc cho phép Secret write trước Lưu. Nhiều kho yêu cầu chọn
+tường minh. Kho đã cấu hình không bị thay; Lưu đổi kho vẫn copy/verify trước
+commit, runtime chuyển sau Xem trước → Triển khai.

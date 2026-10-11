@@ -43,9 +43,9 @@ try {
   const secret = randomBytes(32).toString('hex');
   const secretHash = createHash('sha256').update(secret).digest('hex');
   await page.getByRole('button', { name: 'Environment settings' }).click();
-  await page.getByLabel('Connection for Staging').selectOption('internal-cluster');
-  await page.getByRole('button', { name: 'Save connection' }).click();
-  await expect(page.getByText('Generation 0', { exact: true })).toBeVisible();
+  await page.getByLabel('Kết nối cho Staging').selectOption('internal-cluster');
+  await page.getByRole('button', { name: 'Lưu kết nối' }).click();
+  await expect(page.getByText('Thế hệ 0', { exact: true })).toBeVisible();
   await reviewPause(page, 1800);
   // A new Environment has no secret store; the run's configured store is chosen explicitly.
   await selectSecretStore(page, process.env.ORCH_E2E_SECRET_STORE);
@@ -53,7 +53,7 @@ try {
   await putKey(page, 'variable', 'ACCEPTANCE_CONFIG', 'acceptance-config-ok');
   await putKey(page, 'variable', 'ACCEPTANCE_SECRET_SHA256', secretHash);
   await putKey(page, 'secret', 'ACCEPTANCE_SECRET', secret);
-  await expect(page.locator('section[aria-label="Secrets"]')).not.toContainText(secret);
+  await expect(page.locator('section[aria-label="Bí mật"]')).not.toContainText(secret);
   await reviewPause(page, 1800);
   await page.getByRole('button', { name: `← Acceptance ${runId}` }).click();
   await reviewPause(page, 1500);
@@ -132,27 +132,29 @@ try {
 async function selectSecretStore(page, store) {
   const wanted = (store ?? '').trim();
   if (!wanted) throw new Error('writing a secret needs a selected Secret Store: set ORCH_E2E_SECRET_STORE to the key or name of a READY store registered for this run');
-  const select = page.getByLabel('Secret store for Staging');
+  const select = page.getByLabel('Kho bí mật cho Staging');
   await expect(select).toBeVisible();
   const option = (await select.locator('option').evaluateAll((options) => options.map((item) => ({ value: item.value, text: item.textContent ?? '' }))))
     .find((item) => item.value && (item.value === wanted || item.text.startsWith(`${wanted} (`)));
   if (!option) throw new Error(`secret store ${wanted} is not offered for Staging`);
-  if ((await select.inputValue()) === option.value) return;
+  // A single READY store may be pre-filled as an unsaved suggestion: only a disabled Save proves it is already bound.
+  const save = page.getByRole('button', { name: 'Lưu kho bí mật' });
+  if ((await select.inputValue()) === option.value && (await save.isDisabled())) return;
   await select.selectOption(option.value);
   const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && new URL(response.url()).pathname.endsWith('/environments/staging/secret-store'));
-  await page.getByRole('button', { name: 'Save secret store' }).click();
+  await page.getByRole('button', { name: 'Lưu kho bí mật' }).click();
   if (!(await saved).ok()) throw new Error('selecting the Staging secret store failed');
-  await expect(page.getByRole('button', { name: 'Save secret store' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Lưu kho bí mật' })).toBeDisabled();
 }
 
 async function putKey(page, kind, name, value) {
-  const section = page.locator(`section[aria-label="${kind === 'secret' ? 'Secrets' : 'Environment variables'}"]`);
-  await section.getByRole('button', { name: `+ Add ${kind}` }).click();
+  const section = page.locator(`section[aria-label="${kind === 'secret' ? 'Bí mật' : 'Biến'}"]`);
+  await section.getByRole('button', { name: `+ Thêm ${kind === 'secret' ? 'bí mật' : 'biến'}` }).click();
   await reviewPause(page, 800);
-  await page.getByLabel('Key name').fill(name);
-  await page.getByLabel(kind === 'secret' ? 'New secret value' : 'Value').fill(value);
+  await page.getByLabel('Tên key').fill(name);
+  await page.getByLabel(kind === 'secret' ? 'Giá trị bí mật mới' : 'Giá trị').fill(value);
   await reviewPause(page, 1000);
-  await page.getByRole('button', { name: 'Save pending change' }).click();
+  await page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }).click();
   await expect(section).toContainText(name);
   await reviewPause(page, 1200);
 }

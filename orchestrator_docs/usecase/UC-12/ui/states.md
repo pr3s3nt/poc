@@ -2,7 +2,7 @@
 id: UC-12-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-09-24
+last_reviewed: 2026-10-11
 related: UC-12
 ---
 
@@ -27,3 +27,12 @@ Unset store blocks Secret write, not Variable write. Store transfer shows progre
 and disables duplicate actions. 409 stale version requires reload/review; active
 Environment operation temporarily blocks configuration edits. Copy failure leaves
 old selection active; successful copy shows pending Preview/Deploy for consumers.
+
+## T07 — Concurrency và Việt hóa
+
+Mọi trạng thái/dialog/aria-label cấu hình và chuyển kho dùng tiếng Việt; technical
+keys, values và payload giữ nguyên. Refresh hoặc reply muộn không ghi đè pending
+edit hay đưa kết quả sang app/env khác. BUSY giữ nội dung editor và khóa submit.
+Stale version yêu cầu review bản authoritative rồi Lưu tường minh. Copy failure
+giữ kho/revision cũ; cùng kho không copy lại. Secret không hiển thị lại giá trị.
+Gợi ý một READY store chỉ là draft khi chưa có binding, không phải default.

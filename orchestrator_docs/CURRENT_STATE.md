@@ -50,6 +50,19 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và VSO → namespace Secret → Pod `secretKeyRef` đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
 | UC-16 | MVP path implemented | Form/Score import, typed resource params, public path + Service port rows, draft save/delete/undo, references, edit deployed workload bằng reconstructed Score, Preview → Deploy và partial retry đã có. Preview bỏ qua no-op draft nhưng giữ UC-12 revision update. Kind đã kiểm tra multi-path BusyBox `/` + `/api`, Fleet route và no-op Pod UID; Backstage cụ thể và broader update/cloud path chưa kiểm chứng. |
 
+## Console refactor T07 (2026-10-11)
+
+[Local verification](verification/2026-10-11-T07-environment-settings.md):
+Cài đặt môi trường và các dialogs cấu hình/chuyển đích/recovery dùng nhãn Việt.
+Một READY choice hợp lệ chỉ được gợi ý draft khi chưa có binding; nhiều lựa chọn
+phải chọn tường minh, không tự persist/default/fallback. Chỉ Lưu đổi binding;
+binding đã có không bị thay. Reload/stale/reply muộn giữ pending edits và không
+đưa cấu hình sai app/env vào trang đang xem. Secret không đọc lại; rename chưa
+rewrite references. Backend/API/version/downtime/recovery confirmations giữ
+nguyên. Headed local dùng fake/memory adapters; transition/recovery và lỗi
+copy/stale/BUSY dùng projection mock, không chứng minh migration thật. T20 error
+mapping và T30 rename-reference behavior còn chờ task tương ứng.
+
 ## Console refactor T06 (2026-10-11)
 
 [Local verification](verification/2026-10-11-T06-connections.md): trang Kết nối
