@@ -97,10 +97,7 @@ func (c Context) Values() map[string]any {
 		"org.key":  c.OrganizationKey,
 		"app.key":  c.App.Key,
 		"app.name": c.App.Name,
-		// ADR-011: env.profile/env.region are canonical; the app.* keys are
-		// aliases of the selected Environment for existing Definitions.
-		"app.profile":        string(c.Env.Profile),
-		"app.region":         c.Env.Region,
+		// ADR-011: env.profile/env.region are the only profile/region keys.
 		"env.profile":        string(c.Env.Profile),
 		"env.region":         c.Env.Region,
 		"env.connection.key": c.Env.ConnectionKey,

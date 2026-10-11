@@ -222,9 +222,9 @@ Matching guards and UC-08 validate selected Environment target without changing
 specificity/ties. UC-03 BR-08 requires empty public VPC/EKS Definition ConnectionKey;
 UC-08 resolves the effective pinned Environment AWS account, while Aurora keeps
 its explicit account. The plan target participates in PlanHash; malformed
-conflicting winning Definitions fail without alternate candidate selection. Context app.profile/app.region aliases project Environment
-values only for legacy Definition contracts; canonical env values and pinned
-connection/scope determine execution. See [ADR-011](../architecture/decisions/ADR-011-environment-execution-binding.md).
+conflicting winning Definitions fail without alternate candidate selection. Context env.profile/env.region and pinned connection/scope determine execution.
+T21 removes app.profile/app.region aliases from product resolution; unknown
+context errors replace compatibility projection, without rewriting Definitions. See [ADR-011](../architecture/decisions/ADR-011-environment-execution-binding.md).
 
 ## Product implicit cluster binding
 

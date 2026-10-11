@@ -399,3 +399,9 @@ Evidence: [T18 local verification](../verification/2026-10-11-T18-render-bundles
 | Preserve scoping/CAS/BUSY/stale/reload safety and selected renderer behavior | Existing service/planner contracts; code-first page controls and authoritative reload gates | Go conformance; scope-switch/reload-failure/retained-edit frontend tests; T01 regression; fake T20 two-tab stale and labelled BUSY/copy/unknown mocks |
 
 Evidence and exact limits: [T20 verification](../verification/2026-10-12-T20-console-errors.md).
+
+## T21 — Context alias removal (LEG-04)
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| UC-03 Environment target references; ADR-011; OC-07 context rule | `planning.Context.Values/ResolveContext`; only env.profile/env.region resolve target values, no alias rewrite | `TestContext_AppProfileRegionAliasesAreUnknown`, `TestContext_EnvProfileRegionIgnoreLegacyApplicationFields`, `TestContext_ValuesResolveTheSelectedEnvironment`; [T21 evidence](../verification/2026-10-12-T21-context-aliases.md) |

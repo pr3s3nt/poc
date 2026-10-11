@@ -114,6 +114,10 @@ Superseded by the Editable Environment destinations contracts below.
   invalid final Candidate.
 - Before-state rule: module và từng shared entry do `before Score` khai báo phải deep-equal current set.
 - Candidate rule: một shared ID mới không được ghi đè entry khác nội dung; shared entry bị workload bỏ chỉ rời Candidate khi không còn module khác tham chiếu.
+- Context rule (T21/LEG-04): profile/region placeholders resolve only through
+  `env.profile`/`env.region` from the selected Environment. `app.profile` and
+  `app.region` return unknown context errors; no rewrite or fallback. Application
+  identity keys and other context values keep their existing semantics.
 - Descriptor rule: `@app`, `@env`, `@connection`, `@infra` được resolve từ planning
   context trước khi parse descriptor; `@` kế thừa class/ID hiện tại giữ nguyên
   semantics.

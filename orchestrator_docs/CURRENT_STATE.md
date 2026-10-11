@@ -566,3 +566,12 @@ Retry mutation vẫn tường minh; không đổi scoping/CAS/planner/renderer s
 [Verification T20](verification/2026-10-12-T20-console-errors.md) ghi checks và
 headed local fake evidence; BUSY/unknown/copy failure là projection mocks.
 Không PostgreSQL/kind/AWS opt-in hoặc retained K8S-4F mutation trong task này.
+
+## T21 — Environment context aliases removed (2026-10-12)
+
+Product context now exposes profile/region only as `env.profile`/`env.region`
+from the selected Environment. `app.profile`/`app.region` return unknown context
+errors, including whole and interpolated placeholders; no rewrite/fallback.
+Application identity and infrastructure scope/naming remain unchanged. Go suite,
+build and uncached planning/conformance passed locally; no SQL opt-in or external
+mutation. See [T21 evidence](verification/2026-10-12-T21-context-aliases.md).

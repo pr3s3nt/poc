@@ -294,3 +294,12 @@ See [local evidence](../verification/2026-10-11-T17-existing-cluster-registratio
 - [Headed T20 scenario](../../frontend/test/e2e/refactor-local.mjs) và
   [fake runner](../../backend/test/integration/refactor-ui-local.sh) kiểm real
   local HTTP errors và labelled projection mocks; [evidence](../verification/2026-10-12-T20-console-errors.md).
+
+## T21 — Environment-only profile/region context
+
+[`Context.Values/ResolveContext`](../../backend/internal/planning/context.go)
+provides canonical Environment target values and rejects removed Application
+aliases. [`context regression tests`](../../backend/internal/planning/environment_scope_test.go)
+cover unknown resolution/placeholder expansion, conflicting old Application
+fields and independent Environment values. No conformance adapter is needed:
+reference fixtures do not use these aliases.

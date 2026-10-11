@@ -10,6 +10,7 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/planning/placeholder"
 )
 
 // scopedAWSRequest is an aws-eks Environment of a new Application: its own
@@ -233,12 +234,12 @@ func TestPlan_HashPinsTheNonSecretTarget(t *testing.T) {
 	}
 }
 
-func TestContext_AppAliasesResolveTheSelectedEnvironment(t *testing.T) {
+func TestContext_ValuesResolveTheSelectedEnvironment(t *testing.T) {
 	req := scopedAWSRequest(t, "pay", "production")
 	req.Env.Region = "eu-west-1"
 	ctx := Context{OrganizationKey: req.OrganizationKey, App: req.App, Env: req.Env}
 	values := ctx.Values()
-	if values["app.profile"] != "aws-eks" || values["app.region"] != "eu-west-1" || values["env.profile"] != "aws-eks" || values["env.region"] != "eu-west-1" || values["infra.name"] != "pay-production" {
+	if values["env.profile"] != "aws-eks" || values["env.region"] != "eu-west-1" || values["infra.name"] != "pay-production" {
 		t.Fatalf("context values = %v", values)
 	}
 	legacy := Context{App: req.App, Env: req.Env}
@@ -249,6 +250,56 @@ func TestContext_AppAliasesResolveTheSelectedEnvironment(t *testing.T) {
 	// The Application value object is never mutated by the projection.
 	if req.App.Profile != "" || req.App.Region != "" {
 		t.Fatalf("application leaked: %+v", req.App)
+	}
+}
+
+func TestContext_AppProfileRegionAliasesAreUnknown(t *testing.T) {
+	req := scopedAWSRequest(t, "pay", "production")
+	req.Env.Region = "eu-west-1"
+	ctx := Context{OrganizationKey: req.OrganizationKey, App: req.App, Env: req.Env}
+	for _, key := range []string{"app.profile", "app.region"} {
+		if _, ok := ctx.Values()[key]; ok {
+			t.Fatalf("%s must be absent from context values", key)
+		}
+		if v, err := ctx.ResolveContext(key); err == nil || !strings.Contains(err.Error(), "unknown context value") {
+			t.Fatalf("ResolveContext(%q) = %v, %v; want unknown error", key, v, err)
+		}
+	}
+	for _, in := range []string{"${context.app.profile}", "${context.app.region}", "region=${context.app.region}-x", "${context.env.region}/${context.app.profile}"} {
+		if out, err := placeholder.ExpandString(in, ctx); err == nil {
+			t.Fatalf("ExpandString(%q) = %v; want error", in, out)
+		}
+	}
+}
+
+func TestContext_EnvProfileRegionIgnoreLegacyApplicationFields(t *testing.T) {
+	req := scopedAWSRequest(t, "pay", "production")
+	req.Env.Region = "eu-west-1"
+	req.App.Profile = application.ProfileInternalK8s
+	req.App.Region = "us-east-1"
+	ctx := Context{OrganizationKey: req.OrganizationKey, App: req.App, Env: req.Env}
+	cases := map[string]string{
+		"${context.env.profile}":                       "aws-eks",
+		"${context.env.region}":                        "eu-west-1",
+		"${context.env.profile}-${context.env.region}": "aws-eks-eu-west-1",
+		"${context.app.id}":                            "pay",
+		"${context.app.name}":                          req.App.Name,
+		"${context.infra.name}":                        "pay-production",
+	}
+	for in, want := range cases {
+		got, err := placeholder.ExpandString(in, ctx)
+		if err != nil || got != want {
+			t.Fatalf("ExpandString(%q) = %v, %v; want %q", in, got, err, want)
+		}
+	}
+	// A second Environment of the same Application decides independently.
+	other := ctx
+	other.Env.Key, other.Env.Region = "staging", "eu-central-1"
+	if got, err := placeholder.ExpandString("${context.env.region}", other); err != nil || got != "eu-central-1" {
+		t.Fatalf("second environment region = %v, %v", got, err)
+	}
+	if got, _ := placeholder.ExpandString("${context.env.region}", ctx); got != "eu-west-1" {
+		t.Fatalf("first environment region changed: %v", got)
 	}
 }
 

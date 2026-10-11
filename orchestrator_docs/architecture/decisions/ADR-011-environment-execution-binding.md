@@ -30,9 +30,10 @@ Preview, matching guards, enrichment, provisioning, rendering, workload apply,
 routes, Jobs and queries. ConnectionMismatch compares selected Environment
 connection for internal Kubernetes and AWS VPC/EKS. Public Terraform VPC/EKS registration now requires an empty ConnectionKey (UC-03 BR-08, RD-02); execution always inherits the pinned Environment AWS account. The mismatch guard remains defensive for malformed internal/harness catalogs, without changing ranking or ties. Registration needs no Environment and rejects all explicit VPC/EKS keys, including an equal target key. External database Definitions
 keep independent Driver Account semantics. Context `env.profile`/`env.region`
-are canonical; legacy Definition `${context.app.profile}` and
-`${context.app.region}` aliases resolve the selected Environment values to keep
-existing Definition contracts functional. Never persist projected target back
+are the only product profile/region context keys. T21 (LEG-04) removes the
+former `${context.app.profile}` and `${context.app.region}` aliases: resolution
+returns unknown context, without rewrite or fallback for old Definitions.
+Application identity keys remain supported. Never persist projected target back
 onto Application.
 
 Environment binding is set in one local transaction using unset check + expected

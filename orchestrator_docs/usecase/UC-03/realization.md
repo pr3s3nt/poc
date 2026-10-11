@@ -119,3 +119,11 @@ không sửa ranking/ties trong match.go. Trả safe result và snapshot marker,
 transaction write, registration/inspector hoặc system admission. Incomplete
 context trả trạng thái riêng trước kết luận matching. UI của hai form dùng chung
 operation; edits/scope changes làm kết quả pending/cũ mất hiệu lực.
+
+## Environment context resolution (T21)
+
+Planning `Context.ResolveContext` exposes profile/region only through
+`env.profile`/`env.region`. Removed Application aliases resolve as unknown during
+placeholder expansion, without rewriting stored inputs. `app.id`, `app.name` and
+other identity keys remain. Registration keeps BR-13 deferred placeholder type
+checking; this change does not add a registration-time context allowlist.

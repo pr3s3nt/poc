@@ -178,7 +178,11 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 ## Environment execution target references
 
 UC-01 Settings set-once target and [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md)
-provide canonical Environment profile/region. AWS infrastructure references may
+provide canonical Environment profile/region via `${context.env.profile}` and
+`${context.env.region}`. Product resolution rejects `${context.app.profile}` and
+`${context.app.region}` as unknown context values; no server rewrite or legacy
+fallback is allowed (T21/LEG-04). Application identity context remains unchanged.
+AWS infrastructure references may
 use `vpc.default#@infra`; parser expands @infra to new Environment path or legacy
 Application path. Cloud names use context.infra.resourceName (legacy exact app-run, new bounded
 Environment-specific hash identifier); context.infra.name is a readable stem only.
