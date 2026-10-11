@@ -107,10 +107,10 @@ try {
     await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
     await h.pause(SHORT_READ);
   }
-  const target = () => page.getByLabel('Execution target').first();
-  const targetText = (environment, name, key) => `${environment === 'staging' ? 'Staging' : 'Production'} · Connection ${name} (${key}) · profile internal-k8s`;
+  const target = () => page.getByLabel('Đích triển khai').first();
+  const targetText = (environment, name, key) => `${environment} · Kết nối ${name} (${key}) · Phạm vi triển khai Cluster nội bộ (internal-k8s)`;
   const expectTarget = async (scope, environment, name, key) => {
-    await expect(scope.getByLabel('Execution target').first()).toContainText(targetText(environment, name, key));
+    await expect(scope.getByLabel('Đích triển khai').first()).toContainText(targetText(environment, name, key));
   };
 
   // Uploads the selected-context kubeconfig as a new READY Connection.
@@ -193,28 +193,28 @@ try {
   const byKey = (view, pick) => Object.fromEntries(view.environments.map((item) => [item.key, pick(item)]));
   let view = await apiView();
   expect(byKey(view, (item) => [item.configured, item.runtimeStatus])).toEqual({ staging: [false, 'UNCONFIGURED'], production: [false, 'UNCONFIGURED'] });
-  await expect(target()).toContainText('Staging has no execution connection yet');
+  await expect(target()).toContainText('staging chưa có kết nối triển khai');
   await h.moveTo(target());
   mark('application-created-unconfigured');
   await h.pause(READ);
-  await h.click(page.getByRole('button', { name: /Production/ }));
-  await expect(target()).toContainText('Production has no execution connection yet');
+  await h.click(page.getByRole('button', { name: /Production/i }));
+  await expect(target()).toContainText('production chưa có kết nối triển khai');
   await h.moveTo(target());
   mark('production-unconfigured');
   await h.pause(SHORT_READ);
-  await h.click(page.getByRole('button', { name: /Staging/ }));
+  await h.click(page.getByRole('button', { name: /Staging/i }));
 
   // 4. Preview refuses an UNCONFIGURED Environment before anything is planned.
-  await h.click(page.getByRole('button', { name: 'Preview changes' }));
+  await h.click(page.getByRole('button', { name: 'Xem trước thay đổi' }));
   const refusal = page.getByRole('alert');
-  await expect(refusal).toContainText('set one in Environment Settings');
-  await expect(page.getByLabel('Deployment preview')).toHaveCount(0);
+  await expect(refusal).toContainText('Hãy chọn kết nối trong Cài đặt môi trường');
+  await expect(page.getByLabel('Xem trước triển khai')).toHaveCount(0);
   await h.moveTo(refusal);
   mark('preview-refused');
   await h.pause(READ);
 
   // 5. Staging Settings: nothing is preselected; the saved selection stays editable (ADR-012).
-  await h.click(refusal.getByRole('button', { name: 'Open Environment settings' }));
+  await h.click(refusal.getByRole('button', { name: 'Mở Cài đặt môi trường' }));
   await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
   const panel = page.getByLabel('Kết nối triển khai');
   await expect(panel).toContainText('Chưa cấu hình');
@@ -336,12 +336,12 @@ try {
   await h.moveTo(target());
   mark('home-staging-target');
   await h.pause(READ);
-  await h.click(page.getByRole('button', { name: /Production/ }));
+  await h.click(page.getByRole('button', { name: /Production/i }));
   await expectTarget(page, 'production', productionName, productionKey);
   await h.moveTo(target());
   mark('home-production-target');
   await h.pause(READ);
-  await h.click(page.getByRole('button', { name: /Staging/ }));
+  await h.click(page.getByRole('button', { name: /Staging/i }));
   await expectTarget(page, 'staging', stagingName, stagingKey);
 
   // 9. Variables, secrets and workloads through the current forms (staging).
@@ -365,25 +365,25 @@ try {
   // (pending-<hash>), not the harness id: record it for the observer and cleanup.
   const previewed = page.waitForResponse((response) => response.request().method() === 'POST'
     && new URL(response.url()).pathname.endsWith(`/applications/${appId}/environments/staging/preview`));
-  await h.click(page.getByRole('button', { name: 'Preview changes' }));
+  await h.click(page.getByRole('button', { name: 'Xem trước thay đổi' }));
   const previewBody = await (await previewed).json();
   if (!/^pending-[0-9a-f]{16}$/.test(previewBody.runId ?? '')) throw new Error('preview returned no deployment run id');
   writeFileSync(`${evidenceDir}/deployment-run-id`, previewBody.runId, { mode: 0o600 });
-  const preview = page.getByLabel('Deployment preview');
-  await expect(preview).toContainText('2 workload(s) affected', { timeout: 120_000 });
+  const preview = page.getByLabel('Xem trước triển khai');
+  await expect(preview).toContainText('2 Workload bị ảnh hưởng', { timeout: 120_000 });
   await expectTarget(preview, 'staging', stagingName, stagingKey);
-  await h.moveTo(preview.getByLabel('Execution target'));
+  await h.moveTo(preview.getByLabel('Đích triển khai'));
   mark('preview');
   await h.pause(4000);
-  await h.click(page.getByRole('button', { name: 'Deploy these changes' }));
-  const result = page.getByLabel('Deployment result');
+  await h.click(page.getByRole('button', { name: 'Triển khai các thay đổi này' }));
+  const result = page.getByLabel('Kết quả triển khai');
   // Wait for any terminal result so an explicit failure fails promptly; only the
   // ongoing deploy keeps the long timeout.
-  await expect(result).toContainText(/Deploy (succeeded|failed|partial)/, { timeout: 600_000 });
-  await expect(result, 'Deploy must succeed').toContainText('Deploy succeeded', { timeout: 5_000 });
-  for (const name of ['backend', 'frontend']) await expect(result.locator('li').filter({ hasText: new RegExp(`^${name} · [a-z]+: succeeded`) })).toHaveCount(1);
+  await expect(result).toContainText(/Triển khai (thành công|thất bại|một phần)/, { timeout: 600_000 });
+  await expect(result, 'Deploy must succeed').toContainText('Triển khai thành công', { timeout: 5_000 });
+  for (const name of ['backend', 'frontend']) await expect(result.locator('li').filter({ hasText: new RegExp(`^${name} · [^:]+: thành công`) })).toHaveCount(1);
   await expectTarget(result, 'staging', stagingName, stagingKey);
-  await h.moveTo(result.getByLabel('Execution target'));
+  await h.moveTo(result.getByLabel('Đích triển khai'));
   mark('deploy-succeeded');
   await h.pause(5000);
   await noSecretOnScreen();
@@ -391,8 +391,8 @@ try {
   // 10b. Staging now has runtime resources: a different destination is no longer a
   //      plain Save but a reviewed transition (nothing is clicked or changed).
   await page.reload({ waitUntil: 'domcontentloaded' }); // real browser reload; the result lives only in page state
-  await expect(page.getByLabel('Deployment result')).toHaveCount(0); // the refresh reloads the current state
-  await h.click(page.getByRole('button', { name: 'Environment settings' }));
+  await expect(page.getByLabel('Kết quả triển khai')).toHaveCount(0); // the refresh reloads the current state
+  await h.click(page.getByRole('button', { name: 'Cài đặt môi trường' }));
   await expect(page.getByLabel('Kết nối triển khai')).toContainText(stagingName);
   const liveSelect = page.getByLabel('Kết nối cho Staging');
   await expect(liveSelect).toBeEnabled();

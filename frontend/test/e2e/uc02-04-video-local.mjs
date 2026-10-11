@@ -297,7 +297,7 @@ try {
   await signIn('developer');
   const applicationId = await createApplication(h, 'Catalog Consumer', `catalog-${runId.slice(-6)}`);
   mark('developer-application');
-  await h.click(page.getByRole('button', { name: 'Preview Score' }));
+  await h.click(page.getByRole('button', { name: 'Xem trước Score' }));
   await expect(page.getByRole('heading', { name: 'Preview Score', level: 1 })).toBeVisible();
   await h.type(page.getByLabel('Workload ID'), 'api');
   await h.type(page.getByLabel('Run ID'), 'catalog-demo');

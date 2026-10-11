@@ -43,13 +43,13 @@ try {
     await target.getByRole('button', { name: 'Đăng nhập' }).click();
     await expect(target.getByRole('heading', { name: 'Ứng dụng của bạn' })).toBeVisible();
   }
-  const targetText = (environment, key) => `${environment === 'staging' ? 'Staging' : 'Production'} · Connection ${key} (${key}) · profile internal-k8s`;
+  const targetText = (environment, key) => `${environment} · Kết nối ${key} (${key}) · Phạm vi triển khai Cluster nội bộ (internal-k8s)`;
   async function expectTarget(label, environment = 'staging', key = labKey) {
-    await expect(page.getByLabel('Execution target').first()).toContainText(targetText(environment, key), { timeout: 15_000 });
+    await expect(page.getByLabel('Đích triển khai').first()).toContainText(targetText(environment, key), { timeout: 15_000 });
     return label;
   }
   async function setConnection(environment, key) {
-    await page.getByRole('button', { name: 'Environment settings' }).click();
+    await page.getByRole('button', { name: 'Cài đặt môi trường' }).click();
     await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
     if (environment === 'production') await page.getByRole('tab', { name: 'Production' }).click();
     const title = environment === 'staging' ? 'Staging' : 'Production';
@@ -66,7 +66,7 @@ try {
     await expect(page.getByRole('button', { name: 'Lưu kết nối' })).toBeDisabled();
   }
   async function previewScore(environment, workload = 'api') {
-    await page.getByRole('button', { name: 'Preview Score' }).click();
+    await page.getByRole('button', { name: 'Xem trước Score' }).click();
     await expect(page.getByRole('heading', { name: 'Preview Score' })).toBeVisible();
     // The page opens on the Environment tab selected at home; switch when needed.
     const tab = page.getByRole('tab', { name: environment === 'production' ? 'Production' : 'Staging' });
@@ -84,17 +84,17 @@ try {
     return region;
   }
   async function saveWorkload(environment) {
-    await page.getByRole('button', { name: '+ Add workload' }).click();
+    await page.getByRole('button', { name: '+ Thêm Workload' }).click();
     await page.getByLabel('Tên Workload', { exact: true }).fill('api');
     await page.getByLabel('Ảnh Container', { exact: true }).fill('example.invalid/api:v1');
     await page.getByRole('button', { name: '+ Thêm cổng' }).click();
     await page.getByLabel('Tên cổng Service', { exact: true }).fill('http');
     await page.getByLabel('Cổng Service', { exact: true }).fill('8080');
     await page.getByRole('button', { name: 'Lưu draft Workload' }).click();
-    await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Workload', exact: true })).toBeVisible();
     // The home page reopens on staging after a save.
-    if (environment === 'production') await page.getByRole('button', { name: /Production/ }).click();
-    await expect(page.locator('.table-row').filter({ hasText: 'api' })).toContainText('Pending change');
+    if (environment === 'production') await page.getByRole('button', { name: /Production/i }).click();
+    await expect(page.locator('.table-row').filter({ hasText: 'api' })).toContainText('Chờ thay đổi');
     return environment;
   }
 
@@ -114,7 +114,7 @@ try {
     await page.getByLabel('Subdomain').fill(subdomain);
     await shot('create-form');
     await page.getByRole('button', { name: 'Tạo ứng dụng' }).click();
-    await expect(page.getByText('Application created.')).toBeVisible();
+    await expect(page.getByText('Đã tạo ứng dụng.')).toBeVisible();
     const appId = new URL(page.url()).pathname.match(/\/ui\/applications\/([0-9a-f-]{36})$/)?.[1];
     if (!appId) throw new Error(`unexpected Application URL ${page.url()}`);
     expect(createBodies.map((body) => JSON.parse(body ?? '{}'))).toEqual([{ name, subdomain }]);
@@ -123,22 +123,22 @@ try {
     expect(byKey(view, (item) => [item.configured, item.runtimeStatus])).toEqual({ staging: [false, 'UNCONFIGURED'], production: [false, 'UNCONFIGURED'] });
     // secretStoreKey is the public Secret Store selection (a key, never a credential), so only that field name is exempt.
     expect(JSON.stringify(view).replaceAll('"secretStoreKey"', '')).not.toMatch(/secret|kubeconfig|token/i);
-    await expect(page.getByLabel('Execution target').first()).toContainText('Staging has no execution connection yet');
-    await page.getByRole('button', { name: /Production/ }).click();
-    await expect(page.getByLabel('Execution target').first()).toContainText('Production has no execution connection yet');
+    await expect(page.getByLabel('Đích triển khai').first()).toContainText('staging chưa có kết nối triển khai');
+    await page.getByRole('button', { name: /Production/i }).click();
+    await expect(page.getByLabel('Đích triển khai').first()).toContainText('production chưa có kết nối triển khai');
     await shot('home-unconfigured');
-    await page.getByRole('button', { name: /Staging/ }).click();
+    await page.getByRole('button', { name: /Staging/i }).click();
 
     // UNCONFIGURED Preview is a safe 422 with guidance; drafts still work.
     await saveWorkload('staging');
-    await page.getByRole('button', { name: 'Preview changes' }).click();
-    await expect(page.getByRole('alert')).toContainText('set one in Environment Settings');
-    await expect(page.getByLabel('Deployment preview')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Xem trước thay đổi' }).click();
+    await expect(page.getByRole('alert')).toContainText('Hãy chọn kết nối trong Cài đặt môi trường');
+    await expect(page.getByLabel('Xem trước triển khai')).toHaveCount(0);
     await shot('preview-unconfigured');
     expect((await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/staging/deployments`)).json()).deployments ?? []).toHaveLength(0);
 
     // Staging selects the nondefault lab Connection; production stays unset.
-    await page.getByRole('button', { name: 'Open Environment settings' }).click();
+    await page.getByRole('button', { name: 'Mở Cài đặt môi trường' }).click();
     const select = page.getByLabel('Kết nối cho Staging');
     await expect(select).toHaveValue('');
     await expect(select.locator('option')).toHaveText([/Chọn một kết nối/, /internal-cluster \(internal-cluster\)/, new RegExp(labKey)]);
@@ -180,22 +180,22 @@ try {
     await expect(matches).not.toContainText('internal-cluster');
     await shot('score-preview-matched');
     await page.goto(`${baseURL}/ui/applications/${appId}`);
-    await page.getByRole('button', { name: 'Preview changes' }).click();
-    const preview = page.getByLabel('Deployment preview');
-    await expect(preview).toContainText('1 workload(s) affected');
-    await expect(preview.getByLabel('Execution target')).toContainText(targetText('staging', labKey));
-    await page.getByRole('button', { name: 'Deploy these changes' }).click();
-    const result = page.getByLabel('Deployment result');
-    await expect(result).toContainText('Deploy succeeded', { timeout: 60_000 });
-    await expect(result.getByLabel('Execution target')).toContainText(targetText('staging', labKey));
+    await page.getByRole('button', { name: 'Xem trước thay đổi' }).click();
+    const preview = page.getByLabel('Xem trước triển khai');
+    await expect(preview).toContainText('1 Workload bị ảnh hưởng');
+    await expect(preview.getByLabel('Đích triển khai')).toContainText(targetText('staging', labKey));
+    await page.getByRole('button', { name: 'Triển khai các thay đổi này' }).click();
+    const result = page.getByLabel('Kết quả triển khai');
+    await expect(result).toContainText('Triển khai thành công', { timeout: 60_000 });
+    await expect(result.getByLabel('Đích triển khai')).toContainText(targetText('staging', labKey));
     await shot('deployed-staging');
 
     // Production independently chooses the default cluster Connection and
     // plans from its own Environment Connection, not the lab one.
-    await page.getByRole('button', { name: /Production/ }).click();
+    await page.getByRole('button', { name: /Production/i }).click();
     await setConnection('production', 'internal-cluster');
     await page.getByRole('button', { name: `← ${name}` }).click();
-    await page.getByRole('button', { name: /Production/ }).click();
+    await page.getByRole('button', { name: /Production/i }).click();
     await expectTarget('home-production', 'production', 'internal-cluster');
     await shot('production-saved');
     const productionMatches = await matchedDefinitions('production');
@@ -211,18 +211,18 @@ try {
     await page.getByText(name).click();
     await expect(page).toHaveURL(new RegExp(`/ui/applications/${appId}$`));
     await expectTarget('home');
-    await page.getByRole('button', { name: /Production/ }).click();
+    await page.getByRole('button', { name: /Production/i }).click();
     await expectTarget('home-production', 'production', 'internal-cluster');
     const view = (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}`)).json()).application;
     expect(byKey(view, (item) => [item.connectionKey, item.infrastructureScope])).toEqual({ staging: [labKey, 'ENVIRONMENT'], production: ['internal-cluster', 'ENVIRONMENT'] });
     // The saved selection survives a restart and stays editable (no runtime exists yet).
-    await page.getByRole('button', { name: 'Environment settings' }).click();
+    await page.getByRole('button', { name: 'Cài đặt môi trường' }).click();
     await page.getByRole('tab', { name: 'Staging' }).click();
     await expect(page.getByText('Thế hệ 0', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Kết nối cho Staging')).toHaveValue(labKey);
     await expect(page.getByLabel('Kết nối cho Staging')).toBeEnabled();
     await page.getByRole('button', { name: `← ${name}` }).click();
-    await page.getByRole('button', { name: /Staging/ }).click();
+    await page.getByRole('button', { name: /Staging/i }).click();
     const matches = await matchedDefinitions('staging', 'probe');
     await expect(matches).toContainText(`Environment connection ${labKey}`);
     await shot('restart-score-preview');

@@ -149,7 +149,7 @@ try {
   writeFileSync(`${evidenceDir}/application-id`, `${appId}\n`, { mode: 0o600 });
   const sourceNamespace = `app-${appId}-staging`;
 
-  await h.click(page.getByRole('button', { name: 'Environment settings' }));
+  await h.click(page.getByRole('button', { name: 'Cài đặt môi trường' }));
   await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
   const optionLabel = async (select, needle) => {
     const label = (await select.locator('option').allTextContents()).find((text) => text.includes(needle));
@@ -210,15 +210,15 @@ try {
   await addWorkload(h, frontend);
   mark('frontend-saved');
   async function previewAndDeploy(expected, label) {
-    await h.click(page.getByRole('button', { name: 'Preview changes' }));
-    const preview = page.getByLabel('Deployment preview');
-    await expect(preview).toContainText(`${expected} workload(s) affected`, { timeout: 120_000 });
+    await h.click(page.getByRole('button', { name: 'Xem trước thay đổi' }));
+    const preview = page.getByLabel('Xem trước triển khai');
+    await expect(preview).toContainText(`${expected} Workload bị ảnh hưởng`, { timeout: 120_000 });
     await h.moveTo(preview);
     mark(`${label}-preview`);
     await h.pause(3500);
-    await h.click(page.getByRole('button', { name: 'Deploy these changes' }));
-    const result = page.getByLabel('Deployment result');
-    await expect(result).toContainText('Deploy succeeded', { timeout: 600_000 });
+    await h.click(page.getByRole('button', { name: 'Triển khai các thay đổi này' }));
+    const result = page.getByLabel('Kết quả triển khai');
+    await expect(result).toContainText('Triển khai thành công', { timeout: 600_000 });
     await h.moveTo(result);
     mark(`${label}-deployed`);
     await h.pause(4000);

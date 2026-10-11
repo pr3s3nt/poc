@@ -114,7 +114,7 @@ try {
   mark('backend-selections-persisted');
   await h.pause(READ);
   await h.click(page.getByRole('button', { name: 'Cancel' }));
-  await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Workload', exact: true })).toBeVisible();
 
   // 5. frontend: backend Service through Other sources, public path /.
   const frontendScore = await addWorkload(h, frontend);

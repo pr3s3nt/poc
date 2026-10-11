@@ -6,9 +6,10 @@
 // Every product step is a UI action; API reads only assert results. Marks,
 // captions, assertions and the video are written also when a step fails.
 import { expect } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { requireCaptionLocale, createCaptions } from './captions.mjs';
-import { addWorkload, createApplication, createHuman, expectVisibleCursor, installCursor, putKeys } from './human.mjs';
+import { addWorkload, createApplication, createHuman, expectVisibleCursor, installCursor, putKeys, setEnvironmentConnections } from './human.mjs';
 import { assertTablesComplete, locators } from './locators.mjs';
 import { launchHeaded, screenSize, startRecording, stopRecording, x11Input } from './video.mjs';
 
@@ -523,10 +524,10 @@ export const SCENARIOS = {
     caption('Bước 7: Xem trước ứng dụng không có mẫu khớp; dùng renderer mặc định (built-in Kubernetes)');
     await signInAs('developer');
     await openApplication(NATIVE_NAME);
-    await h.click(page.getByRole('button', { name: 'Preview changes' }));
-    const preview = page.getByLabel('Deployment preview');
-    await expect(preview).toContainText('1 workload(s) affected', { timeout: 60_000 });
-    await expect(preview.locator('li').filter({ hasText: /^web / })).toContainText('built-in Kubernetes');
+    await h.click(page.getByRole('button', { name: 'Xem trước thay đổi' }));
+    const preview = page.getByLabel('Xem trước triển khai');
+    await expect(preview).toContainText('1 Workload bị ảnh hưởng', { timeout: 60_000 });
+    await expect(preview.locator('li').filter({ hasText: /^web / })).toContainText('Kubernetes tích hợp sẵn');
     await expect(preview.locator('li').filter({ hasText: /^web / })).not.toContainText('score-k8s');
     check('Preview, application without matching template: native renderer (built-in Kubernetes), no score-k8s provenance');
     mark('preview-native');
@@ -536,9 +537,9 @@ export const SCENARIOS = {
     check('Preview ran no score-k8s call (pure planning)');
 
     caption('Bước 8: Triển khai ứng dụng này; renderer mặc định thành công, không gọi score-k8s');
-    await h.click(page.getByRole('button', { name: 'Deploy these changes' }));
-    const nativeResult = page.getByLabel('Deployment result');
-    await expect(nativeResult).toContainText('Deploy succeeded', { timeout: 120_000 });
+    await h.click(page.getByRole('button', { name: 'Triển khai các thay đổi này' }));
+    const nativeResult = page.getByLabel('Kết quả triển khai');
+    await expect(nativeResult).toContainText('Triển khai thành công', { timeout: 120_000 });
     expect(calls(), 'native deploy does not call the template renderer').toEqual([]);
     check('Deploy of the native application succeeded (fake deliverer) with zero score-k8s stub calls');
     mark('deploy-native-ok');
@@ -548,11 +549,11 @@ export const SCENARIOS = {
     caption('Bước 9: Xem trước ứng dụng có mẫu khớp; hệ thống chọn đúng mẫu tpl-web');
     await h.click(ui('shell', 'navApplications'));
     await openApplication(TEMPLATE_NAME);
-    await h.click(page.getByRole('button', { name: 'Preview changes' }));
-    const templatePreview = page.getByLabel('Deployment preview');
-    await expect(templatePreview).toContainText('1 workload(s) affected', { timeout: 60_000 });
+    await h.click(page.getByRole('button', { name: 'Xem trước thay đổi' }));
+    const templatePreview = page.getByLabel('Xem trước triển khai');
+    await expect(templatePreview).toContainText('1 Workload bị ảnh hưởng', { timeout: 60_000 });
     await expect(templatePreview.locator('li').filter({ hasText: /^web / })).toContainText('score-k8s 0.15.0 (tpl-web)');
-    await expect(templatePreview.locator('li').filter({ hasText: /^web / })).not.toContainText('built-in Kubernetes');
+    await expect(templatePreview.locator('li').filter({ hasText: /^web / })).not.toContainText('Kubernetes tích hợp sẵn');
     check('Preview, application matching criteria: selected template tpl-web (score-k8s 0.15.0), not native');
     mark('preview-template');
     expect(calls(), 'Preview selection did not run the renderer').toEqual([]);
@@ -560,12 +561,12 @@ export const SCENARIOS = {
     await h.read('Mẫu khớp điều kiện được chọn, thông tin mẫu hiện trong bản xem trước');
 
     caption('Bước 10: Triển khai; mẫu đã chọn render lỗi nên báo lỗi, không chuyển sang renderer mặc định');
-    await h.click(page.getByRole('button', { name: 'Deploy these changes' }));
-    const failedResult = page.getByLabel('Deployment result');
-    await expect(failedResult).toContainText('Deploy failed', { timeout: 120_000 });
-    await expect(failedResult.locator('li').filter({ hasText: /^web · / })).toContainText('failed');
-    await expect(failedResult).not.toContainText('Deploy succeeded');
-    await expect(failedResult).toContainText('Unfinished changes stay pending');
+    await h.click(page.getByRole('button', { name: 'Triển khai các thay đổi này' }));
+    const failedResult = page.getByLabel('Kết quả triển khai');
+    await expect(failedResult).toContainText('Triển khai thất bại', { timeout: 120_000 });
+    await expect(failedResult.locator('li').filter({ hasText: /^web · / })).toContainText('thất bại');
+    await expect(failedResult).not.toContainText('Triển khai thành công');
+    await expect(failedResult).toContainText('Thay đổi chưa hoàn tất vẫn ở trạng thái chờ');
     const stubCalls = calls();
     expect(stubCalls.some((line) => line.startsWith('generate ')), 'selected renderer was invoked and failed').toBe(true);
     check(`Deploy with selected template failed through the product Deploy path (stub generate exit 1); stub calls: ${stubCalls.length}`);
@@ -574,9 +575,9 @@ export const SCENARIOS = {
     await h.read('Mẫu được chọn render lỗi: báo lỗi, workload vẫn chờ triển khai');
 
     caption('Bước 11: Xem trước lại; workload vẫn chờ triển khai bằng mẫu, chưa bị renderer mặc định thay thế');
-    await h.click(page.getByRole('button', { name: 'Preview changes' }));
-    const again = page.getByLabel('Deployment preview');
-    await expect(again).toContainText('1 workload(s) affected', { timeout: 60_000 });
+    await h.click(page.getByRole('button', { name: 'Xem trước thay đổi' }));
+    const again = page.getByLabel('Xem trước triển khai');
+    await expect(again).toContainText('1 Workload bị ảnh hưởng', { timeout: 60_000 });
     await expect(again.locator('li').filter({ hasText: /^web / })).toContainText('score-k8s 0.15.0 (tpl-web)');
     check('after the render failure web is still a pending change selecting tpl-web: nothing was committed, no native fallback');
     mark('preview-after-failure');
@@ -1347,7 +1348,7 @@ export const SCENARIOS = {
     const openSettings = async (environment = 'Staging') => {
       await h.click(page.getByRole('button', { name: new RegExp(APP_NAME) }));
       await expect(page.getByRole('heading', { name: APP_NAME })).toBeVisible();
-      await h.click(page.getByRole('button', { name: 'Environment settings' }));
+      await h.click(page.getByRole('button', { name: 'Cài đặt môi trường' }));
       await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
       if (environment !== 'Staging') await h.click(page.getByRole('tab', { name: environment }));
     };
@@ -1382,7 +1383,7 @@ export const SCENARIOS = {
 
     // ---- 2. One READY connection (real list): suggested draft, nothing persisted ---------------
     caption('Bước 2: Trang Cài đặt môi trường; backend fake chỉ có một kết nối Sẵn sàng nên staging được gợi ý nó trong bản nháp chưa lưu');
-    await h.click(page.getByRole('button', { name: 'Environment settings' }));
+    await h.click(page.getByRole('button', { name: 'Cài đặt môi trường' }));
     await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Staging' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Production' })).toBeVisible();
@@ -1796,7 +1797,7 @@ export const SCENARIOS = {
       return data.workloads.find((item) => item.id === id)?.score;
     };
     const openEditor = async () => {
-      await h.click(page.getByRole('button', { name: '+ Add workload' }));
+      await h.click(page.getByRole('button', { name: '+ Thêm Workload' }));
       await expect(page.getByRole('heading', { name: 'Thêm Workload', level: 1 })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Thông tin cơ bản' })).toBeVisible();
     };
@@ -1805,7 +1806,7 @@ export const SCENARIOS = {
       await h.click(editor('save'));
       const response = await saved;
       expect(response.status(), `PUT workload ${id}`).toBe(200);
-      await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Workload', exact: true })).toBeVisible();
       return response.request().postDataJSON().score;
     };
     const portNames = () => editor('portName');
@@ -2102,7 +2103,7 @@ export const SCENARIOS = {
     const listed = await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/staging/workloads`)).json();
     expect(listed.workloads.map((item) => item.id).sort()).toEqual(['api', 'jobs', 'web']);
     await h.click(editor('cancel'));
-    await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Workload', exact: true })).toBeVisible();
     check('backend GET: only web, jobs and api drafts exist; stale-w and broken were never stored');
 
     caption('Bước 18: Đăng xuất; phiên bị thu hồi');
@@ -2212,7 +2213,7 @@ export const SCENARIOS = {
     await h.click(submitButton());
     expect((await created).postDataJSON()).toEqual({ name: FIRST, subdomain: 't09-pay' });
     await expect(page.getByRole('heading', { name: FIRST })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Staging/ })).toHaveClass(/tab-active/);
+    await expect(page.getByRole('button', { name: /Staging/i })).toHaveClass(/tab-active/);
     const appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];
     if (!appId || !/^[a-z0-9-]+$/.test(appId)) throw new Error(`invalid application id: ${appId}`);
     const stored = (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}`)).json()).application;
@@ -2277,7 +2278,7 @@ export const SCENARIOS = {
     await h.click(submitButton());
     expect((await retried).postDataJSON()).toEqual({ name: 'T09 Ứng dụng khác', subdomain: 't09-async' });
     await expect(page.getByRole('heading', { name: 'T09 Ứng dụng khác' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Staging/ })).toHaveClass(/tab-active/);
+    await expect(page.getByRole('button', { name: /Staging/i })).toHaveClass(/tab-active/);
     expect(posts).toHaveLength(beforeAsync + 2);
     check('explicit retry (real backend): POST {name, subdomain} only, navigated to the new application home with Staging active');
     mark('retry-created');
@@ -2622,6 +2623,260 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(3000);
   },
+
+  // T12: Application home. Developer. PRODUCT (UI, backend fake thật với fake deliverer, state tạm): tạo ứng dụng, hướng dẫn chưa cấu hình, chọn kết nối
+  // Staging trong Cài đặt môi trường, lưu 2 draft Workload, Preview chờ, Deploy thật, Preview no-op, xóa/hoàn tác. MOCK (page.route, mỗi lần dùng được ghi
+  // vào mocks.json và assertions): (1) POST deploy trả PARTIAL giả (web thành công, api thất bại kèm chuỗi bí mật giả) vì fake deliverer luôn thành công;
+  // backend KHÔNG thật sự triển khai một phần, danh sách tải lại là dữ liệu thật; (2) POST deploy trả 409 giả, DELETE trả 409 giả (stale); (3) POST preview
+  // bị giữ ~3.5s để chứng minh phản hồi đến muộn bị bỏ qua. Không có BUSY thật (cần operation môi trường đang chạy): BUSY chỉ được kiểm bằng unit test.
+  async T12({ page, h, ui, caption, mark, check, baseURL, x11, snap }) {
+    const NAME = 'T12 Trang ứng dụng';
+    const SECRET_TEXT = 'provider said token=ABC-SECRET-777';
+    const mocks = [];
+    const mocked = (what) => { mocks.push(what); appendFileSync(`${process.env.ORCH_E2E_EVIDENCE_DIR}/mocks.json`, `${JSON.stringify({ at: new Date().toISOString(), what })}\n`); };
+    const requests = [];
+    page.on('request', (request) => {
+      if (request.method() !== 'GET') requests.push(`${request.method()} ${new URL(request.url()).pathname.replace(/^\/api\/v1\/applications\/[^/]+\//, '')}`);
+    });
+    const count = (suffix) => requests.filter((line) => line.endsWith(suffix)).length;
+    const row = (name) => page.locator('.table-row').filter({ has: page.locator('.workload-name', { hasText: new RegExp(`^◫?${name}$`) }) });
+    const previewPanel = () => page.getByLabel('Xem trước triển khai');
+    const resultPanel = () => page.getByLabel('Kết quả triển khai');
+    const previewButton = () => page.getByRole('button', { name: 'Xem trước thay đổi' });
+    const deployButton = () => page.getByRole('button', { name: 'Triển khai các thay đổi này' });
+    const noRaw = async () => expect(await page.locator('body').innerText()).not.toMatch(/ABC-SECRET|token=|provider said|stale detail/);
+    const dialogs = [];
+    // The native confirm stays open (a listener prevents auto-dismiss): the click is pending, the frame is
+    // grabbed and a pause lets the viewer read it, then a real X11 key answers (Return = accept, Escape = cancel).
+    page.on('dialog', (dialog) => dialogs.push(dialog.message()));
+    const answerConfirm = async (button, key, label) => {
+      const opened = new Promise((resolve) => page.once('dialog', resolve));
+      const clicking = h.click(button);
+      await opened;
+      await h.pause(600);
+      mark(`dialog-visible-${label}`);
+      snap(`T12-dialog-${label}`);
+      await h.pause(2200);
+      x11.keys([key]);
+      await clicking;
+    };
+    const apiWorkloads = async (environment) => (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/${environment}/workloads`)).json()).workloads;
+    let appId = '';
+    const spec = (name) => ({ name, image: `registry.example/${name}:t12`, bindings: [], port: { name: 'http', port: '8080', targetPort: '8080' } });
+
+    caption('Bước 1: Lập trình viên đăng nhập và tạo ứng dụng mới qua form; trang ứng dụng báo chưa triển khai và chưa chọn kết nối');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'developer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    appId = await createApplication(h, NAME, 't12-trang-ung-dung', { connections: null });
+    await expect(page.getByRole('status').filter({ hasText: 'Đã tạo ứng dụng. Hãy chọn kết nối cho từng môi trường trong Cài đặt môi trường' })).toContainText('chưa có gì được triển khai');
+    await expect(page.getByLabel('Đích triển khai').first()).toContainText('staging chưa có kết nối triển khai');
+    await expect(page.getByText('Môi trường này chưa có Workload nào.')).toBeVisible();
+    await expect(page.getByText('Chưa có triển khai nào trong staging.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Triển khai gần đây' })).toBeVisible();
+    check('new application home (real backend): Vietnamese created notice, unconfigured target, empty workload and deployment states');
+    mark('home-created');
+    await h.read('Ứng dụng mới: chưa có kết nối, chưa có Workload, chưa có triển khai');
+
+    caption('Bước 2: Bấm Xem trước thay đổi khi chưa có kết nối; backend từ chối an toàn, trang hướng dẫn mở Cài đặt môi trường, không gọi Triển khai');
+    await h.click(previewButton());
+    const alert = page.getByRole('alert');
+    await expect(alert).toContainText('Môi trường chưa có kết nối triển khai');
+    await expect(alert).toContainText('chưa có gì được lập kế hoạch hoặc triển khai');
+    expect(count('/preview')).toBe(1);
+    expect(count('/deploy')).toBe(0);
+    check('unconfigured Preview (real 422): Vietnamese guidance, no preview panel, zero deploy requests');
+    mark('unconfigured');
+    await h.moveTo(alert);
+    await h.read('Chưa cấu hình: cần chọn kết nối, chưa lập kế hoạch hay triển khai gì');
+    await h.click(alert.getByRole('button', { name: 'Mở Cài đặt môi trường' }));
+    await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
+    await h.click(page.getByRole('button', { name: `← ${NAME}` }));
+    await expect(page.getByRole('heading', { name: NAME })).toBeVisible();
+
+    caption('Bước 3: Chọn kết nối Staging trong Cài đặt môi trường và lưu; tóm tắt đích hiển thị Kết nối, Phạm vi triển khai bằng tiếng Việt');
+    await setEnvironmentConnections(h, NAME, { staging: 'internal-cluster' });
+    const target = page.getByLabel('Đích triển khai').first();
+    await expect(target).toContainText('staging · Kết nối internal-cluster (internal-cluster) · Phạm vi triển khai Cluster nội bộ (internal-k8s)');
+    check('target summary after UI Save: Kết nối internal-cluster, Phạm vi triển khai "Cluster nội bộ (internal-k8s)", technical IDs intact');
+    mark('connection-set');
+    await h.moveTo(target);
+    await h.read('Staging dùng Kết nối internal-cluster, phạm vi Cluster nội bộ');
+
+    caption('Bước 4: Thêm hai Workload api và web bằng form; lưu chỉ tạo draft, trạng thái Chờ thay đổi, chưa triển khai');
+    await addWorkload(h, spec('api'));
+    await expect(row('api')).toContainText('Chờ thay đổi');
+    await addWorkload(h, spec('web'));
+    await expect(row('web')).toContainText('Chờ thay đổi');
+    await expect(row('api')).toContainText('Chờ thay đổi');
+    expect(count('/deploy')).toBe(0);
+    check('two draft Workloads saved through the UI: both rows "Chờ thay đổi", no deploy request');
+    mark('drafts-saved');
+    await h.read('Hai Workload ở trạng thái Chờ thay đổi');
+
+    caption('Bước 5: Xem trước thay đổi (chỉ đọc): bảng xem trước tiếng Việt, token giữ nguyên, danh sách không đổi, chưa triển khai');
+    const draftsBefore = JSON.stringify(await apiWorkloads('staging'));
+    await h.click(previewButton());
+    await expect(previewPanel()).toContainText('2 Workload bị ảnh hưởng');
+    await expect(previewPanel().locator('li').filter({ hasText: /^api · triển khai/ })).toContainText('Kubernetes tích hợp sẵn');
+    await expect(previewPanel().getByLabel('Đích triển khai')).toContainText('Kết nối internal-cluster');
+    await expect(deployButton()).toBeEnabled();
+    expect(count('/deploy')).toBe(0);
+    expect(JSON.stringify(await apiWorkloads('staging'))).toBe(draftsBefore);
+    check('Preview (real): "2 Workload bị ảnh hưởng", action words Vietnamese, target in panel, Deploy only enabled button, drafts unchanged, no deploy');
+    mark('preview-pending');
+    await h.moveTo(previewPanel());
+    await h.read('Xem trước chỉ đọc; Triển khai vẫn là thao tác tường minh');
+
+    caption('Bước 6: MOCK Triển khai một phần: web thành công, api thất bại; không hiện lỗi thô, thay đổi chưa xong vẫn chờ');
+    await page.route('**/environments/staging/deploy', async (route) => {
+      mocked('POST staging/deploy answered with fake PARTIAL (web SUCCEEDED, api FAILED with secret-like error text); backend deployed nothing');
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'PARTIAL', results: [
+        { workloadId: 'web', action: 'DEPLOY', status: 'SUCCEEDED', deploymentId: 'mock-dep-web' },
+        { workloadId: 'api', action: 'DEPLOY', status: 'FAILED', error: SECRET_TEXT },
+      ] }) });
+    });
+    await h.click(deployButton());
+    await expect(resultPanel().getByRole('heading', { name: 'Triển khai một phần' })).toBeVisible();
+    await expect(resultPanel()).toContainText('web · triển khai: thành công');
+    await expect(resultPanel()).toContainText('api · triển khai: thất bại');
+    await expect(resultPanel()).toContainText('Thay đổi chưa hoàn tất vẫn ở trạng thái chờ');
+    await expect(resultPanel().getByRole('link', { name: 'xem triển khai' })).toHaveCount(1);
+    await noRaw();
+    await expect(row('api')).toContainText('Chờ thay đổi');
+    await expect(previewPanel()).toHaveCount(0);
+    await expect(deployButton()).toHaveCount(0);
+    check('partial report (MOCKED deploy reply; real list reload): per-Workload Vietnamese results, one deployment link, no raw error text, rows still pending, Deploy gone until fresh Preview');
+    mark('partial-report');
+    await h.moveTo(resultPanel());
+    await h.read('Kết quả từng Workload; lỗi thô không hiển thị; không hoàn tác tự động');
+
+    caption('Bước 7: Thử lại bằng Xem trước mới (đọc backend thật), rồi Triển khai thật: cả hai Workload thành công và trở thành Sẵn sàng');
+    await page.unroute('**/environments/staging/deploy');
+    const previewsBefore = count('/preview');
+    await h.click(previewButton());
+    await expect(previewPanel()).toContainText('2 Workload bị ảnh hưởng');
+    expect(count('/preview')).toBe(previewsBefore + 1);
+    await expect(resultPanel()).toHaveCount(0);
+    await h.click(deployButton());
+    await expect(resultPanel().getByRole('heading', { name: 'Triển khai thành công' })).toBeVisible({ timeout: 120_000 });
+    await expect(resultPanel()).toContainText('api · triển khai: thành công');
+    await expect(resultPanel()).toContainText('web · triển khai: thành công');
+    await expect(row('api')).toContainText('Sẵn sàng');
+    await expect(row('web')).toContainText('Sẵn sàng');
+    check('retry = fresh Preview request, then real Deploy (fake deliverer) succeeded for both; rows "Sẵn sàng"');
+    mark('retry-deploy-ok');
+    await h.moveTo(resultPanel());
+    await h.read('Thử lại phải xem trước lại; Triển khai thật thành công');
+
+    caption('Bước 8: Triển khai gần đây hiển thị thời gian, trạng thái và hành động bằng tiếng Việt; thứ tự và liên kết theo dữ liệu thật');
+    const recent = page.locator('section.content-panel').filter({ has: page.getByRole('heading', { name: 'Triển khai gần đây' }) });
+    await expect(recent.locator('button.deployment-entry').first()).toContainText('Thành công');
+    await expect(recent.locator('button.deployment-entry').first()).toContainText('triển khai');
+    await expect(recent.getByRole('button', { name: 'Xem tất cả' })).toBeVisible();
+    expect(await recent.locator('button.deployment-entry').count()).toBeLessThanOrEqual(5);
+    check('recent deployments (real): Vietnamese heading, Thành công badge, action word, "Xem tất cả", at most five entries');
+    mark('recent-deployments');
+    await h.moveTo(recent);
+    await h.read('Triển khai gần đây bằng tiếng Việt');
+
+    caption('Bước 9: Xem trước khi không còn gì thay đổi: thông báo no-op, nút Triển khai bị khóa');
+    await h.click(previewButton());
+    await expect(page.getByText('Không có thay đổi Workload nào để triển khai.')).toBeVisible();
+    await expect(deployButton()).toBeDisabled();
+    check('no-op Preview (real): Vietnamese no-change message, Deploy disabled');
+    mark('noop-preview');
+    await h.read('Không có thay đổi: Deploy bị khóa');
+
+    caption('Bước 10: Xóa Workload web: hủy xác nhận thì không xóa; đồng ý thì Chờ xóa; Hoàn tác trả về Sẵn sàng');
+    const deletesBefore = count('/workloads/web');
+    await answerConfirm(row('web').getByRole('button', { name: 'Xóa' }), 'Escape', 'cancel');
+    expect(dialogs.at(-1)).toBe('Đánh dấu xóa web trong staging? Workload đang chạy chỉ thay đổi sau khi Triển khai.');
+    expect(count('/workloads/web')).toBe(deletesBefore);
+    await expect(row('web')).toContainText('Sẵn sàng');
+    await answerConfirm(row('web').getByRole('button', { name: 'Xóa' }), 'Return', 'accept');
+    await expect(row('web')).toContainText('Chờ xóa');
+    expect((await apiWorkloads('staging')).find((item) => item.id === 'web')?.state).toBe('PENDING_DELETE');
+    await expect(previewPanel()).toHaveCount(0);
+    mark('delete-pending');
+    await h.read('Xác nhận có tên Workload và môi trường; xóa chỉ là draft');
+    await h.click(row('web').getByRole('button', { name: 'Hoàn tác' }));
+    await expect(row('web')).toContainText('Sẵn sàng');
+    check('delete confirm text names web+staging; cancel sent no DELETE; accepted => PENDING_DELETE (real); Hoàn tác => Sẵn sàng');
+    mark('undo');
+
+    caption('Bước 11: MOCK stale khi Triển khai (409): bỏ xem trước cũ, tải lại danh sách, yêu cầu xem trước lại, không tự triển khai lại');
+    await answerConfirm(row('web').getByRole('button', { name: 'Xóa' }), 'Return', 'stale-deploy');
+    await expect(row('web')).toContainText('Chờ xóa');
+    await h.click(previewButton());
+    await expect(previewPanel()).toContainText('web · gỡ bỏ');
+    await page.route('**/environments/staging/deploy', async (route) => {
+      mocked('POST staging/deploy answered with fake 409 (stale), raw detail text must not render');
+      await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'stale detail: token=ABC-SECRET-777' }) });
+    });
+    const deploysBefore = count('/deploy');
+    await h.click(deployButton());
+    await expect(page.getByRole('status').filter({ hasText: 'đã thay đổi kể từ khi trang được tải hoặc xem trước' })).toContainText('xem trước lại');
+    await expect(previewPanel()).toHaveCount(0);
+    await expect(deployButton()).toHaveCount(0);
+    await expect(row('web')).toContainText('Chờ xóa');
+    await noRaw();
+    expect(count('/deploy')).toBe(deploysBefore + 1);
+    await page.unroute('**/environments/staging/deploy');
+    check('stale Deploy (MOCKED 409): Vietnamese notice, preview dropped, list reloaded from backend, exactly one deploy attempt, no raw text');
+    mark('stale-deploy');
+    await h.read('Xem trước đã cũ: tải lại danh sách, không tự triển khai lại');
+    await h.click(row('web').getByRole('button', { name: 'Hoàn tác' }));
+    await expect(row('web')).toContainText('Sẵn sàng');
+
+    caption('Bước 12: MOCK stale khi Xóa (409): thông báo tiếng Việt, danh sách tải lại, thao tác không được thử lại ngầm');
+    await page.route('**/environments/staging/workloads/api', async (route) => {
+      if (route.request().method() !== 'DELETE') { await route.continue(); return; }
+      mocked('DELETE staging/workloads/api answered with fake 409 (stale)');
+      await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'stale detail: token=ABC-SECRET-777' }) });
+    });
+    const apiDeletes = count('/workloads/api');
+    await answerConfirm(row('api').getByRole('button', { name: 'Xóa' }), 'Return', 'stale-delete');
+    await expect(page.getByRole('status').filter({ hasText: 'đã thay đổi kể từ khi trang được tải hoặc xem trước' })).toBeVisible();
+    await expect(row('api')).toContainText('Sẵn sàng');
+    expect(count('/workloads/api')).toBe(apiDeletes + 1);
+    await noRaw();
+    await page.unroute('**/environments/staging/workloads/api');
+    check('stale Delete (MOCKED 409): Vietnamese notice, real reload shows api unchanged, one DELETE only, no raw text');
+    mark('stale-delete');
+    await h.read('Xóa gặp xung đột: danh sách được tải lại và không thử lại ngầm');
+
+    caption('Bước 13: MOCK giữ phản hồi Xem trước 3.5s rồi chuyển sang Production; phản hồi muộn của staging bị bỏ qua');
+    await page.route('**/environments/staging/preview', async (route) => {
+      mocked('POST staging/preview held 3.5s then forwarded to the real backend (late response)');
+      await new Promise((resolve) => setTimeout(resolve, 3500));
+      await route.continue();
+    });
+    await h.click(previewButton());
+    await expect(page.getByRole('button', { name: 'Đang tính toán xem trước…' })).toBeDisabled();
+    await h.click(page.getByRole('button', { name: /^Production/i }));
+    await expect(page.getByText('Môi trường này chưa có Workload nào.')).toBeVisible();
+    await expect(page.getByLabel('Đích triển khai').first()).toContainText('production chưa có kết nối triển khai');
+    await page.waitForTimeout(4500);
+    await expect(previewPanel()).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Xem trước cho staging' })).toHaveCount(0);
+    await page.unroute('**/environments/staging/preview');
+    check('late staging Preview (MOCKED delay, real reply) ignored after switching to Production; Production shows its own empty list and target');
+    mark('late-scope');
+    await h.read('Phản hồi muộn của staging không xuất hiện ở production');
+    await h.click(page.getByRole('button', { name: /^Staging/i }));
+    await expect(row('api')).toContainText('Sẵn sàng');
+
+    caption('Bước 14: Đăng xuất');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    check(`mocks used (${mocks.length} activations, see mocks.json); real: create/connection/drafts/preview/deploy/delete/undo/list/history`);
+    mark('signed-out');
+    await h.pause(3000);
+  },
 };
 
 export function parseArgs(argv) {
@@ -2703,7 +2958,9 @@ async function main() {
     await page.waitForTimeout(1500);
     const mark = (label) => marks.push({ label, seconds: Number(((Date.now() - startedAt) / 1000).toFixed(1)) });
     const fail = async (message) => { appendFileSync(assertionsPath, `FAIL ${message}\n`); await expect(message, message).toBe(''); };
-    await scenario({ page, h, ui: locators(page), caption: captions.caption, mark, check, baseURL, fail });
+    // One still frame of the whole X screen: native dialogs are not in the page screenshot.
+    const snap = (name) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'x11grab', '-video_size', `${width}x${height}`, '-i', env.DISPLAY, '-frames:v', '1', `${evidenceDir}/${name}.png`]);
+    await scenario({ page, h, ui: locators(page), caption: captions.caption, mark, check, baseURL, fail, x11, snap });
     result = 'PASS';
     console.log(`PASS: scenario ${args.scenario}`);
   } catch (error) {

@@ -63,3 +63,18 @@ thứ tự dữ liệu và điều hướng tới Application home; các nhãn m
 Việt hóa cách trình bày hiện có, không thay cách suy ra trạng thái môi trường.
 Nút tạo ứng dụng ở header và trạng thái rỗng mở cùng form tạo hiện có.
 Không thêm search/filter hoặc thay API/payload.
+
+## T12 — Trang ứng dụng và triển khai gần đây (VI-02/04/05)
+
+Trang ứng dụng dùng tiếng Việt cho tiêu đề, điều hướng Cài đặt môi trường,
+Workload, trạng thái draft, Xem trước thay đổi, Triển khai, Xóa và Hoàn tác;
+giữ nguyên tên, IDs, endpoints, `staging`/`production` và payload. Tóm tắt
+đích hiển thị Kết nối, Phạm vi triển khai và region an toàn cho đúng môi trường.
+Thông báo ứng dụng mới nói rõ chưa triển khai và cần chọn kết nối từng môi trường.
+
+Xem trước chỉ đọc; nút Triển khai vẫn cần thao tác tường minh và token hiện tại.
+Kết quả hiển thị trạng thái và hành động tiếng Việt theo từng Workload, link
+Deployment ID, thay đổi chưa hoàn tất và yêu cầu xem trước lại để thử lại.
+Tài nguyên không còn được tham chiếu không bị diễn giải là đã xóa. Danh sách
+triển khai gần đây giữ thứ tự, tối đa năm mục, thời gian và links hiện hành;
+nhãn tải/rỗng/lỗi/thử lại và badges dùng tiếng Việt. Không thêm rollback.

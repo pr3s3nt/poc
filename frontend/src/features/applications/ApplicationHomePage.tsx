@@ -10,6 +10,24 @@ import { deleteWorkload, deployChanges, getWorkloads, previewChanges, undoWorklo
 import { useEnvironmentBusy } from '../environment/useEnvironmentBusy';
 import { RecentDeployments } from '../deployments/RecentDeployments';
 
+const actions: Record<string, string> = { DEPLOY: 'triển khai', UPDATE: 'cập nhật', REMOVE: 'gỡ bỏ' };
+const reports: Record<string, string> = { SUCCEEDED: 'thành công', PARTIAL: 'một phần', FAILED: 'thất bại' };
+const results: Record<string, string> = { SUCCEEDED: 'thành công', FAILED: 'thất bại', SKIPPED: 'bỏ qua' };
+// Own-key lookup: inherited keys such as "constructor" must never resolve.
+const lookup = (map: Record<string, string>, key: string) => (Object.hasOwn(map, key) ? map[key] ?? key : key);
+const actionLabel = (action: string) => lookup(actions, action);
+const reportLabel = (status: string) => lookup(reports, status);
+const resultLabel = (status: string) => lookup(results, status);
+
+// Raw API/provider errors may carry values that must not be shown; every
+// failure uses a fixed Vietnamese message chosen by the attempted action.
+function failureMessage(kind: Busy): string {
+  if (kind === 'preview') return 'Không thể xem trước thay đổi. Hãy thử lại.';
+  if (kind === 'deploy') return 'Không thể triển khai. Hãy xem trước lại để kiểm tra trạng thái trước khi thử lại.';
+  if (kind.startsWith('undo:')) return 'Không thể hoàn tác việc xóa. Hãy thử lại.';
+  return 'Không thể đánh dấu xóa Workload. Hãy thử lại.';
+}
+
 // One mutation or read that must not overlap another (UC-07 UI states).
 type Busy = '' | 'preview' | 'deploy' | `delete:${string}` | `undo:${string}`;
 
@@ -35,7 +53,7 @@ export function ApplicationHomePage({ application, created = false, onTargetChan
     setData(undefined); setPreview(undefined); setDeployReport(undefined); setLoading(true); setError(''); setNotice(''); setBusy(''); setNeedsTarget(false);
     getWorkloads(application.id, environment)
       .then((result) => { if (current === scope.current) setData(result); })
-      .catch((err: Error) => { if (current === scope.current) setError(err.message); })
+      .catch(() => { if (current === scope.current) setError(`Không thể tải danh sách Workload của ${environment}.`); })
       .finally(() => { if (current === scope.current) setLoading(false); });
   }, [application.id, environment]);
 
@@ -54,12 +72,12 @@ export function ApplicationHomePage({ application, created = false, onTargetChan
       setPreview(undefined);
       if (err instanceof ApiError && err.status === 409) {
         const reloaded = await reloadList(current);
-        if (reloaded && current === scope.current) setNotice(`Workloads in ${environment} changed since this page loaded or was previewed. The list was reloaded; review it and preview again.`);
+        if (reloaded && current === scope.current) setNotice(`Workload trong ${environment} đã thay đổi kể từ khi trang được tải hoặc xem trước. Danh sách đã được tải lại; hãy kiểm tra và xem trước lại.`);
       } else if (err instanceof ApiError && err.status === 422 && err.field === 'connectionKey') {
         // UNCONFIGURED Environment: nothing was planned or deployed.
-        setError(err.message); setNeedsTarget(true);
+        setError('Môi trường chưa có kết nối triển khai. Hãy chọn kết nối trong Cài đặt môi trường; chưa có gì được lập kế hoạch hoặc triển khai.'); setNeedsTarget(true);
       } else {
-        setError((err as Error).message);
+        setError(failureMessage(kind));
       }
     } finally {
       if (current === scope.current) setBusy('');
@@ -74,14 +92,14 @@ export function ApplicationHomePage({ application, created = false, onTargetChan
       if (current === scope.current) { setData(fresh); setError(''); setLoading(false); }
       return true;
     } catch {
-      if (current === scope.current) { setData(undefined); setError(`The workload list for ${environment} could not be reloaded. Retry before making more changes.`); }
+      if (current === scope.current) { setData(undefined); setError(`Không thể tải lại danh sách Workload của ${environment}. Hãy thử lại trước khi thay đổi tiếp.`); }
       return false;
     }
   }
 
   function changeDeletion(id: string, undo: boolean) {
     if (!data || environmentBusy) return;
-    if (!undo && !window.confirm(`Mark ${id} for deletion in ${environment}? Running workloads will not change until Deploy.`)) return;
+    if (!undo && !window.confirm(`Đánh dấu xóa ${id} trong ${environment}? Workload đang chạy chỉ thay đổi sau khi Triển khai.`)) return;
     const version = data.draftVersion;
     setDeployReport(undefined);
     void run(undo ? `undo:${id}` : `delete:${id}`, () => undo ? undoWorkloadDelete(application.id, environment, id, version) : deleteWorkload(application.id, environment, id, version), (list) => { setPreview(undefined); setData(list); });
@@ -104,18 +122,18 @@ export function ApplicationHomePage({ application, created = false, onTargetChan
 
   const workloads = data?.workloads ?? [];
   const locked = busy !== '' || loading || !data;
-  return <section className="page application-home"><button className="back-link" disabled={busy === 'deploy'} onClick={() => navigate({ name: 'applications' })}>← Applications</button>
-    <header className="page-header application-header"><div><p className="eyebrow">Application</p><h1>{application.name}</h1><p>{endpointFor(application, 'production')}</p><ApplicationTarget application={application} environment={environment} /></div><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>Environment settings</Button></header>
-    {created ? <div className="form-success" role="status">Application created. Choose each environment's connection in Environment settings before previewing or deploying; nothing has been deployed yet.</div> : null}
-    <div className="tabs" role="tablist"><button className={environment === 'staging' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('staging')}>Staging<span>{endpointFor(application, 'staging')}</span></button><button className={environment === 'production' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('production')}>Production<span>{endpointFor(application, 'production')}</span></button></div>
-    <section className="content-panel"><div className="section-header"><div><h2>Workloads</h2><p>Configuration for {environment}; saving here does not deploy.</p></div><span><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'score-preview', applicationId: application.id, environment })}>Preview Score</Button><Button disabled={locked} onClick={() => navigate({ name: 'workload', applicationId: application.id, environment })}>+ Add workload</Button></span></div>
-      {error ? <div className="form-error" role="alert">{error}{needsTarget ? <> <Button onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>Open Environment settings</Button></> : null}{!data && !loading ? <> <Button onClick={() => void reloadList(scope.current)}>Retry</Button></> : null}</div> : null}
-      {environmentBusy ? <div className="form-info" role="status">An environment operation is running in {environment}. Draft changes are paused until it ends.</div> : null}
+  return <section className="page application-home"><button className="back-link" disabled={busy === 'deploy'} onClick={() => navigate({ name: 'applications' })}>← Ứng dụng</button>
+    <header className="page-header application-header"><div><p className="eyebrow">Ứng dụng</p><h1>{application.name}</h1><p>{endpointFor(application, 'production')}</p><ApplicationTarget application={application} environment={environment} /></div><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>Cài đặt môi trường</Button></header>
+    {created ? <div className="form-success" role="status">Đã tạo ứng dụng. Hãy chọn kết nối cho từng môi trường trong Cài đặt môi trường trước khi xem trước hoặc triển khai; chưa có gì được triển khai.</div> : null}
+    <div className="tabs" role="tablist"><button className={environment === 'staging' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('staging')}>staging<span>{endpointFor(application, 'staging')}</span></button><button className={environment === 'production' ? 'tab tab-active' : 'tab'} disabled={busy === 'deploy'} onClick={() => setEnvironment('production')}>production<span>{endpointFor(application, 'production')}</span></button></div>
+    <section className="content-panel"><div className="section-header"><div><h2>Workload</h2><p>Cấu hình của {environment}; lưu ở đây không triển khai.</p></div><span><Button disabled={busy === 'deploy'} onClick={() => navigate({ name: 'score-preview', applicationId: application.id, environment })}>Xem trước Score</Button><Button disabled={locked} onClick={() => navigate({ name: 'workload', applicationId: application.id, environment })}>+ Thêm Workload</Button></span></div>
+      {error ? <div className="form-error" role="alert">{error}{needsTarget ? <> <Button onClick={() => navigate({ name: 'settings', applicationId: application.id, environment })}>Mở Cài đặt môi trường</Button></> : null}{!data && !loading ? <> <Button onClick={() => void reloadList(scope.current)}>Thử lại</Button></> : null}</div> : null}
+      {environmentBusy ? <div className="form-info" role="status">Một thao tác môi trường đang chạy trong {environment}. Thay đổi bản nháp tạm dừng cho đến khi thao tác kết thúc.</div> : null}
       {notice ? <div className="form-info" role="status">{notice}</div> : null}
-      {loading ? <p>Loading workloads…</p> : workloads.length ? <div className="workload-table"><div className="table-head"><span>Name</span><span>Status</span><span>Actions</span></div>{workloads.map((workload) => <div className="table-row" key={workload.id}><span className="workload-name"><span className="workload-icon">◫</span>{workload.id}</span><Status tone={workload.state ? 'draft' : 'good'}>{workload.state === 'PENDING_DELETE' ? 'Pending deletion' : workload.state === 'PENDING_UPSERT' ? 'Pending change' : 'Ready'}</Status><span>{workload.state === 'PENDING_DELETE' ? <Button tone="quiet" disabled={locked || environmentBusy} onClick={() => changeDeletion(workload.id, true)}>{busy === `undo:${workload.id}` ? 'Restoring…' : 'Undo'}</Button> : <><Button tone="quiet" disabled={locked || !workload.score} onClick={() => navigate({ name: 'workload', applicationId: application.id, environment, workloadId: workload.id })}>Edit</Button><Button tone="danger" disabled={locked || environmentBusy} onClick={() => changeDeletion(workload.id, false)}>{busy === `delete:${workload.id}` ? 'Marking…' : 'Delete'}</Button></>}</span></div>)}</div> : data ? <div className="section-empty">No workloads in this environment yet.</div> : null}
-      <div className="form-actions"><Button tone="primary" disabled={locked} onClick={loadPreview}>{busy === 'preview' ? 'Calculating preview…' : 'Preview changes'}</Button></div>
-      {preview ? <div className="content-panel" aria-label="Deployment preview"><h3>Preview for {environment}</h3><ApplicationTarget application={application} environment={environment} /><p>{preview.changes.length} workload(s) affected · draft v{preview.draftVersion} · configuration {preview.configRevisionId ? preview.configRevisionId.slice(0, 8) : 'empty'}</p>{preview.changes.length ? <ul>{preview.changes.map((change) => <li key={change.workloadId}><strong>{change.workloadId}</strong> · {change.action.toLowerCase()} · {change.rendering?.driverType ? `${change.rendering.driverType} ${change.rendering.bundle.version} (${change.rendering.definitionKey})` : 'built-in Kubernetes'} · {change.resources.new.length} new resource(s){change.resources.unreferenced.length ? ` · ${change.resources.unreferenced.length} resource(s) will become unreferenced (not destroyed)` : ''}</li>)}</ul> : <p>{preview.routePending ? 'Public routes need reconciliation; workloads will not restart.' : 'No workload changes to deploy.'}</p>}<Button tone="primary" disabled={busy !== '' || (preview.changes.length === 0 && !preview.routePending)} onClick={deployPreview}>{busy === 'deploy' ? 'Deploying…' : preview.routePending && preview.changes.length === 0 ? 'Retry public routes' : 'Deploy these changes'}</Button></div> : null}
-      {deployReport ? <div className="content-panel" aria-label="Deployment result"><h3>Deploy {deployReport.status.toLowerCase()}</h3><ApplicationTarget application={application} environment={environment} /><ul>{deployReport.results.map((result) => <li key={result.workloadId}>{result.workloadId} · {result.action.toLowerCase()}: {result.status.toLowerCase()}{result.deploymentId ? <> · <a href="#" onClick={(event) => { event.preventDefault(); navigate({ name: 'deployment', applicationId: application.id, environment, deploymentId: result.deploymentId as string }); }}>view deployment</a></> : null}{result.error ? ` — ${result.error}` : ''}</li>)}</ul>{deployReport.status !== 'SUCCEEDED' ? <p>Unfinished changes stay pending. Preview again to retry them; nothing is rolled back automatically.</p> : null}</div> : null}
+      {loading ? <p role="status" aria-busy="true">Đang tải Workload…</p> : workloads.length ? <div className="workload-table"><div className="table-head"><span>Tên</span><span>Trạng thái</span><span>Thao tác</span></div>{workloads.map((workload) => <div className="table-row" key={workload.id}><span className="workload-name"><span className="workload-icon">◫</span>{workload.id}</span><Status tone={workload.state ? 'draft' : 'good'}>{workload.state === 'PENDING_DELETE' ? 'Chờ xóa' : workload.state === 'PENDING_UPSERT' ? 'Chờ thay đổi' : 'Sẵn sàng'}</Status><span>{workload.state === 'PENDING_DELETE' ? <Button tone="quiet" disabled={locked || environmentBusy} onClick={() => changeDeletion(workload.id, true)}>{busy === `undo:${workload.id}` ? 'Đang hoàn tác…' : 'Hoàn tác'}</Button> : <><Button tone="quiet" disabled={locked || !workload.score} onClick={() => navigate({ name: 'workload', applicationId: application.id, environment, workloadId: workload.id })}>Sửa</Button><Button tone="danger" disabled={locked || environmentBusy} onClick={() => changeDeletion(workload.id, false)}>{busy === `delete:${workload.id}` ? 'Đang đánh dấu…' : 'Xóa'}</Button></>}</span></div>)}</div> : data ? <div className="section-empty">Môi trường này chưa có Workload nào.</div> : null}
+      <div className="form-actions"><Button tone="primary" disabled={locked} onClick={loadPreview}>{busy === 'preview' ? 'Đang tính toán xem trước…' : 'Xem trước thay đổi'}</Button></div>
+      {preview ? <div className="content-panel" aria-label="Xem trước triển khai"><h3>Xem trước cho {environment}</h3><ApplicationTarget application={application} environment={environment} /><p>{preview.changes.length} Workload bị ảnh hưởng · bản nháp v{preview.draftVersion} · cấu hình {preview.configRevisionId ? preview.configRevisionId.slice(0, 8) : 'trống'}</p>{preview.changes.length ? <ul>{preview.changes.map((change) => <li key={change.workloadId}><strong>{change.workloadId}</strong> · {actionLabel(change.action)} · {change.rendering?.driverType ? `${change.rendering.driverType} ${change.rendering.bundle.version} (${change.rendering.definitionKey})` : 'Kubernetes tích hợp sẵn'} · {change.resources.new.length} tài nguyên mới{change.resources.unreferenced.length ? ` · ${change.resources.unreferenced.length} tài nguyên sẽ không còn được tham chiếu (không bị hủy)` : ''}</li>)}</ul> : <p>{preview.routePending ? 'Đường dẫn công khai cần được đồng bộ; Workload sẽ không khởi động lại.' : 'Không có thay đổi Workload nào để triển khai.'}</p>}<Button tone="primary" disabled={busy !== '' || (preview.changes.length === 0 && !preview.routePending)} onClick={deployPreview}>{busy === 'deploy' ? 'Đang triển khai…' : preview.routePending && preview.changes.length === 0 ? 'Thử lại đường dẫn công khai' : 'Triển khai các thay đổi này'}</Button></div> : null}
+      {deployReport ? <div className="content-panel" aria-label="Kết quả triển khai"><h3>Triển khai {reportLabel(deployReport.status)}</h3><ApplicationTarget application={application} environment={environment} /><ul>{deployReport.results.map((result) => <li key={result.workloadId}>{result.workloadId} · {actionLabel(result.action)}: {resultLabel(result.status)}{result.deploymentId ? <> · <a href="#" onClick={(event) => { event.preventDefault(); navigate({ name: 'deployment', applicationId: application.id, environment, deploymentId: result.deploymentId as string }); }}>xem triển khai</a></> : null}{result.error ? ' — Workload này không triển khai được. Xem lại cấu hình và xem trước lại.' : ''}</li>)}</ul>{deployReport.status !== 'SUCCEEDED' ? <p>Thay đổi chưa hoàn tất vẫn ở trạng thái chờ. Hãy xem trước lại để thử lại; không có gì được hoàn tác tự động.</p> : null}</div> : null}
     </section>
     <RecentDeployments applicationId={application.id} environment={environment} refreshKey={`${reload}`} />
   </section>;

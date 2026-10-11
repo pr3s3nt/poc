@@ -147,21 +147,21 @@ try {
   mark('frontend-saved');
 
   // 4. Preview: renderer provenance, then Deploy.
-  await h.click(page.getByRole('button', { name: 'Preview changes' }));
-  const preview = page.getByLabel('Deployment preview');
-  await expect(preview).toContainText('2 workload(s) affected', { timeout: 120_000 });
+  await h.click(page.getByRole('button', { name: 'Xem trước thay đổi' }));
+  const preview = page.getByLabel('Xem trước triển khai');
+  await expect(preview).toContainText('2 Workload bị ảnh hưởng', { timeout: 120_000 });
   for (const name of ['backend', 'frontend']) {
     await expect(preview.locator('li').filter({ hasText: new RegExp(`^${name} `) })).toContainText(`score-k8s 0.15.0 (${definitionKey})`);
-    await expect(preview.locator('li').filter({ hasText: new RegExp(`^${name} `) })).not.toContainText('built-in Kubernetes');
+    await expect(preview.locator('li').filter({ hasText: new RegExp(`^${name} `) })).not.toContainText('Kubernetes tích hợp sẵn');
   }
   observations.previewProvenance = await preview.locator('li').allInnerTexts();
   await h.moveTo(preview);
   mark('preview-provenance');
   await h.pause(KEY_SCREEN);
-  await h.click(page.getByRole('button', { name: 'Deploy these changes' }));
-  const result = page.getByLabel('Deployment result');
-  await expect(result).toContainText('Deploy succeeded', { timeout: 600_000 });
-  for (const name of ['backend', 'frontend']) await expect(result.locator('li').filter({ hasText: new RegExp(`^${name} · [a-z]+: succeeded`) })).toHaveCount(1);
+  await h.click(page.getByRole('button', { name: 'Triển khai các thay đổi này' }));
+  const result = page.getByLabel('Kết quả triển khai');
+  await expect(result).toContainText('Triển khai thành công', { timeout: 600_000 });
+  for (const name of ['backend', 'frontend']) await expect(result.locator('li').filter({ hasText: new RegExp(`^${name} · [^:]+: thành công`) })).toHaveCount(1);
   await h.moveTo(result);
   mark('deploy-succeeded');
   await h.pause(KEY_SCREEN);

@@ -2,7 +2,7 @@
 id: UC-07-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-11
 related: UC-07, UC-16
 ---
 
@@ -20,3 +20,11 @@ where available and refreshes list/history. Removed workloads disappear only
 after the successful current Set commit. Other workloads remain visible and
 unchanged. Failed/partial runs retain unfinished changes and explain that a
 fresh Preview is required; no automatic rollback or secret output rendering.
+
+## T12 — Nhãn thao tác trên trang ứng dụng
+
+Xóa phải xác nhận tên Workload và `staging`/`production`, giải thích runtime
+chỉ đổi sau Triển khai. Nhãn Chờ xóa và Hoàn tác dùng tiếng Việt. Xem trước
+và kết quả dịch hành động/trạng thái, giữ token, IDs, per-workload retry và
+links lịch sử hiện hành. Partial/failure yêu cầu xem trước mới, không tự rollback
+hoặc hiển thị raw lỗi có thể chứa bí mật.

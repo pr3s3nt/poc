@@ -55,3 +55,19 @@ last_reviewed: 2026-10-11
 - Ready: mọi text tĩnh trên trang/cards dùng tiếng Việt; staging/production
   giữ nguyên. Card và nút tạo dùng thao tác accessible hiện có, deep links
   giữ route/Application ID; không tự mutation khi tải hoặc mở ứng dụng.
+
+## T12 — Trạng thái trang ứng dụng
+
+- Loading/empty/read failure: nhãn accessible tiếng Việt; thử lại đọc danh sách,
+  không tự replay mutation. Khi reload lỗi, bỏ danh sách cũ và khóa mutation.
+- Chưa cấu hình: giải thích cần kết nối và link Cài đặt môi trường; không
+  provision. BUSY giữ trạng thái đang chờ và giải thích writes bị tạm dừng.
+- Stale: bỏ preview cũ, tải lại danh sách và yêu cầu kiểm tra/xem trước lại;
+  giữ confirmation và expected versions hiện hành, không tự triển khai lại.
+- No-op: thông báo không có thay đổi; trường hợp chỉ còn public routes giữ
+  thao tác thử lại riêng, không restart Workload ngoài semantics hiện tại.
+- Failed/partial: báo kết quả từng Workload; thay đổi chưa xong vẫn pending,
+  không rollback tự động. Lỗi dùng fallback Việt an toàn, không hiển thị raw
+  backend/provider error hoặc giá trị key/bí mật; mapping tổng thể thuộc T20.
+- Đổi app/môi trường: bỏ phản hồi cũ sai context cho list/preview/result/history;
+  IDs và graph data giữ nguyên. Triển khai đang chạy giữ các khóa điều hướng.

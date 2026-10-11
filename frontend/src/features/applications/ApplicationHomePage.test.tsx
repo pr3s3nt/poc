@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { ApplicationHomePage } from './ApplicationHomePage';
@@ -25,14 +25,14 @@ it('previews pending changes and deploys only after confirmation', async () => {
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
   await screen.findByText('frontend');
-  expect(screen.queryByRole('button', { name: 'Deploy these changes' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Preview changes' }));
-  expect(await screen.findByRole('heading', { name: 'Preview for staging' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Triển khai các thay đổi này' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  expect(await screen.findByRole('heading', { name: 'Xem trước cho staging' })).toBeInTheDocument();
   expect(deployToken).toBe('');
-  expect(within(screen.getByLabelText('Deployment preview')).getByLabelText('Execution target')).toHaveTextContent('Staging · Connection internal-cluster (internal-cluster) · profile internal-k8s');
-  await user.click(screen.getByRole('button', { name: 'Deploy these changes' }));
-  expect(await screen.findByRole('heading', { name: 'Deploy succeeded' })).toBeInTheDocument();
-  expect(within(screen.getByLabelText('Deployment result')).getByLabelText('Execution target')).toHaveTextContent('internal-cluster');
+  expect(within(screen.getByLabelText('Xem trước triển khai')).getByLabelText('Đích triển khai')).toHaveTextContent('staging · Kết nối internal-cluster (internal-cluster) · Phạm vi triển khai Cluster nội bộ (internal-k8s)');
+  await user.click(screen.getByRole('button', { name: 'Triển khai các thay đổi này' }));
+  expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument();
+  expect(within(screen.getByLabelText('Kết quả triển khai')).getByLabelText('Đích triển khai')).toHaveTextContent('internal-cluster');
   expect(deployToken).toBe('pinned-preview');
 });
 
@@ -48,10 +48,10 @@ it('offers route-only retry when workloads have already been applied', async () 
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
   await screen.findByText('frontend');
-  await user.click(screen.getByRole('button', { name: 'Preview changes' }));
-  expect(await screen.findByText('Public routes need reconciliation; workloads will not restart.')).toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Retry public routes' }));
-  expect(await screen.findByRole('heading', { name: 'Deploy succeeded' })).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  expect(await screen.findByText('Đường dẫn công khai cần được đồng bộ; Workload sẽ không khởi động lại.')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Thử lại đường dẫn công khai' }));
+  expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument();
   expect(deployCalls).toBe(1);
 });
 
@@ -75,15 +75,15 @@ it('confirms deletion by name and Environment, disables duplicate actions while 
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
   await screen.findByText('api');
-  await user.click(screen.getByRole('button', { name: 'Delete' }));
-  expect(confirm).toHaveBeenLastCalledWith('Mark api for deletion in staging? Running workloads will not change until Deploy.');
+  await user.click(screen.getByRole('button', { name: 'Xóa' }));
+  expect(confirm).toHaveBeenLastCalledWith('Đánh dấu xóa api trong staging? Workload đang chạy chỉ thay đổi sau khi Triển khai.');
   expect(deletes).toBe(0);
-  await user.click(screen.getByRole('button', { name: 'Delete' }));
-  expect(await screen.findByRole('button', { name: 'Marking…' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Preview changes' })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: 'Xóa' }));
+  expect(await screen.findByRole('button', { name: 'Đang đánh dấu…' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Xem trước thay đổi' })).toBeDisabled();
   release();
-  await user.click(await screen.findByRole('button', { name: 'Undo' }));
-  expect(await screen.findByText('Ready')).toBeInTheDocument();
+  await user.click(await screen.findByRole('button', { name: 'Hoàn tác' }));
+  expect(await screen.findByText('Sẵn sàng')).toBeInTheDocument();
   expect(deletes).toBe(1);
   confirm.mockRestore();
 });
@@ -102,8 +102,8 @@ it('reloads the list on a version conflict and never retries the mutation', asyn
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
   await screen.findByText('api');
-  await user.click(screen.getByRole('button', { name: 'Delete' }));
-  expect(await screen.findByText(/changed since this page loaded/)).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Xóa' }));
+  expect(await screen.findByText(/đã thay đổi kể từ khi trang được tải/)).toBeInTheDocument();
   expect(await screen.findByText('web')).toBeInTheDocument();
   expect(deletes).toBe(1);
   vi.restoreAllMocks();
@@ -123,16 +123,16 @@ it('keeps the deploy outcome when the list reload fails and blocks mutations unt
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
   await screen.findByText('api');
-  await user.click(screen.getByRole('button', { name: 'Preview changes' }));
-  await user.click(await screen.findByRole('button', { name: 'Deploy these changes' }));
-  expect(await screen.findByRole('heading', { name: 'Deploy succeeded' })).toBeInTheDocument();
-  expect(await screen.findByText(/could not be reloaded/)).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Deploy succeeded' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Preview changes' })).toBeDisabled();
-  expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Retry' }));
-  expect(await screen.findByText('Ready')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Preview changes' })).toBeEnabled();
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  await user.click(await screen.findByRole('button', { name: 'Triển khai các thay đổi này' }));
+  expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument();
+  expect(await screen.findByText(/Không thể tải lại danh sách Workload/)).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Xem trước thay đổi' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: 'Xóa' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Thử lại' }));
+  expect(await screen.findByText('Sẵn sàng')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Xem trước thay đổi' })).toBeEnabled();
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
@@ -151,14 +151,14 @@ it('keeps controls busy until the post-deploy reload finishes', async () => {
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
   await screen.findByText('api');
-  await user.click(screen.getByRole('button', { name: 'Preview changes' }));
-  await user.click(await screen.findByRole('button', { name: 'Deploy these changes' }));
-  expect(await screen.findByRole('heading', { name: 'Deploy succeeded' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Preview changes' })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  await user.click(await screen.findByRole('button', { name: 'Triển khai các thay đổi này' }));
+  expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Xóa' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Xem trước thay đổi' })).toBeDisabled();
   releaseReload(list('staging', [{ id: 'api', state: '', ready: true, score: {} }], 2));
-  expect(await screen.findByText('Ready')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
+  expect(await screen.findByText('Sẵn sàng')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Xóa' })).toBeEnabled();
 });
 
 it('does not show a staging conflict notice after switching to production', async () => {
@@ -177,12 +177,12 @@ it('does not show a staging conflict notice after switching to production', asyn
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
   await screen.findByText('api');
-  await user.click(screen.getByRole('button', { name: 'Delete' }));
-  await user.click(screen.getByRole('button', { name: /^Production/ }));
+  await user.click(screen.getByRole('button', { name: 'Xóa' }));
+  await user.click(screen.getByRole('button', { name: /^production/ }));
   await screen.findByText('prod-only');
   releaseReload(list('staging', [{ id: 'api', state: '', ready: true, score: {} }], 2));
   await new Promise((done) => setTimeout(done, 20));
-  expect(screen.queryByText(/changed since this page loaded/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/đã thay đổi kể từ khi trang được tải/)).not.toBeInTheDocument();
   expect(screen.getByText('prod-only')).toBeInTheDocument();
   vi.restoreAllMocks();
 });
@@ -201,10 +201,10 @@ it('reports truthfully when the reload after a conflict fails', async () => {
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
   await screen.findByText('api');
-  await user.click(screen.getByRole('button', { name: 'Delete' }));
-  expect(await screen.findByText(/could not be reloaded/)).toBeInTheDocument();
-  expect(screen.queryByText(/The list was reloaded/)).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Preview changes' })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: 'Xóa' }));
+  expect(await screen.findByText(/Không thể tải lại danh sách Workload/)).toBeInTheDocument();
+  expect(screen.queryByText(/Danh sách đã được tải lại/)).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Xem trước thay đổi' })).toBeDisabled();
   vi.restoreAllMocks();
 });
 
@@ -226,32 +226,32 @@ it('ignores a late Preview after switching Environment and blocks switching duri
   const user = userEvent.setup();
   render(<ApplicationHomePage application={application} />);
   await screen.findByText('api');
-  await user.click(screen.getByRole('button', { name: 'Preview changes' }));
-  await user.click(screen.getByRole('button', { name: /^Production/ }));
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  await user.click(screen.getByRole('button', { name: /^production/ }));
   await screen.findByText('prod-only');
   resolvePreview(Response.json({ token: 'staging-token', draftVersion: 1, changes: [{ workloadId: 'api', action: 'REMOVE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'x' }] }));
   await new Promise((done) => setTimeout(done, 20));
-  expect(screen.queryByLabelText('Deployment preview')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Xem trước triển khai')).not.toBeInTheDocument();
 
-  await user.click(screen.getByRole('button', { name: 'Preview changes' }));
-  expect(await screen.findByText(/1 resource\(s\) will become unreferenced \(not destroyed\)/)).toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Deploy these changes' }));
-  expect(screen.getByRole('button', { name: /^Staging/ })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Deploying…' })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  expect(await screen.findByText(/1 tài nguyên sẽ không còn được tham chiếu \(không bị hủy\)/)).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Triển khai các thay đổi này' }));
+  expect(screen.getByRole('button', { name: /^staging/ })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Đang triển khai…' })).toBeDisabled();
   resolveDeploy(Response.json({ status: 'SUCCEEDED', results: [{ workloadId: 'api', action: 'REMOVE', status: 'SUCCEEDED', deploymentId: 'dep-9' }] }));
-  expect(await screen.findByRole('link', { name: 'view deployment' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /^Staging/ })).toBeEnabled();
+  expect(await screen.findByRole('link', { name: 'xem triển khai' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /^staging/ })).toBeEnabled();
 });
 
 it('shows the target of the selected Environment only and switches with the tab', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ draftVersion: 0, workloads: [], deployments: [] })));
   const user = userEvent.setup();
   render(<ApplicationHomePage application={{ ...application, environments: { staging: configuredTarget('lab', { connectionName: 'Lab' }), production: configuredTarget('cloud', { connectionName: 'Cloud', connectionKind: 'AWS', profile: 'aws-eks', region: 'us-east-1', runtimeStatus: 'PENDING' }) } }} />);
-  expect(screen.getAllByLabelText('Execution target')[0]).toHaveTextContent('Staging · Connection Lab (lab) · profile internal-k8s');
-  await screen.findByText('No workloads in this environment yet.');
-  await user.click(screen.getByRole('button', { name: /^Production/ }));
-  expect(screen.getAllByLabelText('Execution target')[0]).toHaveTextContent('Production · Connection Cloud (cloud) · profile aws-eks · region us-east-1');
-  expect(screen.getAllByLabelText('Execution target')[0]).not.toHaveTextContent('Lab');
+  expect(screen.getAllByLabelText('Đích triển khai')[0]).toHaveTextContent('staging · Kết nối Lab (lab) · Phạm vi triển khai Cluster nội bộ (internal-k8s)');
+  await screen.findByText('Môi trường này chưa có Workload nào.');
+  await user.click(screen.getByRole('button', { name: /^production/ }));
+  expect(screen.getAllByLabelText('Đích triển khai')[0]).toHaveTextContent('production · Kết nối Cloud (cloud) · Phạm vi triển khai AWS (aws-eks) · Vùng us-east-1');
+  expect(screen.getAllByLabelText('Đích triển khai')[0]).not.toHaveTextContent('Lab');
 });
 
 it('guides an UNCONFIGURED Environment to its settings and surfaces the safe 422 from Preview', async () => {
@@ -262,12 +262,12 @@ it('guides an UNCONFIGURED Environment to its settings and surfaces the safe 422
   }));
   const user = userEvent.setup();
   render(<ApplicationHomePage application={{ ...application, environments: { staging: unconfiguredTarget, production: configuredTarget('lab') } }} />);
-  expect(screen.getAllByLabelText('Execution target')[0]).toHaveTextContent('Staging has no execution connection yet');
-  await screen.findByText('No workloads in this environment yet.');
-  await user.click(screen.getByRole('button', { name: 'Preview changes' }));
+  expect(screen.getAllByLabelText('Đích triển khai')[0]).toHaveTextContent('staging chưa có kết nối triển khai');
+  await screen.findByText('Môi trường này chưa có Workload nào.');
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
   const alert = await screen.findByRole('alert');
-  expect(alert).toHaveTextContent('set one in Environment Settings');
-  await user.click(within(alert).getByRole('button', { name: 'Open Environment settings' }));
+  expect(alert).toHaveTextContent('chọn kết nối trong Cài đặt môi trường');
+  await user.click(within(alert).getByRole('button', { name: 'Mở Cài đặt môi trường' }));
   expect(window.location.pathname).toBe('/ui/applications/catalog/settings');
   expect(window.location.search).toBe('?environment=staging');
 });
@@ -283,13 +283,171 @@ it('disables draft Delete and Undo while an environment operation runs and enabl
   const busyApp: Application = { ...application, environments: { ...application.environments, staging: { ...application.environments.staging, activeOperation: { id: 'op1', kind: 'DEPLOY', status: 'ACTIVE', stage: 'DEPLOY web', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: false } } } };
   const view = render(<ApplicationHomePage application={application} />);
   await screen.findByText('frontend');
-  expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Xóa' })).toBeEnabled();
   view.rerender(<ApplicationHomePage application={busyApp} />);
-  expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
-  expect(screen.getByText(/Draft changes are paused/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Xóa' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Hoàn tác' })).toBeDisabled();
+  expect(screen.getByText(/Thay đổi bản nháp tạm dừng/)).toBeInTheDocument();
   view.rerender(<ApplicationHomePage application={application} />);
-  expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
-  expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Xóa' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Hoàn tác' })).toBeEnabled();
   expect(calls).toEqual([]);
+});
+
+const pendingList = () => list('staging', [{ id: 'api', state: 'PENDING_UPSERT', ready: true, score: {} }]);
+
+it('shows only a safe Vietnamese message when Preview fails with a raw provider error', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.endsWith('/preview')) return Response.json({ error: 'provider denied key AKIA-SECRET-123 value hunter2' }, { status: 500 });
+    return pendingList();
+  }));
+  const user = userEvent.setup();
+  render(<ApplicationHomePage application={application} />);
+  await screen.findByText('api');
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('Không thể xem trước thay đổi.');
+  expect(document.body).not.toHaveTextContent(/AKIA-SECRET|hunter2/);
+  expect(screen.queryByLabelText('Xem trước triển khai')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Mở Cài đặt môi trường' })).not.toBeInTheDocument();
+});
+
+it('shows a safe Vietnamese message when the first list load fails', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => String(input).includes('/deployments') ? Response.json({ deployments: [] }) : Response.json({ error: 'password=hunter2' }, { status: 500 })));
+  render(<ApplicationHomePage application={application} />);
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('Không thể tải danh sách Workload của staging.');
+  expect(document.body).not.toHaveTextContent('hunter2');
+  expect(screen.getByRole('button', { name: 'Thử lại' })).toBeInTheDocument();
+});
+
+it('reports a partial Deploy per Workload without raw errors and retries through a fresh Preview', async () => {
+  const calls: string[] = [];
+  let previews = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    if (init?.method === 'POST') calls.push(url.split('/').pop() ?? '');
+    if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.endsWith('/preview')) { previews += 1; return Response.json({ token: `tok-${previews}`, draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] }); }
+    if (url.endsWith('/deploy')) return Response.json({ status: 'PARTIAL', results: [{ workloadId: 'web', action: 'DEPLOY', status: 'SUCCEEDED', deploymentId: 'dep-web' }, { workloadId: 'api', action: 'UPDATE', status: 'FAILED', error: 'helm: token=abc123 refused' }] });
+    return pendingList();
+  }));
+  const user = userEvent.setup();
+  render(<ApplicationHomePage application={application} />);
+  await screen.findByText('api');
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  await user.click(await screen.findByRole('button', { name: 'Triển khai các thay đổi này' }));
+  const result = await screen.findByLabelText('Kết quả triển khai');
+  expect(within(result).getByRole('heading', { name: 'Triển khai một phần' })).toBeInTheDocument();
+  expect(result).toHaveTextContent('web · triển khai: thành công');
+  expect(result).toHaveTextContent('api · cập nhật: thất bại');
+  expect(result).toHaveTextContent('Thay đổi chưa hoàn tất vẫn ở trạng thái chờ');
+  expect(within(result).getAllByRole('link', { name: 'xem triển khai' })).toHaveLength(1);
+  expect(document.body).not.toHaveTextContent(/abc123|helm/);
+  expect(screen.queryByRole('button', { name: 'Triển khai các thay đổi này' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  await user.click(await screen.findByRole('button', { name: 'Triển khai các thay đổi này' }));
+  expect(calls.filter((call) => call === 'preview')).toHaveLength(2);
+  expect(calls.filter((call) => call === 'deploy')).toHaveLength(2);
+});
+
+it('drops a stale Preview on a 409 Deploy, reloads the list and does not redeploy', async () => {
+  let deploys = 0;
+  let lists = 0;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.endsWith('/preview')) return Response.json({ token: 'old', draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
+    if (url.endsWith('/deploy')) { deploys += 1; return Response.json({ error: 'preview token is stale: raw detail xyz' }, { status: 409 }); }
+    lists += 1;
+    return list('staging', [{ id: 'api', state: 'PENDING_UPSERT', ready: true, score: {} }], lists);
+  }));
+  const user = userEvent.setup();
+  render(<ApplicationHomePage application={application} />);
+  await screen.findByText('api');
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  await user.click(await screen.findByRole('button', { name: 'Triển khai các thay đổi này' }));
+  expect(await screen.findByText(/hãy kiểm tra và xem trước lại/)).toBeInTheDocument();
+  expect(screen.queryByLabelText('Xem trước triển khai')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Triển khai các thay đổi này' })).not.toBeInTheDocument();
+  expect(document.body).not.toHaveTextContent('xyz');
+  expect(deploys).toBe(1);
+  expect(lists).toBe(2);
+});
+
+it('keeps Deploy unavailable for a no-op Preview', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.endsWith('/preview')) return Response.json({ token: 'noop', draftVersion: 1, changes: [] });
+    return list('staging', [{ id: 'api', state: '', ready: true, score: {} }]);
+  }));
+  const user = userEvent.setup();
+  render(<ApplicationHomePage application={application} />);
+  await screen.findByText('api');
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  expect(await screen.findByText('Không có thay đổi Workload nào để triển khai.')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Triển khai các thay đổi này' })).toBeDisabled();
+});
+
+it('ignores a late Deploy result after the same page is rerendered for another Application', async () => {
+  let resolveDeploy: (value: Response) => void = () => undefined;
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.endsWith('/preview')) return Response.json({ token: 't', draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
+    if (url.endsWith('/deploy')) return new Promise<Response>((done) => { resolveDeploy = done; });
+    return url.includes('/applications/other/') ? list('staging', [{ id: 'other-api', state: '', ready: true, score: {} }]) : pendingList();
+  }));
+  const user = userEvent.setup();
+  const view = render(<ApplicationHomePage application={application} />);
+  await screen.findByText('api');
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  await user.click(await screen.findByRole('button', { name: 'Triển khai các thay đổi này' }));
+  expect(screen.getByRole('button', { name: 'Đang triển khai…' })).toBeDisabled();
+  view.rerender(<ApplicationHomePage application={{ ...application, id: 'other', name: 'Other', subdomain: 'other' }} />);
+  expect(await screen.findByText('other-api')).toBeInTheDocument();
+  await act(async () => { resolveDeploy(Response.json({ status: 'SUCCEEDED', results: [{ workloadId: 'api', action: 'UPDATE', status: 'SUCCEEDED', deploymentId: 'dep-old' }] })); });
+  expect(screen.queryByLabelText('Kết quả triển khai')).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'xem triển khai' })).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Other' })).toBeInTheDocument();
+  expect(screen.getByText('other-api')).toBeInTheDocument();
+  expect(screen.queryByText('api')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Xem trước thay đổi' })).toBeEnabled();
+});
+
+it('shows unknown action and status keys verbatim without reading inherited properties', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.includes('/deployments')) return Response.json({ deployments: [{ id: 'd1', workloadId: 'api', action: 'constructor', status: 'toString', startedAt: '2026-01-01T00:00:00Z' }] });
+    if (url.endsWith('/preview')) return Response.json({ token: 't', draftVersion: 1, changes: [{ workloadId: 'api', action: 'toString', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
+    return list('staging', [{ id: 'api', state: '', ready: true, score: {} }]);
+  }));
+  const user = userEvent.setup();
+  render(<ApplicationHomePage application={application} />);
+  await screen.findByText('Xem trước thay đổi');
+  const entry = await screen.findByRole('button', { name: /constructor/ });
+  expect(entry).toHaveTextContent('toString');
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  const item = (await within(await screen.findByLabelText('Xem trước triển khai')).findByRole('listitem'));
+  expect(item).toHaveTextContent('api · toString · Kubernetes tích hợp sẵn');
+});
+
+it('uses a fixed Vietnamese message when delete fails and keeps the list', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    if (init?.method === 'DELETE') return Response.json({ error: 'db password=hunter2' }, { status: 500 });
+    if (String(input).includes('/deployments')) return Response.json({ deployments: [] });
+    return list('staging', [{ id: 'api', state: '', ready: true, score: {} }]);
+  }));
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  const user = userEvent.setup();
+  render(<ApplicationHomePage application={application} />);
+  await screen.findByText('api');
+  await user.click(screen.getByRole('button', { name: 'Xóa' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Không thể đánh dấu xóa Workload.');
+  expect(document.body).not.toHaveTextContent('hunter2');
+  expect(screen.getByText('api')).toBeInTheDocument();
+  vi.restoreAllMocks();
 });

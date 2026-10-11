@@ -329,3 +329,10 @@ integration proof is claimed.
 | Requirement | UI design | Code/test | Evidence |
 |---|---|---|---|
 | VI-02/04/05 | UC-01 UI screens/states T11: Vietnamese cards, accessible loading/empty/error/retry, unchanged data/routes | ApplicationsPage; App tests về list order, hai create CTA, explicit retry và initial deep link; headed T11 reload/card flow | [T11 local verification](../verification/2026-10-11-T11-applications-list.md) |
+
+## T12 — Trang ứng dụng frontend trace
+
+| Requirement | UI design | Code/test | Evidence |
+|---|---|---|---|
+| VI-02/04/05, UC-16 BR-01/07/10, UC-07 Console boundary | UC-01 screens/states T12; UC-07/16 screens T12: Vietnamese pending actions, explicit Deploy, confirmation/Undo, safe errors | ApplicationHomePage tests; headed draft/preview/fake deploy/delete/undo/stale; BUSY and late-scope unit guards | [T12 local verification](../verification/2026-10-11-T12-application-home.md) |
+| UC-01 BR-04/05, VI-02/04/05 | Independent target summary, recent deployments labels and states | ApplicationTarget, RecentDeployments; recent error/retry/order/5-item/link/obsolete response tests | [T12 evidence](../verification/2026-10-11-T12-application-home.md) |

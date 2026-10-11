@@ -218,3 +218,14 @@ cover typed params, overrides, aliases and stale/BUSY/scope.
 [T08 scenario](../../frontend/test/e2e/refactor-local.mjs) uses fake backend with
 marked Secret-catalog/stale/BUSY mocks; [human helper](../../frontend/test/e2e/human.mjs)
 and [locators](../../frontend/test/e2e/locators.mjs) follow the translated controls.
+
+## T12 — Trang ứng dụng UI
+
+[ApplicationHomePage](../../frontend/src/features/applications/ApplicationHomePage.tsx)
+và tests giữ pending Preview/Deploy, confirmations/Undo, safe Vietnamese errors
+và stale/scope guards. [RecentDeployments](../../frontend/src/features/deployments/RecentDeployments.tsx)
+và DeploymentPages tests kiểm nhãn/status/order/link/retry và obsolete replies.
+[ApplicationTarget](../../frontend/src/shared/ui/ApplicationTarget.tsx) dịch safe
+target summary dùng chung; shared human helper và e2e selectors theo nhãn mới.
+[Scenario T12](../../frontend/test/e2e/refactor-local.mjs) có native confirmation
+visible và fake/projection boundaries trong [verification](../verification/2026-10-11-T12-application-home.md).

@@ -42,7 +42,7 @@ try {
 
   const secret = randomBytes(32).toString('hex');
   const secretHash = createHash('sha256').update(secret).digest('hex');
-  await page.getByRole('button', { name: 'Environment settings' }).click();
+  await page.getByRole('button', { name: 'Cài đặt môi trường' }).click();
   await page.getByLabel('Kết nối cho Staging').selectOption('internal-cluster');
   await page.getByRole('button', { name: 'Lưu kết nối' }).click();
   await expect(page.getByText('Thế hệ 0', { exact: true })).toBeVisible();
@@ -83,14 +83,14 @@ try {
   await uploadWorkload(page, backendScore);
   await uploadWorkload(page, frontendScore);
 
-  await page.getByRole('button', { name: 'Preview changes' }).click();
-  const preview = page.getByLabel('Deployment preview');
-  await expect(preview).toContainText('2 workload(s) affected', { timeout: 120_000 });
+  await page.getByRole('button', { name: 'Xem trước thay đổi' }).click();
+  const preview = page.getByLabel('Xem trước triển khai');
+  await expect(preview).toContainText('2 Workload bị ảnh hưởng', { timeout: 120_000 });
   await reviewPause(page, 4000);
-  await page.getByRole('button', { name: 'Deploy these changes' }).click();
-  await expect(page.getByLabel('Deployment result')).toContainText('Deploy succeeded', { timeout: 600_000 });
-  await expect(page.getByLabel('Deployment result')).toContainText('backend: succeeded');
-  await expect(page.getByLabel('Deployment result')).toContainText('frontend: succeeded');
+  await page.getByRole('button', { name: 'Triển khai các thay đổi này' }).click();
+  await expect(page.getByLabel('Kết quả triển khai')).toContainText('Triển khai thành công', { timeout: 600_000 });
+  await expect(page.getByLabel('Kết quả triển khai')).toContainText('backend · triển khai: thành công');
+  await expect(page.getByLabel('Kết quả triển khai')).toContainText('frontend · triển khai: thành công');
   await reviewPause(page, 5000);
 
   const port = await freePort();
@@ -160,7 +160,7 @@ async function putKey(page, kind, name, value) {
 }
 
 async function uploadWorkload(page, score) {
-  await page.getByRole('button', { name: '+ Add workload' }).click();
+  await page.getByRole('button', { name: '+ Thêm Workload' }).click();
   await reviewPause(page, 1000);
   await page.getByRole('button', { name: 'Nhập Score' }).click();
   await reviewPause(page, 800);
@@ -168,7 +168,7 @@ async function uploadWorkload(page, score) {
   await expect(page.getByText(`Đã phân tích Workload: ${score.metadata.name}`)).toBeVisible();
   await reviewPause(page, 2500);
   await page.getByRole('button', { name: 'Lưu draft Workload' }).click();
-  await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Workload', exact: true })).toBeVisible();
   await reviewPause(page, 1500);
 }
 

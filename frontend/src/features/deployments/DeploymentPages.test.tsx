@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { Application } from '../../shared/types/application';
@@ -61,7 +61,7 @@ it('uses the same scoped endpoint and explicit states for recent deployments', a
   vi.stubGlobal('fetch', fetcher);
   render(<RecentDeployments applicationId="catalog/app" environment="staging" />);
   expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
-  expect(await screen.findByText('No deployments yet in staging.')).toBeInTheDocument();
+  expect(await screen.findByText('Chưa có triển khai nào trong staging.')).toBeInTheDocument();
   expect(fetcher.mock.calls[0]?.[0]).toBe('/api/v1/applications/catalog%2Fapp/environments/staging/deployments');
 });
 
@@ -121,4 +121,55 @@ it('clears stale detail while loading a new deployment and retries API errors', 
   await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }));
   expect(await screen.findByText('backend · deploy')).toBeInTheDocument();
   await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
+});
+
+it('localizes recent deployment actions and statuses and hides raw load errors', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ deployments: [deployment({ id: 'dep-1', workloadId: 'api', status: 'SUCCEEDED' })] })));
+  const view = render(<RecentDeployments applicationId="catalog" environment="staging" />);
+  expect(await screen.findByText('Thành công')).toBeInTheDocument();
+  view.unmount();
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: 'token=abc' }, { status: 500 })));
+  render(<RecentDeployments applicationId="catalog" environment="staging" />);
+  expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải các triển khai gần đây.');
+  expect(screen.getByRole('button', { name: 'Thử lại' })).toBeInTheDocument();
+  expect(document.body).not.toHaveTextContent('abc');
+});
+
+it('retries a failed recent-deployments load with a safe message and then shows the list', async () => {
+  const fetcher = vi.fn()
+    .mockResolvedValueOnce(Response.json({ error: 'password=hunter2' }, { status: 500 }))
+    .mockResolvedValueOnce(Response.json({ deployments: [deployment({ id: 'dep-1', workloadId: 'api' })] }));
+  vi.stubGlobal('fetch', fetcher);
+  render(<RecentDeployments applicationId="catalog" environment="staging" />);
+  expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải các triển khai gần đây.');
+  expect(document.body).not.toHaveTextContent('hunter2');
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Thử lại' }));
+  expect(await screen.findByText('api')).toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});
+
+it('shows at most five recent deployments in server order and links each to its detail', async () => {
+  const items = Array.from({ length: 7 }, (_, index) => deployment({ id: `dep-${index + 1}`, workloadId: `w${index + 1}` }));
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ deployments: items })));
+  render(<RecentDeployments applicationId="catalog" environment="staging" />);
+  await screen.findByText('w1');
+  const entries = screen.getAllByRole('button').filter((button) => button.className === 'deployment-entry');
+  expect(entries.map((entry) => entry.querySelector('strong')?.textContent)).toEqual(['w1', 'w2', 'w3', 'w4', 'w5']);
+  expect(screen.queryByText('w6')).not.toBeInTheDocument();
+  await userEvent.setup().click(entries[1] as HTMLElement);
+  expect(window.location.pathname).toBe('/ui/applications/catalog/environments/staging/deployments/dep-2');
+});
+
+it('ignores an obsolete recent-deployments response after the Environment changes', async () => {
+  let resolveStaging: (value: Response) => void = () => undefined;
+  vi.stubGlobal('fetch', vi.fn((input: string | URL | Request) => String(input).includes('/staging/')
+    ? new Promise<Response>((done) => { resolveStaging = done; })
+    : Promise.resolve(Response.json({ deployments: [deployment({ id: 'dep-p', workloadId: 'prod-api', environmentKey: 'production' })] }))));
+  const view = render(<RecentDeployments applicationId="catalog" environment="staging" />);
+  view.rerender(<RecentDeployments applicationId="catalog" environment="production" />);
+  expect(await screen.findByText('prod-api')).toBeInTheDocument();
+  await act(async () => { resolveStaging(Response.json({ deployments: [deployment({ id: 'dep-s', workloadId: 'staging-api' })] })); });
+  expect(screen.queryByText('staging-api')).not.toBeInTheDocument();
+  expect(screen.getByText('prod-api')).toBeInTheDocument();
 });

@@ -119,7 +119,7 @@ try {
   mark('web-deployed');
 
   // 4. Open Preview Score for staging.
-  await h.click(page.getByRole('button', { name: 'Preview Score' }));
+  await h.click(page.getByRole('button', { name: 'Xem trước Score' }));
   await expect(page.getByRole('heading', { name: 'Preview Score', level: 1 })).toBeVisible();
   await expect(page).toHaveURL(`${baseURL}/ui/applications/${applicationId}/environments/staging/preview`);
   await h.moveTo(page.getByRole('note'));
@@ -231,7 +231,7 @@ try {
   await expect(page.getByRole('heading', { name: applicationName, level: 1 })).toBeVisible();
   await expect(page.locator('.table-row')).toHaveCount(1);
   await expect(page.locator('.table-row')).toContainText('web');
-  await expect(page.locator('.table-row')).toContainText('Ready');
+  await expect(page.locator('.table-row')).toContainText('Sẵn sàng');
   await h.moveTo(page.locator('.table-row'));
   mark('no-draft-saved');
   await h.pause(READ);

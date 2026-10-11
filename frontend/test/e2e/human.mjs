@@ -133,7 +133,7 @@ export async function signIn(h) {
 // and the PUT reply plus the saved "Generation" state are awaited.
 export async function setEnvironmentConnections(h, applicationName, targets) {
   const { page } = h;
-  await h.click(page.getByRole('button', { name: 'Environment settings' }));
+  await h.click(page.getByRole('button', { name: 'Cài đặt môi trường' }));
   await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
   for (const [environment, key] of Object.entries(targets)) {
     const title = environment === 'staging' ? 'Staging' : 'Production';
@@ -218,7 +218,7 @@ export async function selectSecretStore(h, environment, store) {
 // row is matched, so a typed-but-unsaved name never satisfies the check.
 export async function putKeys(h, applicationName, entries, { secretStore = configuredSecretStore() } = {}) {
   const { page } = h;
-  await h.click(page.getByRole('button', { name: 'Environment settings' }));
+  await h.click(page.getByRole('button', { name: 'Cài đặt môi trường' }));
   await h.pause(1000);
   // A new Environment has no secret store: choose the run's configured one first.
   if (entries.some((entry) => entry.kind === 'secret')) await selectSecretStore(h, 'staging', secretStore);
@@ -262,7 +262,7 @@ const SOURCE_LABELS = { 'Resource output': 'Output tài nguyên', 'Workload Serv
 export async function addWorkload(h, spec) {
   const { page } = h;
   const container = spec.container ?? 'main';
-  await h.click(page.getByRole('button', { name: '+ Add workload' }));
+  await h.click(page.getByRole('button', { name: '+ Thêm Workload' }));
   await expect(page.getByRole('button', { name: 'Nhập bằng form' })).toBeVisible();
   await h.pause(1000);
   await h.type(page.getByLabel('Tên Workload', { exact: true }), spec.name);
@@ -330,7 +330,7 @@ export async function addWorkload(h, spec) {
   await h.click(page.getByRole('button', { name: 'Lưu draft Workload' }));
   const response = await saved;
   if (!response.ok()) throw new Error(`saving workload ${spec.name} returned HTTP ${response.status()}`);
-  await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Workload', exact: true })).toBeVisible();
   await h.pause(1500);
   return response.request().postDataJSON().score;
 }
@@ -338,17 +338,17 @@ export async function addWorkload(h, spec) {
 // mark(label), when given, records the 'preview' and 'deploy-succeeded' phases.
 export async function previewAndDeploy(h, workloadNames, { mark } = {}) {
   const { page } = h;
-  await h.click(page.getByRole('button', { name: 'Preview changes' }));
-  const preview = page.getByLabel('Deployment preview');
-  await expect(preview).toContainText(`${workloadNames.length} workload(s) affected`, { timeout: 120_000 });
+  await h.click(page.getByRole('button', { name: 'Xem trước thay đổi' }));
+  const preview = page.getByLabel('Xem trước triển khai');
+  await expect(preview).toContainText(`${workloadNames.length} Workload bị ảnh hưởng`, { timeout: 120_000 });
   await h.moveTo(preview);
   mark?.('preview');
   await h.pause(4000);
-  await h.click(page.getByRole('button', { name: 'Deploy these changes' }));
-  const result = page.getByLabel('Deployment result');
-  await expect(result).toContainText('Deploy succeeded', { timeout: 600_000 });
+  await h.click(page.getByRole('button', { name: 'Triển khai các thay đổi này' }));
+  const result = page.getByLabel('Kết quả triển khai');
+  await expect(result).toContainText('Triển khai thành công', { timeout: 600_000 });
   // Result rows read "<workload> · <action>: <status>".
-  for (const name of workloadNames) await expect(result.locator('li').filter({ hasText: new RegExp(`^${name} · [a-z]+: succeeded`) })).toHaveCount(1);
+  for (const name of workloadNames) await expect(result.locator('li').filter({ hasText: new RegExp(`^${name} · [^:]+: thành công`) })).toHaveCount(1);
   await h.moveTo(result);
   mark?.('deploy-succeeded');
   await h.pause(5000);

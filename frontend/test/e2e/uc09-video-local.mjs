@@ -82,33 +82,33 @@ try {
   // 2. Application -> selected Environment -> recent deployments.
   await h.click(page.locator('button.application-card').filter({ hasText: applicationName }));
   await expect(page.getByRole('heading', { name: applicationName, level: 1 })).toBeVisible();
-  const recent = page.locator('section.content-panel').filter({ has: page.getByRole('heading', { name: 'Recent deployments' }) });
+  const recent = page.locator('section.content-panel').filter({ has: page.getByRole('heading', { name: 'Triển khai gần đây' }) });
   await expect(recent.locator('button.deployment-entry')).toHaveCount(3);
-  await expect(recent).toContainText('Latest results for staging.');
-  await h.moveTo(recent.getByRole('heading', { name: 'Recent deployments' }));
+  await expect(recent).toContainText('Kết quả mới nhất của staging.');
+  await h.moveTo(recent.getByRole('heading', { name: 'Triển khai gần đây' }));
   mark('staging-recent-deployments');
   await h.pause(LONG_READ);
 
   // 3. Switch Environment: production has no deployments.
-  await h.click(page.getByRole('button', { name: /^Production/ }));
-  await expect(recent).toContainText('No deployments yet in production.');
+  await h.click(page.getByRole('button', { name: /^Production/i }));
+  await expect(recent).toContainText('Chưa có triển khai nào trong production.');
   await expect(recent.locator('button.deployment-entry')).toHaveCount(0);
-  await h.moveTo(recent.getByText('No deployments yet in production.'));
+  await h.moveTo(recent.getByText('Chưa có triển khai nào trong production.'));
   mark('production-empty-recent');
   await h.pause(READ);
-  await h.click(page.getByRole('button', { name: 'View all' }));
+  await h.click(page.getByRole('button', { name: 'Xem tất cả' }));
   await expect(page.getByRole('heading', { name: 'Deployments', level: 1 })).toBeVisible();
   await expect(page.getByText('No deployments in this Environment yet.')).toBeVisible();
   await h.moveTo(page.getByText('No deployments in this Environment yet.'));
   mark('production-empty-history');
   await h.pause(READ);
   await h.click(page.getByRole('button', { name: `← ${applicationName}` }));
-  await h.click(page.getByRole('button', { name: /^Staging/ }));
+  await h.click(page.getByRole('button', { name: /^Staging/i }));
   await expect(recent.locator('button.deployment-entry')).toHaveCount(3);
   await h.pause(SHORT_READ);
 
   // 4. Staging history, newest first.
-  await h.click(page.getByRole('button', { name: 'View all' }));
+  await h.click(page.getByRole('button', { name: 'Xem tất cả' }));
   await expect(page.getByRole('heading', { name: 'Deployments', level: 1 })).toBeVisible();
   const entries = page.locator('button.deployment-entry');
   await expect(entries).toHaveCount(3);

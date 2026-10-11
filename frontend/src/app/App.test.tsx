@@ -175,14 +175,14 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     await user.click(screen.getByRole('button', { name: 'Tạo ứng dụng' }));
 
     expect(await screen.findByRole('heading', { name: 'Catalog' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Execution target')).toHaveTextContent('Staging has no execution connection yet');
-    expect(screen.getByRole('status')).toHaveTextContent('Application created.');
-    expect(screen.getByRole('button', { name: /Staging/ })).toHaveClass('tab-active');
+    expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('staging chưa có kết nối triển khai');
+    expect(screen.getByRole('status')).toHaveTextContent('Đã tạo ứng dụng.');
+    expect(screen.getByRole('button', { name: /staging/ })).toHaveClass('tab-active');
     const create = requests.find((request) => request.method === 'POST' && request.url.endsWith('/applications'));
     expect(JSON.parse(create?.body ?? '{}')).toEqual({ name: 'Catalog', subdomain: 'catalog' });
 
     // Staging picks lab in Settings; production stays unset.
-    await user.click(screen.getByRole('button', { name: 'Environment settings' }));
+    await user.click(screen.getByRole('button', { name: 'Cài đặt môi trường' }));
     await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'lab');
     await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
     expect(await screen.findByText('Thế hệ 0')).toBeInTheDocument();
@@ -196,9 +196,9 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(requests.some((request) => /\/(deploy|preview|deployments)$/.test(request.url) && request.method === 'POST')).toBe(false);
     // Back home the cached target shows the staging binding only.
     await user.click(screen.getByRole('button', { name: /← Catalog/ }));
-    expect(await screen.findByLabelText('Execution target')).toHaveTextContent('Staging · Connection lab (lab)');
-    await user.click(screen.getByRole('button', { name: /^Production/ }));
-    expect(screen.getByLabelText('Execution target')).toHaveTextContent('Production has no execution connection yet');
+    expect(await screen.findByLabelText('Đích triển khai')).toHaveTextContent('staging · Kết nối lab (lab)');
+    await user.click(screen.getByRole('button', { name: /^production/ }));
+    expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('production chưa có kết nối triển khai');
   });
 
   it('keeps the Settings Environment aligned with the URL across tab clicks and back/forward', async () => {

@@ -47,7 +47,7 @@ try {
     expect(view.environments.map((item) => item.key).sort()).toEqual(['production', 'staging']);
     // A new Application starts with both Environments UNCONFIGURED, before and after a restart.
     for (const item of view.environments) expect([item.configured, item.connectionKey, item.runtimeStatus]).toEqual([false, '', 'UNCONFIGURED']);
-    await expect(page.getByLabel('Execution target').first()).toContainText('Staging has no execution connection yet');
+    await expect(page.getByLabel('Đích triển khai').first()).toContainText('staging chưa có kết nối triển khai');
     const deployments = await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/staging/deployments`)).json();
     expect(deployments.deployments ?? []).toHaveLength(0);
   }
@@ -66,7 +66,7 @@ try {
     await page.getByLabel('Subdomain').fill(subdomain);
     await expect(page.getByText(`staging.${subdomain}.example.com`)).toBeVisible();
     await page.getByRole('button', { name: 'Tạo ứng dụng' }).click();
-    await expect(page.locator('.form-success')).toContainText('Application created.');
+    await expect(page.locator('.form-success')).toContainText('Đã tạo ứng dụng.');
     const appId = new URL(page.url()).pathname.match(/\/ui\/applications\/([0-9a-f-]{36})$/)?.[1];
     if (!appId) throw new Error(`unexpected Application URL ${page.url()}`);
     await expectApplicationHome(appId);

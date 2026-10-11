@@ -261,14 +261,14 @@ try {
   }
   const namespace = `app-${appId}-staging`;
   writeFileSync(`${evidenceDir}/run.json`, JSON.stringify({ applicationId: appId, applicationName, namespace, connectionKey, storeKey, imageTag: runId }, null, 2));
-  await expect(page.getByLabel('Execution target').first()).toContainText(`Connection ${connectionName} (${connectionKey})`);
+  await expect(page.getByLabel('Đích triển khai').first()).toContainText(`Kết nối ${connectionName} (${connectionKey})`);
   mark('application-created');
   caption(`Kết quả: Application "${applicationName}" (id ${appId}), Staging chạy trên Connection ${connectionName} (${connectionKey})`);
-  await h.moveTo(page.getByLabel('Execution target').first());
+  await h.moveTo(page.getByLabel('Đích triển khai').first());
   await h.pause(READ);
 
   // 5. Configuration (secret store selection + variables/secret).
-  caption('Bước 6: Environment settings: chọn Secret store, thêm 2 biến và 1 secret (giá trị secret bị che)');
+  caption('Bước 6: Cài đặt môi trường: chọn Secret store, thêm 2 biến và 1 secret (giá trị secret bị che)');
   await putKeys(h, applicationName, app.keys.map((key) => ({ ...key, delay: TYPE_DELAY })), { secretStore: storeKey });
   await noLeaks();
   mark('settings-saved');
@@ -289,8 +289,8 @@ try {
   mark('frontend-saved');
 
   // 7. Preview and Deploy to the new cluster.
-  caption('Bước 9: Preview changes rồi Deploy these changes lên Staging của cụm mới (adapter Kubernetes thật)');
-  await expect(page.getByLabel('Execution target').first()).toContainText(`(${connectionKey})`);
+  caption('Bước 9: Xem trước thay đổi rồi Triển khai các thay đổi này lên Staging của cụm mới (adapter Kubernetes thật)');
+  await expect(page.getByLabel('Đích triển khai').first()).toContainText(`(${connectionKey})`);
   await previewAndDeploy(h, ['backend', 'frontend'], { mark });
   await noLeaks();
   caption('Kết quả: backend và frontend deploy succeeded');
@@ -351,10 +351,10 @@ try {
   await h.click(page.getByText(applicationName, { exact: true }).first());
   await expect(page.getByRole('heading', { name: applicationName })).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel('Execution target').first()).toContainText(`Connection ${connectionName} (${connectionKey})`);
+  await expect(page.getByLabel('Đích triển khai').first()).toContainText(`Kết nối ${connectionName} (${connectionKey})`);
   await expect(page.locator('.table-row').filter({ hasText: 'backend' }).first()).toBeVisible();
   await expect(page.locator('.table-row').filter({ hasText: 'frontend' }).first()).toBeVisible();
-  await h.moveTo(page.getByLabel('Execution target').first());
+  await h.moveTo(page.getByLabel('Đích triển khai').first());
   mark('persisted');
   caption(`Kết quả: Application vẫn dùng Connection ${connectionName} (${connectionKey}); hai workload còn nguyên`);
   await h.pause(5000);

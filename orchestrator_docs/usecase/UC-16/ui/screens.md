@@ -10,13 +10,13 @@ related: UC-16
 
 ## Application home — selected Environment
 
-The existing UC-01 Application home keeps visible Staging/Production tabs.
+The existing UC-01 Application home keeps visible `staging`/`production` tabs.
 The selected Environment shows its workload list, pending-change labels,
 `+ Add workload`, Edit/Delete actions and `Preview changes`. A link to the
 Application-level Variables & Secrets settings opens UC-12. Preview is scoped
 to the selected Environment, never to both at once. The pending Preview/Deploy
 panel displays the persisted selected Environment connection key/profile (UC-01 BR-08);
-both Environments use this same target.
+each Environment displays its own independently configured target (UC-01 BR-04/BR-05).
 
 ## Add/Edit workload
 
@@ -106,3 +106,11 @@ image, Score keys và payload. Mapping lỗi backend theo code thuộc T20.
   giữ nguyên. Hiện tóm tắt override ngay cả khi đóng, để cấu hình không bị ẩn.
 - Container đầu mặc định `main` và key-name defaults giữ như BR-15–BR-18;
   không tự chọn Secret hoặc key mới. Lưu vẫn chỉ tạo draft cho đúng môi trường.
+
+## T12 — Entry points từ trang ứng dụng
+
+Trang ứng dụng giữ scope môi trường đã chọn, với entry points “Thêm Workload”,
+“Sửa”, “Xóa”, “Hoàn tác”, “Xem trước Score” và “Xem trước thay đổi”.
+Lưu draft quay về danh sách có nhãn Chờ thay đổi; không triển khai ngầm.
+Tab và payload giữ `staging`/`production`; missing key chỉ có metadata an toàn,
+không hiện giá trị. Chuyển môi trường không nhận phản hồi của scope cũ.

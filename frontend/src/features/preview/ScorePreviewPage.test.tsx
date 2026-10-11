@@ -108,7 +108,7 @@ it('explains an UNCONFIGURED Environment instead of showing a plan', async () =>
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: 'the Environment has no execution connection; set one in Environment Settings', field: 'connectionKey', code: 'ENVIRONMENT_UNCONFIGURED' }, { status: 422 })));
   const user = userEvent.setup();
   render(<ScorePreviewPage application={{ ...application, environments: { staging: unconfiguredTarget, production: configuredTarget('lab') } }} environment="staging" />);
-  expect(screen.getByLabelText('Execution target')).toHaveTextContent('Staging has no execution connection yet');
+  expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('staging chưa có kết nối triển khai');
   await fill(user);
   await user.click(screen.getByRole('button', { name: 'Preview' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Open Environment settings for staging');
@@ -187,5 +187,5 @@ it('accepts one JSON or YAML Score object only', () => {
 
 it('shows the Environment connection binding that planning will use', () => {
   render(<ScorePreviewPage application={{ ...application, environments: { staging: configuredTarget('internal-cluster'), production: configuredTarget('lab') } }} environment="production" />);
-  expect(screen.getByLabelText('Execution target')).toHaveTextContent('Production · Connection lab (lab) · profile internal-k8s');
+  expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('production · Kết nối lab (lab) · Phạm vi triển khai Cluster nội bộ (internal-k8s)');
 });

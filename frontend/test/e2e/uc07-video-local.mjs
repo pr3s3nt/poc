@@ -77,7 +77,7 @@ try {
     await clicking;
   }
   async function addWorkload(spec) {
-    await h.click(page.getByRole('button', { name: '+ Add workload' }));
+    await h.click(page.getByRole('button', { name: '+ Thêm Workload' }));
     await expect(page.getByRole('button', { name: 'Nhập bằng form' })).toBeVisible();
     await h.type(page.getByLabel('Tên Workload', { exact: true }), spec.name);
     await h.type(page.getByLabel('Ảnh Container', { exact: true }), spec.image);
@@ -96,19 +96,19 @@ try {
     await h.type(page.getByLabel('Cổng Service', { exact: true }), '8080');
     await h.pause(1200);
     await h.click(page.getByRole('button', { name: 'Lưu draft Workload' }));
-    await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();
-    await expect(row(spec.name)).toContainText('Pending change');
+    await expect(page.getByRole('heading', { name: 'Workload', exact: true })).toBeVisible();
+    await expect(row(spec.name)).toContainText('Chờ thay đổi');
     await h.pause(1200);
   }
   async function previewAndDeploy(expectLine, expectResult) {
-    await h.click(page.getByRole('button', { name: 'Preview changes' }));
-    const panel = page.getByLabel('Deployment preview');
+    await h.click(page.getByRole('button', { name: 'Xem trước thay đổi' }));
+    const panel = page.getByLabel('Xem trước triển khai');
     for (const line of expectLine) await expect(panel).toContainText(line);
     await h.moveTo(panel);
     await h.pause(LONG_READ);
-    await h.click(page.getByRole('button', { name: 'Deploy these changes' }));
-    const result = page.getByLabel('Deployment result');
-    await expect(result).toContainText('Deploy succeeded', { timeout: 120_000 });
+    await h.click(page.getByRole('button', { name: 'Triển khai các thay đổi này' }));
+    const result = page.getByLabel('Kết quả triển khai');
+    await expect(result).toContainText('Triển khai thành công', { timeout: 120_000 });
     for (const line of expectResult) await expect(result).toContainText(line);
     await h.moveTo(result);
     await h.pause(READ);
@@ -130,9 +130,9 @@ try {
   await addWorkload({ name: 'api', image: 'example.invalid/api:v1', database: 'shop' });
   await addWorkload({ name: 'web', image: 'example.invalid/web:v1' });
   mark('drafts-saved');
-  await previewAndDeploy(['2 workload(s) affected', 'api · deploy', 'web · deploy'], ['api · deploy: succeeded', 'web · deploy: succeeded']);
-  await expect(row('api')).toContainText('Ready');
-  await expect(row('web')).toContainText('Ready');
+  await previewAndDeploy(['2 Workload bị ảnh hưởng', 'api · triển khai', 'web · triển khai'], ['api · triển khai: thành công', 'web · triển khai: thành công']);
+  await expect(row('api')).toContainText('Sẵn sàng');
+  await expect(row('web')).toContainText('Sẵn sàng');
   mark('initial-deploy');
 
   // 3. Update web: new image and a CPU request. api stays untouched.
@@ -144,49 +144,49 @@ try {
   mark('web-edited');
   await h.pause(1500);
   await h.click(page.getByRole('button', { name: 'Lưu draft Workload' }));
-  await expect(row('web')).toContainText('Pending change');
-  await expect(row('api')).toContainText('Ready');
+  await expect(row('web')).toContainText('Chờ thay đổi');
+  await expect(row('api')).toContainText('Sẵn sàng');
   await h.moveTo(row('api'));
   mark('api-unchanged-before-deploy');
   await h.pause(READ);
-  const updated = await previewAndDeploy(['1 workload(s) affected', 'web · update'], ['web · update: succeeded']);
-  await expect(page.getByLabel('Deployment preview')).toHaveCount(0);
+  const updated = await previewAndDeploy(['1 Workload bị ảnh hưởng', 'web · cập nhật'], ['web · cập nhật: thành công']);
+  await expect(page.getByLabel('Xem trước triển khai')).toHaveCount(0);
   expect(await updated.textContent()).not.toContain('api');
-  await expect(row('web')).toContainText('Ready');
-  await expect(row('api')).toContainText('Ready');
+  await expect(row('web')).toContainText('Sẵn sàng');
+  await expect(row('api')).toContainText('Sẵn sàng');
   await h.moveTo(row('api'));
   mark('web-updated-api-unchanged');
   await h.pause(READ);
 
   // 4. Delete web: cancel with Escape, confirm with Return, then Undo.
-  await answerConfirm(row('web').getByRole('button', { name: 'Delete' }), 'Escape');
-  await expect(row('web')).toContainText('Ready');
+  await answerConfirm(row('web').getByRole('button', { name: 'Xóa' }), 'Escape');
+  await expect(row('web')).toContainText('Sẵn sàng');
   mark('delete-cancelled');
   await h.pause(READ);
-  await answerConfirm(row('web').getByRole('button', { name: 'Delete' }), 'Return');
-  await expect(row('web')).toContainText('Pending deletion');
+  await answerConfirm(row('web').getByRole('button', { name: 'Xóa' }), 'Return');
+  await expect(row('web')).toContainText('Chờ xóa');
   await h.moveTo(row('web'));
   mark('delete-pending');
   await h.pause(READ);
-  await h.click(row('web').getByRole('button', { name: 'Undo' }));
-  await expect(row('web')).toContainText('Ready');
+  await h.click(row('web').getByRole('button', { name: 'Hoàn tác' }));
+  await expect(row('web')).toContainText('Sẵn sàng');
   await h.moveTo(row('web'));
   mark('delete-undone');
   await h.pause(READ);
 
   // 5. Remove api: its database becomes unreferenced, not destroyed.
-  await answerConfirm(row('api').getByRole('button', { name: 'Delete' }), 'Return');
-  await expect(row('api')).toContainText('Pending deletion');
-  const removed = await previewAndDeploy(['api · remove', 'will become unreferenced (not destroyed)'], ['api · remove: succeeded']);
+  await answerConfirm(row('api').getByRole('button', { name: 'Xóa' }), 'Return');
+  await expect(row('api')).toContainText('Chờ xóa');
+  const removed = await previewAndDeploy(['api · gỡ bỏ', 'không còn được tham chiếu (không bị hủy)'], ['api · gỡ bỏ: thành công']);
   mark('api-removed');
   await expect(row('api')).toHaveCount(0);
-  await expect(row('web')).toContainText('Ready');
+  await expect(row('web')).toContainText('Sẵn sàng');
   await h.moveTo(row('web'));
   mark('web-remains');
   await h.pause(READ);
 
   // 6. History and the remove Deployment detail.
-  await h.click(removed.getByRole('link', { name: 'view deployment' }));
+  await h.click(removed.getByRole('link', { name: 'xem triển khai' }));
   await expect(page.getByRole('heading', { name: 'api · remove' })).toBeVisible();
   await expect(page.locator('.status').first()).toHaveText('SUCCEEDED');
   await h.moveTo(page.getByRole('heading', { name: 'api · remove' }));
@@ -212,7 +212,7 @@ try {
   mark('signed-out');
   await h.pause(READ);
 
-  const expected = ['Mark web for deletion in staging?', 'Mark web for deletion in staging?', 'Mark api for deletion in staging?'];
+  const expected = ['Đánh dấu xóa web trong staging?', 'Đánh dấu xóa web trong staging?', 'Đánh dấu xóa api trong staging?'];
   if (dialogs.length !== 3 || dialogs.some((text, i) => !text.startsWith(expected[i]))) throw new Error(`unexpected dialogs ${JSON.stringify(dialogs)}`);
   writeFileSync(`${evidenceDir}/run.json`, JSON.stringify({ applicationId, dialogs }, null, 2));
   console.log(`PASS: uc07 video application=${applicationId} marks=${marks.length}`);

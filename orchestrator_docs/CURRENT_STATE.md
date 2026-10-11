@@ -50,6 +50,16 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và VSO → namespace Secret → Pod `secretKeyRef` đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
 | UC-16 | MVP path implemented | Form/Score import, typed resource params, public path + Service port rows, draft save/delete/undo, references, edit deployed workload bằng reconstructed Score, Preview → Deploy và partial retry đã có. Preview bỏ qua no-op draft nhưng giữ UC-12 revision update. Kind đã kiểm tra multi-path BusyBox `/` + `/api`, Fleet route và no-op Pod UID; Backstage cụ thể và broader update/cloud path chưa kiểm chứng. |
 
+## Console refactor T12 (2026-10-11)
+
+[Local verification](verification/2026-10-11-T12-application-home.md): trang
+ứng dụng, Workload pending actions/results, triển khai gần đây và tóm tắt đích
+dùng tiếng Việt; giữ IDs/payload và staging/production. Preview chỉ đọc, Deploy
+tường minh, confirmation/Undo và stale/scope guards giữ nguyên. Raw lỗi dùng
+fallback Việt an toàn; mapping đầy đủ thuộc T20. 336 frontend tests và headed
+fake T12/T09 regression pass. Partial/stale/delay là projection mocks ghi riêng;
+BUSY kiểm bằng unit, không chứng minh live deployment. Không external mutation.
+
 ## Console refactor T11 (2026-10-11)
 
 [Local verification](verification/2026-10-11-T11-applications-list.md): danh sách
@@ -57,8 +67,8 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 thứ tự dữ liệu, create/card routes và deep links giữ nguyên; nhãn môi trường là
 `staging`/`production`. 324 frontend tests và headed fake T11/T01 regression pass.
 Empty/loading/500 là GET projection mock được ghi riêng; tạo/mở ứng dụng qua
-backend fake local, không external mutation. Application home và code-based
-errors còn thuộc T12/T20.
+backend fake local, không external mutation. Application home đã hoàn tất ở T12; code-based
+errors còn thuộc T20.
 
 ## Console refactor T09 (2026-10-11)
 
@@ -67,8 +77,8 @@ Tạo ứng dụng dùng tiếng Việt, gợi ý subdomain từ tên đến khi
 thủ công; giữ cả lựa chọn xóa trống. Validation/trùng/lỗi chung giữ form và
 retry tường minh. Payload name/subdomain, endpoints và navigation staging giữ
 nguyên. 309 frontend tests và headed fake T09 pass; lỗi async 500 là mock,
-không external mutation. Shared shell/list đã hoàn tất ở T10/T11; home và
-code-based errors còn ở T12/T20.
+không external mutation. Shared shell/list/home đã hoàn tất ở T10/T11/T12;
+code-based errors còn ở T20.
 
 ## Console refactor T08 (2026-10-11)
 
