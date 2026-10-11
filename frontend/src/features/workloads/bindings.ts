@@ -21,14 +21,14 @@ export function bindingProblem(containers: { name: string; bindings: Binding[] }
     const seen = new Set<string>();
     for (const binding of container.bindings) {
       if (binding.source === 'KEY') {
-        if (!available.has(binding.key)) return `${label}: Application key ${binding.key} is no longer available. Remove it or select an existing key before saving.`;
-        if (!binding.name.trim()) return `${label}: enter a container name for ${binding.key}.`;
+        if (!available.has(binding.key)) return `${label}: key ứng dụng ${binding.key} không còn tồn tại. Hãy xóa nó hoặc chọn key có sẵn trước khi lưu.`;
+        if (!binding.name.trim()) return `${label}: hãy nhập tên trong Container cho ${binding.key}.`;
       } else {
-        if (!binding.name.trim()) return `${label}: enter a container name for every other source.`;
-        if (binding.source === 'RESOURCE' && (!binding.alias || !binding.output)) return `${label}: choose a resource and output for ${binding.name}.`;
-        if (binding.source === 'SERVICE' && (!binding.workload || !binding.port)) return `${label}: choose a workload and port for ${binding.name}.`;
+        if (!binding.name.trim()) return `${label}: hãy nhập tên trong Container cho mọi nguồn khác.`;
+        if (binding.source === 'RESOURCE' && (!binding.alias || !binding.output)) return `${label}: hãy chọn tài nguyên và output cho ${binding.name}.`;
+        if (binding.source === 'SERVICE' && (!binding.workload || !binding.port)) return `${label}: hãy chọn Workload và cổng cho ${binding.name}.`;
       }
-      if (seen.has(binding.name)) return `${label}: the name ${binding.name} is used more than once. Use a different container name for one of them.`;
+      if (seen.has(binding.name)) return `${label}: tên ${binding.name} bị dùng nhiều lần. Hãy đặt tên Container khác cho một trong số đó.`;
       seen.add(binding.name);
     }
   }

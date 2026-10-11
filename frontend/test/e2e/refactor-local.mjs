@@ -8,7 +8,7 @@
 import { expect } from '@playwright/test';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { requireCaptionLocale, createCaptions } from './captions.mjs';
-import { addWorkload, createApplication, createHuman, expectVisibleCursor, installCursor } from './human.mjs';
+import { addWorkload, createApplication, createHuman, expectVisibleCursor, installCursor, putKeys } from './human.mjs';
 import { assertTablesComplete, locators } from './locators.mjs';
 import { launchHeaded, screenSize, startRecording, stopRecording, x11Input } from './video.mjs';
 
@@ -1743,6 +1743,371 @@ export const SCENARIOS = {
 
     caption('Bước 22: Đăng xuất; phiên bị thu hồi');
     await signOut();
+    mark('signed-out');
+    await h.pause(3000);
+  },
+
+  // T08: trang Workload editor. Developer (+ Kỹ sư nền tảng chỉ để đăng ký một Loại tài nguyên số/bool). Backend thật (fake adapters,
+  // state tạm) trả lời mọi đọc/ghi sản phẩm; editor chỉ lưu draft, không Preview/Deploy. Các MOCK (page.route) chỉ dựng trạng thái
+  // mà backend fake không tạo được và được ghi chú tại chỗ dùng: (1) một Bí mật API_TOKEN chèn vào catalog key (backend fake chưa có
+  // kho bí mật), (2) một lần PUT workload trả 409 (stale), (3) projection Environment đang BUSY. Điều kiện thật: lưu draft, parse Score,
+  // danh sách Workload và Loại tài nguyên đều do backend thật trả về.
+  async T08({ page, h, ui, caption, mark, check, baseURL }) {
+    const APP_NAME = 'T08 Editor';
+    const KEY = 't08-queue';
+    const editor = (key) => ui('workloadEditor', key);
+    const putWorkloadCalls = []; // every PUT .../workloads/<id> the browser sent (incl. the mocked stale one)
+    page.on('request', (request) => {
+      const { pathname } = new URL(request.url());
+      if (request.method() === 'PUT' && /\/environments\/staging\/workloads\/[^/]+$/.test(pathname)) putWorkloadCalls.push(decodeURIComponent(pathname.split('/').pop()));
+    });
+    const mock = { secretKey: false, stale: 0, envPatch: {} };
+    const json = (status, body) => ({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    // MOCK (1): add one Secret key to GET .../configuration so the picker's secret group has an entry that must stay unticked.
+    await page.route('**/api/v1/applications/*/environments/*/configuration', async (route) => {
+      if (route.request().method() !== 'GET' || !mock.secretKey) { await route.continue(); return; }
+      const response = await route.fetch();
+      const data = await response.json();
+      await route.fulfill({ response, json: { ...data, keys: [...data.keys, { name: 'API_TOKEN', kind: 'SECRET', configured: true, usedBy: [] }] } });
+    });
+    // MOCK (2): the next PUT workload answers 409 STALE_VERSION without reaching the backend.
+    await page.route('**/api/v1/applications/*/environments/*/workloads/*', async (route) => {
+      if (route.request().method() === 'PUT' && mock.stale > 0) { mock.stale -= 1; await route.fulfill(json(409, { error: 'workloads changed since they were loaded; reload and try again', code: 'STALE_VERSION' })); return; }
+      await route.continue();
+    });
+    // MOCK (3): Environment projection patched while a scenario step needs a BUSY environment.
+    await page.route('**/api/v1/applications/*', async (route) => {
+      if (route.request().method() !== 'GET' || Object.keys(mock.envPatch).length === 0) { await route.continue(); return; }
+      const response = await route.fetch();
+      const data = await response.json();
+      if (data.application?.environments) data.application.environments = data.application.environments.map((env) => ({ ...env, ...(mock.envPatch[env.key] ?? {}) }));
+      await route.fulfill({ response, json: data });
+    });
+
+    const signInAs = async (username) => {
+      await h.type(ui('signIn', 'username'), username);
+      await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+      await h.click(ui('signIn', 'submit'));
+      await expect(ui('applications', 'heading')).toBeVisible();
+    };
+    const note = (name) => page.getByRole('note', { name, exact: true });
+    const storedScore = async (appId, id) => {
+      const data = await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/staging/workloads`)).json();
+      return data.workloads.find((item) => item.id === id)?.score;
+    };
+    const openEditor = async () => {
+      await h.click(page.getByRole('button', { name: '+ Add workload' }));
+      await expect(page.getByRole('heading', { name: 'Thêm Workload', level: 1 })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Thông tin cơ bản' })).toBeVisible();
+    };
+    const saveDraft = async (id) => {
+      const saved = page.waitForResponse((response) => response.request().method() === 'PUT' && new URL(response.url()).pathname.endsWith(`/workloads/${encodeURIComponent(id)}`));
+      await h.click(editor('save'));
+      const response = await saved;
+      expect(response.status(), `PUT workload ${id}`).toBe(200);
+      await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();
+      return response.request().postDataJSON().score;
+    };
+    const portNames = () => editor('portName');
+    const portNumbers = () => editor('portNumber');
+    const routeSelects = () => editor('routePort');
+    const invalidRoute = (port) => page.locator('p.form-error').filter({ hasText: `Cổng Service "${port}" không còn hợp lệ` });
+    const groupOf = (title) => page.getByRole('group', { name: `${title} cho main`, exact: true });
+
+    // ---- Setup (UI): Kỹ sư nền tảng đăng ký một Loại tài nguyên có input number/bool --------------------------------
+    caption('Chuẩn bị: Kỹ sư nền tảng sao chép schema postgres thành loại t08-queue có input kiểu số và bool (qua UI)');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await signInAs('platform-engineer');
+    await h.click(ui('shell', 'navResourceTypes'));
+    await expect(ui('resourceTypes', 'heading')).toBeVisible();
+    await h.click(page.getByRole('button', { name: 'Xem schema postgres' }));
+    await h.click(page.getByRole('button', { name: 'Sao chép schema postgres' }));
+    await h.type(page.getByLabel('Đầu vào 1 tên'), 'replicas', { replace: true });
+    await h.choose(page.getByLabel('Đầu vào 1 kiểu'), 'number');
+    await h.type(page.getByLabel('Đầu vào 2 tên'), 'durable', { replace: true });
+    await h.choose(page.getByLabel('Đầu vào 2 kiểu'), 'bool');
+    await h.click(page.getByLabel('Đầu vào 2 bắt buộc'));
+    await h.type(ui('resourceTypes', 'id'), KEY);
+    await h.click(ui('resourceTypes', 'submit'));
+    await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký loại tài nguyên ${KEY}.` })).toBeVisible();
+    const registered = (await (await page.request.get(`${baseURL}/api/v1/resource-types`)).json()).resourceTypes.find((item) => item.key === KEY);
+    expect(registered.inputs).toEqual([{ name: 'replicas', type: 'number', required: true }, { name: 'durable', type: 'bool' }]);
+    check(`setup via UI + backend GET: ${KEY} has inputs replicas:number (required) and durable:bool (optional)`);
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+
+    caption('Chuẩn bị: Lập trình viên đăng nhập, tạo ứng dụng T08 và hai biến API_URL, LOG_LEVEL (qua UI)');
+    await signInAs('developer');
+    const appId = await createApplication(h, APP_NAME, 't08-editor');
+    await putKeys(h, APP_NAME, [{ kind: 'variable', name: 'API_URL', value: 'https://api.t08.example' }, { kind: 'variable', name: 'LOG_LEVEL', value: 'info' }]);
+    mark('prepared');
+    mock.secretKey = true; // from here the picker also lists a Secret (MOCK 1)
+
+    // ---- 1. Workload cơ bản: defaults, key aliases, cổng và đường dẫn công khai --------------------------------------
+    caption('Bước 1: Mở form thêm Workload; nhãn tiếng Việt, Container đầu là main, phần nâng cao đóng và có tóm tắt defaults');
+    await openEditor();
+    await expect(page.getByRole('tab').or(page.getByRole('button', { name: 'Nhập bằng form' }))).toBeVisible();
+    await expect(page.getByLabel('Tên Container')).toHaveValue('main');
+    await expect(editor('cpuRequest')).toHaveCount(0);
+    await expect(editor('resourceClass')).toHaveCount(0);
+    await expect(editor('targetPort')).toHaveCount(0);
+    await expect(note('Tóm tắt nâng cao Container 1')).toHaveText('Yêu cầu hiệu lực: CPU 10m (mặc định) · Bộ nhớ 32Mi (mặc định). Giới hạn: CPU chưa đặt · Bộ nhớ chưa đặt.');
+    check('new editor: Vietnamese labels, container name main, advanced inputs closed, summary shows requests 10m/32Mi (default) and limits chưa đặt');
+    mark('editor-basic');
+    await h.read('Phần nâng cao đóng, tóm tắt defaults vẫn hiện; không tự thêm capacity');
+
+    caption('Bước 2: Nhập tên, image; bộ chọn key không tự chọn biến hay bí mật nào; chọn API_URL và đặt tên Container BACKEND_URL');
+    await h.type(editor('name'), 'web');
+    await h.type(editor('image'), 'registry.example/t08-web:v1');
+    for (const [title, key] of [['Biến của ứng dụng', 'API_URL'], ['Biến của ứng dụng', 'LOG_LEVEL'], ['Bí mật của ứng dụng', 'API_TOKEN']]) await expect(groupOf(title).getByRole('checkbox', { name: key, exact: true })).not.toBeChecked();
+    check('key picker: API_URL, LOG_LEVEL and API_TOKEN (MOCKED secret entry) are all unticked on load');
+    await h.click(groupOf('Biến của ứng dụng').getByRole('checkbox', { name: 'API_URL', exact: true }));
+    await h.click(page.getByRole('checkbox', { name: 'Dùng tên Container khác cho API_URL', exact: true }));
+    await h.type(page.getByLabel('Tên trong Container cho API_URL', { exact: true }), 'BACKEND_URL', { replace: true });
+    await expect(groupOf('Biến của ứng dụng').getByRole('checkbox', { name: 'LOG_LEVEL', exact: true })).not.toBeChecked();
+    await expect(groupOf('Bí mật của ứng dụng').getByRole('checkbox', { name: 'API_TOKEN', exact: true })).not.toBeChecked();
+    mark('key-alias');
+    await h.read('Chỉ key được chọn mới đi vào Score; secret và biến khác vẫn chưa chọn');
+
+    caption('Bước 3: Thêm cổng http 8080; chưa có đường dẫn công khai nào tự xuất hiện. Mở nâng cao Container, đặt CPU limit 500m');
+    await h.click(editor('addPort'));
+    await h.type(portNames().nth(0), 'http');
+    await h.type(portNumbers().nth(0), '8080');
+    await expect(editor('routePath')).toHaveCount(0);
+    check('adding a valid port does not add a public route');
+    await h.click(page.getByRole('button', { name: 'Hiện nâng cao Container 1', exact: true }));
+    await h.type(editor('cpuLimit'), '500m');
+    await expect(note('Tóm tắt nâng cao Container 1')).toContainText('CPU 500m (theo limit) · Bộ nhớ 32Mi (mặc định). Giới hạn: CPU 500m · Bộ nhớ chưa đặt.');
+    await h.click(page.getByRole('button', { name: 'Ẩn nâng cao Container 1', exact: true }));
+    await expect(editor('cpuLimit')).toHaveCount(0);
+    await expect(note('Tóm tắt nâng cao Container 1')).toContainText('CPU 500m (theo limit)');
+    check('collapsed advanced section keeps CPU limit 500m and its summary; request falls back to the limit (CPU), default (Memory)');
+    mark('advanced-collapsed');
+    await h.moveTo(note('Tóm tắt nâng cao Container 1'));
+    await h.read('Đóng phần nâng cao chỉ ẩn ô nhập; giá trị và tóm tắt vẫn còn');
+
+    caption('Bước 4: Thêm đường dẫn công khai: đúng một cổng hợp lệ nên chọn sẵn http; nhập đường dẫn /');
+    await h.click(editor('addRoute'));
+    await expect(routeSelects().nth(0)).toHaveValue('http');
+    await h.type(editor('routePath').nth(0), '/');
+    check('Add public route with exactly one valid port preselects http');
+    mark('route-one-port');
+
+    caption('Bước 5: Thêm cổng admin 9000 rồi thêm đường dẫn thứ hai: có nhiều cổng hợp lệ nên phải chọn tường minh; lưu bị chặn');
+    await h.click(editor('addPort'));
+    await h.type(portNames().nth(1), 'admin');
+    await h.type(portNumbers().nth(1), '9000');
+    await h.click(editor('addRoute'));
+    await expect(routeSelects().nth(1)).toHaveValue('');
+    await expect(routeSelects().nth(0)).toHaveValue('http');
+    await h.type(editor('routePath').nth(1), '/admin');
+    const putsBefore = putWorkloadCalls.length;
+    await h.click(editor('save'));
+    await expect(page.getByRole('alert')).toContainText('Hãy chọn một cổng Service cho đường dẫn công khai này.');
+    expect(putWorkloadCalls.length, 'save blocked before any PUT').toBe(putsBefore);
+    check('two valid ports: second route is not auto-targeted, Save shows a Vietnamese error and sends no PUT');
+    mark('route-multi-port');
+    await h.read('Nhiều cổng hợp lệ thì không tự chọn thay người dùng');
+    await h.click(editor('routePath').nth(1).locator('xpath=ancestor::div[contains(@class,"binding-row")]').getByRole('button', { name: 'Xóa' }));
+    await expect(editor('routePath')).toHaveCount(1);
+
+    caption('Bước 6: Đổi tên cổng http thành http2: đường dẫn / giữ đích cũ http, hiện lỗi tiếng Việt và chặn lưu; trả lại tên thì hợp lệ');
+    await h.type(portNames().nth(0), 'http2', { replace: true });
+    await expect(routeSelects().nth(0)).toHaveValue('http');
+    await expect(invalidRoute('http')).toBeVisible();
+    await h.click(editor('save'));
+    await expect(page.getByRole('alert')).toContainText('Cổng Service "http" không còn hợp lệ');
+    expect(putWorkloadCalls.length).toBe(putsBefore);
+    await h.moveTo(invalidRoute('http'));
+    await h.read('Đích route không bị đổi âm thầm sang http2 hay admin');
+    await h.type(portNames().nth(0), 'http', { replace: true });
+    await expect(invalidRoute('http')).toHaveCount(0);
+    check('renamed port: route kept target http, Vietnamese invalid message shown, Save blocked with no PUT; renaming back clears it');
+    mark('route-rename-invalid');
+
+    caption('Bước 7: Đặt cổng admin 70000 (không hợp lệ): thêm đường dẫn mới chỉ còn http hợp lệ nên chọn sẵn http; xóa rồi trả admin về 9000');
+    await h.type(portNumbers().nth(1), '70000', { replace: true });
+    await h.click(editor('addRoute'));
+    await expect(routeSelects().nth(1)).toHaveValue('http');
+    await h.click(editor('routePath').nth(1).locator('xpath=ancestor::div[contains(@class,"binding-row")]').getByRole('button', { name: 'Xóa' }));
+    await h.type(portNumbers().nth(1), '9000', { replace: true });
+    await expect(editor('routePath')).toHaveCount(1);
+    check('invalid numeric port (70000) is not counted as valid; the lone valid port http is preselected for a new route');
+    mark('route-invalid-number');
+
+    caption('Bước 8: Lưu draft web; Score giữ cổng dạng số, targetPort mặc định bằng cổng Service, chỉ có limit CPU do người dùng nhập');
+    const webScore = await saveDraft('web');
+    expect(webScore.containers.main).toEqual({ image: 'registry.example/t08-web:v1', variables: { BACKEND_URL: '${resources.env.API_URL}' }, resources: { limits: { cpu: '500m' } } });
+    expect(webScore.resources).toEqual({ env: { type: 'environment' } });
+    expect(webScore.service).toEqual({ ports: { http: { port: 8080, targetPort: 8080 }, admin: { port: 9000, targetPort: 9000 } }, publicRoutes: [{ path: '/', port: 'http' }] });
+    expect(typeof webScore.service.ports.http.port).toBe('number');
+    expect(await storedScore(appId, 'web')).toEqual(webScore);
+    check('PUT payload (browser) and stored draft (backend GET) equal: numeric ports/targetPort, only limits.cpu, one key reference, single public route');
+    mark('web-saved');
+    await h.read('Draft web đã lưu; chưa Xem trước hay Triển khai');
+
+    // ---- 2. Params kiểu số/bool, class, target port override --------------------------------------------------------
+    caption('Bước 9: Workload jobs: thêm tài nguyên t08-queue; lưu khi thiếu replicas bị chặn bằng thông báo tiếng Việt');
+    await openEditor();
+    await h.type(editor('name'), 'jobs');
+    await h.type(editor('image'), 'registry.example/t08-jobs:v1');
+    await h.click(editor('addResource'));
+    await h.type(editor('resourceAlias'), 'q');
+    await h.choose(editor('resourceType'), KEY);
+    await expect(editor('resourceType')).toHaveValue(KEY);
+    await h.click(editor('save'));
+    await expect(page.getByRole('alert')).toContainText('q: replicas là bắt buộc.');
+    check('required numeric param blocks Save with a Vietnamese FE message');
+    mark('required-param');
+    await h.type(page.getByLabel('Tham số replicas', { exact: true }), '3');
+    await h.choose(page.getByLabel('Tham số durable', { exact: true }), 'Đúng');
+
+    caption('Bước 10: Class nằm trong phần nâng cao của tài nguyên: để trống thì hiệu lực là default; nhập gold rồi đóng, tóm tắt vẫn hiện');
+    await expect(editor('resourceClass')).toHaveCount(0);
+    await expect(note('Tóm tắt nâng cao tài nguyên q')).toContainText('Lớp hiệu lực: default (mặc định)');
+    await h.click(page.getByRole('button', { name: 'Hiện nâng cao tài nguyên q', exact: true }));
+    await h.type(editor('resourceClass'), 'gold');
+    await h.click(page.getByRole('button', { name: 'Ẩn nâng cao tài nguyên q', exact: true }));
+    await expect(note('Tóm tắt nâng cao tài nguyên q')).toContainText('Lớp hiệu lực: gold (tường minh)');
+    mark('class-advanced');
+
+    caption('Bước 11: Cổng grpc 9090; target port nằm trong nâng cao: đặt 50051, đóng lại vẫn thấy tóm tắt. Không thêm đường dẫn công khai nào');
+    await h.click(editor('addPort'));
+    await h.type(portNames().nth(0), 'grpc');
+    await h.type(portNumbers().nth(0), '9090');
+    await expect(note('Tóm tắt nâng cao cổng grpc')).toContainText('Cổng đích hiệu lực: 9090 (theo cổng Service)');
+    await h.click(page.getByRole('button', { name: 'Hiện nâng cao cổng grpc', exact: true }));
+    await h.type(editor('targetPort'), '50051');
+    await h.click(page.getByRole('button', { name: 'Ẩn nâng cao cổng grpc', exact: true }));
+    await expect(note('Tóm tắt nâng cao cổng grpc')).toContainText('Cổng đích hiệu lực: 50051 (ghi đè)');
+    await expect(editor('routePath')).toHaveCount(0);
+    mark('target-port-advanced');
+
+    caption('Bước 12: Lưu draft jobs; params replicas là số 3, durable là bool true; class gold; targetPort số 50051; không có route công khai');
+    const jobsScore = await saveDraft('jobs');
+    expect(jobsScore.resources).toEqual({ q: { type: KEY, class: 'gold', params: { replicas: 3, durable: true } } });
+    expect(typeof jobsScore.resources.q.params.replicas).toBe('number');
+    expect(typeof jobsScore.resources.q.params.durable).toBe('boolean');
+    expect(jobsScore.service).toEqual({ ports: { grpc: { port: 9090, targetPort: 50051 } } });
+    expect(jobsScore.containers.main).toEqual({ image: 'registry.example/t08-jobs:v1' });
+    expect(await storedScore(appId, 'jobs')).toEqual(jobsScore);
+    check('jobs payload and stored draft: params number/bool typed, class gold, targetPort override 50051 numeric, no publicRoutes, no variables/capacity');
+    mark('jobs-saved');
+    await h.read('Kiểu số và bool được giữ nguyên trong Score');
+
+    // ---- 3. Score nhập vào: overrides, alias nhiều-một, proto an toàn -----------------------------------------------
+    caption('Bước 13: Nhập file Score api có override tài nguyên, class, target port, route và hai tên Container cho cùng key API_URL');
+    const importedScore = {
+      apiVersion: 'score.dev/v1b1',
+      metadata: { name: 'api' },
+      containers: { main: { image: 'registry.example/t08-api:v1', variables: { PRIMARY_URL: '${resources.env.API_URL}', SECONDARY_URL: '${resources.env.API_URL}' }, resources: { requests: { cpu: '250m' }, limits: { memory: '256Mi' } } } },
+      service: { ports: { http: { port: 80, targetPort: 8080 } }, publicRoutes: [{ path: '/api', port: 'http' }] },
+      resources: { env: { type: 'environment' }, q: { type: KEY, class: 'gold', params: { replicas: 5, durable: false } } },
+    };
+    await openEditor();
+    await h.click(editor('importTab'));
+    // File selection stands in for the OS file dialog (headed Chromium cannot be driven through it); the parse call is the real backend.
+    await editor('scoreFile').setInputFiles({ name: 'api.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(importedScore)) });
+    await expect(page.getByText('Đã phân tích Workload:')).toContainText('api');
+    check('import via UI file input: backend parsed the Score and the panel shows "Đã phân tích Workload: api"');
+    mark('imported');
+    await h.read('Backend thật đã phân tích Score; nhập chưa lưu hay triển khai');
+    await h.click(editor('formTab'));
+    await expect(page.getByLabel('Tên trong Container cho API_URL (1)', { exact: true })).toHaveValue('PRIMARY_URL');
+    await expect(page.getByLabel('Tên trong Container cho API_URL (2)', { exact: true })).toHaveValue('SECONDARY_URL');
+    await expect(note('Tóm tắt nâng cao Container 1')).toContainText('CPU 250m (tường minh) · Bộ nhớ 256Mi (theo limit). Giới hạn: CPU chưa đặt · Bộ nhớ 256Mi.');
+    await expect(note('Tóm tắt nâng cao tài nguyên q')).toContainText('Lớp hiệu lực: gold (tường minh)');
+    await expect(note('Tóm tắt nâng cao cổng http')).toContainText('Cổng đích hiệu lực: 8080 (ghi đè)');
+    check('imported form: two Container names for API_URL (1)/(2), collapsed summaries show the request/limit, class gold and targetPort 8080 overrides');
+    mark('imported-form');
+    await h.moveTo(note('Tóm tắt nâng cao Container 1'));
+    await h.read('Override đã nhập hiện ngay cả khi phần nâng cao đóng');
+
+    caption('Bước 14: Sửa image (trường cơ bản); mở và đóng nâng cao; đổi tên cổng thì route /api báo lỗi và chặn lưu, trả lại thì lưu được');
+    await h.type(editor('image'), 'registry.example/t08-api:v2', { replace: true });
+    await h.click(page.getByRole('button', { name: 'Hiện nâng cao Container 1', exact: true }));
+    await expect(editor('cpuRequest')).toHaveValue('250m');
+    await h.click(page.getByRole('button', { name: 'Ẩn nâng cao Container 1', exact: true }));
+    const apiPuts = putWorkloadCalls.length;
+    await h.type(portNames().nth(0), 'web', { replace: true });
+    await expect(routeSelects().nth(0)).toHaveValue('http');
+    await expect(invalidRoute('http')).toBeVisible();
+    await h.click(editor('save'));
+    await expect(page.getByRole('alert')).toContainText('Cổng Service "http" không còn hợp lệ');
+    expect(putWorkloadCalls.length).toBe(apiPuts);
+    await h.type(portNames().nth(0), 'http', { replace: true });
+    await expect(invalidRoute('http')).toHaveCount(0);
+    mark('imported-edited');
+    const apiScore = await saveDraft('api');
+    expect(apiScore).toEqual({ ...importedScore, containers: { main: { ...importedScore.containers.main, image: 'registry.example/t08-api:v2' } } });
+    expect(typeof apiScore.resources.q.params.replicas).toBe('number');
+    expect(apiScore.resources.q.params.durable).toBe(false);
+    expect(await storedScore(appId, 'api')).toEqual(apiScore);
+    check('api saved after basic edit + collapse + blocked rename: only image changed; overrides, both aliases, numeric/bool params, class and /api route kept (browser payload = backend draft)');
+    mark('api-saved');
+    await h.read('Chỉ image đổi; mọi override và alias nhập vào vẫn còn');
+
+    // ---- 4. Validation, stale, BUSY ----------------------------------------------------------------------------------
+    caption('Bước 15: Nhập Score có loại tài nguyên không tồn tại: backend từ chối, form hiện lỗi, không coi là đã phân tích; thiếu tên Workload bị chặn');
+    await openEditor();
+    await h.click(editor('importTab'));
+    const bad = { apiVersion: 'score.dev/v1b1', metadata: { name: 'broken' }, containers: { main: { image: 'registry.example/t08-broken:v1' } }, resources: { cache: { type: 'no-such-type' } } };
+    await editor('scoreFile').setInputFiles({ name: 'broken.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(bad)) });
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.getByText('Đã phân tích Workload:')).toHaveCount(0);
+    check('import validation: backend rejected an unregistered type, an alert is shown (raw server text, mapping is T20), no parsed preview');
+    mark('import-rejected');
+    await h.moveTo(page.getByRole('alert'));
+    await h.read('Backend từ chối Score; trang không đánh dấu là đã phân tích');
+    await h.click(editor('formTab'));
+    await h.type(editor('image'), 'registry.example/t08-stale:v1');
+    await h.click(editor('save'));
+    await expect(page.getByRole('alert')).toContainText('Cần nhập tên Workload.');
+    await expect(editor('image')).toHaveValue('registry.example/t08-stale:v1');
+    check('missing name: Vietnamese FE validation, image text kept');
+
+    caption('Bước 16: (MOCK) Máy chủ báo draft đã đổi (409): chữ nhập được giữ, Lưu bị khóa cho đến khi tải lại trạng thái');
+    await h.type(editor('name'), 'stale-w');
+    mock.stale = 1;
+    const beforeStale = putWorkloadCalls.length;
+    await h.click(editor('save'));
+    await expect(page.getByRole('alert', { name: 'Draft Workload đã cũ' })).toContainText('đã thay đổi sau khi trang này được tải');
+    await expect(editor('save')).toBeDisabled();
+    await expect(editor('name')).toHaveValue('stale-w');
+    await expect(editor('image')).toHaveValue('registry.example/t08-stale:v1');
+    expect(putWorkloadCalls.length - beforeStale, 'exactly one PUT, never re-sent').toBe(1);
+    mark('stale');
+    await h.read('Lưu bị chặn sau 409; không tự gửi lại');
+    await h.click(page.getByRole('button', { name: 'Tải lại trạng thái hiện tại' }));
+    await expect(page.getByRole('status').filter({ hasText: 'Đã tải lại draft phiên bản' })).toBeVisible();
+    await expect(editor('save')).toBeEnabled();
+    await expect(editor('image')).toHaveValue('registry.example/t08-stale:v1');
+    expect(putWorkloadCalls.length - beforeStale).toBe(1);
+    check('stale 409 (MOCKED reply): Save disabled, text kept, no resend; explicit reload re-enabled Save with edits intact');
+
+    caption('Bước 17: (MOCK) Môi trường đang chạy thao tác: nút Lưu khóa và hiện thông báo; thả khóa thì Lưu dùng lại được, chữ vẫn còn');
+    mock.envPatch.staging = { activeOperation: { id: 'op-busy', kind: 'DEPLOY', status: 'ACTIVE', stage: 'DEPLOYING', startedAt: '2026-10-11T00:00:00Z', updatedAt: '2026-10-11T00:00:00Z', heartbeatAt: '2026-10-11T00:00:00Z', recoverable: false } };
+    await expect(page.getByRole('status').filter({ hasText: 'Một thao tác môi trường đang chạy' })).toBeVisible({ timeout: 15_000 });
+    await expect(editor('save')).toBeDisabled();
+    await expect(editor('image')).toHaveValue('registry.example/t08-stale:v1');
+    mark('busy');
+    await h.read('BUSY: giữ chữ nhưng không cho lưu');
+    mock.envPatch = {};
+    await expect(page.getByText('Một thao tác môi trường đang chạy')).toHaveCount(0, { timeout: 15_000 });
+    await expect(editor('save')).toBeEnabled();
+    await expect(editor('image')).toHaveValue('registry.example/t08-stale:v1');
+    check('BUSY (MOCKED projection): Save disabled with Vietnamese notice while busy, re-enabled after release, text kept');
+    mark('busy-released');
+    const listed = await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/staging/workloads`)).json();
+    expect(listed.workloads.map((item) => item.id).sort()).toEqual(['api', 'jobs', 'web']);
+    await h.click(editor('cancel'));
+    await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();
+    check('backend GET: only web, jobs and api drafts exist; stale-w and broken were never stored');
+
+    caption('Bước 18: Đăng xuất; phiên bị thu hồi');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
     mark('signed-out');
     await h.pause(3000);
   },

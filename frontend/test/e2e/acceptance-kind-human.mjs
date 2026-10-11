@@ -98,14 +98,14 @@ try {
   // 4. Reopen backend: the saved Score restores the same selections.
   const workloadRow = (name) => page.locator('.table-row').filter({ has: page.locator('.workload-name', { hasText: new RegExp(`${name}$`) }) });
   await h.click(workloadRow('backend').getByRole('button', { name: 'Edit' }));
-  await expect(page.getByRole('heading', { name: 'Edit backend' })).toBeVisible();
-  const variables = page.getByRole('group', { name: 'Application variables for main', exact: true });
-  const secrets = page.getByRole('group', { name: 'Application secrets for main', exact: true });
+  await expect(page.getByRole('heading', { name: 'Sửa backend' })).toBeVisible();
+  const variables = page.getByRole('group', { name: 'Biến của ứng dụng cho main', exact: true });
+  const secrets = page.getByRole('group', { name: 'Bí mật của ứng dụng cho main', exact: true });
   for (const key of ['ACCEPTANCE_CONFIG', 'ACCEPTANCE_SECRET_SHA256']) await expect(variables.getByRole('checkbox', { name: key, exact: true })).toBeChecked();
   await expect(secrets.getByRole('checkbox', { name: 'ACCEPTANCE_SECRET', exact: true })).toBeChecked();
-  await expect(page.getByRole('checkbox', { name: /^Use a different container name/ })).toHaveCount(3);
-  for (const box of await page.getByRole('checkbox', { name: /^Use a different container name/ }).all()) await expect(box).not.toBeChecked();
-  const otherNames = page.locator('.binding-row').getByLabel('Container variable name', { exact: true });
+  await expect(page.getByRole('checkbox', { name: /^Dùng tên Container khác/ })).toHaveCount(3);
+  for (const box of await page.getByRole('checkbox', { name: /^Dùng tên Container khác/ }).all()) await expect(box).not.toBeChecked();
+  const otherNames = page.locator('.binding-row').getByLabel('Tên biến Container', { exact: true });
   await expect(otherNames).toHaveCount(5);
   // Score variables are a JSON object, so the reopened rows follow the saved
   // key order rather than the order they were added in.

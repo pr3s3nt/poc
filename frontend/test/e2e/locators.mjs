@@ -14,6 +14,7 @@ export const TRANSLATED = {
   renderingTemplates: true,
   connections: true,
   secretStores: true,
+  workloadEditor: true,
 };
 
 const TABLES = {
@@ -76,6 +77,29 @@ const TABLES = {
     retryInspect: { role: 'button', vi: 'Kiểm tra lại kubeconfig', current: 'Kiểm tra lại kubeconfig' },
     submit: { role: 'button', vi: 'Kiểm tra và lưu', current: 'Kiểm tra và lưu' },
     retry: { role: 'button', vi: 'Thử lại', current: 'Thử lại' },
+  },
+  // T08 translated the Workload editor; `current` equals `vi` for its entries.
+  workloadEditor: {
+    name: { role: 'label', vi: 'Tên Workload', current: 'Tên Workload' },
+    image: { role: 'label', vi: 'Ảnh Container', current: 'Ảnh Container' },
+    formTab: { role: 'button', vi: 'Nhập bằng form', current: 'Nhập bằng form' },
+    importTab: { role: 'button', vi: 'Nhập Score', current: 'Nhập Score' },
+    scoreFile: { role: 'label', vi: 'File Score', current: 'File Score' },
+    cpuRequest: { role: 'label', vi: 'Yêu cầu CPU', current: 'Yêu cầu CPU' },
+    cpuLimit: { role: 'label', vi: 'Giới hạn CPU', current: 'Giới hạn CPU' },
+    addPort: { role: 'button', vi: '+ Thêm cổng', current: '+ Thêm cổng' },
+    portName: { role: 'label', vi: 'Tên cổng Service', current: 'Tên cổng Service' },
+    portNumber: { role: 'label', vi: 'Cổng Service', current: 'Cổng Service' },
+    targetPort: { role: 'label', vi: 'Cổng đích của Container', current: 'Cổng đích của Container' },
+    addRoute: { role: 'button', vi: '+ Thêm đường dẫn công khai', current: '+ Thêm đường dẫn công khai' },
+    routePath: { role: 'label', vi: 'Đường dẫn công khai', current: 'Đường dẫn công khai' },
+    routePort: { role: 'label', vi: 'Cổng Service công khai', current: 'Cổng Service công khai' },
+    addResource: { role: 'button', vi: '+ Thêm tài nguyên', current: '+ Thêm tài nguyên' },
+    resourceAlias: { role: 'label', vi: 'Alias tài nguyên', current: 'Alias tài nguyên' },
+    resourceType: { role: 'label', vi: 'Loại tài nguyên', current: 'Loại tài nguyên' },
+    resourceClass: { role: 'label', vi: 'Lớp tài nguyên', current: 'Lớp tài nguyên' },
+    save: { role: 'button', vi: 'Lưu draft Workload', current: 'Lưu draft Workload' },
+    cancel: { role: 'button', vi: 'Hủy', current: 'Hủy' },
   },
   // T05 translated this page; `current` equals `vi` for its entries.
   secretStores: {

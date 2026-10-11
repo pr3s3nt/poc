@@ -85,13 +85,12 @@ try {
   }
   async function saveWorkload(environment) {
     await page.getByRole('button', { name: '+ Add workload' }).click();
-    await page.getByLabel('Workload name', { exact: true }).fill('api');
-    await page.getByLabel('Image', { exact: true }).fill('example.invalid/api:v1');
-    await page.getByRole('button', { name: '+ Add port' }).click();
-    await page.getByLabel('Service port name', { exact: true }).fill('http');
-    await page.locator('input[aria-label="Service port"]').fill('8080');
-    await page.getByLabel('Container target port', { exact: true }).fill('8080');
-    await page.getByRole('button', { name: 'Save pending workload' }).click();
+    await page.getByLabel('Tên Workload', { exact: true }).fill('api');
+    await page.getByLabel('Ảnh Container', { exact: true }).fill('example.invalid/api:v1');
+    await page.getByRole('button', { name: '+ Thêm cổng' }).click();
+    await page.getByLabel('Tên cổng Service', { exact: true }).fill('http');
+    await page.getByLabel('Cổng Service', { exact: true }).fill('8080');
+    await page.getByRole('button', { name: 'Lưu draft Workload' }).click();
     await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();
     // The home page reopens on staging after a save.
     if (environment === 'production') await page.getByRole('button', { name: /Production/ }).click();

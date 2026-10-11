@@ -162,12 +162,12 @@ async function putKey(page, kind, name, value) {
 async function uploadWorkload(page, score) {
   await page.getByRole('button', { name: '+ Add workload' }).click();
   await reviewPause(page, 1000);
-  await page.getByRole('button', { name: 'Import Score' }).click();
+  await page.getByRole('button', { name: 'Nhập Score' }).click();
   await reviewPause(page, 800);
-  await page.getByLabel('Score file').setInputFiles({ name: `${score.metadata.name}.json`, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(score)) });
-  await expect(page.getByText(`Parsed workload: ${score.metadata.name}`)).toBeVisible();
+  await page.getByLabel('File Score').setInputFiles({ name: `${score.metadata.name}.json`, mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(score)) });
+  await expect(page.getByText(`Đã phân tích Workload: ${score.metadata.name}`)).toBeVisible();
   await reviewPause(page, 2500);
-  await page.getByRole('button', { name: 'Save pending workload' }).click();
+  await page.getByRole('button', { name: 'Lưu draft Workload' }).click();
   await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();
   await reviewPause(page, 1500);
 }

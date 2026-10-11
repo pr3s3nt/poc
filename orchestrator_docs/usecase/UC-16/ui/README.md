@@ -2,7 +2,7 @@
 id: UC-16-UI
 artifact: use-case-ui-design
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-11
 related: UC-16, UC-01, UC-05, UC-12
 ---
 
@@ -34,3 +34,12 @@ one Environment. UC-16 links there when a required key is missing.
 
 The interactive HTML preview used during review is not product code. This
 package is the durable UI design; API mapping follows contract design.
+
+## T08 UI scope
+
+[Form cơ bản/nâng cao](screens.md#t08--form-cơ-bản-và-nâng-cao-nhãn-tiếng-việt)
+và [trạng thái](states.md#t08--trạng-thái-nâng-cao-và-cổng-công-khai) sở hữu
+progressive disclosure, tóm tắt defaults và lựa chọn một cổng sau thao tác thêm
+route. Editor/key picker dùng tiếng Việt; giữ Score semantics, typed params,
+import lossless, aliases, BUSY/stale guards và explicit Save → Preview → Deploy.
+T25 sở hữu removal `publicPort`; T30 sở hữu rename references.

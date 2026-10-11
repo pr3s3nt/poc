@@ -78,24 +78,24 @@ try {
   }
   async function addWorkload(spec) {
     await h.click(page.getByRole('button', { name: '+ Add workload' }));
-    await expect(page.getByRole('button', { name: 'Enter on form' })).toBeVisible();
-    await h.type(page.getByLabel('Workload name', { exact: true }), spec.name);
-    await h.type(page.getByLabel('Image', { exact: true }), spec.image);
+    await expect(page.getByRole('button', { name: 'Nhập bằng form' })).toBeVisible();
+    await h.type(page.getByLabel('Tên Workload', { exact: true }), spec.name);
+    await h.type(page.getByLabel('Ảnh Container', { exact: true }), spec.image);
     if (spec.database) {
-      await h.click(page.getByRole('button', { name: '+ Add resource' }));
-      await h.type(page.getByLabel('Resource alias', { exact: true }), 'db');
-      await chooseNative(page.getByLabel('Resource type', { exact: true }), 'postgres');
-      await expect(page.getByLabel('Resource type', { exact: true })).toHaveValue('postgres');
-      await h.type(page.getByLabel('Resource class', { exact: true }), 'default');
-      await h.type(page.getByLabel('Resource database', { exact: true }), spec.database);
-      await h.type(page.getByLabel('Resource username', { exact: true }), spec.database);
+      await h.click(page.getByRole('button', { name: '+ Thêm tài nguyên' }));
+      await h.type(page.getByLabel('Alias tài nguyên', { exact: true }), 'db');
+      await chooseNative(page.getByLabel('Loại tài nguyên', { exact: true }), 'postgres');
+      await expect(page.getByLabel('Loại tài nguyên', { exact: true })).toHaveValue('postgres');
+      await h.type(page.getByLabel('Tham số database', { exact: true }), spec.database);
+      await h.type(page.getByLabel('Tham số username', { exact: true }), spec.database);
+      await h.click(page.getByRole('button', { name: 'Hiện nâng cao tài nguyên db', exact: true }));
+      await h.type(page.getByLabel('Lớp tài nguyên', { exact: true }), 'default');
     }
-    await h.click(page.getByRole('button', { name: '+ Add port' }));
-    await h.type(page.getByLabel('Service port name', { exact: true }), 'http');
-    await h.type(page.locator('input[aria-label="Service port"]'), '8080');
-    await h.type(page.getByLabel('Container target port', { exact: true }), '8080');
+    await h.click(page.getByRole('button', { name: '+ Thêm cổng' }));
+    await h.type(page.getByLabel('Tên cổng Service', { exact: true }), 'http');
+    await h.type(page.getByLabel('Cổng Service', { exact: true }), '8080');
     await h.pause(1200);
-    await h.click(page.getByRole('button', { name: 'Save pending workload' }));
+    await h.click(page.getByRole('button', { name: 'Lưu draft Workload' }));
     await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();
     await expect(row(spec.name)).toContainText('Pending change');
     await h.pause(1200);
@@ -137,12 +137,13 @@ try {
 
   // 3. Update web: new image and a CPU request. api stays untouched.
   await h.click(row('web').getByRole('button', { name: 'Edit' }));
-  await expect(page.getByRole('heading', { name: 'Edit web' })).toBeVisible();
-  await h.type(page.getByLabel('Image', { exact: true }), 'example.invalid/web:v2', { replace: true });
-  await h.type(page.getByLabel('CPU request', { exact: true }), '100m');
+  await expect(page.getByRole('heading', { name: 'Sửa web' })).toBeVisible();
+  await h.type(page.getByLabel('Ảnh Container', { exact: true }), 'example.invalid/web:v2', { replace: true });
+  await h.click(page.getByRole('button', { name: 'Hiện nâng cao Container 1', exact: true }));
+  await h.type(page.getByLabel('Yêu cầu CPU', { exact: true }), '100m');
   mark('web-edited');
   await h.pause(1500);
-  await h.click(page.getByRole('button', { name: 'Save pending workload' }));
+  await h.click(page.getByRole('button', { name: 'Lưu draft Workload' }));
   await expect(row('web')).toContainText('Pending change');
   await expect(row('api')).toContainText('Ready');
   await h.moveTo(row('api'));

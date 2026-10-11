@@ -193,3 +193,17 @@ and operation components provide Vietnamese static/accessibility text.
 [Local scenario T07](../../frontend/test/e2e/refactor-local.mjs) uses memory
 state/fake adapters with explicitly marked projection mocks; it proves no live
 migration. Backend error mapping remains T20; rename-reference rewrite remains T30.
+
+## T08 — Workload editor UI
+
+[Verification](../verification/2026-10-11-T08-workload-editor.md) traces WL-01/02
+and VI-02/04/05. [Editor](../../frontend/src/features/workloads/WorkloadEditorPage.tsx)
+owns advanced toggles, effective summaries and explicit Add-route unique-port
+selection/invalid-target retention. [Key picker](../../frontend/src/features/workloads/ApplicationKeyPicker.tsx)
+and [bindings](../../frontend/src/features/workloads/bindings.ts) supply Vietnamese
+labels/validation with reference payloads unchanged. [Editor tests](../../frontend/src/features/workloads/WorkloadEditorPage.test.tsx)
+and [key regressions](../../frontend/src/features/workloads/WorkloadEditorKeys.test.tsx)
+cover typed params, overrides, aliases and stale/BUSY/scope.
+[T08 scenario](../../frontend/test/e2e/refactor-local.mjs) uses fake backend with
+marked Secret-catalog/stale/BUSY mocks; [human helper](../../frontend/test/e2e/human.mjs)
+and [locators](../../frontend/test/e2e/locators.mjs) follow the translated controls.

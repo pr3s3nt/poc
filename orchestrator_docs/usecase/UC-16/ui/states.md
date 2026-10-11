@@ -2,7 +2,7 @@
 id: UC-16-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-11
 related: UC-16
 ---
 
@@ -47,3 +47,18 @@ covers imported dependencies unused by container bindings.
 | Duplicate/empty name | Explain container and conflicting name; preserve edits and block Save without submitting. |
 | Saving/stale | Freeze checklist, alias and Other sources controls during Save; retain selection and alias edits on failure/conflict. |
 | Scope changed | Load only destination Application/Environment/workload state; ignore old import/catalog/save/reload responses. Same-scope retry/reload retains local selection and aliases. |
+
+## T08 — Trạng thái nâng cao và cổng công khai
+
+| State | Behavior |
+|---|---|
+| Basic/new | Phần nâng cao đóng; tóm tắt request `10m`/`32Mi`, limit chưa đặt, class `default` và target port fallback; không ghi defaults vào capacity fields. |
+| Advanced edited/imported | Overrides giữ nguyên khi mở/đóng hoặc sửa trường cơ bản; tóm tắt phản ánh giá trị đang có. |
+| Add public route | Chỉ chọn cổng khi thao tác thêm và có đúng một cổng hợp lệ; không tự bật route khi thêm/sửa cổng. |
+| Public target invalid | Giữ lựa chọn đích cũ khi port đổi/xóa/không hợp lệ; hiện lỗi tiếng Việt và chặn Save, không chọn đích thay thế. |
+| Import/save validation | Giữ nội dung và aliases; params number/bool serialize đúng kiểu; không advance draft sau failure. |
+| BUSY/stale/scope | Giữ guards hiện hành và pending edits; không tự gửi lại Save hoặc dùng response của scope cũ. |
+| Key catalog | Không tự chọn keys/secrets mới; thiếu key/loading/error khác empty và không lộ giá trị. |
+
+Tất cả nhãn và validation frontend trên editor/key picker dùng tiếng Việt;
+backend error envelope/mapping hoàn chỉnh thuộc T20. API/Score semantics không đổi.

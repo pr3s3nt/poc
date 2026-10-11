@@ -308,3 +308,11 @@ integration proof is claimed.
 |---|---|---|---|
 | UC-01 ES-02/03, ENV-01 | UC-01 UI screens/states T07: single READY draft only, explicit Save; no default/fallback | EnvironmentConnection and SecretStoreSelection; unit tests for one/many/none, existing binding, stale/reload and scope | [T07 local verification](../verification/2026-10-11-T07-environment-settings.md) |
 | UC-12 BR-03/05/16..19; VI-02/04/05 | UC-12 UI screens/states T07: masked Secret, rename warnings, copy failure/BUSY, retained editor | SettingsPage/environment tests; headed T07 fake-adapter and marked mock scenario | [T07 local verification](../verification/2026-10-11-T07-environment-settings.md) |
+
+## T08 — Workload editor frontend trace
+
+| Requirement | UI design | Implementation/tests | Evidence |
+|---|---|---|---|
+| WL-01/02, UC-16 MS-03/BR-11/14 | UC-16 UI screens/states T08: advanced resources/class/target-port, effective summaries | WorkloadEditorPage and editor tests: defaults omitted, typed number/bool, imported overrides retained | [T08 local verification](../verification/2026-10-11-T08-workload-editor.md) |
+| UC-16 BR-12, VI-02/04/05 | Explicit Add-route, one valid port suggestion, invalid target retained | Editor tests and headed T08: unique/multiple/invalid ports, no PUT on invalid route, no retarget | [T08 local verification](../verification/2026-10-11-T08-workload-editor.md) |
+| UC-16 BR-15–18 | Vietnamese key picker, no implicit keys, aliases/scope guards | WorkloadEditorKeys regressions; T08 mock Secret catalog/stale/BUSY explicitly marked; T03 human-helper regression | [T08 local verification](../verification/2026-10-11-T08-workload-editor.md) |

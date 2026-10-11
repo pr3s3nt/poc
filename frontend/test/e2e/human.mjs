@@ -257,68 +257,77 @@ export async function putKeys(h, applicationName, entries, { secretStore = confi
 // (name !== key reveals the alias field); every other binding is one
 // "Other sources" row, indexed among those rows only. Returns the Score sent
 // by the successful Save.
+// Specs keep the technical English source names; the editor shows Vietnamese options.
+const SOURCE_LABELS = { 'Resource output': 'Output tài nguyên', 'Workload Service': 'Service của Workload' };
 export async function addWorkload(h, spec) {
   const { page } = h;
   const container = spec.container ?? 'main';
   await h.click(page.getByRole('button', { name: '+ Add workload' }));
-  await expect(page.getByRole('button', { name: 'Enter on form' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Nhập bằng form' })).toBeVisible();
   await h.pause(1000);
-  await h.type(page.getByLabel('Workload name', { exact: true }), spec.name);
-  await h.type(page.getByLabel('Image', { exact: true }), spec.image);
+  await h.type(page.getByLabel('Tên Workload', { exact: true }), spec.name);
+  await h.type(page.getByLabel('Ảnh Container', { exact: true }), spec.image);
   // Optional container resources: { cpuRequest, memoryRequest, cpuLimit, memoryLimit }.
-  const quantities = [['CPU request', 'cpuRequest'], ['Memory request', 'memoryRequest'], ['CPU limit', 'cpuLimit'], ['Memory limit', 'memoryLimit']];
+  const quantities = [['Yêu cầu CPU', 'cpuRequest'], ['Yêu cầu bộ nhớ', 'memoryRequest'], ['Giới hạn CPU', 'cpuLimit'], ['Giới hạn bộ nhớ', 'memoryLimit']];
+  if (quantities.some(([, field]) => spec.resources?.[field])) await h.click(page.getByRole('button', { name: 'Hiện nâng cao Container 1', exact: true }));
   for (const [label, field] of quantities) if (spec.resources?.[field]) await h.type(page.getByLabel(label, { exact: true }), spec.resources[field]);
 
   if (spec.resource) {
-    await h.click(page.getByRole('button', { name: '+ Add resource' }));
-    await h.type(page.getByLabel('Resource alias', { exact: true }), spec.resource.alias);
-    await h.choose(page.getByLabel('Resource type', { exact: true }), spec.resource.type);
-    await h.type(page.getByLabel('Resource class', { exact: true }), spec.resource.className);
-    for (const [name, value] of Object.entries(spec.resource.params)) await h.type(page.getByLabel(`Resource ${name}`, { exact: true }), value);
+    await h.click(page.getByRole('button', { name: '+ Thêm tài nguyên' }));
+    await h.type(page.getByLabel('Alias tài nguyên', { exact: true }), spec.resource.alias);
+    await h.choose(page.getByLabel('Loại tài nguyên', { exact: true }), spec.resource.type);
+    for (const [name, value] of Object.entries(spec.resource.params)) await h.type(page.getByLabel(`Tham số ${name}`, { exact: true }), value);
+    if (spec.resource.className) {
+      await h.click(page.getByRole('button', { name: `Hiện nâng cao tài nguyên ${spec.resource.alias}`, exact: true }));
+      await h.type(page.getByLabel('Lớp tài nguyên', { exact: true }), spec.resource.className);
+    }
   }
 
   const isKey = (binding) => binding.source === 'Application variable' || binding.source === 'Application secret';
   for (const binding of spec.bindings.filter(isKey)) {
-    const group = page.getByRole('group', { name: `${binding.source === 'Application secret' ? 'Application secrets' : 'Application variables'} for ${container}`, exact: true });
+    const group = page.getByRole('group', { name: `${binding.source === 'Application secret' ? 'Bí mật của ứng dụng' : 'Biến của ứng dụng'} cho ${container}`, exact: true });
     const box = group.getByRole('checkbox', { name: binding.key, exact: true });
     await h.click(box);
     await expect(box).toBeChecked();
     if (binding.name !== binding.key) {
-      await h.click(group.getByRole('checkbox', { name: `Use a different container name for ${binding.key}`, exact: true }));
-      await h.type(group.getByLabel(`Container name for ${binding.key}`, { exact: true }), binding.name, { replace: true });
+      await h.click(group.getByRole('checkbox', { name: `Dùng tên Container khác cho ${binding.key}`, exact: true }));
+      await h.type(group.getByLabel(`Tên trong Container cho ${binding.key}`, { exact: true }), binding.name, { replace: true });
     }
   }
 
-  const otherRows = page.locator('.binding-row').filter({ has: page.getByLabel('Container variable name', { exact: true }) });
+  const otherRows = page.locator('.binding-row').filter({ has: page.getByLabel('Tên biến Container', { exact: true }) });
   for (const [index, binding] of spec.bindings.filter((binding) => !isKey(binding)).entries()) {
-    await h.click(page.getByRole('button', { name: '+ Add other source' }));
+    await h.click(page.getByRole('button', { name: '+ Thêm nguồn khác' }));
     const row = otherRows.nth(index);
-    await h.type(row.getByLabel('Container variable name', { exact: true }), binding.name);
+    await h.type(row.getByLabel('Tên biến Container', { exact: true }), binding.name);
     // A new row starts as Resource output; only another source is chosen.
-    if (binding.source !== 'Resource output') await h.choose(row.getByLabel('Reference source', { exact: true }), binding.source);
+    if (binding.source !== 'Resource output') await h.choose(row.getByLabel('Nguồn tham chiếu', { exact: true }), SOURCE_LABELS[binding.source] ?? binding.source);
     if (binding.alias) {
-      await h.choose(row.getByLabel('Resource dependency', { exact: true }), binding.alias);
-      await h.choose(row.getByLabel('Resource output', { exact: true }), binding.output);
+      await h.choose(row.getByLabel('Tài nguyên được tham chiếu', { exact: true }), binding.alias);
+      await h.choose(row.getByLabel('Output của tài nguyên', { exact: true }), binding.output.replace(/ · secret$/, ' · bí mật'));
     }
     if (binding.workload) {
-      await h.choose(row.getByLabel('Service workload', { exact: true }), binding.workload);
-      await h.choose(row.getByLabel('Service port', { exact: true }), binding.port);
+      await h.choose(row.getByLabel('Workload cung cấp Service', { exact: true }), binding.workload);
+      await h.choose(row.getByLabel('Cổng của Service', { exact: true }), binding.port);
     }
   }
 
-  await h.click(page.getByRole('button', { name: '+ Add port' }));
-  await h.type(page.getByLabel('Service port name', { exact: true }), spec.port.name);
-  await h.type(page.locator('input[aria-label="Service port"]'), spec.port.port);
-  await h.type(page.getByLabel('Container target port', { exact: true }), spec.port.targetPort);
+  await h.click(page.getByRole('button', { name: '+ Thêm cổng' }));
+  await h.type(page.getByLabel('Tên cổng Service', { exact: true }), spec.port.name);
+  await h.type(page.getByLabel('Cổng Service', { exact: true }), spec.port.port);
+  if (spec.port.targetPort && spec.port.targetPort !== spec.port.port) {
+    await h.click(page.getByRole('button', { name: `Hiện nâng cao cổng ${spec.port.name}`, exact: true }));
+    await h.type(page.getByLabel('Cổng đích của Container', { exact: true }), spec.port.targetPort);
+  }
   if (spec.publicPath) {
-    await h.click(page.getByRole('button', { name: '+ Add public path' }));
-    await h.type(page.getByLabel('Public path', { exact: true }), spec.publicPath);
-    await h.choose(page.getByLabel('Public Service port', { exact: true }), `${spec.port.name} · ${spec.port.port}`);
+    await h.click(page.getByRole('button', { name: '+ Thêm đường dẫn công khai' }));
+    await h.type(page.getByLabel('Đường dẫn công khai', { exact: true }), spec.publicPath);
+    await h.choose(page.getByLabel('Cổng Service công khai', { exact: true }), `${spec.port.name} · ${spec.port.port}`);
   }
   await h.pause(1500);
   const saved = page.waitForResponse((response) => response.request().method() === 'PUT'
     && new URL(response.url()).pathname.endsWith(`/workloads/${encodeURIComponent(spec.name)}`));
-  await h.click(page.getByRole('button', { name: 'Save pending workload' }));
+  await h.click(page.getByRole('button', { name: 'Lưu draft Workload' }));
   const response = await saved;
   if (!response.ok()) throw new Error(`saving workload ${spec.name} returned HTTP ${response.status()}`);
   await expect(page.getByRole('heading', { name: 'Workloads' })).toBeVisible();

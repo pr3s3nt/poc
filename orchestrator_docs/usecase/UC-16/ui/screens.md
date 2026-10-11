@@ -2,7 +2,7 @@
 id: UC-16-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-11
 related: UC-16
 ---
 
@@ -79,3 +79,30 @@ performed by this screen.
   Save; identical names in another container are allowed.
 - Freeze key-selection and alias controls during a pending Save. A stale Save
   preserves selection/aliases and uses the existing reload/review flow.
+
+## T08 — Form cơ bản và nâng cao, nhãn tiếng Việt
+
+Trang editor dùng nhãn tiếng Việt theo [glossary](../../../GLOSSARY.md#nhãn-web-console-vi-01),
+bao gồm validation frontend, aria-label, trạng thái tải/rỗng/lỗi và key picker.
+Giữ `Workload`, `Container`, `Service`, `staging`/`production`, technical IDs,
+image, Score keys và payload. Mapping lỗi backend theo code thuộc T20.
+
+- Phần cơ bản giữ tên Workload, Container/image, key picker, resource alias/type
+  và các input có kiểu, Service port và đường dẫn công khai.
+- Mỗi Container có phần nâng cao cho CPU/memory request và limit. Tóm tắt luôn
+  hiện request có hiệu lực: request tường minh, nếu thiếu thì limit cùng loại,
+  nếu cả hai thiếu thì CPU `10m`, memory `32Mi`. Limit thiếu hiển thị chưa đặt.
+  Đây là giải thích defaults hiện hành, không tự thêm capacity vào Score.
+- Resource class nằm trong phần nâng cao từng dependency. Class rỗng có hiệu
+  lực `default`; giữ quy tắc bỏ field class rỗng trong Score.
+- Target port override nằm trong phần nâng cao từng Service port. Khi rỗng,
+  target port có hiệu lực bằng Service port và serialization giữ fallback số
+  hiện hành. Không tự thêm public route.
+- Sau thao tác “Thêm đường dẫn công khai”, chỉ tự chọn đích khi có đúng một
+  Service port hợp lệ (tên không rỗng, số nguyên 1–65535, tên duy nhất).
+  Với không hoặc nhiều cổng hợp lệ, yêu cầu chọn tường minh. Thay đổi/xóa cổng
+  khiến đích route không hợp lệ phải hiển thị lỗi và chặn lưu; không retarget.
+- Đóng phần nâng cao chỉ đổi hiển thị; imported/edited overrides và alias vẫn
+  giữ nguyên. Hiện tóm tắt override ngay cả khi đóng, để cấu hình không bị ẩn.
+- Container đầu mặc định `main` và key-name defaults giữ như BR-15–BR-18;
+  không tự chọn Secret hoặc key mới. Lưu vẫn chỉ tạo draft cho đúng môi trường.
