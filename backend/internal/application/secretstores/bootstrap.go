@@ -16,7 +16,7 @@ const BootstrapKey = "platform-vault"
 
 // BootstrapMarker is stored in the verification record of a bootstrap-managed
 // store. Only a marked store may have its credential replaced by bootstrap.
-const BootstrapMarker = "compose"
+const BootstrapMarker = secretstore.ComposeBootstrapMarker
 
 // ErrBootstrapConflict stops bootstrap rather than overwrite a registration.
 var ErrBootstrapConflict = errors.New("secret store: bootstrap conflicts with an existing store; resolve it before restarting")
@@ -27,7 +27,6 @@ type BootstrapOutcome string
 // Bootstrap outcomes.
 const (
 	BootstrapCreated   BootstrapOutcome = "created"
-	BootstrapConverted BootstrapOutcome = "converted"
 	BootstrapRefreshed BootstrapOutcome = "refreshed"
 	BootstrapUnchanged BootstrapOutcome = "unchanged"
 )
@@ -39,8 +38,6 @@ const (
 // interactive registration does.
 //
 //   - no record: verify, persist the credential, insert;
-//   - matching Compose legacy record: verify, persist the credential, then
-//     convert the same row (ID, key, endpoints, selections and references stay);
 //   - matching bootstrap-managed record with the same token: nothing changes;
 //   - managed record with another token: verify, persist a new credential,
 //     replace the reference, then remove the replaced credential;
@@ -76,17 +73,15 @@ func (s *Service) Bootstrap(ctx context.Context, org string, cmd RegisterCommand
 			if existing.Status != secretstore.StatusReady || existing.OrganizationKey != org || !existing.SameEndpoint(record) {
 				return "", ErrBootstrapConflict
 			}
-			admission.ExpectedID, admission.ExpectedLegacy, admission.ExpectedCredentialRef = existing.ID, existing.Legacy, existing.CredentialRef
+			admission.ExpectedID, admission.ExpectedCredentialRef = existing.ID, existing.CredentialRef
 			managed := existing.Verification["bootstrap"] == BootstrapMarker
 			switch {
-			case existing.Legacy:
-				outcome = BootstrapConverted
+			case !managed:
+				return "", ErrBootstrapConflict
 			case s.sameToken(ctx, existing, token):
 				return BootstrapUnchanged, nil
-			case managed:
-				outcome = BootstrapRefreshed
 			default:
-				return "", ErrBootstrapConflict
+				outcome = BootstrapRefreshed
 			}
 		}
 		verification, err := s.verifier.Verify(ctx, verifyRequest(record, token))

@@ -113,7 +113,7 @@ video_validate() {
 # exports it as ORCH_E2E_SECRET_STORE for the browser flow. Flows that write a
 # Secret into a new Environment must select a store through the UI; the product
 # never falls back to one. The store checked here is the explicit platform
-# store the backend seeds from its Vault flags (key platform-vault); it is
+# store the backend registers through the opt-in bootstrap (key platform-vault); it is
 # separate from the Connection credential store (-connection-vault-*).
 # The password is the fixed local/test account; nothing secret is printed.
 video_require_secret_store() {
@@ -125,7 +125,7 @@ video_require_secret_store() {
     || ! curl --connect-timeout 5 --max-time 30 -fsS -b "${jar}" "${api}/api/v1/secret-store-choices" > "${choices}" \
     || ! jq -e --arg key "${key}" '.secretStores | any(.key == $key and .status == "READY")' "${choices}" >/dev/null; then
     rm -f "${jar}" "${choices}"
-    echo "secret store ${key} is not offered READY by ${api}; start the backend with -vault-address/-vault-token-file so it seeds the platform store" >&2
+    echo "secret store ${key} is not offered READY by ${api}; start the backend with the platform-vault bootstrap flags (see platform-store-lib.sh) so it registers the ordinary platform store" >&2
     return 1
   fi
   rm -f "${jar}" "${choices}"

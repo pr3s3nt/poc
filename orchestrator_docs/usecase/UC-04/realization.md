@@ -95,9 +95,11 @@ credentials. This is separate from execution Connection kind/matching.
 Compose registration bootstrap invokes shared SecretStore validation/verifier and
 platform credential persistence with fixed `platform-vault` identity. Transactional
 admission checks matching identity and expected prior credential before creating,
-converting the Compose legacy record or refreshing its bootstrap credential.
+refreshing an explicitly marked ordinary store's bootstrap credential.
 Concurrent losers clean only their own attempt objects. Runtime uses the ordinary
-SecretStoreResolver; conversion preserves store ID and existing references.
+SecretStoreResolver with scoped private credentials; refresh preserves store ID
+and existing immutable references. Legacy store creation/backfill/conversion and
+flag-configured runtime tokens are removed by T23.
 
 ## Implicit internal cluster collaboration
 

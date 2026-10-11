@@ -2,7 +2,7 @@
 id: RUNBOOK-DOCKER-LOCAL
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-12
 ---
 
 # Personal-machine Docker Compose
@@ -93,12 +93,13 @@ checked before secret-dependent Deploy. Set `VAULT_WORKLOAD_ADDRESS` to an addre
 reachable from the selected cluster before the initial seed when preparing live
 workload delivery; Compose does not install or mutate that cluster.
 
-Existing Compose legacy records are upgraded in place after verification, retaining
-store identity, selected Environments and secret references. Restart does not create
-duplicate stores or token credentials. A conflicting endpoint/mount identity fails
-startup rather than overwriting another registration. Application token replacement
-can refresh the managed credential on backend startup. Legacy Vault flags remain
-available for non-Compose compatibility, but are not enabled by this Compose profile.
+Restart does not create duplicate ordinary stores or token credentials. A
+conflicting endpoint/mount identity or unmarked user registration fails startup
+rather than being overwritten. Application token replacement can refresh a
+marked managed credential through CAS. T23 removes old workload Vault flags,
+legacy store backfill and conversion; use ordinary registration or explicit
+platform bootstrap. Retained legacy dev state requires the separately approved
+T29 reset; these changes do not authorize restarting or resetting the retained stack.
 
 This configuration is for a personal machine: Vault uses HTTP on the private
 Docker network, and its root token and single unseal key are retained in a
@@ -162,3 +163,12 @@ writes against real Vault, token isolation and persistence after container
 replacement. The [earlier local verification](../verification/2026-10-07-docker-compose-local.md)
 covers Connection registration against a simulated Kubernetes API. Live cluster
 authentication and workload delivery are not established by these Compose checks.
+
+## Other kind runners after T23
+
+Updated kind runners share `backend/test/integration/platform-store-lib.sh` for
+ordinary store bootstrap. They require `ORCH_CONNECTION_VAULT_ADDR` and an
+owner-only `ORCH_CONNECTION_VAULT_TOKEN_FILE` for the separate private credential
+store, plus optional `ORCH_CONNECTION_VAULT_MOUNT` (default `kv`). Workload token
+files remain bootstrap input only. This is setup guidance, not authorization
+to execute live runners or proof that their historical scenarios still pass.

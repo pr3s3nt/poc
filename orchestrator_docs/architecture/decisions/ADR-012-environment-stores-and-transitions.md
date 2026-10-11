@@ -2,7 +2,7 @@
 id: ADR-012
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-12
 ---
 
 # ADR-012 — Editable Environment Connections, secret stores and transitions
@@ -47,30 +47,29 @@ backend connectivity alone is not proof of workload access.
 ### Local Compose registration bootstrap
 
 The bundled Vault is seeded as an ordinary verified SecretStoreConnection,
-`platform-vault` / `Platform Vault`, legacy=false. Bootstrap is explicitly opt-in,
+`platform-vault` / `Platform Vault`, with no legacy flag. Bootstrap is explicitly opt-in,
 uses the same input validation, Vault verifier and platform credential persistence
 as interactive registration, and never supplies a special runtime token fallback.
 A private application token file is bootstrap input only; backend runtime resolves
 the store's credential reference through the platform credential store. Platform
 credential storage keeps its separate configured token and ACL.
 
-Restart must retain one record and avoid redundant credential objects. Existing
-Compose compatibility records may be converted atomically after successful verify
-and credential persistence while preserving ID/key, endpoint/mount identity,
-Environment selections and immutable references. A conflicting identity must stop
-bootstrap rather than overwrite user registration. Any new immutable credential
-created for failed admission is cleaned up using the registration cleanup rules.
-A bootstrap token replacement may refresh the managed store's credential reference
-without changing endpoint identity or Environment versions; CAS admission protects
-against concurrent startup and cleanup never deletes the winner's credential.
-The safe `verification.bootstrap=compose` marker identifies managed ordinary
-records for token refresh; an unmarked user registration cannot be overwritten.
-Managed records in other Organizations that already own applications are included
-in conversion and subsequent token refresh. Normal interactive registration
-remains insert-only. This exception applies only
-to explicitly configured Compose bootstrap, not arbitrary runtime stores. Existing
-non-Compose legacy flags remain supported. Workload auth is still checked before
-Deploy; Compose does not configure an external cluster.
+Restart must retain one ordinary record and avoid redundant credential objects.
+A conflicting identity or unmarked user registration stops bootstrap rather than
+being overwritten. Any immutable credential created for failed admission is
+cleaned up using registration cleanup rules. A bootstrap token replacement may
+refresh the managed store's credential reference without changing endpoint
+identity or Environment versions; CAS admission protects concurrent startup and
+cleanup never deletes the winner's credential. The safe
+`verification.bootstrap=compose` marker identifies managed records for refresh,
+including records in other Organizations that already own applications.
+Interactive registration remains insert-only. Workload auth is still checked
+before Deploy; Compose does not configure an external cluster.
+
+T23 supersedes legacy flags-to-runtime credentials, legacy store creation/backfill
+and Compose record conversion. Runtime resolves only private scoped credential
+references. No legacy flag/global token fallback or old-store conversion is
+supported; retained dev data is reset only in the separately approved T29 run.
 
 ## Versions and atomic execution admission
 
@@ -97,10 +96,9 @@ alone is insufficient for PostgreSQL multi-process concurrency.
 
 New Applications create unconfigured execution and secret-store selections;
 ordinary variables/drafts work immediately. Writing a secret requires an
-explicit selected store. Legacy Vault deployments/references are backfilled
-with a named explicit platform Vault store, preserving physical values and
-bundle references. Missing configured legacy Vault fails safely, never fabricated
-READY. Old Application provider field is retained as legacy metadata only.
+explicit selected store. Missing store configuration fails closed; no store or
+reference identity is fabricated or backfilled. Old Application provider metadata
+removal belongs to T26.
 
 Before runtime resources exist, changing execution selection is a versioned
 metadata operation, with no provisioning. Same selected key may be an idempotent
@@ -194,7 +192,8 @@ Concurrent CAS saves; edit between Preview/Deploy; admission races with config,
 draft and Settings; two backend instances sharing PostgreSQL; persisted interrupted
 claim; independent Environments; store registration scope/redaction/probe cleanup;
 copy failure/CAS conflict and retained old refs; provider selection on delivery;
-legacy revisions/backfill and variable conversion; target generation identity and
+ordinary store private credential resolution and bootstrap CAS; Variable legacy
+materialization cleanup remains T24; target generation identity and
 force-redeploy; unsupported migration preflight; writer quiescing, backup/restore,
 route failure, source preservation and explicit cleanup. Real kind/Vault human
 Playwright recording must show two stores, a store transfer, stale-preview conflict
@@ -224,15 +223,11 @@ the new store. Same key/current versions is a no-op. Failed attempt copy objects
 are immutable and scoped; cleanup failure is recorded safely, never reported as
 successful rollback. No store/old-value delete UI is required in first delivery.
 New Variable entries store an ordinary value, Secret entries store owning store
-key plus opaque ref. Legacy Variable refs remain readable through explicit legacy
-store, and are materialized into ordinary Variable metadata on a successful edit
+key plus opaque ref. Legacy Variable refs remain readable only when an explicit owning ordinary
+store with a private credential ref exists; T23 does not create/backfill that
+identity. They are materialized into ordinary Variable metadata on a successful edit
 or store transition; never do network I/O inside SQL schema migrations. Missing
 legacy access produces actionable failure and preserves state.
-
-Legacy platform Vault store is created per Organization only from explicitly
-configured existing Vault flags/credential store, preserving old KV references.
-New Environments do not auto-select it. Existing configured revisions receive
-that explicit identity idempotently. Do not read real operator secrets in tests.
 
 First automatic PostgreSQL transfer supports Kubernetes-managed PostgreSQL 16
 resources on direct Kubernetes delivery. Preflight resolves explicit logical

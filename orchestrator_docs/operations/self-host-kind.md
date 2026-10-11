@@ -2,7 +2,7 @@
 id: RUNBOOK-SELF-HOST-KIND
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-09-29
+last_reviewed: 2026-10-12
 ---
 
 # Self-hosted Orchestrator on kind
@@ -22,14 +22,16 @@ dedicated PostgreSQL instance.
 | `orchestrator-backend` | `docker build -t orchestrator-backend:<tag> backend` | Go API with checksum-verified kubectl `v1.36.1`, non-root, port 8080 |
 | `orchestrator-frontend` | `docker build -t orchestrator-frontend:<tag> frontend` | nginx serving `/ui/` and proxying `/api/` to `BACKEND_URL`, port 8080 |
 
-The API entrypoint maps `ORCHESTRATOR_*` variables to flags. It decodes
-`ORCHESTRATOR_KUBECONFIG_B64` and writes `ORCHESTRATOR_VAULT_TOKEN` to
-owner-only files under `/tmp/orchestrator`, then unsets both values. Supported
-settings: `ORCHESTRATOR_KUBE_CONTEXT`, `ORCHESTRATOR_CLUSTER`,
-`ORCHESTRATOR_VAULT_ADDR`, `ORCHESTRATOR_VAULT_AGENT_ADDR`,
-`ORCHESTRATOR_VAULT_DELIVERY`, `ORCHESTRATOR_ADAPTERS` (default `kubernetes`)
-`ORCHESTRATOR_DATABASE_URL` (written to an owner-only runtime file), and
-`ORCHESTRATOR_LISTEN_ADDR` (default `0.0.0.0:8080`).
+The API entrypoint maps `ORCHESTRATOR_*` variables to flags. Current workload
+store access requires ordinary registration with scoped private credentials or
+the explicit platform bootstrap described in [Docker local](docker-local.md).
+T23 removes `ORCHESTRATOR_VAULT_ADDR`, `ORCHESTRATOR_VAULT_AGENT_ADDR` and the
+legacy workload-token fallback; `ORCHESTRATOR_VAULT_DELIVERY` still selects
+Agent/VSO delivery. Connection credentials remain a separate configured store.
+The historical self-hosted recording below predates these removals and T22;
+it is not current proof of uploaded Connections or ordinary-store lifecycle.
+Replaying it requires current registration/bootstrap setup and explicit external
+verification authorization. No retained namespace or volume is reset by T23.
 
 ## Recorded run
 

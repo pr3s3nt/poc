@@ -141,7 +141,8 @@ ALTER TABLE connections ADD CONSTRAINT connections_authentication_type_check CHE
 // Environment selections with target generations, persisted operation claims
 // and transition records. The permanent binding trigger is dropped; binding
 // writes are guarded by the dedicated versioned commands and claim owner.
-// No Vault network I/O happens here; legacy store backfill runs at startup.
+// No Vault network I/O happens here; there is no store backfill. The inert legacy column
+// is unused by runtime and is removed with the migration baseline (T28).
 const migration7 = `
 CREATE TABLE IF NOT EXISTS secret_store_connections (
   id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id),

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/secretstore"
 	"orchestrator/internal/platform/ids"
@@ -60,8 +59,9 @@ func (s *Store) ListSecretStores(ctx context.Context, organizationKey string) ([
 	return out, nil
 }
 
-// AdmitManagedSecretStore creates, converts or refreshes the bootstrap store as
-// one compare-and-set step.
+// AdmitManagedSecretStore creates the bootstrap store or refreshes the credential
+// of a Compose-managed record as one compare-and-set step; an unmarked user
+// record is never rewritten.
 //
 // It runs as one Transact so a failed snapshot write restores the prior state
 // and is returned, instead of being dropped by the plain write lock.
@@ -102,65 +102,19 @@ func (s *Store) admitManagedSecretStore(ctx context.Context, adm persistence.Man
 		s.state.SecretStores[key] = next
 		return next, nil
 	}
-	if !exists || current.ID != adm.ExpectedID || current.Legacy != adm.ExpectedLegacy || current.CredentialRef != adm.ExpectedCredentialRef {
+	if !exists || current.ID != adm.ExpectedID || current.CredentialRef != adm.ExpectedCredentialRef {
 		return secretstore.Store{}, fmt.Errorf("%w: secret store %q changed", persistence.ErrVersionConflict, next.Key)
+	}
+	if !current.ComposeManaged() || !next.ComposeManaged() {
+		return secretstore.Store{}, fmt.Errorf("%w: secret store %q is not Compose-managed", persistence.ErrImmutable, next.Key)
 	}
 	if !current.SameEndpoint(next) {
 		return secretstore.Store{}, fmt.Errorf("%w: secret store %q endpoint identity", persistence.ErrImmutable, next.Key)
 	}
-	current.Name, current.CredentialRef, current.Legacy = next.Name, next.CredentialRef, false
+	current.Name, current.CredentialRef = next.Name, next.CredentialRef
 	current.Status, current.Verification = next.Status, next.Verification
 	s.state.SecretStores[key] = current
 	return current, nil
-}
-
-// BackfillLegacySecretStore stamps the explicit legacy identity, idempotently.
-func (s *Store) BackfillLegacySecretStore(ctx context.Context, organizationKey, storeKey string) error {
-	defer s.lock(ctx)()
-	if _, ok := s.state.SecretStores[catalogKey(organizationKey, storeKey)]; !ok {
-		return fmt.Errorf("%w: secret store %q", persistence.ErrNotFound, storeKey)
-	}
-	for id, revision := range s.state.ConfigRevisions {
-		app, ok := s.state.Applications[revision.ApplicationKey]
-		if !ok || app.OrganizationKey != organizationKey {
-			continue
-		}
-		changed := false
-		for name, entry := range revision.Entries {
-			if entry.StoreKey == "" && entry.ValueRef != "" {
-				entry.StoreKey = storeKey
-				revision.Entries[name] = entry
-				changed = true
-			}
-		}
-		if changed {
-			s.state.ConfigRevisions[id] = revision
-		}
-	}
-	for key, env := range s.state.Environments {
-		app, ok := s.state.Applications[env.ApplicationKey]
-		if !ok || app.OrganizationKey != organizationKey || env.SecretStoreKey != "" {
-			continue
-		}
-		scope := s.state.ConfigScopes[key]
-		if scope.DesiredRevisionID == "" {
-			continue
-		}
-		if revision, ok := s.state.ConfigRevisions[scope.DesiredRevisionID]; ok && hasStoreEntries(revision) {
-			env.SecretStoreKey = storeKey
-			s.state.Environments[key] = env
-		}
-	}
-	return nil
-}
-
-func hasStoreEntries(revision configuration.Revision) bool {
-	for _, entry := range revision.Entries {
-		if entry.UsesStore() {
-			return true
-		}
-	}
-	return false
 }
 
 // ClaimEnvironment verifies pins and claims the Environment atomically.

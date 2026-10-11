@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"orchestrator/internal/application/secretstores"
-	"orchestrator/internal/domain/secretstore"
+	"orchestrator/internal/ports/persistence"
 )
 
 func bootstrapCmd(fv *fakeVault, token string) secretstores.RegisterCommand {
@@ -30,11 +30,8 @@ func TestBootstrapWithRealVerifierSeedsStoreUsedByRegistry(t *testing.T) {
 		t.Fatal("verification probe object was not removed")
 	}
 	got, err := st.GetSecretStore(ctx, "acme", "platform-vault")
-	if err != nil || got.Legacy || got.CredentialRef == "" || got.Verification["probe"] != "REMOVED" || got.Verification["capabilities"] != "VERIFIED" || got.Verification["kubernetesAuth"] != "CONFIGURED" {
+	if err != nil || got.CredentialRef == "" || got.Verification["probe"] != "REMOVED" || got.Verification["capabilities"] != "VERIFIED" || got.Verification["kubernetesAuth"] != "CONFIGURED" {
 		t.Fatalf("record: %+v %v", got, err)
-	}
-	if reg.legacy != nil {
-		t.Fatal("registry must have no legacy configuration")
 	}
 	p, err := reg.Provider(ctx, "acme", "platform-vault")
 	if err != nil {
@@ -68,18 +65,12 @@ func TestBootstrapWithRealVerifierRejectsUnusableVault(t *testing.T) {
 			_, st, creds := newRegistryFixture(t)
 			fv := newFakeVault(t, "app-token")
 			setup(fv)
-			legacy := secretstore.Store{Key: "platform-vault", OrganizationKey: "acme", Name: "Platform Vault (legacy)", Provider: secretstore.ProviderVaultKV2, Status: secretstore.StatusReady,
-				BackendAddress: fv.server.URL, WorkloadAddress: "http://vault.vault.svc:8200", Mount: "kv", AuthMount: "kubernetes", Legacy: true}
-			if err := st.CreateSecretStore(ctx, legacy); err != nil {
-				t.Fatal(err)
-			}
 			_, err := secretstores.NewService(st, Verifier{}, creds).Bootstrap(ctx, "acme", bootstrapCmd(fv, "app-token"))
 			if !errors.Is(err, secretstores.ErrVerification) || strings.Contains(err.Error(), "app-token") {
 				t.Fatalf("expected a safe verification error, got %v", err)
 			}
-			got, _ := st.GetSecretStore(ctx, "acme", "platform-vault")
-			if !got.Legacy || got.CredentialRef != "" || creds.Len() != 0 {
-				t.Fatalf("failed bootstrap left state: %+v creds=%d", got, creds.Len())
+			if _, err := st.GetSecretStore(ctx, "acme", "platform-vault"); !errors.Is(err, persistence.ErrNotFound) || creds.Len() != 0 {
+				t.Fatalf("failed bootstrap left state: %v creds=%d", err, creds.Len())
 			}
 		})
 	}

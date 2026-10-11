@@ -45,6 +45,15 @@ it('selects a store with both versions, reports the copy and keeps the selector 
   expect(screen.getByLabelText('Kho bí mật cho Staging')).toBeEnabled();
 });
 
+it('offers ordinary stores by name and key only: a stale legacy flag adds no label', async () => {
+  stub((url) => { if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [{ ...stores[0], legacy: true }, stores[1]] }); });
+  render(<Store target={configuredTarget('lab', { secretStoreKey: '', version: 5 })} />);
+  const select = await screen.findByLabelText('Kho bí mật cho Staging');
+  const labels = within(select).getAllByRole('option').map((option) => option.textContent);
+  expect(labels).toContain('Vault A (vault-a)');
+  expect(labels.join('|')).not.toMatch(/cũ|legacy/i);
+});
+
 it('shows a copy failure without changing the selection and a stale 409 with the reloaded selection', async () => {
   let mode: 'copy' | 'stale' = 'copy';
   stub((url, init) => {

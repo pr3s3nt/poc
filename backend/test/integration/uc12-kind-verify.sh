@@ -3,6 +3,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=platform-store-lib.sh
+source "${ROOT}/test/integration/platform-store-lib.sh"
 WORK="$(mktemp -d)"
 RUN_ID="uc12-$(date -u +%Y%m%d%H%M%S)-$RANDOM"
 CONTEXT="kind-idp-internal"
@@ -46,12 +48,12 @@ for _ in $(seq 1 40); do
 done
 [[ "$(jq -r .sealed "${WORK}/seal-status.json")" == "false" ]]
 
+platform_store_flags http://127.0.0.1:18211 http://vault-uc12.vault.svc:8200 "${TOKEN_FILE}"
 cd "${ROOT}"
 go build -o "${WORK}/orchestrator" ./cmd/orchestrator
 "${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" -state "${WORK}/state.json" \
   -adapters kubernetes -kube-context "${CONTEXT}" -cluster idp-internal -run-id "${RUN_ID}" \
-  -vault-address http://127.0.0.1:18211 -vault-token-file "${TOKEN_FILE}" \
-  -vault-agent-address http://vault-uc12.vault.svc:8200 \
+  "${PLATFORM_STORE_FLAGS[@]}" \
   -vault-delivery vso \
   -ui-dir "${ROOT}/../frontend/dist" > "${WORK}/orchestrator.log" 2>&1 &
 API_PID=$!

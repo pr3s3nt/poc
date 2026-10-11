@@ -118,7 +118,7 @@ export function SecretStoreSelection({ application, environment, configVersion, 
       <label htmlFor="environment-secret-store">Kho bí mật cho {title}</label>
       <select id="environment-secret-store" value={selected} disabled={saving || busy} onChange={(event) => { setPicked(event.target.value); setNotice(''); }}>
         {!target.secretStoreKey || !selected ? <option value="" disabled>Chọn một kho bí mật</option> : null}
-        {stores.map((item) => <option key={item.key} value={item.key}>{item.name} ({item.key}){item.legacy ? ' · kho nền tảng cũ' : ''}{item.status && item.status !== 'READY' ? ` · ${statusLabel(item.status)}` : ''}</option>)}
+        {stores.map((item) => <option key={item.key} value={item.key}>{item.name} ({item.key}){item.status && item.status !== 'READY' ? ` · ${statusLabel(item.status)}` : ''}</option>)}
       </select>
       {suggested ? <div className="form-info" role="status">Gợi ý chưa lưu: <strong>{suggestion?.name}</strong> là kho bí mật Sẵn sàng duy nhất. Đây chỉ là lựa chọn nháp, không phải mặc định của tổ chức; môi trường chỉ dùng kho này sau khi bạn bấm Lưu kho bí mật.</div> : null}
       {lostPick ? <div className="form-info" role="status">Kho bạn chọn trước đó không còn Sẵn sàng. Hãy chọn lại.</div> : null}

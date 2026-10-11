@@ -18,7 +18,7 @@ const evidenceDir = env.ORCH_E2E_EVIDENCE_DIR;
 const traefikPort = Number(env.ORCH_E2E_TRAEFIK_PORT);
 const subdomain = env.ORCH_E2E_SELF_SUBDOMAIN;
 const [width, height] = (env.ORCH_E2E_SCREEN ?? '1280x900').split('x').map(Number);
-for (const name of ['ORCH_E2E_URL', 'ORCH_E2E_EVIDENCE_DIR', 'ORCH_E2E_TRAEFIK_PORT', 'ORCH_E2E_SELF_SUBDOMAIN', 'ORCH_E2E_KUBE_CONTEXT', 'ORCH_E2E_CLUSTER', 'ORCH_E2E_VAULT_ADDR', 'ORCH_E2E_KUBECONFIG_B64_FILE', 'ORCH_E2E_VAULT_TOKEN_FILE', 'ORCH_E2E_SELF_NAMESPACE_FILE', 'ORCH_E2E_NAMESPACE_FILE', 'DISPLAY']) {
+for (const name of ['ORCH_E2E_URL', 'ORCH_E2E_EVIDENCE_DIR', 'ORCH_E2E_TRAEFIK_PORT', 'ORCH_E2E_SELF_SUBDOMAIN', 'ORCH_E2E_KUBE_CONTEXT', 'ORCH_E2E_CLUSTER', 'ORCH_E2E_VAULT_ADDR', 'ORCH_E2E_KUBECONFIG_B64_FILE', 'ORCH_E2E_VAULT_TOKEN_FILE', 'ORCH_E2E_CONNECTION_VAULT_ADDR', 'ORCH_E2E_CONNECTION_VAULT_TOKEN_FILE', 'ORCH_E2E_SELF_NAMESPACE_FILE', 'ORCH_E2E_NAMESPACE_FILE', 'DISPLAY']) {
   if (!env[name]) throw new Error(`${name} is required`);
 }
 if (!/^[a-z0-9-]+$/.test(runId ?? '') || !/^[a-z0-9-]+$/.test(subdomain)) throw new Error('ORCH_E2E_RUN_ID and ORCH_E2E_SELF_SUBDOMAIN must be DNS labels');
@@ -51,14 +51,19 @@ try {
   writeFileSync(env.ORCH_E2E_SELF_NAMESPACE_FILE, `app-${selfAppId}-staging`, { mode: 0o600 });
   const kubeconfigB64 = readFileSync(env.ORCH_E2E_KUBECONFIG_B64_FILE, 'utf8').trim();
   const vaultToken = readFileSync(env.ORCH_E2E_VAULT_TOKEN_FILE, 'utf8').trim();
+  const connectionVaultToken = readFileSync(env.ORCH_E2E_CONNECTION_VAULT_TOKEN_FILE, 'utf8').trim();
   const selfVariables = {
     ORCHESTRATOR_KUBE_CONTEXT: env.ORCH_E2E_KUBE_CONTEXT,
     ORCHESTRATOR_CLUSTER: env.ORCH_E2E_CLUSTER,
-    ORCHESTRATOR_VAULT_ADDR: env.ORCH_E2E_VAULT_ADDR,
-    ORCHESTRATOR_VAULT_AGENT_ADDR: env.ORCH_E2E_VAULT_ADDR,
+    // Ordinary platform-store registration; no flag-configured workload Vault.
+    ORCHESTRATOR_PLATFORM_VAULT_BOOTSTRAP: 'true',
+    ORCHESTRATOR_PLATFORM_VAULT_ADDR: env.ORCH_E2E_VAULT_ADDR,
+    ORCHESTRATOR_PLATFORM_VAULT_WORKLOAD_ADDR: env.ORCH_E2E_VAULT_ADDR,
+    ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE: 'vault',
+    ORCHESTRATOR_CONNECTION_VAULT_ADDR: env.ORCH_E2E_CONNECTION_VAULT_ADDR,
     ORCHESTRATOR_VAULT_DELIVERY: 'vso',
   };
-  const selfSecrets = { ORCHESTRATOR_KUBECONFIG_B64: kubeconfigB64, ORCHESTRATOR_VAULT_TOKEN: vaultToken };
+  const selfSecrets = { ORCHESTRATOR_KUBECONFIG_B64: kubeconfigB64, ORCHESTRATOR_PLATFORM_VAULT_TOKEN: vaultToken, ORCHESTRATOR_CONNECTION_VAULT_TOKEN: connectionVaultToken };
   await putKeys(host, selfName, [
     ...Object.entries(selfVariables).map(([name, value]) => ({ kind: 'variable', name, value })),
     ...Object.entries(selfSecrets).map(([name, value]) => ({ kind: 'secret', name, value, paste: true })),

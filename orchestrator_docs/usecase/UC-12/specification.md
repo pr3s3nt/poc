@@ -2,7 +2,7 @@
 id: UC-12-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-12
 related: UC-01, UC-05, UC-06, UC-07, UC-16
 ---
 
@@ -135,8 +135,8 @@ selection never creates a second key or copies its value.
 ## Environment secret-store transitions
 
 - **BR-15:** Chưa chọn kho thì variable operations vẫn hoạt động; Secret write
-  trả 422 secretStoreKey và dẫn tới Settings. Legacy explicit platform Vault
-  store/references được backfill, không đổi giá trị/revision runtime.
+  trả 422 secretStoreKey và dẫn tới Settings. Không backfill store identity hoặc dùng legacy Vault flags; runtime chỉ resolve
+  private credential ref của kho đúng Organization.
 - **BR-16:** Đổi kho dùng expected Environment/config versions và operation claim.
   Đọc refs từ đúng owning store, copy immutable desired Secret values sang kho
   mới, verify rồi commit selection và revision cùng transaction. Không copy

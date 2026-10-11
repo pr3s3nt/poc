@@ -12,48 +12,36 @@ import (
 	"orchestrator/internal/ports/persistence"
 )
 
-// LegacyConfig is the flag-configured Vault of earlier releases. It is the
-// credential source of the explicit per-Organization legacy store only; it is
-// never the fallback of any other store or of an unselected Environment.
-type LegacyConfig struct {
-	Address, AgentAddress, Mount, AuthMount, Token string
-}
-
 // Registry resolves Organization-scoped Vault KV v2 stores from persisted
 // metadata plus the platform credential store (ADR-012).
 type Registry struct {
 	stores persistence.SecretStoreRepository
 	creds  credentials.Store
-	legacy *LegacyConfig
 
 	mu    sync.Mutex
 	cache map[string]*Provider
 }
 
-// NewRegistry wires the store repository, the platform credential store (may
-// be nil: only the legacy store then resolves) and the optional legacy Vault.
-func NewRegistry(stores persistence.SecretStoreRepository, creds credentials.Store, legacy *LegacyConfig) *Registry {
-	return &Registry{stores: stores, creds: creds, legacy: legacy, cache: map[string]*Provider{}}
+// NewRegistry wires the store repository and the platform credential store. A
+// nil credential store makes every store unavailable (fail closed): there is no
+// flag or global token fallback.
+func NewRegistry(stores persistence.SecretStoreRepository, creds credentials.Store) *Registry {
+	return &Registry{stores: stores, creds: creds, cache: map[string]*Provider{}}
 }
 
-// LegacyStoreKey is the generated key of the explicit platform store.
-const LegacyStoreKey = "platform-vault"
-
 func (r *Registry) token(ctx context.Context, store secretstore.Store) (string, error) {
-	if store.Legacy {
-		if r.legacy == nil || r.legacy.Token == "" || store.BackendAddress != strings.TrimRight(r.legacy.Address, "/") || store.Mount != r.legacy.Mount {
-			return "", fmt.Errorf("%w: the platform Vault is not configured on this backend", configport.ErrStoreUnavailable)
-		}
-		return r.legacy.Token, nil
-	}
-	if r.creds == nil {
+	if r.creds == nil || store.CredentialRef == "" {
 		return "", configport.ErrStoreUnavailable
 	}
 	raw, err := r.creds.Get(ctx, store.OrganizationKey, store.CredentialScope(), store.CredentialRef)
 	if err != nil {
 		return "", configport.ErrStoreUnavailable
 	}
-	return strings.TrimSpace(string(raw)), nil
+	token := strings.TrimSpace(string(raw))
+	if token == "" {
+		return "", configport.ErrStoreUnavailable
+	}
+	return token, nil
 }
 
 // Describe returns the persisted store when it is READY in the Organization.

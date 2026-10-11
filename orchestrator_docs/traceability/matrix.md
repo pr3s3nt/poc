@@ -296,7 +296,7 @@ for arbitrary Resource Types, AWS onboarding or production RBAC.
 | Requirement | Canonical design | Required evidence |
 |---|---|---|
 | UC-04 SS-01..06 | ADR-012 Secret Store Connection; [T05 UI](../usecase/UC-04/ui/screens.md) | scoped Vault verify/register/redaction/probe cleanup tests; `SecretStoresPage.test.tsx`, T05 headed fake scenario (same/different address, validation, token clear, backend/auth projection), [evidence](../verification/2026-10-11-T05-secret-stores.md) |
-| UC-04 SS-07..08 | ADR-012 local Compose registration bootstrap; UC-04 realization/sequence | `secretstores/bootstrap_test.go`, `bootstrap/platformvault_test.go`, `vault/bootstrap_test.go`, shared managed-admission persistence contract and [real Docker/video verification](../verification/2026-10-08-compose-vault-normal-store.md) |
+| UC-04 SS-07..08 | ADR-012 ordinary Compose registration bootstrap; UC-04 realization/sequence; T23 removes legacy conversion/backfill | `secretstores/bootstrap_test.go`, `bootstrap/platformvault_test.go`, `vault/bootstrap_test.go`, shared managed-admission persistence contract; [historical real Docker verification](../verification/2026-10-08-compose-vault-normal-store.md) predates T23; current local checks in [T23 evidence](../verification/2026-10-12-T23-ordinary-secret-stores.md) |
 | UC-01 ES-01..06 / BR-05..13 | ADR-012 versions/transitions | Settings CAS/busy, generation isolation, migration/recovery/cleanup |
 | UC-12 BR-15..19 | ADR-012 copy/provider refs | copy failure atomicity, old refs preserved, variable conversion, VSO per-store |
 | UC-05/06/08 admission | ADR-012 atomic owner claim | PostgreSQL concurrent processes, stale token before side effects, crash recovery |
@@ -415,3 +415,10 @@ Evidence and exact limits: [T20 verification](../verification/2026-10-12-T20-con
 | Requirement | Implementation | Verification |
 |---|---|---|
 | UC-03 Environment target references; ADR-011; OC-07 context rule | `planning.Context.Values/ResolveContext`; only env.profile/env.region resolve target values, no alias rewrite | `TestContext_AppProfileRegionAliasesAreUnknown`, `TestContext_EnvProfileRegionIgnoreLegacyApplicationFields`, `TestContext_ValuesResolveTheSelectedEnvironment`; [T21 evidence](../verification/2026-10-12-T21-context-aliases.md) |
+
+## T23 — Ordinary workload Secret Stores (LEG-06)
+
+| Requirement | Implementation/test | Evidence |
+|---|---|---|
+| UC-04 SS-06..08; UC-12 BR-15; ADR-012 | Scoped private credential-only Vault registry, no legacy flags/backfill/conversion; `TestRegistryCredentialResolutionFailsClosed`; bootstrap fresh/restart/refresh, probe cleanup and failed-attempt cleanup tests | [T23 local evidence](../verification/2026-10-12-T23-ordinary-secret-stores.md) |
+| UC-04 SS-04,08; managed credential CAS | SQL/JSON managed admission checks ID/ref/marker/endpoint; shared persistence contract rejects unmarked user refresh; public DTO has no legacy/token/ref; frontend ordinary labels | Same evidence; SQL integration skipped by opt-in gate, headed fake T23 and regression coverage recorded separately |

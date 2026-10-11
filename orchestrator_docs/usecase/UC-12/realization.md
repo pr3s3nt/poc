@@ -2,7 +2,7 @@
 id: UC-12-REALIZATION
 artifact: use-case-realization
 status: draft
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-12
 ---
 
 # UC-12 — Use Case Realization (conceptual)
@@ -60,7 +60,9 @@ reported with individual outcomes and can be retried.
 
 Environment secret-store selection supersedes Application-wide provider. Variables
 are revision values in Orchestrator; Secrets are immutable refs with owning store.
-SecretStoreResolver resolves old refs as well as current selection. Store switch
+SecretStoreResolver resolves immutable refs through their explicit owning store
+and scoped private credential reference, as well as current selection. T23
+removes store identity backfill, legacy store conversion and global-token fallback. Store switch
 claims Environment, copies desired values outside transaction, then atomically
 commits new revision/selection. Old applied refs/bundles remain unchanged. VSO
 connection/auth objects are store-specific; next Preview marks secret consumers

@@ -70,3 +70,10 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
+
+## T23 — Ordinary stores only
+
+Store list and Environment choices have no legacy label or flag. READY continues
+to describe backend verification, not workload deploy readiness. Loading/error,
+explicit Save and selection/version guards are unchanged; no global-token or
+old-store fallback is exposed.

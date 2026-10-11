@@ -57,7 +57,7 @@ func TestSecretStoreRegistrationIsPlatformOnlyAndNeverLeaksTheTokenOrRefs(t *tes
 		t.Fatalf("list %d %v choices %d %v", status, list, status2, choices)
 	}
 	for _, payload := range []string{toJSON(t, created), toJSON(t, list), toJSON(t, choices), toJSON(t, bad)} {
-		for _, forbidden := range []string{"very-secret-token-value", "credentialRef", "kv2://", "orchestrator/connections", "secretRef", "\"token\""} {
+		for _, forbidden := range []string{"very-secret-token-value", "credentialRef", "kv2://", "orchestrator/connections", "secretRef", "\"token\"", "legacy", "Legacy"} {
 			if strings.Contains(payload, forbidden) {
 				t.Fatalf("public payload leaks %q: %s", forbidden, payload)
 			}

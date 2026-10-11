@@ -13,11 +13,18 @@ if [ -n "${ORCHESTRATOR_KUBECONFIG_B64:-}" ]; then
   export KUBECONFIG="${runtime_dir}/kubeconfig"
 fi
 unset ORCHESTRATOR_KUBECONFIG_B64
-if [ -n "${ORCHESTRATOR_VAULT_TOKEN:-}" ]; then
-  (umask 077 && printf '%s' "${ORCHESTRATOR_VAULT_TOKEN}" > "${runtime_dir}/vault-token")
-  export ORCHESTRATOR_VAULT_TOKEN_FILE="${runtime_dir}/vault-token"
+# Bootstrap-only input of the explicit platform store registration; runtime
+# resolves stores through their persisted credential references, not this file.
+if [ -n "${ORCHESTRATOR_PLATFORM_VAULT_TOKEN:-}" ]; then
+  (umask 077 && printf '%s' "${ORCHESTRATOR_PLATFORM_VAULT_TOKEN}" > "${runtime_dir}/platform-vault-token")
+  export ORCHESTRATOR_PLATFORM_VAULT_TOKEN_FILE="${runtime_dir}/platform-vault-token"
 fi
-unset ORCHESTRATOR_VAULT_TOKEN
+unset ORCHESTRATOR_PLATFORM_VAULT_TOKEN
+if [ -n "${ORCHESTRATOR_CONNECTION_VAULT_TOKEN:-}" ]; then
+  (umask 077 && printf '%s' "${ORCHESTRATOR_CONNECTION_VAULT_TOKEN}" > "${runtime_dir}/connection-vault-token")
+  export ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE="${runtime_dir}/connection-vault-token"
+fi
+unset ORCHESTRATOR_CONNECTION_VAULT_TOKEN
 if [ -n "${ORCHESTRATOR_DATABASE_URL:-}" ]; then
   (umask 077 && printf '%s' "${ORCHESTRATOR_DATABASE_URL}" > "${runtime_dir}/database-url")
   export ORCHESTRATOR_DATABASE_URL_FILE="${runtime_dir}/database-url"

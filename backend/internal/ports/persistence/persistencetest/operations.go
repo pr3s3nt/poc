@@ -332,39 +332,34 @@ func EnvironmentOperations(t *testing.T, st persistence.Store) OperationFixture 
 		t.Fatalf("switch store: %v", err)
 	}
 
-	legacyApp := newOperationApp(t, st, org)
-	legacyRef := "kv2://kv/orchestrator/apps/" + legacyApp + "/envs/staging/values/" + ids.New()
-	legacyRev := configuration.Revision{ID: ids.New(), ApplicationKey: legacyApp, EnvironmentKey: "staging", Version: 1, Entries: map[string]configuration.Entry{
-		"OLD_VAR": {Kind: configuration.Variable, ValueRef: legacyRef},
-		"OLD_SEC": {Kind: configuration.Secret, ValueRef: legacyRef + "s"},
-		"NEW_VAR": {Kind: configuration.Variable, Value: "plain"},
+	managedApp := newOperationApp(t, st, org)
+	managedValueRef := "kv2://kv/orchestrator/apps/" + managedApp + "/envs/staging/values/" + ids.New()
+	managedRev := configuration.Revision{ID: ids.New(), ApplicationKey: managedApp, EnvironmentKey: "staging", Version: 1, Entries: map[string]configuration.Entry{
+		"STORE_SEC": {Kind: configuration.Secret, ValueRef: managedValueRef, StoreKey: "platform-vault"},
+		"PLAIN_VAR": {Kind: configuration.Variable, Value: "plain"},
 	}}
-	if err := st.CommitConfigurationRevision(ctx, 0, legacyRev); err != nil {
+	if err := st.CommitConfigurationRevision(ctx, 0, managedRev); err != nil {
 		t.Fatal(err)
 	}
-	legacyStore := testStore(org, "platform-vault")
-	legacyStore.Legacy = true
-	if err := st.CreateSecretStore(ctx, legacyStore); err != nil {
+	managedStore := testStore(org, "platform-vault")
+	managedStore.CredentialRef = managedRef0
+	managedStore.Verification = map[string]any{"bootstrap": "compose", "verified": true}
+	if err := st.CreateSecretStore(ctx, managedStore); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 2; i++ { // idempotent
-		if err := st.BackfillLegacySecretStore(ctx, org, "platform-vault"); err != nil {
-			t.Fatal(err)
-		}
+	managedEnv, err := st.GetEnvironment(ctx, managedApp, "staging")
+	if err != nil {
+		t.Fatal(err)
 	}
-	got, err := st.GetConfigurationRevision(ctx, legacyRev.ID)
-	if err != nil || got.Entries["OLD_VAR"].StoreKey != "platform-vault" || got.Entries["OLD_SEC"].StoreKey != "platform-vault" || got.Entries["OLD_VAR"].ValueRef != legacyRef || got.Entries["NEW_VAR"].StoreKey != "" || got.Entries["NEW_VAR"].Value != "plain" {
-		t.Fatalf("legacy backfill: %+v %v", got.Entries, err)
+	if managedEnv.SecretStoreKey != "" {
+		t.Fatalf("a registered store must not auto-select itself: %+v", managedEnv)
 	}
-	if e, _ := st.GetEnvironment(ctx, legacyApp, "staging"); e.SecretStoreKey != "platform-vault" || e.Version != 1 {
-		t.Fatalf("backfill selection: %+v", e)
+	if _, err := st.SelectSecretStore(ctx, persistence.SecretStoreSelection{ApplicationKey: managedApp, EnvironmentKey: "staging", StoreKey: "platform-vault", ExpectedVersion: managedEnv.Version}); err != nil {
+		t.Fatal(err)
 	}
-	if e, _ := st.GetEnvironment(ctx, legacyApp, "production"); e.SecretStoreKey != "" {
-		t.Fatalf("environment without configuration must stay unselected: %+v", e)
-	}
-	assertManagedAdmission(t, st, org, legacyApp, legacyRev, legacyRef)
+	assertManagedAdmission(t, st, org, managedApp, managedRev, managedValueRef)
 
-	// New Applications never auto-select the legacy store.
+	// New Applications never auto-select a store.
 	if fresh := newOperationApp(t, st, org); true {
 		if e, _ := st.GetEnvironment(ctx, fresh, "staging"); e.SecretStoreKey != "" {
 			t.Fatalf("new environment auto-selected a store: %+v", e)
@@ -400,7 +395,7 @@ func AssertOperationsReloaded(t *testing.T, st persistence.Store, fx OperationFi
 	if err != nil || env.SecretStoreKey != "vault-b" || env.TargetGeneration != 1 || env.GenerationHigh != 2 || env.Busy() || env.Version != 4 {
 		t.Fatalf("environment after reopen: %+v %v", env, err)
 	}
-	if managed, err := st.GetSecretStore(ctx, fx.OrganizationKey, "platform-vault"); err != nil || managed.Legacy || managed.CredentialRef != managedRef2 || managed.Verification["bootstrap"] != "compose" {
+	if managed, err := st.GetSecretStore(ctx, fx.OrganizationKey, "platform-vault"); err != nil || managed.CredentialRef != managedRef2 || managed.Verification["bootstrap"] != "compose" {
 		t.Fatalf("managed store after reopen: %+v %v", managed, err)
 	}
 	if ops, err := st.ListOperations(ctx, fx.ApplicationKey, "staging", 5); err != nil || len(ops) != 1 || ops[0].Status != environment.OpRecovered {
@@ -412,46 +407,49 @@ func AssertOperationsReloaded(t *testing.T, st persistence.Store, fx OperationFi
 }
 
 const (
+	managedRef0 = "kv2://kv/orchestrator/connections/opsorg/ss-platform-vault/credentials/00000000-0000-4000-8000-000000000000"
 	managedRef1 = "kv2://kv/orchestrator/connections/opsorg/ss-platform-vault/credentials/00000000-0000-4000-8000-000000000001"
 	managedRef2 = "kv2://kv/orchestrator/connections/opsorg/ss-platform-vault/credentials/00000000-0000-4000-8000-000000000002"
 )
 
 // assertManagedAdmission is the contract of the Compose bootstrap admission:
-// compare-and-set conversion/refresh that keeps the row identity and every
-// reference, and refuses stale, duplicate and mismatched admissions unchanged.
-func assertManagedAdmission(t *testing.T, st persistence.Store, org, legacyApp string, legacyRev configuration.Revision, legacyRef string) {
+// compare-and-set refresh of a managed record that keeps the row identity and
+// every reference, and refuses stale, duplicate and mismatched admissions unchanged.
+func assertManagedAdmission(t *testing.T, st persistence.Store, org, managedApp string, managedRev configuration.Revision, valueRef string) {
 	t.Helper()
 	ctx := context.Background()
+	selected, err := st.GetEnvironment(ctx, managedApp, "staging")
+	if err != nil || selected.SecretStoreKey != "platform-vault" {
+		t.Fatalf("selected environment: %+v %v", selected, err)
+	}
 	prior, err := st.GetSecretStore(ctx, org, "platform-vault")
-	if err != nil || !prior.Legacy || prior.ID == "" {
-		t.Fatalf("legacy prior: %+v %v", prior, err)
+	if err != nil || prior.ID == "" || prior.CredentialRef != managedRef0 {
+		t.Fatalf("managed prior: %+v %v", prior, err)
 	}
 	next := prior
-	next.Name, next.Legacy, next.CredentialRef, next.Verification = "Platform Vault", false, managedRef1, map[string]any{"bootstrap": "compose", "verified": true}
-	admit := func(s secretstore.Store, id string, legacy bool, ref string) (secretstore.Store, error) {
-		return st.AdmitManagedSecretStore(ctx, persistence.ManagedStoreAdmission{Store: s, ExpectedID: id, ExpectedLegacy: legacy, ExpectedCredentialRef: ref})
+	next.Name, next.CredentialRef, next.Verification = "Platform Vault", managedRef1, map[string]any{"bootstrap": "compose", "verified": true}
+	admit := func(s secretstore.Store, id string, ref string) (secretstore.Store, error) {
+		return st.AdmitManagedSecretStore(ctx, persistence.ManagedStoreAdmission{Store: s, ExpectedID: id, ExpectedCredentialRef: ref})
 	}
 	unchanged := func(label string) {
 		t.Helper()
 		got, err := st.GetSecretStore(ctx, org, "platform-vault")
-		if err != nil || !got.Legacy || got.CredentialRef != prior.CredentialRef || got.Name != prior.Name || got.ID != prior.ID {
+		if err != nil || got.CredentialRef != prior.CredentialRef || got.Name != prior.Name || got.ID != prior.ID {
 			t.Fatalf("%s changed the record: %+v %v", label, got, err)
 		}
 	}
-	if _, err := admit(next, "", false, ""); !errors.Is(err, persistence.ErrDuplicate) {
+	if _, err := admit(next, "", ""); !errors.Is(err, persistence.ErrDuplicate) {
 		t.Fatalf("create over an existing record: %v", err)
 	}
 	unchanged("duplicate create")
 	for label, args := range map[string]struct {
-		id     string
-		legacy bool
-		ref    string
+		id  string
+		ref string
 	}{
-		"stale id":          {ids.New(), true, prior.CredentialRef},
-		"wrong legacy flag": {prior.ID, false, prior.CredentialRef},
-		"wrong credential":  {prior.ID, true, managedRef2},
+		"stale id":         {ids.New(), prior.CredentialRef},
+		"wrong credential": {prior.ID, managedRef2},
 	} {
-		if _, err := admit(next, args.id, args.legacy, args.ref); !errors.Is(err, persistence.ErrVersionConflict) {
+		if _, err := admit(next, args.id, args.ref); !errors.Is(err, persistence.ErrVersionConflict) {
 			t.Fatalf("%s: %v", label, err)
 		}
 		unchanged(label)
@@ -464,51 +462,73 @@ func assertManagedAdmission(t *testing.T, st persistence.Store, org, legacyApp s
 	} {
 		mismatch := next
 		mutate(&mismatch)
-		if _, err := admit(mismatch, prior.ID, true, prior.CredentialRef); !errors.Is(err, persistence.ErrImmutable) {
+		if _, err := admit(mismatch, prior.ID, prior.CredentialRef); !errors.Is(err, persistence.ErrImmutable) {
 			t.Fatalf("%s identity mismatch: %v", label, err)
 		}
 		unchanged(label)
 	}
 	missingOrg := next
 	missingOrg.OrganizationKey = "missing-org"
-	if _, err := admit(missingOrg, "", false, ""); !errors.Is(err, persistence.ErrNotFound) {
+	if _, err := admit(missingOrg, "", ""); !errors.Is(err, persistence.ErrNotFound) {
 		t.Fatalf("missing organization: %v", err)
 	}
 
-	converted, err := admit(next, prior.ID, true, prior.CredentialRef)
-	if err != nil || converted.ID != prior.ID || converted.Legacy || converted.CredentialRef != managedRef1 || converted.Name != "Platform Vault" || !converted.CreatedAt.Equal(prior.CreatedAt) || converted.Status != secretstore.StatusReady {
-		t.Fatalf("conversion: %+v %v", converted, err)
+	refreshedOnce, err := admit(next, prior.ID, prior.CredentialRef)
+	if err != nil || refreshedOnce.ID != prior.ID || refreshedOnce.CredentialRef != managedRef1 || refreshedOnce.Name != "Platform Vault" || !refreshedOnce.CreatedAt.Equal(prior.CreatedAt) || refreshedOnce.Status != secretstore.StatusReady {
+		t.Fatalf("refresh: %+v %v", refreshedOnce, err)
 	}
-	if _, err := admit(next, prior.ID, true, prior.CredentialRef); !errors.Is(err, persistence.ErrVersionConflict) {
-		t.Fatalf("replayed conversion must lose the compare-and-set: %v", err)
+	if _, err := admit(next, prior.ID, prior.CredentialRef); !errors.Is(err, persistence.ErrVersionConflict) {
+		t.Fatalf("replayed refresh must lose the compare-and-set: %v", err)
 	}
-	got, err := st.GetConfigurationRevision(ctx, legacyRev.ID)
-	if err != nil || got.Entries["OLD_VAR"].StoreKey != "platform-vault" || got.Entries["OLD_VAR"].ValueRef != legacyRef || got.Entries["OLD_SEC"].StoreKey != "platform-vault" {
-		t.Fatalf("conversion changed value references: %+v %v", got.Entries, err)
+	got, err := st.GetConfigurationRevision(ctx, managedRev.ID)
+	if err != nil || got.Entries["STORE_SEC"].StoreKey != "platform-vault" || got.Entries["STORE_SEC"].ValueRef != valueRef {
+		t.Fatalf("refresh changed value references: %+v %v", got.Entries, err)
 	}
-	if e, _ := st.GetEnvironment(ctx, legacyApp, "staging"); e.SecretStoreKey != "platform-vault" || e.Version != 1 {
-		t.Fatalf("conversion changed the Environment selection: %+v", e)
+	if e, _ := st.GetEnvironment(ctx, managedApp, "staging"); e.SecretStoreKey != "platform-vault" || e.Version != selected.Version {
+		t.Fatalf("refresh changed the Environment selection: %+v", e)
+	}
+
+	// An unmarked user registration is never refreshed, even with a correct
+	// ID/credential and identical endpoint; a marker-less publication is refused too.
+	user := testStore(org, "user-vault")
+	if err := st.CreateSecretStore(ctx, user); err != nil {
+		t.Fatal(err)
+	}
+	userStored, _ := st.GetSecretStore(ctx, org, "user-vault")
+	hijack := userStored
+	hijack.CredentialRef, hijack.Verification = managedRef2, map[string]any{"bootstrap": "compose"}
+	if _, err := admit(hijack, userStored.ID, userStored.CredentialRef); !errors.Is(err, persistence.ErrImmutable) {
+		t.Fatalf("unmarked user store refresh: %v", err)
+	}
+	if got, _ := st.GetSecretStore(ctx, org, "user-vault"); got.CredentialRef != user.CredentialRef || got.Verification["bootstrap"] != nil {
+		t.Fatalf("user store changed: %+v", got)
+	}
+	unmarkedPublish := refreshedOnce
+	unmarkedPublish.CredentialRef, unmarkedPublish.Verification = managedRef2, map[string]any{"verified": true}
+	if _, err := admit(unmarkedPublish, prior.ID, managedRef1); !errors.Is(err, persistence.ErrImmutable) {
+		t.Fatalf("publishing without the marker: %v", err)
 	}
 
 	refreshed := next
 	refreshed.CredentialRef = managedRef2
-	if out, err := admit(refreshed, prior.ID, false, managedRef1); err != nil || out.CredentialRef != managedRef2 || out.ID != prior.ID {
-		t.Fatalf("refresh: %+v %v", out, err)
+	if out, err := admit(refreshed, prior.ID, managedRef1); err != nil || out.CredentialRef != managedRef2 || out.ID != prior.ID {
+		t.Fatalf("second refresh: %+v %v", out, err)
 	}
-	if _, err := admit(refreshed, prior.ID, false, managedRef1); !errors.Is(err, persistence.ErrVersionConflict) {
+	if _, err := admit(refreshed, prior.ID, managedRef1); !errors.Is(err, persistence.ErrVersionConflict) {
 		t.Fatalf("stale refresh: %v", err)
 	}
 
 	// A missing record is created insert-style.
 	fresh := testStore("otherorg", "platform-vault")
 	fresh.Name = "Platform Vault"
-	if out, err := admit(fresh, "", false, ""); err != nil || out.ID == "" || out.CredentialRef != fresh.CredentialRef || out.Legacy {
+	fresh.Verification = map[string]any{"bootstrap": "compose"}
+	if out, err := admit(fresh, "", ""); err != nil || out.ID == "" || out.CredentialRef != fresh.CredentialRef {
 		t.Fatalf("create: %+v %v", out, err)
 	}
-	if _, err := admit(fresh, "", false, ""); !errors.Is(err, persistence.ErrDuplicate) {
+	if _, err := admit(fresh, "", ""); !errors.Is(err, persistence.ErrDuplicate) {
 		t.Fatalf("second create: %v", err)
 	}
-	if _, err := admit(fresh, ids.New(), false, fresh.CredentialRef); !errors.Is(err, persistence.ErrVersionConflict) {
+	if _, err := admit(fresh, ids.New(), fresh.CredentialRef); !errors.Is(err, persistence.ErrVersionConflict) {
 		t.Fatalf("stale id: %v", err)
 	}
 
@@ -526,7 +546,7 @@ func assertManagedAdmission(t *testing.T, st persistence.Store, org, legacyApp s
 			defer wg.Done()
 			attempt := fresh
 			attempt.CredentialRef = ref
-			_, err := admit(attempt, created.ID, false, created.CredentialRef)
+			_, err := admit(attempt, created.ID, created.CredentialRef)
 			results <- err
 		}(refs[i])
 	}

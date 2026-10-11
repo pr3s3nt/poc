@@ -17,12 +17,12 @@ import (
 	"orchestrator/internal/ports/persistence"
 )
 
-const secretStoreSelect = `SELECT ss.id::text,ss.store_key,o.organization_key,ss.name,ss.provider,ss.backend_address,ss.workload_address,ss.kv_mount,ss.auth_mount,ss.tls_ca_pem,ss.credential_ref,ss.status,ss.legacy,ss.verification,ss.created_at FROM secret_store_connections ss JOIN organizations o ON o.id=ss.organization_id`
+const secretStoreSelect = `SELECT ss.id::text,ss.store_key,o.organization_key,ss.name,ss.provider,ss.backend_address,ss.workload_address,ss.kv_mount,ss.auth_mount,ss.tls_ca_pem,ss.credential_ref,ss.status,ss.verification,ss.created_at FROM secret_store_connections ss JOIN organizations o ON o.id=ss.organization_id`
 
 func scanSecretStore(row pgx.Row) (secretstore.Store, error) {
 	var v secretstore.Store
 	var verification []byte
-	if err := row.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Name, &v.Provider, &v.BackendAddress, &v.WorkloadAddress, &v.Mount, &v.AuthMount, &v.TLSCAPEM, &v.CredentialRef, &v.Status, &v.Legacy, &verification, &v.CreatedAt); err != nil {
+	if err := row.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Name, &v.Provider, &v.BackendAddress, &v.WorkloadAddress, &v.Mount, &v.AuthMount, &v.TLSCAPEM, &v.CredentialRef, &v.Status, &verification, &v.CreatedAt); err != nil {
 		return v, err
 	}
 	return v, unmarshalJSON(verification, &v.Verification)
@@ -43,8 +43,8 @@ func (s *Store) CreateSecretStore(ctx context.Context, v secretstore.Store) erro
 	if err != nil {
 		return err
 	}
-	tag, err := s.q(ctx).Exec(ctx, `INSERT INTO secret_store_connections(id,organization_id,store_key,name,provider,backend_address,workload_address,kv_mount,auth_mount,tls_ca_pem,credential_ref,status,legacy,verification,created_at) SELECT $1::uuid,o.id,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15 FROM organizations o WHERE o.organization_key=$2`,
-		v.ID, v.OrganizationKey, v.Key, v.Name, v.Provider, v.BackendAddress, v.WorkloadAddress, v.Mount, v.AuthMount, v.TLSCAPEM, v.CredentialRef, v.Status, v.Legacy, verification, v.CreatedAt)
+	tag, err := s.q(ctx).Exec(ctx, `INSERT INTO secret_store_connections(id,organization_id,store_key,name,provider,backend_address,workload_address,kv_mount,auth_mount,tls_ca_pem,credential_ref,status,verification,created_at) SELECT $1::uuid,o.id,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14 FROM organizations o WHERE o.organization_key=$2`,
+		v.ID, v.OrganizationKey, v.Key, v.Name, v.Provider, v.BackendAddress, v.WorkloadAddress, v.Mount, v.AuthMount, v.TLSCAPEM, v.CredentialRef, v.Status, verification, v.CreatedAt)
 	if err != nil {
 		var pgErr interface{ SQLState() string }
 		if errors.As(err, &pgErr) && pgErr.SQLState() == "23505" {
@@ -83,7 +83,8 @@ func (s *Store) ListSecretStores(ctx context.Context, org string) ([]secretstore
 	return out, rows.Err()
 }
 
-// AdmitManagedSecretStore creates, converts or refreshes the bootstrap store.
+// AdmitManagedSecretStore creates the bootstrap store or refreshes the credential
+// of a Compose-managed record; an unmarked user record is never rewritten.
 // The prior row is locked so concurrent startups serialize; a concurrent insert
 // is stopped by the unique (organization, key) index.
 func (s *Store) AdmitManagedSecretStore(ctx context.Context, adm persistence.ManagedStoreAdmission) (secretstore.Store, error) {
@@ -113,8 +114,11 @@ func (s *Store) AdmitManagedSecretStore(ctx context.Context, adm persistence.Man
 		if err != nil {
 			return err
 		}
-		if current.ID != adm.ExpectedID || current.Legacy != adm.ExpectedLegacy || current.CredentialRef != adm.ExpectedCredentialRef {
+		if current.ID != adm.ExpectedID || current.CredentialRef != adm.ExpectedCredentialRef {
 			return fmt.Errorf("%w: secret store %q changed", persistence.ErrVersionConflict, next.Key)
+		}
+		if !current.ComposeManaged() || !next.ComposeManaged() {
+			return fmt.Errorf("%w: secret store %q is not Compose-managed", persistence.ErrImmutable, next.Key)
 		}
 		if !current.SameEndpoint(next) {
 			return fmt.Errorf("%w: secret store %q endpoint identity", persistence.ErrImmutable, next.Key)
@@ -123,32 +127,14 @@ func (s *Store) AdmitManagedSecretStore(ctx context.Context, adm persistence.Man
 		if err != nil {
 			return err
 		}
-		if _, err := s.q(ctx).Exec(ctx, `UPDATE secret_store_connections SET name=$2, credential_ref=$3, status=$4, legacy=false, verification=$5 WHERE id=$1::uuid AND credential_ref=$6 AND legacy=$7`,
-			current.ID, next.Name, next.CredentialRef, next.Status, verification, adm.ExpectedCredentialRef, adm.ExpectedLegacy); err != nil {
+		if _, err := s.q(ctx).Exec(ctx, `UPDATE secret_store_connections SET name=$2, credential_ref=$3, status=$4, verification=$5 WHERE id=$1::uuid AND credential_ref=$6`,
+			current.ID, next.Name, next.CredentialRef, next.Status, verification, adm.ExpectedCredentialRef); err != nil {
 			return translate(err)
 		}
 		out, err = s.GetSecretStore(ctx, next.OrganizationKey, next.Key)
 		return err
 	})
 	return out, err
-}
-
-// BackfillLegacySecretStore stamps the explicit legacy identity, idempotently.
-func (s *Store) BackfillLegacySecretStore(ctx context.Context, org, storeKey string) error {
-	return s.Transact(ctx, func(ctx context.Context) error {
-		var storeID string
-		if err := s.q(ctx).QueryRow(ctx, `SELECT ss.id::text FROM secret_store_connections ss JOIN organizations o ON o.id=ss.organization_id WHERE o.organization_key=$1 AND ss.store_key=$2`, org, storeKey).Scan(&storeID); err != nil {
-			return translate(err)
-		}
-		if _, err := s.q(ctx).Exec(ctx, `UPDATE configuration_revision_entries ce SET store_key=$2 FROM configuration_revisions cr, environments e, applications a, organizations o
-WHERE ce.revision_id=cr.id AND cr.environment_id=e.id AND e.application_id=a.id AND a.organization_id=o.id AND o.organization_key=$1 AND ce.store_key='' AND ce.value_ref IS NOT NULL`, org, storeKey); err != nil {
-			return translate(err)
-		}
-		_, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET secret_store_id=$2::uuid FROM applications a, organizations o
-WHERE e.application_id=a.id AND a.organization_id=o.id AND o.organization_key=$1 AND e.secret_store_id IS NULL AND EXISTS (
-  SELECT 1 FROM configuration_revision_entries ce WHERE ce.revision_id=e.desired_config_revision_id AND (ce.kind='SECRET' OR (ce.kind='VARIABLE' AND ce.variable_value IS NULL AND ce.value_ref IS NOT NULL)))`, org, storeID)
-		return translate(err)
-	})
 }
 
 const operationSelect = `SELECT op.id::text,a.application_key,e.environment_key,op.kind,op.owner_instance,op.fence,op.status,op.stage,op.pins,op.detail,op.failure,op.started_at,op.updated_at,op.heartbeat_at,op.deadline,op.finished_at FROM environment_operations op JOIN environments e ON e.id=op.environment_id JOIN applications a ON a.id=e.application_id`

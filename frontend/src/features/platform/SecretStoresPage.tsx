@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 
-type Store = { key: string; name: string; provider: string; backendAddress: string; workloadAddress: string; mount: string; authMount: string; tlsCustomCa: boolean; status: string; legacy?: boolean; verification?: Record<string, unknown> | null };
+type Store = { key: string; name: string; provider: string; backendAddress: string; workloadAddress: string; mount: string; authMount: string; tlsCustomCa: boolean; status: string; verification?: Record<string, unknown> | null };
 type Form = { name: string; backendAddress: string; workloadAddress: string; sameAddress: boolean; mount: string; authMount: string; tlsCaPem: string; token: string };
 type Field = 'name' | 'backendAddress' | 'workloadAddress' | 'mount' | 'authMount' | 'tlsCaPem' | 'token' | 'form';
 type Problems = Partial<Record<Field, string>>;
@@ -199,7 +199,7 @@ export function SecretStoresPage() {
       {state === 'ready' && stores.length === 0 ? <div className="section-empty">Chưa có kho bí mật nào được đăng ký.</div> : null}
       {stores.length > 0 ? <div className="settings-table"><div className="settings-table-head"><span>Kho</span><span>Địa chỉ</span><span>Mount và CA</span><span>Trạng thái và xác minh</span></div>
         {stores.map((store) => <div className="settings-table-row" key={store.key}>
-          <strong>{store.name}{store.legacy ? ' (cấu hình cũ)' : ''}<small className="muted"> {store.key} · {store.provider}</small></strong>
+          <strong>{store.name}<small className="muted"> {store.key} · {store.provider}</small></strong>
           <span>Backend: {store.backendAddress}<br />Workload: {store.workloadAddress}</span>
           <span>KV v2: {store.mount}<br />Xác thực Kubernetes: {store.authMount}<br />CA: {store.tlsCustomCa ? 'tùy chỉnh' : 'mặc định'}</span>
           <span>Trạng thái: {statusLabel(store.status)}<br />Xác minh backend: {backendVerification(store)}<br />Xác thực Kubernetes: {kubernetesAuth(store)}</span></div>)}</div> : null}

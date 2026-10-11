@@ -41,23 +41,20 @@ var (
 
 // Store is one registered Vault KV v2 workload secret store.
 type Store struct {
-	ID              string   `json:"id"`
-	Key             string   `json:"key"`
-	OrganizationKey string   `json:"organizationKey"`
-	Name            string   `json:"name"`
-	Provider        Provider `json:"provider"`
-	BackendAddress  string   `json:"backendAddress"`
-	WorkloadAddress string   `json:"workloadAddress"`
-	Mount           string   `json:"mount"`
-	AuthMount       string   `json:"authMount"`
-	TLSCAPEM        string   `json:"tlsCaPem,omitempty"`
-	CredentialRef   string   `json:"credentialRef,omitempty"`
-	Status          Status   `json:"status"`
-	// Legacy marks the explicit per-Organization platform store backfilled
-	// from the flag-configured Vault of earlier releases.
-	Legacy       bool           `json:"legacy,omitempty"`
-	Verification map[string]any `json:"verification,omitempty"`
-	CreatedAt    time.Time      `json:"createdAt"`
+	ID              string         `json:"id"`
+	Key             string         `json:"key"`
+	OrganizationKey string         `json:"organizationKey"`
+	Name            string         `json:"name"`
+	Provider        Provider       `json:"provider"`
+	BackendAddress  string         `json:"backendAddress"`
+	WorkloadAddress string         `json:"workloadAddress"`
+	Mount           string         `json:"mount"`
+	AuthMount       string         `json:"authMount"`
+	TLSCAPEM        string         `json:"tlsCaPem,omitempty"`
+	CredentialRef   string         `json:"credentialRef,omitempty"`
+	Status          Status         `json:"status"`
+	Verification    map[string]any `json:"verification,omitempty"`
+	CreatedAt       time.Time      `json:"createdAt"`
 }
 
 // CredentialScope is the credential-store connection key of the token. It is
@@ -102,6 +99,14 @@ func (s Store) Validate() error {
 	}
 	return nil
 }
+
+// ComposeBootstrapMarker is the verification["bootstrap"] value of a record
+// created by the explicit Compose bootstrap. Only such a record may have its
+// credential reference refreshed by a managed admission.
+const ComposeBootstrapMarker = "compose"
+
+// ComposeManaged reports whether the record carries the Compose bootstrap marker.
+func (s Store) ComposeManaged() bool { return s.Verification["bootstrap"] == ComposeBootstrapMarker }
 
 // SameEndpoint reports whether two records address the same Vault: provider,
 // backend and workload addresses, mounts and trust anchor. Name, credential

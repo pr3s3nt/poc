@@ -58,7 +58,8 @@ Service -> Secrets: Read existing scoped credential / Put own replacement
 Service -> Repo: CAS admit matching identity <<transaction>>
 note right of Repo
 Preserve ID/key/endpoints and Environment references.
-Create ordinary store or convert matching Compose legacy.
+Create ordinary store or refresh marked managed credential.
+No legacy conversion/backfill or global token fallback.
 Concurrent loser never cleans winner credential.
 end note
 alt Admission fails

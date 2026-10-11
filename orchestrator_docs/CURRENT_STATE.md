@@ -407,12 +407,12 @@ registration and Terraform account credential resolution remain deferred.
 
 Local Compose builds backend/frontend source by default and runs public
 PostgreSQL/Vault images. Explicit bootstrap now registers `platform-vault` /
-`Platform Vault` as an ordinary verified store (legacy=false), using the shared
+`Platform Vault` as an ordinary verified store, using the shared
 Vault verifier and private platform credential store. Runtime resolves its opaque
 credential reference; the application token file is bootstrap input only.
-Existing Compose compatibility records convert in place with store identity,
-Environment selections and immutable secret references preserved. New Environments
-select stores explicitly. Bootstrap is idempotent, checks endpoint identity and
+T23 removes legacy flags/global tokens, store backfill/conversion and legacy
+domain/API/UI flags. New Environments select stores explicitly; retained old
+dev data requires the separately approved T29 reset. Bootstrap is idempotent, checks endpoint identity and
 can refresh only managed credentials after successful verification/CAS admission.
 Workload delivery still requires Vault reachability and Kubernetes auth for the
 selected cluster. [Normal-store verification](verification/2026-10-08-compose-vault-normal-store.md)

@@ -297,7 +297,7 @@ it('lists both addresses, backend verification and Kubernetes auth separately, w
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ secretStores: rows })));
   render(<SecretStoresPage />);
   const list = await screen.findByLabelText('Kho bí mật đã đăng ký');
-  const row = (name: string) => within(list).getAllByText((_, node) => node?.tagName === 'STRONG' && node.firstChild?.textContent?.replace(' (cấu hình cũ)', '') === name)[0]?.closest('.settings-table-row') as HTMLElement;
+  const row = (name: string) => within(list).getAllByText((_, node) => node?.tagName === 'STRONG' && node.firstChild?.textContent?.trim() === name)[0]?.closest('.settings-table-row') as HTMLElement;
   expect(row('Team Vault')).toHaveTextContent('Backend: http://vault:8200');
   expect(row('Team Vault')).toHaveTextContent('Workload: http://vault.vault.svc:8200');
   expect(row('Team Vault')).toHaveTextContent('Trạng thái: Sẵn sàng');
@@ -310,7 +310,7 @@ it('lists both addresses, backend verification and Kubernetes auth separately, w
   expect(row('Unknown')).toHaveTextContent('Xác thực Kubernetes: Chưa rõ');
   expect(row('NullV')).toHaveTextContent('Xác thực Kubernetes: Chưa rõ');
   expect(row('Rej')).toHaveTextContent('Trạng thái: Bị từ chối');
-  expect(row('Old')).toHaveTextContent('(cấu hình cũ)');
+  expect(row('Old')).not.toHaveTextContent('cấu hình cũ'); // a stale legacy flag is ignored; no legacy label exists
   expect(row('Old')).toHaveTextContent('Trạng thái: Trạng thái chưa nhận diện (PENDING)');
   expect(row('Old')).not.toHaveTextContent('legacy');
   expect(row('Old')).toHaveTextContent('Xác minh backend: Backend xác minh không đạt');

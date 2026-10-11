@@ -135,7 +135,9 @@ new targets. Preview/Deploy require configured binding.
 This supersedes the earlier set-once/provider prose. Environment owns independently
 editable execution/store selections and version, target generation and active
 operation identity. SecretStoreConnection is a separate Organization aggregate;
-only credential ref/nonsecret provider configuration is persisted. EnvironmentOperation
+only credential ref/nonsecret provider configuration is persisted. T23 removes
+SecretStore legacy flags and backfill/conversion; bootstrap manages ordinary
+stores through marker, endpoint identity and expected credential CAS. EnvironmentOperation
 is persisted admission/transition state; old targets/resources survive in immutable
 retained-generation records. ConfigurationEntry contains ordinary Variable value
 or owning store key + opaque Secret ref. SecretStoreResolver and PostgreSQLTransfer

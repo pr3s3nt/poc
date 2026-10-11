@@ -90,5 +90,4 @@ Danh sách hiển thị tên/key/provider, cả hai địa chỉ, mount và CA, 
 kết quả xác minh backend và xác thực Kubernetes tách riêng. READY hiển thị
 “Sẵn sàng”: xác minh backend tại lúc đăng ký, không cam kết deploy-ready;
 auth chưa cấu hình phải thể hiện rõ. Thiếu metadata không suy thành công.
-Không hiển thị token hoặc credential ref. Nhãn legacy chỉ là metadata hiện
-hành, việc bỏ legacy thuộc T23. PE/Admin gates và Developer choices không đổi.
+Không hiển thị token hoặc credential ref. Không có nhãn/type legacy trong danh sách kho hoặc choices (T23). PE/Admin gates và Developer choices không đổi.

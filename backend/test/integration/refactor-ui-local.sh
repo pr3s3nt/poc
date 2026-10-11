@@ -12,7 +12,7 @@
 # T03 and T18 additionally pass -score-k8s with a test-local stub (stubs/score-k8s-render-fail-stub.sh)
 # whose `generate` always fails; calls are logged in NEW_PATH/score-k8s-stub/score-k8s-calls.log.
 # T16 additionally passes a fake AWS region/account so the seeded aws-account Connection can bind an Environment.
-# T05, T06 and T07 additionally use in-memory state with the explicit memory credential store (no state file, no Vault).
+# T05, T06, T07 and T23 additionally use in-memory state with the explicit memory credential store (no state file, no Vault).
 # T20 submits a synthetic canary secret (ORCH_E2E_CANARY) through the UI; after the run the backend log must not contain it.
 # Debug only: ORCH_REFACTOR_INJECT_FAILURE=after-sign-in makes T01 fail on
 # purpose to check that video, marks and assertions survive a failure.
@@ -115,11 +115,11 @@ fi
 REGION_ARGS=()
 if [[ "${SCENARIO}" == T16 ]]; then REGION_ARGS=(-region us-east-1 -account-id 000000000000); fi
 
-# T05 and T07 register Secret stores and T06 registers Kubernetes Connections, which
+# T05, T07 and T23 register Secret stores and T06 registers Kubernetes Connections, which
 # need a credential store. The explicit non-durable "memory" store is accepted
 # only without persistent state, so they run with in-memory state and no -state file.
 STATE_ARGS=(-state "${WORK}/state.json") STORE_MODE=none
-if [[ "${SCENARIO}" == T05 || "${SCENARIO}" == T06 || "${SCENARIO}" == T07 ]]; then STATE_ARGS=(); STORE_MODE=memory; fi
+if [[ "${SCENARIO}" == T05 || "${SCENARIO}" == T06 || "${SCENARIO}" == T07 || "${SCENARIO}" == T23 ]]; then STATE_ARGS=(); STORE_MODE=memory; fi
 
 (cd "${ROOT}" && go build -o "${WORK}/orchestrator" ./cmd/orchestrator)
 # The product seed leaves the cluster record VERIFYING without a credential.
@@ -136,13 +136,13 @@ if [[ "${STORE_MODE}" == memory ]]; then
   "${WORK}/fakeserver" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" ${SCORE_ARGS[@]+"${SCORE_ARGS[@]}"} ${REGION_ARGS[@]+"${REGION_ARGS[@]}"} \
     -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" > "${WORK}/orchestrator.log" 2>&1 &
 else
-env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_VAULT_ADDR -u ORCHESTRATOR_VAULT_TOKEN_FILE \
+env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_PLATFORM_VAULT_BOOTSTRAP -u ORCHESTRATOR_PLATFORM_VAULT_ADDR -u ORCHESTRATOR_PLATFORM_VAULT_WORKLOAD_ADDR -u ORCHESTRATOR_PLATFORM_VAULT_TOKEN_FILE -u ORCHESTRATOR_PLATFORM_VAULT_MOUNT -u ORCHESTRATOR_PLATFORM_VAULT_AUTH_MOUNT \
   -u ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE -u ORCHESTRATOR_CONNECTION_VAULT_ADDR -u ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE \
-  -u ORCHESTRATOR_VAULT_AGENT_ADDR -u ORCHESTRATOR_POSTGRES_TEST_URL -u ORCH_KIND_VERIFY -u KUBECONFIG \
+  -u ORCHESTRATOR_POSTGRES_TEST_URL -u ORCH_KIND_VERIFY -u KUBECONFIG \
   -u TF_PLUGIN_CACHE_DIR -u AWS_PROFILE -u AWS_REGION -u AWS_DEFAULT_REGION \
   -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN \
   "${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" ${STATE_ARGS[@]+"${STATE_ARGS[@]}"} \
-  -database-url-file "" -vault-address "" -vault-token-file "" -vault-agent-address "" \
+  -database-url-file "" -platform-vault-bootstrap=false \
   -connection-credential-store "${STORE_MODE}" ${SCORE_ARGS[@]+"${SCORE_ARGS[@]}"} ${REGION_ARGS[@]+"${REGION_ARGS[@]}"} -adapters fake -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" \
   > "${WORK}/orchestrator.log" 2>&1 &
 fi

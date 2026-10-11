@@ -181,34 +181,28 @@ type SecretStoreRepository interface {
 	CreateSecretStore(ctx context.Context, store secretstore.Store) error
 	GetSecretStore(ctx context.Context, organizationKey, key string) (secretstore.Store, error)
 	ListSecretStores(ctx context.Context, organizationKey string) ([]secretstore.Store, error)
-	// BackfillLegacySecretStore stamps the explicit legacy store identity on
-	// pre-ADR-012 configuration entries that carry a value ref but no store key
-	// and selects it on Environments that already have configuration. Idempotent;
-	// refs and revision identities are unchanged and no Environment version moves.
-	BackfillLegacySecretStore(ctx context.Context, organizationKey, storeKey string) error
 	// AdmitManagedSecretStore is the only non-insert write of a store record. It
-	// atomically creates the record (ExpectedID empty), converts a legacy record
-	// or replaces the credential reference of a managed record, after checking
-	// the prior state. See ManagedStoreAdmission.
+	// atomically creates the record (ExpectedID empty) or replaces the credential
+	// reference of a managed record, after checking the prior state. See ManagedStoreAdmission.
 	AdmitManagedSecretStore(ctx context.Context, admission ManagedStoreAdmission) (secretstore.Store, error)
 }
 
 // ManagedStoreAdmission is the compare-and-set admission of the explicitly
-// configured Compose bootstrap store. Store is the complete nonlegacy READY
+// configured Compose bootstrap store. Store is the complete READY
 // record to publish, with its already persisted CredentialRef. The Expected*
 // fields describe the prior state the caller verified against:
 //
 //   - ExpectedID empty: no record may exist (ErrDuplicate otherwise);
-//   - otherwise the record must still have that ID, ExpectedLegacy and
-//     ExpectedCredentialRef (ErrVersionConflict otherwise) and the same
-//     endpoint identity as Store (ErrImmutable otherwise).
+//   - otherwise the record must still have that ID and ExpectedCredentialRef
+//     (ErrVersionConflict otherwise), be Compose-managed in both prior and
+//     published form (ErrImmutable for an unmarked user registration) and have
+//     the same endpoint identity as Store (ErrImmutable otherwise).
 //
 // Admission keeps the record ID, key, creation time and endpoints, so every
 // Environment selection, revision entry and bundle reference is unchanged.
 type ManagedStoreAdmission struct {
 	Store                 secretstore.Store
 	ExpectedID            string
-	ExpectedLegacy        bool
 	ExpectedCredentialRef string
 }
 

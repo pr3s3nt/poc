@@ -177,15 +177,17 @@ theo specification sau khi bản này được duyệt.
   selected workload secret store. Missing configuration fails closed; no fallback.
 
 - **SS-07:** Local Compose tự đăng ký Vault đi kèm như một workload store thông
-  thường, key ổn định `platform-vault`, name `Platform Vault`, legacy=false.
+  thường, key ổn định `platform-vault`, name `Platform Vault`, không có legacy flag.
   Bootstrap chạy cùng validation/verifier và platform credential persistence với
   registration; READY chỉ sau probe/cleanup thành công. Token file chỉ là input
   của bootstrap, không phải cơ chế runtime riêng của store. Restart idempotent,
   không tạo store/credential dư thừa, không tự chọn cho Environment mới.
-- **SS-08:** Upgrade kho Compose cũ giữ nguyên ID/key, endpoints/mounts và mọi
-  Environment/revision/value/bundle refs; chỉ chuyển legacy record sau verify và
-  persist credential thành công. Mismatch identity hoặc failure phải fail closed,
-  không overwrite kho người dùng. Legacy configuration ngoài Compose vẫn tương thích.
+- **SS-08:** Restart chỉ giữ hoặc refresh kho ordinary do bootstrap quản lý
+  (`verification.bootstrap=compose`). CAS kiểm ID, credential ref và endpoint
+  identity; không overwrite kho người dùng. Verify/probe-cleanup trước READY;
+  failure dọn credential của attempt, không dọn credential của winner.
+  Không convert/backfill kho cũ, không dùng legacy Vault flags hoặc token global
+  khi runtime. Token chỉ resolve từ private scoped credential ref.
 
 Supporting flow/design: [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).
 

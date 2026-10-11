@@ -27,17 +27,16 @@ type secretStoreView struct {
 	AuthMount       string         `json:"authMount"`
 	TLSCustomCA     bool           `json:"tlsCustomCa"`
 	Status          string         `json:"status"`
-	Legacy          bool           `json:"legacy,omitempty"`
 	Verification    map[string]any `json:"verification"`
 }
 
-var publicStoreVerification = []string{"verified", "kvVersion", "capabilities", "probe", "kubernetesAuth", "legacy"}
+var publicStoreVerification = []string{"verified", "kvVersion", "capabilities", "probe", "kubernetesAuth"}
 
 func publicSecretStore(store secretstore.Store) secretStoreView {
 	return secretStoreView{
 		Key: store.Key, Name: store.Name, Provider: string(store.Provider), BackendAddress: store.BackendAddress,
 		WorkloadAddress: store.WorkloadAddress, Mount: store.Mount, AuthMount: store.AuthMount, TLSCustomCA: store.TLSCAPEM != "",
-		Status: string(store.Status), Legacy: store.Legacy, Verification: pick(store.Verification, publicStoreVerification),
+		Status: string(store.Status), Verification: pick(store.Verification, publicStoreVerification),
 	}
 }
 
@@ -47,7 +46,6 @@ type storeChoiceView struct {
 	Name     string `json:"name"`
 	Provider string `json:"provider"`
 	Status   string `json:"status"`
-	Legacy   bool   `json:"legacy,omitempty"`
 }
 
 func (s *Server) handleListSecretStores(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +78,7 @@ func (s *Server) handleSecretStoreChoices(w http.ResponseWriter, r *http.Request
 	}
 	views := make([]storeChoiceView, 0, len(stores))
 	for _, store := range stores {
-		views = append(views, storeChoiceView{Key: store.Key, Name: store.Name, Provider: string(store.Provider), Status: string(store.Status), Legacy: store.Legacy})
+		views = append(views, storeChoiceView{Key: store.Key, Name: store.Name, Provider: string(store.Provider), Status: string(store.Status)})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"secretStores": views})
 }

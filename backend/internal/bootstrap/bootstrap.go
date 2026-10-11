@@ -75,9 +75,6 @@ type Options struct {
 	Tags                   map[string]string
 	WorkDir                string
 	Clock                  clock.Clock
-	VaultAddress           string
-	VaultTokenFile         string
-	VaultAgentAddress      string
 	VaultDelivery          string
 	WorkloadDelivery       string
 	GitOpsRepoDir          string
@@ -99,8 +96,7 @@ type Options struct {
 
 	// PlatformVault, when set, is the explicit opt-in Compose bootstrap of the
 	// bundled Vault as an ordinary verified store (UC-04 SS-07/08). It is
-	// independent of the legacy VaultAddress/VaultTokenFile options and cannot
-	// be combined with them.
+	// the only runtime path that seeds a store from process configuration.
 	PlatformVault *PlatformVaultBootstrap
 
 	// Overrides replace individual adapters. Tests use them to inject failures.
@@ -265,25 +261,11 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	operations := envops.NewManager(st)
 	var storeRegistry configport.Registry
 	var storeVerifier configport.Verifier
-	if opts.PlatformVault != nil && (opts.VaultAddress != "" || opts.VaultTokenFile != "") {
-		return nil, fmt.Errorf("bootstrap: the platform Vault bootstrap cannot be combined with the legacy Vault options")
-	}
 	switch {
 	case opts.StoreRegistryOverride != nil:
 		storeRegistry = opts.StoreRegistryOverride
-	case opts.VaultAddress != "" || opts.PlatformVault != nil || connectionCredentials != nil && opts.Adapters != "" && opts.Adapters != AdapterFake:
-		var legacy *vault.LegacyConfig
-		if opts.VaultAddress != "" && opts.VaultTokenFile != "" {
-			tokenBytes, err := os.ReadFile(opts.VaultTokenFile)
-			if err != nil {
-				return nil, fmt.Errorf("bootstrap: read Vault token file: %w", err)
-			}
-			legacy = &vault.LegacyConfig{Address: strings.TrimRight(opts.VaultAddress, "/"), AgentAddress: opts.VaultAgentAddress, Mount: "kv", AuthMount: "kubernetes", Token: strings.TrimSpace(string(tokenBytes))}
-		}
-		storeRegistry = vault.NewRegistry(st, connectionCredentials, legacy)
-		if err := seedLegacyStore(ctx, st, opts, legacy); err != nil {
-			return nil, err
-		}
+	case opts.PlatformVault != nil || connectionCredentials != nil && opts.Adapters != "" && opts.Adapters != AdapterFake:
+		storeRegistry = vault.NewRegistry(st, connectionCredentials)
 	case opts.Adapters == "" || opts.Adapters == AdapterFake:
 		storeRegistry = configmemory.NewRegistry(st)
 	default:

@@ -62,7 +62,9 @@ VAULT_KV_V2/token is supported initially. Create verifies attempt-owned probe an
 capabilities, cleans probe, stores credential privately and insert-only metadata;
 201 only after all required steps. Errors remain safe as above.
 Developer GET `/api/v1/secret-store-choices` returns scoped READY metadata only.
-No token, credential ref, arbitrary secret-read or delete endpoint is exposed.
+No token, credential ref, legacy flag/verification marker, arbitrary secret-read
+or delete endpoint is exposed (T23). Ordinary READY store choices keep the same
+keys, provider, status and explicit Environment selection contract.
 
 ## T05 — Projection form Kho bí mật (không đổi API)
 

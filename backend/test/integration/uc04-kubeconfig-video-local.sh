@@ -181,12 +181,12 @@ fi
 # dropped and the corresponding flags are explicitly blank. KUBECONFIG is
 # unset so only the uploaded credential can reach a cluster during upload
 # verification.
-env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_VAULT_ADDR -u ORCHESTRATOR_VAULT_TOKEN_FILE \
-  -u ORCHESTRATOR_VAULT_AGENT_ADDR -u ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE -u ORCHESTRATOR_CONNECTION_VAULT_ADDR \
+env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_PLATFORM_VAULT_BOOTSTRAP -u ORCHESTRATOR_PLATFORM_VAULT_ADDR -u ORCHESTRATOR_PLATFORM_VAULT_WORKLOAD_ADDR -u ORCHESTRATOR_PLATFORM_VAULT_TOKEN_FILE -u ORCHESTRATOR_PLATFORM_VAULT_MOUNT -u ORCHESTRATOR_PLATFORM_VAULT_AUTH_MOUNT \
+  -u ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE -u ORCHESTRATOR_CONNECTION_VAULT_ADDR \
   -u ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE -u TF_PLUGIN_CACHE_DIR -u AWS_PROFILE -u AWS_REGION -u AWS_DEFAULT_REGION \
   -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN -u KUBECONFIG \
   "${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" "${STATE_FLAGS[@]}" \
-  -database-url-file "" -vault-address "" -vault-token-file "" -vault-agent-address "" "${STORE_FLAGS[@]}" \
+  -database-url-file "" -platform-vault-bootstrap=false "${STORE_FLAGS[@]}" \
   -adapters fake -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" \
   > "${WORK}/orchestrator.log" 2>&1 &
 PIDS+=($!)

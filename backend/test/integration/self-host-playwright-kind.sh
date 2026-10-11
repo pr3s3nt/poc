@@ -20,6 +20,8 @@ SCREEN="1280x900"
 PIDS=()
 # shellcheck source=video-lib.sh
 source "${ROOT}/test/integration/video-lib.sh"
+# shellcheck source=platform-store-lib.sh
+source "${ROOT}/test/integration/platform-store-lib.sh"
 
 delete_owned_namespace() {
   local file="$1" namespace app_id actual
@@ -95,11 +97,11 @@ for image in "acceptance-frontend" "acceptance-backend" "orchestrator-backend" "
   kind load docker-image "${image}:${RUN_ID}" --name "${CLUSTER}"
 done
 
+platform_store_flags http://127.0.0.1:18213 "${IN_CLUSTER_VAULT}" "${TOKEN_FILE}"
 go build -o "${WORK}/orchestrator" ./cmd/orchestrator
 "${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" -state "${WORK}/state.json" \
   -adapters kubernetes -kube-context "${CONTEXT}" -cluster "${CLUSTER}" -run-id "${RUN_ID}" \
-  -vault-address http://127.0.0.1:18213 -vault-token-file "${TOKEN_FILE}" \
-  -vault-agent-address "${IN_CLUSTER_VAULT}" -vault-delivery vso \
+  "${PLATFORM_STORE_FLAGS[@]}" -vault-delivery vso \
   -ui-dir "${REPO}/frontend/dist" > "${WORK}/orchestrator.log" 2>&1 &
 PIDS+=($!)
 for _ in $(seq 1 80); do [[ -s "${WORK}/api-addr" ]] && break; sleep 0.5; done
@@ -129,5 +131,6 @@ DISPLAY=":${DISPLAY_NUMBER}" ORCH_E2E_SCREEN="${SCREEN}" \
   ORCH_E2E_TRAEFIK_PORT="${TRAEFIK_PORT}" ORCH_E2E_SELF_SUBDOMAIN="${SUBDOMAIN}" \
   ORCH_E2E_KUBE_CONTEXT="${CONTEXT}" ORCH_E2E_CLUSTER="${CLUSTER}" ORCH_E2E_VAULT_ADDR="${IN_CLUSTER_VAULT}" \
   ORCH_E2E_KUBECONFIG_B64_FILE="${WORK}/kubeconfig.b64" ORCH_E2E_VAULT_TOKEN_FILE="${TOKEN_FILE}" \
+  ORCH_E2E_CONNECTION_VAULT_ADDR="${ORCH_E2E_CONNECTION_VAULT_ADDR:-${IN_CLUSTER_VAULT}}" ORCH_E2E_CONNECTION_VAULT_TOKEN_FILE="${ORCH_CONNECTION_VAULT_TOKEN_FILE}" \
   ORCH_E2E_SELF_NAMESPACE_FILE="${WORK}/self-namespace" ORCH_E2E_NAMESPACE_FILE="${WORK}/namespace" \
   node "${REPO}/frontend/test/e2e/self-host-kind.mjs" 2>&1 | tee "${WORK}/playwright.log"

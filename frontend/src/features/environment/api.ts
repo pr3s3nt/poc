@@ -2,7 +2,7 @@ import { api } from '../../shared/api/client';
 import { toTarget, type APIEnvironment } from '../../shared/api/environment';
 import type { EnvironmentKey, EnvironmentTarget } from '../../shared/types/application';
 
-export type StoreChoice = { key: string; name: string; provider: string; status: string; legacy?: boolean };
+export type StoreChoice = { key: string; name: string; provider: string; status: string };
 export type Mapping = { sourceDescriptor: string; destinationDescriptor: string };
 export type Mode = 'DEPLOY_NEW' | 'MIGRATE_POSTGRES';
 export type Endpoint = { connectionKey: string; connectionName?: string; kind?: string; executionProfile: string; region?: string; generation: number; namespace?: string };

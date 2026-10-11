@@ -25,6 +25,8 @@ case "${1:-}" in
 esac
 # shellcheck source=video-lib.sh
 source "${ROOT}/test/integration/video-lib.sh"
+# shellcheck source=platform-store-lib.sh
+source "${ROOT}/test/integration/platform-store-lib.sh"
 
 # namespace_lookup <name>: prints namespace/<name> when it exists, nothing
 # when the API server confirms it is absent; fails on any lookup error.
@@ -121,16 +123,16 @@ for workload in frontend backend; do
 done
 go build -o "${WORK}/orchestrator" ./cmd/orchestrator
 kill -0 "${VAULT_PF_PID}" 2>/dev/null || { echo "Vault port-forward exited; see ${WORK}/vault-port-forward.log" >&2; exit 1; }
+platform_store_flags "${VAULT_ADDR_LOCAL}" http://vault-uc12.vault.svc:8200 "${TOKEN_FILE}"
 # Temporary JSON state only: inherited database/Vault/Terraform/AWS defaults
 # are dropped and the database URL file is explicitly blank. The scoped Vault
 # token is passed by path; its value is never read or printed here.
-env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_VAULT_ADDR -u ORCHESTRATOR_VAULT_TOKEN_FILE \
-  -u ORCHESTRATOR_VAULT_AGENT_ADDR -u TF_PLUGIN_CACHE_DIR -u AWS_PROFILE -u AWS_REGION -u AWS_DEFAULT_REGION \
+env -u ORCHESTRATOR_DATABASE_URL_FILE \
+  -u ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE -u ORCHESTRATOR_CONNECTION_VAULT_ADDR -u ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE -u TF_PLUGIN_CACHE_DIR -u AWS_PROFILE -u AWS_REGION -u AWS_DEFAULT_REGION \
   -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN \
   "${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" -state "${WORK}/state.json" -database-url-file "" \
   -adapters kubernetes -kube-context "${CONTEXT}" -cluster idp-internal -run-id "${RUN_ID}" \
-  -vault-address "${VAULT_ADDR_LOCAL}" -vault-token-file "${TOKEN_FILE}" \
-  -vault-agent-address http://vault-uc12.vault.svc:8200 -vault-delivery vso \
+  "${PLATFORM_STORE_FLAGS[@]}" -vault-delivery vso \
   -ui-dir "${REPO}/frontend/dist" > "${WORK}/orchestrator.log" 2>&1 &
 PIDS+=($!)
 for _ in $(seq 1 80); do [[ -s "${WORK}/api-addr" ]] && break; sleep 0.5; done

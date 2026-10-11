@@ -2,7 +2,7 @@
 id: ADR-006
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-09-27
+last_reviewed: 2026-10-12
 ---
 
 # ADR-006 — Per-Application configuration provider and Vault Agent delivery
@@ -14,7 +14,10 @@ Vault Agent delivery in decision 4 and 8 is superseded by [ADR-008](ADR-008-vso-
 
 Application-level provider selection, Variable storage and deferred provider migration
 are superseded by [ADR-012](ADR-012-environment-stores-and-transitions.md).
-Immutable revisions and secret-redaction requirements remain.
+Immutable revisions and secret-redaction requirements remain. T23 removes
+legacy flag-configured workload Vault ownership and store backfill/conversion;
+workload stores resolve scoped private credential references under ADR-012.
+Agent delivery remains supported; its removal is outside T23.
 
 ## Context
 

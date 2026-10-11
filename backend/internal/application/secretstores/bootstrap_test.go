@@ -56,18 +56,26 @@ func bootstrapCommand(token string) RegisterCommand {
 	return RegisterCommand{Name: "Platform Vault", BackendAddress: "http://vault:8200", WorkloadAddress: "http://vault.vault.svc:8200", Token: token}
 }
 
-func (f *bootstrapFixture) legacyRecord(t *testing.T) secretstore.Store {
+// unmarkedRecord is a registration not created by Compose bootstrap: same
+// reserved key and endpoint, no bootstrap marker, no credential.
+func (f *bootstrapFixture) unmarkedRecord(t *testing.T) secretstore.Store {
 	t.Helper()
-	legacy := secretstore.Store{Key: BootstrapKey, OrganizationKey: "acme", Name: "Platform Vault (legacy)", Provider: secretstore.ProviderVaultKV2, Status: secretstore.StatusReady,
-		BackendAddress: "http://vault:8200", WorkloadAddress: "http://vault.vault.svc:8200", Mount: "kv", AuthMount: "kubernetes", Legacy: true, Verification: map[string]any{"legacy": true, "verified": false}}
-	if err := f.st.CreateSecretStore(context.Background(), legacy); err != nil {
+	record := secretstore.Store{Key: BootstrapKey, OrganizationKey: "acme", Name: "Mine", Provider: secretstore.ProviderVaultKV2, Status: secretstore.StatusReady,
+		BackendAddress: "http://vault:8200", WorkloadAddress: "http://vault.vault.svc:8200", Mount: "kv", AuthMount: "kubernetes", Verification: map[string]any{"verified": false}}
+	if err := f.st.CreateSecretStore(context.Background(), record); err != nil {
 		t.Fatal(err)
 	}
-	got, err := f.st.GetSecretStore(context.Background(), "acme", BootstrapKey)
-	if err != nil {
+	return f.stored(t)
+}
+
+// managedRecord bootstraps the store with token and resets the call counters.
+func (f *bootstrapFixture) managedRecord(t *testing.T, token string) secretstore.Store {
+	t.Helper()
+	if _, err := f.svc.Bootstrap(context.Background(), "acme", bootstrapCommand(token)); err != nil {
 		t.Fatal(err)
 	}
-	return got
+	f.verifier.calls.Store(0)
+	return f.stored(t)
 }
 
 func (f *bootstrapFixture) stored(t *testing.T) secretstore.Store {
@@ -95,7 +103,7 @@ func TestBootstrapFirstSeedIsAnOrdinaryVerifiedStore(t *testing.T) {
 		t.Fatalf("bootstrap: %v %v", outcome, err)
 	}
 	got := f.stored(t)
-	if got.Key != "platform-vault" || got.Name != "Platform Vault" || got.Legacy || got.Status != secretstore.StatusReady || got.Mount != "kv" || got.AuthMount != "kubernetes" {
+	if got.Key != "platform-vault" || got.Name != "Platform Vault" || got.Status != secretstore.StatusReady || got.Mount != "kv" || got.AuthMount != "kubernetes" {
 		t.Fatalf("record: %+v", got)
 	}
 	if got.CredentialRef == "" || f.token(t, got) != "app-token" || f.creds.Len() != 1 || f.verifier.calls.Load() != 1 {
@@ -133,33 +141,28 @@ func TestBootstrapRestartIsIdempotent(t *testing.T) {
 	}
 }
 
-func TestBootstrapConvertsLegacyRecordKeepingIdentity(t *testing.T) {
+func TestBootstrapDoesNotConvertOrOverwriteUnmarkedRecord(t *testing.T) {
 	f := newBootstrapFixture(t)
-	legacy := f.legacyRecord(t)
-	outcome, err := f.svc.Bootstrap(context.Background(), "acme", bootstrapCommand("app-token"))
-	if err != nil || outcome != BootstrapConverted {
-		t.Fatalf("convert: %v %v", outcome, err)
+	prior := f.unmarkedRecord(t)
+	if _, err := f.svc.Bootstrap(context.Background(), "acme", bootstrapCommand("app-token")); !errors.Is(err, ErrBootstrapConflict) {
+		t.Fatalf("unmarked record must stop bootstrap: %v", err)
 	}
 	got := f.stored(t)
-	if got.ID != legacy.ID || !got.CreatedAt.Equal(legacy.CreatedAt) || got.Key != legacy.Key || got.Legacy || got.Name != "Platform Vault" ||
-		got.BackendAddress != legacy.BackendAddress || got.WorkloadAddress != legacy.WorkloadAddress || got.Mount != legacy.Mount || got.AuthMount != legacy.AuthMount {
-		t.Fatalf("identity not preserved: %+v vs %+v", got, legacy)
-	}
-	if f.token(t, got) != "app-token" || f.creds.Len() != 1 || f.verifier.calls.Load() != 1 {
-		t.Fatalf("conversion must verify and persist exactly once: creds=%d verify=%d", f.creds.Len(), f.verifier.calls.Load())
+	if got.ID != prior.ID || got.Name != "Mine" || got.CredentialRef != "" || got.Verification["bootstrap"] != nil || f.creds.Len() != 0 || f.verifier.calls.Load() != 0 {
+		t.Fatalf("unmarked record changed: %+v creds=%d verify=%d", got, f.creds.Len(), f.verifier.calls.Load())
 	}
 }
 
 func TestBootstrapFailsClosedWithoutPartialState(t *testing.T) {
-	t.Run("verification failure keeps legacy record and stores nothing", func(t *testing.T) {
+	t.Run("verification failure keeps the managed record and stores nothing", func(t *testing.T) {
 		f := newBootstrapFixture(t)
-		legacy := f.legacyRecord(t)
+		prior := f.managedRecord(t, "old-token")
 		f.verifier.err = configport.ErrTokenRejected
 		_, err := f.svc.Bootstrap(context.Background(), "acme", bootstrapCommand("secret-token-value"))
 		if !errors.Is(err, ErrVerification) || strings.Contains(err.Error(), "secret-token-value") {
 			t.Fatalf("error: %v", err)
 		}
-		if got := f.stored(t); !got.Legacy || got.CredentialRef != "" || got.ID != legacy.ID || f.creds.Len() != 0 {
+		if got := f.stored(t); got.CredentialRef != prior.CredentialRef || got.ID != prior.ID || f.creds.Len() != 1 {
 			t.Fatalf("partial state: %+v creds=%d", got, f.creds.Len())
 		}
 	})
@@ -175,24 +178,34 @@ func TestBootstrapFailsClosedWithoutPartialState(t *testing.T) {
 	})
 	t.Run("credential persistence failure", func(t *testing.T) {
 		f := newBootstrapFixture(t)
-		legacy := f.legacyRecord(t)
+		prior := f.managedRecord(t, "old-token")
 		f.creds.FailPut = errors.New("down")
-		if _, err := f.svc.Bootstrap(context.Background(), "acme", bootstrapCommand("t")); !errors.Is(err, ErrCredentialStore) {
+		if _, err := f.svc.Bootstrap(context.Background(), "acme", bootstrapCommand("new-token")); !errors.Is(err, ErrCredentialStore) {
 			t.Fatalf("error: %v", err)
 		}
-		if got := f.stored(t); !got.Legacy || got.ID != legacy.ID || f.creds.Len() != 0 {
+		if got := f.stored(t); got.CredentialRef != prior.CredentialRef || got.ID != prior.ID || f.creds.Len() != 1 {
 			t.Fatalf("partial state: %+v creds=%d", got, f.creds.Len())
 		}
 	})
 	t.Run("record admission failure removes only the attempt credential", func(t *testing.T) {
 		f := newBootstrapFixture(t)
-		legacy := f.legacyRecord(t)
+		prior := f.managedRecord(t, "old-token")
+		f.svc = NewService(failingAdmission{Store: f.st, err: errors.New("db down")}, f.verifier, f.creds)
+		if _, err := f.svc.Bootstrap(context.Background(), "acme", bootstrapCommand("new-token")); err == nil {
+			t.Fatal("expected failure")
+		}
+		if got := f.stored(t); got.CredentialRef != prior.CredentialRef || got.ID != prior.ID || f.token(t, got) != "old-token" || f.creds.Len() != 1 {
+			t.Fatalf("rollback incomplete: %+v creds=%d", got, f.creds.Len())
+		}
+	})
+	t.Run("first seed admission failure leaves no credential", func(t *testing.T) {
+		f := newBootstrapFixture(t)
 		f.svc = NewService(failingAdmission{Store: f.st, err: errors.New("db down")}, f.verifier, f.creds)
 		if _, err := f.svc.Bootstrap(context.Background(), "acme", bootstrapCommand("t")); err == nil {
 			t.Fatal("expected failure")
 		}
-		if got := f.stored(t); !got.Legacy || got.ID != legacy.ID || f.creds.Len() != 0 {
-			t.Fatalf("rollback incomplete: %+v creds=%d", got, f.creds.Len())
+		if _, err := f.st.GetSecretStore(context.Background(), "acme", BootstrapKey); !errors.Is(err, persistence.ErrNotFound) || f.creds.Len() != 0 {
+			t.Fatalf("rollback incomplete: %v creds=%d", err, f.creds.Len())
 		}
 	})
 	t.Run("missing credential store or verifier", func(t *testing.T) {
@@ -238,7 +251,7 @@ func TestBootstrapNeverOverwritesConflictingRegistrations(t *testing.T) {
 		t.Run(label, func(t *testing.T) {
 			f := newBootstrapFixture(t)
 			existing := secretstore.Store{Key: BootstrapKey, OrganizationKey: "acme", Name: "Mine", Provider: secretstore.ProviderVaultKV2, Status: secretstore.StatusReady,
-				BackendAddress: "http://vault:8200", WorkloadAddress: "http://vault.vault.svc:8200", Mount: "kv", AuthMount: "kubernetes", Legacy: true}
+				BackendAddress: "http://vault:8200", WorkloadAddress: "http://vault.vault.svc:8200", Mount: "kv", AuthMount: "kubernetes", Verification: map[string]any{"bootstrap": BootstrapMarker}}
 			mutate(&existing)
 			if err := f.st.CreateSecretStore(context.Background(), existing); err != nil {
 				t.Fatal(err)
@@ -246,7 +259,7 @@ func TestBootstrapNeverOverwritesConflictingRegistrations(t *testing.T) {
 			if _, err := f.svc.Bootstrap(context.Background(), "acme", bootstrapCommand("t")); !errors.Is(err, ErrBootstrapConflict) {
 				t.Fatalf("conflict: %v", err)
 			}
-			if got := f.stored(t); !got.Legacy || got.Name != "Mine" || f.creds.Len() != 0 || f.verifier.calls.Load() != 0 {
+			if got := f.stored(t); got.Name != "Mine" || f.creds.Len() != 0 || f.verifier.calls.Load() != 0 {
 				t.Fatalf("conflict changed state: %+v creds=%d verify=%d", got, f.creds.Len(), f.verifier.calls.Load())
 			}
 		})
@@ -263,8 +276,11 @@ func TestBootstrapNeverOverwritesConflictingRegistrations(t *testing.T) {
 		if got := f.stored(t); got.CredentialRef != registered.CredentialRef || f.token(t, got) != "user-token" || f.creds.Len() != 1 {
 			t.Fatalf("user registration changed: %+v", got)
 		}
-		if outcome, err := f.svc.Bootstrap(context.Background(), "acme", bootstrapCommand("user-token")); err != nil || outcome != BootstrapUnchanged {
-			t.Fatalf("identical registration: %v %v", outcome, err)
+		if _, err := f.svc.Bootstrap(context.Background(), "acme", bootstrapCommand("user-token")); !errors.Is(err, ErrBootstrapConflict) {
+			t.Fatalf("an unmarked registration is never adopted, even with the same token: %v", err)
+		}
+		if got := f.stored(t); got.CredentialRef != registered.CredentialRef || got.Verification["bootstrap"] != nil || f.creds.Len() != 1 {
+			t.Fatalf("user registration changed after identical bootstrap: %+v", got)
 		}
 	})
 }
@@ -320,11 +336,11 @@ func TestBootstrapRepairsMissingCredentialObject(t *testing.T) {
 }
 
 func TestBootstrapConcurrentStartupsAdmitOneStoreAndOneCredential(t *testing.T) {
-	for _, legacy := range []bool{false, true} {
+	for _, refresh := range []bool{false, true} {
 		f := newBootstrapFixture(t)
 		var prior secretstore.Store
-		if legacy {
-			prior = f.legacyRecord(t)
+		if refresh {
+			prior = f.managedRecord(t, "old-token")
 		}
 		var wg sync.WaitGroup
 		errs := make(chan error, 12)
@@ -340,18 +356,18 @@ func TestBootstrapConcurrentStartupsAdmitOneStoreAndOneCredential(t *testing.T) 
 		close(errs)
 		for err := range errs {
 			if err != nil {
-				t.Fatalf("legacy=%v: %v", legacy, err)
+				t.Fatalf("refresh=%v: %v", refresh, err)
 			}
 		}
 		got := f.stored(t)
-		if all, _ := f.st.ListSecretStores(context.Background(), "acme"); len(all) != 1 || got.Legacy || f.token(t, got) != "tok" {
-			t.Fatalf("legacy=%v: stores=%+v", legacy, all)
+		if all, _ := f.st.ListSecretStores(context.Background(), "acme"); len(all) != 1 || f.token(t, got) != "tok" {
+			t.Fatalf("refresh=%v: stores=%+v", refresh, all)
 		}
 		if f.creds.Len() != 1 {
-			t.Fatalf("legacy=%v: losers must clean exactly their own credentials, %d remain", legacy, f.creds.Len())
+			t.Fatalf("refresh=%v: losers must clean exactly their own credentials, %d remain", refresh, f.creds.Len())
 		}
-		if legacy && got.ID != prior.ID {
-			t.Fatalf("legacy row identity lost: %s vs %s", got.ID, prior.ID)
+		if refresh && got.ID != prior.ID {
+			t.Fatalf("row identity lost: %s vs %s", got.ID, prior.ID)
 		}
 	}
 }
@@ -424,17 +440,6 @@ func TestBootstrapSnapshotWriteFailureRollsBackAdmission(t *testing.T) {
 		}
 		if _, err := f.st.GetSecretStore(context.Background(), "acme", BootstrapKey); !errors.Is(err, persistence.ErrNotFound) || f.creds.Len() != 0 {
 			t.Fatalf("create left state: %v creds=%d", err, f.creds.Len())
-		}
-	})
-	t.Run("legacy conversion", func(t *testing.T) {
-		f, path := setup(t)
-		legacy := f.legacyRecord(t)
-		breakSnapshot(t, path)
-		if _, err := f.svc.Bootstrap(context.Background(), "acme", bootstrapCommand("tok")); err == nil {
-			t.Fatal("conversion succeeded although it was not persisted")
-		}
-		if got := f.stored(t); !got.Legacy || got.ID != legacy.ID || got.CredentialRef != "" || got.Name != legacy.Name || f.creds.Len() != 0 {
-			t.Fatalf("conversion left state: %+v creds=%d", got, f.creds.Len())
 		}
 	})
 	t.Run("token refresh", func(t *testing.T) {

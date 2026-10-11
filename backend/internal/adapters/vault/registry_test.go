@@ -38,7 +38,7 @@ func newRegistryFixture(t *testing.T) (*Registry, *store.Store, *credentialmemor
 		}
 	}
 	creds := credentialmemory.New()
-	return NewRegistry(st, creds, nil), st, creds
+	return NewRegistry(st, creds), st, creds
 }
 
 func TestRegistryDeliversBundleToSelectedStoreReadingRefsThroughOwners(t *testing.T) {
@@ -115,25 +115,84 @@ func TestRegistryScopesStoresToTheOrganizationAndFailsClosed(t *testing.T) {
 	}
 	// A deleted credential makes the store unavailable; no host fallback exists.
 	creds2 := credentialmemory.New()
-	reg2 := NewRegistry(st, creds2, nil)
+	reg2 := NewRegistry(st, creds2)
 	if _, err := reg2.Provider(ctx, "acme", "one"); !errors.Is(err, configport.ErrStoreUnavailable) {
 		t.Fatalf("missing credential: %v", err)
 	}
-	// The legacy store resolves only with the flag configuration it mirrors.
-	legacy := secretstore.Store{Key: LegacyStoreKey, OrganizationKey: "acme", Name: "legacy", Provider: secretstore.ProviderVaultKV2, Status: secretstore.StatusReady, Legacy: true,
-		BackendAddress: fv.server.URL, WorkloadAddress: fv.server.URL, Mount: "kv", AuthMount: "kubernetes"}
-	if err := st.CreateSecretStore(ctx, legacy); err != nil {
-		t.Fatal(err)
+}
+
+// Missing, empty or wrong-scope credentials and an absent credential store all
+// fail closed. The reserved platform-vault key and a matching endpoint grant
+// nothing: there is no flag, token-file or global fallback (T23).
+func TestRegistryCredentialResolutionFailsClosed(t *testing.T) {
+	ctx := context.Background()
+	fv := newFakeVault(t, "tok")
+	record := func(key, ref string) secretstore.Store {
+		return secretstore.Store{Key: key, OrganizationKey: "acme", Name: key, Provider: secretstore.ProviderVaultKV2, Status: secretstore.StatusReady,
+			BackendAddress: fv.server.URL, WorkloadAddress: fv.server.URL, Mount: "kv", AuthMount: "kubernetes", CredentialRef: ref}
 	}
-	if _, err := reg.Provider(ctx, "acme", LegacyStoreKey); !errors.Is(err, configport.ErrStoreUnavailable) {
-		t.Fatalf("legacy store without flags must fail safely: %v", err)
+	cases := map[string]func(t *testing.T, st *store.Store, creds *credentialmemory.Store) (string, *Registry){
+		"missing credential reference": func(t *testing.T, st *store.Store, creds *credentialmemory.Store) (string, *Registry) {
+			if err := st.CreateSecretStore(ctx, record("platform-vault", "")); err != nil {
+				t.Fatal(err)
+			}
+			return "platform-vault", NewRegistry(st, creds)
+		},
+		"empty token": func(t *testing.T, st *store.Store, creds *credentialmemory.Store) (string, *Registry) {
+			ref, err := creds.Put(ctx, "acme", secretstore.CredentialScope("blank"), []byte("  \n"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := st.CreateSecretStore(ctx, record("blank", ref)); err != nil {
+				t.Fatal(err)
+			}
+			return "blank", NewRegistry(st, creds)
+		},
+		"credential of another store scope": func(t *testing.T, st *store.Store, creds *credentialmemory.Store) (string, *Registry) {
+			ref, err := creds.Put(ctx, "acme", secretstore.CredentialScope("other"), []byte("tok"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := st.CreateSecretStore(ctx, record("mine", ref)); err != nil {
+				t.Fatal(err)
+			}
+			return "mine", NewRegistry(st, creds)
+		},
+		"credential of another organization": func(t *testing.T, st *store.Store, creds *credentialmemory.Store) (string, *Registry) {
+			ref, err := creds.Put(ctx, "globex", secretstore.CredentialScope("mine"), []byte("tok"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := st.CreateSecretStore(ctx, record("mine", ref)); err != nil {
+				t.Fatal(err)
+			}
+			return "mine", NewRegistry(st, creds)
+		},
+		"no credential store": func(t *testing.T, st *store.Store, creds *credentialmemory.Store) (string, *Registry) {
+			ref, _ := creds.Put(ctx, "acme", secretstore.CredentialScope("mine"), []byte("tok"))
+			if err := st.CreateSecretStore(ctx, record("mine", ref)); err != nil {
+				t.Fatal(err)
+			}
+			return "mine", NewRegistry(st, nil)
+		},
 	}
-	withFlags := NewRegistry(st, nil, &LegacyConfig{Address: fv.server.URL, AgentAddress: fv.server.URL, Mount: "kv", AuthMount: "kubernetes", Token: "tok"})
-	provider, err := withFlags.Provider(ctx, "acme", LegacyStoreKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := provider.WriteValue(ctx, "app-1", "staging", "v"); err != nil {
-		t.Fatal(err)
+	for name, setup := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, st, creds := newRegistryFixture(t)
+			key, reg := setup(t, st, creds)
+			if _, err := reg.Provider(ctx, "acme", key); !errors.Is(err, configport.ErrStoreUnavailable) {
+				t.Fatalf("provider: %v", err)
+			}
+			if err := reg.CheckWorkloadAuth(ctx, "acme", key); !errors.Is(err, configport.ErrStoreUnavailable) {
+				t.Fatalf("workload auth: %v", err)
+			}
+			_, err := reg.PrepareBundle(ctx, configport.BundleRequest{OrganizationKey: "acme", ApplicationKey: "app-1", EnvironmentKey: "staging", WorkloadID: "web", Namespace: "ns", RevisionID: "r", DeploymentID: "d", DeliveryStoreKey: key})
+			if !errors.Is(err, configport.ErrStoreUnavailable) {
+				t.Fatalf("bundle: %v", err)
+			}
+			if fv.writes != 0 {
+				t.Fatalf("a store without a usable credential reached Vault: %d writes", fv.writes)
+			}
+		})
 	}
 }

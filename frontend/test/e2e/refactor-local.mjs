@@ -4528,6 +4528,118 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(3000);
   },
+
+  // T23: ordinary-store selection. The fake backend registers and verifies stores
+  // through the same input path as real registration; the only MOCK is a stale
+  // `legacy: true` flag injected into the store list/choices to prove the Console
+  // renders no legacy label for any store.
+  async T23({ page, h, ui, caption, mark, check, baseURL }) {
+    const TOKEN = 'synthetic-scoped-token-t23';
+    const SECRET_VALUE = 'synthetic-t23-secret-value-4567';
+    const APP_NAME = 'T23 Kho thường';
+    const STORE_NAME = 'Kho thường T23';
+    const bodies = []; // every store list/choices response, scanned at the end
+    const staleLegacy = (payload) => ({ ...payload, secretStores: payload.secretStores.map((item) => ({ ...item, legacy: true })) });
+    for (const pattern of ['**/api/v1/secret-stores', '**/api/v1/secret-store-choices']) {
+      await page.route(pattern, async (route) => {
+        if (route.request().method() !== 'GET') { await route.continue(); return; }
+        const response = await route.fetch();
+        const data = await response.json();
+        bodies.push(JSON.stringify(data));
+        await route.fulfill({ response, json: staleLegacy(data) }); // MOCK: stale legacy flag on every item
+      });
+    }
+    const signInAs = async (username) => {
+      await h.type(ui('signIn', 'username'), username);
+      await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+      await h.click(ui('signIn', 'submit'));
+      await expect(ui('applications', 'heading')).toBeVisible();
+    };
+    const signOut = async () => { await h.click(ui('shell', 'signOut')); await expect(ui('signIn', 'username')).toBeVisible(); };
+    const noLeak = async () => { const { assertNoSecretLeaks } = await import('./secret-scan.mjs'); await assertNoSecretLeaks(page, [SECRET_VALUE, TOKEN], { allow: ['input[type="password"]'] }); };
+    const storePanel = () => page.getByLabel('Kho bí mật', { exact: true });
+    const storeSelect = () => page.getByLabel('Kho bí mật cho Staging');
+    const envApi = async (appId) => {
+      const response = await page.request.get(`${baseURL}/api/v1/applications/${appId}`);
+      return (await response.json()).application.environments.find((env) => env.key === 'staging');
+    };
+
+    caption('Bước 1: Nhà phát triển tạo ứng dụng mới; chưa có kho bí mật nào nên không có gì được chọn sẵn');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await signInAs('developer');
+    const appId = await createApplication(h, APP_NAME, 't23-ordinary-store', { connections: null });
+    check(`developer created ${appId} through the UI`);
+    mark('app-created');
+    await h.click(page.getByRole('button', { name: 'Cài đặt môi trường' }));
+    await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
+    await expect(storePanel()).toContainText('Chưa có kho bí mật Sẵn sàng');
+    expect((await envApi(appId)).secretStoreKey ?? '', 'no store is fabricated or selected').toBe('');
+    check('no registered store: guidance shown, Environment has no store (fail closed, nothing fabricated)');
+    mark('no-store');
+    await h.read('Chưa đăng ký kho thì chưa có kho nào được chọn hay tạo giả');
+
+    caption('Bước 2: Kỹ sư nền tảng đăng ký một kho thường; token chỉ nhập vào ô được che, danh sách không có nhãn cấu hình cũ (MOCK: cờ legacy cũ bị chèn vào phản hồi)');
+    await signOut();
+    await signInAs('platform-engineer');
+    await h.click(ui('shell', 'navSecretStores'));
+    await expect(ui('secretStores', 'heading')).toBeVisible();
+    await h.type(ui('secretStores', 'name'), STORE_NAME);
+    await h.type(ui('secretStores', 'backend'), 'http://vault-t23.local:8200');
+    await h.click(ui('secretStores', 'showAdvanced'));
+    await h.click(ui('secretStores', 'sameAddress'));
+    await h.paste(ui('secretStores', 'token'), TOKEN);
+    mark('store-form-filled');
+    await h.click(ui('secretStores', 'submit'));
+    await expect(page.getByRole('status').filter({ hasText: `Kho bí mật "${STORE_NAME}" đã sẵn sàng` })).toBeVisible();
+    const list = await page.getByLabel('Kho bí mật đã đăng ký');
+    await expect(list).toContainText(STORE_NAME);
+    expect(await list.innerText()).not.toMatch(/cấu hình cũ|nền tảng cũ|legacy/i);
+    await noLeak();
+    check('store registered through the UI; registered list has no legacy label even though the response carried a stale legacy flag (MOCK)');
+    mark('store-registered');
+    await h.moveTo(list);
+    await h.read('Kho thường hiển thị tên, khóa, địa chỉ và trạng thái; không có nhãn cấu hình cũ');
+
+    caption('Bước 3: Nhà phát triển chỉ có một kho Sẵn sàng; nó được gợi ý trong bản nháp chưa lưu, nhãn chỉ gồm tên và khóa, rồi bấm Lưu kho bí mật');
+    await signOut();
+    await signInAs('developer');
+    await h.click(page.getByRole('button', { name: new RegExp(APP_NAME) }));
+    await h.click(page.getByRole('button', { name: 'Cài đặt môi trường' }));
+    await expect(storeSelect()).toHaveValue(/.+/);
+    mark('store-suggested');
+    const labels = await storeSelect().locator('option').allTextContents();
+    expect(labels.join('|')).toContain(STORE_NAME);
+    expect(labels.join('|')).not.toMatch(/cũ|legacy/i);
+    expect((await envApi(appId)).secretStoreKey ?? '', 'suggestion is not persisted').toBe('');
+    await h.click(page.getByRole('button', { name: 'Lưu kho bí mật' }));
+    await expect(storePanel()).toContainText('Đã lưu kho bí mật');
+    const storeKey = (await envApi(appId)).secretStoreKey;
+    expect(storeKey).toBeTruthy();
+    check('selector labels carry only name and key (stale legacy flag ignored); explicit Save bound the ordinary store');
+    mark('store-selected');
+    await h.read('Chỉ sau khi bấm Lưu môi trường mới dùng kho thường này');
+
+    caption('Bước 4: Thêm Bí mật API_TOKEN vào kho đã chọn; giá trị bị che và không bao giờ hiện lại');
+    await h.click(page.locator('section[aria-label="Bí mật"]').getByRole('button', { name: '+ Thêm bí mật' }));
+    mark('secret-form-open');
+    await h.type(page.getByLabel('Tên key'), 'API_TOKEN');
+    await h.paste(page.getByLabel('Giá trị bí mật mới'), SECRET_VALUE);
+    await h.click(page.getByRole('button', { name: 'Lưu thay đổi chờ triển khai' }));
+    await expect(page.locator('.settings-table-row').filter({ hasText: 'API_TOKEN' })).toContainText('Đã cấu hình');
+    await noLeak();
+    check('secret written through the selected ordinary store; value never on the page');
+    mark('secret-saved');
+    await h.read('Bí mật đã lưu qua kho thường; giá trị không hiển thị lại');
+
+    for (const body of bodies) {
+      expect(body, 'store response').not.toMatch(/legacy|credentialRef|kv2:\/\/|synthetic-scoped-token/i);
+    }
+    check(`all ${bodies.length} real store list/choice responses carry no legacy, credential reference or token`);
+    await signOut();
+    mark('signed-out');
+    await h.pause(2000);
+  },
 };
 
 export function parseArgs(argv) {

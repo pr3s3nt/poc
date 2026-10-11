@@ -49,7 +49,7 @@ func platformOptions(statePath string, creds *credentialmemory.Store, verifier c
 	}
 }
 
-func TestPlatformVaultBootstrapSeedsAnOrdinaryStoreResolvedWithoutLegacyConfig(t *testing.T) {
+func TestPlatformVaultBootstrapSeedsAnOrdinaryStoreResolvedFromItsCredential(t *testing.T) {
 	ctx := context.Background()
 	state := filepath.Join(t.TempDir(), "state.json")
 	creds, verifier := credentialmemory.New(), &countVerifier{}
@@ -60,13 +60,13 @@ func TestPlatformVaultBootstrapSeedsAnOrdinaryStoreResolvedWithoutLegacyConfig(t
 	}
 	org := opts.Seed.OrganizationKey
 	got, err := app.Store.GetSecretStore(ctx, org, "platform-vault")
-	if err != nil || got.Legacy || got.Name != "Platform Vault" || got.CredentialRef == "" || got.Status != "READY" || got.Verification["probe"] != "REMOVED" {
+	if err != nil || got.Name != "Platform Vault" || got.CredentialRef == "" || got.Status != "READY" || got.Verification["probe"] != "REMOVED" {
 		t.Fatalf("seeded store: %+v %v", got, err)
 	}
 	if raw, err := creds.Get(ctx, org, got.CredentialScope(), got.CredentialRef); err != nil || string(raw) != "bootstrap-token" {
 		t.Fatalf("credential: %v", err)
 	}
-	// Runtime resolves through the credential reference; no legacy Vault exists.
+	// Runtime resolves through the credential reference; no flag-configured Vault exists.
 	if _, err := app.StoreRegistry.Provider(ctx, org, "platform-vault"); err != nil {
 		t.Fatalf("runtime resolution: %v", err)
 	}
@@ -81,38 +81,25 @@ func TestPlatformVaultBootstrapSeedsAnOrdinaryStoreResolvedWithoutLegacyConfig(t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := vault.NewRegistry(reopened.Store, creds, nil).Provider(ctx, org, "platform-vault"); err == nil {
+	if _, err := vault.NewRegistry(reopened.Store, creds).Provider(ctx, org, "platform-vault"); err == nil {
 		t.Fatal("runtime must not fall back to the bootstrap token file")
 	}
 }
 
-func TestPlatformVaultBootstrapRestartAndLegacyUpgrade(t *testing.T) {
+func TestPlatformVaultBootstrapFreshRestartAndRefresh(t *testing.T) {
 	ctx := context.Background()
 	state := filepath.Join(t.TempDir(), "state.json")
 	creds, verifier := credentialmemory.New(), &countVerifier{}
 	org := seed.Defaults().OrganizationKey
-
-	// An earlier Compose release used the legacy flag-configured store.
-	legacyToken := writeToken(t, "legacy-token")
-	legacyOpts := Options{Adapters: AdapterFake, Seed: seed.Defaults(), StatePath: state, ConnectionCredentialsOverride: creds, SecretStoreVerifierOverride: verifier,
-		VaultAddress: "http://vault:8200", VaultTokenFile: legacyToken, VaultAgentAddress: "http://vault.vault.svc:8200"}
-	legacyApp, err := Build(ctx, legacyOpts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	before, err := legacyApp.Store.GetSecretStore(ctx, org, "platform-vault")
-	if err != nil || !before.Legacy {
-		t.Fatalf("legacy seed: %+v %v", before, err)
-	}
 
 	opts := platformOptions(state, creds, verifier, writeToken(t, "bootstrap-token"))
 	app, err := Build(ctx, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
-	after, err := app.Store.GetSecretStore(ctx, org, "platform-vault")
-	if err != nil || after.Legacy || after.ID != before.ID || after.Key != before.Key || after.CredentialRef == "" || verifier.calls.Load() != 1 || creds.Len() != 1 {
-		t.Fatalf("upgrade: %+v %v verify=%d creds=%d", after, err, verifier.calls.Load(), creds.Len())
+	first, err := app.Store.GetSecretStore(ctx, org, "platform-vault")
+	if err != nil || first.CredentialRef == "" || first.Verification["bootstrap"] != secretstores.BootstrapMarker || verifier.calls.Load() != 1 || creds.Len() != 1 {
+		t.Fatalf("fresh boot: %+v %v verify=%d creds=%d", first, err, verifier.calls.Load(), creds.Len())
 	}
 
 	// Restart: same record, no new credential, no new verification.
@@ -120,11 +107,24 @@ func TestPlatformVaultBootstrapRestartAndLegacyUpgrade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := again.Store.GetSecretStore(ctx, org, "platform-vault"); got.CredentialRef != after.CredentialRef || creds.Len() != 1 || verifier.calls.Load() != 1 {
+	if got, _ := again.Store.GetSecretStore(ctx, org, "platform-vault"); got.ID != first.ID || got.CredentialRef != first.CredentialRef || creds.Len() != 1 || verifier.calls.Load() != 1 {
 		t.Fatalf("restart: %+v creds=%d verify=%d", got, creds.Len(), verifier.calls.Load())
 	}
 	if _, err := again.StoreRegistry.Provider(ctx, org, "platform-vault"); err != nil {
 		t.Fatalf("runtime resolution after restart: %v", err)
+	}
+
+	// A replaced bootstrap token refreshes the same managed record.
+	refreshed, err := Build(ctx, platformOptions(state, creds, verifier, writeToken(t, "next-token")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := refreshed.Store.GetSecretStore(ctx, org, "platform-vault")
+	if got.ID != first.ID || got.CredentialRef == first.CredentialRef || creds.Len() != 1 || verifier.calls.Load() != 2 {
+		t.Fatalf("refresh: %+v creds=%d verify=%d", got, creds.Len(), verifier.calls.Load())
+	}
+	if raw, err := creds.Get(ctx, org, got.CredentialScope(), got.CredentialRef); err != nil || string(raw) != "next-token" {
+		t.Fatalf("refreshed credential: %v", err)
 	}
 }
 
@@ -141,7 +141,6 @@ func TestPlatformVaultBootstrapFailsClosed(t *testing.T) {
 		"missing token file":  func(o *Options) { o.PlatformVault.TokenFile = "" },
 		"unreadable token":    func(o *Options) { o.PlatformVault.TokenFile = filepath.Join(t.TempDir(), "absent") },
 		"empty token":         func(o *Options) { o.PlatformVault.TokenFile = writeToken(t, "") },
-		"legacy combined":     func(o *Options) { o.VaultAddress = "http://vault:8200"; o.VaultTokenFile = writeToken(t, "x") },
 		"no credential store": func(o *Options) { o.ConnectionCredentialsOverride = nil },
 		"invalid address":     func(o *Options) { o.PlatformVault.Address = "not a url" },
 	} {
@@ -162,20 +161,50 @@ func TestPlatformVaultBootstrapFailsClosed(t *testing.T) {
 
 func TestPlatformVaultBootstrapConflictStopsStartup(t *testing.T) {
 	ctx := context.Background()
-	state := filepath.Join(t.TempDir(), "state.json")
-	creds, verifier := credentialmemory.New(), &countVerifier{}
-	if _, err := Build(ctx, Options{Adapters: AdapterFake, Seed: seed.Defaults(), StatePath: state, ConnectionCredentialsOverride: creds, SecretStoreVerifierOverride: verifier,
-		VaultAddress: "http://old-vault:8200", VaultTokenFile: writeToken(t, "t")}); err != nil {
-		t.Fatal(err)
-	}
-	opts := platformOptions(state, creds, verifier, writeToken(t, "t"))
-	_, err := Build(ctx, opts)
-	if !errors.Is(err, secretstores.ErrBootstrapConflict) {
-		t.Fatalf("conflicting endpoint must stop startup: %v", err)
-	}
-	if creds.Len() != 0 || verifier.calls.Load() != 0 {
-		t.Fatalf("conflict did work: creds=%d verify=%d", creds.Len(), verifier.calls.Load())
-	}
+	org := seed.Defaults().OrganizationKey
+	t.Run("different endpoint", func(t *testing.T) {
+		state := filepath.Join(t.TempDir(), "state.json")
+		creds, verifier := credentialmemory.New(), &countVerifier{}
+		other := platformOptions(state, creds, verifier, writeToken(t, "t"))
+		other.PlatformVault.Address, other.PlatformVault.WorkloadAddress = "http://old-vault:8200", "http://old-vault:8200"
+		if _, err := Build(ctx, other); err != nil {
+			t.Fatal(err)
+		}
+		calls, stored := verifier.calls.Load(), creds.Len()
+		_, err := Build(ctx, platformOptions(state, creds, verifier, writeToken(t, "t")))
+		if !errors.Is(err, secretstores.ErrBootstrapConflict) {
+			t.Fatalf("conflicting endpoint must stop startup: %v", err)
+		}
+		if creds.Len() != stored || verifier.calls.Load() != calls {
+			t.Fatalf("conflict did work: creds=%d verify=%d", creds.Len(), verifier.calls.Load())
+		}
+	})
+	t.Run("unmarked user store is never overwritten", func(t *testing.T) {
+		state := filepath.Join(t.TempDir(), "state.json")
+		creds, verifier := credentialmemory.New(), &countVerifier{}
+		base, err := Build(ctx, Options{Adapters: AdapterFake, Seed: seed.Defaults(), StatePath: state})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ref, err := creds.Put(ctx, org, secretstore.CredentialScope("platform-vault"), []byte("user-token"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		user := secretstore.Store{Key: "platform-vault", OrganizationKey: org, Name: "Mine", Provider: secretstore.ProviderVaultKV2, Status: secretstore.StatusReady,
+			BackendAddress: "http://vault:8200", WorkloadAddress: "http://vault.vault.svc:8200", Mount: "kv", AuthMount: "kubernetes", CredentialRef: ref}
+		if err := base.Store.CreateSecretStore(ctx, user); err != nil {
+			t.Fatal(err)
+		}
+		_, err = Build(ctx, platformOptions(state, creds, verifier, writeToken(t, "bootstrap-token")))
+		if !errors.Is(err, secretstores.ErrBootstrapConflict) {
+			t.Fatalf("unmarked store must stop startup: %v", err)
+		}
+		reread, _ := Build(ctx, Options{Adapters: AdapterFake, Seed: seed.Defaults(), StatePath: state})
+		got, _ := reread.Store.GetSecretStore(ctx, org, "platform-vault")
+		if got.CredentialRef != ref || got.Name != "Mine" || creds.Len() != 1 || verifier.calls.Load() != 0 {
+			t.Fatalf("user store changed: %+v creds=%d verify=%d", got, creds.Len(), verifier.calls.Load())
+		}
+	})
 }
 
 func TestPlatformVaultTokenReplacementRefreshesManagedStoresInEveryOrganization(t *testing.T) {
@@ -197,24 +226,18 @@ func TestPlatformVaultTokenReplacementRefreshesManagedStoresInEveryOrganization(
 			t.Fatal(err)
 		}
 	}
-	legacyOpts := Options{Adapters: AdapterFake, Seed: seed.Defaults(), StatePath: state, ConnectionCredentialsOverride: creds, SecretStoreVerifierOverride: verifier,
-		VaultAddress: "http://vault:8200", VaultTokenFile: writeToken(t, "legacy"), VaultAgentAddress: "http://vault.vault.svc:8200"}
-	if _, err := Build(ctx, legacyOpts); err != nil {
-		t.Fatal(err)
+	// Other Organizations hold Compose-managed records from an earlier bootstrap.
+	cmd := secretstores.RegisterCommand{Name: "Platform Vault", BackendAddress: "http://vault:8200", WorkloadAddress: "http://vault.vault.svc:8200", Token: "token-1"}
+	seeding := secretstores.NewService(base.Store, verifier, creds)
+	for _, org := range []string{"globex", "initech"} {
+		if _, err := seeding.Bootstrap(ctx, org, cmd); err != nil {
+			t.Fatal(err)
+		}
 	}
-	legacyApp, err := Build(ctx, legacyOpts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	st := legacyApp.Store
 	unrelated := secretstore.Store{Key: "team-vault", OrganizationKey: "globex", Name: "Team", Provider: secretstore.ProviderVaultKV2, Status: secretstore.StatusReady,
 		BackendAddress: "http://team:8200", WorkloadAddress: "http://team:8200", Mount: "kv", AuthMount: "kubernetes", CredentialRef: "kv2://kv/x/y"}
-	if err := st.CreateSecretStore(ctx, unrelated); err != nil {
+	if err := base.Store.CreateSecretStore(ctx, unrelated); err != nil {
 		t.Fatal(err)
-	}
-	initechBefore, _ := st.GetSecretStore(ctx, "initech", "platform-vault")
-	if !initechBefore.Legacy {
-		t.Fatalf("initech should start legacy: %+v", initechBefore)
 	}
 
 	first := platformOptions(state, creds, verifier, writeToken(t, "token-1"))
@@ -233,16 +256,16 @@ func TestPlatformVaultTokenReplacementRefreshesManagedStoresInEveryOrganization(
 		return got
 	}
 	orgs := []string{seedOrg, "globex", "initech"}
-	converted := map[string]secretstore.Store{}
+	managed := map[string]secretstore.Store{}
 	for _, org := range orgs {
 		got := read(org)
-		if got.Legacy || got.CredentialRef == "" || got.Verification["bootstrap"] != secretstores.BootstrapMarker {
-			t.Fatalf("%s not converted: %+v", org, got)
+		if got.CredentialRef == "" || got.Verification["bootstrap"] != secretstores.BootstrapMarker {
+			t.Fatalf("%s not bootstrapped: %+v", org, got)
 		}
-		converted[org] = got
+		managed[org] = got
 	}
 	if creds.Len() != 3 {
-		t.Fatalf("credentials after conversion: %d", creds.Len())
+		t.Fatalf("credentials after bootstrap: %d", creds.Len())
 	}
 
 	// Another organization with an unmarked ordinary platform-vault must stay untouched.
@@ -270,8 +293,8 @@ func TestPlatformVaultTokenReplacementRefreshesManagedStoresInEveryOrganization(
 	}
 	for _, org := range orgs {
 		got := read(org)
-		before := converted[org]
-		if got.CredentialRef == before.CredentialRef || got.ID != before.ID || got.Key != before.Key || got.Legacy || got.Name != before.Name ||
+		before := managed[org]
+		if got.CredentialRef == before.CredentialRef || got.ID != before.ID || got.Key != before.Key || got.Name != before.Name ||
 			got.BackendAddress != before.BackendAddress || got.WorkloadAddress != before.WorkloadAddress || got.Mount != before.Mount || got.AuthMount != before.AuthMount || !got.CreatedAt.Equal(before.CreatedAt) {
 			t.Fatalf("%s not refreshed with identity preserved: %+v vs %+v", org, got, before)
 		}

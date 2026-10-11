@@ -309,8 +309,10 @@ See [rendering contract](workload-rendering.md) for the detailed boundary.
   rechecking token followed by an unlocked executor call is insufficient.
 - Selected-store resolution returns typed opaque ref `{storeKey, valueRef}` or an
   equivalent versioned encoding; no raw values in refs. Variable revisions carry
-  ordinary values in metadata, never Secret values. Legacy raw Vault refs resolve
-  only through explicit backfilled legacy store identity.
+  ordinary values in metadata, never Secret values. Store identity must be explicit;
+  runtime resolves scoped private credentials only. No legacy flags/global token,
+  store backfill or Compose conversion (T23). Legacy Variable materialization
+  removal remains T24.
 
 Transition states, failures and retained recovery artifacts follow
 [ADR-012](../decisions/ADR-012-environment-stores-and-transitions.md).

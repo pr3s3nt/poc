@@ -415,15 +415,18 @@ or retain equivalent immutable generation-owned records. Generation 0 IDs and
 all old plan/state remain valid; new Terraform/namespace identities are isolated.
 
 Secret refs/revisions pin store identity; old applied refs are immutable. New
-Variable values are metadata, never Secret values. Legacy explicit platform-store
-backfill preserves refs; Vault network reads are excluded from SQL migrations.
+Variable values are metadata, never Secret values. Store identities are explicit;
+T23 removes legacy platform-store backfill. Vault network reads are excluded
+from SQL migrations. Legacy Variable materialization removal belongs to T24.
 JSON and SQL adapters expose equivalent CAS/claim/transition persistence semantics.
 
 Local Compose bootstrap (UC-04 SS-07..08) retains the existing
 `secret_store_connections` schema. Its explicit managed-store admission may
-atomically convert matching `platform-vault` legacy metadata or refresh a token's
+create an ordinary `platform-vault` record or atomically refresh a managed token's
 opaque credential reference after verification, preserving the row ID/key and
-endpoint/mount identity. CAS checks protect concurrent startup. No secret/token
+endpoint/mount identity. Admission checks the prior compose-managed marker as
+well as expected ID/credential ref; an unmarked user record cannot be refreshed.
+CAS checks protect concurrent startup. No secret/token
 plaintext is stored, and Environment/revision/value references remain unchanged.
 
 ## System existing-cluster Definition compatibility
@@ -434,3 +437,7 @@ Definition FKs and tables unchanged. Execution admits a reserved system-owned
 writes; public registration cannot claim this key. Preview performs no writes.
 Existing authored Definitions/history remain intact. Connection identity stays on
 Active Resource and plan binding; no per-Connection user Definition is needed.
+
+T23 removes Secret Store legacy domain/DTO/admission flags. The transitional SQL
+`legacy` column may remain inert until T28 rebuilds the fresh baseline; it is not
+a runtime credential source or supported old-record conversion path.

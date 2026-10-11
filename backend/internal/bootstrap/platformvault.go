@@ -43,7 +43,7 @@ func seedPlatformVault(ctx context.Context, st persistence.Store, svc *secretsto
 	}
 
 	// The seed Organization is always bootstrapped. Any other Organization is
-	// bootstrapped only to upgrade or refresh its existing Compose-managed record.
+	// bootstrapped only to refresh its existing Compose-managed record.
 	orgs := []string{opts.Seed.OrganizationKey}
 	apps, err := st.ListApplications(ctx)
 	if err != nil {
@@ -60,7 +60,7 @@ func seedPlatformVault(ctx context.Context, st persistence.Store, svc *secretsto
 		case errors.Is(err, persistence.ErrNotFound):
 		case err != nil:
 			return fmt.Errorf("bootstrap: look up the platform Vault store of organization %q: %w", app.OrganizationKey, err)
-		case existing.Legacy || existing.Verification["bootstrap"] == secretstores.BootstrapMarker:
+		case existing.Verification["bootstrap"] == secretstores.BootstrapMarker:
 			orgs = append(orgs, app.OrganizationKey)
 		}
 	}
