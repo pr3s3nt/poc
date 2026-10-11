@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-11
 ---
 
 # Current project state
@@ -49,6 +49,16 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-09 | Implemented; locally E2E verified | Authenticated Organization/Application/Environment-scoped history/filter và detail; consistent read snapshots, per-Deployment workload history, fail-closed output redaction và không trả resolved inputs. React loading/error/not-found/retry và browser redeploy/restart checks đã pass. Comparison và live status ngoài scope. |
 | UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và VSO → namespace Secret → Pod `secretKeyRef` đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
 | UC-16 | MVP path implemented | Form/Score import, typed resource params, public path + Service port rows, draft save/delete/undo, references, edit deployed workload bằng reconstructed Score, Preview → Deploy và partial retry đã có. Preview bỏ qua no-op draft nhưng giữ UC-12 revision update. Kind đã kiểm tra multi-path BusyBox `/` + `/api`, Fleet route và no-op Pod UID; Backstage cụ thể và broader update/cloud path chưa kiểm chứng. |
+
+## Console refactor T05 (2026-10-11)
+
+[Local verification](verification/2026-10-11-T05-secret-stores.md): trang Kho bí
+mật dùng tiếng Việt, phần nâng cao giữ mount/CA với tóm tắt defaults hiệu lực.
+Checkbox dùng cùng địa chỉ là opt-in, giữ draft workload riêng khi tắt. Local
+validation chặn POST sai; server lỗi xóa token và giữ metadata. Danh sách tách
+xác minh backend với Kubernetes auth; READY không cam kết deploy-ready. API và
+Developer choices giữ nguyên; code-based errors còn chờ T20. Video headed local
+fake pass; ABSENT/list failure là projection mock, không chứng minh Vault thật.
 
 ## Console refactor T04 (2026-10-11)
 

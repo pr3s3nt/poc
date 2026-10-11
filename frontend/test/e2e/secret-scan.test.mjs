@@ -25,7 +25,7 @@ async function filledForm() {
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ secretStores: [] })));
   const user = userEvent.setup();
   render(createElement(SecretStoresPage));
-  await screen.findByText('No secret store is registered yet.');
+  await screen.findByText('Chưa có kho bí mật nào được đăng ký.');
   await user.type(screen.getByLabelText(/^Token/), TOKEN);
   return screen.getByLabelText(/^Token/);
 }

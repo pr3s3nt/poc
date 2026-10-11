@@ -2,7 +2,7 @@
 id: UC-04-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-11
 ---
 
 # UC-04 Connection HTTP mapping
@@ -48,3 +48,23 @@ capabilities, cleans probe, stores credential privately and insert-only metadata
 201 only after all required steps. Errors remain safe as above.
 Developer GET `/api/v1/secret-store-choices` returns scoped READY metadata only.
 No token, credential ref, arbitrary secret-read or delete endpoint is exposed.
+
+## T05 — Projection form Kho bí mật (không đổi API)
+
+GET/POST `/api/v1/secret-stores` và role/org gates giữ nguyên. POST gửi
+`name`, `backendAddress`, `workloadAddress`, `mount`, `authMount`, token và
+`tlsCaPem` nếu có; không gửi checkbox/UI state hoặc thêm provider vào DTO.
+Mount rỗng dùng defaults `kv`/`kubernetes`. Checkbox bật lấy backendAddress
+làm workloadAddress trong payload; tắt gửi draft workload độc lập.
+
+Frontend kiểm URL http(s) có host, không userinfo/query/fragment/whitespace, dấu gạch chéo ngược hoặc ký tự điều khiển;
+mount là segment 1–64 ký tự chữ/số/gạch ngang/gạch dưới. Tên không rỗng, tối đa
+100 ký tự Unicode, không control; token không rỗng, tối đa 4096 byte UTF-8,
+không control; CA tối đa 64 KiB UTF-8, chỉ shape CERTIFICATE PEM (base64 blocks,
+không nội dung thừa). Tổng JSON envelope tối đa 256 KiB. Backend vẫn là final
+guard, parse X.509 và verify thật; FE shape check không chứng minh trust.
+
+GET dùng safe `verification.verified`, `kvVersion`, `capabilities`, `probe`
+và `kubernetesAuth` khi có; không suy auth từ READY. Text lỗi trang dùng
+hướng dẫn Việt cố định theo HTTP status, không dịch regex/raw error; stable
+code mapping toàn Console thuộc T20. Không mở rộng Developer choices DTO.

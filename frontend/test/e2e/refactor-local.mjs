@@ -736,6 +736,208 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(3000);
   },
+  // T05: trang Kho bí mật. Platform Engineer; backend fake verifier thật
+  // (token "bad-token" bị từ chối 422, token khác được chấp nhận). Token chỉ
+  // là chuỗi tổng hợp, nhập vào ô bị che. Mocked bằng Playwright route (ghi rõ
+  // trong captions/assertions): chỉ phản hồi GET danh sách ở bước projection
+  // ABSENT và bước lỗi tải lại danh sách; mọi POST đi tới backend fake thật.
+  async T05({ page, h, ui, caption, mark, check, baseURL }) {
+    const BAD_TOKEN = 'bad-token';
+    const GOOD_TOKEN = 'synthetic-scoped-token-t05';
+    const storeApi = async () => (await (await page.request.get(`${baseURL}/api/v1/secret-stores`)).json()).secretStores;
+    const posts = [];
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/secret-stores') posts.push(request.postDataJSON());
+    });
+    // 'real' passes GET through; 'absent' rewrites Kubernetes auth of "Kho B" to ABSENT (mocked projection); 'fail' returns 500 once.
+    let listMode = 'real';
+    await page.route('**/api/v1/secret-stores', async (route) => {
+      if (route.request().method() !== 'GET' || listMode === 'real') { await route.continue(); return; }
+      if (listMode === 'fail') { listMode = 'absent'; await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"mocked list failure"}' }); return; }
+      const response = await route.fetch();
+      const data = await response.json();
+      for (const store of data.secretStores) if (store.name === 'Kho B') store.verification = { ...store.verification, kubernetesAuth: 'ABSENT' };
+      await route.fulfill({ response, json: data });
+    });
+    const token = () => ui('secretStores', 'token');
+    const alert = () => page.locator('form[aria-label="Đăng ký kho bí mật"] .form-error[role="alert"]');
+    const summary = () => page.getByLabel('Tóm tắt cấu hình hiệu lực');
+    const row = (name) => page.locator('.settings-table-row').filter({ has: page.locator('strong', { hasText: name }) });
+    const noLeak = async (allow) => { const { assertNoSecretLeaks } = await import('./secret-scan.mjs'); await assertNoSecretLeaks(page, [BAD_TOKEN, GOOD_TOKEN], { allow }); };
+
+    caption('Bước 1: Kỹ sư nền tảng đăng nhập bằng tài khoản thử nghiệm cục bộ');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'platform-engineer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    mark('applications');
+
+    caption('Bước 2: Mở trang Kho bí mật; chưa có kho nào, phần tóm tắt luôn hiện mount mặc định kv và kubernetes');
+    await h.click(ui('shell', 'navSecretStores'));
+    await expect(ui('secretStores', 'heading')).toBeVisible();
+    await expect(page.getByText('Chưa có kho bí mật nào được đăng ký.')).toBeVisible();
+    await expect(summary()).toContainText('Mount KV v2: kv (mặc định)');
+    await expect(summary()).toContainText('Mount xác thực Kubernetes: kubernetes (mặc định)');
+    await expect(summary()).toContainText('TLS luôn được xác minh');
+    await expect(ui('secretStores', 'sameAddress')).not.toBeChecked();
+    await expect(ui('secretStores', 'mount')).not.toBeVisible();
+    await expect(token()).toHaveAttribute('type', 'password');
+    expect(await storeApi(), 'fake backend starts with no store').toEqual([]);
+    check('page (real fake backend): Vietnamese heading, empty list, default mounts in summary, checkbox off, advanced hidden, token masked');
+    mark('secret-stores-page');
+    await h.read('Phần tóm tắt luôn cho biết mount hiệu lực và TLS luôn được xác minh');
+
+    caption('Bước 3: Bấm đăng ký khi form còn trống; lỗi tiếng Việt chỉ rõ từng ô và không có POST nào được gửi');
+    await h.click(ui('secretStores', 'submit'));
+    await expect(page.getByText('Tên kho là bắt buộc.')).toBeVisible();
+    await expect(page.getByText('Địa chỉ backend là bắt buộc.')).toBeVisible();
+    await expect(page.getByText('Token là bắt buộc.')).toBeVisible();
+    expect(posts, 'empty form sends no POST').toEqual([]);
+    check('local validation: empty form shows required errors, 0 POST');
+    mark('local-required');
+    await h.read('Form trống bị chặn ngay tại frontend, chưa gửi gì lên máy chủ');
+
+    caption('Bước 4: Nhập địa chỉ sai (ftp, có thông tin đăng nhập) và mount sai trong phần nâng cao; vẫn không có POST');
+    await h.type(ui('secretStores', 'name'), 'Kho A');
+    await h.type(ui('secretStores', 'backend'), 'ftp://user:pw@vault-a.local:8200');
+    await h.type(ui('secretStores', 'workload'), 'http://vault-a.vault.svc:8200');
+    await h.type(token(), BAD_TOKEN);
+    await h.click(ui('secretStores', 'showAdvanced'));
+    await h.type(ui('secretStores', 'mount'), 'sai/mount');
+    await h.click(ui('secretStores', 'submit'));
+    await expect(page.getByText(/^Địa chỉ backend phải là URL http\(s\)/)).toBeVisible();
+    await expect(page.getByText(/^Mount KV v2 chỉ gồm 1–64/)).toBeVisible();
+    expect(posts, 'invalid URL and mount send no POST').toEqual([]);
+    check('local validation: bad URL scheme/userinfo and bad mount rejected, still 0 POST');
+    mark('local-invalid');
+    await h.read('Địa chỉ và mount không hợp lệ bị chặn; chưa kiểm tra mạng hay chứng chỉ');
+
+    caption('Bước 5: Sửa thành địa chỉ đúng, mount team-kv và xác thực k8s_a; địa chỉ backend và workload là hai địa chỉ khác nhau');
+    await h.type(ui('secretStores', 'backend'), 'http://vault-a.local:8200', { replace: true });
+    await h.type(ui('secretStores', 'mount'), 'team-kv', { replace: true });
+    await h.type(ui('secretStores', 'authMount'), 'k8s_a');
+    await expect(summary()).toContainText('Mount KV v2: team-kv');
+    await expect(summary()).not.toContainText('Mount KV v2: team-kv (mặc định)');
+    await expect(summary()).toContainText('Mount xác thực Kubernetes: k8s_a');
+    await noLeak(['input[type="password"]']);
+    check('advanced values update the always-visible effective summary; token only inside the masked field');
+    mark('advanced-filled');
+    await h.moveTo(summary());
+    await h.read('Tóm tắt phản ánh mount tùy chỉnh đã nhập');
+
+    caption('Bước 6: Gửi với token bị backend fake từ chối; form báo hướng dẫn cố định, xóa token, giữ nguyên metadata');
+    const failed = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/v1/secret-stores');
+    await h.click(ui('secretStores', 'submit'));
+    expect((await failed).status(), 'real fake verifier rejects the token').toBe(422);
+    await expect(alert()).toContainText('Không xác minh được kho bí mật nên chưa lưu kho');
+    await expect(alert()).not.toContainText('rejected the token');
+    await expect(token()).toHaveValue('');
+    await expect(ui('secretStores', 'name')).toHaveValue('Kho A');
+    await expect(ui('secretStores', 'backend')).toHaveValue('http://vault-a.local:8200');
+    await expect(ui('secretStores', 'workload')).toHaveValue('http://vault-a.vault.svc:8200');
+    await expect(ui('secretStores', 'mount')).toHaveValue('team-kv');
+    await expect(ui('secretStores', 'mount')).toBeVisible();
+    expect(posts.length, 'exactly one POST reached the backend').toBe(1);
+    expect(posts[0]).toMatchObject({ name: 'Kho A', backendAddress: 'http://vault-a.local:8200', workloadAddress: 'http://vault-a.vault.svc:8200', mount: 'team-kv', authMount: 'k8s_a' });
+    expect(await storeApi(), 'rejected registration stored nothing').toEqual([]);
+    await noLeak([]);
+    check('backend failure (real fake verifier 422): fixed Vietnamese guidance without raw error, token cleared on screen, name/addresses/mount/advanced kept, nothing stored');
+    mark('verification-failed');
+    await h.moveTo(alert());
+    await h.read('Token bị xóa nhưng tên, địa chỉ và mount vẫn còn để sửa');
+
+    caption('Bước 7: Bật "Dùng cùng địa chỉ backend"; địa chỉ workload theo backend, không ghi đè địa chỉ riêng đã nhập');
+    await h.click(ui('secretStores', 'sameAddress'));
+    await expect(ui('secretStores', 'workload')).toHaveValue('http://vault-a.local:8200');
+    await h.type(ui('secretStores', 'backend'), 'http://vault-a.local:8200/v1', { replace: true });
+    await expect(ui('secretStores', 'workload')).toHaveValue('http://vault-a.local:8200/v1');
+    await h.click(ui('secretStores', 'sameAddress'));
+    await expect(ui('secretStores', 'workload')).toHaveValue('http://vault-a.vault.svc:8200');
+    check('checkbox on follows backend edits; checkbox off restores the independent workload draft');
+    mark('same-address-toggle');
+    await h.read('Tắt checkbox thì địa chỉ workload riêng quay lại nguyên vẹn');
+
+    caption('Bước 8: Đóng phần nâng cao rồi mở lại; dữ liệu không mất. Bật cùng địa chỉ, nhập token hợp lệ và đăng ký');
+    await h.click(ui('secretStores', 'hideAdvanced'));
+    await expect(ui('secretStores', 'mount')).not.toBeVisible();
+    await expect(summary()).toContainText('Mount KV v2: team-kv');
+    await h.click(ui('secretStores', 'showAdvanced'));
+    await expect(ui('secretStores', 'mount')).toHaveValue('team-kv');
+    await h.click(ui('secretStores', 'sameAddress'));
+    await h.paste(token(), GOOD_TOKEN);
+    await noLeak(['input[type="password"]']);
+    mark('advanced-persisted');
+    const created = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/v1/secret-stores');
+    await h.click(ui('secretStores', 'submit'));
+    const createdResponse = await created;
+    expect(createdResponse.status()).toBe(201);
+    expect(await createdResponse.text()).not.toContain(GOOD_TOKEN);
+    await expect(page.getByRole('status').filter({ hasText: 'Kho bí mật "Kho A" đã sẵn sàng' })).toBeVisible();
+    expect(posts.length).toBe(2);
+    expect(posts[1]).toMatchObject({ name: 'Kho A', backendAddress: 'http://vault-a.local:8200/v1', workloadAddress: 'http://vault-a.local:8200/v1', mount: 'team-kv', authMount: 'k8s_a' });
+    await expect(token()).toHaveValue('');
+    await expect(ui('secretStores', 'name')).toHaveValue('');
+    await expect(ui('secretStores', 'sameAddress')).not.toBeChecked();
+    await noLeak([]);
+    check('success (real fake backend 201): same-address payload uses backend for workload, form and token cleared, no token on screen');
+    mark('registered-a');
+    await h.read('Kho đã sẵn sàng; form được xóa sạch');
+
+    caption('Bước 9: Danh sách hiển thị hai địa chỉ, mount, xác minh backend và xác thực Kubernetes tách riêng; không có token hay tham chiếu');
+    const rowA = row('Kho A');
+    await expect(rowA).toContainText('Backend: http://vault-a.local:8200/v1');
+    await expect(rowA).toContainText('Workload: http://vault-a.local:8200/v1');
+    await expect(rowA).toContainText('KV v2: team-kv');
+    await expect(rowA).toContainText('Trạng thái: Sẵn sàng');
+    await expect(rowA).toContainText('Xác minh backend: Backend đã xác minh khi đăng ký');
+    await expect(rowA).toContainText('Xác thực Kubernetes: Đã cấu hình');
+    await expect(page.getByLabel('Kho bí mật đã đăng ký')).toContainText('không đảm bảo ứng dụng đã sẵn sàng triển khai');
+    const apiA = (await storeApi()).find((store) => store.name === 'Kho A');
+    expect(apiA.verification.kubernetesAuth, 'real fake-backend projection').toBe('CONFIGURED');
+    check('list (real fake backend): both addresses, mount, READY as "Sẵn sàng", backend verification and Kubernetes auth CONFIGURED separate, READY not deploy-ready');
+    mark('list-a');
+    await h.moveTo(rowA);
+    await h.read('Sẵn sàng chỉ nghĩa là backend đã được xác minh lúc đăng ký');
+
+    caption('Bước 10: Đăng ký Kho B với mặc định và hai địa chỉ khác nhau; danh sách tải lại lỗi (mock) nhưng đăng ký vẫn thành công');
+    listMode = 'fail';
+    await h.type(ui('secretStores', 'name'), 'Kho B');
+    await h.type(ui('secretStores', 'backend'), 'https://vault-b.local:8200');
+    await h.type(ui('secretStores', 'workload'), 'http://vault-b.vault.svc:8200');
+    await h.paste(token(), GOOD_TOKEN);
+    await h.click(ui('secretStores', 'submit'));
+    await expect(page.getByRole('status').filter({ hasText: 'Kho bí mật "Kho B" đã sẵn sàng' })).toBeVisible();
+    await expect(page.getByText(/^Không tải được danh sách kho bí mật/)).toBeVisible();
+    expect(posts.length).toBe(3);
+    expect(posts[2]).toMatchObject({ name: 'Kho B', backendAddress: 'https://vault-b.local:8200', workloadAddress: 'http://vault-b.vault.svc:8200', mount: 'kv', authMount: 'kubernetes' });
+    expect(posts[2]).not.toHaveProperty('tlsCaPem');
+    expect((await storeApi()).map((store) => store.name).sort(), 'Kho B committed on the real fake backend').toEqual(['Kho A', 'Kho B']);
+    check('registration success stays distinct from the MOCKED list reload failure (GET 500 once); defaults kv/kubernetes sent, different addresses independent, no CA sent');
+    mark('registered-b-list-failed');
+    await h.moveTo(page.getByText(/^Không tải được danh sách kho bí mật/));
+    await h.read('Đăng ký thành công; chỉ danh sách tải lại bị lỗi');
+
+    caption('Bước 11: Bấm Thử lại chỉ tải lại danh sách; xác thực Kubernetes của Kho B hiện "Chưa cấu hình" (projection mock ABSENT)');
+    await h.click(ui('secretStores', 'retry'));
+    await expect(row('Kho B')).toBeVisible();
+    await expect(row('Kho B')).toContainText('Xác thực Kubernetes: Chưa cấu hình');
+    await expect(row('Kho B')).toContainText('Xác minh backend: Backend đã xác minh khi đăng ký');
+    await expect(row('Kho B')).toContainText('Trạng thái: Sẵn sàng');
+    await expect(row('Kho A')).toContainText('Xác thực Kubernetes: Đã cấu hình');
+    expect(posts.length, 'retry only reloads the list').toBe(3);
+    check('list retry sends only GET; MOCKED projection shows Kho B auth "Chưa cấu hình" while backend verification stays verified and Kho A stays "Đã cấu hình"');
+    mark('list-absent-configured');
+    await h.moveTo(row('Kho B'));
+    await h.read('Backend đã xác minh nhưng xác thực Kubernetes chưa cấu hình; hai thông tin tách riêng');
+
+    caption('Bước 12: Đăng xuất; phiên bị thu hồi');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(3000);
+  },
 };
 
 export function parseArgs(argv) {

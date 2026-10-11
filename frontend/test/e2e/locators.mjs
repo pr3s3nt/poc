@@ -13,7 +13,7 @@ export const TRANSLATED = {
   resourceDefinitions: true,
   renderingTemplates: true,
   connections: false,
-  secretStores: false,
+  secretStores: true,
 };
 
 const TABLES = {
@@ -66,8 +66,21 @@ const TABLES = {
   connections: {
     heading: { role: 'heading', level: 1, vi: 'Kết nối', current: 'Connections' },
   },
+  // T05 translated this page; `current` equals `vi` for its entries.
   secretStores: {
-    heading: { role: 'heading', level: 1, vi: 'Kho bí mật', current: 'Secret stores' },
+    heading: { role: 'heading', level: 1, vi: 'Kho bí mật', current: 'Kho bí mật' },
+    name: { role: 'label', vi: 'Tên kho', current: 'Tên kho' },
+    backend: { role: 'label', vi: 'Địa chỉ backend', current: 'Địa chỉ backend' },
+    sameAddress: { role: 'label', vi: 'Dùng cùng địa chỉ backend', current: 'Dùng cùng địa chỉ backend' },
+    workload: { role: 'label', vi: 'Địa chỉ workload', current: 'Địa chỉ workload' },
+    token: { role: 'label', vi: 'Token Vault', current: 'Token Vault' },
+    showAdvanced: { role: 'button', vi: 'Hiện nâng cao', current: 'Hiện nâng cao' },
+    hideAdvanced: { role: 'button', vi: 'Ẩn nâng cao', current: 'Ẩn nâng cao' },
+    mount: { role: 'label', vi: 'Mount KV v2', current: 'Mount KV v2' },
+    authMount: { role: 'label', vi: 'Mount xác thực Kubernetes', current: 'Mount xác thực Kubernetes' },
+    ca: { role: 'label', vi: 'Chứng chỉ CA tùy chỉnh (PEM, tùy chọn)', current: 'Chứng chỉ CA tùy chỉnh (PEM, tùy chọn)' },
+    submit: { role: 'button', vi: 'Xác minh và đăng ký', current: 'Xác minh và đăng ký' },
+    retry: { role: 'button', vi: 'Thử lại', current: 'Thử lại' },
   },
 };
 

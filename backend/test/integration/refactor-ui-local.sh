@@ -11,6 +11,7 @@
 # and must be outside the repository; it is kept, also on failure.
 # T03 additionally passes -score-k8s with a test-local stub (stubs/score-k8s-render-fail-stub.sh)
 # whose `generate` always fails; calls are logged in NEW_PATH/score-k8s-stub/score-k8s-calls.log.
+# T05 additionally uses in-memory state with the explicit memory credential store (no state file, no Vault).
 # Debug only: ORCH_REFACTOR_INJECT_FAILURE=after-sign-in makes T01 fail on
 # purpose to check that video, marks and assertions survive a failure.
 #
@@ -107,6 +108,12 @@ if [[ "${SCENARIO}" == T03 ]]; then
   export ORCH_E2E_SCORE_K8S_LOG="${WORK}/score-k8s-stub/score-k8s-calls.log"
 fi
 
+# T05 registers Secret stores, which need a credential store for the token. The
+# explicit non-durable "memory" store is accepted only without persistent state,
+# so T05 runs with in-memory state and no -state file.
+STATE_ARGS=(-state "${WORK}/state.json") STORE_MODE=none
+if [[ "${SCENARIO}" == T05 ]]; then STATE_ARGS=(); STORE_MODE=memory; fi
+
 (cd "${ROOT}" && go build -o "${WORK}/orchestrator" ./cmd/orchestrator)
 # Temporary JSON state only: inherited database/Vault/Terraform/AWS/Kubernetes
 # configuration is dropped and the matching flags are explicitly blank.
@@ -115,9 +122,9 @@ env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_VAULT_ADDR -u ORCHESTRATOR
   -u ORCHESTRATOR_VAULT_AGENT_ADDR -u ORCHESTRATOR_POSTGRES_TEST_URL -u ORCH_KIND_VERIFY -u KUBECONFIG \
   -u TF_PLUGIN_CACHE_DIR -u AWS_PROFILE -u AWS_REGION -u AWS_DEFAULT_REGION \
   -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN \
-  "${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" -state "${WORK}/state.json" \
+  "${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" ${STATE_ARGS[@]+"${STATE_ARGS[@]}"} \
   -database-url-file "" -vault-address "" -vault-token-file "" -vault-agent-address "" \
-  -connection-credential-store none ${SCORE_ARGS[@]+"${SCORE_ARGS[@]}"} -adapters fake -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" \
+  -connection-credential-store "${STORE_MODE}" ${SCORE_ARGS[@]+"${SCORE_ARGS[@]}"} -adapters fake -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" \
   > "${WORK}/orchestrator.log" 2>&1 &
 PIDS+=($!)
 for _ in $(seq 1 80); do [[ -s "${WORK}/api-addr" ]] && break; sleep 0.25; done

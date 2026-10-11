@@ -265,7 +265,7 @@ for arbitrary Resource Types, AWS onboarding or production RBAC.
 
 | Requirement | Canonical design | Required evidence |
 |---|---|---|
-| UC-04 SS-01..06 | ADR-012 Secret Store Connection | scoped Vault verify/register/redaction/probe cleanup tests |
+| UC-04 SS-01..06 | ADR-012 Secret Store Connection; [T05 UI](../usecase/UC-04/ui/screens.md) | scoped Vault verify/register/redaction/probe cleanup tests; `SecretStoresPage.test.tsx`, T05 headed fake scenario (same/different address, validation, token clear, backend/auth projection), [evidence](../verification/2026-10-11-T05-secret-stores.md) |
 | UC-04 SS-07..08 | ADR-012 local Compose registration bootstrap; UC-04 realization/sequence | `secretstores/bootstrap_test.go`, `bootstrap/platformvault_test.go`, `vault/bootstrap_test.go`, shared managed-admission persistence contract and [real Docker/video verification](../verification/2026-10-08-compose-vault-normal-store.md) |
 | UC-01 ES-01..06 / BR-05..13 | ADR-012 versions/transitions | Settings CAS/busy, generation isolation, migration/recovery/cleanup |
 | UC-12 BR-15..19 | ADR-012 copy/provider refs | copy failure atomicity, old refs preserved, variable conversion, VSO per-store |

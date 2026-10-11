@@ -2,7 +2,7 @@
 id: UC-04-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-11
 ---
 
 # UC-04 Connections screen
@@ -49,3 +49,25 @@ workload addresses/mount/status. Registration form has name, Vault addresses,
 KV/auth mounts, optional trusted CA and concealed token. Check and save verifies
 before showing READY; clear token after success. Developers see only safe choices
 in Environment Settings, not the privileged registration form.
+
+## Kho bí mật — T05 (SS-01..04)
+
+Trang `/ui/platform/secret-stores` dùng tiếng Việt cho toàn bộ text/aria-label,
+validation, thông báo và trạng thái; technical IDs/URL/payload giữ nguyên.
+Phần cơ bản gồm tên, địa chỉ backend, địa chỉ workload và token được che.
+Checkbox “Dùng cùng địa chỉ backend” mặc định tắt, chỉ đồng bộ địa chỉ trong
+payload khi người dùng chọn. Khi tắt, khôi phục địa chỉ workload riêng đã nhập;
+không ghi đè draft riêng khi backend đổi hoặc khi bật checkbox.
+
+Mount KV v2, mount xác thực Kubernetes và CA PEM tùy chọn nằm trong phần
+“Nâng cao”; đóng phần này không mất dữ liệu. Tóm tắt luôn cho biết mount hiệu
+lực (mặc định `kv`/`kubernetes`) và CA tùy chỉnh có/không, TLS luôn xác minh.
+Kiểm tra PEM ở frontend chỉ kiểm shape, không chứng minh chứng chỉ hợp lệ,
+độ tin cậy hoặc khả năng kết nối.
+
+Danh sách hiển thị tên/key/provider, cả hai địa chỉ, mount và CA, trạng thái kho,
+kết quả xác minh backend và xác thực Kubernetes tách riêng. READY hiển thị
+“Sẵn sàng”: xác minh backend tại lúc đăng ký, không cam kết deploy-ready;
+auth chưa cấu hình phải thể hiện rõ. Thiếu metadata không suy thành công.
+Không hiển thị token hoặc credential ref. Nhãn legacy chỉ là metadata hiện
+hành, việc bỏ legacy thuộc T23. PE/Admin gates và Developer choices không đổi.

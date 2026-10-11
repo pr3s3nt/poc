@@ -115,3 +115,9 @@ thuộc run và state tạm; không xóa evidence, không upload. Locator role/l
 của trang chưa Việt hóa dùng nhãn hiện tại tới task chuyển trang đó. Khi thêm
 scenario, chạy `bash -n` runner và checks frontend tương ứng; review decode,
 frame, captions và assertions theo procedure ở trên.
+
+T05 dùng state và credential store `memory` không bền vững, vì memory credential
+store chỉ được phép với fake adapters và không có persistent state. Các scenario
+khác giữ JSON state disposable. T05 không ghi token ra snapshot hoặc dùng Vault;
+registration/verification qua fake backend, projection ABSENT và lỗi GET dùng
+mock được ghi riêng trong assertions/evidence.
