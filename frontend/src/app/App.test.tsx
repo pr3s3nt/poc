@@ -49,9 +49,9 @@ function stubBackend() {
 }
 
 async function signIn(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(await screen.findByLabelText('Username'), 'developer');
-  await user.type(screen.getByLabelText('Password'), 'test-password');
-  await user.click(screen.getByRole('button', { name: 'Sign in' }));
+  await user.type(await screen.findByLabelText('Tên đăng nhập'), 'developer');
+  await user.type(screen.getByLabelText('Mật khẩu'), 'test-password');
+  await user.click(screen.getByRole('button', { name: 'Đăng nhập' }));
   await screen.findByRole('heading', { name: 'Your applications' });
 }
 
@@ -78,14 +78,14 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     authenticated = true;
     render(<App />);
     expect(await screen.findByRole('heading', { name: 'Your applications' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Mật khẩu')).not.toBeInTheDocument();
     expect(window.location.pathname).toBe('/ui/applications');
   });
 
   it('redirects protected routes to sign-in without a session', async () => {
     window.history.replaceState({}, '', '/ui/applications/payment');
     render(<App />);
-    expect(await screen.findByLabelText('Username')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Tên đăng nhập')).toBeInTheDocument();
     expect(requests.some((request) => request.url.endsWith('/applications'))).toBe(false);
   });
 
@@ -122,6 +122,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     await user.clear(screen.getByLabelText('Subdomain'));
     await user.type(screen.getByLabelText('Subdomain'), 'Catalog');
     expect(screen.queryByLabelText('Connection')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Kết nối')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Tạo ứng dụng' }));
 
     expect(await screen.findByRole('heading', { name: 'Catalog' })).toBeInTheDocument();
@@ -180,7 +181,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     await signIn(user);
     authenticated = false;
     await user.click(screen.getByText('Payment'));
-    expect(await screen.findByText('Your session ended. Sign in again to continue.')).toBeInTheDocument();
+    expect(await screen.findByText('Phiên đăng nhập đã kết thúc. Đăng nhập lại để tiếp tục.')).toBeInTheDocument();
     expect(window.location.pathname).toBe('/ui/sign-in');
     expect(screen.queryByText('Payment')).not.toBeInTheDocument();
   });
@@ -190,9 +191,9 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     const user = userEvent.setup();
     render(<App />);
     await signIn(user);
-    await user.click(screen.getByRole('button', { name: 'Sign out' }));
-    expect(await screen.findByLabelText('Username')).toBeInTheDocument();
-    expect(screen.queryByText('Your session ended. Sign in again to continue.')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Đăng xuất' }));
+    expect(await screen.findByLabelText('Tên đăng nhập')).toBeInTheDocument();
+    expect(screen.queryByText('Phiên đăng nhập đã kết thúc. Đăng nhập lại để tiếp tục.')).not.toBeInTheDocument();
     expect(screen.queryByText('Payment')).not.toBeInTheDocument();
     expect(requests.some((request) => request.url.endsWith('/auth/sign-out'))).toBe(true);
   });
@@ -202,7 +203,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     window.history.replaceState({}, '', '/ui/applications/payment/environments/staging/deployments');
     render(<App />);
     await waitFor(() => expect(requests.some((request) => request.url.includes('/deployments'))).toBe(true));
-    expect(screen.queryByText('Application not found')).not.toBeInTheDocument();
+    expect(screen.queryByText('Không tìm thấy ứng dụng')).not.toBeInTheDocument();
   });
   describe.each(['PLATFORM_ENGINEER', 'ADMIN'])('rendering templates page for %s (T03)', (role) => {
     it('shows the peer sidebar link and renders the page at the deep link', async () => {
@@ -215,7 +216,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       const link = screen.getByRole('link', { name: /Mẫu dựng ứng dụng/ });
       expect(link).toHaveAttribute('href', '/ui/platform/rendering-templates');
       expect(link).toHaveClass('nav-item-active');
-      expect(screen.getByRole('link', { name: /Resource definitions/ })).not.toHaveClass('nav-item-active');
+      expect(screen.getByRole('link', { name: /(^|\s)Cấu hình tài nguyên$/ })).not.toHaveClass('nav-item-active');
     });
   });
 
@@ -223,7 +224,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     authenticated = true;
     window.history.replaceState({}, '', '/ui/platform/rendering-templates');
     render(<App />);
-    await screen.findByRole('navigation', { name: 'Main navigation' });
+    await screen.findByRole('navigation', { name: 'Điều hướng chính' });
     expect(screen.queryByRole('link', { name: /Mẫu dựng ứng dụng/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Mẫu dựng ứng dụng' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('ID bundle dựng ứng dụng')).not.toBeInTheDocument();
@@ -264,12 +265,104 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       override = catalog;
       render(<App />);
       await waitFor(() => expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('vpc'));
-      await user.click(screen.getByRole('link', { name: /Resource types/ }));
+      await user.click(screen.getByRole('link', { name: /(^|\s)Loại tài nguyên$/ }));
       expect(await screen.findByRole('heading', { name: 'Loại tài nguyên' })).toBeInTheDocument();
-      await user.click(screen.getByRole('link', { name: /Resource definitions/ }));
+      await user.click(screen.getByRole('link', { name: /(^|\s)Cấu hình tài nguyên$/ }));
       await screen.findByRole('option', { name: 'vpc' });
       expect(window.location.search).toBe('');
       expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('');
+    });
+  });
+  describe('shared shell and session (T10)', () => {
+    const asRole = (role: string) => (url: string) => url.endsWith('/auth/session') ? Response.json({ user: { Username: 'tester', Role: role } }) : undefined;
+
+    it('shows the Vietnamese sign-in page with a masked password', async () => {
+      render(<App />);
+      expect(await screen.findByRole('heading', { name: 'Đăng nhập vào không gian làm việc' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Mật khẩu')).toHaveAttribute('type', 'password');
+    });
+
+    it('shows the restoring notice, then restores the session without sign-in', async () => {
+      authenticated = true;
+      let release: () => void = () => undefined;
+      override = (url) => url.endsWith('/auth/session') ? new Promise<Response>((resolve) => { release = () => resolve(Response.json({ user: { Username: 'developer', Role: 'DEVELOPER' } })); }) as unknown as Response : undefined;
+      window.history.replaceState({}, '', '/ui/applications');
+      render(<App />);
+      expect(screen.getByRole('status')).toHaveTextContent('Đang tải Orchestrator…');
+      release();
+      expect(await screen.findByRole('navigation', { name: 'Điều hướng chính' })).toBeInTheDocument();
+      expect(screen.queryByLabelText('Mật khẩu')).not.toBeInTheDocument();
+    });
+
+    it('shows the invalid-credentials message and keeps the form usable', async () => {
+      override = (url) => url.endsWith('/auth/sign-in') ? Response.json({ error: 'invalid' }, { status: 401 }) : undefined;
+      const user = userEvent.setup();
+      render(<App />);
+      await user.type(await screen.findByLabelText('Tên đăng nhập'), 'developer');
+      await user.type(screen.getByLabelText('Mật khẩu'), 'wrong-password');
+      await user.click(screen.getByRole('button', { name: 'Đăng nhập' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent('Tên đăng nhập hoặc mật khẩu không đúng.');
+      expect(screen.getByLabelText('Mật khẩu')).toHaveValue('');
+    });
+
+    it('shows the expired notice when a later request finds the session gone', async () => {
+      authenticated = true;
+      const user = userEvent.setup();
+      render(<App />);
+      await screen.findByText('Payment');
+      authenticated = false;
+      await user.click(screen.getByText('Payment'));
+      expect(await screen.findByRole('status')).toHaveTextContent('Phiên đăng nhập đã kết thúc. Đăng nhập lại để tiếp tục.');
+    });
+
+    it('shows a Vietnamese retryable error on an application route', async () => {
+      authenticated = true;
+      let failures = 1;
+      override = (url) => url.endsWith('/applications') && failures-- > 0 ? Response.json({ error: 'database unavailable' }, { status: 500 }) : undefined;
+      window.history.replaceState({}, '', '/ui/applications/payment');
+      const user = userEvent.setup();
+      render(<App />);
+      expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải danh sách ứng dụng.');
+      await user.click(screen.getByRole('button', { name: 'Thử lại' }));
+      await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    });
+
+    it('shows a Vietnamese loading state on an application route', async () => {
+      authenticated = true;
+      override = (url) => url.endsWith('/applications') ? new Promise<Response>(() => undefined) as unknown as Response : undefined;
+      window.history.replaceState({}, '', '/ui/applications/payment');
+      render(<App />);
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Đang tải ứng dụng…'));
+    });
+
+    it('shows the Vietnamese missing-application state', async () => {
+      authenticated = true;
+      window.history.replaceState({}, '', '/ui/applications/missing');
+      render(<App />);
+      expect(await screen.findByRole('heading', { name: 'Không tìm thấy ứng dụng' })).toBeInTheDocument();
+    });
+
+    it('shows only the developer navigation and role label', async () => {
+      authenticated = true;
+      override = asRole('DEVELOPER');
+      render(<App />);
+      const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+      expect(nav).toHaveTextContent('Ứng dụng');
+      expect(nav).toHaveTextContent('Lịch sử triển khai');
+      expect(nav).toHaveTextContent('Sắp có');
+      for (const name of [/Loại tài nguyên/, /Cấu hình tài nguyên/, /Mẫu dựng ứng dụng/, /Kết nối/, /Kho bí mật/]) expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
+      expect(screen.getByText('Nhà phát triển')).toBeInTheDocument();
+      expect(screen.getByText('tester')).toBeInTheDocument();
+    });
+
+    it.each([['PLATFORM_ENGINEER', 'Kỹ sư nền tảng'], ['ADMIN', 'Quản trị viên']])('shows platform links and %s role label', async (role, label) => {
+      authenticated = true;
+      override = asRole(role);
+      render(<App />);
+      await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+      const expected: [RegExp, string][] = [[/Ứng dụng/, '/ui/applications'], [/Loại tài nguyên/, '/ui/platform/resource-types'], [/Cấu hình tài nguyên/, '/ui/platform/resource-definitions'], [/Mẫu dựng ứng dụng/, '/ui/platform/rendering-templates'], [/Kết nối/, '/ui/platform/connections'], [/Kho bí mật/, '/ui/platform/secret-stores']];
+      for (const [name, path] of expected) expect(screen.getByRole('link', { name })).toHaveAttribute('href', path);
+      expect(screen.getByText(label)).toBeInTheDocument();
     });
   });
 });

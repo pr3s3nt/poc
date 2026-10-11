@@ -2,7 +2,7 @@
 id: UI-ARCHITECTURE-INDEX
 artifact: shared-ui-design
 status: current
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-11
 ---
 
 # Shared Web Console UI
@@ -13,8 +13,8 @@ It does not own a use-case screen: each use case owns its screens under
 
 ## Shared shell
 
-- A signed-in page has a persistent left sidebar with `Applications` and
-  `Deployments` navigation.
+- A signed-in page has a persistent left sidebar with `Ứng dụng` and
+  `Lịch sử triển khai` navigation.
 - The footer of the sidebar shows authenticated User name and role, plus a
   sign-out action.
 - Main content owns the page title, primary action and use-case-specific state.
@@ -63,4 +63,18 @@ Sidebar cung cấp mục “Mẫu dựng ứng dụng” ngang hàng catalog tà
 `/ui/platform/rendering-templates`, cùng gate PLATFORM_ENGINEER/ADMIN. Developer
 không thấy mục này và không render trang qua deep link. Trang thuộc
 [UC-03 screens](../../usecase/UC-03/ui/screens.md); không thêm cách chọn mẫu
-hoặc binding Environment. Các nhãn shell khác được Việt hóa ở T10.
+hoặc binding Environment. Các nhãn shell dùng tiếng Việt theo T10.
+
+## Shared shell tiếng Việt (T10)
+
+Navigation có accessible name “Điều hướng chính”; các link giữ nguyên routes
+và gate: “Ứng dụng”, “Loại tài nguyên”, “Cấu hình tài nguyên”, “Mẫu dựng ứng dụng”,
+“Kết nối”, “Kho bí mật”. Mục triển khai chưa có link vẫn disabled, nhãn
+“Lịch sử triển khai” / “Sắp có”. Không thêm tính năng điều hướng.
+
+Footer giữ username thực; role ADMIN/PLATFORM_ENGINEER/DEVELOPER hiển thị lần
+lượt “Quản trị viên” / “Kỹ sư nền tảng” / “Nhà phát triển”, không đổi role ID.
+Nút “Đăng xuất” giữ behavior hiện tại. Shared missing-application state dùng
+“Không tìm thấy ứng dụng”; loading “Đang tải ứng dụng…”; lỗi tải “Không thể tải
+danh sách ứng dụng.” và nút “Thử lại”. T10 không dịch nội dung list/home/preview/
+history/details thuộc T11–T15, không đổi parsing unknown routes.

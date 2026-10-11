@@ -47,7 +47,7 @@ try {
   const x11 = x11Input(env.ORCH_E2E_XDOTOOL);
   const h = createHuman(page, { selectNative: nativeSelect(x11) });
   await page.goto(`${baseURL}/ui/sign-in`);
-  await expect(page.getByLabel('Username')).toBeVisible();
+  await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
   await page.waitForTimeout(1500);
   x11.focusBrowser();
   recorder = await startRecording({ display: env.DISPLAY, width, height, videoPath });

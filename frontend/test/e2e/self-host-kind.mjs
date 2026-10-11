@@ -85,7 +85,7 @@ try {
   await waitForRoute(selfHost, '/api/v1/healthz');
   const selfTab = await browserContext.newPage();
   await selfTab.goto(`http://${selfHost}/`);
-  await expect(selfTab.getByLabel('Username')).toBeVisible();
+  await expect(selfTab.getByLabel('Tên đăng nhập')).toBeVisible();
   const inner = createHuman(selfTab);
   await signIn(inner);
   const applicationName = `Acceptance ${runId}`;

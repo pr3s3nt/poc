@@ -21,9 +21,9 @@ try {
 
   async function signIn() {
     await page.goto(`${baseURL}/ui/sign-in`);
-    await page.getByLabel('Username').fill('developer');
-    await page.getByLabel('Password').fill('test-password');
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByLabel('Tên đăng nhập').fill('developer');
+    await page.getByLabel('Mật khẩu').fill('test-password');
+    await page.getByRole('button', { name: 'Đăng nhập' }).click();
     await expect(page.getByRole('heading', { name: 'Your applications' })).toBeVisible();
   }
 
@@ -151,8 +151,8 @@ try {
     writeFileSync(env.ORCH_E2E_DATA_FILE, JSON.stringify(data), { mode: 0o600 });
     await verifyHistory(data);
 
-    await page.getByRole('button', { name: 'Sign out' }).click();
-    await expect(page.getByLabel('Username')).toBeVisible();
+    await page.getByRole('button', { name: 'Đăng xuất' }).click();
+    await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
     const anonymous = await page.request.get(`${baseURL}/api/v1/applications/${applicationId}/environments/staging/deployments`);
     expect(anonymous.status()).toBe(401);
   } else if (env.ORCH_E2E_PHASE === 'restart') {

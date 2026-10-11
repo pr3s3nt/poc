@@ -21,10 +21,10 @@ try {
   page.setDefaultTimeout(30_000);
   await page.goto(`${baseURL}/ui/sign-in`);
   await reviewPause(page, 1500);
-  await page.getByLabel('Username').fill('developer');
-  await page.getByLabel('Password').fill('test-password');
+  await page.getByLabel('Tên đăng nhập').fill('developer');
+  await page.getByLabel('Mật khẩu').fill('test-password');
   await reviewPause(page, 1000);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Đăng nhập' }).click();
   await expect(page.getByRole('heading', { name: /applications/i })).toBeVisible();
   await reviewPause(page, 1500);
   await page.getByRole('button', { name: /create application|new application/i }).first().click();

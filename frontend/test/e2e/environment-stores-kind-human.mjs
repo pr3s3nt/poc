@@ -67,7 +67,7 @@ try {
   const x11 = x11Input(env.ORCH_E2E_XDOTOOL);
   const h = createHuman(page, { selectNative: nativeSelect(x11) });
   await page.goto(`${baseURL}/ui/sign-in`);
-  await expect(page.getByLabel('Username')).toBeVisible();
+  await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
   await page.waitForTimeout(1500);
   x11.focusBrowser();
   recorder = await startRecording({ display: env.DISPLAY, width, height, videoPath });
@@ -86,22 +86,22 @@ try {
   async function signIn(user) {
     await h.showCursor();
     await h.pause(1200);
-    await h.type(page.getByLabel('Username'), user);
-    await h.type(page.getByLabel('Password'), 'test-password');
-    await h.click(page.getByRole('button', { name: 'Sign in' }));
+    await h.type(page.getByLabel('Tên đăng nhập'), user);
+    await h.type(page.getByLabel('Mật khẩu'), 'test-password');
+    await h.click(page.getByRole('button', { name: 'Đăng nhập' }));
     await expect(page.getByRole('heading', { name: /applications/i })).toBeVisible();
     await h.pause(SHORT_READ);
   }
   async function signOut() {
-    await h.click(page.getByRole('button', { name: 'Sign out' }));
-    await expect(page.getByLabel('Username')).toBeVisible();
+    await h.click(page.getByRole('button', { name: 'Đăng xuất' }));
+    await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
     await h.pause(SHORT_READ);
   }
 
   // ---- 1. Platform Engineer registers two real Vault KV v2 stores -------------
   mark('sign-in');
   await signIn('platform-engineer');
-  await h.click(page.getByRole('link', { name: /Secret stores/ }));
+  await h.click(page.getByRole('link', { name: /(^|\s)Kho bí mật$/ }));
   await expect(page.getByRole('heading', { name: 'Kho bí mật', level: 1 })).toBeVisible();
   await expect(page.getByText('Chưa có kho bí mật nào được đăng ký.')).toBeVisible();
   await h.pause(READ);

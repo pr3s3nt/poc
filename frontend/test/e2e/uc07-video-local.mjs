@@ -49,7 +49,7 @@ try {
   const h = createHuman(page);
   const x11 = x11Input();
   await page.goto(`${baseURL}/ui/sign-in`);
-  await expect(page.getByLabel('Username')).toBeVisible();
+  await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
   await page.waitForTimeout(1500);
   x11.focusBrowser();
   recorder = await startRecording();
@@ -119,9 +119,9 @@ try {
   mark('sign-in-page');
   await h.showCursor();
   await h.pause(SHORT_READ);
-  await h.type(page.getByLabel('Username'), 'developer');
-  await h.type(page.getByLabel('Password'), 'test-password');
-  await h.click(page.getByRole('button', { name: 'Sign in' }));
+  await h.type(page.getByLabel('Tên đăng nhập'), 'developer');
+  await h.type(page.getByLabel('Mật khẩu'), 'test-password');
+  await h.click(page.getByRole('button', { name: 'Đăng nhập' }));
   await expect(page.getByRole('heading', { name: 'Your applications' })).toBeVisible();
   const applicationId = await createApplication(h, applicationName, subdomain);
   mark('application-created');
@@ -207,8 +207,8 @@ try {
   await h.pause(SHORT_READ);
 
   // 7. Sign out.
-  await h.click(page.getByRole('button', { name: 'Sign out' }));
-  await expect(page.getByLabel('Username')).toBeVisible();
+  await h.click(page.getByRole('button', { name: 'Đăng xuất' }));
+  await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
   mark('signed-out');
   await h.pause(READ);
 

@@ -6,8 +6,8 @@
 import { expect } from '@playwright/test';
 
 export const TRANSLATED = {
-  signIn: false,
-  shell: false,
+  signIn: true,
+  shell: true,
   applications: false,
   resourceTypes: true,
   resourceDefinitions: true,
@@ -19,19 +19,19 @@ export const TRANSLATED = {
 
 const TABLES = {
   signIn: {
-    username: { role: 'label', vi: 'Tên đăng nhập', current: 'Username' },
-    password: { role: 'label', vi: 'Mật khẩu', current: 'Password' },
-    submit: { role: 'button', vi: 'Đăng nhập', current: 'Sign in' },
+    username: { role: 'label', vi: 'Tên đăng nhập', current: 'Tên đăng nhập' },
+    password: { role: 'label', vi: 'Mật khẩu', current: 'Mật khẩu' },
+    submit: { role: 'button', vi: 'Đăng nhập', current: 'Đăng nhập' },
   },
   shell: {
-    signOut: { role: 'button', vi: 'Đăng xuất', current: 'Sign out' },
-    nav: { role: 'navigation', vi: 'Điều hướng chính', current: 'Main navigation' },
-    navApplications: { role: 'link', vi: 'Ứng dụng', current: 'Applications' },
-    navResourceTypes: { role: 'link', vi: 'Loại tài nguyên', current: 'Resource types' },
-    navResourceDefinitions: { role: 'link', vi: 'Cấu hình tài nguyên', current: 'Resource definitions' },
+    signOut: { role: 'button', vi: 'Đăng xuất', current: 'Đăng xuất' },
+    nav: { role: 'navigation', vi: 'Điều hướng chính', current: 'Điều hướng chính' },
+    navApplications: { role: 'link', vi: 'Ứng dụng', current: 'Ứng dụng' },
+    navResourceTypes: { role: 'link', vi: 'Loại tài nguyên', current: 'Loại tài nguyên' },
+    navResourceDefinitions: { role: 'link', vi: 'Cấu hình tài nguyên', current: 'Cấu hình tài nguyên' },
     navRenderingTemplates: { role: 'link', vi: 'Mẫu dựng ứng dụng', current: 'Mẫu dựng ứng dụng' },
-    navConnections: { role: 'link', vi: 'Kết nối', current: 'Connections' },
-    navSecretStores: { role: 'link', vi: 'Kho bí mật', current: 'Secret stores' },
+    navConnections: { role: 'link', vi: 'Kết nối', current: 'Kết nối' },
+    navSecretStores: { role: 'link', vi: 'Kho bí mật', current: 'Kho bí mật' },
   },
   applications: {
     heading: { role: 'heading', level: 1, vi: 'Ứng dụng của bạn', current: 'Your applications' },

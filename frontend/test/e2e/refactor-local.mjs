@@ -2289,6 +2289,186 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(3000);
   },
+
+  // T10: Đăng nhập và shared shell. Backend fake thật với tài khoản test cố định
+  // (developer, platform-engineer). PRODUCT (UI): đăng nhập, đăng xuất, điều hướng.
+  // SETUP (API, không phải thao tác sản phẩm): thu hồi phiên phía server để mô phỏng
+  // phiên hết hạn. MOCK: Role ADMIN được chiếu qua GET /auth/session vì backend chưa seed
+  // tài khoản ADMIN; cookie phiên vẫn là của Kỹ sư nền tảng thật.
+  async T10({ page, h, ui, caption, mark, check, baseURL }) {
+    const chip = () => page.locator('.user-chip');
+    const platformLinks = ['navResourceTypes', 'navResourceDefinitions', 'navRenderingTemplates', 'navConnections', 'navSecretStores'];
+    const platformPaths = { navResourceTypes: 'resource-types', navResourceDefinitions: 'resource-definitions', navRenderingTemplates: 'rendering-templates', navConnections: 'connections', navSecretStores: 'secret-stores' };
+    // The inline error span sits inside the label, so a field with an error is matched by prefix.
+    const userField = () => page.getByLabel('Tên đăng nhập');
+    const passField = () => page.getByLabel('Mật khẩu');
+    const signInAs = async (username) => {
+      await h.type(ui('signIn', 'username'), username);
+      await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+      await expect(ui('signIn', 'password')).toHaveAttribute('type', 'password');
+      await h.click(ui('signIn', 'submit'));
+    };
+
+    caption('Bước 1: Mở trang đăng nhập tiếng Việt; ô mật khẩu luôn bị che');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await expect(page.getByRole('heading', { name: 'Đăng nhập vào không gian làm việc' })).toBeVisible();
+    await expect(page.getByText('Chào mừng trở lại', { exact: true })).toBeVisible();
+    await expect(page.getByText('Nền tảng nội bộ cho nhà phát triển', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Làm việc nhanh hơn.');
+    await expect(page.getByText('Hạ tầng giúp bạn tập trung vào ứng dụng.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Dùng tài khoản kiểm thử local của bạn.', { exact: true })).toBeVisible();
+    await expect(ui('signIn', 'password')).toHaveAttribute('type', 'password');
+    check('sign-in page (real): Vietnamese heading, brand text and helper, password input type=password');
+    mark('sign-in-page');
+    await h.read('Trang đăng nhập tiếng Việt, mật khẩu bị che');
+
+    caption('Bước 2: Bấm Đăng nhập khi để trống; hiện lời nhắc, không gọi API');
+    const signInPosts = [];
+    page.on('request', (request) => { if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/auth/sign-in') signInPosts.push(request); });
+    await h.click(ui('signIn', 'submit'));
+    await expect(page.getByText('Nhập tên đăng nhập.', { exact: true })).toBeVisible();
+    await expect(page.getByText('Nhập mật khẩu.', { exact: true })).toBeVisible();
+    expect(signInPosts).toHaveLength(0);
+    check('client validation (real): both required messages shown, no sign-in request sent');
+    mark('validation');
+    await h.read('Lời nhắc bắt buộc nhập tên đăng nhập và mật khẩu');
+
+    caption('Bước 3: Nhập sai mật khẩu; backend trả 401, form báo lỗi chung, mật khẩu bị xóa');
+    await h.type(userField(), 'developer');
+    await h.type(passField(), 'sai-mat-khau-thu-nghiem');
+    await h.click(ui('signIn', 'submit'));
+    await expect(page.getByRole('alert')).toHaveText('Tên đăng nhập hoặc mật khẩu không đúng.');
+    await expect(passField()).toHaveValue('');
+    await expect(userField()).toHaveValue('developer');
+    await expect(ui('signIn', 'submit')).toBeEnabled();
+    await expect(page).toHaveURL(`${baseURL}/ui/sign-in`);
+    expect(signInPosts).toHaveLength(1);
+    check('invalid login (real 401): generic Vietnamese alert, password cleared, username kept, still on /ui/sign-in');
+    mark('invalid-login');
+    await h.read('Thông báo lỗi chung, mật khẩu đã bị xóa');
+
+    caption('Bước 4: Nhập đúng mật khẩu; đăng nhập với vai trò Nhà phát triển và vào danh sách ứng dụng');
+    await h.type(passField(), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await expect(page).toHaveURL(`${baseURL}/ui/applications`);
+    check('successful login (real): redirected to /ui/applications');
+    mark('developer-signed-in');
+    await h.pause(SHORT_READ);
+
+    caption('Bước 5: Thanh điều hướng của Nhà phát triển: chỉ Ứng dụng; Lịch sử triển khai bị khóa (Sắp có)');
+    const nav = ui('shell', 'nav');
+    await expect(nav).toBeVisible();
+    await expect(ui('shell', 'navApplications')).toHaveAttribute('href', '/ui/applications');
+    for (const link of platformLinks) await expect(ui('shell', link)).toHaveCount(0);
+    await expect(nav.locator('.nav-item-disabled')).toContainText('Lịch sử triển khai');
+    await expect(nav.locator('.nav-item-disabled')).toContainText('Sắp có');
+    await expect(nav.getByRole('link')).toHaveCount(1);
+    await expect(chip()).toContainText('developer');
+    await expect(chip()).toContainText('Nhà phát triển');
+    check('developer shell (real session): only Ứng dụng link, disabled "Lịch sử triển khai / Sắp có", footer developer + Nhà phát triển');
+    mark('developer-nav');
+    await h.moveTo(chip());
+    await h.read('Nhà phát triển không thấy mục nền tảng');
+
+    caption('Bước 6: Nhà phát triển mở thẳng đường dẫn Mẫu dựng ứng dụng; trang không hiển thị');
+    await page.goto(`${baseURL}/ui/platform/rendering-templates`);
+    await expect(nav).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng' })).toHaveCount(0);
+    await expect(ui('shell', 'navRenderingTemplates')).toHaveCount(0);
+    check('role gate (real): developer deep link /ui/platform/rendering-templates renders no page and no link');
+    mark('developer-gate');
+    await h.read('Đường dẫn trực tiếp bị chặn theo vai trò');
+
+    caption('Bước 7: Tải lại trang; phiên được khôi phục, không quay lại trang đăng nhập');
+    await page.goto(`${baseURL}/ui/applications`);
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await expect(ui('signIn', 'username')).toHaveCount(0);
+    await expect(chip()).toContainText('developer');
+    check('session restore (real cookie): reload keeps shell, no sign-in form');
+    mark('session-restored');
+    await h.read('Phiên được khôi phục từ cookie');
+
+    caption('Bước 8: Mở ứng dụng không tồn tại; hiển thị "Không tìm thấy ứng dụng"');
+    await page.goto(`${baseURL}/ui/applications/khong-ton-tai`);
+    await expect(page.getByRole('heading', { name: 'Không tìm thấy ứng dụng' })).toBeVisible();
+    check('missing application (real, unknown key): Vietnamese not-found heading inside the shell');
+    mark('missing-application');
+    await h.read('Không tìm thấy ứng dụng');
+
+    caption('Bước 9: Đăng xuất; về trang đăng nhập và API trả 401');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    await expect(page).toHaveURL(`${baseURL}/ui/sign-in`);
+    await expect(page.getByRole('status')).toHaveCount(0);
+    expect((await page.request.get(`${baseURL}/api/v1/applications`)).status()).toBe(401);
+    check('sign-out (real): sign-in page without expiry notice, API returns 401');
+    mark('developer-signed-out');
+    await h.pause(SHORT_READ);
+
+    caption('Bước 10: Kỹ sư nền tảng đăng nhập; thanh điều hướng đủ mục nền tảng');
+    await signInAs('platform-engineer');
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await expect(chip()).toContainText('platform-engineer');
+    await expect(chip()).toContainText('Kỹ sư nền tảng');
+    await expect(nav.getByRole('link')).toHaveCount(6);
+    await expect(ui('shell', 'navApplications')).toHaveAttribute('href', '/ui/applications');
+    for (const link of platformLinks) await expect(ui('shell', link)).toHaveAttribute('href', `/ui/platform/${platformPaths[link]}`);
+    await expect(nav.locator('.nav-item-disabled')).toContainText('Sắp có');
+    check('platform-engineer shell (real session): six links with expected hrefs, role label Kỹ sư nền tảng');
+    mark('pe-nav');
+    await h.moveTo(chip());
+    await h.read('Kỹ sư nền tảng thấy đủ mục');
+
+    caption('Bước 11: Bấm từng mục nền tảng, gồm Mẫu dựng ứng dụng; đường dẫn và mục đang chọn đúng');
+    for (const link of platformLinks) {
+      await h.click(ui('shell', link));
+      await expect(page).toHaveURL(`${baseURL}/ui/platform/${platformPaths[link]}`);
+      await expect(ui('shell', link)).toHaveClass(/nav-item-active/);
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await h.pause(800);
+    }
+    check('platform links (real): all five open their route with active highlight');
+    mark('pe-links');
+    await h.read('Các mục nền tảng mở đúng trang');
+
+    caption('Bước 12: Mô phỏng vai trò Quản trị viên (MOCK GET /auth/session); tải lại, thấy cùng mục và nhãn Quản trị viên');
+    await page.route('**/api/v1/auth/session', (route) => route.fulfill({ json: { user: { Username: 'admin-mo-phong', Role: 'ADMIN' } } }));
+    await page.goto(`${baseURL}/ui/platform/rendering-templates`);
+    await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1 })).toBeVisible();
+    await expect(chip()).toContainText('Quản trị viên');
+    await expect(nav.getByRole('link')).toHaveCount(6);
+    for (const link of platformLinks) await expect(ui('shell', link)).toBeVisible();
+    check('ADMIN (MOCKED session projection, real PE cookie): label Quản trị viên, six links, rendering templates page renders');
+    mark('admin-mock');
+    await h.read('Vai trò ADMIN (mô phỏng) hiển thị Quản trị viên');
+    await page.unroute('**/api/v1/auth/session');
+
+    caption('Bước 13: Phiên bị thu hồi phía server (SETUP qua API); thao tác tiếp theo đưa về đăng nhập kèm thông báo');
+    await page.goto(`${baseURL}/ui/applications`);
+    await expect(ui('applications', 'heading')).toBeVisible();
+    expect((await page.request.post(`${baseURL}/api/v1/auth/sign-out`)).status()).toBeLessThan(300);
+    await h.click(ui('shell', 'navResourceTypes'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    await expect(page).toHaveURL(`${baseURL}/ui/sign-in`);
+    await expect(page.getByRole('status')).toHaveText('Phiên đăng nhập đã kết thúc. Đăng nhập lại để tiếp tục.');
+    check('expired session (real 401 after SETUP revoke): sign-in page with Vietnamese info notice');
+    mark('session-expired');
+    await h.read('Phiên đăng nhập đã kết thúc. Đăng nhập lại để tiếp tục.');
+
+    caption('Bước 14: Đăng nhập lại; thông báo biến mất, rồi đăng xuất');
+    await signInAs('platform-engineer');
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await h.pause(SHORT_READ);
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    await expect(page.getByRole('status')).toHaveCount(0);
+    expect((await page.request.get(`${baseURL}/api/v1/applications`)).status()).toBe(401);
+    check('re-login and sign-out (real): no stale expiry notice, API returns 401');
+    mark('signed-out');
+    await h.pause(3000);
+  },
 };
 
 export function parseArgs(argv) {

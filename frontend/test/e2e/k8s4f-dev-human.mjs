@@ -79,7 +79,7 @@ try {
   };
   const h = createHuman(page, { selectNative: selectByArrows });
   await page.goto(`${baseURL}/ui/sign-in`);
-  await expect(page.getByLabel('Username')).toBeVisible();
+  await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
   await page.waitForTimeout(1500);
   x11.focusBrowser();
   recorder = await startRecording({ display: env.DISPLAY, width, height, videoPath });
@@ -95,15 +95,15 @@ try {
   async function signIn(user) {
     await h.showCursor();
     await h.pause(1200);
-    await h.type(page.getByLabel('Username'), user);
-    await h.type(page.getByLabel('Password'), 'test-password');
-    await h.click(page.getByRole('button', { name: 'Sign in' }));
+    await h.type(page.getByLabel('Tên đăng nhập'), user);
+    await h.type(page.getByLabel('Mật khẩu'), 'test-password');
+    await h.click(page.getByRole('button', { name: 'Đăng nhập' }));
     await expect(page.getByRole('heading', { name: 'Your applications' })).toBeVisible();
     await h.pause(SHORT_READ);
   }
   async function signOut() {
-    await h.click(page.getByRole('button', { name: 'Sign out' }));
-    await expect(page.getByLabel('Username')).toBeVisible();
+    await h.click(page.getByRole('button', { name: 'Đăng xuất' }));
+    await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
     await h.pause(SHORT_READ);
   }
   const apiJson = async (path) => {
@@ -154,14 +154,14 @@ try {
     checks(`reuse-preflight: Connection ${connectionKey} and store ${storeKey} matched by identity (single READY match)`);
     expect(connectionKey && storeKey, 'reusable Connection and Secret Store').toBeTruthy();
     caption(`Connection ${connectionName} (${connectionKey}) và Secret store ${storeName} (${storeKey}) đã đăng ký từ lần chạy trước, dùng lại`);
-    await h.click(page.getByRole('link', { name: /Connections/ }));
+    await h.click(page.getByRole('link', { name: /(^|\s)Kết nối$/ }));
     await h.pause(READ);
-    await h.click(page.getByRole('link', { name: /Secret stores/ }));
+    await h.click(page.getByRole('link', { name: /(^|\s)Kho bí mật$/ }));
     await h.pause(READ);
     mark('connection-ready');
     await signOut();
   } else {
-  await h.click(page.getByRole('link', { name: /Connections/ }));
+  await h.click(page.getByRole('link', { name: /(^|\s)Kết nối$/ }));
   await expect(page.getByRole('heading', { name: 'Kết nối', level: 1 })).toBeVisible();
   await expect(rows().filter({ hasText: 'k8s-4f' }).first()).toContainText('Sẵn sàng');
   await h.moveTo(rows().first());
@@ -211,7 +211,7 @@ try {
   await noLeaks();
 
   caption('Bước 4: Platform → Secret stores: đăng ký Vault riêng của cụm mới (token dán vào ô mật khẩu, luôn bị che)');
-  await h.click(page.getByRole('link', { name: /Secret stores/ }));
+  await h.click(page.getByRole('link', { name: /(^|\s)Kho bí mật$/ }));
   await expect(page.getByRole('heading', { name: 'Kho bí mật', level: 1 })).toBeVisible();
   await h.pause(SHORT_READ);
   await h.type(page.getByLabel('Tên kho'), storeName);
@@ -361,7 +361,7 @@ try {
   await signOut();
   caption('Bước 13: Kỹ sư nền tảng xem lại danh sách Connection: bản k8s-4f cũ không đổi, bản mới đang READY');
   await signIn('platform-engineer');
-  await h.click(page.getByRole('link', { name: /Connections/ }));
+  await h.click(page.getByRole('link', { name: /(^|\s)Kết nối$/ }));
   await expect(rows().filter({ hasText: connectionKey }).first()).toContainText('Sẵn sàng');
   await h.moveTo(rows().filter({ hasText: connectionKey }).first());
   const after = await apiJson('/api/v1/connections');

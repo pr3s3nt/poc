@@ -38,9 +38,9 @@ try {
 
   async function signIn(target, username) {
     await target.goto(`${baseURL}/ui/applications`);
-    await target.getByLabel('Username').fill(username);
-    await target.getByLabel('Password').fill('test-password');
-    await target.getByRole('button', { name: 'Sign in' }).click();
+    await target.getByLabel('Tên đăng nhập').fill(username);
+    await target.getByLabel('Mật khẩu').fill('test-password');
+    await target.getByRole('button', { name: 'Đăng nhập' }).click();
     await expect(target.getByRole('heading', { name: 'Your applications' })).toBeVisible();
   }
   const targetText = (environment, key) => `${environment === 'staging' ? 'Staging' : 'Production'} · Connection ${key} (${key}) · profile internal-k8s`;
@@ -103,7 +103,7 @@ try {
     await signIn(platformPage, 'platform-engineer');
     const registered = await platformPage.request.post(`${baseURL}/api/v1/connections/kubernetes`, { data: { key: labKey, clusterId: 'lab', kubeContext: 'lab-context' } });
     expect(registered.status()).toBe(201);
-    await platformPage.getByRole('link', { name: /Connections/ }).click();
+    await platformPage.getByRole('link', { name: /(^|\s)Kết nối$/ }).click();
     await expect(platformPage.getByText(labKey).first()).toBeVisible();
 
     // Developer: the create form asks for name and subdomain only.

@@ -87,7 +87,7 @@ try {
   const x11 = x11Input(env.ORCH_E2E_XDOTOOL);
   const h = createHuman(page, { selectNative: nativeSelect(x11) });
   await page.goto(`${baseURL}/ui/sign-in`);
-  await expect(page.getByLabel('Username')).toBeVisible();
+  await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
   await page.waitForTimeout(1500);
   x11.focusBrowser();
   recorder = await startRecording({ display: env.DISPLAY, width, height, videoPath });
@@ -96,14 +96,14 @@ try {
   const mark = (label) => marks.push({ label, seconds: Number(((Date.now() - startedAt) / 1000).toFixed(1)) });
   async function signIn(user) {
     await h.showCursor();
-    await h.type(page.getByLabel('Username'), user);
-    await h.type(page.getByLabel('Password'), 'test-password');
-    await h.click(page.getByRole('button', { name: 'Sign in' }));
+    await h.type(page.getByLabel('Tên đăng nhập'), user);
+    await h.type(page.getByLabel('Mật khẩu'), 'test-password');
+    await h.click(page.getByRole('button', { name: 'Đăng nhập' }));
     await expect(page.getByRole('heading', { name: 'Your applications' })).toBeVisible();
   }
   async function signOut() {
-    await h.click(page.getByRole('button', { name: 'Sign out' }));
-    await expect(page.getByLabel('Username')).toBeVisible();
+    await h.click(page.getByRole('button', { name: 'Đăng xuất' }));
+    await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
   }
   const formError = () => page.locator('form .form-error[role="alert"]');
 
@@ -114,7 +114,7 @@ try {
   await h.pause(SHORT_READ);
 
   // 2. Resource Type: valid registration.
-  await h.click(page.getByRole('link', { name: /Resource types/ }));
+  await h.click(page.getByRole('link', { name: /(^|\s)Loại tài nguyên$/ }));
   await expect(page.getByRole('heading', { name: 'Loại tài nguyên', level: 1 })).toBeVisible();
   await expect(page).toHaveURL(`${baseURL}/ui/platform/resource-types`);
   await h.type(page.getByLabel('ID loại tài nguyên'), 'cache');
@@ -159,7 +159,7 @@ try {
 
   // 5. PostgreSQL Definition for class "fast": an invalid ID and strict
   // Driver Inputs are rejected with the form kept, then it registers.
-  await h.click(page.getByRole('link', { name: /Resource definitions/ }));
+  await h.click(page.getByRole('link', { name: /(^|\s)Cấu hình tài nguyên$/ }));
   await expect(page.getByRole('heading', { name: 'Cấu hình tài nguyên', level: 1 })).toBeVisible();
   await expect(page).toHaveURL(`${baseURL}/ui/platform/resource-definitions`);
   const definitionId = page.getByLabel('ID cấu hình');
@@ -221,7 +221,7 @@ try {
   // 6. Connections. The seeded entry is listed READY by seeding, not by
   // verification. The legacy ID/context form is gone; registration uses the
   // kubeconfig upload form.
-  await h.click(page.getByRole('link', { name: /Connections/ }));
+  await h.click(page.getByRole('link', { name: /(^|\s)Kết nối$/ }));
   await expect(page.getByRole('heading', { name: 'Kết nối', level: 1 })).toBeVisible();
   await expect(page).toHaveURL(`${baseURL}/ui/platform/connections`);
   const seeded = page.getByRole('table', { name: 'Kết nối đã đăng ký' }).locator('tbody tr').first();

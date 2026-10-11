@@ -51,11 +51,11 @@ try {
   const page = await (await browser.newContext()).newPage();
   page.setDefaultTimeout(30_000);
   await page.goto(`${baseURL}/ui/sign-in`);
-  await page.getByLabel('Username').fill('platform-engineer');
-  await page.getByLabel('Password').fill('test-password');
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByLabel('Tên đăng nhập').fill('platform-engineer');
+  await page.getByLabel('Mật khẩu').fill('test-password');
+  await page.getByRole('button', { name: 'Đăng nhập' }).click();
   await expect(page.getByRole('heading', { name: 'Your applications' })).toBeVisible();
-  await page.getByRole('link', { name: /Connections/ }).click();
+  await page.getByRole('link', { name: /(^|\s)Kết nối$/ }).click();
   await expect(page.getByRole('heading', { name: 'Kết nối', level: 1 })).toBeVisible();
 
   // Intended target = the single context of the kubeconfig, as the server reads it.

@@ -119,9 +119,9 @@ export function createHuman(page, { selectNative } = {}) {
 export async function signIn(h) {
   await h.showCursor();
   await h.pause(1500);
-  await h.type(h.page.getByLabel('Username'), 'developer');
-  await h.type(h.page.getByLabel('Password'), 'test-password');
-  await h.click(h.page.getByRole('button', { name: 'Sign in' }));
+  await h.type(h.page.getByLabel('Tên đăng nhập'), 'developer');
+  await h.type(h.page.getByLabel('Mật khẩu'), 'test-password');
+  await h.click(h.page.getByRole('button', { name: 'Đăng nhập' }));
   await expect(h.page.getByRole('heading', { name: /applications/i })).toBeVisible();
   await h.pause(1500);
 }

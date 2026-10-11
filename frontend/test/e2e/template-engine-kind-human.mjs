@@ -59,7 +59,7 @@ try {
   const x11 = x11Input(env.ORCH_E2E_XDOTOOL);
   const h = createHuman(page, { selectNative: nativeSelect(x11) });
   await page.goto(`${baseURL}/ui/sign-in`);
-  await expect(page.getByLabel('Username')).toBeVisible();
+  await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
   await page.waitForTimeout(1500);
   x11.focusBrowser();
   recorder = await startRecording({ display: env.DISPLAY, width, height, videoPath });
@@ -73,15 +73,15 @@ try {
   const signInAs = async (username) => {
     await h.showCursor();
     await h.pause(1500);
-    await h.type(page.getByLabel('Username'), username);
-    await h.type(page.getByLabel('Password'), 'test-password');
-    await h.click(page.getByRole('button', { name: 'Sign in' }));
+    await h.type(page.getByLabel('Tên đăng nhập'), username);
+    await h.type(page.getByLabel('Mật khẩu'), 'test-password');
+    await h.click(page.getByRole('button', { name: 'Đăng nhập' }));
     await expect(page.getByRole('heading', { name: /applications|resource types|resource definitions/i }).first()).toBeVisible();
     await h.pause(1500);
   };
   const signOut = async () => {
-    await h.click(page.getByRole('button', { name: 'Sign out' }));
-    await expect(page.getByLabel('Username')).toBeVisible();
+    await h.click(page.getByRole('button', { name: 'Đăng xuất' }));
+    await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
     await h.pause(1500);
   };
 

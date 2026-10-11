@@ -30,9 +30,9 @@ try {
   });
 
   async function signIn() {
-    await page.getByLabel('Username').fill('developer');
-    await page.getByLabel('Password').fill('test-password');
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByLabel('Tên đăng nhập').fill('developer');
+    await page.getByLabel('Mật khẩu').fill('test-password');
+    await page.getByRole('button', { name: 'Đăng nhập' }).click();
     await expect(page.getByRole('heading', { name: 'Your applications' })).toBeVisible();
     await expect(page).toHaveURL(/\/ui\/applications$/);
   }
@@ -53,7 +53,7 @@ try {
   }
 
   await page.goto(`${baseURL}/ui/applications`);
-  await expect(page.getByLabel('Username')).toBeVisible();
+  await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
 
   if (phase === 'create') {
     await signIn();
@@ -72,11 +72,11 @@ try {
     await expectApplicationHome(appId);
     expect(createBodies.map((body) => JSON.parse(body ?? '{}'))).toEqual([{ name, subdomain }]);
 
-    await page.getByRole('button', { name: 'Sign out' }).click();
-    await expect(page.getByLabel('Username')).toBeVisible();
+    await page.getByRole('button', { name: 'Đăng xuất' }).click();
+    await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
     await expect(page).toHaveURL(/\/ui\/sign-in$/);
     await page.goto(`${baseURL}/ui/applications/${appId}`);
-    await expect(page.getByLabel('Username')).toBeVisible();
+    await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
     expect((await page.request.get(`${baseURL}/api/v1/applications`)).status()).toBe(401);
 
     await signIn();

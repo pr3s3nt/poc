@@ -98,7 +98,7 @@ try {
   }
 
   await page.goto(`${baseURL}/ui/sign-in`);
-  await expect(page.getByLabel('Username')).toBeVisible();
+  await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
   await page.waitForTimeout(1500);
   x11.focusBrowser();
   recorder = await startRecording({ display: env.DISPLAY, width, height, videoPath });
@@ -108,14 +108,14 @@ try {
   // 1. Platform Engineer signs in.
   mark('sign-in');
   await h.showCursor();
-  await h.type(page.getByLabel('Username'), 'platform-engineer');
-  await h.type(page.getByLabel('Password'), 'test-password');
-  await h.click(page.getByRole('button', { name: 'Sign in' }));
+  await h.type(page.getByLabel('Tên đăng nhập'), 'platform-engineer');
+  await h.type(page.getByLabel('Mật khẩu'), 'test-password');
+  await h.click(page.getByRole('button', { name: 'Đăng nhập' }));
   await expect(page.getByRole('heading', { name: 'Your applications' })).toBeVisible();
   await h.pause(SHORT_READ);
 
   // 2. Connections page: the seeded host-context entry stays listed.
-  await h.click(page.getByRole('link', { name: /Connections/ }));
+  await h.click(page.getByRole('link', { name: /(^|\s)Kết nối$/ }));
   await expect(page.getByRole('heading', { name: 'Kết nối', level: 1 })).toBeVisible();
   await expect(page).toHaveURL(`${baseURL}/ui/platform/connections`);
   const connectionRows = () => page.getByRole('table', { name: 'Kết nối đã đăng ký' }).locator('tbody tr');
@@ -251,8 +251,8 @@ try {
   await assertNoCredentialOnPage();
 
   // 10. Sign out.
-  await h.click(page.getByRole('button', { name: 'Sign out' }));
-  await expect(page.getByLabel('Username')).toBeVisible();
+  await h.click(page.getByRole('button', { name: 'Đăng xuất' }));
+  await expect(page.getByLabel('Tên đăng nhập')).toBeVisible();
   mark('signed-out');
   await h.pause(READ);
 
