@@ -5,7 +5,17 @@ import { Button } from '../../shared/ui/Button';
 import { Status } from '../../shared/ui/Status';
 import { listDeployments, type Deployment, type DeploymentStatus } from './api';
 
-const date = (value: string) => value ? new Date(value).toLocaleString() : '—';
+const actions: Record<string, string> = { DEPLOY: 'triển khai', UPDATE: 'cập nhật', REMOVE: 'gỡ bỏ' };
+const statuses: Record<string, string> = { SUCCEEDED: 'Thành công', FAILED: 'Thất bại', DEPLOYING: 'Đang triển khai', PROVISIONING: 'Đang tạo tài nguyên', PLANNING: 'Đang lập kế hoạch' };
+const filterOrder: DeploymentStatus[] = ['SUCCEEDED', 'FAILED', 'DEPLOYING', 'PROVISIONING', 'PLANNING'];
+// Own-key lookup: inherited keys such as "constructor" must never resolve.
+const lookup = (map: Record<string, string>, key: string) => (Object.hasOwn(map, key) ? map[key] ?? key : key);
+
+const date = (value: string) => {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleString('vi-VN');
+};
 
 export function DeploymentHistoryPage({ application, environment }: { application: Application; environment: EnvironmentKey }) {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
@@ -18,15 +28,15 @@ export function DeploymentHistoryPage({ application, environment }: { applicatio
     setLoading(true); setError('');
     setDeployments([]);
     listDeployments(application.id, environment, filter === 'ALL' ? undefined : filter).then((response) => { if (!cancelled) setDeployments(response.deployments); })
-      .catch(() => { if (!cancelled) setError('Could not load deployment history.'); })
+      .catch(() => { if (!cancelled) setError('Không thể tải lịch sử triển khai.'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [application.id, environment, filter, attempt]);
   return <section className="page">
     <button className="back-link" onClick={() => navigate({ name: 'application', applicationId: application.id })}>← {application.name}</button>
-    <header className="page-header"><div><p className="eyebrow">{environment} · Deployment history</p><h1>Deployments</h1><p>Persisted results for this Environment. No cluster refresh is performed.</p></div><Button onClick={() => setAttempt((value) => value + 1)}>Refresh</Button></header>
-    <section className="content-panel"><div className="section-header"><h2>History</h2><label>Status <select aria-label="Filter deployment status" value={filter} onChange={(event) => setFilter(event.target.value as 'ALL' | DeploymentStatus)}><option value="ALL">All</option><option value="SUCCEEDED">Succeeded</option><option value="FAILED">Failed</option><option value="DEPLOYING">Deploying</option><option value="PROVISIONING">Provisioning</option><option value="PLANNING">Planning</option></select></label></div>
-      {loading ? <p role="status" aria-busy="true">Loading deployments…</p> : error ? <div role="alert" className="form-error">{error} <Button onClick={() => setAttempt((value) => value + 1)}>Retry</Button></div> : deployments.length ? <div className="deployment-list">{deployments.map((item) => <button className="deployment-entry" key={item.id} onClick={() => navigate({ name: 'deployment', applicationId: application.id, environment, deploymentId: item.id })}><span><strong>{item.workloadId}</strong> · {item.action.toLowerCase()}<small>{date(item.startedAt)} · {item.actorRef || 'unknown actor'}</small></span><Status tone={item.status === 'SUCCEEDED' ? 'good' : item.status === 'FAILED' ? 'draft' : 'neutral'}>{item.status}</Status></button>)}</div> : <p>{filter === 'ALL' ? 'No deployments in this Environment yet.' : `No ${filter.toLowerCase()} deployments.`}</p>}
+    <header className="page-header"><div><p className="eyebrow">{environment} · Lịch sử triển khai</p><h1>Lịch sử triển khai</h1><p>Kết quả đã lưu của môi trường này. Không làm mới cluster.</p></div><Button onClick={() => setAttempt((value) => value + 1)}>Tải lại</Button></header>
+    <section className="content-panel"><div className="section-header"><h2>Các lần triển khai</h2><label>Trạng thái <select value={filter} onChange={(event) => setFilter(event.target.value as 'ALL' | DeploymentStatus)}><option value="ALL">Tất cả</option>{filterOrder.map((status) => <option key={status} value={status}>{statuses[status]}</option>)}</select></label></div>
+      {loading ? <p role="status" aria-busy="true">Đang tải lịch sử triển khai…</p> : error ? <div role="alert" className="form-error">{error} <Button onClick={() => setAttempt((value) => value + 1)}>Thử lại</Button></div> : deployments.length ? <div className="deployment-list">{deployments.map((item) => <button className="deployment-entry" key={item.id} onClick={() => navigate({ name: 'deployment', applicationId: application.id, environment, deploymentId: item.id })}><span><strong>{item.workloadId}</strong> · {lookup(actions, item.action)}<small>{date(item.startedAt)} · {item.actorRef || 'Không rõ người thực hiện'}</small></span><Status tone={item.status === 'SUCCEEDED' ? 'good' : item.status === 'FAILED' ? 'draft' : 'neutral'}>{lookup(statuses, item.status)}</Status></button>)}</div> : <p>{filter === 'ALL' ? 'Chưa có triển khai nào trong môi trường này.' : `Chưa có triển khai nào ở trạng thái “${statuses[filter]}”.`}</p>}
     </section>
   </section>;
 }

@@ -2,7 +2,7 @@
 id: UC-09-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-11
 related: UC-09
 ---
 
@@ -20,3 +20,18 @@ logs or perform runtime refresh. Resource resolved inputs are not part of the
 API response. Workload rows come from the selected Deployment snapshot, never
 from mutable current Environment state. Each workload row includes its persisted
 manifest digest to identify the artifacts recorded by that run.
+
+## Lịch sử triển khai — T14
+
+Trang dùng nhãn “Lịch sử triển khai”, bộ lọc “Trạng thái”, “Tất cả”, nút
+“Tải lại” và “Thử lại”. Các trạng thái SUCCEEDED/FAILED/DEPLOYING/PROVISIONING/
+PLANNING hiển thị lần lượt là “Thành công”, “Thất bại”, “Đang triển khai”,
+“Đang tạo tài nguyên”, “Đang lập kế hoạch”; giá trị query vẫn là enum gốc.
+Hành động DEPLOY/UPDATE/REMOVE dùng nhãn triển khai/cập nhật/gỡ bỏ. Thời gian
+hiển thị theo locale tiếng Việt; actor thiếu dùng “Không rõ người thực hiện”.
+Tên ứng dụng, workload, actor có sẵn, IDs và staging/production giữ nguyên.
+
+Danh sách giữ thứ tự server và scope Application/Environment đang chọn.
+Mở một dòng giữ nguyên deployment ID trong route detail. Tải lại chỉ đọc lịch
+sử đã lưu, không refresh cluster hoặc provision. Không thêm so sánh deployment;
+Việt hóa nội dung trang detail thuộc T15.

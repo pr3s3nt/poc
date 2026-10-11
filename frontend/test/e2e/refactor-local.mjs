@@ -9,7 +9,7 @@ import { expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { requireCaptionLocale, createCaptions } from './captions.mjs';
-import { LONG_TYPE_DELAY, addWorkload, createApplication, createHuman, expectVisibleCursor, installCursor, putKeys, setEnvironmentConnections } from './human.mjs';
+import { LONG_TYPE_DELAY, addWorkload, createApplication, createHuman, expectVisibleCursor, installCursor, previewAndDeploy, putKeys, setEnvironmentConnections } from './human.mjs';
 import { assertTablesComplete, locators } from './locators.mjs';
 import { launchHeaded, screenSize, startRecording, stopRecording, x11Input } from './video.mjs';
 
@@ -3156,6 +3156,253 @@ export const SCENARIOS = {
     await h.click(ui('shell', 'signOut'));
     await expect(ui('signIn', 'username')).toBeVisible();
     check('sign out (real): signed back in after the MOCKED 401, then signed out through the shell');
+    mark('signed-out');
+    await h.pause(3000);
+  },
+
+  // T14: Lịch sử triển khai. Developer. PRODUCT (UI, backend fake thật với fake deliverer, state tạm): tạo ứng dụng, mở "Xem tất cả" khi trống, thêm 2 draft
+  // Workload và Triển khai thật (2 Deployment SUCCEEDED trong staging), lịch sử thật + bộ lọc Thành công/Thất bại do server lọc, mở chi tiết đúng deployment ID, Production
+  // trống (scope). MOCK (page.route trên GET .../staging/deployments, mỗi lần dùng ghi vào mocks.json): (1) danh sách chiếu giả đủ 5 enum trạng thái + 3 hành động
+  // (fake deliverer chỉ tạo SUCCEEDED/DEPLOY) gồm actor thiếu; (2) 500 giả kèm chuỗi bí mật giả rồi Thử lại đến backend thật; (3) phản hồi giữ ~3.5s để thấy trạng thái
+  // đang tải, rồi (4) phản hồi FAILED đến muộn sau khi đổi bộ lọc bị bỏ qua; (5) lọc DEPLOYING giả trả rỗng. Các mock KHÔNG thay đổi backend; mọi bước
+  // product (đăng nhập, tạo app, thêm Workload, Triển khai, điều hướng, lọc, mở chi tiết) đi qua UI. Sau khi Triển khai, mọi request không phải GET bị cấm.
+  async T14({ page, h, ui, caption, mark, check, baseURL }) {
+    const NAME = 'T14 Lịch sử triển khai';
+    const RAW = 'provider said token=ABC-SECRET-777';
+    const mocks = [];
+    const mocked = (what) => { mocks.push(what); appendFileSync(`${process.env.ORCH_E2E_EVIDENCE_DIR}/mocks.json`, `${JSON.stringify({ at: new Date().toISOString(), what })}\n`); };
+    const writes = [];
+    const listGets = [];
+    const detailGets = [];
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (request.method() !== 'GET') { writes.push(`${request.method()} ${url.pathname}`); return; }
+      if (/\/environments\/(staging|production)\/deployments$/.test(url.pathname)) listGets.push(`${url.pathname.split('/environments/')[1]}${url.search}`);
+      else if (/\/deployments\/[^/]+$/.test(url.pathname)) detailGets.push(decodeURIComponent(url.pathname.split('/').pop()));
+    });
+    let appId = '';
+    const spec = (name) => ({ name, image: `registry.example/${name}:t14`, bindings: [], port: { name: 'http', port: '8080', targetPort: '8080' } });
+    const apiList = async (environment, query = '') => (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/${environment}/deployments${query}`)).json()).deployments ?? [];
+    const entries = () => page.locator('button.deployment-entry');
+    const filter = () => page.getByRole('combobox', { name: 'Trạng thái' });
+    const listRoute = /\/environments\/staging\/deployments(\?.*)?$/;
+    const noRaw = async () => expect(await page.locator('body').innerText()).not.toMatch(/ABC-SECRET|token=|provider said/);
+    const rowText = async () => entries().evaluateAll((nodes) => nodes.map((node) => node.textContent ?? ''));
+    const openHistory = async (environmentButton) => {
+      await h.click(page.getByRole('button', { name: environmentButton }));
+      await h.click(page.getByRole('button', { name: 'Xem tất cả' }));
+      await expect(page.getByRole('heading', { name: 'Lịch sử triển khai', level: 1 })).toBeVisible();
+    };
+    const fake = (id, workloadId, action, status, extra = {}) => ({ id, applicationKey: appId, environmentKey: 'staging', workloadId, action, status, actorRef: 'developer', startedAt: '2026-09-01T10:00:00Z', ...extra });
+
+    caption('Bước 1: Lập trình viên đăng nhập và tạo ứng dụng mới; trang ứng dụng chưa có triển khai nào');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'developer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    appId = await createApplication(h, NAME, 't14-lich-su-trien-khai');
+    await expect(page.getByText('Chưa có triển khai nào trong staging.')).toBeVisible();
+    check('new application (real backend): both Environments connected through the UI, no deployments yet');
+    mark('home-created');
+    await h.read('Ứng dụng mới chưa có triển khai nào');
+
+    caption('Bước 2: Bấm Xem tất cả: trang Lịch sử triển khai tiếng Việt, trạng thái rỗng thật, bộ lọc Trạng thái và nút Tải lại');
+    await h.click(page.getByRole('button', { name: 'Xem tất cả' }));
+    await expect(page).toHaveURL(`${baseURL}/ui/applications/${appId}/environments/staging/deployments`);
+    await expect(page.getByRole('heading', { name: 'Lịch sử triển khai', level: 1 })).toBeVisible();
+    await expect(page.getByText('Chưa có triển khai nào trong môi trường này.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Tải lại' })).toBeVisible();
+    await expect(page.getByRole('button', { name: `← ${NAME}` })).toBeVisible();
+    expect(await filter().locator('option').evaluateAll((options) => options.map((option) => [option.value, option.textContent]))).toEqual([
+      ['ALL', 'Tất cả'], ['SUCCEEDED', 'Thành công'], ['FAILED', 'Thất bại'], ['DEPLOYING', 'Đang triển khai'], ['PROVISIONING', 'Đang tạo tài nguyên'], ['PLANNING', 'Đang lập kế hoạch'],
+    ]);
+    expect(await page.locator('body').innerText()).not.toMatch(/Deployment history|No deployments|Refresh|Retry|Loading/);
+    check('history page (real empty): Vietnamese title/empty text/Tải lại, filter labels Vietnamese with original enum values, no English leftovers');
+    mark('history-empty');
+    await h.moveTo(page.getByText('Chưa có triển khai nào trong môi trường này.'));
+    await h.read('Lịch sử rỗng bằng tiếng Việt; giá trị bộ lọc vẫn là enum gốc');
+
+    caption('Bước 3: Quay lại ứng dụng, thêm hai Workload api và web rồi Triển khai thật (fake deliverer) để có lịch sử thật');
+    await h.click(page.getByRole('button', { name: `← ${NAME}` }));
+    await expect(page.getByRole('heading', { name: NAME })).toBeVisible();
+    await addWorkload(h, spec('api'));
+    await previewAndDeploy(h, ['api']);
+    await addWorkload(h, spec('web'));
+    await previewAndDeploy(h, ['web']);
+    const afterDeploy = writes.length;
+    const real = await apiList('staging');
+    expect(real.map((item) => `${item.workloadId}/${item.action}/${item.status}`)).toEqual(['web/DEPLOY/SUCCEEDED', 'api/DEPLOY/SUCCEEDED']);
+    check('two real Deployments created through the UI (fake deliverer): web newest, then api, both DEPLOY/SUCCEEDED');
+    mark('deployed');
+
+    caption('Bước 4: Mở lịch sử thật: đúng hai dòng theo thứ tự máy chủ (mới nhất trước), nhãn Thành công / triển khai, thời gian theo locale vi-VN');
+    await openHistory(/^Staging/i);
+    await expect(entries()).toHaveCount(2);
+    const texts = await rowText();
+    const expectedTime = await page.evaluate((iso) => new Date(iso).toLocaleString('vi-VN'), real[0].startedAt);
+    expect(texts[0]).toContain('web · triển khai');
+    expect(texts[1]).toContain('api · triển khai');
+    expect(texts[0]).toContain('Thành công');
+    expect(texts[0]).toContain(expectedTime);
+    expect(real[0].actorRef).toBeTruthy();
+    expect(texts[0]).toContain(real[0].actorRef);
+    expect(texts.join(' ')).not.toMatch(/SUCCEEDED|DEPLOY\b/);
+    check(`real history: rows in server order [web, api], Vietnamese action/status, vi-VN time "${expectedTime}", actor kept, no raw enums`);
+    mark('history-real');
+    await h.moveTo(entries().first());
+    await h.read('Lịch sử thật: web mới nhất, api sau; trạng thái và hành động bằng tiếng Việt');
+
+    caption('Bước 5: Lọc Thành công: yêu cầu gửi ?status=SUCCEEDED (enum gốc); lọc Thất bại: backend thật trả rỗng và hiện thông báo tiếng Việt');
+    await h.choose(filter(), 'Thành công');
+    await expect(filter()).toHaveValue('SUCCEEDED');
+    await expect(entries()).toHaveCount(2);
+    expect(listGets.at(-1)).toMatch(/staging\/deployments\?status=SUCCEEDED$/);
+    await h.choose(filter(), 'Thất bại');
+    await expect(page.getByText('Chưa có triển khai nào ở trạng thái “Thất bại”.')).toBeVisible();
+    expect(listGets.at(-1)).toMatch(/staging\/deployments\?status=FAILED$/);
+    expect(await page.locator('body').innerText()).not.toMatch(/trạng thái “FAILED”/);
+    check('server filter (real): SUCCEEDED returned both rows, FAILED returned empty with Vietnamese status label; query values are original enums');
+    mark('filter-real');
+    await h.read('Bộ lọc gửi enum gốc; thông báo rỗng dùng nhãn tiếng Việt');
+    await h.choose(filter(), 'Tất cả');
+    await expect(entries()).toHaveCount(2);
+
+    caption('Bước 6: Mở dòng api: giữ đúng deployment ID trong route chi tiết (trang chi tiết thuộc T15 nên không kiểm nội dung)');
+    const apiId = real.find((item) => item.workloadId === 'api').id;
+    await h.click(entries().filter({ hasText: 'api · triển khai' }));
+    await expect(page).toHaveURL(`${baseURL}/ui/applications/${appId}/environments/staging/deployments/${encodeURIComponent(apiId)}`);
+    await expect.poll(() => detailGets.includes(apiId)).toBe(true);
+    check(`open details (real): URL carries selected deployment ID ${apiId}; detail GET issued for that ID only`);
+    mark('open-detail');
+    await h.read('Mở chi tiết giữ đúng ID triển khai đã chọn');
+    expect([...new Set(detailGets)]).toEqual([apiId]);
+    await page.goBack();
+    await expect(page.getByRole('heading', { name: 'Lịch sử triển khai', level: 1 })).toBeVisible();
+    await expect(entries()).toHaveCount(2);
+
+    caption('Bước 7: MOCK danh sách chiếu giả: đủ 5 trạng thái, 3 hành động và actor thiếu, thứ tự giữ nguyên; backend không tạo được các trạng thái này');
+    await page.route(listRoute, async (route) => {
+      mocked('GET staging/deployments answered with fake projection: all 5 statuses, 3 actions, one missing actor');
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ deployments: [
+        fake('m-1', 'svc-planning', 'DEPLOY', 'PLANNING'),
+        fake('m-2', 'svc-provisioning', 'UPDATE', 'PROVISIONING'),
+        fake('m-3', 'svc-deploying', 'REMOVE', 'DEPLOYING'),
+        fake('m-4', 'svc-failed', 'DEPLOY', 'FAILED', { actorRef: '' }),
+        fake('m-5', 'svc-ok', 'UPDATE', 'SUCCEEDED'),
+      ] }) });
+    });
+    await h.click(page.getByRole('button', { name: 'Tải lại' }));
+    await expect(entries()).toHaveCount(5);
+    const mockRows = await rowText();
+    expect(mockRows.map((text) => text.split('·')[0])).toEqual(['svc-planning ', 'svc-provisioning ', 'svc-deploying ', 'svc-failed ', 'svc-ok ']);
+    for (const [index, needles] of [['Đang lập kế hoạch', 'triển khai'], ['Đang tạo tài nguyên', 'cập nhật'], ['Đang triển khai', 'gỡ bỏ'], ['Thất bại', 'Không rõ người thực hiện'], ['Thành công', 'cập nhật']].entries()) {
+      for (const needle of needles) expect(mockRows[index]).toContain(needle);
+    }
+    expect(mockRows.join(' ')).not.toMatch(/PLANNING|PROVISIONING|DEPLOYING|FAILED|SUCCEEDED|REMOVE|UPDATE/);
+    check('projection (MOCKED list): all 5 statuses and 3 actions render Vietnamese in server order; missing actor "Không rõ người thực hiện"; no raw enums');
+    mark('mock-all-statuses');
+    await h.moveTo(entries().first());
+    await h.read('Đủ năm trạng thái bằng tiếng Việt (dữ liệu giả, backend không tạo được)');
+    await page.unroute(listRoute);
+
+    caption('Bước 8: MOCK 500 giả kèm chuỗi bí mật giả: thông báo an toàn, không phải danh sách rỗng; Thử lại đến backend thật');
+    let failOnce = true;
+    await page.route(listRoute, async (route) => {
+      if (failOnce) { failOnce = false; mocked('GET staging/deployments answered with fake 500 once (secret-like raw text must not render)'); await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: RAW }) }); return; }
+      await route.continue();
+    });
+    await h.click(page.getByRole('button', { name: 'Tải lại' }));
+    await expect(page.getByRole('alert')).toContainText('Không thể tải lịch sử triển khai.');
+    await expect(entries()).toHaveCount(0);
+    await expect(page.getByText(/Chưa có triển khai/)).toHaveCount(0);
+    await noRaw();
+    mark('mock-500');
+    await h.moveTo(page.getByRole('alert'));
+    await h.read('Lỗi an toàn bằng tiếng Việt, không lộ nội dung thô');
+    await h.click(page.getByRole('alert').getByRole('button', { name: 'Thử lại' }));
+    await expect(entries()).toHaveCount(2);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await page.unroute(listRoute);
+    check('error (MOCKED 500 once): Vietnamese safe alert with Thử lại, not shown as empty, no raw text; retry reached the real backend and showed the 2 real rows');
+    mark('retry-ok');
+    await h.read('Thử lại thành công với dữ liệu thật');
+
+    caption('Bước 9: MOCK giữ phản hồi lọc Thất bại bằng cổng điều khiển: đang tải có aria-busy và danh sách cũ bị xóa; đổi lại Tất cả, tải xong rồi mới nhả phản hồi muộn');
+    let releaseFailed = () => undefined;
+    const failedGate = new Promise((resolve) => { releaseFailed = resolve; });
+    let lateFulfilled = false;
+    await page.route(listRoute, async (route) => {
+      if (!route.request().url().includes('status=FAILED')) { await route.continue(); return; }
+      mocked('GET staging/deployments?status=FAILED held on an explicit gate (released only after the ALL list loaded) then answered with a fake FAILED row (late response)');
+      await failedGate;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ deployments: [fake('m-late', 'late-failed', 'FAILED', 'FAILED')] }) });
+      lateFulfilled = true;
+    });
+    await h.choose(filter(), 'Thất bại');
+    await expect(page.getByRole('status')).toHaveAttribute('aria-busy', 'true');
+    await expect(page.getByRole('status')).toContainText('Đang tải lịch sử triển khai…');
+    await expect(entries()).toHaveCount(0);
+    await expect(filter()).toBeVisible();
+    mark('loading');
+    await h.read('Đang tải: danh sách cũ đã bị xóa, bộ lọc vẫn hiện');
+    await h.choose(filter(), 'Tất cả');
+    await expect(entries()).toHaveCount(2);
+    await expect(filter()).toHaveValue('ALL');
+    expect(lateFulfilled).toBe(false);
+    const lateResponse = page.waitForResponse((response) => response.url().includes('status=FAILED'));
+    releaseFailed();
+    await (await lateResponse).finished();
+    await expect.poll(() => lateFulfilled).toBe(true);
+    // Two animation frames: the page has run the settled fetch continuation before the no-stale assertions.
+    await page.evaluate('new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    await expect(page.getByText('late-failed')).toHaveCount(0);
+    await expect(entries()).toHaveCount(2);
+    await expect(filter()).toHaveValue('ALL');
+    await expect(page.getByRole('status')).toHaveCount(0);
+    await page.unroute(listRoute);
+    check('loading + late reply (MOCKED gate): aria-busy status and cleared rows while loading; FAILED reply released only after ALL loaded and completed, then ignored (no late-failed row, still 2 rows)');
+    mark('late-filter');
+    await h.read('Phản hồi muộn của bộ lọc cũ không thay kết quả hiện tại');
+
+    caption('Bước 10: MOCK lọc Đang triển khai trả rỗng: thông báo tiếng Việt kèm nhãn trạng thái, không hiện enum');
+    await page.route(listRoute, async (route) => {
+      if (!route.request().url().includes('status=DEPLOYING')) { await route.continue(); return; }
+      mocked('GET staging/deployments?status=DEPLOYING answered with fake empty list');
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ deployments: [] }) });
+    });
+    await h.choose(filter(), 'Đang triển khai');
+    await expect(page.getByText('Chưa có triển khai nào ở trạng thái “Đang triển khai”.')).toBeVisible();
+    expect(listGets.at(-1)).toMatch(/staging\/deployments\?status=DEPLOYING$/);
+    expect(await page.locator('body').innerText()).not.toMatch(/DEPLOYING/);
+    await page.unroute(listRoute);
+    check('filtered empty (MOCKED): Vietnamese message with selected label; query used original enum DEPLOYING');
+    mark('filter-empty');
+    await h.read('Rỗng khi lọc: dùng nhãn tiếng Việt');
+    await h.choose(filter(), 'Tất cả');
+    await expect(entries()).toHaveCount(2);
+
+    caption('Bước 11: Chuyển sang Production rồi Xem tất cả: lịch sử thật của Production trống, không lẫn deployment của Staging');
+    await h.click(page.getByRole('button', { name: `← ${NAME}` }));
+    await expect(page.getByRole('heading', { name: NAME })).toBeVisible();
+    await openHistory(/^Production/i);
+    await expect(page).toHaveURL(`${baseURL}/ui/applications/${appId}/environments/production/deployments`);
+    await expect(page.getByText('Chưa có triển khai nào trong môi trường này.')).toBeVisible();
+    await expect(entries()).toHaveCount(0);
+    expect(listGets.some((line) => line.startsWith('production/deployments'))).toBe(true);
+    expect(await apiList('production')).toEqual([]);
+    check('scope (real): Production history empty while Staging has 2 deployments; production list request issued');
+    mark('production-empty');
+    await h.read('Production trống; không lẫn lịch sử của Staging');
+
+    caption('Bước 12: Xác minh chỉ đọc: sau khi triển khai, xem lịch sử, lọc, tải lại, mở chi tiết không gửi request ghi nào; đăng xuất');
+    expect(writes.slice(afterDeploy)).toEqual([]);
+    expect(await apiList('staging')).toHaveLength(2);
+    check(`read-only (real): zero non-GET requests after the product Deploy steps; deployments still 2; mocks used (${mocks.length} activations, see mocks.json)`);
+    mark('read-only');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
     mark('signed-out');
     await h.pause(3000);
   },
