@@ -45,10 +45,14 @@ must deterministically distinguish this system binding from a catalog match.
 Persist the internal Definition idempotently at deployment/provisioning admission
 before resource progress/Active Resource writes, outside pure planning. Existing
 Definition foreign keys remain valid; no schema change is required. Never
-materialize it during Preview. Reject public registration of the reserved key;
+materialize it during Preview. Reject every public registration with driver `existing-cluster`, regardless of
+key, connection, profile or criteria, before insert. The reserved key remains
+protected for every driver;
 validate an existing record against the exact expected system definition and
 fail on collision rather than overwrite user content. Historical cluster
-Definitions/resources/deployment snapshots remain readable and are not deleted;
+Definitions/resources/deployment snapshots remain readable and are not deleted
+by this change; retained dev catalog records are removed only by the separately
+authorized T29 reset, with no new deletion API or registration compatibility;
 new execution ignores authored existing-cluster Definitions for this implicit
 node. The system record must not become an editable matching policy.
 

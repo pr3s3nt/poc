@@ -507,3 +507,12 @@ sign-in/navigation/sign-out smoke, assertion-failure retention và signal cleanu
 đã kiểm trên fake adapters. [Evidence T01](verification/2026-10-10-T01-refactor-foundation.md).
 Các trang hiện giữ nhãn cũ tới task Việt hóa tương ứng; chưa có thay đổi matching,
 API hoặc deploy retained K8S-4F trong T01.
+
+## Public existing-cluster registration closed — T17 (2026-10-11)
+
+Public Resource Definition registration rejects every `existing-cluster` driver
+with validation 400 before insert; reserved system keys remain protected for all
+drivers. Trusted builtin construction, executor and FK admission are unchanged.
+Existing records/history remain readable; no retained database or cluster was
+mutated. ReferenceCluster conformance remains unchanged.
+See [T17 local evidence](verification/2026-10-11-T17-existing-cluster-registration.md).

@@ -73,7 +73,7 @@ func TestRegisterResourceDefinition_PublicIDPolicy(t *testing.T) {
 func TestRegisterResourceDefinition_SeededShapesStillRegister(t *testing.T) {
 	ctx := context.Background()
 	_, svc, opts := seededCatalog(t, terraform.NewInspector())
-	for _, name := range []string{"namespace-kubernetes", "cluster-internal-registered", "cluster-aws-eks", "vpc-aws", "postgres-internal-statefulset", "postgres-aws-aurora"} {
+	for _, name := range []string{"namespace-kubernetes", "cluster-aws-eks", "vpc-aws", "postgres-internal-statefulset", "postgres-aws-aurora"} {
 		def := registrable(t, opts, name)
 		def.Key = name + "-copy"
 		if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {
@@ -91,8 +91,6 @@ func registrable(t *testing.T, opts seed.Options, key string) resource.Definitio
 		switch def.DriverType {
 		case resource.DriverTerraform:
 			def.ExecutionProfile = "aws-eks"
-		case resource.DriverExistingCluster:
-			def.ExecutionProfile = "internal-k8s"
 		}
 	}
 	return def
@@ -131,7 +129,6 @@ func TestRegisterResourceDefinition_StrictDriverInputs(t *testing.T) {
 	st, svc, opts := seededCatalog(t, terraform.NewInspector())
 	pg := registrable(t, opts, "postgres-internal-statefulset")
 	ns := registrable(t, opts, "namespace-kubernetes")
-	existing := registrable(t, opts, "cluster-internal-registered")
 	aurora := registrable(t, opts, "postgres-aws-aurora")
 	vpcID := "${resources['vpc.default#applications.@app'].outputs.id}"
 	raw := func(def resource.Definition, inputs map[string]any) resource.Definition {
@@ -150,13 +147,12 @@ func TestRegisterResourceDefinition_StrictDriverInputs(t *testing.T) {
 		"variables null":              raw(pg, map[string]any{"values": map[string]any{"variables": nil}}),
 		"variables array":             raw(pg, map[string]any{"values": map[string]any{"variables": []any{sentinel}}}),
 		"kubernetes source":           raw(pg, map[string]any{"values": map[string]any{"variables": map[string]any{}, "source": map[string]any{"module": "aurora"}}}),
-		"existing-cluster source":     raw(existing, map[string]any{"values": map[string]any{"variables": map[string]any{}, "source": map[string]any{}}}),
 		"terraform source missing":    raw(aurora, map[string]any{"values": map[string]any{"variables": aurora.Variables()}}),
 		"terraform source null":       raw(aurora, map[string]any{"values": map[string]any{"variables": aurora.Variables(), "source": nil}}),
 		"terraform source url":        raw(aurora, map[string]any{"values": map[string]any{"variables": aurora.Variables(), "source": map[string]any{"module": "aurora", "url": sentinel}}}),
 		"terraform module not string": raw(aurora, map[string]any{"values": map[string]any{"variables": aurora.Variables(), "source": map[string]any{"module": 7}}}),
 		"terraform module empty":      raw(aurora, map[string]any{"values": map[string]any{"variables": aurora.Variables(), "source": map[string]any{"module": ""}}}),
-		// BR-12 Kubernetes/existing-cluster contracts.
+		// BR-12 Kubernetes contracts.
 		"postgres password":          withVariables(pg, map[string]any{"password": sentinel}),
 		"postgres unknown variable":  withVariables(pg, map[string]any{"replicas": 2}),
 		"postgres image number":      withVariables(pg, map[string]any{"image": 5}),
@@ -165,8 +161,6 @@ func TestRegisterResourceDefinition_StrictDriverInputs(t *testing.T) {
 		"namespace name missing":     withVariables(ns, map[string]any{"name": deleteMarker}),
 		"namespace name number":      withVariables(ns, map[string]any{"name": 12}),
 		"namespace unknown variable": withVariables(ns, map[string]any{"labels": map[string]any{"a": sentinel}}),
-		"existing endpoint":          withVariables(existing, map[string]any{"endpoint": sentinel}),
-		"existing kubeContext bool":  withVariables(existing, map[string]any{"kubeContext": true}),
 		// BR-12/BR-14 Terraform module contract.
 		"terraform master_password":    withVariables(aurora, map[string]any{"master_password": sentinel}),
 		"terraform undeclared":         withVariables(aurora, map[string]any{"instance_class": sentinel}),
@@ -244,13 +238,6 @@ func TestRegisterResourceDefinition_PlaceholderAwareTyping(t *testing.T) {
 		if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {
 			t.Errorf("%s: %v", name, err)
 		}
-	}
-	existing := registrable(t, opts, "cluster-internal-registered")
-	existing = withVariables(existing, map[string]any{"name": deleteMarker, "kubeContext": deleteMarker})
-	existing.Key = "existing-defaults"
-	existing.Criteria = []resource.Criterion{{Class: "defaults"}}
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, existing); err != nil {
-		t.Errorf("existing-cluster without variables: %v", err)
 	}
 }
 

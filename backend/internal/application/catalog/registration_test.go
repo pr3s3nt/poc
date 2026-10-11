@@ -3,6 +3,7 @@ package catalog_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -35,7 +36,7 @@ func seededDefinition(t *testing.T, opts seed.Options, key string) resource.Defi
 	}
 	if key == "cluster-internal-registered" {
 		// Historical authored existing-cluster shape (no longer seeded, ADR-013);
-		// registration of such Definitions stays supported.
+		// public registration rejects it for every key.
 		return resource.Definition{
 			Key: key, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, ConnectionKey: opts.ConnectionKey,
 			DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{
@@ -62,19 +63,17 @@ func TestRegisterResourceDefinition_RejectsConnectionAndProfileMisuse(t *testing
 		t.Fatal(err)
 	}
 	aurora := seededDefinition(t, opts, "postgres-aws-aurora")
-	existing := seededDefinition(t, opts, "cluster-internal-registered")
 	internal := seededDefinition(t, opts, "postgres-internal-statefulset")
 	cases := map[string]func(*resource.Definition){
-		"terraform with cluster connection":    func(d *resource.Definition) { *d = aurora; d.ConnectionKey = opts.ConnectionKey },
-		"terraform without connection":         func(d *resource.Definition) { *d = aurora; d.ConnectionKey = "" },
-		"existing-cluster with AWS connection": func(d *resource.Definition) { *d = existing; d.ConnectionKey = opts.CloudConnectionKey },
-		"connection not READY":                 func(d *resource.Definition) { *d = internal; d.ConnectionKey = "pending-cluster" },
-		"connection of another Organization":   func(d *resource.Definition) { *d = internal; d.ConnectionKey = "globex-cluster" },
-		"unknown connection":                   func(d *resource.Definition) { *d = internal; d.ConnectionKey = "missing" },
-		"kubernetes definition for aws-eks":    func(d *resource.Definition) { *d = internal; d.ExecutionProfile = "aws-eks" },
-		"empty criteria list":                  func(d *resource.Definition) { *d = internal; d.Criteria = []resource.Criterion{} },
-		"terraform for internal-k8s profile":   func(d *resource.Definition) { *d = aurora; d.ExecutionProfile = "internal-k8s" },
-		"unsupported driver/type pair":         func(d *resource.Definition) { *d = internal; d.ResourceTypeKey = "vpc" },
+		"terraform with cluster connection":  func(d *resource.Definition) { *d = aurora; d.ConnectionKey = opts.ConnectionKey },
+		"terraform without connection":       func(d *resource.Definition) { *d = aurora; d.ConnectionKey = "" },
+		"connection not READY":               func(d *resource.Definition) { *d = internal; d.ConnectionKey = "pending-cluster" },
+		"connection of another Organization": func(d *resource.Definition) { *d = internal; d.ConnectionKey = "globex-cluster" },
+		"unknown connection":                 func(d *resource.Definition) { *d = internal; d.ConnectionKey = "missing" },
+		"kubernetes definition for aws-eks":  func(d *resource.Definition) { *d = internal; d.ExecutionProfile = "aws-eks" },
+		"empty criteria list":                func(d *resource.Definition) { *d = internal; d.Criteria = []resource.Criterion{} },
+		"terraform for internal-k8s profile": func(d *resource.Definition) { *d = aurora; d.ExecutionProfile = "internal-k8s" },
+		"unsupported driver/type pair":       func(d *resource.Definition) { *d = internal; d.ResourceTypeKey = "vpc" },
 	}
 	before, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
 	for name, mutate := range cases {
@@ -193,6 +192,54 @@ func TestRegisterResourceType_DuplicateKeepsFirstContract(t *testing.T) {
 	for _, typ := range types {
 		if typ.Key == "cache" && len(typ.Inputs) != 1 {
 			t.Fatal("duplicate registration replaced the first contract")
+		}
+	}
+}
+
+// ADR-013/UC-03 BR-08 (T17): public registration rejects driver existing-cluster
+// for every key and shape, and the reserved system key for every driver. Nothing
+// is inserted or overwritten.
+func TestRegisterResourceDefinition_RejectsExistingClusterDriver(t *testing.T) {
+	ctx := context.Background()
+	st, svc, opts := seededCatalog(t, terraform.NewInspector())
+	base := seededDefinition(t, opts, "cluster-internal-registered")
+	base.ExecutionProfile = "internal-k8s"
+	with := func(mutate func(*resource.Definition)) resource.Definition {
+		d := base
+		mutate(&d)
+		return d
+	}
+	cases := map[string]resource.Definition{
+		"arbitrary key":      with(func(d *resource.Definition) { d.Key = "cluster-custom" }),
+		"reserved key":       with(func(d *resource.Definition) { d.Key = planning.BuiltinClusterKey }),
+		"valid connection":   with(func(d *resource.Definition) { d.Key = "cluster-valid"; d.ConnectionKey = opts.ConnectionKey }),
+		"no connection":      with(func(d *resource.Definition) { d.Key = "cluster-noconn"; d.ConnectionKey = "" }),
+		"unknown connection": with(func(d *resource.Definition) { d.Key = "cluster-unknown"; d.ConnectionKey = "missing" }),
+		"AWS connection":     with(func(d *resource.Definition) { d.Key = "cluster-aws"; d.ConnectionKey = opts.CloudConnectionKey }),
+		"no profile":         with(func(d *resource.Definition) { d.Key = "cluster-noprofile"; d.ExecutionProfile = "" }),
+		"other profile":      with(func(d *resource.Definition) { d.Key = "cluster-other"; d.ExecutionProfile = "aws-eks" }),
+		"no criteria":        with(func(d *resource.Definition) { d.Key = "cluster-nocrit"; d.Criteria = nil }),
+		"invalid key":        with(func(d *resource.Definition) { d.Key = "Not A Key" }),
+	}
+	before, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
+	for name, def := range cases {
+		if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); !errors.Is(err, catalog.ErrInvalid) {
+			t.Errorf("%s: want ErrInvalid, got %v", name, err)
+		}
+	}
+	// Reserved key stays protected for every other driver.
+	pg := seededDefinition(t, opts, "postgres-internal-statefulset")
+	pg.Key = planning.BuiltinClusterKey
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, pg); !errors.Is(err, catalog.ErrInvalid) {
+		t.Errorf("reserved key with kubernetes driver: want ErrInvalid, got %v", err)
+	}
+	after, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
+	if len(after) != len(before) {
+		t.Fatalf("rejected definitions were stored: %d -> %d", len(before), len(after))
+	}
+	for i := range before {
+		if !reflect.DeepEqual(before[i], after[i]) {
+			t.Fatalf("existing definition %s changed", before[i].Key)
 		}
 	}
 }

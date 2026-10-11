@@ -162,7 +162,7 @@ live evidence is in the [reviewed recording](../verification/2026-10-08-environm
   [Console binding display](../../frontend/src/features/preview/ScorePreviewPage.tsx).
 - [JSON reopen/retry/remove tests](../../backend/internal/application/deployment/builtin_cluster_test.go),
   [stored-target guard](../../backend/internal/application/deployment/service_restore_test.go),
-  [public reserved-key guard](../../backend/internal/application/catalog/service.go),
+  [public existing-cluster/reserved-key guard](../../backend/internal/application/catalog/service.go),
   [legacy seed preservation](../../backend/internal/seed/binding_test.go).
 - [Explicit reference compatibility](../../backend/test/conformance/loader.go),
   [local browser flow](../../frontend/test/e2e/application-connection-local.mjs) and
@@ -247,3 +247,8 @@ giữ Aurora selector và luôn gửi empty VPC/EKS key;
 [scenario/runner](../../frontend/test/e2e/refactor-local.mjs) và
 [local shell](../../backend/test/integration/refactor-ui-local.sh) kiểm headed fake.
 [Evidence](../verification/2026-10-11-T16-environment-aws-account.md) ghi giới hạn SQL/live.
+
+T17 public registration rejection is in the catalog service linked above, with
+[service regression tests](../../backend/internal/application/catalog/registration_test.go)
+and [HTTP regressions](../../backend/test/e2e/uc02_04_http_test.go).
+See [local evidence](../verification/2026-10-11-T17-existing-cluster-registration.md).

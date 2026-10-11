@@ -55,7 +55,8 @@ Superseded by the Editable Environment destinations contracts below.
 - Preconditions: Resource Type, Driver/connection tồn tại; có ít nhất một
   Matching Criterion; references/rules hợp lệ; output contract tương thích.
 - MVP registration chỉ chấp nhận runtime-supported driver/type pairs và embedded
-  Terraform modules. VPC/EKS registration requires empty `connectionKey`; any nonempty key returns validation 400 before insert, including a key equal to an Environment target. Registration needs no Environment. Aurora/existing-cluster explicit connections must be READY and correct kind in the same Organization; optional Kubernetes connections retain these checks. Không nhận remote source.
+  Terraform modules. VPC/EKS registration requires empty `connectionKey`; any nonempty key returns validation 400 before insert, including a key equal to an Environment target. Registration needs no Environment. Aurora explicit connections must be READY and correct kind in the same Organization; optional Kubernetes connections retain these checks. Không nhận remote source.
+- Every public `existing-cluster` registration returns validation 400 before insert, regardless of key; reserved system keys remain protected for every driver. Trusted internal constructor/executor and idempotent UC-08 admission remain available. Existing records are not deleted; ReferenceCluster fixtures use only the reference harness.
 - Creates: `ResourceDefinition` và một hoặc nhiều `MatchingCriterion`.
 - Postconditions: queryable cho deterministic matching; `{}` tường minh là
   wildcard điểm `0`; optional `execution_profile` filters eligibility before

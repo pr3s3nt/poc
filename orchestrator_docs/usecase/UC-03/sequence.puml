@@ -18,11 +18,12 @@ note right of Validator
 Missing or [] criteria is rejected.
 Explicit {} is wildcard score 0.
 end note
+Service -> Service: Reject public existing-cluster and reserved keys [BR-08, BR-17]
 Service -> TypeRepo: ListResourceTypes(orgID) [MS-04]
 TypeRepo --> Service: ResourceType
 Service -> Service: Reject nonempty VPC/EKS ConnectionKey [BR-08]
 note right of Service: VPC/EKS registration needs no Environment.
-opt Aurora/existing-cluster or optional Kubernetes explicit connection
+opt Aurora or optional Kubernetes explicit connection
 Service -> ConnectionRepo: GetConnection(connectionID) + READY/org check [MS-04]
 ConnectionRepo --> Service: Connection
 end

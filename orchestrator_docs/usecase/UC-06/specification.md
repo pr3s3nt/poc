@@ -242,3 +242,8 @@ before destination apps/routes become live. See
 - **BR-21:** Internal-k8s creates an implicit existing-cluster provider from the pinned Environment Connection, bypasses user Definition matching for that node, and executes it through UC-08 before downstream Kubernetes consumers. Namespace/PostgreSQL and AWS VPC/EKS/Aurora retain matching.
 
 See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
+
+Public `existing-cluster` registration is rejected before insert under UC-03
+BR-08/BR-17. This does not remove the trusted internal driver, executor or
+system Definition admission required by ADR-013. No retained records are
+deleted by this API change.

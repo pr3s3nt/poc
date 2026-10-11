@@ -38,8 +38,10 @@ pins the bundle; unavailable bundles and unsupported pairs are validation errors
 Form Cấu hình tài nguyên dùng GET `/resource-types`, `/resource-definitions`
 và `/connections`; các list do server scope theo Organization của phiên.
 Lọc workload khỏi list/type selector và không cung cấp driver existing-cluster
-trong form. Đây là projection UI; public API compatibility chỉ đổi tại T17,
-workload renderer contract phía trên vẫn được giữ cho T03.
+trong form. Public POST từ chối mọi driver `existing-cluster` với validation
+400 trước insert, bất kể key; reserved system key được bảo vệ cho mọi driver.
+GET vẫn đọc records có sẵn; không thêm API xóa hoặc compatibility đăng ký cũ.
+Workload renderer contract phía trên vẫn được giữ.
 
 POST giữ body/semantics hiện hành: Terraform gửi `executionProfile: "aws-eks"`,
 embedded `source.module` theo type: VPC/EKS luôn gửi `connectionKey: ""` và không hiện selector; mọi key khác rỗng bị API từ chối 400 trước insert. Aurora vẫn gửi `connectionKey` AWS READY riêng. Kubernetes gửi

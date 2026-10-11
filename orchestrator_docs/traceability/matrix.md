@@ -360,3 +360,13 @@ integration proof is claimed.
 | UC-03 UI: VPC/EKS no selector, empty payload across type switches; Aurora selector retained | UI screens/states/API mapping; ResourceDefinitionsPage | page unit tests, headed fake T16 and T02 regression; [dated evidence](../verification/2026-10-11-T16-environment-aws-account.md) |
 
 SQL opt-in and real AWS/cluster verification are not claimed by local evidence.
+
+## T17 — public existing-cluster registration closure
+
+| Requirement | Contract / implementation | Validation |
+|---|---|---|
+| UC-03 BR-08/BR-17; ADR-013; OC-04 | Catalog rejects every public existing-cluster driver before insert; reserved key guard retained | `catalog/registration_test.go`, `catalog/policy_test.go`, `backend/test/e2e/uc02_04_http_test.go` |
+| UC-06 BR-21; UC-08 BR-08 | Trusted binding/executor and FK admission unchanged | `planning/connection_binding_test.go`, `provisioning/builtin_test.go`; full conformance unchanged |
+
+[T17 evidence](../verification/2026-10-11-T17-existing-cluster-registration.md)
+records local checks; no new browser or live/database integration proof.

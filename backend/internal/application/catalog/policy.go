@@ -81,9 +81,6 @@ var driverVariableSchemas = map[resource.DriverType]map[string]map[string]valueT
 			"storage": stringType, "namespace": stringType,
 		},
 	},
-	resource.DriverExistingCluster: {
-		"k8s-cluster": {"name": stringType, "kubeContext": stringType},
-	},
 }
 
 // credentialVariables are never accepted as Driver Inputs (UC-03 BR-14). The
@@ -142,7 +139,7 @@ func validateDriverInputShape(def resource.Definition) (map[string]any, error) {
 	return variables, nil
 }
 
-// validateStaticVariables checks Kubernetes and existing-cluster variables
+// validateStaticVariables checks Kubernetes variables
 // against the executor contract (UC-03 BR-12).
 func validateStaticVariables(def resource.Definition, typ resource.Type, variables map[string]any) error {
 	schema := driverVariableSchemas[def.DriverType][def.ResourceTypeKey]

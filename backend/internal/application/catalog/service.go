@@ -82,6 +82,11 @@ func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKe
 	if def.Key == planning.BuiltinClusterKey {
 		return resource.Definition{}, fmt.Errorf("%w: resource definition key %q is reserved for the system", ErrInvalid, def.Key)
 	}
+	if def.DriverType == resource.DriverExistingCluster {
+		// ADR-013/UC-03 BR-08: the existing-cluster binding is a system
+		// Definition; public registration is rejected for every key.
+		return resource.Definition{}, fmt.Errorf("%w: driver %q cannot be registered publicly", ErrInvalid, def.DriverType)
+	}
 	if err := validatePublicID("resource definition", def.Key); err != nil {
 		return resource.Definition{}, fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
@@ -171,13 +176,6 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 		if len(def.Source()) > 0 {
 			return fmt.Errorf("Kubernetes definition cannot declare Terraform source")
 		}
-	case resource.DriverExistingCluster:
-		if def.ResourceTypeKey != "k8s-cluster" || def.ExecutionProfile != "internal-k8s" {
-			return fmt.Errorf("existing-cluster requires k8s-cluster and internal-k8s profile")
-		}
-		if len(def.Source()) > 0 {
-			return fmt.Errorf("existing-cluster cannot declare Terraform source")
-		}
 	default:
 		return fmt.Errorf("driver %q is not supported for registration", def.DriverType)
 	}
@@ -187,7 +185,7 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 		if def.ConnectionKey != "" {
 			return fmt.Errorf("Terraform %s definitions use the Environment AWS connection; leave connectionKey empty", module)
 		}
-	} else if def.DriverType == resource.DriverTerraform || def.DriverType == resource.DriverExistingCluster {
+	} else if def.DriverType == resource.DriverTerraform {
 		if def.ConnectionKey == "" {
 			return fmt.Errorf("driver requires an explicit connection")
 		}

@@ -29,7 +29,7 @@ ResourceDefinitionService.RegisterResourceDefinition(ctx context.Context, cmd Re
 - `DriverContractInspector` — port kiểm tra Terraform/Kubernetes contract tĩnh.
 
 MVP registration chỉ nhận driver/type pair hiện có. Terraform dùng embedded
-module inspector; Kubernetes/existing-cluster dùng output contract tĩnh của
+module inspector; Kubernetes dùng output contract tĩnh của
 executor. HTTP POST kiểm tra Platform Engineer/Admin; list theo Organization.
 UI dùng form có criteria từng dòng và JSON nâng cao cho variables/provision.
 
@@ -38,7 +38,7 @@ UI dùng form có criteria từng dòng và JSON nâng cao cho variables/provisi
 | Step | Collaboration |
 |---|---|
 | MS-01–MS-03 | Controller parse; Service tạo Definition và `ValidateStructureAndCriteria`, gồm BR-07. |
-| MS-04 | Load Resource Type; reject nonempty VPC/EKS ConnectionKey without loading an Environment; validate explicit Aurora/existing-cluster and optional Kubernetes connections by org/kind/READY. |
+| MS-04 | Reject every public existing-cluster driver and reserved system key before insert; load Resource Type; reject nonempty VPC/EKS ConnectionKey without loading an Environment; validate explicit Aurora and optional Kubernetes connections by org/kind/READY. |
 | MS-05 | `DefinitionValidator.ValidateReferencesAndRules`. |
 | MS-06 | Repository/unique constraint bảo vệ Definition ID. |
 | MS-07 | `DriverContractInspector.Inspect` đối chiếu outputs với Resource Type. |
@@ -69,7 +69,7 @@ Lệnh trùng key không được sửa Definition hay xóa/thay criteria của 
 
 ## Input validation collaboration
 
-Definition registration validates the public ID and strict Driver Inputs shape, variable names/literal types and placeholders before insert, per specification BR-10–BR-14. DriverContractInspector supplies embedded Terraform types; static executor contracts supply Kubernetes/existing-cluster types. Errors carry field paths, not submitted values. Existing criteria, connection, output and insert-only checks remain required.
+Definition registration validates the public ID and strict Driver Inputs shape, variable names/literal types and placeholders before insert, per specification BR-10–BR-14. DriverContractInspector supplies embedded Terraform types; static executor contracts supply Kubernetes types. Errors carry field paths, not submitted values. Existing criteria, connection, output and insert-only checks remain required.
 
 ## Definition-selected workload rendering collaboration
 
@@ -83,7 +83,7 @@ in their existing adapters. No database transaction spans a CLI/external call.
 
 ## Selected Environment connection compatibility
 
-Registration rejects every nonempty Terraform VPC/EKS ConnectionKey (BR-08), including a key equal to a configured target, and accepts reusable empty-key Definitions without an Environment. Explicit Aurora/existing-cluster and optional Kubernetes connections retain org/kind/READY validation. UC-06 resolves the pinned Environment account for VPC/EKS and retains the defensive winning-Definition ConnectionMismatch guard for malformed internal/harness catalogs. External database accounts remain explicit. Specificity, ties and profiles remain unchanged; new product VPC/EKS seeds omit ConnectionKey without migrating existing catalog records.
+Registration rejects every nonempty Terraform VPC/EKS ConnectionKey (BR-08), including a key equal to a configured target, and accepts reusable empty-key Definitions without an Environment. Explicit Aurora and optional Kubernetes connections retain org/kind/READY validation. UC-06 resolves the pinned Environment account for VPC/EKS and retains the defensive winning-Definition ConnectionMismatch guard for malformed internal/harness catalogs. External database accounts remain explicit. Specificity, ties and profiles remain unchanged; new product VPC/EKS seeds omit ConnectionKey without migrating existing catalog records.
 
 ## Implicit internal cluster collaboration
 
@@ -93,3 +93,7 @@ trusted system binding bypasses criteria matching, and UC-08 resolves the select
 Environment Connection through existing-cluster. Preview is pure; execution
 admits the reserved system Definition before persistence writes. Other resource
 Definitions, executor scheduling and output propagation remain unchanged.
+
+Public existing-cluster rejection does not invoke system admission. Trusted
+planning/UC-08 construction and idempotent FK admission remain internal;
+ReferenceCluster conformance fixtures bypass public registration unchanged.

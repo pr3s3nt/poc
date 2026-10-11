@@ -17,12 +17,6 @@ const fastPostgres = `{"key":"postgres-fast","resourceType":"postgres","executio
 	`"driverInputs":{"values":{"variables":{"image":"postgres:17-alpine","storage":"2Gi","namespace":"${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"}}},` +
 	`"criteria":[{"class":"fast"}]}`
 
-// fastCluster is the matching internal cluster Definition a Platform Engineer
-// registers for a new Connection (UC-06 BR-20); nothing is copied automatically.
-const fastCluster = `{"key":"cluster-fast","resourceType":"k8s-cluster","executionProfile":"internal-k8s","driverType":"existing-cluster","connectionKey":"fast-cluster",` +
-	`"driverInputs":{"values":{"variables":{"name":"${context.connection.cluster}","kubeContext":"${context.connection.context}"}}},` +
-	`"criteria":[{"class":"internal","res_id":"connections.fast-cluster"}]}`
-
 // TestUC02UC04RegistrationIsUsableWithoutRestart registers a Connection, a
 // runtime-supported PostgreSQL Definition for class "fast" and a new Resource
 // Type over HTTP, then uses them from a Developer session on the same process:
@@ -33,7 +27,6 @@ func TestUC02UC04RegistrationIsUsableWithoutRestart(t *testing.T) {
 	pe := authenticatedClientAs(t, server.URL, "platform-engineer")
 	for _, tc := range []struct{ path, body string }{
 		{"/api/v1/connections/kubernetes", `{"key":"fast-cluster","clusterId":"fast","kubeContext":"kind-fast"}`},
-		{"/api/v1/resource-definitions", fastCluster},
 		{"/api/v1/resource-definitions", fastPostgres},
 		{"/api/v1/resource-types", `{"key":"cache","inputs":[{"name":"size","type":"number","required":true}],"outputs":[{"name":"host","type":"string","required":true}]}`},
 	} {
@@ -212,5 +205,39 @@ func concurrentRegistration(t *testing.T, baseURL string, client *http.Client) {
 				t.Fatalf("connection winner %d not stored: %s", winner, body)
 			}
 		}
+	}
+}
+
+// ADR-013/UC-03 BR-08 (T17): public POST rejects driver existing-cluster with
+// 400 for any key (including the reserved system key) and inserts nothing.
+func TestPublicRegistrationRejectsExistingClusterDriver(t *testing.T) {
+	server, _ := newServer(t, "", approvedCluster{})
+	pe := authenticatedClientAs(t, server.URL, "platform-engineer")
+	if resp, body := call(t, pe, http.MethodPost, server.URL+"/api/v1/connections/kubernetes", `{"key":"fast-cluster","clusterId":"fast","kubeContext":"kind-fast"}`); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("connection = %d %s", resp.StatusCode, body)
+	}
+	list := func() string {
+		resp, body := call(t, pe, http.MethodGet, server.URL+"/api/v1/resource-definitions", "")
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("list = %d %s", resp.StatusCode, body)
+		}
+		return body
+	}
+	before := list()
+	for name, key := range map[string]string{"arbitrary key": "cluster-fast", "reserved key": "builtin-existing-cluster"} {
+		for _, connection := range []string{`,"connectionKey":"fast-cluster"`, ``, `,"connectionKey":"missing"`} {
+			body := `{"key":"` + key + `","resourceType":"k8s-cluster","executionProfile":"internal-k8s","driverType":"existing-cluster"` + connection + `,` +
+				`"driverInputs":{"values":{"variables":{"name":"${context.connection.cluster}","kubeContext":"${context.connection.context}"}}},"criteria":[{"class":"internal"}]}`
+			if resp, out := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", body); resp.StatusCode != http.StatusBadRequest {
+				t.Errorf("%s %q: status %d %s, want 400", name, connection, resp.StatusCode, out)
+			}
+		}
+	}
+	reserved := strings.Replace(fastPostgres, `"postgres-fast"`, `"builtin-existing-cluster"`, 1)
+	if resp, out := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", reserved); resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("reserved key with kubernetes driver: %d %s, want 400", resp.StatusCode, out)
+	}
+	if after := list(); after != before {
+		t.Fatalf("definitions changed after rejected registrations")
 	}
 }

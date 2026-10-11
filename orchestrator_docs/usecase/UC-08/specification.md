@@ -138,3 +138,8 @@ before destination apps/routes become live. See
 - **BR-08:** Internal existing-cluster uses the system execution binding from the plan, validates the scoped READY Kubernetes Connection, and resolves/checks the existing cluster without creation. Admit the reserved system Definition idempotently before FK-dependent writes, never in Preview. Preserve legacy descriptors/targets and fail closed on collision or target mismatch.
 
 See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
+
+Public `existing-cluster` registration is rejected before insert under UC-03
+BR-08/BR-17. This does not remove the trusted internal driver, executor or
+system Definition admission required by ADR-013. No retained records are
+deleted by this API change.

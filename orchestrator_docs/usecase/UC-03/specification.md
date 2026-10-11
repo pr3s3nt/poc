@@ -77,8 +77,7 @@ last_reviewed: 2026-10-11
   `{}` khai báo tường minh là wildcard hợp lệ với specificity `0`.
 - **BR-08 (MVP registration):** Chỉ đăng ký implementation mà runtime hiện có
   thể chạy: Terraform module nhúng `vpc`, `eks`, `aurora` cho Resource Type
-  tương ứng; Kubernetes cho `k8s-namespace`/`postgres`; existing-cluster cho
-  `k8s-cluster`. Terraform module `vpc`/`eks` chỉ nhận `ConnectionKey` rỗng; từ chối mọi key khác rỗng trước insert, kể cả key bằng Connection của Environment. Definition tái sử dụng được và không cần Environment khi đăng ký. Preview/Deploy resolve AWS Connection `READY` đúng Organization của Environment. Terraform `aurora` và existing-cluster cần connection tường minh đúng kind, thuộc Organization và `READY`. Kubernetes dùng connection của Environment lúc deploy nếu Definition không chỉ định connection riêng. Với `internal-k8s`, Kubernetes Definition có connection tường minh phải trùng Environment connection khi được match; sai khác gây planning error (UC-06 BR-20). Existing-cluster Definition đăng ký qua API chỉ giữ compatibility; node cluster implicit không match nó (ADR-013). Guard `ConnectionMismatch` vẫn chặn winning VPC/EKS Definition nội bộ/harness có key khác target trước execution, không chọn ứng viên khác hoặc thêm compatibility đăng ký key bằng target. External database giữ explicit Driver Account semantics.
+  tương ứng; Kubernetes cho `k8s-namespace`/`postgres`; score-k8s cho `workload` theo BR-15. Mọi public registration có driver `existing-cluster` bị từ chối trước insert, bất kể key. Terraform module `vpc`/`eks` chỉ nhận `ConnectionKey` rỗng; từ chối mọi key khác rỗng trước insert, kể cả key bằng Connection của Environment. Definition tái sử dụng được và không cần Environment khi đăng ký. Preview/Deploy resolve AWS Connection `READY` đúng Organization của Environment. Terraform `aurora` cần connection tường minh đúng kind, thuộc Organization và `READY`. Kubernetes dùng connection của Environment lúc deploy nếu Definition không chỉ định connection riêng. Với `internal-k8s`, Kubernetes Definition có connection tường minh phải trùng Environment connection khi được match; sai khác gây planning error (UC-06 BR-20). Driver `existing-cluster`, executor và trusted system constructor chỉ phục vụ binding nội bộ theo ADR-013; không có public registration compatibility. Guard `ConnectionMismatch` vẫn chặn winning VPC/EKS Definition nội bộ/harness có key khác target trước execution, không chọn ứng viên khác hoặc thêm compatibility đăng ký key bằng target. External database giữ explicit Driver Account semantics.
 - **BR-09:** Đăng ký Terraform Definition phải kiểm tra module tồn tại, các
   biến được khai báo và output Resource Type có thể được cung cấp. Source URL
   từ xa không được chấp nhận trong MVP.
@@ -136,16 +135,15 @@ UC-03 Register Resource Definition
   newly created IDs. Definition IDs have a separate namespace from Type IDs.
 - **BR-11:** Driver Inputs are a strict known-field object: only `values` at
   root, and `variables` plus Terraform-only `source` within `values`.
-  `values` and `variables` are required objects. Kubernetes/existing-cluster
+  `values` and `variables` are required objects. Kubernetes/score-k8s
   must omit `source`; Terraform source contains only the supported `module`.
   Reject unknown fields, wrong container shapes and null values before saving.
 - **BR-12:** Validate variable names and literal types against the selected
   driver contract. Terraform uses the embedded module's declared types,
   including element types of lists/maps. Kubernetes namespace accepts only
   `name: string`; Kubernetes PostgreSQL accepts `database`, `username`, `image`,
-  `storage`, `namespace` (all strings); existing-cluster accepts `name` and
-  `kubeContext` (strings). PostgreSQL options and existing-cluster values may
-  be omitted where runtime supplies a default/connection value; namespace name
+  `storage`, `namespace` (all strings). PostgreSQL options may
+  be omitted where runtime supplies a default; namespace name
   must be supplied by Definition or a required string `name` input in its
   Resource Type contract; an optional/wrong-type input does not satisfy this
   requirement. Terraform
@@ -192,6 +190,6 @@ resources. Definition specificity, tie handling and external Driver Accounts rem
 
 ## Implicit internal cluster binding
 
-- **BR-17:** Internal cluster node bypasses user Definition matching; system-owned reserved Definition keys cannot be registered publicly. Existing authored cluster Definitions remain readable for compatibility but do not control the implicit node. Other resource matching/weights remain unchanged.
+- **BR-17:** Internal cluster node bypasses user Definition matching; mọi public registration dùng driver `existing-cluster` bị từ chối trước insert; system-owned reserved Definition keys cannot be registered publicly for any driver. Existing authored cluster Definitions remain readable for compatibility but do not control the implicit node. Other resource matching/weights remain unchanged.
 
 See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
