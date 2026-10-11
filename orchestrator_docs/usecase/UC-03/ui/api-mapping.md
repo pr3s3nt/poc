@@ -42,11 +42,11 @@ trong form. Đây là projection UI; public API compatibility chỉ đổi tại
 workload renderer contract phía trên vẫn được giữ cho T03.
 
 POST giữ body/semantics hiện hành: Terraform gửi `executionProfile: "aws-eks"`,
-`connectionKey` AWS READY và embedded `source.module` theo type; Kubernetes gửi
+embedded `source.module` theo type: VPC/EKS luôn gửi `connectionKey: ""` và không hiện selector; mọi key khác rỗng bị API từ chối 400 trước insert. Aurora vẫn gửi `connectionKey` AWS READY riêng. Kubernetes gửi
 `executionProfile: "internal-k8s"` hoặc `""`, bỏ `source` và mặc định
 `connectionKey: ""`. Override Kubernetes chỉ lấy READY kind KUBERNETES và gửi
 key kỹ thuật. Criteria giữ năm field, loại field rỗng; wildcard gửi `[{}]`.
-Không thay matcher, backend defaults, seed hay Driver Inputs policy.
+Không thay matcher, profile/criteria hoặc Driver Inputs policy. T16 chỉ thay new product VPC/EKS seed sang ConnectionKey rỗng, không migrate records/profile cũ.
 
 Frontend kiểm ID rỗng/shape và JSON trước POST; 409 có thông báo trùng ID Việt.
 Các lỗi khác có fallback Việt an toàn và giữ form; không parse/regex raw backend

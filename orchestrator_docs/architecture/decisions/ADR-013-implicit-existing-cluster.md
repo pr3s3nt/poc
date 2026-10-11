@@ -2,7 +2,7 @@
 id: ADR-013
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-11
 ---
 
 # ADR-013 — Implicit existing-cluster node from Environment binding
@@ -60,7 +60,7 @@ matching behavior; do not rewrite historical verification evidence.
 ## Cloud and application resource boundary
 
 For `aws-eks`, VPC/EKS continue to use profile-filtered matching Definitions and
-Terraform, including Environment account guards and legacy infrastructure scopes.
+Terraform, including Environment account guards and legacy infrastructure scopes. Per UC-03 BR-08, public VPC/EKS Definitions omit ConnectionKey and execution inherits the pinned READY Environment AWS account; conflicting malformed catalog entries remain guarded. Aurora still requires its own explicit READY AWS account in the owning Organization.
 VPC supplies EKS and Aurora; workloads wait for Kubernetes target and required
 resource outputs. Do not force Aurora to depend on EKS or run in Kubernetes.
 

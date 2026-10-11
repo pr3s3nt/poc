@@ -6,7 +6,7 @@ import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
 type Body = Record<string, unknown>;
 type Backend = {
   types?: string[]; definitions?: Body[]; connections?: Body[]; post?: () => Response;
-  typesFail?: boolean; connectionsFail?: boolean; definitionLists?: (() => Response)[];
+  typesFail?: boolean; connectionsFail?: boolean; connectionsHang?: boolean; definitionLists?: (() => Response)[];
   applications?: Body[]; applicationsFail?: boolean; applicationLists?: (() => Response | Promise<Response>)[];
 };
 const defaultConnections = [
@@ -39,6 +39,7 @@ function backend(options: Backend = {}) {
       if (next) return next();
       return state.applicationsFail ? Response.json({ error: 'boom' }, { status: 500 }) : Response.json({ applications: state.applications ?? defaultApplications });
     }
+    if (url.endsWith('/connections') && state.connectionsHang) return new Promise<Response>(() => undefined);
     if (url.endsWith('/connections')) return state.connectionsFail ? Response.json({ error: 'boom' }, { status: 500 }) : Response.json({ connections: state.connections ?? defaultConnections });
     const next = state.definitionLists?.shift();
     return next ? next() : Response.json({ resourceDefinitions: state.definitions ?? [] });
@@ -72,13 +73,12 @@ describe('UC-03 definition registration form', () => {
     expect(screen.getByText('vpc', { selector: 'code' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Hiện nâng cao' }));
     fireEvent.change(field('Tham số cấu hình (JSON object)'), { target: { value: '{"cidr":"10.0.0.0/16"}' } });
-    await submit(user);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Chọn một Kết nối AWS sẵn sàng');
-    expect(posted).toHaveLength(0);
-    await user.selectOptions(field('Kết nối AWS'), 'aws-ready');
+    // VPC never asks for an AWS account, not even under Nâng cao.
+    expect(screen.queryByLabelText('Kết nối AWS')).not.toBeInTheDocument();
+    expect(screen.getByText(/dùng Kết nối AWS của Môi trường khi Xem trước hoặc Triển khai/)).toBeInTheDocument();
     await submit(user);
     expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký cấu hình tài nguyên vpc-aws.');
-    expect(posted).toEqual([{ key: 'vpc-aws', resourceType: 'vpc', executionProfile: 'aws-eks', driverType: 'terraform', connectionKey: 'aws-ready', driverInputs: { values: { variables: { cidr: '10.0.0.0/16' }, source: { module: 'vpc' } } }, provision: {}, criteria: [{}] }]);
+    expect(posted).toEqual([{ key: 'vpc-aws', resourceType: 'vpc', executionProfile: 'aws-eks', driverType: 'terraform', connectionKey: '', driverInputs: { values: { variables: { cidr: '10.0.0.0/16' }, source: { module: 'vpc' } } }, provision: {}, criteria: [{}] }]);
   });
 
   it('maps k8s-cluster to the eks module and namespace to Kubernetes', async () => {
@@ -89,14 +89,20 @@ describe('UC-03 definition registration form', () => {
     await user.selectOptions(field('Loại tài nguyên'), 'k8s-cluster');
     expect(field('Cách tạo')).toHaveValue('terraform');
     expect(screen.getByText('eks', { selector: 'code' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Kết nối AWS')).not.toBeInTheDocument();
+    await submit(user);
+    await screen.findByRole('status');
+    expect(posted[0]).toMatchObject({ key: 'cluster-eks', resourceType: 'k8s-cluster', driverType: 'terraform', executionProfile: 'aws-eks', connectionKey: '', driverInputs: { values: { source: { module: 'eks' } } } });
+    await user.type(field('ID cấu hình'), 'ns-default');
     await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
     expect(field('Cách tạo')).toHaveValue('kubernetes');
     expect(field('Cách tạo')).toBeDisabled();
     expect(screen.queryByLabelText('Kết nối AWS')).not.toBeInTheDocument();
     await submit(user);
     await screen.findByRole('status');
-    expect(posted[0]).toMatchObject({ resourceType: 'k8s-namespace', driverType: 'kubernetes', executionProfile: 'internal-k8s', connectionKey: '', driverInputs: { values: { variables: {} } } });
-    expect(posted[0]?.driverInputs).not.toHaveProperty('values.source');
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect(posted[1]).toMatchObject({ resourceType: 'k8s-namespace', driverType: 'kubernetes', executionProfile: 'internal-k8s', connectionKey: '', driverInputs: { values: { variables: {} } } });
+    expect(posted[1]?.driverInputs).not.toHaveProperty('values.source');
   });
 
   it('lets the user choose the Postgres driver and keeps JSON, criteria and per-driver choices across switches', async () => {
@@ -152,7 +158,8 @@ describe('UC-03 definition registration form', () => {
     const user = userEvent.setup();
     const { posted } = backend();
     await ready();
-    await user.selectOptions(field('Loại tài nguyên'), 'vpc');
+    await user.selectOptions(field('Loại tài nguyên'), 'postgres');
+    await user.selectOptions(field('Cách tạo'), 'terraform');
     expect(within(field('Kết nối AWS')).getAllByRole('option').map((option) => option.getAttribute('value'))).toEqual(['', 'aws-ready']);
     await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
     const override = field('Kết nối riêng cho cluster (tùy chọn)');
@@ -171,16 +178,84 @@ describe('UC-03 definition registration form', () => {
     expect(posted[1]?.connectionKey).toBe('kube-ready');
   });
 
-  it('explains when no READY AWS Connection exists and refuses to submit Terraform', async () => {
+  it('explains when no READY AWS Connection exists and refuses to submit Aurora', async () => {
     const user = userEvent.setup();
     const { posted } = backend({ connections: [{ key: 'aws-pending', kind: 'AWS', status: 'VERIFYING' }] });
     await ready();
-    await user.type(field('ID cấu hình'), 'vpc-none');
-    await user.selectOptions(field('Loại tài nguyên'), 'vpc');
+    await user.type(field('ID cấu hình'), 'aurora-none');
+    await user.selectOptions(field('Loại tài nguyên'), 'postgres');
+    await user.selectOptions(field('Cách tạo'), 'terraform');
     await waitFor(() => expect(screen.getByText(/Hiện chưa có Kết nối AWS sẵn sàng/)).toBeInTheDocument());
     await submit(user);
     expect(await screen.findByRole('alert')).toHaveTextContent('Chọn một Kết nối AWS sẵn sàng');
     expect(posted).toHaveLength(0);
+  });
+
+  it('registers VPC and EKS without an account while the Connection list is empty, failing or loading', async () => {
+    for (const options of [{ connections: [] }, { connectionsFail: true }, { connectionsHang: true }]) {
+      const user = userEvent.setup();
+      const { posted } = backend(options);
+      const view = render(<ResourceDefinitionsPage />);
+      await screen.findByRole('heading', { name: 'Cấu hình tài nguyên' });
+      await screen.findByRole('option', { name: 'vpc' });
+      await user.click(screen.getByRole('button', { name: 'Hiện nâng cao' }));
+      for (const [index, type] of ['vpc', 'k8s-cluster'].entries()) {
+        await user.type(field('ID cấu hình'), `${type}-no-account`);
+        await user.selectOptions(field('Loại tài nguyên'), type);
+        expect(screen.queryByLabelText('Kết nối AWS')).not.toBeInTheDocument();
+        expect(screen.queryByRole('alert', { name: 'Lỗi tải kết nối' })).not.toBeInTheDocument();
+        await submit(user);
+        await waitFor(() => expect(posted).toHaveLength(index + 1));
+        expect(posted[index]).toMatchObject({ resourceType: type, driverType: 'terraform', connectionKey: '' });
+        await screen.findByRole('status');
+      }
+      view.unmount();
+    }
+  });
+
+  it('never leaks or is blocked by a saved Kubernetes override when registering VPC/EKS, and keeps it for Kubernetes', async () => {
+    const user = userEvent.setup();
+    const { posted } = backend();
+    await ready();
+    await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
+    await user.click(screen.getByRole('button', { name: 'Hiện nâng cao' }));
+    await user.selectOptions(field('Kết nối riêng cho cluster (tùy chọn)'), 'kube-ready');
+    for (const [index, type] of ['vpc', 'k8s-cluster'].entries()) {
+      await user.type(field('ID cấu hình'), `${type}-kube-saved`);
+      await user.selectOptions(field('Loại tài nguyên'), type);
+      await submit(user);
+      await waitFor(() => expect(posted).toHaveLength(index + 1));
+      expect(posted[index]).toMatchObject({ resourceType: type, driverType: 'terraform', connectionKey: '' });
+      await screen.findByRole('status');
+    }
+    await user.type(field('ID cấu hình'), 'ns-kube-kept');
+    await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
+    expect(field('Kết nối riêng cho cluster (tùy chọn)')).toHaveValue('kube-ready');
+    await submit(user);
+    await waitFor(() => expect(posted).toHaveLength(3));
+    expect(posted[2]).toMatchObject({ resourceType: 'k8s-namespace', connectionKey: 'kube-ready' });
+  });
+
+  it('keeps the Aurora account separate and never sends it for VPC/EKS after switching types', async () => {
+    const user = userEvent.setup();
+    const { posted } = backend();
+    await ready();
+    await user.type(field('ID cấu hình'), 'aurora-own');
+    await user.selectOptions(field('Loại tài nguyên'), 'postgres');
+    await user.selectOptions(field('Cách tạo'), 'terraform');
+    await user.selectOptions(field('Kết nối AWS'), 'aws-ready');
+    await user.selectOptions(field('Loại tài nguyên'), 'vpc');
+    expect(screen.queryByLabelText('Kết nối AWS')).not.toBeInTheDocument();
+    await submit(user);
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]).toMatchObject({ resourceType: 'vpc', connectionKey: '' });
+    await user.type(field('ID cấu hình'), 'aurora-own');
+    await user.selectOptions(field('Loại tài nguyên'), 'postgres');
+    await user.selectOptions(field('Cách tạo'), 'terraform');
+    expect(field('Kết nối AWS')).toHaveValue('aws-ready');
+    await submit(user);
+    await waitFor(() => expect(posted).toHaveLength(2));
+    expect(posted[1]).toMatchObject({ resourceType: 'postgres', driverType: 'terraform', connectionKey: 'aws-ready' });
   });
 
   it('hides workload and shows unsupported types as disabled, never registrable', async () => {
@@ -290,7 +365,8 @@ describe('UC-03 definition registration form', () => {
     const { gets, state } = backend({ connectionsFail: true });
     await ready();
     await user.type(field('ID cấu hình'), 'ns-edit');
-    await user.selectOptions(field('Loại tài nguyên'), 'vpc');
+    await user.selectOptions(field('Loại tài nguyên'), 'postgres');
+    await user.selectOptions(field('Cách tạo'), 'terraform');
     await user.click(screen.getByRole('button', { name: 'Hiện nâng cao' }));
     fireEvent.change(field('Tham số cấu hình (JSON object)'), { target: { value: '{"cidr":"10.1.0.0/16"}' } });
     const alert = await screen.findByRole('alert', { name: 'Lỗi tải kết nối' });
@@ -300,7 +376,7 @@ describe('UC-03 definition registration form', () => {
     await waitFor(() => expect(screen.queryByRole('alert', { name: 'Lỗi tải kết nối' })).not.toBeInTheDocument());
     expect(gets.filter((url) => url.endsWith('/connections'))).toHaveLength(2);
     expect(field('ID cấu hình')).toHaveValue('ns-edit');
-    expect(field('Loại tài nguyên')).toHaveValue('vpc');
+    expect(field('Loại tài nguyên')).toHaveValue('postgres');
     expect(field('Tham số cấu hình (JSON object)')).toHaveValue('{"cidr":"10.1.0.0/16"}');
     expect(within(field('Kết nối AWS')).getByRole('option', { name: 'AWS chính (aws-ready)' })).toBeInTheDocument();
   });

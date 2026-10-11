@@ -18,14 +18,17 @@ Service -> Planner: Plan(request) [MS-02..MS-04]
 Planner -> Enricher: Enrich(profile=aws-eks) [MS-05]
 Enricher --> Planner: env VPC + env EKS + env namespace (legacy app scope preserved)
 Planner -> Planner: Match Definitions; validate VPC/EKS Connection equals Environment binding [BR-20]
-note right of Planner: Different AWS account fails before Terraform execution
+note right of Planner
+Empty VPC/EKS keys inherit pinned READY Environment AWS account.
+Malformed conflicting winner fails without fallback. Aurora keeps explicit account.
+end note
 Planner --> Service: Humanitec-shaped Delta + graph:\nworkload -> namespace -> EKS -> VPC\nworkload -> Aurora -> VPC [MS-03..MS-08]
 Service -> Provisioner: Provision(resource batches) [MS-09]
-Provisioner -> Terraform: Provision(VPC)
+Provisioner -> Terraform: Provision(VPC, pinned Environment AWS account)
 Terraform --> Provisioner: vpc outputs
-Provisioner -> Terraform: Provision(EKS, vpc outputs)
+Provisioner -> Terraform: Provision(EKS, vpc outputs, pinned Environment AWS account)
 Terraform --> Provisioner: cluster target outputs
-Provisioner -> Terraform: Provision(Aurora, vpc outputs)
+Provisioner -> Terraform: Provision(Aurora, vpc outputs, explicit Aurora AWS account)
 Terraform --> Provisioner: postgres outputs
 Provisioner --> Service: outputs + EKS target
 Service -> Resolver: ResolveWorkloadBindings(postgres outputs) [MS-10]

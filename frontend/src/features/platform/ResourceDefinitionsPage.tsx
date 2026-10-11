@@ -76,6 +76,9 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
 
   const rule = own(supported, resourceType);
   const driver: Driver | '' = rule ? (rule.drivers.length === 1 ? (rule.drivers[0] ?? '') : postgresDriver) : '';
+  // Terraform VPC/EKS always run on the Environment's AWS Connection (UC-03 BR-08); only Aurora takes its own account.
+  const ownsAwsAccount = driver === 'terraform' && rule?.module === 'aurora';
+  const inheritsEnvironmentAccount = driver === 'terraform' && !ownsAwsAccount;
   const awsConnections = connectionList.items.filter((connection) => connection.status === 'READY' && connection.kind === 'AWS');
   const kubeConnections = connectionList.items.filter((connection) => connection.status === 'READY' && connection.kind === 'KUBERNETES');
   const connectionsPending = connectionList.loading && connectionList.items.length === 0;
@@ -92,10 +95,10 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
     try { inputVariables = objectJSON(variables, 'Tham số cấu hình'); provisionRules = objectJSON(provision, 'Quy tắc tạo tài nguyên liên quan'); }
     catch (reason) { setAdvanced(true); setError((reason as Error).message); return; }
     let connectionKey = '';
-    if (driver === 'terraform') {
-      if (!awsConnections.some((connection) => connection.key === awsConnection)) { setError('Chọn một Kết nối AWS sẵn sàng. Terraform cần Kết nối AWS tường minh.'); return; }
+    if (ownsAwsAccount) {
+      if (!awsConnections.some((connection) => connection.key === awsConnection)) { setError('Chọn một Kết nối AWS sẵn sàng. Aurora cần Kết nối AWS riêng, tường minh.'); return; }
       connectionKey = awsConnection;
-    } else if (kubeConnection !== '') {
+    } else if (driver === 'kubernetes' && kubeConnection !== '') {
       if (!kubeConnections.some((connection) => connection.key === kubeConnection)) { setAdvanced(true); setError('Kết nối riêng đã chọn không còn sẵn sàng. Chọn lại hoặc dùng Kết nối của Môi trường.'); return; }
       connectionKey = kubeConnection;
     }
@@ -129,11 +132,12 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
             : <label>Phạm vi triển khai<select value={kubeProfile} disabled={driver === ''} onChange={(event) => setKubeProfile(event.target.value)}><option value="internal-k8s">Cluster nội bộ (internal-k8s)</option><option value="">Dùng chung</option></select></label>}</div>
         {driver === 'terraform' ? <p className="feature-note">Module Terraform nhúng: <code>{rule?.module}</code>. Phạm vi triển khai được khóa là aws-eks.</p> : null}
         {driver === 'kubernetes' && kubeProfile === '' ? <div className="form-warning" role="note">Dùng chung được xét ở mọi phạm vi triển khai nhưng vẫn phải thỏa điều kiện áp dụng. Cấu hình này có thể trùng mức ưu tiên với cấu hình khác; hệ thống không phát hiện hết mọi trường hợp trùng.</div> : null}
-        {driver === 'terraform' ? <><label>Kết nối AWS<select value={awsConnection} aria-required="true" aria-describedby="aws-connection-hint" onChange={(event) => setAwsConnection(event.target.value)}><option value="">{connectionsPending ? 'Đang tải kết nối…' : 'Chọn Kết nối AWS'}</option>{awsConnections.map((connection) => <option key={connection.key} value={connection.key}>{connectionLabel(connection)}</option>)}</select></label>
-          <p id="aws-connection-hint" className="feature-note">Terraform cần một Kết nối AWS sẵn sàng. Form chỉ liệt kê Kết nối AWS sẵn sàng của Tổ chức và không tự chọn hộ.{!connectionList.loading && !connectionList.loadError && awsConnections.length === 0 ? ' Hiện chưa có Kết nối AWS sẵn sàng.' : ''}</p></> : null}
-        {connectionList.loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải kết nối">Không tải được danh sách kết nối. Dữ liệu đã nhập được giữ nguyên. <Button type="button" onClick={() => { void connectionList.reload(); }}>Thử lại</Button></div> : null}
+        {inheritsEnvironmentAccount ? <p className="feature-note" role="note">Tài nguyên này dùng Kết nối AWS của Môi trường khi Xem trước hoặc Triển khai; cấu hình không chọn Kết nối AWS riêng. Đăng ký không cần Môi trường.</p> : null}
+        {ownsAwsAccount ? <><label>Kết nối AWS<select value={awsConnection} aria-required="true" aria-describedby="aws-connection-hint" onChange={(event) => setAwsConnection(event.target.value)}><option value="">{connectionsPending ? 'Đang tải kết nối…' : 'Chọn Kết nối AWS'}</option>{awsConnections.map((connection) => <option key={connection.key} value={connection.key}>{connectionLabel(connection)}</option>)}</select></label>
+          <p id="aws-connection-hint" className="feature-note">Aurora cần một Kết nối AWS riêng, sẵn sàng; VPC và EKS không dùng ô này. Form chỉ liệt kê Kết nối AWS sẵn sàng của Tổ chức và không tự chọn hộ.{!connectionList.loading && !connectionList.loadError && awsConnections.length === 0 ? ' Hiện chưa có Kết nối AWS sẵn sàng.' : ''}</p></> : null}
+        {connectionList.loadError && !inheritsEnvironmentAccount ? <div className="form-error" role="alert" aria-label="Lỗi tải kết nối">Không tải được danh sách kết nối. Dữ liệu đã nhập được giữ nguyên. <Button type="button" onClick={() => { void connectionList.reload(); }}>Thử lại</Button></div> : null}
         <CriteriaEditor draft={criteriaDraft} onChange={setCriteriaDraft} applications={{ items: applicationList.items, loading: applicationList.loading, error: applicationList.loadError, onRetry: () => { void applicationList.reload(); } }} sources={{ items: definitions, loading: definitionList.loading, error: definitionList.loadError, onRetry: () => { void definitionList.reload(); } }} resourceType={resourceType} profile={driver === 'terraform' ? 'aws-eks' : kubeProfile} profileLabel={own(scopeLabels, driver === 'terraform' ? 'aws-eks' : kubeProfile)} />
-        <div className="section-header"><div><h3>Nâng cao</h3><p>Tham số cấu hình, Quy tắc tạo tài nguyên liên quan và Kết nối riêng cho cluster. Thu gọn không xóa dữ liệu đã nhập.</p></div><Button type="button" aria-expanded={advanced} aria-controls="definition-advanced" onClick={() => setAdvanced(!advanced)}>{advanced ? 'Ẩn nâng cao' : 'Hiện nâng cao'}</Button></div>
+        <div className="section-header"><div><h3>Nâng cao</h3><p>Tham số cấu hình, Quy tắc tạo tài nguyên liên quan và Kết nối riêng cho cluster (chỉ Kubernetes). Thu gọn không xóa dữ liệu đã nhập.</p></div><Button type="button" aria-expanded={advanced} aria-controls="definition-advanced" onClick={() => setAdvanced(!advanced)}>{advanced ? 'Ẩn nâng cao' : 'Hiện nâng cao'}</Button></div>
         <div id="definition-advanced" hidden={!advanced} className="editor-grid">
           <label>Tham số cấu hình (JSON object)<textarea value={variables} rows={6} spellCheck={false} aria-describedby="driver-variables-hint" onChange={(event) => setVariables(event.target.value)} /></label>
           <p id="driver-variables-hint" className="feature-note">Chỉ nhận tham số mà cách tạo đã chọn hỗ trợ, và giá trị literal phải đúng kiểu khai báo. Giá trị là một placeholder nguyên vẹn, ví dụ <code>{'${context.app.id}'}</code>, được kiểm tra khi lập kế hoạch. Không nhận credential hoặc tham chiếu bí mật.</p>

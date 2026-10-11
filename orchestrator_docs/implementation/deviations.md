@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-11
 ---
 
 # Known design and implementation deviations
@@ -87,3 +87,14 @@ frontend gates and fake-adapter browser create/deploy/restart passed.
 See [local evidence](../verification/2026-10-09-implicit-existing-cluster-local.md).
 No live cluster/cloud or PostgreSQL mutation was performed; local FK simulation
 is not real PostgreSQL integration proof.
+
+## IMP-020 — Resource account reuse guard (resolved 2026-10-11)
+
+UC-08 BR-07 requires validating persisted resource connection identity before
+reuse. T16 review found `provisioning.Service.provisionNode` loads prior executor
+state without comparing ActiveResource.ConnectionKey to the effective account.
+T16 adds fail-closed account validation before executor invocation and preserves
+stored identity on mismatch. `TestProvision_ReuseNeverCrossesAccounts` proves
+same-account reuse and VPC/EKS/Aurora cross-account rejection; repository failures
+other than NotFound also stop execution. See
+[T16 local evidence](../verification/2026-10-11-T16-environment-aws-account.md).

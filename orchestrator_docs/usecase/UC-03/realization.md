@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-11
 ---
 
 # UC-03 — Use Case Realization
@@ -38,7 +38,7 @@ UI dùng form có criteria từng dòng và JSON nâng cao cho variables/provisi
 | Step | Collaboration |
 |---|---|
 | MS-01–MS-03 | Controller parse; Service tạo Definition và `ValidateStructureAndCriteria`, gồm BR-07. |
-| MS-04 | Load Resource Type và connection/Driver registration. |
+| MS-04 | Load Resource Type; reject nonempty VPC/EKS ConnectionKey without loading an Environment; validate explicit Aurora/existing-cluster and optional Kubernetes connections by org/kind/READY. |
 | MS-05 | `DefinitionValidator.ValidateReferencesAndRules`. |
 | MS-06 | Repository/unique constraint bảo vệ Definition ID. |
 | MS-07 | `DriverContractInspector.Inspect` đối chiếu outputs với Resource Type. |
@@ -83,12 +83,7 @@ in their existing adapters. No database transaction spans a CLI/external call.
 
 ## Selected Environment connection compatibility
 
-Registration still validates explicit Connection ownership/readiness. At planning
-time, UC-06 BR-20 rejects a winning internal existing-cluster/Kubernetes
-Definition whose explicit Connection differs from the Environment binding.
-AWS Terraform VPC/EKS uses the same target-binding guard; external database
-Driver Accounts remain explicit. Specificity and tie handling remain unchanged; Platform Engineer supplies a
-matching Definition for a newly selected Connection.
+Registration rejects every nonempty Terraform VPC/EKS ConnectionKey (BR-08), including a key equal to a configured target, and accepts reusable empty-key Definitions without an Environment. Explicit Aurora/existing-cluster and optional Kubernetes connections retain org/kind/READY validation. UC-06 resolves the pinned Environment account for VPC/EKS and retains the defensive winning-Definition ConnectionMismatch guard for malformed internal/harness catalogs. External database accounts remain explicit. Specificity, ties and profiles remain unchanged; new product VPC/EKS seeds omit ConnectionKey without migrating existing catalog records.
 
 ## Implicit internal cluster collaboration
 

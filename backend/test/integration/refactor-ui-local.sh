@@ -11,6 +11,7 @@
 # and must be outside the repository; it is kept, also on failure.
 # T03 additionally passes -score-k8s with a test-local stub (stubs/score-k8s-render-fail-stub.sh)
 # whose `generate` always fails; calls are logged in NEW_PATH/score-k8s-stub/score-k8s-calls.log.
+# T16 additionally passes a fake AWS region/account so the seeded aws-account Connection can bind an Environment.
 # T05, T06 and T07 additionally use in-memory state with the explicit memory credential store (no state file, no Vault).
 # Debug only: ORCH_REFACTOR_INJECT_FAILURE=after-sign-in makes T01 fail on
 # purpose to check that video, marks and assertions survive a failure.
@@ -108,6 +109,11 @@ if [[ "${SCENARIO}" == T03 ]]; then
   export ORCH_E2E_SCORE_K8S_LOG="${WORK}/score-k8s-stub/score-k8s-calls.log"
 fi
 
+# T16 binds an Environment to the seeded fake AWS Connection, which needs a region
+# (fake adapters only; no cloud call is made).
+REGION_ARGS=()
+if [[ "${SCENARIO}" == T16 ]]; then REGION_ARGS=(-region us-east-1 -account-id 000000000000); fi
+
 # T05 and T07 register Secret stores and T06 registers Kubernetes Connections, which
 # need a credential store. The explicit non-durable "memory" store is accepted
 # only without persistent state, so they run with in-memory state and no -state file.
@@ -124,7 +130,7 @@ env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_VAULT_ADDR -u ORCHESTRATOR
   -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u AWS_SESSION_TOKEN \
   "${WORK}/orchestrator" -addr 127.0.0.1:0 -addr-file "${WORK}/api-addr" ${STATE_ARGS[@]+"${STATE_ARGS[@]}"} \
   -database-url-file "" -vault-address "" -vault-token-file "" -vault-agent-address "" \
-  -connection-credential-store "${STORE_MODE}" ${SCORE_ARGS[@]+"${SCORE_ARGS[@]}"} -adapters fake -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" \
+  -connection-credential-store "${STORE_MODE}" ${SCORE_ARGS[@]+"${SCORE_ARGS[@]}"} ${REGION_ARGS[@]+"${REGION_ARGS[@]}"} -adapters fake -profile test -run-id "${RUN_ID}" -ui-dir "${REPO}/frontend/dist" \
   > "${WORK}/orchestrator.log" 2>&1 &
 PIDS+=($!)
 for _ in $(seq 1 80); do [[ -s "${WORK}/api-addr" ]] && break; sleep 0.25; done

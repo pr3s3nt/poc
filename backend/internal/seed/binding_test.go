@@ -37,6 +37,30 @@ func TestApplyBindsAcceptanceFixturesAsLockedLegacyAndIsIdempotent(t *testing.T)
 	}
 }
 
+// T16: new product VPC/EKS Definitions inherit the Environment connection;
+// Aurora keeps its explicit Driver Account.
+func TestResourceDefinitionsVPCAndEKSHaveNoConnection(t *testing.T) {
+	opts := seed.Defaults()
+	seen := map[string]bool{}
+	for _, def := range seed.ResourceDefinitions(opts) {
+		switch def.Key {
+		case "vpc-aws", "cluster-aws-eks":
+			seen[def.Key] = true
+			if def.ConnectionKey != "" {
+				t.Fatalf("%s ConnectionKey = %q", def.Key, def.ConnectionKey)
+			}
+		case "postgres-aws-aurora":
+			seen[def.Key] = true
+			if def.ConnectionKey != opts.CloudConnectionKey {
+				t.Fatalf("Aurora ConnectionKey = %q", def.ConnectionKey)
+			}
+		}
+	}
+	if len(seen) != 3 {
+		t.Fatalf("seeded definitions seen: %v", seen)
+	}
+}
+
 func definitionByKey(t *testing.T, st *store.Store, org, key string) resource.Definition {
 	t.Helper()
 	defs, err := st.ListResourceDefinitions(context.Background(), org)

@@ -24,7 +24,7 @@ related: UC-03
 - Loading/error của Loại tài nguyên hoặc Kết nối không ghi đè metadata đang
   nhập; có nút Thử lại. Không giả lỗi tải thành catalog rỗng.
 - Kết nối lọc READY theo kind của driver. Không có lựa chọn hợp lệ thì giải
-  thích rõ; Terraform không submit khi thiếu Connection, Kubernetes vẫn dùng
+  thích rõ; Aurora không submit khi thiếu Connection. VPC/EKS không phụ thuộc tải danh sách Kết nối và không gửi lựa chọn Aurora đã giữ trong draft. Kubernetes vẫn dùng
   Connection của Môi trường khi không override.
 - ID rỗng/không hợp lệ có lỗi Việt rõ; duplicate 409 giữ toàn bộ form để sửa
   ID và thử lại. Không chuẩn hóa ID âm thầm.

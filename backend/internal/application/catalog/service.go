@@ -181,7 +181,13 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 	default:
 		return fmt.Errorf("driver %q is not supported for registration", def.DriverType)
 	}
-	if def.DriverType == resource.DriverTerraform || def.DriverType == resource.DriverExistingCluster {
+	if def.DriverType == resource.DriverTerraform && inheritsEnvironmentConnection(module) {
+		// UC-03 BR-08: VPC/EKS always run on the Environment AWS connection, so
+		// any key (even one equal to a target) is rejected before it is looked up.
+		if def.ConnectionKey != "" {
+			return fmt.Errorf("Terraform %s definitions use the Environment AWS connection; leave connectionKey empty", module)
+		}
+	} else if def.DriverType == resource.DriverTerraform || def.DriverType == resource.DriverExistingCluster {
 		if def.ConnectionKey == "" {
 			return fmt.Errorf("driver requires an explicit connection")
 		}
@@ -322,4 +328,10 @@ func validateReferences(def resource.Definition, types []resource.Type) error {
 
 func (s *Service) SetRenderBundles(bundles map[string]resource.RenderBundle) {
 	s.bundles = resource.CopyRenderBundles(bundles)
+}
+
+// inheritsEnvironmentConnection reports whether a Terraform module takes its AWS
+// connection from the Environment rather than from the Definition.
+func inheritsEnvironmentConnection(module string) bool {
+	return module == "vpc" || module == "eks"
 }

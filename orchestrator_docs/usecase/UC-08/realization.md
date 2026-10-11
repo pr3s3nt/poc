@@ -2,7 +2,7 @@
 id: UC-08-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-11
 ---
 
 # UC-08 — Use Case Realization
@@ -83,7 +83,7 @@ in their existing adapters. No database transaction spans a CLI/external call.
 
 Shared snapshot loader resolves persisted Environment target in session
 Organization; UNCONFIGURED fails before planning/execution. Definition guards and
-UC-08 defense-in-depth compare against this Environment connection. Context,
+UC-08 defense-in-depth compare against this Environment connection. Terraform VPC/EKS use the pinned Environment AWS account even though the reusable Definition key is empty; resolve and validate org/kind/READY before execution and persist the effective account in ActiveResource. A malformed conflicting winning Definition fails without fallback. Aurora keeps its explicit org-scoped READY AWS account; missing account fails closed. Context,
 version, scope mode and nonsecret target metadata are pinned into hashes/snapshots.
 New AWS enrichment produces Environment-scoped VPC/EKS; legacy AWS keeps original
 Application identity via [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).

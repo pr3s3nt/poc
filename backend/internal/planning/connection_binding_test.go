@@ -186,3 +186,69 @@ func TestPlan_AWSTargetTerraformDefinitionsMustUseEnvironmentConnection(t *testi
 		}
 	}
 }
+
+// T16: seeded VPC/EKS Definitions have no ConnectionKey; the effective AWS
+// target is the Environment connection, recorded in the plan and its hash.
+func TestPlan_AWSVPCAndEKSInheritIndependentEnvironmentTargets(t *testing.T) {
+	hashes := map[string]string{}
+	for _, target := range []string{"aws-a", "aws-b"} {
+		req := testRequest(t, application.ProfileAWSEKS, "backend")
+		req.Env.ConnectionKey, req.Connection.Key = target, target
+		for _, def := range req.Catalog.Definitions {
+			if (def.Key == "vpc-aws" || def.Key == "cluster-aws-eks") && def.ConnectionKey != "" {
+				t.Fatalf("seeded %s keeps connection %q", def.Key, def.ConnectionKey)
+			}
+		}
+		plan, err := NewService().Plan(req)
+		if err != nil {
+			t.Fatalf("%s: %v", target, err)
+		}
+		if plan.Target.ConnectionKey != target {
+			t.Fatalf("%s: plan target = %+v", target, plan.Target)
+		}
+		for _, match := range plan.Matches {
+			if (match.DefinitionKey == "vpc-aws" || match.DefinitionKey == "cluster-aws-eks") && match.ConnectionKey != "" {
+				t.Fatalf("%s: inherited match carries a Definition key: %+v", target, match)
+			}
+		}
+		hashes[target] = plan.PlanHash
+	}
+	if hashes["aws-a"] == hashes["aws-b"] {
+		t.Fatal("plan hash must change with the effective Environment connection")
+	}
+}
+
+// A malformed winning VPC/EKS Definition is rejected; no other candidate is
+// tried. Empty keys are never a mismatch.
+func TestPlan_MalformedWinningVPCOrEKSKeyIsRejectedWithoutFallback(t *testing.T) {
+	for _, base := range []string{"vpc-aws", "cluster-aws-eks"} {
+		req := testRequest(t, application.ProfileAWSEKS, "backend")
+		var malformed resource.Definition
+		for _, def := range req.Catalog.Definitions {
+			if def.Key == base {
+				malformed = def
+			}
+		}
+		// More specific than the seeded fallback so it wins matching.
+		malformed.Key = base + "-malformed"
+		malformed.ConnectionKey = "other-account"
+		malformed.Criteria = []resource.Criterion{{ApplicationID: req.App.Key, Class: malformed.Criteria[0].Class}}
+		req.Catalog.Definitions = append(req.Catalog.Definitions, malformed)
+		if _, err := NewService().Plan(req); !errors.Is(err, ErrConnectionMismatch) {
+			t.Fatalf("%s: malformed winner must fail without falling back to %s: %v", malformed.Key, base, err)
+		}
+	}
+	env := testRequest(t, application.ProfileAWSEKS, "backend").Env
+	vpc := resource.Definition{Key: "v", ResourceTypeKey: TypeVPC, DriverType: resource.DriverTerraform}
+	if ConnectionMismatch(env, vpc) {
+		t.Fatal("an empty key is not a mismatch")
+	}
+	vpc.ConnectionKey = env.ConnectionKey
+	if ConnectionMismatch(env, vpc) {
+		t.Fatal("runtime guard is unchanged for a key equal to the target")
+	}
+	vpc.ConnectionKey = "other-account"
+	if !ConnectionMismatch(env, vpc) {
+		t.Fatal("a different key must remain a mismatch")
+	}
+}

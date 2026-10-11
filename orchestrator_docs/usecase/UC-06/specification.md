@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-11
 ---
 
 # UC-06 — Deploy Workload
@@ -221,7 +221,7 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 
 ## Environment connection binding
 
-- **BR-20:** Every deployment resolves and pins the configured Environment target, never a shared Application binding/default. Internal Kubernetes and AWS Terraform VPC/EKS Definition connection must equal selected Environment connection; reject conflicts before execution. External database Definitions keep their Driver Account. Matching specificity/ties remain unchanged. New AWS scopes are ENVIRONMENT; legacy bindings preserve application-scope resource identity via ADR-011. UNCONFIGURED Preview/Deploy is rejected 422 field connectionKey before executor/provisioning. For internal-k8s the implicit cluster node binds directly to the Environment Connection under ADR-013, bypassing authored cluster Definition matching. AWS cluster Definitions remain required; no default/host fallback.
+- **BR-20:** Every deployment resolves and pins the configured Environment target, never a shared Application binding/default. Internal Kubernetes explicit Definition connections must equal the selected Environment connection. Public Terraform VPC/EKS Definitions have an empty ConnectionKey and always inherit the pinned READY AWS Environment connection. Keep ConnectionMismatch as a defensive guard for malformed internal/harness VPC/EKS Definitions with a different key; reject the winning conflict before execution without selecting another candidate. Empty keys do not mismatch; registration rejects even an explicit key equal to the target. External database Definitions keep their explicit READY AWS Driver Account in the same Organization. Effective connection identity is consistent across plan/hash, executor requests and ActiveResource persistence. Matching specificity/ties remain unchanged. New AWS scopes are ENVIRONMENT; legacy bindings preserve application-scope resource identity via ADR-011. UNCONFIGURED Preview/Deploy is rejected 422 field connectionKey before executor/provisioning. For internal-k8s the implicit cluster node binds directly to the Environment Connection under ADR-013, bypassing authored cluster Definition matching. AWS cluster Definitions remain required; no default/host fallback.
 
 ## Editable destination and transition consistency (ADR-012)
 

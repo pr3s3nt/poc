@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-11
 ---
 
 # Operation Contracts
@@ -55,8 +55,7 @@ Superseded by the Editable Environment destinations contracts below.
 - Preconditions: Resource Type, Driver/connection tồn tại; có ít nhất một
   Matching Criterion; references/rules hợp lệ; output contract tương thích.
 - MVP registration chỉ chấp nhận runtime-supported driver/type pairs và embedded
-  Terraform modules; connection tường minh của Terraform/existing-cluster phải
-  READY trong cùng Organization. Không nhận remote source.
+  Terraform modules. VPC/EKS registration requires empty `connectionKey`; any nonempty key returns validation 400 before insert, including a key equal to an Environment target. Registration needs no Environment. Aurora/existing-cluster explicit connections must be READY and correct kind in the same Organization; optional Kubernetes connections retain these checks. Không nhận remote source.
 - Creates: `ResourceDefinition` và một hoặc nhiều `MatchingCriterion`.
 - Postconditions: queryable cho deterministic matching; `{}` tường minh là
   wildcard điểm `0`; optional `execution_profile` filters eligibility before
@@ -163,8 +162,8 @@ Superseded by the Editable Environment destinations contracts below.
 
 - Use case: UC-08.
 - Preconditions: persisted immutable plan; resource-only DAG/batches; matched Definitions; connections `READY`.
-- Target binding: UC-06 BR-20 checks winning internal cluster/Kubernetes and AWS Terraform VPC/EKS Definitions against the saved Environment connection; UC-08 BR-07 rechecks before executor calls. Other external provider resources retain their explicit Driver Account.
-- For each node: resolve prior state and inputs -> executor provision/reconcile -> validate outputs -> atomically persist Active Resource + deployment-resource progress.
+- Target binding: UC-06 BR-20 retains winning-Definition ConnectionMismatch guards; UC-08 BR-07 rechecks before executor calls. Terraform VPC/EKS always resolve the pinned READY AWS Environment connection, with effective identity in plan/hash and ActiveResource. Empty Definition keys inherit without mismatch; malformed conflicting keys fail without alternate candidate selection. Aurora requires its explicit READY AWS Driver Account in the same Organization and never falls back to the Environment account.
+- For each node: resolve prior state and inputs -> validate persisted account identity against the effective connection before reuse -> executor provision/reconcile -> validate outputs -> atomically persist Active Resource + deployment-resource progress. Do not pass prior executor state from another AWS account; unavailable repository reads fail closed.
 - Returns: `ProvisionResult` mapping descriptor to outputs and deployment target.
 - Postconditions: all desired resource nodes `READY`; output bindings available for workload render.
 - Idempotency key: logical identity `(organization, descriptor, scope_type, scope_id)` plus executor state.

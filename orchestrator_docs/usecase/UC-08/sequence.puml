@@ -25,7 +25,8 @@ loop Each provider-first batch [MS-09]
     ActiveResolver --> Service: Existing state
     Service -> BindingResolver: ResolveInputs(node, completedOutputs) [MS-03]
     BindingResolver --> Service: Resolved inputs
-    Service -> Service: Validate target Definition connection equals Environment binding [BR-07]
+    Service -> Service: Validate defensive mismatch; resolve effective READY org/kind account [BR-07]
+    note right of Service: VPC/EKS inherit pinned Environment account; Aurora requires explicit account.
     Service -> Service: Admit system Definition for implicit internal cluster only
     Service -> Registry: Resolve(driverType) [MS-04]
     Registry --> Service: ResourceExecutor

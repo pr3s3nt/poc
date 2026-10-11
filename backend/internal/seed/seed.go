@@ -193,7 +193,6 @@ func ResourceDefinitions(o Options) []resource.Definition {
 			Key:             "cluster-aws-eks",
 			ResourceTypeKey: "k8s-cluster",
 			DriverType:      resource.DriverTerraform,
-			ConnectionKey:   o.CloudConnectionKey,
 			DriverInputs: driverInputs("eks", map[string]any{
 				"name":               "${context.infra.resourceName}",
 				"subnet_ids":         "${resources['vpc.default#@infra'].outputs.subnetIds}",
@@ -209,7 +208,6 @@ func ResourceDefinitions(o Options) []resource.Definition {
 			Key:             "vpc-aws",
 			ResourceTypeKey: "vpc",
 			DriverType:      resource.DriverTerraform,
-			ConnectionKey:   o.CloudConnectionKey,
 			DriverInputs: driverInputs("vpc", map[string]any{
 				"name": "${context.infra.resourceName}",
 				"cidr": cloud.VPCCidr,

@@ -50,6 +50,17 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và VSO → namespace Secret → Pod `secretKeyRef` đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
 | UC-16 | MVP path implemented | Form/Score import, typed resource params, public path + Service port rows, draft save/delete/undo, references, edit deployed workload bằng reconstructed Score, Preview → Deploy và partial retry đã có. Preview bỏ qua no-op draft nhưng giữ UC-12 revision update. Kind đã kiểm tra multi-path BusyBox `/` + `/api`, Fleet route và no-op Pod UID; Backstage cụ thể và broader update/cloud path chưa kiểm chứng. |
 
+## Refactor T16 — Environment AWS account (2026-10-11)
+
+[Local verification](verification/2026-10-11-T16-environment-aws-account.md): public
+Terraform VPC/EKS chỉ nhận ConnectionKey rỗng; form không có selector và execution
+inherit READY AWS Connection của Environment. Aurora giữ account riêng bắt buộc.
+Effective target/hash/executor/ActiveResource nhất quán; malformed winner và
+cross-account state reuse fail closed. New seed bỏ VPC/EKS key, không migrate
+catalog/profile cũ hoặc đổi matcher/ties/reference fixtures. Go/conformance/build,
+378 frontend tests và headed fake T16/T02 pass; video decoded/frame reviewed.
+SQL opt-in/cloud/cluster checks không chạy; không có external mutation/live proof.
+
 ## Console refactor T15 (2026-10-11)
 
 [Local verification](verification/2026-10-11-T15-deployment-details.md): chi tiết

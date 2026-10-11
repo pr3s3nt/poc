@@ -20,6 +20,7 @@ import (
 )
 
 var errConnectionUnavailable = errors.New("the Connection must exist and be READY")
+var errPriorConnectionMismatch = errors.New("the existing resource belongs to another connection and cannot be reused")
 var errConnectionMismatch = errors.New("the Definition connection differs from the Environment connection")
 
 // Request is the input of one UC-08 run.
@@ -132,8 +133,12 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 
 	prior, err := s.store.FindByLogicalIdentity(ctx, req.Context.OrganizationKey, parsed, node.Scope)
 	priorState := map[string]any{}
-	if err == nil {
-		priorState = prior.ExecutorState
+	hasPrior := false
+	switch {
+	case err == nil:
+		priorState, hasPrior = prior.ExecutorState, true
+	case !errors.Is(err, persistence.ErrNotFound):
+		return fmt.Errorf("provisioning: %s: load prior resource: %w", descriptor, err)
 	}
 
 	started := s.clock.Now()
@@ -163,7 +168,12 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 
 	// A missing or non-READY Connection fails before execution instead of
 	// becoming an empty Connection (UC-04 BR-04/BR-10).
-	connection, err := s.store.GetConnection(ctx, req.Context.OrganizationKey, connectionKeyFor(def, req.Context))
+	connectionKey := connectionKeyFor(def, req.Context)
+	var connection appdomain.Connection
+	err = errors.New("connection key is empty")
+	if connectionKey != "" {
+		connection, err = s.store.GetConnection(ctx, req.Context.OrganizationKey, connectionKey)
+	}
 	if err == nil && (connection.Status != appdomain.ConnectionReady || connection.OrganizationKey != req.Context.OrganizationKey) {
 		err = fmt.Errorf("connection is not READY in this organization")
 	}
@@ -171,12 +181,25 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		(connection.Kind != appdomain.ConnectionKubernetes || connection.Key != req.Context.Env.ConnectionKey) {
 		err = fmt.Errorf("connection is not the Kubernetes Environment connection")
 	}
+	if err == nil && def.DriverType == resource.DriverTerraform && connection.Kind != appdomain.ConnectionAWS {
+		err = fmt.Errorf("connection is not an AWS connection")
+	}
 	if err != nil {
 		progress.Status = deployment.ResourceFailed
 		finished := s.clock.Now()
 		progress.FinishedAt = &finished
 		_ = s.store.SaveDeploymentResource(ctx, progress)
-		return fmt.Errorf("provisioning: %s: connection %q is unavailable: %w", descriptor, connectionKeyFor(def, req.Context), errConnectionUnavailable)
+		return fmt.Errorf("provisioning: %s: connection %q is unavailable: %w", descriptor, connectionKey, errConnectionUnavailable)
+	}
+
+	// UC-08 BR-07: prior state is reused only under the same effective
+	// connection identity; another account/target never inherits it.
+	if hasPrior && prior.ConnectionKey != connection.Key {
+		progress.Status = deployment.ResourceFailed
+		finished := s.clock.Now()
+		progress.FinishedAt = &finished
+		_ = s.store.SaveDeploymentResource(ctx, progress)
+		return fmt.Errorf("provisioning: %s: %w", descriptor, errPriorConnectionMismatch)
 	}
 
 	executor, err := s.registry.Resolve(match.DriverType)
@@ -310,7 +333,19 @@ func isSecretInputKey(key string) bool {
 	return false
 }
 
+// connectionKeyFor returns the effective connection identity of a node.
+// Terraform VPC/EKS always use the pinned Environment connection (UC-08 BR-07);
+// other Terraform resources such as Aurora keep their explicit Driver Account
+// and never inherit the Environment account, so a missing key stays empty and
+// fails closed. Other drivers fall back to the Environment connection.
 func connectionKeyFor(def resource.Definition, ctx planning.Context) string {
+	if def.DriverType == resource.DriverTerraform {
+		switch def.ResourceTypeKey {
+		case planning.TypeVPC, planning.TypeCluster:
+			return ctx.Env.ConnectionKey
+		}
+		return def.ConnectionKey
+	}
 	if def.ConnectionKey != "" {
 		return def.ConnectionKey
 	}

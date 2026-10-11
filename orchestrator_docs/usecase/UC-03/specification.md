@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-11
 ---
 
 # UC-03 — Register Resource Definition and Matching Criteria
@@ -20,7 +20,7 @@ last_reviewed: 2026-10-09
 - **PRE-01:** Organization đã tồn tại.
 - **PRE-02:** Resource Type tương ứng đã được đăng ký qua UC-02.
 - **PRE-03:** Driver được tham chiếu đã được orchestrator hỗ trợ.
-- **PRE-04:** Driver Account hoặc cluster connection cần thiết đã được cấu hình qua UC-04.
+- **PRE-04:** Driver Account hoặc cluster connection được tham chiếu đã được cấu hình qua UC-04; Terraform VPC/EKS không tham chiếu account khi đăng ký và không cần Environment tồn tại.
 - **PRE-05:** Platform Engineer có quyền quản lý Resource Definition.
 
 ## Trigger
@@ -42,7 +42,7 @@ last_reviewed: 2026-10-09
 
 ## Luồng biến thể trong happy path
 
-- **VAR-01 — `aws-eks`:** Definitions của `vpc`, `k8s-cluster` và `postgres` dùng Terraform Driver cùng AWS Driver Account.
+- **VAR-01 — `aws-eks`:** Definitions của `vpc`, `k8s-cluster` và `postgres` dùng Terraform Driver; VPC/EKS dùng AWS Connection của Environment khi Preview/Deploy, Aurora dùng AWS Driver Account riêng tường minh.
 - **VAR-02 — `internal-k8s`:** cluster node ngầm resolve Environment Connection, không yêu cầu đăng ký/matching Definition riêng; `postgres` và namespace vẫn matching Definition dùng Kubernetes executor.
 
 ## Hậu điều kiện
@@ -78,9 +78,7 @@ last_reviewed: 2026-10-09
 - **BR-08 (MVP registration):** Chỉ đăng ký implementation mà runtime hiện có
   thể chạy: Terraform module nhúng `vpc`, `eks`, `aurora` cho Resource Type
   tương ứng; Kubernetes cho `k8s-namespace`/`postgres`; existing-cluster cho
-  `k8s-cluster`. Terraform/existing-cluster cần connection tường minh đúng kind,
-  thuộc Organization và `READY`. Kubernetes dùng connection của Environment lúc
-  deploy nếu Definition không chỉ định connection riêng. Với `internal-k8s`, Kubernetes Definition có connection tường minh phải trùng Environment connection khi được match; sai khác gây planning error (UC-06 BR-20). Existing-cluster Definition đăng ký qua API chỉ giữ compatibility; node cluster implicit không match nó (ADR-013). Quy tắc này cũng áp dụng cho Terraform VPC/EKS của `aws-eks`; external resources như database giữ explicit Driver Account semantics.
+  `k8s-cluster`. Terraform module `vpc`/`eks` chỉ nhận `ConnectionKey` rỗng; từ chối mọi key khác rỗng trước insert, kể cả key bằng Connection của Environment. Definition tái sử dụng được và không cần Environment khi đăng ký. Preview/Deploy resolve AWS Connection `READY` đúng Organization của Environment. Terraform `aurora` và existing-cluster cần connection tường minh đúng kind, thuộc Organization và `READY`. Kubernetes dùng connection của Environment lúc deploy nếu Definition không chỉ định connection riêng. Với `internal-k8s`, Kubernetes Definition có connection tường minh phải trùng Environment connection khi được match; sai khác gây planning error (UC-06 BR-20). Existing-cluster Definition đăng ký qua API chỉ giữ compatibility; node cluster implicit không match nó (ADR-013). Guard `ConnectionMismatch` vẫn chặn winning VPC/EKS Definition nội bộ/harness có key khác target trước execution, không chọn ứng viên khác hoặc thêm compatibility đăng ký key bằng target. External database giữ explicit Driver Account semantics.
 - **BR-09:** Đăng ký Terraform Definition phải kiểm tra module tồn tại, các
   biến được khai báo và output Resource Type có thể được cung cấp. Source URL
   từ xa không được chấp nhận trong MVP.

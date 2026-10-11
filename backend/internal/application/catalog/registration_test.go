@@ -92,6 +92,70 @@ func TestRegisterResourceDefinition_RejectsConnectionAndProfileMisuse(t *testing
 	}
 }
 
+// UC-03 BR-08 (T16): Terraform vpc/eks register with an empty ConnectionKey and
+// without any Environment; every nonempty key is rejected before any insert.
+func TestRegisterResourceDefinition_TerraformVPCAndEKSRequireEmptyConnection(t *testing.T) {
+	ctx := context.Background()
+	st, svc, opts := seededCatalog(t, terraform.NewInspector())
+	if err := st.SaveOrganization(ctx, application.Organization{Key: "globex", Name: "Globex"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SaveConnection(ctx, application.Connection{Key: "globex-aws", OrganizationKey: "globex", Kind: application.ConnectionAWS, Status: application.ConnectionReady}); err != nil {
+		t.Fatal(err)
+	}
+	for _, seededKey := range []string{"vpc-aws", "cluster-aws-eks"} {
+		base := seededDefinition(t, opts, seededKey)
+		if base.ConnectionKey != "" {
+			t.Fatalf("seeded %s must not carry a connection: %q", seededKey, base.ConnectionKey)
+		}
+		base.ExecutionProfile = "aws-eks"
+		ok := base
+		ok.Key = "registered-" + seededKey
+		ok.Criteria = []resource.Criterion{{ApplicationID: "registered"}}
+		if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, ok); err != nil {
+			t.Fatalf("%s with an empty key: %v", seededKey, err)
+		}
+		for name, key := range map[string]string{
+			"equal to an Environment target": opts.CloudConnectionKey,
+			"nonexistent":                    "missing",
+			"other Organization":             "globex-aws",
+			"Kubernetes connection":          opts.ConnectionKey,
+		} {
+			bad := base
+			bad.Key = "rejected-" + seededKey + "-" + strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+			bad.ConnectionKey = key
+			before, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
+			_, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, bad)
+			if !errors.Is(err, catalog.ErrInvalid) || !strings.Contains(err.Error(), "leave connectionKey empty") || strings.Contains(err.Error(), key) {
+				t.Fatalf("%s %s: err = %v", seededKey, name, err)
+			}
+			after, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
+			if len(after) != len(before) {
+				t.Fatalf("%s %s: definition was inserted", seededKey, name)
+			}
+		}
+	}
+}
+
+// Aurora keeps requiring an explicit READY AWS account of the Organization.
+func TestRegisterResourceDefinition_AuroraRequiresExplicitAWSAccount(t *testing.T) {
+	ctx := context.Background()
+	st, svc, opts := seededCatalog(t, terraform.NewInspector())
+	if err := st.SaveConnection(ctx, application.Connection{Key: "aurora-account", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionReady}); err != nil {
+		t.Fatal(err)
+	}
+	aurora := seededDefinition(t, opts, "postgres-aws-aurora")
+	aurora.Key, aurora.ConnectionKey = "aurora-separate", "aurora-account"
+	aurora.Criteria = []resource.Criterion{{ApplicationID: "registered"}}
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, aurora); err != nil {
+		t.Fatalf("explicit account: %v", err)
+	}
+	aurora.Key, aurora.ConnectionKey = "aurora-missing", ""
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, aurora); !errors.Is(err, catalog.ErrInvalid) {
+		t.Fatalf("Aurora without an account must be rejected: %v", err)
+	}
+}
+
 type failingInspector struct {
 	planning.ModuleInspector
 }

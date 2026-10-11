@@ -27,7 +27,7 @@ Terraform tự điền `aws-eks` và khóa Phạm vi triển khai; Kubernetes ch
 ở mọi profile nhưng vẫn phải thỏa điều kiện áp dụng; cảnh báo có thể trùng mức
 ưu tiên với cấu hình khác, không tuyên bố đã phát hiện mọi overlap.
 
-Terraform hiện vẫn yêu cầu Kết nối AWS tường minh (T16 mới đổi VPC/EKS).
+Terraform VPC/EKS không hiện ô Kết nối AWS, kể cả phần nâng cao, và luôn gửi `connectionKey: ""`; trợ giúp nêu rõ dùng Kết nối AWS của Môi trường khi Xem trước/Triển khai. Đăng ký không cần Môi trường hoặc danh sách Kết nối tải thành công. Aurora vẫn yêu cầu Kết nối AWS riêng tường minh; lựa chọn được giữ khi chuyển type nhưng không gửi vào VPC/EKS.
 Dropdown dùng metadata của GET `/connections`, chỉ nhận READY đúng kind trong
 Organization của phiên và gửi key kỹ thuật. Kubernetes mặc định không override,
 dùng Kết nối của Môi trường; lựa chọn Kết nối riêng nằm trong phần nâng cao.

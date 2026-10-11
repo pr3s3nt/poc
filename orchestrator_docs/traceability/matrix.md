@@ -349,3 +349,14 @@ integration proof is claimed.
 |---|---|---|---|
 | VI-02/04/05, UC-16 BR-01/07/10, UC-07 Console boundary | UC-01 screens/states T12; UC-07/16 screens T12: Vietnamese pending actions, explicit Deploy, confirmation/Undo, safe errors | ApplicationHomePage tests; headed draft/preview/fake deploy/delete/undo/stale; BUSY and late-scope unit guards | [T12 local verification](../verification/2026-10-11-T12-application-home.md) |
 | UC-01 BR-04/05, VI-02/04/05 | Independent target summary, recent deployments labels and states | ApplicationTarget, RecentDeployments; recent error/retry/order/5-item/link/obsolete response tests | [T12 evidence](../verification/2026-10-11-T12-application-home.md) |
+
+## T16 — RD-02 Terraform account inheritance
+
+| Required behavior | Design/implementation | Verification |
+|---|---|---|
+| UC-03 BR-08: reusable empty VPC/EKS key; reject every explicit key before insert | OC-04; UC-03 sequence; catalog registration and new seed | `TestRegisterResourceDefinition_TerraformVPCAndEKSRequireEmptyConnection`, `TestTerraformVPCEKSRegistrationRejectsConnectionHTTP`, `TestResourceDefinitionsVPCAndEKSHaveNoConnection` |
+| UC-06 BR-20: pinned Environment target/hash, malformed winning conflict without fallback | ADR-011/013; unchanged matcher; UC-06 cloud sequence | `TestPlan_AWSVPCAndEKSInheritIndependentEnvironmentTargets`, `TestPlan_MalformedWinningVPCOrEKSKeyIsRejectedWithoutFallback`; conformance unchanged |
+| UC-08 BR-07: effective READY org/kind account; persisted identity; Aurora explicit; no cross-account reuse | OC-10; UC-08 sequence; provisioning service | `TestProvision_AWSVPCAndEKSInheritEnvironmentConnection`, `TestProvision_AuroraKeepsExplicitAccountAndNeverInherits`, `TestProvision_ReuseNeverCrossesAccounts`, `TestProvision_EffectiveAWSConnectionUnavailableFailsBeforeExecutor` |
+| UC-03 UI: VPC/EKS no selector, empty payload across type switches; Aurora selector retained | UI screens/states/API mapping; ResourceDefinitionsPage | page unit tests, headed fake T16 and T02 regression; [dated evidence](../verification/2026-10-11-T16-environment-aws-account.md) |
+
+SQL opt-in and real AWS/cluster verification are not claimed by local evidence.

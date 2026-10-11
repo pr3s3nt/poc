@@ -2,7 +2,7 @@
 id: UC-08-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-11
 ---
 
 # UC-08 — Provision Infrastructure and Application Resources
@@ -117,7 +117,7 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 
 ## Environment connection binding
 
-- **BR-07:** Internal Kubernetes and AWS VPC/EKS execution must use pinned Environment connection; mismatch rejected before executor. External resource Driver Account semantics remain. Reuse validates persisted resource connection identity; do not execute against another Environment target. New AWS infrastructure uses Environment scope; legacy AWS retains old Application descriptors/state under ADR-011.
+- **BR-07:** Internal Kubernetes and AWS VPC/EKS execution must use pinned READY Environment connection in the owning Organization; VPC/EKS effective account is always the Environment AWS connection, never a Definition override. Defensive mismatches are rejected before executor invocation. Persist this effective account in ActiveResource identity consistently with plan/hash. Aurora requires its explicit READY AWS account in the same Organization and must not inherit the Environment account when absent. External resource Driver Account semantics remain. Reuse validates persisted resource connection identity; do not execute against another Environment target. New AWS infrastructure uses Environment scope; legacy AWS retains old Application descriptors/state under ADR-011.
 
 ## Editable destination and transition consistency (ADR-012)
 

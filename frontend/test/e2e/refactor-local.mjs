@@ -117,9 +117,8 @@ export const SCENARIOS = {
     await expect(ui('resourceDefinitions', 'scope')).toHaveValue('aws-eks');
     await expect(ui('resourceDefinitions', 'scope')).toBeDisabled();
     await expect(page.locator('code', { hasText: /^vpc$/ })).toBeVisible();
-    const awsValues = await ui('resourceDefinitions', 'awsConnection').locator('option').evaluateAll((options) => options.map((option) => option.value));
-    expect(awsValues, 'only READY AWS connections').toEqual(['', 'aws-account']);
-    check('vpc: terraform driver, aws-eks scope locked, module vpc, AWS dropdown lists only aws-account');
+    await expect(ui('resourceDefinitions', 'awsConnection')).toHaveCount(0);
+    check('vpc: terraform driver, aws-eks scope locked, module vpc, no AWS account control (T16: the Environment connection is used)');
     mark('vpc-controls');
     await h.moveTo(ui('resourceDefinitions', 'driver'));
     await h.read('Terraform, aws-eks và module vpc được tự điền');
@@ -159,9 +158,9 @@ export const SCENARIOS = {
     mark('kube-override');
     await h.read('Kết nối riêng chỉ là tùy chọn nâng cao');
 
-    caption('Bước 6: Quay lại vpc, chọn Kết nối AWS và nhập tham số sai kiểu; máy chủ từ chối và form được giữ');
+    caption('Bước 6: Quay lại vpc (không có ô Kết nối AWS) và nhập tham số sai kiểu; máy chủ từ chối và form được giữ');
     await h.choose(ui('resourceDefinitions', 'type'), 'vpc');
-    await h.choose(ui('resourceDefinitions', 'awsConnection'), 'aws-account');
+    await expect(ui('resourceDefinitions', 'awsConnection')).toHaveCount(0);
     const badVars = '{"name":"${context.infra.resourceName}","cidr":2}';
     await h.type(ui('resourceDefinitions', 'variables'), badVars, { replace: true, delay: 30 });
     await h.click(ui('resourceDefinitions', 'submit'));
@@ -193,8 +192,9 @@ export const SCENARIOS = {
     const entry = page.locator('.catalog-entry').filter({ has: page.getByText('vpc-t02', { exact: true }) });
     await expect(entry).toContainText('vpc · AWS · Tạo trên AWS (Terraform) · 1 điều kiện áp dụng');
     const vpc = (await definitions()).find((item) => item.key === 'vpc-t02');
-    expect(vpc).toMatchObject({ resourceType: 'vpc', executionProfile: 'aws-eks', driverType: 'terraform', connectionKey: 'aws-account' });
-    check('registered vpc-t02: payload aws-eks, terraform, connection aws-account, listed in UI');
+    expect(vpc).toMatchObject({ resourceType: 'vpc', executionProfile: 'aws-eks', driverType: 'terraform' });
+    expect(vpc.connectionKey ?? '').toBe('');
+    check('registered vpc-t02: payload aws-eks, terraform, empty connection (T16), listed in UI');
     mark('vpc-registered');
     await h.moveTo(entry);
     await h.read('Đã đăng ký vpc-t02');
@@ -3649,6 +3649,212 @@ export const SCENARIOS = {
     expect(await apiList('staging')).toHaveLength(2);
     check(`read-only (real): zero non-GET requests after the product Deploy steps; deployments still 2; mocks used (${mocks.length} activations, see mocks.json); mocks are UI projections only, not proof of a real adapter`);
     mark('read-only');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(3000);
+  },
+
+  // T16: VPC/EKS luôn dùng Kết nối AWS của Môi trường. Fake adapters, state JSON tạm.
+  // SETUP (UI, Nhà phát triển): tạo ứng dụng và chọn Kết nối AWS aws-account cho Staging.
+  // SETUP/ASSERTION (API, không phải thao tác sản phẩm): POST resource-definitions với
+  // connectionKey khác rỗng để chứng minh API từ chối 400; chỉ đọc danh sách để xác minh.
+  async T16({ page, h, ui, caption, mark, check, baseURL }) {
+    const NAME = 'T16 Kết nối Môi trường';
+    const apiDefinitions = async () => (await (await page.request.get(`${baseURL}/api/v1/resource-definitions`)).json()).resourceDefinitions;
+    const apiDefinition = async (key) => (await apiDefinitions()).find((item) => item.key === key);
+    const posts = [];
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/resource-definitions') posts.push(request.postDataJSON());
+    });
+    const registered = (key) => expect(page.getByRole('status').filter({ hasText: `Đã đăng ký cấu hình tài nguyên ${key}.` })).toBeVisible();
+    const editor = page.locator('.criteria-editor');
+    const select = (text) => editor.locator('label').filter({ hasText: text }).locator('select');
+    let appId = '';
+    // Same module inputs as the seeded Definitions; literals match the declared types.
+    const eksVars = JSON.stringify({ name: '${context.infra.resourceName}', subnet_ids: "${resources['vpc.default#@infra'].outputs.subnetIds}", kubernetes_version: '1.34', node_instance_type: 't4g.small', node_capacity_type: 'SPOT', node_ami_type: 'AL2023_ARM_64_STANDARD', node_disk_size: 20 });
+    const auroraVars = JSON.stringify({ name: '${context.infra.resourceName}', engine_version: '16.14', min_capacity: 0, max_capacity: 1, vpc_id: "${resources['vpc.default#@infra'].outputs.id}", vpc_cidr: "${resources['vpc.default#@infra'].outputs.cidr}", subnet_ids: "${resources['vpc.default#@infra'].outputs.subnetIds}" });
+
+    caption('SETUP (qua giao diện): Nhà phát triển đăng nhập, tạo ứng dụng và chọn Kết nối AWS aws-account cho Staging');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'developer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    appId = await createApplication(h, NAME, 't16-ket-noi-moi-truong', { connections: { staging: 'aws-account' } });
+    await expect(page.getByText('aws-account').first()).toBeVisible();
+    check('setup via UI: application created and Staging bound to the fake AWS connection aws-account (not product steps of T16)');
+    mark('setup-app');
+    await h.read('Thiết lập: ứng dụng Staging dùng Kết nối AWS aws-account');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+
+    caption('Bước 1: Kỹ sư nền tảng đăng nhập và mở Cấu hình tài nguyên');
+    await h.type(ui('signIn', 'username'), 'platform-engineer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await h.click(ui('shell', 'navResourceDefinitions'));
+    await expect(ui('resourceDefinitions', 'heading')).toBeVisible();
+    mark('definitions-page');
+    await h.pause(SHORT_READ);
+
+    caption('Bước 2: Chọn vpc: không có ô Kết nối AWS, kể cả Nâng cao; trợ giúp nói rõ dùng Kết nối của Môi trường');
+    await h.type(ui('resourceDefinitions', 'id'), 'vpc-t16');
+    await h.choose(ui('resourceDefinitions', 'type'), 'vpc');
+    await expect(ui('resourceDefinitions', 'driver')).toHaveValue('terraform');
+    await expect(ui('resourceDefinitions', 'awsConnection')).toHaveCount(0);
+    const note = page.getByRole('note').filter({ hasText: 'dùng Kết nối AWS của Môi trường' });
+    await expect(note).toContainText('Xem trước hoặc Triển khai');
+    await h.click(ui('resourceDefinitions', 'showAdvanced'));
+    await expect(ui('resourceDefinitions', 'awsConnection')).toHaveCount(0);
+    check('vpc: no AWS account control (also under Nâng cao); Vietnamese note explains Environment inheritance');
+    mark('vpc-no-account');
+    await h.moveTo(note);
+    await h.read('VPC dùng Kết nối AWS của Môi trường; không chọn tài khoản ở đây');
+
+    caption('Bước 3: Đặt điều kiện Theo ứng dụng cho ứng dụng thử rồi đăng ký vpc không có tài khoản');
+    await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
+    await h.choose(select(/^Ứng dụng(?! mẫu)/), `${NAME} (${appId})`);
+    await h.type(ui('resourceDefinitions', 'variables'), '{"name":"${context.infra.resourceName}","cidr":"10.30.0.0/16"}', { replace: true, delay: 30 });
+    await h.click(ui('resourceDefinitions', 'submit'));
+    await registered('vpc-t16');
+    expect(posts.at(-1)).toMatchObject({ key: 'vpc-t16', resourceType: 'vpc', driverType: 'terraform', executionProfile: 'aws-eks', connectionKey: '' });
+    const vpc = await apiDefinition('vpc-t16');
+    expect(vpc.connectionKey ?? '').toBe('');
+    expect(vpc.criteria).toEqual([{ app_id: appId }]);
+    check('registered vpc-t16 through UI: POST payload and stored Definition have empty connectionKey');
+    mark('vpc-registered');
+    await h.pause(SHORT_READ);
+
+    caption('Bước 4: Đăng ký k8s-cluster (module eks) cũng không có tài khoản');
+    await h.type(ui('resourceDefinitions', 'id'), 'eks-t16');
+    await h.choose(ui('resourceDefinitions', 'type'), 'k8s-cluster');
+    await expect(page.locator('code', { hasText: /^eks$/ })).toBeVisible();
+    await expect(ui('resourceDefinitions', 'awsConnection')).toHaveCount(0);
+    // The seeded EKS Definition matches Class eks; app + Class eks is strictly more specific.
+    await h.click(editor.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
+    await h.type(editor.getByLabel('Điều kiện 1 ID ứng dụng'), appId);
+    await h.type(editor.getByLabel('Điều kiện 1 Class'), 'eks');
+    await h.type(ui('resourceDefinitions', 'variables'), eksVars, { replace: true, delay: 5 });
+    await h.click(ui('resourceDefinitions', 'submit'));
+    await registered('eks-t16');
+    expect(posts.at(-1)).toMatchObject({ key: 'eks-t16', resourceType: 'k8s-cluster', driverType: 'terraform', connectionKey: '' });
+    expect((await apiDefinition('eks-t16')).connectionKey ?? '').toBe('');
+    expect((await apiDefinition('eks-t16')).criteria).toEqual([{ app_id: appId, class: 'eks' }]);
+    check('registered eks-t16 through UI: empty connectionKey');
+    mark('eks-registered');
+    await h.pause(SHORT_READ);
+
+    caption('Bước 5: Aurora (postgres + Terraform) vẫn bắt buộc chọn Kết nối AWS riêng; thiếu thì bị chặn cục bộ');
+    await h.type(ui('resourceDefinitions', 'id'), 'aurora-t16');
+    await h.choose(ui('resourceDefinitions', 'type'), 'postgres');
+    await h.choose(ui('resourceDefinitions', 'driver'), 'Tạo trên AWS (Terraform)');
+    await expect(ui('resourceDefinitions', 'awsConnection')).toBeVisible();
+    await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
+    await h.choose(select(/^Ứng dụng(?! mẫu)/), `${NAME} (${appId})`);
+    await h.type(ui('resourceDefinitions', 'variables'), auroraVars, { replace: true, delay: 5 });
+    const postsBefore = posts.length;
+    await h.click(ui('resourceDefinitions', 'submit'));
+    await expect(page.locator('form .form-error[role="alert"]')).toContainText('Chọn một Kết nối AWS sẵn sàng');
+    expect(posts.length).toBe(postsBefore);
+    check('Aurora without account: Vietnamese local error, no POST');
+    mark('aurora-required');
+    await h.moveTo(page.locator('form .form-error[role="alert"]'));
+    await h.read('Aurora cần Kết nối AWS riêng');
+
+    caption('Bước 6: Chọn aws-account cho Aurora, đổi sang vpc rồi quay lại: lựa chọn Aurora được giữ nhưng không gửi cho VPC/EKS');
+    await h.choose(ui('resourceDefinitions', 'awsConnection'), 'aws-account');
+    await h.choose(ui('resourceDefinitions', 'type'), 'vpc');
+    await expect(ui('resourceDefinitions', 'awsConnection')).toHaveCount(0);
+    await h.choose(ui('resourceDefinitions', 'type'), 'postgres');
+    await expect(ui('resourceDefinitions', 'driver')).toHaveValue('terraform');
+    await expect(ui('resourceDefinitions', 'awsConnection')).toHaveValue('aws-account');
+    check('type switch vpc <-> postgres keeps the Aurora account selection; VPC shows no selector');
+    mark('aurora-selection-kept');
+    await h.read('Lựa chọn Aurora được giữ khi đổi loại');
+
+    caption('Bước 7: Đăng ký Aurora với Kết nối AWS riêng; sau đó đăng ký lại vpc: payload vẫn rỗng dù vừa chọn tài khoản');
+    await h.click(ui('resourceDefinitions', 'submit'));
+    await registered('aurora-t16');
+    expect(posts.at(-1)).toMatchObject({ key: 'aurora-t16', resourceType: 'postgres', driverType: 'terraform', connectionKey: 'aws-account' });
+    expect((await apiDefinition('aurora-t16')).connectionKey).toBe('aws-account');
+    expect((await apiDefinition('vpc-t16')).connectionKey ?? '').toBe('');
+    await h.type(ui('resourceDefinitions', 'id'), 'vpc-t16-after-aurora');
+    await h.choose(ui('resourceDefinitions', 'type'), 'vpc');
+    await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
+    await h.choose(select(/^Ứng dụng(?! mẫu)/), `${NAME} (${appId})`);
+    // Limited to Production so it never ties with vpc-t16 on the Staging Preview below.
+    const productionLabel = (await select(/^Môi trường \(tùy chọn\)/).locator('option').allTextContents()).find((text) => text.includes('(production)'));
+    expect(productionLabel, 'production environment option').toBeTruthy();
+    await h.choose(select(/^Môi trường \(tùy chọn\)/), productionLabel);
+    await h.type(ui('resourceDefinitions', 'variables'), '{"name":"${context.infra.resourceName}","cidr":"10.31.0.0/16"}', { replace: true, delay: 30 });
+    await h.click(ui('resourceDefinitions', 'submit'));
+    await registered('vpc-t16-after-aurora');
+    expect(posts.at(-1)).toMatchObject({ key: 'vpc-t16-after-aurora', connectionKey: '' });
+    check('registered aurora-t16 with its own account aws-account; VPC registered afterwards still sends connectionKey ""');
+    mark('aurora-registered');
+    await h.pause(SHORT_READ);
+
+    caption('SETUP/ASSERTION (API, không phải thao tác sản phẩm): gửi trực tiếp connectionKey khác rỗng cho vpc/eks; API từ chối 400 và không lưu');
+    const before = (await apiDefinitions()).length;
+    for (const [type, module] of [['vpc', 'vpc'], ['k8s-cluster', 'eks']]) {
+      for (const [label, connectionKey] of [['aws-account (bằng đích Môi trường)', 'aws-account'], ['không tồn tại', 'khong-ton-tai']]) {
+        const response = await page.request.post(`${baseURL}/api/v1/resource-definitions`, { data: {
+          key: `api-reject-${module}-${connectionKey}`, resourceType: type, executionProfile: 'aws-eks', driverType: 'terraform', connectionKey,
+          driverInputs: { values: { variables: {}, source: { module } } }, criteria: [{}],
+        } });
+        expect(response.status(), `${type} with ${label}`).toBe(400);
+        const text = JSON.stringify(await response.json());
+        expect(text).toContain('leave connectionKey empty');
+        expect(text).not.toContain(connectionKey);
+      }
+    }
+    expect((await apiDefinitions()).length).toBe(before);
+    check('API (setup/assertion): vpc and eks with nonempty keys (equal to the target, nonexistent) -> 400 safe message, nothing inserted');
+    mark('api-reject');
+    await h.read('API từ chối mọi connectionKey khác rỗng cho VPC/EKS');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+
+    caption('Bước 8: Nhà phát triển mở Xem trước Score của Staging: đích hiển thị Kết nối aws-account');
+    await h.type(ui('signIn', 'username'), 'developer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await h.click(page.getByRole('link', { name: NAME }).or(page.getByRole('button', { name: NAME })).first());
+    await expect(page.getByRole('heading', { name: NAME })).toBeVisible();
+    await h.click(page.getByRole('button', { name: 'Xem trước Score' }));
+    await expect(page.getByRole('heading', { name: 'Xem trước Score', level: 1 })).toBeVisible();
+    await expect(page.getByLabel('Đích triển khai')).toContainText('Kết nối aws-account');
+    mark('preview-page');
+    await h.moveTo(page.getByLabel('Đích triển khai'));
+    await h.read('Đích triển khai của Staging là Kết nối AWS aws-account');
+
+    caption('Bước 9: Xem trước workload dùng postgres: VPC/EKS đã đăng ký khớp mà không có tài khoản riêng; Aurora dùng cấu hình đã đăng ký');
+    const score = 'apiVersion: score.dev/v1b1\nmetadata:\n  name: api\ncontainers:\n  main:\n    image: registry.example/api:t16\nresources:\n  db:\n    type: postgres\n    params:\n      database: acceptance\n      username: app\n';
+    await h.type(page.getByLabel('ID Workload'), 'api', { replace: true });
+    await h.type(page.getByLabel('ID lần chạy'), 'run-t16', { replace: true });
+    await h.type(page.getByLabel('Score sau (YAML hoặc JSON)'), score, { delay: LONG_TYPE_DELAY, replace: true });
+    const previewResponse = page.waitForResponse((response) => response.request().method() === 'POST' && response.url().endsWith('/score-preview'));
+    await h.click(page.getByRole('button', { name: 'Xem trước', exact: true }));
+    const previewReply = await previewResponse;
+    expect(previewReply.status(), 'score-preview status').toBe(200);
+    const previews = [await previewReply.json()];
+    const result = page.getByRole('region', { name: 'Kết quả xem trước Score' });
+    await expect(result).toBeVisible();
+    const links = result.locator('section.content-panel').filter({ has: page.getByRole('heading', { name: 'Liên kết thực thi tài nguyên', exact: true }) });
+    await expect(links).toContainText('vpc-t16');
+    await expect(links).toContainText('eks-t16');
+    await expect(links).toContainText('aurora-t16');
+    const keys = Object.fromEntries(previews[0].matches.map((match) => [match.definitionKey, match.driverType]));
+    expect(keys).toMatchObject({ 'vpc-t16': 'terraform', 'eks-t16': 'terraform', 'aurora-t16': 'terraform' });
+    expect(JSON.stringify(previews[0])).not.toMatch(/secret|password/i);
+    check('Preview (real backend, fake adapters): winning matches are UI-registered vpc-t16, eks-t16 (no account) and aurora-t16 on Staging bound to aws-account; vpc-t16-after-aurora (Production only) does not tie. NOTE: aws-account is both the Environment target and Aurora\'s explicit key in this run; distinct accounts are covered by backend tests only');
+    mark('preview-result');
+    await h.moveTo(links);
+    await h.read('Xem trước chọn đúng cấu hình VPC, EKS và Aurora đã đăng ký');
     await h.click(ui('shell', 'signOut'));
     await expect(ui('signIn', 'username')).toBeVisible();
     mark('signed-out');

@@ -2,7 +2,7 @@
 id: UC-06-PLANNER-REFERENCE
 artifact: technical-reference-analysis
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-11
 ---
 
 # UC-06 Planner Reference Analysis
@@ -219,7 +219,10 @@ Planner challenge giải quyết tốt phần deterministic desired-state planni
 UC-01 Settings set-once target feeds one Environment resolver. New AWS implicit
 VPC/EKS use Environment scope; legacy AWS keeps existing Application identity.
 Matching guards and UC-08 validate selected Environment target without changing
-specificity/ties. Context app.profile/app.region aliases project Environment
+specificity/ties. UC-03 BR-08 requires empty public VPC/EKS Definition ConnectionKey;
+UC-08 resolves the effective pinned Environment AWS account, while Aurora keeps
+its explicit account. The plan target participates in PlanHash; malformed
+conflicting winning Definitions fail without alternate candidate selection. Context app.profile/app.region aliases project Environment
 values only for legacy Definition contracts; canonical env values and pinned
 connection/scope determine execution. See [ADR-011](../architecture/decisions/ADR-011-environment-execution-binding.md).
 

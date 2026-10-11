@@ -231,3 +231,19 @@ và DeploymentPages tests kiểm nhãn/status/order/link/retry và obsolete repl
 target summary dùng chung; shared human helper và e2e selectors theo nhãn mới.
 [Scenario T12](../../frontend/test/e2e/refactor-local.mjs) có native confirmation
 visible và fake/projection boundaries trong [verification](../verification/2026-10-11-T12-application-home.md).
+
+## T16 — Terraform Environment account inheritance
+
+UC-03 BR-08 → [catalog registration](../../backend/internal/application/catalog/service.go),
+[registration tests](../../backend/internal/application/catalog/registration_test.go),
+[HTTP tests](../../backend/test/e2e/terraform_connection_http_test.go) và
+[new product seeds](../../backend/internal/seed/seed.go).
+UC-06 BR-20/UC-08 BR-07 → unchanged matcher guard,
+[connection tests](../../backend/internal/planning/connection_binding_test.go),
+[effective account/prior-state validation](../../backend/internal/application/provisioning/service.go)
+và [provision tests](../../backend/internal/application/provisioning/service_test.go).
+[Console form](../../frontend/src/features/platform/ResourceDefinitionsPage.tsx)
+giữ Aurora selector và luôn gửi empty VPC/EKS key;
+[scenario/runner](../../frontend/test/e2e/refactor-local.mjs) và
+[local shell](../../backend/test/integration/refactor-ui-local.sh) kiểm headed fake.
+[Evidence](../verification/2026-10-11-T16-environment-aws-account.md) ghi giới hạn SQL/live.
