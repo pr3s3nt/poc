@@ -93,6 +93,12 @@ Preview chỉ chọn renderer, không chạy render/provision; bundle list thu�
 
 ## UC-04
 
+T06 CN-01/02 UI behavior: [canonical UI states](../usecase/UC-04/ui/states.md),
+`ConnectionsPage.test.tsx` (auto-inspect/debounce, single/multi context, name
+ownership, stale file-read/inspect, retry/unmount, safe errors), T06 headed local
+scenario and [evidence](../verification/2026-10-11-T06-connections.md).
+Inspect/register contracts and HOST_CONTEXT compatibility remain unchanged.
+
 Kubernetes upload implementation and local/isolated PostgreSQL tests pass on
 2026-10-06. [Video verification and review](../verification/2026-10-06-uc04-kubeconfig-upload.md)
 are recorded separately. AWS remains future scope.

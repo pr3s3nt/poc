@@ -6,7 +6,7 @@
 // Every product step is a UI action; API reads only assert results. Marks,
 // captions, assertions and the video are written also when a step fails.
 import { expect } from '@playwright/test';
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { requireCaptionLocale, createCaptions } from './captions.mjs';
 import { addWorkload, createApplication, createHuman, expectVisibleCursor, installCursor } from './human.mjs';
 import { assertTablesComplete, locators } from './locators.mjs';
@@ -931,6 +931,289 @@ export const SCENARIOS = {
     mark('list-absent-configured');
     await h.moveTo(row('Kho B'));
     await h.read('Backend đã xác minh nhưng xác thực Kubernetes chưa cấu hình; hai thông tin tách riêng');
+
+    caption('Bước 12: Đăng xuất; phiên bị thu hồi');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(3000);
+  },
+  // T06: trang Kết nối. Platform Engineer; backend fake với memory credential
+  // store, không state file. Inspect, parser, cảnh báo và xác minh thất bại
+  // (422) là backend thật: kubeconfig tổng hợp trỏ tới endpoint .invalid nên
+  // verifier kubectl thật không tới được cụm nào. Playwright route (ghi rõ
+  // "MOCK" trong captions/assertions) chỉ dùng cho: (1) giữ phản hồi inspect của
+  // một document lại rồi thả muộn bằng route.continue (kết quả vẫn do backend
+  // thật trả), (2) giả lập POST đăng ký thành công 201 và projection danh sách
+  // sau đó, vì fake backend không có verifier thành công cho kubeconfig.
+  // Token trong fixture chỉ là chuỗi tổng hợp; không có credential thật.
+  async T06({ page, h, ui, caption, mark, check, baseURL }) {
+    const TOKEN = 'synthetic-t06-token-0123456789abcdef';
+    const evidenceDir = process.env.ORCH_E2E_EVIDENCE_DIR;
+    const fixtures = `${evidenceDir}/fixtures`;
+    mkdirSync(fixtures, { recursive: true });
+    const doc = (marker, entries, current) => [
+      'apiVersion: v1', 'kind: Config', `# ${marker}`,
+      'clusters:', ...entries.flatMap(([, cluster]) => [`- name: ${cluster}`, '  cluster:', `    server: https://${cluster}.invalid:6443`]),
+      'users:', '- name: t06-user', '  user:', `    token: ${TOKEN}`,
+      'contexts:', ...entries.flatMap(([context, cluster]) => [`- name: ${context}`, '  context:', `    cluster: ${cluster}`, '    user: t06-user']),
+      `current-context: ${current ?? entries[0][0]}`,
+    ].join('\n');
+    const single = doc('t06-single', [['ctx-a', 'cluster-a']]);
+    const multi = doc('t06-multi', [['dev-t06', 'cluster-dev'], ['prod-t06', 'cluster-prod']], 'prod-t06');
+    const delayed = doc('t06-delayed', [['ctx-late', 'cluster-late']]);
+    const docB = doc('t06-b', [['ctx-b', 'cluster-b']]);
+    writeFileSync(`${fixtures}/single.kubeconfig`, single);
+    writeFileSync(`${fixtures}/multi.kubeconfig`, multi);
+
+    const inspects = [];
+    const registers = [];
+    page.on('request', (request) => {
+      const path = new URL(request.url()).pathname;
+      if (request.method() === 'POST' && path === '/api/v1/connections/kubernetes/inspect') inspects.push(request.postDataJSON());
+      if (request.method() === 'POST' && path === '/api/v1/connections/kubernetes') registers.push(request.postDataJSON());
+    });
+    // MOCK 1: hold the inspect reply of the marked document, then let the real backend answer late.
+    const gate = { armed: false, release: () => {}, promise: Promise.resolve() };
+    await page.route('**/api/v1/connections/kubernetes/inspect', async (route) => {
+      if (gate.armed && (route.request().postData() ?? '').includes('t06-delayed')) { gate.armed = false; await gate.promise; }
+      await route.continue();
+    });
+    // MOCK 2: successful registration and the list projection that follows it.
+    let mockSave = false;
+    let savedRow;
+    await page.route('**/api/v1/connections/kubernetes', async (route) => {
+      if (route.request().method() !== 'POST' || !mockSave) { await route.continue(); return; }
+      const { name } = route.request().postDataJSON();
+      savedRow = { key: 'cum-thu-t06', name, kind: 'KUBERNETES', authenticationType: 'KUBECONFIG', status: 'READY', config: { cluster: 'cluster-b', kubeContext: 'ctx-b', endpoint: 'https://cluster-b.invalid:6443' } };
+      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(savedRow) });
+    });
+    await page.route('**/api/v1/connections', async (route) => {
+      if (route.request().method() !== 'GET' || !savedRow) { await route.continue(); return; }
+      const response = await route.fetch();
+      const data = await response.json();
+      await route.fulfill({ response, json: { ...data, connections: [...data.connections, savedRow] } });
+    });
+
+    const connectionsApi = async () => (await (await page.request.get(`${baseURL}/api/v1/connections`)).json()).connections;
+    const name = () => ui('connections', 'name');
+    const content = () => ui('connections', 'content');
+    const summary = () => page.getByLabel('Đích đã chọn');
+    const alert = () => page.locator('form .form-error[role="alert"]');
+    const fileInput = () => page.locator('input[type="file"]');
+    const inspectReply = () => page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/v1/connections/kubernetes/inspect');
+    const uploadFile = async (path) => {
+      const chooser = page.waitForEvent('filechooser');
+      chooser.catch(() => {});
+      await h.click(fileInput());
+      await (await chooser).setFiles(path);
+    };
+    // The DOM minus textareas (masked pasted documents live only there) never holds the token.
+    /* global document -- runs inside the browser page. */
+    const noLeak = async () => {
+      const leaks = await page.evaluate((token) => {
+        const found = [];
+        if (document.body.innerText.includes(token)) found.push('text');
+        for (const element of document.querySelectorAll('*')) {
+          if (element.tagName === 'TEXTAREA') continue;
+          for (const attribute of element.attributes) if (attribute.value.includes(token)) found.push(`attribute ${attribute.name}`);
+          if (['INPUT', 'SELECT'].includes(element.tagName) && element.value.includes(token)) found.push('field value');
+        }
+        return found;
+      }, TOKEN);
+      expect(leaks, 'token outside the masked textarea').toEqual([]);
+    };
+
+    caption('Bước 1: Kỹ sư nền tảng đăng nhập bằng tài khoản thử nghiệm cục bộ');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'platform-engineer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    mark('applications');
+
+    caption('Bước 2: Mở trang Kết nối; danh sách tiếng Việt, chỉ kết nối Sẵn sàng, không có nút Inspect');
+    await h.click(ui('shell', 'navConnections'));
+    await expect(ui('connections', 'heading')).toBeVisible();
+    const table = page.getByRole('table', { name: 'Kết nối đã đăng ký' });
+    await expect(table).toBeVisible();
+    await expect(table.locator('tbody tr').first()).toContainText('Sẵn sàng');
+    await expect(page.getByRole('button', { name: /Inspect|Kiểm tra lại/ })).toHaveCount(0);
+    await expect(ui('connections', 'submit')).toBeVisible();
+    const baseline = (await connectionsApi()).length;
+    check('page (real fake backend): Vietnamese heading, READY list "Sẵn sàng", no manual inspect button');
+    mark('connections-page');
+    await h.moveTo(table);
+    await h.read('Trang tiếng Việt; chỉ kết nối Sẵn sàng được liệt kê');
+
+    caption('Bước 3: Tải lên file có một context; Console tự inspect, tự chọn context và gợi ý tên từ cluster, không lưu gì');
+    await uploadFile(`${fixtures}/single.kubeconfig`);
+    await expect(summary()).toContainText('Context ctx-a');
+    await expect(summary()).toContainText('Cluster cluster-a');
+    await expect(name()).toHaveValue('cluster-a');
+    await expect(page.getByText(/Đã chọn file: single.kubeconfig/)).toBeVisible();
+    expect(inspects.length, 'one automatic inspect').toBe(1);
+    expect(inspects[0]).toEqual({ kubeconfig: single });
+    expect(registers, 'inspect never registers').toEqual([]);
+    expect((await connectionsApi()).length, 'nothing persisted').toBe(baseline);
+    await noLeak();
+    check('upload (real backend parser): auto inspect once after file read, single context auto-selected, name suggested "cluster-a", 0 register POST, list unchanged, token not on screen');
+    mark('upload-auto-inspect');
+    await h.moveTo(summary());
+    await h.read('Chỉ một context nên được chọn sẵn; tên gợi ý đi theo cluster');
+
+    caption('Bước 4: Tải file nhiều context; gợi ý tên biến mất, UI không đoán theo current-context (prod-t06) và không tự chọn');
+    await uploadFile(`${fixtures}/multi.kubeconfig`);
+    await expect(ui('connections', 'context')).toBeVisible();
+    await expect(ui('connections', 'context')).toHaveValue('');
+    await expect(summary()).toHaveCount(0);
+    await expect(name()).toHaveValue('');
+    expect(inspects.length).toBe(2);
+    expect(registers).toEqual([]);
+    check('multi-context (real backend): select empty although current-context=prod-t06, no summary, suggestion cleared with the old document');
+    mark('multi-context');
+    await h.read('Nhiều context phải chọn tường minh; Console không đoán');
+
+    caption('Bước 5: Chọn dev-t06 thì tên gợi ý theo cluster-dev; tự sửa tên thì đổi context không ghi đè');
+    await h.choose(ui('connections', 'context'), 'dev-t06');
+    await expect(summary()).toContainText('Cluster cluster-dev');
+    await expect(name()).toHaveValue('cluster-dev');
+    await h.type(name(), 'Cụm thử T06', { replace: true });
+    await h.choose(ui('connections', 'context'), 'prod-t06');
+    await expect(summary()).toContainText('Cluster cluster-prod');
+    await expect(name()).toHaveValue('Cụm thử T06');
+    check('name ownership: untouched suggestion followed context; after user edit, another context did not overwrite');
+    mark('name-owned');
+    await h.read('Tên người dùng đã sửa được giữ nguyên khi đổi context');
+
+    caption('Bước 6: Xóa trống tên rồi đổi file; tên trống cũng là lựa chọn của người dùng, không bị gợi ý ghi đè');
+    await h.type(name(), '', { replace: true });
+    await expect(name()).toHaveValue('');
+    await uploadFile(`${fixtures}/single.kubeconfig`);
+    await expect(summary()).toContainText('Context ctx-a');
+    await expect(name()).toHaveValue('');
+    expect(registers).toEqual([]);
+    check('blank name stays blank after switching file and auto-selecting a single context');
+    mark('blank-name-kept');
+    await h.read('Tên để trống vẫn do người dùng sở hữu');
+
+    caption('Bước 7: Chuyển sang nhập nội dung; nội dung bị che, vừa gõ chưa inspect, gõ xong và ổn định mới inspect đúng một lần');
+    await h.click(ui('connections', 'sourcePaste'));
+    await expect(summary()).toHaveCount(0);
+    await expect(content()).toHaveClass(/masked-text/);
+    const before = inspects.length;
+    const settled = inspectReply();
+    await h.click(content());
+    const typing = content().pressSequentially(docB, { delay: 25 });
+    await page.waitForTimeout(2500);
+    expect(inspects.length, 'no inspect while the document is still being typed').toBe(before);
+    await typing;
+    await settled;
+    await expect(summary()).toContainText('Cluster cluster-b');
+    expect(inspects.length, 'exactly one debounced inspect').toBe(before + 1);
+    await page.waitForTimeout(1200);
+    expect(inspects.length, 'no extra inspect').toBe(before + 1);
+    await noLeak();
+    check('typed paste (real backend): masked textarea, no inspect while typing, one inspect after the document settled, no register');
+    mark('paste-debounced');
+    await h.moveTo(summary());
+    await h.read('Gõ xong mới inspect một lần, không inspect từng ký tự');
+
+    caption('Bước 8: Nhập lại trang. Dán document trễ (route MOCK giữ phản hồi inspect), gõ tên, rồi đổi sang document khác; phản hồi muộn bị bỏ');
+    await page.reload();
+    await expect(ui('connections', 'heading')).toBeVisible();
+    await h.click(ui('connections', 'sourcePaste'));
+    gate.promise = new Promise((resolve) => { gate.release = resolve; });
+    gate.armed = true;
+    await h.paste(content(), delayed);
+    await expect(page.getByText('Đang kiểm tra kubeconfig…')).toBeVisible({ timeout: 5000 });
+    await h.type(name(), 'Tên gõ lúc chờ');
+    const lateInspects = inspects.length;
+    await h.click(content());
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Delete');
+    await expect(page.getByText('Đang kiểm tra kubeconfig…')).toHaveCount(0);
+    const settledB = inspectReply();
+    await h.paste(content(), docB);
+    await settledB;
+    await expect(summary()).toContainText('Cluster cluster-b');
+    gate.release();
+    await page.waitForTimeout(1500);
+    await expect(summary()).toContainText('Cluster cluster-b');
+    await expect(summary()).not.toContainText('cluster-late');
+    await expect(name()).toHaveValue('Tên gõ lúc chờ');
+    expect(inspects.length, 'delayed + replacement inspects only').toBe(lateInspects + 1);
+    expect(registers).toEqual([]);
+    check('stale reply (MOCK holds the real backend reply, released after the switch): old document context cluster-late never shown; new document summary kept; typed name kept; file-read race covered by unit tests only');
+    mark('stale-reply-ignored');
+    await h.moveTo(summary());
+    await h.read('Phản hồi muộn của document cũ không ghi đè context hay tên');
+
+    caption('Bước 9: Kiểm tra và lưu; backend thật từ chối xác minh (422), Console chỉ hiện hướng dẫn cố định, giữ form, không có raw error');
+    const rejected = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/v1/connections/kubernetes', { timeout: 60_000 });
+    await h.click(ui('connections', 'submit'));
+    const rejectedResponse = await rejected;
+    expect(rejectedResponse.status(), 'real verifier rejects the synthetic endpoint').toBe(422);
+    expect(await rejectedResponse.text()).not.toContain(TOKEN);
+    await expect(alert()).toContainText('Không xác minh được cluster nên chưa lưu kết nối.');
+    await expect(name()).toHaveValue('Tên gõ lúc chờ');
+    await expect(content()).toHaveClass(/masked-text/);
+    await expect(summary()).toContainText('Context ctx-b');
+    expect(registers.length, 'exactly one explicit register').toBe(1);
+    expect(registers[0]).toEqual({ name: 'Tên gõ lúc chờ', kubeconfig: docB, context: 'ctx-b' });
+    expect((await connectionsApi()).some((item) => item.name === 'Tên gõ lúc chờ'), 'nothing saved').toBe(false);
+    await noLeak();
+    check('failed verification (real fake backend, real kubectl verifier, 422): fixed Vietnamese guidance, form/name/masked content kept, payload only {name,kubeconfig,context}, nothing saved');
+    mark('verification-failed');
+    await h.moveTo(alert());
+    await h.read('Xác minh thất bại: chỉ hướng dẫn cố định, không lộ lỗi gốc');
+
+    caption('Bước 10: Dán nội dung không phải kubeconfig; inspect lỗi (400 thật) hiện hướng dẫn Việt, có nút Kiểm tra lại, không tự thử lại');
+    await h.click(content());
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Delete');
+    const failedInspect = inspectReply();
+    await h.paste(content(), 'đây không phải kubeconfig');
+    expect((await failedInspect).status()).toBe(400);
+    await expect(alert()).toContainText('Không đọc được kubeconfig');
+    await expect(ui('connections', 'retryInspect')).toBeVisible();
+    const afterFail = inspects.length;
+    await page.waitForTimeout(1500);
+    expect(inspects.length, 'no automatic retry').toBe(afterFail);
+    const retried = inspectReply();
+    await h.click(ui('connections', 'retryInspect'));
+    expect((await retried).status()).toBe(400);
+    expect(inspects.length, 'explicit retry sends one more inspect').toBe(afterFail + 1);
+    await expect(name()).toHaveValue('Tên gõ lúc chờ');
+    check('inspect failure (real backend 400): Vietnamese guidance without raw text, retry only on click, no loop, name kept');
+    mark('inspect-retry');
+    await h.moveTo(alert());
+    await h.read('Chỉ khi bấm Kiểm tra lại mới gửi inspect thêm');
+
+    caption('Bước 11: Dán lại document hợp lệ rồi lưu; POST đăng ký bị MOCK trả 201 (fake backend không có verifier thành công); form được xóa sạch');
+    await h.click(content());
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Delete');
+    const okInspect = inspectReply();
+    await h.paste(content(), docB);
+    await okInspect;
+    await expect(summary()).toContainText('Cluster cluster-b');
+    mockSave = true;
+    await h.click(ui('connections', 'submit'));
+    await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký kết nối Tên gõ lúc chờ (cum-thu-t06).' })).toBeVisible();
+    expect(registers.length).toBe(2);
+    await expect(name()).toHaveValue('');
+    await expect(content()).toHaveValue('');
+    await expect(summary()).toHaveCount(0);
+    const row = table.locator('tbody tr').filter({ hasText: 'Tên gõ lúc chờ' });
+    await expect(row).toContainText('Sẵn sàng');
+    await expect(row).toContainText('cum-thu-t06');
+    await noLeak();
+    check('explicit save success (MOCKED 201 + list projection): notice, name/content/summary cleared, READY row "Sẵn sàng" listed, no token on screen');
+    mark('registered');
+    await h.moveTo(row);
+    await h.read('Đăng ký chỉ chạy khi bấm Kiểm tra và lưu; form được xóa sạch');
 
     caption('Bước 12: Đăng xuất; phiên bị thu hồi');
     await h.click(ui('shell', 'signOut'));

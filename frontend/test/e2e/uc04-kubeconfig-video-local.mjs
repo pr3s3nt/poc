@@ -93,7 +93,7 @@ try {
     chooser.catch(() => {}); // a failed click must report its own error
     await h.click(input);
     await (await chooser).setFiles(file);
-    await expect(page.getByText(`Selected file: ${basename(file)}.`, { exact: false })).toBeVisible();
+    await expect(page.getByText(`Đã chọn file: ${basename(file)}.`, { exact: false })).toBeVisible();
     await h.pause(800);
   }
 
@@ -116,54 +116,50 @@ try {
 
   // 2. Connections page: the seeded host-context entry stays listed.
   await h.click(page.getByRole('link', { name: /Connections/ }));
-  await expect(page.getByRole('heading', { name: 'Connections', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Kết nối', level: 1 })).toBeVisible();
   await expect(page).toHaveURL(`${baseURL}/ui/platform/connections`);
-  const connectionRows = () => page.getByRole('table', { name: 'Registered connections' }).locator('tbody tr');
+  const connectionRows = () => page.getByRole('table', { name: 'Kết nối đã đăng ký' }).locator('tbody tr');
   const seeded = connectionRows().first();
-  await expect(seeded).toContainText('READY');
+  await expect(seeded).toContainText('Sẵn sàng');
   await expect(page.getByLabel('Connection ID')).toHaveCount(0);
   await h.moveTo(seeded);
   mark('connections-list');
   await h.pause(READ);
 
   // 3. Invalid pasted content: safe parser guidance, form retained.
-  await h.type(page.getByLabel('Connection name'), connectionName);
-  await h.click(page.getByLabel('Paste kubeconfig'));
-  const content = page.getByLabel('Kubeconfig content');
+  await h.type(page.getByLabel('Tên kết nối'), connectionName);
+  await h.click(page.getByLabel('Dán nội dung kubeconfig'));
+  const content = page.getByLabel('Nội dung kubeconfig');
   await expect(content).toHaveClass(/masked-text/);
-  await h.paste(content, 'this is not a kubeconfig');
   let inspected = inspectResponse();
-  await h.click(page.getByRole('button', { name: 'Inspect kubeconfig' }));
+  await h.paste(content, 'this is not a kubeconfig');
   expect((await assertNoCredentialInResponse(await inspected)).status()).toBe(400);
-  await expect(formError()).toContainText('not a valid kubeconfig');
-  await expect(page.getByLabel('Connection name')).toHaveValue(connectionName);
+  await expect(formError()).toContainText('Không đọc được kubeconfig');
+  await expect(page.getByLabel('Tên kết nối')).toHaveValue(connectionName);
   await h.moveTo(formError());
   mark('invalid-kubeconfig');
   await h.pause(READ);
 
   // 4. Unsupported authentication (exec plugin) from an uploaded file.
-  await h.click(page.getByLabel('Upload kubeconfig file'));
-  await upload(unsupportedFile);
+  await h.click(page.getByLabel('Tải lên file kubeconfig'));
   inspected = inspectResponse();
-  await h.click(page.getByRole('button', { name: 'Inspect kubeconfig' }));
+  await upload(unsupportedFile);
   expect((await assertNoCredentialInResponse(await inspected)).status()).toBe(400);
-  await expect(formError()).toContainText('unsupported authentication method');
-  await expect(formError()).toContainText('never run');
+  await expect(formError()).toContainText('Không đọc được kubeconfig');
   await h.moveTo(formError());
   mark('unsupported-authentication');
   await h.pause(LONG_READ);
   await assertNoCredentialOnPage();
 
   // 5. One-context file: the only context is selected automatically.
-  await upload(singleContextFile);
   inspected = inspectResponse();
-  await h.click(page.getByRole('button', { name: 'Inspect kubeconfig' }));
+  await upload(singleContextFile);
   const single = await assertNoCredentialInResponse(await inspected);
   expect(single.status()).toBe(200);
   const singleContexts = (await single.json()).contexts;
   expect(singleContexts.map((item) => item.name)).toEqual([selectContext]);
   await expect(contextSelector()).toHaveCount(0);
-  const autoSummary = page.getByLabel('Selected destination');
+  const autoSummary = page.getByLabel('Đích đã chọn');
   await expect(autoSummary).toContainText(`Context ${selectContext}`);
   await expect(autoSummary).toContainText(`Endpoint ${singleContexts[0].endpoint}`);
   await h.moveTo(autoSummary);
@@ -172,10 +168,9 @@ try {
   await assertNoCredentialOnPage();
 
   // 6. Upload the multi-context file; the backend lists safe metadata only.
-  await upload(kubeconfigFile);
-  await expect(page.getByLabel('Selected destination')).toHaveCount(0);
   inspected = inspectResponse();
-  await h.click(page.getByRole('button', { name: 'Inspect kubeconfig' }));
+  await upload(kubeconfigFile);
+  await expect(page.getByLabel('Đích đã chọn')).toHaveCount(0);
   const inspection = await assertNoCredentialInResponse(await inspected);
   expect(inspection.status()).toBe(200);
   const { contexts } = await inspection.json();
@@ -186,14 +181,14 @@ try {
   for (const item of contexts) expect(Object.keys(item).sort()).toEqual(['cluster', 'endpoint', 'name']);
   const contextSelect = contextSelector();
   await expect(contextSelect).toBeVisible();
-  await expect(page.getByLabel('Selected destination')).toHaveCount(0);
+  await expect(page.getByLabel('Đích đã chọn')).toHaveCount(0);
   await h.moveTo(contextSelect);
   mark('contexts-listed');
   await h.pause(SHORT_READ);
 
   // 7. Choose the context; review cluster and endpoint before saving.
   await h.choose(contextSelect, selectContext);
-  const summary = page.getByLabel('Selected destination');
+  const summary = page.getByLabel('Đích đã chọn');
   await expect(summary).toContainText(`Context ${selectContext}`);
   await expect(summary).toContainText(`Cluster ${target.cluster}`);
   await expect(summary).toContainText(`Endpoint ${target.endpoint}`);
@@ -205,7 +200,7 @@ try {
   // 8. Check and save.
   const registered = page.waitForResponse((response) => response.request().method() === 'POST'
     && new URL(response.url()).pathname === '/api/v1/connections/kubernetes', { timeout: 90_000 });
-  await h.click(page.getByRole('button', { name: 'Check and save' }));
+  await h.click(page.getByRole('button', { name: 'Kiểm tra và lưu' }));
   const response = await assertNoCredentialInResponse(await registered);
   let connection;
   if (live) {
@@ -216,14 +211,14 @@ try {
     expect(created.verification?.verified).toBe(true);
     for (const forbidden of ['secretRef', 'kubeconfig']) expect(JSON.stringify(created)).not.toContain(forbidden);
     connection = { key: created.key, status: created.status, authenticationType: created.authenticationType, serverVersion: created.verification?.serverVersion };
-    await expect(page.getByRole('status')).toHaveText(`Registered connection ${connectionName} (${expectedKey}).`);
+    await expect(page.getByRole('status')).toHaveText(`Đã đăng ký kết nối ${connectionName} (${expectedKey}).`);
     await h.moveTo(page.getByRole('status'));
     mark('check-and-save-ready');
     await h.pause(READ);
 
     // 9. READY list entry and cleared credential input.
     const entry = connectionRows().filter({ has: page.getByText(connectionName, { exact: true }) });
-    await expect(entry.getByRole('cell')).toHaveText([`${connectionName}${expectedKey}`, 'KUBERNETES', `Cluster ${target.cluster}Endpoint ${target.endpoint}`, 'READY']);
+    await expect(entry.getByRole('cell')).toHaveText([`${connectionName}${expectedKey}`, 'KUBERNETES', `Cluster ${target.cluster}Endpoint ${target.endpoint}`, 'Sẵn sàng']);
     await h.moveTo(entry);
     mark('connection-ready-listed');
     await h.pause(LONG_READ);
@@ -232,9 +227,9 @@ try {
     const listed = (await (await assertNoCredentialInResponse(list)).json()).connections.find((item) => item.key === expectedKey);
     expect(listed).toMatchObject({ status: 'READY', authenticationType: 'KUBECONFIG' });
     expect(JSON.stringify(listed)).not.toContain('secretRef');
-    await expect(page.getByLabel('Connection name')).toHaveValue('');
+    await expect(page.getByLabel('Tên kết nối')).toHaveValue('');
     await expect(fileInput()).toHaveValue('');
-    await expect(page.getByText(/Selected file:/)).toHaveCount(0);
+    await expect(page.getByText(/Đã chọn file:/)).toHaveCount(0);
     await expect(summary).toHaveCount(0);
     await h.moveTo(fileInput());
     mark('credential-input-cleared');
@@ -243,8 +238,8 @@ try {
     // Simulated evidence: the synthetic endpoint is not a cluster, so the
     // real read-only verifier rejects it and nothing READY is saved.
     expect(response.status()).toBe(422);
-    await expect(formError()).toContainText('could not be reached');
-    await expect(page.getByLabel('Connection name')).toHaveValue(connectionName);
+    await expect(formError()).toContainText('Không xác minh được cluster');
+    await expect(page.getByLabel('Tên kết nối')).toHaveValue(connectionName);
     await expect(summary).toContainText(`Context ${selectContext}`);
     await h.moveTo(formError());
     mark('simulated-verification-rejected');

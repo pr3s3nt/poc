@@ -11,7 +11,7 @@
 # and must be outside the repository; it is kept, also on failure.
 # T03 additionally passes -score-k8s with a test-local stub (stubs/score-k8s-render-fail-stub.sh)
 # whose `generate` always fails; calls are logged in NEW_PATH/score-k8s-stub/score-k8s-calls.log.
-# T05 additionally uses in-memory state with the explicit memory credential store (no state file, no Vault).
+# T05 and T06 additionally use in-memory state with the explicit memory credential store (no state file, no Vault).
 # Debug only: ORCH_REFACTOR_INJECT_FAILURE=after-sign-in makes T01 fail on
 # purpose to check that video, marks and assertions survive a failure.
 #
@@ -108,11 +108,11 @@ if [[ "${SCENARIO}" == T03 ]]; then
   export ORCH_E2E_SCORE_K8S_LOG="${WORK}/score-k8s-stub/score-k8s-calls.log"
 fi
 
-# T05 registers Secret stores, which need a credential store for the token. The
-# explicit non-durable "memory" store is accepted only without persistent state,
-# so T05 runs with in-memory state and no -state file.
+# T05 registers Secret stores and T06 registers Kubernetes Connections, which
+# need a credential store. The explicit non-durable "memory" store is accepted
+# only without persistent state, so they run with in-memory state and no -state file.
 STATE_ARGS=(-state "${WORK}/state.json") STORE_MODE=none
-if [[ "${SCENARIO}" == T05 ]]; then STATE_ARGS=(); STORE_MODE=memory; fi
+if [[ "${SCENARIO}" == T05 || "${SCENARIO}" == T06 ]]; then STATE_ARGS=(); STORE_MODE=memory; fi
 
 (cd "${ROOT}" && go build -o "${WORK}/orchestrator" ./cmd/orchestrator)
 # Temporary JSON state only: inherited database/Vault/Terraform/AWS/Kubernetes

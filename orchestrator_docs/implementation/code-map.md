@@ -9,6 +9,7 @@ last_reviewed: 2026-10-11
 
 | Design concern | Implementation entry point |
 |---|---|
+| T06 Vietnamese Connections, automatic inspect, name suggestion ownership and stale response guards | [`page`](../../frontend/src/features/platform/ConnectionsPage.tsx), [`tests`](../../frontend/src/features/platform/ConnectionsPage.test.tsx), [`headed scenario`](../../frontend/test/e2e/refactor-local.mjs), [`local runner`](../../backend/test/integration/refactor-ui-local.sh) |
 | Refactor Console local smoke and Vietnamese locator foundation | [`runner`](../../backend/test/integration/refactor-ui-local.sh), [`scenario registry`](../../frontend/test/e2e/refactor-local.mjs), [`page locators`](../../frontend/test/e2e/locators.mjs), [`human input`](../../frontend/test/e2e/human.mjs) and [`captions`](../../frontend/test/e2e/captions.mjs) |
 | Process bootstrap and adapter wiring | [`backend/internal/bootstrap`](../../backend/internal/bootstrap/) |
 | HTTP API and `/ui/` delivery | [`backend/internal/delivery/http`](../../backend/internal/delivery/http/) |

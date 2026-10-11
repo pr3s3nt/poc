@@ -27,6 +27,25 @@ Loading/empty/error list states; form validation, verifying, saving, safe failur
 and committed-success/list-refresh states. Disable duplicate registration, retain
 nonsecret fields after errors, never return/prefill tokens or raw provider errors.
 
+## Kết nối — T06
+
+- Editing/upload: đọc file xong tự inspect; đổi file/source/document xóa ngay
+  summary/context cũ. File-read/inspect đến muộn không được sửa draft mới.
+- Editing/paste: chờ nội dung ổn định rồi inspect; hủy timer cũ khi document
+  đổi/unmount/save. Không tự retry vòng lặp khi inspect lỗi.
+- Inspecting: thể hiện trạng thái Việt accessible, khóa inspect lặp; vẫn cho
+  đổi document để vô hiệu request cũ. Không persist/verify cluster.
+- Inspected: một context tự chọn; nhiều context chưa chọn không có summary/
+  gợi ý đích. Gợi ý tên chỉ cập nhật khi người dùng chưa sửa tên.
+- Failure/retry: giữ draft, báo hướng dẫn Việt an toàn và có retry inspect
+  tường minh; không hiển thị raw parser/provider errors hoặc kubeconfig.
+- Saving: chỉ bắt đầu từ nút “Kiểm tra và lưu”, khóa draft/submit lặp.
+  Lỗi xác minh giữ form cho sửa; unknown outcome không tự submit lại.
+- Success: xóa credential/file/context/name và reset ownership gợi ý tên;
+  list refresh lỗi có retry GET riêng, không phủ nhận registration success.
+- List loading/empty/error/ready: text và aria-label Việt; error không giả rỗng,
+  chỉ READY records được hiển thị, không lộ credential/ref.
+
 ## Kho bí mật — T05
 
 - Editing: cơ bản/nâng cao giữ chung draft; checkbox cùng địa chỉ là opt-in.

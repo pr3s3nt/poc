@@ -1261,7 +1261,7 @@ Các khoảng Txx–Tyy gồm toàn bộ task trong khoảng; T02B ghi riêng kh
 | T03 | Trang Mẫu dựng ứng dụng | T01, T02, T02B | DONE | V-D/V-FE (208 tests)/V-UI(T03), T02/T02B regression pass; fake headed video decoded/reviewed; selected render failure via local CLI stub, no live mutation. Evidence: `orchestrator_docs/verification/2026-10-10-T03-rendering-templates.md`; `/tmp/poc-refactor-T03-20261010220616-2298126`. |
 | T04 | Trang Loại tài nguyên | T01, T02 | DONE | V-D/V-FE (246 tests)/V-UI(T04), T02/T03 regression pass; fake headed video decoded/reviewed, schema copy/duplicate/support CTA/prefill verified. Evidence: `orchestrator_docs/verification/2026-10-11-T04-resource-types.md`; `/tmp/poc-refactor-T04-100929`. |
 | T05 | Trang Kho bí mật | T01 | DONE | V-D/V-FE (258 tests)/V-UI(T05), T01 regression pass; fake headed video decoded/reviewed, ABSENT/list failure projection mock. Evidence: `orchestrator_docs/verification/2026-10-11-T05-secret-stores.md`; `/tmp/poc-T05-handoff-20261011/evidence-run4`. |
-| T06 | Trang Kết nối | T01 | TODO | — |
+| T06 | Trang Kết nối | T01 | DONE | V-D/V-FE (270 tests)/V-UI(T06), T01 regression pass; auto-inspect/name/stale guards, headed video decoded/reviewed. Backend local parser/422; success 201/list là projection mock, không live mutation. Evidence: `orchestrator_docs/verification/2026-10-11-T06-connections.md`; `/tmp/poc-T06-evidence-20261011-run3`. |
 | T07 | Trang Environment Settings | T01 | TODO | — |
 | T08 | Trang Workload editor | T01 | TODO | — |
 | T09 | Trang Tạo ứng dụng | T01 | TODO | — |

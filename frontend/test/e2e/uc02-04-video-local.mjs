@@ -222,10 +222,10 @@ try {
   // verification. The legacy ID/context form is gone; registration uses the
   // kubeconfig upload form.
   await h.click(page.getByRole('link', { name: /Connections/ }));
-  await expect(page.getByRole('heading', { name: 'Connections', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Kết nối', level: 1 })).toBeVisible();
   await expect(page).toHaveURL(`${baseURL}/ui/platform/connections`);
-  const seeded = page.getByRole('table', { name: 'Registered connections' }).locator('tbody tr').first();
-  await expect(seeded).toContainText('READY');
+  const seeded = page.getByRole('table', { name: 'Kết nối đã đăng ký' }).locator('tbody tr').first();
+  await expect(seeded).toContainText('Sẵn sàng');
   await expect(page.getByLabel('Connection ID')).toHaveCount(0);
   await h.moveTo(seeded);
   mark('connections-list');
@@ -233,16 +233,15 @@ try {
 
   const inspectResponse = () => page.waitForResponse((response) => response.request().method() === 'POST'
     && new URL(response.url()).pathname === '/api/v1/connections/kubernetes/inspect');
-  await h.type(page.getByLabel('Connection name'), connectionName);
-  await h.click(page.getByLabel('Paste kubeconfig'));
-  const content = page.getByLabel('Kubeconfig content');
+  await h.type(page.getByLabel('Tên kết nối'), connectionName);
+  await h.click(page.getByLabel('Dán nội dung kubeconfig'));
+  const content = page.getByLabel('Nội dung kubeconfig');
   await expect(content).toHaveClass(/masked-text/);
-  await h.paste(content, 'this is not a kubeconfig');
   let inspected = inspectResponse();
-  await h.click(page.getByRole('button', { name: 'Inspect kubeconfig' }));
+  await h.paste(content, 'this is not a kubeconfig');
   expect((await inspected).status()).toBe(400);
-  await expect(formError()).toContainText('not a valid kubeconfig');
-  await expect(page.getByLabel('Connection name')).toHaveValue(connectionName);
+  await expect(formError()).toContainText('Không đọc được kubeconfig');
+  await expect(page.getByLabel('Tên kết nối')).toHaveValue(connectionName);
   await h.moveTo(formError());
   mark('connection-invalid');
   await h.pause(READ);
@@ -254,15 +253,14 @@ try {
   await page.keyboard.press('Control+A');
   await page.keyboard.press('Delete');
   await expect(content).toHaveValue('');
+  inspected = inspectResponse();
   await h.paste(content, syntheticKubeconfig);
   await expect(content).toHaveValue(syntheticKubeconfig);
-  inspected = inspectResponse();
-  await h.click(page.getByRole('button', { name: 'Inspect kubeconfig' }));
   const inspection = await inspected;
   expect(inspection.status()).toBe(200);
   const { contexts } = await inspection.json();
   expect(contexts).toEqual([{ name: 'demo', cluster: 'demo-cluster', endpoint: 'https://demo-cluster.invalid:6443' }]);
-  const summary = page.getByLabel('Selected destination');
+  const summary = page.getByLabel('Đích đã chọn');
   await expect(summary).toContainText('Context demo');
   await expect(summary).toContainText('Endpoint https://demo-cluster.invalid:6443');
   await h.moveTo(summary);
@@ -273,10 +271,10 @@ try {
   // closed before any cluster call and nothing is saved.
   const rejected = page.waitForResponse((response) => response.request().method() === 'POST'
     && new URL(response.url()).pathname === '/api/v1/connections/kubernetes');
-  await h.click(page.getByRole('button', { name: 'Check and save' }));
+  await h.click(page.getByRole('button', { name: 'Kiểm tra và lưu' }));
   expect((await rejected).status()).toBe(503);
-  await expect(formError()).toContainText('no connection was saved');
-  await expect(page.getByLabel('Connection name')).toHaveValue(connectionName);
+  await expect(formError()).toContainText('Kho lưu thông tin xác thực của nền tảng chưa sẵn sàng');
+  await expect(page.getByLabel('Tên kết nối')).toHaveValue(connectionName);
   const list = await page.request.get(`${baseURL}/api/v1/connections`);
   expect(list.status()).toBe(200);
   expect((await list.json()).connections.some((item) => item.name === connectionName)).toBe(false);

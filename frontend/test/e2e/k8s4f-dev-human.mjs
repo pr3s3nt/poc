@@ -126,7 +126,7 @@ try {
 
   // 2. Register the NEW Connection through the UI (kubeconfig only via file chooser).
   caption('Bước 2: Mở Platform → Connections; Connection k8s-4f cũ giữ nguyên, không sửa');
-  const rows = () => page.getByRole('table', { name: 'Registered connections' }).locator('tbody tr');
+  const rows = () => page.getByRole('table', { name: 'Kết nối đã đăng ký' }).locator('tbody tr');
   let connectionKey;
   let storeKey;
   if (reuse) {
@@ -162,27 +162,27 @@ try {
     await signOut();
   } else {
   await h.click(page.getByRole('link', { name: /Connections/ }));
-  await expect(page.getByRole('heading', { name: 'Connections', level: 1 })).toBeVisible();
-  await expect(rows().filter({ hasText: 'k8s-4f' }).first()).toContainText('READY');
+  await expect(page.getByRole('heading', { name: 'Kết nối', level: 1 })).toBeVisible();
+  await expect(rows().filter({ hasText: 'k8s-4f' }).first()).toContainText('Sẵn sàng');
   await h.moveTo(rows().first());
   mark('connections-list');
   await h.pause(READ);
   caption(`Bước 3: Đăng ký Connection mới tên đúng "${connectionName}": nhập tên, chọn file kubeconfig của cụm kind mới (nội dung không hiển thị)`);
-  await h.type(page.getByLabel('Connection name'), connectionName);
-  await h.click(page.getByLabel('Upload kubeconfig file'));
+  await h.type(page.getByLabel('Tên kết nối'), connectionName);
+  await h.click(page.getByLabel('Tải lên file kubeconfig'));
   const input = page.locator('input[type="file"]');
   const chooser = page.waitForEvent('filechooser');
   chooser.catch(() => {});
+  // The file is inspected automatically once read.
+  const inspected = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/connections/kubernetes/inspect');
   await h.click(input);
   await (await chooser).setFiles(kubeconfigFile);
-  await expect(page.getByText(`Selected file: ${basename(kubeconfigFile)}.`, { exact: false })).toBeVisible();
+  await expect(page.getByText(`Đã chọn file: ${basename(kubeconfigFile)}.`, { exact: false })).toBeVisible();
   await h.pause(800);
-  const inspected = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/connections/kubernetes/inspect');
-  await h.click(page.getByRole('button', { name: 'Inspect kubeconfig' }));
   const inspectResponse = await inspected;
   for (const value of credentialValues) if ((await inspectResponse.text()).includes(value)) throw new Error('credential material in inspect response');
   expect(inspectResponse.status()).toBe(200);
-  const summary = page.getByLabel('Selected destination');
+  const summary = page.getByLabel('Đích đã chọn');
   await expect(summary).toContainText(`Context ${kubeContext}`);
   await h.moveTo(summary);
   mark('connection-inspected');
@@ -190,7 +190,7 @@ try {
   await h.pause(READ);
   await noLeaks();
   const registered = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/connections/kubernetes', { timeout: 90_000 });
-  await h.click(page.getByRole('button', { name: 'Check and save' }));
+  await h.click(page.getByRole('button', { name: 'Kiểm tra và lưu' }));
   const registeredResponse = await registered;
   const createdText = await registeredResponse.text();
   for (const value of credentialValues) if (createdText.includes(value)) throw new Error('credential material in registration response');
@@ -200,9 +200,9 @@ try {
   expect(created).toMatchObject({ name: connectionName, kind: 'KUBERNETES', authenticationType: 'KUBECONFIG', status: 'READY' });
   expect(connectionKey, 'server-assigned key must differ from the existing k8s-4f').not.toBe('k8s-4f');
   expect(created.verification?.verified).toBe(true);
-  await expect(page.getByRole('status')).toContainText(`Registered connection ${connectionName} (${connectionKey}).`);
+  await expect(page.getByRole('status')).toContainText(`Đã đăng ký kết nối ${connectionName} (${connectionKey}).`);
   const entry = rows().filter({ has: page.getByText(connectionName, { exact: true }) });
-  await expect(entry).toContainText('READY');
+  await expect(entry).toContainText('Sẵn sàng');
   await h.moveTo(entry);
   mark('connection-ready');
   caption(`Kết quả: Connection "${connectionName}" READY, key do server cấp: ${connectionKey}`);
@@ -362,7 +362,7 @@ try {
   caption('Bước 13: Kỹ sư nền tảng xem lại danh sách Connection: bản k8s-4f cũ không đổi, bản mới đang READY');
   await signIn('platform-engineer');
   await h.click(page.getByRole('link', { name: /Connections/ }));
-  await expect(rows().filter({ hasText: connectionKey }).first()).toContainText('READY');
+  await expect(rows().filter({ hasText: connectionKey }).first()).toContainText('Sẵn sàng');
   await h.moveTo(rows().filter({ hasText: connectionKey }).first());
   const after = await apiJson('/api/v1/connections');
   expect(JSON.stringify(after.connections.find((c) => c.key === 'k8s-4f')), 'existing k8s-4f Connection unchanged').toBe(baselineSnapshot);

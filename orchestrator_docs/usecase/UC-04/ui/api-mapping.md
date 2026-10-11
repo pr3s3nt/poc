@@ -39,6 +39,21 @@ errors. Non-READY records and failures do not disclose sensitive fields.
 See [shared credential design](../../../architecture/connection-credentials.md)
 for store/executor scope and legacy compatibility.
 
+## T06 — Projection trang Kết nối (không đổi API)
+
+Upload/paste auto-inspect dùng POST `/connections/kubernetes/inspect` ở bảng
+trên với `{kubeconfig}`; revision/request guard chỉ thuộc frontend. Inspect
+không verify hoặc ghi credential. Register vẫn chỉ gửi `{name,kubeconfig,context}`
+khi người dùng bấm “Kiểm tra và lưu”; server tự parse/validate/verify lại.
+Không gửi UI source, timer, suggested-name ownership hay client summary.
+
+Gợi ý tên từ safe context metadata chỉ là draft, không thay key generation
+hoặc Organization defaults. Các giới hạn document/name hiện hành giữ nguyên.
+Trang dùng hướng dẫn tiếng Việt cố định theo status/operation và fallback an
+toàn, không hiển thị raw English/provider error; stable code mapping thuộc T20.
+Khi inspect response mất hoặc đến muộn không tự register. Với register network
+failure, thông báo chưa biết đã lưu hay chưa và reload list trước retry.
+
 ## Secret Store Connection API
 
 PE/Admin GET/POST `/api/v1/secret-stores`, strict bounded register payload:

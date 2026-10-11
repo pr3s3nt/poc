@@ -50,6 +50,27 @@ KV/auth mounts, optional trusted CA and concealed token. Check and save verifies
 before showing READY; clear token after success. Developers see only safe choices
 in Environment Settings, not the privileged registration form.
 
+## Kết nối — T06 (CN-01/02)
+
+Trang `/ui/platform/connections` dùng tiếng Việt cho text, aria-label,
+validation và mọi trạng thái; context/cluster/endpoint/key và payload giữ nguyên.
+Upload file tự gọi inspect sau khi đọc xong; paste tự inspect sau khi nội dung
+ổn định (debounce), không inspect mỗi ký tự. Có nút kiểm tra lại khi inspect lỗi.
+Inspect chỉ đọc metadata, không truy cập cluster hoặc lưu Connection.
+
+Một context tự chọn; nhiều context yêu cầu người dùng chọn, không dùng
+`current-context` để đoán. Tên được gợi ý từ cluster/context đã chọn khi người
+dùng chưa sửa tên; người dùng sửa tên thì gợi ý sau không ghi đè, kể cả khi
+đổi document/context. Document đổi lập tức xóa context/summary cũ và vô hiệu
+phản hồi inspect/file-read đang chờ. Gợi ý chưa được người dùng sửa đi theo
+context mới; không dùng metadata document cũ để gợi ý cho document mới.
+
+Nội dung paste mặc định che; file upload không hiển thị nội dung. Summary/list/
+notification chỉ safe metadata. “Kiểm tra và lưu” luôn là thao tác tường minh,
+không tự chạy sau inspect; READY hiển thị “Sẵn sàng”, chỉ phản ánh lần xác minh.
+Giữ layout, role/org gates, clear credential sau success và phân biệt lỗi
+reload list với đăng ký đã thành công. Sidebar Việt hóa thuộc T10.
+
 ## Kho bí mật — T05 (SS-01..04)
 
 Trang `/ui/platform/secret-stores` dùng tiếng Việt cho toàn bộ text/aria-label,

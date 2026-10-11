@@ -115,23 +115,23 @@ try {
 
   // Uploads the selected-context kubeconfig as a new READY Connection.
   async function uploadConnection(connectionName, key, tag) {
-    await h.type(page.getByLabel('Connection name'), connectionName);
-    await h.click(page.getByLabel('Upload kubeconfig file'));
+    await h.type(page.getByLabel('Tên kết nối'), connectionName);
+    await h.click(page.getByLabel('Tải lên file kubeconfig'));
     const input = page.locator('input[type="file"]');
     const chooser = page.waitForEvent('filechooser');
     chooser.catch(() => {});
-    await h.click(input);
-    await (await chooser).setFiles(kubeconfigFile);
-    await expect(page.getByText(`Selected file: ${basename(kubeconfigFile)}.`, { exact: false })).toBeVisible();
-    await h.pause(800);
+    // The file is inspected automatically once read.
     const inspected = page.waitForResponse((response) => response.request().method() === 'POST'
       && new URL(response.url()).pathname === '/api/v1/connections/kubernetes/inspect');
-    await h.click(page.getByRole('button', { name: 'Inspect kubeconfig' }));
+    await h.click(input);
+    await (await chooser).setFiles(kubeconfigFile);
+    await expect(page.getByText(`Đã chọn file: ${basename(kubeconfigFile)}.`, { exact: false })).toBeVisible();
+    await h.pause(800);
     const inspection = await assertNoCredentialInResponse(await inspected);
     expect(inspection.status()).toBe(200);
     const { contexts } = await inspection.json();
     expect(contexts.map((item) => item.name)).toEqual([kubeContext]);
-    const summary = page.getByLabel('Selected destination');
+    const summary = page.getByLabel('Đích đã chọn');
     await expect(summary).toContainText(`Context ${kubeContext}`);
     await h.moveTo(summary);
     mark(`${tag}-inspected`);
@@ -139,13 +139,13 @@ try {
     await assertNoCredentialOnPage();
     const registered = page.waitForResponse((response) => response.request().method() === 'POST'
       && new URL(response.url()).pathname === '/api/v1/connections/kubernetes', { timeout: 90_000 });
-    await h.click(page.getByRole('button', { name: 'Check and save' }));
+    await h.click(page.getByRole('button', { name: 'Kiểm tra và lưu' }));
     const created = await (await assertNoCredentialInResponse(await registered)).json();
     expect(created).toMatchObject({ key, name: connectionName, kind: 'KUBERNETES', authenticationType: 'KUBECONFIG', status: 'READY' });
     expect(created.verification?.verified).toBe(true);
-    await expect(page.getByRole('status')).toHaveText(`Registered connection ${connectionName} (${key}).`);
-    const entry = page.getByRole('table', { name: 'Registered connections' }).locator('tbody tr').filter({ has: page.getByText(connectionName, { exact: true }) });
-    await expect(entry).toContainText('READY');
+    await expect(page.getByRole('status')).toHaveText(`Đã đăng ký kết nối ${connectionName} (${key}).`);
+    const entry = page.getByRole('table', { name: 'Kết nối đã đăng ký' }).locator('tbody tr').filter({ has: page.getByText(connectionName, { exact: true }) });
+    await expect(entry).toContainText('Sẵn sàng');
     await h.moveTo(entry);
     mark(`${tag}-ready`);
     await h.pause(READ);
@@ -156,9 +156,9 @@ try {
   mark('sign-in');
   await signIn('platform-engineer');
   await h.click(page.getByRole('link', { name: /Connections/ }));
-  await expect(page.getByRole('heading', { name: 'Connections', level: 1 })).toBeVisible();
-  const connectionRows = () => page.getByRole('table', { name: 'Registered connections' }).locator('tbody tr');
-  await expect(connectionRows().filter({ hasText: defaultKey })).toContainText('READY');
+  await expect(page.getByRole('heading', { name: 'Kết nối', level: 1 })).toBeVisible();
+  const connectionRows = () => page.getByRole('table', { name: 'Kết nối đã đăng ký' }).locator('tbody tr');
+  await expect(connectionRows().filter({ hasText: defaultKey })).toContainText('Sẵn sàng');
   await h.moveTo(connectionRows().first());
   mark('connections-list');
   await h.pause(READ);

@@ -12,7 +12,7 @@ export const TRANSLATED = {
   resourceTypes: true,
   resourceDefinitions: true,
   renderingTemplates: true,
-  connections: false,
+  connections: true,
   secretStores: true,
 };
 
@@ -63,8 +63,19 @@ const TABLES = {
     bundle: { role: 'label', vi: 'ID bundle dựng ứng dụng', current: 'ID bundle dựng ứng dụng' },
     submit: { role: 'button', vi: 'Đăng ký mẫu dựng ứng dụng', current: 'Đăng ký mẫu dựng ứng dụng' },
   },
+  // T06 translated this page; `current` equals `vi` for its entries.
   connections: {
-    heading: { role: 'heading', level: 1, vi: 'Kết nối', current: 'Connections' },
+    heading: { role: 'heading', level: 1, vi: 'Kết nối', current: 'Kết nối' },
+    name: { role: 'label', vi: 'Tên kết nối', current: 'Tên kết nối' },
+    sourceUpload: { role: 'label', vi: 'Tải lên file kubeconfig', current: 'Tải lên file kubeconfig' },
+    sourcePaste: { role: 'label', vi: 'Dán nội dung kubeconfig', current: 'Dán nội dung kubeconfig' },
+    file: { role: 'label', vi: 'File kubeconfig', current: 'File kubeconfig' },
+    content: { role: 'label', vi: 'Nội dung kubeconfig', current: 'Nội dung kubeconfig' },
+    showContent: { role: 'label', vi: 'Hiện nội dung', current: 'Hiện nội dung' },
+    context: { role: 'label', wrapsOptions: true, vi: 'Context', current: 'Context' },
+    retryInspect: { role: 'button', vi: 'Kiểm tra lại kubeconfig', current: 'Kiểm tra lại kubeconfig' },
+    submit: { role: 'button', vi: 'Kiểm tra và lưu', current: 'Kiểm tra và lưu' },
+    retry: { role: 'button', vi: 'Thử lại', current: 'Thử lại' },
   },
   // T05 translated this page; `current` equals `vi` for its entries.
   secretStores: {

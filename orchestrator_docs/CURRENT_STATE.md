@@ -50,6 +50,18 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-12 | MVP path implemented on kind | Settings UI/API, immutable desired/applied revisions, Vault KV v2 adapter, scoped backend/workload policies và VSO → namespace Secret → Pod `secretKeyRef` đã pass kind; secret không xuất hiện trong read API, snapshot hoặc Pod spec. Production secret lifecycle/HA chưa có. |
 | UC-16 | MVP path implemented | Form/Score import, typed resource params, public path + Service port rows, draft save/delete/undo, references, edit deployed workload bằng reconstructed Score, Preview → Deploy và partial retry đã có. Preview bỏ qua no-op draft nhưng giữ UC-12 revision update. Kind đã kiểm tra multi-path BusyBox `/` + `/api`, Fleet route và no-op Pod UID; Backstage cụ thể và broader update/cloud path chưa kiểm chứng. |
 
+## Console refactor T06 (2026-10-11)
+
+[Local verification](verification/2026-10-11-T06-connections.md): trang Kết nối
+dùng tiếng Việt, upload tự inspect sau đọc file và paste debounce 500 ms.
+Một context tự chọn; nhiều context không đoán theo current-context. Tên gợi ý
+theo cluster/context chỉ khi chưa sửa; tên custom hoặc xóa trống được giữ.
+Đổi document/source vô hiệu summary và file-read/inspect pending. Inspect không
+lưu; kiểm tra/lưu vẫn tường minh. Kubeconfig paste mặc định che, lỗi dùng hướng
+dẫn Việt an toàn, API/backend/HOST_CONTEXT giữ nguyên. Headed local pass;
+parser/422 được kiểm qua backend local, success 201/list là mock projection,
+không chứng minh cluster/credential persistence thật. T20/T22 vẫn deferred.
+
 ## Console refactor T05 (2026-10-11)
 
 [Local verification](verification/2026-10-11-T05-secret-stores.md): trang Kho bí

@@ -82,15 +82,15 @@ try {
     };
 
     await page.goto(`${baseURL}/ui/platform/connections`);
-    await expect(page.getByRole('heading', { name: 'Connections', level: 1 })).toBeVisible();
-    const table = page.getByRole('table', { name: 'Registered connections' });
+    await expect(page.getByRole('heading', { name: 'Kết nối', level: 1 })).toBeVisible();
+    const table = page.getByRole('table', { name: 'Kết nối đã đăng ký' });
     await expect(table.locator('tbody tr')).toHaveCount(3);
     await shot('list', page.locator('.content-panel').first());
 
     // Upload: styled chooser with the selected filename beside it.
-    await page.getByLabel('Connection name').fill('Lab EU West');
+    await page.getByLabel('Tên kết nối').fill('Lab EU West');
     await page.locator('input[type=file]').setInputFiles({ name: 'lab-eu-west.kubeconfig', mimeType: 'text/plain', buffer: Buffer.from(kubeconfig) });
-    await expect(page.getByText('Selected file: lab-eu-west.kubeconfig.', { exact: false })).toBeVisible();
+    await expect(page.getByText('Đã chọn file: lab-eu-west.kubeconfig.', { exact: false })).toBeVisible();
     await page.locator('input[type=file]').focus();
     await shot('upload', page.locator('.content-panel').nth(1));
 
@@ -119,7 +119,7 @@ try {
       await page.screenshot({ path, clip: { x: Math.max(0, box.x - 12), y: Math.max(0, box.y - 12), width: box.width + 24, height: Math.min(box.height, 160) + 24 } });
       shots.push(path);
     };
-    await page.getByLabel('Connection name').focus();
+    await page.getByLabel('Tên kết nối').focus();
     await page.keyboard.press('Tab');
     await focusShot('focus-upload', 0);
     await page.keyboard.press('ArrowRight');
@@ -129,18 +129,17 @@ try {
     await focusShot('focus-paste', 1);
 
     // Paste: masked content, Show content beside its checkbox, focus visible.
-    await page.getByLabel('Paste kubeconfig').check();
-    await page.getByLabel('Kubeconfig content').fill(kubeconfig);
-    await expect(page.getByLabel('Kubeconfig content')).toHaveClass(/masked-text/);
-    await page.getByLabel('Show content').focus();
+    await page.getByLabel('Dán nội dung kubeconfig').check();
+    await page.getByLabel('Nội dung kubeconfig').fill(kubeconfig);
+    await expect(page.getByLabel('Nội dung kubeconfig')).toHaveClass(/masked-text/);
+    await page.getByLabel('Hiện nội dung').focus();
     await page.keyboard.press('Shift+Tab');
     await page.keyboard.press('Tab');
     await shot('paste-masked', page.locator('.content-panel').nth(1));
 
-    // Inspect, choose a context and review the grouped destination summary.
-    await page.getByRole('button', { name: 'Inspect kubeconfig' }).click();
+    // The pasted document is inspected automatically once it settles; choose a context and review the grouped destination summary.
     await page.getByRole('combobox').selectOption('lab-eu-west');
-    await expect(page.getByLabel('Selected destination')).toContainText(`Endpoint ${contexts[0].endpoint}`);
+    await expect(page.getByLabel('Đích đã chọn')).toContainText(`Endpoint ${contexts[0].endpoint}`);
     await shot('destination', page.locator('.content-panel').nth(1));
     await shot('page');
     await page.close();

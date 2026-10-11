@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-11 | T06 Vietnamese Connections, auto-inspect, name ownership, stale replies and headed local evidence | [Connections](2026-10-11-T06-connections.md) |
 | 2026-10-11 | T04 Vietnamese Resource Types details/copy, support labels, Definition prefill and headed fake evidence | [Resource Types](2026-10-11-T04-resource-types.md) |
 | 2026-10-10 | T02 Vietnamese resource form, auto driver/module/profile, READY Connection dropdowns, metadata retention and headed fake evidence | [Resource form](2026-10-10-T02-resource-form.md) |
 | 2026-10-10 | T01 Vietnamese terminology, reusable local fake runner, headed smoke and failure/cleanup evidence | [Refactor foundation](2026-10-10-T01-refactor-foundation.md) |

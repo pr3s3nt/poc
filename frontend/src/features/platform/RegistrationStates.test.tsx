@@ -15,14 +15,14 @@ const english: Labels = { listError: 'List error', retry: 'Retry', registered: /
 const pages: { name: string; page: () => ReactElement; list: string; field: string; item: Record<string, unknown>; idLabel: string; fill: (user: User) => Promise<void>; submit: string; empty: string; labels?: Labels; failure?: string }[] = [
   { name: 'UC-02 types', page: () => <ResourceTypesPage />, list: '/resource-types', field: 'resourceTypes', item: { key: 'cache', inputs: [], outputs: [] }, idLabel: 'ID loại tài nguyên', fill: async (user) => { await user.type(screen.getByLabelText('ID loại tài nguyên'), 'cache'); }, submit: 'Đăng ký loại tài nguyên', empty: 'Chưa có loại tài nguyên nào.', labels: { listError: 'Lỗi tải danh sách', retry: 'Thử lại', registered: /Đã đăng ký/ }, failure: 'ID loại tài nguyên đã tồn tại. Hãy đổi ID rồi thử lại.' },
   { name: 'UC-03 definitions', page: () => <ResourceDefinitionsPage />, list: '/resource-definitions', field: 'resourceDefinitions', item: { key: 'pg-fast', resourceType: 'postgres', driverType: 'kubernetes', criteria: [{}] }, idLabel: 'ID cấu hình', fill: async (user) => { await user.type(screen.getByLabelText('ID cấu hình'), 'pg-fast'); await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'postgres'); }, submit: 'Đăng ký cấu hình tài nguyên', empty: 'Chưa có cấu hình tài nguyên nào.', labels: { listError: 'Lỗi tải danh sách', retry: 'Thử lại', registered: /Đã đăng ký/ }, failure: 'ID cấu hình đã tồn tại. Hãy đổi ID rồi thử lại.' },
-  { name: 'UC-04 connections', page: () => <ConnectionsPage />, list: '/connections', field: 'connections', item: { key: 'fast', name: 'fast', kind: 'KUBERNETES', status: 'READY', config: { cluster: 'c', kubeContext: 'kind-fast' } }, idLabel: 'Connection name', fill: async (user) => {
-    await user.type(screen.getByLabelText('Connection name'), 'fast');
-    await user.click(screen.getByLabelText('Paste kubeconfig'));
-    await user.click(screen.getByLabelText('Kubeconfig content'));
+  { name: 'UC-04 connections', page: () => <ConnectionsPage />, list: '/connections', field: 'connections', item: { key: 'fast', name: 'fast', kind: 'KUBERNETES', status: 'READY', config: { cluster: 'c', kubeContext: 'kind-fast' } }, idLabel: 'Tên kết nối', fill: async (user) => {
+    await user.click(screen.getByLabelText('Dán nội dung kubeconfig'));
+    await user.click(screen.getByLabelText('Nội dung kubeconfig'));
     await user.paste('apiVersion: v1');
-    await user.click(screen.getByRole('button', { name: 'Inspect kubeconfig' }));
-    await screen.findByLabelText('Selected destination');
-  }, submit: 'Check and save', empty: 'No connections registered yet.' },
+    await screen.findByLabelText('Đích đã chọn', undefined, { timeout: 3000 });
+    await user.clear(screen.getByLabelText('Tên kết nối'));
+    await user.type(screen.getByLabelText('Tên kết nối'), 'fast');
+  }, submit: 'Kiểm tra và lưu', empty: 'Chưa có kết nối nào được đăng ký.', labels: { listError: 'Lỗi tải danh sách', retry: 'Thử lại', registered: /Đã đăng ký/ }, failure: 'Không đăng ký được vì tên hoặc khóa kết nối đã tồn tại. Đổi tên kết nối rồi thử lại.' },
 ];
 
 afterEach(() => vi.unstubAllGlobals());
@@ -127,13 +127,13 @@ describe('UC-04 connection list', () => {
       { key: 'pending-one', kind: 'KUBERNETES', status: 'VERIFYING', config: { cluster: 'kind-b', kubeContext: 'kind-ctx-b' } },
     ] })], () => Response.json({}, { status: 201 }));
     render(<ConnectionsPage />);
-    const table = await screen.findByRole('table', { name: 'Registered connections' });
-    expect(within(table).getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Name', 'Type', 'Destination', 'Status']);
+    const table = await screen.findByRole('table', { name: 'Kết nối đã đăng ký' });
+    expect(within(table).getAllByRole('columnheader').map((header) => header.textContent)).toEqual(['Tên', 'Loại', 'Đích', 'Trạng thái']);
     const cells = (text: string) => within(screen.getByText(text).closest('tr') as HTMLElement).getAllByRole('cell').map((cell) => cell.textContent);
-    expect(cells('ready-one')).toEqual(['ready-one', 'KUBERNETES', 'Cluster kind-a', 'READY']);
-    expect(cells('Lab cluster')).toEqual(['Lab clusterlab', 'KUBERNETES', 'Cluster lab-cEndpoint https://lab.example', 'READY']);
+    expect(cells('ready-one')).toEqual(['ready-one', 'KUBERNETES', 'Cluster kind-a', 'Sẵn sàng']);
+    expect(cells('Lab cluster')).toEqual(['Lab clusterlab', 'KUBERNETES', 'Cluster lab-cEndpoint https://lab.example', 'Sẵn sàng']);
     // AWS records show their own fields, never empty Kubernetes ones.
-    expect(cells('AWS main')).toEqual(['AWS mainaws-main', 'AWS', 'Region eu-west-1', 'READY']);
+    expect(cells('AWS main')).toEqual(['AWS mainaws-main', 'AWS', 'Vùng eu-west-1', 'Sẵn sàng']);
     expect(screen.queryByText('pending-one')).not.toBeInTheDocument();
   });
 });

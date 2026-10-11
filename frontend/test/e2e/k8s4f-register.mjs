@@ -56,7 +56,7 @@ try {
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByRole('heading', { name: 'Your applications' })).toBeVisible();
   await page.getByRole('link', { name: /Connections/ }).click();
-  await expect(page.getByRole('heading', { name: 'Connections', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Kết nối', level: 1 })).toBeVisible();
 
   // Intended target = the single context of the kubeconfig, as the server reads it.
   const intendedResponse = await page.request.post(`${baseURL}/api/v1/connections/kubernetes/inspect`, { data: { kubeconfig } });
@@ -87,15 +87,15 @@ try {
     verify(existing);
     console.log(`REUSED ${JSON.stringify(safe(existing))}`);
   } else {
-    await page.getByLabel('Connection name').fill(name);
-    await page.getByLabel('Upload kubeconfig file').click();
+    await page.getByLabel('Tên kết nối').fill(name);
+    await page.getByLabel('Tải lên file kubeconfig').click();
     await page.locator('input[type="file"]').setInputFiles(kubeconfigFile);
-    await expect(page.getByText(`Selected file: ${basename(kubeconfigFile)}.`, { exact: false })).toBeVisible();
-    await page.getByRole('button', { name: 'Inspect kubeconfig' }).click();
-    await expect(page.getByLabel('Selected destination')).toContainText(`Context ${intended.kubeContext}`);
+    await expect(page.getByText(`Đã chọn file: ${basename(kubeconfigFile)}.`, { exact: false })).toBeVisible();
+    // The upload is inspected automatically.
+    await expect(page.getByLabel('Đích đã chọn')).toContainText(`Context ${intended.kubeContext}`);
     const registered = page.waitForResponse((r) => r.request().method() === 'POST'
       && new URL(r.url()).pathname === '/api/v1/connections/kubernetes', { timeout: 90_000 });
-    await page.getByRole('button', { name: 'Check and save' }).click();
+    await page.getByRole('button', { name: 'Kiểm tra và lưu' }).click();
     const response = await registered;
     const body = guard(await response.text(), 'register response');
     if (response.status() >= 300) throw new Error(`registration refused: ${response.status()} ${JSON.parse(body).code ?? ''}`);
