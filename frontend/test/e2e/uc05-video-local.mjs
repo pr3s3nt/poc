@@ -120,7 +120,7 @@ try {
 
   // 4. Open Preview Score for staging.
   await h.click(page.getByRole('button', { name: 'Xem trước Score' }));
-  await expect(page.getByRole('heading', { name: 'Preview Score', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Xem trước Score', level: 1 })).toBeVisible();
   await expect(page).toHaveURL(`${baseURL}/ui/applications/${applicationId}/environments/staging/preview`);
   await h.moveTo(page.getByRole('note'));
   mark('preview-page');
@@ -128,102 +128,102 @@ try {
 
   // 5. Invalid input: submit empty, then a Workload ID that does not match
   // the Score metadata name. Input stays in place after each error.
-  const previewButton = page.getByRole('button', { name: 'Preview', exact: true });
+  const previewButton = page.getByRole('button', { name: 'Xem trước', exact: true });
   await h.click(previewButton);
   const alert = page.getByRole('alert');
-  await expect(alert).toContainText('Workload ID is required.');
-  await expect(alert).toContainText('Score after is required.');
+  await expect(alert).toContainText('ID Workload là bắt buộc.');
+  await expect(alert).toContainText('Score sau là bắt buộc.');
   expect(previewRequests).toHaveLength(0);
   await h.moveTo(alert);
   mark('local-validation');
   await h.pause(READ);
 
-  await h.type(page.getByLabel('Workload ID'), 'backend');
-  await h.type(page.getByLabel('Run ID'), previewRunId);
-  const after = page.getByLabel('Score after (YAML or JSON)');
+  await h.type(page.getByLabel('ID Workload'), 'backend');
+  await h.type(page.getByLabel('ID lần chạy'), previewRunId);
+  const after = page.getByLabel('Score sau (YAML hoặc JSON)');
   await h.type(after, apiScore, { delay: LONG_TYPE_DELAY });
   await h.click(previewButton);
-  await expect(alert).toContainText('scoreAfter metadata.name "api" does not match workloadId "backend"');
+  await expect(alert).toContainText('Máy chủ không chấp nhận dữ liệu xem trước');
   await expect(after).toHaveValue(apiScore);
   await h.moveTo(alert);
   mark('server-validation');
   await h.pause(LONG_READ);
 
   // 6. Fix the Workload ID and preview again.
-  await h.type(page.getByLabel('Workload ID'), 'api', { replace: true });
+  await h.type(page.getByLabel('ID Workload'), 'api', { replace: true });
   await h.click(previewButton);
-  const result = page.getByRole('region', { name: 'Score preview result' });
+  const result = page.getByRole('region', { name: 'Kết quả xem trước Score' });
   await expect(result).toBeVisible();
   await expect(alert).toHaveCount(0);
-  await expect(result).toContainText('Preview · api · deploy');
+  await expect(result).toContainText('Xem trước · api · Thêm Workload');
   await expect(result).toContainText(previewRunId);
-  await h.moveTo(result.getByRole('heading', { name: 'Preview · api · deploy' }));
+  await h.moveTo(result.getByRole('heading', { name: 'Xem trước · api · Thêm Workload' }));
   mark('preview-success');
   await h.pause(LONG_READ);
 
   // 7. Inspect every artifact.
   const panel = (name) => result.locator('section.content-panel').filter({ has: page.getByRole('heading', { name, exact: true }) });
-  await expect(panel('Delta')).toContainText('add module api');
-  await h.moveTo(panel('Delta').getByText('add module api'));
+  await expect(panel('Delta')).toContainText('thêm module api');
+  await h.moveTo(panel('Delta').getByText('thêm module api'));
   mark('delta');
   await h.pause(READ);
-  await expect(panel('Resource changes')).toContainText('postgres');
-  await h.moveTo(panel('Resource changes').getByRole('heading', { name: /^New/ }));
+  await expect(panel('Thay đổi tài nguyên')).toContainText('postgres');
+  await h.moveTo(panel('Thay đổi tài nguyên').getByRole('heading', { name: /^Mới/ }));
   mark('resource-changes');
   await h.pause(READ);
-  await expect(panel('Provision order').locator('ol > li').first()).toContainText('Batch 1');
-  await h.moveTo(panel('Provision order').locator('ol > li').first());
+  await expect(panel('Thứ tự tạo tài nguyên').locator('ol > li').first()).toContainText('Lô 1');
+  await h.moveTo(panel('Thứ tự tạo tài nguyên').locator('ol > li').first());
   mark('provision-order');
   await h.pause(READ);
-  await expect(panel('Resource execution bindings')).toContainText('postgres-internal-statefulset');
-  await h.moveTo(panel('Resource execution bindings').getByText('postgres-internal-statefulset'));
+  await expect(panel('Liên kết thực thi tài nguyên')).toContainText('postgres-internal-statefulset');
+  await h.moveTo(panel('Liên kết thực thi tài nguyên').getByText('postgres-internal-statefulset'));
   mark('matches');
   await h.pause(READ);
-  await expect(panel('Resource Graph')).toContainText('→');
-  await h.moveTo(panel('Resource Graph').getByRole('heading', { name: 'Dependencies (consumer → provider)' }));
+  await expect(panel('Đồ thị tài nguyên')).toContainText('→');
+  await h.moveTo(panel('Đồ thị tài nguyên').getByRole('heading', { name: 'Phụ thuộc (bên sử dụng → bên cung cấp)' }));
   mark('graph');
   await h.pause(READ);
-  await h.click(page.getByText('Delta document'));
-  await expect(panel('Documents (sanitized view)').locator('pre').first()).toBeVisible();
+  await h.click(page.getByText('Tài liệu Delta'));
+  await expect(panel('Tài liệu (bản đã lọc dữ liệu nhạy cảm)').locator('pre').first()).toBeVisible();
   mark('delta-document');
   await h.pause(READ);
-  await h.click(page.getByText('Candidate Deployment Set — sanitized view, not executable'));
-  await expect(panel('Documents (sanitized view)').locator('pre').nth(1)).toContainText('"web"');
-  await h.moveTo(panel('Documents (sanitized view)').locator('pre').nth(1));
+  await h.click(page.getByText('Candidate Deployment Set — bản đã lọc dữ liệu nhạy cảm, không thể thực thi'));
+  await expect(panel('Tài liệu (bản đã lọc dữ liệu nhạy cảm)').locator('pre').nth(1)).toContainText('"web"');
+  await h.moveTo(panel('Tài liệu (bản đã lọc dữ liệu nhạy cảm)').locator('pre').nth(1));
   mark('candidate-set');
   await h.pause(LONG_READ);
   await expect(page.getByRole('button', { name: /deploy|save/i })).toHaveCount(0);
 
   // 8. Changing scope clears the old result.
-  await h.click(page.getByRole('tab', { name: 'Production' }));
+  await h.click(page.getByRole('tab', { name: 'production', exact: true }));
   await expect(page).toHaveURL(`${baseURL}/ui/applications/${applicationId}/environments/production/preview`);
   await expect(result).toHaveCount(0);
-  await h.moveTo(page.getByRole('heading', { name: 'Preview Score', level: 1 }));
+  await h.moveTo(page.getByRole('heading', { name: 'Xem trước Score', level: 1 }));
   mark('scope-cleared');
   await h.pause(READ);
-  await h.click(page.getByRole('tab', { name: 'Staging' }));
+  await h.click(page.getByRole('tab', { name: 'staging', exact: true }));
   await expect(page).toHaveURL(`${baseURL}/ui/applications/${applicationId}/environments/staging/preview`);
   await h.pause(SHORT_READ);
 
   // 9. No change: update the deployed web workload with its current Score.
-  const action = page.getByLabel('Action');
+  const action = page.getByLabel('Thao tác');
   await h.click(action);
   await h.pause(900);
   x11.keys(['Down']);
   await h.pause(700);
   x11.keys(['Return']);
   await expect(action).toHaveValue('update');
-  await h.type(page.getByLabel('Workload ID'), 'web', { replace: true });
-  await h.type(page.getByLabel('Score before (YAML or JSON)'), webScore, { delay: LONG_TYPE_DELAY });
+  await h.type(page.getByLabel('ID Workload'), 'web', { replace: true });
+  await h.type(page.getByLabel('Score trước (YAML hoặc JSON)'), webScore, { delay: LONG_TYPE_DELAY });
   await h.type(after, webScore, { delay: LONG_TYPE_DELAY, replace: true });
   await h.click(previewButton);
-  await expect(result).toContainText('Preview · web · update');
-  const noChange = result.getByText(/No workload change/);
+  await expect(result).toContainText('Xem trước · web · Cập nhật Workload');
+  const noChange = result.getByText(/Không có thay đổi Workload/);
   await expect(noChange).toBeVisible();
   await h.moveTo(noChange);
   mark('no-change');
   await h.pause(LONG_READ);
-  await h.moveTo(panel('Resource Graph').getByRole('heading', { name: 'Nodes' }));
+  await h.moveTo(panel('Đồ thị tài nguyên').getByRole('heading', { name: 'Nút' }));
   await h.pause(READ);
 
   // 10. Back to the Application: the preview saved no draft.

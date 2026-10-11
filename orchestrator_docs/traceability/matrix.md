@@ -330,6 +330,13 @@ integration proof is claimed.
 |---|---|---|---|
 | VI-02/04/05 | UC-01 UI screens/states T11: Vietnamese cards, accessible loading/empty/error/retry, unchanged data/routes | ApplicationsPage; App tests về list order, hai create CTA, explicit retry và initial deep link; headed T11 reload/card flow | [T11 local verification](../verification/2026-10-11-T11-applications-list.md) |
 
+## T13 — Xem trước Score frontend trace
+
+| Requirement | UI realization | Checks | Evidence |
+|---|---|---|---|
+| VI-02/04/05; UC-05 standalone boundary, BR-04 | UC-05 UI screens/states T13: Vietnamese form/results/errors, read-only Preview, input/scope guards | ScorePreviewPage 20 tests; headed T13 valid/invalid Score, graph/docs, error/retry/session/scope and no draft/deployment requests | [T13 local verification](../verification/2026-10-11-T13-score-preview.md) |
+| UC-05 Score input contract | Parser messages only; YAML/JSON keys and parsing/alias rules unchanged; API action values retained | Parser object/document/alias/raw-text checks; add/update/remove payload assertions | [T13 evidence and mock limits](../verification/2026-10-11-T13-score-preview.md) |
+
 ## T12 — Trang ứng dụng frontend trace
 
 | Requirement | UI design | Code/test | Evidence |

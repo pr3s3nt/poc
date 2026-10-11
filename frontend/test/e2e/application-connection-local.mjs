@@ -67,20 +67,20 @@ try {
   }
   async function previewScore(environment, workload = 'api') {
     await page.getByRole('button', { name: 'Xem trước Score' }).click();
-    await expect(page.getByRole('heading', { name: 'Preview Score' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Xem trước Score' })).toBeVisible();
     // The page opens on the Environment tab selected at home; switch when needed.
-    const tab = page.getByRole('tab', { name: environment === 'production' ? 'Production' : 'Staging' });
+    const tab = page.getByRole('tab', { name: environment, exact: true });
     if ((await tab.getAttribute('aria-selected')) !== 'true') await tab.click();
     await expectTarget('score-preview', environment, environment === 'production' ? 'internal-cluster' : labKey);
-    await page.getByLabel('Workload ID').fill(workload);
-    await page.getByLabel('Run ID').fill('run-1');
-    await page.getByLabel('Score after (YAML or JSON)').fill(scoreFor(workload));
-    await page.getByRole('button', { name: 'Preview', exact: true }).click();
+    await page.getByLabel('ID Workload').fill(workload);
+    await page.getByLabel('ID lần chạy').fill('run-1');
+    await page.getByLabel('Score sau (YAML hoặc JSON)').fill(scoreFor(workload));
+    await page.getByRole('button', { name: 'Xem trước', exact: true }).click();
   }
   async function matchedDefinitions(environment, workload = 'api') {
     await previewScore(environment, workload);
-    const region = page.getByRole('region', { name: 'Score preview result' });
-    await expect(region).toContainText('Resource execution bindings');
+    const region = page.getByRole('region', { name: 'Kết quả xem trước Score' });
+    await expect(region).toContainText('Liên kết thực thi tài nguyên');
     return region;
   }
   async function saveWorkload(environment) {
@@ -169,14 +169,14 @@ try {
     // ADR-013: no cluster Definition is registered; staging previews and plans
     // the implicit cluster from its Environment Connection.
     await previewScore('staging');
-    await expect(page.getByRole('region', { name: 'Score preview result' })).toContainText(`Environment connection ${labKey}`);
+    await expect(page.getByRole('region', { name: 'Kết quả xem trước Score' })).toContainText(`Kết nối của môi trường ${labKey}`);
     await shot('preview-environment-connection');
     await page.getByRole('button', { name: `← ${name}` }).click();
 
     // Staging preview binds the lab Connection and deploys on lab only.
     await page.goto(`${baseURL}/ui/applications/${appId}`);
     const matches = await matchedDefinitions('staging');
-    await expect(matches).toContainText(`Environment connection ${labKey}`);
+    await expect(matches).toContainText(`Kết nối của môi trường ${labKey}`);
     await expect(matches).not.toContainText('internal-cluster');
     await shot('score-preview-matched');
     await page.goto(`${baseURL}/ui/applications/${appId}`);
@@ -199,7 +199,7 @@ try {
     await expectTarget('home-production', 'production', 'internal-cluster');
     await shot('production-saved');
     const productionMatches = await matchedDefinitions('production');
-    await expect(productionMatches).toContainText('Environment connection internal-cluster');
+    await expect(productionMatches).toContainText('Kết nối của môi trường internal-cluster');
     await expect(productionMatches).not.toContainText(labKey);
     await shot('production-score-preview');
     view = await apiView();
@@ -224,7 +224,7 @@ try {
     await page.getByRole('button', { name: `← ${name}` }).click();
     await page.getByRole('button', { name: /Staging/i }).click();
     const matches = await matchedDefinitions('staging', 'probe');
-    await expect(matches).toContainText(`Environment connection ${labKey}`);
+    await expect(matches).toContainText(`Kết nối của môi trường ${labKey}`);
     await shot('restart-score-preview');
     // Persisted Active Resource evidence: staging's cluster ran on lab only.
     const raw = readFileSync(env.ORCH_E2E_STATE_FILE, 'utf8');

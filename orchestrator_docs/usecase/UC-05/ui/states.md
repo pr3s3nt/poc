@@ -2,7 +2,7 @@
 id: UC-05-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-11
 related: UC-05
 ---
 
@@ -20,3 +20,16 @@ related: UC-05
 | Input/scope changed | Clear old preview; ignore late obsolete responses. |
 
 Keyboard navigation and accessible labels apply to all inputs/actions.
+
+## Trình bày tiếng Việt — T13
+
+Ready hướng dẫn nhập Score và dùng placeholder cho bí mật; Invalid input giữ
+nguyên nội dung và báo lỗi bắt buộc/JSON/YAML/Score bằng tiếng Việt, không echo
+giá trị gửi lên. Previewing hiển thị **Đang tính kết quả xem trước…** và khóa
+submit trùng. Success nêu rõ chỉ đọc, không lưu/triển khai; No change giải thích
+không có thay đổi Workload nhưng vẫn có thể có đồ thị môi trường.
+Environment chưa cấu hình hướng dẫn mở Cài đặt môi trường để chọn kết nối.
+Lỗi không truy cập được hoặc API failure dùng thông báo Việt an toàn và
+**Thử lại**; retry chỉ gọi score-preview. Session expired giữ flow UC-00 và role
+gate hiện có. Đổi input/Application/Environment xóa kết quả cũ và bỏ phản hồi
+đến muộn; không tự lưu draft, tạo Deployment hoặc provision tài nguyên.

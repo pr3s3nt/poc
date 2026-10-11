@@ -298,12 +298,12 @@ try {
   const applicationId = await createApplication(h, 'Catalog Consumer', `catalog-${runId.slice(-6)}`);
   mark('developer-application');
   await h.click(page.getByRole('button', { name: 'Xem trước Score' }));
-  await expect(page.getByRole('heading', { name: 'Preview Score', level: 1 })).toBeVisible();
-  await h.type(page.getByLabel('Workload ID'), 'api');
-  await h.type(page.getByLabel('Run ID'), 'catalog-demo');
-  await h.type(page.getByLabel('Score after (YAML or JSON)'), score, { delay: TYPE_DELAY });
-  await h.click(page.getByRole('button', { name: 'Preview', exact: true }));
-  const matches = page.locator('section.content-panel').filter({ has: page.getByRole('heading', { name: 'Resource execution bindings' }) });
+  await expect(page.getByRole('heading', { name: 'Xem trước Score', level: 1 })).toBeVisible();
+  await h.type(page.getByLabel('ID Workload'), 'api');
+  await h.type(page.getByLabel('ID lần chạy'), 'catalog-demo');
+  await h.type(page.getByLabel('Score sau (YAML hoặc JSON)'), score, { delay: TYPE_DELAY });
+  await h.click(page.getByRole('button', { name: 'Xem trước', exact: true }));
+  const matches = page.locator('section.content-panel').filter({ has: page.getByRole('heading', { name: 'Liên kết thực thi tài nguyên' }) });
   await expect(matches).toContainText('postgres-fast');
   await h.moveTo(matches.getByText('postgres-fast'));
   mark('preview-matches-new-definition');

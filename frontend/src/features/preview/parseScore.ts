@@ -9,18 +9,18 @@ const MAX_ALIASES = 20;
 // accepted; nothing is sent to the server and the text is never rewritten.
 // The result is a plain JSON value, so it can always be serialized.
 export function parseScoreText(text: string): ParsedScore {
-  if (!text.trim()) return { ok: false, error: 'is required.' };
+  if (!text.trim()) return { ok: false, error: 'là bắt buộc.' };
   let documents;
   try { documents = parseAllDocuments(text, { prettyErrors: false }); }
-  catch { return { ok: false, error: 'is not valid YAML or JSON.' }; }
-  if (!Array.isArray(documents)) return { ok: false, error: 'is not valid YAML or JSON.' };
-  if (documents.length !== 1) return { ok: false, error: 'must contain exactly one document.' };
+  catch { return { ok: false, error: 'không phải YAML hoặc JSON hợp lệ.' }; }
+  if (!Array.isArray(documents)) return { ok: false, error: 'không phải YAML hoặc JSON hợp lệ.' };
+  if (documents.length !== 1) return { ok: false, error: 'phải chứa đúng một tài liệu.' };
   const [document] = documents;
-  if (!document || document.errors.length) return { ok: false, error: `is not valid YAML or JSON${document?.errors[0] ? `: ${document.errors[0].message.split('\n')[0]}` : '.'}` };
+  if (!document || document.errors.length) return { ok: false, error: 'không phải YAML hoặc JSON hợp lệ.' };
   let value: unknown;
   try { value = document.toJS({ maxAliasCount: MAX_ALIASES }); }
-  catch { return { ok: false, error: `uses too many or recursive YAML aliases; write the values out (at most ${MAX_ALIASES} alias uses).` }; }
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) return { ok: false, error: 'must be a Score object.' };
+  catch { return { ok: false, error: `dùng quá nhiều alias YAML hoặc alias đệ quy; hãy viết giá trị ra đầy đủ (tối đa ${MAX_ALIASES} lần dùng alias).` }; }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return { ok: false, error: 'phải là một đối tượng Score.' };
   try { return { ok: true, score: JSON.parse(JSON.stringify(value)) as Record<string, unknown> }; }
-  catch { return { ok: false, error: 'must be plain JSON data without self-references.' }; }
+  catch { return { ok: false, error: 'phải là dữ liệu JSON thuần, không tự tham chiếu.' }; }
 }

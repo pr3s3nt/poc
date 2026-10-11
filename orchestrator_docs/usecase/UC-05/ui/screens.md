@@ -2,11 +2,29 @@
 id: UC-05-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-11
 related: UC-05
 ---
 
 # UC-05 screens
+
+## Nhãn Console tiếng Việt — T13
+
+Trang standalone dùng nhãn **Xem trước Score**, **Thao tác**, **ID Workload**,
+**ID lần chạy**, **Score trước (YAML hoặc JSON)**, **Score sau (YAML hoặc JSON)**,
+**Xem trước** và **Thử lại**. Tab giữ nguyên `staging`/`production`; các lựa chọn
+Thêm/Cập nhật/Xóa Workload vẫn gửi `deploy`/`update`/`remove`.
+Toàn bộ hướng dẫn, aria-label, trạng thái và lỗi hiển thị dùng tiếng Việt theo
+[glossary](../../../GLOSSARY.md#nhãn-web-console-vi-01). YAML/JSON keys,
+placeholder, technical IDs, graph descriptors, output keys và dữ liệu planning
+giữ nguyên. Chỉ đổi thông báo parser, không thay quy tắc parse Score.
+
+Kết quả có tóm tắt Delta, thay đổi tài nguyên, thứ tự tạo tài nguyên, liên kết
+thực thi, đồ thị và tài liệu Delta/Candidate Deployment Set. Nhãn giải thích
+bản đã lọc dữ liệu nhạy cảm và giá trị `***redacted***`; không diễn giải marker
+thành dữ liệu thực. Kết nối ngầm được gọi là **Kết nối của môi trường**.
+Lỗi API chưa có mapping code đầy đủ dùng fallback Việt an toàn, không hiện
+raw backend/parser error hoặc dịch bằng regex; mapping code đầy đủ thuộc T20.
 
 Application home provides **Preview Score** for the selected Environment.
 The standalone page visibly identifies Application, Environment and the persisted Environment

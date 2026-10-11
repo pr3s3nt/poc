@@ -9,7 +9,7 @@ import { expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { requireCaptionLocale, createCaptions } from './captions.mjs';
-import { addWorkload, createApplication, createHuman, expectVisibleCursor, installCursor, putKeys, setEnvironmentConnections } from './human.mjs';
+import { LONG_TYPE_DELAY, addWorkload, createApplication, createHuman, expectVisibleCursor, installCursor, putKeys, setEnvironmentConnections } from './human.mjs';
 import { assertTablesComplete, locators } from './locators.mjs';
 import { launchHeaded, screenSize, startRecording, stopRecording, x11Input } from './video.mjs';
 
@@ -2874,6 +2874,288 @@ export const SCENARIOS = {
     await h.click(ui('shell', 'signOut'));
     await expect(ui('signIn', 'username')).toBeVisible();
     check(`mocks used (${mocks.length} activations, see mocks.json); real: create/connection/drafts/preview/deploy/delete/undo/list/history`);
+    mark('signed-out');
+    await h.pause(3000);
+  },
+
+  // T13: Standalone Score Preview. Developer. PRODUCT (UI, backend fake thật, state tạm): đăng nhập, tạo ứng dụng, mở trang Xem trước Score, validation cục bộ,
+  // 422 chưa cấu hình thật, chọn kết nối trong Cài đặt môi trường, Score hợp lệ => kết quả thật (Delta/graph/lô/tài liệu), 400 thật (ID không khớp metadata.name),
+  // đổi thao tác sang xóa (payload chỉ có scoreBefore). MOCK (page.route, mỗi lần dùng ghi vào mocks.json): (1) score-preview trả 413 giả; (2) 500 giả rồi Thử lại đến
+  // backend thật; (3) 404 giả; (4) phản hồi bị giữ ~3.5s rồi chuyển Production (đến muộn bị bỏ qua); (5) 401 giả => phiên hết hạn. Backend fake không tạo được 413/500/404/401
+  // theo yêu cầu. Setup độc lập (không phải bước product): không có; mọi bước đều qua UI. Mọi request không phải GET sau thiết lập chỉ được là POST score-preview.
+  async T13({ page, h, ui, caption, mark, check, baseURL }) {
+    const NAME = 'T13 Xem trước Score';
+    const RAW = 'RAW-BACKEND-TEXT-XYZ';
+    const mocks = [];
+    const mocked = (what) => { mocks.push(what); appendFileSync(`${process.env.ORCH_E2E_EVIDENCE_DIR}/mocks.json`, `${JSON.stringify({ at: new Date().toISOString(), what })}\n`); };
+    const writes = [];
+    const previews = [];
+    page.on('request', (request) => {
+      if (request.method() === 'GET') return;
+      const path = new URL(request.url()).pathname;
+      if (path.endsWith('/score-preview')) previews.push(request.postDataJSON());
+      writes.push(`${request.method()} ${path.replace(/^\/api\/v1\/applications\/[^/]+\//, '')}`);
+    });
+    const nonPreviewWrites = (from) => writes.slice(from).filter((line) => !line.endsWith('/score-preview'));
+    let appId = '';
+    const apiGet = async (suffix) => (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}/environments/staging/${suffix}`)).json());
+    const submit = () => page.getByRole('button', { name: 'Xem trước', exact: true });
+    const alert = () => page.getByRole('alert');
+    const result = () => page.getByRole('region', { name: 'Kết quả xem trước Score' });
+    const noRaw = async () => expect(await page.locator('body').innerText()).not.toMatch(new RegExp(`${RAW}|token=|does not match|metadata\\.name "`));
+    const apiScore = 'apiVersion: score.dev/v1b1\nmetadata:\n  name: api\ncontainers:\n  main:\n    image: registry.example/api:t13\n';
+    const fillBasic = async (workload, run, score) => {
+      await h.type(page.getByLabel('ID Workload'), workload, { replace: true });
+      await h.type(page.getByLabel('ID lần chạy'), run, { replace: true });
+      if (score !== undefined) await h.type(page.getByLabel('Score sau (YAML hoặc JSON)'), score, { delay: LONG_TYPE_DELAY, replace: true });
+    };
+    const preview = (suffix) => page.route(`**/environments/*/score-preview`, suffix);
+    const openPreview = async () => {
+      await h.click(page.getByRole('button', { name: 'Xem trước Score' }));
+      await expect(page.getByRole('heading', { name: 'Xem trước Score', level: 1 })).toBeVisible();
+    };
+
+    caption('Bước 1: Nhà phát triển đăng nhập; không hiện điều hướng nền tảng; tạo ứng dụng mới chưa có kết nối');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'developer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await expect(ui('shell', 'navResourceTypes')).toHaveCount(0);
+    await expect(ui('shell', 'navConnections')).toHaveCount(0);
+    appId = await createApplication(h, NAME, 't13-xem-truoc-score', { connections: null });
+    check('role gate (real): Developer has no platform navigation links; new application created through UI with both Environments unconfigured');
+    mark('developer-app');
+    const afterSetup = writes.length;
+    await h.read('Nhà phát triển không có mục nền tảng; ứng dụng chưa có kết nối');
+
+    caption('Bước 2: Mở trang Xem trước Score; nhãn, hướng dẫn và lưu ý bí mật bằng tiếng Việt; không có nút lưu hay triển khai');
+    await openPreview();
+    await expect(page).toHaveURL(`${baseURL}/ui/applications/${appId}/environments/staging/preview`);
+    await expect(page.getByRole('note')).toContainText('Không dán giá trị bí mật');
+    await expect(page.getByLabel('Thao tác')).toBeVisible();
+    await expect(page.getByLabel('ID Workload')).toHaveAttribute('placeholder', 'phải trùng metadata.name');
+    await expect(page.getByLabel('Score sau (YAML hoặc JSON)')).toBeVisible();
+    await expect(page.getByLabel('Score trước (YAML hoặc JSON)')).toHaveCount(0);
+    await expect(page.getByRole('tablist', { name: 'Môi trường' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /triển khai|lưu/i })).toHaveCount(0);
+    check('preview page (real): Vietnamese labels/note/placeholder, add action hides Score trước, no save/deploy button');
+    mark('preview-page');
+    await h.moveTo(page.getByRole('note'));
+    await h.read('Trang xem trước chỉ đọc, nhắc không dán bí mật');
+
+    caption('Bước 3: Gửi form trống: lỗi cục bộ tiếng Việt, không gọi backend, nội dung đã nhập được giữ');
+    await h.click(submit());
+    await expect(alert()).toContainText('ID Workload là bắt buộc.');
+    await expect(alert()).toContainText('ID lần chạy là bắt buộc.');
+    await expect(alert()).toContainText('Score sau là bắt buộc.');
+    expect(previews).toHaveLength(0);
+    check('empty submit: three Vietnamese local errors, zero score-preview requests');
+    mark('local-empty');
+    await h.moveTo(alert());
+    await h.read('Ba lỗi cục bộ bằng tiếng Việt');
+    const broken = 'containers: [';
+    await fillBasic('api', 'run-t13-1', broken);
+    await h.click(submit());
+    await expect(alert()).toContainText('Score sau không phải YAML hoặc JSON hợp lệ.');
+    await expect(page.getByLabel('Score sau (YAML hoặc JSON)')).toHaveValue(broken);
+    expect(previews).toHaveLength(0);
+    await noRaw();
+    expect(await page.locator('body').innerText()).not.toMatch(/Flow sequence|Unexpected|at line/i);
+    check('invalid YAML: Vietnamese parser message, raw yaml text hidden, input kept, still zero requests');
+    mark('local-invalid-yaml');
+    await h.moveTo(alert());
+    await h.read('Lỗi YAML bằng tiếng Việt, không lộ thông báo thô');
+
+    caption('Bước 4: Score hợp lệ khi môi trường chưa có kết nối: backend thật từ chối 422, trang hướng dẫn mở Cài đặt môi trường');
+    await h.type(page.getByLabel('Score sau (YAML hoặc JSON)'), apiScore, { delay: LONG_TYPE_DELAY, replace: true });
+    await h.click(submit());
+    await expect(alert()).toContainText('Môi trường staging chưa có kết nối triển khai');
+    await expect(alert()).toContainText('Cài đặt môi trường');
+    await expect(alert().getByRole('button', { name: 'Thử lại' })).toBeVisible();
+    await expect(result()).toHaveCount(0);
+    expect(previews).toHaveLength(1);
+    expect(previews[0]).toEqual({ workloadId: 'api', action: 'deploy', runId: 'run-t13-1', scoreAfter: { apiVersion: 'score.dev/v1b1', metadata: { name: 'api' }, containers: { main: { image: 'registry.example/api:t13' } } } });
+    await noRaw();
+    check('unconfigured (real 422): Vietnamese guidance, Thử lại offered, no result, payload = deploy + parsed scoreAfter only');
+    mark('unconfigured');
+    await h.moveTo(alert());
+    await h.read('Chưa cấu hình: hãy chọn kết nối, chưa có gì được lập kế hoạch');
+
+    caption('Bước 5: Quay lại ứng dụng, chọn kết nối Staging trong Cài đặt môi trường rồi mở lại Xem trước Score');
+    await h.click(page.getByRole('button', { name: `← ${NAME}` }));
+    await expect(page.getByRole('heading', { name: NAME })).toBeVisible();
+    await setEnvironmentConnections(h, NAME, { staging: 'internal-cluster' });
+    await openPreview();
+    await expect(page.getByLabel('Đích triển khai')).toContainText('Kết nối internal-cluster');
+    await expect(page.getByLabel('ID Workload')).toHaveValue('');
+    check('after UI connection save: preview page shows Kết nối internal-cluster; form starts empty (input not persisted)');
+    mark('connection-set');
+
+    caption('Bước 6: Backend thật từ chối ID Workload không khớp metadata.name: thông báo Việt an toàn, không lặp lại giá trị đã gửi, giữ nguyên input');
+    await fillBasic('backend', 'run-t13-2', apiScore);
+    await h.click(submit());
+    await expect(alert()).toContainText('Máy chủ không chấp nhận dữ liệu xem trước');
+    await expect(alert()).not.toContainText('backend');
+    await expect(alert().getByRole('button', { name: 'Thử lại' })).toHaveCount(0);
+    await expect(page.getByLabel('Score sau (YAML hoặc JSON)')).toHaveValue(apiScore);
+    await noRaw();
+    check('server 400 (real): Vietnamese generic message without echoed workload id/raw text, no retry button, input kept');
+    mark('server-400');
+    await h.moveTo(alert());
+    await h.read('Lỗi 400 an toàn bằng tiếng Việt');
+
+    caption('Bước 7: Sửa ID Workload và xem trước: kết quả thật gồm Delta, thay đổi tài nguyên, thứ tự tạo, liên kết thực thi, đồ thị, tài liệu');
+    await h.type(page.getByLabel('ID Workload'), 'api', { replace: true });
+    await expect(alert()).toHaveCount(0);
+    await h.click(submit());
+    await expect(result()).toBeVisible();
+    await expect(result()).toContainText('Xem trước · api · Thêm Workload');
+    await expect(result()).toContainText('Kết quả chỉ đọc');
+    const panel = (name) => result().locator('section.content-panel').filter({ has: page.getByRole('heading', { name, exact: true }) });
+    await expect(panel('Delta')).toContainText('thêm module api');
+    await expect(panel('Thay đổi tài nguyên')).toContainText('Mới (');
+    await expect(panel('Thứ tự tạo tài nguyên')).toContainText('Lô 1:');
+    await expect(panel('Liên kết thực thi tài nguyên')).toContainText('Kết nối của môi trường internal-cluster');
+    await expect(panel('Đồ thị tài nguyên')).toContainText('cạnh phụ thuộc');
+    await expect(panel('Tài liệu (bản đã lọc dữ liệu nhạy cảm)')).toContainText('***redacted***');
+    await expect(result()).toContainText('run-t13-2');
+    const last = previews.at(-1);
+    expect(last.action).toBe('deploy');
+    expect(Object.keys(last).sort()).toEqual(['action', 'runId', 'scoreAfter', 'workloadId']);
+    check('preview result (real): Vietnamese sections, Delta "thêm module api", Kết nối của môi trường binding, graph and sanitized documents present; payload keys exact');
+    mark('result');
+    await h.moveTo(result().getByRole('heading', { name: 'Delta', exact: true }));
+    await h.read('Delta: thêm module api');
+    await h.moveTo(panel('Đồ thị tài nguyên'));
+    await h.pause(SHORT_READ);
+    const details = panel('Tài liệu (bản đã lọc dữ liệu nhạy cảm)').locator('summary');
+    await h.click(details.first());
+    await expect(panel('Tài liệu (bản đã lọc dữ liệu nhạy cảm)').locator('pre').first()).toContainText('api');
+    await h.click(details.nth(1));
+    await expect(panel('Tài liệu (bản đã lọc dữ liệu nhạy cảm)').locator('pre').nth(1)).toContainText('modules');
+    mark('documents');
+    await h.read('Tài liệu Delta và Candidate là bản đã lọc dữ liệu nhạy cảm');
+    await expect(page.getByRole('button', { name: /triển khai|lưu/i })).toHaveCount(0);
+
+    caption('Bước 8: MOCK 413 giả rồi 404 giả: thông báo tiếng Việt, không có raw backend text');
+    await preview(async (route) => {
+      mocked('POST score-preview answered with fake 413 (raw text must not render)');
+      await route.fulfill({ status: 413, contentType: 'application/json', body: JSON.stringify({ error: RAW }) });
+    });
+    await h.click(submit());
+    await expect(alert()).toContainText('Score quá lớn để xem trước');
+    await expect(result()).toHaveCount(0);
+    await noRaw();
+    check('413 (MOCKED): Vietnamese, old result cleared, no raw text');
+    mark('mock-413');
+    await h.read('Lỗi 413 bằng tiếng Việt');
+    await page.unroute('**/environments/*/score-preview');
+    await preview(async (route) => {
+      mocked('POST score-preview answered with fake 404 (raw text must not render)');
+      await route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: RAW }) });
+    });
+    await h.click(submit());
+    await expect(alert()).toContainText('Không tìm thấy ứng dụng hoặc môi trường này.');
+    await noRaw();
+    check('404 (MOCKED): Vietnamese, no raw text');
+    mark('mock-404');
+    await h.read('Lỗi 404 bằng tiếng Việt');
+    await page.unroute('**/environments/*/score-preview');
+
+    caption('Bước 9: MOCK 500 giả: thông báo Việt có Thử lại; Thử lại chỉ gọi score-preview và nhận kết quả thật');
+    let fail500 = true;
+    await preview(async (route) => {
+      if (fail500) { fail500 = false; mocked('POST score-preview answered with fake 500 once (raw text must not render)'); await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: RAW }) }); return; }
+      await route.continue();
+    });
+    await h.click(submit());
+    await expect(alert()).toContainText('Không thể xem trước Score. Hãy thử lại.');
+    await noRaw();
+    mark('mock-500');
+    await h.moveTo(alert());
+    await h.read('Lỗi 500 có nút Thử lại');
+    const writesBeforeRetry = writes.length;
+    await h.click(alert().getByRole('button', { name: 'Thử lại' }));
+    await expect(result()).toBeVisible();
+    await expect(alert()).toHaveCount(0);
+    expect(writes.slice(writesBeforeRetry).every((line) => line.endsWith('/score-preview'))).toBe(true);
+    await page.unroute('**/environments/*/score-preview');
+    check('500 (MOCKED once): Vietnamese + Thử lại; retry sent only POST score-preview and showed the real result');
+    mark('retry-ok');
+    await h.read('Thử lại thành công với backend thật');
+
+    caption('Bước 10: Đổi thao tác sang Xóa Workload: chỉ còn Score trước, kết quả cũ bị xóa; gửi payload remove');
+    await h.choose(page.getByLabel('Thao tác'), 'Xóa Workload');
+    await expect(page.getByLabel('Thao tác')).toHaveValue('remove');
+    await expect(result()).toHaveCount(0);
+    await expect(page.getByLabel('Score sau (YAML hoặc JSON)')).toHaveCount(0);
+    await h.type(page.getByLabel('Score trước (YAML hoặc JSON)'), '{"metadata":{"name":"api"}}', { delay: LONG_TYPE_DELAY });
+    await h.click(submit());
+    await expect(page.getByRole('alert').or(result())).toBeVisible();
+    expect(previews.at(-1)).toEqual({ workloadId: 'api', action: 'remove', runId: 'run-t13-2', scoreBefore: { metadata: { name: 'api' } } });
+    check('remove action: Score sau editor hidden, old result cleared, payload has scoreBefore only (backend outcome not asserted: workload is not deployed)');
+    mark('remove-payload');
+    await h.read('Payload remove chỉ chứa Score trước');
+    await expect(await page.locator('body').innerText()).not.toContain(RAW);
+
+    caption('Bước 11: MOCK giữ phản hồi 3.5s rồi chuyển sang Production; phản hồi muộn của staging bị bỏ qua và Production báo chưa có kết nối');
+    await h.choose(page.getByLabel('Thao tác'), 'Thêm Workload');
+    await fillBasic('api', 'run-t13-3', apiScore);
+    await preview(async (route) => {
+      mocked('POST score-preview held 3.5s then forwarded to the real backend (late response)');
+      await new Promise((resolve) => setTimeout(resolve, 3500));
+      await route.continue();
+    });
+    await h.click(submit());
+    await expect(page.getByRole('button', { name: 'Đang tính kết quả xem trước…' })).toBeDisabled();
+    await expect(page.getByRole('status').filter({ hasText: 'Đang tính kết quả xem trước…' })).toBeVisible();
+    await h.click(page.getByRole('tab', { name: 'production', exact: true }));
+    await expect(page.getByRole('tab', { name: 'production', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(page).toHaveURL(`${baseURL}/ui/applications/${appId}/environments/production/preview`);
+    await expect(page.getByLabel('Đích triển khai')).toContainText('production chưa có kết nối triển khai');
+    await page.waitForTimeout(4500);
+    await expect(result()).toHaveCount(0);
+    await expect(alert()).toHaveCount(0);
+    await page.unroute('**/environments/*/score-preview');
+    check('late response (MOCKED delay, real reply) ignored after scope switch; Production shows unconfigured target, no stale result');
+    mark('late-scope');
+    await h.read('Phản hồi muộn của staging không hiện ở production');
+
+    caption('Bước 12: Xác minh chỉ đọc qua API: không tạo draft, không có triển khai, mọi request ghi sau thiết lập chỉ là POST score-preview');
+    expect((await apiGet('workloads')).workloads ?? []).toEqual([]);
+    expect((await apiGet('deployments')).deployments ?? []).toEqual([]);
+    expect(nonPreviewWrites(afterSetup).filter((line) => !/\/connection$/.test(line))).toEqual([]);
+    check(`read-only (real API reads): zero drafts, zero deployments; non-preview writes after setup were only the UI connection PUT (${nonPreviewWrites(afterSetup).length})`);
+    mark('read-only');
+    await h.pause(SHORT_READ);
+
+    caption('Bước 13: MOCK 401 giả khi xem trước: phiên hết hạn, quay về đăng nhập theo luồng chung, không hiện kết quả');
+    await h.click(page.getByRole('tab', { name: 'staging', exact: true }));
+    await expect(page.getByRole('tab', { name: 'staging', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await fillBasic('api', 'run-t13-4', apiScore);
+    await preview(async (route) => {
+      mocked('POST score-preview answered with fake 401 (session expired)');
+      await route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: RAW }) });
+    });
+    await h.click(submit());
+    await expect(ui('signIn', 'username')).toBeVisible();
+    await expect(page.getByText('Phiên đăng nhập đã kết thúc. Đăng nhập lại để tiếp tục.')).toBeVisible();
+    await noRaw();
+    await page.unroute('**/environments/*/score-preview');
+    check(`401 (MOCKED): sign-in page with Vietnamese expired notice, no raw text; mocks used (${mocks.length} activations, see mocks.json)`);
+    mark('session-expired');
+    await h.read('Phiên hết hạn được báo bằng tiếng Việt, không lộ nội dung thô');
+
+    caption('Bước 14: Đăng nhập lại rồi đăng xuất để kết thúc phiên');
+    await h.type(ui('signIn', 'username'), 'developer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    check('sign out (real): signed back in after the MOCKED 401, then signed out through the shell');
     mark('signed-out');
     await h.pause(3000);
   },
