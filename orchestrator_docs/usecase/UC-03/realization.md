@@ -133,3 +133,13 @@ checking; this change does not add a registration-time context allowlist.
 Seed registration inserts missing current Definitions without rewriting any existing
 record. Planning resolves @infra only to the Environment/generation path. Historical
 fixture paths/names are normalized only in the conformance harness, not product context.
+
+## Typed authoring collaboration (T31)
+
+Controller role-gates `ListDefinitionCapabilities`; Catalog projects supported
+registration pairs, static Kubernetes policy and embedded DriverContractInspector
+contracts into safe metadata (OC-04d). Read scoped Resource Type schemas only to
+annotate param sources; no writes, credentials, executor or external calls.
+Console uses metadata for support/CTA and typed controls with explicit overrides,
+lossless advanced variables/provision JSON. POST validation and planning remain
+independent authoritative guards (BR-23–26); no schema or transaction change.

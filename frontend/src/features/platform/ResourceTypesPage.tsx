@@ -3,7 +3,7 @@ import { specificGuidance, fieldNote } from '../../shared/api/errors';
 import { href, navigate } from '../../app/routes';
 import { api, ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
-import { own, supported } from './resourceSupport';
+import { capabilitiesForType, loadCapabilities, type Capability } from './capabilities';
 import { useCatalogList } from './useCatalogList';
 
 type InputField = { name: string; type: string; required: boolean };
@@ -14,7 +14,7 @@ const fieldTypes = ['string', 'number', 'bool', 'any'];
 const newInput = (): InputField => ({ name: '', type: 'string', required: false });
 const newOutput = (): OutputField => ({ name: '', type: 'string', required: false, secret: false });
 const yesNo = (value: boolean | undefined) => (value === true ? 'Có' : 'Không');
-const driverText = (driver: string, module: string) => (driver === 'terraform' ? `Terraform/${module}` : 'Kubernetes');
+const driverText = (pair: Capability) => (pair.driverType === 'terraform' ? `Terraform/${pair.module}` : 'Kubernetes');
 
 // Flags and types are copied exactly as the GET returned them; nothing is
 // inferred from field names. A missing flag is false (the API omits false).
@@ -47,6 +47,7 @@ function SchemaTable({ label, fields, secret }: { label: string; fields: Partial
 
 export function ResourceTypesPage() {
   const { items: types, loading, loadError, reload } = useCatalogList(loadTypes, listFailure);
+  const capabilityList = useCatalogList(loadCapabilities, () => 'Không tải được metadata cách tạo được hỗ trợ từ máy chủ.');
   const [key, setKey] = useState('');
   const [inputs, setInputs] = useState<InputField[]>([]);
   const [outputs, setOutputs] = useState<OutputField[]>([]);
@@ -94,12 +95,16 @@ export function ResourceTypesPage() {
     </section>;
   }
   function renderEntry(type: ResourceType) {
-    const rule = own(supported, type.key);
+    // Support comes only from the authoritative metadata; loading/error never reads as "contract only" or "supported".
+    const metadataPending = capabilityList.loading || capabilityList.loadError !== '';
+    const pairs = metadataPending ? [] : capabilitiesForType(capabilityList.items, type.key);
+    const rule = pairs.length > 0;
+    const supportLabel = capabilityList.loading ? 'Đang kiểm tra hỗ trợ…' : capabilityList.loadError ? 'Chưa xác nhận hỗ trợ' : rule ? 'Có cách tạo hỗ trợ' : 'Chỉ có contract';
     const open = expanded === type.key;
     const inputList = type.inputs ?? [];
     const outputList = type.outputs ?? [];
-    return <div key={type.key} className="catalog-entry catalog-entry-rich"><div className="section-header"><div><strong>{type.key}</strong> <span className="status-pill">{rule ? 'Có cách tạo hỗ trợ' : 'Chỉ có contract'}</span><br />
-      <span>{inputList.length} đầu vào · {outputList.length} đầu ra</span>{rule ? <span> · Cách tạo: {rule.drivers.map((driver) => driverText(driver, rule.module)).join(' hoặc ')}</span> : null}</div>
+    return <div key={type.key} className="catalog-entry catalog-entry-rich"><div className="section-header"><div><strong>{type.key}</strong> <span className="status-pill">{supportLabel}</span><br />
+      <span>{inputList.length} đầu vào · {outputList.length} đầu ra</span>{rule ? <span> · Cách tạo: {pairs.map(driverText).join(' hoặc ')}</span> : null}</div>
       <div className="form-actions">
         <Button type="button" aria-expanded={open} aria-label={`${open ? 'Ẩn' : 'Xem'} schema ${type.key}`} onClick={() => setExpanded(open ? '' : type.key)}>{open ? 'Ẩn schema' : 'Xem schema'}</Button>
         {rule ? <a className="button" href={href({ name: 'resource-definitions', resourceType: type.key })} aria-label={`Tạo Cấu hình tài nguyên cho ${type.key}`} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-definitions', resourceType: type.key }); }}>Tạo Cấu hình tài nguyên</a> : null}
@@ -115,6 +120,7 @@ export function ResourceTypesPage() {
   return <section className="page"><header className="page-header"><div><p className="eyebrow">Nền tảng</p><h1>Loại tài nguyên</h1><p>Khai báo contract (đầu vào, đầu ra) dùng lại được cho Tổ chức này. Chỉ Kỹ sư nền tảng hoặc Quản trị viên được đăng ký.</p></div></header>
     <section className="content-panel"><div className="section-header"><h2>Loại tài nguyên đã đăng ký</h2></div>
       <p className="feature-note">“Có cách tạo hỗ trợ” nghĩa là hệ thống có cách tạo cho loại này; vẫn cần Cấu hình tài nguyên và đích hợp lệ nên chưa bảo đảm triển khai thành công. “Chỉ có contract” chỉ là mô tả schema, chưa có cách tạo.</p>
+      {capabilityList.loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải metadata hỗ trợ">{capabilityList.loadError} Chưa xác nhận được loại nào có cách tạo hỗ trợ nên chưa có nút tạo Cấu hình tài nguyên. <Button type="button" onClick={() => void capabilityList.reload()}>Thử lại</Button></div> : null}
       {loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải danh sách">{loadError} <Button type="button" onClick={() => void reload()}>Thử lại</Button></div> : loading ? <p role="status">Đang tải loại tài nguyên…</p> : types.length === 0 ? <p>Chưa có loại tài nguyên nào.</p> : <div className="catalog-list">{types.map(renderEntry)}</div>}</section>
     <section className="content-panel"><div className="section-header"><div><h2>Đăng ký loại tài nguyên</h2><p>Contract độc lập với nhà cung cấp hạ tầng. Đăng ký loại mới không thêm cách tạo tài nguyên. Loại đã đăng ký không sửa, xóa hay đổi phiên bản; muốn đổi schema hãy sao chép sang ID mới.</p></div></div>
       <form onSubmit={submit}><fieldset className="editor-grid form-fieldset" disabled={saving} aria-busy={saving}><label>ID loại tài nguyên<input ref={idField} value={key} required aria-describedby="resource-type-id-hint" onChange={(event) => setKey(event.target.value)} /></label>

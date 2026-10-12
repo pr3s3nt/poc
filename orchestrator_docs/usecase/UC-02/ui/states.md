@@ -40,3 +40,9 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
+
+## Metadata hỗ trợ T31
+
+Loading/error capability hiện trạng thái riêng và Thử lại, không fallback whitelist
+hoặc giả “Chỉ có contract”; CTA khóa đến khi có metadata thành công. Refresh/late
+reply không overwrite draft schema, ID hay lựa chọn đã sửa. Retry chỉ GET.

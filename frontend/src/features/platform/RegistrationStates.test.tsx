@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConnectionsPage } from './ConnectionsPage';
 import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
 import { ResourceTypesPage } from './ResourceTypesPage';
+import { capabilityFixture } from '../../test/capabilities';
 
 type User = ReturnType<typeof userEvent.setup>;
 type Labels = { listError: string; retry: string; registered: RegExp };
@@ -38,6 +39,7 @@ function stub(list: string, lists: (() => Response)[], post: () => Response) {
     const url = String(input);
     if (init?.method === 'POST' && url.endsWith('/inspect')) return inspected();
     if (init?.method === 'POST') { calls.posts += 1; return post(); }
+    if (url.endsWith('/resource-definition-capabilities')) return Response.json({ capabilities: capabilityFixture });
     if (url.endsWith(list)) return (lists.shift() ?? lists[0] ?? (() => Response.json({})))();
     if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres' }] });
     if (url.endsWith('/connections')) return Response.json({ connections: [] });
@@ -80,6 +82,7 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
       if (init?.method === 'POST' && url.endsWith('/inspect')) return inspected();
+      if (url.endsWith('/resource-definition-capabilities')) return Response.json({ capabilities: capabilityFixture });
       if (init?.method === 'POST') { calls.posts += 1; return new Promise<Response>((done) => { release = done; }); }
       if (url.endsWith(list)) return listed(calls.posts ? [item] : [])();
       return Response.json({ resourceTypes: [{ key: 'postgres' }] });

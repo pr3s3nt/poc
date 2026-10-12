@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ResourceTypesPage } from './ResourceTypesPage';
+import { capabilityFixture } from '../../test/capabilities';
 
 type Body = Record<string, unknown>;
 const secretNames = { name: 'password', type: 'string', required: false, secret: false };
@@ -24,6 +25,7 @@ function backend(options: { types?: Body[]; post?: (body: Body) => Response | Pr
       posted.push(body);
       return (options.post ?? (() => Response.json(body, { status: 201 })))(body);
     }
+    if (String(input).endsWith('/resource-definition-capabilities')) return Response.json({ capabilities: capabilityFixture });
     gets.push(String(input));
     if (lists?.length) return (lists.shift() as () => Response)();
     return Response.json({ resourceTypes: options.types ?? [cache] });
@@ -96,7 +98,8 @@ describe('UC-02 resource type registration (Vietnamese)', () => {
     const user = userEvent.setup();
     let release: () => void = () => undefined;
     const lists = [() => Response.json({ error: 'unavailable' }, { status: 500 })];
-    vi.stubGlobal('fetch', vi.fn(async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      if (String(input).endsWith('/resource-definition-capabilities')) return Response.json({ capabilities: capabilityFixture });
       if (lists.length) { await new Promise<void>((done) => { release = done; }); return lists.shift()?.() as Response; }
       return Response.json({ resourceTypes: [cache] });
     }));
@@ -303,5 +306,30 @@ describe('UC-02 supported whitelist and definition CTA', () => {
     render(<ResourceTypesPage />);
     await user.click(await screen.findByRole('link', { name: 'Tạo Cấu hình tài nguyên cho postgres' }));
     expect(window.location.pathname + window.location.search).toBe('/ui/platform/resource-definitions?resourceType=postgres');
+  });
+});
+
+describe('T31 support metadata is authoritative', () => {
+  it('never reads loading or failed metadata as supported or contract-only, and retry only issues GET', async () => {
+    const user = userEvent.setup();
+    let fail = true;
+    const methods: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      methods.push(init?.method ?? 'GET');
+      if (String(input).endsWith('/resource-definition-capabilities')) return fail ? Response.json({ code: 'INTERNAL' }, { status: 500 }) : Response.json({ capabilities: capabilityFixture });
+      return Response.json({ resourceTypes: seeded });
+    }));
+    render(<ResourceTypesPage />);
+    const alert = await screen.findByRole('alert', { name: 'Lỗi tải metadata hỗ trợ' });
+    expect(screen.queryByText('Chỉ có contract')).not.toBeInTheDocument();
+    expect(screen.queryByText('Có cách tạo hỗ trợ')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Tạo Cấu hình tài nguyên/ })).not.toBeInTheDocument();
+    expect(screen.getAllByText('Chưa xác nhận hỗ trợ').length).toBeGreaterThan(0);
+    fail = false;
+    await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
+    expect(await screen.findByRole('link', { name: 'Tạo Cấu hình tài nguyên cho postgres' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Tạo Cấu hình tài nguyên cho postgres-ha' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Tạo Cấu hình tài nguyên cho constructor' })).not.toBeInTheDocument();
+    expect(methods.every((method) => method === 'GET')).toBe(true);
   });
 });

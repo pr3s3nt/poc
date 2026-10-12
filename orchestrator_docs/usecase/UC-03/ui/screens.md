@@ -88,8 +88,7 @@ technical IDs/payload giữ nguyên. Lưu mẫu không tự Preview/Deploy.
 ## Điều hướng từ Loại tài nguyên (T04)
 
 CTA từ UC-02 mở `/ui/platform/resource-definitions?resourceType=<key>`.
-Chỉ chọn sẵn type khi catalog tải thành công xác nhận key thuộc whitelist của
-form T02; query thiếu/không hỗ trợ không tạo lựa chọn hợp lệ. Prefill không
+Chỉ chọn sẵn type khi catalog tải thành công xác nhận key có cặp hỗ trợ trong metadata T31; query thiếu/không hỗ trợ không tạo lựa chọn hợp lệ. Prefill không
 gửi POST hoặc ghi đè dữ liệu người dùng khi reload/response đến muộn.
 
 ## Matching preview chính xác (T19)
@@ -101,3 +100,23 @@ Hiển thị eligibility, criterion/score, winner/ties hoặc conflict bằng ti
 INCOMPLETE yêu cầu bổ sung context, transport failure có Thử lại riêng.
 Hiển thị marker/version snapshot và nhắc “Kết quả theo snapshot; hệ thống vẫn
 kiểm tra lại khi đăng ký và triển khai”. Giữ cảnh báo nguy cơ frontend riêng.
+
+## Tham số typed và provision editor (T31)
+
+Form lấy capabilities OC-04d thay whitelist frontend; module theo cặp supported
+vẫn ngầm. Tham số cấu hình có typed controls string/number/bool/list/map theo
+metadata, ghi nguồn param/context/default và required. Không điền params workload
+vào Definition; param thực của workload ưu tiên hơn giá trị fallback trong
+Definition. Default omitted không thành override; người dùng chọn override
+hoặc preset tường minh, giữ whole/interpolated placeholders và escaped literals.
+Namespace preset và VPC refs @infra chỉ theo BR-25, không đoán capacity/engine.
+
+Chuyển typed/JSON nâng cao giữ giá trị/kiểu; JSON không biểu diễn được an toàn
+ở typed giữ ở advanced với hướng dẫn Việt. Chuyển type/driver giữ draft riêng
+của cặp; response metadata/retry không ghi đè edits. Executor-owned/credentials
+không có controls. JSON hợp lệ vẫn được server kiểm tra strict.
+Provision editor gồm descriptor, params và hai flags, giải thích consumer/provider
+và chiều consumer → provider (is_dependent đảo vai trò parent/companion,
+match_dependents nối consumers tới companion); advanced JSON giữ cases phức tạp.
+Không tự Preview/provision khi đổi form. CTA/prefill chỉ được bật khi metadata
+và catalog cùng xác nhận cặp supported.

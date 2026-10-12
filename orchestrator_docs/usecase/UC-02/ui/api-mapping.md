@@ -25,13 +25,13 @@ New IDs follow specification BR-05; `environment` and `service` are reserved (BR
 ## Projection Console T04
 
 GET cung cấp `resourceTypes` với `key`, `inputs`, `outputs`; chi tiết và copy
-chỉ dùng metadata này, không endpoint mới. Copy clone schema/flags/types vào
+chỉ dùng Resource Type metadata này. Copy clone schema/flags/types vào
 draft với ID mới; POST giữ body hiện tại và insert-only semantics.
-Whitelist hỗ trợ frontend theo [screens](screens.md) không tạo executor cho
-custom ID. CTA điều hướng UC-03 với query `resourceType` là key kỹ thuật;
-chỉ prefill sau khi GET xác nhận key tồn tại và thuộc whitelist hỗ trợ.
+Capability metadata UC-03 OC-04d theo [screens](screens.md) không tạo executor
+cho custom ID. CTA điều hướng UC-03 với query `resourceType` là key kỹ thuật;
+chỉ prefill sau khi GET xác nhận key tồn tại và có cặp hỗ trợ từ metadata.
 Query thiếu/không hợp lệ không chọn type và không phát sinh POST. Reload hoặc
-response đến muộn không ghi đè lựa chọn/form đã sửa. Không đổi backend API.
+response đến muộn không ghi đè lựa chọn/form đã sửa. Không đổi API đăng ký Resource Type.
 
 ## Lỗi theo code — T20
 

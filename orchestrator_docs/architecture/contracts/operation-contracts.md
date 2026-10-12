@@ -480,3 +480,28 @@ deletes and applied revisions stay unchanged. Guard conflicts return
 its existing configuration-only behavior. Return safe authoritative configuration
 view. No external/provider call occurs inside or because of rename. OC-17 reads
 new desired references/versions and invalidates old preview tokens.
+
+## OC-04d `ResourceDefinitionService.ListDefinitionCapabilities` (T31)
+
+- GET `/api/v1/resource-definition-capabilities`, session org and PE/Admin;
+  401/403 independently enforced. No org override or request body.
+- 200 `{capabilities: [...]}` sorted by resourceType/driverType/module. Each
+  entry has `resourceType`, `driverType`, `module` (empty for Kubernetes),
+  `variables` sorted by name, and `executorOwned` names. Variables carry
+  `name`, `type`, `required`, `hasDefault`, optional typed `default`,
+  `resourceParam` boolean and optional `preset` placeholder string.
+  Required reflects module/executor contract; resourceParam indicates an accepted
+  source at registration in the actual scoped Resource Type input contract.
+  Namespace name counts only for required string name, per BR-12; optional or
+  wrong-type name does not satisfy its required Definition input. Supported pairs are registration policy;
+  never derive custom Resource Types from module variable names.
+- Exclude executor-owned variables from editable variables and secrets/defaults;
+  Terraform region/tags/master_password identified by inspector. Public metadata
+  has no path/source/template/binary/fingerprint/credential/provider diagnostics.
+  Kubernetes defaults reflect existing executor behavior, namespace target is
+  context sourced; no invented capacity or engine defaults.
+- Only scoped metadata repository reads and local embedded contract inspection;
+  no transaction writes, system admission, execution or provider calls. Internal
+  errors use safe T20 500 envelope, no raw inspector content.
+- Registration OC-04, deferred placeholder typing, resource param precedence,
+  graph edges and matching unchanged. Metadata is guidance, not deployment proof.

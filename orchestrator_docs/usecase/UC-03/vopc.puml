@@ -5,11 +5,13 @@ skinparam classAttributeIconSize 0
 class ResourceDefinitionController <<boundary>> {
   +RegisterResourceDefinition(document)
   +ListRenderBundles(sessionOrg, role)
+  +ListDefinitionCapabilities(sessionOrg, role)
 }
 class ResourceDefinitionService <<control>> {
   +RegisterResourceDefinition(ctx, cmd): ResourceDefinition
   +ListRenderBundles(): SafeBundleMetadata[]
-    +PreviewMatching(ctx, org, query): MatchingPreview
+  +ListDefinitionCapabilities(ctx, org): CapabilityMetadata[]
+  +PreviewMatching(ctx, org, query): MatchingPreview
 }
 interface DriverContractInspector {
   +Inspect(module): ModuleContract
@@ -33,7 +35,7 @@ interface ConnectionRepository {
 }
 interface ResourceDefinitionRepository {
   +ListResourceDefinitions(ctx, orgID): List
-  +SaveResourceDefinition(ctx, orgID, definition)
+  +CreateResourceDefinition(ctx, orgID, definition)
 }
 ResourceDefinitionController --> ResourceDefinitionService
 ResourceDefinitionService --> DriverContractInspector

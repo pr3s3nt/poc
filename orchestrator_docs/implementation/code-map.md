@@ -54,7 +54,7 @@ last_reviewed: 2026-10-12
 | T02 Vietnamese resource form, automatic driver/module/profile projection and READY Connection dropdowns | [`resource form`](../../frontend/src/features/platform/ResourceDefinitionsPage.tsx), [`form tests`](../../frontend/src/features/platform/ResourceDefinitionsPage.test.tsx), [`state tests`](../../frontend/src/features/platform/RegistrationStates.test.tsx), [`T02 local UI scenario`](../../frontend/test/e2e/refactor-local.mjs) |
 | T02B shared Vietnamese criteria modes, independent copy and assistive scope preview | [`CriteriaEditor`](../../frontend/src/features/platform/CriteriaEditor.tsx), [`editor tests`](../../frontend/src/features/platform/CriteriaEditor.test.tsx), [`resource integration tests`](../../frontend/src/features/platform/ResourceDefinitionsPage.test.tsx), [`T02B local UI scenario`](../../frontend/test/e2e/refactor-local.mjs) |
 | T05 Vietnamese Secret Store form, advanced defaults, same-address draft and safe verification projection | [`page`](../../frontend/src/features/platform/SecretStoresPage.tsx), [`tests`](../../frontend/src/features/platform/SecretStoresPage.test.tsx), [`scenario`](../../frontend/test/e2e/refactor-local.mjs), [`local runner`](../../backend/test/integration/refactor-ui-local.sh) |
-| T04 Vietnamese Resource Types details/copy, support whitelist and Definition prefill | [`types page`](../../frontend/src/features/platform/ResourceTypesPage.tsx), [`types tests`](../../frontend/src/features/platform/ResourceTypesPage.test.tsx), [`shared support table`](../../frontend/src/features/platform/resourceSupport.ts), [`route query`](../../frontend/src/app/routes.ts), [`Definition form`](../../frontend/src/features/platform/ResourceDefinitionsPage.tsx), [`local scenario`](../../frontend/test/e2e/refactor-local.mjs) |
+| T04 Vietnamese Resource Types details/copy, capability-based support (T31) and Definition prefill | [`types page`](../../frontend/src/features/platform/ResourceTypesPage.tsx), [`types tests`](../../frontend/src/features/platform/ResourceTypesPage.test.tsx), [`capability metadata`](../../frontend/src/features/platform/capabilities.ts), [`route query`](../../frontend/src/app/routes.ts), [`Definition form`](../../frontend/src/features/platform/ResourceDefinitionsPage.tsx), [`local scenario`](../../frontend/test/e2e/refactor-local.mjs) |
 | T03 Vietnamese rendering templates page, PE/Admin route gate and unchanged renderer registration payload | [`templates page`](../../frontend/src/features/platform/RenderingTemplatesPage.tsx), [`page tests`](../../frontend/src/features/platform/RenderingTemplatesPage.test.tsx), [`App role gates`](../../frontend/src/app/App.test.tsx), [`local scenario`](../../frontend/test/e2e/refactor-local.mjs), [`failure stub`](../../backend/test/integration/stubs/score-k8s-render-fail-stub.sh), [`live template locator`](../../frontend/test/e2e/template-engine-kind-human.mjs) |
 | UC-03 Resource Definition registration API/UI and embedded Terraform contract inspection | [`backend/internal/application/catalog`](../../backend/internal/application/catalog/), [`backend/internal/delivery/http/resource_definitions.go`](../../backend/internal/delivery/http/resource_definitions.go), [`backend/internal/adapters/terraform/inspect.go`](../../backend/internal/adapters/terraform/inspect.go), [`frontend/src/features/platform/ResourceDefinitionsPage.tsx`](../../frontend/src/features/platform/ResourceDefinitionsPage.tsx) |
 | UC-04 upload-only kubeconfig inspect/register and fail-closed scoped execution | [`backend/internal/application/connection`](../../backend/internal/application/connection/), [`backend/internal/adapters/kubernetes/connection_verifier.go`](../../backend/internal/adapters/kubernetes/connection_verifier.go), [`backend/internal/delivery/http/connections.go`](../../backend/internal/delivery/http/connections.go), [`frontend/src/features/platform/ConnectionsPage.tsx`](../../frontend/src/features/platform/ConnectionsPage.tsx) |
@@ -444,3 +444,31 @@ preserve production for the new Preview CTA. The existing
 dispatches T30 in [scenarios](../../frontend/test/e2e/refactor-local.mjs) with
 fake adapters and memory credentials/state; PostgreSQL test execution remains
 an explicit disposable gate, separate from this browser proof.
+
+## T31 — Authoritative capability metadata and typed Definition form
+
+[Catalog capability projection](../../backend/internal/application/catalog/capabilities.go)
+uses registration [policy](../../backend/internal/application/catalog/policy.go)
+supported pairs, embedded Terraform inspector types/defaults and scoped Resource
+Type param sources. [HTTP controller](../../backend/internal/delivery/http/resource_definitions.go)
+role-gates the read-only OC-04d endpoint; it exposes no editable executor-owned
+variables, credentials or internal source paths. Registration/planner stay
+authoritative; namespace param source respects required-string BR-12.
+
+[Metadata client](../../frontend/src/features/platform/capabilities.ts) feeds
+[Resource Types](../../frontend/src/features/platform/ResourceTypesPage.tsx)
+support/CTA and [Definition form](../../frontend/src/features/platform/ResourceDefinitionsPage.tsx).
+[Typed controls](../../frontend/src/features/platform/TypedVariablesEditor.tsx),
+[variable conversion](../../frontend/src/features/platform/typedVariables.ts),
+[provision editor](../../frontend/src/features/platform/ProvisionEditor.tsx) and
+[provision conversion](../../frontend/src/features/platform/typedProvision.ts)
+keep omitted defaults/params, explicit presets, per-pair drafts and lossless
+advanced JSON. Runtime dependencies, executor behavior and matcher are unchanged.
+
+Catalog/HTTP/e2e capability tests verify safe/auth/scoped reads and registration
+guidance; TypedDefinitionForm/typedConversion tests cover typed values, mode and
+draft preservation. [Headed scenarios](../../frontend/test/e2e/refactor-local.mjs)
+include T31 forms and explicit read-only Score Preview graph/batch assertions;
+T02/T16 JSON locators use the new explicit advanced mode.
+
+Execution evidence: [T31 local verification](../verification/2026-10-12-T31-typed-definitions.md).

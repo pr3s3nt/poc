@@ -163,11 +163,11 @@ fake pass; ABSENT/list failure là projection mock, không chứng minh Vault th
 [Local verification](verification/2026-10-11-T04-resource-types.md):
 Trang Loại tài nguyên dùng tiếng Việt, xem schema GET và sao chép schema sang
 draft độc lập với ID mới, giữ types/required/secret. Duplicate không ghi đè
-catalog; submit lỗi giữ form. Whitelist dùng chung với form Cấu hình tài nguyên
-chỉ gắn nhãn hỗ trợ cho vpc/k8s-cluster/k8s-namespace/postgres; custom type như
-postgres-ha chỉ có contract. CTA chọn sẵn type sau khi xác nhận catalog và
-whitelist; workload dẫn sang Mẫu dựng ứng dụng. Backend/API/executor giữ nguyên;
-capability metadata authoritative vẫn chờ T31, code error mapping đầy đủ chờ T20.
+catalog; submit lỗi giữ form. Metadata authoritative T31 dùng chung với form
+Cấu hình tài nguyên xác nhận cặp hỗ trợ; custom type như postgres-ha chỉ có
+contract. CTA chọn sẵn type sau khi xác nhận catalog và metadata; workload dẫn
+sang Mẫu dựng ứng dụng. T31 bổ sung API metadata chỉ đọc, không thêm executor;
+code error mapping đầy đủ đã có ở T20.
 
 ## Console refactor T03 (2026-10-10)
 
@@ -710,3 +710,25 @@ và T07/T08 regression pass. Video dùng real product API/planner với fake ada
 và memory state/store; T30 BUSY là projection mock. PostgreSQL atomic command và
 opt-in rollback/race/reopen tests đã có nhưng chưa được thực thi vì chưa có
 approval DB disposable cho T30; không claim PostgreSQL/live rollout proof.
+
+## T31 — Typed Definition form and capability metadata (2026-10-12)
+
+[Local verification](verification/2026-10-12-T31-typed-definitions.md):
+GET capability metadata role/org-gated và chỉ đọc cung cấp cặp type/driver/module,
+types/defaults/required/param sources và preset từ policy/embedded inspector.
+Namespace name source giữ BR-12 required string; executor-owned/credentials
+không có controls editable. Loại tài nguyên và CTA dùng metadata authoritative,
+không fallback whitelist frontend khi tải lỗi.
+
+Form variables/provision typed giữ JSON types, placeholders, default/param omission,
+presets opt-in và draft từng cặp. Advanced JSON giữ lossless known fields hoặc
+giữ mode khi không biểu diễn an toàn; params workload vẫn ưu tiên hơn fallback
+Definition. Registration/planner tiếp tục validate independently; matcher/ranking/
+ties, providers/renderer và fixtures không đổi.
+
+Go/build/conformance, catalog/HTTP race, frontend 464 tests/gates và headed
+T31/T02/T04/T16/T19 pass. T31 full Score Preview kiểm consumer → provider và
+provider-first batches, không Deploy. Fake adapters/disposable state; metadata
+500 projection mock, bool/map dùng synthetic metadata unit coverage. Video
+decoded/frame/caption reviewed, failed attempts và bản gốc được giữ. Không chạy
+SQL opt-in hoặc mutate retained/cloud/cluster; không claim live provider proof.

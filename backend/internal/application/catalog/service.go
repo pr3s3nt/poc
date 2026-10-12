@@ -188,15 +188,14 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 		return nil
 	case resource.DriverTerraform:
 		module, _ = def.Source()["module"].(string)
-		valid := map[string]string{"vpc": "vpc", "eks": "k8s-cluster", "aurora": "postgres"}
-		if module == "" || valid[module] != def.ResourceTypeKey || len(def.Source()) != 1 {
+		if module == "" || moduleForType(def.ResourceTypeKey) != module || len(def.Source()) != 1 {
 			return fmt.Errorf("unsupported Terraform module/source for %q", def.ResourceTypeKey)
 		}
 		if def.ExecutionProfile != "aws-eks" {
 			return fmt.Errorf("Terraform definition requires aws-eks profile")
 		}
 	case resource.DriverKubernetes:
-		if def.ResourceTypeKey != "postgres" && def.ResourceTypeKey != "k8s-namespace" {
+		if !driverSupportsType(resource.DriverKubernetes, def.ResourceTypeKey) {
 			return fmt.Errorf("Kubernetes executor does not support %q", def.ResourceTypeKey)
 		}
 		if def.ExecutionProfile == "aws-eks" {

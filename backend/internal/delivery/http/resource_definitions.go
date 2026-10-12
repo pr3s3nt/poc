@@ -50,6 +50,19 @@ func (s *Server) handleRenderBundles(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"renderBundles": s.catalog.ListRenderBundles()})
 }
 
+func (s *Server) handleDefinitionCapabilities(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.platformActor(w, r)
+	if !ok {
+		return
+	}
+	capabilities, err := s.catalog.ListDefinitionCapabilities(r.Context(), org)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"capabilities": capabilities})
+}
+
 func (s *Server) handleMatchingPreview(w http.ResponseWriter, r *http.Request) {
 	org, ok := s.platformActor(w, r)
 	if !ok {

@@ -83,8 +83,7 @@ lỗi, 409 có thông báo trùng ID Việt, lỗi bundle có thông báo Việt
 ## Điều hướng từ Loại tài nguyên (T04)
 
 CTA từ UC-02 mở `/ui/platform/resource-definitions?resourceType=<key>`.
-Chỉ chọn sẵn type khi catalog tải thành công xác nhận key thuộc whitelist của
-form T02; query thiếu/không hỗ trợ không tạo lựa chọn hợp lệ. Prefill không
+Chỉ chọn sẵn type khi catalog tải thành công xác nhận key có cặp hỗ trợ trong metadata T31; query thiếu/không hỗ trợ không tạo lựa chọn hợp lệ. Prefill không
 gửi POST hoặc ghi đè dữ liệu người dùng khi reload/response đến muộn.
 
 ## Matching preview API (T19)
@@ -104,3 +103,12 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
+
+## Capability metadata projection (T31)
+
+GET `/api/v1/resource-definition-capabilities` theo OC-04d cung cấp authoritative
+supported pairs và variable metadata; Console không fallback whitelist khi lỗi.
+Typed và advanced serialize cùng `driverInputs.values.variables`, source.module
+ngầm cho Terraform, provision object/criteria/connection guards hiện hành giữ.
+Omitted default/param không được tự thêm; literals số/bool/list/map giữ kiểu JSON,
+whole placeholders giữ string để deferred checking. Presets là lựa chọn explicit.

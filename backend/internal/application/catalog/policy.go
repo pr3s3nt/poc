@@ -71,16 +71,76 @@ func parseTerraformType(expr string) (valueType, error) {
 	return valueType{}, fmt.Errorf("catalog: unsupported Terraform variable type %q in embedded module", expr)
 }
 
+// supportedPair is one Resource Type/driver/module combination public
+// registration accepts (UC-03 BR-08/BR-23). It is the single source for both
+// registration checks and the capability metadata; module is empty for
+// Kubernetes.
+type supportedPair struct {
+	resourceType string
+	driver       resource.DriverType
+	module       string
+}
+
+var supportedPairs = []supportedPair{
+	{"k8s-cluster", resource.DriverTerraform, "eks"},
+	{"k8s-namespace", resource.DriverKubernetes, ""},
+	{"postgres", resource.DriverKubernetes, ""},
+	{"postgres", resource.DriverTerraform, "aurora"},
+	{"vpc", resource.DriverTerraform, "vpc"},
+}
+
+func driverSupportsType(driver resource.DriverType, resourceType string) bool {
+	for _, pair := range supportedPairs {
+		if pair.driver == driver && pair.resourceType == resourceType {
+			return true
+		}
+	}
+	return false
+}
+
+// moduleForType returns the embedded Terraform module registered for a type.
+func moduleForType(resourceType string) string {
+	for _, pair := range supportedPairs {
+		if pair.driver == resource.DriverTerraform && pair.resourceType == resourceType {
+			return pair.module
+		}
+	}
+	return ""
+}
+
+// staticVariable is the contract of one non-Terraform executor variable. The
+// defaults mirror the executor (adapters/kubernetes stringInput fallbacks) and
+// preset is the opt-in placeholder offered by authoring guidance (BR-25).
+type staticVariable struct {
+	typ        valueType
+	required   bool
+	hasDefault bool
+	defaultVal any
+	preset     string
+}
+
 // driverVariableSchemas are the static variable contracts of the
 // non-Terraform executors, keyed by driver and Resource Type (UC-03 BR-12).
-var driverVariableSchemas = map[resource.DriverType]map[string]map[string]valueType{
+var driverVariableSchemas = map[resource.DriverType]map[string]map[string]staticVariable{
 	resource.DriverKubernetes: {
-		"k8s-namespace": {"name": stringType},
+		"k8s-namespace": {"name": {typ: stringType, required: true, preset: "${context.env.namespace}"}},
 		"postgres": {
-			"database": stringType, "username": stringType, "image": stringType,
-			"storage": stringType, "namespace": stringType,
+			"database":  {typ: stringType, hasDefault: true, defaultVal: "app"},
+			"username":  {typ: stringType, hasDefault: true, defaultVal: "app"},
+			"image":     {typ: stringType, hasDefault: true, defaultVal: "postgres:16-alpine"},
+			"storage":   {typ: stringType, hasDefault: true, defaultVal: "1Gi"},
+			"namespace": {typ: stringType},
 		},
 	},
+}
+
+// terraformPresets are the opt-in placeholders per module variable, taken from
+// the current seed policy: the infrastructure resource name and the shared
+// VPC outputs through the @infra token (BR-25).
+var terraformPresets = map[string]map[string]string{
+	"vpc":    {"name": "${context.infra.resourceName}"},
+	"eks":    {"name": "${context.infra.resourceName}", "subnet_ids": "${resources['vpc.default#@infra'].outputs.subnetIds}"},
+	"aurora": {"name": "${context.infra.resourceName}", "vpc_id": "${resources['vpc.default#@infra'].outputs.id}", "vpc_cidr": "${resources['vpc.default#@infra'].outputs.cidr}", "subnet_ids": "${resources['vpc.default#@infra'].outputs.subnetIds}"},
 }
 
 // credentialVariables are never accepted as Driver Inputs (UC-03 BR-14). The
@@ -147,11 +207,11 @@ func validateStaticVariables(def resource.Definition, typ resource.Type, variabl
 		if credentialVariables[name] {
 			return fmt.Errorf("%s.%s is a credential and cannot be a Driver Input", variablesPath, name)
 		}
-		want, ok := schema[name]
+		variable, ok := schema[name]
 		if !ok {
 			return fmt.Errorf("%s.%s is not supported by the %s driver for %s", variablesPath, name, def.DriverType, def.ResourceTypeKey)
 		}
-		if err := checkVariableValue(variablesPath+"."+name, want, variables[name]); err != nil {
+		if err := checkVariableValue(variablesPath+"."+name, variable.typ, variables[name]); err != nil {
 			return err
 		}
 	}

@@ -61,8 +61,7 @@ related: UC-03
 ## Điều hướng từ Loại tài nguyên (T04)
 
 CTA từ UC-02 mở `/ui/platform/resource-definitions?resourceType=<key>`.
-Chỉ chọn sẵn type khi catalog tải thành công xác nhận key thuộc whitelist của
-form T02; query thiếu/không hỗ trợ không tạo lựa chọn hợp lệ. Prefill không
+Chỉ chọn sẵn type khi catalog tải thành công xác nhận key có cặp hỗ trợ trong metadata T31; query thiếu/không hỗ trợ không tạo lựa chọn hợp lệ. Prefill không
 gửi POST hoặc ghi đè dữ liệu người dùng khi reload/response đến muộn.
 
 ## Bundle selector (T18)
@@ -95,3 +94,13 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
+
+## Capability/typed states (T31)
+
+Metadata loading/error khóa typed registration và CTA, phân biệt với không có
+cặp supported; có Thử lại, giữ draft. Late replies/scope changes không ghi đè
+variables/provision hoặc chọn cặp cũ. Default/param omitted, preset và override
+phân biệt; type/placeholder/null errors có hướng dẫn Việt, không echo credentials.
+Advanced round-trip giữ typed literals/collections/flags/refs; không chuyển sang
+mode làm mất fields. Submit/metadata failures và collapse giữ edits; Created
+reset đúng submitted draft. Retry metadata không replay POST/Preview.

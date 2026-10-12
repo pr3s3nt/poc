@@ -48,7 +48,7 @@ const TABLES = {
   },
   // T02 translated this page; `current` equals `vi` for its entries.
   resourceDefinitions: {
-    heading: { role: 'heading', level: 1, vi: 'Cấu hình tài nguyên', current: 'Resource definitions' },
+    heading: { role: 'heading', level: 1, vi: 'Cấu hình tài nguyên', current: 'Cấu hình tài nguyên' },
     id: { role: 'label', vi: 'ID cấu hình', current: 'ID cấu hình' },
     type: { role: 'label', wrapsOptions: true, vi: 'Loại tài nguyên', current: 'Loại tài nguyên' },
     driver: { role: 'label', wrapsOptions: true, vi: 'Cách tạo', current: 'Cách tạo' },
@@ -56,6 +56,11 @@ const TABLES = {
     awsConnection: { role: 'label', wrapsOptions: true, vi: 'Kết nối AWS', current: 'Kết nối AWS' },
     kubeConnection: { role: 'label', wrapsOptions: true, vi: 'Kết nối riêng cho cluster (tùy chọn)', current: 'Kết nối riêng cho cluster (tùy chọn)' },
     variables: { role: 'label', wrapsOptions: true, vi: 'Tham số cấu hình (JSON object)', current: 'Tham số cấu hình (JSON object)' },
+    variablesJson: { role: 'button', vi: 'Tham số: JSON nâng cao', current: 'Tham số: JSON nâng cao' },
+    variablesTyped: { role: 'button', vi: 'Tham số: biểu mẫu', current: 'Tham số: biểu mẫu' },
+    provisionJson: { role: 'button', vi: 'Quy tắc: JSON nâng cao', current: 'Quy tắc: JSON nâng cao' },
+    provisionTyped: { role: 'button', vi: 'Quy tắc: biểu mẫu', current: 'Quy tắc: biểu mẫu' },
+    provisionJsonText: { role: 'label', wrapsOptions: true, vi: 'Quy tắc tạo tài nguyên liên quan (JSON object)', current: 'Quy tắc tạo tài nguyên liên quan (JSON object)' },
     criterionClass: { role: 'label', vi: 'Điều kiện 1 Class', current: 'Điều kiện 1 Class' },
     showAdvanced: { role: 'button', vi: 'Hiện nâng cao', current: 'Hiện nâng cao' },
     hideAdvanced: { role: 'button', vi: 'Ẩn nâng cao', current: 'Ẩn nâng cao' },

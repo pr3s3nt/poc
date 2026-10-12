@@ -2,11 +2,12 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
+import { capabilityFixture } from '../../test/capabilities';
 
 type Body = Record<string, unknown>;
 type Backend = {
   types?: string[]; definitions?: Body[]; connections?: Body[]; post?: () => Response;
-  typesFail?: boolean; connectionsFail?: boolean; connectionsHang?: boolean; definitionLists?: (() => Response)[];
+  typesFail?: boolean; capabilitiesFail?: boolean; capabilities?: unknown[]; capabilityLists?: (() => Response | Promise<Response>)[]; connectionsFail?: boolean; connectionsHang?: boolean; definitionLists?: (() => Response)[];
   applications?: Body[]; applicationsFail?: boolean; applicationLists?: (() => Response | Promise<Response>)[];
 };
 const defaultConnections = [
@@ -33,6 +34,11 @@ function backend(options: Backend = {}) {
       return (state.post ?? (() => Response.json({}, { status: 201 })))();
     }
     gets.push(url);
+    if (url.endsWith('/resource-definition-capabilities')) {
+      const next = state.capabilityLists?.shift();
+      if (next) return next();
+      return state.capabilitiesFail ? Response.json({ code: 'INTERNAL' }, { status: 500 }) : Response.json({ capabilities: state.capabilities ?? capabilityFixture });
+    }
     if (url.endsWith('/resource-types')) return state.typesFail ? Response.json({ error: 'boom' }, { status: 500 }) : Response.json({ resourceTypes: (state.types ?? allTypes).map((key) => ({ key })) });
     if (url.endsWith('/applications')) {
       const next = state.applicationLists?.shift();
@@ -72,6 +78,7 @@ describe('UC-03 definition registration form', () => {
     expect(field('Phạm vi triển khai')).toBeDisabled();
     expect(screen.getByText('vpc', { selector: 'code' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Hiện nâng cao' }));
+    await user.click(screen.getByRole('button', { name: 'Tham số: JSON nâng cao' }));
     fireEvent.change(field('Tham số cấu hình (JSON object)'), { target: { value: '{"cidr":"10.0.0.0/16"}' } });
     // VPC never asks for an AWS account, not even under Nâng cao.
     expect(screen.queryByLabelText('Kết nối AWS')).not.toBeInTheDocument();
@@ -114,7 +121,9 @@ describe('UC-03 definition registration form', () => {
     expect(field('Cách tạo')).toBeEnabled();
     expect(field('Cách tạo')).toHaveValue('kubernetes');
     await user.click(screen.getByRole('button', { name: 'Hiện nâng cao' }));
+    await user.click(screen.getByRole('button', { name: 'Tham số: JSON nâng cao' }));
     fireEvent.change(field('Tham số cấu hình (JSON object)'), { target: { value: '{"storage":"2Gi"}' } });
+    await user.click(screen.getByRole('button', { name: 'Quy tắc: JSON nâng cao' }));
     fireEvent.change(field('Quy tắc tạo tài nguyên liên quan (JSON object)'), { target: { value: '{"keep":true}' } });
     await user.click(screen.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
     await user.type(field('Điều kiện 1 Class'), 'fast');
@@ -305,6 +314,7 @@ describe('UC-03 definition registration form', () => {
     expect(field('ID cấu hình')).toBeInvalid();
     await user.clear(field('ID cấu hình'));
     await user.type(field('ID cấu hình'), 'ns-ok');
+    await user.click(screen.getByRole('button', { name: 'Tham số: JSON nâng cao' }));
     fireEvent.change(field('Tham số cấu hình (JSON object)'), { target: { value: '{bad' } });
     await submit(user);
     expect(await screen.findByRole('alert')).toHaveTextContent('Tham số cấu hình phải là JSON hợp lệ.');
@@ -322,6 +332,7 @@ describe('UC-03 definition registration form', () => {
     await user.type(field('ID cấu hình'), 'ns-dup');
     await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
     await user.click(screen.getByRole('button', { name: 'Hiện nâng cao' }));
+    await user.click(screen.getByRole('button', { name: 'Tham số: JSON nâng cao' }));
     fireEvent.change(field('Tham số cấu hình (JSON object)'), { target: { value: '{"name":"orch"}' } });
     await user.click(screen.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
     await user.type(field('Điều kiện 1 Class'), 'fast');
@@ -368,6 +379,7 @@ describe('UC-03 definition registration form', () => {
     await user.selectOptions(field('Loại tài nguyên'), 'postgres');
     await user.selectOptions(field('Cách tạo'), 'terraform');
     await user.click(screen.getByRole('button', { name: 'Hiện nâng cao' }));
+    await user.click(screen.getByRole('button', { name: 'Tham số: JSON nâng cao' }));
     fireEvent.change(field('Tham số cấu hình (JSON object)'), { target: { value: '{"cidr":"10.1.0.0/16"}' } });
     const alert = await screen.findByRole('alert', { name: 'Lỗi tải kết nối' });
     expect(screen.queryByText('Chưa có cấu hình tài nguyên nào.')).toBeInTheDocument();
@@ -462,6 +474,7 @@ describe('UC-03 definition registration form', () => {
       vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
         const url = String(input);
         if (url.endsWith('/resource-types')) { await gate; return Response.json({ resourceTypes: allTypes.map((key) => ({ key })) }); }
+        if (url.endsWith('/resource-definition-capabilities')) return Response.json({ capabilities: capabilityFixture });
         if (url.endsWith('/connections')) return Response.json({ connections: defaultConnections });
         if (url.endsWith('/applications')) return Response.json({ applications: defaultApplications });
         return Response.json({ resourceDefinitions: [] });

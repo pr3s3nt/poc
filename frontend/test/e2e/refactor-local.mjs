@@ -14,6 +14,13 @@ import { assertTablesComplete, locators } from './locators.mjs';
 import { launchHeaded, screenSize, startRecording, stopRecording, x11Input } from './video.mjs';
 
 const SHORT_READ = 2000;
+
+// T31: the Definition form edits variables with typed controls; the exact JSON
+// textarea is the explicit advanced mode of the current Resource Type/driver pair.
+async function typeVariablesJson(h, ui, text, options = {}) {
+  if (!(await ui('resourceDefinitions', 'variables').isVisible())) await h.click(ui('resourceDefinitions', 'variablesJson'));
+  await h.type(ui('resourceDefinitions', 'variables'), text, { replace: true, ...options });
+}
 const SEEDED_PASSWORD = 'test-password'; // fixed synthetic local account, never shown: the field is masked
 
 // Registry: scenario id -> async ({ page, h, ui, caption, mark, check, baseURL, fail }).
@@ -134,26 +141,23 @@ export const SCENARIOS = {
     await h.moveTo(warning());
     await h.read('Cảnh báo cấu hình dùng chung có thể trùng mức ưu tiên');
 
-    caption('Bước 5: Mở phần nâng cao; Kết nối riêng cho cluster mặc định để trống');
-    await expect(ui('resourceDefinitions', 'variables')).not.toBeVisible();
+    caption('Bước 5: Mở phần nâng cao; Kết nối riêng cho cluster mặc định để trống; tham số JSON nằm ở chế độ JSON nâng cao riêng');
     await expect(ui('resourceDefinitions', 'kubeConnection')).not.toBeVisible();
+    await expect(ui('resourceDefinitions', 'variables')).not.toBeVisible();
     await h.click(ui('resourceDefinitions', 'showAdvanced'));
-    await expect(ui('resourceDefinitions', 'variables')).toBeVisible();
     await expect(ui('resourceDefinitions', 'kubeConnection')).toBeVisible();
     await expect(ui('resourceDefinitions', 'kubeConnection')).toHaveValue('');
     await h.choose(ui('resourceDefinitions', 'kubeConnection'), 'internal-cluster');
     await expect(ui('resourceDefinitions', 'kubeConnection')).toHaveValue('internal-cluster');
     await h.choose(ui('resourceDefinitions', 'kubeConnection'), 'Dùng Kết nối của Môi trường (mặc định)');
     await expect(ui('resourceDefinitions', 'kubeConnection')).toHaveValue('');
-    await h.type(ui('resourceDefinitions', 'variables'), '{"name":"keep-me"}', { replace: true, delay: 30 });
+    await typeVariablesJson(h, ui, '{"name":"keep-me"}', { delay: 30 });
     await h.click(ui('resourceDefinitions', 'hideAdvanced'));
-    await expect(ui('resourceDefinitions', 'variables')).not.toBeVisible();
     await expect(ui('resourceDefinitions', 'kubeConnection')).not.toBeVisible();
-    await h.click(ui('resourceDefinitions', 'showAdvanced'));
-    await expect(ui('resourceDefinitions', 'variables')).toBeVisible();
     await expect(ui('resourceDefinitions', 'variables')).toHaveValue('{"name":"keep-me"}');
+    await h.click(ui('resourceDefinitions', 'showAdvanced'));
     await expect(ui('resourceDefinitions', 'kubeConnection')).toBeVisible();
-    check('advanced: hidden until opened, collapse/show toggles visibility and keeps values');
+    check('advanced: Kubernetes connection override hidden until opened, collapse/show keeps values; variables JSON is its own explicit mode');
     check('advanced: Kubernetes connection override default empty, explicit choice possible');
     mark('kube-override');
     await h.read('Kết nối riêng chỉ là tùy chọn nâng cao');
@@ -162,9 +166,10 @@ export const SCENARIOS = {
     await h.choose(ui('resourceDefinitions', 'type'), 'vpc');
     await expect(ui('resourceDefinitions', 'awsConnection')).toHaveCount(0);
     const badVars = '{"name":"${context.infra.resourceName}","cidr":2}';
-    await h.type(ui('resourceDefinitions', 'variables'), badVars, { replace: true, delay: 30 });
+    await typeVariablesJson(h, ui, badVars, { replace: true, delay: 30 });
     await h.click(ui('resourceDefinitions', 'submit'));
-    await expect(formAlert()).toContainText('Máy chủ từ chối cấu hình này');
+    await expect(formAlert()).toContainText('Máy chủ từ chối cấu hình.');
+    await expect(formAlert()).toContainText('Trình điều khiển và tham số của cấu hình');
     await expect(ui('resourceDefinitions', 'id')).toHaveValue('vpc-t02');
     await expect(ui('resourceDefinitions', 'variables')).toHaveValue(badVars);
     expect((await definitions()).some((item) => item.key === 'vpc-t02')).toBe(false);
@@ -175,7 +180,7 @@ export const SCENARIOS = {
 
     caption('Bước 7: Sửa tham số rồi thử ID đã tồn tại vpc-aws; báo trùng ID bằng tiếng Việt');
     const goodVars = '{"name":"${context.infra.resourceName}","cidr":"10.20.0.0/16"}';
-    await h.type(ui('resourceDefinitions', 'variables'), goodVars, { replace: true, delay: 30 });
+    await typeVariablesJson(h, ui, goodVars, { replace: true, delay: 30 });
     await h.type(ui('resourceDefinitions', 'id'), 'vpc-aws', { replace: true });
     await h.click(ui('resourceDefinitions', 'submit'));
     await expect(formAlert()).toContainText('ID cấu hình đã tồn tại');
@@ -207,7 +212,7 @@ export const SCENARIOS = {
     await h.choose(ui('resourceDefinitions', 'scope'), 'Cluster nội bộ (internal-k8s)');
     await expect(ui('resourceDefinitions', 'scope')).toHaveValue('internal-k8s');
     await h.choose(ui('resourceDefinitions', 'scope'), 'Dùng chung');
-    await h.type(ui('resourceDefinitions', 'variables'), '{"name":"t02"}', { replace: true });
+    await typeVariablesJson(h, ui, '{"name":"t02"}', { replace: true });
     await h.click(ui('resourceDefinitions', 'submit'));
     await expect(page.getByRole('status')).toHaveText('Đã đăng ký cấu hình tài nguyên namespace-t02.');
     const shared = (await definitions()).find((item) => item.key === 'namespace-t02');
@@ -3727,7 +3732,7 @@ export const SCENARIOS = {
     caption('Bước 3: Đặt điều kiện Theo ứng dụng cho ứng dụng thử rồi đăng ký vpc không có tài khoản');
     await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
     await h.choose(select(/^Ứng dụng(?! mẫu)/), `${NAME} (${appId})`);
-    await h.type(ui('resourceDefinitions', 'variables'), '{"name":"${context.infra.resourceName}","cidr":"10.30.0.0/16"}', { replace: true, delay: 30 });
+    await typeVariablesJson(h, ui, '{"name":"${context.infra.resourceName}","cidr":"10.30.0.0/16"}', { replace: true, delay: 30 });
     await h.click(ui('resourceDefinitions', 'submit'));
     await registered('vpc-t16');
     expect(posts.at(-1)).toMatchObject({ key: 'vpc-t16', resourceType: 'vpc', driverType: 'terraform', executionProfile: 'aws-eks', connectionKey: '' });
@@ -3747,7 +3752,7 @@ export const SCENARIOS = {
     await h.click(editor.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
     await h.type(editor.getByLabel('Điều kiện 1 ID ứng dụng'), appId);
     await h.type(editor.getByLabel('Điều kiện 1 Class'), 'eks');
-    await h.type(ui('resourceDefinitions', 'variables'), eksVars, { replace: true, delay: 5 });
+    await typeVariablesJson(h, ui, eksVars, { replace: true, delay: 5 });
     await h.click(ui('resourceDefinitions', 'submit'));
     await registered('eks-t16');
     expect(posts.at(-1)).toMatchObject({ key: 'eks-t16', resourceType: 'k8s-cluster', driverType: 'terraform', connectionKey: '' });
@@ -3764,7 +3769,7 @@ export const SCENARIOS = {
     await expect(ui('resourceDefinitions', 'awsConnection')).toBeVisible();
     await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
     await h.choose(select(/^Ứng dụng(?! mẫu)/), `${NAME} (${appId})`);
-    await h.type(ui('resourceDefinitions', 'variables'), auroraVars, { replace: true, delay: 5 });
+    await typeVariablesJson(h, ui, auroraVars, { replace: true, delay: 5 });
     const postsBefore = posts.length;
     await h.click(ui('resourceDefinitions', 'submit'));
     await expect(page.locator('form .form-error[role="alert"]')).toContainText('Chọn một Kết nối AWS sẵn sàng');
@@ -3799,7 +3804,7 @@ export const SCENARIOS = {
     const productionLabel = (await select(/^Môi trường \(tùy chọn\)/).locator('option').allTextContents()).find((text) => text.includes('(production)'));
     expect(productionLabel, 'production environment option').toBeTruthy();
     await h.choose(select(/^Môi trường \(tùy chọn\)/), productionLabel);
-    await h.type(ui('resourceDefinitions', 'variables'), '{"name":"${context.infra.resourceName}","cidr":"10.31.0.0/16"}', { replace: true, delay: 30 });
+    await typeVariablesJson(h, ui, '{"name":"${context.infra.resourceName}","cidr":"10.31.0.0/16"}', { replace: true, delay: 30 });
     await h.click(ui('resourceDefinitions', 'submit'));
     await registered('vpc-t16-after-aurora');
     expect(posts.at(-1)).toMatchObject({ key: 'vpc-t16-after-aurora', connectionKey: '' });
@@ -3816,9 +3821,12 @@ export const SCENARIOS = {
           driverInputs: { values: { variables: {}, source: { module } } }, criteria: [{}],
         } });
         expect(response.status(), `${type} with ${label}`).toBe(400);
-        const text = JSON.stringify(await response.json());
-        expect(text).toContain('leave connectionKey empty');
-        expect(text).not.toContain(connectionKey);
+        // T20 contract: stable code + fixed field, no raw message and no echo of the submitted key.
+        const body = await response.json();
+        expect(body.code).toBe('INVALID_REQUEST');
+        expect(body.field).toBe('definition.connectionKey');
+        expect(JSON.stringify(body)).not.toContain(connectionKey);
+        expect(JSON.stringify(body)).not.toContain('leave connectionKey empty');
       }
     }
     expect((await apiDefinitions()).length).toBe(before);
@@ -4992,6 +5000,360 @@ export const SCENARIOS = {
     await signOut();
     mark('signed-out');
     await h.pause(2000);
+  },
+
+  // T31: form typed theo driver/module. Kỹ sư nền tảng; backend thật + fake adapters; không gọi cloud/cluster/DB ngoài.
+  // Developer chỉ thiết lập ứng dụng mẫu (SETUP) để có context cho Kiểm tra matching; mọi bước sản phẩm đi qua UI.
+  // MOCK (1): chỉ giả một lỗi 500 của metadata để kiểm tra trạng thái lỗi/Thử lại; mọi phản hồi khác là backend thật.
+  async T31({ page, h, ui, caption, mark, check, baseURL }) {
+    const NAME = 'T31 Form typed';
+    const posts = [];
+    const previews = [];
+    const metadataRequests = [];
+    page.on('request', (request) => {
+      const path = new URL(request.url()).pathname;
+      if (path === '/api/v1/resource-definition-capabilities') metadataRequests.push(request.method());
+      if (request.method() !== 'POST') return;
+      if (path === '/api/v1/resource-definitions') posts.push(request.postDataJSON());
+      if (path === '/api/v1/resource-definitions/matching-preview') previews.push(request.postDataJSON());
+    });
+    const json = (status, body) => ({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    const mock = { failCapabilities: false };
+    await page.route('**/api/v1/resource-definition-capabilities', async (route) => {
+      if (mock.failCapabilities) { mock.failCapabilities = false; await route.fulfill(json(500, { code: 'INTERNAL_ERROR', error: 'sentinel-internal /srv/secret AKIA-T31' })); return; }
+      await route.continue();
+    });
+    const api = async (path) => (await (await page.request.get(`${baseURL}/api/v1${path}`)).json());
+    const definition = async (key) => (await api('/resource-definitions')).resourceDefinitions.find((item) => item.key === key);
+    const variablesOf = (def) => def.driverInputs.values.variables;
+    const control = (name) => page.getByLabel(name, { exact: true });
+    const registered = (key) => expect(page.getByRole('status').filter({ hasText: `Đã đăng ký cấu hình tài nguyên ${key}.` })).toBeVisible();
+    // Submit-level error only: a direct child of the form fieldset (inline variable errors are not alerts).
+    const formAlert = () => page.locator('form fieldset > .form-error[role="alert"]');
+    const submitDefinition = () => h.click(ui('resourceDefinitions', 'submit'));
+    // Every registration gets a unique Class so it cannot tie with seeded wildcard Definitions in the graph Preview.
+    const uniqueClass = async (cls) => {
+      await h.click(page.locator('.criteria-editor').getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
+      await h.type(ui('resourceDefinitions', 'criterionClass'), cls, { replace: true });
+    };
+    const override = (name) => h.click(control(`Ghi đè ${name}`));
+    const preset = (name) => h.click(page.getByRole('button', { name: `Dùng preset cho ${name}`, exact: true }));
+    let appId = '';
+
+    caption('SETUP (qua giao diện): Lập trình viên tạo ứng dụng mẫu để có context cho Kiểm tra matching');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await h.type(ui('signIn', 'username'), 'developer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    appId = await createApplication(h, NAME, 't31-typed');
+    check(`setup via UI: application ${appId} created (not a product step of T31)`);
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+
+    caption('Bước 1: Kỹ sư nền tảng đăng nhập và mở Loại tài nguyên; nhãn hỗ trợ lấy từ metadata của máy chủ');
+    await h.type(ui('signIn', 'username'), 'platform-engineer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    mock.failCapabilities = true;
+    await h.click(ui('shell', 'navResourceTypes'));
+    await expect(ui('resourceTypes', 'heading')).toBeVisible();
+    const metadataAlert = page.getByRole('alert', { name: 'Lỗi tải metadata hỗ trợ' });
+    await expect(metadataAlert).toBeVisible();
+    await expect(page.locator('.status-pill', { hasText: 'Chỉ có contract' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Tạo Cấu hình tài nguyên cho/ })).toHaveCount(0);
+    await expect(metadataAlert).not.toContainText('sentinel-internal');
+    check('metadata 500: Vietnamese error with Thử lại, no "Chỉ có contract" and no CTA while support is unconfirmed; raw error text not shown');
+    mark('metadata-error');
+    await h.moveTo(metadataAlert);
+    await h.read('Lỗi metadata: chưa xác nhận hỗ trợ nên chưa có nút tạo cấu hình');
+    await h.click(metadataAlert.getByRole('button', { name: 'Thử lại' }));
+    const postgresRow = page.locator('.catalog-entry').filter({ has: page.getByText('postgres', { exact: true }) });
+    await expect(postgresRow).toContainText('Có cách tạo hỗ trợ');
+    await expect(postgresRow).toContainText('Kubernetes hoặc Terraform/aurora');
+    await expect(page.locator('.catalog-entry').filter({ has: page.getByText('workload', { exact: true }) })).toContainText('Chỉ có contract');
+    check('after Thử lại: postgres supported (Kubernetes hoặc Terraform/aurora) from metadata; workload contract-only');
+    mark('support-from-metadata');
+    await h.read('Hỗ trợ lấy từ metadata của máy chủ');
+
+    caption('Bước 2: Bấm “Tạo Cấu hình tài nguyên” của postgres; form mở với loại đã chọn');
+    await h.click(page.getByRole('link', { name: 'Tạo Cấu hình tài nguyên cho postgres' }));
+    await expect(ui('resourceDefinitions', 'heading')).toBeVisible();
+    await expect(ui('resourceDefinitions', 'type')).toHaveValue('postgres');
+    expect(posts).toHaveLength(0);
+    check('CTA prefills postgres from the confirmed metadata pair, no POST');
+
+    caption('Bước 3: Postgres Kubernetes: mặc định và param của Loại tài nguyên không bị điền; chỉ ghi đè storage');
+    await h.type(ui('resourceDefinitions', 'id'), 'pg-t31-k8s');
+    await expect(page.getByText('Mặc định: 1Gi')).toBeVisible();
+    await expect(page.getByText(/param của workload vẫn được ưu tiên/).first()).toBeVisible();
+    await expect(control('Giá trị storage')).toHaveCount(0);
+    await expect(control('Giá trị database')).toHaveCount(0);
+    await override('storage');
+    await h.type(control('Giá trị storage'), '5Gi', { replace: true });
+    mark('postgres-typed');
+    await h.read('Chỉ storage được ghi đè; database và username là param của Loại tài nguyên');
+    await uniqueClass('t31-pg');
+    await submitDefinition();
+    await registered('pg-t31-k8s');
+    const pgK8s = await definition('pg-t31-k8s');
+    expect(variablesOf(pgK8s)).toEqual({ storage: '5Gi' });
+    expect(pgK8s.driverType).toBe('kubernetes');
+    check('registered pg-t31-k8s: variables exactly {storage:"5Gi"}; defaults and Resource Type params omitted');
+
+    caption('Bước 4: k8s-namespace: dùng preset ${context.env.namespace} theo yêu cầu, không tự điền');
+    await h.type(ui('resourceDefinitions', 'id'), 'ns-t31');
+    await h.choose(ui('resourceDefinitions', 'type'), 'k8s-namespace');
+    await expect(control('Giá trị name')).toHaveCount(0);
+    await preset('name');
+    await expect(control('Giá trị name')).toHaveValue('${context.env.namespace}');
+    await uniqueClass('t31-ns');
+    await submitDefinition();
+    await registered('ns-t31');
+    expect(variablesOf(await definition('ns-t31'))).toEqual({ name: '${context.env.namespace}' });
+    check('registered ns-t31 with the explicit namespace preset as a whole placeholder string');
+    mark('namespace-preset');
+
+    caption('Bước 5: VPC: preset tên hạ tầng, cidr là chuỗi, az_count là số; kiểu sai bị chặn trước khi gửi');
+    await h.type(ui('resourceDefinitions', 'id'), 'vpc-t31');
+    await h.choose(ui('resourceDefinitions', 'type'), 'vpc');
+    for (const name of ['region', 'tags', 'master_password']) await expect(control(`Ghi đè ${name}`)).toHaveCount(0);
+    await expect(page.getByText(/Hệ thống tự cung cấp, không có ô nhập/)).toContainText('region');
+    check('executor-owned region/tags are listed as system-provided and have no control');
+    await preset('name');
+    await override('cidr');
+    await h.type(control('Giá trị cidr'), '10.44.0.0/16', { replace: true });
+    await override('az_count');
+    await h.type(control('Giá trị az_count'), 'ba', { replace: true });
+    await uniqueClass('t31-vpc');
+    const postsBeforeBad = posts.length;
+    await submitDefinition();
+    await expect(formAlert()).toContainText('phải là số hợp lệ');
+    expect(posts.length).toBe(postsBeforeBad);
+    check('invalid number refused locally with Vietnamese guidance; no POST; draft kept');
+    mark('number-error');
+    await h.moveTo(formAlert());
+    await h.read('Kiểu số sai bị chặn, dữ liệu vẫn còn');
+    await h.type(control('Giá trị az_count'), '3', { replace: true });
+    await submitDefinition();
+    await registered('vpc-t31');
+    expect(variablesOf(await definition('vpc-t31'))).toEqual({ name: '${context.infra.resourceName}', cidr: '10.44.0.0/16', az_count: 3 });
+    check('registered vpc-t31: number kept as JSON number 3, preset name whole placeholder');
+    mark('vpc-registered');
+
+    caption('Bước 6: EKS: preset subnet_ids tham chiếu vpc.default#@infra; node_disk_size là số');
+    await h.type(ui('resourceDefinitions', 'id'), 'eks-t31');
+    await h.choose(ui('resourceDefinitions', 'type'), 'k8s-cluster');
+    await preset('name');
+    await preset('subnet_ids');
+    for (const [name, value] of [['kubernetes_version', '1.31'], ['node_instance_type', 't3.medium'], ['node_capacity_type', 'ON_DEMAND'], ['node_ami_type', 'AL2023_x86_64_STANDARD'], ['node_disk_size', '50']]) {
+      await override(name);
+      await h.type(control(`Giá trị ${name}`), value, { replace: true, delay: 20 });
+    }
+    await uniqueClass('t31-eks');
+    await submitDefinition();
+    await registered('eks-t31');
+    const eks = variablesOf(await definition('eks-t31'));
+    expect(eks.subnet_ids).toBe("${resources['vpc.default#@infra'].outputs.subnetIds}");
+    expect(eks.node_disk_size).toBe(50);
+    expect(eks.region).toBeUndefined();
+    check('registered eks-t31: @infra subnetIds ref kept as whole placeholder, node_disk_size is a number');
+    mark('eks-registered');
+
+    caption('Bước 7: Aurora: chọn Kết nối AWS; preset @infra cho vpc_id/vpc_cidr/subnet_ids; số và placeholder nguyên vẹn');
+    await h.type(ui('resourceDefinitions', 'id'), 'aurora-t31');
+    await h.choose(ui('resourceDefinitions', 'type'), 'postgres');
+    await h.choose(ui('resourceDefinitions', 'driver'), 'Tạo trên AWS (Terraform)');
+    await h.choose(ui('resourceDefinitions', 'awsConnection'), 'aws-account');
+    for (const name of ['name', 'vpc_id', 'vpc_cidr', 'subnet_ids']) await preset(name);
+    await override('engine_version');
+    await h.type(control('Giá trị engine_version'), '15.4', { replace: true });
+    await override('min_capacity');
+    await h.type(control('Giá trị min_capacity'), '0.5', { replace: true });
+    await override('max_capacity');
+    await h.paste(control('Giá trị max_capacity'), '${context.env.maxAcu}');
+    await expect(page.getByText(/Mặc định: 3600/)).toBeVisible();
+    await expect(control('Giá trị seconds_until_auto_pause')).toHaveCount(0);
+    mark('aurora-typed');
+    await h.read('Các giá trị @infra dùng preset; seconds_until_auto_pause giữ mặc định');
+    await uniqueClass('t31-aurora');
+    await submitDefinition();
+    await registered('aurora-t31');
+    const aurora = variablesOf(await definition('aurora-t31'));
+    expect(aurora).toMatchObject({ min_capacity: 0.5, max_capacity: '${context.env.maxAcu}', vpc_id: "${resources['vpc.default#@infra'].outputs.id}" });
+    expect(aurora.seconds_until_auto_pause).toBeUndefined();
+    expect(aurora.database).toBeUndefined();
+    expect(aurora.master_password).toBeUndefined();
+    check('registered aurora-t31: min 0.5 number, max whole placeholder string, defaults/params/executor-owned omitted');
+
+    caption('Bước 8: JSON nâng cao: giá trị typed chuyển qua lại không mất; trường không biểu diễn được giữ ở JSON');
+    await h.type(ui('resourceDefinitions', 'id'), 'vpc-t31-adv');
+    await h.choose(ui('resourceDefinitions', 'type'), 'vpc');
+    await override('cidr');
+    await h.type(control('Giá trị cidr'), '10.55.0.0/16', { replace: true });
+    await override('az_count');
+    await h.type(control('Giá trị az_count'), '4', { replace: true });
+    await h.click(ui('resourceDefinitions', 'variablesJson'));
+    expect(JSON.parse(await ui('resourceDefinitions', 'variables').inputValue())).toEqual({ cidr: '10.55.0.0/16', az_count: 4 });
+    check('typed -> advanced JSON keeps strings and numbers');
+    await h.type(ui('resourceDefinitions', 'variables'), '{"name":" ${context.infra.resourceName} ","cidr":"10.55.0.0/16","region":"x"}', { replace: true, delay: 15 });
+    await h.click(ui('resourceDefinitions', 'variablesTyped'));
+    await expect(page.getByText(/không có control typed/)).toBeVisible();
+    await expect(ui('resourceDefinitions', 'variables')).toBeVisible();
+    check('JSON with executor-owned region stays advanced with Vietnamese guidance; text kept');
+    mark('advanced-kept');
+    await h.moveTo(page.getByText(/không có control typed/));
+    await h.read('Trường không biểu diễn an toàn được giữ ở JSON nâng cao');
+    await h.type(ui('resourceDefinitions', 'variables'), '{"name":" ${context.infra.resourceName} ","az_count":4}', { replace: true, delay: 15 });
+    await h.click(ui('resourceDefinitions', 'variablesTyped'));
+    await expect(control('Giá trị name')).toHaveValue(' ${context.infra.resourceName} ');
+    await h.click(ui('resourceDefinitions', 'variablesJson'));
+    expect(JSON.parse(await ui('resourceDefinitions', 'variables').inputValue())).toEqual({ name: ' ${context.infra.resourceName} ', az_count: 4 });
+    check('padded string literal round-trips typed <-> JSON without trimming');
+
+    await uniqueClass('t31-adv');
+    caption('Bước 9: Server vẫn kiểm tra nghiêm ngặt: master_password trong JSON bị từ chối, form được giữ');
+    await h.type(ui('resourceDefinitions', 'variables'), '{"name":"x","master_password":"SENTINEL-T31"}', { replace: true, delay: 15 });
+    await submitDefinition();
+    await expect(formAlert()).toContainText('Máy chủ từ chối');
+    await expect(formAlert()).not.toContainText('SENTINEL-T31');
+    expect(await definition('vpc-t31-adv')).toBeUndefined();
+    check('master_password rejected by the server, value never echoed, nothing registered');
+    mark('credential-rejected');
+    await h.type(ui('resourceDefinitions', 'variables'), '{"name":"${context.infra.resourceName}"}', { replace: true, delay: 15 });
+
+    caption('Bước 10: Tài nguyên đi kèm: descriptor, params, is_dependent, match_dependents; giải thích consumer → provider');
+    await h.click(page.getByRole('button', { name: '+ Thêm tài nguyên đi kèm' }));
+    await expect(page.getByText(/consumer → provider/).first()).toBeVisible();
+    await h.type(control('Descriptor tài nguyên đi kèm 1'), 'postgres.audit#@infra', { replace: true, delay: 20 });
+    await h.type(control('Params tài nguyên đi kèm 1 (JSON object)'), '{"database":"audit","username":"${context.app.id}"}', { replace: true, delay: 10 });
+    await h.click(control('Tài nguyên đi kèm 1 phụ thuộc vào tài nguyên cha (is_dependent)'));
+    await h.click(control('Nối consumer của tài nguyên cha tới tài nguyên đi kèm 1 (match_dependents)'));
+    mark('provision-rows');
+    await h.read('Hai cờ đi kèm giải thích bằng tiếng Việt; chiều reference vẫn consumer → provider');
+
+    caption('Bước 11: Kiểm tra matching chính xác (không tự chạy): payload mang đúng provision của form');
+    const panel = page.getByRole('group', { name: 'Kiểm tra matching chính xác' });
+    const editor = page.locator('.criteria-editor');
+    const sample = (label) => editor.locator('label').filter({ hasText: label }).locator('select, input');
+    const optionLabel = (locator, value) => locator.locator('option').evaluateAll((options, wanted) => options.find((option) => option.value === wanted)?.textContent, value);
+    expect(previews).toHaveLength(0);
+    await h.choose(sample('Ứng dụng mẫu'), await optionLabel(sample('Ứng dụng mẫu'), appId));
+    await h.choose(sample('Môi trường mẫu'), await optionLabel(sample('Môi trường mẫu'), 'staging'));
+    await h.type(sample('ID tài nguyên mẫu (res_id)'), 'net', { replace: true });
+    await h.type(sample('Class mẫu'), 't31-adv', { replace: true });
+    expect(previews).toHaveLength(0);
+    check('editing the provision rows and the sample context never calls Preview by itself');
+    await h.click(panel.getByRole('button', { name: 'Kiểm tra matching' }));
+    await expect(page.getByRole('region', { name: 'Kết quả matching chính xác' })).toBeVisible();
+    expect(previews).toHaveLength(1);
+    expect(previews[0].definition.provision).toEqual({ 'postgres.audit#@infra': { is_dependent: true, match_dependents: true, params: { database: 'audit', username: '${context.app.id}' } } });
+    check('Preview payload carries the typed provision rule exactly; nothing registered by Preview');
+    mark('provision-preview');
+    await h.read('Kết quả matching theo snapshot; chưa đăng ký gì');
+
+    caption('Bước 12: Đăng ký; Definition lưu đúng provision (descriptor, params, hai cờ) như đã nhập');
+    await submitDefinition();
+    await registered('vpc-t31-adv');
+    const adv = await definition('vpc-t31-adv');
+    expect(adv.provision).toEqual({ 'postgres.audit#@infra': { is_dependent: true, match_dependents: true, params: { database: 'audit', username: '${context.app.id}' } } });
+    check('registered vpc-t31-adv: stored provision equals the typed rule (storage only; graph direction is proven by the Score preview step, not here)');
+    mark('provision-registered');
+
+    caption('Bước 13: Mỗi cặp loại/cách tạo giữ bản nháp riêng; đổi qua lại không mất dữ liệu');
+    await h.type(ui('resourceDefinitions', 'id'), 'pair-t31');
+    await h.choose(ui('resourceDefinitions', 'type'), 'postgres');
+    await h.choose(ui('resourceDefinitions', 'driver'), 'Tạo trong cluster (Kubernetes)');
+    await override('storage');
+    await h.type(control('Giá trị storage'), '8Gi', { replace: true });
+    await h.choose(ui('resourceDefinitions', 'driver'), 'Tạo trên AWS (Terraform)');
+    await override('min_capacity');
+    await h.type(control('Giá trị min_capacity'), '1', { replace: true });
+    await h.choose(ui('resourceDefinitions', 'driver'), 'Tạo trong cluster (Kubernetes)');
+    await expect(control('Giá trị storage')).toHaveValue('8Gi');
+    await h.choose(ui('resourceDefinitions', 'driver'), 'Tạo trên AWS (Terraform)');
+    await expect(control('Giá trị min_capacity')).toHaveValue('1');
+    check('per-pair drafts: Kubernetes storage and Aurora min_capacity both survive switching');
+    mark('pair-drafts');
+    await h.read('Mỗi cặp có bản nháp riêng');
+
+    expect(metadataRequests.every((method) => method === 'GET')).toBe(true);
+    check('capability metadata requests were GET only; no provider/cluster/cloud call exists in this fake-adapter run');
+    expect((await api('/resource-definitions')).resourceDefinitions.some((item) => item.key === 'pair-t31')).toBe(false);
+    check('unsent draft pair-t31 was never registered');
+
+    caption('Bước 14: Đăng ký Definition postgres có reference namespace và tài nguyên đi kèm is_dependent, Class riêng t31g');
+    await h.type(ui('resourceDefinitions', 'id'), 'pg-t31-graph', { replace: true });
+    await h.choose(ui('resourceDefinitions', 'type'), 'postgres');
+    await h.choose(ui('resourceDefinitions', 'driver'), 'Tạo trong cluster (Kubernetes)');
+    await h.click(control('Ghi đè storage')); // bản nháp cặp Kubernetes còn storage 8Gi từ bước 13: bỏ ghi đè
+    await expect(control('Ghi đè storage')).not.toBeChecked();
+    await override('namespace');
+    await h.paste(control('Giá trị namespace'), "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}");
+    await h.click(page.getByRole('button', { name: '+ Thêm tài nguyên đi kèm' }));
+    await h.type(control('Descriptor tài nguyên đi kèm 1'), 'k8s-namespace.t31p#environments.@app.@env', { replace: true, delay: 15 });
+    await h.click(control('Tài nguyên đi kèm 1 phụ thuộc vào tài nguyên cha (is_dependent)'));
+    await uniqueClass('t31g');
+    await submitDefinition();
+    await registered('pg-t31-graph');
+    const graphDefinition = await definition('pg-t31-graph');
+    expect(variablesOf(graphDefinition)).toEqual({ namespace: "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}" });
+    expect(graphDefinition.provision).toEqual({ 'k8s-namespace.t31p#environments.@app.@env': { is_dependent: true } });
+    expect(graphDefinition.criteria).toEqual([{ class: 't31g' }]);
+    check('registered pg-t31-graph (Class t31g): reference variable + is_dependent provision; unique class avoids wildcard ties');
+    mark('graph-definition');
+
+    caption('Bước 15: Lập trình viên mở Xem trước Score (chỉ đọc) để kiểm tra đồ thị: consumer → provider và lô theo thứ tự provider trước');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    await h.type(ui('signIn', 'username'), 'developer');
+    await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+    await h.click(ui('signIn', 'submit'));
+    await expect(ui('applications', 'heading')).toBeVisible();
+    await h.click(page.locator('button.application-card').filter({ hasText: NAME }));
+    await expect(page.getByRole('heading', { name: NAME })).toBeVisible();
+    const writesBeforePreview = posts.length;
+    await h.click(page.getByRole('button', { name: 'Xem trước Score' }));
+    await expect(page.getByRole('heading', { name: 'Xem trước Score', level: 1 })).toBeVisible();
+    await h.type(page.getByLabel('ID Workload'), 'api-t31', { replace: true });
+    await h.type(page.getByLabel('ID lần chạy'), 'run-t31-1', { replace: true });
+    const score = 'apiVersion: score.dev/v1b1\nmetadata:\n  name: api-t31\ncontainers:\n  main:\n    image: registry.example/api:t31\nresources:\n  db:\n    type: postgres\n    class: t31g\n    params:\n      database: app\n      username: app\n';
+    await h.type(page.getByLabel('Score sau (YAML hoặc JSON)'), score, { delay: LONG_TYPE_DELAY, replace: true });
+    await h.click(page.getByRole('button', { name: 'Xem trước', exact: true }));
+    const result = page.getByRole('region', { name: 'Kết quả xem trước Score' });
+    await expect(result).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('button', { name: /triển khai|lưu/i })).toHaveCount(0);
+    const batches = await result.locator('.batch-list li').allTextContents();
+    const edgeList = result.locator('h3', { hasText: 'Phụ thuộc (bên sử dụng → bên cung cấp)' }).locator('xpath=following-sibling::ul[1]/li');
+    const edges = await edgeList.allTextContents();
+    const batchOf = (pattern) => batches.findIndex((line) => pattern.test(line));
+    const providerBatch = batchOf(/k8s-namespace\.default#/);
+    const consumerBatch = batchOf(/postgres\.t31g#/);
+    const companionBatch = batchOf(/k8s-namespace\.t31p#/);
+    expect(providerBatch, `batches: ${batches.join(' | ')}`).toBeGreaterThanOrEqual(0);
+    expect(consumerBatch, `batches: ${batches.join(' | ')}`).toBeGreaterThan(providerBatch);
+    expect(companionBatch, `batches: ${batches.join(' | ')}`).toBeGreaterThan(consumerBatch);
+    check(`full Preview batches (provider first): ${batches.join(' | ')}`);
+    const referenceEdge = edges.find((line) => /^postgres\.t31g#\S+ → k8s-namespace\.default#\S+/.test(line));
+    const dependentEdge = edges.find((line) => /^k8s-namespace\.t31p#\S+ → postgres\.t31g#\S+/.test(line));
+    expect(referenceEdge, `edges: ${edges.join(' | ')}`).toBeTruthy();
+    expect(dependentEdge, `edges: ${edges.join(' | ')}`).toBeTruthy();
+    expect(edges.find((line) => /^k8s-namespace\.default#\S+ → postgres\.t31g#/.test(line)), 'no reversed reference edge').toBeUndefined();
+    check(`full Preview edges consumer -> provider: reference "${referenceEdge}"; is_dependent "${dependentEdge}"; no reversed edge`);
+    await expect(result.getByRole('table')).toContainText('pg-t31-graph');
+    check('matching in the full Preview picked pg-t31-graph (unique Class t31g, no wildcard tie)');
+    expect(posts.length).toBe(writesBeforePreview);
+    mark('graph-preview');
+    await h.moveTo(result);
+    await h.read('Đồ thị chỉ đọc: consumer → provider, namespace được tạo trước postgres, tài nguyên đi kèm sau');
+
+    caption('Bước 16: Đăng xuất; phiên bị thu hồi');
+    await h.click(ui('shell', 'signOut'));
+    await expect(ui('signIn', 'username')).toBeVisible();
+    mark('signed-out');
+    await h.pause(3000);
   },
 };
 

@@ -241,3 +241,31 @@ See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
 Seed inserts only missing Definitions; no earlier template form is upgraded.
 ENVIRONMENT is the only execution infrastructure scope. Invalid/retired scopes
 fail before planning/execution; matching profiles, criteria weights and ties remain unchanged.
+
+## Capability metadata và typed authoring (T31)
+
+- **BR-23:** GET `/api/v1/resource-definition-capabilities` chỉ đọc, authenticate
+  Organization của session và PE/Admin, trả các cặp type/driver/module được
+  registration hỗ trợ (không quảng bá custom ID hoặc existing-cluster).
+  Terraform types/defaults lấy từ embedded ModuleContract, Kubernetes từ policy
+  executor hiện hành. Metadata gồm required, default, Resource Type param và
+  context/reference preset; không suy Resource Type schema từ Terraform vars.
+  Required của module không đồng nghĩa bắt nhập ở Definition nếu param/executor
+  cung cấp. Metadata không thay validation tại POST/Preview/Deploy.
+- **BR-24:** Executor-owned variables được nhận diện riêng và không có control
+  tác giả trong typed form; master_password/credentials vẫn bị từ chối theo
+  BR-14. Chỉ công bố defaults đã có ở module/executor, không tự đoán CIDR,
+  storage, engine/capacity. Optional omitted giữ runtime default; params không
+  được materialize lại vào Definition. Override default/preset là opt-in; giá trị Definition là fallback cho param,
+  param thực của workload vẫn có ưu tiên cao hơn theo contract planner.
+- **BR-25:** Typed literals giữ JSON types và BR-13 placeholders. Namespace có
+  preset `${context.env.namespace}`, Terraform name có preset
+  `${context.infra.resourceName}`; VPC output refs dùng `vpc.default#@infra`
+  cho id/cidr/subnetIds theo module hiện hành. Preset chỉ áp dụng tường minh,
+  không overwrite override. Advanced JSON round-trip lossless các field hợp lệ;
+  trường hợp không biểu diễn an toàn giữ ở advanced, không discard âm thầm.
+- **BR-26:** Provision editor giữ descriptor và params cùng flags
+  `is_dependent`/`match_dependents` của UC-06 BR-08. Reference edge luôn
+  consumer -> provider; provider-first scheduling không đổi. Metadata/form không
+  tự matching-preview/provision hoặc gọi external provider. Unsupported/null/
+  credential inputs giữ strict rejection, không nhận remote sources/templates/commands.

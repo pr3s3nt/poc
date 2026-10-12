@@ -10,6 +10,18 @@ database ResourceTypeRepository as TypeRepo
 database ConnectionRepository as ConnectionRepo
 database ResourceDefinitionRepository as DefinitionRepo
 
+opt Read capability metadata [BR-23..26, OC-04d]
+PE -> API: GET resource-definition-capabilities
+API -> API: Authenticate session org and PE/Admin
+API -> Service: ListDefinitionCapabilities(ctx, org)
+Service -> TypeRepo: ListResourceTypes(org)
+TypeRepo --> Service: scoped input schemas
+Service -> Inspector: Inspect embedded supported modules
+Inspector --> Service: types/defaults/executor-owned contract
+Service --> API: safe pairs and variable metadata (no writes)
+API --> PE: 200 capabilities
+end
+
 opt Discover installed workload bundles [BR-18/19, OC-04b]
 PE -> API: GET /api/v1/render-bundles
 API -> API: Authenticate session org and PE/Admin

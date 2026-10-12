@@ -493,3 +493,14 @@ mutation or browser flow. [Reviewed evidence](../verification/2026-10-12-T28-fre
 Execution results and PostgreSQL gate are recorded in the
 [T30 verification](../verification/2026-10-12-T30-key-rename.md); prepared opt-in
 tests are not execution proof.
+
+## T31 — Typed Definition authoring and capability metadata
+
+| Requirement | Collaboration / contract | Validation |
+|---|---|---|
+| UC-03 BR-23/24; OC-04d | ListDefinitionCapabilities, shared registration pairs, embedded inspector/static executor policy, scoped param source | catalog/capabilities_test.go; HTTP definition_capabilities_test.go; e2e definition_capabilities_http_test.go: auth, defaults/types, executor-owned exclusion, no-write/safe error, required-string namespace source |
+| UC-03 BR-25; BR-11–14 preserved | TypedVariablesEditor, typedVariables, per-pair ResourceDefinitionsPage draft | TypedDefinitionForm.test.tsx, typedConversion.test.ts: number/list/placeholders/escaped and padded strings, any, synthetic bool/map, omission and lossless JSON |
+| UC-03 BR-26; UC-06 BR-04/08, UC-08 BR-01 unchanged | ProvisionEditor/typedProvision, explicit matching snapshot and full Score Preview | T31 headed fake: stored flags/params/refs, consumer → provider reference and is_dependent edges, provider-first batches, no implicit Preview/Deploy |
+| UC-02 support/CTA; UC-03 loading/error/prefill | capability client + catalog lists, no frontend whitelist fallback | ResourceTypesPage/TypedDefinitionForm tests; headed T31 metadata 500 projection/retry and confirmed CTA/prefill |
+
+Execution evidence: [T31 local verification](../verification/2026-10-12-T31-typed-definitions.md).

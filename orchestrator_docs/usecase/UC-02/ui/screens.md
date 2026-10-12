@@ -2,7 +2,7 @@
 id: UC-02-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 related: UC-02
 ---
 
@@ -18,16 +18,13 @@ Danh sách hiện ID, số input/output và trạng thái hỗ trợ. Có thể 
 schema từ GET: tên, type, required của input; tên, type, required, secret của
 output. Không suy cờ required/secret từ tên field.
 
-Nhãn “Có cách tạo hỗ trợ” chỉ dành `vpc` (Terraform/vpc), `k8s-cluster`
-(Terraform/eks), `k8s-namespace` (Kubernetes) và `postgres` (Kubernetes hoặc
-Terraform/aurora), theo whitelist hiện hành của form Cấu hình tài nguyên.
-Các ID khác, kể cả `postgres-ha`, mang nhãn “Chỉ có contract”. `workload` được
-hướng dẫn sang Mẫu dựng ứng dụng, không có CTA tạo Cấu hình tài nguyên.
-Nhãn hỗ trợ không bảo đảm triển khai thành công: vẫn cần cấu hình/đích hợp lệ.
-Metadata authoritative thay whitelist ở T31.
-
-CTA “Tạo Cấu hình tài nguyên” chỉ hiện cho bốn type hỗ trợ và chuyển sang
-form UC-03 với type được chọn sẵn; không đăng ký hoặc triển khai tự động.
+Nhãn “Có cách tạo hỗ trợ” và CTA lấy cặp resourceType/driverType/module từ
+GET `/api/v1/resource-definition-capabilities` (UC-03 BR-23/OC-04d), kết hợp
+Resource Type catalog của session; không giữ whitelist frontend. Custom type
+không có cặp mang nhãn “Chỉ có contract”; workload hướng dẫn Mẫu dựng ứng dụng.
+Loading/error metadata không được diễn giải là contract-only hoặc hỗ trợ, có
+Thử lại và không CTA trước khi xác nhận. Metadata không bảo đảm deploy thành công.
+CTA mở form UC-03 chọn sẵn type, không tự đăng ký/triển khai.
 
 ## Đăng ký và sao chép schema
 
