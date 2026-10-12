@@ -3,6 +3,7 @@ package persistencetest
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 
@@ -132,7 +133,7 @@ func EnvironmentBinding(t *testing.T, st persistence.Store) BindingFixture {
 	// Save with a stale unset copy and with a hostile target cannot overwrite.
 	for _, copyOf := range []environment.Environment{staging, func() environment.Environment {
 		e := back
-		e.ConnectionKey, e.Profile, e.Region, e.InfrastructureScope = "cloud", application.ProfileAWSEKS, "eu-west-1", environment.ScopeLegacyApplication
+		e.ConnectionKey, e.Profile, e.Region, e.InfrastructureScope = "cloud", application.ProfileAWSEKS, "eu-west-1", environment.ScopeEnvironment
 		return e
 	}()} {
 		keep := copyOf.Version
@@ -146,6 +147,28 @@ func EnvironmentBinding(t *testing.T, st persistence.Store) BindingFixture {
 		// restore the version the helper save may have rewritten
 		_ = keep
 		got.Version = 4
+	}
+	// Any scope other than ENVIRONMENT is rejected by Bind and Save without a
+	// write, and the error never quotes the submitted value.
+	before, _ := st.GetEnvironment(ctx, appID, "staging")
+	for _, bad := range []environment.InfrastructureScope{"LEGACY_APPLICATION", "Env-Scope", "APPLICATION", "x-hostile-scope"} {
+		b := bind(appID, "staging", "cloud", application.ProfileAWSEKS, "eu-west-1", application.RuntimePending, before.Version)
+		b.Scope = bad
+		if _, err := st.BindEnvironment(ctx, b); !errors.Is(err, environment.ErrInvalidInfrastructureScope) || strings.Contains(err.Error(), string(bad)) {
+			t.Fatalf("bind scope %q: %v", bad, err)
+		}
+		b.Scope = ""
+		if _, err := st.BindEnvironment(ctx, b); !errors.Is(err, environment.ErrInvalidInfrastructureScope) {
+			t.Fatalf("bind empty scope: %v", err)
+		}
+		hostile := before
+		hostile.InfrastructureScope = bad
+		if err := st.SaveEnvironment(ctx, hostile); !errors.Is(err, environment.ErrInvalidInfrastructureScope) || strings.Contains(err.Error(), string(bad)) {
+			t.Fatalf("save scope %q: %v", bad, err)
+		}
+		if got, _ := st.GetEnvironment(ctx, appID, "staging"); got != before {
+			t.Fatalf("invalid scope %q wrote: %+v want %+v", bad, got, before)
+		}
 	}
 	// Saving the Application leaves independent Environment bindings alone.
 	app.Name = "Bound renamed"

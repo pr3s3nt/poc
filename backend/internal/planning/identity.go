@@ -45,8 +45,8 @@ func SharedDescriptor(sharedID string, entry environment.ResourceEntry) (resourc
 	return resource.NewDescriptor(entry.Type, entryClass(entry), PathShared+sharedID)
 }
 
-// VPCDescriptor returns the VPC node of the aws-eks profile: Application
-// scoped for a LEGACY_APPLICATION binding, Environment scoped otherwise.
+// VPCDescriptor returns the VPC node of the aws-eks profile: Environment
+// scoped.
 func VPCDescriptor(ctx Context) (resource.Descriptor, error) {
 	return resource.NewDescriptor(TypeVPC, ClassDefault, ctx.InfraPath())
 }

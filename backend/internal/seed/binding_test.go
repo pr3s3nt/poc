@@ -13,7 +13,7 @@ import (
 	"orchestrator/internal/seed"
 )
 
-func TestApplyBindsAcceptanceFixturesAsLockedLegacyAndIsIdempotent(t *testing.T) {
+func TestApplyBindsAcceptanceFixturesWithExplicitEnvironmentScopeAndIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
 	opts := seed.Defaults()
@@ -24,11 +24,11 @@ func TestApplyBindsAcceptanceFixturesAsLockedLegacyAndIsIdempotent(t *testing.T)
 		}
 	}
 	k8s, err := st.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
-	if err != nil || k8s.ConnectionKey != opts.ConnectionKey || k8s.Profile != application.ProfileInternalK8s || k8s.InfrastructureScope != environment.ScopeLegacyApplication || k8s.Version != 2 {
+	if err != nil || k8s.ConnectionKey != opts.ConnectionKey || k8s.Profile != application.ProfileInternalK8s || k8s.InfrastructureScope != environment.ScopeEnvironment || k8s.Version != 2 {
 		t.Fatalf("acceptance env = %+v %v", k8s, err)
 	}
 	aws, err := st.GetEnvironment(ctx, opts.CloudApplicationKey, opts.EnvironmentKey)
-	if err != nil || aws.ConnectionKey != opts.CloudConnectionKey || aws.Region != "us-east-1" || aws.RuntimeStatus != application.RuntimePending || aws.InfrastructureScope != environment.ScopeLegacyApplication {
+	if err != nil || aws.ConnectionKey != opts.CloudConnectionKey || aws.Region != "us-east-1" || aws.RuntimeStatus != application.RuntimePending || aws.InfrastructureScope != environment.ScopeEnvironment {
 		t.Fatalf("acceptance-cloud env = %+v %v", aws, err)
 	}
 	// The seeded Applications are identity-only; targets live on Environments.
@@ -116,8 +116,9 @@ var awsKeys = []string{"vpc-aws", "cluster-aws-eks", "postgres-aws-aurora"}
 
 // An earlier installation stored an exact old seeded AWS form: the original
 // `<app>-<run>` with the application VPC path, or the interim
-// `<infra.name>-<run>`. A restart upgrades both in place, idempotently.
-func TestApplyUpgradesExactEarlierSeededAWSDefinitions(t *testing.T) {
+// `<infra.name>-<run>`. Every existing Definition is Platform-owned: a restart
+// inserts only missing ones and preserves these exactly, idempotently.
+func TestApplyPreservesExactEarlierSeededAWSDefinitions(t *testing.T) {
 	forms := map[string]*strings.Replacer{
 		"original": strings.NewReplacer("vpc.default#@infra", "vpc.default#applications.@app", "${context.infra.resourceName}", "${context.app.id}-${context.run.id}"),
 		"interim":  strings.NewReplacer("${context.infra.resourceName}", "${context.infra.name}-${context.run.id}"),
@@ -130,10 +131,11 @@ func TestApplyUpgradesExactEarlierSeededAWSDefinitions(t *testing.T) {
 			if err := seed.Apply(ctx, st, opts); err != nil {
 				t.Fatal(err)
 			}
-			seeded := map[string]string{}
+			seeded, old := map[string]string{}, map[string]string{}
 			for _, key := range awsKeys {
 				seeded[key] = toString(definitionByKey(t, st, opts.OrganizationKey, key).DriverInputs)
-				if old := earlier(t, st, opts, key, replacer); toString(old.DriverInputs) == seeded[key] {
+				old[key] = toString(earlier(t, st, opts, key, replacer).DriverInputs)
+				if old[key] == seeded[key] {
 					t.Fatalf("%s: the earlier form must differ from the seeded one", key)
 				}
 			}
@@ -143,8 +145,8 @@ func TestApplyUpgradesExactEarlierSeededAWSDefinitions(t *testing.T) {
 				}
 			}
 			for _, key := range awsKeys {
-				if got := toString(definitionByKey(t, st, opts.OrganizationKey, key).DriverInputs); got != seeded[key] {
-					t.Fatalf("%s was not upgraded:\n got %s\nwant %s", key, got, seeded[key])
+				if got := toString(definitionByKey(t, st, opts.OrganizationKey, key).DriverInputs); got != old[key] {
+					t.Fatalf("%s was rewritten:\n got %s\nwant %s", key, got, old[key])
 				}
 			}
 		})

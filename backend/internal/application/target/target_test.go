@@ -56,6 +56,8 @@ func TestResolveRequiresAConsistentReadyTarget(t *testing.T) {
 		{"unknown profile", with(good, func(e *environment.Environment) { e.Profile = "gcp" }), target.ErrInconsistent},
 		{"unconfigured status on a bound row", with(good, func(e *environment.Environment) { e.RuntimeStatus = application.RuntimeUnconfigured }), target.ErrInconsistent},
 		{"unknown scope", with(good, func(e *environment.Environment) { e.InfrastructureScope = "SHARED" }), target.ErrInconsistent},
+		{"retired scope", with(good, func(e *environment.Environment) { e.InfrastructureScope = "LEGACY_APPLICATION" }), target.ErrInconsistent},
+		{"unset scope reads as ENVIRONMENT", with(good, func(e *environment.Environment) { e.InfrastructureScope = "" }), nil},
 		{"connection not ready", with(good, func(e *environment.Environment) { e.ConnectionKey = "verifying" }), target.ErrConnectionNotReady},
 	}
 	for _, tc := range cases {

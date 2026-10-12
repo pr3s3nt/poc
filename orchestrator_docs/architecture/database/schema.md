@@ -119,7 +119,7 @@ state must not be upgraded before the separately approved T29 reset.
 | `execution_profile` | text | empty while unset, else aws-eks/internal-k8s derived from selected Connection |
 | `region` | text | empty while unset/internal; nonempty for configured AWS |
 | `runtime_status` | text | UNCONFIGURED, PENDING (AWS not provisioned), READY |
-| `infrastructure_scope` | text | ENVIRONMENT for new, LEGACY_APPLICATION only for migrated bindings |
+| `infrastructure_scope` | text | NOT NULL, ENVIRONMENT only; reject retired/unknown values (T27) |
 | `current_deployment_set_id` | uuid | nullable FK deployment_sets, deferred |
 | `version` | bigint | optimistic version |
 | `draft_version` | bigint | optimistic UC-16 draft version |
@@ -378,8 +378,9 @@ Environment-owned. T26 removes Application-to-Environment backfill, drops the
 five obsolete Application columns on fresh task state and must not be deployed
 against retained dev state before the T29 approved reset. T28 replaces the
 transitional migration chain with a clean baseline. Historical target snapshots
-and generation/version/fencing/scoped FKs remain. LEGACY_APPLICATION scope is
-removed separately in T27. The following paragraph records historical design only.
+and generation/version/fencing/scoped FKs remain. T27 removes LEGACY_APPLICATION
+from the scope CHECK without converting data; startup rejects retained scope
+values and requires dev reset. The following paragraph records historical design only.
 
 Nullable legacy applications.connection_id is preserved; new Applications write
 NULL connection, empty profile/region, runtime UNCONFIGURED. Add Environment target
@@ -453,3 +454,14 @@ Active Resource and plan binding; no per-Connection user Definition is needed.
 T23 removes Secret Store legacy domain/DTO/admission flags. The transitional SQL
 `legacy` column may remain inert until T28 rebuilds the fresh baseline; it is not
 a runtime credential source or supported old-record conversion path.
+
+## T27 — Infrastructure scope constraint
+
+Environment infrastructure_scope accepts only ENVIRONMENT. Transitional SQL
+migration 10 installs the strict CHECK after ledger replay; the earlier migration
+6 constraint is historical and is replaced before serving. Existing invalid rows
+fail startup with a safe reset-required error rather than
+being rewritten. JSON startup and persistence binding/save reject retired or
+unknown values safely. Generation 0 preserves current namespaces/descriptors;
+historical plan/TargetRef snapshots are not rewritten. T28 replaces the migration
+chain; retained development state must be reset through the approved T29 run.

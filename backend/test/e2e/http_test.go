@@ -12,7 +12,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"orchestrator/internal/adapters/credentialmemory"
@@ -21,6 +20,9 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/bootstrap/bootstraptest"
+	"orchestrator/internal/domain/application"
+	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 )
@@ -523,7 +525,15 @@ func TestHTTPUsesTheConfiguredRunID(t *testing.T) {
 			continue
 		}
 		name, _ := row.ResolvedInputs["name"].(string)
-		if !strings.HasSuffix(name, seedOptions.RunID) {
+		// The provider-safe name digests the configured run id (ADR-011).
+		named := func(run string) string {
+			return planning.Context{
+				App:   application.Application{Key: seedOptions.CloudApplicationKey},
+				Env:   environment.Environment{ApplicationKey: seedOptions.CloudApplicationKey, Key: seedOptions.EnvironmentKey},
+				RunID: run,
+			}.ResourceName()
+		}
+		if name != named(seedOptions.RunID) || name == named(seedOptions.RunID+"-other") {
 			t.Fatalf("cloud resource name %q does not carry the configured run id %q", name, seedOptions.RunID)
 		}
 		found = true

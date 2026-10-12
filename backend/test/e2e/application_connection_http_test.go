@@ -295,8 +295,11 @@ func TestUC01EnvironmentConnectionEditableOverHTTP(t *testing.T) {
 	if found["Payments/staging"] != "internal-cluster" || found["Payments/production"] != "aws-account" || found["Other/staging"] != "" || found["Other/production"] != "" {
 		t.Fatalf("bindings after restart: %v", found)
 	}
-	// The seeded acceptance fixtures keep their historical LEGACY_APPLICATION binding.
-	if found["Acceptance/dev"] == "" && !strings.Contains(body, `"infrastructureScope":"LEGACY_APPLICATION"`) {
-		t.Fatalf("legacy seeded binding lost: %s", body)
+	// The seeded acceptance fixtures are bound with explicit ENVIRONMENT scope.
+	if found["Acceptance/dev"] == "" && !strings.Contains(body, `"infrastructureScope":"ENVIRONMENT"`) {
+		t.Fatalf("seeded binding lost: %s", body)
+	}
+	if strings.Contains(body, "LEGACY_APPLICATION") {
+		t.Fatalf("retired scope exposed: %s", body)
 	}
 }

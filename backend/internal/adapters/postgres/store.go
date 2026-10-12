@@ -122,6 +122,15 @@ CREATE TRIGGER environments_binding_immutable BEFORE UPDATE ON environments
   FOR EACH ROW EXECUTE FUNCTION environments_binding_immutable();
 `
 
+// migration10 restricts the Environment infrastructure scope to ENVIRONMENT
+// (T27). The constraint is validated against existing rows: a database that
+// still holds another scope fails this migration and startup and must be
+// reset; no row is converted.
+const migration10 = `
+ALTER TABLE environments DROP CONSTRAINT IF EXISTS environments_infrastructure_scope_check;
+ALTER TABLE environments ADD CONSTRAINT environments_infrastructure_scope_check CHECK (infrastructure_scope = 'ENVIRONMENT');
+`
+
 // migration8 removes Kubernetes HOST_CONTEXT (T22). The constraint accepts only
 // KUBECONFIG for Kubernetes. It is validated against existing rows: a database
 // still holding HOST_CONTEXT records fails this migration and startup, and must
@@ -251,6 +260,18 @@ var ErrLegacyConnectionData = errors.New("postgres: the database holds legacy Ku
 // development database must be reset (T29). The text carries no row details.
 var ErrLegacyApplicationData = errors.New("postgres: the database holds Applications with a retired execution target or provider; reset the development database (Application target conversion is unsupported)")
 
+// ErrRetiredInfrastructureScope means an Environment row holds an
+// infrastructure scope other than ENVIRONMENT (T27). It is never converted; the
+// development database must be reset. The text carries no row details.
+var ErrRetiredInfrastructureScope = errors.New("postgres: the database holds Environments with a retired infrastructure scope; reset the development database (scope conversion is unsupported)")
+
+// isRetiredScopeData reports whether err is the check violation of the
+// ENVIRONMENT-only infrastructure scope constraint (SQLSTATE 23514).
+func isRetiredScopeData(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23514" && pgErr.ConstraintName == "environments_infrastructure_scope_check"
+}
+
 func isLegacyApplicationData(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "P0001" && pgErr.Message == legacyApplicationReset
@@ -278,7 +299,7 @@ func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	for _, item := range []struct {
 		version int
 		sql     string
-	}{{1, migration}, {2, migration2}, {3, migration3}, {4, migration4}, {5, migration5}, {6, migration6}, {7, migration7}, {8, migration8}, {9, migration9}} {
+	}{{1, migration}, {2, migration2}, {3, migration3}, {4, migration4}, {5, migration5}, {6, migration6}, {7, migration7}, {8, migration8}, {9, migration9}, {10, migration10}} {
 		var applied bool
 		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=$1)`, item.version).Scan(&applied); err != nil {
 			return err
@@ -292,6 +313,9 @@ func migrate(ctx context.Context, pool *pgxpool.Pool) error {
 			}
 			if item.version == 9 && isLegacyApplicationData(err) {
 				return ErrLegacyApplicationData
+			}
+			if item.version == 10 && isRetiredScopeData(err) {
+				return ErrRetiredInfrastructureScope
 			}
 			return fmt.Errorf("postgres: apply migration %d: %w", item.version, err)
 		}

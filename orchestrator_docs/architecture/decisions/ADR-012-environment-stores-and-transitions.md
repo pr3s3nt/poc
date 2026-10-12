@@ -9,9 +9,10 @@ last_reviewed: 2026-10-12
 
 Status: Accepted — 2026-10-07, user-approved feature scope.
 Supersedes ADR-011 permanent binding lock and ADR-006 Application-level provider
-selection/Variable storage. Preserves ADR-011 legacy identities until an explicit
-target change, ADR-008 scoped immutable delivery and ADR-002 external calls
-outside persistence transactions.
+selection/Variable storage. Preserves current ADR-011 ENVIRONMENT generation-0
+identities, ADR-008 scoped immutable delivery and ADR-002 external calls outside
+persistence transactions. T27 removes retired Application-scope bindings and
+seed-template upgrades.
 
 ## Scope and ownership
 
@@ -119,12 +120,13 @@ source deletion. Unmapped durable source data fails migration preflight.
 It must not reuse old-target ActiveResource state
 or mark an old-target workload as already applied. Historical deployments and
 resources retain their actual Connection/TargetRef for reads and cleanup.
-New target gets an immutable generation. Generation 0 preserves current legacy
+New target gets an immutable generation. Generation 0 preserves current ENVIRONMENT
 resource/namespace/state identity; later targets include generation in physical
 namespace/resource/state identity so even two Connections pointing at the same
 cluster cannot overwrite each other's database. Hash/truncation must preserve
-provider bounds. Existing AWS ENVIRONMENT/LEGACY_APPLICATION descriptors remain
-unchanged at generation 0; new AWS target generations do not reuse old VPC/EKS
+provider bounds. Current AWS ENVIRONMENT descriptors remain
+unchanged at generation 0; LEGACY_APPLICATION is invalid in product (T27). New
+AWS target generations do not reuse old VPC/EKS
 or Terraform workspaces. Cross-profile new deployment retains supported matching
 rules and target capabilities, with no fallback to old Definitions/credentials.
 
@@ -280,7 +282,9 @@ Descriptor IDs have a different grammar from resource scope IDs: environment-own
 namespace/VPC/EKS descriptor paths use `environments.<app>.<env>.g<g>` for g>0,
 while their resource scope uses `~g<g>`. Descriptor IDs cannot contain `~`; workload
 descriptors begin with `modules.` and cannot collide with these infra paths.
-Generation 0 preserves both legacy descriptor and scope identities.
+Generation 0 preserves current ENVIRONMENT descriptor and scope identities,
+including existing namespace identities. This does not retain retired
+LEGACY_APPLICATION bindings; old fixture semantics are harness-only (T27).
 
 The generation delimiter is `~g`, not a dot-prefixed workload suffix: generation-0
 workload scope `<app>.<env>.<workload>` must never be mistaken for a later target.

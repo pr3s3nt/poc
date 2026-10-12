@@ -83,7 +83,7 @@ entity environments {
   execution_profile : text
   region : text
   runtime_status : text
-  infrastructure_scope : text
+  infrastructure_scope : text <<ENVIRONMENT only>>
   secret_store_id : uuid <<FK,nullable>>
   target_generation : bigint
   active_operation_id : uuid <<FK,nullable>>

@@ -396,7 +396,7 @@ func TestSaveEnvironmentCannotOverwriteConfiguredBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	hostile := bound
-	hostile.ConnectionKey, hostile.Profile, hostile.Region, hostile.InfrastructureScope = "cloud", appdomain.ProfileAWSEKS, "eu-west-1", environment.ScopeLegacyApplication
+	hostile.ConnectionKey, hostile.Profile, hostile.Region, hostile.InfrastructureScope = "cloud", appdomain.ProfileAWSEKS, "eu-west-1", environment.ScopeEnvironment
 	if err := st.SaveEnvironment(ctx, hostile); err != nil {
 		t.Fatal(err)
 	}

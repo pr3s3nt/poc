@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # UC-03 — Use Case Realization
@@ -127,3 +127,9 @@ Planning `Context.ResolveContext` exposes profile/region only through
 placeholder expansion, without rewriting stored inputs. `app.id`, `app.name` and
 other identity keys remain. Registration keeps BR-13 deferred placeholder type
 checking; this change does not add a registration-time context allowlist.
+
+## T27 — Seed and infrastructure identity
+
+Seed registration inserts missing current Definitions without rewriting any existing
+record. Planning resolves @infra only to the Environment/generation path. Historical
+fixture paths/names are normalized only in the conformance harness, not product context.

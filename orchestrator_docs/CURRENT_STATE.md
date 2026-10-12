@@ -626,5 +626,27 @@ Transitional SQL migration 9 prepares fresh state, but PostgreSQL integration wa
 not executed (no authorized disposable DB). Full uncached Go/conformance/build,
 targeted race and docs/PlantUML checks pass. No browser/UI change or external mutation.
 See [T26 evidence](verification/2026-10-12-T26-application-metadata.md).
-Retained dev state requires the separately approved T29 reset before use; T27
-scope/seed cleanup and T28 final baseline remain pending.
+Retained dev state requires the separately approved T29 reset before use. T27
+scope/seed cleanup is described below; T28 final baseline remains pending.
+
+## T27 — Environment-only infrastructure scope (2026-10-12)
+
+Removed the LEGACY_APPLICATION product enum and cloud identity/runtime branches.
+Execution binding scope is ENVIRONMENT only; domain/planner/target and SQL/JSON
+Save/Bind/reopen reject explicit invalid scopes without conversion or scope-value
+leakage. Current generation-0 namespace/descriptor/provider-name identities and
+later-generation isolation remain; trusted internal cluster Application resource
+scope is preserved under ADR-013. Settings drops its migrated-binding label.
+
+Acceptance seed binds ENVIRONMENT explicitly and inserts missing Definitions only;
+exact old seeded templates are no longer upgraded. Conformance needs no additional
+historical path/name adapter; all 33 fixtures retain their existing outcomes and
+matching weights/ties. SQL migration 10 supplies the strict CHECK after historical
+ledger replay; the migration-6 literal is replaced before serving and removed with
+T28 baseline. PostgreSQL integration remains unexecuted without an authorized
+disposable DB. Retained dev state requires the separately approved T29 reset before
+use; no retained database, cluster, Vault or AWS resources were mutated.
+
+Full uncached Go/conformance/build and targeted race suites pass; frontend 429
+checks and headed fake T07 regression pass. Video decode/frame/caption review
+completed. See [T27 evidence](verification/2026-10-12-T27-environment-scope.md).

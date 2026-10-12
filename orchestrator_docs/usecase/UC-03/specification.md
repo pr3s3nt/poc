@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # UC-03 — Register Resource Definition and Matching Criteria
@@ -183,12 +183,11 @@ provide canonical Environment profile/region via `${context.env.profile}` and
 `${context.app.region}` as unknown context values; no server rewrite or legacy
 fallback is allowed (T21/LEG-04). Application identity context remains unchanged.
 AWS infrastructure references may
-use `vpc.default#@infra`; parser expands @infra to new Environment path or legacy
-Application path. Cloud names use context.infra.resourceName (legacy exact app-run, new bounded
-Environment-specific hash identifier); context.infra.name is a readable stem only.
+use `vpc.default#@infra`; parser expands @infra to the Environment path including target generation.
+Cloud names use context.infra.resourceName (bounded Environment-specific hash identifier); context.infra.name is a readable stem only.
 Seeded Definitions use these scope-aware values. Platform-authored hardcoded
-application VPC/EKS references are valid only in legacy scope; new Environment
-planning rejects them with guidance rather than introducing cross-environment
+application VPC/EKS references are rejected by product Environment
+planning with guidance rather than introducing cross-environment
 resources. Definition specificity, tie handling and external Driver Accounts remain.
 
 ## Implicit internal cluster binding
@@ -236,3 +235,9 @@ See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
   đầy đủ Driver Inputs/output contract hoặc bảo đảm candidate đăng ký được;
   registration và planner vẫn kiểm lại độc lập. Request bounded/known-field;
   response/error không chứa inputs, credentials, raw provider diagnostics.
+
+## T27 — Current seed and scope boundary
+
+Seed inserts only missing Definitions; no earlier template form is upgraded.
+ENVIRONMENT is the only execution infrastructure scope. Invalid/retired scopes
+fail before planning/execution; matching profiles, criteria weights and ties remain unchanged.

@@ -143,7 +143,7 @@ func TestApplicationIdentityOnlyFreshAndReopen(t *testing.T) {
 		}
 		var count int
 		_ = reopened.pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count)
-		if count != 9 {
+		if count != 10 {
 			t.Fatalf("ledger rows = %d", count)
 		}
 		reopened.Close()
@@ -192,6 +192,8 @@ func TestEnvironmentBindingConsistencyCheckAndEditableBinding(t *testing.T) {
 		"configured but unconfigured": `UPDATE environments e SET runtime_status='UNCONFIGURED' ` + byKey,
 		"configured bad status":       `UPDATE environments e SET runtime_status='BROKEN' ` + byKey,
 		"bad scope value":             `UPDATE environments e SET infrastructure_scope='SHARED' ` + byKey,
+		"retired scope value":         `UPDATE environments e SET infrastructure_scope='LEGACY_APPLICATION' ` + byKey,
+		"empty scope value":           `UPDATE environments e SET infrastructure_scope='' ` + byKey,
 	} {
 		if err := exec(sql, fixture.ApplicationKey); err == nil {
 			t.Fatalf("%s must violate the consistency check", name)
@@ -204,5 +206,51 @@ func TestEnvironmentBindingConsistencyCheckAndEditableBinding(t *testing.T) {
 	}
 	if _, err := st.BindEnvironment(ctx, persistence.EnvironmentBinding{ApplicationKey: fixture.ApplicationKey, EnvironmentKey: "staging", ConnectionKey: "lab", Profile: application.ProfileInternalK8s, RuntimeStatus: application.RuntimeReady, Scope: environment.ScopeEnvironment, ExpectedVersion: 99}); err == nil {
 		t.Fatal("a stale expected version must reject a bind")
+	}
+}
+
+// Migration 10 refuses a database that still holds a non-ENVIRONMENT scope
+// without converting or mutating it, and never quotes the stored value (T27).
+// It needs a disposable PostgreSQL database and is skipped without one.
+func TestMigration10RejectsRetiredScopeWithoutMutation(t *testing.T) {
+	ctx := context.Background()
+	url := persistencetest.FreshPostgresDatabase(t)
+	st, err := Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+	conn, err := pgx.Connect(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(ctx)
+	for _, sql := range []string{
+		`ALTER TABLE environments DROP CONSTRAINT environments_infrastructure_scope_check`,
+		`ALTER TABLE environments ADD CONSTRAINT environments_infrastructure_scope_check CHECK (infrastructure_scope IN ('ENVIRONMENT','LEGACY_APPLICATION'))`,
+		`DELETE FROM schema_migrations WHERE version=10`,
+		`INSERT INTO organizations(id,organization_key,name) VALUES('66666666-6666-4666-8666-666666666666','scopeorg','Scope')`,
+		`INSERT INTO applications(id,organization_id,application_key,name,subdomain,version) VALUES('77777777-7777-4777-8777-777777777777','66666666-6666-4666-8666-666666666666','scopeapp','Scope','scope',1)`,
+		`INSERT INTO environments(id,application_id,environment_key,name,environment_type,namespace_identity,version,infrastructure_scope) VALUES('88888888-8888-4888-8888-888888888888','77777777-7777-4777-8777-777777777777','dev','Dev','dev','app-scope-dev',1,'LEGACY_APPLICATION')`,
+	} {
+		if _, err := conn.Exec(ctx, sql); err != nil {
+			t.Fatalf("prepare: %v\n%s", err, sql)
+		}
+	}
+	reopened, err := Open(ctx, url)
+	if err == nil {
+		reopened.Close()
+		t.Fatal("database with a retired infrastructure scope opened")
+	}
+	if !errors.Is(err, ErrRetiredInfrastructureScope) || strings.Contains(err.Error(), "LEGACY_APPLICATION") || strings.Contains(err.Error(), "constraint") {
+		t.Fatalf("open error = %v", err)
+	}
+	var scope string
+	var ledger int
+	if err := conn.QueryRow(ctx, `SELECT infrastructure_scope FROM environments WHERE environment_key='dev'`).Scan(&scope); err != nil || scope != "LEGACY_APPLICATION" {
+		t.Fatalf("row was converted: %q %v", scope, err)
+	}
+	if err := conn.QueryRow(ctx, `SELECT count(*) FROM schema_migrations WHERE version=10`).Scan(&ledger); err != nil || ledger != 0 {
+		t.Fatalf("migration 10 recorded: %d %v", ledger, err)
 	}
 }

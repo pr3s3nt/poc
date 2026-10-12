@@ -344,3 +344,26 @@ ownership. [Local verification](../verification/2026-10-12-T25-public-routes.md)
   `persistencetest/binding.go` and `workloads.go` cover metadata, binding independence
   and historical target preservation. PostgreSQL fresh/reopen/rejection tests are
   updated but unexecuted; see [T26 evidence](../verification/2026-10-12-T26-application-metadata.md).
+
+## T27 — Environment-only infrastructure binding scope
+
+- [Environment domain](../../backend/internal/domain/environment/environment.go)
+  accepts ENVIRONMENT only, rejects explicit invalid scopes without normalization,
+  and retains current unset defaults until T28.
+- [Planner context](../../backend/internal/planning/context.go) resolves @infra and
+  provider names to Environment/generation identity only; [reference expansion](../../backend/internal/planning/expand.go)
+  rejects hardcoded Application VPC/EKS references. Matching weights/ties remain unchanged.
+- [Seed](../../backend/internal/seed/seed.go) uses explicit ENVIRONMENT bindings
+  and inserts missing Definitions only; exact old templates are never upgraded.
+- JSON startup/Save/Bind and SQL Save/Bind enforce scope admission; SQL migration 10
+  validates the ENVIRONMENT-only CHECK without converting retained state. Historical
+  migration 6 ledger text is replaced before serving and removed by T28 baseline.
+- [Scope tests](../../backend/internal/domain/environment/scope_test.go),
+  planner environment_scope_test.go, seed binding_test.go and shared persistence
+  binding contracts cover safe rejection/no writes, current generation-0 identity,
+  later-generation isolation and seed preservation. SQL opt-in tests remain unexecuted.
+- [Conformance loader](../../backend/test/conformance/loader.go) supplies a synthetic
+  ENVIRONMENT binding; fixtures need no path/name adapter and remain read-only.
+
+Settings removes the retired binding label; frontend gates and headed fake T07
+regression pass. See [T27 verification](../verification/2026-10-12-T27-environment-scope.md).

@@ -9,11 +9,12 @@ last_reviewed: 2026-10-12
 
 Status: Superseded in part — permanent set-once selection/admission/UI rules are
 replaced by [ADR-012](ADR-012-environment-stores-and-transitions.md). This record
-preserves historical design and generation-0 scope/naming/legacy decisions.
+preserves historical design and current generation-0 scope/naming decisions.
+T27 supersedes product legacy scope/name and seed-template upgrade support.
 The internal cluster user-Definition matching requirement is replaced by
 [ADR-013](ADR-013-implicit-existing-cluster.md); other target guards remain.
 Supersedes the shared Application target and new AWS scopes in ADR-001;
-ADR-001 legacy identity remains supported as documented below.
+T27 supersedes ADR-001 migrated Application-scope infrastructure compatibility.
 
 ## Decision
 
@@ -24,8 +25,13 @@ profile, connection, region, runtime status or configuration provider. No old
 Application binding is copied or consulted. Environment owns all execution/store
 selections; immutable historical targets, generation/version/fencing and
 Organization scoping are preserved. Development state requires reset before use
-(T29); T28 supplies the final fresh baseline. LEGACY_APPLICATION scope and seed
-identity/template cleanup remain T27, independently of removing Application fields.
+(T29); T28 supplies the final fresh baseline. T27 (LEG-02) removes
+LEGACY_APPLICATION from product scopes and all seed-template
+upgrade heuristics. Only ENVIRONMENT is valid; retired/unknown scope values fail
+closed without conversion. Historical fixture semantics belong solely to the
+conformance harness. Generation-0 current Environment identities and later
+generation isolation remain unchanged; the trusted internal cluster retains its
+connection descriptor and Application resource scope under ADR-013.
 
 Application identity remains Application-owned. Execution Connection,
 Execution Profile, region and runtime status belong to Environment. New
@@ -62,16 +68,17 @@ Terraform workspace/state references derive from these distinct descriptors;
 Environment also selects region and Driver Account. Two environments never
 reuse each other's new VPC/EKS even when selecting the same Connection.
 Definition references use new `@infra` token for AWS infrastructure path:
-`applications.<app>` in LEGACY_APPLICATION, `environments.<app>.<env>` otherwise.
+`environments.<app>.<env>` at generation 0 and the ADR-012 generation path otherwise.
 `vpc.default#@infra` works for EKS and Aurora consumers; `#@` alone is insufficient
 for Aurora because its private dependency path is different. Seeded AWS
-Definitions use @infra; seeded catalog records are refreshed idempotently without
-overwriting Platform-authored Definitions. Explicit hardcoded applications VPC/EKS
-references in a new-scope Environment fail planning safely with guidance to @infra;
-legacy scope keeps old references valid. Do not silently remap arbitrary references.
+Definitions use @infra; seed inserts missing catalog records and never upgrades
+or overwrites any existing Definition, including exact old seeded templates.
+Explicit hardcoded applications VPC/EKS
+references in an Environment fail planning safely with guidance to @infra;
+no product scope accepts those old infrastructure references. Do not silently
+remap arbitrary references.
 
-Cloud name templates use `${context.infra.resourceName}`. For LEGACY_APPLICATION
-this is exactly `<app>-<run>` to preserve old physical names. For new scope it is
+Cloud name templates use `${context.infra.resourceName}`. For ENVIRONMENT it is
 `orch-<app-prefix>-<env-prefix>-<digest>`: ASCII lowercase alphanumeric prefix of
 Application key up to 8 chars (fallback app), Environment key up to 10 (fallback
 env), and first 24 lowercase hex chars of SHA-256 over full Application key,
@@ -79,14 +86,15 @@ Environment key and run ID joined by NUL delimiters. Length is at most 49 and
 starts with a letter, with no consecutive/trailing hyphens. Changing app/env/run
 changes the digest, preserving collision isolation when prefixes match. This
 reserves space for embedded module suffixes such as -writer and -cluster.
-`context.infra.name` remains the readable app/app-env stem, not a provider-safe
+`context.infra.name` remains the readable app-env stem, not a provider-safe
 physical identifier. New seed Definitions must use resourceName; scope-aware
-references still use @infra. Legacy exact template migration handles both old
-`${context.app.id}-${context.run.id}` and interim
-`${context.infra.name}-${context.run.id}`, without rewriting authored inputs.
+references still use @infra. No exact-template migration of old app-run or interim
+infra.name-run inputs
+is supported; existing catalog records remain untouched.
 Limits verified against [IAM role name quota](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html)
 and [Aurora cluster identifier constraints](https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_CreateDBCluster.html).
-This changes new-scope naming only; stable run-independent names remain D01.
+Stable run-independent names remain D01; removing the retired scope does not
+change current ENVIRONMENT generation-0 names.
 State/workspace names derive from descriptors. New AWS VPC/EKS are Environment-owned
 and follow existing UNREFERENCED classification when absent from desired graph;
 classification does not destroy infrastructure. Binding cannot change, and regular
@@ -94,7 +102,7 @@ AWS enrichment includes both nodes, so normal deploy keeps them referenced.
 Internal existing-cluster descriptor remains `connections.<key>`; namespace and
 workloads remain Environment-scoped. No cluster is provisioned by connection set.
 
-## Historical legacy migration (superseded by T26)
+## Historical legacy migration (superseded by T26/T27)
 
 SQL additive Environment columns store nullable connection_id, execution_profile,
 region, runtime_status and infrastructure_scope. New Environment scope defaults
@@ -123,8 +131,8 @@ UC-12 config/draft operations work while UNCONFIGURED. Safe choices contain no
 credentials or verification data. Same organization scoping and role rules remain.
 
 Validate current identity-only Application SQL/JSON reopen and atomic race,
-independent kinds/regions, AWS distinct descriptors/workspaces, legacy
-AWS reuse, matching conflict and immutable save guards. Live proof uses existing
+independent kinds/regions, AWS distinct descriptors/workspaces, rejection of
+retired scopes, matching conflict and immutable save guards. Live proof uses existing
 kind-idp-internal through real Kubernetes adapter, human UI recording; AWS
 behavior is tested without cloud mutation. No AWS cloud run is authorized.
 

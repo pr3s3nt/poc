@@ -186,6 +186,9 @@ func (s *Store) SaveEnvironment(ctx context.Context, v environment.Environment) 
 }
 
 func (s *Store) fencedSaveEnvironment(ctx context.Context, v environment.Environment) error {
+	if !v.InfrastructureScopeValid() {
+		return environment.ErrInvalidInfrastructureScope
+	}
 	if v.ID == "" {
 		v.ID = ids.New()
 	}
@@ -266,6 +269,9 @@ func (s *Store) BindEnvironment(ctx context.Context, b persistence.EnvironmentBi
 }
 
 func (s *Store) fencedBindEnvironment(ctx context.Context, b persistence.EnvironmentBinding) (environment.Environment, error) {
+	if !b.Scope.Valid() {
+		return environment.Environment{}, environment.ErrInvalidInfrastructureScope
+	}
 	tag, err := s.q(ctx).Exec(ctx, `UPDATE environments e SET connection_id=c.id,execution_profile=$4,region=$5,runtime_status=$6,infrastructure_scope=$7,target_generation=$8,generation_high=GREATEST(e.generation_high,$8),version=e.version+1
 FROM applications a, connections c WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2 AND c.organization_id=a.organization_id AND c.connection_key=$3
 AND e.version=$9 AND (e.active_operation_id IS NULL OR e.active_operation_id=NULLIF($10,'')::uuid)

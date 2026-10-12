@@ -2,7 +2,7 @@
 id: HUMANITEC-COMPATIBILITY
 artifact: compatibility-matrix
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-12
 ---
 
 # Humanitec and Score compatibility matrix
@@ -32,7 +32,7 @@ resources hoặc các dòng khác trong bảng này.
 | Terraform source | Humanitec-compatible remote source dùng `url`/`rev`/`path`. | Runtime MVP dùng `source.module` trỏ tới module nhúng; inspector mới hiểu remote identity. | Product extension + runtime gap | IMP-007, D03, D06 |
 | Context placeholders | Các key aligned là `org.id`, `app.id`, `env.id`, `env.type`, `res.id`, `res.class`, `res.type`. | MVP còn mở rộng `org.key`, `app.key/name`, `env.key/name/namespace/profile/region/connection.key`, `infra.name/resourceName`, `connection.key/kind/cluster/context`, `deployment.id`, `run.id`. | Aligned core + product extension | D06 |
 | Descriptor tokens | Humanitec reference contract không yêu cầu token `@app`, `@env`, `@connection`. | MVP dùng các token này để tạo identity ổn định cho implicit resources. | Product extension | UC-06 BR-12, D06 |
-| Implicit infrastructure and scopes | Planner reference v4 không tự thêm VPC/EKS/namespace; điều này không đại diện toàn bộ graph nội bộ của Humanitec. | Execution Profile tự enrich VPC → EKS → namespace; VPC/EKS mới có Environment scope (legacy giữ Application scope), namespace có Environment scope và descriptor dùng `applications.*`/`environments.*`/`connections.*`. | Product extension | ADR-001, UC-06 BR-02/03 |
+| Implicit infrastructure and scopes | Planner reference v4 không tự thêm VPC/EKS/namespace; điều này không đại diện toàn bộ graph nội bộ của Humanitec. | Execution Profile tự enrich VPC → EKS → namespace; VPC/EKS có Environment/generation scope only (T27), namespace có Environment scope và descriptor dùng `applications.*`/`environments.*`/`connections.*`. | Product extension | ADR-001, UC-06 BR-02/03 |
 | Container resources | Score dùng `containers.*.resources.requests/limits` cho `cpu` và `memory`. | Parser nhận đúng subset `cpu`/`memory` dạng non-empty string và giữ typed values nguyên văn tới Kubernetes Deployment; request field thiếu lấy limit cùng field, nếu không có thì default `10m`/`32Mi` khi render; limits không có default. Số JSON và Kubernetes quantity semantic validation không được hỗ trợ ở planner. | Aligned (subset) | UC-05 BR-07, UC-06 BR-11, [I06-07 evidence](../verification/2026-09-22-imp009-container-resources.md) |
 | Probes | Score dùng `livenessProbe`/`readinessProbe` với nested `httpGet`. | MVP model hiện dùng probe phẳng `{path, port}`. | Deferred compatibility | D06 |
 | Replicas | Score workload contract không có top-level `replicas`. | MVP chấp nhận top-level `replicas` như extension. | Product extension | D06 |
@@ -83,3 +83,11 @@ Product context exposes target values only as `env.profile`/`env.region`;
 keys including `app.id` and product `app.name` remain unchanged. Any fixture-only
 legacy resolver belongs in `backend/test/conformance/`, never the default product
 resolver; reference fixtures remain read-only.
+
+## Infrastructure scope boundary (T27/LEG-02)
+
+LEGACY_APPLICATION is not a product enum or execution fallback. Current seed uses
+explicit ENVIRONMENT bindings and inserts missing Definitions only. Historical
+fixture path/name semantics are normalized solely by the conformance harness;
+reference files and expected matching outcomes remain unchanged. The trusted
+internal cluster connection descriptor/Application resource scope remains ADR-013.

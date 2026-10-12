@@ -1,6 +1,8 @@
 package planning
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"regexp"
@@ -13,8 +15,8 @@ import (
 	"orchestrator/internal/planning/placeholder"
 )
 
-// scopedAWSRequest is an aws-eks Environment of a new Application: its own
-// ENVIRONMENT infrastructure scope (ADR-011), unlike the seeded fixtures.
+// scopedAWSRequest is an aws-eks Environment of a new Application with its
+// own ENVIRONMENT infrastructure scope (ADR-011).
 func scopedAWSRequest(t *testing.T, appKey, envKey string) Request {
 	t.Helper()
 	req := testRequest(t, application.ProfileAWSEKS, "backend")
@@ -126,70 +128,54 @@ func TestPlan_AuroraResolvesInfrastructureGraphThroughInfraToken(t *testing.T) {
 	}
 }
 
-func TestPlan_LegacyAWSEnvironmentKeepsApplicationIdentityAndNames(t *testing.T) {
-	req := testRequest(t, application.ProfileAWSEKS, "backend") // LEGACY_APPLICATION
-	plan, err := NewService().Plan(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	app := req.App.Key
-	vpc, eks := nodeByType(t, plan, TypeVPC, ""), nodeByType(t, plan, TypeCluster, ClassEKS)
-	if vpc.Descriptor != "vpc.default#applications."+app || eks.Descriptor != "k8s-cluster.eks#applications."+app || vpc.Scope.Type != resource.ScopeApplication || vpc.Scope.ID != app {
-		t.Fatalf("legacy identity changed: %+v %+v", vpc, eks)
-	}
-	for _, definition := range []string{"vpc-aws", "cluster-aws-eks", "postgres-aws-aurora"} {
-		if got, want := fmt.Sprint(contractValue(t, plan, definition, "name")), app+"-"+seedOptions().RunID; got != want {
-			t.Fatalf("legacy %s name = %s, want %s", definition, got, want)
+func TestPlan_RejectsEveryNonEnvironmentScopeWithoutEchoingIt(t *testing.T) {
+	for _, bad := range []environment.InfrastructureScope{"LEGACY_APPLICATION", "APPLICATION", "Env-Scope", "Prod"} {
+		for _, profile := range []application.ExecutionProfile{application.ProfileAWSEKS, application.ProfileInternalK8s} {
+			req := testRequest(t, profile, "backend")
+			req.Env.InfrastructureScope = bad
+			plan, err := NewService().Plan(req)
+			if plan != nil || !errors.Is(err, environment.ErrInvalidInfrastructureScope) || strings.Contains(err.Error(), string(bad)) {
+				t.Fatalf("%s scope %q: plan=%v err=%v", profile, bad, plan, err)
+			}
+		}
+		// An unconfigured snapshot cannot hide the bad scope behind the default.
+		req := testRequest(t, application.ProfileInternalK8s, "backend")
+		req.Env.ConnectionKey, req.Env.Profile, req.Env.RuntimeStatus = "", "", ""
+		req.Env.InfrastructureScope = bad
+		if _, err := NewService().Plan(req); !errors.Is(err, environment.ErrInvalidInfrastructureScope) || errors.Is(err, ErrEnvironmentUnconfigured) {
+			t.Fatalf("unconfigured scope %q: %v", bad, err)
 		}
 	}
-	// A second legacy Environment of the same Application reuses the same nodes.
-	other := req
-	other.Env.Key = "staging"
-	other.Env.NamespaceIdentity = "app-" + app + "-staging"
-	again, err := NewService().Plan(other)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if nodeByType(t, again, TypeVPC, "").Descriptor != vpc.Descriptor {
-		t.Fatal("legacy Environments of one Application must share the application VPC")
+	// An unset scope on an unconfigured Environment keeps the documented default.
+	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req.Env.ConnectionKey, req.Env.Profile, req.Env.RuntimeStatus, req.Env.InfrastructureScope = "", "", "", ""
+	if _, err := NewService().Plan(req); !errors.Is(err, ErrEnvironmentUnconfigured) {
+		t.Fatalf("unset scope: %v", err)
 	}
 }
 
-func TestPlan_HardcodedApplicationInfrastructureReferenceFailsInNewScope(t *testing.T) {
-	for scope, wantErr := range map[environment.InfrastructureScope]bool{environment.ScopeEnvironment: true, environment.ScopeLegacyApplication: false} {
-		req := scopedAWSRequest(t, "pay", "staging")
-		req.Env.InfrastructureScope = scope
-		defs := append([]resource.Definition(nil), req.Catalog.Definitions...)
-		for i, def := range defs {
-			if def.Key != "cluster-aws-eks" {
-				continue
-			}
-			variables := map[string]any{}
-			for k, v := range def.Variables() {
-				variables[k] = v
-			}
-			variables["subnet_ids"] = "${resources['vpc.default#applications.pay'].outputs.subnetIds}"
-			defs[i].DriverInputs = map[string]any{"values": map[string]any{"source": def.DriverValues()["source"], "variables": variables}}
-		}
-		req.Catalog.Definitions = defs
-		if scope == environment.ScopeLegacyApplication {
-			req.App.Key = "pay"
-			req.Env.ApplicationKey = "pay"
-		}
-		_, err := NewService().Plan(req)
-		if wantErr {
-			var staged *StageError
-			if !errors.Is(err, ErrLegacyInfrastructureReference) || !errors.As(err, &staged) || staged.Reason != ReasonLegacyInfrastructure {
-				t.Fatalf("new scope must reject the hardcoded reference with guidance: %v", err)
-			}
-			if message, ok := PublicMessage(err); !ok || !strings.Contains(message, "@infra") {
-				t.Fatalf("public message = %q", message)
-			}
+func TestPlan_HardcodedApplicationInfrastructureReferenceFails(t *testing.T) {
+	req := scopedAWSRequest(t, "pay", "staging")
+	defs := append([]resource.Definition(nil), req.Catalog.Definitions...)
+	for i, def := range defs {
+		if def.Key != "cluster-aws-eks" {
 			continue
 		}
-		if err != nil {
-			t.Fatalf("legacy scope keeps old references valid: %v", err)
+		variables := map[string]any{}
+		for k, v := range def.Variables() {
+			variables[k] = v
 		}
+		variables["subnet_ids"] = "${resources['vpc.default#applications.pay'].outputs.subnetIds}"
+		defs[i].DriverInputs = map[string]any{"values": map[string]any{"source": def.DriverValues()["source"], "variables": variables}}
+	}
+	req.Catalog.Definitions = defs
+	_, err := NewService().Plan(req)
+	var staged *StageError
+	if !errors.Is(err, ErrLegacyInfrastructureReference) || !errors.As(err, &staged) || staged.Reason != ReasonLegacyInfrastructure {
+		t.Fatalf("the hardcoded reference must be rejected with guidance: %v", err)
+	}
+	if message, ok := PublicMessage(err); !ok || !strings.Contains(message, "@infra") {
+		t.Fatalf("public message = %q", message)
 	}
 }
 
@@ -210,16 +196,15 @@ func TestPlan_HashPinsTheNonSecretTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if base.Target.ConnectionKey != "internal-cluster" || base.Target.Profile != application.ProfileInternalK8s || base.Target.Scope != environment.ScopeLegacyApplication {
+	if base.Target.ConnectionKey != "internal-cluster" || base.Target.Profile != application.ProfileInternalK8s || base.Target.Scope != environment.ScopeEnvironment {
 		t.Fatalf("plan target = %+v", base.Target)
 	}
 	again, _ := NewService().Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if again.PlanHash != base.PlanHash {
 		t.Fatal("plan hash must be deterministic")
 	}
-	// Same graph, different pinned region or scope: the hash must change.
+	// Same graph, different pinned region: the hash must change.
 	for name, mutate := range map[string]func(*Request){
-		"scope":  func(r *Request) { r.Env.InfrastructureScope = environment.ScopeEnvironment },
 		"region": func(r *Request) { r.Env.Region = "eu-central-1" },
 	} {
 		req := testRequest(t, application.ProfileInternalK8s, "backend")
@@ -241,11 +226,6 @@ func TestContext_ValuesResolveTheSelectedEnvironment(t *testing.T) {
 	values := ctx.Values()
 	if values["env.profile"] != "aws-eks" || values["env.region"] != "eu-west-1" || values["infra.name"] != "pay-production" {
 		t.Fatalf("context values = %v", values)
-	}
-	legacy := Context{App: req.App, Env: req.Env}
-	legacy.Env.InfrastructureScope = environment.ScopeLegacyApplication
-	if legacy.Values()["infra.name"] != "pay" {
-		t.Fatalf("legacy infra.name = %v", legacy.Values()["infra.name"])
 	}
 }
 
@@ -382,18 +362,38 @@ func TestResourceName_SamePrefixDifferentApplicationEnvironmentOrRunDoNotCollide
 	}
 }
 
-func TestResourceName_LegacyApplicationNamesAreExactlyUnchanged(t *testing.T) {
-	ctx := resourceNameContext("pay", "production", "run-test", environment.ScopeLegacyApplication)
-	if got := ctx.ResourceName(); got != "pay-run-test" {
-		t.Fatalf("legacy name = %s", got)
+// Generation 0 keeps its current identity exactly; later generations never
+// reuse a provider-visible name, descriptor path or scope of another one.
+func TestResourceName_GenerationZeroIdentityUnchangedAndLaterGenerationsIsolated(t *testing.T) {
+	ctx := resourceNameContext("pay", "production", "run-test", environment.ScopeEnvironment)
+	sum := sha256.Sum256([]byte("pay\x00production\x00run-test"))
+	wantName := "orch-pay-production-" + hex.EncodeToString(sum[:])[:24]
+	if got := ctx.ResourceName(); got != wantName || ctx.Values()["infra.resourceName"] != wantName {
+		t.Fatalf("generation 0 name = %s, want %s", ctx.ResourceName(), wantName)
 	}
-	if ctx.Values()["infra.resourceName"] != "pay-run-test" || ctx.InfraName() != "pay" || ctx.InfraPath() != "applications.pay" {
-		t.Fatalf("legacy identity changed: %v", ctx.Values())
+	if ctx.InfraName() != "pay-production" || ctx.InfraPath() != "environments.pay.production" {
+		t.Fatalf("generation 0 identity = %s %s", ctx.InfraName(), ctx.InfraPath())
 	}
-	// Scope and state identities of new Environments are unaffected by the name.
-	scoped := resourceNameContext("pay", "production", "run-test", environment.ScopeEnvironment)
-	if scoped.InfraPath() != "environments.pay.production" || scoped.InfraName() != "pay-production" {
-		t.Fatalf("new scope identity = %s %s", scoped.InfraPath(), scoped.InfraName())
+	// An unset scope reads as the same ENVIRONMENT identity.
+	unset := resourceNameContext("pay", "production", "run-test", "")
+	if unset.ResourceName() != wantName || unset.InfraPath() != ctx.InfraPath() {
+		t.Fatalf("unset scope identity = %s %s", unset.ResourceName(), unset.InfraPath())
+	}
+	names, paths := map[string]int64{}, map[string]int64{}
+	for generation := int64(0); generation <= 5; generation++ {
+		c := ctx
+		c.Env.TargetGeneration = generation
+		name, path := c.ResourceName(), c.InfraPath()
+		if other, dup := names[name]; dup {
+			t.Fatalf("generation %d name collides with %d: %s", generation, other, name)
+		}
+		if other, dup := paths[path]; dup {
+			t.Fatalf("generation %d path collides with %d: %s", generation, other, path)
+		}
+		names[name], paths[path] = generation, generation
+		if generation > 0 && path != "environments.pay.production"+environment.GenerationScopeSuffix(generation) {
+			t.Fatalf("generation %d path = %s", generation, path)
+		}
 	}
 }
 

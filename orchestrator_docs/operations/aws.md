@@ -2,7 +2,7 @@
 id: RUNBOOK-AWS
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-09-21
+last_reviewed: 2026-10-12
 ---
 
 # AWS verification
@@ -36,7 +36,7 @@ workload qua HTTP API, kiểm job flow/Web Console, rồi cleanup trong EXIT tra
 
 ## Required runtime assertions
 
-- New VPC/EKS are Environment-scoped; legacy AWS bindings retain Application scope under ADR-011. Aurora retains shared postgres contract.
+- VPC/EKS are Environment/generation-scoped only; T27 rejects retired Application-scope bindings under ADR-011. Aurora retains shared postgres contract.
 - Backend/worker nhận database outputs; secret không xuất hiện plaintext trong
   manifests, logs, state hoặc UC-09 view.
 - Không tạo Service `LoadBalancer`; verification dùng port-forward.

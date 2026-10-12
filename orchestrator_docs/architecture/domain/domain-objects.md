@@ -155,3 +155,10 @@ bypasses weighted matching, and resolves the pinned Environment Connection.
 Existing logical descriptor/Application scope and historical targets stay intact;
 no new domain table or cluster creation is introduced. Other Definition matching
 and the common Kubernetes target contract remain unchanged.
+
+## T27 — Infrastructure binding scope
+
+InfrastructureScope has only ENVIRONMENT. This supersedes historical migrated
+Application-scope compatibility above. Current generation-0 identities, later
+generation isolation and the ADR-013 internal cluster Application resource scope
+remain unchanged. Retired/unknown binding scopes are rejected without conversion.

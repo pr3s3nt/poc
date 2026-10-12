@@ -53,11 +53,6 @@ func HasRuntime(ctx context.Context, view persistence.Store, organizationKey str
 		if resourceRecord.Scope.Type != resource.ScopeApplication && InGeneration(resourceRecord.Scope, env.ApplicationKey, env.Key, env.TargetGeneration) {
 			return true, nil
 		}
-		// A legacy Application-scoped VPC/EKS belongs to a LEGACY_APPLICATION binding.
-		if env.Scope() == environment.ScopeLegacyApplication && resourceRecord.Scope.Type == resource.ScopeApplication && resourceRecord.Scope.ID == env.ApplicationKey &&
-			strings.HasPrefix(resourceRecord.Descriptor.ID, "applications."+env.ApplicationKey) {
-			return true, nil
-		}
 	}
 	return false, nil
 }

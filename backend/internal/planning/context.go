@@ -26,31 +26,17 @@ type Context struct {
 	ReferenceCluster bool
 }
 
-// LegacyInfrastructure reports whether the Environment keeps the
-// Application-scoped VPC/EKS identity of a migrated binding.
-func (c Context) LegacyInfrastructure() bool {
-	return c.Env.Scope() == environment.ScopeLegacyApplication
-}
-
-// InfraName is the cloud-name stem of VPC/EKS/Aurora: the Application key for
-// a legacy binding, `<app>-<env>` otherwise (ADR-011).
+// InfraName is the cloud-name stem of VPC/EKS/Aurora: `<app>-<env>` (ADR-011).
 func (c Context) InfraName() string {
-	if c.LegacyInfrastructure() {
-		return c.App.Key
-	}
 	return c.App.Key + "-" + c.Env.Key
 }
 
 // ResourceName is the provider-safe physical name of AWS infrastructure
-// (ADR-011). A LEGACY_APPLICATION binding keeps the exact `<app>-<run>` name.
-// Otherwise it is `orch-<app8>-<env10>-<sha256hex24>`: lowercase ASCII
+// (ADR-011). It is `orch-<app8>-<env10>-<sha256hex24>`: lowercase ASCII
 // alphanumeric prefixes of the Application and Environment keys plus a digest
 // of the full keys and run ID, at most 49 characters, so module suffixes such as
 // `-writer` and `-cluster` stay inside the IAM (64) and Aurora (63) limits.
 func (c Context) ResourceName() string {
-	if c.LegacyInfrastructure() {
-		return c.App.Key + "-" + c.RunID
-	}
 	identity := c.App.Key + "\x00" + c.Env.Key + "\x00" + c.RunID
 	if c.Env.TargetGeneration > 0 {
 		// A later target generation must never reuse a provider-visible name.
@@ -80,9 +66,6 @@ func nameStem(key string, limit int, fallback string) string {
 
 // InfraPath is the `@infra` identity path of AWS infrastructure.
 func (c Context) InfraPath() string {
-	if c.LegacyInfrastructure() {
-		return PathApplications + c.App.Key
-	}
 	return PathEnvironments + c.App.Key + "." + c.Env.Key + environment.GenerationScopeSuffix(c.Env.TargetGeneration)
 }
 

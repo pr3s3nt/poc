@@ -73,7 +73,7 @@ owns shared transition/admission/recovery design.
   kho đã chọn; Preview/Deploy cần execution target và secret store nếu có secret.
 - **BR-11:** Source/destination generation tách tài nguyên/state cả khi hai keys
   dùng cùng cluster. Old deployments/resources giữ original targets. Generation 0
-  và migrated LEGACY_APPLICATION giữ identity cũ đến khi chuyển rõ ràng.
+  giữ current ENVIRONMENT identity; product từ chối LEGACY_APPLICATION (T27).
 - **BR-12:** Chuyển triển khai không reuse current resources ở nơi cũ. Deploy-new
   tạo hệ thống mới; migrate-data dừng ghi, backup/restore PostgreSQL tương thích,
   deploy/verify/cutover; không tự chuyển arbitrary storage hoặc tự xóa nơi cũ.

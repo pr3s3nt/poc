@@ -41,13 +41,11 @@ func testRequest(t *testing.T, profile application.ExecutionProfile, workload st
 	}
 
 	app := application.Application{Key: appKey, OrganizationKey: o.OrganizationKey, Name: appKey, Version: 1}
-	// Seeded fixtures keep the historical LEGACY_APPLICATION infrastructure
-	// scope; new-scope behavior is covered with environmentScoped.
 	env := environment.Environment{
 		Key: o.EnvironmentKey, ApplicationKey: appKey, Name: o.EnvironmentName,
 		Type: o.EnvironmentType, NamespaceIdentity: namespace, Version: 1,
 		ConnectionKey: connectionKey, Profile: profile, RuntimeStatus: application.RuntimeReady,
-		InfrastructureScope: environment.ScopeLegacyApplication,
+		InfrastructureScope: environment.ScopeEnvironment,
 	}
 	if profile == application.ProfileAWSEKS {
 		env.Region = o.Region

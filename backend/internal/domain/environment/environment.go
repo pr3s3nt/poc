@@ -3,6 +3,7 @@ package environment
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -20,15 +21,14 @@ type InfrastructureScope string
 const (
 	// ScopeEnvironment gives the Environment its own VPC/EKS identity.
 	ScopeEnvironment InfrastructureScope = "ENVIRONMENT"
-	// ScopeLegacyApplication keeps the Application-scoped VPC/EKS identity of
-	// bindings migrated from the former Application target.
-	ScopeLegacyApplication InfrastructureScope = "LEGACY_APPLICATION"
 )
 
-// Valid reports whether the scope is a known value.
-func (s InfrastructureScope) Valid() bool {
-	return s == ScopeEnvironment || s == ScopeLegacyApplication
-}
+// ErrInvalidInfrastructureScope reports a stored or submitted scope other than
+// ENVIRONMENT. It never carries the rejected value.
+var ErrInvalidInfrastructureScope = errors.New("environment: infrastructure scope must be ENVIRONMENT")
+
+// Valid reports whether the scope is the only supported value.
+func (s InfrastructureScope) Valid() bool { return s == ScopeEnvironment }
 
 // Environment is a deployment target that belongs to exactly one Application.
 // ConnectionKey, Profile, Region, RuntimeStatus, InfrastructureScope and
@@ -79,11 +79,15 @@ func (e Environment) Status() application.RuntimeStatus {
 	return e.RuntimeStatus
 }
 
-// InfrastructureScopeValid reports whether the stored scope is a known value;
-// an unset scope reads as ENVIRONMENT.
-func (e Environment) InfrastructureScopeValid() bool { return e.Scope().Valid() }
+// InfrastructureScopeValid reports whether the stored scope is unset (reads as
+// ENVIRONMENT) or ENVIRONMENT. Any other value is rejected, never normalized.
+func (e Environment) InfrastructureScopeValid() bool {
+	return e.InfrastructureScope == "" || e.InfrastructureScope.Valid()
+}
 
-// Scope reports the infrastructure scope; unset bindings read as ENVIRONMENT.
+// Scope reports the infrastructure scope; an unset scope reads as ENVIRONMENT.
+// A stored invalid value is returned unchanged so callers cannot mistake it
+// for ENVIRONMENT; reject it with InfrastructureScopeValid first.
 func (e Environment) Scope() InfrastructureScope {
 	if e.InfrastructureScope == "" {
 		return ScopeEnvironment
@@ -150,6 +154,9 @@ func GenerationScopeSuffix(generation int64) string {
 func (e Environment) Validate() error {
 	if e.Key == "" || e.ApplicationKey == "" {
 		return fmt.Errorf("environment: key and application key are required")
+	}
+	if !e.InfrastructureScopeValid() {
+		return ErrInvalidInfrastructureScope
 	}
 	if !namespacePattern.MatchString(e.NamespaceIdentity) {
 		return fmt.Errorf("environment: namespace identity %q is not a valid DNS-1123 label", e.NamespaceIdentity)

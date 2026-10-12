@@ -65,7 +65,9 @@ matching behavior; do not rewrite historical verification evidence.
 ## Cloud and application resource boundary
 
 For `aws-eks`, VPC/EKS continue to use profile-filtered matching Definitions and
-Terraform, including Environment account guards and legacy infrastructure scopes. Per UC-03 BR-08, public VPC/EKS Definitions omit ConnectionKey and execution inherits the pinned READY Environment AWS account; conflicting malformed catalog entries remain guarded. Aurora still requires its own explicit READY AWS account in the owning Organization.
+Terraform, including Environment account guards and ENVIRONMENT infrastructure scope only
+(T27). The internal cluster Application resource scope is distinct from the
+removed LEGACY_APPLICATION execution-binding mode. Per UC-03 BR-08, public VPC/EKS Definitions omit ConnectionKey and execution inherits the pinned READY Environment AWS account; conflicting malformed catalog entries remain guarded. Aurora still requires its own explicit READY AWS account in the owning Organization.
 VPC supplies EKS and Aurora; workloads wait for Kubernetes target and required
 resource outputs. Do not force Aurora to depend on EKS or run in Kubernetes.
 

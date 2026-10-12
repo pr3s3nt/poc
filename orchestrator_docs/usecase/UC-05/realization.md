@@ -2,7 +2,7 @@
 id: UC-05-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-12
 ---
 
 # UC-05 — Use Case Realization
@@ -80,8 +80,8 @@ Shared snapshot loader resolves persisted Environment target in session
 Organization; UNCONFIGURED fails before planning/execution. Definition guards and
 UC-08 defense-in-depth compare against this Environment connection. Context,
 version, scope mode and nonsecret target metadata are pinned into hashes/snapshots.
-New AWS enrichment produces Environment-scoped VPC/EKS; legacy AWS keeps original
-Application identity via [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).
+AWS enrichment produces Environment/generation-scoped VPC/EKS only (T27).
+Retired scopes fail closed; current generation-0 identity is preserved under [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).
 Target changes use ADR-012 versioned admission/transition; runtime READY update is Environment-only.
 UI/query use selected Environment or deployment-pinned target, no Application target.
 

@@ -132,14 +132,13 @@ func Load(root, name string) (*Case, error) {
 		Name:            appKey,
 		Version:         1,
 	}
-	// Explicit legacy compatibility context: the fixtures predate the
-	// Environment-owned binding and are planned as a migrated LEGACY_APPLICATION
-	// binding. This is test-only; the product never falls back to a target.
+	// Test-only synthetic Environment binding: the fixtures predate the
+	// Environment-owned binding. The product never falls back to a target.
 	env := environment.Environment{
 		ConnectionKey:       syntheticConnectionKey,
 		Profile:             application.ProfileInternalK8s,
 		RuntimeStatus:       application.RuntimeReady,
-		InfrastructureScope: environment.ScopeLegacyApplication,
+		InfrastructureScope: environment.ScopeEnvironment,
 		Key:                 envKey,
 		ApplicationKey:      appKey,
 		Name:                envKey,

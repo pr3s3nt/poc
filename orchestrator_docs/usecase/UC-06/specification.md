@@ -51,7 +51,7 @@ Triển khai Score workload theo Execution Profile của Environment, tự độ
 
 ## Luồng biến thể trong happy path
 
-- **VAR-01 — `aws-eks`:** tại MS-05, thêm implicit VPC/EKS scope Environment (legacy AWS giữ Application scope theo ADR-011); tại MS-09, UC-08 tái sử dụng hoặc provision VPC -> EKS trước Aurora/workload.
+- **VAR-01 — `aws-eks`:** tại MS-05, thêm implicit VPC/EKS scope Environment theo ADR-011/T27; tại MS-09, UC-08 tái sử dụng hoặc provision VPC -> EKS trước Aurora/workload.
 - **VAR-02 — `internal-k8s`:** tại MS-05, thêm provider node tham chiếu cluster connection có sẵn; UC-08 không tạo VPC/EKS và provision namespace/PostgreSQL trên cluster đó.
 - **VAR-03 — Fleet GitRepo trên internal kind:** tại MS-11, khi platform cấu
   hình mode này, Orchestrator ghi workload manifests không bí mật vào repo
@@ -74,7 +74,7 @@ Triển khai Score workload theo Execution Profile của Environment, tự độ
 ## Quy tắc nghiệp vụ
 
 - **BR-01:** Planning phải duy trì invariant `current + Delta = Candidate`.
-- **BR-02:** Resource Descriptor là identity ổn định; new VPC/EKS scope Environment (legacy AWS application scope theo ADR-011), namespace scope Environment, Score dependency dùng declared scope.
+- **BR-02:** Resource Descriptor là identity ổn định; VPC/EKS scope Environment theo ADR-011/T27, namespace scope Environment, Score dependency dùng declared scope.
 - **BR-03:** Execution Profile chỉ enrich graph/context; provider-specific execution được chọn qua Resource Definition và executor adapter; internal cluster dùng trusted system binding theo ADR-013, không matching catalog.
 - **BR-04:** Graph phải là DAG và batches phải đặt mọi provider trước consumer.
 - **BR-05:** Chỉ commit Candidate Deployment Set thành current sau khi UC-08 và workload apply hoàn tất thành công.
@@ -151,7 +151,7 @@ workload -> k8s-namespace -> existing-k8s-cluster
 workload -> postgres-statefulset -> existing-k8s-cluster
 ```
 
-VPC/EKS mới có scope theo Environment (legacy AWS giữ scope Application); namespace có scope theo Environment; PostgreSQL có scope theo dependency khai báo trong Score.
+VPC/EKS có scope theo Environment và target generation; namespace có scope theo Environment; PostgreSQL có scope theo dependency khai báo trong Score.
 
 Hai sơ đồ trên là hình dạng tối thiểu sinh ra từ Score và Execution Profile. Resource Definition được
 phép bổ sung edge cho chính resource của nó bằng Resource Reference trong driver inputs
@@ -173,8 +173,8 @@ Resource ID là đường dẫn trong Deployment Set, không phải tên tự đ
 | Workload | `workload.default#modules.<workload-id>` |
 | Private dependency của workload | `<type>.<class>#modules.<workload-id>.externals.<name>` |
 | Shared dependency | `<type>.<class>#shared.<shared-id>` |
-| VPC implicit (`aws-eks`) | `vpc.default#environments.<app-id>.<env-id>` (legacy: `applications.<app-id>`) |
-| EKS implicit (`aws-eks`) | `k8s-cluster.eks#environments.<app-id>.<env-id>` (legacy: `applications.<app-id>`) |
+| VPC implicit (`aws-eks`) | `vpc.default#environments.<app-id>.<env-id>` |
+| EKS implicit (`aws-eks`) | `k8s-cluster.eks#environments.<app-id>.<env-id>` |
 | Cluster đã đăng ký (`internal-k8s`) | `k8s-cluster.internal#connections.<connection-id>` |
 | Namespace của Environment | `k8s-namespace.default#environments.<app-id>.<env-id>` |
 
@@ -222,7 +222,7 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 
 ## Environment connection binding
 
-- **BR-20:** Every deployment resolves and pins the configured Environment target, never a shared Application binding/default. Internal Kubernetes explicit Definition connections must equal the selected Environment connection. Public Terraform VPC/EKS Definitions have an empty ConnectionKey and always inherit the pinned READY AWS Environment connection. Keep ConnectionMismatch as a defensive guard for malformed internal/harness VPC/EKS Definitions with a different key; reject the winning conflict before execution without selecting another candidate. Empty keys do not mismatch; registration rejects even an explicit key equal to the target. External database Definitions keep their explicit READY AWS Driver Account in the same Organization. Effective connection identity is consistent across plan/hash, executor requests and ActiveResource persistence. Matching specificity/ties remain unchanged. New AWS scopes are ENVIRONMENT; legacy bindings preserve application-scope resource identity via ADR-011. UNCONFIGURED Preview/Deploy is rejected 422 field connectionKey before executor/provisioning. For internal-k8s the implicit cluster node binds directly to the Environment Connection under ADR-013, bypassing authored cluster Definition matching. AWS cluster Definitions remain required; no default/host fallback. Internal Kubernetes requires explicit scoped KUBECONFIG under UC-04 BR-15; context-only targets cannot execute.
+- **BR-20:** Every deployment resolves and pins the configured Environment target, never a shared Application binding/default. Internal Kubernetes explicit Definition connections must equal the selected Environment connection. Public Terraform VPC/EKS Definitions have an empty ConnectionKey and always inherit the pinned READY AWS Environment connection. Keep ConnectionMismatch as a defensive guard for malformed internal/harness VPC/EKS Definitions with a different key; reject the winning conflict before execution without selecting another candidate. Empty keys do not mismatch; registration rejects even an explicit key equal to the target. External database Definitions keep their explicit READY AWS Driver Account in the same Organization. Effective connection identity is consistent across plan/hash, executor requests and ActiveResource persistence. Matching specificity/ties remain unchanged. Only ENVIRONMENT infrastructure scope is valid (T27); retired or unknown values fail closed before planning/execution. Generation-0 current identities and ADR-012 later-generation isolation remain unchanged. UNCONFIGURED Preview/Deploy is rejected 422 field connectionKey before executor/provisioning. For internal-k8s the implicit cluster node binds directly to the Environment Connection under ADR-013, bypassing authored cluster Definition matching. AWS cluster Definitions remain required; no default/host fallback. Internal Kubernetes requires explicit scoped KUBECONFIG under UC-04 BR-15; context-only targets cannot execute.
 
 ## Editable destination and transition consistency (ADR-012)
 

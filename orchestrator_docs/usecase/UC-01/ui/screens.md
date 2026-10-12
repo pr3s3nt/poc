@@ -78,3 +78,11 @@ Deployment ID, thay đổi chưa hoàn tất và yêu cầu xem trước lại �
 Tài nguyên không còn được tham chiếu không bị diễn giải là đã xóa. Danh sách
 triển khai gần đây giữ thứ tự, tối đa năm mục, thời gian và links hiện hành;
 nhãn tải/rỗng/lỗi/thử lại và badges dùng tiếng Việt. Không thêm rollback.
+
+## T27 — Current infrastructure scope
+
+Settings no longer displays the migrated Application-scope binding label.
+ENVIRONMENT is the only supported execution infrastructure scope; backend rejects
+retired values without conversion. Connection/profile/generation summaries and
+explicit Save/transition controls remain unchanged. Historical target details
+belong to the immutable deployment view, not a legacy Settings mode.

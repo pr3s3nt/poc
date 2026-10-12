@@ -53,7 +53,7 @@ WorkloadDeployer.WaitReady(ctx context.Context, target DeploymentTarget, workloa
 
 ## Profile realization
 
-- `aws-eks`: `ImplicitResourceEnricher` thêm Environment-scoped VPC/EKS (legacy preserves Application scope); UC-08 dùng Terraform Executor cho VPC, EKS, Aurora; target lấy từ EKS outputs.
+- `aws-eks`: `ImplicitResourceEnricher` thêm Environment/generation-scoped VPC/EKS only; UC-08 dùng Terraform Executor cho VPC, EKS, Aurora; target lấy từ EKS outputs.
 - `internal-k8s`: enricher thêm existing cluster provider; UC-08 dùng connection adapter và Kubernetes Executor cho namespace/PostgreSQL; target lấy từ connection outputs.
 
 ## Transaction boundary
@@ -104,8 +104,8 @@ Shared snapshot loader resolves persisted Environment target in session
 Organization; UNCONFIGURED fails before planning/execution. Definition guards and
 UC-08 defense-in-depth compare against this Environment connection. Terraform VPC/EKS use the pinned Environment AWS account even though the reusable Definition key is empty; resolve and validate org/kind/READY before execution and persist the effective account in ActiveResource. A malformed conflicting winning Definition fails without fallback. Aurora keeps its explicit org-scoped READY AWS account; missing account fails closed. Context,
 version, scope mode and nonsecret target metadata are pinned into hashes/snapshots.
-New AWS enrichment produces Environment-scoped VPC/EKS; legacy AWS keeps original
-Application identity via [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).
+AWS enrichment produces Environment/generation-scoped VPC/EKS only (T27).
+Retired scopes fail closed; current generation-0 identity is preserved under [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).
 Target changes use ADR-012 versioned admission/transition; runtime READY update is Environment-only.
 UI/query use selected Environment or deployment-pinned target, no Application target.
 

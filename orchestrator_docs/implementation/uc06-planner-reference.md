@@ -2,7 +2,7 @@
 id: UC-06-PLANNER-REFERENCE
 artifact: technical-reference-analysis
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # UC-06 Planner Reference Analysis
@@ -108,7 +108,7 @@ Không đưa các thành phần sau vào domain/API sản phẩm:
 
 ### 6.1 Planning
 
-- `ExecutionProfileResourceEnricher` để thêm VPC/EKS theo Environment cho new `aws-eks` (legacy Application scope giữ nguyên), existing cluster cho `internal-k8s`, và namespace theo Environment.
+- `ExecutionProfileResourceEnricher` để thêm VPC/EKS theo Environment/generation cho `aws-eks` (T27), existing cluster cho `internal-k8s`, và namespace theo Environment.
 - Scope-aware descriptor/identity cho Application, Environment, workload và shared resource.
 - Registry/repository thật cho Application, Environment, Resource Type, Resource Definition, connection và Active Resource.
 - JSON Schema validation đầy đủ; challenge chỉ chặn unknown top-level input keys, chưa kiểm tra required/type/nested constraints đầy đủ.
@@ -216,8 +216,8 @@ Planner challenge giải quyết tốt phần deterministic desired-state planni
 
 ## Product extension: selected Environment connection
 
-UC-01 Settings set-once target feeds one Environment resolver. New AWS implicit
-VPC/EKS use Environment scope; legacy AWS keeps existing Application identity.
+UC-01 Settings set-once target feeds one Environment resolver. AWS implicit
+VPC/EKS use Environment/generation scope only (T27).
 Matching guards and UC-08 validate selected Environment target without changing
 specificity/ties. UC-03 BR-08 requires empty public VPC/EKS Definition ConnectionKey;
 UC-08 resolves the effective pinned Environment AWS account, while Aurora keeps
@@ -240,3 +240,11 @@ UC-03 BR-20–22/OC-04c reuse pure domain BestCriterion và ConnectionMismatch.
 Type/profile filter, weights 1/2/4/8/16, equal winning ambiguity giữ nguyên;
 không đổi match.go hoặc fixtures. Candidate replacement chỉ trong memory của
 snapshot scoped; kết quả không chứng minh full graph hoặc registration validity.
+
+## T27 — Historical fixtures and current product scope
+
+Product exposes only ENVIRONMENT infrastructure scope, Environment/generation
+@infra paths and bounded provider names. Any historical path/name normalization
+required by fixtures belongs to backend/test/conformance; no default product
+legacy mode or seed-template upgrade remains. Fixtures 14/22/25/26 retain matching
+expectations; criteria scoring and ties in match.go are unchanged.

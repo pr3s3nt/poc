@@ -16,7 +16,7 @@ Developer -> Service: DeployWorkload(Score, app, env)
 Service -> Repo: Create PLANNING [MS-01]
 Service -> Planner: Plan(request) [MS-02..MS-04]
 Planner -> Enricher: Enrich(profile=aws-eks) [MS-05]
-Enricher --> Planner: env VPC + env EKS + env namespace (legacy app scope preserved)
+Enricher --> Planner: env/generation VPC + env/generation EKS + env/generation namespace
 Planner -> Planner: Match Definitions; validate VPC/EKS Connection equals Environment binding [BR-20]
 note right of Planner
 Empty VPC/EKS keys inherit pinned READY Environment AWS account.

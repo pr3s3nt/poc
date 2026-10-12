@@ -452,3 +452,16 @@ survive Application saves and reopen. PostgreSQL counterparts compile but are
 skipped without an authorized disposable DB. Existing unconfigured Preview/Deploy
 and conformance suites pass; fixtures/app.id and scope semantics are unchanged.
 See [T26 evidence](../verification/2026-10-12-T26-application-metadata.md).
+
+## T27 — Infrastructure binding scope cleanup (LEG-02)
+
+| Requirement | Design/code | Verification |
+|---|---|---|
+| ADR-011/T27, UC-06 BR-02/20, UC-08 BR-07; ENVIRONMENT-only admission | Environment domain/Validate, target resolver, planner and JSON/SQL persistence scope guards | scope_test.go; TestPlan_RejectsEveryNonEnvironmentScopeWithoutEchoingIt; target negative cases; shared binding no-write checks; TestSnapshotWithRetiredInfrastructureScopeIsRejected |
+| ADR-012 generation contract, ADR-013 internal cluster boundary | Environment/generation @infra path and bounded AWS names; preserved internal cluster Connection descriptor/Application resource scope | TestResourceName_GenerationZeroIdentityUnchangedAndLaterGenerationsIsolated; existing target-generation and builtin cluster suites |
+| UC-03 seed boundary; no exact old-template upgrades | Explicit ENVIRONMENT seed, missing-only Definition refresh | TestApplyBindsAcceptanceFixturesWithExplicitEnvironmentScopeAndIsIdempotent; TestApplyPreservesExactEarlierSeededAWSDefinitions; authored-definition preservation tests |
+| Conformance boundary; matching specificity/ties unchanged | Harness ENVIRONMENT context, no additional historical path/name adapter needed | Full 33 accepted/rejected fixtures including 14/22/25/26; match.go and reference fixtures unchanged |
+| Database schema ENVIRONMENT-only constraint | Transitional migration 10 CHECK and safe reset-required startup error; no conversion | SQL constraint/reopen/rollback tests compile but are skipped without an authorized disposable PostgreSQL DB; final baseline is T28 |
+
+Settings removes the retired binding label; frontend gates and headed fake T07
+regression pass. See [T27 verification](../verification/2026-10-12-T27-environment-scope.md).

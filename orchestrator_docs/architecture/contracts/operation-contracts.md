@@ -38,7 +38,7 @@ Superseded by the Editable Environment destinations contracts below.
 - Immutable: any repeat including same key 409; no reset/change. Normal Save cannot overwrite target.
 - Failure: malformed/missing/blank/null key/version 400; scoped missing app/env 404; unavailable/foreign/nonREADY/unsupported Connection 422 field connectionKey; stale/alreadyset 409, no mutation.
 - Result: safe Environment binding/profile/region/status/scope/version. Other Environment unchanged.
-- Migration: preserve old bindings as locked with LEGACY_APPLICATION; new AWS ENVIRONMENT VPC/EKS; see ADR-011.
+- Historical migration (removed by T26/T27): old locked LEGACY_APPLICATION bindings are unsupported; current product accepts ENVIRONMENT only. No binding conversion.
 
 ## OC-03 `ResourceTypeService.RegisterResourceType`
 
@@ -441,3 +441,11 @@ vào UI nếu chưa qua allowlist. Retry read và mutation vẫn tường minh, 
 replay POST/PUT/DELETE. Selected renderer failure giữ nguyên lỗi, không chuyển
 sang native. Planner classification/conformance và historical safe-summary
 projection không thay đổi bởi public HTTP envelope.
+
+## T27 — Execution scope admission
+
+Planning and binding persistence accept only ENVIRONMENT infrastructure scope.
+Retired/unknown values fail closed before side effects, including JSON reopen
+and SQL constraint validation. Normal Save cannot normalize a hostile scope
+into ENVIRONMENT or overwrite a binding. Historical snapshots remain immutable;
+trusted internal cluster Application resource scope is preserved under ADR-013.

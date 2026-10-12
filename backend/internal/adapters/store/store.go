@@ -282,6 +282,13 @@ func NewWithSnapshot(path string) (*Store, error) {
 	}
 	s.state = loaded
 	s.state.ensureMaps()
+	// An explicit non-ENVIRONMENT scope is rejected before the unconfigured
+	// defaults below could overwrite it; the error never quotes the value.
+	for _, env := range s.state.Environments {
+		if !env.InfrastructureScopeValid() {
+			return nil, fmt.Errorf("store: snapshot holds an Environment with an unsupported infrastructure scope; reset the development state: %w", environment.ErrInvalidInfrastructureScope)
+		}
+	}
 	// Snapshots written before Connection name/authentication type existed
 	// read with the AWS seed default only. Kubernetes records without an
 	// explicit KUBECONFIG type are never inferred; they stay unresolved and
@@ -649,6 +656,9 @@ func (s *Store) GetEnvironment(ctx context.Context, applicationKey, environmentK
 
 // SaveEnvironment inserts or updates an Environment.
 func (s *Store) SaveEnvironment(ctx context.Context, env environment.Environment) error {
+	if !env.InfrastructureScopeValid() {
+		return environment.ErrInvalidInfrastructureScope
+	}
 	defer s.lock(ctx)()
 	if env.ID == "" {
 		env.ID = ids.New()
@@ -728,7 +738,10 @@ func (s *Store) BindEnvironment(ctx context.Context, b persistence.EnvironmentBi
 	if env.Version != b.ExpectedVersion {
 		return environment.Environment{}, fmt.Errorf("%w: environment %s is at version %d, request used %d", persistence.ErrVersionConflict, key, env.Version, b.ExpectedVersion)
 	}
-	if !b.Scope.Valid() || !b.Profile.Valid() || b.RuntimeStatus == "" || b.RuntimeStatus == application.RuntimeUnconfigured || b.Generation < 0 || b.Generation > env.GenerationHigh && b.Generation != env.TargetGeneration {
+	if !b.Scope.Valid() {
+		return environment.Environment{}, environment.ErrInvalidInfrastructureScope
+	}
+	if !b.Profile.Valid() || b.RuntimeStatus == "" || b.RuntimeStatus == application.RuntimeUnconfigured || b.Generation < 0 || b.Generation > env.GenerationHigh && b.Generation != env.TargetGeneration {
 		return environment.Environment{}, fmt.Errorf("store: invalid environment binding for %s", key)
 	}
 	env.ConnectionKey, env.Profile, env.Region = b.ConnectionKey, b.Profile, b.Region

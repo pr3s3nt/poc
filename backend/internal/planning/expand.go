@@ -219,10 +219,10 @@ func sortStrings(in []string) {
 var ErrLegacyInfrastructureReference = errors.New("planning: definition references the application-scoped VPC/EKS; use the @infra token (for example vpc.default#@infra)")
 
 // checkInfrastructureReference rejects a hardcoded `applications.` VPC/EKS
-// reference in a non-legacy Environment. Arbitrary references are never
+// reference in an aws-eks Environment. Arbitrary references are never
 // silently remapped (ADR-011).
 func checkInfrastructureReference(ctx Context, target resource.Descriptor) error {
-	if ctx.LegacyInfrastructure() || ctx.Env.Profile != application.ProfileAWSEKS {
+	if ctx.Env.Profile != application.ProfileAWSEKS {
 		return nil
 	}
 	if (target.Type == TypeVPC || (target.Type == TypeCluster && target.Class == ClassEKS)) && strings.HasPrefix(target.ID, PathApplications) {

@@ -2,7 +2,7 @@
 id: UC-08-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 ---
 
 # UC-08 — Provision Infrastructure and Application Resources
@@ -55,7 +55,7 @@ Provision implicit infrastructure cùng private/shared resources theo dependency
 ## Hậu điều kiện
 
 - **POST-01:** Mọi desired resource đã được provision/reconcile theo dependency order.
-- **POST-02:** Mỗi Cloud Application có tối đa một VPC và một EKS cho descriptor tương ứng.
+- **POST-02:** Mỗi Cloud Environment/generation có tối đa một VPC và một EKS cho descriptor tương ứng.
 - **POST-03:** Internal Application không tạo VPC/EKS và dùng cluster connection có sẵn.
 - **POST-04:** Private resource gắn với đúng workload identity; shared resource dùng chung descriptor chỉ có một Active Resource.
 - **POST-05:** `postgres` trả cùng output contract dù implementation là Aurora hay StatefulSet.
@@ -93,7 +93,7 @@ UC-08 Provision Resources
 
 ## Trạng thái implementation hiện tại
 
-- Planner đã dựng private/shared/implicit resource nodes, match Definition và tạo provider-first batches; new VPC/EKS and namespace use environment scope; legacy AWS identity remains application-scoped (ADR-011).
+- Planner đã dựng private/shared/implicit resource nodes, match Definition và tạo provider-first batches; VPC/EKS and namespace use Environment/generation scope only (T27/ADR-011/012).
 - `ResourceProvisioningService` đã chọn fake, existing-cluster, Kubernetes hoặc Terraform executor theo matched Definition; outputs được validate, truyền sang node phụ thuộc/workload và lưu vào Active Resource/deployment-resource state.
 - Internal path đã provision namespace/PostgreSQL StatefulSet trên kind; cloud path đã provision VPC/EKS/Aurora bằng Terraform trên AWS.
 - Normalized PostgreSQL repository đã có cho logical orchestration state; in-memory/JSON vẫn dùng cho local/test. Terraform state vẫn nằm trong local run directory; remote state/locking và lifecycle reconcile đầy đủ chưa có.
@@ -117,7 +117,7 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 
 ## Environment connection binding
 
-- **BR-07:** Internal Kubernetes and AWS VPC/EKS execution must use pinned READY Environment connection in the owning Organization; VPC/EKS effective account is always the Environment AWS connection, never a Definition override. Defensive mismatches are rejected before executor invocation. Persist this effective account in ActiveResource identity consistently with plan/hash. Aurora requires its explicit READY AWS account in the same Organization and must not inherit the Environment account when absent. External resource Driver Account semantics remain. Reuse validates persisted resource connection identity; do not execute against another Environment target. New AWS infrastructure uses Environment scope; legacy AWS retains old Application descriptors/state under ADR-011.
+- **BR-07:** Internal Kubernetes and AWS VPC/EKS execution must use pinned READY Environment connection in the owning Organization; VPC/EKS effective account is always the Environment AWS connection, never a Definition override. Defensive mismatches are rejected before executor invocation. Persist this effective account in ActiveResource identity consistently with plan/hash. Aurora requires its explicit READY AWS account in the same Organization and must not inherit the Environment account when absent. External resource Driver Account semantics remain. Reuse validates persisted resource connection identity; do not execute against another Environment target. AWS infrastructure uses Environment/generation scope only; retired or unknown execution scopes are rejected (T27). Current generation-0 identities and historical pinned targets remain unchanged.
 
 ## Editable destination and transition consistency (ADR-012)
 

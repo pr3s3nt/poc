@@ -6,10 +6,7 @@ package seed
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"reflect"
-	"strings"
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
@@ -378,20 +375,19 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		Version:         1,
 	}
 
-	// The acceptance fixtures keep their historical target semantics: the
-	// Environment is bound once with LEGACY_APPLICATION infrastructure scope,
-	// exactly what the migration of an old bound Application produces.
+	// Each acceptance Environment is bound once with explicit ENVIRONMENT
+	// infrastructure scope (ADR-011).
 	type appEnv struct {
 		app       application.Application
 		namespace string
 		binding   persistence.EnvironmentBinding
 	}
 	pairs := []appEnv{{app: internal, namespace: o.NamespaceIdentity, binding: persistence.EnvironmentBinding{
-		ConnectionKey: o.ConnectionKey, Profile: application.ProfileInternalK8s, RuntimeStatus: application.RuntimeReady, Scope: environment.ScopeLegacyApplication}}}
+		ConnectionKey: o.ConnectionKey, Profile: application.ProfileInternalK8s, RuntimeStatus: application.RuntimeReady, Scope: environment.ScopeEnvironment}}}
 	if o.Region != "" {
 		// The cloud Application is only usable once a region is configured.
 		pairs = append(pairs, appEnv{app: cloud, namespace: o.CloudNamespaceIdentity, binding: persistence.EnvironmentBinding{
-			ConnectionKey: o.CloudConnectionKey, Profile: application.ProfileAWSEKS, Region: o.Region, RuntimeStatus: application.RuntimePending, Scope: environment.ScopeLegacyApplication}})
+			ConnectionKey: o.CloudConnectionKey, Profile: application.ProfileAWSEKS, Region: o.Region, RuntimeStatus: application.RuntimePending, Scope: environment.ScopeEnvironment}})
 	}
 
 	for _, pair := range pairs {
@@ -461,25 +457,20 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 	return nil
 }
 
-// refreshSeededDefinitions creates the missing seeded Definitions and upgrades
-// only the exact earlier seeded AWS infrastructure form. Every other existing
-// record is Platform-owned and is never rewritten: not a same-key Definition of
-// another type, not one that differs only in driver inputs, and not one that
-// carries a source fingerprint. An AWS record is upgraded only when it has no
-// fingerprint, is structurally the seeded record and its driver inputs equal a
-// known earlier seeded template exactly (ADR-011).
+// refreshSeededDefinitions creates the missing seeded Definitions. Every
+// existing record is Platform-owned and is never rewritten, whatever its key,
+// type, driver inputs or source fingerprint.
 func refreshSeededDefinitions(ctx context.Context, store persistence.Store, o Options) error {
 	existing, err := store.ListResourceDefinitions(ctx, o.OrganizationKey)
 	if err != nil {
 		return err
 	}
-	stored := map[string]resource.Definition{}
+	stored := map[string]bool{}
 	for _, d := range existing {
-		stored[d.Key] = d
+		stored[d.Key] = true
 	}
 	for _, seeded := range ResourceDefinitions(o) {
-		current, found := stored[seeded.Key]
-		if found && !upgradableSeededAWS(current, seeded) {
+		if stored[seeded.Key] {
 			continue
 		}
 		if err := store.SaveResourceDefinition(ctx, o.OrganizationKey, seeded); err != nil {
@@ -487,63 +478,4 @@ func refreshSeededDefinitions(ctx context.Context, store persistence.Store, o Op
 		}
 	}
 	return nil
-}
-
-func isInfrastructureKey(key string) bool {
-	return key == "vpc-aws" || key == "cluster-aws-eks" || key == "postgres-aws-aurora"
-}
-
-// upgradableSeededAWS reports whether current is an unmodified earlier seeded
-// AWS infrastructure Definition that differs from seeded only by its template.
-func upgradableSeededAWS(current, seeded resource.Definition) bool {
-	if !isInfrastructureKey(seeded.Key) || current.SourceFingerpr != "" || !sameStructure(current, seeded) {
-		return false
-	}
-	for _, old := range earlierInfrastructureInputs(seeded.DriverInputs) {
-		if sameValue(current.DriverInputs, old) {
-			return true
-		}
-	}
-	return false
-}
-
-// earlierInfrastructureInputs reconstructs the two earlier seeded driver
-// inputs from the current ones: the original application-scoped VPC reference
-// with the `<app>-<run>` name, and the interim `@infra` reference with the
-// `<infra.name>-<run>` name.
-func earlierInfrastructureInputs(inputs map[string]any) []map[string]any {
-	raw, err := json.Marshal(inputs)
-	if err != nil {
-		return nil
-	}
-	var out []map[string]any
-	for _, replacer := range []*strings.Replacer{
-		strings.NewReplacer("vpc.default#@infra", "vpc.default#applications.@app", "${context.infra.resourceName}", "${context.app.id}-${context.run.id}"),
-		strings.NewReplacer("${context.infra.resourceName}", "${context.infra.name}-${context.run.id}"),
-	} {
-		var decoded map[string]any
-		if json.Unmarshal([]byte(replacer.Replace(string(raw))), &decoded) == nil {
-			out = append(out, decoded)
-		}
-	}
-	return out
-}
-
-func sameStructure(a, b resource.Definition) bool {
-	return a.ResourceTypeKey == b.ResourceTypeKey && a.ExecutionProfile == b.ExecutionProfile && a.DriverType == b.DriverType &&
-		a.ConnectionKey == b.ConnectionKey && sameValue(a.Criteria, b.Criteria) && sameValue(a.Provision, b.Provision)
-}
-
-// sameValue compares two values by their canonical JSON form.
-func sameValue(a, b any) bool {
-	left, errLeft := json.Marshal(a)
-	right, errRight := json.Marshal(b)
-	if errLeft != nil || errRight != nil {
-		return false
-	}
-	var l, r any
-	if json.Unmarshal(left, &l) != nil || json.Unmarshal(right, &r) != nil {
-		return false
-	}
-	return reflect.DeepEqual(l, r)
 }

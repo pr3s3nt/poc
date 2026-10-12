@@ -125,7 +125,6 @@ export function EnvironmentConnection({ application, environment, onTargetChange
       <dt>Phạm vi triển khai</dt><dd>{profileLabel(target.profile)}</dd>
       {target.region ? <><dt>Vùng</dt><dd>{target.region}</dd></> : null}
       <dt>Trạng thái runtime</dt><dd>{statusLabel(target.runtimeStatus)}</dd>
-      {target.infrastructureScope === 'LEGACY_APPLICATION' ? <><dt>Hạ tầng</dt><dd>Theo ứng dụng (binding đã di chuyển)</dd></> : null}
     </dl> : null}
     {error ? <div className="form-error" role="alert">{error}{needsReload ? <Button type="button" onClick={() => void retryReload()}>Tải lại trạng thái</Button> : null}</div> : null}
     {notice ? <div className="form-success" role="status">{notice}</div> : null}
