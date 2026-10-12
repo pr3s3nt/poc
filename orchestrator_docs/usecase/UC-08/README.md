@@ -2,10 +2,18 @@
 id: UC-08-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-13
 ---
 
 # UC-08 context — Provision resources
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Delivery state
 
@@ -45,3 +53,9 @@ removes per-cluster user Definition registration/matching for internal-k8s.
 Default planning, system binding, persistence admission and Console projection
 are implemented and [locally verified](../../verification/2026-10-09-implicit-existing-cluster-local.md).
 Other resource/cloud matching remains unchanged; no new live cluster/cloud proof.
+
+## V2 cleanup collaboration
+
+Separate cleanup [sequence](sequence-cleanup.puml) and
+[state contract](../../architecture/contracts/terraform-state.md) define owned
+reverse-dependency destroy/verification. Workload removal does not call cleanup.

@@ -2,7 +2,7 @@
 id: HUMANITEC-COMPATIBILITY
 artifact: compatibility-matrix
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # Humanitec and Score compatibility matrix
@@ -91,3 +91,12 @@ explicit ENVIRONMENT bindings and inserts missing Definitions only. Historical
 fixture path/name semantics are normalized solely by the conformance harness;
 reference files and expected matching outcomes remain unchanged. The trusted
 internal cluster connection descriptor/Application resource scope remains ADR-013.
+
+## Terraform v2 product extension
+
+ADR-014 extends product modules/state/providers and required score-k8s to both
+profiles. Same weighted matching/Score-backed forms/descriptor and shared
+consumer rules remain. Redis/output contracts, provider bindings and internal
+state HTTP API are product contracts, not claims of Humanitec API compatibility.
+Reference challenge fixtures remain read-only; v2 execution tests and real
+acceptance are additional obligations, not evidence from historical fixtures.

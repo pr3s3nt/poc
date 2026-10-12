@@ -2,10 +2,18 @@
 id: UC-08-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-08 — Use Case Realization
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Trách nhiệm
 
@@ -99,3 +107,27 @@ trusted system binding bypasses criteria matching, and UC-08 resolves the select
 Environment Connection through existing-cluster. Preview is pure; execution
 admits the reserved system Definition before persistence writes. Other resource
 Definitions, executor scheduling and output propagation remain unchanged.
+
+## Terraform v2 participants and execution order
+
+This section replaces conflicting baseline Kubernetes resource executor, explicit
+Aurora account and temporary-state assumptions above. Participants:
+ModuleBundleResolver/Preflight, TerraformExecutor, ConnectionCredentialResolver,
+TerraformStateBackend/Repository/Cipher, EnvironmentOperationManager,
+ResourceInstanceRepository/AttemptRepository and ResourceCleanupService.
+
+1. Under admitted Environment owner/fence, resolve stable instance/state identity
+   and persist physical intent/ownership before side effects.
+2. Resolve inputs/providers from pinned Connection or completed EKS target; validate
+   contract and verified module digest. Terraform acquires internal backend lock.
+3. Init/validate/plan, reject destructive UPDATE, apply saved plan within deadline;
+   backend commits encrypted state with current lock/fence/lineage/serial guards.
+4. Validate provider/readiness/outputs, store generated secret outputs through
+   scoped secret store, then ActiveResource/result transaction commits safe refs.
+5. Release invocation/state lock only when executor stopped. On partial failure,
+   retain metadata/state, bounded retry only known transient; unknown outcome holds.
+
+Terraform executes namespace/Redis/PostgreSQL for both targets and all AWS modules.
+ExistingClusterAdapter remains only for system Connection resolution. EKS target
+persistence must be opaque and restorable; workspace kubeconfig path is invocation
+only. Cleanup uses [sequence](sequence-cleanup.puml); D12/D13/D14 remain deferred.

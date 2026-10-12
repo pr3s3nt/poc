@@ -2,10 +2,18 @@
 id: UC-08-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-08 — Provision Infrastructure and Application Resources
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Mục tiêu
 
@@ -143,3 +151,35 @@ Public `existing-cluster` registration is rejected before insert under UC-03
 BR-08/BR-17. This does not remove the trusted internal driver, executor or
 system Definition admission required by ADR-013. No retained records are
 deleted by this API change.
+
+## Terraform v2 — required provisioning và state
+
+Các quy tắc V2 thay executor mapping/OOS retry/secret/partial cleanup của
+baseline phía trên; không biến backlog recovery thành implemented capability.
+
+- **V2-01:** Terraform executes registered immutable modules cho Kubernetes
+  namespace/Redis/PostgreSQL và AWS VPC/EKS/ElastiCache/Aurora; existing cluster
+  system binding chỉ resolve/check target. Resource Type outputs tương đương
+  giữa implementations, validate readiness/output trước consumer.
+- **V2-02:** AWS provider inherit pinned Environment Connection/account/region
+  cho mọi AWS node; Kubernetes provider resolve selected Connection/EKS output.
+  Credential invocation riêng, no host defaults; prior state từ target khác bị chặn.
+- **V2-03:** Durable encrypted PostgreSQL state qua HTTP backend, mỗi resource
+  instance một state; stable identity/name/password ref qua redeploy/retry.
+  Run ID là audit/cleanup provenance, không state/name identity.
+- **V2-04:** Persist write-ahead action/module/state/physical intent/ownership
+  trước side effects. Acquire state lock dưới Environment owner; every backend
+  write/unlock fenced. Không giữ SQL transaction trong Terraform/network call.
+- **V2-05:** CREATE/UPDATE/DESTROY theo [module contract](../../architecture/contracts/terraform-modules.md).
+  UPDATE không delete/replace resource hiện hữu; DESTROY chỉ cleanup riêng đã
+  validate ownership/consumer. Output secret được store dưới opaque ref; không
+  plaintext trong ActiveResource/plan/progress/Console. Raw state là restricted
+  encrypted storage ngoại lệ theo [schema](../../architecture/database/schema.md).
+- **V2-06:** Retry transient tối đa một lần dưới deadline, kiểm prior state và
+  actual result. Input/auth/permission/unknown outcome dừng. Partial failure
+  giữ state + safe progress; interruption không tự unlock/resume/import.
+  Cleanup acceptance independent runner vẫn bắt buộc, không coi D12/D13 là prerequisite.
+- **V2-07:** Nếu state missing với prior attempt hoặc provider outcome chưa rõ,
+  chặn CREATE và báo needs attention. Giữ private recovery artifacts nếu có;
+  manual ownership verification trước cleanup. Không v1 import hoặc rollback
+  resource chỉ được cập nhật trong run.

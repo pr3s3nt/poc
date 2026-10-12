@@ -2,10 +2,18 @@
 id: UC-09-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-09 — Use Case Realization
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Trách nhiệm
 
@@ -57,3 +65,11 @@ no current or historical run receives fabricated status rows.
   per-Deployment workload-snapshot tests.
 - Web Console list/detail: Environment filter, navigation, status/failure,
   read-only resource/workload rows and secret-safe output rendering.
+
+## Terraform v2 projection collaboration
+
+DeploymentQueryService reads persisted resource attempts, module/target snapshots
+and cleanup operation results in scoped read snapshot; Assembler allowlists safe
+stage/status/attempt/IDs and OutputRedactor excludes every secret/state field.
+Console polls this query without runtime adapter calls. Historical snapshots
+retain their pins and do not reflect current mutable module/Environment target.

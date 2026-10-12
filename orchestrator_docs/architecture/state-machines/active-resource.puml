@@ -6,9 +6,11 @@ READY --> PROVISIONING : later deployment reconcile
 READY --> UNREFERENCED : absent from desired graph
 UNREFERENCED --> PROVISIONING : referenced again
 PROVISIONING --> FAILED : executor/output validation error
-FAILED --> [*]
+FAILED --> PROVISIONING : bounded known-transient retry
+FAILED --> [*] : interrupted/unknown held in instance operation metadata
 note right of UNREFERENCED
-  No automatic destroy in MVP.
+  No destroy on workload removal.
+V2 separate cleanup checks ownership/consumers.
   Environment-owned READY resources only;
   mark with successful current-set commit.
   Application-wide resources require

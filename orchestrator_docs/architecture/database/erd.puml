@@ -1,5 +1,5 @@
 @startuml
-title Orchestrator Database ERD — current fresh baseline (T28)
+title Orchestrator Database ERD — v2 required schema extension (ADR-014; implementation pending)
 hide circle
 skinparam linetype ortho
 
@@ -274,4 +274,91 @@ deployments ||--o{ workload_instances : last
 organizations ||--o{ secret_store_connections
 secret_store_connections ||--o{ environments : selected store
 environments ||--o{ environment_operations
+entity terraform_module_bundles {
+ * id : uuid <<PK>>
+ --
+ source_id : text
+ module_id : text
+ revision : text
+ content_sha256 : text
+ provider_lock_digest : text
+ contract : jsonb
+}
+entity terraform_resource_instances {
+ * id : uuid <<PK>>
+ * organization_id : uuid <<FK>>
+ * environment_id : uuid <<FK>>
+ * module_bundle_id : uuid <<FK>>
+ --
+ target_generation : bigint
+ descriptor : text
+ scope_type : text
+ scope_id : text
+ state_key : text <<UQ>>
+ active_resource_id : uuid <<FK,nullable>>
+ target_ref : jsonb
+ physical_intent : jsonb
+ created_by_run_id : text
+ status : text
+}
+entity terraform_states {
+ * resource_instance_id : uuid <<PK,FK>>
+ --
+ ciphertext : bytea
+ nonce : bytea
+ key_id : text
+ aad_revision : bigint
+ lineage : text
+ serial : bigint
+ version : bigint
+}
+entity terraform_state_locks {
+ * resource_instance_id : uuid <<PK,FK>>
+ * environment_operation_id : uuid <<FK>>
+ --
+ lock_id : text
+ owner : text
+ fencing_generation : bigint
+ deadline : timestamptz
+}
+entity terraform_resource_attempts {
+ * id : uuid <<PK>>
+ * resource_instance_id : uuid <<FK>>
+ * environment_operation_id : uuid <<FK>>
+ --
+ deployment_id : uuid <<FK,nullable>>
+ run_id : text
+ action : text
+ ownership : text
+ stage : text
+ status : text
+ observed_physical_ids : jsonb
+}
+entity terraform_executor_capabilities {
+ * token_hash : text <<PK>>
+ * resource_instance_id : uuid <<FK>>
+ * environment_operation_id : uuid <<FK>>
+ --
+ fencing_generation : bigint
+ action : text
+ expires_at : timestamptz
+}
+resource_definitions }o--o| terraform_module_bundles : verified ref in inputs
+environments ||--o{ terraform_resource_instances
+organizations ||--o{ terraform_resource_instances
+terraform_module_bundles ||--o{ terraform_resource_instances
+active_resources |o--o| terraform_resource_instances
+terraform_resource_instances ||--o| terraform_states
+terraform_resource_instances ||--o| terraform_state_locks
+terraform_resource_instances ||--o{ terraform_resource_attempts
+terraform_resource_instances ||--o{ terraform_executor_capabilities
+environment_operations ||--o{ terraform_state_locks
+environment_operations ||--o{ terraform_resource_attempts
+environment_operations ||--o{ terraform_executor_capabilities
+deployments |o--o{ terraform_resource_attempts
+note right of terraform_states
+Restricted encrypted state, not logical outputs.
+Encryption key lives outside platform database.
+One state per stable instance; no run ID in key.
+end note
 @enduml

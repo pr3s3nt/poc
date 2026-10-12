@@ -2,10 +2,18 @@
 id: UC-04-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-04 — Configure Execution Profile Connections
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Mục tiêu
 
@@ -196,3 +204,23 @@ Supporting flow/design: [ADR-012](../../architecture/decisions/ADR-012-environme
 - **BR-17:** A READY Kubernetes Connection selected by an Environment is sufficient to bind its implicit existing-cluster node; no additional per-cluster Definition registration is required. Selection/registration does not provision workloads or cloud infrastructure.
 
 See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
+
+## Terraform v2 — required AWS onboarding
+
+V2 đưa AWS onboarding vào scope; các ghi chú “giai đoạn sau” phía trên mô tả
+checkpoint cũ. ADR-009 giữ credential mechanism; [ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md)
+thay Terraform backend do từng AWS Connection lựa chọn bằng platform HTTP backend.
+
+- **V2-01:** PE/Admin đăng ký AWS Connection qua Console với name, concealed
+  access key ID/secret access key và allowed region; verify STS identity/region
+  và provisioning capabilities rồi lưu scoped Vault credential ref + safe
+  account/principal/region metadata. Không nhận arbitrary backend configuration.
+- **V2-02:** READY chỉ sau checks cần thiết; STS success không bảo đảm quyền
+  provision. Preflight execution phải kiểm lại; không giả READY từ host profile.
+  Permission checks không tạo VPC/EKS/database trong registration.
+- **V2-03:** Terraform AWS provider chỉ resolve credential của Connection pin
+  vào Environment; managed Redis/database cùng account/region. Credential không
+  cấp cho workload, state HTTP token khác AWS credential.
+- **V2-04:** EKS target do provision trả có opaque scoped identity đủ restore
+  invocation credentials sau restart; không persist plaintext kubeconfig/path
+  tạm hoặc sử dụng host context. Existing k8s-4f vẫn KUBECONFIG theo BR-15.

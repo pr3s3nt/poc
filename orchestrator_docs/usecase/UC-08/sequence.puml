@@ -1,50 +1,61 @@
 @startuml
-title UC-08 - Provision Infrastructure and Application Resources
+title UC-08 - Terraform v2 provisioning (ADR-014)
 autonumber
 actor "UC-06 / UC-07" as Caller
 control ResourceProvisioningService as Service
-control ActiveResourceResolver as ActiveResolver
-control OutputBindingResolver as BindingResolver
-control ExecutorRegistry as Registry
-boundary ResourceExecutor as Executor
+control OutputBindingResolver as Bindings
+control ModulePreflight as Modules
+boundary TerraformExecutor as Terraform
 control ConnectionCredentialResolver as Credentials
+boundary TerraformStateBackend as State
+database "Encrypted state / locks" as DB
+database "ResourceInstance / Attempt" as Intent
 control OutputContractValidator as Validator
-database ActiveResourceRepository as ResourceRepo
-database DeploymentResourceRepository as DeploymentResourceRepo
-
-Caller -> Service: Provision(request) [MS-01]
-note over Caller, Service
-Container CPU/memory requests/limits stay in the workload module.
-UC-06 WorkloadRenderer applies them after Provision returns (BR-06).
-end note
-loop Each provider-first batch [MS-09]
-  loop Each resource node
-    Service -> ActiveResolver: Resolve(descriptor, scope) [MS-02]
-    ActiveResolver -> ResourceRepo: FindByLogicalIdentity()
-    ResourceRepo --> ActiveResolver: ActiveResource or none
-    ActiveResolver --> Service: Existing state
-    Service -> BindingResolver: ResolveInputs(node, completedOutputs) [MS-03]
-    BindingResolver --> Service: Resolved inputs
-    Service -> Service: Validate defensive mismatch; resolve effective READY org/kind account [BR-07]
-    note right of Service: VPC/EKS inherit pinned Environment account; Aurora requires explicit account.
-    Service -> Service: Admit system Definition for implicit internal cluster only
-    Service -> Registry: Resolve(driverType) [MS-04]
-    Registry --> Service: ResourceExecutor
-    Service -> Executor: Provision(resource, inputs, priorState) [MS-05]
-    Executor -> Credentials: Resolve selected Connection when credential-backed
-    Credentials --> Executor: private invocation credential + cleanup
-    Executor --> Service: ExecutionResult(safe state/outputs, opaque target)
-    Service -> Validator: Validate(resourceType, outputs) [MS-06]
-    Validator --> Service: valid
-    Service -> ResourceRepo: UpsertReady(activeResource) <<short transaction>> [MS-07]
-    Service -> DeploymentResourceRepo: MarkReady(deployment, node) <<same transaction>>
-    Service -> Service: completedOutputs[node] = outputs [MS-08]
+boundary SecretStore as Secrets
+database "ActiveResource / DeploymentResource" as Results
+Caller -> Service: Provision(pinned plan, Environment owner/fence)
+loop Provider-first nodes
+  Service -> Intent: Resolve stable instance; persist action/ownership/physical intent
+  Service -> Bindings: Resolve params / completed outputs / provider target
+  Service -> Modules: Verify pinned digest and contract; no mutable upgrade
+  Modules --> Service: verified module + inputs
+  Service -> Credentials: Resolve scoped Environment AWS / Kubernetes / EKS target
+  Credentials --> Service: private invocation credential
+  Service -> Terraform: CREATE or non-destructive UPDATE(instance, module, state ref)
+  Terraform -> State: LOCK(state ID, invocation capability, lock ID)
+  State -> DB: Claim lock with current Environment owner/fence
+  DB --> State: locked or conflict
+  State --> Terraform: 200 or 409/423
+  Terraform -> State: GET restricted state
+  State -> DB: Read ciphertext
+  State --> Terraform: decrypted state (private)
+  Terraform -> Terraform: init/validate/plan; reject UPDATE delete/replace
+  Terraform -> Terraform: apply saved plan within deadline
+  Terraform -> State: POST(state, lock ID)
+  State -> DB: Validate owner/fence/lineage/serial; encrypt + atomic write
+  DB --> State: acknowledged
+  State --> Terraform: acknowledgement
+  Terraform -> State: UNLOCK matching owner/fence/lock ID
+  State -> DB: Release only current lock
+  Terraform --> Service: outputs + observed IDs / safe failure
+  alt successful resource and state acknowledgement
+    Service -> Validator: Validate Type outputs and readiness
+    Service -> Secrets: Store secret outputs; reuse stable credential refs
+    Secrets --> Service: typed opaque refs
+    Service -> Results: Commit READY + safe outputs/progress (short transaction)
+  else failure / uncertain result
+    Service -> Intent: Persist stage/status; keep state and private recovery handle
+    note over Service, Terraform
+    Known transient: at most one bounded retry after state/result checks.
+    Unknown outcome: hold, no CREATE replay or automatic resume/import.
+    Failure stops dependent batches; only safe independent cleanup continues.
+    Failure does not authorize dependency destruction.
+    end note
   end
 end
-Service --> Caller: ProvisionResult [MS-10]
-
-note over Service
-Workload renderer Definitions are not provision batches.
-UC-06 renders after these outputs exist; score-k8s cannot recreate infrastructure.
+Service --> Caller: typed outputs + scoped target / safe failed node
+note over Caller, Service
+score-k8s runs only in UC-06 after outputs.
+Existing k8s-4f cluster is resolved, never created/destroyed.
 end note
 @enduml

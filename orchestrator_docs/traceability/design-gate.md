@@ -2,7 +2,7 @@
 id: DESIGN-GATE
 artifact: design-gate-review
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-13
 ---
 
 # Design Gate Review
@@ -153,3 +153,27 @@ không seed hoặc chấp nhận fixed account, kể cả account legacy có ran
 credential vẫn là fixed test credential. HTTP, frontend và local Playwright
 coverage được trace trong matrix; execution record nằm tại
 [UC-00/UC-01 local onboarding](../verification/2026-09-30-uc00-uc01-local-onboarding.md).
+
+## Terraform v2 Step 1 review — 2026-10-13
+
+Scoped design update, not a new claim that the original gate's implementation
+or v2 live acceptance is complete. User has accepted ownership/lifecycle,
+module/contract/provider/matching/secrets/renderer, durable state/locking plus
+bounded retry/minimal manual recovery, and external acceptance scope.
+
+| Gate item | Canonical artifact |
+|---|---|
+| Accepted design and explicit supersession | ADR-014; ADR-001/010/011 scoped notices |
+| Product behavior / registration / forms / execution / history | UC-02/03/04/05/06/07/08/09/16 specification V2 rules |
+| Module/provider/output and state/security/locking contract | Terraform module/state contracts; OC-18/19; workload rendering v2 policy |
+| Collaboration and data/state | Updated realizations, UC sequences/VOPCs, classes/component/ERD, schema and Terraform-instance/cleanup diagrams |
+| UI states/payload responsibilities | UC-03/04/05/09/16 screens/states/API mappings |
+| Deferred future work | D12 recovery, D13 orphan reconciliation, D14 platform backup; D01/D03 selected but implementation pending |
+| Real product/app acceptance and execution boundaries | terraform-v2-acceptance runbook, V2-A01..03 / V2-E01..02, estimates/deadlines/retry/cleanup evidence |
+| Honest current-state and test trace | CURRENT_STATE, IMP-021, planned v2 traceability rows; no existing video/test reused as v2 proof |
+
+No open product/architecture/data/security/external-scope choice is left in this
+scoped design. Exact immutable release pins/module sizing and bounded deadline
+tuning are implementation preparation recorded before execution, not new product
+requirements. Step 1 validation result is recorded in the dated
+[design verification](../verification/2026-10-13-terraform-v2-design.md).

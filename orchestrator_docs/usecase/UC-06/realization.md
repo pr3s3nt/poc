@@ -2,10 +2,18 @@
 id: UC-06-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-06 — Use Case Realization
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Trách nhiệm
 
@@ -124,3 +132,14 @@ Score parsing and public Deployment Set projection reject `service.publicPort`;
 only `publicRoutes` reaches Candidate validation and rendering. Multi-path,
 same-host ownership, declared-port validation and route-only retry remain intact.
 No alias conversion or default route is introduced.
+
+## Terraform v2 execution collaboration
+
+Before UC-08, RenderPreflight + ModulePreflight validate immutable artifacts and
+known inputs, then EnvironmentOperationManager admits owner/fence under snapshot
+CAS. ResourceProvisioningService executes Terraform-only new infrastructure and
+returns typed secret refs/target. ScoreK8sRenderer generates Workload manifests for
+both profiles; existing delivery/readiness/final commit stays. Finally release
+operation only after processes confirmed stopped; interrupted unknown outcome
+holds ownership. This supersedes baseline Kubernetes resource driver/Aurora-account
+and optional renderer prose above. No data migration or automatic rollback added.

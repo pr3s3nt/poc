@@ -2,7 +2,7 @@
 id: OPERATIONS-INDEX
 artifact: operations-index
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-13
 ---
 
 # Operations index
@@ -42,3 +42,5 @@ dated record mới trong [verification index](../verification/README.md), không
 ghi đè runbook hoặc evidence cũ.
 
 [Codex điều phối Claude qua tmux](claude-tmux.md) quy định procedure code/review/validation/commit/push và cleanup session riêng của task.
+
+- [Terraform v2 acceptance and authorized execution](terraform-v2-acceptance.md) — required live Web Console/app flow, real adapters and ownership cleanup.

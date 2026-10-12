@@ -2,7 +2,7 @@
 id: UC-02-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-13
 ---
 
 # UC-02 — Register Resource Type
@@ -90,3 +90,12 @@ UC-02 Register Resource Type
 - Existing catalog reads, seed/import fixtures and planning remain compatible:
   this policy is enforced at new public registration, not by rewriting legacy
   records or broadening the planner's identifier restrictions.
+
+## Terraform v2 — required catalog contract
+
+- **V2-01:** Redis là Resource Type được hỗ trợ cùng PostgreSQL. In-cluster và
+  managed dùng cùng output schema theo [module contract](../../architecture/contracts/terraform-modules.md).
+  Contract độc lập module/provider; secret output không được downgrade thành public.
+- **V2-02:** Input schemas/capability metadata công bố kiểu, required/default và
+  constraints đã đăng ký; không tự expose mọi Terraform variable thành param.
+  Registration vẫn insert-only, không migration dữ liệu/schema v1.

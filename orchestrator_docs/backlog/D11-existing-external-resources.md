@@ -34,8 +34,9 @@ acceptance riêng cho cơ chế này trong v2. Bỏ bước acceptance chọn l�
 qua Echo/External đã được đề xuất trước đó. Happy path Terraform trên k8s-4f,
 AWS managed và AWS kết hợp vẫn nằm trong kế hoạch; giữ hai ngoại lệ đã chốt.
 
-Việc dùng Connection k8s-4f có sẵn và kế hoạch tiếp quản tài nguyên v1 là các
-phạm vi riêng, không bị loại bỏ bởi quyết định hoãn generic Echo/External.
+Việc dùng Connection k8s-4f có sẵn nằm trong v2 theo ADR-013/ADR-014 và
+không phải generic Echo/External application resource. V2 không migration,
+import hoặc tiếp quản tài nguyên/dữ liệu thử nghiệm v1; acceptance tạo mới.
 
 ## Điều kiện hoàn thành dự kiến
 

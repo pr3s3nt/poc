@@ -2,7 +2,7 @@
 id: WORKLOAD-RENDERING-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-13
 ---
 
 # Definition-selected workload rendering — contract
@@ -10,6 +10,22 @@ last_reviewed: 2026-10-11
 This document defines the accepted boundary for [ADR-010](../decisions/ADR-010-score-k8s-workload-rendering.md).
 Implementation follows this contract; delivery evidence is recorded separately.
 The existing [operation contracts](operation-contracts.md) retain their lifecycle rules.
+
+## V2 required rendering policy (ADR-014)
+
+For v2, [ADR-014](../decisions/ADR-014-terraform-v2-lifecycle.md) supersedes
+internal-only, optional selection and native default below. Both internal-k8s
+and aws-eks require one matching score-k8s Definition and a verified installed
+bundle compatible with the profile. Missing match/bundle or tie fails before
+UC-08. No fallback native after render failure. Native helpers may still enforce
+shared policy/auxiliary delivery; Deployment/Service bodies come from score-k8s.
+
+Renderer identity remains pinned Definition/bundle/binary/content digest; v2
+release upgrades are explicit platform deployment choices and invalidate old
+Preview. Binding/output-only/Secret/protected-field/private workspace contracts
+below continue. No database/Redis/namespace provisioning in score generation.
+Initial version 0.15.0 below describes baseline; exact v2 version/digests belong
+to the immutable release manifest verified before execution.
 
 ## Registration shape
 

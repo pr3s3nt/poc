@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # Verification evidence
@@ -78,3 +78,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 | 2026-09-29 | Review-paced Playwright video with readable pauses at each deployment step | [Review-paced Playwright acceptance](2026-09-29-acceptance-playwright-review-video-kind.md) · [WebM](artifacts/acceptance-playwright-kind-review-2026-09-29.webm) |
 | 2026-09-29 | Human-paced Playwright video: visible cursor, typed form input, workload form entry and job submit | [Human-paced Playwright acceptance](2026-09-29-acceptance-playwright-human-video-kind.md) · [WebM release asset](https://github.com/pr3s3nt/poc/releases/download/acceptance-recordings/acceptance-human-kind-2026-09-29.webm) |
 | 2026-09-29 | Orchestrator images deployed by the Orchestrator, then the in-cluster instance deploying the acceptance app; full browser window recorded | [Self-hosted Orchestrator on kind](2026-09-29-self-host-playwright-kind.md) · [MP4 release asset](https://github.com/pr3s3nt/poc/releases/download/acceptance-recordings/self-host-kind-2026-09-29.mp4) |
+
+- [2026-10-13 — Terraform v2 Step 1 design verification](2026-10-13-terraform-v2-design.md) — documentation-only; read-only AWS identity, no v2 live acceptance.

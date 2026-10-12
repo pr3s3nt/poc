@@ -18,7 +18,6 @@ component "Workload Runtime" as Workload
 component "Persistence Adapters" as Persistence
 database PostgreSQL as DB
 component "Terraform Executor" as Terraform
-component "Kubernetes Executor" as K8sExecutor
 component "Existing Cluster Adapter" as Existing
 component "Secret Store Adapter" as Secrets
 cloud AWS
@@ -42,11 +41,10 @@ Deploy --> Persistence
 Planner --> Persistence : read snapshots/catalog/state
 Provisioning --> Persistence
 Provisioning --> Terraform
-Provisioning --> K8sExecutor
 Provisioning --> Existing
 Workload --> Kubernetes
 Terraform --> AWS
-K8sExecutor --> Kubernetes
+Terraform --> Kubernetes : v2 namespace / Redis / PostgreSQL
 Existing --> Kubernetes : verify/resolve target
 Persistence --> DB
 component "Definition-selected rendering" as Rendering
@@ -54,8 +52,8 @@ component "Native renderer" as Native
 component "score-k8s adapter" as ScoreAdapter
 artifact "Pinned score-k8s CLI" as ScoreCLI
 Deploy --> Rendering : preflight; resolved bindings + selection
-Rendering --> Native : default; shared platform policy
-Rendering --> ScoreAdapter : selected immutable bundle
+Rendering --> Native : shared platform policy helpers only in v2
+Rendering --> ScoreAdapter : required v2 immutable bundle, both profiles
 ScoreAdapter --> ScoreCLI : private workspace; output-only provisioner
 Rendering --> Workload : validated manifests
 note right of ScoreAdapter
@@ -75,4 +73,22 @@ Transitions --> StoreResolver : copy / verify before commit
 StoreResolver --> Secrets : platform credentials only
 StoreResolver --> VaultStores : immutable values/bundles
 Workload --> VaultStores : VSO scoped auth/read
+component "Verified Module Registry / Source Policy" as ModuleRegistry
+component "Internal HTTP State Backend / Locks" as StateBackend
+component "State Encryption / Scoped Capability" as StateSecurity
+component "Resource Cleanup Service" as Cleanup
+Admin --> ModuleRegistry : allowlisted source / immutable inspect
+Planner --> ModuleRegistry : read metadata only
+Provisioning --> ModuleRegistry : verify pinned content
+Terraform --> StateBackend : LOCK/GET/POST/UNLOCK
+StateBackend --> StateSecurity : private auth / encrypt / owner-fence
+StateBackend --> DB : encrypted state, atomic locks
+Cleanup --> Persistence : write-ahead ownership / progress
+Cleanup --> Terraform : separate DESTROY reverse graph
+API --> Cleanup : internal operator/test authorization only
+note right of StateBackend
+PostgreSQL stores restricted ciphertext.
+Console never receives state or capability.
+D12-D14 full recovery/reconcile/backup deferred.
+end note
 @enduml

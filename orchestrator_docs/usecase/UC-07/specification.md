@@ -2,10 +2,18 @@
 id: UC-07-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-07 — Update or Remove Workload
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Mục tiêu
 
@@ -130,3 +138,21 @@ Preview đọc drafts mới, liệt kê workloads bị ảnh hưởng và pin co
 set versions. Deploy vẫn tường minh; token trước rename bị stale. Rename-only
 hoặc delete có thể để reference thiếu và Preview phải chặn Deploy. Không đổi
 runtime/current set hoặc Environment khác khi lưu.
+
+## Terraform v2 — ownership và destroy boundary
+
+- **V2-01:** Giữ Remove semantics: gỡ workload objects, resource không còn
+  consumer thành UNREFERENCED trong final transaction; không destroy cache/db,
+  namespace/VPC/EKS hoặc dữ liệu theo thao tác gỡ Workload.
+- **V2-02:** Redis/PostgreSQL private thuộc Workload; shared thuộc Environment/
+  target generation. Shared còn consumer được giữ; type/class/params conflict
+  vẫn chặn. Scope logic không đồng nghĩa quyền xóa của một run.
+- **V2-03:** Resource destroy là riêng internal cleanup operation được admit
+  theo [state contract](../../architecture/contracts/terraform-state.md), kiểm
+  ownership, consumers, original target và reverse dependencies. Executor có
+  create/update/destroy code/tests; generic destroy UI và live update/delete
+  acceptance matrix ngoài đợt này.
+- **V2-04:** Failed provision không cấp quyền destroy tất cả dependency.
+  Cleanup run chỉ xóa CREATED_BY_RUN được giao; PREEXISTING/UPDATED_BY_RUN
+  được giữ. Retained generation/resource phải cleanup riêng, không chọn target
+  hiện tại thay historical target.

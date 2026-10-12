@@ -2,10 +2,18 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-06 — Deploy Workload
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Mục tiêu
 
@@ -248,3 +256,28 @@ Public `existing-cluster` registration is rejected before insert under UC-03
 BR-08/BR-17. This does not remove the trusted internal driver, executor or
 system Definition admission required by ADR-013. No retained records are
 deleted by this API change.
+
+## Terraform v2 — required deployment behavior
+
+- **V2-01:** Form Workload -> Save draft -> Preview -> Deploy là acceptance path;
+  Score chỉ là biểu diễn nội bộ. Dependency class chọn in-cluster hoặc cloud-managed
+  theo metadata, không chọn module. Redis in-cluster trên EKS là lựa chọn hợp lệ.
+- **V2-02:** UC-08 dùng Terraform cho toàn bộ hạ tầng tạo mới: namespace,
+  Redis/PostgreSQL Kubernetes, VPC/EKS/ElastiCache/Aurora AWS. Internal cluster
+  chỉ resolve Connection ADR-013. AWS dùng cùng Environment account/region;
+  thay explicit Aurora account requirement ở BR-20 cho v2.
+- **V2-03:** Validate required input/contract và required score-k8s bundle trước
+  side effects, atomically acquire Environment operation; các Terraform nodes
+  dùng state locks. Preflight full graph với unresolved outputs được kiểm lại
+  sau binding trước node execution; không tạo hạ tầng cho lỗi input biết trước.
+- **V2-04:** Resolve outputs/secret bindings, score-k8s sinh ứng dụng cho cả hai
+  profiles rồi existing delivery Apply/WaitReady. Không native fallback hoặc
+  score-k8s dependency provisioning. Final commit sau readiness giữ BR-16.
+- **V2-05:** Bounded retry transient theo [state contract](../../architecture/contracts/terraform-state.md)
+  thuộc v2; automatic resume/rollback vẫn ngoài scope. Gián đoạn giữ stage/state/
+  ownership và hold khi outcome chưa rõ, không commit success hoặc replay CREATE.
+  Console hiển thị Terraform stage/failure và cleanup status an toàn.
+- **V2-06:** Ordinary redeploy giữ resource identity/data; module/class/target
+  replacement cần Preview/confirmation riêng, không destructive ordinary apply.
+  Application acceptance phải hoàn tất job flow UI và Redis/PostgreSQL read/write
+  theo [acceptance runbook](../../operations/terraform-v2-acceptance.md), không chỉ Pod Ready.

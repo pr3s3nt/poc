@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -504,3 +504,28 @@ tests are not execution proof.
 | UC-02 support/CTA; UC-03 loading/error/prefill | capability client + catalog lists, no frontend whitelist fallback | ResourceTypesPage/TypedDefinitionForm tests; headed T31 metadata 500 projection/retry and confirmed CTA/prefill |
 
 Execution evidence: [T31 local verification](../verification/2026-10-12-T31-typed-definitions.md).
+
+## Terraform v2 — design-to-test obligations (implementation pending)
+
+All V2 tests/assertions below are planned obligations, not already executed.
+Stable V2 IDs are scoped to their owning specification. Actual code/test/evidence
+links must replace planned labels at implementation handoff; old tests/videos
+remain baseline evidence only. Shared contracts:
+[module](../architecture/contracts/terraform-modules.md),
+[state](../architecture/contracts/terraform-state.md),
+[acceptance](../operations/terraform-v2-acceptance.md).
+
+| Requirements | Operation / realization / sequence | Data/state | Required tests / acceptance |
+|---|---|---|---|
+| UC-02 V2-01/02; UC-03 V2-01/02/06 | OC-03/04/04d; UC-03 realization/sequence/VOPC; ModuleSourcePolicy/BundleResolver | immutable verified bundles + insert-only Definitions/criteria | source allowlist, commit/digest drift, traversal/command/credential rejection, output mismatch, typed schema/defaults, no registry fetch in pure query |
+| UC-03 V2-03/04; UC-04 V2-01..04; UC-08 V2-02 | OC-05/07/10; UC-04 and UC-08 sequences | scoped Vault credential refs, same Environment account/region, opaque EKS target | AWS onboarding safe failure/attempt cleanup; cross-account/region/state rejection, host credential isolation, target reopen; all three live targets |
+| UC-03 V2-05; UC-05 V2-01..04; UC-06 V2-03/04 | OC-06/07/08/17; UC-05/06 diagrams | pinned module/provider/binary/renderer digests + token/versions | missing/tied Definition, no native/class fallback, unavailable bundle, stale module pin, pure Preview, protected manifests/secret refs; V2-A01..03 |
+| UC-06 V2-02/05; UC-08 V2-01/03..07 | OC-10/18; UC-08 sequence/VOPC; shared classes/ERD | encrypted states, instance identity, locks, attempts, Environment owner/fence | real disposable PostgreSQL ciphertext/reopen/rollback, two-owner race, stale fence write/unlock, serial/lineage rejection, no expiry unlock; stable name/password/state across retry |
+| UC-07 V2-01..04; UC-08 V2-05/06 | OC-09/19; UC-08 cleanup sequence; Terraform instance state machine | ownership class, original module/target/state, cleanup progress/tombstones | create/update/destroy contract, destructive UPDATE rejection, last/shared consumer retention, preexisting/updated preservation, reverse graph, provider absence and interrupted cleanup; V2-E02 |
+| UC-16 V2-01..04; UC-05 V2-01/02 | OC-16/17; UC-16 sequence and UC-03/05/16 UI artifacts | draft params/class/shared IDs; safe module/target metadata | typed params/class selection/advanced roundtrip, metadata error/stale guard, no Workload module selector; real headed UI Save/Preview/Deploy; V2-E01 no infrastructure |
+| UC-06 V2-06; UC-09 V2-01..03 | OC-08/11; UC-09 sequence/screens | persisted safe stage/attempt/cleanup result + app job/cache evidence | no raw CLI/state/secret projection; all three headed Console -> app job completion/reload; actual PostgreSQL result + Redis write/hit/miss/refill; failed evidence retained |
+| ADR-014 deferred boundary | D12/D13/D14; state contract minimal hold/manual verification | interrupted operation/needs-attention, private handles | no auto-resume/import/backup claim; independent supervisor cleanup after browser/runner failure; absence proof mandatory |
+
+Acceptance IDs V2-A01/A02/A03/E01/E02 are owned by the runbook. Acceptance
+update/delete matrix and disaster recovery remain outside live scope, while
+executor/persistence unit/integration contract tests are required.

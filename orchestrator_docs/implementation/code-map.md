@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # Design-to-code map
@@ -472,3 +472,16 @@ include T31 forms and explicit read-only Score Preview graph/batch assertions;
 T02/T16 JSON locators use the new explicit advanced mode.
 
 Execution evidence: [T31 local verification](../verification/2026-10-12-T31-typed-definitions.md).
+
+## Terraform v2 planned implementation impact (not yet delivered)
+
+[ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and
+[IMP-021](deviations.md#imp-021-terraform-v2-designimplementation-gap) distinguish
+required design from existing paths. Extend existing Terraform/catalog/planning/
+provisioning/Connection/Vault/PostgreSQL adapters and Console ResourceDefinitions,
+Workload editor, Preview and deployment detail features listed above. Add state
+backend/lock/instance-attempt/cleanup ports and adapters according to contracts/
+schema; exact new code paths are recorded here only after implementation.
+Acceptance app gains Redis cache behavior in its Go workloads, not Web Console
+product code. Existing integration scripts are baseline; v2 runner must use real
+UI/adapter assertions, independent cleanup and retained failure evidence.

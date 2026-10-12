@@ -2,7 +2,7 @@
 id: ADR-INDEX
 artifact: decision-index
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # Architecture Decision Records
@@ -28,3 +28,5 @@ last_reviewed: 2026-10-12
 - [ADR-012 — Environment stores and transitions](ADR-012-environment-stores-and-transitions.md) — editable destinations, atomic admission, Vault transfer and PostgreSQL migration with downtime.
 
 - [ADR-013 — Implicit existing-cluster node from Environment binding](ADR-013-implicit-existing-cluster.md) — internal Kubernetes cluster node bypasses user Definition matching; cloud/resource matching remains.
+
+- [ADR-014 — Terraform v2 lifecycle/modules/state](ADR-014-terraform-v2-lifecycle.md) — accepted design; implementation and live acceptance pending.

@@ -21,9 +21,9 @@ alt Kubernetes [VAR-01, first delivery]
   Parser --> Service: selected config (request memory)
   Service -> K8s: Verify(config), no resource creation [MS-05]
   K8s --> Service: safe VerificationResult
-else AWS [VAR-02, future delivery]
+else AWS [VAR-02, v2 required]
   API -> Service: RegisterAWSDriverAccount(org, command)
-  Service -> AWS: Verify(identity, regions, backend, provisioning permissions)
+  Service -> AWS: Verify(identity, regions, provisioning capabilities), no resource creation
   AWS --> Service: safe VerificationResult
 end
 Service -> Service: Generate unique key from name

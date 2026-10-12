@@ -2,10 +2,18 @@
 id: UC-07-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-13
 ---
 
 # UC-07 — Use Case Realization
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Trách nhiệm
 
@@ -94,3 +102,13 @@ the same scoped target for removal and route reconciliation after restart.
 T22 removes host-context targets: context-only/unscoped execution fails closed.
 Internal Kubernetes requires scoped KUBECONFIG; explicit Terraform-generated
 EKS kubeconfig paths remain supported. Implementation evidence is tracked in current state.
+
+## Terraform v2 cleanup boundary
+
+Remove still uses WorkloadDeployer.Delete and final UNREFERENCED metadata commit.
+It does not invoke ResourceCleanupService. Separate cleanup admits an operation,
+loads original instance/state/module/target and ownership/consumer evidence,
+destroys reverse dependency and verifies absence. CREATED_BY_RUN is required for
+run cleanup, not inferred from unreferenced status. See
+[cleanup sequence](../UC-08/sequence-cleanup.puml) and OC-19; generic destroy UI
+and live update/delete matrix are outside this acceptance tranche.

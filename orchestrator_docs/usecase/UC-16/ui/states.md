@@ -2,7 +2,7 @@
 id: UC-16-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 related: UC-16
 ---
 
@@ -87,3 +87,13 @@ editor mở lại hiển thị key mới. Editor còn giữ draft version cũ c�
 khi Save trả STALE_VERSION; không ghi đè draft rename. Pending delete không được
 hồi sinh. Lossless reconstruction failure giữ nguyên toàn bộ trạng thái và dùng
 REFERENCE_REWRITE_UNSAFE với hướng dẫn Việt an toàn. Preview/Deploy vẫn tường minh.
+
+## Terraform v2 state additions
+
+Required v2 behavior is defined in the corresponding specification V2 rules and
+[screens](screens.md). Loading/error/unavailable module or class metadata blocks
+unvalidated submit; retry retains safe edits, does not substitute defaults or
+replay mutation. Typed input/provider/integrity errors use safe code/field guidance.
+Busy/stale locks preserve edits and require wait/review/new Preview. Long-running
+execution shows persisted stage/attempt; interruption requires operator checks.
+No state/secret/raw CLI diagnostics are rendered, including failure paths.

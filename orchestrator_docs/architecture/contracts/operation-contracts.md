@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # Operation Contracts
@@ -505,3 +505,75 @@ new desired references/versions and invalidates old preview tokens.
   errors use safe T20 500 envelope, no raw inspector content.
 - Registration OC-04, deferred placeholder typing, resource param precedence,
   graph edges and matching unchanged. Metadata is guidance, not deployment proof.
+
+## Terraform v2 scoped supersession (ADR-014)
+
+V2 replaces embedded-only/explicit Aurora-account/native-default/internal-only
+clauses in OC-04/05/07/08/10 and capabilities OC-04d above. Old clauses describe
+implemented baseline only where they conflict. V2 uses inspected immutable
+module registry, same Environment AWS account/region, provider binding to scoped
+Kubernetes/EKS target, required score-k8s for both profiles and durable encrypted
+state. No new public standalone deploy/destroy workflow is implied.
+
+- OC-03 registers Redis/common PostgreSQL contracts from
+  [module contract](terraform-modules.md); no schema migration of v1.
+- OC-04 validates source allowlist/revision/digest, typed mappings/provider
+  requirements and Resource Type outputs, then insert-only Definition/criteria.
+  Remote acquisition/inspection is bounded and outside persistence transaction;
+  planner/capability queries read verified metadata only.
+- OC-05 enables AWS access-key onboarding via Console under ADR-009, safe
+  account/principal/allowed-region verification and Vault ref persistence;
+  platform state backend is not selected per Connection. STS alone is insufficient.
+- OC-06/07/17 pin module/provider/binary digests and state/target identity,
+  validate known inputs and required renderer, expose safe module/target/ownership
+  projection. No provider/CLI invocation or secret resolution in Preview.
+- OC-08/10 claim persisted Environment operation before state locks, write intent
+  before side effects, validate outputs/readiness and render score-k8s before
+  delivery. Retry/busy/stale/current-set rules remain; failed/unknown outcome
+  preserves state and owner hold rather than automatic resume or destructive rollback.
+- OC-09 removes workload objects but retains resource/data; UNREFERENCED is not
+  DESTROYED. Shared resources scoped to Environment/generation preserve consumers.
+- OC-11 returns persisted safe resource stage/attempt/module/target and cleanup
+  progress; polling does not call runtime provider or reveal state/inputs.
+
+## OC-18 `TerraformStateBackend.Read` / `Write` / `Lock` / `Unlock`
+
+Internal HTTP adapter, not a Console/public Terraform-state API. Preconditions:
+invocation capability, exact org/instance/operation owner/fence and action. Write
+requires current Terraform lock ID; lock and state commit/lineage/serial checks
+are atomic. Read decrypts restricted state for executor only. State encryption
+key is outside database; failed decryption cannot be treated as empty state.
+Expiry does not unlock; old owners cannot write/unlock. Raw state is never API
+read data for Developer/PE. Full protocol/security rules and tests:
+[state contract](terraform-state.md), [schema](../database/schema.md).
+
+## OC-19 `ResourceCleanupService.CleanupResources`
+
+Internal authorized cleanup operation, no generic public destroy UI in this
+acceptance scope. Input: authorized Environment/generation/run, explicit instance
+IDs/expected versions and original target; no wildcard deletion. Claim operation,
+verify ownership/consumers/dependencies, lock states, destroy reverse graph and
+verify provider absence; persist per-instance remaining IDs/errors. SUCCEEDED
+only when requested owned resources absent. CREATED_BY_RUN cleanup never deletes
+PREEXISTING/UPDATED_BY_RUN or unrelated platform resources. Interruption/failed
+cleanup preserves metadata/state and reports incomplete, not rollback success.
+Test supervisor uses distinct narrow capability and does not bypass checks.
+
+## V2 public safe failure/progress envelope
+
+Keep T20 stable envelope and Vietnamese code mapping. Add typed reason codes
+`MODULE_UNAVAILABLE`, `MODULE_INTEGRITY_FAILED`, `MODULE_INPUT_INVALID`,
+`PROVIDER_BINDING_INVALID`, `STATE_UNAVAILABLE`, `STATE_LOCKED`,
+`RESOURCE_REPLACEMENT_REQUIRED`, `RESOURCE_EXECUTION_FAILED`, `CLEANUP_INCOMPLETE`.
+Validation/planning rejection remains before execution; BUSY/LOCKED/replacement
+returns 409, invalid module input/provider binding 422 (existing Score shape
+validation retains INVALID_SCORE 400), unavailable state/module service 503.
+Runtime failure is persisted safe progress even when HTTP operation response
+already returned; do not mistake failure status for successful cleanup.
+
+Safe progress fields: server-known node descriptor in scoped plan, module ID/
+revision, stage enum PREPARE/VALIDATE/PLAN/APPLY/OUTPUTS/READINESS/CLEANUP/VERIFY,
+attempt/status and timestamps. Error params remain allowlisted stage/reason and
+registered Type; field path only known schema fields, no arbitrary user keys or
+submitted values. Unknown provider/CLI/decode cause uses safe fallback. No raw
+stdout/stderr, plan JSON, backend capability, credential refs or state payload.

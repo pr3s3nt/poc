@@ -2,12 +2,23 @@
 id: ADR-010
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-06
+last_reviewed: 2026-10-13
 ---
 
 # ADR-010 — Definition-selected workload rendering with score-k8s
 
 Status: Accepted — 2026-10-06. Implementation authorized; live verification is separate.
+
+## V2 supersession — ADR-014
+
+[ADR-014](ADR-014-terraform-v2-lifecycle.md) replaces, for v2, embedded-only/
+Kubernetes application provisioning, run-derived temporary state/names, explicit
+Aurora account override and optional/internal-only/native-default rendering.
+V2 uses registered Terraform modules, Environment account/region, encrypted
+PostgreSQL state and required score-k8s on both profiles. Historical naming/
+verification below remains provenance of the implemented baseline; stable v2
+resource identity has no run ID. Other descriptor/matching/generation/credential
+constraints remain unless explicitly superseded. V1 import is not required.
 
 ## Context
 

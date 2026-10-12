@@ -2,7 +2,7 @@
 id: UC-03-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 related: UC-03
 ---
 
@@ -120,3 +120,21 @@ và chiều consumer → provider (is_dependent đảo vai trò parent/companion
 match_dependents nối consumers tới companion); advanced JSON giữ cases phức tạp.
 Không tự Preview/provision khi đổi form. CTA/prefill chỉ được bật khi metadata
 và catalog cùng xác nhận cặp supported.
+
+## Terraform v2 form (required; supersedes T02/T31 fixed-module controls)
+
+“Cách tạo: Terraform” supports both cloud and Kubernetes. PE selects allowlisted
+source/module, immutable version/revision, reviewed input/output mapping and
+symbolic provider binding. Labels use “Terraform”, not “Tạo trên AWS”. Display
+verified schema/defaults/required fields and Type output/secret classification.
+Profile choice may be internal-k8s/aws-eks/shared where the module supports it;
+AWS bindings always show “Kết nối AWS của môi trường”, no Aurora override.
+Kubernetes shows selected Environment target or EKS dependency output.
+
+Keep criteria editor, matching preview and typed/provision/advanced JSON state.
+Output mapping cannot downgrade secret flag. Source unavailable/drift/schema
+error blocks submit and preserves non-secret edits; no credential fields.
+Capability loading/error/empty distinguishes no supported module from fetch
+failure, never frontend hard-coded fallback. Registration never provisions.
+Mẫu dựng ứng dụng supports both profiles with required score-k8s bundle; no
+native-default text for v2. Existing keys/advanced class values are preserved.

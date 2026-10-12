@@ -2,7 +2,7 @@
 id: UC-03-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 related: UC-03
 ---
 
@@ -112,3 +112,15 @@ Typed và advanced serialize cùng `driverInputs.values.variables`, source.modul
 ngầm cho Terraform, provision object/criteria/connection guards hiện hành giữ.
 Omitted default/param không được tự thêm; literals số/bool/list/map giữ kiểu JSON,
 whole placeholders giữ string để deferred checking. Presets là lựa chọn explicit.
+
+## Terraform v2 contract extension
+
+Existing UI routes and role/org/version guards remain. Required payload/metadata
+extensions follow [module contract](../../../architecture/contracts/terraform-modules.md),
+[state contract](../../../architecture/contracts/terraform-state.md) and
+[operation contracts](../../../architecture/contracts/operation-contracts.md#terraform-v2-scoped-supersession-adr-014).
+These are planned v2 fields, not claims the current HTTP handlers accept them.
+Workload params/class stay Score-backed references; PE source/revision/mapping
+fields are Definition metadata. AWS onboarding belongs to dedicated concealed
+Connection write. Public queries return only scoped safe projections; no internal
+state endpoint/token exposed. No API bypass of acceptance UI steps is allowed.

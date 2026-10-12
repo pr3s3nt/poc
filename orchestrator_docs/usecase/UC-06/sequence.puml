@@ -33,14 +33,15 @@ alt planning fails before Delta Snapshot
   Service -> DeploymentRepo: MarkFailed(reason, snapshot=NULL)
   Service --> API: Planning error
 else plan succeeded
-opt Definition-selected score-k8s
+group Required score-k8s preflight (both profiles)
   Service -> Renderer: ValidateSelection(pinned Definition/bundle/binary digest) [BR-17]
   Renderer --> Service: available (failure stops before provisioning)
 end
 Service -> DeltaSnapshotRepo: Save(immutable snapshot) <<transaction A>>
 Service -> SetRepo: Save(candidateSet) <<transaction A>>
 Service -> DeploymentRepo: SavePlan, attach snapshot, mark PROVISIONING <<transaction A>>
-Service -> Provisioner: Provision(plan.ResourceBatches) [MS-09]
+Service -> EnvRepo: Admit operation owner/fence under pinned versions (short transaction)
+Service -> Provisioner: Provision(plan.ResourceBatches, owner/fence) [MS-09]
 Provisioner --> Service: ProvisionResult(outputs, target)
 Service -> Resolver: ResolveWorkloadBindings(candidate, outputs) [MS-10]
 Resolver --> Service: Resolved workload
@@ -57,6 +58,7 @@ Service -> EnvRepo: CompareVersionAndSetCurrent(version, candidateSet) <<transac
 Service -> WorkloadRepo: UpsertReady(instances) <<transaction B>>
 Service -> EnvRepo: MarkRuntimeReadyIfCloud(environmentID) <<transaction B>>
 Service -> DeploymentRepo: MarkSucceeded() <<transaction B>>
+Service -> EnvRepo: Release current operation after all subprocesses stopped
 Service --> API: DeploymentResult [MS-13]
 API --> Developer: SUCCEEDED
 end

@@ -1,20 +1,19 @@
 ---
 id: D01
 artifact: backlog-item
-status: deferred
-last_reviewed: 2026-09-21
+status: current
+last_reviewed: 2026-10-13
+related: [ADR-014, D12, D13, D14]
 ---
 
-# D01 — Durable Terraform state and stable physical names
+# D01 — Durable Terraform state: selected for v2, implementation pending
 
-## Problem
+Decision resolved by [ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md):
+Orchestrator HTTP backend, encrypted PostgreSQL state, stable resource identity/
+physical names and two-level locking. Required protocol is in the
+[state contract](../architecture/contracts/terraform-state.md).
 
-Terraform state hiện nằm trong thư mục tạm theo run ID; tên VPC/EKS/Aurora cũng
-chứa run ID. Mỗi verification vì vậy tạo hạ tầng vật lý mới dù logical resource
-identity đã ổn định theo Application.
-
-## Deferred decision
-
-Chọn durable backend, locking, ownership và migration/reconciliation policy.
-Không bỏ run ID khỏi physical names trước khi state lifecycle được quyết định,
-vì có thể làm mất khả năng cleanup chính xác.
+Code baseline still uses temporary run directory/state and run-derived physical
+names; do not claim this gap closed until implementation and real durable-state
+checks pass. No migration/reconciliation of v1 resources is required. Automatic
+recovery/orphan reconciliation and platform backup are separate deferred D12–D14.

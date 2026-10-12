@@ -16,6 +16,9 @@ end note
 note right of FAILED
   Status recording only.
   Snapshot may be NULL only if planning failed.
-  Retry/resume/rollback are out of scope.
+  V2 bounded transient node retry is allowed.
+No automatic resume/rollback.
+Interrupted execution: FAILED safe reason;
+Environment operation remains held until process checked.
 end note
 @enduml

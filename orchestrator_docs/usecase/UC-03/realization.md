@@ -2,10 +2,18 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-03 — Use Case Realization
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Trách nhiệm
 
@@ -143,3 +151,14 @@ annotate param sources; no writes, credentials, executor or external calls.
 Console uses metadata for support/CTA and typed controls with explicit overrides,
 lossless advanced variables/provision JSON. POST validation and planning remain
 independent authoritative guards (BR-23–26); no schema or transaction change.
+
+## Terraform v2 collaboration (supersedes conflicting baseline above)
+
+ModuleSourcePolicy checks Admin allowlist; ModuleBundleResolver fetches immutable
+content in private cache and verifies digest/transitive dependencies outside DB
+transaction. DriverContractInspector produces typed module contract. Registration
+validates Type input/output mappings and symbolic providers, persists bundle ref/
+Definition/criteria atomically, then publishes safe capabilities. Planner only
+reads verified registry snapshot; neither Preview nor capabilities download code.
+AWS binding is Environment-wide including Aurora/ElastiCache. Renderer registry
+supports required score-k8s on both profiles; no native-default result for v2.

@@ -1,0 +1,27 @@
+@startuml
+title Terraform v2 instance and separate cleanup lifecycle
+[*] --> PENDING : persisted identity/physical intent
+PENDING --> PROVISIONING : admitted Environment owner + state lock
+PROVISIONING --> READY : state acknowledged, outputs/readiness valid
+PROVISIONING --> FAILED : known executor/contract failure
+FAILED --> PROVISIONING : one bounded known-transient retry after checks
+PROVISIONING --> INTERRUPTED : process lost, outcome not proven
+INTERRUPTED --> NEEDS_ATTENTION : state/provider uncertainty
+INTERRUPTED --> PROVISIONING : manual stopped-owner verification, new fence
+READY --> PROVISIONING : compatible non-destructive update
+READY --> UNREFERENCED : last consumer removed, final commit
+UNREFERENCED --> PROVISIONING : referenced again
+UNREFERENCED --> DESTROYING : separate authorized cleanup, ownership checks
+FAILED --> DESTROYING : owned run cleanup, process stopped
+INTERRUPTED --> DESTROYING : operator ownership/process verification
+NEEDS_ATTENTION --> DESTROYING : manually verified owned IDs, cleanup authorization
+READY --> DESTROYING : test delivery detached; no consumers; explicit cleanup
+DESTROYING --> DESTROYED : provider absence verified
+DESTROYING --> NEEDS_ATTENTION : failed/unknown cleanup, retain remaining IDs
+DESTROYED --> [*] : keep audit + terminal state
+note right of NEEDS_ATTENTION
+No automatic resume or orphan import (D12/D13).
+Expiry alone never releases owner/lock.
+No v1 adoption; no delete of preexisting/updated resources.
+end note
+@enduml

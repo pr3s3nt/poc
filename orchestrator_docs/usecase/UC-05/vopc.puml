@@ -86,4 +86,9 @@ from Environment Connection (ADR-013).
 No catalog write or user matching in Preview.
 end note
 
+class TerraformModuleBundle <<value>>
+class ResourceInstanceMetadata <<value>>
+PlanningSnapshotRepository ..> TerraformModuleBundle : verified registry only
+PlanningSnapshotRepository ..> ResourceInstanceMetadata : stable identity/version
+DeploymentPlan ..> TerraformModuleBundle : pinned module/provider digests
 @enduml

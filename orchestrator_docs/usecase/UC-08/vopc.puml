@@ -15,10 +15,9 @@ class ExecutorRegistry <<control>> {
   +Resolve(driverType): ResourceExecutor
 }
 interface ResourceExecutor {
-  +Provision(ctx, resource, inputs, priorState): ExecutionResult
+  +Execute(ctx, action, instance, inputs, stateRef): ExecutionResult
 }
 class TerraformExecutor <<adapter>>
-class KubernetesExecutor <<adapter>>
 class ExistingClusterAdapter <<adapter>>
 class OutputContractValidator <<control>> {
   +Validate(resourceType, outputs)
@@ -48,8 +47,24 @@ ResourceProvisioningService --> DeploymentResourceRepository
 ResourceProvisioningService ..> ProvisionResult
 ExecutorRegistry --> ResourceExecutor
 ResourceExecutor <|.. TerraformExecutor
-ResourceExecutor <|.. KubernetesExecutor
 ResourceExecutor <|.. ExistingClusterAdapter
 ActiveResourceResolver --> ActiveResourceRepository
 ResourceProvisioningService ..> ActiveResource
+class ModulePreflight <<control>>
+class ResourceCleanupService <<control>>
+class EnvironmentOperationManager <<control>>
+class TerraformStateBackend <<boundary>>
+interface TerraformStateRepository
+interface ResourceInstanceRepository
+interface ResourceAttemptRepository
+ResourceProvisioningService --> ModulePreflight
+ResourceProvisioningService --> ResourceInstanceRepository : write intent before calls
+ResourceProvisioningService --> ResourceAttemptRepository : safe progress
+TerraformExecutor --> TerraformStateBackend : LOCK/GET/POST/UNLOCK
+TerraformStateBackend --> TerraformStateRepository : encrypted state + lock CAS
+TerraformStateBackend --> EnvironmentOperationManager : current owner/fence
+ResourceCleanupService --> ResourceInstanceRepository : ownership + original target
+ResourceCleanupService --> ResourceAttemptRepository : remaining IDs / proof
+ResourceCleanupService --> TerraformExecutor : explicit DESTROY, reverse graph
+ResourceCleanupService --> EnvironmentOperationManager : separate operation admission
 @enduml

@@ -2,7 +2,7 @@
 id: ADR-011
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # ADR-011 — Environment execution binding set once
@@ -23,6 +23,17 @@ current complete format, without inferring bindings or reconstructing history.
 Generation, immutable target/history, CAS and operation fencing remain unchanged.
 See [schema](../database/schema.md#fresh-persistence-baseline-t28--leg-08).
 Retained dev data requires the separately approved T29 reset.
+
+## V2 supersession — ADR-014
+
+[ADR-014](ADR-014-terraform-v2-lifecycle.md) replaces, for v2, embedded-only/
+Kubernetes application provisioning, run-derived temporary state/names, explicit
+Aurora account override and optional/internal-only/native-default rendering.
+V2 uses registered Terraform modules, Environment account/region, encrypted
+PostgreSQL state and required score-k8s on both profiles. Historical naming/
+verification below remains provenance of the implemented baseline; stable v2
+resource identity has no run ID. Other descriptor/matching/generation/credential
+constraints remain unless explicitly superseded. V1 import is not required.
 
 ## Decision
 

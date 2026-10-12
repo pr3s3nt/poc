@@ -2,7 +2,7 @@
 id: DOC-INDEX
 artifact: documentation-index
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-13
 ---
 
 # Documentation index
@@ -94,3 +94,11 @@ chọn nguồn chỉ vì mới hơn, dài hơn hoặc gần code hơn.
 - [Verification](verification/README.md)
 - [Backlog](backlog/README.md)
 - [Iterations](iterations/README.md)
+
+## Terraform v2 design route
+
+Start with [ADR-014](architecture/decisions/ADR-014-terraform-v2-lifecycle.md),
+then affected use-case specifications, [module contract](architecture/contracts/terraform-modules.md),
+[state contract](architecture/contracts/terraform-state.md) and
+[acceptance scope](operations/terraform-v2-acceptance.md). Full recovery, orphan
+reconciliation and platform backup are explicitly deferred in D12–D14.

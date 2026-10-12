@@ -49,4 +49,11 @@ class RenderingSelection <<value>>
 ResourceDefinitionService ..> RenderBundle : installed contract/fingerprint
 class DefinitionMatcher <<control>>
 ResourceDefinitionService ..> DefinitionMatcher : pure criteria + connection guard
+class ModuleSourcePolicy <<control>>
+class ModuleBundleResolver <<adapter>>
+class TerraformModuleBundle <<entity>>
+ResourceDefinitionService --> ModuleSourcePolicy : Admin allowlist
+ResourceDefinitionService --> ModuleBundleResolver : verify immutable content before insert
+ModuleBundleResolver ..> TerraformModuleBundle
+ResourceDefinition --> TerraformModuleBundle : verified bundle ref
 @enduml

@@ -2,7 +2,7 @@
 id: UC-16-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 related: UC-16
 ---
 
@@ -130,3 +130,16 @@ Preview đọc drafts mới, liệt kê workloads bị ảnh hưởng và pin co
 set versions. Deploy vẫn tường minh; token trước rename bị stale. Rename-only
 hoặc delete có thể để reference thiếu và Preview phải chặn Deploy. Không đổi
 runtime/current set hoặc Environment khác khi lưu.
+
+## Terraform v2 Workload form
+
+Keep current groups and Save draft → Xem trước thay đổi → Triển khai flow.
+Each Redis/PostgreSQL dependency displays “Cách cung cấp / Class” beside its
+alias/type/typed params using authoritative metadata: “Trong cluster”
+(`in-cluster`) and “Dịch vụ managed AWS” (`cloud-managed`). This replaces hiding
+these v2 choices solely under generic advanced class text. Redis in-cluster
+on EKS is valid. Developer never chooses Terraform module or provider credential.
+Keep advanced/custom/imported class lossless; do not silently rewrite default.
+Shared ID control keeps existing semantics for backend/worker dependencies.
+Show target incompatibility or missing metadata/Definition as actionable error,
+not automatic class switch. Secret outputs remain bindings only; no values.

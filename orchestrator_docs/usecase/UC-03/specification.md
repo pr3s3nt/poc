@@ -2,10 +2,18 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-03 — Register Resource Definition and Matching Criteria
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Mục tiêu
 
@@ -269,3 +277,32 @@ fail before planning/execution; matching profiles, criteria weights and ties rem
   consumer -> provider; provider-first scheduling không đổi. Metadata/form không
   tự matching-preview/provision hoặc gọi external provider. Unsupported/null/
   credential inputs giữ strict rejection, không nhận remote sources/templates/commands.
+
+## Terraform v2 — required registration behavior
+
+Các quy tắc V2 dưới đây thay giới hạn embedded-only/Kubernetes executor,
+Aurora account riêng và renderer internal-only/default-native trong các đoạn
+baseline phía trên. Implementation hiện tại vẫn theo CURRENT_STATE/deviations.
+
+- **V2-01:** PE đăng ký Terraform module nguồn allowlisted bởi Platform Admin,
+  immutable revision/digest, typed input mapping, output mapping và provider
+  bindings theo [module contract](../../architecture/contracts/terraform-modules.md).
+  Không nhận branch/latest, credential trong variables/source URL hoặc arbitrary
+  command. Verify/cache/inspect trước insert; unavailable/drift/mismatch không lưu.
+- **V2-02:** Supported pairs gồm Terraform namespace/Redis/PostgreSQL Kubernetes
+  và VPC/EKS/ElastiCache/Aurora AWS. Runtime capabilities authoritative công bố
+  module/schema/provider/class; không khóa Terraform vào profile aws-eks.
+- **V2-03:** AWS Definitions dùng Environment Connection/account/region, không
+  override kể cả Aurora. Kubernetes provider bind Environment target hoặc EKS
+  completed target; không host credential fallback. Definition không cần một
+  Environment cụ thể khi đăng ký nếu dùng symbolic Environment binding.
+- **V2-04:** Giữ editor criteria/provision và matching trọng số BR-06. Type,
+  profile, class và contract phải tương thích; no match/tie hoặc winning target
+  conflict chặn, không chọn alternate Definition/class. System cluster ADR-013 giữ nguyên.
+- **V2-05:** Workload Definition chọn score-k8s bundle đã pin cho internal-k8s
+  hoặc aws-eks. Renderer required, không match không chọn native. Không thêm
+  custom/Echo driver hoặc template upload. Nâng module qua Definition mới với
+  criteria tạo unique winner, không overwrite Definition/criteria cũ.
+- **V2-06:** Capability reads không fetch code/chạy inspector provider mỗi request;
+  dùng inspected registry. Console vẫn typed + lossless advanced JSON, validation
+  độc lập ở registration/Preview/Deploy. Output bí mật chỉ mô tả schema/flag.

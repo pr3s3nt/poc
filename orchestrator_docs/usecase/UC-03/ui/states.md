@@ -2,7 +2,7 @@
 id: UC-03-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 related: UC-03
 ---
 
@@ -104,3 +104,13 @@ phân biệt; type/placeholder/null errors có hướng dẫn Việt, không ech
 Advanced round-trip giữ typed literals/collections/flags/refs; không chuyển sang
 mode làm mất fields. Submit/metadata failures và collapse giữ edits; Created
 reset đúng submitted draft. Retry metadata không replay POST/Preview.
+
+## Terraform v2 state additions
+
+Required v2 behavior is defined in the corresponding specification V2 rules and
+[screens](screens.md). Loading/error/unavailable module or class metadata blocks
+unvalidated submit; retry retains safe edits, does not substitute defaults or
+replay mutation. Typed input/provider/integrity errors use safe code/field guidance.
+Busy/stale locks preserve edits and require wait/review/new Preview. Long-running
+execution shows persisted stage/attempt; interruption requires operator checks.
+No state/secret/raw CLI diagnostics are rendered, including failure paths.

@@ -2,7 +2,7 @@
 id: UC-05-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 related: UC-05
 ---
 
@@ -46,3 +46,14 @@ unchanged in responsibility. Long artifacts must remain readable/scrollable.
 The implicit internal cluster row identifies **Environment connection** and
 the selected Connection key, rather than presenting it as a criteria-matched
 user Definition. Other rows continue showing their selected Resource Definition.
+
+## Terraform v2 pending Preview
+
+From Application → Environment → saved drafts, show per dependency Type/class,
+selected Definition/module ID/immutable revision, target/account/region, owner
+and intended action; show required score-k8s bundle per Workload. Internal
+existing cluster remains system Connection binding. No module selector for
+Developer; no secret/state/backend-token details. Explain retained/unreferenced
+resources are not deleted by removing Workload. Input/no-match/tie blocks Deploy.
+Replacement intent is explicit; ordinary Deploy cannot authorize destructive
+replacement. No exact Terraform plan/manifests claim for unresolved outputs.

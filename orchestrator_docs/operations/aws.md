@@ -2,10 +2,22 @@
 id: RUNBOOK-AWS
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # AWS verification
+
+## V2 execution scope
+
+[Terraform v2 acceptance](terraform-v2-acceptance.md) supersedes the historical
+runner/state/cost-ceiling/set-once instructions below for v2. User authorized
+small test resources with estimates, no fixed USD ceiling, one scenario retry
+and immediate verified cleanup, using discovered account/region in that runbook.
+State is durable encrypted PostgreSQL through HTTP backend, not temporary local
+state; local CLI recovery artifacts remain private if acknowledgement fails.
+Legacy aws-verify.sh is baseline verification, not UI-only v2 acceptance proof.
+Terraform state may contain sensitive values; secrets must be absent from public
+metadata/manifests/logs/evidence, not falsely assumed absent from state.
 
 ## Warning
 

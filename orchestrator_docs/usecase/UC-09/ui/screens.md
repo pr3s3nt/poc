@@ -2,7 +2,7 @@
 id: UC-09-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-13
 related: UC-09
 ---
 
@@ -52,3 +52,12 @@ failure reason hoặc lỗi transport. Output bí mật có nhãn “Đã che”
 non-secret giữ nguyên dữ liệu; resolved inputs không được render. Graph giữ
 hướng consumer → provider, matched Definition và thứ tự batches của snapshot.
 Không thêm rollback, log hoặc live refresh.
+
+## Terraform v2 progress
+
+Deployment detail shows resource Terraform stages/attempt/status, module pin,
+original target and safe failure reason in Vietnamese. Poll persisted scoped
+progress during long provisioning; no provider calls from query. Interrupted
+execution says needs operator verification; FAILED does not imply cleanup done.
+Cleanup progress distinguishes pending/failed/verified-complete and remaining
+safe resource IDs. Never display raw CLI logs/state/plan/tfvars/provider cause.

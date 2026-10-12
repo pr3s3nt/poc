@@ -56,10 +56,9 @@ class ProvisionResult <<entity>>
 interface EnvironmentRepository {
   +LoadPlanningSnapshot(ctx, appID, envID): PlanningSnapshot
   +CompareVersionAndSetCurrent(ctx, envID, version, setID)
+  +MarkRuntimeReadyIfCloud(ctx, environmentID)
 }
-interface ApplicationRepository {
-  +MarkRuntimeReadyIfCloud(ctx, applicationID)
-}
+interface ApplicationRepository
 interface DeploymentRepository {
   +Create(ctx, deployment)
   +SavePlan(ctx, deploymentID, plan)
@@ -104,4 +103,12 @@ DeploymentService --> RenderPreflight : before resource provisioning
 DeploymentPlan *-- RenderingSelection
 RenderingSelection *-- RenderBundle
 WorkloadRenderer ..> RenderingSelection
+class EnvironmentOperationManager <<control>>
+class ModulePreflight <<control>>
+DeploymentService --> EnvironmentOperationManager : admission / current owner-fence
+DeploymentService --> ModulePreflight : known inputs / immutable content
+note right of RenderPreflight
+Required score-k8s on both v2 profiles.
+No native fallback; output-only bindings.
+end note
 @enduml

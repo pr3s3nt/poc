@@ -2,7 +2,7 @@
 id: DOMAIN-OBJECTS
 artifact: domain-persistence-classification
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # Domain Objects and Persistence Classification
@@ -85,7 +85,7 @@ Deployment Set.
 
 - Database owns logical identity, lifecycle, plan snapshot, output metadata and current-set pointer.
 - Database owns internal account and session records; password hashes and session-token hashes are the only credential material persisted.
-- Terraform backend owns Terraform physical state; database keeps opaque state reference/fingerprint, not the state file.
+- Terraform backend owns Terraform physical state. In v2 the Orchestrator HTTP backend stores encrypted state blobs in platform PostgreSQL, separate from logical metadata; logical resource records keep opaque state references, never plaintext state.
 - Kubernetes owns live objects; database keeps target, workload identity, manifest digest and observed status.
 - Secret Store owns secret values; database keeps opaque secret references and redacted output metadata.
 
@@ -162,3 +162,26 @@ InfrastructureScope has only ENVIRONMENT. This supersedes historical migrated
 Application-scope compatibility above. Current generation-0 identities, later
 generation isolation and the ADR-013 internal cluster Application resource scope
 remain unchanged. Retired/unknown binding scopes are rejected without conversion.
+
+## Terraform v2 domain additions (ADR-014; designed, not implemented)
+
+- `TerraformModuleBundle`: immutable verified module/release contract, a platform
+  registry entity. Definition references it; Plan pins its snapshot/digests.
+- `TerraformResourceInstance`: aggregate for stable Organization/Environment/
+  generation/descriptor/scope identity, ownership, original target, state key
+  and write-ahead physical intent. One per private/shared/infrastructure instance.
+- `TerraformStateSnapshot`: restricted encrypted integration state associated
+  one-to-one with instance; no public DTO contains raw state or secret checksum.
+- `TerraformStateLock` / invocation capability: persisted instance lock under
+  Environment operation owner/fence. Expiry is a signal, not permission to unlock.
+- `TerraformResourceAttempt`: action/stage/ownership/physical-ID provenance for
+  CREATE/UPDATE/DESTROY, written before external side effects and retained for cleanup.
+- `ResourceCleanupService`: separate admitted reverse-dependency operation;
+  consumer/ownership checks, provider absence verification, safe progress.
+
+Private Redis/PostgreSQL belongs to Workload within Environment/generation;
+shared resource belongs to Environment/generation with multiple consumers.
+Platform Connection/cluster is reference-only. Logical descriptor scope preserves
+existing planner semantics; ownership and run provenance are explicit additional
+metadata, not guessed from descriptor or namespace prefix. Required structures/
+constraints are canonical in [schema](../database/schema.md#terraform-v2-schema-design-adr-014-not-yet-implemented).

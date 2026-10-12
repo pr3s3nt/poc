@@ -1,15 +1,19 @@
 ---
 id: D03
 artifact: backlog-item
-status: deferred
-last_reviewed: 2026-09-21
+status: current
+last_reviewed: 2026-10-13
+related: [ADR-014, UC-03, UC-08]
 ---
 
-# D03 — Remote Terraform source execution
+# D03 — Registered immutable Terraform modules: selected for v2
 
-Planner/inspector có thể nhận dạng source identity dạng `url[@rev][/path]`, nhưng
-runtime executor chỉ cho phép embedded modules `vpc`, `eks` và `aurora`.
+Decision resolved by [ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md)
+and [module contract](../architecture/contracts/terraform-modules.md): Admin
+allowlisted sources, immutable Git commit/artifact digest, verified cache and
+transitive content, pinned providers, private credentials and strict input/output
+mapping. PE registers modules; workload users select need/class, never source.
 
-Trước khi hỗ trợ remote source cần quyết định allowlist/trust, immutable revision,
-download cache, integrity verification, credential boundary và cleanup/state
-ownership. Không coi inspector support là authorization để execute remote code.
+Runtime currently executes embedded VPC/EKS/Aurora only. Inspector source support
+is not live module execution proof; IMP-007 remains until implementation/validation.
+Arbitrary commands, mutable remote modules and custom driver remain outside v2.

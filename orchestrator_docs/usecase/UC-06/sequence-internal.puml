@@ -7,7 +7,7 @@ control PlanningService as Planner
 control ImplicitResourceEnricher as Enricher
 control ResourceProvisioningService as Provisioner
 boundary ExistingClusterAdapter as ExistingCluster
-boundary KubernetesExecutor as ResourceK8s
+boundary TerraformExecutor as ResourceTF
 control OutputBindingResolver as Resolver
 control WorkloadRenderer as Renderer
 boundary WorkloadDeployer as WorkloadK8s
@@ -22,23 +22,26 @@ Planner -> Enricher: Enrich(profile=internal-k8s) [MS-05]
 Enricher --> Planner: implicit cluster from pinned Environment Connection + env namespace
 Planner -> Planner: Bind cluster with system existing-cluster; match other Definitions [BR-20..BR-21]
 note right of Planner: Mismatch fails planning before execution; no default fallback
-Planner --> Service: Humanitec-shaped Delta + graph:\nworkload -> namespace -> existing cluster\nworkload -> postgres StatefulSet -> existing cluster [MS-03..MS-08]
-opt Definition-selected score-k8s
+Planner --> Service: Humanitec-shaped Delta + graph:\nworkload -> namespace -> existing cluster\nworkload -> postgres in-cluster -> namespace -> existing cluster [MS-03..MS-08]
+group Required score-k8s preflight
   Service -> Renderer: ValidateSelection(pinned bundle/binary) before side effects
   Renderer --> Service: available
 end
-Service -> Provisioner: Provision(resource batches) [MS-09]
+Service -> Repo: Admit Environment owner/fence under pinned versions
+Service -> Provisioner: Provision(resource batches, owner/fence) [MS-09]
 Provisioner -> Repo: Admit reserved system Definition (idempotent; collision fails)
 Provisioner -> ExistingCluster: Resolve/check pinned cluster reference
 ExistingCluster -> Credentials: Resolve scoped selected Connection
 Credentials --> ExistingCluster: private invocation credential
 ExistingCluster --> Provisioner: opaque Kubernetes target (org + connection)
-Provisioner -> ResourceK8s: Provision(namespace, target)
-ResourceK8s --> Provisioner: namespace output
-Provisioner -> ResourceK8s: Provision(PostgreSQL StatefulSet/Service)
-ResourceK8s --> Provisioner: postgres outputs
+Provisioner -> ResourceTF: Provision(namespace, target)
+ResourceTF --> Provisioner: namespace output
+Provisioner -> ResourceTF: Provision(PostgreSQL module, same Kubernetes target/state backend)
+ResourceTF --> Provisioner: postgres outputs
+Provisioner -> ResourceTF: Provision(Redis module, same target/state backend)
+ResourceTF --> Provisioner: Redis outputs
 Provisioner --> Service: outputs + internal target
-Service -> Resolver: ResolveWorkloadBindings(postgres outputs) [MS-10]
+Service -> Resolver: ResolveWorkloadBindings(postgres + Redis outputs) [MS-10]
 Resolver --> Service: Resolved target workload
 Service -> Renderer: Render(normalized workload, output-only bindings, pinned bundle) [MS-11]
 Renderer -> Renderer: score-k8s init (no defaults), generate, controlled patches
@@ -61,7 +64,8 @@ Service -> Repo: Commit set/resources/workloads/SUCCEEDED [MS-12]
 Service --> Developer: DeploymentResult [MS-13]
 note over Developer, Service
 Acceptance verification repeats this operation for
-backend, worker and frontend Scores in that order.
+backend, worker and frontend declared through existing forms.
+Then browser submits job and verifies PostgreSQL + Redis use.
 end note
 
 @enduml

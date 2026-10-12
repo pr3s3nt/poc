@@ -2,7 +2,7 @@
 id: UC-05-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 related: UC-05
 ---
 
@@ -43,3 +43,13 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
+
+## Terraform v2 state additions
+
+Required v2 behavior is defined in the corresponding specification V2 rules and
+[screens](screens.md). Loading/error/unavailable module or class metadata blocks
+unvalidated submit; retry retains safe edits, does not substitute defaults or
+replay mutation. Typed input/provider/integrity errors use safe code/field guidance.
+Busy/stale locks preserve edits and require wait/review/new Preview. Long-running
+execution shows persisted stage/attempt; interruption requires operator checks.
+No state/secret/raw CLI diagnostics are rendered, including failure paths.

@@ -1,0 +1,128 @@
+---
+id: TERRAFORM-STATE-CONTRACT
+artifact: operation-contract
+status: current
+last_reviewed: 2026-10-13
+related: [ADR-014, UC-06, UC-07, UC-08]
+---
+
+# Terraform v2 — durable state, locking, retry và cleanup
+
+## Identity và storage
+
+Canonical identity tuple: Organization ID, Application/Environment ID, target
+generation, resource descriptor, scope type và scope ID. Backend opaque state ID
+là digest của canonical tuple, ánh xạ một-một qua unique database constraint.
+State không chứa run ID trong identity và không đổi khi Definition/version đổi.
+Mỗi instance quản lý toàn bộ objects của module trong một state. Shared scope
+luôn gắn Environment/generation, không chia sẻ state xuyên Environment.
+
+Physical name suy ra từ stable instance identity, trong provider bounds; stable
+password reference cũng gắn instance. State ref giữ account/region/Connection/
+target snapshot và pinned module revision/digest để cleanup dùng đúng lịch sử.
+Không reuse state ở target generation khác, kể cả cùng cluster/account.
+
+Terraform HTTP backend nội bộ lưu ciphertext trong platform PostgreSQL. Metadata
+công khai không chứa state hoặc hash secret. AES-256-GCM với nonce mới mỗi write,
+AAD chứa org/state ID, key ID và revision; key nằm trong platform credential
+store/config secret độc lập database. Key thiếu/sai thì fail closed, không tạo
+state rỗng thay ciphertext không đọc được. Database permissions tách quyền state
+blob khỏi public query; TLS khi ra ngoài loopback. Rotation/DR thuộc D14.
+
+## HTTP backend operations
+
+Internal endpoint `/internal/terraform/states/{opaqueStateID}` chỉ cho executor,
+không dùng Console session. Short-lived Basic-auth invocation token có hash lưu
+ở private capability record, pin Organization, state, Environment operation,
+fencing generation, action và deadline. Không truyền token bằng argv/backend
+file; dùng private subprocess env. GET/POST, LOCK/UNLOCK theo
+[Terraform HTTP protocol](https://developer.hashicorp.com/terraform/language/backend/http).
+Mỗi request xác minh capability và current owner trong transaction ngắn.
+
+| Operation | Required semantics |
+|---|---|
+| GET | Đọc/decrypt state của đúng scope; chưa có state trả no-state theo protocol; không tạo state |
+| LOCK | Atomic claim theo state, Terraform lock ID và operation/fence; cùng lock/owner/fence có thể acknowledgement idempotent; 200 khi thành công, 409/423 với safe metadata khi bị owner khác khóa |
+| POST | Cần query lock ID khớp và owner/fence hiện hành; validate lineage/serial tiến lên, encrypt/commit nguyên tử; replay cùng lineage/serial với bytes identical được ack idempotent, bytes khác hoặc serial lùi bị chặn |
+| UNLOCK | Chỉ owner/fence và lock ID đúng được release; không tự unlock khi deadline/heartbeat hết |
+| DELETE | Không cấp quyền purge cho executor thường; destroy ghi empty terminal state, metadata/tombstone giữ lại cho audit |
+
+Không `-lock=false` hoặc force-unlock tự động. State write thất bại chặn kết quả
+READY dù provider đã tạo resource. Lock ID, owner, operation, deadline là safe
+metadata; không trả backend token, raw state, raw provider diagnostics.
+
+## Hai lớp khóa
+
+Environment operation claim bảo vệ toàn pipeline từ admission tới final commit
+hoặc failure/recovery hold. Deploy, resource cleanup và transition cùng dùng
+claim của ADR-012; conflicting Settings/config/draft writes trả BUSY.
+Terraform state lock bảo vệ mỗi instance trong invocation. Lấy Environment claim
+trước state lock, release state lock khi invocation đã hoàn tất, rồi release
+Environment claim khi không còn subprocess đang chạy hoặc unknown outcome.
+
+Persist heartbeat/deadline/stage nhưng expiry không chứng minh process đã dừng.
+Interrupted ownership giữ hold; manual intervention xác nhận process group đã
+dừng, tăng fencing và revoke capability cũ trước unlock/retry/cleanup. Stale
+owner không được write/release bằng operation ID cũ. Khóa database transaction
+chỉ dùng lúc claim/write, không giữ transaction qua Terraform/provider calls.
+
+## Retry và gián đoạn tối thiểu trong v2
+
+Mỗi invocation có timeout hữu hạn và process group riêng; cancellation phải
+terminate/confirm group stopped trước release. Retry tự động tối đa một lần cho
+lỗi transient đã phân loại, có backoff; refresh/read state và kiểm actual result
+trước replan. Provider/HTTP request retry nằm trong deadline này, không kéo dài
+run vô hạn. Validation, auth, permission, destructive plan và unknown outcome
+không automatic retry apply. Scenario retry tối đa một lần là giới hạn khác,
+được ghi trong acceptance runbook.
+
+Write-ahead execution record trước side effect: operation/run ID, state ref,
+target/owner, action, module pin, physical-name/tag intent, ownership classification,
+attempt và stage. Sau từng bước ghi observed physical IDs, state serial và safe
+result. CREATED_BY_RUN chỉ khi có bằng chứng mới tạo bởi run; prior state/record
+luôn PREEXISTING hoặc UPDATED_BY_RUN. Không đổi classification khi retry.
+
+Sau crash, ghi INTERRUPTED khi quan sát owner không hoạt động, không claim thành
+công/thất bại giả và không tự resume apply. Nếu provider objects có thể đã tạo
+nhưng state chưa ghi, dừng retry tạo mới và báo NEEDS_ATTENTION ở execution record;
+operator đối chiếu run tags/physical intent và xử lý thủ công. Automated resume
+ở D12, import/reconcile orphan ở D13. Không import tài nguyên v1.
+
+Nếu state backend không lưu được, giữ encrypted/private local state recovery
+artifact do Terraform sinh nếu có, mode directory 0700/file 0600 và audit handle.
+Không commit/publish nó, không đưa contents vào output. Không xóa workspace
+khi đó là bản state duy nhất cần cho xử lý và cleanup.
+
+## Cleanup operation
+
+Logical `CleanupResources(scope, runID, explicitResourceIDs, expectedVersions,
+confirmedStoppedOwner)` chỉ dành PE/Admin hoặc test cleanup capability riêng.
+Không thêm generic Developer destroy button trong phạm vi acceptance này.
+Admit Environment claim và state locks; kiểm persisted ownership, actual IDs,
+consumer graph và dependency trước destroy. Whitelist explicit IDs; không account-
+wide/namespace-prefix wildcard deletion. Namespace ownership không cấp quyền
+xóa objects của bên khác chỉ vì chúng nằm cùng namespace.
+
+Stages: REQUESTED -> CHECKING -> DESTROYING -> VERIFYING -> SUCCEEDED; lỗi là
+FAILED hoặc INTERRUPTED/NEEDS_ATTENTION và lưu remaining IDs. Xóa consumers
+trước providers. Delete namespace chỉ khi toàn bộ nội dung có quyền xóa và đã
+xử lý dữ liệu/PVC do run tạo; không delete namespace để bỏ qua Terraform states.
+Nếu consumer destroy lỗi, giữ dependency còn cần, tiếp tục nhánh độc lập an toàn.
+
+Destroy success phải kèm query provider chứng minh resource absence theo physical
+IDs/tags; state giữ terminal snapshot/tombstone. Retry cleanup dùng original
+target/module/state; state/credentials thiếu thì giữ evidence và báo chưa hoàn
+tất. Evidence chỉ safe IDs/status. Acceptance cleanup independent supervisor
+phải tồn tại ngoài browser/runner process; restart thủ công supervisor được hỗ
+trợ, autonomous platform recovery không được claim.
+
+## Verification obligations
+
+Real disposable PostgreSQL tests: state reopen, ciphertext/no plaintext, wrong
+key, scope rejection, unique identity, two-process lock race, stale fence write/
+unlock, lineage/serial rejection, failed write rollback và no unlock on expiry.
+Executor tests: stable names/credentials across retry, no duplicate CREATE on
+unknown state, update preserves identity/data, destructive update rejected,
+destroy ownership/consumer/dependency checks, retry timeout/cancellation và failed
+cleanup retained metadata. Acceptance chỉ hai exceptions đã chốt; các tests này
+không mở live scenario matrix update/delete hoặc disaster recovery.

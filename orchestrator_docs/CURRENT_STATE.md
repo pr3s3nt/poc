@@ -2,10 +2,34 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # Current project state
+
+## Terraform v2 — accepted design, implementation pending (2026-10-13)
+
+User completed Step 1 decisions: [ADR-014](architecture/decisions/ADR-014-terraform-v2-lifecycle.md),
+registered immutable Terraform modules for AWS/Kubernetes, required score-k8s on
+both targets, same Environment AWS account/region, durable encrypted PostgreSQL
+HTTP state, locking and ownership-based lifecycle. Specifications/contracts/UI/
+schema/diagrams now describe required v2; baseline delivery rows below remain
+actual implementation status, not v2 completion.
+
+D01/D03 are selected for v2 with implementation pending. Full Terraform resume,
+orphan reconciliation and platform backup/restore are deliberately deferred
+D12–D14. Minimal interrupted-state/owner hold and independent verified acceptance
+cleanup remain required. No v1 import/migration, retained reset or old resource
+adoption. [IMP-021](implementation/deviations.md#imp-021-terraform-v2-designimplementation-gap)
+tracks remaining implementation and live verification gaps.
+
+Acceptance will use existing frontend/backend/worker job app plus Redis:
+Web Console forms/Preview/Deploy, then browser job completion/reload and actual
+PostgreSQL/Redis cache hit/miss/refill. Three live happy paths + two exceptions;
+[execution scope](operations/terraform-v2-acceptance.md) records AWS target,
+confirmed k8s-4f test namespace boundary, small sizing, estimates, one scenario
+retry and immediate cleanup. STS authentication was checked; no v2 provision,
+permission completeness, Redis/browser acceptance or cleanup run is claimed.
 
 ## Lifecycle position
 

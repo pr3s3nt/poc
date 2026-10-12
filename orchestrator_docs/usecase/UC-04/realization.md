@@ -2,10 +2,18 @@
 id: UC-04-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-04 — Use Case Realization
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Trách nhiệm và delivery boundary
 
@@ -109,3 +117,12 @@ trusted system binding bypasses criteria matching, and UC-08 resolves the select
 Environment Connection through existing-cluster. Preview is pure; execution
 admits the reserved system Definition before persistence writes. Other resource
 Definitions, executor scheduling and output propagation remain unchanged.
+
+## Terraform v2 AWS collaboration
+
+AWS ConnectionController/Service enables ADR-009 concealed write and read-only
+AWSConnectionVerifier identity/region/capability checks; Vault credential Put then
+insert-only READY metadata follows existing attempt cleanup. Platform HTTP state
+backend is validated as platform readiness, not a per-Connection backend setting.
+CredentialResolver resolves AWS scoped reference per invocation with no default
+host chain. EKS resolver restores opaque persisted target using the pinned account.

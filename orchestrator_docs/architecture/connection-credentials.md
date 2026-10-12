@@ -2,7 +2,7 @@
 id: CONNECTION-CREDENTIAL-DESIGN
 artifact: shared-design
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # Connection credentials and execution identity
@@ -143,3 +143,16 @@ scope, never recursively inside the workload's selected store. Resolver validate
 scope/provider/READY and returns private client credentials; public choices exclude
 refs/tokens. VSO bundle metadata pins store addresses/mount/auth and store-specific
 object names; old deployments do not follow a changed Settings selection.
+
+## Terraform v2 provider/state credentials (ADR-014)
+
+AWS Connection credential resolution is required under ADR-009; every AWS module
+uses the pinned Environment account/region, no Aurora override or host fallback.
+Kubernetes Terraform provider uses uploaded scoped Connection or restorable EKS
+opaque target; private kubeconfig exists only during invocation. EKS authentication
+uses the pinned AWS principal, not workload credentials. No backend path/token in
+TargetRef. Platform state encryption key and HTTP invocation capability are
+separate from provider/workload credentials; tokens are scoped to instance/
+operation/fence/action/deadline and never exposed through Console. State can hold
+provider secret material only inside restricted encrypted storage, not logical
+metadata. Protocol is owned by [state contract](contracts/terraform-state.md).

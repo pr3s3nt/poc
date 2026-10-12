@@ -20,20 +20,26 @@ Enricher --> Planner: env/generation VPC + env/generation EKS + env/generation n
 Planner -> Planner: Match Definitions; validate VPC/EKS Connection equals Environment binding [BR-20]
 note right of Planner
 Empty VPC/EKS keys inherit pinned READY Environment AWS account.
-Malformed conflicting winner fails without fallback. Aurora keeps explicit account.
+Malformed conflicting winner fails without fallback. All AWS nodes inherit same account/region.
 end note
 Planner --> Service: Humanitec-shaped Delta + graph:\nworkload -> namespace -> EKS -> VPC\nworkload -> Aurora -> VPC [MS-03..MS-08]
-Service -> Provisioner: Provision(resource batches) [MS-09]
+Service -> Renderer: Required score-k8s bundle/binary preflight
+Service -> Repo: Admit Environment owner/fence under pinned versions
+Service -> Provisioner: Provision(resource batches, owner/fence) [MS-09]
 Provisioner -> Terraform: Provision(VPC, pinned Environment AWS account)
 Terraform --> Provisioner: vpc outputs
 Provisioner -> Terraform: Provision(EKS, vpc outputs, pinned Environment AWS account)
 Terraform --> Provisioner: cluster target outputs
-Provisioner -> Terraform: Provision(Aurora, vpc outputs, explicit Aurora AWS account)
+Provisioner -> Terraform: Provision(Aurora, vpc outputs, pinned Environment AWS account)
 Terraform --> Provisioner: postgres outputs
+Provisioner -> Terraform: Provision(namespace, completed EKS target)
+Terraform --> Provisioner: namespace output
+Provisioner -> Terraform: Redis: ElastiCache or in-cluster module by class
+Terraform --> Provisioner: Redis outputs
 Provisioner --> Service: outputs + EKS target
-Service -> Resolver: ResolveWorkloadBindings(postgres outputs) [MS-10]
+Service -> Resolver: ResolveWorkloadBindings(postgres + Redis outputs) [MS-10]
 Resolver --> Service: Resolved target workload
-Service -> Renderer: Render(target workload manifests, requests/limits) [MS-11]
+Service -> Renderer: score-k8s Render(pinned bundle, output-only bindings, requests/limits) [MS-11]
 Renderer --> Service: Service/Deployment manifests
 Service -> K8s: Apply(EKS target, manifests)
 Service -> K8s: WaitReady(target workload)
@@ -42,6 +48,7 @@ Service -> Repo: Commit set/resources/workloads/SUCCEEDED [MS-12]
 Service --> Developer: DeploymentResult [MS-13]
 note over Developer, Service
 Acceptance verification repeats this operation for
-backend, worker and frontend Scores in that order.
+backend, worker and frontend through existing forms.
+Then browser submits job and verifies PostgreSQL + Redis use.
 end note
 @enduml

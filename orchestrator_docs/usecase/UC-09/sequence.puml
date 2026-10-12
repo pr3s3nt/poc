@@ -19,7 +19,7 @@ DeploymentRepo --> Service: Deployment + persisted plan
 Service -> SetRepo: FindSnapshot(candidateSetID)
 SetRepo --> Service: DeploymentSet
 Service -> DeploymentResourceRepo: ListByDeployment(deploymentID) [MS-03]
-DeploymentResourceRepo --> Service: Resource statuses + persisted output snapshots
+DeploymentResourceRepo --> Service: Resource stage/attempt/module/target + cleanup progress + safe output snapshots
 Service -> TypeRepo: ListByOrganization(session.organization)
 TypeRepo --> Service: Output classification contracts
 Service -> WorkloadRepo: ListByDeployment(deploymentID)

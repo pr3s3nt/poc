@@ -2,10 +2,18 @@
 id: UC-05-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-05 — Use Case Realization
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Trách nhiệm
 
@@ -99,3 +107,13 @@ Definitions, executor scheduling and output propagation remain unchanged.
 Catalog `PreviewMatching` của UC-03 dùng cùng domain weighted criteria và
 ConnectionMismatch guard nhưng không gọi full PlanningService.Plan. Kết quả
 không là input admission cho UC-05/06; shared planner tiếp tục kiểm snapshot mới.
+
+## Terraform v2 planning collaboration
+
+ReadSnapshot includes verified module registry and stable resource-instance safe
+metadata/versions; Inspector performs pure contract checks over metadata, Matcher
+uses unchanged ranking/class/profile and requires score-k8s renderer for both
+profiles. Plan pins bundle/provider/module/state/target identity. PreviewAssembler
+projects safe module/target/ownership and errors without state/credentials.
+No download, Terraform/score CLI or provider query in planning; runtime checks
+unresolved provider outputs before executing each node.

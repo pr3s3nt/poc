@@ -2,7 +2,7 @@
 id: UC-04-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-04 UI states
@@ -77,3 +77,13 @@ Store list and Environment choices have no legacy label or flag. READY continues
 to describe backend verification, not workload deploy readiness. Loading/error,
 explicit Save and selection/version guards are unchanged; no global-token or
 old-store fallback is exposed.
+
+## Terraform v2 state additions
+
+Required v2 behavior is defined in the corresponding specification V2 rules and
+[screens](screens.md). Loading/error/unavailable module or class metadata blocks
+unvalidated submit; retry retains safe edits, does not substitute defaults or
+replay mutation. Typed input/provider/integrity errors use safe code/field guidance.
+Busy/stale locks preserve edits and require wait/review/new Preview. Long-running
+execution shows persisted stage/attempt; interruption requires operator checks.
+No state/secret/raw CLI diagnostics are rendered, including failure paths.

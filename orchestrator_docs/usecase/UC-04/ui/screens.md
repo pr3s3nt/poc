@@ -2,7 +2,7 @@
 id: UC-04-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-13
 ---
 
 # UC-04 Connections screen
@@ -91,3 +91,14 @@ kết quả xác minh backend và xác thực Kubernetes tách riêng. READY hi�
 “Sẵn sàng”: xác minh backend tại lúc đăng ký, không cam kết deploy-ready;
 auth chưa cấu hình phải thể hiện rõ. Thiếu metadata không suy thành công.
 Không hiển thị token hoặc credential ref. Không có nhãn/type legacy trong danh sách kho hoặc choices (T23). PE/Admin gates và Developer choices không đổi.
+
+## Terraform v2 AWS registration
+
+AWS onboarding is required in v2, replacing the AWS-form-deferred note above.
+Form: name, concealed access key ID/secret access key, region/allowed regions,
+explicit “Kiểm tra và lưu”. No Terraform backend input; platform backend is
+shared. Safe result shows account/principal/region/check status only, never key
+or secret ref. STS verified and provisioning capability checks are distinguished;
+not READY solely because identity resolves. Clear credentials after success;
+verification error preserves safe metadata and uses concealed re-entry as needed.
+No resource creation during Connection registration or host-profile selector.

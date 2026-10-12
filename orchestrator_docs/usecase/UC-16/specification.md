@@ -2,11 +2,19 @@
 id: UC-16-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 related: UC-01, UC-05, UC-06, UC-07, UC-12
 ---
 
 # UC-16 — Quản lý cấu hình workload
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Mục tiêu
 
@@ -205,3 +213,21 @@ as specified above.
   Deployment Set hoặc pending delete. Không bảo toàn được thì fail toàn bộ.
 - Editor đọc draft đã rewrite và vẫn dùng explicit Save, Preview và Deploy;
   editor đang mở với draft version cũ bị stale, không last-write-wins.
+
+## Terraform v2 — dependency class trên form hiện tại
+
+- **V2-01:** Giữ các nhóm Thông tin cơ bản, Container/CPU-memory nâng cao,
+  Biến & Bí mật, Nguồn khác, Tài nguyên của Workload, Cổng Service và Đường dẫn
+  công khai. Save draft/Preview/Deploy vẫn tường minh.
+- **V2-02:** Mỗi Redis/PostgreSQL dependency có alias/type, typed params và
+  lựa chọn class từ metadata authoritative: in-cluster hoặc cloud-managed.
+  In-cluster dùng k8s-4f/EKS; cloud-managed cần AWS profile. Không có module
+  selector trong Workload form, không tự đổi class khi target/matching không hợp.
+- **V2-03:** Shared dependency giữ shared ID hiện hành và được dùng giữa
+  backend/worker; metadata loading/error không bị coi là danh sách class rỗng.
+  Existing/imported class ngoài choices phải giữ để review, không silently rewrite
+  thành default. Required input/secret/Service validation và lossless advanced
+  paths giữ nguyên; Developer không nhập provider credentials.
+- **V2-04:** Params có Type schema validation tại Save; module-specific mapping/
+  constraints được kiểm tại Preview/Deploy trước provision nếu resolve được.
+  No module match hoặc input lỗi chặn deployment; không provision khi Save.

@@ -6,6 +6,7 @@ boundary ResourceDefinitionController as API
 control ResourceDefinitionService as Service
 entity ResourceDefinition as Validator
 control DriverContractInspector as Inspector
+control ModuleBundleResolver as Modules
 database ResourceTypeRepository as TypeRepo
 database ConnectionRepository as ConnectionRepo
 database ResourceDefinitionRepository as DefinitionRepo
@@ -16,7 +17,7 @@ API -> API: Authenticate session org and PE/Admin
 API -> Service: ListDefinitionCapabilities(ctx, org)
 Service -> TypeRepo: ListResourceTypes(org)
 TypeRepo --> Service: scoped input schemas
-Service -> Inspector: Inspect embedded supported modules
+Service -> Inspector: Read verified module metadata
 Inspector --> Service: types/defaults/executor-owned contract
 Service --> API: safe pairs and variable metadata (no writes)
 API --> PE: 200 capabilities
@@ -52,9 +53,9 @@ end note
 Service -> Service: Reject public existing-cluster and reserved keys [BR-08, BR-17]
 Service -> TypeRepo: ListResourceTypes(orgID) [MS-04]
 TypeRepo --> Service: ResourceType
-Service -> Service: Reject nonempty VPC/EKS ConnectionKey [BR-08]
+Service -> Service: Reject explicit AWS account/region override (all AWS modules) [BR-08]
 note right of Service: VPC/EKS registration needs no Environment.
-opt Aurora or optional Kubernetes explicit connection
+opt Optional Kubernetes explicit connection
 Service -> ConnectionRepo: GetConnection(connectionID) + READY/org check [MS-04]
 ConnectionRepo --> Service: Connection
 end
@@ -63,7 +64,9 @@ alt score-k8s workload Definition
   Service -> Service: Validate installed immutable RenderBundle [BR-15/16]
   Service -> Service: Pin server-owned bundle fingerprint
 else infrastructure Definition
-  Service -> Inspector: Inspect(embedded module) [MS-07]
+  Service -> Modules: Check Admin source allowlist, fetch commit/digest, verify content
+  Modules --> Service: verified immutable bundle
+  Service -> Inspector: Inspect(verified immutable module) [MS-07]
   Inspector --> Service: DriverContract + fingerprint
 end
 Service -> DefinitionRepo: ListResourceDefinitions(orgID) [MS-06]

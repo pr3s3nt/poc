@@ -1,16 +1,24 @@
 ---
 id: UC-16-REALIZATION
 artifact: use-case-realization
-status: draft
-last_reviewed: 2026-10-12
+status: current
+last_reviewed: 2026-10-13
 ---
 
-# UC-16 — Use Case Realization (design pending)
+# UC-16 — Use Case Realization
 
 This collaboration traces the approved [specification](specification.md).
 Application keys use the virtual Score `environment` resource and
 `${resources.env.KEY}` syntax. HTTP and state contracts are defined in
 [OC-12/OC-16](../../architecture/contracts/operation-contracts.md).
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Responsibilities
 
@@ -81,3 +89,11 @@ and pending deletes are excluded. Configuration control prepares all changes;
 one atomic persistence command writes the immutable revision and affected drafts
 under config/env/draft CAS. UC-16 editor and UC-05 consume the new draft version;
 current set and runtime are untouched.
+
+## Terraform v2 class metadata collaboration
+
+WorkloadEditor loads Type schemas plus safe catalog class/provider capabilities;
+projects class choice per dependency and retains advanced/imported values. Save
+serializes resources.<alias>.class/params/shared ID through existing Score path;
+no module/provider credential input. Metadata failure blocks unvalidated save,
+late responses cannot overwrite selections. Preview/Deploy still separate services.

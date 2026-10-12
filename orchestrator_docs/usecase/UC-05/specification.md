@@ -2,10 +2,18 @@
 id: UC-05-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-05 — Validate and Preview Score Changes
+
+## V2 design scope
+
+[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
+Terraform v2 sections in this use-case specification/realization define the
+required next implementation. They supersede conflicting baseline driver/account/
+renderer/state constraints. Current delivered behavior remains separately tracked
+in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Mục tiêu
 
@@ -171,3 +179,22 @@ Preview đọc drafts mới, liệt kê workloads bị ảnh hưởng và pin co
 set versions. Deploy vẫn tường minh; token trước rename bị stale. Rename-only
 hoặc delete có thể để reference thiếu và Preview phải chặn Deploy. Không đổi
 runtime/current set hoặc Environment khác khi lưu.
+
+## Terraform v2 — required Preview
+
+- **V2-01:** Pending Preview từ form hiển thị mỗi dependency: type/class,
+  Definition, module ID/immutable revision, provider target/account/region,
+  ownership và intended create/update/retained state; renderer score-k8s bundle
+  cho mỗi Workload. Không hiển thị secrets/state/credential refs.
+- **V2-02:** Chặn required/typed/bounds input hoặc mapping sai có thể kiểm tra
+  trước execution; no matching Definition/tie/bundle thiếu cũng chặn. Giữ
+  pure planning: không Terraform apply, remote fetch, score generation hoặc
+  secret resolution. Module metadata lấy từ verified registry snapshot.
+- **V2-03:** Pin module/provider/binary digests, target/generation, state identity
+  và resource versions cùng versions/token đã có. Intent đổi cần Preview mới.
+  No matching renderer là lỗi; thay BR-09 native-default trong v2.
+- **V2-04:** Đổi class/module/target phải hiển thị replacement intent nếu có,
+  giữ tài nguyên cũ. Ordinary Deploy không có quyền destroy/replace hiện hữu;
+  trường hợp cần replacement qua riêng confirmed new-identity/generation flow
+  hoặc bị chặn trước apply, không tự migrate dữ liệu. Preview logic không
+  khẳng định đã có exact Terraform plan khi runtime inputs chưa resolve.

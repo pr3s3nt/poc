@@ -81,7 +81,7 @@ package "Execution" {
   class ExecutorRegistry
   class OutputContractValidator
   interface ResourceExecutor {
-    +Provision(ctx, resource, inputs, priorState): ExecutionResult
+    +Execute(ctx, action, instance, inputs, stateRef): ExecutionResult
   }
   interface WorkloadRenderer {
     +Render(ctx, request): List<Manifest>
@@ -95,7 +95,6 @@ package "Execution" {
     +Reconcile(ctx, target, route)
   }
   class TerraformExecutor
-  class KubernetesExecutor
   class ConnectionCredentialResolver
   class ExistingClusterAdapter
 }
@@ -253,7 +252,6 @@ ResourceProvisioningService --> ExecutorRegistry
 ResourceProvisioningService --> OutputContractValidator
 ExecutorRegistry --> ResourceExecutor
 ResourceExecutor <|.. TerraformExecutor
-ResourceExecutor <|.. KubernetesExecutor
 ResourceExecutor <|.. ExistingClusterAdapter
 
 PlanningService --> ScoreConverter
@@ -306,7 +304,6 @@ ConnectionService --> ConnectionRepository
 ConnectionService --> ConnectionCredentialStore
 ConnectionCredentialResolver --> ConnectionCredentialStore
 ConnectionCredentialResolver --> ConnectionRepository
-KubernetesExecutor --> ConnectionCredentialResolver
 ExistingClusterAdapter --> ConnectionCredentialResolver
 WorkloadDeployer --> ConnectionCredentialResolver
 DeploymentService --> EnvironmentRepository
@@ -360,4 +357,46 @@ AWS and other resources retain DefinitionMatcher.
 end note
 
 ResourceDefinitionService ..> DefinitionMatcher : pure criteria + connection guard
+class TerraformModuleBundle <<entity>> {
+  +Revision: immutable
+  +ContentSHA256: string
+  +ProviderPins: object
+  +InputOutputContract: object
+}
+class ModuleBundleResolver <<adapter>>
+class ModuleSourcePolicy <<control>>
+class TerraformResourceInstance <<aggregate>> {
+  +StateKey: opaque
+  +TargetGeneration: int64
+  +PhysicalIntent: safe object
+  +Ownership: ResourceOwnership
+}
+class TerraformStateSnapshot <<restricted integration state>>
+class TerraformStateLock <<entity>>
+class TerraformResourceAttempt <<entity>>
+class TerraformStateBackend <<boundary>>
+class ResourceCleanupService <<control>>
+interface TerraformStateRepository
+interface ResourceInstanceRepository
+interface ResourceAttemptRepository
+ResourceDefinition --> TerraformModuleBundle
+ResourceDefinitionService --> ModuleSourcePolicy
+ResourceDefinitionService --> ModuleBundleResolver
+ModuleBundleResolver ..> TerraformModuleBundle
+PlanningService ..> TerraformModuleBundle : metadata only
+ResourceProvisioningService --> ResourceInstanceRepository : persist intent before execution
+ResourceProvisioningService --> ResourceAttemptRepository
+TerraformResourceInstance "1" o-- "0..1" TerraformStateSnapshot
+TerraformResourceInstance "1" o-- "0..1" TerraformStateLock
+TerraformResourceInstance "1" o-- "0..*" TerraformResourceAttempt
+TerraformResourceInstance --> Environment : owner/generation
+TerraformResourceInstance --> ActiveResource : result association
+TerraformExecutor --> TerraformStateBackend
+TerraformExecutor --> ConnectionCredentialResolver
+TerraformStateBackend --> TerraformStateRepository : encrypted state / lock CAS
+TerraformStateBackend --> EnvironmentOperation : current owner/fencing checks
+ResourceCleanupService --> ResourceInstanceRepository
+ResourceCleanupService --> ResourceAttemptRepository
+ResourceCleanupService --> TerraformExecutor : explicit DESTROY
+ResourceCleanupService --> EnvironmentOperation : separate claim
 @enduml

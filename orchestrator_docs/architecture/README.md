@@ -2,7 +2,7 @@
 id: ARCHITECTURE-INDEX
 artifact: architecture-index
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-13
 ---
 
 # Shared Architecture Baseline
@@ -38,3 +38,12 @@ Planning là deterministic core, provisioning thực thi resource nodes, workloa
 Orchestrator Web Console là React + TypeScript application riêng, chỉ giao tiếp với Go backend qua same-origin JSON API. Nó khác với acceptance frontend workload mà orchestrator triển khai lên Kubernetes.
 
 Internal cluster binding follows [ADR-013](decisions/ADR-013-implicit-existing-cluster.md); cloud infrastructure and application resources retain Definition matching.
+
+## Terraform v2 accepted design
+
+- [ADR-014](decisions/ADR-014-terraform-v2-lifecycle.md)
+- [Module/provider contract](contracts/terraform-modules.md)
+- [Durable state/locking/cleanup contract](contracts/terraform-state.md)
+- [V2 acceptance scope](../operations/terraform-v2-acceptance.md)
+
+These are required v2 design; current implementation remains tracked separately.

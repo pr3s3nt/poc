@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # Database Schema
@@ -365,7 +365,7 @@ does not imply every workload has consumed that revision.
 
 ## Secret rule
 
-Credential values and secret resource outputs are never stored directly. `secret_ref` or structured secret references are stored; UC-09 redacts fields marked secret by contract metadata and never returns persisted resource `resolved_inputs`.
+Credential values and secret resource outputs are never stored directly in logical metadata. `secret_ref` or structured secret references are stored; UC-09 redacts fields marked secret by contract metadata and never returns persisted resource `resolved_inputs`. V2 Terraform state is a separate restricted encrypted blob as specified below; it may contain provider secret material and is never a public read model.
 
 ## ADR-010 rendering intent persistence
 
@@ -488,3 +488,110 @@ changed upsert drafts together. Configuration version advances once; draft_versi
 advances once only when drafts changed. Pending deletes, Environment version,
 current/applied pointers and old immutable refs remain unchanged. Rollback/CAS
 failure leaves all metadata unchanged. See OC-12 T30 for public behavior.
+
+## Terraform v2 schema design (ADR-014; not yet implemented)
+
+Canonical extension for the next current fresh baseline. Existing schema/code
+is tracked separately in CURRENT_STATE/IMP-021. No startup migration/import of
+v1 state or reset of retained user database is authorized by this design.
+Implementation uses a disposable new baseline database for v2 tests.
+
+### `terraform_module_bundles`
+
+Verified platform module registry: `id uuid PK`, `source_id text`, `module_id
+text`, `revision text`, `subdirectory text`, `content_sha256 text`,
+`terraform_version text`, `terraform_binary_sha256 text`, `provider_lock_digest
+text`, `contract jsonb`, `provider_requirements jsonb`, `status text`, timestamps.
+Unique `(source_id,module_id,revision,subdirectory,content_sha256)`; content and
+contract immutable after verification. Contract holds input/output/schema mappings,
+provider pins and transitive bundle metadata, never credentials/cache path.
+Definition `driver_inputs` references verified bundle identity plus mappings;
+plan pins immutable bundle snapshot/digests. Admin source allowlist is platform
+configuration, not a PE-authored trust root in this table.
+
+### `terraform_resource_instances`
+
+Write-ahead resource identity before provider calls: `id uuid PK`, Organization/
+Application/Environment FKs, `target_generation bigint`, `descriptor text`,
+`scope_type text`, `scope_id text`, `state_key text UNIQUE`, `active_resource_id
+uuid FK nullable`, `module_bundle_id uuid FK`, `target_ref jsonb`, `physical_intent
+jsonb`, `created_by_run_id text`, `status text`, `version bigint`, timestamps.
+Unique `(organization_id,environment_id,target_generation,descriptor,scope_type,
+scope_id)`; all referenced rows must share Organization. Identity immutable;
+module binding advances only under admitted owner after reviewed compatible update.
+No secret values in target_ref/physical_intent; stable names/tags/state refs only.
+
+Status enum: `PENDING`, `PROVISIONING`, `READY`, `FAILED`, `UNREFERENCED`,
+`INTERRUPTED`, `NEEDS_ATTENTION`, `DESTROYING`, `DESTROYED`. ActiveResource remains
+READY/UNREFERENCED or known baseline state while interruption details live here;
+no new Deployment status needed: failed execution uses FAILED with safe reason,
+Environment operation remains INTERRUPTED/held when old process outcome is unknown.
+Created/unreferenced/destroyed records retained, not cascade-deleted with drafts.
+
+### `terraform_states`
+
+`resource_instance_id uuid PK/FK`, `organization_id FK`, `ciphertext bytea`,
+`nonce bytea`, `key_id text`, `aad_revision bigint`, `lineage text`, `serial bigint`,
+`version bigint`, `updated_at timestamptz`. Empty state before first acknowledgement
+has no blob row; instance already exists. AES-GCM authenticated bytes according
+to state contract; key is outside PostgreSQL. State serial/lineage validated
+under current lock/fence before write. Identical same-lineage/serial write replay
+is acknowledged idempotently; differing bytes at same serial and older serial
+are rejected, without public secret-derived checksum. Ciphertext + serial/version commit atomically;
+no public state checksum based on raw secret-containing data. State and output
+metadata reads require distinct service capabilities. Empty terminal Terraform
+snapshot after destroy is retained for audit, not purged by generic DELETE.
+
+### `terraform_state_locks`
+
+One row per locked instance: `resource_instance_id uuid PK/FK`, `lock_id text`,
+`environment_operation_id uuid FK`, `owner text`, `fencing_generation bigint`,
+`lock_metadata jsonb`, `acquired_at`, `heartbeat_at`, `deadline timestamptz`.
+Safe lock metadata cannot contain raw Terraform lock diagnostics/host paths.
+Atomic claim and write/unlock compare operation current owner/fence + lock ID.
+Expired deadline does not automatically delete lock or release operation hold.
+Short-lived executor capabilities are stored in `terraform_executor_capabilities`:
+`token_hash text PK`, `organization_id FK`, `resource_instance_id FK`,
+`environment_operation_id FK`, `fencing_generation bigint`, `action text`,
+`expires_at timestamptz`. No plaintext token; invalidate on owner/fence change,
+never expose token read API. Every referenced scope/owner must be consistent.
+
+### `terraform_resource_attempts`
+
+`id uuid PK`, `resource_instance_id FK`, `environment_operation_id FK`,
+`deployment_id FK nullable`, `run_id text`, `attempt_number int`, `action text`
+(`CREATE`,`UPDATE`,`DESTROY`), `ownership text` (`CREATED_BY_RUN`,`PREEXISTING`,
+`UPDATED_BY_RUN`), `stage text`, `status text`, `module_snapshot jsonb`,
+`target_snapshot jsonb`, `observed_physical_ids jsonb`, `state_serial bigint nullable`,
+`safe_error_code text`, `recovery_handle text nullable`, timestamps/deadline.
+Unique `(environment_operation_id,resource_instance_id,attempt_number)`.
+Write before side effects; safe stage/provenance committed after each boundary.
+Unknown ownership cannot authorize cleanup. DeploymentResource projection carries
+safe stage/attempt/status references, never raw resolved inputs or CLI artifacts.
+
+### Cleanup persistence
+
+Use `environment_operations.kind = RESOURCE_CLEANUP` with persisted request scope/
+run/explicit instance IDs, expected versions, owner/fence and per-instance results
+from attempts. Operation stages REQUESTED/CHECKING/DESTROYING/VERIFYING; terminal
+SUCCEEDED/FAILED/INTERRUPTED and safe NEEDS_ATTENTION metadata. SUCCEEDED requires
+provider absence checks for every requested owned instance; unresolved IDs remain
+queryable. No schema/table cascade may destroy audit/state before cleanup proof.
+
+### V2 consistency rules
+
+- Environment claim before state lock; foreign instance/token requests rejected.
+- Lock/state write and corresponding owner/fence checks are atomic; failed writes
+  cannot advance serial/version. State acknowledgement does not imply node READY:
+  outputs/secrets/readiness still must validate before ActiveResource result commit.
+- State key never includes run ID/Definition version; different generation or
+  Environment never aliases the same instance. Shared logical scope includes env.
+- Platform PostgreSQL persists restricted ciphertext alongside logical metadata;
+  ordinary secret values remain in Vault. Generated database/cache password refs
+  are persisted before apply and preserved across attempts.
+- Fresh baseline and JSON test format changes must fail closed for unsupported
+  stores; no automatic retained reset/backfill. Real v2 state backend requires
+  PostgreSQL, not local JSON/memory pretending to be durable state.
+- D14 backup/restore is deferred; this schema extension does not claim DR or key
+  rotation. Source of locking/encryption protocol is the
+  [state contract](../contracts/terraform-state.md).

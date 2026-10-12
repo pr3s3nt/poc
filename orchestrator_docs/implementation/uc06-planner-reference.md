@@ -2,7 +2,7 @@
 id: UC-06-PLANNER-REFERENCE
 artifact: technical-reference-analysis
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # UC-06 Planner Reference Analysis
@@ -248,3 +248,14 @@ Product exposes only ENVIRONMENT infrastructure scope, Environment/generation
 required by fixtures belongs to backend/test/conformance; no default product
 legacy mode or seed-template upgrade remains. Fixtures 14/22/25/26 retain matching
 expectations; criteria scoring and ties in match.go are unchanged.
+
+## Terraform v2 impact boundary
+
+[ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and current
+UC-03/05/06/07/08 V2 rules supersede runtime embedded-only/explicit database
+account/native-default assumptions. Pure planner reads verified module metadata,
+pins module/provider/renderer/target/state identity and validates classes/contracts;
+no download, Terraform CLI/provider call or secret resolution. Descriptor/Delta/
+weighted criteria/topological semantics and reference fixtures remain unchanged.
+V2 extension tests are separate; do not edit read-only reference fixtures or use
+harness source map/native-default behavior as an execution escape hatch.

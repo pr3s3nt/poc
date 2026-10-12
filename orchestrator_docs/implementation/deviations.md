@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-13
 ---
 
 # Known design and implementation deviations
@@ -14,7 +14,7 @@ roadmap/deferred capability nằm trong [backlog](../backlog/README.md).
 |---|---|---|
 | IMP-002 | UC-01 đã hoàn tất. UC-02..04 insert-only registration, safe errors, no-restart catalog và PostgreSQL race/rollback/reopen đã verified local ngày 2026-09-30. AWS registration/credential flow chưa có. Kubernetes kubeconfig credential store và executor resolution đã được review/verified ngày 2026-10-06; upload recording xác minh kind read-only, không phải live deployment. Identifier policy và Driver Inputs shape boundary đã implemented/verified local ngày 2026-10-02; UC-16 parse/draft Save cũng đã validate toàn bộ non-virtual resource params trước mutation. AWS access key + Vault storage đã chốt theo ADR-009 nhưng onboarding chưa có; arbitrary new Type chưa có runtime-supported Definition pair. | Không tuyên bố toàn bộ UC-02..04 complete từ lát cắt local; giữ AWS credential onboarding/execution và arbitrary-Type/runtime-pair limitation tách biệt; validation gaps đã đóng theo evidence ngày 2026-10-02. UC-01 không còn thuộc deviation này; production RBAC ngoài MVP. |
 | IMP-006 | Six rejected challenge fixtures mới chỉ so rejection status, chưa so structured `phase/code/path`. | D02 vẫn deferred; không tuyên bố full rejection-contract conformance. |
-| IMP-007 | Terraform inspector hiểu remote source identity nhưng runtime chỉ execute embedded `vpc`/`eks`/`aurora`. | D03 vẫn deferred; không nhận remote module là supported runtime contract. |
+| IMP-007 | Terraform inspector hiểu remote source identity nhưng runtime chỉ execute embedded `vpc`/`eks`/`aurora`. | D03 đã chọn vào v2 theo ADR-014 nhưng implementation chưa có; giữ gap tới khi verified immutable registry/runtime hoàn tất. |
 | IMP-014 | The self-hosted Orchestrator on kind receives the host's admin kubeconfig and the scoped Vault token as UC-12 secrets injected as environment variables. Logical state is now durable in PostgreSQL, but cluster credential delivery remains over-privileged. | Treat the self-hosted instance as a kind demonstration only, not a production deployment model. Do not reuse the admin-kubeconfig delivery outside kind; replace it with a scoped ServiceAccount or the UC-04 credential store before any shared use. |
 
 Humanitec standalone Delta API, asynchronous deploy, whole-set workload apply và
@@ -98,3 +98,25 @@ stored identity on mismatch. `TestProvision_ReuseNeverCrossesAccounts` proves
 same-account reuse and VPC/EKS/Aurora cross-account rejection; repository failures
 other than NotFound also stop execution. See
 [T16 local evidence](../verification/2026-10-11-T16-environment-aws-account.md).
+
+<a id="imp-021-terraform-v2-designimplementation-gap"></a>
+
+## IMP-021 — Terraform v2 design/implementation gap
+
+Accepted [ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md)
+and use-case V2 rules intentionally change required behavior. Current code is
+not yet conformant: Terraform executes embedded VPC/EKS/Aurora with temporary
+run state/names; namespace/database still use Kubernetes executor; AWS credential
+onboarding and Environment-only Aurora/ElastiCache provider binding need implementation;
+score-k8s is optional/internal-only; no Redis app cache or v2 module/source/class
+UI, durable encrypted state/locks/cleanup provenance and full live acceptance.
+
+This is a planned implementation gap, not permission to alter canonical design
+to match old code. Codex updates docs; Claude implements code/tests through
+clauded/tmux under AGENTS.md. Delivery gates: backend/frontend checks, real
+PostgreSQL state/locking tests, module validate/plan review, three real UI/app
+happy paths + two exceptions with video/assertions and verified owned cleanup.
+D12–D14 remain deferred after v2; do not mark them implemented as part of this gap.
+No existing evidence or read-only STS check proves v2. Close only after review,
+validation, required live acceptance and cleanup; update CURRENT_STATE/code map/
+traceability with actual paths/tests/evidence then.

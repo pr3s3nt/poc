@@ -5,11 +5,12 @@ skinparam classAttributeIconSize 0
 class ConnectionController <<boundary>> {
   +InspectKubeconfig(document)
   +RegisterKubeconfig(command)
-  +RegisterAWSDriverAccount(command): future
+  +RegisterAWSDriverAccount(command)
 }
 class ConnectionService <<control>> {
   +InspectKubeconfig(ctx, org, document): ContextMetadata
   +RegisterKubeconfig(ctx, org, cmd): Connection
+  +RegisterAWSDriverAccount(ctx, org, cmd): Connection
 }
 class KubeconfigParser <<control>> {
   +Inspect(document): ContextMetadata
@@ -18,7 +19,7 @@ class KubeconfigParser <<control>> {
 class KubernetesConnectionVerifier <<adapter>> {
   +Verify(ctx, selectedCredential): Verification
 }
-class AWSConnectionVerifier <<future adapter>>
+class AWSConnectionVerifier <<adapter>>
 class Connection <<entity>> {
   +Name
   +Kind
@@ -43,7 +44,7 @@ ConnectionService --> KubeconfigParser
 ConnectionService --> ConnectionCredentialStore
 ConnectionService --> ConnectionRepository
 ConnectionService --> KubernetesConnectionVerifier
-ConnectionService --> AWSConnectionVerifier : future
+ConnectionService --> AWSConnectionVerifier : identity/region/capabilities
 ConnectionService ..> Connection
 ConnectionCredentialResolver --> ConnectionRepository
 ConnectionCredentialResolver --> ConnectionCredentialStore
