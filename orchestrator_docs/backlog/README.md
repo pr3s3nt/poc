@@ -2,7 +2,7 @@
 id: BACKLOG-INDEX
 artifact: backlog-index
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-13
 ---
 
 # Backlog
@@ -21,6 +21,7 @@ record này không phải accepted product behavior hoặc architecture.
 | [D07](D07-planner-catalog-invariant-behavior.md) | Validation boundary cho Resource Definition catalog | Deferred |
 | [D08](D08-delta-snapshot-application-id.md) | Ownership của Application identity trên Deployment Delta Snapshot | Resolved into canonical schema |
 | [D09](D09-application-cluster-connection-ownership.md) | Chồng trách nhiệm chọn cluster giữa Application và Resource Definition | Resolved design via ADR-011; implementation transition IMP-016 |
+| [D10](D10-custom-resource-drivers.md) | Custom Resource Drivers; sau v2 Echo/External và Terraform | Deferred — sau v2 |
 
 Các phase tương lai UC-01..UC-07 được theo dõi ở current state/iteration planning;
 không tạo backlog record chỉ để sao chép use-case scope đã chấp nhận.
