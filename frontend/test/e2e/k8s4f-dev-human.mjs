@@ -13,7 +13,7 @@
 import { expect } from '@playwright/test';
 import { createHash, randomBytes } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { createCaptions } from './captions.mjs';
 import { acceptanceApp, addWorkload, createApplication, createHuman, installCursor, previewAndDeploy, putKeys, reviewAcceptancePage, setEnvironmentConnections, TYPE_DELAY } from './human.mjs';
@@ -27,11 +27,16 @@ for (const name of ['ORCH_E2E_URL', 'ORCH_E2E_RUN_ID', 'ORCH_E2E_KUBE_CONTEXT', 
 }
 const baseURL = env.ORCH_E2E_URL;
 const runId = env.ORCH_E2E_RUN_ID;
+// Loaded acceptance image tag, separate from the run ID; forbidden IDs are retained apps that a new app must never equal.
+const imageTag = env.ORCH_E2E_IMAGE_TAG ?? runId;
+const forbiddenAppIds = (env.ORCH_E2E_FORBIDDEN_APP_IDS ?? '').split(',').filter(Boolean);
+const expectEmptyJobs = env.ORCH_E2E_EXPECT_EMPTY_JOBS === '1';
 const kubeContext = env.ORCH_E2E_KUBE_CONTEXT;
 const evidenceDir = env.ORCH_E2E_EVIDENCE_DIR;
 const kubeconfigFile = env.ORCH_E2E_KUBECONFIG_FILE;
 const forwardPort = env.ORCH_E2E_FORWARD_PORT;
 if (!/^[a-z0-9-]+$/.test(runId)) throw new Error('ORCH_E2E_RUN_ID must be a DNS label');
+if (!/^[a-z0-9][a-z0-9._-]*$/.test(imageTag)) throw new Error('ORCH_E2E_IMAGE_TAG is not a valid image tag');
 const { width, height } = screenSize(env);
 const videoPath = `${evidenceDir}/k8s4f-dev-raw.mp4`;
 const connectionName = env.ORCH_E2E_CONNECTION_NAME ?? 'K8S-4F';
@@ -40,6 +45,15 @@ const applicationName = env.ORCH_E2E_APPLICATION_NAME ?? runId;
 const subdomain = env.ORCH_E2E_SUBDOMAIN ?? runId;
 const reuseApp = env.ORCH_E2E_REUSE_APP === '1';
 const reuse = env.ORCH_E2E_REUSE === '1';
+// Partial resume: only the already registered Connection is reused; the Store and app are created through the UI.
+const connOnly = env.ORCH_E2E_REUSE_CONNECTION_ONLY === '1';
+// Resume reuses only records named by the approved run: explicit keys, never a name search alone.
+const approvedConnectionKey = env.ORCH_E2E_REUSE_CONNECTION_KEY ?? '';
+const approvedStoreKey = env.ORCH_E2E_REUSE_STORE_KEY ?? '';
+const approvedApplicationId = env.ORCH_E2E_REUSE_APPLICATION_ID ?? '';
+if (reuse && !(approvedConnectionKey && approvedStoreKey)) throw new Error('resume requires ORCH_E2E_REUSE_CONNECTION_KEY and ORCH_E2E_REUSE_STORE_KEY from the approved run record');
+if (connOnly && (reuse || reuseApp || approvedStoreKey || approvedApplicationId || !approvedConnectionKey)) throw new Error('connection-only resume needs exactly ORCH_E2E_REUSE_CONNECTION_KEY (no store/app/full-resume inputs)');
+if (reuseApp && !(reuse && approvedApplicationId)) throw new Error('application resume requires ORCH_E2E_REUSE=1 and ORCH_E2E_REUSE_APPLICATION_ID');
 const storeToken = readFileSync(env.ORCH_E2E_STORE_TOKEN_FILE, 'utf8').trim();
 const kubeconfig = readFileSync(kubeconfigFile, 'utf8');
 const credentialValues = [storeToken, ...[...kubeconfig.matchAll(/^\s*(?:token|client-key-data|client-certificate-data):\s*(\S+)\s*$/gm)].map((m) => m[1].replace(/^["']|["']$/g, ''))].filter((v) => v.length >= 12);
@@ -90,7 +104,7 @@ try {
 
   const secret = randomBytes(32).toString('hex');
   redactions.push(secret);
-  const app = acceptanceApp(runId, secret, createHash('sha256').update(secret).digest('hex'));
+  const app = acceptanceApp(imageTag, secret, createHash('sha256').update(secret).digest('hex'));
   const noLeaks = async ({ activeField = false } = {}) => assertNoSecretLeaks(page, [secret, ...credentialValues], { allow: activeField ? ['input[type="password"]'] : [] });
   async function signIn(user) {
     await h.showCursor();
@@ -114,22 +128,24 @@ try {
     return JSON.parse(text);
   };
 
-  // 1. Platform Engineer: baseline of the existing, unrelated records.
+  // 1. Platform Engineer: baseline of every safe pre-existing record. An empty
+  // catalog is valid (clean baseline); nothing historical is required.
   caption('Bước 1: Kỹ sư nền tảng đăng nhập Web Console Docker đang chạy lâu dài (http://127.0.0.1:3001)');
   mark('sign-in');
   await signIn('platform-engineer');
+  // ignoredKey is an approved resume record; a fresh run excludes nothing.
+  const snapshotRecords = (records, ignoredKey) => Object.fromEntries(records.filter((r) => ignoredKey == null || r.key !== ignoredKey).map((r) => [r.key, JSON.stringify(r)]));
   const baseline = await apiJson('/api/v1/connections');
-  const oldConnection = baseline.connections.find((c) => c.key === 'k8s-4f');
-  expect(oldConnection, 'existing k8s-4f Connection').toBeTruthy();
-  const baselineSnapshot = JSON.stringify(oldConnection);
-  const baselineStoreRecords = Object.fromEntries((await apiJson('/api/v1/secret-stores')).secretStores.map((s) => [s.key, JSON.stringify(s)]));
+  const baselineConnectionRecords = snapshotRecords(baseline.connections, reuse || connOnly ? approvedConnectionKey : null);
+  const baselineStoreRecords = snapshotRecords((await apiJson('/api/v1/secret-stores')).secretStores, reuse ? approvedStoreKey : null);
+  checks(`baseline: ${Object.keys(baselineConnectionRecords).length} pre-existing Connection(s) [${Object.keys(baselineConnectionRecords).join(',')}], ${Object.keys(baselineStoreRecords).length} pre-existing store(s) [${Object.keys(baselineStoreRecords).join(',')}]`);
 
   // 2. Register the NEW Connection through the UI (kubeconfig only via file chooser).
-  caption('Bước 2: Mở Platform → Connections; Connection k8s-4f cũ giữ nguyên, không sửa');
+  caption(`Bước 2: Mở Platform → Connections; ${baseline.connections.length > 0 ? 'các Connection có sẵn giữ nguyên, không sửa' : 'danh sách còn trống (baseline sạch)'}`);
   const rows = () => page.getByRole('table', { name: 'Kết nối đã đăng ký' }).locator('tbody tr');
   let connectionKey;
   let storeKey;
-  if (reuse) {
+  if (reuse || connOnly) {
     // Resume after an aborted run: the records registered through the UI by that run are reused.
     // Identity preflight, before anything is deployed: exactly one READY match,
     // compared with the target derived from the private kubeconfig input.
@@ -139,19 +155,28 @@ try {
     expect(inspectedContexts.length, 'kubeconfig contexts').toBe(1);
     const intended = { kubeContext: inspectedContexts[0].name, endpoint: inspectedContexts[0].endpoint };
     expect(intended.kubeContext).toBe(kubeContext);
-    const connectionMatches = baseline.connections.filter((c) => c.name === connectionName && c.key !== 'k8s-4f');
-    expect(connectionMatches.length, 'reusable Connection matches').toBe(1);
+    const connectionMatches = baseline.connections.filter((c) => c.key === approvedConnectionKey);
+    expect(connectionMatches.length, 'approved Connection record').toBe(1);
     const [reusedConnection] = connectionMatches;
+    expect(reusedConnection.name, 'approved Connection name').toBe(connectionName);
     expect({ kind: reusedConnection.kind, auth: reusedConnection.authenticationType, status: reusedConnection.status, kubeContext: reusedConnection.config?.kubeContext, endpoint: reusedConnection.config?.endpoint })
       .toEqual({ kind: 'KUBERNETES', auth: 'KUBECONFIG', status: 'READY', kubeContext: intended.kubeContext, endpoint: intended.endpoint });
     connectionKey = reusedConnection.key;
-    const storeMatches = (await apiJson('/api/v1/secret-stores')).secretStores.filter((st) => st.name === storeName);
-    expect(storeMatches.length, 'reusable Secret Store matches').toBe(1);
+    if (connOnly) {
+      checks(`connection-only resume: Connection ${connectionKey} matched by approved key and identity (${connectionName}, KUBECONFIG, READY, ${intended.kubeContext}, ${intended.endpoint}); store and app are created next`);
+      caption(`Connection ${connectionName} (${connectionKey}) đã đăng ký ở lần chạy trước, dùng lại; Secret store và Application sẽ tạo mới qua UI`);
+      await h.click(page.getByRole('link', { name: /(^|\s)Kết nối$/ }));
+      await h.pause(READ);
+      mark('connection-ready');
+    } else {
+    const storeMatches = (await apiJson('/api/v1/secret-stores')).secretStores.filter((st) => st.key === approvedStoreKey);
+    expect(storeMatches.length, 'approved Secret Store record').toBe(1);
     const [reusedStore] = storeMatches;
+    expect(reusedStore.name, 'approved Secret Store name').toBe(storeName);
     expect({ status: reusedStore.status, backend: reusedStore.backendAddress, workload: reusedStore.workloadAddress, mount: reusedStore.mount, authMount: reusedStore.authMount, auth: reusedStore.verification?.kubernetesAuth })
       .toEqual({ status: 'READY', backend: env.ORCH_E2E_STORE_BACKEND, workload: env.ORCH_E2E_STORE_WORKLOAD, mount: 'kv', authMount: 'kubernetes', auth: 'CONFIGURED' });
     storeKey = reusedStore.key;
-    checks(`reuse-preflight: Connection ${connectionKey} and store ${storeKey} matched by identity (single READY match)`);
+    checks(`reuse-preflight: Connection ${connectionKey} and store ${storeKey} matched by approved key and identity`);
     expect(connectionKey && storeKey, 'reusable Connection and Secret Store').toBeTruthy();
     caption(`Connection ${connectionName} (${connectionKey}) và Secret store ${storeName} (${storeKey}) đã đăng ký từ lần chạy trước, dùng lại`);
     await h.click(page.getByRole('link', { name: /(^|\s)Kết nối$/ }));
@@ -160,11 +185,14 @@ try {
     await h.pause(READ);
     mark('connection-ready');
     await signOut();
-  } else {
+    }
+  }
+  if (!reuse) {
+  if (!connOnly) {
   await h.click(page.getByRole('link', { name: /(^|\s)Kết nối$/ }));
   await expect(page.getByRole('heading', { name: 'Kết nối', level: 1 })).toBeVisible();
-  await expect(rows().filter({ hasText: 'k8s-4f' }).first()).toContainText('Sẵn sàng');
-  await h.moveTo(rows().first());
+  if (baseline.connections.length > 0) await h.moveTo(rows().first());
+  else await expect(page.getByText('Chưa có kết nối nào được đăng ký.')).toBeVisible();
   mark('connections-list');
   await h.pause(READ);
   caption(`Bước 3: Đăng ký Connection mới tên đúng "${connectionName}": nhập tên, chọn file kubeconfig của cụm kind mới (nội dung không hiển thị)`);
@@ -198,7 +226,7 @@ try {
   const created = JSON.parse(createdText);
   connectionKey = created.key;
   expect(created).toMatchObject({ name: connectionName, kind: 'KUBERNETES', authenticationType: 'KUBECONFIG', status: 'READY' });
-  expect(connectionKey, 'server-assigned key must differ from the existing k8s-4f').not.toBe('k8s-4f');
+  expect(Object.keys(baselineConnectionRecords), 'server-assigned key must be new').not.toContain(connectionKey);
   expect(created.verification?.verified).toBe(true);
   await expect(page.getByRole('status')).toContainText(`Đã đăng ký kết nối ${connectionName} (${connectionKey}).`);
   const entry = rows().filter({ has: page.getByText(connectionName, { exact: true }) });
@@ -209,19 +237,20 @@ try {
   checks(`connection: name=${connectionName} key=${connectionKey} status=READY verified=true`);
   await h.pause(READ);
   await noLeaks();
+  }
 
   caption('Bước 4: Platform → Secret stores: đăng ký Vault riêng của cụm mới (token dán vào ô mật khẩu, luôn bị che)');
   await h.click(page.getByRole('link', { name: /(^|\s)Kho bí mật$/ }));
   await expect(page.getByRole('heading', { name: 'Kho bí mật', level: 1 })).toBeVisible();
   await h.pause(SHORT_READ);
-  await h.type(page.getByLabel('Tên kho'), storeName);
-  await h.type(page.getByLabel('Địa chỉ backend'), env.ORCH_E2E_STORE_BACKEND);
-  await h.type(page.getByLabel('Địa chỉ workload'), env.ORCH_E2E_STORE_WORKLOAD);
+  await h.type(page.getByLabel('Tên kho', { exact: true }), storeName);
+  await h.type(page.getByRole('textbox', { name: 'Địa chỉ backend' }), env.ORCH_E2E_STORE_BACKEND);
+  await h.type(page.getByLabel('Địa chỉ workload', { exact: true }), env.ORCH_E2E_STORE_WORKLOAD);
   await h.click(page.getByRole('button', { name: 'Hiện nâng cao' }));
-  await h.type(page.getByLabel('Mount KV v2'), 'kv', { replace: true });
-  await h.type(page.getByLabel('Mount xác thực Kubernetes'), 'kubernetes', { replace: true });
-  await h.paste(page.getByLabel(/^Token/), storeToken);
-  await expect(page.getByLabel(/^Token/)).toHaveAttribute('type', 'password');
+  await h.type(page.getByLabel('Mount KV v2', { exact: true }), 'kv', { replace: true });
+  await h.type(page.getByLabel('Mount xác thực Kubernetes', { exact: true }), 'kubernetes', { replace: true });
+  await h.paste(page.getByLabel('Token Vault', { exact: true }), storeToken);
+  await expect(page.getByLabel('Token Vault', { exact: true })).toHaveAttribute('type', 'password');
   await noLeaks({ activeField: true });
   mark('store-form');
   const storeRegistered = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/secret-stores', { timeout: 90_000 });
@@ -241,7 +270,7 @@ try {
   caption(`Kết quả: Secret store "${storeName}" READY (key ${storeKey}); Kubernetes auth đã cấu hình`);
   checks(`secret-store: name=${storeName} key=${storeKey} status=READY`);
   await h.pause(READ);
-  expect((await page.getByLabel(/^Token/).inputValue()) === '', 'token field cleared').toBe(true);
+  expect((await page.getByLabel('Token Vault', { exact: true }).inputValue()) === '', 'token field cleared').toBe(true);
   await noLeaks();
   await signOut();
   }
@@ -255,12 +284,14 @@ try {
     await h.click(page.getByText(applicationName, { exact: true }).first());
     await expect(page.getByRole('heading', { name: applicationName })).toBeVisible();
     appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];
+    expect(appId, 'approved Application id').toBe(approvedApplicationId);
     await setEnvironmentConnections(h, applicationName, { staging: connectionKey });
   } else {
     appId = await createApplication(h, applicationName, subdomain, { connections: { staging: connectionKey } });
   }
+  expect(forbiddenAppIds, 'new Application id must not equal a retained Application id').not.toContain(appId);
   const namespace = `app-${appId}-staging`;
-  writeFileSync(`${evidenceDir}/run.json`, JSON.stringify({ applicationId: appId, applicationName, namespace, connectionKey, storeKey, imageTag: runId }, null, 2));
+  writeFileSync(`${evidenceDir}/run.json`, JSON.stringify({ applicationId: appId, applicationName, namespace, connectionKey, storeKey, imageTag }, null, 2));
   await expect(page.getByLabel('Đích triển khai').first()).toContainText(`Kết nối ${connectionName} (${connectionKey})`);
   mark('application-created');
   caption(`Kết quả: Application "${applicationName}" (id ${appId}), Staging chạy trên Connection ${connectionName} (${connectionKey})`);
@@ -314,6 +345,7 @@ try {
   mark('cluster-verified');
 
   // 9. Retained frontend URL (detached port-forward owned by the user) opened by typing.
+  if (existsSync(env.ORCH_E2E_FORWARD_PIDFILE)) throw new Error('forward pidfile already exists; existing supervisor preserved');
   const forward = spawn('setsid', ['-f', env.ORCH_E2E_FORWARD_SCRIPT, kubeContext, namespace, 'frontend', forwardPort, '8080', env.ORCH_E2E_FORWARD_PIDFILE], { stdio: 'ignore', detached: true });
   forward.unref();
   const appURL = `http://127.0.0.1:${forwardPort}/`;
@@ -326,6 +358,12 @@ try {
   x11.keys(['Return']);
   await expect(page).toHaveURL(appURL);
   mark('app-opened');
+  if (expectEmptyJobs) {
+    // Fresh workload database: no job may exist before this run submits its first one.
+    await expect(page.getByRole('heading', { name: 'Acceptance application' })).toBeVisible();
+    await expect(page.locator('#jobs tr.job'), 'new workload database must hold no jobs yet').toHaveCount(0);
+    checks('app: new workload database empty before the first submitted job');
+  }
   await reviewAcceptancePage(h, runId, secret);
   const payload = `hello from ${runId}`;
   const job = page.locator('#jobs tr.job').filter({ hasText: payload });
@@ -359,17 +397,20 @@ try {
   caption(`Kết quả: Application vẫn dùng Connection ${connectionName} (${connectionKey}); hai workload còn nguyên`);
   await h.pause(5000);
   await signOut();
-  caption('Bước 13: Kỹ sư nền tảng xem lại danh sách Connection: bản k8s-4f cũ không đổi, bản mới đang READY');
+  caption('Bước 13: Kỹ sư nền tảng xem lại danh sách Connection: bản ghi có sẵn không đổi, bản mới đang READY');
   await signIn('platform-engineer');
   await h.click(page.getByRole('link', { name: /(^|\s)Kết nối$/ }));
   await expect(rows().filter({ hasText: connectionKey }).first()).toContainText('Sẵn sàng');
   await h.moveTo(rows().filter({ hasText: connectionKey }).first());
   const after = await apiJson('/api/v1/connections');
-  expect(JSON.stringify(after.connections.find((c) => c.key === 'k8s-4f')), 'existing k8s-4f Connection unchanged').toBe(baselineSnapshot);
-  const storesAfter = Object.fromEntries((await apiJson('/api/v1/secret-stores')).secretStores.map((s) => [s.key, JSON.stringify(s)]));
+  const connectionsAfter = snapshotRecords(after.connections, connectionKey);
+  expect(Object.keys(connectionsAfter).sort(), 'pre-existing Connection set unchanged').toEqual(Object.keys(baselineConnectionRecords).sort());
+  for (const [key, record] of Object.entries(baselineConnectionRecords)) expect(connectionsAfter[key], `Connection ${key} record unchanged`).toBe(record);
+  const storesAfter = snapshotRecords((await apiJson('/api/v1/secret-stores')).secretStores, storeKey);
+  expect(Object.keys(storesAfter).sort(), 'pre-existing store set unchanged').toEqual(Object.keys(baselineStoreRecords).sort());
   for (const [key, record] of Object.entries(baselineStoreRecords)) expect(storesAfter[key], `store ${key} record unchanged`).toBe(record);
-  expect(Object.keys(storesAfter)).toContain(storeKey);
-  checks(`persistence: reload OK; old Connection k8s-4f record unchanged; new key ${connectionKey}; pre-existing store records unchanged (${Object.keys(baselineStoreRecords).join(',')})`);
+  expect((await apiJson('/api/v1/secret-stores')).secretStores.map((s) => s.key)).toContain(storeKey);
+  checks(`persistence: reload OK; pre-existing Connection records unchanged; new key ${connectionKey}; pre-existing store records unchanged (${Object.keys(baselineStoreRecords).join(',')})`);
   mark('final-connections');
   await h.pause(READ);
   caption('Hoàn tất: cụm kind-k8s-4f, ứng dụng và PostgreSQL được giữ lại');

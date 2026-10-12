@@ -511,8 +511,8 @@ The subsequent [retained dev deployment](verification/2026-10-09-k8s4f-dev-retai
 uses the persistent Docker Console to deploy sample FE/BE/PostgreSQL onto the
 new physical `kind-k8s-4f` cluster. New Connection `K8S-4F` (`k8s-4f-2`), a
 dedicated persistent workload Vault and VSO establish actual secret delivery;
-readiness/PVC, diagnostics and reload persistence pass. Both sample attempt and
-final Applications remain deployed. The reviewed Vietnamese-captioned video
+readiness/PVC, diagnostics and reload persistence pass. At that checkpoint both sample attempt and
+final Applications were deployed; T29 below supersedes their current retained state. The reviewed Vietnamese-captioned video
 joins registration and successful deployment sessions explicitly. See the
 [dev runbook](operations/k8s4f-dev.md) for URLs/restart and token lifetime limits.
 
@@ -665,6 +665,30 @@ on authorized isolated PostgreSQL 16. Fresh/reopen/rollback, schema drift reject
 SQL constraints, registration and multi-backend ownership pass with no skipped
 tests. Synthetic dump/restore and owned cleanup pass; failed first-run fixture
 checks remain in evidence. T28 is complete. No retained DB/Vault/cluster was mutated;
-dev reset is required before use against retained state and belongs to T29, which
-still requires its separate run approval.
+T29 below completes the approved reset/rebuild for the retained dev stack.
+Other historical databases still require an explicitly scoped reset before use.
 See [T28 evidence](verification/2026-10-12-T28-fresh-baseline.md).
+
+
+## T29 — Approved dev K8S-4F reset/rebuild (2026-10-12)
+
+Real IDP backup and both workload PostgreSQL backups passed isolated restore,
+row-count/job-checksum checks before resetting only the IDP database. Current
+fresh baseline serves the new application `k8s4f-t29-20261012-r1`, ID
+`47fb34b4-2d6e-493e-a2c5-880837abfc1c`; staging uses KUBECONFIG Connection
+`k8s-4f`, ordinary Store `k8s-4f-vault`, ENVIRONMENT scope, generation 0.
+Frontend/backend/PostgreSQL are Ready, PVC Bound; empty DB before first job,
+four diagnostics, job/reload persistence and IDP restart persistence passed.
+App URL is <http://localhost:18481/>; Console remains <http://localhost:3001/ui/>.
+
+Both old namespaces/PVC remain with FE/BE at zero and PostgreSQL 1/1; old port
+18480 no longer serves, and their metadata/history is not in the new IDP.
+Vault volumes, VSO, clusters and unrelated systems are preserved. Private backups
+are retained until 2026-11-11T04:05:55Z with pinned old-image recovery prepared.
+One pre-deploy runner locator failure and its video are preserved; explicit
+same-run continuation passed without replaying Deploy. Headed real video has
+Vietnamese captions; it is separate from the first Connection-registration phase.
+See [T29 evidence](verification/2026-10-12-T29-dev-rebuild.md) and
+[dev runbook](operations/k8s4f-dev.md). No production/AWS run or new recovery
+execution is claimed; live backup restore-smoke succeeded, offline recovery guards
+pass. The sample has no worker, so its diagnostic job stays PENDING.

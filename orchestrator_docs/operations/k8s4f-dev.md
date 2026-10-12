@@ -9,8 +9,9 @@ last_reviewed: 2026-10-12
 
 IDP chạy trên máy bằng Docker Compose. Ứng dụng mẫu frontend/backend/PostgreSQL
 chạy trên cụm kind **mới** `k8s-4f`, context `kind-k8s-4f`.
-Connection hiển thị **K8S-4F**, key `k8s-4f-2`; Connection `k8s-4f` cũ vẫn
-trỏ tới `kind-idp-internal`. Khi chọn đích, dùng tên hiển thị và key mới.
+Sau T29, Connection hiển thị **K8S-4F**, key `k8s-4f`, trỏ tới
+`kind-k8s-4f` bằng KUBECONFIG. Metadata Connection cũ đã được backup trước
+reset IDP; cluster `kind-idp-internal` được giữ nguyên.
 
 ## Truy cập và khởi động IDP
 
@@ -26,30 +27,30 @@ Network và cụm đã có; không chạy lại `kind create cluster` khi cụm 
 Console: <http://localhost:3001/ui/>. Tài khoản local `platform-engineer` và
 `developer` dùng password `test-password` theo [Compose runbook](docker-local.md).
 
-Application bàn giao **k8s4f-dev-final** có ID `3c5e4c33-b724-4032-80b1-d270e5c32a35`.
-Staging chọn Connection `k8s-4f-2` và Secret Store **K8S-4F Vault**
+Application bàn giao **k8s4f-t29-20261012-r1** có ID `47fb34b4-2d6e-493e-a2c5-880837abfc1c`.
+Staging chọn Connection `k8s-4f` và Secret Store **K8S-4F Vault**
 (`k8s-4f-vault`). Production chưa triển khai.
 
 ## Workload và dữ liệu giữ lại
 
-Namespace: `app-3c5e4c33-b724-4032-80b1-d270e5c32a35-staging`.
+Namespace: `app-47fb34b4-2d6e-493e-a2c5-880837abfc1c-staging`.
 Image FE/BE: `acceptance-frontend:k8s4f-dev` và `acceptance-backend:k8s4f-dev`,
 được load vào cụm mới. PostgreSQL là resource `db` của backend, có PVC 1 GiB.
 Không có worker; job được nhận ở trạng thái PENDING.
 
 ```bash
 kubectl --context kind-k8s-4f \
-  -n app-3c5e4c33-b724-4032-80b1-d270e5c32a35-staging \
+  -n app-47fb34b4-2d6e-493e-a2c5-880837abfc1c-staging \
   get deployment,statefulset,pod,pvc
 ```
 
-Frontend truy cập qua <http://localhost:18480/> khi port-forward chạy. Để mở
+Frontend truy cập qua <http://localhost:18481/> khi port-forward chạy. Để mở
 lại đường truy cập sau khi khởi động máy:
 
 ```bash
 kubectl --context kind-k8s-4f \
-  -n app-3c5e4c33-b724-4032-80b1-d270e5c32a35-staging \
-  port-forward svc/frontend 18480:8080
+  -n app-47fb34b4-2d6e-493e-a2c5-880837abfc1c-staging \
+  port-forward svc/frontend 18481:8080
 ```
 
 Giữ terminal chạy; nếu port đang được supervisor của lượt triển khai sử dụng,
@@ -57,8 +58,11 @@ dùng URL có sẵn hoặc chọn port khác. Đóng port-forward không xóa wo
 
 Application từ lượt quay trước **k8s4f-dev** cũng được giữ lại, ID
 `a43bb834-d2d7-42cd-a035-41841155b5f7`, namespace
-`app-a43bb834-d2d7-42cd-a035-41841155b5f7-staging`. URL port 18480 được bàn giao
-cho bản **k8s4f-dev-final**; bản trước không bị xóa dữ liệu.
+`app-a43bb834-d2d7-42cd-a035-41841155b5f7-staging`. URL port 18481 được bàn giao
+cho bản **k8s4f-t29-20261012-r1**; bản trước không bị xóa dữ liệu. T29 đã dừng FE/BE của bản này và bản final
+`app-3c5e4c33-b724-4032-80b1-d270e5c32a35-staging` (replicas 0); cả hai
+PostgreSQL vẫn 1/1 và PVC giữ nguyên. Chúng không còn metadata trong IDP mới.
+Port 18480 cũ không serve; app mới dùng port 18481.
 
 ## Vault riêng cho cụm mới
 
@@ -84,7 +88,8 @@ không thay thế backup.
 
 ## T29 backup/reset gate
 
-T28 prepares this procedure; none of the mutation commands below have been run.
+T28 prepared this procedure; T29 executed the approved fixed run described below.
+The generic procedure remains a gate for any future reset, not authorization to rerun.
 T29 must recheck metadata and present a concrete run manifest for approval right
 before backup/reset/deploy, including retention and retain/restore versus delete
 of each owned workload/PVC. Do not use `docker compose down -v`. Current source
@@ -187,3 +192,150 @@ source replicas/port-forward. Do not serve an old dump with the new baseline.
 Workload restore, if needed, uses the approved source/destination DB and quiesced
 writers. Failed runs retain all backups; no expiry cleanup without the agreed
 retention. Exact recovery image/commands are part of T29 approval, not assumptions.
+
+## T29 runner preparation before approval
+
+The clean-baseline run must not require a historical `k8s-4f` Connection or its
+HOST_CONTEXT predecessor. Capture all safe pre-existing Connection/Store metadata
+at runner start and assert those records remain unchanged; an empty Connection
+catalog is valid. Register the new KUBECONFIG Connection and ordinary workload
+Store through UI. Resume is explicit, identity-checked, and may only reuse records
+created in the approved run. Do not recreate the old cluster Connection for the
+sake of historical assertions.
+
+Require a new evidence directory outside Git, restrict it to owner access, and
+preserve every failed recording. Runner preparation and local fake checks are
+allowed before the live gate; invoking the retained runner, building/restarting
+Compose, backups and cluster mutation are not. The run manifest must pin recovery
+backend/frontend image IDs and resolve exact backup/restore commands before approval.
+
+## T29 data decision and concrete run preparation
+
+On 2026-10-12 the user selected: retain both old namespaces/PVC; stop their
+backend/frontend Deployments; keep their PostgreSQL StatefulSets at one replica;
+create the new application with an empty workload database; retain all three
+logical backups for 30 days. No workload data restore is requested. This answers
+only the data gate, not the final backup/reset/deploy authorization.
+
+Prepare run `t29-20261012-r1`, new app/subdomain `k8s4f-t29-20261012-r1`,
+port 18481, private directory
+`/home/thanhnt1/.local/share/poc-T29/t29-20261012-r1` and public-safe evidence
+`/tmp/poc-T29-live-20261012-r1`. Backup expiry is 30 days after actual backup
+creation; do not install automatic deletion or delete on failure.
+
+The new preparation wrapper must default to offline dry-run. Live invocation
+requires an explicit apply argument and matching run ID after user approval.
+Stages: revalidate exact owners/images/PVC/replicas and API operation metadata;
+prepare source builds without restarting retained services; pin old recovery
+images; quiesce only IDP backend/frontend and the two old app backend/frontend;
+make three private dumps; verify SHA256, restore each into an isolated PostgreSQL
+16 container with tmpfs data/network none/no ports/no retained mounts; compare
+all source/restored public-table row counts and both workload jobs checksums;
+remove only the label-owned smoke container; reset only DB `orchestrator`;
+start current backend/frontend on the existing Compose networks/volumes; run
+headed UI registration, settings, new workloads, Preview and Deploy; verify new
+Ready workloads/PVC, four diagnostics, persistent state and old FE/BE at zero.
+Stop at any failure; retain backups/evidence, never auto-replay deploy.
+
+Safe revalidation observed different current image IDs from the first preflight:
+backend `sha256:61b2fed3dc59ff9425199bce2439025ec151462e51c811d41a9cc0f8fc103571`,
+frontend `sha256:de449a00db689693084656eeb9cd2f121cc7cf31dfb75eaef28516fa6a2763b9`.
+Use those as expected recovery images and abort on further drift. Pin both before
+build. Snapshot historical Compose source from `a0ef186` for recovery, override
+image tags/pull_policy with `never`, run only backend/frontend with `--no-build
+--no-deps --pull never`; old DB is never served by a fresh-baseline image.
+Private recovery configuration belongs outside Git and video.
+
+No private upload file currently exists at the historical default location.
+After final approval, generate a flattened/minified kubeconfig for
+`kind-k8s-4f` into the private run directory, preserving embedded credentials/CA
+and changing only server to `https://k8s-4f-control-plane:6443`. Never print it.
+Use the existing scoped workload Vault token only as masked registration input;
+no Vault start/bootstrap script, token refresh or volume reset is authorized.
+
+Reuse already-loaded `acceptance-backend:k8s4f-dev` and
+`acceptance-frontend:k8s4f-dev` images, with separate runner image-tag and run-ID
+inputs. Do not change old workload image tags or rebuild the cluster. New app ID
+must differ from both retained IDs; unknown ID collision aborts before deploy.
+A run-owned port-forward PID file must preserve the old supervisor handle.
+
+Recovery is an explicit separate command in the same approved run scope:
+quiesce any newly created app backend/frontend (retain its DB/PVC), stop current
+IDP backend/frontend, verify private dump checksums, drop/create IDP database and
+restore idp.dump, start pinned historical images with historical Compose source,
+then restore exactly both old app backend/frontend to their inventoried one
+replica. Before reset, recovery only restarts original containers/old replicas.
+No namespace/PVC deletion, dump deletion, operator/cluster rebuild, unrelated
+container mutation or automatic recovery that hides a failed run is allowed.
+
+### Fixed run commands awaiting final user confirmation
+
+Preparation code: `backend/test/integration/k8s4f-dev-reset.sh`. Reviewable
+command manifest is generated offline with:
+
+```bash
+bash backend/test/integration/k8s4f-dev-reset.sh --dry-run
+```
+
+After explicit approval of run `t29-20261012-r1` only:
+
+```bash
+bash backend/test/integration/k8s4f-dev-reset.sh --apply --run-id t29-20261012-r1
+```
+
+If the approved run fails and scoped recovery is selected, the separate command is:
+
+```bash
+bash backend/test/integration/k8s4f-dev-reset.sh --recover --run-id t29-20261012-r1
+```
+
+These commands are not authorization by themselves. The wrapper refuses any
+other run ID and changes in pinned image/PVC metadata. Default/dry-run calls
+contact no Docker, Kubernetes or network service. Offline syntax, stubbed
+ownership/failure checks and source review do not prove real backup readability;
+three actual dumps must pass restore smoke during the approved run before reset.
+Source IDP metadata is removed by reset; source workloads remain outside the
+new IDP's management and quiesced. Current seed catalog is recreated, including
+its own empty Deployment Set; historical deployments are not restored.
+Console downtime begins at quiesce and ends after current services become healthy;
+old application FE/BE remain stopped after success. Port 18480 no longer serves
+those apps; new app access is port 18481. Preserve old port-forward recovery handle.
+All private dump/recovery files remain owner-only for 30 days from backup creation;
+retain failed-run backups and never upload private material or evidence.
+
+
+Same-run partial continuation after a pre-deploy runner failure must use a fresh
+phase evidence directory, explicitly pin whichever Connection/Store has already
+been created, and preserve the failed phase. Validate identity before reuse;
+never infer ownership from a name or replay Deploy automatically. Recovery reads
+a restricted phase marker pointing inside the fixed run evidence directory so
+it can quiesce the correct newly created app. The first phase's registration and
+the continuation's deployment videos are separate execution segments; do not
+present them as one uninterrupted recording.
+
+
+### T29 successful handoff (2026-10-12)
+
+Run `t29-20261012-r1` completed after a preserved pre-deploy locator failure
+and one explicit partial continuation (`--continue --run-id t29-20261012-r1`).
+App/new namespace/Connection/Store and URL above are current. Backups are private:
+`/home/thanhnt1/.local/share/poc-T29/t29-20261012-r1`, expiry
+`2026-11-11T04:05:55Z`; retain them, no automated expiry deletion is installed.
+Restore smoke for all three real dumps/counts/job checksums passed before IDP reset.
+New workload DB started empty, then accepted one PENDING diagnostic job; no worker
+is deployed. Four diagnostics, UI reload and IDP backend restart persistence pass.
+
+Real evidence: `/tmp/poc-T29-live-20261012-r1/ui/` (failed first phase, Connection
+registration) and `ui-resume1/` (passed remaining UI flow and Deploy). These are
+separate recordings. Full metadata/backup/cleanup/video review is in
+[T29 evidence](../verification/2026-10-12-T29-dev-rebuild.md).
+New frontend supervisor handle:
+`~/.local/share/poc-k8s-4f-vault/frontend-forward-t29-20261012-r1-18481.pid`.
+It is retained for access; the old handle was preserved.
+Only the run-owned restore-smoke container and recording processes were cleaned.
+No old namespace/PVC, cluster, VSO or Vault volume was deleted. Scoped Connection/
+Store credential and new app secret delivery writes were made as approved.
+Recovery command above restores the old IDP dump with pinned historical images
+and re-enables old FE/BE; it first quiesces the newly created app and retains its
+PVC. Recovery was verified offline and prepared, but not executed on live state
+because the run succeeded. Do not use it casually against a healthy current app.

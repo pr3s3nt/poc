@@ -19,6 +19,8 @@ import (
 	"orchestrator/internal/adapters/credentialmemory"
 	"orchestrator/internal/adapters/store"
 	ct "orchestrator/internal/application/connection/connectiontest"
+	"orchestrator/internal/domain/application"
+	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
 )
@@ -45,6 +47,17 @@ func main() {
 		os.Exit(1)
 	}
 	ctx := context.Background()
+	// The current snapshot format requires the owning Organization first; the
+	// product seed at backend start keeps an existing one.
+	if _, err := st.GetOrganization(ctx, *organization); errors.Is(err, persistence.ErrNotFound) {
+		if err := st.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: *organization, Name: "Acme", DefaultConnectionKey: defaults.ConnectionKey}); err != nil {
+			fmt.Fprintln(os.Stderr, "readystate:", err)
+			os.Exit(1)
+		}
+	} else if err != nil {
+		fmt.Fprintln(os.Stderr, "readystate:", err)
+		os.Exit(1)
+	}
 	creds := credentialmemory.New()
 	prepare := func(key, kubeContext, cluster string) error {
 		if _, err := st.GetConnection(ctx, *organization, key); err == nil {

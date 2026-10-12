@@ -397,3 +397,26 @@ T28 authorized isolated PostgreSQL full suite and targeted races pass, including
 fresh/reopen/rollback, current constraints and multi-backend fencing. Synthetic
 backup/restore and cleanup pass; failed first-run fixture checks are retained.
 See [T28 verification](../verification/2026-10-12-T28-fresh-baseline.md).
+
+
+## T29 — Scoped dev backup/reset runner
+
+- [`k8s4f-dev-reset.sh`](../../backend/test/integration/k8s4f-dev-reset.sh)
+  prepares the fixed run manifest, pins source images/PVC identities, quiesces
+  named writers, privately dumps IDP and both workload DBs, verifies isolated
+  restore/counts/checksums before reset, and invokes one real UI deployment.
+  Default dry-run is offline; apply/recovery need the approved run ID. Recovery
+  is separate, restores historical IDP images/configuration, and keeps PVCs.
+- [`k8s4f-dev-playwright.sh`](../../backend/test/integration/k8s4f-dev-playwright.sh)
+  uses fresh owner-only evidence, separate run/image IDs and private per-run
+  supervisor handles. [`k8s4f-dev-human.mjs`](../../frontend/test/e2e/k8s4f-dev-human.mjs)
+  tolerates a clean catalog, retains pre-existing metadata assertions and checks
+  new app identity/empty workload DB before submitting the first diagnostic job.
+- [`readystate/main.go`](../../backend/test/integration/readystate/main.go)
+  supplies the owning Organization before creating fake Connections, satisfying
+  T28 snapshot integrity for local regression without weakening product validation.
+
+See [scoped run procedure](../operations/k8s4f-dev.md#t29-data-decision-and-concrete-run-preparation)
+and [T29 evidence](../verification/2026-10-12-T29-dev-rebuild.md) for execution
+status, authorized scope and actual backup/rebuild results. Offline tests are
+preparation evidence only; live success is not implied by these code paths.
