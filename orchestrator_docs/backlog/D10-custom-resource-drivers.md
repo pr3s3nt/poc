@@ -10,10 +10,10 @@ related: [UC-02, UC-03, UC-04, UC-08]
 
 ## Scope và lý do hoãn
 
-V2 dự kiến triển khai hai cơ chế: Echo/External để dùng tài nguyên có sẵn
-thông qua outputs và secret references; Terraform để tạo và quản lý tài nguyên
-trên Kubernetes, cloud hoặc dịch vụ có provider phù hợp. Đây là phạm vi kế hoạch,
-không phải tuyên bố capability đã được triển khai.
+V2 tập trung Terraform để tạo và quản lý tài nguyên trên Kubernetes, cloud
+hoặc dịch vụ có provider phù hợp. Echo/External cũng được hoãn sau v2, theo
+[D11](D11-existing-external-resources.md). Đây là phạm vi kế hoạch, không phải
+tuyên bố capability đã được triển khai.
 
 Custom driver được chủ ý hoãn sau v2. Nhu cầu là tích hợp hệ thống có API riêng
 để tạo/quản lý tài nguyên khi Echo/External và Terraform chưa đáp ứng, đồng thời
