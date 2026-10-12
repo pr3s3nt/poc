@@ -79,3 +79,11 @@ Import hoặc draft có `service.publicPort` (kể cả rỗng/null hoặc cùng
 bị từ chối với thông báo Việt an toàn; không chuyển sang form/lưu thành công
 và không tạo route mặc định. Giữ nội dung import/edits để sửa. Routes hợp lệ
 round-trip đầy đủ; đổi/xóa cổng vẫn chặn lưu theo T08, không retarget.
+
+## T30 renamed desired references
+
+Draft được UC-12 rename opt-in sửa giữ container aliases và advanced fields;
+editor mở lại hiển thị key mới. Editor còn giữ draft version cũ cần reload/review
+khi Save trả STALE_VERSION; không ghi đè draft rename. Pending delete không được
+hồi sinh. Lossless reconstruction failure giữ nguyên toàn bộ trạng thái và dùng
+REFERENCE_REWRITE_UNSAFE với hướng dẫn Việt an toàn. Preview/Deploy vẫn tường minh.

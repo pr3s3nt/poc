@@ -44,3 +44,5 @@ route. Editor/key picker dùng tiếng Việt; giữ Score semantics, typed para
 import lossless, aliases, BUSY/stale guards và explicit Save → Preview → Deploy.
 T25 chỉ nhận `publicRoutes`, từ chối import/draft `publicPort` mà không tự chuyển
 đổi; T30 sở hữu rename references.
+
+[T30 HTTP mapping](api-mapping.md) dẫn tới shared OC-12 contract.

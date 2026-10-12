@@ -30,6 +30,11 @@ package "Application Services" {
     +RegisterAWSDriverAccount(ctx, cmd): Connection
     +RegisterKubeconfig(ctx, cmd): Connection
   }
+  class ConfigurationService {
+    +ListKeys(ctx, scope): SafeConfigurationView
+    +RenameKey(ctx, scope, guards, updateReferences): SafeConfigurationView
+  }
+  class LosslessScoreReconstruction
   class PreviewService {
     +PreviewDeployment(ctx, query): DeploymentPreview
   }
@@ -210,6 +215,9 @@ package "Ports" {
   interface DefaultExecutionTargetResolver {
     +Resolve(ctx, organizationID): ExecutionTarget
   }
+  interface AtomicDesiredRename {
+    +Commit(ctx, configEnvDraftGuards, revision, drafts)
+  }
   interface ApplicationRepository
   interface EnvironmentRepository
   interface ConnectionRepository
@@ -229,6 +237,9 @@ package "Ports" {
   }
 }
 
+ConfigurationService --> LosslessScoreReconstruction : prepare desired references
+ConfigurationService --> AtomicDesiredRename : one metadata transaction
+ConfigurationService --> EnvironmentRepository : consistent scoped snapshot
 PreviewService --> PlanningService
 DeploymentService --> PlanningService
 DeploymentService --> ResourceProvisioningService

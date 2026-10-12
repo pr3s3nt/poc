@@ -16,6 +16,15 @@ else Secret
  New --> Config: Opaque store-owned ref
  Config -> DB: CAS desired revision with ref only
 end
+Dev -> UI: Rename key, explicit update references checkbox
+UI -> Config: Rename(newName, config/env/draft versions, opt-in)
+Config -> DB: Read consistent desired/current metadata snapshot
+opt update references selected
+ Config -> Config: Lossless reconstruct missing drafts + exact KEY rewrite\n(preserve aliases, skip pending deletes)
+end
+Config -> DB: Atomic CAS config revision + all changed drafts\n(no active operation; current set unchanged)
+DB --> UI: Safe pending configuration metadata
+UI --> Dev: Explicit Preview then Deploy required
 Dev -> UI: Change selected store(env/config versions)
 UI -> Config: Claim scoped Environment operation
 Config -> DB: Atomic version validation + owner claim

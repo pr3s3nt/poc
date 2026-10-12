@@ -196,7 +196,7 @@ open editors on refresh and scopes late replies; environment labels, transition
 and operation components provide Vietnamese static/accessibility text.
 [Local scenario T07](../../frontend/test/e2e/refactor-local.mjs) uses memory
 state/fake adapters with explicitly marked projection mocks; it proves no live
-migration. Backend error mapping remains T20; rename-reference rewrite remains T30.
+migration. Backend error mapping is documented in T20; explicit rename-reference rewrite is mapped in T30 below.
 
 ## T09 — Tạo ứng dụng UI
 
@@ -420,3 +420,27 @@ See [scoped run procedure](../operations/k8s4f-dev.md#t29-data-decision-and-conc
 and [T29 evidence](../verification/2026-10-12-T29-dev-rebuild.md) for execution
 status, authorized scope and actual backup/rebuild results. Offline tests are
 preparation evidence only; live success is not implied by these code paths.
+
+## T30 — Rename key with pending reference update
+
+[Configuration service](../../backend/internal/application/configuration/service.go)
+reads snapshot guards and prepares the atomic rename. The
+[persistence command](../../backend/internal/ports/persistence/persistence.go)
+is implemented in [memory/JSON store](../../backend/internal/adapters/store/store.go)
+and [PostgreSQL](../../backend/internal/adapters/postgres/configuration.go).
+[Reference rewrite](../../backend/internal/application/workloadconfig/rewrite.go)
+and [verified reconstruction](../../backend/internal/application/workloadconfig/reconstruct.go)
+keep aliases, other references and advanced fields lossless.
+
+[Strict PATCH](../../backend/internal/delivery/http/configuration.go),
+[Settings UI](../../frontend/src/features/configuration/SettingsPage.tsx),
+[API client](../../frontend/src/features/configuration/api.ts) and
+[rename UI tests](../../frontend/src/features/configuration/SettingsRename.test.tsx)
+implement unchecked opt-in, CAS/error retention and correct app/env handoff.
+[Routes](../../frontend/src/app/routes.ts) and
+[Application home](../../frontend/src/features/applications/ApplicationHomePage.tsx)
+preserve production for the new Preview CTA. The existing
+[headed local runner](../../backend/test/integration/refactor-ui-local.sh)
+dispatches T30 in [scenarios](../../frontend/test/e2e/refactor-local.mjs) with
+fake adapters and memory credentials/state; PostgreSQL test execution remains
+an explicit disposable gate, separate from this browser proof.

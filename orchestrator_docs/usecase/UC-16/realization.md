@@ -72,3 +72,12 @@ before writing a draft or advancing its version; the UI retains the import/error
 for correction without converting it to `/`. Current-set reconstruction and
 public projection reject the removed field rather than silently dropping it.
 Protected container literal/reference validation remains in force.
+
+## T30 shared reconstruction
+
+UC-12 explicit rename uses the same lossless current-set-to-Score reconstruction
+as Edit, keeping references and advanced fields. Desired drafts take precedence
+and pending deletes are excluded. Configuration control prepares all changes;
+one atomic persistence command writes the immutable revision and affected drafts
+under config/env/draft CAS. UC-16 editor and UC-05 consume the new draft version;
+current set and runtime are untouched.

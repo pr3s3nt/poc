@@ -7,7 +7,7 @@ export type Route =
   | { name: 'connections' }
   | { name: 'secret-stores' }
   | { name: 'create-application' }
-  | { name: 'application'; applicationId: string }
+  | { name: 'application'; applicationId: string; environment?: 'staging' | 'production' }
   | { name: 'settings'; applicationId: string; environment?: 'staging' | 'production' }
   | { name: 'workload'; applicationId: string; environment: 'staging' | 'production'; workloadId?: string }
   | { name: 'score-preview'; applicationId: string; environment: 'staging' | 'production' }
@@ -48,7 +48,8 @@ export function parseRoute(path = window.location.pathname): Route {
   if (deployments?.[1] && deployments[2]) return { name: 'deployments', applicationId: decodeURIComponent(deployments[1]), environment: deployments[2] as 'staging' | 'production' };
   const match = relative.match(/^\/applications\/([^/]+)$/);
   const applicationId = match?.[1];
-  return applicationId ? { name: 'application', applicationId: decodeURIComponent(applicationId) } : { name: 'applications' };
+  const homeEnvironment = new URLSearchParams(search).get('environment');
+  return applicationId ? { name: 'application', applicationId: decodeURIComponent(applicationId), ...(homeEnvironment === 'staging' || homeEnvironment === 'production' ? { environment: homeEnvironment } : {}) } : { name: 'applications' };
 }
 
 export function href(route: Route): string {
@@ -61,7 +62,7 @@ export function href(route: Route): string {
     case 'connections': return `${base}/platform/connections`;
     case 'secret-stores': return `${base}/platform/secret-stores`;
     case 'create-application': return `${base}/applications/new`;
-    case 'application': return `${base}/applications/${encodeURIComponent(route.applicationId)}`;
+    case 'application': return `${base}/applications/${encodeURIComponent(route.applicationId)}${route.environment ? `?environment=${route.environment}` : ''}`;
     case 'settings': return `${base}/applications/${encodeURIComponent(route.applicationId)}/settings${route.environment ? `?environment=${route.environment}` : ''}`;
     case 'workload': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/workloads/${route.workloadId ? encodeURIComponent(route.workloadId) : 'new'}`;
     case 'score-preview': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/preview`;

@@ -2,7 +2,7 @@
 id: UC-05-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-12
 ---
 
 # UC-05 — Validate and Preview Score Changes
@@ -163,3 +163,11 @@ See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
 UC-03 BR-20–22 chỉ tính matching một context/candidate theo OC-04c; không tạo
 Delta, Candidate Set hoặc graph, không thay UC-05 và không phát deploy token.
 UC-05/06 vẫn đọc snapshot mới và kiểm toàn bộ planner/contract độc lập.
+
+## T30 pending rename boundary
+
+UC-12 explicit rename opt-in chỉ sửa desired references nguyên tử với revision;
+Preview đọc drafts mới, liệt kê workloads bị ảnh hưởng và pin config/draft/current
+set versions. Deploy vẫn tường minh; token trước rename bị stale. Rename-only
+hoặc delete có thể để reference thiếu và Preview phải chặn Deploy. Không đổi
+runtime/current set hoặc Environment khác khi lưu.

@@ -451,3 +451,21 @@ it('uses a fixed Vietnamese message when delete fails and keeps the list', async
   expect(screen.getByText('api')).toBeInTheDocument();
   vi.restoreAllMocks();
 });
+
+it('opens on the Environment given by the route and previews that Environment', async () => {
+  const urls: string[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    urls.push(url);
+    if (url.endsWith('/workloads')) return Response.json({ applicationKey: 'catalog', environmentKey: 'production', draftVersion: 3, workloads: [{ id: 'api', state: 'PENDING_UPSERT', ready: false, score: {} }] });
+    if (url.endsWith('/preview')) return Response.json({ token: 't', draftVersion: 3, configRevisionId: 'r', changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
+    return Response.json({}, { status: 404 });
+  }));
+  const user = userEvent.setup();
+  render(<ApplicationHomePage application={application} initialEnvironment="production" />);
+  await screen.findByText('api');
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  expect(await screen.findByRole('heading', { name: 'Xem trước cho production' })).toBeInTheDocument();
+  expect(urls.filter((url) => url.includes('/workloads') || url.endsWith('/preview')).every((url) => url.includes('/environments/production/'))).toBe(true);
+  expect(urls.some((url) => url.includes('/environments/staging/'))).toBe(false);
+});

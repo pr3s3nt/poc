@@ -20,6 +20,8 @@ a { color: inherit; }
 .inline-editor { max-width:650px; }
 .inline-editor label,.editor-grid label { display:grid; gap:6px; font-size:14px; font-weight:600; }
 .inline-editor input,.editor-grid input,.editor-grid select,.binding-row input,.binding-row select { min-width:0; width:100%; border:1px solid var(--border); border-radius:6px; padding:8px 10px; background:var(--surface); color:var(--ink); font:inherit; }
+.inline-editor label.checkbox-row { display:flex; align-items:center; gap:8px; font-weight:400; }
+.inline-editor label.checkbox-row input[type=checkbox] { flex:0 0 auto; width:auto; margin:0; padding:0; border:0; }
 .inline-editor input:focus,.editor-grid input:focus,.editor-grid select:focus,.binding-row input:focus,.binding-row select:focus { outline:2px solid var(--blue); outline-offset:-1px; }
 .warning-text { border-left:3px solid #d4a72c; background:#fff8c5; padding:12px; color:#633c01; line-height:1.5; }
 .field-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }

@@ -2,7 +2,7 @@
 id: UC-07-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-09
+last_reviewed: 2026-10-12
 ---
 
 # UC-07 — Update or Remove Workload
@@ -122,3 +122,11 @@ Update/remove/retry uses the implicit cluster binding of
 [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
 Historical targets remain usable without a new user cluster Definition; binding
 changes remain governed by ADR-012 and never silently retarget old resources.
+
+## T30 pending rename boundary
+
+UC-12 explicit rename opt-in chỉ sửa desired references nguyên tử với revision;
+Preview đọc drafts mới, liệt kê workloads bị ảnh hưởng và pin config/draft/current
+set versions. Deploy vẫn tường minh; token trước rename bị stale. Rename-only
+hoặc delete có thể để reference thiếu và Preview phải chặn Deploy. Không đổi
+runtime/current set hoặc Environment khác khi lưu.

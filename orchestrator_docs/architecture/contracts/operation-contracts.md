@@ -199,17 +199,17 @@ replaced in list/detail projection, without mutating history.
 ## OC-12 `ApplicationConfigurationService.ListKeys` / `PutKey` / `RenameKey` / `DeleteKey`
 
 - Use case: UC-12. Scope is an authorized Application and exactly one of
-  `staging` or `production`. Provider binding is per Application, not per key.
+  `staging` or `production`. Secret store selection is per Environment (ADR-012).
 - Key name is a valid process-environment identifier and unique across both
   Variable and Secret in one Environment. A Secret's read representation has
   name, type and configured status only; Variable may return its value.
-- A value write first creates an immutable Vault KV v2 value at an opaque path;
+- A Secret write first creates an immutable Vault KV v2 value at an opaque path;
   the state store then atomically saves a new immutable desired revision and
   advances the Environment's desired pointer/version. Previous revision and
   applied workload pointers are unchanged. If the pointer update conflicts,
   an unreachable Vault value may remain for later cleanup; no runtime changes.
 - Rename/delete copy or omit the old opaque reference into a new revision.
-  They warn about affected workloads and never rewrite UC-16 bindings.
+  They warn about affected workloads. Delete and rename-only keep UC-16 bindings; explicit rename opt-in follows the atomic T30 extension below.
 - Secret bytes never enter state snapshots, Score documents, logs, API reads,
   preview responses, Kubernetes Secrets or Pod annotations.
 
@@ -411,6 +411,7 @@ HTTP status, org/app/env scoping, CAS, fencing và transaction semantics giữ n
 | `KUBECONFIG_INVALID` / `KUBECONFIG_NO_VALID_CONTEXT` / `KUBECONFIG_CONTEXT_REQUIRED` / `KUBECONFIG_CONTEXT_NOT_FOUND` | 400 | Document/context không hợp lệ hoặc chưa chọn; inspect/review lại. |
 | `KUBECONFIG_UNSUPPORTED_AUTH` / `KUBECONFIG_UNSUPPORTED_CLUSTER` / `KUBECONFIG_INVALID_SERVER` / `KUBECONFIG_INVALID_TLS` | 400 | Phương thức/cluster setting/server/TLS không hợp lệ; không chạy plugins/files ngoài. |
 | `SECRET_STORE_REQUIRED` / `SECRET_STORE_UNAVAILABLE` | 422 | Chọn/kiểm tra kho, field `secretStoreKey`. |
+| `REFERENCE_REWRITE_UNSAFE` | 422 | Không thể cập nhật tham chiếu mà giữ đủ cấu hình; sửa workload tường minh, giữ dialog và dữ liệu. |
 | `SECRET_COPY_FAILED` | 502 | Copy không thành công; selection/revision cũ giữ nguyên. |
 | `TRANSITION_REQUIRED` | 409 | Có runtime; dùng flow chuyển kết nối tường minh. |
 | `TRANSITION_UNSUPPORTED` | 422 | Chế độ chuyển không được hỗ trợ. |
@@ -449,3 +450,33 @@ Retired/unknown values fail closed before side effects, including JSON reopen
 and SQL constraint validation. Normal Save cannot normalize a hostile scope
 into ENVIRONMENT or overwrite a binding. Historical snapshots remain immutable;
 trusted internal cluster Application resource scope is preserved under ADR-013.
+
+## OC-12 atomic desired-reference rename — T30 / CFG-01
+
+GET `/api/v1/applications/{app}/environments/{env}/configuration` returns the
+existing safe view plus `environmentVersion` and `draftVersion`, read together
+with configuration `version`/revision from one consistent scoped snapshot.
+PATCH `.../configuration/keys/{key}` keeps `newName` and `version` (expected
+configuration version). Optional `updateReferences` defaults to false. When true,
+require integer `environmentVersion` and `draftVersion` from that view; missing,
+null or malformed guards are `INVALID_REQUEST` (400), with no writes.
+
+Prepare desired rewrites from one consistent scoped snapshot. Upsert drafts
+supersede current modules; pending deletes are excluded. For deployed consumers
+without drafts, reconstruct lossless reference-based Score. Rewrite exact KEY
+tokens referencing resources of virtual type `environment`, including imported
+resource aliases; preserve container aliases/many-to-one mappings and every
+other field/reference. Never replace references with values or read Secret bytes.
+Unsupported/lossy reconstruction fails with `REFERENCE_REWRITE_UNSAFE` (422)
+and fixed safe message; Console asks the user to edit workloads explicitly.
+Duplicate key returns `DUPLICATE`; scoped missing key is `NOT_FOUND`.
+
+One persistence command atomically checks config/env/draft versions, current-set
+identity and no active operation, inserts immutable config revision, updates its
+scope pointer/version and writes all changed upsert drafts with one draft-version
+advance when drafts changed. Environment version/current-set pointer, pending
+deletes and applied revisions stay unchanged. Guard conflicts return
+`STALE_VERSION` or `ENVIRONMENT_BUSY` (409); no partial writes. Rename-only keeps
+its existing configuration-only behavior. Return safe authoritative configuration
+view. No external/provider call occurs inside or because of rename. OC-17 reads
+new desired references/versions and invalidates old preview tokens.

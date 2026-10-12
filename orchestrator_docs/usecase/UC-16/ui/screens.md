@@ -122,3 +122,11 @@ lỗi tiếng Việt theo `INVALID_SCORE`, giữ nội dung để sửa, không 
 và không tự lưu. Draft/current projection cũ chứa field này bị từ chối rõ;
 không mở form với routes bị bỏ mất. Valid import/edit giữ đầy đủ nhiều routes,
 Service ports và overrides; Lưu → Xem trước vẫn là các bước tường minh.
+
+## T30 pending rename boundary
+
+UC-12 explicit rename opt-in chỉ sửa desired references nguyên tử với revision;
+Preview đọc drafts mới, liệt kê workloads bị ảnh hưởng và pin config/draft/current
+set versions. Deploy vẫn tường minh; token trước rename bị stale. Rename-only
+hoặc delete có thể để reference thiếu và Preview phải chặn Deploy. Không đổi
+runtime/current set hoặc Environment khác khi lưu.

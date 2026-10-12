@@ -2,7 +2,7 @@
 id: UC-12-UI
 artifact: use-case-ui-design
 status: current
-last_reviewed: 2026-09-24
+last_reviewed: 2026-10-12
 related: UC-12, UC-16, UC-05
 ---
 
@@ -25,3 +25,5 @@ change.
 5. [Shared shell](../../../architecture/ui/README.md)
 
 API mapping and interactive product implementation follow contract design.
+
+[T30 HTTP mapping](api-mapping.md) dẫn tới shared OC-12 contract.

@@ -2,8 +2,12 @@ package http
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
+	"strconv"
+	"strings"
 
+	appconfig "orchestrator/internal/application/configuration"
 	"orchestrator/internal/domain/configuration"
 )
 
@@ -60,8 +64,58 @@ func (s *Server) handlePutConfigurationKey(w http.ResponseWriter, r *http.Reques
 }
 
 type renameConfigurationKeyRequest struct {
-	NewName string `json:"newName"`
-	Version int64  `json:"version"`
+	NewName            string          `json:"newName"`
+	Version            int64           `json:"version"`
+	UpdateReferences   json.RawMessage `json:"updateReferences"`
+	EnvironmentVersion json.RawMessage `json:"environmentVersion"`
+	DraftVersion       json.RawMessage `json:"draftVersion"`
+}
+
+// referenceGuards strictly reads the optional T30 opt-in. updateReferences must
+// be a JSON boolean when present; when true both guards must be non-negative
+// JSON integers. A missing, null or malformed guard is never read as zero.
+func (r renameConfigurationKeyRequest) referenceGuards() (appconfig.ReferenceGuards, bool) {
+	if r.UpdateReferences == nil {
+		return appconfig.ReferenceGuards{}, true
+	}
+	switch strings.TrimSpace(string(r.UpdateReferences)) {
+	case "false":
+		return appconfig.ReferenceGuards{}, true
+	case "true":
+	default:
+		return appconfig.ReferenceGuards{}, false
+	}
+	environmentVersion, ok1 := strictVersion(r.EnvironmentVersion)
+	draftVersion, ok2 := strictVersion(r.DraftVersion)
+	if !ok1 || !ok2 {
+		return appconfig.ReferenceGuards{}, false
+	}
+	return appconfig.ReferenceGuards{UpdateReferences: true, EnvironmentVersion: environmentVersion, DraftVersion: draftVersion}, true
+}
+
+// decodeRenameRequest is the strict bounded decoder of the T30 PATCH: one JSON
+// object, no unknown fields, no trailing data, not null.
+func decodeRenameRequest(w http.ResponseWriter, r *http.Request) (renameConfigurationKeyRequest, bool) {
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+	decoder.DisallowUnknownFields()
+	var req *renameConfigurationKeyRequest
+	if err := decoder.Decode(&req); err != nil || req == nil {
+		return renameConfigurationKeyRequest{}, false
+	}
+	var extra json.RawMessage
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return renameConfigurationKeyRequest{}, false
+	}
+	return *req, true
+}
+
+func strictVersion(raw json.RawMessage) (int64, bool) {
+	text := strings.TrimSpace(string(raw))
+	if text == "" || text[0] < '0' || text[0] > '9' {
+		return 0, false
+	}
+	value, err := strconv.ParseInt(text, 10, 64)
+	return value, err == nil
 }
 
 func (s *Server) handleRenameConfigurationKey(w http.ResponseWriter, r *http.Request) {
@@ -69,12 +123,17 @@ func (s *Server) handleRenameConfigurationKey(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	var req renameConfigurationKeyRequest
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+	req, ok := decodeRenameRequest(w, r)
+	if !ok {
 		writeCode(w, codeInvalidRequest, "")
 		return
 	}
-	view, err := s.configurations.Rename(r.Context(), app, env, r.PathValue("key"), req.NewName, req.Version)
+	guards, valid := req.referenceGuards()
+	if !valid {
+		writeCode(w, codeInvalidRequest, "")
+		return
+	}
+	view, err := s.configurations.RenameKey(r.Context(), app, env, r.PathValue("key"), req.NewName, req.Version, guards)
 	if err != nil {
 		s.writeError(w, err)
 		return

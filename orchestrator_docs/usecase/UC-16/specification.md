@@ -195,3 +195,13 @@ A selection change is an update even without a saved Score draft; Preview pins
 it through the plan hash and Deploy rejects an obsolete token before execution.
 Configuration revision handling and resource/update/remove identities remain
 as specified above.
+
+## Desired references sau đổi tên key — T30
+
+- **BR-19:** UC-12 BR-20–23 có thể tạo/sửa nhiều desired drafts nguyên tử khi
+  Developer opt-in rename. Giữ mọi container aliases, many-to-one imported
+  mappings, resource params/outputs, Service refs, routes và advanced fields.
+  Deployed workload không có draft phải reconstruct lossless; không sửa current
+  Deployment Set hoặc pending delete. Không bảo toàn được thì fail toàn bộ.
+- Editor đọc draft đã rewrite và vẫn dùng explicit Save, Preview và Deploy;
+  editor đang mở với draft version cũ bị stale, không last-write-wins.

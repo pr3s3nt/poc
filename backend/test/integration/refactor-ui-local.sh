@@ -12,7 +12,7 @@
 # T03 and T18 additionally pass -score-k8s with a test-local stub (stubs/score-k8s-render-fail-stub.sh)
 # whose `generate` always fails; calls are logged in NEW_PATH/score-k8s-stub/score-k8s-calls.log.
 # T16 additionally passes a fake AWS region/account so the seeded aws-account Connection can bind an Environment.
-# T05, T06, T07 and T23 additionally use in-memory state with the explicit memory credential store (no state file, no Vault).
+# T05, T06, T07, T23 and T30 additionally use in-memory state with the explicit memory credential store (no state file, no Vault).
 # T20 submits a synthetic canary secret (ORCH_E2E_CANARY) through the UI; after the run the backend log must not contain it.
 # Debug only: ORCH_REFACTOR_INJECT_FAILURE=after-sign-in makes T01 fail on
 # purpose to check that video, marks and assertions survive a failure.
@@ -119,7 +119,7 @@ if [[ "${SCENARIO}" == T16 ]]; then REGION_ARGS=(-region us-east-1 -account-id 0
 # need a credential store. The explicit non-durable "memory" store is accepted
 # only without persistent state, so they run with in-memory state and no -state file.
 STATE_ARGS=(-state "${WORK}/state.json") STORE_MODE=none
-if [[ "${SCENARIO}" == T05 || "${SCENARIO}" == T06 || "${SCENARIO}" == T07 || "${SCENARIO}" == T23 ]]; then STATE_ARGS=(); STORE_MODE=memory; fi
+if [[ "${SCENARIO}" == T05 || "${SCENARIO}" == T06 || "${SCENARIO}" == T07 || "${SCENARIO}" == T23 || "${SCENARIO}" == T30 ]]; then STATE_ARGS=(); STORE_MODE=memory; fi
 
 (cd "${ROOT}" && go build -o "${WORK}/orchestrator" ./cmd/orchestrator)
 # The product seed leaves the cluster record VERIFYING without a credential.

@@ -63,6 +63,7 @@ func TestWriteErrorCodesStatusesAndFields(t *testing.T) {
 		{"workload score", fmt.Errorf("%w: %s", workloadconfig.ErrInvalid, canary), 400, "INVALID_SCORE", ""},
 		{"workload variable", fmt.Errorf("x %s: %w", canary, workloadconfig.ErrInvalidVariable), 400, "INVALID_VARIABLE", ""},
 		{"config invalid", fmt.Errorf("%s: %w", canary, appconfig.ErrInvalid), 400, "INVALID_VARIABLE", ""},
+		{"rewrite unsafe", fmt.Errorf("%s: %w", canary, appconfig.ErrReferenceRewriteUnsafe), 422, "REFERENCE_REWRITE_UNSAFE", ""},
 		{"config conflict", fmt.Errorf("%s: %w", canary, appconfig.ErrConflict), 409, "DUPLICATE", ""},
 		{"catalog duplicate", fmt.Errorf("%w: %q", catalog.ErrDuplicate, canary), 409, "DUPLICATE", ""},
 		{"app duplicate field", &appcreate.FieldError{Field: "subdomain", Err: appcreate.ErrDuplicate}, 409, "DUPLICATE", "subdomain"},

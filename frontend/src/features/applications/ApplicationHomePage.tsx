@@ -31,8 +31,8 @@ function failureMessage(kind: Busy): string {
 // One mutation or read that must not overlap another (UC-07 UI states).
 type Busy = '' | 'preview' | 'deploy' | `delete:${string}` | `undo:${string}`;
 
-export function ApplicationHomePage({ application, created = false, onTargetChange }: { application: Application; created?: boolean; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
-  const [environment, setEnvironment] = useState<EnvironmentKey>('staging');
+export function ApplicationHomePage({ application, initialEnvironment = 'staging', created = false, onTargetChange }: { application: Application; initialEnvironment?: EnvironmentKey; created?: boolean; onTargetChange?(applicationId: string, environment: EnvironmentKey, target: EnvironmentTarget): void }) {
+  const [environment, setEnvironment] = useState<EnvironmentKey>(initialEnvironment);
   // Draft Delete/Undo are Environment writes: held while an operation owns it.
   const environmentBusy = useEnvironmentBusy(application, environment, onTargetChange);
   const [data, setData] = useState<WorkloadList>();

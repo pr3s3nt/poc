@@ -11,8 +11,11 @@ import (
 	"time"
 
 	"orchestrator/internal/application/envops"
+	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/planning/score"
 	"orchestrator/internal/platform/ids"
 	configport "orchestrator/internal/ports/configuration"
 	"orchestrator/internal/ports/persistence"
@@ -26,6 +29,9 @@ var (
 	ErrNoStore = configport.ErrNoStore
 	// ErrStoreCopy reports a failed secret copy; selection and revision are unchanged.
 	ErrStoreCopy = errors.New("configuration: secrets could not be copied to the new store; the selection was not changed")
+	// ErrReferenceRewriteUnsafe is the 422 failure of a rename whose desired
+	// references cannot be rewritten without losing configuration.
+	ErrReferenceRewriteUnsafe = workloadconfig.ErrReferenceRewriteUnsafe
 )
 
 var keyPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
@@ -41,12 +47,16 @@ type KeyView struct {
 }
 
 type View struct {
-	ApplicationKey string    `json:"applicationKey"`
-	EnvironmentKey string    `json:"environmentKey"`
-	RevisionID     string    `json:"revisionId,omitempty"`
-	Version        int64     `json:"version"`
-	SecretStoreKey string    `json:"secretStoreKey,omitempty"`
-	Keys           []KeyView `json:"keys"`
+	ApplicationKey string `json:"applicationKey"`
+	EnvironmentKey string `json:"environmentKey"`
+	RevisionID     string `json:"revisionId,omitempty"`
+	Version        int64  `json:"version"`
+	SecretStoreKey string `json:"secretStoreKey,omitempty"`
+	// EnvironmentVersion and DraftVersion are read in the same snapshot as
+	// Version/RevisionID; an explicit reference rename sends them back as guards.
+	EnvironmentVersion int64     `json:"environmentVersion"`
+	DraftVersion       int64     `json:"draftVersion"`
+	Keys               []KeyView `json:"keys"`
 }
 
 // ValueDeleter is implemented by providers that can remove an attempt-owned
@@ -99,12 +109,25 @@ func (s *Service) load(ctx context.Context, app, env string) (loaded, error) {
 	return out, nil
 }
 
+// List reads the view from one consistent snapshot, so configuration, Environment
+// and draft versions always describe the same moment.
 func (s *Service) List(ctx context.Context, app, env string) (View, error) {
+	var out View
+	err := s.store.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
+		var err error
+		out, err = (&Service{store: view, registry: s.registry, ops: s.ops}).list(ctx, app, env)
+		return err
+	})
+	return out, err
+}
+
+func (s *Service) list(ctx context.Context, app, env string) (View, error) {
 	l, err := s.load(ctx, app, env)
 	if err != nil {
 		return View{}, err
 	}
-	out := View{ApplicationKey: app, EnvironmentKey: env, RevisionID: l.scope.DesiredRevisionID, Version: l.scope.Version, SecretStoreKey: l.env.SecretStoreKey, Keys: []KeyView{}}
+	out := View{ApplicationKey: app, EnvironmentKey: env, RevisionID: l.scope.DesiredRevisionID, Version: l.scope.Version, SecretStoreKey: l.env.SecretStoreKey,
+		EnvironmentVersion: l.env.Version, DraftVersion: l.env.DraftVersion, Keys: []KeyView{}}
 	names := make([]string, 0, len(l.revision.Entries))
 	for name := range l.revision.Entries {
 		names = append(names, name)
@@ -206,9 +229,30 @@ func (s *Service) discard(ctx context.Context, provider configport.Provider, ref
 	}
 }
 
+// ReferenceGuards are the Environment and draft versions a client read
+// together with the configuration view. They are only used when UpdateReferences
+// is set; a missing guard is never replaced by zero (the delivery layer rejects it).
+type ReferenceGuards struct {
+	UpdateReferences   bool
+	EnvironmentVersion int64
+	DraftVersion       int64
+}
+
+// Rename renames one key and keeps every workload reference unchanged.
 func (s *Service) Rename(ctx context.Context, app, env, oldName, newName string, expectedVersion int64) (View, error) {
+	return s.RenameKey(ctx, app, env, oldName, newName, expectedVersion, ReferenceGuards{})
+}
+
+// RenameKey renames one key. With UpdateReferences it also rewrites the exact
+// references in desired workload drafts and commits the configuration revision
+// and all changed drafts atomically (OC-12 T30). It never reads Secret values,
+// calls a provider or touches the current Deployment Set or runtime.
+func (s *Service) RenameKey(ctx context.Context, app, env, oldName, newName string, expectedVersion int64, guards ReferenceGuards) (View, error) {
 	if !keyPattern.MatchString(newName) || oldName == newName {
 		return View{}, ErrInvalid
+	}
+	if guards.UpdateReferences {
+		return s.renameWithReferences(ctx, app, env, oldName, newName, expectedVersion, guards)
 	}
 	l, err := s.load(ctx, app, env)
 	if err != nil {
@@ -230,6 +274,127 @@ func (s *Service) Rename(ctx context.Context, app, env, oldName, newName string,
 		return View{}, err
 	}
 	return s.List(ctx, app, env)
+}
+
+type renamePlan struct {
+	command persistence.DesiredRename
+}
+
+func (s *Service) renameWithReferences(ctx context.Context, app, env, oldName, newName string, expectedVersion int64, guards ReferenceGuards) (View, error) {
+	var plan renamePlan
+	err := s.store.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
+		snapshot := &Service{store: view, registry: s.registry, ops: s.ops}
+		var err error
+		plan, err = snapshot.prepareRename(ctx, app, env, oldName, newName, expectedVersion, guards)
+		return err
+	})
+	if err != nil {
+		return View{}, err
+	}
+	if err := s.store.CommitDesiredRename(ctx, plan.command); err != nil {
+		return View{}, err
+	}
+	return s.List(ctx, app, env)
+}
+
+// prepareRename runs every guard and builds the complete desired change from
+// one snapshot; nothing is written. The commit repeats the guards atomically.
+func (s *Service) prepareRename(ctx context.Context, app, env, oldName, newName string, expectedVersion int64, guards ReferenceGuards) (renamePlan, error) {
+	l, err := s.load(ctx, app, env)
+	if err != nil {
+		return renamePlan{}, err
+	}
+	if err := s.checkVersion(l, expectedVersion); err != nil {
+		return renamePlan{}, err
+	}
+	if l.env.Version != guards.EnvironmentVersion || l.env.DraftVersion != guards.DraftVersion {
+		return renamePlan{}, persistence.ErrVersionConflict
+	}
+	if _, ok := l.revision.Entries[oldName]; !ok {
+		return renamePlan{}, persistence.ErrNotFound
+	}
+	if _, duplicate := l.revision.Entries[newName]; duplicate {
+		return renamePlan{}, ErrConflict
+	}
+	drafts, err := s.rewriteDrafts(ctx, app, env, l, oldName, newName)
+	if err != nil {
+		return renamePlan{}, err
+	}
+	entries := copyEntries(l.revision.Entries)
+	entries[newName] = entries[oldName]
+	delete(entries, oldName)
+	return renamePlan{command: persistence.DesiredRename{
+		ApplicationKey: app, EnvironmentKey: env,
+		ExpectedConfigVersion: l.scope.Version, ExpectedEnvironmentVersion: l.env.Version, ExpectedDraftVersion: l.env.DraftVersion,
+		ExpectedCurrentSetID: l.env.CurrentDeploymentSetID,
+		Revision:             configuration.Revision{ID: ids.New(), ApplicationKey: app, EnvironmentKey: env, Version: l.scope.Version + 1, Entries: entries},
+		Drafts:               drafts,
+	}}, nil
+}
+
+// rewriteDrafts prepares the desired upsert drafts that carry the renamed key.
+// An upsert draft supersedes its deployed module; a pending delete is skipped;
+// a deployed module without a draft is rebuilt losslessly first. Any shape that
+// cannot be rewritten without loss rejects the whole rename.
+func (s *Service) rewriteDrafts(ctx context.Context, app, env string, l loaded, oldName, newName string) ([]environment.WorkloadDraft, error) {
+	existing, err := s.store.ListWorkloadDrafts(ctx, app, env)
+	if err != nil {
+		return nil, err
+	}
+	byID := map[string]environment.WorkloadDraft{}
+	for _, draft := range existing {
+		byID[draft.WorkloadID] = draft
+	}
+	var out []environment.WorkloadDraft
+	for id, draft := range byID {
+		if draft.State != environment.DraftUpsert || !workloadconfig.ReferencesEnvironmentKey(draft.Score, oldName) {
+			continue
+		}
+		rewritten, changed, err := workloadconfig.RewriteEnvironmentKey(draft.Score, oldName, newName)
+		if err != nil || !changed {
+			return nil, ErrReferenceRewriteUnsafe
+		}
+		if _, err := score.FromMap(rewritten); err != nil {
+			return nil, ErrReferenceRewriteUnsafe
+		}
+		out = append(out, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: id, State: environment.DraftUpsert, Score: rewritten})
+	}
+	if l.env.CurrentDeploymentSetID != "" {
+		set, err := s.store.GetDeploymentSet(ctx, l.env.CurrentDeploymentSetID)
+		if err != nil {
+			return nil, err
+		}
+		var types map[string]resource.Type
+		for id, module := range set.Document.Modules {
+			if _, hasDraft := byID[id]; hasDraft || !workloadconfig.ModuleReferencesKey(module, set.Document, oldName) {
+				continue
+			}
+			if types == nil {
+				list, err := s.store.ListResourceTypes(ctx, l.org)
+				if err != nil {
+					return nil, err
+				}
+				types = make(map[string]resource.Type, len(list))
+				for _, typ := range list {
+					types[typ.Key] = typ
+				}
+			}
+			raw, err := workloadconfig.ReconstructVerified(id, module, set.Document, types)
+			if err != nil {
+				return nil, ErrReferenceRewriteUnsafe
+			}
+			rewritten, changed, err := workloadconfig.RewriteEnvironmentKey(raw, oldName, newName)
+			if err != nil || !changed {
+				return nil, ErrReferenceRewriteUnsafe
+			}
+			if err := workloadconfig.VerifyRewritten(id, rewritten, module, set.Document, types, oldName, newName); err != nil {
+				return nil, ErrReferenceRewriteUnsafe
+			}
+			out = append(out, environment.WorkloadDraft{ApplicationKey: app, EnvironmentKey: env, WorkloadID: id, State: environment.DraftUpsert, Score: rewritten})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].WorkloadID < out[j].WorkloadID })
+	return out, nil
 }
 
 func (s *Service) Delete(ctx context.Context, app, env, name string, expectedVersion int64) (View, error) {
@@ -265,14 +430,18 @@ func copyEntries(in map[string]configuration.Entry) map[string]configuration.Ent
 	return out
 }
 
+// affected lists the workloads whose desired configuration references the key:
+// an upsert draft supersedes the deployed module, a pending delete is excluded.
 func (s *Service) affected(ctx context.Context, app, env, name string) ([]string, error) {
 	drafts, err := s.store.ListWorkloadDrafts(ctx, app, env)
 	if err != nil {
 		return nil, err
 	}
 	seen := map[string]bool{}
+	hasDraft := map[string]bool{}
 	for _, draft := range drafts {
-		if draft.State == environment.DraftUpsert && treeHasReference(draft.Score, name) {
+		hasDraft[draft.WorkloadID] = true
+		if draft.State == environment.DraftUpsert && workloadconfig.ReferencesEnvironmentKey(draft.Score, name) {
 			seen[draft.WorkloadID] = true
 		}
 	}
@@ -286,12 +455,8 @@ func (s *Service) affected(ctx context.Context, app, env, name string) ([]string
 			return nil, err
 		}
 		for workload, module := range set.Document.Modules {
-			for _, container := range module.Spec.Containers {
-				for _, value := range container.Variables {
-					if strings.Contains(value, "${externals.env."+name+"}") || strings.Contains(value, "${resources.env."+name+"}") {
-						seen[workload] = true
-					}
-				}
+			if !hasDraft[workload] && workloadconfig.ModuleReferencesKey(module, set.Document, name) {
+				seen[workload] = true
 			}
 		}
 	}
@@ -301,24 +466,4 @@ func (s *Service) affected(ctx context.Context, app, env, name string) ([]string
 	}
 	sort.Strings(out)
 	return out, nil
-}
-
-func treeHasReference(value any, key string) bool {
-	switch t := value.(type) {
-	case string:
-		return strings.Contains(t, "${resources.env."+key+"}")
-	case map[string]any:
-		for _, child := range t {
-			if treeHasReference(child, key) {
-				return true
-			}
-		}
-	case []any:
-		for _, child := range t {
-			if treeHasReference(child, key) {
-				return true
-			}
-		}
-	}
-	return false
 }

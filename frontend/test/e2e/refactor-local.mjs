@@ -4760,6 +4760,239 @@ export const SCENARIOS = {
     mark('signed-out');
     await h.pause(2000);
   },
+  // T30: đổi tên key kèm cập nhật tham chiếu (CFG-01). Developer + Kỹ sư nền tảng (đăng ký kho). PRODUCT (UI, backend thật với fake adapters,
+  // state memory tạm, kho bí mật memory): tạo app, 3 key (biến + bí mật), 2 Workload dùng alias khác tên key, Preview+Deploy fake, rồi đổi tên biến và
+  // bí mật kèm checkbox; mỗi lần ảnh hưởng 2 Workload (drafts), alias giữ, runtime/current set không đổi. Sau đó: trùng tên, stale, không opt-in,
+  // Preview pending. MOCK duy nhất: PATCH trả ENVIRONMENT_BUSY (backend fake không tạo được thao tác đang chạy). Các page.request chỉ kiểm tra/âm tính.
+  async T30({ page, h, ui, caption, mark, check, baseURL, snap }) {
+    const APP_NAME = 'T30 Đổi tên key';
+    const STORE_NAME = 'Kho T30';
+    const TOKEN = 'synthetic-scoped-token-t30';
+    const SECRET_VALUE = 'synthetic-t30-secret-value-8899';
+    const LABEL = 'Đổi tên và cập nhật tham chiếu';
+    let appId = '';
+    const patches = [];
+    page.on('request', (request) => { if (request.method() === 'PATCH' && /\/configuration\/keys\//.test(request.url())) patches.push({ url: request.url(), body: request.postDataJSON() }); });
+    const signInAs = async (username) => {
+      await h.type(ui('signIn', 'username'), username);
+      await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
+      await h.click(ui('signIn', 'submit'));
+      await expect(ui('applications', 'heading')).toBeVisible();
+    };
+    const signOut = async () => { await h.click(ui('shell', 'signOut')); await expect(ui('signIn', 'username')).toBeVisible(); };
+    const noLeak = async () => { const { assertNoSecretLeaks } = await import('./secret-scan.mjs'); await assertNoSecretLeaks(page, [SECRET_VALUE, TOKEN], { allow: ['input[type="password"]'] }); };
+    const env = (suffix = '') => `${baseURL}/api/v1/applications/${appId}/environments/staging${suffix}`;
+    const workloads = async () => (await (await page.request.get(env('/workloads'))).json());
+    const configuration = async () => (await (await page.request.get(env('/configuration'))).json());
+    const draftOf = async (id) => (await workloads()).workloads.find((item) => item.id === id);
+    const variablesOf = (item) => Object.fromEntries(Object.entries(item.score.containers.main.variables ?? {}));
+    const row = (name) => page.locator('.settings-table-row').filter({ has: page.locator('strong').getByText(name, { exact: true }) });
+    const dialog = () => page.getByRole('dialog');
+    const openRename = async (key, newName) => {
+      await h.click(row(key).getByRole('button', { name: 'Đổi tên' }));
+      await expect(dialog()).toBeVisible();
+      await h.type(page.getByLabel('Tên key mới'), newName, { replace: true });
+    };
+    const confirm = () => h.click(dialog().getByRole('button', { name: 'Tiếp tục' }));
+    const spec = (name, extra = []) => ({ name, image: `registry.example/${name}:t30`, port: { name: 'http', port: '8080', targetPort: '8080' },
+      bindings: [{ source: 'Application variable', key: 'DB_URL', name: 'DATABASE' }, { source: 'Application secret', key: 'API_TOKEN', name: 'TOKEN_ALIAS' }, ...extra] });
+
+    caption('Bước 1: Kỹ sư nền tảng đăng ký kho bí mật (backend fake, token chỉ nhập vào ô được che)');
+    await h.showCursor();
+    await expectVisibleCursor(page);
+    await signInAs('platform-engineer');
+    await h.click(ui('shell', 'navSecretStores'));
+    await h.type(ui('secretStores', 'name'), STORE_NAME);
+    await h.type(ui('secretStores', 'backend'), 'http://vault-t30.local:8200');
+    await h.click(ui('secretStores', 'showAdvanced'));
+    await h.click(ui('secretStores', 'sameAddress'));
+    await h.paste(ui('secretStores', 'token'), TOKEN);
+    await h.click(ui('secretStores', 'submit'));
+    await expect(page.getByRole('status').filter({ hasText: `Kho bí mật "${STORE_NAME}" đã sẵn sàng` })).toBeVisible();
+    check('setup via UI: fake-backed secret store registered; token never on screen');
+    await signOut();
+
+    caption('Bước 2: Lập trình viên tạo ứng dụng, chọn kho, thêm biến DB_URL, LOG_LEVEL và bí mật API_TOKEN (giá trị bí mật bị che)');
+    await signInAs('developer');
+    appId = await createApplication(h, APP_NAME, 't30-doi-ten-key');
+    await putKeys(h, APP_NAME, [
+      { kind: 'variable', name: 'DB_URL', value: 'postgres://db.example/app' },
+      { kind: 'variable', name: 'LOG_LEVEL', value: 'info' },
+      { kind: 'secret', name: 'API_TOKEN', value: SECRET_VALUE, paste: true },
+    ], { secretStore: STORE_NAME });
+    check('setup via UI: three keys saved; secret value never rendered');
+    mark('keys-ready');
+
+    caption('Bước 3: Thêm hai Workload api và web; mỗi cái gắn DB_URL và API_TOKEN bằng tên khác trong Container (DATABASE, TOKEN_ALIAS)');
+    await addWorkload(h, spec('api', [{ source: 'Application variable', key: 'LOG_LEVEL', name: 'LOG_LEVEL' }]));
+    await addWorkload(h, spec('web'));
+    mark('workloads-saved');
+
+    caption('Bước 4: Xem trước rồi Triển khai (adapter fake, không phải cluster thật); hai Workload thành module đã triển khai, chưa có draft');
+    await previewAndDeploy(h, ['api', 'web'], { mark });
+    const deployed = await workloads();
+    expect(deployed.workloads.map((item) => item.id).sort()).toEqual(['api', 'web']);
+    expect(variablesOf(await draftOf('api')).DATABASE).toBe('${resources.env.DB_URL}');
+    const envBefore = (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}`)).json()).application.environments.find((item) => item.key === 'staging');
+    const oldPreview = await (await page.request.post(env('/preview'), { data: {} })).json().catch(() => ({}));
+    const cfg0 = await configuration();
+    check('deployed through fake adapters: api and web have no pending draft; deployed reconstruction shows DATABASE -> DB_URL');
+    expect(cfg0.keys.find((key) => key.name === 'DB_URL').usedBy.sort(), 'usedBy discovers deployed context.uc12 references').toEqual(['api', 'web']);
+    check('Settings usedBy for DB_URL lists api and web from the deployed Deployment Set (context.uc12 references)');
+
+    caption('Bước 5: Mở Cài đặt, đổi tên biến DB_URL thành DATABASE_URL; hộp thoại liệt kê api, web; checkbox mặc định bỏ chọn');
+    await h.click(page.getByRole('button', { name: 'Cài đặt môi trường' }));
+    await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
+    await openRename('DB_URL', 'DATABASE_URL');
+    await expect(dialog()).toContainText('api, web');
+    const box = dialog().getByRole('checkbox', { name: LABEL });
+    await expect(box).not.toBeChecked();
+    mark('rename-dialog');
+    // Layout proof in the real browser: the checkbox sits inline, left of its label text, vertically aligned.
+    const boxRect = await box.boundingBox();
+    const textRect = await dialog().locator('label.checkbox-row').evaluate((label) => {
+      const range = document.createRange();
+      range.selectNodeContents([...label.childNodes].find((node) => node.nodeType === 3 && node.textContent.trim()));
+      const rect = range.getBoundingClientRect();
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    });
+    expect(boxRect.width, 'checkbox keeps its natural size').toBeLessThan(30);
+    expect(textRect.x - (boxRect.x + boxRect.width), 'text follows the checkbox with a small gap').toBeGreaterThanOrEqual(0);
+    expect(textRect.x - (boxRect.x + boxRect.width)).toBeLessThan(16);
+    expect(Math.abs((boxRect.y + boxRect.height / 2) - (textRect.y + textRect.height / 2)), 'checkbox and text share one line').toBeLessThan(6);
+    snap('T30-rename-dialog-layout');
+    check(`checkbox layout: inline with its label (gap ${(textRect.x - boxRect.x - boxRect.width).toFixed(1)}px, vertical offset ${Math.abs((boxRect.y + boxRect.height / 2) - (textRect.y + textRect.height / 2)).toFixed(1)}px); screenshot T30-rename-dialog-layout.png`);
+    await h.moveTo(dialog());
+    await h.read('Mặc định chỉ đổi tên; chọn checkbox mới cập nhật tham chiếu');
+    await h.click(box);
+    await expect(dialog()).toContainText('cập nhật cùng lúc');
+    await confirm();
+    await expect(page.getByRole('status').filter({ hasText: 'Đã đổi tên DB_URL thành DATABASE_URL' })).toContainText('api, web');
+    expect(patches.at(-1).body).toMatchObject({ newName: 'DATABASE_URL', updateReferences: true });
+    expect(Number.isInteger(patches.at(-1).body.environmentVersion) && Number.isInteger(patches.at(-1).body.draftVersion)).toBe(true);
+    for (const id of ['api', 'web']) {
+      const item = await draftOf(id);
+      expect(item.state, `${id} has a pending upsert draft`).toBe('PENDING_UPSERT');
+      expect(variablesOf(item).DATABASE, `${id} alias DATABASE kept, key renamed`).toBe('${resources.env.DATABASE_URL}');
+      expect(variablesOf(item).TOKEN_ALIAS, `${id} secret reference untouched`).toBe('${resources.env.API_TOKEN}');
+    }
+    expect(variablesOf(await draftOf('api')).LOG_LEVEL).toBe('${resources.env.LOG_LEVEL}');
+    const envAfter1 = (await (await page.request.get(`${baseURL}/api/v1/applications/${appId}`)).json()).application.environments.find((item) => item.key === 'staging');
+    expect(envAfter1.version, 'Environment version unchanged').toBe(envBefore.version);
+    check('variable rename opted in: api and web drafts rewritten to DATABASE_URL, container alias DATABASE kept, secret/LOG_LEVEL refs untouched, environment version unchanged');
+    mark('variable-renamed');
+    await h.moveTo(page.getByRole('status').filter({ hasText: 'Đã đổi tên' }));
+    await h.read('Đổi tên xong: hai Workload chờ triển khai, chưa chạy gì');
+
+    caption('Bước 6: Đổi tên bí mật API_TOKEN thành SERVICE_TOKEN cũng cập nhật cả api và web; giá trị bí mật không xuất hiện');
+    await openRename('API_TOKEN', 'SERVICE_TOKEN');
+    await h.click(dialog().getByRole('checkbox', { name: LABEL }));
+    await confirm();
+    await expect(page.getByRole('status').filter({ hasText: 'Đã đổi tên API_TOKEN thành SERVICE_TOKEN' })).toBeVisible();
+    for (const id of ['api', 'web']) expect(variablesOf(await draftOf(id)).TOKEN_ALIAS).toBe('${resources.env.SERVICE_TOKEN}');
+    await noLeak();
+    expect(JSON.stringify(await workloads())).not.toContain(SECRET_VALUE);
+    check('secret rename opted in: both drafts reference SERVICE_TOKEN, alias TOKEN_ALIAS kept, no secret bytes in drafts or page');
+    mark('secret-renamed');
+
+    caption('Bước 7: Đổi LOG_LEVEL thành DATABASE_URL (đã tồn tại) kèm checkbox: bị từ chối, hộp thoại và tên đã nhập được giữ, không ghi gì');
+    const stateBefore = JSON.stringify([await workloads(), (await configuration()).version]);
+    await openRename('LOG_LEVEL', 'DATABASE_URL');
+    await h.click(dialog().getByRole('checkbox', { name: LABEL }));
+    await confirm();
+    await expect(page.getByRole('alert')).toContainText('đã tồn tại');
+    await expect(dialog()).toBeVisible();
+    await expect(dialog().getByRole('checkbox', { name: LABEL })).toBeChecked();
+    await expect(page.getByLabel('Tên key mới')).toHaveValue('DATABASE_URL');
+    expect(JSON.stringify([await workloads(), (await configuration()).version])).toBe(stateBefore);
+    check('collision: Vietnamese DUPLICATE alert, dialog/checkbox/typed name kept, drafts and config version unchanged');
+    mark('collision');
+    await h.read('Trùng tên key: toàn bộ thao tác bị từ chối');
+
+    caption('Bước 8: Cấu hình đổi ở nơi khác (API) khi hộp thoại mở: xác nhận bị STALE_VERSION, Console tải lại nhưng giữ hộp thoại, không tự gửi lại');
+    await h.type(page.getByLabel('Tên key mới'), 'LOGGING_LEVEL', { replace: true });
+    const version = (await configuration()).version;
+    const put = await page.request.put(env('/configuration/keys/OTHER_NOTE'), { data: { kind: 'VARIABLE', value: 'x', version } });
+    expect(put.status()).toBe(200); // MOCK-free negative setup: another client changes the configuration
+    const patchesBefore = patches.length;
+    await confirm();
+    await expect(page.getByRole('alert')).toContainText('Dữ liệu đã thay đổi');
+    await expect(dialog()).toBeVisible();
+    expect(patches.length).toBe(patchesBefore + 1);
+    expect((await draftOf('api')).state).toBe('PENDING_UPSERT');
+    check('stale guard: 409 STALE_VERSION, authoritative reload, dialog and edits kept, exactly one PATCH (no replay)');
+    mark('stale');
+    await h.read('Phiên bản cấu hình đã đổi; xem lại rồi xác nhận lại nếu muốn');
+    await h.click(dialog().getByRole('button', { name: 'Hủy' }));
+
+    caption('Bước 9: (MOCK) Môi trường đang bận: PATCH trả ENVIRONMENT_BUSY; hộp thoại giữ nguyên, không ghi gì');
+    await page.route('**/configuration/keys/LOG_LEVEL', async (route) => {
+      if (route.request().method() !== 'PATCH') { await route.continue(); return; }
+      await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'busy', code: 'ENVIRONMENT_BUSY' }) });
+    });
+    await openRename('LOG_LEVEL', 'LOG_LEVEL_2');
+    await h.click(dialog().getByRole('checkbox', { name: LABEL }));
+    await confirm();
+    await expect(page.getByRole('alert')).toContainText('Môi trường đang bận');
+    await expect(dialog()).toBeVisible();
+    await expect(page.getByLabel('Tên key mới')).toHaveValue('LOG_LEVEL_2');
+    await page.unroute('**/configuration/keys/LOG_LEVEL');
+    check('BUSY (MOCK reply): Vietnamese busy message, dialog/checkbox/name kept');
+    mark('busy');
+    await h.click(dialog().getByRole('button', { name: 'Hủy' }));
+
+    caption('Bước 10: Xem trước thay đổi trên trang ứng dụng (đọc drafts mới): hai Workload api và web bị ảnh hưởng; chưa Triển khai');
+    await h.click(page.getByRole('button', { name: `← ${APP_NAME}` }));
+    await expect(page.getByRole('heading', { name: APP_NAME })).toBeVisible();
+    const previewed = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/environments/staging/preview'));
+    await h.click(page.getByRole('button', { name: 'Xem trước thay đổi' }));
+    const previewResponse = await previewed;
+    expect(previewResponse.status()).toBe(200);
+    const preview = await previewResponse.json();
+    expect(preview.changes.map((change) => change.workloadId).sort()).toEqual(['api', 'web']);
+    await expect(page.getByLabel('Xem trước triển khai')).toContainText('2 Workload bị ảnh hưởng', { timeout: 120_000 });
+    expect(preview.draftVersion).toBeGreaterThan(oldPreview.draftVersion ?? -1);
+    check('pending Preview (fake planner): api and web affected, pins the new config/draft versions; no deploy request');
+    mark('preview-pending');
+    await h.moveTo(page.getByLabel('Xem trước triển khai'));
+    await h.read('Xem trước liệt kê đúng hai Workload; Triển khai vẫn là thao tác riêng');
+
+    if (oldPreview.token) {
+      const stale = await page.request.post(env('/deploy'), { data: { token: oldPreview.token } });
+      expect(stale.status()).toBe(409);
+      expect((await stale.json()).code).toBe('STALE_PREVIEW');
+      check('negative probe: Preview token taken before the rename is rejected STALE_PREVIEW, nothing deployed');
+    } else {
+      check('no pre-rename pending changes existed (Preview had nothing to pin); old-token probe skipped');
+    }
+
+    caption('Bước 11: Đổi tên LOG_LEVEL không chọn checkbox: chỉ đổi tên key, drafts không đổi; Xem trước chặn vì key thiếu');
+    await h.click(page.getByRole('button', { name: 'Cài đặt môi trường' }));
+    const draftsBefore = JSON.stringify((await workloads()).workloads.map((item) => item.score));
+    const draftVersionBefore = (await workloads()).draftVersion;
+    await openRename('LOG_LEVEL', 'LOGGING_LEVEL');
+    await expect(dialog().getByRole('checkbox', { name: LABEL })).not.toBeChecked();
+    await confirm();
+    await expect(row('LOGGING_LEVEL')).toBeVisible();
+    expect(patches.at(-1).body).toEqual({ newName: 'LOGGING_LEVEL', version: expect.any(Number) });
+    const after = await workloads();
+    expect(after.draftVersion).toBe(draftVersionBefore);
+    expect(JSON.stringify(after.workloads.map((item) => item.score))).toBe(draftsBefore);
+    expect(variablesOf(await draftOf('api')).LOG_LEVEL, 'old reference kept (not literal, not rewritten)').toBe('${resources.env.LOG_LEVEL}');
+    check('no opt-in: PATCH has no updateReferences/guards, drafts and draft version byte-identical');
+    mark('rename-only');
+    await h.click(page.getByRole('button', { name: `← ${APP_NAME}` }));
+    await h.click(page.getByRole('button', { name: 'Xem trước thay đổi' }));
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Triển khai các thay đổi này' })).toHaveCount(0);
+    check('Preview rejects the now-missing LOG_LEVEL reference (alert shown, no Deploy button)');
+    mark('preview-blocked');
+    await h.read('Đổi tên không chọn checkbox để lại tham chiếu thiếu; Xem trước chặn Triển khai');
+    await noLeak();
+    await signOut();
+    mark('signed-out');
+    await h.pause(2000);
+  },
 };
 
 export function parseArgs(argv) {

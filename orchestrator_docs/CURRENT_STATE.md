@@ -130,11 +130,11 @@ Cài đặt môi trường và các dialogs cấu hình/chuyển đích/recovery
 Một READY choice hợp lệ chỉ được gợi ý draft khi chưa có binding; nhiều lựa chọn
 phải chọn tường minh, không tự persist/default/fallback. Chỉ Lưu đổi binding;
 binding đã có không bị thay. Reload/stale/reply muộn giữ pending edits và không
-đưa cấu hình sai app/env vào trang đang xem. Secret không đọc lại; rename chưa
-rewrite references. Backend/API/version/downtime/recovery confirmations giữ
+đưa cấu hình sai app/env vào trang đang xem. Secret không đọc lại; T07 giữ
+rename-only, T30 bên dưới bổ sung lựa chọn explicit rewrite desired references. Backend/API/version/downtime/recovery confirmations giữ
 nguyên. Headed local dùng fake/memory adapters; transition/recovery và lỗi
 copy/stale/BUSY dùng projection mock, không chứng minh migration thật. T20 error
-mapping và T30 rename-reference behavior còn chờ task tương ứng.
+mapping và T30 rename-reference behavior được ghi ở các mục delivery tương ứng.
 
 ## Console refactor T06 (2026-10-11)
 
@@ -692,3 +692,21 @@ See [T29 evidence](verification/2026-10-12-T29-dev-rebuild.md) and
 [dev runbook](operations/k8s4f-dev.md). No production/AWS run or new recovery
 execution is claimed; live backup restore-smoke succeeded, offline recovery guards
 pass. The sample has no worker, so its diagnostic job stays PENDING.
+
+## T30 — Key rename and desired reference update (2026-10-12)
+
+[Local verification](verification/2026-10-12-T30-key-rename.md): Settings có
+checkbox mặc định bỏ chọn “Đổi tên và cập nhật tham chiếu”. Opt-in commits
+config revision + affected drafts nguyên tử dưới config/env/draft/current-set
+CAS/BUSY; deployed consumers không có draft được reconstruct/round-trip verified.
+Giữ aliases/many-to-one, advanced fields, unrelated refs/context/escaped literals
+và opaque Secret refs, không đọc/copy Secret bytes. Pending deletes không bị
+hồi sinh; rename-only/delete giữ references. Runtime/current/applied state không
+đổi tới Preview → Deploy tường minh; Preview cũ stale. Unsafe reconstruction
+fail closed với hướng dẫn Việt. Production Preview CTA giữ đúng Environment.
+
+Full Go/conformance/build, targeted races, frontend 444 tests/gates, headed T30
+và T07/T08 regression pass. Video dùng real product API/planner với fake adapters
+và memory state/store; T30 BUSY là projection mock. PostgreSQL atomic command và
+opt-in rollback/race/reopen tests đã có nhưng chưa được thực thi vì chưa có
+approval DB disposable cho T30; không claim PostgreSQL/live rollout proof.

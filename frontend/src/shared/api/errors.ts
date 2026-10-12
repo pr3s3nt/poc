@@ -34,6 +34,7 @@ const messageTable = {
   KUBECONFIG_INVALID_TLS: 'Dữ liệu TLS nhúng trong context không hợp lệ (CA, chứng chỉ client hoặc khóa).',
   SECRET_STORE_REQUIRED: 'Hãy chọn kho bí mật trong Cài đặt môi trường trước khi thêm bí mật.',
   SECRET_STORE_UNAVAILABLE: 'Kho bí mật đã chọn không sẵn sàng. Kiểm tra kho hoặc chọn kho khác.',
+  REFERENCE_REWRITE_UNSAFE: 'Không thể tự cập nhật tham chiếu mà vẫn giữ nguyên toàn bộ cấu hình workload. Chưa có gì được lưu; hãy bỏ chọn cập nhật tham chiếu hoặc sửa các workload liên quan tường minh trước khi đổi tên.',
   SECRET_COPY_FAILED: 'Không sao chép được bí mật sang kho mới. Lựa chọn kho và phiên bản cũ được giữ nguyên.',
   TRANSITION_REQUIRED: 'Môi trường đã có tài nguyên runtime. Hãy dùng luồng chuyển kết nối để đổi đích.',
   TRANSITION_UNSUPPORTED: 'Chế độ chuyển kết nối này chưa được hỗ trợ.',

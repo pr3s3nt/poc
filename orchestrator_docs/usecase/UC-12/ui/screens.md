@@ -2,7 +2,7 @@
 id: UC-12-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-12
 related: UC-12
 ---
 
@@ -46,8 +46,10 @@ the same impact-warning flow without displaying secret material.
 ## Impact warning
 
 For rename/delete of a referenced key, the confirmation names the selected
-Environment and lists affected workloads. It states that references will not
-be updated automatically and Preview will reject unresolved references.
+Environment and lists affected workloads. For delete or rename without opt-in, it states that references remain unchanged
+and Preview will reject unresolved references. Rename offers the unchecked
+“Đổi tên và cập nhật tham chiếu” checkbox; selecting it explains that only
+pending workload references change and runtime requires Preview → Deploy.
 `Continue` is available; the warning is not a hard block. Value update shows
 affected workloads and explains that runtime changes only after Preview and
 Deploy.
@@ -65,10 +67,19 @@ Trang dùng “Cài đặt môi trường”, “Biến”, “Bí mật”, “
 “Workload sử dụng”, “Đổi tên”, “Xóa”, “Lưu thay đổi chờ triển khai” và
 “Xem trước”/“Triển khai” theo glossary. Tab vẫn là `staging`/`production`.
 Secret input được che và không điền giá trị đã lưu. Dialog đổi tên/xóa nêu
-Environment, workload bị ảnh hưởng và việc người dùng phải tự sửa tham chiếu;
-T07 chỉ đổi nhãn, không rewrite references (CFG-01 behavior thuộc T30).
+Environment và workload bị ảnh hưởng. Đổi tên có checkbox mặc định bỏ chọn
+“Đổi tên và cập nhật tham chiếu”; không chọn hoặc Xóa thì người dùng tự sửa
+tham chiếu. Chọn checkbox giữ tên biến trong Container và chỉ sửa drafts.
 
 Khi chưa có kho và chỉ có một READY store hợp lệ, selector gợi ý draft chưa lưu,
 không tạo binding hoặc cho phép Secret write trước Lưu. Nhiều kho yêu cầu chọn
 tường minh. Kho đã cấu hình không bị thay; Lưu đổi kho vẫn copy/verify trước
 commit, runtime chuyển sau Xem trước → Triển khai.
+
+## T30 rename dialog
+
+Checkbox và tên mới được giữ khi lỗi/BUSY/stale; không tự retry mutation.
+Reload/review tường minh làm mới versions trước lần xác nhận kế tiếp. Đổi app/env
+hoặc mở dialog khác reset opt-in; late reply không chuyển kết quả sang scope mới.
+Thành công hiển thị thay đổi chờ triển khai và đường về Xem trước thay đổi trên
+trang ứng dụng, không báo đã rollout.

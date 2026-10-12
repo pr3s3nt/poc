@@ -205,6 +205,64 @@ func (s *Store) CommitConfigurationRevision(ctx context.Context, expectedVersion
 	return nil
 }
 
+// CommitDesiredRename checks every guard first and only then writes, so a
+// failure leaves revision, scope, drafts and versions untouched (T30).
+//
+// Outside a transaction it runs in Transact, so a failed JSON snapshot write
+// returns the error and restores the in-memory state (no partial rename).
+func (s *Store) CommitDesiredRename(ctx context.Context, cmd persistence.DesiredRename) error {
+	if s.inTx(ctx) {
+		return s.commitDesiredRename(ctx, cmd)
+	}
+	return s.Transact(ctx, func(ctx context.Context) error { return s.commitDesiredRename(ctx, cmd) })
+}
+
+func (s *Store) commitDesiredRename(ctx context.Context, cmd persistence.DesiredRename) error {
+	revision := cmd.Revision
+	if err := revision.Validate(); err != nil {
+		return err
+	}
+	if revision.ApplicationKey != cmd.ApplicationKey || revision.EnvironmentKey != cmd.EnvironmentKey {
+		return fmt.Errorf("store: rename revision scope mismatch")
+	}
+	key := envKey(cmd.ApplicationKey, cmd.EnvironmentKey)
+	env, ok := s.state.Environments[key]
+	if !ok {
+		return fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
+	}
+	if err := s.ownerCheck(ctx, env); err != nil {
+		return err
+	}
+	scope := s.state.ConfigScopes[key]
+	if scope.Version != cmd.ExpectedConfigVersion || revision.Version != cmd.ExpectedConfigVersion+1 ||
+		env.Version != cmd.ExpectedEnvironmentVersion || env.DraftVersion != cmd.ExpectedDraftVersion ||
+		env.CurrentDeploymentSetID != cmd.ExpectedCurrentSetID {
+		return persistence.ErrVersionConflict
+	}
+	if _, ok := s.state.ConfigRevisions[revision.ID]; ok {
+		return persistence.ErrImmutable
+	}
+	for _, draft := range cmd.Drafts {
+		if draft.ApplicationKey != cmd.ApplicationKey || draft.EnvironmentKey != cmd.EnvironmentKey || draft.WorkloadID == "" || draft.State != environment.DraftUpsert || draft.Score == nil {
+			return fmt.Errorf("store: invalid rename draft")
+		}
+		// A pending delete is never rewritten or resurrected.
+		if prior, exists := s.state.WorkloadDrafts[draftKey(draft.ApplicationKey, draft.EnvironmentKey, draft.WorkloadID)]; exists && prior.State != environment.DraftUpsert {
+			return persistence.ErrVersionConflict
+		}
+	}
+	s.state.ConfigRevisions[revision.ID] = copyConfigurationRevision(revision)
+	s.state.ConfigScopes[key] = configuration.Scope{ApplicationKey: revision.ApplicationKey, EnvironmentKey: revision.EnvironmentKey, DesiredRevisionID: revision.ID, Version: revision.Version}
+	if len(cmd.Drafts) > 0 {
+		for _, draft := range cmd.Drafts {
+			s.state.WorkloadDrafts[draftKey(draft.ApplicationKey, draft.EnvironmentKey, draft.WorkloadID)] = cloneWorkloadDraft(draft)
+		}
+		env.DraftVersion++
+		s.state.Environments[key] = env
+	}
+	return nil
+}
+
 func copyConfigurationRevision(in configuration.Revision) configuration.Revision {
 	out := in
 	out.Entries = make(map[string]configuration.Entry, len(in.Entries))

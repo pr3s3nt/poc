@@ -226,7 +226,7 @@ lifecycle are not covered.
 | MS-01 | [Screens](../usecase/UC-12/ui/screens.md) | Two Environment tabs; variable and secret sections together in each tab | Type and Environment isolation |
 | MS-02–MS-03 | [Specification](../usecase/UC-12/specification.md) BR-01–BR-03 | Scoped uniqueness; secret write without readback | Duplicate names, secret redaction and no-readback tests |
 | MS-04 | [Realization](../usecase/UC-12/realization.md) | Affected workloads and pending Preview → Deploy; runtime unchanged | Impact list and no-runtime-mutation tests |
-| VAR-01–VAR-03 | [States](../usecase/UC-12/ui/states.md) | Warning but allow rename/delete; no automatic reference repair; secret replacement hidden | Warning/confirm, broken-reference Preview rejection and secret-update tests |
+| VAR-01–VAR-03 | [States](../usecase/UC-12/ui/states.md) | Warning but allow rename/delete; rename-only/delete retain references, explicit opt-in follows T30 below; secret replacement hidden | Warning/confirm, broken-reference Preview rejection and secret-update tests |
 | BR-08–BR-10, BR-14 | [ADR-006](../architecture/decisions/ADR-006-application-configuration-provider.md), [ADR-008](../architecture/decisions/ADR-008-vso-native-secret-delivery.md) | Per-Application provider; immutable desired/applied revisions; VSO Secret with `secretKeyRef` on kind | Provider isolation, pending-vs-applied revision, VSO Secret synchronization and restart tests |
 
 T24 / UC-12 BR-03, BR-08, BR-15–19 follows current ADR-012 rather than the
@@ -480,3 +480,16 @@ T28 validation: authorized isolated PostgreSQL 16 full suite/build/conformance,
 zero skipped tests, targeted persistence race, fresh/reopen/rollback/drift and
 multi-backend guards pass. Synthetic restore and owned cleanup pass; no retained
 mutation or browser flow. [Reviewed evidence](../verification/2026-10-12-T28-fresh-baseline.md).
+
+## T30 — Atomic key rename and desired references (CFG-01)
+
+| Requirement | Collaboration / implementation | Validation |
+|---|---|---|
+| UC-12 VAR-01, BR-05, BR-20–23; OC-12 T30 | `configuration.Service.List` consistent snapshot + `RenameKey` preparation; `persistence.DesiredRename` and memory/JSON/PostgreSQL atomic `CommitDesiredRename` | `configuration/rename_test.go`, `persistencetest/rename.go`, JSON snapshot rollback/reopen tests; PostgreSQL opt-in `rename_integration_test.go` prepares mid-write rollback/BUSY/multibackend/reopen coverage |
+| UC-16 BR-19; UC-12 BR-21/22 | Shared `workloadconfig/rewrite.go`, `ReconstructVerified` + `VerifyRewritten`; upsert precedence, pending delete exclusion; preserve aliases/advanced/context/escaped refs | `reconstruct_verified_test.go`, `configuration/rename_test.go`: deployed no-draft, many-to-one, cross-env, unsafe/collision/no-provider and one-winner race |
+| UI defaults/CAS/errors/scoping | Settings checkbox + snapshot guards, scoped pending notice/Preview CTA; strict HTTP PATCH and fixed REFERENCE_REWRITE_UNSAFE code | `configuration_rename_test.go`, `SettingsRename.test.tsx`, route/ApplicationHome tests; headed T30 real product API with fake adapters, explicit BUSY projection |
+| UC-05/07 pending boundary | Existing OC-17 pins config/draft/current state; rename does not deploy | T30 headed Preview lists api/web; pre-rename token rejected; rename-only missing reference blocks Deploy; existing pending/transition/deployment regressions |
+
+Execution results and PostgreSQL gate are recorded in the
+[T30 verification](../verification/2026-10-12-T30-key-rename.md); prepared opt-in
+tests are not execution proof.

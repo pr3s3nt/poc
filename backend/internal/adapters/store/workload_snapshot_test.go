@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"orchestrator/internal/domain/deployment"
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
@@ -126,5 +130,71 @@ func TestEmptyWorkloadHistoryIsNotBackfilledOnReload(t *testing.T) {
 	}
 	if rows, err := reopened.ListDeploymentWorkloads(context.Background(), latest.ID); err != nil || len(rows) != 0 {
 		t.Fatalf("current-row correction became history on reload: %#v, %v", rows, err)
+	}
+}
+
+func TestDesiredRenameContract(t *testing.T) {
+	persistencetest.DesiredRename(t, New())
+}
+
+func TestDesiredRenameJSONReopen(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	st, err := NewWithSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	persistencetest.DesiredRename(t, st)
+	reopened, err := NewWithSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := seed.Defaults()
+	want := persistencetest.TakeRenameSnapshot(t, st, opts)
+	got := persistencetest.TakeRenameSnapshot(t, reopened, opts)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("reopened state differs:\n got %#v\nwant %#v", got, want)
+	}
+	byID := map[string]environment.WorkloadDraft{}
+	for _, d := range got.Drafts {
+		byID[d.WorkloadID] = d
+	}
+	if byID["gone"].State != environment.DraftDelete || byID["api"].State != environment.DraftUpsert || !strings.Contains(fmt.Sprint(byID["api"].Score), "resources.env.NEW") {
+		t.Fatalf("reopened drafts lost renamed reference or pending delete: %#v", got.Drafts)
+	}
+}
+
+// A JSON snapshot write failure inside the atomic command returns the error
+// and restores memory: no revision, scope pointer, draft or version leaks.
+func TestDesiredRenameSnapshotFailureRollsBack(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "sub")
+	path := filepath.Join(dir, "state.json")
+	st, err := NewWithSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fx := persistencetest.SeedRename(t, st)
+	before := persistencetest.TakeRenameSnapshot(t, st, fx.Options)
+	if err := os.RemoveAll(dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dir, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.CommitDesiredRename(context.Background(), fx.Command); err == nil {
+		t.Fatal("snapshot write failure was ignored")
+	}
+	after := persistencetest.TakeRenameSnapshot(t, st, fx.Options)
+	if !reflect.DeepEqual(before, after) {
+		t.Fatalf("state leaked after failed snapshot write:\nbefore %#v\nafter  %#v", before, after)
+	}
+	byID := map[string]environment.WorkloadDraft{}
+	for _, d := range after.Drafts {
+		byID[d.WorkloadID] = d
+	}
+	if byID["gone"].State != environment.DraftDelete || byID["api"].State != environment.DraftUpsert || !strings.Contains(fmt.Sprint(byID["api"].Score), "resources.env.OLD") || strings.Contains(fmt.Sprint(byID["api"].Score), "resources.env.NEW") {
+		t.Fatalf("rollback did not keep the OLD reference and pending delete: %#v", after.Drafts)
+	}
+	if _, err := st.GetConfigurationRevision(context.Background(), fx.Command.Revision.ID); err == nil {
+		t.Fatal("revision leaked into memory")
 	}
 }

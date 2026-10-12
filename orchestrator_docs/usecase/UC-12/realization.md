@@ -22,7 +22,7 @@ HTTP and snapshot operations are specified in the shared operation contract.
 - Configuration control: validate scoped key uniqueness and record a pending
   desired change; do not mutate runtime.
 - Reference lookup: find workloads in the same Environment that refer to the
-  selected key. It informs warnings; it does not rewrite workload references.
+  selected key. It informs warnings; explicit rename opt-in also prepares lossless desired reference rewrites.
 - Configuration control: maintain a desired revision per Environment and an
   applied revision per workload. New values belong to an immutable pending
   revision; an applied revision is not overwritten on save. Key names share
@@ -46,7 +46,7 @@ HTTP and snapshot operations are specified in the shared operation contract.
 | MS-01 | Load both variable and secret keys for the selected Environment. |
 | MS-02–MS-03 | Validate and record a new/changed value under the scoped key. |
 | MS-04 | Read affected workload names and report pending Preview → Deploy. |
-| VAR-01–VAR-02 | Look up consumers, warn, accept confirmation, keep workload bindings unchanged. |
+| VAR-01–VAR-02 | Look up consumers and warn; delete/rename-only retain bindings, explicit rename opt-in atomically commits configuration and desired drafts. |
 | VAR-03 | Accept replacement secret value; never return it through a read path. |
 
 ## Boundary
@@ -69,3 +69,15 @@ Variables exactly, then atomically
 commits new revision/selection. Old applied refs/bundles remain unchanged. VSO
 connection/auth objects are store-specific; next Preview marks secret consumers
 pending even when bytes are equal. See [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).
+
+## T30 atomic rename collaboration
+
+Read one consistent scoped snapshot of Environment, configuration scope/revision,
+current set and drafts. Prepare renamed metadata and lossless desired Scores;
+use the shared workload reconstruction boundary for deployed consumers without
+an upsert draft. Token rewrite preserves aliases and non-key references; pending
+deletes remain untouched. One persistence command checks config/env/draft CAS,
+current-set identity and no active operation, then commits revision and all
+changed drafts. No provider/executor call runs in this transaction. Failure leaves
+all pointers/versions unchanged. Return authoritative safe metadata; Preview
+remains the separate read-only impact stage.

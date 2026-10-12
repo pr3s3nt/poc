@@ -40,9 +40,11 @@ cùng Environment có thể tham chiếu và tái sử dụng.
 ## Luồng biến thể
 
 - **VAR-01 — Đổi tên key:** Developer nhập tên mới. Nếu key đang được workload
-  tham chiếu, hệ thống cảnh báo và liệt kê workload bị ảnh hưởng nhưng vẫn cho
-  xác nhận. Hệ thống không tự sửa tham chiếu của workload; Developer tự chỉnh
-  từng workload trong UC-16.
+  tham chiếu, hệ thống cảnh báo và liệt kê workload bị ảnh hưởng. Developer có
+  thể chọn explicit “Đổi tên và cập nhật tham chiếu” (mặc định bỏ chọn). Nếu
+  không chọn, chỉ đổi tên key; Developer tự sửa từng workload trong UC-16. Nếu
+  chọn, đổi tên và sửa desired references của các workload trong cùng app/env
+  bằng một commit nguyên tử theo BR-20; runtime/current set giữ nguyên.
 - **VAR-02 — Xóa key:** Developer yêu cầu xóa. Nếu key đang được workload tham
   chiếu, hệ thống cảnh báo và liệt kê workload bị ảnh hưởng nhưng vẫn cho xác
   nhận. Hệ thống không tự xóa/sửa binding trong workload.
@@ -73,8 +75,9 @@ cùng Environment có thể tham chiếu và tái sử dụng.
   thông báo các workload đang tham chiếu. Runtime không đổi cho tới khi thay đổi
   được Preview và Deploy ở đúng Environment.
 - **BR-05:** Đổi tên/xóa key đang được tham chiếu phải cảnh báo nhưng không bị
-  chặn. Hệ thống không tự cập nhật tham chiếu trong workload. Preview phải chỉ
-  rõ tham chiếu thiếu và chặn Deploy cho tới khi workload được chỉnh hợp lệ.
+  chặn. Xóa và đổi tên không opt-in giữ nguyên tham chiếu trong workload. Chỉ
+  đổi tên với lựa chọn tường minh VAR-01 mới cập nhật desired references. Preview
+  phải chỉ rõ tham chiếu thiếu và chặn Deploy cho tới khi workload được chỉnh hợp lệ.
 - **BR-06:** UC-16 chỉ được chọn key tồn tại trong đúng Application,
   Environment và loại. Giá trị UC-12 không được sao chép thành literal vào
   cấu hình workload.
@@ -113,9 +116,30 @@ cùng Environment có thể tham chiếu và tái sử dụng.
   đồng bộ trước khi apply workload và chỉ báo thành công sau readiness. Đổi giá
   trị tạo revision chờ Preview → Deploy, không tự rollout workload.
 
+## Đổi tên với cập nhật tham chiếu — CFG-01 / T30
+
+- **BR-20:** Đổi tên opt-in tạo cùng lúc immutable configuration revision và
+  toàn bộ desired workload drafts bị ảnh hưởng trong một transaction. Kiểm tra
+  expected configuration, Environment và draft versions cùng trạng thái BUSY;
+  mọi conflict/failure giữ nguyên key, revision, drafts và versions.
+- **BR-21:** Chỉ đổi token KEY của reference tới virtual resource loại
+  `environment` trong đúng Application/Environment. Giữ container names/aliases,
+  imported many-to-one mappings và cấu trúc Score khác, kể cả resource/Service
+  references. Không thay tên container variable theo tên key mới, không biến
+  reference thành literal và không đọc/copy Secret bytes; giữ owning StoreKey/ValueRef.
+- **BR-22:** Desired upsert draft có ưu tiên hơn current workload; pending delete
+  giữ nguyên và không hồi sinh. Workload deployed chưa có draft được reconstruct
+  lossless thành reference-based Score trước khi rewrite. Không reconstruct an
+  toàn hoặc collision thì từ chối toàn bộ thao tác, không partial rename.
+- **BR-23:** Lưu chỉ tạo pending change; current Deployment Set, applied revisions,
+  runtime và Environment khác không đổi. Preview liệt kê workloads bị ảnh hưởng
+  và pin cả configuration/draft versions; Developer Deploy tường minh. Preview
+  tạo trước rename không còn hợp lệ.
+
 ## Ngoài phạm vi
 
-- **OOS-01:** Form cấu hình workload và sửa tham chiếu; thuộc UC-16.
+- **OOS-01:** Form cấu hình workload và sửa tham chiếu thủ công; thuộc UC-16.
+  Đổi tên với cập nhật desired references tường minh theo BR-20–23 thuộc UC-12.
 - **OOS-02:** Preview và Deploy; thuộc UC-05, UC-06 và UC-07.
 - **OOS-03:** Provider ngoài Vault KV v2 và tự động rollback sau Deploy thất bại;
   chuyển giữa các Vault stores nằm trong phạm vi theo BR-15..19.

@@ -299,6 +299,27 @@ type ConfigurationRepository interface {
 	GetConfigurationScope(ctx context.Context, applicationKey, environmentKey string) (configuration.Scope, error)
 	GetConfigurationRevision(ctx context.Context, id string) (configuration.Revision, error)
 	CommitConfigurationRevision(ctx context.Context, expectedVersion int64, revision configuration.Revision) error
+	// CommitDesiredRename atomically commits one configuration revision and the
+	// desired workload drafts that reference its renamed key (T30).
+	CommitDesiredRename(ctx context.Context, command DesiredRename) error
+}
+
+// DesiredRename is one atomic UC-12 rename with reference rewrite. Every
+// Expected* field is checked inside the same transaction as the writes.
+// Revision.Version must be ExpectedConfigVersion+1 and Drafts hold only
+// PENDING_UPSERT drafts with a Score. The command never changes the
+// Environment version, current Deployment Set, applied revisions or pending
+// deletes; it advances the draft version once when Drafts is not empty.
+// Failures are ErrEnvironmentBusy, ErrVersionConflict or ErrNotFound and leave
+// all metadata unchanged.
+type DesiredRename struct {
+	ApplicationKey, EnvironmentKey string
+	ExpectedConfigVersion          int64
+	ExpectedEnvironmentVersion     int64
+	ExpectedDraftVersion           int64
+	ExpectedCurrentSetID           string
+	Revision                       configuration.Revision
+	Drafts                         []environment.WorkloadDraft
 }
 
 // WorkloadDraftRepository owns UC-16 pending desired Score documents.

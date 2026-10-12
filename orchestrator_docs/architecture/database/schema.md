@@ -478,3 +478,13 @@ JSON startup and persistence binding/save reject retired or unknown values safel
 Generation 0 preserves current namespaces/descriptors; historical plan/TargetRef
 snapshots are not rewritten. Retained development state must be reset through the
 approved T29 run; old SQL migration chains are unsupported.
+
+## T30 atomic desired rename command
+
+No new columns or baseline identity. One metadata transaction validates expected
+configuration version, Environment version/draft_version, current-set identity
+and no active operation; inserts new configuration revision/entries and all
+changed upsert drafts together. Configuration version advances once; draft_version
+advances once only when drafts changed. Pending deletes, Environment version,
+current/applied pointers and old immutable refs remain unchanged. Rollback/CAS
+failure leaves all metadata unchanged. See OC-12 T30 for public behavior.

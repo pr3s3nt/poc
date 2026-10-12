@@ -65,6 +65,7 @@ const (
 	codeSecretStoreRequired       = "SECRET_STORE_REQUIRED"
 	codeSecretStoreUnavailable    = "SECRET_STORE_UNAVAILABLE"
 	codeSecretCopyFailed          = "SECRET_COPY_FAILED"
+	codeRefRewriteUnsafe          = "REFERENCE_REWRITE_UNSAFE"
 	codeTransitionRequired        = "TRANSITION_REQUIRED"
 	codeTransitionUnsupported     = "TRANSITION_UNSUPPORTED"
 	codeTransitionSameDestination = "TRANSITION_SAME_DESTINATION"
@@ -119,6 +120,7 @@ var publicErrors = map[string]publicError{
 	codeSecretStoreRequired:       {http.StatusUnprocessableEntity, "a secret store must be selected"},
 	codeSecretStoreUnavailable:    {http.StatusUnprocessableEntity, "the selected secret store is not available"},
 	codeSecretCopyFailed:          {http.StatusBadGateway, "secrets could not be copied to the new store"},
+	codeRefRewriteUnsafe:          {http.StatusUnprocessableEntity, "the references cannot be updated without losing configuration"},
 	codeTransitionRequired:        {http.StatusConflict, "the environment has runtime resources; use a connection transition"},
 	codeTransitionUnsupported:     {http.StatusUnprocessableEntity, "this transition is not supported"},
 	codeTransitionSameDestination: {http.StatusUnprocessableEntity, "the destination must differ from the current connection"},
@@ -294,6 +296,8 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeSecretStoreRequired, field: "secretStoreKey"}, true
 	case errors.Is(err, configport.ErrStoreUnavailable):
 		return failure{code: codeSecretStoreUnavailable, field: "secretStoreKey"}, true
+	case errors.Is(err, appconfig.ErrReferenceRewriteUnsafe):
+		return failure{code: codeRefRewriteUnsafe}, true
 	case errors.Is(err, appconfig.ErrStoreCopy):
 		return failure{code: codeSecretCopyFailed}, true
 	case errors.Is(err, persistence.ErrOperationLost):

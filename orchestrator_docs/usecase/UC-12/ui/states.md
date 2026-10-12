@@ -15,7 +15,7 @@ related: UC-12
 | Settings | API error | Show retryable error without substituting mock keys. |
 | Key form | Validation | Require a name and value on Add; reject duplicate name in selected scope; retain fields after error. |
 | Secret form | Existing key | Show configured status only; never prefill or return existing secret value. |
-| Rename/Delete | Referenced key | Warn with affected workload names and selected Environment; allow confirmation without changing workload references. |
+| Rename/Delete | Referenced key | Warn with affected workload names and selected Environment; allow confirmation; explicit rename opt-in updates desired references only. |
 | Rename/Delete | Unreferenced key | Confirm scope and action; do not imply immediate runtime change. |
 | Save | Submitting/error | Prevent double submit and retain context after failure; do not expose secret values in errors. |
 | Save | Pending | Show pending badge, affected workloads and Preview changes for selected Environment. |
@@ -46,3 +46,12 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
+
+## T30 rename opt-in states
+
+Unchecked là rename-only; checked gửi config/env/draft versions của snapshot
+đã đọc. Collision/lossless failure giữ dialog và mọi edits với lỗi Việt an toàn;
+không báo thành công một phần. STALE_VERSION cần reload/review, ENVIRONMENT_BUSY
+đợi operation; cả hai không replay. Thành công hiển thị pending và workloads bị
+ảnh hưởng; lỗi GET sau commit không được diễn giải thành rollback. Scope change
+bỏ dialog và invalidate replies. Secret values không xuất hiện trong feedback.

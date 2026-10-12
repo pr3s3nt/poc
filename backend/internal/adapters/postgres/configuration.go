@@ -66,16 +66,93 @@ func (s *Store) fencedCommitConfigurationRevision(ctx context.Context, expected 
 		if current != expected || v.Version != expected+1 {
 			return persistence.ErrVersionConflict
 		}
-		if _, err = s.q(ctx).Exec(ctx, `INSERT INTO configuration_revisions(id,environment_id,version) VALUES($1::uuid,$2::uuid,$3)`, v.ID, envID, v.Version); err != nil {
-			return translate(err)
-		}
-		for name, e := range v.Entries {
-			if _, err = s.q(ctx).Exec(ctx, `INSERT INTO configuration_revision_entries(revision_id,key_name,kind,value_ref,store_key,variable_value) VALUES($1::uuid,$2,$3,NULLIF($4,''),$5,NULLIF($6,''))`, v.ID, name, e.Kind, e.ValueRef, e.StoreKey, e.Value); err != nil {
-				return translate(err)
-			}
+		if err = s.insertConfigurationRevision(ctx, envID, v); err != nil {
+			return err
 		}
 		_, err = s.q(ctx).Exec(ctx, `UPDATE environments SET desired_config_revision_id=$1::uuid WHERE id=$2::uuid`, v.ID, envID)
 		return translate(err)
+	})
+}
+
+func (s *Store) insertConfigurationRevision(ctx context.Context, envID string, v configuration.Revision) error {
+	if _, err := s.q(ctx).Exec(ctx, `INSERT INTO configuration_revisions(id,environment_id,version) VALUES($1::uuid,$2::uuid,$3)`, v.ID, envID, v.Version); err != nil {
+		return translate(err)
+	}
+	for name, e := range v.Entries {
+		if _, err := s.q(ctx).Exec(ctx, `INSERT INTO configuration_revision_entries(revision_id,key_name,kind,value_ref,store_key,variable_value) VALUES($1::uuid,$2,$3,NULLIF($4,''),$5,NULLIF($6,''))`, v.ID, name, e.Kind, e.ValueRef, e.StoreKey, e.Value); err != nil {
+			return translate(err)
+		}
+	}
+	return nil
+}
+
+// CommitDesiredRename (T30) runs the guards, the immutable revision and every
+// rewritten draft in one metadata transaction; any failure rolls all back.
+func (s *Store) CommitDesiredRename(ctx context.Context, cmd persistence.DesiredRename) error {
+	return s.fenced(ctx, func(ctx context.Context) error { return s.fencedCommitDesiredRename(ctx, cmd) })
+}
+
+func (s *Store) fencedCommitDesiredRename(ctx context.Context, cmd persistence.DesiredRename) error {
+	v := cmd.Revision
+	if err := v.Validate(); err != nil {
+		return err
+	}
+	if v.ApplicationKey != cmd.ApplicationKey || v.EnvironmentKey != cmd.EnvironmentKey {
+		return fmt.Errorf("postgres: rename revision scope mismatch")
+	}
+	scored := make([][]byte, len(cmd.Drafts))
+	for i, draft := range cmd.Drafts {
+		if draft.ApplicationKey != cmd.ApplicationKey || draft.EnvironmentKey != cmd.EnvironmentKey || draft.WorkloadID == "" || draft.State != environment.DraftUpsert || draft.Score == nil {
+			return fmt.Errorf("postgres: invalid rename draft")
+		}
+		b, err := jsonBytes(draft.Score)
+		if err != nil {
+			return err
+		}
+		scored[i] = b
+	}
+	return s.Transact(ctx, func(ctx context.Context) error {
+		var envID, setID, active string
+		var config, envVersion, draftVersion int64
+		err := s.q(ctx).QueryRow(ctx, `SELECT e.id::text,COALESCE(cr.version,0),e.version,e.draft_version,COALESCE(e.current_deployment_set_id::text,''),COALESCE(e.active_operation_id::text,'') FROM environments e JOIN applications a ON a.id=e.application_id LEFT JOIN configuration_revisions cr ON cr.id=e.desired_config_revision_id WHERE a.application_key=$1 AND e.environment_key=$2 FOR UPDATE OF e`, cmd.ApplicationKey, cmd.EnvironmentKey).Scan(&envID, &config, &envVersion, &draftVersion, &setID, &active)
+		if err != nil {
+			return translate(err)
+		}
+		if active != "" && active != ownerArg(ctx) {
+			return persistence.Busy(cmd.ApplicationKey, cmd.EnvironmentKey)
+		}
+		if config != cmd.ExpectedConfigVersion || v.Version != cmd.ExpectedConfigVersion+1 || envVersion != cmd.ExpectedEnvironmentVersion ||
+			draftVersion != cmd.ExpectedDraftVersion || setID != cmd.ExpectedCurrentSetID {
+			return persistence.ErrVersionConflict
+		}
+		for _, draft := range cmd.Drafts {
+			var state string
+			err := s.q(ctx).QueryRow(ctx, `SELECT state FROM workload_drafts WHERE environment_id=$1::uuid AND workload_id=$2`, envID, draft.WorkloadID).Scan(&state)
+			if err == nil && state != string(environment.DraftUpsert) {
+				return persistence.ErrVersionConflict
+			}
+			if err != nil && translate(err) != persistence.ErrNotFound {
+				return translate(err)
+			}
+		}
+		if err = s.insertConfigurationRevision(ctx, envID, v); err != nil {
+			return err
+		}
+		if _, err = s.q(ctx).Exec(ctx, `UPDATE environments SET desired_config_revision_id=$1::uuid WHERE id=$2::uuid`, v.ID, envID); err != nil {
+			return translate(err)
+		}
+		if len(cmd.Drafts) == 0 {
+			return nil
+		}
+		if _, err = s.q(ctx).Exec(ctx, `UPDATE environments SET draft_version=draft_version+1 WHERE id=$1::uuid`, envID); err != nil {
+			return translate(err)
+		}
+		for i, draft := range cmd.Drafts {
+			if _, err = s.q(ctx).Exec(ctx, `INSERT INTO workload_drafts(environment_id,workload_id,score_document,state) VALUES($1::uuid,$2,$3,$4) ON CONFLICT(environment_id,workload_id) DO UPDATE SET score_document=EXCLUDED.score_document,state=EXCLUDED.state,updated_at=now()`, envID, draft.WorkloadID, scored[i], draft.State); err != nil {
+				return translate(err)
+			}
+		}
+		return nil
 	})
 }
 
