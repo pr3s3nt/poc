@@ -5,10 +5,8 @@
 package store
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -77,39 +75,6 @@ func newState() *state {
 		SecretStores:        map[string]secretstore.Store{},
 		Operations:          map[string]environment.Operation{},
 		Transitions:         map[string]environment.Transition{},
-	}
-}
-
-func (s *state) ensureMaps() {
-	if s.Organizations == nil {
-		s.Organizations = map[string]application.Organization{}
-	}
-	if s.UserAccounts == nil {
-		s.UserAccounts = map[string]identity.UserAccount{}
-	}
-	if s.Sessions == nil {
-		s.Sessions = map[string]identity.Session{}
-	}
-	if s.ConfigScopes == nil {
-		s.ConfigScopes = map[string]configuration.Scope{}
-	}
-	if s.ConfigRevisions == nil {
-		s.ConfigRevisions = map[string]configuration.Revision{}
-	}
-	if s.WorkloadDrafts == nil {
-		s.WorkloadDrafts = map[string]environment.WorkloadDraft{}
-	}
-	if s.DeploymentWorkloads == nil {
-		s.DeploymentWorkloads = map[string]deployment.WorkloadSnapshot{}
-	}
-	if s.SecretStores == nil {
-		s.SecretStores = map[string]secretstore.Store{}
-	}
-	if s.Operations == nil {
-		s.Operations = map[string]environment.Operation{}
-	}
-	if s.Transitions == nil {
-		s.Transitions = map[string]environment.Transition{}
 	}
 }
 
@@ -259,7 +224,9 @@ type Store struct {
 // New returns an empty in-memory store.
 func New() *Store { return &Store{state: newState()} }
 
-// NewWithSnapshot returns a store backed by a JSON snapshot file.
+// NewWithSnapshot returns a store backed by a JSON snapshot file. An existing
+// file must be the current complete format (see loadSnapshot); it is never
+// converted, defaulted or rewritten on load.
 func NewWithSnapshot(path string) (*Store, error) {
 	s := &Store{state: newState(), snapshotPath: path}
 	b, err := os.ReadFile(path)
@@ -269,114 +236,12 @@ func NewWithSnapshot(path string) (*Store, error) {
 		}
 		return nil, fmt.Errorf("store: read snapshot: %w", err)
 	}
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(b, &fields); err != nil {
-		return nil, fmt.Errorf("store: parse snapshot: %w", err)
-	}
-	if err := rejectRetainedApplicationTargets(fields["applications"]); err != nil {
+	loaded, err := loadSnapshot(b)
+	if err != nil {
 		return nil, err
 	}
-	loaded := newState()
-	if err := json.Unmarshal(b, loaded); err != nil {
-		return nil, fmt.Errorf("store: parse snapshot: %w", err)
-	}
 	s.state = loaded
-	s.state.ensureMaps()
-	// An explicit non-ENVIRONMENT scope is rejected before the unconfigured
-	// defaults below could overwrite it; the error never quotes the value.
-	for _, env := range s.state.Environments {
-		if !env.InfrastructureScopeValid() {
-			return nil, fmt.Errorf("store: snapshot holds an Environment with an unsupported infrastructure scope; reset the development state: %w", environment.ErrInvalidInfrastructureScope)
-		}
-	}
-	// Snapshots written before Connection name/authentication type existed
-	// read with the AWS seed default only. Kubernetes records without an
-	// explicit KUBECONFIG type are never inferred; they stay unresolved and
-	// fail closed when execution resolves them.
-	for key, conn := range s.state.Connections {
-		s.state.Connections[key] = legacyConnection(conn)
-	}
-	s.state.initializeEnvironmentDefaults()
-	if history, ok := fields["deploymentWorkloads"]; !ok || string(history) == "null" {
-		s.state.backfillLatestWorkloadSnapshots()
-	}
 	return s, nil
-}
-
-// rejectRetainedApplicationTargets fails closed on a snapshot whose Application
-// still carries a former execution target or provider (T26). Those fields no
-// longer exist; loading would silently drop the target and never convert it to
-// an Environment binding. The error asks for a development reset. Unbound
-// Applications (UNCONFIGURED, nothing else set) lose no data and load normally.
-func rejectRetainedApplicationTargets(raw json.RawMessage) error {
-	if len(raw) == 0 || string(raw) == "null" {
-		return nil
-	}
-	var apps map[string]map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &apps); err != nil {
-		return fmt.Errorf("store: parse snapshot: %w", err)
-	}
-	// Absent, null and "" carry no target. Any other value, including a
-	// non-string one, is retired data that would be dropped: fail closed.
-	retained := func(app map[string]json.RawMessage, field string, ignore ...string) bool {
-		value, ok := app[field]
-		if !ok || string(bytes.TrimSpace(value)) == "null" {
-			return false
-		}
-		var v string
-		if json.Unmarshal(value, &v) != nil {
-			return true
-		}
-		if v == "" {
-			return false
-		}
-		for _, i := range ignore {
-			if v == i {
-				return false
-			}
-		}
-		return true
-	}
-	for _, app := range apps {
-		if retained(app, "executionProfile") || retained(app, "connectionKey") || retained(app, "region") ||
-			retained(app, "configurationProvider") || retained(app, "runtimeStatus", string(application.RuntimeUnconfigured)) {
-			return errors.New("store: snapshot holds a retired Application execution target or provider; reset the development state (Application target conversion is unsupported)")
-		}
-	}
-	return nil
-}
-
-// initializeEnvironmentDefaults makes the unconfigured defaults explicit in loaded
-// Environment rows. Execution and store bindings are never derived from the
-// Application and the Organization default is never consulted.
-func (s *state) initializeEnvironmentDefaults() {
-	for key, env := range s.Environments {
-		if env.ConnectionKey != "" {
-			if env.InfrastructureScope == "" {
-				env.InfrastructureScope = environment.ScopeEnvironment
-				s.Environments[key] = env
-			}
-			continue
-		}
-		env.RuntimeStatus, env.InfrastructureScope = application.RuntimeUnconfigured, environment.ScopeEnvironment
-		s.Environments[key] = env
-	}
-}
-
-// backfillLatestWorkloadSnapshots upgrades a JSON snapshot written before
-// per-Deployment workload history existed. That history was never recorded
-// and is not reconstructed: each current Workload Instance row becomes the
-// snapshot of its last Deployment only (latest-only backfill), and every older
-// Deployment keeps no workload rows. It runs only when the field is absent;
-// a present, even empty, history is authoritative.
-func (s *state) backfillLatestWorkloadSnapshots() {
-	for _, instance := range s.WorkloadInstances {
-		if instance.LastDeploymentID == "" {
-			continue
-		}
-		snapshot := workloadSnapshot(instance)
-		s.DeploymentWorkloads[deploymentWorkloadKey(snapshot.DeploymentID, snapshot.WorkloadID)] = snapshot
-	}
 }
 
 func (s *Store) GetOrganization(ctx context.Context, key string) (application.Organization, error) {
@@ -589,18 +454,11 @@ func (s *Store) SaveConnection(ctx context.Context, conn application.Connection)
 	if conn.ID == "" {
 		conn.ID = ids.New()
 	}
-	s.state.Connections[catalogKey(conn.OrganizationKey, conn.Key)] = legacyConnection(conn)
+	if err := conn.Validate(); err != nil {
+		return err
+	}
+	s.state.Connections[catalogKey(conn.OrganizationKey, conn.Key)] = conn
 	return nil
-}
-
-func legacyConnection(conn application.Connection) application.Connection {
-	if normalized, err := conn.WithLegacyDefaults(); err == nil {
-		return normalized
-	}
-	if conn.Name == "" {
-		conn.Name = conn.Key
-	}
-	return conn
 }
 
 // CreateConnection inserts a Connection; an existing key is ErrDuplicate.
@@ -616,8 +474,7 @@ func (s *Store) CreateConnection(ctx context.Context, conn application.Connectio
 	if _, exists := s.state.Connections[key]; exists {
 		return fmt.Errorf("%w: connection %q", persistence.ErrDuplicate, conn.Key)
 	}
-	conn, err := conn.WithLegacyDefaults()
-	if err != nil {
+	if err := conn.Validate(); err != nil {
 		return err
 	}
 	if conn.ID == "" {

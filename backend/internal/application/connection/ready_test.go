@@ -20,7 +20,7 @@ func TestPrepareReadyKeepsIDResolvesAndSparesUploads(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
 	creds := credentialmemory.New()
-	if err := st.SaveConnection(ctx, application.Connection{ID: "seeded-id", Key: "internal-cluster", OrganizationKey: "acme", Kind: application.ConnectionKubernetes,
+	if err := st.SaveConnection(ctx, application.Connection{Name: "internal-cluster", ID: "seeded-id", Key: "internal-cluster", OrganizationKey: "acme", Kind: application.ConnectionKubernetes,
 		AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionVerifying}); err != nil {
 		t.Fatal(err)
 	}

@@ -80,8 +80,7 @@ func (s *Store) SaveConnection(ctx context.Context, v application.Connection) er
 	if v.ID == "" {
 		v.ID = ids.New()
 	}
-	v, err := v.WithLegacyDefaults()
-	if err != nil {
+	if err := v.Validate(); err != nil {
 		return err
 	}
 	config, err := jsonBytes(v.Config)

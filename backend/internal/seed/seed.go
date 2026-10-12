@@ -328,6 +328,7 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 	internalConnection := application.Connection{
 		ID:              ids.New(),
 		Key:             o.ConnectionKey,
+		Name:            o.ConnectionKey,
 		OrganizationKey: o.OrganizationKey,
 		Kind:            application.ConnectionKubernetes,
 		// The seeded Kubernetes record is explicit KUBECONFIG metadata without an
@@ -341,12 +342,15 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 	cloudConnection := application.Connection{
 		ID:              ids.New(),
 		Key:             o.CloudConnectionKey,
+		Name:            o.CloudConnectionKey,
 		OrganizationKey: o.OrganizationKey,
 		Kind:            application.ConnectionAWS,
-		Config:          map[string]any{"region": o.Region, "accountId": o.AccountID},
-		SecretRef:       "secret://connections/" + o.CloudConnectionKey,
-		Status:          application.ConnectionReady,
-		Verification:    map[string]any{"accountId": o.AccountID, "region": o.Region, "verified": true},
+		// Process-configured AWS seed metadata; it does not hold durable credentials.
+		AuthenticationType: application.AuthAWSAccessKey,
+		Config:             map[string]any{"region": o.Region, "accountId": o.AccountID},
+		SecretRef:          "secret://connections/" + o.CloudConnectionKey,
+		Status:             application.ConnectionReady,
+		Verification:       map[string]any{"accountId": o.AccountID, "region": o.Region, "verified": true},
 	}
 	for _, conn := range []application.Connection{internalConnection, cloudConnection} {
 		if _, err := store.GetConnection(ctx, conn.OrganizationKey, conn.Key); errors.Is(err, persistence.ErrNotFound) {

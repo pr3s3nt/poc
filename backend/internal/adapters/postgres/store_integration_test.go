@@ -3,22 +3,19 @@ package postgres
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 	"time"
 
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
+	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
 
 func TestNormalizedStoreRestartAndSnapshotConstraints(t *testing.T) {
-	url := os.Getenv("ORCHESTRATOR_POSTGRES_TEST_URL")
-	if url == "" {
-		t.Skip("ORCHESTRATOR_POSTGRES_TEST_URL is not set")
-	}
+	url := persistencetest.FreshPostgresDatabase(t)
 	ctx := context.Background()
 	first, err := Open(ctx, url)
 	if err != nil {

@@ -175,10 +175,13 @@ Organization; a Deployment outside the selected scope returns `404`.
 Without `-state` or `-database-url-file`, everything lives in memory and
 disappears on restart. With `-state <file>` the process writes a local JSON
 snapshot. With `-database-url-file <path>`, it uses the normalized PostgreSQL
-tables and foreign keys from the canonical schema. Migrations are serialized
-and recorded in `schema_migrations`; repository `UnitOfWork` callbacks use one
-database transaction. Secret values are never written to either store; only
-opaque references are, and the deployment view redacts them.
+tables and foreign keys from the canonical schema. Empty-schema initialization
+is serialized and records `schema_baseline`; subsequent boots verify the marker
+and current schema without old migrations or backfill. Incompatible databases
+require a development reset before serving. JSON requires the complete current
+format and never infers missing bindings/history. Repository `UnitOfWork` callbacks
+use one database transaction. Variables are ordinary metadata values; Secret
+values stay outside both stores as opaque references, redacted in deployment views.
 
 ## 8. What is not implemented yet
 

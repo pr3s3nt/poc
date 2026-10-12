@@ -32,8 +32,8 @@ func newTestStore(t *testing.T, conns ...appdomain.Connection) *store.Store {
 	}
 	if len(conns) == 0 {
 		conns = []appdomain.Connection{
-			{ID: "c1", Key: "default", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
-			{ID: "c2", Key: "default", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
+			{Name: "default", AuthenticationType: appdomain.AuthKubeconfig, ID: "c1", Key: "default", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
+			{Name: "default", AuthenticationType: appdomain.AuthKubeconfig, ID: "c2", Key: "default", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
 		}
 	}
 	for _, conn := range conns {
@@ -47,7 +47,7 @@ func newTestStore(t *testing.T, conns ...appdomain.Connection) *store.Store {
 func TestCreateApplication_CreatesUnconfiguredEnvironmentsWithoutAnyConnection(t *testing.T) {
 	ctx := context.Background()
 	// No Connection exists at all: creation needs no default and binds nothing.
-	st := newTestStore(t, appdomain.Connection{ID: "c0", Key: "unrelated", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying})
+	st := newTestStore(t, appdomain.Connection{Name: "unrelated", AuthenticationType: appdomain.AuthKubeconfig, ID: "c0", Key: "unrelated", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying})
 	result, err := NewService(st).Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Payment", Subdomain: "Payment"})
 	if err != nil {
 		t.Fatal(err)
@@ -192,14 +192,13 @@ func newUnconfigured(t *testing.T, conns ...appdomain.Connection) (*Service, *st
 
 func choiceConnections() []appdomain.Connection {
 	return []appdomain.Connection{
-		{ID: "c1", Key: "default", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
-		{ID: "c2", Key: "lab", Name: "Lab", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
-		{ID: "c3", Key: "cloud", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady, Config: map[string]any{"region": "eu-west-1"}},
-		{ID: "c4", Key: "cloud-us", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady, Config: map[string]any{"region": "us-east-1"}},
-		{ID: "c5", Key: "foreign", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
-		{ID: "c6", Key: "verifying", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying},
-		{ID: "c7", Key: "noregion", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady},
-		{ID: "c8", Key: "gcp", OrganizationKey: "acme", Kind: appdomain.ConnectionKind("GCP"), Status: appdomain.ConnectionReady},
+		{Name: "default", AuthenticationType: appdomain.AuthKubeconfig, ID: "c1", Key: "default", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
+		{ID: "c2", Key: "lab", Name: "Lab", AuthenticationType: appdomain.AuthKubeconfig, OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
+		{Name: "cloud", AuthenticationType: appdomain.AuthAWSAccessKey, ID: "c3", Key: "cloud", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady, Config: map[string]any{"region": "eu-west-1"}},
+		{Name: "cloud-us", AuthenticationType: appdomain.AuthAWSAccessKey, ID: "c4", Key: "cloud-us", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady, Config: map[string]any{"region": "us-east-1"}},
+		{Name: "foreign", AuthenticationType: appdomain.AuthKubeconfig, ID: "c5", Key: "foreign", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
+		{Name: "verifying", AuthenticationType: appdomain.AuthKubeconfig, ID: "c6", Key: "verifying", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying},
+		{Name: "noregion", AuthenticationType: appdomain.AuthAWSAccessKey, ID: "c7", Key: "noregion", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady},
 	}
 }
 
@@ -313,7 +312,7 @@ func TestSetConnection_RejectsInvalidAndUnavailableWithoutMutation(t *testing.T)
 	svc, st, created := newUnconfigured(t, choiceConnections()...)
 	app := created.Application.Key
 	env, _ := st.GetEnvironment(ctx, app, "staging")
-	for _, key := range []string{"foreign", "verifying", "noregion", "gcp", "missing"} {
+	for _, key := range []string{"foreign", "verifying", "noregion", "missing"} {
 		_, err := svc.SetConnection(ctx, setCommand(env, "acme", app, "staging", key))
 		var field *FieldError
 		if !errors.Is(err, ErrTargetNotReady) || !errors.As(err, &field) || field.Field != "connectionKey" || strings.Contains(err.Error(), key) {
@@ -435,9 +434,9 @@ func TestSetConnection_DoesNotConsultOrChangeOrganizationDefault(t *testing.T) {
 func TestListChoices_ReturnsOnlyReadySupportedOrganizationConnections(t *testing.T) {
 	ctx := context.Background()
 	st := newTestStore(t,
-		appdomain.Connection{ID: "c1", Key: "default", Name: "Default", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying},
-		appdomain.Connection{ID: "c2", Key: "lab", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady, SecretRef: "secret"},
-		appdomain.Connection{ID: "c3", Key: "foreign", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
+		appdomain.Connection{AuthenticationType: appdomain.AuthKubeconfig, ID: "c1", Key: "default", Name: "Default", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying},
+		appdomain.Connection{Name: "lab", AuthenticationType: appdomain.AuthKubeconfig, ID: "c2", Key: "lab", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady, SecretRef: "secret"},
+		appdomain.Connection{Name: "foreign", AuthenticationType: appdomain.AuthKubeconfig, ID: "c3", Key: "foreign", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
 	)
 	choices, err := NewService(st).ListChoices(ctx, "acme")
 	if err != nil || len(choices.Connections) != 1 || choices.Connections[0].Key != "lab" || choices.Connections[0].Name != "lab" || choices.DefaultConnectionKey != "" {

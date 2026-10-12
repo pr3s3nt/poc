@@ -117,7 +117,7 @@ func TestClaimAndSettingsWritesRaceAcrossBackends(t *testing.T) {
 		}()
 		go func() {
 			defer wg.Done()
-			_, err := b.BindEnvironment(ctx, persistence.EnvironmentBinding{ApplicationKey: app, EnvironmentKey: "staging", ConnectionKey: "x", ExpectedVersion: 1})
+			_, err := b.BindEnvironment(ctx, persistence.EnvironmentBinding{ApplicationKey: app, EnvironmentKey: "staging", ConnectionKey: "x", Profile: application.ProfileInternalK8s, RuntimeStatus: application.RuntimeReady, Scope: environment.ScopeEnvironment, ExpectedVersion: 1})
 			errs <- err
 		}()
 	}

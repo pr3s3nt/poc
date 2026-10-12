@@ -2,9 +2,9 @@
 package application
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 )
 
 var keyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,40}$`)
@@ -126,29 +126,18 @@ type Connection struct {
 	Verification       map[string]any     `json:"verification"`
 }
 
-// legacySeedRef is the process-configured AWS seed reference shape.
-const legacySeedRef = "secret://connections/"
+// ErrInvalidConnection reports a Connection whose explicit metadata is missing
+// or inconsistent. It never carries the rejected values.
+var ErrInvalidConnection = errors.New("application: connection needs a name and an authentication type compatible with its kind")
 
-// WithLegacyDefaults fills Name of records written before it existed. A
-// Kubernetes Connection must declare KUBECONFIG explicitly: a missing type or
-// any type other than KUBECONFIG is never inferred. Only the process-configured
-// AWS seed reference infers its type. Unknown or kind-incompatible types fail
-// closed.
-func (c Connection) WithLegacyDefaults() (Connection, error) {
-	if c.Name == "" {
-		c.Name = c.Key
+// Validate requires the explicit current metadata: a display Name and an
+// AuthenticationType compatible with Kind. Nothing is inferred or defaulted;
+// the process-configured AWS seed supplies both explicitly.
+func (c Connection) Validate() error {
+	if c.Name == "" || !c.AuthenticationType.Compatible(c.Kind) {
+		return ErrInvalidConnection
 	}
-	if c.AuthenticationType == "" {
-		if c.Kind == ConnectionAWS && strings.HasPrefix(c.SecretRef, legacySeedRef) {
-			c.AuthenticationType = AuthAWSAccessKey
-		} else {
-			return c, fmt.Errorf("application: connection %q has an unknown authentication type", c.Key)
-		}
-	}
-	if !c.AuthenticationType.Compatible(c.Kind) {
-		return c, fmt.Errorf("application: connection %q has an unsupported authentication type", c.Key)
-	}
-	return c, nil
+	return nil
 }
 
 // CredentialBacked reports whether execution must resolve the credential from

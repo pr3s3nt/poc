@@ -16,6 +16,14 @@ The internal cluster user-Definition matching requirement is replaced by
 Supersedes the shared Application target and new AWS scopes in ADR-001;
 T27 supersedes ADR-001 migrated Application-scope infrastructure compatibility.
 
+T28 (LEG-08) supersedes all historical startup migrations/backfills described
+in this record. PostgreSQL initializes an empty database with the current baseline
+and rejects incompatible existing schemas before serving. JSON reopens only the
+current complete format, without inferring bindings or reconstructing history.
+Generation, immutable target/history, CAS and operation fencing remain unchanged.
+See [schema](../database/schema.md#fresh-persistence-baseline-t28--leg-08).
+Retained dev data requires the separately approved T29 reset.
+
 ## Decision
 
 T26 (LEG-01) supersedes the retained Application target/provider columns and

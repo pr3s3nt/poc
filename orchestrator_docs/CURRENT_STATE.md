@@ -296,7 +296,7 @@ evidence lịch sử không chứng minh checkout hiện tại vẫn pass.
 
 - Backend hỗ trợ normalized PostgreSQL system of record qua
   `-database-url-file`; repository ghi trực tiếp dedicated tables, dùng foreign
-  keys/unique constraints, versioned migration ledger và PostgreSQL transaction.
+  keys/unique constraints, fresh baseline identity/validation và PostgreSQL transaction (T28).
   In-memory/JSON adapter vẫn là lựa chọn mặc định cho local/test. PostgreSQL 16
   riêng đã Ready trên kind trong `orchestrator-system` với PVC/Secret; automated
   backup scheduling/retention vẫn là release gate.
@@ -428,7 +428,7 @@ preserving Variables and old immutable Secret refs. Local service/API tests prov
 these boundaries; PostgreSQL opt-in/live Vault are not reverified. T28 owns the
 fresh SQL constraint baseline and T29 the approved retained-dev reset.
 
-## Environment execution binding (2026-10-07)
+## Historical Environment execution binding (2026-10-07; superseded by T26–T28)
 
 Developer creates an Application from Name/Subdomain; staging/production start
 UNCONFIGURED. Each Environment Settings explicitly sets one Organization READY
@@ -601,7 +601,7 @@ scoped target restore/cancellation cleanup and Fleet rejection before side
 effects. Go/conformance/build, frontend 425 tests/build and headed fake T01/T07
 plus application-connection local restart pass. SQL integration/live checks
 were not run. Retained dev resources remain untouched; old HOST_CONTEXT DB
-requires approved reset. Historical SQL startup migrations remain until T28.
+requires approved reset. T28 removes the historical SQL startup migration chain.
 
 ## Public route cleanup T25 (2026-10-12)
 
@@ -622,12 +622,12 @@ fields are removed. Environment bindings remain independent; Application saves
 and JSON restart preserve historical Deployment targets/generations and workload
 TargetRef snapshots. Application-to-Environment backfill is removed; retained
 meaningful/malformed old target data fails startup with a safe reset-required error.
-Transitional SQL migration 9 prepares fresh state, but PostgreSQL integration was
+At the T26 checkpoint, transitional SQL migration 9 prepared fresh state; PostgreSQL integration was
 not executed (no authorized disposable DB). Full uncached Go/conformance/build,
 targeted race and docs/PlantUML checks pass. No browser/UI change or external mutation.
 See [T26 evidence](verification/2026-10-12-T26-application-metadata.md).
 Retained dev state requires the separately approved T29 reset before use. T27
-scope/seed cleanup is described below; T28 final baseline remains pending.
+scope/seed cleanup is described below; T28 replaces the transitional SQL chain.
 
 ## T27 — Environment-only infrastructure scope (2026-10-12)
 
@@ -641,12 +641,30 @@ scope is preserved under ADR-013. Settings drops its migrated-binding label.
 Acceptance seed binds ENVIRONMENT explicitly and inserts missing Definitions only;
 exact old seeded templates are no longer upgraded. Conformance needs no additional
 historical path/name adapter; all 33 fixtures retain their existing outcomes and
-matching weights/ties. SQL migration 10 supplies the strict CHECK after historical
+matching weights/ties. At the T27 checkpoint, SQL migration 10 supplied the strict CHECK after historical
 ledger replay; the migration-6 literal is replaced before serving and removed with
-T28 baseline. PostgreSQL integration remains unexecuted without an authorized
-disposable DB. Retained dev state requires the separately approved T29 reset before
+T28 baseline. PostgreSQL integration was unexecuted at the T27 checkpoint;
+the current baseline is verified by T28 below. Retained dev state requires the separately approved T29 reset before
 use; no retained database, cluster, Vault or AWS resources were mutated.
 
 Full uncached Go/conformance/build and targeted race suites pass; frontend 429
 checks and headed fake T07 regression pass. Video decode/frame/caption review
 completed. See [T27 evidence](verification/2026-10-12-T27-environment-scope.md).
+
+## T28 — Fresh persistence baseline (2026-10-12)
+
+Code replaces PostgreSQL migration replay/backfills with empty-schema atomic
+initialization and current baseline/structural validation on boot. Older ledgers,
+unmarked state and schema drift fail before serving without repair. JSON requires
+the current complete format and explicit current metadata; no defaults, Connection
+inference or history reconstruction. Current Snapshot/CAS/fencing/generation and
+Variable/Secret boundaries remain.
+
+Full uncached Go suite/build/conformance and targeted races pass both locally and
+on authorized isolated PostgreSQL 16. Fresh/reopen/rollback, schema drift rejection,
+SQL constraints, registration and multi-backend ownership pass with no skipped
+tests. Synthetic dump/restore and owned cleanup pass; failed first-run fixture
+checks remain in evidence. T28 is complete. No retained DB/Vault/cluster was mutated;
+dev reset is required before use against retained state and belongs to T29, which
+still requires its separate run approval.
+See [T28 evidence](verification/2026-10-12-T28-fresh-baseline.md).

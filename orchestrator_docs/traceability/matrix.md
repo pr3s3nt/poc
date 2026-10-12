@@ -117,7 +117,7 @@ are recorded separately. AWS remains future scope.
 | MS-01..03; VAR-01 | inspect; `UC-04/sequence.puml` | HTTP Controller, InspectKubeconfig, parser | transient safe context metadata | OC-05; `TestInspectKubeconfig_ListsSafeMetadataOfValidContexts`, `TestKubeconfig_RequiresAPIVersionAndKind`, `TestUC04UploadHTTPContract`, `ConnectionsPage.test.tsx` |
 | MS-04..05; BR-06..08 | upload register, verify | Service.RegisterKubeconfig, verifier.VerifyKubeconfig | read-only API/RBAC | OC-05; `TestNormalizeKubeconfig_RejectionsAreSafeAndCategorized`, `TestVerifyKubeconfig_ReadOnlyChecksWithSelectedContextOnly` |
 | MS-06; BR-02,09,10 | credential Put | scoped CredentialStore | external immutable secret, no database bytes | OC-05; `TestConnectionCredentials_ScopedCreateOnlyLifecycle`, `TestConnectionCredentials_RejectsOutOfScopeReferencesWithoutRequests`, `TestCredentialResolver_FailsClosed`, `TestCredentialTarget_KubectlFailuresNeverEchoOutput` |
-| MS-07; BR-01,15,16 | CreateConnection | repository + UnitOfWork | name/auth type, insert-only READY, default unchanged | OC-05; `TestRegisterKubeconfig_ConcurrentSameNameGetsDistinctKeys`, `TestFreshSchemaSeedsVerifyingKubeconfigAndRejectsHostContext`, `TestPostgresKubeconfigRegistrationRaceAndReopen`, `TestSnapshotConnectionsReadWithLegacyDefaults` |
+| MS-07; BR-01,15,16 | CreateConnection | repository + UnitOfWork | name/auth type, insert-only READY, default unchanged | OC-05; `TestRegisterKubeconfig_ConcurrentSameNameGetsDistinctKeys`, `TestFreshSchemaSeedsVerifyingKubeconfigAndRejectsHostContext`, `TestPostgresKubeconfigRegistrationRaceAndReopen`, current JSON Connection metadata/reopen checks (`adapters/store/load_test.go`) |
 | MS-08..09 | public response/reload | DTO, ConnectionsPage | no response secret; catalog consumption | OC-05; `TestUC04UploadHTTPContract`, frontend registration/state tests, dedicated Playwright runner |
 | ERR-07..08 | write/cleanup failures | CredentialStore.Delete | only own attempt cleaned with bounded context | OC-05; `TestRegisterKubeconfig_FailuresSaveNothingReady`, `TestUC04UploadWithoutCredentialStoreFailsClosed` |
 | BR-10; POST-03 | execution credential resolution | resolver, Kubernetes adapters | opaque target identity only | `TestCredentialTarget_DeployerUsesScopedPrivateKubeconfig`, `TestCredentialTarget_RoutesVSOAndExecutorUseScopedCredential`, `TestExistingCluster_CredentialBackedConnectionIsAuthoritative`, `TestCredentialBackedTarget_RemovalAfterRestart`, `TestFleetRejectsCredentialBackedTargets` |
@@ -127,7 +127,7 @@ are recorded separately. AWS remains future scope.
 
 | Requirement | Collaboration / contract | Validation |
 |---|---|---|
-| UC-04 BR-15; OC-05 | upload-only HTTP/service; explicit auth/kind compatibility; scoped resolver | `TestUC04UploadHTTPContract` rejects old/mixed body before verifier/secret/row effects; `TestWithLegacyDefaultsNeverInfersKubernetesAuthentication`; resolver negative scope/ref/auth tests |
+| UC-04 BR-15; OC-05 | upload-only HTTP/service; explicit auth/kind compatibility; scoped resolver | `TestUC04UploadHTTPContract` rejects old/mixed body before verifier/secret/row effects; `TestConnectionValidateRequiresExplicitMetadata`; resolver negative scope/ref/auth tests |
 | UC-04 BR-10/15; UC-06 BR-20; UC-08 BR-07/08 | ExistingClusterAdapter and OpenCLI/CLI.Run reject host defaults; keep explicit Terraform EKS kubeconfig path | `TestContextOnlyTargetFailsClosedWithoutRunningKubectl`, `TestExistingClusterRejectsNonKubeconfigConnections`, `TestExplicitKubeconfigPathTargetStillRuns`; existing temp cleanup/cancellation/redaction/restart tests |
 | UC-04 BR-15/16; schema default marker | seed KUBECONFIG/VERIFYING, no private ref; new Application remains UNCONFIGURED | `TestSeedKubernetesRecordIsVerifyingWithoutCredential`, `TestProductSeedClusterIsVerifyingAndApplicationCreateStillWorks`; SQL FK/authentication tests are opt-in, not executed in T22 |
 | ADR-007 T22 boundary | Fleet context-only/scoped Connection targets unsupported, before Git/cluster mutation | guard tests and full conformance; no live Fleet proof |
@@ -444,12 +444,12 @@ Evidence and exact limits: [T20 verification](../verification/2026-10-12-T20-con
 UC-01 BR-04/MS-03..06, UC-06 PRE-02/MS-04/BR-20 and OC-01 map to the
 identity-only Application domain/create service and SQL/JSON repositories.
 `domain/application/application_test.go`, Application service tests and
-`adapters/store/legacy_binding_test.go` assert serialization, no binding fallback
+`adapters/store/load_test.go` (T28 replaces retired-target load tests) assert serialization, no binding fallback
 and safe retained-target rejection. Shared `persistencetest/binding.go` verifies
 independent Environment selection and metadata save/reopen. `workloads.go` plus
 JSON workload-history tests verify historical Connection/generation/TargetRef
-survive Application saves and reopen. PostgreSQL counterparts compile but are
-skipped without an authorized disposable DB. Existing unconfigured Preview/Deploy
+survive Application saves and reopen. PostgreSQL counterparts were skipped at the T26 checkpoint; the current baseline
+counterparts pass on the authorized T28 disposable server. Existing unconfigured Preview/Deploy
 and conformance suites pass; fixtures/app.id and scope semantics are unchanged.
 See [T26 evidence](../verification/2026-10-12-T26-application-metadata.md).
 
@@ -457,11 +457,26 @@ See [T26 evidence](../verification/2026-10-12-T26-application-metadata.md).
 
 | Requirement | Design/code | Verification |
 |---|---|---|
-| ADR-011/T27, UC-06 BR-02/20, UC-08 BR-07; ENVIRONMENT-only admission | Environment domain/Validate, target resolver, planner and JSON/SQL persistence scope guards | scope_test.go; TestPlan_RejectsEveryNonEnvironmentScopeWithoutEchoingIt; target negative cases; shared binding no-write checks; TestSnapshotWithRetiredInfrastructureScopeIsRejected |
+| ADR-011/T27, UC-06 BR-02/20, UC-08 BR-07; ENVIRONMENT-only admission | Environment domain/Validate, target resolver, planner and JSON/SQL persistence scope guards | scope_test.go; TestPlan_RejectsEveryNonEnvironmentScopeWithoutEchoingIt; target negative cases; shared binding no-write checks; TestRetiredInfrastructureScopeIsRejected |
 | ADR-012 generation contract, ADR-013 internal cluster boundary | Environment/generation @infra path and bounded AWS names; preserved internal cluster Connection descriptor/Application resource scope | TestResourceName_GenerationZeroIdentityUnchangedAndLaterGenerationsIsolated; existing target-generation and builtin cluster suites |
 | UC-03 seed boundary; no exact old-template upgrades | Explicit ENVIRONMENT seed, missing-only Definition refresh | TestApplyBindsAcceptanceFixturesWithExplicitEnvironmentScopeAndIsIdempotent; TestApplyPreservesExactEarlierSeededAWSDefinitions; authored-definition preservation tests |
 | Conformance boundary; matching specificity/ties unchanged | Harness ENVIRONMENT context, no additional historical path/name adapter needed | Full 33 accepted/rejected fixtures including 14/22/25/26; match.go and reference fixtures unchanged |
-| Database schema ENVIRONMENT-only constraint | Transitional migration 10 CHECK and safe reset-required startup error; no conversion | SQL constraint/reopen/rollback tests compile but are skipped without an authorized disposable PostgreSQL DB; final baseline is T28 |
+| Database schema ENVIRONMENT-only constraint | T28 fresh baseline CHECK and safe reset-required startup error; no conversion | SQL constraint/reopen/rollback coverage; T27 checkpoint skipped SQL opt-in; current baseline verification belongs to T28 |
 
 Settings removes the retired binding label; frontend gates and headed fake T07
 regression pass. See [T27 verification](../verification/2026-10-12-T27-environment-scope.md).
+
+## T28 — Current persistence baseline (LEG-08)
+
+| Requirement | Design / implementation | Required verification |
+|---|---|---|
+| Current schema, no startup upgrade/backfill | [Schema baseline](../architecture/database/schema.md#fresh-persistence-baseline-t28--leg-08), ERD, ADR-011/012 supersession; PostgreSQL baseline.sql/baseline.go | Fresh initialization, second boot, concurrent initialization, rollback, old layout/ledger removal rejection and schema drift without repair |
+| LEG-01/02/05/06/07 persistence boundaries | Identity-only Application, ENVIRONMENT-only scope, explicit Connection metadata, ordinary Store, Variable/Secret CHECK | Real disposable PostgreSQL constraint, binding, registration, operations, multi-backend/fencing/race/reopen suites |
+| Current JSON reopen; missing-required data fails safely | store/load.go; no default or history reconstruction | Current/empty format roundtrip, missing/null aggregates, retired fields and invalid identity/binding/config rejection; unchanged rejected file |
+| UC-09 BR-01/04, historical snapshot safety; ADR-002 | UC-09 realization and preserved per-Deployment history, FK/deferred Snapshot/CAS boundaries | Current immutable history/reopen tests; missing history rejected rather than fabricated; transaction and read-snapshot suites |
+| External-state gate | [Disposable runner](../operations/docker-local.md#t28-fresh-baseline-and-isolated-postgresql-verification), [T29 backup/reset preparation](../operations/k8s4f-dev.md#t29-backupreset-gate) | Separate approval for DB test mutation, owned cleanup evidence; no retained reset or browser/live proof in T28 |
+
+T28 validation: authorized isolated PostgreSQL 16 full suite/build/conformance,
+zero skipped tests, targeted persistence race, fresh/reopen/rollback/drift and
+multi-backend guards pass. Synthetic restore and owned cleanup pass; no retained
+mutation or browser flow. [Reviewed evidence](../verification/2026-10-12-T28-fresh-baseline.md).

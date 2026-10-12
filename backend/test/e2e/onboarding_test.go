@@ -426,7 +426,7 @@ func TestAuthenticationMiddleware_UsesSessionOrganizationAndRole(t *testing.T) {
 	if err := app.Store.SaveOrganization(ctx, appdomain.Organization{ID: "org-globex", Key: "globex", Name: "Globex", DefaultConnectionKey: "globex-cluster"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Store.SaveConnection(ctx, appdomain.Connection{ID: "conn-globex", Key: "globex-cluster", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying}); err != nil {
+	if err := app.Store.SaveConnection(ctx, appdomain.Connection{Name: "globex-cluster", AuthenticationType: appdomain.AuthKubeconfig, ID: "conn-globex", Key: "globex-cluster", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying}); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Store.SaveUserAccount(ctx, identity.UserAccount{ID: "user-globex", OrganizationKey: "globex", Username: "globex-developer", PasswordHash: hash, Role: identity.RoleDeveloper, Status: identity.AccountActive}); err != nil {

@@ -437,7 +437,7 @@ func TestPersistedLegacyVariableIsRejectedWithoutReadOrConversion(t *testing.T) 
 	}
 	// A retained snapshot that already holds the old format fails to load the
 	// revision, so every operation refuses it without any store read.
-	view, err := f.svc.Put(ctx, appKey, "staging", "OLD", domain.Variable, "legacy-marker", 0)
+	_, err = f.svc.Put(ctx, appKey, "staging", "OLD", domain.Variable, "legacy-marker", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -455,33 +455,14 @@ func TestPersistedLegacyVariableIsRejectedWithoutReadOrConversion(t *testing.T) 
 	if err := os.WriteFile(f.path, []byte(old), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	// The current loader rejects the old format before any service exists, so
+	// no store resolution, conversion or rewrite is possible.
 	reopened, err := store.NewWithSnapshot(f.path)
-	if err != nil {
-		t.Fatal(err)
+	if reopened != nil || !errors.Is(err, store.ErrResetRequired) || strings.Contains(err.Error(), ref) || strings.Contains(err.Error(), "vault-a") {
+		t.Fatalf("old-format variable loaded or leaked: %v, %v", reopened, err)
 	}
-	spy := &spyRegistry{Registry: configmemory.NewRegistry(reopened)}
-	svc := NewService(reopened, spy, envops.NewManager(reopened))
-	env, _ := reopened.GetEnvironment(ctx, appKey, "staging")
-	if _, err := svc.List(ctx, appKey, "staging"); err == nil {
-		t.Fatal("list read an old-format variable")
-	}
-	if _, err := svc.Put(ctx, appKey, "staging", "NEW", domain.Variable, "x", view.Version); err == nil {
-		t.Fatal("put converted an old-format variable")
-	}
-	if _, err := svc.Rename(ctx, appKey, "staging", "OLD", "OLD2", view.Version); err == nil {
-		t.Fatal("rename converted an old-format variable")
-	}
-	if _, err := svc.Delete(ctx, appKey, "staging", "OLD", view.Version); err == nil {
-		t.Fatal("delete accepted an old-format variable")
-	}
-	if _, err := svc.SetSecretStore(ctx, SwitchCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: env.Version, ExpectedConfigVersion: view.Version}); err == nil {
-		t.Fatal("store switch converted an old-format variable")
-	}
-	if spy.count() != 0 {
-		t.Fatalf("old-format variable triggered %d store resolution(s)", spy.count())
-	}
-	if scope, _ := reopened.GetConfigurationScope(ctx, appKey, "staging"); scope.Version != view.Version || scope.DesiredRevisionID != view.RevisionID {
-		t.Fatalf("rejected operations changed state: %+v", scope)
+	if after, _ := os.ReadFile(f.path); string(after) != old {
+		t.Fatal("rejected snapshot was rewritten")
 	}
 }
 

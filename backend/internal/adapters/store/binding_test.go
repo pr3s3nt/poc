@@ -2,10 +2,7 @@ package store
 
 import (
 	"context"
-	"errors"
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"orchestrator/internal/domain/application"
@@ -61,27 +58,4 @@ func TestEnvironmentOperationsSurviveJSONRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	persistencetest.AssertOperationsReloaded(t, reopened, fixture)
-}
-
-// A snapshot with an explicit non-ENVIRONMENT scope is refused on startup,
-// configured or not, before the unconfigured defaults could erase it. The
-// error never quotes the stored value and the file is not rewritten.
-func TestSnapshotWithRetiredInfrastructureScopeIsRejected(t *testing.T) {
-	for name, binding := range map[string]string{
-		"configured":   `"connectionKey":"lab","executionProfile":"internal-k8s","runtimeStatus":"READY",`,
-		"unconfigured": ``,
-	} {
-		path := filepath.Join(t.TempDir(), "state.json")
-		raw := `{"environments":{"app/dev":{"key":"dev","applicationKey":"app","namespaceIdentity":"app-dev",` + binding + `"infrastructureScope":"LEGACY_APPLICATION"}}}`
-		if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		st, err := NewWithSnapshot(path)
-		if err == nil || st != nil || !errors.Is(err, environment.ErrInvalidInfrastructureScope) || strings.Contains(err.Error(), "LEGACY_APPLICATION") {
-			t.Fatalf("%s: store=%v err=%v", name, st, err)
-		}
-		if after, _ := os.ReadFile(path); string(after) != raw {
-			t.Fatalf("%s: snapshot was rewritten", name)
-		}
-	}
 }

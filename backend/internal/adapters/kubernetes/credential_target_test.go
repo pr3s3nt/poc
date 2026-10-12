@@ -210,7 +210,7 @@ func TestExistingCluster_CredentialBackedConnectionIsAuthoritative(t *testing.T)
 	kubectl, logPath := installStub(t)
 	resolver := &stubResolver{document: normalized(t)}
 	adapter := &ExistingClusterAdapter{KubectlPath: kubectl, Credentials: resolver}
-	conn := application.Connection{Key: "lab", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig,
+	conn := application.Connection{Name: "lab", Key: "lab", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig,
 		Status: application.ConnectionReady, SecretRef: "kv2://kv/orchestrator/connections/acme/lab/credentials/x",
 		Config: map[string]any{"cluster": "lab-cluster", "kubeContext": "lab", "endpoint": "https://lab.example"}}
 	req := execution.ProvisionRequest{OrganizationKey: "acme", Connection: conn,
@@ -334,7 +334,7 @@ func TestExistingClusterRejectsNonKubeconfigConnections(t *testing.T) {
 	kubectl, logPath := installStub(t)
 	adapter := NewExistingClusterAdapter(kubectl)
 	for name, auth := range map[string]application.AuthenticationType{"host context": "HOST_CONTEXT", "missing": ""} {
-		_, err := adapter.Provision(context.Background(), execution.ProvisionRequest{OrganizationKey: "acme", Connection: application.Connection{
+		_, err := adapter.Provision(context.Background(), execution.ProvisionRequest{OrganizationKey: "acme", Connection: application.Connection{Name: "lab",
 			Key: "lab", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: auth,
 			Config: map[string]any{"kubeContext": "kind-idp-internal", "cluster": "c"}}})
 		if err == nil {

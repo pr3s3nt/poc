@@ -2,7 +2,7 @@
 id: RUNBOOK-POSTGRES-KIND
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-09-29
+last_reviewed: 2026-10-12
 ---
 
 # Orchestrator PostgreSQL on kind
@@ -46,8 +46,13 @@ the Go process. Do not put the URL in a manifest or command argument.
 
 The PostgreSQL adapter writes normalized aggregate tables directly. Foreign
 keys protect ownership, Environment current-set updates use optimistic version
-checks, and `UnitOfWork` maps to one PostgreSQL transaction. Migrations are
-serialized and recorded in `schema_migrations`. One-off `pg_dump`/`pg_restore`
+checks, and `UnitOfWork` maps to one PostgreSQL transaction. Current builds
+initialize only an empty schema and verify `schema_baseline` plus schema integrity
+on reopen, without old migrations/backfill. Existing incompatible state requires
+a separately approved backup/reset before serving; this runbook does not authorize
+resetting the retained kind database. See the
+[fresh baseline](../architecture/database/schema.md#fresh-persistence-baseline-t28--leg-08).
+Historical one-off `pg_dump`/`pg_restore`
 has been verified; automated schedules, encrypted off-cluster storage and
 retention remain operational release work. Terraform `pg` state backend, async reconciliation, UC-10 rollback and
 UC-11 cleanup are separate work.

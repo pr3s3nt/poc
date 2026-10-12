@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -89,40 +90,22 @@ func legacyState(t *testing.T, path string) (older, latest deployment.Deployment
 	return older, latest
 }
 
-func TestLegacyJSONBackfillsLatestRunOnly(t *testing.T) {
+// A snapshot without the per-Deployment history aggregate is not the current
+// format. It is rejected, never repaired from current Workload Instances.
+func TestJSONMissingWorkloadHistoryIsRejectedNotBackfilled(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
-	older, latest := legacyState(t, path)
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
+	legacyState(t, path)
+	raw := mutateSnapshot(t, path, func(fields map[string]json.RawMessage) { delete(fields, "deploymentWorkloads") })
+	_, err := NewWithSnapshot(path)
+	if !errors.Is(err, ErrResetRequired) {
+		t.Fatalf("want reset-required, got %v", err)
 	}
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		t.Fatal(err)
-	}
-	delete(fields, "deploymentWorkloads")
-	legacy, err := json.Marshal(fields)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, legacy, 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	reopened, err := NewWithSnapshot(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx := context.Background()
-	rows, err := reopened.ListDeploymentWorkloads(ctx, latest.ID)
-	if err != nil || len(rows) != 1 || rows[0].ManifestDigest != "sha256:latest" || rows[0].TargetRef["namespace"] != "team" {
-		t.Fatalf("latest run backfill = %#v, %v", rows, err)
-	}
-	if rows, err := reopened.ListDeploymentWorkloads(ctx, older.ID); err != nil || len(rows) != 0 {
-		t.Fatalf("older run history was invented: %#v, %v", rows, err)
+	if after, _ := os.ReadFile(path); string(after) != string(raw) {
+		t.Fatal("rejected snapshot was rewritten")
 	}
 }
 
+// Current history, including older Deployments with no rows, reopens unchanged.
 func TestEmptyWorkloadHistoryIsNotBackfilledOnReload(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
 	_, latest := legacyState(t, path)

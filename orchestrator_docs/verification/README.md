@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-12 | T28 fresh baseline/strict JSON preparation, local checks and disposable PostgreSQL approval gate | [Fresh persistence baseline](2026-10-12-T28-fresh-baseline.md) |
 | 2026-10-12 | T27 ENVIRONMENT-only scope, preserved generation identity, missing-only seed, unchanged conformance and headed fake Settings regression | [Environment scope cleanup](2026-10-12-T27-environment-scope.md) |
 | 2026-10-12 | T25 publicRoutes-only input, safe no-write alias rejection and headed fake route edit/reopen | [Public routes cleanup](2026-10-12-T25-public-routes.md) |
 | 2026-10-12 | T22 upload-only registration, scoped KUBECONFIG, host-default rejection and local regressions | [Explicit Kubernetes credentials](2026-10-12-T22-explicit-kubeconfig.md) |

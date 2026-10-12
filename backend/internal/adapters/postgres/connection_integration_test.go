@@ -2,12 +2,9 @@ package postgres
 
 import (
 	"context"
-	"errors"
-	"strings"
 	"testing"
 
 	"orchestrator/internal/domain/application"
-	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 )
 
@@ -54,22 +51,5 @@ func TestFreshSchemaSeedsVerifyingKubeconfigAndRejectsHostContext(t *testing.T) 
 	var after string
 	if err := st.pool.QueryRow(ctx, `SELECT default_connection_id::text FROM organizations WHERE organization_key=$1`, opts.OrganizationKey).Scan(&after); err != nil || after != defaultID {
 		t.Fatalf("registration changed the default connection: %s -> %s (%v)", defaultID, after, err)
-	}
-}
-
-// A database that still holds Kubernetes HOST_CONTEXT rows is rejected at
-// startup (migration 8) and left untouched: rows are never converted to a
-// fabricated READY KUBECONFIG. Reset belongs to T29.
-func TestMigration8RejectsLegacyHostContextRows(t *testing.T) {
-	ctx := context.Background()
-	url := persistencetest.FreshPostgresDatabase(t)
-	preChangeSchema(t, url, "HOST_CONTEXT")
-	st, err := Open(ctx, url)
-	if err == nil {
-		st.Close()
-		t.Fatal("legacy HOST_CONTEXT database opened")
-	}
-	if !errors.Is(err, ErrLegacyConnectionData) || strings.Contains(err.Error(), "constraint") {
-		t.Fatalf("open error = %v", err)
 	}
 }

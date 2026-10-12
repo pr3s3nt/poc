@@ -94,7 +94,9 @@ func TestProvision_BuiltinClusterRechecksStoredConnection(t *testing.T) {
 	ctx := context.Background()
 	opts := seed.Defaults()
 	cases := map[string]func(*application.Connection){
-		"wrong kind":    func(c *application.Connection) { c.Kind = application.ConnectionAWS },
+		"wrong kind": func(c *application.Connection) {
+			c.Kind, c.AuthenticationType = application.ConnectionAWS, application.AuthAWSAccessKey
+		},
 		"not ready":     func(c *application.Connection) { c.Status = application.ConnectionVerifying },
 		"other org":     func(c *application.Connection) { c.OrganizationKey = "globex" },
 		"missing":       nil,
@@ -105,7 +107,7 @@ func TestProvision_BuiltinClusterRechecksStoredConnection(t *testing.T) {
 		if err := seedtest.Apply(ctx, st, opts); err != nil {
 			t.Fatal(err)
 		}
-		conn := application.Connection{ID: "lab", Key: "lab", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthKubeconfig}
+		conn := application.Connection{Name: "lab", ID: "lab", Key: "lab", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthKubeconfig}
 		if mutate != nil {
 			mutate(&conn)
 			if err := st.SaveConnection(ctx, conn); err != nil {
@@ -238,7 +240,7 @@ func TestProvision_BuiltinAdmissionPrecedesFKDependentWrites(t *testing.T) {
 	if err := seedtest.Apply(ctx, inner, opts); err != nil {
 		t.Fatal(err)
 	}
-	if err := inner.SaveConnection(ctx, application.Connection{ID: "lab", Key: "lab", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthKubeconfig, Config: map[string]any{"cluster": "c", "kubeContext": "k"}}); err != nil {
+	if err := inner.SaveConnection(ctx, application.Connection{Name: "lab", ID: "lab", Key: "lab", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthKubeconfig, Config: map[string]any{"cluster": "c", "kubeContext": "k"}}); err != nil {
 		t.Fatal(err)
 	}
 	types := map[string]resource.Type{}

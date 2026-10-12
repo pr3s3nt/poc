@@ -3,22 +3,19 @@ package postgres
 import (
 	"context"
 	"errors"
-	"os"
 	"strings"
 	"testing"
 
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
+	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
 
 func TestCreateApplicationPersistsExactlyTwoEnvironmentsAndUniqueGuards(t *testing.T) {
-	url := os.Getenv("ORCHESTRATOR_POSTGRES_TEST_URL")
-	if url == "" {
-		t.Skip("ORCHESTRATOR_POSTGRES_TEST_URL is not set")
-	}
+	url := persistencetest.FreshPostgresDatabase(t)
 	ctx := context.Background()
 	first, err := Open(ctx, url)
 	if err != nil {
@@ -74,13 +71,9 @@ func TestCreateApplicationPersistsExactlyTwoEnvironmentsAndUniqueGuards(t *testi
 	}
 }
 
-// TestMigration3CaseInsensitiveNameIndex checks the migrated schema without
-// dropping indexes or editing the migration ledger of the shared database.
-func TestMigration3CaseInsensitiveNameIndex(t *testing.T) {
-	url := os.Getenv("ORCHESTRATOR_POSTGRES_TEST_URL")
-	if url == "" {
-		t.Skip("ORCHESTRATOR_POSTGRES_TEST_URL is not set")
-	}
+// TestBaselineCaseInsensitiveNameIndex checks the fresh baseline index on its own database.
+func TestBaselineCaseInsensitiveNameIndex(t *testing.T) {
+	url := persistencetest.FreshPostgresDatabase(t)
 	ctx := context.Background()
 	store, err := Open(ctx, url)
 	if err != nil {
@@ -88,13 +81,6 @@ func TestMigration3CaseInsensitiveNameIndex(t *testing.T) {
 	}
 	defer store.Close()
 
-	var applied bool
-	if err := store.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=3)`).Scan(&applied); err != nil {
-		t.Fatal(err)
-	}
-	if !applied {
-		t.Fatal("migration 3 must be recorded in schema_migrations")
-	}
 	var definition string
 	if err := store.pool.QueryRow(ctx, `SELECT indexdef FROM pg_indexes WHERE tablename='applications' AND indexname='applications_organization_lower_name_key'`).Scan(&definition); err != nil {
 		t.Fatalf("case-insensitive name index: %v", err)

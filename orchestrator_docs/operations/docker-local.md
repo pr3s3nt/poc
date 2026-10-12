@@ -172,3 +172,35 @@ owner-only `ORCH_CONNECTION_VAULT_TOKEN_FILE` for the separate private credentia
 store, plus optional `ORCH_CONNECTION_VAULT_MOUNT` (default `kv`). Workload token
 files remain bootstrap input only. This is setup guidance, not authorization
 to execute live runners or proof that their historical scenarios still pass.
+
+## T28 fresh baseline and isolated PostgreSQL verification
+
+Current builds initialize only an empty PostgreSQL schema. Reboot validates the
+current baseline; historical migration ledgers, unmarked tables or incompatible
+schema fail before serving with a development-reset-required error. Removing a
+ledger or restarting does not upgrade old data. Current complete JSON snapshots
+reopen without backfill; missing required data is rejected. See
+[canonical baseline](../architecture/database/schema.md#fresh-persistence-baseline-t28--leg-08).
+The retained stack must wait for the [T29 backup/reset gate](k8s4f-dev.md#t29-backupreset-gate).
+
+T28's disposable test runner is prepared at
+`backend/test/integration/postgres-baseline-local.sh`. After explicit approval:
+
+```bash
+bash backend/test/integration/postgres-baseline-local.sh --evidence /tmp/poc-T28-postgres-<unique-run-id>
+```
+
+Runner owns a uniquely labelled PostgreSQL 16 container with ephemeral data,
+no existing volumes/network, and a dynamically allocated localhost port. It never
+reads `.env` or an existing database URL; the suite receives only that server's
+URL. It runs uncached full Go tests/build, targeted persistence races and a
+synthetic backup/restore smoke, saves exit statuses and cleanup evidence, then
+removes only its label-owned container and network. Evidence path must be new and outside Git. This
+command needs separate approval for disposable database mutation; it is not a
+retained IDP backup/reset, Vault verification or browser scenario.
+
+Baseline boot validation builds its reference schema inside a rolled-back
+transaction, so the backend database role needs CREATE privileges on its database.
+Existing product schema/data is never repaired and reference schemas are not
+retained. T28's [isolated execution](../verification/2026-10-12-T28-fresh-baseline.md)
+verified this behavior; retained backups are still unverified until T29.

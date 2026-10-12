@@ -38,7 +38,7 @@ last_reviewed: 2026-10-12
 | Persistence ports | [`backend/internal/ports/persistence`](../../backend/internal/ports/persistence/) |
 | Execution ports | [`backend/internal/ports/execution`](../../backend/internal/ports/execution/) |
 | In-memory + JSON snapshot store | [`backend/internal/adapters/store`](../../backend/internal/adapters/store/) |
-| Normalized PostgreSQL store and migrations | [`backend/internal/adapters/postgres`](../../backend/internal/adapters/postgres/) |
+| Normalized PostgreSQL store and current fresh baseline | [`backend/internal/adapters/postgres`](../../backend/internal/adapters/postgres/) |
 | Fake walking-skeleton adapters | [`backend/internal/adapters/fake`](../../backend/internal/adapters/fake/) |
 | Kubernetes executor/deployer | [`backend/internal/adapters/kubernetes`](../../backend/internal/adapters/kubernetes/) |
 | Environment public-path validation, direct/Fleet Ingress reconciliation and route-only retry | [`backend/internal/planning/public_routes.go`](../../backend/internal/planning/public_routes.go), [`backend/internal/adapters/kubernetes/public_routes.go`](../../backend/internal/adapters/kubernetes/public_routes.go), [`backend/internal/adapters/gitops/public_routes.go`](../../backend/internal/adapters/gitops/public_routes.go), [`backend/internal/application/pending`](../../backend/internal/application/pending/), [`frontend/src/features/workloads/WorkloadEditorPage.tsx`](../../frontend/src/features/workloads/WorkloadEditorPage.tsx) |
@@ -61,7 +61,7 @@ last_reviewed: 2026-10-12
 | UC-04 kubeconfig normalization and safe parser errors | [`parser`](../../backend/internal/application/connection/parser.go), [`parser tests`](../../backend/internal/application/connection/parser_test.go) |
 | UC-04 scoped credential persistence and rollback | [`port`](../../backend/internal/ports/credentials/credentials.go), [`Vault KV v2`](../../backend/internal/adapters/vault/connection_credentials.go), [`explicit local memory adapter`](../../backend/internal/adapters/credentialmemory/store.go) |
 | UC-04 execution credential resolution and private kubectl invocation | [`resolver`](../../backend/internal/application/connection/resolver.go), [`kubectl transport`](../../backend/internal/adapters/kubernetes/kubectl.go), [`leak tests`](../../backend/internal/adapters/kubernetes/kubectl_leak_test.go), [`restart tests`](../../backend/internal/application/deployment/credential_restart_test.go) |
-| UC-04 Connection migration/backfill and concurrent upload | [`migration 5`](../../backend/internal/adapters/postgres/store.go), [`migration test`](../../backend/internal/adapters/postgres/connection_migration_integration_test.go), [`registration race/reopen`](../../backend/internal/application/connection/postgres_integration_test.go) |
+| UC-04 explicit Connection metadata and concurrent upload | [`fresh baseline`](../../backend/internal/adapters/postgres/baseline.sql), [`startup validation`](../../backend/internal/adapters/postgres/baseline.go), [`registration race/reopen`](../../backend/internal/application/connection/postgres_integration_test.go) |
 | UC-04 human-paced upload review recording | [`runner`](../../backend/test/integration/uc04-kubeconfig-video-local.sh), [`Playwright`](../../frontend/test/e2e/uc04-kubeconfig-video-local.mjs) |
 | UC-04 synthetic layout and keyboard-focus screenshots | [`Playwright screenshot helper`](../../frontend/test/e2e/uc04-connections-screenshots.mjs) |
 | UC-12 desired configuration, Vault KV adapter and Settings UI | [`backend/internal/application/configuration`](../../backend/internal/application/configuration/), [`backend/internal/adapters/vault`](../../backend/internal/adapters/vault/) and [`frontend/src/features/configuration`](../../frontend/src/features/configuration/) |
@@ -131,7 +131,7 @@ Prior Application-selection evidence above is historical; scripts now follow Env
 ## Environment binding implementation (ADR-011)
 
 - [Domain](../../backend/internal/domain/environment/environment.go), [binding service](../../backend/internal/application/application/service.go), [target resolver](../../backend/internal/application/target/target.go).
-- [PostgreSQL migration 6](../../backend/internal/adapters/postgres/store.go), [SQL binding](../../backend/internal/adapters/postgres/repositories.go), [JSON binding/load](../../backend/internal/adapters/store/store.go), [adapter contract](../../backend/internal/ports/persistence/persistencetest/binding.go).
+- [PostgreSQL fresh baseline](../../backend/internal/adapters/postgres/baseline.sql), [SQL binding](../../backend/internal/adapters/postgres/repositories.go), [JSON binding/load](../../backend/internal/adapters/store/store.go), [adapter contract](../../backend/internal/ports/persistence/persistencetest/binding.go).
 - [Settings connection section](../../frontend/src/features/configuration/EnvironmentConnection.tsx), [Settings routes](../../frontend/src/app/routes.ts), [new AWS scope tests](../../backend/internal/planning/environment_scope_test.go).
 - [Live runner](../../backend/test/integration/application-connection-kind-video.sh), [human scenario](../../frontend/test/e2e/application-connection-kind-human.mjs), [reviewed evidence/video](../verification/2026-10-07-environment-connection-kind.md).
 
@@ -338,32 +338,62 @@ ownership. [Local verification](../verification/2026-10-12-T25-public-routes.md)
 - `adapters/store/store.go` owns identity Save/Get/List, retired-target startup
   rejection and independent Environment defaults; no Application target backfill.
 - `adapters/postgres/repositories.go` reads/writes only Application metadata;
-  `postgres/store.go` removes binding backfill and supplies transitional migration 9
-  with safe reset-required rejection before obsolete columns are dropped.
-- Domain serialization/service tests, JSON `legacy_binding_test.go`, shared
+  `postgres/baseline.go` rejects old/unmarked schemas; `baseline.sql` has only current
+  Application columns. T28 removes the transitional migration 9 implementation.
+- Domain serialization/service tests, JSON `load_test.go`, shared
   `persistencetest/binding.go` and `workloads.go` cover metadata, binding independence
   and historical target preservation. PostgreSQL fresh/reopen/rejection tests are
-  updated but unexecuted; see [T26 evidence](../verification/2026-10-12-T26-application-metadata.md).
+  unexecuted at the T26 checkpoint; current baseline SQL checks pass in T28 below.
+  See [T26 evidence](../verification/2026-10-12-T26-application-metadata.md).
 
 ## T27 — Environment-only infrastructure binding scope
 
 - [Environment domain](../../backend/internal/domain/environment/environment.go)
   accepts ENVIRONMENT only, rejects explicit invalid scopes without normalization,
-  and retains current unset defaults until T28.
+  and retains domain defaults for fresh writes; T28 requires explicit persisted metadata.
 - [Planner context](../../backend/internal/planning/context.go) resolves @infra and
   provider names to Environment/generation identity only; [reference expansion](../../backend/internal/planning/expand.go)
   rejects hardcoded Application VPC/EKS references. Matching weights/ties remain unchanged.
 - [Seed](../../backend/internal/seed/seed.go) uses explicit ENVIRONMENT bindings
   and inserts missing Definitions only; exact old templates are never upgraded.
-- JSON startup/Save/Bind and SQL Save/Bind enforce scope admission; SQL migration 10
-  validates the ENVIRONMENT-only CHECK without converting retained state. Historical
-  migration 6 ledger text is replaced before serving and removed by T28 baseline.
+- JSON startup/Save/Bind and SQL Save/Bind enforce scope admission; the T28 fresh
+  baseline validates the ENVIRONMENT-only CHECK without converting retained state.
+  Transitional migration 6/10 implementations are removed.
 - [Scope tests](../../backend/internal/domain/environment/scope_test.go),
   planner environment_scope_test.go, seed binding_test.go and shared persistence
   binding contracts cover safe rejection/no writes, current generation-0 identity,
-  later-generation isolation and seed preservation. SQL opt-in tests remain unexecuted.
+  later-generation isolation and seed preservation. SQL opt-in was skipped at T27;
+  the current baseline is verified by T28 below.
 - [Conformance loader](../../backend/test/conformance/loader.go) supplies a synthetic
   ENVIRONMENT binding; fixtures need no path/name adapter and remain read-only.
 
 Settings removes the retired binding label; frontend gates and headed fake T07
 regression pass. See [T27 verification](../verification/2026-10-12-T27-environment-scope.md).
+
+## T28 — Fresh persistence baseline (LEG-08)
+
+- [`postgres/baseline.sql`](../../backend/internal/adapters/postgres/baseline.sql)
+  creates the complete current schema only from an empty database;
+  [`baseline.go`](../../backend/internal/adapters/postgres/baseline.go) serializes
+  initialization and validates baseline marker and structural catalog on reopen.
+  It replaces the old `migration.sql` and startup migration chain entirely.
+- [`store/load.go`](../../backend/internal/adapters/store/load.go) reads only the
+  complete current JSON format, without map/binding defaults, Connection
+  inference or workload-history reconstruction. Safe rejection leaves the file
+  untouched. Current domain/seed writes provide explicit Connection metadata.
+- [`postgres-baseline-local.sh`](../../backend/test/integration/postgres-baseline-local.sh)
+  prepares isolated ephemeral PostgreSQL verification, per-step statuses,
+  synthetic dump/restore and owned-resource cleanup. Its execution requires the
+  separate disposable-database approval described in the
+  [Compose runbook](../operations/docker-local.md#t28-fresh-baseline-and-isolated-postgresql-verification).
+- Current binding/registration/operations/multi-backend/history persistence
+  suites remain required; historical migration/backfill tests are replaced by
+  fresh/reopen/drift/reset-rejection coverage. No browser flow is added.
+
+Retained dev IDP/K8S-4F backup/reset/rebuild belongs to T29; see its
+[review gate](../operations/k8s4f-dev.md#t29-backupreset-gate).
+
+T28 authorized isolated PostgreSQL full suite and targeted races pass, including
+fresh/reopen/rollback, current constraints and multi-backend fencing. Synthetic
+backup/restore and cleanup pass; failed first-run fixture checks are retained.
+See [T28 verification](../verification/2026-10-12-T28-fresh-baseline.md).

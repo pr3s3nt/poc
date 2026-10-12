@@ -22,9 +22,9 @@ func newStore(t *testing.T) *store.Store {
 	st := store.New()
 	ctx := context.Background()
 	for _, c := range []application.Connection{
-		{ID: "k", Key: "lab", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady},
-		{ID: "k2", Key: "verifying", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionVerifying},
-		{ID: "a", Key: "cloud", OrganizationKey: "acme", Kind: application.ConnectionAWS, Status: application.ConnectionReady, Config: map[string]any{"region": "eu-west-1"}},
+		{Name: "lab", AuthenticationType: application.AuthKubeconfig, ID: "k", Key: "lab", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady},
+		{Name: "verifying", AuthenticationType: application.AuthKubeconfig, ID: "k2", Key: "verifying", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionVerifying},
+		{Name: "cloud", AuthenticationType: application.AuthAWSAccessKey, ID: "a", Key: "cloud", OrganizationKey: "acme", Kind: application.ConnectionAWS, Status: application.ConnectionReady, Config: map[string]any{"region": "eu-west-1"}},
 	} {
 		if err := st.SaveConnection(ctx, c); err != nil {
 			t.Fatal(err)

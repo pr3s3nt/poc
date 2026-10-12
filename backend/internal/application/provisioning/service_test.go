@@ -132,7 +132,7 @@ func TestProvision_InternalDefinitionConnectionMismatchFailsBeforeExecutor(t *te
 		t.Fatal(err)
 	}
 	for _, key := range []string{"lab", "other"} {
-		if err := app.Store.SaveConnection(ctx, application.Connection{ID: key, Key: key, OrganizationKey: seedOptions.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthKubeconfig}); err != nil {
+		if err := app.Store.SaveConnection(ctx, application.Connection{Name: key, ID: key, Key: key, OrganizationKey: seedOptions.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthKubeconfig}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -171,7 +171,7 @@ func TestProvision_AWSTargetDefinitionConnectionMismatchFailsBeforeExecutor(t *t
 		t.Fatal(err)
 	}
 	for _, key := range []string{"aws-a", "aws-b"} {
-		if err := app.Store.SaveConnection(ctx, application.Connection{ID: key, Key: key, OrganizationKey: seedOptions.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionReady, AuthenticationType: application.AuthAWSAccessKey, Config: map[string]any{"region": "us-east-1"}}); err != nil {
+		if err := app.Store.SaveConnection(ctx, application.Connection{Name: key, ID: key, Key: key, OrganizationKey: seedOptions.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionReady, AuthenticationType: application.AuthAWSAccessKey, Config: map[string]any{"region": "us-east-1"}}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -224,7 +224,7 @@ func (r *recordingRegistry) Provision(_ context.Context, req execution.Provision
 func saveAWSConnections(t *testing.T, app *bootstrap.App, org string, keys ...string) {
 	t.Helper()
 	for _, key := range keys {
-		if err := app.Store.SaveConnection(context.Background(), application.Connection{ID: key, Key: key, OrganizationKey: org, Kind: application.ConnectionAWS, Status: application.ConnectionReady, AuthenticationType: application.AuthAWSAccessKey, Config: map[string]any{"region": "us-east-1"}}); err != nil {
+		if err := app.Store.SaveConnection(context.Background(), application.Connection{Name: key, ID: key, Key: key, OrganizationKey: org, Kind: application.ConnectionAWS, Status: application.ConnectionReady, AuthenticationType: application.AuthAWSAccessKey, Config: map[string]any{"region": "us-east-1"}}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -391,16 +391,16 @@ func TestProvision_EffectiveAWSConnectionUnavailableFailsBeforeExecutor(t *testi
 	}
 	org := seedOptions.OrganizationKey
 	saveAWSConnections(t, app, org, "aws-ok")
-	if err := app.Store.SaveConnection(ctx, application.Connection{ID: "pending", Key: "pending", OrganizationKey: org, Kind: application.ConnectionAWS, Status: application.ConnectionVerifying, AuthenticationType: application.AuthAWSAccessKey}); err != nil {
+	if err := app.Store.SaveConnection(ctx, application.Connection{Name: "pending", ID: "pending", Key: "pending", OrganizationKey: org, Kind: application.ConnectionAWS, Status: application.ConnectionVerifying, AuthenticationType: application.AuthAWSAccessKey}); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Store.SaveConnection(ctx, application.Connection{ID: "kube", Key: "kube", OrganizationKey: org, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthKubeconfig}); err != nil {
+	if err := app.Store.SaveConnection(ctx, application.Connection{Name: "kube", ID: "kube", Key: "kube", OrganizationKey: org, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthKubeconfig}); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Store.SaveOrganization(ctx, application.Organization{Key: "globex", Name: "Globex"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Store.SaveConnection(ctx, application.Connection{ID: "foreign", Key: "foreign", OrganizationKey: "globex", Kind: application.ConnectionAWS, Status: application.ConnectionReady, AuthenticationType: application.AuthAWSAccessKey}); err != nil {
+	if err := app.Store.SaveConnection(ctx, application.Connection{Name: "foreign", ID: "foreign", Key: "foreign", OrganizationKey: "globex", Kind: application.ConnectionAWS, Status: application.ConnectionReady, AuthenticationType: application.AuthAWSAccessKey}); err != nil {
 		t.Fatal(err)
 	}
 	for _, bad := range []string{"pending", "kube", "foreign", "missing"} {

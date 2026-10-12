@@ -76,7 +76,7 @@ func Registration(t *testing.T, st persistence.Store) RegistrationFixture {
 	}
 	assertDefinition(t, st, "reg-acme", def)
 
-	conn := application.Connection{Key: "reg-cluster", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionReady,
+	conn := application.Connection{Key: "reg-cluster", Name: "Registered Cluster", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionReady,
 		Config: map[string]any{"cluster": "c1", "kubeContext": "ctx-1"}, SecretRef: "fake-credential://ctx-1", Verification: map[string]any{"verified": true}}
 	if err := st.CreateConnection(ctx, conn); err != nil {
 		t.Fatalf("create connection: %v", err)
@@ -121,8 +121,8 @@ func Registration(t *testing.T, st persistence.Store) RegistrationFixture {
 	}
 	assertConnection(t, st, conn)
 	stored, _ := st.GetConnection(ctx, "reg-acme", "reg-cluster")
-	if stored.Name != "reg-cluster" || stored.AuthenticationType != application.AuthKubeconfig {
-		t.Fatalf("connection defaults: name %q, authentication %q", stored.Name, stored.AuthenticationType)
+	if stored.Name != "Registered Cluster" || stored.AuthenticationType != application.AuthKubeconfig {
+		t.Fatalf("connection explicit metadata: name %q, authentication %q", stored.Name, stored.AuthenticationType)
 	}
 	connectionAuthentication(t, st)
 	return RegistrationFixture{Organization: "reg-acme", Type: typ, Definition: def, Connection: conn}
@@ -146,9 +146,9 @@ func connectionAuthentication(t *testing.T, st persistence.Store) {
 		t.Fatalf("uploaded connection = %+v, %v", got, err)
 	}
 	for name, bad := range map[string]application.Connection{
-		"incompatible": {Key: "reg-bad-auth", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthAWSAccessKey, Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "x", Verification: map[string]any{}},
-		"host context": {Key: "reg-bad-host", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, AuthenticationType: "HOST_CONTEXT", Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "fake-credential://x", Verification: map[string]any{}},
-		"unknown ref":  {Key: "reg-bad-ref", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "https://elsewhere", Verification: map[string]any{}},
+		"incompatible": {Key: "reg-bad-auth", Name: "Bad", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthAWSAccessKey, Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "x", Verification: map[string]any{}},
+		"host context": {Key: "reg-bad-host", Name: "Bad", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, AuthenticationType: "HOST_CONTEXT", Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "fake-credential://x", Verification: map[string]any{}},
+		"unknown ref":  {Key: "reg-bad-ref", Name: "Bad", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, Config: map[string]any{}, SecretRef: "https://elsewhere", Verification: map[string]any{}},
 	} {
 		if err := st.CreateConnection(ctx, bad); err == nil {
 			t.Fatalf("%s authentication accepted", name)

@@ -2,7 +2,7 @@
 id: UC-09-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-12
 ---
 
 # UC-09 — Use Case Realization
@@ -42,6 +42,11 @@ Read-only consistent query. Persistence read-snapshot boundary uses PostgreSQL
 so assembly cannot mix commits or persist a mutation. Resource output visibility
 fails closed when contract metadata is missing or does not classify an output
 as non-secret; nested secret references are redacted as well.
+
+Startup reopens persisted per-Deployment history without reconstruction from
+current Workload Instances. Older persistence formats require development reset
+under [T28 baseline](../../architecture/database/schema.md#fresh-persistence-baseline-t28--leg-08);
+no current or historical run receives fabricated status rows.
 
 ## Planned tests
 

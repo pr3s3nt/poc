@@ -14,6 +14,14 @@ identities, ADR-008 scoped immutable delivery and ADR-002 external calls outside
 persistence transactions. T27 removes retired Application-scope bindings and
 seed-template upgrades.
 
+T28 (LEG-08) supersedes all historical startup migrations/backfills described
+in this record. PostgreSQL initializes an empty database with the current baseline
+and rejects incompatible existing schemas before serving. JSON reopens only the
+current complete format, without inferring bindings or reconstructing history.
+Generation, immutable target/history, CAS and operation fencing remain unchanged.
+See [schema](../database/schema.md#fresh-persistence-baseline-t28--leg-08).
+Retained dev data requires the separately approved T29 reset.
+
 ## Scope and ownership
 
 Each Environment independently selects an execution Connection and a Secret

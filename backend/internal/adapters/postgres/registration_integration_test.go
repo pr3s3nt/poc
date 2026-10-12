@@ -150,8 +150,8 @@ func TestPostgresConcurrentRegistrationHasOneWinner(t *testing.T) {
 		requireOne(t, "definition "+defs[w].Key, found)
 
 		conns := [2]application.Connection{
-			{Key: "cluster-" + suffix, OrganizationKey: "race", Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionReady, Config: map[string]any{"cluster": "a"}, SecretRef: "fake-credential://a", Verification: map[string]any{"endpoint": "https://a"}},
-			{Key: "cluster-" + suffix, OrganizationKey: "race", Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionReady, Config: map[string]any{"cluster": "b"}, SecretRef: "fake-credential://b", Verification: map[string]any{"endpoint": "https://b"}},
+			{Key: "cluster-" + suffix, Name: "cluster-" + suffix, OrganizationKey: "race", Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionReady, Config: map[string]any{"cluster": "a"}, SecretRef: "fake-credential://a", Verification: map[string]any{"endpoint": "https://a"}},
+			{Key: "cluster-" + suffix, Name: "cluster-" + suffix, OrganizationKey: "race", Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionReady, Config: map[string]any{"cluster": "b"}, SecretRef: "fake-credential://b", Verification: map[string]any{"endpoint": "https://b"}},
 		}
 		w = race(t, "connection", [2]func() error{
 			func() error { return st.CreateConnection(ctx, conns[0]) },

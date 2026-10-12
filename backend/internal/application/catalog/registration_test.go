@@ -54,13 +54,13 @@ func seededDefinition(t *testing.T, opts seed.Options, key string) resource.Defi
 func TestRegisterResourceDefinition_RejectsConnectionAndProfileMisuse(t *testing.T) {
 	ctx := context.Background()
 	st, svc, opts := seededCatalog(t, terraform.NewInspector())
-	if err := st.SaveConnection(ctx, application.Connection{Key: "pending-cluster", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionVerifying}); err != nil {
+	if err := st.SaveConnection(ctx, application.Connection{Name: "pending-cluster", AuthenticationType: application.AuthKubeconfig, Key: "pending-cluster", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionVerifying}); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.SaveOrganization(ctx, application.Organization{Key: "globex", Name: "Globex"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SaveConnection(ctx, application.Connection{Key: "globex-cluster", OrganizationKey: "globex", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady}); err != nil {
+	if err := st.SaveConnection(ctx, application.Connection{Name: "globex-cluster", AuthenticationType: application.AuthKubeconfig, Key: "globex-cluster", OrganizationKey: "globex", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady}); err != nil {
 		t.Fatal(err)
 	}
 	aurora := seededDefinition(t, opts, "postgres-aws-aurora")
@@ -100,7 +100,7 @@ func TestRegisterResourceDefinition_TerraformVPCAndEKSRequireEmptyConnection(t *
 	if err := st.SaveOrganization(ctx, application.Organization{Key: "globex", Name: "Globex"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SaveConnection(ctx, application.Connection{Key: "globex-aws", OrganizationKey: "globex", Kind: application.ConnectionAWS, Status: application.ConnectionReady}); err != nil {
+	if err := st.SaveConnection(ctx, application.Connection{Name: "globex-aws", AuthenticationType: application.AuthAWSAccessKey, Key: "globex-aws", OrganizationKey: "globex", Kind: application.ConnectionAWS, Status: application.ConnectionReady}); err != nil {
 		t.Fatal(err)
 	}
 	for _, seededKey := range []string{"vpc-aws", "cluster-aws-eks"} {
@@ -141,7 +141,7 @@ func TestRegisterResourceDefinition_TerraformVPCAndEKSRequireEmptyConnection(t *
 func TestRegisterResourceDefinition_AuroraRequiresExplicitAWSAccount(t *testing.T) {
 	ctx := context.Background()
 	st, svc, opts := seededCatalog(t, terraform.NewInspector())
-	if err := st.SaveConnection(ctx, application.Connection{Key: "aurora-account", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionReady}); err != nil {
+	if err := st.SaveConnection(ctx, application.Connection{Name: "aurora-account", AuthenticationType: application.AuthAWSAccessKey, Key: "aurora-account", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionReady}); err != nil {
 		t.Fatal(err)
 	}
 	aurora := seededDefinition(t, opts, "postgres-aws-aurora")

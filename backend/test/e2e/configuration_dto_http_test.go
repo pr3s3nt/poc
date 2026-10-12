@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"orchestrator/internal/adapters/configmemory"
+	"orchestrator/internal/adapters/store"
 	"orchestrator/internal/bootstrap"
 	configport "orchestrator/internal/ports/configuration"
 )
@@ -171,37 +173,18 @@ func TestOldPersistedVariableRefIsRejectedOverHTTPWithoutConversionOrStoreCalls(
 		t.Fatal(err)
 	}
 
-	spy := &lazySpyRegistry{}
-	server2, _, app2 := newServerAppWith(t, "", withState(spy))
-	spy.Registry = configmemory.NewRegistry(app2.Store)
-	developer = authenticatedClient(t, server2.URL)
-	base = server2.URL + "/api/v1/applications/" + appKey + "/environments/staging"
-	keys := base + "/configuration/keys/"
-	assertSafe := func(label string, status int, out map[string]any) {
-		t.Helper()
-		if status != http.StatusInternalServerError || out["code"] != "INTERNAL_ERROR" {
-			t.Fatalf("%s = %d %v", label, status, out)
-		}
-		text := toJSON(t, out)
-		for _, forbidden := range []string{"kv2://", "legacy-store", "old-marker-value", "valueRef", "variable must carry"} {
-			if strings.Contains(text, forbidden) {
-				t.Fatalf("%s leaks %q: %s", label, forbidden, text)
-			}
+	// A retained old-format snapshot is rejected before serving: no server,
+	// store resolution or conversion exists, and the file is left untouched.
+	reopened, err := store.NewWithSnapshot(state)
+	if reopened != nil || !errors.Is(err, store.ErrResetRequired) {
+		t.Fatalf("old-format snapshot loaded: %v, %v", reopened, err)
+	}
+	for _, forbidden := range []string{"kv2://", "legacy-store", "old-marker-value", "valueRef"} {
+		if strings.Contains(err.Error(), forbidden) {
+			t.Fatalf("reset error leaks %q: %v", forbidden, err)
 		}
 	}
-	s, o := requestJSON(t, developer, http.MethodGet, base+"/configuration", nil)
-	assertSafe("get", s, o)
-	s, o = requestJSON(t, developer, http.MethodPut, keys+"NEW", map[string]any{"kind": "VARIABLE", "value": "x", "version": 1})
-	assertSafe("put", s, o)
-	s, o = requestJSON(t, developer, http.MethodPatch, keys+"OLD", map[string]any{"newName": "OLD2", "version": 1})
-	assertSafe("rename", s, o)
-	s, o = requestJSON(t, developer, http.MethodDelete, keys+"OLD", map[string]any{"version": 1})
-	assertSafe("delete", s, o)
-	if spy.count() != 0 {
-		t.Fatalf("old variable ref caused %d store resolution(s)", spy.count())
-	}
-	after, _ := os.ReadFile(state)
-	if strings.Contains(string(after), "old-marker-value") || !strings.Contains(string(after), "kv2://kv/old/ref") {
-		t.Fatal("rejected operations converted or rewrote the old revision")
+	if after, _ := os.ReadFile(state); string(after) != replaced {
+		t.Fatal("rejected snapshot was rewritten")
 	}
 }

@@ -29,14 +29,13 @@ func TestUC01ApplicationConnectionChoicesAreSafeAndOrganizationScoped(t *testing
 	app, server := buildOnboardingApp(t, "test", "")
 	ctx := context.Background()
 	saveConnection(t, app.Store, appdomain.Connection{ID: "c-lab", Key: "lab", Name: "Lab", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, AuthenticationType: appdomain.AuthKubeconfig, Status: appdomain.ConnectionReady, SecretRef: "memory://secret-ref-value", Config: map[string]any{"kubeContext": "lab", "token": "do-not-leak"}, Verification: map[string]any{"serverVersion": "v1"}})
-	saveConnection(t, app.Store, appdomain.Connection{ID: "c-pending", Key: "pending", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying})
-	saveConnection(t, app.Store, appdomain.Connection{ID: "c-rejected", Key: "rejected", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionRejected})
-	saveConnection(t, app.Store, appdomain.Connection{ID: "c-odd", Key: "odd", OrganizationKey: "acme", Kind: appdomain.ConnectionKind("GCP"), Status: appdomain.ConnectionReady})
-	saveConnection(t, app.Store, appdomain.Connection{ID: "c-noregion", Key: "noregion", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady})
+	saveConnection(t, app.Store, appdomain.Connection{Name: "pending", AuthenticationType: appdomain.AuthKubeconfig, ID: "c-pending", Key: "pending", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying})
+	saveConnection(t, app.Store, appdomain.Connection{Name: "rejected", AuthenticationType: appdomain.AuthKubeconfig, ID: "c-rejected", Key: "rejected", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionRejected})
+	saveConnection(t, app.Store, appdomain.Connection{Name: "noregion", AuthenticationType: appdomain.AuthAWSAccessKey, ID: "c-noregion", Key: "noregion", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady})
 	if err := app.Store.SaveOrganization(ctx, appdomain.Organization{ID: "org-globex", Key: "globex", Name: "Globex", DefaultConnectionKey: "globex-cluster"}); err != nil {
 		t.Fatal(err)
 	}
-	saveConnection(t, app.Store, appdomain.Connection{ID: "c-globex", Key: "globex-cluster", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady})
+	saveConnection(t, app.Store, appdomain.Connection{Name: "globex-cluster", AuthenticationType: appdomain.AuthKubeconfig, ID: "c-globex", Key: "globex-cluster", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady})
 	hash, err := password.Hash("test-password")
 	if err != nil {
 		t.Fatal(err)
@@ -96,8 +95,8 @@ func TestUC01ApplicationConnectionChoiceEmptyWhenDefaultNotReady(t *testing.T) {
 	if err := app.Store.SaveOrganization(ctx, appdomain.Organization{ID: "org-globex", Key: "globex", Name: "Globex", DefaultConnectionKey: "globex-cluster"}); err != nil {
 		t.Fatal(err)
 	}
-	saveConnection(t, app.Store, appdomain.Connection{ID: "c-globex", Key: "globex-cluster", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying})
-	saveConnection(t, app.Store, appdomain.Connection{ID: "c-globex2", Key: "globex-two", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady})
+	saveConnection(t, app.Store, appdomain.Connection{Name: "globex-cluster", AuthenticationType: appdomain.AuthKubeconfig, ID: "c-globex", Key: "globex-cluster", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying})
+	saveConnection(t, app.Store, appdomain.Connection{Name: "globex-two", AuthenticationType: appdomain.AuthKubeconfig, ID: "c-globex2", Key: "globex-two", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady})
 	hash, _ := password.Hash("test-password")
 	if err := app.Store.SaveUserAccount(ctx, identity.UserAccount{ID: "user-globex", OrganizationKey: "globex", Username: "globex-developer", PasswordHash: hash, Role: identity.RoleDeveloper, Status: identity.AccountActive}); err != nil {
 		t.Fatal(err)
@@ -114,13 +113,12 @@ func TestUC01EnvironmentConnectionEditableOverHTTP(t *testing.T) {
 	app, server := buildOnboardingApp(t, "test", statePath)
 	ctx := context.Background()
 	saveConnection(t, app.Store, appdomain.Connection{ID: "c-lab", Key: "lab", Name: "Lab", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, AuthenticationType: appdomain.AuthKubeconfig, Status: appdomain.ConnectionReady, SecretRef: "memory://x"})
-	saveConnection(t, app.Store, appdomain.Connection{ID: "c-pending", Key: "pending", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying})
-	saveConnection(t, app.Store, appdomain.Connection{ID: "c-odd", Key: "odd", OrganizationKey: "acme", Kind: appdomain.ConnectionKind("GCP"), Status: appdomain.ConnectionReady})
-	saveConnection(t, app.Store, appdomain.Connection{ID: "c-noregion", Key: "noregion", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady})
+	saveConnection(t, app.Store, appdomain.Connection{Name: "pending", AuthenticationType: appdomain.AuthKubeconfig, ID: "c-pending", Key: "pending", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying})
+	saveConnection(t, app.Store, appdomain.Connection{Name: "noregion", AuthenticationType: appdomain.AuthAWSAccessKey, ID: "c-noregion", Key: "noregion", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady})
 	if err := app.Store.SaveOrganization(ctx, appdomain.Organization{ID: "org-globex", Key: "globex", Name: "Globex", DefaultConnectionKey: "foreign"}); err != nil {
 		t.Fatal(err)
 	}
-	saveConnection(t, app.Store, appdomain.Connection{ID: "c-foreign", Key: "foreign", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady})
+	saveConnection(t, app.Store, appdomain.Connection{Name: "foreign", AuthenticationType: appdomain.AuthKubeconfig, ID: "c-foreign", Key: "foreign", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady})
 	client := authenticatedClient(t, server.URL)
 	request := func(method, path, body string) (int, map[string]any) {
 		t.Helper()

@@ -302,9 +302,7 @@ func TestCredentialResolver_FailsClosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SaveConnection(ctx, application.Connection{Key: "legacy", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, AuthenticationType: "HOST_CONTEXT", Config: map[string]any{"kubeContext": "ctx"}, SecretRef: "fake-credential://ctx", Status: application.ConnectionReady}); err != nil {
-		t.Fatal(err)
-	}
+	// HOST_CONTEXT cannot be stored any more; Connection.Validate rejects it.
 	notReady := created
 	notReady.Key, notReady.Status = "pending", application.ConnectionVerifying
 	if err := st.SaveConnection(ctx, notReady); err != nil {
@@ -318,7 +316,6 @@ func TestCredentialResolver_FailsClosed(t *testing.T) {
 	for name, target := range map[string]execution.Target{
 		"other organization": {Organization: "other", Connection: created.Key},
 		"missing":            {Organization: "acme", Connection: "ghost"},
-		"host context":       {Organization: "acme", Connection: "legacy"},
 		"not READY":          {Organization: "acme", Connection: "pending"},
 		"redirected context": {Organization: "acme", Connection: created.Key, Context: "kind-idp-internal"},
 		"no identity":        {Context: "ctx"},

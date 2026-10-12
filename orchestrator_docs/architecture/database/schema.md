@@ -11,6 +11,14 @@ PostgreSQL là system of record cho logical orchestration state. JSONB chỉ dù
 
 ## Tables
 
+### `schema_baseline`
+
+Technical singleton marker: `singleton boolean PK CHECK(singleton) DEFAULT true`,
+`baseline text NOT NULL`, `created_at timestamptz NOT NULL DEFAULT now()`.
+Exactly one row identifies the current baseline. It carries no product state
+and is not an upgrade ledger; structural validation is required on reopen.
+
+
 ### `organizations`
 
 | Column | Type | Constraint |
@@ -58,7 +66,7 @@ Only token hashes are persisted. A revoked or expired session is invalid.
 | `id` | uuid | PK |
 | `organization_id` | uuid | FK organizations, NOT NULL |
 | `connection_key` | text | NOT NULL |
-| `name` | text | NOT NULL; legacy rows backfill connection_key |
+| `name` | text | NOT NULL; supplied explicitly |
 | `authentication_type` | text | NOT NULL; `KUBECONFIG` or future `AWS_ACCESS_KEY`; kind-compatible |
 | `kind` | text | `AWS` or `KUBERNETES` |
 | `config` | jsonb | non-secret config, NOT NULL |
@@ -80,8 +88,7 @@ A seeded Kubernetes marker without uploaded private credential is VERIFYING,
 with no fabricated credential reference or successful verification. It may satisfy
 the Organization default FK but is not selectable or executable. New Applications
 still create UNCONFIGURED Environments. No Kubernetes legacy data conversion is
-provided; retained dev state is reset separately in T29. T28 replaces the remaining
-versioned schema startup machinery with the current fresh baseline.
+provided; retained dev state is reset separately in T29. T28 uses the current fresh baseline without versioned schema upgrades.
 See [credential design](../connection-credentials.md).
 
 ### `applications`
@@ -89,7 +96,7 @@ See [credential design](../connection-credentials.md).
 | Column | Type | Constraint |
 |---|---|---|
 | `id` | uuid | PK |
-| `application_key` | text | stable API lookup key, UNIQUE, NOT NULL; generated Applications use the same UUID text as `id`, legacy seed may use a readable alias |
+| `application_key` | text | stable API lookup key, UNIQUE, NOT NULL; generated Applications use the same UUID text as `id`, local seed may use a readable alias |
 | `organization_id` | uuid | FK organizations |
 | `name` | text | NOT NULL |
 | `subdomain` | text | normalized DNS label, NOT NULL |
@@ -103,7 +110,7 @@ unique globally within the configured platform base domain.
 T26 removes all Application execution/provider columns. Old Application-bound
 state is unsupported and must fail startup with a safe reset-required error,
 without copying target fields, exposing row values or rewriting historical
-targets. The transitional SQL chain is only for fresh task state; retained dev
+targets. T28 initializes only an empty database with the current baseline; retained dev
 state must not be upgraded before the separately approved T29 reset.
 
 ### `environments`
@@ -332,10 +339,10 @@ Deployment is running and is immutable after the Deployment reaches a terminal
 state. UC-09 reads this table, not the mutable current `workload_instances`
 row, so an older Deployment never shows status from a later run.
 
-When upgrading stores that predate this snapshot, only the latest known
-`workload_instances` row can be backfilled to its `last_deployment_id`. Earlier
-runs have no recoverable workload snapshot and return no workload rows; the
-migration must not copy current state to every historical Deployment.
+Startup never reconstructs workload history from `workload_instances` (T28).
+Current per-Deployment snapshots are preserved on reopen. Missing history is
+not fabricated from current runtime state; unsupported older stores require a
+development reset before serving.
 
 ### `workload_instances`
 
@@ -369,29 +376,39 @@ source fingerprint retain existing storage. No new table/column or secret storag
 is introduced. Pending Preview hashes bind the rendering intent through existing
 per-workload plan hashes. Logical resource and workload identities are unchanged.
 
-## Historical Environment target migration constraints (ADR-011)
+## Fresh persistence baseline (T28 / LEG-08)
 
-Historical migration description below is superseded by T26 for Application
-columns/backfill and ADR-012 for permanent immutability. Current Application
-schema contains only identity/current metadata; execution/store binding is
-Environment-owned. T26 removes Application-to-Environment backfill, drops the
-five obsolete Application columns on fresh task state and must not be deployed
-against retained dev state before the T29 approved reset. T28 replaces the
-transitional migration chain with a clean baseline. Historical target snapshots
-and generation/version/fencing/scoped FKs remain. T27 removes LEGACY_APPLICATION
-from the scope CHECK without converting data; startup rejects retained scope
-values and requires dev reset. The following paragraph records historical design only.
+Only an empty PostgreSQL schema can be initialized. Initialization creates the
+complete current schema and a baseline identity atomically under a database
+advisory transaction lock. A second boot validates that identity and the required
+schema (tables, column types/nullability, keys, indexes and integrity triggers)
+before serving, without DDL repair or row conversion. A pre-baseline ledger,
+unmarked nonempty schema, incompatible marker or damaged current schema fails
+closed with a safe development-reset-required error. Deleting an old migration
+ledger does not make its schema empty. No old versioned migrations are replayed.
+The identity is technical adapter metadata, not an upgrade path.
 
-Nullable legacy applications.connection_id is preserved; new Applications write
-NULL connection, empty profile/region, runtime UNCONFIGURED. Add Environment target
-columns with empty profile/region, UNCONFIGURED runtime, ENVIRONMENT scope defaults.
-Backfill only unset Environments whose Application has non-NULL legacy connection;
-copy all target fields and mark LEGACY_APPLICATION. Reopen is idempotent.
-Consistency CHECK and immutable binding trigger protect configured connection,
-profile, region and scope. Runtime status/version updates remain legal. Atomic
-SetConnection verifies ownership and READY selection plus unset/expected version.
+Fresh schema includes UUID account/session IDs, case-insensitive Organization
+Application-name uniqueness, explicit kind-compatible Connection authentication,
+identity-only Applications, ENVIRONMENT-only infrastructure scope, editable
+versioned Environment selections, ordinary Secret Stores without a legacy flag,
+and metadata-only Variable versus store/ref-only Secret constraints. All existing
+FK, unique, deferred Snapshot, CAS, ownership/fencing, generation and immutable
+history invariants remain. No permanent binding immutability trigger is installed.
 
-## Environment stores and transitions (ADR-012 migration)
+Current JSON snapshots reopen without defaults, Connection inference, historical
+workload backfill or identity rewrites. Every aggregate map written by the current
+serializer is required and non-null (empty maps are valid). Required current
+binding/authentication/configuration data must be valid; retired fields/formats
+fail with a safe reset-required error rather than silently disappearing. Startup
+must not rewrite the rejected file or echo its data. In-memory fresh construction
+still supplies current defaults through normal domain/seed commands.
+
+Retained IDP state requires the separately approved T29 backup/reset/rebuild.
+T28 prepares and tests a runner for an isolated disposable PostgreSQL target only;
+it does not authorize resetting Compose volumes, Vault or a cluster.
+
+## Environment stores and transitions (ADR-012)
 
 Add Organization-owned `secret_store_connections`: immutable ID/key/name/provider,
 backend/workload addresses, KV/auth mounts, nonsecret TLS configuration,
@@ -400,8 +417,8 @@ must be Organization-scoped. Credential bytes live only in platform credential s
 
 Extend `environments` with selected store key/FK, target_generation bigint default
 0, active_operation_id nullable, selected/active runtime generation metadata as
-needed for transition staging. Environment.version remains Settings CAS. Remove
-permanent binding immutability trigger through additive versioned migration; retain
+needed for transition staging. Environment.version remains Settings CAS. Do not install a
+permanent binding immutability trigger in the fresh baseline; retain
 consistency checks and enforce dedicated CAS/owner commands. Do not clear bindings.
 
 Add `environment_operations`: ID, Environment FK, owner, fencing generation
@@ -430,7 +447,7 @@ Secret refs/revisions pin store identity; old applied refs are immutable. New
 Variable values are metadata, never Secret values. Store identities are explicit;
 T23 removes legacy platform-store backfill. Vault network reads are excluded
 from SQL migrations. T24 removes legacy Variable reads/materialization; the fresh
-SQL constraint baseline is consolidated in T28, without converting retained data.
+SQL constraint baseline is defined by T28, without converting retained data.
 JSON and SQL adapters expose equivalent CAS/claim/transition persistence semantics.
 
 Local Compose bootstrap (UC-04 SS-07..08) retains the existing
@@ -451,17 +468,13 @@ writes; public registration cannot claim this key. Preview performs no writes.
 Existing authored Definitions/history remain intact. Connection identity stays on
 Active Resource and plan binding; no per-Connection user Definition is needed.
 
-T23 removes Secret Store legacy domain/DTO/admission flags. The transitional SQL
-`legacy` column may remain inert until T28 rebuilds the fresh baseline; it is not
-a runtime credential source or supported old-record conversion path.
+T23 removes Secret Store legacy domain/DTO/admission flags. T28 omits the retired
+`legacy` SQL column entirely; no old-record conversion path remains.
 
 ## T27 — Infrastructure scope constraint
 
-Environment infrastructure_scope accepts only ENVIRONMENT. Transitional SQL
-migration 10 installs the strict CHECK after ledger replay; the earlier migration
-6 constraint is historical and is replaced before serving. Existing invalid rows
-fail startup with a safe reset-required error rather than
-being rewritten. JSON startup and persistence binding/save reject retired or
-unknown values safely. Generation 0 preserves current namespaces/descriptors;
-historical plan/TargetRef snapshots are not rewritten. T28 replaces the migration
-chain; retained development state must be reset through the approved T29 run.
+Environment infrastructure_scope accepts only ENVIRONMENT in the fresh baseline.
+JSON startup and persistence binding/save reject retired or unknown values safely.
+Generation 0 preserves current namespaces/descriptors; historical plan/TargetRef
+snapshots are not rewritten. Retained development state must be reset through the
+approved T29 run; old SQL migration chains are unsupported.

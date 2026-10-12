@@ -45,9 +45,10 @@ func TestPostgresTerminalSerializationContract(t *testing.T) {
 	persistencetest.TerminalSerialization(t, st)
 }
 
-// TestMigration4BackfillsLatestRunOnly replays migration 4 over a database
-// written before per-Deployment workload history existed.
-func TestMigration4BackfillsLatestRunOnly(t *testing.T) {
+// Reopening validates the baseline and never reconstructs per-Deployment
+// workload history from the current Workload Instance rows: history that is
+// absent stays absent, history that exists stays exactly as it was.
+func TestReopenNeverReconstructsWorkloadHistory(t *testing.T) {
 	ctx := context.Background()
 	st, url := openFresh(t)
 	opts := seed.Defaults()
@@ -55,16 +56,19 @@ func TestMigration4BackfillsLatestRunOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now().UTC().Truncate(time.Second)
-	older := persistencetest.SaveDeployment(t, st, opts, deployment.StatusSucceeded, now)
-	latest := persistencetest.SaveDeployment(t, st, opts, deployment.StatusSucceeded, now.Add(time.Minute))
-	if err := st.UpsertWorkloadInstance(ctx, deployment.WorkloadInstance{
-		EnvironmentKey: opts.ApplicationKey + "/" + opts.EnvironmentKey, WorkloadID: "api",
-		LastDeploymentID: latest.ID, TargetRef: map[string]any{"namespace": "team"},
-		ManifestDigest: "sha256:latest", Status: deployment.InstanceReady, ObservedAt: now,
-	}); err != nil {
+	older := persistencetest.SaveDeployment(t, st, opts, deployment.StatusPlanning, now)
+	latest := persistencetest.SaveDeployment(t, st, opts, deployment.StatusPlanning, now.Add(time.Minute))
+	instance := func(deploymentID, digest string) deployment.WorkloadInstance {
+		return deployment.WorkloadInstance{
+			EnvironmentKey: opts.ApplicationKey + "/" + opts.EnvironmentKey, WorkloadID: "api",
+			LastDeploymentID: deploymentID, TargetRef: map[string]any{"namespace": "team"},
+			ManifestDigest: digest, Status: deployment.InstanceReady, ObservedAt: now,
+		}
+	}
+	if err := st.UpsertWorkloadProgress(ctx, instance(older.ID, "sha256:older")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.pool.Exec(ctx, `DROP TABLE deployment_workloads; DELETE FROM schema_migrations WHERE version=4`); err != nil {
+	if err := st.UpsertWorkloadProgress(ctx, instance(latest.ID, "sha256:latest")); err != nil {
 		t.Fatal(err)
 	}
 	st.Close()
@@ -74,11 +78,24 @@ func TestMigration4BackfillsLatestRunOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	rows, err := reopened.ListDeploymentWorkloads(ctx, latest.ID)
-	if err != nil || len(rows) != 1 || rows[0].ManifestDigest != "sha256:latest" || rows[0].TargetRef["namespace"] != "team" {
-		t.Fatalf("latest run backfill = %#v, %v", rows, err)
+	for id, digest := range map[string]string{older.ID: "sha256:older", latest.ID: "sha256:latest"} {
+		rows, err := reopened.ListDeploymentWorkloads(ctx, id)
+		if err != nil || len(rows) != 1 || rows[0].ManifestDigest != digest {
+			t.Fatalf("history of %s = %#v, %v", id, rows, err)
+		}
 	}
-	if rows, err := reopened.ListDeploymentWorkloads(ctx, older.ID); err != nil || len(rows) != 0 {
-		t.Fatalf("older run history was invented: %#v, %v", rows, err)
+	// With the history rows gone, the current instance does not repopulate them.
+	if _, err := reopened.pool.Exec(ctx, `DELETE FROM deployment_workloads`); err != nil {
+		t.Fatal(err)
+	}
+	again, err := Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer again.Close()
+	for _, id := range []string{older.ID, latest.ID} {
+		if rows, err := again.ListDeploymentWorkloads(ctx, id); err != nil || len(rows) != 0 {
+			t.Fatalf("history was reconstructed for %s: %#v, %v", id, rows, err)
+		}
 	}
 }
