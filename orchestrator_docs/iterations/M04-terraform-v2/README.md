@@ -16,16 +16,16 @@ Redis acceptance app, tích hợp và kiểm chứng UI thật. Product requirem
 thuộc [ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md),
 use-case specs/contracts, không thuộc plan này.
 
-## Ba chặng và điểm duyệt bắt buộc
+## Ba chặng và điểm duyệt (quyết định 2026-10-14)
 
 | Chặng | AI được thực hiện | Điểm dừng |
 |---|---|---|
 | 1 | Hoàn tất A–D, validation/review và docs commit/push | Dừng để người dùng duyệt tài liệu đã sửa và plan M04, trước code/test mutation |
-| 2 | Toàn bộ code/unit/integration PostgreSQL thật; k8s-4f A01/E01/E02 + video | Dừng để người dùng xem video A01 và bảng dự toán AWS, trước AWS provision |
-| 3 | Sau duyệt: AWS A02/A03, cleanup verified, independent review/validation/commit-push | Dừng để người dùng duyệt final handoff/cleanup evidence |
+| 2 | Toàn bộ code/unit/integration PostgreSQL thật; k8s-4f A01/E01/E02 + video | A01/E01/E02 pass, video + dự toán đã lưu, k8s-4f sạch thì tự sang I04-12 |
+| 3 | Sau I04-11 đạt: AWS A02/A03, cleanup verified, independent review/validation/commit-push | Dừng để người dùng duyệt final handoff/cleanup evidence |
 
-Người dùng đã giao môi trường nhỏ và quyền cleanup, nhưng quyền đó không bỏ
-qua các gate trên. Không tự coi im lặng là duyệt; không hỏi lại quyền đã giao
+Người dùng bỏ điểm duyệt 2 ngày 2026-10-14; video và dự toán vẫn phải lưu.
+Điểm duyệt 1 đã đạt; điểm duyệt 3 bàn giao cuối vẫn giữ. Không tự coi im lặng là duyệt; không hỏi lại quyền đã giao
 trong chặng, trừ thiếu credential/capability hoặc đổi behavior/security/scope.
 Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ approval gây phí.
 
@@ -50,9 +50,9 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
 Dependencies triển khai: schema/state -> registry -> executor -> modules ->
 Connection/catalog/Workload/renderer -> deletion/app Redis -> integration ->
-k8s-4f -> approval -> AWS. Không bỏ task hoặc đổi adapter để rút acceptance.
+k8s-4f đạt + video/estimate + cleanup sạch -> AWS. Không bỏ task hoặc đổi adapter để rút acceptance.
 I04-00 đã được người dùng duyệt sau sửa selected-set và đối chiếu I06-10.
-I04-03 là iteration current; các task sau chưa bắt đầu. M02/I06-10 deferred,
+I04-06 là iteration current; các task sau chưa bắt đầu. M02/I06-10 deferred,
 không coi milestone cũ hoàn thành; xem [coverage còn lại](../M02-usecase-completion/I06-10-uc01-04-management/README.md#đối-chiếu-công-việc-còn-dở-với-m04).
 
 ## Validation và acceptance
@@ -82,12 +82,15 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 - Có video, phase marks, assertions, actual adapter/environment và failed attempts.
 - Cleanup từng run xác minh hết owned cloud/k8s assets; remaining IDs là chưa complete.
 - CURRENT_STATE/code map/traceability ghi kết quả thật; IMP-021 chỉ đóng khi đủ bằng chứng.
-- Task-only changes reviewed/committed/pushed, tmux task đã đóng.
+- Task-only changes reviewed/committed/pushed, nhánh Claude đã xóa.
 - Handoff cuối sẵn sàng và người dùng duyệt; không giả claim approval.
 
 ## Current handoff
 
-Người dùng duyệt chặng 1 sau sửa luồng checkbox và bảng I06-10 coverage.
-I04-01/02 đã đạt review và mandatory SQL checks; tiếp I04-03 qua Claude/tmux.
-[Registry evidence](../../verification/2026-10-13-i04-02-module-registry.md). Live chưa đạt.
-Điểm dừng tiếp theo là video V2-A01 và dự toán AWS trước AWS provision.
+2026-10-14: I04-01..05 hoàn tất, `5dac2e6` đã push; working tree sạch khi tiếp.
+I04-06 cũ dừng trước implementation, không tài nguyên còn tồn tại;
+`/tmp/poc-i0406-aws-connection/handoff-paused.md` lưu bàn giao cũ.
+Tiếp I04-06 bằng phiên Claude cloud mới; Codex chạy checks và recording local.
+Session ID/URL/quyền thực tế: chưa tạo. Nhánh dự kiến `claude/m04-i04-06`.
+I04-11 đạt A01/E01/E02 + video + estimate + k8s-4f sạch thì tự chạy I04-12;
+chỉ bàn giao cuối chờ người dùng, không tự ghi đã duyệt.

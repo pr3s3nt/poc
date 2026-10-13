@@ -13,10 +13,10 @@ product requirements. Tất cả checklist đang pending trừ checkpoint tài l
 
 - [ ] Tối đa một scenario retry sau sửa lỗi, cleanup lần cũ trước retry.
 - [ ] Không thêm fake fallback hoặc giảm assertions khi live fail.
-- [ ] Handoff video A01/E01/E02, SQL validation/cleanup proof và estimate; dừng gate 2.
+- [ ] Handoff video A01/E01/E02, SQL validation/cleanup proof và estimate; tự sang I04-12 khi pass và k8s-4f sạch.
 
 - [ ] Ghi actual changed code/test paths và planned-test IDs đã được hiện thực.
 - [ ] Claude chạy checks; Codex review diff và independently verify tương ứng.
 - [ ] Evidence/cleanup/remaining blockers vào dated verification, không chép log vào plan.
 - [ ] Commit/push task-only khi checks/review đạt theo AGENTS.md; không force-push.
-- [ ] Đóng tmux task hoặc lưu handoff khi bị chặn/hủy; tuân stage approval gate.
+- [ ] Xóa nhánh Claude sau merge; lưu handoff khi bị chặn/hủy; giữ điểm duyệt cuối.

@@ -11,8 +11,9 @@ last_reviewed: 2026-10-13
 
 [V2 acceptance runbook](terraform-v2-acceptance.md) sở hữu account/region,
 small sizing, estimates, deadlines và cleanup. [M04](../iterations/M04-terraform-v2/README.md)
-yêu cầu người dùng xem video k8s-4f A01 và bảng dự toán trước AWS. Không tạo
-AWS resources trước duyệt chặng 2; cloud permissions đã giao không bỏ qua gate.
+yêu cầu A01/E01/E02 pass, video và dự toán đã lưu, k8s-4f sạch trước AWS.
+Quyết định 2026-10-14 bỏ điểm duyệt 2: Codex tự chạy I04-12 khi đủ điều kiện;
+điểm duyệt bàn giao cuối vẫn giữ. Account 452025861381, region us-east-1.
 
 ## Preflight
 

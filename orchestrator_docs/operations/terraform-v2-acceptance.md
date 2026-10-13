@@ -18,8 +18,9 @@ không khẳng định runner/modules/Redis đã có. ADR nằm tại
    Không giao code hoặc bắt đầu test mutation của chặng 2 trước người dùng duyệt.
 2. Chặng 2 implement/code tests, disposable PostgreSQL thật, V2-A01/E01/E02
    trên k8s-4f với adapters thật/video. Bàn giao video A01 cùng bảng dự toán
-   AWS để người dùng xem và duyệt trước chặng 3. Không tạo hạ tầng AWS ở chặng 2.
-3. Chặng 3 sau duyệt mới chạy V2-A02/A03 trên AWS, cleanup xác minh, review/
+   AWS để người dùng xem sau. Khi A01/E01/E02 pass, video/dự toán đã lưu và
+   k8s-4f sạch, Codex tự sang I04-12; điểm duyệt 2 bỏ ngày 2026-10-14.
+3. Chặng 3 sau I04-11 đạt tự chạy V2-A02/A03 trên AWS, cleanup xác minh, review/
    commit/push và bàn giao cuối cùng để người dùng duyệt. Cleanup không được
    dừng chờ duyệt nếu tài nguyên test còn tồn tại.
 

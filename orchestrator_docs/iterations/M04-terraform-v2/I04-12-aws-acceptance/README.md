@@ -14,7 +14,7 @@ Chặng 3; xem [M04](../README.md). Chưa bắt đầu; không suy status này t
 
 ## Phạm vi
 
-Sau người dùng duyệt gate 2, chạy tuần tự A02/A03 AWS qua UI với real adapters; cleanup ngay từng run và query sạch; independent review/final checks/commit-push/handoff.
+Sau I04-11 đạt và video/dự toán đã lưu, chạy tuần tự A02/A03 AWS qua UI với real adapters; cleanup ngay từng run và query sạch; independent review/final checks/commit-push/handoff.
 
 ## Nguồn chuẩn
 
@@ -34,9 +34,9 @@ sau implement, không tạo link tới file chưa có.
 
 ## Dependencies và quyền
 
-Gate 2 đã được người dùng duyệt, A01/E01/E02 và SQL checks đạt, estimate/cleanup readiness đủ.
+Điểm duyệt 2 đã bỏ ngày 2026-10-14; A01/E01/E02 và SQL checks đạt, estimate/cleanup readiness đủ.
 Chỉ các môi trường và mutation trong chặng hiện tại được giao. Không reset
-retained database, sửa cluster-wide component hoặc tạo AWS ngoài gate.
+retained database, sửa cluster-wide component hoặc tạo AWS trước I04-11 đạt.
 Module/provider pins, deadline và small sizing ghi trước execution.
 
 ## Acceptance criteria
@@ -52,8 +52,8 @@ A02/A03 full job/cache assertions + video; không còn run-owned cloud assets; d
 
 ## Handoff
 
-Codex giao Claude source/scope/criteria/checks qua clauded trong tmux task riêng
-khi code stage được duyệt. Claude không sửa docs/commit/push. Codex review và
-verify độc lập; kiểm tiến độ bình thường mỗi 240 giây, không poll liên tục.
-Evidence thật/fake và checks skipped phải phân biệt; failed video/phase marks
-giữ lại. Code-map/CURRENT_STATE/traceability chỉ ghi actual results sau delivery.
+Claude cloud viết code/test và push nhánh riêng; Codex review, tự chạy checks
+local không skip, merge và chạy thật/Playwright headed/quay video local.
+Lưu session ID/URL/quyền thực tế; fetch mỗi 240 giây. Gửi lỗi code về Claude.
+Cập nhật verification/Current handoff/Task order, commit/push và xóa nhánh.
+Giữ failed evidence và phân biệt adapter thật/fake; bàn giao cuối chờ người dùng.

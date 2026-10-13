@@ -159,11 +159,12 @@ chưa hoàn thành và không bắt đầu run mới.
 
 ## Implementation boundary
 
-Lộ trình M04 có ba chặng và các điểm dừng người dùng đã yêu cầu: chặng 1
-sửa tài liệu/plan và chờ duyệt; chặng 2 code, PostgreSQL thật và k8s-4f cùng
-video rồi chờ duyệt video A01 và dự toán AWS; chặng 3 mới chạy AWS, xác minh
-cleanup và bàn giao để người dùng duyệt. Không dùng quyền AWS đã giao để
-bỏ qua điểm dừng chặng 2.
+Quyết định người dùng 2026-10-14: chặng 1 đã được duyệt; bỏ điểm duyệt 2.
+Sau I04-11 đạt A01/E01/E02, video và dự toán AWS đã lưu, k8s-4f sạch,
+Codex tự chạy I04-12 AWS A02 rồi A03, cleanup ngay và xác minh từng run.
+Điểm duyệt 3 bàn giao cuối vẫn giữ; không tự tuyên bố đã duyệt.
+Claude cloud viết code/test trên nhánh riêng public; Codex review/checks/merge
+và chạy thật local, không gửi secrets vào cloud hoặc tự viết code/test.
 
 Code gaps được ghi trong
 [deviations](../../implementation/deviations.md); traceability ghi planned tests

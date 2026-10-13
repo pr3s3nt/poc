@@ -104,5 +104,5 @@ then affected use-case specifications, [module contract](architecture/contracts/
 reconciliation and platform backup are explicitly deferred in D12–D14.
 
 M04 current work order: [plan](iterations/M04-terraform-v2/README.md),
-[rule reconciliation](implementation/v2-rule-reconciliation.md). Chặng 1 dừng
-chờ user duyệt trước code; chặng 2 dừng trước AWS để duyệt video/estimate.
+[rule reconciliation](implementation/v2-rule-reconciliation.md). Chặng 1 đã duyệt; quyết định 2026-10-14 bỏ điểm duyệt 2. I04-11
+pass + video/estimate + cleanup sạch thì tự chạy AWS; giữ điểm duyệt cuối.

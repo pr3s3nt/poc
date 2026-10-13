@@ -121,37 +121,31 @@ không làm mất công việc có sẵn của người dùng.
 Handoff phải nêu ngắn gọn: outcome, vùng thay đổi, checks đã chạy, checks bỏ qua
 và lý do, cùng mọi user-owned change còn lại.
 
-## Codex điều phối và Claude thực hiện code
+## Codex điều phối và Claude cloud thực hiện code
 
-Với task cần sửa code/test, Codex sửa canonical documentation và điều phối;
-Claude thực hiện code/test qua lệnh `clauded` trong session tmux riêng của task.
-Codex giao phạm vi, nguồn chuẩn, acceptance criteria và checks cụ thể; Claude
-không sửa documentation hoặc commit/push. Claude implement và chạy code/test
-trong phạm vi được giao; chỉ deploy/mutate external state để kiểm thử khi người
-dùng đã cho phép môi trường và hành động đó, và Codex đã giao rõ phạm vi/cleanup.
-Codex review diff, xác minh kết quả checks độc lập
-và gửi phản hồi vào cùng session đến khi đáp ứng yêu cầu. Không tự thay Claude
-bằng Codex coding khi công cụ lỗi; báo tình trạng và tiếp tục phần độc lập.
+Codex sửa canonical documentation và điều phối; Claude cloud viết code/test.
+Codex không tự viết code sản phẩm/test. Mỗi task tạo phiên cloud mới từ repo
+sau khi push nhánh điều phối; giao phạm vi, nguồn chuẩn, tiêu chí nghiệm thu và
+checks. Claude được commit/push nhánh riêng `claude/m04-<task>`, không sửa docs
+hoặc push `refactor_ui`; commit cuối chứa bàn giao ngắn. Không gửi credential,
+kubeconfig, Terraform state hoặc `.env` vào cloud; repo và các nhánh đều public.
 
-Với task code/test có luồng Web Console, Claude phải chạy Playwright quay màn
-hình thao tác tương tự người dùng: browser headed, cursor/click rõ, nhập liệu và
-pause đủ đọc, dùng UI cho các bước product của scenario. Ưu tiên phụ đề tiếng Việt
-ở dưới video cho từng bước (mục đích, thao tác, kết quả), không che UI hoặc lộ
-secret. Giữ video/phase marks và kết quả assertion cả khi fail; handoff có đường
-dẫn evidence và phân biệt adapter thật/fake. Test thuần unit/CLI không phải dựng
-video giả; ghi rõ vì sao không có browser scenario. Chi tiết theo runbook bên dưới.
+Codex lưu session ID/URL và chế độ quyền thực tế vào Current handoff, fetch
+nhánh Claude mỗi **240 giây** khi đang chạy bình thường. Phản hồi gửi cùng phiên;
+`ok: true` chỉ xác nhận gửi, không xác nhận hoàn tất. Codex review diff, tự chạy
+lại checks local với PostgreSQL thật (`REQUIRE_POSTGRES=1`), build, frontend và
+docs checks; không chấp nhận skip. Khi đạt, merge vào `refactor_ui`, cập nhật
+docs, commit/push task-only rồi xóa nhánh Claude. Không force-push hoặc stage
+công việc có sẵn ngoài task. Nếu cloud lỗi, báo và tiếp tục phần độc lập;
+không thay Claude bằng Codex coding.
 
-Codex kiểm tra tiến độ Claude qua tmux/log theo nhịp **4 phút (240 giây)** khi
-Claude đang chạy bình thường, không capture pane/poll log liên tục. Mỗi lần chỉ
-đọc phần mới/tóm tắt nhỏ và diff cần review. Kiểm tra sớm khi có lỗi/blocker,
-completion, yêu cầu của người dùng hoặc sự cố cần xử lý; thông báo tiến độ không
-đòi hỏi đọc lại pane. Khi chờ, tuân thủ giới hạn thời gian chờ của môi trường.
+Codex tự chạy deploy k8s-4f, tạo/xóa AWS và Playwright headed/quay video local
+trên code Claude viết khi được giao quyền. Lỗi code được gửi lại Claude cloud.
+Browser flow có cursor/click rõ, nhập liệu và pause đủ đọc, phụ đề Việt dưới
+video, phase marks/assertions; giữ evidence cả khi fail và phân biệt thật/fake.
+Không lộ secret. Unit/CLI không có browser scenario thì ghi rõ lý do.
 
-Với task change/build, quy trình mặc định đã được người dùng cho phép là Codex
-commit và push các thay đổi thuộc task sau review/validation thành công. Chỉ dẫn
-riêng của task (ví dụ không commit/push) được ưu tiên. Review/explanation không
-phát sinh commit. Không stage thay đổi có sẵn ngoài task; không force-push.
-
-Codex đóng session tmux do task tạo sau khi hoàn thành, hoặc sau khi đã lưu
-handoff nếu task bị chặn/hủy; không đóng session của người dùng. Xem
-[runbook Claude qua tmux](orchestrator_docs/operations/claude-tmux.md).
+Với change/build, Codex commit/push thay đổi thuộc task sau review/validation
+thành công, trừ chỉ dẫn riêng. Review/explanation không phát sinh commit.
+Lưu bàn giao nếu bị chặn/hủy; không đóng phiên tmux của người dùng. Quy trình
+cloud và recording tại [runbook Claude](orchestrator_docs/operations/claude-tmux.md).

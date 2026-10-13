@@ -35,12 +35,12 @@ sau implement, không tạo link tới file chưa có.
 
 Sau gate 1 và các task trước trong bảng M04; task registry/executor/modules có thể ghép batch khi dependency đã đủ.
 Chỉ các môi trường và mutation trong chặng hiện tại được giao. Không reset
-retained database, sửa cluster-wide component hoặc tạo AWS ngoài gate.
+retained database, sửa cluster-wide component hoặc tạo AWS trước I04-11 đạt.
 Module/provider pins, deadline và small sizing ghi trước execution.
 
 ## Acceptance criteria
 
-Ba scenario pass có video/phụ đề Việt/phase marks/assertions; A01 UI delete verified, failed evidence giữ; owned cleanup sạch và retained k8s-4f nguyên vẹn. Người dùng xem video A01 + bảng giá AWS trước chặng 3.
+Ba scenario pass có video/phụ đề Việt/phase marks/assertions; A01 UI delete verified, failed evidence giữ; owned cleanup sạch và retained k8s-4f nguyên vẹn. Lưu video A01 + dự toán; khi cả ba scenario pass và k8s-4f sạch, tự sang I04-12.
 
 ## Checks
 
@@ -50,8 +50,8 @@ Ba scenario pass có video/phụ đề Việt/phase marks/assertions; A01 UI del
 
 ## Handoff
 
-Codex giao Claude source/scope/criteria/checks qua clauded trong tmux task riêng
-khi code stage được duyệt. Claude không sửa docs/commit/push. Codex review và
-verify độc lập; kiểm tiến độ bình thường mỗi 240 giây, không poll liên tục.
-Evidence thật/fake và checks skipped phải phân biệt; failed video/phase marks
-giữ lại. Code-map/CURRENT_STATE/traceability chỉ ghi actual results sau delivery.
+Claude cloud viết code/test và push nhánh riêng; Codex review, tự chạy checks
+local không skip, merge và chạy thật/Playwright headed/quay video local.
+Lưu session ID/URL/quyền thực tế; fetch mỗi 240 giây. Gửi lỗi code về Claude.
+Cập nhật verification/Current handoff/Task order, commit/push và xóa nhánh.
+Giữ failed evidence và phân biệt adapter thật/fake; bàn giao cuối chờ người dùng.

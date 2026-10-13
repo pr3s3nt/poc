@@ -2,69 +2,35 @@
 id: RUNBOOK-CLAUDE-TMUX
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-14
 ---
 
-# Codex điều phối Claude qua tmux
+# Điều phối Claude cloud và kiểm chứng local
 
-## Vai trò và phạm vi
+Quyết định người dùng 2026-10-14 thay clauded/tmux bằng Claude cloud; giữ path
+runbook để các liên kết lịch sử còn hợp lệ. Codex quản lý docs/review/checks/
+merge và chạy thật local; Claude viết code/test, không sửa docs.
 
-[AGENTS.md](../../AGENTS.md) sở hữu quy tắc làm việc. Codex phân tích, sửa tài
-liệu chuẩn, giao task, review, validation, cập nhật trạng thái và commit/push.
-Claude implement và chạy code/test được giao, bao gồm Playwright/recording cho
-browser scenario. Codex review code và kiểm chứng evidence độc lập. Không deploy
-hoặc mutate external state nếu người dùng chưa đưa vào scope; quyền chạy test
-local không tự cấp quyền kind/AWS. Task thuần tài liệu không cần Claude.
-
-## Procedure
-
-1. Codex kiểm tra git status, đọc INDEX/nguồn chuẩn, ghi nhận user-owned changes.
-2. Chốt canonical docs trước code; ghi deviation khi design chưa được implement.
-3. Kiểm tra `tmux` và `clauded` bằng shell tương tác. `clauded` có thể là alias;
-   chạy trong `bash -i`, không giả định nó là executable trên PATH.
-4. Tạo session riêng với tên duy nhất và working directory đúng repository.
-   Giữ nguyên mọi session có sẵn. Ví dụ `tmux new-session -d -s codex-task-<id>
-   -c <repo> 'bash -i'`, sau đó gửi `clauded` vào pane đó.
-5. Gửi brief gồm mục tiêu, docs chuẩn, file/phạm vi được phép sửa, acceptance
-   criteria, checks, giới hạn external mutation và user-owned changes. Nêu rõ
-   Claude không sửa docs, không commit/push và không tự đổi requirements.
-   Brief phải có browser scenario/recording, phụ đề mong muốn, nơi lưu evidence,
-   adapter thật/fake, môi trường được phép và ownership/cleanup nếu có integration.
-   Brief/log đặt trong thư mục tạm riêng ngoài repository, không chứa secrets.
-6. Theo dõi pane bằng `tmux capture-pane` theo nhịp 4 phút (240 giây), không
-   capture/poll liên tục khi Claude đang làm việc bình thường. Mỗi lần đọc tail
-   ngắn, trạng thái checks và diff liên quan; dùng báo cáo file ngắn để giữ thông
-   tin thay vì đọc lại toàn bộ pane. Giữa hai lần kiểm tra tiếp tục phần docs/review
-   độc lập hoặc chờ; các lần chờ phải tuân thủ giới hạn môi trường, không dùng
-   blocking wait dài hơn giới hạn chỉ để đạt 240 giây. Kiểm tra sớm khi nhận
-   completion/lỗi/blocker, user steering hoặc sự cố cleanup. Khi
-   Claude báo hoàn thành, Codex review correctness, scope, persistence/security,
-   legacy behavior và test coverage. Gửi phản hồi cụ thể vào cùng pane; lặp lại
-   khi còn lỗi. Không xem lời báo hoàn thành là bằng chứng checks đã pass.
-7. Claude chạy validation trong scope đã giao; Codex xác minh exit status/log/
-   artifact theo AGENTS.md và chỉ chạy lại checks cần thiết khi có thay đổi mới,
-   failure hoặc evidence chưa đủ. Codex sửa docs/current state/traceability theo
-   kết quả thực tế. Ghi checks chưa chạy và lý do; không tuyên bố live proof từ
-   local fake tests. Không tự triển khai database/cluster/cloud để chạy checks. Khi chỉ chạy local
-   checks, unset các opt-in như `ORCHESTRATOR_POSTGRES_TEST_URL` và
-   `ORCH_KIND_VERIFY` cho subprocess test, không đọc/hiển thị giá trị.
-8. Stage rõ các file thuộc task, review staged diff, commit và push theo branch/
-   upstream đã kiểm tra. Không dùng force-push; nếu remote thay đổi, kiểm tra và
-   tích hợp an toàn trước khi thử lại. Không reset/revert công việc của người dùng.
-9. Sau completion, đóng session của task bằng `tmux kill-session -t <owned-name>`
-   và xác nhận đã đóng. Nếu bị chặn/hủy, lưu handoff trước cleanup và báo trạng
-   thái chưa hoàn thành. Không kill tmux server hoặc session khác.
-
-## Handoff
-
-Báo outcome, vùng thay đổi, checks, giới hạn, commit/push result và session đã
-đóng. Nếu `clauded` không chạy hoặc bị giới hạn dịch vụ, Codex báo rõ; không âm
-thầm chuyển code sang agent khác. Authorization commit/push không cấp quyền deploy.
+1. Push `refactor_ui` trước khi giao; mỗi task tạo phiên mới từ thư mục repo:
+   `claude --cloud "<bàn giao>" --dangerously-skip-permissions`.
+2. Giao scope, sources, acceptance criteria, checks; yêu cầu push nhánh riêng
+   `claude/m04-<task>`, không push `refactor_ui`, bàn giao ngắn trong commit cuối.
+3. Lưu session ID/URL và kiểm chế độ quyền thực tế, không suy từ cờ CLI.
+   Không gửi credential/kubeconfig/state/.env; mọi nhánh của repo là public.
+4. Phản hồi: `claude -p "<nội dung>" --cloud <session-id> --output-format json`.
+   `ok: true` chỉ nghĩa đã gửi. Fetch nhánh mỗi 240 giây; đọc sớm khi lỗi,
+   completion hoặc yêu cầu người dùng. Chờ theo giới hạn môi trường.
+5. Review diff; tự chạy local `REQUIRE_POSTGRES=1 go test ./...`, build,
+   frontend checks và docs checks, không chấp nhận skip. Merge khi đạt,
+   cập nhật verification/Current handoff/Task order, commit/push và xóa nhánh.
+6. Codex chạy thật local trên code Claude: cluster/AWS theo quyền đã giao,
+   Playwright headed và video. Gửi lỗi code về cùng phiên để Claude sửa.
+   Công cụ lỗi kéo dài: lưu task/bước/session/tài nguyên/việc tiếp theo trước dừng.
 
 ## Playwright recording cho task code/test có browser flow
 
 1. Dùng hoặc mở rộng runner/scenario hiện có trong `frontend/test/e2e/` và
-   `backend/test/integration/`; Claude chịu trách nhiệm phần code/test/recording.
+   `backend/test/integration/`; Claude cloud viết code/test; Codex chạy recording local.
    Quay headed browser, ưu tiên toàn cửa sổ gồm tab/address bar với runner Xvfb/
    ffmpeg hiện có. Không cần quay terminal hoặc toàn desktop chứa dữ liệu riêng.
 2. Scenario phải phản ánh các bước người dùng thực hiện: sign-in, mở màn hình,
@@ -85,7 +51,7 @@ thầm chuyển code sang agent khác. Authorization commit/push không cấp qu
    assertions/checks tương ứng pass. Fake-adapter video không chứng minh live deploy.
    Test chỉ có unit/CLI thì ghi rõ không có browser flow, không mở rộng scope chỉ
    để quay một video không liên quan.
-5. Codex review các frame/đoạn chính và đối chiếu kết quả sau khi Claude hoàn tất,
+5. Codex review các frame/đoạn chính và đối chiếu kết quả sau khi chạy local hoàn tất,
    không xem liên tục khi quay. Với runner MP4 hiện có, kiểm tra full decode,
    resolution, phase marks và frame không trống; không cố kéo dài video để đủ
    thời lượng nếu scenario đã đổi. Kiểm tra caption khớp bước/kết quả, không lộ

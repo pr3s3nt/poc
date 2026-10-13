@@ -7,6 +7,16 @@ last_reviewed: 2026-10-13
 
 # Current project state
 
+## Quyết định điều phối M04 — 2026-10-14
+
+I04-01..05 hoàn tất tại `5dac2e6`; I04-06 chưa implement khi tiếp từ bàn giao
+cũ. Claude cloud viết code/test và push nhánh riêng public; Codex quản lý docs,
+review/checks/merge và chạy thật local, gồm Playwright headed/video.
+Điểm duyệt 2 đã bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và k8s-4f sạch
+thì tự chạy I04-12 trên AWS 452025861381/us-east-1. Điểm duyệt cuối vẫn giữ.
+Chưa có live proof hoặc quyền được kiểm chứng của phiên cloud mới.
+Các đoạn checkpoint lịch sử bên dưới không thay quyết định hiện tại này.
+
 ## M04 documentation review checkpoint — 2026-10-13
 
 Người dùng bổ sung PE/Admin Xóa tài nguyên qua UI, cùng selected set qua ô tick với root được chọn mặc định; AWS access-key/Vault onboarding được giữ.
