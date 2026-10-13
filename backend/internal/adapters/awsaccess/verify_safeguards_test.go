@@ -23,18 +23,126 @@ import (
 // paging), redirect refusal and the coverage of the module resources. They are
 // not evidence about a real account.
 
-func TestSimulationRunsOncePerAllowedRegionWithRequestedRegionContext(t *testing.T) {
+// simulatedBy groups the simulated actions by the region context they were
+// asked with, and reports how many requests each region needed.
+func simulatedBy(f *awsfake.Server) (actions map[string][]string) {
+	actions = map[string][]string{}
+	for _, request := range f.SimulationRequests() {
+		actions[request.Region] = append(actions[request.Region], request.Actions...)
+	}
+	return actions
+}
+
+func TestGlobalIAMActionsAreSimulatedOnlyInUSEast1AndRegionalOnesPerAllowedRegion(t *testing.T) {
 	f := newFakeAWS()
-	if _, err := client(t, f).VerifyAccessKey(context.Background(), fakeKey(), []string{"us-east-1", "eu-west-1", "ap-south-1"}); err != nil {
+	regions := []string{"eu-west-1", "ap-south-1"} // deliberately not us-east-1
+	if _, err := client(t, f).VerifyAccessKey(context.Background(), fakeKey(), regions); err != nil {
 		t.Fatal(err)
 	}
-	perRegion := map[string]int{}
-	for _, region := range f.SimulatedRegions() {
-		perRegion[region]++
+	global, regional := partitionActions()
+	if len(global) == 0 || len(regional) == 0 {
+		t.Fatalf("partition: %d global, %d regional", len(global), len(regional))
 	}
-	if len(perRegion) != 3 || perRegion["us-east-1"] == 0 || perRegion["us-east-1"] != perRegion["eu-west-1"] || perRegion["eu-west-1"] != perRegion["ap-south-1"] {
-		t.Fatalf("simulations per region: %v", perRegion)
+	got := simulatedBy(f)
+	if len(got) != 3 {
+		t.Fatalf("regions used as context: %v", got)
 	}
+	// Global (iam:) actions: exactly once, only with us-east-1.
+	count := func(list []string) map[string]int {
+		out := map[string]int{}
+		for _, a := range list {
+			out[a]++
+		}
+		return out
+	}
+	usEast := count(got["us-east-1"])
+	for _, action := range global {
+		if usEast[action] != 1 {
+			t.Errorf("global action %s simulated %d times in us-east-1", action, usEast[action])
+		}
+	}
+	for region, list := range got {
+		for _, action := range list {
+			if isGlobalAction(action) != (region == "us-east-1") {
+				t.Errorf("action %s was simulated with aws:RequestedRegion=%s", action, region)
+			}
+		}
+	}
+	// Regional actions: each exactly once per allowed region and not in us-east-1.
+	for _, region := range regions {
+		seen := count(got[region])
+		for _, action := range regional {
+			if seen[action] != 1 {
+				t.Errorf("regional action %s simulated %d times for %s", action, seen[action], region)
+			}
+		}
+	}
+	for _, action := range regional {
+		if usEast[action] != 0 {
+			t.Errorf("regional action %s was simulated for us-east-1, which is not allowed", action)
+		}
+	}
+	// Both partitions together are exactly the required set: no group is dropped.
+	if len(global)+len(regional) != len(requiredActions()) {
+		t.Fatal("partition lost an action")
+	}
+}
+
+// iamOnlyUnder returns a policy model: iam: actions are allowed only when the
+// request carries aws:RequestedRegion=region, everything else is always allowed.
+func iamOnlyUnder(region string) func(string, []string) (int, string) {
+	return func(requested string, actions []string) (int, string) {
+		var b strings.Builder
+		b.WriteString(`<SimulatePrincipalPolicyResponse><SimulatePrincipalPolicyResult><IsTruncated>false</IsTruncated><EvaluationResults>`)
+		for _, a := range actions {
+			decision := "allowed"
+			if isGlobalAction(a) && requested != region {
+				decision = "implicitDeny"
+			}
+			b.WriteString(member(a, decision, ""))
+		}
+		b.WriteString(`</EvaluationResults></SimulatePrincipalPolicyResult></SimulatePrincipalPolicyResponse>`)
+		return http.StatusOK, b.String()
+	}
+}
+
+// False READY: the policy allows iam:* only under RequestedRegion=eu-west-1.
+// Real IAM calls always carry us-east-1, so they would be denied; an eu-west-1
+// only Connection must therefore not be accepted.
+func TestIAMAllowedOnlyUnderTheDeployRegionIsNotReady(t *testing.T) {
+	f := newFakeAWS()
+	f.Simulate = iamOnlyUnder("eu-west-1")
+	if _, err := client(t, f).VerifyAccessKey(context.Background(), fakeKey(), []string{"eu-west-1"}); !errors.Is(err, connection.ErrPermissionDenied) {
+		t.Fatalf("an eu-west-1 only key whose IAM permission applies only under eu-west-1 was accepted: %v", err)
+	}
+	for _, request := range f.SimulationRequests() {
+		for _, action := range request.Actions {
+			if isGlobalAction(action) && request.Region != "us-east-1" {
+				t.Fatalf("%s simulated under %s", action, request.Region)
+			}
+		}
+	}
+}
+
+// False rejection: the policy allows iam:* when the request region is
+// us-east-1 (where real IAM calls go) and regional services everywhere. A
+// multi-region key must be accepted; simulating IAM under eu-west-1 would
+// have rejected it.
+func TestIAMAllowedUnderUSEast1AcceptsMultiRegionKeys(t *testing.T) {
+	f := newFakeAWS()
+	f.Simulate = iamOnlyUnder("us-east-1")
+	if _, err := client(t, f).VerifyAccessKey(context.Background(), fakeKey(), []string{"eu-west-1", "ap-south-1"}); err != nil {
+		t.Fatalf("a valid multi-region key was rejected: %v", err)
+	}
+	if _, err := client(t, newFakeAWSWith(iamOnlyUnder("us-east-1"))).VerifyAccessKey(context.Background(), fakeKey(), []string{"us-east-1"}); err != nil {
+		t.Fatalf("a us-east-1 key was rejected: %v", err)
+	}
+}
+
+func newFakeAWSWith(sim func(string, []string) (int, string)) *awsfake.Server {
+	f := newFakeAWS()
+	f.Simulate = sim
+	return f
 }
 
 func TestRegionalCreateDenyFailsEvenWhenReadsAndOtherRegionsPass(t *testing.T) {

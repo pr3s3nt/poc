@@ -50,10 +50,25 @@ type Server struct {
 	// aws:RequestedRegion context value) report implicit denies.
 	DenyRegionCapabilities map[string]bool
 
-	mu      sync.Mutex
-	calls   []string
-	auths   []string
-	regions []string
+	mu       sync.Mutex
+	calls    []string
+	auths    []string
+	regions  []string
+	requests []SimulationRequest
+}
+
+// SimulationRequest is one IAM simulation request: the aws:RequestedRegion
+// context value and the actions asked.
+type SimulationRequest struct {
+	Region  string
+	Actions []string
+}
+
+// SimulationRequests returns every IAM simulation request so far.
+func (s *Server) SimulationRequests() []SimulationRequest {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]SimulationRequest(nil), s.requests...)
 }
 
 // New returns a fake for one account and user principal.
@@ -182,6 +197,7 @@ func (s *Server) Handler() http.Handler {
 			}
 			s.mu.Lock()
 			s.regions = append(s.regions, requested)
+			s.requests = append(s.requests, SimulationRequest{Region: requested, Actions: append([]string(nil), actions...)})
 			s.mu.Unlock()
 			switch {
 			case rule == RuleNoSimulate:

@@ -26,12 +26,14 @@ import (
 //  2. regions: in every allowed region STS answers for the same account and a
 //     read-only Describe/List call of each service the modules use succeeds,
 //     so a disabled region or an organization policy that blocks it fails;
-//  3. capabilities: for EVERY allowed region, IAM SimulatePrincipalPolicy
-//     evaluates the create/modify/delete/read/tag actions the VPC, EKS,
-//     ElastiCache and Aurora modules need with the context key
-//     aws:RequestedRegion set to that region, because the read probes of step 2
-//     do not prove that a regional create is allowed. Every action must be
-//     "allowed".
+//  3. capabilities: IAM SimulatePrincipalPolicy evaluates the create/modify/
+//     delete/read/tag actions the VPC, EKS, ElastiCache and Aurora modules
+//     need. Regional service actions are simulated once per allowed region with
+//     aws:RequestedRegion set to that region (the read probes of step 2 do not
+//     prove a regional create is allowed). IAM actions are global: the single
+//     IAM endpoint is in us-east-1, so every real IAM call carries
+//     aws:RequestedRegion=us-east-1 and they are simulated once with that value,
+//     never with another region. Every action must be "allowed".
 //
 // STS success alone never produces a result. Nothing is created: the IAM
 // simulation evaluates policies without calling the services. Per the AWS
@@ -401,93 +403,61 @@ type simulateResponse struct {
 
 const maxSimulatePages = 20
 
-// verifyCapabilities simulates every required action for the principal once
-// per allowed region, with aws:RequestedRegion set to that region. The result
-// is fail-closed: any denied action (including by the organization) is
-// ErrPermissionDenied; anything unproven (missing action, missing context
-// values, truncated or over-long paging, unreadable answer, a simulation the
-// principal may not run) is ErrCapabilityUnverifiable.
-func (c *Client) verifyCapabilities(ctx context.Context, creds Credentials, principalARN string, regions []string) ([]string, error) {
-	actions := requiredActions()
-	denied, unproven := false, false
-	for _, region := range regions {
-		decided := map[string]bool{}
-		for start := 0; start < len(actions); start += simulateChunk {
-			chunk := actions[start:min(start+simulateChunk, len(actions))]
-			marker := ""
-			complete := false
-			for page := 0; page < maxSimulatePages; page++ {
-				form := url.Values{
-					"Action": {"SimulatePrincipalPolicy"}, "Version": {iamVersion},
-					"PolicySourceArn": {principalARN}, "ResourceArns.member.1": {"*"}, "MaxItems": {"1000"},
-					"ContextEntries.member.1.ContextKeyName":            {"aws:RequestedRegion"},
-					"ContextEntries.member.1.ContextKeyType":            {"string"},
-					"ContextEntries.member.1.ContextKeyValues.member.1": {region},
-				}
-				for i, action := range chunk {
-					form.Set("ActionNames.member."+strconv.Itoa(i+1), action)
-				}
-				if marker != "" {
-					form.Set("Marker", marker)
-				}
-				res, err := c.post(ctx, c.iam(), form, creds, identityRegion, "iam")
-				if err != nil {
-					return nil, err
-				}
-				if res.status != http.StatusOK {
-					switch err := res.classify(true); {
-					case errors.Is(err, connection.ErrPermissionDenied), errors.Is(err, connection.ErrRegionUnavailable):
-						// The principal may not simulate its own policy (or the
-						// call is blocked): the capabilities are unproven.
-						return nil, connection.ErrCapabilityUnverifiable
-					default:
-						return nil, err
-					}
-				}
-				var doc simulateResponse
-				if xml.Unmarshal(res.body, &doc) != nil {
-					return nil, connection.ErrCapabilityUnverifiable
-				}
-				for _, r := range doc.Results {
-					switch {
-					case r.Organizations != nil && strings.TrimSpace(r.Organizations.Allowed) != "true":
-						denied = true
-						decided[r.Action] = true
-					case r.Decision != "allowed":
-						denied = true
-						decided[r.Action] = true
-					case len(r.MissingValues) > 0:
-						// Allowed only for context this verifier did not supply.
-						unproven = true
-						decided[r.Action] = true
-					default:
-						decided[r.Action] = true
-					}
-				}
-				if strings.TrimSpace(doc.Truncated) != "true" {
-					complete = true
-					break
-				}
-				if doc.Marker == "" {
-					// Truncated without a continuation marker: not all results were seen.
-					return nil, connection.ErrCapabilityUnverifiable
-				}
-				marker = doc.Marker
-			}
-			if !complete {
-				return nil, connection.ErrCapabilityUnverifiable
-			}
-		}
-		for _, action := range actions {
-			if !decided[action] {
-				unproven = true
-			}
+// isGlobalAction reports whether the action belongs to a service whose API has
+// a single global endpoint. IAM is served only from us-east-1 (N. Virginia), so
+// the aws:RequestedRegion of every real IAM call is us-east-1 whatever region
+// the module deploys to. Simulating it under another region would prove (or
+// disprove) a permission that no real call ever exercises.
+func isGlobalAction(action string) bool { return strings.HasPrefix(action, "iam:") }
+
+// partitionActions splits the distinct required actions into global ones
+// (simulated once, in the region the global endpoint really uses) and regional
+// ones (simulated once per allowed region). Every group stays required.
+func partitionActions() (global, regional []string) {
+	for _, action := range requiredActions() {
+		if isGlobalAction(action) {
+			global = append(global, action)
+		} else {
+			regional = append(regional, action)
 		}
 	}
-	if denied {
+	return global, regional
+}
+
+type simulation struct {
+	denied, unproven bool
+}
+
+// verifyCapabilities simulates the global (IAM) actions once with
+// aws:RequestedRegion=us-east-1 and the regional actions once per allowed
+// region with that region. The result is fail-closed: any denied action
+// (including by the organization) is ErrPermissionDenied; anything unproven
+// (missing action, missing context values, truncated or over-long paging,
+// unreadable answer, a simulation the principal may not run) is
+// ErrCapabilityUnverifiable.
+func (c *Client) verifyCapabilities(ctx context.Context, creds Credentials, principalARN string, regions []string) ([]string, error) {
+	global, regional := partitionActions()
+	var total simulation
+	merge := func(r simulation) {
+		total.denied = total.denied || r.denied
+		total.unproven = total.unproven || r.unproven
+	}
+	r, err := c.simulateActions(ctx, creds, principalARN, identityRegion, global)
+	if err != nil {
+		return nil, err
+	}
+	merge(r)
+	for _, region := range regions {
+		r, err := c.simulateActions(ctx, creds, principalARN, region, regional)
+		if err != nil {
+			return nil, err
+		}
+		merge(r)
+	}
+	if total.denied {
 		return nil, connection.ErrPermissionDenied
 	}
-	if unproven {
+	if total.unproven {
 		return nil, connection.ErrCapabilityUnverifiable
 	}
 	names := make([]string, 0, len(capabilityGroups))
@@ -496,4 +466,79 @@ func (c *Client) verifyCapabilities(ctx context.Context, creds Credentials, prin
 	}
 	sort.Strings(names)
 	return names, nil
+}
+
+// simulateActions simulates actions with aws:RequestedRegion=region and
+// requires a result for every one of them.
+func (c *Client) simulateActions(ctx context.Context, creds Credentials, principalARN, region string, actions []string) (simulation, error) {
+	var out simulation
+	decided := map[string]bool{}
+	for start := 0; start < len(actions); start += simulateChunk {
+		chunk := actions[start:min(start+simulateChunk, len(actions))]
+		marker := ""
+		complete := false
+		for page := 0; page < maxSimulatePages; page++ {
+			form := url.Values{
+				"Action": {"SimulatePrincipalPolicy"}, "Version": {iamVersion},
+				"PolicySourceArn": {principalARN}, "ResourceArns.member.1": {"*"}, "MaxItems": {"1000"},
+				"ContextEntries.member.1.ContextKeyName":            {"aws:RequestedRegion"},
+				"ContextEntries.member.1.ContextKeyType":            {"string"},
+				"ContextEntries.member.1.ContextKeyValues.member.1": {region},
+			}
+			for i, action := range chunk {
+				form.Set("ActionNames.member."+strconv.Itoa(i+1), action)
+			}
+			if marker != "" {
+				form.Set("Marker", marker)
+			}
+			res, err := c.post(ctx, c.iam(), form, creds, identityRegion, "iam")
+			if err != nil {
+				return simulation{}, err
+			}
+			if res.status != http.StatusOK {
+				switch err := res.classify(true); {
+				case errors.Is(err, connection.ErrPermissionDenied), errors.Is(err, connection.ErrRegionUnavailable):
+					// The principal may not simulate its own policy (or the
+					// call is blocked): the capabilities are unproven.
+					return simulation{}, connection.ErrCapabilityUnverifiable
+				default:
+					return simulation{}, err
+				}
+			}
+			var doc simulateResponse
+			if xml.Unmarshal(res.body, &doc) != nil {
+				return simulation{}, connection.ErrCapabilityUnverifiable
+			}
+			for _, r := range doc.Results {
+				decided[r.Action] = true
+				switch {
+				case r.Organizations != nil && strings.TrimSpace(r.Organizations.Allowed) != "true":
+					out.denied = true
+				case r.Decision != "allowed":
+					out.denied = true
+				case len(r.MissingValues) > 0:
+					// Allowed only for context this verifier did not supply.
+					out.unproven = true
+				}
+			}
+			if strings.TrimSpace(doc.Truncated) != "true" {
+				complete = true
+				break
+			}
+			if doc.Marker == "" {
+				// Truncated without a continuation marker: not all results were seen.
+				return simulation{}, connection.ErrCapabilityUnverifiable
+			}
+			marker = doc.Marker
+		}
+		if !complete {
+			return simulation{}, connection.ErrCapabilityUnverifiable
+		}
+	}
+	for _, action := range actions {
+		if !decided[action] {
+			out.unproven = true
+		}
+	}
+	return out, nil
 }
