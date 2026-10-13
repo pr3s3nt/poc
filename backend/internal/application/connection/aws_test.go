@@ -448,3 +448,64 @@ func TestResolveAWSAcceptsSessionTokenAndRejectsRegionlessRecords(t *testing.T) 
 		t.Fatalf("regionless record resolved: %v", err)
 	}
 }
+
+func TestRegisterAWSRejectsAnyIncompleteOrInconsistentVerificationResult(t *testing.T) {
+	ctx := context.Background()
+	base := func(mutate func(*connection.AWSVerification)) connection.AWSVerification {
+		v := okVerification("us-east-1", "eu-west-1")
+		mutate(&v)
+		return v
+	}
+	for name, result := range map[string]connection.AWSVerification{
+		"principal of another account": base(func(v *connection.AWSVerification) { v.PrincipalARN = "arn:aws:iam::999999999999:user/orch" }),
+		"root principal":               base(func(v *connection.AWSVerification) { v.PrincipalARN = "arn:aws:iam::123456789012:root" }),
+		"assumed role principal":       base(func(v *connection.AWSVerification) { v.PrincipalARN = "arn:aws:sts::123456789012:assumed-role/r/s" }),
+		"no principal":                 base(func(v *connection.AWSVerification) { v.PrincipalARN = "" }),
+		"short account":                base(func(v *connection.AWSVerification) { v.AccountID = "1234" }),
+		"extra region":                 base(func(v *connection.AWSVerification) { v.Regions = []string{"us-east-1", "eu-west-1", "ap-south-1"} }),
+		"substituted region":           base(func(v *connection.AWSVerification) { v.Regions = []string{"us-east-1", "eu-west-2"} }),
+		"reordered regions":            base(func(v *connection.AWSVerification) { v.Regions = []string{"eu-west-1", "us-east-1"} }),
+		"missing capability group":     base(func(v *connection.AWSVerification) { v.Capabilities = []string{"EKS", "ElastiCache", "VPC"} }),
+		"unknown capability group":     base(func(v *connection.AWSVerification) { v.Capabilities = []string{"Aurora", "EKS", "ElastiCache", "S3"} }),
+		"duplicated capability group":  base(func(v *connection.AWSVerification) { v.Capabilities = []string{"Aurora", "EKS", "EKS", "VPC"} }),
+		"extra capability group":       base(func(v *connection.AWSVerification) { v.Capabilities = append(v.Capabilities, "S3") }),
+	} {
+		st, creds, v, svc := awsFixture(t)
+		v.result = result
+		if _, err := svc.RegisterAWS(ctx, "acme", awsCommand()); !errors.Is(err, connection.ErrVerification) {
+			t.Errorf("%s: %v", name, err)
+		}
+		if list, _ := st.ListConnections(ctx, "acme"); creds.Len() != 0 || len(list) != 0 {
+			t.Errorf("%s: a READY connection or credential exists", name)
+		}
+	}
+	// Capability order from the verifier does not matter.
+	_, _, v, svc := awsFixture(t)
+	v.result = base(func(v *connection.AWSVerification) { v.Capabilities = []string{"VPC", "ElastiCache", "EKS", "Aurora"} })
+	if _, err := svc.RegisterAWS(ctx, "acme", awsCommand()); err != nil {
+		t.Fatalf("a complete result in another capability order: %v", err)
+	}
+}
+
+func TestResolveAWSFailsClosedOnMalformedAllowedRegionsMetadata(t *testing.T) {
+	ctx := context.Background()
+	mem := credentialmemory.New()
+	ref, _ := mem.Put(ctx, "acme", "acct", []byte(`{"accessKeyId":"AKID","secretAccessKey":"S"}`))
+	for name, config := range map[string]map[string]any{
+		"empty list":         {"accountId": "123456789012", "region": "us-east-1", "allowedRegions": []any{}},
+		"non-string member":  {"accountId": "123456789012", "region": "us-east-1", "allowedRegions": []any{"us-east-1", 3}},
+		"wrong type":         {"accountId": "123456789012", "region": "us-east-1", "allowedRegions": "us-east-1"},
+		"default not listed": {"accountId": "123456789012", "region": "us-east-1", "allowedRegions": []any{"eu-west-1"}},
+		"duplicate member":   {"accountId": "123456789012", "region": "us-east-1", "allowedRegions": []any{"us-east-1", "us-east-1"}},
+	} {
+		conn := awsConnection(ref)
+		conn.Config = config
+		if _, err := connection.NewCredentialResolver(connections{"acme/acct": conn}, mem).ResolveAWS(ctx, "acme", "acct"); !errors.Is(err, connection.ErrCredentialUnavailable) {
+			t.Errorf("%s resolved: %v", name, err)
+		}
+	}
+	// A historical single-region record (no allowedRegions field) keeps working.
+	if got, err := connection.NewCredentialResolver(connections{"acme/acct": awsConnection(ref)}, mem).ResolveAWS(ctx, "acme", "acct"); err != nil || !got.AllowsRegion("us-east-1") || got.AllowsRegion("eu-west-1") {
+		t.Fatalf("historical record: %+v %v", got, err)
+	}
+}

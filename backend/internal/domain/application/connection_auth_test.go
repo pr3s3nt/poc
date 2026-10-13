@@ -38,7 +38,12 @@ func TestConnectionAllowedRegions(t *testing.T) {
 		"list from memory":     {map[string]any{"region": "us-east-1", "allowedRegions": []string{"us-east-1", "eu-west-1"}}, []string{"us-east-1", "eu-west-1"}, map[string]bool{"eu-west-1": true, "ap-south-1": false}},
 		"list after JSON":      {map[string]any{"region": "us-east-1", "allowedRegions": []any{"us-east-1", "eu-west-1"}}, []string{"us-east-1", "eu-west-1"}, map[string]bool{"us-east-1": true, "ap-south-1": false}},
 		"legacy single region": {map[string]any{"region": "eu-west-1"}, []string{"eu-west-1"}, map[string]bool{"eu-west-1": true, "us-east-1": false}},
-		"malformed list":       {map[string]any{"region": "eu-west-1", "allowedRegions": []any{"us-east-1", 7}}, []string{"eu-west-1"}, map[string]bool{"us-east-1": false}},
+		"malformed list":       {map[string]any{"region": "eu-west-1", "allowedRegions": []any{"us-east-1", 7}}, nil, map[string]bool{"us-east-1": false, "eu-west-1": false}},
+		"empty list":           {map[string]any{"region": "eu-west-1", "allowedRegions": []any{}}, nil, map[string]bool{"eu-west-1": false}},
+		"empty string member":  {map[string]any{"region": "eu-west-1", "allowedRegions": []string{""}}, nil, map[string]bool{"eu-west-1": false}},
+		"duplicate member":     {map[string]any{"region": "eu-west-1", "allowedRegions": []string{"eu-west-1", "eu-west-1"}}, nil, map[string]bool{"eu-west-1": false}},
+		"wrong type":           {map[string]any{"region": "eu-west-1", "allowedRegions": "eu-west-1"}, nil, map[string]bool{"eu-west-1": false}},
+		"null":                 {map[string]any{"region": "eu-west-1", "allowedRegions": nil}, nil, map[string]bool{"eu-west-1": false}},
 		"none":                 {map[string]any{}, nil, map[string]bool{"us-east-1": false, "": false}},
 	}
 	for name, tc := range cases {

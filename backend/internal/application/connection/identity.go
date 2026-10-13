@@ -36,6 +36,11 @@ func (r *CredentialResolver) ResolveAWS(ctx context.Context, organizationKey, co
 		conn.ConfigString("accountId") == "" || conn.ConfigString("region") == "" {
 		return terraformexec.AWSConnection{}, ErrCredentialUnavailable
 	}
+	// The default region must be one of the verified allowed regions; a
+	// malformed allowedRegions field leaves none and fails closed.
+	if !conn.AllowsRegion(conn.ConfigString("region")) {
+		return terraformexec.AWSConnection{}, ErrCredentialUnavailable
+	}
 	raw, err := r.store.Get(ctx, conn.OrganizationKey, conn.Key, conn.SecretRef)
 	if err != nil || len(raw) == 0 {
 		return terraformexec.AWSConnection{}, ErrCredentialUnavailable

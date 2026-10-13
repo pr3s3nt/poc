@@ -44,17 +44,21 @@ type Server struct {
 	DenyRead map[string]string
 	// RegionAccount maps a region to the account its regional STS reports.
 	RegionAccount map[string]string
-	// Simulate overrides the IAM simulation answer.
-	Simulate func(actions []string) (status int, body string)
+	// Simulate overrides the IAM simulation answer for one requested region.
+	Simulate func(region string, actions []string) (status int, body string)
+	// DenyRegionCapabilities makes simulation for these regions (the
+	// aws:RequestedRegion context value) report implicit denies.
+	DenyRegionCapabilities map[string]bool
 
-	mu    sync.Mutex
-	calls []string
-	auths []string
+	mu      sync.Mutex
+	calls   []string
+	auths   []string
+	regions []string
 }
 
 // New returns a fake for one account and user principal.
 func New() *Server {
-	return &Server{Account: "123456789012", ARN: "arn:aws:iam::123456789012:user/orchestrator", Rules: map[string]Rule{}, Disabled: map[string]bool{}, DenyRead: map[string]string{}}
+	return &Server{Account: "123456789012", ARN: "arn:aws:iam::123456789012:user/orchestrator", Rules: map[string]Rule{}, Disabled: map[string]bool{}, DenyRead: map[string]string{}, DenyRegionCapabilities: map[string]bool{}}
 }
 
 // Calls returns "service METHOD Action path" for every request so far.
@@ -77,7 +81,15 @@ func XMLError(code string) string {
 }
 
 // AllowAll answers a simulation with every action allowed.
-func AllowAll(actions []string) (int, string) { return decide(actions, "allowed") }
+func AllowAll(_ string, actions []string) (int, string) { return decide(actions, "allowed") }
+
+// SimulatedRegions returns the aws:RequestedRegion value of every simulation
+// request so far.
+func (s *Server) SimulatedRegions() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.regions...)
+}
 
 func decide(actions []string, decision string) (int, string) {
 	var b strings.Builder
@@ -162,15 +174,20 @@ func (s *Server) Handler() http.Handler {
 				}
 				actions = append(actions, a)
 			}
-			if form.Get("PolicySourceArn") != s.ARN || form.Get("ResourceArns.member.1") != "*" {
+			requested := form.Get("ContextEntries.member.1.ContextKeyValues.member.1")
+			if form.Get("PolicySourceArn") != s.ARN || form.Get("ResourceArns.member.1") != "*" ||
+				form.Get("ContextEntries.member.1.ContextKeyName") != "aws:RequestedRegion" || requested == "" {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
+			s.mu.Lock()
+			s.regions = append(s.regions, requested)
+			s.mu.Unlock()
 			switch {
 			case rule == RuleNoSimulate:
 				w.WriteHeader(http.StatusForbidden)
 				_, _ = w.Write([]byte(XMLError("AccessDenied")))
-			case rule == RuleNoCapabilities:
+			case rule == RuleNoCapabilities || s.DenyRegionCapabilities[requested]:
 				status, body := decide(actions, "implicitDeny")
 				w.WriteHeader(status)
 				_, _ = w.Write([]byte(body))
@@ -179,7 +196,7 @@ func (s *Server) Handler() http.Handler {
 				if sim == nil {
 					sim = AllowAll
 				}
-				status, body := sim(actions)
+				status, body := sim(requested, actions)
 				w.WriteHeader(status)
 				_, _ = w.Write([]byte(body))
 			}

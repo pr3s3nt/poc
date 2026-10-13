@@ -26,18 +26,28 @@ import (
 //  2. regions: in every allowed region STS answers for the same account and a
 //     read-only Describe/List call of each service the modules use succeeds,
 //     so a disabled region or an organization policy that blocks it fails;
-//  3. capabilities: IAM SimulatePrincipalPolicy evaluates the create/modify/
-//     delete actions the VPC, EKS, ElastiCache and Aurora modules need and
-//     every one must be "allowed".
+//  3. capabilities: for EVERY allowed region, IAM SimulatePrincipalPolicy
+//     evaluates the create/modify/delete/read/tag actions the VPC, EKS,
+//     ElastiCache and Aurora modules need with the context key
+//     aws:RequestedRegion set to that region, because the read probes of step 2
+//     do not prove that a regional create is allowed. Every action must be
+//     "allowed".
 //
 // STS success alone never produces a result. Nothing is created: the IAM
-// simulation evaluates the principal's policies without calling the services.
-// If the principal may not simulate its own policies the capabilities are
-// unproven and verification fails closed with ErrCapabilityUnverifiable.
-// IAM simulation covers identity-based policies and the permissions boundary;
-// it does not evaluate organization SCPs, so the region probes and the
-// execution-time STS/account check complement it. This is registration-time
-// evidence only (BR-13); execution preflight must revalidate.
+// simulation evaluates policies without calling the services. Per the AWS
+// documentation SimulatePrincipalPolicy evaluates identity-based policies,
+// permissions boundaries and, for accounts in an organization, SCPs
+// (OrganizationsDecisionDetail); this verifier additionally requires that no
+// result reports a denial by the organization. The result is fail-closed: a
+// simulation that is denied, truncated without a marker, paged beyond the
+// bound, answered with missing context values, or that omits a requested
+// action is not proof. If the principal may not simulate its own policies the
+// capabilities are unproven (ErrCapabilityUnverifiable). Policies that depend
+// on context this verifier cannot supply (source IP, tags, ...) therefore fail
+// closed rather than pass. This is registration-time evidence only (BR-13);
+// execution preflight must revalidate. Sources:
+// https://docs.aws.amazon.com/IAM/latest/APIReference/API_SimulatePrincipalPolicy.html
+// https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_testing-policies.html
 
 const (
 	identityRegion = "us-east-1"
@@ -58,27 +68,38 @@ type capabilityGroup struct {
 	Actions []string
 }
 
-// capabilityGroups is derived from the resources of the aws modules (vpc, eks,
-// elasticache, aurora): create, update, delete and the reads Terraform
-// refreshes with. It is the list a READY AWS Connection proves.
+// capabilityGroups is derived from the resources and provider calls of the
+// aws modules (vpc, eks, elasticache, aurora; see TestCapabilityListCoversModuleResources):
+// create, in-place update, delete, the reads Terraform refreshes with, tagging
+// (default_tags) and cleanup. Optional EKS features that a Definition can turn
+// on (EBS CSI add-on with EKS Pod Identity, ebs_csi_driver=true) are included
+// because V2-A03 needs them. Group names are the contract of
+// connection.RequiredAWSCapabilities.
 var capabilityGroups = []capabilityGroup{
 	{Name: "VPC", Actions: []string{
 		"ec2:CreateVpc", "ec2:DeleteVpc", "ec2:DescribeVpcs", "ec2:DescribeVpcAttribute", "ec2:ModifyVpcAttribute",
 		"ec2:CreateSubnet", "ec2:DeleteSubnet", "ec2:DescribeSubnets", "ec2:ModifySubnetAttribute",
 		"ec2:CreateInternetGateway", "ec2:DeleteInternetGateway", "ec2:AttachInternetGateway", "ec2:DetachInternetGateway", "ec2:DescribeInternetGateways",
-		"ec2:CreateRouteTable", "ec2:DeleteRouteTable", "ec2:CreateRoute", "ec2:DeleteRoute",
-		"ec2:AssociateRouteTable", "ec2:DisassociateRouteTable", "ec2:DescribeRouteTables",
-		"ec2:CreateSecurityGroup", "ec2:DeleteSecurityGroup", "ec2:DescribeSecurityGroups",
-		"ec2:AuthorizeSecurityGroupIngress", "ec2:AuthorizeSecurityGroupEgress", "ec2:RevokeSecurityGroupIngress", "ec2:RevokeSecurityGroupEgress",
-		"ec2:CreateTags", "ec2:DeleteTags", "ec2:DescribeAvailabilityZones", "ec2:DescribeNetworkInterfaces",
+		"ec2:CreateRouteTable", "ec2:DeleteRouteTable", "ec2:DescribeRouteTables", "ec2:CreateRoute", "ec2:DeleteRoute",
+		"ec2:AssociateRouteTable", "ec2:DisassociateRouteTable",
+		// aws_default_security_group empties the VPC default group.
+		"ec2:DescribeSecurityGroups", "ec2:RevokeSecurityGroupIngress", "ec2:RevokeSecurityGroupEgress",
+		"ec2:CreateTags", "ec2:DeleteTags", "ec2:DescribeAvailabilityZones", "ec2:DescribeAccountAttributes",
+		// aws_subnet and aws_vpc deletion look for lingering network interfaces.
+		"ec2:DescribeNetworkInterfaces",
 	}},
 	{Name: "EKS", Actions: []string{
-		"eks:CreateCluster", "eks:DeleteCluster", "eks:DescribeCluster", "eks:UpdateClusterConfig", "eks:UpdateClusterVersion", "eks:TagResource",
+		"eks:CreateCluster", "eks:DeleteCluster", "eks:DescribeCluster", "eks:UpdateClusterConfig", "eks:UpdateClusterVersion", "eks:TagResource", "eks:UntagResource",
 		"eks:CreateNodegroup", "eks:DeleteNodegroup", "eks:DescribeNodegroup", "eks:UpdateNodegroupConfig",
-		"eks:CreateAddon", "eks:DeleteAddon", "eks:DescribeAddon", "eks:DescribeAddonVersions", "eks:UpdateAddon",
-		"eks:CreateAccessEntry", "eks:DeleteAccessEntry", "eks:DescribeAccessEntry", "eks:AssociateAccessPolicy", "eks:DisassociateAccessPolicy", "eks:ListAssociatedAccessPolicies",
-		"iam:CreateRole", "iam:DeleteRole", "iam:GetRole", "iam:PassRole", "iam:TagRole",
+		"eks:CreateAccessEntry", "eks:DeleteAccessEntry", "eks:DescribeAccessEntry",
+		"eks:AssociateAccessPolicy", "eks:DisassociateAccessPolicy", "eks:ListAssociatedAccessPolicies",
+		// Optional EBS CSI add-on and its EKS Pod Identity association.
+		"eks:CreateAddon", "eks:DeleteAddon", "eks:DescribeAddon", "eks:UpdateAddon",
+		"eks:CreatePodIdentityAssociation", "eks:DeletePodIdentityAssociation", "eks:DescribePodIdentityAssociation", "eks:ListPodIdentityAssociations",
+		// Run-owned cluster, node and EBS CSI roles and their managed policy attachments.
+		"iam:CreateRole", "iam:DeleteRole", "iam:GetRole", "iam:PassRole", "iam:TagRole", "iam:UntagRole", "iam:ListRoleTags",
 		"iam:AttachRolePolicy", "iam:DetachRolePolicy", "iam:ListAttachedRolePolicies", "iam:ListRolePolicies", "iam:ListInstanceProfilesForRole",
+		// Created on first use of EKS or managed node groups in an account.
 		"iam:CreateServiceLinkedRole",
 	}},
 	{Name: "ElastiCache", Actions: []string{
@@ -86,14 +107,37 @@ var capabilityGroups = []capabilityGroup{
 		"elasticache:CreateCacheSubnetGroup", "elasticache:DeleteCacheSubnetGroup", "elasticache:DescribeCacheSubnetGroups",
 		"elasticache:CreateUser", "elasticache:DeleteUser", "elasticache:DescribeUsers", "elasticache:ModifyUser",
 		"elasticache:CreateUserGroup", "elasticache:DeleteUserGroup", "elasticache:DescribeUserGroups", "elasticache:ModifyUserGroup",
-		"elasticache:DescribeCacheClusters", "elasticache:AddTagsToResource", "elasticache:ListTagsForResource",
+		"elasticache:DescribeCacheClusters", "elasticache:AddTagsToResource", "elasticache:RemoveTagsFromResource", "elasticache:ListTagsForResource",
+		// The module's own security group.
+		"ec2:CreateSecurityGroup", "ec2:DeleteSecurityGroup", "ec2:DescribeSecurityGroups", "ec2:DescribeSubnets",
+		"ec2:AuthorizeSecurityGroupIngress", "ec2:AuthorizeSecurityGroupEgress", "ec2:RevokeSecurityGroupIngress", "ec2:RevokeSecurityGroupEgress",
+		"ec2:CreateTags", "ec2:DeleteTags",
 	}},
 	{Name: "Aurora", Actions: []string{
 		"rds:CreateDBCluster", "rds:DeleteDBCluster", "rds:DescribeDBClusters", "rds:ModifyDBCluster",
 		"rds:CreateDBInstance", "rds:DeleteDBInstance", "rds:DescribeDBInstances", "rds:ModifyDBInstance",
 		"rds:CreateDBSubnetGroup", "rds:DeleteDBSubnetGroup", "rds:DescribeDBSubnetGroups",
-		"rds:AddTagsToResource", "rds:ListTagsForResource",
+		"rds:AddTagsToResource", "rds:RemoveTagsFromResource", "rds:ListTagsForResource",
+		// The module's own security group.
+		"ec2:CreateSecurityGroup", "ec2:DeleteSecurityGroup", "ec2:DescribeSecurityGroups", "ec2:DescribeSubnets",
+		"ec2:AuthorizeSecurityGroupIngress", "ec2:AuthorizeSecurityGroupEgress", "ec2:RevokeSecurityGroupIngress", "ec2:RevokeSecurityGroupEgress",
+		"ec2:CreateTags", "ec2:DeleteTags",
 	}},
+}
+
+// requiredActions are the distinct actions of all groups, in group order.
+func requiredActions() []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, group := range capabilityGroups {
+		for _, action := range group.Actions {
+			if !seen[action] {
+				seen[action] = true
+				out = append(out, action)
+			}
+		}
+	}
+	return out
 }
 
 // regionProbe is one read-only call per service and region.
@@ -153,7 +197,7 @@ func (c *Client) queryBase(service, host, region string) string {
 
 func (c *Client) send(req *http.Request, payload []byte, creds Credentials, region, service string) (callResult, error) {
 	Sign(req, payload, creds, region, service, c.now())
-	resp, err := c.HTTP.Do(req)
+	resp, err := c.httpClient().Do(req)
 	if err != nil {
 		return callResult{}, connection.ErrClusterUnreachable
 	}
@@ -331,7 +375,7 @@ func (c *Client) VerifyAccessKey(ctx context.Context, key connection.AWSAccessKe
 			}
 		}
 	}
-	groups, err := c.verifyCapabilities(ctx, creds, identity.arn)
+	groups, err := c.verifyCapabilities(ctx, creds, identity.arn, regions)
 	if err != nil {
 		return connection.AWSVerification{}, err
 	}
@@ -344,80 +388,107 @@ func (c *Client) VerifyAccessKey(ctx context.Context, key connection.AWSAccessKe
 // simulateResponse is the part of SimulatePrincipalPolicy output that is read.
 type simulateResponse struct {
 	Results []struct {
-		Action   string `xml:"EvalActionName"`
-		Decision string `xml:"EvalDecision"`
+		Action        string   `xml:"EvalActionName"`
+		Decision      string   `xml:"EvalDecision"`
+		MissingValues []string `xml:"MissingContextValues>member"`
+		Organizations *struct {
+			Allowed string `xml:"AllowedByOrganizations"`
+		} `xml:"OrganizationsDecisionDetail"`
 	} `xml:"SimulatePrincipalPolicyResult>EvaluationResults>member"`
 	Truncated string `xml:"SimulatePrincipalPolicyResult>IsTruncated"`
 	Marker    string `xml:"SimulatePrincipalPolicyResult>Marker"`
 }
 
-// verifyCapabilities simulates every required action for the principal. Each
-// action must be reported "allowed"; a missing result is unproven, not allowed.
-func (c *Client) verifyCapabilities(ctx context.Context, creds Credentials, principalARN string) ([]string, error) {
-	decisions := map[string]string{}
-	var actions []string
-	for _, group := range capabilityGroups {
-		actions = append(actions, group.Actions...)
-	}
-	for start := 0; start < len(actions); start += simulateChunk {
-		chunk := actions[start:min(start+simulateChunk, len(actions))]
-		marker := ""
-		for page := 0; page < 20; page++ {
-			form := url.Values{
-				"Action": {"SimulatePrincipalPolicy"}, "Version": {iamVersion},
-				"PolicySourceArn": {principalARN}, "ResourceArns.member.1": {"*"}, "MaxItems": {"1000"},
-			}
-			for i, action := range chunk {
-				form.Set("ActionNames.member."+strconv.Itoa(i+1), action)
-			}
-			if marker != "" {
-				form.Set("Marker", marker)
-			}
-			res, err := c.post(ctx, c.iam(), form, creds, identityRegion, "iam")
-			if err != nil {
-				return nil, err
-			}
-			if res.status != http.StatusOK {
-				switch err := res.classify(true); {
-				case errors.Is(err, connection.ErrPermissionDenied), errors.Is(err, connection.ErrRegionUnavailable):
-					// The principal may not simulate its own policy (or the
-					// call is blocked): the capabilities are unproven.
-					return nil, connection.ErrCapabilityUnverifiable
-				default:
+const maxSimulatePages = 20
+
+// verifyCapabilities simulates every required action for the principal once
+// per allowed region, with aws:RequestedRegion set to that region. The result
+// is fail-closed: any denied action (including by the organization) is
+// ErrPermissionDenied; anything unproven (missing action, missing context
+// values, truncated or over-long paging, unreadable answer, a simulation the
+// principal may not run) is ErrCapabilityUnverifiable.
+func (c *Client) verifyCapabilities(ctx context.Context, creds Credentials, principalARN string, regions []string) ([]string, error) {
+	actions := requiredActions()
+	denied, unproven := false, false
+	for _, region := range regions {
+		decided := map[string]bool{}
+		for start := 0; start < len(actions); start += simulateChunk {
+			chunk := actions[start:min(start+simulateChunk, len(actions))]
+			marker := ""
+			complete := false
+			for page := 0; page < maxSimulatePages; page++ {
+				form := url.Values{
+					"Action": {"SimulatePrincipalPolicy"}, "Version": {iamVersion},
+					"PolicySourceArn": {principalARN}, "ResourceArns.member.1": {"*"}, "MaxItems": {"1000"},
+					"ContextEntries.member.1.ContextKeyName":            {"aws:RequestedRegion"},
+					"ContextEntries.member.1.ContextKeyType":            {"string"},
+					"ContextEntries.member.1.ContextKeyValues.member.1": {region},
+				}
+				for i, action := range chunk {
+					form.Set("ActionNames.member."+strconv.Itoa(i+1), action)
+				}
+				if marker != "" {
+					form.Set("Marker", marker)
+				}
+				res, err := c.post(ctx, c.iam(), form, creds, identityRegion, "iam")
+				if err != nil {
 					return nil, err
 				}
+				if res.status != http.StatusOK {
+					switch err := res.classify(true); {
+					case errors.Is(err, connection.ErrPermissionDenied), errors.Is(err, connection.ErrRegionUnavailable):
+						// The principal may not simulate its own policy (or the
+						// call is blocked): the capabilities are unproven.
+						return nil, connection.ErrCapabilityUnverifiable
+					default:
+						return nil, err
+					}
+				}
+				var doc simulateResponse
+				if xml.Unmarshal(res.body, &doc) != nil {
+					return nil, connection.ErrCapabilityUnverifiable
+				}
+				for _, r := range doc.Results {
+					switch {
+					case r.Organizations != nil && strings.TrimSpace(r.Organizations.Allowed) != "true":
+						denied = true
+						decided[r.Action] = true
+					case r.Decision != "allowed":
+						denied = true
+						decided[r.Action] = true
+					case len(r.MissingValues) > 0:
+						// Allowed only for context this verifier did not supply.
+						unproven = true
+						decided[r.Action] = true
+					default:
+						decided[r.Action] = true
+					}
+				}
+				if strings.TrimSpace(doc.Truncated) != "true" {
+					complete = true
+					break
+				}
+				if doc.Marker == "" {
+					// Truncated without a continuation marker: not all results were seen.
+					return nil, connection.ErrCapabilityUnverifiable
+				}
+				marker = doc.Marker
 			}
-			var doc simulateResponse
-			if xml.Unmarshal(res.body, &doc) != nil {
+			if !complete {
 				return nil, connection.ErrCapabilityUnverifiable
 			}
-			for _, r := range doc.Results {
-				// A permission that is allowed only for some resources or
-				// by a condition is reported differently; "allowed" is the
-				// only accepted decision and an action is satisfied only if
-				// every returned result for it is allowed.
-				if previous, seen := decisions[r.Action]; !seen || previous == "allowed" {
-					decisions[r.Action] = r.Decision
-				}
-			}
-			if strings.TrimSpace(doc.Truncated) != "true" || doc.Marker == "" {
-				break
-			}
-			marker = doc.Marker
 		}
-	}
-	var denied bool
-	for _, action := range actions {
-		decision, seen := decisions[action]
-		if !seen {
-			return nil, connection.ErrCapabilityUnverifiable
-		}
-		if decision != "allowed" {
-			denied = true
+		for _, action := range actions {
+			if !decided[action] {
+				unproven = true
+			}
 		}
 	}
 	if denied {
 		return nil, connection.ErrPermissionDenied
+	}
+	if unproven {
+		return nil, connection.ErrCapabilityUnverifiable
 	}
 	names := make([]string, 0, len(capabilityGroups))
 	for _, group := range capabilityGroups {

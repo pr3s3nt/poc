@@ -26,8 +26,10 @@
 # NEW_PATH must not exist and must be outside the repository; it is kept, also
 # on failure. Output: I04-06-raw.mp4, I04-06-captioned.mp4, captions.srt/.ass,
 # marks.json, assertions.txt, result.txt, run.json, checks.txt, aws-calls.json,
-# orchestrator.log, cleanup.txt, frames/*.png. Credentials live in
-# NEW_PATH/private (0700), removed on exit, and never in the evidence.
+# orchestrator.log, vault-health.json, cleanup.txt, frames/*.png. Credentials
+# (including the raw Vault dev-server output, which holds its root token and
+# unseal key) live in NEW_PATH/private (0700), removed on exit, and never in
+# the evidence; every retained text file is scanned for them.
 # Debug only: ORCH_I0406_INJECT_FAILURE=after-success fails the scenario on
 # purpose to check that video, marks and assertions survive a failure.
 set -euo pipefail
@@ -144,7 +146,7 @@ VAULT_ADDR_LOCAL="http://127.0.0.1:${VAULT_PORT}"
 VAULT_BIN="${ORCH_I0406_VAULT_BIN:-}"
 if [[ -n "${VAULT_BIN}" ]]; then
   [[ -x "${VAULT_BIN}" ]] || { echo "ORCH_I0406_VAULT_BIN is not executable" >&2; exit 1; }
-  VAULT_DEV_ROOT_TOKEN_ID="${ROOT_TOKEN}" "${VAULT_BIN}" server -dev -dev-listen-address "127.0.0.1:${VAULT_PORT}" -dev-no-store-token > "${WORK}/vault.log" 2>&1 &
+  VAULT_DEV_ROOT_TOKEN_ID="${ROOT_TOKEN}" "${VAULT_BIN}" server -dev -dev-listen-address "127.0.0.1:${VAULT_PORT}" -dev-no-store-token > "${PRIVATE}/vault.log" 2>&1 &
   VAULT_PID=$!
 else
   command -v docker >/dev/null || { echo "set ORCH_I0406_VAULT_BIN or install docker for the run-owned Vault" >&2; exit 1; }
@@ -203,21 +205,38 @@ sleep 1
 # checks, never a value.
 check() { printf '%s\n' "$*" | tee -a "${WORK}/checks.txt"; }
 : > "${WORK}/checks.txt"
-if [[ -s "${PRIVATE}/secret-values" ]]; then
-  node -e '
-    const fs = require("fs");
-    const [valuesFile, ...files] = process.argv.slice(1);
-    const values = [...fs.readFileSync(valuesFile, "utf8").split("\n").filter(Boolean), "AKIAFAKESUCCESS00001", "AKIAFAKEREJECTED0001", "AKIAFAKENOPERMS00001", "AKIAFAKENOSIMULATE01"];
-    for (const file of files) {
-      if (!fs.existsSync(file)) continue;
-      const text = fs.readFileSync(file, "utf8");
-      if (values.some((v) => text.includes(v))) { console.error(`key material found in ${file}`); process.exit(1); }
-    }
-    console.log(`no-key-material-in-artifacts files=${files.length} values=${values.length}`);
-  ' "${PRIVATE}/secret-values" "${WORK}/orchestrator.log" "${WORK}/playwright.log" "${WORK}/assertions.txt" "${WORK}/captions.srt" "${WORK}/marks.json" "${WORK}/run.json" "${WORK}/aws-registration-replies.json" "${WORK}/connection.json" "${WORK}/vault.log" | tee -a "${WORK}/checks.txt" || STATUS=1
-else
-  check "SKIPPED key-material scan: the scenario never wrote its private values (it failed before generating them)"
-fi
+# Safe Vault diagnostics only (no token, no raw server output).
+curl -fsS "${VAULT_ADDR_LOCAL}/v1/sys/health" > "${WORK}/vault-health.json" 2>/dev/null || echo '{"unreachable":true}' > "${WORK}/vault-health.json"
+# Every retained text file is scanned for the AWS fixture keys, the Vault root
+# and scoped tokens and the disposable SQL credentials. Values are compared in
+# node only; output names the checks, never a value.
+node -e '
+  const fs = require("fs");
+  const path = require("path");
+  const [work, priv] = process.argv.slice(1);
+  const read = (file) => (fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "");
+  const values = new Set(["AKIAFAKESUCCESS00001", "AKIAFAKEREJECTED0001", "AKIAFAKENOPERMS00001", "AKIAFAKENOSIMULATE01"]);
+  for (const v of read(path.join(priv, "secret-values")).split("\n")) if (v) values.add(v);
+  for (const file of ["root-header", "scoped-header"]) { const m = read(path.join(priv, file)).match(/X-Vault-Token:\s*(\S+)/); if (m) values.add(m[1]); }
+  const scoped = read(path.join(priv, "connection-vault-token")).trim(); if (scoped) values.add(scoped);
+  try { const u = new URL(read(path.join(priv, "console.url")).trim()); if (u.password) values.add(decodeURIComponent(u.password)); } catch { /* absent */ }
+  try { const u = new URL(read(process.env.ORCH_I0406_PG_ADMIN_URL_FILE).trim()); if (u.password) values.add(decodeURIComponent(u.password)); } catch { /* absent */ }
+  for (const v of [...values]) if (v.length < 8) values.delete(v);
+  const textual = /\.(log|txt|json|srt|ass|tsv|md|env)$/;
+  let scanned = 0;
+  const walk = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (full === priv) continue;
+    if (entry.isDirectory()) { walk(full); continue; }
+    if (!textual.test(entry.name)) continue;
+    scanned += 1;
+    const text = fs.readFileSync(full, "utf8");
+    for (const v of values) if (text.includes(v)) { console.error(`credential material found in ${path.relative(work, full)}`); process.exit(1); }
+  } };
+  walk(work);
+  if (values.size < 6) { console.error("scan had too few values to be meaningful"); process.exit(1); }
+  console.log(`no-credential-in-retained-text files=${scanned} values=${values.size} (AWS fixture keys, Vault root and scoped tokens, SQL credentials)`);
+' "${WORK}" "${PRIVATE}" | tee -a "${WORK}/checks.txt" || STATUS=1
 
 if [[ -s "${WORK}/connection.json" && -s "${PRIVATE}/secret-values" ]]; then
   KEY="$(node -e 'console.log(require(process.argv[1]).key)' "${WORK}/connection.json")"

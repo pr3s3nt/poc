@@ -49,7 +49,7 @@ func Resolve(ctx context.Context, view persistence.ApplicationRepository, organi
 			return appdomain.Connection{}, fmt.Errorf("%w: environment %s/%s", ErrInconsistent, env.ApplicationKey, env.Key)
 		}
 	case appdomain.ProfileAWSEKS:
-		if conn.Kind != appdomain.ConnectionAWS || (len(conn.AllowedRegions()) > 0 && !conn.AllowsRegion(env.Region)) {
+		if conn.Kind != appdomain.ConnectionAWS || (regionConstrained(conn) && !conn.AllowsRegion(env.Region)) {
 			return appdomain.Connection{}, fmt.Errorf("%w: environment %s/%s", ErrInconsistent, env.ApplicationKey, env.Key)
 		}
 	}
@@ -57,4 +57,13 @@ func Resolve(ctx context.Context, view persistence.ApplicationRepository, organi
 		return appdomain.Connection{}, fmt.Errorf("%w: connection %q is %s, want READY", ErrConnectionNotReady, conn.Key, conn.Status)
 	}
 	return conn, nil
+}
+
+// regionConstrained reports whether the Connection restricts its Environments
+// to regions: a present allowedRegions field always does (a malformed one then
+// allows none), a historical record by its single region, and only a record
+// with neither is unconstrained.
+func regionConstrained(conn appdomain.Connection) bool {
+	_, listed := conn.Config["allowedRegions"]
+	return listed || conn.ConfigString("region") != ""
 }

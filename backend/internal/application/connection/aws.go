@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sort"
 
 	"orchestrator/internal/domain/application"
 )
@@ -22,7 +23,46 @@ var (
 	awsAccessKeyPattern = regexp.MustCompile(`^AKIA[A-Z0-9]{16}$`)
 	awsSecretKeyPattern = regexp.MustCompile(`^[A-Za-z0-9/+]{40}$`)
 	awsRegionPattern    = regexp.MustCompile(`^[a-z]{2}(-[a-z]+)+-[0-9]$`)
+	awsAccountPattern   = regexp.MustCompile(`^[0-9]{12}$`)
+	awsUserARNPattern   = regexp.MustCompile(`^arn:aws:iam::([0-9]{12}):user/[A-Za-z0-9+=,.@_/-]{1,512}$`)
 )
+
+// RequiredAWSCapabilities are the provisioning capability groups a READY AWS
+// Connection must have proven, sorted. The verifier must report exactly these.
+var RequiredAWSCapabilities = []string{"Aurora", "EKS", "ElastiCache", "VPC"}
+
+// completeAWSVerification reports whether the verifier proved everything for
+// exactly the requested regions: a 12-digit account, an IAM user principal of
+// that same account, the requested region set in the requested order and each
+// required capability group exactly once. Anything else is not READY.
+func completeAWSVerification(v AWSVerification, requested []string) bool {
+	if !awsAccountPattern.MatchString(v.AccountID) {
+		return false
+	}
+	match := awsUserARNPattern.FindStringSubmatch(v.PrincipalARN)
+	if match == nil || match[1] != v.AccountID {
+		return false
+	}
+	if len(v.Regions) != len(requested) {
+		return false
+	}
+	for i := range requested {
+		if v.Regions[i] != requested[i] {
+			return false
+		}
+	}
+	if len(v.Capabilities) != len(RequiredAWSCapabilities) {
+		return false
+	}
+	got := append([]string(nil), v.Capabilities...)
+	sort.Strings(got)
+	for i := range got {
+		if got[i] != RequiredAWSCapabilities[i] {
+			return false
+		}
+	}
+	return true
+}
 
 // AWS verification failure categories a verifier may wrap in ErrVerification.
 // Only fixed guidance reaches the caller; AWS responses never do.
@@ -140,7 +180,7 @@ func (s *Service) RegisterAWS(ctx context.Context, org string, cmd RegisterAWSCo
 	if err != nil {
 		return application.Connection{}, awsVerificationError(err)
 	}
-	if verified.AccountID == "" || len(verified.Regions) != len(regions) || len(verified.Capabilities) == 0 {
+	if !completeAWSVerification(verified, regions) {
 		// A verifier that did not prove everything is a failed verification,
 		// never a READY Connection.
 		return application.Connection{}, fmt.Errorf("%w: the verification result is incomplete", ErrVerification)

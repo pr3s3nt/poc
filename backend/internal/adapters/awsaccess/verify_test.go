@@ -33,7 +33,7 @@ func newFakeAWS() *awsfake.Server {
 
 func xmlError(code string) string { return awsfake.XMLError(code) }
 
-func allowAll(actions []string) (int, string) { return awsfake.AllowAll(actions) }
+func allowAll(actions []string) (int, string) { return awsfake.AllowAll("", actions) }
 
 func client(t *testing.T, f *awsfake.Server) *Client {
 	t.Helper()
@@ -118,20 +118,20 @@ func TestSTSAloneIsNotEnough(t *testing.T) {
 	// simulate its policy: identity and regions are proven, capabilities are
 	// not, so there is no result.
 	f := newFakeAWS()
-	f.Simulate = func([]string) (int, string) { return http.StatusForbidden, xmlError("AccessDenied") }
+	f.Simulate = func(string, []string) (int, string) { return http.StatusForbidden, xmlError("AccessDenied") }
 	got, err := client(t, f).VerifyAccessKey(context.Background(), fakeKey(), []string{"us-east-1"})
 	if !errors.Is(err, connection.ErrCapabilityUnverifiable) || got.AccountID != "" {
 		t.Fatalf("%+v %v", got, err)
 	}
 	// Incomplete simulation output is unproven, not allowed.
 	f = newFakeAWS()
-	f.Simulate = func(actions []string) (int, string) { return allowAll(actions[:len(actions)-1]) }
+	f.Simulate = func(_ string, actions []string) (int, string) { return allowAll(actions[:len(actions)-1]) }
 	if _, err := client(t, f).VerifyAccessKey(context.Background(), fakeKey(), []string{"us-east-1"}); !errors.Is(err, connection.ErrCapabilityUnverifiable) {
 		t.Fatalf("incomplete simulation: %v", err)
 	}
 	// Garbage output is unproven too.
 	f = newFakeAWS()
-	f.Simulate = func([]string) (int, string) { return http.StatusOK, "not xml" }
+	f.Simulate = func(string, []string) (int, string) { return http.StatusOK, "not xml" }
 	if _, err := client(t, f).VerifyAccessKey(context.Background(), fakeKey(), []string{"us-east-1"}); !errors.Is(err, connection.ErrCapabilityUnverifiable) {
 		t.Fatalf("garbage simulation: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestSTSAloneIsNotEnough(t *testing.T) {
 func TestMissingCapabilityIsPermissionDenied(t *testing.T) {
 	for _, decision := range []string{"implicitDeny", "explicitDeny"} {
 		f := newFakeAWS()
-		f.Simulate = func(actions []string) (int, string) {
+		f.Simulate = func(_ string, actions []string) (int, string) {
 			_, body := allowAll(actions)
 			return http.StatusOK, strings.Replace(body, "<EvalDecision>allowed</EvalDecision>", "<EvalDecision>"+decision+"</EvalDecision>", 1)
 		}
@@ -155,7 +155,7 @@ func TestSimulationIsPagedAndCoversEveryModuleAction(t *testing.T) {
 	f := newFakeAWS()
 	var asked []string
 	var mu sync.Mutex
-	f.Simulate = func(actions []string) (int, string) {
+	f.Simulate = func(_ string, actions []string) (int, string) {
 		mu.Lock()
 		asked = append(asked, actions...)
 		mu.Unlock()

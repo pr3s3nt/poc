@@ -166,10 +166,21 @@ func (c Connection) ConfigStrings(key string) []string {
 }
 
 // AllowedRegions are the AWS regions the Connection was verified for, in the
-// order the registrant gave them (the first is the default). Connections that
-// pinned only a single "region" allow exactly that region.
+// order the registrant gave them (the first is the default). A historical
+// record without the allowedRegions field allows exactly its single "region".
+// When the field exists it is authoritative: a malformed, empty, duplicated or
+// non-string list yields no region at all (fail closed), never a silent
+// fallback to "region".
 func (c Connection) AllowedRegions() []string {
-	if regions := c.ConfigStrings("allowedRegions"); len(regions) > 0 {
+	if _, present := c.Config["allowedRegions"]; present {
+		regions := c.ConfigStrings("allowedRegions")
+		seen := map[string]bool{}
+		for _, region := range regions {
+			if region == "" || seen[region] {
+				return nil
+			}
+			seen[region] = true
+		}
 		return regions
 	}
 	if region := c.ConfigString("region"); region != "" {
