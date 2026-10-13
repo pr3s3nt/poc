@@ -37,22 +37,22 @@ func TestApplyBindsAcceptanceFixturesWithExplicitEnvironmentScopeAndIsIdempotent
 	}
 }
 
-// T16: new product VPC/EKS Definitions inherit the Environment connection;
-// Aurora keeps its explicit Driver Account.
+// T16 + UC-03 BR-08 (v2): every seeded AWS Terraform Definition (VPC, EKS,
+// Aurora) has no Connection override and binds AWS to the Environment.
 func TestResourceDefinitionsVPCAndEKSHaveNoConnection(t *testing.T) {
 	opts := seed.Defaults()
 	seen := map[string]bool{}
 	for _, def := range seed.ResourceDefinitions(opts) {
 		switch def.Key {
-		case "vpc-aws", "cluster-aws-eks":
+		case "vpc-aws", "cluster-aws-eks", "postgres-aws-aurora":
 			seen[def.Key] = true
 			if def.ConnectionKey != "" {
 				t.Fatalf("%s ConnectionKey = %q", def.Key, def.ConnectionKey)
 			}
-		case "postgres-aws-aurora":
-			seen[def.Key] = true
-			if def.ConnectionKey != opts.CloudConnectionKey {
-				t.Fatalf("Aurora ConnectionKey = %q", def.ConnectionKey)
+			bindings, _ := def.DriverValues()["provider_bindings"].(map[string]any)
+			aws, _ := bindings["aws"].(map[string]any)
+			if len(bindings) != 1 || aws["target"] != "environment" {
+				t.Fatalf("%s provider bindings = %v", def.Key, bindings)
 			}
 		}
 	}

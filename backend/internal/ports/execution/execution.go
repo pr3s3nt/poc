@@ -8,6 +8,7 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/tfmodule"
 )
 
 // Target is the resolved deployment target of a workload or Kubernetes resource.
@@ -73,6 +74,9 @@ type ProvisionRequest struct {
 	DriverType      resource.DriverType
 	// Module names the Terraform module of the matched Definition source.
 	Module string
+	// Artifact is the registry-verified Terraform module, set only for an
+	// executor that implements VerifiedModuleExecutor.
+	Artifact *tfmodule.VerifiedArtifact
 	// Inputs are the resolved driver variables merged with the resource params.
 	Inputs map[string]any
 	// Generation is the target generation of the Environment run. Executors
@@ -93,6 +97,15 @@ type ProvisionResult struct {
 // ResourceExecutor provisions or reconciles one resource node.
 type ResourceExecutor interface {
 	Provision(ctx context.Context, req ProvisionRequest) (ProvisionResult, error)
+}
+
+// VerifiedModuleExecutor is implemented by executors that run Terraform
+// module code. Provisioning re-verifies the pinned bundle through the module
+// registry immediately before every call and passes the verified artifact;
+// verification failure stops the node before any provider call. Executors
+// that run no module code (fakes) do not implement it.
+type VerifiedModuleExecutor interface {
+	RequiresVerifiedModule() bool
 }
 
 // ExecutorRegistry maps a Driver Type to its executor adapter (UC-08 MS-04).

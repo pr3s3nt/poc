@@ -107,18 +107,27 @@ I04-01 encrypted state/roles/fencing và hai final review corrections đã
 implement/verified với mandatory PostgreSQL tests: 835 PASS, zero skipped.
 [Completion evidence](../verification/2026-10-13-i04-01-complete.md).
 TLS deferred theo [issue #2](https://github.com/pr3s3nt/poc/issues/2); không còn
-blocker hoặc substitute constraints. IMP-021 vẫn mở cho registry/executor/UI/
-module/live integration còn lại; pipeline baseline dưới đây trước I04-03.
+blocker hoặc substitute constraints. IMP-021 vẫn mở cho executor/UI/
+module/live integration còn lại.
+
+I04-02 registry/caller wiring đã qua review và xác minh độc lập: 884 tests
+trên PostgreSQL thật, không skip; build/vet đạt. Xem
+[registry evidence](../verification/2026-10-13-i04-02-module-registry.md).
+Source shape v2 khiến form Definition cũ chưa tương thích; I04-07 phải sửa.
+I04-03 còn provider-binding graph edges/scoped target resolution, durable state
+trong executor, private invocation copies và transitive execution. Inspector
+chưa hỗ trợ module count/for_each, object inputs hoặc `.tf.json`; nguồn HTTPS
+hiện dùng anonymous Git. Không coi backend tests là live UI proof.
 
 Accepted [ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md)
 và current BR/MS/VAR/OOS trong specifications thay required behavior.
 Rule mapping/supersession: [reconciliation](v2-rule-reconciliation.md). Current code is
-not yet conformant: Terraform executes embedded VPC/EKS/Aurora with temporary
-run state/names; namespace/database still use Kubernetes executor; AWS credential
+not yet conformant: Terraform nhận verified artifact nhưng vẫn dùng temporary
+workspace state/names; namespace/database still use Kubernetes executor; AWS credential
 onboarding and Environment-only Aurora/ElastiCache provider binding need implementation;
 score-k8s is optional/internal-only; no Redis app cache or v2 module/source/class
-UI, durable encrypted state/locks/cleanup provenance và real acceptance còn
-thiếu. PE/Admin resource detail/delete preview/name confirmation/selected-set
+UI và real acceptance còn thiếu. Durable encrypted state/locks đã có, nhưng
+executor chưa mount backend hoặc ghi đủ cleanup provenance. PE/Admin resource detail/delete preview/name confirmation/selected-set
 eligibility/confirmed-scope admission/progress/absence proof chưa có.
 Đây là gap code, không phải các luật baseline còn hiệu lực.
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning"
+	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning/placeholder"
 )
 
@@ -32,61 +32,22 @@ func validatePublicID(kind, id string) error {
 
 // valueType is the subset of Terraform/contract value types a Driver Input
 // variable can declare.
-type valueType struct {
-	kind string // string, number, bool, any, list, map
-	elem *valueType
-}
+type valueType = tfmodule.ValueType
 
-func (t valueType) String() string {
-	if t.elem != nil {
-		return t.kind + "(" + t.elem.String() + ")"
-	}
-	return t.kind
-}
+var stringType = valueType{Kind: "string"}
 
-var stringType = valueType{kind: "string"}
-
-// parseTerraformType reads the type expression an embedded module declares.
-func parseTerraformType(expr string) (valueType, error) {
-	expr = strings.TrimSpace(expr)
-	switch expr {
-	case "string", "number", "bool", "any":
-		return valueType{kind: expr}, nil
-	}
-	for _, collection := range []string{"list", "set", "map"} {
-		inner, ok := strings.CutPrefix(expr, collection+"(")
-		if !ok || !strings.HasSuffix(inner, ")") {
-			continue
-		}
-		elem, err := parseTerraformType(strings.TrimSuffix(inner, ")"))
-		if err != nil {
-			return valueType{}, err
-		}
-		kind := collection
-		if kind == "set" {
-			kind = "list"
-		}
-		return valueType{kind: kind, elem: &elem}, nil
-	}
-	return valueType{}, fmt.Errorf("catalog: unsupported Terraform variable type %q in embedded module", expr)
-}
-
-// supportedPair is one Resource Type/driver/module combination public
-// registration accepts (UC-03 BR-08/BR-23). It is the single source for both
-// registration checks and the capability metadata; module is empty for
-// Kubernetes.
+// supportedPair is one Resource Type/driver pair a static (non-Terraform)
+// executor supports. Terraform pairs come from the verified module registry:
+// the Admin/release policy pairs each module with its Resource Types
+// (UC-03 BR-08/BR-23).
 type supportedPair struct {
 	resourceType string
 	driver       resource.DriverType
-	module       string
 }
 
 var supportedPairs = []supportedPair{
-	{"k8s-cluster", resource.DriverTerraform, "eks"},
-	{"k8s-namespace", resource.DriverKubernetes, ""},
-	{"postgres", resource.DriverKubernetes, ""},
-	{"postgres", resource.DriverTerraform, "aurora"},
-	{"vpc", resource.DriverTerraform, "vpc"},
+	{"k8s-namespace", resource.DriverKubernetes},
+	{"postgres", resource.DriverKubernetes},
 }
 
 func driverSupportsType(driver resource.DriverType, resourceType string) bool {
@@ -96,16 +57,6 @@ func driverSupportsType(driver resource.DriverType, resourceType string) bool {
 		}
 	}
 	return false
-}
-
-// moduleForType returns the embedded Terraform module registered for a type.
-func moduleForType(resourceType string) string {
-	for _, pair := range supportedPairs {
-		if pair.driver == resource.DriverTerraform && pair.resourceType == resourceType {
-			return pair.module
-		}
-	}
-	return ""
 }
 
 // staticVariable is the contract of one non-Terraform executor variable. The
@@ -168,10 +119,18 @@ func validateDriverInputShape(def resource.Definition) (map[string]any, error) {
 	if !ok || values == nil {
 		return nil, errors.New("driverInputs.values must be an object")
 	}
+	if def.DriverType == resource.DriverTerraform {
+		// The strict Terraform shape (pin, mappings, bindings) is parsed by
+		// tfmodule.ParseDriverInputs.
+		parsed, err := tfmodule.ParseDriverInputs(values)
+		if err != nil {
+			return nil, err
+		}
+		return parsed.Variables, nil
+	}
 	for _, key := range sortedKeys(values) {
 		switch {
 		case key == "variables":
-		case key == "source" && def.DriverType == resource.DriverTerraform:
 		case key == "source":
 			return nil, fmt.Errorf("driverInputs.values.source is only supported for the Terraform driver")
 		default:
@@ -181,20 +140,6 @@ func validateDriverInputShape(def resource.Definition) (map[string]any, error) {
 	variables, ok := values["variables"].(map[string]any)
 	if !ok || variables == nil {
 		return nil, errors.New("driverInputs.values.variables must be an object")
-	}
-	if def.DriverType == resource.DriverTerraform {
-		source, ok := values["source"].(map[string]any)
-		if !ok || source == nil {
-			return nil, errors.New("driverInputs.values.source must be an object")
-		}
-		for _, key := range sortedKeys(source) {
-			if key != "module" {
-				return nil, fmt.Errorf("driverInputs.values.source.%s is not supported; only module is supported", key)
-			}
-		}
-		if module, ok := source["module"].(string); !ok || module == "" {
-			return nil, errors.New("driverInputs.values.source.module must be a non-empty string")
-		}
 	}
 	return variables, nil
 }
@@ -225,28 +170,6 @@ func validateStaticVariables(def resource.Definition, typ resource.Type, variabl
 	return nil
 }
 
-// validateTerraformVariables checks variable names and literal types against
-// the embedded module contract (UC-03 BR-12/BR-14).
-func validateTerraformVariables(contract planning.ModuleContract, variables map[string]any) error {
-	for _, name := range sortedKeys(variables) {
-		if credentialVariables[name] {
-			return fmt.Errorf("%s.%s is executor-owned or a credential and cannot be a Driver Input", variablesPath, name)
-		}
-		variable, ok := contract.Variables[name]
-		if !ok {
-			return fmt.Errorf("%s.%s is not declared by module %q", variablesPath, name, contract.Module)
-		}
-		want, err := parseTerraformType(variable.Type)
-		if err != nil {
-			return &internalError{err: err}
-		}
-		if err := checkVariableValue(variablesPath+"."+name, want, variables[name]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // checkVariableValue type-checks one Driver Input value (UC-03 BR-13). A
 // complete placeholder defers its type to planning/execution; interpolation
 // is only valid where a string is expected; literal collection elements are
@@ -260,12 +183,12 @@ func checkVariableValue(path string, want valueType, value any) error {
 		if err != nil {
 			return fmt.Errorf("%s contains a malformed placeholder", path)
 		}
-		if full || want.kind == "string" || want.kind == "any" {
+		if full || want.Kind == "string" || want.Kind == "any" {
 			return nil
 		}
 		return fmt.Errorf("%s must be %s", path, want)
 	}
-	switch want.kind {
+	switch want.Kind {
 	case "string":
 		return fmt.Errorf("%s must be string", path)
 	case "number":
@@ -285,7 +208,7 @@ func checkVariableValue(path string, want valueType, value any) error {
 			return fmt.Errorf("%s must be %s", path, want)
 		}
 		for i, item := range items {
-			if err := checkVariableValue(fmt.Sprintf("%s[%d]", path, i), *want.elem, item); err != nil {
+			if err := checkVariableValue(fmt.Sprintf("%s[%d]", path, i), *want.Elem, item); err != nil {
 				return err
 			}
 		}
@@ -296,7 +219,7 @@ func checkVariableValue(path string, want valueType, value any) error {
 			return fmt.Errorf("%s must be %s", path, want)
 		}
 		for _, key := range sortedKeys(entries) {
-			if err := checkVariableValue(path+"."+key, *want.elem, entries[key]); err != nil {
+			if err := checkVariableValue(path+"."+key, *want.Elem, entries[key]); err != nil {
 				return err
 			}
 		}

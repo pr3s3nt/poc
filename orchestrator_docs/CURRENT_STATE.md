@@ -22,15 +22,26 @@ gate tiếp theo là video A01 + estimate AWS; chặng 3 chỉ sau duyệt mới
 Không có M04 source code/test mutation, live scenario hoặc cloud create trong
 checkpoint tài liệu này. Các baseline status dưới đây vẫn là hiện trạng code.
 
-## I04-01 hoàn tất, I04-02 hiện hành — 2026-10-13
+## I04-01/02 hoàn tất, I04-03 hiện hành — 2026-10-13
 
 Encrypted state/roles/fencing đã verified. Final corrections: invalid state key
 trả 400, và REQUIRE_POSTGRES=1 chặn validation thiếu SQL. Claude/Codex độc lập
 pass 835 tests, zero skipped, build/checks và cleanup. Xem
 [completion evidence](verification/2026-10-13-i04-01-complete.md).
 TLS PostgreSQL/state HTTP deferred theo [issue #2](https://github.com/pr3s3nt/poc/issues/2),
-không bắt buộc TLS hoặc giới hạn thay thế. I04-02 registry bắt đầu; executor
+không bắt buộc TLS hoặc giới hạn thay thế. I04-02 registry đã verified; executor
 mounting và live k8s/AWS vẫn pending. Gate 2 video A01 + AWS estimate chưa đạt.
+
+## I04-02 hoàn tất, chuyển executor I04-03
+
+Registry/domain/persistence/inspector và catalog/planner wiring đã được Codex
+review, sửa thêm mutation isolation và xác minh độc lập: 884 PASS, 0 FAIL/SKIP
+trên PostgreSQL thật; build/vet đạt. Hạn mức Claude đã reset và không còn chặn.
+Xem [evidence registry](verification/2026-10-13-i04-02-module-registry.md).
+Cleanup test database đã xác minh. Form Definition vẫn gửi source shape cũ;
+I04-07 phải sửa trước khi kiểm chứng registration qua Console.
+I04-03 còn durable executor, provider target/graph edges, transitive execution
+và runtime output checks. Không cloud/cluster mutation hoặc live proof ở I04-02.
 
 ## Terraform v2 — accepted design, implementation pending (2026-10-13)
 

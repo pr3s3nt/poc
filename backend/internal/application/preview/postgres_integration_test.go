@@ -33,7 +33,7 @@ func TestPostgresPreview_RepeatableReadAndNoWrites(t *testing.T) {
 	state := fingerprint(t, st, opts)
 
 	g := newGuard(st)
-	svc := newPreview(g)
+	svc := newPreview(t, g)
 	if _, err := svc.PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"])); err != nil {
 		t.Fatal(err)
 	}

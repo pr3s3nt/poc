@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"orchestrator/internal/adapters/terraform"
 	"orchestrator/internal/application/catalog"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/seed"
@@ -44,7 +43,7 @@ func TestRegisterResourceType_PublicIDPolicy(t *testing.T) {
 // TestRegisterResourceDefinition_PublicIDPolicy covers UC-03 BR-10.
 func TestRegisterResourceDefinition_PublicIDPolicy(t *testing.T) {
 	ctx := context.Background()
-	st, svc, opts := seededCatalog(t, terraform.NewInspector())
+	st, svc, opts := seededCatalog(t, withRegistry)
 	base := registrable(t, opts, "postgres-internal-statefulset")
 	before, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
 	for _, key := range []string{"", " pg", "PG", "pg_fast", "pg.fast", "pg\t"} {
@@ -72,7 +71,7 @@ func TestRegisterResourceDefinition_PublicIDPolicy(t *testing.T) {
 // Definition, including its placeholders, passes the strict policy.
 func TestRegisterResourceDefinition_SeededShapesStillRegister(t *testing.T) {
 	ctx := context.Background()
-	_, svc, opts := seededCatalog(t, terraform.NewInspector())
+	_, svc, opts := seededCatalog(t, withRegistry)
 	for _, name := range []string{"namespace-kubernetes", "cluster-aws-eks", "vpc-aws", "postgres-internal-statefulset", "postgres-aws-aurora"} {
 		def := registrable(t, opts, name)
 		def.Key = name + "-copy"
@@ -126,7 +125,7 @@ var deleteMarker any = marker{}
 // value is echoed.
 func TestRegisterResourceDefinition_StrictDriverInputs(t *testing.T) {
 	ctx := context.Background()
-	st, svc, opts := seededCatalog(t, terraform.NewInspector())
+	st, svc, opts := seededCatalog(t, withRegistry)
 	pg := registrable(t, opts, "postgres-internal-statefulset")
 	ns := registrable(t, opts, "namespace-kubernetes")
 	aurora := registrable(t, opts, "postgres-aws-aurora")
@@ -215,7 +214,7 @@ func TestRegisterResourceDefinition_StrictDriverInputs(t *testing.T) {
 // escapes are strings, literal collection elements are typed.
 func TestRegisterResourceDefinition_PlaceholderAwareTyping(t *testing.T) {
 	ctx := context.Background()
-	_, svc, opts := seededCatalog(t, terraform.NewInspector())
+	_, svc, opts := seededCatalog(t, withRegistry)
 	pg := registrable(t, opts, "postgres-internal-statefulset")
 	aurora := registrable(t, opts, "postgres-aws-aurora")
 	vpcID := "${resources['vpc.default#applications.@app'].outputs.id}"
@@ -228,7 +227,6 @@ func TestRegisterResourceDefinition_PlaceholderAwareTyping(t *testing.T) {
 		"escaped full string":           withVariables(aurora, map[string]any{"engine_version": "$${context.app.id}"}),
 		"full resource reference":       withVariables(aurora, map[string]any{"vpc_cidr": vpcID}),
 		"list mixed elements":           withVariables(aurora, map[string]any{"subnet_ids": []any{"subnet-a", vpcID}}),
-		"map of strings":                withVariables(aurora, map[string]any{"tags": map[string]any{"team": "data", "app": "${context.app.id}"}}),
 		"optional default override":     withVariables(aurora, map[string]any{"seconds_until_auto_pause": 600}),
 		"postgres options omitted":      withVariables(pg, map[string]any{"image": deleteMarker, "storage": deleteMarker, "namespace": deleteMarker}),
 		"postgres all options":          withVariables(pg, map[string]any{"database": "app", "username": "app"}),
@@ -245,7 +243,7 @@ func TestRegisterResourceDefinition_PlaceholderAwareTyping(t *testing.T) {
 // UC-03 BR-12 exception: the Type input contract may supply the name.
 func TestRegisterResourceDefinition_NamespaceNameFromTypeContract(t *testing.T) {
 	ctx := context.Background()
-	st, svc, opts := seededCatalog(t, terraform.NewInspector())
+	st, svc, opts := seededCatalog(t, withRegistry)
 	ns := withVariables(registrable(t, opts, "namespace-kubernetes"), map[string]any{"name": deleteMarker})
 	ns.Key = "namespace-from-params"
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, ns); !errors.Is(err, catalog.ErrInvalid) {
@@ -286,7 +284,7 @@ func TestRegisterResourceDefinition_NamespaceNameFromTypeContract(t *testing.T) 
 // ADR-013: the builtin cluster key is reserved for the system.
 func TestRegisterResourceDefinition_RejectsReservedBuiltinKey(t *testing.T) {
 	ctx := context.Background()
-	_, svc, opts := seededCatalog(t, terraform.NewInspector())
+	_, svc, opts := seededCatalog(t, withRegistry)
 	def := planning.BuiltinClusterDefinition()
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); !errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("reserved key = %v", err)

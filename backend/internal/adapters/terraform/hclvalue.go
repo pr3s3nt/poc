@@ -1,23 +1,8 @@
 package terraform
 
 import (
-	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/zclconf/go-cty/cty"
 )
-
-// variableDefault evaluates the default of a Terraform variable block so the
-// planner can report the value a module falls back to.
-func variableDefault(block *hclsyntax.Block) (any, bool) {
-	attr, ok := block.Body.Attributes["default"]
-	if !ok {
-		return nil, false
-	}
-	value, diags := attr.Expr.Value(nil)
-	if diags.HasErrors() {
-		return nil, true
-	}
-	return CtyToGo(value), true
-}
 
 // CtyToGo converts an HCL value into the JSON-compatible Go value the plan
 // snapshot stores.

@@ -11,8 +11,10 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/planning/placeholder"
+	"orchestrator/internal/ports/moduleregistry"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -52,15 +54,19 @@ func (e *internalError) Error() string { return e.err.Error() }
 func (e *internalError) Unwrap() error { return e.err }
 
 type Service struct {
-	bundles   map[string]resource.RenderBundle
-	store     persistence.Store
-	inspector planning.ModuleInspector
+	bundles map[string]resource.RenderBundle
+	store   persistence.Store
+	// modules is the verified Terraform module registry: registration may
+	// verify (fetch/inspect) a pin; capability reads use metadata only.
+	modules moduleregistry.Registry
 }
 
-func NewService(store persistence.Store, inspector ...planning.ModuleInspector) *Service {
+// NewService returns the catalog service. Without a module registry,
+// Terraform registration and capabilities fail closed.
+func NewService(store persistence.Store, modules ...moduleregistry.Registry) *Service {
 	s := &Service{store: store}
-	if len(inspector) > 0 {
-		s.inspector = inspector[0]
+	if len(modules) > 0 {
+		s.modules = modules[0]
 	}
 	return s
 }
@@ -134,7 +140,8 @@ func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKe
 	if !found {
 		return resource.Definition{}, invalidField("definition.resourceType", fmt.Errorf("%w: unknown resource type %q", ErrInvalid, def.ResourceTypeKey))
 	}
-	if err := s.validateDriver(ctx, organizationKey, &def, typ); err != nil {
+	bundle, err := s.validateDriver(ctx, organizationKey, &def, typ, types)
+	if err != nil {
 		var internal *internalError
 		if errors.As(err, &internal) {
 			return resource.Definition{}, internal.err
@@ -161,6 +168,18 @@ func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKe
 				return fmt.Errorf("%w: resource definition %q", ErrDuplicate, def.Key)
 			}
 		}
+		if bundle != nil {
+			// The verified bundle is recorded with the Definition. A bundle
+			// committed concurrently for the same revision path must be the
+			// identical verified content, contract and release (no drift).
+			stored, err := s.store.InsertModuleBundle(ctx, *bundle)
+			if err != nil {
+				return err
+			}
+			if !stored.SameVerifiedContent(*bundle) {
+				return registryError(moduleregistry.ErrDrift)
+			}
+		}
 		return s.store.CreateResourceDefinition(ctx, organizationKey, def)
 	})
 	if errors.Is(err, persistence.ErrDuplicate) {
@@ -172,124 +191,56 @@ func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKe
 	return def, nil
 }
 
-func (s *Service) validateDriver(ctx context.Context, org string, def *resource.Definition, typ resource.Type) error {
+func (s *Service) validateDriver(ctx context.Context, org string, def *resource.Definition, typ resource.Type, types []resource.Type) (*tfmodule.Bundle, error) {
 	variables, err := validateDriverInputShape(*def)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	module := ""
 	switch def.DriverType {
 	case resource.DriverScoreK8s:
 		if err := resource.ValidateRenderDefinition(*def, typ, s.bundles); err != nil {
-			return err
+			return nil, err
 		}
 		bundle := s.bundles[variables["render_bundle"].(string)]
 		def.SourceFingerpr = bundle.Digest
-		return nil
+		return nil, nil
 	case resource.DriverTerraform:
-		module, _ = def.Source()["module"].(string)
-		if module == "" || moduleForType(def.ResourceTypeKey) != module || len(def.Source()) != 1 {
-			return fmt.Errorf("unsupported Terraform module/source for %q", def.ResourceTypeKey)
+		bundle, err := s.validateTerraform(ctx, org, def, typ, types)
+		if err != nil {
+			return nil, err
 		}
-		if def.ExecutionProfile != "aws-eks" {
-			return fmt.Errorf("Terraform definition requires aws-eks profile")
-		}
+		return &bundle, nil
 	case resource.DriverKubernetes:
 		if !driverSupportsType(resource.DriverKubernetes, def.ResourceTypeKey) {
-			return fmt.Errorf("Kubernetes executor does not support %q", def.ResourceTypeKey)
+			return nil, fmt.Errorf("Kubernetes executor does not support %q", def.ResourceTypeKey)
 		}
 		if def.ExecutionProfile == "aws-eks" {
-			return fmt.Errorf("Kubernetes definition cannot target aws-eks profile")
+			return nil, fmt.Errorf("Kubernetes definition cannot target aws-eks profile")
 		}
 		if len(def.Source()) > 0 {
-			return fmt.Errorf("Kubernetes definition cannot declare Terraform source")
+			return nil, fmt.Errorf("Kubernetes definition cannot declare Terraform source")
 		}
 	default:
-		return fmt.Errorf("driver %q is not supported for registration", def.DriverType)
-	}
-	if def.DriverType == resource.DriverTerraform && inheritsEnvironmentConnection(module) {
-		// UC-03 BR-08: VPC/EKS always run on the Environment AWS connection, so
-		// any key (even one equal to a target) is rejected before it is looked up.
-		if def.ConnectionKey != "" {
-			return invalidField("definition.connectionKey", fmt.Errorf("Terraform %s definitions use the Environment AWS connection; leave connectionKey empty", module))
-		}
-	} else if def.DriverType == resource.DriverTerraform {
-		if def.ConnectionKey == "" {
-			return invalidField("definition.connectionKey", fmt.Errorf("driver requires an explicit connection"))
-		}
+		return nil, fmt.Errorf("driver %q is not supported for registration", def.DriverType)
 	}
 	if def.ConnectionKey != "" {
-		conn, err := s.store.GetConnection(ctx, org, def.ConnectionKey)
-		if err != nil && !errors.Is(err, persistence.ErrNotFound) {
-			return &internalError{err: err}
-		}
-		if err != nil || conn.OrganizationKey != org || conn.Status != application.ConnectionReady {
-			return invalidField("definition.connectionKey", fmt.Errorf("connection %q is not READY in this organization", def.ConnectionKey))
-		}
-		if def.DriverType == resource.DriverTerraform && conn.Kind != application.ConnectionAWS {
-			return invalidField("definition.connectionKey", fmt.Errorf("Terraform requires AWS connection"))
-		}
-		if def.DriverType != resource.DriverTerraform && conn.Kind != application.ConnectionKubernetes {
-			return invalidField("definition.connectionKey", fmt.Errorf("Kubernetes driver requires cluster connection"))
+		if err := s.requireConnection(ctx, org, def.ConnectionKey, application.ConnectionKubernetes, "Kubernetes driver requires cluster connection"); err != nil {
+			return nil, err
 		}
 	}
-	if def.DriverType == resource.DriverTerraform {
-		if s.inspector == nil {
-			return &internalError{err: errors.New("catalog: Terraform contract inspector is unavailable")}
-		}
-		contract, err := s.inspector.Inspect(module)
-		if err != nil {
-			// Module inspection is a platform failure, not a problem with the
-			// caller's document: never report it as validation (UC-03 mapping).
-			return &internalError{err: err}
-		}
-		if err := validateTerraformVariables(contract, variables); err != nil {
-			return err
-		}
-		provided := map[string]bool{}
-		for name := range variables {
-			provided[name] = true
-		}
-		for _, input := range typ.Inputs {
-			if _, ok := contract.Variables[input.Name]; !ok {
-				return fmt.Errorf("module %q does not declare resource input %q", module, input.Name)
-			}
-			provided[input.Name] = true
-		}
-		for _, name := range s.inspector.ExecutorVariables() {
-			provided[name] = true
-		}
-		for name, variable := range contract.Variables {
-			if !variable.HasDefault && !provided[name] {
-				return fmt.Errorf("module %q requires variable %q", module, name)
-			}
-		}
-		outputs := map[string]bool{}
-		for _, name := range append(contract.Outputs, s.inspector.ExecutorOutputs(module)...) {
-			outputs[name] = true
-		}
-		for _, output := range typ.Outputs {
-			if !outputs[output.Name] {
-				return fmt.Errorf("module %q does not provide output %q", module, output.Name)
-			}
-		}
-		def.SourceFingerpr = contract.Fingerprint
-	} else {
-		if err := validateStaticVariables(*def, typ, variables); err != nil {
-			return err
-		}
-		allowed := map[string]map[string]bool{
-			"k8s-namespace": {"name": true},
-			"postgres":      {"host": true, "port": true, "database": true, "username": true, "password": true},
-			"k8s-cluster":   {"name": true, "endpoint": true, "kubeContext": true, "kubeconfig": true},
-		}
-		for _, output := range typ.Outputs {
-			if !allowed[def.ResourceTypeKey][output.Name] {
-				return fmt.Errorf("driver does not provide output %q", output.Name)
-			}
+	if err := validateStaticVariables(*def, typ, variables); err != nil {
+		return nil, err
+	}
+	allowed := map[string]map[string]bool{
+		"k8s-namespace": {"name": true},
+		"postgres":      {"host": true, "port": true, "database": true, "username": true, "password": true},
+	}
+	for _, output := range typ.Outputs {
+		if !allowed[def.ResourceTypeKey][output.Name] {
+			return nil, fmt.Errorf("driver does not provide output %q", output.Name)
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func validateReferences(def resource.Definition, types []resource.Type) error {
@@ -374,10 +325,4 @@ func (s *Service) ListRenderBundles() []InstalledRenderBundle {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
-}
-
-// inheritsEnvironmentConnection reports whether a Terraform module takes its AWS
-// connection from the Environment rather than from the Definition.
-func inheritsEnvironmentConnection(module string) bool {
-	return module == "vpc" || module == "eks"
 }

@@ -4,15 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"orchestrator/internal/adapters/store"
+	"orchestrator/internal/domain/tfmodule"
+	"orchestrator/internal/ports/moduleregistry"
 	"reflect"
 	"strings"
 	"testing"
 
-	"orchestrator/internal/adapters/terraform"
+	"orchestrator/internal/adapters/terraform/registry/registrytest"
 	"orchestrator/internal/application/catalog"
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning"
 )
 
 func capabilityIndex(caps []catalog.Capability) map[string]catalog.Capability {
@@ -34,7 +36,7 @@ func variableIndex(c catalog.Capability) map[string]catalog.CapabilityVariable {
 // TestListDefinitionCapabilities_PairsAndVariables covers UC-03 BR-23..25.
 func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 	ctx := context.Background()
-	_, svc, opts := seededCatalog(t, terraform.NewInspector())
+	_, svc, opts := seededCatalog(t, withRegistry)
 	caps, err := svc.ListDefinitionCapabilities(ctx, opts.OrganizationKey)
 	if err != nil {
 		t.Fatal(err)
@@ -113,9 +115,10 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 		t.Fatalf("vpc executor-owned %v", got)
 	}
 
-	// Public metadata carries no path/source/credential/fingerprint content.
+	// Public metadata carries the controlled pin (IDs, revision, digest) but
+	// no URL, cache/file path, credential or internal fingerprint content.
 	raw, _ := json.Marshal(caps)
-	for _, leak := range []string{"fingerprint", "sha256", "main.tf", "modules/", "secret", "credential", `"source"`, `"path"`} {
+	for _, leak := range []string{"fingerprint", "main.tf", "modules/", "secret", "credential", `"path"`, "https://", "bundles/", "sources/", "/tmp", "lock.hcl", "h1:", "zh:"} {
 		if strings.Contains(strings.ToLower(string(raw)), leak) {
 			t.Errorf("metadata leaks %q: %s", leak, raw)
 		}
@@ -126,7 +129,7 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 // never changes supported pairs and params come only from the scoped type.
 func TestListDefinitionCapabilities_ResourceParamIsScoped(t *testing.T) {
 	ctx := context.Background()
-	st, svc, opts := seededCatalog(t, terraform.NewInspector())
+	st, svc, opts := seededCatalog(t, withRegistry)
 	if _, err := svc.RegisterResourceType(ctx, opts.OrganizationKey, resource.Type{Key: "custom-store", Inputs: []resource.InputField{{Name: "name", Type: "string"}}, Outputs: []resource.OutputField{{Name: "x", Type: "string"}}}); err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +158,7 @@ func TestListDefinitionCapabilities_ResourceParamIsScoped(t *testing.T) {
 // TestListDefinitionCapabilities_ReadOnlyAndSafeErrors: no writes, safe errors.
 func TestListDefinitionCapabilities_ReadOnlyAndSafeErrors(t *testing.T) {
 	ctx := context.Background()
-	st, svc, opts := seededCatalog(t, terraform.NewInspector())
+	st, svc, opts := seededCatalog(t, withRegistry)
 	typesBefore, _ := st.ListResourceTypes(ctx, opts.OrganizationKey)
 	defsBefore, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
 	for i := 0; i < 2; i++ {
@@ -175,15 +178,17 @@ func TestListDefinitionCapabilities_ReadOnlyAndSafeErrors(t *testing.T) {
 	}
 }
 
-type brokenInspector struct{ *terraform.Inspector }
+type brokenRegistry struct{ moduleregistry.Registry }
 
-func (brokenInspector) Inspect(string) (planning.ModuleContract, error) {
-	return planning.ModuleContract{}, errors.New("parse /srv/secret-path/main.tf failed")
+func (brokenRegistry) List(context.Context) ([]tfmodule.Bundle, error) {
+	return nil, errors.New("read /srv/secret-path/cache failed")
 }
 
 // An inspector failure is a platform error, never a validation result.
 func TestListDefinitionCapabilities_InspectorFailureIsInternal(t *testing.T) {
-	_, svc, opts := seededCatalog(t, brokenInspector{terraform.NewInspector()})
+	_, svc, opts := seededCatalog(t, func(t *testing.T, st *store.Store) moduleregistry.Registry {
+		return brokenRegistry{registrytest.Open(t, st)}
+	})
 	_, err := svc.ListDefinitionCapabilities(context.Background(), opts.OrganizationKey)
 	if err == nil || errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("want internal error, got %v", err)
@@ -202,7 +207,7 @@ func TestListDefinitionCapabilities_NamespaceNameParamFollowsBR12(t *testing.T) 
 		"optional string": {resource.InputField{Name: "name", Type: "string"}, false},
 		"required number": {resource.InputField{Name: "name", Type: "number", Required: true}, false},
 	} {
-		st, svc, _ := seededCatalog(t, terraform.NewInspector())
+		st, svc, _ := seededCatalog(t, withRegistry)
 		if err := st.SaveOrganization(ctx, application.Organization{Key: "scratch-org"}); err != nil {
 			t.Fatal(err)
 		}

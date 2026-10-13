@@ -45,6 +45,9 @@ func main() {
 	kubectlPath := flag.String("kubectl", "kubectl", "kubectl binary")
 	scorePath := flag.String("score-k8s", "", "explicit path to pinned score-k8s 0.15.0 renderer (optional)")
 	terraformPath := flag.String("terraform", "terraform", "terraform binary")
+	moduleCacheDir := flag.String("terraform-module-cache-dir", os.Getenv("ORCHESTRATOR_TERRAFORM_MODULE_CACHE_DIR"), "private absolute directory (0700, outside any Git work tree) caching verified Terraform module content; required with -terraform-module-policy-file")
+	modulePolicyFile := flag.String("terraform-module-policy-file", os.Getenv("ORCHESTRATOR_TERRAFORM_MODULE_POLICY_FILE"), "Admin allowlist of HTTPS Git Terraform module sources (JSON); empty allows only the packaged release modules")
+	gitPath := flag.String("git", "git", "git binary used to fetch allowlisted Terraform module commits")
 	vaultDelivery := flag.String("vault-delivery", "auto", "UC-12 Kubernetes delivery: auto, vso or agent")
 	workloadDelivery := flag.String("workload-delivery", "direct", "workload delivery: direct or fleet-gitrepo (kind only)")
 	gitopsRepoDir := flag.String("gitops-repo-dir", "", "writable local clone of the Fleet GitOps repository")
@@ -145,26 +148,29 @@ func main() {
 	}
 
 	app, err := bootstrap.Build(context.Background(), bootstrap.Options{
-		ScoreK8sPath:           *scorePath,
-		Seed:                   opts,
-		UIDir:                  *uiDir,
-		StatePath:              *statePath,
-		DatabaseURL:            databaseURL,
-		Adapters:               mode,
-		KubectlPath:            *kubectlPath,
-		TerraformPath:          *terraformPath,
-		TerraformRoot:          *terraformRoot,
-		TerraformPluginCache:   *terraformCache,
-		Region:                 *region,
-		Tags:                   tags,
-		VaultDelivery:          *vaultDelivery,
-		WorkloadDelivery:       *workloadDelivery,
-		GitOpsRepoDir:          *gitopsRepoDir,
-		GitOpsBranch:           *gitopsBranch,
-		FleetGitRepoName:       *fleetGitRepoName,
-		HarborRegistryHost:     *harborRegistryHost,
-		HarborDockerConfigFile: *harborDockerConfigFile,
-		HarborPullSecretName:   *harborPullSecretName,
+		ScoreK8sPath:              *scorePath,
+		Seed:                      opts,
+		UIDir:                     *uiDir,
+		StatePath:                 *statePath,
+		DatabaseURL:               databaseURL,
+		Adapters:                  mode,
+		KubectlPath:               *kubectlPath,
+		TerraformPath:             *terraformPath,
+		TerraformRoot:             *terraformRoot,
+		TerraformPluginCache:      *terraformCache,
+		TerraformModuleCacheDir:   *moduleCacheDir,
+		TerraformModulePolicyFile: *modulePolicyFile,
+		GitPath:                   *gitPath,
+		Region:                    *region,
+		Tags:                      tags,
+		VaultDelivery:             *vaultDelivery,
+		WorkloadDelivery:          *workloadDelivery,
+		GitOpsRepoDir:             *gitopsRepoDir,
+		GitOpsBranch:              *gitopsBranch,
+		FleetGitRepoName:          *fleetGitRepoName,
+		HarborRegistryHost:        *harborRegistryHost,
+		HarborDockerConfigFile:    *harborDockerConfigFile,
+		HarborPullSecretName:      *harborPullSecretName,
 
 		PlatformVault: platformVault,
 

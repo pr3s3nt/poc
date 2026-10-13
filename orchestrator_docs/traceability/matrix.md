@@ -63,7 +63,7 @@ Local CLI tests use fake executors/deployers; live kind/AWS remains unverified.
 |---|---|---|---|---|
 | MS-01, MS-02, MS-03; BR-07 | `RegisterResourceDefinition`; `UC-03/sequence.puml` | `catalog.Service.RegisterResourceDefinition`, `resource.Definition.Validate`, role-gated HTTP POST | none before validation | OC-04; `catalog/definition_test.go`, `test/e2e/http_test.go`, `ResourceDefinitionsPage.test.tsx` |
 | MS-04, MS-05 | same | type/connection repository reads; `ValidateReferencesAndRules` | `resource_types`, `connections` | OC-04; invalid reference test |
-| MS-06, MS-07 | same | `ListResourceDefinitions`, baseline inspector tại 3367f7e; current registry design/tests ở I04-02 | source fingerprint candidate | OC-04; duplicate/remote-source/output validation tests |
+| MS-06, MS-07 | same | `catalog.validateTerraform`, verified registry inspection; planner chỉ đọc bundle metadata | immutable module bundle + source fingerprint | OC-04; registry allowlist/transitive/digest tests, catalog mapping tests, PostgreSQL conflicting-pin race |
 | MS-08, MS-09; BR-07 | same | `CreateResourceDefinition/ListResourceDefinitions` | insert-only org-scoped catalog; PostgreSQL Definition + criteria atomic transaction | OC-04; registration contract/race/criterion-failure rollback; no-restart HTTP Preview; explicit `{}` wildcard and criteria-shape conformance |
 | BR-01, BR-03 | [ADR-001](../architecture/decisions/ADR-001-profile-resource-scopes.md) | Optional Definition profile guard before unchanged five-field scoring | `TestPlan_NewApplicationMatchesPostgresByExecutionProfile`, invalid-profile validation |
 
@@ -549,3 +549,11 @@ provide any live UI/k8s/AWS acceptance proof.
 ## I04-01 final review complete
 
 [Final evidence](../verification/2026-10-13-i04-01-complete.md): malformed-key 400/no state confusion regression, mandatory missing SQL fails, 835 real PostgreSQL tests zero skip. I04-01 complete; TLS deferred issue #2, I04-02 begins. No live acceptance claimed.
+
+## I04-02 registry review
+
+[Registry evidence](../verification/2026-10-13-i04-02-module-registry.md) covers
+UC-03 MS-05..09/BR-08/11/12/23..26: approved source pins, static inspection,
+typed mappings, secret classification, immutable insert/race and metadata-only
+Preview/capability reads. Codex verified 884 tests with real PostgreSQL and zero
+skips. Executor integration remains I04-03; class/form UI remains I04-07.

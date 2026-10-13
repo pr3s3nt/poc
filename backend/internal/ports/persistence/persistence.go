@@ -13,6 +13,7 @@ import (
 	"orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/secretstore"
+	"orchestrator/internal/domain/tfmodule"
 )
 
 // ErrNotFound is returned when an aggregate does not exist.
@@ -259,6 +260,22 @@ type CatalogRepository interface {
 	CreateResourceDefinition(ctx context.Context, organizationKey string, d resource.Definition) error
 }
 
+// ModuleBundleRepository owns the verified Terraform module registry
+// (terraform_module_bundles). Bundles are insert-only and immutable; one
+// revision path (source, module, revision, subdirectory) has at most one
+// verified digest.
+type ModuleBundleRepository interface {
+	// InsertModuleBundle inserts b unless a bundle with the same revision
+	// path already exists, and returns the bundle stored for that path: b
+	// itself, or the existing (possibly concurrently committed) bundle, which
+	// callers compare to detect drift. It never updates a stored bundle.
+	InsertModuleBundle(ctx context.Context, b tfmodule.Bundle) (tfmodule.Bundle, error)
+	// GetModuleBundle returns the bundle of ref's revision path (the digest
+	// of ref is not part of the lookup), or ErrNotFound.
+	GetModuleBundle(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.Bundle, error)
+	ListModuleBundles(ctx context.Context) ([]tfmodule.Bundle, error)
+}
+
 // DeploymentRepository owns Deployment records, plan snapshots and node progress.
 type DeploymentRepository interface {
 	SaveDeployment(ctx context.Context, d deployment.Deployment) error
@@ -353,6 +370,7 @@ type Store interface {
 	IdentityRepository
 	EnvironmentRepository
 	CatalogRepository
+	ModuleBundleRepository
 	DeploymentRepository
 	DeltaSnapshotRepository
 	ActiveResourceRepository

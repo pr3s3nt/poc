@@ -9,6 +9,7 @@ import (
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning/score"
 )
 
@@ -119,6 +120,14 @@ type TerraformContract struct {
 	Fingerprint   string          `json:"fingerprint"`
 	Outputs       []string        `json:"outputs"`
 	Inputs        []ContractInput `json:"inputs"`
+	// Source, BundleID and the release pins snapshot the verified bundle the
+	// plan uses; a changed bundle changes the plan hash (Preview goes stale).
+	Source             *tfmodule.SourceRef `json:"source,omitempty"`
+	BundleID           string              `json:"bundleId,omitempty"`
+	TerraformVersion   string              `json:"terraformVersion,omitempty"`
+	ProviderLockDigest string              `json:"providerLockDigest,omitempty"`
+	OutputMapping      map[string]string   `json:"outputMapping,omitempty"`
+	SecretOutputs      []string            `json:"secretOutputs,omitempty"`
 }
 
 // ContractInput records where the value of one Terraform variable comes from.
@@ -169,23 +178,38 @@ type Catalog struct {
 	Definitions []resource.Definition
 }
 
-// ModuleInspector reads the Terraform module a Definition points at.
+// ModuleInspector returns the Terraform module contract of a Definition. The
+// product implementation reads verified registry metadata only: planning,
+// Preview and capability reads never fetch, inspect sources or run providers.
 type ModuleInspector interface {
-	Inspect(module string) (ModuleContract, error)
-	// ExecutorVariables lists variables the executor supplies itself, for
-	// example the region, the resource tags and generated credentials.
-	ExecutorVariables() []string
-	// ExecutorOutputs lists outputs the executor adds after apply, such as the
-	// kubeconfig it writes for a new cluster.
-	ExecutorOutputs(module string) []string
+	Contract(def resource.Definition) (ModuleContract, error)
 }
 
-// ModuleContract is the parsed contract of one Terraform module.
+// ModuleContract is the planning view of one Definition's Terraform module.
 type ModuleContract struct {
 	Module      string
 	Fingerprint string
-	Outputs     []string
-	Variables   map[string]ModuleVariable
+	// Source and the release pins identify the verified bundle; nil Source
+	// is only used by the planner-reference conformance fixtures.
+	Source             *tfmodule.SourceRef
+	BundleID           string
+	TerraformVersion   string
+	ProviderLockDigest string
+	// Outputs are every output the module run produces (module outputs plus
+	// executor-added outputs), named as the module names them.
+	Outputs   []string
+	Variables map[string]ModuleVariable
+	// ExecutorOwned variables are supplied by the executor and never by a
+	// param or Definition value.
+	ExecutorOwned []string
+	// InputMapping maps module variable -> Resource Type input and
+	// OutputMapping module output -> Resource Type output. Nil maps mean the
+	// planner-reference by-name convention (conformance fixtures only).
+	InputMapping  map[string]string
+	OutputMapping map[string]string
+	// SecretOutputs are the Resource Type outputs whose effective
+	// classification is secret (Type or module marks it).
+	SecretOutputs []string
 }
 
 // ModuleVariable is one declared Terraform variable.
@@ -194,6 +218,7 @@ type ModuleVariable struct {
 	Type       string
 	HasDefault bool
 	Default    any
+	Sensitive  bool
 }
 
 // Request is the input of one planning run.

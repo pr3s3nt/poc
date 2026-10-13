@@ -1,11 +1,14 @@
 package terraform
 
 import (
+	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/ports/execution"
 )
 
@@ -47,56 +50,6 @@ func TestBuildVarsPassesResolvedInputsThrough(t *testing.T) {
 	}
 	if _, ok := vars["master_password"]; ok {
 		t.Fatal("only the Aurora module receives a master password")
-	}
-}
-
-// TestInspectorReadsTheEmbeddedModules is the planning-time Terraform contract
-// (UC-06 BR-09) read from the real module sources.
-func TestInspectorReadsTheEmbeddedModules(t *testing.T) {
-	inspector := NewInspector()
-	for module, wantOutputs := range map[string][]string{
-		"vpc":    {"cidr", "id", "subnetIds"},
-		"eks":    {"endpoint", "name"},
-		"aurora": {"database", "host", "password", "port", "username"},
-	} {
-		contract, err := inspector.Inspect(module)
-		if err != nil {
-			t.Fatalf("inspect %s: %v", module, err)
-		}
-		if !strings.HasPrefix(contract.Fingerprint, "sha256:") {
-			t.Fatalf("module %s has no fingerprint", module)
-		}
-		for _, output := range wantOutputs {
-			found := false
-			for _, declared := range contract.Outputs {
-				if declared == output {
-					found = true
-				}
-			}
-			if !found {
-				t.Fatalf("module %s does not declare output %q: %v", module, output, contract.Outputs)
-			}
-		}
-		if _, ok := contract.Variables["region"]; !ok {
-			t.Fatalf("module %s does not declare the region variable", module)
-		}
-	}
-	if _, err := inspector.Inspect("not-a-module"); err == nil {
-		t.Fatal("expected an error for an unknown module")
-	}
-}
-
-func TestInspectorFingerprintIsStable(t *testing.T) {
-	first, err := NewInspector().Inspect("vpc")
-	if err != nil {
-		t.Fatalf("inspect: %v", err)
-	}
-	second, err := NewInspector().Inspect("vpc")
-	if err != nil {
-		t.Fatalf("inspect: %v", err)
-	}
-	if first.Fingerprint != second.Fingerprint {
-		t.Fatal("the module fingerprint must be deterministic")
 	}
 }
 
@@ -147,15 +100,49 @@ func TestWorkspaceNameIsFilesystemSafe(t *testing.T) {
 }
 
 func TestModulesAreEmbedded(t *testing.T) {
-	e := newTestExecutor(t)
 	for _, module := range []string{ModuleVPC, ModuleEKS, ModuleAurora} {
-		dir := filepath.Join(t.TempDir(), module)
-		if err := e.writeModule(module, dir); err != nil {
-			t.Fatalf("write module %s: %v", module, err)
-		}
-		if _, err := os.Stat(filepath.Join(dir, "main.tf")); err != nil {
+		if _, err := fs.Stat(PackagedModules(), module+"/main.tf"); err != nil {
 			t.Fatalf("module %s has no main.tf: %v", module, err)
 		}
+	}
+}
+
+// The executor runs only a registry-verified artifact: without one, or with
+// a binary other than the verified one, it refuses before any workspace or
+// Terraform call.
+func TestProvisionRequiresVerifiedArtifact(t *testing.T) {
+	e := newTestExecutor(t)
+	req := execution.ProvisionRequest{Descriptor: "vpc.default#x", Module: ModuleVPC}
+	if _, err := e.Provision(context.Background(), req); err == nil || !strings.Contains(err.Error(), "verified module artifact") {
+		t.Fatalf("missing artifact must be refused, got %v", err)
+	}
+	req.Artifact = &tfmodule.VerifiedArtifact{TerraformBinary: "/other/terraform", ModuleDir: t.TempDir()}
+	if _, err := e.Provision(context.Background(), req); err == nil || !strings.Contains(err.Error(), "verified Terraform binary") {
+		t.Fatalf("unverified binary must be refused, got %v", err)
+	}
+	entries, _ := os.ReadDir(e.Root)
+	if len(entries) != 0 {
+		t.Fatalf("a refused run created workspaces: %v", entries)
+	}
+}
+
+// writeModule copies exactly the verified module files plus the release lock.
+func TestWriteModuleCopiesVerifiedArtifactAndLock(t *testing.T) {
+	e := newTestExecutor(t)
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "main.tf"), []byte("# verified\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(t.TempDir(), "ws")
+	artifact := tfmodule.VerifiedArtifact{ModuleDir: src, LockFile: []byte("# lock\n")}
+	if err := e.writeModule(artifact, dir); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "main.tf")); string(got) != "# verified\n" {
+		t.Fatalf("module file not copied: %q", got)
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, ".terraform.lock.hcl")); string(got) != "# lock\n" {
+		t.Fatalf("lock file not written: %q", got)
 	}
 }
 

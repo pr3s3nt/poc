@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"orchestrator/internal/adapters/terraform/registry/registrytest"
 	"strings"
 	"testing"
 
@@ -36,7 +37,7 @@ func bundleTestServer(t *testing.T, bundles map[string]resource.RenderBundle) (*
 			t.Fatal(err)
 		}
 	}
-	s := NewServer(Config{RenderBundles: bundles, Authentication: authentication.NewService(st), Store: st, SeedOptions: opts})
+	s := NewServer(Config{RenderBundles: bundles, Authentication: authentication.NewService(st), Store: st, ModuleRegistry: registrytest.Open(t, st), SeedOptions: opts})
 	ts := httptest.NewServer(s)
 	t.Cleanup(ts.Close)
 	return s, ts, st

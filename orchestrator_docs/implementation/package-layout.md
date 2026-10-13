@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-PACKAGE-LAYOUT
 artifact: package-layout
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-13
 ---
 
 # Backend and Frontend Layout
@@ -26,14 +26,16 @@ backend/
 ├── internal/domain/environment/            # Environment, DeploymentSet, NamespaceIdentity
 ├── internal/domain/resource/               # Descriptor, Scope, ResourceType/Definition, ActiveResource
 ├── internal/domain/deployment/             # Deployment, DeploymentPlan, DeploymentResource, WorkloadInstance
+├── internal/domain/tfmodule/               # immutable module pins, inspected contracts and provider bindings
 ├── internal/planning/                      # Score, Delta, graph, match, contract, batches
 ├── internal/ports/persistence/             # repository and UnitOfWork interfaces
 ├── internal/ports/execution/               # ResourceExecutor, renderer, deployer, secret store
+├── internal/ports/moduleregistry/          # registration, metadata reads and execution verification
 ├── internal/adapters/store/                # Phase 6 state store: in-memory repositories + file snapshot
 ├── internal/adapters/postgres/             # normalized PostgreSQL repositories and migrations
 ├── internal/adapters/fake/                 # fake ResourceExecutor/WorkloadDeployer cho walking skeleton
 ├── internal/adapters/kubernetes/           # resource executor + workload deployer (kubectl transport)
-├── internal/adapters/terraform/            # Terraform executor, embedded modules, HCL contract inspector
+├── internal/adapters/terraform/            # Terraform executor, packaged modules and verified registry
 ├── internal/adapters/secrets/              # secret-store implementation
 ├── internal/seed/                          # Humanitec-style seed catalog cho Phase 6
 ├── internal/platform/                      # clock, IDs, logging, config
@@ -80,15 +82,20 @@ frontend/                                   # Orchestrator Web Console
   thay vì nhúng client-go. Adapter vẫn là implementation của port `execution.ResourceExecutor`
   và `execution.WorkloadDeployer`; lựa chọn này giữ module không có dependency nặng và dùng
   chung một đường đi cho kind lẫn EKS.
-- **Terraform transport:** `internal/adapters/terraform` gọi `terraform` CLI với working directory
-  và state file riêng theo run ID. Runtime chỉ nhận `source.module` trỏ tới module nhúng
-  `vpc`/`eks`/`aurora`; `source.url[@rev][/path]` hiện chỉ được conformance inspector đọc và chưa
-  phải execution contract của MVP.
+- **Terraform transport:** `internal/adapters/terraform` nhận artifact đã xác minh
+  từ registry, copy module và lockfile vào workspace, gọi CLI với provider lock
+  readonly. Executor cũ vẫn dùng state trong workspace và từ chối module có
+  module con; I04-03 thay bằng executor v2 với durable HTTP state. Shape
+  `source.module` cũ không còn được product registration nhận. Reference fixture
+  URL chỉ thuộc conformance harness, không phải product source contract.
 - **Score contract boundary:** API nhận Score document dạng JSON. JSON là tập con của YAML nên
   contract không đổi; orchestrator không cần YAML dependency.
-- **Terraform contract inspection:** `internal/adapters/terraform/inspect.go` parse module nhúng bằng
-  `hashicorp/hcl/v2` để planning kiểm tra variable/output và ghi source fingerprint (UC-06 BR-09).
-  Đây là dependency ngoài duy nhất của orchestrator core; `examples/acceptance-app` thêm `jackc/pgx/v5`.
+- **Terraform contract inspection:** Registry tại
+  `internal/adapters/terraform/registry/inspect.go` fetch/inspect khi registration
+  hoặc platform preparation. `internal/planning/registry.go` chỉ đọc metadata
+  đã xác minh. Artifact cũ `internal/adapters/terraform/inspect.go`
+  xem `git show 04fda0f:backend/internal/adapters/terraform/inspect.go`.
+  Status/evidence thuộc CURRENT_STATE và I04-02.
 - **Verification harness:** `deployctl` gửi deployment qua `/api/v1/deployments` thay vì gọi thẳng
   application service, nên kind và AWS verification đi đúng đường Web Console -> HTTP API -> executor.
   Request body không chứa `runId`: process sở hữu run ID qua `-run-id`, API tự điền khi request bỏ trống.

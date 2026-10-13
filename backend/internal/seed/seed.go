@@ -8,10 +8,12 @@ import (
 	"context"
 	"errors"
 
+	"orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/platform/password"
 	"orchestrator/internal/ports/persistence"
@@ -55,6 +57,10 @@ type Options struct {
 	Database         string
 	DatabaseUser     string
 	Cloud            CloudConfig
+	// PlatformModules are the verified packaged module pins (by module ID)
+	// the seeded Terraform Definitions reference. Empty means the pins of the
+	// embedded platform release.
+	PlatformModules map[string]tfmodule.SourceRef
 }
 
 // CloudConfig holds the cost-driven choices of the aws-eks profile. The
@@ -163,12 +169,40 @@ func ResourceTypes() []resource.Type {
 	}
 }
 
-func driverInputs(module string, variables map[string]any) map[string]any {
-	values := map[string]any{"variables": variables}
-	if module != "" {
-		values["source"] = map[string]any{"module": module}
+func driverInputs(variables map[string]any) map[string]any {
+	return map[string]any{"values": map[string]any{"variables": variables}}
+}
+
+// terraformInputs is the strict Terraform v2 Driver Inputs shape: the exact
+// verified module pin, Definition values, explicit input/output mappings and
+// the Environment AWS provider binding.
+func terraformInputs(ref tfmodule.SourceRef, variables map[string]any, inputs, outputs []string) map[string]any {
+	inputMapping := map[string]any{}
+	for _, name := range inputs {
+		inputMapping[name] = map[string]any{"param": name}
 	}
-	return map[string]any{"values": values}
+	outputMapping := map[string]any{}
+	for _, name := range outputs {
+		outputMapping[name] = name
+	}
+	return map[string]any{"values": map[string]any{
+		"source":            ref.Map(),
+		"variables":         variables,
+		"input_mapping":     inputMapping,
+		"output_mapping":    outputMapping,
+		"provider_bindings": map[string]any{"aws": map[string]any{"target": tfmodule.TargetEnvironment}},
+	}}
+}
+
+func (o Options) platformModules() map[string]tfmodule.SourceRef {
+	if len(o.PlatformModules) > 0 {
+		return o.PlatformModules
+	}
+	refs, err := registry.PackagedRefs()
+	if err != nil {
+		panic("seed: the embedded platform release manifest is invalid: " + err.Error())
+	}
+	return refs
 }
 
 // ResourceDefinitions returns the Resource Definitions of both Execution
@@ -178,19 +212,20 @@ func ResourceDefinitions(o Options) []resource.Definition {
 	if cloud.KubernetesVersion == "" {
 		cloud = DefaultCloudConfig()
 	}
+	modules := o.platformModules()
 	return []resource.Definition{
 		{
 			Key:             "namespace-kubernetes",
 			ResourceTypeKey: "k8s-namespace",
 			DriverType:      resource.DriverKubernetes,
-			DriverInputs:    driverInputs("", map[string]any{"name": "${context.env.namespace}"}),
+			DriverInputs:    driverInputs(map[string]any{"name": "${context.env.namespace}"}),
 			Criteria:        []resource.Criterion{{}},
 		},
 		{
 			Key:             "cluster-aws-eks",
 			ResourceTypeKey: "k8s-cluster",
 			DriverType:      resource.DriverTerraform,
-			DriverInputs: driverInputs("eks", map[string]any{
+			DriverInputs: terraformInputs(modules["eks"], map[string]any{
 				"name":               "${context.infra.resourceName}",
 				"subnet_ids":         "${resources['vpc.default#@infra'].outputs.subnetIds}",
 				"kubernetes_version": cloud.KubernetesVersion,
@@ -198,17 +233,17 @@ func ResourceDefinitions(o Options) []resource.Definition {
 				"node_capacity_type": cloud.NodeCapacityType,
 				"node_ami_type":      cloud.NodeAmiType,
 				"node_disk_size":     cloud.NodeDiskSize,
-			}),
+			}, nil, []string{"name", "endpoint", "kubeContext", "kubeconfig"}),
 			Criteria: []resource.Criterion{{Class: "eks"}},
 		},
 		{
 			Key:             "vpc-aws",
 			ResourceTypeKey: "vpc",
 			DriverType:      resource.DriverTerraform,
-			DriverInputs: driverInputs("vpc", map[string]any{
+			DriverInputs: terraformInputs(modules["vpc"], map[string]any{
 				"name": "${context.infra.resourceName}",
 				"cidr": cloud.VPCCidr,
-			}),
+			}, nil, []string{"id", "cidr", "subnetIds"}),
 			Criteria: []resource.Criterion{{}},
 		},
 		{
@@ -216,7 +251,7 @@ func ResourceDefinitions(o Options) []resource.Definition {
 			ResourceTypeKey:  "postgres",
 			ExecutionProfile: "internal-k8s",
 			DriverType:       resource.DriverKubernetes,
-			DriverInputs: driverInputs("", map[string]any{
+			DriverInputs: driverInputs(map[string]any{
 				"image":     o.Images.Postgres,
 				"storage":   "1Gi",
 				"namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
@@ -228,8 +263,7 @@ func ResourceDefinitions(o Options) []resource.Definition {
 			ResourceTypeKey:  "postgres",
 			ExecutionProfile: "aws-eks",
 			DriverType:       resource.DriverTerraform,
-			ConnectionKey:    o.CloudConnectionKey,
-			DriverInputs: driverInputs("aurora", map[string]any{
+			DriverInputs: terraformInputs(modules["aurora"], map[string]any{
 				"name":           "${context.infra.resourceName}",
 				"engine_version": cloud.AuroraEngineVersion,
 				"min_capacity":   cloud.AuroraMinACU,
@@ -237,7 +271,7 @@ func ResourceDefinitions(o Options) []resource.Definition {
 				"vpc_id":         "${resources['vpc.default#@infra'].outputs.id}",
 				"vpc_cidr":       "${resources['vpc.default#@infra'].outputs.cidr}",
 				"subnet_ids":     "${resources['vpc.default#@infra'].outputs.subnetIds}",
-			}),
+			}, []string{"database", "username"}, []string{"host", "port", "database", "username", "password"}),
 			Criteria: []resource.Criterion{{}},
 		},
 	}

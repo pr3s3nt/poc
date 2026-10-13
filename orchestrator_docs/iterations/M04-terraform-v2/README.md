@@ -35,8 +35,8 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 |---|---|---|---|
 | I04-00 | [Duyệt tài liệu A–D và plan M04](I04-00-design-review/README.md) | 1 | Đã duyệt, sửa đổi selected-set trong lượt này |
 | I04-01 | [State backend, schema và ownership graph](I04-01-state-backend/README.md) | 2 | Hoàn tất |
-| I04-02 | [Registry module bất biến](I04-02-module-registry/README.md) | 2 | Đang thực hiện |
-| I04-03 | [Executor tạo, cập nhật và xóa](I04-03-terraform-executor/README.md) | 2 | Chưa bắt đầu |
+| I04-02 | [Registry module bất biến](I04-02-module-registry/README.md) | 2 | Hoàn tất |
+| I04-03 | [Executor tạo, cập nhật và xóa](I04-03-terraform-executor/README.md) | 2 | Đang thực hiện |
 | I04-04 | [Module namespace, Redis và PostgreSQL](I04-04-kubernetes-modules/README.md) | 2 | Chưa bắt đầu |
 | I04-05 | [Module VPC, EKS, ElastiCache và Aurora](I04-05-aws-modules/README.md) | 2 | Chưa bắt đầu |
 | I04-06 | [AWS Connection qua Console và Vault](I04-06-aws-connection/README.md) | 2 | Chưa bắt đầu |
@@ -52,7 +52,7 @@ Dependencies triển khai: schema/state -> registry -> executor -> modules ->
 Connection/catalog/Workload/renderer -> deletion/app Redis -> integration ->
 k8s-4f -> approval -> AWS. Không bỏ task hoặc đổi adapter để rút acceptance.
 I04-00 đã được người dùng duyệt sau sửa selected-set và đối chiếu I06-10.
-I04-02 là iteration current; các task sau chưa bắt đầu. M02/I06-10 deferred,
+I04-03 là iteration current; các task sau chưa bắt đầu. M02/I06-10 deferred,
 không coi milestone cũ hoàn thành; xem [coverage còn lại](../M02-usecase-completion/I06-10-uc01-04-management/README.md#đối-chiếu-công-việc-còn-dở-với-m04).
 
 ## Validation và acceptance
@@ -88,5 +88,6 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 ## Current handoff
 
 Người dùng duyệt chặng 1 sau sửa luồng checkbox và bảng I06-10 coverage.
-I04-01 code/mandatory SQL checks đã đạt; tiếp I04-02 qua Claude/tmux. Live chưa đạt.
+I04-01/02 đã đạt review và mandatory SQL checks; tiếp I04-03 qua Claude/tmux.
+[Registry evidence](../../verification/2026-10-13-i04-02-module-registry.md). Live chưa đạt.
 Điểm dừng tiếp theo là video V2-A01 và dự toán AWS trước AWS provision.

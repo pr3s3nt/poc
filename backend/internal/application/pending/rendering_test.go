@@ -5,7 +5,6 @@ import (
 	"errors"
 	"orchestrator/internal/adapters/kubernetes"
 	"orchestrator/internal/adapters/scorek8s"
-	tf "orchestrator/internal/adapters/terraform"
 	"orchestrator/internal/application/catalog"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/workloadconfig"
@@ -36,7 +35,7 @@ func TestRendererDefinitionChangeTriggersPendingUpdateAndStaleToken(t *testing.T
 		t.Fatal(err)
 	}
 	workloads := workloadconfig.NewService(app.Store)
-	svc := pending.NewService(app.Store, planning.NewService(render.Bundles()), workloads, tf.NewInspector())
+	svc := pending.NewService(app.Store, planning.NewService(render.Bundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
 	svc.SetDeployer(app.Deployments)
 	deploy(t, app, opts, "backend", scoreFor("backend", "backend:v1", false))
 	old, err := svc.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
@@ -102,7 +101,7 @@ func restart(t *testing.T, state, binary string) (*bootstrap.App, *pending.Servi
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc := pending.NewService(app.Store, planning.NewService(render.Bundles()), workloadconfig.NewService(app.Store), tf.NewInspector())
+	svc := pending.NewService(app.Store, planning.NewService(render.Bundles()), workloadconfig.NewService(app.Store), planning.RegistryInspector{Metadata: app.Modules})
 	svc.SetDeployer(app.Deployments)
 	return app, svc, render, opts
 }

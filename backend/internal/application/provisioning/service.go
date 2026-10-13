@@ -11,11 +11,13 @@ import (
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/planning/placeholder"
 	"orchestrator/internal/platform/canon"
 	"orchestrator/internal/platform/clock"
 	"orchestrator/internal/ports/execution"
+	"orchestrator/internal/ports/moduleregistry"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -48,7 +50,13 @@ type Service struct {
 	registry execution.ExecutorRegistry
 	secrets  execution.SecretStore
 	clock    clock.Clock
+	modules  moduleregistry.ExecutionVerifier
 }
+
+// SetModuleVerifier wires the module registry check that runs immediately
+// before a Terraform module executes. Without it, an executor that runs
+// module code is refused.
+func (s *Service) SetModuleVerifier(modules moduleregistry.ExecutionVerifier) { s.modules = modules }
 
 // NewService wires UC-08 with its ports.
 func NewService(store persistence.Store, registry execution.ExecutorRegistry, secrets execution.SecretStore, c clock.Clock) *Service {
@@ -122,10 +130,28 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 			inputMap[k] = v
 		}
 	}
-	// Resource params come from the Score document and win over driver defaults.
+	var terraformInputs *tfmodule.DriverInputs
+	if def.DriverType == resource.DriverTerraform {
+		parsed, err := tfmodule.ParseDriverInputs(def.DriverValues())
+		if err != nil {
+			return fmt.Errorf("provisioning: %s: the Terraform definition is not a verified module pin: %w", descriptor, err)
+		}
+		terraformInputs = &parsed
+	}
+	// Resource params come from the Score document and win over driver
+	// defaults. Terraform params reach module variables only through the
+	// Definition input mapping.
 	if values, ok := params.(map[string]any); ok {
-		for k, v := range values {
-			inputMap[k] = v
+		if terraformInputs != nil {
+			for variable, param := range terraformInputs.InputMapping {
+				if v, ok := values[param]; ok {
+					inputMap[variable] = v
+				}
+			}
+		} else {
+			for k, v := range values {
+				inputMap[k] = v
+			}
 		}
 	}
 
@@ -206,6 +232,26 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	if err != nil {
 		return err
 	}
+	var artifact *tfmodule.VerifiedArtifact
+	if verified, ok := executor.(execution.VerifiedModuleExecutor); ok && verified.RequiresVerifiedModule() {
+		// Re-verify the pinned bundle (content digests, release pins and
+		// Terraform binary) immediately before execution; drift or a missing
+		// artifact stops the node before any provider call.
+		if terraformInputs == nil || s.modules == nil {
+			err = errors.New("the Terraform module registry is unavailable")
+		} else {
+			var verifiedArtifact tfmodule.VerifiedArtifact
+			verifiedArtifact, err = s.modules.VerifyForExecution(ctx, terraformInputs.Source)
+			artifact = &verifiedArtifact
+		}
+		if err != nil {
+			progress.Status = deployment.ResourceFailed
+			finished := s.clock.Now()
+			progress.FinishedAt = &finished
+			_ = s.store.SaveDeploymentResource(ctx, progress)
+			return fmt.Errorf("provisioning: %s: verify module artifact: %w", descriptor, err)
+		}
+	}
 
 	execResult, err := executor.Provision(ctx, execution.ProvisionRequest{
 		DeploymentID:    req.DeploymentID,
@@ -220,6 +266,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		DefinitionKey:   match.DefinitionKey,
 		DriverType:      match.DriverType,
 		Module:          moduleName(def),
+		Artifact:        artifact,
 		Inputs:          mapOrEmpty(inputMap),
 		Generation:      req.Context.Env.TargetGeneration,
 		PriorState:      priorState,
@@ -234,6 +281,27 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		return fmt.Errorf("provisioning: %s: %w", descriptor, err)
 	}
 
+	secretOutputs := map[string]bool{}
+	if terraformInputs != nil {
+		// Module outputs reach the Resource Type only through the output
+		// mapping; unmapped internal outputs are never published. A module
+		// sensitive output stays secret whatever the Type says.
+		mapped := map[string]any{}
+		for output, target := range terraformInputs.OutputMapping {
+			if v, ok := execResult.Outputs[output]; ok {
+				mapped[target] = v
+			}
+		}
+		if artifact != nil {
+			for output, target := range terraformInputs.OutputMapping {
+				if artifact.Bundle.Contract.Outputs[output].Sensitive {
+					secretOutputs[target] = true
+				}
+			}
+		}
+		execResult.Outputs = mapped
+	}
+
 	if err := typ.ValidateOutputs(execResult.Outputs); err != nil {
 		progress.Status = deployment.ResourceFailed
 		finished := s.clock.Now()
@@ -242,7 +310,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		return err
 	}
 
-	storable, err := s.redactOutputs(ctx, typ, descriptor, execResult.Outputs)
+	storable, err := s.redactOutputs(ctx, typ, descriptor, execResult.Outputs, secretOutputs)
 	if err != nil {
 		return err
 	}
@@ -291,7 +359,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 
 // redactOutputs replaces secret outputs with opaque Secret Store references so the
 // state store never holds credential values.
-func (s *Service) redactOutputs(ctx context.Context, typ resource.Type, descriptor string, outputs map[string]any) (map[string]any, error) {
+func (s *Service) redactOutputs(ctx context.Context, typ resource.Type, descriptor string, outputs map[string]any, secret map[string]bool) (map[string]any, error) {
 	storable := map[string]any{}
 	names := make([]string, 0, len(outputs))
 	for name := range outputs {
@@ -300,7 +368,7 @@ func (s *Service) redactOutputs(ctx context.Context, typ resource.Type, descript
 	sort.Strings(names)
 	for _, name := range names {
 		field, _ := typ.Output(name)
-		if !field.Secret {
+		if !tfmodule.EffectiveSecret(field.Secret, secret[name]) {
 			storable[name] = outputs[name]
 			continue
 		}
@@ -344,6 +412,15 @@ func connectionKeyFor(def resource.Definition, ctx planning.Context) string {
 		case planning.TypeVPC, planning.TypeCluster:
 			return ctx.Env.ConnectionKey
 		}
+		// A v2 AWS provider binding targets the Environment AWS Connection
+		// (UC-03 BR-08); no Definition-level account override exists.
+		if inputs, err := tfmodule.ParseDriverInputs(def.DriverValues()); err == nil {
+			for _, binding := range inputs.ProviderBindings {
+				if binding.Target == tfmodule.TargetEnvironment && def.ConnectionKey == "" {
+					return ctx.Env.ConnectionKey
+				}
+			}
+		}
 		return def.ConnectionKey
 	}
 	if def.ConnectionKey != "" {
@@ -360,7 +437,7 @@ func mapOrEmpty(m map[string]any) map[string]any {
 }
 
 func moduleName(def resource.Definition) string {
-	name, _ := def.Source()["module"].(string)
+	name, _ := def.Source()["module_id"].(string)
 	return name
 }
 

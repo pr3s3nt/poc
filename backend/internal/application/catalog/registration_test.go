@@ -3,12 +3,14 @@ package catalog_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/domain/tfmodule"
+	"orchestrator/internal/ports/moduleregistry"
 	"reflect"
 	"strings"
 	"testing"
 
 	"orchestrator/internal/adapters/store"
-	"orchestrator/internal/adapters/terraform"
+	"orchestrator/internal/adapters/terraform/registry/registrytest"
 	"orchestrator/internal/application/catalog"
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
@@ -17,7 +19,16 @@ import (
 	"orchestrator/internal/seed/seedtest"
 )
 
-func seededCatalog(t *testing.T, inspector planning.ModuleInspector) (*store.Store, *catalog.Service, seed.Options) {
+// registryFactory builds the module registry of a test catalog; nil means
+// the catalog has none.
+type registryFactory func(t *testing.T, st *store.Store) moduleregistry.Registry
+
+// withRegistry is the real packaged-only registry prepared into st.
+func withRegistry(t *testing.T, st *store.Store) moduleregistry.Registry {
+	return registrytest.Open(t, st)
+}
+
+func seededCatalog(t *testing.T, modules registryFactory) (*store.Store, *catalog.Service, seed.Options) {
 	t.Helper()
 	ctx := context.Background()
 	st := store.New()
@@ -25,7 +36,10 @@ func seededCatalog(t *testing.T, inspector planning.ModuleInspector) (*store.Sto
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
-	return st, catalog.NewService(st, inspector), opts
+	if modules == nil {
+		return st, catalog.NewService(st), opts
+	}
+	return st, catalog.NewService(st, modules(t, st)), opts
 }
 
 func seededDefinition(t *testing.T, opts seed.Options, key string) resource.Definition {
@@ -53,7 +67,7 @@ func seededDefinition(t *testing.T, opts seed.Options, key string) resource.Defi
 // UC-03 MS-04/BR-08 negative paths: nothing is stored for any of them.
 func TestRegisterResourceDefinition_RejectsConnectionAndProfileMisuse(t *testing.T) {
 	ctx := context.Background()
-	st, svc, opts := seededCatalog(t, terraform.NewInspector())
+	st, svc, opts := seededCatalog(t, withRegistry)
 	if err := st.SaveConnection(ctx, application.Connection{Name: "pending-cluster", AuthenticationType: application.AuthKubeconfig, Key: "pending-cluster", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionVerifying}); err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +81,7 @@ func TestRegisterResourceDefinition_RejectsConnectionAndProfileMisuse(t *testing
 	internal := seededDefinition(t, opts, "postgres-internal-statefulset")
 	cases := map[string]func(*resource.Definition){
 		"terraform with cluster connection":  func(d *resource.Definition) { *d = aurora; d.ConnectionKey = opts.ConnectionKey },
-		"terraform without connection":       func(d *resource.Definition) { *d = aurora; d.ConnectionKey = "" },
+		"terraform with AWS account":         func(d *resource.Definition) { *d = aurora; d.ConnectionKey = opts.CloudConnectionKey },
 		"connection not READY":               func(d *resource.Definition) { *d = internal; d.ConnectionKey = "pending-cluster" },
 		"connection of another Organization": func(d *resource.Definition) { *d = internal; d.ConnectionKey = "globex-cluster" },
 		"unknown connection":                 func(d *resource.Definition) { *d = internal; d.ConnectionKey = "missing" },
@@ -96,7 +110,7 @@ func TestRegisterResourceDefinition_RejectsConnectionAndProfileMisuse(t *testing
 // without any Environment; every nonempty key is rejected before any insert.
 func TestRegisterResourceDefinition_TerraformVPCAndEKSRequireEmptyConnection(t *testing.T) {
 	ctx := context.Background()
-	st, svc, opts := seededCatalog(t, terraform.NewInspector())
+	st, svc, opts := seededCatalog(t, withRegistry)
 	if err := st.SaveOrganization(ctx, application.Organization{Key: "globex", Name: "Globex"}); err != nil {
 		t.Fatal(err)
 	}
@@ -137,43 +151,48 @@ func TestRegisterResourceDefinition_TerraformVPCAndEKSRequireEmptyConnection(t *
 	}
 }
 
-// Aurora keeps requiring an explicit READY AWS account of the Organization.
-func TestRegisterResourceDefinition_AuroraRequiresExplicitAWSAccount(t *testing.T) {
+// UC-03 BR-08 (v2): Aurora, like every AWS module, uses the Environment AWS
+// Connection; an explicit account override is rejected before any insert.
+func TestRegisterResourceDefinition_AuroraUsesEnvironmentConnection(t *testing.T) {
 	ctx := context.Background()
-	st, svc, opts := seededCatalog(t, terraform.NewInspector())
+	st, svc, opts := seededCatalog(t, withRegistry)
 	if err := st.SaveConnection(ctx, application.Connection{Name: "aurora-account", AuthenticationType: application.AuthAWSAccessKey, Key: "aurora-account", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionReady}); err != nil {
 		t.Fatal(err)
 	}
 	aurora := seededDefinition(t, opts, "postgres-aws-aurora")
-	aurora.Key, aurora.ConnectionKey = "aurora-separate", "aurora-account"
 	aurora.Criteria = []resource.Criterion{{ApplicationID: "registered"}}
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, aurora); err != nil {
-		t.Fatalf("explicit account: %v", err)
+	aurora.Key, aurora.ConnectionKey = "aurora-separate", "aurora-account"
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, aurora); !errors.Is(err, catalog.ErrInvalid) || !strings.Contains(err.Error(), "leave connectionKey empty") {
+		t.Fatalf("explicit account must be rejected: %v", err)
 	}
-	aurora.Key, aurora.ConnectionKey = "aurora-missing", ""
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, aurora); !errors.Is(err, catalog.ErrInvalid) {
-		t.Fatalf("Aurora without an account must be rejected: %v", err)
+	aurora.Key, aurora.ConnectionKey = "aurora-environment", ""
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, aurora); err != nil {
+		t.Fatalf("Environment-bound Aurora: %v", err)
 	}
 }
 
-type failingInspector struct {
-	planning.ModuleInspector
+type failingRegistry struct {
+	moduleregistry.Registry
 }
 
 const inspectorSentinel = "sentinel-module-path-/home/secret"
 
-func (failingInspector) Inspect(string) (planning.ModuleContract, error) {
-	return planning.ModuleContract{}, errors.New("terraform: cannot read " + inspectorSentinel)
+func (failingRegistry) Verify(context.Context, tfmodule.SourceRef) (tfmodule.Bundle, error) {
+	return tfmodule.Bundle{}, errors.New("registry: cannot read " + inspectorSentinel)
 }
 
+// An unexpected registry failure is a platform error: never a validation
+// result and never echoing paths.
 func TestRegisterResourceDefinition_InspectorFailureIsNotValidation(t *testing.T) {
 	ctx := context.Background()
-	_, svc, opts := seededCatalog(t, failingInspector{ModuleInspector: terraform.NewInspector()})
+	_, svc, opts := seededCatalog(t, func(t *testing.T, st *store.Store) moduleregistry.Registry {
+		return failingRegistry{registrytest.Open(t, st)}
+	})
 	def := seededDefinition(t, opts, "postgres-aws-aurora")
 	def.Key = "aurora-inspect-fails"
 	_, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def)
-	if err == nil || errors.Is(err, catalog.ErrInvalid) {
-		t.Fatalf("inspector failure must be internal, got %v", err)
+	if err == nil || errors.Is(err, catalog.ErrInvalid) || strings.Contains(err.Error(), inspectorSentinel) {
+		t.Fatalf("registry failure must be a safe internal error, got %v", err)
 	}
 }
 
@@ -202,7 +221,7 @@ func TestRegisterResourceType_DuplicateKeepsFirstContract(t *testing.T) {
 // is inserted or overwritten.
 func TestRegisterResourceDefinition_RejectsExistingClusterDriver(t *testing.T) {
 	ctx := context.Background()
-	st, svc, opts := seededCatalog(t, terraform.NewInspector())
+	st, svc, opts := seededCatalog(t, withRegistry)
 	base := seededDefinition(t, opts, "cluster-internal-registered")
 	base.ExecutionProfile = "internal-k8s"
 	with := func(mutate func(*resource.Definition)) resource.Definition {

@@ -22,6 +22,7 @@ import (
 	"orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/secretstore"
+	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
 )
@@ -49,6 +50,7 @@ type state struct {
 	SecretStores        map[string]secretstore.Store                  `json:"secretStores"`
 	Operations          map[string]environment.Operation              `json:"environmentOperations"`
 	Transitions         map[string]environment.Transition             `json:"environmentTransitions"`
+	ModuleBundles       map[string]tfmodule.Bundle                    `json:"terraformModuleBundles"`
 }
 
 func newState() *state {
@@ -75,6 +77,7 @@ func newState() *state {
 		SecretStores:        map[string]secretstore.Store{},
 		Operations:          map[string]environment.Operation{},
 		Transitions:         map[string]environment.Transition{},
+		ModuleBundles:       map[string]tfmodule.Bundle{},
 	}
 }
 

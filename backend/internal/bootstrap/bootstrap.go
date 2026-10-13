@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -20,7 +22,7 @@ import (
 	"orchestrator/internal/adapters/secrets"
 	"orchestrator/internal/adapters/statecipher"
 	"orchestrator/internal/adapters/store"
-	tf "orchestrator/internal/adapters/terraform"
+	moduleregistry "orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/adapters/vault"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
@@ -73,6 +75,16 @@ type Options struct {
 
 	// TerraformPluginCache keeps provider downloads shared between workspaces.
 	TerraformPluginCache string
+	// TerraformModuleCacheDir is the private, absolute cache of verified
+	// module content, outside any Git work tree. Empty uses a private
+	// temporary directory removed on Close, which is only allowed without
+	// allowlisted Git sources (packaged modules are re-prepared at startup).
+	TerraformModuleCacheDir string
+	// TerraformModulePolicyFile is the Admin allowlist of HTTPS Git module
+	// sources; empty allows only the packaged release modules.
+	TerraformModulePolicyFile string
+	// GitPath is the git CLI used to fetch allowlisted module commits.
+	GitPath string
 	// Region and Tags apply to every cloud resource of one verification run.
 	Region                 string
 	Tags                   map[string]string
@@ -156,6 +168,8 @@ type App struct {
 	StoreRegistry configport.Registry
 	// Transitions runs Environment target transitions.
 	Transitions *transition.Service
+	// Modules is the verified Terraform module registry.
+	Modules *moduleregistry.Service
 	// FakeCluster is the in-memory Kubernetes stand-in of fake mode.
 	FakeCluster *fake.Cluster
 	// TerraformStates and TerraformStateHandler are the internal Terraform
@@ -220,6 +234,11 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	} else {
 		st = store.New()
 	}
+	if err != nil {
+		return nil, err
+	}
+
+	modules, err := moduleRegistry(ctx, &opts, st, closers)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +308,9 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	}
 	planner := planning.NewService(bundles)
 	prov := provisioning.NewService(st, registry, secretStore, c)
-	deployments := appsvc.NewService(st, planner, prov, renderer, deployer, tf.NewInspector(), c)
+	prov.SetModuleVerifier(modules)
+	inspector := planning.RegistryInspector{Metadata: modules}
+	deployments := appsvc.NewService(st, planner, prov, renderer, deployer, inspector, c)
 	if opts.Adapters == AdapterKubernetes {
 		if opts.WorkloadDelivery == "fleet-gitrepo" {
 			fleet, ok := deployer.(*gitops.Deployer)
@@ -361,19 +382,19 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		return nil, fmt.Errorf("bootstrap: unknown Vault delivery %q", vaultDelivery)
 	}
 	workloads := workloadconfig.NewService(st)
-	pendingChanges := pending.NewService(st, planner, workloads, tf.NewInspector())
+	pendingChanges := pending.NewService(st, planner, workloads, inspector)
 	if opts.WorkloadDelivery == "fleet-gitrepo" {
 		pendingChanges.SetImageRegistryHost(opts.HarborRegistryHost)
 	}
 	pendingChanges.SetDeployer(deployments)
 	pendingChanges.SetOperations(operations)
-	previews := preview.NewService(st, planner, tf.NewInspector())
+	previews := preview.NewService(st, planner, inspector)
 	kubeconfigVerifier := opts.KubeconfigVerifierOverride
 	if kubeconfigVerifier == nil {
 		kubeconfigVerifier = k8s.ConnectionVerifier{KubectlPath: opts.KubectlPath}
 	}
 
-	transitions := transition.New(st, planner, tf.NewInspector(), deployments, operations)
+	transitions := transition.New(st, planner, inspector, deployments, operations)
 	transitions.SetStoreRegistry(storeRegistry)
 	transitions.SetWorkloads(workloads)
 	transitions.SetDirectDelivery(opts.WorkloadDelivery != "fleet-gitrepo")
@@ -408,6 +429,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		Pending:               pendingChanges,
 		Previews:              previews,
 		Store:                 st,
+		ModuleRegistry:        modules,
 		SeedOptions:           opts.Seed,
 		UIDir:                 opts.UIDir,
 	})
@@ -429,9 +451,48 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		StoreRegistry:         storeRegistry,
 		Transitions:           transitions,
 		FakeCluster:           fakeCluster,
+		Modules:               modules,
 		TerraformStates:       terraformStates,
 		TerraformStateHandler: stateHandler(terraformStates),
 	}, nil
+}
+
+// moduleRegistry opens the verified Terraform module registry and prepares
+// the packaged release modules. In AWS mode the Terraform binary is resolved
+// once; the executor runs exactly the path whose digest execution
+// verification checks.
+func moduleRegistry(ctx context.Context, opts *Options, st persistence.Store, closers *[]func()) (*moduleregistry.Service, error) {
+	cacheDir := opts.TerraformModuleCacheDir
+	if cacheDir == "" {
+		if opts.TerraformModulePolicyFile != "" {
+			return nil, fmt.Errorf("bootstrap: allowlisted Git module sources need a durable -terraform-module-cache-dir")
+		}
+		dir, err := os.MkdirTemp("", "orchestrator-modules-")
+		if err != nil {
+			return nil, fmt.Errorf("bootstrap: create the private module cache: %w", err)
+		}
+		*closers = append(*closers, func() { _ = os.RemoveAll(dir) })
+		cacheDir = dir
+	}
+	binary := ""
+	if opts.Adapters == AdapterAWS {
+		path := opts.TerraformPath
+		if path == "" {
+			path = "terraform"
+		}
+		resolved, err := exec.LookPath(path)
+		if err != nil {
+			return nil, fmt.Errorf("bootstrap: the Terraform binary was not found")
+		}
+		if resolved, err = filepath.Abs(resolved); err != nil {
+			return nil, fmt.Errorf("bootstrap: resolve the Terraform binary: %w", err)
+		}
+		opts.TerraformPath, binary = resolved, resolved
+	}
+	return moduleregistry.Open(ctx, moduleregistry.Options{
+		PolicyFile: opts.TerraformModulePolicyFile, CacheDir: cacheDir, GitBinary: opts.GitPath,
+		TerraformBinary: binary, Store: st,
+	})
 }
 
 // terraformStateBackend builds the durable Terraform state backend on its

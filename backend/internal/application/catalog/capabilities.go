@@ -6,7 +6,7 @@ import (
 	"sort"
 
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning"
+	"orchestrator/internal/domain/tfmodule"
 )
 
 // CapabilityVariable is the public, secret-free view of one editable Driver
@@ -21,20 +21,49 @@ type CapabilityVariable struct {
 	Preset        string `json:"preset,omitempty"`
 }
 
+// CapabilitySource is the safe public pin of a verified module: no URL,
+// credential or cache path (UC-03 BR-23).
+type CapabilitySource struct {
+	SourceID      string `json:"sourceId"`
+	ModuleID      string `json:"moduleId"`
+	Revision      string `json:"revision"`
+	Subdirectory  string `json:"subdirectory"`
+	ContentSHA256 string `json:"contentSha256"`
+}
+
+// CapabilityProvider is one pinned provider requirement and its binding kind.
+type CapabilityProvider struct {
+	Name    string `json:"name"`
+	Source  string `json:"source"`
+	Version string `json:"version"`
+	Binding string `json:"binding"`
+}
+
+// CapabilityOutput is one module output (executor outputs have no type).
+type CapabilityOutput struct {
+	Name      string `json:"name"`
+	Type      string `json:"type,omitempty"`
+	Sensitive bool   `json:"sensitive"`
+}
+
 // Capability describes one registrable Resource Type/driver/module pair.
 type Capability struct {
-	ResourceType  string               `json:"resourceType"`
-	DriverType    string               `json:"driverType"`
-	Module        string               `json:"module"`
-	Variables     []CapabilityVariable `json:"variables"`
-	ExecutorOwned []string             `json:"executorOwned"`
+	ResourceType     string               `json:"resourceType"`
+	DriverType       string               `json:"driverType"`
+	Module           string               `json:"module"`
+	Source           *CapabilitySource    `json:"source,omitempty"`
+	TerraformVersion string               `json:"terraformVersion,omitempty"`
+	Providers        []CapabilityProvider `json:"providerRequirements,omitempty"`
+	Outputs          []CapabilityOutput   `json:"outputs,omitempty"`
+	Variables        []CapabilityVariable `json:"variables"`
+	ExecutorOwned    []string             `json:"executorOwned"`
 }
 
 // ListDefinitionCapabilities returns the supported registration pairs with
-// their editable variable metadata. It only reads the Organization's Resource
-// Types and inspects embedded module contracts: no write, admission, execution
-// or provider call. Module variables never define a Resource Type; resourceParam
-// only reflects the inputs the scoped Resource Type really declares.
+// their editable variable metadata. Terraform pairs come from verified
+// registry metadata only: no fetch, inspection, write, admission, execution
+// or provider call. Module variables never define a Resource Type;
+// resourceParam only reflects the inputs the scoped Resource Type declares.
 func (s *Service) ListDefinitionCapabilities(ctx context.Context, organizationKey string) ([]Capability, error) {
 	types, err := s.store.ListResourceTypes(ctx, organizationKey)
 	if err != nil {
@@ -44,37 +73,39 @@ func (s *Service) ListDefinitionCapabilities(ctx context.Context, organizationKe
 	for _, typ := range types {
 		byKey[typ.Key] = typ
 	}
-	out := make([]Capability, 0, len(supportedPairs))
+	if s.modules == nil {
+		return nil, &internalError{err: errors.New("catalog: the Terraform module registry is unavailable")}
+	}
+	bundles, err := s.modules.List(ctx)
+	if err != nil {
+		return nil, &internalError{err: err}
+	}
+	out := []Capability{}
+	for _, bundle := range bundles {
+		for _, resourceType := range bundle.Contract.ResourceTypes {
+			capability, err := terraformCapability(bundle, byKey[resourceType], resourceType)
+			if err != nil {
+				return nil, &internalError{err: err}
+			}
+			out = append(out, capability)
+		}
+	}
 	for _, pair := range supportedPairs {
 		typ := byKey[pair.resourceType]
-		capability := Capability{ResourceType: pair.resourceType, DriverType: string(pair.driver), Module: pair.module, Variables: []CapabilityVariable{}, ExecutorOwned: []string{}}
-		if pair.driver == resource.DriverTerraform {
-			if s.inspector == nil {
-				return nil, &internalError{err: errors.New("catalog: Terraform contract inspector is unavailable")}
+		capability := Capability{ResourceType: pair.resourceType, DriverType: string(pair.driver), Variables: []CapabilityVariable{}, ExecutorOwned: []string{}}
+		for _, name := range sortedKeys(driverVariableSchemas[pair.driver][pair.resourceType]) {
+			variable := driverVariableSchemas[pair.driver][pair.resourceType][name]
+			input, param := typ.Input(name)
+			if pair.driver == resource.DriverKubernetes && pair.resourceType == "k8s-namespace" && name == "name" {
+				// UC-03 BR-12: registration only accepts the Resource Type as the namespace
+				// name source when its input is a required string.
+				param = param && input.Required && input.Type == "string"
 			}
-			contract, err := s.inspector.Inspect(pair.module)
-			if err != nil {
-				return nil, &internalError{err: err}
+			entry := CapabilityVariable{Name: name, Type: variable.typ.String(), Required: variable.required, HasDefault: variable.hasDefault, ResourceParam: param, Preset: variable.preset}
+			if variable.hasDefault {
+				entry.Default = variable.defaultVal
 			}
-			capability.Variables, capability.ExecutorOwned, err = terraformCapabilityVariables(contract, s.inspector.ExecutorVariables(), typ)
-			if err != nil {
-				return nil, &internalError{err: err}
-			}
-		} else {
-			for _, name := range sortedKeys(driverVariableSchemas[pair.driver][pair.resourceType]) {
-				variable := driverVariableSchemas[pair.driver][pair.resourceType][name]
-				input, param := typ.Input(name)
-				if pair.driver == resource.DriverKubernetes && pair.resourceType == "k8s-namespace" && name == "name" {
-					// UC-03 BR-12: registration only accepts the Resource Type as the namespace
-					// name source when its input is a required string.
-					param = param && input.Required && input.Type == "string"
-				}
-				entry := CapabilityVariable{Name: name, Type: variable.typ.String(), Required: variable.required, HasDefault: variable.hasDefault, ResourceParam: param, Preset: variable.preset}
-				if variable.hasDefault {
-					entry.Default = variable.defaultVal
-				}
-				capability.Variables = append(capability.Variables, entry)
-			}
+			capability.Variables = append(capability.Variables, entry)
 		}
 		out = append(out, capability)
 	}
@@ -86,34 +117,67 @@ func (s *Service) ListDefinitionCapabilities(ctx context.Context, organizationKe
 		if a.DriverType != b.DriverType {
 			return a.DriverType < b.DriverType
 		}
-		return a.Module < b.Module
+		if a.Module != b.Module {
+			return a.Module < b.Module
+		}
+		return sourceKey(a.Source) < sourceKey(b.Source)
 	})
 	return out, nil
 }
 
-func terraformCapabilityVariables(contract planning.ModuleContract, executorVariables []string, typ resource.Type) ([]CapabilityVariable, []string, error) {
+func sourceKey(s *CapabilitySource) string {
+	if s == nil {
+		return ""
+	}
+	return s.SourceID + "\x00" + s.Revision + "\x00" + s.Subdirectory + "\x00" + s.ContentSHA256
+}
+
+func terraformCapability(bundle tfmodule.Bundle, typ resource.Type, resourceType string) (Capability, error) {
+	ref := bundle.Ref
+	capability := Capability{
+		ResourceType: resourceType, DriverType: string(resource.DriverTerraform), Module: ref.ModuleID,
+		Source:           &CapabilitySource{SourceID: ref.SourceID, ModuleID: ref.ModuleID, Revision: ref.Revision, Subdirectory: ref.Subdirectory, ContentSHA256: ref.ContentSHA256},
+		TerraformVersion: bundle.TerraformVersion,
+		Providers:        []CapabilityProvider{},
+		Outputs:          []CapabilityOutput{},
+		Variables:        []CapabilityVariable{},
+		ExecutorOwned:    append([]string{}, bundle.Contract.ExecutorOwned...),
+	}
+	sort.Strings(capability.ExecutorOwned)
+	for _, name := range sortedKeys(bundle.Providers) {
+		p := bundle.Providers[name]
+		capability.Providers = append(capability.Providers, CapabilityProvider{Name: name, Source: p.Source, Version: p.Version, Binding: p.Binding})
+	}
+	for _, name := range sortedKeys(bundle.Contract.Outputs) {
+		o := bundle.Contract.Outputs[name]
+		capability.Outputs = append(capability.Outputs, CapabilityOutput{Name: name, Type: o.Type, Sensitive: o.Sensitive})
+	}
+	for _, name := range bundle.Contract.ExecutorOutputs {
+		capability.Outputs = append(capability.Outputs, CapabilityOutput{Name: name})
+	}
 	owned := map[string]bool{}
-	for _, name := range executorVariables {
+	for _, name := range bundle.Contract.ExecutorOwned {
 		owned[name] = true
 	}
-	variables := []CapabilityVariable{}
-	executorOwned := []string{}
-	for _, name := range sortedKeys(contract.Variables) {
-		if owned[name] {
-			executorOwned = append(executorOwned, name)
-			continue
+	presets := map[string]string{}
+	if bundle.Contract.SourceKind == tfmodule.SourceKindPackaged {
+		presets = terraformPresets[ref.ModuleID]
+	}
+	for _, name := range sortedKeys(bundle.Contract.Inputs) {
+		declared := bundle.Contract.Inputs[name]
+		if owned[name] || declared.Sensitive || credentialVariables[name] {
+			continue // executor-owned, sensitive and credential inputs have no author control
 		}
-		declared := contract.Variables[name]
-		parsed, err := parseTerraformType(declared.Type)
+		parsed, err := tfmodule.ParseType(declared.Type)
 		if err != nil {
-			return nil, nil, err
+			return Capability{}, err
 		}
 		_, param := typ.Input(name)
-		entry := CapabilityVariable{Name: name, Type: parsed.String(), Required: !declared.HasDefault, HasDefault: declared.HasDefault, ResourceParam: param, Preset: terraformPresets[contract.Module][name]}
+		entry := CapabilityVariable{Name: name, Type: parsed.String(), Required: declared.Required, HasDefault: declared.HasDefault, ResourceParam: param, Preset: presets[name]}
 		if declared.HasDefault && declared.Default != nil {
 			entry.Default = declared.Default
 		}
-		variables = append(variables, entry)
+		capability.Variables = append(capability.Variables, entry)
 	}
-	return variables, executorOwned, nil
+	return capability, nil
 }

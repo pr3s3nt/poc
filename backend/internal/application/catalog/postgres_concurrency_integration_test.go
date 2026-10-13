@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"orchestrator/internal/adapters/postgres/postgrestest"
+	"orchestrator/internal/domain/tfmodule"
+	"orchestrator/internal/planning"
 	"reflect"
 	"sync"
 	"testing"
@@ -11,7 +13,7 @@ import (
 
 	"orchestrator/internal/adapters/credentialmemory"
 	"orchestrator/internal/adapters/postgres"
-	"orchestrator/internal/adapters/terraform"
+	"orchestrator/internal/adapters/terraform/registry/registrytest"
 	"orchestrator/internal/application/catalog"
 	"orchestrator/internal/application/connection"
 	ct "orchestrator/internal/application/connection/connectiontest"
@@ -133,7 +135,7 @@ func TestPostgresRegistrationServicesRaceOnSameKey(t *testing.T) {
 		{Key: "cache", Inputs: []resource.InputField{{Name: "size", Type: "number"}}, Outputs: []resource.OutputField{{Name: "host", Type: "string"}}},
 	}
 	typeBarrier := newBarrier(st)
-	svc := catalog.NewService(typeBarrier, terraform.NewInspector())
+	svc := catalog.NewService(typeBarrier, registrytest.Open(t, st))
 	w := raceServices(t, "type", [2]func() error{
 		func() error { _, err := svc.RegisterResourceType(ctx, org, types[0]); return err },
 		func() error { _, err := svc.RegisterResourceType(ctx, org, types[1]); return err },
@@ -156,7 +158,7 @@ func TestPostgresRegistrationServicesRaceOnSameKey(t *testing.T) {
 	defs[1].Key, defs[1].Criteria = "postgres-race", []resource.Criterion{{Class: "b"}, {}}
 	defs[1].DriverInputs = map[string]any{"values": map[string]any{"variables": map[string]any{"image": "postgres:17-alpine", "storage": "4Gi", "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"}}}
 	defBarrier := newBarrier(st)
-	svc = catalog.NewService(defBarrier, terraform.NewInspector())
+	svc = catalog.NewService(defBarrier, registrytest.Open(t, st))
 	w = raceServices(t, "definition", [2]func() error{
 		func() error { _, err := svc.RegisterResourceDefinition(ctx, org, defs[0]); return err },
 		func() error { _, err := svc.RegisterResourceDefinition(ctx, org, defs[1]); return err },
@@ -228,4 +230,107 @@ func normalizeDefinition(d resource.Definition) resource.Definition {
 		d.Provision = map[string]resource.ProvisionRule{}
 	}
 	return d
+}
+
+// pinGate holds the first bundle insert inside its transaction until
+// released, so a concurrent registration of the same revision path must wait
+// on the database pin constraint.
+type pinGate struct {
+	persistence.Store
+	once     sync.Once
+	inserted chan struct{}
+	release  chan struct{}
+}
+
+func (g *pinGate) InsertModuleBundle(ctx context.Context, b tfmodule.Bundle) (tfmodule.Bundle, error) {
+	stored, err := g.Store.InsertModuleBundle(ctx, b)
+	g.once.Do(func() {
+		close(g.inserted)
+		<-g.release
+	})
+	return stored, err
+}
+
+// TestPostgresTerraformRegistrationRaceOnPin: two registrations verify the
+// same revision path with conflicting verified content at the same time. The
+// database pin serializes them: the first commits its bundle and Definition,
+// the second sees the committed bundle, rejects the drift and stores nothing.
+// A reopened store and a new registry read the registered bundle back.
+func TestPostgresTerraformRegistrationRaceOnPin(t *testing.T) {
+	ctx := context.Background()
+	db := postgrestest.Fresh(t)
+	st, err := postgres.Open(ctx, db.Console)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	c := newTerraformCatalogOn(t, st, cacheType())
+	org := c.opts.OrganizationKey
+	gate := &pinGate{Store: st, inserted: make(chan struct{}), release: make(chan struct{})}
+	first := catalog.NewService(gate, c.reg)
+	second := catalog.NewService(st, driftingRegistrar{c.reg})
+
+	firstErr := make(chan error, 1)
+	go func() {
+		_, err := first.RegisterResourceDefinition(ctx, org, c.definition("cache-first"))
+		firstErr <- err
+	}()
+	select {
+	case <-gate.inserted:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the first registration never inserted its bundle")
+	}
+	secondErr := make(chan error, 1)
+	go func() {
+		_, err := second.RegisterResourceDefinition(ctx, org, c.definition("cache-second"))
+		secondErr <- err
+	}()
+	select {
+	case err := <-secondErr:
+		t.Fatalf("the conflicting registration did not wait for the pin: %v", err)
+	case <-time.After(300 * time.Millisecond):
+	}
+	close(gate.release)
+	if err := <-firstErr; err != nil {
+		t.Fatalf("first registration: %v", err)
+	}
+	if err := <-secondErr; !errors.Is(err, catalog.ErrInvalid) {
+		t.Fatalf("conflicting registration: %v", err)
+	}
+
+	reopened, err := postgres.Open(ctx, db.Console)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	defs, _ := reopened.ListResourceDefinitions(ctx, org)
+	var stored []string
+	for _, d := range defs {
+		if d.Key == "cache-first" || d.Key == "cache-second" {
+			stored = append(stored, d.Key)
+		}
+	}
+	if len(stored) != 1 || stored[0] != "cache-first" {
+		t.Fatalf("stored definitions %v", stored)
+	}
+	bundles, _ := reopened.ListModuleBundles(ctx)
+	count := 0
+	for _, b := range bundles {
+		if b.Ref.SourceID == "acme" {
+			count++
+			if b.Ref != c.ref || b.Contract.Inputs["memory"].Default != float64(1) {
+				t.Fatalf("stored bundle %+v", b.Ref)
+			}
+		}
+	}
+	if count != 1 {
+		t.Fatalf("acme bundles = %d", count)
+	}
+	// A fresh registry over the reopened store serves the bundle as metadata
+	// only: the planner contract resolves without any fetch.
+	metadata := registrytest.Open(t, reopened)
+	contract, err := planning.RegistryInspector{Metadata: metadata}.Contract(c.definition("cache-first"))
+	if err != nil || contract.Source == nil || *contract.Source != c.ref || contract.InputMapping["memory"] != "size" {
+		t.Fatalf("planning contract after reopen: %+v %v", contract, err)
+	}
 }

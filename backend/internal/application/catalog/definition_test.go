@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"orchestrator/internal/adapters/store"
-	"orchestrator/internal/adapters/terraform"
+	"orchestrator/internal/adapters/terraform/registry/registrytest"
 	"orchestrator/internal/application/catalog"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/seed"
@@ -20,7 +20,7 @@ func TestRegisterResourceDefinition_ContractsAndOrganization(t *testing.T) {
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
-	svc := catalog.NewService(st, terraform.NewInspector())
+	svc := catalog.NewService(st, registrytest.Open(t, st))
 	definitions := seed.ResourceDefinitions(opts)
 	var postgres resource.Definition
 	for _, candidate := range definitions {
@@ -66,7 +66,7 @@ func TestRegisterResourceDefinition_KubernetesAndOutputMismatch(t *testing.T) {
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
-	svc := catalog.NewService(st, terraform.NewInspector())
+	svc := catalog.NewService(st, registrytest.Open(t, st))
 	var postgres resource.Definition
 	for _, candidate := range seed.ResourceDefinitions(opts) {
 		if candidate.Key == "postgres-internal-statefulset" {

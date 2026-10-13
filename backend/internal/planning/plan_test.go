@@ -7,6 +7,7 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning/score"
 	"orchestrator/internal/seed"
 )
@@ -71,22 +72,39 @@ func testRequest(t *testing.T, profile application.ExecutionProfile, workload st
 	}
 }
 
-// stubInspector mirrors the embedded Terraform modules without reading them, so
-// planning tests stay independent of the adapter.
+// stubInspector mirrors the verified packaged module metadata without the
+// registry adapter, so planning tests stay independent of it. Mappings come
+// from the Definition, as in RegistryInspector.
 type stubInspector struct{}
 
-func (stubInspector) ExecutorVariables() []string {
-	return []string{"region", "tags", "master_password"}
-}
-
-func (stubInspector) ExecutorOutputs(module string) []string {
-	if module == "eks" {
-		return []string{"kubeContext", "kubeconfig"}
+func (s stubInspector) Contract(def resource.Definition) (ModuleContract, error) {
+	inputs, err := tfmodule.ParseDriverInputs(def.DriverValues())
+	if err != nil {
+		return ModuleContract{}, err
 	}
-	return nil
+	contract, err := s.module(inputs.Source.ModuleID)
+	if err != nil {
+		return ModuleContract{}, err
+	}
+	for _, name := range []string{"region", "tags", "master_password"} {
+		if _, ok := contract.Variables[name]; ok {
+			contract.ExecutorOwned = append(contract.ExecutorOwned, name)
+		}
+	}
+	if contract.Module == "eks" {
+		contract.Outputs = append(contract.Outputs, "kubeContext", "kubeconfig")
+	}
+	contract.InputMapping, contract.OutputMapping = map[string]string{}, map[string]string{}
+	for k, v := range inputs.InputMapping {
+		contract.InputMapping[k] = v
+	}
+	for k, v := range inputs.OutputMapping {
+		contract.OutputMapping[k] = v
+	}
+	return contract, nil
 }
 
-func (stubInspector) Inspect(module string) (ModuleContract, error) {
+func (stubInspector) module(module string) (ModuleContract, error) {
 	contracts := map[string]ModuleContract{
 		"vpc": {
 			Module: "vpc", Fingerprint: "sha256:vpc",

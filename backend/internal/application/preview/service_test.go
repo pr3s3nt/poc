@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"orchestrator/internal/adapters/terraform/registry"
+	"orchestrator/internal/domain/tfmodule"
+	"orchestrator/internal/ports/moduleregistry"
 	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
 
-	tf "orchestrator/internal/adapters/terraform"
+	"orchestrator/internal/adapters/terraform/registry/registrytest"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/bootstrap"
@@ -201,8 +204,9 @@ func newApp(t *testing.T, cloud bool) (*bootstrap.App, seed.Options) {
 	return app, opts
 }
 
-func newPreview(st persistence.Store) *preview.Service {
-	return preview.NewService(st, planning.NewService(), tf.NewInspector())
+func newPreview(t *testing.T, st persistence.Store) *preview.Service {
+	t.Helper()
+	return preview.NewService(st, planning.NewService(), registrytest.Inspector(t, st))
 }
 
 func deploy(t *testing.T, app *bootstrap.App, opts seed.Options, id string, before, after map[string]any) *appsvc.DeployResult {
@@ -262,7 +266,7 @@ func TestPreview_NoRuntimeMutation(t *testing.T) {
 	provisions, applied := len(app.FakeExec.Calls), len(app.FakeDeploy.AppliedNames())
 
 	st := newGuard(app.Store)
-	svc := newPreview(st)
+	svc := newPreview(t, st)
 	after := scores(opts)["backend"]
 	mainContainer(after)["variables"].(map[string]any)["PORT"] = "9090"
 	valid := []preview.PreviewDeploymentQuery{
@@ -314,7 +318,7 @@ func TestPreview_ReadsOneConsistentSnapshot(t *testing.T) {
 			t.Error(err)
 		}
 	}
-	result, err := newPreview(st).PreviewDeployment(ctx, query(opts, "worker", preview.ActionDeploy, nil, scores(opts)["worker"]))
+	result, err := newPreview(t, st).PreviewDeployment(ctx, query(opts, "worker", preview.ActionDeploy, nil, scores(opts)["worker"]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +341,7 @@ func TestLoadPlanningSnapshot_EmptyCurrentSet(t *testing.T) {
 	if err := app.Store.SaveEnvironment(ctx, env); err != nil {
 		t.Fatal(err)
 	}
-	result, err := newPreview(app.Store).PreviewDeployment(ctx, query(opts, "frontend", preview.ActionDeploy, nil, scores(opts)["frontend"]))
+	result, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "frontend", preview.ActionDeploy, nil, scores(opts)["frontend"]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -351,7 +355,7 @@ func TestLoadPlanningSnapshot_EmptyCurrentSet(t *testing.T) {
 func TestPreview_MatchesDeployPlan(t *testing.T) {
 	ctx := context.Background()
 	app, opts := newApp(t, false)
-	svc := newPreview(app.Store)
+	svc := newPreview(t, app.Store)
 	check := func(id, action string, before, after map[string]any) {
 		t.Helper()
 		previewed, err := svc.PreviewDeployment(ctx, query(opts, id, action, before, after))
@@ -393,7 +397,7 @@ func TestPreview_DeltaInvariantAndContainerResources(t *testing.T) {
 	deploy(t, app, opts, "backend", nil, scores(opts)["backend"])
 	after := scores(opts)["backend"]
 	mainContainer(after)["resources"].(map[string]any)["requests"].(map[string]any)["cpu"] = "75m"
-	result, err := newPreview(app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionUpdate, scores(opts)["backend"], after))
+	result, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionUpdate, scores(opts)["backend"], after))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -414,7 +418,7 @@ func TestPreview_NoChangeHasEmptyDelta(t *testing.T) {
 	ctx := context.Background()
 	app, opts := newApp(t, false)
 	deploy(t, app, opts, "backend", nil, scores(opts)["backend"])
-	result, err := newPreview(app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionUpdate, scores(opts)["backend"], scores(opts)["backend"]))
+	result, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionUpdate, scores(opts)["backend"], scores(opts)["backend"]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -427,7 +431,7 @@ func TestPreview_StrictQuery(t *testing.T) {
 	ctx := context.Background()
 	app, opts := newApp(t, false)
 	deploy(t, app, opts, "backend", nil, scores(opts)["backend"])
-	svc := newPreview(app.Store)
+	svc := newPreview(t, app.Store)
 	b := scores(opts)["backend"]
 	withRun := func(q preview.PreviewDeploymentQuery, run string) preview.PreviewDeploymentQuery {
 		q.RunID = run
@@ -473,7 +477,7 @@ func TestPreview_StrictQuery(t *testing.T) {
 func TestPreview_ScopeAndConnection(t *testing.T) {
 	ctx := context.Background()
 	app, opts := newApp(t, false)
-	svc := newPreview(app.Store)
+	svc := newPreview(t, app.Store)
 	q := query(opts, "worker", preview.ActionDeploy, nil, scores(opts)["worker"])
 	q.OrganizationKey = "globex"
 	if _, err := svc.PreviewDeployment(ctx, q); !errors.Is(err, persistence.ErrNotFound) {
@@ -519,7 +523,7 @@ func batchIndex(batches [][]string, descriptor string) int {
 
 func TestPreview_InternalImplicitGraph(t *testing.T) {
 	app, opts := newApp(t, false)
-	result, err := newPreview(app.Store).PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
+	result, err := newPreview(t, app.Store).PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -539,7 +543,7 @@ func TestPreview_InternalImplicitGraph(t *testing.T) {
 func TestPreview_AWSImplicitGraph(t *testing.T) {
 	app, opts := newApp(t, true)
 	opts.ApplicationKey = opts.CloudApplicationKey
-	result, err := newPreview(app.Store).PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
+	result, err := newPreview(t, app.Store).PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -592,7 +596,7 @@ func TestPreview_PublicViewRedactsWithoutChangingPlan(t *testing.T) {
 
 	worker := scores(opts)["worker"]
 	mainContainer(worker)["variables"].(map[string]any)["OWN_LITERAL"] = "caller-owned-value"
-	result, err := newPreview(app.Store).PreviewDeployment(ctx, query(opts, "worker", preview.ActionDeploy, nil, worker))
+	result, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "worker", preview.ActionDeploy, nil, worker))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -677,7 +681,7 @@ func TestPreview_DefinitionSecretsNeverInView(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	result, err := newPreview(app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
+	result, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -699,7 +703,7 @@ type failingInspector struct {
 	calls    *int
 }
 
-func (f failingInspector) Inspect(string) (planning.ModuleContract, error) {
+func (f failingInspector) Contract(resource.Definition) (planning.ModuleContract, error) {
 	*f.calls++
 	return planning.ModuleContract{}, errors.New("terraform: default password = " + f.sentinel)
 }
@@ -712,7 +716,7 @@ func TestPreview_CatalogErrorsNeverEchoed(t *testing.T) {
 		app, opts := newApp(t, true)
 		opts.ApplicationKey = opts.CloudApplicationKey
 		calls := 0
-		svc := preview.NewService(app.Store, planning.NewService(), failingInspector{ModuleInspector: tf.NewInspector(), sentinel: sentinel, calls: &calls})
+		svc := preview.NewService(app.Store, planning.NewService(), failingInspector{ModuleInspector: planning.RegistryInspector{Metadata: app.Modules}, sentinel: sentinel, calls: &calls})
 		_, err := svc.PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
 		var public *preview.PublicError
 		if !errors.As(err, &public) || !errors.Is(err, preview.ErrPlanningRejected) || strings.Contains(err.Error(), sentinel) {
@@ -735,7 +739,7 @@ func TestPreview_CatalogErrorsNeverEchoed(t *testing.T) {
 				}
 			}
 		}
-		_, err := newPreview(app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
+		_, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
 		if !errors.Is(err, preview.ErrPlanningRejected) || strings.Contains(err.Error(), sentinel) {
 			t.Fatalf("Definition error not sanitized: %v", err)
 		}
@@ -758,7 +762,7 @@ func TestPreview_CatalogErrorsNeverEchoed(t *testing.T) {
 		if err := app.Store.SaveDeploymentSet(ctx, set); err != nil {
 			t.Fatal(err)
 		}
-		_, err := newPreview(app.Store).PreviewDeployment(ctx, query(opts, "worker", preview.ActionDeploy, nil, scores(opts)["worker"]))
+		_, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "worker", preview.ActionDeploy, nil, scores(opts)["worker"]))
 		var public *preview.PublicError
 		if !errors.As(err, &public) || strings.Contains(err.Error(), sentinel) || strings.Contains(err.Error(), "MALFORMED_SECRET_SENTINEL") {
 			t.Fatalf("persisted module content not sanitized: %v", err)
@@ -795,7 +799,7 @@ func (f failingView) ListActiveResources(context.Context, string) ([]resource.Ac
 
 func TestPreview_UnknownStoreErrorIsNotPublic(t *testing.T) {
 	app, opts := newApp(t, false)
-	_, err := newPreview(failingStore{Store: app.Store, sentinel: "sentinel-store"}).PreviewDeployment(context.Background(), query(opts, "worker", preview.ActionDeploy, nil, scores(opts)["worker"]))
+	_, err := newPreview(t, failingStore{Store: app.Store, sentinel: "sentinel-store"}).PreviewDeployment(context.Background(), query(opts, "worker", preview.ActionDeploy, nil, scores(opts)["worker"]))
 	var public *preview.PublicError
 	if err == nil || errors.As(err, &public) {
 		t.Fatalf("store failure must stay internal, got %v", err)
@@ -805,7 +809,7 @@ func TestPreview_UnknownStoreErrorIsNotPublic(t *testing.T) {
 func TestPreview_PublicViewUsesStableEmptyCollections(t *testing.T) {
 	ctx := context.Background()
 	app, opts := newApp(t, false)
-	result, err := newPreview(app.Store).PreviewDeployment(ctx, query(opts, "frontend", preview.ActionDeploy, nil, scores(opts)["frontend"]))
+	result, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "frontend", preview.ActionDeploy, nil, scores(opts)["frontend"]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -852,7 +856,7 @@ func TestPreview_PublicViewUsesStableEmptyCollections(t *testing.T) {
 // Definition, and is deterministic.
 func TestPreview_BuiltinClusterIsReadOnlyAndDeterministic(t *testing.T) {
 	app, opts := newApp(t, false)
-	svc := newPreview(app.Store)
+	svc := newPreview(t, app.Store)
 	q := query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"])
 	first, err := svc.PreviewDeployment(context.Background(), q)
 	if err != nil {
@@ -879,6 +883,63 @@ func TestPreview_BuiltinClusterIsReadOnlyAndDeterministic(t *testing.T) {
 	for _, d := range defs {
 		if d.Key == planning.BuiltinClusterKey {
 			t.Fatal("preview admitted the system definition")
+		}
+	}
+}
+
+// metadataOnly counts metadata reads and fails the test on any registry
+// operation that may fetch, inspect or verify for execution.
+type metadataOnly struct {
+	moduleregistry.Registry
+	t     *testing.T
+	reads *int
+}
+
+func (m metadataOnly) Bundle(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.Bundle, error) {
+	*m.reads++
+	return m.Registry.Bundle(ctx, ref)
+}
+func (m metadataOnly) Verify(context.Context, tfmodule.SourceRef) (tfmodule.Bundle, error) {
+	m.t.Fatal("Preview called the registrar (fetch/inspect)")
+	return tfmodule.Bundle{}, nil
+}
+func (m metadataOnly) VerifyForExecution(context.Context, tfmodule.SourceRef) (tfmodule.VerifiedArtifact, error) {
+	m.t.Fatal("Preview called execution verification")
+	return tfmodule.VerifiedArtifact{}, nil
+}
+
+// Preview of an aws-eks Environment reads verified bundle metadata only: no
+// fetch or inspection, no execution verification, no executor call, and the
+// plan pins each Terraform node to its verified bundle and release.
+func TestPreview_TerraformUsesRegistryMetadataOnly(t *testing.T) {
+	app, opts := newApp(t, true)
+	opts.ApplicationKey = opts.CloudApplicationKey
+	reads := 0
+	svc := preview.NewService(app.Store, planning.NewService(), planning.RegistryInspector{Metadata: metadataOnly{Registry: app.Modules, t: t, reads: &reads}})
+	result, err := svc.PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reads == 0 {
+		t.Fatal("the Terraform contract was not read from registry metadata")
+	}
+	if len(app.FakeExec.Descriptors()) != 0 {
+		t.Fatal("Preview executed a resource")
+	}
+	refs, _ := registry.PackagedRefs()
+	pinned := map[string]planning.TerraformContract{}
+	for _, c := range result.Plan.Terraform {
+		pinned[c.Module] = c
+	}
+	for _, module := range []string{"vpc", "eks"} {
+		c, ok := pinned[module]
+		if !ok || c.Source == nil || *c.Source != refs[module] || c.BundleID == "" || c.TerraformVersion != "1.9.8" || c.ProviderLockDigest == "" {
+			t.Fatalf("%s contract not pinned to its verified bundle: %+v", module, c)
+		}
+		for _, input := range c.Inputs {
+			if input.Source == "executor" && input.Value != nil {
+				t.Fatalf("%s snapshots an executor-owned value", module)
+			}
 		}
 	}
 }

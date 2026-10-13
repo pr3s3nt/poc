@@ -1,7 +1,7 @@
 ---
 id: I04-03
 artifact: iteration-plan
-status: deferred
+status: current
 last_reviewed: 2026-10-13
 related: [M04, ADR-014, IMP-021]
 ---
@@ -10,7 +10,9 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Chưa bắt đầu; không suy status này thành task bị bỏ hoặc đã implement.
+Chặng 2; bắt đầu sau
+[I04-02 verified](../../../verification/2026-10-13-i04-02-module-registry.md).
+Chưa có bằng chứng executor v2 hoàn tất.
 
 ## Phạm vi
 
@@ -38,6 +40,13 @@ Sau gate 1 và các task trước trong bảng M04; task registry/executor/modul
 Chỉ các môi trường và mutation trong chặng hiện tại được giao. Không reset
 retained database, sửa cluster-wide component hoặc tạo AWS ngoài gate.
 Module/provider pins, deadline và small sizing ghi trước execution.
+
+## Carryover từ review I04-02
+
+Private invocation copy cho binary/module; install verified transitive calls;
+kiểm runtime output types. Provider bindings cần tạo dependency edges và
+resolve scoped target trước execution; parsing/validation registry chưa đủ.
+Các phần này thuộc executor, không lấy registry tests làm live proof.
 
 ## Acceptance criteria
 

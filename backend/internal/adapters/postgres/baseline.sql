@@ -249,8 +249,26 @@ CREATE TABLE terraform_module_bundles (
   terraform_binary_sha256 text NOT NULL, provider_lock_digest text NOT NULL,
   contract jsonb NOT NULL, provider_requirements jsonb NOT NULL, status text NOT NULL,
   created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL,
-  UNIQUE(source_id, module_id, revision, subdirectory, content_sha256)
+  UNIQUE(source_id, module_id, revision, subdirectory, content_sha256),
+  -- One verified digest per revision path: same-revision drift cannot commit.
+  UNIQUE(source_id, module_id, revision, subdirectory),
+  CHECK (source_id ~ '^[a-z0-9][a-z0-9-]{0,62}$' AND module_id ~ '^[a-z0-9][a-z0-9-]{0,62}$'),
+  CHECK (revision ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'),
+  CHECK (subdirectory = '.' OR (subdirectory ~ '^[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$'
+    AND subdirectory !~ '(^|/)\.\.?(/|$)' AND length(subdirectory) <= 512)),
+  CHECK (content_sha256 ~ '^[0-9a-f]{64}$' AND terraform_binary_sha256 ~ '^[0-9a-f]{64}$' AND provider_lock_digest ~ '^[0-9a-f]{64}$'),
+  CHECK (terraform_version ~ '^[0-9]+\.[0-9]+\.[0-9]+$'),
+  CHECK (status = 'VERIFIED'),
+  CHECK (jsonb_typeof(contract) = 'object' AND jsonb_typeof(provider_requirements) = 'object')
 );
+
+-- Verified bundles are immutable and retained: no update, no delete.
+CREATE FUNCTION terraform_module_bundle_immutable() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'terraform_module_bundles rows are immutable' USING ERRCODE='23514';
+END $$;
+CREATE TRIGGER terraform_module_bundles_immutable BEFORE UPDATE OR DELETE ON terraform_module_bundles
+  FOR EACH ROW EXECUTE FUNCTION terraform_module_bundle_immutable();
 
 CREATE TABLE terraform_resource_instances (
   id uuid PRIMARY KEY,

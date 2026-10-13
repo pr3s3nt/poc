@@ -40,15 +40,22 @@ func (b *graphBuilder) validateReferenceOutputs(
 			continue
 		}
 		if def.DriverType == resource.DriverTerraform && inspector != nil {
-			contract, err := inspector.Inspect(moduleName(def))
+			contract, err := inspector.Contract(def)
 			if err != nil {
 				return fmt.Errorf("planning: definition %q: %w", def.Key, err)
 			}
-			if !contains(append(contract.Outputs, inspector.ExecutorOutputs(contract.Module)...), ref.Output) {
-				return fmt.Errorf("planning: %s binds output %q which the Terraform module %q does not declare",
-					ref.Path, ref.Output, contract.Module)
+			if contract.OutputMapping == nil {
+				// Planner-reference fixtures bind module outputs by name.
+				if !contains(contract.Outputs, ref.Output) {
+					return fmt.Errorf("planning: %s binds output %q which the Terraform module %q does not declare",
+						ref.Path, ref.Output, contract.Module)
+				}
+				continue
 			}
-			continue
+			if !mapsTo(contract.OutputMapping, ref.Output) {
+				return fmt.Errorf("planning: %s binds output %q which the Terraform module %q does not map to the %q output contract",
+					ref.Path, ref.Output, contract.Module, provider.ResourceType)
+			}
 		}
 		typ, ok := b.catalog.Types[provider.ResourceType]
 		if !ok {
@@ -63,7 +70,10 @@ func (b *graphBuilder) validateReferenceOutputs(
 }
 
 // inspectTerraform checks resource inputs and driver variables against the
-// Terraform module contract and records the source fingerprint (UC-06 BR-09).
+// verified Terraform module contract and snapshots the bundle pins into the
+// plan (UC-06 BR-09). Params reach module variables only through the
+// Definition input mapping; the order is param, then Definition value, then
+// executor-owned value, then module default.
 func (b *graphBuilder) inspectTerraform(
 	matches map[string]Match,
 	matcher *definitionMatcher,
@@ -71,10 +81,6 @@ func (b *graphBuilder) inspectTerraform(
 ) ([]TerraformContract, error) {
 	if inspector == nil {
 		return []TerraformContract{}, nil
-	}
-	executorProvided := map[string]bool{}
-	for _, name := range inspector.ExecutorVariables() {
-		executorProvided[name] = true
 	}
 
 	contracts := []TerraformContract{}
@@ -88,9 +94,13 @@ func (b *graphBuilder) inspectTerraform(
 		if !ok {
 			continue
 		}
-		contract, err := inspector.Inspect(moduleName(def))
+		contract, err := inspector.Contract(def)
 		if err != nil {
 			return nil, fmt.Errorf("planning: definition %q: %w", def.Key, err)
+		}
+		executorOwned := map[string]bool{}
+		for _, name := range contract.ExecutorOwned {
+			executorOwned[name] = true
 		}
 
 		variables, err := resolveContextTree(def.Variables(), b.ctx, node)
@@ -103,15 +113,37 @@ func (b *graphBuilder) inspectTerraform(
 			provided[name] = "driver-input"
 			values[name] = value
 		}
-		for name, value := range node.Params {
-			provided[name] = "resource-input"
-			values[name] = value
+		if contract.InputMapping == nil {
+			// Planner-reference fixtures pass params by variable name.
+			for name, value := range node.Params {
+				provided[name] = "resource-input"
+				values[name] = value
+			}
+		} else {
+			consumed := map[string]bool{}
+			for variable, param := range contract.InputMapping {
+				consumed[param] = true
+				if value, ok := node.Params[param]; ok {
+					provided[variable] = "resource-input"
+					values[variable] = value
+				}
+			}
+			for name := range node.Params {
+				if !consumed[name] {
+					return nil, fmt.Errorf("planning: %s passes param %q which definition %q does not map to a variable of module %q",
+						node.Descriptor, name, def.Key, contract.Module)
+				}
+			}
 		}
 		// An executor variable only counts as provided when the module declares
 		// it; the executor never passes a variable a module does not accept.
-		for name := range executorProvided {
+		for name := range executorOwned {
 			if _, declared := contract.Variables[name]; !declared {
 				continue
+			}
+			if source, ok := provided[name]; ok && contract.InputMapping != nil {
+				return nil, fmt.Errorf("planning: %s sets executor-owned variable %q of module %q from %s",
+					node.Descriptor, name, contract.Module, source)
 			}
 			if _, ok := provided[name]; !ok {
 				provided[name] = "executor"
@@ -151,34 +183,46 @@ func (b *graphBuilder) inspectTerraform(
 				source = "terraform-default"
 				value = variable.Default
 			}
+			if source == "executor" || variable.Sensitive {
+				value = nil // never snapshot an executor-owned or sensitive value
+			}
 			inputs = append(inputs, ContractInput{Name: name, Type: variable.Type, Source: source, Value: value})
 		}
 
 		if typ, ok := b.catalog.Types[node.ResourceType]; ok {
-			available := append(contract.Outputs, inspector.ExecutorOutputs(contract.Module)...)
 			for _, output := range typ.Outputs {
-				if !contains(available, output.Name) {
-					return nil, fmt.Errorf("planning: Terraform module %q does not declare output %q required by resource type %q",
-						contract.Module, output.Name, typ.Key)
+				if contract.OutputMapping == nil {
+					if !contains(contract.Outputs, output.Name) {
+						return nil, fmt.Errorf("planning: Terraform module %q does not declare output %q required by resource type %q",
+							contract.Module, output.Name, typ.Key)
+					}
+					continue
+				}
+				if output.Required && !mapsTo(contract.OutputMapping, output.Name) {
+					return nil, fmt.Errorf("planning: definition %q does not map module %q to output %q required by resource type %q",
+						def.Key, contract.Module, output.Name, typ.Key)
 				}
 			}
 		}
 
 		contracts = append(contracts, TerraformContract{
-			Descriptor:    node.Descriptor,
-			DefinitionKey: def.Key,
-			Module:        contract.Module,
-			Fingerprint:   contract.Fingerprint,
-			Outputs:       contract.Outputs,
-			Inputs:        inputs,
+			Descriptor:         node.Descriptor,
+			DefinitionKey:      def.Key,
+			Module:             contract.Module,
+			Fingerprint:        contract.Fingerprint,
+			Outputs:            contract.Outputs,
+			Inputs:             inputs,
+			Source:             contract.Source,
+			BundleID:           contract.BundleID,
+			TerraformVersion:   contract.TerraformVersion,
+			ProviderLockDigest: contract.ProviderLockDigest,
+			OutputMapping:      contract.OutputMapping,
+			SecretOutputs:      contract.SecretOutputs,
 		})
 	}
 	return contracts, nil
 }
 
-// moduleName identifies the Terraform module a Definition points at. The
-// embedded modules use a plain name; a remote source is identified by
-// url[@rev][/path].
 // resolveContextTree replaces ${context.*} in driver variables and leaves every
 // other placeholder exactly as written, mirroring the planner reference.
 func resolveContextTree(variables map[string]any, ctx Context, node *Node) (map[string]any, error) {
@@ -279,23 +323,13 @@ func (r nodeContext) ResolveContext(path string) (any, error) {
 	return r.ctx.ResolveContext(path)
 }
 
-func moduleName(def resource.Definition) string {
-	source := def.Source()
-	if name, _ := source["module"].(string); name != "" {
-		return name
+func mapsTo(mapping map[string]string, target string) bool {
+	for _, value := range mapping {
+		if value == target {
+			return true
+		}
 	}
-	url, _ := source["url"].(string)
-	if url == "" {
-		return ""
-	}
-	key := url
-	if rev, _ := source["rev"].(string); rev != "" {
-		key += "@" + rev
-	}
-	if path, _ := source["path"].(string); path != "" {
-		key += "/" + path
-	}
-	return key
+	return false
 }
 
 func contains(list []string, value string) bool {

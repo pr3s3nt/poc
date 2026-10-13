@@ -11,7 +11,7 @@ import (
 	"orchestrator/internal/adapters/kubernetes"
 	"orchestrator/internal/adapters/postgres"
 	"orchestrator/internal/adapters/secrets"
-	tf "orchestrator/internal/adapters/terraform"
+	"orchestrator/internal/adapters/terraform/registry/registrytest"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/provisioning"
 	domain "orchestrator/internal/domain/deployment"
@@ -40,7 +40,7 @@ func (m *markerFailure) UpsertActiveResource(ctx context.Context, a resource.Act
 func pgDeployments(t *testing.T, st persistence.Store) *appsvc.Service {
 	t.Helper()
 	prov := provisioning.NewService(st, fake.Registry{Executor: fake.NewResourceExecutor()}, secrets.NewMemory(), clock.System{})
-	return appsvc.NewService(st, planning.NewService(), prov, kubernetes.NewRenderer(), fake.NewWorkloadDeployer(), tf.NewInspector(), clock.System{})
+	return appsvc.NewService(st, planning.NewService(), prov, kubernetes.NewRenderer(), fake.NewWorkloadDeployer(), registrytest.Inspector(t, st), clock.System{})
 }
 
 func pgSharedDB(t *testing.T, st persistence.Store, opts seed.Options) resource.ActiveResource {

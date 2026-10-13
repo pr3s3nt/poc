@@ -29,8 +29,14 @@ func TestT31DefinitionCapabilitiesGuideRegistrationHTTP(t *testing.T) {
 		t.Fatalf("capabilities: %d %v", status, out)
 	}
 	presets := map[string]string{}
+	var vpcSource map[string]any
 	for _, raw := range out["capabilities"].([]any) {
 		capability := raw.(map[string]any)
+		if capability["resourceType"] == "vpc" && capability["driverType"] == "terraform" {
+			pin := capability["source"].(map[string]any)
+			// The published pin is what registration takes as driverInputs.values.source.
+			vpcSource = map[string]any{"source_id": pin["sourceId"], "module_id": pin["moduleId"], "revision": pin["revision"], "subdirectory": pin["subdirectory"], "content_sha256": pin["contentSha256"]}
+		}
 		for _, rawVariable := range capability["variables"].([]any) {
 			variable := rawVariable.(map[string]any)
 			if preset, ok := variable["preset"].(string); ok {
@@ -62,15 +68,24 @@ func TestT31DefinitionCapabilitiesGuideRegistrationHTTP(t *testing.T) {
 	}
 	if status := register(map[string]any{
 		"key": "vpc-t31", "resourceType": "vpc", "executionProfile": "aws-eks", "driverType": "terraform",
-		"driverInputs": map[string]any{"values": map[string]any{"source": map[string]any{"module": "vpc"}, "variables": map[string]any{"name": presets["vpc/terraform/name"]}}},
-		"criteria":     []any{map[string]any{"class": "t31"}},
+		"driverInputs": map[string]any{"values": map[string]any{"source": vpcSource, "variables": map[string]any{"name": presets["vpc/terraform/name"]},
+			"output_mapping": map[string]any{"id": "id", "cidr": "cidr", "subnetIds": "subnetIds"}, "provider_bindings": map[string]any{"aws": map[string]any{"target": "environment"}}}},
+		"criteria": []any{map[string]any{"class": "t31"}},
 	}); status != http.StatusCreated {
 		t.Fatalf("defaults-omitted vpc definition: %d", status)
 	}
 	if status := register(map[string]any{
-		"key": "vpc-t31-secret", "resourceType": "vpc", "executionProfile": "aws-eks", "driverType": "terraform",
-		"driverInputs": map[string]any{"values": map[string]any{"source": map[string]any{"module": "vpc"}, "variables": map[string]any{"name": "x", "master_password": "p"}}},
+		"key": "vpc-t31-legacy", "resourceType": "vpc", "executionProfile": "aws-eks", "driverType": "terraform",
+		"driverInputs": map[string]any{"values": map[string]any{"source": map[string]any{"module": "vpc"}, "variables": map[string]any{"name": "x"}}},
 		"criteria":     []any{map[string]any{"class": "t31"}},
+	}); status != http.StatusBadRequest {
+		t.Fatalf("an unpinned module name must be rejected: %d", status)
+	}
+	if status := register(map[string]any{
+		"key": "vpc-t31-secret", "resourceType": "vpc", "executionProfile": "aws-eks", "driverType": "terraform",
+		"driverInputs": map[string]any{"values": map[string]any{"source": vpcSource, "variables": map[string]any{"name": "x", "master_password": "p"},
+			"output_mapping": map[string]any{"id": "id"}, "provider_bindings": map[string]any{"aws": map[string]any{"target": "environment"}}}},
+		"criteria": []any{map[string]any{"class": "t31"}},
 	}); status != http.StatusBadRequest {
 		t.Fatalf("master_password must be rejected: %d", status)
 	}

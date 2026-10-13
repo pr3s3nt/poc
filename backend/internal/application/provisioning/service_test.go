@@ -3,6 +3,7 @@ package provisioning_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/adapters/terraform/registry"
 	"strings"
 	"testing"
 
@@ -179,7 +180,7 @@ func TestProvision_AWSTargetDefinitionConnectionMismatchFailsBeforeExecutor(t *t
 		descriptor := resourceType + ".default#applications.a"
 		registry := &countingRegistry{}
 		service := provisioning.NewService(app.Store, registry, secrets.NewMemory(), clock.System{})
-		def := resource.Definition{Key: "def-" + resourceType, ResourceTypeKey: resourceType, DriverType: resource.DriverTerraform, ConnectionKey: connection, ExecutionProfile: "aws-eks", Criteria: []resource.Criterion{{}}}
+		def := resource.Definition{Key: "def-" + resourceType, ResourceTypeKey: resourceType, DriverType: resource.DriverTerraform, DriverInputs: terraformInputs(), ConnectionKey: connection, ExecutionProfile: "aws-eks", Criteria: []resource.Criterion{{}}}
 		_, err := service.Provision(ctx, provisioning.Request{
 			DeploymentID: "dep-1", RunID: "run-1",
 			Context: planning.Context{OrganizationKey: seedOptions.OrganizationKey, App: application.Application{Key: "a", OrganizationKey: seedOptions.OrganizationKey}, Env: environment.Environment{Key: "staging", Profile: application.ProfileAWSEKS, ConnectionKey: "aws-a", Region: "us-east-1"}},
@@ -236,7 +237,7 @@ func provisionAWS(t *testing.T, app *bootstrap.App, org, resourceType, definitio
 	t.Helper()
 	descriptor := resourceType + ".default#applications.a"
 	service := provisioning.NewService(app.Store, registry, secrets.NewMemory(), clock.System{})
-	def := resource.Definition{Key: "def-" + resourceType, ResourceTypeKey: resourceType, DriverType: resource.DriverTerraform, ConnectionKey: definitionKey, ExecutionProfile: "aws-eks", Criteria: []resource.Criterion{{}}}
+	def := resource.Definition{Key: "def-" + resourceType, ResourceTypeKey: resourceType, DriverType: resource.DriverTerraform, DriverInputs: terraformInputs(), ConnectionKey: definitionKey, ExecutionProfile: "aws-eks", Criteria: []resource.Criterion{{}}}
 	if err := app.Store.SaveResourceDefinition(context.Background(), org, def); err != nil {
 		t.Fatal(err)
 	}
@@ -290,8 +291,9 @@ func TestProvision_AWSVPCAndEKSInheritEnvironmentConnection(t *testing.T) {
 	}
 }
 
-// Aurora keeps its explicit account, never swaps it for the Environment account
-// and fails closed instead of inheriting when the key is absent.
+// A stored explicit Aurora account is never swapped for the Environment
+// account. A v2 Definition without a key binds AWS to the Environment
+// (UC-03 BR-08), and state recorded under another account is never reused.
 func TestProvision_AuroraKeepsExplicitAccountAndNeverInherits(t *testing.T) {
 	ctx := context.Background()
 	seedOptions := seed.Defaults()
@@ -316,8 +318,8 @@ func TestProvision_AuroraKeepsExplicitAccountAndNeverInherits(t *testing.T) {
 
 	missing := &recordingRegistry{}
 	err = provisionAWS(t, app, seedOptions.OrganizationKey, "postgres", "", "aws-a", missing)
-	if err == nil || !strings.Contains(err.Error(), "must exist and be READY") || len(missing.requests) != 0 {
-		t.Fatalf("Aurora without account: err=%v executor calls=%d", err, len(missing.requests))
+	if err == nil || !strings.Contains(err.Error(), "belongs to another connection") || len(missing.requests) != 0 {
+		t.Fatalf("Environment-bound Aurora over aws-b state: err=%v executor calls=%d", err, len(missing.requests))
 	}
 }
 
@@ -417,4 +419,19 @@ func TestProvision_EffectiveAWSConnectionUnavailableFailsBeforeExecutor(t *testi
 			t.Fatalf("Aurora with explicit account %q: err=%v calls=%d", bad, err, len(registry.requests))
 		}
 	}
+}
+
+// terraformInputs is a v2 Terraform Driver Inputs document (packaged VPC
+// pin, Environment AWS binding). The fake executor runs no module code, so
+// no artifact verification happens in these connection tests.
+func terraformInputs() map[string]any {
+	refs, err := registry.PackagedRefs()
+	if err != nil {
+		panic(err)
+	}
+	return map[string]any{"values": map[string]any{
+		"source":            refs["vpc"].Map(),
+		"variables":         map[string]any{},
+		"provider_bindings": map[string]any{"aws": map[string]any{"target": "environment"}},
+	}}
 }

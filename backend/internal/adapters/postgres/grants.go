@@ -49,8 +49,10 @@ var productTables = []string{
 // of a released or recovered operation needs: a DELETE can neither filter on
 // nor return the token hash without SELECT on it. Lock rows expose only the
 // safe lock metadata release/recovery needs, not the lock_metadata document.
-// Terraform instance, edge and attempt metadata and module bundles are
-// read-only; they are written by the State login (or a later registry task).
+// Terraform instance, edge and attempt metadata are read-only; they are
+// written by the State login. Verified module bundles are insert-only for the
+// Console, which runs registration and platform preparation; the baseline
+// trigger keeps them immutable and no runtime login may update or delete them.
 func consoleGrants() []grant {
 	var out []grant
 	out = append(out, grant{table: "schema_baseline", privilege: "SELECT"})
@@ -61,6 +63,7 @@ func consoleGrants() []grant {
 	}
 	return append(out,
 		grant{table: "terraform_module_bundles", privilege: "SELECT"},
+		grant{table: "terraform_module_bundles", privilege: "INSERT"},
 		grant{table: "terraform_resource_instances", privilege: "SELECT"},
 		grant{table: "terraform_resource_dependencies", privilege: "SELECT"},
 		grant{table: "terraform_resource_attempts", privilege: "SELECT"},

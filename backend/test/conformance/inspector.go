@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 
 	"orchestrator/internal/adapters/terraform"
+	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 )
 
@@ -30,14 +31,31 @@ type FixtureInspector struct {
 	cached map[string]planning.ModuleContract
 }
 
-// ExecutorVariables reports none: fixture definitions declare every variable.
-func (i *FixtureInspector) ExecutorVariables() []string { return nil }
+// Contract parses the checkout a fixture Definition's url[@rev][/path] source
+// points at. Fixtures declare every variable (no executor-owned ones) and
+// bind params and outputs by name (nil mappings), as the planner reference.
+func (i *FixtureInspector) Contract(def resource.Definition) (planning.ModuleContract, error) {
+	return i.inspect(fixtureModuleKey(def))
+}
 
-// ExecutorOutputs reports none for the same reason.
-func (i *FixtureInspector) ExecutorOutputs(string) []string { return nil }
+// fixtureModuleKey identifies a fixture module by url[@rev][/path].
+func fixtureModuleKey(def resource.Definition) string {
+	source := def.Source()
+	url, _ := source["url"].(string)
+	if url == "" {
+		return ""
+	}
+	key := url
+	if rev, _ := source["rev"].(string); rev != "" {
+		key += "@" + rev
+	}
+	if path, _ := source["path"].(string); path != "" {
+		key += "/" + path
+	}
+	return key
+}
 
-// Inspect parses the checkout a module key points at.
-func (i *FixtureInspector) Inspect(module string) (planning.ModuleContract, error) {
+func (i *FixtureInspector) inspect(module string) (planning.ModuleContract, error) {
 	if module == "" {
 		return planning.ModuleContract{}, fmt.Errorf("conformance: definition has no Terraform source")
 	}

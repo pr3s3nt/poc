@@ -19,13 +19,14 @@ product requirements. Tất cả checklist đang pending trừ checkpoint tài l
 - [x] Ghi actual changed code/test paths và planned-test IDs đã được hiện thực.
 - [x] Claude chạy checks; Codex review diff và independently verify tương ứng.
 - [x] Evidence/cleanup/remaining blockers vào dated verification, không chép log vào plan.
-- [ ] Commit/push task-only khi checks/review đạt theo AGENTS.md; không force-push.
-- [ ] Đóng tmux task hoặc lưu handoff khi bị chặn/hủy; tuân stage approval gate.
+- [x] Commit/push task-only khi checks/review đạt theo AGENTS.md; không force-push.
+- [x] Đóng tmux task hoặc lưu handoff khi bị chặn/hủy; tuân stage approval gate.
 
 - [x] Owner setup + hai runtime logins và permission-denial tests trên PostgreSQL thật.
-- [ ] Người dùng chốt phạm vi TLS ngoài loopback; implement/validate phần bị ảnh hưởng.
+- [x] Người dùng deferred TLS theo issue #2; contract/docs khớp, không cần code change.
 
-Core/role-A checkpoint đã verified; chưa coi toàn bộ iteration complete.
+Core/role-A checkpoint trước đây chưa đóng task; final corrections ở dưới
+đã hoàn tất và commit/push tại `04fda0f`.
 
 ## Kết thúc
 

@@ -2,7 +2,7 @@
 id: D06
 artifact: backlog-item
 status: deferred
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-13
 ---
 
 # D06 — Humanitec Resource Definition and Score boundary compatibility
@@ -15,7 +15,8 @@ Trước khi công bố compatibility phải quyết định và test:
 - ánh xạ driver ID có namespace sang executor enum nội bộ;
 - ánh xạ `driver_account` sang Connection và thiết kế
   `driver_inputs.secret_refs`/secret lifecycle;
-- remote Terraform `url`/`rev`/`path` so với extension `source.module`;
+- remote Terraform `url`/`rev`/`path` so với v2 registry pin
+  `source_id/module_id/revision/subdirectory/content_sha256`;
 - danh sách context placeholder chuẩn và namespace cho các extension nội bộ;
 - Score probe nested `httpGet` và cách xử lý extension top-level `replicas`;
 - migration output namespace từ `name` sang `namespace`;

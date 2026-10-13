@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/ports/execution"
 )
 
@@ -96,8 +97,20 @@ func (e *Executor) Provision(ctx context.Context, req execution.ProvisionRequest
 	if module == "" {
 		return execution.ProvisionResult{}, fmt.Errorf("terraform: resource %s has no module in its definition source", req.Descriptor)
 	}
+	artifact := req.Artifact
+	if artifact == nil {
+		// Only a registry-verified artifact (content, release pins and binary
+		// digest re-checked just now) may run.
+		return execution.ProvisionResult{}, fmt.Errorf("terraform: resource %s has no verified module artifact", req.Descriptor)
+	}
+	if artifact.TerraformBinary != e.BinaryPath {
+		return execution.ProvisionResult{}, fmt.Errorf("terraform: resource %s: the verified Terraform binary is not the executor binary", req.Descriptor)
+	}
+	if len(artifact.Bundle.Contract.Transitive) > 0 {
+		return execution.ProvisionResult{}, fmt.Errorf("terraform: resource %s: modules calling modules outside their directory need the v2 executor", req.Descriptor)
+	}
 	dir := filepath.Join(e.Root, workspaceFor(req.Descriptor, req.Generation))
-	if err := e.writeModule(module, dir); err != nil {
+	if err := e.writeModule(*artifact, dir); err != nil {
 		return execution.ProvisionResult{}, err
 	}
 
@@ -112,7 +125,7 @@ func (e *Executor) Provision(ctx context.Context, req execution.ProvisionRequest
 		return execution.ProvisionResult{}, err
 	}
 
-	if err := e.run(ctx, dir, "init", "-input=false", "-no-color"); err != nil {
+	if err := e.run(ctx, dir, "init", "-input=false", "-no-color", "-lockfile=readonly"); err != nil {
 		return execution.ProvisionResult{}, err
 	}
 	applyErr := e.planAndApply(ctx, dir, module)
@@ -224,28 +237,44 @@ func (e *Executor) reviewPlan(ctx context.Context, dir, module string) error {
 	return nil
 }
 
-func (e *Executor) writeModule(module, dir string) error {
-	entries, err := fs.ReadDir(moduleFS, filepath.Join("modules", module))
-	if err != nil {
-		return fmt.Errorf("terraform: unknown module %q: %w", module, err)
-	}
+// writeModule copies the verified module directory and the release
+// provider lock into the workspace.
+func (e *Executor) writeModule(artifact tfmodule.VerifiedArtifact, dir string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("terraform: create workspace: %w", err)
 	}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		content, err := moduleFS.ReadFile(filepath.Join("modules", module, entry.Name()))
+	err := filepath.WalkDir(artifact.ModuleDir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("terraform: read module file: %w", err)
+			return err
 		}
-		if err := os.WriteFile(filepath.Join(dir, entry.Name()), content, 0o600); err != nil {
-			return fmt.Errorf("terraform: write module file: %w", err)
+		rel, err := filepath.Rel(artifact.ModuleDir, p)
+		if err != nil || rel == "." {
+			return err
 		}
+		target := filepath.Join(dir, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o700)
+		}
+		if !d.Type().IsRegular() {
+			return fmt.Errorf("terraform: the verified module contains a non-regular file")
+		}
+		content, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, content, 0o600)
+	})
+	if err != nil {
+		return fmt.Errorf("terraform: write module files: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".terraform.lock.hcl"), artifact.LockFile, 0o600); err != nil {
+		return fmt.Errorf("terraform: write provider lock file: %w", err)
 	}
 	return nil
 }
+
+// RequiresVerifiedModule implements execution.VerifiedModuleExecutor.
+func (e *Executor) RequiresVerifiedModule() bool { return true }
 
 // buildVars merges the resolved driver variables and resource params with the
 // variables the executor owns. Values are passed through untouched, so the
@@ -480,3 +509,14 @@ func tail(s string, n int) string {
 }
 
 var _ execution.ResourceExecutor = (*Executor)(nil)
+
+// PackagedModules returns the trusted packaged module files shipped with the
+// binary, rooted at the module directories ("vpc", "eks", "aurora"). The
+// module registry verifies them against the release manifest digests.
+func PackagedModules() fs.FS {
+	sub, err := fs.Sub(moduleFS, "modules")
+	if err != nil {
+		panic(err)
+	}
+	return sub
+}

@@ -32,7 +32,26 @@ Fetch/inspect ở registration hoặc platform preparation, không ở pure plan
 Materialize cache theo digest ngoài repository, private invocation workspace;
 verify digest lại trước execution. Artifact thiếu/drift thì dừng trước provision,
 không tự lấy version mới. Transitive modules cũng phải immutable và được đưa
-vào verified bundle. Provider lockfile chỉ pin providers, không thay module pin.
+vào verified bundle. Cho phép child module local trong cùng revision và child
+HTTPS Git thuộc Admin allowlist, pin full commit + content digest; không tự giới
+hạn toàn bộ child modules về local. Remote source chưa được phép hoặc mutable
+phải bị từ chối. Cache chứa đủ dependency đã xác minh trước execution.
+Provider lockfile chỉ pin providers, không thay module pin.
+
+Trong contract của bundle, `transitive` liệt kê từng thư mục module con đã
+xác minh, gồm `sourceId`, `revision`, `path` và `contentSha256`; cùng thư mục
+chỉ có một mục. `moduleCalls` mô tả cây gọi, gồm `key` (ví dụ `net.subnets`),
+`source` nguyên văn và `transitive` là chỉ số tới mục tương ứng. Metadata này
+nằm trong contract JSON, không chứa credential hay đường dẫn cache nội bộ.
+Trước execution, kiểm lại digest của root và mọi module con. Thiếu artifact
+hoặc digest khác thì dừng; không tải lại trong Preview hoặc execution.
+
+Content SHA-256 của một module directory là SHA-256 của danh sách files sắp
+xếp theo slash path: mỗi entry gồm path, byte NUL, SHA-256 nội dung dưới dạng
+lowercase hex, newline. Directory selection theo subdirectory; digest cover
+names và content, không metadata thời gian. Artifact format/cache path không
+phải thông tin công khai. Prepared release công bố pins/digests để PE dùng đúng
+contract, không đoán SHA từ file tar có metadata không ổn định.
 
 Release manifest chứa exact Terraform version + binary digest, provider source/
 exact version + lockfile hashes, module commit/content digest và score-k8s bundle

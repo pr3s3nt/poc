@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"orchestrator/internal/adapters/terraform"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
 	"orchestrator/internal/application/catalog"
@@ -30,6 +29,7 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/credentials"
+	"orchestrator/internal/ports/moduleregistry"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
 )
@@ -74,8 +74,11 @@ type Config struct {
 	Pending               *pending.Service
 	Previews              *preview.Service
 	Store                 persistence.Store
-	SeedOptions           seed.Options
-	UIDir                 string
+	// ModuleRegistry is the verified Terraform module registry used by
+	// Definition registration (verify) and capability metadata (read-only).
+	ModuleRegistry moduleregistry.Registry
+	SeedOptions    seed.Options
+	UIDir          string
 }
 
 // NewServer builds the HTTP handler tree.
@@ -85,7 +88,7 @@ func NewServer(cfg Config) *Server {
 		queries:        cfg.Queries,
 		auth:           cfg.Authentication,
 		applications:   cfg.Applications,
-		catalog:        catalog.NewService(cfg.Store, terraform.NewInspector()),
+		catalog:        catalog.NewService(cfg.Store, cfg.ModuleRegistry),
 		connections:    connectionapp.NewService(cfg.Store),
 		secretStores:   cfg.SecretStores,
 		operations:     cfg.Operations,

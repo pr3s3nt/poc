@@ -25,7 +25,7 @@ var requiredSnapshotKeys = []string{
 	"deploymentSets", "resourceTypes", "resourceDefinitions", "deployments", "deploymentDeltaSnapshots",
 	"deploymentPlans", "deploymentResources", "activeResources", "workloadInstances", "deploymentWorkloads",
 	"configurationScopes", "configurationRevisions", "workloadDrafts", "secretStores",
-	"environmentOperations", "environmentTransitions",
+	"environmentOperations", "environmentTransitions", "terraformModuleBundles",
 }
 
 // loadSnapshot parses the current format only. Missing or null aggregate maps,
@@ -115,6 +115,11 @@ func (s *state) validateCurrent() error {
 	for key, d := range s.Deployments {
 		if d.ID == "" || key != d.ID {
 			return resetRequired("a Deployment record is incomplete")
+		}
+	}
+	for key, bundle := range s.ModuleBundles {
+		if bundle.Validate() != nil || key != bundle.Ref.Pin() {
+			return resetRequired("a Terraform module bundle record is invalid")
 		}
 	}
 	for id := range s.DeltaSnapshots {

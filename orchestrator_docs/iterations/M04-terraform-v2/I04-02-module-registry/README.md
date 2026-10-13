@@ -1,7 +1,7 @@
 ---
 id: I04-02
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-10-13
 related: [M04, ADR-014, IMP-021]
 ---
@@ -10,7 +10,9 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Bắt đầu sau I04-01 đã verified; chưa claim registry hoàn tất.
+Chặng 2; registry đã hoàn tất sau review và validation độc lập. Xem
+[evidence](../../../verification/2026-10-13-i04-02-module-registry.md).
+Executor integration và Console/live proof thuộc các task tiếp theo.
 
 ## Phạm vi
 

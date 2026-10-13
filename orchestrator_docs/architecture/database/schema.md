@@ -516,8 +516,20 @@ Verified platform module registry: `id uuid PK`, `source_id text`, `module_id
 text`, `revision text`, `subdirectory text`, `content_sha256 text`,
 `terraform_version text`, `terraform_binary_sha256 text`, `provider_lock_digest
 text`, `contract jsonb`, `provider_requirements jsonb`, `status text`, timestamps.
-Unique `(source_id,module_id,revision,subdirectory,content_sha256)`; content and
-contract immutable after verification. Contract holds input/output/schema mappings,
+Unique `(source_id,module_id,revision,subdirectory,content_sha256)` và unique
+pin `(source_id,module_id,revision,subdirectory)`: một revision/path chỉ có một
+digest. Concurrent different-digest registration bị từ chối; cùng digest chỉ
+reuse khi contract/release giống nhau. Content/contract/release immutable,
+không UPDATE/DELETE verified bundle. Console có SELECT + INSERT riêng cho bảng
+này, không UPDATE/DELETE; State role không cần đọc bundle trong I04-02.
+
+CHECK source_id/module_id là identifier 1–63 ký tự lowercase chữ/số/hyphen,
+revision là identifier release 1–128 ký tự chữ/số/dot/underscore/hyphen; Git
+phải full commit 40/64 hex theo source policy. Subdirectory là `.` hoặc path
+segments tương đối bằng chữ/số/dot/underscore/hyphen, không `.`/`..` segment.
+Ba digest phải 64 lowercase hex; Terraform version exact `major.minor.patch`.
+Contract/provider_requirements là JSON object; status VERIFIED trong registry
+insert-only hiện hành (không mở API revoke/update). Trigger giữ bundle bất biến. Contract holds input/output/schema mappings,
 provider pins and transitive bundle metadata, never credentials/cache path.
 Definition `driver_inputs` references verified bundle identity plus mappings;
 plan pins immutable bundle snapshot/digests. Admin source allowlist is platform

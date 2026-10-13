@@ -294,6 +294,10 @@ entity terraform_module_bundles {
  provider_lock_digest : text
  contract : jsonb
 }
+note right of terraform_module_bundles
+  UNIQUE(source_id,module_id,revision,subdirectory)
+  One digest per revision/path; immutable after verification.
+end note
 entity terraform_resource_instances {
  * id : uuid <<PK>>
  * organization_id : uuid <<FK>>

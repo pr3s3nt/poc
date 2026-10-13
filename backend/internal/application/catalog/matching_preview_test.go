@@ -3,6 +3,7 @@ package catalog_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/domain/tfmodule"
 	"reflect"
 	"strings"
 	"testing"
@@ -12,7 +13,6 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
@@ -493,17 +493,25 @@ func (v readSpyView) ListResourceDefinitions(ctx context.Context, o string) ([]r
 	return v.in.ListResourceDefinitions(ctx, o)
 }
 
-// noInspectorUse fails the test if the module inspector (driver contract) is ever used.
+// noInspectorUse fails the test if the module registry (fetch, metadata or
+// execution verification) is ever used.
 type noInspectorUse struct{ t *testing.T }
 
-func (f noInspectorUse) Inspect(string) (planning.ModuleContract, error) {
-	f.t.Fatal("inspector must not be called by matching preview")
-	return planning.ModuleContract{}, nil
+func (f noInspectorUse) Verify(context.Context, tfmodule.SourceRef) (tfmodule.Bundle, error) {
+	f.t.Fatal("module registry must not be called by matching preview")
+	return tfmodule.Bundle{}, nil
 }
-func (f noInspectorUse) ExecutorVariables() []string { f.t.Fatal("inspector used"); return nil }
-func (f noInspectorUse) ExecutorOutputs(string) []string {
-	f.t.Fatal("inspector used")
-	return nil
+func (f noInspectorUse) Bundle(context.Context, tfmodule.SourceRef) (tfmodule.Bundle, error) {
+	f.t.Fatal("module registry used")
+	return tfmodule.Bundle{}, nil
+}
+func (f noInspectorUse) List(context.Context) ([]tfmodule.Bundle, error) {
+	f.t.Fatal("module registry used")
+	return nil, nil
+}
+func (f noInspectorUse) VerifyForExecution(context.Context, tfmodule.SourceRef) (tfmodule.VerifiedArtifact, error) {
+	f.t.Fatal("module registry used")
+	return tfmodule.VerifiedArtifact{}, nil
 }
 
 func TestPreviewMatching_UsesExactlyOneSnapshotAndNoWrites(t *testing.T) {
