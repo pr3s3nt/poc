@@ -251,7 +251,7 @@ func TestResourceTypeRegistrationRequiresPlatformEngineer(t *testing.T) {
 
 func TestResourceDefinitionRegistrationRequiresPlatformEngineer(t *testing.T) {
 	server, _ := newServer(t, "")
-	payload := []byte(`{"key":"namespace-custom","resourceType":"k8s-namespace","executionProfile":"internal-k8s","driverType":"kubernetes","driverInputs":{"values":{"variables":{"name":"${context.env.namespace}"}}},"criteria":[{}]}`)
+	payload := []byte(mustJSON(k8sModuleDefinition("namespace-custom", "k8s-namespace", "k8s-namespace", map[string]any{"name": "${context.env.namespace}"}, nil, []string{"name"}, []any{map[string]any{}})))
 	post := func(client *http.Client) int {
 		t.Helper()
 		req, err := http.NewRequest(http.MethodPost, server.URL+"/api/v1/resource-definitions", bytes.NewReader(payload))

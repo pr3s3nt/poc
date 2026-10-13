@@ -14,10 +14,6 @@ import (
 	"orchestrator/internal/bootstrap"
 )
 
-const fastPostgres = `{"key":"postgres-fast","resourceType":"postgres","executionProfile":"internal-k8s","driverType":"kubernetes","connectionKey":"fast-cluster",` +
-	`"driverInputs":{"values":{"variables":{"image":"postgres:17-alpine","storage":"2Gi","namespace":"${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"}}},` +
-	`"criteria":[{"class":"fast"}]}`
-
 // TestUC02UC04RegistrationIsUsableWithoutRestart registers a Connection, a
 // runtime-supported PostgreSQL Definition for class "fast" and a new Resource
 // Type over HTTP, then uses them from a Developer session on the same process:
@@ -153,7 +149,7 @@ func concurrentRegistration(t *testing.T, baseURL string, client *http.Client) {
 	t.Helper()
 	for _, tc := range []struct{ path, list, a, b string }{
 		{"/api/v1/resource-types", "/api/v1/resource-types", `{"key":"race-type","outputs":[{"name":"host","type":"string"}]}`, `{"key":"race-type","inputs":[{"name":"size","type":"number"}],"outputs":[{"name":"host","type":"string"}]}`},
-		{"/api/v1/resource-definitions", "/api/v1/resource-definitions", strings.Replace(strings.Replace(fastPostgres, `"postgres-fast"`, `"race-def"`, 1), `,"connectionKey":"fast-cluster"`, ``, 1), strings.Replace(strings.Replace(strings.Replace(fastPostgres, `"postgres-fast"`, `"race-def"`, 1), `,"connectionKey":"fast-cluster"`, ``, 1), `{"class":"fast"}`, `{"class":"slow"},{}`, 1)},
+		{"/api/v1/resource-definitions", "/api/v1/resource-definitions", postgresBody("race-def", "", []any{map[string]any{"class": "fast"}}), postgresBody("race-def", "", []any{map[string]any{"class": "slow"}, map[string]any{}})},
 	} {
 		statuses := make([]int, 2)
 		var wg sync.WaitGroup
@@ -262,7 +258,7 @@ func TestPublicRegistrationRejectsExistingClusterDriver(t *testing.T) {
 			}
 		}
 	}
-	reserved := strings.Replace(fastPostgres, `"postgres-fast"`, `"builtin-existing-cluster"`, 1)
+	reserved := postgresBody("builtin-existing-cluster", "fast-cluster", []any{map[string]any{"class": "fast"}})
 	if resp, out := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", reserved); resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("reserved key with kubernetes driver: %d %s, want 400", resp.StatusCode, out)
 	}

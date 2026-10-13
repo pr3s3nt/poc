@@ -36,22 +36,23 @@ func TestUC02UC03RegistrationPolicyHTTP(t *testing.T) {
 
 	namespace := "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
 	definition := func(key string, variables map[string]any) map[string]any {
-		return map[string]any{
-			"key": key, "resourceType": "postgres", "executionProfile": "internal-k8s", "driverType": "kubernetes",
-			"driverInputs": map[string]any{"values": map[string]any{"variables": variables}},
-			"criteria":     []any{map[string]any{"class": "policy"}},
-		}
+		return postgresModuleDefinition(key, variables, []any{map[string]any{"class": "policy"}})
 	}
 	invalid := map[string]map[string]any{
 		"uppercase key":        definition("Postgres-Policy", map[string]any{"namespace": namespace}),
 		"unsupported variable": definition("pg-policy", map[string]any{"password": policySentinel}),
-		"wrong type":           definition("pg-policy", map[string]any{"storage": 20}),
-		"null variable":        definition("pg-policy", map[string]any{"image": nil}),
-		"malformed":            definition("pg-policy", map[string]any{"image": "${context." + policySentinel}),
-		"nested placeholder":   definition("pg-policy", map[string]any{"image": "${context.${" + policySentinel + "}}"}),
-		"nested escaped token": definition("pg-policy", map[string]any{"image": "${context.$${" + policySentinel + "}}"}),
-		"secret refs": {
+		"wrong type":           definition("pg-policy", map[string]any{"namespace": namespace, "storage": 20}),
+		"null variable":        definition("pg-policy", map[string]any{"namespace": namespace, "image": nil}),
+		"malformed":            definition("pg-policy", map[string]any{"namespace": namespace, "image": "${context." + policySentinel}),
+		"nested placeholder":   definition("pg-policy", map[string]any{"namespace": namespace, "image": "${context.${" + policySentinel + "}}"}),
+		"nested escaped token": definition("pg-policy", map[string]any{"namespace": namespace, "image": "${context.$${" + policySentinel + "}}"}),
+		"static kubernetes driver": {
 			"key": "pg-policy", "resourceType": "postgres", "executionProfile": "internal-k8s", "driverType": "kubernetes",
+			"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{"namespace": namespace}}},
+			"criteria":     []any{map[string]any{"class": "policy"}},
+		},
+		"secret refs": {
+			"key": "pg-policy", "resourceType": "postgres", "executionProfile": "internal-k8s", "driverType": "terraform",
 			"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{}}, "secret_refs": map[string]any{"password": policySentinel}},
 			"criteria":     []any{map[string]any{"class": "policy"}},
 		},
