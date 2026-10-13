@@ -432,7 +432,8 @@ it('shows unknown action and status keys verbatim without reading inherited prop
   expect(entry).toHaveTextContent('toString');
   await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
   const item = (await within(await screen.findByLabelText('Xem trước triển khai')).findByRole('listitem'));
-  expect(item).toHaveTextContent('api · toString · Kubernetes tích hợp sẵn');
+  expect(item).toHaveTextContent('api · toString · trình dựng: Chưa xác định trình dựng score-k8s (không có renderer mặc định)');
+  expect(item).not.toHaveTextContent('Kubernetes tích hợp sẵn');
 });
 
 it('uses a fixed Vietnamese message when delete fails and keeps the list', async () => {
@@ -468,4 +469,44 @@ it('opens on the Environment given by the route and previews that Environment', 
   expect(await screen.findByRole('heading', { name: 'Xem trước cho production' })).toBeInTheDocument();
   expect(urls.filter((url) => url.includes('/workloads') || url.endsWith('/preview')).every((url) => url.includes('/environments/production/'))).toBe(true);
   expect(urls.some((url) => url.includes('/environments/staging/'))).toBe(false);
+});
+
+it('shows the safe Preview projection: renderer, pinned target and account, module pin, provider targets, ownership and intent only', async () => {
+  const digest = 'a'.repeat(64);
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith('/workloads')) return Response.json({ draftVersion: 1, workloads: [{ id: 'api', state: 'PENDING_UPSERT', ready: false, score: {} }] });
+    if (url.endsWith('/preview')) return Response.json({
+      token: 't', draftVersion: 1, binding: { connectionKey: 'aws-prod', executionProfile: 'aws-eks', region: 'us-east-1' }, accountId: '452025861381',
+      changes: [{ workloadId: 'api', action: 'DEPLOY', planHash: 'p', resources: { existing: [], new: ['postgres.default#shared.orders'], unreferenced: [] },
+        rendering: { definitionKey: 'render-cloud', driverType: 'score-k8s', bundle: { id: 'score-k8s-internal-v1', version: '0.15.0' } },
+        resourceIntents: [
+          { descriptor: 'postgres.cloud-managed#shared.orders', resourceType: 'postgres', class: 'cloud-managed', scope: 'SHARED:orders', ownership: 'ORCHESTRATOR', intent: 'CREATE', definitionKey: 'aurora-prod', driverType: 'terraform',
+            module: { module: 'aurora', sourceId: 'platform', revision: 'v3-2026.10.13', subdirectory: 'aurora', contentSha256: digest }, providers: [{ name: 'aws', kind: 'aws', target: 'environment', connectionKey: 'aws-prod', region: 'us-east-1' }] },
+          { descriptor: 'vpc.default#@infra', resourceType: 'vpc', class: 'default', scope: 'ENVIRONMENT:shop.prod', ownership: 'ORCHESTRATOR', intent: 'RETAIN', definitionKey: 'vpc-aws', driverType: 'terraform' },
+          { descriptor: 'k8s-cluster.eks#environments.shop.prod', resourceType: 'k8s-cluster', class: 'eks', scope: 'ENVIRONMENT:shop.prod', ownership: 'PLATFORM', intent: 'BIND', definitionKey: 'cluster-aws-eks', driverType: 'existing-cluster' },
+        ] }],
+    });
+    return Response.json({}, { status: 404 });
+  }));
+  const user = userEvent.setup();
+  render(<ApplicationHomePage application={application} />);
+  await screen.findByText('api');
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  const panel = await screen.findByLabelText('Xem trước triển khai');
+  expect(within(panel).getByLabelText('Đích đã ghim của xem trước')).toHaveTextContent('Kết nối aws-prod · phạm vi aws-eks · vùng us-east-1 · tài khoản AWS 452025861381');
+  expect(panel.querySelector('.preview-changes > li')).toHaveTextContent('trình dựng: score-k8s 0.15.0 (mẫu render-cloud)');
+  const table = within(panel).getByRole('table');
+  const rows = within(table).getAllByRole('row').slice(1);
+  expect(rows[0]).toHaveTextContent('postgres / cloud-managed');
+  expect(rows[0]).toHaveTextContent('aurora-prod');
+  expect(rows[0]).toHaveTextContent('aurora · v3-2026.10.13');
+  expect(rows[0]).toHaveTextContent('sha256:aaaaaaaaaaaa');
+  expect(rows[0]).toHaveTextContent('aws: Kết nối AWS của Môi trường aws-prod · vùng us-east-1');
+  expect(rows[0]).toHaveTextContent('Tạo mới');
+  expect(rows[1]).toHaveTextContent('Giữ nguyên tài nguyên đã có');
+  expect(rows[2]).toHaveTextContent('Nền tảng (liên kết hệ thống)');
+  expect(rows[2]).toHaveTextContent('Liên kết hệ thống, không tạo');
+  expect(panel.textContent).toMatch(/không phải kế hoạch Terraform hay manifest cuối cùng/);
+  for (const leak of [/password/i, /kubeconfig/i, /credential/i, /state/i, /secret/i]) expect(panel.textContent).not.toMatch(leak);
 });

@@ -6,6 +6,7 @@ import { Button } from '../../shared/ui/Button';
 import { ApiError } from '../../shared/api/client';
 import { previewScore, type PreviewAction, type ScorePreview, type ScorePreviewRequest } from './api';
 import { parseScoreText } from './parseScore';
+import { ResourceIntents, rendererText } from './ResourceIntents';
 
 const actions: { value: PreviewAction; label: string; hint: string }[] = [
   { value: 'deploy', label: 'Thêm Workload', hint: 'Chỉ cần Score sau; Workload chưa tồn tại.' },
@@ -119,8 +120,9 @@ function PreviewResult({ result }: { result: ScorePreview }) {
   const renderer = result.rendering?.[result.workloadId];
   return <section className="preview-result" aria-label="Kết quả xem trước Score">
     <section className="content-panel"><div className="section-header"><div><h2>Xem trước · {result.workloadId} · {actionLabel(result.action)}</h2><p>Kết quả chỉ đọc. Không có gì được lưu hay triển khai; hãy triển khai qua luồng Workload thông thường.</p></div></div>
-      <dl className="detail-grid"><div><dt>Môi trường</dt><dd>{result.applicationKey} / {result.environmentKey}</dd></div><div><dt>Deployment Set nền</dt><dd>{result.baseSetId || 'trống'}</dd></div><div><dt>Phiên bản môi trường</dt><dd>{result.baseVersion}</dd></div><div><dt>ID lần chạy</dt><dd>{result.runId}</dd></div><div><dt>Trình dựng Workload</dt><dd>{renderer ? `${renderer.driverType} ${renderer.bundle.version} · ${renderer.definitionKey}` : 'Kubernetes tích hợp sẵn'}</dd></div><div><dt>Mã băm kế hoạch</dt><dd><code className="plan-hash" title={result.planHash}>{result.planHash}</code></dd></div></dl></section>
+      <dl className="detail-grid"><div><dt>Môi trường</dt><dd>{result.applicationKey} / {result.environmentKey}</dd></div><div><dt>Deployment Set nền</dt><dd>{result.baseSetId || 'trống'}</dd></div><div><dt>Phiên bản môi trường</dt><dd>{result.baseVersion}</dd></div><div><dt>ID lần chạy</dt><dd>{result.runId}</dd></div><div><dt>Trình dựng Workload</dt><dd>{rendererText(renderer)}</dd></div><div><dt>Mã băm kế hoạch</dt><dd><code className="plan-hash" title={result.planHash}>{result.planHash}</code></dd></div></dl></section>
     <section className="content-panel"><h2>Delta</h2><DeltaSummary result={result} /></section>
+    <section className="content-panel"><h2>Tài nguyên hạ tầng</h2><ResourceIntents intents={result.resourceIntents} /></section>
     <section className="content-panel"><h2>Thay đổi tài nguyên</h2><div className="detail-grid">
       <div><h3>Mới ({result.classification.new.length})</h3><List items={result.classification.new} empty="Không có" /></div>
       <div><h3>Đã có ({result.classification.existing.length})</h3><List items={result.classification.existing} empty="Không có" /></div>

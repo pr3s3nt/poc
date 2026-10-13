@@ -31,8 +31,9 @@ const field = (label: string) => screen.getByLabelText(label);
 const submitName = 'Đăng ký mẫu dựng ứng dụng';
 const submitButton = () => screen.getByRole('button', { name: submitName });
 const bundleSelect = () => screen.getByLabelText('Bundle dựng ứng dụng');
-async function fill(user: ReturnType<typeof userEvent.setup>, id = 'web-tpl', bundle = '') {
+async function fill(user: ReturnType<typeof userEvent.setup>, id = 'web-tpl', bundle = '', profile = 'internal-k8s') {
   await user.type(field('ID mẫu'), id);
+  if (profile) await user.selectOptions(field('Phạm vi triển khai'), profile);
   if (bundle) await user.selectOptions(bundleSelect(), bundle);
 }
 
@@ -41,20 +42,21 @@ describe('UC-03 rendering templates page (T03)', () => {
     backend({ definitions: [other, template] });
     render(<RenderingTemplatesPage />);
     expect(await screen.findByText('web-tpl')).toBeInTheDocument();
-    expect(screen.getByText(/Bundle: bundle-web · 1 điều kiện áp dụng/)).toBeInTheDocument();
+    expect(screen.getByText(/Cluster nội bộ \(internal-k8s\) · Bundle: bundle-web · 1 điều kiện áp dụng/)).toBeInTheDocument();
     expect(screen.queryByText('pg-main', { selector: 'strong' })).not.toBeInTheDocument();
   });
 
-  it('shows the empty state and the optional/no-fallback guidance in Vietnamese', async () => {
+  it('shows the empty state and the required-on-both-profiles/no-fallback guidance in Vietnamese', async () => {
     backend();
     render(<RenderingTemplatesPage />);
     expect(await screen.findByText('Chưa có mẫu dựng ứng dụng nào.')).toBeInTheDocument();
-    expect(screen.getByText(/Mẫu là tùy chọn và chỉ dùng cho cluster nội bộ/)).toBeInTheDocument();
-    expect(screen.getByText(/không chuyển âm thầm sang renderer mặc định/)).toBeInTheDocument();
+    expect(screen.getByText(/ở cả cluster nội bộ và AWS, cần đúng một mẫu dựng ứng dụng/)).toBeInTheDocument();
+    expect(screen.getByText(/hệ thống không dùng renderer mặc định hay renderer khác/)).toBeInTheDocument();
+    expect(screen.queryByText(/dùng renderer mặc định\./)).not.toBeInTheDocument();
     expect(screen.getByText(/Một bundle duy nhất được chọn sẵn; nhiều bundle cần chọn tường minh/)).toBeInTheDocument();
   });
 
-  it('posts only workload/score-k8s/internal-k8s with render_bundle and criteria', async () => {
+  it('posts only workload/score-k8s with the chosen profile, render_bundle and criteria', async () => {
     const user = userEvent.setup();
     const { posted } = backend({ definitionLists: [() => Response.json({ resourceDefinitions: [] }), () => Response.json({ resourceDefinitions: [template] })] });
     render(<RenderingTemplatesPage />);
@@ -67,7 +69,25 @@ describe('UC-03 rendering templates page (T03)', () => {
     expect(posted[0]).not.toHaveProperty('driverInputs.values.source');
     expect(await screen.findByText(/Bundle: bundle-web/)).toBeInTheDocument();
     expect(field('ID mẫu')).toHaveValue('');
+    expect(field('Phạm vi triển khai')).toHaveValue('');
     expect(bundleSelect()).toHaveValue('bundle-web');
+  });
+
+  it('registers the same template for the AWS profile and never defaults the scope', async () => {
+    const user = userEvent.setup();
+    const { posted } = backend();
+    render(<RenderingTemplatesPage />);
+    await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await fill(user, 'web-cloud', '', '');
+    await user.click(submitButton());
+    expect(await screen.findByRole('alert')).toHaveTextContent('Chọn phạm vi triển khai của mẫu');
+    expect(posted).toEqual([]);
+    expect(field('Phạm vi triển khai')).toHaveValue('');
+    await user.selectOptions(field('Phạm vi triển khai'), 'aws-eks');
+    expect(screen.getByText(/Phạm vi triển khai \(executionProfile\):/)).toHaveTextContent('AWS (aws-eks)');
+    await user.click(submitButton());
+    expect(await screen.findByRole('status')).toHaveTextContent('web-cloud');
+    expect(posted[0]).toMatchObject({ key: 'web-cloud', executionProfile: 'aws-eks', driverType: 'score-k8s', resourceType: 'workload' });
   });
 
   it('shows no infrastructure controls and reuses the shared criteria editor', async () => {
@@ -76,6 +96,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
     for (const label of [/Kết nối/, /Terraform/, /module/i, /JSON/, /Quy tắc tạo tài nguyên/, /Loại tài nguyên/, /Cách tạo/]) expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: 'Chế độ điều kiện áp dụng' })).toBeInTheDocument();
+    await userEvent.setup().selectOptions(field('Phạm vi triển khai'), 'internal-k8s');
     expect(screen.getByText(/Phạm vi triển khai \(executionProfile\):/)).toHaveTextContent('Cluster nội bộ');
   });
 
@@ -92,6 +113,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     expect(field('ID mẫu')).toHaveValue('Bad_ID');
     await user.clear(field('ID mẫu'));
     await user.type(field('ID mẫu'), 'ok-id');
+    await user.selectOptions(field('Phạm vi triển khai'), 'internal-k8s');
     await user.click(submitButton());
     expect(posted).toHaveLength(1);
   });
@@ -187,6 +209,7 @@ describe('UC-03 rendering templates page (T03)', () => {
       await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
       expect(bundleSelect()).toHaveValue('');
       await user.type(field('ID mẫu'), 'web-tpl');
+      await user.selectOptions(field('Phạm vi triển khai'), 'internal-k8s');
       await user.click(submitButton());
       expect(await screen.findByRole('alert')).toHaveTextContent('Chọn bundle dựng ứng dụng.');
       expect(posted).toHaveLength(0);
@@ -252,6 +275,7 @@ describe('UC-03 rendering templates page (T03)', () => {
       await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
       await user.selectOptions(bundleSelect(), 'bundle-b');
       await user.type(field('ID mẫu'), 'web-tpl');
+      await user.selectOptions(field('Phạm vi triển khai'), 'aws-eks');
       await user.click(screen.getByRole('button', { name: 'Làm mới danh sách bundle' }));
       const alert = await screen.findByRole('alert', { name: 'Bundle không còn khả dụng' });
       expect(alert).toHaveTextContent('bundle-b');
