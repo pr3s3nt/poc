@@ -10,6 +10,7 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning"
+	"orchestrator/internal/planning/placeholder"
 	"orchestrator/internal/ports/moduleregistry"
 	"orchestrator/internal/ports/persistence"
 )
@@ -63,6 +64,9 @@ func (s *Service) validateTerraform(ctx context.Context, org string, def *resour
 		return tfmodule.Bundle{}, invalidField(bindingsPath, fmt.Errorf("%w: %v", ErrInvalid, err))
 	}
 	if err := checkInputs(bundle, typ, inputs); err != nil {
+		return tfmodule.Bundle{}, invalidField(mappingPath, fmt.Errorf("%w: %v", ErrInvalid, err))
+	}
+	if err := checkSecretReferences(inputs, types); err != nil {
 		return tfmodule.Bundle{}, invalidField(mappingPath, fmt.Errorf("%w: %v", ErrInvalid, err))
 	}
 	if err := checkOutputs(bundle, typ, inputs.OutputMapping); err != nil {
@@ -270,4 +274,42 @@ func contractType(t string) string {
 		return "any"
 	}
 	return t
+}
+
+// checkSecretReferences rejects a Definition value that references an output
+// the Resource Type classifies secret, wherever the placeholder sits (nested
+// in a list or map, or inside a concatenated string). Definition variables
+// are nonsecret module inputs persisted in attempt snapshots; module-mapping
+// classification of the producer is only known once a Definition matches and
+// is checked by planning and again at runtime.
+func checkSecretReferences(inputs tfmodule.DriverInputs, types []resource.Type) error {
+	ctx := planning.Context{App: application.Application{Key: "sample-app"}, Env: environment.Environment{Key: "staging"}, Connection: application.Connection{Key: "sample-connection"}}
+	current := &planning.Node{Descriptor: "k8s-namespace.default#sample", Class: "default"}
+	for _, name := range sortedKeys(inputs.Variables) {
+		err := placeholder.WalkStrings(inputs.Variables[name], "", func(_, text string) error {
+			refs, err := placeholder.Refs(text)
+			if err != nil {
+				return nil // reported by the placeholder checks
+			}
+			for _, ref := range refs {
+				if ref.Kind != placeholder.KindResource {
+					continue
+				}
+				descriptor, err := planning.ParseDescriptorText(ref.Resource, current, ctx)
+				if err != nil {
+					continue
+				}
+				for _, typ := range types {
+					if field, ok := typ.Output(ref.OutputKey); typ.Key == descriptor.Type && ok && field.Secret {
+						return fmt.Errorf("%s.%s binds the secret output %q of resource type %q; a secret output cannot feed a nonsecret module input", variablesPath, name, ref.OutputKey, typ.Key)
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

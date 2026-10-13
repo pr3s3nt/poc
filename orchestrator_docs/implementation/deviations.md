@@ -103,6 +103,17 @@ other than NotFound also stop execution. See
 
 ## IMP-021 — Terraform v2 design/implementation gap
 
+I04-04 modules Kubernetes và chặn secret binding đã review/verified: 1021 tests
+trên PostgreSQL thật, không fail/skip; build/vet, readonly init/validate và
+cleanup đạt. Xem [evidence](../verification/2026-10-13-i04-04-kubernetes-modules.md).
+Catalog kiểm Type classification, planner kiểm Type/module nguồn đã match,
+provisioning kiểm thêm runtime-sensitive flag trước lưu inputs/chạy consumer.
+Static Kubernetes-driver Definitions không thuộc guards Terraform này.
+Chưa có module apply/live pod/PVC/storage proof; AWS modules, UI và integration
+vẫn chưa hoàn tất. Module names lấy stable executor tag; timeout readiness dùng
+cấu hình chung executor. Không seed Definitions trùng criteria cũ; UI registration
+và matching fixtures còn I04-07/11.
+
 I04-03 executor đã qua review và xác minh độc lập: 970 tests trên PostgreSQL
 thật, không fail/skip, build/vet đạt và cleanup đã xác minh. Xem
 [evidence executor](../verification/2026-10-13-i04-03-terraform-executor.md).
@@ -129,7 +140,7 @@ hiện dùng anonymous Git. Không coi backend tests là live UI proof.
 Accepted [ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md)
 và current BR/MS/VAR/OOS trong specifications thay required behavior.
 Rule mapping/supersession: [reconciliation](v2-rule-reconciliation.md). Current code is
-not yet conformant: Packaged namespace/Redis/PostgreSQL modules chưa hoàn tất; AWS credential
+not yet conformant: Packaged AWS modules chưa hoàn tất; AWS credential
 onboarding and Environment-only Aurora/ElastiCache provider binding need implementation;
 score-k8s is optional/internal-only; no Redis app cache or v2 module/source/class
 UI và real acceptance còn thiếu. Durable encrypted state/locks và executor cleanup provenance đã có. PE/Admin resource detail/delete preview/name confirmation/selected-set

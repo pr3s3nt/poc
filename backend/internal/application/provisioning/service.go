@@ -42,7 +42,17 @@ type Result struct {
 	Targets map[string]execution.Target
 	// Instances maps a descriptor to its durable Terraform instance ID.
 	Instances map[string]string
+	// Secrets marks, per descriptor, the output names whose EFFECTIVE
+	// classification is secret: Resource Type, module mapping or a runtime
+	// sensitive flag. Raw values stay in Outputs only for this run's
+	// resolution; consumers are checked against this map before any input is
+	// persisted or any consumer runs.
+	Secrets map[string]map[string]bool
 }
+
+// ErrSecretInput means a secret output would reach a nonsecret Terraform
+// input (planning.ErrSecretInput at execution time).
+var ErrSecretInput = planning.ErrSecretInput
 
 // OutputsFor returns the outputs of one descriptor.
 func (r Result) OutputsFor(descriptor string) map[string]any { return r.Outputs[descriptor] }
@@ -71,7 +81,7 @@ func (s *Service) Provision(ctx context.Context, req Request) (*Result, error) {
 	if req.Plan == nil {
 		return nil, fmt.Errorf("provisioning: plan is required")
 	}
-	result := &Result{Outputs: map[string]map[string]any{}, Targets: map[string]execution.Target{}, Instances: map[string]string{}}
+	result := &Result{Outputs: map[string]map[string]any{}, Targets: map[string]execution.Target{}, Instances: map[string]string{}, Secrets: map[string]map[string]bool{}}
 	for batchIndex, batch := range req.Plan.Batches {
 		for _, descriptor := range batch {
 			if err := s.provisionNode(ctx, req, result, descriptor, batchIndex); err != nil {
@@ -114,24 +124,41 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		return err
 	}
 
-	resolver := runResolver{ctx: req.Context, node: node, bindings: node.Bindings, outputs: result.Outputs}
-	variables, err := placeholder.ExpandTree(mapOrEmpty(def.Variables()), resolver)
+	isTerraform := def.DriverType == resource.DriverTerraform
+	// Every variable and param is expanded on its own so a secret source is
+	// attributed to the exact input it would feed. For Terraform consumers any
+	// secret-derived value (Type, module or runtime classification, nested or
+	// concatenated) is refused before inputs are persisted or a runner opens.
+	expand := func(raw map[string]any, kind string) (map[string]any, error) {
+		out := make(map[string]any, len(raw))
+		for _, name := range sortedNames(raw) {
+			tracker := &runResolver{ctx: req.Context, node: node, bindings: node.Bindings, outputs: result.Outputs, secrets: result.Secrets}
+			value, err := placeholder.ExpandTree(raw[name], tracker)
+			if err != nil {
+				return nil, fmt.Errorf("provisioning: resolve driver %s of %s: %w", kind, descriptor, err)
+			}
+			if isTerraform && len(tracker.secretUsed) > 0 {
+				return nil, fmt.Errorf("%w: %s %q of %s uses the secret output %s", ErrSecretInput, kind, name, descriptor, tracker.secretUsed[0])
+			}
+			out[name] = value
+		}
+		return out, nil
+	}
+	variables, err := expand(mapOrEmpty(def.Variables()), "variable")
 	if err != nil {
-		return fmt.Errorf("provisioning: resolve driver variables of %s: %w", descriptor, err)
+		return err
 	}
 	nodeParams := node.Params
 	if match.DefinitionKey == planning.BuiltinClusterKey {
 		nodeParams = nil // the Environment Connection is the only input source
 	}
-	params, err := placeholder.ExpandTree(mapOrEmpty(nodeParams), resolver)
+	params, err := expand(mapOrEmpty(nodeParams), "param")
 	if err != nil {
-		return fmt.Errorf("provisioning: resolve params of %s: %w", descriptor, err)
+		return err
 	}
 	inputMap := map[string]any{}
-	if values, ok := variables.(map[string]any); ok {
-		for k, v := range values {
-			inputMap[k] = v
-		}
+	for k, v := range variables {
+		inputMap[k] = v
 	}
 	var terraformInputs *tfmodule.DriverInputs
 	if def.DriverType == resource.DriverTerraform {
@@ -144,7 +171,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	// Resource params come from the Score document and win over driver
 	// defaults. Terraform params reach module variables only through the
 	// Definition input mapping.
-	if values, ok := params.(map[string]any); ok {
+	if values := params; values != nil {
 		if terraformInputs != nil {
 			for variable, param := range terraformInputs.InputMapping {
 				if v, ok := values[param]; ok {
@@ -370,6 +397,13 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	if err != nil {
 		return err
 	}
+	effective := map[string]bool{}
+	for name := range execResult.Outputs {
+		field, _ := typ.Output(name)
+		if tfmodule.EffectiveSecret(field.Secret, secretOutputs[name]) {
+			effective[name] = true
+		}
+	}
 
 	fingerprint, err := canon.Hash(inputMap)
 	if err != nil {
@@ -407,6 +441,10 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	}
 
 	result.Outputs[descriptor] = execResult.Outputs
+	if result.Secrets == nil {
+		result.Secrets = map[string]map[string]bool{}
+	}
+	result.Secrets[descriptor] = effective
 	if execResult.InstanceID != "" {
 		result.Instances[descriptor] = execResult.InstanceID
 	}
@@ -506,10 +544,22 @@ type runResolver struct {
 	node     planning.Node
 	bindings map[string]string
 	outputs  map[string]map[string]any
+	secrets  map[string]map[string]bool
+	// secretUsed lists "descriptor.output" names of secret outputs resolved.
+	secretUsed []string
+}
+
+func sortedNames(m map[string]any) []string {
+	names := make([]string, 0, len(m))
+	for name := range m {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // ResolveResource returns the output of a completed provider (UC-08 MS-03).
-func (r runResolver) ResolveResource(binding, outputKey string) (any, error) {
+func (r *runResolver) ResolveResource(binding, outputKey string) (any, error) {
 	descriptor, ok := r.bindings[binding]
 	if !ok {
 		return nil, fmt.Errorf("provisioning: unknown resource binding %q", binding)
@@ -522,12 +572,15 @@ func (r runResolver) ResolveResource(binding, outputKey string) (any, error) {
 	if !ok {
 		return nil, fmt.Errorf("provisioning: provider %q has no output %q", descriptor, outputKey)
 	}
+	if r.secrets[descriptor][outputKey] {
+		r.secretUsed = append(r.secretUsed, descriptor+"."+outputKey)
+	}
 	return value, nil
 }
 
 // ResolveContext returns a non-secret context value. `res.*` describes the node
 // currently being provisioned.
-func (r runResolver) ResolveContext(path string) (any, error) {
+func (r *runResolver) ResolveContext(path string) (any, error) {
 	switch path {
 	case "res.id":
 		return descriptorID(r.node.Descriptor), nil

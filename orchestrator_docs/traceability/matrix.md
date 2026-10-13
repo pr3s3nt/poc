@@ -567,3 +567,14 @@ UC-07 DEL-MS-05..07/DEL-BR-03 có destroy engine tests cho original module/targe
 namespace UID/provenance, remaining IDs và retry/restart sau state rỗng.
 Codex xác minh 970 tests trên PostgreSQL thật, không skip; provider seams fake
 được phân biệt trong evidence. Delete UI/API và live proof còn I04-08/11.
+
+## I04-04 Kubernetes modules review
+
+[Module evidence](../verification/2026-10-13-i04-04-kubernetes-modules.md):
+UC-03 BR-08..16/23..26 và UC-08 BR-05/07 có registry/CLI tests cho immutable
+module/image/provider pins, secret outputs, stable identity và state-owned PVC.
+Module contract no-secret-to-nonsecret rule có catalog/planner/provisioning
+regressions cho Type/module/runtime classification, nested/interpolated refs,
+no consumer invocation/no metadata leakage và nonsecret A01 graph fixture.
+Codex verified 1021 tests trên PostgreSQL thật, không skip. Init/validate/plan
+và Docker image tests chưa thay live k8s/EKS/cleanup proof ở I04-11/12.

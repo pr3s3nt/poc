@@ -1,7 +1,7 @@
 ---
 id: I04-05
 artifact: iteration-plan
-status: deferred
+status: current
 last_reviewed: 2026-10-13
 related: [M04, ADR-014, IMP-021]
 ---
@@ -10,7 +10,9 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Chưa bắt đầu; không suy status này thành task bị bỏ hoặc đã implement.
+Chặng 2; bắt đầu sau I04-04 đã verified. Xem
+[evidence Kubernetes modules](../../../verification/2026-10-13-i04-04-kubernetes-modules.md).
+Task chỉ chuẩn bị modules, không apply AWS trước gate 2.
 
 ## Phạm vi
 
@@ -45,7 +47,7 @@ Pins/validate/contract tests đạt, private network EKS->database/cache rõ, kh
 ## Checks
 
 - terraform init lock readonly, terraform validate từng AWS module
-- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 REQUIRE_TERRAFORM=1 go test ./... && go build ./...`
 - Read-only AWS/pricing preparation khi cần, không create/apply/destroy account resources
 
 ## Handoff

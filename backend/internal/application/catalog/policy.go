@@ -89,9 +89,15 @@ var driverVariableSchemas = map[resource.DriverType]map[string]map[string]static
 // the current seed policy: the infrastructure resource name and the shared
 // VPC outputs through the @infra token (BR-25).
 var terraformPresets = map[string]map[string]string{
-	"vpc":    {"name": "${context.infra.resourceName}"},
-	"eks":    {"name": "${context.infra.resourceName}", "subnet_ids": "${resources['vpc.default#@infra'].outputs.subnetIds}"},
-	"aurora": {"name": "${context.infra.resourceName}", "vpc_id": "${resources['vpc.default#@infra'].outputs.id}", "vpc_cidr": "${resources['vpc.default#@infra'].outputs.cidr}", "subnet_ids": "${resources['vpc.default#@infra'].outputs.subnetIds}"},
+	"vpc": {"name": "${context.infra.resourceName}"},
+	"eks": {"name": "${context.infra.resourceName}", "subnet_ids": "${resources['vpc.default#@infra'].outputs.subnetIds}"},
+	// In-cluster Kubernetes modules (Redis/PostgreSQL/namespace): the target
+	// namespace is the namespace resource output; the namespace name itself is
+	// the stable Environment namespace.
+	"k8s-namespace": {"name": "${context.env.namespace}"},
+	"redis-k8s":     {"namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"},
+	"postgres-k8s":  {"namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"},
+	"aurora":        {"name": "${context.infra.resourceName}", "vpc_id": "${resources['vpc.default#@infra'].outputs.id}", "vpc_cidr": "${resources['vpc.default#@infra'].outputs.cidr}", "subnet_ids": "${resources['vpc.default#@infra'].outputs.subnetIds}"},
 }
 
 // credentialVariables are never accepted as Driver Inputs (UC-03 BR-14). The

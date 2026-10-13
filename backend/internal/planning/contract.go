@@ -1,6 +1,7 @@
 package planning
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -147,6 +148,15 @@ func (b *graphBuilder) inspectTerraform(
 			}
 			if _, ok := provided[name]; !ok {
 				provided[name] = "executor"
+			}
+		}
+
+		// A secret output (Resource Type OR module classification) never feeds a
+		// module input: author-provided inputs are nonsecret and are persisted in
+		// attempt snapshots. List/map/concatenated placeholders are covered.
+		for _, name := range sortedKeys(values) {
+			if err := b.rejectSecretSources(node, name, contract.Module, values[name], matches, matcher, inspector); err != nil {
+				return nil, err
 			}
 		}
 
@@ -344,4 +354,63 @@ func contains(list []string, value string) bool {
 		}
 	}
 	return false
+}
+
+// ErrSecretInput means a secret output would feed a nonsecret Terraform input.
+var ErrSecretInput = errors.New("planning: a secret output cannot feed a nonsecret Terraform input")
+
+// rejectSecretSources fails when any placeholder inside value (nested in
+// lists, maps or concatenated strings) names an output classified secret by
+// its Resource Type or by the producer's module output mapping. The message
+// names descriptors and variables only, never a value.
+func (b *graphBuilder) rejectSecretSources(node *Node, variable, module string, value any, matches map[string]Match, matcher *definitionMatcher, inspector ModuleInspector) error {
+	return placeholder.WalkStrings(value, "", func(_, text string) error {
+		refs, err := placeholder.Refs(text)
+		if err != nil {
+			return nil // malformed references are reported by their own validation
+		}
+		for _, ref := range refs {
+			if ref.Kind != placeholder.KindResource {
+				continue
+			}
+			provider, ok := node.Bindings[ref.Resource]
+			if !ok {
+				continue
+			}
+			secret, err := b.outputIsSecret(provider, ref.OutputKey, matches, matcher, inspector)
+			if err != nil {
+				return err
+			}
+			if secret {
+				return fmt.Errorf("%w: %s output %q of %s into variable %q of module %q", ErrSecretInput, node.Descriptor, ref.OutputKey, provider, variable, module)
+			}
+		}
+		return nil
+	})
+}
+
+// outputIsSecret reports the effective classification known at planning time.
+func (b *graphBuilder) outputIsSecret(provider, output string, matches map[string]Match, matcher *definitionMatcher, inspector ModuleInspector) (bool, error) {
+	node, ok := b.nodes[provider]
+	if !ok {
+		return false, nil
+	}
+	if typ, ok := b.catalog.Types[node.ResourceType]; ok {
+		if field, ok := typ.Output(output); ok && field.Secret {
+			return true, nil
+		}
+	}
+	match, ok := matches[provider]
+	if !ok || match.DriverType != resource.DriverTerraform {
+		return false, nil
+	}
+	def, ok := matcher.definition(match.DefinitionKey)
+	if !ok || inspector == nil {
+		return false, nil
+	}
+	contract, err := inspector.Contract(def)
+	if err != nil {
+		return false, fmt.Errorf("planning: definition %q: %w", def.Key, err)
+	}
+	return contains(contract.SecretOutputs, output), nil
 }

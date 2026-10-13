@@ -45,7 +45,7 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 	for _, c := range caps {
 		keys = append(keys, c.ResourceType+"/"+c.DriverType+"/"+c.Module)
 	}
-	want := []string{"k8s-cluster/terraform/eks", "k8s-namespace/kubernetes/", "postgres/kubernetes/", "postgres/terraform/aurora", "vpc/terraform/vpc"}
+	want := []string{"k8s-cluster/terraform/eks", "k8s-namespace/kubernetes/", "k8s-namespace/terraform/k8s-namespace", "postgres/kubernetes/", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/redis-k8s", "vpc/terraform/vpc"}
 	if !reflect.DeepEqual(keys, want) {
 		t.Fatalf("pairs %v, want %v", keys, want)
 	}
@@ -137,7 +137,7 @@ func TestListDefinitionCapabilities_ResourceParamIsScoped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(caps) != 5 {
+	if len(caps) != 8 {
 		t.Fatalf("custom type changed the supported pairs: %d", len(caps))
 	}
 	// Another Organization without Resource Types still lists the pairs, no params.

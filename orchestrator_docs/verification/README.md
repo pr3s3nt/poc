@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-13 | I04-04 Kubernetes modules, secret binding guards, registry/CLI and independent PostgreSQL validation | [Kubernetes module verification](2026-10-13-i04-04-kubernetes-modules.md) |
 | 2026-10-13 | I04-03 durable executor, scoped providers, cleanup retry/restart and independent PostgreSQL/CLI validation | [Executor verification](2026-10-13-i04-03-terraform-executor.md) |
 | 2026-10-13 | I04-02 immutable module registry, transitive pins, metadata-only planner, PostgreSQL race/grants and independent validation | [Registry verification](2026-10-13-i04-02-module-registry.md) |
 | 2026-10-12 | T30 atomic desired key rename, lossless references, CAS/rollback, headed fake evidence; PostgreSQL execution gate unrun | [Key rename](2026-10-12-T30-key-rename.md) |

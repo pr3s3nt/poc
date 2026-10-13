@@ -1,7 +1,7 @@
 ---
 id: I04-04
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-10-13
 related: [M04, ADR-014, IMP-021]
 ---
@@ -12,7 +12,9 @@ related: [M04, ADR-014, IMP-021]
 
 Chặng 2; bắt đầu sau I04-03 đã qua review và validation. Xem
 [evidence executor](../../../verification/2026-10-13-i04-03-terraform-executor.md).
-Chưa có kết quả module/live acceptance cho task này.
+Modules và local checks đã hoàn tất; xem
+[evidence](../../../verification/2026-10-13-i04-04-kubernetes-modules.md).
+Live apply/acceptance thuộc các task sau.
 
 ## Phạm vi
 

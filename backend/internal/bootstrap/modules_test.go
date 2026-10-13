@@ -23,7 +23,7 @@ func TestModuleRegistryBootstrap(t *testing.T) {
 	}
 	defer app.Close()
 	bundles, err := app.Store.ListModuleBundles(ctx)
-	if err != nil || len(bundles) != 3 {
+	if err != nil || len(bundles) != 6 {
 		t.Fatalf("prepared packaged bundles: %d %v", len(bundles), err)
 	}
 	if _, err := app.Modules.VerifyForExecution(ctx, bundles[0].Ref); err != moduleregistry.ErrBinaryUnverified {

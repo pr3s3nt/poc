@@ -120,6 +120,13 @@ Không cho nhập password/token/provider config qua Workload params. Password t
 một lần theo resource identity, lưu qua secret store trước apply, retry dùng lại
 opaque reference; không sinh mật khẩu khác chỉ vì run ID đổi.
 
+Output được phân loại bí mật không được bind vào module input không bí mật,
+kể cả khi placeholder nằm trong list/map hoặc chuỗi ghép. Kiểm classification
+của Resource Type và module nguồn, không suy từ tên key của input hoặc annotation.
+Nguồn đã biết phải bị chặn khi validation/planning; classification chỉ có ở
+runtime phải được kiểm trước khi lưu resolved inputs hoặc chạy consumer. Không
+đưa giá trị bí mật vào lỗi, preview, attempt metadata, labels hoặc annotations.
+
 ## Resource Type outputs
 
 Output mapping là tên module output -> tên Resource Type output; không phải

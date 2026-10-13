@@ -578,7 +578,7 @@ func TestMetadataNeverFetches(t *testing.T) {
 		t.Fatalf("other digest: %v", err)
 	}
 	list, err := f.svc.List(context.Background())
-	if err != nil || len(list) != 4 {
+	if err != nil || len(list) != 7 {
 		t.Fatalf("list: %d %v", len(list), err)
 	}
 	if f.git.opens != opens {
@@ -843,8 +843,14 @@ func TestServiceOwnsReleaseAndPolicy(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", id, err)
 		}
-		if bundle.Providers["aws"].Version != "5.80.0" || !reflect.DeepEqual(bundle.Providers["aws"].Hashes, want.Providers[0].Hashes) {
-			t.Fatalf("%s provider pins altered: %+v", id, bundle.Providers["aws"])
+		if len(bundle.Providers) == 0 {
+			t.Fatalf("%s has no provider requirement", id)
+		}
+		for name, provider := range bundle.Providers {
+			pinned, ok := want.provider(provider.Source)
+			if !ok || provider.Version != pinned.Version || !reflect.DeepEqual(provider.Hashes, pinned.Hashes) || pinned.Version == "9.9.9" {
+				t.Fatalf("%s provider %s pins altered: %+v", id, name, provider)
+			}
 		}
 		for _, typ := range bundle.Contract.ResourceTypes {
 			if typ == "tampered" {

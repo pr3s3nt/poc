@@ -89,10 +89,12 @@ func TestDefinitionCapabilitiesAuthShapeAndNoWrites(t *testing.T) {
 			}
 		}
 	}
-	if want := []string{"k8s-cluster/terraform/eks", "k8s-namespace/kubernetes/", "postgres/kubernetes/", "postgres/terraform/aurora", "vpc/terraform/vpc"}; !reflect.DeepEqual(pairs, want) {
+	if want := []string{"k8s-cluster/terraform/eks", "k8s-namespace/kubernetes/", "k8s-namespace/terraform/k8s-namespace", "postgres/kubernetes/", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/redis-k8s", "vpc/terraform/vpc"}; !reflect.DeepEqual(pairs, want) {
 		t.Fatalf("pairs %v", pairs)
 	}
-	for _, leak := range []string{"fingerprint", "sha256", ".tf", "existing-cluster", "score-k8s"} {
+	// Image defaults are public digest pins ("name@sha256:..."); an internal
+	// module fingerprint would be a bare "sha256:..." value.
+	for _, leak := range []string{"fingerprint", "\"sha256:", ".tf", "existing-cluster", "score-k8s"} {
 		if strings.Contains(body, leak) {
 			t.Fatalf("leaks %q", leak)
 		}

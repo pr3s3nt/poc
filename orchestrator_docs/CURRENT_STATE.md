@@ -22,7 +22,7 @@ gate tiếp theo là video A01 + estimate AWS; chặng 3 chỉ sau duyệt mới
 Không có M04 source code/test mutation, live scenario hoặc cloud create trong
 checkpoint tài liệu này. Các baseline status dưới đây vẫn là hiện trạng code.
 
-## I04-01/02/03 hoàn tất, I04-04 hiện hành — 2026-10-13
+## I04-01/02/03/04 hoàn tất, I04-05 hiện hành — 2026-10-13
 
 Encrypted state/roles/fencing đã verified. Final corrections: invalid state key
 trả 400, và REQUIRE_POSTGRES=1 chặn validation thiếu SQL. Claude/Codex độc lập
@@ -56,9 +56,20 @@ kiểm original module/target và bản state trước xóa, kể cả khi retry
 rỗng hoặc restart. Namespace kiểm UID/consumer/ownership trước cascade delete.
 Provider/readiness ở các fixture local có seam fake; chưa có live k8s/AWS proof.
 
-I04-04 tiếp tục modules namespace/Redis/PostgreSQL. AWS Connection UI, class/
-Definition form, selected-set Delete UI/API, acceptance app và live scenarios
-vẫn thuộc các task sau. Gate 2 chưa đạt; chưa được tạo hạ tầng AWS.
+## I04-04 hoàn tất, chuyển module AWS I04-05
+
+Packaged namespace/Redis/PostgreSQL modules đã qua review và validation độc
+lập: **1021 PASS, 0 FAIL, 0 SKIP**, build/vet đạt trên PostgreSQL riêng; cleanup
+đã xác minh. Modules được pin image/provider/digest, stable identity/password,
+state-owned PVC và readiness sau acknowledged apply. Binding secret vào input
+Terraform không bí mật bị chặn tại catalog/planner/provisioning, kể cả nested
+và interpolated refs; nonsecret host fixture vẫn hoạt động. Xem
+[evidence modules](verification/2026-10-13-i04-04-kubernetes-modules.md).
+
+Chưa apply modules trên cluster; storage class và pod/PVC behavior còn cần live
+verification. I04-05 chỉ chuẩn bị/validate AWS modules, không tạo hạ tầng AWS.
+AWS Connection UI, class/Definition form, selected-set Delete UI/API, Redis app
+và live scenarios thuộc các task sau. Gate 2 video A01 + dự toán AWS chưa đạt.
 
 ## Terraform v2 — accepted design, implementation pending (2026-10-13)
 
