@@ -27,7 +27,11 @@ export const SCENARIOS = {
   async 'I04-07'({ page, h, caption, mark, check, baseURL, evidenceDir }) {
     const nav = (name) => page.getByRole('link', { name: new RegExp(`(^|\\s)${name}$`) });
     const get = async (path) => (await (await page.request.get(`${baseURL}/api/v1${path}`)).json());
-    const form = (name) => page.getByLabel(name, { exact: true });
+    // Native selects wrapped in a <label> have the option texts in their label, so exact label matching fails for them.
+    const wrappedSelects = new Set(['Loại tài nguyên', 'Module đã kiểm chứng', 'Phạm vi triển khai', 'Bundle dựng ứng dụng']);
+    const form = (name) => (wrappedSelects.has(name)
+      ? page.locator(`select[aria-label="${name}"], label:has-text("${name}") > select`).first()
+      : page.getByLabel(name, { exact: true }));
     const alert = () => page.getByRole('alert').first();
     const submitDefinition = () => page.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true });
     // The visible option label that starts with `prefix` (types and pins are chosen by what the screen shows).
@@ -250,7 +254,7 @@ export const SCENARIOS = {
     await h.click(page.getByRole('button', { name: '+ Thêm tài nguyên', exact: true }));
     const aliases = page.getByLabel('Alias tài nguyên', { exact: true });
     await h.type(aliases.nth(1), 'db');
-    await choose(page.getByLabel('Loại tài nguyên', { exact: true }).nth(1), 'postgres');
+    await choose(page.locator('select[aria-label="Loại tài nguyên"]').nth(1), 'postgres');
     const dbClass = form('Cách cung cấp (class) của db');
     expect((await dbClass.locator('option').allTextContents())).toEqual(['Mặc định (default)', 'Trong cluster (in-cluster)', 'Dịch vụ managed AWS (cloud-managed)']);
     await choose(dbClass, 'Trong cluster');
