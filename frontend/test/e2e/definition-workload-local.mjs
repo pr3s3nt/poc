@@ -332,22 +332,23 @@ export const SCENARIOS = {
     check('preview created no Deployment (it is pure; no Terraform, score-k8s or provider call)');
 
     // Wrong class: never switched, never silently mapped.
-    caption('Bước 17: Đổi class của PostgreSQL sang “managed AWS” trong khi Môi trường là cluster nội bộ; Xem trước báo không khớp, không tự đổi class hay Definition');
+    caption('Bước 17: Gõ class tùy chỉnh “cloud-managed” cho Redis (chưa có cấu hình nào phục vụ); Xem trước báo không khớp, không tự đổi class hay Definition');
     await h.click(row('api').getByRole('button', { name: 'Sửa', exact: true }));
     await expect(page.getByRole('heading', { name: 'Sửa api' })).toBeVisible();
-    await choose(form('Cách cung cấp (class) của db'), 'Dịch vụ managed');
-    await expect(form('Cách cung cấp (class) của db')).toHaveValue('cloud-managed');
+    await h.click(page.getByRole('button', { name: 'Hiện nâng cao tài nguyên cache', exact: true }));
+    await h.type(form('Lớp tài nguyên'), 'cloud-managed', { replace: true });
+    await expect(form('Cách cung cấp (class) của cache')).toHaveValue('cloud-managed');
     await h.click(page.getByRole('button', { name: 'Lưu draft Workload', exact: true }));
     await expect(row('api')).toContainText('Chờ thay đổi');
     await h.click(page.getByRole('button', { name: 'Xem trước thay đổi', exact: true }));
     await expect(page.getByRole('alert').filter({ hasText: 'Không dựng hoặc khớp được đồ thị tài nguyên' })).toBeVisible();
     await expect(page.getByLabel('Xem trước triển khai')).toHaveCount(0);
-    check('wrong class cloud-managed on internal-k8s: preview refused (graph stage), no Deploy offered');
+    check('custom class cloud-managed for redis: no Definition matches, preview refused (graph stage), no Deploy offered; matching stays server-authoritative');
     mark('wrong-class-guard');
     await h.moveTo(page.getByRole('alert').first());
     await h.read('Class sai nên Xem trước bị chặn, class không bị tự đổi');
     await h.click(row('api').getByRole('button', { name: 'Sửa', exact: true }));
-    await expect(form('Cách cung cấp (class) của db')).toHaveValue('cloud-managed');
+    await expect(form('Cách cung cấp (class) của cache')).toHaveValue('cloud-managed');
     check('the editor still shows cloud-managed: the class was neither switched nor rewritten');
 
     // Metadata error: classes unavailable.
@@ -361,8 +362,8 @@ export const SCENARIOS = {
     await h.click(page.getByRole('button', { name: 'Làm mới metadata class', exact: true }));
     const metadataAlert = page.getByRole('alert', { name: 'Lỗi tải metadata class' });
     await expect(metadataAlert).toBeVisible();
-    await expect(form('Cách cung cấp (class) của db')).toBeDisabled();
-    await expect(form('Cách cung cấp (class) của db')).toHaveValue('cloud-managed');
+    await expect(form('Cách cung cấp (class) của cache')).toBeDisabled();
+    await expect(form('Cách cung cấp (class) của cache')).toHaveValue('cloud-managed');
     await expect(form('Ảnh Container')).toHaveValue('example.invalid/api:v2');
     await h.click(page.getByRole('button', { name: 'Lưu draft Workload', exact: true }));
     await expect(page.getByText(/Chưa xác nhận được metadata class của tài nguyên/)).toBeVisible();
@@ -372,9 +373,9 @@ export const SCENARIOS = {
     await h.read('Metadata lỗi nên khóa lựa chọn class nhưng giữ chỉnh sửa');
     failMetadata = false;
     await h.click(metadataAlert.getByRole('button', { name: 'Thử lại tải metadata class' }));
-    await expect(form('Cách cung cấp (class) của db')).toBeEnabled();
-    await choose(form('Cách cung cấp (class) của db'), 'Trong cluster');
-    await expect(form('Cách cung cấp (class) của db')).toHaveValue('in-cluster');
+    await expect(form('Cách cung cấp (class) của cache')).toBeEnabled();
+    await choose(form('Cách cung cấp (class) của cache'), 'Trong cluster');
+    await expect(form('Cách cung cấp (class) của cache')).toHaveValue('in-cluster');
     await expect(form('Ảnh Container')).toHaveValue('example.invalid/api:v2');
     mark('metadata-recovered');
     await page.unroute('**/api/v1/resource-types');

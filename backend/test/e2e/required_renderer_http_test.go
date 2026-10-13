@@ -63,23 +63,32 @@ func TestRequiredRendererOverHTTPGuardsMissingTemplateAndWrongClass(t *testing.T
 	if resp, out := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", body); resp.StatusCode != http.StatusCreated {
 		t.Fatalf("registration: %d %s", resp.StatusCode, out)
 	}
+	// A wrong class matches no Definition: the draft is rejected, never switched.
+	wrong := previewScore("api")
+	delete(wrong["containers"].(map[string]any)["main"].(map[string]any), "variables")
+	// The seeded PostgreSQL Definition is a wildcard (it matches any class), so the
+	// guard is shown on a Type no Definition serves: matching stays server-authoritative.
+	if resp, out := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-types", `{"key":"cache","inputs":[],"outputs":[{"name":"host","type":"string","required":true}]}`); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("type registration: %d %s", resp.StatusCode, out)
+	}
+	wrong["resources"] = map[string]any{"cache": map[string]any{"type": "cache", "class": "cloud-managed"}}
+	if status, out := requestJSON(t, dev, http.MethodPut, base+"/workloads/api", map[string]any{"version": 1, "score": wrong}); status != http.StatusOK {
+		t.Fatal(status, out)
+	}
+	status, out := requestJSON(t, dev, http.MethodPost, base+"/preview", map[string]any{})
+	if params, _ := out["params"].(map[string]any); status != http.StatusBadRequest || out["code"] != "PLANNING_REJECTED" || params["stage"] != "graph" {
+		t.Fatalf("wrong class must have no match (graph stage): %d %v", status, out)
+	}
+	if len(app.FakeExec.Calls) != 0 || len(app.FakeDeploy.Applied) != 0 {
+		t.Fatal("wrong class had side effects")
+	}
+	if status, out := requestJSON(t, dev, http.MethodPut, base+"/workloads/api", map[string]any{"version": 2, "score": score}); status != http.StatusOK {
+		t.Fatal(status, out)
+	}
 	tie := strings.Replace(body, "score-workloads", "score-workloads-2", 1)
 	if resp, out := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", tie); resp.StatusCode != http.StatusCreated {
 		t.Fatalf("second registration: %d %s", resp.StatusCode, out)
 	}
 	assertRejected("tied rendering Definitions", "renderer-ambiguous")
 
-	// A wrong class matches no Definition: the draft is rejected, never switched.
-	wrong := previewScore("api")
-	delete(wrong["containers"].(map[string]any)["main"].(map[string]any), "variables")
-	wrong["resources"] = map[string]any{"db": map[string]any{"type": "postgres", "class": "cloud-managed", "params": map[string]any{"database": "appdb", "username": "appuser"}}}
-	if status, out := requestJSON(t, dev, http.MethodPut, base+"/workloads/api", map[string]any{"version": 1, "score": wrong}); status != http.StatusOK {
-		t.Fatal(status, out)
-	}
-	if status, out := requestJSON(t, dev, http.MethodPost, base+"/preview", map[string]any{}); status != http.StatusBadRequest || out["code"] != "PLANNING_REJECTED" {
-		t.Fatalf("wrong class must have no match: %d %v", status, out)
-	}
-	if len(app.FakeExec.Calls) != 0 || len(app.FakeDeploy.Applied) != 0 {
-		t.Fatal("wrong class had side effects")
-	}
 }

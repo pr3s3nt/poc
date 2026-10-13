@@ -276,10 +276,11 @@ func publicPlanningError(workloadID string, err error) error {
 	if !ok {
 		return err
 	}
-	// Renderer selection failures keep their stage/reason so the public
-	// envelope can say which of missing, tied or unavailable it was.
+	// Staged failures keep their stage/reason (never the raw text) so the
+	// public envelope can tell no-match, tie or unavailable renderer and a
+	// graph/class mismatch apart.
 	var staged *planning.StageError
-	if errors.As(err, &staged) && planning.IsRendererReason(staged.Reason) {
+	if errors.As(err, &staged) {
 		if workloadID != "" {
 			return fmt.Errorf("%w: workload %s: %s: %w", ErrInvalid, workloadID, message, staged)
 		}
