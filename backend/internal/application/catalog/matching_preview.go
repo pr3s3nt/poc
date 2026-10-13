@@ -133,7 +133,7 @@ func validatePreviewCandidate(def resource.Definition, types map[string]resource
 		return invalid("definition.executionProfile")
 	}
 	switch def.DriverType {
-	case resource.DriverTerraform, resource.DriverKubernetes, resource.DriverEcho, resource.DriverScoreK8s:
+	case resource.DriverTerraform, resource.DriverScoreK8s:
 	default:
 		return invalid("definition.driverType")
 	}

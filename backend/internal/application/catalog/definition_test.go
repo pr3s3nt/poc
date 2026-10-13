@@ -59,7 +59,10 @@ func TestRegisterResourceDefinition_ContractsAndOrganization(t *testing.T) {
 	}
 }
 
-func TestRegisterResourceDefinition_KubernetesAndOutputMismatch(t *testing.T) {
+// UC-03 BR-08/BR-11/BR-15, ADR-014: a Kubernetes resource is registered only
+// as a verified registry module. The static kubernetes/existing-cluster/echo
+// drivers are not registrable, whatever their inputs.
+func TestRegisterResourceDefinition_RejectsStaticResourceDrivers(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
 	opts := seedtest.Defaults()
@@ -74,30 +77,21 @@ func TestRegisterResourceDefinition_KubernetesAndOutputMismatch(t *testing.T) {
 			break
 		}
 	}
-	postgres.Key = "postgres-internal-custom"
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, postgres); err != nil {
-		t.Fatalf("register Kubernetes: %v", err)
+	if postgres.DriverType != resource.DriverKubernetes {
+		t.Fatalf("the reference seed keeps its read-only shape, got %q", postgres.DriverType)
 	}
-	bad := postgres
-	bad.Key = "bad-reference"
-	bad.DriverInputs = map[string]any{"values": map[string]any{"variables": map[string]any{"namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.missing}"}}}
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, bad); !errors.Is(err, catalog.ErrInvalid) {
-		t.Fatalf("reference: %v", err)
+	for _, driver := range []resource.DriverType{resource.DriverKubernetes, resource.DriverExistingCluster, resource.DriverEcho} {
+		for _, typeKey := range []string{"postgres", "k8s-namespace"} {
+			def := postgres
+			def.Key, def.DriverType, def.ResourceTypeKey = "static-"+typeKey, driver, typeKey
+			_, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def)
+			var field *catalog.FieldError
+			if !errors.Is(err, catalog.ErrInvalid) || !errors.As(err, &field) || field.Field != "definition.driverType" {
+				t.Fatalf("%s/%s must be rejected at definition.driverType: %v", driver, typeKey, err)
+			}
+		}
 	}
-	if err := st.SaveResourceType(ctx, opts.OrganizationKey, resource.Type{Key: "unsupported", Outputs: []resource.OutputField{{Name: "host", Type: "string"}}}); err != nil {
-		t.Fatal(err)
-	}
-	bad = postgres
-	bad.Key = "wrong-type"
-	bad.ResourceTypeKey = "unsupported"
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, bad); !errors.Is(err, catalog.ErrInvalid) {
-		t.Fatalf("driver/type: %v", err)
-	}
-	if err := st.SaveResourceType(ctx, opts.OrganizationKey, resource.Type{Key: "k8s-namespace", Outputs: []resource.OutputField{{Name: "unknown", Type: "string"}}}); err != nil {
-		t.Fatal(err)
-	}
-	bad = resource.Definition{Key: "namespace-output-mismatch", ResourceTypeKey: "k8s-namespace", DriverType: resource.DriverKubernetes, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"name": "sample"}}}, Criteria: []resource.Criterion{{}}}
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, bad); !errors.Is(err, catalog.ErrInvalid) {
-		t.Fatalf("output mismatch: %v", err)
+	if defs, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey); len(defs) != len(seed.ResourceDefinitions(opts)) {
+		t.Fatalf("a rejected registration must not persist: %d definitions", len(defs))
 	}
 }

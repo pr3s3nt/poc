@@ -205,9 +205,10 @@ func TestProvision_AWSTargetDefinitionConnectionMismatchFailsBeforeExecutor(t *t
 			t.Fatalf("%s matching account must reach the executor: err=%v calls=%d", resourceType, err, calls)
 		}
 	}
-	// External provider resources are not retargeted by the guard.
-	if err, calls := run("postgres", "aws-b"); calls != 1 {
-		t.Fatalf("external database must keep its account: err=%v calls=%d", err, calls)
+	// AWS modules take no account override (ADR-014): a database definition
+	// naming another account is a mismatch like VPC/EKS.
+	if err, calls := run("postgres", "aws-b"); err == nil || calls != 0 {
+		t.Fatalf("database for another account must fail before the executor: err=%v calls=%d", err, calls)
 	}
 }
 
@@ -292,10 +293,11 @@ func TestProvision_AWSVPCAndEKSInheritEnvironmentConnection(t *testing.T) {
 	}
 }
 
-// A stored explicit Aurora account is never swapped for the Environment
-// account. A v2 Definition without a key binds AWS to the Environment
-// (UC-03 BR-08), and state recorded under another account is never reused.
-func TestProvision_AuroraKeepsExplicitAccountAndNeverInherits(t *testing.T) {
+// AWS Definitions carry no account override (UC-03 BR-08, ADR-014): an Aurora
+// Definition naming another account fails before the executor; one without a
+// key binds to the Environment account, and state recorded under another
+// account is never reused.
+func TestProvision_AuroraTakesNoAccountOverrideAndNeverInherits(t *testing.T) {
 	ctx := context.Background()
 	seedOptions := seedtest.Defaults()
 	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
@@ -303,20 +305,18 @@ func TestProvision_AuroraKeepsExplicitAccountAndNeverInherits(t *testing.T) {
 		t.Fatal(err)
 	}
 	saveAWSConnections(t, app, seedOptions.OrganizationKey, "aws-a", "aws-b")
+	explicit := &recordingRegistry{}
+	err = provisionAWS(t, app, seedOptions.OrganizationKey, "postgres", "aws-b", "aws-a", explicit)
+	if err == nil || !strings.Contains(err.Error(), "differs from the Environment connection") || len(explicit.requests) != 0 {
+		t.Fatalf("explicit Aurora account: err=%v executor calls=%d", err, len(explicit.requests))
+	}
 	registry := &recordingRegistry{}
-	if err := provisionAWS(t, app, seedOptions.OrganizationKey, "postgres", "aws-b", "aws-a", registry); err != nil {
+	if err := provisionAWS(t, app, seedOptions.OrganizationKey, "postgres", "", "aws-b", registry); err != nil {
 		t.Fatal(err)
 	}
 	if len(registry.requests) != 1 || registry.requests[0].Connection.Key != "aws-b" {
 		t.Fatalf("Aurora executor requests = %+v", registry.requests)
 	}
-	active, _ := app.Store.ListActiveResources(ctx, seedOptions.OrganizationKey)
-	for _, a := range active {
-		if a.Descriptor.Type == "postgres" && a.ConnectionKey != "aws-b" {
-			t.Fatalf("Aurora ActiveResource connection = %q", a.ConnectionKey)
-		}
-	}
-
 	missing := &recordingRegistry{}
 	err = provisionAWS(t, app, seedOptions.OrganizationKey, "postgres", "", "aws-a", missing)
 	if err == nil || !strings.Contains(err.Error(), "belongs to another connection") || len(missing.requests) != 0 {
@@ -352,7 +352,7 @@ func TestProvision_ReuseNeverCrossesAccounts(t *testing.T) {
 	cases := []struct{ name, resourceType, first, firstEnv, second, secondEnv string }{
 		{"vpc", "vpc", "", "aws-a", "", "aws-b"},
 		{"eks", "k8s-cluster", "", "aws-a", "", "aws-b"},
-		{"aurora", "postgres", "aws-a", "aws-a", "aws-b", "aws-a"},
+		{"aurora", "postgres", "", "aws-a", "", "aws-b"},
 	}
 	for _, c := range cases {
 		app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
@@ -407,17 +407,12 @@ func TestProvision_EffectiveAWSConnectionUnavailableFailsBeforeExecutor(t *testi
 		t.Fatal(err)
 	}
 	for _, bad := range []string{"pending", "kube", "foreign", "missing"} {
-		for _, resourceType := range []string{"vpc", "k8s-cluster"} {
+		for _, resourceType := range []string{"vpc", "k8s-cluster", "postgres"} {
 			registry := &recordingRegistry{}
 			err := provisionAWS(t, app, org, resourceType, "", bad, registry)
 			if err == nil || !strings.Contains(err.Error(), "must exist and be READY") || len(registry.requests) != 0 {
 				t.Fatalf("%s with Environment connection %q: err=%v calls=%d", resourceType, bad, err, len(registry.requests))
 			}
-		}
-		registry := &recordingRegistry{}
-		err := provisionAWS(t, app, org, "postgres", bad, "aws-ok", registry)
-		if err == nil || !strings.Contains(err.Error(), "must exist and be READY") || len(registry.requests) != 0 {
-			t.Fatalf("Aurora with explicit account %q: err=%v calls=%d", bad, err, len(registry.requests))
 		}
 	}
 }

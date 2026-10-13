@@ -90,25 +90,6 @@ func (s *Service) ListDefinitionCapabilities(ctx context.Context, organizationKe
 			out = append(out, capability)
 		}
 	}
-	for _, pair := range supportedPairs {
-		typ := byKey[pair.resourceType]
-		capability := Capability{ResourceType: pair.resourceType, DriverType: string(pair.driver), Variables: []CapabilityVariable{}, ExecutorOwned: []string{}}
-		for _, name := range sortedKeys(driverVariableSchemas[pair.driver][pair.resourceType]) {
-			variable := driverVariableSchemas[pair.driver][pair.resourceType][name]
-			input, param := typ.Input(name)
-			if pair.driver == resource.DriverKubernetes && pair.resourceType == "k8s-namespace" && name == "name" {
-				// UC-03 BR-12: registration only accepts the Resource Type as the namespace
-				// name source when its input is a required string.
-				param = param && input.Required && input.Type == "string"
-			}
-			entry := CapabilityVariable{Name: name, Type: variable.typ.String(), Required: variable.required, HasDefault: variable.hasDefault, ResourceParam: param, Preset: variable.preset}
-			if variable.hasDefault {
-				entry.Default = variable.defaultVal
-			}
-			capability.Variables = append(capability.Variables, entry)
-		}
-		out = append(out, capability)
-	}
 	sort.SliceStable(out, func(i, j int) bool {
 		a, b := out[i], out[j]
 		if a.ResourceType != b.ResourceType {

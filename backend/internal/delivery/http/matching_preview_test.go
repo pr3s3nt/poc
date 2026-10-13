@@ -22,7 +22,7 @@ func postPreview(t *testing.T, c *http.Client, base, body string) (int, string) 
 	return resp.StatusCode, string(b)
 }
 
-const previewBody = `{"definition":{"key":"pg-new","resourceType":"postgres","driverType":"kubernetes","criteria":[{"class":"fast"}],"driverInputs":{"values":{"variables":{"password":"S3CRET-VALUE"}}}},` +
+const previewBody = `{"definition":{"key":"pg-new","resourceType":"postgres","driverType":"terraform","criteria":[{"class":"fast"}],"driverInputs":{"values":{"variables":{"password":"S3CRET-VALUE"}}}},` +
 	`"context":{"applicationId":"acceptance","environmentId":"dev","resourceId":"db","class":"fast"}}`
 
 func TestMatchingPreviewAuthRoleAndScope(t *testing.T) {
@@ -92,7 +92,7 @@ func TestMatchingPreviewStrictBoundedErrors(t *testing.T) {
 		"not object":       {`[]`, http.StatusBadRequest},
 		"trailing":         {previewBody + `{}`, http.StatusBadRequest},
 		"reserved":         {strings.Replace(previewBody, `"pg-new"`, `"builtin-existing-cluster"`, 1), http.StatusBadRequest},
-		"existing-cluster": {strings.Replace(previewBody, `"kubernetes"`, `"existing-cluster"`, 1), http.StatusBadRequest},
+		"existing-cluster": {strings.Replace(previewBody, `"terraform"`, `"existing-cluster"`, 1), http.StatusBadRequest},
 		"unknown type":     {strings.Replace(previewBody, `"postgres"`, `"nope"`, 1), http.StatusBadRequest},
 		"oversize":         {`{"definition":{"key":"` + strings.Repeat("a", 2<<20) + `"}}`, http.StatusRequestEntityTooLarge},
 	}
@@ -129,7 +129,7 @@ func TestMatchingPreviewErrorsNeverEchoSubmittedValues(t *testing.T) {
 	pe := bundleClient(t, ts.URL, "platform-engineer")
 	const secret = "SENTINEL-s3cret"
 	bodies := []string{
-		strings.Replace(previewBody, `"driverType":"kubernetes"`, `"driverType":"`+secret+`"`, 1),
+		strings.Replace(previewBody, `"driverType":"terraform"`, `"driverType":"`+secret+`"`, 1),
 		strings.Replace(previewBody, `"resourceType":"postgres"`, `"resourceType":"`+secret+`"`, 1),
 		strings.Replace(previewBody, `"key":"pg-new"`, `"key":"`+secret+`_bad"`, 1),
 		strings.Replace(previewBody, `"criteria":[`, `"`+secret+`":1,"criteria":[`, 1),

@@ -174,16 +174,12 @@ func TestPlan_AWSTargetTerraformDefinitionsMustUseEnvironmentConnection(t *testi
 			t.Fatalf("%s with another account: %v", key, err)
 		}
 	}
+	// AWS modules take no Connection/account override (ADR-014): an external
+	// database account is a mismatch, never a silent retarget.
 	external := testRequest(t, application.ProfileAWSEKS, "backend")
 	withConnection(&external, "postgres-aws-aurora", "database-account")
-	plan, err := NewService().Plan(external)
-	if err != nil {
-		t.Fatalf("external database keeps its Driver Account: %v", err)
-	}
-	for _, match := range plan.Matches {
-		if match.DefinitionKey == "postgres-aws-aurora" && match.ConnectionKey != "database-account" {
-			t.Fatalf("database connection changed: %+v", match)
-		}
+	if _, err := NewService().Plan(external); !errors.Is(err, ErrConnectionMismatch) {
+		t.Fatalf("database for another account: %v", err)
 	}
 }
 

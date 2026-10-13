@@ -19,7 +19,7 @@ import (
 )
 
 func previewCandidate(key string, criteria ...resource.Criterion) resource.Definition {
-	return resource.Definition{Key: key, ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes, Criteria: criteria}
+	return resource.Definition{Key: key, ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: criteria}
 }
 
 func previewQuery(opts seed.Options, def resource.Definition, resID, class string) catalog.MatchingPreviewQuery {
@@ -108,7 +108,7 @@ func TestPreviewMatching_NonOverlapAndNoMatch(t *testing.T) {
 		t.Fatalf("candidate %+v", c)
 	}
 	// A different type has no matching Definition.
-	def := resource.Definition{Key: "ns-only", ResourceTypeKey: "k8s-namespace", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{ResourceID: "nope"}}}
+	def := resource.Definition{Key: "ns-only", ResourceTypeKey: "k8s-namespace", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{ResourceID: "nope"}}}
 	q := previewQuery(opts, def, "x", "default")
 	got = runPreview(t, svc, opts, q)
 	if got.Status != catalog.PreviewMatched || got.Winner.Key != "namespace-kubernetes" {
@@ -240,13 +240,13 @@ func TestPreviewMatching_ReservedAndPublicExistingClusterRejected(t *testing.T) 
 	_, svc, opts := seededCatalog(t, nil)
 	ctx := context.Background()
 	cases := map[string]resource.Definition{
-		"builtin key":      {Key: "builtin-existing-cluster", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}},
+		"builtin key":      {Key: "builtin-existing-cluster", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
 		"existing-cluster": {Key: "any-key", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, Criteria: []resource.Criterion{{}}},
-		"unknown type":     {Key: "x", ResourceTypeKey: "nope", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}},
-		"no criteria":      {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes},
-		"bad id":           {Key: "Bad_Key", ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}},
-		"too many":         {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes, Criteria: make([]resource.Criterion, 65)},
-		"long criterion":   {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{Class: strings.Repeat("a", 300)}}},
+		"unknown type":     {Key: "x", ResourceTypeKey: "nope", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
+		"no criteria":      {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform},
+		"bad id":           {Key: "Bad_Key", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
+		"too many":         {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: make([]resource.Criterion, 65)},
+		"long criterion":   {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: strings.Repeat("a", 300)}}},
 	}
 	for name, def := range cases {
 		_, err := svc.PreviewMatching(ctx, opts.OrganizationKey, previewQuery(opts, def, "db", "default"))
@@ -258,7 +258,7 @@ func TestPreviewMatching_ReservedAndPublicExistingClusterRejected(t *testing.T) 
 
 func TestPreviewMatching_SystemBindingOnlyForExactImplicitClusterNode(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
-	cluster := resource.Definition{Key: "cluster-x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{Class: "internal"}}}
+	cluster := resource.Definition{Key: "cluster-x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}
 	exact := "connections." + opts.ConnectionKey
 	got := runPreview(t, svc, opts, previewQuery(opts, cluster, exact, "internal"))
 	if got.Status != catalog.PreviewSystemBinding || got.Winner != nil || len(got.Ties) != 0 {
@@ -274,7 +274,7 @@ func TestPreviewMatching_SystemBindingOnlyForExactImplicitClusterNode(t *testing
 
 func TestPreviewMatching_WorkloadOnlyRanksScoreK8sAndNeverFallsBackToNative(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
-	k8s := resource.Definition{Key: "wl-k8s", ResourceTypeKey: "workload", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}}
+	k8s := resource.Definition{Key: "wl-k8s", ResourceTypeKey: "workload", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}}
 	got := runPreview(t, svc, opts, previewQuery(opts, k8s, "modules.web", "default"))
 	if got.Status != catalog.PreviewNoMatch || got.Winner != nil {
 		t.Fatalf("non-score-k8s must not rank: %+v", got)
@@ -369,11 +369,11 @@ func TestPreviewMatching_ValidationErrorNeverEchoesSubmittedValues(t *testing.T)
 	_, svc, opts := seededCatalog(t, nil)
 	const secret = "SENTINEL-s3cret"
 	bad := []resource.Definition{
-		{Key: secret + "_BAD", ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}},
-		{Key: "ok", ResourceTypeKey: secret, DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}},
-		{Key: "ok", ResourceTypeKey: "postgres", ExecutionProfile: secret, DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}},
+		{Key: secret + "_BAD", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
+		{Key: "ok", ResourceTypeKey: secret, DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
+		{Key: "ok", ResourceTypeKey: "postgres", ExecutionProfile: secret, DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
 		{Key: "ok", ResourceTypeKey: "postgres", DriverType: resource.DriverType(secret), Criteria: []resource.Criterion{{}}},
-		{Key: "ok", ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{Class: secret + strings.Repeat("x", 300)}}},
+		{Key: "ok", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: secret + strings.Repeat("x", 300)}}},
 	}
 	for i, def := range bad {
 		_, err := svc.PreviewMatching(context.Background(), opts.OrganizationKey, previewQuery(opts, def, "db", "default"))
@@ -386,7 +386,7 @@ func TestPreviewMatching_ValidationErrorNeverEchoesSubmittedValues(t *testing.T)
 
 func TestPreviewMatching_SystemBindingDoesNotShowAuthoredMatches(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
-	cluster := resource.Definition{Key: "cluster-x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{Class: "internal"}}}
+	cluster := resource.Definition{Key: "cluster-x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}
 	got := runPreview(t, svc, opts, previewQuery(opts, cluster, "connections."+opts.ConnectionKey, "internal"))
 	for _, c := range got.Candidates {
 		if c.Matched || c.Score != nil || c.BestCriterion != nil {
@@ -530,8 +530,8 @@ func TestPreviewMatching_UsesExactlyOneSnapshotAndNoWrites(t *testing.T) {
 		"success":    {q: previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default"), org: opts.OrganizationKey},
 		"incomplete": {q: previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "", ""), org: opts.OrganizationKey},
 		"not found":  {q: previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default"), org: "other-org", wantErr: true},
-		"invalid":    {q: previewQuery(opts, resource.Definition{Key: "builtin-existing-cluster", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}}, "db", "default"), org: opts.OrganizationKey, wantErr: true},
-		"system":     {q: previewQuery(opts, resource.Definition{Key: "c", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{Class: "internal"}}}, "connections."+opts.ConnectionKey, "internal"), org: opts.OrganizationKey},
+		"invalid":    {q: previewQuery(opts, resource.Definition{Key: "builtin-existing-cluster", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}}, "db", "default"), org: opts.OrganizationKey, wantErr: true},
+		"system":     {q: previewQuery(opts, resource.Definition{Key: "c", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}, "connections."+opts.ConnectionKey, "internal"), org: opts.OrganizationKey},
 	}
 	for name, sc := range scenarios {
 		spy := &readSpy{real: st}
@@ -572,7 +572,7 @@ func TestPreviewMatching_AllFiveCriteriaScoreThirtyOne(t *testing.T) {
 	}
 }
 
-func TestPreviewMatching_AWSInfrastructureConflictButAuroraExternalAccountDoesNot(t *testing.T) {
+func TestPreviewMatching_AWSModulesTakeNoAccountOverride(t *testing.T) {
 	st := store.New()
 	opts := seedtest.Defaults()
 	opts.Region, opts.AccountID = "us-east-1", "000000000000"
@@ -589,17 +589,12 @@ func TestPreviewMatching_AWSInfrastructureConflictButAuroraExternalAccountDoesNo
 	if _, err := svc.PreviewMatching(ctx, opts.OrganizationKey, cloud(previewCandidate("x", resource.Criterion{}))); err != nil {
 		t.Fatalf("cloud Environment must be bound by the seed: %v", err)
 	}
-	for _, typ := range []string{"vpc", "k8s-cluster"} {
+	for _, typ := range []string{"vpc", "k8s-cluster", "postgres"} {
 		def := resource.Definition{Key: "infra-" + typ, ResourceTypeKey: typ, ExecutionProfile: "aws-eks", DriverType: resource.DriverTerraform, ConnectionKey: "some-other-aws", Criteria: []resource.Criterion{{ResourceID: "r1"}}}
 		got, err := svc.PreviewMatching(ctx, opts.OrganizationKey, withResource(cloud(def), "r1", "default"))
 		if err != nil || got.Status != catalog.PreviewConnectionConflict || got.ConnectionConflict == nil || got.Winner == nil || got.Winner.Key != def.Key {
 			t.Fatalf("%s: %+v %v", typ, got, err)
 		}
-	}
-	aurora := resource.Definition{Key: "aurora-ext", ResourceTypeKey: "postgres", ExecutionProfile: "aws-eks", DriverType: resource.DriverTerraform, ConnectionKey: "some-other-aws", Criteria: []resource.Criterion{{ResourceID: "r1"}}}
-	got, err := svc.PreviewMatching(ctx, opts.OrganizationKey, withResource(cloud(aurora), "r1", "default"))
-	if err != nil || got.Status != catalog.PreviewMatched || got.ConnectionConflict != nil {
-		t.Fatalf("aurora keeps its explicit external account: %+v %v", got, err)
 	}
 }
 

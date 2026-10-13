@@ -10,24 +10,25 @@ import (
 	"orchestrator/internal/domain/resource"
 )
 
-// ErrConnectionMismatch reports a Definition for the Application's target
-// whose explicit Connection differs from the Environment binding (UC-06
-// BR-20): internal-k8s existing-cluster/Kubernetes Definitions and aws-eks
-// Terraform VPC/EKS Definitions. The selected target is never silently replaced.
+// ErrConnectionMismatch reports a Definition whose explicit Connection differs
+// from the Environment binding (UC-06 BR-20, module contract). The selected
+// target is never silently replaced.
 var ErrConnectionMismatch = errors.New("planning: definition connection differs from the environment connection")
 
 // ConnectionMismatch reports whether def would retarget the Application's
-// saved Connection. External resources (for example databases) keep their own
-// explicit Driver Account and are never reported.
+// saved Connection. Registration forbids a Connection on AWS modules, so any
+// explicit Connection that is not the Environment's own is a mismatch.
 func ConnectionMismatch(env environment.Environment, def resource.Definition) bool {
 	if def.ConnectionKey == "" || def.ConnectionKey == env.ConnectionKey {
 		return false
 	}
-	switch env.Profile {
-	case application.ProfileInternalK8s:
-		return def.DriverType == resource.DriverExistingCluster || def.DriverType == resource.DriverKubernetes
-	case application.ProfileAWSEKS:
-		return def.DriverType == resource.DriverTerraform && (def.ResourceTypeKey == TypeVPC || def.ResourceTypeKey == TypeCluster)
+	// A Terraform module takes no Connection of its own on AWS; a Kubernetes
+	// module may name one only if it is the Environment's own target (module
+	// contract, UC-03 BR-08). Existing-cluster/static Kubernetes Definitions
+	// keep the same rule.
+	switch def.DriverType {
+	case resource.DriverExistingCluster, resource.DriverKubernetes, resource.DriverTerraform:
+		return true
 	}
 	return false
 }
