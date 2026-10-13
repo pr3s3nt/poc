@@ -12,8 +12,11 @@ export function screenSize(env) {
 }
 
 export async function launchHeaded({ width, height }) {
+  // ORCH_E2E_BROWSER_EXECUTABLE: an already installed Chromium when the
+  // Playwright-pinned revision is not available locally (no download happens).
   return chromium.launch({
     headless: false,
+    ...(process.env.ORCH_E2E_BROWSER_EXECUTABLE ? { executablePath: process.env.ORCH_E2E_BROWSER_EXECUTABLE } : {}),
     args: ['--window-position=0,0', `--window-size=${width},${height}`, '--test-type', '--no-first-run', '--password-store=basic', ...(process.env.ORCH_E2E_BROWSER_ARGS ? process.env.ORCH_E2E_BROWSER_ARGS.split('|') : [])],
     ignoreDefaultArgs: ['--enable-automation'],
   });

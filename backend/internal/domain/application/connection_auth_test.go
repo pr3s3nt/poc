@@ -28,3 +28,41 @@ func TestConnectionValidateRequiresExplicitMetadata(t *testing.T) {
 		t.Fatalf("KUBECONFIG: %+v", kube)
 	}
 }
+
+func TestConnectionAllowedRegions(t *testing.T) {
+	cases := map[string]struct {
+		config map[string]any
+		want   []string
+		allows map[string]bool
+	}{
+		"list from memory":     {map[string]any{"region": "us-east-1", "allowedRegions": []string{"us-east-1", "eu-west-1"}}, []string{"us-east-1", "eu-west-1"}, map[string]bool{"eu-west-1": true, "ap-south-1": false}},
+		"list after JSON":      {map[string]any{"region": "us-east-1", "allowedRegions": []any{"us-east-1", "eu-west-1"}}, []string{"us-east-1", "eu-west-1"}, map[string]bool{"us-east-1": true, "ap-south-1": false}},
+		"legacy single region": {map[string]any{"region": "eu-west-1"}, []string{"eu-west-1"}, map[string]bool{"eu-west-1": true, "us-east-1": false}},
+		"malformed list":       {map[string]any{"region": "eu-west-1", "allowedRegions": []any{"us-east-1", 7}}, []string{"eu-west-1"}, map[string]bool{"us-east-1": false}},
+		"none":                 {map[string]any{}, nil, map[string]bool{"us-east-1": false, "": false}},
+	}
+	for name, tc := range cases {
+		conn := Connection{Config: tc.config}
+		got := conn.AllowedRegions()
+		if len(got) != len(tc.want) {
+			t.Errorf("%s: %v", name, got)
+			continue
+		}
+		for i := range got {
+			if got[i] != tc.want[i] {
+				t.Errorf("%s: %v", name, got)
+			}
+		}
+		for region, want := range tc.allows {
+			if conn.AllowsRegion(region) != want {
+				t.Errorf("%s: AllowsRegion(%q) = %v", name, region, !want)
+			}
+		}
+	}
+	// The returned list is a copy.
+	conn := Connection{Config: map[string]any{"allowedRegions": []string{"us-east-1"}}}
+	conn.AllowedRegions()[0] = "x"
+	if conn.AllowedRegions()[0] != "us-east-1" {
+		t.Fatal("AllowedRegions exposes the stored slice")
+	}
+}

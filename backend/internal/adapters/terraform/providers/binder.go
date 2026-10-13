@@ -82,9 +82,11 @@ func (b *Binder) Bind(ctx context.Context, req terraformexec.BindRequest) (terra
 			}
 			seenAWS = true
 			conn, err := b.AWS.ResolveAWS(ctx, req.OrganizationKey, pin.ConnectionKey)
-			if err != nil || conn.Region != pin.Region || conn.ConnectionKey != pin.ConnectionKey {
+			if err != nil || !conn.AllowsRegion(pin.Region) || conn.ConnectionKey != pin.ConnectionKey {
 				return fail(refuse("the AWS Connection is unavailable or no longer matches the plan"))
 			}
+			// The Environment pinned one of the verified allowed regions.
+			conn.Region = pin.Region
 			if err := verify(conn); err != nil {
 				return fail(err)
 			}
@@ -118,9 +120,10 @@ func (b *Binder) Bind(ctx context.Context, req terraformexec.BindRequest) (terra
 				return fail(refuse("the cluster target is missing, foreign or not a completed EKS target"))
 			}
 			conn, err := b.AWS.ResolveAWS(ctx, req.OrganizationKey, target.Connection)
-			if err != nil || conn.Region != target.Region || conn.ConnectionKey != target.Connection {
+			if err != nil || !conn.AllowsRegion(target.Region) || conn.ConnectionKey != target.Connection {
 				return fail(refuse("the EKS target's AWS Connection is unavailable or changed"))
 			}
+			conn.Region = target.Region
 			if err := verify(conn); err != nil {
 				return fail(err)
 			}

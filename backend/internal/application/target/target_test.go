@@ -24,6 +24,7 @@ func newStore(t *testing.T) *store.Store {
 	for _, c := range []application.Connection{
 		{Name: "lab", AuthenticationType: application.AuthKubeconfig, ID: "k", Key: "lab", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady},
 		{Name: "verifying", AuthenticationType: application.AuthKubeconfig, ID: "k2", Key: "verifying", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionVerifying},
+		{Name: "multi", AuthenticationType: application.AuthAWSAccessKey, ID: "m", Key: "multi", OrganizationKey: "acme", Kind: application.ConnectionAWS, Status: application.ConnectionReady, Config: map[string]any{"region": "us-east-1", "allowedRegions": []any{"us-east-1", "eu-west-1"}}},
 		{Name: "cloud", AuthenticationType: application.AuthAWSAccessKey, ID: "a", Key: "cloud", OrganizationKey: "acme", Kind: application.ConnectionAWS, Status: application.ConnectionReady, Config: map[string]any{"region": "eu-west-1"}},
 	} {
 		if err := st.SaveConnection(ctx, c); err != nil {
@@ -53,6 +54,9 @@ func TestResolveRequiresAConsistentReadyTarget(t *testing.T) {
 		{"aws profile on a Kubernetes connection", with(aws, func(e *environment.Environment) { e.ConnectionKey = "lab" }), target.ErrInconsistent},
 		{"aws without a pinned region", with(aws, func(e *environment.Environment) { e.Region = "" }), target.ErrInconsistent},
 		{"aws pinned region differs from the connection", with(aws, func(e *environment.Environment) { e.Region = "us-east-1" }), target.ErrInconsistent},
+		{"aws multi-region default", with(aws, func(e *environment.Environment) { e.ConnectionKey, e.Region = "multi", "us-east-1" }), nil},
+		{"aws multi-region second allowed region", with(aws, func(e *environment.Environment) { e.ConnectionKey, e.Region = "multi", "eu-west-1" }), nil},
+		{"aws multi-region unlisted region", with(aws, func(e *environment.Environment) { e.ConnectionKey, e.Region = "multi", "ap-south-1" }), target.ErrInconsistent},
 		{"unknown profile", with(good, func(e *environment.Environment) { e.Profile = "gcp" }), target.ErrInconsistent},
 		{"unconfigured status on a bound row", with(good, func(e *environment.Environment) { e.RuntimeStatus = application.RuntimeUnconfigured }), target.ErrInconsistent},
 		{"unknown scope", with(good, func(e *environment.Environment) { e.InfrastructureScope = "SHARED" }), target.ErrInconsistent},

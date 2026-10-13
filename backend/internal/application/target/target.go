@@ -49,7 +49,7 @@ func Resolve(ctx context.Context, view persistence.ApplicationRepository, organi
 			return appdomain.Connection{}, fmt.Errorf("%w: environment %s/%s", ErrInconsistent, env.ApplicationKey, env.Key)
 		}
 	case appdomain.ProfileAWSEKS:
-		if conn.Kind != appdomain.ConnectionAWS || (conn.ConfigString("region") != "" && conn.ConfigString("region") != env.Region) {
+		if conn.Kind != appdomain.ConnectionAWS || (len(conn.AllowedRegions()) > 0 && !conn.AllowsRegion(env.Region)) {
 			return appdomain.Connection{}, fmt.Errorf("%w: environment %s/%s", ErrInconsistent, env.ApplicationKey, env.Key)
 		}
 	}

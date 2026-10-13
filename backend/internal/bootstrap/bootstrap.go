@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"orchestrator/internal/adapters/awsaccess"
 	"orchestrator/internal/adapters/configmemory"
 	"orchestrator/internal/adapters/credentialmemory"
 	"orchestrator/internal/adapters/fake"
@@ -137,8 +138,14 @@ type Options struct {
 	PlatformVault *PlatformVaultBootstrap
 
 	// Overrides replace individual adapters. Tests use them to inject failures.
-	RegistryOverride              execution.ExecutorRegistry
-	KubeconfigVerifierOverride    connection.KubeconfigVerifier
+	RegistryOverride           execution.ExecutorRegistry
+	KubeconfigVerifierOverride connection.KubeconfigVerifier
+	// AWSVerifierOverride replaces the AWS access-key verifier (tests and
+	// local deterministic transports). Without it the real read-only
+	// awsaccess verifier is used for Kubernetes/AWS adapters and AWS
+	// registration is unavailable (fails closed) for fake adapters, so a
+	// fixture key can never reach live AWS.
+	AWSVerifierOverride           connection.AWSVerifier
 	ConnectionCredentialsOverride credentials.Store
 	RendererOverride              execution.WorkloadRenderer
 	DeployerOverride              execution.WorkloadDeployer
@@ -407,6 +414,11 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		kubeconfigVerifier = k8s.ConnectionVerifier{KubectlPath: opts.KubectlPath}
 	}
 
+	awsVerifier := opts.AWSVerifierOverride
+	if awsVerifier == nil && (opts.Adapters == AdapterKubernetes || opts.Adapters == AdapterAWS) {
+		awsVerifier = awsaccess.Verifier{Client: awsaccess.New()}
+	}
+
 	transitions := transition.New(st, planner, inspector, deployments, operations)
 	transitions.SetStoreRegistry(storeRegistry)
 	transitions.SetWorkloads(workloads)
@@ -434,6 +446,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		Authentication:        auth,
 		Applications:          applications,
 		KubeconfigVerifier:    kubeconfigVerifier,
+		AWSVerifier:           awsVerifier,
 		ConnectionCredentials: connectionCredentials,
 		Configurations:        configurations,
 		SecretStores:          secretStoreService,

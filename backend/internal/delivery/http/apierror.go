@@ -54,6 +54,9 @@ const (
 	codeVerifyUnreachable         = "VERIFICATION_UNREACHABLE"
 	codeVerifyPermissionDenied    = "VERIFICATION_PERMISSION_DENIED"
 	codeVerifyCredentialRejected  = "VERIFICATION_CREDENTIAL_REJECTED"
+	codeVerifyRegionUnavailable   = "VERIFICATION_REGION_UNAVAILABLE"
+	codeVerifyCapabilityUnproven  = "VERIFICATION_CAPABILITY_UNVERIFIABLE"
+	codeVerifyPrincipalRefused    = "VERIFICATION_PRINCIPAL_UNSUPPORTED"
 	codeKubeconfigInvalid         = "KUBECONFIG_INVALID"
 	codeKubeconfigNoContext       = "KUBECONFIG_NO_VALID_CONTEXT"
 	codeKubeconfigContextRequired = "KUBECONFIG_CONTEXT_REQUIRED"
@@ -109,6 +112,9 @@ var publicErrors = map[string]publicError{
 	codeVerifyUnreachable:         {http.StatusUnprocessableEntity, "verification failed: the endpoint could not be reached"},
 	codeVerifyPermissionDenied:    {http.StatusUnprocessableEntity, "verification failed: a required permission is missing"},
 	codeVerifyCredentialRejected:  {http.StatusUnprocessableEntity, "verification failed: the credential was rejected"},
+	codeVerifyRegionUnavailable:   {http.StatusUnprocessableEntity, "verification failed: an allowed region is not usable with this credential"},
+	codeVerifyCapabilityUnproven:  {http.StatusUnprocessableEntity, "verification failed: the provisioning permissions could not be verified"},
+	codeVerifyPrincipalRefused:    {http.StatusUnprocessableEntity, "verification failed: this kind of credential is not supported"},
 	codeKubeconfigInvalid:         {http.StatusBadRequest, "the kubeconfig is not valid"},
 	codeKubeconfigNoContext:       {http.StatusBadRequest, "the kubeconfig has no usable context"},
 	codeKubeconfigContextRequired: {http.StatusBadRequest, "a kubeconfig context must be selected"},
@@ -148,6 +154,7 @@ var trustedFields = map[string]bool{
 	"definition.driverType": true, "definition.criteria": true, "definition.connectionKey": true,
 	"context.applicationId": true, "context.environmentId": true, "context.resourceId": true, "context.class": true,
 	"service.publicPort": true,
+	"accessKeyId":        true, "secretAccessKey": true, "allowedRegions": true,
 }
 
 // technicalID bounds a registered resource Type key echoed as a param: lowercase
@@ -261,6 +268,9 @@ var verificationCodes = []struct {
 	{connectionapp.ErrPermissionDenied, codeVerifyPermissionDenied},
 	{connectionapp.ErrAuthentication, codeVerifyCredentialRejected},
 	{connectionapp.ErrClusterUnreachable, codeVerifyUnreachable},
+	{connectionapp.ErrRegionUnavailable, codeVerifyRegionUnavailable},
+	{connectionapp.ErrCapabilityUnverifiable, codeVerifyCapabilityUnproven},
+	{connectionapp.ErrUnsupportedPrincipal, codeVerifyPrincipalRefused},
 }
 
 // classify maps typed errors to a public failure. It never reads err.Error().
@@ -375,6 +385,10 @@ func classify(err error) (failure, bool) {
 	case errors.Is(err, secretstores.ErrVerification):
 		return failure{code: codeVerificationFailed}, true
 	case errors.Is(err, connectionapp.ErrInvalid):
+		var connectionField *connectionapp.FieldError
+		if errors.As(err, &connectionField) {
+			return failure{code: codeInvalidRequest, field: connectionField.Field}, true
+		}
 		for _, candidate := range kubeconfigCodes {
 			if errors.Is(err, candidate.err) {
 				return failure{code: candidate.code}, true

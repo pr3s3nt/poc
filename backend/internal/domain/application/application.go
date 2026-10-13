@@ -144,6 +144,50 @@ func (c Connection) Validate() error {
 // the Connection credential store; no host credential exists.
 func (c Connection) CredentialBacked() bool { return c.AuthenticationType == AuthKubeconfig }
 
+// ConfigStrings reads a non-secret list of strings. A list that went through
+// JSON storage is []any, an in-process one is []string; any other shape or a
+// non-string member reads as absent.
+func (c Connection) ConfigStrings(key string) []string {
+	switch values := c.Config[key].(type) {
+	case []string:
+		return append([]string(nil), values...)
+	case []any:
+		out := make([]string, 0, len(values))
+		for _, value := range values {
+			text, ok := value.(string)
+			if !ok {
+				return nil
+			}
+			out = append(out, text)
+		}
+		return out
+	}
+	return nil
+}
+
+// AllowedRegions are the AWS regions the Connection was verified for, in the
+// order the registrant gave them (the first is the default). Connections that
+// pinned only a single "region" allow exactly that region.
+func (c Connection) AllowedRegions() []string {
+	if regions := c.ConfigStrings("allowedRegions"); len(regions) > 0 {
+		return regions
+	}
+	if region := c.ConfigString("region"); region != "" {
+		return []string{region}
+	}
+	return nil
+}
+
+// AllowsRegion reports whether region is one of the Connection's allowed regions.
+func (c Connection) AllowsRegion(region string) bool {
+	for _, allowed := range c.AllowedRegions() {
+		if region != "" && allowed == region {
+			return true
+		}
+	}
+	return false
+}
+
 // ConfigString reads a non-secret configuration string.
 func (c Connection) ConfigString(key string) string {
 	if v, ok := c.Config[key].(string); ok {

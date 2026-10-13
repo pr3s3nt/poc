@@ -314,6 +314,27 @@ type AWSConnection struct {
 	SessionToken    string
 	AccountID       string
 	Region          string
+	// AllowedRegions are the regions the Connection was verified for. Region
+	// is the Connection default; an invocation may bind any allowed region.
+	// Empty means only Region.
+	AllowedRegions []string
+}
+
+// AllowsRegion reports whether an invocation may bind region with this
+// Connection: the default Region or any verified allowed region.
+func (c AWSConnection) AllowsRegion(region string) bool {
+	if region == "" {
+		return false
+	}
+	if len(c.AllowedRegions) == 0 {
+		return region == c.Region
+	}
+	for _, allowed := range c.AllowedRegions {
+		if allowed == region {
+			return true
+		}
+	}
+	return false
 }
 
 // AWSIdentitySource resolves the credential of one READY AWS Connection of the

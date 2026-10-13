@@ -34,7 +34,9 @@ type Client struct {
 	EKSURL func(region string) string
 	// QueryURL overrides the base URL of a Query-protocol service.
 	QueryURL func(service, region string) string
-	Now      func() time.Time
+	// IAMURL overrides the global IAM endpoint.
+	IAMURL func() string
+	Now    func() time.Time
 }
 
 var _ terraformexec.AWSAPI = (*Client)(nil)

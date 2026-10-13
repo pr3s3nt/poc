@@ -48,7 +48,7 @@ func (r *CredentialResolver) ResolveAWS(ctx context.Context, organizationKey, co
 	}
 	return terraformexec.AWSConnection{
 		ConnectionKey: conn.Key, AccessKeyID: value.AccessKeyID, SecretAccessKey: value.SecretAccessKey, SessionToken: value.SessionToken,
-		AccountID: conn.ConfigString("accountId"), Region: conn.ConfigString("region"),
+		AccountID: conn.ConfigString("accountId"), Region: conn.ConfigString("region"), AllowedRegions: conn.AllowedRegions(),
 	}, nil
 }
 
