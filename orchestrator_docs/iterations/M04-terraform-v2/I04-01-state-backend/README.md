@@ -56,3 +56,18 @@ khi code stage được duyệt. Claude không sửa docs/commit/push. Codex rev
 verify độc lập; kiểm tiến độ bình thường mỗi 240 giây, không poll liên tục.
 Evidence thật/fake và checks skipped phải phân biệt; failed video/phase marks
 giữ lại. Code-map/CURRENT_STATE/traceability chỉ ghi actual results sau delivery.
+
+## Handoff đang chờ quyết định DB privilege — 2026-10-13
+
+Claude đã implement state backend và contract tests; Codex đã review sớm và
+chạy độc lập toàn bộ Go tests trên PostgreSQL disposable. Chưa hoàn thành:
+DB role hiện vẫn sở hữu mọi bảng, chưa đáp ứng tách quyền state/public query.
+Người dùng đang yêu cầu giải thích trước khi chọn separate roles/connections
+hoặc SQL SECURITY DEFINER; chưa chọn option nào. Không tự giảm yêu cầu.
+
+Code hiện chưa commit, được giữ nguyên trong workspace; evidence ở
+`/tmp/poc-m04-i04-01-20261013/` và `/tmp/poc-i0401-codex-review/`.
+Cả hai PostgreSQL container task đã dọn. Internal loopback handler có tests,
+nhưng mounting cho executor production vẫn thuộc I04-03. Chưa chạy browser,
+k8s-4f hoặc AWS. Sau quyết định, giao Claude tiếp phần DB privilege rồi review
+và verify trước I04-02. Chi tiết [verification](../../../verification/2026-10-13-i04-01-state-backend-partial.md).

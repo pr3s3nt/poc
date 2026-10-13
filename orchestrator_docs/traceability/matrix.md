@@ -531,3 +531,10 @@ fixtures/video để giả bằng chứng mới. Các tests/scenarios dưới đ
 Bước xóa UI là một phase của A01, không mở rộng thành live update/delete
 exception matrix mới. Executor create/update/destroy và SQL/admission failure
 contracts vẫn cần code tests dù không thành live scenarios riêng.
+
+## I04-01 partial code evidence — 2026-10-13
+
+OC-18/state persistence and fencing contract tests now have
+[partial real PostgreSQL evidence](../verification/2026-10-13-i04-01-state-backend-partial.md)
+from Claude and independent Codex runs. DB-permission separation remains open;
+this does not close I04-01 or IMP-021 and is not live acceptance evidence.

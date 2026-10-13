@@ -22,6 +22,16 @@ gate tiếp theo là video A01 + estimate AWS; chặng 3 chỉ sau duyệt mới
 Không có M04 source code/test mutation, live scenario hoặc cloud create trong
 checkpoint tài liệu này. Các baseline status dưới đây vẫn là hiện trạng code.
 
+## I04-01 đang triển khai — 2026-10-13
+
+State backend mã hóa, identity/attempt/dependency persistence, fencing và
+internal HTTP handler đã được Claude viết; code chưa commit/chưa complete.
+Go tests chạy trên PostgreSQL thật đã pass qua Claude và Codex độc lập.
+Còn thiếu DB-permission separation; đang chờ người dùng hiểu và chọn thiết kế
+roles/connections hoặc SECURITY DEFINER. Không coi đây là deviation được phép
+bỏ qua. [Partial verification](verification/2026-10-13-i04-01-state-backend-partial.md).
+Không có M04 live UI/k8s/AWS evidence; gate 2 vẫn chưa đạt.
+
 ## Terraform v2 — accepted design, implementation pending (2026-10-13)
 
 User completed Step 1 decisions: [ADR-014](architecture/decisions/ADR-014-terraform-v2-lifecycle.md),
