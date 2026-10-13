@@ -65,6 +65,7 @@ type Config struct {
 	// KubeconfigVerifier and ConnectionCredentials enable UC-04 upload
 	// registration. Without a credential store it answers 503.
 	KubeconfigVerifier    connectionapp.KubeconfigVerifier
+	AWSVerifier           connectionapp.AWSVerifier
 	ConnectionCredentials credentials.Store
 	Configurations        *appconfig.Service
 	SecretStores          *secretstores.Service
@@ -103,6 +104,7 @@ func NewServer(cfg Config) *Server {
 		mux:            http.NewServeMux(),
 	}
 	s.connections.SetKubeconfigRegistration(cfg.KubeconfigVerifier, cfg.ConnectionCredentials)
+	s.connections.SetAWSRegistration(cfg.AWSVerifier)
 
 	s.catalog.SetRenderBundles(cfg.RenderBundles)
 	s.routes()
@@ -155,6 +157,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/application-connections", s.handleApplicationConnections)
 	s.mux.HandleFunc("GET /api/v1/connections", s.handleConnections)
 	s.mux.HandleFunc("POST /api/v1/connections/kubernetes", s.handleRegisterKubernetesConnection)
+	s.mux.HandleFunc("POST /api/v1/connections/aws", s.handleRegisterAWSConnection)
 	s.mux.HandleFunc("POST /api/v1/connections/kubernetes/inspect", s.handleInspectKubeconfig)
 	s.mux.HandleFunc("POST /api/v1/deployments", s.handleCreateDeployment)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/deployments", s.handleListDeployments)

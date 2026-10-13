@@ -24,6 +24,9 @@ const messageTable = {
   VERIFICATION_UNREACHABLE: 'Xác minh không thành công: không kết nối được tới địa chỉ đã chọn. Kiểm tra địa chỉ, mạng và TLS.',
   VERIFICATION_PERMISSION_DENIED: 'Xác minh không thành công: thiếu quyền cần thiết cho kết nối này.',
   VERIFICATION_CREDENTIAL_REJECTED: 'Xác minh không thành công: thông tin xác thực bị từ chối. Kiểm tra token hoặc chứng chỉ còn hiệu lực.',
+  VERIFICATION_REGION_UNAVAILABLE: 'Xác minh không thành công: một vùng được phép chưa dùng được với thông tin xác thực này (vùng bị tắt hoặc dịch vụ cần thiết không truy cập được).',
+  VERIFICATION_CAPABILITY_UNVERIFIABLE: 'Xác minh không thành công: chưa chứng minh được quyền cấp phát bằng cách chỉ đọc. Cho phép người dùng IAM này đọc chính sách của mình (iam:SimulatePrincipalPolicy).',
+  VERIFICATION_PRINCIPAL_UNSUPPORTED: 'Xác minh không thành công: loại thông tin xác thực này chưa được hỗ trợ. Dùng access key dài hạn của một người dùng IAM riêng, không dùng tài khoản gốc hoặc thông tin xác thực tạm thời.',
   KUBECONFIG_INVALID: 'Tệp kubeconfig không hợp lệ.',
   KUBECONFIG_NO_VALID_CONTEXT: 'Kubeconfig không có context dùng được. Cần context có cluster và người dùng với token hoặc chứng chỉ nhúng sẵn.',
   KUBECONFIG_CONTEXT_REQUIRED: 'Hãy chọn một context trong kubeconfig trước khi kiểm tra và lưu.',
@@ -103,6 +106,7 @@ const knownFields: ReadonlySet<string> = new Set([
   'type.key', 'type.schema', 'definition.schema', 'definition.driver', 'definition.references', 'definition.key',
   'definition.resourceType', 'definition.executionProfile', 'definition.driverType', 'definition.criteria',
   'definition.connectionKey', 'context.applicationId', 'context.environmentId', 'context.resourceId', 'context.class', 'service.publicPort',
+  'accessKeyId', 'secretAccessKey', 'allowedRegions',
 ]);
 
 export function knownCode(code: unknown): code is string { return has(errorMessages, code); }
@@ -146,6 +150,7 @@ const fieldLabels: Readonly<Record<string, string>> = Object.freeze({
   'definition.key': 'ID cấu hình', 'definition.resourceType': 'Loại tài nguyên', 'definition.executionProfile': 'Phạm vi triển khai',
   'definition.driverType': 'Loại trình điều khiển', 'definition.criteria': 'Điều kiện áp dụng', 'definition.connectionKey': 'Kết nối của cấu hình',
   'context.applicationId': 'Ứng dụng mẫu', 'context.environmentId': 'Môi trường mẫu', 'context.resourceId': 'ID tài nguyên mẫu', 'context.class': 'Class mẫu',
+  accessKeyId: 'Access key ID', secretAccessKey: 'Secret access key', allowedRegions: 'Vùng được phép',
 });
 
 /** " Trường liên quan: <nhãn>." for a trusted field, otherwise nothing. */

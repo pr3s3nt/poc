@@ -94,6 +94,7 @@ type KubeconfigVerifier interface {
 type Service struct {
 	store       persistence.Store
 	kubeconfig  KubeconfigVerifier
+	aws         AWSVerifier
 	credentials credentials.Store
 }
 
@@ -147,13 +148,30 @@ func (s *Service) RegisterKubeconfig(ctx context.Context, org string, cmd Regist
 	if err != nil {
 		return application.Connection{}, kubeconfigVerificationError(err)
 	}
+	return s.persist(ctx, org, name, selected.Document, func(key, ref string) application.Connection {
+		return application.Connection{
+			Key: key, Name: name, OrganizationKey: org,
+			Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig,
+			Config:    map[string]any{"cluster": selected.Context.Cluster, "kubeContext": selected.Context.Name, "endpoint": selected.Context.Endpoint},
+			SecretRef: ref, Status: application.ConnectionReady,
+			Verification: map[string]any{"verified": true, "endpoint": selected.Context.Endpoint, "serverVersion": verified.Version},
+		}
+	})
+}
+
+// persist writes the credential value as a new attempt-owned object under a
+// free generated key and inserts the Connection built for that key and
+// reference. The unique (organization, key) constraint is the final concurrent
+// guard: a lost insert deletes only this attempt's object and retries with the
+// next free key, never touching the winner's record or credential.
+func (s *Service) persist(ctx context.Context, org, name string, value []byte, build func(key, ref string) application.Connection) (application.Connection, error) {
 	base := keySlug(name)
 	for attempt := 0; attempt < maxRegisterRetries; attempt++ {
 		key, err := s.freeKey(ctx, org, base)
 		if err != nil {
 			return application.Connection{}, err
 		}
-		ref, err := s.credentials.Put(ctx, org, key, selected.Document)
+		ref, err := s.credentials.Put(ctx, org, key, value)
 		if err != nil {
 			if ref != "" {
 				if cleanupErr := s.cleanup(ctx, org, key, ref); cleanupErr != nil {
@@ -162,13 +180,7 @@ func (s *Service) RegisterKubeconfig(ctx context.Context, org string, cmd Regist
 			}
 			return application.Connection{}, ErrCredentialStore
 		}
-		conn := application.Connection{
-			Key: key, Name: name, OrganizationKey: org,
-			Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig,
-			Config:    map[string]any{"cluster": selected.Context.Cluster, "kubeContext": selected.Context.Name, "endpoint": selected.Context.Endpoint},
-			SecretRef: ref, Status: application.ConnectionReady,
-			Verification: map[string]any{"verified": true, "endpoint": selected.Context.Endpoint, "serverVersion": verified.Version},
-		}
+		conn := build(key, ref)
 		err = s.store.Transact(ctx, func(ctx context.Context) error {
 			if _, err := s.store.GetOrganization(ctx, org); err != nil {
 				return err

@@ -29,8 +29,12 @@ type connectionView struct {
 }
 
 var (
-	publicConnectionConfig       = []string{"cluster", "kubeContext", "endpoint", "region", "accountId"}
-	publicConnectionVerification = []string{"verified", "endpoint", "serverVersion", "cluster", "region", "accountId"}
+	publicConnectionConfig       = []string{"cluster", "kubeContext", "endpoint", "region", "accountId", "principalArn"}
+	publicConnectionVerification = []string{"verified", "endpoint", "serverVersion", "cluster", "region", "accountId", "principalArn", "identity", "regionCheck", "capabilityCheck"}
+	// publicConnectionLists are allow-listed lists of plain strings (AWS
+	// regions and provisioning capability groups).
+	publicConnectionConfigLists       = []string{"allowedRegions"}
+	publicConnectionVerificationLists = []string{"regions", "capabilities"}
 )
 
 func publicConnection(conn application.Connection) connectionView {
@@ -40,9 +44,34 @@ func publicConnection(conn application.Connection) connectionView {
 	}
 	return connectionView{
 		Key: conn.Key, Name: name, Kind: string(conn.Kind), AuthenticationType: string(conn.AuthenticationType),
-		Config: pick(conn.Config, publicConnectionConfig), Status: string(conn.Status),
-		Verification: pick(conn.Verification, publicConnectionVerification),
+		Config: withLists(pick(conn.Config, publicConnectionConfig), conn.Config, publicConnectionConfigLists), Status: string(conn.Status),
+		Verification: withLists(pick(conn.Verification, publicConnectionVerification), conn.Verification, publicConnectionVerificationLists),
 	}
+}
+
+// withLists adds allow-listed lists whose members are all plain strings; a
+// list of any other shape is dropped.
+func withLists(out, values map[string]any, keys []string) map[string]any {
+	for _, key := range keys {
+		var list []string
+		switch typed := values[key].(type) {
+		case []string:
+			list = typed
+		case []any:
+			for _, member := range typed {
+				text, ok := member.(string)
+				if !ok {
+					list = nil
+					break
+				}
+				list = append(list, text)
+			}
+		}
+		if len(list) > 0 {
+			out[key] = append([]string(nil), list...)
+		}
+	}
+	return out
 }
 
 // pick copies only allow-listed scalar fields.
@@ -121,6 +150,109 @@ func (s *Server) handleRegisterKubernetesConnection(w http.ResponseWriter, r *ht
 		return
 	}
 	writeJSON(w, http.StatusCreated, publicConnection(created))
+}
+
+// awsEnvelopeLimit bounds the AWS registration body: a key pair, a name and a
+// short region list are far below 16 KiB.
+const awsEnvelopeLimit = 16 << 10
+
+// registerAWSBody is the only accepted AWS registration shape.
+type registerAWSBody struct {
+	Name            *string  `json:"name"`
+	AccessKeyID     *string  `json:"accessKeyId"`
+	SecretAccessKey *string  `json:"secretAccessKey"`
+	AllowedRegions  []string `json:"allowedRegions"`
+}
+
+func (s *Server) handleRegisterAWSConnection(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.platformActor(w, r)
+	if !ok {
+		return
+	}
+	var body registerAWSBody
+	if !decodeAWSBody(w, r, &body) {
+		return
+	}
+	created, err := s.connections.RegisterAWS(r.Context(), org, connectionapp.RegisterAWSCommand{
+		Name: deref(body.Name), AccessKeyID: deref(body.AccessKeyID), SecretAccessKey: deref(body.SecretAccessKey), AllowedRegions: body.AllowedRegions,
+	})
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, publicConnection(created))
+}
+
+// decodeAWSBody reads one bounded JSON object with exactly the known keys,
+// each at most once: string members for name/accessKeyId/secretAccessKey and
+// an array of strings for allowedRegions, nothing after the object. Errors
+// never echo the body.
+func decodeAWSBody(w http.ResponseWriter, r *http.Request, dst *registerAWSBody) bool {
+	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, awsEnvelopeLimit))
+	if err != nil {
+		if !writeTooLarge(w, err) {
+			writeCode(w, codeInvalidRequest, "")
+		}
+		return false
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	var object json.RawMessage
+	if err := decoder.Decode(&object); err != nil {
+		writeCode(w, codeInvalidRequest, "")
+		return false
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		writeCode(w, codeInvalidRequest, "")
+		return false
+	}
+	if !exactAWSKeys(object) {
+		writeCode(w, codeInvalidRequest, "")
+		return false
+	}
+	if err := json.Unmarshal(object, dst); err != nil {
+		writeCode(w, codeInvalidRequest, "")
+		return false
+	}
+	return true
+}
+
+func exactAWSKeys(object json.RawMessage) bool {
+	decoder := json.NewDecoder(bytes.NewReader(object))
+	if token, err := decoder.Token(); err != nil || token != json.Delim('{') {
+		return false
+	}
+	allowed := map[string]bool{"name": true, "accessKeyId": true, "secretAccessKey": true, "allowedRegions": true}
+	seen := map[string]bool{}
+	for decoder.More() {
+		token, err := decoder.Token()
+		key, ok := token.(string)
+		if err != nil || !ok || !allowed[key] || seen[key] {
+			return false
+		}
+		seen[key] = true
+		if key == "allowedRegions" {
+			if token, err := decoder.Token(); err != nil || token != json.Delim('[') {
+				return false
+			}
+			for decoder.More() {
+				if member, err := decoder.Token(); err != nil {
+					return false
+				} else if _, ok := member.(string); !ok {
+					return false
+				}
+			}
+			if token, err := decoder.Token(); err != nil || token != json.Delim(']') {
+				return false
+			}
+			continue
+		}
+		if value, err := decoder.Token(); err != nil {
+			return false
+		} else if _, ok := value.(string); !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func deref(value *string) string {

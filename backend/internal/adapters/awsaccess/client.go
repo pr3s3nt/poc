@@ -34,7 +34,9 @@ type Client struct {
 	EKSURL func(region string) string
 	// QueryURL overrides the base URL of a Query-protocol service.
 	QueryURL func(service, region string) string
-	Now      func() time.Time
+	// IAMURL overrides the global IAM endpoint.
+	IAMURL func() string
+	Now    func() time.Time
 }
 
 var _ terraformexec.AWSAPI = (*Client)(nil)
@@ -43,6 +45,19 @@ var _ terraformexec.AWSAPI = (*Client)(nil)
 // standard environment proxy settings.
 func New() *Client {
 	return &Client{HTTP: &http.Client{Timeout: 30 * time.Second}}
+}
+
+// httpClient returns the transport client with redirects refused: a signed
+// request (its Authorization header) must never follow a redirect to a
+// destination nobody validated. A 3xx answer is then a failed call.
+func (c *Client) httpClient() *http.Client {
+	base := c.HTTP
+	if base == nil {
+		base = &http.Client{Timeout: 30 * time.Second}
+	}
+	guarded := *base
+	guarded.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &guarded
 }
 
 func (c *Client) now() time.Time {
@@ -74,7 +89,7 @@ func credentials(conn terraformexec.AWSConnection) (Credentials, error) {
 }
 
 func (c *Client) do(req *http.Request) ([]byte, error) {
-	resp, err := c.HTTP.Do(req)
+	resp, err := c.httpClient().Do(req)
 	if err != nil {
 		return nil, ErrCall
 	}

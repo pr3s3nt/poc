@@ -183,3 +183,33 @@ func TestEKSTargetBindingDerivesEndpointAndTokenAndRejectsForeignOrInactive(t *t
 		t.Fatalf("inactive cluster: %v", err)
 	}
 }
+
+func TestAWSBindingAcceptsAnyAllowedRegionOfTheConnectionAndNoOther(t *testing.T) {
+	ctx := context.Background()
+	conn := awsConn()
+	conn.AllowedRegions = []string{"us-east-1", "eu-west-1"}
+	b := func() *Binder {
+		return &Binder{AWS: fakeAWS{conns: map[string]terraformexec.AWSConnection{"acct": conn}}, Kube: fakeKube{}, API: &fakeAPI{account: "123456789012"}}
+	}
+	second := awsPin
+	second.Region = "eu-west-1"
+	env, err := b().Bind(ctx, terraformexec.BindRequest{OrganizationKey: "acme", Pins: []tfmodule.ProviderPin{second}})
+	if err != nil {
+		t.Fatalf("a verified allowed region was refused: %v", err)
+	}
+	defer env.Close()
+	joined := strings.Join(env.Env, "\n")
+	if env.Region != "eu-west-1" || !strings.Contains(joined, "AWS_REGION=eu-west-1") || !strings.Contains(joined, "AWS_DEFAULT_REGION=eu-west-1") || strings.Contains(joined, "us-east-1") {
+		t.Fatalf("the invocation did not bind the pinned allowed region:\n%s", joined)
+	}
+	unlisted := awsPin
+	unlisted.Region = "ap-south-1"
+	if _, err := b().Bind(ctx, terraformexec.BindRequest{OrganizationKey: "acme", Pins: []tfmodule.ProviderPin{unlisted}}); !errors.Is(err, terraformexec.ErrProviderBinding) {
+		t.Fatalf("an unlisted region was accepted: %v", err)
+	}
+	empty := awsPin
+	empty.Region = ""
+	if _, err := b().Bind(ctx, terraformexec.BindRequest{OrganizationKey: "acme", Pins: []tfmodule.ProviderPin{empty}}); !errors.Is(err, terraformexec.ErrProviderBinding) {
+		t.Fatalf("an empty pinned region was accepted: %v", err)
+	}
+}

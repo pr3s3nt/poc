@@ -2,9 +2,15 @@ import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } 
 import { api, ApiError } from '../../shared/api/client';
 import { specificGuidance } from '../../shared/api/errors';
 import { Button } from '../../shared/ui/Button';
+import { AwsConnectionForm } from './AwsConnectionForm';
 import { useCatalogList } from './useCatalogList';
 
-type Connection = { key: string; name?: string; kind: string; authenticationType?: string; status: string; config?: { cluster?: string; kubeContext?: string; endpoint?: string; region?: string; accountId?: string } };
+type Connection = {
+  key: string; name?: string; kind: string; authenticationType?: string; status: string;
+  config?: { cluster?: string; kubeContext?: string; endpoint?: string; region?: string; accountId?: string; allowedRegions?: string[] };
+  verification?: { identity?: string; regionCheck?: string; capabilityCheck?: string };
+};
+type ConnectionKind = 'kubernetes' | 'aws';
 type KubeconfigContext = { name: string; cluster: string; endpoint: string };
 type Source = 'upload' | 'paste';
 
@@ -67,6 +73,7 @@ export function ConnectionsPage() {
   // Once the user edits the name (even to blank) the suggestion never applies
   // again until the form is reset.
   const [typedName, setTypedName] = useState<string | null>(null);
+  const [kind, setKind] = useState<ConnectionKind>('kubernetes');
   const [source, setSource] = useState<Source>('upload');
   const [kubeconfig, setKubeconfig] = useState('');
   const [fileLabel, setFileLabel] = useState('');
@@ -173,9 +180,17 @@ export function ConnectionsPage() {
   }
 
   const busy = saving || inspecting || reading;
-  return <section className="page"><header className="page-header"><div><p className="eyebrow">Nền tảng</p><h1>Kết nối</h1><p>Đăng ký cluster Kubernetes có sẵn từ kubeconfig. Orchestrator lưu thông tin xác thực trong kho thông tin xác thực của nền tảng, không lưu trên máy chủ backend.</p></div></header>
+  return <section className="page"><header className="page-header"><div><p className="eyebrow">Nền tảng</p><h1>Kết nối</h1><p>Đăng ký cluster Kubernetes có sẵn từ kubeconfig hoặc tài khoản AWS bằng access key. Orchestrator lưu thông tin xác thực trong kho thông tin xác thực của nền tảng, không lưu trên máy chủ backend.</p></div></header>
     <section className="content-panel"><div className="section-header"><h2>Kết nối đã đăng ký</h2></div>{loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải danh sách">{loadError} <Button type="button" onClick={() => void reload()}>Thử lại</Button></div> : loading ? <p>Đang tải danh sách kết nối…</p> : connections.length === 0 ? <p>Chưa có kết nối nào được đăng ký.</p> : <ConnectionTable connections={connections} />}</section>
     <section className="content-panel"><div className="connection-register">
+      <div className="source-choices connection-kind" role="radiogroup" aria-label="Loại kết nối">
+        <label className="source-choice"><input type="radio" name="connection-kind" checked={kind === 'kubernetes'} onChange={() => setKind('kubernetes')} /> Cluster Kubernetes</label>
+        <label className="source-choice"><input type="radio" name="connection-kind" checked={kind === 'aws'} onChange={() => setKind('aws')} /> Tài khoản AWS</label>
+      </div>
+      {kind === 'aws' ? <>
+        <div className="section-header"><div><h2>Đăng ký tài khoản AWS</h2><p>Nhập access key dài hạn của một người dùng IAM và các vùng được phép. “Kiểm tra và lưu” xác minh danh tính, từng vùng và quyền cấp phát VPC, EKS, ElastiCache, Aurora bằng các lời gọi chỉ đọc; đăng ký không tạo tài nguyên AWS và không tự chọn kết nối cho môi trường nào.</p></div></div>
+        <AwsConnectionForm onRegistered={reload} />
+      </> : <>
       <div className="section-header"><div><h2>Đăng ký cluster Kubernetes</h2><p>Tải lên hoặc dán kubeconfig có token hoặc client certificate nhúng sẵn. Console tự đọc danh sách context; “Kiểm tra và lưu” mới xác minh quyền truy cập API mà không tạo tài nguyên.</p></div></div>
       <form onSubmit={submit}><fieldset className="form-fieldset connection-form" disabled={saving} aria-busy={busy}>
         <label className="connection-field">Tên kết nối<input value={name} required maxLength={maxNameLength} onChange={(event) => setTypedName(event.target.value)} /></label>
@@ -206,6 +221,7 @@ export function ConnectionsPage() {
         {error ? <div className="form-error" role="alert">{error}</div> : null}{notice ? <div className="form-success" role="status">{notice}</div> : null}
         <div className="connection-footer"><Button type="submit" tone="primary" disabled={busy}>{saving ? 'Đang kiểm tra và lưu…' : 'Kiểm tra và lưu'}</Button></div>
       </fieldset></form>
+      </>}
     </div></section>
   </section>;
 }
@@ -215,9 +231,18 @@ export function ConnectionsPage() {
 function destination(connection: Connection): [string, string][] {
   const config = connection.config ?? {};
   const fields: [string, string | undefined][] = connection.kind === 'AWS'
-    ? [['Vùng', config.region], ['Tài khoản', config.accountId]]
+    ? [['Vùng', config.allowedRegions?.length ? config.allowedRegions.join(', ') : config.region], ['Tài khoản', config.accountId]]
     : [['Cluster', config.cluster], ['Endpoint', config.endpoint]];
   return fields.filter((field): field is [string, string] => Boolean(field[1]));
+}
+
+// Truthful AWS evidence: only a record that carries all three registration
+// checks claims them; anything else says no provisioning evidence exists.
+function awsEvidence(connection: Connection): string {
+  const v = connection.verification;
+  return v?.identity === 'VERIFIED' && v.regionCheck === 'VERIFIED' && v.capabilityCheck === 'VERIFIED'
+    ? 'Đã xác minh khi đăng ký: danh tính, từng vùng và quyền cấp phát (chưa tạo tài nguyên).'
+    : 'Chưa có bằng chứng xác minh quyền cấp phát.';
 }
 
 function ConnectionTable({ connections }: { connections: Connection[] }) {
@@ -230,7 +255,7 @@ function ConnectionTable({ connections }: { connections: Connection[] }) {
         <td data-label="Tên"><strong>{label}</strong>{label !== connection.key ? <small className="connection-key">{connection.key}</small> : null}</td>
         <td data-label="Loại">{connection.kind}</td>
         <td data-label="Đích">{fields.length ? fields.map(([field, value]) => <span className="destination-line" key={field}><span className="muted">{field}</span> {value}</span>) : <span className="muted">—</span>}</td>
-        <td data-label="Trạng thái"><span className={`status-badge${connection.status === 'READY' ? ' status-badge-ready' : ''}`}>{connection.status === 'READY' ? 'Sẵn sàng' : connection.status}</span></td>
+        <td data-label="Trạng thái"><span className={`status-badge${connection.status === 'READY' ? ' status-badge-ready' : ''}`}>{connection.status === 'READY' ? 'Sẵn sàng' : connection.status}</span>{connection.kind === 'AWS' ? <small className="connection-key">{awsEvidence(connection)}</small> : null}</td>
       </tr>;
     })}</tbody>
   </table>;

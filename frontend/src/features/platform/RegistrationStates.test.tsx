@@ -136,7 +136,7 @@ describe('UC-04 connection list', () => {
     expect(cells('ready-one')).toEqual(['ready-one', 'KUBERNETES', 'Cluster kind-a', 'Sẵn sàng']);
     expect(cells('Lab cluster')).toEqual(['Lab clusterlab', 'KUBERNETES', 'Cluster lab-cEndpoint https://lab.example', 'Sẵn sàng']);
     // AWS records show their own fields, never empty Kubernetes ones.
-    expect(cells('AWS main')).toEqual(['AWS mainaws-main', 'AWS', 'Vùng eu-west-1', 'Sẵn sàng']);
+    expect(cells('AWS main')).toEqual(['AWS mainaws-main', 'AWS', 'Vùng eu-west-1', 'Sẵn sàngChưa có bằng chứng xác minh quyền cấp phát.']);
     expect(screen.queryByText('pending-one')).not.toBeInTheDocument();
   });
 });
