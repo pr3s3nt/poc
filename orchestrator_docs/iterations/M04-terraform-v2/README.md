@@ -100,11 +100,19 @@ I04-07 đang thực hiện từ base `8acf616` trên nhánh `claude/m04-i04-07`.
 Phiên mới [session_01B8BFUdSwAFdkASEVQA1oKY](https://claude.ai/code/session_01B8BFUdSwAFdkASEVQA1oKY),
 tạo 2026-10-14 02:38 +07; đã yêu cầu báo quyền thực tế/blockers qua status commit.
 Brief/status `/tmp/poc-i0407-definition-workload-ui/`; đã fetch bản nháp
-`b106fce` (03:39:52 +07), code/checks/browser còn pending, chưa review cuối/merge.
+`24bfcfa` (05:10:48 +07), code/checks/browser còn pending, chưa review cuối/merge.
 Nhánh tự sinh `claude/m04-i04-07-vsumu1` cùng commits. Quyền Bash/Write/Edit/git/
 network quan sát unprompted theo early status `35b37ec`; không suy từ flag.
-Đã phản hồi WIP metadata malformed và UPDATE/RETAIN/UNVERIFIED intent; chưa
-claim completion. Tiếp kiểm tra sau mỗi 15 phút, mốc kế 03:54:52 +07.
+Đã phản hồi metadata malformed, UPDATE/RETAIN/UNVERIFIED intent và các thiếu
+sót trong bàn giao `3107917`: loại public legacy driver pairs, standalone
+Preview intents, giữ optional Kubernetes Connection, đọc tiến độ Terraform
+đã lưu. Bản nháp tiếp theo có các bổ sung này; đang yêu cầu lọc mã stage/error
+không được nhận diện trước khi trả API, không hiển thị nguyên văn dữ liệu riêng
+tư. Nguồn chuẩn quyền đọc projection đã cập nhật ở schema/state contract.
+Cloud báo frontend 504 tests pass, Go còn lỗi mạng Terraform registry; chưa
+dùng làm bằng chứng checks local cuối. Chưa chạy I04-07 local, không có tài
+nguyên task-owned cluster/AWS. Tiếp fetch 05:25:48 +07, rồi review/checks/video
+local trên bản hoàn chỉnh; chưa claim completion.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
 Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.
