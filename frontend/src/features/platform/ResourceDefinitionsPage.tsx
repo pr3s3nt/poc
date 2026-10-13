@@ -11,10 +11,11 @@ import { capabilitiesForType, capabilityKey, isVerifiedPin, loadCapabilities, ty
 import { TypedVariablesEditor } from './TypedVariablesEditor';
 import { ProvisionEditor } from './ProvisionEditor';
 import { MappingEditor } from './MappingEditor';
-import { clusterType, emptyMapping, mappingProblems, mappingToObject, needsAwsConnection, objectToMapping, profileChoices, type MappingDraft, type TypeContract } from './moduleMapping';
+import { clusterType, emptyMapping, mappingProblems, mappingToObject, needsAwsConnection, needsKubernetesConnection, objectToMapping, profileChoices, type MappingDraft, type TypeContract } from './moduleMapping';
 import { draftToVariables, emptyVariableDraft, missingRequired, parseObjectText, variablesToDraft, type JsonObject, type VariableDraft } from './typedVariables';
 import { provisionToRows, rowsToProvision, type ProvisionRow } from './typedProvision';
 
+type KubeConnection = { key: string; name?: string; kind: string; status: string };
 type APIApplication = { key: string; name?: string; environments?: ApiEnvironment[] };
 type Definition = { key: string; resourceType: string; executionProfile?: string; driverType: string; criteria?: Partial<Criterion>[] };
 const driverLabels: Record<string, string> = { terraform: 'Terraform (module đã kiểm chứng)', kubernetes: 'Tạo trong cluster (Kubernetes)', 'existing-cluster': 'Cluster có sẵn (existing-cluster)' };
@@ -27,11 +28,13 @@ const unsetProfile = '__unset';
 type Mode = 'typed' | 'json';
 type PairDraft = {
   profile: string | null;
+  // Optional Kubernetes Connection of a Kubernetes-only module; '' uses the Environment's own.
+  kubeConnection: string;
   varMode: Mode; vars: VariableDraft; varsJSON: string; varsNote: string;
   mapMode: Mode; map: MappingDraft; mapJSON: string; mapNote: string;
   provMode: Mode; rows: ProvisionRow[]; provJSON: string; provNote: string;
 };
-const initialDraft = (): PairDraft => ({ profile: null, varMode: 'typed', vars: emptyVariableDraft(), varsJSON: '{}', varsNote: '', mapMode: 'typed', map: emptyMapping(), mapJSON: '{}', mapNote: '', provMode: 'typed', rows: [], provJSON: '{}', provNote: '' });
+const initialDraft = (): PairDraft => ({ profile: null, kubeConnection: '', varMode: 'typed', vars: emptyVariableDraft(), varsJSON: '{}', varsNote: '', mapMode: 'typed', map: emptyMapping(), mapJSON: '{}', mapNote: '', provMode: 'typed', rows: [], provJSON: '{}', provNote: '' });
 
 // Specific guidance comes from the stable error code; raw backend text is never shown.
 function describeFailure(reason: unknown): string {
@@ -49,10 +52,13 @@ function describeFailure(reason: unknown): string {
   }
 }
 const listFailure = () => 'Không tải được dữ liệu từ máy chủ.';
+const connectionFailure = () => 'Không tải được danh sách kết nối.';
 const capabilityFailure = () => 'Không tải được metadata module đã kiểm chứng từ máy chủ.';
 
 type RawType = Partial<TypeContract> & { key: string };
 const loadTypes = async (): Promise<TypeContract[]> => ((await api<{ resourceTypes: RawType[] }>('/resource-types')).resourceTypes ?? []).map((type) => ({ key: type.key, inputs: type.inputs ?? [], outputs: type.outputs ?? [], classes: type.classes ?? [] }));
+const loadConnections = async () => (await api<{ connections: KubeConnection[] }>('/connections')).connections ?? [];
+const connectionLabel = (connection: KubeConnection) => (connection.name && connection.name !== connection.key ? `${connection.name} (${connection.key})` : connection.key);
 const loadDefinitions = async () => (await api<{ resourceDefinitions: Definition[] }>('/resource-definitions')).resourceDefinitions ?? [];
 // Real application/environment IDs (keys) for the criteria editor; never derived from names.
 const loadApplications = async (): Promise<ApplicationOption[]> => ((await api<{ applications: APIApplication[] }>('/applications')).applications ?? []).map((app) => ({ key: app.key, name: app.name ?? app.key, environments: (app.environments ?? []).map((env) => ({ key: env.key, name: env.name ?? env.key, environmentType: env.environmentType ?? '', executionProfile: env.executionProfile ?? '', snapshotKey: snapshotKey(env) })) }));
@@ -67,6 +73,8 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const capabilityList = useCatalogList(loadCapabilities, capabilityFailure);
   const definitionList = useCatalogList(loadDefinitions, listFailure);
   const applicationList = useCatalogList(loadApplications, listFailure);
+  const [connectionsWanted, setConnectionsWanted] = useState(false);
+  const connectionList = useCatalogList(loadConnections, connectionFailure, connectionsWanted);
   const types = typeList.items.filter((type) => type.key !== 'workload');
   const definitions = definitionList.items.filter((definition) => definition.resourceType !== 'workload' && definition.driverType !== 'score-k8s');
   const [saving, setSaving] = useState(false);
@@ -102,6 +110,12 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const patchDraft = (change: Partial<PairDraft>) => { if (draftKey) setDrafts((current) => ({ ...current, [draftKey]: { ...initialDraft(), ...current[draftKey], ...change } })); };
   const choices = pin ? profileChoices(pin) : [];
   const profile: string | null = choices.length === 1 ? (choices[0] ?? null) : draft.profile;
+  // The optional Connection exists only for a Kubernetes-only module that can run on the
+  // Kubernetes target. AWS modules never take a Connection, account or region (ADR-014).
+  const offersConnection = pin !== undefined && needsKubernetesConnection(pin) && profile !== 'aws-eks';
+  useEffect(() => { if (offersConnection) setConnectionsWanted(true); }, [offersConnection]);
+  const kubeConnections = connectionList.items.filter((connection) => connection.status === 'READY' && connection.kind === 'KUBERNETES');
+  const chosenConnection = offersConnection ? draft.kubeConnection : '';
 
   // The mapping as the server will receive it, from whichever mode is active.
   const mappingObject = (): { value?: { input_mapping: JsonObject; output_mapping: JsonObject; provider_bindings: JsonObject }; problem?: string } => {
@@ -223,7 +237,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
     const submittedDraft = draftKey;
     setSaving(true);
     try {
-      await api('/resource-definitions', { method: 'POST', body: JSON.stringify({ key: submitted, resourceType, executionProfile: profile ?? '', driverType: 'terraform', driverInputs: { values: inputs.values }, provision: inputs.provision, criteria: cleanCriteria }) });
+      await api('/resource-definitions', { method: 'POST', body: JSON.stringify({ key: submitted, resourceType, executionProfile: profile ?? '', driverType: 'terraform', ...(chosenConnection !== '' ? { connectionKey: chosenConnection } : {}), driverInputs: { values: inputs.values }, provision: inputs.provision, criteria: cleanCriteria }) });
     } catch (reason) { setError(describeFailure(reason)); setSaving(false); return; }
     // Committed: report it and reset the submitted pin's draft before reloading.
     setNotice(`Đã đăng ký cấu hình tài nguyên ${submitted}.`); setKey(''); setDrafts((current) => { const next = { ...current }; delete next[submittedDraft]; return next; }); setCriteriaDraft(emptyDraft()); setSaving(false);
@@ -239,7 +253,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
     if (!inputs.values || !inputs.provision) return { definition: null, problem: inputs.problem ?? '' };
     const { criteria, problem } = draftToCriteria(criteriaDraft);
     if (problem) return { definition: null, problem };
-    return { definition: { key, resourceType, executionProfile: profile, driverType: 'terraform', connectionKey: '', driverInputs: { values: inputs.values }, provision: inputs.provision, criteria }, problem: '' };
+    return { definition: { key, resourceType, executionProfile: profile, driverType: 'terraform', connectionKey: chosenConnection, driverInputs: { values: inputs.values }, provision: inputs.provision, criteria }, problem: '' };
   })();
 
   const listError = definitionList.loadError;
@@ -269,6 +283,10 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
           <div><dt>Terraform</dt><dd>{pin.terraformVersion ?? 'không rõ'}</dd></div>
           <div><dt>Provider</dt><dd>{pin.providerRequirements.map((provider) => `${provider.name} ${provider.version}`).join(', ') || 'không có'}</dd></div></dl> : null}
         {pin && needsAwsConnection(pin) ? <p className="feature-note" role="note">Tài nguyên này dùng Kết nối AWS của Môi trường khi Xem trước hoặc Triển khai (cùng tài khoản và vùng); cấu hình không chọn Kết nối AWS riêng, kể cả Aurora. Đăng ký không cần Môi trường.</p> : null}
+        {offersConnection ? <details className="advanced-options" open><summary>Tùy chọn nâng cao</summary>
+          <label>Kết nối riêng cho cluster (tùy chọn)<select value={draft.kubeConnection} aria-describedby="kube-connection-hint" onChange={(event) => patchDraft({ kubeConnection: event.target.value })}><option value="">{connectionList.loading ? 'Đang tải kết nối…' : 'Dùng Kết nối của Môi trường (mặc định)'}</option>{kubeConnections.map((connection) => <option key={connection.key} value={connection.key}>{connectionLabel(connection)}</option>)}</select></label>
+          <p id="kube-connection-hint" className="feature-note">Để trống thì dùng Kết nối của Môi trường. Kết nối riêng không đổi cluster đích: khi lập kế hoạch, Kết nối này phải trùng với Kết nối của Môi trường, nếu không cấu hình sẽ bị từ chối.</p>
+          {connectionList.loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải kết nối">{connectionList.loadError} Dữ liệu đã nhập được giữ nguyên. <Button type="button" onClick={() => { void connectionList.reload(); }}>Thử lại</Button></div> : null}</details> : null}
         {profile === '' && pin ? <div className="form-warning" role="note">Dùng chung được xét ở mọi phạm vi triển khai nhưng vẫn phải thỏa điều kiện áp dụng. Cấu hình này có thể trùng mức ưu tiên với cấu hình khác; hệ thống không phát hiện hết mọi trường hợp trùng.</div> : null}
         {pin ? <section className="catalog-fields" aria-label="Ánh xạ module">
           <div className="section-header"><div><h3>Ánh xạ module</h3><p>Đầu vào/đầu ra giữa Loại tài nguyên và module, cùng provider binding. Chỉ chọn trong những gì module đã kiểm chứng công bố.</p></div>

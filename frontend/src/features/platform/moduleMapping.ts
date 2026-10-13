@@ -45,6 +45,8 @@ export function outputCompatible(contractType: string, moduleType: string | unde
 }
 
 export const bindingProviders = (capability: Capability): CapabilityProvider[] => capability.providerRequirements.filter((provider) => provider.binding === 'aws' || provider.binding === 'kubernetes');
+// A Kubernetes-only module may name the Environment's own Kubernetes Connection (UC-03 BR-08).
+export const needsKubernetesConnection = (capability: Capability): boolean => !needsAwsConnection(capability) && capability.providerRequirements.some((provider) => provider.binding === 'kubernetes');
 export const needsAwsConnection = (capability: Capability): boolean => capability.providerRequirements.some((provider) => provider.binding === 'aws');
 // An AWS module always runs on the Environment's AWS Connection and aws-eks; a
 // Kubernetes-only module may run on either target or on both ("Dùng chung").

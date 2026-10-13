@@ -3,8 +3,8 @@ import type { Capability } from '../features/platform/capabilities';
 // A recorded response of GET /resource-definition-capabilities from the product
 // backend over its packaged, verified module registry (secret-free: pins,
 // variables, outputs and provider requirements only; the loader fills the
-// omitted empty arrays). Legacy static `kubernetes` pairs are kept on purpose:
-// the Definition form never offers them.
+// omitted empty arrays). Only verified registry modules are registrable
+// (ADR-014); the static `kubernetes` pairs are no longer published.
 export const capabilityFixture: Capability[] = [
  {
   "resourceType": "k8s-cluster",
@@ -131,24 +131,6 @@ export const capabilityFixture: Capability[] = [
  },
  {
   "resourceType": "k8s-namespace",
-  "driverType": "kubernetes",
-  "module": "",
-  "variables": [
-   {
-    "name": "name",
-    "type": "string",
-    "required": true,
-    "hasDefault": false,
-    "resourceParam": false,
-    "preset": "${context.env.namespace}"
-   }
-  ],
-  "executorOwned": [],
-  "providerRequirements": [],
-  "outputs": []
- },
- {
-  "resourceType": "k8s-namespace",
   "driverType": "terraform",
   "module": "k8s-namespace",
   "source": {
@@ -186,55 +168,6 @@ export const capabilityFixture: Capability[] = [
   "executorOwned": [
    "tags"
   ]
- },
- {
-  "resourceType": "postgres",
-  "driverType": "kubernetes",
-  "module": "",
-  "variables": [
-   {
-    "name": "database",
-    "type": "string",
-    "required": false,
-    "hasDefault": true,
-    "default": "app",
-    "resourceParam": true
-   },
-   {
-    "name": "image",
-    "type": "string",
-    "required": false,
-    "hasDefault": true,
-    "default": "postgres:16-alpine",
-    "resourceParam": false
-   },
-   {
-    "name": "namespace",
-    "type": "string",
-    "required": false,
-    "hasDefault": false,
-    "resourceParam": false
-   },
-   {
-    "name": "storage",
-    "type": "string",
-    "required": false,
-    "hasDefault": true,
-    "default": "1Gi",
-    "resourceParam": false
-   },
-   {
-    "name": "username",
-    "type": "string",
-    "required": false,
-    "hasDefault": true,
-    "default": "app",
-    "resourceParam": true
-   }
-  ],
-  "executorOwned": [],
-  "providerRequirements": [],
-  "outputs": []
  },
  {
   "resourceType": "postgres",

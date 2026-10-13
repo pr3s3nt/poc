@@ -9,6 +9,7 @@ export type Body = Record<string, unknown>;
 export type Backend = {
   types?: unknown[]; definitions?: Body[]; post?: () => Response; typesFail?: boolean;
   capabilitiesFail?: boolean; capabilities?: unknown[]; capabilityLists?: (() => Response | Promise<Response>)[];
+  connections?: Body[]; connectionsFail?: boolean; connectionLists?: (() => Response | Promise<Response>)[];
   definitionLists?: (() => Response)[]; applications?: Body[]; applicationsFail?: boolean; applicationLists?: (() => Response | Promise<Response>)[];
 };
 export const defaultApplications = [
@@ -34,6 +35,11 @@ export function backend(options: Backend = {}) {
       return state.capabilitiesFail ? Response.json({ code: 'INTERNAL_ERROR' }, { status: 500 }) : Response.json({ capabilities: state.capabilities ?? capabilityFixture });
     }
     if (url.endsWith('/resource-types')) return state.typesFail ? Response.json({ code: 'INTERNAL_ERROR' }, { status: 500 }) : Response.json({ resourceTypes: state.types ?? typeFixture });
+    if (url.endsWith('/connections')) {
+      const next = state.connectionLists?.shift();
+      if (next) return next();
+      return state.connectionsFail ? Response.json({ code: 'INTERNAL_ERROR' }, { status: 500 }) : Response.json({ connections: state.connections ?? [] });
+    }
     if (url.endsWith('/applications')) {
       const next = state.applicationLists?.shift();
       if (next) return next();
