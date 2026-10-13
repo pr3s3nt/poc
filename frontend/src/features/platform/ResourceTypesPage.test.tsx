@@ -275,9 +275,9 @@ describe('UC-02 supported whitelist and definition CTA', () => {
     for (const key of ['workload', 'postgres-ha', 'constructor', 'toString']) expect(label(key), key).toBe('Chỉ có contract');
     expect(entry('vpc')).toHaveTextContent('Terraform/vpc');
     expect(entry('k8s-cluster')).toHaveTextContent('Terraform/eks');
-    expect(entry('k8s-namespace')).toHaveTextContent('Kubernetes');
-    expect(entry('k8s-namespace')).not.toHaveTextContent('Terraform');
-    expect(entry('postgres')).toHaveTextContent('Kubernetes hoặc Terraform/aurora');
+    expect(entry('k8s-namespace')).toHaveTextContent('Terraform/k8s-namespace');
+    expect(entry('k8s-namespace')).not.toHaveTextContent('Cách tạo: Kubernetes');
+    expect(entry('postgres')).toHaveTextContent('Terraform/aurora hoặc Terraform/postgres-k8s');
     expect(entry('postgres-ha')).not.toHaveTextContent('Cách tạo');
   });
 

@@ -236,8 +236,6 @@ type View struct {
 	Matches        []MatchView                            `json:"matches"`
 	Batches        [][]string                             `json:"batches"`
 	Classification planning.Classification                `json:"classification"`
-	// ResourceIntents is the safe resource projection (UC-05 BR-10); no params, resolved inputs, secrets or state references.
-	ResourceIntents []planning.ResourceIntent `json:"resourceIntents"`
 }
 
 // GraphView omits node parameter values, which may come from Definition
@@ -279,9 +277,8 @@ func (p *DeploymentPreview) Public() (View, error) {
 		return View{}, err
 	}
 	view := View{
-		Rendering:       resource.CopyRendering(p.Plan.Rendering),
-		ResourceIntents: p.Plan.ResourceIntents(),
-		ApplicationKey:  p.ApplicationKey, EnvironmentKey: p.EnvironmentKey,
+		Rendering:      resource.CopyRendering(p.Plan.Rendering),
+		ApplicationKey: p.ApplicationKey, EnvironmentKey: p.EnvironmentKey,
 		BaseSetID: p.BaseSetID, BaseVersion: p.BaseVersion, RunID: p.RunID,
 		WorkloadID: p.WorkloadID, Action: p.Action, PlanHash: p.Plan.PlanHash,
 		Delta: p.Plan.Delta, CandidateSet: candidate,
