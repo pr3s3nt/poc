@@ -96,6 +96,14 @@ func provision(args []string) int {
 	if err := os.WriteFile(filepath.Join(*outDir, "console.url"), []byte(as(m.Roles[1], roles["console"])), 0o600); err != nil {
 		return 1
 	}
+	// Owner and State logins stay in the private directory for the seed-progress
+	// step (persisted attempts written the way the executor writes them).
+	if err := os.WriteFile(filepath.Join(*outDir, "state.url"), []byte(as(m.Roles[2], roles["state"])), 0o600); err != nil {
+		return 1
+	}
+	if err := os.WriteFile(filepath.Join(*outDir, "owner.url"), []byte(as(m.Roles[0], roles["owner"])), 0o600); err != nil {
+		return 1
+	}
 	encoded, _ := json.Marshal(m)
 	if err := os.WriteFile(filepath.Join(*outDir, "manifest.json"), encoded, 0o600); err != nil {
 		return 1

@@ -199,7 +199,7 @@ STATUS=0
 : > "${WORK}/playwright.log"
 tail -n +1 -f "${WORK}/playwright.log" &
 PIDS+=($!)
-DISPLAY="${VIDEO_DISPLAY}" ORCH_E2E_SCREEN="${SCREEN}" ORCH_E2E_XDOTOOL="${XDOTOOL}" ORCH_E2E_PRIVATE_DIR="${PRIVATE}" \
+DISPLAY="${VIDEO_DISPLAY}" ORCH_E2E_SCREEN="${SCREEN}" ORCH_E2E_XDOTOOL="${XDOTOOL}" ORCH_E2E_PRIVATE_DIR="${PRIVATE}" ORCH_E2E_DEFWORK="${WORK}/defworkserver" \
   ORCH_E2E_URL="${API}" ORCH_E2E_RUN_ID="${RUN_ID}" ORCH_E2E_EVIDENCE_DIR="${WORK}" \
   setsid node "${E2E}/definition-workload-local.mjs" --scenario I04-07 --headed --captions "${CAPTIONS}" --evidence "${WORK}" \
   > "${WORK}/playwright.log" 2>&1 &
@@ -226,7 +226,7 @@ node -e '
   const values = new Set();
   for (const file of ["root-header", "scoped-header"]) { const m = read(path.join(priv, file)).match(/X-Vault-Token:\s*(\S+)/); if (m) values.add(m[1]); }
   const scoped = read(path.join(priv, "connection-vault-token")).trim(); if (scoped) values.add(scoped);
-  try { const u = new URL(read(path.join(priv, "console.url")).trim()); if (u.password) values.add(decodeURIComponent(u.password)); } catch { /* absent */ }
+  for (const name of ["console.url", "state.url", "owner.url"]) { try { const u = new URL(read(path.join(priv, name)).trim()); if (u.password) values.add(decodeURIComponent(u.password)); } catch { /* absent */ } }
   try { const u = new URL(read(process.env.ORCH_I0407_PG_ADMIN_URL_FILE).trim()); if (u.password) values.add(decodeURIComponent(u.password)); } catch { /* absent */ }
   for (const v of [...values]) if (v.length < 8) values.delete(v);
   const textual = /\.(log|txt|json|srt|ass|tsv|md|env)$/;
@@ -242,7 +242,7 @@ node -e '
   } };
   walk(work);
   if (values.size < 3) { console.error("scan had too few values to be meaningful"); process.exit(1); }
-  console.log(`no-credential-in-retained-text files=${scanned} values=${values.size} (Vault root and scoped tokens, SQL credentials)`);
+  console.log(`no-credential-in-retained-text files=${scanned} values=${values.size} (Vault root and scoped tokens, SQL credentials of all three logins)`);
 ' "${WORK}" "${PRIVATE}" | tee -a "${WORK}/checks.txt" || STATUS=1
 
 # SQL reopen: stop the server, start a new process on the same PostgreSQL
@@ -267,6 +267,7 @@ if [[ -s "${WORK}/api-addr-reopen" ]]; then
   REOPEN_API="http://$(<"${WORK}/api-addr-reopen")"
   node -e '
     const base = process.argv[1];
+    const scenario = JSON.parse(require("fs").readFileSync(process.argv[2], "utf8"));
     (async () => {
       const signIn = await fetch(`${base}/api/v1/auth/sign-in`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "platform-engineer", password: "test-password" }) });
       if (!signIn.ok) throw new Error("sign-in after reopen failed");
@@ -283,10 +284,25 @@ if [[ -s "${WORK}/api-addr-reopen" ]]; then
       const postgres = types.find((item) => item.key === "postgres");
       if (!postgres || JSON.stringify(postgres.classes) !== JSON.stringify(["cloud-managed", "in-cluster"])) failures.push("postgres classes differ after reopen");
       if (!capabilities.some((item) => item.driverType === "terraform" && item.module === "redis-k8s" && item.source?.contentSha256)) failures.push("verified pins missing after reopen");
+      // Persisted attempts read back after the restart, through the allowlist.
+      const devIn = await fetch(`${base}/api/v1/auth/sign-in`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "developer", password: "test-password" }) });
+      const devCookie = (devIn.headers.getSetCookie?.() ?? []).map((value) => value.split(";")[0]).join("; ");
+      const detail = async (id) => (await (await fetch(`${base}/api/v1/applications/${scenario.applicationId}/environments/staging/deployments/${id}`, { headers: { cookie: devCookie } })).text());
+      if (!scenario.progress) failures.push("scenario recorded no seeded progress");
+      else {
+        const good = JSON.parse(await detail(scenario.progress.good)).resourceProgress ?? [];
+        if (good.length !== 2 || !good.some((row) => row.stage === "READY" && row.status === "SUCCEEDED") || !good.some((row) => row.status === "FAILED" && row.safeErrorCode === "TIMEOUT")) failures.push("seeded progress differs after reopen");
+        const hostileText = await detail(scenario.progress.hostile);
+        for (const marker of ["AKIA", "PRIVATE", "/var/lib", "vault://", "verifyHandle", "seeded-private-handle"]) if (hostileText.includes(marker)) failures.push(`hostile persisted text leaked after reopen (${marker})`);
+        const hostile = JSON.parse(hostileText).resourceProgress ?? [];
+        if (hostile.length !== 1 || hostile[0].stage !== "UNKNOWN" || hostile[0].safeErrorCode !== "UNKNOWN_ERROR") failures.push("hostile row was not replaced by generic markers");
+        const empty = JSON.parse(await detail(scenario.progress.empty)).resourceProgress;
+        if (!Array.isArray(empty) || empty.length !== 0) failures.push("a Deployment without attempts must have an empty array");
+      }
       if (failures.length) { console.error(failures.join("; ")); process.exit(1); }
-      console.log(`sql-reopen ok: ${definitions.length} Definitions, Type redis classes [in-cluster], postgres classes [cloud-managed, in-cluster], verified pins served again after a server restart on the same PostgreSQL database`);
+      console.log(`sql-reopen ok (incl. persisted attempt progress through the allowlist): ${definitions.length} Definitions, Type redis classes [in-cluster], postgres classes [cloud-managed, in-cluster], verified pins served again after a server restart on the same PostgreSQL database`);
     })().catch((error) => { console.error(error.message); process.exit(1); });
-  ' "${REOPEN_API}" | tee -a "${WORK}/checks.txt" || STATUS=1
+  ' "${REOPEN_API}" "${WORK}/scenario.json" | tee -a "${WORK}/checks.txt" || STATUS=1
 else
   check "FAIL the server did not restart on the same database; see ${WORK}/orchestrator-reopen.log"; STATUS=1
 fi

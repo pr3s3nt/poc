@@ -150,6 +150,7 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		Classification: classify(ctx, graph, req.Active),
 		Target:         req.Env.Binding(),
 	}
+	plan.IntentEvidence = intentEvidence(matches, matcher)
 	plan.Rendering, err = s.selectRendering(ctx, graph, matcher, req.Catalog)
 	if err != nil {
 		return nil, stageErr(StageCatalog, err)
@@ -176,6 +177,9 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	}
 	if len(plan.Rendering) > 0 {
 		hashInput["rendering"] = plan.Rendering
+	}
+	if len(plan.IntentEvidence) > 0 {
+		hashInput["intentEvidence"] = plan.IntentEvidence
 	}
 	hash, err := canon.Hash(hashInput)
 	if err != nil {

@@ -35,6 +35,8 @@ func main() {
 		switch os.Args[1] {
 		case "provision":
 			os.Exit(provision(os.Args[2:]))
+		case "seed-progress":
+			os.Exit(seedProgress(os.Args[2:]))
 		case "drop":
 			os.Exit(drop(os.Args[2:]))
 		}

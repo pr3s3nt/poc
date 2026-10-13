@@ -14,6 +14,7 @@
 //   node definition-workload-local.mjs --scenario I04-07 --headed --captions vi --evidence DIR
 // Marks, captions, assertions and the video are written also when a step fails.
 import { expect } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { requireCaptionLocale, createCaptions } from './captions.mjs';
 import { createApplication, createHuman, expectVisibleCursor, installCursor } from './human.mjs';
@@ -388,10 +389,80 @@ export const SCENARIOS = {
     check('after retry the class is chosen again explicitly, saved and previewed; still no Deployment (nothing was deployed in this run)');
     mark('preview-final');
     await h.read('Xem trước lại thành công; không triển khai trong lần chạy này');
+
+    // ---- Standalone Score Preview (UC-05 BR-10) -----------------------------
+    caption('Bước 20: Xem trước Score độc lập cũng hiển thị tài nguyên hạ tầng an toàn: loại/class, module·revision, đích, quyền sở hữu và ý định; không có tham số hay bí mật');
+    await h.click(page.getByRole('button', { name: 'Xem trước Score', exact: true }));
+    await h.type(page.getByLabel('ID Workload', { exact: true }), 'api');
+    await h.type(page.getByLabel('ID lần chạy', { exact: true }), 'standalone-1');
+    await h.paste(page.getByLabel('Score sau (YAML hoặc JSON)', { exact: true }), JSON.stringify({ apiVersion: 'score.dev/v1b1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1' } }, resources: { cache: { type: 'redis', class: 'in-cluster' }, db: { type: 'postgres', class: 'in-cluster', params: { database: 'shop', username: 'shop' } } } }));
+    await h.click(page.getByRole('button', { name: 'Xem trước', exact: true }));
+    const standalone = page.getByRole('region', { name: 'Kết quả xem trước Score' });
+    const intents = standalone.getByLabel('Tài nguyên hạ tầng sẽ được xử lý');
+    await expect(intents).toContainText(`redis-k8s · ${redisPin.source.revision}`);
+    await expect(intents).toContainText('Tạo mới');
+    await expect(intents).toContainText('Orchestrator');
+    await expect(standalone.getByLabel('Đích đã ghim của xem trước')).toContainText('internal-cluster');
+    const standaloneText = await standalone.innerText();
+    for (const pattern of FORBIDDEN_IN_PREVIEW) expect(standaloneText).not.toMatch(pattern);
+    expect(await intents.innerText()).not.toContain('shop');
+    check('standalone Score Preview shows the same safe resource intents, module pin, pinned target and ownership as the pending Preview; no param, secret or credential text');
+    mark('standalone-intents');
+    await h.moveTo(intents);
+    await h.read('Xem trước Score độc lập hiển thị đúng ý định tài nguyên và đích đã ghim');
+    expect(((await get(`/applications/${applicationId}/environments/staging/deployments`)).deployments ?? [])).toHaveLength(0);
+    check('the standalone Preview created no Deployment either');
+
+    // ---- Persisted attempt progress (SEEDED, not executed) ------------------
+    caption('Bước 21: Tiến trình đã lưu của một lần triển khai: giai đoạn, lần chạy và trạng thái an toàn. Dữ liệu được ghi sẵn (không chạy Terraform); văn bản lạ trong CSDL không bao giờ hiện ra');
+    const seeded = JSON.parse(execFileSync(process.env.ORCH_E2E_DEFWORK, ['seed-progress', '-private-dir', process.env.ORCH_E2E_PRIVATE_DIR, '-application', applicationId, '-environment', 'staging'], { encoding: 'utf8' }));
+    check('seeded three Deployments with persisted attempts through the real Console and State stores (FAKE source: nothing was executed; one row carries hostile text written as the database owner)');
+    await h.click(page.getByRole('button', { name: /^←/ }).first());
+    await expect(page.getByRole('button', { name: 'Xem tất cả', exact: true })).toBeVisible();
+    await h.click(page.getByRole('button', { name: 'Xem tất cả', exact: true }));
+    const entries = page.locator('button.deployment-entry');
+    await expect(entries).toHaveCount(3);
+    // Newest first: no-attempts, hostile, good. Error handling first: the detail read fails once (FAKE interception).
+    let failOnce = true;
+    await page.route(`**/deployments/${seeded.good}`, async (route) => { if (failOnce) { failOnce = false; await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"internal AKIAPRIVATE detail"}' }); } else await route.continue(); });
+    await h.click(entries.nth(2));
+    await expect(page.getByRole('alert')).toContainText('Không thể tải chi tiết triển khai.');
+    await expect(page.getByRole('region', { name: 'Tiến trình tạo tài nguyên' })).toHaveCount(0);
+    expect(await page.locator('body').innerText()).not.toContain('AKIAPRIVATE');
+    check('detail read failure: safe Vietnamese error with retry, no progress rows, no raw server text');
+    await h.click(page.getByRole('alert').getByRole('button', { name: 'Thử lại', exact: true }));
+    const progress = page.getByRole('region', { name: 'Tiến trình tạo tài nguyên' });
+    await expect(progress.locator('tbody tr')).toHaveCount(2);
+    await expect(progress).toContainText('redis-k8s');
+    await expect(progress).toContainText('Sẵn sàng');
+    await expect(progress).toContainText('Thành công');
+    await expect(progress).toContainText('Quá thời gian');
+    mark('progress-shown');
+    await h.moveTo(progress);
+    await h.read('Mỗi tài nguyên hiển thị giai đoạn, lần chạy, trạng thái và mã lỗi an toàn đã lưu');
+    // Reopen: a full page reload re-reads the persisted attempts.
+    await page.reload();
+    await expect(page.getByRole('region', { name: 'Tiến trình tạo tài nguyên' }).locator('tbody tr')).toHaveCount(2);
+    check('reopen: a full reload re-reads the same persisted attempts');
+    await h.click(page.getByRole('button', { name: /^← Lịch sử/ }));
+    await h.click(page.locator('button.deployment-entry').nth(1));
+    const hostile = page.getByRole('region', { name: 'Tiến trình tạo tài nguyên' });
+    await expect(hostile).toContainText('Giai đoạn không rõ');
+    await expect(hostile).toContainText('Lỗi không xác định');
+    const hostileHtml = await page.content();
+    for (const marker of ['AKIA', 'PRIVATE', '/var/lib', 'vault://', 'seeded-private-handle']) expect(hostileHtml).not.toContain(marker);
+    check('hostile persisted stage/error text is replaced by generic Vietnamese labels; no credential, path or handle marker reaches the page');
+    mark('progress-hostile-safe');
+    await h.read('Văn bản lạ trong cơ sở dữ liệu chỉ hiện thành nhãn chung, không lộ nội dung');
+    await h.click(page.getByRole('button', { name: /^← Lịch sử/ }));
+    await h.click(page.locator('button.deployment-entry').nth(0));
+    await expect(page.getByText('Chưa có bước thực thi Terraform nào được ghi cho lần triển khai này.')).toBeVisible();
+    check('a Deployment without attempts says so; it is not an unavailable projection');
+    mark('progress-empty');
     await signOut();
     mark('signed-out');
 
-    writeFileSync(`${evidenceDir}/scenario.json`, JSON.stringify({ applicationId, registeredPins: { redis: redisPin.source, postgresK8s: pinOf(capabilities, 'postgres-k8s').source }, types: classesOf('postgres') }, null, 2));
+    writeFileSync(`${evidenceDir}/scenario.json`, JSON.stringify({ applicationId, registeredPins: { redis: redisPin.source, postgresK8s: pinOf(capabilities, 'postgres-k8s').source }, types: classesOf('postgres'), progress: seeded }, null, 2));
   },
 };
 

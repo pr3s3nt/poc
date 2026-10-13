@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { specificGuidance } from '../../shared/api/errors';
+import { parseRenderBundles } from './metadata';
 import { api, ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { snapshotKey, type ApiEnvironment } from './environmentSnapshot';
@@ -16,7 +17,7 @@ const profileOptions = [['internal-k8s', 'Cluster nội bộ (internal-k8s)'], [
 const profileLabel = (profile: string) => profileOptions.find(([value]) => value === profile)?.[1] ?? 'Chưa chọn phạm vi';
 const listFailure = () => 'Không tải được dữ liệu từ máy chủ.';
 const loadDefinitions = async () => (await api<{ resourceDefinitions: Definition[] }>('/resource-definitions')).resourceDefinitions ?? [];
-const loadBundles = async () => ((await api<{ renderBundles: InstalledBundle[] }>('/render-bundles')).renderBundles ?? []).filter((item) => item.status === 'AVAILABLE' && typeof item.id === 'string' && item.id !== '');
+const loadBundles = async (): Promise<InstalledBundle[]> => parseRenderBundles(await api<unknown>('/render-bundles')).filter((item) => item.status === 'AVAILABLE');
 // Real application/environment IDs (keys) for the criteria editor; never derived from names.
 const loadApplications = async (): Promise<ApplicationOption[]> => ((await api<{ applications: APIApplication[] }>('/applications')).applications ?? []).map((app) => ({ key: app.key, name: app.name ?? app.key, environments: (app.environments ?? []).map((env) => ({ key: env.key, name: env.name ?? env.key, environmentType: env.environmentType ?? '', executionProfile: env.executionProfile ?? '', snapshotKey: snapshotKey(env) })) }));
 

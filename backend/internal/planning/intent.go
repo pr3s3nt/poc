@@ -3,6 +3,7 @@ package planning
 import (
 	"sort"
 
+	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/platform/canon"
 )
 
@@ -64,9 +65,14 @@ type ResourceIntent struct {
 	Providers     []IntentProvider `json:"providers,omitempty"`
 }
 
-// intentFingerprints hashes, per node, the authored intent that an execution
-// would act on: Definition, module pin, provider targets and authored params.
-// It is compared between two plans and never displayed or persisted.
+// intentFingerprints hashes, per node, the complete authored and pinned
+// execution intent an execution would act on: Definition and driver, explicit
+// Connection/binding, authored params, the verified bundle (source pin, bundle
+// ID, release pins, contract fingerprint), the module input table (fallback
+// variables and input-mapping sources, kept raw so no secret is resolved), the
+// output mapping and the resolved provider targets. It is compared between two
+// plans only; it is never displayed, returned or persisted. A Terraform node
+// without contract evidence has no fingerprint, so it reads as unverified.
 func (p *Plan) intentFingerprints() map[string]string {
 	contracts := map[string]TerraformContract{}
 	for _, contract := range p.Terraform {
@@ -77,13 +83,40 @@ func (p *Plan) intentFingerprints() map[string]string {
 		if node.Kind != NodeResource {
 			continue
 		}
-		contract := contracts[node.Descriptor]
+		match := p.Matches[node.Descriptor]
+		contract, hasContract := contracts[node.Descriptor]
+		if match.DriverType == resource.DriverTerraform && (!hasContract || contract.Fingerprint == "") {
+			continue
+		}
+		evidence, hasEvidence := p.IntentEvidence[node.Descriptor]
+		if !hasEvidence && match.Binding == "" {
+			continue // no authored-content evidence (for example an older persisted plan): unverified
+		}
 		hash, err := canon.Hash(map[string]any{
-			"definition": p.Matches[node.Descriptor].DefinitionKey, "driver": p.Matches[node.Descriptor].DriverType,
-			"params": node.Params, "source": contract.Source, "providers": contract.ProviderBindings, "mapping": contract.OutputMapping,
+			"definition": match.DefinitionKey, "driver": match.DriverType, "connection": match.ConnectionKey, "binding": match.Binding,
+			"type": node.ResourceType, "class": node.Class, "params": node.Params, "bindings": node.Bindings,
+			"authored": evidence, "fingerprint": contract.Fingerprint, "bundle": contract.BundleID, "terraform": contract.TerraformVersion, "lock": contract.ProviderLockDigest,
+			"source": contract.Source, "inputs": contract.Inputs, "outputs": contract.OutputMapping, "secretOutputs": contract.SecretOutputs, "providers": contract.ProviderBindings,
 		})
 		if err == nil {
 			out[node.Descriptor+"|"+node.Scope.Key()] = hash
+		}
+	}
+	return out
+}
+
+// intentEvidence digests the authored content of each matched Definition. The
+// implicit Environment cluster binding has no stored Definition and no entry.
+func intentEvidence(matches map[string]Match, matcher *definitionMatcher) map[string]string {
+	out := map[string]string{}
+	for descriptor, match := range matches {
+		def, ok := matcher.definition(match.DefinitionKey)
+		if !ok {
+			continue
+		}
+		hash, err := canon.Hash(map[string]any{"driver": def.DriverType, "profile": def.ExecutionProfile, "connection": def.ConnectionKey, "inputs": def.DriverInputs, "provision": def.Provision})
+		if err == nil {
+			out[descriptor] = hash
 		}
 	}
 	return out
@@ -121,9 +154,12 @@ func (p *Plan) ResourceIntents(previous func(Node) *Plan) []ResourceIntent {
 			intent.Intent = IntentUnverified
 			if previous != nil {
 				if old := previous(node); old != nil {
-					if before, ok := old.intentFingerprints()[node.Descriptor+"|"+node.Scope.Key()]; ok {
+					key := node.Descriptor + "|" + node.Scope.Key()
+					before, hadBefore := old.intentFingerprints()[key]
+					now, hasNow := current[key]
+					if hadBefore && hasNow {
 						intent.Intent = IntentUpdate
-						if before == current[node.Descriptor+"|"+node.Scope.Key()] {
+						if before == now {
 							intent.Intent = IntentRetain
 						}
 					}

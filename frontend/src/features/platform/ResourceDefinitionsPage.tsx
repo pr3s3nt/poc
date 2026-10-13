@@ -10,6 +10,7 @@ import { own } from './resourceSupport';
 import { capabilitiesForType, capabilityKey, isVerifiedPin, loadCapabilities, type Capability } from './capabilities';
 import { TypedVariablesEditor } from './TypedVariablesEditor';
 import { ProvisionEditor } from './ProvisionEditor';
+import { parseTypeMetadata } from './metadata';
 import { MappingEditor } from './MappingEditor';
 import { clusterType, emptyMapping, mappingProblems, mappingToObject, needsAwsConnection, needsKubernetesConnection, objectToMapping, profileChoices, type MappingDraft, type TypeContract } from './moduleMapping';
 import { draftToVariables, emptyVariableDraft, missingRequired, parseObjectText, variablesToDraft, type JsonObject, type VariableDraft } from './typedVariables';
@@ -55,8 +56,7 @@ const listFailure = () => 'Không tải được dữ liệu từ máy chủ.';
 const connectionFailure = () => 'Không tải được danh sách kết nối.';
 const capabilityFailure = () => 'Không tải được metadata module đã kiểm chứng từ máy chủ.';
 
-type RawType = Partial<TypeContract> & { key: string };
-const loadTypes = async (): Promise<TypeContract[]> => ((await api<{ resourceTypes: RawType[] }>('/resource-types')).resourceTypes ?? []).map((type) => ({ key: type.key, inputs: type.inputs ?? [], outputs: type.outputs ?? [], classes: type.classes ?? [] }));
+const loadTypes = async (): Promise<TypeContract[]> => parseTypeMetadata(await api<unknown>('/resource-types'));
 const loadConnections = async () => (await api<{ connections: KubeConnection[] }>('/connections')).connections ?? [];
 const connectionLabel = (connection: KubeConnection) => (connection.name && connection.name !== connection.key ? `${connection.name} (${connection.key})` : connection.key);
 const loadDefinitions = async () => (await api<{ resourceDefinitions: Definition[] }>('/resource-definitions')).resourceDefinitions ?? [];

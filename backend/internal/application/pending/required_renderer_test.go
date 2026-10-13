@@ -392,3 +392,86 @@ func TestPreviewIntentUpdateRetainUnverifiedForExistingIdentity(t *testing.T) {
 		t.Fatalf("no baseline: %s", got)
 	}
 }
+
+// UC-05 BR-10: editing a fallback variable of the SAME Definition key changes
+// the effective module inputs, so Preview shows UPDATE, never RETAIN.
+func TestPreviewIntentSameDefinitionKeyChangedFallbackIsUpdate(t *testing.T) {
+	ctx := context.Background()
+	app, opts, _, bundles := requiredAppBundles(t, true)
+	registerRenderer(t, app, bundles, opts, "render", "internal-k8s")
+	raw := scoreFor("api", "api:v1", false)
+	raw["resources"] = map[string]any{"db": map[string]any{"type": "postgres", "params": map[string]any{"database": "orders", "username": "appuser"}}}
+	if _, err := app.Workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", raw, 0); err != nil {
+		t.Fatal(err)
+	}
+	first, err := app.Pending.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report, err := app.Pending.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", first.Token); err != nil || report.Status != "SUCCEEDED" {
+		t.Fatalf("deploy: %+v %v", report, err)
+	}
+	var definitionKey string
+	for _, intent := range first.Changes[0].ResourceIntents {
+		if intent.ResourceType == "postgres" {
+			definitionKey = intent.DefinitionKey
+		}
+	}
+	intentOf := func(p pending.Preview) string {
+		for _, intent := range p.Changes[0].ResourceIntents {
+			if intent.ResourceType == "postgres" {
+				if intent.DefinitionKey != definitionKey {
+					t.Fatalf("the Definition key changed: %s", intent.DefinitionKey)
+				}
+				return intent.Intent
+			}
+		}
+		return ""
+	}
+	// Re-save the draft without changes to the Definition: RETAIN.
+	env, _ := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	same := scoreFor("api", "api:v2", false)
+	same["resources"] = raw["resources"]
+	if _, err := app.Workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", same, env.DraftVersion); err != nil {
+		t.Fatal(err)
+	}
+	retained, err := app.Pending.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil || len(retained.Changes) != 1 || intentOf(retained) != "RETAIN" {
+		t.Fatalf("identical Definition: %+v %v", retained, err)
+	}
+	// Same key, different fallback variable.
+	defs, err := app.Store.ListResourceDefinitions(ctx, opts.OrganizationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, def := range defs {
+		if def.Key != definitionKey {
+			continue
+		}
+		values := map[string]any{}
+		for k, v := range def.DriverValues() {
+			values[k] = v
+		}
+		variables := map[string]any{}
+		for k, v := range def.Variables() {
+			variables[k] = v
+		}
+		variables["storage"] = "9Gi"
+		values["variables"] = variables
+		def.DriverInputs = map[string]any{"values": values}
+		if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {
+			t.Fatal(err)
+		}
+	}
+	updated, err := app.Pending.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil || len(updated.Changes) != 1 {
+		t.Fatalf("preview: %+v %v", updated, err)
+	}
+	if got := intentOf(updated); got != "UPDATE" {
+		t.Fatalf("a changed fallback variable of the same Definition key must be UPDATE, got %s", got)
+	}
+	raw2, _ := json.Marshal(updated.Changes[0].ResourceIntents)
+	if strings.Contains(string(raw2), "9Gi") {
+		t.Fatal("the projection must not expose the changed value")
+	}
+}
