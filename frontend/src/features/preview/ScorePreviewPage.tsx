@@ -6,7 +6,7 @@ import { Button } from '../../shared/ui/Button';
 import { ApiError } from '../../shared/api/client';
 import { previewScore, type PreviewAction, type ScorePreview, type ScorePreviewRequest } from './api';
 import { parseScoreText } from './parseScore';
-import { rendererText } from './ResourceIntents';
+import { ResourceIntents, rendererText } from './ResourceIntents';
 
 const actions: { value: PreviewAction; label: string; hint: string }[] = [
   { value: 'deploy', label: 'Thêm Workload', hint: 'Chỉ cần Score sau; Workload chưa tồn tại.' },
@@ -126,6 +126,7 @@ function PreviewResult({ result }: { result: ScorePreview }) {
       <div><h3>Mới ({result.classification.new.length})</h3><List items={result.classification.new} empty="Không có" /></div>
       <div><h3>Đã có ({result.classification.existing.length})</h3><List items={result.classification.existing} empty="Không có" /></div>
       <div><h3>Không còn được tham chiếu ({result.classification.unreferenced.length})</h3><List items={result.classification.unreferenced} empty="Không có" /></div></div></section>
+    <section className="content-panel"><h2>Tài nguyên hạ tầng</h2>{result.binding ? <p aria-label="Đích đã ghim của xem trước">Đích đã ghim: Kết nối {result.binding.connectionKey} · phạm vi {result.binding.executionProfile}{result.binding.region ? ` · vùng ${result.binding.region}` : ''}{result.accountId ? ` · tài khoản AWS ${result.accountId}` : ''}</p> : null}<ResourceIntents intents={result.resourceIntents} /></section>
     <section className="content-panel"><h2>Thứ tự tạo tài nguyên</h2>{result.batches.length ? <ol className="batch-list">{result.batches.map((batch, index) => <li key={index}>Lô {index + 1}: {batch.join(', ')}</li>)}</ol> : <p>Không có tài nguyên cần tạo.</p>}<p><small>Bên cung cấp được tạo trước bên sử dụng.</small></p></section>
     <section className="content-panel"><h2>Liên kết thực thi tài nguyên</h2>{result.matches.length ? <table className="plain-table"><thead><tr><th>Tài nguyên</th><th>Liên kết</th><th>Driver</th></tr></thead><tbody>{result.matches.map((match) => <tr key={match.descriptor}><td>{match.descriptor}</td><td>{match.binding === 'environment-connection' ? `Kết nối của môi trường ${match.connectionKey ?? ''}`.trim() : match.definitionKey}</td><td>{match.driverType}</td></tr>)}</tbody></table> : <p>Không có liên kết tài nguyên.</p>}</section>
     <section className="content-panel"><h2>Đồ thị tài nguyên</h2><p>{result.graph.nodes.length} nút · {result.graph.edges.length} cạnh phụ thuộc</p>
