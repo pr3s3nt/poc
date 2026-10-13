@@ -304,7 +304,7 @@ export const SCENARIOS = {
     // ---- Developer previews ------------------------------------------------
     caption('Bước 16: Nhà phát triển xem trước lại; kết quả hiển thị loại/class, cấu hình, module·revision, đích, quyền sở hữu và ý định, không có tham số hay bí mật');
     await signIn('developer');
-    await h.click(page.getByRole('link', { name: new RegExp(`${applicationName}`) }).first());
+    await h.click(page.getByRole('button', { name: new RegExp(applicationName) }).first());
     await expect(page.getByRole('heading', { name: applicationName })).toBeVisible();
     await h.click(page.getByRole('button', { name: 'Xem trước thay đổi', exact: true }));
     const panel = page.getByLabel('Xem trước triển khai');
