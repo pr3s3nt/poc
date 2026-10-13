@@ -7,6 +7,22 @@ last_reviewed: 2026-10-13
 
 # Current project state
 
+## M04 documentation review checkpoint — 2026-10-13
+
+Người dùng bổ sung PE/Admin Xóa tài nguyên qua UI, cùng eligible dependency
+cascade được liệt kê/xác nhận; AWS access-key/Vault onboarding được giữ.
+Specification/contracts nay đã hợp nhất trực tiếp, không hai lớp baseline/V2.
+[Reconciliation](implementation/v2-rule-reconciliation.md) ghi ID mapping và
+canonical destinations, nguồn a897d6b/3367f7e. Code tại checkpoint này chưa
+đổi, IMP-021 vẫn mở.
+
+[M04](iterations/M04-terraform-v2/README.md) current; M02/I06-10 deferred,
+không complete. Chặng 1 docs/plan đang được review/validated; **chưa có user
+approval để bắt đầu chặng 2**. Chặng 2 là code/SQL thật và k8s-4f A01/E01/E02,
+gate tiếp theo là video A01 + estimate AWS; chặng 3 chỉ sau duyệt mới chạy AWS.
+Không có M04 source code/test mutation, live scenario hoặc cloud create trong
+checkpoint tài liệu này. Các baseline status dưới đây vẫn là hiện trạng code.
+
 ## Terraform v2 — accepted design, implementation pending (2026-10-13)
 
 User completed Step 1 decisions: [ADR-014](architecture/decisions/ADR-014-terraform-v2-lifecycle.md),
@@ -756,3 +772,103 @@ provider-first batches, không Deploy. Fake adapters/disposable state; metadata
 500 projection mock, bool/map dùng synthetic metadata unit coverage. Video
 decoded/frame/caption reviewed, failed attempts và bản gốc được giữ. Không chạy
 SQL opt-in hoặc mutate retained/cloud/cluster; không claim live provider proof.
+
+## Implementation mô tả được chuyển khỏi specification
+
+Các mô tả dưới đây được chuyển từ checkpoint `3367f7e`; chúng mô tả trạng
+thái code/evidence trước M04, không phải yêu cầu v2 hoặc test vừa chạy lại.
+Nguồn trước cập nhật nằm ở `git show 3367f7e:<path>` và trước Bước 1 ở
+`git show a897d6b:<path>`. IMP-021 theo dõi phần chưa đáp ứng yêu cầu mới.
+
+### usecase/UC-02/specification.md
+
+- Seed catalog đã có Resource Types cho workload, VPC, cluster, namespace và PostgreSQL; planner dùng input contract để kiểm tra Score `params` và output contract để kiểm tra placeholder/executor output.
+- API/UI đăng ký và nghiệp vụ `RegisterResourceType` cùng normalized PostgreSQL persistence đã có; production-grade RBAC chưa có.
+
+
+### usecase/UC-03/specification.md
+
+- Seed catalog đã có Definitions cho implicit VPC/EKS/namespace, existing cluster, Aurora và PostgreSQL StatefulSet; executor registry chọn Terraform/Kubernetes/existing-cluster adapter theo matched Definition.
+- Planner đã hỗ trợ optional Execution Profile guard trước năm Matching Criteria chuẩn, Driver Inputs, Resource References, provision rules, fixed-point expansion và kiểm tra Terraform contract. Seeded PostgreSQL Definitions áp dụng cho mọi Environment cùng profile.
+- Terraform execution của MVP chỉ hỗ trợ các module `vpc`, `eks` và `aurora` được nhúng trong binary. Conformance harness có thể inspect `source.url[@rev][/path]`, nhưng runtime chưa tải hoặc execute Terraform source từ xa.
+- API/UI đăng ký và nghiệp vụ `RegisterResourceDefinition` cùng normalized
+  PostgreSQL persistence đã có; production-grade RBAC còn thiếu. Catalog seed
+  vẫn cung cấp Definition mặc định.
+- Driver enum ngắn, `ConnectionKey`, `source.module` và context placeholder mở
+  rộng là contract nội bộ của MVP, không phải Humanitec public contract. Mapping
+  boundary và `driver_inputs.secret_refs` được phân loại tại
+  [compatibility matrix](implementation/humanitec-compatibility.md) và D06.
+
+
+### usecase/UC-05/specification.md
+
+- `PlanningService` dùng chung đã triển khai Score validation, Candidate Set, graph/matching, contract inspection, classification và batches; 33 challenge fixture được chạy qua planner sản phẩm với các khác biệt đã tài liệu hóa.
+- Planner sinh Humanitec-shaped Delta `modules.add/remove/update` và `shared`; patch `modules.update.<id>` relative với module, patch `shared` relative với object shared, array diff theo BR-06 có product tests riêng và conformance so Delta của 27 accepted fixtures. Deployment path của UC-06 persist Delta thành immutable Snapshot riêng; preview không persist Snapshot. Parser validate `containers.*.resources` theo BR-07 và planner giữ requests/limits nguyên văn trong Candidate Set (I06-07).
+- UC-06 đang gọi pipeline này để deploy thật. UC-16 pending-change Preview,
+  endpoint và Application home panel đã wire, gồm no-op filtering và route-only
+  retry. Standalone Score Preview đã có service, scoped authenticated HTTP API
+  và Web Console riêng; snapshot nhất quán, public response được sanitize,
+  không save draft hoặc tạo Deployment.
+
+
+### usecase/UC-06/specification.md
+
+- **UC-06a Plan Deployment:** đã có Score conversion, Candidate Set, descriptor theo Deployment Set path, implicit infrastructure theo profile, fixed-point graph expansion, matching, Terraform contract inspection, Active Resource classification và provider-first batches. Planner sinh Humanitec-shaped Delta `modules.add/remove/update` và `shared` theo BR-10, với patch relative đúng module/shared scope và array semantics được test; mỗi Deployment persist immutable `DeploymentDeltaSnapshot` riêng và conformance so Delta cho 27 accepted fixtures. Score parser nhận `containers.*.resources.requests/limits` (`cpu`/`memory`) và giữ typed values nguyên văn qua Score fragment, Candidate Set, Delta Snapshot và persisted set theo BR-11 (I06-07).
+- **UC-06b Execute Deployment:** đã có fake, Kubernetes và Terraform adapters; output propagation; workload render/apply; API/Web Console; in-memory store kèm JSON snapshot. Renderer ánh xạ declared requests/limits nguyên văn; request field thiếu lấy limit cùng field, nếu không có limit thì default `10m`/`32Mi` theo BR-11; kind verification của I06-07 chỉ xác nhận live Deployment cho ba seeded case declared/partial/omitted; nhánh limit fallback và request khai báo vượt limit (giữ nguyên, Kubernetes API reject khi apply) mới được unit-test. Internal happy path đã verify trên kind và cloud happy path đã verify trên AWS; AWS chưa chạy lại sau I06-07.
+- **Fleet GitRepo mode:** internal kind có adapter tùy chọn ghi manifest vào repo GitOps private, đợi Fleet quan sát commit và đúng Deployment revision Ready. Image được kéo từ Harbor bằng namespace-local imagePullSecret; không có bước lấy mã nguồn hoặc build. Đường này đã pass kind create/remove với image mẫu; direct adapter vẫn là mặc định.
+- Mỗi request xử lý đúng một Score/workload. Acceptance flow gọi tuần tự ba deployment `backend`, `worker`, `frontend`; database là shared resource được giữ/reuse qua cùng descriptor.
+- Normalized PostgreSQL system-of-record đã được triển khai; in-memory/JSON vẫn là local/test option. Terraform state backend bền vững chưa được triển khai.
+
+
+### usecase/UC-07/specification.md
+
+- Planner đã validate module và từng shared entry trong `before Score`, từ chối shared conflict, tạo Candidate Set và giữ nguyên các module khác. Planner sinh Delta theo BR-07: module add/remove/update nằm trong `modules.add/remove/update`, patch relative với module hoặc object shared và array semantics theo UC-05 BR-06 được test; conformance so Delta cho 27 accepted fixtures.
+- Shared entry chỉ bị loại khi workload thôi khai báo và không còn module khác tham chiếu. Final transaction persist `UNREFERENCED` cho READY resources thuộc Environment/shared/workload scope và không còn trong desired graph; không destroy, không mark Application-wide resources từ một Environment riêng lẻ.
+- Candidate cuối cùng được kiểm tra Service references; pending batch có thể xóa cả consumer/provider mà không bị chặn vì trạng thái trung gian.
+- UC-16 Preview → Deploy update/delete theo từng workload có scoped strict API và Console confirmation/Undo, busy/stale/reload states, per-workload report và history navigation. Memory/PostgreSQL rollback/restart tests và local fake-runtime UI recording kiểm chứng milestone này. Fleet GitRepo remove đã pass kind trong evidence cũ; image/resource update qua Fleet chưa có external verification riêng.
+
+
+### usecase/UC-08/specification.md
+
+- Planner đã dựng private/shared/implicit resource nodes, match Definition và tạo provider-first batches; VPC/EKS and namespace use Environment/generation scope only (T27/ADR-011/012).
+- `ResourceProvisioningService` đã chọn fake, existing-cluster, Kubernetes hoặc Terraform executor theo matched Definition; outputs được validate, truyền sang node phụ thuộc/workload và lưu vào Active Resource/deployment-resource state.
+- Internal path đã provision namespace/PostgreSQL StatefulSet trên kind; cloud path đã provision VPC/EKS/Aurora bằng Terraform trên AWS.
+- Normalized PostgreSQL repository đã có cho logical orchestration state; in-memory/JSON vẫn dùng cho local/test. Terraform state vẫn nằm trong local run directory; remote state/locking và lifecycle reconcile đầy đủ chưa có.
+
+
+### usecase/UC-09/specification.md
+
+- Deployment, plan snapshot, resource progress và Active Resources đã được lưu
+  trong state store. Detail đọc per-Deployment workload snapshot, không đọc
+  mutable current Environment state.
+- React Web Console có recent deployments, danh sách theo Environment với bộ
+  lọc status và trang detail dùng persisted query API.
+- Authenticated Organization scoping, không trả `resolvedInputs`, server-side
+  status filter và loading/error/not-found tests đã được hiện thực. Local
+  browser test xác nhận snapshot không đổi sau redeploy và backend restart.
+  Cross-deployment comparison và live status không thuộc happy path.
+
+
+### usecase/UC-16/specification.md
+
+Đã có UI/API lưu draft, đánh dấu xóa/hoàn tác, import Score và validation
+tham chiếu Application key, resource output, Service/cổng cùng Environment.
+Save và import kiểm tra toàn bộ non-virtual resource params theo input contract
+trước khi ghi draft; local code/API/UI tests đã pass ngày 2026-10-02.
+Planner/executor resolve tham chiếu `environment` và `service`; Application home
+có Preview → Deploy của các draft. Workload đã deploy không có draft được tái
+tạo thành Score tham chiếu để sửa trên form. Kind đã kiểm chứng create,
+configuration-only redeploy và remove; broader cloud path chưa kiểm chứng lại.
+
+
+## Rationale/implementation chuyển khỏi shared design
+
+Checkpoint `3367f7e` mô tả AWS process-configured seed chưa onboarding, native
+rendering omitted selection, embedded/static inspector và EKS workspace paths.
+Các ghi chú đó nay chỉ mô tả code chưa đáp ứng v2; required design dùng scoped
+AWS Vault credential, required rendering selection, verified module registry
+và opaque target. ADR-010 baseline score-k8s 0.15.0/internal bundle có evidence
+đã liệt kê ở phần rendering phía trên; không bị diễn giải thành version v2.
+Set-once/legacy migrations và tên chứa run ID của ADR-011 đã hết hiệu lực;
+ADR-012 operation/transition features đã verified vẫn được giữ trong scope cũ.
+Không claim Terraform full resume, orphan import hay platform DR đã implement.

@@ -1,8 +1,8 @@
 ---
 id: M02
 artifact: milestone-plan
-status: current
-last_reviewed: 2026-09-30
+status: deferred
+last_reviewed: 2026-10-13
 related: IMP-002, IMP-003, IMP-004, IMP-005
 ---
 
@@ -20,7 +20,7 @@ M00-a để Developer có onboarding flow dùng thử trước.
    local/browser/PostgreSQL verification ngày 2026-09-30, đóng IMP-005.
 2. [I06-08 — UC-05 preview](I06-08-uc05-preview/README.md): completed local verification 2026-09-30, closed IMP-003.
 3. [I06-09 — UC-07 update/remove](I06-09-uc07-update-remove/README.md): completed local verification 2026-09-30, closed IMP-004.
-4. [I06-10 — remaining UC-02..04 management](I06-10-uc01-04-management/README.md): current; gap audit and AWS credential decision pending.
+4. [I06-10 — remaining UC-02..04 management](I06-10-uc01-04-management/README.md): deferred; AWS decision đã chốt, scope liên quan được M04 tiếp nhận.
 
 ## Milestone exit criteria
 
@@ -38,3 +38,9 @@ M00-a để Developer có onboarding flow dùng thử trước.
 - D05 Humanitec external deployment lifecycle.
 - Remote-source execution và production identity/credential hardening thuộc
   M03 hoặc backlog riêng.
+
+## M04 reprioritization — 2026-10-13
+
+[M04](../M04-terraform-v2/README.md) là milestone current theo yêu cầu người dùng.
+M02 còn scope chưa hoàn tất, được deferred, không bị đánh dấu complete.
+AWS onboarding decision đã chốt ADR-009/014; delivery tiếp theo thuộc M04.

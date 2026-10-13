@@ -84,7 +84,9 @@ Deployment Set.
 ## Persistence vs integration state
 
 - Database owns logical identity, lifecycle, plan snapshot, output metadata and current-set pointer.
-- Database owns internal account and session records; password hashes and session-token hashes are the only credential material persisted.
+- Database owns internal account and session records; logical metadata chỉ giữ password/session-token hashes và opaque credential
+  refs. Terraform state có thể chứa provider secrets nhưng chỉ lưu ciphertext
+  trong restricted tables, không public JSON state.
 - Terraform backend owns Terraform physical state. In v2 the Orchestrator HTTP backend stores encrypted state blobs in platform PostgreSQL, separate from logical metadata; logical resource records keep opaque state references, never plaintext state.
 - Kubernetes owns live objects; database keeps target, workload identity, manifest digest and observed status.
 - Secret Store owns secret values; database keeps opaque secret references and redacted output metadata.
@@ -100,9 +102,8 @@ Deployment Set.
 
 Identifier validation is owned by UC-02 BR-05/BR-06 and UC-03 BR-10, at the
 registration service boundary. Existing catalog objects and planner fixtures
-are not migrated. Driver Inputs validation follows UC-03 BR-11–BR-14, using
-embedded module contracts or static runtime driver contracts before insertion.
-No new aggregate, table or persistence uniqueness rule is introduced.
+are not migrated. Driver Inputs validation follows UC-03 BR-11–BR-14, dùng verified module/schema/provider mappings trước insertion. Registry
+bundles/state/attempts có aggregates và constraints riêng trong schema.
 
 ## Connection execution credentials
 
@@ -117,23 +118,12 @@ authentication fail closed. Public DTOs exclude secret refs.
 `RenderBundle` is immutable startup configuration (ID, version, binary/content
 digests), not an Active Resource. `RenderingSelection` pins a workload
 Definition/content hash and bundle in deployment plan JSON. Neither stores
-credentials or changes resource/workload scope relationships. Native rendering
-uses an omitted selection entry, including legacy plans without this metadata.
-
-## Historical Environment execution binding (ADR-011; superseded below)
-
-UC-01 BR-07..14 and [ADR-011](../decisions/ADR-011-environment-execution-binding.md)
-own set-once Environment target. New Environments are UNCONFIGURED; targets may
-have different kinds/regions/profiles in one Application. SetConnection is atomic,
-scoped, versioned and immutable even before deploy. Runtime status may advance
-without changing target. New AWS VPC/EKS have Environment scope; migrated legacy
-AWS bindings keep application-scope identity/state. Canonical Environment resolver
-feeds planner/matcher/executors/queries; Application legacy fields do not select
-new targets. Preview/Deploy require configured binding.
+credentials or changes resource/workload scope relationships. RenderingSelection là bắt buộc trên mọi Workload cho cả hai profiles;
+không dùng omitted entry để chọn renderer khác.
 
 ## Editable Environment destinations (current ADR-012)
 
-This supersedes the earlier set-once/provider prose. Environment owns independently
+Environment owns independently
 editable execution/store selections and version, target generation and active
 operation identity. SecretStoreConnection is a separate Organization aggregate;
 only credential ref/nonsecret provider configuration is persisted. T23 removes
@@ -158,12 +148,11 @@ and the common Kubernetes target contract remain unchanged.
 
 ## T27 — Infrastructure binding scope
 
-InfrastructureScope has only ENVIRONMENT. This supersedes historical migrated
-Application-scope compatibility above. Current generation-0 identities, later
+InfrastructureScope has only ENVIRONMENT. Không có Application-scope infrastructure migration. Current generation-0 identities, later
 generation isolation and the ADR-013 internal cluster Application resource scope
 remain unchanged. Retired/unknown binding scopes are rejected without conversion.
 
-## Terraform v2 domain additions (ADR-014; designed, not implemented)
+## Terraform resource và cleanup domain
 
 - `TerraformModuleBundle`: immutable verified module/release contract, a platform
   registry entity. Definition references it; Plan pins its snapshot/digests.
@@ -176,8 +165,14 @@ remain unchanged. Retired/unknown binding scopes are rejected without conversion
   Environment operation owner/fence. Expiry is a signal, not permission to unlock.
 - `TerraformResourceAttempt`: action/stage/ownership/physical-ID provenance for
   CREATE/UPDATE/DESTROY, written before external side effects and retained for cleanup.
-- `ResourceCleanupService`: separate admitted reverse-dependency operation;
-  consumer/ownership checks, provider absence verification, safe progress.
+- `CleanupPlanner`: tính closure đủ điều kiện, retained reasons và token
+  pin scope/versions/actor cho hộp xác nhận của PE/Admin.
+- `ResourceCleanupService`: nhận user-confirmed scope hoặc narrow test-run
+  capability; kiểm ownership/consumer, reverse dependency và provider absence.
+- `ResourceCleanupOperation`: persisted actor, authorization mode, confirmed
+  set/token hash/versions, original targets, stages và remaining IDs.
+- `ResourceQueryService` / `ResourceCleanupQueryService`: scoped read models
+  cho detail/progress; không provider refresh, không state/credential bytes.
 
 Private Redis/PostgreSQL belongs to Workload within Environment/generation;
 shared resource belongs to Environment/generation with multiple consumers.

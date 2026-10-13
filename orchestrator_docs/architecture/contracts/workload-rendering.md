@@ -7,25 +7,13 @@ last_reviewed: 2026-10-13
 
 # Definition-selected workload rendering — contract
 
-This document defines the accepted boundary for [ADR-010](../decisions/ADR-010-score-k8s-workload-rendering.md).
+Contract này định nghĩa rendering boundary theo
+[ADR-010](../decisions/ADR-010-score-k8s-workload-rendering.md) và chính sách
+score-k8s bắt buộc của [ADR-014](../decisions/ADR-014-terraform-v2-lifecycle.md).
 Implementation follows this contract; delivery evidence is recorded separately.
 The existing [operation contracts](operation-contracts.md) retain their lifecycle rules.
 
-## V2 required rendering policy (ADR-014)
 
-For v2, [ADR-014](../decisions/ADR-014-terraform-v2-lifecycle.md) supersedes
-internal-only, optional selection and native default below. Both internal-k8s
-and aws-eks require one matching score-k8s Definition and a verified installed
-bundle compatible with the profile. Missing match/bundle or tie fails before
-UC-08. No fallback native after render failure. Native helpers may still enforce
-shared policy/auxiliary delivery; Deployment/Service bodies come from score-k8s.
-
-Renderer identity remains pinned Definition/bundle/binary/content digest; v2
-release upgrades are explicit platform deployment choices and invalidate old
-Preview. Binding/output-only/Secret/protected-field/private workspace contracts
-below continue. No database/Redis/namespace provisioning in score generation.
-Initial version 0.15.0 below describes baseline; exact v2 version/digests belong
-to the immutable release manifest verified before execution.
 
 ## Registration shape
 
@@ -63,14 +51,14 @@ such API exists. An unknown ID, ambiguous match or binary drift between startup
 and Deploy still fails before UC-08.
 
 Driver Inputs deliberately retain `values.variables`; no generic
-`source`, `secret_refs`, inline command or template-upload API is added. The initial bundle is embedded in the backend and pins score-k8s 0.15.0,
-its configured binary digest and the adapter/patch content.
+`source`, `secret_refs`, inline command or template-upload API is added. Bundle trong immutable release manifest pin exact score-k8s version/binary
+digest và adapter/patch content cho profile được hỗ trợ; không download runtime.
 
 Workload Definitions use the current profile guard and specificity rules.
 Preserve `workload.default#modules.<id>` and reject ties or unavailable selected bundles.
-The legacy renderer is the explicit built-in selection when no eligible
-workload Definition matches; a matching Definition overrides that default. Remove actions retain the previously
-applied object identity; changing renderer is not permission to orphan objects.
+Cả internal-k8s và aws-eks cần đúng một score-k8s Definition/bundle tương thích.
+No match/tie hoặc unavailable bundle chặn trước UC-08; không chọn renderer
+khác. Remove giữ applied object identity; đổi renderer không được orphan objects.
 
 ## Rendering operation
 
@@ -163,8 +151,8 @@ Pending tokens bind non-secret rendering intent: Candidate/base version,
 Definition content, bundle digests and configuration revision identifiers.
 Changed intent requires another Preview before side effects. At Deploy, UC-08
 supplies outputs; render once, validate, and deliver that result unchanged.
-Rendering selections are stored in existing deployment plan JSON; native selections
-use the zero-value/omitted entry for legacy hash compatibility. Pending Preview
+Rendering selection bắt buộc được lưu trong deployment plan JSON;
+không dùng omitted native selection làm một lựa chọn hợp lệ. Pending Preview
 compares current selection with each workload's last persisted plan, so changing
 a Definition triggers an update even without a Score draft.
 
@@ -172,8 +160,8 @@ a Definition triggers an update even without a Score draft.
 
 ```text
 shop/staging: backend Score declares db id=shop-db; frontend declares a Service
-  -> planner selects postgres-internal-statefulset and workload-score-k8s
-  -> UC-08 resolves cluster, applies namespace and PostgreSQL, waits Ready
+  -> planner selects Terraform postgres-in-cluster module and workload-score-k8s
+  -> UC-08 resolves cluster; Terraform namespace/PostgreSQL; waits Ready
   -> binding db -> canonical shared descriptor -> host/port + Secret reference
   -> score-k8s renders backend Deployment/Service using those outputs
   -> delivery applies backend and waits Ready
@@ -209,14 +197,14 @@ patch; unknown resource fails; cross-scope and secret-leak rejection; direct/Fle
 manifest projections and route-owner separation. JSON Patch for product Delta
 must not be confused with score-k8s patch-template `set/delete` syntax.
 
-Live kind verification remains a separate scope: real database/Secret/PVC reuse,
-VSO/Fleet readiness and route-only retry. AWS is not part of the first experiment.
+Live scope/approval checkpoints nằm ở [M04](../../iterations/M04-terraform-v2/README.md)
+và [acceptance runbook](../../operations/terraform-v2-acceptance.md). Không dùng
+bằng chứng baseline làm proof cho v2.
 
 ## Scope boundary
 
-The implementation supports internal-k8s and Definition-selected rendering.
-The embedded bundle pins score-k8s 0.15.0, the configured binary digest and
-adapter/provisioner source content. Wider public Score support, arbitrary
+Contract hỗ trợ internal-k8s và aws-eks, với score-k8s bắt buộc. Immutable
+release pins renderer binary/version và adapter/provisioner content. Wider public Score support, arbitrary
 uploads/commands, durable score-k8s infrastructure state and full Humanitec
 Generic Workload compatibility remain outside this decision.
 

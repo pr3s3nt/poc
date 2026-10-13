@@ -2,7 +2,7 @@
 id: UC-07-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 related: UC-07, UC-16
 ---
 
@@ -33,3 +33,22 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
+
+## Xóa tài nguyên
+
+| State | Hành vi |
+|---|---|
+| Không có quyền | Developer không thấy nút; server vẫn trả 403 nếu gọi mutation. |
+| Không đủ điều kiện | Disabled với lý do chưa UNREFERENCED/còn consumer/platform/busy; không mở delete plan hợp lệ. |
+| Đang tải phạm vi | Confirm disabled; không coi missing metadata là dependency rỗng. |
+| Xác nhận | Liệt kê toàn bộ tập xóa/retained; cảnh báo mất dữ liệu; yêu cầu exact root name. |
+| Stale/busy | Không destroy; giữ hướng dẫn, tải và review scope mới; không tự gửi lại tên/token cũ. |
+| Mutation mất phản hồi | Reload operation/detail để xác định đã nhận; không tự tạo request mới. |
+| REQUESTED/CHECKING/DESTROYING/VERIFYING | Khóa thao tác xung đột; poll đúng operation/scope, giữ kết quả từng instance. |
+| SUCCEEDED | Tất cả IDs trong phạm vi đã xác minh hết, resource DESTROYED; history giữ nguyên. |
+| FAILED/INTERRUPTED | Hiển thị remaining IDs/safe reason; không coi đã cleanup hoặc tự rollback/replay. |
+
+Đổi Application/Environment/resource bỏ response đến muộn và dialog cũ.
+Confirmation có focus/keyboard labels và xuất hiện trong headed video, không
+được Playwright bypass qua API. Retry cleanup của operation đã nhận vẫn theo
+quyền/owner/fence ban đầu; không tạo user deletion mới với scope rộng hơn.

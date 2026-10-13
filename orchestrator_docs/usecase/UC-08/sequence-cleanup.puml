@@ -7,11 +7,11 @@ control EnvironmentOperationManager as Operations
 database "Instance / Attempt / State metadata" as Records
 boundary TerraformExecutor as Terraform
 boundary "AWS / Kubernetes read verification" as Provider
-Caller -> Cleanup: Cleanup(explicit IDs, run, original target)
+Caller -> Cleanup: Cleanup(confirmed user set OR explicit authorized run IDs)
 Cleanup -> Operations: Admit Environment owner/fence; prior process stopped
 Cleanup -> Records: Load module/state/ownership/consumer/dependency evidence
 Records --> Cleanup: pinned resources + classification
-Cleanup -> Cleanup: Reject foreign/preexisting/updated/still-referenced resources
+Cleanup -> Cleanup: Reject foreign/platform/external-consumer; run mode also rejects preexisting/updated
 loop Reverse dependency, consumers first
   Cleanup -> Terraform: DESTROY with original module/target and state lock
   Terraform --> Cleanup: result + durable terminal state

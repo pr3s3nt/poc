@@ -21,9 +21,9 @@ last_reviewed: 2026-10-13
 ## Workload rendering
 
 - [ADR-010 — Definition-selected workload rendering with score-k8s](ADR-010-score-k8s-workload-rendering.md)
-  — accepted; internal-k8s registration/Preview/Deploy integration, with separate live verification.
+  — current rendering boundary; optional/internal-only policy đã được ADR-014 thay bằng required cả hai profiles.
 
-- [ADR-011 — Environment execution binding set once](ADR-011-environment-execution-binding.md) — independent Kubernetes/AWS Environment targets, Environment-scoped VPC/EKS; T27 removes product legacy compatibility.
+- [ADR-011 — Environment execution binding set once](ADR-011-environment-execution-binding.md) — superseded; current targets/scopes/names nằm ở ADR-012/013/014 và schema.
 
 - [ADR-012 — Environment stores and transitions](ADR-012-environment-stores-and-transitions.md) — editable destinations, atomic admission, Vault transfer and PostgreSQL migration with downtime.
 

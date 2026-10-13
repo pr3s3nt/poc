@@ -67,7 +67,7 @@ Only token hashes are persisted. A revoked or expired session is invalid.
 | `organization_id` | uuid | FK organizations, NOT NULL |
 | `connection_key` | text | NOT NULL |
 | `name` | text | NOT NULL; supplied explicitly |
-| `authentication_type` | text | NOT NULL; `KUBECONFIG` or future `AWS_ACCESS_KEY`; kind-compatible |
+| `authentication_type` | text | NOT NULL; `KUBECONFIG` or `AWS_ACCESS_KEY`; kind-compatible |
 | `kind` | text | `AWS` or `KUBERNETES` |
 | `config` | jsonb | non-secret config, NOT NULL |
 | `secret_ref` | text | NOT NULL |
@@ -80,15 +80,15 @@ Unique: `(organization_id, connection_key)`.
 New kubeconfig records store cluster/context/endpoint metadata and a scoped
 opaque credential reference. Secret values never enter config/verification.
 Kubernetes authentication is explicitly KUBECONFIG; missing authentication or
-HOST_CONTEXT is rejected without inference. AWS process-configured seed semantics
-remain unchanged. Registration is insert-only; generated key collisions never
+HOST_CONTEXT bị từ chối. AWS_ACCESS_KEY bắt buộc scoped Vault ref/account/
+allowedRegions, không host/process-configured execution. Registration insert-only; keys không
 overwrite rows or change Organization default.
 
 A seeded Kubernetes marker without uploaded private credential is VERIFYING,
 with no fabricated credential reference or successful verification. It may satisfy
 the Organization default FK but is not selectable or executable. New Applications
 still create UNCONFIGURED Environments. No Kubernetes legacy data conversion is
-provided; retained dev state is reset separately in T29. T28 uses the current fresh baseline without versioned schema upgrades.
+provided. Startup không tự upgrade/reset retained state.
 See [credential design](../connection-credentials.md).
 
 ### `applications`
@@ -111,7 +111,7 @@ T26 removes all Application execution/provider columns. Old Application-bound
 state is unsupported and must fail startup with a safe reset-required error,
 without copying target fields, exposing row values or rewriting historical
 targets. T28 initializes only an empty database with the current baseline; retained dev
-state must not be upgraded before the separately approved T29 reset.
+state không được tự upgrade/reset. Lịch sử reset T29 thuộc verification/current state.
 
 ### `environments`
 
@@ -132,6 +132,9 @@ state must not be upgraded before the separately approved T29 reset.
 | `draft_version` | bigint | optimistic UC-16 draft version |
 | `public_routes_pending` | boolean | true while route reconciliation has not completed after pending Deploy; route-only retry survives process restart |
 | `desired_config_revision_id` | uuid | nullable FK configuration_revisions, deferred |
+| `secret_store_id` | uuid | nullable scoped FK secret_store_connections |
+| `target_generation` | bigint | immutable execution generation, default 0 |
+| `active_operation_id` | uuid | nullable FK environment_operations; owner/fence admission |
 
 `environment_key` is system-owned and limited to `staging` or `production`.
 Unique: `(application_id, environment_key)` and `(application_id, namespace_identity)`.
@@ -372,8 +375,8 @@ Credential values and secret resource outputs are never stored directly in logic
 Rendering selections (Definition/content hash, driver, bundle/version/content
 digest) are additive non-secret fields inside the immutable deployment plan JSON
 and therefore its plan hash. Resource Definition driver_type is text; inputs and
-source fingerprint retain existing storage. No new table/column or secret storage
-is introduced. Pending Preview hashes bind the rendering intent through existing
+source fingerprint retain existing storage. Rendering selections không chứa secret values; state blobs dùng schema riêng
+bên dưới, không nằm trong rendering intent. Pending Preview hashes bind the rendering intent through existing
 per-workload plan hashes. Logical resource and workload identities are unchanged.
 
 ## Fresh persistence baseline (T28 / LEG-08)
@@ -404,24 +407,26 @@ fail with a safe reset-required error rather than silently disappearing. Startup
 must not rewrite the rejected file or echo its data. In-memory fresh construction
 still supplies current defaults through normal domain/seed commands.
 
-Retained IDP state requires the separately approved T29 backup/reset/rebuild.
-T28 prepares and tests a runner for an isolated disposable PostgreSQL target only;
-it does not authorize resetting Compose volumes, Vault or a cluster.
+Verification dùng database mới/cô lập; không tự reset retained database,
+Compose volumes, Vault hoặc cluster. Không import state/dữ liệu v1.
 
-## Environment stores and transitions (ADR-012)
+## Environment stores, operations và retained targets
 
-Add Organization-owned `secret_store_connections`: immutable ID/key/name/provider,
+### `secret_store_connections`
+
+Organization-owned fields: immutable ID/key/name/provider,
 backend/workload addresses, KV/auth mounts, nonsecret TLS configuration,
 credential_ref/status/timestamps. Unique `(organization_id, store_key)`. References
 must be Organization-scoped. Credential bytes live only in platform credential store.
 
-Extend `environments` with selected store key/FK, target_generation bigint default
-0, active_operation_id nullable, selected/active runtime generation metadata as
-needed for transition staging. Environment.version remains Settings CAS. Do not install a
+Environment selections/generation/active operation nằm trong bảng
+`environments` ở trên; retained generation records lưu target staging riêng. Environment.version remains Settings CAS. Do not install a
 permanent binding immutability trigger in the fresh baseline; retain
 consistency checks and enforce dedicated CAS/owner commands. Do not clear bindings.
 
-Add `environment_operations`: ID, Environment FK, owner, fencing generation
+### `environment_operations`
+
+Fields: ID, Environment FK, owner, fencing generation
 (bigint starting at 1, incremented on recovery), kind, status/stage,
 source/destination binding JSON (nonsecret), pinned Environment/draft/config
 versions/current Set, start/update/deadline, safe failure/recovery metadata.
@@ -434,14 +439,17 @@ check the current ownership atomically; a reused operation ID is insufficient.
 Persist safe confirmation/audit metadata that prior execution was stopped before
 recovery takes ownership. Enforce recorded deadlines on executor contexts.
 
-Add persisted transition/retained-target records: operation ID, target generation,
+### Retained target records
+
+Fields: operation ID, target generation,
 source/destination TargetRefs, old Set, resource/executor state identity, writer
 replicas at source and attempt-owned destination, private backup handle/hash,
 source authority/quiesce/needs-attention/cleanup state and stage results. Historical target/resource
-records must not be overwritten by new generation. Extend ActiveResource identity
+records must not be overwritten by new generation. ActiveResource identity
 and applied WorkloadInstance/deployment snapshot identity with target generation
-or retain equivalent immutable generation-owned records. Generation 0 IDs and
-all old plan/state remain valid; new Terraform/namespace identities are isolated.
+hoặc immutable generation-owned association tương đương. Generation-0 logical
+descriptors giữ identity; physical names/state mới theo instance, không run ID.
+Historical snapshots không rewrite hoặc import để phục vụ v2.
 
 Secret refs/revisions pin store identity; old applied refs are immutable. New
 Variable values are metadata, never Secret values. Store identities are explicit;
@@ -481,7 +489,7 @@ approved T29 run; old SQL migration chains are unsupported.
 
 ## T30 atomic desired rename command
 
-No new columns or baseline identity. One metadata transaction validates expected
+Desired rename không thêm columns riêng. Một metadata transaction kiểm expected
 configuration version, Environment version/draft_version, current-set identity
 and no active operation; inserts new configuration revision/entries and all
 changed upsert drafts together. Configuration version advances once; draft_version
@@ -489,12 +497,12 @@ advances once only when drafts changed. Pending deletes, Environment version,
 current/applied pointers and old immutable refs remain unchanged. Rollback/CAS
 failure leaves all metadata unchanged. See OC-12 T30 for public behavior.
 
-## Terraform v2 schema design (ADR-014; not yet implemented)
+<a id="terraform-v2-schema-design-adr-014-not-yet-implemented"></a>
 
-Canonical extension for the next current fresh baseline. Existing schema/code
-is tracked separately in CURRENT_STATE/IMP-021. No startup migration/import of
-v1 state or reset of retained user database is authorized by this design.
-Implementation uses a disposable new baseline database for v2 tests.
+## Terraform resource identity and state
+
+Các bảng sau là required schema theo ADR-014. Không migration/import v1 hoặc
+reset retained database. Tình trạng adapter thật thuộc CURRENT_STATE/IMP-021.
 
 ### `terraform_module_bundles`
 
@@ -522,11 +530,24 @@ module binding advances only under admitted owner after reviewed compatible upda
 No secret values in target_ref/physical_intent; stable names/tags/state refs only.
 
 Status enum: `PENDING`, `PROVISIONING`, `READY`, `FAILED`, `UNREFERENCED`,
-`INTERRUPTED`, `NEEDS_ATTENTION`, `DESTROYING`, `DESTROYED`. ActiveResource remains
-READY/UNREFERENCED or known baseline state while interruption details live here;
-no new Deployment status needed: failed execution uses FAILED with safe reason,
+`INTERRUPTED`, `NEEDS_ATTENTION`, `DESTROYING`, `DESTROYED`. ActiveResource có READY/UNREFERENCED/DESTROYING/DESTROYED bên cạnh
+PROVISIONING/FAILED; instance giữ interruption/needs-attention details.
+Deployment vẫn dùng các trạng thái ở state machine: failed execution uses FAILED with safe reason,
 Environment operation remains INTERRUPTED/held when old process outcome is unknown.
 Created/unreferenced/destroyed records retained, not cascade-deleted with drafts.
+
+### `terraform_resource_dependencies`
+
+`consumer_instance_id uuid FK`, `provider_instance_id uuid FK`,
+`organization_id FK`, `environment_id FK`, `target_generation bigint`,
+`version bigint`. PK `(consumer_instance_id,provider_instance_id)`; FK/scope
+checks buộc hai instance cùng ownership scope. Edges từ live/applied dependency
+graph được lưu dưới Environment owner trước execution và cập nhật nguyên tử
+với resource intent. Không suy dependencies chỉ từ current graph sau Remove.
+Platform/existing-cluster refs nằm trong safe binding snapshot và luôn được giữ,
+không biến thành managed instance được xóa. Edges/audit giữ đến absence proof;
+consumer DESTROYED không còn giữ provider, failed/unknown consumer vẫn giữ.
+Delete token pin edge/resource versions; graph đổi buộc review lại.
 
 ### `terraform_states`
 
@@ -571,14 +592,24 @@ safe stage/attempt/status references, never raw resolved inputs or CLI artifacts
 
 ### Cleanup persistence
 
-Use `environment_operations.kind = RESOURCE_CLEANUP` with persisted request scope/
-run/explicit instance IDs, expected versions, owner/fence and per-instance results
-from attempts. Operation stages REQUESTED/CHECKING/DESTROYING/VERIFYING; terminal
+`environment_operations.kind = RESOURCE_CLEANUP` lưu:
+`authorization_mode` (`USER_CONFIRMED` hoặc `RUN_CLEANUP`), `actor_ref`,
+`root_resource_instance_id`, `confirmed_scope jsonb` (root/dependency IDs,
+versions, original target/module/state refs và retained reasons),
+`deletion_request_hash text nullable`, `confirmation_name text` (server descriptor),
+`scope_snapshot jsonb` (Environment/current/draft/resource versions), run ID
+nếu là test cleanup, owner/fence và kết quả từng instance từ attempts.
+Unique deletion_request_hash trong Organization/actor bảo vệ idempotent token
+replay; token plaintext không persist. User confirmation chỉ có quyền trên
+confirmed set đã pin. Run mode chỉ CREATED_BY_RUN, không dùng user role để
+nâng quyền. Atomic admission kiểm UNREFERENCED/root-consumers/versions/no
+active operation rồi lưu claim + confirmed scope nguyên tử. Không cascade
+FK deletion từ root làm mất dependency/audit trước verification. Operation stages REQUESTED/CHECKING/DESTROYING/VERIFYING; terminal
 SUCCEEDED/FAILED/INTERRUPTED and safe NEEDS_ATTENTION metadata. SUCCEEDED requires
 provider absence checks for every requested owned instance; unresolved IDs remain
 queryable. No schema/table cascade may destroy audit/state before cleanup proof.
 
-### V2 consistency rules
+### Consistency rules
 
 - Environment claim before state lock; foreign instance/token requests rejected.
 - Lock/state write and corresponding owner/fence checks are atomic; failed writes

@@ -7,158 +7,67 @@ last_reviewed: 2026-10-13
 
 # UC-03 — Use Case Realization
 
-## V2 design scope
+## Trách nhiệm và participants
 
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
+ResourceDefinitionController kiểm session Organization, PE/Admin và payload
+giới hạn. ResourceDefinitionService điều phối Type/Driver/criteria/inputs/
+references/provision rules validation và insert-only registration.
 
-## Trách nhiệm
+ModuleSourcePolicy kiểm allowlist của Admin; ModuleBundleResolver tải/cache
+revision bất biến và kiểm digest/transitive content ngoài DB transaction.
+DriverContractInspector đọc bundle đã kiểm chứng để xác định types/defaults/
+required, provider requirements và mappings tương thích Resource Type.
+ResourceTypeRepository, ModuleBundleRepository, ResourceDefinitionRepository
+và UnitOfWork chịu trách nhiệm persistence; unique key là chốt concurrent duplicate.
 
-Đăng ký Resource Definition, criteria, driver inputs và provision rules; chứng minh Definition tham chiếu Resource Type/connection hợp lệ và có contract tương thích trước khi planner sử dụng.
+## System operations
 
-## System operation
-
-```go
-ResourceDefinitionService.RegisterResourceDefinition(ctx context.Context, cmd RegisterResourceDefinitionCommand) (*ResourceDefinition, error)
-```
-
-## Participants
-
-- `ResourceDefinitionController` — boundary nhận Definition document.
-- `ResourceDefinitionService` — control điều phối validation/persist.
-- `ResourceDefinition`, `MatchingCriterion`, `ResourceReference` — domain model.
-- `ResourceDefinition.execution_profile` — optional eligibility guard checked
-  before five-field criteria scoring; it has no specificity weight.
-- `DefinitionValidator` — validate driver inputs, references, rules và output contract.
-- `ResourceTypeRepository`, `ConnectionRepository`, `ResourceDefinitionRepository` — persistence ports.
-- `DriverContractInspector` — port kiểm tra Terraform/Kubernetes contract tĩnh.
-
-MVP registration chỉ nhận driver/type pair hiện có. Terraform dùng embedded
-module inspector; Kubernetes dùng output contract tĩnh của
-executor. HTTP POST kiểm tra Platform Engineer/Admin; list theo Organization.
-UI dùng form có criteria từng dòng và JSON nâng cao cho variables/provision.
+- `RegisterResourceDefinition(ctx, cmd)` kiểm module/Type/mappings và lưu Definition.
+- `ListDefinitionCapabilities(ctx, org)` chỉ đọc verified registry/Type schemas.
+- `ListRenderBundles()` chỉ đọc registry bundle bất biến, trả safe ID/version/status.
+- `PreviewMatching(ctx, org, query)` đọc snapshot context/catalog và tính matching
+  một candidate chưa lưu; không phải full graph Preview hoặc deployment token.
 
 ## Trace main flow
 
 | Step | Collaboration |
 |---|---|
-| MS-01–MS-03 | Controller parse; Service tạo Definition và `ValidateStructureAndCriteria`, gồm BR-07. |
-| MS-04 | Reject every public existing-cluster driver and reserved system key before insert; load Resource Type; reject nonempty VPC/EKS ConnectionKey without loading an Environment; validate explicit Aurora and optional Kubernetes connections by org/kind/READY. |
-| MS-05 | `DefinitionValidator.ValidateReferencesAndRules`. |
-| MS-06 | Repository/unique constraint bảo vệ Definition ID. |
-| MS-07 | `DriverContractInspector.Inspect` đối chiếu outputs với Resource Type. |
-| MS-08–MS-09 | Save Definition + criteria atomically và publish qua repository query. |
-| VAR-01/VAR-02 | Filter Definition by Environment profile, then match criteria; driver type/connection khác nhau, service flow không đổi. |
+| MS-01..03 | Controller parse; service kiểm ID, known fields, criteria không rỗng; `{}` là wildcard score 0. |
+| MS-04 | Kiểm Type/driver/provider binding; từ chối public existing-cluster/reserved key và AWS account override. |
+| MS-05 | Module policy/resolver/inspector kiểm immutable source, inputs/mappings/references/provision rules. |
+| MS-06 | Unique org/key và insert-only repository bảo vệ duplicate, không overwrite criteria. |
+| MS-07 | Kiểm output contract Type, gồm secret flags không được downgrade. |
+| MS-08..09 | Một giao dịch lưu bundle association + Definition/criteria; công bố cho planning. |
 
-## Transaction boundary
+Definition profile được lọc trước năm criteria có trọng số. Internal cluster
+dùng ADR-013, không bị candidate/author criteria điều khiển. Mọi AWS binding
+lấy account/region của Environment; Kubernetes bind selected target hoặc EKS output.
+Workload score-k8s bundle được kiểm cho cả hai profiles; UC-06 preflight và render
+sau UC-08, không đưa renderer vào resource batches.
 
-Contract inspection hoàn tất trước transaction. Definition thiếu criterion bị
-từ chối trước persistence; criterion `{}` khai báo tường minh là wildcard điểm
-`0`. Definition hợp lệ và toàn bộ criteria được lưu trong một transaction;
-source fingerprint được lưu cùng Definition metadata.
+## Read-only metadata và matching
 
-Registration dùng insert-only `CreateResourceDefinition` trong transaction,
-không dùng seed/upsert `SaveResourceDefinition`. PostgreSQL unique
-`(organization_id,key)` là final duplicate guard kể cả concurrent requests.
-Lệnh trùng key không được sửa Definition hay xóa/thay criteria của lệnh đã thắng.
+Capabilities chỉ project metadata đã inspect; executor-owned/password/credential
+không thành controls. Type param ưu tiên Definition fallback; defaults/presets
+chỉ áp dụng tường minh. Typed/advanced JSON giữ kiểu và dữ liệu khi đổi mode.
 
-## Planned tests
+PreviewMatching dùng một scoped ReadSnapshot và chỉ replace same-key candidate
+trong memory. DefinitionMatcher giữ profile filter, BestCriterion/score/ties và
+winning ConnectionMismatch, không chọn winner khác khi conflict. Thiếu context
+trả INCOMPLETE; không có renderer match trả NO_MATCH. Marker là safe catalog/
+Environment snapshot hash, không deploy token. Không gọi inspector/provider/
+secret store, không materialize system record và không ghi persistence.
+Các controls criteria/provision tiếp tục consumer -> provider và fixed-point expansion.
 
-- `TestRegisterDefinition_TerraformAWS`.
-- `TestRegisterDefinition_KubernetesInternal`.
-- `TestRegisterDefinition_OutputContractMismatch`.
-- `TestRegisterDefinition_InvalidResourceReference`.
-- `TestRegisterDefinition_RequiresAtLeastOneCriterion`.
-- `TestMatching_ExplicitEmptyCriterionIsWildcard`.
-- `TestConformanceLoader_SkipsDefinitionWithoutCriteria`.
+## Transactions và validation
 
-## Input validation collaboration
+Không giữ transaction qua download/provider calls. Source drift/input/output/
+credential/duplicate failure không lưu Definition/criteria nửa chừng. Scope/key
+collision không được overwrite winner. Context chỉ dùng env.profile/env.region;
+Application aliases đã bỏ không được rewrite. Seed chỉ thêm missing definitions,
+không sửa catalog người dùng.
 
-Definition registration validates the public ID and strict Driver Inputs shape, variable names/literal types and placeholders before insert, per specification BR-10–BR-14. DriverContractInspector supplies embedded Terraform types; static executor contracts supply Kubernetes types. Errors carry field paths, not submitted values. Existing criteria, connection, output and insert-only checks remain required.
-
-## Definition-selected workload rendering collaboration
-
-See [ADR-010](../../architecture/decisions/ADR-010-score-k8s-workload-rendering.md)
-and [rendering contract](../../architecture/contracts/workload-rendering.md).
-Catalog validates the installed bundle; shared planning selects/pins the renderer.
-UC-06 validates availability before provisioning, then dispatches the existing
-WorkloadRenderer port after output binding. UC-08 still executes resource-only
-batches. Kubernetes/Fleet apply/readiness and Environment route ownership stay
-in their existing adapters. No database transaction spans a CLI/external call.
-
-## Selected Environment connection compatibility
-
-Registration rejects every nonempty Terraform VPC/EKS ConnectionKey (BR-08), including a key equal to a configured target, and accepts reusable empty-key Definitions without an Environment. Explicit Aurora and optional Kubernetes connections retain org/kind/READY validation. UC-06 resolves the pinned Environment account for VPC/EKS and retains the defensive winning-Definition ConnectionMismatch guard for malformed internal/harness catalogs. External database accounts remain explicit. Specificity, ties and profiles remain unchanged; new product VPC/EKS seeds omit ConnectionKey without migrating existing catalog records.
-
-## Implicit internal cluster collaboration
-
-[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
-changes only internal cluster binding: the enricher supplies the provider node,
-trusted system binding bypasses criteria matching, and UC-08 resolves the selected
-Environment Connection through existing-cluster. Preview is pure; execution
-admits the reserved system Definition before persistence writes. Other resource
-Definitions, executor scheduling and output propagation remain unchanged.
-
-Public existing-cluster rejection does not invoke system admission. Trusted
-planning/UC-08 construction and idempotent FK admission remain internal;
-ReferenceCluster conformance fixtures bypass public registration unchanged.
-
-## Installed bundle metadata collaboration (T18)
-
-RenderBundleController authenticates the session Organization and PE/Admin role,
-then calls Catalog `ListRenderBundles` on its copied immutable installed registry.
-Catalog applies BR-15 availability checks and returns sorted ID/version/AVAILABLE
-metadata only (OC-04b). No repository or external operation participates.
-Console independently loads this list for its selector and preserves user edits
-on retries/late replies; registration still validates the selected ID before insert.
-
-## Matching preview collaboration (T19)
-
-`ResourceDefinitionService.PreviewMatching(ctx, org, query)` nhận candidate và
-context theo OC-04c. Controller kiểm session PE/Admin và strict bounded body.
-Service dùng `ReadSnapshot` lấy scoped Application/Environment/Connection,
-Resource Types và Definitions; không đọc config secrets/Active Resources.
-Thay candidate cùng key chỉ trong copy catalog. DefinitionMatcher collaboration
-reuse domain `BestCriterion`, profile filter và `planning.ConnectionMismatch`;
-không sửa ranking/ties trong match.go. Trả safe result và snapshot marker, không
-transaction write, registration/inspector hoặc system admission. Incomplete
-context trả trạng thái riêng trước kết luận matching. UI của hai form dùng chung
-operation; edits/scope changes làm kết quả pending/cũ mất hiệu lực.
-
-## Environment context resolution (T21)
-
-Planning `Context.ResolveContext` exposes profile/region only through
-`env.profile`/`env.region`. Removed Application aliases resolve as unknown during
-placeholder expansion, without rewriting stored inputs. `app.id`, `app.name` and
-other identity keys remain. Registration keeps BR-13 deferred placeholder type
-checking; this change does not add a registration-time context allowlist.
-
-## T27 — Seed and infrastructure identity
-
-Seed registration inserts missing current Definitions without rewriting any existing
-record. Planning resolves @infra only to the Environment/generation path. Historical
-fixture paths/names are normalized only in the conformance harness, not product context.
-
-## Typed authoring collaboration (T31)
-
-Controller role-gates `ListDefinitionCapabilities`; Catalog projects supported
-registration pairs, static Kubernetes policy and embedded DriverContractInspector
-contracts into safe metadata (OC-04d). Read scoped Resource Type schemas only to
-annotate param sources; no writes, credentials, executor or external calls.
-Console uses metadata for support/CTA and typed controls with explicit overrides,
-lossless advanced variables/provision JSON. POST validation and planning remain
-independent authoritative guards (BR-23–26); no schema or transaction change.
-
-## Terraform v2 collaboration (supersedes conflicting baseline above)
-
-ModuleSourcePolicy checks Admin allowlist; ModuleBundleResolver fetches immutable
-content in private cache and verifies digest/transitive dependencies outside DB
-transaction. DriverContractInspector produces typed module contract. Registration
-validates Type input/output mappings and symbolic providers, persists bundle ref/
-Definition/criteria atomically, then publishes safe capabilities. Planner only
-reads verified registry snapshot; neither Preview nor capabilities download code.
-AWS binding is Environment-wide including Aurora/ElastiCache. Renderer registry
-supports required score-k8s on both profiles; no native-default result for v2.
+Tests cần có: immutable source/digest/allowlist, mapping/schema/secret rejection,
+insert-only race, pure capabilities/matching, class/no-match/tie, profile/target
+guards và bundle unavailable. Contract chi tiết: [OC-04/04b/04c/04d](../../architecture/contracts/operation-contracts.md)
+và [module contract](../../architecture/contracts/terraform-modules.md).

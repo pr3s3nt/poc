@@ -1,8 +1,8 @@
 ---
 id: I06-10-WORK
 artifact: iteration-work-items
-status: current
-last_reviewed: 2026-09-30
+status: deferred
+last_reviewed: 2026-10-13
 related: I06-10
 ---
 
@@ -52,3 +52,10 @@ by a default option. This slice alone cannot close IMP-002/I06-10.
 - [ ] Newly created data is usable without process restart.
 - [ ] I00-00 UC-01 behavior remains covered by regression tests.
 - [ ] IMP-002 removed only when all remaining UC-02..04 gaps are delivered.
+
+## M04 reprioritization — 2026-10-13
+
+Người dùng ưu tiên [M04](../../M04-terraform-v2/README.md) cho Terraform v2.
+Record này chưa hoàn thành, chỉ deferred; status/handoff cũ ở a897d6b/3367f7e.
+AWS credential decision đã chốt ADR-009/014 và được implement trong M04,
+không dùng ghi chú “decision pending” phía trên làm blocker hiện hành.

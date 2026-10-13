@@ -50,9 +50,15 @@ last_reviewed: 2026-10-13
 ## Quy tắc nghiệp vụ
 
 - **BR-01:** Resource Type ID là duy nhất trong Organization.
-- **BR-02:** Resource Type mô tả contract độc lập với cloud/internal implementation.
-- **BR-03:** Mọi Resource Definition của cùng Resource Type phải cung cấp outputs tương thích output schema.
-- **BR-04:** Score params chỉ được chứa inputs được schema cho phép trong subset MVP.
+- **BR-02:** Resource Type định nghĩa contract độc lập module và provider.
+  Redis và PostgreSQL là các loại được hỗ trợ; mỗi loại có cùng output schema
+  cho in-cluster và dịch vụ AWS theo [module contract](../../architecture/contracts/terraform-modules.md).
+- **BR-03:** Mọi Definition của một Type phải cung cấp đúng output schema;
+  output bí mật không được hạ xuống thành output công khai.
+- **BR-04:** Score params chỉ chứa inputs trong schema đã đăng ký. Metadata
+  công bố kiểu, required/default và constraints; không tự biến mọi Terraform
+  variable thành param của Workload. Registration vẫn chỉ tạo mới; không
+  chuyển đổi schema/dữ liệu thử nghiệm v1.
 
 ## Luồng nội bộ
 
@@ -64,11 +70,6 @@ UC-02 Register Resource Type
 ├── Persist Resource Type
 └── Publish Resource Type for Score and Definition validation
 ```
-
-## Trạng thái implementation hiện tại
-
-- Seed catalog đã có Resource Types cho workload, VPC, cluster, namespace và PostgreSQL; planner dùng input contract để kiểm tra Score `params` và output contract để kiểm tra placeholder/executor output.
-- API/UI đăng ký và nghiệp vụ `RegisterResourceType` cùng normalized PostgreSQL persistence đã có; production-grade RBAC chưa có.
 
 ## Ngoài phạm vi happy path
 
@@ -90,12 +91,3 @@ UC-02 Register Resource Type
 - Existing catalog reads, seed/import fixtures and planning remain compatible:
   this policy is enforced at new public registration, not by rewriting legacy
   records or broadening the planner's identifier restrictions.
-
-## Terraform v2 — required catalog contract
-
-- **V2-01:** Redis là Resource Type được hỗ trợ cùng PostgreSQL. In-cluster và
-  managed dùng cùng output schema theo [module contract](../../architecture/contracts/terraform-modules.md).
-  Contract độc lập module/provider; secret output không được downgrade thành public.
-- **V2-02:** Input schemas/capability metadata công bố kiểu, required/default và
-  constraints đã đăng ký; không tự expose mọi Terraform variable thành param.
-  Registration vẫn insert-only, không migration dữ liệu/schema v1.

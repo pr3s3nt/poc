@@ -102,3 +102,7 @@ then affected use-case specifications, [module contract](architecture/contracts/
 [state contract](architecture/contracts/terraform-state.md) and
 [acceptance scope](operations/terraform-v2-acceptance.md). Full recovery, orphan
 reconciliation and platform backup are explicitly deferred in D12–D14.
+
+M04 current work order: [plan](iterations/M04-terraform-v2/README.md),
+[rule reconciliation](implementation/v2-rule-reconciliation.md). Chặng 1 dừng
+chờ user duyệt trước code; chặng 2 dừng trước AWS để duyệt video/estimate.

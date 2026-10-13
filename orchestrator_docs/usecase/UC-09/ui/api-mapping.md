@@ -34,14 +34,15 @@ Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation t
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
 
-## Terraform v2 contract extension
 
-Existing UI routes and role/org/version guards remain. Required payload/metadata
-extensions follow [module contract](../../../architecture/contracts/terraform-modules.md),
-[state contract](../../../architecture/contracts/terraform-state.md) and
-[operation contracts](../../../architecture/contracts/operation-contracts.md#terraform-v2-scoped-supersession-adr-014).
-These are planned v2 fields, not claims the current HTTP handlers accept them.
-Workload params/class stay Score-backed references; PE source/revision/mapping
-fields are Definition metadata. AWS onboarding belongs to dedicated concealed
-Connection write. Public queries return only scoped safe projections; no internal
-state endpoint/token exposed. No API bypass of acceptance UI steps is allowed.
+## Resource detail và cleanup query
+
+| UI action | HTTP contract dưới Application/Environment prefix | Kết quả |
+|---|---|---|
+| Đọc chi tiết tài nguyên | `GET /resources/{resourceId}` | 200 safe descriptor/status/module/target/owner/consumers/eligibility; 404 ngoài scope. |
+| Đọc tiến trình xóa | `GET /resource-cleanups/{operationId}` | 200 confirmed scope, stages/timestamps/actor, verification/remaining IDs; không state bytes. |
+
+Query cần quyền đọc Environment, lấy Organization từ session. Developer chỉ
+đọc safe metadata; PE/Admin mutation ở [UC-07 API](../../UC-07/ui/api-mapping.md).
+Eligibility chỉ là snapshot, không token cấp quyền hoặc bảo đảm Execute;
+Operation/result scope cố định, không lấy cleanup của Environment khác.

@@ -7,14 +7,6 @@ last_reviewed: 2026-10-13
 
 # UC-08 — Use Case Realization
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Trách nhiệm
 
 Thực thi resource-only batches theo provider-first order, resolve runtime inputs, gọi executor phù hợp, validate outputs và persist Active Resource state cho consumer tiếp theo.
@@ -33,7 +25,10 @@ ResourceProvisioningService.Provision(ctx context.Context, req ProvisionRequest)
 - `ActiveResourceResolver` — tìm logical resource theo descriptor/scope.
 - `OutputBindingResolver` — resolve context/resource-output binding.
 - `ExecutorRegistry` — map Driver Type sang `ResourceExecutor`.
-- `TerraformExecutor`, `KubernetesExecutor`, `ExistingClusterAdapter`.
+- `TerraformExecutor`, `ExistingClusterAdapter` (chỉ resolve cluster có sẵn).
+- `ModulePreflight`, `TerraformStateBackend/Repository/Cipher`,
+  `ResourceInstanceRepository`, `ResourceAttemptRepository`: kiểm bundle,
+  ghi intent/ownership, lưu encrypted state/locks và stage dưới owner/fence.
 - `OutputContractValidator`.
 - `ActiveResourceRepository`, `DeploymentResourceRepository`, `UnitOfWork`.
 
@@ -42,18 +37,20 @@ ResourceProvisioningService.Provision(ctx context.Context, req ProvisionRequest)
 | Step | Collaboration |
 |---|---|
 | MS-01 | Nhận immutable graph/resource batches từ persisted DeploymentPlan. |
-| MS-02 | Resolve Active Resource bằng `(organization, descriptor, scope)`. |
+| MS-02 | Resolve instance/state theo Organization/Environment/generation/descriptor/ scope; persist physical intent/action/ownership trước call. |
 | MS-03 | Resolve context, resource inputs và outputs từ completed providers. |
-| MS-04–MS-05 | Resolve executor rồi `ResourceExecutor.Provision`. |
-| MS-06 | Validate outputs theo Resource Type. |
+| MS-04–MS-05 | Kiểm module/input digests; `ResourceExecutor.Execute` CREATE hoặc non-destructive UPDATE dưới Environment owner và state lock. |
+| MS-06 | State backend acknowledge; kiểm Type outputs/readiness và store Secret refs. |
 | MS-07 | Persist Active Resource/executor state + deployment-resource status trong transaction ngắn. |
 | MS-08–MS-09 | Thêm outputs vào run context, tiếp tục batch kế tiếp. |
 | MS-10 | Trả `ProvisionResult` map descriptor -> outputs/target. |
 
 ## Profile realization
 
-- `aws-eks`: Terraform Executor cho VPC -> EKS và VPC -> Aurora.
-- `internal-k8s`: ExistingClusterAdapter trả cluster target; Kubernetes Executor apply namespace và PostgreSQL StatefulSet/Service.
+- `aws-eks`: Terraform AWS cho VPC/EKS/ElastiCache/Aurora; Kubernetes provider
+  cho namespace/Redis/PostgreSQL theo class, bind EKS target đã Ready.
+- `internal-k8s`: ExistingClusterAdapter trả cluster target; Terraform
+  Kubernetes modules tạo namespace/Redis/PostgreSQL.
 
 ## Transaction boundary
 
@@ -75,8 +72,8 @@ credential at each adapter call; never persist normalized kubeconfig or temp
 paths in outputs/state/plan. Missing/not-READY Connection fails closed. Restore
 the same scoped target for removal and route reconciliation after restart.
 T22 removes host-context targets: context-only/unscoped execution fails closed.
-Internal Kubernetes requires scoped KUBECONFIG; explicit Terraform-generated
-EKS kubeconfig paths remain supported. Implementation evidence is tracked in current state.
+Internal Kubernetes requires scoped KUBECONFIG; EKS target có scoped identity tái tạo credential cho từng invocation,
+không persist kubeconfig/path. Kết quả code thuộc CURRENT_STATE.
 
 ## Definition-selected workload rendering collaboration
 
@@ -92,7 +89,7 @@ in their existing adapters. No database transaction spans a CLI/external call.
 
 Shared snapshot loader resolves persisted Environment target in session
 Organization; UNCONFIGURED fails before planning/execution. Definition guards and
-UC-08 defense-in-depth compare against this Environment connection. Terraform VPC/EKS use the pinned Environment AWS account even though the reusable Definition key is empty; resolve and validate org/kind/READY before execution and persist the effective account in ActiveResource. A malformed conflicting winning Definition fails without fallback. Aurora keeps its explicit org-scoped READY AWS account; missing account fails closed. Context,
+UC-08 defense-in-depth compare against this Environment connection. Terraform VPC/EKS use the pinned Environment AWS account even though the reusable Definition key is empty; resolve and validate org/kind/READY before execution and persist the effective account in ActiveResource. A malformed conflicting winning Definition fails without fallback. Aurora/ElastiCache cũng dùng Environment account/region; không override. Context,
 version, scope mode and nonsecret target metadata are pinned into hashes/snapshots.
 AWS enrichment produces Environment/generation-scoped VPC/EKS only (T27).
 Retired scopes fail closed; current generation-0 identity is preserved under [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).
@@ -108,26 +105,18 @@ Environment Connection through existing-cluster. Preview is pure; execution
 admits the reserved system Definition before persistence writes. Other resource
 Definitions, executor scheduling and output propagation remain unchanged.
 
-## Terraform v2 participants and execution order
 
-This section replaces conflicting baseline Kubernetes resource executor, explicit
-Aurora account and temporary-state assumptions above. Participants:
-ModuleBundleResolver/Preflight, TerraformExecutor, ConnectionCredentialResolver,
-TerraformStateBackend/Repository/Cipher, EnvironmentOperationManager,
-ResourceInstanceRepository/AttemptRepository and ResourceCleanupService.
+## State, retry và cleanup
 
-1. Under admitted Environment owner/fence, resolve stable instance/state identity
-   and persist physical intent/ownership before side effects.
-2. Resolve inputs/providers from pinned Connection or completed EKS target; validate
-   contract and verified module digest. Terraform acquires internal backend lock.
-3. Init/validate/plan, reject destructive UPDATE, apply saved plan within deadline;
-   backend commits encrypted state with current lock/fence/lineage/serial guards.
-4. Validate provider/readiness/outputs, store generated secret outputs through
-   scoped secret store, then ActiveResource/result transaction commits safe refs.
-5. Release invocation/state lock only when executor stopped. On partial failure,
-   retain metadata/state, bounded retry only known transient; unknown outcome holds.
+Terraform init/validate/plan/apply dùng immutable module/provider pins; UPDATE
+plan có delete/replace bị chặn. Backend lock/write/unlock kiểm current owner/
+fence/lineage/serial; ciphertext/state revision commit nguyên tử. State error
+không được báo READY. Generated password ref có trước apply và được dùng lại.
+Retry transient một lần sau kiểm state/outcome, trong deadline; unknown outcome
+giữ hold/private recovery handle, không replay CREATE hoặc tự import/resume.
 
-Terraform executes namespace/Redis/PostgreSQL for both targets and all AWS modules.
-ExistingClusterAdapter remains only for system Connection resolution. EKS target
-persistence must be opaque and restorable; workspace kubeconfig path is invocation
-only. Cleanup uses [sequence](sequence-cleanup.puml); D12/D13/D14 remain deferred.
+ResourceCleanupService xử lý tập được user hoặc test-run authorization giao,
+khóa state, destroy consumers trước providers và kiểm absence. UI eligibility/
+confirmation do UC-07 sở hữu; engine không mở rộng scope hoặc xóa platform.
+[Cleanup sequence](sequence-cleanup.puml), [state contract](../../architecture/contracts/terraform-state.md)
+và OC-18/19 sở hữu protocol; D12–D14 là backlog riêng.

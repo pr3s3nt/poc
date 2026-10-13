@@ -7,14 +7,6 @@ last_reviewed: 2026-10-13
 
 # UC-07 — Use Case Realization
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Trách nhiệm
 
 Cập nhật hoặc xóa đúng một workload, giữ nguyên contribution khác, gọi UC-08 cho desired resources và chỉ đánh dấu resource bỏ tham chiếu là `UNREFERENCED`.
@@ -66,7 +58,7 @@ descriptor string. Single-Environment deployment chỉ mark `READY` resources
 thuộc Environment/shared/workload scope của nó; `APPLICATION` scope có thể
 được Environment khác dùng nên không mark từ classification riêng lẻ này.
 `FAILED`/`PROVISIONING` không được ép sang `UNREFERENCED`; follow state machine,
-failure cleanup vẫn ngoài scope. Record mới nhất được đọc trong transaction
+failure cleanup có operation riêng theo OC-19, không thuộc marking này. Record mới nhất được đọc trong transaction
 trước upsert để không ghi đè executor state/outputs bằng bản snapshot cũ.
 
 Console/API dispatch qua UC-16 pending flow: reconstruct before từ current Set,
@@ -103,12 +95,34 @@ T22 removes host-context targets: context-only/unscoped execution fails closed.
 Internal Kubernetes requires scoped KUBECONFIG; explicit Terraform-generated
 EKS kubeconfig paths remain supported. Implementation evidence is tracked in current state.
 
-## Terraform v2 cleanup boundary
 
-Remove still uses WorkloadDeployer.Delete and final UNREFERENCED metadata commit.
-It does not invoke ResourceCleanupService. Separate cleanup admits an operation,
-loads original instance/state/module/target and ownership/consumer evidence,
-destroys reverse dependency and verifies absence. CREATED_BY_RUN is required for
-run cleanup, not inferred from unreferenced status. See
-[cleanup sequence](../UC-08/sequence-cleanup.puml) and OC-19; generic destroy UI
-and live update/delete matrix are outside this acceptance tranche.
+## Collaboration Xóa tài nguyên (DEL-MS-01..07)
+
+ResourceDetailController/ResourceQueryService đọc scoped resource và eligibility
+cho UC-09. ResourceCleanupController kiểm session Organization + PE/Admin;
+Developer bị từ chối trước cả lập delete plan hoặc nhận operation.
+CleanupPlanner tính root/dependency closure và retained reasons từ current/
+pending graphs + persisted dependency/ownership snapshots; phát token pin
+root descriptor, tập xóa/versions, current/draft versions và target generation.
+UI hiện scope, cảnh báo mất dữ liệu và tên cần gõ. Token/typed name không cấp
+quyền nếu trạng thái đã đổi sau khi hiển thị hộp thoại.
+
+ResourceCleanupService kiểm snapshot/role/UNREFERENCED/consumers dưới
+EnvironmentOperationManager trong một giao dịch ngắn rồi persist REQUESTED.
+CHECKING đọc original module/target/state, kiểm evidence; DESTROYING gọi
+TerraformExecutor theo reverse graph dưới state locks; VERIFYING dùng provider
+reads để ghi absence/remaining IDs. ResourceInstanceRepository và Operation
+Repository lưu tiến độ/actor/confirmed scope. State cuối và audit giữ lại.
+Tài nguyên đã xác minh hết chuyển DESTROYED; historic Deployment snapshots
+không đổi. Consumer failure giữ provider dependency; không tự tăng phạm vi.
+
+Cleanup run dùng capability riêng và CREATED_BY_RUN filter; user delete dùng
+PE/Admin và ownership bền vững. Cả hai dùng cùng execution/verification engine;
+script safety net không giả chữ ký xác nhận UI. Xem
+[sequence delete](sequence-resource-delete.puml), [VOPC](vopc.puml),
+[cleanup engine](../UC-08/sequence-cleanup.puml) và OC-19.
+
+Tests: Developer 403, foreign scope 404, stale/busy/not-unreferenced/consumer
+rejection trước provider calls, exact typed name, pinned cascade/retained
+dependencies, duplicate token idempotency, lock/fencing và safe partial result.
+V2-A01 chứng minh xóa thật qua headed UI; các ngoại lệ role/race có tests riêng.

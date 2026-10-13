@@ -56,12 +56,19 @@ Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation t
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
 
-## Terraform v2 state additions
 
-Required v2 behavior is defined in the corresponding specification V2 rules and
-[screens](screens.md). Loading/error/unavailable module or class metadata blocks
-unvalidated submit; retry retains safe edits, does not substitute defaults or
-replay mutation. Typed input/provider/integrity errors use safe code/field guidance.
-Busy/stale locks preserve edits and require wait/review/new Preview. Long-running
-execution shows persisted stage/attempt; interruption requires operator checks.
-No state/secret/raw CLI diagnostics are rendered, including failure paths.
+## Metadata và tiến trình tài nguyên
+
+Module/class metadata đang tải, lỗi hoặc unavailable chặn thao tác chưa kiểm
+chứng; retry giữ edits, không thay bằng default hay replay mutation. Known
+input/provider/integrity error dùng code/field an toàn. BUSY giữ dữ liệu đang
+sửa; stale yêu cầu review/Preview mới. Progress lấy persisted stage/attempt,
+không raw CLI/state/secret; interruption không được coi là cleanup thành công.
+
+## Resource detail / cleanup
+
+Missing resource/foreign scope là 404, khác lỗi tải. UNREFERENCED vẫn có detail.
+Không đủ dữ liệu eligibility thì disabled; Developer không thấy mutation.
+Polling giữ đúng operation ID và chỉ kết thúc thành công khi tất cả confirmed
+IDs verified absent; partial/remaining IDs hiển thị rõ, late response bị bỏ.
+Provider error/unknown cause dùng safe code, không raw state hoặc log.

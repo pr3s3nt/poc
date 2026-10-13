@@ -7,18 +7,10 @@ last_reviewed: 2026-10-13
 
 # UC-04 — Use Case Realization
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Trách nhiệm và delivery boundary
 
 Thực hiện [specification đã duyệt](specification.md): đăng ký Kubernetes từ
-kubeconfig trước; AWS account provisioning theo ADR-009 ở giai đoạn sau.
+kubeconfig và AWS access key onboarding theo ADR-009/014.
 Kubernetes chỉ resolve scoped KUBECONFIG; không có host-context registration hoặc execution.
 
 ## System operations
@@ -27,8 +19,8 @@ Kubernetes chỉ resolve scoped KUBECONFIG; không có host-context registration
   không trả credential, không lưu secret hoặc Connection, không gọi cluster.
 - `RegisterKubeconfig(ctx, org, name, document, context)` parse/validate
   lại document, verify, ghi credential rồi insert Connection `READY`.
-- `RegisterAWSDriverAccount(ctx, org, command)` là operation thiết kế tương lai;
-  không publish endpoint cho đến khi verification/executor resolution hoàn tất.
+- `RegisterAWSDriverAccount(ctx, org, command)` nhận concealed access key,
+  verify identity/region/capabilities, lưu Vault ref và READY metadata.
 
 ## Participants
 
@@ -45,6 +37,8 @@ Kubernetes chỉ resolve scoped KUBECONFIG; không có host-context registration
   riêng khỏi UC-12 workload values; không public secret-read operation.
 - `ConnectionCredentialResolver`: kiểm tra Organization/kind/authentication type,
   resolve reference cho adapter trong thời gian thực thi; fail closed.
+- `AWSConnectionVerifier`: read-only identity/region/capability verification;
+  STS thành công một mình không đủ READY.
 - `ConnectionRepository`, `UnitOfWork`: insert-only, unique Organization/key.
 
 ## Flow và transaction boundary
@@ -72,16 +66,17 @@ and verification/provider details that can contain credentials.
 ## Execution integration
 
 Shared design: [Connection credentials](../../architecture/connection-credentials.md).
-Resource execution resolves the matched Definition's Connection, or the pinned
-Environment Connection for the implicit internal cluster; workload target
+Resource execution resolves provider binding từ Environment Connection
+hoặc completed EKS target; workload target
 retains opaque Organization/Connection identity and secret reference only.
 Each Kubernetes operation resolves a private short-lived kubeconfig file,
 mode 0600 in private directory, removes it after the subprocess finishes. Never
 persist the file path or content in plans, Target outputs, executor state or
 snapshots. Apply/readiness/remove/public routes/VSO must use the selected target.
 Missing/unknown authentication and missing scoped credentials fail closed; no
-host default is consulted. AWS Terraform credential resolution is designed,
-not enabled by this Kubernetes delivery.
+host default is consulted. AWS Terraform invocation resolve scoped Vault credential của Environment,
+không dùng global/host credential. EKS resolver tái tạo private credential từ
+opaque pinned target; state backend token tách khỏi provider credential.
 
 ## Validation and traces
 
@@ -117,12 +112,3 @@ trusted system binding bypasses criteria matching, and UC-08 resolves the select
 Environment Connection through existing-cluster. Preview is pure; execution
 admits the reserved system Definition before persistence writes. Other resource
 Definitions, executor scheduling and output propagation remain unchanged.
-
-## Terraform v2 AWS collaboration
-
-AWS ConnectionController/Service enables ADR-009 concealed write and read-only
-AWSConnectionVerifier identity/region/capability checks; Vault credential Put then
-insert-only READY metadata follows existing attempt cleanup. Platform HTTP state
-backend is validated as platform readiness, not a per-Connection backend setting.
-CredentialResolver resolves AWS scoped reference per invocation with no default
-host chain. EKS resolver restores opaque persisted target using the pinned account.

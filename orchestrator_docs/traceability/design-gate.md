@@ -177,3 +177,15 @@ scoped design. Exact immutable release pins/module sizing and bounded deadline
 tuning are implementation preparation recorded before execution, not new product
 requirements. Step 1 validation result is recorded in the dated
 [design verification](../verification/2026-10-13-terraform-v2-design.md).
+
+## M04 chặng 1 — A–D reconciliation review
+
+Bộ luật BR/MS/VAR/OOS đã được sửa trực tiếp; V2 IDs trùng được gộp theo
+[reconciliation](../implementation/v2-rule-reconciliation.md). ADR-010 chỉ
+thay renderer choice/optionality/internal-only, ADR-011 superseded, ADR-001
+giữ enrichment/scope. Required deletion UI theo UC-07 DEL-* và UC-09 RES-*,
+OC-19/confirmed-scope schema/cascade graph; A01 có UI deletion, script safety net.
+Nguồn status code chuyển CURRENT_STATE/IMP-021, old evidence không sửa.
+[M04](../iterations/M04-terraform-v2/README.md) là work order ba chặng;
+**gate 1 đang chờ duyệt**, không dùng design/checker PASS làm user approval.
+Validation và commit của A–D ở dated verification mới; code/live proof còn pending.

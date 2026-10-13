@@ -171,7 +171,7 @@ Retry, rollback, partial-failure resume, drift và deprovision vẫn nằm ngoà
 | MS-02 | `existing/new/unreferenced` theo descriptor | Load Active Resource và driver state thật; không biến classification thành action `reuse/destroy`. |
 | MS-03 | Resolve `context.*`; output reference vẫn raw | Runtime value/binding resolver từ provider outputs đã persist trong run. |
 | MS-04 | Definition có `driver_type` | Executor registry và account/connection resolution. |
-| MS-05 | Không execute | Terraform Executor, Kubernetes Executor và existing-cluster adapter. |
+| MS-05 | Không execute | Terraform Executor cho managed resources và existing-cluster adapter. |
 | MS-06 | Static output contract scan | Thu output thật, validate type/secret classification. |
 | MS-07 | Không persist | Active Resource repository và executor state ownership. |
 | MS-08 | Graph dependency biểu diễn binding | Resolve output vào consumer inputs trước batch tiếp theo. |
@@ -257,5 +257,5 @@ account/native-default assumptions. Pure planner reads verified module metadata,
 pins module/provider/renderer/target/state identity and validates classes/contracts;
 no download, Terraform CLI/provider call or secret resolution. Descriptor/Delta/
 weighted criteria/topological semantics and reference fixtures remain unchanged.
-V2 extension tests are separate; do not edit read-only reference fixtures or use
-harness source map/native-default behavior as an execution escape hatch.
+V2 tests thuộc M04; không sửa read-only fixtures hoặc dùng harness source
+map/renderer behavior để bỏ qua current product contracts.

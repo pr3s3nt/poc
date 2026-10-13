@@ -93,8 +93,9 @@ image, Score keys và payload. Mapping lỗi backend theo contract code T20.
   hiện request có hiệu lực: request tường minh, nếu thiếu thì limit cùng loại,
   nếu cả hai thiếu thì CPU `10m`, memory `32Mi`. Limit thiếu hiển thị chưa đặt.
   Đây là giải thích defaults hiện hành, không tự thêm capacity vào Score.
-- Resource class nằm trong phần nâng cao từng dependency. Class rỗng có hiệu
-  lực `default`; giữ quy tắc bỏ field class rỗng trong Score.
+- Resource Redis/PostgreSQL có class/cách cung cấp từ metadata trong phần
+  cơ bản. Custom/imported class vẫn giữ ở nâng cao; class rỗng có hiệu lực
+  default, không tự đổi thành in-cluster/cloud-managed.
 - Target port override nằm trong phần nâng cao từng Service port. Khi rỗng,
   target port có hiệu lực bằng Service port và serialization giữ fallback số
   hiện hành. Không tự thêm public route.
@@ -131,7 +132,7 @@ set versions. Deploy vẫn tường minh; token trước rename bị stale. Rena
 hoặc delete có thể để reference thiếu và Preview phải chặn Deploy. Không đổi
 runtime/current set hoặc Environment khác khi lưu.
 
-## Terraform v2 Workload form
+## Class và metadata dependency
 
 Keep current groups and Save draft → Xem trước thay đổi → Triển khai flow.
 Each Redis/PostgreSQL dependency displays “Cách cung cấp / Class” beside its

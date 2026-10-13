@@ -7,14 +7,6 @@ last_reviewed: 2026-10-13
 
 # UC-05 — Use Case Realization
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Trách nhiệm
 
 Tạo preview deterministic từ Score và snapshot hiện tại bằng cùng planning pipeline của UC-06 nhưng không gọi executor, Kubernetes hoặc thay đổi persisted runtime state.
@@ -34,6 +26,8 @@ PlanningService.Plan(ctx context.Context, req PlanRequest) (*DeploymentPlan, err
 - `ImplicitResourceEnricher`, `ResourceGraphBuilder`, `DefinitionMatcher`, `GraphExpander`.
 - `DriverContractInspector`, `BatchScheduler`, `ActiveResourceClassifier`.
 - Application/Environment/Resource/ActiveResource repositories — read ports.
+- VerifiedModuleRegistry và ResourceInstanceMetadata — immutable read snapshot
+  cho module/provider pins, stable state identity và resource versions.
 
 ## Trace main flow
 
@@ -43,12 +37,13 @@ PlanningService.Plan(ctx context.Context, req PlanRequest) (*DeploymentPlan, err
 | MS-02–MS-03 | `WorkloadSpecValidator` validate container resources; `ScoreConverter` bảo toàn requests/limits trong typed module spec. |
 | MS-04 | Validate before-state; `DeltaBuilder.BuildHumanitecDelta` tạo transient Delta document và Candidate Set rồi chứng minh invariant. Preview không persist Snapshot entity. |
 | MS-05 | Enrich implicit resources, build/expand graph và match Definitions. |
-| MS-06–MS-07 | Inspect contracts, classify Active Resources, schedule batches. |
+| MS-06–MS-07 | Đọc verified contracts, kiểm known inputs, pin module/provider/renderer/ target/state identity, classify resources và schedule batches. |
 | MS-08 | Trả immutable `DeploymentPreview`; không gọi UC-08. |
 
 ## Transaction boundary
 
-Read-only operation. `DeploymentPreview` chứa Environment version để UC-06 có thể phát hiện preview/snapshot cũ nếu preview được tái sử dụng sau này.
+Read-only operation. `DeploymentPreview` chứa phiên bản snapshot; pending Preview còn phát token
+pin current Set/config/draft/bindings để Deploy kiểm trước side effects.
 
 Standalone operation load Application, Environment, current Set, connection,
 catalog và Active Resources qua `persistence.Store.ReadSnapshot` trước khi
@@ -59,7 +54,7 @@ Authorization Organization lấy từ UC-00 session, không từ request body.
 Standalone result không phải pending-change token và không được UC-16 Deploy
 chấp nhận. Xem [HTTP mapping](ui/api-mapping.md).
 
-## Implementation tests
+## Planned tests
 
 - `TestPreview_NoRuntimeMutation`.
 - `TestPreview_DeltaInvariantAndContainerResources` plus shared planner
@@ -76,7 +71,8 @@ chấp nhận. Xem [HTTP mapping](ui/api-mapping.md).
 
 See [ADR-010](../../architecture/decisions/ADR-010-score-k8s-workload-rendering.md)
 and [rendering contract](../../architecture/contracts/workload-rendering.md).
-Catalog validates the installed bundle; shared planning selects/pins the renderer.
+Catalog kiểm installed bundle cho cả profiles; planner yêu cầu một
+score-k8s Definition và pin bundle. No match/tie/bundle thiếu thì dừng.
 UC-06 validates availability before provisioning, then dispatches the existing
 WorkloadRenderer port after output binding. UC-08 still executes resource-only
 batches. Kubernetes/Fleet apply/readiness and Environment route ownership stay
@@ -107,13 +103,3 @@ Definitions, executor scheduling and output propagation remain unchanged.
 Catalog `PreviewMatching` của UC-03 dùng cùng domain weighted criteria và
 ConnectionMismatch guard nhưng không gọi full PlanningService.Plan. Kết quả
 không là input admission cho UC-05/06; shared planner tiếp tục kiểm snapshot mới.
-
-## Terraform v2 planning collaboration
-
-ReadSnapshot includes verified module registry and stable resource-instance safe
-metadata/versions; Inspector performs pure contract checks over metadata, Matcher
-uses unchanged ranking/class/profile and requires score-k8s renderer for both
-profiles. Plan pins bundle/provider/module/state/target identity. PreviewAssembler
-projects safe module/target/ownership and errors without state/credentials.
-No download, Terraform/score CLI or provider query in planning; runtime checks
-unresolved provider outputs before executing each node.

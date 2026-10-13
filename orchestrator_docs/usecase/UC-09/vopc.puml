@@ -39,4 +39,22 @@ DeploymentQueryService --> DeploymentResourceRepository
 DeploymentQueryService --> ResourceTypeRepository
 DeploymentQueryService --> DeploymentWorkloadRepository
 DeploymentQueryService ..> DeploymentView
+class ResourceQueryController <<boundary>>
+class ResourceQueryService <<control>> {
+  +GetResource(ctx, scopedID): ResourceDetail
+}
+class ResourceCleanupQueryService <<control>> {
+  +GetOperation(ctx, scopedID): CleanupProgress
+}
+interface ResourceInstanceRepository
+interface EnvironmentOperationRepository
+ResourceQueryController --> ResourceQueryService
+ResourceQueryController --> ResourceCleanupQueryService
+ResourceQueryService --> ResourceInstanceRepository
+ResourceCleanupQueryService --> EnvironmentOperationRepository
+note right of ResourceQueryService
+Detail includes UNREFERENCED resources after workload removal.
+Persisted safe metadata only; no provider refresh.
+Mutation belongs to UC-07.
+end note
 @enduml

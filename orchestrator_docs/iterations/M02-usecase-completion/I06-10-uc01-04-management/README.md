@@ -1,8 +1,8 @@
 ---
 id: I06-10
 artifact: iteration-plan
-status: current
-last_reviewed: 2026-09-30
+status: deferred
+last_reviewed: 2026-10-13
 related: UC-02, UC-03, UC-04, IMP-002
 ---
 
@@ -47,3 +47,10 @@ Current handoff after I06-09. Registration gap audit is in progress; AWS
 credential storage/runtime binding requires an explicit user decision before
 implementing the dependent branch. No live AWS/kind verification is authorized
 by this local implementation milestone.
+
+## M04 reprioritization — 2026-10-13
+
+Người dùng ưu tiên [M04](../../M04-terraform-v2/README.md) cho Terraform v2.
+Record này chưa hoàn thành, chỉ deferred; status/handoff cũ ở a897d6b/3367f7e.
+AWS credential decision đã chốt ADR-009/014 và được implement trong M04,
+không dùng ghi chú “decision pending” phía trên làm blocker hiện hành.

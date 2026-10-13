@@ -2,18 +2,16 @@
 id: ITERATION-INDEX
 artifact: iteration-index
 status: current
-last_reviewed: 2026-09-30
+last_reviewed: 2026-10-13
 ---
 
 # Iteration index
 
 ## Active
 
-- [M02 — Use-case completion](M02-usecase-completion/README.md)
-  - [I06-04 — Complete UC-09 observability](M02-usecase-completion/I06-04-uc09-observability/README.md): completed 2026-09-30.
-  - [I06-08 — UC-05 preview](M02-usecase-completion/I06-08-uc05-preview/README.md): completed 2026-09-30.
-  - [I06-09 — UC-07 update/remove](M02-usecase-completion/I06-09-uc07-update-remove/README.md): completed local verification 2026-09-30.
-  - Current handoff: [I06-10 — remaining UC-02..04 management](M02-usecase-completion/I06-10-uc01-04-management/README.md); gap audit, AWS credential decision pending.
+- [M04 — Terraform v2](M04-terraform-v2/README.md)
+  - [I04-00 — A–D và duyệt chặng 1](M04-terraform-v2/I04-00-design-review/README.md): tài liệu đang hoàn thiện, chờ người dùng duyệt trước code.
+- [M02 — Use-case completion](M02-usecase-completion/README.md) và I06-10 deferred do reprioritize, chưa complete.
 
 ## Roadmap
 
@@ -23,10 +21,12 @@ last_reviewed: 2026-09-30
    (done, I06-05) → IMP-008 (done, I06-06) → IMP-009 (done, I06-07).
    Historical; hoàn thành 2026-09-22.
 3. [M02 — Use-case completion](M02-usecase-completion/README.md): hoàn thiện
-   UC-09, UC-05, UC-07 và management flows còn lại của UC-02..04. Current;
-   I06-04/I06-08/I06-09 đã hoàn thành; tiếp theo là I06-10.
+   UC-09, UC-05, UC-07 và management flows còn lại của UC-02..04. Deferred;
+   I06-04/I06-08/I06-09 đã hoàn thành; I06-10 còn pending, M04 ưu tiên hiện tại.
 4. [M03 — Production and external compatibility](M03-production-compatibility/README.md):
    IMP-001, rồi IMP-006/007 khi boundary tương ứng được yêu cầu.
+
+5. [M04 — Terraform v2](M04-terraform-v2/README.md): current, ba chặng có gate duyệt; code bắt đầu sau gate 1.
 
 ## Folder contract
 

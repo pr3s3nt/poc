@@ -9,16 +9,13 @@ last_reviewed: 2026-10-13
 
 Status: Accepted — 2026-09-20.
 
-## V2 supersession — ADR-014
+## Quan hệ với các ADR sau
 
-[ADR-014](ADR-014-terraform-v2-lifecycle.md) replaces, for v2, embedded-only/
-Kubernetes application provisioning, run-derived temporary state/names, explicit
-Aurora account override and optional/internal-only/native-default rendering.
-V2 uses registered Terraform modules, Environment account/region, encrypted
-PostgreSQL state and required score-k8s on both profiles. Historical naming/
-verification below remains provenance of the implemented baseline; stable v2
-resource identity has no run ID. Other descriptor/matching/generation/credential
-constraints remain unless explicitly superseded. V1 import is not required.
+ADR-012 sở hữu Environment target selection/generation; ADR-013 sở hữu internal
+cluster system binding. ADR này vẫn sở hữu enrichment, private/shared scopes
+và profile guard trước weighted criteria. ADR-014 sở hữu module/executor/state
+v2; ADR-001 không chọn renderer, account Aurora riêng hoặc tên chứa run ID.
+Các logical descriptor và isolation rules dưới đây tiếp tục có hiệu lực.
 
 ## Decision
 

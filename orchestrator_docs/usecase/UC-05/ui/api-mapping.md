@@ -65,15 +65,3 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
-
-## Terraform v2 contract extension
-
-Existing UI routes and role/org/version guards remain. Required payload/metadata
-extensions follow [module contract](../../../architecture/contracts/terraform-modules.md),
-[state contract](../../../architecture/contracts/terraform-state.md) and
-[operation contracts](../../../architecture/contracts/operation-contracts.md#terraform-v2-scoped-supersession-adr-014).
-These are planned v2 fields, not claims the current HTTP handlers accept them.
-Workload params/class stay Score-backed references; PE source/revision/mapping
-fields are Definition metadata. AWS onboarding belongs to dedicated concealed
-Connection write. Public queries return only scoped safe projections; no internal
-state endpoint/token exposed. No API bypass of acceptance UI steps is allowed.

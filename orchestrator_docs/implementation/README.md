@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-INDEX
 artifact: implementation-index
 status: current
-last_reviewed: 2026-09-22
+last_reviewed: 2026-10-13
 ---
 
 # Implementation documentation
@@ -26,3 +26,5 @@ phải theo [operations index](../operations/README.md).
 
 Source code và tests sở hữu actual implemented behavior nhưng không tự thay đổi
 required product behavior trong specification.
+
+- [Terraform v2 rule reconciliation](v2-rule-reconciliation.md) — ID/canonical destinations và a897d6b/3367f7e history, không code completion.

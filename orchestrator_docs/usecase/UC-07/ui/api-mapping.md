@@ -2,7 +2,7 @@
 id: UC-07-UI-API
 artifact: use-case-ui-api-mapping
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 related: UC-07, UC-16, OC-09, OC-17
 ---
 
@@ -45,3 +45,22 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
+
+## API Xóa tài nguyên — OC-19
+
+Các path sau nằm dưới prefix Application/Environment ở trên. Root ID là
+resource instance thuộc scope; Organization/role lấy từ session.
+
+| UI operation | Method/path suffix | Request / result |
+|---|---|---|
+| Review phạm vi xóa | `POST /resources/{resourceId}/deletion-preview` | `{}`; 200 với token, confirmationName, root + dependencies đủ điều kiện, retained reasons, versions/expiry. Chỉ đọc metadata; không provider/secret call. |
+| Xác nhận xóa | `POST /resources/{resourceId}/deletions` | `{token,confirmationName}`; 202 với operationId và REQUESTED sau atomic admission. Không nhận caller-generated resource list/run quyền xóa. |
+| Theo dõi | `GET /resource-cleanups/{operationId}` | 200 safe persisted stages, confirmed IDs, per-instance verification/remaining IDs. |
+
+Preview/execute chỉ PE/Admin; 401 thiếu session, 403 Developer, 404 foreign scope,
+400 payload/tên xác nhận sai, 409 stale/busy/ineligible, 503 thiếu state/module/
+credential service. Token pin root/scope/closure/versions; server kiểm exact
+confirmationName từ descriptor, không echo tên sai trong error. Execute lặp
+cùng token của cùng actor trả operation đã nhận, không tạo destroy thứ hai.
+Nếu graph/consumer/version đổi thì review lại trước mọi provider call.
+Các read query được phân quyền theo UC-09; token không phải credential state backend.

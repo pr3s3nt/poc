@@ -7,14 +7,6 @@ last_reviewed: 2026-10-13
 
 # UC-03 — Register Resource Definition and Matching Criteria
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Mục tiêu
 
 Đăng ký Resource Definition để xác định cách provision một Resource Type theo Execution Profile và deployment context.
@@ -28,7 +20,9 @@ in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 - **PRE-01:** Organization đã tồn tại.
 - **PRE-02:** Resource Type tương ứng đã được đăng ký qua UC-02.
 - **PRE-03:** Driver được tham chiếu đã được orchestrator hỗ trợ.
-- **PRE-04:** Driver Account hoặc cluster connection được tham chiếu đã được cấu hình qua UC-04; Terraform VPC/EKS không tham chiếu account khi đăng ký và không cần Environment tồn tại.
+- **PRE-04:** Provider binding có contract hợp lệ. AWS dùng Connection của
+  Environment lúc Preview/Deploy; registration không cần Environment cụ thể.
+  Kubernetes bind target của Environment hoặc outputs của node EKS.
 - **PRE-05:** Platform Engineer có quyền quản lý Resource Definition.
 
 ## Trigger
@@ -50,22 +44,30 @@ in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 
 ## Luồng biến thể trong happy path
 
-- **VAR-01 — `aws-eks`:** Definitions của `vpc`, `k8s-cluster` và `postgres` dùng Terraform Driver; VPC/EKS dùng AWS Connection của Environment khi Preview/Deploy, Aurora dùng AWS Driver Account riêng tường minh.
-- **VAR-02 — `internal-k8s`:** cluster node ngầm resolve Environment Connection, không yêu cầu đăng ký/matching Definition riêng; `postgres` và namespace vẫn matching Definition dùng Kubernetes executor.
+- **VAR-01:** Trên `aws-eks`, Terraform tạo VPC/EKS/namespace, Aurora/
+  ElastiCache hoặc Redis/PostgreSQL in-cluster theo class. Mọi AWS provider
+  dùng cùng Connection/account/region đã chọn cho Environment.
+- **VAR-02:** Trên `internal-k8s`, cluster node lấy Connection của Environment
+  theo ADR-013. Namespace, Redis và PostgreSQL vẫn matching Definition và dùng
+  module Terraform với Kubernetes provider.
 
 ## Hậu điều kiện
 
 - **POST-01:** Resource Definition được lưu với ID duy nhất trong Organization.
 - **POST-02:** Definition liên kết với một Resource Type và một Driver hợp lệ.
-- **POST-03:** Cloud Definitions có thể provision VPC, EKS và Aurora bằng Terraform.
-- **POST-04:** Internal Definitions provision namespace/PostgreSQL bằng Kubernetes executor; cluster có sẵn dùng system binding theo ADR-013.
+- **POST-03:** Definition AWS cung cấp module Terraform cho VPC, EKS,
+  ElastiCache và Aurora; class in-cluster trên EKS vẫn hợp lệ.
+- **POST-04:** Definition Kubernetes cung cấp module Terraform cho namespace,
+  Redis/PostgreSQL; cluster có sẵn chỉ được tham chiếu bằng system binding.
 - **POST-05:** Hai PostgreSQL Definitions cùng triển khai contract outputs của Resource Type `postgres`.
 - **POST-06:** Driver Inputs và provision rules sẵn sàng cho quá trình dựng Resource Graph.
 
 ## Quy tắc nghiệp vụ
 
 - **BR-01:** Definition chỉ được xét cho node có cùng Resource Type và có `execution_profile` trống hoặc bằng profile của Environment. Profile là điều kiện lọc trước matching, không cộng điểm specificity.
-- **BR-02:** Matching chọn criterion hợp lệ có specificity cao nhất; happy path yêu cầu đúng một Definition thắng.
+- **BR-02:** Matching cần đúng một Definition thắng theo specificity.
+  Không match, đồng hạng cao nhất hoặc binding của winner sai thì dừng; không
+  đổi class/target hoặc chọn ứng viên khác.
 - **BR-03:** `execution_profile` là thuộc tính của Definition, không phải field Matching Criterion. Hai Definition PostgreSQL theo profile dùng cùng 5 field chuẩn để xét context sau khi lọc profile; `env_type` vẫn là loại Environment, không đại diện target nội bộ/cloud.
 - **BR-06:** Matching Criteria chỉ gồm năm field chuẩn với trọng số cố định:
 
@@ -83,12 +85,19 @@ in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 - **BR-07:** Lệnh đăng ký Definition phải có ít nhất một Matching Criterion;
   thiếu criteria hoặc `criteria: []` bị từ chối trước persistence. Một criterion
   `{}` khai báo tường minh là wildcard hợp lệ với specificity `0`.
-- **BR-08 (MVP registration):** Chỉ đăng ký implementation mà runtime hiện có
-  thể chạy: Terraform module nhúng `vpc`, `eks`, `aurora` cho Resource Type
-  tương ứng; Kubernetes cho `k8s-namespace`/`postgres`; score-k8s cho `workload` theo BR-15. Mọi public registration có driver `existing-cluster` bị từ chối trước insert, bất kể key. Terraform module `vpc`/`eks` chỉ nhận `ConnectionKey` rỗng; từ chối mọi key khác rỗng trước insert, kể cả key bằng Connection của Environment. Definition tái sử dụng được và không cần Environment khi đăng ký. Preview/Deploy resolve AWS Connection `READY` đúng Organization của Environment. Terraform `aurora` cần connection tường minh đúng kind, thuộc Organization và `READY`. Kubernetes dùng connection của Environment lúc deploy nếu Definition không chỉ định connection riêng. Với `internal-k8s`, Kubernetes Definition có connection tường minh phải trùng Environment connection khi được match; sai khác gây planning error (UC-06 BR-20). Driver `existing-cluster`, executor và trusted system constructor chỉ phục vụ binding nội bộ theo ADR-013; không có public registration compatibility. Guard `ConnectionMismatch` vẫn chặn winning VPC/EKS Definition nội bộ/harness có key khác target trước execution, không chọn ứng viên khác hoặc thêm compatibility đăng ký key bằng target. External database giữ explicit Driver Account semantics.
-- **BR-09:** Đăng ký Terraform Definition phải kiểm tra module tồn tại, các
-  biến được khai báo và output Resource Type có thể được cung cấp. Source URL
-  từ xa không được chấp nhận trong MVP.
+- **BR-08:** Chỉ đăng ký cặp Type/driver/module trong registry đã kiểm chứng:
+  Terraform cho namespace/Redis/PostgreSQL Kubernetes và VPC/EKS/ElastiCache/
+  Aurora AWS; score-k8s cho Workload theo BR-15. Mọi public registration
+  `existing-cluster` hoặc reserved system key đều bị từ chối trước insert.
+  AWS Definition không nhận Connection/account/region override, kể cả Aurora.
+  Kubernetes dùng target Environment hoặc target EKS từ dependency; Connection
+  riêng nếu khai báo phải cùng target Environment. Binding sai bị chặn trước
+  execution, không fallback credential host hoặc Definition khác.
+- **BR-09:** Module phải từ nguồn Admin cho phép, pin full Git commit hoặc
+  artifact digest, kiểm checksum/nội dung và các dependency module. Fetch/cache/
+  inspect hoàn tất trước insert; kiểm đủ input/output mappings, provider pins
+  và contract Type. Nguồn không hợp lệ, branch/latest, code drift hoặc output
+  mismatch bị từ chối theo [module contract](../../architecture/contracts/terraform-modules.md).
 
 ## Luồng nội bộ
 
@@ -103,28 +112,15 @@ UC-03 Register Resource Definition
 └── Publish Definition for deployment matching
 ```
 
-## Definition mapping tối thiểu
+## Definition mapping
 
-| Execution Profile | Resource | Implementation |
+| Profile | Resource | Implementation |
 |---|---|---|
-| `aws-eks` | `vpc` | AWS VPC qua Terraform |
-| `aws-eks` | `k8s-cluster` | Amazon EKS qua Terraform |
-| `aws-eks` | `postgres` | Amazon Aurora PostgreSQL qua Terraform |
-| `internal-k8s` | `k8s-cluster` | Cluster connection đã đăng ký |
-| `internal-k8s` | `postgres` | StatefulSet và Service trên Kubernetes |
-
-## Trạng thái implementation hiện tại
-
-- Seed catalog đã có Definitions cho implicit VPC/EKS/namespace, existing cluster, Aurora và PostgreSQL StatefulSet; executor registry chọn Terraform/Kubernetes/existing-cluster adapter theo matched Definition.
-- Planner đã hỗ trợ optional Execution Profile guard trước năm Matching Criteria chuẩn, Driver Inputs, Resource References, provision rules, fixed-point expansion và kiểm tra Terraform contract. Seeded PostgreSQL Definitions áp dụng cho mọi Environment cùng profile.
-- Terraform execution của MVP chỉ hỗ trợ các module `vpc`, `eks` và `aurora` được nhúng trong binary. Conformance harness có thể inspect `source.url[@rev][/path]`, nhưng runtime chưa tải hoặc execute Terraform source từ xa.
-- API/UI đăng ký và nghiệp vụ `RegisterResourceDefinition` cùng normalized
-  PostgreSQL persistence đã có; production-grade RBAC còn thiếu. Catalog seed
-  vẫn cung cấp Definition mặc định.
-- Driver enum ngắn, `ConnectionKey`, `source.module` và context placeholder mở
-  rộng là contract nội bộ của MVP, không phải Humanitec public contract. Mapping
-  boundary và `driver_inputs.secret_refs` được phân loại tại
-  [compatibility matrix](../../implementation/humanitec-compatibility.md) và D06.
+| aws-eks | VPC/EKS | Terraform AWS |
+| aws-eks | Redis/PostgreSQL cloud-managed | Terraform ElastiCache/Aurora |
+| internal-k8s / aws-eks | Namespace, Redis/PostgreSQL in-cluster | Terraform Kubernetes |
+| internal-k8s | Cluster có sẵn | System Connection binding ADR-013 |
+| internal-k8s / aws-eks | Workload | score-k8s, bắt buộc có Definition/bundle |
 
 ## Ngoài phạm vi happy path
 
@@ -134,29 +130,24 @@ UC-03 Register Resource Definition
 - **OOS-04:** Kiểm tra ảnh hưởng tới Active Resources hiện có.
 - **OOS-05:** Secret Driver Inputs và credential rotation.
 - **OOS-06:** RBAC chi tiết và audit history.
-- **OOS-07:** Tải, cache và execute Terraform source từ xa; MVP runtime chỉ dùng module nhúng đã kiểm soát.
+- **OOS-07:** Chạy nguồn ngoài allowlist, module mutable và arbitrary command.
+  Tải/cache/chạy module immutable trong allowlist thuộc phạm vi BR-09.
 
 ## Registration validation policy (2026-10-02)
 
 - **BR-10:** New public Definition IDs follow UC-02 BR-05. Existing catalog
   entries and referenced Resource Type IDs are not renamed or revalidated as
   newly created IDs. Definition IDs have a separate namespace from Type IDs.
-- **BR-11:** Driver Inputs are a strict known-field object: only `values` at
-  root, and `variables` plus Terraform-only `source` within `values`.
-  `values` and `variables` are required objects. Kubernetes/score-k8s
-  must omit `source`; Terraform source contains only the supported `module`.
-  Reject unknown fields, wrong container shapes and null values before saving.
-- **BR-12:** Validate variable names and literal types against the selected
-  driver contract. Terraform uses the embedded module's declared types,
-  including element types of lists/maps. Kubernetes namespace accepts only
-  `name: string`; Kubernetes PostgreSQL accepts `database`, `username`, `image`,
-  `storage`, `namespace` (all strings). PostgreSQL options may
-  be omitted where runtime supplies a default; namespace name
-  must be supplied by Definition or a required string `name` input in its
-  Resource Type contract; an optional/wrong-type input does not satisfy this
-  requirement. Terraform
-  required inputs may be supplied by Resource Type params or executor as
-  defined in BR-09; do not require those values at registration.
+- **BR-11:** Driver Inputs là object có field đã định nghĩa. Giữ
+  `values.variables`; Terraform `values.source` chứa module/source identity,
+  revision/subdirectory/digest theo module contract. Input/output mappings và
+  provider bindings là metadata được kiểm strict; không nhận field tùy ý/null.
+  score-k8s không nhận Terraform source hoặc credential.
+- **BR-12:** Kiểm variable và literal type theo module contract đã inspect,
+  gồm element type list/map, required/default và constraints. Required input
+  có thể được Type params, context, provider output hoặc executor cung cấp;
+  không bắt PE nhập giá trị chưa có khi đăng ký. Namespace name phải có nguồn
+  string bắt buộc hợp lệ; param của Workload ưu tiên hơn Definition fallback.
 - **BR-13:** Valid context/resource placeholders remain supported. A complete
   placeholder can defer value-type checking until planning/execution; literal
   values and the literal elements of collections are checked at registration.
@@ -164,19 +155,18 @@ UC-03 Register Resource Definition
   placeholder body, are rejected. Interpolated strings are only suitable
   for string fields; escaped placeholders remain literals. Validation errors
   identify the field without quoting its submitted value.
-- **BR-14:** No raw credential or secret Driver Input support is added. Reject
-  `secret_refs`, credential fields and executor-owned `master_password`; the
-  Kubernetes PostgreSQL executor continues generating its password. AWS access
-  keys belong to UC-04 Secret Store, never a Definition.
+- **BR-14:** Không nhận raw secret/credential trong Driver Inputs, kể cả
+  `secret_refs` hoặc executor-owned password. Executor tạo password theo
+  resource identity, lưu secret ref trước apply và dùng lại khi retry.
+  AWS access keys chỉ nhập qua UC-04, không thuộc Definition.
 
 ## Workload rendering Definitions
 
-- **BR-15:** `workload` may use `score-k8s` only with `internal-k8s`, no connection
-  override/provision rules/resource inputs/outputs, and exactly one literal
-  `render_bundle` variable referring to an available installed bundle ID. Unknown/unavailable bundles fail before insert; the server-owned source
-  fingerprint records the bundle digest at registration as audit provenance only
-  (it is not a later equality gate; plans pin the installed bundle snapshot).
-  Existing BR-11 nesting remains valid.
+- **BR-15:** Workload dùng score-k8s cho `internal-k8s` hoặc `aws-eks`,
+  với bundle tương thích đã cài. Không Connection override, provision rule
+  hay input/output tài nguyên; có đúng một literal `render_bundle`. Thiếu/
+  unavailable bundle bị chặn. Fingerprint registration là audit; Plan pin
+  snapshot bundle/binary/content đang được cài và Preview cũ bị stale khi đổi.
 - **BR-16:** Registration does not accept templates, command provisioners, URLs
   or raw credentials. Workload execution belongs to UC-06 after UC-08 outputs;
   the driver is not registered as a resource provisioner.
@@ -185,8 +175,8 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 
 ## Environment execution target references
 
-UC-01 Settings set-once target and [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md)
-provide canonical Environment profile/region via `${context.env.profile}` and
+Environment Settings theo [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md)
+cung cấp profile/region via `${context.env.profile}` and
 `${context.env.region}`. Product resolution rejects `${context.app.profile}` and
 `${context.app.region}` as unknown context values; no server rewrite or legacy
 fallback is allowed (T21/LEG-04). Application identity context remains unchanged.
@@ -196,7 +186,7 @@ Cloud names use context.infra.resourceName (bounded Environment-specific hash id
 Seeded Definitions use these scope-aware values. Platform-authored hardcoded
 application VPC/EKS references are rejected by product Environment
 planning with guidance rather than introducing cross-environment
-resources. Definition specificity, tie handling and external Driver Accounts remain.
+resources. Matching giữ specificity/tie; AWS chỉ dùng account của Environment.
 
 ## Implicit internal cluster binding
 
@@ -235,7 +225,7 @@ See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
   Connection conflict chỉ chặn winner duy nhất; không chọn ứng viên thay thế.
   Đúng implicit internal k8s-cluster node (class internal, res_id của
   Connection descriptor) giữ system binding ADR-013, không materialize record;
-  workload không có match giữ native renderer, không chạy rendering.
+  Workload không có match trả NO_MATCH; không chọn renderer khác và không render.
 - **BR-22:** Kết quả chỉ phản ánh snapshot đã đọc: marker deterministic từ
   catalog/Environment target và version, không phải save/deploy token. Không
   registration, insert, system admission, inspector/executor, Vault, kube/cloud
@@ -252,14 +242,12 @@ fail before planning/execution; matching profiles, criteria weights and ties rem
 
 ## Capability metadata và typed authoring (T31)
 
-- **BR-23:** GET `/api/v1/resource-definition-capabilities` chỉ đọc, authenticate
-  Organization của session và PE/Admin, trả các cặp type/driver/module được
-  registration hỗ trợ (không quảng bá custom ID hoặc existing-cluster).
-  Terraform types/defaults lấy từ embedded ModuleContract, Kubernetes từ policy
-  executor hiện hành. Metadata gồm required, default, Resource Type param và
-  context/reference preset; không suy Resource Type schema từ Terraform vars.
-  Required của module không đồng nghĩa bắt nhập ở Definition nếu param/executor
-  cung cấp. Metadata không thay validation tại POST/Preview/Deploy.
+- **BR-23:** GET `/api/v1/resource-definition-capabilities` chỉ đọc cho
+  PE/Admin của Organization. Registry đã inspect cung cấp cặp Type/module,
+  source/revision an toàn, provider requirements, class, schema, defaults và
+  executor-owned inputs. Request metadata không fetch module, chạy provider
+  hoặc ghi database. Không suy Type từ tên Terraform vars; registration và
+  Preview/Deploy vẫn kiểm độc lập.
 - **BR-24:** Executor-owned variables được nhận diện riêng và không có control
   tác giả trong typed form; master_password/credentials vẫn bị từ chối theo
   BR-14. Chỉ công bố defaults đã có ở module/executor, không tự đoán CIDR,
@@ -276,33 +264,4 @@ fail before planning/execution; matching profiles, criteria weights and ties rem
   `is_dependent`/`match_dependents` của UC-06 BR-08. Reference edge luôn
   consumer -> provider; provider-first scheduling không đổi. Metadata/form không
   tự matching-preview/provision hoặc gọi external provider. Unsupported/null/
-  credential inputs giữ strict rejection, không nhận remote sources/templates/commands.
-
-## Terraform v2 — required registration behavior
-
-Các quy tắc V2 dưới đây thay giới hạn embedded-only/Kubernetes executor,
-Aurora account riêng và renderer internal-only/default-native trong các đoạn
-baseline phía trên. Implementation hiện tại vẫn theo CURRENT_STATE/deviations.
-
-- **V2-01:** PE đăng ký Terraform module nguồn allowlisted bởi Platform Admin,
-  immutable revision/digest, typed input mapping, output mapping và provider
-  bindings theo [module contract](../../architecture/contracts/terraform-modules.md).
-  Không nhận branch/latest, credential trong variables/source URL hoặc arbitrary
-  command. Verify/cache/inspect trước insert; unavailable/drift/mismatch không lưu.
-- **V2-02:** Supported pairs gồm Terraform namespace/Redis/PostgreSQL Kubernetes
-  và VPC/EKS/ElastiCache/Aurora AWS. Runtime capabilities authoritative công bố
-  module/schema/provider/class; không khóa Terraform vào profile aws-eks.
-- **V2-03:** AWS Definitions dùng Environment Connection/account/region, không
-  override kể cả Aurora. Kubernetes provider bind Environment target hoặc EKS
-  completed target; không host credential fallback. Definition không cần một
-  Environment cụ thể khi đăng ký nếu dùng symbolic Environment binding.
-- **V2-04:** Giữ editor criteria/provision và matching trọng số BR-06. Type,
-  profile, class và contract phải tương thích; no match/tie hoặc winning target
-  conflict chặn, không chọn alternate Definition/class. System cluster ADR-013 giữ nguyên.
-- **V2-05:** Workload Definition chọn score-k8s bundle đã pin cho internal-k8s
-  hoặc aws-eks. Renderer required, không match không chọn native. Không thêm
-  custom/Echo driver hoặc template upload. Nâng module qua Definition mới với
-  criteria tạo unique winner, không overwrite Definition/criteria cũ.
-- **V2-06:** Capability reads không fetch code/chạy inspector provider mỗi request;
-  dùng inspected registry. Console vẫn typed + lossless advanced JSON, validation
-  độc lập ở registration/Preview/Deploy. Output bí mật chỉ mô tả schema/flag.
+  credential inputs giữ strict rejection, không nhận template/command hoặc nguồn module ngoài BR-09.

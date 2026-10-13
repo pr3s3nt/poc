@@ -7,33 +7,11 @@ last_reviewed: 2026-10-13
 
 # UC-04 context — Configure execution connections
 
-## V2 design scope
+## Trạng thái thực hiện
 
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
-## Delivery state
-
-Kubernetes onboarding by name + upload/paste kubeconfig + context selection is
-implemented. Inspect/register API/UI, scoped Vault KV v2 credential store,
-PostgreSQL migration/backfill/race/reopen and direct executor resolution are
-locally verified. The [2026-10-06 evidence](../../verification/2026-10-06-uc04-kubeconfig-upload.md)
-includes live read-only kind verification to READY and a reviewed published
-video. The registration video uses fake workload adapters and does not prove
-live workload deployment on the uploaded Connection.
-
-The [desktop UI correction](../../verification/2026-10-06-uc04-connections-ui.md)
-records the revised form controls/list layout and reviewed replacement recording.
-
-T22 removes host-context execution and the legacy registration body. Kubernetes requires explicit scoped KUBECONFIG; seed without credential remains VERIFYING. Default
-Connection selection does not change Organization defaults. Internal cluster
-binding follows ADR-013 without per-cluster Definition registration; other
-UC-03 matching Definitions can reference new Connections. AWS identity for infrastructure provisioning remains future
-scope under [ADR-009](../../architecture/decisions/ADR-009-aws-access-key-storage.md).
-Fleet fixed-cluster delivery rejects credential-backed targets.
+Xem [CURRENT_STATE](../../CURRENT_STATE.md) và
+[IMP-021](../../implementation/deviations.md#imp-021-terraform-v2-designimplementation-gap).
+Specification/realization định nghĩa yêu cầu, không chứng minh implementation.
 
 ## Read in this order
 
@@ -56,21 +34,3 @@ UI: [screens](ui/screens.md), [states](ui/states.md), [HTTP mapping](ui/api-mapp
 - [`backend/internal/adapters/terraform`](../../../backend/internal/adapters/terraform/)
 - [`backend/internal/bootstrap`](../../../backend/internal/bootstrap/)
 - [`backend/internal/seed`](../../../backend/internal/seed/)
-
-## Current change in progress
-
-[ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md)
-supersedes permanent target lock/Application provider selection. Specifications
-now include editable per-Environment destinations and Vault stores/transitions;
-implementation status is tracked in CURRENT_STATE, not inferred from old evidence.
-
-## Implicit internal cluster delivery (2026-10-09)
-
-[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
-removes per-cluster user Definition registration/matching for internal-k8s.
-Default planning, system binding, persistence admission and Console projection
-are implemented and [locally verified](../../verification/2026-10-09-implicit-existing-cluster-local.md).
-Other resource/cloud matching remains unchanged.
-[Real kind verification](../../verification/2026-10-09-k8s4f-live.md) now covers
-retained `k8s-4f` registration and isolated real-adapter FE/BE/PostgreSQL execution
-with the builtin binding. No cloud proof is claimed.

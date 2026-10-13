@@ -2,7 +2,7 @@
 id: ADR-013
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # ADR-013 — Implicit existing-cluster node from Environment binding
@@ -67,14 +67,15 @@ matching behavior; do not rewrite historical verification evidence.
 For `aws-eks`, VPC/EKS continue to use profile-filtered matching Definitions and
 Terraform, including Environment account guards and ENVIRONMENT infrastructure scope only
 (T27). The internal cluster Application resource scope is distinct from the
-removed LEGACY_APPLICATION execution-binding mode. Per UC-03 BR-08, public VPC/EKS Definitions omit ConnectionKey and execution inherits the pinned READY Environment AWS account; conflicting malformed catalog entries remain guarded. Aurora still requires its own explicit READY AWS account in the owning Organization.
+removed LEGACY_APPLICATION execution-binding mode. Per UC-03 BR-08, public VPC/EKS Definitions omit ConnectionKey and execution inherits the pinned READY Environment AWS account; conflicting malformed catalog entries remain guarded. Theo ADR-014, Aurora/ElastiCache cũng dùng cùng Environment AWS
+account/region; không explicit account override.
 VPC supplies EKS and Aurora; workloads wait for Kubernetes target and required
 resource outputs. Do not force Aurora to depend on EKS or run in Kubernetes.
 
 All other resources retain Definition matching and driver contracts: internal
 PostgreSQL is StatefulSet/Service/PVC, cloud PostgreSQL is Aurora. Both expose
-Resource Type outputs to consumers. Namespace, rendering, secrets, routes and
-external database Driver Account semantics are unchanged.
+Resource Type outputs to consumers. Namespace/database/cache provisioning dùng Terraform modules theo ADR-014;
+score-k8s rendering bắt buộc và AWS Environment binding theo các contract hiện hành.
 
 ## Validation
 

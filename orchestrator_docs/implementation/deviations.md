@@ -104,19 +104,31 @@ other than NotFound also stop execution. See
 ## IMP-021 — Terraform v2 design/implementation gap
 
 Accepted [ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md)
-and use-case V2 rules intentionally change required behavior. Current code is
+và current BR/MS/VAR/OOS trong specifications thay required behavior.
+Rule mapping/supersession: [reconciliation](v2-rule-reconciliation.md). Current code is
 not yet conformant: Terraform executes embedded VPC/EKS/Aurora with temporary
 run state/names; namespace/database still use Kubernetes executor; AWS credential
 onboarding and Environment-only Aurora/ElastiCache provider binding need implementation;
 score-k8s is optional/internal-only; no Redis app cache or v2 module/source/class
-UI, durable encrypted state/locks/cleanup provenance and full live acceptance.
+UI, durable encrypted state/locks/cleanup provenance và real acceptance còn
+thiếu. PE/Admin resource detail/delete preview/name confirmation/cascade
+eligibility/confirmed-scope admission/progress/absence proof chưa có.
+Đây là gap code, không phải các luật baseline còn hiệu lực.
 
 This is a planned implementation gap, not permission to alter canonical design
 to match old code. Codex updates docs; Claude implements code/tests through
 clauded/tmux under AGENTS.md. Delivery gates: backend/frontend checks, real
 PostgreSQL state/locking tests, module validate/plan review, three real UI/app
-happy paths + two exceptions with video/assertions and verified owned cleanup.
+happy paths + two exceptions với video/assertions, A01 xóa qua UI và verified
+owned cleanup. M04 ba chặng cần user gates: docs/plan trước code; video A01
+và estimate AWS trước cloud create; final handoff/evidence để người dùng duyệt.
 D12–D14 remain deferred after v2; do not mark them implemented as part of this gap.
 No existing evidence or read-only STS check proves v2. Close only after review,
 validation, required live acceptance and cleanup; update CURRENT_STATE/code map/
 traceability with actual paths/tests/evidence then.
+
+Các mô tả implementation bị loại khỏi specs/realizations được chuyển vào
+CURRENT_STATE (checkpoint a897d6b/3367f7e), gồm catalog/renderer/planner
+fixtures, current HTTP/draft/Preview/Deploy/Fleet/history/credential/SQL
+behavior và old state/name limitations. Bằng chứng cũ vẫn giữ nguyên và
+không được dùng để đóng các test obligations M04 mới.

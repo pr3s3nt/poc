@@ -2,17 +2,16 @@
 id: UC-02-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-02
+last_reviewed: 2026-10-13
 ---
 
 # UC-02 context — Register Resource Type
 
-## Delivery state
+## Trạng thái thực hiện
 
-Registration API/UI and normalized PostgreSQL persistence are implemented;
-insert-only duplicate guards, scoped contracts and no-restart planner consumption
-are locally verified. Identifier/reserved-key policy in specification BR-05/BR-06 is implemented
-and locally verified on 2026-10-02; legacy reads and fixtures remain compatible.
+Xem [CURRENT_STATE](../../CURRENT_STATE.md) và
+[IMP-021](../../implementation/deviations.md#imp-021-terraform-v2-designimplementation-gap).
+Specification/realization định nghĩa yêu cầu, không chứng minh implementation.
 
 ## Read in this order
 

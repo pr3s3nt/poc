@@ -85,7 +85,7 @@ StateBackend --> StateSecurity : private auth / encrypt / owner-fence
 StateBackend --> DB : encrypted state, atomic locks
 Cleanup --> Persistence : write-ahead ownership / progress
 Cleanup --> Terraform : separate DESTROY reverse graph
-API --> Cleanup : internal operator/test authorization only
+API --> Cleanup : PE/Admin confirmed user deletion / narrow test capability
 note right of StateBackend
 PostgreSQL stores restricted ciphertext.
 Console never receives state or capability.

@@ -70,4 +70,25 @@ DeploymentService --> DeploymentRepository
 DeploymentService --> DeploymentDeltaSnapshotRepository
 DeploymentService --> DeploymentSetRepository
 DeploymentService ..> ActiveResource
+class ResourceCleanupController <<boundary>>
+class CleanupPlanner <<control>> {
+  +PrepareDeletion(ctx, scopedRoot): ConfirmedScopePreview
+}
+class ResourceCleanupService <<control>> {
+  +CleanupResources(ctx, confirmedToken, typedName): CleanupOperation
+}
+class EnvironmentOperationManager <<control>>
+class ResourceCleanupOperation <<entity>>
+interface ResourceInstanceRepository
+ResourceCleanupController --> CleanupPlanner : PE/Admin role gate
+ResourceCleanupController --> ResourceCleanupService : exact name + pinned token
+CleanupPlanner --> ResourceInstanceRepository : consistent closure/eligibility
+ResourceCleanupService --> EnvironmentOperationManager : atomic claim/fencing
+ResourceCleanupService --> ResourceInstanceRepository : original state/target + proof
+ResourceCleanupService ..> ResourceCleanupOperation
+note right of ResourceCleanupService
+UNREFERENCED root + no external consumer.
+Only confirmed eligible dependency set; never platform.
+Separate from RemoveWorkload.
+end note
 @enduml

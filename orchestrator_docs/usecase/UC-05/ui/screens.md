@@ -47,7 +47,7 @@ The implicit internal cluster row identifies **Environment connection** and
 the selected Connection key, rather than presenting it as a criteria-matched
 user Definition. Other rows continue showing their selected Resource Definition.
 
-## Terraform v2 pending Preview
+## Nội dung Preview tài nguyên
 
 From Application → Environment → saved drafts, show per dependency Type/class,
 selected Definition/module ID/immutable revision, target/account/region, owner

@@ -19,9 +19,10 @@ Không migration/import/tiếp quản tài nguyên hay dữ liệu thử nghiệ
 tạo tài nguyên mới; cụm k8s-4f và mọi tài nguyên ngoài run được giữ nguyên.
 
 Trong phạm vi v2, quyết định này thay thế executor Kubernetes cho namespace/
-database trong ADR-001, giới hạn module nhúng và state tạm ở D01/D03, native
-renderer mặc định/internal-only ở ADR-010 và explicit Aurora account trong
-ADR-011. Giữ descriptor, trọng số matching, scoped credentials, admission/CAS/
+database, giới hạn module nhúng và state tạm ở D01/D03, chính sách renderer
+tùy chọn chỉ cho cluster nội bộ trong ADR-010, và account Aurora riêng cùng
+tên tài nguyên chứa run ID trong ADR-011. ADR-001 vẫn sở hữu enrichment/scope. Giữ descriptor, trọng số matching,
+scoped credentials, admission/CAS/
 fencing, generation isolation và separation của ADR-002/003/008/009/012/013.
 Không mở rộng migration dữ liệu hoặc recovery của ADR-012 sang Terraform v2.
 Lịch sử triển khai và verification cũ được giữ nguyên.
@@ -37,9 +38,22 @@ Lịch sử triển khai và verification cũ được giữ nguyên.
 
 Deploy lại dùng identity/state cũ. Remove workload/dependency chỉ gỡ workload
 objects và đánh dấu resource không còn được dùng là UNREFERENCED; giữ dữ liệu.
-Destroy là operation riêng, kiểm scope, ownership, consumer và dependency; UI
-destroy tổng quát không thuộc đợt acceptance này. Executor vẫn phải có contract/
-tests create, update và destroy; cleanup test dùng operation nội bộ có audit.
+Người dùng đã chốt thao tác **Xóa tài nguyên** trên trang chi tiết tài nguyên
+trong Environment. Chỉ PE/Admin được bấm; Developer không có quyền. Tài nguyên
+phải UNREFERENCED, không còn consumer và Environment không có operation đang
+chạy. Backend kiểm lại các điều kiện trong giao dịch nhận operation.
+
+Hộp xác nhận cảnh báo mất dữ liệu, yêu cầu gõ lại tên tài nguyên và liệt kê
+tài nguyên gốc cùng mọi dependency đủ điều kiện được xóa. Người dùng đã chọn
+xóa cả dependency đủ điều kiện; dependency còn dùng, thuộc platform hoặc ngoài
+quyền sở hữu được giữ và nêu rõ. Không mở rộng phạm vi xóa sau xác nhận.
+Xóa theo thứ tự consumer trước provider, dùng module/target/state gốc. Hiển thị
+REQUESTED/CHECKING/DESTROYING/VERIFYING, kết quả kiểm tra tài nguyên đã hết
+và ID còn lại nếu lỗi. Executor có contract/tests tạo, cập nhật và xóa.
+
+V2-A01 phải chứng minh xóa tài nguyên qua UI sau khi gỡ các workload/consumer.
+Cleanup script độc lập vẫn thu hồi tài nguyên test khi browser/runner lỗi;
+script không thay bước xóa qua UI. Chi tiết behavior thuộc UC-07 và UC-09.
 
 Đổi class/module/target không tự chuyển dữ liệu hoặc thay thế âm thầm. Preview
 phải chỉ ra thay đổi và yêu cầu xác nhận riêng nếu cần tạo thay thế; tài nguyên
@@ -47,10 +61,13 @@ cũ được giữ đến cleanup riêng. Ordinary update không được apply 
 replace tài nguyên hiện hữu. V2 chặn trường hợp đó trước apply; việc thay thế
 chỉ được thực hiện qua operation tạo identity/generation mới được xác nhận.
 
-Cleanup phân biệt CREATED_BY_RUN, PREEXISTING và UPDATED_BY_RUN. Chỉ nhóm đầu
-được xóa theo quyền cleanup của run; nhóm đã cập nhật không được xóa hoặc rollback
-tự động. Dependency của run khác, resource platform hoặc còn consumer luôn
-được giữ. Run ID theo dõi provenance, không thay thế resource ownership.
+Cleanup phân biệt CREATED_BY_RUN, PREEXISTING và UPDATED_BY_RUN.
+Cleanup tự động của run chỉ được xóa CREATED_BY_RUN; không xóa
+PREEXISTING/UPDATED_BY_RUN. Xóa do PE/Admin yêu cầu được kiểm theo ownership
+bền vững của resource và phạm vi đã xác nhận, không theo run vừa thực thi.
+Cả hai cách đều không xóa resource platform, resource ngoài quyền hoặc có
+consumer ngoài tập xóa. Không rollback tự động tài nguyên đã cập nhật. Run ID theo dõi provenance,
+không thay thế resource ownership.
 
 ## Module, provider và matching
 
@@ -65,6 +82,13 @@ Module contract, input/output mapping và trust boundary nằm tại
 namespace, Redis, PostgreSQL Kubernetes; VPC, EKS, ElastiCache, Aurora AWS.
 Echo/External và custom drivers vẫn deferred. Connection tới k8s-4f không phải
 Echo/External application resource.
+
+**Quyết định của người dùng:** AWS Connection nhận access key qua các ô được
+che trên Web Console. Key lưu bằng Vault reference đúng Organization/Connection
+theo UC-04 VAR-02, BR-02/09/10/11/12, V2-04 và OC-05. Product execution
+chỉ resolve credential này,
+không dùng credential của host. Đây là lựa chọn được giữ nguyên, không phải
+một đề xuất hoặc yêu cầu đọc key từ máy chạy backend.
 
 AWS resources của một Environment dùng cùng Connection/account/region đã pin;
 không hỗ trợ account/region override cho Aurora hoặc ElastiCache. Kubernetes
@@ -117,7 +141,13 @@ chưa hoàn thành và không bắt đầu run mới.
 
 ## Implementation boundary
 
-Đợt này chỉ chốt/cập nhật documentation. Code gaps được ghi trong
+Lộ trình M04 có ba chặng và các điểm dừng người dùng đã yêu cầu: chặng 1
+sửa tài liệu/plan và chờ duyệt; chặng 2 code, PostgreSQL thật và k8s-4f cùng
+video rồi chờ duyệt video A01 và dự toán AWS; chặng 3 mới chạy AWS, xác minh
+cleanup và bàn giao để người dùng duyệt. Không dùng quyền AWS đã giao để
+bỏ qua điểm dừng chặng 2.
+
+Code gaps được ghi trong
 [deviations](../../implementation/deviations.md); traceability ghi planned tests
 và acceptance, không gán evidence cũ cho v2. Bước 1 đủ khi artifacts bên dưới
 nhất quán và không còn product/security/external-scope decision mở. Exact

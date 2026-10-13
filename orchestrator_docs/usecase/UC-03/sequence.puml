@@ -53,8 +53,8 @@ end note
 Service -> Service: Reject public existing-cluster and reserved keys [BR-08, BR-17]
 Service -> TypeRepo: ListResourceTypes(orgID) [MS-04]
 TypeRepo --> Service: ResourceType
-Service -> Service: Reject explicit AWS account/region override (all AWS modules) [BR-08]
-note right of Service: VPC/EKS registration needs no Environment.
+Service -> Service: Reject AWS account/region override [BR-08]
+note right of Service: Symbolic provider registration needs no Environment.
 opt Optional Kubernetes explicit connection
 Service -> ConnectionRepo: GetConnection(connectionID) + READY/org check [MS-04]
 ConnectionRepo --> Service: Connection

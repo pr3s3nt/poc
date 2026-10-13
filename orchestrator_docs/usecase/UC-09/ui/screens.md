@@ -53,7 +53,7 @@ non-secret giữ nguyên dữ liệu; resolved inputs không được render. Gr
 hướng consumer → provider, matched Definition và thứ tự batches của snapshot.
 Không thêm rollback, log hoặc live refresh.
 
-## Terraform v2 progress
+## Tiến trình Terraform
 
 Deployment detail shows resource Terraform stages/attempt/status, module pin,
 original target and safe failure reason in Vietnamese. Poll persisted scoped
@@ -61,3 +61,18 @@ progress during long provisioning; no provider calls from query. Interrupted
 execution says needs operator verification; FAILED does not imply cleanup done.
 Cleanup progress distinguishes pending/failed/verified-complete and remaining
 safe resource IDs. Never display raw CLI logs/state/plan/tfvars/provider cause.
+
+## Chi tiết tài nguyên trong Environment
+
+Route `/ui/applications/{applicationId}/environments/{environment}/resources/{resourceId}`
+được mở từ danh sách/graph tài nguyên của Environment hoặc history resource link.
+Hiển thị descriptor làm “Tên tài nguyên”, Type/class, status, module/revision,
+owner/generation/target và safe outputs/consumers. Resource UNREFERENCED vẫn
+truy cập được sau khi Workload đã gỡ. Root/target không lấy từ tab Environment
+mới nếu đây là instance của generation cũ.
+
+PE/Admin có nút Xóa tài nguyên và luồng xác nhận theo UC-07. Trang hiển thị
+progress REQUESTED/CHECKING/DESTROYING/VERIFYING, tập đã xác nhận, kết quả
+absence checks và IDs còn lại nếu lỗi. Poll safe persisted query; không raw
+Terraform log/state/plan. Developer đọc metadata theo quyền Environment nhưng
+không thấy hoặc thực hiện nút Xóa.

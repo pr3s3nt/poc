@@ -18,8 +18,8 @@ oversize 413. Unknown store/inspector causes are generic 500 without raw content
 do not expose catalog, module, credential or process diagnostics as validation.
 Validation of the caller's own document remains actionable. A duplicate cannot
 replace the original Definition/criteria. Newly registered matching Definitions
-are visible to planning without restart. No remote execution or secret Driver
-Inputs are added by this mapping.
+are visible to planning without restart. Module immutable thuộc allowlist được đăng ký theo module contract; raw
+secret Driver Inputs vẫn bị từ chối.
 
 ## Registration policy
 
@@ -28,7 +28,8 @@ Definition ID and Driver Inputs follow specification BR-10–BR-14. Unknown nest
 ## Workload renderer variant (ADR-010)
 
 The same Definition registration endpoint accepts Type `workload`, driver
-`score-k8s`, profile `internal-k8s`, and `values.variables.render_bundle`.
+`score-k8s`, profile `internal-k8s` hoặc `aws-eks` tương thích bundle, và
+`values.variables.render_bundle`.
 The Console supplies an installed bundle ID and hides connection/provision/
 arbitrary-variable inputs for this variant. Server-owned `sourceFingerprint`
 pins the bundle; unavailable bundles and unsupported pairs are validation errors.
@@ -43,12 +44,13 @@ trong form. Public POST từ chối mọi driver `existing-cluster` với valida
 GET vẫn đọc records có sẵn; không thêm API xóa hoặc compatibility đăng ký cũ.
 Workload renderer contract phía trên vẫn được giữ.
 
-POST giữ body/semantics hiện hành: Terraform gửi `executionProfile: "aws-eks"`,
-embedded `source.module` theo type: VPC/EKS luôn gửi `connectionKey: ""` và không hiện selector; mọi key khác rỗng bị API từ chối 400 trước insert. Aurora vẫn gửi `connectionKey` AWS READY riêng. Kubernetes gửi
-`executionProfile: "internal-k8s"` hoặc `""`, bỏ `source` và mặc định
-`connectionKey: ""`. Override Kubernetes chỉ lấy READY kind KUBERNETES và gửi
-key kỹ thuật. Criteria giữ năm field, loại field rỗng; wildcard gửi `[{}]`.
-Không thay matcher, profile/criteria hoặc Driver Inputs policy. T16 chỉ thay new product VPC/EKS seed sang ConnectionKey rỗng, không migrate records/profile cũ.
+POST Definition giữ `key`, `resourceType`, `driverType`, `executionProfile`,
+`driverInputs` và criteria. Terraform source identity/revision/digest, typed
+variables, output mapping và provider bindings theo
+[module contract](../../../architecture/contracts/terraform-modules.md).
+AWS không nhận Connection override; Kubernetes symbolic binding chỉ resolve
+Environment/EKS target. Server kiểm allowlist/digest/contracts trước insert.
+Criteria giữ năm fields, wildcard gửi `[{}]`; không đổi specificity.
 
 Frontend kiểm ID rỗng/shape và JSON trước POST; 409 có thông báo trùng ID Việt.
 Các lỗi khác có fallback Việt an toàn và giữ form; không parse/regex raw backend
@@ -72,7 +74,7 @@ endpoint mới. Matching preview authoritative dùng OC-04c ở T19.
 GET `/resource-definitions` cung cấp list scoped theo Organization; UI lọc
 `resourceType === "workload"`. GET `/applications` phục vụ editor criteria chung.
 POST cùng endpoint gửi `key`, `resourceType: "workload"`,
-`driverType: "score-k8s"`, `executionProfile: "internal-k8s"`,
+`driverType: "score-k8s"`, profile từ bundle selection (`internal-k8s`/`aws-eks`),
 `driverInputs: {values: {variables: {render_bundle: <ID đã chọn từ registry>}}}`
 và criteria chuẩn. Không gửi connection override, provision hoặc source.
 GET `/api/v1/render-bundles` theo OC-04b trả `renderBundles` với ID/version/status
@@ -108,19 +110,7 @@ không tự replay mutation; lỗi tải lại không phủ nhận kết quả �
 
 GET `/api/v1/resource-definition-capabilities` theo OC-04d cung cấp authoritative
 supported pairs và variable metadata; Console không fallback whitelist khi lỗi.
-Typed và advanced serialize cùng `driverInputs.values.variables`, source.module
-ngầm cho Terraform, provision object/criteria/connection guards hiện hành giữ.
+Typed và advanced serialize cùng `driverInputs.values.variables`, source identity/revision/digest do PE chọn; output/provider mappings
+được kiểm độc lập. Provision/criteria và org/version guards giữ nguyên.
 Omitted default/param không được tự thêm; literals số/bool/list/map giữ kiểu JSON,
 whole placeholders giữ string để deferred checking. Presets là lựa chọn explicit.
-
-## Terraform v2 contract extension
-
-Existing UI routes and role/org/version guards remain. Required payload/metadata
-extensions follow [module contract](../../../architecture/contracts/terraform-modules.md),
-[state contract](../../../architecture/contracts/terraform-state.md) and
-[operation contracts](../../../architecture/contracts/operation-contracts.md#terraform-v2-scoped-supersession-adr-014).
-These are planned v2 fields, not claims the current HTTP handlers accept them.
-Workload params/class stay Score-backed references; PE source/revision/mapping
-fields are Definition metadata. AWS onboarding belongs to dedicated concealed
-Connection write. Public queries return only scoped safe projections; no internal
-state endpoint/token exposed. No API bypass of acceptance UI steps is allowed.

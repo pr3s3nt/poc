@@ -12,14 +12,6 @@ Application keys use the virtual Score `environment` resource and
 `${resources.env.KEY}` syntax. HTTP and state contracts are defined in
 [OC-12/OC-16](../../architecture/contracts/operation-contracts.md).
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Responsibilities
 
 - Workload configuration boundary: present per-container UC-12 Variables and
@@ -27,7 +19,8 @@ in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
   resource/Service source editor; never offer a literal value field. Retain
   binding references as the form model so no new persistence model is needed.
 - Reference catalog: list UC-12 keys for the selected Application/Environment,
-  declared resource inputs and outputs by classification, and same-Environment workload
+  declared resource inputs/outputs/classes và shared IDs từ safe metadata,
+  cùng same-Environment workload
   Services and ports.
 - Workload configuration control: validate the selected references, save a
   desired change or mark a workload pending deletion; do not call deployment.
@@ -45,7 +38,7 @@ in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
 | Step | Collaboration |
 |---|---|
 | MS-01–MS-02 | Read selected Environment's workload list and open the form or Score importer. |
-| MS-03 | Collect workload fields, declared resource dependencies and typed input params from Resource Type contracts; reject missing required inputs. |
+| MS-03 | Thu thập Workload fields, dependencies/shared IDs, class và typed Type params; giữ advanced/imported class, chặn required/input lỗi trước Save. |
 | MS-04–MS-05 | Load scoped UC-12 key metadata; tick per-container keys with same-name defaults and optional overrides. Restore all existing/imported mappings; keep resource/Service sources separate and secret values hidden. |
 | MS-06 | Validate selected-key availability and per-container name uniqueness before Score serialization; then validate references, output classification and target Service/port using the existing backend contracts. Retain input on failure. |
 | MS-07 | Save desired configuration, return pending status and a UC-05 Preview affordance. |
@@ -70,8 +63,9 @@ including aliases and multiple names referencing the same key, are retained.
 Unavailable referenced keys remain visible until explicitly removed/corrected.
 Validate collisions across Application/resource/Service bindings before
 building the variables map, so serialization cannot overwrite an earlier
-binding. Selection is independent for each container. Loading failure must
-not permit saving an empty substitute for a previously configured workload.
+binding. Selection is independent for each container. Lỗi tải keys/class/module capability không được biến thành danh sách rỗng
+hoặc overwrite imported/custom selection. Form không nhận Terraform module
+selector/provider credential; Preview/Deploy kiểm matching riêng.
 
 ## T25 — Public routing boundary
 
@@ -89,11 +83,3 @@ and pending deletes are excluded. Configuration control prepares all changes;
 one atomic persistence command writes the immutable revision and affected drafts
 under config/env/draft CAS. UC-16 editor and UC-05 consume the new draft version;
 current set and runtime are untouched.
-
-## Terraform v2 class metadata collaboration
-
-WorkloadEditor loads Type schemas plus safe catalog class/provider capabilities;
-projects class choice per dependency and retains advanced/imported values. Save
-serializes resources.<alias>.class/params/shared ID through existing Score path;
-no module/provider credential input. Metadata failure blocks unvalidated save,
-late responses cannot overwrite selections. Preview/Deploy still separate services.

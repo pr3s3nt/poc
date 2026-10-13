@@ -8,14 +8,6 @@ related: UC-01, UC-05, UC-06, UC-07, UC-12
 
 # UC-16 — Quản lý cấu hình workload
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Mục tiêu
 
 Developer thêm, sửa hoặc xóa cấu hình workload trong một Environment của
@@ -42,7 +34,9 @@ của Environment đang chọn.
 2. **MS-02:** Developer chọn Add hoặc Edit. Hệ thống mở form cấu hình mặc định;
    Developer cũng có thể nạp một file Score.
 3. **MS-03:** Developer khai báo container, image, Service/cổng, tài nguyên và
-   resource dependencies cần dùng.
+   resource dependencies, shared ID và class cần dùng.
+   Form giữ các nhóm cơ bản, Container, Biến & Bí mật, Nguồn khác, Tài nguyên
+   của Workload, Cổng Service và Đường dẫn công khai.
 4. **MS-04:** Với mỗi container, Developer tick các Application variables đã
    cấu hình trong UC-12 cho Environment này. Tên biến trong container mặc định
    bằng tên key; chỉ nhập tên khác khi cần. Output resource không bí mật và
@@ -106,10 +100,11 @@ của Environment đang chọn.
   không được ghép với literal hoặc đưa vào mục Variable.
 - **BR-10:** Mỗi lần lưu/sửa/xóa tăng version draft của Environment. Preview
   gắn với version draft và revision UC-12; Deploy từ Preview cũ bị từ chối.
-- **BR-11:** Với mỗi resource dependency trên form, hiển thị các input của
-  Resource Type; input bắt buộc phải có giá trị đúng kiểu trước khi lưu.
-  Tham số được lưu vào `resources.<alias>.params` của Score và được khôi phục
-  khi Edit. Import Score vẫn cho phép cấu trúc phức tạp mà form không hỗ trợ.
+- **BR-11:** Form hiển thị typed Type inputs; required phải hợp lệ trước
+  Save, params lưu vào `resources.<alias>.params` và khôi phục khi Edit.
+  Save kiểm Type schema; Preview/Deploy kiểm module mappings/constraints biết
+  trước provision. Không module match/input lỗi thì chặn Deploy. Import giữ
+  cấu trúc phức tạp và shared ID, không mất thông tin khi đổi controls.
 - **BR-12:** Mỗi workload có thể khai báo nhiều public route `{path, port}`;
   `path` là URL prefix bắt đầu bằng `/`, `port` là tên Service port đã khai báo.
   Preview kiểm tra path hợp lệ và không trùng trong toàn Environment; `/` và
@@ -130,17 +125,6 @@ của Environment đang chọn.
   Service reference ở BR-05 vẫn là địa chỉ nội bộ cho giao tiếp giữa workload.
 - **OOS-04:** Cú pháp tham chiếu Service trong Score và resolution tại Deploy
   được định nghĩa trong shared operation contract.
-
-## Trạng thái implementation hiện tại
-
-Đã có UI/API lưu draft, đánh dấu xóa/hoàn tác, import Score và validation
-tham chiếu Application key, resource output, Service/cổng cùng Environment.
-Save và import kiểm tra toàn bộ non-virtual resource params theo input contract
-trước khi ghi draft; local code/API/UI tests đã pass ngày 2026-10-02.
-Planner/executor resolve tham chiếu `environment` và `service`; Application home
-có Preview → Deploy của các draft. Workload đã deploy không có draft được tái
-tạo thành Score tham chiếu để sửa trên form. Kind đã kiểm chứng create,
-configuration-only redeploy và remove; broader cloud path chưa kiểm chứng lại.
 
 ## Save/import input contract enforcement
 
@@ -214,20 +198,14 @@ as specified above.
 - Editor đọc draft đã rewrite và vẫn dùng explicit Save, Preview và Deploy;
   editor đang mở với draft version cũ bị stale, không last-write-wins.
 
-## Terraform v2 — dependency class trên form hiện tại
 
-- **V2-01:** Giữ các nhóm Thông tin cơ bản, Container/CPU-memory nâng cao,
-  Biến & Bí mật, Nguồn khác, Tài nguyên của Workload, Cổng Service và Đường dẫn
-  công khai. Save draft/Preview/Deploy vẫn tường minh.
-- **V2-02:** Mỗi Redis/PostgreSQL dependency có alias/type, typed params và
-  lựa chọn class từ metadata authoritative: in-cluster hoặc cloud-managed.
-  In-cluster dùng k8s-4f/EKS; cloud-managed cần AWS profile. Không có module
-  selector trong Workload form, không tự đổi class khi target/matching không hợp.
-- **V2-03:** Shared dependency giữ shared ID hiện hành và được dùng giữa
-  backend/worker; metadata loading/error không bị coi là danh sách class rỗng.
-  Existing/imported class ngoài choices phải giữ để review, không silently rewrite
-  thành default. Required input/secret/Service validation và lossless advanced
-  paths giữ nguyên; Developer không nhập provider credentials.
-- **V2-04:** Params có Type schema validation tại Save; module-specific mapping/
-  constraints được kiểm tại Preview/Deploy trước provision nếu resolve được.
-  No module match hoặc input lỗi chặn deployment; không provision khi Save.
+## Dependency class
+
+- **V2-02:** Redis/PostgreSQL có alias/type/params và class từ metadata:
+  `in-cluster` cho k8s-4f/EKS, `cloud-managed` cho AWS. Developer không chọn
+  Terraform module/provider credential; class sai target hoặc no match báo
+  lỗi, không tự đổi cách cung cấp.
+- **V2-03:** Shared dependency giữ shared ID hiện hành. Loading/error metadata
+  không thành choices rỗng; class imported/custom được giữ để review, không
+  rewrite thành default. Các alias, bindings/Secret/Service và advanced fields
+  phải round-trip không mất thông tin.

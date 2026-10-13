@@ -11,7 +11,7 @@ INTERRUPTED --> PROVISIONING : manual stopped-owner verification, new fence
 READY --> PROVISIONING : compatible non-destructive update
 READY --> UNREFERENCED : last consumer removed, final commit
 UNREFERENCED --> PROVISIONING : referenced again
-UNREFERENCED --> DESTROYING : separate authorized cleanup, ownership checks
+UNREFERENCED --> DESTROYING : confirmed user/run cleanup, ownership checks
 FAILED --> DESTROYING : owned run cleanup, process stopped
 INTERRUPTED --> DESTROYING : operator ownership/process verification
 NEEDS_ATTENTION --> DESTROYING : manually verified owned IDs, cleanup authorization

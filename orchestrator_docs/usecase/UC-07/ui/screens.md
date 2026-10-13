@@ -2,7 +2,7 @@
 id: UC-07-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-11
+last_reviewed: 2026-10-13
 related: UC-07, UC-16
 ---
 
@@ -28,3 +28,21 @@ chỉ đổi sau Triển khai. Nhãn Chờ xóa và Hoàn tác dùng tiếng Vi�
 và kết quả dịch hành động/trạng thái, giữ token, IDs, per-workload retry và
 links lịch sử hiện hành. Partial/failure yêu cầu xem trước mới, không tự rollback
 hoặc hiển thị raw lỗi có thể chứa bí mật.
+
+## Xóa tài nguyên tại resource detail
+
+Từ Environment mở chi tiết tài nguyên theo UC-09. PE/Admin có nút “Xóa tài
+nguyên”; Developer không thấy nút. Root không UNREFERENCED, còn consumer,
+platform, thiếu metadata hoặc Environment busy thì khóa và nêu lý do.
+
+Khi bấm, tải deletion preview. Hộp thoại có Application/Environment/generation,
+tên kỹ thuật root, danh sách root + dependency sẽ xóa, dependency giữ lại và
+lý do. Cảnh báo **Xóa vĩnh viễn dữ liệu, không thể hoàn tác**; ô “Nhập lại tên
+tài nguyên” phải khớp tên server hiển thị, không suy từ tên người dùng nhập.
+Không gõ đúng hoặc chưa tải/validate scope thì nút xác nhận bị khóa.
+
+Hủy không gọi destroy. Xác nhận gửi pinned token + tên; đổi scope/versions thì
+đóng hoặc invalidate hộp thoại, yêu cầu review mới. UI theo dõi operation đã
+nhận qua REQUESTED/CHECKING/DESTROYING/VERIFYING, kết quả từng resource và
+remaining IDs. Success chỉ sau absence verification; không có Undo dữ liệu.
+Cleanup script độc lập là safety net, không thay thao tác UI trong acceptance.

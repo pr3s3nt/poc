@@ -3,119 +3,63 @@ id: ADR-010
 artifact: architecture-decision
 status: current
 last_reviewed: 2026-10-13
+superseded_sections: [Decision-1-renderer-choice, Decision-10-optionality, internal-only-scope]
+related: [ADR-014]
 ---
 
-# ADR-010 — Definition-selected workload rendering with score-k8s
+# ADR-010 — Definition-selected rendering với score-k8s
 
-Status: Accepted — 2026-10-06. Implementation authorized; live verification is separate.
+Status: Accepted, thay một phần bởi ADR-014. Bản quyết định 2026-10-06 đầy đủ
+ở `git show a897d6b:orchestrator_docs/architecture/decisions/ADR-010-score-k8s-workload-rendering.md`
+và `3367f7e` cho checkpoint Bước 1.
 
-## V2 supersession — ADR-014
+## Phần được thay
 
-[ADR-014](ADR-014-terraform-v2-lifecycle.md) replaces, for v2, embedded-only/
-Kubernetes application provisioning, run-derived temporary state/names, explicit
-Aurora account override and optional/internal-only/native-default rendering.
-V2 uses registered Terraform modules, Environment account/region, encrypted
-PostgreSQL state and required score-k8s on both profiles. Historical naming/
-verification below remains provenance of the implemented baseline; stable v2
-resource identity has no run ID. Other descriptor/matching/generation/credential
-constraints remain unless explicitly superseded. V1 import is not required.
+ADR-014 thay lựa chọn renderer ở Decision 1, tính tùy chọn ở Decision 10 và
+giới hạn internal-k8s: score-k8s trở thành renderer bắt buộc trên internal-k8s
+và aws-eks. Không có matching Definition/bundle hoặc rendering lỗi thì dừng.
+Bản này không sở hữu account/provider/state Terraform; không ghi supersession
+Aurora hay module nguồn vốn thuộc ADR khác.
 
-## Context
+## Các quyết định còn hiệu lực
 
-The user selected the direction of provisioning infrastructure first, then using
-its outputs to generate workload manifests. The user authorized full product integration on 2026-10-06.
-This decision does not authorize external verification.
+1. Definition Type workload chọn rendering bundle; Orchestrator sở hữu matching
+   và pin Plan. Theo ADR-014 chỉ score-k8s là lựa chọn hợp lệ, không thay UC-08
+   infrastructure provisioning bằng renderer.
+2. UC-08 sở hữu cluster/namespace/database/cache identity, state và outputs.
+   score-k8s không tạo credentials/tài nguyên hoặc destroy chúng.
+3. Giữ `modules.*`, workload class default và weighted five-field matching.
+   Không công bố Humanitec Generic Workload/API compatibility.
+4. Rendering port tách khỏi delivery. Direct/Fleet/readiness, per-workload
+   result, routes và current-set commit giữ ở UC-06 services.
+5. Bundle ID là selector do platform quản lý; Plan pin exact renderer/binary/
+   provisioner/patch digests. Không upload commands/templates/mutable URLs.
+6. Chuẩn hóa Score nội bộ, giữ probes/replicas/Service references/CPU-memory/
+   UC-12 secrets/routes; không tự mở rộng public Score subset.
+7. Preview không provision hoặc khẳng định final manifests khi outputs chưa
+   có. Deploy dùng pinned intent, resolve rồi validate manifest trước apply;
+   intent/version đổi làm Preview stale.
+8. Workspace score-k8s riêng tư, dùng xong dọn; không publish `.score-k8s`.
+   Names do product identity quyết định, không do random renderer GUID.
+9. sourceFingerprint ở registration là audit, không runtime equality gate.
+   Sau platform nâng bundle A -> B tường minh, Plan mới pin B; token A stale
+   và có renderer-only update. Không thêm Definition overwrite/retire API.
+10. Không fallback renderer khi thiếu/lỗi score-k8s. Native policy helpers có
+    thể dùng để kiểm protected fields/auxiliary delivery, không sinh ứng dụng
+    thay score-k8s.
 
-[ADR-003](ADR-003-planner-execution-separation.md) separates deterministic
-planning, UC-08 resource provisioning and UC-06 workload rendering/delivery.
-The current Go renderer hard-codes Deployment/Service/Secret generation.
-The current catalog rejects unsupported driver/type pairs, and workload nodes
-are not ordinary provision batches. The baseline used only the native renderer before this extension.
+## Ownership và verification
 
-## Decision
-
-1. Add a Definition-selected workload rendering boundary to UC-06. A Definition
-   of type `workload` selects a renderer, initially the existing renderer or a
-   score-k8s adapter. Registration, matching and plan pinning remain owned by
-   Orchestrator. Rendering does not become a UC-08 infrastructure operation.
-2. UC-08 continues to own cluster resolution, namespace, PostgreSQL, Terraform
-   state and Active Resources. score-k8s must not create or reconcile those
-   resources, select a database implementation, generate credentials or destroy
-   resources. Its provisioners for dependencies only expose already-resolved
-   outputs and Secret references.
-3. Keep the current `modules.*` workload identity, class `default` and weighted
-   five-field matching. This is a product extension inspired by Generic
-   Workloads, not a claim of Humanitec Generic Workload/API compatibility.
-   Do not introduce Humanitec `workloads.*` identities or a new compute class
-   during the initial implementation.
-4. score-k8s is a replaceable implementation behind a rendering port. Direct
-   Kubernetes/Fleet delivery, readiness, per-workload results, route reconciliation
-   and final current-set commit stay in the existing application services.
-5. Driver Inputs select a platform rendering bundle by stable ID. Each plan pins
-   the installed immutable bundle snapshot. The snapshot
-   fixes the exact renderer version, ordered output-only provisioners and patch
-   templates. Definition registration does not accept arbitrary commands,
-   mutable remote URLs or credentials. Registration fields and validation are
-   in the [rendering contract](../contracts/workload-rendering.md).
-6. Normalize the current product Score subset before rendering. Preserve probe,
-   replicas, Service-reference, CPU/memory, UC-12 secret and public-route behavior;
-   using score-k8s does not automatically widen the accepted public Score schema.
-7. Preview pins rendering intent and non-secret inputs. Unprovisioned outputs
-   remain unresolved; Preview must not provision or claim to have produced exact
-   final manifests. Deploy uses the same pinned Definition/bundle/configuration,
-   resolves outputs and validates the generated manifests before any workload
-   apply. A bundle/Definition change makes pending Preview stale.
-8. Use an isolated disposable score-k8s workspace per render. All resource
-   identity and durable state remain with Orchestrator/Kubernetes/Vault. Do not
-   persist or publish `.score-k8s` state. Stable workload names and output-only
-   provisioners are required so fresh workspace GUIDs cannot change deployment
-   identity. Stateful/random provisioners are excluded from this first slice.
-9. `render_bundle` is a stable selector ID, not an immutable snapshot. Each Plan
-   pins the immutable bundle installed in the running process (version, binary
-   digest, adapter/provisioner digest). The Definition's server-owned
-   `sourceFingerprint` records the bundle digest seen at registration as audit
-   provenance only; it is not a runtime equality gate and remains part of the
-   Definition content hash. After an upgrade A → B the same Definition selects
-   B; Preview/Deploy tokens pinned to A are stale and pending detects the
-   renderer-only change. No Definition update/retire operation is added.
-   Unavailable IDs, ambiguous matches and binary drift still fail.
-10. Keep the current renderer available for existing deployments and comparison.
-   Enable score-k8s only by explicit reviewed selection. A failed score-k8s render
-   fails the deployment; it must not silently fall back to a different renderer.
-
-## Ownership
-
-| Responsibility | Owner |
-|---|---|
-| Dependency graph, Definition selection, private/shared identity | Planner |
-| Database, namespace and validated resource outputs | UC-08 executors |
-| Secret materialization and scoped secret references | Existing secret/Vault/Kubernetes adapters |
-| Score normalization, output mapping, manifest validation | Workload rendering adapter |
-| Manifest conversion and reviewed patches | score-k8s |
-| Apply, readiness, Fleet revision and Environment routes | UC-06 delivery adapters |
-| Current set and execution history | Orchestrator persistence |
-
-## Consequences and alternatives
-
-- Reuse a maintained Score renderer instead of implementing another template
-  engine. Custom Template Driver and arbitrary compute targets are not included.
-- Adapter work is still necessary: score-k8s does not understand product
-  descriptors, UC-12 keys, pending tokens or the current Score extensions.
-- Replacing all provisioning with score-k8s would duplicate identity/state and
-  change cloud behavior; that alternative is outside this implementation.
-- Definition-selected rendering requires changes to catalog validation, workload
-  matching, immutable planning intent and persistence review. Existing JSON
-  columns alone are not evidence that no migration will be needed.
-
-## Acceptance and implementation boundary
-
-Registration, planner pinning, rendering and pending-update behavior follow the
-[rendering contract](../contracts/workload-rendering.md). Local tests run the
-configured CLI with fake infrastructure/delivery and verify output semantics,
-Secret references, immutable snapshots and stale-preview rejection.
-Live kind/AWS verification requires a separately authorized task.
+Planner chọn Definition/graph; UC-08 cung cấp validated outputs/Secret refs;
+rendering adapter chuẩn hóa Score và protected fields; score-k8s sinh manifests;
+UC-06 delivery/readiness/routes và persistence commit giữ nguyên trách nhiệm.
+Contract chi tiết: [workload rendering](../contracts/workload-rendering.md).
+Execution scope/điểm duyệt nằm ở M04 và acceptance runbook; implementation/evidence
+0.15.0 internal bundle cũ nằm trong CURRENT_STATE/verification, không là giới
+hạn required behavior. Exact phiên bản v2 thuộc immutable release manifest.
 
 ## Sources
+
 
 - [score-k8s CLI](https://docs.score.dev/docs/score-implementation/score-k8s/cli/)
   documents initialization, manifest generation and potentially sensitive local state.
@@ -125,19 +69,3 @@ Live kind/AWS verification requires a separately authorized task.
   document post-generation patches; their syntax is distinct from the product Delta JSON Patch.
 - [Humanitec Generic Workload inputs](https://developer.humanitec.com/platform-orchestrator/docs/platform-orchestrator/working-with/workloads/)
   explain the conceptual separation of workload specification and driver execution.
-
-## Initial implementation choices
-
-Use the existing installed score-k8s 0.15.0 CLI through an explicit backend
-`-score-k8s` path. The binary is inspected at startup; its content digest and
-version become part of the immutable rendering bundle and plan hash. No runtime
-download or global process environment is used. Embedded platform patches and
-output-only binding templates form `score-k8s-internal-v1`. The current native
-renderer is an explicit built-in selection when no workload Definition matches;
-matching score-k8s Definitions override it, with ambiguity still rejected.
-
-This slice supports internal-k8s only. Existing output binding resolves database
-outputs and Service references before render. The adapter translates resolved
-variables into output-only bindings and encoded Secret references, rather than
-letting score-k8s match/provision original infrastructure dependencies. Both
-VSO and legacy Agent delivery retain their current semantics.

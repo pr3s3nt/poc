@@ -18,7 +18,7 @@ Switching file/document invalidates prior context/summary and pending results.
 
 Credential textarea supports hiding its content; after success clear it and
 file input. Errors retain the submitted form for correction. Never display
-credential in summary/list/notification. AWS form and edit/delete are deferred.
+credential in summary/list/notification. Form AWS nhận access key qua ô che; edit/delete Connection ngoài phạm vi.
 
 ## Layout and controls
 
@@ -92,9 +92,8 @@ kết quả xác minh backend và xác thực Kubernetes tách riêng. READY hi�
 auth chưa cấu hình phải thể hiện rõ. Thiếu metadata không suy thành công.
 Không hiển thị token hoặc credential ref. Không có nhãn/type legacy trong danh sách kho hoặc choices (T23). PE/Admin gates và Developer choices không đổi.
 
-## Terraform v2 AWS registration
+## Đăng ký AWS Connection
 
-AWS onboarding is required in v2, replacing the AWS-form-deferred note above.
 Form: name, concealed access key ID/secret access key, region/allowed regions,
 explicit “Kiểm tra và lưu”. No Terraform backend input; platform backend is
 shared. Safe result shows account/principal/region/check status only, never key

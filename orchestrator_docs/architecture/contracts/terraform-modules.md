@@ -46,6 +46,26 @@ API overwrite/update Definition.
 Nếu hai Definition đồng hạng thì Preview chặn; PE phải cấu hình criteria cho một
 winner. State của resource hiện hữu không bị thay theo Definition ID mới.
 
+## Driver Inputs shape
+
+Giữ root `values`; các field hợp lệ của Terraform là `source`, `variables`,
+`input_mapping`, `output_mapping`, `provider_bindings`. `source` có đúng
+`source_id`, `module_id`, `revision`, `subdirectory`, `content_sha256` theo
+verified registry; không nhận arbitrary URL/local path/credential.
+`variables` chứa typed literals/approved placeholders và Definition fallbacks.
+`input_mapping` ánh xạ tên module variable tới `{param: <Type input name>}`;
+Type param có giá trị ưu tiên fallback/default của module variable tương ứng.
+Không nhận arbitrary expression hoặc secret field qua param mapping.
+`output_mapping` là map module output name -> Type output name.
+`provider_bindings` keyed bởi approved provider requirement: AWS dùng
+`{target: environment}`, Kubernetes dùng cùng target hoặc
+`{target: resource, resource_ref: <cluster descriptor>}` cho EKS dependency.
+Provider output reference phải tạo graph edge và resolve scoped opaque target;
+không nhận account/region/endpoint/credential override. Known field/schema
+validation thuộc UC-03 BR-11/12; các source pins cụ thể do registry release công bố.
+Workload renderer giữ riêng `values.variables.render_bundle`, không nhận
+Terraform source/mappings/provisioners.
+
 ## Inputs và mapping
 
 Input schema có name, type (`string`, `number`, `bool`, list/map có element type),

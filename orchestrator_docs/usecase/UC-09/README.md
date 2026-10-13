@@ -7,22 +7,11 @@ last_reviewed: 2026-10-13
 
 # UC-09 context — Observe deployment
 
-## V2 design scope
+## Trạng thái thực hiện
 
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
-## Delivery state
-
-Implemented and locally browser-verified. Authenticated list/detail APIs enforce
-Organization/Application/Environment scope; history supports server-side status
-filtering and detail reads consistent per-Deployment snapshots. Resource inputs
-are omitted and output visibility fails closed. React loading/error/not-found
-states and JSON restart persistence are covered by executable tests.
-Cross-deployment comparison and live runtime refresh remain out of scope.
+Xem [CURRENT_STATE](../../CURRENT_STATE.md) và
+[IMP-021](../../implementation/deviations.md#imp-021-terraform-v2-designimplementation-gap).
+Specification/realization định nghĩa yêu cầu, không chứng minh implementation.
 
 ## Read in this order
 

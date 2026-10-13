@@ -7,14 +7,6 @@ last_reviewed: 2026-10-13
 
 # UC-09 — View Deployment Status and Resource Graph
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Mục tiêu
 
 Cho phép Developer xem trạng thái deployment, Resource Graph và thông tin resource của một Environment.
@@ -59,16 +51,17 @@ Cho phép Developer xem trạng thái deployment, Resource Graph và thông tin 
 - **BR-02:** Deployment view phải gắn đúng Application, Environment và Deployment ID.
 - **BR-03:** Chỉ output được phân loại non-secret mới được hiển thị.
 - **BR-04:** Graph, matched Definition và batches phải là artifact của đúng lần planning đã tạo Deployment đó.
-- **BR-05:** Web Console liệt kê Deployment theo đúng Application/Environment,
-  cho xem status, workload, thời điểm, actor và failure reason. Từ danh sách,
-  Developer mở detail gồm graph, batches và resource/workload status; màn hình
-  không thay thế runtime logs hoặc tự refresh cluster.
+- **BR-05:** Console liệt kê Deployment và detail trong đúng Environment;
+  detail gồm graph, module/revision/target, Terraform stage/attempt/status/
+  timestamps và failure reason. Poll persisted query khi đang chạy; không
+  gọi provider để refresh hoặc thêm raw log/streaming console.
 - **BR-06:** Nếu UC-06 thất bại trong planning trước khi tạo Delta Snapshot,
   Deployment view vẫn trả status/failure reason; Delta, graph và batches có thể
   vắng mặt. Không dựng Delta giả hoặc hiển thị plan của lần khác.
-- **BR-07:** Failure reason là safe summary, không raw executor/store/catalog
-  error có thể chứa secret. Với record cũ chứa reason không nhận diện là safe
-  summary, query thay bằng hướng dẫn lỗi tổng quát; không ghi lại lịch sử.
+- **BR-07:** Lỗi hiển thị safe code/summary đúng node/stage, gồm input/
+  permission/transient/interrupted/cleanup. Không raw CLI/state/tfvars/plan
+  JSON/credential/secret. History có raw reason cũ được che trong query, không
+  viết lại history. FAILED không đồng nghĩa đã cleanup.
 
 ## Luồng nội bộ
 
@@ -81,18 +74,6 @@ UC-09 View Deployment Status
 └── Return deployment view
 ```
 
-## Trạng thái implementation hiện tại
-
-- Deployment, plan snapshot, resource progress và Active Resources đã được lưu
-  trong state store. Detail đọc per-Deployment workload snapshot, không đọc
-  mutable current Environment state.
-- React Web Console có recent deployments, danh sách theo Environment với bộ
-  lọc status và trang detail dùng persisted query API.
-- Authenticated Organization scoping, không trả `resolvedInputs`, server-side
-  status filter và loading/error/not-found tests đã được hiện thực. Local
-  browser test xác nhận snapshot không đổi sau redeploy và backend restart.
-  Cross-deployment comparison và live status không thuộc happy path.
-
 ## Ngoài phạm vi happy path
 
 - **OOS-01:** Streaming hoặc real-time status updates.
@@ -102,14 +83,18 @@ UC-09 View Deployment Status
 - **OOS-05:** Metrics, tracing và audit views.
 - **OOS-06:** Tùy chỉnh quyền xem outputs theo RBAC.
 
-## Terraform v2 — persisted progress projection
 
-- **V2-01:** Deployment detail/progress đọc persisted Terraform node stages
-  (prepare/validate/plan/apply/output/readiness), safe status/attempt/timestamps,
-  module revision và pinned target; không raw CLI logs/state/tfvars/plan JSON.
-- **V2-02:** Hiển thị đúng failed node/stage và hướng dẫn safe input/permission/
-  transient/interrupted/cleanup-pending. Không có output secret/plaintext,
-  provider credential hoặc raw cause, kể cả lỗi backend state acknowledgement.
-- **V2-03:** Console polling safe persisted query khi đang triển khai, không
-  gọi provider để refresh và không thêm streaming/log console. Cleanup còn
-  resource phải hiển thị chưa hoàn tất; không suy FAILED nghĩa đã cleanup.
+## Chi tiết tài nguyên và tiến trình xóa
+
+- **RES-01:** Resource detail thuộc đúng Organization/Application/Environment/
+  generation, gồm tên kỹ thuật (descriptor), trạng thái, module/target/owner,
+  safe outputs, consumers và eligibility. Có thể đọc resource UNREFERENCED
+  từ lịch sử sau khi Workload đã gỡ; không cần nó còn trong current graph.
+- **RES-02:** Nút Xóa tài nguyên chỉ hiện cho PE/Admin. Eligibility phải có
+  dữ liệu kiểm chứng; chưa tải/lỗi/missing metadata không được coi là đủ điều
+  kiện. Root có consumer, không UNREFERENCED, platform hoặc Environment busy
+  thì khóa nút và nêu lý do. Luồng mutation do UC-07 DEL-* sở hữu.
+- **RES-03:** Trang detail/progress hiển thị REQUESTED/CHECKING/DESTROYING/
+  VERIFYING, từng resource trong phạm vi đã xác nhận, kết quả absence check và
+  remaining physical IDs khi lỗi. Poll scoped persisted operation; không báo
+  success trước VERIFYING hoàn tất hoặc lấy trạng thái operation khác.

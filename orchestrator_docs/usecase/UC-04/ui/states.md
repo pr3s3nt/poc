@@ -78,12 +78,11 @@ to describe backend verification, not workload deploy readiness. Loading/error,
 explicit Save and selection/version guards are unchanged; no global-token or
 old-store fallback is exposed.
 
-## Terraform v2 state additions
 
-Required v2 behavior is defined in the corresponding specification V2 rules and
-[screens](screens.md). Loading/error/unavailable module or class metadata blocks
-unvalidated submit; retry retains safe edits, does not substitute defaults or
-replay mutation. Typed input/provider/integrity errors use safe code/field guidance.
-Busy/stale locks preserve edits and require wait/review/new Preview. Long-running
-execution shows persisted stage/attempt; interruption requires operator checks.
-No state/secret/raw CLI diagnostics are rendered, including failure paths.
+## Metadata và tiến trình tài nguyên
+
+Module/class metadata đang tải, lỗi hoặc unavailable chặn thao tác chưa kiểm
+chứng; retry giữ edits, không thay bằng default hay replay mutation. Known
+input/provider/integrity error dùng code/field an toàn. BUSY giữ dữ liệu đang
+sửa; stale yêu cầu review/Preview mới. Progress lấy persisted stage/attempt,
+không raw CLI/state/secret; interruption không được coi là cleanup thành công.

@@ -7,14 +7,6 @@ last_reviewed: 2026-10-13
 
 # UC-09 — Use Case Realization
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Trách nhiệm
 
 Tạo read-only deployment view từ persisted plan/status/resource/workload snapshots và loại secret outputs.
@@ -28,6 +20,10 @@ DeploymentQueryService.GetDeployment(ctx context.Context, query GetDeploymentQue
 ## Participants
 
 - `DeploymentQueryController`, `DeploymentQueryService`.
+- `ResourceQueryController/Service`: đọc resource detail đúng Environment và
+  original generation, consumers/eligibility và tên xác nhận.
+- `ResourceCleanupQueryService`: đọc scoped cleanup operation/tập đã xác nhận,
+  progress/absence/remaining IDs từ persistence; không gọi provider.
 - `DeploymentViewAssembler`, `OutputRedactor`.
 - `DeploymentRepository`, `DeploymentSetRepository`,
   `DeploymentResourceRepository`, `DeploymentWorkloadRepository` and Resource
@@ -38,7 +34,7 @@ DeploymentQueryService.GetDeployment(ctx context.Context, query GetDeploymentQue
 | Step | Collaboration |
 |---|---|
 | MS-01 | Authenticated controller tạo query với Organization, Application, Environment và Deployment IDs. |
-| MS-02–MS-03 | Service load Deployment, set snapshot, resource/workload status. |
+| MS-02–MS-03 | Service đọc immutable Deployment/set snapshots và resource/workload status cùng safe stage/attempt/module/target từ persisted attempts. |
 | MS-04–MS-05 | Assembler thêm status metadata và persisted graph/matches/batches nếu có; `FAILED` khi planning chưa tạo Snapshot chỉ trả status/failure reason, không dựng Delta/plan giả. |
 | MS-06 | `OutputRedactor.Redact` theo Resource Type output metadata; resolved resource inputs không thuộc view. |
 | MS-07 | Trả immutable `DeploymentView`; không gọi runtime/executor. |
@@ -66,10 +62,16 @@ no current or historical run receives fabricated status rows.
 - Web Console list/detail: Environment filter, navigation, status/failure,
   read-only resource/workload rows and secret-safe output rendering.
 
-## Terraform v2 projection collaboration
 
-DeploymentQueryService reads persisted resource attempts, module/target snapshots
-and cleanup operation results in scoped read snapshot; Assembler allowlists safe
-stage/status/attempt/IDs and OutputRedactor excludes every secret/state field.
-Console polls this query without runtime adapter calls. Historical snapshots
-retain their pins and do not reflect current mutable module/Environment target.
+## Resource detail và cleanup query (RES-01..03)
+
+Resource detail dùng instance/ActiveResource association trong Environment,
+không yêu cầu resource còn trong current graph. Scope/role lấy từ session;
+eligibility false khi metadata thiếu hoặc có operation/consumer. Tên xác nhận
+là persisted descriptor hiển thị trên detail. UC-07 nhận mutation; UC-09 chỉ
+project delete plan/status/remaining IDs, không tự execute hoặc refresh cloud.
+Console polling giữ operation ID/scope, bỏ late responses; failure không
+được phủ nhận tiến độ đã commit hoặc suy là tài nguyên đã xóa. Historic
+Deployment view không lấy lifecycle hiện tại thay snapshot của lần triển khai.
+Tests gồm read-only/scoped/secret-safe query, stale response và cleanup
+partial/verified result; headed A01 ghi nhận hành vi trên resource detail.

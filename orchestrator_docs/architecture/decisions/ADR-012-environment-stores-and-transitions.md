@@ -2,7 +2,7 @@
 id: ADR-012
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # ADR-012 — Editable Environment Connections, secret stores and transitions
@@ -31,8 +31,9 @@ and migration interaction in Settings. UC-12 owns secret copy and revisions.
 UC-05/06/08 own preview admission, pinned execution and target resource identity.
 First secret-store adapter is Vault KV v2. First data transfer is PostgreSQL to
 compatible PostgreSQL with downtime; arbitrary database/storage transfer and
-zero-downtime migration are not implied. AWS onboarding remains ADR-009 future
-scope; this task permits live kind/Vault verification, not AWS cloud mutation.
+zero-downtime migration are not implied. AWS onboarding theo ADR-009/014; Terraform v2 live scope và điểm duyệt
+thuộc M04. Quyền kiểm chứng kind/Vault của ADR này không tự cấp quyền
+AWS data migration.
 
 Variables are ordinary configuration metadata in Orchestrator persistence.
 Secret bytes reside in the selected store only. The platform credential store
@@ -277,12 +278,14 @@ Distinct physical ingress/DNS requires an adapter or explicit operator step.
 
 ## Target generation identity contract
 
-Generation 0 preserves exact ADR-011 descriptors/names. For generation g>0,
+Generation 0 giữ logical descriptors; physical names của instance v2
+ổn định theo ADR-014, không tiếp quản physical names/tài nguyên v1. For generation g>0,
 Environment resource scope uses `<app>.<env>~g<g>` and @infra resolves that
 scope (including namespace, VPC/EKS and dependent DB paths). Runtime namespace
 must be DNS-1123 <=63 characters, begin with the original bounded readable prefix
 and end with a hash of full app/env/generation; it never truncates away generation
-uniqueness. Physical AWS name digest includes generation in addition to app/env/run,
+uniqueness. Physical AWS name digest dùng stable instance identity gồm app/env/generation,
+không dùng run ID theo ADR-014/state contract;
 retaining ADR-011 provider length bounds. Connection/shared resources retain
 connection scope; Environment-owned ActiveResource lookup includes generation.
 Historical generation cleanup resolves its original target, never current Settings.

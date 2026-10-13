@@ -7,30 +7,11 @@ last_reviewed: 2026-10-13
 
 # UC-03 context — Register Resource Definition
 
-## V2 design scope
+## Trạng thái thực hiện
 
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
-## Delivery state
-
-Runtime-supported Definition registration API/UI and normalized PostgreSQL
-persistence are implemented and locally verified, including atomic criteria,
-duplicate guards and no-restart matching. Driver Inputs policy in specification BR-11–BR-14 is implemented and locally
-verified on 2026-10-02; the score-k8s extension is described below.
-
-## Definition-selected workload rendering
-
-Definitions of type `workload` can select the installed score-k8s rendering
-bundle for `internal-k8s`. Registration validates the pair, strict inputs and
-server-owned fingerprint; it does not accept inline templates or commands.
-
-See [ADR-010](../../architecture/decisions/ADR-010-score-k8s-workload-rendering.md)
-and the [rendering contract](../../architecture/contracts/workload-rendering.md).
-Local verification does not claim live kind/AWS execution.
+Xem [CURRENT_STATE](../../CURRENT_STATE.md) và
+[IMP-021](../../implementation/deviations.md#imp-021-terraform-v2-designimplementation-gap).
+Specification/realization định nghĩa yêu cầu, không chứng minh implementation.
 
 ## Read in this order
 
@@ -48,11 +29,3 @@ UI: [screens](ui/screens.md), [states](ui/states.md), [HTTP mapping](ui/api-mapp
 - [`backend/internal/domain/resource`](../../../backend/internal/domain/resource/)
 - [`backend/internal/planning`](../../../backend/internal/planning/)
 - [`backend/internal/seed`](../../../backend/internal/seed/)
-
-## Implicit internal cluster delivery (2026-10-09)
-
-[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
-removes per-cluster user Definition registration/matching for internal-k8s.
-Default planning, system binding, persistence admission and Console projection
-are implemented and [locally verified](../../verification/2026-10-09-implicit-existing-cluster-local.md).
-Other resource/cloud matching remains unchanged; no new live cluster/cloud proof.

@@ -80,3 +80,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 | 2026-09-29 | Orchestrator images deployed by the Orchestrator, then the in-cluster instance deploying the acceptance app; full browser window recorded | [Self-hosted Orchestrator on kind](2026-09-29-self-host-playwright-kind.md) · [MP4 release asset](https://github.com/pr3s3nt/poc/releases/download/acceptance-recordings/self-host-kind-2026-09-29.mp4) |
 
 - [2026-10-13 — Terraform v2 Step 1 design verification](2026-10-13-terraform-v2-design.md) — documentation-only; read-only AWS identity, no v2 live acceptance.
+
+- [2026-10-13 — A–D reconciliation và plan M04](2026-10-13-terraform-v2-reconciliation.md) — docs-only; gate 1 chờ người dùng duyệt trước code.

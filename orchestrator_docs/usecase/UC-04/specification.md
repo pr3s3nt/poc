@@ -7,14 +7,6 @@ last_reviewed: 2026-10-13
 
 # UC-04 — Configure Execution Profile Connections
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Mục tiêu
 
 Cho phép Platform Engineer/Admin đăng ký và xác minh Connection để Orchestrator:
@@ -24,12 +16,6 @@ Cho phép Platform Engineer/Admin đăng ký và xác minh Connection để Orch
 
 Người dùng cấu hình Connection qua Web Console, không cần cấu hình credential
 thủ công trên máy chạy backend đối với luồng đăng ký mới.
-
-## Phạm vi delivery
-
-- **Giai đoạn đầu:** đăng ký Kubernetes Connection bằng kubeconfig có token hoặc chứng chỉ nhúng.
-- **Giai đoạn sau:** đăng ký AWS Connection, xác minh quyền provisioning và sử dụng credential trong Terraform executor.
-- AWS Connection được xác định trong specification này để làm cơ sở thiết kế; không phải tính năng được triển khai trong giai đoạn đầu.
 
 ## Primary actor
 
@@ -47,7 +33,8 @@ thủ công trên máy chạy backend đối với luồng đăng ký mới.
 - **PRE-01:** Organization đã tồn tại.
 - **PRE-02:** Người dùng đã đăng nhập và có quyền quản lý Connection trong Organization.
 - **PRE-03:** Với Kubernetes, cluster đã tồn tại và người dùng có kubeconfig phù hợp.
-- **PRE-04:** Với AWS, người dùng có danh tính AWS và thông tin region, Terraform backend cần cấu hình.
+- **PRE-04:** Với AWS, người dùng có access key và region được phép sử dụng;
+  platform đã cấu hình HTTP state backend và durable credential store.
 - **PRE-05:** Secret Store sẵn sàng để lưu credential của Connection.
 
 ## Trigger
@@ -85,11 +72,12 @@ thủ công trên máy chạy backend đối với luồng đăng ký mới.
 
 ### VAR-02 — AWS Connection / `aws-eks`
 
-**Biến thể này được triển khai ở giai đoạn sau.**
-
-1. Người dùng nhập tên kết nối, access key ID, secret access key, allowed regions và Terraform backend configuration.
+1. PE/Admin nhập tên kết nối, access key ID, secret access key trong các ô
+   được che trên Web Console và allowed regions. Không nhập backend Terraform.
 2. Orchestrator xác minh danh tính và xác định AWS account của credential được cung cấp.
-3. Orchestrator kiểm tra allowed regions, Terraform backend và quyền cần thiết để tạo/đọc/quản lý VPC, EKS, Aurora cùng Terraform state.
+3. Orchestrator xác minh regions và quyền cần thiết cho VPC/EKS/ElastiCache/
+   Aurora mà không tạo hạ tầng. State backend do platform cung cấp, không
+   được chọn theo Connection.
 4. Orchestrator lưu credential và secret reference theo [ADR-009 — AWS access-key credential storage](../../architecture/decisions/ADR-009-aws-access-key-storage.md).
 5. Khi provision hạ tầng, Orchestrator sử dụng danh tính của AWS Connection được tham chiếu.
 
@@ -116,7 +104,8 @@ cập vào một EKS cluster không thay thế bước xác minh quyền provisi
 - **POST-01:** Đăng ký thành công tạo Connection `READY` thuộc Organization của người dùng.
 - **POST-02:** Metadata và secret reference được lưu; credential không nằm trong domain/database record của Connection.
 - **POST-03:** Kubernetes Connection mới có thể được sử dụng mà không cần cấu hình kubeconfig trên máy backend.
-- **POST-04:** AWS Connection hợp lệ cung cấp danh tính và cấu hình cho luồng provisioning ở giai đoạn sau.
+- **POST-04:** AWS Connection READY cung cấp scoped credential reference và
+  metadata account/principal/region cho Terraform execution.
 - **POST-05:** Resource Definition có thể tham chiếu Connection phù hợp.
 - **POST-06:** Đăng ký Connection không tạo workload, VPC, EKS hoặc Aurora.
 
@@ -127,19 +116,21 @@ cập vào một EKS cluster không thay thế bước xác minh quyền provisi
 - **BR-03:** UC-04 chỉ đăng ký và xác minh Connection; provisioning thuộc UC-06 và UC-08.
 - **BR-04:** Chỉ Connection READY mới được chọn trong Environment Settings hoặc triển khai.
 - **BR-05:** Luồng đăng ký Kubernetes mới nhận kubeconfig qua upload hoặc nội dung được dán; không yêu cầu context có sẵn trên host backend.
-- **BR-06:** Giai đoạn đầu hỗ trợ token nhúng hoặc chứng chỉ/private key nhúng, cùng thông tin cluster và cấu hình xác minh TLS cần thiết.
-- **BR-07:** Giai đoạn đầu không hỗ trợ credential tham chiếu file bên ngoài hoặc xác thực qua `exec`. Hệ thống không thực thi lệnh từ kubeconfig tải lên.
+- **BR-06:** Hỗ trợ token nhúng hoặc chứng chỉ/private key nhúng, cùng thông tin cluster và cấu hình xác minh TLS cần thiết.
+- **BR-07:** Không hỗ trợ credential tham chiếu file bên ngoài hoặc xác thực qua `exec`. Hệ thống không thực thi lệnh từ kubeconfig tải lên.
 - **BR-08:** Xác minh Kubernetes kiểm tra API và các quyền trong VAR-01 mà không tạo resource trên cluster.
 - **BR-09:** Credential không được xuất hiện trong API đọc, log, thông báo lỗi, snapshot, Preview, manifest hoặc Git. Nội dung kubeconfig không được trả lại qua read model.
 - **BR-10:** Xác minh và thực thi chỉ được lấy credential đúng Organization/Connection. Connection mới không fallback sang credential mặc định trên host.
 - **BR-11:** Credential AWS dùng cho provisioning không được cấp cho workload. Luồng lưu trữ và sử dụng tuân theo ADR-009.
-- **BR-12:** AWS chỉ đạt `READY` sau khi xác minh danh tính, region, Terraform backend và quyền provisioning cần thiết. Đăng nhập hoặc STS identity thành công chưa đủ.
+- **BR-12:** AWS READY cần xác minh identity, region và provisioning
+  capabilities; STS success một mình không đủ. Registration không tạo hạ tầng;
+  execution preflight kiểm lại quyền. State backend là trách nhiệm platform.
 - **BR-13:** Trạng thái `READY` phản ánh kết quả xác minh tại thời điểm đăng ký; không cam kết giám sát kết nối liên tục.
 - **BR-14:** Loại Connection và phương thức xác thực phải được phân biệt để có thể bổ sung phương thức xác thực AWS sau này mà không thay đổi ý nghĩa của Connection hoặc tham chiếu từ Resource Definition.
 - **BR-15:** Kubernetes Connection chỉ dùng `KUBECONFIG` với credential riêng đúng Organization/Connection. Từ chối body cũ `{key,clusterId,kubeContext}`, `HOST_CONTEXT`, thiếu authentication type hoặc thiếu credential; không inference, chuyển đổi hay fallback sang host. Seed thiếu credential không được READY; default marker có thể tham chiếu record VERIFYING nhưng không làm Environment tự cấu hình.
 - **BR-16:** Đăng ký Connection mới không tự động thay đổi connection mặc định của Organization.
 
-## Giao diện giai đoạn đầu
+## Giao diện
 
 Trang `Platform / Connections` gồm:
 
@@ -150,12 +141,15 @@ Trang `Platform / Connections` gồm:
 - Nút **Kiểm tra và lưu**.
 - Trạng thái đang xử lý, thông báo thành công và lỗi có hướng dẫn xử lý.
 
-Form không yêu cầu nhập Connection ID hoặc Cluster ID. AWS registration chưa
-xuất hiện trong giao diện giai đoạn đầu.
+Form Kubernetes không yêu cầu nhập Connection ID hoặc Cluster ID. Form AWS
+có name, các ô access key được che, allowed regions và Kiểm tra và lưu.
+Read/list chỉ có metadata; key không được đọc lại qua Console.
 
-## Ngoài phạm vi giai đoạn đầu
+## Ngoài phạm vi
 
-- **OOS-01:** Triển khai AWS onboarding, AWS verification và executor credential resolution.
+- **OOS-01:** AWS authentication ngoài access key onboarding đã chốt;
+  không dùng host credential cho product execution. Access key/Vault flow
+  thuộc VAR-02, BR-10/11/12.
 - **OOS-02:** Tạo cluster Kubernetes từ form đăng ký.
 - **OOS-03:** Xác thực Kubernetes qua `exec` hoặc file credential bên ngoài.
 - **OOS-04:** Sửa/xóa Connection và migration dữ liệu Connection cũ; reset dev thuộc T29.
@@ -165,8 +159,8 @@ xuất hiện trong giao diện giai đoạn đầu.
 ## Ranh giới tài liệu
 
 Trạng thái triển khai thực tế được theo dõi tại [CURRENT_STATE.md](../../CURRENT_STATE.md).
-Realization, diagrams, contracts, shared design và traceability sẽ được cập nhật
-theo specification sau khi bản này được duyệt.
+Specification định nghĩa yêu cầu; realization/contracts định nghĩa collaboration.
+Kết quả triển khai và verification thuộc CURRENT_STATE/deviations.
 
 ## Secret Store Connection registration (current feature scope)
 
@@ -205,22 +199,10 @@ Supporting flow/design: [ADR-012](../../architecture/decisions/ADR-012-environme
 
 See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
 
-## Terraform v2 — required AWS onboarding
 
-V2 đưa AWS onboarding vào scope; các ghi chú “giai đoạn sau” phía trên mô tả
-checkpoint cũ. ADR-009 giữ credential mechanism; [ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md)
-thay Terraform backend do từng AWS Connection lựa chọn bằng platform HTTP backend.
+## EKS target
 
-- **V2-01:** PE/Admin đăng ký AWS Connection qua Console với name, concealed
-  access key ID/secret access key và allowed region; verify STS identity/region
-  và provisioning capabilities rồi lưu scoped Vault credential ref + safe
-  account/principal/region metadata. Không nhận arbitrary backend configuration.
-- **V2-02:** READY chỉ sau checks cần thiết; STS success không bảo đảm quyền
-  provision. Preflight execution phải kiểm lại; không giả READY từ host profile.
-  Permission checks không tạo VPC/EKS/database trong registration.
-- **V2-03:** Terraform AWS provider chỉ resolve credential của Connection pin
-  vào Environment; managed Redis/database cùng account/region. Credential không
-  cấp cho workload, state HTTP token khác AWS credential.
-- **V2-04:** EKS target do provision trả có opaque scoped identity đủ restore
-  invocation credentials sau restart; không persist plaintext kubeconfig/path
-  tạm hoặc sử dụng host context. Existing k8s-4f vẫn KUBECONFIG theo BR-15.
+- **V2-04:** EKS target do provision trả có identity đúng Organization/Connection
+  đủ tái tạo credential cho invocation sau restart. Không persist kubeconfig/
+  đường dẫn tạm, không dùng host context. Existing k8s-4f dùng KUBECONFIG
+  theo BR-15; HTTP state token tách khỏi AWS credential.

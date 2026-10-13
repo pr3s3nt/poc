@@ -15,13 +15,15 @@ Organization. Clients cannot select another Organization in request data.
 | `GET /api/v1/connections` | Public Connection DTO list | None |
 | `POST /api/v1/connections/kubernetes/inspect` | `{kubeconfig}` -> `{contexts:[{name,cluster,endpoint}]}` | None; no cluster access |
 | `POST /api/v1/connections/kubernetes` | `{name,kubeconfig,context}` -> public Connection DTO | Verify then secret write + insert READY |
+| `POST /api/v1/connections/aws` | `{name,accessKeyId,secretAccessKey,allowedRegions}` -> safe account/principal/region metadata | Verify identity/region/capabilities, lưu Vault ref, insert READY |
 
 The form and API use only the upload contract. The old
 `{key,clusterId,kubeContext}` body and mixed documents return 400 without
 verification, credential writes or Connection insertion.
 The public DTO includes key/name/kind/authenticationType/config/status and safe
 verification metadata. It excludes secretRef, credentials, kubeconfig and raw
-provider results. UI displays READY only; AWS registration endpoint is deferred.
+provider results. UI chỉ hiển thị safe READY metadata; AWS key không xuất hiện trong read DTO.
+AWS registration không nhận Terraform backend config; executor không lấy host key.
 
 Known-field JSON object; document max 1 MiB and envelope bounded to accommodate
 JSON escaping (8 MiB ceiling). Unknown fields, mixed shapes and trailing JSON
@@ -95,15 +97,3 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
-
-## Terraform v2 contract extension
-
-Existing UI routes and role/org/version guards remain. Required payload/metadata
-extensions follow [module contract](../../../architecture/contracts/terraform-modules.md),
-[state contract](../../../architecture/contracts/terraform-state.md) and
-[operation contracts](../../../architecture/contracts/operation-contracts.md#terraform-v2-scoped-supersession-adr-014).
-These are planned v2 fields, not claims the current HTTP handlers accept them.
-Workload params/class stay Score-backed references; PE source/revision/mapping
-fields are Definition metadata. AWS onboarding belongs to dedicated concealed
-Connection write. Public queries return only scoped safe projections; no internal
-state endpoint/token exposed. No API bypass of acceptance UI steps is allowed.

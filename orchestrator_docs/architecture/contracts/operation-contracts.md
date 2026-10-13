@@ -27,18 +27,14 @@ Các contract dưới đây dùng tên method cố định cho realization và G
 - No external provision; desired endpoints remain unprovisioned.
 - Query: GET /api/v1/application-connections retains safe Organization-scoped READY choices/default marker for Settings, no credentials or UC-04 management rights.
 
-## Historical OC-01b `ApplicationService.SetConnection` (ADR-011)
+## OC-01b `ApplicationService.SetConnection`
 
-Superseded by the Editable Environment destinations contracts below.
-
-- Use case: UC-01 ES-01..06, BR-07..14.
-- Input: scoped app/env, connectionKey and expectedVersion; session Organization/role only.
-- Preconditions: Environment unset; supported READY Connection in Organization; AWS nonempty region.
-- Transaction: scoped ownership + unset/version CAS + derive profile/region/runtime, store binding and increment Environment version. No external call.
-- Immutable: any repeat including same key 409; no reset/change. Normal Save cannot overwrite target.
-- Failure: malformed/missing/blank/null key/version 400; scoped missing app/env 404; unavailable/foreign/nonREADY/unsupported Connection 422 field connectionKey; stale/alreadyset 409, no mutation.
-- Result: safe Environment binding/profile/region/status/scope/version. Other Environment unchanged.
-- Historical migration (removed by T26/T27): old locked LEGACY_APPLICATION bindings are unsupported; current product accepts ENVIRONMENT only. No binding conversion.
+Environment selection dùng `{connectionKey,expectedVersion}` và scoped CAS
+trước runtime, không Organization default. Configured same key/current version
+là no-op; stale 409, active operation BUSY. Sau runtime cần transition riêng
+theo [ADR-012](../decisions/ADR-012-environment-stores-and-transitions.md);
+metadata Save không tự chuyển dữ liệu hoặc đổi target của resource cũ.
+Không còn set-once/legacy backfill: lịch sử contract ở `a897d6b`/`3367f7e`.
 
 ## OC-03 `ResourceTypeService.RegisterResourceType`
 
@@ -52,19 +48,19 @@ Superseded by the Editable Environment destinations contracts below.
 
 ## OC-04 `ResourceDefinitionService.RegisterResourceDefinition`
 
-- Use case: UC-03.
-- Preconditions: Resource Type, Driver/connection tồn tại; có ít nhất một
-  Matching Criterion; references/rules hợp lệ; output contract tương thích.
-- MVP registration chỉ chấp nhận runtime-supported driver/type pairs và embedded
-  Terraform modules. VPC/EKS registration requires empty `connectionKey`; any nonempty key returns validation 400 before insert, including a key equal to an Environment target. Registration needs no Environment. Aurora explicit connections must be READY and correct kind in the same Organization; optional Kubernetes connections retain these checks. Không nhận remote source.
-- Every public `existing-cluster` registration returns validation 400 before insert, regardless of key; reserved system keys remain protected for every driver. Trusted internal constructor/executor and idempotent UC-08 admission remain available. Existing records are not deleted; ReferenceCluster fixtures use only the reference harness.
-- Creates: `ResourceDefinition` và một hoặc nhiều `MatchingCriterion`.
-- Postconditions: queryable cho deterministic matching; `{}` tường minh là
-  wildcard điểm `0`; optional `execution_profile` filters eligibility before
-  scoring the five standard criteria; source fingerprint được ghi nếu có.
-- Persistence: insert-only definition + criteria atomically; concurrent duplicate
-  conflicts without changing the existing Definition/criteria. Seed Save/upsert
-  is separate from public registration.
+- Role/org: session PE/Admin, scoped Type/registry và insert-only org/key.
+- Kiểm criteria không rỗng (`{}` wildcard 0), profile filter trước weighted
+  criteria, immutable source allowlist/revision/digest, input/output mappings,
+  references/provision rules và symbolic provider contract theo UC-03 BR-08..16.
+- Module download/inspection ngoài transaction; planner/metadata reads chỉ đọc
+  verified registry. Không raw credential/commands/branch/latest. AWS không
+  explicit Connection/account/region override, kể cả Aurora; Kubernetes chỉ
+  Environment/EKS target. Registration không cần một Environment cụ thể.
+- Public existing-cluster/reserved keys bị từ chối trước insert; chỉ trusted
+  system admission ADR-013 dùng nội bộ. Không biến fixture harness thành public API.
+- Một giao dịch insert Definition + criteria/bundle association. Duplicate race
+  không overwrite winner. Workload chỉ score-k8s cho cả hai profiles; unavailable
+  bundle hoặc contract mismatch không lưu. Không tự provision khi đăng ký.
 
 ## OC-05 `ConnectionService.InspectKubeconfig` / `RegisterKubeconfig` / `RegisterAWSDriverAccount`
 
@@ -82,8 +78,10 @@ Superseded by the Editable Environment destinations contracts below.
 - Public DTO/errors exclude secret refs/raw parser/provider output.
 - Reject the old `{key,clusterId,kubeContext}` body, including mixed upload bodies.
   Kubernetes execution requires explicit scoped KUBECONFIG; missing credentials,
-  HOST_CONTEXT or inferred authentication fail closed. AWS operation is future
-  design under ADR-009. Seed without credential is VERIFYING, never READY.
+  HOST_CONTEXT or inferred authentication fail closed. AWS onboarding qua các
+  ô được che trên Console theo ADR-009; verify account/principal/allowed regions/
+  provisioning capabilities, lưu Vault ref và metadata READY. STS chưa đủ;
+  không nhận backend config hoặc host credential. Seed thiếu credential không READY.
 - Execution uses [credential resolution](../connection-credentials.md); no secret
   material or temporary paths are persisted in Target/outputs/state/snapshots.
 
@@ -91,7 +89,9 @@ Superseded by the Editable Environment destinations contracts below.
 
 - Use case: UC-05.
 - Preconditions: Planning snapshot đọc được; Score hợp lệ.
-- Returns: `DeploymentPreview` gồm transient Humanitec-shaped Delta, Candidate Set, graph, matches, batches, classification và environment version.
+- Returns: `DeploymentPreview` gồm Delta, Candidate Set, graph/matches/batches/
+  classification, safe Type/class/module/revision/target/ownership và versions;
+  không state/credential/secret bytes.
 - Postconditions: không persist Deployment; không gọi executor/deployer; runtime state không đổi.
 - Invariant: base set + Delta = Candidate Set.
 - Standalone HTTP/UI boundary: [UC-05 mapping](../../usecase/UC-05/ui/api-mapping.md).
@@ -133,7 +133,10 @@ Superseded by the Editable Environment destinations contracts below.
   absent from its desired graph within that Environment/shared/workload scope.
   Already-unreferenced, failed/provisioning and Application-wide resources are
   not candidates for that Environment's status-marking operation.
-- Side effects: none.
+- Pin required score-k8s Definition/bundle cho mỗi Workload, verified module/
+  provider/binary digests, stable state/target/generation/resource versions.
+  No-match/tie hoặc known input/mapping sai chặn trước execution.
+- Side effects: none; không fetch module/CLI/provider/secret resolution.
 
 ## OC-08 `DeploymentService.DeployWorkload`
 
@@ -144,7 +147,13 @@ Superseded by the Editable Environment destinations contracts below.
   failure có thể thành `FAILED` không Snapshot. Transaction tạo plan gắn
   Snapshot trước khi chuyển `PROVISIONING`; association đã có là immutable.
 - Postconditions: UC-08 complete; workload ready với declared container requests/limits; current-set pointer atomically đổi; AWS Environment runtime `READY`; Deployment `SUCCEEDED`.
-- External side effects: Terraform/Kubernetes outside DB transaction.
+- Trước UC-08 kiểm known inputs/module/bundle integrity, nhận Environment
+  operation bằng atomic snapshot CAS/owner-fence. Terraform state locks bảo vệ
+  từng instance; write-ahead intent có trước provider side effects.
+- External side effects: Terraform/provider/delivery ngoài DB transaction.
+- Required score-k8s sinh manifests sau outputs/Secret refs trên cả profiles,
+  không renderer fallback. Release operation chỉ khi processes đã stopped;
+  interrupted outcome giữ state/progress/hold theo state contract.
 - Commit rule: Candidate Set never becomes current before readiness.
 - Internal-kind route rule: after affected workloads are ready, reconcile the
   Environment-owned Traefik Ingress from the complete Deployment Set. Pending
@@ -172,14 +181,23 @@ Superseded by the Editable Environment destinations contracts below.
 
 ## OC-10 `ResourceProvisioningService.Provision`
 
-- Use case: UC-08.
-- Preconditions: persisted immutable plan; resource-only DAG/batches; matched Definitions; connections `READY`.
-- Target binding: UC-06 BR-20 retains winning-Definition ConnectionMismatch guards; UC-08 BR-07 rechecks before executor calls. Terraform VPC/EKS always resolve the pinned READY AWS Environment connection, with effective identity in plan/hash and ActiveResource. Empty Definition keys inherit without mismatch; malformed conflicting keys fail without alternate candidate selection. Aurora requires its explicit READY AWS Driver Account in the same Organization and never falls back to the Environment account.
-- For each node: resolve prior state and inputs -> validate persisted account identity against the effective connection before reuse -> executor provision/reconcile -> validate outputs -> atomically persist Active Resource + deployment-resource progress. Do not pass prior executor state from another AWS account; unavailable repository reads fail closed.
-- Returns: `ProvisionResult` mapping descriptor to outputs and deployment target.
-- Postconditions: all desired resource nodes `READY`; output bindings available for workload render.
-- Idempotency key: logical identity `(organization, descriptor, scope_type, scope_id)` plus executor state.
-- Boundary: container CPU/memory requests/limits are not UC-08 resources; UC-06 Workload Renderer applies them to manifests.
+- Preconditions: immutable Plan, resource-only DAG/batches và admitted
+  Environment owner/fence, Connections READY, verified module pins.
+- Terraform CREATE/UPDATE cho namespace/Redis/PostgreSQL Kubernetes và
+  VPC/EKS/ElastiCache/Aurora AWS; ExistingClusterAdapter chỉ resolve ADR-013.
+- AWS nodes inherit cùng Environment account/region; Kubernetes bind Connection/
+  completed EKS target. Reuse kiểm state owner/org/generation/target/account
+  trước execution; lookup/mismatch lỗi không fallback hoặc đổi winner.
+- Mỗi node ghi instance/action/module/physical intent/ownership trước call,
+  resolve typed inputs, khóa state, init/validate/plan, reject UPDATE delete/
+  replace, apply dưới deadline. State backend acknowledge rồi validate
+  outputs/readiness, store secret refs và commit result/progress nguyên tử.
+- Retry transient tối đa một lần sau state/actual-result checks; input/auth/
+  permission/unknown outcome dừng và giữ metadata/state/hold. Full resume/import
+  deferred D12/D13; state thiếu không tự biến thành CREATE.
+- Returns: safe outputs/typed Secret refs và scoped target. Identity/stable
+  names không chứa run ID hoặc Definition version. CPU/memory thuộc renderer,
+  Workload Definition không thuộc resource batches. Protocol OC-18/state contract.
 
 ## OC-11 `DeploymentQueryService.ListDeployments` / `GetDeployment`
 
@@ -194,6 +212,10 @@ replaced in list/detail projection, without mutating history.
   graph, matches, batches, deployment-resource progress, per-Deployment
   workload snapshots and non-secret outputs. Resource resolved inputs are not
   returned.
+- Đọc safe stage/attempt/module/target/cleanup progress; poll không gọi provider.
+  ResourceQueryService.GetResource đọc resource detail gồm UNREFERENCED sau
+  gỡ Workload; ResourceCleanupQueryService.GetOperation đọc confirmed scope/
+  verification/remaining IDs. Role đọc Environment không cấp quyền destroy.
 - Postconditions: no mutation and no runtime adapter call.
 
 ## OC-12 `ApplicationConfigurationService.ListKeys` / `PutKey` / `RenameKey` / `DeleteKey`
@@ -211,7 +233,8 @@ replaced in list/detail projection, without mutating history.
 - Rename/delete copy or omit the old opaque reference into a new revision.
   They warn about affected workloads. Delete and rename-only keep UC-16 bindings; explicit rename opt-in follows the atomic T30 extension below.
 - Secret bytes never enter state snapshots, Score documents, logs, API reads,
-  preview responses, Kubernetes Secrets or Pod annotations.
+  preview responses hoặc Pod spec/annotations. VSO chỉ đồng bộ sang scoped
+  Kubernetes Secret theo ADR-008; Pod dùng secretKeyRef, không literal secret.
 
 ## OC-16 `WorkloadConfigurationService.List` / `Save` / `Delete` / `Undo`
 
@@ -250,7 +273,8 @@ replaced in list/detail projection, without mutating history.
 
 - Optimistic conflict uses Environment `version`; no last-write-wins on current-set pointer.
 - Domain errors are typed Go errors; delivery maps them to HTTP status and the stable public error contract below.
-- Failed external execution may mark Deployment/Resource `FAILED`, but retry/resume/rollback remains outside current happy path.
+- Lỗi external ghi FAILED/safe stage; retry transient có giới hạn theo state
+  contract. Automatic resume/rollback không thuộc phạm vi; interruption giữ hold.
 - Secret values never enter logs, plan hash input exposed to clients, database JSONB or UC-09 view.
 
 ## Registration and desired-input validation (2026-10-02)
@@ -282,7 +306,7 @@ before UC-08, dispatches rendering after outputs and preserves readiness/commit
 rules. OC-10 excludes workload Definitions from infrastructure execution.
 See [rendering contract](workload-rendering.md) for the detailed boundary.
 
-## Editable Environment destinations (supersedes OC-01b set-once)
+## Environment destinations và transitions
 
 - `ApplicationService.SetConnection`: existing PUT connection route retains
   `{connectionKey, expectedVersion}`; initial/pre-runtime changes are scoped CAS,
@@ -332,8 +356,8 @@ Connection through a trusted system Definition, exempt from catalog matching.
 OC-06/OC-07 Preview/planning never persist it. OC-10 admits the reserved system
 record idempotently before FK-dependent progress/resource writes, validates scope,
 READY/kind/target and uses existing-cluster; catalog contents cannot override it.
-Other nodes still require exactly one matching Definition. Cloud VPC/EKS/Aurora
-contracts and external Driver Accounts remain unchanged. See
+Other nodes vẫn cần một matching Definition; mọi AWS node dùng Environment
+account/region theo UC-08 BR-07. Xem
 [ADR-013](../decisions/ADR-013-implicit-existing-cluster.md).
 
 ## OC-04b `ResourceDefinitionService.ListRenderBundles`
@@ -363,7 +387,7 @@ contracts and external Driver Accounts remain unchanged. See
   replaces only same-key entry in memory. Reserved system key/public
   existing-cluster candidate bị từ chối; persisted system binding không bị đổi.
 - Returns 200: `status` trong `INCOMPLETE`, `MATCHED`, `NO_MATCH`, `AMBIGUOUS`,
-  `CONNECTION_CONFLICT`, `SYSTEM_BINDING`, `NATIVE_RENDERER`; `missingFields`,
+  `CONNECTION_CONFLICT`, `SYSTEM_BINDING`; `missingFields`,
   `candidates` (key, eligible, matched, bestCriterion/score nếu match), `winner`
   hoặc `ties`, `connectionConflict`, `snapshot` (marker và environmentVersion).
   Candidate eligibility gồm type/profile; score chỉ tính năm criteria. Incomplete
@@ -486,7 +510,7 @@ new desired references/versions and invalidates old preview tokens.
 - GET `/api/v1/resource-definition-capabilities`, session org and PE/Admin;
   401/403 independently enforced. No org override or request body.
 - 200 `{capabilities: [...]}` sorted by resourceType/driverType/module. Each
-  entry has `resourceType`, `driverType`, `module` (empty for Kubernetes),
+  entry has `resourceType`, `driverType`, `module`, verified source/revision và provider/class metadata,
   `variables` sorted by name, and `executorOwned` names. Variables carry
   `name`, `type`, `required`, `hasDefault`, optional typed `default`,
   `resourceParam` boolean and optional `preset` placeholder string.
@@ -496,45 +520,16 @@ new desired references/versions and invalidates old preview tokens.
   wrong-type name does not satisfy its required Definition input. Supported pairs are registration policy;
   never derive custom Resource Types from module variable names.
 - Exclude executor-owned variables from editable variables and secrets/defaults;
-  Terraform region/tags/master_password identified by inspector. Public metadata
-  has no path/source/template/binary/fingerprint/credential/provider diagnostics.
-  Kubernetes defaults reflect existing executor behavior, namespace target is
-  context sourced; no invented capacity or engine defaults.
-- Only scoped metadata repository reads and local embedded contract inspection;
+  Terraform region/tags/master_password identified by inspector. Metadata không chứa private cache path, credential, raw source/template/binary
+  contents hoặc provider diagnostics. Source ID/revision an toàn được công bố
+  cho PE authoring; chỉ defaults từ verified module, không tự đoán capacity.
+- Only scoped metadata repository reads and verified registry contract reads;
   no transaction writes, system admission, execution or provider calls. Internal
   errors use safe T20 500 envelope, no raw inspector content.
 - Registration OC-04, deferred placeholder typing, resource param precedence,
   graph edges and matching unchanged. Metadata is guidance, not deployment proof.
 
-## Terraform v2 scoped supersession (ADR-014)
 
-V2 replaces embedded-only/explicit Aurora-account/native-default/internal-only
-clauses in OC-04/05/07/08/10 and capabilities OC-04d above. Old clauses describe
-implemented baseline only where they conflict. V2 uses inspected immutable
-module registry, same Environment AWS account/region, provider binding to scoped
-Kubernetes/EKS target, required score-k8s for both profiles and durable encrypted
-state. No new public standalone deploy/destroy workflow is implied.
-
-- OC-03 registers Redis/common PostgreSQL contracts from
-  [module contract](terraform-modules.md); no schema migration of v1.
-- OC-04 validates source allowlist/revision/digest, typed mappings/provider
-  requirements and Resource Type outputs, then insert-only Definition/criteria.
-  Remote acquisition/inspection is bounded and outside persistence transaction;
-  planner/capability queries read verified metadata only.
-- OC-05 enables AWS access-key onboarding via Console under ADR-009, safe
-  account/principal/allowed-region verification and Vault ref persistence;
-  platform state backend is not selected per Connection. STS alone is insufficient.
-- OC-06/07/17 pin module/provider/binary digests and state/target identity,
-  validate known inputs and required renderer, expose safe module/target/ownership
-  projection. No provider/CLI invocation or secret resolution in Preview.
-- OC-08/10 claim persisted Environment operation before state locks, write intent
-  before side effects, validate outputs/readiness and render score-k8s before
-  delivery. Retry/busy/stale/current-set rules remain; failed/unknown outcome
-  preserves state and owner hold rather than automatic resume or destructive rollback.
-- OC-09 removes workload objects but retains resource/data; UNREFERENCED is not
-  DESTROYED. Shared resources scoped to Environment/generation preserve consumers.
-- OC-11 returns persisted safe resource stage/attempt/module/target and cleanup
-  progress; polling does not call runtime provider or reveal state/inputs.
 
 ## OC-18 `TerraformStateBackend.Read` / `Write` / `Lock` / `Unlock`
 
@@ -547,19 +542,60 @@ Expiry does not unlock; old owners cannot write/unlock. Raw state is never API
 read data for Developer/PE. Full protocol/security rules and tests:
 [state contract](terraform-state.md), [schema](../database/schema.md).
 
-## OC-19 `ResourceCleanupService.CleanupResources`
+## OC-19 `ResourceCleanupService.PrepareDeletion` / `CleanupResources`
 
-Internal authorized cleanup operation, no generic public destroy UI in this
-acceptance scope. Input: authorized Environment/generation/run, explicit instance
-IDs/expected versions and original target; no wildcard deletion. Claim operation,
-verify ownership/consumers/dependencies, lock states, destroy reverse graph and
-verify provider absence; persist per-instance remaining IDs/errors. SUCCEEDED
-only when requested owned resources absent. CREATED_BY_RUN cleanup never deletes
-PREEXISTING/UPDATED_BY_RUN or unrelated platform resources. Interruption/failed
-cleanup preserves metadata/state and reports incomplete, not rollback success.
-Test supervisor uses distinct narrow capability and does not bypass checks.
+**User deletion:** session PE/Admin đúng Organization/Environment; root managed
+UNREFERENCED, không consumer và Environment operation trống theo UC-07 DEL-*.
+Developer 403 cả preview/execute. Root platform hoặc ngoài ownership không xóa.
 
-## V2 public safe failure/progress envelope
+PrepareDeletion đọc một snapshot root/current + pending/retained graphs và
+versions; tính dependency closure cùng scope: chỉ dependency UNREFERENCED,
+non-platform, mọi consumer nằm trong tập xóa. Trả root + eligible dependencies,
+retained reasons, server confirmationName từ root descriptor, token/expiry.
+Token pin root/IDs/resource versions/Environment/current-set/draft versions,
+original targets/generation và actor; không provider/secret calls hoặc side effects.
+Không thêm resource ngoài closure đã hiển thị sau khi xác nhận.
+
+Execute nhận `{token,confirmationName}`; so exact tên server, không trim/case-fold.
+Trong một transaction, kiểm role/scope/token/versions/status/consumers/no active
+operation, nhận Environment owner/fence và persist actor/confirmed scope/token
+hash/REQUESTED. Snapshot đổi trả stale/busy/refused trước provider call.
+Cùng token/actor đã nhận trả operation cũ, không tạo request destroy thứ hai.
+
+CHECKING kiểm original module/target/state/ownership. DESTROYING khóa state và
+xóa consumer trước provider. Consumer fail thì giữ provider còn cần; chỉ tiếp
+tục nhánh độc lập an toàn. VERIFYING kiểm absence từng physical ID; chỉ khi
+toàn bộ confirmed set đã hết mới SUCCEEDED. Persist per-instance remaining
+IDs/safe reason và state cuối/audit; không sửa historic Deployment snapshots.
+Không Undo dữ liệu, rollback tự động hoặc force-unlock vì timeout.
+
+**Run cleanup:** capability nội bộ riêng với explicit run/IDs, chỉ CREATED_BY_RUN.
+PREEXISTING/UPDATED_BY_RUN không được xóa bởi run cleanup. Không giả tên/token
+UI để nâng quyền. Cả hai dùng chung engine reverse graph/verification, giữ
+platform/foreign/referenced resources, state và progress khi cleanup incomplete.
+Full protocol [state contract](terraform-state.md); public mapping dưới đây.
+
+### Public HTTP mapping
+
+Prefix `/api/v1/applications/{app}/environments/{env}`; phiên lấy Organization/role.
+
+| Operation | Route | Kết quả |
+|---|---|---|
+| Resource detail (OC-11/UC-09) | GET `/resources/{resourceId}` | 200 safe detail/eligibility/descriptor; không provider refresh. |
+| PrepareDeletion | POST `/resources/{resourceId}/deletion-preview` với `{}` | 200 token, confirmationName, delete set và retained reasons/versions/expiry. |
+| CleanupResources | POST `/resources/{resourceId}/deletions` với `{token,confirmationName}` | 202 operationId/REQUESTED; token đã nhận trả operation cũ. |
+| Query operation (OC-11/UC-09) | GET `/resource-cleanups/{operationId}` | 200 scoped persisted stages/confirmed IDs/absence/remaining IDs. |
+
+Bodies bounded/known-field; resource IDs được resolve theo scope. Missing
+session 401, wrong mutation role 403, foreign/missing scope 404. Wrong typed
+name 400 `RESOURCE_CONFIRMATION_MISMATCH` field confirmationName, không echo
+submitted value. Stale 409 `STALE_PREVIEW`, busy 409 `ENVIRONMENT_BUSY`,
+ineligible 409 `CLEANUP_REFUSED` với allowlisted reason. Missing backend/module/
+credential service 503; provider failure ghi safe operation result. Network
+response loss không tự replay mutation; query operation để biết đã nhận chưa.
+Read routes theo quyền xem Environment, không cấp quyền Prepare/Execute.
+
+## Resource execution failure/progress envelope
 
 Keep T20 stable envelope and Vietnamese code mapping. Add typed reason codes
 `MODULE_UNAVAILABLE`, `MODULE_INTEGRITY_FAILED`, `MODULE_INPUT_INVALID`,
@@ -577,3 +613,9 @@ attempt/status and timestamps. Error params remain allowlisted stage/reason and
 registered Type; field path only known schema fields, no arbitrary user keys or
 submitted values. Unknown provider/CLI/decode cause uses safe fallback. No raw
 stdout/stderr, plan JSON, backend capability, credential refs or state payload.
+
+Cleanup refusal reasons được phép: NOT_UNREFERENCED, HAS_CONSUMERS,
+PLATFORM_RESOURCE, OWNERSHIP_UNVERIFIED, ORIGINAL_TARGET_UNAVAILABLE.
+Operation progress stage enum riêng: REQUESTED/CHECKING/DESTROYING/VERIFYING;
+status SUCCEEDED/FAILED/INTERRUPTED kèm remaining IDs đã scope. Error envelope
+không raw diagnostics/typed name; safe resource IDs chỉ ở scoped query result.

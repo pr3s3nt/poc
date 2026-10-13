@@ -7,17 +7,10 @@ last_reviewed: 2026-10-13
 
 # UC-06 — Use Case Realization
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Trách nhiệm
 
-Điều phối end-to-end Score -> plan -> UC-08 resource provisioning -> output binding -> Kubernetes workload apply -> optional internal-kind Ingress reconcile -> atomic commit current Deployment Set. Planning semantics lấy từ `implementation/uc06-planner-reference.md`; execution không dùng challenge harness.
+Điều phối end-to-end Score -> plan -> UC-08 resource provisioning -> output binding -> Kubernetes workload apply -> optional internal-kind Ingress reconcile -> atomic commit current Deployment Set. Planning semantics thuộc specification UC-03/05/06; reference analysis là
+nguồn tham khảo, không thay requirements.
 
 ## System operations
 
@@ -44,6 +37,8 @@ WorkloadDeployer.WaitReady(ctx context.Context, target DeploymentTarget, workloa
   nếu route reconcile lỗi sau workload commit, Preview cho retry route-only.
 - `Deployment`, `DeploymentPlan`, `DeploymentDeltaSnapshot`, `DeploymentSet`, `ContainerResourceRequirements`, `ActiveResource`, `WorkloadInstance`.
 - Application/Environment/Deployment/DeploymentDeltaSnapshot/DeploymentSet/ActiveResource/WorkloadInstance repositories.
+- `EnvironmentOperationManager`, `ModulePreflight`, `RenderPreflight`: kiểm
+  snapshot/artifacts và nhận owner/fence trước UC-08; release sau process stopped.
 - `UnitOfWork` cho create-plan và final commit transactions.
 
 ## Trace main flow
@@ -61,8 +56,10 @@ WorkloadDeployer.WaitReady(ctx context.Context, target DeploymentTarget, workloa
 
 ## Profile realization
 
-- `aws-eks`: `ImplicitResourceEnricher` thêm Environment/generation-scoped VPC/EKS only; UC-08 dùng Terraform Executor cho VPC, EKS, Aurora; target lấy từ EKS outputs.
-- `internal-k8s`: enricher thêm existing cluster provider; UC-08 dùng connection adapter và Kubernetes Executor cho namespace/PostgreSQL; target lấy từ connection outputs.
+- `aws-eks`: `ImplicitResourceEnricher` thêm Environment/generation-scoped VPC/EKS only; UC-08 dùng Terraform cho VPC/EKS/ElastiCache/Aurora và Kubernetes modules
+  namespace/Redis/PostgreSQL; target lấy từ EKS outputs.
+- `internal-k8s`: enricher thêm existing cluster provider; UC-08 resolve Connection bằng ExistingClusterAdapter; Terraform quản lý
+  namespace/Redis/PostgreSQL qua Kubernetes provider trên target đó.
 
 ## Transaction boundary
 
@@ -93,14 +90,16 @@ credential at each adapter call; never persist normalized kubeconfig or temp
 paths in outputs/state/plan. Missing/not-READY Connection fails closed. Restore
 the same scoped target for removal and route reconciliation after restart.
 T22 removes host-context targets: context-only/unscoped execution fails closed.
-Internal Kubernetes requires scoped KUBECONFIG; explicit Terraform-generated
-EKS kubeconfig paths remain supported. Implementation evidence is tracked in current state.
+Internal Kubernetes requires scoped KUBECONFIG; EKS credential được tái tạo theo pinned opaque identity cho mỗi invocation,
+không persist đường dẫn kubeconfig. Kết quả code thuộc CURRENT_STATE.
 
 ## Definition-selected workload rendering collaboration
 
 See [ADR-010](../../architecture/decisions/ADR-010-score-k8s-workload-rendering.md)
 and [rendering contract](../../architecture/contracts/workload-rendering.md).
-Catalog validates the installed bundle; shared planning selects/pins the renderer.
+Catalog kiểm required score-k8s bundle cho cả profiles; planner pin
+Definition/bundle/module/provider identity. Deploy preflight kiểm known inputs
+và digests trước provision; không có renderer thay thế khi thiếu/lỗi bundle.
 UC-06 validates availability before provisioning, then dispatches the existing
 WorkloadRenderer port after output binding. UC-08 still executes resource-only
 batches. Kubernetes/Fleet apply/readiness and Environment route ownership stay
@@ -110,7 +109,7 @@ in their existing adapters. No database transaction spans a CLI/external call.
 
 Shared snapshot loader resolves persisted Environment target in session
 Organization; UNCONFIGURED fails before planning/execution. Definition guards and
-UC-08 defense-in-depth compare against this Environment connection. Terraform VPC/EKS use the pinned Environment AWS account even though the reusable Definition key is empty; resolve and validate org/kind/READY before execution and persist the effective account in ActiveResource. A malformed conflicting winning Definition fails without fallback. Aurora keeps its explicit org-scoped READY AWS account; missing account fails closed. Context,
+UC-08 defense-in-depth compare against this Environment connection. Terraform VPC/EKS use the pinned Environment AWS account even though the reusable Definition key is empty; resolve and validate org/kind/READY before execution and persist the effective account in ActiveResource. A malformed conflicting winning Definition fails without fallback. Aurora/ElastiCache cũng dùng cùng Environment account/region; không override. Context,
 version, scope mode and nonsecret target metadata are pinned into hashes/snapshots.
 AWS enrichment produces Environment/generation-scoped VPC/EKS only (T27).
 Retired scopes fail closed; current generation-0 identity is preserved under [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).
@@ -132,14 +131,3 @@ Score parsing and public Deployment Set projection reject `service.publicPort`;
 only `publicRoutes` reaches Candidate validation and rendering. Multi-path,
 same-host ownership, declared-port validation and route-only retry remain intact.
 No alias conversion or default route is introduced.
-
-## Terraform v2 execution collaboration
-
-Before UC-08, RenderPreflight + ModulePreflight validate immutable artifacts and
-known inputs, then EnvironmentOperationManager admits owner/fence under snapshot
-CAS. ResourceProvisioningService executes Terraform-only new infrastructure and
-returns typed secret refs/target. ScoreK8sRenderer generates Workload manifests for
-both profiles; existing delivery/readiness/final commit stays. Finally release
-operation only after processes confirmed stopped; interrupted unknown outcome
-holds ownership. This supersedes baseline Kubernetes resource driver/Aurora-account
-and optional renderer prose above. No data migration or automatic rollback added.

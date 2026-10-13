@@ -7,76 +7,42 @@ last_reviewed: 2026-10-13
 
 # AWS verification
 
-## V2 execution scope
+## Quyền và điểm dừng
 
-[Terraform v2 acceptance](terraform-v2-acceptance.md) supersedes the historical
-runner/state/cost-ceiling/set-once instructions below for v2. User authorized
-small test resources with estimates, no fixed USD ceiling, one scenario retry
-and immediate verified cleanup, using discovered account/region in that runbook.
-State is durable encrypted PostgreSQL through HTTP backend, not temporary local
-state; local CLI recovery artifacts remain private if acknowledgement fails.
-Legacy aws-verify.sh is baseline verification, not UI-only v2 acceptance proof.
-Terraform state may contain sensitive values; secrets must be absent from public
-metadata/manifests/logs/evidence, not falsely assumed absent from state.
+[V2 acceptance runbook](terraform-v2-acceptance.md) sở hữu account/region,
+small sizing, estimates, deadlines và cleanup. [M04](../iterations/M04-terraform-v2/README.md)
+yêu cầu người dùng xem video k8s-4f A01 và bảng dự toán trước AWS. Không tạo
+AWS resources trước duyệt chặng 2; cloud permissions đã giao không bỏ qua gate.
 
-## Warning
+## Preflight
 
-Run này tạo tài nguyên AWS có phí. Chỉ chạy khi người dùng đặt cloud verification
-vào scope và đã xác nhận account, region cùng cost estimate.
+1. Kiểm lại account/principal/region không hiển thị key. Host chain chỉ cho
+   read-only preflight; product execution dùng Connection onboarding qua UI/Vault.
+2. Ghi exact module/Terraform/provider/renderer pins, small compatible sizing,
+   resource counts và giá hiện hành trong estimate table; không trần USD giả.
+3. Run ID/tag project/owner/environment/run-id/expires-at/managed-by,
+   original state/target/module/ownership handles sẵn cho independent supervisor.
+4. Durable encrypted platform PostgreSQL HTTP state, khóa/fencing, Vault và
+   EKS network/access requirements phải preflight được trước apply.
+5. Terraform validate/plan review allowlist/count limits; UI Preview vẫn pure.
 
-## Required preflight
+## Thực thi và cleanup
 
-1. Resolve AWS identity bằng default credential chain/profile mà không in
-   credential.
-2. Xác nhận account ID, principal ARN và region.
-3. Tạo run ID duy nhất; mọi resource phải có tối thiểu `project`, `owner`,
-   `environment`, `run-id`, `expires-at`, `managed-by`.
-4. Dùng Terraform state riêng trong thư mục tạm ngoài repository.
-5. Chạy Pricing/Spot estimate và ghi cost ceiling.
-6. Validate Terraform modules và review plan bằng allowlist/count limits.
-7. Xác nhận cleanup script có đủ state/run ID trước apply.
+V2-A02 dùng ElastiCache/Aurora, V2-A03 dùng Redis in-cluster EKS/Aurora.
+Mọi AWS node cùng Environment account/region; module Kubernetes bind EKS
+completed target. Declare bằng Console form, Preview/Deploy theo UI, rồi chạy
+job flow app/Redis/PostgreSQL thực tế. Không thay UI bằng aws-verify.sh hoặc API.
+Script cũ chỉ là checkpoint lịch sử tại a897d6b/3367f7e; code gaps ở IMP-021.
 
-## Automated verification
+Cleanup ngay sau từng run, kể cả lỗi/cancel, reverse dependency qua đúng
+original module/state/target. Gỡ consumer trước, application resources trước
+namespace/EKS/VPC; dọn ECR/IAM/network phụ trợ thuộc run. Không account-wide
+hoặc prefix wildcard delete, không xóa namespace để bỏ qua children states.
+State/plan có thể chứa secret, chỉ giữ restricted ciphertext/private artifacts;
+metadata/logs/manifests/evidence không để lộ raw secret values.
 
-```bash
-cd backend
-bash test/integration/aws-verify.sh
-```
-
-Script tạo ECR tạm, build/push acceptance images, tạo VPC/EKS/Aurora, deploy ba
-workload qua HTTP API, kiểm job flow/Web Console, rồi cleanup trong EXIT trap.
-
-## Required runtime assertions
-
-- VPC/EKS are Environment/generation-scoped only; T27 rejects retired Application-scope bindings under ADR-011. Aurora retains shared postgres contract.
-- Backend/worker nhận database outputs; secret không xuất hiện plaintext trong
-  manifests, logs, state hoặc UC-09 view.
-- Không tạo Service `LoadBalancer`; verification dùng port-forward.
-- Workloads ready và end-to-end job flow pass.
-
-## Cleanup order and proof
-
-1. Dừng port-forward.
-2. Xóa Kubernetes test namespace và xác nhận không còn LoadBalancer service.
-3. Xóa ECR repositories/images của đúng run ID.
-4. Destroy Aurora → EKS/node group → VPC bằng đúng Terraform state.
-5. Query AWS API theo run ID/tag cho VPC, subnet, security group, NAT/IGW,
-   EC2/EBS/EIP, route table, EKS, RDS, ECR, load balancer và IAM roles.
-6. Chỉ xóa local state/kubeconfig/image sau khi query cleanup sạch.
-
-Không dùng wildcard hoặc account/region-wide deletion. `terraform destroy`
-thành công không đủ; AWS API/tag query mới là cleanup evidence cuối.
-
-## Environment target selection (ADR-011)
-
-Before Preview/Deploy, set the Environment Connection once in Settings. Region
-and execution profile derive from that AWS Connection; two new Environments have
-separate VPC/EKS descriptors, Terraform workspace paths and cloud name stems.
-Never edit a configured binding or move its state to another account/region.
-Legacy migration locks the old Connection and preserves application-scope identity
-and existing physical names; it does not migrate cloud resources. See
-[ADR-011](../architecture/decisions/ADR-011-environment-execution-binding.md).
-
-The current implementation task verifies AWS scope with local tests only. Existing
-AWS credential onboarding limitations remain. A future cloud run still requires
-the explicit external-verification authorization and preflight/cleanup above.
+Query AWS theo physical IDs/run tags: VPC/subnets/SG/routes/NAT/IGW, EC2/EBS/
+EIP, EKS, RDS, ElastiCache, ECR, IAM/LB phát sinh. Destroy exit 0/empty state
+không đủ absence proof. Remaining IDs phải được xử lý và xác minh; chưa sạch
+thì run chưa hoàn tất và không bắt đầu run mới. Giữ failed video/assertions
+và evidence cleanup để final handoff được người dùng duyệt.

@@ -2,7 +2,7 @@
 id: ADR-002
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-13
 ---
 
 # ADR-002 — External Calls Outside Database Transactions
@@ -18,7 +18,8 @@ Never hold a PostgreSQL transaction while Terraform, cloud or Kubernetes calls r
 - No false distributed-transaction guarantee.
 - Deployment/Resource progress is observable through UC-09.
 - Executor operations require logical idempotency/state references.
-- Retry/resume policy remains future scope, but persisted state is sufficient to design it later.
+- Retry transient có giới hạn theo ADR-014/state contract. Full automatic
+  resume deferred D12; không suy persisted progress thành recovery đã đạt.
 
 ## Environment transition extension
 

@@ -375,6 +375,7 @@ class TerraformStateSnapshot <<restricted integration state>>
 class TerraformStateLock <<entity>>
 class TerraformResourceAttempt <<entity>>
 class TerraformStateBackend <<boundary>>
+class CleanupPlanner <<control>>
 class ResourceCleanupService <<control>>
 interface TerraformStateRepository
 interface ResourceInstanceRepository
@@ -395,6 +396,8 @@ TerraformExecutor --> TerraformStateBackend
 TerraformExecutor --> ConnectionCredentialResolver
 TerraformStateBackend --> TerraformStateRepository : encrypted state / lock CAS
 TerraformStateBackend --> EnvironmentOperation : current owner/fencing checks
+CleanupPlanner --> ResourceInstanceRepository : pinned eligible dependency closure
+ResourceCleanupService --> CleanupPlanner : confirmed scope only
 ResourceCleanupService --> ResourceInstanceRepository
 ResourceCleanupService --> ResourceAttemptRepository
 ResourceCleanupService --> TerraformExecutor : explicit DESTROY

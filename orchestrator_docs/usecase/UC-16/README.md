@@ -7,32 +7,11 @@ last_reviewed: 2026-10-13
 
 # UC-16 context — Manage workload configuration
 
-## V2 design scope
+## Trạng thái thực hiện
 
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
-## Delivery state
-
-Specification and UI design approved. UC-01 Application home now links to
-UC-16 draft list/editor and UC-12 settings. Form, Score import and draft
-save/delete/undo are implemented with reference validation. Save and Score
-import also validate all non-virtual dependency params against the Resource Type
-catalog before mutation (local code/API/UI checks on 2026-10-02). Editing a deployed
-workload without a saved draft reconstructs a reference-based Score from the
-current Deployment Set. Preview → Deploy and runtime reference resolution are
-implemented; create and configuration-only redeploy have kind verification.
-Resource dependency inputs, including PostgreSQL `database` and `username`,
-are editable on the form and persisted as Score params.
-Per-container Application variable/secret checklists select existing UC-12 keys
-with same-name defaults and optional aliases. Resource/Service references use
-a separate editor. Missing keys, duplicate container names and late replies
-from a previous scope cannot silently replace or drop selected bindings.
-One optional Service port can be selected as the Environment's public entry;
-it remains pending until Preview → Deploy.
+Xem [CURRENT_STATE](../../CURRENT_STATE.md) và
+[IMP-021](../../implementation/deviations.md#imp-021-terraform-v2-designimplementation-gap).
+Specification/realization định nghĩa yêu cầu, không chứng minh implementation.
 
 ## Read in this order
 

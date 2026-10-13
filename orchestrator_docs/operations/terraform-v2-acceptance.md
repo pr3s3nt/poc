@@ -12,6 +12,19 @@ Runbook này ghi scope người dùng đã chốt và execution procedure cần 
 không khẳng định runner/modules/Redis đã có. ADR nằm tại
 [ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md).
 
+## Ba chặng và điểm dừng
+
+1. Chặng 1 hoàn tất tài liệu A–D và plan M04, commit/push rồi **dừng chờ duyệt**.
+   Không giao code hoặc bắt đầu test mutation của chặng 2 trước người dùng duyệt.
+2. Chặng 2 implement/code tests, disposable PostgreSQL thật, V2-A01/E01/E02
+   trên k8s-4f với adapters thật/video. Bàn giao video A01 cùng bảng dự toán
+   AWS để người dùng xem và duyệt trước chặng 3. Không tạo hạ tầng AWS ở chặng 2.
+3. Chặng 3 sau duyệt mới chạy V2-A02/A03 trên AWS, cleanup xác minh, review/
+   commit/push và bàn giao cuối cùng để người dùng duyệt. Cleanup không được
+   dừng chờ duyệt nếu tài nguyên test còn tồn tại.
+
+Plan/task cụ thể: [M04](../iterations/M04-terraform-v2/README.md).
+
 ## Quyền được giao
 
 - AWS target dự kiến: account `452025861381`, region `us-east-1`; STS read-only
@@ -35,7 +48,7 @@ không khẳng định runner/modules/Redis đã có. ADR nằm tại
 - Không trần USD cố định; small compatible sizing, cost estimate trước run,
   resource-count/allowlist plan review và deadline hữu hạn bắt buộc. Không tự
   ghi một budget ceiling là người dùng đã chốt. Chạy tuần tự; xóa ngay sau mỗi
-  run dù thành công/thất bại. Không mở acceptance update/delete matrix.
+  run dù thành công/thất bại. Không mở ma trận update/delete rộng; V2-A01 có bước user deletion đã chốt.
 
 ## Preflight và deadlines
 
@@ -108,6 +121,21 @@ Mỗi scenario chạy hai chặng headed browser liên tục hoặc có phase/vi
    cache hit. Đợi cache TTL hết, mở/tải lại result bằng UI, verify cache miss
    fallback đọc cùng kết quả PostgreSQL và refill Redis. Chỉ đọc evidence safe
    IDs/counts/status; không dump data/credential vào video/log công khai.
+
+### Bước xóa qua UI trong V2-A01
+
+Sau khi job/cache assertions đạt, gỡ cả frontend/backend/worker qua luồng
+pending changes -> Preview -> Deploy để không còn Workload/Service consumer.
+Chứng minh Redis/PostgreSQL vẫn tồn tại và được đánh dấu UNREFERENCED.
+Đăng nhập PE/Admin qua UI, mở resource detail trong Environment; Developer
+không có nút Xóa. Bấm Xóa tài nguyên, review root + dependency đủ điều kiện
+(trong scope) và dependency giữ lại, cảnh báo mất dữ liệu, gõ root name rồi
+xác nhận. Quay progress REQUESTED/CHECKING/DESTROYING/VERIFYING và verified
+absence; thực hiện cho Redis và PostgreSQL nếu không cùng một closure.
+Assertions chứng minh retained/platform resources ngoài confirmed set nguyên
+vẹn; script dọn namespace/infra test còn lại sau bước UI. Cancellation/name/
+role/stale/consumer races có code tests, không mở thêm live exception scenario.
+Delete UI fail thì A01 chưa đạt dù safety net dọn thành công; giữ failure video.
 
 Acceptance app UI business assertions là điều kiện pass; chỉ ping dependencies,
 Pod Ready hoặc Services gọi được nhau không đủ. Tất cả dùng adapter thật.

@@ -1,0 +1,53 @@
+@startuml
+title UC-07 - Xoa tai nguyen va dependency da xac nhan (DEL-MS-01..07)
+autonumber
+actor "PE / Admin" as User
+boundary "Resource detail / confirmation UI" as UI
+boundary ResourceCleanupController as API
+control CleanupPlanner as Planner
+control ResourceCleanupService as Service
+control EnvironmentOperationManager as Operations
+database "Scoped resources / graph / ownership / versions" as Records
+boundary TerraformExecutor as Terraform
+boundary "Provider absence verifier" as Verify
+User -> UI: Xoa tai nguyen [DEL-MS-01]
+UI -> API: POST deletion-preview(root ID)
+API -> API: Session Organization + PE/Admin; Developer 403
+API -> Planner: PrepareDeletion(scoped root)
+Planner -> Records: Consistent current/pending/retained dependencies snapshot
+Records --> Planner: owner/status/consumers/versions/original targets
+Planner -> Planner: Root UNREFERENCED; eligible dependency closure; retain platform/referenced
+Planner --> UI: pinned token, root name, deletion set + retained reasons [DEL-MS-02]
+UI -> User: Data-loss warning; list all planned deletions
+User -> UI: Type exact root name and confirm [DEL-MS-03]
+UI -> API: POST deletions(token, confirmationName)
+API -> Service: Role/scope-gated execution request
+Service -> Operations: Atomic CAS recheck / no active operation / claim owner-fence [DEL-MS-04]
+alt stale / busy / wrong confirmation / consumer found
+  Operations --> UI: Safe rejection; no destroy; review new scope
+else admitted
+  Operations -> Records: Atomic claim + actor/confirmed set/token hash/target; REQUESTED
+  Operations --> Service: Admitted current owner/fence
+  Service --> API: 202 operationId / REQUESTED
+  API --> UI: Follow persisted operation progress
+  Service -> Records: CHECKING [DEL-MS-05]
+  loop Confirmed reverse dependency only
+    Service -> Records: DESTROYING progress
+    Service -> Terraform: DESTROY(original module/target/state, owner-fence)
+    Terraform --> Service: result / safe failure
+    Service -> Records: VERIFYING progress
+    Service -> Verify: Check physical IDs absent [DEL-MS-06]
+    Verify --> Service: absent / remaining IDs / error
+    Service -> Records: Persist per-instance proof / DESTROYED or remaining
+  end
+  UI -> API: Poll scoped cleanup operation
+  API -> Records: Read persisted stages/results (no provider call)
+  Records --> UI: verified SUCCEEDED or incomplete IDs [DEL-MS-07]
+  Service -> Operations: Release only if subprocess stopped; unknown outcome holds
+end
+note over User, Service
+No dependency added after confirmation.
+User deletion uses durable ownership; run cleanup uses CREATED_BY_RUN.
+Workload removal itself retains infrastructure/data.
+end note
+@enduml

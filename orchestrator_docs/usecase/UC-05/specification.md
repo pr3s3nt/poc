@@ -7,14 +7,6 @@ last_reviewed: 2026-10-13
 
 # UC-05 — Validate and Preview Score Changes
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Mục tiêu
 
 Kiểm tra Score và hiển thị thay đổi dự kiến trước khi thực hiện deployment.
@@ -42,7 +34,8 @@ Kiểm tra Score và hiển thị thay đổi dự kiến trước khi thực hi
 3. **MS-03:** Orchestrator chuyển Score thành workload fragment và giữ nguyên container CPU/memory requests/limits trong module spec.
 4. **MS-04:** Orchestrator tạo Humanitec-shaped Deployment Delta và Candidate Deployment Set.
 5. **MS-05:** Orchestrator enrich implicit resources theo Execution Profile, dựng Resource Graph và match Resource Definitions.
-6. **MS-06:** Orchestrator kiểm tra graph, references và Terraform contracts.
+6. **MS-06:** Orchestrator kiểm graph, references, required/typed/bounds inputs
+   và module mappings biết được trước execution; lỗi chặn Deploy trước tạo hạ tầng.
 7. **MS-07:** Orchestrator tính provision batches và phân loại Active Resources.
 8. **MS-08:** Orchestrator trả preview gồm Delta, Candidate Deployment Set, resource changes và provision order mà không thực thi runtime change.
 
@@ -57,7 +50,9 @@ Kiểm tra Score và hiển thị thay đổi dự kiến trước khi thực hi
 - **BR-01:** Preview và deploy phải dùng cùng planning pipeline và cùng input snapshot để tránh kết quả khác nhau.
 - **BR-02:** Invariant bắt buộc là `current Deployment Set + Delta = Candidate Deployment Set`.
 - **BR-03:** Graph edge có chiều `consumer -> provider`; batches luôn đặt provider trước consumer.
-- **BR-04:** Preview là read-only và không được gọi Resource Executor hoặc Kubernetes apply.
+- **BR-04:** Preview chỉ đọc, không gọi Resource Executor, Terraform/
+  score-k8s CLI, provider hoặc secret store. Module contracts lấy từ registry
+  đã kiểm chứng; request Preview không tải module.
 - **BR-05:** Deployment Delta có shape `modules.add/remove/update` và `shared`; patch trong `modules.update.<id>` relative với module, patch `shared` relative với object shared.
 - **BR-06:** Delta deterministic; array được diff theo index chung, remove đuôi từ index lớn xuống nhỏ và add đuôi bằng path `/-`.
 - **BR-07:** `containers.*.resources` chỉ nhận `requests`/`limits` với `cpu` và `memory`; mọi field đều optional, nhưng field đã khai báo phải là non-empty string. `null`, number, empty string, branch hoặc resource key khác bị reject. Giá trị hợp lệ phải được bảo toàn nguyên văn từ Score sang Candidate Deployment Set. Validation của planner dừng ở shape này, không kiểm Kubernetes quantity semantics; Kubernetes API kiểm quantity khi workload được apply.
@@ -110,16 +105,6 @@ UC-05 Validate and Preview
 └── Return deployment preview
 ```
 
-## Trạng thái implementation hiện tại
-
-- `PlanningService` dùng chung đã triển khai Score validation, Candidate Set, graph/matching, contract inspection, classification và batches; 33 challenge fixture được chạy qua planner sản phẩm với các khác biệt đã tài liệu hóa.
-- Planner sinh Humanitec-shaped Delta `modules.add/remove/update` và `shared`; patch `modules.update.<id>` relative với module, patch `shared` relative với object shared, array diff theo BR-06 có product tests riêng và conformance so Delta của 27 accepted fixtures. Deployment path của UC-06 persist Delta thành immutable Snapshot riêng; preview không persist Snapshot. Parser validate `containers.*.resources` theo BR-07 và planner giữ requests/limits nguyên văn trong Candidate Set (I06-07).
-- UC-06 đang gọi pipeline này để deploy thật. UC-16 pending-change Preview,
-  endpoint và Application home panel đã wire, gồm no-op filtering và route-only
-  retry. Standalone Score Preview đã có service, scoped authenticated HTTP API
-  và Web Console riêng; snapshot nhất quán, public response được sanitize,
-  không save draft hoặc tạo Deployment.
-
 ## Ngoài phạm vi happy path
 
 - **OOS-01:** Lưu và quản lý nhiều bản preview.
@@ -130,21 +115,23 @@ UC-05 Validate and Preview
 
 ## Workload renderer selection
 
-- **BR-09:** Preview selects workload Definitions with the existing matching
-  rules and pins Definition content plus bundle/binary/patch digest in its plan
-  hash. The installed bundle is pinned per Plan, so after a renderer upgrade the
-  same Definition selects the new bundle and earlier previews/tokens are stale.
-  No matching workload Definition selects the built-in native renderer.
-  Missing bundle ID or ambiguous Definition fails before execution.
-- **BR-10:** Preview exposes safe renderer selection only, never secret outputs
-  or final manifests requiring outputs from unprovisioned resources. It performs
-  no score-k8s generation or provisioning.
+- **BR-09:** Chọn đúng một score-k8s Definition/bundle tương thích cho
+  mỗi Workload trên cả hai profiles. Không match/tie/bundle thiếu là lỗi.
+  Plan hash pin Definition/bundle/binary/provider/module digests, target/
+  generation, state identity và versions; thay intent cần Preview mới.
+- **BR-10:** Preview hiển thị type/class, Definition/module/revision, target/
+  account/region, ownership và create/update/retain intent. Không secret/
+  state/credential refs, không khẳng định final manifest hay Terraform plan
+  chính xác khi output chưa có; không chạy render hoặc provision.
 
 See [workload rendering contract](../../architecture/contracts/workload-rendering.md).
 
 ## Environment connection binding
 
-- **BR-11:** Preview resolves the configured Environment connection/profile/region, never Organization default or a shared Application target. UNCONFIGURED is rejected 422 field connectionKey before side effects. UI shows selected Environment target. Internal Kubernetes and AWS VPC/EKS Definition conflicts against that target fail planning. Environment binding/version/scope are pinned to preview/hash; see ADR-011.
+- **BR-11:** Preview lấy configured Environment Connection/profile/region,
+  không dùng Organization default/Application target. UNCONFIGURED trả 422
+  field connectionKey. Mọi AWS node dùng cùng account/region; winning binding
+  conflict bị chặn. Binding/generation/version được pin theo ADR-012/014.
 
 ## Editable destination and transition consistency (ADR-012)
 
@@ -180,21 +167,10 @@ set versions. Deploy vẫn tường minh; token trước rename bị stale. Rena
 hoặc delete có thể để reference thiếu và Preview phải chặn Deploy. Không đổi
 runtime/current set hoặc Environment khác khi lưu.
 
-## Terraform v2 — required Preview
 
-- **V2-01:** Pending Preview từ form hiển thị mỗi dependency: type/class,
-  Definition, module ID/immutable revision, provider target/account/region,
-  ownership và intended create/update/retained state; renderer score-k8s bundle
-  cho mỗi Workload. Không hiển thị secrets/state/credential refs.
-- **V2-02:** Chặn required/typed/bounds input hoặc mapping sai có thể kiểm tra
-  trước execution; no matching Definition/tie/bundle thiếu cũng chặn. Giữ
-  pure planning: không Terraform apply, remote fetch, score generation hoặc
-  secret resolution. Module metadata lấy từ verified registry snapshot.
-- **V2-03:** Pin module/provider/binary digests, target/generation, state identity
-  và resource versions cùng versions/token đã có. Intent đổi cần Preview mới.
-  No matching renderer là lỗi; thay BR-09 native-default trong v2.
-- **V2-04:** Đổi class/module/target phải hiển thị replacement intent nếu có,
-  giữ tài nguyên cũ. Ordinary Deploy không có quyền destroy/replace hiện hữu;
-  trường hợp cần replacement qua riêng confirmed new-identity/generation flow
-  hoặc bị chặn trước apply, không tự migrate dữ liệu. Preview logic không
-  khẳng định đã có exact Terraform plan khi runtime inputs chưa resolve.
+## Thay thế tài nguyên
+
+- **V2-04:** Preview phải chỉ ra việc đổi class/module/target cần replacement.
+  Deploy thông thường không được delete/replace tài nguyên hiện hữu. Cần
+  operation tạo identity/generation mới và xác nhận riêng, hoặc chặn trước
+  apply; tài nguyên cũ được giữ, không tự chuyển dữ liệu.

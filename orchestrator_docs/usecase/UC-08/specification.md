@@ -7,14 +7,6 @@ last_reviewed: 2026-10-13
 
 # UC-08 — Provision Infrastructure and Application Resources
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Mục tiêu
 
 Provision implicit infrastructure cùng private/shared resources theo dependency order và cung cấp outputs cho consumer.
@@ -45,11 +37,14 @@ Provision implicit infrastructure cùng private/shared resources theo dependency
 ## Main success scenario
 
 1. **MS-01:** Orchestrator nhận Resource Graph và provider-first provision batches.
-2. **MS-02:** Với từng node trong batch hiện tại, Orchestrator tìm Active Resource theo descriptor/scope để resolve state có thể tái sử dụng.
+2. **MS-02:** Resolve stable instance/ActiveResource/state theo identity; ghi
+   action/module/physical intent/ownership trước provider call dưới owner/fence.
 3. **MS-03:** Orchestrator resolve context values, resource inputs và outputs của các provider đã hoàn thành.
 4. **MS-04:** Orchestrator chọn executor từ matched Definition hoặc trusted system cluster binding và Execution Profile.
-5. **MS-05:** Executor provision/reconcile resource theo VAR-01 hoặc VAR-02.
-6. **MS-06:** Executor trả resource state và outputs theo Resource Type contract.
+5. **MS-05:** Kiểm verified module/inputs, khóa state và executor CREATE hoặc
+   non-destructive UPDATE theo VAR-01/VAR-02 trong deadline.
+6. **MS-06:** State được backend xác nhận; kiểm outputs/readiness theo Type và
+   lưu secret outputs bằng opaque refs trước khi truyền cho consumer.
 7. **MS-07:** Orchestrator lưu Active Resource gồm descriptor, Definition ID, scope, executor state và outputs.
 8. **MS-08:** Orchestrator dùng outputs để resolve bindings của consumer ở batch tiếp theo.
 9. **MS-09:** Orchestrator lặp MS-02 đến MS-08 cho tới khi hoàn thành mọi batch.
@@ -57,8 +52,11 @@ Provision implicit infrastructure cùng private/shared resources theo dependency
 
 ## Luồng biến thể trong happy path
 
-- **VAR-01 — `aws-eks`:** Terraform Executor provision/reconcile VPC, EKS và Aurora; Active Resource/driver state quyết định create hay reuse.
-- **VAR-02 — `internal-k8s`:** connection adapter trả outputs của cluster có sẵn; Kubernetes Executor apply namespace, PostgreSQL StatefulSet và Service.
+- **VAR-01:** `aws-eks`: Terraform quản lý VPC/EKS/namespace và Redis/
+  PostgreSQL in-cluster hoặc ElastiCache/Aurora theo class. AWS provider dùng
+  cùng Environment account/region; Kubernetes provider bind completed EKS target.
+- **VAR-02:** `internal-k8s`: ExistingClusterAdapter kiểm Connection có sẵn;
+  Terraform với Kubernetes provider quản lý namespace/Redis/PostgreSQL.
 
 ## Hậu điều kiện
 
@@ -66,16 +64,25 @@ Provision implicit infrastructure cùng private/shared resources theo dependency
 - **POST-02:** Mỗi Cloud Environment/generation có tối đa một VPC và một EKS cho descriptor tương ứng.
 - **POST-03:** Internal Application không tạo VPC/EKS và dùng cluster connection có sẵn.
 - **POST-04:** Private resource gắn với đúng workload identity; shared resource dùng chung descriptor chỉ có một Active Resource.
-- **POST-05:** `postgres` trả cùng output contract dù implementation là Aurora hay StatefulSet.
+- **POST-05:** Redis/PostgreSQL có output contract thống nhất giữa
+  implementations. Chỉ outputs/readiness hợp lệ được dùng bởi consumer.
 - **POST-06:** Outputs và executor state được lưu để consumer và deployment sau sử dụng.
 
 ## Quy tắc nghiệp vụ
 
 - **BR-01:** Edge graph có chiều `consumer -> provider`; chỉ execute một batch khi mọi provider dependency đã hoàn thành.
-- **BR-02:** Resource Descriptor cộng scope là identity logic dùng để tìm Active Resource; executor state là identity vật lý của provider.
-- **BR-03:** Mỗi output phải thỏa Resource Type contract trước khi persist hoặc truyền cho consumer.
+- **BR-02:** Logical identity gồm Organization, Environment/generation,
+  descriptor/scope; mỗi instance một durable encrypted PostgreSQL state qua
+  HTTP backend. Names/password refs giữ ổn định khi redeploy/retry. Run ID
+  chỉ là provenance; state/name không đổi theo run hay Definition version.
+- **BR-03:** Outputs phải thỏa Type contract và readiness trước consumer.
+  Secret bytes lưu trong secret store; ActiveResource/progress chỉ có refs.
+  Terraform state là ciphertext hạn chế truy cập riêng, không public output.
 - **BR-04:** Node cùng batch không phụ thuộc nhau và có thể execute song song, nhưng MVP có thể chạy tuần tự mà không đổi semantics.
-- **BR-05:** Existing resource vẫn đi qua reconcile/provision contract của driver; planner classification không tự tạo action `reuse` hay `destroy`.
+- **BR-05:** Resource hiện hữu vẫn được reconcile bằng UPDATE có kiểm
+  state/target. Không delete/replace trong UPDATE; DESTROY chỉ theo operation
+  Xóa tài nguyên hoặc cleanup riêng đã kiểm ownership/consumers. Classification
+  của planner không tự cấp quyền destroy.
 - **BR-06:** Container CPU/memory requests/limits thuộc workload module và được UC-06 Workload Renderer xử lý; chúng không tạo Resource Graph node và không đi qua UC-08 Resource Executor.
 
 ## Luồng nội bộ
@@ -85,7 +92,7 @@ UC-08 Provision Resources
 ├── Load provision batches
 ├── Find reusable Active Resources by scope
 ├── Resolve inputs and dependency outputs
-├── Execute Terraform or Kubernetes drivers in batch
+├── Execute Terraform modules / resolve existing cluster in batch
 ├── Collect outputs and resource state
 ├── Persist Active Resources
 └── Continue with dependent batches
@@ -93,26 +100,22 @@ UC-08 Provision Resources
 
 ## Executor mapping
 
-| Execution Profile | Resources | Executor |
+| Profile | Resource | Executor |
 |---|---|---|
-| `aws-eks` | VPC, EKS, Aurora | Terraform Executor |
-| `internal-k8s` | Existing cluster | Connection/Echo adapter |
-| `internal-k8s` | Namespace, PostgreSQL StatefulSet/Service | Kubernetes Executor |
-
-## Trạng thái implementation hiện tại
-
-- Planner đã dựng private/shared/implicit resource nodes, match Definition và tạo provider-first batches; VPC/EKS and namespace use Environment/generation scope only (T27/ADR-011/012).
-- `ResourceProvisioningService` đã chọn fake, existing-cluster, Kubernetes hoặc Terraform executor theo matched Definition; outputs được validate, truyền sang node phụ thuộc/workload và lưu vào Active Resource/deployment-resource state.
-- Internal path đã provision namespace/PostgreSQL StatefulSet trên kind; cloud path đã provision VPC/EKS/Aurora bằng Terraform trên AWS.
-- Normalized PostgreSQL repository đã có cho logical orchestration state; in-memory/JSON vẫn dùng cho local/test. Terraform state vẫn nằm trong local run directory; remote state/locking và lifecycle reconcile đầy đủ chưa có.
+| aws-eks | VPC/EKS/ElastiCache/Aurora | Terraform với AWS provider |
+| internal-k8s / aws-eks | Namespace/Redis/PostgreSQL in-cluster | Terraform với Kubernetes provider |
+| internal-k8s | Cluster có sẵn | ExistingClusterAdapter; không tạo/xóa cluster |
 
 ## Ngoài phạm vi happy path
 
-- **OOS-01:** Retry, timeout và cancellation.
-- **OOS-02:** Partial failure và resume.
+- **OOS-01:** Retry không giới hạn hoặc cancellation không dừng process.
+  Retry tối đa một lần, timeout và stopped-process checks thuộc V2-06.
+- **OOS-02:** Tự động resume sau gián đoạn và reconcile tài nguyên ngoài
+  state theo D12/D13. Ghi nhận partial failure/hold và cleanup vẫn bắt buộc.
 - **OOS-03:** Incremental provisioning optimization.
-- **OOS-04:** Scheduled deletion, detach và deprovision.
-- **OOS-05:** Secret outputs và credential rotation.
+- **OOS-04:** Scheduled deletion và detach không kiểm ownership.
+  DESTROY có xác nhận/cleanup thuộc UC-07 V2-03 và OC-19.
+- **OOS-05:** Credential rotation. Secret outputs và bindings thuộc BR-03.
 - **OOS-06:** Drift detection.
 
 ## Workload rendering boundary
@@ -125,7 +128,12 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 
 ## Environment connection binding
 
-- **BR-07:** Internal Kubernetes and AWS VPC/EKS execution must use pinned READY Environment connection in the owning Organization; VPC/EKS effective account is always the Environment AWS connection, never a Definition override. Defensive mismatches are rejected before executor invocation. Persist this effective account in ActiveResource identity consistently with plan/hash. Aurora requires its explicit READY AWS account in the same Organization and must not inherit the Environment account when absent. External resource Driver Account semantics remain. Reuse validates persisted resource connection identity; do not execute against another Environment target. AWS infrastructure uses Environment/generation scope only; retired or unknown execution scopes are rejected (T27). Current generation-0 identities and historical pinned targets remain unchanged.
+- **BR-07:** Mọi AWS node, kể cả Aurora/ElastiCache, dùng pinned READY
+  Environment Connection/account/region trong Organization. Kubernetes dùng
+  scoped Connection hoặc EKS target. Không override/host/default fallback.
+  Reuse kiểm persisted target/generation/account/region trước executor; mismatch
+  chặn, không đổi winner. Infrastructure scope chỉ ENVIRONMENT; cluster có
+  sẵn theo system binding ADR-013. Target lịch sử được giữ để xóa đúng nơi.
 
 ## Editable destination and transition consistency (ADR-012)
 
@@ -152,34 +160,17 @@ BR-08/BR-17. This does not remove the trusted internal driver, executor or
 system Definition admission required by ADR-013. No retained records are
 deleted by this API change.
 
-## Terraform v2 — required provisioning và state
 
-Các quy tắc V2 thay executor mapping/OOS retry/secret/partial cleanup của
-baseline phía trên; không biến backlog recovery thành implemented capability.
+## Locking, retry và outcome chưa rõ
 
-- **V2-01:** Terraform executes registered immutable modules cho Kubernetes
-  namespace/Redis/PostgreSQL và AWS VPC/EKS/ElastiCache/Aurora; existing cluster
-  system binding chỉ resolve/check target. Resource Type outputs tương đương
-  giữa implementations, validate readiness/output trước consumer.
-- **V2-02:** AWS provider inherit pinned Environment Connection/account/region
-  cho mọi AWS node; Kubernetes provider resolve selected Connection/EKS output.
-  Credential invocation riêng, no host defaults; prior state từ target khác bị chặn.
-- **V2-03:** Durable encrypted PostgreSQL state qua HTTP backend, mỗi resource
-  instance một state; stable identity/name/password ref qua redeploy/retry.
-  Run ID là audit/cleanup provenance, không state/name identity.
-- **V2-04:** Persist write-ahead action/module/state/physical intent/ownership
-  trước side effects. Acquire state lock dưới Environment owner; every backend
-  write/unlock fenced. Không giữ SQL transaction trong Terraform/network call.
-- **V2-05:** CREATE/UPDATE/DESTROY theo [module contract](../../architecture/contracts/terraform-modules.md).
-  UPDATE không delete/replace resource hiện hữu; DESTROY chỉ cleanup riêng đã
-  validate ownership/consumer. Output secret được store dưới opaque ref; không
-  plaintext trong ActiveResource/plan/progress/Console. Raw state là restricted
-  encrypted storage ngoại lệ theo [schema](../../architecture/database/schema.md).
-- **V2-06:** Retry transient tối đa một lần dưới deadline, kiểm prior state và
-  actual result. Input/auth/permission/unknown outcome dừng. Partial failure
-  giữ state + safe progress; interruption không tự unlock/resume/import.
-  Cleanup acceptance independent runner vẫn bắt buộc, không coi D12/D13 là prerequisite.
-- **V2-07:** Nếu state missing với prior attempt hoặc provider outcome chưa rõ,
-  chặn CREATE và báo needs attention. Giữ private recovery artifacts nếu có;
-  manual ownership verification trước cleanup. Không v1 import hoặc rollback
-  resource chỉ được cập nhật trong run.
+- **V2-04:** Persist intent/ownership trước call. State lock nằm dưới
+  Environment operation; mỗi write/unlock kiểm owner/fence. Không giữ DB
+  transaction qua Terraform/network call hoặc tự mở khóa vì hết heartbeat.
+- **V2-06:** Retry transient tối đa một lần trong deadline sau kiểm state/
+  kết quả thực tế. Input/auth/permission hoặc outcome chưa rõ thì dừng, giữ
+  progress/state/hold. Không tự resume/import; cleanup độc lập runner vẫn bắt buộc.
+- **V2-07:** State thiếu sau prior attempt hoặc provider outcome chưa rõ thì
+  chặn CREATE. Giữ recovery artifact riêng tư nếu có và kiểm ownership thủ
+  công trước cleanup; không import v1 hoặc rollback resource đã cập nhật.
+
+Protocol/validation đầy đủ ở [state contract](../../architecture/contracts/terraform-state.md).

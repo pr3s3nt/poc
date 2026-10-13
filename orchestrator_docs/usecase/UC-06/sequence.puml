@@ -33,7 +33,7 @@ alt planning fails before Delta Snapshot
   Service -> DeploymentRepo: MarkFailed(reason, snapshot=NULL)
   Service --> API: Planning error
 else plan succeeded
-group Required score-k8s preflight (both profiles)
+group Required score-k8s + module/known-input preflight (BR-09/17)
   Service -> Renderer: ValidateSelection(pinned Definition/bundle/binary digest) [BR-17]
   Renderer --> Service: available (failure stops before provisioning)
 end

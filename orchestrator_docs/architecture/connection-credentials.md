@@ -11,9 +11,10 @@ last_reviewed: 2026-10-13
 
 Behavior is owned by [UC-04 specification](../usecase/UC-04/specification.md).
 This shared design separates infrastructure destination from authentication.
-Kubernetes upload is the first delivery; AWS provisioning remains deferred under
-[ADR-009](decisions/ADR-009-aws-access-key-storage.md). An AWS Connection supplies
-identity for VPC/EKS/Aurora/Terraform state, not merely an EKS login.
+Kubernetes dùng uploaded kubeconfig; AWS dùng access key nhập qua Console,
+lưu scoped Vault ref theo [ADR-009](decisions/ADR-009-aws-access-key-storage.md).
+AWS identity phục vụ VPC/EKS/ElastiCache/Aurora, không chỉ đăng nhập EKS.
+State backend/capability riêng của platform, không do AWS Connection chọn.
 
 ## Connection model
 
@@ -24,17 +25,16 @@ Kinds stay `KUBERNETES` / `AWS`. Authentication types (T22 removes HOST_CONTEXT)
 | Type | Kind | Resolution |
 |---|---|---|
 | `KUBECONFIG` | Kubernetes new | Normalized selected-context config from scoped credential store |
-| `AWS_ACCESS_KEY` | AWS future | Access key pair in Vault according to ADR-009 |
+| `AWS_ACCESS_KEY` | AWS | Access key pair in Vault according to ADR-009 |
 
 Missing display name can read as key. Kubernetes authentication must be explicit
 KUBECONFIG; missing type, HOST_CONTEXT and missing scoped credential fail closed.
-Existing AWS process-configured metadata remains unchanged.
-AWS seeded records are legacy process configuration, not proof of new AWS
-credential flow. No generic arbitrary command authentication provider exists.
+AWS credential phải resolve scoped Vault reference; seeded metadata thiếu
+credential không được chọn cho product execution. No generic arbitrary command authentication provider exists.
 
 Kubernetes config contains cluster/context/endpoint (and non-secret TLS metadata
-if needed). AWS config contains verified account, allowed regions and backend
-configuration. Secret byte values belong to the credential store only.
+if needed). AWS config chứa verified account/principal/allowed regions; không backend
+configuration hoặc credential bytes. Secret byte values belong to the credential store only.
 Schema changes and compatibility defaults: [schema](database/schema.md).
 
 ## Dedicated credential lifecycle boundary
@@ -93,11 +93,14 @@ Explicit kubeconfig paths generated
 by Terraform EKS remain supported; they never resolve a host default. The low-level
 kubectl transport requires an explicit kubeconfig for every invocation.
 
-Future AWS resolver yields account credential only to the selected Terraform
+AWS resolver yields account credential only to the selected Terraform
 subprocess environment, never global env, variables, arguments or workload.
-Existing Terraform local-state/seed behavior is not reclassified as durable AWS
-onboarding. Additional AWS methods can implement this boundary without changing
-Definition references or Connection ownership.
+Provider/state credential channels tách biệt; mọi AWS module dùng cùng
+Environment account/region. Kubernetes Terraform provider bind uploaded
+Connection hoặc EKS endpoint/CA/token tái tạo từ opaque pinned target.
+EKS kubeconfig file chỉ tồn tại trong invocation, không lưu path/content.
+Platform state key và HTTP capability tách khỏi provider/workload secrets;
+protocol ở [state contract](contracts/terraform-state.md).
 
 ## Diagram
 
@@ -143,16 +146,3 @@ scope, never recursively inside the workload's selected store. Resolver validate
 scope/provider/READY and returns private client credentials; public choices exclude
 refs/tokens. VSO bundle metadata pins store addresses/mount/auth and store-specific
 object names; old deployments do not follow a changed Settings selection.
-
-## Terraform v2 provider/state credentials (ADR-014)
-
-AWS Connection credential resolution is required under ADR-009; every AWS module
-uses the pinned Environment account/region, no Aurora override or host fallback.
-Kubernetes Terraform provider uses uploaded scoped Connection or restorable EKS
-opaque target; private kubeconfig exists only during invocation. EKS authentication
-uses the pinned AWS principal, not workload credentials. No backend path/token in
-TargetRef. Platform state encryption key and HTTP invocation capability are
-separate from provider/workload credentials; tokens are scoped to instance/
-operation/fence/action/deadline and never exposed through Console. State can hold
-provider secret material only inside restricted encrypted storage, not logical
-metadata. Protocol is owned by [state contract](contracts/terraform-state.md).

@@ -7,7 +7,11 @@ READY --> UNREFERENCED : absent from desired graph
 UNREFERENCED --> PROVISIONING : referenced again
 PROVISIONING --> FAILED : executor/output validation error
 FAILED --> PROVISIONING : bounded known-transient retry
-FAILED --> [*] : interrupted/unknown held in instance operation metadata
+FAILED --> [*] : safe failure; interruption held in instance metadata
+UNREFERENCED --> DESTROYING : confirmed PE/Admin scope or authorized run cleanup
+DESTROYING --> DESTROYED : physical absence verified; keep audit
+DESTROYING --> UNREFERENCED : failed known cleanup; retain operation/remaining IDs
+DESTROYED --> [*]
 note right of UNREFERENCED
   No destroy on workload removal.
 V2 separate cleanup checks ownership/consumers.

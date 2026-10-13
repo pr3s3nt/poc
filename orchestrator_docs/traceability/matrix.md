@@ -45,7 +45,7 @@ query prefill theo catalog/whitelist, không POST và không ghi đè lựa ch�
 Scenario T04 kiểm details → copy/sửa → duplicate → đăng ký ID mới → supported
 CTA và custom no-CTA trên backend fake; không mở rộng executor/API.
 
-## Definition-selected workload rendering (ADR-010)
+## Rendering implementation checkpoint — ADR-010 trước M04
 
 | Requirement / boundary | Implementation | Local evidence |
 |---|---|---|
@@ -63,7 +63,7 @@ Local CLI tests use fake executors/deployers; live kind/AWS remains unverified.
 |---|---|---|---|---|
 | MS-01, MS-02, MS-03; BR-07 | `RegisterResourceDefinition`; `UC-03/sequence.puml` | `catalog.Service.RegisterResourceDefinition`, `resource.Definition.Validate`, role-gated HTTP POST | none before validation | OC-04; `catalog/definition_test.go`, `test/e2e/http_test.go`, `ResourceDefinitionsPage.test.tsx` |
 | MS-04, MS-05 | same | type/connection repository reads; `ValidateReferencesAndRules` | `resource_types`, `connections` | OC-04; invalid reference test |
-| MS-06, MS-07 | same | `ListResourceDefinitions`, embedded `terraform.Inspector.Inspect` or static executor output contract | source fingerprint candidate | OC-04; duplicate/remote-source/output validation tests |
+| MS-06, MS-07 | same | `ListResourceDefinitions`, baseline inspector tại 3367f7e; current registry design/tests ở I04-02 | source fingerprint candidate | OC-04; duplicate/remote-source/output validation tests |
 | MS-08, MS-09; BR-07 | same | `CreateResourceDefinition/ListResourceDefinitions` | insert-only org-scoped catalog; PostgreSQL Definition + criteria atomic transaction | OC-04; registration contract/race/criterion-failure rollback; no-restart HTTP Preview; explicit `{}` wildcard and criteria-shape conformance |
 | BR-01, BR-03 | [ADR-001](../architecture/decisions/ADR-001-profile-resource-scopes.md) | Optional Definition profile guard before unchanged five-field scoring | `TestPlan_NewApplicationMatchesPostgresByExecutionProfile`, invalid-profile validation |
 
@@ -110,7 +110,8 @@ the old registration body under UC-04 BR-15.
 
 Kubernetes upload implementation and local/isolated PostgreSQL tests pass on
 2026-10-06. [Video verification and review](../verification/2026-10-06-uc04-kubeconfig-upload.md)
-are recorded separately. AWS remains future scope.
+are recorded separately. AWS onboarding chưa implement tại checkpoint này; required behavior hiện
+nằm ở UC-04 VAR-02/OC-05 và I04-06, không còn là deferred product scope.
 
 | Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
 |---|---|---|---|---|
@@ -121,7 +122,7 @@ are recorded separately. AWS remains future scope.
 | MS-08..09 | public response/reload | DTO, ConnectionsPage | no response secret; catalog consumption | OC-05; `TestUC04UploadHTTPContract`, frontend registration/state tests, dedicated Playwright runner |
 | ERR-07..08 | write/cleanup failures | CredentialStore.Delete | only own attempt cleaned with bounded context | OC-05; `TestRegisterKubeconfig_FailuresSaveNothingReady`, `TestUC04UploadWithoutCredentialStoreFailsClosed` |
 | BR-10; POST-03 | execution credential resolution | resolver, Kubernetes adapters | opaque target identity only | `TestCredentialTarget_DeployerUsesScopedPrivateKubeconfig`, `TestCredentialTarget_RoutesVSOAndExecutorUseScopedCredential`, `TestExistingCluster_CredentialBackedConnectionIsAuthoritative`, `TestCredentialBackedTarget_RemovalAfterRestart`, `TestFleetRejectsCredentialBackedTargets` |
-| VAR-02; BR-11..12,14 | future AWS register | AWS verifier/resolver, Terraform | ADR-009 credential namespace | designed; not implemented by upload slice |
+| VAR-02; BR-11..12,14 | AWS register cần I04-06 | AWS verifier/resolver, Terraform | ADR-009 credential namespace | designed; not implemented by upload slice |
 
 ## T22 explicit Kubernetes credentials
 
@@ -180,7 +181,7 @@ are recorded separately. AWS remains future scope.
 | MS-01 | `Provision`; `UC-08/sequence.puml` | `ResourceProvisioningService.Provision` | read immutable `deployment_plans` | OC-10; batch-order test |
 | MS-02 | same | `ActiveResourceResolver.Resolve`, `FindByLogicalIdentity` | active logical/executor state | OC-10; VPC/EKS reuse test |
 | MS-03 | same | `OutputBindingResolver.ResolveInputs` | completed output context | OC-10; provider-output test |
-| MS-04, MS-05 | same | `ExecutorRegistry.Resolve`, `ResourceExecutor.Provision` | external Terraform/Kubernetes state | OC-10; executor contract tests |
+| MS-04, MS-05 | same | `ExecutorRegistry.Resolve`, `ResourceExecutor.Provision` | baseline adapter state tại 3367f7e; current durable-state obligation ở I04-01/03 | OC-10; executor contract tests |
 | MS-06 | same | `OutputContractValidator.Validate` | validated outputs | OC-10; cross-profile postgres contract test |
 | MS-07 | same | `ActiveResourceRepository.UpsertReady`, `DeploymentResourceRepository.MarkReady` | short atomic node transaction | OC-10; repository integration test |
 | MS-08, MS-09 | same | update run context and loop batches | next consumer inputs | OC-10; chain/diamond topology tests |
@@ -505,27 +506,28 @@ tests are not execution proof.
 
 Execution evidence: [T31 local verification](../verification/2026-10-12-T31-typed-definitions.md).
 
-## Terraform v2 — design-to-test obligations (implementation pending)
+## Required design-to-test obligations — M04
 
-All V2 tests/assertions below are planned obligations, not already executed.
-Stable V2 IDs are scoped to their owning specification. Actual code/test/evidence
-links must replace planned labels at implementation handoff; old tests/videos
-remain baseline evidence only. Shared contracts:
-[module](../architecture/contracts/terraform-modules.md),
-[state](../architecture/contracts/terraform-state.md),
-[acceptance](../operations/terraform-v2-acceptance.md).
+Các sections UC/T ở phía trên là implementation/evidence checkpoint trước M04,
+đọc theo requirement version tại a897d6b/3367f7e; chúng không chứng minh luật
+hiện tại đã đạt. Bảng dưới là current obligations.
+[Reconciliation](../implementation/v2-rule-reconciliation.md) map mọi V2 ID
+gộp sang BR/MS/VAR/OOS giữ nguyên ID và nêu nội dung đã đổi. Không sửa old
+fixtures/video để giả bằng chứng mới. Các tests/scenarios dưới đây còn pending.
 
-| Requirements | Operation / realization / sequence | Data/state | Required tests / acceptance |
+| Requirements hiện tại | Operation / collaboration | Data / required tests | M04 task |
 |---|---|---|---|
-| UC-02 V2-01/02; UC-03 V2-01/02/06 | OC-03/04/04d; UC-03 realization/sequence/VOPC; ModuleSourcePolicy/BundleResolver | immutable verified bundles + insert-only Definitions/criteria | source allowlist, commit/digest drift, traversal/command/credential rejection, output mismatch, typed schema/defaults, no registry fetch in pure query |
-| UC-03 V2-03/04; UC-04 V2-01..04; UC-08 V2-02 | OC-05/07/10; UC-04 and UC-08 sequences | scoped Vault credential refs, same Environment account/region, opaque EKS target | AWS onboarding safe failure/attempt cleanup; cross-account/region/state rejection, host credential isolation, target reopen; all three live targets |
-| UC-03 V2-05; UC-05 V2-01..04; UC-06 V2-03/04 | OC-06/07/08/17; UC-05/06 diagrams | pinned module/provider/binary/renderer digests + token/versions | missing/tied Definition, no native/class fallback, unavailable bundle, stale module pin, pure Preview, protected manifests/secret refs; V2-A01..03 |
-| UC-06 V2-02/05; UC-08 V2-01/03..07 | OC-10/18; UC-08 sequence/VOPC; shared classes/ERD | encrypted states, instance identity, locks, attempts, Environment owner/fence | real disposable PostgreSQL ciphertext/reopen/rollback, two-owner race, stale fence write/unlock, serial/lineage rejection, no expiry unlock; stable name/password/state across retry |
-| UC-07 V2-01..04; UC-08 V2-05/06 | OC-09/19; UC-08 cleanup sequence; Terraform instance state machine | ownership class, original module/target/state, cleanup progress/tombstones | create/update/destroy contract, destructive UPDATE rejection, last/shared consumer retention, preexisting/updated preservation, reverse graph, provider absence and interrupted cleanup; V2-E02 |
-| UC-16 V2-01..04; UC-05 V2-01/02 | OC-16/17; UC-16 sequence and UC-03/05/16 UI artifacts | draft params/class/shared IDs; safe module/target metadata | typed params/class selection/advanced roundtrip, metadata error/stale guard, no Workload module selector; real headed UI Save/Preview/Deploy; V2-E01 no infrastructure |
-| UC-06 V2-06; UC-09 V2-01..03 | OC-08/11; UC-09 sequence/screens | persisted safe stage/attempt/cleanup result + app job/cache evidence | no raw CLI/state/secret projection; all three headed Console -> app job completion/reload; actual PostgreSQL result + Redis write/hit/miss/refill; failed evidence retained |
-| ADR-014 deferred boundary | D12/D13/D14; state contract minimal hold/manual verification | interrupted operation/needs-attention, private handles | no auto-resume/import/backup claim; independent supervisor cleanup after browser/runner failure; absence proof mandatory |
+| UC-02 BR-02..04; UC-03 BR-08..16/23..26, VAR-01/02 | OC-03/04/04d; UC-03 sequence/VOPC; ModuleSourcePolicy/BundleResolver | immutable bundle/source mappings, typed schemas, allowlist/digest/traversal/command/secret rejection; insert-only race/no query fetch | I04-02/04/05/07 |
+| UC-04 VAR-02, BR-02/09..12 và V2-04; UC-08 BR-07 | OC-05/10; credential resolver, UC-04/08 sequences | scoped Vault refs/account/region/opaque EKS; failed registration cleanup, no host fallback, target reopen/cross-account rejection | I04-03/06 |
+| UC-03 BR-02/15/21; UC-05 MS-06/BR-04/09..11/V2-04; UC-06 MS-09/11/BR-09/17..20 | OC-06/07/08/17; planner/preflight/score-k8s | required renderer both profiles, no match/tie/fallback, stable module/provider/state/target pins, stale/no-secret projection, non-destructive update | I04-02/03/07/10 |
+| UC-08 MS-02/05/06, BR-02/03/05, V2-04/06/07; UC-06 V2-05 | OC-10/18; state/instance/attempt ports, UC-08 sequence/VOPC, ERD | real PostgreSQL ciphertext/reopen/rollback, serial replay/lineage rejection, two-owner lock/fence race, no timeout unlock, stable names/password; no duplicate unknown CREATE | I04-01/03/10 |
+| UC-07 BR-03/VAR-02/V2-02/04; UC-08 BR-05 | OC-09/19; retained resource/cleanup engine and original targets | no destroy on Workload remove, shared conflict/reference preservation; test run rejects preexisting/updated/platform, verified reverse graph destroy | I04-03/08/11 |
+| UC-07 V2-03, DEL-PRE-01/02, DEL-MS-01..04, DEL-BR-01/02 | OC-19 PrepareDeletion/admission; UC-07 sequence-resource-delete/VOPC/UI | PE/Admin vs Developer, scope/consumer/UNREFERENCED/busy/exact name, eligible cascade/retained reasons, token versions/actor replay; no provider call on stale/refused | I04-01/08/11 |
+| UC-07 DEL-MS-05..07, DEL-BR-03/DEL-POST-01; UC-09 RES-01..03, BR-05/07 | OC-19 execution + OC-11 detail/progress; UC-08 cleanup sequence | original state/module/target, resource dependency edges, safe stage/absence/remaining IDs; failed consumer retains provider, immutable history; A01 real UI delete proof | I04-03/08/11 |
+| UC-16 MS-03/BR-07/11/14/V2-02/03; UC-05 BR-10 | OC-16/17; Workload editor and UC-03/05/16 UI artifacts | Type params/class/shared IDs, advanced/import roundtrip, metadata/stale guards, no module selector/provider credential in Workload; E01 no-create | I04-07/10/11 |
+| UC-06 V2-06; runbook V2-A01/A02/A03/E01/E02 | Console form -> Terraform -> binding -> score-k8s -> delivery -> app UI | real full job/completion/reload + Redis hit/miss/refill and PostgreSQL result, headed video/phases/assertions; UI deletion A01; independent cleanup/absence proof | I04-09/10/11/12 |
+| ADR-014/M04 gates và D12/D13/D14 boundary | paused-at-user-review stages, manual stopped-owner checks | No code before gate 1, no AWS create before video/estimate gate 2, no false final approval; no auto-resume/import/DR claims | I04-00/11/12 |
 
-Acceptance IDs V2-A01/A02/A03/E01/E02 are owned by the runbook. Acceptance
-update/delete matrix and disaster recovery remain outside live scope, while
-executor/persistence unit/integration contract tests are required.
+Bước xóa UI là một phase của A01, không mở rộng thành live update/delete
+exception matrix mới. Executor create/update/destroy và SQL/admission failure
+contracts vẫn cần code tests dù không thành live scenarios riêng.

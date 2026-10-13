@@ -14,39 +14,26 @@ hiển thị cấu hình `workload`; các cấu hình này nằm ở trang Mẫu
 `existing-cluster` nếu có chỉ đọc và mang nhãn “Hệ thống”. Không có sửa/xóa;
 đăng ký chỉ dành Kỹ sư nền tảng/Quản trị viên.
 
-## Form đăng ký (T02)
+## Form đăng ký
 
-Phần cơ bản gồm ID, Loại tài nguyên, cách tạo và Phạm vi triển khai. Form chỉ
-cho Terraform/Kubernetes, không tạo `existing-cluster` hoặc `score-k8s`.
-`vpc` tự chọn Terraform/module `vpc`; `k8s-cluster` tự chọn Terraform/module
-`eks`; `k8s-namespace` tự chọn Kubernetes; `postgres` cho chọn hai cách tạo,
-Terraform dùng module `aurora`. Không quảng bá custom type chưa có executor.
+PE/Admin chọn ID, Resource Type, cách tạo Terraform và profile phù hợp module.
+Form chọn module từ nguồn Admin cho phép, immutable version/revision/digest,
+input/output mapping và symbolic provider bindings. Nhãn “Terraform” áp dụng
+cho cả cloud và Kubernetes; không khóa vào aws-eks hoặc tự chọn module theo Type.
 
-Terraform tự điền `aws-eks` và khóa Phạm vi triển khai; Kubernetes cho chọn
-“Cluster nội bộ” (`internal-k8s`) hoặc “Dùng chung” (`""`). Dùng chung được xét
-ở mọi profile nhưng vẫn phải thỏa điều kiện áp dụng; cảnh báo có thể trùng mức
-ưu tiên với cấu hình khác, không tuyên bố đã phát hiện mọi overlap.
+Hiển thị schema đã inspect: types/defaults/required, Type outputs và secret
+flags. Inputs typed hoặc JSON nâng cao giữ dữ liệu/kiểu khi đổi cặp/module.
+Output mapping không được hạ secret flag. AWS binding luôn là “Kết nối AWS
+của môi trường”, kể cả Aurora/ElastiCache; không có selector account riêng.
+Kubernetes bind target Environment hoặc output target của EKS dependency.
+Đăng ký không cần Environment cụ thể và không provision hạ tầng.
 
-Terraform VPC/EKS không hiện ô Kết nối AWS, kể cả phần nâng cao, và luôn gửi `connectionKey: ""`; trợ giúp nêu rõ dùng Kết nối AWS của Môi trường khi Xem trước/Triển khai. Đăng ký không cần Môi trường hoặc danh sách Kết nối tải thành công. Aurora vẫn yêu cầu Kết nối AWS riêng tường minh; lựa chọn được giữ khi chuyển type nhưng không gửi vào VPC/EKS.
-Dropdown dùng metadata của GET `/connections`, chỉ nhận READY đúng kind trong
-Organization của phiên và gửi key kỹ thuật. Kubernetes mặc định không override,
-dùng Kết nối của Môi trường; lựa chọn Kết nối riêng nằm trong phần nâng cao.
-Không tự chọn một Connection hoặc tạo Connection trong form này. Trợ giúp
-Kubernetes nêu rõ Connection riêng phải trùng Connection của Môi trường khi
-matching; lựa chọn này không cho phép retarget sang cluster khác.
-
-Điều kiện áp dụng dùng editor chung T02B bên dưới; matching preview chính xác
-dùng OC-04c bên dưới. Phần nâng cao chứa
-Tham số cấu hình và Quy tắc tạo tài nguyên liên quan dưới dạng JSON object;
-giữ placeholder/JSON keys và giải thích validation/không nhận credential.
-Đổi driver/type cập nhật controls hợp lệ nhưng giữ dữ liệu đã nhập để người
-dùng có thể quay lại; collapse không xóa dữ liệu. Chỉ gửi inputs hợp lệ của
-cách tạo đang chọn. Không tự xem trước hoặc triển khai.
-
-Nhãn, trợ giúp, aria-label và trạng thái trang dùng tiếng Việt theo glossary;
-technical IDs, module, driver, payload và tên người dùng giữ nguyên. Lỗi server
-chưa có code mapping đầy đủ dùng thông báo Việt an toàn, không regex dịch raw
-message (VI-03 theo contract lỗi T20).
+Loading/error/empty registry là các trạng thái khác nhau, đều chặn submit chưa
+kiểm chứng; retry giữ edits. Source không hợp lệ, drift hoặc schema mismatch
+có hướng dẫn safe theo code. Không fields provider credential trong Definition.
+Giữ editor criteria, provision rules, matching preview và advanced JSON lossless.
+Public existing-cluster/reserved keys không được đăng ký; Workload rendering
+ở trang Mẫu dựng ứng dụng riêng.
 
 ## Editor Điều kiện áp dụng dùng chung (T02B)
 
@@ -73,15 +60,15 @@ có `resourceType: workload`, hiển thị ID kỹ thuật, bundle ID và điề
 Form gồm ID mẫu, bộ chọn Bundle dựng ứng dụng và editor Điều kiện áp dụng T02B.
 ID tuân thủ chữ thường/số/gạch ngang, không có friendly name.
 
-Type `workload`, driver `score-k8s` và profile `internal-k8s` là giá trị ngầm;
+Type `workload` và driver `score-k8s` cố định; profile chọn `internal-k8s`
+hoặc `aws-eks` theo bundle tương thích;
 không có controls Connection, provision, module hoặc JSON variables tùy ý.
 Bundle lấy từ GET `/api/v1/render-bundles`, hiển thị ID/version. Một bundle tự
 chọn khi chưa có lựa chọn; nhiều bundle cần chọn tường minh. Không có bundle
 thì khóa đăng ký và hướng dẫn liên hệ Kỹ sư nền tảng. Không hard-code bundle ID.
 
-Mẫu là tùy chọn, chỉ dùng cho cluster nội bộ. Hệ thống tự chọn theo criteria
-hiện hành; không có mẫu khớp thì dùng renderer mặc định. Mẫu được chọn render
-lỗi phải báo lỗi, không chuyển âm thầm sang renderer mặc định. Không có binding
+Mọi Workload cần đúng một mẫu score-k8s khớp criteria cho profile đang dùng.
+Không có match/tie/bundle thiếu hoặc render lỗi đều chặn triển khai. Không có binding
 mới cho Environment hoặc upload template. Text/aria-label/trạng thái dùng Việt;
 technical IDs/payload giữ nguyên. Lưu mẫu không tự Preview/Deploy.
 
@@ -103,8 +90,8 @@ kiểm tra lại khi đăng ký và triển khai”. Giữ cảnh báo nguy cơ 
 
 ## Tham số typed và provision editor (T31)
 
-Form lấy capabilities OC-04d thay whitelist frontend; module theo cặp supported
-vẫn ngầm. Tham số cấu hình có typed controls string/number/bool/list/map theo
+Form lấy capabilities OC-04d; PE chọn module/revision đã kiểm chứng, không dùng
+whitelist hoặc module ngầm ở frontend. Tham số cấu hình có typed controls string/number/bool/list/map theo
 metadata, ghi nguồn param/context/default và required. Không điền params workload
 vào Definition; param thực của workload ưu tiên hơn giá trị fallback trong
 Definition. Default omitted không thành override; người dùng chọn override
@@ -120,21 +107,3 @@ và chiều consumer → provider (is_dependent đảo vai trò parent/companion
 match_dependents nối consumers tới companion); advanced JSON giữ cases phức tạp.
 Không tự Preview/provision khi đổi form. CTA/prefill chỉ được bật khi metadata
 và catalog cùng xác nhận cặp supported.
-
-## Terraform v2 form (required; supersedes T02/T31 fixed-module controls)
-
-“Cách tạo: Terraform” supports both cloud and Kubernetes. PE selects allowlisted
-source/module, immutable version/revision, reviewed input/output mapping and
-symbolic provider binding. Labels use “Terraform”, not “Tạo trên AWS”. Display
-verified schema/defaults/required fields and Type output/secret classification.
-Profile choice may be internal-k8s/aws-eks/shared where the module supports it;
-AWS bindings always show “Kết nối AWS của môi trường”, no Aurora override.
-Kubernetes shows selected Environment target or EKS dependency output.
-
-Keep criteria editor, matching preview and typed/provision/advanced JSON state.
-Output mapping cannot downgrade secret flag. Source unavailable/drift/schema
-error blocks submit and preserves non-secret edits; no credential fields.
-Capability loading/error/empty distinguishes no supported module from fetch
-failure, never frontend hard-coded fallback. Registration never provisions.
-Mẫu dựng ứng dụng supports both profiles with required score-k8s bundle; no
-native-default text for v2. Existing keys/advanced class values are preserved.

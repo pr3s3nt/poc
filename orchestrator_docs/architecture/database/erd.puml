@@ -1,5 +1,5 @@
 @startuml
-title Orchestrator Database ERD — v2 required schema extension (ADR-014; implementation pending)
+title Orchestrator Database ERD — Required Orchestrator schema - ADR-014
 hide circle
 skinparam linetype ortho
 
@@ -68,6 +68,11 @@ entity environment_operations {
  * environment_id : uuid <<FK>>
  --
  kind : text
+ authorization_mode : text
+ actor_ref : text
+ confirmed_scope : jsonb
+ deletion_request_hash : text
+ scope_snapshot : jsonb
  owner : text
  status : text
  stage : text
@@ -360,5 +365,21 @@ note right of terraform_states
 Restricted encrypted state, not logical outputs.
 Encryption key lives outside platform database.
 One state per stable instance; no run ID in key.
+end note
+entity terraform_resource_dependencies {
+ * consumer_instance_id : uuid <<PK,FK>>
+ * provider_instance_id : uuid <<PK,FK>>
+ --
+ organization_id : uuid <<FK>>
+ environment_id : uuid <<FK>>
+ target_generation : bigint
+ version : bigint
+}
+terraform_resource_instances ||--o{ terraform_resource_dependencies : consumer
+terraform_resource_instances ||--o{ terraform_resource_dependencies : provider
+note right of environment_operations
+RESOURCE_CLEANUP persists USER_CONFIRMED or RUN_CLEANUP.
+Confirmed root/dependency set and version snapshot immutable.
+Token replay cannot create a second operation.
 end note
 @enduml

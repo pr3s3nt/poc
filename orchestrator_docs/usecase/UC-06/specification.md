@@ -7,14 +7,6 @@ last_reviewed: 2026-10-13
 
 # UC-06 — Deploy Workload
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Mục tiêu
 
 Triển khai Score workload theo Execution Profile của Environment, tự động chuẩn bị hạ tầng cần thiết và đưa workload lên Kubernetes.
@@ -49,18 +41,24 @@ Triển khai Score workload theo Execution Profile của Environment, tự độ
 4. **MS-04:** Orchestrator resolve và pin Execution Profile, Connection, region và runtime configuration của Environment; Application chỉ cung cấp identity/current metadata.
 5. **MS-05:** Orchestrator enrich graph theo VAR-01 hoặc VAR-02.
 6. **MS-06:** Orchestrator thêm namespace có identity theo Environment và resource dependencies từ Score.
-7. **MS-07:** Orchestrator bind internal cluster ngầm từ Environment Connection, match Resource Definitions cho các resource còn lại rồi expand Resource References và provision rules tới fixed point; `postgres` được chọn thành Aurora hoặc StatefulSet theo profile và Matching Criteria của Environment.
+7. **MS-07:** Orchestrator bind internal cluster ngầm từ Environment Connection, match Resource Definitions cho các resource còn lại rồi expand Resource References và provision rules tới fixed point; Redis/PostgreSQL được chọn theo type/class/profile và criteria, không tự đổi
+   class khi matching thất bại.
 8. **MS-08:** Orchestrator validate graph/contracts và tính provider-first provision batches.
-9. **MS-09:** UC-06 `«include»` UC-08 để provision/reuse resources theo dependency order.
+9. **MS-09:** Sau kiểm inputs/artifacts và nhận Environment operation dưới
+   CAS/owner fencing, UC-06 `«include»` UC-08 để provision theo dependency order.
 10. **MS-10:** Orchestrator nhận resource outputs và resolve các binding của workload.
-11. **MS-11:** Orchestrator render Workload Profile thành Kubernetes manifests, ánh xạ container requests/limits đã khai báo vào Kubernetes resources, rồi apply lên cluster đã resolve.
+11. **MS-11:** score-k8s sinh manifest từ Score đã chuẩn hóa và outputs/Secret
+    refs. Giữ container requests/limits, kiểm manifest, Apply và chờ Ready.
 12. **MS-12:** Orchestrator lưu Candidate Deployment Set thành current, Active Resources và deployment status `SUCCEEDED`.
 13. **MS-13:** Orchestrator trả kết quả deployment thành công cho actor.
 
 ## Luồng biến thể trong happy path
 
-- **VAR-01 — `aws-eks`:** tại MS-05, thêm implicit VPC/EKS scope Environment theo ADR-011/T27; tại MS-09, UC-08 tái sử dụng hoặc provision VPC -> EKS trước Aurora/workload.
-- **VAR-02 — `internal-k8s`:** tại MS-05, thêm provider node tham chiếu cluster connection có sẵn; UC-08 không tạo VPC/EKS và provision namespace/PostgreSQL trên cluster đó.
+- **VAR-01:** `aws-eks`: thêm VPC/EKS thuộc Environment/generation;
+  Terraform tạo hạ tầng theo dependency. Redis/PostgreSQL có thể in-cluster
+  trên EKS hoặc ElastiCache/Aurora theo class, cùng AWS account/region.
+- **VAR-02:** `internal-k8s`: cluster provider tham chiếu Connection có sẵn;
+  Terraform tạo namespace/Redis/PostgreSQL trên target đó, không tạo VPC/EKS.
 - **VAR-03 — Fleet GitRepo trên internal kind:** tại MS-11, khi platform cấu
   hình mode này, Orchestrator ghi workload manifests không bí mật vào repo
   GitOps theo Application/Environment/workload và Ingress vào bundle
@@ -85,11 +83,14 @@ Triển khai Score workload theo Execution Profile của Environment, tự độ
 - **BR-02:** Resource Descriptor là identity ổn định; VPC/EKS scope Environment theo ADR-011/T27, namespace scope Environment, Score dependency dùng declared scope.
 - **BR-03:** Execution Profile chỉ enrich graph/context; provider-specific execution được chọn qua Resource Definition và executor adapter; internal cluster dùng trusted system binding theo ADR-013, không matching catalog.
 - **BR-04:** Graph phải là DAG và batches phải đặt mọi provider trước consumer.
-- **BR-05:** Chỉ commit Candidate Deployment Set thành current sau khi UC-08 và workload apply hoàn tất thành công.
+- **BR-05:** Chỉ commit Candidate thành current sau khi UC-08, manifest
+  validation, delivery và readiness đều thành công. Lỗi không giả success.
 - **BR-06:** Resource output chỉ được binding nếu thuộc output contract của Resource Type/Definition.
 - **BR-07:** Score `params` của một resource được validate theo `inputs` của Resource Type, đi vào Deployment Set entry và trở thành resource input của node tương ứng.
 - **BR-08:** Provision rule của Definition tạo resource đi kèm; `is_dependent` đảo chiều phụ thuộc sang node cha, `match_dependents` nối mọi consumer của node cha sang resource đi kèm.
-- **BR-09:** Trước khi execute, planner phải đối chiếu resource input và driver variable với Terraform module contract và ghi lại source fingerprint.
+- **BR-09:** Planner kiểm inputs/module mappings biết trước execution từ
+  verified registry, pin module/provider/binary digests. Deploy kiểm lại
+  artifacts trước provision; runtime outputs được type-check trước từng node.
 - **BR-10:** Deployment Delta dùng shape Humanitec `modules.add/remove/update` và `shared`; module update patch relative với module, shared patch relative với shared object, array diff theo index và `/-`.
 - **BR-11:** `containers.*.resources.requests/limits` chỉ gồm `cpu`/`memory`, phải đi nguyên vẹn qua Score fragment, Candidate Deployment Set và workload renderer; renderer không được thay giá trị đã khai báo bằng giá trị hard-code. Request của từng field (`cpu`, `memory`) được chọn theo thứ tự: request đã khai báo; nếu request thiếu thì limit đã khai báo của cùng field; nếu thiếu cả hai thì platform default `cpu: 10m` hoặc `memory: 32Mi`. Limits chỉ chứa các field được khai báo và không có default. Giá trị suy ra không được ghi ngược vào Score fragment hoặc Candidate Deployment Set.
 - **BR-12:** Khi parse Resource Reference, token `@app`, `@env`, `@infra` và
@@ -149,17 +150,19 @@ Cloud (`consumer -> provider`):
 
 ```text
 workload -> k8s-namespace -> eks -> vpc
-workload -> postgres-aurora -> vpc
+workload -> postgres-aurora / redis-elasticache -> vpc
+workload -> redis/postgres-in-cluster -> namespace -> eks -> vpc
 ```
 
 Internal Kubernetes:
 
 ```text
 workload -> k8s-namespace -> existing-k8s-cluster
-workload -> postgres-statefulset -> existing-k8s-cluster
+workload -> postgres-in-cluster -> namespace -> existing-k8s-cluster
+workload -> redis-in-cluster -> namespace -> existing-k8s-cluster
 ```
 
-VPC/EKS có scope theo Environment và target generation; namespace có scope theo Environment; PostgreSQL có scope theo dependency khai báo trong Score.
+VPC/EKS có scope theo Environment và target generation; namespace có scope theo Environment; Redis/PostgreSQL có private/shared scope theo dependency trong Score.
 
 Hai sơ đồ trên là hình dạng tối thiểu sinh ra từ Score và Execution Profile. Resource Definition được
 phép bổ sung edge cho chính resource của nó bằng Resource Reference trong driver inputs
@@ -194,30 +197,25 @@ Theo BR-12, trong Resource Reference, ngoài `@` kế thừa class/ID của node
 và Connection key đang xử lý; @infra là AWS infrastructure path theo ADR-011, nhờ vậy một Resource Definition tham chiếu hạ tầng implicit mà không phải
 hard-code Application hay Environment.
 
-## Trạng thái implementation hiện tại
-
-- **UC-06a Plan Deployment:** đã có Score conversion, Candidate Set, descriptor theo Deployment Set path, implicit infrastructure theo profile, fixed-point graph expansion, matching, Terraform contract inspection, Active Resource classification và provider-first batches. Planner sinh Humanitec-shaped Delta `modules.add/remove/update` và `shared` theo BR-10, với patch relative đúng module/shared scope và array semantics được test; mỗi Deployment persist immutable `DeploymentDeltaSnapshot` riêng và conformance so Delta cho 27 accepted fixtures. Score parser nhận `containers.*.resources.requests/limits` (`cpu`/`memory`) và giữ typed values nguyên văn qua Score fragment, Candidate Set, Delta Snapshot và persisted set theo BR-11 (I06-07).
-- **UC-06b Execute Deployment:** đã có fake, Kubernetes và Terraform adapters; output propagation; workload render/apply; API/Web Console; in-memory store kèm JSON snapshot. Renderer ánh xạ declared requests/limits nguyên văn; request field thiếu lấy limit cùng field, nếu không có limit thì default `10m`/`32Mi` theo BR-11; kind verification của I06-07 chỉ xác nhận live Deployment cho ba seeded case declared/partial/omitted; nhánh limit fallback và request khai báo vượt limit (giữ nguyên, Kubernetes API reject khi apply) mới được unit-test. Internal happy path đã verify trên kind và cloud happy path đã verify trên AWS; AWS chưa chạy lại sau I06-07.
-- **Fleet GitRepo mode:** internal kind có adapter tùy chọn ghi manifest vào repo GitOps private, đợi Fleet quan sát commit và đúng Deployment revision Ready. Image được kéo từ Harbor bằng namespace-local imagePullSecret; không có bước lấy mã nguồn hoặc build. Đường này đã pass kind create/remove với image mẫu; direct adapter vẫn là mặc định.
-- Mỗi request xử lý đúng một Score/workload. Acceptance flow gọi tuần tự ba deployment `backend`, `worker`, `frontend`; database là shared resource được giữ/reuse qua cùng descriptor.
-- Normalized PostgreSQL system-of-record đã được triển khai; in-memory/JSON vẫn là local/test option. Terraform state backend bền vững chưa được triển khai.
-
 ## Ngoài phạm vi happy path
 
-- **OOS-01:** Retry và timeout.
+- **OOS-01:** Retry không giới hạn và timeout vô hạn. Retry transient có
+  giới hạn, deadline và cancellation thuộc V2-05.
 - **OOS-02:** Rollback tự động.
 - **OOS-03:** Concurrent deployment.
 - **OOS-04:** Partial failure recovery.
 - **OOS-05:** Drift reconciliation.
-- **OOS-06:** Scheduled deletion và deprovision.
-- **OOS-07:** RBAC và approval workflow.
+- **OOS-06:** Scheduled deletion hoặc destroy ngầm trong Deploy. Xóa
+  resource có xác nhận riêng thuộc UC-07 V2-03.
+- **OOS-07:** RBAC chi tiết và approval workflow chung. Role gate PE/Admin
+  cho Xóa tài nguyên và các điểm duyệt M04 vẫn bắt buộc.
 - **OOS-08:** Humanitec-compatible standalone Delta API, asynchronous deployment và incremental deployment mode.
 
 ## Definition-selected rendering
 
-- **BR-17:** Plan pins workload renderer selection per Candidate module. UC-06
-  validates the selected runtime before resource provisioning, resolves outputs
-  via existing bindings, then invokes the selected renderer after UC-08.
+- **BR-17:** Mỗi Workload cần một score-k8s Definition và bundle trên cả
+  hai profiles. Pin lựa chọn trong Plan, kiểm runtime trước UC-08, rồi render
+  sau outputs. Thiếu hoặc lỗi renderer thì dừng; không có renderer mặc định thay thế.
 - **BR-18:** score-k8s receives normalized Score plus resolved output-only
   bindings and Secret references. Disable default provisioners; no database,
   PVC, namespace or cloud provisioning occurs in generation. Existing names,
@@ -230,7 +228,13 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 
 ## Environment connection binding
 
-- **BR-20:** Every deployment resolves and pins the configured Environment target, never a shared Application binding/default. Internal Kubernetes explicit Definition connections must equal the selected Environment connection. Public Terraform VPC/EKS Definitions have an empty ConnectionKey and always inherit the pinned READY AWS Environment connection. Keep ConnectionMismatch as a defensive guard for malformed internal/harness VPC/EKS Definitions with a different key; reject the winning conflict before execution without selecting another candidate. Empty keys do not mismatch; registration rejects even an explicit key equal to the target. External database Definitions keep their explicit READY AWS Driver Account in the same Organization. Effective connection identity is consistent across plan/hash, executor requests and ActiveResource persistence. Matching specificity/ties remain unchanged. Only ENVIRONMENT infrastructure scope is valid (T27); retired or unknown values fail closed before planning/execution. Generation-0 current identities and ADR-012 later-generation isolation remain unchanged. UNCONFIGURED Preview/Deploy is rejected 422 field connectionKey before executor/provisioning. For internal-k8s the implicit cluster node binds directly to the Environment Connection under ADR-013, bypassing authored cluster Definition matching. AWS cluster Definitions remain required; no default/host fallback. Internal Kubernetes requires explicit scoped KUBECONFIG under UC-04 BR-15; context-only targets cannot execute.
+- **BR-20:** Mọi execution pin Connection/account/region/target generation
+  của Environment trong Organization. AWS Definition không override account/
+  region, kể cả database/cache. Kubernetes dùng scoped KUBECONFIG hoặc target
+  EKS đã provision. Binding conflict/state target khác bị từ chối, không host/
+  default fallback hay đổi winner. Chỉ ENVIRONMENT infrastructure scope hợp lệ;
+  system internal cluster ADR-013 giữ scope tham chiếu riêng. Effective target
+  nhất quán giữa Plan, executor và persisted resource; UNCONFIGURED chặn trước call.
 
 ## Editable destination and transition consistency (ADR-012)
 
@@ -257,27 +261,14 @@ BR-08/BR-17. This does not remove the trusted internal driver, executor or
 system Definition admission required by ADR-013. No retained records are
 deleted by this API change.
 
-## Terraform v2 — required deployment behavior
 
-- **V2-01:** Form Workload -> Save draft -> Preview -> Deploy là acceptance path;
-  Score chỉ là biểu diễn nội bộ. Dependency class chọn in-cluster hoặc cloud-managed
-  theo metadata, không chọn module. Redis in-cluster trên EKS là lựa chọn hợp lệ.
-- **V2-02:** UC-08 dùng Terraform cho toàn bộ hạ tầng tạo mới: namespace,
-  Redis/PostgreSQL Kubernetes, VPC/EKS/ElastiCache/Aurora AWS. Internal cluster
-  chỉ resolve Connection ADR-013. AWS dùng cùng Environment account/region;
-  thay explicit Aurora account requirement ở BR-20 cho v2.
-- **V2-03:** Validate required input/contract và required score-k8s bundle trước
-  side effects, atomically acquire Environment operation; các Terraform nodes
-  dùng state locks. Preflight full graph với unresolved outputs được kiểm lại
-  sau binding trước node execution; không tạo hạ tầng cho lỗi input biết trước.
-- **V2-04:** Resolve outputs/secret bindings, score-k8s sinh ứng dụng cho cả hai
-  profiles rồi existing delivery Apply/WaitReady. Không native fallback hoặc
-  score-k8s dependency provisioning. Final commit sau readiness giữ BR-16.
-- **V2-05:** Bounded retry transient theo [state contract](../../architecture/contracts/terraform-state.md)
-  thuộc v2; automatic resume/rollback vẫn ngoài scope. Gián đoạn giữ stage/state/
-  ownership và hold khi outcome chưa rõ, không commit success hoặc replay CREATE.
-  Console hiển thị Terraform stage/failure và cleanup status an toàn.
-- **V2-06:** Ordinary redeploy giữ resource identity/data; module/class/target
-  replacement cần Preview/confirmation riêng, không destructive ordinary apply.
-  Application acceptance phải hoàn tất job flow UI và Redis/PostgreSQL read/write
-  theo [acceptance runbook](../../operations/terraform-v2-acceptance.md), không chỉ Pod Ready.
+## Retry, gián đoạn và kiểm chứng
+
+- **V2-05:** Retry lỗi tạm thời tối đa một lần sau kiểm state/kết quả, trong
+  deadline theo [state contract](../../architecture/contracts/terraform-state.md).
+  Lỗi input/auth/permission hoặc chưa rõ kết quả thì dừng. Giữ stage/state/
+  ownership và khóa khi chưa xác minh tiến trình cũ đã dừng; không tự resume/rollback.
+- **V2-06:** Redeploy giữ identity/dữ liệu. Replacement cần Preview và xác nhận
+  riêng theo UC-05 V2-04. Acceptance phải hoàn tất luồng job trên UI ứng dụng
+  và chứng minh đọc/ghi Redis/PostgreSQL, ngoài việc Declare/Preview/Deploy qua
+  form Console; không chỉ chứng minh Pod Ready. V2-A01 có bước xóa qua UI.

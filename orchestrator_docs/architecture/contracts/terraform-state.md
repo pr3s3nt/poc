@@ -95,13 +95,18 @@ khi đó là bản state duy nhất cần cho xử lý và cleanup.
 
 ## Cleanup operation
 
-Logical `CleanupResources(scope, runID, explicitResourceIDs, expectedVersions,
-confirmedStoppedOwner)` chỉ dành PE/Admin hoặc test cleanup capability riêng.
-Không thêm generic Developer destroy button trong phạm vi acceptance này.
-Admit Environment claim và state locks; kiểm persisted ownership, actual IDs,
-consumer graph và dependency trước destroy. Whitelist explicit IDs; không account-
-wide/namespace-prefix wildcard deletion. Namespace ownership không cấp quyền
-xóa objects của bên khác chỉ vì chúng nằm cùng namespace.
+Cleanup có hai cách cấp quyền: user deletion theo UC-07 DEL-* và test-run
+cleanup. User deletion chỉ PE/Admin, root UNREFERENCED, không consumer/busy;
+PrepareDeletion hiển thị root + dependency đủ điều kiện, cảnh báo dữ liệu
+và yêu cầu exact root descriptor. OC-19 pin scope/versions/actor/token và nhận
+operation nguyên tử. Graph/versions đổi phải review lại, không mở rộng tập xóa.
+
+Test-run cleanup dùng capability riêng và chỉ CREATED_BY_RUN. Không áp quy tắc
+run provenance để ngăn user xóa resource managed thuộc quyền nhưng tạo ở run cũ;
+ngược lại, không dùng role user để nâng quyền cleanup script. Cả hai kiểm
+ownership/consumers/dependencies, original target và state lock dưới Environment
+claim. Không account-wide/namespace-prefix wildcard; namespace ownership không
+cấp quyền xóa objects của bên khác. Public HTTP và idempotency ở OC-19.
 
 Stages: REQUESTED -> CHECKING -> DESTROYING -> VERIFYING -> SUCCEEDED; lỗi là
 FAILED hoặc INTERRUPTED/NEEDS_ATTENTION và lưu remaining IDs. Xóa consumers
@@ -124,5 +129,5 @@ unlock, lineage/serial rejection, failed write rollback và no unlock on expiry.
 Executor tests: stable names/credentials across retry, no duplicate CREATE on
 unknown state, update preserves identity/data, destructive update rejected,
 destroy ownership/consumer/dependency checks, retry timeout/cancellation và failed
-cleanup retained metadata. Acceptance chỉ hai exceptions đã chốt; các tests này
-không mở live scenario matrix update/delete hoặc disaster recovery.
+cleanup retained metadata. Acceptance giữ hai exceptions đã chốt, thêm bước user deletion trong V2-A01.
+Các tests khác không mở thêm live update/delete matrix hoặc disaster recovery.

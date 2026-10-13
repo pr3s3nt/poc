@@ -7,14 +7,6 @@ last_reviewed: 2026-10-13
 
 # UC-07 — Update or Remove Workload
 
-## V2 design scope
-
-[ADR-014](../../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and the
-Terraform v2 sections in this use-case specification/realization define the
-required next implementation. They supersede conflicting baseline driver/account/
-renderer/state constraints. Current delivered behavior remains separately tracked
-in CURRENT_STATE/deviations; old evidence is not v2 acceptance proof.
-
 ## Mục tiêu
 
 Cập nhật hoặc xóa một workload trong Environment mà vẫn giữ nguyên các workload và resource không bị ảnh hưởng.
@@ -23,6 +15,7 @@ Cập nhật hoặc xóa một workload trong Environment mà vẫn giữ nguyê
 
 - Developer
 - CI/CD System
+- Platform Engineer/Admin: chỉ luồng Xóa tài nguyên riêng.
 
 ## Supporting actors
 
@@ -72,7 +65,9 @@ Cập nhật hoặc xóa một workload trong Environment mà vẫn giữ nguyê
 
 - **BR-01:** `before Score` phải deep-equal contribution hiện tại của workload trước khi tạo Delta, gồm cả module contribution lẫn từng shared entry mà `before Score` khai báo.
 - **BR-02:** Delta không được thay đổi module/shared contribution ngoài phạm vi workload, trừ shared entry do chính workload thêm/bỏ và không xung đột consumer khác.
-- **BR-03:** Loại dependency không đồng nghĩa với deprovision resource.
+- **BR-03:** Bỏ dependency hoặc Workload không tự xóa hạ tầng/dữ liệu.
+  Chỉ đánh dấu UNREFERENCED khi không còn consumer trong successful final
+  transaction. Xóa tài nguyên cần thao tác riêng theo V2-03.
 - **BR-04:** Resource có cùng descriptor được xem xét tái sử dụng qua UC-08.
 - **BR-05:** Nếu workload khai báo một shared ID đã tồn tại với type/class/params khác, và chính workload đó chưa khai báo shared ID này trong `before Score`, planning phải từ chối vì xung đột thay vì ghi đè.
 - **BR-06:** Khi workload thôi khai báo một shared resource, entry chỉ rời Deployment Set nếu không còn module nào tham chiếu nó. Đây là phần mở rộng so với planner challenge, nơi entry bị xóa ngay theo khai báo của workload.
@@ -109,18 +104,12 @@ UC-07 Update or Remove Workload
 └── Persist new Deployment Set
 ```
 
-## Trạng thái implementation hiện tại
-
-- Planner đã validate module và từng shared entry trong `before Score`, từ chối shared conflict, tạo Candidate Set và giữ nguyên các module khác. Planner sinh Delta theo BR-07: module add/remove/update nằm trong `modules.add/remove/update`, patch relative với module hoặc object shared và array semantics theo UC-05 BR-06 được test; conformance so Delta cho 27 accepted fixtures.
-- Shared entry chỉ bị loại khi workload thôi khai báo và không còn module khác tham chiếu. Final transaction persist `UNREFERENCED` cho READY resources thuộc Environment/shared/workload scope và không còn trong desired graph; không destroy, không mark Application-wide resources từ một Environment riêng lẻ.
-- Candidate cuối cùng được kiểm tra Service references; pending batch có thể xóa cả consumer/provider mà không bị chặn vì trạng thái trung gian.
-- UC-16 Preview → Deploy update/delete theo từng workload có scoped strict API và Console confirmation/Undo, busy/stale/reload states, per-workload report và history navigation. Memory/PostgreSQL rollback/restart tests và local fake-runtime UI recording kiểm chứng milestone này. Fleet GitRepo remove đã pass kind trong evidence cũ; image/resource update qua Fleet chưa có external verification riêng.
-
 ## Ngoài phạm vi happy path
 
 - **OOS-01:** Concurrent workload updates.
 - **OOS-02:** Automatic rollback.
-- **OOS-03:** Scheduled deletion và deprovision resource.
+- **OOS-03:** Scheduled deletion và deprovision ngầm theo Remove.
+  Xóa tài nguyên có xác nhận riêng thuộc luồng DEL dưới đây.
 - **OOS-04:** Recovery khi update Kubernetes thất bại.
 - **OOS-05:** Canary, blue/green hoặc progressive delivery.
 
@@ -139,20 +128,59 @@ set versions. Deploy vẫn tường minh; token trước rename bị stale. Rena
 hoặc delete có thể để reference thiếu và Preview phải chặn Deploy. Không đổi
 runtime/current set hoặc Environment khác khi lưu.
 
-## Terraform v2 — ownership và destroy boundary
 
-- **V2-01:** Giữ Remove semantics: gỡ workload objects, resource không còn
-  consumer thành UNREFERENCED trong final transaction; không destroy cache/db,
-  namespace/VPC/EKS hoặc dữ liệu theo thao tác gỡ Workload.
+## Ownership và Xóa tài nguyên
+
 - **V2-02:** Redis/PostgreSQL private thuộc Workload; shared thuộc Environment/
   target generation. Shared còn consumer được giữ; type/class/params conflict
-  vẫn chặn. Scope logic không đồng nghĩa quyền xóa của một run.
-- **V2-03:** Resource destroy là riêng internal cleanup operation được admit
-  theo [state contract](../../architecture/contracts/terraform-state.md), kiểm
-  ownership, consumers, original target và reverse dependencies. Executor có
-  create/update/destroy code/tests; generic destroy UI và live update/delete
-  acceptance matrix ngoài đợt này.
-- **V2-04:** Failed provision không cấp quyền destroy tất cả dependency.
-  Cleanup run chỉ xóa CREATED_BY_RUN được giao; PREEXISTING/UPDATED_BY_RUN
-  được giữ. Retained generation/resource phải cleanup riêng, không chọn target
-  hiện tại thay historical target.
+  bị chặn. Platform resource không thuộc quyền xóa của Environment.
+- **V2-03:** PE/Admin có nút Xóa tài nguyên tại trang chi tiết tài nguyên trong
+  Environment. Root phải UNREFERENCED, không còn consumer và không có
+  Environment operation đang chạy. Developer không có quyền, kể cả gọi API.
+  Hộp thoại cảnh báo mất dữ liệu, yêu cầu gõ tên root và liệt kê root cùng
+  dependency đủ điều kiện. Backend kiểm lại snapshot/ownership/consumer/
+  dependency trong giao dịch nhận operation; không xóa ngoài tập đã xác nhận.
+- **V2-04:** Failed provision không cấp quyền xóa toàn bộ dependency. Cleanup
+  tự động của run chỉ xóa CREATED_BY_RUN được giao; PREEXISTING/UPDATED_BY_RUN
+  được giữ. Xóa do PE/Admin xác nhận dựa trên ownership bền vững, dùng target/
+  module/state gốc. Không suy quyền xóa từ run ID, UNREFERENCED hay tiền tố tên.
+
+### Luồng riêng: Xóa tài nguyên
+
+- **DEL-PRE-01:** PE/Admin có quyền trong Organization/Environment; root do
+  Orchestrator quản lý, UNREFERENCED và không thuộc platform.
+- **DEL-PRE-02:** Không có operation đang chạy; state/module/credential gốc
+  sẵn sàng. Không consumer trong current graph hoặc pending desired graph.
+  Thiếu bằng chứng là chưa đủ điều kiện, không đoán quyền.
+
+1. **DEL-MS-01:** Người dùng mở resource detail và chọn Xóa tài nguyên.
+2. **DEL-MS-02:** Hệ thống lập snapshot phạm vi root và dependency có thể xóa,
+   liệt kê cả dependency giữ lại và lý do; chưa gọi provider hoặc nhận khóa dài.
+3. **DEL-MS-03:** Hộp thoại cảnh báo mất dữ liệu; người dùng gõ đúng tên root
+   hiển thị trên trang và xác nhận toàn bộ tập xóa.
+4. **DEL-MS-04:** Backend kiểm token/versions, quyền, trạng thái, consumer và
+   operation trống trong một giao dịch, nhận operation rồi ghi REQUESTED.
+   Có thay đổi thì chặn trước destroy và yêu cầu review phạm vi mới.
+5. **DEL-MS-05:** CHECKING kiểm ownership/state/target; DESTROYING khóa state
+   và xóa consumer trước provider theo tập đã xác nhận.
+6. **DEL-MS-06:** VERIFYING kiểm tài nguyên vật lý đã hết. Persist kết quả
+   từng instance, giữ lịch sử/state cuối; không xóa history của Deployment.
+7. **DEL-MS-07:** UI hiển thị thành công đã xác minh hoặc lỗi/ID còn lại.
+   Operation chưa sạch không được báo thành công; tiến trình chưa rõ thì giữ hold.
+
+- **DEL-BR-01:** Dependency chỉ đưa vào tập xóa nếu cùng ownership scope, không
+  thuộc platform, UNREFERENCED và mọi consumer còn tồn tại đều nằm trong tập
+  xóa. Dependency còn dùng ngoài tập hoặc không đủ bằng chứng được giữ.
+  Root có consumer ngoài tập thì toàn bộ request bị từ chối. Không tự cascade
+  qua Environment/generation khác hoặc thêm dependency sau xác nhận.
+- **DEL-BR-02:** Tên xác nhận do server lấy từ persisted descriptor, cũng là
+  tên kỹ thuật hiển thị trên resource detail. So khớp chính xác; không trim/
+  case-fold hoặc tin tên do client chọn. Xác nhận cũ không dùng lại sau scope/
+  version thay đổi. Request lặp cùng token không tạo operation thứ hai.
+- **DEL-BR-03:** Tập xóa và versions được pin; operation claim/locks kiểm owner/
+  fencing. Không có transaction DB kéo dài qua provider call. Consumer xóa
+  lỗi thì không xóa provider còn cần; chỉ tiếp tục nhánh độc lập an toàn.
+  Lỗi không rollback dữ liệu và không tự gửi lại mutation từ browser.
+- **DEL-POST-01:** Chỉ khi tất cả tài nguyên đã xác nhận không còn, cleanup
+  SUCCEEDED và resource chuyển DESTROYED. Dữ liệu bị xóa không được coi là
+  có thể Undo. Tài nguyên giữ lại, current Set và history không bị sửa ngoài ý định.
