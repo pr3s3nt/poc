@@ -40,7 +40,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-04 | [Module namespace, Redis và PostgreSQL](I04-04-kubernetes-modules/README.md) | 2 | Hoàn tất |
 | I04-05 | [Module VPC, EKS, ElastiCache và Aurora](I04-05-aws-modules/README.md) | 2 | Hoàn tất |
 | I04-06 | [AWS Connection qua Console và Vault](I04-06-aws-connection/README.md) | 2 | Hoàn tất local |
-| I04-07 | [Definition, Workload class, Preview và renderer](I04-07-definition-workload-ui/README.md) | 2 | Đang chuẩn bị giao cloud |
+| I04-07 | [Definition, Workload class, Preview và renderer](I04-07-definition-workload-ui/README.md) | 2 | Đang thực hiện qua cloud |
 | I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Chưa bắt đầu |
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Chưa bắt đầu |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Chưa bắt đầu |
@@ -96,7 +96,11 @@ cluster resources. Lượt trước và bàn giao cũ giữ tại `/tmp/poc-i040
 Phiên I04-06 [session_01UowTTQea8MqLBRaPktRfSX](https://claude.ai/code/session_01UowTTQea8MqLBRaPktRfSX);
 mode nội bộ không introspect được, Bash/Write/Edit/network quan sát unprompted.
 Nhánh chính/tự sinh đã xóa sau push merge `9b49075`; checkout riêng đã dọn.
-Tiếp I04-07, phiên mới chưa tạo; draft brief `/tmp/poc-i0407-definition-workload-ui/`.
+I04-07 đang thực hiện từ base `8acf616` trên nhánh `claude/m04-i04-07`.
+Phiên mới [session_01B8BFUdSwAFdkASEVQA1oKY](https://claude.ai/code/session_01B8BFUdSwAFdkASEVQA1oKY),
+tạo 2026-10-14 02:38 +07; đã yêu cầu báo quyền thực tế/blockers qua status commit.
+Brief/status `/tmp/poc-i0407-definition-workload-ui/`; chưa có code để review.
+Lần kiểm tra đầu khoảng 02:53:45 +07, rồi mỗi 15 phút.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
 Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.

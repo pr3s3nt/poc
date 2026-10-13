@@ -10,7 +10,7 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; bắt đầu sau I04-06 đã verified local, đang chuẩn bị giao cloud. Xem [M04](../README.md) và [biên bản I04-06](../../../verification/2026-10-14-i04-06-aws-connection.md).
+Chặng 2; bắt đầu sau I04-06 đã verified local, đã giao phiên Claude cloud mới, implementation/checks pending. Xem [M04](../README.md) và [biên bản I04-06](../../../verification/2026-10-14-i04-06-aws-connection.md).
 
 ## Phạm vi
 
