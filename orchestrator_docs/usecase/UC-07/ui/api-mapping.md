@@ -53,13 +53,13 @@ resource instance thuộc scope; Organization/role lấy từ session.
 
 | UI operation | Method/path suffix | Request / result |
 |---|---|---|
-| Review phạm vi xóa | `POST /resources/{resourceId}/deletion-preview` | `{}`; 200 với token, confirmationName, root + dependencies đủ điều kiện, retained reasons, versions/expiry. Chỉ đọc metadata; không provider/secret call. |
-| Xác nhận xóa | `POST /resources/{resourceId}/deletions` | `{token,confirmationName}`; 202 với operationId và REQUESTED sau atomic admission. Không nhận caller-generated resource list/run quyền xóa. |
+| Review phạm vi xóa | `POST /resources/{resourceId}/deletion-preview` | `{}`; 200 với token, confirmationName, root + dependency candidates, consumer blockers, versions/expiry. Chỉ đọc metadata; không provider/secret call. |
+| Xác nhận xóa | `POST /resources/{resourceId}/deletions` | `{token,confirmationName,selectedResourceIds}`; 202 với operationId và REQUESTED sau atomic admission. Danh sách IDs bắt buộc có root, thuộc candidates trong token; server kiểm lại toàn bộ tập, không tự thêm mục hoặc nhận quyền run từ caller. |
 | Theo dõi | `GET /resource-cleanups/{operationId}` | 200 safe persisted stages, confirmed IDs, per-instance verification/remaining IDs. |
 
 Preview/execute chỉ PE/Admin; 401 thiếu session, 403 Developer, 404 foreign scope,
 400 payload/tên xác nhận sai, 409 stale/busy/ineligible, 503 thiếu state/module/
-credential service. Token pin root/scope/closure/versions; server kiểm exact
+credential service. Token pin root/scope/candidates/versions; server kiểm exact
 confirmationName từ descriptor, không echo tên sai trong error. Execute lặp
 cùng token của cùng actor trả operation đã nhận, không tạo destroy thứ hai.
 Nếu graph/consumer/version đổi thì review lại trước mọi provider call.

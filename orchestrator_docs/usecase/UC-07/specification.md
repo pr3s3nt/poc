@@ -137,8 +137,8 @@ runtime/current set hoặc Environment khác khi lưu.
 - **V2-03:** PE/Admin có nút Xóa tài nguyên tại trang chi tiết tài nguyên trong
   Environment. Root phải UNREFERENCED, không còn consumer và không có
   Environment operation đang chạy. Developer không có quyền, kể cả gọi API.
-  Hộp thoại cảnh báo mất dữ liệu, yêu cầu gõ tên root và liệt kê root cùng
-  dependency đủ điều kiện. Backend kiểm lại snapshot/ownership/consumer/
+  Hộp thoại cảnh báo mất dữ liệu, yêu cầu gõ tên root và liệt kê đúng
+  các tài nguyên người dùng đã tick. Backend kiểm lại snapshot/ownership/consumer/
   dependency trong giao dịch nhận operation; không xóa ngoài tập đã xác nhận.
 - **V2-04:** Failed provision không cấp quyền xóa toàn bộ dependency. Cleanup
   tự động của run chỉ xóa CREATED_BY_RUN được giao; PREEXISTING/UPDATED_BY_RUN
@@ -154,12 +154,15 @@ runtime/current set hoặc Environment khác khi lưu.
   Thiếu bằng chứng là chưa đủ điều kiện, không đoán quyền.
 
 1. **DEL-MS-01:** Người dùng mở resource detail và chọn Xóa tài nguyên.
-2. **DEL-MS-02:** Hệ thống lập snapshot phạm vi root và dependency có thể xóa,
-   liệt kê cả dependency giữ lại và lý do; chưa gọi provider hoặc nhận khóa dài.
-3. **DEL-MS-03:** Hộp thoại cảnh báo mất dữ liệu; người dùng gõ đúng tên root
-   hiển thị trên trang và xác nhận toàn bộ tập xóa.
-4. **DEL-MS-04:** Backend kiểm token/versions, quyền, trạng thái, consumer và
-   operation trống trong một giao dịch, nhận operation rồi ghi REQUESTED.
+2. **DEL-MS-02:** Hệ thống hiển thị root và các dependency trong cùng
+   Environment/generation. Chỉ root được tick mặc định; dependency để trống.
+   Không hiển thị tài nguyên platform như k8s-4f hoặc Connection. Chưa gọi
+   provider hoặc nhận khóa dài.
+3. **DEL-MS-03:** Người dùng tự tick dependency muốn xóa thêm. Ô không đủ
+   điều kiện bị khóa và nêu lý do. Hộp xác nhận liệt kê đúng các mục đã tick,
+   cảnh báo mất dữ liệu vĩnh viễn; người dùng gõ đúng tên root để xác nhận.
+4. **DEL-MS-04:** Backend kiểm toàn bộ tập đã tick: token/versions, quyền,
+   UNREFERENCED, ownership, consumer và operation trống trong một giao dịch, nhận operation rồi ghi REQUESTED.
    Có thay đổi thì chặn trước destroy và yêu cầu review phạm vi mới.
 5. **DEL-MS-05:** CHECKING kiểm ownership/state/target; DESTROYING khóa state
    và xóa consumer trước provider theo tập đã xác nhận.
@@ -168,11 +171,15 @@ runtime/current set hoặc Environment khác khi lưu.
 7. **DEL-MS-07:** UI hiển thị thành công đã xác minh hoặc lỗi/ID còn lại.
    Operation chưa sạch không được báo thành công; tiến trình chưa rõ thì giữ hold.
 
-- **DEL-BR-01:** Dependency chỉ đưa vào tập xóa nếu cùng ownership scope, không
-  thuộc platform, UNREFERENCED và mọi consumer còn tồn tại đều nằm trong tập
-  xóa. Dependency còn dùng ngoài tập hoặc không đủ bằng chứng được giữ.
-  Root có consumer ngoài tập thì toàn bộ request bị từ chối. Không tự cascade
-  qua Environment/generation khác hoặc thêm dependency sau xác nhận.
+- **DEL-BR-01:** Chỉ xóa tập người dùng đã tick, bắt buộc có root. Mọi mục
+  phải cùng Environment/generation, thuộc quyền sở hữu, UNREFERENCED và không
+  thuộc platform. Chỉ cho tick dependency khi mọi consumer còn tồn tại nằm
+  trong tập đã tick; kể cả Workload, current graph và pending desired graph.
+  Khi bỏ tick một mục, tự bỏ tick các mục đang chọn trở nên không hợp lệ
+  vì có consumer ngoài tập; lặp đến khi tập hợp lệ và giải thích các thay đổi.
+  Không tự tick thêm bất kỳ mục nào. Backend kiểm lại toàn bộ tập trong giao
+  dịch nhận operation; tập không hợp lệ bị từ chối toàn bộ, không xóa một phần
+  hoặc tự thêm dependency. Các mục không tick phải được giữ nguyên.
 - **DEL-BR-02:** Tên xác nhận do server lấy từ persisted descriptor, cũng là
   tên kỹ thuật hiển thị trên resource detail. So khớp chính xác; không trim/
   case-fold hoặc tin tên do client chọn. Xác nhận cũ không dùng lại sau scope/

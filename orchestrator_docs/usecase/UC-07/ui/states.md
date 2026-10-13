@@ -41,7 +41,8 @@ không tự replay mutation; lỗi tải lại không phủ nhận kết quả �
 | Không có quyền | Developer không thấy nút; server vẫn trả 403 nếu gọi mutation. |
 | Không đủ điều kiện | Disabled với lý do chưa UNREFERENCED/còn consumer/platform/busy; không mở delete plan hợp lệ. |
 | Đang tải phạm vi | Confirm disabled; không coi missing metadata là dependency rỗng. |
-| Xác nhận | Liệt kê toàn bộ tập xóa/retained; cảnh báo mất dữ liệu; yêu cầu exact root name. |
+| Chọn phạm vi | Chỉ root tick mặc định; dependency để trống. Khóa mục có consumer ngoài tập; bỏ tick kéo theo bỏ các lựa chọn trở nên không hợp lệ, có giải thích. Platform không xuất hiện. |
+| Xác nhận | Liệt kê đúng các mục đã tick; cảnh báo mất dữ liệu vĩnh viễn; yêu cầu exact root name. |
 | Stale/busy | Không destroy; giữ hướng dẫn, tải và review scope mới; không tự gửi lại tên/token cũ. |
 | Mutation mất phản hồi | Reload operation/detail để xác định đã nhận; không tự tạo request mới. |
 | REQUESTED/CHECKING/DESTROYING/VERIFYING | Khóa thao tác xung đột; poll đúng operation/scope, giữ kết quả từng instance. |

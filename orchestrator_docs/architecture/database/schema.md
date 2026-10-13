@@ -594,15 +594,16 @@ safe stage/attempt/status references, never raw resolved inputs or CLI artifacts
 
 `environment_operations.kind = RESOURCE_CLEANUP` lưu:
 `authorization_mode` (`USER_CONFIRMED` hoặc `RUN_CLEANUP`), `actor_ref`,
-`root_resource_instance_id`, `confirmed_scope jsonb` (root/dependency IDs,
+`root_resource_instance_id`, `confirmed_scope jsonb` (đúng selectedResourceIds đã được kiểm, bắt buộc có root;
 versions, original target/module/state refs và retained reasons),
 `deletion_request_hash text nullable`, `confirmation_name text` (server descriptor),
 `scope_snapshot jsonb` (Environment/current/draft/resource versions), run ID
 nếu là test cleanup, owner/fence và kết quả từng instance từ attempts.
 Unique deletion_request_hash trong Organization/actor bảo vệ idempotent token
-replay; token plaintext không persist. User confirmation chỉ có quyền trên
+replay; token plaintext không persist. Hash yêu cầu bind cả selected set để
+replay không đổi phạm vi. Candidate snapshot không phải quyền tự thêm mục xóa. User confirmation chỉ có quyền trên
 confirmed set đã pin. Run mode chỉ CREATED_BY_RUN, không dùng user role để
-nâng quyền. Atomic admission kiểm UNREFERENCED/root-consumers/versions/no
+nâng quyền. Atomic admission kiểm toàn bộ selected set: quyền/ownership/UNREFERENCED/consumers/versions/no
 active operation rồi lưu claim + confirmed scope nguyên tử. Không cascade
 FK deletion từ root làm mất dependency/audit trước verification. Operation stages REQUESTED/CHECKING/DESTROYING/VERIFYING; terminal
 SUCCEEDED/FAILED/INTERRUPTED and safe NEEDS_ATTENTION metadata. SUCCEEDED requires

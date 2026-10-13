@@ -10,7 +10,7 @@ last_reviewed: 2026-10-13
 ## Active
 
 - [M04 — Terraform v2](M04-terraform-v2/README.md)
-  - [I04-00 — A–D và duyệt chặng 1](M04-terraform-v2/I04-00-design-review/README.md): tài liệu đang hoàn thiện, chờ người dùng duyệt trước code.
+  - [I04-01 — State backend](M04-terraform-v2/I04-01-state-backend/README.md): chặng 1 đã duyệt; khởi động chặng 2.
 - [M02 — Use-case completion](M02-usecase-completion/README.md) và I06-10 deferred do reprioritize, chưa complete.
 
 ## Roadmap

@@ -16,13 +16,15 @@ API -> API: Session Organization + PE/Admin; Developer 403
 API -> Planner: PrepareDeletion(scoped root)
 Planner -> Records: Consistent current/pending/retained dependencies snapshot
 Records --> Planner: owner/status/consumers/versions/original targets
-Planner -> Planner: Root UNREFERENCED; eligible dependency closure; retain platform/referenced
-Planner --> UI: pinned token, root name, deletion set + retained reasons [DEL-MS-02]
-UI -> User: Data-loss warning; list all planned deletions
+Planner -> Planner: Root UNREFERENCED; candidates + consumer blockers; hide platform
+Planner --> UI: pinned token, root name, candidates + versions/blockers [DEL-MS-02]
+UI -> User: Only root checked; dependencies unchecked
+User -> UI: Tick dependencies explicitly; explain disabled/cascading unchecks
+UI -> User: Permanent data-loss warning; list exactly selected set
 User -> UI: Type exact root name and confirm [DEL-MS-03]
-UI -> API: POST deletions(token, confirmationName)
+UI -> API: POST deletions(token, confirmationName, selectedResourceIds)
 API -> Service: Role/scope-gated execution request
-Service -> Operations: Atomic CAS recheck / no active operation / claim owner-fence [DEL-MS-04]
+Service -> Operations: Atomic selected-set validation / versions / no active operation / claim owner-fence [DEL-MS-04]
 alt stale / busy / wrong confirmation / consumer found
   Operations --> UI: Safe rejection; no destroy; review new scope
 else admitted

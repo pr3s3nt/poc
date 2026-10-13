@@ -165,7 +165,7 @@ remain unchanged. Retired/unknown binding scopes are rejected without conversion
   Environment operation owner/fence. Expiry is a signal, not permission to unlock.
 - `TerraformResourceAttempt`: action/stage/ownership/physical-ID provenance for
   CREATE/UPDATE/DESTROY, written before external side effects and retained for cleanup.
-- `CleanupPlanner`: tính closure đủ điều kiện, retained reasons và token
+- `CleanupPlanner`: liệt kê candidates và kiểm selected set, retained reasons và token
   pin scope/versions/actor cho hộp xác nhận của PE/Admin.
 - `ResourceCleanupService`: nhận user-confirmed scope hoặc narrow test-run
   capability; kiểm ownership/consumer, reverse dependency và provider absence.

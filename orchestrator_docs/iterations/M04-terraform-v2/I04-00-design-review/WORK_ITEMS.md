@@ -1,7 +1,7 @@
 ---
 id: I04-00-WORK-ITEMS
 artifact: implementation-checklist
-status: current
+status: historical
 last_reviewed: 2026-10-13
 ---
 

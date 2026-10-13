@@ -548,19 +548,21 @@ read data for Developer/PE. Full protocol/security rules and tests:
 UNREFERENCED, không consumer và Environment operation trống theo UC-07 DEL-*.
 Developer 403 cả preview/execute. Root platform hoặc ngoài ownership không xóa.
 
-PrepareDeletion đọc một snapshot root/current + pending/retained graphs và
-versions; tính dependency closure cùng scope: chỉ dependency UNREFERENCED,
-non-platform, mọi consumer nằm trong tập xóa. Trả root + eligible dependencies,
-retained reasons, server confirmationName từ root descriptor, token/expiry.
-Token pin root/IDs/resource versions/Environment/current-set/draft versions,
-original targets/generation và actor; không provider/secret calls hoặc side effects.
-Không thêm resource ngoài closure đã hiển thị sau khi xác nhận.
+PrepareDeletion đọc snapshot root/current + pending/retained graphs và versions.
+Trả root và các dependency candidates cùng Environment/generation, các consumer
+blockers và ownership/status/versions; loại platform khỏi danh sách. Token pin
+actor/root/candidate IDs/versions, Environment/current-set/draft và original
+targets/generation; không provider/secret calls hoặc side effects. UI chỉ tick
+root mặc định; chọn/bỏ chọn tuân UC-07 DEL-BR-01.
 
-Execute nhận `{token,confirmationName}`; so exact tên server, không trim/case-fold.
-Trong một transaction, kiểm role/scope/token/versions/status/consumers/no active
-operation, nhận Environment owner/fence và persist actor/confirmed scope/token
-hash/REQUESTED. Snapshot đổi trả stale/busy/refused trước provider call.
-Cùng token/actor đã nhận trả operation cũ, không tạo request destroy thứ hai.
+Execute nhận `{token,confirmationName,selectedResourceIds}`. Selected set bắt
+buộc có root, không trùng ID và chỉ gồm candidates đã pin. So exact tên server,
+không trim/case-fold. Trong một transaction kiểm role/scope/token/versions,
+UNREFERENCED/ownership và consumers của mọi mục, no active operation; nhận
+Environment owner/fence và persist đúng selected set, actor/token hash/REQUESTED.
+Không thêm dependency. Tập không hợp lệ bị từ chối toàn bộ trước provider call.
+Snapshot đổi trả stale/busy/refused. Replay cùng token/actor và cùng selected set
+trả operation cũ; đổi selected set sau admission trả 409 STALE_PREVIEW.
 
 CHECKING kiểm original module/target/state/ownership. DESTROYING khóa state và
 xóa consumer trước provider. Consumer fail thì giữ provider còn cần; chỉ tiếp
@@ -582,8 +584,8 @@ Prefix `/api/v1/applications/{app}/environments/{env}`; phiên lấy Organizatio
 | Operation | Route | Kết quả |
 |---|---|---|
 | Resource detail (OC-11/UC-09) | GET `/resources/{resourceId}` | 200 safe detail/eligibility/descriptor; không provider refresh. |
-| PrepareDeletion | POST `/resources/{resourceId}/deletion-preview` với `{}` | 200 token, confirmationName, delete set và retained reasons/versions/expiry. |
-| CleanupResources | POST `/resources/{resourceId}/deletions` với `{token,confirmationName}` | 202 operationId/REQUESTED; token đã nhận trả operation cũ. |
+| PrepareDeletion | POST `/resources/{resourceId}/deletion-preview` với `{}` | 200 token, confirmationName, candidates và consumer blockers/versions/expiry. |
+| CleanupResources | POST `/resources/{resourceId}/deletions` với `{token,confirmationName,selectedResourceIds}` | 202 operationId/REQUESTED; token đã nhận trả operation cũ. |
 | Query operation (OC-11/UC-09) | GET `/resource-cleanups/{operationId}` | 200 scoped persisted stages/confirmed IDs/absence/remaining IDs. |
 
 Bodies bounded/known-field; resource IDs được resolve theo scope. Missing

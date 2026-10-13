@@ -128,12 +128,16 @@ Sau khi job/cache assertions đạt, gỡ cả frontend/backend/worker qua luồ
 pending changes -> Preview -> Deploy để không còn Workload/Service consumer.
 Chứng minh Redis/PostgreSQL vẫn tồn tại và được đánh dấu UNREFERENCED.
 Đăng nhập PE/Admin qua UI, mở resource detail trong Environment; Developer
-không có nút Xóa. Bấm Xóa tài nguyên, review root + dependency đủ điều kiện
-(trong scope) và dependency giữ lại, cảnh báo mất dữ liệu, gõ root name rồi
-xác nhận. Quay progress REQUESTED/CHECKING/DESTROYING/VERIFYING và verified
-absence; thực hiện cho Redis và PostgreSQL nếu không cùng một closure.
-Assertions chứng minh retained/platform resources ngoài confirmed set nguyên
-vẹn; script dọn namespace/infra test còn lại sau bước UI. Cancellation/name/
+không có nút Xóa. Bấm Xóa tài nguyên; assert chỉ root được tick mặc định
+và platform không xuất hiện. Chọn thêm ít nhất một dependency hợp lệ trong
+run để chứng minh chọn nhiều mục; các consumer phải được xử lý theo DEL-BR-01.
+Giữ ít nhất một tài nguyên thuộc danh sách không tick và xác minh nó vẫn còn
+sau operation. Chuẩn bị graph test có các mục đó trước run, không bỏ assertion
+nếu fixture không đủ. Review đúng selected set, cảnh báo mất dữ liệu vĩnh viễn,
+gõ root name rồi xác nhận. Quay REQUESTED/CHECKING/DESTROYING/VERIFYING và
+verified absence cho từng mục đã chọn. Xóa các root còn lại bằng operation
+riêng nếu cần. Assertions chứng minh unchecked/retained/platform resources
+ngoài confirmed set nguyên vẹn; script dọn namespace/infra test còn lại sau bước UI. Cancellation/name/
 role/stale/consumer races có code tests, không mở thêm live exception scenario.
 Delete UI fail thì A01 chưa đạt dù safety net dọn thành công; giữ failure video.
 

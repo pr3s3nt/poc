@@ -14,7 +14,7 @@ Chặng 2; xem [M04](../README.md). Chưa bắt đầu; không suy status này t
 
 ## Phạm vi
 
-Resource detail/progress read API, PE/Admin delete preview/confirmation/operation; eligible dependency closure, token/versions/idempotency và original-target destroy.
+Resource detail/progress read API, PE/Admin delete preview/confirmation/operation; root-only default checkboxes, explicit selected set, token/versions/idempotency và original-target destroy.
 
 ## Nguồn chuẩn
 
@@ -44,13 +44,13 @@ Module/provider pins, deadline và small sizing ghi trước execution.
 
 ## Acceptance criteria
 
-Developer denied, root UNREFERENCED/no consumer/no busy; exact-name confirmation liệt kê toàn bộ cascade; stale/concurrent consumer thay đổi chặn trước destroy; verified absence/remaining IDs.
+Developer denied, root UNREFERENCED/no consumer/no busy; exact-name confirmation liệt kê đúng mục đã tick; disabled blockers và bỏ tick kéo theo giải thích; stale/concurrent consumer thay đổi chặn trước destroy; verified absence/remaining IDs.
 
 ## Checks
 
 - `cd backend && go test ./... && go build ./...`
 - `cd frontend && npm run typecheck && npm run lint && npm test && npm run build`
-- Real PostgreSQL admission/token replay/closure-version races; headed confirmation/progress video
+- Real PostgreSQL admission/token replay/selected-set/consumer/version races, rejection of whole invalid set and preservation of unchecked items; headed confirmation/progress video
 
 ## Handoff
 

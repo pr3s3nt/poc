@@ -1,7 +1,7 @@
 ---
 id: I04-00
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-10-13
 related: [M04, ADR-014, IMP-021]
 ---
@@ -10,11 +10,11 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 1; xem [M04](../README.md). A–D đã được chuẩn bị và validated; chưa có duyệt gate 1.
+Chặng 1; xem [M04](../README.md). A–D đã được chuẩn bị và validated; người dùng đã duyệt gate 1 sau sửa selected-set và coverage I06-10.
 
 ## Phạm vi
 
-Sửa trực tiếp luật, chuyển implementation commentary, bổ sung Xóa tài nguyên và cascade đủ điều kiện; đồng bộ diagrams/UI/contracts/schema/runbook.
+Sửa trực tiếp luật, chuyển implementation commentary, bổ sung Xóa tài nguyên và chọn tập xóa qua ô tick; đồng bộ diagrams/UI/contracts/schema/runbook.
 
 ## Nguồn chuẩn
 
@@ -31,7 +31,7 @@ Module/provider pins, deadline và small sizing ghi trước execution.
 
 ## Acceptance criteria
 
-A–D validated, commit/push; người dùng duyệt bộ tài liệu/plan trước code. Tại checkpoint tài liệu sẵn sàng nhưng gate chưa được duyệt.
+A–D validated, commit/push; người dùng duyệt bộ tài liệu/plan trước code. Gate 1 đã được người dùng duyệt có điều kiện hoàn tất sửa đổi trong lượt này.
 
 ## Checks
 
@@ -41,7 +41,7 @@ A–D validated, commit/push; người dùng duyệt bộ tài liệu/plan trư�
 ## Handoff
 
 [Docs verification](../../../verification/2026-10-13-terraform-v2-reconciliation.md);
-chờ người dùng duyệt. Không tạo Claude session/code task ở chặng tài liệu.
+Người dùng đã duyệt chặng 1 trong yêu cầu mới; chuyển sang I04-01 sau validation và commit/push sửa đổi.
 
 
 Codex giao Claude source/scope/criteria/checks qua clauded trong tmux task riêng

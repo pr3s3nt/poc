@@ -33,8 +33,8 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 
 | Iteration | Phạm vi | Chặng | Trạng thái |
 |---|---|---|---|
-| I04-00 | [Duyệt tài liệu A–D và plan M04](I04-00-design-review/README.md) | 1 | Chờ duyệt tài liệu |
-| I04-01 | [State backend, schema và ownership graph](I04-01-state-backend/README.md) | 2 | Chưa bắt đầu |
+| I04-00 | [Duyệt tài liệu A–D và plan M04](I04-00-design-review/README.md) | 1 | Đã duyệt, sửa đổi selected-set trong lượt này |
+| I04-01 | [State backend, schema và ownership graph](I04-01-state-backend/README.md) | 2 | Đang khởi động |
 | I04-02 | [Registry module bất biến](I04-02-module-registry/README.md) | 2 | Chưa bắt đầu |
 | I04-03 | [Executor tạo, cập nhật và xóa](I04-03-terraform-executor/README.md) | 2 | Chưa bắt đầu |
 | I04-04 | [Module namespace, Redis và PostgreSQL](I04-04-kubernetes-modules/README.md) | 2 | Chưa bắt đầu |
@@ -51,8 +51,9 @@ Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là
 Dependencies triển khai: schema/state -> registry -> executor -> modules ->
 Connection/catalog/Workload/renderer -> deletion/app Redis -> integration ->
 k8s-4f -> approval -> AWS. Không bỏ task hoặc đổi adapter để rút acceptance.
-I04-00 là iteration current khi chờ gate 1; các task code deferred tới khi được
-phép. M02/I06-10 được đưa về deferred, chưa tuyên bố milestone cũ hoàn thành.
+I04-00 đã được người dùng duyệt sau sửa selected-set và đối chiếu I06-10.
+I04-01 là iteration current; các task sau chưa bắt đầu. M02/I06-10 deferred,
+không coi milestone cũ hoàn thành; xem [coverage còn lại](../M02-usecase-completion/I06-10-uc01-04-management/README.md#đối-chiếu-công-việc-còn-dở-với-m04).
 
 ## Validation và acceptance
 
@@ -84,8 +85,6 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 
 ## Current handoff
 
-Chặng 1: A–D đã được chuẩn bị và validated; chưa code/test mutation/live
-scenario của M04. [Verification](../../verification/2026-10-13-terraform-v2-reconciliation.md)
-ghi docs checks và [reconciliation](../../implementation/v2-rule-reconciliation.md)
-ghi ID/destination/historical references. Chờ người dùng review tài liệu/plan.
-Chặng 2 chỉ bắt đầu sau người dùng duyệt bộ tài liệu này.
+Người dùng duyệt chặng 1 sau sửa luồng checkbox và bảng I06-10 coverage.
+Khởi động chặng 2 từ I04-01 qua Claude/tmux; chưa tuyên bố code/checks/live đạt.
+Điểm dừng tiếp theo là video V2-A01 và dự toán AWS trước AWS provision.

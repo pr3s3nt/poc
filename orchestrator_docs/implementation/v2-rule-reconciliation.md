@@ -91,7 +91,7 @@ sửa để hợp thức hóa code tại 3367f7e.
 - UC-06 MS-07/09/11, VAR-01/02, BR-05/09/17/20, OOS-01/06/07: Terraform cả
   hai provider, required score-k8s/Ready, admission và bounded retry/deletion scope.
 - UC-07 BR-03/OOS-03 và V2-03/04: giữ hạ tầng khi Remove, thêm user-confirmed
-  deletion/cascade; run cleanup filter không bị dùng làm global ownership rule.
+  deletion/selected-set; run cleanup filter không bị dùng làm global ownership rule.
 - UC-08 MS-02/05/06, VAR-01/02, POST-05, BR-02/03/05/07, OOS-01/02/04/05:
   durable state/outputs/locking/target, bounded retry và separate destroy.
 - UC-09 BR-05/07: safe persisted Terraform progress; RES-* mới cho resource
@@ -102,5 +102,5 @@ sửa để hợp thức hóa code tại 3367f7e.
 
 Luật thực sự mới giữ V2 ID (replacement, locking/unknown outcome, class/
 shared metadata/ownership) hoặc DEL/RES IDs; không giữ V2 rule trùng BR/MS.
-New dependency-edge persistence và confirmed-scope schema phục vụ cascade
+New dependency-edge persistence và confirmed-scope schema phục vụ selected-set deletion
 đã được người dùng chọn, không tự mở thêm quyền xóa.

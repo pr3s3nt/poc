@@ -44,9 +44,12 @@ phải UNREFERENCED, không còn consumer và Environment không có operation �
 chạy. Backend kiểm lại các điều kiện trong giao dịch nhận operation.
 
 Hộp xác nhận cảnh báo mất dữ liệu, yêu cầu gõ lại tên tài nguyên và liệt kê
-tài nguyên gốc cùng mọi dependency đủ điều kiện được xóa. Người dùng đã chọn
-xóa cả dependency đủ điều kiện; dependency còn dùng, thuộc platform hoặc ngoài
-quyền sở hữu được giữ và nêu rõ. Không mở rộng phạm vi xóa sau xác nhận.
+đúng các tài nguyên đã tick. Người dùng chốt chỉ root được tick mặc định;
+dependency cùng Environment/generation để trống và được chọn tường minh.
+Không hiển thị platform. Khóa mục có consumer ngoài tập đã chọn, nêu lý do;
+bỏ tick kéo theo bỏ lựa chọn trở nên không hợp lệ và giải thích. Backend kiểm
+lại toàn bộ selected set trong admission, từ chối cả request nếu không hợp lệ
+và không tự thêm mục xóa. Chi tiết thuộc UC-07 DEL-BR-01.
 Xóa theo thứ tự consumer trước provider, dùng module/target/state gốc. Hiển thị
 REQUESTED/CHECKING/DESTROYING/VERIFYING, kết quả kiểm tra tài nguyên đã hết
 và ID còn lại nếu lỗi. Executor có contract/tests tạo, cập nhật và xóa.

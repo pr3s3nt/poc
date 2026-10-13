@@ -36,12 +36,15 @@ nguyên”; Developer không thấy nút. Root không UNREFERENCED, còn consume
 platform, thiếu metadata hoặc Environment busy thì khóa và nêu lý do.
 
 Khi bấm, tải deletion preview. Hộp thoại có Application/Environment/generation,
-tên kỹ thuật root, danh sách root + dependency sẽ xóa, dependency giữ lại và
-lý do. Cảnh báo **Xóa vĩnh viễn dữ liệu, không thể hoàn tác**; ô “Nhập lại tên
+tên kỹ thuật root và danh sách root/dependency cùng Environment/generation.
+Chỉ root được tick mặc định, dependency để trống; không hiển thị platform.
+Người dùng tự tick thêm; khóa mục có consumer ngoài tập đã tick và nêu lý do.
+Bỏ tick tự bỏ tick các mục trở nên không hợp lệ, kèm giải thích; không tự tick
+thêm. Phần xác nhận chỉ liệt kê đúng các mục đã tick. Cảnh báo **Xóa vĩnh viễn dữ liệu, không thể hoàn tác**; ô “Nhập lại tên
 tài nguyên” phải khớp tên server hiển thị, không suy từ tên người dùng nhập.
 Không gõ đúng hoặc chưa tải/validate scope thì nút xác nhận bị khóa.
 
-Hủy không gọi destroy. Xác nhận gửi pinned token + tên; đổi scope/versions thì
+Hủy không gọi destroy. Xác nhận gửi pinned token + tên + selectedResourceIds; đổi scope/versions thì
 đóng hoặc invalidate hộp thoại, yêu cầu review mới. UI theo dõi operation đã
 nhận qua REQUESTED/CHECKING/DESTROYING/VERIFYING, kết quả từng resource và
 remaining IDs. Success chỉ sau absence verification; không có Undo dữ liệu.

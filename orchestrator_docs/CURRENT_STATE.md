@@ -9,16 +9,15 @@ last_reviewed: 2026-10-13
 
 ## M04 documentation review checkpoint — 2026-10-13
 
-Người dùng bổ sung PE/Admin Xóa tài nguyên qua UI, cùng eligible dependency
-cascade được liệt kê/xác nhận; AWS access-key/Vault onboarding được giữ.
+Người dùng bổ sung PE/Admin Xóa tài nguyên qua UI, cùng selected set qua ô tick với root được chọn mặc định; AWS access-key/Vault onboarding được giữ.
 Specification/contracts nay đã hợp nhất trực tiếp, không hai lớp baseline/V2.
 [Reconciliation](implementation/v2-rule-reconciliation.md) ghi ID mapping và
 canonical destinations, nguồn a897d6b/3367f7e. Code tại checkpoint này chưa
 đổi, IMP-021 vẫn mở.
 
 [M04](iterations/M04-terraform-v2/README.md) current; M02/I06-10 deferred,
-không complete. Chặng 1 docs/plan đang được review/validated; **chưa có user
-approval để bắt đầu chặng 2**. Chặng 2 là code/SQL thật và k8s-4f A01/E01/E02,
+không complete. Người dùng đã duyệt chặng 1 sau sửa checkbox/coverage; I04-01 được
+khởi động qua Claude/tmux. Chặng 2 là code/SQL thật và k8s-4f A01/E01/E02,
 gate tiếp theo là video A01 + estimate AWS; chặng 3 chỉ sau duyệt mới chạy AWS.
 Không có M04 source code/test mutation, live scenario hoặc cloud create trong
 checkpoint tài liệu này. Các baseline status dưới đây vẫn là hiện trạng code.

@@ -396,7 +396,7 @@ TerraformExecutor --> TerraformStateBackend
 TerraformExecutor --> ConnectionCredentialResolver
 TerraformStateBackend --> TerraformStateRepository : encrypted state / lock CAS
 TerraformStateBackend --> EnvironmentOperation : current owner/fencing checks
-CleanupPlanner --> ResourceInstanceRepository : pinned eligible dependency closure
+CleanupPlanner --> ResourceInstanceRepository : pinned candidates / selected set
 ResourceCleanupService --> CleanupPlanner : confirmed scope only
 ResourceCleanupService --> ResourceInstanceRepository
 ResourceCleanupService --> ResourceAttemptRepository

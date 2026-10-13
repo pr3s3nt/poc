@@ -82,13 +82,13 @@ class ResourceCleanupOperation <<entity>>
 interface ResourceInstanceRepository
 ResourceCleanupController --> CleanupPlanner : PE/Admin role gate
 ResourceCleanupController --> ResourceCleanupService : exact name + pinned token
-CleanupPlanner --> ResourceInstanceRepository : consistent closure/eligibility
+CleanupPlanner --> ResourceInstanceRepository : candidates/consumer blockers/selected-set validation
 ResourceCleanupService --> EnvironmentOperationManager : atomic claim/fencing
 ResourceCleanupService --> ResourceInstanceRepository : original state/target + proof
 ResourceCleanupService ..> ResourceCleanupOperation
 note right of ResourceCleanupService
 UNREFERENCED root + no external consumer.
-Only confirmed eligible dependency set; never platform.
+Only user-selected valid set; never add items or platform.
 Separate from RemoveWorkload.
 end note
 @enduml

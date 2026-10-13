@@ -111,7 +111,7 @@ run state/names; namespace/database still use Kubernetes executor; AWS credentia
 onboarding and Environment-only Aurora/ElastiCache provider binding need implementation;
 score-k8s is optional/internal-only; no Redis app cache or v2 module/source/class
 UI, durable encrypted state/locks/cleanup provenance và real acceptance còn
-thiếu. PE/Admin resource detail/delete preview/name confirmation/cascade
+thiếu. PE/Admin resource detail/delete preview/name confirmation/selected-set
 eligibility/confirmed-scope admission/progress/absence proof chưa có.
 Đây là gap code, không phải các luật baseline còn hiệu lực.
 

@@ -22,7 +22,7 @@ related: I06-10
 
 Safe slice completed and independently verified on 2026-09-30:
 [evidence and UI recording](../../../verification/2026-09-30-registration-hardening-local.md).
-The iteration remains current, not complete. Tests are focused on meaningful
+The iteration remains deferred, not complete. Tests are focused on meaningful
 regressions; redundant race repetitions were removed per user direction.
 An additional pre-existing gap remains: UC-16 parse/draft Save do not validate
 resource params against registered inputs; Preview planning does.
@@ -59,3 +59,5 @@ Người dùng ưu tiên [M04](../../M04-terraform-v2/README.md) cho Terraform v
 Record này chưa hoàn thành, chỉ deferred; status/handoff cũ ở a897d6b/3367f7e.
 AWS credential decision đã chốt ADR-009/014 và được implement trong M04,
 không dùng ghi chú “decision pending” phía trên làm blocker hiện hành.
+
+Coverage và phần còn lại sau M04 được ghi tại [bảng đối chiếu](README.md#đối-chiếu-công-việc-còn-dở-với-m04); không bỏ checklist còn dở.

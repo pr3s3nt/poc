@@ -101,10 +101,12 @@ EKS kubeconfig paths remain supported. Implementation evidence is tracked in cur
 ResourceDetailController/ResourceQueryService đọc scoped resource và eligibility
 cho UC-09. ResourceCleanupController kiểm session Organization + PE/Admin;
 Developer bị từ chối trước cả lập delete plan hoặc nhận operation.
-CleanupPlanner tính root/dependency closure và retained reasons từ current/
+CleanupPlanner đọc danh sách root/dependency và consumer blockers từ current/
 pending graphs + persisted dependency/ownership snapshots; phát token pin
-root descriptor, tập xóa/versions, current/draft versions và target generation.
-UI hiện scope, cảnh báo mất dữ liệu và tên cần gõ. Token/typed name không cấp
+root descriptor, candidate IDs/versions, current/draft versions và target generation.
+UI chỉ tick root mặc định, cho người dùng chọn dependency theo DEL-BR-01 và
+hiện đúng tập đã tick trong xác nhận. Backend kiểm selected set trong admission;
+không mở rộng tập xóa. UI hiện scope, cảnh báo mất dữ liệu và tên cần gõ. Token/typed name không cấp
 quyền nếu trạng thái đã đổi sau khi hiển thị hộp thoại.
 
 ResourceCleanupService kiểm snapshot/role/UNREFERENCED/consumers dưới
@@ -123,6 +125,6 @@ script safety net không giả chữ ký xác nhận UI. Xem
 [cleanup engine](../UC-08/sequence-cleanup.puml) và OC-19.
 
 Tests: Developer 403, foreign scope 404, stale/busy/not-unreferenced/consumer
-rejection trước provider calls, exact typed name, pinned cascade/retained
+rejection trước provider calls, exact typed name, pinned selected set/retained
 dependencies, duplicate token idempotency, lock/fencing và safe partial result.
 V2-A01 chứng minh xóa thật qua headed UI; các ngoại lệ role/race có tests riêng.

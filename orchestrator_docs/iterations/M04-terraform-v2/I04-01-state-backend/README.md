@@ -1,7 +1,7 @@
 ---
 id: I04-01
 artifact: iteration-plan
-status: deferred
+status: current
 last_reviewed: 2026-10-13
 related: [M04, ADR-014, IMP-021]
 ---
@@ -10,7 +10,7 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Chưa bắt đầu; không suy status này thành task bị bỏ hoặc đã implement.
+Chặng 2; xem [M04](../README.md). Được giao bắt đầu sau gate 1; chưa có bằng chứng implementation/checks hoàn thành.
 
 ## Phạm vi
 

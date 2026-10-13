@@ -97,7 +97,8 @@ khi đó là bản state duy nhất cần cho xử lý và cleanup.
 
 Cleanup có hai cách cấp quyền: user deletion theo UC-07 DEL-* và test-run
 cleanup. User deletion chỉ PE/Admin, root UNREFERENCED, không consumer/busy;
-PrepareDeletion hiển thị root + dependency đủ điều kiện, cảnh báo dữ liệu
+PrepareDeletion hiển thị candidates; chỉ root tick mặc định, dependency do
+người dùng chọn. Execute chỉ xóa selected set hợp lệ, không tự thêm mục; cảnh báo dữ liệu
 và yêu cầu exact root descriptor. OC-19 pin scope/versions/actor/token và nhận
 operation nguyên tử. Graph/versions đổi phải review lại, không mở rộng tập xóa.
 
