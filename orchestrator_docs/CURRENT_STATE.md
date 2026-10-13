@@ -27,8 +27,8 @@ checkpoint tài liệu này. Các baseline status dưới đây vẫn là hiện
 State backend mã hóa, identity/attempt/dependency persistence, fencing và
 internal HTTP handler đã được Claude viết; code chưa commit/chưa complete.
 Go tests chạy trên PostgreSQL thật đã pass qua Claude và Codex độc lập.
-Còn thiếu DB-permission separation; đang chờ người dùng hiểu và chọn thiết kế
-roles/connections hoặc SECURITY DEFINER. Không coi đây là deviation được phép
+Người dùng đã chọn A (ba roles/connections); DB-permission separation
+được giao Claude tiếp tục implement và kiểm thử. Không coi đây là deviation được phép
 bỏ qua. [Partial verification](verification/2026-10-13-i04-01-state-backend-partial.md).
 Không có M04 live UI/k8s/AWS evidence; gate 2 vẫn chưa đạt.
 

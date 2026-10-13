@@ -29,6 +29,18 @@ store/config secret độc lập database. Key thiếu/sai thì fail closed, kh�
 state rỗng thay ciphertext không đọc được. Database permissions tách quyền state
 blob khỏi public query; TLS khi ra ngoài loopback. Rotation/DR thuộc D14.
 
+Người dùng chọn A: ba DB role và kết nối riêng trong cùng một database.
+Owner chỉ dùng cho khởi tạo schema/cấp quyền; runtime Console không sở hữu
+bảng, không có quyền SELECT state blob hoặc token hash/capability credentials.
+State role có quyền tối thiểu để quản lý state/locks/capabilities/attempts dưới
+claim/fencing; không có quyền DDL hoặc quyền owner. Console chỉ được truy cập
+metadata cần cho operation release/recovery, không có đường nâng quyền đọc blob.
+Credentials runtime lưu trong file riêng chỉ owner OS được đọc; key mã hóa
+độc lập database. Không dùng owner connection như fallback khi thiếu runtime
+credentials; cấu hình sai phải fail closed. Test dùng đúng login roles để chứng
+minh SELECT bị từ chối ở database, không chỉ kiểm interface Go. Chi tiết provisioning
+role thuộc runbook; không thay quyền hoặc reset database retained chưa được giao.
+
 ## HTTP backend operations
 
 Internal endpoint `/internal/terraform/states/{opaqueStateID}` chỉ cho executor,

@@ -627,3 +627,22 @@ queryable. No schema/table cascade may destroy audit/state before cleanup proof.
 - D14 backup/restore is deferred; this schema extension does not claim DR or key
   rotation. Source of locking/encryption protocol is the
   [state contract](../contracts/terraform-state.md).
+
+## DB privilege boundary cho Terraform v2 — lựa chọn A
+
+Ba role trên cùng database theo ADR-014/state contract:
+
+| Role | Quyền |
+|---|---|
+| Owner | Khởi tạo baseline trên DB rỗng, sở hữu schema/bảng, cấp quyền; không dùng cho runtime. |
+| Console runtime | CRUD/query các bảng product theo nhu cầu; không SELECT ciphertext/nonce/key data của terraform_states hoặc token_hash của terraform_executor_capabilities; không DDL hoặc chuyển sang Owner/State. |
+| State runtime | Quyền cần cho state/locks/capabilities/instances/attempts và kiểm Environment owner/fence; không DDL hoặc quyền owner. |
+
+Operation release/recovery cần đọc metadata lock và thu hồi capability, nhưng
+không cấp Console quyền đọc blob/hash. Quyền cụ thể/cột được giới hạn theo SQL
+thực sự cần dùng; kiểm bằng login riêng trên PostgreSQL thật. Runtime startup
+chỉ validate baseline, không khởi tạo bằng tài khoản runtime hoặc fallback Owner.
+Bootstrap owner là bước setup rõ ràng cho database mới. Credentials file nằm
+ngoài database/repo, quyền OS hạn chế, cùng database/schema/identity đã cấu hình.
+Không SECURITY DEFINER state access trong phương án này, không reset/regrant
+retained database. Tables/graph/lifecycle và encrypted-state contract giữ nguyên.

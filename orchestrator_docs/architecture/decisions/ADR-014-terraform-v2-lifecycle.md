@@ -167,3 +167,15 @@ implementation/preflight, phải ghi trước execution và tuân contract đã 
   cho pin provider; module revision/content cần được pin riêng.
 - [Sensitive data](https://developer.hashicorp.com/terraform/language/manage-sensitive-data)
   cho việc state/plan có thể chứa secret dù output được đánh dấu sensitive.
+
+## Quyền PostgreSQL cho Terraform state — người dùng chọn A
+
+Người dùng chốt ba DB role riêng: owner khởi tạo schema/cấp quyền, Console
+cho runtime quản lý/query thông thường, State cho backend state nội bộ. Cùng
+một database; Console không đọc state blob hoặc token hash/capability secrets.
+Runtime dùng kết nối/credentials riêng có quyền tối thiểu, không dùng owner
+làm tài khoản chạy bình thường. Credentials giữ trong file riêng hạn chế quyền,
+không vào database, argv, logs hoặc API. Key mã hóa độc lập với các credentials.
+Không dùng SECURITY DEFINER làm đường truy cập state trong thiết kế này.
+Chi tiết quyền thuộc state contract và schema; cấu hình role chỉ trên database
+mới được giao, không tự reset/regrant database giữ lại.

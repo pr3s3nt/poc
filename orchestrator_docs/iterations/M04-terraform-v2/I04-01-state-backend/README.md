@@ -71,3 +71,10 @@ Cả hai PostgreSQL container task đã dọn. Internal loopback handler có tes
 nhưng mounting cho executor production vẫn thuộc I04-03. Chưa chạy browser,
 k8s-4f hoặc AWS. Sau quyết định, giao Claude tiếp phần DB privilege rồi review
 và verify trước I04-02. Chi tiết [verification](../../../verification/2026-10-13-i04-01-state-backend-partial.md).
+
+## Quyết định tiếp tục
+
+Người dùng đã chọn A: owner/Console/State roles và runtime connections riêng.
+Blocker quyết định DB privilege đã gỡ; phần code privilege separation vẫn phải
+implement, test bằng roles thật và review trước khi đóng I04-01. Claude tiếp
+code trong working tree hiện có; không reset/regrant retained database.
