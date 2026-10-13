@@ -45,7 +45,7 @@ Contracts/common Type outputs hợp lệ; stable identity và dependencies names
 ## Checks
 
 - terraform init với provider lock readonly, terraform validate cho từng module
-- `cd backend && go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
 
 ## Handoff
 

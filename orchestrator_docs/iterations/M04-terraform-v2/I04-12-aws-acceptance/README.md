@@ -46,7 +46,7 @@ A02/A03 full job/cache assertions + video; không còn run-owned cloud assets; d
 ## Checks
 
 - Real V2-A02/V2-A03; preflight account/region/permissions/pins/estimates và provider absence checks
-- `cd backend && go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
 - `cd frontend && npm run typecheck && npm run lint && npm test && npm run build`
 - `REQUIRE_PLANTUML=1 python3 scripts/check_docs.py; git diff --check`
 

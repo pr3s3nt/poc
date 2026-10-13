@@ -48,7 +48,7 @@ Developer denied, root UNREFERENCED/no consumer/no busy; exact-name confirmation
 
 ## Checks
 
-- `cd backend && go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
 - `cd frontend && npm run typecheck && npm run lint && npm test && npm run build`
 - Real PostgreSQL admission/token replay/selected-set/consumer/version races, rejection of whole invalid set and preservation of unchecked items; headed confirmation/progress video
 

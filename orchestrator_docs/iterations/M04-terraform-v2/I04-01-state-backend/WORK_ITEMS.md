@@ -1,7 +1,7 @@
 ---
 id: I04-01-WORK-ITEMS
 artifact: implementation-checklist
-status: current
+status: historical
 last_reviewed: 2026-10-13
 ---
 
@@ -26,3 +26,7 @@ product requirements. Tất cả checklist đang pending trừ checkpoint tài l
 - [ ] Người dùng chốt phạm vi TLS ngoài loopback; implement/validate phần bị ảnh hưởng.
 
 Core/role-A checkpoint đã verified; chưa coi toàn bộ iteration complete.
+
+## Kết thúc
+
+I04-01 hoàn tất sau final corrections; [835 mandatory SQL tests + cleanup](../../../verification/2026-10-13-i04-01-complete.md). TLS deferred, không blocker. Chuyển I04-02. Các handoff trước là lịch sử.

@@ -27,7 +27,14 @@ công khai không chứa state hoặc hash secret. AES-256-GCM với nonce mới
 AAD chứa org/state ID, key ID và revision; key nằm trong platform credential
 store/config secret độc lập database. Key thiếu/sai thì fail closed, không tạo
 state rỗng thay ciphertext không đọc được. Database permissions tách quyền state
-blob khỏi public query; TLS khi ra ngoài loopback. Rotation/DR thuộc D14.
+blob khỏi public query. Rotation/DR thuộc D14.
+
+Người dùng tạm hoãn TLS theo [issue #2](https://github.com/pr3s3nt/poc/issues/2).
+Hiện không bắt buộc TLS cho kết nối PostgreSQL hoặc Terraform state HTTP
+backend, kể cả ngoài loopback. Không thêm giới hạn thay thế như yêu cầu DB
+cùng máy. Listener loopback hiện tại có thể giữ như lựa chọn implementation
+nếu đủ cho executor; đó không phải constraint triển khai mới. Encryption at
+rest, role/capability/scope/fencing và redaction vẫn là yêu cầu hiện hành.
 
 Người dùng chọn A: ba DB role và kết nối riêng trong cùng một database.
 Owner chỉ dùng cho khởi tạo schema/cấp quyền; runtime Console không sở hữu
@@ -53,7 +60,7 @@ Mỗi request xác minh capability và current owner trong transaction ngắn.
 
 | Operation | Required semantics |
 |---|---|
-| GET | Đọc/decrypt state của đúng scope; chưa có state trả no-state theo protocol; không tạo state |
+| GET | Đọc/decrypt state của đúng scope; chỉ state key hợp lệ/đúng scope chưa có blob mới trả no-state. Key sai định dạng trả 400 hoặc 403, không 404; không tạo state |
 | LOCK | Atomic claim theo state, Terraform lock ID và operation/fence; cùng lock/owner/fence có thể acknowledgement idempotent; 200 khi thành công, 409/423 với safe metadata khi bị owner khác khóa |
 | POST | Cần query lock ID khớp và owner/fence hiện hành; validate lineage/serial tiến lên, encrypt/commit nguyên tử; replay cùng lineage/serial với bytes identical được ack idempotent, bytes khác hoặc serial lùi bị chặn |
 | UNLOCK | Chỉ owner/fence và lock ID đúng được release; không tự unlock khi deadline/heartbeat hết |
@@ -136,7 +143,8 @@ trợ, autonomous platform recovery không được claim.
 
 ## Verification obligations
 
-Real disposable PostgreSQL tests: state reopen, ciphertext/no plaintext, wrong
+Real disposable PostgreSQL tests chạy với `REQUIRE_POSTGRES=1`; thiếu
+`ORCHESTRATOR_POSTGRES_TEST_URL` phải fail thay vì skip. State reopen, ciphertext/no plaintext, wrong
 key, scope rejection, unique identity, two-process lock race, stale fence write/
 unlock, lineage/serial rejection, failed write rollback và no unlock on expiry.
 Executor tests: stable names/credentials across retry, no duplicate CREATE on

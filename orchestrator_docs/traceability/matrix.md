@@ -545,3 +545,7 @@ Owner/Console/State DB privilege boundary in ADR-014/state/schema now has
 [real-login PostgreSQL/CLI evidence](../verification/2026-10-13-i04-01-role-a.md).
 DB transport TLS scope remains open; this does not close I04-01/IMP-021 or
 provide any live UI/k8s/AWS acceptance proof.
+
+## I04-01 final review complete
+
+[Final evidence](../verification/2026-10-13-i04-01-complete.md): malformed-key 400/no state confusion regression, mandatory missing SQL fails, 835 real PostgreSQL tests zero skip. I04-01 complete; TLS deferred issue #2, I04-02 begins. No live acceptance claimed.

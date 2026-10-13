@@ -12,7 +12,8 @@ import (
 )
 
 // Fresh returns a database initialized by the owner setup with the Console
-// and State runtime roles granted. It skips when no test server is configured.
+// and State runtime roles granted. It skips when no test server is
+// configured, and fails instead under REQUIRE_POSTGRES=1.
 func Fresh(t *testing.T) persistencetest.PostgresDatabase {
 	t.Helper()
 	db := persistencetest.FreshPostgresRoles(t)

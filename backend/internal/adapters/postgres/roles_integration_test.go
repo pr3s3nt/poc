@@ -21,7 +21,8 @@ import (
 
 // These option-A tests (ADR-014) log in as the separate owner, Console and
 // State roles with their own passwords; nothing uses SET ROLE under a
-// superuser. They need ORCHESTRATOR_POSTGRES_TEST_URL and skip otherwise.
+// superuser. They need ORCHESTRATOR_POSTGRES_TEST_URL and skip otherwise, or
+// fail under REQUIRE_POSTGRES=1.
 
 func connectAs(t *testing.T, url string) *pgx.Conn {
 	t.Helper()

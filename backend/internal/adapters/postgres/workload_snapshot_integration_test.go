@@ -89,7 +89,8 @@ func TestReopenNeverReconstructsWorkloadHistory(t *testing.T) {
 	}
 }
 
-// Needs a disposable database (ORCHESTRATOR_POSTGRES_TEST_URL); skipped otherwise.
+// Needs a disposable database (ORCHESTRATOR_POSTGRES_TEST_URL); skipped
+// otherwise, or failed under REQUIRE_POSTGRES=1.
 func TestPostgresDesiredRenameContract(t *testing.T) {
 	st, _ := openFresh(t)
 	persistencetest.DesiredRename(t, st)

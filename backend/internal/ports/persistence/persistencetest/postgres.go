@@ -42,15 +42,35 @@ func randomHex(t *testing.T, n int) string {
 	return hex.EncodeToString(b)
 }
 
+// PostgresTestURLEnv names the administrator URL of the local test server.
+const PostgresTestURLEnv = "ORCHESTRATOR_POSTGRES_TEST_URL"
+
+// RequirePostgresEnv set to "1" makes PostgreSQL tests mandatory: a missing
+// test server URL fails the test instead of skipping it, so a validation run
+// cannot pass with the SQL suites silently skipped.
+const RequirePostgresEnv = "REQUIRE_POSTGRES"
+
+// PostgresTestURL returns the test server URL. Without one the test is
+// skipped, or fails when REQUIRE_POSTGRES=1. The URL is never logged.
+func PostgresTestURL(t testing.TB) string {
+	t.Helper()
+	base := os.Getenv(PostgresTestURLEnv)
+	if base != "" {
+		return base
+	}
+	if os.Getenv(RequirePostgresEnv) == "1" {
+		t.Fatalf("%s is not set but %s=1 requires the PostgreSQL tests", PostgresTestURLEnv, RequirePostgresEnv)
+	}
+	t.Skipf("%s is not set", PostgresTestURLEnv)
+	return ""
+}
+
 // FreshPostgresRoles creates an empty database owned by a new owner role and
 // two new runtime login roles, and drops all of them after the test. The test
-// is skipped when no local server is configured.
+// is skipped when no local server is configured, unless REQUIRE_POSTGRES=1.
 func FreshPostgresRoles(t *testing.T) PostgresDatabase {
 	t.Helper()
-	base := os.Getenv("ORCHESTRATOR_POSTGRES_TEST_URL")
-	if base == "" {
-		t.Skip("ORCHESTRATOR_POSTGRES_TEST_URL is not set")
-	}
+	base := PostgresTestURL(t)
 	ctx := context.Background()
 	admin, err := pgx.Connect(ctx, base)
 	if err != nil {

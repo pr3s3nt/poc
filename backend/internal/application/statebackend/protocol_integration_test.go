@@ -239,6 +239,48 @@ func TestScopeRejection(t *testing.T) {
 	_ = prodOp
 }
 
+// TestMalformedStateKeyFailsClosedNotNoState: on the real State login, a
+// malformed key inside the state collection is 400 for an authorized
+// capability, never 404/204 (which Terraform reads as "no state"). The
+// service refuses it before any SQL; a scoped key without state stays the
+// protocol no-state answer and a stored state is still served.
+func TestMalformedStateKeyFailsClosedNotNoState(t *testing.T) {
+	f := newFixture(t)
+	ctx, _ := f.claim(f.store, f.appKey, "staging", "proc-a")
+	stored := f.instance(ctx, "redis.in-cluster#cache", "run-1")
+	if _, err := f.attempt(ctx, stored, "run-1", tfresource.ActionCreate, tfresource.CreatedByRun); err != nil {
+		t.Fatal(err)
+	}
+	tok := f.token(ctx, stored, tfresource.CapabilityCreate)
+	call(t, f.base, "LOCK", stored.StateKey, tok, "", lockBody("l"))
+	if code, _ := call(t, f.base, http.MethodPost, stored.StateKey, tok, "l", stateDoc("lin", 1, marker)); code != http.StatusOK {
+		t.Fatalf("write: %d", code)
+	}
+	empty := f.instance(ctx, "redis.in-cluster#other", "run-1")
+	emptyTok := f.token(ctx, empty, tfresource.CapabilityCreate)
+
+	for _, key := range []string{"", strings.ToUpper(stored.StateKey), stored.StateKey + "/", stored.StateKey[:63], stored.StateKey + "0", stored.StateKey + "/x", "x/" + stored.StateKey} {
+		for _, tk := range []string{tok, emptyTok} {
+			code, body := call(t, f.base, http.MethodGet, key, tk, "", nil)
+			if code != http.StatusBadRequest || bytes.Contains(body, []byte(marker)) {
+				t.Errorf("GET malformed key %q: %d %s", key, code, body)
+			}
+		}
+		if _, found, err := f.svc.Read(ctx, tok, key); !errors.Is(err, terraformstate.ErrForbidden) || found {
+			t.Errorf("service read malformed key %q: found=%v err=%v", key, found, err)
+		}
+	}
+	if code, body := call(t, f.base, http.MethodGet, stored.StateKey, tok, "", nil); code != http.StatusOK || !bytes.Contains(body, []byte(marker)) {
+		t.Fatalf("stored state GET: %d", code)
+	}
+	if code, body := call(t, f.base, http.MethodGet, empty.StateKey, emptyTok, "", nil); code != http.StatusNoContent || len(body) != 0 {
+		t.Fatalf("scoped missing state GET: %d %s", code, body)
+	}
+	if n := f.count(`SELECT count(*) FROM terraform_states`); n != 1 {
+		t.Fatalf("state rows after malformed reads: %d", n)
+	}
+}
+
 // TestUniqueIdentityAndGeneration: registration is idempotent on the tuple
 // and a different target generation is a different instance and state.
 func TestUniqueIdentityAndGeneration(t *testing.T) {

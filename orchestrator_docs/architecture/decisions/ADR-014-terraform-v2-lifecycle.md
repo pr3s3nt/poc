@@ -179,3 +179,12 @@ không vào database, argv, logs hoặc API. Key mã hóa độc lập với cá
 Không dùng SECURITY DEFINER làm đường truy cập state trong thiết kế này.
 Chi tiết quyền thuộc state contract và schema; cấu hình role chỉ trên database
 mới được giao, không tự reset/regrant database giữ lại.
+
+## TLS deferred — quyết định người dùng
+
+TLS cho PostgreSQL và Terraform state HTTP backend được hoãn theo
+[issue #2](https://github.com/pr3s3nt/poc/issues/2) để ưu tiên M04 chạy được.
+Hiện không bắt buộc TLS và không áp giới hạn triển khai thay thế (DB cùng máy
+hoặc chỉ được dùng loopback). Có thể giữ listener loopback hiện tại nếu đáp
+ứng executor; không cần đổi code chỉ vì quyết định này. Ba DB roles, encryption
+at rest, capabilities/locks/fencing và bí mật vẫn theo contract hiện hành.

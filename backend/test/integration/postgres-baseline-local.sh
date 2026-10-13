@@ -8,7 +8,8 @@
 #      NEW private Docker network. Its data directory is a tmpfs (no volume, no
 #      bind mount, no Compose project) and its port is published on 127.0.0.1
 #      with a random host port.
-#   2. Runs, with a minimal environment that holds only the owned server's URL:
+#   2. Runs, with a minimal environment that holds only the owned server's URL
+#      and REQUIRE_POSTGRES=1 (a missing URL fails instead of skipping):
 #        go build ./...
 #        go test -count=1 -v ./...                (full uncached suite, PostgreSQL opted in)
 #        go test -race -count=1 on the persistence packages (targeted races)
@@ -92,7 +93,7 @@ container     : ${RUN_CMD[*]}
                 (POSTGRES_PASSWORD is a random per-run value exported to the docker client only)
 steps         : go build ./... ; go test -count=1 -v ./... ; targeted go test -race ;
                 synthetic pg_dump/pg_restore smoke inside the owned container
-go environment: env -i with PATH/HOME/Go cache variables plus ORCHESTRATOR_POSTGRES_TEST_URL
+go environment: env -i with PATH/HOME/Go cache variables plus REQUIRE_POSTGRES=1 and ORCHESTRATOR_POSTGRES_TEST_URL
                 (no .env, no inherited DATABASE/ORCHESTRATOR_* variable, no ORCH_KIND_VERIFY, GOFLAGS empty, GOENV=off)
 cleanup       : docker rm -f -v <owned container id>; docker network rm <owned network id>;
                 both removals are label-checked first and verified afterwards (cleanup.txt)
@@ -258,7 +259,7 @@ for name in "${GOENV_NAMES[@]}"; do
   if [[ -n "${!name:-}" ]]; then passthrough+=("${name}=${!name}"); fi
 done
 # GOFLAGS is forced empty (no build tags/opt-ins) and GOENV=off ignores the user's go env file.
-printf '%s\n' "${GOENV_NAMES[@]}" GOFLAGS GOENV CGO_ENABLED ORCHESTRATOR_POSTGRES_TEST_URL >"${EVIDENCE}/go-env-names.txt"
+printf '%s\n' "${GOENV_NAMES[@]}" GOFLAGS GOENV CGO_ENABLED REQUIRE_POSTGRES ORCHESTRATOR_POSTGRES_TEST_URL >"${EVIDENCE}/go-env-names.txt"
 
 step() { # step NAME CMD...   (records the status; never aborts the runner)
   local name="$1"; shift
@@ -269,7 +270,7 @@ step() { # step NAME CMD...   (records the status; never aborts the runner)
   printf '%s\t%s\t%s\n' "${name}" "${status}" "${name}.log" >>"${EVIDENCE}/steps.tsv"
   if (( status != 0 )); then FAILED=$((FAILED + 1)); echo "   FAILED (exit ${status}); log kept in ${name}.log"; else echo "   ok"; fi
 }
-GO_CMD_ENV=(env -i "${passthrough[@]}" GOFLAGS= GOENV=off CGO_ENABLED=1 "ORCHESTRATOR_POSTGRES_TEST_URL=${TEST_URL}")
+GO_CMD_ENV=(env -i "${passthrough[@]}" GOFLAGS= GOENV=off CGO_ENABLED=1 REQUIRE_POSTGRES=1 "ORCHESTRATOR_POSTGRES_TEST_URL=${TEST_URL}")
 
 step go-build "${GO_CMD_ENV[@]}" go build ./...
 step go-test-full "${GO_CMD_ENV[@]}" go test -count=1 -v ./...

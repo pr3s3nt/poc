@@ -49,7 +49,7 @@ UI không chọn module ở Workload, không fallback class/renderer; typed/adva
 
 ## Checks
 
-- `cd backend && go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
 - `cd frontend && npm run typecheck && npm run lint && npm test && npm run build`
 - Headed browser form/Preview recording; real score-k8s CLI contract tests
 

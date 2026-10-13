@@ -45,7 +45,7 @@ CREATE/UPDATE/DESTROY contract có tests; UPDATE destructive plan bị chặn; u
 
 ## Checks
 
-- `cd backend && go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
 - Executor cancellation/process-stop, retry/plan policy/output/secret tests và real HTTP-state PostgreSQL tests
 
 ## Handoff

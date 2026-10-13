@@ -1,7 +1,7 @@
 ---
 id: I04-01
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-10-13
 related: [M04, ADR-014, IMP-021]
 ---
@@ -46,7 +46,7 @@ State tồn tại sau restart; hai tiến trình không ghi chồng; stale fence
 
 ## Checks
 
-- `cd backend && go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
 - Real disposable PostgreSQL: full opt-in persistence suite, race/reopen/rollback, zero skipped tests của contract mới
 
 ## Handoff
@@ -86,3 +86,14 @@ Ba roles đã implement và độc lập verified với 831 PostgreSQL tests, ze
 phạm vi TLS ngoài loopback đang hỏi người dùng; Compose DB bridge không TLS,
 state HTTP strictly loopback. Không coi đây là exception đã được chấp nhận.
 Source/checks/cleanup đã lưu để tiếp tục cùng task sau câu trả lời.
+
+## Final review corrections
+
+TLS deferred theo issue #2, không còn blocker. Sửa invalid state key HTTP
+response sang 400/403 (không 404 no-state), có regression test; thêm
+REQUIRE_POSTGRES=1 để missing SQL environment fail closed. Toàn bộ validation
+M04 dùng cờ mandatory. Đóng iteration sau independent checks/review; tiếp I04-02.
+
+## Kết thúc
+
+I04-01 hoàn tất sau final corrections; [835 mandatory SQL tests + cleanup](../../../verification/2026-10-13-i04-01-complete.md). TLS deferred, không blocker. Chuyển I04-02. Các handoff trước là lịch sử.

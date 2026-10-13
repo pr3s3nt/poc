@@ -1,7 +1,7 @@
 ---
 id: I04-02
 artifact: iteration-plan
-status: deferred
+status: current
 last_reviewed: 2026-10-13
 related: [M04, ADR-014, IMP-021]
 ---
@@ -10,7 +10,7 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Chưa bắt đầu; không suy status này thành task bị bỏ hoặc đã implement.
+Chặng 2; xem [M04](../README.md). Bắt đầu sau I04-01 đã verified; chưa claim registry hoàn tất.
 
 ## Phạm vi
 
@@ -45,7 +45,7 @@ Allowlist/integrity/transitive pins được kiểm trước insert/execution; s
 
 ## Checks
 
-- `cd backend && go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
 - Catalog/registry/HTTP tests, immutable bundle SQL reopen/race trên PostgreSQL cô lập
 
 ## Handoff

@@ -45,9 +45,18 @@ type terraformLockInfo struct {
 
 func (h *TerraformStateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	stateKey, ok := strings.CutPrefix(r.URL.Path, TerraformStatePrefix)
-	if !ok || !tfresource.ValidStateKey(stateKey) {
+	// Terraform's http backend treats GET 404 as "no state yet" and would
+	// then plan from empty state. Every path inside the state collection that
+	// does not name a well-formed key therefore fails closed with 400; only a
+	// route outside the collection is an ordinary 404.
+	collection := strings.TrimSuffix(TerraformStatePrefix, "/")
+	if r.URL.Path != collection && !strings.HasPrefix(r.URL.Path, collection+"/") {
 		stateError(w, http.StatusNotFound, "NOT_FOUND")
+		return
+	}
+	stateKey := strings.TrimPrefix(r.URL.Path, TerraformStatePrefix)
+	if !tfresource.ValidStateKey(stateKey) {
+		stateError(w, http.StatusBadRequest, "INVALID_STATE_KEY")
 		return
 	}
 	_, token, ok := r.BasicAuth()

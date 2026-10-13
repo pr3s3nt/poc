@@ -46,7 +46,7 @@ STS không giả full READY; failure không lưu/overwrite credential winner; re
 
 ## Checks
 
-- `cd backend && go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
 - `cd frontend && npm run typecheck && npm run lint && npm test && npm run build`
 - Real isolated PostgreSQL credential-reference/rollback/reopen checks; headed UI video với secret masking
 

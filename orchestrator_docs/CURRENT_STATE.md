@@ -22,19 +22,15 @@ gate tiếp theo là video A01 + estimate AWS; chặng 3 chỉ sau duyệt mới
 Không có M04 source code/test mutation, live scenario hoặc cloud create trong
 checkpoint tài liệu này. Các baseline status dưới đây vẫn là hiện trạng code.
 
-## I04-01 role A đã kiểm chứng, transport còn mở — 2026-10-13
+## I04-01 hoàn tất, I04-02 hiện hành — 2026-10-13
 
-Người dùng chọn A; Claude đã implement owner setup + Console/State runtime
-logins và connections riêng. Core encrypted state/identity/attempt/graph và
-role boundaries đã pass 831 tests trên PostgreSQL thật, zero skipped; Codex
-chạy độc lập full suite/build và cleanup server test. Xem
-[role A verification](verification/2026-10-13-i04-01-role-a.md).
-
-I04-01 chưa complete: còn hỏi phạm vi TLS ngoài loopback. State HTTP strictly
-loopback, Compose PostgreSQL dùng sslmode=disable qua bridge; không tự chốt
-exception hoặc claim transport compliance. Legacy installer kind chưa provision
-roles v2; không reset/regrant retained database. I04-02/live k8s/AWS chưa bắt đầu.
-Gate 2 chưa đạt; video A01 và estimate AWS vẫn pending.
+Encrypted state/roles/fencing đã verified. Final corrections: invalid state key
+trả 400, và REQUIRE_POSTGRES=1 chặn validation thiếu SQL. Claude/Codex độc lập
+pass 835 tests, zero skipped, build/checks và cleanup. Xem
+[completion evidence](verification/2026-10-13-i04-01-complete.md).
+TLS PostgreSQL/state HTTP deferred theo [issue #2](https://github.com/pr3s3nt/poc/issues/2),
+không bắt buộc TLS hoặc giới hạn thay thế. I04-02 registry bắt đầu; executor
+mounting và live k8s/AWS vẫn pending. Gate 2 video A01 + AWS estimate chưa đạt.
 
 ## Terraform v2 — accepted design, implementation pending (2026-10-13)
 

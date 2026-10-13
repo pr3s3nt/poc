@@ -45,7 +45,7 @@ Pins/validate/contract tests đạt, private network EKS->database/cache rõ, kh
 ## Checks
 
 - terraform init lock readonly, terraform validate từng AWS module
-- `cd backend && go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
 - Read-only AWS/pricing preparation khi cần, không create/apply/destroy account resources
 
 ## Handoff

@@ -47,7 +47,7 @@ Product runtime dùng PostgreSQL thật và scoped Vault/Connections; invalid in
 
 ## Checks
 
-- `cd backend && go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
 - `cd frontend && npm run typecheck && npm run lint && npm test && npm run build`
 - Real disposable PostgreSQL full integration/race/reopen, no required SQL tests skipped
 - bash -n các scripts thay đổi; module validate và headed recording tooling

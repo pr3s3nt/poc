@@ -42,7 +42,7 @@ Job submit/completion/reload đúng; Redis outage/auth sai không pass nhờ fal
 
 ## Checks
 
-- `cd backend && go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
 - Redis/PostgreSQL disposable integration cho hit/miss/refill và DB commit/cache-error semantics
 
 ## Handoff

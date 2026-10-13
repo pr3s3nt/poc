@@ -14,7 +14,8 @@ import (
 )
 
 // These T30 tests need a disposable database (ORCHESTRATOR_POSTGRES_TEST_URL,
-// created and dropped per test by FreshPostgresDatabase); they skip otherwise.
+// created and dropped per test by FreshPostgresDatabase); they skip otherwise,
+// or fail under REQUIRE_POSTGRES=1.
 // The only schema object they add is a test-owned trigger inside that database.
 
 func twoRenameBackends(t *testing.T) (*Store, *Store, string) {
