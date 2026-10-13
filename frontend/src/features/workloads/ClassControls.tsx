@@ -39,8 +39,8 @@ export function ClassControls({ index, alias, type, className, sharedId, metadat
       <label>ID dùng chung (tùy chọn)
         <input aria-label={`ID dùng chung của ${name}`} value={sharedId} disabled={disabled} spellCheck={false} placeholder="để trống nếu riêng của Workload" onChange={(event) => onSharedId(event.target.value)} /></label>
     </div>
-    {metadata === 'loading' ? <p role="status" className="feature-note">Đang tải metadata class…</p> : null}
-    {metadata === 'error' ? <div className="form-error" role="alert" aria-label="Lỗi tải metadata class">Không tải được metadata class từ máy chủ nên các lựa chọn class đang bị khóa. Giá trị bạn đã nhập được giữ nguyên và chưa lưu được cho đến khi tải lại thành công. <Button type="button" onClick={onReload}>Thử lại tải metadata class</Button></div> : null}
+    {index === 0 && metadata === 'loading' ? <p role="status" className="feature-note">Đang tải metadata class…</p> : null}
+    {index === 0 && metadata === 'error' ? <div className="form-error" role="alert" aria-label="Lỗi tải metadata class">Không tải được metadata class từ máy chủ nên các lựa chọn class đang bị khóa. Giá trị bạn đã nhập được giữ nguyên và chưa lưu được cho đến khi tải lại thành công. <Button type="button" onClick={onReload}>Thử lại tải metadata class</Button></div> : null}
     {type && classes.length === 0 && metadata === 'ready' ? <p className="feature-note">Danh mục chưa công bố class nào cho loại {type.key}; class mặc định giữ nguyên ý nghĩa default. Hệ thống không tự đổi class.</p> : null}
     {!known ? <p className="feature-note" role="note">Class "{className}" không nằm trong metadata của loại {type?.key ?? 'này'}. Giá trị được giữ nguyên; việc khớp cấu hình được kiểm tra khi Xem trước.</p> : null}
     <p className="feature-note">Chỉ chọn cách cung cấp tài nguyên; Developer không chọn module Terraform, provider hay thông tin xác thực. Các Workload dùng cùng ID dùng chung phải thống nhất loại, class và tham số.</p>
