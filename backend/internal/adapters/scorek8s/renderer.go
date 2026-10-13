@@ -37,6 +37,9 @@ type Renderer struct {
 	native execution.WorkloadRenderer
 }
 
+// New returns the pinned score-k8s renderer. A nil native renderer is the
+// product mode: a Workload without a pinned score-k8s selection is rejected
+// (UC-06 BR-17), there is no native fallback.
 func New(ctx context.Context, path string, native execution.WorkloadRenderer) (*Renderer, error) {
 	resolved, err := exec.LookPath(path)
 	if err != nil {
@@ -91,6 +94,9 @@ func (r *Renderer) ValidateSelection(ctx context.Context, selected resource.Rend
 		return err
 	}
 	if selected.DriverType == "" {
+		if r.native == nil {
+			return fmt.Errorf("score-k8s: a pinned rendering selection is required")
+		}
 		return nil
 	}
 	if selected.DriverType != resource.DriverScoreK8s || selected.Bundle != r.bundle || selected.DefinitionKey == "" || selected.DefinitionHash == "" {
@@ -108,6 +114,9 @@ func (r *Renderer) ValidateSelection(ctx context.Context, selected resource.Rend
 
 func (r *Renderer) Render(ctx context.Context, req execution.RenderRequest) ([]execution.Manifest, error) {
 	if req.Selection.DriverType == "" {
+		if r.native == nil {
+			return nil, fmt.Errorf("score-k8s: a pinned rendering selection is required")
+		}
 		return r.native.Render(ctx, req)
 	}
 	if err := r.ValidateSelection(ctx, req.Selection); err != nil {

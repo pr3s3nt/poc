@@ -23,7 +23,6 @@ const (
 	PreviewAmbiguous          = "AMBIGUOUS"
 	PreviewConnectionConflict = "CONNECTION_CONFLICT"
 	PreviewSystemBinding      = "SYSTEM_BINDING"
-	PreviewNativeRenderer     = "NATIVE_RENDERER"
 )
 
 // Bounds keep one preview request cheap and its response small.
@@ -319,11 +318,9 @@ func (s *Service) previewResult(env environment.Environment, candidate resource.
 	}
 	switch len(best) {
 	case 0:
-		if typeKey == "workload" {
-			out.Status = PreviewNativeRenderer
-		} else {
-			out.Status = PreviewNoMatch
-		}
+		// A Workload with no score-k8s match is NO_MATCH like any other type:
+		// there is no native/default renderer to fall back to (UC-03 BR-21).
+		out.Status = PreviewNoMatch
 	case 1:
 		out.Winner = &MatchingWinner{Key: best[0].key, Score: best[0].score}
 		out.Status = PreviewMatched

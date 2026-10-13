@@ -42,8 +42,8 @@ func RenderBundleAvailable(bundles map[string]RenderBundle, id string) bool {
 }
 
 func ValidateRenderDefinition(def Definition, typ Type, bundles map[string]RenderBundle) error {
-	if def.ResourceTypeKey != "workload" || def.ExecutionProfile != "internal-k8s" || def.DriverType != DriverScoreK8s {
-		return fmt.Errorf("score-k8s requires workload and internal-k8s")
+	if def.ResourceTypeKey != "workload" || (def.ExecutionProfile != "internal-k8s" && def.ExecutionProfile != "aws-eks") || def.DriverType != DriverScoreK8s {
+		return fmt.Errorf("score-k8s requires workload and an internal-k8s or aws-eks profile")
 	}
 	if def.ConnectionKey != "" || len(def.Provision) > 0 || len(typ.Inputs) > 0 || len(typ.Outputs) > 0 {
 		return fmt.Errorf("workload rendering cannot declare connection, provision rules or resource inputs/outputs")

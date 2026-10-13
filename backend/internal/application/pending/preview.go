@@ -12,6 +12,7 @@ import (
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/target"
 	"orchestrator/internal/application/workloadconfig"
+	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
@@ -31,7 +32,10 @@ type Change struct {
 	Action     domain.Action               `json:"action"`
 	Delta      domain.DeltaDocument        `json:"delta"`
 	Resources  planning.Classification     `json:"resources"`
-	PlanHash   string                      `json:"planHash"`
+	// ResourceIntents is the safe resource projection (UC-05 BR-10): no
+	// params, resolved inputs, secret or state reference.
+	ResourceIntents []planning.ResourceIntent `json:"resourceIntents"`
+	PlanHash        string                    `json:"planHash"`
 }
 
 type Preview struct {
@@ -43,13 +47,16 @@ type Preview struct {
 	DraftVersion   int64  `json:"draftVersion"`
 	// ConfigVersion, Binding and SecretStoreKey pin the rest of the snapshot
 	// (ADR-012): any Settings, configuration or draft change invalidates the token.
-	ConfigVersion    int64               `json:"configVersion"`
-	Binding          environment.Binding `json:"binding"`
-	SecretStoreKey   string              `json:"secretStoreKey,omitempty"`
-	RoutePending     bool                `json:"routePending,omitempty"`
-	ConfigRevisionID string              `json:"configRevisionId,omitempty"`
-	RunID            string              `json:"runId"`
-	Changes          []Change            `json:"changes"`
+	ConfigVersion int64               `json:"configVersion"`
+	Binding       environment.Binding `json:"binding"`
+	// AccountID is the nonsecret AWS account of the Environment Connection
+	// (aws-eks only), shown beside the pinned region.
+	AccountID        string   `json:"accountId,omitempty"`
+	SecretStoreKey   string   `json:"secretStoreKey,omitempty"`
+	RoutePending     bool     `json:"routePending,omitempty"`
+	ConfigRevisionID string   `json:"configRevisionId,omitempty"`
+	RunID            string   `json:"runId"`
+	Changes          []Change `json:"changes"`
 }
 
 type Service struct {
@@ -177,6 +184,9 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 	}
 	preview := Preview{ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, RoutePending: env.PublicRoutesPending, ConfigRevisionID: scope.DesiredRevisionID,
 		ConfigVersion: scope.Version, Binding: env.Binding(), SecretStoreKey: env.SecretStoreKey, Changes: []Change{}}
+	if env.Profile == application.ProfileAWSEKS {
+		preview.AccountID = connection.ConfigString("accountId")
+	}
 	// Keep the execution identity stable across revisions of one environment.
 	// The preview token separately pins the mutable base/draft/configuration state.
 	pinHash, err := canon.Hash([]string{appKey, envKey})
@@ -243,7 +253,7 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 				}
 			}
 		}
-		preview.Changes = append(preview.Changes, Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, PlanHash: plan.PlanHash})
+		preview.Changes = append(preview.Changes, Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, ResourceIntents: plan.ResourceIntents(), PlanHash: plan.PlanHash})
 		base = plan.CandidateSet
 	}
 	// Route and Service-reference rules apply to the final batch state only.

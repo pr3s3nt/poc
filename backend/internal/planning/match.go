@@ -42,6 +42,20 @@ func checkEnvironmentConnection(env environment.Environment, def resource.Defini
 		ErrConnectionMismatch, def.Key, def.ConnectionKey, env.Key, env.ApplicationKey, env.ConnectionKey))
 }
 
+var (
+	errNoMatch   = errors.New("no match")
+	errAmbiguous = errors.New("ambiguous match")
+)
+
+// matchError keeps the established message while exposing the outcome kind.
+type matchError struct {
+	kind error
+	msg  string
+}
+
+func (e *matchError) Error() string        { return e.msg }
+func (e *matchError) Is(target error) bool { return target == e.kind }
+
 // definitionMatcher selects the most specific Resource Definition for each
 // resource node (UC-03 BR-02 and BR-06, UC-06 MS-07).
 type definitionMatcher struct {
@@ -145,8 +159,8 @@ func (m *definitionMatcher) match(node *Node) (Match, error) {
 
 	switch len(best) {
 	case 0:
-		return Match{}, fmt.Errorf("planning: no resource definition matches %s (type %q, class %q)",
-			node.Descriptor, node.ResourceType, node.Class)
+		return Match{}, &matchError{kind: errNoMatch, msg: fmt.Sprintf("planning: no resource definition matches %s (type %q, class %q)",
+			node.Descriptor, node.ResourceType, node.Class)}
 	case 1:
 		def := best[0].def
 		if err := checkEnvironmentConnection(m.ctx.Env, def); err != nil {
@@ -166,6 +180,6 @@ func (m *definitionMatcher) match(node *Node) (Match, error) {
 			keys = append(keys, c.def.Key)
 		}
 		sort.Strings(keys)
-		return Match{}, fmt.Errorf("planning: ambiguous match for %s between %v", node.Descriptor, keys)
+		return Match{}, &matchError{kind: errAmbiguous, msg: fmt.Sprintf("planning: ambiguous match for %s between %v", node.Descriptor, keys)}
 	}
 }

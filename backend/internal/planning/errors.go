@@ -41,6 +41,11 @@ const (
 const (
 	ReasonLegacyInfrastructure = "legacy-infrastructure-reference"
 	ReasonUnconfigured         = "environment-unconfigured"
+	// Renderer selection reasons (UC-05 BR-09): no workload rendering
+	// Definition matches, several tie, or the selected one is unusable.
+	ReasonRendererNoMatch     = "renderer-no-match"
+	ReasonRendererAmbiguous   = "renderer-ambiguous"
+	ReasonRendererUnavailable = "renderer-unavailable"
 )
 
 // StageError wraps a planning failure with the stage that produced it. Its
@@ -81,6 +86,9 @@ var (
 	reasonMessages = map[string]string{
 		ReasonLegacyInfrastructure: "a Resource Definition references the application-scoped VPC/EKS; ask a platform engineer to use the @infra token (for example vpc.default#@infra)",
 		ReasonUnconfigured:         "the Environment has no execution connection; set one in Environment Settings",
+		ReasonRendererNoMatch:      "no workload rendering template (score-k8s Definition) matches this workload for the Environment profile; ask a platform engineer to register one",
+		ReasonRendererAmbiguous:    "several workload rendering templates (score-k8s Definitions) match this workload equally; ask a platform engineer to leave exactly one",
+		ReasonRendererUnavailable:  "the workload rendering template needs a score-k8s bundle that is not installed; ask a platform engineer to check the platform release",
 	}
 	stageMessages = map[Stage]string{
 		StageScore:       "the Score does not satisfy the registered Resource Type contracts (unregistered type, invalid params or unknown resource output)",

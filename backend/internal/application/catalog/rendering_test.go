@@ -29,7 +29,8 @@ func TestRenderingRegistrationRejectsUnavailableOrInfrastructureInputs(t *testin
 		name   string
 		mutate func(*resource.Definition)
 	}{
-		{"cloud", func(d *resource.Definition) { d.ExecutionProfile = "aws-eks" }},
+		{"shared-profile", func(d *resource.Definition) { d.ExecutionProfile = "" }},
+		{"unknown-profile", func(d *resource.Definition) { d.ExecutionProfile = "other" }},
 		{"wrong-type", func(d *resource.Definition) { d.ResourceTypeKey = "postgres" }},
 		{"connection", func(d *resource.Definition) { d.ConnectionKey = opts.ConnectionKey }},
 		{"provision", func(d *resource.Definition) {
@@ -61,5 +62,11 @@ func TestRenderingRegistrationRejectsUnavailableOrInfrastructureInputs(t *testin
 	}
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); !errors.Is(err, catalog.ErrDuplicate) {
 		t.Fatalf("duplicate: %v", err)
+	}
+	// Both target profiles take a score-k8s rendering Definition (UC-03 BR-15).
+	cloud := makeDef()
+	cloud.Key, cloud.ExecutionProfile = "workload-render-cloud", "aws-eks"
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, cloud); err != nil {
+		t.Fatalf("aws-eks rendering Definition: %v", err)
 	}
 }

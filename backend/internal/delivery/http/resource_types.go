@@ -30,13 +30,10 @@ func (s *Server) handleResourceTypes(w http.ResponseWriter, r *http.Request) {
 		writeCode(w, codeUnauthorized, "")
 		return
 	}
-	types, err := s.store.ListResourceTypes(r.Context(), identity.OrganizationKey)
+	types, err := s.catalog.ListResourceTypeViews(r.Context(), identity.OrganizationKey)
 	if err != nil {
 		s.writeError(w, err)
 		return
-	}
-	if types == nil {
-		types = []resource.Type{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"resourceTypes": types})
 }

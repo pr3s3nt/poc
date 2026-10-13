@@ -16,6 +16,11 @@ import (
 // Service is the deterministic planning pipeline shared by UC-05, UC-06 and UC-07.
 type Service struct {
 	bundles map[string]resource.RenderBundle
+	// requireRenderer is the product mode (UC-05 BR-09, UC-06 BR-17): every
+	// Workload needs exactly one compatible score-k8s Definition/bundle on
+	// both profiles and there is no native renderer fallback. The default
+	// service keeps the additive planner-reference behavior.
+	requireRenderer bool
 }
 
 // NewService captures immutable rendering configuration. Planning performs no
@@ -26,6 +31,14 @@ func NewService(bundles ...map[string]resource.RenderBundle) *Service {
 		s.bundles = resource.CopyRenderBundles(bundles[0])
 	}
 	return s
+}
+
+// NewRequiredRendererService is the product planner: a Workload without
+// exactly one matching, available score-k8s Definition/bundle is rejected
+// before any resource is provisioned. It never falls back to a native
+// renderer.
+func NewRequiredRendererService(bundles map[string]resource.RenderBundle) *Service {
+	return &Service{bundles: resource.CopyRenderBundles(bundles), requireRenderer: true}
 }
 
 // Plan runs the full pipeline and returns an immutable Deployment Plan.

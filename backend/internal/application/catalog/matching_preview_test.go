@@ -272,11 +272,11 @@ func TestPreviewMatching_SystemBindingOnlyForExactImplicitClusterNode(t *testing
 	}
 }
 
-func TestPreviewMatching_WorkloadOnlyRanksScoreK8sAndFallsBackToNative(t *testing.T) {
+func TestPreviewMatching_WorkloadOnlyRanksScoreK8sAndNeverFallsBackToNative(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
 	k8s := resource.Definition{Key: "wl-k8s", ResourceTypeKey: "workload", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}}
 	got := runPreview(t, svc, opts, previewQuery(opts, k8s, "modules.web", "default"))
-	if got.Status != catalog.PreviewNativeRenderer || got.Winner != nil {
+	if got.Status != catalog.PreviewNoMatch || got.Winner != nil {
 		t.Fatalf("non-score-k8s must not rank: %+v", got)
 	}
 	if _, ok := candidateByKey(got, "wl-k8s"); ok {
