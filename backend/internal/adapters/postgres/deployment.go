@@ -168,6 +168,36 @@ func (s *Store) ListDeploymentResources(ctx context.Context, id string) ([]deplo
 	return out, rows.Err()
 }
 
+// ListDeploymentAttempts reads the safe projection of the Terraform attempts
+// linked to a Deployment. The Console login has SELECT only on the safe
+// attempt/instance columns, so this query cannot reach snapshots, recovery
+// handles, target references or state even by mistake. The instance must
+// belong to the Deployment's own Environment.
+func (s *Store) ListDeploymentAttempts(ctx context.Context, id string) ([]deployment.ResourceAttempt, error) {
+	if !validUUID(id) {
+		return []deployment.ResourceAttempt{}, nil
+	}
+	rows, err := s.q(ctx).Query(ctx, `SELECT i.descriptor,i.scope_type,a.attempt_number,a.action,a.ownership,a.stage,a.status,a.safe_error_code,b.module_id,b.revision,a.created_at,a.updated_at
+FROM terraform_resource_attempts a
+JOIN deployments d ON d.id=a.deployment_id
+JOIN terraform_resource_instances i ON i.id=a.resource_instance_id AND i.environment_id=d.environment_id
+JOIN terraform_module_bundles b ON b.id=i.module_bundle_id
+WHERE a.deployment_id=$1::uuid ORDER BY a.created_at,i.descriptor,a.attempt_number`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []deployment.ResourceAttempt{}
+	for rows.Next() {
+		var v deployment.ResourceAttempt
+		if err := rows.Scan(&v.Descriptor, &v.ScopeType, &v.Number, &v.Action, &v.Ownership, &v.Stage, &v.Status, &v.SafeErrorCode, &v.ModuleID, &v.ModuleRevision, &v.StartedAt, &v.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) UpsertWorkloadInstance(ctx context.Context, v deployment.WorkloadInstance) error {
 	return s.fenced(ctx, func(ctx context.Context) error { return s.fencedUpsertWorkloadInstance(ctx, v) })
 }

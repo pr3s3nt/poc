@@ -151,11 +151,11 @@ func TestPostgresRegistrationServicesRaceOnSameKey(t *testing.T) {
 		t.Fatalf("type: stored %+v, winner %+v", storedTypes, types[w])
 	}
 
-	base := seededDefinition(t, opts, "postgres-internal-statefulset")
+	base := moduleShape(t, "postgres")
 	defs := [2]resource.Definition{base, base}
 	defs[0].Key, defs[0].Criteria = "postgres-race", []resource.Criterion{{Class: "a"}}
 	defs[1].Key, defs[1].Criteria = "postgres-race", []resource.Criterion{{Class: "b"}, {}}
-	defs[1].DriverInputs = map[string]any{"values": map[string]any{"variables": map[string]any{"image": "postgres:17-alpine", "storage": "4Gi", "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"}}}
+	defs[1] = withVariables(defs[1], map[string]any{"image": "postgres:17-alpine", "storage": "4Gi"})
 	defBarrier := newBarrier(st)
 	svc = catalog.NewService(defBarrier, registrytest.Open(t, st))
 	w = raceServices(t, "definition", [2]func() error{
@@ -228,6 +228,8 @@ func normalizeDefinition(d resource.Definition) resource.Definition {
 	if d.Provision == nil {
 		d.Provision = map[string]resource.ProvisionRule{}
 	}
+	// Registration records the verified module fingerprint on Terraform Definitions.
+	d.SourceFingerpr = ""
 	return d
 }
 

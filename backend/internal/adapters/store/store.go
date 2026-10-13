@@ -1081,6 +1081,13 @@ func (s *Store) ListDeploymentResources(ctx context.Context, deploymentID string
 	return list, nil
 }
 
+// ListDeploymentAttempts has no Terraform attempts to project: the in-memory
+// store runs no Terraform executor (attempts exist only in PostgreSQL).
+func (s *Store) ListDeploymentAttempts(ctx context.Context, deploymentID string) ([]deployment.ResourceAttempt, error) {
+	defer s.rlock(ctx)()
+	return []deployment.ResourceAttempt{}, nil
+}
+
 // FindByLogicalIdentity resolves an Active Resource by organization, descriptor and scope.
 func (s *Store) FindByLogicalIdentity(ctx context.Context, organizationKey string, descriptor resource.Descriptor, scope resource.Scope) (resource.ActiveResource, error) {
 	defer s.rlock(ctx)()

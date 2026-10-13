@@ -79,6 +79,25 @@ type Resource struct {
 	FinishedAt       *time.Time     `json:"finishedAt,omitempty"`
 }
 
+// ResourceAttempt is the safe progress projection of one persisted Terraform
+// attempt of a Deployment (schema `terraform_resource_attempts.deployment_id`).
+// It carries only allowlisted codes and the public module pin: never the module
+// or target snapshots, state, physical IDs, recovery handles or resolved inputs.
+type ResourceAttempt struct {
+	Descriptor     string    `json:"descriptor"`
+	ScopeType      string    `json:"scopeType"`
+	Number         int       `json:"attempt"`
+	Action         string    `json:"action"`
+	Ownership      string    `json:"ownership"`
+	Stage          string    `json:"stage"`
+	Status         string    `json:"status"`
+	SafeErrorCode  string    `json:"safeErrorCode,omitempty"`
+	ModuleID       string    `json:"moduleId"`
+	ModuleRevision string    `json:"moduleRevision"`
+	StartedAt      time.Time `json:"startedAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+}
+
 // InstanceStatus is the Workload Instance state machine value.
 type InstanceStatus string
 
