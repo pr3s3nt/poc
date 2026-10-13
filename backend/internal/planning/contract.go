@@ -205,6 +205,10 @@ func (b *graphBuilder) inspectTerraform(
 			}
 		}
 
+		pins, err := b.providerPins(node, def, contract)
+		if err != nil {
+			return nil, err
+		}
 		contracts = append(contracts, TerraformContract{
 			Descriptor:         node.Descriptor,
 			DefinitionKey:      def.Key,
@@ -218,6 +222,7 @@ func (b *graphBuilder) inspectTerraform(
 			ProviderLockDigest: contract.ProviderLockDigest,
 			OutputMapping:      contract.OutputMapping,
 			SecretOutputs:      contract.SecretOutputs,
+			ProviderBindings:   pins,
 		})
 	}
 	return contracts, nil

@@ -20,6 +20,8 @@ type graphBuilder struct {
 	edges    []Edge
 	edgeSeen map[string]bool
 	expanded map[string]bool
+	// inspector reads verified Terraform bundle metadata (never executes).
+	inspector ModuleInspector
 }
 
 func newGraphBuilder(ctx Context, catalog Catalog) *graphBuilder {

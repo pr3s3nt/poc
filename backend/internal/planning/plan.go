@@ -87,6 +87,7 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	}
 
 	builder := newGraphBuilder(ctx, req.Catalog)
+	builder.inspector = req.Terraform
 	namespace, err := builder.enrichProfile()
 	if err != nil {
 		return nil, stageErr(StageGraph, err)

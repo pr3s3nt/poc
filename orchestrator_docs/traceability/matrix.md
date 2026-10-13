@@ -557,3 +557,13 @@ UC-03 MS-05..09/BR-08/11/12/23..26: approved source pins, static inspection,
 typed mappings, secret classification, immutable insert/race and metadata-only
 Preview/capability reads. Codex verified 884 tests with real PostgreSQL and zero
 skips. Executor integration remains I04-03; class/form UI remains I04-07.
+
+## I04-03 executor review
+
+[Executor evidence](../verification/2026-10-13-i04-03-terraform-executor.md):
+UC-08 BR-05/07 và OC-10/18/19 có local tests cho stable identity, scoped provider
+pins, durable state, nondestructive UPDATE, unknown-outcome hold và ownership.
+UC-07 DEL-MS-05..07/DEL-BR-03 có destroy engine tests cho original module/target,
+namespace UID/provenance, remaining IDs và retry/restart sau state rỗng.
+Codex xác minh 970 tests trên PostgreSQL thật, không skip; provider seams fake
+được phân biệt trong evidence. Delete UI/API và live proof còn I04-08/11.

@@ -9,6 +9,7 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
+	"orchestrator/internal/domain/tfresource"
 )
 
 // Target is the resolved deployment target of a workload or Kubernetes resource.
@@ -20,14 +21,20 @@ import (
 // path (for example the one a Terraform EKS run generated) can reach a cluster;
 // a Context alone never selects a host default.
 type Target struct {
-	Kind         string            `json:"kind"`
-	Context      string            `json:"context,omitempty"`
-	Kubeconfig   string            `json:"kubeconfig,omitempty"`
-	ClusterName  string            `json:"clusterName,omitempty"`
-	Namespace    string            `json:"namespace,omitempty"`
-	Organization string            `json:"organization,omitempty"`
-	Connection   string            `json:"connection,omitempty"`
-	Extra        map[string]string `json:"extra,omitempty"`
+	Kind         string `json:"kind"`
+	Context      string `json:"context,omitempty"`
+	Kubeconfig   string `json:"kubeconfig,omitempty"`
+	ClusterName  string `json:"clusterName,omitempty"`
+	Namespace    string `json:"namespace,omitempty"`
+	Organization string `json:"organization,omitempty"`
+	Connection   string `json:"connection,omitempty"`
+	// Provider names a Terraform-created target whose credential is derived
+	// from a scoped Connection instead of a kubeconfig: "eks" means Connection
+	// is the AWS Connection and ClusterName/Region identify the cluster. The
+	// target stays opaque: no endpoint, token, kubeconfig or temp path.
+	Provider string            `json:"provider,omitempty"`
+	Region   string            `json:"region,omitempty"`
+	Extra    map[string]string `json:"extra,omitempty"`
 }
 
 // CredentialBacked reports whether the target must be reached with a
@@ -77,6 +84,23 @@ type ProvisionRequest struct {
 	// Artifact is the registry-verified Terraform module, set only for an
 	// executor that implements VerifiedModuleExecutor.
 	Artifact *tfmodule.VerifiedArtifact
+	// Source is the pinned module of a Terraform Definition. An executor that
+	// implements SelfVerifyingExecutor verifies and copies it itself, right
+	// before its first effect, and receives no Artifact.
+	Source *tfmodule.SourceRef
+	// Identity is the canonical Terraform instance identity tuple of the node.
+	Identity tfresource.Identity
+	// OutputMapping maps module output -> Resource Type output.
+	OutputMapping map[string]string
+	// Type is the Resource Type contract the outputs must meet.
+	Type resource.Type
+	// ProviderPins are the plan-pinned provider bindings of this node;
+	// ProviderTargets the completed opaque target of every cluster resource a
+	// binding names, keyed by that node's descriptor; ProviderInstanceIDs the
+	// Terraform instance IDs of the providers this node depends on.
+	ProviderPins        []tfmodule.ProviderPin
+	ProviderTargets     map[string]Target
+	ProviderInstanceIDs []string
 	// Inputs are the resolved driver variables merged with the resource params.
 	Inputs map[string]any
 	// Generation is the target generation of the Environment run. Executors
@@ -92,6 +116,11 @@ type ProvisionResult struct {
 	Outputs map[string]any
 	State   map[string]any
 	Target  *Target
+	// Sensitive marks module outputs that are sensitive at runtime; a secret
+	// classification is never downgraded by mapping.
+	Sensitive map[string]bool
+	// InstanceID is the durable Terraform instance of the node, if any.
+	InstanceID string
 }
 
 // ResourceExecutor provisions or reconciles one resource node.
@@ -106,6 +135,20 @@ type ResourceExecutor interface {
 // that run no module code (fakes) do not implement it.
 type VerifiedModuleExecutor interface {
 	RequiresVerifiedModule() bool
+}
+
+// SelfVerifyingExecutor is implemented by an executor that verifies the
+// pinned module and creates its own private invocation copies right before its
+// first effect (Terraform v2). Provisioning passes it the pin, not an artifact.
+type SelfVerifyingExecutor interface {
+	VerifiesModules() bool
+}
+
+// ModuleVerifyingRegistry is optionally implemented by an ExecutorRegistry
+// that can tell, without resolving an executor, whether the executor of a
+// driver verifies modules itself (SelfVerifyingExecutor).
+type ModuleVerifyingRegistry interface {
+	VerifiesModules(driver resource.DriverType) bool
 }
 
 // ExecutorRegistry maps a Driver Type to its executor adapter (UC-08 MS-04).

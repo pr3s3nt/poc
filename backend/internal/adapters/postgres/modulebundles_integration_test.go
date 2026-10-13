@@ -10,6 +10,7 @@ import (
 
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/platform/ids"
+	"orchestrator/internal/ports/persistence"
 )
 
 // Registry persistence on real PostgreSQL (option A logins): insert-only
@@ -56,6 +57,15 @@ func TestModuleBundleInsertReopenAndRead(t *testing.T) {
 	list, err := reopened.ListModuleBundles(ctx)
 	if err != nil || len(list) != 1 || list[0].ID != b.ID {
 		t.Fatalf("list: %+v %v", list, err)
+	}
+	if byID, err := reopened.GetModuleBundleByID(ctx, b.ID); err != nil || byID.ID != b.ID || !byID.SameVerifiedContent(b) {
+		t.Fatalf("by ID: %+v %v", byID, err)
+	}
+	if _, err := reopened.GetModuleBundleByID(ctx, ids.New()); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("unknown ID: %v", err)
+	}
+	if _, err := reopened.GetModuleBundleByID(ctx, "not-a-uuid"); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("malformed ID: %v", err)
 	}
 	other := b.Ref
 	other.Revision = strings.Repeat("9", 40)

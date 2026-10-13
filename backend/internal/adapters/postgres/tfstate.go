@@ -158,6 +158,28 @@ func (s *StateStore) RegisterInstance(ctx context.Context, in terraformstate.New
 	return out, err
 }
 
+// FindInstance looks an instance up by identity inside the owner's Environment.
+func (s *StateStore) FindInstance(ctx context.Context, generation int64, descriptor, scopeType, scopeID string) (tfresource.Instance, bool, error) {
+	var out tfresource.Instance
+	found := false
+	err := s.Transact(ctx, func(ctx context.Context) error {
+		scope, err := s.requireOwner(ctx)
+		if err != nil {
+			return err
+		}
+		v, err := scanInstance(s.q(ctx).QueryRow(ctx, `SELECT `+instanceColumns+` FROM terraform_resource_instances i WHERE i.environment_id=$1::uuid AND i.target_generation=$2 AND i.descriptor=$3 AND i.scope_type=$4 AND i.scope_id=$5`, scope.environmentID, generation, descriptor, scopeType, scopeID))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return translate(err)
+		}
+		out, found = v, true
+		return nil
+	})
+	return out, found, err
+}
+
 func (s *StateStore) GetInstance(ctx context.Context, id string) (tfresource.Instance, error) {
 	if !validUUID(id) {
 		return tfresource.Instance{}, persistence.ErrNotFound

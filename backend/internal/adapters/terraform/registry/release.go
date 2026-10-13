@@ -231,3 +231,40 @@ func fileSHA256(path string) (string, error) {
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
+
+// retainedFile is one entry of the retained-releases file: a trusted
+// historical release manifest (the release.json shape) and the absolute path
+// of its pinned Terraform binary.
+type retainedFile struct {
+	Release         json.RawMessage `json:"release"`
+	TerraformBinary string          `json:"terraformBinary"`
+}
+
+// LoadRetained reads the platform-reviewed list of retained historical
+// releases. An empty path retains none. The file is strict: unknown fields,
+// relative binary paths and invalid manifests fail startup.
+func LoadRetained(path string) ([]RetainedRelease, error) {
+	if path == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, errors.New("registry: the retained releases file cannot be read")
+	}
+	var entries []retainedFile
+	if err := strictDecode(data, &entries); err != nil {
+		return nil, fmt.Errorf("registry: retained releases: %w", err)
+	}
+	out := make([]RetainedRelease, 0, len(entries))
+	for _, e := range entries {
+		release, err := parseRelease(e.Release)
+		if err != nil {
+			return nil, err
+		}
+		if e.TerraformBinary == "" || e.TerraformBinary[0] != '/' {
+			return nil, errors.New("registry: a retained release needs an absolute terraformBinary path")
+		}
+		out = append(out, RetainedRelease{Release: release, TerraformBinary: e.TerraformBinary})
+	}
+	return out, nil
+}

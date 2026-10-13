@@ -422,13 +422,21 @@ func TestTransitiveLocalAndRemoteChildrenArePinned(t *testing.T) {
 		}
 	}
 
-	// Drift of a remote child's cached content fails closed.
+	// Drift of a remote child's shared cache content fails closed. The
+	// private copy of the first invocation is not the shared cache.
 	for _, m := range artifact.Modules {
 		if m.Key == "net" {
-			if err := os.WriteFile(filepath.Join(m.Dir, "main.tf"), []byte("# drifted"), 0o600); err != nil {
+			rel, err := filepath.Rel(artifact.Root, m.Dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(f.cache.bundleDir(ref), rel, "main.tf"), []byte("# drifted"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 		}
+	}
+	if err := artifact.Close(); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := f.svc.VerifyForExecution(context.Background(), ref); !errors.Is(err, moduleregistry.ErrDrift) {
 		t.Fatalf("drifted child: %v", err)
@@ -629,23 +637,69 @@ func TestVerifyForExecutionFailsClosed(t *testing.T) {
 	}
 	f.svc.cfg.TerraformBinary = pinned
 	artifact, err := f.svc.VerifyForExecution(ctx, ref)
-	if err != nil || artifact.TerraformBinary != pinned || !strings.Contains(string(artifact.LockFile), `"registry.terraform.io/hashicorp/aws"`) {
+	if err != nil || artifact.TerraformBinary == pinned || !strings.Contains(string(artifact.LockFile), `"registry.terraform.io/hashicorp/aws"`) {
 		t.Fatalf("verified artifact: %v", err)
+	}
+	// The executed binary is a private read-only copy of the pinned bytes:
+	// replacing the configured path afterwards changes nothing it runs.
+	if err := os.WriteFile(pinned, []byte("swapped after verification"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := fileSHA256(artifact.TerraformBinary); err != nil || got != f.release.Terraform.BinarySHA256 {
+		t.Fatalf("private binary digest %q: %v", got, err)
+	}
+	if info, err := os.Stat(artifact.TerraformBinary); err != nil || info.Mode().Perm() != 0o500 {
+		t.Fatalf("private binary mode: %v %v", info, err)
 	}
 	if _, err := os.Stat(filepath.Join(artifact.ModuleDir, "main.tf")); err != nil {
 		t.Fatalf("module dir: %v", err)
 	}
+	// A writer of the private copy cannot reach the shared cache: the next
+	// verification still produces a clean copy.
 	if err := os.WriteFile(filepath.Join(artifact.ModuleDir, "extra.tf"), []byte("# injected"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(pinned, []byte("pinned terraform"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	second, err := f.svc.VerifyForExecution(ctx, ref)
+	if err != nil {
+		t.Fatalf("second verification: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(second.ModuleDir, "extra.tf")); !os.IsNotExist(err) {
+		t.Fatalf("a private copy leaked into the next invocation: %v", err)
+	}
+	if err := second.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(second.Root); !os.IsNotExist(err) && second.Cleanup != nil {
+		t.Fatalf("private copy not removed: %v", err)
+	}
+	root := artifact.Root
+	if err := artifact.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatalf("private copy not removed: %v", err)
+	}
+	// Drift or a missing artifact in the shared cache stops the run.
+	bundleRoot := f.cache.bundleDir(ref)
+	cached := filepath.Join(bundleRoot, "sources", "platform@v1-2026.10.13", "vpc", "extra.tf")
+	if err := os.WriteFile(cached, []byte("# injected"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.svc.VerifyForExecution(ctx, ref); !errors.Is(err, moduleregistry.ErrDrift) {
 		t.Fatalf("injected file: %v", err)
 	}
-	if err := os.RemoveAll(artifact.SourceDir); err != nil {
+	if err := os.RemoveAll(bundleRoot); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.svc.VerifyForExecution(ctx, ref); !errors.Is(err, moduleregistry.ErrDrift) {
 		t.Fatalf("missing artifact: %v", err)
+	}
+	entries, _ := os.ReadDir(filepath.Join(f.cache.dir, "runs"))
+	if len(entries) != 0 {
+		t.Fatalf("failed verifications left %d private copies", len(entries))
 	}
 	f.svc.cfg.Release.Providers[0].Version = "5.81.0"
 	if _, err := f.svc.VerifyForExecution(ctx, ref); !errors.Is(err, moduleregistry.ErrReleaseMismatch) {
@@ -845,5 +899,35 @@ func TestReleaseAndPolicyCloneAreDeep(t *testing.T) {
 	p.Sources[1].URL = "x"
 	if !reflect.DeepEqual(policy, testPolicy()) {
 		t.Fatal("Policy.Clone shares nested slices")
+	}
+}
+
+func TestLoadRetainedIsStrict(t *testing.T) {
+	dir := t.TempDir()
+	write := func(content string) string {
+		p := filepath.Join(dir, "retained.json")
+		if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	if got, err := LoadRetained(""); err != nil || got != nil {
+		t.Fatalf("empty path: %v %v", got, err)
+	}
+	release := string(releaseJSON)
+	ok := `[{"release":` + release + `,"terraformBinary":"/opt/terraform/1.9.8/terraform"}]`
+	got, err := LoadRetained(write(ok))
+	if err != nil || len(got) != 1 || got[0].TerraformBinary != "/opt/terraform/1.9.8/terraform" || got[0].Release.Terraform.Version == "" {
+		t.Fatalf("valid file: %+v %v", got, err)
+	}
+	for name, content := range map[string]string{
+		"relative binary": `[{"release":` + release + `,"terraformBinary":"terraform"}]`,
+		"unknown field":   `[{"release":` + release + `,"terraformBinary":"/x","url":"https://x"}]`,
+		"bad release":     `[{"release":{"terraform":{"version":"1","binarySha256":"x"}},"terraformBinary":"/x"}]`,
+		"not a list":      `{}`,
+	} {
+		if _, err := LoadRetained(write(content)); err == nil {
+			t.Errorf("%s accepted", name)
+		}
 	}
 }

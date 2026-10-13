@@ -4,6 +4,7 @@ package persistence
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"time"
 
 	"orchestrator/internal/domain/application"
@@ -87,6 +88,32 @@ func WithOwner(ctx context.Context, owner Owner) context.Context {
 func OwnerFrom(ctx context.Context) (Owner, bool) {
 	owner, ok := ctx.Value(ownerKey{}).(Owner)
 	return owner, ok
+}
+
+type holdKey struct{}
+
+// Hold is the shared flag of one claim: an executor that reaches an unknown
+// outcome (killed process, failed state push, unconfirmed stop) marks it, and
+// the claim holder must then suspend the Environment instead of releasing it,
+// whatever status the caller would otherwise record.
+type Hold struct{ marked atomic.Bool }
+
+// WithHold returns ctx carrying a fresh Hold flag.
+func WithHold(ctx context.Context) context.Context {
+	return context.WithValue(ctx, holdKey{}, &Hold{})
+}
+
+// MarkHold flags the claim in ctx as held. It is a no-op without a Hold.
+func MarkHold(ctx context.Context) {
+	if h, ok := ctx.Value(holdKey{}).(*Hold); ok {
+		h.marked.Store(true)
+	}
+}
+
+// Held reports whether an executor marked the claim in ctx as held.
+func Held(ctx context.Context) bool {
+	h, ok := ctx.Value(holdKey{}).(*Hold)
+	return ok && h.marked.Load()
 }
 
 // OperationFrom returns the operation ID carried by ctx, if any.
@@ -273,6 +300,9 @@ type ModuleBundleRepository interface {
 	// GetModuleBundle returns the bundle of ref's revision path (the digest
 	// of ref is not part of the lookup), or ErrNotFound.
 	GetModuleBundle(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.Bundle, error)
+	// GetModuleBundleByID returns the bundle with this ID (the historical
+	// module of a Terraform instance), or ErrNotFound.
+	GetModuleBundleByID(ctx context.Context, id string) (tfmodule.Bundle, error)
 	ListModuleBundles(ctx context.Context) ([]tfmodule.Bundle, error)
 }
 

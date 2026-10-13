@@ -41,6 +41,13 @@ hoặc prefix wildcard delete, không xóa namespace để bỏ qua children sta
 State/plan có thể chứa secret, chỉ giữ restricted ciphertext/private artifacts;
 metadata/logs/manifests/evidence không để lộ raw secret values.
 
+Trước nâng platform release, giữ module cache, manifest/binary đã pin và
+provider plugins của các release còn tài nguyên. Khai báo các manifest lịch sử
+qua [retained release configuration](../architecture/contracts/terraform-modules.md)
+để destroy và absence probe dùng đúng pins cũ; không chạy cleanup bằng version
+mới chỉ vì version cũ thiếu trên host. Giữ cấu hình này đến khi xác minh hết các
+instance của release tương ứng; thiếu artifact vẫn là cleanup chưa hoàn tất.
+
 Query AWS theo physical IDs/run tags: VPC/subnets/SG/routes/NAT/IGW, EC2/EBS/
 EIP, EKS, RDS, ElastiCache, ECR, IAM/LB phát sinh. Destroy exit 0/empty state
 không đủ absence proof. Remaining IDs phải được xử lý và xác minh; chưa sạch

@@ -131,7 +131,7 @@ func (m *Manager) Adopt(ctx context.Context, op environment.Operation) *Lease {
 
 func (m *Manager) start(parent context.Context, op environment.Operation) *Lease {
 	owner := persistence.Owner{OperationID: op.ID, Owner: op.Owner, Fence: op.Fence}
-	base := persistence.WithOwner(context.WithoutCancel(parent), owner)
+	base := persistence.WithHold(persistence.WithOwner(context.WithoutCancel(parent), owner))
 	// The recorded deadline bounds every executor call made under the lease.
 	ctx, cancel := context.WithDeadline(base, op.Deadline)
 	lease := &Lease{Operation: op, Ctx: ctx, owner: owner, manager: m, cancel: cancel, stop: make(chan struct{}), detail: op.Detail}
@@ -220,6 +220,15 @@ func (l *Lease) Stage(stage string, detail map[string]any) error {
 
 // End stops the heartbeat and releases the Environment with a terminal status.
 func (l *Lease) End(status environment.OperationStatus, failure string) error {
+	// An executor marked an unknown outcome: the Environment is never
+	// released, whatever status the caller asks for. It is suspended visibly
+	// (INTERRUPTED) until an operator confirms the external work stopped.
+	if persistence.Held(l.Ctx) {
+		if failure == "" {
+			failure = "an external step has an unknown outcome"
+		}
+		return l.Suspend(failure + "; the Environment is held for operator attention")
+	}
 	l.mu.Lock()
 	if l.ended {
 		l.mu.Unlock()

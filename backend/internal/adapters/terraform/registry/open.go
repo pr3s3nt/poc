@@ -18,7 +18,10 @@ type Options struct {
 	// TerraformBinary is the CLI execution verification hashes; empty
 	// makes VerifyForExecution fail closed.
 	TerraformBinary string
-	Store           BundleStore
+	// RetainedReleasesFile lists trusted historical releases kept so cleanup
+	// can run bundles verified before an upgrade; empty retains none.
+	RetainedReleasesFile string
+	Store                BundleStore
 }
 
 // Open builds the registry from the embedded release, the Admin policy and
@@ -44,7 +47,11 @@ func Open(ctx context.Context, opts Options) (*Service, error) {
 		}
 		git = cli
 	}
-	svc, err := New(Config{Release: release, Policy: policy, Packaged: terraform.PackagedModules(), Git: git, Cache: cache, Store: opts.Store, TerraformBinary: opts.TerraformBinary})
+	retained, err := LoadRetained(opts.RetainedReleasesFile)
+	if err != nil {
+		return nil, err
+	}
+	svc, err := New(Config{Retained: retained, Release: release, Policy: policy, Packaged: terraform.PackagedModules(), Git: git, Cache: cache, Store: opts.Store, TerraformBinary: opts.TerraformBinary})
 	if err != nil {
 		return nil, err
 	}

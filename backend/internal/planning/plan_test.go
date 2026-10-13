@@ -94,6 +94,10 @@ func (s stubInspector) Contract(def resource.Definition) (ModuleContract, error)
 	if contract.Module == "eks" {
 		contract.Outputs = append(contract.Outputs, "kubeContext", "kubeconfig")
 	}
+	contract.ProviderKinds = map[string]string{"aws": tfmodule.BindingAWS}
+	if contract.Module == "pgk8s" {
+		contract.ProviderKinds = map[string]string{"kubernetes": tfmodule.BindingKubernetes}
+	}
 	contract.InputMapping, contract.OutputMapping = map[string]string{}, map[string]string{}
 	for k, v := range inputs.InputMapping {
 		contract.InputMapping[k] = v
@@ -136,6 +140,11 @@ func (stubInspector) module(module string) (ModuleContract, error) {
 				"seconds_until_auto_pause": {Name: "seconds_until_auto_pause", HasDefault: true},
 			},
 		},
+	}
+	contracts["pgk8s"] = ModuleContract{
+		Module: "pgk8s", Fingerprint: "sha256:pgk8s",
+		Outputs:   []string{"database", "host", "password", "port", "username"},
+		Variables: map[string]ModuleVariable{"database": {Name: "database", HasDefault: true}, "username": {Name: "username", HasDefault: true}},
 	}
 	contract, ok := contracts[module]
 	if !ok {

@@ -82,12 +82,12 @@ frontend/                                   # Orchestrator Web Console
   thay vì nhúng client-go. Adapter vẫn là implementation của port `execution.ResourceExecutor`
   và `execution.WorkloadDeployer`; lựa chọn này giữ module không có dependency nặng và dùng
   chung một đường đi cho kind lẫn EKS.
-- **Terraform transport:** `internal/adapters/terraform` nhận artifact đã xác minh
-  từ registry, copy module và lockfile vào workspace, gọi CLI với provider lock
-  readonly. Executor cũ vẫn dùng state trong workspace và từ chối module có
-  module con; I04-03 thay bằng executor v2 với durable HTTP state. Shape
-  `source.module` cũ không còn được product registration nhận. Reference fixture
-  URL chỉ thuộc conformance harness, không phải product source contract.
+- **Terraform transport:** `internal/application/tfexec` điều phối lifecycle,
+  durable HTTP state và ownership. `internal/adapters/terraform/runner` chạy
+  CLI trên private verified artifacts, hỗ trợ module con đã pin; `providers`,
+  `readiness` và `recovery` resolve scoped credentials, query readiness/absence
+  và giữ encrypted artifacts. Executor cũ xem
+  `git show 654e3d6:backend/internal/adapters/terraform/executor.go`.
 - **Score contract boundary:** API nhận Score document dạng JSON. JSON là tập con của YAML nên
   contract không đổi; orchestrator không cần YAML dependency.
 - **Terraform contract inspection:** Registry tại

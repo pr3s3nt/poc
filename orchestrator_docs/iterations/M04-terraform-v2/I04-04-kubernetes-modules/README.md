@@ -1,7 +1,7 @@
 ---
 id: I04-04
 artifact: iteration-plan
-status: deferred
+status: current
 last_reviewed: 2026-10-13
 related: [M04, ADR-014, IMP-021]
 ---
@@ -10,7 +10,9 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Chưa bắt đầu; không suy status này thành task bị bỏ hoặc đã implement.
+Chặng 2; bắt đầu sau I04-03 đã qua review và validation. Xem
+[evidence executor](../../../verification/2026-10-13-i04-03-terraform-executor.md).
+Chưa có kết quả module/live acceptance cho task này.
 
 ## Phạm vi
 
@@ -45,7 +47,7 @@ Contracts/common Type outputs hợp lệ; stable identity và dependencies names
 ## Checks
 
 - terraform init với provider lock readonly, terraform validate cho từng module
-- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 REQUIRE_TERRAFORM=1 go test ./... && go build ./...`
 
 ## Handoff
 

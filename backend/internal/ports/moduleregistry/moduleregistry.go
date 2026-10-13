@@ -59,6 +59,10 @@ type Metadata interface {
 // fail closed; only a fully verified artifact is returned.
 type ExecutionVerifier interface {
 	VerifyForExecution(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.VerifiedArtifact, error)
+	// VerifyHistoricalForExecution is the cleanup variant: it verifies an
+	// already persisted bundle against the retained trusted release it was
+	// verified under, never against the current release, and never fetches.
+	VerifyHistoricalForExecution(ctx context.Context, bundle tfmodule.Bundle) (tfmodule.VerifiedArtifact, error)
 }
 
 // Registry is the complete registry adapter.

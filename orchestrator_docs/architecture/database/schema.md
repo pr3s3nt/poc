@@ -376,6 +376,13 @@ does not imply every workload has consumed that revision.
 
 Credential values and secret resource outputs are never stored directly in logical metadata. `secret_ref` or structured secret references are stored; UC-09 redacts fields marked secret by contract metadata and never returns persisted resource `resolved_inputs`. V2 Terraform state is a separate restricted encrypted blob as specified below; it may contain provider secret material and is never a public read model.
 
+Terraform plan JSON pin `providerBindings` của từng node: tên/kind provider,
+target Environment hoặc resource descriptor, Connection key/kind, region,
+profile và target generation. Các trường này tham gia plan hash; không chứa
+credential, token, kubeconfig hoặc path của invocation. Resource target snapshot
+giữ scoped opaque EKS identity (Organization, Connection, cluster name, region)
+để cleanup tái tạo credential cho đúng target lịch sử.
+
 ## ADR-010 rendering intent persistence
 
 Rendering selections (Definition/content hash, driver, bundle/version/content
@@ -607,6 +614,13 @@ Unique `(environment_operation_id,resource_instance_id,attempt_number)`.
 Write before side effects; safe stage/provenance committed after each boundary.
 Unknown ownership cannot authorize cleanup. DeploymentResource projection carries
 safe stage/attempt/status references, never raw resolved inputs or CLI artifacts.
+
+Destroy attempts giữ opaque `verifyHandle` trong `module_snapshot` cho một
+chu kỳ destroy. Handle trỏ tới artifact state trước xóa được mã hóa riêng tư,
+không chứa raw state hoặc đường dẫn trong metadata. Các lần retry dùng lại
+handle; artifact phải tồn tại qua restart cho tới khi xác minh cleanup xong.
+Mất hoặc không đọc được artifact sau effects thì giữ hold, không coi current
+state rỗng là bằng chứng physical absence. Không cần cột SQL mới.
 
 ### Cleanup persistence
 

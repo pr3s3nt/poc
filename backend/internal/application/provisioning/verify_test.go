@@ -40,6 +40,10 @@ type stubVerifier struct {
 	calls int
 }
 
+func (v *stubVerifier) VerifyHistoricalForExecution(context.Context, tfmodule.Bundle) (tfmodule.VerifiedArtifact, error) {
+	return tfmodule.VerifiedArtifact{}, errors.New("not used")
+}
+
 func (v *stubVerifier) VerifyForExecution(_ context.Context, ref tfmodule.SourceRef) (tfmodule.VerifiedArtifact, error) {
 	v.calls++
 	if v.err != nil {

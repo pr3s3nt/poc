@@ -32,12 +32,15 @@ func (c Context) InfraName() string {
 }
 
 // ResourceName is the provider-safe physical name of AWS infrastructure
-// (ADR-011). It is `orch-<app8>-<env10>-<sha256hex24>`: lowercase ASCII
-// alphanumeric prefixes of the Application and Environment keys plus a digest
-// of the full keys and run ID, at most 49 characters, so module suffixes such as
+// (ADR-011, superseded for the run ID by ADR-014). It is
+// `orch-<app8>-<env10>-<sha256hex24>`: lowercase ASCII alphanumeric prefixes
+// of the Application and Environment keys plus a digest of the full keys and
+// target generation, at most 49 characters, so module suffixes such as
 // `-writer` and `-cluster` stay inside the IAM (64) and Aurora (63) limits.
+// The run ID is provenance only and never part of a physical name: a redeploy
+// in a later run must not rename, and so replace, an existing object.
 func (c Context) ResourceName() string {
-	identity := c.App.Key + "\x00" + c.Env.Key + "\x00" + c.RunID
+	identity := c.App.Key + "\x00" + c.Env.Key
 	if c.Env.TargetGeneration > 0 {
 		// A later target generation must never reuse a provider-visible name.
 		identity += "\x00g" + strconv.FormatInt(c.Env.TargetGeneration, 10)

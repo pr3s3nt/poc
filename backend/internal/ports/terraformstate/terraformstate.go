@@ -83,6 +83,9 @@ type Repository interface {
 	// RegisterInstance is idempotent on the identity tuple: an existing
 	// instance is returned unchanged.
 	RegisterInstance(ctx context.Context, in NewInstance) (tfresource.Instance, error)
+	// FindInstance returns the instance of the claim owner's Environment with
+	// this identity, or found=false. It never creates one (owner-only).
+	FindInstance(ctx context.Context, generation int64, descriptor, scopeType, scopeID string) (inst tfresource.Instance, found bool, err error)
 	GetInstance(ctx context.Context, id string) (tfresource.Instance, error)
 	ListInstances(ctx context.Context, environmentID string) ([]tfresource.Instance, error)
 	// SetInstanceStatus is an owner-only CAS on the instance version.

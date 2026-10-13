@@ -45,6 +45,9 @@ const (
 	ReasonReference      = "resource-reference"
 	ReasonDependent      = "co-provision-is-dependent"
 	ReasonMatchDependent = "co-provision-match-dependents"
+	// ReasonProviderBinding is the dependency of a Terraform module on the
+	// cluster resource that supplies its Kubernetes provider target.
+	ReasonProviderBinding = "provider-binding"
 )
 
 // Node is one vertex of the Resource Graph.
@@ -128,6 +131,10 @@ type TerraformContract struct {
 	ProviderLockDigest string              `json:"providerLockDigest,omitempty"`
 	OutputMapping      map[string]string   `json:"outputMapping,omitempty"`
 	SecretOutputs      []string            `json:"secretOutputs,omitempty"`
+	// ProviderBindings pin the scoped, resolved provider targets of the node
+	// (UC-08 BR-07). Preview, admission and execution all use these pins;
+	// execution refuses a target that no longer matches.
+	ProviderBindings []tfmodule.ProviderPin `json:"providerBindings,omitempty"`
 }
 
 // ContractInput records where the value of one Terraform variable comes from.
@@ -210,6 +217,10 @@ type ModuleContract struct {
 	// SecretOutputs are the Resource Type outputs whose effective
 	// classification is secret (Type or module marks it).
 	SecretOutputs []string
+	// ProviderKinds maps each provider requirement name of the module to its
+	// release binding kind (aws, kubernetes, none). Nil only for
+	// planner-reference fixtures, which take no provider bindings.
+	ProviderKinds map[string]string
 }
 
 // ModuleVariable is one declared Terraform variable.

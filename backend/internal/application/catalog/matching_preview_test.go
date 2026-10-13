@@ -509,6 +509,11 @@ func (f noInspectorUse) List(context.Context) ([]tfmodule.Bundle, error) {
 	f.t.Fatal("module registry used")
 	return nil, nil
 }
+func (f noInspectorUse) VerifyHistoricalForExecution(context.Context, tfmodule.Bundle) (tfmodule.VerifiedArtifact, error) {
+	f.t.Fatal("historical verification must not run in catalog tests")
+	return tfmodule.VerifiedArtifact{}, nil
+}
+
 func (f noInspectorUse) VerifyForExecution(context.Context, tfmodule.SourceRef) (tfmodule.VerifiedArtifact, error) {
 	f.t.Fatal("module registry used")
 	return tfmodule.VerifiedArtifact{}, nil

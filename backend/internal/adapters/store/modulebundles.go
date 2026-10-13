@@ -37,6 +37,17 @@ func (s *Store) GetModuleBundle(ctx context.Context, ref tfmodule.SourceRef) (tf
 	return b.Clone(), nil
 }
 
+// GetModuleBundleByID implements persistence.ModuleBundleRepository.
+func (s *Store) GetModuleBundleByID(ctx context.Context, id string) (tfmodule.Bundle, error) {
+	defer s.rlock(ctx)()
+	for _, b := range s.state.ModuleBundles {
+		if b.ID == id {
+			return b.Clone(), nil
+		}
+	}
+	return tfmodule.Bundle{}, persistence.ErrNotFound
+}
+
 // ListModuleBundles implements persistence.ModuleBundleRepository.
 func (s *Store) ListModuleBundles(ctx context.Context) ([]tfmodule.Bundle, error) {
 	defer s.rlock(ctx)()

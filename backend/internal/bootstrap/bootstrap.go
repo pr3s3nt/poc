@@ -83,6 +83,10 @@ type Options struct {
 	// TerraformModulePolicyFile is the Admin allowlist of HTTPS Git module
 	// sources; empty allows only the packaged release modules.
 	TerraformModulePolicyFile string
+	// TerraformRetainedReleasesFile lists trusted historical platform releases
+	// (manifest plus absolute Terraform binary path) kept for cleanup of
+	// resources created before a release upgrade.
+	TerraformRetainedReleasesFile string
 	// GitPath is the git CLI used to fetch allowlisted module commits.
 	GitPath string
 	// Region and Tags apply to every cloud resource of one verification run.
@@ -116,6 +120,11 @@ type Options struct {
 	TerraformStateKeyFile string
 	// TerraformStateKeyID names that key in every encrypted state row.
 	TerraformStateKeyID string
+	// TerraformRecoveryDir is the private (0700, outside any Git work tree)
+	// directory of encrypted recovery artifacts of a state the backend could
+	// not store. Required when the Terraform v2 executor is enabled (real
+	// adapters with the state backend).
+	TerraformRecoveryDir string
 	// TerraformStateDatabaseURL is the connection URL of the State runtime
 	// login (option A): a login separate from the Console login of
 	// DatabaseURL, to the same database and schema. The state backend needs
@@ -247,9 +256,13 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		return nil, err
 	}
 
-	terraformStates, err := terraformStateBackend(ctx, opts, st, closers)
+	terraformRuntime, err := terraformStateBackend(ctx, opts, st, closers)
 	if err != nil {
 		return nil, err
+	}
+	var terraformStates *statebackend.Service
+	if terraformRuntime != nil {
+		terraformStates = terraformRuntime.svc
 	}
 
 	connectionCredentials, err := connectionCredentialStore(opts)
@@ -279,7 +292,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		renderer = kubernetesRenderer()
 		deployer = fakeDep
 	case AdapterKubernetes, AdapterAWS:
-		registry, renderer, deployer, err = realAdapters(opts, credentialResolver)
+		registry, renderer, deployer, err = realAdapters(opts, credentialResolver, terraformRuntime, secretStore, modules, closers)
 		if err != nil {
 			return nil, err
 		}
@@ -475,23 +488,30 @@ func moduleRegistry(ctx context.Context, opts *Options, st persistence.Store, cl
 		cacheDir = dir
 	}
 	binary := ""
-	if opts.Adapters == AdapterAWS {
+	// Both real adapter modes resolve the pinned Terraform binary: AWS and
+	// the in-cluster (Kubernetes) mode run registered modules. Without the
+	// v2 state backend the Kubernetes mode runs no Terraform, so a missing
+	// binary only fails startup when Terraform can actually execute.
+	if opts.Adapters == AdapterAWS || opts.Adapters == AdapterKubernetes {
 		path := opts.TerraformPath
 		if path == "" {
 			path = "terraform"
 		}
+		terraformRequired := opts.Adapters == AdapterAWS || opts.TerraformStateKeyFile != ""
 		resolved, err := exec.LookPath(path)
-		if err != nil {
+		switch {
+		case err != nil && terraformRequired:
 			return nil, fmt.Errorf("bootstrap: the Terraform binary was not found")
+		case err == nil:
+			if resolved, err = filepath.Abs(resolved); err != nil {
+				return nil, fmt.Errorf("bootstrap: resolve the Terraform binary: %w", err)
+			}
+			opts.TerraformPath, binary = resolved, resolved
 		}
-		if resolved, err = filepath.Abs(resolved); err != nil {
-			return nil, fmt.Errorf("bootstrap: resolve the Terraform binary: %w", err)
-		}
-		opts.TerraformPath, binary = resolved, resolved
 	}
 	return moduleregistry.Open(ctx, moduleregistry.Options{
 		PolicyFile: opts.TerraformModulePolicyFile, CacheDir: cacheDir, GitBinary: opts.GitPath,
-		TerraformBinary: binary, Store: st,
+		TerraformBinary: binary, RetainedReleasesFile: opts.TerraformRetainedReleasesFile, Store: st,
 	})
 }
 
@@ -499,7 +519,7 @@ func moduleRegistry(ctx context.Context, opts *Options, st persistence.Store, cl
 // own State runtime connection. A key without the State connection (or the
 // reverse), a non-PostgreSQL store, a State connection to another database,
 // schema or installation, or an unreadable/invalid key fails startup.
-func terraformStateBackend(ctx context.Context, opts Options, st persistence.Store, closers *[]func()) (*statebackend.Service, error) {
+func terraformStateBackend(ctx context.Context, opts Options, st persistence.Store, closers *[]func()) (*terraformRuntime, error) {
 	if opts.TerraformStateKeyFile == "" && opts.TerraformStateDatabaseURL == "" {
 		return nil, nil
 	}
@@ -529,7 +549,11 @@ func terraformStateBackend(ctx context.Context, opts Options, st persistence.Sto
 	if repo.Identity() != console.Identity() {
 		return nil, fmt.Errorf("bootstrap: the State and Console connections serve different databases, schemas or installations")
 	}
-	return statebackend.New(repo, cipher)
+	service, err := statebackend.New(repo, cipher)
+	if err != nil {
+		return nil, err
+	}
+	return &terraformRuntime{svc: service, repo: repo, cipher: cipher}, nil
 }
 
 func stateHandler(states *statebackend.Service) *deliveryhttp.TerraformStateHandler {

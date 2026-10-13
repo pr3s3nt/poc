@@ -5,6 +5,8 @@ import (
 
 	"orchestrator/internal/adapters/gitops"
 	k8s "orchestrator/internal/adapters/kubernetes"
+	moduleregistry "orchestrator/internal/adapters/terraform/registry"
+	"orchestrator/internal/application/connection"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/execution"
 )
@@ -25,9 +27,20 @@ func (r registry) Resolve(driver resource.DriverType) (execution.ResourceExecuto
 	return executor, nil
 }
 
+// VerifiesModules reports whether the executor of a driver verifies pinned
+// modules itself (Terraform v2).
+func (r registry) VerifiesModules(driver resource.DriverType) bool {
+	executor, ok := r.executors[driver]
+	if !ok {
+		return false
+	}
+	sv, ok := executor.(execution.SelfVerifyingExecutor)
+	return ok && sv.VerifiesModules()
+}
+
 // realAdapters wires the cluster and cloud executors used outside the walking
 // skeleton. Kubernetes mode covers internal-k8s; AWS mode adds Terraform.
-func realAdapters(opts Options, credentials execution.KubeconfigSource) (execution.ExecutorRegistry, execution.WorkloadRenderer, execution.WorkloadDeployer, error) {
+func realAdapters(opts Options, credentials *connection.CredentialResolver, tf *terraformRuntime, secretStore execution.SecretStore, modules *moduleregistry.Service, closers *[]func()) (execution.ExecutorRegistry, execution.WorkloadRenderer, execution.WorkloadDeployer, error) {
 	kubernetesExecutor := k8s.NewExecutor(opts.KubectlPath)
 	kubernetesExecutor.Credentials = credentials
 	existingCluster := k8s.NewExistingClusterAdapter(opts.KubectlPath)
@@ -36,12 +49,15 @@ func realAdapters(opts Options, credentials execution.KubeconfigSource) (executi
 		resource.DriverKubernetes:      kubernetesExecutor,
 		resource.DriverExistingCluster: existingCluster,
 	}
-	if opts.Adapters == AdapterAWS {
-		terraformExecutor, err := newTerraformExecutor(opts)
+	switch {
+	case tf != nil:
+		terraformExecutor, err := newTerraformExecutor(opts, tf, credentials, secretStore, modules, closers)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		executors[resource.DriverTerraform] = terraformExecutor
+	case opts.Adapters == AdapterAWS:
+		return nil, nil, nil, fmt.Errorf("bootstrap: AWS adapters need the Terraform state backend (state key and State runtime database)")
 	}
 	direct := k8s.NewDeployer(opts.KubectlPath)
 	direct.Credentials = credentials

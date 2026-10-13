@@ -57,6 +57,10 @@ func ContractFromBundle(bundle tfmodule.Bundle, inputs tfmodule.DriverInputs) Mo
 		InputMapping:       map[string]string{},
 		OutputMapping:      map[string]string{},
 		SecretOutputs:      []string{},
+		ProviderKinds:      map[string]string{},
+	}
+	for name, provider := range bundle.Providers {
+		contract.ProviderKinds[name] = provider.Binding
 	}
 	for name, input := range bundle.Contract.Inputs {
 		contract.Variables[name] = ModuleVariable{Name: name, Type: input.Type, HasDefault: input.HasDefault, Default: input.Default, Sensitive: input.Sensitive}

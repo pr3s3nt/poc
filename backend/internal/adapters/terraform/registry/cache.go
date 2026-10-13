@@ -136,3 +136,31 @@ func (c *Cache) verify(ref tfmodule.SourceRef, contract tfmodule.Contract) (stri
 	}
 	return bundleRoot, nil
 }
+
+// materialize re-reads the root and every transitive module directory of one
+// bundle from the shared cache, checks each digest against the bytes just
+// read and writes exactly those bytes below dest. The returned copy is the
+// only content an execution uses, so content verified here cannot be swapped
+// afterwards by a writer of the shared cache.
+func (c *Cache) materialize(ref tfmodule.SourceRef, contract tfmodule.Contract, dest string) error {
+	bundleRoot := c.bundleDir(ref)
+	copyDir := func(dir moduleDir, want string) error {
+		tree, err := readTree(sourceDir(bundleRoot, dir))
+		if err != nil || tree.Digest() != want {
+			return ErrArtifact
+		}
+		if err := tree.write(sourceDir(dest, dir)); err != nil {
+			return errors.New("registry: write the private module copy")
+		}
+		return nil
+	}
+	if err := copyDir(rootDir(ref), ref.ContentSHA256); err != nil {
+		return err
+	}
+	for _, module := range contract.Transitive {
+		if err := copyDir(moduleDir{sourceID: module.SourceID, revision: module.Revision, path: module.Path}, module.ContentSHA256); err != nil {
+			return err
+		}
+	}
+	return nil
+}

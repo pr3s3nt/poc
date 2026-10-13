@@ -493,18 +493,41 @@ type ModuleInstall struct {
 }
 
 // VerifiedArtifact is a bundle whose cached content, release pins and
-// Terraform binary were re-verified immediately before execution. SourceDir
-// is the private materialized source root, ModuleDir the root module inside
-// it, LockFile the readonly provider lock the release pins and
-// TerraformBinary the exact CLI path whose digest was checked; the executor
-// must run that path.
+// Terraform binary were verified immediately before execution and copied into
+// one private, invocation-owned directory (Root). Every path below points into
+// that copy, never into the shared cache or the configured binary location, so
+// nothing verified can be replaced between verification and execution:
+// SourceDir is the materialized source root, ModuleDir the root module inside
+// it, LockFile the readonly provider lock the release pins, TerraformBinary
+// the private executable copy whose digest was checked while it was written
+// (the executor must run exactly that path) and Modules the verified module
+// call tree. Close removes the private copy.
 type VerifiedArtifact struct {
 	Bundle          Bundle
+	Root            string
 	SourceDir       string
 	ModuleDir       string
 	LockFile        []byte
 	TerraformBinary string
 	Modules         []ModuleInstall
+	// Cleanup removes the private invocation copy; use Close.
+	Cleanup func() error
+	// Retain records a private handle -> workspace mapping so an operator can
+	// locate this invocation directory after the executor kept it (state or
+	// credentials that may be the only copy, or a process that may still use
+	// it). The mapping is internal; the handle alone reveals no path.
+	Retain func(handle string) error
+}
+
+// Close removes the private invocation copy once. It is safe on a nil
+// receiver or an artifact without a private copy.
+func (a *VerifiedArtifact) Close() error {
+	if a == nil || a.Cleanup == nil {
+		return nil
+	}
+	cleanup := a.Cleanup
+	a.Cleanup = nil
+	return cleanup()
 }
 
 // Clone returns a deep copy, so no holder of a verified bundle can change
@@ -572,4 +595,31 @@ func cloneValue(v any) any {
 		return out
 	}
 	return v
+}
+
+// ProviderPin is the plan-time resolved, nonsecret metadata of one provider
+// binding of a Terraform node: which release provider it configures, whether
+// the Environment connection or another cluster resource supplies the target,
+// and the scoped identity that target was resolved to. It carries no
+// credential, endpoint or account override; execution resolves the credential
+// again from this identity and refuses any difference.
+type ProviderPin struct {
+	// Name is the provider requirement name of the module (aws, kubernetes).
+	Name string `json:"name"`
+	// Kind is the release binding kind (BindingAWS or BindingKubernetes).
+	Kind string `json:"kind"`
+	// Target is TargetEnvironment or TargetResource, as declared.
+	Target string `json:"target"`
+	// ConnectionKey and ConnectionKind name the Connection that supplies
+	// credentials when the target is the Environment connection.
+	ConnectionKey  string `json:"connectionKey,omitempty"`
+	ConnectionKind string `json:"connectionKind,omitempty"`
+	// Region is the Environment AWS region of an AWS binding.
+	Region string `json:"region,omitempty"`
+	// Provider is the descriptor of the cluster resource node that supplies
+	// the target of a resource binding (the dependency edge points at it).
+	Provider string `json:"provider,omitempty"`
+	// Profile and Generation pin the Environment execution target.
+	Profile    string `json:"profile,omitempty"`
+	Generation int64  `json:"generation,omitempty"`
 }

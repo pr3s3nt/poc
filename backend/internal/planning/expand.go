@@ -78,6 +78,10 @@ func (b *graphBuilder) expand(matcher *definitionMatcher, matches map[string]Mat
 			}
 			refs = append(refs, found...)
 
+			if err := b.expandProviderBindings(node, def); err != nil {
+				return nil, err
+			}
+
 			provisioned, rules, err := b.expandProvision(node, def)
 			if err != nil {
 				return nil, err

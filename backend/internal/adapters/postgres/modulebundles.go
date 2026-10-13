@@ -66,6 +66,18 @@ func (s *Store) GetModuleBundle(ctx context.Context, ref tfmodule.SourceRef) (tf
 	return b, err
 }
 
+// GetModuleBundleByID implements persistence.ModuleBundleRepository.
+func (s *Store) GetModuleBundleByID(ctx context.Context, id string) (tfmodule.Bundle, error) {
+	if !validUUID(id) {
+		return tfmodule.Bundle{}, persistence.ErrNotFound
+	}
+	b, err := scanBundle(s.q(ctx).QueryRow(ctx, `SELECT `+bundleColumns+` FROM terraform_module_bundles WHERE id=$1::uuid`, id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return tfmodule.Bundle{}, persistence.ErrNotFound
+	}
+	return b, err
+}
+
 // ListModuleBundles implements persistence.ModuleBundleRepository.
 func (s *Store) ListModuleBundles(ctx context.Context) ([]tfmodule.Bundle, error) {
 	rows, err := s.q(ctx).Query(ctx, `SELECT `+bundleColumns+` FROM terraform_module_bundles ORDER BY source_id,module_id,revision,subdirectory`)

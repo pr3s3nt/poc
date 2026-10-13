@@ -1,7 +1,7 @@
 ---
 id: I04-03
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-10-13
 related: [M04, ADR-014, IMP-021]
 ---
@@ -12,7 +12,8 @@ related: [M04, ADR-014, IMP-021]
 
 Chặng 2; bắt đầu sau
 [I04-02 verified](../../../verification/2026-10-13-i04-02-module-registry.md).
-Chưa có bằng chứng executor v2 hoàn tất.
+Executor đã qua review và validation độc lập; xem
+[evidence](../../../verification/2026-10-13-i04-03-terraform-executor.md).
 
 ## Phạm vi
 
@@ -54,8 +55,11 @@ CREATE/UPDATE/DESTROY contract có tests; UPDATE destructive plan bị chặn; u
 
 ## Checks
 
-- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 REQUIRE_TERRAFORM=1 go test ./... && go build ./...`
 - Executor cancellation/process-stop, retry/plan policy/output/secret tests và real HTTP-state PostgreSQL tests
+
+Actual CLI tests là bắt buộc cho validation I04-03; thiếu pinned Terraform
+binary phải fail, không lấy skipped tests làm bằng chứng executor đã đạt.
 
 ## Handoff
 

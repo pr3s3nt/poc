@@ -40,13 +40,15 @@ func main() {
 	frontendImage := flag.String("frontend-image", opts.Images.Frontend, "acceptance frontend image")
 	backendImage := flag.String("backend-image", opts.Images.Backend, "acceptance backend image")
 	workerImage := flag.String("worker-image", opts.Images.Worker, "acceptance worker image")
-	terraformRoot := flag.String("terraform-root", "", "directory holding Terraform run state")
+	terraformRoot := flag.String("terraform-root", "", "optional parent directory of the private per-process Terraform work directory (provider credentials, readiness kubeconfig); default is the system temporary directory")
+	terraformRecoveryDir := flag.String("terraform-recovery-dir", os.Getenv("ORCHESTRATOR_TERRAFORM_RECOVERY_DIR"), "private absolute directory (0700, outside any Git work tree) for encrypted recovery artifacts of a Terraform state the backend could not store; required with real adapters and the Terraform state backend")
 	terraformCache := flag.String("terraform-plugin-cache", os.Getenv("TF_PLUGIN_CACHE_DIR"), "Terraform provider cache directory")
 	kubectlPath := flag.String("kubectl", "kubectl", "kubectl binary")
 	scorePath := flag.String("score-k8s", "", "explicit path to pinned score-k8s 0.15.0 renderer (optional)")
 	terraformPath := flag.String("terraform", "terraform", "terraform binary")
 	moduleCacheDir := flag.String("terraform-module-cache-dir", os.Getenv("ORCHESTRATOR_TERRAFORM_MODULE_CACHE_DIR"), "private absolute directory (0700, outside any Git work tree) caching verified Terraform module content; required with -terraform-module-policy-file")
 	modulePolicyFile := flag.String("terraform-module-policy-file", os.Getenv("ORCHESTRATOR_TERRAFORM_MODULE_POLICY_FILE"), "Admin allowlist of HTTPS Git Terraform module sources (JSON); empty allows only the packaged release modules")
+	retainedReleases := flag.String("terraform-retained-releases-file", os.Getenv("ORCHESTRATOR_TERRAFORM_RETAINED_RELEASES_FILE"), "JSON list of retained trusted historical platform releases ({release, terraformBinary}) so cleanup can run resources created before a release upgrade; empty retains none")
 	gitPath := flag.String("git", "git", "git binary used to fetch allowlisted Terraform module commits")
 	vaultDelivery := flag.String("vault-delivery", "auto", "UC-12 Kubernetes delivery: auto, vso or agent")
 	workloadDelivery := flag.String("workload-delivery", "direct", "workload delivery: direct or fleet-gitrepo (kind only)")
@@ -137,10 +139,6 @@ func main() {
 			log.Print("orchestrator: -adapters aws needs -region")
 			os.Exit(1)
 		}
-		if *terraformRoot == "" {
-			log.Print("orchestrator: -adapters aws needs -terraform-root")
-			os.Exit(1)
-		}
 		if *runID == "" {
 			log.Print("orchestrator: -adapters aws needs -run-id so cloud resources carry a run id tag")
 			os.Exit(1)
@@ -148,29 +146,31 @@ func main() {
 	}
 
 	app, err := bootstrap.Build(context.Background(), bootstrap.Options{
-		ScoreK8sPath:              *scorePath,
-		Seed:                      opts,
-		UIDir:                     *uiDir,
-		StatePath:                 *statePath,
-		DatabaseURL:               databaseURL,
-		Adapters:                  mode,
-		KubectlPath:               *kubectlPath,
-		TerraformPath:             *terraformPath,
-		TerraformRoot:             *terraformRoot,
-		TerraformPluginCache:      *terraformCache,
-		TerraformModuleCacheDir:   *moduleCacheDir,
-		TerraformModulePolicyFile: *modulePolicyFile,
-		GitPath:                   *gitPath,
-		Region:                    *region,
-		Tags:                      tags,
-		VaultDelivery:             *vaultDelivery,
-		WorkloadDelivery:          *workloadDelivery,
-		GitOpsRepoDir:             *gitopsRepoDir,
-		GitOpsBranch:              *gitopsBranch,
-		FleetGitRepoName:          *fleetGitRepoName,
-		HarborRegistryHost:        *harborRegistryHost,
-		HarborDockerConfigFile:    *harborDockerConfigFile,
-		HarborPullSecretName:      *harborPullSecretName,
+		ScoreK8sPath:                  *scorePath,
+		Seed:                          opts,
+		UIDir:                         *uiDir,
+		StatePath:                     *statePath,
+		DatabaseURL:                   databaseURL,
+		Adapters:                      mode,
+		KubectlPath:                   *kubectlPath,
+		TerraformPath:                 *terraformPath,
+		TerraformRoot:                 *terraformRoot,
+		TerraformRecoveryDir:          *terraformRecoveryDir,
+		TerraformPluginCache:          *terraformCache,
+		TerraformModuleCacheDir:       *moduleCacheDir,
+		TerraformModulePolicyFile:     *modulePolicyFile,
+		TerraformRetainedReleasesFile: *retainedReleases,
+		GitPath:                       *gitPath,
+		Region:                        *region,
+		Tags:                          tags,
+		VaultDelivery:                 *vaultDelivery,
+		WorkloadDelivery:              *workloadDelivery,
+		GitOpsRepoDir:                 *gitopsRepoDir,
+		GitOpsBranch:                  *gitopsBranch,
+		FleetGitRepoName:              *fleetGitRepoName,
+		HarborRegistryHost:            *harborRegistryHost,
+		HarborDockerConfigFile:        *harborDockerConfigFile,
+		HarborPullSecretName:          *harborPullSecretName,
 
 		PlatformVault: platformVault,
 

@@ -338,7 +338,7 @@ func TestResourceName_NewScopeIsBoundedProviderSafeAndDeterministic(t *testing.T
 	}
 }
 
-func TestResourceName_SamePrefixDifferentApplicationEnvironmentOrRunDoNotCollide(t *testing.T) {
+func TestResourceName_SamePrefixDifferentApplicationOrEnvironmentDoNotCollide(t *testing.T) {
 	names := map[string]string{}
 	add := func(label, app, env, run string) {
 		name := resourceNameContext(app, env, run, environment.ScopeEnvironment).ResourceName()
@@ -350,7 +350,6 @@ func TestResourceName_SamePrefixDifferentApplicationEnvironmentOrRunDoNotCollide
 	add("base", uuidApp, "production", longRun)
 	add("other app, same 8 prefix", "7f3c9a52-ffff-4d6f-9a3c-000000000000", "production", longRun)
 	add("other env, same 10 prefix", uuidApp, "productionX", longRun)
-	add("other run", uuidApp, "production", longRun+"2")
 	add("shifted NUL boundary", uuidApp+"p", "roduction", longRun)
 	// An environment key bound to another account/Connection keeps the same
 	// Application, Environment and run identity, so only the key triple matters.
@@ -358,15 +357,25 @@ func TestResourceName_SamePrefixDifferentApplicationEnvironmentOrRunDoNotCollide
 	b := a
 	b.Env.ConnectionKey, b.Env.Region = "other-account", "eu-west-1"
 	if a.ResourceName() != b.ResourceName() {
-		t.Fatal("name must depend only on application, environment and run identity")
+		t.Fatal("name must depend only on application, environment and target generation")
 	}
 }
 
 // Generation 0 keeps its current identity exactly; later generations never
 // reuse a provider-visible name, descriptor path or scope of another one.
+// The run ID is provenance only: a later run (a redeploy) must produce the
+// same provider-visible name, or every redeploy would replace its objects.
+func TestResourceName_IsIndependentOfRunID(t *testing.T) {
+	a := resourceNameContext(uuidApp, "production", "run-a", environment.ScopeEnvironment)
+	b := resourceNameContext(uuidApp, "production", "run-b-with-another-id", environment.ScopeEnvironment)
+	if a.ResourceName() != b.ResourceName() {
+		t.Fatalf("run ID changed the physical name: %s != %s", a.ResourceName(), b.ResourceName())
+	}
+}
+
 func TestResourceName_GenerationZeroIdentityUnchangedAndLaterGenerationsIsolated(t *testing.T) {
 	ctx := resourceNameContext("pay", "production", "run-test", environment.ScopeEnvironment)
-	sum := sha256.Sum256([]byte("pay\x00production\x00run-test"))
+	sum := sha256.Sum256([]byte("pay\x00production"))
 	wantName := "orch-pay-production-" + hex.EncodeToString(sum[:])[:24]
 	if got := ctx.ResourceName(); got != wantName || ctx.Values()["infra.resourceName"] != wantName {
 		t.Fatalf("generation 0 name = %s, want %s", ctx.ResourceName(), wantName)

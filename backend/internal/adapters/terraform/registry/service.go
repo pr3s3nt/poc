@@ -2,11 +2,17 @@ package registry
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,7 +40,19 @@ type Config struct {
 	// when it is empty, preparation, registration and metadata still work
 	// but VerifyForExecution fails closed (ErrBinaryUnverified).
 	TerraformBinary string
-	Now             func() time.Time
+	// Retained lists trusted historical platform releases kept for cleanup:
+	// the original Terraform binary and pins of bundles verified before an
+	// upgrade. They are platform-reviewed configuration, used only by
+	// VerifyHistoricalForExecution; nothing is downloaded or re-matched.
+	Retained []RetainedRelease
+	Now      func() time.Time
+}
+
+// RetainedRelease is one retained historical release and the local path of
+// its pinned Terraform binary.
+type RetainedRelease struct {
+	Release         Release
+	TerraformBinary string
 }
 
 // Service is the module registry. It implements moduleregistry.Registry.
@@ -51,6 +69,15 @@ func New(cfg Config) (*Service, error) {
 	// release or policy values must not reach the validated copies.
 	cfg.Release = cfg.Release.Clone()
 	cfg.Policy = cfg.Policy.Clone()
+	retained := make([]RetainedRelease, len(cfg.Retained))
+	for i, r := range cfg.Retained {
+		r.Release = r.Release.Clone()
+		if err := r.Release.validate(); err != nil || !filepath.IsAbs(r.TerraformBinary) {
+			return nil, errors.New("registry: a retained release needs a valid manifest and an absolute Terraform binary path")
+		}
+		retained[i] = r
+	}
+	cfg.Retained = retained
 	switch {
 	case cfg.Packaged == nil || cfg.Cache == nil || cfg.Store == nil:
 		return nil, errors.New("registry: packaged modules, a cache and a bundle store are required")
@@ -314,9 +341,22 @@ func (s *Service) List(ctx context.Context) ([]tfmodule.Bundle, error) {
 	return bundles, nil
 }
 
+// BundleByID returns the persisted verified bundle with the given ID: the
+// historical module of an instance. It never fetches.
+func (s *Service) BundleByID(ctx context.Context, id string) (tfmodule.Bundle, error) {
+	bundle, err := s.cfg.Store.GetModuleBundleByID(ctx, id)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return tfmodule.Bundle{}, moduleregistry.ErrNotVerified
+	}
+	return bundle, err
+}
+
 // releaseMatches checks the bundle against the current release pins.
-func (s *Service) releaseMatches(b tfmodule.Bundle) error {
-	release := s.cfg.Release
+func (s *Service) releaseMatches(b tfmodule.Bundle) error { return matchRelease(s.cfg.Release, b) }
+
+// matchRelease checks the bundle's Terraform and provider pins against one
+// release manifest.
+func matchRelease(release Release, b tfmodule.Bundle) error {
 	if b.TerraformVersion != release.Terraform.Version || b.TerraformBinarySHA256 != release.Terraform.BinarySHA256 {
 		return moduleregistry.ErrReleaseMismatch
 	}
@@ -335,8 +375,59 @@ func (s *Service) releaseMatches(b tfmodule.Bundle) error {
 	return nil
 }
 
+// invocationDir creates one private, owner-only directory for an execution.
+func (s *Service) invocationDir() (string, error) {
+	runs := filepath.Join(s.cfg.Cache.dir, "runs")
+	if err := os.MkdirAll(runs, 0o700); err != nil {
+		return "", errors.New("registry: prepare the private invocation area")
+	}
+	dir, err := os.MkdirTemp(runs, "inv-")
+	if err != nil {
+		return "", errors.New("registry: create a private invocation directory")
+	}
+	return dir, nil
+}
+
+// copyVerifiedBinary copies a Terraform CLI into the private invocation
+// directory, hashing the very bytes it writes. The copy is returned only when
+// its digest equals the release pin; the source path is never executed.
+func copyVerifiedBinary(src, dest, want string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return moduleregistry.ErrReleaseMismatch
+	}
+	defer in.Close()
+	info, err := in.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		return moduleregistry.ErrReleaseMismatch
+	}
+	if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
+		return errors.New("registry: create the private binary directory")
+	}
+	out, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o700)
+	if err != nil {
+		return errors.New("registry: create the private Terraform binary")
+	}
+	h := sha256.New()
+	if _, err := io.Copy(io.MultiWriter(out, h), in); err != nil {
+		out.Close()
+		return errors.New("registry: copy the Terraform binary")
+	}
+	if err := out.Close(); err != nil {
+		return errors.New("registry: write the private Terraform binary")
+	}
+	if hex.EncodeToString(h.Sum(nil)) != want {
+		return moduleregistry.ErrReleaseMismatch
+	}
+	// Read-only for the owner from here on.
+	return os.Chmod(dest, 0o500)
+}
+
 // VerifyForExecution implements moduleregistry.ExecutionVerifier. It never
-// fetches: a missing or drifted artifact stops the run.
+// fetches: a missing or drifted artifact stops the run. On success every
+// returned path points into a private copy made for this call (Terraform
+// binary, root module tree and every transitive module directory), verified
+// from the bytes copied; the caller must Close the artifact.
 func (s *Service) VerifyForExecution(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.VerifiedArtifact, error) {
 	bundle, err := s.Bundle(ctx, ref)
 	if err != nil {
@@ -350,26 +441,110 @@ func (s *Service) VerifyForExecution(ctx context.Context, ref tfmodule.SourceRef
 	if s.cfg.TerraformBinary == "" {
 		return tfmodule.VerifiedArtifact{}, moduleregistry.ErrBinaryUnverified
 	}
-	sum, err := fileSHA256(s.cfg.TerraformBinary)
-	if err != nil || sum != bundle.TerraformBinarySHA256 {
-		return tfmodule.VerifiedArtifact{}, moduleregistry.ErrReleaseMismatch
-	}
-	bundleRoot, err := s.cfg.Cache.verify(ref, bundle.Contract)
+	return s.materializeBundle(bundle, s.cfg.TerraformBinary)
+}
+
+// VerifyHistoricalForExecution implements moduleregistry.ExecutionVerifier for
+// cleanup: it verifies the ORIGINAL persisted bundle against the retained
+// trusted release it was verified under (Terraform binary, version and
+// provider lock) and copies that release's binary and the bundle's cached
+// trees privately. It never matches the current release, fetches or upgrades;
+// a bundle with no retained release, or whose cache drifted, fails closed.
+func (s *Service) VerifyHistoricalForExecution(ctx context.Context, bundle tfmodule.Bundle) (tfmodule.VerifiedArtifact, error) {
+	stored, err := s.Bundle(ctx, bundle.Ref)
 	if err != nil {
 		return tfmodule.VerifiedArtifact{}, err
 	}
-	installs := make([]tfmodule.ModuleInstall, 0, len(bundle.Contract.ModuleCalls))
+	if stored.ID != bundle.ID || !stored.SameVerifiedContent(bundle) {
+		return tfmodule.VerifiedArtifact{}, moduleregistry.ErrDrift
+	}
+	if err := s.releaseMatches(stored); err == nil && s.cfg.TerraformBinary != "" {
+		return s.materializeBundle(stored, s.cfg.TerraformBinary)
+	}
+	for _, retained := range s.cfg.Retained {
+		if matchRelease(retained.Release, stored) == nil {
+			return s.materializeBundle(stored, retained.TerraformBinary)
+		}
+	}
+	return tfmodule.VerifiedArtifact{}, moduleregistry.ErrReleaseMismatch
+}
+
+// materializeBundle copies the pinned binary and the verified cached trees of
+// bundle into one private invocation directory.
+func (s *Service) materializeBundle(bundle tfmodule.Bundle, binarySource string) (tfmodule.VerifiedArtifact, error) {
+	ref := bundle.Ref
 	for _, call := range bundle.Contract.ModuleCalls {
 		if call.Transitive < 0 || call.Transitive >= len(bundle.Contract.Transitive) {
 			return tfmodule.VerifiedArtifact{}, ErrArtifact
 		}
+	}
+	inv, err := s.invocationDir()
+	if err != nil {
+		return tfmodule.VerifiedArtifact{}, err
+	}
+	fail := func(err error) (tfmodule.VerifiedArtifact, error) {
+		_ = removePrivate(inv)
+		return tfmodule.VerifiedArtifact{}, err
+	}
+	binary := filepath.Join(inv, "bin", "terraform")
+	if err := copyVerifiedBinary(binarySource, binary, bundle.TerraformBinarySHA256); err != nil {
+		return fail(err)
+	}
+	if err := s.cfg.Cache.materialize(ref, bundle.Contract, inv); err != nil {
+		return fail(err)
+	}
+	installs := make([]tfmodule.ModuleInstall, 0, len(bundle.Contract.ModuleCalls))
+	for _, call := range bundle.Contract.ModuleCalls {
 		t := bundle.Contract.Transitive[call.Transitive]
-		installs = append(installs, tfmodule.ModuleInstall{Key: call.Key, Source: call.Source, Dir: sourceDir(bundleRoot, moduleDir{sourceID: t.SourceID, revision: t.Revision, path: t.Path})})
+		installs = append(installs, tfmodule.ModuleInstall{Key: call.Key, Source: call.Source, Dir: sourceDir(inv, moduleDir{sourceID: t.SourceID, revision: t.Revision, path: t.Path})})
 	}
 	return tfmodule.VerifiedArtifact{
-		Bundle: bundle, SourceDir: bundleRoot, ModuleDir: sourceDir(bundleRoot, rootDir(ref)),
-		LockFile: LockFile(bundle.Providers), TerraformBinary: s.cfg.TerraformBinary, Modules: installs,
+		Bundle: bundle, Root: inv, SourceDir: inv, ModuleDir: sourceDir(inv, rootDir(ref)),
+		LockFile: LockFile(bundle.Providers), TerraformBinary: binary, Modules: installs,
+		Cleanup: func() error { return removePrivate(inv) },
+		Retain:  func(handle string) error { return s.recordRetained(handle, inv) },
 	}, nil
+}
+
+var retainedHandle = regexp.MustCompile(`^retained-[A-Za-z0-9-]{1,80}$`)
+
+// recordRetained writes the private mapping of an opaque handle to the
+// invocation directory the executor kept (0600 under the private cache).
+func (s *Service) recordRetained(handle, inv string) error {
+	if !retainedHandle.MatchString(handle) {
+		return errors.New("registry: invalid retained handle")
+	}
+	dir := filepath.Join(s.cfg.Cache.dir, "runs", "retained")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return errors.New("registry: prepare the retained mapping")
+	}
+	return os.WriteFile(filepath.Join(dir, handle), []byte(filepath.Base(inv)), 0o600)
+}
+
+// ResolveRetained maps a retained handle (from an attempt's recovery handle)
+// to the private invocation directory, for operator-driven recovery. It is an
+// internal function: no public API or log carries the result.
+func (s *Service) ResolveRetained(handle string) (string, error) {
+	if !retainedHandle.MatchString(handle) {
+		return "", errors.New("registry: invalid retained handle")
+	}
+	data, err := os.ReadFile(filepath.Join(s.cfg.Cache.dir, "runs", "retained", handle))
+	if err != nil || strings.ContainsAny(string(data), "/\\") || len(data) == 0 {
+		return "", errors.New("registry: the retained workspace is not recorded")
+	}
+	return filepath.Join(s.cfg.Cache.dir, "runs", string(data)), nil
+}
+
+// removePrivate deletes an invocation directory; it makes read-only entries
+// writable first so a 0500 binary directory does not block removal.
+func removePrivate(dir string) error {
+	_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && d.IsDir() {
+			_ = os.Chmod(p, 0o700)
+		}
+		return nil
+	})
+	return os.RemoveAll(dir)
 }
 
 func exists(path string) bool {

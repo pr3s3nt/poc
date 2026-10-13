@@ -12,6 +12,7 @@ import (
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
+	"orchestrator/internal/domain/tfresource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/planning/placeholder"
 	"orchestrator/internal/platform/canon"
@@ -39,6 +40,8 @@ type Request struct {
 type Result struct {
 	Outputs map[string]map[string]any
 	Targets map[string]execution.Target
+	// Instances maps a descriptor to its durable Terraform instance ID.
+	Instances map[string]string
 }
 
 // OutputsFor returns the outputs of one descriptor.
@@ -68,7 +71,7 @@ func (s *Service) Provision(ctx context.Context, req Request) (*Result, error) {
 	if req.Plan == nil {
 		return nil, fmt.Errorf("provisioning: plan is required")
 	}
-	result := &Result{Outputs: map[string]map[string]any{}, Targets: map[string]execution.Target{}}
+	result := &Result{Outputs: map[string]map[string]any{}, Targets: map[string]execution.Target{}, Instances: map[string]string{}}
 	for batchIndex, batch := range req.Plan.Batches {
 		for _, descriptor := range batch {
 			if err := s.provisionNode(ctx, req, result, descriptor, batchIndex); err != nil {
@@ -157,6 +160,17 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 
 	target := ResolveTarget(req.Plan.Graph, result, descriptor)
 
+	// A Terraform v2 executor verifies the pinned module itself and resolves
+	// the plan's provider pins; it never receives a pre-verified artifact.
+	selfVerifying := false
+	var pins []tfmodule.ProviderPin
+	if def.DriverType == resource.DriverTerraform {
+		if mv, ok := s.registry.(execution.ModuleVerifyingRegistry); ok && mv.VerifiesModules(match.DriverType) {
+			selfVerifying = true
+			pins = pinsOf(req.Plan, descriptor)
+		}
+	}
+
 	prior, err := s.store.FindByLogicalIdentity(ctx, req.Context.OrganizationKey, parsed, node.Scope)
 	priorState := map[string]any{}
 	hasPrior := false
@@ -195,6 +209,11 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	// A missing or non-READY Connection fails before execution instead of
 	// becoming an empty Connection (UC-04 BR-04/BR-10).
 	connectionKey := connectionKeyFor(def, req.Context)
+	if selfVerifying {
+		// Every v2 provider binding targets the Environment Connection (AWS
+		// account/region, internal cluster) or a cluster this plan creates.
+		connectionKey = req.Context.Env.ConnectionKey
+	}
 	var connection appdomain.Connection
 	err = errors.New("connection key is empty")
 	if connectionKey != "" {
@@ -207,8 +226,11 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		(connection.Kind != appdomain.ConnectionKubernetes || connection.Key != req.Context.Env.ConnectionKey) {
 		err = fmt.Errorf("connection is not the Kubernetes Environment connection")
 	}
-	if err == nil && def.DriverType == resource.DriverTerraform && connection.Kind != appdomain.ConnectionAWS {
+	if err == nil && def.DriverType == resource.DriverTerraform && !selfVerifying && connection.Kind != appdomain.ConnectionAWS {
 		err = fmt.Errorf("connection is not an AWS connection")
+	}
+	if err == nil && selfVerifying && connection.Kind != expectedConnectionKind(req.Context.Env.Profile) {
+		err = fmt.Errorf("connection does not match the Environment execution profile")
 	}
 	if err != nil {
 		progress.Status = deployment.ResourceFailed
@@ -228,12 +250,24 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		return fmt.Errorf("provisioning: %s: %w", descriptor, errPriorConnectionMismatch)
 	}
 
+	if selfVerifying {
+		// Stale or foreign provider pins fail before any state write or
+		// provider call.
+		if pinErr := checkPinsAgainstPlan(req.Plan, descriptor, pins, req.Context); pinErr != nil {
+			progress.Status = deployment.ResourceFailed
+			finished := s.clock.Now()
+			progress.FinishedAt = &finished
+			_ = s.store.SaveDeploymentResource(ctx, progress)
+			return fmt.Errorf("provisioning: %s: %w", descriptor, pinErr)
+		}
+	}
+
 	executor, err := s.registry.Resolve(match.DriverType)
 	if err != nil {
 		return err
 	}
 	var artifact *tfmodule.VerifiedArtifact
-	if verified, ok := executor.(execution.VerifiedModuleExecutor); ok && verified.RequiresVerifiedModule() {
+	if verified, ok := executor.(execution.VerifiedModuleExecutor); ok && verified.RequiresVerifiedModule() && !selfVerifying {
 		// Re-verify the pinned bundle (content digests, release pins and
 		// Terraform binary) immediately before execution; drift or a missing
 		// artifact stops the node before any provider call.
@@ -253,7 +287,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		}
 	}
 
-	execResult, err := executor.Provision(ctx, execution.ProvisionRequest{
+	execReq := execution.ProvisionRequest{
 		DeploymentID:    req.DeploymentID,
 		RunID:           req.RunID,
 		OrganizationKey: req.Context.OrganizationKey,
@@ -272,7 +306,23 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		PriorState:      priorState,
 		Connection:      connection,
 		Target:          target,
-	})
+	}
+	if selfVerifying && terraformInputs != nil {
+		identity, identityErr := s.identityOf(ctx, req, parsed, node)
+		if identityErr != nil {
+			progress.Status = deployment.ResourceFailed
+			finished := s.clock.Now()
+			progress.FinishedAt = &finished
+			_ = s.store.SaveDeploymentResource(ctx, progress)
+			return fmt.Errorf("provisioning: %s: %w", descriptor, identityErr)
+		}
+		source := terraformInputs.Source
+		execReq.Source, execReq.Identity, execReq.OutputMapping, execReq.Type = &source, identity, terraformInputs.OutputMapping, typ
+		execReq.ProviderPins = pins
+		execReq.ProviderTargets = providerTargets(pins, result)
+		execReq.ProviderInstanceIDs = providerInstances(req.Plan.Graph, result, descriptor)
+	}
+	execResult, err := executor.Provision(ctx, execReq)
 	if err != nil {
 		progress.Status = deployment.ResourceFailed
 		finished := s.clock.Now()
@@ -297,6 +347,12 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 				if artifact.Bundle.Contract.Outputs[output].Sensitive {
 					secretOutputs[target] = true
 				}
+			}
+		}
+		// A runtime sensitive flag reported by the executor is never lost.
+		for output, target := range terraformInputs.OutputMapping {
+			if execResult.Sensitive[output] {
+				secretOutputs[target] = true
 			}
 		}
 		execResult.Outputs = mapped
@@ -351,6 +407,9 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	}
 
 	result.Outputs[descriptor] = execResult.Outputs
+	if execResult.InstanceID != "" {
+		result.Instances[descriptor] = execResult.InstanceID
+	}
 	if execResult.Target != nil {
 		result.Targets[descriptor] = *execResult.Target
 	}
@@ -513,6 +572,11 @@ func ResolveTarget(graph planning.Graph, result *Result, descriptor string) exec
 				// Organization/Connection identity, never credential bytes.
 				if resolved, ok := result.Targets[provider]; ok && resolved.CredentialBacked() {
 					target.Organization, target.Connection = resolved.Organization, resolved.Connection
+					target.Provider, target.Region = resolved.Provider, resolved.Region
+					if resolved.Provider != "" {
+						target.ClusterName = resolved.ClusterName
+						target.Context = ""
+					}
 					target.Kubeconfig = ""
 				}
 			case planning.TypeNamespace:
@@ -535,4 +599,109 @@ func stringOutput(outputs map[string]any, key string) string {
 		return v
 	}
 	return ""
+}
+
+// pinsOf returns the plan-pinned provider bindings of one Terraform node.
+func pinsOf(plan *planning.Plan, descriptor string) []tfmodule.ProviderPin {
+	for _, contract := range plan.Terraform {
+		if contract.Descriptor == descriptor {
+			return append([]tfmodule.ProviderPin(nil), contract.ProviderBindings...)
+		}
+	}
+	return nil
+}
+
+// expectedConnectionKind is the Connection kind of an Environment profile.
+func expectedConnectionKind(profile appdomain.ExecutionProfile) appdomain.ConnectionKind {
+	if profile == appdomain.ProfileAWSEKS {
+		return appdomain.ConnectionAWS
+	}
+	return appdomain.ConnectionKubernetes
+}
+
+// checkPinsAgainstPlan refuses a node whose pinned bindings no longer match
+// the Environment it executes in: a pin for another connection, region or
+// profile (stale), or a provider cluster without its graph edge (foreign).
+// This runs before any state write or provider call.
+func checkPinsAgainstPlan(plan *planning.Plan, descriptor string, pins []tfmodule.ProviderPin, ctx planning.Context) error {
+	env := ctx.Env
+	providers := map[string]bool{}
+	for _, p := range plan.Graph.Providers(descriptor) {
+		providers[p] = true
+	}
+	for _, pin := range pins {
+		if pin.Profile != string(env.Profile) || pin.Generation != env.TargetGeneration {
+			return errPinStale
+		}
+		switch pin.Kind {
+		case tfmodule.BindingAWS:
+			if pin.ConnectionKey != env.ConnectionKey || pin.Region != env.Region {
+				return errPinStale
+			}
+		case tfmodule.BindingKubernetes:
+			if pin.Provider == "" || !providers[pin.Provider] {
+				return errPinForeign
+			}
+			if pin.ConnectionKey != "" && pin.ConnectionKey != env.ConnectionKey {
+				return errPinStale
+			}
+		}
+	}
+	return nil
+}
+
+var (
+	// ErrProviderPin is returned for a provider binding pin that is stale
+	// (another connection, region, profile or generation) or foreign (a
+	// cluster that is not a provider of the node).
+	ErrProviderPin = errors.New("the provider binding does not match the plan pin")
+	errPinStale    = fmt.Errorf("%w: it differs from the Environment target; plan again", ErrProviderPin)
+	errPinForeign  = fmt.Errorf("%w: it names a cluster that is not a provider of this node", ErrProviderPin)
+)
+
+// providerTargets returns the completed opaque target of each cluster node a
+// pin names; a cluster that produced none is absent and fails the binding.
+func providerTargets(pins []tfmodule.ProviderPin, result *Result) map[string]execution.Target {
+	out := map[string]execution.Target{}
+	for _, pin := range pins {
+		if pin.Provider == "" {
+			continue
+		}
+		if target, ok := result.Targets[pin.Provider]; ok {
+			out[pin.Provider] = target
+		}
+	}
+	return out
+}
+
+// providerInstances lists the Terraform instances of this node's providers.
+func providerInstances(graph planning.Graph, result *Result, descriptor string) []string {
+	seen := map[string]bool{}
+	out := []string{}
+	for _, provider := range graph.Providers(descriptor) {
+		if id := result.Instances[provider]; id != "" && !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// identityOf builds the canonical instance identity of a node: the stable
+// Organization, Application and Environment IDs, target generation, descriptor
+// and scope. It never contains a run ID.
+func (s *Service) identityOf(ctx context.Context, req Request, descriptor resource.Descriptor, node planning.Node) (tfresource.Identity, error) {
+	org, err := s.store.GetOrganization(ctx, req.Context.OrganizationKey)
+	if err != nil {
+		return tfresource.Identity{}, fmt.Errorf("the Organization is unavailable")
+	}
+	identity := tfresource.Identity{
+		OrganizationID: org.ID, ApplicationID: req.Context.Env.ApplicationID, EnvironmentID: req.Context.Env.ID,
+		TargetGeneration: req.Context.Env.TargetGeneration, Descriptor: descriptor.String(), Scope: node.Scope,
+	}
+	if err := identity.Validate(); err != nil {
+		return tfresource.Identity{}, fmt.Errorf("the instance identity is incomplete")
+	}
+	return identity, nil
 }

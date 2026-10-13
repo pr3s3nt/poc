@@ -59,6 +59,22 @@ digests. Không gọi `init -upgrade`; init dùng readonly provider lockfile. Ca
 metadata published sau inspect, gồm schemas/defaults và provider requirements.
 Version literals/digests được tạo khi chuẩn bị modules, trước live run.
 
+Để cleanup dùng đúng release lịch sử, platform giữ manifest, binary và module
+cache của các release còn resource chưa xóa. Cấu hình Admin
+`-terraform-retained-releases-file` (env
+`ORCHESTRATOR_TERRAFORM_RETAINED_RELEASES_FILE`) trỏ tới JSON array; mỗi mục có
+`release` theo cùng shape của platform release manifest và `terraformBinary`
+là đường dẫn tuyệt đối tới binary đã pin. Reject unknown fields, manifest sai
+hoặc đường dẫn tương đối. Đây là cấu hình platform, không phải input của PE
+hoặc Workload.
+
+DESTROY và absence probe xác minh persisted bundle với current hoặc retained
+release phù hợp, copy và hash đúng binary, dùng original provider lock/module
+cache. Không fetch module, upgrade hoặc re-match khi cleanup. Release mới dùng
+packaged revision mới; giữ cache cũ và provider plugins cho lock cũ đến khi các
+instance của release đó đã được xác minh hết. Thiếu release/artifact thì từ
+chối cleanup và giữ remaining IDs; không thay bằng release hiện tại.
+
 Public Definition registration giữ insert-only: nâng module bằng Definition ID
 mới và thay criteria có specificity/context tạo unique winner đã review, không ngầm thêm
 API overwrite/update Definition.

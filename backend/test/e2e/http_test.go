@@ -525,7 +525,8 @@ func TestHTTPUsesTheConfiguredRunID(t *testing.T) {
 			continue
 		}
 		name, _ := row.ResolvedInputs["name"].(string)
-		// The provider-safe name digests the configured run id (ADR-011).
+		// The provider-safe name is stable per Environment; the run id is
+		// provenance only and never part of it (ADR-014).
 		named := func(run string) string {
 			return planning.Context{
 				App:   application.Application{Key: seedOptions.CloudApplicationKey},
@@ -533,8 +534,8 @@ func TestHTTPUsesTheConfiguredRunID(t *testing.T) {
 				RunID: run,
 			}.ResourceName()
 		}
-		if name != named(seedOptions.RunID) || name == named(seedOptions.RunID+"-other") {
-			t.Fatalf("cloud resource name %q does not carry the configured run id %q", name, seedOptions.RunID)
+		if name != named(seedOptions.RunID) || name != named(seedOptions.RunID+"-other") {
+			t.Fatalf("cloud resource name %q must be stable and independent of the run id %q", name, seedOptions.RunID)
 		}
 		found = true
 	}
