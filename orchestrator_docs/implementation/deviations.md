@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-14
 ---
 
 # Known design and implementation deviations
@@ -150,8 +150,11 @@ hiện dùng anonymous Git. Không coi backend tests là live UI proof.
 Accepted [ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md)
 và current BR/MS/VAR/OOS trong specifications thay required behavior.
 Rule mapping/supersession: [reconciliation](v2-rule-reconciliation.md). Current code is
-not yet conformant: AWS credential
-onboarding and Environment-only Aurora/ElastiCache provider binding need implementation;
+not yet fully conformant: AWS credential onboarding đã implement/verified local
+ở [I04-06](../verification/2026-10-14-i04-06-aws-connection.md), kể cả real
+SQL/Vault/browser và IAM global/regional context guards; live onboarding và
+execution capability preflight còn I04-10/12. Environment-only AWS provider
+binding có backend guards; form Definition còn I04-07;
 score-k8s is optional/internal-only; no Redis app cache or v2 module/source/class
 UI và real acceptance còn thiếu. Durable encrypted state/locks và executor cleanup provenance đã có. PE/Admin resource detail/delete preview/name confirmation/selected-set
 eligibility/confirmed-scope admission/progress/absence proof chưa có.
@@ -159,11 +162,11 @@ eligibility/confirmed-scope admission/progress/absence proof chưa có.
 
 This is a planned implementation gap, not permission to alter canonical design
 to match old code. Codex updates docs; Claude implements code/tests through
-clauded/tmux under AGENTS.md. Delivery gates: backend/frontend checks, real
+Claude cloud theo AGENTS.md; Codex chạy thật local. Delivery gates: backend/frontend checks, real
 PostgreSQL state/locking tests, module validate/plan review, three real UI/app
 happy paths + two exceptions với video/assertions, A01 xóa qua UI và verified
-owned cleanup. M04 ba chặng cần user gates: docs/plan trước code; video A01
-và estimate AWS trước cloud create; final handoff/evidence để người dùng duyệt.
+owned cleanup. M04 chặng 1 đã duyệt; điểm duyệt 2 bỏ ngày 2026-10-14. A01/E01/E02 pass,
+video/estimate đã lưu và k8s-4f sạch thì tự chạy I04-12; giữ duyệt bàn giao cuối.
 D12–D14 remain deferred after v2; do not mark them implemented as part of this gap.
 No existing evidence or read-only STS check proves v2. Close only after review,
 validation, required live acceptance and cleanup; update CURRENT_STATE/code map/

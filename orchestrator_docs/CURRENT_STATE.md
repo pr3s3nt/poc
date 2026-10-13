@@ -2,22 +2,24 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-14
 ---
 
 # Current project state
 
 ## Quyết định điều phối M04 — 2026-10-14
 
-I04-01..05 hoàn tất tại `5dac2e6`; I04-06 chưa implement khi tiếp từ bàn giao
-cũ. Claude cloud viết code/test và push nhánh riêng public; Codex quản lý docs,
-review/checks/merge và chạy thật local, gồm Playwright headed/video.
-Điểm duyệt 2 đã bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và k8s-4f sạch
-thì tự chạy I04-12 trên AWS 452025861381/us-east-1. Điểm duyệt cuối vẫn giữ.
-Chưa có live proof. Phiên cloud I04-06 đã push bản nháp `9e158ac`, checks
-pending; quyền thao tác Bash/Write/Edit/network quan sát chạy không prompt,
-tên mode nội bộ không introspect được. Kiểm tra cloud mỗi 15 phút theo chỉ dẫn
-mới; chưa merge code hoặc tạo tài nguyên AWS/cluster.
+I04-01..06 hoàn tất local; I04-07 hiện hành. Claude cloud viết code/test trên
+nhánh riêng public; Codex quản lý docs/review/checks/merge và chạy thật local.
+Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi
+lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
+k8s-4f sạch thì tự chạy I04-12 AWS 452025861381/us-east-1. Giữ điểm duyệt cuối.
+I04-06 tại `f3ed5bb`: **1082 Go PASS/0 FAIL/0 SKIP**, 479 frontend tests,
+build/vet/docs và Codex headed browser/actual SQL/Vault/cleanup pass. AWS
+transport trong browser fake; chưa có v2 live proof. Tên mode quyền cloud không
+introspect được, nhưng Bash/Write/Edit/network quan sát chạy không prompt.
+[Biên bản I04-06](verification/2026-10-14-i04-06-aws-connection.md).
+
 Các đoạn checkpoint lịch sử bên dưới không thay quyết định hiện tại này.
 
 ## M04 documentation review checkpoint — 2026-10-13
@@ -99,6 +101,18 @@ I04-06 tiếp tục AWS Connection qua Console/Vault. Definition/class UI còn I
 egress preflight wiring còn I04-10; node capacity, mạng, storage/addons, TLS/auth
 và real cleanup còn live verification. Gate 2 chưa đạt, chưa được tạo AWS.
 
+## I04-06 hoàn tất, chuyển Definition/class UI I04-07
+
+Concealed AWS form, strict role/org/payload gates, read-only verifier, immutable
+Vault credentials và allowed-region target/binder đã qua review/checks/video
+local. Không host fallback, overwrite winner hoặc đổi Organization default.
+IAM simulation cần `iam:SimulatePrincipalPolicy`, global actions dùng us-east-1,
+regional actions theo allowed regions; simulation không thay execution preflight.
+Initial flow hỗ trợ long-term IAM user key, không root/temporary credentials.
+Vùng đầu tiên là default; UI Environment vẫn theo flow hiện hành, không thêm
+region picker trong I04-06. Source/module/class forms và runtime capability
+preflight còn I04-07/10; live A01/E01/E02 và A02/A03 còn I04-11/12.
+
 ## Terraform v2 — accepted design, implementation pending (2026-10-13)
 
 User completed Step 1 decisions: [ADR-014](architecture/decisions/ADR-014-terraform-v2-lifecycle.md),
@@ -157,7 +171,7 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-01 | Implemented; locally E2E verified | Authenticated Developer list/create/get Application qua API/UI; service tự sinh ID, staging/production, empty Deployment Sets và namespace identities. Create không deploy; browser restart test xác nhận durable local state. |
 | UC-02 | Registration implemented | Platform Engineer/Admin có thể đăng ký và xem Resource Types trong Organization qua API/UI; seeded catalog và normalized PostgreSQL persistence dùng được. Production-grade RBAC chưa có. |
 | UC-03 | Registration implemented | Platform Engineer/Admin có thể đăng ký Definition runtime-supported với criteria, driver inputs và provision rules qua API/UI; planner vẫn có profile guard và matching, catalog được persist trong PostgreSQL. Remote source và production-grade RBAC chưa có. |
-| UC-04 | Kubernetes kubeconfig onboarding implemented and verified | Platform Engineer/Admin nhập tên, upload/dán kubeconfig, inspect/chọn context rồi verify API/RBAC read-only và lưu `READY`. Vault KV v2 lưu scoped credential; metadata/name/authentication type ở PostgreSQL, migration/race/reopen đã pass isolated local. Executor resolve credential bằng opaque target identity; T22 bỏ host-context/API body cũ, seed thiếu credential ở VERIFYING. Live kind upload và video đã pass ngày 2026-10-06; AWS infrastructure identity onboarding vẫn future scope theo ADR-009. |
+| UC-04 | Kubernetes kubeconfig onboarding implemented and verified | Platform Engineer/Admin nhập tên, upload/dán kubeconfig, inspect/chọn context rồi verify API/RBAC read-only và lưu `READY`. Vault KV v2 lưu scoped credential; metadata/name/authentication type ở PostgreSQL, migration/race/reopen đã pass isolated local. Executor resolve credential bằng opaque target identity; T22 bỏ host-context/API body cũ, seed thiếu credential ở VERIFYING. Live kind upload và video đã pass ngày 2026-10-06; AWS access-key onboarding đã verified local qua Console/Vault ở I04-06; STS/region/IAM policy simulation và scoped resolver đã có, AWS transport browser fake, live proof còn I04-12. |
 | UC-05 | Implemented; locally verified | Standalone Score Preview service, authenticated scoped API và Console trả Delta/Candidate/graph/matches/batches/classification, consistent snapshot chung với direct Deploy, safe public projection và no-mutation tests. Pending-change Preview vẫn riêng; UI-only human-paced recording đã pass. Không chạy Terraform plan thật. |
 | UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; optional Fleet GitRepo adapter cho internal kind đã pass Harbor-image deployment. Environment Ingress nhiều path và Fleet `_routes` bundle đã pass kind test với hai workload BusyBox, Fleet revision/prune và cleanup; route failure có route-only retry (unit test), Backstage cụ thể chưa kiểm chứng. DNS/TLS/chuyển controller ra ngoài chưa có. Mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. |
 | UC-07 | Implemented; locally verified | UC-16 scoped Preview → Deploy update/remove, before/shared invariants, final Service validation, confirmation/Undo và busy/stale/reload UI states. READY resource marking UNREFERENCED commit cùng current set/SUCCEEDED; PostgreSQL rollback/reopen và UI-only recording pass. Không destroy/rollback; Application-wide cleanup ngoài scope. Fleet remove kind evidence là lịch sử, chưa rerun live cho mốc này. |

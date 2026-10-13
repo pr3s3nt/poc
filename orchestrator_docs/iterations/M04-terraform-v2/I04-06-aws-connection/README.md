@@ -1,7 +1,7 @@
 ---
 id: I04-06
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-10-14
 related: [M04, ADR-014, IMP-021]
 ---
@@ -10,7 +10,7 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; bắt đầu sau I04-05 đã verified. Xem
+Chặng 2; đã hoàn tất local I04-06 sau I04-05. Xem
 [evidence modules](../../../verification/2026-10-14-i04-05-aws-modules.md).
 
 ## Phạm vi
@@ -59,3 +59,10 @@ quyền thực tế, fetch mỗi 15 phút (900 giây), review và chạy lại c
 Codex merge khi đạt, chạy thật và Playwright headed/quay video local; gửi lỗi
 code về Claude. Cập nhật verification/Current handoff/Task order, commit/push
 và xóa nhánh Claude. Giữ failed evidence và phân biệt adapter thật/fake.
+
+## Kết quả bàn giao
+
+[Biên bản](../../../verification/2026-10-14-i04-06-aws-connection.md): Codex
+review `f3ed5bb`, Go 1082/zero skip, frontend 479/build/vet/docs và headed
+browser actual SQL/Vault/AWS fake pass; owned cleanup sạch. Live AWS onboarding/
+capability preflight còn I04-10/12. I04-07 tiếp theo.

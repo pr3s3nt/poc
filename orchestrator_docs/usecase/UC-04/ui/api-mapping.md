@@ -2,7 +2,7 @@
 id: UC-04-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-14
 ---
 
 # UC-04 Connection HTTP mapping
@@ -97,3 +97,16 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
+
+## AWS request bounds và verification adapter — I04-06
+
+POST AWS tối đa 16 KiB, exact-case known fields, không duplicate/null/mixed shape
+hoặc trailing JSON. Name theo giới hạn Connection hiện hành; initial access key
+là AKIA 20 ký tự, secret 40 ký tự; allowedRegions 1–10 vùng khác nhau, bounded
+region syntax. Initial verifier chỉ hỗ trợ long-term IAM user, không root hoặc
+session-token input. Root/temporary/capability-unverifiable trả safe 422, không READY.
+Identity, từng region read probe và IAM policy simulation đều phải đạt; key cần
+`iam:SimulatePrincipalPolicy` trên principal của mình. IAM global context dùng
+us-east-1, service regional dùng từng vùng đích. Vùng đầu tiên là default, full
+allowed list được giữ trong read metadata và checked khi binding. Registration
+không tạo hạ tầng; execution preflight kiểm lại trước apply theo runbook.

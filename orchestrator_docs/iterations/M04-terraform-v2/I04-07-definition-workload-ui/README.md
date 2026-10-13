@@ -1,8 +1,8 @@
 ---
 id: I04-07
 artifact: iteration-plan
-status: deferred
-last_reviewed: 2026-10-13
+status: current
+last_reviewed: 2026-10-14
 related: [M04, ADR-014, IMP-021]
 ---
 
@@ -10,7 +10,7 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Chưa bắt đầu; không suy status này thành task bị bỏ hoặc đã implement.
+Chặng 2; bắt đầu sau I04-06 đã verified local, đang chuẩn bị giao cloud. Xem [M04](../README.md) và [biên bản I04-06](../../../verification/2026-10-14-i04-06-aws-connection.md).
 
 ## Phạm vi
 

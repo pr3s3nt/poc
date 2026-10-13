@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-14
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-14 | I04-06 AWS onboarding, scoped Vault/SQL, IAM context guards and Codex headed browser | [AWS Connection verification](2026-10-14-i04-06-aws-connection.md) |
 | 2026-10-14 | I04-05 AWS modules, shared private network, EKS allowlist/pins and independent PostgreSQL/CLI validation | [AWS module verification](2026-10-14-i04-05-aws-modules.md) |
 | 2026-10-13 | I04-04 Kubernetes modules, secret binding guards, registry/CLI and independent PostgreSQL validation | [Kubernetes module verification](2026-10-13-i04-04-kubernetes-modules.md) |
 | 2026-10-13 | I04-03 durable executor, scoped providers, cleanup retry/restart and independent PostgreSQL/CLI validation | [Executor verification](2026-10-13-i04-03-terraform-executor.md) |

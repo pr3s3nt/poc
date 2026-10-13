@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-14
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -596,3 +596,16 @@ ADR-014 EKS `/32` allowlist, immutable module/provider/addon pins và input
 validation có registry/planner/actual CLI tests. Codex verified 1042 tests trên
 PostgreSQL thật, không skip; provider plan seam mock. Preflight runner wiring,
 UI registration và live AWS proofs còn I04-07/10/11/12.
+
+## I04-06 AWS Connection review complete
+
+[Verification](../verification/2026-10-14-i04-06-aws-connection.md) covers UC-04
+VAR-02/BR-01/02/09/10/11/12/16, ERR-05..09 và OC-05: bounded role/org-gated
+onboarding, STS/region/capability evidence, immutable scoped Vault ref, safe DTO,
+SQL race/rollback/reopen and unchanged default/Kubernetes behavior. Verifier
+fail-closed tests cover incomplete metadata, regional create denial, IAM global
+context, missing context/paging/org denial, redirects and malformed allowed regions.
+Codex: 1082 Go tests/zero skip, 479 frontend tests, actual SQL/Vault + headed
+browser with AWS transport fake, credential scans and verified cleanup. Live
+AWS identity/capabilities and execution preflight remain I04-10/12; no v2 live
+acceptance claimed. Class/source forms remain I04-07.

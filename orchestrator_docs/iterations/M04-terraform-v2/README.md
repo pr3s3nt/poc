@@ -2,7 +2,7 @@
 id: M04
 artifact: milestone-plan
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-14
 related: [ADR-014, IMP-021, D01, D03, D12, D13, D14]
 ---
 
@@ -39,8 +39,8 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-03 | [Executor tạo, cập nhật và xóa](I04-03-terraform-executor/README.md) | 2 | Hoàn tất |
 | I04-04 | [Module namespace, Redis và PostgreSQL](I04-04-kubernetes-modules/README.md) | 2 | Hoàn tất |
 | I04-05 | [Module VPC, EKS, ElastiCache và Aurora](I04-05-aws-modules/README.md) | 2 | Hoàn tất |
-| I04-06 | [AWS Connection qua Console và Vault](I04-06-aws-connection/README.md) | 2 | Đang thực hiện |
-| I04-07 | [Definition, Workload class, Preview và renderer](I04-07-definition-workload-ui/README.md) | 2 | Chưa bắt đầu |
+| I04-06 | [AWS Connection qua Console và Vault](I04-06-aws-connection/README.md) | 2 | Hoàn tất local |
+| I04-07 | [Definition, Workload class, Preview và renderer](I04-07-definition-workload-ui/README.md) | 2 | Đang chuẩn bị giao cloud |
 | I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Chưa bắt đầu |
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Chưa bắt đầu |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Chưa bắt đầu |
@@ -52,7 +52,7 @@ Dependencies triển khai: schema/state -> registry -> executor -> modules ->
 Connection/catalog/Workload/renderer -> deletion/app Redis -> integration ->
 k8s-4f đạt + video/estimate + cleanup sạch -> AWS. Không bỏ task hoặc đổi adapter để rút acceptance.
 I04-00 đã được người dùng duyệt sau sửa selected-set và đối chiếu I06-10.
-I04-06 là iteration current; các task sau chưa bắt đầu. M02/I06-10 deferred,
+I04-07 là iteration current; các task sau chưa bắt đầu. M02/I06-10 deferred,
 không coi milestone cũ hoàn thành; xem [coverage còn lại](../M02-usecase-completion/I06-10-uc01-04-management/README.md#đối-chiếu-công-việc-còn-dở-với-m04).
 
 ## Validation và acceptance
@@ -87,20 +87,18 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 
 ## Current handoff
 
-2026-10-14: I04-01..05 hoàn tất, `5dac2e6` đã push; working tree sạch khi tiếp.
-I04-06 cũ dừng trước implementation, không tài nguyên còn tồn tại;
-`/tmp/poc-i0406-aws-connection/handoff-paused.md` lưu bàn giao cũ.
-Tiếp I04-06 bằng phiên Claude cloud mới; Codex chạy checks và recording local.
-Session: `session_01UowTTQea8MqLBRaPktRfSX`;
-[Claude cloud I04-06](https://claude.ai/code/session_01UowTTQea8MqLBRaPktRfSX).
-Nhánh `claude/m04-i04-06`, base `9b00978`; bản nháp `9e158ac` đã fetch,
-checks còn pending, chưa review/merge hoặc claim complete. Phiên không đọc được
-tên mode quyền nội bộ; quan sát Bash/Write/Edit/network chạy không prompt hoặc
-blocker (commit trạng thái `4e50a8f`), không suy quyền từ cờ CLI.
-Theo chỉ dẫn mới 2026-10-14, kiểm tra nhánh cloud mỗi **15 phút (900 giây)**;
-chỉ kiểm tra sớm khi lỗi/completion/yêu cầu người dùng. Codex giữ lượt chạy
-khi chờ; chưa thiết lập tác vụ nền tự khởi chạy sau khi lượt kết thúc.
-Chưa có task-owned AWS/cluster resources; local STS read-only đúng account.
-Dự toán đang chuẩn bị ở `/tmp/poc-m04-estimate-20261014/`, chưa phải bảng trước run.
-I04-11 đạt A01/E01/E02 + video + estimate + k8s-4f sạch thì tự chạy I04-12;
-chỉ bàn giao cuối chờ người dùng, không tự ghi đã duyệt.
+2026-10-14: I04-01..06 đã verified local. I04-06 code `f3ed5bb` đã review,
+1082 Go tests/zero skip + 479 frontend tests/build/vet/docs và Codex headed
+browser trên SQL/Vault thật, AWS transport fake đạt. [Biên bản](../../verification/2026-10-14-i04-06-aws-connection.md).
+Video `/tmp/poc-i0406-local-browser-r2/I04-06-captioned.mp4`; cleanup DB/roles,
+Vault/PG/container/network/private files đã xác minh, không task-owned cloud/
+cluster resources. Lượt trước và bàn giao cũ giữ tại `/tmp/poc-i0406-aws-connection/`.
+Phiên I04-06 [session_01UowTTQea8MqLBRaPktRfSX](https://claude.ai/code/session_01UowTTQea8MqLBRaPktRfSX);
+mode nội bộ không introspect được, Bash/Write/Edit/network quan sát unprompted.
+Nhánh chính/tự sinh sẽ xóa sau push merge; không tự chuyển sang Codex coding.
+Tiếp I04-07, phiên mới chưa tạo; draft brief `/tmp/poc-i0407-definition-workload-ui/`.
+Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
+lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
+Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.
+A01/E01/E02 pass + video/estimate + k8s-4f sạch thì tự chạy I04-12. Điểm duyệt
+cuối vẫn giữ; không tự ghi đã duyệt.
