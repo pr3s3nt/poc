@@ -13,14 +13,13 @@ import (
 	"orchestrator/internal/domain/secretstore"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
-	"orchestrator/internal/ports/persistence/persistencetest"
 )
 
 // Two Store values with separate pgx pools stand in for two backend processes
 // sharing one PostgreSQL database.
 func twoBackends(t *testing.T) (*Store, *Store, string) {
 	t.Helper()
-	url := persistencetest.FreshPostgresDatabase(t)
+	url := freshDatabase(t).Console
 	a, err := Open(context.Background(), url)
 	if err != nil {
 		t.Fatal(err)

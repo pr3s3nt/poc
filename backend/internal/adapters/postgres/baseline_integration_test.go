@@ -40,21 +40,6 @@ func catalogOf(t *testing.T, url string) []string {
 	return lines
 }
 
-func sqlOn(t *testing.T, url string, statements ...string) {
-	t.Helper()
-	ctx := context.Background()
-	conn, err := pgx.Connect(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Close(ctx)
-	for _, sql := range statements {
-		if _, err := conn.Exec(ctx, sql); err != nil {
-			t.Fatalf("%v\n%s", err, sql)
-		}
-	}
-}
-
 func scalar[T any](t *testing.T, url, sql string) T {
 	t.Helper()
 	ctx := context.Background()
@@ -82,30 +67,55 @@ func equalLines(a, b []string) bool {
 	return true
 }
 
-// An empty database initializes with the complete baseline and no migration
-// ledger; every later boot validates it, changes nothing and is idempotent.
+// rolesOnly provisions a fresh database and its roles without the owner setup.
+func rolesOnly(t *testing.T) persistencetest.PostgresDatabase {
+	t.Helper()
+	return persistencetest.FreshPostgresRoles(t)
+}
+
+func setupRoles(db persistencetest.PostgresDatabase) Roles {
+	return Roles{Console: db.ConsoleRole, State: db.StateRole}
+}
+
+// The owner setup initializes an empty database with the complete baseline
+// and no migration ledger; every later runtime boot validates it read-only,
+// changes nothing and is idempotent. A repeated owner setup only verifies.
 func TestFreshInitializationAndIdempotentReopen(t *testing.T) {
 	ctx := context.Background()
-	url := persistencetest.FreshPostgresDatabase(t)
-	first, err := Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
+	db := rolesOnly(t)
+	initialized, err := Setup(ctx, db.Owner, setupRoles(db))
+	if err != nil || !initialized {
+		t.Fatalf("owner setup = %v, %v", initialized, err)
 	}
-	first.Close()
+	url := db.Admin
 	if n := scalar[int](t, url, `SELECT count(*) FROM pg_class WHERE relname='schema_migrations' AND relnamespace=current_schema()::regnamespace`); n != 0 {
 		t.Fatalf("a migration ledger exists: %d", n)
 	}
 	if got := scalar[string](t, url, `SELECT baseline FROM schema_baseline`); got != baselineIdentity {
 		t.Fatalf("marker = %q", got)
 	}
+	if got := scalar[string](t, url, `SELECT schema_name FROM schema_baseline`); got != "public" {
+		t.Fatalf("marker schema = %q", got)
+	}
+	if n := scalar[int](t, url, `SELECT count(*) FROM pg_class c WHERE c.relnamespace=current_schema()::regnamespace AND pg_get_userbyid(c.relowner)<>'`+db.OwnerRole+`'`); n != 0 {
+		t.Fatalf("%d relations are not owned by the owner role", n)
+	}
 	stamp := scalar[string](t, url, `SELECT created_at::text FROM schema_baseline`)
 	before := catalogOf(t, url)
 	for i := 0; i < 3; i++ {
-		st, err := Open(ctx, url)
+		st, err := Open(ctx, db.Console)
 		if err != nil {
-			t.Fatalf("boot %d: %v", i+2, err)
+			t.Fatalf("console boot %d: %v", i+1, err)
 		}
 		st.Close()
+		state, err := OpenState(ctx, db.State)
+		if err != nil {
+			t.Fatalf("state boot %d: %v", i+1, err)
+		}
+		state.Close()
+	}
+	if again, err := Setup(ctx, db.Owner, setupRoles(db)); err != nil || again {
+		t.Fatalf("repeated owner setup = %v, %v", again, err)
 	}
 	if !equalLines(before, catalogOf(t, url)) {
 		t.Fatal("validation changed the schema")
@@ -113,78 +123,112 @@ func TestFreshInitializationAndIdempotentReopen(t *testing.T) {
 	if scalar[string](t, url, `SELECT created_at::text FROM schema_baseline`) != stamp || scalar[int](t, url, `SELECT count(*) FROM schema_baseline`) != 1 {
 		t.Fatal("validation rewrote the baseline marker")
 	}
-	// The private reference schema built for validation is never left behind.
+	// The private reference schema built by the owner's verification is never left behind.
 	if n := scalar[int](t, url, `SELECT count(*) FROM pg_namespace WHERE nspname LIKE 'orch_baseline_ref_%'`); n != 0 {
 		t.Fatalf("reference schemas left behind: %d", n)
 	}
 }
 
-// Many backends starting on one empty database initialize it exactly once,
-// atomically under the advisory lock; all of them end up serving.
+// Many owner setups racing on one empty database initialize it exactly once,
+// atomically under the advisory lock; the others only verify.
 func TestConcurrentFreshInitialization(t *testing.T) {
 	ctx := context.Background()
-	url := persistencetest.FreshPostgresDatabase(t)
-	const backends = 8
-	stores := make([]*Store, backends)
-	errs := make([]error, backends)
+	db := rolesOnly(t)
+	const setups = 8
+	created := make([]bool, setups)
+	errs := make([]error, setups)
 	var wg sync.WaitGroup
 	start := make(chan struct{})
-	for i := range stores {
+	for i := range created {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			<-start
-			stores[i], errs[i] = Open(ctx, url)
+			created[i], errs[i] = Setup(ctx, db.Owner, setupRoles(db))
 		}(i)
 	}
 	close(start)
 	wg.Wait()
+	initialized := 0
 	for i, err := range errs {
 		if err != nil {
-			t.Fatalf("backend %d: %v", i, err)
+			t.Fatalf("setup %d: %v", i, err)
 		}
-		defer stores[i].Close()
+		if created[i] {
+			initialized++
+		}
 	}
-	if n := scalar[int](t, url, `SELECT count(*) FROM schema_baseline`); n != 1 {
+	if initialized != 1 {
+		t.Fatalf("%d setups initialized the database", initialized)
+	}
+	if n := scalar[int](t, db.Admin, `SELECT count(*) FROM schema_baseline`); n != 1 {
 		t.Fatalf("marker rows = %d", n)
 	}
-	reopened, err := Open(ctx, url)
+	st, err := Open(ctx, db.Console)
 	if err != nil {
 		t.Fatalf("validation after concurrent initialization: %v", err)
 	}
-	reopened.Close()
+	st.Close()
 }
 
-// A failed initialization is atomic: nothing of the baseline survives, and a
-// later boot with the real baseline succeeds.
+// A runtime login never initializes: on an empty schema both runtime
+// connections fail with ErrNotInitialized and leave the schema empty.
+func TestRuntimeNeverInitializesEmptyDatabase(t *testing.T) {
+	ctx := context.Background()
+	db := rolesOnly(t)
+	if st, err := Open(ctx, db.Console); !errors.Is(err, ErrNotInitialized) {
+		if st != nil {
+			st.Close()
+		}
+		t.Fatalf("console on empty schema: %v", err)
+	}
+	if st, err := OpenState(ctx, db.State); !errors.Is(err, ErrNotInitialized) {
+		if st != nil {
+			st.Close()
+		}
+		t.Fatalf("state on empty schema: %v", err)
+	}
+	if n := scalar[int](t, db.Admin, `SELECT count(*) FROM pg_class WHERE relnamespace=current_schema()::regnamespace`); n != 0 {
+		t.Fatalf("a runtime login created %d relations", n)
+	}
+}
+
+// A failed initialization is atomic: nothing of the baseline or its grants
+// survives, and a later owner setup with the real baseline succeeds.
 func TestFailedInitializationLeavesEmptyDatabase(t *testing.T) {
 	ctx := context.Background()
-	url := persistencetest.FreshPostgresDatabase(t)
+	db := rolesOnly(t)
 	good := baselineSQL
 	baselineSQL = good + "\nCREATE TABLE organizations (id uuid);\n"
 	t.Cleanup(func() { baselineSQL = good })
-	if st, err := Open(ctx, url); err == nil {
-		st.Close()
+	if _, err := Setup(ctx, db.Owner, setupRoles(db)); err == nil {
 		t.Fatal("broken baseline initialized")
 	}
 	baselineSQL = good
-	if n := scalar[int](t, url, `SELECT count(*) FROM pg_class WHERE relnamespace=current_schema()::regnamespace`); n != 0 {
+	if n := scalar[int](t, db.Admin, `SELECT count(*) FROM pg_class WHERE relnamespace=current_schema()::regnamespace`); n != 0 {
 		t.Fatalf("partial baseline left %d relations", n)
 	}
-	st, err := Open(ctx, url)
-	if err != nil {
+	if !scalar[bool](t, db.Admin, `SELECT has_database_privilege('public',current_database(),'CONNECT')`) {
+		t.Fatal("a failed setup kept its database privilege changes")
+	}
+	if _, err := Setup(ctx, db.Owner, setupRoles(db)); err != nil {
 		t.Fatalf("initialization after a failed attempt: %v", err)
+	}
+	st, err := Open(ctx, db.Console)
+	if err != nil {
+		t.Fatal(err)
 	}
 	st.Close()
 }
 
 // An old-layout database (migration ledger, retired Application columns,
-// text identifiers) is rejected before serving. Removing the ledger, or adding
-// a baseline marker, never makes the old schema eligible, and no data or object
-// is touched or echoed.
+// text identifiers) is rejected before serving by the owner setup and by both
+// runtime logins. Removing the ledger, or adding an old baseline marker, never
+// makes the old schema eligible, and no data or object is touched or echoed.
 func TestOldLayoutRequiresResetAndIsNeverEligible(t *testing.T) {
 	ctx := context.Background()
-	url := persistencetest.FreshPostgresDatabase(t)
+	db := rolesOnly(t)
+	url := db.Admin
 	sqlOn(t, url,
 		`CREATE TABLE schema_migrations(version bigint PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`,
 		`INSERT INTO schema_migrations(version) SELECT generate_series(1,10)`,
@@ -196,13 +240,19 @@ func TestOldLayoutRequiresResetAndIsNeverEligible(t *testing.T) {
 	before := catalogOf(t, url)
 	check := func(label string) {
 		t.Helper()
-		st, err := Open(ctx, url)
-		if err == nil {
-			st.Close()
-			t.Fatalf("%s: old layout opened", label)
+		_, setupErr := Setup(ctx, db.Owner, setupRoles(db))
+		console, consoleErr := Open(ctx, db.Console)
+		if consoleErr == nil {
+			console.Close()
 		}
-		if !errors.Is(err, ErrResetRequired) || strings.Contains(err.Error(), "secret-org") {
-			t.Fatalf("%s: error = %v", label, err)
+		state, stateErr := OpenState(ctx, db.State)
+		if stateErr == nil {
+			state.Close()
+		}
+		for who, err := range map[string]error{"owner setup": setupErr, "console": consoleErr, "state": stateErr} {
+			if !errors.Is(err, ErrResetRequired) || strings.Contains(err.Error(), "secret-org") {
+				t.Fatalf("%s: %s error = %v", label, who, err)
+			}
 		}
 		if !equalLines(before, catalogOf(t, url)) {
 			t.Fatalf("%s: schema was altered", label)
@@ -223,8 +273,11 @@ func TestOldLayoutRequiresResetAndIsNeverEligible(t *testing.T) {
 }
 
 // Any structural damage to a marked baseline is detected before serving
-// without a repair: types, nullability, defaults, keys, FKs, deferrability,
-// check constraints, partial/expression indexes, triggers and their function.
+// without a repair, by both runtime logins (catalog digest recorded by the
+// owner setup) and by a repeated owner setup (reference comparison): types,
+// nullability, defaults, keys, FKs, deferrability, check constraints,
+// partial/expression indexes, triggers and their function, stray objects
+// and the marker itself.
 func TestSchemaDriftIsDetectedWithoutRepair(t *testing.T) {
 	ctx := context.Background()
 	drift := map[string][]string{
@@ -247,19 +300,24 @@ func TestSchemaDriftIsDetectedWithoutRepair(t *testing.T) {
 		"dropped snapshot trigger":  {`DROP TRIGGER deployments_require_snapshot ON deployments`},
 		"disabled snapshot trigger": {`ALTER TABLE deployments DISABLE TRIGGER deployments_require_snapshot`},
 		"altered trigger function":  {`CREATE OR REPLACE FUNCTION require_deployment_snapshot() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$`},
+		"dropped retention trigger": {`DROP TRIGGER terraform_states_retained ON terraform_states`},
 		"permanent binding trigger": {
 			`CREATE FUNCTION environments_binding_immutable() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$`,
 			`CREATE TRIGGER environments_binding_immutable BEFORE UPDATE ON environments FOR EACH ROW EXECUTE FUNCTION environments_binding_immutable()`},
-		"stray table":          {`CREATE TABLE stray(id integer)`},
-		"stray ledger":         {`CREATE TABLE schema_migrations(version bigint PRIMARY KEY)`},
-		"wrong marker":         {`UPDATE schema_baseline SET baseline='something-else'`},
-		"missing marker":       {`DELETE FROM schema_baseline`},
-		"dropped marker table": {`DROP TABLE schema_baseline`},
+		"stray table":           {`CREATE TABLE stray(id integer)`},
+		"stray view":            {`CREATE VIEW stray_state AS SELECT resource_instance_id FROM terraform_states`},
+		"stray ledger":          {`CREATE TABLE schema_migrations(version bigint PRIMARY KEY)`},
+		"wrong marker":          {`UPDATE schema_baseline SET baseline='something-else'`},
+		"wrong baseline digest": {`UPDATE schema_baseline SET baseline_sha256=repeat('0',64)`},
+		"wrong catalog digest":  {`UPDATE schema_baseline SET catalog_sha256=repeat('0',64)`},
+		"wrong marker schema":   {`UPDATE schema_baseline SET schema_name='elsewhere'`},
+		"missing marker":        {`DELETE FROM schema_baseline`},
+		"dropped marker table":  {`DROP TABLE schema_baseline`},
 	}
 	for name, statements := range drift {
 		t.Run(name, func(t *testing.T) {
-			url := persistencetest.FreshPostgresDatabase(t)
-			st, err := Open(ctx, url)
+			db := freshDatabase(t)
+			st, err := Open(ctx, db.Console)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -267,21 +325,27 @@ func TestSchemaDriftIsDetectedWithoutRepair(t *testing.T) {
 				t.Fatal(err)
 			}
 			st.Close()
-			sqlOn(t, url, statements...)
-			before := catalogOf(t, url)
-			reopened, err := Open(ctx, url)
-			if err == nil {
+			sqlOn(t, db.Admin, statements...)
+			before := catalogOf(t, db.Admin)
+			reopened, consoleErr := Open(ctx, db.Console)
+			if consoleErr == nil {
 				reopened.Close()
-				t.Fatal("damaged baseline served")
 			}
-			if !errors.Is(err, ErrResetRequired) || strings.Contains(err.Error(), "secret-drift-org") {
-				t.Fatalf("error = %v", err)
+			state, stateErr := OpenState(ctx, db.State)
+			if stateErr == nil {
+				state.Close()
 			}
-			if !equalLines(before, catalogOf(t, url)) {
+			_, setupErr := Setup(ctx, db.Owner, setupRoles(db))
+			for who, err := range map[string]error{"console": consoleErr, "state": stateErr, "owner setup": setupErr} {
+				if !errors.Is(err, ErrResetRequired) || strings.Contains(err.Error(), "secret-drift-org") {
+					t.Fatalf("%s: error = %v", who, err)
+				}
+			}
+			if !equalLines(before, catalogOf(t, db.Admin)) {
 				t.Fatal("startup repaired or altered the schema")
 			}
-			if n := scalar[int](t, url, `SELECT count(*) FROM pg_namespace WHERE nspname LIKE 'orch_baseline_ref_%'`); n != 0 {
-				t.Fatalf("a rejected Open left %d reference schemas", n)
+			if n := scalar[int](t, db.Admin, `SELECT count(*) FROM pg_namespace WHERE nspname LIKE 'orch_baseline_ref_%'`); n != 0 {
+				t.Fatalf("a rejected open left %d reference schemas", n)
 			}
 		})
 	}

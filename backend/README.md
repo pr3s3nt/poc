@@ -175,28 +175,35 @@ Organization; a Deployment outside the selected scope returns `404`.
 Without `-state` or `-database-url-file`, everything lives in memory and
 disappears on restart. With `-state <file>` the process writes a local JSON
 snapshot. With `-database-url-file <path>`, it uses the normalized PostgreSQL
-tables and foreign keys from the canonical schema. Empty-schema initialization
-is serialized and records `schema_baseline`; subsequent boots verify the marker
-and current schema without old migrations or backfill. Incompatible databases
+tables and foreign keys from the canonical schema. An explicit owner setup
+(`-setup-database -database-owner-url-file <file> -console-database-role <role>
+-state-database-role <role>`) initializes an empty schema and grants the two
+runtime logins. Normal startup uses the Console login and validates read-only;
+it cannot initialize or fall back to an owner login. Terraform state uses a
+separate State login via `-terraform-state-database-url-file`, with the same
+installation/database/schema, plus `-terraform-state-key-file` and
+`-terraform-state-key-id`. Credential files must be owner-only and distinct.
+See the [state contract](../orchestrator_docs/architecture/contracts/terraform-state.md)
+and [setup runbook](../orchestrator_docs/operations/postgres-kind.md). Incompatible databases
 require a development reset before serving. JSON requires the complete current
 format and never infers missing bindings/history. Repository `UnitOfWork` callbacks
 use one database transaction. Variables are ordinary metadata values; Secret
-values stay outside both stores as opaque references, redacted in deployment views.
+values stay outside product records as opaque references, redacted in deployment
+views. Terraform state may contain secret values and is stored as authenticated
+ciphertext in restricted tables, never exposed by Console queries.
 
-## 8. What is not implemented yet
+## 8. Implementation status
 
-- Screens for UC-01..UC-05 and UC-07: Applications, Environments, Resource Types,
-  Resource Definitions, Connections, Preview and update/remove. The catalog comes
-  from `internal/seed` at startup.
-- Automated PostgreSQL backup/restore scheduling and retention policy.
-- A durable Terraform state backend; state lives under `-terraform-root`.
-- Cloud infrastructure names still carry the run id, so a new run id provisions
-  new infrastructure.
-- Rollback, retry, RBAC, audit and secret lifecycle stay out of scope by design.
+[Current state](../orchestrator_docs/CURRENT_STATE.md) and
+[deviations](../orchestrator_docs/implementation/deviations.md) own implemented
+scope and remaining gaps. I04-01 state backend and role separation are under
+validation; production executor mounting and live Terraform v2 acceptance remain
+pending in M04. Existing retained databases are not reset or regranted by startup.
 
 ## 9. Boundaries the code keeps
 
 - Planning is deterministic and side-effect free.
 - UC-08 executes resource nodes only; UC-06 applies the workload after outputs exist.
 - The Candidate Deployment Set becomes current only after workload readiness.
-- Secret values never reach the state store, the logs or the UC-09 view.
+- Secret values never reach public product records, logs or the UC-09 view;
+  Terraform state uses the restricted encrypted backend.

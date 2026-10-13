@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Local UC-09 verification. Uses only a fake-adapter backend, temporary JSON
 # state and the already installed headless Chromium; no Docker/cluster/cloud.
-# Set ORCH_UC09_DATABASE_URL to an empty, disposable local PostgreSQL database
-# to persist through PostgreSQL instead of JSON state.
+# Set ORCH_UC09_DATABASE_URL to the Console runtime login URL of a disposable
+# local PostgreSQL database prepared by the explicit owner setup
+# (orchestrator -setup-database, option A of ADR-014) to persist through
+# PostgreSQL instead of JSON state. Owner or superuser URLs are refused.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

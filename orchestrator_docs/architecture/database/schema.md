@@ -14,8 +14,14 @@ PostgreSQL là system of record cho logical orchestration state. JSONB chỉ dù
 ### `schema_baseline`
 
 Technical singleton marker: `singleton boolean PK CHECK(singleton) DEFAULT true`,
-`baseline text NOT NULL`, `created_at timestamptz NOT NULL DEFAULT now()`.
-Exactly one row identifies the current baseline. It carries no product state
+`baseline text NOT NULL`, `baseline_sha256 text NOT NULL`,
+`catalog_sha256 text NOT NULL` (hai digest SHA-256 gồm 64 hex),
+`installation_id uuid NOT NULL`, `schema_name text NOT NULL`,
+`created_at timestamptz NOT NULL DEFAULT now()`.
+Exactly one row identifies the current baseline and installation. Owner setup
+records the embedded baseline digest, created catalog digest and schema;
+runtime checks these read-only and checks that Console/State connections refer
+to the same installation/database/schema. It carries no product state
 and is not an upgrade ledger; structural validation is required on reopen.
 
 
@@ -381,7 +387,7 @@ per-workload plan hashes. Logical resource and workload identities are unchanged
 
 ## Fresh persistence baseline (T28 / LEG-08)
 
-Only an empty PostgreSQL schema can be initialized. Initialization creates the
+Only an empty PostgreSQL schema can be initialized. Owner setup creates the
 complete current schema and a baseline identity atomically under a database
 advisory transaction lock. A second boot validates that identity and the required
 schema (tables, column types/nullability, keys, indexes and integrity triggers)

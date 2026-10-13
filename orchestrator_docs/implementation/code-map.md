@@ -9,7 +9,7 @@ last_reviewed: 2026-10-13
 
 | Design concern | Implementation entry point |
 |---|---|
-| I04-01 working-tree slice (pending DB privilege separation; not complete) | [`state service`](../../backend/internal/application/statebackend/service.go), [`state persistence`](../../backend/internal/adapters/postgres/tfstate.go), [`cipher`](../../backend/internal/adapters/statecipher/statecipher.go), [`internal handler`](../../backend/internal/delivery/http/terraform_state.go) |
+| I04-01 core + role A (verified, transport scope pending; not complete) | [`state service`](../../backend/internal/application/statebackend/service.go), [`state persistence`](../../backend/internal/adapters/postgres/tfstate.go), [`role grants`](../../backend/internal/adapters/postgres/grants.go), [`cipher`](../../backend/internal/adapters/statecipher/statecipher.go), [`internal handler`](../../backend/internal/delivery/http/terraform_state.go) |
 | T06 Vietnamese Connections, automatic inspect, name suggestion ownership and stale response guards | [`page`](../../frontend/src/features/platform/ConnectionsPage.tsx), [`tests`](../../frontend/src/features/platform/ConnectionsPage.test.tsx), [`headed scenario`](../../frontend/test/e2e/refactor-local.mjs), [`local runner`](../../backend/test/integration/refactor-ui-local.sh) |
 | Refactor Console local smoke and Vietnamese locator foundation | [`runner`](../../backend/test/integration/refactor-ui-local.sh), [`scenario registry`](../../frontend/test/e2e/refactor-local.mjs), [`page locators`](../../frontend/test/e2e/locators.mjs), [`human input`](../../frontend/test/e2e/human.mjs) and [`captions`](../../frontend/test/e2e/captions.mjs) |
 | Process bootstrap and adapter wiring | [`backend/internal/bootstrap`](../../backend/internal/bootstrap/) |

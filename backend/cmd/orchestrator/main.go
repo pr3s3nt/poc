@@ -9,9 +9,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
+	"orchestrator/internal/adapters/postgres"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/seed"
 )
@@ -60,7 +63,17 @@ func main() {
 	platformVaultTokenFile := flag.String("platform-vault-token-file", os.Getenv("ORCHESTRATOR_PLATFORM_VAULT_TOKEN_FILE"), "bootstrap-only file holding the application-scoped Vault token")
 	platformVaultMount := flag.String("platform-vault-mount", os.Getenv("ORCHESTRATOR_PLATFORM_VAULT_MOUNT"), "KV v2 mount of the platform-vault bootstrap (default kv)")
 	platformVaultAuthMount := flag.String("platform-vault-auth-mount", os.Getenv("ORCHESTRATOR_PLATFORM_VAULT_AUTH_MOUNT"), "Kubernetes auth mount of the platform-vault bootstrap (default kubernetes)")
+	terraformStateKeyFile := flag.String("terraform-state-key-file", os.Getenv("ORCHESTRATOR_TERRAFORM_STATE_KEY_FILE"), "owner-only file holding the 32-byte AES-256-GCM Terraform state key (hex or base64); enables the durable state backend (PostgreSQL only)")
+	terraformStateKeyID := flag.String("terraform-state-key-id", os.Getenv("ORCHESTRATOR_TERRAFORM_STATE_KEY_ID"), "identifier of the Terraform state key recorded with every encrypted state")
+	terraformStateDatabaseURLFile := flag.String("terraform-state-database-url-file", os.Getenv("ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL_FILE"), "owner-only file holding the PostgreSQL URL of the State runtime login (separate from the Console login of -database-url-file, same database)")
+	setupDatabase := flag.Bool("setup-database", false, "explicit owner step: create the baseline in a fresh empty database and grant the Console and State runtime roles, then exit (an initialized database is only verified)")
+	ownerURLFile := flag.String("database-owner-url-file", os.Getenv("ORCHESTRATOR_DATABASE_OWNER_URL_FILE"), "owner-only file holding the PostgreSQL URL of the owner role (used only with -setup-database)")
+	consoleRole := flag.String("console-database-role", os.Getenv("ORCHESTRATOR_CONSOLE_DATABASE_ROLE"), "Console runtime login role granted by -setup-database")
+	stateRole := flag.String("state-database-role", os.Getenv("ORCHESTRATOR_STATE_DATABASE_ROLE"), "State runtime login role granted by -setup-database")
 	flag.Parse()
+	if *setupDatabase {
+		os.Exit(runDatabaseSetup(*ownerURLFile, *consoleRole, *stateRole))
+	}
 	var platformVault *bootstrap.PlatformVaultBootstrap
 	if *platformVaultBootstrap {
 		platformVault = &bootstrap.PlatformVaultBootstrap{
@@ -68,18 +81,26 @@ func main() {
 			TokenFile: *platformVaultTokenFile, Mount: *platformVaultMount, AuthMount: *platformVaultAuthMount,
 		}
 	}
-	databaseURL := ""
+	databaseURL, stateDatabaseURL := "", ""
 	if *databaseURLFile != "" {
-		value, err := os.ReadFile(*databaseURLFile)
+		value, err := bootstrap.ReadCredentialFile("database URL", *databaseURLFile)
 		if err != nil {
-			log.Printf("orchestrator: read database URL file: %v", err)
+			log.Printf("orchestrator: %v", err)
 			os.Exit(1)
 		}
-		databaseURL = strings.TrimSpace(string(value))
-		if databaseURL == "" {
-			log.Print("orchestrator: database URL file is empty")
+		databaseURL = value
+	}
+	if *terraformStateDatabaseURLFile != "" {
+		value, err := bootstrap.ReadCredentialFile("State database URL", *terraformStateDatabaseURLFile)
+		if err != nil {
+			log.Printf("orchestrator: %v", err)
 			os.Exit(1)
 		}
+		stateDatabaseURL = value
+	}
+	if err := bootstrap.DistinctFiles(map[string]string{"database URL": *databaseURLFile, "State database URL": *terraformStateDatabaseURLFile, "Terraform state key": *terraformStateKeyFile}); err != nil {
+		log.Printf("orchestrator: %v", err)
+		os.Exit(1)
 	}
 
 	opts.NamespaceIdentity = *namespace
@@ -151,31 +172,74 @@ func main() {
 		ConnectionVaultAddress:    *connectionVaultAddress,
 		ConnectionVaultTokenFile:  *connectionVaultTokenFile,
 		ConnectionVaultMount:      *connectionVaultMount,
+		TerraformStateKeyFile:     *terraformStateKeyFile,
+		TerraformStateKeyID:       *terraformStateKeyID,
+		TerraformStateDatabaseURL: stateDatabaseURL,
 	})
 	if err != nil {
 		log.Printf("orchestrator: startup failed: %v", err)
 		os.Exit(1)
 	}
 
-	listener, err := net.Listen("tcp", *addr)
+	os.Exit(serve(app, *addr, *addrFile))
+}
+
+// serve runs the API until it fails or SIGINT/SIGTERM arrives, then shuts
+// the server down and closes every database pool of the App.
+func serve(app *bootstrap.App, addr, addrFile string) int {
+	defer app.Close()
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Printf("orchestrator: listen %s: %v", *addr, err)
-		os.Exit(1)
+		log.Printf("orchestrator: listen %s: %v", addr, err)
+		return 1
 	}
 	resolved := listener.Addr().String()
-	if *addrFile != "" {
-		if err := os.WriteFile(*addrFile, []byte(resolved), 0o600); err != nil {
+	if addrFile != "" {
+		if err := os.WriteFile(addrFile, []byte(resolved), 0o600); err != nil {
 			log.Printf("orchestrator: write addr file: %v", err)
-			os.Exit(1)
+			return 1
 		}
 	}
 
 	server := &http.Server{Handler: app.Server, ReadHeaderTimeout: 10 * time.Second}
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(stop)
+	go func() {
+		<-stop
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = server.Shutdown(ctx)
+	}()
 	fmt.Printf("orchestrator listening on http://%s (api /api/v1/, console /ui/)\n", resolved)
 	if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 		log.Printf("orchestrator: %v", err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
+}
+
+// runDatabaseSetup runs the explicit owner setup and returns the exit code.
+// The owner URL comes only from an owner-only file; nothing secret is logged.
+func runDatabaseSetup(ownerURLFile, consoleRole, stateRole string) int {
+	ownerURL, err := bootstrap.ReadCredentialFile("database owner URL", ownerURLFile)
+	if err != nil {
+		log.Printf("orchestrator: %v", err)
+		return 1
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	initialized, err := postgres.Setup(ctx, ownerURL, postgres.Roles{Console: consoleRole, State: stateRole})
+	if err != nil {
+		log.Printf("orchestrator: database setup failed: %v", err)
+		return 1
+	}
+	if initialized {
+		fmt.Println("orchestrator: database baseline created and runtime roles granted")
+	} else {
+		fmt.Println("orchestrator: database already holds the baseline and the runtime grants; nothing changed")
+	}
+	return 0
 }
 
 // envBool reads an opt-in switch; only "true" or "1" enables it.

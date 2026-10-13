@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"orchestrator/internal/adapters/postgres/postgrestest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,7 +24,6 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/planning"
-	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 )
 
@@ -589,7 +589,7 @@ func TestHTTPDeploymentReadsRequireScopedSessionAndHideResolvedInputs(t *testing
 // fresh local PostgreSQL database, where a non-UUID path segment must still be
 // a plain 404 and storage errors must never reach the client.
 func TestHTTPDeploymentReadsOnPostgres(t *testing.T) {
-	databaseURL := persistencetest.FreshPostgresDatabase(t)
+	databaseURL := postgrestest.Fresh(t).Console
 	seedOptions := seed.Defaults()
 	seedOptions.RunID = "run-e2e"
 	// The deploy below needs the seeded cluster READY (fake-only setup, ID kept).

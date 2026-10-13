@@ -538,3 +538,10 @@ OC-18/state persistence and fencing contract tests now have
 [partial real PostgreSQL evidence](../verification/2026-10-13-i04-01-state-backend-partial.md)
 from Claude and independent Codex runs. DB-permission separation remains open;
 this does not close I04-01 or IMP-021 and is not live acceptance evidence.
+
+## I04-01 option A evidence
+
+Owner/Console/State DB privilege boundary in ADR-014/state/schema now has
+[real-login PostgreSQL/CLI evidence](../verification/2026-10-13-i04-01-role-a.md).
+DB transport TLS scope remains open; this does not close I04-01/IMP-021 or
+provide any live UI/k8s/AWS acceptance proof.

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"orchestrator/internal/adapters/configmemory"
 	"orchestrator/internal/adapters/credentialmemory"
@@ -17,6 +18,7 @@ import (
 	pgstore "orchestrator/internal/adapters/postgres"
 	"orchestrator/internal/adapters/scorek8s"
 	"orchestrator/internal/adapters/secrets"
+	"orchestrator/internal/adapters/statecipher"
 	"orchestrator/internal/adapters/store"
 	tf "orchestrator/internal/adapters/terraform"
 	"orchestrator/internal/adapters/vault"
@@ -30,6 +32,7 @@ import (
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/provisioning"
 	"orchestrator/internal/application/secretstores"
+	"orchestrator/internal/application/statebackend"
 	"orchestrator/internal/application/transition"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
 	deliveryhttp "orchestrator/internal/delivery/http"
@@ -94,6 +97,19 @@ type Options struct {
 	ConnectionVaultTokenFile  string
 	ConnectionVaultMount      string
 
+	// TerraformStateKeyFile enables the Terraform v2 durable state backend: an
+	// owner-only file holding the 32-byte AES-256-GCM state key (hex or
+	// base64), kept outside the database. It requires PostgreSQL; there is no
+	// plaintext, keyless, JSON or in-memory state backend.
+	TerraformStateKeyFile string
+	// TerraformStateKeyID names that key in every encrypted state row.
+	TerraformStateKeyID string
+	// TerraformStateDatabaseURL is the connection URL of the State runtime
+	// login (option A): a login separate from the Console login of
+	// DatabaseURL, to the same database and schema. The state backend needs
+	// both it and the key; neither falls back to the Console or owner login.
+	TerraformStateDatabaseURL string
+
 	// PlatformVault, when set, is the explicit opt-in Compose bootstrap of the
 	// bundled Vault as an ordinary verified store (UC-04 SS-07/08). It is
 	// the only runtime path that seeds a store from process configuration.
@@ -142,10 +158,43 @@ type App struct {
 	Transitions *transition.Service
 	// FakeCluster is the in-memory Kubernetes stand-in of fake mode.
 	FakeCluster *fake.Cluster
+	// TerraformStates and TerraformStateHandler are the internal Terraform
+	// state backend; nil unless a state key and PostgreSQL are configured.
+	// The handler is never mounted on the Console API server.
+	TerraformStates       *statebackend.Service
+	TerraformStateHandler *deliveryhttp.TerraformStateHandler
+
+	closers   []func()
+	closeOnce sync.Once
 }
 
-// Build wires every component and seeds the catalog.
+// Close releases the database pools of the App (the Console store and the
+// State runtime connection of the Terraform state backend). It is idempotent.
+func (a *App) Close() {
+	a.closeOnce.Do(func() { closeAll(a.closers) })
+}
+
+func closeAll(closers []func()) {
+	for i := len(closers) - 1; i >= 0; i-- {
+		closers[i]()
+	}
+}
+
+// Build wires every component and seeds the catalog. When Build fails, every
+// database pool it opened is closed before it returns; on success the caller
+// releases them with App.Close.
 func Build(ctx context.Context, opts Options) (*App, error) {
+	var closers []func()
+	app, err := build(ctx, opts, &closers)
+	if err != nil {
+		closeAll(closers)
+		return nil, err
+	}
+	app.closers = closers
+	return app, nil
+}
+
+func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	if opts.WorkloadDelivery == "fleet-gitrepo" && opts.Adapters != AdapterKubernetes {
 		return nil, fmt.Errorf("bootstrap: Fleet GitRepo delivery requires Kubernetes adapters")
 	}
@@ -161,6 +210,7 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		if openErr != nil {
 			return nil, openErr
 		}
+		*closers = append(*closers, pg.Close)
 		st = pg
 	} else if opts.StatePath != "" {
 		st, err = store.NewWithSnapshot(opts.StatePath)
@@ -175,6 +225,11 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 	}
 
 	if err := seed.Apply(ctx, st, opts.Seed); err != nil {
+		return nil, err
+	}
+
+	terraformStates, err := terraformStateBackend(ctx, opts, st, closers)
+	if err != nil {
 		return nil, err
 	}
 
@@ -374,7 +429,53 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 		StoreRegistry:         storeRegistry,
 		Transitions:           transitions,
 		FakeCluster:           fakeCluster,
+		TerraformStates:       terraformStates,
+		TerraformStateHandler: stateHandler(terraformStates),
 	}, nil
+}
+
+// terraformStateBackend builds the durable Terraform state backend on its
+// own State runtime connection. A key without the State connection (or the
+// reverse), a non-PostgreSQL store, a State connection to another database,
+// schema or installation, or an unreadable/invalid key fails startup.
+func terraformStateBackend(ctx context.Context, opts Options, st persistence.Store, closers *[]func()) (*statebackend.Service, error) {
+	if opts.TerraformStateKeyFile == "" && opts.TerraformStateDatabaseURL == "" {
+		return nil, nil
+	}
+	console, ok := st.(*pgstore.Store)
+	if !ok || opts.DatabaseURL == "" {
+		return nil, fmt.Errorf("bootstrap: the Terraform state backend requires PostgreSQL")
+	}
+	switch {
+	case opts.TerraformStateKeyFile == "":
+		return nil, fmt.Errorf("bootstrap: the Terraform state backend needs a state key file")
+	case opts.TerraformStateDatabaseURL == "":
+		return nil, fmt.Errorf("bootstrap: the Terraform state backend needs its own State runtime database connection; it never uses the Console or owner login")
+	case opts.TerraformStateDatabaseURL == opts.DatabaseURL:
+		return nil, fmt.Errorf("bootstrap: the State runtime connection must use a login separate from the Console connection")
+	case opts.TerraformStateKeyID == "":
+		return nil, fmt.Errorf("bootstrap: the Terraform state backend needs a state key id")
+	}
+	cipher, err := statecipher.LoadKeyFile(opts.TerraformStateKeyID, opts.TerraformStateKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("bootstrap: %w", err)
+	}
+	repo, err := pgstore.OpenState(ctx, opts.TerraformStateDatabaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("bootstrap: State runtime connection: %w", err)
+	}
+	*closers = append(*closers, repo.Close)
+	if repo.Identity() != console.Identity() {
+		return nil, fmt.Errorf("bootstrap: the State and Console connections serve different databases, schemas or installations")
+	}
+	return statebackend.New(repo, cipher)
+}
+
+func stateHandler(states *statebackend.Service) *deliveryhttp.TerraformStateHandler {
+	if states == nil {
+		return nil
+	}
+	return deliveryhttp.NewTerraformStateHandler(states)
 }
 
 // connectionCredentialStore builds the UC-04 credential store. The memory store

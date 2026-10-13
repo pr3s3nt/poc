@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"orchestrator/internal/adapters/postgres/postgrestest"
 	"sort"
 	"strings"
 	"sync"
@@ -16,7 +17,6 @@ import (
 	ct "orchestrator/internal/application/connection/connectiontest"
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/ports/persistence"
-	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
@@ -56,7 +56,7 @@ func (b *insertBarrier) CreateConnection(ctx context.Context, conn application.C
 // no credential material in the rows.
 func TestPostgresKubeconfigRegistrationRaceAndReopen(t *testing.T) {
 	ctx := context.Background()
-	url := persistencetest.FreshPostgresDatabase(t)
+	url := postgrestest.Fresh(t).Console
 	st, err := postgres.Open(ctx, url)
 	if err != nil {
 		t.Fatal(err)

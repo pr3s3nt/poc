@@ -4,13 +4,13 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"orchestrator/internal/adapters/postgres/postgrestest"
 	"strings"
 	"sync"
 	"testing"
 
 	"orchestrator/internal/adapters/credentialmemory"
 	"orchestrator/internal/bootstrap"
-	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 )
 
@@ -132,7 +132,7 @@ func TestUC02UC04ManagementHTTPContract(t *testing.T) {
 }
 
 func TestUC02UC04ConcurrentRegistrationOnPostgres(t *testing.T) {
-	databaseURL := persistencetest.FreshPostgresDatabase(t)
+	databaseURL := postgrestest.Fresh(t).Console
 	opts := seed.Defaults()
 	app, err := bootstrap.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, DatabaseURL: databaseURL, KubeconfigVerifierOverride: approvedCluster{}, ConnectionCredentialsOverride: credentialmemory.New()})
 	if err != nil {

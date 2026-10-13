@@ -2,11 +2,11 @@ package preview_test
 
 import (
 	"context"
+	"orchestrator/internal/adapters/postgres/postgrestest"
 	"testing"
 
 	"orchestrator/internal/adapters/postgres"
 	"orchestrator/internal/application/preview"
-	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
@@ -16,7 +16,7 @@ import (
 // read stays invisible, and neither valid nor invalid previews write.
 func TestPostgresPreview_RepeatableReadAndNoWrites(t *testing.T) {
 	ctx := context.Background()
-	st, err := postgres.Open(ctx, persistencetest.FreshPostgresDatabase(t))
+	st, err := postgres.Open(ctx, postgrestest.Fresh(t).Console)
 	if err != nil {
 		t.Fatal(err)
 	}

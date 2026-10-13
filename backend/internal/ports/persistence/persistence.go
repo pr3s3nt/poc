@@ -45,6 +45,10 @@ var ErrRecoveryUnconfirmed = errors.New("persistence: recovery needs confirmatio
 // over by recovery; the owner must stop executing.
 var ErrOperationLost = errors.New("persistence: operation claim was lost")
 
+// ErrStateLocksHeld refuses to release an Environment claim whose operation
+// still holds a Terraform state lock: the state lock is released first.
+var ErrStateLocksHeld = errors.New("persistence: operation still holds a Terraform state lock")
+
 // BusyError is ErrEnvironmentBusy for one Environment, so delivery can show
 // the owning operation without parsing text.
 type BusyError struct{ ApplicationKey, EnvironmentKey string }

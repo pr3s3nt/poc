@@ -11,17 +11,6 @@ import (
 	"orchestrator/internal/seed/seedtest"
 )
 
-func openFresh(t *testing.T) (*Store, string) {
-	t.Helper()
-	url := persistencetest.FreshPostgresDatabase(t)
-	st, err := Open(context.Background(), url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(st.Close)
-	return st, url
-}
-
 func TestPostgresWorkloadSnapshotContractSurvivesRestart(t *testing.T) {
 	first, url := openFresh(t)
 	fixture := persistencetest.WorkloadSnapshots(t, first)

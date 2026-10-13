@@ -9,13 +9,12 @@ import (
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
-	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
 
 func TestNormalizedStoreRestartAndSnapshotConstraints(t *testing.T) {
-	url := persistencetest.FreshPostgresDatabase(t)
+	url := freshDatabase(t).Console
 	ctx := context.Background()
 	first, err := Open(ctx, url)
 	if err != nil {

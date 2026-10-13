@@ -19,18 +19,45 @@ type querier interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-type txKey struct{}
+// txKey identifies the transaction of one pool in a context. It is keyed by
+// the pool, so a transaction of the Console connection is never reused by the
+// State connection (or the reverse) when contexts are passed between them.
+type txKey struct{ db *db }
 
-// Store is a normalized PostgreSQL persistence adapter.
-type Store struct{ pool *pgxpool.Pool }
+// db is one PostgreSQL connection pool of one runtime login role.
+type db struct{ pool *pgxpool.Pool }
 
+// Store is the normalized PostgreSQL persistence adapter of the Console
+// runtime role. It never reads Terraform state blobs or capability hashes;
+// the database refuses them to its login (see grants.go).
+type Store struct {
+	db
+	identity Identity
+}
+
+// Open connects the Console runtime role and validates, without any DDL,
+// that the database holds the exact baseline created by the owner setup and
+// that the login has exactly the Console grants. It never initializes an
+// empty database and never accepts an owner, superuser or State login.
 func Open(ctx context.Context, databaseURL string) (*Store, error) {
+	d, identity, err := openRuntime(ctx, databaseURL, ConsoleRuntime)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{db: d, identity: identity}, nil
+}
+
+// Identity is the validated installation the Console connection serves.
+func (s *Store) Identity() Identity { return s.identity }
+
+func connect(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	if databaseURL == "" {
 		return nil, fmt.Errorf("postgres: empty database URL")
 	}
 	cfg, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("postgres: parse database URL: %w", err)
+		// The parse error may echo the URL, which can carry a password.
+		return nil, fmt.Errorf("postgres: the database URL cannot be parsed")
 	}
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
@@ -40,32 +67,28 @@ func Open(ctx context.Context, databaseURL string) (*Store, error) {
 		pool.Close()
 		return nil, fmt.Errorf("postgres: ping: %w", err)
 	}
-	if err = initialize(ctx, pool); err != nil {
-		pool.Close()
-		return nil, err
-	}
-	return &Store{pool: pool}, nil
+	return pool, nil
 }
 
-func (s *Store) Close() { s.pool.Close() }
+func (d *db) Close() { d.pool.Close() }
 
-func (s *Store) q(ctx context.Context) querier {
-	if tx, ok := ctx.Value(txKey{}).(pgx.Tx); ok {
+func (d *db) q(ctx context.Context) querier {
+	if tx, ok := ctx.Value(txKey{d}).(pgx.Tx); ok {
 		return tx
 	}
-	return s.pool
+	return d.pool
 }
 
-func (s *Store) Transact(ctx context.Context, fn func(context.Context) error) error {
-	if _, nested := ctx.Value(txKey{}).(pgx.Tx); nested {
+func (d *db) Transact(ctx context.Context, fn func(context.Context) error) error {
+	if _, nested := ctx.Value(txKey{d}).(pgx.Tx); nested {
 		return fn(ctx)
 	}
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := d.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return fmt.Errorf("postgres: begin: %w", err)
 	}
 	defer tx.Rollback(ctx) // no-op after commit
-	if err = fn(context.WithValue(ctx, txKey{}, tx)); err != nil {
+	if err = fn(context.WithValue(ctx, txKey{d}, tx)); err != nil {
 		return err
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -78,7 +101,7 @@ func (s *Store) Transact(ctx context.Context, fn func(context.Context) error) er
 // query sees the same committed snapshot and no GET can persist a change.
 // Inside Transact, fn reads the enclosing transaction.
 func (s *Store) ReadSnapshot(ctx context.Context, fn func(context.Context, persistence.Store) error) error {
-	if _, nested := ctx.Value(txKey{}).(pgx.Tx); nested {
+	if _, nested := ctx.Value(txKey{&s.db}).(pgx.Tx); nested {
 		return fn(ctx, s)
 	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
@@ -87,7 +110,7 @@ func (s *Store) ReadSnapshot(ctx context.Context, fn func(context.Context, persi
 	}
 	// Nothing may be kept from a read, so the transaction always rolls back.
 	defer tx.Rollback(ctx)
-	return fn(context.WithValue(ctx, txKey{}, tx), s)
+	return fn(context.WithValue(ctx, txKey{&s.db}, tx), s)
 }
 
 func translate(err error) error {

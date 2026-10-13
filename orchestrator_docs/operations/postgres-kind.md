@@ -38,21 +38,36 @@ For a backend process outside kind, temporarily forward the Service to localhost
 kubectl --context kind-idp-internal -n orchestrator-system port-forward svc/postgres 15432:5432
 ```
 
-The backend can use this database for durable single-process staging state by
-passing `-database-url-file <path>`, or in its container by supplying
-`ORCHESTRATOR_DATABASE_URL` from a Kubernetes Secret. The entrypoint writes the
-value to an owner-only file and unsets the environment variable before starting
-the Go process. Do not put the URL in a manifest or command argument.
+## Runtime v2 và setup database mới — lựa chọn A
+
+V2 dùng ba role PostgreSQL theo [state contract](../architecture/contracts/terraform-state.md).
+Runtime Console dùng `-database-url-file`; State dùng
+`-terraform-state-database-url-file` cùng database/schema và key độc lập qua
+`-terraform-state-key-file`/`-terraform-state-key-id`. Credentials file chỉ
+owner OS được đọc. Trong container, entrypoint có thể chuyển giá trị secret
+env sang file hạn chế quyền rồi unset trước chạy Go; không đưa URL vào argv/log.
+
+Database mới phải có owner và hai runtime login riêng. Setup tường minh bằng
+`orchestrator -setup-database -database-owner-url-file <private-owner-file>
+-console-database-role <console-role> -state-database-role <state-role>`;
+owner chỉ khởi tạo schema rỗng/cấp quyền. Runtime chỉ validate, không tự tạo
+schema hay fallback owner. Setup lặp chỉ kiểm schema/grants đã có, không regrant
+hoặc sửa database retained. Code/scripts lựa chọn A còn đang validate ở I04-01;
+chưa coi installer kind phía trên là đã cung cấp đủ roles v2.
+
+Database retained trong runbook này chỉ được health check/port-forward như
+đã giao. Không reset, regrant hoặc chạy setup mới vào retained installation.
+Verification I04-01 dùng PostgreSQL disposable; setup Compose mới phải dùng
+project/volumes riêng, không dùng project `orchestrator-local` đang có dữ liệu.
 
 The PostgreSQL adapter writes normalized aggregate tables directly. Foreign
 keys protect ownership, Environment current-set updates use optimistic version
-checks, and `UnitOfWork` maps to one PostgreSQL transaction. Current builds
-initialize only an empty schema and verify `schema_baseline` plus schema integrity
+checks, and `UnitOfWork` maps to one PostgreSQL transaction. Owner setup initializes only an empty schema; runtime verifies `schema_baseline` plus schema integrity
 on reopen, without old migrations/backfill. Existing incompatible state requires
 a separately approved backup/reset before serving; this runbook does not authorize
 resetting the retained kind database. See the
 [fresh baseline](../architecture/database/schema.md#fresh-persistence-baseline-t28--leg-08).
 Historical one-off `pg_dump`/`pg_restore`
 has been verified; automated schedules, encrypted off-cluster storage and
-retention remain operational release work. Terraform `pg` state backend, async reconciliation, UC-10 rollback and
+retention remain operational release work. Terraform v2 uses its encrypted internal HTTP state backend; async reconciliation, UC-10 rollback and
 UC-11 cleanup are separate work.

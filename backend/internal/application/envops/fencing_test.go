@@ -3,6 +3,7 @@ package envops_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/adapters/postgres/postgrestest"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
-	"orchestrator/internal/ports/persistence/persistencetest"
 )
 
 func seedEnvironment(t *testing.T, st persistence.Store) string {
@@ -138,7 +138,7 @@ func TestStaleOwnerCannotWriteOrReleaseAfterRecoveryJSON(t *testing.T) {
 }
 
 func TestStaleOwnerCannotWriteOrReleaseAfterRecoveryAcrossPostgresPools(t *testing.T) {
-	url := persistencetest.FreshPostgresDatabase(t)
+	url := postgrestest.Fresh(t).Console
 	a, err := postgres.Open(context.Background(), url)
 	if err != nil {
 		t.Fatal(err)
@@ -204,7 +204,7 @@ func runSuspend(t *testing.T, st persistence.Store) {
 func TestSuspendKeepsTheClaimHeldJSON(t *testing.T) { runSuspend(t, store.New()) }
 
 func TestSuspendKeepsTheClaimHeldPostgres(t *testing.T) {
-	st, err := postgres.Open(context.Background(), persistencetest.FreshPostgresDatabase(t))
+	st, err := postgres.Open(context.Background(), postgrestest.Fresh(t).Console)
 	if err != nil {
 		t.Fatal(err)
 	}

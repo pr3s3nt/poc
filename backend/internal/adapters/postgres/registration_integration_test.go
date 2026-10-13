@@ -31,18 +31,17 @@ func TestPostgresRegistrationContractSurvivesReopen(t *testing.T) {
 // proves the Definition row and its first criterion are rolled back too.
 func TestPostgresCreateDefinitionRollsBackOnCriterionFailure(t *testing.T) {
 	ctx := context.Background()
-	st, _ := openFresh(t)
+	st, url := openFresh(t)
 	if err := st.SaveOrganization(ctx, application.Organization{Key: "atomic", Name: "atomic"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.CreateResourceType(ctx, "atomic", resource.Type{Key: "cache", Outputs: []resource.OutputField{{Name: "host", Type: "string"}}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.pool.Exec(ctx, `CREATE FUNCTION test_fail_criterion() RETURNS trigger LANGUAGE plpgsql AS $$
+	// Test-only fault injection runs as the administrator: no runtime login has DDL.
+	adminExec(t, url, `CREATE FUNCTION test_fail_criterion() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN IF NEW.class = 'boom' THEN RAISE EXCEPTION 'injected criterion failure'; END IF; RETURN NEW; END $$;
-CREATE TRIGGER test_fail_criterion BEFORE INSERT ON matching_criteria FOR EACH ROW EXECUTE FUNCTION test_fail_criterion();`); err != nil {
-		t.Fatal(err)
-	}
+CREATE TRIGGER test_fail_criterion BEFORE INSERT ON matching_criteria FOR EACH ROW EXECUTE FUNCTION test_fail_criterion();`)
 	def := resource.Definition{Key: "cache-atomic", ResourceTypeKey: "cache", DriverType: resource.DriverKubernetes,
 		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{}}},
 		Criteria:     []resource.Criterion{{Class: "ok"}, {Class: "boom"}}}

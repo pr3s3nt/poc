@@ -155,6 +155,23 @@ func scanOperation(row pgx.Row) (environment.Operation, error) {
 // the claim in one local transaction. The partial unique index is the final
 // guard against two claimants across backend processes.
 func (s *Store) ClaimEnvironment(ctx context.Context, claim persistence.OperationClaim) (environment.Operation, error) {
+	if claim.Kind == environment.OpResourceCleanup {
+		return environment.Operation{}, fmt.Errorf("postgres: a resource cleanup is claimed only with its confirmed scope")
+	}
+	return s.claimEnvironment(ctx, claim, nil)
+}
+
+// cleanupColumns are the RESOURCE_CLEANUP authorization columns inserted with
+// the claim row, so the admitted scope exists from the claim's first commit.
+type cleanupColumns struct {
+	mode, actor, root, requestHash, confirmationName, runID any
+	confirmedScope, scopeSnapshot                           []byte
+}
+
+func (s *Store) claimEnvironment(ctx context.Context, claim persistence.OperationClaim, cleanup *cleanupColumns) (environment.Operation, error) {
+	if cleanup == nil {
+		cleanup = &cleanupColumns{}
+	}
 	var out environment.Operation
 	err := s.Transact(ctx, func(ctx context.Context) error {
 		var envID string
@@ -199,7 +216,8 @@ func (s *Store) ClaimEnvironment(ctx context.Context, claim persistence.Operatio
 		if err != nil {
 			return err
 		}
-		if _, err = s.q(ctx).Exec(ctx, `INSERT INTO environment_operations(id,environment_id,kind,owner_instance,status,pins,detail,started_at,updated_at,heartbeat_at,deadline) VALUES($1::uuid,$2::uuid,$3,$4,'ACTIVE',$5,$6,$7,$7,$7,$8)`, id, envID, claim.Kind, claim.Owner, pinJSON, detailJSON, now, claim.Deadline); err != nil {
+		if _, err = s.q(ctx).Exec(ctx, `INSERT INTO environment_operations(id,environment_id,kind,owner_instance,status,pins,detail,started_at,updated_at,heartbeat_at,deadline,authorization_mode,actor_ref,root_resource_instance_id,confirmed_scope,deletion_request_hash,confirmation_name,scope_snapshot,run_id) VALUES($1::uuid,$2::uuid,$3,$4,'ACTIVE',$5,$6,$7,$7,$7,$8,$9,$10,$11::uuid,$12::jsonb,$13,$14,$15::jsonb,$16)`, id, envID, claim.Kind, claim.Owner, pinJSON, detailJSON, now, claim.Deadline,
+			cleanup.mode, cleanup.actor, cleanup.root, cleanup.confirmedScope, cleanup.requestHash, cleanup.confirmationName, cleanup.scopeSnapshot, cleanup.runID); err != nil {
 			var pg *pgconn.PgError
 			if errors.As(err, &pg) && pg.Code == "23505" {
 				if pg.ConstraintName == "environment_operations_pkey" {
@@ -288,19 +306,33 @@ func (s *Store) ReleaseOperation(ctx context.Context, owner persistence.Owner, s
 	}
 	return s.Transact(ctx, func(ctx context.Context) error {
 		now := time.Now().UTC()
-		tag, err := s.q(ctx).Exec(ctx, `UPDATE environment_operations SET status=$4,failure=$5,updated_at=$6,finished_at=$6 WHERE id=$1::uuid AND owner_instance=$2 AND fence=$3 AND status IN ('ACTIVE','INTERRUPTED','RECOVERING')`, owner.OperationID, owner.Owner, owner.Fence, status, failure, now)
-		if err != nil {
+		// Lock the operation row first: state-lock and capability admission
+		// share-lock the same row, so once this lock is held no admission is
+		// in flight and every later admission sees the released status.
+		var current, currentStatus string
+		var fence int64
+		if err := s.q(ctx).QueryRow(ctx, `SELECT owner_instance,fence,status FROM environment_operations WHERE id=$1::uuid FOR UPDATE`, owner.OperationID).Scan(&current, &fence, &currentStatus); err != nil {
 			return translate(err)
 		}
-		if tag.RowsAffected() == 0 {
-			var live bool
-			if err := s.q(ctx).QueryRow(ctx, `SELECT status IN ('ACTIVE','INTERRUPTED','RECOVERING') FROM environment_operations WHERE id=$1::uuid`, owner.OperationID).Scan(&live); err != nil {
-				return translate(err)
-			}
-			if live {
-				return persistence.ErrOperationLost
-			}
+		if !environment.OperationStatus(currentStatus).Holds() {
 			return nil
+		}
+		if current != owner.Owner || fence != owner.Fence {
+			return persistence.ErrOperationLost
+		}
+		var held bool
+		if err := s.q(ctx).QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM terraform_state_locks WHERE environment_operation_id=$1::uuid)`, owner.OperationID).Scan(&held); err != nil {
+			return translate(err)
+		}
+		if held {
+			return persistence.ErrStateLocksHeld
+		}
+		if _, err := s.q(ctx).Exec(ctx, `UPDATE environment_operations SET status=$2,failure=$3,updated_at=$4,finished_at=$4 WHERE id=$1::uuid`, owner.OperationID, status, failure, now); err != nil {
+			return translate(err)
+		}
+		var err error
+		if _, err = s.q(ctx).Exec(ctx, `DELETE FROM terraform_executor_capabilities WHERE environment_operation_id=$1::uuid`, owner.OperationID); err != nil {
+			return translate(err)
 		}
 		_, err = s.q(ctx).Exec(ctx, `UPDATE environments SET active_operation_id=NULL WHERE active_operation_id=$1::uuid`, owner.OperationID)
 		return translate(err)
@@ -358,17 +390,26 @@ func (s *Store) BeginRecovery(ctx context.Context, id, newOwner, confirmedBy str
 	}
 	now := time.Now().UTC()
 	marker, _ := jsonBytes(map[string]any{"stoppedConfirmedBy": confirmedBy})
-	tag, err := s.q(ctx).Exec(ctx, `UPDATE environment_operations SET status='RECOVERING',owner_instance=$2,fence=fence+1,updated_at=$3,heartbeat_at=$3,detail=detail||jsonb_build_object('originalDeadline',to_char(deadline AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'))||$4::jsonb,deadline=$5 WHERE id=$1::uuid AND status='INTERRUPTED'`, id, newOwner, now, marker, now.Add(persistence.RecoveryWindow))
-	if err != nil {
-		return environment.Operation{}, translate(err)
-	}
-	if tag.RowsAffected() == 0 {
-		if _, getErr := s.GetOperation(ctx, id); getErr != nil {
-			return environment.Operation{}, getErr
+	var out environment.Operation
+	err := s.Transact(ctx, func(ctx context.Context) error {
+		tag, err := s.q(ctx).Exec(ctx, `UPDATE environment_operations SET status='RECOVERING',owner_instance=$2,fence=fence+1,updated_at=$3,heartbeat_at=$3,detail=detail||jsonb_build_object('originalDeadline',to_char(deadline AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'))||$4::jsonb,deadline=$5 WHERE id=$1::uuid AND status='INTERRUPTED'`, id, newOwner, now, marker, now.Add(persistence.RecoveryWindow))
+		if err != nil {
+			return translate(err)
 		}
-		return environment.Operation{}, persistence.ErrVersionConflict
-	}
-	return s.GetOperation(ctx, id)
+		if tag.RowsAffected() == 0 {
+			if _, getErr := s.GetOperation(ctx, id); getErr != nil {
+				return getErr
+			}
+			return persistence.ErrVersionConflict
+		}
+		// The fence changed: every executor capability of the old owner is revoked.
+		if _, err = s.q(ctx).Exec(ctx, `DELETE FROM terraform_executor_capabilities WHERE environment_operation_id=$1::uuid`, id); err != nil {
+			return translate(err)
+		}
+		out, err = s.GetOperation(ctx, id)
+		return err
+	})
+	return out, err
 }
 
 func (s *Store) SaveTransition(ctx context.Context, t environment.Transition) error {

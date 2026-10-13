@@ -3,6 +3,7 @@ package deployment_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/adapters/postgres/postgrestest"
 	"reflect"
 	"testing"
 
@@ -18,7 +19,6 @@ import (
 	"orchestrator/internal/planning"
 	"orchestrator/internal/platform/clock"
 	"orchestrator/internal/ports/persistence"
-	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
@@ -54,7 +54,7 @@ func pgSharedDB(t *testing.T, st persistence.Store, opts seed.Options) resource.
 // failure after the version compare rolls back all three.
 func TestPostgresRemove_CommitsSetStatusAndMarkerAtomically(t *testing.T) {
 	ctx := context.Background()
-	url := persistencetest.FreshPostgresDatabase(t)
+	url := postgrestest.Fresh(t).Console
 	st, err := postgres.Open(ctx, url)
 	if err != nil {
 		t.Fatal(err)

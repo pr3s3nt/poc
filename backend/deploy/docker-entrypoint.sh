@@ -30,10 +30,18 @@ if [ -n "${ORCHESTRATOR_DATABASE_URL:-}" ]; then
   export ORCHESTRATOR_DATABASE_URL_FILE="${runtime_dir}/database-url"
 fi
 unset ORCHESTRATOR_DATABASE_URL
+# The State runtime login of the Terraform state backend is a separate
+# credential (option A); it is written to its own owner-only file.
+if [ -n "${ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL:-}" ]; then
+  (umask 077 && printf '%s' "${ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL}" > "${runtime_dir}/state-database-url")
+  export ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL_FILE="${runtime_dir}/state-database-url"
+fi
+unset ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL
 
 set -- -addr "${ORCHESTRATOR_LISTEN_ADDR:-0.0.0.0:8080}" -ui-dir "" -adapters "${ORCHESTRATOR_ADAPTERS:-kubernetes}" "$@"
 if [ -n "${ORCHESTRATOR_KUBE_CONTEXT:-}" ]; then set -- "$@" -kube-context "${ORCHESTRATOR_KUBE_CONTEXT}"; fi
 if [ -n "${ORCHESTRATOR_CLUSTER:-}" ]; then set -- "$@" -cluster "${ORCHESTRATOR_CLUSTER}"; fi
 if [ -n "${ORCHESTRATOR_VAULT_DELIVERY:-}" ]; then set -- "$@" -vault-delivery "${ORCHESTRATOR_VAULT_DELIVERY}"; fi
 if [ -n "${ORCHESTRATOR_DATABASE_URL_FILE:-}" ]; then set -- "$@" -database-url-file "${ORCHESTRATOR_DATABASE_URL_FILE}"; fi
+if [ -n "${ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL_FILE:-}" ]; then set -- "$@" -terraform-state-database-url-file "${ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL_FILE}"; fi
 exec /usr/local/bin/orchestrator "$@"

@@ -1,6 +1,24 @@
 name: orchestrator-local
 
 services:
+  # Option A (ADR-014) fresh provisioning: generates, once, the owner, Console
+  # and State login passwords/URLs and the independent Terraform state key
+  # into separate owner-only volumes. Nothing is printed.
+  db-credentials:
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    user: "0:0"
+    entrypoint: ["/bin/sh", "/local/init-db-credentials.sh"]
+    volumes:
+      - ./deploy/local/init-db-credentials.sh:/local/init-db-credentials.sh:ro
+      - db-role-passwords:/role-passwords
+      - db-owner-credential:/owner
+      - db-runtime-credentials:/runtime
+      - terraform-state-key:/state-key
+      # Read-only: generation is refused unless the database is fresh too.
+      - postgres-data:/pgdata:ro
+    restart: "no"
+    networks: [orchestrator-net]
+
   postgres:
     image: ${POSTGRES_IMAGE:-postgres:16-alpine}
     environment:
@@ -9,12 +27,38 @@ services:
       POSTGRES_PASSWORD: orchestrator-password
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # Runs only when postgres-data is initialized for the first time.
+      - ./deploy/local/postgres-init-roles.sh:/docker-entrypoint-initdb.d/10-orchestrator-roles.sh:ro
+      - db-role-passwords:/run/orchestrator/role-passwords:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U orchestrator -d orchestrator"]
       interval: 5s
       timeout: 5s
       retries: 20
+    depends_on:
+      db-credentials:
+        condition: service_completed_successfully
     restart: unless-stopped
+    networks: [orchestrator-net]
+
+  # Explicit owner step: creates the baseline in the fresh empty database and
+  # grants the Console and State logins; on an initialized database it only
+  # verifies. Only this service sees the owner credential.
+  db-setup:
+    image: ${BACKEND_IMAGE:-orchestrator-backend:local}
+    pull_policy: build
+    build:
+      context: ./backend
+    entrypoint: ["/usr/local/bin/orchestrator", "-setup-database",
+      "-database-owner-url-file", "/run/orchestrator/owner/database-url",
+      "-console-database-role", "orchestrator_console",
+      "-state-database-role", "orchestrator_state"]
+    volumes:
+      - db-owner-credential:/run/orchestrator/owner:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
     networks: [orchestrator-net]
 
   vault:
@@ -50,7 +94,12 @@ services:
     environment:
       ORCHESTRATOR_LISTEN_ADDR: 0.0.0.0:8080
       ORCHESTRATOR_ADAPTERS: kubernetes
-      ORCHESTRATOR_DATABASE_URL: postgres://orchestrator:orchestrator-password@postgres:5432/orchestrator?sslmode=disable
+      # Least-privilege runtime logins (never the owner or superuser) and the
+      # independent state key, each from its own owner-only file.
+      ORCHESTRATOR_DATABASE_URL_FILE: /run/orchestrator/runtime/console-database-url
+      ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL_FILE: /run/orchestrator/runtime/state-database-url
+      ORCHESTRATOR_TERRAFORM_STATE_KEY_FILE: /run/orchestrator/state-key/key
+      ORCHESTRATOR_TERRAFORM_STATE_KEY_ID: ${TERRAFORM_STATE_KEY_ID:-local-state-key-1}
       ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE: vault
       ORCHESTRATOR_CONNECTION_VAULT_ADDR: http://vault:8200
       ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE: /run/connection-token/token
@@ -65,14 +114,16 @@ services:
     volumes:
       - connection-token:/run/connection-token:ro
       - app-token:/run/app-token:ro
+      - db-runtime-credentials:/run/orchestrator/runtime:ro
+      - terraform-state-key:/run/orchestrator/state-key:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/api/v1/healthz"]
       interval: 5s
       timeout: 5s
       retries: 20
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-setup:
+        condition: service_completed_successfully
       vault:
         condition: service_healthy
     restart: unless-stopped
@@ -103,6 +154,10 @@ networks:
 
 volumes:
   postgres-data:
+  db-role-passwords:
+  db-owner-credential:
+  db-runtime-credentials:
+  terraform-state-key:
   vault-data:
   vault-bootstrap:
   connection-token:

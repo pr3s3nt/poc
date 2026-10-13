@@ -7,11 +7,16 @@ entity schema_baseline {
   * singleton : boolean <<PK,true>>
   --
   baseline : text
+  baseline_sha256 : text
+  catalog_sha256 : text
+  installation_id : uuid
+  schema_name : text
   created_at : timestamptz
 }
 note right of schema_baseline
   Technical baseline identity; no migration ledger.
-  Empty-schema initialization only.
+  Owner setup on empty schema only.
+  Runtime validation without DDL; separate Console/State logins.
 end note
 
 entity organizations {

@@ -14,7 +14,7 @@ import (
 // target, new Environments stay unconfigured and reopening is idempotent.
 func TestApplicationIdentityOnlyFreshAndReopen(t *testing.T) {
 	ctx := context.Background()
-	url := persistencetest.FreshPostgresDatabase(t)
+	url := freshDatabase(t).Console
 	st, err := Open(ctx, url)
 	if err != nil {
 		t.Fatal(err)

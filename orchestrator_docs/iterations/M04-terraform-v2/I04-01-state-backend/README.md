@@ -78,3 +78,11 @@ Người dùng đã chọn A: owner/Console/State roles và runtime connections 
 Blocker quyết định DB privilege đã gỡ; phần code privilege separation vẫn phải
 implement, test bằng roles thật và review trước khi đóng I04-01. Claude tiếp
 code trong working tree hiện có; không reset/regrant retained database.
+
+## Checkpoint role A đã verified
+
+Ba roles đã implement và độc lập verified với 831 PostgreSQL tests, zero skip;
+[verification](../../../verification/2026-10-13-i04-01-role-a.md). Chưa complete:
+phạm vi TLS ngoài loopback đang hỏi người dùng; Compose DB bridge không TLS,
+state HTTP strictly loopback. Không coi đây là exception đã được chấp nhận.
+Source/checks/cleanup đã lưu để tiếp tục cùng task sau câu trả lời.

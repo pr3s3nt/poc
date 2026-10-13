@@ -103,12 +103,12 @@ other than NotFound also stop execution. See
 
 ## IMP-021 — Terraform v2 design/implementation gap
 
-I04-01 code đang có trong working tree: encrypted state/HTTP/identity/locks,
-owner fencing và real PostgreSQL tests đã pass. Chưa complete/commit; thiếu
-DB privilege separation; người dùng đã chọn A, giao Claude implement tiếp. Xem
-[partial verification](../verification/2026-10-13-i04-01-state-backend-partial.md).
-Các gap phía dưới mô tả product baseline trước tích hợp I04-03, không phủ nhận
-slice I04-01 đang triển khai; IMP-021 vẫn mở.
+I04-01 encrypted state/HTTP/identity/locks và ba DB roles theo A đã
+implement/verified bằng PostgreSQL thật và CLI tests. Chưa complete vì phạm
+vi TLS ngoài loopback còn đang hỏi người dùng. Xem
+[role A evidence](../verification/2026-10-13-i04-01-role-a.md); lịch sử trước
+quyết định A ở [partial verification](../verification/2026-10-13-i04-01-state-backend-partial.md).
+Các gap phía dưới là product pipeline trước tích hợp I04-03; chưa đóng IMP-021.
 
 Accepted [ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md)
 và current BR/MS/VAR/OOS trong specifications thay required behavior.

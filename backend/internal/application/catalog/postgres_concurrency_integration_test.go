@@ -3,6 +3,7 @@ package catalog_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/adapters/postgres/postgrestest"
 	"reflect"
 	"sync"
 	"testing"
@@ -17,7 +18,6 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/persistence"
-	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
@@ -117,7 +117,7 @@ func (readyCluster) VerifyKubeconfig(context.Context, connection.SelectedKubecon
 // complete winner.
 func TestPostgresRegistrationServicesRaceOnSameKey(t *testing.T) {
 	ctx := context.Background()
-	st, err := postgres.Open(ctx, persistencetest.FreshPostgresDatabase(t))
+	st, err := postgres.Open(ctx, postgrestest.Fresh(t).Console)
 	if err != nil {
 		t.Fatal(err)
 	}

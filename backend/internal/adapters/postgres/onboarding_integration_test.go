@@ -9,13 +9,12 @@ import (
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
-	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
 
 func TestCreateApplicationPersistsExactlyTwoEnvironmentsAndUniqueGuards(t *testing.T) {
-	url := persistencetest.FreshPostgresDatabase(t)
+	url := freshDatabase(t).Console
 	ctx := context.Background()
 	first, err := Open(ctx, url)
 	if err != nil {
@@ -73,7 +72,7 @@ func TestCreateApplicationPersistsExactlyTwoEnvironmentsAndUniqueGuards(t *testi
 
 // TestBaselineCaseInsensitiveNameIndex checks the fresh baseline index on its own database.
 func TestBaselineCaseInsensitiveNameIndex(t *testing.T) {
-	url := persistencetest.FreshPostgresDatabase(t)
+	url := freshDatabase(t).Console
 	ctx := context.Background()
 	store, err := Open(ctx, url)
 	if err != nil {
