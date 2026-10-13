@@ -504,9 +504,36 @@ it('shows the safe Preview projection: renderer, pinned target and account, modu
   expect(rows[0]).toHaveTextContent('sha256:aaaaaaaaaaaa');
   expect(rows[0]).toHaveTextContent('aws: Kết nối AWS của Môi trường aws-prod · vùng us-east-1');
   expect(rows[0]).toHaveTextContent('Tạo mới');
-  expect(rows[1]).toHaveTextContent('Giữ nguyên tài nguyên đã có');
+  expect(rows[1]).toHaveTextContent('Giữ nguyên (đã xác minh không đổi');
   expect(rows[2]).toHaveTextContent('Nền tảng (liên kết hệ thống)');
   expect(rows[2]).toHaveTextContent('Liên kết hệ thống, không tạo');
   expect(panel.textContent).toMatch(/không phải kế hoạch Terraform hay manifest cuối cùng/);
   for (const leak of [/password/i, /kubeconfig/i, /credential/i, /state/i, /secret/i]) expect(panel.textContent).not.toMatch(leak);
+});
+
+it('never shows an existing identity as unchanged without proof, and treats a missing projection as unavailable', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith('/workloads')) return Response.json({ draftVersion: 1, workloads: [{ id: 'api', state: 'PENDING_UPSERT', ready: false, score: {} }] });
+    if (url.endsWith('/preview')) return Response.json({ token: 't', draftVersion: 1, changes: [
+      { workloadId: 'api', action: 'UPDATE', planHash: 'p', resources: { existing: [], new: [], unreferenced: [] }, resourceIntents: [
+        { descriptor: 'postgres.default#modules.api.externals.db', resourceType: 'postgres', class: 'default', scope: 'WORKLOAD:api', ownership: 'ORCHESTRATOR', intent: 'UPDATE', definitionKey: 'pg', driverType: 'terraform' },
+        { descriptor: 'redis.default#modules.api.externals.cache', resourceType: 'redis', class: 'default', scope: 'WORKLOAD:api', ownership: 'ORCHESTRATOR', intent: 'UNVERIFIED', definitionKey: 'redis', driverType: 'terraform' },
+      ] },
+      { workloadId: 'web', action: 'UPDATE', planHash: 'q', resources: { existing: [], new: [], unreferenced: [] } },
+      { workloadId: 'empty', action: 'UPDATE', planHash: 'r', resources: { existing: [], new: [], unreferenced: [] }, resourceIntents: [] },
+    ] });
+    return Response.json({}, { status: 404 });
+  }));
+  const user = userEvent.setup();
+  render(<ApplicationHomePage application={application} />);
+  await screen.findByText('api');
+  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
+  const panel = await screen.findByLabelText('Xem trước triển khai');
+  const rows = within(panel).getAllByRole('row');
+  expect(rows[1]).toHaveTextContent('Cập nhật tài nguyên đã có');
+  expect(rows[2]).toHaveTextContent('chưa xác minh được thay đổi; có thể được cập nhật');
+  expect(rows[2]).not.toHaveTextContent('Giữ nguyên');
+  expect(panel).toHaveTextContent('Chưa có thông tin tài nguyên hạ tầng trong kết quả xem trước này nên chưa thể kết luận');
+  expect(panel).toHaveTextContent('Không có tài nguyên hạ tầng nào cần tạo, cập nhật hoặc liên kết.');
 });

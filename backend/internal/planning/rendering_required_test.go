@@ -96,7 +96,7 @@ func TestRequiredRendererKeepsInfrastructurePlanAndHidesParamsFromIntents(t *tes
 	if native.PlanHash != required.PlanHash || len(native.Matches) != len(required.Matches) || len(native.Batches) != len(required.Batches) {
 		t.Fatal("required mode must plan identically when a Definition matches")
 	}
-	intents := required.ResourceIntents()
+	intents := required.ResourceIntents(nil)
 	if len(intents) == 0 {
 		t.Fatal("expected resource intents")
 	}

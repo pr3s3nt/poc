@@ -85,8 +85,8 @@ export const typeFixture: TypeContract[] = [
    }
   ],
   "classes": [
-   "in-cluster",
-   "cloud-managed"
+   "cloud-managed",
+   "in-cluster"
   ]
  },
  {
@@ -151,8 +151,8 @@ export const typeFixture: TypeContract[] = [
    }
   ],
   "classes": [
-   "in-cluster",
-   "cloud-managed"
+   "cloud-managed",
+   "in-cluster"
   ]
  }
 ];

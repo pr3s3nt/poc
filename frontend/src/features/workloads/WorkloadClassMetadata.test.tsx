@@ -54,7 +54,7 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
     await addDependency(user, 'db', 'postgres');
     const select = screen.getByLabelText('Cách cung cấp (class) của db');
     expect(select).toHaveValue('');
-    expect(within(select).getAllByRole('option').map((option) => option.textContent)).toEqual(['Mặc định (default)', 'Trong cluster (in-cluster)', 'Dịch vụ managed AWS (cloud-managed)']);
+    expect(within(select).getAllByRole('option').map((option) => option.textContent)).toEqual(['Mặc định (default)', 'Dịch vụ managed AWS (cloud-managed)', 'Trong cluster (in-cluster)']);
     expect(screen.getByText(/Developer không chọn module Terraform, provider hay thông tin xác thực/)).toBeInTheDocument();
     for (const label of [/module/i, /provider/i, /credential|xác thực/i]) expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
     await fillPostgres(user);
@@ -167,12 +167,59 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
   it('treats a Type without published classes as having none and still saves default', async () => {
     const user = userEvent.setup();
     const types: ResourceType[] = [{ key: 'postgres', inputs: [], outputs: [{ name: 'host' }] }];
-    const { puts } = serve({ types: () => Response.json({ resourceTypes: types.map(({ key, inputs, outputs }) => ({ key, inputs, outputs })) }) });
+    const { puts } = serve({ types: () => Response.json({ resourceTypes: types.map(({ key, inputs, outputs }) => ({ key, inputs, outputs, classes: [] })) }) });
     await newWorkload(user);
     await addDependency(user, 'db', 'postgres');
     expect(within(screen.getByLabelText('Cách cung cấp (class) của db')).getAllByRole('option')).toHaveLength(1);
     expect(screen.getByText(/Danh mục chưa công bố class nào cho loại postgres/)).toBeInTheDocument();
     await user.click(save());
     expect(resourcesOf(puts[0])?.db).toEqual({ type: 'postgres' });
+  });
+
+  // Absent or malformed metadata is unavailable, never a fake-empty class list.
+  it.each([
+    ['a body without resourceTypes', {}],
+    ['a Type without classes', { resourceTypes: [{ key: 'postgres', inputs: [], outputs: [] }] }],
+    ['classes that are not an array', { resourceTypes: [{ key: 'postgres', inputs: [], outputs: [], classes: 'in-cluster' }] }],
+    ['a non-string class', { resourceTypes: [{ key: 'postgres', inputs: [], outputs: [], classes: ['in-cluster', 7] }] }],
+  ])('treats %s on refresh as unavailable metadata that locks class controls and keeps edits', async (_name, body) => {
+    const user = userEvent.setup();
+    let malformed = false;
+    const { puts } = serve({ types: () => Response.json(malformed ? body : { resourceTypes: typeFixture }) });
+    await newWorkload(user);
+    await addDependency(user, 'db', 'postgres');
+    await user.selectOptions(screen.getByLabelText('Cách cung cấp (class) của db'), 'in-cluster');
+    malformed = true;
+    await user.click(screen.getByRole('button', { name: 'Làm mới metadata class' }));
+    await screen.findByRole('alert', { name: 'Lỗi tải metadata class' });
+    expect(screen.getByLabelText('Cách cung cấp (class) của db')).toBeDisabled();
+    expect(screen.getByLabelText('Cách cung cấp (class) của db')).toHaveValue('in-cluster');
+    await user.click(save());
+    expect(puts).toHaveLength(0);
+  });
+
+  it('fails the first load of malformed metadata with a retry instead of an editor with no classes', async () => {
+    serve({ types: () => Response.json({ resourceTypes: [{ key: 'postgres', inputs: [], outputs: [] }] }) });
+    render(<WorkloadEditorPage application={application} environment="staging" />);
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(save()).toBeDisabled();
+  });
+
+  it('ignores a late older refresh reply: the newest request decides the metadata state', async () => {
+    const user = userEvent.setup();
+    const gates: ((response: Response) => void)[] = [];
+    let call = 0;
+    serve({ types: () => { call += 1; return call === 1 ? Response.json({ resourceTypes: typeFixture }) : new Promise<Response>((resolve) => { gates.push(resolve); }); } });
+    await newWorkload(user);
+    await addDependency(user, 'db', 'postgres');
+    await user.click(screen.getByRole('button', { name: 'Làm mới metadata class' }));
+    await user.click(screen.getByRole('button', { name: 'Làm mới metadata class' }));
+    await vi.waitFor(() => expect(gates).toHaveLength(2));
+    gates[1]?.(Response.json({ resourceTypes: typeFixture }));
+    await vi.waitFor(() => expect(screen.getByLabelText('Cách cung cấp (class) của db')).toBeEnabled());
+    gates[0]?.(Response.json({ code: 'INTERNAL_ERROR' }, { status: 500 }));
+    await new Promise((done) => setTimeout(done, 30));
+    expect(screen.queryByRole('alert', { name: 'Lỗi tải metadata class' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Cách cung cấp (class) của db')).toBeEnabled();
   });
 });

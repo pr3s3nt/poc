@@ -256,7 +256,7 @@ export const SCENARIOS = {
     await h.type(aliases.nth(1), 'db');
     await choose(page.locator('select[aria-label="Loại tài nguyên"]').nth(1), 'postgres');
     const dbClass = form('Cách cung cấp (class) của db');
-    expect((await dbClass.locator('option').allTextContents())).toEqual(['Mặc định (default)', 'Trong cluster (in-cluster)', 'Dịch vụ managed AWS (cloud-managed)']);
+    expect((await dbClass.locator('option').allTextContents())).toEqual(['Mặc định (default)', 'Dịch vụ managed AWS (cloud-managed)', 'Trong cluster (in-cluster)']);
     await choose(dbClass, 'Trong cluster');
     await h.type(form('Tham số database'), 'shop');
     await h.type(form('Tham số username'), 'shop');

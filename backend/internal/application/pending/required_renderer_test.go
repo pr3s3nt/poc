@@ -299,3 +299,96 @@ func TestRequiredRendererAWSProfileRendersAfterInfrastructure(t *testing.T) {
 }
 
 type planningIntent struct{ intent, definition, driver string }
+
+// An existing identity is never displayed as unchanged by default: a changed
+// authored param is UPDATE, a verifiably identical plan is RETAIN, and an
+// identity whose last plan cannot be read is UNVERIFIED (never RETAIN).
+func TestPreviewIntentUpdateRetainUnverifiedForExistingIdentity(t *testing.T) {
+	ctx := context.Background()
+	app, opts, _, bundles := requiredAppBundles(t, true)
+	registerRenderer(t, app, bundles, opts, "render", "internal-k8s")
+	shared := func(name, database string) map[string]any {
+		raw := scoreFor(name, name+":v1", false)
+		raw["resources"] = map[string]any{"db": map[string]any{"type": "postgres", "params": map[string]any{"database": database, "username": "appuser"}}}
+		return raw
+	}
+	if _, err := app.Workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", shared("api", "orders"), 0); err != nil {
+		t.Fatal(err)
+	}
+	first, err := app.Pending.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	intentOf := func(p pending.Preview) string {
+		for _, intent := range p.Changes[0].ResourceIntents {
+			if intent.ResourceType == "postgres" {
+				return intent.Intent
+			}
+		}
+		return ""
+	}
+	if got := intentOf(first); got != "CREATE" {
+		t.Fatalf("new identity: %s", got)
+	}
+	if report, err := app.Pending.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", first.Token); err != nil || report.Status != "SUCCEEDED" {
+		t.Fatalf("deploy: %+v %v", report, err)
+	}
+	draftVersion := func() int64 {
+		env, err := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return env.DraftVersion
+	}
+	// Same identity, same authored inputs, image changed only: the database is verifiably unchanged.
+	same := shared("api", "orders")
+	same["containers"].(map[string]any)["main"].(map[string]any)["image"] = "api:v2"
+	if _, err := app.Workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", same, draftVersion()); err != nil {
+		t.Fatal(err)
+	}
+	retained, err := app.Pending.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil || len(retained.Changes) != 1 {
+		t.Fatalf("preview: %+v %v", retained, err)
+	}
+	if got := intentOf(retained); got != "RETAIN" {
+		t.Fatalf("unchanged identity: %s", got)
+	}
+	// An authored param change on the same identity is an update, not "unchanged".
+	changed := shared("api", "orders_v2")
+	if _, err := app.Workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", changed, draftVersion()); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := app.Pending.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil || len(updated.Changes) != 1 {
+		t.Fatalf("preview: %+v %v", updated, err)
+	}
+	if got := intentOf(updated); got != "UPDATE" {
+		t.Fatalf("changed params: %s", got)
+	}
+	raw, _ := json.Marshal(updated.Changes[0].ResourceIntents)
+	for _, leak := range []string{"orders_v2", "appuser", "params", "fingerprint"} {
+		if strings.Contains(string(raw), leak) {
+			t.Fatalf("projection exposes %q", leak)
+		}
+	}
+	// Without a readable last plan the identity is unverified, never retained.
+	active, err := app.Store.ListActiveResources(ctx, opts.OrganizationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range active {
+		if a.Descriptor.Type == "postgres" {
+			a.LastDeploymentID = ""
+			if _, err := app.Store.UpsertActiveResource(ctx, a); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	unknown, err := app.Pending.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := intentOf(unknown); got != "UNVERIFIED" {
+		t.Fatalf("no baseline: %s", got)
+	}
+}

@@ -15,7 +15,7 @@ export const parseScoreImport = (app: string, env: EnvironmentKey, content: stri
 
 // Safe projection of one resource node of a Preview (UC-05 BR-10): no params, resolved inputs, secret or state reference.
 export type ResourceIntent = {
-  descriptor: string; resourceType: string; class: string; scope: string; ownership: 'PLATFORM' | 'ORCHESTRATOR'; intent: 'CREATE' | 'RETAIN' | 'BIND';
+  descriptor: string; resourceType: string; class: string; scope: string; ownership: 'PLATFORM' | 'ORCHESTRATOR'; intent: 'CREATE' | 'UPDATE' | 'RETAIN' | 'BIND' | 'UNVERIFIED';
   definitionKey: string; driverType: string;
   module?: { module: string; sourceId: string; revision: string; subdirectory: string; contentSha256: string };
   providers?: { name: string; kind: string; target: string; connectionKey?: string; region?: string; provider?: string }[];
@@ -28,9 +28,21 @@ export const deployChanges = (app: string, env: EnvironmentKey, token: string) =
 
 // classes is the computed read projection of GET /resource-types (UC-16 API
 // mapping): the provisioning classes the scoped catalog serves. It is never a
-// registration field and never guessed when absent.
+// registration field. A valid `classes: []` means "none published"; an absent or
+// malformed list, or a malformed body, is unavailable metadata and throws, so
+// nothing becomes a fake-empty or guessed choice.
 export type ResourceType = { key: string; inputs: { name: string; type: string; required?: boolean }[]; outputs: { name: string; secret?: boolean }[]; classes?: string[] };
-export const getResourceTypes = async () => {
-  const body = await api<{ resourceTypes: ResourceType[] }>('/resource-types');
-  return { resourceTypes: (body.resourceTypes ?? []).map((type) => ({ ...type, inputs: type.inputs ?? [], outputs: type.outputs ?? [], classes: type.classes ?? [] })) };
-};
+export class MetadataError extends Error {}
+const isArray = (value: unknown): value is unknown[] => Array.isArray(value);
+export function parseResourceTypes(body: unknown): { resourceTypes: ResourceType[] } {
+  const list = (body as { resourceTypes?: unknown } | null)?.resourceTypes;
+  if (!isArray(list)) throw new MetadataError('resource types are missing');
+  return { resourceTypes: list.map((item) => {
+    const type = item as { key?: unknown; inputs?: unknown; outputs?: unknown; classes?: unknown } | null;
+    if (typeof type !== 'object' || type === null || typeof type.key !== 'string' || type.key === '') throw new MetadataError('resource type is malformed');
+    if (!isArray(type.classes) || !type.classes.every((entry) => typeof entry === 'string')) throw new MetadataError('classes are missing or malformed');
+    if ((type.inputs != null && !isArray(type.inputs)) || (type.outputs != null && !isArray(type.outputs))) throw new MetadataError('schema is malformed');
+    return { key: type.key, inputs: (type.inputs ?? []) as ResourceType['inputs'], outputs: (type.outputs ?? []) as ResourceType['outputs'], classes: type.classes as string[] };
+  }) };
+}
+export const getResourceTypes = async () => parseResourceTypes(await api<unknown>('/resource-types'));

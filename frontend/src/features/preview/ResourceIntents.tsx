@@ -1,7 +1,10 @@
 import type { ResourceIntent } from '../workloads/api';
 
 const ownershipLabels: Record<string, string> = { PLATFORM: 'Nền tảng (liên kết hệ thống)', ORCHESTRATOR: 'Orchestrator (theo phạm vi tài nguyên)' };
-const intentLabels: Record<string, string> = { CREATE: 'Tạo mới', RETAIN: 'Giữ nguyên tài nguyên đã có', BIND: 'Liên kết hệ thống, không tạo' };
+const intentLabels: Record<string, string> = {
+  CREATE: 'Tạo mới', UPDATE: 'Cập nhật tài nguyên đã có (tham số, cấu hình hoặc module thay đổi)', RETAIN: 'Giữ nguyên (đã xác minh không đổi so với lần triển khai trước)',
+  UNVERIFIED: 'Đã có, chưa xác minh được thay đổi; có thể được cập nhật', BIND: 'Liên kết hệ thống, không tạo',
+};
 const label = (table: Record<string, string>, key: string) => (Object.hasOwn(table, key) ? table[key] : key);
 
 // Where one provider of a module runs: the Environment's Connection or, for
@@ -19,7 +22,9 @@ export const rendererText = (rendering: { definitionKey: string; driverType: str
 // The safe resource projection of a Preview (UC-05 BR-10). It states intent only
 // and does not claim a final Terraform plan or manifest.
 export function ResourceIntents({ intents, label: ariaLabel = 'Tài nguyên hạ tầng sẽ được xử lý' }: { intents: ResourceIntent[] | undefined; label?: string }) {
-  if (!intents || intents.length === 0) return <p className="feature-note">Không có tài nguyên hạ tầng nào cần tạo hoặc liên kết.</p>;
+  // A missing projection is unavailable, never proof that nothing needs creating or binding.
+  if (!intents) return <p className="form-warning" role="note">Chưa có thông tin tài nguyên hạ tầng trong kết quả xem trước này nên chưa thể kết luận có tài nguyên nào cần tạo, cập nhật hay liên kết. Hãy xem trước lại.</p>;
+  if (intents.length === 0) return <p className="feature-note">Không có tài nguyên hạ tầng nào cần tạo, cập nhật hoặc liên kết.</p>;
   return <div className="resource-intents" aria-label={ariaLabel}>
     <table className="plain-table">
       <thead><tr><th>Tài nguyên</th><th>Loại / class</th><th>Cấu hình</th><th>Module · revision</th><th>Đích provider</th><th>Quyền sở hữu</th><th>Ý định</th></tr></thead>
