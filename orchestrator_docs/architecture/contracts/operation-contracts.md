@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-14
 ---
 
 # Operation Contracts
@@ -624,3 +624,15 @@ PLATFORM_RESOURCE, OWNERSHIP_UNVERIFIED, ORIGINAL_TARGET_UNAVAILABLE.
 Operation progress stage enum riêng: REQUESTED/CHECKING/DESTROYING/VERIFYING;
 status SUCCEEDED/FAILED/INTERRUPTED kèm remaining IDs đã scope. Error envelope
 không raw diagnostics/typed name; safe resource IDs chỉ ở scoped query result.
+
+## Resource Type class read projection — I04-07
+
+GET `/api/v1/resource-types` giữ session Organization/all-authenticated read
+boundary; `resourceTypes` entries thêm computed `classes: string[]`, sorted/
+unique, không persistence hay POST field. Query đọc cùng scoped snapshot của
+Types/Definitions và local verified registry metadata, không provider/CLI/
+secret-store calls/fetch hoặc writes. Module pins/provider controls vẫn chỉ
+ở PE/Admin capabilities OC-04d. Class metadata không thay matching/Preview;
+unknown/custom/default semantics và imported selections không bị rewrite.
+Failure safe error, không fake empty/guessed class fallback. Chi tiết ở
+[UC-16 API mapping](../../usecase/UC-16/ui/api-mapping.md#metadata-class-và-source--i04-07).

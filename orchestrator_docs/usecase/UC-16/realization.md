@@ -2,7 +2,7 @@
 id: UC-16-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-14
 ---
 
 # UC-16 — Use Case Realization
@@ -83,3 +83,13 @@ and pending deletes are excluded. Configuration control prepares all changes;
 one atomic persistence command writes the immutable revision and affected drafts
 under config/env/draft CAS. UC-16 editor and UC-05 consume the new draft version;
 current set and runtime are untouched.
+
+## Class metadata projection — I04-07
+
+Reference catalog dùng read-only Resource Types query đã có, bổ sung computed
+class names từ verified registry và scoped Definitions trong cùng snapshot.
+Controller lấy Organization từ session; Developer projection không chứa module
+pins/provider bindings/private inputs. Không thêm persistence field hoặc system
+admission. UI giữ custom/imported class và metadata request/scope guards;
+server Preview/Deploy remains authoritative. Payload/role/failure contract ở
+[UI mapping](ui/api-mapping.md#metadata-class-và-source--i04-07).

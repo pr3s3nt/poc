@@ -18,4 +18,4 @@ product requirements. Kết quả actual ở [biên bản](../../../verification
 - [x] Claude chạy checks; Codex review diff và independently verify tương ứng.
 - [x] Evidence/cleanup/remaining blockers vào dated verification, không chép log vào plan.
 - [x] Commit/push task-only khi checks/review đạt theo AGENTS.md; không force-push.
-- [ ] Xóa nhánh Claude sau push merge; giữ điểm duyệt cuối.
+- [x] Xóa cả nhánh Claude chính/tự sinh sau push merge; checkout riêng đã dọn; giữ điểm duyệt cuối.

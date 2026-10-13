@@ -2,7 +2,7 @@
 id: UC-03-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-14
 related: UC-03
 ---
 
@@ -114,3 +114,16 @@ Typed và advanced serialize cùng `driverInputs.values.variables`, source ident
 được kiểm độc lập. Provision/criteria và org/version guards giữ nguyên.
 Omitted default/param không được tự thêm; literals số/bool/list/map giữ kiểu JSON,
 whole placeholders giữ string để deferred checking. Presets là lựa chọn explicit.
+
+## Verified source pins cho Definition form — I04-07
+
+OC-04d metadata cho PE/Admin phải công bố đủ prepared source/module revision/
+subdirectory/content SHA-256 theo
+[module source shape](../../../architecture/contracts/terraform-modules.md#driver-inputs-shape),
+input/output contract/mapping choices và provider requirements/class metadata.
+Console dùng đúng pins đã kiểm chứng; không nhận Admin trust root/source URL
+mới hoặc tự đoán revision/digest/default. Source unavailable/drift chặn thao tác
+cần metadata, giữ edits và retry read; không silent fallback sang packaged module.
+Query không fetch/inspect; preparation/registration inspection vẫn theo OC-04.
+Driver Inputs tiếp tục full `values.source`, input_mapping/output_mapping và
+provider_bindings đã định nghĩa; Workload form không chọn những fields này.

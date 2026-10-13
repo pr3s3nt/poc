@@ -95,7 +95,7 @@ Vault/PG/container/network/private files đã xác minh, không task-owned cloud
 cluster resources. Lượt trước và bàn giao cũ giữ tại `/tmp/poc-i0406-aws-connection/`.
 Phiên I04-06 [session_01UowTTQea8MqLBRaPktRfSX](https://claude.ai/code/session_01UowTTQea8MqLBRaPktRfSX);
 mode nội bộ không introspect được, Bash/Write/Edit/network quan sát unprompted.
-Nhánh chính/tự sinh sẽ xóa sau push merge; không tự chuyển sang Codex coding.
+Nhánh chính/tự sinh đã xóa sau push merge `9b49075`; checkout riêng đã dọn.
 Tiếp I04-07, phiên mới chưa tạo; draft brief `/tmp/poc-i0407-definition-workload-ui/`.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.

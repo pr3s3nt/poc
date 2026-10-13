@@ -2,7 +2,7 @@
 id: UC-02-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-14
 related: UC-02
 ---
 
@@ -42,3 +42,13 @@ an toàn, không hiển thị/parse raw `error`, submitted values hoặc provide
 Status/scoping và guards hiện hành giữ nguyên. Giữ draft/confirmation theo flow;
 BUSY không mất edits, stale cần reload/review hoặc Preview mới. Retry tường minh
 không tự replay mutation; lỗi tải lại không phủ nhận kết quả đã commit.
+
+## Read-only dependency classes — I04-07
+
+GET resource-types thêm computed `classes: string[]` theo
+[UC-16 metadata mapping](../../UC-16/ui/api-mapping.md#metadata-class-và-source--i04-07).
+Session org/all authenticated roles giữ nguyên; chỉ schema và class names an
+toàn, không module pins/provider inputs/credentials. Class metadata lấy từ
+verified registry/scoped Definitions trong read snapshot, không fetch/inspect
+module hoặc ghi Type. POST không thêm field; copy Type schema không chép
+computed class metadata vào registration payload.

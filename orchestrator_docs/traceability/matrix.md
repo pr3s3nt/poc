@@ -609,3 +609,12 @@ Codex: 1082 Go tests/zero skip, 479 frontend tests, actual SQL/Vault + headed
 browser with AWS transport fake, credential scans and verified cleanup. Live
 AWS identity/capabilities and execution preflight remain I04-10/12; no v2 live
 acceptance claimed. Class/source forms remain I04-07.
+
+## I04-07 metadata mapping clarification
+
+UC-16 V2-02/03 và existing Reference catalog collaboration dùng GET resource-types
+computed classes, không Type persistence/POST field hoặc privileged module
+selector cho Developer. UC-03 OC-04d supplies verified source/mapping/provider
+metadata for PE/Admin. [API mapping](../usecase/UC-16/ui/api-mapping.md#metadata-class-và-source--i04-07)
+clarifies role/no-side-effect/error/default/custom guards; implementation/tests
+pending I04-07, không claim delivery từ contract clarification.

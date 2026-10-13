@@ -2,7 +2,7 @@
 id: UC-16-UI-API-MAPPING
 artifact: use-case-ui-api-mapping
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-14
 related: UC-12, UC-16, UC-05, UC-07
 ---
 
@@ -22,3 +22,24 @@ Preview hiện hành; token cũ sau rename không dùng được.
 BUSY/stale/duplicate và REFERENCE_REWRITE_UNSAFE dùng thông báo Việt theo shared
 error contract. Failed mutation không mất dialog/aliases; reload sau commit
 thất bại báo tải lại, không tự replay rename. Scope change invalidate replies.
+
+## Metadata class và source — I04-07
+
+Editor đọc GET `/api/v1/resource-types` đã authenticate theo Organization của
+session. Response `resourceTypes` giữ key/inputs/outputs và bổ sung `classes`
+(array string, sorted/unique, rỗng là `[]`) như read projection, không phải
+field của Type registration/persistence. Class choices lấy từ verified registry
+metadata và class khai báo trong scoped catalog Definitions; không đoán từ tên
+module, credential, target mặc định hoặc source bên ngoài. Metadata chỉ hướng
+dẫn authoring, không bảo đảm một class match context cụ thể; Preview/Deploy
+vẫn kiểm Type/class/profile/criteria và shared-ID consistency độc lập.
+
+Developer chỉ đọc Type schema/class metadata này, không dùng endpoint privileged
+`resource-definition-capabilities` để chọn module/provider. Missing session 401,
+không org override; metadata failure safe error, không fake empty fallback.
+Loading/error/unavailable khóa thao tác cần metadata, giữ edits/imported class,
+cho retry GET tường minh. `default` giữ Score semantics, không map sang in-cluster
+hoặc cloud-managed. Custom/imported class được giữ nguyên và matching vẫn kiểm;
+không tự đổi class/target. Không resource/provider/secret-store/CLI calls hoặc
+writes trong query. POST Type vẫn chỉ nhận contract schema đã định nghĩa,
+không nhận computed `classes`.

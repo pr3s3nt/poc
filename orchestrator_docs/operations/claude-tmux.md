@@ -13,6 +13,7 @@ merge và chạy thật local; Claude viết code/test, không sửa docs.
 
 1. Push `refactor_ui` trước khi giao; mỗi task tạo phiên mới từ thư mục repo:
    `claude --cloud "<bàn giao>" --dangerously-skip-permissions`.
+   CLI cần terminal tương tác (TTY); không tạo phiên bằng piped stdout/print mode.
 2. Giao scope, sources, acceptance criteria, checks; yêu cầu push nhánh riêng
    `claude/m04-<task>`, không push `refactor_ui`, bàn giao ngắn trong commit cuối.
 3. Lưu session ID/URL và kiểm chế độ quyền thực tế, không suy từ cờ CLI.
