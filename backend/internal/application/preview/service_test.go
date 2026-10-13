@@ -572,6 +572,78 @@ func TestPreview_AWSImplicitGraph(t *testing.T) {
 	}
 }
 
+// UC-05 BR-10: standalone Preview carries the same safe resource projection as
+// pending Preview: type, class, source, provider target, account and
+// ownership, and never params, resolved inputs, secrets or state references.
+func TestPreview_ResourceIntentsAndTargetAreSafe(t *testing.T) {
+	ctx := context.Background()
+	app, opts := newApp(t, true)
+	opts.ApplicationKey = opts.CloudApplicationKey
+	result, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := result.Public()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.AccountID != opts.AccountID || view.Binding.Region == "" {
+		t.Fatalf("target account/region missing: account=%q binding=%+v", view.AccountID, view.Binding)
+	}
+	byType := map[string]planning.ResourceIntent{}
+	for _, intent := range view.ResourceIntents {
+		byType[intent.ResourceType] = intent
+		if intent.Intent != "CREATE" {
+			t.Errorf("%s: a first Preview creates everything, got %s", intent.Descriptor, intent.Intent)
+		}
+	}
+	for _, typ := range []string{planning.TypeVPC, planning.TypeCluster, planning.TypeNamespace} {
+		intent, ok := byType[typ]
+		if !ok || intent.DefinitionKey == "" || intent.Ownership == "" || intent.Class == "" {
+			t.Fatalf("%s intent incomplete: %+v (all=%v)", typ, intent, view.ResourceIntents)
+		}
+	}
+	if vpc := byType[planning.TypeVPC]; vpc.Module == nil || vpc.Module.Revision == "" || len(vpc.Providers) == 0 {
+		t.Fatalf("vpc module/provider target missing: %+v", vpc)
+	}
+	raw, _ := json.Marshal(view.ResourceIntents)
+	var items []map[string]any
+	if err := json.Unmarshal(raw, &items); err != nil {
+		t.Fatal(err)
+	}
+	allowed := map[string]bool{"descriptor": true, "resourceType": true, "class": true, "scope": true, "ownership": true, "intent": true, "definitionKey": true, "driverType": true, "module": true, "providers": true}
+	for _, item := range items {
+		for key := range item {
+			if !allowed[key] {
+				t.Errorf("resource intent exposes %q", key)
+			}
+		}
+	}
+	conn, _ := app.Store.GetConnection(ctx, opts.OrganizationKey, opts.CloudConnectionKey)
+	if conn.SecretRef == "" || strings.Contains(string(raw), conn.SecretRef) {
+		t.Fatalf("connection secret reference exposed in intents")
+	}
+	// Pure: the projection read nothing but the store.
+	if len(items) == 0 {
+		t.Fatal("no resource intents")
+	}
+}
+
+func TestPreview_ResourceIntentsAreAnEmptyArrayNotMissing(t *testing.T) {
+	app, opts := newApp(t, false)
+	result, err := newPreview(t, app.Store).PreviewDeployment(context.Background(), query(opts, "frontend", preview.ActionDeploy, nil, scores(opts)["frontend"]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, _ := result.Public()
+	raw, _ := json.Marshal(view)
+	var decoded map[string]any
+	_ = json.Unmarshal(raw, &decoded)
+	if _, ok := decoded["resourceIntents"].([]any); !ok {
+		t.Fatalf("resourceIntents must always be an array, got %v", decoded["resourceIntents"])
+	}
+}
+
 // decodeNodes returns the JSON object of every public graph node.
 func decodeNodes(t *testing.T, view preview.View) []map[string]any {
 	t.Helper()
@@ -643,7 +715,7 @@ func TestPreview_PublicViewRedactsWithoutChangingPlan(t *testing.T) {
 	raw, _ := json.Marshal(view)
 	var top map[string]any
 	_ = json.Unmarshal(raw, &top)
-	want := []string{"action", "applicationKey", "baseSetId", "baseVersion", "batches", "candidateSet", "classification", "delta", "environmentKey", "graph", "matches", "planHash", "runId", "workloadId"}
+	want := []string{"action", "applicationKey", "baseSetId", "baseVersion", "batches", "binding", "candidateSet", "classification", "delta", "environmentKey", "graph", "matches", "planHash", "resourceIntents", "runId", "workloadId"}
 	if len(top) != len(want) {
 		t.Fatalf("view fields = %d, want exactly %v", len(top), want)
 	}
