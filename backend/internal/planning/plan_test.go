@@ -1,6 +1,7 @@
 package planning
 
 import (
+	"orchestrator/internal/seed/seedtest"
 	"strings"
 	"testing"
 
@@ -13,7 +14,7 @@ import (
 )
 
 func seedOptions() seed.Options {
-	o := seed.Defaults()
+	o := seedtest.Defaults()
 	o.Region = "us-east-1"
 	o.AccountID = "000000000000"
 	o.RunID = "run-test"
@@ -112,7 +113,7 @@ func (stubInspector) module(module string) (ModuleContract, error) {
 	contracts := map[string]ModuleContract{
 		"vpc": {
 			Module: "vpc", Fingerprint: "sha256:vpc",
-			Outputs: []string{"cidr", "id", "subnetIds"},
+			Outputs: []string{"cidr", "id", "privateSubnetIds", "subnetIds"},
 			Variables: map[string]ModuleVariable{
 				"region": {Name: "region"}, "name": {Name: "name"}, "tags": {Name: "tags"},
 				"cidr": {Name: "cidr"}, "az_count": {Name: "az_count", HasDefault: true},
@@ -126,6 +127,7 @@ func (stubInspector) module(module string) (ModuleContract, error) {
 				"subnet_ids": {Name: "subnet_ids"}, "kubernetes_version": {Name: "kubernetes_version"},
 				"node_instance_type": {Name: "node_instance_type"}, "node_capacity_type": {Name: "node_capacity_type"},
 				"node_disk_size": {Name: "node_disk_size"}, "node_ami_type": {Name: "node_ami_type"},
+				"ebs_csi_driver": {Name: "ebs_csi_driver", HasDefault: true}, "public_access_cidrs": {Name: "public_access_cidrs"},
 			},
 		},
 		"aurora": {
@@ -133,7 +135,7 @@ func (stubInspector) module(module string) (ModuleContract, error) {
 			Outputs: []string{"cluster_identifier", "database", "host", "password", "port", "security_group_id", "username", "writer_identifier"},
 			Variables: map[string]ModuleVariable{
 				"region": {Name: "region"}, "name": {Name: "name"}, "tags": {Name: "tags"},
-				"vpc_id": {Name: "vpc_id"}, "vpc_cidr": {Name: "vpc_cidr"}, "subnet_ids": {Name: "subnet_ids"},
+				"vpc_id": {Name: "vpc_id"}, "private_subnet_ids": {Name: "private_subnet_ids"}, "subnet_ids": {Name: "subnet_ids"},
 				"database": {Name: "database"}, "username": {Name: "username"},
 				"master_password": {Name: "master_password"}, "engine_version": {Name: "engine_version"},
 				"min_capacity": {Name: "min_capacity"}, "max_capacity": {Name: "max_capacity"},
@@ -622,5 +624,19 @@ func TestPlan_KeepsSharedResourceWhileAnotherWorkloadReferencesIt(t *testing.T) 
 	}
 	if _, ok := plan.CandidateSet.Shared["acceptance-db"]; !ok {
 		t.Fatalf("the shared entry must survive while the worker references it: %v", plan.CandidateSet.Shared)
+	}
+}
+
+// The product seed has no EKS allowlist: the AWS plan is refused before any
+// effect until a PE/Admin Definition supplies public_access_cidrs, and a host IP
+// is never inferred or added.
+func TestPlan_EKSWithoutPublicAccessAllowlistFailsBeforeEffects(t *testing.T) {
+	req := testRequest(t, application.ProfileAWSEKS, "backend")
+	o := seedOptions()
+	o.Cloud.EKSPublicAccessCIDRs = nil
+	req.Catalog = catalogOf(o)
+	_, err := NewService().Plan(req)
+	if err == nil || !strings.Contains(err.Error(), `required Terraform variable "public_access_cidrs"`) {
+		t.Fatalf("plan without allowlist: %v", err)
 	}
 }

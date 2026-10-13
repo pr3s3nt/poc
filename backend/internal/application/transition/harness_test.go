@@ -3,6 +3,7 @@ package transition_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/seed/seedtest"
 	"regexp"
 	"strings"
 	"testing"
@@ -40,7 +41,7 @@ const destKey = "lab2"
 // separate their namespaces.
 func newHarness(t *testing.T, mutate ...func(*bootstrap.Options)) *harness {
 	t.Helper()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	opts.RunID, opts.Region, opts.AccountID = "transition-test", "us-east-1", "000000000000"
 	options := bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, ConnectionCredentialStore: "memory"}
 	for _, m := range mutate {

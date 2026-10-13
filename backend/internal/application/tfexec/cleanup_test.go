@@ -257,3 +257,63 @@ func TestCleanupRejectsChangedGraphAfterAdmission(t *testing.T) {
 	}
 	h.release(op, environment.OpFailed)
 }
+
+// Shared private network: one VPC instance owns the network; two databases and
+// two caches are its consumers. Deleting one consumer never touches the VPC or
+// the other consumers; the VPC cannot be selected while any consumer remains
+// outside the set; it goes only with the last consumers (consumers first).
+// Real cleanup engine over the scripted provider seam (no AWS).
+func TestSharedVPCStaysWhileAnyConsumerRemains(t *testing.T) {
+	h := newHarness(t)
+	vpc := h.createInstance("run-1", "vpc.default#environments.app.staging", scopeOf("vpc"), nil)
+	mk := func(descriptor, scope string) tfexec.Result {
+		return h.createInstance("run-1", descriptor, scopeOf(scope), []string{vpc.InstanceID})
+	}
+	dbA := mk("postgres.default#shared.db-a", "db-a")
+	dbB := mk("postgres.default#shared.db-b", "db-b")
+	cacheA := mk("redis.default#shared.cache-a", "cache-a")
+	cacheB := mk("redis.default#shared.cache-b", "cache-b")
+	for _, c := range []tfexec.Result{dbA, dbB, cacheA, cacheB} {
+		h.markUnreferenced(c.InstanceID)
+	}
+	// The VPC itself is unreferenced, so only its consumers can block deleting it.
+	h.markUnreferenced(vpc.InstanceID)
+
+	// The VPC with every consumer outside the set is refused before any effect.
+	ctx, op, err := h.admit(tfresource.CleanupUserConfirmed, vpc.InstanceID, []string{vpc.InstanceID}, "")
+	if err == nil {
+		opens := h.runner.opens
+		_, err = h.svc.RunCleanup(ctx, h.orgKey, h.store, nil)
+		if !errors.Is(err, tfexec.ErrCleanupRejected) || h.runner.opens != opens {
+			t.Fatalf("vpc with consumers: %v", err)
+		}
+		h.release(op, environment.OpFailed)
+	}
+	if h.status(vpc.InstanceID) != tfresource.InstanceUnreferenced {
+		t.Fatal("a rejected delete changed the VPC")
+	}
+
+	// Delete one database and one cache: the VPC and the remaining pair stay.
+	for _, victim := range []tfexec.Result{dbA, cacheA} {
+		ctx, op, err := h.admit(tfresource.CleanupUserConfirmed, victim.InstanceID, []string{victim.InstanceID}, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		res, err := h.svc.RunCleanup(ctx, h.orgKey, h.store, nil)
+		if err != nil || res.Terminal != tfexec.CleanupSucceeded || len(res.Instances) != 1 {
+			t.Fatalf("cleanup of one consumer: %+v %v", res, err)
+		}
+		h.release(op, environment.OpSucceeded)
+	}
+	if h.status(vpc.InstanceID) != tfresource.InstanceUnreferenced || h.status(dbB.InstanceID) != tfresource.InstanceUnreferenced || h.status(cacheB.InstanceID) != tfresource.InstanceUnreferenced {
+		t.Fatal("deleting one consumer touched the shared network or another consumer")
+	}
+	// Still held by the two remaining consumers: refused again.
+	ctx, op, err = h.admit(tfresource.CleanupUserConfirmed, vpc.InstanceID, []string{vpc.InstanceID}, "")
+	if err == nil {
+		if _, err = h.svc.RunCleanup(ctx, h.orgKey, h.store, nil); !errors.Is(err, tfexec.ErrCleanupRejected) {
+			t.Fatalf("vpc with remaining consumers: %v", err)
+		}
+		h.release(op, environment.OpFailed)
+	}
+}

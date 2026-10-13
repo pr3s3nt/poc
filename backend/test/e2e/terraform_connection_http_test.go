@@ -3,6 +3,7 @@ package e2e
 import (
 	"encoding/json"
 	"net/http"
+	"orchestrator/internal/seed/seedtest"
 	"strings"
 	"testing"
 
@@ -23,7 +24,7 @@ func TestTerraformVPCEKSRegistrationRejectsConnectionHTTP(t *testing.T) {
 		}
 		return len(out["resourceDefinitions"].([]any))
 	}
-	for _, seeded := range seed.ResourceDefinitions(seed.Defaults()) {
+	for _, seeded := range seed.ResourceDefinitions(seedtest.Defaults()) {
 		if seeded.Key != "vpc-aws" && seeded.Key != "cluster-aws-eks" {
 			continue
 		}

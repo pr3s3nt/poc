@@ -16,7 +16,7 @@ import (
 func TestRegisterResourceDefinition_ContractsAndOrganization(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestRegisterResourceDefinition_ContractsAndOrganization(t *testing.T) {
 func TestRegisterResourceDefinition_KubernetesAndOutputMismatch(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}

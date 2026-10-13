@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"orchestrator/internal/seed/seedtest"
 	"strings"
 	"testing"
 
@@ -12,7 +13,6 @@ import (
 	connectionapp "orchestrator/internal/application/connection"
 	ct "orchestrator/internal/application/connection/connectiontest"
 	"orchestrator/internal/bootstrap"
-	"orchestrator/internal/seed"
 )
 
 const uploadToken = "upload-token-0123456789-secret"
@@ -31,7 +31,7 @@ func uploadServer(t *testing.T, withStore bool) (*httptest.Server, *uploadVerifi
 	t.Helper()
 	verifier := &uploadVerifier{}
 	store := credentialmemory.New()
-	options := bootstrap.Options{Seed: seed.Defaults(), Adapters: bootstrap.AdapterFake, KubeconfigVerifierOverride: verifier}
+	options := bootstrap.Options{Seed: seedtest.Defaults(), Adapters: bootstrap.AdapterFake, KubeconfigVerifierOverride: verifier}
 	if withStore {
 		options.ConnectionCredentialsOverride = store
 	}
@@ -192,7 +192,7 @@ func TestUC04UploadWithoutCredentialStoreFailsClosed(t *testing.T) {
 // is not a selectable/executable choice, and does not block Application
 // creation, which still yields UNCONFIGURED Environments.
 func TestProductSeedClusterIsVerifyingAndApplicationCreateStillWorks(t *testing.T) {
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	app, err := bootstrap.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)

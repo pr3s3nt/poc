@@ -338,7 +338,10 @@ func prepared(t *testing.T, id string) (dir, bin string) {
 	if err := os.WriteFile(filepath.Join(dir, "main.tf"), src, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	b := bundles(t)[id]
+	b, ok := bundles(t)[id]
+	if !ok {
+		b = awsBundles(t)[id]
+	}
 	if err := os.WriteFile(filepath.Join(dir, ".terraform.lock.hcl"), registry.LockFile(b.Providers), 0o600); err != nil {
 		t.Fatal(err)
 	}

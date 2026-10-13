@@ -32,7 +32,7 @@ func seededCatalog(t *testing.T, modules registryFactory) (*store.Store, *catalo
 	t.Helper()
 	ctx := context.Background()
 	st := store.New()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}

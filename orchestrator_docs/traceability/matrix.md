@@ -578,3 +578,21 @@ regressions cho Type/module/runtime classification, nested/interpolated refs,
 no consumer invocation/no metadata leakage và nonsecret A01 graph fixture.
 Codex verified 1021 tests trên PostgreSQL thật, không skip. Init/validate/plan
 và Docker image tests chưa thay live k8s/EKS/cleanup proof ở I04-11/12.
+
+## I04-05 shared private network decision
+
+Người dùng chốt UC-02 BR-02 bổ sung optional VPC `privateSubnetIds`; UC-08
+BR-01 và OC-10 resolve subnet outputs từ cùng provider VPC node. ADR-014/module
+contract giữ private network ownership trong state VPC, consumer cleanup không
+xóa shared subnets. I04-05 phải kiểm nhiều Aurora/ElastiCache cùng VPC và reverse
+cleanup; local implementation verified theo evidence I04-05; live verification chưa đạt.
+
+## I04-05 AWS module review complete
+
+[AWS module evidence](../verification/2026-10-14-i04-05-aws-modules.md):
+UC-02 BR-02/UC-08 BR-01 và OC-10 có privateSubnetIds mappings, hai Aurora/hai
+ElastiCache cùng VPC node, private network ownership và cleanup consumer guards.
+ADR-014 EKS `/32` allowlist, immutable module/provider/addon pins và input
+validation có registry/planner/actual CLI tests. Codex verified 1042 tests trên
+PostgreSQL thật, không skip; provider plan seam mock. Preflight runner wiring,
+UI registration và live AWS proofs còn I04-07/10/11/12.

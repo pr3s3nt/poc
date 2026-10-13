@@ -69,7 +69,7 @@ func TestT31DefinitionCapabilitiesGuideRegistrationHTTP(t *testing.T) {
 	if status := register(map[string]any{
 		"key": "vpc-t31", "resourceType": "vpc", "executionProfile": "aws-eks", "driverType": "terraform",
 		"driverInputs": map[string]any{"values": map[string]any{"source": vpcSource, "variables": map[string]any{"name": presets["vpc/terraform/name"]},
-			"output_mapping": map[string]any{"id": "id", "cidr": "cidr", "subnetIds": "subnetIds"}, "provider_bindings": map[string]any{"aws": map[string]any{"target": "environment"}}}},
+			"output_mapping": map[string]any{"id": "id", "cidr": "cidr", "subnetIds": "subnetIds", "privateSubnetIds": "privateSubnetIds"}, "provider_bindings": map[string]any{"aws": map[string]any{"target": "environment"}}}},
 		"criteria": []any{map[string]any{"class": "t31"}},
 	}); status != http.StatusCreated {
 		t.Fatalf("defaults-omitted vpc definition: %d", status)

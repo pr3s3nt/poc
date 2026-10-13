@@ -36,3 +36,13 @@ func Apply(ctx context.Context, st persistence.Store, o seed.Options) error {
 	}
 	return Ready(ctx, st, o)
 }
+
+// Defaults is seed.Defaults plus an RFC 5737 documentation address as the EKS
+// public API allowlist. The product seed has no allowlist (a PE/Admin must
+// supply one); this fixture exists only so tests can plan the AWS profile. It
+// is never a real executor address.
+func Defaults() seed.Options {
+	o := seed.Defaults()
+	o.Cloud.EKSPublicAccessCIDRs = []string{"203.0.113.10/32"}
+	return o
+}

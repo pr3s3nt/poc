@@ -6,26 +6,29 @@
   "providers": [
     {
       "source": "registry.terraform.io/hashicorp/aws",
-      "version": "5.80.0",
+      "version": "6.60.0",
       "binding": "aws",
       "hashes": [
-        "h1:N5Wfsf4xe5DJfSeo0G/ulkIxzyfmUIoSj/hAiZ2DaKU=",
-        "h1:q2pqSs7uPWvxunrBYjyirXARlxFIoxn2Lju42uJbxk4=",
-        "zh:0b1655e39639d60f2de2860a5df8642f9556ba0ca04529c1b861fde4935cb0df",
-        "zh:13dc0155e0a11edceee29ce687fc04c5a5a85f3324c67556472713cfd52e5807",
-        "zh:180f6cb2be44be14cfe329e0649121b774319f083b6e4e8fb749f85090d73121",
-        "zh:3158d44b74c67465f7f19f22c42b643840c8d18ce833e2ec86e8d93085b06926",
-        "zh:6351b5bf7cde5dc83e926944891570636069e05ca43341f4d1feda67773469bf",
-        "zh:6fa9db1532096ba50e842d369b6688979306d2295c7ead49b8a266b0d60962cc",
-        "zh:85d2fe75def7619ff2cc29102048875039cad088fafb62ecc14c3763e7b1e9d9",
-        "zh:9028d653f1d7341c6dfe2afe961b6541581e9043a474eac2faf90e6426a24f6d",
+        "h1:5UdlvWB6Ut0WSBEzjVX+ZGRikbIjDz8mm8+F2ULHQLM=",
+        "h1:BDSQlnJzI6J7VA7JmDk1gfgwVlEBWhTSVljOsxmEpOo=",
+        "h1:JV0ioBmGtA0OiDun9I4C5lEF5cs5xZ8DTJEjztzrHmM=",
+        "h1:VF6oe4urgR2lRZuCAytMHvUZHtqcZU99TGw915LdCL0=",
+        "zh:1a29660d9038c38e9e306194bd3e7de7017148f3491af7fdfa434d7d8c82b3d4",
+        "zh:268d711a0a9c18459e09a837405244e5d459bb4ebb5d34a91c4fcbabe3e25d26",
+        "zh:2d7058c285484e7cccf4f5b1973c10b404ae77532f77ea95115915dd341fbf5b",
+        "zh:2e1cddc362497b569ba528f013d0cf770465047b8185e8180f4ccabafa082577",
+        "zh:5210c99d5946dd4985a6cff7460422e257037679b35df0a54982e3f675d1a8d5",
+        "zh:60703aa30b23ed5e5cfabf2614aeb465cf2aa4b848eb8afb2723b6b9d358ccd0",
+        "zh:904f0651e9bfbf08b16f4d13c85e7841c2d1b5a670087cb11f8d4ad06249cf0c",
         "zh:9b12af85486a96aedd8d7984b0ff811a4b42e3d88dad1a3fb4c0b580d04fa425",
-        "zh:9c4e248c442bc60f07f9f089e5361f19936833370dc3c04b27916672b765f0e1",
-        "zh:a710a3979596e3f3938c3ec6bb748e604724d3a4afa96ed2c14f0a245cc41a11",
-        "zh:c27936bdf447779d0c0833bf52a9ef618985f5ea8e3e243d6266513520ca31c4",
-        "zh:c7681134a123486e72eaedc3f8d2d75e267dbbfd45fa7de5aea8f757af57f89b",
-        "zh:ea717ebad3561fd02591f9eecf30f3df5635405556fba2bdbf29fd42691bebac",
-        "zh:f4e1e8f23c58c3e8f4371f9c3379a723ab4155246e6b6daad8eb99e16666b2cb"
+        "zh:b4268c98208f725ea28afb38dde6cb4b7536de577c36ee919fa44c3d8d5faf70",
+        "zh:caf78d1713cc323383facae063c61584758ea697428f328600227902f3a9980f",
+        "zh:cb349f8a43653bfc78867909d6342c56073f9805bdbd9dc32a8e1d18302257d4",
+        "zh:e087e5e6e3130980838552022e022a62a52a851cf93a0029cb5d410a34f6106b",
+        "zh:e94318f9ebf29d06aa821da73a7fc7a637d7d13e535e40585c6242cea4477262",
+        "zh:effc513566df2f5b5921a5df884817b1de57790db1c485eece566c5d4c55c4ee",
+        "zh:f2be12b976d10a91289835056ff962721e65f47f8e52b368211c4bd3ce9e20e6",
+        "zh:fb7ef7e405b05789cec32c8ea06a353789c6e3a336b876508cf2ac98984f0558"
       ]
     },
     {
@@ -60,12 +63,12 @@
   ],
   "packaged": {
     "sourceId": "platform",
-    "revision": "v1-2026.10.13",
+    "revision": "v3-2026.10.13",
     "modules": [
       {
         "id": "vpc",
         "subdirectory": "vpc",
-        "contentSha256": "ebc9b73046f6838921bc5fcff8beebb725a0d085a8921e95766fb5a30339b92d",
+        "contentSha256": "f159d1be486706560730a1d7e36744b5588103d7d6ea9c67e1c120519cb382cc",
         "resourceTypes": [
           "vpc"
         ]
@@ -73,7 +76,7 @@
       {
         "id": "eks",
         "subdirectory": "eks",
-        "contentSha256": "00dabd6fe3df5514f1c26bc23064fe527157d27130402a4305abe71503070460",
+        "contentSha256": "15cd6a4d5a88dc48ff49cce5c84c68db160f934d8594752b933b502952647997",
         "resourceTypes": [
           "k8s-cluster"
         ],
@@ -85,10 +88,18 @@
       {
         "id": "aurora",
         "subdirectory": "aurora",
-        "contentSha256": "5fc963c62421d46ac1c68540f9fef2651314721facd245967394a63f6293e7f2",
+        "contentSha256": "f8755b77289c2e2bf5b2be351b90d4a1d44d0eeaf56021560c7fefb1aafc4ba6",
         "resourceTypes": [
           "postgres"
         ]
+      },
+      {
+        "id": "elasticache",
+        "subdirectory": "elasticache",
+        "resourceTypes": [
+          "redis"
+        ],
+        "contentSha256": "b46261d722e23f7ace3693c12f0d5ed03f28ca6d8abbbc8ae519230051c3e8e7"
       },
       {
         "id": "k8s-namespace",

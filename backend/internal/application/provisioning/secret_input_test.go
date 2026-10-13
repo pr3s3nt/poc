@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"orchestrator/internal/seed/seedtest"
 	"strings"
 	"testing"
 
@@ -19,7 +20,6 @@ import (
 	"orchestrator/internal/planning"
 	"orchestrator/internal/platform/clock"
 	"orchestrator/internal/ports/execution"
-	"orchestrator/internal/seed"
 )
 
 const leakedPassword = "s3cr3t-pw-value-0123456789"
@@ -64,7 +64,7 @@ func (v classVerifier) VerifyForExecution(_ context.Context, ref tfmodule.Source
 func runClassified(t *testing.T, typeSecret, moduleSensitive, runtimeSensitive bool, variable, param any) (*classExecutor, error, string) {
 	t.Helper()
 	ctx := context.Background()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)

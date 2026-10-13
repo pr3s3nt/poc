@@ -315,7 +315,7 @@ func TestInspectorRejectsForbiddenConstructs(t *testing.T) {
 		"sensitive default":        withRoot("variable \"token\" {\ntype = string\nsensitive = true\ndefault = \"s3cr3t\"\n}\n"),
 		"object type":              withRoot("variable \"o\" {\ntype = object({a = string})\n}\n"),
 		"provider outside release": withRoot("terraform {\nrequired_providers {\nnull = {\nsource = \"hashicorp/null\"\n}\n}\n}\n"),
-		"provider too new":         {"modules/redis/main.tf": strings.Replace(rootModule, ">= 5.0", ">= 6.0", 1)},
+		"provider too new":         {"modules/redis/main.tf": strings.Replace(rootModule, ">= 5.0", ">= 7.0", 1)},
 		"terraform too new":        {"modules/redis/main.tf": strings.Replace(rootModule, `required_version = ">= 1.5"`, `required_version = ">= 2.0"`, 1)},
 		"json configuration":       {"modules/redis/main.tf": rootModule, "modules/redis/x.tf.json": "{}"},
 		"override file":            {"modules/redis/main.tf": rootModule, "modules/redis/override.tf": ""},
@@ -354,7 +354,7 @@ func TestInspectorReadsContract(t *testing.T) {
 		t.Fatalf("executor owned %v", c.ExecutorOwned)
 	}
 	aws := result.providers["aws"]
-	if aws.Version != "5.80.0" || aws.Binding != tfmodule.BindingAWS || len(aws.Hashes) == 0 || aws.Constraints != ">= 5.0" {
+	if aws.Version != "6.60.0" || aws.Binding != tfmodule.BindingAWS || len(aws.Hashes) == 0 || aws.Constraints != ">= 5.0" {
 		t.Fatalf("provider %+v", aws)
 	}
 }
@@ -578,7 +578,7 @@ func TestMetadataNeverFetches(t *testing.T) {
 		t.Fatalf("other digest: %v", err)
 	}
 	list, err := f.svc.List(context.Background())
-	if err != nil || len(list) != 7 {
+	if err != nil || len(list) != 8 {
 		t.Fatalf("list: %d %v", len(list), err)
 	}
 	if f.git.opens != opens {
@@ -684,7 +684,7 @@ func TestVerifyForExecutionFailsClosed(t *testing.T) {
 	}
 	// Drift or a missing artifact in the shared cache stops the run.
 	bundleRoot := f.cache.bundleDir(ref)
-	cached := filepath.Join(bundleRoot, "sources", "platform@v1-2026.10.13", "vpc", "extra.tf")
+	cached := filepath.Join(bundleRoot, "sources", "platform@v3-2026.10.13", "vpc", "extra.tf")
 	if err := os.WriteFile(cached, []byte("# injected"), 0o600); err != nil {
 		t.Fatal(err)
 	}

@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"orchestrator/internal/seed/seedtest"
 	"strings"
 	"testing"
 
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/bootstrap/bootstraptest"
 	"orchestrator/internal/ports/execution"
-	"orchestrator/internal/seed"
 )
 
 type frontendFailDeployer struct{ fail bool }
@@ -145,7 +145,7 @@ func TestUC12UC16HTTPDraftFlow(t *testing.T) {
 
 func TestPendingDeployPartialFailureCanRetryOnlyRemainingWorkload(t *testing.T) {
 	failer := &frontendFailDeployer{fail: true}
-	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: seed.Defaults(), Adapters: bootstrap.AdapterFake, DeployerOverride: failer})
+	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: seedtest.Defaults(), Adapters: bootstrap.AdapterFake, DeployerOverride: failer})
 	if err != nil {
 		t.Fatal(err)
 	}

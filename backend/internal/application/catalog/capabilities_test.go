@@ -45,7 +45,7 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 	for _, c := range caps {
 		keys = append(keys, c.ResourceType+"/"+c.DriverType+"/"+c.Module)
 	}
-	want := []string{"k8s-cluster/terraform/eks", "k8s-namespace/kubernetes/", "k8s-namespace/terraform/k8s-namespace", "postgres/kubernetes/", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/redis-k8s", "vpc/terraform/vpc"}
+	want := []string{"k8s-cluster/terraform/eks", "k8s-namespace/kubernetes/", "k8s-namespace/terraform/k8s-namespace", "postgres/kubernetes/", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/elasticache", "redis/terraform/redis-k8s", "vpc/terraform/vpc"}
 	if !reflect.DeepEqual(keys, want) {
 		t.Fatalf("pairs %v, want %v", keys, want)
 	}
@@ -81,8 +81,13 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 	if v := eks["subnet_ids"]; v.Type != "list(string)" || v.Preset != "${resources['vpc.default#@infra'].outputs.subnetIds}" {
 		t.Fatalf("eks subnet_ids %+v", v)
 	}
+	// The EKS public API allowlist is a PE-owned required list: no default, no
+	// preset (nothing infers an address) and not a Developer Workload param.
+	if v := eks["public_access_cidrs"]; v.Type != "list(string)" || !v.Required || v.HasDefault || v.Default != nil || v.Preset != "" || v.ResourceParam {
+		t.Fatalf("eks public_access_cidrs %+v", v)
+	}
 	aurora := variableIndex(idx["postgres/terraform/aurora"])
-	for name, output := range map[string]string{"vpc_id": "id", "vpc_cidr": "cidr", "subnet_ids": "subnetIds"} {
+	for name, output := range map[string]string{"vpc_id": "id", "private_subnet_ids": "privateSubnetIds", "subnet_ids": "subnetIds"} {
 		if aurora[name].Preset != "${resources['vpc.default#@infra'].outputs."+output+"}" {
 			t.Fatalf("aurora %s preset %q", name, aurora[name].Preset)
 		}
@@ -137,7 +142,7 @@ func TestListDefinitionCapabilities_ResourceParamIsScoped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(caps) != 8 {
+	if len(caps) != 9 {
 		t.Fatalf("custom type changed the supported pairs: %d", len(caps))
 	}
 	// Another Organization without Resource Types still lists the pairs, no params.

@@ -22,7 +22,7 @@ import (
 func bundleTestServer(t *testing.T, bundles map[string]resource.RenderBundle) (*Server, *httptest.Server, *store.Store) {
 	t.Helper()
 	st := store.New()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(context.Background(), st, opts); err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestRenderBundlesSortedSafeMetadataOnly(t *testing.T) {
 func TestRenderBundlesReadOnlyAndRegistrationRevalidates(t *testing.T) {
 	s, ts, st := bundleTestServer(t, map[string]resource.RenderBundle{"b": {ID: "b", Version: "1", Digest: "d", BinaryDigest: "bd"}})
 	pe := bundleClient(t, ts.URL, "platform-engineer")
-	before, err := st.ListResourceDefinitions(context.Background(), seed.Defaults().OrganizationKey)
+	before, err := st.ListResourceDefinitions(context.Background(), seedtest.Defaults().OrganizationKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestRenderBundlesReadOnlyAndRegistrationRevalidates(t *testing.T) {
 	} else if resp.Body.Close(); resp.StatusCode < 400 {
 		t.Fatalf("POST render-bundles: %d", resp.StatusCode)
 	}
-	after, _ := st.ListResourceDefinitions(context.Background(), seed.Defaults().OrganizationKey)
+	after, _ := st.ListResourceDefinitions(context.Background(), seedtest.Defaults().OrganizationKey)
 	if len(after) != len(before) {
 		t.Fatal("GET render-bundles changed persisted Definitions")
 	}
@@ -172,7 +172,7 @@ func TestRenderBundlesReadOnlyAndRegistrationRevalidates(t *testing.T) {
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("unavailable bundle registration: %d", resp.StatusCode)
 	}
-	if final, _ := st.ListResourceDefinitions(context.Background(), seed.Defaults().OrganizationKey); len(final) != len(before) {
+	if final, _ := st.ListResourceDefinitions(context.Background(), seedtest.Defaults().OrganizationKey); len(final) != len(before) {
 		t.Fatal("unavailable registration inserted a Definition")
 	}
 }

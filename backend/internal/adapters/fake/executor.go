@@ -43,9 +43,10 @@ func (e *ResourceExecutor) Provision(_ context.Context, req execution.ProvisionR
 	case "vpc":
 		return execution.ProvisionResult{
 			Outputs: map[string]any{
-				"id":        "vpc-fake-" + req.ApplicationKey,
-				"cidr":      "10.42.0.0/16",
-				"subnetIds": "subnet-fake-a,subnet-fake-b",
+				"id":               "vpc-fake-" + req.ApplicationKey,
+				"cidr":             "10.42.0.0/16",
+				"subnetIds":        "subnet-fake-a,subnet-fake-b",
+				"privateSubnetIds": "subnet-fake-private-a,subnet-fake-private-b",
 			},
 			State: map[string]any{"driver": "fake", "descriptor": req.Descriptor},
 		}, nil

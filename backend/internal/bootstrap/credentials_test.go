@@ -2,18 +2,17 @@ package bootstrap
 
 import (
 	"context"
+	"orchestrator/internal/seed/seedtest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"orchestrator/internal/seed"
 )
 
 func TestConnectionCredentialStoreSelection(t *testing.T) {
 	ctx := context.Background()
 	build := func(opts Options) (*App, error) {
-		opts.Seed = seed.Defaults()
+		opts.Seed = seedtest.Defaults()
 		return Build(ctx, opts)
 	}
 	app, err := build(Options{Adapters: AdapterFake})

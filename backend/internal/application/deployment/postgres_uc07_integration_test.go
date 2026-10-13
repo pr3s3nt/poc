@@ -60,7 +60,7 @@ func TestPostgresRemove_CommitsSetStatusAndMarkerAtomically(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { st.Close() }()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}

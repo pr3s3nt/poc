@@ -1,8 +1,8 @@
 ---
 id: I04-06
 artifact: iteration-plan
-status: deferred
-last_reviewed: 2026-10-13
+status: current
+last_reviewed: 2026-10-14
 related: [M04, ADR-014, IMP-021]
 ---
 
@@ -10,7 +10,8 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Chưa bắt đầu; không suy status này thành task bị bỏ hoặc đã implement.
+Chặng 2; bắt đầu sau I04-05 đã verified. Xem
+[evidence modules](../../../verification/2026-10-14-i04-05-aws-modules.md).
 
 ## Phạm vi
 
@@ -46,7 +47,7 @@ STS không giả full READY; failure không lưu/overwrite credential winner; re
 
 ## Checks
 
-- `cd backend && REQUIRE_POSTGRES=1 go test ./... && go build ./...`
+- `cd backend && REQUIRE_POSTGRES=1 REQUIRE_TERRAFORM=1 go test ./... && go build ./...`
 - `cd frontend && npm run typecheck && npm run lint && npm test && npm run build`
 - Real isolated PostgreSQL credential-reference/rollback/reopen checks; headed UI video với secret masking
 

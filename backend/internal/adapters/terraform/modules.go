@@ -15,7 +15,7 @@ import (
 var moduleFS embed.FS
 
 // PackagedModules returns the trusted packaged module files shipped with the
-// binary, rooted at the module directories ("vpc", "eks", "aurora", "k8s-namespace", "redis-k8s", "postgres-k8s"). The
+// binary, rooted at the module directories ("vpc", "eks", "aurora", "elasticache", "k8s-namespace", "redis-k8s", "postgres-k8s"). The
 // module registry verifies them against the release manifest digests.
 func PackagedModules() fs.FS {
 	sub, err := fs.Sub(moduleFS, "modules")

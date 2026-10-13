@@ -15,7 +15,6 @@ import (
 	"orchestrator/internal/application/authentication"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/persistence"
-	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
 
@@ -49,7 +48,7 @@ func TestDefinitionCapabilitiesAuthShapeAndNoWrites(t *testing.T) {
 	if code, body := getCapabilities(t, bundleClient(t, ts.URL, "developer"), ts.URL, ""); code != http.StatusForbidden || strings.Contains(body, "capabilities") {
 		t.Fatalf("developer: %d %s", code, body)
 	}
-	org := seed.Defaults().OrganizationKey
+	org := seedtest.Defaults().OrganizationKey
 	typesBefore, _ := st.ListResourceTypes(context.Background(), org)
 	defsBefore, _ := st.ListResourceDefinitions(context.Background(), org)
 
@@ -89,7 +88,7 @@ func TestDefinitionCapabilitiesAuthShapeAndNoWrites(t *testing.T) {
 			}
 		}
 	}
-	if want := []string{"k8s-cluster/terraform/eks", "k8s-namespace/kubernetes/", "k8s-namespace/terraform/k8s-namespace", "postgres/kubernetes/", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/redis-k8s", "vpc/terraform/vpc"}; !reflect.DeepEqual(pairs, want) {
+	if want := []string{"k8s-cluster/terraform/eks", "k8s-namespace/kubernetes/", "k8s-namespace/terraform/k8s-namespace", "postgres/kubernetes/", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/elasticache", "redis/terraform/redis-k8s", "vpc/terraform/vpc"}; !reflect.DeepEqual(pairs, want) {
 		t.Fatalf("pairs %v", pairs)
 	}
 	// Image defaults are public digest pins ("name@sha256:..."); an internal
@@ -149,7 +148,7 @@ func (s *failingTypesStore) CreateResourceDefinition(ctx context.Context, org st
 // failure is the generic T20 500 envelope, with no raw text and no write.
 func TestDefinitionCapabilitiesInternalErrorIsSafeAndWriteFree(t *testing.T) {
 	st := store.New()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(context.Background(), st, opts); err != nil {
 		t.Fatal(err)
 	}

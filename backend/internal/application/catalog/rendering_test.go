@@ -6,7 +6,6 @@ import (
 	"orchestrator/internal/adapters/store"
 	"orchestrator/internal/application/catalog"
 	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 	"testing"
 )
@@ -14,7 +13,7 @@ import (
 func TestRenderingRegistrationRejectsUnavailableOrInfrastructureInputs(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}

@@ -3,6 +3,7 @@ package catalog_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"orchestrator/internal/planning"
 	"strings"
 	"testing"
@@ -172,7 +173,7 @@ func TestRegisterResourceDefinition_StrictDriverInputs(t *testing.T) {
 		"terraform list element null":  withVariables(aurora, map[string]any{"subnet_ids": []any{"subnet-a", nil}}),
 		"terraform map element type":   withVariables(aurora, map[string]any{"tags": map[string]any{"team": 1}}),
 		"terraform map as list":        withVariables(aurora, map[string]any{"tags": []any{sentinel}}),
-		"terraform null":               withVariables(aurora, map[string]any{"vpc_cidr": nil}),
+		"terraform null":               withVariables(aurora, map[string]any{"private_subnet_ids": nil}),
 		// BR-13 malformed placeholders.
 		"unterminated placeholder":     withVariables(pg, map[string]any{"image": "${context.app.id-" + sentinel}),
 		"unsupported placeholder":      withVariables(pg, map[string]any{"image": "${" + sentinel + "}"}),
@@ -225,7 +226,7 @@ func TestRegisterResourceDefinition_PlaceholderAwareTyping(t *testing.T) {
 		"adjacent placeholders":         withVariables(aurora, map[string]any{"database": "${context.app.id}${context.env.id}"}),
 		"escaped next to placeholder":   withVariables(aurora, map[string]any{"username": "$${literal}${context.app.id}"}),
 		"escaped full string":           withVariables(aurora, map[string]any{"engine_version": "$${context.app.id}"}),
-		"full resource reference":       withVariables(aurora, map[string]any{"vpc_cidr": vpcID}),
+		"full resource reference":       withVariables(aurora, map[string]any{"private_subnet_ids": vpcID}),
 		"list mixed elements":           withVariables(aurora, map[string]any{"subnet_ids": []any{"subnet-a", vpcID}}),
 		"optional default override":     withVariables(aurora, map[string]any{"seconds_until_auto_pause": 600}),
 		"postgres options omitted":      withVariables(pg, map[string]any{"image": deleteMarker, "storage": deleteMarker, "namespace": deleteMarker}),
@@ -289,4 +290,69 @@ func TestRegisterResourceDefinition_RejectsReservedBuiltinKey(t *testing.T) {
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); !errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("reserved key = %v", err)
 	}
+}
+
+// EKS public API allowlist authoring: a literal list of strings registers; a
+// scalar, a non-string element, a Workload parameter mapping or a missing value
+// is refused; the shape never carries an address by default.
+func TestRegisterResourceDefinition_EKSPublicAccessAllowlist(t *testing.T) {
+	ctx := context.Background()
+	_, svc, opts := seededCatalog(t, withRegistry)
+	base := registrable(t, opts, "cluster-aws-eks")
+	n := 0
+	try := func(def resource.Definition) error {
+		n++
+		def.Key = fmt.Sprintf("eks-allowlist-%d", n)
+		_, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def)
+		return err
+	}
+	if err := try(base); err != nil {
+		t.Fatalf("seeded fixture list: %v", err)
+	}
+	for name, def := range map[string]resource.Definition{
+		"missing":        withVariables(base, map[string]any{"public_access_cidrs": deleteMarker}),
+		"scalar":         withVariables(base, map[string]any{"public_access_cidrs": "203.0.113.10/32"}),
+		"element type":   withVariables(base, map[string]any{"public_access_cidrs": []any{"203.0.113.10/32", 7}}),
+		"element null":   withVariables(base, map[string]any{"public_access_cidrs": []any{nil}}),
+		"workload param": withInputMapping(base, "public_access_cidrs", "allowed"),
+		"secret-looking": withVariables(base, map[string]any{"public_access_cidrs": "${resources['postgres.default#shared.x'].outputs.password}"}),
+	} {
+		if err := try(def); err == nil {
+			t.Errorf("%s: unsafe or missing allowlist was registered", name)
+		}
+	}
+	// The product seed never ships an address.
+	product := seed.ResourceDefinitions(seed.Defaults())
+	for _, d := range product {
+		if d.Key == "cluster-aws-eks" {
+			if _, ok := d.Variables()["public_access_cidrs"]; ok {
+				t.Fatal("the product seed must not carry an EKS allowlist")
+			}
+		}
+	}
+}
+
+// withInputMapping maps one module variable to a Resource Type param.
+func withInputMapping(def resource.Definition, variable, param string) resource.Definition {
+	values := map[string]any{}
+	for k, v := range def.DriverValues() {
+		values[k] = v
+	}
+	mapping := map[string]any{}
+	if old, ok := values["input_mapping"].(map[string]any); ok {
+		for k, v := range old {
+			mapping[k] = v
+		}
+	}
+	mapping[variable] = map[string]any{"param": param}
+	variables := map[string]any{}
+	for k, v := range def.Variables() {
+		if k != variable {
+			variables[k] = v
+		}
+	}
+	values["input_mapping"] = mapping
+	values["variables"] = variables
+	def.DriverInputs = map[string]any{"values": values}
+	return def
 }

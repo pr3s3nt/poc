@@ -7,7 +7,6 @@ import (
 
 	"orchestrator/internal/adapters/postgres"
 	"orchestrator/internal/application/preview"
-	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
 
@@ -21,7 +20,7 @@ func TestPostgresPreview_RepeatableReadAndNoWrites(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(st.Close)
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	opts.RunID = runID
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)

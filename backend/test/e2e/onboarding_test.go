@@ -27,7 +27,7 @@ import (
 
 func buildOnboardingApp(t *testing.T, profile, statePath string) (*bootstrap.App, *httptest.Server) {
 	t.Helper()
-	seedOptions := seed.Defaults()
+	seedOptions := seedtest.Defaults()
 	seedOptions.Profile = profile
 	seedOptions.Region = "us-east-1"
 	seedOptions.AccountID = "000000000000"
@@ -201,7 +201,7 @@ func writeLegacyAccountState(t *testing.T, statePath string, passwords map[strin
 	if err != nil {
 		t.Fatal(err)
 	}
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	opts.Profile = "production"
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)

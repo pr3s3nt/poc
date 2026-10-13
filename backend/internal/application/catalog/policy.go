@@ -97,7 +97,8 @@ var terraformPresets = map[string]map[string]string{
 	"k8s-namespace": {"name": "${context.env.namespace}"},
 	"redis-k8s":     {"namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"},
 	"postgres-k8s":  {"namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"},
-	"aurora":        {"name": "${context.infra.resourceName}", "vpc_id": "${resources['vpc.default#@infra'].outputs.id}", "vpc_cidr": "${resources['vpc.default#@infra'].outputs.cidr}", "subnet_ids": "${resources['vpc.default#@infra'].outputs.subnetIds}"},
+	"elasticache":   {"vpc_id": "${resources['vpc.default#@infra'].outputs.id}", "subnet_ids": "${resources['vpc.default#@infra'].outputs.subnetIds}", "private_subnet_ids": "${resources['vpc.default#@infra'].outputs.privateSubnetIds}"},
+	"aurora":        {"name": "${context.infra.resourceName}", "vpc_id": "${resources['vpc.default#@infra'].outputs.id}", "subnet_ids": "${resources['vpc.default#@infra'].outputs.subnetIds}", "private_subnet_ids": "${resources['vpc.default#@infra'].outputs.privateSubnetIds}"},
 }
 
 // credentialVariables are never accepted as Driver Inputs (UC-03 BR-14). The

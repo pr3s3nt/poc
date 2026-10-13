@@ -71,6 +71,9 @@ Provision implicit infrastructure cùng private/shared resources theo dependency
 ## Quy tắc nghiệp vụ
 
 - **BR-01:** Edge graph có chiều `consumer -> provider`; chỉ execute một batch khi mọi provider dependency đã hoàn thành.
+  Aurora/ElastiCache tham chiếu outputs subnet private của cùng VPC Environment.
+  VPC tạo mạng một lần; nhiều database/cache không tạo lại subnet hoặc dải CIDR.
+  Xóa một consumer không xóa subnet thuộc VPC; consumer checks giữ nguyên.
 - **BR-02:** Logical identity gồm Organization, Environment/generation,
   descriptor/scope; mỗi instance một durable encrypted PostgreSQL state qua
   HTTP backend. Names/password refs giữ ổn định khi redeploy/retry. Run ID

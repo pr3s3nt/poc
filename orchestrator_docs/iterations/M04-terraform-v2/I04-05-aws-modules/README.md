@@ -1,8 +1,8 @@
 ---
 id: I04-05
 artifact: iteration-plan
-status: current
-last_reviewed: 2026-10-13
+status: historical
+last_reviewed: 2026-10-14
 related: [M04, ADR-014, IMP-021]
 ---
 
@@ -12,7 +12,9 @@ related: [M04, ADR-014, IMP-021]
 
 Chặng 2; bắt đầu sau I04-04 đã verified. Xem
 [evidence Kubernetes modules](../../../verification/2026-10-13-i04-04-kubernetes-modules.md).
-Task chỉ chuẩn bị modules, không apply AWS trước gate 2.
+Task modules đã verified local; xem
+[evidence](../../../verification/2026-10-14-i04-05-aws-modules.md).
+Chưa apply AWS; gate 2 và live proofs vẫn thuộc các task sau.
 
 ## Phạm vi
 

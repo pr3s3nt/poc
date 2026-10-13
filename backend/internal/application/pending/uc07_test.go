@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"orchestrator/internal/seed/seedtest"
 	"strings"
 	"testing"
 
@@ -118,7 +119,7 @@ func (sentinelDeployer) Remove(context.Context, execution.Target, string) error 
 
 func TestDeployReportDoesNotEchoRuntimeErrors(t *testing.T) {
 	ctx := context.Background()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, DeployerOverride: sentinelDeployer{}})
 	if err != nil {
 		t.Fatal(err)

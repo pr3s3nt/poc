@@ -11,6 +11,12 @@ last_reviewed: 2026-10-13
 
 Thực thi resource-only batches theo provider-first order, resolve runtime inputs, gọi executor phù hợp, validate outputs và persist Active Resource state cho consumer tiếp theo.
 
+Planner hợp nhất các references cùng VPC descriptor thành một provider node.
+Terraform VPC tạo private network và trả `privateSubnetIds`; provisioning resolve
+output vào `private_subnet_ids` của các Aurora/ElastiCache consumers. Mạng thuộc
+state của VPC, không thuộc state database/cache. Cleanup engine giữ mạng khi xóa
+một consumer và kiểm mọi consumer trước khi destroy VPC theo reverse graph.
+
 Container `resources.requests/limits` không phải infrastructure resource input của UC-08. Chúng được giữ trong workload module và được `WorkloadRenderer` của UC-06 ánh xạ sang Kubernetes manifests sau khi UC-08 trả outputs/target.
 
 ## System operation

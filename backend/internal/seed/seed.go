@@ -75,6 +75,11 @@ type CloudConfig struct {
 	AuroraEngineVersion string
 	AuroraMinACU        float64
 	AuroraMaxACU        float64
+	// EKSPublicAccessCIDRs is the PE/Admin allowlist (specific IPv4 /32 hosts)
+	// of the EKS public API. There is deliberately no default: empty leaves the
+	// seeded EKS Definition without the variable, so planning refuses it before
+	// any effect until a PE/Admin supplies the list.
+	EKSPublicAccessCIDRs []string
 }
 
 // DefaultCloudConfig returns the cheapest configuration that still runs the
@@ -83,7 +88,7 @@ type CloudConfig struct {
 func DefaultCloudConfig() CloudConfig {
 	return CloudConfig{
 		VPCCidr:             "10.42.0.0/16",
-		KubernetesVersion:   "1.34",
+		KubernetesVersion:   "1.35",
 		NodeInstanceType:    "t4g.small",
 		NodeCapacityType:    "SPOT",
 		NodeAmiType:         "AL2023_ARM_64_STANDARD",
@@ -150,6 +155,8 @@ func ResourceTypes() []resource.Type {
 				{Name: "id", Type: "string", Required: true},
 				{Name: "cidr", Type: "string"},
 				{Name: "subnetIds", Type: "any"},
+				// Optional: the shared private subnets Aurora/ElastiCache reference.
+				{Name: "privateSubnetIds", Type: "any"},
 			},
 		},
 		{
@@ -210,7 +217,26 @@ func (o Options) platformModules() map[string]tfmodule.SourceRef {
 func ResourceDefinitions(o Options) []resource.Definition {
 	cloud := o.Cloud
 	if cloud.KubernetesVersion == "" {
+		allowlist := cloud.EKSPublicAccessCIDRs
 		cloud = DefaultCloudConfig()
+		cloud.EKSPublicAccessCIDRs = allowlist
+	}
+	eksVariables := map[string]any{
+		"name":               "${context.infra.resourceName}",
+		"subnet_ids":         "${resources['vpc.default#@infra'].outputs.subnetIds}",
+		"kubernetes_version": cloud.KubernetesVersion,
+		"node_instance_type": cloud.NodeInstanceType,
+		"node_capacity_type": cloud.NodeCapacityType,
+		"node_ami_type":      cloud.NodeAmiType,
+		"node_disk_size":     cloud.NodeDiskSize,
+		"ebs_csi_driver":     true,
+	}
+	if len(cloud.EKSPublicAccessCIDRs) > 0 {
+		list := make([]any, len(cloud.EKSPublicAccessCIDRs))
+		for i, c := range cloud.EKSPublicAccessCIDRs {
+			list[i] = c
+		}
+		eksVariables["public_access_cidrs"] = list
 	}
 	modules := o.platformModules()
 	return []resource.Definition{
@@ -225,16 +251,8 @@ func ResourceDefinitions(o Options) []resource.Definition {
 			Key:             "cluster-aws-eks",
 			ResourceTypeKey: "k8s-cluster",
 			DriverType:      resource.DriverTerraform,
-			DriverInputs: terraformInputs(modules["eks"], map[string]any{
-				"name":               "${context.infra.resourceName}",
-				"subnet_ids":         "${resources['vpc.default#@infra'].outputs.subnetIds}",
-				"kubernetes_version": cloud.KubernetesVersion,
-				"node_instance_type": cloud.NodeInstanceType,
-				"node_capacity_type": cloud.NodeCapacityType,
-				"node_ami_type":      cloud.NodeAmiType,
-				"node_disk_size":     cloud.NodeDiskSize,
-			}, nil, []string{"name", "endpoint", "kubeContext", "kubeconfig"}),
-			Criteria: []resource.Criterion{{Class: "eks"}},
+			DriverInputs:    terraformInputs(modules["eks"], eksVariables, nil, []string{"name", "endpoint", "kubeContext", "kubeconfig"}),
+			Criteria:        []resource.Criterion{{Class: "eks"}},
 		},
 		{
 			Key:             "vpc-aws",
@@ -243,7 +261,7 @@ func ResourceDefinitions(o Options) []resource.Definition {
 			DriverInputs: terraformInputs(modules["vpc"], map[string]any{
 				"name": "${context.infra.resourceName}",
 				"cidr": cloud.VPCCidr,
-			}, nil, []string{"id", "cidr", "subnetIds"}),
+			}, nil, []string{"id", "cidr", "subnetIds", "privateSubnetIds"}),
 			Criteria: []resource.Criterion{{}},
 		},
 		{
@@ -264,13 +282,13 @@ func ResourceDefinitions(o Options) []resource.Definition {
 			ExecutionProfile: "aws-eks",
 			DriverType:       resource.DriverTerraform,
 			DriverInputs: terraformInputs(modules["aurora"], map[string]any{
-				"name":           "${context.infra.resourceName}",
-				"engine_version": cloud.AuroraEngineVersion,
-				"min_capacity":   cloud.AuroraMinACU,
-				"max_capacity":   cloud.AuroraMaxACU,
-				"vpc_id":         "${resources['vpc.default#@infra'].outputs.id}",
-				"vpc_cidr":       "${resources['vpc.default#@infra'].outputs.cidr}",
-				"subnet_ids":     "${resources['vpc.default#@infra'].outputs.subnetIds}",
+				"name":               "${context.infra.resourceName}",
+				"engine_version":     cloud.AuroraEngineVersion,
+				"min_capacity":       cloud.AuroraMinACU,
+				"max_capacity":       cloud.AuroraMaxACU,
+				"vpc_id":             "${resources['vpc.default#@infra'].outputs.id}",
+				"subnet_ids":         "${resources['vpc.default#@infra'].outputs.subnetIds}",
+				"private_subnet_ids": "${resources['vpc.default#@infra'].outputs.privateSubnetIds}",
 			}, []string{"database", "username"}, []string{"host", "port", "database", "username", "password"}),
 			Criteria: []resource.Criterion{{}},
 		},

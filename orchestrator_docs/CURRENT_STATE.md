@@ -22,7 +22,7 @@ gate tiếp theo là video A01 + estimate AWS; chặng 3 chỉ sau duyệt mới
 Không có M04 source code/test mutation, live scenario hoặc cloud create trong
 checkpoint tài liệu này. Các baseline status dưới đây vẫn là hiện trạng code.
 
-## I04-01/02/03/04 hoàn tất, I04-05 hiện hành — 2026-10-13
+## I04-01..05 hoàn tất, I04-06 hiện hành — 2026-10-14
 
 Encrypted state/roles/fencing đã verified. Final corrections: invalid state key
 trả 400, và REQUIRE_POSTGRES=1 chặn validation thiếu SQL. Claude/Codex độc lập
@@ -70,6 +70,21 @@ Chưa apply modules trên cluster; storage class và pod/PVC behavior còn cần
 verification. I04-05 chỉ chuẩn bị/validate AWS modules, không tạo hạ tầng AWS.
 AWS Connection UI, class/Definition form, selected-set Delete UI/API, Redis app
 và live scenarios thuộc các task sau. Gate 2 video A01 + dự toán AWS chưa đạt.
+
+## I04-05 hoàn tất, chuyển AWS Connection I04-06
+
+AWS modules VPC/EKS/Aurora/ElastiCache đã qua review và validation độc lập:
+**1042 PASS, 0 FAIL, 0 SKIP**, build/vet đạt với PostgreSQL riêng và Terraform
+CLI thật; cleanup đã xác minh. Release `v3-2026.10.13` pin AWS provider 6.60.0
+và EKS addon builds. API EKS nhận danh sách IP `/32` do PE/Admin cấu hình,
+không mặc định mở mọi IP. VPC sở hữu subnet private dùng chung; nhiều Aurora/
+ElastiCache nhận IDs qua Resource References và không tạo subnet riêng trùng CIDR.
+Xem [evidence AWS modules](verification/2026-10-14-i04-05-aws-modules.md).
+
+Module plan-policy tests dùng mock provider; chưa có AWS apply/live proof.
+I04-06 tiếp tục AWS Connection qua Console/Vault. Definition/class UI còn I04-07;
+egress preflight wiring còn I04-10; node capacity, mạng, storage/addons, TLS/auth
+và real cleanup còn live verification. Gate 2 chưa đạt, chưa được tạo AWS.
 
 ## Terraform v2 — accepted design, implementation pending (2026-10-13)
 

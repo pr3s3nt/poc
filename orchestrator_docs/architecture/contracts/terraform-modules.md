@@ -146,7 +146,9 @@ giữ database/username params hiện hành; Redis cung cấp class và binding 
 không thêm user-facing module selector. Sizing nằm trong module schema/Definition;
 chỉ expose param nghiệp vụ đã được Resource Type đăng ký, không expose mọi AWS knob.
 
-VPC/EKS/namespace giữ các output contract hiện hành; EKS target là scoped opaque
+VPC bổ sung output tùy chọn `privateSubnetIds`: danh sách ID subnet private,
+không bí mật (Type schema hiện hành dùng `any`; module kiểm list(string)).
+Giữ `subnetIds` cho subnet node EKS và các outputs hiện hành. EKS target là scoped opaque
 identity đủ tái tạo credential, không persist kubeconfig/temp path. Resource
 không Ready hoặc output sai contract thì không render/apply consumer.
 
@@ -159,7 +161,7 @@ không Ready hoặc output sai contract thì không render/apply consumer.
 | Namespace k8s-4f | Environment Kubernetes Connection | Trusted existing cluster binding |
 | Namespace EKS | EKS target từ completed node | EKS Ready và access hợp lệ |
 | Redis/PostgreSQL in-cluster | Cùng Kubernetes target | Namespace + storage/readiness capability cần thiết |
-| ElastiCache/Aurora | Cùng Environment AWS Connection + region | VPC/subnets/security groups; connectivity từ EKS |
+| ElastiCache/Aurora | Cùng Environment AWS Connection + region | VPC/privateSubnetIds dùng chung; subnet node EKS/security groups cho connectivity |
 
 No explicit AWS Connection/region override trong Definition v2. Reuse kiểm
 Organization/account/region/target generation và state owner; mismatch fail,
@@ -175,7 +177,24 @@ network paths. Kubernetes modules không cài cluster operators hoặc thay plat
 storage class/ingress controller ngoài scope. Managed database/cache private,
 chỉ allow ingress từ nguồn EKS cần thiết; không mở public database/Redis.
 
+Module EKS nhận `public_access_cidrs` kiểu list(string), bắt buộc và không rỗng,
+do PE/Admin cấu hình trong Definition. Trong release IPv4 hiện tại, các mục là
+IP IPv4 cụ thể dạng `/32`, được kiểm hợp lệ trước execution. Không có default
+mọi IP, không tự bổ sung IP executor. Public endpoint dùng danh sách này;
+private endpoint cho các node vẫn bật và IAM/RBAC vẫn bắt buộc. Acceptance
+preflight kiểm IP executor được cho phép trước run; thay đổi danh sách phải
+đi qua cấu hình và Preview theo lifecycle hiện hành.
+
 ## Execution lifecycle
+
+VPC module sở hữu private data subnets, route table và associations trong cùng
+state Environment/generation. Aurora/ElastiCache nhận required input
+`private_subnet_ids` list(string) từ Resource Reference tới `privateSubnetIds`
+của VPC, và chỉ sở hữu subnet group, security group và dịch vụ riêng của instance.
+Không tạo subnet/CIDR trong từng database/cache; không tự cấp phát mạng theo hash.
+Các consumer cùng tham chiếu một VPC descriptor dùng chung node graph. Destroy
+consumer giữ private network; destroy VPC gồm mạng đó sau khi hết consumer theo
+reverse graph. PostgreSQL/Redis output contracts và state identities không đổi.
 
 Logical `ExecuteResource(action, identity, pinnedModule, inputs, providerBindings,
 operationOwner, stateRef)` trả safe status/outputs/physical refs. Actions CREATE,

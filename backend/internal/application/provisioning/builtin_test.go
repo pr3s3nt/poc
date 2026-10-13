@@ -26,7 +26,7 @@ import (
 func TestEnsureBuiltinCluster_IdempotentAndFailsClosedOnCollision(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func builtinRequest(opts seed.Options, connectionKey string, match func(*plannin
 // A stale snapshot cannot bypass the execution-time Connection recheck.
 func TestProvision_BuiltinClusterRechecksStoredConnection(t *testing.T) {
 	ctx := context.Background()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	cases := map[string]func(*application.Connection){
 		"wrong kind": func(c *application.Connection) {
 			c.Kind, c.AuthenticationType = application.ConnectionAWS, application.AuthAWSAccessKey
@@ -137,7 +137,7 @@ func TestProvision_BuiltinClusterRechecksStoredConnection(t *testing.T) {
 
 func TestProvision_BuiltinClusterRejectsForgedMatch(t *testing.T) {
 	ctx := context.Background()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	forgeries := map[string]func(*planning.Match){
 		"other connection": func(m *planning.Match) { m.ConnectionKey = "other" },
 		"no binding":       func(m *planning.Match) { m.Binding = "" },
@@ -164,7 +164,7 @@ func TestProvision_BuiltinClusterRejectsForgedMatch(t *testing.T) {
 func TestEnsureBuiltinCluster_ConcurrentAdmissionStoresOneRecord(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ func (r fakeRegistry) Resolve(resource.DriverType) (execution.ResourceExecutor, 
 // the persisted foreign keys hold without any PostgreSQL mutation here.
 func TestProvision_BuiltinAdmissionPrecedesFKDependentWrites(t *testing.T) {
 	ctx := context.Background()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	opts.OrganizationKey = "acme"
 	inner := store.New()
 	if err := seedtest.Apply(ctx, inner, opts); err != nil {
@@ -266,7 +266,7 @@ func TestProvision_BuiltinAdmissionPrecedesFKDependentWrites(t *testing.T) {
 func TestEnsureBuiltinCluster_ConcurrentCollisionPreservesContent(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}

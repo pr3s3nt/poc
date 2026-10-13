@@ -76,7 +76,7 @@ func patchRename(t *testing.T, c *http.Client, url, body string) (int, map[strin
 func TestRenameHandlerStrictDecodingAndSafeEnvelopes(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}

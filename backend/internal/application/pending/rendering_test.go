@@ -13,6 +13,7 @@ import (
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,7 +26,7 @@ func TestRendererDefinitionChangeTriggersPendingUpdateAndStaleToken(t *testing.T
 	if err != nil {
 		t.Skip("local score-k8s unavailable")
 	}
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: opts, ScoreK8sPath: path})
 	if err != nil {
 		t.Fatal(err)
@@ -92,7 +93,7 @@ func copyCLI(t *testing.T, src, name, extra string) string {
 func restart(t *testing.T, state, binary string) (*bootstrap.App, *pending.Service, *scorek8s.Renderer, seed.Options) {
 	t.Helper()
 	ctx := context.Background()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: opts, ScoreK8sPath: binary, StatePath: state})
 	if err != nil {
 		t.Fatal(err)

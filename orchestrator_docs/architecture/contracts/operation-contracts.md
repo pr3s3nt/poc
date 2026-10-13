@@ -185,6 +185,9 @@ Không còn set-once/legacy backfill: lịch sử contract ở `a897d6b`/`3367f7
   Environment owner/fence, Connections READY, verified module pins.
 - Terraform CREATE/UPDATE cho namespace/Redis/PostgreSQL Kubernetes và
   VPC/EKS/ElastiCache/Aurora AWS; ExistingClusterAdapter chỉ resolve ADR-013.
+- VPC sở hữu private network; các Aurora/ElastiCache instances nhận subnet IDs
+  qua outputs/Resource References của cùng VPC node. Không tạo lại subnet/CIDR
+  cho từng consumer và không chuyển quyền xóa shared network cho consumer.
 - AWS nodes inherit cùng Environment account/region; Kubernetes bind Connection/
   completed EKS target. Reuse kiểm state owner/org/generation/target/account
   trước execution; lookup/mismatch lỗi không fallback hoặc đổi winner.

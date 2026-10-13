@@ -126,7 +126,7 @@ func newTerraformCatalog(t *testing.T, typ resource.Type) terraformCatalog {
 func newTerraformCatalogOn(t *testing.T, st persistence.Store, typ resource.Type) terraformCatalog {
 	t.Helper()
 	ctx := context.Background()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}

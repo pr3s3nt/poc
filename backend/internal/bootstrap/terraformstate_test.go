@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"orchestrator/internal/seed/seedtest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,7 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"orchestrator/internal/adapters/postgres/postgrestest"
-	"orchestrator/internal/seed"
 )
 
 // The Terraform state backend never starts without PostgreSQL and a valid
@@ -21,11 +21,11 @@ func TestTerraformStateBackendFailsClosed(t *testing.T) {
 	if err := os.WriteFile(keyFile, []byte(strings.Repeat("ab", 32)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	opts := Options{Seed: seed.Defaults(), TerraformStateKeyFile: keyFile, TerraformStateKeyID: "key-1"}
+	opts := Options{Seed: seedtest.Defaults(), TerraformStateKeyFile: keyFile, TerraformStateKeyID: "key-1"}
 	if _, err := Build(context.Background(), opts); err == nil || !strings.Contains(err.Error(), "requires PostgreSQL") {
 		t.Fatalf("in-memory store accepted for durable state: %v", err)
 	}
-	app, err := Build(context.Background(), Options{Seed: seed.Defaults()})
+	app, err := Build(context.Background(), Options{Seed: seedtest.Defaults()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestTerraformStateBackendUsesSeparateStateLogin(t *testing.T) {
 	other := postgrestest.Fresh(t)
 	key := writeKey(t)
 	base := func() Options {
-		return Options{Seed: seed.Defaults(), DatabaseURL: db.Console, TerraformStateDatabaseURL: db.State, TerraformStateKeyFile: key, TerraformStateKeyID: "key-1"}
+		return Options{Seed: seedtest.Defaults(), DatabaseURL: db.Console, TerraformStateDatabaseURL: db.State, TerraformStateKeyFile: key, TerraformStateKeyID: "key-1"}
 	}
 	app, err := Build(ctx, base())
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"orchestrator/internal/adapters/terraform/registry"
+	"orchestrator/internal/seed/seedtest"
 	"strings"
 	"testing"
 
@@ -23,7 +24,7 @@ import (
 
 func deployBackend(t *testing.T, profile application.ExecutionProfile) (*bootstrap.App, seed.Options, string, string) {
 	t.Helper()
-	seedOptions := seed.Defaults()
+	seedOptions := seedtest.Defaults()
 	seedOptions.Region = "us-east-1"
 	seedOptions.AccountID = "000000000000"
 	applicationKey := seedOptions.ApplicationKey
@@ -127,7 +128,7 @@ func (r *countingRegistry) Resolve(resource.DriverType) (execution.ResourceExecu
 // explicit Driver Account semantics.
 func TestProvision_InternalDefinitionConnectionMismatchFailsBeforeExecutor(t *testing.T) {
 	ctx := context.Background()
-	seedOptions := seed.Defaults()
+	seedOptions := seedtest.Defaults()
 	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)
@@ -166,7 +167,7 @@ func TestProvision_InternalDefinitionConnectionMismatchFailsBeforeExecutor(t *te
 // before any executor call; an external database Definition is not checked.
 func TestProvision_AWSTargetDefinitionConnectionMismatchFailsBeforeExecutor(t *testing.T) {
 	ctx := context.Background()
-	seedOptions := seed.Defaults()
+	seedOptions := seedtest.Defaults()
 	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)
@@ -259,7 +260,7 @@ func provisionAWS(t *testing.T, app *bootstrap.App, org, resourceType, definitio
 // Environment connection is pinned; executor request and ActiveResource agree.
 func TestProvision_AWSVPCAndEKSInheritEnvironmentConnection(t *testing.T) {
 	ctx := context.Background()
-	seedOptions := seed.Defaults()
+	seedOptions := seedtest.Defaults()
 	for _, resourceType := range []string{"vpc", "k8s-cluster"} {
 		for _, target := range []string{"aws-a", "aws-b"} {
 			app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
@@ -296,7 +297,7 @@ func TestProvision_AWSVPCAndEKSInheritEnvironmentConnection(t *testing.T) {
 // (UC-03 BR-08), and state recorded under another account is never reused.
 func TestProvision_AuroraKeepsExplicitAccountAndNeverInherits(t *testing.T) {
 	ctx := context.Background()
-	seedOptions := seed.Defaults()
+	seedOptions := seedtest.Defaults()
 	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)
@@ -327,7 +328,7 @@ func TestProvision_AuroraKeepsExplicitAccountAndNeverInherits(t *testing.T) {
 // any executor call, and an empty key is not a mismatch.
 func TestProvision_MalformedVPCKeyIsRejectedWithoutFallback(t *testing.T) {
 	ctx := context.Background()
-	seedOptions := seed.Defaults()
+	seedOptions := seedtest.Defaults()
 	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)
@@ -347,7 +348,7 @@ func TestProvision_MalformedVPCKeyIsRejectedWithoutFallback(t *testing.T) {
 // stored identity.
 func TestProvision_ReuseNeverCrossesAccounts(t *testing.T) {
 	ctx := context.Background()
-	seedOptions := seed.Defaults()
+	seedOptions := seedtest.Defaults()
 	cases := []struct{ name, resourceType, first, firstEnv, second, secondEnv string }{
 		{"vpc", "vpc", "", "aws-a", "", "aws-b"},
 		{"eks", "k8s-cluster", "", "aws-a", "", "aws-b"},
@@ -386,7 +387,7 @@ func TestProvision_ReuseNeverCrossesAccounts(t *testing.T) {
 // Organization: VPC/EKS check the Environment connection, Aurora its own.
 func TestProvision_EffectiveAWSConnectionUnavailableFailsBeforeExecutor(t *testing.T) {
 	ctx := context.Background()
-	seedOptions := seed.Defaults()
+	seedOptions := seedtest.Defaults()
 	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)

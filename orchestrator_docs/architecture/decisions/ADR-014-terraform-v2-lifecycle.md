@@ -36,6 +36,13 @@ Lịch sử triển khai và verification cũ được giữ nguyên.
 | Redis/PostgreSQL private | Workload trong Environment/generation | Identity theo private descriptor; một owner |
 | Redis/PostgreSQL shared | Environment/generation | Identity theo shared descriptor; nhiều consumer cùng contract |
 
+Người dùng chốt tách tài nguyên mạng và consumer qua Resource References:
+VPC của Environment/generation tạo và sở hữu bộ subnet private dùng chung.
+Aurora/ElastiCache nhận IDs của bộ subnet này qua outputs VPC, không tự tạo
+subnet theo dải CIDR cố định cho mỗi database/cache. Xóa một consumer giữ mạng;
+VPC chỉ được destroy khi consumer đã được kiểm và xóa theo ownership hiện hành.
+Đợt này vẫn dùng VPC chung mỗi Environment; không mở rộng sang nhiều VPC/peering.
+
 Deploy lại dùng identity/state cũ. Remove workload/dependency chỉ gỡ workload
 objects và đánh dấu resource không còn được dùng là UNREFERENCED; giữ dữ liệu.
 Người dùng đã chốt thao tác **Xóa tài nguyên** trên trang chi tiết tài nguyên
@@ -97,6 +104,14 @@ AWS resources của một Environment dùng cùng Connection/account/region đã
 không hỗ trợ account/region override cho Aurora hoặc ElastiCache. Kubernetes
 provider dùng Environment Connection hoặc EKS target do node EKS tạo. Credential
 được resolve riêng cho invocation; Workload không nhận provider credentials.
+
+Người dùng chốt public API EKS chỉ cho phép danh sách IP cụ thể. PE/Admin cấu
+hình danh sách trong Resource Definition EKS, truyền vào Terraform input
+`public_access_cidrs`; không thuộc form Workload của Developer. Với EKS IPv4
+trong đợt này, mỗi IP dùng CIDR `/32`. Không mặc định mở `0.0.0.0/0` hoặc tự thêm
+IP. Giữ private endpoint cho các node trong VPC và IAM/RBAC cho mọi truy cập.
+Preflight từng run kiểm IP ra Internet của executor có trong danh sách; thiếu
+hoặc không xác định được IP thì chặn và báo để PE/Admin cập nhật cấu hình.
 
 Giữ matching theo type/profile và năm criteria có trọng số hiện hành; class
 `in-cluster` hoặc `cloud-managed` thuộc dependency. Không match/tie thì fail;

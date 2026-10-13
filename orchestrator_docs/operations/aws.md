@@ -25,6 +25,10 @@ AWS resources trước duyệt chặng 2; cloud permissions đã giao không b�
 4. Durable encrypted platform PostgreSQL HTTP state, khóa/fencing, Vault và
    EKS network/access requirements phải preflight được trước apply.
 5. Terraform validate/plan review allowlist/count limits; UI Preview vẫn pure.
+6. Kiểm `public_access_cidrs` của Definition EKS chứa IP ra Internet hiện tại
+   của executor. Thiếu hoặc không xác định được IP thì dừng trước create;
+   PE/Admin cập nhật danh sách IP `/32` qua cấu hình/Preview. Không tự thêm IP
+   hoặc mở mọi IP. Private endpoint và IAM/RBAC vẫn bật.
 
 ## Thực thi và cleanup
 

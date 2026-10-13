@@ -121,7 +121,7 @@ func queryFixture(t *testing.T) (*countingStore, seed.Options, string) {
 	t.Helper()
 	ctx := context.Background()
 	st := store.New()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}

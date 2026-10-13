@@ -3,6 +3,7 @@ package deployment_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/seed/seedtest"
 	"strings"
 	"testing"
 
@@ -16,7 +17,7 @@ import (
 
 func newApp(t *testing.T, opts ...func(*bootstrap.Options)) (*bootstrap.App, seed.Options) {
 	t.Helper()
-	seedOptions := seed.Defaults()
+	seedOptions := seedtest.Defaults()
 	buildOptions := bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake}
 	for _, apply := range opts {
 		apply(&buildOptions)

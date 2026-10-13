@@ -20,7 +20,6 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/persistence"
-	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
 
@@ -124,7 +123,7 @@ func TestPostgresRegistrationServicesRaceOnSameKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(st.Close)
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}

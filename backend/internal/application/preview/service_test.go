@@ -7,6 +7,7 @@ import (
 	"orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/ports/moduleregistry"
+	"orchestrator/internal/seed/seedtest"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -192,7 +193,7 @@ const runID = "run-preview-test"
 
 func newApp(t *testing.T, cloud bool) (*bootstrap.App, seed.Options) {
 	t.Helper()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	opts.RunID = runID
 	if cloud {
 		opts.Region, opts.AccountID = "us-east-1", "000000000000"

@@ -2,6 +2,7 @@ package provisioning_test
 
 import (
 	"context"
+	"orchestrator/internal/seed/seedtest"
 	"sync"
 	"testing"
 
@@ -77,7 +78,7 @@ func (r v2Registry) VerifiesModules(driver resource.DriverType) bool {
 
 func deployV2(t *testing.T) (*v2Executor, seed.Options) {
 	t.Helper()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	opts.Region, opts.AccountID = "us-east-1", "000000000000"
 	reg := v2Registry{v2: &v2Executor{fake: fake.NewResourceExecutor()}, fake: fake.NewResourceExecutor()}
 	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, RegistryOverride: reg})
@@ -153,7 +154,7 @@ func TestProvision_V2ExecutorGetsPinsIdentityAndProviderInstances(t *testing.T) 
 // Runtime sensitivity reported by the executor makes the output secret even
 // though the Resource Type is the only other source: stored values are refs.
 func TestProvision_V2RuntimeSensitiveOutputsAreStoredAsReferences(t *testing.T) {
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	opts.Region, opts.AccountID = "us-east-1", "000000000000"
 	reg := v2Registry{v2: &v2Executor{fake: fake.NewResourceExecutor()}, fake: fake.NewResourceExecutor()}
 	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, RegistryOverride: reg})
@@ -196,7 +197,7 @@ func (e *holdingExecutor) Provision(ctx context.Context, req execution.Provision
 // (INTERRUPTED) even though the deploy path records an ordinary failure: no
 // second deploy can start until an operator confirms the process stopped.
 func TestDeployWithUnknownTerraformOutcomeHoldsTheEnvironment(t *testing.T) {
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	opts.Region, opts.AccountID = "us-east-1", "000000000000"
 	held := &holdingExecutor{v2Executor{fake: fake.NewResourceExecutor()}}
 	reg := v2Registry{v2: &held.v2Executor, fake: fake.NewResourceExecutor()}

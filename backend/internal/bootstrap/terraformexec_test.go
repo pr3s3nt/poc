@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/seed/seedtest"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"orchestrator/internal/adapters/postgres/postgrestest"
 	tfregistry "orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/ports/moduleregistry"
-	"orchestrator/internal/seed"
 )
 
 // Real adapters with the durable state backend wire the Terraform v2
@@ -28,7 +28,7 @@ func TestTerraformExecutorWiringInKubernetesAndAWSModes(t *testing.T) {
 	key := writeKey(t)
 	recovery := filepath.Join(t.TempDir(), "recovery")
 	base := func(mode AdapterMode) Options {
-		return Options{Seed: seed.Defaults(), DatabaseURL: db.Console, TerraformStateDatabaseURL: db.State, TerraformStateKeyFile: key, TerraformStateKeyID: "key-1",
+		return Options{Seed: seedtest.Defaults(), DatabaseURL: db.Console, TerraformStateDatabaseURL: db.State, TerraformStateKeyFile: key, TerraformStateKeyID: "key-1",
 			Adapters: mode, KubectlPath: "kubectl", TerraformPath: host, TerraformRecoveryDir: recovery, Region: "us-east-1"}
 	}
 	for _, mode := range []AdapterMode{AdapterKubernetes, AdapterAWS} {
@@ -61,7 +61,7 @@ func TestTerraformExecutorWiringInKubernetesAndAWSModes(t *testing.T) {
 			t.Errorf("%s: built", label)
 		}
 	}
-	noBackend := Options{Seed: seed.Defaults(), DatabaseURL: db.Console, Adapters: AdapterAWS, TerraformPath: host, Region: "us-east-1"}
+	noBackend := Options{Seed: seedtest.Defaults(), DatabaseURL: db.Console, Adapters: AdapterAWS, TerraformPath: host, Region: "us-east-1"}
 	if app, err := Build(ctx, noBackend); err == nil || !strings.Contains(err.Error(), "state backend") {
 		if app != nil {
 			app.Close()
@@ -69,7 +69,7 @@ func TestTerraformExecutorWiringInKubernetesAndAWSModes(t *testing.T) {
 		t.Fatalf("AWS adapters without the state backend: %v", err)
 	}
 	// Kubernetes mode without the backend runs no Terraform (and needs no binary).
-	k8s := Options{Seed: seed.Defaults(), DatabaseURL: db.Console, Adapters: AdapterKubernetes, KubectlPath: "kubectl", TerraformPath: "/nonexistent/terraform"}
+	k8s := Options{Seed: seedtest.Defaults(), DatabaseURL: db.Console, Adapters: AdapterKubernetes, KubectlPath: "kubectl", TerraformPath: "/nonexistent/terraform"}
 	app, err := Build(ctx, k8s)
 	if err != nil {
 		t.Fatalf("kubernetes mode without state backend: %v", err)

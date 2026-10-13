@@ -2,6 +2,7 @@ package deployment_test
 
 import (
 	"context"
+	"orchestrator/internal/seed/seedtest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,7 +60,7 @@ func startInstance(t *testing.T, statePath, kubectl string, creds *credentialmem
 	executor := &credentialExecutor{fake: fake.NewResourceExecutor()}
 	deployer := &kubernetes.Deployer{KubectlPath: kubectl, Timeout: time.Second}
 	app, err := bootstrap.Build(context.Background(), bootstrap.Options{
-		Seed: seed.Defaults(), Adapters: bootstrap.AdapterFake, StatePath: statePath,
+		Seed: seedtest.Defaults(), Adapters: bootstrap.AdapterFake, StatePath: statePath,
 		RegistryOverride: executor, DeployerOverride: deployer,
 		// The credential store stands in for durable Vault: it outlives the
 		// process, the snapshot holds only the opaque reference.
@@ -91,7 +92,7 @@ func TestCredentialBackedTarget_RemovalAfterRestart(t *testing.T) {
 	t.Setenv("STUB_EXPECT", restartToken)
 	statePath := filepath.Join(dir, "state.json")
 	creds := credentialmemory.New()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	scores := seed.AcceptanceScores(opts)
 
 	first := startInstance(t, statePath, kubectl, creds)

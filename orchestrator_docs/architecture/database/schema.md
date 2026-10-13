@@ -624,6 +624,11 @@ state rỗng là bằng chứng physical absence. Không cần cột SQL mới.
 
 ### Cleanup persistence
 
+Output metadata của Type `vpc` bổ sung optional `privateSubnetIds` (schema type
+`any`, giá trị module là list(string)); giữ trong output schema/JSON hiện hành,
+không thêm SQL column. Provider edges của Aurora/ElastiCache vẫn trỏ tới VPC
+instance; private subnets/route table thuộc state VPC, không tách instance riêng.
+
 `environment_operations.kind = RESOURCE_CLEANUP` lưu:
 `authorization_mode` (`USER_CONFIRMED` hoặc `RUN_CLEANUP`), `actor_ref`,
 `root_resource_instance_id`, `confirmed_scope jsonb` (đúng selectedResourceIds đã được kiểm, bắt buộc có root;

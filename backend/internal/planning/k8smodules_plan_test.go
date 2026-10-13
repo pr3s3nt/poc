@@ -2,6 +2,7 @@ package planning_test
 
 import (
 	"errors"
+	"orchestrator/internal/seed/seedtest"
 	"strings"
 	"testing"
 
@@ -58,7 +59,7 @@ func k8sRequestWith(t *testing.T, annotations map[string]any, adjust func(*plann
 	if err != nil {
 		t.Fatal(err)
 	}
-	o := seed.Defaults()
+	o := seedtest.Defaults()
 	o.RunID = "run-test"
 	nsOut := "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
 	redisVars := map[string]any{"namespace": nsOut}

@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"orchestrator/internal/adapters/postgres/postgrestest"
+	"orchestrator/internal/seed/seedtest"
 	"strings"
 	"sync"
 	"testing"
 
 	"orchestrator/internal/adapters/credentialmemory"
 	"orchestrator/internal/bootstrap"
-	"orchestrator/internal/seed"
 )
 
 const fastPostgres = `{"key":"postgres-fast","resourceType":"postgres","executionProfile":"internal-k8s","driverType":"kubernetes","connectionKey":"fast-cluster",` +
@@ -133,7 +133,7 @@ func TestUC02UC04ManagementHTTPContract(t *testing.T) {
 
 func TestUC02UC04ConcurrentRegistrationOnPostgres(t *testing.T) {
 	databaseURL := postgrestest.Fresh(t).Console
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	app, err := bootstrap.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, DatabaseURL: databaseURL, KubeconfigVerifierOverride: approvedCluster{}, ConnectionCredentialsOverride: credentialmemory.New()})
 	if err != nil {
 		t.Fatal(err)

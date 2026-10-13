@@ -3,6 +3,7 @@ package provisioning_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/seed/seedtest"
 	"strings"
 	"testing"
 
@@ -19,7 +20,6 @@ import (
 	"orchestrator/internal/platform/clock"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/ports/moduleregistry"
-	"orchestrator/internal/seed"
 )
 
 // moduleExecutor stands in for an executor that runs module code: it
@@ -94,7 +94,7 @@ func runVerified(t *testing.T, app *bootstrap.App, org string, verifier modulere
 // verification failure or a missing verifier stops the node before the call.
 func TestProvision_VerifiesModuleImmediatelyBeforeExecution(t *testing.T) {
 	ctx := context.Background()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	for name, verifier := range map[string]*stubVerifier{"drift": {err: moduleregistry.ErrDrift}, "binary": {err: moduleregistry.ErrBinaryUnverified}, "missing verifier": nil} {
 		app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake})
 		if err != nil {

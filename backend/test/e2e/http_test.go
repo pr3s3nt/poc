@@ -11,6 +11,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"orchestrator/internal/adapters/postgres/postgrestest"
+	"orchestrator/internal/seed/seedtest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,7 +43,7 @@ func newServerApp(t *testing.T, uiDir string, verifier ...connectionapp.Kubeconf
 // registry spy) before the app is built.
 func newServerAppWith(t *testing.T, uiDir string, mutate func(*bootstrap.Options), verifier ...connectionapp.KubeconfigVerifier) (*httptest.Server, seed.Options, *bootstrap.App) {
 	t.Helper()
-	seedOptions := seed.Defaults()
+	seedOptions := seedtest.Defaults()
 	seedOptions.Region = "us-east-1"
 	seedOptions.AccountID = "000000000000"
 	seedOptions.RunID = "run-e2e"
@@ -591,7 +592,7 @@ func TestHTTPDeploymentReadsRequireScopedSessionAndHideResolvedInputs(t *testing
 // a plain 404 and storage errors must never reach the client.
 func TestHTTPDeploymentReadsOnPostgres(t *testing.T) {
 	databaseURL := postgrestest.Fresh(t).Console
-	seedOptions := seed.Defaults()
+	seedOptions := seedtest.Defaults()
 	seedOptions.RunID = "run-e2e"
 	// The deploy below needs the seeded cluster READY (fake-only setup, ID kept).
 	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake, DatabaseURL: databaseURL})

@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/bootstrap/bootstraptest"
-	"orchestrator/internal/seed"
+	"orchestrator/internal/seed/seedtest"
 	"os/exec"
 	"testing"
 )
@@ -16,7 +16,7 @@ func TestScoreK8sPublicDefinitionPreviewDeploy(t *testing.T) {
 	if err != nil {
 		t.Skip("local score-k8s unavailable")
 	}
-	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: seed.Defaults(), ScoreK8sPath: path})
+	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: seedtest.Defaults(), ScoreK8sPath: path})
 	if err != nil {
 		t.Fatal(err)
 	}

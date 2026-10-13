@@ -17,7 +17,6 @@ import (
 	ct "orchestrator/internal/application/connection/connectiontest"
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/ports/persistence"
-	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
 
@@ -61,7 +60,7 @@ func TestPostgresKubeconfigRegistrationRaceAndReopen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}

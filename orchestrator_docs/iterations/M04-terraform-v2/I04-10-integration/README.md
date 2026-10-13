@@ -59,3 +59,7 @@ khi code stage được duyệt. Claude không sửa docs/commit/push. Codex rev
 verify độc lập; kiểm tiến độ bình thường mỗi 240 giây, không poll liên tục.
 Evidence thật/fake và checks skipped phải phân biệt; failed video/phase marks
 giữ lại. Code-map/CURRENT_STATE/traceability chỉ ghi actual results sau delivery.
+
+## Carryover I04-05
+
+Runner quan sát IP ra Internet của executor và gọi preflight.CheckEgress trước bất kỳ create; không tự thêm IP/mở rộng allowlist. Kiểm VPC/provider-first ordering và retained history với real executor.

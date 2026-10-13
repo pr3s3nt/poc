@@ -53,6 +53,8 @@ last_reviewed: 2026-10-13
 - **BR-02:** Resource Type định nghĩa contract độc lập module và provider.
   Redis và PostgreSQL là các loại được hỗ trợ; mỗi loại có cùng output schema
   cho in-cluster và dịch vụ AWS theo [module contract](../../architecture/contracts/terraform-modules.md).
+  Type `vpc` giữ outputs hiện hành và thêm `privateSubnetIds` tùy chọn cho
+  Aurora/ElastiCache tham chiếu; đây là danh sách subnet IDs không bí mật.
 - **BR-03:** Mọi Definition của một Type phải cung cấp đúng output schema;
   output bí mật không được hạ xuống thành output công khai.
 - **BR-04:** Score params chỉ chứa inputs trong schema đã đăng ký. Metadata

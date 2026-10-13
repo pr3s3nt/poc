@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/seed/seedtest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"orchestrator/internal/domain/secretstore"
 	"orchestrator/internal/platform/ids"
 	configport "orchestrator/internal/ports/configuration"
-	"orchestrator/internal/seed"
 )
 
 type countVerifier struct {
@@ -43,7 +43,7 @@ func writeToken(t *testing.T, value string) string {
 
 func platformOptions(statePath string, creds *credentialmemory.Store, verifier configport.Verifier, tokenFile string) Options {
 	return Options{
-		Adapters: AdapterFake, Seed: seed.Defaults(), StatePath: statePath,
+		Adapters: AdapterFake, Seed: seedtest.Defaults(), StatePath: statePath,
 		ConnectionCredentialsOverride: creds, SecretStoreVerifierOverride: verifier,
 		PlatformVault: &PlatformVaultBootstrap{Address: "http://vault:8200", WorkloadAddress: "http://vault.vault.svc:8200", TokenFile: tokenFile},
 	}
@@ -90,7 +90,7 @@ func TestPlatformVaultBootstrapFreshRestartAndRefresh(t *testing.T) {
 	ctx := context.Background()
 	state := filepath.Join(t.TempDir(), "state.json")
 	creds, verifier := credentialmemory.New(), &countVerifier{}
-	org := seed.Defaults().OrganizationKey
+	org := seedtest.Defaults().OrganizationKey
 
 	opts := platformOptions(state, creds, verifier, writeToken(t, "bootstrap-token"))
 	app, err := Build(ctx, opts)
@@ -161,7 +161,7 @@ func TestPlatformVaultBootstrapFailsClosed(t *testing.T) {
 
 func TestPlatformVaultBootstrapConflictStopsStartup(t *testing.T) {
 	ctx := context.Background()
-	org := seed.Defaults().OrganizationKey
+	org := seedtest.Defaults().OrganizationKey
 	t.Run("different endpoint", func(t *testing.T) {
 		state := filepath.Join(t.TempDir(), "state.json")
 		creds, verifier := credentialmemory.New(), &countVerifier{}
@@ -182,7 +182,7 @@ func TestPlatformVaultBootstrapConflictStopsStartup(t *testing.T) {
 	t.Run("unmarked user store is never overwritten", func(t *testing.T) {
 		state := filepath.Join(t.TempDir(), "state.json")
 		creds, verifier := credentialmemory.New(), &countVerifier{}
-		base, err := Build(ctx, Options{Adapters: AdapterFake, Seed: seed.Defaults(), StatePath: state})
+		base, err := Build(ctx, Options{Adapters: AdapterFake, Seed: seedtest.Defaults(), StatePath: state})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -199,7 +199,7 @@ func TestPlatformVaultBootstrapConflictStopsStartup(t *testing.T) {
 		if !errors.Is(err, secretstores.ErrBootstrapConflict) {
 			t.Fatalf("unmarked store must stop startup: %v", err)
 		}
-		reread, _ := Build(ctx, Options{Adapters: AdapterFake, Seed: seed.Defaults(), StatePath: state})
+		reread, _ := Build(ctx, Options{Adapters: AdapterFake, Seed: seedtest.Defaults(), StatePath: state})
 		got, _ := reread.Store.GetSecretStore(ctx, org, "platform-vault")
 		if got.CredentialRef != ref || got.Name != "Mine" || creds.Len() != 1 || verifier.calls.Load() != 0 {
 			t.Fatalf("user store changed: %+v creds=%d verify=%d", got, creds.Len(), verifier.calls.Load())
@@ -211,9 +211,9 @@ func TestPlatformVaultTokenReplacementRefreshesManagedStoresInEveryOrganization(
 	ctx := context.Background()
 	state := filepath.Join(t.TempDir(), "state.json")
 	creds, verifier := credentialmemory.New(), &countVerifier{}
-	seedOrg := seed.Defaults().OrganizationKey
+	seedOrg := seedtest.Defaults().OrganizationKey
 
-	base, err := Build(ctx, Options{Adapters: AdapterFake, Seed: seed.Defaults(), StatePath: state})
+	base, err := Build(ctx, Options{Adapters: AdapterFake, Seed: seedtest.Defaults(), StatePath: state})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestPlatformVaultTokenReplacementRefreshesManagedStoresInEveryOrganization(
 		t.Fatal(err)
 	}
 	read := func(org string) secretstore.Store {
-		app, err := Build(ctx, Options{Adapters: AdapterFake, Seed: seed.Defaults(), StatePath: state})
+		app, err := Build(ctx, Options{Adapters: AdapterFake, Seed: seedtest.Defaults(), StatePath: state})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -269,7 +269,7 @@ func TestPlatformVaultTokenReplacementRefreshesManagedStoresInEveryOrganization(
 	}
 
 	// Another organization with an unmarked ordinary platform-vault must stay untouched.
-	app, _ := Build(ctx, Options{Adapters: AdapterFake, Seed: seed.Defaults(), StatePath: state})
+	app, _ := Build(ctx, Options{Adapters: AdapterFake, Seed: seedtest.Defaults(), StatePath: state})
 	if err := app.Store.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: "umbrella", Name: "umbrella"}); err != nil {
 		t.Fatal(err)
 	}
@@ -312,7 +312,7 @@ func TestPlatformVaultTokenReplacementRefreshesManagedStoresInEveryOrganization(
 	if untouched.CredentialRef != umbrellaRef || untouched.Name != "Platform Vault" {
 		t.Fatalf("unrelated organization changed: %+v", untouched)
 	}
-	reread, _ := Build(ctx, Options{Adapters: AdapterFake, Seed: seed.Defaults(), StatePath: state})
+	reread, _ := Build(ctx, Options{Adapters: AdapterFake, Seed: seedtest.Defaults(), StatePath: state})
 	if got, err := reread.Store.GetSecretStore(ctx, "globex", "team-vault"); err != nil || got.CredentialRef != unrelated.CredentialRef || got.Name != "Team" {
 		t.Fatalf("unrelated store changed: %+v %v", got, err)
 	}

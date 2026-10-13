@@ -3,6 +3,7 @@ package pending_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/seed/seedtest"
 	"strings"
 	"testing"
 
@@ -40,7 +41,7 @@ func scoreFor(name, image string, public bool) map[string]any {
 
 func fixture(t *testing.T) (*bootstrap.App, *workloadconfig.Service, *pending.Service, seed.Options) {
 	t.Helper()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)

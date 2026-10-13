@@ -574,7 +574,7 @@ func TestPreviewMatching_AllFiveCriteriaScoreThirtyOne(t *testing.T) {
 
 func TestPreviewMatching_AWSInfrastructureConflictButAuroraExternalAccountDoesNot(t *testing.T) {
 	st := store.New()
-	opts := seed.Defaults()
+	opts := seedtest.Defaults()
 	opts.Region, opts.AccountID = "us-east-1", "000000000000"
 	if err := seedtest.Apply(context.Background(), st, opts); err != nil {
 		t.Fatal(err)
