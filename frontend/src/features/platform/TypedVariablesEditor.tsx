@@ -5,12 +5,14 @@ const kindLabels = { string: 'chuỗi', number: 'số', bool: 'đúng/sai', list
 
 const defaultText = (variable: CapabilityVariable) => (typeof variable.default === 'string' ? variable.default : JSON.stringify(variable.default));
 
-function sourceNote(variable: CapabilityVariable): string {
+function sourceNote(variable: CapabilityVariable, mappedParam?: string, covered?: boolean, explicit = false): string {
   const parts: string[] = [];
-  if (variable.resourceParam) parts.push('Nguồn: tham số (param) của Loại tài nguyên; Cấu hình không điền lại. Giá trị bạn nhập ở đây chỉ là giá trị dự phòng: khi workload khai báo param thật, param của workload vẫn được ưu tiên.');
+  if (explicit && mappedParam) parts.push(`Nguồn: tham số "${mappedParam}" của Loại tài nguyên (qua ánh xạ đầu vào). Param thật của workload luôn được ưu tiên hơn giá trị dự phòng bạn nhập ở đây và hơn mặc định của module.`);
+  else if (!explicit && variable.resourceParam) parts.push('Nguồn: tham số (param) của Loại tài nguyên; Cấu hình không điền lại. Giá trị bạn nhập ở đây chỉ là giá trị dự phòng: khi workload khai báo param thật, param của workload vẫn được ưu tiên.');
   if (variable.hasDefault) parts.push(`Mặc định: ${defaultText(variable)}. Bỏ trống để dùng mặc định, không gửi giá trị.`);
-  if (variable.required && !variable.hasDefault && !variable.resourceParam) parts.push('Bắt buộc: phải ghi đè và nhập giá trị.');
-  else if (!variable.hasDefault && !variable.resourceParam) parts.push('Tùy chọn: bỏ trống thì hệ thống không gửi giá trị.');
+  const fed = explicit ? covered === true : variable.resourceParam;
+  if (variable.required && !variable.hasDefault && !fed) parts.push('Bắt buộc: phải ghi đè và nhập giá trị.');
+  else if (!variable.hasDefault && !fed) parts.push('Tùy chọn: bỏ trống thì hệ thống không gửi giá trị.');
   return parts.join(' ');
 }
 
@@ -19,12 +21,17 @@ type Props = {
   draft: VariableDraft;
   onChange: (draft: VariableDraft) => void;
   disabled?: boolean;
+  // Explicit input mapping (variable -> Resource Type input) and the variables it
+  // feeds from a required input. Without it the same-name resourceParam hint is used.
+  mapped?: Record<string, string>;
+  covered?: ReadonlySet<string>;
 };
 
 // One opt-in control per editable Driver Input variable (UC-03 BR-24/BR-25).
 // Executor-owned variables and credentials have no control; the JSON mode keeps
 // anything this form cannot represent.
-export function TypedVariablesEditor({ variables, draft, onChange, disabled = false }: Props) {
+export function TypedVariablesEditor({ variables, draft, onChange, disabled = false, mapped, covered }: Props) {
+  const explicit = mapped !== undefined;
   const patch = (name: string, change: Partial<VariableEntry>) => onChange({ ...draft, [name]: { on: false, raw: '', ...draft[name], ...change } });
   const remove = (name: string) => { const next = { ...draft }; delete next[name]; onChange(next); };
   if (variables.length === 0) return <p className="feature-note">Cách tạo này không có tham số cấu hình để nhập.</p>;
@@ -36,8 +43,8 @@ export function TypedVariablesEditor({ variables, draft, onChange, disabled = fa
     const check = on ? entryValue(variable, entry) : {};
     const setRaw = (raw: string) => patch(variable.name, { on: true, raw });
     return <div key={variable.name} className="typed-variable" data-variable={variable.name}>
-      <label className="typed-variable-toggle"><input type="checkbox" aria-label={`Ghi đè ${variable.name}`} checked={on} disabled={disabled} onChange={(event) => (event.target.checked ? patch(variable.name, { on: true, raw: entry?.raw ?? '' }) : remove(variable.name))} /> <code>{variable.name}</code> <span className="status-pill">{variable.type}</span>{variable.required && !variable.hasDefault && !variable.resourceParam ? <span className="status-pill">Bắt buộc</span> : null}</label>
-      <p id={`${id}-note`} className="feature-note">{sourceNote(variable)}</p>
+      <label className="typed-variable-toggle"><input type="checkbox" aria-label={`Ghi đè ${variable.name}`} checked={on} disabled={disabled} onChange={(event) => (event.target.checked ? patch(variable.name, { on: true, raw: entry?.raw ?? '' }) : remove(variable.name))} /> <code>{variable.name}</code> <span className="status-pill">{variable.type}</span>{variable.required && !variable.hasDefault && !(explicit ? covered?.has(variable.name) : variable.resourceParam) ? <span className="status-pill">Bắt buộc</span> : null}</label>
+      <p id={`${id}-note`} className="feature-note">{sourceNote(variable, mapped?.[variable.name], covered?.has(variable.name), explicit)}</p>
       {on ? <div className="typed-variable-control">
         {kind === 'bool' ? <label>Giá trị {variable.name}<select aria-label={`Giá trị ${variable.name}`} aria-describedby={`${id}-note`} value={entry?.placeholder ? 'placeholder' : entry?.raw === 'true' || entry?.raw === 'false' ? entry.raw : ''} disabled={disabled} onChange={(event) => (event.target.value === 'placeholder' ? patch(variable.name, { raw: '', placeholder: true }) : patch(variable.name, { raw: event.target.value, placeholder: false }))}>
           <option value="">Chọn giá trị</option><option value="true">true</option><option value="false">false</option><option value="placeholder">Placeholder nguyên vẹn…</option></select></label> : null}

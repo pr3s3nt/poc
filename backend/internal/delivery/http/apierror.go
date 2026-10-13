@@ -172,6 +172,7 @@ var (
 	trustedReasons = map[string]bool{
 		planning.ReasonWorkloadExists: true, planning.ReasonWorkloadNotCurrent: true, planning.ReasonBeforeMismatch: true,
 		planning.ReasonLegacyInfrastructure: true, planning.ReasonUnconfigured: true,
+		planning.ReasonRendererNoMatch: true, planning.ReasonRendererAmbiguous: true, planning.ReasonRendererUnavailable: true,
 	}
 )
 

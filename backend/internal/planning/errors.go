@@ -104,6 +104,11 @@ var (
 	}
 )
 
+// IsRendererReason reports whether reason is a renderer selection failure.
+func IsRendererReason(reason string) bool {
+	return reason == ReasonRendererNoMatch || reason == ReasonRendererAmbiguous || reason == ReasonRendererUnavailable
+}
+
 // IsPublicMessage reports whether text is one of the fixed public sentences.
 func IsPublicMessage(text string) bool {
 	if text == "planning failed for this Score" {
