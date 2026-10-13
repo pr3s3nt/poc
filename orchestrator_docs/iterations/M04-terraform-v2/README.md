@@ -100,7 +100,7 @@ I04-07 đang thực hiện từ base `8acf616` trên nhánh `claude/m04-i04-07`.
 Phiên mới [session_01B8BFUdSwAFdkASEVQA1oKY](https://claude.ai/code/session_01B8BFUdSwAFdkASEVQA1oKY),
 tạo 2026-10-14 02:38 +07; đã yêu cầu báo quyền thực tế/blockers qua status commit.
 Brief/status `/tmp/poc-i0407-definition-workload-ui/`; đã fetch bản nháp
-`24bfcfa` (05:10:48 +07), code/checks/browser còn pending, chưa review cuối/merge.
+`4e4300e` (06:11 +07); code không đổi sau `0c870f0`, chưa merge.
 Nhánh tự sinh `claude/m04-i04-07-vsumu1` cùng commits. Quyền Bash/Write/Edit/git/
 network quan sát unprompted theo early status `35b37ec`; không suy từ flag.
 Đã phản hồi metadata malformed, UPDATE/RETAIN/UNVERIFIED intent và các thiếu
@@ -109,10 +109,15 @@ Preview intents, giữ optional Kubernetes Connection, đọc tiến độ Terra
 đã lưu. Bản nháp tiếp theo có các bổ sung này; đang yêu cầu lọc mã stage/error
 không được nhận diện trước khi trả API, không hiển thị nguyên văn dữ liệu riêng
 tư. Nguồn chuẩn quyền đọc projection đã cập nhật ở schema/state contract.
-Cloud báo frontend 504 tests pass, Go còn lỗi mạng Terraform registry; chưa
-dùng làm bằng chứng checks local cuối. Chưa chạy I04-07 local, không có tài
-nguyên task-owned cluster/AWS. Tiếp fetch 05:25:48 +07, rồi review/checks/video
-local trên bản hoàn chỉnh; chưa claim completion.
+Codex đã kiểm độc lập `0c870f0`: 1115 Go/0 fail/0 skip, 549 frontend tests,
+build/vet/docs và headed video thử lại đạt; mọi dịch vụ/tệp riêng tư local đã
+dọn. [Biên bản và giới hạn bằng chứng](../../verification/2026-10-14-i04-07-definition-workload-ui.md).
+Video `/tmp/poc-i0407-local-browser-r2/I04-07-captioned.mp4`; assertions tiến
+độ dùng SQL thật với attempts dựng sẵn, không claim Terraform chạy thật.
+Cloud báo 18 lỗi tải provider Terraform, không dùng làm proof pass. Bàn giao
+cuối nêu `BaselinePlans` đọc ngoài snapshot; Codex đã yêu cầu sửa theo UC-05
+BR-01/OC-06, bổ sung tests và bàn giao mới trước merge. Tiếp fetch 06:26:50 +07,
+review/check lại phần sửa snapshot; không có task-owned cluster/AWS assets.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
 Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.
