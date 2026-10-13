@@ -95,6 +95,12 @@ chọn nguồn chỉ vì mới hơn, dài hơn hoặc gần code hơn.
 - [Backlog](backlog/README.md)
 - [Iterations](iterations/README.md)
 
+## Measurement design route
+
+- [Đo lường hiệu quả platform và DORA](architecture/measurement.md): draft
+  architecture, metric definitions, evidence model, API/UI và delivery phases.
+  Chưa phải implemented capability hoặc active work order.
+
 ## Terraform v2 design route
 
 Start with [ADR-014](architecture/decisions/ADR-014-terraform-v2-lifecycle.md),

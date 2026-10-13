@@ -24,6 +24,11 @@ Shared design này hợp nhất UC-00 đến UC-09 sau realization.
 - [Architecture decisions](decisions/README.md)
 - [Implementation index](../implementation/README.md) và [package layout](../implementation/package-layout.md)
 
+## Proposed measurement design
+
+- [Đo lường hiệu quả platform và DORA](measurement.md) — draft design,
+  chưa implement và không thay đổi active M04 work order.
+
 ## Dependency rule
 
 ```text
