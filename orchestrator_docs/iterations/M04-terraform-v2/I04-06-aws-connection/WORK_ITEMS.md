@@ -19,4 +19,4 @@ product requirements. Tất cả checklist đang pending trừ checkpoint tài l
 - [ ] Claude chạy checks; Codex review diff và independently verify tương ứng.
 - [ ] Evidence/cleanup/remaining blockers vào dated verification, không chép log vào plan.
 - [ ] Commit/push task-only khi checks/review đạt theo AGENTS.md; không force-push.
-- [ ] Đóng tmux task hoặc lưu handoff khi bị chặn/hủy; tuân stage approval gate.
+- [ ] Xóa nhánh Claude sau merge; lưu handoff cloud khi bị chặn/hủy; giữ điểm duyệt cuối.

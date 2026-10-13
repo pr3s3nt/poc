@@ -91,6 +91,9 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 I04-06 cũ dừng trước implementation, không tài nguyên còn tồn tại;
 `/tmp/poc-i0406-aws-connection/handoff-paused.md` lưu bàn giao cũ.
 Tiếp I04-06 bằng phiên Claude cloud mới; Codex chạy checks và recording local.
-Session ID/URL/quyền thực tế: chưa tạo. Nhánh dự kiến `claude/m04-i04-06`.
+Session: `session_01UowTTQea8MqLBRaPktRfSX`;
+[Claude cloud I04-06](https://claude.ai/code/session_01UowTTQea8MqLBRaPktRfSX).
+Nhánh `claude/m04-i04-06`, base `9b00978`. Đã yêu cầu xác nhận quyền thực tế;
+cờ `--dangerously-skip-permissions` chưa phải bằng chứng chế độ của phiên.
 I04-11 đạt A01/E01/E02 + video + estimate + k8s-4f sạch thì tự chạy I04-12;
 chỉ bàn giao cuối chờ người dùng, không tự ghi đã duyệt.

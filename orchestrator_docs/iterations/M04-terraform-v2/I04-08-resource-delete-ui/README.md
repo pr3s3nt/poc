@@ -54,8 +54,9 @@ Developer denied, root UNREFERENCED/no consumer/no busy; exact-name confirmation
 
 ## Handoff
 
-Codex giao Claude source/scope/criteria/checks qua clauded trong tmux task riêng
-khi code stage được duyệt. Claude không sửa docs/commit/push. Codex review và
-verify độc lập; kiểm tiến độ bình thường mỗi 240 giây, không poll liên tục.
-Evidence thật/fake và checks skipped phải phân biệt; failed video/phase marks
-giữ lại. Code-map/CURRENT_STATE/traceability chỉ ghi actual results sau delivery.
+Claude cloud viết code/test trên nhánh riêng `claude/m04-<task>`, commit cuối
+có bàn giao ngắn; không sửa docs hoặc push refactor_ui. Codex lưu session/URL/
+quyền thực tế, fetch mỗi 240 giây, review và chạy lại checks local không skip.
+Codex merge khi đạt, chạy thật và Playwright headed/quay video local; gửi lỗi
+code về Claude. Cập nhật verification/Current handoff/Task order, commit/push
+và xóa nhánh Claude. Giữ failed evidence và phân biệt adapter thật/fake.

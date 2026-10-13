@@ -54,12 +54,8 @@ Product runtime dùng PostgreSQL thật và scoped Vault/Connections; invalid in
 
 ## Handoff
 
-Codex giao Claude source/scope/criteria/checks qua clauded trong tmux task riêng
-khi code stage được duyệt. Claude không sửa docs/commit/push. Codex review và
-verify độc lập; kiểm tiến độ bình thường mỗi 240 giây, không poll liên tục.
-Evidence thật/fake và checks skipped phải phân biệt; failed video/phase marks
-giữ lại. Code-map/CURRENT_STATE/traceability chỉ ghi actual results sau delivery.
-
-## Carryover I04-05
-
-Runner quan sát IP ra Internet của executor và gọi preflight.CheckEgress trước bất kỳ create; không tự thêm IP/mở rộng allowlist. Kiểm VPC/provider-first ordering và retained history với real executor.
+Claude cloud viết code/test và push nhánh riêng; Codex review, chạy checks
+local không skip, merge và chạy thật/Playwright headed/quay video local.
+Lưu session ID/URL/quyền thực tế; fetch mỗi 240 giây. Gửi lỗi code về Claude.
+Cập nhật verification/Current handoff/Task order, commit/push và xóa nhánh.
+Giữ failed evidence và phân biệt adapter thật/fake.
