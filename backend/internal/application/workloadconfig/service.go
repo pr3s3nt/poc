@@ -91,6 +91,10 @@ type Service struct{ store persistence.Store }
 
 func NewService(store persistence.Store) *Service { return &Service{store: store} }
 
+// Bound returns the service reading through view, so a caller that holds a
+// read-only snapshot (UC-05 Preview) validates against that same snapshot.
+func (s *Service) Bound(view persistence.Store) *Service { return &Service{store: view} }
+
 func (s *Service) List(ctx context.Context, app, env string) (View, error) {
 	environmentRecord, err := s.store.GetEnvironment(ctx, app, env)
 	if err != nil {

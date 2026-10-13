@@ -87,42 +87,60 @@ func NewService(store persistence.Store, planner *planning.Service, workloads *w
 // before UC-08 provisions a namespace or other resources.
 func (s *Service) SetImageRegistryHost(host string) { s.imageRegistryHost = host }
 
+// Preview plans the pending changes against ONE read-only snapshot (UC-05 BR-01,
+// OC-06): the Application, Environment, Connection, Deployment Set, configuration,
+// drafts, instances, catalog, Active Resources and the baseline plans behind the
+// resource intents are all read through the same view; nothing is read from the
+// outer store while planning. Nothing is written.
 func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, error) {
-	app, err := s.store.GetApplication(ctx, appKey)
+	var out Preview
+	err := s.store.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
+		var err error
+		out, err = s.previewIn(ctx, view, appKey, envKey)
+		return err
+	})
 	if err != nil {
 		return Preview{}, err
 	}
-	env, err := s.store.GetEnvironment(ctx, appKey, envKey)
+	return out, nil
+}
+
+func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, envKey string) (Preview, error) {
+	app, err := st.GetApplication(ctx, appKey)
 	if err != nil {
 		return Preview{}, err
 	}
-	connection, err := target.Resolve(ctx, s.store, app.OrganizationKey, env)
+	env, err := st.GetEnvironment(ctx, appKey, envKey)
+	if err != nil {
+		return Preview{}, err
+	}
+	connection, err := target.Resolve(ctx, st, app.OrganizationKey, env)
 	if errors.Is(err, target.ErrConnectionNotReady) {
 		return Preview{}, fmt.Errorf("%w: connection is not ready", ErrInvalid)
 	}
 	if err != nil {
 		return Preview{}, err
 	}
-	set, err := s.store.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
+	set, err := st.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
 	if err != nil {
 		return Preview{}, err
 	}
-	scope, err := s.store.GetConfigurationScope(ctx, appKey, envKey)
+	scope, err := st.GetConfigurationScope(ctx, appKey, envKey)
 	if err != nil {
 		return Preview{}, err
 	}
 	desired := configuration.Revision{Entries: map[string]configuration.Entry{}}
 	if scope.DesiredRevisionID != "" {
-		desired, err = s.store.GetConfigurationRevision(ctx, scope.DesiredRevisionID)
+		desired, err = st.GetConfigurationRevision(ctx, scope.DesiredRevisionID)
 		if err != nil {
 			return Preview{}, err
 		}
 	}
-	drafts, err := s.store.ListWorkloadDrafts(ctx, appKey, envKey)
+	drafts, err := st.ListWorkloadDrafts(ctx, appKey, envKey)
 	if err != nil {
 		return Preview{}, err
 	}
-	instances, err := s.store.ListWorkloadInstances(ctx, appKey+"/"+envKey)
+	instances, err := st.ListWorkloadInstances(ctx, appKey+"/"+envKey)
 	if err != nil {
 		return Preview{}, err
 	}
@@ -131,17 +149,21 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 		instanceByID[instance.WorkloadID] = instance
 	}
 
-	types, err := s.store.ListResourceTypes(ctx, app.OrganizationKey)
+	types, err := st.ListResourceTypes(ctx, app.OrganizationKey)
 	if err != nil {
 		return Preview{}, err
 	}
-	definitions, err := s.store.ListResourceDefinitions(ctx, app.OrganizationKey)
+	definitions, err := st.ListResourceDefinitions(ctx, app.OrganizationKey)
 	if err != nil {
 		return Preview{}, err
 	}
-	// Active Resources and their baseline plans come from one snapshot; the intent
+	// Active Resources and their baseline plans come from the same snapshot view; the intent
 	// projection below reads only these captured records.
-	active, baselines, err := appsvc.LoadActiveWithBaselines(ctx, s.store, app.OrganizationKey)
+	active, err := st.ListActiveResources(ctx, app.OrganizationKey)
+	if err != nil {
+		return Preview{}, err
+	}
+	baselines, err := appsvc.CaptureBaselines(ctx, st, app.OrganizationKey, active)
 	if err != nil {
 		return Preview{}, err
 	}
@@ -159,7 +181,7 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 		if _, exists := pending[id]; exists {
 			continue
 		}
-		changed, err := usesChangedConfiguration(ctx, s.store, module, desired, instanceByID[id].AppliedConfigRevisionID)
+		changed, err := usesChangedConfiguration(ctx, st, module, desired, instanceByID[id].AppliedConfigRevisionID)
 		if err != nil {
 			return Preview{}, err
 		}
@@ -167,7 +189,7 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 		if err != nil {
 			return Preview{}, publicPlanningError(id, err)
 		}
-		unchangedRenderer, err := sameRendering(ctx, s.store, instanceByID[id].LastDeploymentID, id, selected)
+		unchangedRenderer, err := sameRendering(ctx, st, instanceByID[id].LastDeploymentID, id, selected)
 		if err != nil {
 			return Preview{}, err
 		}
@@ -211,7 +233,7 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 			}
 		}
 		if draft.State == environment.DraftUpsert {
-			if err := s.workloads.ValidateImport(ctx, appKey, envKey, draft.Score); err != nil {
+			if err := s.workloads.Bound(st).ValidateImport(ctx, appKey, envKey, draft.Score); err != nil {
 				return Preview{}, err
 			}
 			after, err = score.FromMap(draft.Score)
@@ -240,12 +262,12 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 				return Preview{}, err
 			}
 			if same {
-				changed, err := usesChangedConfiguration(ctx, s.store, base.Modules[id], desired, instanceByID[id].AppliedConfigRevisionID)
+				changed, err := usesChangedConfiguration(ctx, st, base.Modules[id], desired, instanceByID[id].AppliedConfigRevisionID)
 				if err != nil {
 					return Preview{}, err
 				}
 				if !changed {
-					sameRenderer, err := sameRendering(ctx, s.store, instanceByID[id].LastDeploymentID, id, plan.Rendering[id])
+					sameRenderer, err := sameRendering(ctx, st, instanceByID[id].LastDeploymentID, id, plan.Rendering[id])
 					if err != nil {
 						return Preview{}, err
 					}

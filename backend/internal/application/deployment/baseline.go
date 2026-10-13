@@ -79,23 +79,3 @@ func (b *Baselines) Reader() func(planning.Node) *planning.Plan {
 		return b.plans[found.LastDeploymentID]
 	}
 }
-
-// LoadActiveWithBaselines reads the Organization's Active Resources and their
-// baseline plans in one read-only snapshot.
-func LoadActiveWithBaselines(ctx context.Context, st persistence.Store, organizationKey string) ([]resource.ActiveResource, *Baselines, error) {
-	var active []resource.ActiveResource
-	var baselines *Baselines
-	err := st.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
-		list, err := view.ListActiveResources(ctx, organizationKey)
-		if err != nil {
-			return err
-		}
-		captured, err := CaptureBaselines(ctx, view, organizationKey, list)
-		if err != nil {
-			return err
-		}
-		active, baselines = list, captured
-		return nil
-	})
-	return active, baselines, err
-}

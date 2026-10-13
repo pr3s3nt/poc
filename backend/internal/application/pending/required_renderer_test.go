@@ -32,12 +32,19 @@ func requiredApp(t *testing.T, withBinary bool) (*bootstrap.App, seed.Options, s
 
 func requiredAppBundles(t *testing.T, withBinary bool) (*bootstrap.App, seed.Options, string, map[string]resource.RenderBundle) {
 	t.Helper()
+	return requiredAppBundlesOn(t, withBinary, "")
+}
+
+// requiredAppBundlesOn is requiredAppBundles over a PostgreSQL Console store when
+// databaseURL is set.
+func requiredAppBundlesOn(t *testing.T, withBinary bool, databaseURL string) (*bootstrap.App, seed.Options, string, map[string]resource.RenderBundle) {
+	t.Helper()
 	real, err := exec.LookPath("score-k8s")
 	if err != nil && withBinary {
 		t.Skip("local score-k8s 0.15.0 unavailable")
 	}
 	opts := seedtest.Defaults()
-	options := bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, RequireScoreRenderer: true}
+	options := bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, RequireScoreRenderer: true, DatabaseURL: databaseURL}
 	log := filepath.Join(t.TempDir(), "calls.log")
 	bundles := map[string]resource.RenderBundle{}
 	if withBinary {

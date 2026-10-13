@@ -75,7 +75,7 @@ func TestBaselinesAreCapturedInsideTheSnapshotOnly(t *testing.T) {
 		_ = st.SavePlan(ctx, "dep-1", map[string]any{"workloadId": "marker-changed"})
 		_, _ = st.UpsertActiveResource(ctx, resource.ActiveResource{OrganizationKey: "org", Descriptor: mustDescriptor(t, node.Descriptor), Scope: node.Scope, DefinitionKey: "def", LastDeploymentID: "dep-2", Status: resource.StatusReady})
 	}
-	active, baselines, err := appsvc.LoadActiveWithBaselines(ctx, probe, "org")
+	active, baselines, err := loadActiveWithBaselines(ctx, probe, "org")
 	if err != nil || len(active) != 1 {
 		t.Fatalf("%v %v", active, err)
 	}
@@ -99,7 +99,7 @@ func TestBaselinesMissingAndInvalidAreNoEvidenceAndStoreFailureFails(t *testing.
 	st, _, node := baselineFixture(t)
 	var inside, outside int
 	// Not found: no evidence.
-	_, baselines, err := appsvc.LoadActiveWithBaselines(ctx, &planProbe{Store: st, inside: &inside, outside: &outside, err: persistence.ErrNotFound}, "org")
+	_, baselines, err := loadActiveWithBaselines(ctx, &planProbe{Store: st, inside: &inside, outside: &outside, err: persistence.ErrNotFound}, "org")
 	if err != nil || baselines.Reader()(node) != nil {
 		t.Fatalf("missing plan: %v", err)
 	}
@@ -107,19 +107,39 @@ func TestBaselinesMissingAndInvalidAreNoEvidenceAndStoreFailureFails(t *testing.
 	if err := st.SavePlan(ctx, "dep-1", map[string]any{"graph": 7}); err != nil {
 		t.Fatal(err)
 	}
-	_, baselines, err = appsvc.LoadActiveWithBaselines(ctx, &planProbe{Store: st, inside: &inside, outside: &outside}, "org")
+	_, baselines, err = loadActiveWithBaselines(ctx, &planProbe{Store: st, inside: &inside, outside: &outside}, "org")
 	if err != nil || baselines.Reader()(node) != nil {
 		t.Fatalf("invalid plan: %v", err)
 	}
 	// A real store failure fails the capture.
 	outage := errors.New("outage")
-	if _, _, err := appsvc.LoadActiveWithBaselines(ctx, &planProbe{Store: st, inside: &inside, outside: &outside, err: outage}, "org"); !errors.Is(err, outage) {
+	if _, _, err := loadActiveWithBaselines(ctx, &planProbe{Store: st, inside: &inside, outside: &outside, err: outage}, "org"); !errors.Is(err, outage) {
 		t.Fatalf("store failure = %v", err)
 	}
 	var none *appsvc.Baselines
 	if none.Reader()(node) != nil {
 		t.Fatal("no baselines means no evidence")
 	}
+}
+
+// loadActiveWithBaselines mirrors how Preview captures: Active Resources and their
+// baselines through one snapshot view.
+func loadActiveWithBaselines(ctx context.Context, st persistence.Store, org string) ([]resource.ActiveResource, *appsvc.Baselines, error) {
+	var active []resource.ActiveResource
+	var baselines *appsvc.Baselines
+	err := st.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
+		list, err := view.ListActiveResources(ctx, org)
+		if err != nil {
+			return err
+		}
+		captured, err := appsvc.CaptureBaselines(ctx, view, org, list)
+		if err != nil {
+			return err
+		}
+		active, baselines = list, captured
+		return nil
+	})
+	return active, baselines, err
 }
 
 func mustDescriptor(t *testing.T, text string) resource.Descriptor {
