@@ -2,7 +2,9 @@ package deployment_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -256,5 +258,32 @@ func TestGetDeploymentCarriesSafeResourceProgress(t *testing.T) {
 	outage := errors.New("attempt read outage")
 	if _, err := appsvc.NewQueryService(&attemptStore{countingStore: base, err: outage}).GetDeployment(ctx, scope); !errors.Is(err, outage) {
 		t.Fatalf("a failed progress read must fail the view: %v", err)
+	}
+}
+
+// The view projects through an allowlist: hostile persisted stage/status/error
+// text never reaches the response, while known codes are preserved.
+func TestGetDeploymentProjectsAttemptsThroughTheAllowlist(t *testing.T) {
+	ctx := context.Background()
+	base, opts, id := queryFixture(t)
+	scope := appsvc.GetDeploymentQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, DeploymentID: id}
+	hostile := domain.ResourceAttempt{Descriptor: "redis.in-cluster#shared.cache", ScopeType: "SHARED", Number: 1, Action: "CREATE", Ownership: "PREEXISTING", Stage: "AKIAPRIVATE /var/private/state", Status: "token=PRIVATE", SafeErrorCode: "AUTH vault://PRIVATE", ModuleID: "redis-k8s", ModuleRevision: "r1"}
+	known := hostile
+	known.Number, known.Stage, known.Status, known.SafeErrorCode = 2, "READY", "SUCCEEDED", ""
+	view, err := appsvc.NewQueryService(&attemptStore{countingStore: base, attempts: []domain.ResourceAttempt{hostile, known}}).GetDeployment(ctx, scope)
+	if err != nil || len(view.ResourceProgress) != 2 {
+		t.Fatalf("%v %v", view, err)
+	}
+	raw, _ := json.Marshal(view.ResourceProgress)
+	for _, secret := range []string{"AKIA", "PRIVATE", "/var/", "vault://", "token="} {
+		if strings.Contains(string(raw), secret) {
+			t.Fatalf("view leaks %q: %s", secret, raw)
+		}
+	}
+	if p := view.ResourceProgress[0]; p.Stage != "UNKNOWN" || p.Status != "UNKNOWN" || p.SafeErrorCode != "UNKNOWN_ERROR" {
+		t.Fatalf("hostile row %+v", p)
+	}
+	if p := view.ResourceProgress[1]; p.Stage != "READY" || p.Status != "SUCCEEDED" || p.SafeErrorCode != "" {
+		t.Fatalf("known row %+v", p)
 	}
 }

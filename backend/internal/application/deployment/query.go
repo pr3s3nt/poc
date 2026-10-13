@@ -218,7 +218,10 @@ func assembleView(ctx context.Context, st persistence.Store, query GetDeployment
 	if err != nil {
 		return nil, err
 	}
-	view.ResourceProgress = attempts
+	view.ResourceProgress = make([]domain.ResourceAttempt, 0, len(attempts))
+	for _, attempt := range attempts {
+		view.ResourceProgress = append(view.ResourceProgress, attempt.Safe())
+	}
 
 	instances, err := st.ListDeploymentWorkloads(ctx, record.ID)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/tfresource"
 	"orchestrator/internal/platform/ids"
@@ -109,4 +110,37 @@ func TestConsoleReadsSafeAttemptProgressOnly(t *testing.T) {
 	}
 	allowed(t, console, "safe attempt columns", `SELECT id,resource_instance_id,deployment_id,attempt_number,action,ownership,stage,status,safe_error_code,created_at,updated_at FROM terraform_resource_attempts`)
 	allowed(t, console, "safe instance columns", `SELECT id,descriptor,scope_type,module_bundle_id,status FROM terraform_resource_instances`)
+}
+
+// Persisted attempt strings are free text to PostgreSQL: a hostile value written
+// behind the service's back must still not leave the Console API.
+func TestDeploymentViewAllowlistsHostilePersistedAttemptText(t *testing.T) {
+	ctx := context.Background()
+	f := newStateFixture(t)
+	env, err := f.console.GetEnvironment(ctx, "app", "staging")
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := deployment.Deployment{ID: ids.New(), EnvironmentID: env.ID, OrganizationKey: "acme", ApplicationKey: "app", EnvironmentKey: "staging", ExecutionProfile: "internal-k8s", Action: deployment.ActionDeploy, WorkloadID: "api", ActorRef: "test", Status: deployment.StatusPlanning, BaseEnvironmentVersion: env.Version, StartedAt: time.Now().UTC()}
+	if err := f.console.SaveDeployment(ctx, record); err != nil {
+		t.Fatal(err)
+	}
+	owner := persistence.WithOwner(ctx, persistence.Owner{OperationID: f.op.ID, Owner: f.op.Owner, Fence: f.op.Fence})
+	if _, err := f.state.BeginAttempt(owner, tfresource.Attempt{InstanceID: f.inst.ID, DeploymentID: record.ID, RunID: "run-1", Action: tfresource.ActionUpdate, Ownership: tfresource.Preexisting, Stage: "INTENT", ModuleSnapshot: map[string]any{"a": "b"}, TargetSnapshot: map[string]any{"c": "d"}, Deadline: time.Now().Add(time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	sqlOn(t, f.db.Admin, `UPDATE terraform_resource_attempts SET stage='AKIAPRIVATE /var/lib/private', safe_error_code='AUTH vault://PRIVATE-TOKEN', status='RUNNING'`)
+	view, err := appsvc.NewQueryService(f.console).GetDeployment(ctx, appsvc.GetDeploymentQuery{OrganizationKey: "acme", ApplicationKey: "app", EnvironmentKey: "staging", DeploymentID: record.ID})
+	if err != nil || len(view.ResourceProgress) != 1 {
+		t.Fatalf("%+v %v", view, err)
+	}
+	raw, _ := json.Marshal(view.ResourceProgress)
+	for _, secret := range []string{"AKIA", "PRIVATE", "/var/", "vault://"} {
+		if strings.Contains(string(raw), secret) {
+			t.Fatalf("hostile persisted text leaks %q: %s", secret, raw)
+		}
+	}
+	if p := view.ResourceProgress[0]; p.Stage != "UNKNOWN" || p.SafeErrorCode != "UNKNOWN_ERROR" || p.Status != "RUNNING" {
+		t.Fatalf("projection %+v", p)
+	}
 }

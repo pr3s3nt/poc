@@ -558,9 +558,11 @@ it('shows the persisted Terraform stage, attempt and status per resource in Viet
   expect(rows[1]).toContain('Đang áp dụng');
   expect(rows[1]).toContain('Thất bại');
   expect(rows[1]).toContain('Quá thời gian');
-  // Unknown stage and error codes pass through unchanged, never crash or vanish.
-  expect(rows[2]).toContain('FUTURE_STAGE');
-  expect(rows[2]).toContain('NEW_CODE');
+  // Unknown stage and error codes get a generic label; the raw text is never shown.
+  expect(rows[2]).toContain('Giai đoạn không rõ');
+  expect(rows[2]).toContain('Lỗi không xác định');
+  expect(rows[2]).not.toContain('FUTURE_STAGE');
+  expect(rows[2]).not.toContain('NEW_CODE');
   expect(rows[2]).toContain('Cần xử lý');
 });
 
@@ -619,4 +621,17 @@ it('shows a load failure without any progress rows and recovers on retry', async
   expect(document.body).not.toHaveTextContent('raw-internal');
   await userEvent.setup().click(within(screen.getByRole('alert')).getByRole('button', { name: 'Thử lại' }));
   expect(await screen.findByRole('region', { name: 'Tiến trình tạo tài nguyên' })).toHaveTextContent('redis-k8s');
+});
+
+it('never prints a hostile stage, status, action, owner, scope or error string, even if the server forwarded it', async () => {
+  const evil = 'AKIAPRIVATE /var/lib/private vault://PRIVATE-TOKEN';
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({ resourceProgress: [attempt({ stage: evil, status: evil, action: evil, ownership: evil, scopeType: evil, safeErrorCode: evil }), attempt({ stage: 'UNKNOWN', status: 'UNKNOWN', safeErrorCode: 'UNKNOWN_ERROR' })] }))));
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  const region = await screen.findByRole('region', { name: 'Tiến trình tạo tài nguyên' });
+  for (const secret of ['AKIA', 'PRIVATE', '/var/', 'vault://']) expect(document.body.innerHTML).not.toContain(secret);
+  const rows = Array.from(region.querySelectorAll('tbody tr')).map((row) => row.textContent ?? '');
+  for (const row of rows) for (const generic of ['Giai đoạn không rõ', 'Trạng thái không rõ', 'Lỗi không xác định']) expect(row).toContain(generic);
+  expect(rows[0]).toContain('Hành động không rõ');
+  expect(rows[0]).toContain('Quyền sở hữu không rõ');
+  expect(rows[0]).toContain('Phạm vi không rõ');
 });
