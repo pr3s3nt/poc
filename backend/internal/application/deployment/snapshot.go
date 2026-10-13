@@ -84,12 +84,26 @@ type PlanningSnapshot struct {
 	Types       map[string]resource.Type
 	Definitions map[string]resource.Definition
 	Active      []resource.ActiveResource
+	// Baselines are the plans that last executed the Active Resources, captured
+	// in the same snapshot; set only by LoadPlanningSnapshotWithBaselines.
+	Baselines *Baselines
 }
 
 // LoadPlanningSnapshot reads the Application, Environment, current Deployment
 // Set, connection, catalog and Active Resources inside one read-only store
 // snapshot. An Application outside organizationKey is reported as not found.
 func LoadPlanningSnapshot(ctx context.Context, st persistence.Store, organizationKey, applicationKey, environmentKey string) (PlanningSnapshot, error) {
+	return loadPlanningSnapshot(ctx, st, organizationKey, applicationKey, environmentKey, false)
+}
+
+// LoadPlanningSnapshotWithBaselines is LoadPlanningSnapshot that also captures
+// the baseline plans of the Active Resources inside the same snapshot, for the
+// Preview resource-intent projection.
+func LoadPlanningSnapshotWithBaselines(ctx context.Context, st persistence.Store, organizationKey, applicationKey, environmentKey string) (PlanningSnapshot, error) {
+	return loadPlanningSnapshot(ctx, st, organizationKey, applicationKey, environmentKey, true)
+}
+
+func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizationKey, applicationKey, environmentKey string, withBaselines bool) (PlanningSnapshot, error) {
 	var out PlanningSnapshot
 	err := st.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
 		app, err := view.GetApplication(ctx, applicationKey)
@@ -140,6 +154,11 @@ func LoadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 			BaseSetID: env.CurrentDeploymentSetID, BaseSet: base,
 			Catalog: planning.Catalog{Types: types, Definitions: defList},
 			Types:   types, Definitions: definitions, Active: active,
+		}
+		if withBaselines {
+			if out.Baselines, err = CaptureBaselines(ctx, view, organizationKey, active); err != nil {
+				return err
+			}
 		}
 		return nil
 	})

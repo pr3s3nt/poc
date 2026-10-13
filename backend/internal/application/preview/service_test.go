@@ -33,6 +33,8 @@ import (
 // counters are shared by a guard and every snapshot view it hands out.
 type counters struct {
 	writes, directReads, snapshots atomic.Int32
+	// planReads counts GetPlan inside a snapshot view, directPlanReads outside one.
+	planReads, directPlanReads atomic.Int32
 }
 
 // guard wraps a Store: it counts writes (also through snapshot views),
@@ -46,6 +48,8 @@ type guard struct {
 	// midSnapshot runs once inside the snapshot, after its first read, so a
 	// lazily established snapshot (PostgreSQL REPEATABLE READ) is already fixed.
 	midSnapshot func()
+	// planErr, when set, is returned by GetPlan.
+	planErr error
 }
 
 func newGuard(st persistence.Store) *guard { return &guard{Store: st, c: &counters{}} }
@@ -59,7 +63,7 @@ func (g *guard) ReadSnapshot(ctx context.Context, fn func(context.Context, persi
 		if g.afterSnapshot != nil {
 			g.afterSnapshot()
 		}
-		return fn(ctx, &guard{Store: view, c: g.c, inView: true, midSnapshot: g.midSnapshot})
+		return fn(ctx, &guard{Store: view, c: g.c, inView: true, midSnapshot: g.midSnapshot, planErr: g.planErr})
 	})
 }
 
@@ -69,6 +73,18 @@ func (g *guard) read() {
 	}
 }
 func (g *guard) write() { g.c.writes.Add(1) }
+
+func (g *guard) GetPlan(ctx context.Context, id string) (map[string]any, error) {
+	if g.inView {
+		g.c.planReads.Add(1)
+	} else {
+		g.c.directPlanReads.Add(1)
+	}
+	if g.planErr != nil {
+		return nil, g.planErr
+	}
+	return g.Store.GetPlan(ctx, id)
+}
 
 func (g *guard) GetApplication(ctx context.Context, key string) (appdomain.Application, error) {
 	g.read()
@@ -1024,5 +1040,111 @@ func TestPreview_TerraformUsesRegistryMetadataOnly(t *testing.T) {
 				t.Fatalf("%s snapshots an executor-owned value", module)
 			}
 		}
+	}
+}
+
+func intentsByDescriptor(view preview.View) map[string]string {
+	out := map[string]string{}
+	for _, intent := range view.ResourceIntents {
+		out[intent.Descriptor] = intent.Intent
+	}
+	return out
+}
+
+// UC-05 BR-01 / OC-06: the baseline plans behind the resource intents are
+// captured inside the one planning snapshot. No GetPlan runs after it closes, and
+// a plan or resource that changes concurrently cannot reach the projection.
+func TestPreview_BaselinePlansAreCapturedInsideTheSnapshot(t *testing.T) {
+	ctx := context.Background()
+	app, opts := newApp(t, false)
+	deploy(t, app, opts, "backend", nil, scores(opts)["backend"])
+	reference, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "worker", preview.ActionDeploy, nil, scores(opts)["worker"]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	refView, _ := reference.Public()
+	want := intentsByDescriptor(refView)
+	if len(want) == 0 {
+		t.Fatal("no resource intents to compare")
+	}
+	known := false
+	for _, intent := range want {
+		known = known || intent == "RETAIN" || intent == "UPDATE"
+	}
+	if !known {
+		t.Fatalf("the persisted baseline must be readable for the test to mean anything: %v", want)
+	}
+
+	st := newGuard(app.Store)
+	active, _ := app.Store.ListActiveResources(ctx, opts.OrganizationKey)
+	st.afterSnapshot = func() {
+		// Concurrent writers: every persisted baseline plan is replaced by garbage and
+		// every Active Resource is pointed at a deployment that has no plan.
+		for _, a := range active {
+			if a.LastDeploymentID != "" {
+				_ = app.Store.SavePlan(ctx, a.LastDeploymentID, map[string]any{"graph": "garbage"})
+			}
+			moved := a
+			moved.LastDeploymentID = "concurrent-deployment"
+			moved.Version++
+			_, _ = app.Store.UpsertActiveResource(ctx, moved)
+		}
+	}
+	got, err := newPreview(t, st).PreviewDeployment(ctx, query(opts, "worker", preview.ActionDeploy, nil, scores(opts)["worker"]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.c.directPlanReads.Load() != 0 || st.c.planReads.Load() == 0 || st.c.directReads.Load() != 0 || st.c.snapshots.Load() != 1 {
+		t.Fatalf("plan reads in/out of snapshot = %d/%d, direct reads %d, snapshots %d", st.c.planReads.Load(), st.c.directPlanReads.Load(), st.c.directReads.Load(), st.c.snapshots.Load())
+	}
+	gotView, _ := got.Public()
+	if !reflect.DeepEqual(intentsByDescriptor(gotView), want) {
+		t.Fatalf("the projection mixed snapshots: %v, want %v", intentsByDescriptor(gotView), want)
+	}
+}
+
+// Missing or invalid historical evidence is UNVERIFIED; a genuine store failure
+// is a failure, never an authoritative "unchanged".
+func TestPreview_BaselineEvidenceMissingIsUnverifiedAndStoreFailureFails(t *testing.T) {
+	ctx := context.Background()
+	app, opts := newApp(t, false)
+	deploy(t, app, opts, "backend", nil, scores(opts)["backend"])
+
+	missing := newGuard(app.Store)
+	missing.planErr = persistence.ErrNotFound
+	result, err := newPreview(t, missing).PreviewDeployment(ctx, query(opts, "worker", preview.ActionDeploy, nil, scores(opts)["worker"]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, _ := result.Public()
+	for descriptor, intent := range intentsByDescriptor(view) {
+		if intent == "RETAIN" || intent == "UPDATE" {
+			t.Fatalf("%s: no baseline plan must be UNVERIFIED (or CREATE/BIND), got %s", descriptor, intent)
+		}
+	}
+
+	active, _ := app.Store.ListActiveResources(ctx, opts.OrganizationKey)
+	for _, a := range active {
+		if a.LastDeploymentID != "" {
+			if err := app.Store.SavePlan(ctx, a.LastDeploymentID, map[string]any{"graph": "not-a-graph", "matches": 7}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	invalid, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "worker", preview.ActionDeploy, nil, scores(opts)["worker"]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	iv, _ := invalid.Public()
+	for descriptor, intent := range intentsByDescriptor(iv) {
+		if intent == "RETAIN" || intent == "UPDATE" {
+			t.Fatalf("%s: an undecodable baseline must be UNVERIFIED, got %s", descriptor, intent)
+		}
+	}
+
+	failing := newGuard(app.Store)
+	failing.planErr = errors.New("store outage")
+	if _, err := newPreview(t, failing).PreviewDeployment(ctx, query(opts, "worker", preview.ActionDeploy, nil, scores(opts)["worker"])); err == nil {
+		t.Fatal("a store failure while reading baselines must fail the preview")
 	}
 }

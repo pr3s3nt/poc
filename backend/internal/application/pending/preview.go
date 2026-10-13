@@ -139,7 +139,9 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 	if err != nil {
 		return Preview{}, err
 	}
-	active, err := s.store.ListActiveResources(ctx, app.OrganizationKey)
+	// Active Resources and their baseline plans come from one snapshot; the intent
+	// projection below reads only these captured records.
+	active, baselines, err := appsvc.LoadActiveWithBaselines(ctx, s.store, app.OrganizationKey)
 	if err != nil {
 		return Preview{}, err
 	}
@@ -253,7 +255,7 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 				}
 			}
 		}
-		preview.Changes = append(preview.Changes, Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, ResourceIntents: plan.ResourceIntents(s.baselinePlans(ctx, app.OrganizationKey, active)), PlanHash: plan.PlanHash})
+		preview.Changes = append(preview.Changes, Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, ResourceIntents: plan.ResourceIntents(baselines.Reader()), PlanHash: plan.PlanHash})
 		base = plan.CandidateSet
 	}
 	// Route and Service-reference rules apply to the final batch state only.
@@ -430,9 +432,4 @@ func sameRendering(ctx context.Context, st persistence.Store, deploymentID, work
 // target transition deploys the complete Environment in the same order.
 func OrderDrafts(drafts map[string]environment.WorkloadDraft) ([]string, error) {
 	return orderDrafts(drafts)
-}
-
-// baselinePlans: see appsvc.BaselinePlans.
-func (s *Service) baselinePlans(ctx context.Context, org string, active []resource.ActiveResource) func(planning.Node) *planning.Plan {
-	return appsvc.BaselinePlans(ctx, s.store, org, active)
 }

@@ -135,7 +135,7 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 	if err != nil {
 		return nil, err
 	}
-	snapshot, err := appsvc.LoadPlanningSnapshot(ctx, s.store, q.OrganizationKey, q.ApplicationKey, q.EnvironmentKey)
+	snapshot, err := appsvc.LoadPlanningSnapshotWithBaselines(ctx, s.store, q.OrganizationKey, q.ApplicationKey, q.EnvironmentKey)
 	if errors.Is(err, appsvc.ErrConnectionNotReady) {
 		return nil, public(ErrNotReady, "the Environment connection is not READY; ask a platform engineer to verify it")
 	}
@@ -167,7 +167,7 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 	return &DeploymentPreview{
 		Binding:        snapshot.Env.Binding(),
 		AccountID:      accountID,
-		Intents:        plan.ResourceIntents(appsvc.BaselinePlans(ctx, s.store, q.OrganizationKey, snapshot.Active)),
+		Intents:        plan.ResourceIntents(snapshot.Baselines.Reader()),
 		ApplicationKey: snapshot.App.Key,
 		EnvironmentKey: snapshot.Env.Key,
 		BaseSetID:      snapshot.BaseSetID,

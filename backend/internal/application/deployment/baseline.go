@@ -3,44 +3,99 @@ package deployment
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/persistence"
 )
 
-// BaselinePlans returns, for an existing resource node, the persisted plan of
-// the Deployment that last executed it (a pure store read; nil when it cannot
-// be read, which the Preview projection shows as unverified, never as
-// unchanged). Standalone and pending Preview share it (UC-05 BR-10).
-func BaselinePlans(ctx context.Context, store persistence.Store, org string, active []resource.ActiveResource) func(planning.Node) *planning.Plan {
-	byKey := map[string]resource.ActiveResource{}
+// Baselines are the persisted plans that last executed the existing resources
+// of a planning snapshot, captured and decoded INSIDE the same read-only store
+// snapshot as the Active Resources they belong to (UC-05 BR-01, OC-06). The
+// Preview projection reads only these captured records: no store access after
+// the snapshot closes. A missing, unreadable or undecodable plan is recorded as
+// no evidence (the projection then shows UNVERIFIED, never unchanged); any
+// other store failure fails the capture.
+type Baselines struct {
+	organization string
+	byKey        map[string]resource.ActiveResource
+	plans        map[string]*planning.Plan
+}
+
+// CaptureBaselines reads the plans of the Active Resources through view, which
+// must be a snapshot view. Each deployment plan is read at most once.
+func CaptureBaselines(ctx context.Context, view persistence.Store, organizationKey string, active []resource.ActiveResource) (*Baselines, error) {
+	b := &Baselines{organization: organizationKey, byKey: map[string]resource.ActiveResource{}, plans: map[string]*planning.Plan{}}
 	for _, a := range active {
-		byKey[a.LogicalKey()] = a
+		b.byKey[a.LogicalKey()] = a
+		id := a.LastDeploymentID
+		if id == "" {
+			continue
+		}
+		if _, seen := b.plans[id]; seen {
+			continue
+		}
+		snapshot, err := view.GetPlan(ctx, id)
+		switch {
+		case errors.Is(err, persistence.ErrNotFound):
+			b.plans[id] = nil
+		case err != nil:
+			return nil, err
+		default:
+			b.plans[id] = decodePlan(snapshot)
+		}
 	}
-	cache := map[string]*planning.Plan{}
+	return b, nil
+}
+
+func decodePlan(snapshot map[string]any) *planning.Plan {
+	raw, err := json.Marshal(snapshot)
+	if err != nil {
+		return nil
+	}
+	var decoded planning.Plan
+	if json.Unmarshal(raw, &decoded) != nil {
+		return nil
+	}
+	return &decoded
+}
+
+// Reader returns the pure lookup the Preview projection uses: the captured plan
+// of an existing node, or nil when there is no usable evidence.
+func (b *Baselines) Reader() func(planning.Node) *planning.Plan {
+	if b == nil {
+		return func(planning.Node) *planning.Plan { return nil }
+	}
 	return func(node planning.Node) *planning.Plan {
 		descriptor, err := resource.ParseDescriptor(node.Descriptor)
 		if err != nil {
 			return nil
 		}
-		found, ok := byKey[resource.LogicalKey(org, descriptor, node.Scope)]
+		found, ok := b.byKey[resource.LogicalKey(b.organization, descriptor, node.Scope)]
 		if !ok || found.LastDeploymentID == "" {
 			return nil
 		}
-		if plan, seen := cache[found.LastDeploymentID]; seen {
-			return plan
-		}
-		var old *planning.Plan
-		if snapshot, err := store.GetPlan(ctx, found.LastDeploymentID); err == nil {
-			if raw, err := json.Marshal(snapshot); err == nil {
-				var decoded planning.Plan
-				if json.Unmarshal(raw, &decoded) == nil {
-					old = &decoded
-				}
-			}
-		}
-		cache[found.LastDeploymentID] = old
-		return old
+		return b.plans[found.LastDeploymentID]
 	}
+}
+
+// LoadActiveWithBaselines reads the Organization's Active Resources and their
+// baseline plans in one read-only snapshot.
+func LoadActiveWithBaselines(ctx context.Context, st persistence.Store, organizationKey string) ([]resource.ActiveResource, *Baselines, error) {
+	var active []resource.ActiveResource
+	var baselines *Baselines
+	err := st.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
+		list, err := view.ListActiveResources(ctx, organizationKey)
+		if err != nil {
+			return err
+		}
+		captured, err := CaptureBaselines(ctx, view, organizationKey, list)
+		if err != nil {
+			return err
+		}
+		active, baselines = list, captured
+		return nil
+	})
+	return active, baselines, err
 }
