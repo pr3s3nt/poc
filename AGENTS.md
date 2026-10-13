@@ -131,7 +131,7 @@ hoặc push `refactor_ui`; commit cuối chứa bàn giao ngắn. Không gửi c
 kubeconfig, Terraform state hoặc `.env` vào cloud; repo và các nhánh đều public.
 
 Codex lưu session ID/URL và chế độ quyền thực tế vào Current handoff, fetch
-nhánh Claude mỗi **240 giây** khi đang chạy bình thường. Phản hồi gửi cùng phiên;
+nhánh Claude mỗi **15 phút (900 giây)** khi đang chạy bình thường. Phản hồi gửi cùng phiên;
 `ok: true` chỉ xác nhận gửi, không xác nhận hoàn tất. Codex review diff, tự chạy
 lại checks local với PostgreSQL thật (`REQUIRE_POSTGRES=1`), build, frontend và
 docs checks; không chấp nhận skip. Khi đạt, merge vào `refactor_ui`, cập nhật

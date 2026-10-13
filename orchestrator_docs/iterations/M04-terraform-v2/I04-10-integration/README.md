@@ -56,6 +56,6 @@ Product runtime dùng PostgreSQL thật và scoped Vault/Connections; invalid in
 
 Claude cloud viết code/test và push nhánh riêng; Codex review, chạy checks
 local không skip, merge và chạy thật/Playwright headed/quay video local.
-Lưu session ID/URL/quyền thực tế; fetch mỗi 240 giây. Gửi lỗi code về Claude.
+Lưu session ID/URL/quyền thực tế; fetch mỗi 15 phút (900 giây). Gửi lỗi code về Claude.
 Cập nhật verification/Current handoff/Task order, commit/push và xóa nhánh.
 Giữ failed evidence và phân biệt adapter thật/fake.

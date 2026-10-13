@@ -57,7 +57,7 @@ UI không chọn module ở Workload, không fallback class/renderer; typed/adva
 
 Claude cloud viết code/test trên nhánh riêng `claude/m04-<task>`, commit cuối
 có bàn giao ngắn; không sửa docs hoặc push refactor_ui. Codex lưu session/URL/
-quyền thực tế, fetch mỗi 240 giây, review và chạy lại checks local không skip.
+quyền thực tế, fetch mỗi 15 phút (900 giây), review và chạy lại checks local không skip.
 Codex merge khi đạt, chạy thật và Playwright headed/quay video local; gửi lỗi
 code về Claude. Cập nhật verification/Current handoff/Task order, commit/push
 và xóa nhánh Claude. Giữ failed evidence và phân biệt adapter thật/fake.

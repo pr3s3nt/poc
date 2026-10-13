@@ -18,7 +18,7 @@ merge và chạy thật local; Claude viết code/test, không sửa docs.
 3. Lưu session ID/URL và kiểm chế độ quyền thực tế, không suy từ cờ CLI.
    Không gửi credential/kubeconfig/state/.env; mọi nhánh của repo là public.
 4. Phản hồi: `claude -p "<nội dung>" --cloud <session-id> --output-format json`.
-   `ok: true` chỉ nghĩa đã gửi. Fetch nhánh mỗi 240 giây; đọc sớm khi lỗi,
+   `ok: true` chỉ nghĩa đã gửi. Fetch nhánh mỗi 15 phút (900 giây); đọc sớm khi lỗi,
    completion hoặc yêu cầu người dùng. Chờ theo giới hạn môi trường.
 5. Review diff; tự chạy local `REQUIRE_POSTGRES=1 go test ./...`, build,
    frontend checks và docs checks, không chấp nhận skip. Merge khi đạt,

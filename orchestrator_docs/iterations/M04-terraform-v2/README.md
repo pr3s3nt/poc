@@ -93,7 +93,14 @@ I04-06 cũ dừng trước implementation, không tài nguyên còn tồn tại;
 Tiếp I04-06 bằng phiên Claude cloud mới; Codex chạy checks và recording local.
 Session: `session_01UowTTQea8MqLBRaPktRfSX`;
 [Claude cloud I04-06](https://claude.ai/code/session_01UowTTQea8MqLBRaPktRfSX).
-Nhánh `claude/m04-i04-06`, base `9b00978`. Đã yêu cầu xác nhận quyền thực tế;
-cờ `--dangerously-skip-permissions` chưa phải bằng chứng chế độ của phiên.
+Nhánh `claude/m04-i04-06`, base `9b00978`; bản nháp `9e158ac` đã fetch,
+checks còn pending, chưa review/merge hoặc claim complete. Phiên không đọc được
+tên mode quyền nội bộ; quan sát Bash/Write/Edit/network chạy không prompt hoặc
+blocker (commit trạng thái `4e50a8f`), không suy quyền từ cờ CLI.
+Theo chỉ dẫn mới 2026-10-14, kiểm tra nhánh cloud mỗi **15 phút (900 giây)**;
+chỉ kiểm tra sớm khi lỗi/completion/yêu cầu người dùng. Codex giữ lượt chạy
+khi chờ; chưa thiết lập tác vụ nền tự khởi chạy sau khi lượt kết thúc.
+Chưa có task-owned AWS/cluster resources; local STS read-only đúng account.
+Dự toán đang chuẩn bị ở `/tmp/poc-m04-estimate-20261014/`, chưa phải bảng trước run.
 I04-11 đạt A01/E01/E02 + video + estimate + k8s-4f sạch thì tự chạy I04-12;
 chỉ bàn giao cuối chờ người dùng, không tự ghi đã duyệt.

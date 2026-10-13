@@ -14,7 +14,10 @@ cũ. Claude cloud viết code/test và push nhánh riêng public; Codex quản l
 review/checks/merge và chạy thật local, gồm Playwright headed/video.
 Điểm duyệt 2 đã bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và k8s-4f sạch
 thì tự chạy I04-12 trên AWS 452025861381/us-east-1. Điểm duyệt cuối vẫn giữ.
-Chưa có live proof hoặc quyền được kiểm chứng của phiên cloud mới.
+Chưa có live proof. Phiên cloud I04-06 đã push bản nháp `9e158ac`, checks
+pending; quyền thao tác Bash/Write/Edit/network quan sát chạy không prompt,
+tên mode nội bộ không introspect được. Kiểm tra cloud mỗi 15 phút theo chỉ dẫn
+mới; chưa merge code hoặc tạo tài nguyên AWS/cluster.
 Các đoạn checkpoint lịch sử bên dưới không thay quyết định hiện tại này.
 
 ## M04 documentation review checkpoint — 2026-10-13

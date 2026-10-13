@@ -54,6 +54,6 @@ A02/A03 full job/cache assertions + video; không còn run-owned cloud assets; d
 
 Claude cloud viết code/test và push nhánh riêng; Codex review, tự chạy checks
 local không skip, merge và chạy thật/Playwright headed/quay video local.
-Lưu session ID/URL/quyền thực tế; fetch mỗi 240 giây. Gửi lỗi code về Claude.
+Lưu session ID/URL/quyền thực tế; fetch mỗi 15 phút (900 giây). Gửi lỗi code về Claude.
 Cập nhật verification/Current handoff/Task order, commit/push và xóa nhánh.
 Giữ failed evidence và phân biệt adapter thật/fake; bàn giao cuối chờ người dùng.
