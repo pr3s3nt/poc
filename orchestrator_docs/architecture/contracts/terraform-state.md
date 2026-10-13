@@ -42,6 +42,12 @@ bảng, không có quyền SELECT state blob hoặc token hash/capability creden
 State role có quyền tối thiểu để quản lý state/locks/capabilities/attempts dưới
 claim/fencing; không có quyền DDL hoặc quyền owner. Console chỉ được truy cập
 metadata cần cho operation release/recovery, không có đường nâng quyền đọc blob.
+Lịch sử Deployment được đọc projection an toàn của attempts đã liên kết đúng
+Deployment/Environment: stage/status/attempt, action/ownership, mã lỗi được phép,
+descriptor/scope, module ID/revision và timestamps. Console chỉ có SELECT các
+cột metadata cần dùng trên instances/attempts; snapshots, target credential
+references, physical intent/IDs, state serial và recovery handle thuộc State.
+Mã không được nhận diện phải hiển thị thông báo chung, không trả nguyên văn.
 Credentials runtime lưu trong file riêng chỉ owner OS được đọc; key mã hóa
 độc lập database. Không dùng owner connection như fallback khi thiếu runtime
 credentials; cấu hình sai phải fail closed. Test dùng đúng login roles để chứng

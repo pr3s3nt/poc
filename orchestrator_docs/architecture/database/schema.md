@@ -615,6 +615,18 @@ Write before side effects; safe stage/provenance committed after each boundary.
 Unknown ownership cannot authorize cleanup. DeploymentResource projection carries
 safe stage/attempt/status references, never raw resolved inputs or CLI artifacts.
 
+Console đọc projection theo `deployment_id` của Deployment đã được kiểm tra đầy
+đủ Organization/Application/Environment; instance của attempt phải thuộc chính
+Environment đó. Projection gồm descriptor/scope, số lần, action/ownership,
+stage/status, mã lỗi an toàn, module ID/revision và timestamps. Các mã không nằm
+trong danh sách được phép phải đổi thành thông báo chung, không trả nguyên văn
+dữ liệu đã lưu. Đọc lại lịch sử không gọi provider hoặc Terraform.
+Quyền SELECT của Console trên instances/attempts giới hạn theo cột metadata cần
+dùng; không đọc `target_ref`, `physical_intent`, `module_snapshot`,
+`target_snapshot`, `observed_physical_ids`, `state_serial` hoặc `recovery_handle`.
+Không cấp SELECT toàn bảng hoặc quyền ghi attempts cho Console. Kiểm bằng login
+Console riêng trên PostgreSQL thật, kể cả truy vấn join và chuyển cả row sang JSON.
+
 Destroy attempts giữ opaque `verifyHandle` trong `module_snapshot` cho một
 chu kỳ destroy. Handle trỏ tới artifact state trước xóa được mã hóa riêng tư,
 không chứa raw state hoặc đường dẫn trong metadata. Các lần retry dùng lại
