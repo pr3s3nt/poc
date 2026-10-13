@@ -37,6 +37,8 @@
 # retained text file is scanned for them.
 set -euo pipefail
 umask 077
+# xdotool types the Vietnamese option names of native selects; it needs a UTF-8 locale.
+export LC_ALL=C.UTF-8
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO="$(cd "${ROOT}/.." && pwd)"
