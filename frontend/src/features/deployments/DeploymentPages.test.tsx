@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { Application } from '../../shared/types/application';
@@ -530,4 +530,93 @@ it('ignores an obsolete recent-deployments response after the Environment change
   await act(async () => { resolveStaging(Response.json({ deployments: [deployment({ id: 'dep-s', workloadId: 'staging-api' })] })); });
   expect(screen.queryByText('staging-api')).not.toBeInTheDocument();
   expect(screen.getByText('prod-api')).toBeInTheDocument();
+});
+
+const attempt = (overrides: Record<string, unknown> = {}) => ({
+  descriptor: 'redis.in-cluster#shared.cache', scopeType: 'SHARED', attempt: 1, action: 'UPDATE', ownership: 'PREEXISTING', stage: 'APPLYING', status: 'RUNNING',
+  moduleId: 'redis-k8s', moduleRevision: 'v3-2026.10.13', startedAt: '2026-09-01T10:00:05Z', updatedAt: '2026-09-01T10:00:09Z', ...overrides,
+});
+const progressRows = () => screen.getByRole('region', { name: 'Tiến trình tạo tài nguyên' });
+
+it('shows the persisted Terraform stage, attempt and status per resource in Vietnamese, in server order', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({ resourceProgress: [
+    attempt({ stage: 'READY', status: 'SUCCEEDED', action: 'CREATE', ownership: 'CREATED_BY_RUN' }),
+    attempt({ descriptor: 'postgres.in-cluster#shared.db', attempt: 2, stage: 'APPLYING', status: 'FAILED', safeErrorCode: 'TIMEOUT', moduleId: 'postgres-k8s' }),
+    attempt({ descriptor: 'vpc.default#applications.shop', stage: 'FUTURE_STAGE', status: 'NEEDS_ATTENTION', safeErrorCode: 'NEW_CODE' }),
+  ] }))));
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  const region = await screen.findByRole('region', { name: 'Tiến trình tạo tài nguyên' });
+  const rows = Array.from(region.querySelectorAll('tbody tr')).map((row) => row.textContent);
+  expect(rows).toHaveLength(3);
+  expect(rows[0]).toContain('redis.in-cluster#shared.cache');
+  expect(rows[0]).toContain('redis-k8s · v3-2026.10.13');
+  expect(rows[0]).toContain('Tạo mới');
+  expect(rows[0]).toContain('Sẵn sàng');
+  expect(rows[0]).toContain('Thành công');
+  expect(rows[0]).toContain('Do lần chạy này tạo');
+  expect(rows[1]).toContain('postgres-k8s');
+  expect(rows[1]).toContain('Đang áp dụng');
+  expect(rows[1]).toContain('Thất bại');
+  expect(rows[1]).toContain('Quá thời gian');
+  // Unknown stage and error codes pass through unchanged, never crash or vanish.
+  expect(rows[2]).toContain('FUTURE_STAGE');
+  expect(rows[2]).toContain('NEW_CODE');
+  expect(rows[2]).toContain('Cần xử lý');
+});
+
+it('distinguishes unavailable from empty progress and never invents an empty list', async () => {
+  const body = (overrides: Record<string, unknown>) => vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail(overrides))));
+  body({});
+  const view = render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  expect(await screen.findByText(/Không đọc được tiến trình thực thi đã lưu/)).toBeInTheDocument();
+  expect(screen.queryByText(/Chưa có bước thực thi Terraform nào/)).not.toBeInTheDocument();
+  view.unmount();
+  for (const malformed of [{ resourceProgress: 'oops' }, { resourceProgress: [attempt({ attempt: '1' })] }, { resourceProgress: [attempt({ stage: undefined })] }, { resourceProgress: [attempt(), null] }, { resourceProgress: [attempt({ safeErrorCode: 7 })] }]) {
+    body(malformed);
+    const again = render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+    expect(await screen.findByText(/Không đọc được tiến trình thực thi đã lưu/)).toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: /./ })).not.toBeInTheDocument();
+    again.unmount();
+  }
+  body({ resourceProgress: [] });
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  expect(await screen.findByText('Chưa có bước thực thi Terraform nào được ghi cho lần triển khai này.')).toBeInTheDocument();
+});
+
+it('renders only allowlisted progress fields: snapshots, state, physical IDs and recovery data never appear', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({ resourceProgress: [attempt({
+    moduleSnapshot: { verifyHandle: 'verify-PRIVATE', variables: { password: 'raw-module-secret' } }, targetSnapshot: { secretRef: 'vault://PRIVATE-TARGET' },
+    recoveryHandle: 'recovery/PRIVATE-PATH', observedPhysicalIds: ['i-PRIVATE'], stateSerial: 7, stateKey: 'a'.repeat(64), resolvedInputs: { token: 'raw-input-token' },
+  })] }))));
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  const region = await screen.findByRole('region', { name: 'Tiến trình tạo tài nguyên' });
+  for (const secret of ['PRIVATE', 'raw-module-secret', 'raw-input-token', 'vault://', 'recovery/', 'aaaaaaaa']) expect(document.body).not.toHaveTextContent(secret);
+  expect(region).toHaveTextContent('Chỉ hiển thị giai đoạn, trạng thái và mã lỗi an toàn đã lưu');
+  expect(document.body.innerHTML).not.toContain('PRIVATE');
+});
+
+it('reopens another deployment with its own progress, re-reads on Tải lại and ignores a late progress of the obsolete one', async () => {
+  const pending: Record<string, (value: Response) => void> = {};
+  vi.stubGlobal('fetch', vi.fn((input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith('/dep-new')) return Promise.resolve(Response.json(detail({ deployment: deployment({ id: 'dep-new' }), resourceProgress: [attempt({ descriptor: 'new.resource#a', stage: 'READY', status: 'SUCCEEDED' })] })));
+    return new Promise<Response>((resolve) => { pending[url] = resolve; });
+  }));
+  const view = render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-old" />);
+  view.rerender(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-new" />);
+  expect(await screen.findByText(/new\.resource#a/)).toBeInTheDocument();
+  await act(async () => { pending[Object.keys(pending)[0] as string]?.(Response.json(detail({ deployment: deployment({ id: 'dep-old' }), resourceProgress: [attempt({ descriptor: 'old.resource#z' })] }))); });
+  expect(screen.queryByText(/old\.resource#z/)).not.toBeInTheDocument();
+  expect(progressRows()).toHaveTextContent('new.resource#a');
+});
+
+it('shows a load failure without any progress rows and recovers on retry', async () => {
+  const replies: (() => Response)[] = [() => Response.json({ error: 'boom: raw-internal' }, { status: 500 }), () => Response.json(detail({ resourceProgress: [attempt()] }))];
+  vi.stubGlobal('fetch', vi.fn(async () => (replies.shift() as () => Response)()));
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải chi tiết triển khai.');
+  expect(screen.queryByRole('region', { name: 'Tiến trình tạo tài nguyên' })).not.toBeInTheDocument();
+  expect(document.body).not.toHaveTextContent('raw-internal');
+  await userEvent.setup().click(within(screen.getByRole('alert')).getByRole('button', { name: 'Thử lại' }));
+  expect(await screen.findByRole('region', { name: 'Tiến trình tạo tài nguyên' })).toHaveTextContent('redis-k8s');
 });
