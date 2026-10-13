@@ -12,6 +12,7 @@ import (
 
 	"orchestrator/internal/adapters/scorek8s"
 	"orchestrator/internal/application/catalog"
+	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/bootstrap/bootstraptest"
@@ -474,4 +475,62 @@ func TestPreviewIntentSameDefinitionKeyChangedFallbackIsUpdate(t *testing.T) {
 	if strings.Contains(string(raw2), "9Gi") {
 		t.Fatal("the projection must not expose the changed value")
 	}
+}
+
+// intentEvidence is an internal comparison digest persisted inside the plan
+// snapshot. Neither Preview projection nor the Deployment detail may return it,
+// and the persisted snapshot is the only place it exists.
+func TestIntentEvidenceStaysInternal(t *testing.T) {
+	ctx := context.Background()
+	app, opts, _, bundles := requiredAppBundles(t, true)
+	registerRenderer(t, app, bundles, opts, "render", "internal-k8s")
+	raw := scoreFor("api", "api:v1", false)
+	raw["resources"] = map[string]any{"db": map[string]any{"type": "postgres", "params": map[string]any{"database": "orders", "username": "appuser"}}}
+	if _, err := app.Workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "api", raw, 0); err != nil {
+		t.Fatal(err)
+	}
+	preview, err := app.Pending.Preview(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := app.Pending.Deploy(ctx, opts.ApplicationKey, opts.EnvironmentKey, "test", preview.Token)
+	if err != nil || report.Status != "SUCCEEDED" {
+		t.Fatalf("deploy: %+v %v", report, err)
+	}
+	// The evidence exists only in the persisted plan snapshot (internal comparison input).
+	plans, _ := app.Store.ListDeployments(ctx, opts.ApplicationKey, opts.EnvironmentKey)
+	if len(plans) != 1 {
+		t.Fatalf("deployments %d", len(plans))
+	}
+	snapshot, err := app.Store.GetPlan(ctx, plans[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence, _ := snapshot["intentEvidence"].(map[string]any)
+	if len(evidence) == 0 {
+		t.Fatal("the persisted plan snapshot must carry the internal comparison evidence")
+	}
+	var digests []string
+	for _, v := range evidence {
+		digests = append(digests, v.(string))
+	}
+	view, err := app.Queries.GetDeployment(ctx, deploymentQuery(opts, plans[0].ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, doc := range map[string]any{"pending preview": preview, "deployment detail": view} {
+		encoded, _ := json.Marshal(doc)
+		if strings.Contains(string(encoded), "intentEvidence") {
+			t.Fatalf("%s exposes intentEvidence", name)
+		}
+		for _, digest := range digests {
+			if strings.Contains(string(encoded), digest) {
+				t.Fatalf("%s exposes a comparison digest", name)
+			}
+		}
+	}
+}
+
+func deploymentQuery(opts seed.Options, id string) appsvc.GetDeploymentQuery {
+	return appsvc.GetDeploymentQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, DeploymentID: id}
 }

@@ -283,7 +283,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
   describe('Resource Types to Definitions navigation (T04)', () => {
     const catalog = (url: string) => url.endsWith('/auth/session') ? Response.json({ user: { Username: 'platform', Role: 'PLATFORM_ENGINEER' } })
       : url.endsWith('/resource-definition-capabilities') ? Response.json({ capabilities: capabilityFixture })
-      : url.endsWith('/resource-types') ? Response.json({ resourceTypes: ['vpc', 'postgres', 'postgres-ha', 'workload'].map((key) => ({ key, inputs: [], outputs: [] })) })
+      : url.endsWith('/resource-types') ? Response.json({ resourceTypes: ['vpc', 'postgres', 'postgres-ha', 'workload'].map((key) => ({ key, inputs: [], outputs: [], classes: [] })) })
       : url.endsWith('/resource-definitions') ? Response.json({ resourceDefinitions: [] })
       : url.endsWith('/connections') ? Response.json({ connections: [] }) : undefined;
 

@@ -623,6 +623,16 @@ func TestPreview_ResourceIntentsAndTargetAreSafe(t *testing.T) {
 	if conn.SecretRef == "" || strings.Contains(string(raw), conn.SecretRef) {
 		t.Fatalf("connection secret reference exposed in intents")
 	}
+	// The internal comparison digests never leave the plan: not by name, not by value.
+	whole, _ := json.Marshal(view)
+	if strings.Contains(string(whole), "intentEvidence") || len(result.Plan.IntentEvidence) == 0 {
+		t.Fatalf("intent evidence must exist internally and stay out of the view (internal=%d)", len(result.Plan.IntentEvidence))
+	}
+	for _, digest := range result.Plan.IntentEvidence {
+		if strings.Contains(string(whole), digest) {
+			t.Fatal("the view exposes a comparison digest")
+		}
+	}
 	// Pure: the projection read nothing but the store.
 	if len(items) == 0 {
 		t.Fatal("no resource intents")

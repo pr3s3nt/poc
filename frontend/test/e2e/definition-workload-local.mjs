@@ -461,6 +461,8 @@ export const SCENARIOS = {
     mark('progress-empty');
     await signOut();
     mark('signed-out');
+    caption('Bước 22: Đã đăng xuất; kết thúc kịch bản. Không có gì được triển khai trong lần chạy này');
+    await page.waitForTimeout(7000); // capture can start late under load: the recording must clearly outlast the last mark
 
     writeFileSync(`${evidenceDir}/scenario.json`, JSON.stringify({ applicationId, registeredPins: { redis: redisPin.source, postgresK8s: pinOf(capabilities, 'postgres-k8s').source }, types: classesOf('postgres'), progress: seeded }, null, 2));
   },
