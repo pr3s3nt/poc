@@ -24,14 +24,15 @@ hai Vault và ảnh bổ trợ đã dọn. Agent Luna sửa fixture/cleanup trư
 Codex checks1352Go/0skip và622frontend/fullchecks đạt, merge `72a807e`;
 A01 retry duy nhất `a01-20261014-r2` fail ở native confirm xóa workload;
 deploy/job/cache/Vault đều đạt. Operator gỡ workload/VSO, Terraform gốc dọn
-Redis/PostgreSQL, dọn renderer Secrets theo UID; namespace còn vì default SA
-không managedFields. Chờ quyết định ngoại lệ namespace UID đã khớp state,
-giữ DB/hai Vault/private handles.28 retained UIDs nguyên vẹn. AWS vẫn bị gate.
+Redis/PostgreSQL, dọn renderer Secrets theo UID. Namespace từng bị chặn vì
+default SA không managedFields; quyền ngoại lệ15Oct đã được thực hiện sau
+xác minh UID, namespace/PV ABSENT. Giữ DB/hai Vault/private handles để khép
+registry bằng bản sửa,28 retained UIDs nguyên vẹn. AWS vẫn bị gate.
 [Biên bản I04-11](verification/2026-10-14-i04-11-k8s4f.md).
 Quyết định2026-10-15: bỏ giới hạn một retry scenario; thất bại phải tìm nguyên
 nhân, giao writer sửa và review/checks rồi chạy lại khi lượt cũ cleanup sạch.
-Không dừng chỉ vì retry fail. Namespace r2 vẫn chờ quyết định ngoại lệ;
-người dùng đã cấp ngoại lệ đúng namespace/UID2026-10-15; Codex xác minh lại
+Không dừng chỉ vì retry fail. Người dùng đã cấp ngoại lệ đúng
+namespace/UID2026-10-15; Codex xác minh lại
 và dọn bằng UID precondition, namespace/PV ABSENT, sentinel giữ nguyên.
 Đang giữ DB/Vault để khép state; Luna sửa code/test, chưa mở run mới.
 Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi

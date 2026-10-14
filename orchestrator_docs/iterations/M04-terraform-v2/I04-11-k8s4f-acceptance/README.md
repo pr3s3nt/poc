@@ -18,12 +18,13 @@ Phục hồi độc lập đã CLEAN/CLOSED_CLEAN bằng handles gốc; database
 hai Vault và ảnh bổ trợ đã dọn. Bản sửa Luna qua checks độc lập1352Go/0skip,
 622frontend/fullchecks, merge `72a807e`; retry duy nhất `a01-20261014-r2`
 đã fail bước xóa workload do chưa trả lời native confirm, dù deploy/job/cache
-đạt. Operator dọn workload/VSO/Redis/PG/renderer Secrets, namespace còn vì
-default SA thiếu managedFields; chờ quyết định ngoại lệ, giữ DB/hai Vault/
+đạt. Operator dọn workload/VSO/Redis/PG/renderer Secrets; namespace bị chặn vì
+default SA thiếu managedFields đã được dọn theo quyền ngoại lệ15Oct sau xác
+minh đúng UID, namespace/PV ABSENT. Giữ DB/hai Vault/
 private handles để phục hồi.28 baseline UIDs giữ nguyên. Không mở run mới.
 Quyết định2026-10-15 thay giới hạn retry: tiếp tục tìm nguyên nhân/sửa code,
 review/checks và chạy lại sau cleanup sạch; không dừng chỉ vì retry fail.
-Quyết định ngoại lệ namespace vẫn pending, không bypass guard.
+Quyền ngoại lệ chỉ dành namespace/UID r2; không bypass guard nói chung.
 [Biên bản](../../../verification/2026-10-14-i04-11-k8s4f.md).
 
 ## Phạm vi
