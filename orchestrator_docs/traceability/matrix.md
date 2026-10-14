@@ -641,3 +641,12 @@ UC-05 BR-10 CREATE intent sau verified destroy; metadata chưa đồng bộ fail
 Codex: 1171 Go/0 skip, 609 frontend/allchecks, real engine/CLI/encrypted SQL/Vault
 headed scenario và cleanup đạt. FAKE objects/absence, không live A01; chọn thêm
 một dependency và giữ một candidate không chọn trên hạ tầng thật còn I04-11.
+
+## I04-09 local review complete
+
+[Verification](../verification/2026-10-14-i04-09-acceptance-redis.md) hiện thực
+Redis job flow của RUNBOOK-TERRAFORM-V2-ACCEPTANCE và outputs auth/TLS của
+TERRAFORM-MODULE-CONTRACT: commit/write-through, hit/miss/refill, TTL/prefix,
+no duplicate/cache failure diagnostics và per-job proof không false-pass.
+1254Go/0skip,609frontend/fullchecks/6image manifests/cleanup đạt. Không video
+unit hoặc live A01/A02/A03; binding/runner/live proof còn I04-10..12.

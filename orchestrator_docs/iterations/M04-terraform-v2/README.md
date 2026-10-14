@@ -42,8 +42,8 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-06 | [AWS Connection qua Console và Vault](I04-06-aws-connection/README.md) | 2 | Hoàn tất local |
 | I04-07 | [Definition, Workload class, Preview và renderer](I04-07-definition-workload-ui/README.md) | 2 | Hoàn tất local |
 | I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Hoàn tất local |
-| I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Current; cloud đang chạy |
-| I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Chưa bắt đầu |
+| I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
+| I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Current; chuẩn bị cloud |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Chưa bắt đầu |
 | I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Chưa bắt đầu |
 
@@ -52,7 +52,7 @@ Dependencies triển khai: schema/state -> registry -> executor -> modules ->
 Connection/catalog/Workload/renderer -> deletion/app Redis -> integration ->
 k8s-4f đạt + video/estimate + cleanup sạch -> AWS. Không bỏ task hoặc đổi adapter để rút acceptance.
 I04-00 đã được người dùng duyệt sau sửa selected-set và đối chiếu I06-10.
-I04-09 là iteration current; các task sau chưa bắt đầu. M02/I06-10 deferred,
+I04-10 là iteration current; các task sau chưa bắt đầu. M02/I06-10 deferred,
 không coi milestone cũ hoàn thành; xem [coverage còn lại](../M02-usecase-completion/I06-10-uc01-04-management/README.md#đối-chiếu-công-việc-còn-dở-với-m04).
 
 ## Validation và acceptance
@@ -87,7 +87,7 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 
 ## Current handoff
 
-2026-10-14: I04-01..08 đã verified local. I04-06 code `f3ed5bb` đã review,
+2026-10-14: I04-01..09 đã verified local. I04-06 code `f3ed5bb` đã review,
 1082 Go tests/zero skip + 479 frontend tests/build/vet/docs và Codex headed
 browser trên SQL/Vault thật, AWS transport fake đạt. [Biên bản](../../verification/2026-10-14-i04-06-aws-connection.md).
 Video `/tmp/poc-i0406-local-browser-r2/I04-06-captioned.mp4`; cleanup DB/roles,
@@ -115,20 +115,18 @@ quan sát Write/Edit/Read/Bash/git/network, mode nội bộ không introspect. C
 handoff/brief giữ tại `/tmp/poc-i0408-resource-delete-ui/`; handoff cuối
 `2235fde` đã merge, docs push `ee41f1d`; hai nhánh cloud và checkout đã dọn,
 remote xác minh không còn nhánh I04-08. Không còn gap token/proof/scope/marker diagnostic hay DESTROYED intent.
-I04-09 current: phiên mới [session_019GgofsetFjxTDq6V83vv6Q](https://claude.ai/code/session_019GgofsetFjxTDq6V83vv6Q)
-đã tạo từ refactor_ui `ee41f1d` đã push, nhánh yêu cầu `claude/m04-i04-09`.
-Brief `/tmp/poc-i0409-acceptance-redis/cloud-brief.txt`; cờ
-`--dangerously-skip-permissions` đã truyền. Handoff `419478c` trên nhánh tự
-sinh `claude/m04-i04-09-m1sahg` xác nhận Read/Write/Edit/Bash/git push đã chạy;
-network qua proxy, mode nội bộ không introspect. Cloud riêng app 74 pass/0 skip,
-full Go 1205 pass/18 fail/21 skip không được tính đạt. Codex r1 `419478c`:1244
-Go/0 skip, r2 `7984f1f`:1249 Go/0 skip + full frontend/build/vet/docs đạt;
-PG/network/credential files đã dọn. Redis r1 native children/thư mục vắng mặt,
-Redis có sẵn uid999 giữ nguyên. Claude đã bỏ docs edit/mirror nhánh chính;
-readiness failed/unverified marker và ACL false-pass đã sửa. Review tiếp lỗi
-xóa failure của job A khi job B thành công đã sửa trong `65223ef` (per-job/
-operation, bounded64/overflow fail-closed, recheck16). Codex đang r3 đúng bản
-này và dựng ba ảnh mỗi kiến trúc amd64/arm64, chưa merge hoặc live proof. Chưa assets cluster/AWS.
+I04-09 code `65223ef`/handoff `67e26a7` đã merge `45006fd`: 1254Go/0skip,
+609frontend/allchecks và 6 ảnh thật amd64/arm64 với manifest digests đạt.
+[Biên bản](../../verification/2026-10-14-i04-09-acceptance-redis.md); checks
+`/tmp/poc-i0409-codex-checks-r3/`, ảnh `/tmp/poc-i0409-image-build/`.
+PG/network/private files/Redis fixture/registry cleanup đã xác minh.
+[Phiên](https://claude.ai/code/session_019GgofsetFjxTDq6V83vv6Q) quan sát
+Read/Write/Edit/Bash/git push, proxy network; mode nội bộ không introspect.
+Cloud fullsuite failures/skips không tính đạt, local không skip. Các lỗi
+readiness/marker/ACL/cross-job masking đã sửa; không task-owned cluster/AWS.
+Brief/handoff `/tmp/poc-i0409-acceptance-redis/`; dọn nhánh/checkout sau push.
+I04-10 current: chuẩn bị phiên mới từ refactor_ui đã push; draft
+`/tmp/poc-i0410-integration/cloud-brief-draft.txt`, chưa live proof.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
 Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.

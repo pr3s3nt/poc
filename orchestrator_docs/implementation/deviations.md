@@ -174,9 +174,10 @@ not yet fully conformant: AWS credential onboarding đã implement/verified loca
 SQL/Vault/browser và IAM global/regional context guards; live onboarding và
 execution capability preflight còn I04-10/12. Environment-only AWS provider
 binding có backend guards; form Definition còn I04-07;
-score-k8s is optional/internal-only; no Redis app cache or v2 module/source/class
-UI và real acceptance còn thiếu. Durable encrypted state/locks và executor cleanup provenance đã có. PE/Admin resource detail/delete preview/name confirmation/selected-set
-eligibility/confirmed-scope admission/progress/absence proof chưa có.
+I04-07 required score-k8s và module/source/class UI đã verified local;
+I04-09 Redis app cache đã verified PG/Redis thật (1254Go/0skip,609frontend),
+6 ảnh có manifest digest, chưa real delivery wiring hoặc live acceptance. Durable encrypted state/locks và executor cleanup provenance đã có. PE/Admin detail/delete preview/exact confirmation/selected-set admission/
+progress/operation-bound proof đã verified local I04-08; live A01 còn I04-11.
 Đây là gap code, không phải các luật baseline còn hiệu lực.
 
 This is a planned implementation gap, not permission to alter canonical design

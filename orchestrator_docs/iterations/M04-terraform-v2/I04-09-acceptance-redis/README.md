@@ -1,7 +1,7 @@
 ---
 id: I04-09
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-10-14
 related: [M04, ADR-014, IMP-021]
 ---
@@ -10,7 +10,7 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Current sau I04-08 verified local; phiên cloud session_019GgofsetFjxTDq6V83vv6Q đang chạy từ ee41f1d; chưa verified.
+Chặng 2; xem [M04](../README.md). Hoàn tất local code65223ef/handoff67e26a7, merge45006fd. 1254Go/0skip,609frontend/fullchecks/6 ảnh/cleanup đạt; [biên bản](../../../verification/2026-10-14-i04-09-acceptance-redis.md). Wiring và live proof còn I04-10..12.
 
 ## Phạm vi
 
