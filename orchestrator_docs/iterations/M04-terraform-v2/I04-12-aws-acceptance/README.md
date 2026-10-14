@@ -46,7 +46,7 @@ Module/provider pins, deadline và small sizing ghi trước execution.
 
 ## Acceptance criteria
 
-A02/A03 full job/cache assertions + video; không còn run-owned cloud assets; docs/code/tests/traceability nhất quán. Người dùng duyệt final handoff và cleanup evidence, không tự claim approved.
+A02/A03 full job/cache assertions + video; không còn run-owned cloud assets; docs/code/tests/traceability nhất quán. Gửi báo cáo cuối và cleanup evidence, không chờ duyệt theo quyết định2026-10-15; không tự claim approved.
 
 ## Checks
 
@@ -65,4 +65,4 @@ Lưu cloud head/session và tmux/agent ID, quyền thực tế, bàn giao code d
 theo dõi mỗi15 phút, kiểm sớm khi lỗi/hoàn tất. Chi tiết
 [runbook điều phối](../../../operations/claude-tmux.md).
 Cập nhật verification/Current handoff/Task order; giữ failed evidence, cleanup
-và điểm duyệt cuối. Không tự ghi đã duyệt.
+và báo cáo cuối không chờ duyệt (2026-10-15). Không tự ghi đã duyệt.

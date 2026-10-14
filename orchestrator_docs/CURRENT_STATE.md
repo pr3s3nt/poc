@@ -31,10 +31,13 @@ giữ DB/hai Vault/private handles.28 retained UIDs nguyên vẹn. AWS vẫn b�
 Quyết định2026-10-15: bỏ giới hạn một retry scenario; thất bại phải tìm nguyên
 nhân, giao writer sửa và review/checks rồi chạy lại khi lượt cũ cleanup sạch.
 Không dừng chỉ vì retry fail. Namespace r2 vẫn chờ quyết định ngoại lệ;
-chưa có quyền bypass guard, không mở run mới khi cleanup chưa sạch.
+người dùng đã cấp ngoại lệ đúng namespace/UID2026-10-15; Codex xác minh lại
+và dọn bằng UID precondition, namespace/PV ABSENT, sentinel giữ nguyên.
+Đang giữ DB/Vault để khép state; Luna sửa code/test, chưa mở run mới.
 Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi
 lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
-k8s-4f sạch thì tự chạy I04-12 AWS 452025861381/us-east-1. Giữ điểm duyệt cuối.
+k8s-4f sạch thì tự chạy I04-12 AWS 452025861381/us-east-1. Quyết định2026-10-15
+bỏ điểm duyệt cuối; thực hiện đến hết I04-12 và gửi báo cáo.
 I04-06 tại `f3ed5bb`: **1082 Go PASS/0 FAIL/0 SKIP**, 479 frontend tests,
 build/vet/docs và Codex headed browser/actual SQL/Vault/cleanup pass. AWS
 transport trong browser fake; chưa có v2 live proof. Tên mode quyền cloud không

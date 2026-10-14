@@ -164,7 +164,8 @@ chưa hoàn thành và không bắt đầu run mới.
 Quyết định người dùng 2026-10-14: chặng 1 đã được duyệt; bỏ điểm duyệt 2.
 Sau I04-11 đạt A01/E01/E02, video và dự toán AWS đã lưu, k8s-4f sạch,
 Codex tự chạy I04-12 AWS A02 rồi A03, cleanup ngay và xác minh từng run.
-Điểm duyệt 3 bàn giao cuối vẫn giữ; không tự tuyên bố đã duyệt.
+Quyết định2026-10-15 bỏ điểm duyệt cuối: thực hiện đến hết I04-12 và gửi báo
+cáo, không chờ phê duyệt; không tự tuyên bố kết quả đã được người dùng duyệt.
 Claude cloud viết code/test trên nhánh riêng public; Codex review/checks/merge
 và chạy thật local, không gửi secrets vào cloud. Quyết định mới nhất2026-10-14:
 cloud hết hạn mức thì chuyển Claude local qua tmux/`clauded`; local tiếp tục

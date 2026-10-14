@@ -123,7 +123,13 @@ và lý do, cùng mọi user-owned change còn lại.
 
 ## Codex điều phối và Claude cloud thực hiện code
 
-### Quyết định M04 mới nhất — 2026-10-14
+### Quyết định M04 mới nhất — 2026-10-15
+
+Người dùng cho tiếp tục đến hết I04-12, không cần duyệt giữa chặng hoặc duyệt
+cuối; hoàn tất gửi báo cáo. Cho dọn ngoại lệ đúng namespace
+`orch-v2-test-a01-20261014-r2`, UID
+`a76ad236-5a87-44a2-b4bc-8c0040e5ba4e`, sau khi xác minh lại. Quyền ngoại lệ
+này chỉ dành cho namespace/UID đó, không cấp quyền bypass guard nói chung.
 
 Quyết định bổ sung 2026-10-15: khi kiểm tra hoặc scenario thất bại, Codex phải
 tìm nguyên nhân, giao writer sửa code/test, review và kiểm tra độc lập rồi chạy

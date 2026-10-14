@@ -672,3 +672,8 @@ Quyết định2026-10-15 cập nhật AGENTS/ADR-014/runbook/M04: thất bại 
 nguyên nhân và sửa/check rồi chạy lại sau cleanup sạch, bỏ giới hạn một retry
 scenario. Không thay kết quả fail lịch sử, ownership guards hoặc policy retry
 apply có unknown outcome. Namespace r2 còn chờ quyết định ngoại lệ.
+
+Quyền bổ sung2026-10-15: dọn ngoại lệ đúng namespace/UID r2 sau kiểm tra lại,
+thực hiện M04 đến hết I04-12 không chờ duyệt cuối, gửi báo cáo. Namespace/PV
+r2 đã verified ABSENT; không biến failed UI scenario thành PASS. Luna đang
+sửa code/test; giữ state/handles để khép cleanup trước lượt mới.

@@ -22,10 +22,10 @@ use-case specs/contracts, không thuộc plan này.
 |---|---|---|
 | 1 | Hoàn tất A–D, validation/review và docs commit/push | Dừng để người dùng duyệt tài liệu đã sửa và plan M04, trước code/test mutation |
 | 2 | Toàn bộ code/unit/integration PostgreSQL thật; k8s-4f A01/E01/E02 + video | A01/E01/E02 pass, video + dự toán đã lưu, k8s-4f sạch thì tự sang I04-12 |
-| 3 | Sau I04-11 đạt: AWS A02/A03, cleanup verified, independent review/validation/commit-push | Dừng để người dùng duyệt final handoff/cleanup evidence |
+| 3 | Sau I04-11 đạt: AWS A02/A03, cleanup verified, independent review/validation/commit-push | Gửi báo cáo cuối, không chờ duyệt (2026-10-15) |
 
 Người dùng bỏ điểm duyệt 2 ngày 2026-10-14; video và dự toán vẫn phải lưu.
-Điểm duyệt 1 đã đạt; điểm duyệt 3 bàn giao cuối vẫn giữ. Không tự coi im lặng là duyệt; không hỏi lại quyền đã giao
+Điểm duyệt 1 đã đạt; điểm duyệt3 bỏ ngày2026-10-15, hoàn tất gửi báo cáo. Không tự coi im lặng là duyệt; không hỏi lại quyền đã giao
 trong chặng, trừ thiếu credential/capability hoặc đổi behavior/security/scope.
 Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ approval gây phí.
 
@@ -295,3 +295,15 @@ là giới hạn hiện hành. Không dừng chỉ vì retry fail, không giảm
 bypass ownership. Namespace r2 còn chờ quyết định ngoại lệ; quyền retry mới
 không tự cấp quyền xóa namespace bị guard chặn. Tiếp tục sửa/checks độc lập
 trong lúc giữ handles phục hồi; chưa mở run mới trước physical cleanup.
+
+**Quyền và handoff mới nhất2026-10-15:** người dùng cho dọn đúng namespace/UID
+r2 sau xác minh lại, sửa lỗi và tiếp tục đến hết I04-12 không cần duyệt giữa
+chặng/cuối; hoàn tất gửi báo cáo. Các handoff "pending quyền"/"giữ final gate"
+ở trên là lịch sử. Codex kiểm kê lại39 kinds và đúng UID/hai defaults rồi xóa
+namespace bằng UID precondition; query namespace/hai PV ABSENT và sentinel UID
+nguyên vẹn. Proof `operator-authorized-namespace-delete.json` dưới evidence r2.
+Chưa gọi kết quả A01 pass; DB/Vault/private state còn giữ để khép registry và
+phục hồi, chưa mở run mới. Agent `/root/i0410_luna` đang sửa code/test trong
+checkout I04-11 nhánh `codex/m04-i0411-delete-fixes`; không đọc live handles.
+Bước tiếp: review/checks, xác minh cleanup/retained/state archive rồi A01 mới,
+E01/E02; đủ gate thì tự chạy AWS A02 sạch rồi A03 và báo cáo.
