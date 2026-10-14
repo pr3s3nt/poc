@@ -9,7 +9,7 @@ last_reviewed: 2026-10-14
 
 ## Quyết định điều phối M04 — 2026-10-14
 
-I04-01..07 hoàn tất local; I04-08 hiện hành. Claude cloud viết code/test trên
+I04-01..08 hoàn tất local; I04-09 hiện hành. Claude cloud viết code/test trên
 nhánh riêng public; Codex quản lý docs/review/checks/merge và chạy thật local.
 Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi
 lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
@@ -27,6 +27,15 @@ Definition source/mapping/provider metadata và Workload class/default/custom
 SQL/Vault thật, executors/attempts browser giả lập; cleanup local sạch.
 [Biên bản I04-07](verification/2026-10-14-i04-07-definition-workload-ui.md).
 I04-08 tiếp theo: read detail/selected-set deletion/admission/progress qua UI.
+
+I04-08 code `8d213a3`: **1171 Go PASS/0 FAIL/0 SKIP**, 609 frontend tests,
+build/vet/docs và headed video cuối 125,6 giây đạt. Scoped list/detail, root-only
+selected set, exact confirmation, atomic claim/REQUESTED, idempotent replay và
+operation-bound absence proof đã có; scope/unknown/malformed guards fail closed.
+REAL engine/Terraform/encrypted SQL/Vault, FAKE terraform_data objects/provider
+binding/readiness/absence; cleanup local sạch, không A01 live proof.
+[Biên bản I04-08](verification/2026-10-14-i04-08-resource-delete-ui.md).
+I04-09 tiếp theo: Redis cache cho acceptance app; I04-10 wiring và I04-11/12 live.
 
 Các đoạn checkpoint lịch sử bên dưới không thay quyết định hiện tại này.
 

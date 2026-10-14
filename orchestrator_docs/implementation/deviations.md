@@ -103,14 +103,16 @@ other than NotFound also stop execution. See
 
 ## IMP-021 — Terraform v2 design/implementation gap
 
-Review I04-08 đang xử lý hai điểm của bản nháp, chưa merge: planner còn coi
-ActiveResource DESTROYED là existing nên có thể báo RETAIN dù Terraform đã
-xác minh xóa; lỗi mirror UNREFERENCED sang instance bị bỏ qua âm thầm. Nguồn
-chuẩn vẫn giữ marker ActiveResource cùng current Set/SUCCEEDED trong giao dịch
-Console và mọi write instance qua State dưới owner/fence. Không sửa yêu cầu
-nguyên tử hoặc thêm quyền xuyên role để hợp thức hóa bản nháp; Claude được giao
-CREATE intent sau verified destroy và safe diagnostic khi mirror không được
-xác nhận, admission phải tiếp tục fail closed. Đây chưa là live proof.
+I04-08 đã review/verified local: scoped resource queries, PE/Admin selected-set
+admission nguyên tử, REQUESTED cùng claim, replay từ persistence và proof của
+đúng operation; UI/history/confirmation/progress đã có. 1171 Go/0 skip,
+609 frontend và headed engine/Terraform/encrypted SQL/Vault scenario đạt.
+[Biên bản](../verification/2026-10-14-i04-08-resource-delete-ui.md).
+DESTROYED không còn bị báo RETAIN; marker Active/current Set/SUCCEEDED vẫn
+nguyên tử trong Console. State mirror sau commit dưới owner là projection riêng;
+không được xác nhận thì safe count diagnostic/METADATA_SYNC_PENDING và chặn xóa,
+không nới quyền hoặc tự recovery. Objects/provider absence video giả lập;
+IMP-021 còn mở cho Redis app, wiring và live proof I04-09..12.
 
 I04-07 đã review/verified local: source/mapping/class UI, required renderer,
 safe resource intents/progress và một snapshot cho pending/standalone Xem trước.

@@ -1,7 +1,7 @@
 ---
 id: I04-08
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-10-14
 related: [M04, ADR-014, IMP-021]
 ---
@@ -10,7 +10,7 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Current sau I04-07 verified local; đã giao phiên cloud mới, chưa review/verify local.
+Chặng 2; xem [M04](../README.md). Hoàn tất local trên code `8d213a3`, merge `b4ed07e`; xem [biên bản](../../../verification/2026-10-14-i04-08-resource-delete-ui.md).
 
 ## Phạm vi
 
@@ -60,3 +60,9 @@ quyền thực tế, fetch mỗi 15 phút (900 giây), review và chạy lại c
 Codex merge khi đạt, chạy thật và Playwright headed/quay video local; gửi lỗi
 code về Claude. Cập nhật verification/Current handoff/Task order, commit/push
 và xóa nhánh Claude. Giữ failed evidence và phân biệt adapter thật/fake.
+
+## Kết quả
+
+1171 Go/0 fail/0 skip, 609 frontend/allchecks và video headed 125,6 giây đạt,
+SQL/Vault/engine/CLI thật với objects/absence giả lập; cleanup sạch.
+A01 physical deletion proof còn I04-11; I04-09 current tiếp theo.

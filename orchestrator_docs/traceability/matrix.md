@@ -629,3 +629,15 @@ UC-09/ADR-014 safe persisted attempts/column grants và required renderer trên
 hai profiles. Codex 1121 Go/0 skip, 549 frontend tests, build/vet/docs, headed
 SQL/Vault scenario và cleanup đạt. Attempts video dựng sẵn; physical resource
 proof còn I04-10..12. Không sửa 33 reference fixtures hoặc dùng bypass để đạt.
+
+## I04-08 local review complete
+
+[Verification](../verification/2026-10-14-i04-08-resource-delete-ui.md) hiện thực
+UC-07 V2-03/04 và DEL-PRE/MS/BR/POST, UC-09 RES-01..03/OC-19: scoped safe reads,
+role denial trước plan, root-only default/opt-in/cascading unticks/exact name,
+atomic whole-set admission/REQUESTED, stale/busy/consumer guards/idempotency,
+original target/region, reverse graph/partial retention và operation-bound proof.
+UC-05 BR-10 CREATE intent sau verified destroy; metadata chưa đồng bộ fail closed.
+Codex: 1171 Go/0 skip, 609 frontend/allchecks, real engine/CLI/encrypted SQL/Vault
+headed scenario và cleanup đạt. FAKE objects/absence, không live A01; chọn thêm
+một dependency và giữ một candidate không chọn trên hạ tầng thật còn I04-11.
