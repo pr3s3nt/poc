@@ -20,8 +20,9 @@ hai Vault và ảnh bổ trợ đã dọn. Bản sửa Luna qua checks độc l�
 đã fail bước xóa workload do chưa trả lời native confirm, dù deploy/job/cache
 đạt. Operator dọn workload/VSO/Redis/PG/renderer Secrets; namespace bị chặn vì
 default SA thiếu managedFields đã được dọn theo quyền ngoại lệ15Oct sau xác
-minh đúng UID, namespace/PV ABSENT. Giữ DB/hai Vault/
-private handles để phục hồi.28 baseline UIDs giữ nguyên. Không mở run mới.
+minh đúng UID, namespace/PV ABSENT. Engine gốc đã khép3instances DESTROYED,
+supervisor phục hồi CLEAN, DB/ba roles drop và hai Vault dừng; r2 CLOSED_CLEAN,
+failed evidence/private archives giữ.28 baseline UIDs giữ nguyên. Chưa mở run mới.
 Quyết định2026-10-15 thay giới hạn retry: tiếp tục tìm nguyên nhân/sửa code,
 review/checks và chạy lại sau cleanup sạch; không dừng chỉ vì retry fail.
 Quyền ngoại lệ chỉ dành namespace/UID r2; không bypass guard nói chung.

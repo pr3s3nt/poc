@@ -307,3 +307,26 @@ phục hồi, chưa mở run mới. Agent `/root/i0410_luna` đang sửa code/te
 checkout I04-11 nhánh `codex/m04-i0411-delete-fixes`; không đọc live handles.
 Bước tiếp: review/checks, xác minh cleanup/retained/state archive rồi A01 mới,
 E01/E02; đủ gate thì tự chạy AWS A02 sạch rồi A03 và báo cáo.
+
+**Cleanup r2 hoàn tất2026-10-15:** helper đã review dùng engine/module pin gốc
+xác minh namespace NotFound và original physical IDs vắng, registry3instances
+DESTROYED, no remaining; không chỉnh SQL/tombstone bằng tay. Supervisor phục hồi
+độc lập CLEAN với ba lớp DONE, original NEEDS_ATTENTION giữ làm lịch sử. Spec
+phục hồi có finish trigger ngay, chỉ cấp expiry30s cho quá trình giám sát mới
+vì expiry execution cũ đã qua; không mở provisioning mới, cleanup budget120m.
+Query lại namespace/hai PV ABSENT, sentinel giữ nguyên. DB/ba role drop, hai
+Vault PID/session/stdout riêng được xác minh rồi dừng; marker CLOSED_CLEAN,
+scenario vẫn FAIL. Private SQL archives trước/sau cùng state key giữ0600.
+Proof `operator-cleanup-product-final.json`, `operator-registry-final.json`,
+`operator-cleanup-proof-final.json`, `operator-vault-cleanup.json` dưới r2.
+PG platform container/volume riêng còn giữ để dùng cho lượt mới.
+
+Code Luna đang finalize: UID API DeleteOptions, nguyên ownership qua removal
+attempt, immutable namespace/defaultSA baseline và đúng layer verification.
+Preliminarychecks r2 không đạt (inventoryfixture +/tmp full), r3-race chưa là
+bằng chứng bản cuối vì có sửa sau review. Không skip/giảm assertion. Finalchecks
+và runtime mới dùng TMPDIR riêng trên disk
+`/home/thanhnt1/.cache/poc-m04-i0411-validation`; evidence runtime mới
+`/home/thanhnt1/.cache/poc-m04-i0411-evidence/`, ngoài Git0700. Giữ failed
+evidence cũ, không dọn wildcard hoặc user-owned /tmp. A02/A03 configs/preflight
+chỉ đọc và estimates13lines/counts/5h đạt, chưa tạo AWS.
