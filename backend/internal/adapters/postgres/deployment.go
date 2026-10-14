@@ -177,7 +177,7 @@ func (s *Store) ListDeploymentAttempts(ctx context.Context, id string) ([]deploy
 	if !validUUID(id) {
 		return []deployment.ResourceAttempt{}, nil
 	}
-	rows, err := s.q(ctx).Query(ctx, `SELECT i.descriptor,i.scope_type,a.attempt_number,a.action,a.ownership,a.stage,a.status,a.safe_error_code,b.module_id,b.revision,a.created_at,a.updated_at
+	rows, err := s.q(ctx).Query(ctx, `SELECT i.id::text,i.descriptor,i.scope_type,a.attempt_number,a.action,a.ownership,a.stage,a.status,a.safe_error_code,b.module_id,b.revision,a.created_at,a.updated_at
 FROM terraform_resource_attempts a
 JOIN deployments d ON d.id=a.deployment_id
 JOIN terraform_resource_instances i ON i.id=a.resource_instance_id AND i.environment_id=d.environment_id
@@ -190,7 +190,7 @@ WHERE a.deployment_id=$1::uuid ORDER BY a.created_at,i.descriptor,a.attempt_numb
 	out := []deployment.ResourceAttempt{}
 	for rows.Next() {
 		var v deployment.ResourceAttempt
-		if err := rows.Scan(&v.Descriptor, &v.ScopeType, &v.Number, &v.Action, &v.Ownership, &v.Stage, &v.Status, &v.SafeErrorCode, &v.ModuleID, &v.ModuleRevision, &v.StartedAt, &v.UpdatedAt); err != nil {
+		if err := rows.Scan(&v.ResourceID, &v.Descriptor, &v.ScopeType, &v.Number, &v.Action, &v.Ownership, &v.Stage, &v.Status, &v.SafeErrorCode, &v.ModuleID, &v.ModuleRevision, &v.StartedAt, &v.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, v)

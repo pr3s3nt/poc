@@ -27,6 +27,9 @@ type terraformRuntime struct {
 	svc    *statebackend.Service
 	repo   *pgstore.StateStore
 	cipher terraformstate.Cipher
+	// executor is the Terraform v2 executor once the real adapters built it;
+	// it is also the cleanup engine and the UNREFERENCED instance marker.
+	executor *tfexec.Service
 }
 
 // volatileTags are per-run values frozen into an instance at its creation:
@@ -38,7 +41,7 @@ var volatileTags = map[string]bool{"run-id": true, "expires-at": true}
 // (no host credential chain), the real readiness check, the encrypted
 // recovery store and the internal loopback state backend. It never falls back
 // to a local state, a host credential or an always-ready check.
-func newTerraformExecutor(opts Options, tf *terraformRuntime, resolver *connection.CredentialResolver, secrets execution.SecretStore, modules *moduleregistry.Service, closers *[]func()) (execution.ResourceExecutor, error) {
+func newTerraformExecutor(opts Options, tf *terraformRuntime, resolver *connection.CredentialResolver, secrets execution.SecretStore, modules *moduleregistry.Service, closers *[]func()) (*tfexec.Service, error) {
 	if opts.TerraformRecoveryDir == "" {
 		return nil, fmt.Errorf("bootstrap: the Terraform executor needs a private -terraform-recovery-dir for encrypted recovery artifacts")
 	}

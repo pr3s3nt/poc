@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 
@@ -84,7 +85,19 @@ type Service struct {
 	configSync      execution.ConfigSecretSynchronizer
 	publicRoutes    execution.PublicRouteManager
 	baseDomain      string
+	instanceMarker  InstanceMarker
 }
+
+// InstanceMarker mirrors a committed UNREFERENCED Active Resource onto the
+// Terraform resource instance of the same logical identity (implemented by
+// the Terraform executor). It is optional: without Terraform instances there
+// is nothing to mirror.
+type InstanceMarker interface {
+	MarkUnreferenced(ctx context.Context, generation int64, descriptor, scopeType, scopeID string) error
+}
+
+// SetInstanceMarker enables the instance-side UNREFERENCED mirror.
+func (s *Service) SetInstanceMarker(m InstanceMarker) { s.instanceMarker = m }
 
 func (s *Service) SetStoreRegistry(registry configport.Registry) { s.registry = registry }
 
@@ -397,8 +410,36 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		return nil, s.fail(ctx, record, err)
 	}
 
+	if !cmd.HoldSet {
+		if failed := s.markInstancesUnreferenced(ctx, env.TargetGeneration, plan.UnreferencedResources); failed > 0 {
+			// Safe diagnostics only: counts, never references, descriptors or error text. The
+			// committed Deployment and Active Resource history stay as they are; the affected
+			// resources are refused for deletion as METADATA_SYNC_PENDING until the State
+			// projection is repaired by an operator. There is no automatic recovery.
+			log.Printf("deployment: resource metadata sync incomplete (deployment %s, %d of %d unreferenced instances not mirrored)", record.ID, failed, len(plan.UnreferencedResources))
+		}
+	}
+
 	result.Status = record.Status
 	return result, nil
+}
+
+// markInstancesUnreferenced mirrors the committed Active Resource marker onto
+// the Terraform instances of the same logical identity (the State login owns
+// that status, so it cannot be part of the Console transaction). It runs under
+// the Deployment's own Environment claim and is best effort: an instance left
+// READY just stays ineligible for deletion (METADATA_SYNC_PENDING), which fails closed;
+// the number of failures is returned and logged without any reference.
+func (s *Service) markInstancesUnreferenced(ctx context.Context, generation int64, unreferenced []resource.ActiveResource) (failed int) {
+	if s.instanceMarker == nil {
+		return 0
+	}
+	for _, planned := range unreferenced {
+		if err := s.instanceMarker.MarkUnreferenced(ctx, generation, planned.Descriptor.String(), string(planned.Scope.Type), planned.Scope.ID); err != nil {
+			failed++
+		}
+	}
+	return failed
 }
 
 // markUnreferenced records UC-07 MS-07 inside the final transaction: each

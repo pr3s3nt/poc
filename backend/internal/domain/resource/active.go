@@ -11,6 +11,11 @@ const (
 	StatusReady        Status = "READY"
 	StatusUnreferenced Status = "UNREFERENCED"
 	StatusFailed       Status = "FAILED"
+	// StatusDestroying and StatusDestroyed follow a confirmed PE/Admin
+	// deletion (UNREFERENCED -> DESTROYING -> DESTROYED, or back to
+	// UNREFERENCED when a known failure leaves the resource in place).
+	StatusDestroying Status = "DESTROYING"
+	StatusDestroyed  Status = "DESTROYED"
 )
 
 // ActiveResource is a provisioned resource instance recorded by the orchestrator.

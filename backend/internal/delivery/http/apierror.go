@@ -15,6 +15,7 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
+	"orchestrator/internal/application/resourcecleanup"
 	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/application/target"
 	"orchestrator/internal/application/transition"
@@ -77,6 +78,7 @@ const (
 	codeDowntimeAckRequired       = "DOWNTIME_ACK_REQUIRED"
 	codeRecoveryConfirmRequired   = "RECOVERY_CONFIRMATION_REQUIRED"
 	codeCleanupRefused            = "CLEANUP_REFUSED"
+	codeConfirmationMismatch      = "RESOURCE_CONFIRMATION_MISMATCH"
 	codeNotRecoverable            = "NOT_RECOVERABLE"
 	codeRecoveryIncomplete        = "RECOVERY_INCOMPLETE"
 	codeOperationLost             = "OPERATION_LOST"
@@ -134,7 +136,8 @@ var publicErrors = map[string]publicError{
 	codeNoRuntime:                 {http.StatusConflict, "the environment has no runtime resources"},
 	codeDowntimeAckRequired:       {http.StatusUnprocessableEntity, "downtime must be acknowledged"},
 	codeRecoveryConfirmRequired:   {http.StatusUnprocessableEntity, "recovery needs confirmation that the prior execution stopped"},
-	codeCleanupRefused:            {http.StatusConflict, "the source cannot be cleaned up"},
+	codeCleanupRefused:            {http.StatusConflict, "the cleanup is refused"},
+	codeConfirmationMismatch:      {http.StatusBadRequest, "the confirmation name does not match"},
 	codeNotRecoverable:            {http.StatusConflict, "the operation cannot be recovered now"},
 	codeRecoveryIncomplete:        {http.StatusConflict, "recovery did not complete"},
 	codeOperationLost:             {http.StatusConflict, "the operation was interrupted"},
@@ -153,8 +156,8 @@ var trustedFields = map[string]bool{
 	"definition.key": true, "definition.resourceType": true, "definition.executionProfile": true,
 	"definition.driverType": true, "definition.criteria": true, "definition.connectionKey": true,
 	"context.applicationId": true, "context.environmentId": true, "context.resourceId": true, "context.class": true,
-	"service.publicPort": true,
-	"accessKeyId":        true, "secretAccessKey": true, "allowedRegions": true,
+	"service.publicPort": true, "confirmationName": true, "selectedResourceIds": true,
+	"accessKeyId": true, "secretAccessKey": true, "allowedRegions": true,
 }
 
 // technicalID bounds a registered resource Type key echoed as a param: lowercase
@@ -173,6 +176,9 @@ var (
 		planning.ReasonWorkloadExists: true, planning.ReasonWorkloadNotCurrent: true, planning.ReasonBeforeMismatch: true,
 		planning.ReasonLegacyInfrastructure: true, planning.ReasonUnconfigured: true,
 		planning.ReasonRendererNoMatch: true, planning.ReasonRendererAmbiguous: true, planning.ReasonRendererUnavailable: true,
+		// Allowlisted cleanup refusal reasons (OC-19).
+		resourcecleanup.ReasonNotUnreferenced: true, resourcecleanup.ReasonMetadataSyncPending: true, resourcecleanup.ReasonHasConsumers: true, resourcecleanup.ReasonPlatformResource: true,
+		resourcecleanup.ReasonOwnershipUnproven: true, resourcecleanup.ReasonTargetUnavailable: true, resourcecleanup.ReasonEnvironmentBusy: true,
 	}
 )
 
@@ -286,7 +292,23 @@ func classify(err error) (failure, bool) {
 		unsupport  *transition.UnsupportedError
 		paramErr   *workloadconfig.ParamError
 	)
+	var refused *resourcecleanup.RefusedError
+	var cleanupField *resourcecleanup.FieldError
 	switch {
+	case errors.As(err, &refused):
+		return failure{code: codeCleanupRefused, params: map[string]string{"reason": refused.RefusalReason()}}, true
+	case errors.As(err, &cleanupField):
+		return failure{code: codeInvalidRequest, field: cleanupField.Field}, true
+	case errors.Is(err, resourcecleanup.ErrConfirmationMismatch):
+		return failure{code: codeConfirmationMismatch, field: "confirmationName"}, true
+	case errors.Is(err, resourcecleanup.ErrStalePreview):
+		return failure{code: codeStalePreview}, true
+	case errors.Is(err, resourcecleanup.ErrForbidden):
+		return failure{code: codeForbidden}, true
+	case errors.Is(err, resourcecleanup.ErrUnavailable):
+		return failure{code: codeServiceUnavailable}, true
+	case errors.Is(err, resourcecleanup.ErrInvalid):
+		return failure{code: codeInvalidRequest}, true
 	case errors.Is(err, planning.ErrEnvironmentUnconfigured):
 		return failure{code: codeEnvironmentUnconfigured, field: "connectionKey"}, true
 	case errors.Is(err, preview.ErrNotReady):

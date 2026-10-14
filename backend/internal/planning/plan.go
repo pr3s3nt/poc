@@ -423,6 +423,12 @@ func classify(ctx Context, g Graph, active []resource.ActiveResource) Classifica
 	out := Classification{Existing: []string{}, New: []string{}, Unreferenced: []string{}}
 	activeByKey := map[string]resource.ActiveResource{}
 	for _, a := range active {
+		// A verified-destroyed resource is a tombstone (its stable instance and
+		// state history stay), not an existing resource: the same descriptor is
+		// created again (UC-05 BR-10), never retained, updated or reused.
+		if a.Status == resource.StatusDestroyed {
+			continue
+		}
 		activeByKey[a.LogicalKey()] = a
 	}
 	for _, n := range g.Nodes {

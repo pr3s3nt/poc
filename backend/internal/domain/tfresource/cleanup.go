@@ -3,6 +3,8 @@ package tfresource
 import (
 	"sort"
 	"strings"
+
+	"orchestrator/internal/platform/canon"
 )
 
 // CleanupMode is how a RESOURCE_CLEANUP operation was authorized.
@@ -17,12 +19,22 @@ const (
 // CleanupItem is the pinned record of one selected instance: its version and
 // the original target, module and state references that cleanup must use.
 type CleanupItem struct {
-	InstanceID     string         `json:"instanceId"`
-	Version        int64          `json:"version"`
-	StateKey       string         `json:"stateKey"`
-	ModuleBundleID string         `json:"moduleBundleId"`
-	TargetRef      map[string]any `json:"targetRef"`
+	InstanceID     string `json:"instanceId"`
+	Version        int64  `json:"version"`
+	StateKey       string `json:"stateKey"`
+	ModuleBundleID string `json:"moduleBundleId"`
+	// TargetDigest is the one-way digest of the instance's immutable original
+	// target reference (see TargetDigest). The Console-readable operation
+	// record carries only this digest; the engine compares it with the digest
+	// of the target it reads from the State login. TargetRef is the older
+	// plain form, still honoured when no digest is pinned.
+	TargetDigest string         `json:"targetDigest,omitempty"`
+	TargetRef    map[string]any `json:"targetRef,omitempty"`
 }
+
+// TargetDigest returns the canonical one-way digest of an original target
+// reference.
+func TargetDigest(ref map[string]any) (string, error) { return canon.Hash(ref) }
 
 // ConfirmedScope is exactly the selected set that was checked, with the root
 // always included. It never grows after admission.

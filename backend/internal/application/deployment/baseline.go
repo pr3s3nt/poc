@@ -28,6 +28,9 @@ type Baselines struct {
 func CaptureBaselines(ctx context.Context, view persistence.Store, organizationKey string, active []resource.ActiveResource) (*Baselines, error) {
 	b := &Baselines{organization: organizationKey, byKey: map[string]resource.ActiveResource{}, plans: map[string]*planning.Plan{}}
 	for _, a := range active {
+		if a.Status == resource.StatusDestroyed {
+			continue // a tombstone is not a baseline: the descriptor is created again
+		}
 		b.byKey[a.LogicalKey()] = a
 		id := a.LastDeploymentID
 		if id == "" {

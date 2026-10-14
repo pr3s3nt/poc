@@ -124,3 +124,18 @@ a { color: inherit; }
 .create-form.secret-store-form .field { display:grid; gap:7px; }.create-form.secret-store-form .field > label { gap:7px; }.create-form.secret-store-form .field > small { font-size:12px; font-weight:400; }
 .create-form.secret-store-form [hidden] { display:none !important; }
 .typed-variables { display:grid; gap:12px; }.typed-variable { display:grid; gap:6px; border:1px solid var(--border-muted); border-radius:8px; padding:10px 12px; }.typed-variable-toggle { display:flex !important; align-items:center; gap:8px; font-weight:600; }.typed-variable-toggle input { width:auto; }.typed-variable-control { display:grid; gap:8px; }.typed-variable textarea,.provision-row textarea,.provision-row input:not([type=checkbox]) { width:100%; border:1px solid var(--border); border-radius:6px; padding:8px 10px; background:var(--surface); color:var(--ink); font:inherit; }.provision-row { display:grid; gap:8px; border:1px solid var(--border-muted); border-radius:8px; padding:10px 12px; }.provision-row .catalog-check { display:flex; align-items:center; gap:6px; font-weight:400; }.provision-row .catalog-check input { width:auto; }
+
+/* UC-07 DEL-* resource deletion dialog and UC-09 resource detail */
+.dialog-backdrop { position:fixed; inset:0; z-index:50; display:flex; align-items:flex-start; justify-content:center; overflow:auto; padding:32px 16px; background:rgba(31,35,40,.55); }
+.dialog { width:min(720px,100%); border:1px solid var(--border); border-radius:8px; background:var(--surface); padding:20px 24px; box-shadow:0 8px 32px rgba(31,35,40,.3); }
+.dialog:focus { outline:2px solid var(--blue); outline-offset:2px; }
+.dialog h2,.dialog h3 { margin:0 0 8px; }
+.dialog .selection-list { list-style:none; margin:8px 0; padding:0; display:grid; gap:8px; }
+.dialog .selection-list small { display:block; margin:2px 0 0 26px; }
+.dialog .field { display:grid; gap:6px; margin:14px 0; font-weight:600; }
+.dialog .field input { width:100%; border:1px solid var(--border); border-radius:6px; padding:8px 10px; font:inherit; }
+.dialog .field input:focus { outline:2px solid var(--blue); outline-offset:-1px; }
+.dialog .form-fieldset { border:1px solid var(--border-muted); border-radius:6px; padding:10px 14px; margin:12px 0; min-width:0; }
+.dialog code,.content-panel code { overflow-wrap:anywhere; }
+.plain-table { width:100%; border-collapse:collapse; font-size:14px; }
+.plain-table th,.plain-table td { padding:8px 10px; border-bottom:1px solid var(--border-muted); text-align:left; vertical-align:top; overflow-wrap:anywhere; }

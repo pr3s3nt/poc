@@ -282,17 +282,17 @@ func TestCleanupClaimStoresExactSelectionScoped(t *testing.T) {
 	stale := req
 	stale.Scope.Items = []tfresource.CleanupItem{item(root)}
 	stale.Scope.Items[0].Version--
-	if _, _, err := f.store.ClaimResourceCleanup(context.Background(), claim, stale); !errors.Is(err, persistence.ErrVersionConflict) {
+	if _, _, err := f.store.ClaimResourceCleanup(context.Background(), claim, stale, nil); !errors.Is(err, persistence.ErrVersionConflict) {
 		t.Fatalf("stale pinned version: %v", err)
 	}
 	outside := req
 	outside.CandidateIDs = []string{foreign.ID}
 	outside.Scope = tfresource.ConfirmedScope{SelectedResourceIDs: []string{root.ID, foreign.ID}, Items: []tfresource.CleanupItem{item(root), item(foreign)}}
-	if _, _, err := f.store.ClaimResourceCleanup(context.Background(), claim, outside); !errors.Is(err, tfresource.ErrInvalid) {
+	if _, _, err := f.store.ClaimResourceCleanup(context.Background(), claim, outside, nil); !errors.Is(err, tfresource.ErrInvalid) {
 		t.Fatalf("foreign instance admitted: %v", err)
 	}
 
-	op, replayed, err := f.store.ClaimResourceCleanup(context.Background(), claim, req)
+	op, replayed, err := f.store.ClaimResourceCleanup(context.Background(), claim, req, nil)
 	if err != nil || replayed || op.Kind != environment.OpResourceCleanup {
 		t.Fatalf("claim: %v", err)
 	}
@@ -300,13 +300,13 @@ func TestCleanupClaimStoresExactSelectionScoped(t *testing.T) {
 	if err != nil || !tfresource.SameSelection(stored.Scope.SelectedResourceIDs, []string{root.ID}) || len(stored.Scope.Items) != 1 {
 		t.Fatalf("stored selection added items: %+v %v", stored.Scope, err)
 	}
-	again, replayed, err := f.store.ClaimResourceCleanup(context.Background(), claim, req)
+	again, replayed, err := f.store.ClaimResourceCleanup(context.Background(), claim, req, nil)
 	if err != nil || !replayed || again.ID != op.ID {
 		t.Fatalf("replay: %v", err)
 	}
 	grown := req
 	grown.Scope = tfresource.ConfirmedScope{SelectedResourceIDs: []string{root.ID, ns.ID}, Items: []tfresource.CleanupItem{item(root), item(ns)}}
-	if _, _, err := f.store.ClaimResourceCleanup(context.Background(), claim, grown); !errors.Is(err, terraformstate.ErrCleanupSelectionChanged) {
+	if _, _, err := f.store.ClaimResourceCleanup(context.Background(), claim, grown, nil); !errors.Is(err, terraformstate.ErrCleanupSelectionChanged) {
 		t.Fatalf("changed selection after admission: %v", err)
 	}
 	// Same actor and token hash against another Environment never returns the
@@ -317,7 +317,7 @@ func TestCleanupClaimStoresExactSelectionScoped(t *testing.T) {
 	foreignReq.Scope = tfresource.ConfirmedScope{SelectedResourceIDs: []string{foreign.ID}, Items: []tfresource.CleanupItem{item(foreign)}}
 	prodClaim := claim
 	prodClaim.EnvironmentKey = "prod"
-	if got, _, err := f.store.ClaimResourceCleanup(context.Background(), prodClaim, foreignReq); !errors.Is(err, terraformstate.ErrCleanupSelectionChanged) || got.ID == op.ID {
+	if got, _, err := f.store.ClaimResourceCleanup(context.Background(), prodClaim, foreignReq, nil); !errors.Is(err, terraformstate.ErrCleanupSelectionChanged) || got.ID == op.ID {
 		t.Fatalf("cross-scope replay: %v", err)
 	}
 	for name, sql := range map[string]string{

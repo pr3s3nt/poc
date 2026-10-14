@@ -22,6 +22,7 @@ import (
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
+	"orchestrator/internal/application/resourcecleanup"
 	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/application/transition"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
@@ -36,23 +37,24 @@ import (
 
 // Server wires the HTTP handlers to the application services.
 type Server struct {
-	deployments    *appsvc.Service
-	queries        *appsvc.QueryService
-	auth           *authentication.Service
-	applications   *appcreate.Service
-	catalog        *catalog.Service
-	connections    *connectionapp.Service
-	secretStores   *secretstores.Service
-	operations     *envops.Manager
-	transitions    *transition.Service
-	configurations *appconfig.Service
-	workloads      *workloadconfig.Service
-	pending        *pending.Service
-	previews       *preview.Service
-	store          persistence.Store
-	seedOptions    seed.Options
-	uiDir          string
-	mux            *http.ServeMux
+	deployments     *appsvc.Service
+	queries         *appsvc.QueryService
+	auth            *authentication.Service
+	applications    *appcreate.Service
+	catalog         *catalog.Service
+	connections     *connectionapp.Service
+	secretStores    *secretstores.Service
+	operations      *envops.Manager
+	transitions     *transition.Service
+	configurations  *appconfig.Service
+	workloads       *workloadconfig.Service
+	pending         *pending.Service
+	previews        *preview.Service
+	resourceCleanup *resourcecleanup.Service
+	store           persistence.Store
+	seedOptions     seed.Options
+	uiDir           string
+	mux             *http.ServeMux
 }
 
 // Config configures the HTTP server.
@@ -74,7 +76,10 @@ type Config struct {
 	Workloads             *workloadconfig.Service
 	Pending               *pending.Service
 	Previews              *preview.Service
-	Store                 persistence.Store
+	// ResourceCleanup serves the scoped resource detail, the deletion preview,
+	// the confirmed deletion and its progress (UC-07 DEL-*, UC-09 RES-*).
+	ResourceCleanup *resourcecleanup.Service
+	Store           persistence.Store
 	// ModuleRegistry is the verified Terraform module registry used by
 	// Definition registration (verify) and capability metadata (read-only).
 	ModuleRegistry moduleregistry.Registry
@@ -85,23 +90,24 @@ type Config struct {
 // NewServer builds the HTTP handler tree.
 func NewServer(cfg Config) *Server {
 	s := &Server{
-		deployments:    cfg.Deployments,
-		queries:        cfg.Queries,
-		auth:           cfg.Authentication,
-		applications:   cfg.Applications,
-		catalog:        catalog.NewService(cfg.Store, cfg.ModuleRegistry),
-		connections:    connectionapp.NewService(cfg.Store),
-		secretStores:   cfg.SecretStores,
-		operations:     cfg.Operations,
-		transitions:    cfg.Transitions,
-		configurations: cfg.Configurations,
-		workloads:      cfg.Workloads,
-		pending:        cfg.Pending,
-		previews:       cfg.Previews,
-		store:          cfg.Store,
-		seedOptions:    cfg.SeedOptions,
-		uiDir:          cfg.UIDir,
-		mux:            http.NewServeMux(),
+		deployments:     cfg.Deployments,
+		queries:         cfg.Queries,
+		auth:            cfg.Authentication,
+		applications:    cfg.Applications,
+		catalog:         catalog.NewService(cfg.Store, cfg.ModuleRegistry),
+		connections:     connectionapp.NewService(cfg.Store),
+		secretStores:    cfg.SecretStores,
+		operations:      cfg.Operations,
+		transitions:     cfg.Transitions,
+		configurations:  cfg.Configurations,
+		workloads:       cfg.Workloads,
+		pending:         cfg.Pending,
+		previews:        cfg.Previews,
+		resourceCleanup: cfg.ResourceCleanup,
+		store:           cfg.Store,
+		seedOptions:     cfg.SeedOptions,
+		uiDir:           cfg.UIDir,
+		mux:             http.NewServeMux(),
 	}
 	s.connections.SetKubeconfigRegistration(cfg.KubeconfigVerifier, cfg.ConnectionCredentials)
 	s.connections.SetAWSRegistration(cfg.AWSVerifier)
@@ -160,6 +166,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/connections/aws", s.handleRegisterAWSConnection)
 	s.mux.HandleFunc("POST /api/v1/connections/kubernetes/inspect", s.handleInspectKubeconfig)
 	s.mux.HandleFunc("POST /api/v1/deployments", s.handleCreateDeployment)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/resources", s.handleListResources)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/resources/{resourceId}", s.handleGetResource)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/resources/{resourceId}/deletion-preview", s.handleDeletionPreview)
+	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/resources/{resourceId}/deletions", s.handleDeletions)
+	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/resource-cleanups/{operationId}", s.handleGetResourceCleanup)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/deployments", s.handleListDeployments)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/deployments/{deployment}", s.handleGetDeployment)
 	s.mux.HandleFunc("/ui/", s.handleUI)

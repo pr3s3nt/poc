@@ -19,6 +19,8 @@ export type DeploymentStatus = Deployment['status'];
 // One persisted Terraform attempt as the Console may see it: allowlisted codes and the public
 // module pin only (ADR-014). The server never sends snapshots, state, physical IDs or recovery data.
 export type ResourceAttempt = {
+  // Opaque ID of the resource instance (the detail route key); absent when the server did not send a valid one.
+  resourceInstanceId?: string;
   descriptor: string; scopeType: string; attempt: number; action: string; ownership: string; stage: string; status: string;
   safeErrorCode?: string; moduleId: string; moduleRevision: string; startedAt: string; updatedAt: string;
 };
@@ -57,7 +59,8 @@ export function parseResourceProgress(raw: unknown): ResourceAttempt[] | undefin
     const r = item as Record<string, unknown>;
     if (!text(r.descriptor) || !text(r.scopeType) || typeof r.attempt !== 'number' || !Number.isInteger(r.attempt) || !text(r.action) || !text(r.ownership) || !text(r.stage) || !text(r.status) || !text(r.moduleId) || !text(r.moduleRevision) || !text(r.startedAt) || !text(r.updatedAt)) return undefined;
     if (r.safeErrorCode !== undefined && !text(r.safeErrorCode)) return undefined;
-    out.push({ descriptor: r.descriptor, scopeType: r.scopeType, attempt: r.attempt, action: r.action, ownership: r.ownership, stage: r.stage, status: r.status, safeErrorCode: r.safeErrorCode, moduleId: r.moduleId, moduleRevision: r.moduleRevision, startedAt: r.startedAt, updatedAt: r.updatedAt });
+    const resourceInstanceId = typeof r.resourceInstanceId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(r.resourceInstanceId) ? r.resourceInstanceId : undefined;
+    out.push({ resourceInstanceId, descriptor: r.descriptor, scopeType: r.scopeType, attempt: r.attempt, action: r.action, ownership: r.ownership, stage: r.stage, status: r.status, safeErrorCode: r.safeErrorCode, moduleId: r.moduleId, moduleRevision: r.moduleRevision, startedAt: r.startedAt, updatedAt: r.updatedAt });
   }
   return out;
 }

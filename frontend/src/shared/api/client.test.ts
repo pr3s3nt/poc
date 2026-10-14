@@ -108,3 +108,24 @@ it('names only a bounded registered resource Type for INVALID_SCORE and drops ma
   expect(unknown.message).toContain('loại chưa được đăng ký');
   expect(new ApiError(400, 'INVALID_SCORE', 'resources', { resourceType: 'Bad_SECRET' }).message).not.toContain('SECRET');
 });
+
+it('maps the resource deletion codes to specific Vietnamese text and keeps only allowlisted cleanup reasons', async () => {
+  respond({ code: 'RESOURCE_CONFIRMATION_MISMATCH', field: 'confirmationName', error: 'expected-name SECRET' }, 400);
+  const mismatch = await failure();
+  expect([mismatch.code, mismatch.field]).toEqual(['RESOURCE_CONFIRMATION_MISMATCH', 'confirmationName']);
+  expect(mismatch.message).toBe(errorMessages.RESOURCE_CONFIRMATION_MISMATCH);
+  expect(mismatch.message).not.toMatch(/SECRET|expected-name/);
+
+  respond({ code: 'CLEANUP_REFUSED', params: { reason: 'HAS_CONSUMERS', extra: 'SECRET' } }, 409);
+  const refused = await failure();
+  expect(refused.params).toEqual({ cleanupReason: 'HAS_CONSUMERS' });
+  expect(refused.message).toContain('Không thể xóa:');
+  expect(refused.message).toContain('Chưa có gì bị xóa.');
+
+  // An unknown reason keeps the generic CLEANUP_REFUSED text and exposes nothing.
+  respond({ code: 'CLEANUP_REFUSED', params: { reason: 'password=hunter2' } }, 409);
+  const unknown = await failure();
+  expect(unknown.params).toBeUndefined();
+  expect(unknown.message).toBe(errorMessages.CLEANUP_REFUSED);
+  expect(unknown.message).not.toContain('hunter2');
+});

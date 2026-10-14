@@ -216,8 +216,8 @@ func (s *Store) claimEnvironment(ctx context.Context, claim persistence.Operatio
 		if err != nil {
 			return err
 		}
-		if _, err = s.q(ctx).Exec(ctx, `INSERT INTO environment_operations(id,environment_id,kind,owner_instance,status,pins,detail,started_at,updated_at,heartbeat_at,deadline,authorization_mode,actor_ref,root_resource_instance_id,confirmed_scope,deletion_request_hash,confirmation_name,scope_snapshot,run_id) VALUES($1::uuid,$2::uuid,$3,$4,'ACTIVE',$5,$6,$7,$7,$7,$8,$9,$10,$11::uuid,$12::jsonb,$13,$14,$15::jsonb,$16)`, id, envID, claim.Kind, claim.Owner, pinJSON, detailJSON, now, claim.Deadline,
-			cleanup.mode, cleanup.actor, cleanup.root, cleanup.confirmedScope, cleanup.requestHash, cleanup.confirmationName, cleanup.scopeSnapshot, cleanup.runID); err != nil {
+		if _, err = s.q(ctx).Exec(ctx, `INSERT INTO environment_operations(id,environment_id,kind,owner_instance,status,stage,pins,detail,started_at,updated_at,heartbeat_at,deadline,authorization_mode,actor_ref,root_resource_instance_id,confirmed_scope,deletion_request_hash,confirmation_name,scope_snapshot,run_id) VALUES($1::uuid,$2::uuid,$3,$4,'ACTIVE',$17,$5,$6,$7,$7,$7,$8,$9,$10,$11::uuid,$12::jsonb,$13,$14,$15::jsonb,$16)`, id, envID, claim.Kind, claim.Owner, pinJSON, detailJSON, now, claim.Deadline,
+			cleanup.mode, cleanup.actor, cleanup.root, cleanup.confirmedScope, cleanup.requestHash, cleanup.confirmationName, cleanup.scopeSnapshot, cleanup.runID, initialStage(claim.Kind)); err != nil {
 			var pg *pgconn.PgError
 			if errors.As(err, &pg) && pg.Code == "23505" {
 				if pg.ConstraintName == "environment_operations_pkey" {
@@ -473,4 +473,14 @@ func (s *Store) ListTransitions(ctx context.Context, app, env string) ([]environ
 		out = append(out, t)
 	}
 	return out, rows.Err()
+}
+
+// initialStage is the durable stage an operation is admitted with. A resource
+// cleanup is REQUESTED the moment its claim and confirmed scope commit, so the
+// persisted operation, the 202 and a restart all agree before the engine runs.
+func initialStage(kind environment.OperationKind) string {
+	if kind == environment.OpResourceCleanup {
+		return "REQUESTED"
+	}
+	return ""
 }
