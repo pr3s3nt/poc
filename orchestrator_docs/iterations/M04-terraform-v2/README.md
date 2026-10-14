@@ -242,3 +242,18 @@ chính xác ghi trong `/tmp/poc-i0411-local-preparation/kind-image-ownership.jso
 giữ baseline images, không prune. Chưa tạo namespace/AWS.
 Bước kế: review/check sửa lỗi, hoàn tất cleanup bằng state/handles gốc và
 xác minh sạch trước một lượt retry A01.
+
+Cập nhật phục hồi A01 r1: sản phẩm delivery/terraform/status đều CLEAN/no
+remaining, chứng minh Environment chưa bind và không deploy. Supervisor phục
+hồi dùng guard đã sửa, handles/manifest/deadline gốc xác minh no-create và
+CLEAN; trạng thái cũ NEEDS_ATTENTION giữ nguyên làm bằng chứng. Namespace/PV
+vắng/sentinel UID giữ nguyên được query lại; database/ba roles đã drop, hai
+Vault xác minh PID/session/log riêng rồi dừng, mười node references/ba local
+aliases dọn và baseline images giữ nguyên. Marker CLOSED_CLEAN; scenario vẫn
+FAIL. Proof `operator-cleanup-proof.json`, `operator-cleanup-product.json`,
+`operator-vault-cleanup.json` và private `operator-recovery/` dưới evidence.
+Video348.2s h2641440x996 decode đạt; public secret scan24files đạt.
+Container/volume PostgreSQL nền riêng còn giữ cho các scenario kế tiếp.
+Code fix branch `codex/m04-i0411-fixes`, agent `/root/i0410_luna` đã xong;
+Codex checks toàn bộ ở `/tmp/poc-i0411-codex-checks-r1/` đang chạy. Retry config
+ngoài Git đã chuẩn bị nhưng chưa chạy; chỉ mở sau review/checks/merge.
