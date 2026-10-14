@@ -48,6 +48,12 @@ descriptor/scope, module ID/revision và timestamps. Console chỉ có SELECT c�
 cột metadata cần dùng trên instances/attempts; snapshots, target credential
 references, physical intent/IDs, state serial và recovery handle thuộc State.
 Mã không được nhận diện phải hiển thị thông báo chung, không trả nguyên văn.
+Console được đọc logical `state_key` và module bundle ID cần để ghim admission
+trong metadata instance/confirmed scope. Các IDs này không cấp quyền đọc state;
+HTTP state vẫn cần capability riêng đúng scope/owner/fence. Không đưa logical
+state key, backend reference hoặc capability credential vào DTO, token có thể
+giải mã, log hay video. Target reference vẫn riêng tư; confirmed scope dùng
+digest để kiểm đúng đích gốc mà không chứa reference đó.
 Credentials runtime lưu trong file riêng chỉ owner OS được đọc; key mã hóa
 độc lập database. Không dùng owner connection như fallback khi thiếu runtime
 credentials; cấu hình sai phải fail closed. Test dùng đúng login roles để chứng
