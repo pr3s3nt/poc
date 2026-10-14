@@ -43,7 +43,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-07 | [Definition, Workload class, Preview và renderer](I04-07-definition-workload-ui/README.md) | 2 | Hoàn tất local |
 | I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Hoàn tất local |
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
-| I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Current; cloud đang chạy |
+| I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Current; Codex kiểm code Luna local |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Chưa bắt đầu |
 | I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Chưa bắt đầu |
 
@@ -203,3 +203,15 @@ frontend suite lỗi, nên chưa chấp nhận I04-10. Evidence
 credential fixture của lượt đó đã xác minh xóa. Findings còn lại phải sửa,
 Codex điều phối sẽ review và chạy fullchecks độc lập trước merge. Không có
 tài nguyên cluster/AWS do task tạo, I04-11/12 chưa chạy.
+
+Local review tiếp: clauded quota đã hết, Luna bàn giao code; frontend độc lập
+622/37files và typecheck/lint/build/docs đạt. Go/race1348/0fail/0skip lượt trước
+đạt, bản cuối đang kiểm lại sau sửa AWS identity và cleanup closure. Late cloud
+heads `42e9e42`/`0922eb6` đã fetch và review; source archive
+`/tmp/poc-i0410-local-claude/cloud-late.bundle`. AWS runner cũ/common refactor
+được đối chiếu với bản local đã bổ sung ECR/probe ownership, identity fail-closed,
+kill-chain và Vault riêng. Không import bản cũ đè các sửa lỗi local; mọi source
+đều được giữ. Traceability của các object Vault sẽ ghi theo fixture owned khi
+chạy thật; không thêm yêu cầu configuration-secret AWS trái nguồn chuẩn.
+Không task-owned live cluster/AWS assets; private kubeconfig/reviewer handles
+đã tạo ngoài Git để Codex chạy I04-11, không gửi cho writer.

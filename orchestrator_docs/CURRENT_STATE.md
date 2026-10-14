@@ -14,7 +14,8 @@ nhánh riêng public; Codex quản lý docs/review/checks/merge và chạy thậ
 Quyết định mới nhất cùng ngày: cloud hết hạn mức thì chuyển `clauded` qua
 tmux; Claude local cũng hết hạn mức thì giao code/test cho Codex `gpt-6-luna`.
 Claude local đã xác nhận hết hạn mức; I04-10 hiện được agent `gpt-6-luna`
-viết tiếp từ code cloud/local đã giữ, chưa merge và frontend checks còn lỗi.
+đã bàn giao code từ phần cloud/local đã giữ; chưa merge. Frontend độc lập
+đạt622 tests/fullchecks; Go/race bản cuối đang kiểm sau sửa identity/cleanup.
 Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi
 lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
 k8s-4f sạch thì tự chạy I04-12 AWS 452025861381/us-east-1. Giữ điểm duyệt cuối.
