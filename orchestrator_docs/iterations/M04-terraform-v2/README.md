@@ -183,3 +183,11 @@ Cloud late-push `bb0ae24` được fetch/import sau khi tạm ngắt writer; loc
 giữ trong taskstash `4526d515a646a958b054f2c3c602b6bd7f5c0444` và backup
 `/tmp/poc-i0410-local-claude/pre-import-*`. Có4 code conflicts cần Claude xử
 lý; đã giao và resume local, chưa merge nhánh chính. Giữ mọi dirty code.
+
+Lần kiểm~07:54UTC: local writer đang chạy finalchecks, chưa quota failure;
+conflicts đã xử lý, thêm AWS scenarios và process killchain. Review tiếp:
+đừng dùng wildcard `/tmp/TestKill*` để dọn; preserve exact-owned paths/evidence.
+AWS Preview purity phải đối chiếu owned ECR aux baseline; manifest writes
+không được silently bỏ lỗi; probe Pod setup phải tag/record/cleanup đúng.
+Optional config-secret diagnostic AWS ghi chưa cấu hình theo nguồn chuẩn,
+không giảm PG/Redis secret/cache criteria hoặc gọi toàn bộ bảng pass.

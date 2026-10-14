@@ -102,6 +102,14 @@ job duplicate hoặc giả success Redis. Cache key có prefix app/env/run/job, 
 ngắn do app config để assertions có thể prove miss/fallback và refill. Không
 log values/password; no new diagnostic screen hoặc API bypass UI business step.
 
+Dòng chẩn đoán `ACCEPTANCE_SECRET` có thể chưa cấu hình ở AWS: README ứng dụng
+quy định missing binding hiển thị `FAIL` nhưng job form vẫn dùng được. Phải ghi
+rõ trạng thái đó, không tuyên bố toàn bộ bảng đạt hoặc suy thiếu quyết định mới.
+Secret bindings của PostgreSQL/Redis và kiểm tra cache vẫn bắt buộc ở cả ba
+scenario; lỗi những mục đó không được chuyển thành pass. Coverage secret cấu
+hình thật của A01 dùng fixture Vault riêng, không mở thêm hạ tầng Vault/VSO AWS
+chỉ để kiểm tra dòng tùy chọn này.
+
 ## Ba happy paths
 
 | ID | Target | Dependency class / implementation |
