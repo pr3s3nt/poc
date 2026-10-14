@@ -44,7 +44,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Hoàn tất local |
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
-| I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Current; chuẩn bị chạy thật |
+| I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Current; A01 retry fail, cleanup namespace chờ quyết định |
 | I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Chưa bắt đầu |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
@@ -267,3 +267,23 @@ evidence `/tmp/poc-i0411-codex-checks-r1/`. A01 retry duy nhất
 `/tmp/poc-i0411-live/a01-20261014-r2/`. Ảnh retry đã xác minh immutable refs;
 ownership/baseline ở `/tmp/poc-i0411-local-preparation/a01-r2-images/`.
 Chưa có A01 pass, E01/E02 chưa chạy; AWS vẫn gate.
+
+**Handoff hiện hành sau A01 retry fail:** I04-11 chưa đạt, E01/E02/I04-12 chưa
+chạy. Retry deploy/Ready/bindings/real Vault/job/PostgreSQL/cache/hit/TTL/miss/
+refill/reload đạt; UI gỡ Workload thiếu native confirm nên fail. Luna chẩn đoán
+readonly, chưa sửa thêm hoặc mở run mới. Video/phase/assertions giữ ở evidence
+r2, video1183.53s decode và26 public text files secret scan đạt.
+Supervisor NEEDS_ATTENTION: delivery verifier đếm cả TF resource Services/
+Secrets. Operator xác minh deployments vắng, chạy engine gốc dọn Redis/PG;
+renderer backend-env/worker-env đối chiếu persisted deployment IDs rồi dọn
+với UID preconditions. Namespace vẫn giữ vì default ServiceAccount thiếu
+managedFields.39 resource types kiểm kê chỉ còn CA/default SA; namespace UID
+a76ad236-5a87-44a2-b4bc-8c0040e5ba4e khớp state; không bypass guard/giả CLEAN.
+Quyết định dọn thủ công đúng namespace/UID đã hỏi, chưa có trả lời. Còn namespace,
+hai Vault PID3718805/3718896, database i0410_0831776d1fdc/ba roles và platform
+PG container/volume; private handles giữ. PV/workload/app resources/cache refs
+đã dọn;28 baseline UIDs giữ nguyên. Cloud/tmux cũ không chạy, agent
+`/root/i0410_luna` idle; code root `72a807e`, docs mới hơn. Bước tiếp: nhận
+quyết định ngoại lệ, cleanup có proof/state archive, rồi dừng theo giới hạn
+retry; chưa được mở thêm A01. Dự toán chuẩn bị2.13USD A02/2.0505USD A03 cho5h,
+không billed cost/ceiling. [Biên bản](../../verification/2026-10-14-i04-11-k8s4f.md).

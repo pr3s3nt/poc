@@ -658,3 +658,12 @@ unit hoặc live A01/A02/A03; binding/runner/live proof còn I04-10..12.
 cleanup với claims, process-kill proof, strict AWS identity và ECR/probe ownership
 đã có code/test. Fake-backed provider/readiness tests không thay A01/A02/A03/E01/E02
 live evidence; I04-11 current, I04-12 gated. IMP-021 còn mở, D12–D14 không đóng.
+
+## I04-11 live partial, chưa đạt
+
+[Biên bản](../verification/2026-10-14-i04-11-k8s4f.md): code fix `da524c6`
+merge `72a807e`,1352Go/0skip,622frontend/fullchecks. A01 real adapters qua UI
+đạt Preview/deploy/Ready/shared bindings/Vault/job/cache write/hit/TTL/miss/
+refill/reload; delete thiếu native confirmation nên retry fail. Run đầu đã
+CLOSED_CLEAN; retry namespace cleanup còn bị chặn bởi default SA provenance,
+không false-pass. E01/E02/A02/A03 chưa chạy, AWS gate đóng, IMP-021 còn mở.

@@ -22,7 +22,12 @@ Namespace/PV vắng và sentinel nguyên vẹn; supervisor ban đầu NEEDS_ATTE
 Phục hồi độc lập bằng handles gốc đã CLEAN/CLOSED_CLEAN, database/ba roles,
 hai Vault và ảnh bổ trợ đã dọn. Agent Luna sửa fixture/cleanup trước triển khai;
 Codex checks1352Go/0skip và622frontend/fullchecks đạt, merge `72a807e`;
-A01 retry duy nhất `a01-20261014-r2` đang chạy. AWS vẫn bị gate.
+A01 retry duy nhất `a01-20261014-r2` fail ở native confirm xóa workload;
+deploy/job/cache/Vault đều đạt. Operator gỡ workload/VSO, Terraform gốc dọn
+Redis/PostgreSQL, dọn renderer Secrets theo UID; namespace còn vì default SA
+không managedFields. Chờ quyết định ngoại lệ namespace UID đã khớp state,
+giữ DB/hai Vault/private handles.28 retained UIDs nguyên vẹn. AWS vẫn bị gate.
+[Biên bản I04-11](verification/2026-10-14-i04-11-k8s4f.md).
 Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi
 lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
 k8s-4f sạch thì tự chạy I04-12 AWS 452025861381/us-east-1. Giữ điểm duyệt cuối.

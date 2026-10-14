@@ -17,7 +17,11 @@ Namespace/PV đã xác minh vắng, sentinel giữ nguyên; supervisor ban đầ
 Phục hồi độc lập đã CLEAN/CLOSED_CLEAN bằng handles gốc; database/ba role,
 hai Vault và ảnh bổ trợ đã dọn. Bản sửa Luna qua checks độc lập1352Go/0skip,
 622frontend/fullchecks, merge `72a807e`; retry duy nhất `a01-20261014-r2`
-đang chạy. Fixture PostgreSQL nền riêng vẫn giữ cho các run.
+đã fail bước xóa workload do chưa trả lời native confirm, dù deploy/job/cache
+đạt. Operator dọn workload/VSO/Redis/PG/renderer Secrets, namespace còn vì
+default SA thiếu managedFields; chờ quyết định ngoại lệ, giữ DB/hai Vault/
+private handles để phục hồi.28 baseline UIDs giữ nguyên. Không mở run mới.
+[Biên bản](../../../verification/2026-10-14-i04-11-k8s4f.md).
 
 ## Phạm vi
 
