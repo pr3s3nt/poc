@@ -132,8 +132,13 @@ Brief `/tmp/poc-i0410-integration/cloud-brief.txt`; cờ bypass đã truyền,
 early status `88ad784` xác nhận Read/Write/Edit/Bash/git hoạt động; mode
 nội bộ không introspect. Hai nhánh chính/tự sinh `-dwitbm` đồng bộ. Cloud
 có PG/Redis, thiếu Terraform/score-k8s/kubectl và provider registry bị chặn;
-Codex có local tools để kiểm độc lập, không tự thay Claude viết code. Local runtime task này chưa
-chạy; không task-owned cluster/AWS assets. Chưa live proof.
+Codex có local tools để kiểm độc lập, không tự thay Claude viết code. WIP `7e40432` gồm real-profile/Vault outputs/Redis binding và k8s runner.
+Review phát hiện generated binaries, AWS runners chưa có, safety net xóa TF-owned
+objects trực tiếp thay original Terraform lifecycle, dynamic appsecret scan và
+dirty-marker còn thiếu; đã gửi về cùng phiên, chưa chấp nhận hoặc merge.
+Local r1 `/tmp/poc-i0410-codex-checks-r1/` đang chạy trên WIP, PG/Redis cô lập;
+Vault1.21.4 native đã chuẩn bị từ Docker image cache, container tool đã dọn.
+Không task-owned cluster/AWS assets, chưa live proof.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
 Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.
