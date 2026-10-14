@@ -13,7 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
-| 2026-10-14 | I04-11 A01 fail sau retry; job/cache đạt, namespace cleanup chờ quyết định; chưa đạt AWS gate | [Biên bản k8s-4f](2026-10-14-i04-11-k8s4f.md) |
+| 2026-10-14 | I04-11 A01 fail; job/cache đạt, namespace r2 dọn theo quyền15Oct, sửa lỗi/khép registry; chưa đạt AWS gate | [Biên bản k8s-4f](2026-10-14-i04-11-k8s4f.md) |
 | 2026-10-14 | I04-10 runner/supervisor/durable outputs, local SQL/CLI/race checks; live scenarios pending | [Integration verification](2026-10-14-i04-10-integration.md) |
 | 2026-10-14 | I04-06 AWS onboarding, scoped Vault/SQL, IAM context guards and Codex headed browser | [AWS Connection verification](2026-10-14-i04-06-aws-connection.md) |
 | 2026-10-14 | I04-05 AWS modules, shared private network, EKS allowlist/pins and independent PostgreSQL/CLI validation | [AWS module verification](2026-10-14-i04-05-aws-modules.md) |

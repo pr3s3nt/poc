@@ -72,4 +72,4 @@ Lưu cloud head/session và tmux/agent ID, quyền thực tế, bàn giao code d
 theo dõi mỗi15 phút, kiểm sớm khi lỗi/hoàn tất. Chi tiết
 [runbook điều phối](../../../operations/claude-tmux.md).
 Cập nhật verification/Current handoff/Task order; giữ failed evidence, cleanup
-và điểm duyệt cuối. Không tự ghi đã duyệt.
+và báo cáo cuối không chờ duyệt theo quyết định2026-10-15. Không tự ghi đã duyệt.
