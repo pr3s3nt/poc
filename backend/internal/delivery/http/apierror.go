@@ -177,7 +177,7 @@ var (
 		planning.ReasonLegacyInfrastructure: true, planning.ReasonUnconfigured: true,
 		planning.ReasonRendererNoMatch: true, planning.ReasonRendererAmbiguous: true, planning.ReasonRendererUnavailable: true,
 		// Allowlisted cleanup refusal reasons (OC-19).
-		resourcecleanup.ReasonNotUnreferenced: true, resourcecleanup.ReasonHasConsumers: true, resourcecleanup.ReasonPlatformResource: true,
+		resourcecleanup.ReasonNotUnreferenced: true, resourcecleanup.ReasonMetadataSyncPending: true, resourcecleanup.ReasonHasConsumers: true, resourcecleanup.ReasonPlatformResource: true,
 		resourcecleanup.ReasonOwnershipUnproven: true, resourcecleanup.ReasonTargetUnavailable: true, resourcecleanup.ReasonEnvironmentBusy: true,
 	}
 )

@@ -29,7 +29,9 @@ func TestUnreferencedMarkIsMirroredBestEffort(t *testing.T) {
 	s := &Service{instanceMarker: m}
 	// A failing mirror never fails the committed deployment; it is retried by neither
 	// path, so the instance stays ineligible for deletion (fail closed).
-	s.markInstancesUnreferenced(context.Background(), 3, list)
+	if failed := s.markInstancesUnreferenced(context.Background(), 3, list); failed != 1 {
+		t.Fatalf("a failed mirror must be counted for the safe warning, got %d", failed)
+	}
 	if len(m.calls) != 1 || m.calls[0][0] != "postgres.default#shared.db" || m.calls[0][1] != "SHARED" || m.gens[0] != 3 {
 		t.Fatalf("calls %+v gens %v", m.calls, m.gens)
 	}

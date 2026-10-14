@@ -120,7 +120,13 @@ func (s *snapshot) staticReasons(rec tfresource.ResourceRecord, consumers []Cons
 		reasons = append(reasons, ReasonPlatformResource)
 	}
 	if rec.Instance.Status != tfresource.InstanceUnreferenced {
-		reasons = append(reasons, ReasonNotUnreferenced)
+		if a, ok := s.activeOf(rec); ok && a.Status == resource.StatusUnreferenced {
+			// The committed Console state says UNREFERENCED, the State projection does not:
+			// say so instead of a generic refusal, and still refuse.
+			reasons = append(reasons, ReasonMetadataSyncPending)
+		} else {
+			reasons = append(reasons, ReasonNotUnreferenced)
+		}
 	} else if a, ok := s.activeOf(rec); ok && a.Status != resource.StatusUnreferenced {
 		reasons = append(reasons, ReasonNotUnreferenced)
 	}

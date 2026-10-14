@@ -38,6 +38,10 @@ const (
 	ReasonOwnershipUnproven = "OWNERSHIP_UNVERIFIED"
 	ReasonTargetUnavailable = "ORIGINAL_TARGET_UNAVAILABLE"
 	ReasonEnvironmentBusy   = "ENVIRONMENT_BUSY"
+	// ReasonMetadataSyncPending: the Active Resource is UNREFERENCED but the State
+	// projection (the Terraform instance status, owned by the State login) was not
+	// confirmed. Deletion stays refused (fail closed); nothing is repaired automatically.
+	ReasonMetadataSyncPending = "METADATA_SYNC_PENDING"
 	// ReasonInfrastructureDown is shown in the eligibility of a resource when
 	// the state, module, credential or engine services needed to delete it
 	// are not configured: a snapshot without the means is not eligible.
@@ -46,7 +50,7 @@ const (
 
 var refusalReasons = map[string]bool{
 	ReasonNotUnreferenced: true, ReasonHasConsumers: true, ReasonPlatformResource: true,
-	ReasonOwnershipUnproven: true, ReasonTargetUnavailable: true, ReasonEnvironmentBusy: true,
+	ReasonOwnershipUnproven: true, ReasonTargetUnavailable: true, ReasonEnvironmentBusy: true, ReasonMetadataSyncPending: true,
 }
 
 // Consumer kinds of the safe consumer projection.

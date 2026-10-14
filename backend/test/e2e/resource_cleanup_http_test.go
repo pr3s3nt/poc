@@ -1046,3 +1046,43 @@ func TestAdmissionCommitsRequestedBeforeTheEngineRuns(t *testing.T) {
 	close(f.engine.holdStart)
 	f.waitOperation(f.pe, id)
 }
+
+// TestUnconfirmedStateMirrorRefusesDeletionWithoutFalseProof: the committed
+// Active Resource says UNREFERENCED but the State projection (the instance
+// status, written by the separate State login after the Console transaction)
+// was not confirmed, e.g. because the mirror failed. The resource is shown with
+// the safe METADATA_SYNC_PENDING refusal; preview and deletion are refused
+// before any engine call or operation, nothing is reported ready or verified,
+// and the committed Active Resource history is untouched. No repair is attempted.
+func TestUnconfirmedStateMirrorRefusesDeletionWithoutFalseProof(t *testing.T) {
+	f := newRCFixture(t)
+	active := f.linkActive(f.x, "UNREFERENCED") // instance f.x is still READY: the mirror did not land
+	_, raw, body := f.do(f.pe, http.MethodGet, f.resourceURL(f.x.ID), nil)
+	assertSafe(t, "detail", raw)
+	view := body["resource"].(map[string]any)
+	elig := view["eligibility"].(map[string]any)
+	if elig["eligible"] != false || !contains(elig["reasons"], "METADATA_SYNC_PENDING") || contains(elig["reasons"], "NOT_UNREFERENCED") {
+		t.Fatalf("eligibility must name the pending metadata sync: %v", elig)
+	}
+	if view["status"] == "UNREFERENCED" {
+		t.Fatalf("the READY instance must not be reported as UNREFERENCED: %v", view["status"])
+	}
+	status, _, b := f.preview(f.pe, f.x.ID)
+	if status != http.StatusConflict || b["params"].(map[string]any)["reason"] != "METADATA_SYNC_PENDING" {
+		t.Fatalf("preview = %d %v", status, b)
+	}
+	forged := "rd1.4102444800." + strings.Repeat("b", 16) + "." + strings.Repeat("a", 64)
+	if status, _, _ := f.deletion(f.pe, forged, f.x.Identity.Descriptor, f.x.ID); status == http.StatusAccepted {
+		t.Fatal("a deletion must not be admitted while the State mirror is unconfirmed")
+	}
+	var operations int
+	if err := f.conn().QueryRow(context.Background(), `SELECT count(*) FROM environment_operations WHERE kind='RESOURCE_CLEANUP'`).Scan(&operations); err != nil {
+		t.Fatal(err)
+	}
+	if operations != 0 || f.engine.Calls() != 0 {
+		t.Fatalf("no operation or engine call may follow: operations=%d engine=%d", operations, f.engine.Calls())
+	}
+	if got := f.activeStatus(active); got != "UNREFERENCED" {
+		t.Fatalf("the committed Active Resource history must be preserved, got %s", got)
+	}
+}
