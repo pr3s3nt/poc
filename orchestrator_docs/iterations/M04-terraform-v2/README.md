@@ -129,7 +129,10 @@ Brief/handoff `/tmp/poc-i0409-acceptance-redis/`; nhánh chính/tự sinh và ch
 I04-10 current: [session_01HtXzgfyBzoNma2DQ2SzNY5](https://claude.ai/code/session_01HtXzgfyBzoNma2DQ2SzNY5)
 đã tạo từ refactor_ui `55b2fa0` đã push; nhánh yêu cầu `claude/m04-i04-10`.
 Brief `/tmp/poc-i0410-integration/cloud-brief.txt`; cờ bypass đã truyền,
-quyền thực tế chờ early status, không suy từ cờ. Local runtime task này chưa
+early status `88ad784` xác nhận Read/Write/Edit/Bash/git hoạt động; mode
+nội bộ không introspect. Hai nhánh chính/tự sinh `-dwitbm` đồng bộ. Cloud
+có PG/Redis, thiếu Terraform/score-k8s/kubectl và provider registry bị chặn;
+Codex có local tools để kiểm độc lập, không tự thay Claude viết code. Local runtime task này chưa
 chạy; không task-owned cluster/AWS assets. Chưa live proof.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
