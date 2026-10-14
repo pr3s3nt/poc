@@ -2,7 +2,7 @@
 id: RUNBOOK-TERRAFORM-V2-ACCEPTANCE
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-14
 related: [ADR-014, UC-03, UC-04, UC-05, UC-06, UC-08, UC-16]
 ---
 
@@ -76,6 +76,14 @@ Plan/task cụ thể: [M04](../iterations/M04-terraform-v2/README.md).
    Ghi `expires-at` từ deadline execution; đây là trigger cleanup, không cam kết
    provider delete lập tức. Deadline tuning phải ghi trước run, giữ hữu hạn và
    không kéo dài run lỗi để tạo thêm resources.
+
+## Công cụ viết code khi hết hạn mức
+
+Quyết định mới nhất2026-10-14: cloud hết credit thì fetch code đã push, lưu
+handoff và dùng Claude local tmux/`clauded`; nếu lại hết thì agent Codex
+`gpt-6-luna` viết tiếp. Codex điều phối vẫn chạy checks độc lập và các lượt
+cluster/AWS/video thật, giữ zero-skip và mọi quyền/cleanup/gate trong runbook.
+Không dùng chuyển công cụ để giảm assertions hoặc tuyên bố code dở đã đạt.
 
 ## Acceptance app và nghiệp vụ
 

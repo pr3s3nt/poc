@@ -2,7 +2,7 @@
 id: ADR-014
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-14
 related: [UC-03, UC-04, UC-05, UC-06, UC-07, UC-08, UC-09, UC-16]
 ---
 
@@ -164,7 +164,10 @@ Sau I04-11 đạt A01/E01/E02, video và dự toán AWS đã lưu, k8s-4f sạch
 Codex tự chạy I04-12 AWS A02 rồi A03, cleanup ngay và xác minh từng run.
 Điểm duyệt 3 bàn giao cuối vẫn giữ; không tự tuyên bố đã duyệt.
 Claude cloud viết code/test trên nhánh riêng public; Codex review/checks/merge
-và chạy thật local, không gửi secrets vào cloud hoặc tự viết code/test.
+và chạy thật local, không gửi secrets vào cloud. Quyết định mới nhất2026-10-14:
+cloud hết hạn mức thì chuyển Claude local qua tmux/`clauded`; local tiếp tục
+hết thì agent Codex `gpt-6-luna` được viết code/test theo quyền người dùng.
+Codex điều phối giữ docs/review/checks/merge, không đổi scope/nghiệm thu/cleanup.
 
 Code gaps được ghi trong
 [deviations](../../implementation/deviations.md); traceability ghi planned tests

@@ -2,7 +2,7 @@
 id: I04-12
 artifact: iteration-plan
 status: deferred
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-14
 related: [M04, ADR-014, IMP-021]
 ---
 
@@ -52,8 +52,12 @@ A02/A03 full job/cache assertions + video; không còn run-owned cloud assets; d
 
 ## Handoff
 
-Claude cloud viết code/test và push nhánh riêng; Codex review, tự chạy checks
-local không skip, merge và chạy thật/Playwright headed/quay video local.
-Lưu session ID/URL/quyền thực tế; fetch mỗi 15 phút (900 giây). Gửi lỗi code về Claude.
-Cập nhật verification/Current handoff/Task order, commit/push và xóa nhánh.
-Giữ failed evidence và phân biệt adapter thật/fake; bàn giao cuối chờ người dùng.
+Theo quyết định mới nhất 2026-10-14, code/test chuyển sang Claude local qua
+tmux/`clauded` khi cloud hết hạn mức; nếu Claude local tiếp tục hết thì agent
+Codex `gpt-6-luna` viết tiếp. Writer không sửa docs/commit/push; Codex review,
+chạy checks local không skip, commit/merge/push và chạy thật/headed video.
+Lưu cloud head/session và tmux/agent ID, quyền thực tế, bàn giao code dở;
+theo dõi mỗi15 phút, kiểm sớm khi lỗi/hoàn tất. Chi tiết
+[runbook điều phối](../../../operations/claude-tmux.md).
+Cập nhật verification/Current handoff/Task order; giữ failed evidence, cleanup
+và điểm duyệt cuối. Không tự ghi đã duyệt.

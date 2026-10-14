@@ -10,7 +10,7 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Current sau I04-09 verified local; cloud session_01HtXzgfyBzoNma2DQ2SzNY5 đang chạy từ55b2fa0; chưa verified.
+Chặng 2; xem [M04](../README.md). Current sau I04-09 verified local; cloud hết credit ở666da24; Claude local tmux poc-m04-i0410-clauded-local đang tiếp tục; chưa verified.
 
 ## Phạm vi
 
@@ -54,8 +54,12 @@ Product runtime dùng PostgreSQL thật và scoped Vault/Connections; invalid in
 
 ## Handoff
 
-Claude cloud viết code/test và push nhánh riêng; Codex review, chạy checks
-local không skip, merge và chạy thật/Playwright headed/quay video local.
-Lưu session ID/URL/quyền thực tế; fetch mỗi 15 phút (900 giây). Gửi lỗi code về Claude.
-Cập nhật verification/Current handoff/Task order, commit/push và xóa nhánh.
-Giữ failed evidence và phân biệt adapter thật/fake.
+Theo quyết định mới nhất 2026-10-14, code/test chuyển sang Claude local qua
+tmux/`clauded` khi cloud hết hạn mức; nếu Claude local tiếp tục hết thì agent
+Codex `gpt-6-luna` viết tiếp. Writer không sửa docs/commit/push; Codex review,
+chạy checks local không skip, commit/merge/push và chạy thật/headed video.
+Lưu cloud head/session và tmux/agent ID, quyền thực tế, bàn giao code dở;
+theo dõi mỗi15 phút, kiểm sớm khi lỗi/hoàn tất. Chi tiết
+[runbook điều phối](../../../operations/claude-tmux.md).
+Cập nhật verification/Current handoff/Task order; giữ failed evidence, cleanup
+và điểm duyệt cuối. Không tự ghi đã duyệt.
