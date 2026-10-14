@@ -168,3 +168,9 @@ Khởi động local đã xác minh Bash đọc brief và kiểm checkout; tmux 
 Enter dạng CSI-u để submit trên CLI hiện tại. Claude báo weekly usage92%,
 chưa báo exhausted, đang chạy; khi lỗi quota sẽ giữ dirty code và chuyển
 `gpt-6-luna`. Không coi cảnh báo92% là hoàn tất hoặc lỗi công cụ.
+
+Lần kiểm local15 phút: Claude có dirty source9 tracked files và AWS helper/tests
+untracked, đang chạy checks ở `/tmp/poc-i0410-local-claude/`. Một Bash chờ
+`pgrep -f` tự khớp argv nên đã dừng riêng PID955552 sau kiểm parent825829;
+không dừng checks/PG cleanup. Đã gửi lại yêu cầu dùng result file/child PID và
+hoàn tất mọi findings. Không có quota failure được xác nhận ở lần kiểm này.
