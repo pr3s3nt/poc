@@ -191,3 +191,15 @@ AWS Preview purity phải đối chiếu owned ECR aux baseline; manifest writes
 không được silently bỏ lỗi; probe Pod setup phải tag/record/cleanup đúng.
 Optional config-secret diagnostic AWS ghi chưa cấu hình theo nguồn chuẩn,
 không giảm PG/Redis secret/cache criteria hoặc gọi toàn bộ bảng pass.
+
+Lần kiểm ~08:30UTC: Claude local xác nhận “You've hit your weekly limit”,
+reset Oct15 23:00 Asia/Bangkok. Đã dừng đúng tmux do task tạo để tránh hai
+writer; toàn bộ index/worktree/untracked trên `bb0ae24` được giữ nguyên.
+Chuyển code/test cho agent Codex `gpt-6-luna`, task `/root/i0410_luna`,
+checkout `/tmp/poc-i0410-codex-review`; không commit/push hoặc chạy cluster/AWS.
+Local final2 có1344Go pass/0fail/0skip, build/vet/typecheck/lint đạt nhưng
+frontend suite lỗi, nên chưa chấp nhận I04-10. Evidence
+`/tmp/poc-i0410-local-claude/checks-final2-1791965092/`; PG/network/private
+credential fixture của lượt đó đã xác minh xóa. Findings còn lại phải sửa,
+Codex điều phối sẽ review và chạy fullchecks độc lập trước merge. Không có
+tài nguyên cluster/AWS do task tạo, I04-11/12 chưa chạy.
