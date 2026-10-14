@@ -53,7 +53,7 @@ func main() {
 	region := flag.String("region", "us-east-1", "AWS region")
 	location := flag.String("location", "US East (N. Virginia)", "Pricing API location name")
 	hours := flag.Float64("hours", 2, "expected lifetime of the run in hours")
-	instanceTypes := flag.String("instance-types", "t4g.small,t3.small", "candidate node instance types, cheapest wins")
+	instanceTypes := flag.String("instance-types", "t4g.medium,t3.medium", "candidate node instance types, cheapest wins")
 	diskSize := flag.Float64("disk-size", 20, "node EBS volume size in GiB")
 	minACU := flag.Float64("aurora-min-acu", 0, "Aurora Serverless v2 minimum capacity")
 	maxACU := flag.Float64("aurora-max-acu", 1, "Aurora Serverless v2 maximum capacity")

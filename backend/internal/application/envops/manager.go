@@ -45,6 +45,9 @@ func DeadlineFor(kind environment.OperationKind) time.Duration {
 
 // Manager claims Environments and keeps their heartbeats alive.
 type Manager struct {
+	// deadlines overrides DeadlineFor per kind (operator-configured, recorded,
+	// bounded by MaxDeadline); an absent kind keeps its default.
+	deadlines  map[environment.OperationKind]time.Duration
 	store      persistence.Store
 	instanceID string
 	heartbeat  time.Duration
@@ -54,6 +57,31 @@ type Manager struct {
 // NewManager returns a manager with a fresh process identity.
 func NewManager(store persistence.Store) *Manager {
 	return &Manager{store: store, instanceID: ids.New(), heartbeat: DefaultHeartbeat, staleAfter: DefaultStaleAfter}
+}
+
+// MaxDeadline is the longest an Environment claim may be configured to live.
+// There is no unlimited extension.
+const MaxDeadline = 4 * time.Hour
+
+// SetDeadline configures the finite hold time of one operation kind (for
+// example a Deploy that must cover a sequential VPC -> EKS -> database chain).
+func (m *Manager) SetDeadline(kind environment.OperationKind, d time.Duration) error {
+	if d <= 0 || d > MaxDeadline {
+		return fmt.Errorf("envops: the %s deadline must be positive and at most %s", kind, MaxDeadline)
+	}
+	if m.deadlines == nil {
+		m.deadlines = map[environment.OperationKind]time.Duration{}
+	}
+	m.deadlines[kind] = d
+	return nil
+}
+
+// DeadlineOf is the finite hold time this manager records for a kind.
+func (m *Manager) DeadlineOf(kind environment.OperationKind) time.Duration {
+	if d, ok := m.deadlines[kind]; ok {
+		return d
+	}
+	return DeadlineFor(kind)
 }
 
 // SetTiming overrides heartbeat and stale thresholds (tests).
@@ -104,7 +132,7 @@ type Lease struct {
 func (m *Manager) Begin(ctx context.Context, c Claim) (*Lease, error) {
 	deadline := c.Deadline
 	if deadline <= 0 {
-		deadline = DeadlineFor(c.Kind)
+		deadline = m.DeadlineOf(c.Kind)
 	}
 	_, _ = m.Sweep(ctx)
 	op, err := m.store.ClaimEnvironment(ctx, persistence.OperationClaim{

@@ -92,3 +92,57 @@ func AcceptanceScores(o Options) map[string]map[string]any {
 // AcceptanceOrder is the deployment order of the acceptance workloads.
 // The database is provisioned with the first workload that declares it.
 func AcceptanceOrder() []string { return []string{"backend", "worker", "frontend"} }
+
+// CacheTTLSeconds is the acceptance cache TTL: short enough to wait out in a
+// recording, long enough for the worker write and the backend hit assertions.
+const CacheTTLSeconds = 20
+
+// AcceptanceScoresRedis returns the three acceptance Score documents with one
+// shared Redis (resource ID cacheID, class cacheClass) wired to the backend
+// and the worker (UC-05/UC-06, I04-09 contract). The Redis password reaches
+// the Pods only through the secret output binding; the cache scope variables
+// carry the Application, Environment and run so keys never collide.
+func AcceptanceScoresRedis(o Options, cacheID, cacheClass, application, environment, runID string) map[string]map[string]any {
+	docs := AcceptanceScores(o)
+	cacheRef := map[string]any{"type": "redis", "class": cacheClass, "id": cacheID}
+	vars := map[string]any{
+		"REDIS_HOST":                   "${resources.cache.host}",
+		"REDIS_PORT":                   "${resources.cache.port}",
+		"REDIS_USERNAME":               "${resources.cache.username}",
+		"REDIS_PASSWORD":               "${resources.cache.password}",
+		"REDIS_TLS":                    "${resources.cache.tls}",
+		"ACCEPTANCE_CACHE_APP":         application,
+		"ACCEPTANCE_CACHE_ENV":         environment,
+		"ACCEPTANCE_CACHE_RUN":         runID,
+		"ACCEPTANCE_CACHE_TTL_SECONDS": itoa(CacheTTLSeconds),
+	}
+	for _, name := range []string{"backend", "worker"} {
+		doc := docs[name]
+		main := doc["containers"].(map[string]any)["main"].(map[string]any)
+		variables := main["variables"].(map[string]any)
+		for k, v := range vars {
+			variables[k] = v
+		}
+		doc["resources"].(map[string]any)["cache"] = cloneMap(cacheRef)
+	}
+	return docs
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	digits := ""
+	for ; n > 0; n /= 10 {
+		digits = string(rune('0'+n%10)) + digits
+	}
+	return digits
+}
+
+func cloneMap(in map[string]any) map[string]any {
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}

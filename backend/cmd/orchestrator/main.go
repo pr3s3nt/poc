@@ -27,8 +27,10 @@ func main() {
 	statePath := flag.String("state", "", "optional path of the JSON state snapshot")
 	databaseURLFile := flag.String("database-url-file", os.Getenv("ORCHESTRATOR_DATABASE_URL_FILE"), "path to a file containing the PostgreSQL connection URL")
 	adapters := flag.String("adapters", "fake", "executor adapters: fake, kubernetes or aws")
-	profile := flag.String("profile", opts.Profile, "seed profile: local, test, or production")
+	profile := flag.String("profile", opts.Profile, "seed profile: local, test, production or acceptance-v2 (isolated real acceptance: fixture accounts, the exact -namespace identity and no catalog)")
+	seedCatalog := flag.String("seed-catalog", "", "seed catalog: empty (legacy), terraform-k8s (verified Terraform namespace/PostgreSQL/Redis) or none (acceptance-v2 only; the catalog is authored through the Console)")
 	namespace := flag.String("namespace", opts.NamespaceIdentity, "namespace identity of the internal-k8s environment")
+	applicationKey := flag.String("application-key", opts.ApplicationKey, "key of the seeded fixture Application (acceptance-v2 uses a unique key per run so Vault paths never collide with other runs)")
 	cloudNamespace := flag.String("cloud-namespace", opts.CloudNamespaceIdentity, "namespace identity of the aws-eks environment")
 	kubeContext := flag.String("kube-context", opts.KubeContext, "kubectl context of the registered cluster")
 	cluster := flag.String("cluster", opts.ClusterName, "registered cluster name")
@@ -62,6 +64,13 @@ func main() {
 	connectionVaultAddress := flag.String("connection-vault-address", os.Getenv("ORCHESTRATOR_CONNECTION_VAULT_ADDR"), "Vault API address of the Connection credential store")
 	connectionVaultTokenFile := flag.String("connection-vault-token-file", os.Getenv("ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE"), "path to the scoped Vault token file of the Connection credential store")
 	connectionVaultMount := flag.String("connection-vault-mount", "kv", "KV v2 mount of the Connection credential store")
+	outputSecretStore := flag.String("output-secret-store", os.Getenv("ORCHESTRATOR_OUTPUT_SECRET_STORE"), "UC-08 output-secret store: memory (default; lost on restart) or vault (durable KV v2 under orchestrator/outputs; required by the acceptance-v2 profile)")
+	outputSecretAddress := flag.String("output-secret-vault-address", os.Getenv("ORCHESTRATOR_OUTPUT_SECRET_VAULT_ADDR"), "Vault API address of the output-secret store")
+	outputSecretTokenFile := flag.String("output-secret-vault-token-file", os.Getenv("ORCHESTRATOR_OUTPUT_SECRET_VAULT_TOKEN_FILE"), "path to the output-secret store token file (a token scoped to orchestrator/outputs only)")
+	outputSecretMount := flag.String("output-secret-vault-mount", "kv", "KV v2 mount of the output-secret store")
+	deployDeadline := flag.Duration("deploy-deadline", 0, "finite hold time of one whole Deploy claim (default 45m, at most 4h); an AWS acceptance run sets it to cover the sequential VPC -> EKS -> database chain inside its recorded overall deadline")
+	terraformInvocationTimeout := flag.Duration("terraform-invocation-timeout", 0, "bound of one Terraform session (default 45m); acceptance runs set a finite smaller value")
+	terraformReadinessTimeout := flag.Duration("terraform-readiness-timeout", 0, "bound of the readiness query after an apply (default 5m)")
 	platformVaultBootstrap := flag.Bool("platform-vault-bootstrap", envBool("ORCHESTRATOR_PLATFORM_VAULT_BOOTSTRAP"), "explicit opt-in: register the bundled Compose Vault as the ordinary verified store platform-vault at startup")
 	platformVaultAddress := flag.String("platform-vault-address", os.Getenv("ORCHESTRATOR_PLATFORM_VAULT_ADDR"), "Vault API address of the platform-vault bootstrap")
 	platformVaultWorkloadAddress := flag.String("platform-vault-workload-address", os.Getenv("ORCHESTRATOR_PLATFORM_VAULT_WORKLOAD_ADDR"), "Vault address used by workload Pods (default: the API address)")
@@ -103,13 +112,18 @@ func main() {
 		}
 		stateDatabaseURL = value
 	}
-	if err := bootstrap.DistinctFiles(map[string]string{"database URL": *databaseURLFile, "State database URL": *terraformStateDatabaseURLFile, "Terraform state key": *terraformStateKeyFile}); err != nil {
+	if err := bootstrap.DistinctFiles(map[string]string{"database URL": *databaseURLFile, "State database URL": *terraformStateDatabaseURLFile, "Terraform state key": *terraformStateKeyFile, "output secret token": *outputSecretTokenFile, "connection Vault token": *connectionVaultTokenFile}); err != nil {
 		log.Printf("orchestrator: %v", err)
 		os.Exit(1)
 	}
 
 	opts.NamespaceIdentity = *namespace
+	opts.ApplicationKey = *applicationKey
 	opts.Profile = *profile
+	opts.Catalog = *seedCatalog
+	if opts.Profile == seed.ProfileAcceptanceV2 && opts.Catalog == "" {
+		opts.Catalog = seed.CatalogNone
+	}
 	opts.CloudNamespaceIdentity = *cloudNamespace
 	opts.KubeContext = *kubeContext
 	opts.ClusterName = *cluster
@@ -174,6 +188,11 @@ func main() {
 		HarborPullSecretName:          *harborPullSecretName,
 
 		PlatformVault: platformVault,
+
+		DeployDeadline: *deployDeadline, TerraformInvocationTimeout: *terraformInvocationTimeout, TerraformReadinessTimeout: *terraformReadinessTimeout,
+
+		OutputSecretStore: *outputSecretStore, OutputSecretVaultAddress: *outputSecretAddress,
+		OutputSecretVaultTokenFile: *outputSecretTokenFile, OutputSecretVaultMount: *outputSecretMount,
 
 		ConnectionCredentialStore: *connectionCredentialStore,
 		ConnectionVaultAddress:    *connectionVaultAddress,

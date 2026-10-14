@@ -35,3 +35,7 @@ crash.log
 .vscode/
 .DS_Store
 *~
+
+# Go build outputs of `go build ./cmd/...` and `go build ./test/integration/v2ctl` run inside backend/
+/backend/orchestrator
+/backend/v2ctl

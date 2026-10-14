@@ -4,8 +4,8 @@
 // key by key, so a recording shows what a person would do.
 import { expect } from '@playwright/test';
 
-export const TYPE_DELAY = 85;
-export const LONG_TYPE_DELAY = 30;
+export const TYPE_DELAY = Number(process.env.ORCH_E2E_TYPE_DELAY ?? 85); // the env knob exists for local script development only
+export const LONG_TYPE_DELAY = Number(process.env.ORCH_E2E_TYPE_DELAY ?? 30);
 
 // Options: selectNative(h, select, label) operates a native <select> popup
 // in headed recordings (see video.mjs); without it choose() uses selectOption.

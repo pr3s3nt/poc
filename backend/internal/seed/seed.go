@@ -7,6 +7,8 @@ package seed
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/domain/application"
@@ -18,6 +20,19 @@ import (
 	"orchestrator/internal/platform/password"
 	"orchestrator/internal/ports/persistence"
 )
+
+// Catalog modes of Options.Catalog.
+const (
+	CatalogLegacy       = ""
+	CatalogTerraformK8s = "terraform-k8s"
+	CatalogNone         = "none"
+)
+
+// ProfileAcceptanceV2 is the isolated real-acceptance seed profile (I04-10):
+// fixed fixture accounts, the exact owned Application/Environment namespace
+// identity, and NO catalog, Connection or Environment binding. Everything a
+// business step needs is authored through the Console.
+const ProfileAcceptanceV2 = "acceptance-v2"
 
 // Images names the acceptance application container images.
 type Images struct {
@@ -50,6 +65,15 @@ type Options struct {
 	EnvironmentKey  string
 	EnvironmentName string
 	EnvironmentType string
+
+	// Catalog selects which Resource Types and Definitions Apply registers:
+	// CatalogLegacy (default) is the walking-skeleton catalog whose in-cluster
+	// namespace and PostgreSQL use the legacy Kubernetes driver;
+	// CatalogTerraformK8s replaces exactly those with the verified Terraform
+	// namespace/PostgreSQL/Redis modules; CatalogNone registers nothing, so a
+	// real acceptance run authors every Type, Definition, pin and mapping
+	// through the Console. ProfileAcceptanceV2 requires CatalogNone; the test and local profiles may select it for development harnesses.
+	Catalog string
 
 	RunID            string
 	Images           Images
@@ -89,7 +113,7 @@ func DefaultCloudConfig() CloudConfig {
 	return CloudConfig{
 		VPCCidr:             "10.42.0.0/16",
 		KubernetesVersion:   "1.35",
-		NodeInstanceType:    "t4g.small",
+		NodeInstanceType:    "t4g.medium",
 		NodeCapacityType:    "SPOT",
 		NodeAmiType:         "AL2023_ARM_64_STANDARD",
 		NodeDiskSize:        20,
@@ -133,7 +157,30 @@ func Defaults() Options {
 
 // ResourceTypes returns the Resource Type contracts used by the MVP (UC-02).
 // Inputs are the keys a Score document may pass as `params`.
-func ResourceTypes() []resource.Type {
+func ResourceTypes() []resource.Type { return ResourceTypesFor(Options{}) }
+
+// RedisType is the Redis Resource Type contract of the acceptance application.
+func RedisType() resource.Type {
+	return resource.Type{Key: "redis", Outputs: []resource.OutputField{
+		{Name: "host", Type: "string", Required: true}, {Name: "port", Type: "number", Required: true},
+		{Name: "username", Type: "string", Required: true}, {Name: "password", Type: "string", Required: true, Secret: true},
+		{Name: "tls", Type: "bool", Required: true}}}
+}
+
+// ResourceTypesFor returns the Types Apply registers for the catalog mode: none
+// for CatalogNone, plus Redis for CatalogTerraformK8s.
+func ResourceTypesFor(o Options) []resource.Type {
+	if o.CatalogFree() {
+		return nil
+	}
+	types := resourceTypes()
+	if o.Catalog == CatalogTerraformK8s {
+		types = append(types, RedisType())
+	}
+	return types
+}
+
+func resourceTypes() []resource.Type {
 	return []resource.Type{
 		{Key: "workload"},
 		{
@@ -239,6 +286,57 @@ func ResourceDefinitions(o Options) []resource.Definition {
 		eksVariables["public_access_cidrs"] = list
 	}
 	modules := o.platformModules()
+	if o.Catalog == CatalogNone {
+		return nil
+	}
+	defs := baseDefinitions(o, cloud, eksVariables, modules)
+	if o.Catalog != CatalogTerraformK8s {
+		return defs
+	}
+	out := make([]resource.Definition, 0, len(defs)+2)
+	for _, d := range defs {
+		switch d.Key {
+		case "namespace-kubernetes", "postgres-internal-statefulset":
+			continue // legacy Kubernetes driver: not v2 provider proof
+		}
+		out = append(out, d)
+	}
+	return append(out, terraformK8sDefinitions(modules)...)
+}
+
+// terraformK8sDefinitions are the in-cluster Definitions over the verified
+// packaged modules. The Kubernetes provider is bound to the Environment target
+// (the registered Connection on internal-k8s, the EKS node on aws-eks), never
+// inferred from variables. The namespace name is the exact Environment
+// namespace (generation suffix included).
+func terraformK8sDefinitions(modules map[string]tfmodule.SourceRef) []resource.Definition {
+	nsOut := "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+	build := func(key, typ, module, profile string, variables map[string]any, inputs, outputs []string) resource.Definition {
+		inputMapping := map[string]any{}
+		for _, name := range inputs {
+			inputMapping[name] = map[string]any{"param": name}
+		}
+		outputMapping := map[string]any{}
+		for _, name := range outputs {
+			outputMapping[name] = name
+		}
+		d := resource.Definition{Key: key, ResourceTypeKey: typ, DriverType: resource.DriverTerraform,
+			DriverInputs: map[string]any{"values": map[string]any{
+				"source": modules[module].Map(), "variables": variables, "input_mapping": inputMapping, "output_mapping": outputMapping,
+				"provider_bindings": map[string]any{"kubernetes": map[string]any{"target": tfmodule.TargetEnvironment}},
+			}},
+			Criteria: []resource.Criterion{{}}}
+		d.ExecutionProfile = profile
+		return d
+	}
+	return []resource.Definition{
+		build("namespace-k8s-module", "k8s-namespace", "k8s-namespace", "", map[string]any{"name": "${context.env.namespace}"}, nil, []string{"name"}),
+		build("postgres-k8s-module", "postgres", "postgres-k8s", "internal-k8s", map[string]any{"namespace": nsOut}, []string{"database", "username"}, []string{"host", "port", "database", "username", "password"}),
+		build("redis-k8s-module", "redis", "redis-k8s", "internal-k8s", map[string]any{"namespace": nsOut}, nil, []string{"host", "port", "username", "password", "tls"}),
+	}
+}
+
+func baseDefinitions(o Options, cloud CloudConfig, eksVariables map[string]any, modules map[string]tfmodule.SourceRef) []resource.Definition {
 	return []resource.Definition{
 		{
 			Key:             "namespace-kubernetes",
@@ -337,12 +435,45 @@ func FixedTestAccountIDsIn(ctx context.Context, store persistence.Store) ([]stri
 
 // AllowsFixedTestAccounts reports whether the profile may seed and accept the
 // fixed local/test accounts.
-func AllowsFixedTestAccounts(profile string) bool { return profile == "local" || profile == "test" }
+func AllowsFixedTestAccounts(profile string) bool {
+	return profile == "local" || profile == "test" || profile == ProfileAcceptanceV2
+}
+
+func (o Options) defaultConnectionKey() string {
+	if o.CatalogFree() {
+		return "" // Connections are registered through the Console
+	}
+	return o.ConnectionKey
+}
+
+// CatalogFree reports whether Apply registers no catalog, Connection or
+// Environment binding for these options.
+func (o Options) CatalogFree() bool { return o.Catalog == CatalogNone }
+
+// Validate refuses combinations that would hide a legacy catalog in a real
+// acceptance profile or an unknown catalog mode.
+func (o Options) Validate() error {
+	switch o.Catalog {
+	case CatalogLegacy, CatalogTerraformK8s, CatalogNone:
+	default:
+		return fmt.Errorf("seed: unknown catalog mode %q", o.Catalog)
+	}
+	if o.Profile == ProfileAcceptanceV2 && o.Catalog != CatalogNone {
+		return errors.New("seed: the acceptance-v2 profile seeds no catalog; the catalog is authored through the Console")
+	}
+	if o.Catalog == CatalogNone && o.Profile != ProfileAcceptanceV2 && o.Profile != "test" && o.Profile != "local" {
+		return errors.New("seed: the empty catalog is only for the acceptance-v2, test and local profiles")
+	}
+	return nil
+}
 
 // Apply writes the seeded catalog, both Applications and their Environments.
 func Apply(ctx context.Context, store persistence.Store, o Options) error {
+	if err := o.Validate(); err != nil {
+		return err
+	}
 	if _, err := store.GetOrganization(ctx, o.OrganizationKey); errors.Is(err, persistence.ErrNotFound) {
-		if err := store.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: o.OrganizationKey, Name: "Acme", DefaultConnectionKey: o.ConnectionKey}); err != nil {
+		if err := store.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: o.OrganizationKey, Name: "Acme", DefaultConnectionKey: o.defaultConnectionKey()}); err != nil {
 			return err
 		}
 	} else if err != nil {
@@ -368,13 +499,16 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 			return err
 		}
 	}
-	for _, t := range ResourceTypes() {
+	for _, t := range ResourceTypesFor(o) {
 		if err := store.SaveResourceType(ctx, o.OrganizationKey, t); err != nil {
 			return err
 		}
 	}
 	if err := refreshSeededDefinitions(ctx, store, o); err != nil {
 		return err
+	}
+	if o.CatalogFree() {
+		return applyFixtureApplication(ctx, store, o)
 	}
 
 	internalConnection := application.Connection{
@@ -530,6 +664,55 @@ func refreshSeededDefinitions(ctx context.Context, store persistence.Store, o Op
 			continue
 		}
 		if err := store.SaveResourceDefinition(ctx, o.OrganizationKey, seeded); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// applyFixtureApplication seeds ONLY the isolated Application fixture of a
+// real acceptance run: the Application with its staging and production
+// Environments (the two the Console offers), the staging Environment carrying
+// the exact owned namespace identity (production gets a distinct unused one)
+// and no binding. Connection, profile and everything else are Console steps.
+func applyFixtureApplication(ctx context.Context, store persistence.Store, o Options) error {
+	app := application.Application{ID: ids.New(), Key: o.ApplicationKey, OrganizationKey: o.OrganizationKey, Name: o.ApplicationName, Subdomain: "acceptance", Version: 1}
+	if existing, err := store.GetApplication(ctx, app.Key); err == nil {
+		app = existing
+	} else if !errors.Is(err, persistence.ErrNotFound) {
+		return err
+	} else {
+		if err := app.Validate(); err != nil {
+			return err
+		}
+		if err := store.SaveApplication(ctx, app); err != nil {
+			return err
+		}
+	}
+	identities := map[string]string{"staging": o.NamespaceIdentity, "production": o.NamespaceIdentity + "-p"}
+	if len(identities["production"]) > 63 {
+		identities["production"] = identities["production"][:61] + "-p"
+	}
+	for _, key := range []string{"staging", "production"} {
+		if _, err := store.GetEnvironment(ctx, app.Key, key); err == nil {
+			continue
+		} else if !errors.Is(err, persistence.ErrNotFound) {
+			return err
+		}
+		set := environment.DeploymentSet{ID: ids.New(), EnvironmentKey: app.Key + "/" + key, Document: environment.NewDocument(), DocumentHash: "empty"}
+		envID := ids.New()
+		set.EnvironmentID = envID
+		env := environment.Environment{ID: envID, Key: key, ApplicationID: app.ID, ApplicationKey: app.Key, Name: strings.Title(key), Type: key,
+			NamespaceIdentity: identities[key], CurrentDeploymentSetID: set.ID, Version: 1}
+		if err := env.Validate(); err != nil {
+			return err
+		}
+		if err := store.Transact(ctx, func(ctx context.Context) error {
+			if err := store.SaveDeploymentSet(ctx, set); err != nil {
+				return err
+			}
+			return store.SaveEnvironment(ctx, env)
+		}); err != nil {
 			return err
 		}
 	}

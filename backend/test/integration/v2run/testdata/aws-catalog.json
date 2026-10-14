@@ -1,0 +1,35 @@
+{
+  "_comment": "Single source of the Console-authored AWS acceptance catalog (V2-A02/A03). The headed scenario types exactly these values into the Resource Definition forms; backend/internal/planning/awsacceptance_plan_test.go plans them over the real verified registry bundles. Placeholders: @EGRESS@ (explicit /32 of the executor), @NODE_TYPE@ (small compatible EKS node type). Override values are JSON text exactly as typed.",
+  "types": [
+    {"key": "workload", "inputs": [], "outputs": []},
+    {"key": "k8s-cluster", "inputs": [], "outputs": [["name", "string", true, false], ["endpoint", "string", false, false], ["kubeContext", "string", true, false], ["kubeconfig", "string", false, false]]},
+    {"key": "vpc", "inputs": [], "outputs": [["id", "string", true, false], ["cidr", "string", false, false], ["subnetIds", "any", false, false], ["privateSubnetIds", "any", false, false]]},
+    {"key": "k8s-namespace", "inputs": [], "outputs": [["name", "string", true, false]]},
+    {"key": "postgres", "inputs": [["database", "string", true], ["username", "string", true]], "outputs": [["host", "string", true, false], ["port", "number", true, false], ["database", "string", true, false], ["username", "string", true, false], ["password", "string", true, true]]},
+    {"key": "redis", "inputs": [], "outputs": [["host", "string", true, false], ["port", "number", true, false], ["username", "string", true, false], ["password", "string", true, true], ["tls", "bool", true, false]]}
+  ],
+  "definitions": {
+    "common": [
+      {"id": "vpc-aws", "type": "vpc", "module": "vpc", "scope": "AWS", "clusterTarget": false,
+       "overrides": [["name", "\"${context.infra.resourceName}\""], ["cidr", "\"10.42.0.0/16\""]]},
+      {"id": "cluster-aws-eks", "type": "k8s-cluster", "module": "eks", "scope": "AWS", "clusterTarget": false, "klass": "eks",
+       "overrides": [["name", "\"${context.infra.resourceName}\""], ["subnet_ids", "\"${resources['vpc.default#@infra'].outputs.subnetIds}\""],
+         ["kubernetes_version", "\"1.35\""], ["node_instance_type", "\"@NODE_TYPE@\""], ["node_capacity_type", "\"SPOT\""], ["node_ami_type", "\"AL2023_ARM_64_STANDARD\""],
+         ["node_disk_size", "20"], ["ebs_csi_driver", "true"], ["public_access_cidrs", "[\"@EGRESS@\"]"]]},
+      {"id": "namespace-eks-module", "type": "k8s-namespace", "module": "k8s-namespace", "scope": "AWS", "presetName": "name"},
+      {"id": "pg-aurora", "type": "postgres", "module": "aurora", "scope": "AWS", "clusterTarget": false, "input": true, "klass": "cloud-managed",
+       "overrides": [["name", "\"${context.infra.resourceName}\""], ["engine_version", "\"16.14\""], ["min_capacity", "0"], ["max_capacity", "1"],
+         ["vpc_id", "\"${resources['vpc.default#@infra'].outputs.id}\""], ["subnet_ids", "\"${resources['vpc.default#@infra'].outputs.subnetIds}\""],
+         ["private_subnet_ids", "\"${resources['vpc.default#@infra'].outputs.privateSubnetIds}\""]]}
+    ],
+    "A02": [
+      {"id": "redis-elasticache", "type": "redis", "module": "elasticache", "scope": "AWS", "clusterTarget": false, "klass": "cloud-managed",
+       "overrides": [["engine_version", "\"7.1\""], ["node_type", "\"cache.t4g.micro\""], ["vpc_id", "\"${resources['vpc.default#@infra'].outputs.id}\""],
+         ["subnet_ids", "\"${resources['vpc.default#@infra'].outputs.subnetIds}\""], ["private_subnet_ids", "\"${resources['vpc.default#@infra'].outputs.privateSubnetIds}\""]]}
+    ],
+    "A03": [
+      {"id": "redis-eks-in-cluster", "type": "redis", "module": "redis-k8s", "scope": "AWS", "presetNamespace": true, "klass": "in-cluster"}
+    ]
+  },
+  "classes": {"A02": {"postgres": "cloud-managed", "redis": "cloud-managed"}, "A03": {"postgres": "cloud-managed", "redis": "in-cluster"}}
+}

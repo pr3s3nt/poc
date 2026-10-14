@@ -235,3 +235,108 @@ func TestKubernetesModulesPlanRejectsSecretOutputsInNonsecretInputs(t *testing.T
 		t.Fatalf("nonsecret host fixture: %v", err)
 	}
 }
+
+// The product seed's terraform-k8s catalog (not a test-local helper) plans the
+// same provider -> namespace -> PostgreSQL/Redis graph over the real bundles.
+func TestSeedTerraformK8sCatalogPlansOverRealBundles(t *testing.T) {
+	req := k8sRequestWith(t, nil, func(c *planning.Catalog) {
+		o := seedtest.Defaults()
+		o.Catalog = seed.CatalogTerraformK8s
+		c.Definitions = seed.ResourceDefinitions(o)
+		for _, typ := range seed.ResourceTypesFor(o) {
+			c.Types[typ.Key] = typ
+		}
+	})
+	plan, err := planning.NewService().Plan(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const (
+		cluster = "k8s-cluster.internal#connections.internal-cluster"
+		ns      = "k8s-namespace.default#environments.acceptance.dev"
+		pg      = "postgres.default#shared.acceptance-db"
+		redis   = "redis.default#shared.acceptance-cache"
+	)
+	for _, want := range [][3]string{{ns, cluster, "provider-binding"}, {pg, ns, "resource-reference"}, {redis, ns, "resource-reference"}} {
+		if !hasEdge(plan, want[0], want[1], want[2]) {
+			t.Errorf("missing %s edge %s -> %s", want[2], want[0], want[1])
+		}
+	}
+	got := map[string]bool{}
+	for _, c := range plan.Terraform {
+		got[c.DefinitionKey] = true
+	}
+	for _, key := range []string{"namespace-k8s-module", "postgres-k8s-module", "redis-k8s-module"} {
+		if !got[key] {
+			t.Errorf("Terraform contract for %s missing: %v", key, got)
+		}
+	}
+}
+
+// The Console-authored acceptance catalog (Definitions with the in-cluster
+// class, as the real runner registers them) plans the shared graph
+// provider -> namespace -> PostgreSQL -> Redis for the Redis-enabled
+// acceptance documents. The fixture annotation references the PostgreSQL
+// descriptor WITH its class (postgres.in-cluster#...), which is what gives the
+// V2-A01 deletion step both a dependency to select and one to leave unchecked.
+func TestConsoleAuthoredAcceptanceCatalogPlansTheDeletionFixtureGraph(t *testing.T) {
+	const (
+		cluster = "k8s-cluster.internal#connections.internal-cluster"
+		ns      = "k8s-namespace.default#environments.acceptance.dev"
+		pg      = "postgres.in-cluster#shared.acceptance-db"
+		redis   = "redis.in-cluster#shared.acceptance-cache"
+	)
+	req := k8sRequestWith(t, nil, func(c *planning.Catalog) {
+		refs, err := registry.PackagedRefs()
+		if err != nil {
+			t.Fatal(err)
+		}
+		nsOut := "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+		nsDef := k8sTerraformDefinition("namespace-k8s-module", "k8s-namespace", refs["k8s-namespace"], map[string]any{"name": "${context.env.namespace}"}, nil, []string{"name"})
+		pgDef := k8sTerraformDefinition("pg-in-cluster", "postgres", refs["postgres-k8s"], map[string]any{"namespace": nsOut}, []string{"database", "username"}, []string{"host", "port", "database", "username", "password"})
+		redisDef := k8sTerraformDefinition("redis-in-cluster", "redis", refs["redis-k8s"], map[string]any{
+			"namespace":   nsOut,
+			"annotations": map[string]any{"example.test/postgres-host": "${resources['" + pg + "'].outputs.host}"},
+		}, nil, []string{"host", "port", "username", "password", "tls"})
+		for _, d := range []*resource.Definition{&nsDef, &pgDef, &redisDef} {
+			d.ExecutionProfile = "internal-k8s"
+		}
+		pgDef.Criteria = []resource.Criterion{{Class: "in-cluster"}}
+		redisDef.Criteria = []resource.Criterion{{Class: "in-cluster"}}
+		c.Definitions = []resource.Definition{nsDef, pgDef, redisDef}
+		c.Types = map[string]resource.Type{
+			"workload":      {Key: "workload"},
+			"k8s-cluster":   {Key: "k8s-cluster", Outputs: []resource.OutputField{{Name: "name", Type: "string", Required: true}, {Name: "endpoint", Type: "string"}, {Name: "kubeContext", Type: "string", Required: true}, {Name: "kubeconfig", Type: "string"}}},
+			"k8s-namespace": {Key: "k8s-namespace", Outputs: []resource.OutputField{{Name: "name", Type: "string", Required: true}}},
+			"redis":         seed.RedisType(),
+		}
+		for _, typ := range seed.ResourceTypes() {
+			if typ.Key == "postgres" {
+				c.Types["postgres"] = typ
+			}
+		}
+	})
+	o := seedtest.Defaults()
+	doc := seed.AcceptanceScoresRedis(o, "acceptance-cache", "in-cluster", "acceptance", "staging", "r1")["backend"]
+	doc["resources"].(map[string]any)["db"].(map[string]any)["class"] = "in-cluster"
+	after, err := score.FromMap(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.After = after
+	plan, err := planning.NewService().Plan(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range [][3]string{{ns, cluster, "provider-binding"}, {pg, ns, "resource-reference"}, {redis, ns, "resource-reference"}, {redis, pg, "resource-reference"}} {
+		if !hasEdge(plan, want[0], want[1], want[2]) {
+			t.Errorf("missing %s edge %s -> %s", want[2], want[0], want[1])
+		}
+	}
+	// The wrong reference (default class) is exactly what the planner refuses.
+	bad := k8sRequestWith(t, map[string]any{"example.test/postgres-host": "${resources['postgres.default#shared.acceptance-db'].outputs.host}"}, nil)
+	bad.After = after
+	if _, err := planning.NewService().Plan(bad); err == nil {
+		t.Fatal("a reference to a nonexistent descriptor was planned")
+	}
+}

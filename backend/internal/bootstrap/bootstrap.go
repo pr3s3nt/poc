@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"orchestrator/internal/adapters/awsaccess"
 	"orchestrator/internal/adapters/configmemory"
@@ -36,11 +37,13 @@ import (
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/provisioning"
 	"orchestrator/internal/application/resourcecleanup"
+	"orchestrator/internal/application/runcleanup"
 	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/application/statebackend"
 	"orchestrator/internal/application/transition"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
 	deliveryhttp "orchestrator/internal/delivery/http"
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/platform/clock"
@@ -48,6 +51,7 @@ import (
 	"orchestrator/internal/ports/credentials"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/ports/persistence"
+	"orchestrator/internal/ports/terraformstate"
 	"orchestrator/internal/seed"
 )
 
@@ -122,6 +126,31 @@ type Options struct {
 	ConnectionVaultTokenFile  string
 	ConnectionVaultMount      string
 
+	// OutputSecretStore selects the UC-08 output-secret store: "" or "memory"
+	// (in-process, lost on restart; local/test only) or "vault" (durable KV v2
+	// under orchestrator/outputs, a token scoped to that path read from
+	// OutputSecretVaultTokenFile). The real acceptance profile requires vault.
+	OutputSecretStore string
+	// EphemeralOutputSecrets is the explicit, labelled test/fixture opt-in to
+	// the in-process output-secret store together with REAL adapters and the
+	// durable SQL Terraform state backend. Without it that combination is
+	// refused: the state would outlive the references to its output secrets.
+	EphemeralOutputSecrets     bool
+	OutputSecretVaultAddress   string
+	OutputSecretVaultTokenFile string
+	OutputSecretVaultMount     string
+
+	// TerraformInvocationTimeout and TerraformReadinessTimeout bound one
+	// Terraform session and the readiness query of an applied resource; zero
+	// keeps the executor defaults (45m and 5m). Acceptance runs set finite,
+	// smaller values inside their overall deadline.
+	TerraformInvocationTimeout time.Duration
+	// DeployDeadline is the finite hold time of one whole Deploy (all sequential
+	// Terraform nodes and the delivery). Zero keeps the default; it is bounded
+	// by envops.MaxDeadline.
+	DeployDeadline            time.Duration
+	TerraformReadinessTimeout time.Duration
+
 	// TerraformStateKeyFile enables the Terraform v2 durable state backend: an
 	// owner-only file holding the 32-byte AES-256-GCM state key (hex or
 	// base64), kept outside the database. It requires PostgreSQL; there is no
@@ -180,7 +209,7 @@ type App struct {
 	// ConnectionCredentials is nil when no credential store is configured.
 	ConnectionCredentials credentials.Store
 	Store                 persistence.Store
-	Secrets               *secrets.Memory
+	Secrets               execution.SecretStore
 	Server                *deliveryhttp.Server
 	Deployments           *appsvc.Service
 	Queries               *appsvc.QueryService
@@ -202,6 +231,14 @@ type App struct {
 	Transitions *transition.Service
 	// Modules is the verified Terraform module registry.
 	Modules *moduleregistry.Service
+	// RunCleanup is the independent safety net: reverse destroy of every
+	// instance a run left behind through the original cleanup engine. Nil
+	// unless the Terraform executor exists (real adapters with the state
+	// backend).
+	RunCleanup *runcleanup.Service
+	// WorkloadDeployer is the real workload deployer (Remove is the product's
+	// own workload removal).
+	WorkloadDeployer execution.WorkloadDeployer
 	// FakeCluster is the in-memory Kubernetes stand-in of fake mode.
 	FakeCluster *fake.Cluster
 	// TerraformStates and TerraformStateHandler are the internal Terraform
@@ -241,6 +278,9 @@ func Build(ctx context.Context, opts Options) (*App, error) {
 }
 
 func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
+	if err := validateRealProfile(opts); err != nil {
+		return nil, err
+	}
 	if opts.WorkloadDelivery == "fleet-gitrepo" && opts.Adapters != AdapterKubernetes {
 		return nil, fmt.Errorf("bootstrap: Fleet GitRepo delivery requires Kubernetes adapters")
 	}
@@ -294,7 +334,10 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	}
 	credentialResolver := connection.NewCredentialResolver(st, connectionCredentials)
 
-	secretStore := secrets.NewMemory()
+	secretStore, err := outputSecretStore(opts, terraformRuntime != nil)
+	if err != nil {
+		return nil, err
+	}
 	c := opts.Clock
 	if c == nil {
 		c = clock.System{}
@@ -384,6 +427,11 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	auth := authentication.NewService(st, rejectedAccountIDs...)
 	applications := appcreate.NewService(st)
 	operations := envops.NewManager(st)
+	if opts.DeployDeadline != 0 {
+		if err := operations.SetDeadline(environment.OpDeploy, opts.DeployDeadline); err != nil {
+			return nil, err
+		}
+	}
 	var storeRegistry configport.Registry
 	var storeVerifier configport.Verifier
 	switch {
@@ -468,6 +516,12 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	}
 
 	resourceCleanup := resourcecleanup.New(st, operations)
+	var safetyNet *runcleanup.Service
+	if terraformRuntime != nil && terraformRuntime.executor != nil {
+		if claims, ok := st.(terraformstate.CleanupRepository); ok {
+			safetyNet = runcleanup.New(st, terraformRuntime.repo, terraformRuntime.executor, claims, operations)
+		}
+	}
 	if terraformRuntime != nil {
 		resourceCleanup.SetState(terraformRuntime.repo)
 		if terraformRuntime.executor != nil {
@@ -521,6 +575,8 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		Transitions:           transitions,
 		FakeCluster:           fakeCluster,
 		Modules:               modules,
+		RunCleanup:            safetyNet,
+		WorkloadDeployer:      deployer,
 		TerraformStates:       terraformStates,
 		TerraformStateHandler: stateHandler(terraformStates),
 	}, nil
@@ -659,4 +715,36 @@ type unavailableRenderer struct{}
 
 func (unavailableRenderer) Render(context.Context, execution.RenderRequest) ([]execution.Manifest, error) {
 	return nil, errors.New("bootstrap: the score-k8s renderer is not installed")
+}
+
+// outputSecretStore builds the UC-08 output-secret store. The in-process
+// memory store loses every reference on restart, so the real acceptance
+// profile refuses it.
+func outputSecretStore(opts Options, durableState bool) (execution.SecretStore, error) {
+	switch opts.OutputSecretStore {
+	case "", "memory":
+		if opts.Seed.Profile == seed.ProfileAcceptanceV2 {
+			return nil, fmt.Errorf("bootstrap: the real acceptance profile needs the durable Vault output-secret store")
+		}
+		// Real adapters with the durable SQL Terraform state backend persist outputs and password references: the in-process store would lose
+		// them on a restart while the state survives. Only an explicitly labelled fixture may keep it.
+		if durableState && (opts.Adapters == AdapterKubernetes || opts.Adapters == AdapterAWS) && !opts.EphemeralOutputSecrets {
+			return nil, fmt.Errorf("bootstrap: real adapters with the durable Terraform state backend need the durable Vault output-secret store")
+		}
+		return secrets.NewMemory(), nil
+	case "vault":
+		if opts.OutputSecretVaultAddress == "" || opts.OutputSecretVaultTokenFile == "" {
+			return nil, fmt.Errorf("bootstrap: the Vault output-secret store needs an address and a token file")
+		}
+		token, err := ReadCredentialFile("output secret store token", opts.OutputSecretVaultTokenFile)
+		if err != nil {
+			return nil, err
+		}
+		mount := opts.OutputSecretVaultMount
+		if mount == "" {
+			mount = "kv"
+		}
+		return vault.NewOutputSecrets(opts.OutputSecretVaultAddress, token, mount, nil)
+	}
+	return nil, fmt.Errorf("bootstrap: unknown output secret store %q", opts.OutputSecretStore)
 }

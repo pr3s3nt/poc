@@ -1,0 +1,43 @@
+{
+  "runId": "a01-0001",
+  "scenario": "A01",
+  "target": "k8s-4f",
+  "owner": "codex",
+  "evidenceDir": "/var/tmp/poc-v2-evidence/a01-0001",
+  "execution": "60m",
+  "cleanup": "120m",
+  "binaries": {
+    "terraform": { "path": "/opt/pinned/terraform", "sha256": "7386e89a97d0f24024955acc79ccf693b75b97f7c6383cb9d966e7d59aa5b223" },
+    "score-k8s": { "path": "/opt/pinned/score-k8s", "sha256": "<sha256 of the pinned score-k8s 0.15.0 binary>" },
+    "kubectl": { "path": "/opt/pinned/kubectl", "sha256": "<sha256 of kubectl>" }
+  },
+  "nodeArch": "amd64",
+  "images": {
+    "amd64": {
+      "frontend": { "ref": "<registry>/acceptance-frontend:m04-i0409-65223ef-amd64-20261014043927", "digest": "sha256:e06d251281a53cbab5a7eed2f4764398040feb4daf4c645b9e2c10a3ad738eff" },
+      "backend": { "ref": "<registry>/acceptance-backend:m04-i0409-65223ef-amd64-20261014043927", "digest": "sha256:f5c61b7d55accf19cbc22ab3b31ce622541cb2e652126ac601a9e4c5295589bf" },
+      "worker": { "ref": "<registry>/acceptance-worker:m04-i0409-65223ef-amd64-20261014043927", "digest": "sha256:8d0500e061c63c3028b0ce976d8c111f77ca6cecad4b08abae02e70039cc9bfa" }
+    },
+    "arm64": {
+      "frontend": { "ref": "<registry>/acceptance-frontend:m04-i0409-65223ef-arm64-20261014043946", "digest": "sha256:fe2513df913b92bc60aa66ddf420cbbcf5f8233b63a42158913c281dca159e1f" },
+      "backend": { "ref": "<registry>/acceptance-backend:m04-i0409-65223ef-arm64-20261014043946", "digest": "sha256:bd6b8d17189f5b9a9d1fd82d2c6f356c48c9e80b5871a112c9748e621ceb5c1b" },
+      "worker": { "ref": "<registry>/acceptance-worker:m04-i0409-65223ef-arm64-20261014043946", "digest": "sha256:eedf635439402e6ab98c8ef0fdba8e2959bda858499a1668e2f4183c04731bc3" }
+    }
+  },
+  "kube": {
+    "context": "kind-k8s-4f",
+    "kubeconfig": "/var/tmp/poc-v2-private/k8s-4f.kubeconfig",
+    "namespace": "orch-v2-test-a01-0001",
+    "sentinel": { "namespace": "kube-public", "kind": "configmap", "name": "cluster-info", "uid": "<uid observed before the run>" }
+  },
+  "secretStore": {
+    "name": "platform-vault",
+    "backendAddress": "http://127.0.0.1:18200",
+    "workloadAddress": "http://vault.vault.svc:8200",
+    "tokenFile": "/var/tmp/poc-v2-private/secret-store.token",
+    "mount": "kv",
+    "authMount": "kubernetes"
+  },
+  "postgresAdminUrlFile": "/var/tmp/poc-v2-private/pg-admin.url",
+  "vaultBin": "/opt/pinned/vault"
+}

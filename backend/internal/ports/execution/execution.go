@@ -188,6 +188,14 @@ type ConfigSecretSynchronizer interface {
 	Sync(ctx context.Context, target Target, bundle ConfigBundle) error
 }
 
+// ConfigSecretRemover removes the synchronization objects a ConfigSecretSynchronizer
+// created for ONE Application Environment (proven by the exact Vault value
+// path of each object, never by name pattern) and returns the kinds and names
+// it removed. It is used only by the acceptance safety net.
+type ConfigSecretRemover interface {
+	RemoveSynchronized(ctx context.Context, target Target, applicationKey, environmentKey string) ([]string, error)
+}
+
 type ConfigBundle struct {
 	StoreKey, Address, Mount, AuthMount, Path, Role, ServiceAccount, SecretName string
 	CAPEM                                                                       string

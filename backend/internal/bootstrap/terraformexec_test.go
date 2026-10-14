@@ -29,7 +29,8 @@ func TestTerraformExecutorWiringInKubernetesAndAWSModes(t *testing.T) {
 	recovery := filepath.Join(t.TempDir(), "recovery")
 	base := func(mode AdapterMode) Options {
 		return Options{Seed: seedtest.Defaults(), DatabaseURL: db.Console, TerraformStateDatabaseURL: db.State, TerraformStateKeyFile: key, TerraformStateKeyID: "key-1",
-			Adapters: mode, KubectlPath: "kubectl", TerraformPath: host, TerraformRecoveryDir: recovery, Region: "us-east-1"}
+			Adapters: mode, KubectlPath: "kubectl", TerraformPath: host, TerraformRecoveryDir: recovery, Region: "us-east-1",
+			EphemeralOutputSecrets: true} // labelled fixture: this test is about the executor wiring, not the output-secret store
 	}
 	for _, mode := range []AdapterMode{AdapterKubernetes, AdapterAWS} {
 		app, err := Build(ctx, base(mode))

@@ -79,7 +79,7 @@ func newTerraformExecutor(opts Options, tf *terraformRuntime, resolver *connecti
 		kubectl = "kubectl"
 	}
 	checker := &readiness.Checker{Kubectl: kubectl, AWS: aws, Dir: work}
-	return tfexec.New(tfexec.Config{BackendBase: listener.Address, Tags: tags, CreationTags: creation}, tfexec.Deps{
+	return tfexec.New(tfexec.Config{BackendBase: listener.Address, Tags: tags, CreationTags: creation, InvocationTimeout: opts.TerraformInvocationTimeout, ReadinessTimeout: opts.TerraformReadinessTimeout}, tfexec.Deps{
 		State: tf.repo, Tokens: tf.svc, Modules: modules,
 		Runner:    runner.New(runner.Options{PluginCacheDir: opts.TerraformPluginCache, PassThroughEnv: []string{"HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy"}}),
 		Binder:    &providers.Binder{AWS: resolver, Kube: resolver, API: aws, Dir: filepath.Join(work)},

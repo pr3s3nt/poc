@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -75,6 +77,132 @@ func (s *VSOSynchronizer) Sync(ctx context.Context, target execution.Target, bun
 		case <-time.After(time.Second):
 		}
 	}
+}
+
+// RemoveSynchronized deletes the VSO objects of one Application Environment:
+// a VaultStaticSecret is the run's only when its Vault path lies below the
+// Application's own value prefix; its destination Secret, VaultAuth,
+// ServiceAccount, and a VaultConnection no other VaultAuth still uses are
+// removed by the exact names those objects reference. A cluster without the
+// VSO CRDs has nothing to remove.
+func (s *VSOSynchronizer) RemoveSynchronized(ctx context.Context, target execution.Target, applicationKey, environmentKey string) ([]string, error) {
+	if !target.Explicit() || target.Namespace == "" {
+		return nil, fmt.Errorf("vso: explicit Kubernetes target required")
+	}
+	cli, cleanup, err := OpenCLI(ctx, s.KubectlPath, s.Credentials, target)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+	ns := target.Namespace
+	marker := "/apps/" + applicationKey + "/envs/" + environmentKey + "/values/"
+	list := func(kind string) ([]map[string]any, error) {
+		out, err := cli.Run(ctx, nil, "get", kind, "-n", ns, "-o", "json")
+		if err != nil {
+			if strings.Contains(err.Error(), "doesn't have a resource type") || strings.Contains(fmt.Sprint(err), "NotFound") {
+				return nil, nil
+			}
+			return nil, err
+		}
+		var doc struct {
+			Items []map[string]any `json:"items"`
+		}
+		if err := json.Unmarshal(out, &doc); err != nil {
+			return nil, fmt.Errorf("vso: decode %s", kind)
+		}
+		return doc.Items, nil
+	}
+	text := func(obj map[string]any, path ...string) string {
+		var cur any = obj
+		for _, p := range path {
+			m, ok := cur.(map[string]any)
+			if !ok {
+				return ""
+			}
+			cur = m[p]
+		}
+		v, _ := cur.(string)
+		return v
+	}
+	statics, err := list("vaultstaticsecrets.secrets.hashicorp.com")
+	if err != nil {
+		return nil, err
+	}
+	auths, err := list("vaultauths.secrets.hashicorp.com")
+	if err != nil {
+		return nil, err
+	}
+	authByName := map[string]map[string]any{}
+	for _, a := range auths {
+		authByName[text(a, "metadata", "name")] = a
+	}
+	var removed []string
+	drop := func(kind, name string) error {
+		if name == "" {
+			return nil
+		}
+		if err := cli.Delete(ctx, ns, kind, name); err != nil {
+			return err
+		}
+		removed = append(removed, kind+"/"+name)
+		return nil
+	}
+	ownedAuth := map[string]bool{}
+	serviceAccounts := map[string]bool{}
+	for _, v := range statics {
+		if !strings.Contains(text(v, "spec", "path"), marker) {
+			continue
+		}
+		name := text(v, "metadata", "name")
+		authName := text(v, "spec", "vaultAuthRef")
+		if err := drop("vaultstaticsecrets.secrets.hashicorp.com", name); err != nil {
+			return removed, err
+		}
+		if dest := text(v, "spec", "destination", "name"); dest != "" {
+			if err := drop("secret", dest); err != nil {
+				return removed, err
+			}
+		}
+		ownedAuth[authName] = true
+	}
+	usedConnections := map[string]bool{}
+	for name, a := range authByName {
+		if !ownedAuth[name] {
+			usedConnections[text(a, "spec", "vaultConnectionRef")] = true
+		}
+	}
+	for name := range ownedAuth {
+		a, ok := authByName[name]
+		if !ok {
+			continue
+		}
+		if sa := text(a, "spec", "kubernetes", "serviceAccount"); sa != "" {
+			serviceAccounts[sa] = true
+		}
+		if err := drop("vaultauths.secrets.hashicorp.com", name); err != nil {
+			return removed, err
+		}
+		if conn := text(a, "spec", "vaultConnectionRef"); conn != "" && !usedConnections[conn] {
+			usedConnections[conn] = true // drop once
+			if obj, found, err := cli.Get(ctx, ns, "vaultconnections.secrets.hashicorp.com", conn); err == nil && found {
+				if ca := text(obj, "spec", "caCertSecretRef"); ca != "" {
+					if err := drop("secret", ca); err != nil {
+						return removed, err
+					}
+				}
+			}
+			if err := drop("vaultconnections.secrets.hashicorp.com", conn); err != nil {
+				return removed, err
+			}
+		}
+	}
+	for sa := range serviceAccounts {
+		if err := drop("serviceaccount", sa); err != nil {
+			return removed, err
+		}
+	}
+	sort.Strings(removed)
+	return removed, nil
 }
 
 // VaultConnectionName is the per-store VaultConnection object name.
