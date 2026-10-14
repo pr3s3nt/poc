@@ -124,7 +124,8 @@ PG/network/private files/Redis fixture/registry cleanup đã xác minh.
 Read/Write/Edit/Bash/git push, proxy network; mode nội bộ không introspect.
 Cloud fullsuite failures/skips không tính đạt, local không skip. Các lỗi
 readiness/marker/ACL/cross-job masking đã sửa; không task-owned cluster/AWS.
-Brief/handoff `/tmp/poc-i0409-acceptance-redis/`; dọn nhánh/checkout sau push.
+Brief/handoff `/tmp/poc-i0409-acceptance-redis/`; nhánh chính/tự sinh và checkout
+đã dọn sau push `6907de3`, remote xác minh vắng mặt.
 I04-10 current: chuẩn bị phiên mới từ refactor_ui đã push; draft
 `/tmp/poc-i0410-integration/cloud-brief-draft.txt`, chưa live proof.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi

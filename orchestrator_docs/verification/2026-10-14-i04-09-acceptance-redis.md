@@ -11,7 +11,8 @@ related: [I04-09, M04, IMP-021, ADR-014]
 Code `65223ef`, handoff message-only `67e26a7` (cùng tree), đã review và merge
 `45006fd`. Phiên [session_019GgofsetFjxTDq6V83vv6Q](https://claude.ai/code/session_019GgofsetFjxTDq6V83vv6Q)
 quan sát Read/Write/Edit/Bash/git push chạy; network qua proxy, không introspect
-mode nội bộ. Hai nhánh chính/tự sinh được dọn sau push hoàn tất.
+mode nội bộ. Hai nhánh `claude/m04-i04-09` và `-m1sahg` đã xóa sau push `6907de3`;
+remote query xác minh vắng mặt, checkout review đã dọn.
 
 ## Kết quả và phạm vi
 
