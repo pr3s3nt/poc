@@ -296,7 +296,7 @@ if [[ "${SS_MODE}" == run-owned ]]; then
   ' "$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).reviewerJwtFile)' "${SECRET_STORE_JSON}")" "$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).reviewerCaFile)' "${SECRET_STORE_JSON}")" "$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).kubernetesHost)' "${SECRET_STORE_JSON}")" "${PRIVATE}/store-auth-config.json"
   curl -fsS -H @"${PRIVATE}/store-root-header" -X POST "${SS_ADDR}/v1/auth/kubernetes/config" -d @"${PRIVATE}/store-auth-config.json" > /dev/null
   rm -f "${PRIVATE}/store-auth-config.json"
-  store_api PUT sys/policies/acl/orch-store-admin '{"policy":"path \"kv/data/orchestrator/apps/*\" { capabilities = [\"create\", \"read\", \"update\"] }\npath \"kv/metadata/orchestrator/apps/*\" { capabilities = [\"read\", \"list\", \"delete\"] }\npath \"sys/policies/acl/orch-*\" { capabilities = [\"create\", \"read\", \"update\", \"delete\"] }\npath \"auth/kubernetes/role/orch-*\" { capabilities = [\"create\", \"read\", \"update\", \"delete\"] }\npath \"auth/kubernetes/config\" { capabilities = [\"read\"] }\n"}'
+  store_api PUT sys/policies/acl/orch-store-admin '{"policy":"path \"auth/token/lookup-self\" { capabilities = [\"read\"] }\npath \"sys/capabilities-self\" { capabilities = [\"update\"] }\npath \"kv/data/orchestrator/apps/*\" { capabilities = [\"create\", \"read\", \"update\"] }\npath \"kv/metadata/orchestrator/apps/*\" { capabilities = [\"read\", \"list\", \"delete\"] }\npath \"sys/policies/acl/orch-*\" { capabilities = [\"create\", \"read\", \"update\", \"delete\"] }\npath \"auth/kubernetes/role/orch-*\" { capabilities = [\"create\", \"read\", \"update\", \"delete\"] }\npath \"auth/kubernetes/config\" { capabilities = [\"read\"] }\n"}'
   curl -fsS -H @"${PRIVATE}/store-root-header" -X POST "${SS_ADDR}/v1/auth/token/create" -d '{"policies":["orch-store-admin"],"no_default_policy":true,"ttl":"'"${TOKEN_TTL}"'"}' \
     | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const t=JSON.parse(s).auth?.client_token;if(!t)process.exit(1);process.stdout.write(t)})' > "${PRIVATE}/secret-store.token"
   chmod 0600 "${PRIVATE}/secret-store.token"
@@ -492,7 +492,13 @@ else
 fi
 
 # Evidence rules: secret scan of every public text file first (its verdict is an assertion), then assertions and phases.
-SECRET_FILES="${PRIVATE}/app-secrets.txt,${PRIVATE}/aws-input.json,$(cfg awsAccessKeyFile),${SECRET_STORE_TOKEN},${PRIVATE}/store-root-header,${PRIVATE}/console.url,${PRIVATE}/state.url,${PRIVATE}/owner.url,${PRIVATE}/state.key,${PRIVATE}/root-header,${PRIVATE}/connection-vault-token,${PRIVATE}/output-vault-token,${PRIVATE}/connection.kubeconfig"
+SECRET_FILES="${PRIVATE}/app-secrets.txt,${PRIVATE}/console.url,${PRIVATE}/state.url,${PRIVATE}/owner.url,${PRIVATE}/state.key,${PRIVATE}/root-header,${PRIVATE}/connection-vault-token,${PRIVATE}/output-vault-token,${PRIVATE}/connection.kubeconfig"
+if [[ "${IS_AWS}" == 1 ]]; then SECRET_FILES+=",${PRIVATE}/aws-input.json,$(cfg awsAccessKeyFile)"; fi
+if [[ "${SS_MODE}" == run-owned ]]; then
+  SECRET_FILES+=",${PRIVATE}/store-root-header,${SECRET_STORE_TOKEN}"
+elif [[ "${SS_MODE}" == shared ]]; then
+  SECRET_FILES+=",${SECRET_STORE_TOKEN}"
+fi
 if SCAN="$("${CTL}" scan -public "${WORK}" -secrets "${SECRET_FILES}" 2>&1)"; then
   check "${SCAN}"
   SCAN_PASS=true

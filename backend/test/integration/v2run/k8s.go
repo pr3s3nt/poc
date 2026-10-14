@@ -76,6 +76,26 @@ func GuardNamespace(ctx context.Context, k Kubectl, m Manifest) int {
 	return ExitNotOwned
 }
 
+// GuardNamespaceForRun also recognizes a pre-deployment run whose Environment
+// was never bound. In that case the manifest has no physical namespace or
+// Terraform run IDs; the configured deterministic namespace and its PV claims
+// must both be verified absent before the supervisor may skip effects.
+func GuardNamespaceForRun(ctx context.Context, k Kubectl, m Manifest, c Config) int {
+	if m.Namespace != "" {
+		return GuardNamespace(ctx, k, m)
+	}
+	if !m.Armed || m.Target != TargetK8s4f || c.Target != TargetK8s4f || c.Kube == nil || c.RunID != m.RunID ||
+		c.Kube.Namespace != NamespacePrefix+m.RunID || len(m.TerraformRuns) != 0 || len(m.OwnedByRun()) != 0 {
+		return 1
+	}
+	probe := m
+	probe.Namespace = c.Kube.Namespace
+	if err := VerifyLayer(ctx, k, probe, LayerNamespace); err != nil {
+		return 1
+	}
+	return ExitNotOwned
+}
+
 // layerResources are the kinds each layer is verified absent for. They are
 // only READ: no object is ever deleted by this package. Terraform-owned objects
 // (StatefulSets, PVCs, Services, Secrets of the modules, the namespace) are
@@ -217,7 +237,7 @@ func K8sCleanupSteps(ctl, cleanup, manifestPath, handlesPath, configPath, vaultS
 	step := func(layer, action string) Step {
 		return Step{
 			Name: layer, Layer: layer, Env: env, Timeout: Duration{Duration: timeouts[layer]}, MaxAttempts: 2,
-			Guard:  []string{ctl, "k8s-guard", "-manifest", manifestPath},
+			Guard:  []string{ctl, "k8s-guard", "-manifest", manifestPath, "-config", configPath},
 			Argv:   []string{cleanup, action, "-handles", handlesPath, "-manifest", manifestPath},
 			Verify: []string{ctl, "k8s-verify", "-manifest", manifestPath, "-layer", layer},
 		}
@@ -228,7 +248,7 @@ func K8sCleanupSteps(ctl, cleanup, manifestPath, handlesPath, configPath, vaultS
 		// roles proven by content). Only after the workload layers: the Pods no longer need them.
 		steps = append(steps, Step{
 			Name: "vault-config", Layer: LayerAux, Env: env, Timeout: Duration{Duration: budgets.Vault}, MaxAttempts: 3,
-			Guard:  []string{ctl, "k8s-guard", "-manifest", manifestPath},
+			Guard:  []string{ctl, "k8s-guard", "-manifest", manifestPath, "-config", configPath},
 			Argv:   []string{ctl, "vault-clean", "-config", configPath, "-snapshot", vaultSnapshotPath},
 			Verify: []string{ctl, "vault-clean", "-verify", "-config", configPath, "-snapshot", vaultSnapshotPath},
 		})
