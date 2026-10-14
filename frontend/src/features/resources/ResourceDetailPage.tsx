@@ -30,15 +30,18 @@ export function ResourceDetailPage({ application, environment, resourceId, canDe
   const [accepted, setAccepted] = useState<string>();
   const [notice, setNotice] = useState('');
   const latest = useRef(0);
+  const reloadedFor = useRef('');
 
   useEffect(() => {
     const current = ++latest.current;
-    setLoad({ state: 'loading' }); setDialog(false);
+    // A reload keeps showing the detail of the same resource (and the progress mounted under it) while the
+    // new reply is awaited; only a first load or another resource shows the loading state.
+    setLoad((previous) => (previous.state === 'ready' && previous.detail.id === resourceId ? previous : { state: 'loading' }));
     getResource(application.id, environment, resourceId).then((detail) => { if (current === latest.current) setLoad({ state: 'ready', detail }); })
       .catch((err: unknown) => { if (current === latest.current) setLoad(err instanceof ApiError && err.status === 404 ? { state: 'notFound' } : { state: 'error' }); });
     return () => { latest.current += 1; };
   }, [application.id, environment, resourceId, attempt]);
-  useEffect(() => { setAccepted(undefined); setNotice(''); }, [application.id, environment, resourceId]);
+  useEffect(() => { setAccepted(undefined); setNotice(''); reloadedFor.current = ''; }, [application.id, environment, resourceId]);
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
 
   const detail = load.state === 'ready' ? load.detail : undefined;
@@ -80,7 +83,7 @@ export function ResourceDetailPage({ application, environment, resourceId, canDe
           {!canOpen && !dialog ? <div className="form-info" role="note" data-testid="delete-blockers">{operationRunning ? 'Một thao tác xóa đang chạy trên môi trường này.' : detail.status === 'DESTROYED' ? 'Tài nguyên này đã được xóa và xác minh; lịch sử được giữ lại.' : `Chưa thể xóa: ${blocked.length ? blocked.map(refusalLabel).join(' ') : 'chưa đủ điều kiện.'}`}</div> : null}
           <Button tone="danger" disabled={!canOpen} onClick={() => setDialog(true)}>Xóa tài nguyên</Button></>}
       </section>
-      {operationId ? <CleanupProgress applicationId={application.id} environment={environment} operationId={operationId} intervalMs={pollMs} onSettled={reload} /> : null}
+      {operationId ? <CleanupProgress applicationId={application.id} environment={environment} operationId={operationId} intervalMs={pollMs} onSettled={(settledOperation) => { if (reloadedFor.current !== settledOperation.operationId) { reloadedFor.current = settledOperation.operationId; reload(); } }} /> : null}
       {detail.cleanup && !accepted ? <p className="muted">Thao tác xóa gần nhất: {operationStatusLabel(detail.cleanup.status)}.</p> : null}
     </> : null}
     {dialog && detail ? <DeleteResourceDialog applicationId={application.id} environment={environment} resourceId={detail.id} onClose={() => setDialog(false)} onAccepted={onAccepted} onLost={onLost} /> : null}

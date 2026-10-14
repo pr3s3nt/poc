@@ -132,4 +132,19 @@ describe('resource detail (UC-09 RES-01/02)', () => {
     const progress = await screen.findByTestId('cleanup-progress');
     expect(await within(progress).findByText(/đã được xác minh là không còn/)).toBeInTheDocument();
   });
+
+  it('reloads the detail once when an operation settles instead of looping through remounts', async () => {
+    let detailReads = 0;
+    stubApi((c) => {
+      if (isDetail(c.url)) { detailReads += 1; return Response.json(wire.resource(detail({ status: 'DESTROYED', eligibility: { eligible: false, reasons: ['NOT_UNREFERENCED'] }, cleanup: { operationId: 'op-9', status: 'SUCCEEDED', stage: 'VERIFYING' } }))); }
+      if (c.url.endsWith('/resource-cleanups/op-9')) return Response.json(wire.cleanup(operation({ operationId: 'op-9', status: 'SUCCEEDED', stage: 'VERIFYING', allVerified: true, resources: [{ id: rootId, descriptor: rootName, currentStatus: 'DESTROYED', outcome: 'DESTROYED', verified: true, remaining: [], remainingUnknown: false }] })));
+      return undefined;
+    });
+    render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete pollMs={10} />);
+    const progress = await screen.findByTestId('cleanup-progress');
+    expect(await within(progress).findByText(/đã được xác minh là không còn/)).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(detailReads).toBe(2); // the first load and exactly one reload after the operation settled
+    expect(screen.getByTestId('cleanup-progress')).toHaveTextContent('đã được xác minh là không còn');
+  });
 });

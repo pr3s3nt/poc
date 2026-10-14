@@ -26,7 +26,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -46,6 +45,8 @@ func main() {
 			os.Exit(provision(os.Args[2:]))
 		case "drop":
 			os.Exit(drop(os.Args[2:]))
+		case "touch-environment":
+			os.Exit(touchEnvironment(os.Args[2:]))
 		}
 	}
 	os.Exit(serve(os.Args[1:]))
@@ -198,4 +199,38 @@ func ensureBundle(ctx context.Context, consoleURL string, first bool) (string, e
 	return id, nil
 }
 
-var _ = strings.TrimSpace
+// touchEnvironment is the scenario's administrator action that makes an open
+// deletion preview stale: it bumps the draft version of one Environment, the way
+// a concurrent Workload change would, as the database OWNER (the product logins
+// cannot do it). Nothing else is written.
+func touchEnvironment(args []string) int {
+	fs := flag.NewFlagSet("touch-environment", flag.ExitOnError)
+	privateDir := fs.String("private-dir", "", "0700 directory holding owner.url")
+	application := fs.String("application", "", "application key")
+	environment := fs.String("environment", "staging", "environment key")
+	_ = fs.Parse(args)
+	if *privateDir == "" || *application == "" {
+		log.Print("resdelserver touch-environment: -private-dir and -application are required")
+		return 2
+	}
+	ownerURL, err := bootstrap.ReadCredentialFile("owner database URL", filepath.Join(*privateDir, "owner.url"))
+	if err != nil {
+		log.Printf("resdelserver touch-environment: %v", err)
+		return 1
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	conn, err := pgx.Connect(ctx, ownerURL)
+	if err != nil {
+		log.Print("resdelserver touch-environment: cannot connect to the owner database")
+		return 1
+	}
+	defer conn.Close(ctx)
+	tag, err := conn.Exec(ctx, `UPDATE environments e SET draft_version=draft_version+1 FROM applications a WHERE e.application_id=a.id AND a.application_key=$1 AND e.environment_key=$2`, *application, *environment)
+	if err != nil || tag.RowsAffected() != 1 {
+		log.Print("resdelserver touch-environment: the Environment draft version was not bumped")
+		return 1
+	}
+	fmt.Println("environment draft version bumped (stale preview injection)")
+	return 0
+}
