@@ -1,8 +1,8 @@
 ---
 id: I04-10-WORK-ITEMS
 artifact: implementation-checklist
-status: deferred
-last_reviewed: 2026-10-13
+status: current
+last_reviewed: 2026-10-14
 ---
 
 # I04-10 — Work items

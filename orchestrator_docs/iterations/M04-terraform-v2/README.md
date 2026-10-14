@@ -43,7 +43,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-07 | [Definition, Workload class, Preview và renderer](I04-07-definition-workload-ui/README.md) | 2 | Hoàn tất local |
 | I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Hoàn tất local |
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
-| I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Current; chuẩn bị cloud |
+| I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Current; cloud đang chạy |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Chưa bắt đầu |
 | I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Chưa bắt đầu |
 
@@ -126,8 +126,11 @@ Cloud fullsuite failures/skips không tính đạt, local không skip. Các lỗ
 readiness/marker/ACL/cross-job masking đã sửa; không task-owned cluster/AWS.
 Brief/handoff `/tmp/poc-i0409-acceptance-redis/`; nhánh chính/tự sinh và checkout
 đã dọn sau push `6907de3`, remote xác minh vắng mặt.
-I04-10 current: chuẩn bị phiên mới từ refactor_ui đã push; draft
-`/tmp/poc-i0410-integration/cloud-brief-draft.txt`, chưa live proof.
+I04-10 current: [session_01HtXzgfyBzoNma2DQ2SzNY5](https://claude.ai/code/session_01HtXzgfyBzoNma2DQ2SzNY5)
+đã tạo từ refactor_ui `55b2fa0` đã push; nhánh yêu cầu `claude/m04-i04-10`.
+Brief `/tmp/poc-i0410-integration/cloud-brief.txt`; cờ bypass đã truyền,
+quyền thực tế chờ early status, không suy từ cờ. Local runtime task này chưa
+chạy; không task-owned cluster/AWS assets. Chưa live proof.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
 Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.
