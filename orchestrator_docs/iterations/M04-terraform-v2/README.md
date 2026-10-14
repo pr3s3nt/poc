@@ -284,6 +284,14 @@ hai Vault PID3718805/3718896, database i0410_0831776d1fdc/ba roles và platform
 PG container/volume; private handles giữ. PV/workload/app resources/cache refs
 đã dọn;28 baseline UIDs giữ nguyên. Cloud/tmux cũ không chạy, agent
 `/root/i0410_luna` idle; code root `72a807e`, docs mới hơn. Bước tiếp: nhận
-quyết định ngoại lệ, cleanup có proof/state archive, rồi dừng theo giới hạn
-retry; chưa được mở thêm A01. Dự toán chuẩn bị2.13USD A02/2.0505USD A03 cho5h,
+quyết định ngoại lệ, cleanup có proof/state archive, sửa lỗi/checks rồi chạy
+lại A01 theo quyết định2026-10-15 bên dưới. Dự toán chuẩn bị2.13USD A02/2.0505USD A03 cho5h,
 không billed cost/ceiling. [Biên bản](../../verification/2026-10-14-i04-11-k8s4f.md).
+
+Quyết định hiện hành2026-10-15: thất bại phải tìm nguyên nhân và giao writer
+sửa, review/checks độc lập rồi chạy lại sau cleanup sạch; bỏ giới hạn một retry
+scenario. Các câu "retry duy nhất" phía trên mô tả quyền lúc chạy r2, không còn
+là giới hạn hiện hành. Không dừng chỉ vì retry fail, không giảm assertions hoặc
+bypass ownership. Namespace r2 còn chờ quyết định ngoại lệ; quyền retry mới
+không tự cấp quyền xóa namespace bị guard chặn. Tiếp tục sửa/checks độc lập
+trong lúc giữ handles phục hồi; chưa mở run mới trước physical cleanup.

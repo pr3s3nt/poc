@@ -180,10 +180,16 @@ readiness và Terraform node. Không tái hiện được thì sửa fixture, kh
 
 ## Retry, cleanup và evidence
 
-Scenario có tối đa một lần retry sau sửa lỗi, cleanup lần trước xong mới tạo
-run mới. User-owned/preexisting/updated resource không bị xóa vì run failed.
-Sau retry fail thì stop scenario và cleanup, báo chưa đạt. Cleanup failure chỉ
-retry bounded calls/continue operator để thu hồi owned assets; không mở run mới.
+Quyết định 2026-10-15 bỏ giới hạn một lần retry scenario. Khi thất bại, tìm
+nguyên nhân, giao writer sửa code/test, review và chạy checks độc lập rồi chạy
+lại; không dừng chỉ vì retry thất bại. Mỗi lượt giữ deadline hữu hạn và evidence
+thất bại, chỉ tạo run mới sau khi cleanup lượt trước được xác minh sạch.
+Không lặp lại lỗi chưa sửa hoặc giảm assertions. User-owned/preexisting/updated
+resource không bị xóa vì run failed. Cleanup failure dùng bounded calls hoặc
+operator continuation trong quyền đã giao; thiếu quyền/quyết định hoặc chưa
+chứng minh sạch thì giữ handles/state, không mở run mới, tiếp tục phần chẩn
+đoán/sửa lỗi/checks độc lập an toàn. Quyền này không cho retry apply có unknown
+outcome hoặc bypass guard ownership; policy retry executor trong ADR giữ nguyên.
 
 Gỡ workload delivery trước, destroy Terraform application resources -> namespace
 -> EKS -> VPC theo actual reverse graph, dọn run-owned ECR/IAM/network phụ trợ.

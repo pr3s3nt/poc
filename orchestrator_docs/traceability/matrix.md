@@ -667,3 +667,8 @@ merge `72a807e`,1352Go/0skip,622frontend/fullchecks. A01 real adapters qua UI
 refill/reload; delete thiếu native confirmation nên retry fail. Run đầu đã
 CLOSED_CLEAN; retry namespace cleanup còn bị chặn bởi default SA provenance,
 không false-pass. E01/E02/A02/A03 chưa chạy, AWS gate đóng, IMP-021 còn mở.
+
+Quyết định2026-10-15 cập nhật AGENTS/ADR-014/runbook/M04: thất bại phải tìm
+nguyên nhân và sửa/check rồi chạy lại sau cleanup sạch, bỏ giới hạn một retry
+scenario. Không thay kết quả fail lịch sử, ownership guards hoặc policy retry
+apply có unknown outcome. Namespace r2 còn chờ quyết định ngoại lệ.

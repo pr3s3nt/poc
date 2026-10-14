@@ -28,6 +28,10 @@ Redis/PostgreSQL, dọn renderer Secrets theo UID; namespace còn vì default SA
 không managedFields. Chờ quyết định ngoại lệ namespace UID đã khớp state,
 giữ DB/hai Vault/private handles.28 retained UIDs nguyên vẹn. AWS vẫn bị gate.
 [Biên bản I04-11](verification/2026-10-14-i04-11-k8s4f.md).
+Quyết định2026-10-15: bỏ giới hạn một retry scenario; thất bại phải tìm nguyên
+nhân, giao writer sửa và review/checks rồi chạy lại khi lượt cũ cleanup sạch.
+Không dừng chỉ vì retry fail. Namespace r2 vẫn chờ quyết định ngoại lệ;
+chưa có quyền bypass guard, không mở run mới khi cleanup chưa sạch.
 Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi
 lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
 k8s-4f sạch thì tự chạy I04-12 AWS 452025861381/us-east-1. Giữ điểm duyệt cuối.

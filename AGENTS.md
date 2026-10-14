@@ -125,6 +125,15 @@ và lý do, cùng mọi user-owned change còn lại.
 
 ### Quyết định M04 mới nhất — 2026-10-14
 
+Quyết định bổ sung 2026-10-15: khi kiểm tra hoặc scenario thất bại, Codex phải
+tìm nguyên nhân, giao writer sửa code/test, review và kiểm tra độc lập rồi chạy
+lại sau khi cleanup lượt trước được xác minh sạch. Bỏ giới hạn một lần retry
+scenario; không dừng chỉ vì lượt retry thất bại. Không lặp lại lỗi chưa sửa,
+giảm assertions hoặc vượt ownership/quyền external để có kết quả pass.
+Nếu thiếu quyết định/quyền, công cụ lỗi kéo dài, cleanup chưa chứng minh sạch
+hoặc sắp hết hạn mức thì ghi handoff và dừng phần phụ thuộc; vẫn làm chẩn đoán,
+sửa lỗi và các kiểm tra độc lập có thể thực hiện an toàn.
+
 Khi Claude cloud hết hạn mức, lấy code đã push về checkout riêng và lưu
 handoff/session cloud. Tiếp tục code/test bằng Claude local qua tmux với
 `clauded`; Codex giữ vai trò docs/review/checks/merge và chạy thật. Nếu Claude

@@ -21,6 +21,9 @@ hai Vault và ảnh bổ trợ đã dọn. Bản sửa Luna qua checks độc l�
 đạt. Operator dọn workload/VSO/Redis/PG/renderer Secrets, namespace còn vì
 default SA thiếu managedFields; chờ quyết định ngoại lệ, giữ DB/hai Vault/
 private handles để phục hồi.28 baseline UIDs giữ nguyên. Không mở run mới.
+Quyết định2026-10-15 thay giới hạn retry: tiếp tục tìm nguyên nhân/sửa code,
+review/checks và chạy lại sau cleanup sạch; không dừng chỉ vì retry fail.
+Quyết định ngoại lệ namespace vẫn pending, không bypass guard.
 [Biên bản](../../../verification/2026-10-14-i04-11-k8s4f.md).
 
 ## Phạm vi

@@ -12,6 +12,11 @@ related: [M04, ADR-014, IMP-021]
 
 Chặng 3; xem [M04](../README.md). Chưa bắt đầu; không suy status này thành task bị bỏ hoặc đã implement.
 
+Quyết định2026-10-15: scenario thất bại thì tìm nguyên nhân, giao writer sửa,
+review/checks rồi chạy lại sau cleanup sạch; bỏ giới hạn một retry. Không dừng
+chỉ vì retry fail; giữ deadline từng run, preflight/dự toán, quyền ownership,
+gate I04-11 và thứ tự A02 sạch rồi A03 theo runbook acceptance.
+
 ## Phạm vi
 
 Sau I04-11 đạt và video/dự toán đã lưu, chạy tuần tự A02/A03 AWS qua UI với real adapters; cleanup ngay từng run và query sạch; independent review/final checks/commit-push/handoff.

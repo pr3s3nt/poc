@@ -154,7 +154,9 @@ sau khi khai báo/deploy qua chính Web Console. Không nhập Score hoặc gọ
 
 Không có trần chi phí cố định do người dùng đặt; chọn cấu hình nhỏ đủ chạy,
 ước tính trước run, chạy tuần tự và xóa ngay sau verification. Scenario retry
-tối đa một lần sau sửa lỗi; cleanup lần cũ trước retry. Cleanup chưa sạch thì
+theo quyết định2026-10-15: tìm nguyên nhân và sửa/check trước mỗi lượt, không
+giới hạn một lần hoặc dừng chỉ vì retry fail; cleanup lần cũ trước retry.
+Không thay policy retry executor/unknown outcome ở trên. Cleanup chưa sạch thì
 chưa hoàn thành và không bắt đầu run mới.
 
 ## Implementation boundary
