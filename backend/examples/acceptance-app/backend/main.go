@@ -237,7 +237,8 @@ func cacheReason(ctx context.Context, cache *jobcache.Cache, resolver *jobcache.
 	if err := cache.Probe(ctx); err != nil {
 		return jobcache.Classify(err)
 	}
-	// A failure of a real lookup stays reported until that operation succeeds again.
+	// A failure of a real lookup stays reported until that same job and
+	// operation succeeds again.
 	resolver.Recheck(ctx)
 	if f, failed := resolver.Evidence().Failure(); failed {
 		return f.Reason
@@ -258,9 +259,9 @@ func cacheEvidence(cfg jobcache.Config, configured bool, reason jobcache.Reason,
 		"recent":       recent,
 		"workerWrites": writes,
 	}
-	if f, failed := evidence.Failure(); failed {
-		out["unrecoveredFailure"] = f
-	}
+	failures, overflow := evidence.Failures()
+	out["unrecoveredFailures"] = failures
+	out["failuresOverflow"] = overflow
 	if configured {
 		out["tls"] = cfg.TLS
 		out["ttlSeconds"] = int(cfg.TTL / time.Second)

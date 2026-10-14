@@ -33,6 +33,8 @@ const (
 	ReasonConfig      Reason = "config"
 	ReasonInvalid     Reason = "invalid-entry"
 	ReasonOther       Reason = "error"
+	// ReasonOverflow means more unrecovered failures occurred than are tracked.
+	ReasonOverflow Reason = "failure-overflow"
 )
 
 // Classify maps an error to a Reason without exposing its text.

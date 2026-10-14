@@ -467,7 +467,11 @@ func TestBackendDeniedCacheOperationFailsDiagnosticsWhilePingAndProbeWork(t *tes
 			for i := 0; i < 2; i++ { // stays failed; diagnostics never turn green by themselves
 				_, checks, rawChecks := a.do("GET", "/api/checks", "")
 				c := checks["cache"].(map[string]any)
-				f, _ := c["unrecoveredFailure"].(map[string]any)
+				fs, _ := c["unrecoveredFailures"].([]any)
+				var f map[string]any
+				if len(fs) == 1 {
+					f, _ = fs[0].(map[string]any)
+				}
 				if cacheCheck(checks) || c["reason"] != "auth" || f == nil || f["kind"] != tc.wantKind || f["jobId"].(float64) != float64(id) {
 					t.Fatalf("a denied real operation must fail the check: %v", c)
 				}
@@ -517,4 +521,101 @@ func TestBackendPingAllowedButProbeDeniedFails(t *testing.T) {
 		t.Fatalf("readyz %d", status)
 	}
 	a.assertSafe(raw)
+}
+
+func TestBackendHealthyLookupOfOtherJobDoesNotHideDeniedJobs(t *testing.T) {
+	const prefix = "acceptance:v1:acceptance:dev:run-01:job:"
+	// Key-specific ACLs: job 2 is fully usable; jobs 1 and 3 are denied in the
+	// operation under test (read: only SET allowed; refill: only GET allowed).
+	for name, deny := range map[string]struct{ mode, kind string }{
+		"read denied":   {"%W~", "read"},
+		"refill denied": {"%R~", "refill"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			rules := func(allowFull ...int) []string {
+				r := []string{probeKeys}
+				for _, id := range []int{1, 2, 3} {
+					full := id == 2
+					for _, a := range allowFull {
+						full = full || a == id
+					}
+					if full {
+						r = append(r, "~"+prefix+itoa(id))
+					} else {
+						r = append(r, deny.mode+prefix+itoa(id))
+					}
+				}
+				return r
+			}
+			a := newAppPrepared(t, 30*time.Second, useLimited, func(r *testfixture.Redis) { limitedACL(t, r, rules()...) })
+			ids := make([]int64, 3)
+			for i := range ids {
+				ids[i], _ = a.completeAndEvict(t, "job")
+			}
+			get := func(id int64) map[string]any {
+				_, body, _ := a.do("GET", "/api/jobs/"+itoa(int(id)), "")
+				return body
+			}
+			failures := func() []int64 {
+				_, checks, raw := a.do("GET", "/api/checks", "")
+				a.assertSafe(raw)
+				var out []int64
+				fs, _ := checks["cache"].(map[string]any)["unrecoveredFailures"].([]any)
+				for _, f := range fs {
+					m := f.(map[string]any)
+					if m["kind"] != deny.kind || m["reason"] != "auth" {
+						t.Fatalf("unexpected failure %v", m)
+					}
+					out = append(out, int64(m["jobId"].(float64)))
+				}
+				if (len(out) == 0) != cacheCheck(checks) {
+					t.Fatalf("check must pass exactly when no failure remains: %v", checks["cache"])
+				}
+				return out
+			}
+			ready := func() int { s, _, _ := a.do("GET", "/readyz", ""); return s }
+
+			get(ids[0]) // A denied
+			// B is healthy (miss -> refill, then hit) but must not erase A.
+			if b := get(ids[1]); b["cache"] != "miss-refilled" {
+				t.Fatalf("B = %v", b)
+			}
+			if b := get(ids[1]); b["cache"] != "hit" {
+				t.Fatalf("B = %v", b)
+			}
+			if got := failures(); len(got) != 1 || got[0] != ids[0] || ready() != http.StatusServiceUnavailable {
+				t.Fatalf("A must stay failed after B succeeded: %v ready=%d", got, ready())
+			}
+			// A second denied job must not overwrite or forget the first.
+			get(ids[2])
+			get(ids[1])
+			if got := failures(); len(got) != 2 || got[0] != ids[0] || got[1] != ids[2] {
+				t.Fatalf("both A and C must be remembered: %v", got)
+			}
+			if ready() != http.StatusServiceUnavailable {
+				t.Fatal("readiness must fail")
+			}
+			// Diagnostics re-attempt the exact failing operations; they stay failed while denied.
+			if got := failures(); len(got) != 2 {
+				t.Fatalf("recheck must not clear while still denied: %v", got)
+			}
+			// Only the actual recovery of A clears A; C keeps the check failing.
+			limitedACL(t, a.redis, rules(1)...)
+			if got := failures(); len(got) != 1 || got[0] != ids[2] || ready() != http.StatusServiceUnavailable {
+				t.Fatalf("only C should remain: %v", got)
+			}
+			limitedACL(t, a.redis, rules(1, 3)...)
+			if got := failures(); len(got) != 0 || ready() != http.StatusOK {
+				t.Fatalf("all recovered: %v", got)
+			}
+			if a.jobs() != 3 {
+				t.Fatalf("jobs = %d, recovery must not create or reprocess jobs", a.jobs())
+			}
+			for _, id := range ids { // durable results were shown throughout
+				if get(id)["status"] != "DONE" {
+					t.Fatal("durable result must be shown")
+				}
+			}
+		})
+	}
 }

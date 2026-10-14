@@ -2,6 +2,7 @@ package jobcache
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -107,28 +108,31 @@ func (r *Resolver) record(id int64, l Lookup) Lookup {
 	return l
 }
 
-// Recheck re-attempts, once, the exact cache operation that last failed (a GET
-// or the refill SET for the recorded job) so a recovered Redis clears the
-// failure without needing user traffic: a not-ready backend receives none.
-// It reads PostgreSQL and Redis only, never reprocesses or inserts a job, and
-// does not touch the lookup counters.
+// Recheck re-attempts the exact cache operation of each recorded failure (a
+// GET or the refill SET for that job's key), at most recheckLimit per call and
+// within ctx, so a recovered Redis clears them without user traffic: a not-ready
+// backend receives none. A success clears only that job+operation. It reads
+// PostgreSQL and Redis only, never reprocesses or inserts a job, and does not
+// touch the lookup counters.
 func (r *Resolver) Recheck(ctx context.Context) {
 	if r.evidence == nil || r.cache == nil {
 		return
 	}
-	f, failed := r.evidence.Failure()
-	if !failed {
-		return
-	}
-	switch f.Kind {
-	case FailureRead:
-		if _, _, err := r.cache.Get(ctx, f.JobID); err == nil || err == ErrInvalidEntry {
-			r.evidence.recover(f)
+	failures, _ := r.evidence.Failures()
+	for i, f := range failures {
+		if i >= recheckLimit || ctx.Err() != nil {
+			return
 		}
-	case FailureRefill:
-		job, found, err := r.source.Get(ctx, f.JobID)
-		if err == nil && found && job.Status == jobstore.StatusDone && r.cache.Put(ctx, job) == nil {
-			r.evidence.recover(f)
+		switch f.Kind {
+		case FailureRead:
+			if _, _, err := r.cache.Get(ctx, f.JobID); err == nil || err == ErrInvalidEntry {
+				r.evidence.recover(f)
+			}
+		case FailureRefill:
+			job, found, err := r.source.Get(ctx, f.JobID)
+			if err == nil && found && job.Status == jobstore.StatusDone && r.cache.Put(ctx, job) == nil {
+				r.evidence.recover(f)
+			}
 		}
 	}
 }
@@ -162,8 +166,22 @@ type Evidence struct {
 	mu       sync.Mutex
 	counters map[Outcome]int64
 	recent   []Event
-	failure  *Failure
+	failures map[failureKey]Failure
+	overflow bool
 }
+
+type failureKey struct {
+	job  int64
+	kind FailureKind
+}
+
+// MaxTrackedFailures bounds the unrecovered failures kept in memory. Past it the
+// evidence fails closed: it stays failed (reason failure-overflow) for the life
+// of the process, because forgotten failures can no longer be verified.
+const MaxTrackedFailures = 64
+
+// recheckLimit bounds how many failed operations one diagnostics call retries.
+const recheckLimit = 16
 
 // FailureKind says which real cache operation last failed.
 type FailureKind string
@@ -193,7 +211,9 @@ type Event struct {
 const maxRecent = 50
 
 // NewEvidence returns an empty recorder.
-func NewEvidence() *Evidence { return &Evidence{counters: map[Outcome]int64{}} }
+func NewEvidence() *Evidence {
+	return &Evidence{counters: map[Outcome]int64{}, failures: map[failureKey]Failure{}}
+}
 
 // Record adds one lookup. Pending jobs listed from the database are counted
 // too, so counters equal the number of resolutions served.
@@ -208,37 +228,68 @@ func (e *Evidence) Record(id int64, outcome Outcome, reason Reason) {
 	e.track(id, outcome, reason)
 }
 
-// track updates the unrecovered-failure state from one real lookup.
+// track updates the per-job, per-operation failure set from one real lookup.
+// A success clears only the failure of the same job and operation, so a healthy
+// lookup of job B can never erase the unresolved failure of job A.
 func (e *Evidence) track(id int64, outcome Outcome, reason Reason) {
 	switch outcome {
 	case OutcomeErrorDBFallback:
-		e.failure = &Failure{Kind: FailureRead, Reason: reason, JobID: id}
+		e.setFailure(Failure{Kind: FailureRead, Reason: reason, JobID: id})
 	case OutcomeMissRefillFailed:
-		e.failure = &Failure{Kind: FailureRefill, Reason: reason, JobID: id}
+		delete(e.failures, failureKey{id, FailureRead}) // the GET worked
+		e.setFailure(Failure{Kind: FailureRefill, Reason: reason, JobID: id})
 	case OutcomeMissRefilled:
-		e.failure = nil // GET and SET both worked
+		delete(e.failures, failureKey{id, FailureRead})
+		delete(e.failures, failureKey{id, FailureRefill})
 	case OutcomeHit:
-		if e.failure != nil && e.failure.Kind == FailureRead {
-			e.failure = nil // GET works again; a refill failure needs a SET to clear
-		}
+		delete(e.failures, failureKey{id, FailureRead}) // GET of this key works; a refill failure needs a SET
 	}
 }
 
-// Failure returns the unrecovered real-lookup failure, if any.
-func (e *Evidence) Failure() (Failure, bool) {
+func (e *Evidence) setFailure(f Failure) {
+	k := failureKey{f.JobID, f.Kind}
+	if _, exists := e.failures[k]; !exists && len(e.failures) >= MaxTrackedFailures {
+		e.overflow = true
+		return
+	}
+	e.failures[k] = f
+}
+
+// Failures returns the unrecovered failures ordered by job id then operation,
+// and whether older failures were dropped (overflow), which is sticky.
+func (e *Evidence) Failures() (list []Failure, overflow bool) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.failure == nil {
-		return Failure{}, false
+	for _, f := range e.failures {
+		list = append(list, f)
 	}
-	return *e.failure, true
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].JobID != list[j].JobID {
+			return list[i].JobID < list[j].JobID
+		}
+		return list[i].Kind < list[j].Kind
+	})
+	return list, e.overflow
+}
+
+// Failure returns the reason to report while any failure is unrecovered.
+func (e *Evidence) Failure() (Failure, bool) {
+	list, overflow := e.Failures()
+	if len(list) > 0 {
+		return list[0], true
+	}
+	if overflow {
+		return Failure{Kind: FailureRead, Reason: ReasonOverflow}, true
+	}
+	return Failure{}, false
 }
 
 func (e *Evidence) recover(f Failure) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.failure != nil && *e.failure == f {
-		e.failure = nil
+	k := failureKey{f.JobID, f.Kind}
+	if cur, ok := e.failures[k]; ok && cur == f {
+		delete(e.failures, k)
 	}
 }
 
