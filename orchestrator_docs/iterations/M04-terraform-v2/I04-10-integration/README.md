@@ -10,7 +10,9 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Current sau I04-09 verified local; cloud hết credit ở666da24; Claude local tmux poc-m04-i0410-clauded-local đang tiếp tục; chưa verified.
+Chặng 2; xem [M04](../README.md). Current sau I04-09 verified local; cloud head `bb0ae24` đã kéo về và giữ code
+dở từ Claude local. Cả cloud và local đã hết hạn mức; agent Codex
+`gpt-6-luna` đang viết tiếp theo quyền người dùng, chưa verified hoặc merge.
 
 ## Phạm vi
 
