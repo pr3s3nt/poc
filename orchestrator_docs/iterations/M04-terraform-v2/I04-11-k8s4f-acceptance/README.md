@@ -15,8 +15,9 @@ Codex đã chạy A01 lượt đầu `a01-20261014-r1`, chưa có scenario pass.
 Đăng ký kho bí mật lỗi422: fixture token thiếu quyền tự kiểm tra Vault.
 Namespace/PV đã xác minh vắng, sentinel giữ nguyên; supervisor ban đầu chưa CLEAN.
 Phục hồi độc lập đã CLEAN/CLOSED_CLEAN bằng handles gốc; database/ba role,
-hai Vault và ảnh bổ trợ đã dọn. Bản sửa Luna đang được Codex kiểm tra đầy đủ,
-chưa mở lượt retry duy nhất. Fixture PostgreSQL nền riêng vẫn giữ cho các run.
+hai Vault và ảnh bổ trợ đã dọn. Bản sửa Luna qua checks độc lập1352Go/0skip,
+622frontend/fullchecks, merge `72a807e`; retry duy nhất `a01-20261014-r2`
+đang chạy. Fixture PostgreSQL nền riêng vẫn giữ cho các run.
 
 ## Phạm vi
 

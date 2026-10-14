@@ -21,7 +21,8 @@ triển khai khi đăng ký kho bí mật (fixture token thiếu quyền tự ki
 Namespace/PV vắng và sentinel nguyên vẹn; supervisor ban đầu NEEDS_ATTENTION.
 Phục hồi độc lập bằng handles gốc đã CLEAN/CLOSED_CLEAN, database/ba roles,
 hai Vault và ảnh bổ trợ đã dọn. Agent Luna sửa fixture/cleanup trước triển khai;
-Codex chạy checks đầy đủ trước một retry, AWS vẫn bị gate.
+Codex checks1352Go/0skip và622frontend/fullchecks đạt, merge `72a807e`;
+A01 retry duy nhất `a01-20261014-r2` đang chạy. AWS vẫn bị gate.
 Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi
 lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
 k8s-4f sạch thì tự chạy I04-12 AWS 452025861381/us-east-1. Giữ điểm duyệt cuối.

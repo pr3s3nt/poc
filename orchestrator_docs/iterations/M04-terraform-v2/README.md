@@ -257,3 +257,13 @@ Container/volume PostgreSQL nền riêng còn giữ cho các scenario kế tiế
 Code fix branch `codex/m04-i0411-fixes`, agent `/root/i0410_luna` đã xong;
 Codex checks toàn bộ ở `/tmp/poc-i0411-codex-checks-r1/` đang chạy. Retry config
 ngoài Git đã chuẩn bị nhưng chưa chạy; chỉ mở sau review/checks/merge.
+
+I04-11 fix Luna `da524c6` merge/push `72a807e`: độc lập1352Go/0fail/0skip,
+build/vet,622frontend/37files/typecheck/lint/build, docs có PlantUML,
+shell/JS syntax/diff đều đạt. Fixture checks PG/network/credential đã dọn;
+evidence `/tmp/poc-i0411-codex-checks-r1/`. A01 retry duy nhất
+`a01-20261014-r2` đã bắt đầu trên code này, namespace dự kiến
+`orch-v2-test-a01-20261014-r2`, evidence
+`/tmp/poc-i0411-live/a01-20261014-r2/`. Ảnh retry đã xác minh immutable refs;
+ownership/baseline ở `/tmp/poc-i0411-local-preparation/a01-r2-images/`.
+Chưa có A01 pass, E01/E02 chưa chạy; AWS vẫn gate.
