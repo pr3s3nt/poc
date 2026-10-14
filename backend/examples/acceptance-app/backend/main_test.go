@@ -49,6 +49,13 @@ type app struct {
 
 func newApp(t *testing.T, ttl time.Duration, mutate func(*jobcache.Config)) *app {
 	t.Helper()
+	return newAppPrepared(t, ttl, mutate, nil)
+}
+
+// newAppPrepared runs prepare against the started Redis (as its full-access
+// user) before the backend's cache client is used, e.g. to create a limited ACL user.
+func newAppPrepared(t *testing.T, ttl time.Duration, mutate func(*jobcache.Config), prepare func(*testfixture.Redis)) *app {
+	t.Helper()
 	ctx := context.Background()
 	pg := testfixture.PostgresConfig(t)
 	store, err := jobstore.Open(ctx, pg, 1)
@@ -60,6 +67,9 @@ func newApp(t *testing.T, ttl time.Duration, mutate func(*jobcache.Config)) *app
 		t.Fatal(err)
 	}
 	r := testfixture.StartRedis(t, testfixture.RedisOptions{})
+	if prepare != nil {
+		prepare(r)
+	}
 	cfg := jobcache.Config{Host: r.Host, Port: r.Port, Username: r.Username, Password: r.Password, TLS: r.TLS,
 		App: "acceptance", Env: "dev", Run: "run-01", TTL: ttl}
 	if mutate != nil {
@@ -370,4 +380,141 @@ func TestBackendUnmarkedCompletedJobIsNotVerifiedUntilMarked(t *testing.T) {
 	// Pending jobs are not completed work and do not affect the check.
 	a.submit("pending-only")
 	check(true, 0, 2)
+}
+
+// limitedUser is an authenticated account that may PING but is restricted on
+// the keys/commands real lookups use, so only an actual operation reveals it.
+const limitedPassword = "limited-secret-pw"
+
+func limitedACL(t *testing.T, r *testfixture.Redis, rules ...string) {
+	t.Helper()
+	args := append([]any{"ACL", "SETUSER", "limited", "reset", "on", ">" + limitedPassword, "+ping", "+auth", "+hello", "+del", "+set", "+get"}, anyStrings(rules)...)
+	if err := r.Client(t).Do(context.Background(), args...).Err(); err != nil {
+		t.Fatalf("ACL SETUSER: %v", err)
+	}
+}
+
+func anyStrings(in []string) []any {
+	out := make([]any, len(in))
+	for i, v := range in {
+		out[i] = v
+	}
+	return out
+}
+
+func useLimited(c *jobcache.Config) { c.Username, c.Password = "limited", limitedPassword }
+
+const (
+	probeKeys = "~acceptance:v1:acceptance:dev:run-01:probe:*"
+	jobKeys   = "acceptance:v1:acceptance:dev:run-01:job:*"
+)
+
+// completeAsFullAccessWorker commits a job and writes it through with the
+// full-access user, then removes the entry so the backend must use Redis itself.
+func (a *app) completeAndEvict(t *testing.T, payload string) (int64, jobstore.Job) {
+	id := a.submit(payload)
+	full := a.cfg
+	full.Username, full.Password = a.redis.Username, a.redis.Password
+	job, claimed, err := a.store.ClaimAndProcess(context.Background(), "worker-1", func(p string) string { return "processed:" + strings.ToUpper(p) })
+	if err != nil || !claimed {
+		t.Fatal(err)
+	}
+	c := jobcache.New(full)
+	defer c.Close()
+	if err := c.Put(context.Background(), job); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.store.RecordCacheWrite(context.Background(), job.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.redis.Client(t).Del(context.Background(), full.KeyFor(job.ID)).Err(); err != nil {
+		t.Fatal(err)
+	}
+	return id, job
+}
+
+func TestBackendDeniedCacheOperationFailsDiagnosticsWhilePingAndProbeWork(t *testing.T) {
+	cases := map[string]struct {
+		rules    []string
+		wantKind string
+	}{
+		// GET allowed, SET on job keys denied: the refill after a miss fails.
+		"refill denied": {[]string{probeKeys, "%R~" + jobKeys}, "refill"},
+		// GET on job keys denied, SET allowed: the cache read fails.
+		"read denied": {[]string{probeKeys, "%W~" + jobKeys}, "read"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			a := newAppPrepared(t, 30*time.Second, useLimited, func(r *testfixture.Redis) { limitedACL(t, r, tc.rules...) })
+			id, job := a.completeAndEvict(t, "acl")
+			path := "/api/jobs/" + itoa(int(id))
+
+			// Before any lookup: PING, the probe and the worker markers are all fine.
+			if _, checks, _ := a.do("GET", "/api/checks", ""); !cacheCheck(checks) {
+				t.Fatalf("precondition: nothing has failed yet: %v", checks)
+			}
+			// The real lookup is denied but the durable result is still shown.
+			status, body, raw := a.do("GET", path, "")
+			if status != 200 || body["result"] != job.Result || body["status"] != "DONE" || body["cacheReason"] != "auth" {
+				t.Fatalf("durable result with a reported auth failure expected: %d %v", status, body)
+			}
+			if tc.wantKind == "refill" && body["cache"] != "miss-refill-failed" {
+				t.Fatalf("cache = %v", body["cache"])
+			}
+			if tc.wantKind == "read" && body["cache"] != "error-db-fallback" {
+				t.Fatalf("cache = %v", body["cache"])
+			}
+			for i := 0; i < 2; i++ { // stays failed; diagnostics never turn green by themselves
+				_, checks, rawChecks := a.do("GET", "/api/checks", "")
+				c := checks["cache"].(map[string]any)
+				f, _ := c["unrecoveredFailure"].(map[string]any)
+				if cacheCheck(checks) || c["reason"] != "auth" || f == nil || f["kind"] != tc.wantKind || f["jobId"].(float64) != float64(id) {
+					t.Fatalf("a denied real operation must fail the check: %v", c)
+				}
+				if !checks["checks"].(map[string]any)["database"].(bool) {
+					t.Fatal("database check is independent")
+				}
+				if status, ready, _ := a.do("GET", "/readyz", ""); status != http.StatusServiceUnavailable || ready["status"] != "cache unavailable" {
+					t.Fatalf("readyz = %d %v", status, ready)
+				}
+				a.assertSafe(rawChecks)
+			}
+			a.assertSafe(raw)
+			if strings.Contains(raw+a.logs.String(), limitedPassword) || strings.Contains(raw, "NOPERM") {
+				t.Fatal("secret or raw error leaked")
+			}
+
+			// Recovery: once the operation is permitted again the next diagnostics
+			// re-attempt it and clear the failure, without user traffic and
+			// without touching the job.
+			limitedACL(t, a.redis, "~*", "&*", "+@all")
+			_, checks, _ := a.do("GET", "/api/checks", "")
+			if !cacheCheck(checks) {
+				t.Fatalf("expected recovery after the permission is restored: %v", checks["cache"])
+			}
+			if status, _, _ := a.do("GET", "/readyz", ""); status != http.StatusOK {
+				t.Fatalf("readyz = %d", status)
+			}
+			if a.jobs() != 1 {
+				t.Fatal("recovery must not create or reprocess jobs")
+			}
+		})
+	}
+}
+
+func TestBackendPingAllowedButProbeDeniedFails(t *testing.T) {
+	a := newAppPrepared(t, 30*time.Second, useLimited, func(r *testfixture.Redis) {
+		// +ping only: PING succeeds, SET/GET are not permitted at all.
+		if err := r.Client(t).Do(context.Background(), "ACL", "SETUSER", "limited", "reset", "on", ">"+limitedPassword, "+ping", "+auth", "+hello", "~*", "&*").Err(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	_, checks, raw := a.do("GET", "/api/checks", "")
+	if cacheCheck(checks) || checks["cache"].(map[string]any)["reason"] != "auth" {
+		t.Fatalf("%v", checks["cache"])
+	}
+	if status, _, _ := a.do("GET", "/readyz", ""); status != http.StatusServiceUnavailable {
+		t.Fatalf("readyz %d", status)
+	}
+	a.assertSafe(raw)
 }

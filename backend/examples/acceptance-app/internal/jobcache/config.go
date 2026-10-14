@@ -151,3 +151,8 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 func (c Config) KeyFor(jobID int64) string {
 	return "acceptance:v1:" + c.App + ":" + c.Env + ":" + c.Run + ":job:" + strconv.FormatInt(jobID, 10)
 }
+
+// ProbeKey returns a throwaway diagnostics key in the same scope as job keys.
+func (c Config) ProbeKey(suffix string) string {
+	return "acceptance:v1:" + c.App + ":" + c.Env + ":" + c.Run + ":probe:" + suffix
+}

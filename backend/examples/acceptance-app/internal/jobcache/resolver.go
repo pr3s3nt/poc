@@ -48,6 +48,9 @@ func NewResolver(cache *Cache, source Source, evidence *Evidence) *Resolver {
 	return &Resolver{cache: cache, source: source, evidence: evidence}
 }
 
+// Evidence returns the recorder the resolver reports to.
+func (r *Resolver) Evidence() *Evidence { return r.evidence }
+
 // Lookup resolves one job. The database error is returned as is; a cache
 // failure is reported through Lookup.Reason and never makes the lookup fail.
 func (r *Resolver) Lookup(ctx context.Context, id int64) (Lookup, error) {
@@ -104,6 +107,32 @@ func (r *Resolver) record(id int64, l Lookup) Lookup {
 	return l
 }
 
+// Recheck re-attempts, once, the exact cache operation that last failed (a GET
+// or the refill SET for the recorded job) so a recovered Redis clears the
+// failure without needing user traffic: a not-ready backend receives none.
+// It reads PostgreSQL and Redis only, never reprocesses or inserts a job, and
+// does not touch the lookup counters.
+func (r *Resolver) Recheck(ctx context.Context) {
+	if r.evidence == nil || r.cache == nil {
+		return
+	}
+	f, failed := r.evidence.Failure()
+	if !failed {
+		return
+	}
+	switch f.Kind {
+	case FailureRead:
+		if _, _, err := r.cache.Get(ctx, f.JobID); err == nil || err == ErrInvalidEntry {
+			r.evidence.recover(f)
+		}
+	case FailureRefill:
+		job, found, err := r.source.Get(ctx, f.JobID)
+		if err == nil && found && job.Status == jobstore.StatusDone && r.cache.Put(ctx, job) == nil {
+			r.evidence.recover(f)
+		}
+	}
+}
+
 // LookupCompleted resolves the completed jobs among summaries, keeping order.
 // After the first connection-level failure the remaining lookups skip the
 // cache instead of waiting for one timeout each; they are still reported as
@@ -133,6 +162,24 @@ type Evidence struct {
 	mu       sync.Mutex
 	counters map[Outcome]int64
 	recent   []Event
+	failure  *Failure
+}
+
+// FailureKind says which real cache operation last failed.
+type FailureKind string
+
+const (
+	FailureRead   FailureKind = "read"   // a GET failed
+	FailureRefill FailureKind = "refill" // a GET worked but writing the entry (SET) failed
+)
+
+// Failure is the last unrecovered failure of a real lookup. It stays set until
+// the same operation succeeds again, so a working PING or a database fallback
+// can never hide it. Only the job id, kind and safe reason are kept.
+type Failure struct {
+	Kind   FailureKind `json:"kind"`
+	Reason Reason      `json:"reason"`
+	JobID  int64       `json:"jobId"`
 }
 
 // Event is one recorded lookup: ids and classifications only.
@@ -157,6 +204,41 @@ func (e *Evidence) Record(id int64, outcome Outcome, reason Reason) {
 	e.recent = append(e.recent, Event{JobID: id, Outcome: outcome, Reason: reason, At: time.Now().UTC()})
 	if len(e.recent) > maxRecent {
 		e.recent = e.recent[len(e.recent)-maxRecent:]
+	}
+	e.track(id, outcome, reason)
+}
+
+// track updates the unrecovered-failure state from one real lookup.
+func (e *Evidence) track(id int64, outcome Outcome, reason Reason) {
+	switch outcome {
+	case OutcomeErrorDBFallback:
+		e.failure = &Failure{Kind: FailureRead, Reason: reason, JobID: id}
+	case OutcomeMissRefillFailed:
+		e.failure = &Failure{Kind: FailureRefill, Reason: reason, JobID: id}
+	case OutcomeMissRefilled:
+		e.failure = nil // GET and SET both worked
+	case OutcomeHit:
+		if e.failure != nil && e.failure.Kind == FailureRead {
+			e.failure = nil // GET works again; a refill failure needs a SET to clear
+		}
+	}
+}
+
+// Failure returns the unrecovered real-lookup failure, if any.
+func (e *Evidence) Failure() (Failure, bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.failure == nil {
+		return Failure{}, false
+	}
+	return *e.failure, true
+}
+
+func (e *Evidence) recover(f Failure) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.failure != nil && *e.failure == f {
+		e.failure = nil
 	}
 }
 

@@ -2,8 +2,10 @@ package jobcache
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -129,6 +131,33 @@ func (c *Cache) Ping(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, opTimeout)
 	defer cancel()
 	return c.client.Ping(ctx).Err()
+}
+
+// Probe exercises the operations real lookups need (SET with TTL, GET, DEL) on
+// a throwaway key in the cache scope. PING alone can succeed while an ACL denies
+// these commands. The key expires on its own if DEL is not permitted.
+func (c *Cache) Probe(ctx context.Context) error {
+	var rnd [8]byte
+	if _, err := rand.Read(rnd[:]); err != nil {
+		return err
+	}
+	key := c.cfg.ProbeKey(hex.EncodeToString(rnd[:]))
+	ctx, cancel := context.WithTimeout(ctx, opTimeout)
+	defer cancel()
+	ttl := c.cfg.TTL
+	if ttl > 10*time.Second {
+		ttl = 10 * time.Second
+	}
+	if err := c.client.Set(ctx, key, "ok", ttl).Err(); err != nil {
+		return err
+	}
+	if got, err := c.client.Get(ctx, key).Result(); err != nil || got != "ok" {
+		if err == nil {
+			err = ErrInvalidEntry
+		}
+		return err
+	}
+	return c.client.Del(ctx, key).Err()
 }
 
 // Put writes a completed job with the configured TTL. Only completed jobs are

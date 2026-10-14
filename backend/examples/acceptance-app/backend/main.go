@@ -86,7 +86,7 @@ func newMux(store *jobstore.Store, cfg jobstore.Config, cache *jobcache.Cache, r
 			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "database unavailable"})
 			return
 		}
-		if reason := cacheReason(pingCtx, cache); reason != jobcache.ReasonNone {
+		if reason := cacheReason(pingCtx, cache, resolver); reason != jobcache.ReasonNone {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "cache unavailable", "reason": reason})
 			return
 		}
@@ -108,7 +108,7 @@ func newMux(store *jobstore.Store, cfg jobstore.Config, cache *jobcache.Cache, r
 		pingCtx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		defer cancel()
 		dbErr := store.Ping(pingCtx)
-		reason := cacheReason(pingCtx, cache)
+		reason := cacheReason(pingCtx, cache, resolver)
 		writes := workerWrites(pingCtx, store)
 		checks := acceptanceChecks(os.Getenv("ACCEPTANCE_CONFIG"), os.Getenv("ACCEPTANCE_SECRET"), os.Getenv("ACCEPTANCE_SECRET_SHA256"), dbErr)
 		checks["cache"] = reason == jobcache.ReasonNone && writes.proven()
@@ -226,12 +226,21 @@ func workerWrites(ctx context.Context, store *jobstore.Store) writeOutcomes {
 
 // cacheReason pings Redis with the bound credentials and returns the safe
 // failure classification, or ReasonNone when the cache is usable.
-func cacheReason(ctx context.Context, cache *jobcache.Cache) jobcache.Reason {
+func cacheReason(ctx context.Context, cache *jobcache.Cache, resolver *jobcache.Resolver) jobcache.Reason {
 	if cache == nil {
 		return jobcache.ReasonConfig
 	}
 	if err := cache.Ping(ctx); err != nil {
 		return jobcache.Classify(err)
+	}
+	// PING is not enough: the account may be denied the commands lookups use.
+	if err := cache.Probe(ctx); err != nil {
+		return jobcache.Classify(err)
+	}
+	// A failure of a real lookup stays reported until that operation succeeds again.
+	resolver.Recheck(ctx)
+	if f, failed := resolver.Evidence().Failure(); failed {
+		return f.Reason
 	}
 	return jobcache.ReasonNone
 }
@@ -248,6 +257,9 @@ func cacheEvidence(cfg jobcache.Config, configured bool, reason jobcache.Reason,
 		"lookups":      counters,
 		"recent":       recent,
 		"workerWrites": writes,
+	}
+	if f, failed := evidence.Failure(); failed {
+		out["unrecoveredFailure"] = f
 	}
 	if configured {
 		out["tls"] = cfg.TLS
