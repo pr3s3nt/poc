@@ -39,6 +39,7 @@ không tự replay mutation; lỗi tải lại không phủ nhận kết quả �
 
 | UI action | HTTP contract dưới Application/Environment prefix | Kết quả |
 |---|---|---|
+| Mở tài nguyên của Environment | `GET /resources` | 200 `resources`: safe IDs/descriptor/type/class/status/scope/generation/module để mở detail; gồm UNREFERENCED và lịch sử instance, không chỉ graph hiện tại. 404 ngoài scope; lỗi đọc không biến thành danh sách rỗng. |
 | Đọc chi tiết tài nguyên | `GET /resources/{resourceId}` | 200 safe descriptor/status/module/target/owner/consumers/eligibility; 404 ngoài scope. |
 | Đọc tiến trình xóa | `GET /resource-cleanups/{operationId}` | 200 confirmed scope, stages/timestamps/actor, verification/remaining IDs; không state bytes. |
 
@@ -46,3 +47,10 @@ Query cần quyền đọc Environment, lấy Organization từ session. Develop
 đọc safe metadata; PE/Admin mutation ở [UC-07 API](../../UC-07/ui/api-mapping.md).
 Eligibility chỉ là snapshot, không token cấp quyền hoặc bảo đảm Execute;
 Operation/result scope cố định, không lấy cleanup của Environment khác.
+
+I04-08 hiện thực đường từ Environment và lịch sử Deployment sang resource
+detail. Deployment progress có thể mang `resourceInstanceId` đã kiểm cùng
+Environment để mở detail; bản ghi lịch sử không có association không được đoán
+ID hoặc thay bằng instance ở generation mới. List/detail/progress chỉ đọc
+metadata từ Console; không provider refresh, secret resolution hoặc state blob.
+Thiếu dịch vụ dùng cho mutation thì eligibility bị khóa với hướng dẫn an toàn.

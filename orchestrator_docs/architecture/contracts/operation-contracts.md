@@ -586,6 +586,7 @@ Prefix `/api/v1/applications/{app}/environments/{env}`; phiên lấy Organizatio
 
 | Operation | Route | Kết quả |
 |---|---|---|
+| Resource navigation (OC-11/UC-09) | GET `/resources` | 200 safe summaries/instance IDs trong Environment, kể cả UNREFERENCED; không provider refresh hoặc secret/state access. |
 | Resource detail (OC-11/UC-09) | GET `/resources/{resourceId}` | 200 safe detail/eligibility/descriptor; không provider refresh. |
 | PrepareDeletion | POST `/resources/{resourceId}/deletion-preview` với `{}` | 200 token, confirmationName, candidates và consumer blockers/versions/expiry. |
 | CleanupResources | POST `/resources/{resourceId}/deletions` với `{token,confirmationName,selectedResourceIds}` | 202 operationId/REQUESTED; token đã nhận trả operation cũ. |
