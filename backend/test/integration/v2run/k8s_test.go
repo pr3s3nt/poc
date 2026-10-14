@@ -90,6 +90,44 @@ func TestGuardNamespaceDistinguishesOwnedForeignAndUnknown(t *testing.T) {
 	}
 }
 
+func TestGuardBeforeEnvironmentBindingRequiresPositiveNoCreateProof(t *testing.T) {
+	c := goodConfig(t)
+	m := v2run.NewManifest(c, time.Now())
+	m.Armed = true
+	ctx := context.Background()
+	clean := &fakeCluster{namespaces: map[string]string{}, pvJSON: `{"items":[]}`}
+	if got := v2run.GuardNamespaceForRun(ctx, clean, m, c); got != v2run.ExitNotOwned {
+		t.Fatalf("a proven no-create run should be skipped safely, got %d; calls=%v", got, clean.calls)
+	}
+	if len(clean.calls) != 2 || clean.calls[0] != "get namespace "+c.Kube.Namespace+" -o name" || clean.calls[1] != "get pv -o json" {
+		t.Fatalf("no-create proof must check the exact intended namespace and PV claims: %v", clean.calls)
+	}
+
+	created := &fakeCluster{namespaces: map[string]string{c.Kube.Namespace: nsJSON(c.Kube.Namespace, c.RunID, v2run.ProductManagedByTag)}, pvJSON: `{"items":[]}`}
+	if got := v2run.GuardNamespaceForRun(ctx, created, m, c); got != 1 {
+		t.Fatalf("an unrecorded namespace must remain unknown, got %d", got)
+	}
+
+	withRun := m
+	_ = withRun.AddTerraformRun("pending-0123456789abcdef")
+	untouched := &fakeCluster{namespaces: map[string]string{}, pvJSON: `{"items":[]}`}
+	if got := v2run.GuardNamespaceForRun(ctx, untouched, withRun, c); got != 1 || len(untouched.calls) != 0 {
+		t.Fatalf("an attempted Terraform run without namespace acknowledgement is unknown, got %d calls=%v", got, untouched.calls)
+	}
+
+	withPV := m
+	if err := withPV.AddAsset(v2run.Asset{Kind: "pv", ID: "run-pv", Layer: v2run.LayerAppResources, Owner: v2run.OwnerCreatedByRun}); err != nil {
+		t.Fatal(err)
+	}
+	if got := v2run.GuardNamespaceForRun(ctx, clean, withPV, c); got != 1 {
+		t.Fatalf("a manifest-owned PV makes no-create proof invalid, got %d", got)
+	}
+	claimed := &fakeCluster{namespaces: map[string]string{}, pvJSON: `{"items":[{"metadata":{"name":"run-pv"},"spec":{"claimRef":{"namespace":"orch-v2-test-a01-0001"}}}]}`}
+	if got := v2run.GuardNamespaceForRun(ctx, claimed, m, c); got != 1 {
+		t.Fatalf("a remaining PV claim makes no-create proof invalid, got %d", got)
+	}
+}
+
 // Verification is read-only and judged by cluster contents, never by an exit
 // code; the package has no delete path at all (Terraform-owned objects belong
 // to the original engine, delivered Workloads to the product's Remove).
@@ -166,6 +204,9 @@ func TestK8sCleanupStepsUseTheOriginalEngineAndNeverKubectlDelete(t *testing.T) 
 	cfg := goodConfig(t)
 	steps := v2run.K8sCleanupSteps("/abs/v2ctl", "/abs/v2cleanup", "/priv/manifest.json", "/priv/cleanup-handles.json", "/priv/config.json", "/priv/vault-snapshot.json", cfg)
 	for _, step := range steps {
+		if !strings.Contains(strings.Join(step.Guard, " "), "-config /priv/config.json") {
+			t.Fatalf("step %s guard lacks the config needed to verify a pre-deployment namespace: %v", step.Name, step.Guard)
+		}
 		joined := strings.Join(append(append([]string{}, step.Argv...), step.Guard...), " ")
 		if strings.Contains(joined, "kubectl") || strings.Contains(joined, " delete") || strings.Contains(joined, "--all") {
 			t.Fatalf("step %s deletes directly: %s", step.Name, joined)

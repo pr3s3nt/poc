@@ -328,9 +328,24 @@ func withManifest(args []string, name string, withLayer bool, fn func(context.Co
 }
 
 func k8sGuard(args []string) int {
-	return withManifest(args, "k8s-guard", false, func(ctx context.Context, k v2run.ExecKubectl, m v2run.Manifest, _ string) int {
-		return v2run.GuardNamespace(ctx, k, m)
-	})
+	fs := flag.NewFlagSet("k8s-guard", flag.ExitOnError)
+	mpath, cfgPath := fs.String("manifest", "", ""), fs.String("config", "", "")
+	_ = fs.Parse(args)
+	k, err := kube()
+	if err != nil {
+		return fail("%v", err)
+	}
+	m, err := v2run.LoadManifest(*mpath)
+	if err != nil {
+		return fail("%v", err)
+	}
+	c, err := loadCfg(*cfgPath)
+	if err != nil {
+		return fail("%v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 9*time.Minute)
+	defer cancel()
+	return v2run.GuardNamespaceForRun(ctx, k, m, c)
 }
 
 func k8sVerify(args []string) int {

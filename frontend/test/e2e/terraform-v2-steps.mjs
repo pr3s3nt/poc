@@ -302,7 +302,15 @@ export function steps({ page, h, caption, phase, rec, baseURL, input }) {
     const response = await registered;
     const text = await response.text();
     if (text.includes(token)) throw new Error('the registration response echoed the Vault token');
-    if (response.status() !== 201) throw new Error(`registering the secret store returned HTTP ${response.status()}`);
+    if (response.status() !== 201) {
+      let diagnostic = `HTTP ${response.status()}`;
+      try {
+        const body = JSON.parse(text);
+        if (typeof body.code === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(body.code)) diagnostic += ` code=${body.code}`;
+        if (typeof body.field === 'string' && /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(body.field)) diagnostic += ` field=${body.field}`;
+      } catch { /* retain only the status when the response is not the fixed public error shape */ }
+      throw new Error(`registering the secret store was refused (${diagnostic})`);
+    }
     const body = JSON.parse(text);
     const key = body.key ?? body.secretStore?.key;
     if (!key) throw new Error('the registered secret store has no key');
