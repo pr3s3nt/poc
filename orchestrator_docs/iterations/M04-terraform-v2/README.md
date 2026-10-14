@@ -174,3 +174,12 @@ untracked, đang chạy checks ở `/tmp/poc-i0410-local-claude/`. Một Bash ch
 `pgrep -f` tự khớp argv nên đã dừng riêng PID955552 sau kiểm parent825829;
 không dừng checks/PG cleanup. Đã gửi lại yêu cầu dùng result file/child PID và
 hoàn tất mọi findings. Không có quota failure được xác nhận ở lần kiểm này.
+
+Lần kiểm~07:24UTC: Claude local không báo quota, bàn giao NOT_READY với1331Go
+pass/0skip, frontend lượt đầu14timeouts/7files; rerun riêng621/37files đạt,
+chưa fullchecks. Yêu cầu tiếp tục AWS A02/A03 runner và process-level PG/TF
+kill chain. Teleport thực tế đã lấy thêm cloud `1f89f6c` (ownership/claim fixes).
+Cloud late-push `bb0ae24` được fetch/import sau khi tạm ngắt writer; local WIP
+giữ trong taskstash `4526d515a646a958b054f2c3c602b6bd7f5c0444` và backup
+`/tmp/poc-i0410-local-claude/pre-import-*`. Có4 code conflicts cần Claude xử
+lý; đã giao và resume local, chưa merge nhánh chính. Giữ mọi dirty code.
