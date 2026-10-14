@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"orchestrator/examples/acceptance-app/internal/jobcache"
 	"orchestrator/examples/acceptance-app/internal/jobstore"
 )
 
@@ -40,6 +41,40 @@ func main() {
 	}
 	log.Print("backend: schema is ready")
 
+	// Redis is required. An invalid or unreachable binding must not stop the
+	// backend: it keeps serving the durable PostgreSQL results while the
+	// existing readiness and diagnostics report the cache as failed.
+	var cache *jobcache.Cache
+	redisCfg, err := jobcache.ConfigFromEnv(os.Getenv)
+	if err != nil {
+		log.Printf("backend: cache binding rejected (reason=%s)", jobcache.Classify(err))
+	} else {
+		cache = jobcache.New(redisCfg)
+		defer cache.Close()
+		log.Printf("backend: cache %s tls=%t ttl=%s scope=%s/%s/%s", redisCfg.Addr(), redisCfg.TLS, redisCfg.TTL, redisCfg.App, redisCfg.Env, redisCfg.Run)
+	}
+	evidence := jobcache.NewEvidence()
+	resolver := jobcache.NewResolver(cache, store, evidence)
+
+	mux := newMux(store, cfg, cache, redisCfg, resolver, evidence)
+
+	addr := ":" + jobstore.EnvOr("PORT", "8080")
+	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdownCtx)
+	}()
+	log.Printf("backend: listening on %s", addr)
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Printf("backend: %v", err)
+		os.Exit(1)
+	}
+}
+
+// newMux wires the backend API. cache is nil when the Redis binding is invalid.
+func newMux(store *jobstore.Store, cfg jobstore.Config, cache *jobcache.Cache, redisCfg jobcache.Config, resolver *jobcache.Resolver, evidence *jobcache.Evidence) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "workload": "backend"})
@@ -49,6 +84,14 @@ func main() {
 		defer cancel()
 		if err := store.Ping(pingCtx); err != nil {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "database unavailable"})
+			return
+		}
+		if reason := cacheReason(pingCtx, cache, resolver); reason != jobcache.ReasonNone {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "cache unavailable", "reason": reason})
+			return
+		}
+		if w1 := workerWrites(pingCtx, store); !w1.proven() {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "cache write-through not verified", "workerWrites": w1})
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"status": "ready"})
@@ -64,8 +107,16 @@ func main() {
 	mux.HandleFunc("GET /api/checks", func(w http.ResponseWriter, r *http.Request) {
 		pingCtx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		defer cancel()
-		checks := acceptanceChecks(os.Getenv("ACCEPTANCE_CONFIG"), os.Getenv("ACCEPTANCE_SECRET"), os.Getenv("ACCEPTANCE_SECRET_SHA256"), store.Ping(pingCtx))
-		writeJSON(w, http.StatusOK, map[string]any{"workload": "backend", "checks": checks})
+		dbErr := store.Ping(pingCtx)
+		reason := cacheReason(pingCtx, cache, resolver)
+		writes := workerWrites(pingCtx, store)
+		checks := acceptanceChecks(os.Getenv("ACCEPTANCE_CONFIG"), os.Getenv("ACCEPTANCE_SECRET"), os.Getenv("ACCEPTANCE_SECRET_SHA256"), dbErr)
+		checks["cache"] = reason == jobcache.ReasonNone && writes.proven()
+		writeJSON(w, http.StatusOK, map[string]any{
+			"workload": "backend",
+			"checks":   checks,
+			"cache":    cacheEvidence(redisCfg, cache != nil, reason, writes, evidence),
+		})
 	})
 	mux.HandleFunc("POST /api/jobs", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -89,39 +140,41 @@ func main() {
 			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid job id"})
 			return
 		}
-		job, found, err := store.Get(r.Context(), id)
+		lookup, err := resolver.Lookup(r.Context(), id)
 		if err != nil {
+			log.Printf("backend: read job failed: %v", err)
 			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "could not read the job"})
 			return
 		}
-		if !found {
+		if !lookup.Found {
 			writeJSON(w, http.StatusNotFound, map[string]any{"error": "job not found"})
 			return
 		}
-		writeJSON(w, http.StatusOK, job)
+		writeJSON(w, http.StatusOK, toResponse(lookup))
 	})
 	mux.HandleFunc("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) {
-		jobs, err := store.List(r.Context(), 20)
+		summaries, err := store.ListSummaries(r.Context(), 20)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "could not list jobs"})
 			return
 		}
+		lookups, err := resolver.LookupCompleted(r.Context(), summaries)
+		if err != nil {
+			log.Printf("backend: list jobs failed: %v", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "could not list jobs"})
+			return
+		}
+		jobs := make([]jobResponse, 0, len(lookups))
+		for i, l := range lookups {
+			if !l.Found { // deleted between the two reads
+				continue
+			}
+			l.Job.Payload = summaries[i].Payload
+			jobs = append(jobs, toResponse(l))
+		}
 		writeJSON(w, http.StatusOK, map[string]any{"jobs": jobs})
 	})
-
-	addr := ":" + jobstore.EnvOr("PORT", "8080")
-	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
-	go func() {
-		<-ctx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = server.Shutdown(shutdownCtx)
-	}()
-	log.Printf("backend: listening on %s", addr)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Printf("backend: %v", err)
-		os.Exit(1)
-	}
+	return mux
 }
 
 // acceptanceChecks deliberately reports only booleans: neither secret contents
@@ -134,6 +187,87 @@ func acceptanceChecks(config, secret, expectedSecretHash string, databaseErr err
 		"secret":      secret != "" && len(expectedSecretHash) == len(actualHash) && subtle.ConstantTimeCompare([]byte(actualHash), []byte(expectedSecretHash)) == 1,
 		"database":    databaseErr == nil,
 	}
+}
+
+// jobResponse is a job plus how the cache served it. The cache fields carry
+// classifications only, never cache contents or raw errors.
+type jobResponse struct {
+	jobstore.Job
+	Cache       jobcache.Outcome `json:"cache,omitempty"`
+	CacheReason jobcache.Reason  `json:"cacheReason,omitempty"`
+}
+
+func toResponse(l jobcache.Lookup) jobResponse {
+	return jobResponse{Job: l.Job, Cache: l.Outcome, CacheReason: l.Reason}
+}
+
+// writeOutcomes is the durable, PostgreSQL-recorded result of the worker's
+// write-through per completed job. Only counts are exposed.
+type writeOutcomes struct {
+	OK         int64 `json:"ok"`
+	Failed     int64 `json:"failed"`
+	Unverified int64 `json:"unverified"`
+	// Unknown is set when the outcomes could not be read at all.
+	Unknown bool `json:"unknown,omitempty"`
+}
+
+// proven reports whether every completed job has a recorded successful write.
+// A recorded failure (sticky within the run), a missing marker or an unreadable
+// state all count as not proven.
+func (w writeOutcomes) proven() bool { return !w.Unknown && w.Failed == 0 && w.Unverified == 0 }
+
+func workerWrites(ctx context.Context, store *jobstore.Store) writeOutcomes {
+	ok, failed, unverified, err := store.CacheWriteCounts(ctx)
+	if err != nil {
+		return writeOutcomes{Unknown: true}
+	}
+	return writeOutcomes{OK: ok, Failed: failed, Unverified: unverified}
+}
+
+// cacheReason pings Redis with the bound credentials and returns the safe
+// failure classification, or ReasonNone when the cache is usable.
+func cacheReason(ctx context.Context, cache *jobcache.Cache, resolver *jobcache.Resolver) jobcache.Reason {
+	if cache == nil {
+		return jobcache.ReasonConfig
+	}
+	if err := cache.Ping(ctx); err != nil {
+		return jobcache.Classify(err)
+	}
+	// PING is not enough: the account may be denied the commands lookups use.
+	if err := cache.Probe(ctx); err != nil {
+		return jobcache.Classify(err)
+	}
+	// A failure of a real lookup stays reported until that same job and
+	// operation succeeds again.
+	resolver.Recheck(ctx)
+	if f, failed := resolver.Evidence().Failure(); failed {
+		return f.Reason
+	}
+	return jobcache.ReasonNone
+}
+
+// cacheEvidence is the safe hit/miss/refill evidence for the acceptance runner:
+// counts, job ids, outcome and reason classifications, and the key scope.
+// It never includes the password, cache contents or raw errors.
+func cacheEvidence(cfg jobcache.Config, configured bool, reason jobcache.Reason, writes writeOutcomes, evidence *jobcache.Evidence) map[string]any {
+	counters, recent := evidence.Snapshot()
+	out := map[string]any{
+		"configured":   configured,
+		"reachable":    reason == jobcache.ReasonNone,
+		"reason":       reason,
+		"lookups":      counters,
+		"recent":       recent,
+		"workerWrites": writes,
+	}
+	failures, overflow := evidence.Failures()
+	out["unrecoveredFailures"] = failures
+	out["failuresOverflow"] = overflow
+	if configured {
+		out["tls"] = cfg.TLS
+		out["ttlSeconds"] = int(cfg.TTL / time.Second)
+		out["scope"] = cfg.App + "/" + cfg.Env + "/" + cfg.Run
+	}
+	return out
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

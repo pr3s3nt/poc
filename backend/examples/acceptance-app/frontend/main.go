@@ -63,6 +63,21 @@ var page = template.Must(template.New("page").Parse(`<!doctype html>
 </body>
 </html>`))
 
+// newChecks lists the existing deployment-check rows, all failing until the
+// backend reports otherwise. "cache" is the Redis dependency.
+func newChecks() []check {
+	return []check{{Name: "backend connection"}, {Name: "environment"}, {Name: "secret"}, {Name: "database"}, {Name: "cache"}}
+}
+
+// applyChecks marks the backend connection as passing and copies the backend's
+// boolean results. A check the backend does not report stays FAIL.
+func applyChecks(checks []check, reported map[string]bool) {
+	checks[0].Passed = true
+	for i := 1; i < len(checks); i++ {
+		checks[i].Passed = reported[checks[i].Name]
+	}
+}
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -76,7 +91,7 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ok","workload":"frontend"}`))
 	})
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		data := pageData{BackendURL: backendURL, Checks: []check{{Name: "backend connection"}, {Name: "environment"}, {Name: "secret"}, {Name: "database"}}}
+		data := pageData{BackendURL: backendURL, Checks: newChecks()}
 		checksResp, checksErr := client.Get(backendURL + "/api/checks")
 		if checksErr == nil {
 			var body struct {
@@ -85,10 +100,7 @@ func main() {
 			decodeErr := json.NewDecoder(checksResp.Body).Decode(&body)
 			_ = checksResp.Body.Close()
 			if checksResp.StatusCode == http.StatusOK && decodeErr == nil {
-				data.Checks[0].Passed = true
-				for i := 1; i < len(data.Checks); i++ {
-					data.Checks[i].Passed = body.Checks[data.Checks[i].Name]
-				}
+				applyChecks(data.Checks, body.Checks)
 			}
 		}
 		resp, err := client.Get(backendURL + "/api/jobs")
