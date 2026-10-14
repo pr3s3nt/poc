@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"orchestrator/internal/adapters/awsaccess"
 	"orchestrator/test/integration/v2run"
 )
 
@@ -16,6 +17,11 @@ import (
 type fakeAWS struct {
 	account, arn string
 	simulate     string // "allowed" or "implicitDeny"
+	denyAction   string
+	dropAction   string
+	duplicate    bool
+	unknown      bool
+	truncated    bool
 	tagged       bool
 	calls        []string
 }
@@ -33,17 +39,94 @@ func (f *fakeAWS) Run(_ context.Context, args ...string) ([]byte, string, int) {
 	case args[0] == "ec2":
 		return []byte(`{"Reservations":[],"Volumes":[],"Addresses":[]}`), "", 0
 	case args[0] == "iam":
-		var results []string
-		for _, action := range v2run.RequiredAWSActions {
-			results = append(results, `{"EvalActionName":"`+action+`","EvalDecision":"`+f.simulate+`"}`)
+		if len(args) < 2 || args[1] != "simulate-principal-policy" {
+			return nil, "unexpected IAM operation", 255
 		}
-		return []byte(`{"EvaluationResults":[` + strings.Join(results, ",") + `]}`), "", 0
+		contextOK := false
+		for i, arg := range args {
+			if arg == "--context-entries" && i+1 < len(args) && args[i+1] == "ContextKeyName=aws:RequestedRegion,ContextKeyType=string,ContextKeyValues=us-east-1" {
+				contextOK = true
+			}
+		}
+		if !contextOK {
+			return nil, "missing requested-region context", 255
+		}
+		start := -1
+		for i, arg := range args {
+			if arg == "--action-names" {
+				start = i + 1
+				break
+			}
+		}
+		if start < 0 {
+			return nil, "missing action names", 255
+		}
+		var actions []string
+		for _, action := range args[start:] {
+			if strings.HasPrefix(action, "--") {
+				break
+			}
+			actions = append(actions, action)
+		}
+		if len(actions) == 0 || len(actions) > 50 {
+			return nil, "bad action chunk", 255
+		}
+		var results []string
+		for _, action := range actions {
+			if action == f.dropAction {
+				continue
+			}
+			decision := f.simulate
+			if action == f.denyAction {
+				decision = "implicitDeny"
+			}
+			results = append(results, `{"EvalActionName":"`+action+`","EvalDecision":"`+decision+`"}`)
+			if f.duplicate && len(results) == 1 {
+				results = append(results, results[0])
+			}
+		}
+		if f.unknown {
+			results = append(results, `{"EvalActionName":"iam:Unexpected","EvalDecision":"allowed"}`)
+		}
+		truncated := "false"
+		if f.truncated {
+			truncated = "true"
+		}
+		return []byte(`{"EvaluationResults":[` + strings.Join(results, ",") + `],"IsTruncated":` + truncated + `}`), "", 0
 	}
 	return nil, "unexpected", 255
 }
 
 func newAWS() *fakeAWS {
 	return &fakeAWS{account: v2run.AWSAccountID, arn: "arn:aws:iam::452025861381:user/x", simulate: "allowed"}
+}
+
+func TestAWSPreflightUsesCompleteProductCapabilitiesAndECRActions(t *testing.T) {
+	got := v2run.RequiredAWSActions()
+	seen := make(map[string]bool, len(got))
+	for _, action := range got {
+		if seen[action] {
+			t.Fatalf("duplicate required action %q", action)
+		}
+		seen[action] = true
+	}
+	for _, action := range awsaccess.RequiredActions() {
+		if !seen[action] {
+			t.Errorf("runner preflight omits product capability %q", action)
+		}
+	}
+	for _, action := range []string{"eks:CreateAccessEntry", "eks:AssociateAccessPolicy", "ecr:GetAuthorizationToken", "ecr:PutImage", "ecr:DeleteRepository", "ecr:ListTagsForResource"} {
+		if !seen[action] {
+			t.Errorf("runner preflight omits required AWS action %q", action)
+		}
+	}
+	if len(got) <= len(awsaccess.RequiredActions()) {
+		t.Fatal("ECR preparation and cleanup actions were not added to the product capability set")
+	}
+	got[0] = "iam:MutatedCopy"
+	if v2run.RequiredAWSActions()[0] == "iam:MutatedCopy" {
+		t.Fatal("required action accessor exposed mutable shared state")
+	}
 }
 
 func TestAWSPreflightIsReadOnlyAndProvesIdentityTagsAndPermissions(t *testing.T) {
@@ -62,10 +145,16 @@ func TestAWSPreflightIsReadOnlyAndProvesIdentityTagsAndPermissions(t *testing.T)
 		}
 	}
 	for name, mutate := range map[string]func(*fakeAWS){
-		"other account":       func(f *fakeAWS) { f.account = "111111111111" },
-		"other principal":     func(f *fakeAWS) { f.arn = "arn:aws:iam::452025861381:user/other" },
-		"tag already present": func(f *fakeAWS) { f.tagged = true },
-		"permission denied":   func(f *fakeAWS) { f.simulate = "implicitDeny" },
+		"other account":            func(f *fakeAWS) { f.account = "111111111111" },
+		"other principal":          func(f *fakeAWS) { f.arn = "arn:aws:iam::452025861381:user/other" },
+		"tag already present":      func(f *fakeAWS) { f.tagged = true },
+		"permission denied":        func(f *fakeAWS) { f.simulate = "implicitDeny" },
+		"EKS access entry denied":  func(f *fakeAWS) { f.denyAction = "eks:CreateAccessEntry" },
+		"EKS access policy denied": func(f *fakeAWS) { f.denyAction = "eks:AssociateAccessPolicy" },
+		"missing result":           func(f *fakeAWS) { f.dropAction = "eks:CreateAccessEntry" },
+		"duplicate result":         func(f *fakeAWS) { f.duplicate = true },
+		"unknown result":           func(f *fakeAWS) { f.unknown = true },
+		"truncated result":         func(f *fakeAWS) { f.truncated = true },
 	} {
 		bad := newAWS()
 		mutate(bad)

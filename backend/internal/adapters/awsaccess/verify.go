@@ -127,6 +127,14 @@ var capabilityGroups = []capabilityGroup{
 	}},
 }
 
+// RequiredActions returns a defensive copy of the complete action set used by
+// the AWS modules. Execution preflights that simulate permissions must share
+// this source of truth instead of maintaining a smaller, drifting list.
+func RequiredActions() []string {
+	actions := requiredActions()
+	return append([]string(nil), actions...)
+}
+
 // requiredActions are the distinct actions of all groups, in group order.
 func requiredActions() []string {
 	seen := map[string]bool{}

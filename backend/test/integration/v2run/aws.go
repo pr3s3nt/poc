@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"orchestrator/internal/adapters/awsaccess"
 )
 
 // AWSCLI runs read-only `aws` commands with an explicit environment.
@@ -64,17 +66,30 @@ func (a ExecAWS) Run(ctx context.Context, args ...string) ([]byte, string, int) 
 	return []byte(out.String()), errOut.String(), exit
 }
 
-// RequiredAWSActions are the create/delete actions simulated read-only before a
-// run. A successful STS call proves authentication only.
-var RequiredAWSActions = []string{
-	"ec2:CreateVpc", "ec2:DeleteVpc", "ec2:CreateSubnet", "ec2:DeleteSubnet", "ec2:CreateSecurityGroup", "ec2:DeleteSecurityGroup",
-	"ec2:CreateInternetGateway", "ec2:DeleteInternetGateway", "ec2:CreateRouteTable", "ec2:DeleteRouteTable", "ec2:CreateTags",
-	"eks:CreateCluster", "eks:DeleteCluster", "eks:CreateNodegroup", "eks:DeleteNodegroup", "eks:TagResource",
-	"iam:CreateRole", "iam:DeleteRole", "iam:AttachRolePolicy", "iam:DetachRolePolicy", "iam:PassRole", "iam:TagRole",
-	"rds:CreateDBCluster", "rds:DeleteDBCluster", "rds:CreateDBInstance", "rds:DeleteDBInstance", "rds:CreateDBSubnetGroup",
-	"elasticache:CreateReplicationGroup", "elasticache:DeleteReplicationGroup", "elasticache:CreateCacheSubnetGroup",
-	"ecr:CreateRepository", "ecr:DeleteRepository", "ecr:DescribeRepositories", "ecr:DescribeImages", "ecr:ListTagsForResource", "ecr:GetAuthorizationToken",
-	"ecr:TagResource", "ecr:PutImage", "ecr:BatchCheckLayerAvailability", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload",
+const awsActionSimulationChunkSize = 50
+
+var ecrRequiredActions = []string{
+	"ecr:CreateRepository", "ecr:DeleteRepository", "ecr:DescribeRepositories", "ecr:DescribeImages", "ecr:ListTagsForResource",
+	"ecr:GetAuthorizationToken", "ecr:TagResource", "ecr:PutImage", "ecr:BatchCheckLayerAvailability", "ecr:InitiateLayerUpload",
+	"ecr:UploadLayerPart", "ecr:CompleteLayerUpload",
+}
+
+// RequiredAWSActions returns the product-module capability set plus the ECR
+// actions used by image preparation and exact cleanup. Product permissions are
+// owned by awsaccess.RequiredActions so connection verification and execution
+// preflight cannot drift apart.
+func RequiredAWSActions() []string {
+	seen := make(map[string]struct{})
+	actions := append(awsaccess.RequiredActions(), ecrRequiredActions...)
+	for _, action := range actions {
+		seen[action] = struct{}{}
+	}
+	out := make([]string, 0, len(seen))
+	for action := range seen {
+		out = append(out, action)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // PreflightAWS runs the read-only AWS checks before any effect: the STS
@@ -102,32 +117,83 @@ func PreflightAWS(ctx context.Context, cli AWSCLI, c Config) []Check {
 		p := q.Evaluate(stdout, serr, code)
 		add("run-tag-absent:"+q.ID, p.Absent(), strings.Join(p.Present, ","))
 	}
-	args := []string{"iam", "simulate-principal-policy", "--policy-source-arn", a.PrincipalARN, "--action-names"}
-	args = append(args, RequiredAWSActions...)
-	sim, serr, code := cli.Run(ctx, args...)
-	if code != 0 {
-		add("permission-simulation", false, "cannot be proven read-only: "+firstLine(serr))
-		return out
+	if err := simulateAWSActions(ctx, cli, a.PrincipalARN, a.Region, RequiredAWSActions()); err != nil {
+		add("permission-simulation", false, err.Error())
+	} else {
+		add("permission-simulation", true, "")
 	}
-	var doc struct {
-		EvaluationResults []struct {
-			EvalActionName string
-			EvalDecision   string
-		}
-	}
-	if json.Unmarshal(sim, &doc) != nil || len(doc.EvaluationResults) == 0 {
-		add("permission-simulation", false, "unreadable simulation answer")
-		return out
-	}
-	var denied []string
-	for _, r := range doc.EvaluationResults {
-		if r.EvalDecision != "allowed" {
-			denied = append(denied, r.EvalActionName)
-		}
-	}
-	sort.Strings(denied)
-	add("permission-simulation", len(denied) == 0 && len(doc.EvaluationResults) >= len(RequiredAWSActions), strings.Join(denied, ","))
 	return out
+}
+
+type awsSimulationResult struct {
+	EvaluationResults []struct {
+		EvalActionName string   `json:"EvalActionName"`
+		EvalDecision   string   `json:"EvalDecision"`
+		MissingContext []string `json:"MissingContextValues"`
+		Organizations  *struct {
+			AllowedByOrganizations *bool `json:"AllowedByOrganizations"`
+		} `json:"OrganizationsDecisionDetail"`
+	} `json:"EvaluationResults"`
+	IsTruncated bool   `json:"IsTruncated"`
+	Marker      string `json:"Marker"`
+}
+
+// validateAWSActionSimulation requires one and only one allowed result for
+// every requested action. Partial, duplicated, extraneous, truncated, and
+// context-incomplete replies are not permission evidence.
+func validateAWSActionSimulation(expected []string, raw []byte) error {
+	var doc awsSimulationResult
+	if len(expected) == 0 || json.Unmarshal(raw, &doc) != nil || doc.IsTruncated || doc.Marker != "" {
+		return errors.New("permission simulation result is incomplete or unreadable")
+	}
+	want := make(map[string]struct{}, len(expected))
+	for _, action := range expected {
+		if action == "" {
+			return errors.New("permission simulation action set is invalid")
+		}
+		if _, exists := want[action]; exists {
+			return errors.New("permission simulation action set contains duplicates")
+		}
+		want[action] = struct{}{}
+	}
+	seen := make(map[string]struct{}, len(doc.EvaluationResults))
+	for _, result := range doc.EvaluationResults {
+		if _, ok := want[result.EvalActionName]; !ok {
+			return errors.New("permission simulation returned an unexpected action")
+		}
+		if _, ok := seen[result.EvalActionName]; ok {
+			return errors.New("permission simulation returned a duplicate action")
+		}
+		seen[result.EvalActionName] = struct{}{}
+		if result.EvalDecision != "allowed" || len(result.MissingContext) != 0 {
+			return fmt.Errorf("permission denied or unproven: %s", result.EvalActionName)
+		}
+		if result.Organizations != nil && (result.Organizations.AllowedByOrganizations == nil || !*result.Organizations.AllowedByOrganizations) {
+			return fmt.Errorf("organization policy denied or did not prove: %s", result.EvalActionName)
+		}
+	}
+	if len(seen) != len(want) {
+		return errors.New("permission simulation omitted required actions")
+	}
+	return nil
+}
+
+func simulateAWSActions(ctx context.Context, cli AWSCLI, principalARN, region string, actions []string) error {
+	for start := 0; start < len(actions); start += awsActionSimulationChunkSize {
+		end := min(start+awsActionSimulationChunkSize, len(actions))
+		chunk := actions[start:end]
+		args := []string{"iam", "simulate-principal-policy", "--policy-source-arn", principalARN, "--action-names"}
+		args = append(args, chunk...)
+		args = append(args, "--context-entries", "ContextKeyName=aws:RequestedRegion,ContextKeyType=string,ContextKeyValues="+region)
+		raw, _, code := cli.Run(ctx, args...)
+		if code != 0 {
+			return errors.New("permission simulation could not be proven")
+		}
+		if err := validateAWSActionSimulation(chunk, raw); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // AWSGate refuses any AWS effect until I04-11 passed: the evidence directories
