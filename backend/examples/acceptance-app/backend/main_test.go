@@ -88,6 +88,9 @@ func (a *app) workerComplete() jobstore.Job {
 	if err := cache.Put(context.Background(), job); err != nil {
 		a.t.Fatalf("write-through: %v", err)
 	}
+	if err := a.store.RecordCacheWrite(context.Background(), job.ID, true); err != nil {
+		a.t.Fatal(err)
+	}
 	return job
 }
 
@@ -294,6 +297,20 @@ func TestBackendWorkerWriteFailureStaysVisibleAfterRedisRecovers(t *testing.T) {
 	if cacheCheck(checks) || writes["failed"].(float64) != 1 {
 		t.Fatalf("a failed write-through must keep the cache check failed even after Redis recovers: %v", checks)
 	}
+	// Redis answers again, yet readiness must still fail on the durable FAILED marker.
+	if checks["cache"].(map[string]any)["reachable"] != true {
+		t.Fatalf("redis should be reachable again: %v", checks["cache"])
+	}
+	status, ready, rawReady := a.do("GET", "/readyz", "")
+	if status != http.StatusServiceUnavailable || ready["status"] != "cache write-through not verified" {
+		t.Fatalf("readyz = %d %v", status, ready)
+	}
+	// Reads that refill the cache do not erase the recorded failure.
+	a.do("GET", "/api/jobs/"+itoa(int(id)), "")
+	if _, again, _ := a.do("GET", "/api/checks", ""); cacheCheck(again) {
+		t.Fatal("a refill must not clear a FAILED marker")
+	}
+	a.assertSafe(rawReady)
 	if a.jobs() != 1 {
 		t.Fatal("exactly one job expected")
 	}
@@ -310,4 +327,47 @@ func TestBackendBadRequestsDoNotTouchTheCache(t *testing.T) {
 	if status, _, _ := a.do("POST", "/api/jobs", `{"payload":"  "}`); status != 400 {
 		t.Fatalf("status %d", status)
 	}
+}
+
+func TestBackendUnmarkedCompletedJobIsNotVerifiedUntilMarked(t *testing.T) {
+	a := newApp(t, 30*time.Second, nil)
+	a.submit("crash-before-marker")
+	// Commit and write through, but the worker "crashes" before RecordCacheWrite.
+	job, claimed, err := a.store.ClaimAndProcess(context.Background(), "worker-1", strings.ToUpper)
+	if err != nil || !claimed {
+		t.Fatal(err)
+	}
+	cache := jobcache.New(a.cfg)
+	if err := cache.Put(context.Background(), job); err != nil {
+		t.Fatal(err)
+	}
+	_ = cache.Close()
+
+	check := func(wantPass bool, wantUnverified, wantOK float64) {
+		t.Helper()
+		_, checks, raw := a.do("GET", "/api/checks", "")
+		writes := checks["cache"].(map[string]any)["workerWrites"].(map[string]any)
+		if cacheCheck(checks) != wantPass || writes["unverified"].(float64) != wantUnverified || writes["ok"].(float64) != wantOK {
+			t.Fatalf("pass=%v writes=%v", cacheCheck(checks), writes)
+		}
+		status, _, _ := a.do("GET", "/readyz", "")
+		if (status == http.StatusOK) != wantPass {
+			t.Fatalf("readyz = %d, want pass=%v", status, wantPass)
+		}
+		a.assertSafe(raw)
+	}
+	check(false, 1, 0) // Redis is healthy and even holds the entry, but no write is proven.
+	if err := a.store.RecordCacheWrite(context.Background(), job.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	check(true, 0, 1)
+	// A new completed job without a marker fails the check again.
+	a.submit("second")
+	second, _, _ := a.store.ClaimAndProcess(context.Background(), "worker-1", strings.ToUpper)
+	check(false, 1, 1)
+	_ = a.store.RecordCacheWrite(context.Background(), second.ID, true)
+	check(true, 0, 2)
+	// Pending jobs are not completed work and do not affect the check.
+	a.submit("pending-only")
+	check(true, 0, 2)
 }

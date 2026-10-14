@@ -90,6 +90,10 @@ func newMux(store *jobstore.Store, cfg jobstore.Config, cache *jobcache.Cache, r
 			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "cache unavailable", "reason": reason})
 			return
 		}
+		if w1 := workerWrites(pingCtx, store); !w1.proven() {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "cache write-through not verified", "workerWrites": w1})
+			return
+		}
 		writeJSON(w, http.StatusOK, map[string]any{"status": "ready"})
 	})
 	mux.HandleFunc("GET /api/info", func(w http.ResponseWriter, _ *http.Request) {
@@ -105,16 +109,13 @@ func newMux(store *jobstore.Store, cfg jobstore.Config, cache *jobcache.Cache, r
 		defer cancel()
 		dbErr := store.Ping(pingCtx)
 		reason := cacheReason(pingCtx, cache)
-		okWrites, failedWrites, writesErr := store.CacheWriteCounts(pingCtx)
-		if writesErr != nil {
-			failedWrites = -1 // unknown counts as failed below
-		}
+		writes := workerWrites(pingCtx, store)
 		checks := acceptanceChecks(os.Getenv("ACCEPTANCE_CONFIG"), os.Getenv("ACCEPTANCE_SECRET"), os.Getenv("ACCEPTANCE_SECRET_SHA256"), dbErr)
-		checks["cache"] = reason == jobcache.ReasonNone && failedWrites == 0
+		checks["cache"] = reason == jobcache.ReasonNone && writes.proven()
 		writeJSON(w, http.StatusOK, map[string]any{
 			"workload": "backend",
 			"checks":   checks,
-			"cache":    cacheEvidence(redisCfg, cache != nil, reason, okWrites, failedWrites, evidence),
+			"cache":    cacheEvidence(redisCfg, cache != nil, reason, writes, evidence),
 		})
 	})
 	mux.HandleFunc("POST /api/jobs", func(w http.ResponseWriter, r *http.Request) {
@@ -200,6 +201,29 @@ func toResponse(l jobcache.Lookup) jobResponse {
 	return jobResponse{Job: l.Job, Cache: l.Outcome, CacheReason: l.Reason}
 }
 
+// writeOutcomes is the durable, PostgreSQL-recorded result of the worker's
+// write-through per completed job. Only counts are exposed.
+type writeOutcomes struct {
+	OK         int64 `json:"ok"`
+	Failed     int64 `json:"failed"`
+	Unverified int64 `json:"unverified"`
+	// Unknown is set when the outcomes could not be read at all.
+	Unknown bool `json:"unknown,omitempty"`
+}
+
+// proven reports whether every completed job has a recorded successful write.
+// A recorded failure (sticky within the run), a missing marker or an unreadable
+// state all count as not proven.
+func (w writeOutcomes) proven() bool { return !w.Unknown && w.Failed == 0 && w.Unverified == 0 }
+
+func workerWrites(ctx context.Context, store *jobstore.Store) writeOutcomes {
+	ok, failed, unverified, err := store.CacheWriteCounts(ctx)
+	if err != nil {
+		return writeOutcomes{Unknown: true}
+	}
+	return writeOutcomes{OK: ok, Failed: failed, Unverified: unverified}
+}
+
 // cacheReason pings Redis with the bound credentials and returns the safe
 // failure classification, or ReasonNone when the cache is usable.
 func cacheReason(ctx context.Context, cache *jobcache.Cache) jobcache.Reason {
@@ -215,7 +239,7 @@ func cacheReason(ctx context.Context, cache *jobcache.Cache) jobcache.Reason {
 // cacheEvidence is the safe hit/miss/refill evidence for the acceptance runner:
 // counts, job ids, outcome and reason classifications, and the key scope.
 // It never includes the password, cache contents or raw errors.
-func cacheEvidence(cfg jobcache.Config, configured bool, reason jobcache.Reason, okWrites, failedWrites int64, evidence *jobcache.Evidence) map[string]any {
+func cacheEvidence(cfg jobcache.Config, configured bool, reason jobcache.Reason, writes writeOutcomes, evidence *jobcache.Evidence) map[string]any {
 	counters, recent := evidence.Snapshot()
 	out := map[string]any{
 		"configured":   configured,
@@ -223,7 +247,7 @@ func cacheEvidence(cfg jobcache.Config, configured bool, reason jobcache.Reason,
 		"reason":       reason,
 		"lookups":      counters,
 		"recent":       recent,
-		"workerWrites": map[string]int64{"ok": okWrites, "failed": failedWrites},
+		"workerWrites": writes,
 	}
 	if configured {
 		out["tls"] = cfg.TLS

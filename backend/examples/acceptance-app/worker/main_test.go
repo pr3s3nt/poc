@@ -84,7 +84,7 @@ func TestWorkerCommitsToPostgreSQLThenWritesThroughRedis(t *testing.T) {
 	if ttl := w.redis.Client(t).TTL(ctx, key).Val(); ttl <= 0 || ttl > 30*time.Second {
 		t.Fatalf("ttl %v", ttl)
 	}
-	ok, failed, _ := w.store.CacheWriteCounts(ctx)
+	ok, failed, _, _ := w.store.CacheWriteCounts(ctx)
 	if ok != 1 || failed != 0 {
 		t.Fatalf("write markers ok=%d failed=%d", ok, failed)
 	}
@@ -109,7 +109,7 @@ func TestWorkerCacheFailureAfterCommitKeepsOneCompletedJob(t *testing.T) {
 	if n, _ := w.store.CountJobs(ctx); n != 1 {
 		t.Fatalf("rows = %d, want exactly one", n)
 	}
-	ok, failed, _ := w.store.CacheWriteCounts(ctx)
+	ok, failed, _, _ := w.store.CacheWriteCounts(ctx)
 	if ok != 0 || failed != 1 {
 		t.Fatalf("a failed write-through must be recorded, not reported as success: ok=%d failed=%d", ok, failed)
 	}

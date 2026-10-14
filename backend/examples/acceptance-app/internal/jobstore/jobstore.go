@@ -248,16 +248,19 @@ func (s *Store) RecordCacheWrite(ctx context.Context, id int64, ok bool) error {
 	return nil
 }
 
-// CacheWriteCounts counts the completed jobs whose write-through succeeded and
-// failed. Jobs without a marker are not counted as either.
-func (s *Store) CacheWriteCounts(ctx context.Context) (okCount, failedCount int64, err error) {
+// CacheWriteCounts counts the completed jobs by the worker's recorded
+// write-through outcome. unverified are completed jobs with no marker (the
+// worker crashed or could not record it): nothing proves their cache write.
+func (s *Store) CacheWriteCounts(ctx context.Context) (okCount, failedCount, unverified int64, err error) {
 	row := s.pool.QueryRow(ctx, `SELECT
 		count(*) FILTER (WHERE cache_write = 'OK'),
-		count(*) FILTER (WHERE cache_write = 'FAILED') FROM jobs`)
-	if err := row.Scan(&okCount, &failedCount); err != nil {
-		return 0, 0, fmt.Errorf("jobstore: cache write counts: %w", err)
+		count(*) FILTER (WHERE cache_write = 'FAILED'),
+		count(*) FILTER (WHERE cache_write IS NULL OR cache_write NOT IN ('OK', 'FAILED'))
+		FROM jobs WHERE status = 'DONE'`)
+	if err := row.Scan(&okCount, &failedCount, &unverified); err != nil {
+		return 0, 0, 0, fmt.Errorf("jobstore: cache write counts: %w", err)
 	}
-	return okCount, failedCount, nil
+	return okCount, failedCount, unverified, nil
 }
 
 // CountJobs returns the number of rows in the jobs table.

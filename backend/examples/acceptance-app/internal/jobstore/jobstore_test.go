@@ -128,8 +128,8 @@ func TestClaimProcessesEachJobExactlyOnce(t *testing.T) {
 	if err := store.RecordCacheWrite(ctx, job.ID, true); err != nil {
 		t.Fatal(err)
 	}
-	ok, failed, err := store.CacheWriteCounts(ctx)
-	if err != nil || ok != 1 || failed != 0 {
+	ok, failed, unverified, err := store.CacheWriteCounts(ctx)
+	if err != nil || ok != 1 || failed != 0 || unverified != 0 {
 		t.Fatalf("counts ok=%d failed=%d err=%v", ok, failed, err)
 	}
 	summaries, err := store.ListSummaries(ctx, 10)
