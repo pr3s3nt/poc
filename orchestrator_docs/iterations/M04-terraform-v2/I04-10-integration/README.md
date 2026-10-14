@@ -1,7 +1,7 @@
 ---
 id: I04-10
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-10-14
 related: [M04, ADR-014, IMP-021]
 ---
@@ -10,9 +10,10 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Current sau I04-09 verified local; cloud head `bb0ae24` đã kéo về và giữ code
-dở từ Claude local. Cả cloud và local đã hết hạn mức; agent Codex
-`gpt-6-luna` đang viết tiếp theo quyền người dùng, chưa verified hoặc merge.
+Chặng 2; xem [M04](../README.md). Hoàn tất local tại `0964fb6`:1351Go/race/0skip,
+622frontend và fullchecks đạt. Claude cloud/local hết hạn mức, Luna hoàn tất
+code theo quyền người dùng. [Biên bản](../../../verification/2026-10-14-i04-10-integration.md).
+Live proof chuyển I04-11/12.
 
 ## Phạm vi
 

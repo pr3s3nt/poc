@@ -20,6 +20,7 @@ last_reviewed: 2026-10-14
 | I04-07 Definition/class/renderer/Preview và safe progress | [`Definition form`](../../frontend/src/features/platform/ResourceDefinitionsPage.tsx), [`module mapping`](../../frontend/src/features/platform/moduleMapping.ts), [`strict metadata`](../../frontend/src/features/platform/metadata.ts), [`classes`](../../backend/internal/application/catalog/classes.go), [`Workload controls`](../../frontend/src/features/workloads/ClassControls.tsx), [`intent`](../../backend/internal/planning/intent.go), [`baseline snapshot`](../../backend/internal/application/deployment/baseline.go), [`pending consistency tests`](../../backend/internal/application/pending/snapshot_consistency_test.go), [`safe progress`](../../backend/internal/domain/deployment/deployment.go), [`SQL projection`](../../backend/internal/adapters/postgres/deployment.go), [`headed runner`](../../backend/test/integration/definition-workload-local.sh) |
 | I04-08 resource detail/confirmed deletion/progress | [`admission/planner/query`](../../backend/internal/application/resourcecleanup/), [`safe SQL reads`](../../backend/internal/adapters/postgres/resources.go), [`HTTP`](../../backend/internal/delivery/http/resource_cleanup.go), [`engine`](../../backend/internal/application/tfexec/cleanup.go), [`Console`](../../frontend/src/features/resources/), [`selected-set UI rules`](../../frontend/src/features/resources/selection.ts), [`SQL/HTTP tests`](../../backend/test/e2e/resource_cleanup_http_test.go), [`headed runner`](../../backend/test/integration/resource-delete-local.sh), [`scenario`](../../frontend/test/e2e/resource-delete-local.mjs) |
 | I04-09 Redis acceptance app | [`cache/config/resolver`](../../backend/examples/acceptance-app/internal/jobcache/), [`durable job/marker`](../../backend/examples/acceptance-app/internal/jobstore/), [`backend`](../../backend/examples/acceptance-app/backend/), [`worker`](../../backend/examples/acceptance-app/worker/), [`app UI`](../../backend/examples/acceptance-app/frontend/), [`real fixture`](../../backend/examples/acceptance-app/internal/testfixture/), [`fixture runner`](../../backend/test/integration/acceptance-redis-local.sh) |
+| I04-10 real-profile/cleanup/acceptance runner | [`profile guard`](../../backend/internal/bootstrap/realprofile.go), [`durable outputs`](../../backend/internal/adapters/vault/output_secrets.go), [`original-engine cleanup`](../../backend/internal/application/runcleanup/), [`delivery removal`](../../backend/internal/application/deployment/remove_delivered.go), [`process kill-chain`](../../backend/internal/application/tfexec/killchain_test.go), [`runner`](../../backend/test/integration/terraform-v2-acceptance.sh), [`supervisor/manifest/ECR/probes`](../../backend/test/integration/v2run/), [`cleanup wiring`](../../backend/test/integration/v2cleanup/), [`headed scenarios`](../../frontend/test/e2e/terraform-v2-acceptance.mjs) |
 | Process bootstrap and adapter wiring | [`backend/internal/bootstrap`](../../backend/internal/bootstrap/) |
 | HTTP API and `/ui/` delivery | [`backend/internal/delivery/http`](../../backend/internal/delivery/http/) |
 | UC-02..UC-04 seed/catalog baseline | [`backend/internal/seed`](../../backend/internal/seed/) and persistence adapters |
@@ -482,15 +483,13 @@ T02/T16 JSON locators use the new explicit advanced mode.
 
 Execution evidence: [T31 local verification](../verification/2026-10-12-T31-typed-definitions.md).
 
-## Terraform v2 planned implementation impact (not yet delivered)
+## Terraform v2 implementation route
 
-[ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) and
-[IMP-021](deviations.md#imp-021-terraform-v2-designimplementation-gap) distinguish
-required design from existing paths. Extend existing Terraform/catalog/planning/
-provisioning/Connection/Vault/PostgreSQL adapters and Console ResourceDefinitions,
-Workload editor, Preview and deployment detail features listed above. Add state
-backend/lock/instance-attempt/cleanup ports and adapters according to contracts/
-schema; exact new code paths are recorded here only after implementation.
-Acceptance app gains Redis cache behavior in its Go workloads, not Web Console
-product code. Existing integration scripts are baseline; v2 runner must use real
-UI/adapter assertions, independent cleanup and retained failure evidence.
+[ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md) và
+[IMP-021](deviations.md#imp-021-terraform-v2-designimplementation-gap) phân biệt
+scope thiết kế với code/evidence. Các paths I04-01..10 phía trên đã hiện thực
+state/locks/registry/executor/modules/Connections/Console deletion, Redis app
+và runner. [I04-10 local verification](../verification/2026-10-14-i04-10-integration.md)
+chỉ chứng minh local checks; live UI/adapters/cleanup/video còn I04-11/12.
+D12 automatic recovery, D13 orphan reconciliation và D14 backup/restore còn
+hoãn, không coi safety net của owned acceptance run là hoàn tất các hạng mục đó.

@@ -43,8 +43,8 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-07 | [Definition, Workload class, Preview và renderer](I04-07-definition-workload-ui/README.md) | 2 | Hoàn tất local |
 | I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Hoàn tất local |
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
-| I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Current; Codex kiểm code Luna local |
-| I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Chưa bắt đầu |
+| I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
+| I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Current; chuẩn bị chạy thật |
 | I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Chưa bắt đầu |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
@@ -52,7 +52,7 @@ Dependencies triển khai: schema/state -> registry -> executor -> modules ->
 Connection/catalog/Workload/renderer -> deletion/app Redis -> integration ->
 k8s-4f đạt + video/estimate + cleanup sạch -> AWS. Không bỏ task hoặc đổi adapter để rút acceptance.
 I04-00 đã được người dùng duyệt sau sửa selected-set và đối chiếu I06-10.
-I04-10 là iteration current; các task sau chưa bắt đầu. M02/I06-10 deferred,
+I04-11 là iteration current; I04-12 chưa bắt đầu. M02/I06-10 deferred,
 không coi milestone cũ hoàn thành; xem [coverage còn lại](../M02-usecase-completion/I06-10-uc01-04-management/README.md#đối-chiếu-công-việc-còn-dở-với-m04).
 
 ## Validation và acceptance
@@ -215,3 +215,12 @@ kill-chain và Vault riêng. Không import bản cũ đè các sửa lỗi local
 chạy thật; không thêm yêu cầu configuration-secret AWS trái nguồn chuẩn.
 Không task-owned live cluster/AWS assets; private kubeconfig/reviewer handles
 đã tạo ngoài Git để Codex chạy I04-11, không gửi cho writer.
+
+I04-10 hoàn tất local: code `b66b5ba`, squash `0964fb6`;1351Go/race/0fail/0skip,
+622frontend/fullchecks/docs/shell đạt. [Biên bản](../../verification/2026-10-14-i04-10-integration.md).
+Task I04-11 current: Codex chạy thật A01/E01/E02 trên `kind-k8s-4f`, chỉ owned
+namespaces, độc lập cleanup và video. Private handles ở `/tmp/poc-i0411-private/`,
+không gửi writer; headed Chromium/xdotool/pins đã chuẩn bị. AWS estimate còn
+`/tmp/poc-m04-estimate-20261014/` draft; chốt trước gate. Không có task-owned
+live assets lúc bàn giao này. Lỗi code trả agent Luna theo quyền fallback,
+không tự viết code sản phẩm/test. Giữ final gate, không tự ghi đã duyệt.

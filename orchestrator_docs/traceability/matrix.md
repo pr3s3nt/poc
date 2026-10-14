@@ -650,3 +650,11 @@ TERRAFORM-MODULE-CONTRACT: commit/write-through, hit/miss/refill, TTL/prefix,
 no duplicate/cache failure diagnostics và per-job proof không false-pass.
 1254Go/0skip,609frontend/fullchecks/6image manifests/cleanup đạt. Không video
 unit hoặc live A01/A02/A03; binding/runner/live proof còn I04-10..12.
+
+## I04-10 local review complete
+
+[Biên bản](../verification/2026-10-14-i04-10-integration.md):1351Go/race/0skip,
+622frontend/fullchecks. Real-profile, durable Vault outputs, original-engine
+cleanup với claims, process-kill proof, strict AWS identity và ECR/probe ownership
+đã có code/test. Fake-backed provider/readiness tests không thay A01/A02/A03/E01/E02
+live evidence; I04-11 current, I04-12 gated. IMP-021 còn mở, D12–D14 không đóng.
