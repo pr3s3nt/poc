@@ -15,9 +15,11 @@ export type Eligibility = { eligible: boolean; reasons: string[] };
 export type CleanupSummary = { operationId: string; status: string; stage: string };
 export type AttemptSummary = { number: number; action: string; stage: string; status: string; errorCode?: string; updatedAt: string };
 
+export type Target = { known: boolean; connectionKey?: string; connectionName?: string; connectionKind?: string; profile?: string; accountId?: string; region?: string; generation: number };
+
 export type ResourceDetail = {
   id: string; applicationId: string; environment: string; descriptor: string; type: string; class: string; resourceId: string;
-  status: string; scope: { type: string; id: string }; owner: string; generation: number; module: { id: string; revision: string };
+  status: string; scope: { type: string; id: string }; owner: string; generation: number; module: { id: string; revision: string }; target: Target;
   version: number; outputs: Record<string, string>; consumers: Consumer[]; eligibility: Eligibility;
   lastAttempt?: AttemptSummary; cleanup?: CleanupSummary;
 };
@@ -37,7 +39,8 @@ export type DeletionPreview = {
 export type Admission = { operationId: string; status: string; stage: string; replayed: boolean };
 
 export type CleanupResource = {
-  id: string; descriptor: string; status: string; outcome: string; verified: boolean; remaining: string[]; remainingUnknown: boolean; reasonCode?: string;
+  // The resource's status right now (context only); outcome and verified are what THIS operation recorded.
+  id: string; descriptor: string; currentStatus: string; outcome: string; verified: boolean; remaining: string[]; remainingUnknown: boolean; reasonCode?: string;
 };
 
 export type CleanupOperation = {
@@ -64,6 +67,11 @@ function eligibility(v: unknown): Eligibility {
   return { eligible: bool(o.eligible), reasons: strs(o.reasons) };
 }
 
+function target(v: unknown): Target {
+  const o = obj(v);
+  return { known: bool(o.known), connectionKey: optStr(o.connectionKey), connectionName: optStr(o.connectionName), connectionKind: optStr(o.connectionKind), profile: optStr(o.profile), accountId: optStr(o.accountId), region: optStr(o.region), generation: num(o.generation) };
+}
+
 export function parseResource(raw: unknown): ResourceDetail {
   const o = obj(obj(raw).resource);
   const scope = obj(o.scope);
@@ -78,7 +86,7 @@ export function parseResource(raw: unknown): ResourceDetail {
   return {
     id: str(o.id), applicationId: str(o.applicationId), environment: str(o.environment), descriptor: str(o.descriptor), type: str(o.type), class: str(o.class), resourceId: str(o.resourceId),
     status: str(o.status), scope: { type: str(scope.type), id: str(scope.id) }, owner: str(o.owner), generation: num(o.generation), module: { id: str(module.id), revision: str(module.revision) },
-    version: num(o.version), outputs, consumers: arr(o.consumers).map(consumer), eligibility: eligibility(o.eligibility),
+    target: target(o.target), version: num(o.version), outputs, consumers: arr(o.consumers).map(consumer), eligibility: eligibility(o.eligibility),
     lastAttempt: attempt ? { number: num(attempt.number), action: str(attempt.action), stage: str(attempt.stage), status: str(attempt.status), errorCode: optStr(attempt.errorCode), updatedAt: str(attempt.updatedAt) } : undefined,
     cleanup: cleanup ? { operationId: str(cleanup.operationId), status: str(cleanup.status), stage: str(cleanup.stage) } : undefined,
   };
@@ -116,7 +124,7 @@ export function parseCleanup(raw: unknown): CleanupOperation {
     actor: str(o.actor), rootId: str(o.rootId), remainingIds: strs(o.remainingIds), failureCode: optStr(o.failureCode), startedAt: str(o.startedAt), updatedAt: str(o.updatedAt), finishedAt: optStr(o.finishedAt),
     resources: arr(o.resources).map((item) => {
       const r = obj(item);
-      return { id: str(r.id), descriptor: str(r.descriptor), status: str(r.status), outcome: str(r.outcome), verified: bool(r.verified), remaining: strs(r.remaining), remainingUnknown: bool(r.remainingUnknown), reasonCode: optStr(r.reasonCode) };
+      return { id: str(r.id), descriptor: str(r.descriptor), currentStatus: str(r.currentStatus), outcome: str(r.outcome), verified: bool(r.verified), remaining: strs(r.remaining), remainingUnknown: bool(r.remainingUnknown), reasonCode: optStr(r.reasonCode) };
     }),
   };
 }

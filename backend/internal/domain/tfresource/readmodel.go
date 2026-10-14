@@ -39,10 +39,24 @@ type CleanupRecord struct {
 	Status      string
 	Stage       string
 	Failure     string
+	// ConfirmationName is the server-derived root descriptor the person typed.
+	ConfirmationName string
 	// Detail is the persisted operation detail document; callers project it
 	// through an allowlist and never forward it raw.
 	Detail     map[string]any
 	StartedAt  time.Time
 	UpdatedAt  time.Time
 	FinishedAt *time.Time
+}
+
+// OperationAttempt is the safe, Console-readable summary of one execution
+// attempt bound to a cleanup operation. A SUCCEEDED DESTROY attempt at stage
+// DESTROYED, written by that operation's owner, is the persisted verification
+// of the destroy by exactly that operation.
+type OperationAttempt struct {
+	InstanceID    string
+	Action        Action
+	Stage         string
+	Status        AttemptStatus
+	SafeErrorCode string
 }

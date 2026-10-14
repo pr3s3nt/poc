@@ -175,6 +175,13 @@ type ResourceReader interface {
 	GetCleanupRecord(ctx context.Context, applicationKey, environmentKey, operationID string) (tfresource.CleanupRecord, error)
 	// ListCleanupRecords returns the Environment's cleanup operations, newest first.
 	ListCleanupRecords(ctx context.Context, applicationKey, environmentKey string, limit int) ([]tfresource.CleanupRecord, error)
+	// FindCleanupByRequest returns the operation this actor admitted with this
+	// request hash in the Environment, if any. It lets an idempotent replay be
+	// answered from persistence alone, whatever the graph looks like now.
+	FindCleanupByRequest(ctx context.Context, applicationKey, environmentKey, actorRef, requestHash string) (rec tfresource.CleanupRecord, found bool, err error)
+	// ListOperationAttempts returns the safe summaries of the attempts bound to
+	// one cleanup operation of the Environment.
+	ListOperationAttempts(ctx context.Context, applicationKey, environmentKey, operationID string) ([]tfresource.OperationAttempt, error)
 }
 
 // Cipher seals and opens state with a key held outside the database. Each

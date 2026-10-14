@@ -144,7 +144,7 @@ func TestDeletionPreviewShowsRootAndSafeCandidates(t *testing.T) {
 	// private data.
 	token := pv["token"].(string)
 	parts := strings.Split(token, ".")
-	if len(parts) != 3 || parts[0] != "rd1" || len(parts[2]) != 64 {
+	if len(parts) != 4 || parts[0] != "rd1" || len(parts[2]) != 16 || len(parts[3]) != 64 {
 		t.Fatalf("token shape: %q", token)
 	}
 	for _, part := range parts {
@@ -809,5 +809,152 @@ func TestResourceListIsScopedSafeAndOmitsPlatform(t *testing.T) {
 	_, _, body := f.do(f.pe, http.MethodGet, other, nil)
 	if len(body["resources"].([]any)) != 0 {
 		t.Fatal("another Environment's list is not empty")
+	}
+}
+
+// TestTokenExpiryIsBoundToTheDigest: the expiry is an input of the opaque
+// digest, so a client that rewrites it to extend a token gets a stale preview,
+// never an admission.
+func TestTokenExpiryIsBoundToTheDigest(t *testing.T) {
+	f := newRCFixture(t)
+	token := f.previewToken(f.pe)
+	parts := strings.Split(token, ".")
+	if len(parts) != 4 {
+		t.Fatalf("token %q", token)
+	}
+	for _, rewritten := range []string{"rd1.4999999999." + parts[2] + "." + parts[3], "rd1.1." + parts[2] + "." + parts[3], "rd1.4102444800." + parts[2] + "." + parts[3]} {
+		status, raw, body := f.deletion(f.pe, rewritten, f.rootName(), f.root.ID, f.a.ID)
+		if status != http.StatusConflict || body["code"] != "STALE_PREVIEW" {
+			t.Fatalf("a token with a rewritten expiry = %d %s", status, raw)
+		}
+	}
+	if f.engine.Calls() != 0 || f.count(`SELECT count(*) FROM environment_operations WHERE kind='RESOURCE_CLEANUP'`) != 0 {
+		t.Fatal("a rewritten token was admitted")
+	}
+	// The untouched token is still accepted.
+	if status, raw, _ := f.deletion(f.pe, token, f.rootName(), f.root.ID, f.a.ID); status != http.StatusAccepted {
+		t.Fatalf("the issued token = %d %s", status, raw)
+	}
+	f.app.ResourceCleanup.Wait()
+}
+
+// TestDeveloperIsDeniedBeforeBodyOrPlanning: the role gate follows the session
+// scope immediately, so malformed bodies and unknown roots are 403, not 400/404.
+func TestDeveloperIsDeniedBeforeBodyOrPlanning(t *testing.T) {
+	f := newRCFixture(t)
+	for name, body := range map[string]any{"malformed": "{not json", "empty": "", "unknown field": `{"extra":1}`, "array": "[]"} {
+		for _, suffix := range []string{"/deletion-preview", "/deletions"} {
+			if status, raw, _ := f.do(f.dev, http.MethodPost, f.resourceURL(f.root.ID)+suffix, body); status != http.StatusForbidden {
+				t.Errorf("developer %s %s = %d %s", name, suffix, status, raw)
+			}
+			if status, raw, _ := f.do(f.dev, http.MethodPost, f.resourceURL(ids.New())+suffix, body); status != http.StatusForbidden {
+				t.Errorf("developer %s %s on an unknown root = %d %s", name, suffix, status, raw)
+			}
+		}
+	}
+	if f.engine.Calls() != 0 {
+		t.Fatal("a Developer reached the engine")
+	}
+}
+
+// TestOldFailedOperationKeepsItsOwnResultAfterALaterCleanup: the progress of a
+// historical operation is its own persisted result; a later operation that
+// destroyed the same resource must not erase its remaining objects.
+func TestOldFailedOperationKeepsItsOwnResultAfterALaterCleanup(t *testing.T) {
+	f := newRCFixture(t)
+	f.engine.script[f.root.Identity.Descriptor] = "fail"
+	token := f.previewToken(f.pe)
+	_, _, body := f.deletion(f.pe, token, f.rootName(), f.root.ID)
+	oldID := body["cleanup"].(map[string]any)["operationId"].(string)
+	oldView := f.waitOperation(f.pe, oldID)
+	if oldView["status"] != "FAILED" || len(oldView["remainingIds"].([]any)) == 0 {
+		t.Fatalf("setup: %v", oldView)
+	}
+	delete(f.engine.script, f.root.Identity.Descriptor)
+	token2 := f.previewToken(f.pe)
+	_, _, body = f.deletion(f.pe, token2, f.rootName(), f.root.ID)
+	newID := body["cleanup"].(map[string]any)["operationId"].(string)
+	newView := f.waitOperation(f.pe, newID)
+	if newView["status"] != "SUCCEEDED" || newView["allVerified"] != true {
+		t.Fatalf("the later cleanup: %v", newView)
+	}
+	if f.refresh(f.root).Status != tfresource.InstanceDestroyed {
+		t.Fatal("setup: the resource is not destroyed now")
+	}
+	_, _, again := f.do(f.pe, http.MethodGet, f.base()+"/resource-cleanups/"+oldID, nil)
+	old := again["cleanup"].(map[string]any)
+	if old["status"] != "FAILED" || old["terminal"] != "FAILED" || old["allVerified"] == true {
+		t.Fatalf("the old operation was rewritten by the later one: %v", old)
+	}
+	resources := old["resources"].([]any)
+	if len(resources) != 1 {
+		t.Fatalf("resources: %v", resources)
+	}
+	item := resources[0].(map[string]any)
+	if item["verified"] == true || item["outcome"] != "REMAINING" || item["currentStatus"] != "DESTROYED" {
+		t.Fatalf("the old result must stay unverified while the current status is DESTROYED: %v", item)
+	}
+	if len(item["remaining"].([]any)) == 0 || len(old["remainingIds"].([]any)) == 0 {
+		t.Fatalf("the old remaining IDs were erased: %v", old)
+	}
+	if old["stage"] == "UNKNOWN" || old["stage"] == "" {
+		t.Fatalf("the old stage was lost: %v", old)
+	}
+	// And the new one is verified by its own proof.
+	if n := newView["resources"].([]any)[0].(map[string]any); n["verified"] != true {
+		t.Fatalf("new result: %v", n)
+	}
+}
+
+func TestMissingInfrastructureIsIneligibleAndUnavailableNotEligible(t *testing.T) {
+	f := newRCFixture(t, withoutEngine)
+	_, raw, body := f.do(f.pe, http.MethodGet, f.resourceURL(f.root.ID), nil)
+	res := body["resource"].(map[string]any)
+	elig := res["eligibility"].(map[string]any)
+	if elig["eligible"] != false || !contains(elig["reasons"], "INFRASTRUCTURE_UNAVAILABLE") {
+		t.Fatalf("detail without the means to delete is eligible: %s", raw)
+	}
+	// Reads keep working; the mutations are unavailable (503), after the role gate.
+	if status, _, _ := f.preview(f.pe, f.root.ID); status != http.StatusServiceUnavailable {
+		t.Fatalf("preview = %d", status)
+	}
+	if status, _, _ := f.deletion(f.pe, "rd1.4102444800."+strings.Repeat("b", 16)+"."+strings.Repeat("a", 64), f.rootName(), f.root.ID); status != http.StatusServiceUnavailable {
+		t.Fatalf("deletion = %d", status)
+	}
+	if status, _, _ := f.preview(f.dev, f.root.ID); status != http.StatusForbidden {
+		t.Fatalf("developer preview = %d", status)
+	}
+	if status, _, _ := f.do(f.dev, http.MethodGet, f.base()+"/resources", nil); status != http.StatusOK {
+		t.Fatalf("list = %d", status)
+	}
+}
+
+// TestDetailShowsTheOriginalTargetNotTheCurrentOne: the safe target comes from
+// the persisted run that last executed the resource, in the resource's own
+// generation, never from the Environment's current binding.
+func TestDetailShowsTheOriginalTargetNotTheCurrentOne(t *testing.T) {
+	f := newRCFixture(t)
+	// The Environment is bound to a different Connection now.
+	active := f.linkActive(f.root, "UNREFERENCED")
+	f.linkDeployment(active, "aws-original", "Original AWS", 0)
+	read := func(id string) map[string]any {
+		_, raw, body := f.do(f.dev, http.MethodGet, f.resourceURL(id), nil)
+		assertSafe(t, "detail", raw)
+		return body["resource"].(map[string]any)["target"].(map[string]any)
+	}
+	target := read(f.root.ID)
+	if target["known"] != true || target["connectionKey"] != "aws-original" || target["connectionName"] != "Original AWS" || target["profile"] != "aws-eks" || target["accountId"] != "123456789012" || target["region"] != "eu-west-1" {
+		t.Fatalf("original target: %v", target)
+	}
+	if _, leaked := target["privateNote"]; leaked || strings.Contains(rcJSON(target), privateTarget) {
+		t.Fatalf("a private Connection value leaked: %v", target)
+	}
+	// No Active Resource, or a run of another generation: unknown, never the Environment's.
+	if t0 := read(f.a.ID); t0["known"] != false || t0["connectionKey"] != nil {
+		t.Fatalf("a resource without a persisted run must have an unknown target: %v", t0)
+	}
+	f.exec(`UPDATE deployments SET target_generation=7 WHERE connection_key='aws-original'`)
+	if t1 := read(f.root.ID); t1["known"] != false || t1["connectionKey"] != nil {
+		t.Fatalf("a run of another generation must not identify the target: %v", t1)
 	}
 }

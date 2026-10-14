@@ -73,7 +73,7 @@ export const plannerReasons = ['workload-exists', 'workload-not-current', 'befor
 export type PlannerStage = (typeof plannerStages)[number];
 export type PlannerReason = (typeof plannerReasons)[number];
 // Allowlisted refusal reasons of a resource deletion (OC-19); the server sends them under `reason`.
-export const cleanupReasons = ['NOT_UNREFERENCED', 'HAS_CONSUMERS', 'PLATFORM_RESOURCE', 'OWNERSHIP_UNVERIFIED', 'ORIGINAL_TARGET_UNAVAILABLE', 'ENVIRONMENT_BUSY'] as const;
+export const cleanupReasons = ['NOT_UNREFERENCED', 'HAS_CONSUMERS', 'PLATFORM_RESOURCE', 'OWNERSHIP_UNVERIFIED', 'ORIGINAL_TARGET_UNAVAILABLE', 'ENVIRONMENT_BUSY', 'INFRASTRUCTURE_UNAVAILABLE'] as const;
 export type CleanupReason = (typeof cleanupReasons)[number];
 export const cleanupReasonLabels: Readonly<Record<CleanupReason, string>> = Object.freeze({
   NOT_UNREFERENCED: 'Tài nguyên chưa ở trạng thái không còn được tham chiếu (UNREFERENCED).',
@@ -82,6 +82,7 @@ export const cleanupReasonLabels: Readonly<Record<CleanupReason, string>> = Obje
   OWNERSHIP_UNVERIFIED: 'Chưa có bằng chứng bền vững rằng Orchestrator quản lý tài nguyên này.',
   ORIGINAL_TARGET_UNAVAILABLE: 'Chưa dùng được đích, module hoặc trạng thái gốc của tài nguyên này.',
   ENVIRONMENT_BUSY: 'Môi trường đang bận với thao tác khác.',
+  INFRASTRUCTURE_UNAVAILABLE: 'Dịch vụ trạng thái, module, thông tin xác thực hoặc thực thi cần để xóa chưa được cấu hình trên máy chủ.',
 });
 export interface ErrorParams { stage?: PlannerStage; reason?: PlannerReason; cleanupReason?: CleanupReason; resourceType?: string }
 

@@ -26,6 +26,24 @@ describe('resource detail (UC-09 RES-01/02)', () => {
     expect(screen.getByRole('button', { name: 'Xóa tài nguyên' })).toBeEnabled();
   });
 
+  it('shows the original target of the resource and never a substitute for an unknown one', async () => {
+    stubApi((c) => isDetail(c.url) ? Response.json(wire.resource(detail())) : undefined);
+    const view = render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
+    const target = await screen.findByTestId('original-target');
+    expect(target).toHaveTextContent('Original AWS (aws-original) · AWS · aws-eks · tài khoản 123456789012 · eu-west-1 · thế hệ 0');
+    view.unmount();
+    stubApi((c) => isDetail(c.url) ? Response.json(wire.resource(detail({ target: { known: false, generation: 2 } }))) : undefined);
+    render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
+    expect(await screen.findByTestId('original-target')).toHaveTextContent('Console không thay bằng đích hiện tại của môi trường');
+  });
+
+  it('explains missing deletion infrastructure instead of offering a deletion that can only end in a 503', async () => {
+    stubApi((c) => isDetail(c.url) ? Response.json(wire.resource(detail({ eligibility: { eligible: false, reasons: ['INFRASTRUCTURE_UNAVAILABLE'] } }))) : undefined);
+    render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
+    expect(await screen.findByRole('button', { name: 'Xóa tài nguyên' })).toBeDisabled();
+    expect(screen.getByTestId('delete-blockers')).toHaveTextContent('chưa được cấu hình trên máy chủ');
+  });
+
   it('never shows the delete action to a Developer and sends no mutation', async () => {
     const calls = stubApi((c) => isDetail(c.url) ? Response.json(wire.resource(detail())) : undefined);
     render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete={false} />);
@@ -95,7 +113,7 @@ describe('resource detail (UC-09 RES-01/02)', () => {
   it('shows a deleted resource as history without a delete action and resumes the progress of its operation after a reload', async () => {
     stubApi((c) => {
       if (isDetail(c.url)) return Response.json(wire.resource(detail({ status: 'DESTROYED', eligibility: { eligible: false, reasons: ['NOT_UNREFERENCED'] }, cleanup: { operationId: 'op-9', status: 'SUCCEEDED', stage: 'VERIFYING' } })));
-      if (c.url.endsWith('/resource-cleanups/op-9')) return Response.json(wire.cleanup(operation({ operationId: 'op-9', status: 'SUCCEEDED', stage: 'VERIFYING', allVerified: true, resources: [{ id: rootId, descriptor: rootName, status: 'DESTROYED', outcome: 'DESTROYED', verified: true, remaining: [], remainingUnknown: false }] })));
+      if (c.url.endsWith('/resource-cleanups/op-9')) return Response.json(wire.cleanup(operation({ operationId: 'op-9', status: 'SUCCEEDED', stage: 'VERIFYING', allVerified: true, resources: [{ id: rootId, descriptor: rootName, currentStatus: 'DESTROYED', outcome: 'DESTROYED', verified: true, remaining: [], remainingUnknown: false }] })));
       return undefined;
     });
     render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete pollMs={10} />);

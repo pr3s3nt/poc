@@ -25,12 +25,12 @@ export function preview(over: Partial<DeletionPreview> = {}): DeletionPreview {
 
 export function detail(over: Partial<ResourceDetail> = {}): ResourceDetail {
   return { id: rootId, applicationId: 'shop', environment: 'staging', descriptor: rootName, type: 'postgres', class: 'default', resourceId: 'shared.db', status: 'UNREFERENCED', scope: { type: 'SHARED', id: 'shop.staging' },
-    owner: 'SHARED', generation: 0, module: { id: 'aurora', revision: 'rev1' }, version: 4, outputs: { host: 'db.internal', password: '***redacted***' }, consumers: [], eligibility: { eligible: true, reasons: [] }, ...over };
+    owner: 'SHARED', generation: 0, module: { id: 'aurora', revision: 'rev1' }, target: { known: true, connectionKey: 'aws-original', connectionName: 'Original AWS', connectionKind: 'AWS', profile: 'aws-eks', accountId: '123456789012', region: 'eu-west-1', generation: 0 }, version: 4, outputs: { host: 'db.internal', password: '***redacted***' }, consumers: [], eligibility: { eligible: true, reasons: [] }, ...over };
 }
 
 export function operation(over: Partial<CleanupOperation> = {}): CleanupOperation {
   return { operationId: 'op-1', status: 'ACTIVE', stage: 'DESTROYING', allVerified: false, authorizationMode: 'USER_CONFIRMED', actor: 'platform-engineer', rootId,
-    resources: [{ id: rootId, descriptor: rootName, status: 'DESTROYING', outcome: 'DESTROYING', verified: false, remaining: [], remainingUnknown: false }], remainingIds: [], startedAt: '2026-10-14T00:00:00Z', updatedAt: '2026-10-14T00:00:01Z', ...over };
+    resources: [{ id: rootId, descriptor: rootName, currentStatus: 'DESTROYING', outcome: 'DESTROYING', verified: false, remaining: [], remainingUnknown: false }], remainingIds: [], startedAt: '2026-10-14T00:00:00Z', updatedAt: '2026-10-14T00:00:01Z', ...over };
 }
 
 /** Server wire form of a ResourceDetail response. */

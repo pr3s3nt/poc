@@ -269,7 +269,7 @@ describe('deletion from the resource page', () => {
         polls += 1;
         if (polls === 1) return Response.json(wire.cleanup(operation({ operationId: 'op-7', stage: 'CHECKING' })));
         if (polls === 2) return Response.json(wire.cleanup(operation({ operationId: 'op-7', stage: 'VERIFYING' })));
-        return Response.json(wire.cleanup(operation({ operationId: 'op-7', status: 'SUCCEEDED', stage: 'VERIFYING', terminal: 'SUCCEEDED', allVerified: true, resources: [{ id: rootId, descriptor: rootName, status: 'DESTROYED', outcome: 'DESTROYED', verified: true, remaining: [], remainingUnknown: false }] })));
+        return Response.json(wire.cleanup(operation({ operationId: 'op-7', status: 'SUCCEEDED', stage: 'VERIFYING', terminal: 'SUCCEEDED', allVerified: true, resources: [{ id: rootId, descriptor: rootName, currentStatus: 'DESTROYED', outcome: 'DESTROYED', verified: true, remaining: [], remainingUnknown: false }] })));
       },
     );
     const user = userEvent.setup();
@@ -297,9 +297,9 @@ describe('deletion from the resource page', () => {
       (c) => { if (!isDeletion(c)) return undefined; admitted = true; return Response.json(wire.admission('op-8'), { status: 202 }); },
       (c) => c.url.endsWith('/resource-cleanups/op-8') ? Response.json(wire.cleanup(operation({ operationId: 'op-8', status: 'FAILED', stage: 'VERIFYING', terminal: 'FAILED', failureCode: 'CLEANUP_INCOMPLETE', remainingIds: ['aws_vpc.main=vpc-1'],
         resources: [
-          { id: rootId, descriptor: rootName, status: 'FAILED', outcome: 'REMAINING', verified: false, remaining: ['aws_db_instance.main=db-1'], remainingUnknown: false, reasonCode: 'DESTROY_FAILED' },
-          { id: depA, descriptor: 'vpc.default#environments.shop.vpc', status: 'UNREFERENCED', outcome: 'RETAINED', verified: false, remaining: ['aws_vpc.main=vpc-1'], remainingUnknown: false, reasonCode: 'RETAINED_CONSUMER' },
-          { id: depC, descriptor: 'k8s-secret.default#environments.shop.cfg', status: 'UNREFERENCED', outcome: 'UNKNOWN', verified: false, remaining: [], remainingUnknown: true },
+          { id: rootId, descriptor: rootName, currentStatus: 'FAILED', outcome: 'REMAINING', verified: false, remaining: ['aws_db_instance.main=db-1'], remainingUnknown: false, reasonCode: 'DESTROY_FAILED' },
+          { id: depA, descriptor: 'vpc.default#environments.shop.vpc', currentStatus: 'UNREFERENCED', outcome: 'RETAINED', verified: false, remaining: ['aws_vpc.main=vpc-1'], remainingUnknown: false, reasonCode: 'RETAINED_CONSUMER' },
+          { id: depC, descriptor: 'k8s-secret.default#environments.shop.cfg', currentStatus: 'UNREFERENCED', outcome: 'UNKNOWN', verified: false, remaining: [], remainingUnknown: true },
         ] }))) : undefined,
     );
     const user = userEvent.setup();

@@ -397,19 +397,25 @@ func (p *plan) validate(selected []string) error {
 // change of any pinned item, of the Environment, the current Set, the drafts
 // or the actor makes a replay of the token stale.
 type tokenBody struct {
-	Version     int         `json:"v"`
-	Actor       string      `json:"actor"`
-	Org         string      `json:"org"`
-	Application string      `json:"application"`
-	Environment string      `json:"environment"`
-	EnvID       string      `json:"envId"`
-	Generation  int64       `json:"generation"`
-	EnvVersion  int64       `json:"envVersion"`
-	DraftVer    int64       `json:"draftVersion"`
-	SetID       string      `json:"setId"`
-	Busy        bool        `json:"busy"`
-	Root        string      `json:"root"`
-	Items       []tokenItem `json:"items"`
+	Version     int    `json:"v"`
+	Actor       string `json:"actor"`
+	Org         string `json:"org"`
+	Application string `json:"application"`
+	Environment string `json:"environment"`
+	EnvID       string `json:"envId"`
+	Generation  int64  `json:"generation"`
+	EnvVersion  int64  `json:"envVersion"`
+	DraftVer    int64  `json:"draftVersion"`
+	SetID       string `json:"setId"`
+	Busy        bool   `json:"busy"`
+	Root        string `json:"root"`
+	// Expires is the issue deadline: it is an input of the digest, so a token
+	// whose expiry was rewritten no longer matches the state it was issued for.
+	Expires int64 `json:"expires"`
+	// Nonce makes every preview token unique, so two previews of the same state are
+	// two requests and a replay is always the same token.
+	Nonce string      `json:"nonce"`
+	Items []tokenItem `json:"items"`
 }
 
 type tokenItem struct {
@@ -431,11 +437,11 @@ type tokenItem struct {
 	Target string `json:"target"`
 }
 
-func (p *plan) tokenHash(actor string, targets map[string]string) (string, error) {
+func (p *plan) tokenHash(actor string, targets map[string]string, expires int64, nonce string) (string, error) {
 	snap := p.snap
 	body := tokenBody{Version: 1, Actor: actor, Org: snap.scope.OrganizationKey, Application: snap.scope.ApplicationKey, Environment: snap.scope.EnvironmentKey,
 		EnvID: snap.env.ID, Generation: snap.records[p.root].Instance.Identity.TargetGeneration, EnvVersion: snap.env.Version, DraftVer: snap.env.DraftVersion,
-		SetID: snap.env.CurrentDeploymentSetID, Busy: p.busy, Root: p.root}
+		SetID: snap.env.CurrentDeploymentSetID, Busy: p.busy, Root: p.root, Expires: expires, Nonce: nonce}
 	for _, id := range p.order {
 		it := p.items[id]
 		ti := tokenItem{ID: id, Descriptor: it.rec.Instance.Identity.Descriptor, Status: string(it.rec.Instance.Status), Version: it.rec.Instance.Version, StateKey: it.rec.Instance.StateKey,

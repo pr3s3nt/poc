@@ -208,7 +208,7 @@ func TestTokenPinsEverythingAndHoldsNoPrivateData(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		h, err := p.tokenHash(actor, targets)
+		h, err := p.tokenHash(actor, targets, 4102444800, "0123456789abcdef")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -244,6 +244,13 @@ func TestTokenPinsEverythingAndHoldsNoPrivateData(t *testing.T) {
 			t.Errorf("%s does not change the token", name)
 		}
 	}
+	pl, _ := buildPlan(base(), "root")
+	if later, _ := pl.tokenHash("pe", targets, 4102444801, "0123456789abcdef"); later == ref {
+		t.Error("the token is not bound to its issue expiry")
+	}
+	if other, _ := pl.tokenHash("pe", targets, 4102444800, "fedcba9876543210"); other == ref {
+		t.Error("two previews of the same state share a token")
+	}
 	if hash(base(), "other", targets) == ref {
 		t.Error("the token is not bound to the actor")
 	}
@@ -256,13 +263,15 @@ func TestTokenPinsEverythingAndHoldsNoPrivateData(t *testing.T) {
 }
 
 func TestParseTokenRejectsMalformedValues(t *testing.T) {
-	good := "rd1.4102444800." + strings.Repeat("a", 64)
-	if _, hash, err := parseToken(good); err != nil || hash != strings.Repeat("a", 64) {
+	good := "rd1.4102444800." + strings.Repeat("b", 16) + "." + strings.Repeat("a", 64)
+	if _, nonce, hash, err := parseToken(good); err != nil || hash != strings.Repeat("a", 64) || nonce != strings.Repeat("b", 16) {
 		t.Fatalf("good token: %v", err)
 	}
-	for _, bad := range []string{"", "rd1", "rd2.1." + strings.Repeat("a", 64), "rd1.x." + strings.Repeat("a", 64), "rd1.1." + strings.Repeat("g", 64), "rd1.1." + strings.Repeat("a", 63), good + ".x", "rd1.-1." + strings.Repeat("a", 64)} {
+	n, h := strings.Repeat("b", 16), strings.Repeat("a", 64)
+	for _, bad := range []string{"", "rd1", "rd2.1." + n + "." + h, "rd1.x." + n + "." + h, "rd1.1." + n + "." + strings.Repeat("g", 64), "rd1.1." + n + "." + strings.Repeat("a", 63),
+		good + ".x", "rd1.-1." + n + "." + h, "rd1.1." + strings.Repeat("z", 16) + "." + h, "rd1.1." + n[:15] + "." + h, "rd1.4102444800." + h} {
 		var field *FieldError
-		if _, _, err := parseToken(bad); !errors.As(err, &field) || field.Field != "token" {
+		if _, _, _, err := parseToken(bad); !errors.As(err, &field) || field.Field != "token" {
 			t.Errorf("token %q: %v", bad, err)
 		}
 	}
@@ -273,7 +282,7 @@ func TestProjectionAllowlistsEveryStoredValue(t *testing.T) {
 	rc := tfresource.CleanupRecord{OperationID: "op", Mode: "SOMETHING", ActorRef: "pe", RootID: "root", SelectedIDs: []string{"root"},
 		Status: "weird status", Stage: "weird stage password=x", Failure: "dial tcp 10.0.0.1: token=abc",
 		Detail: map[string]any{"terminal": "RAW", "results": []any{map[string]any{"id": "root", "destroyed": false, "code": "RAW ERROR", "remaining": []any{"aws_vpc.main=vpc-1", "has space", "/etc/passwd secret"}}}}}
-	v := projectCleanup(s, rc)
+	v := projectCleanup(s, rc, nil)
 	out := toString(v)
 	for _, bad := range []string{"weird", "password=x", "10.0.0.1", "token=abc", "RAW", "has space", "/etc/passwd"} {
 		if strings.Contains(out, bad) {
@@ -286,9 +295,12 @@ func TestProjectionAllowlistsEveryStoredValue(t *testing.T) {
 	if len(v.Resources) != 1 || v.Resources[0].Verified || len(v.Resources[0].Remaining) != 1 || v.Resources[0].Remaining[0] != "aws_vpc.main=vpc-1" {
 		t.Fatalf("resource: %+v", v.Resources)
 	}
-	// A SUCCEEDED operation whose instance is not persisted DESTROYED is not verified.
+	// A SUCCEEDED operation without its own proof is not verified, even if the instance is DESTROYED now.
+	gone := s.records["root"]
+	gone.Instance.Status = tfresource.InstanceDestroyed
+	s.records["root"] = gone
 	rc.Status, rc.Failure, rc.Detail = "SUCCEEDED", "", nil
-	if v := projectCleanup(s, rc); v.AllVerified || v.Resources[0].Verified || !v.Resources[0].RemainingUnknown {
+	if v := projectCleanup(s, rc, nil); v.AllVerified || v.Resources[0].Verified || !v.Resources[0].RemainingUnknown {
 		t.Fatalf("success without persisted absence was believed: %+v", v)
 	}
 }

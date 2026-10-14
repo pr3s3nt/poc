@@ -2,8 +2,11 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfresource"
@@ -83,7 +86,7 @@ WHERE a.application_key=$1 AND e.environment_key=$2 ORDER BY 1,2`, applicationKe
 }
 
 const cleanupRecordSelect = `SELECT op.id::text,op.authorization_mode,op.actor_ref,op.root_resource_instance_id::text,
-  COALESCE(op.confirmed_scope->'selectedResourceIds','[]'::jsonb),op.status,op.stage,op.failure,op.detail,op.started_at,op.updated_at,op.finished_at
+  COALESCE(op.confirmed_scope->'selectedResourceIds','[]'::jsonb),op.status,op.stage,op.failure,COALESCE(op.confirmation_name,''),op.detail,op.started_at,op.updated_at,op.finished_at
 FROM environment_operations op
 JOIN environments e ON e.id=op.environment_id
 JOIN applications a ON a.id=e.application_id`
@@ -92,7 +95,7 @@ func scanCleanupRecord(row interface{ Scan(...any) error }) (tfresource.CleanupR
 	var r tfresource.CleanupRecord
 	var mode string
 	var selected, detail []byte
-	if err := row.Scan(&r.OperationID, &mode, &r.ActorRef, &r.RootID, &selected, &r.Status, &r.Stage, &r.Failure, &detail, &r.StartedAt, &r.UpdatedAt, &r.FinishedAt); err != nil {
+	if err := row.Scan(&r.OperationID, &mode, &r.ActorRef, &r.RootID, &selected, &r.Status, &r.Stage, &r.Failure, &r.ConfirmationName, &detail, &r.StartedAt, &r.UpdatedAt, &r.FinishedAt); err != nil {
 		return r, err
 	}
 	r.Mode = tfresource.CleanupMode(mode)
@@ -133,6 +136,48 @@ func (s *Store) ListCleanupRecords(ctx context.Context, applicationKey, environm
 			return nil, err
 		}
 		out = append(out, rec)
+	}
+	return out, rows.Err()
+}
+
+// FindCleanupByRequest returns the cleanup operation admitted by this actor
+// with this request hash in the Environment.
+func (s *Store) FindCleanupByRequest(ctx context.Context, applicationKey, environmentKey, actorRef, requestHash string) (tfresource.CleanupRecord, bool, error) {
+	rec, err := scanCleanupRecord(s.q(ctx).QueryRow(ctx, cleanupRecordSelect+` WHERE op.kind='RESOURCE_CLEANUP' AND op.actor_ref=$1 AND op.deletion_request_hash=$2 AND a.application_key=$3 AND e.environment_key=$4`, actorRef, requestHash, applicationKey, environmentKey))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return tfresource.CleanupRecord{}, false, nil
+	}
+	if err != nil {
+		return tfresource.CleanupRecord{}, false, translate(err)
+	}
+	return rec, true, nil
+}
+
+// ListOperationAttempts returns the safe attempt summaries bound to one
+// cleanup operation of the Environment (the only attempt columns the Console
+// may read).
+func (s *Store) ListOperationAttempts(ctx context.Context, applicationKey, environmentKey, operationID string) ([]tfresource.OperationAttempt, error) {
+	if !validUUID(operationID) {
+		return []tfresource.OperationAttempt{}, nil
+	}
+	rows, err := s.q(ctx).Query(ctx, `SELECT t.resource_instance_id::text,t.action,t.stage,t.status,t.safe_error_code
+FROM terraform_resource_attempts t
+JOIN terraform_resource_instances i ON i.id=t.resource_instance_id
+JOIN environments e ON e.id=i.environment_id
+JOIN applications a ON a.id=e.application_id
+WHERE t.environment_operation_id=$1::uuid AND a.application_key=$2 AND e.environment_key=$3
+ORDER BY t.created_at,t.attempt_number`, operationID, applicationKey, environmentKey)
+	if err != nil {
+		return nil, translate(err)
+	}
+	defer rows.Close()
+	out := []tfresource.OperationAttempt{}
+	for rows.Next() {
+		var a tfresource.OperationAttempt
+		if err := rows.Scan(&a.InstanceID, &a.Action, &a.Stage, &a.Status, &a.SafeErrorCode); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
 	}
 	return out, rows.Err()
 }

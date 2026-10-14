@@ -141,6 +141,15 @@ func (e *scriptedEngine) RunCleanup(ctx context.Context, _ string, source tfexec
 				return tfexec.CleanupResult{}, err
 			}
 			_ = report(tfexec.CleanupVerifying, map[string]any{"resource": id})
+			// The persisted proof of THIS operation: a DESTROY attempt bound to it.
+			attempt, err := e.state.BeginAttempt(ctx, tfresource.Attempt{InstanceID: id, RunID: "cleanup-" + owner.OperationID, Action: tfresource.ActionDestroy, Ownership: tfresource.Preexisting, Stage: tfexec.StageVerifying,
+				ModuleSnapshot: map[string]any{"action": "DESTROY"}, TargetSnapshot: map[string]any{"fake": true}, Deadline: time.Now().Add(time.Hour)})
+			if err != nil {
+				return tfexec.CleanupResult{}, err
+			}
+			if _, err := e.state.UpdateAttempt(ctx, attempt.ID, tfresource.AttemptProgress{Stage: tfexec.StageDestroyed, Status: tfresource.AttemptSucceeded}); err != nil {
+				return tfexec.CleanupResult{}, err
+			}
 			if _, err := e.state.SetInstanceStatus(ctx, id, cur.Version, tfresource.InstanceDestroyed); err != nil {
 				return tfexec.CleanupResult{}, err
 			}
@@ -188,7 +197,14 @@ type rcFixture struct {
 	root, a, b, c, x, plat tfresource.Instance
 }
 
-func newRCFixture(t *testing.T) *rcFixture {
+// fixtureOption adjusts the fixture before the application is built.
+type fixtureOption func(*bootstrap.Options)
+
+// withoutEngine builds the application as if the Terraform state, module,
+// credential and engine services were not configured.
+func withoutEngine(o *bootstrap.Options) { o.CleanupEngineOverride = nil }
+
+func newRCFixture(t *testing.T, options ...fixtureOption) *rcFixture {
 	t.Helper()
 	db := postgrestest.Fresh(t)
 	keyFile := filepath.Join(t.TempDir(), "key")
@@ -204,11 +220,15 @@ func newRCFixture(t *testing.T) *rcFixture {
 	seedOpts := seedtest.Defaults()
 	seedOpts.Region, seedOpts.AccountID, seedOpts.RunID = "us-east-1", "000000000000", "run-e2e"
 	creds := credentialmemory.New()
-	app, err := bootstrap.Build(context.Background(), bootstrap.Options{
+	buildOptions := bootstrap.Options{
 		Seed: seedOpts, Adapters: bootstrap.AdapterFake, ConnectionCredentialsOverride: creds,
 		DatabaseURL: db.Console, TerraformStateDatabaseURL: db.State, TerraformStateKeyFile: keyFile, TerraformStateKeyID: "key-1",
 		CleanupEngineOverride: engine,
-	})
+	}
+	for _, option := range options {
+		option(&buildOptions)
+	}
+	app, err := bootstrap.Build(context.Background(), buildOptions)
 	if err != nil {
 		t.Fatalf("bootstrap: %v", err)
 	}
@@ -536,4 +556,17 @@ func (f *rcFixture) activeStatus(activeID string) string {
 		f.t.Fatal(err)
 	}
 	return status
+}
+
+// linkDeployment records a past run of the resource's Active Resource with the
+// given Connection and target generation (fixture arrangement). The Connection
+// row is created when missing.
+func (f *rcFixture) linkDeployment(activeID, connectionKey, connectionName string, generation int64) {
+	f.t.Helper()
+	f.exec(`INSERT INTO connections(id,organization_id,connection_key,name,kind,authentication_type,config,secret_ref,status,verification) SELECT gen_random_uuid(),o.id,$2,$3,'AWS','AWS_ACCESS_KEY',$4::jsonb,'vault:private/ref','READY','{}'::jsonb FROM organizations o WHERE o.organization_key=$1 ON CONFLICT DO NOTHING`,
+		f.orgKey, connectionKey, connectionName, `{"accountId":"123456789012","region":"eu-west-1","privateNote":"`+privateTarget+`"}`)
+	depID := ids.New()
+	f.exec(`INSERT INTO deployments(id,environment_id,organization_key,application_key,environment_key,execution_profile,action,workload_id,actor_ref,status,base_environment_version,started_at,connection_key,target_generation) VALUES($1::uuid,$2::uuid,$3,$4,'staging','aws-eks','DEPLOY','api','developer','FAILED',1,now(),$5,$6)`,
+		depID, f.envID, f.orgKey, f.appKey, connectionKey, generation)
+	f.exec(`UPDATE active_resources SET last_deployment_id=$2::uuid WHERE id=$1::uuid`, activeID, depID)
 }

@@ -55,6 +55,12 @@ func (s *Server) handleDeletionPreview(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// The role gate comes straight after the session scope: a Developer is
+	// denied before the body is read and before any planning (UC-07).
+	if !actor.MayDelete {
+		writeCode(w, codeForbidden, "")
+		return
+	}
 	var body struct{}
 	if !decodeStrict(w, r, 1<<10, &body) {
 		return
@@ -76,6 +82,10 @@ type deletionBody struct {
 func (s *Server) handleDeletions(w http.ResponseWriter, r *http.Request) {
 	scope, actor, ok := s.resourceRequest(w, r)
 	if !ok {
+		return
+	}
+	if !actor.MayDelete {
+		writeCode(w, codeForbidden, "")
 		return
 	}
 	var body deletionBody

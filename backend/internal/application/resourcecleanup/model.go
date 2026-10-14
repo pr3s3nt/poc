@@ -32,12 +32,15 @@ type Actor struct {
 // Allowlisted refusal reasons (OC-19) and the extra busy reason of the
 // eligibility projection. Public responses never carry any other text.
 const (
-	ReasonNotUnreferenced    = "NOT_UNREFERENCED"
-	ReasonHasConsumers       = "HAS_CONSUMERS"
-	ReasonPlatformResource   = "PLATFORM_RESOURCE"
-	ReasonOwnershipUnproven  = "OWNERSHIP_UNVERIFIED"
-	ReasonTargetUnavailable  = "ORIGINAL_TARGET_UNAVAILABLE"
-	ReasonEnvironmentBusy    = "ENVIRONMENT_BUSY"
+	ReasonNotUnreferenced   = "NOT_UNREFERENCED"
+	ReasonHasConsumers      = "HAS_CONSUMERS"
+	ReasonPlatformResource  = "PLATFORM_RESOURCE"
+	ReasonOwnershipUnproven = "OWNERSHIP_UNVERIFIED"
+	ReasonTargetUnavailable = "ORIGINAL_TARGET_UNAVAILABLE"
+	ReasonEnvironmentBusy   = "ENVIRONMENT_BUSY"
+	// ReasonInfrastructureDown is shown in the eligibility of a resource when
+	// the state, module, credential or engine services needed to delete it
+	// are not configured: a snapshot without the means is not eligible.
 	ReasonInfrastructureDown = "INFRASTRUCTURE_UNAVAILABLE"
 )
 
@@ -109,6 +112,21 @@ type Eligibility struct {
 	Reasons  []string `json:"reasons"`
 }
 
+// TargetView is the safe original target of a resource: the Connection and
+// binding of the persisted run that last executed it, never the Environment's
+// current binding and never a private target reference. Known is false when
+// the persisted public records do not identify it (then nothing is shown).
+type TargetView struct {
+	Known          bool   `json:"known"`
+	ConnectionKey  string `json:"connectionKey,omitempty"`
+	ConnectionName string `json:"connectionName,omitempty"`
+	ConnectionKind string `json:"connectionKind,omitempty"`
+	Profile        string `json:"profile,omitempty"`
+	AccountID      string `json:"accountId,omitempty"`
+	Region         string `json:"region,omitempty"`
+	Generation     int64  `json:"generation"`
+}
+
 // ModuleView is the pinned module identity of a resource.
 type ModuleView struct {
 	ID       string `json:"id"`
@@ -152,6 +170,7 @@ type ResourceView struct {
 	Owner       string          `json:"owner"`
 	Generation  int64           `json:"generation"`
 	Module      ModuleView      `json:"module"`
+	Target      TargetView      `json:"target"`
 	Version     int64           `json:"version"`
 	Outputs     map[string]any  `json:"outputs"`
 	Consumers   []ConsumerView  `json:"consumers"`
@@ -200,9 +219,12 @@ type AdmissionView struct {
 
 // CleanupResourceView is the per-resource progress and verification result.
 type CleanupResourceView struct {
-	ID               string   `json:"id"`
-	Descriptor       string   `json:"descriptor"`
-	Status           string   `json:"status"`
+	ID         string `json:"id"`
+	Descriptor string `json:"descriptor"`
+	// CurrentStatus is the resource's status right now. It is context only: a
+	// later operation may have changed it. Outcome and Verified are what THIS
+	// operation recorded.
+	CurrentStatus    string   `json:"currentStatus"`
 	Outcome          string   `json:"outcome"`
 	Verified         bool     `json:"verified"`
 	Remaining        []string `json:"remaining"`

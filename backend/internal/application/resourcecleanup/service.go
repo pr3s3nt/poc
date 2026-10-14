@@ -114,9 +114,50 @@ func (s *Service) GetResource(ctx context.Context, sc Scope, id string) (Resourc
 			return err
 		}
 		out = s.resourceView(snap, p)
+		out.Target = originalTarget(ctx, view, snap, snap.records[id])
 		return nil
 	})
 	return out, err
+}
+
+var (
+	accountShape = regexp.MustCompile(`^[0-9]{12}$`)
+	regionShape  = regexp.MustCompile(`^[a-z]{2}(-[a-z]+)+-[0-9]$`)
+	labelShape   = regexp.MustCompile(`^[^\x00-\x1f\x7f]{1,128}$`)
+)
+
+// originalTarget identifies the target a resource was created for from the
+// persisted, public record of the run that last executed it: that run's
+// Connection key, profile and target generation, and the public Connection
+// metadata. It never reads the Environment's current binding, so a later
+// transition of the Environment cannot rename the original target, and it
+// never reads the private target reference. Anything that does not match the
+// resource's own generation and scope is reported as unknown.
+func originalTarget(ctx context.Context, st persistence.Store, snap *snapshot, rec tfresource.ResourceRecord) TargetView {
+	unknown := TargetView{Known: false, Generation: rec.Instance.Identity.TargetGeneration}
+	active, ok := snap.activeOf(rec)
+	if !ok || active.LastDeploymentID == "" {
+		return unknown
+	}
+	dep, err := st.GetDeployment(ctx, active.LastDeploymentID)
+	if err != nil || dep.OrganizationKey != snap.scope.OrganizationKey || dep.ApplicationKey != snap.scope.ApplicationKey || dep.EnvironmentKey != snap.scope.EnvironmentKey ||
+		dep.TargetGeneration != rec.Instance.Identity.TargetGeneration || dep.ConnectionKey == "" {
+		return unknown
+	}
+	out := TargetView{Known: true, ConnectionKey: safeToken(dep.ConnectionKey), Profile: safeToken(dep.ExecutionProfile), Generation: dep.TargetGeneration}
+	if conn, err := st.GetConnection(ctx, snap.scope.OrganizationKey, dep.ConnectionKey); err == nil {
+		if labelShape.MatchString(conn.Name) {
+			out.ConnectionName = conn.Name
+		}
+		out.ConnectionKind = safeToken(string(conn.Kind))
+		if v := conn.ConfigString("accountId"); accountShape.MatchString(v) {
+			out.AccountID = v
+		}
+		if v := conn.ConfigString("region"); regionShape.MatchString(v) {
+			out.Region = v
+		}
+	}
+	return out
 }
 
 // ListResources returns the Environment's resources, every generation, newest
@@ -151,13 +192,20 @@ func (s *Service) resourceView(snap *snapshot, p *plan) ResourceView {
 	in := rec.Instance
 	d, _ := resource.ParseDescriptor(in.Identity.Descriptor)
 	it := p.items[p.root]
+	eligibility := p.eligibility()
+	if !s.mutable() {
+		// Without the state, module, credential and engine services a snapshot
+		// cannot be eligible: the person is told, not offered a button that
+		// can only end in a 503.
+		eligibility = Eligibility{Eligible: false, Reasons: append([]string{ReasonInfrastructureDown}, eligibility.Reasons...)}
+	}
 	out := ResourceView{
 		ID: in.ID, Application: snap.scope.ApplicationKey, Environment: snap.scope.EnvironmentKey,
 		Descriptor: in.Identity.Descriptor, Type: d.Type, Class: d.Class, ResourceID: d.ID,
 		Status: safeInstanceStatus(in.Status), Scope: ScopeView{Type: string(in.Identity.Scope.Type), ID: in.Identity.Scope.ID},
 		Owner: string(in.Identity.Scope.Type), Generation: in.Identity.TargetGeneration,
 		Module:  ModuleView{ID: safeToken(rec.ModuleID), Revision: safeToken(rec.ModuleRevision)},
-		Version: in.Version, Outputs: map[string]any{}, Consumers: it.consumers, Eligibility: p.eligibility(),
+		Version: in.Version, Outputs: map[string]any{}, Consumers: it.consumers, Eligibility: eligibility,
 	}
 	if out.Consumers == nil {
 		out.Consumers = []ConsumerView{}
@@ -272,12 +320,34 @@ func candidateView(p *plan, id string) CandidateView {
 	return v
 }
 
+// authorizeScope resolves the session scope: a foreign or unknown Application
+// or Environment is persistence.ErrNotFound. It runs before the role gate, so a
+// caller outside the scope never learns anything, and before any planning.
+func (s *Service) authorizeScope(ctx context.Context, sc Scope) error {
+	app, err := s.store.GetApplication(ctx, sc.ApplicationKey)
+	if err != nil {
+		return err
+	}
+	if sc.OrganizationKey == "" || app.OrganizationKey != sc.OrganizationKey {
+		return persistence.ErrNotFound
+	}
+	_, err = s.store.GetEnvironment(ctx, sc.ApplicationKey, sc.EnvironmentKey)
+	return err
+}
+
 // PrepareDeletion returns the deletion scope of a root (OC-19 PrepareDeletion).
-// It reads persisted metadata only: no provider, no secret and no write.
+// It reads persisted metadata only: no provider, no secret and no write. The
+// role gate comes straight after the scope and before any planning.
 func (s *Service) PrepareDeletion(ctx context.Context, sc Scope, actor Actor, rootID string) (PreviewView, error) {
+	if err := s.authorizeScope(ctx, sc); err != nil {
+		return PreviewView{}, err
+	}
+	if !actor.MayDelete {
+		return PreviewView{}, ErrForbidden
+	}
 	var out PreviewView
 	err := s.store.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
-		if !s.readable() {
+		if !s.mutable() {
 			return ErrUnavailable
 		}
 		snap, err := loadSnapshot(ctx, view, s.reader, sc)
@@ -287,12 +357,6 @@ func (s *Service) PrepareDeletion(ctx context.Context, sc Scope, actor Actor, ro
 		p, err := buildPlan(snap, rootID)
 		if err != nil {
 			return err
-		}
-		if !actor.MayDelete {
-			return ErrForbidden
-		}
-		if !s.mutable() {
-			return ErrUnavailable
 		}
 		if p.busy {
 			return persistence.Busy(sc.ApplicationKey, sc.EnvironmentKey)
@@ -304,12 +368,13 @@ func (s *Service) PrepareDeletion(ctx context.Context, sc Scope, actor Actor, ro
 		if err != nil {
 			return err
 		}
-		hash, err := p.tokenHash(actor.Username, targets)
+		expires := time.Unix(s.now().Add(PreviewTTL).Unix(), 0).UTC()
+		nonce := strings.ReplaceAll(ids.New(), "-", "")[:16]
+		hash, err := p.tokenHash(actor.Username, targets, expires.Unix(), nonce)
 		if err != nil {
 			return err
 		}
-		expires := s.now().Add(PreviewTTL)
-		out = PreviewView{Token: "rd1." + strconv.FormatInt(expires.Unix(), 10) + "." + hash, ExpiresAt: time.Unix(expires.Unix(), 0).UTC(),
+		out = PreviewView{Token: "rd1." + strconv.FormatInt(expires.Unix(), 10) + "." + nonce + "." + hash, ExpiresAt: expires,
 			Application: sc.ApplicationKey, Environment: sc.EnvironmentKey, Generation: snap.records[rootID].Instance.Identity.TargetGeneration,
 			ConfirmationName: snap.records[rootID].Instance.Identity.Descriptor, Root: candidateView(p, rootID), Candidates: []CandidateView{}}
 		for _, id := range p.order[1:] {
@@ -320,20 +385,24 @@ func (s *Service) PrepareDeletion(ctx context.Context, sc Scope, actor Actor, ro
 	return out, err
 }
 
-// parseToken splits a preview token into its expiry and pinned-state hash.
-func parseToken(token string) (expires time.Time, hash string, err error) {
+// parseToken splits a preview token "rd1.<expiry>.<nonce>.<digest>" into the
+// issue expiry, the nonce and the digest. The expiry and nonce are inputs of
+// the digest: they are not trusted until the recomputed digest matches.
+func parseToken(token string) (expires time.Time, nonce, hash string, err error) {
 	parts := strings.Split(token, ".")
-	if len(parts) != 3 || parts[0] != "rd1" || len(parts[2]) != 64 {
-		return time.Time{}, "", invalid("token")
+	if len(parts) != 4 || parts[0] != "rd1" || len(parts[2]) != 16 || len(parts[3]) != 64 {
+		return time.Time{}, "", "", invalid("token")
 	}
 	unix, perr := strconv.ParseInt(parts[1], 10, 64)
 	if perr != nil || unix <= 0 {
-		return time.Time{}, "", invalid("token")
+		return time.Time{}, "", "", invalid("token")
 	}
-	if _, derr := hex.DecodeString(parts[2]); derr != nil {
-		return time.Time{}, "", invalid("token")
+	for _, part := range parts[2:] {
+		if _, derr := hex.DecodeString(part); derr != nil {
+			return time.Time{}, "", "", invalid("token")
+		}
 	}
-	return time.Unix(unix, 0).UTC(), parts[2], nil
+	return time.Unix(unix, 0).UTC(), parts[2], parts[3], nil
 }
 
 // Input is a confirmed deletion request.
@@ -350,6 +419,14 @@ type Input struct {
 // that writes the claim and the confirmed scope; nothing is held across a
 // provider call. The engine runs only after that transaction committed.
 func (s *Service) CleanupResources(ctx context.Context, sc Scope, actor Actor, rootID string, in Input) (AdmissionView, error) {
+	// Scope, then role, before any request shape is examined and before any
+	// planning: a Developer or a caller outside the scope learns nothing.
+	if err := s.authorizeScope(ctx, sc); err != nil {
+		return AdmissionView{}, err
+	}
+	if !actor.MayDelete {
+		return AdmissionView{}, ErrForbidden
+	}
 	if len(in.Selected) == 0 || len(in.Selected) > maxSelected {
 		return AdmissionView{}, invalid("selectedResourceIds")
 	}
@@ -361,22 +438,34 @@ func (s *Service) CleanupResources(ctx context.Context, sc Scope, actor Actor, r
 	if in.ConfirmationName == "" || len(in.ConfirmationName) > maxNameLength {
 		return AdmissionView{}, ErrConfirmationMismatch
 	}
-	expires, tokenHash, err := parseToken(in.Token)
+	expires, nonce, tokenHash, err := parseToken(in.Token)
 	if err != nil {
 		return AdmissionView{}, err
 	}
+	if !s.readable() {
+		return AdmissionView{}, ErrUnavailable
+	}
+	requestHash := requestHashOf(sc.OrganizationKey, in.Token)
 
-	// Read-only pre-check outside the transaction: scope, role, the exact
-	// name and the original targets to pin. Everything it decides is decided
-	// again inside the admission transaction.
+	// An already-admitted request is answered from persistence alone: the same
+	// actor, token and selected set return the same operation whatever the
+	// graph, the clock or the execution services look like now, and without
+	// planning. A different selection of an admitted token is stale.
+	if view, found, err := s.replay(ctx, sc, actor, rootID, in, requestHash); found || err != nil {
+		return view, err
+	}
+	if !s.mutable() {
+		return AdmissionView{}, ErrUnavailable
+	}
+
+	// Read-only pre-check outside the transaction: the exact name and the
+	// original targets to pin. Everything it decides is decided again inside
+	// the admission transaction.
 	var (
 		pre     *snapshot
 		prePlan *plan
 	)
 	if err := s.store.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
-		if !s.readable() {
-			return ErrUnavailable
-		}
 		snap, err := loadSnapshot(ctx, view, s.reader, sc)
 		if err != nil {
 			return err
@@ -390,12 +479,6 @@ func (s *Service) CleanupResources(ctx context.Context, sc Scope, actor Actor, r
 	}); err != nil {
 		return AdmissionView{}, err
 	}
-	if !actor.MayDelete {
-		return AdmissionView{}, ErrForbidden
-	}
-	if !s.mutable() {
-		return AdmissionView{}, ErrUnavailable
-	}
 	rootName := pre.records[rootID].Instance.Identity.Descriptor
 	if in.ConfirmationName != rootName {
 		return AdmissionView{}, ErrConfirmationMismatch
@@ -404,12 +487,11 @@ func (s *Service) CleanupResources(ctx context.Context, sc Scope, actor Actor, r
 		return AdmissionView{}, ErrStalePreview
 	}
 
-	requestHash := requestHashOf(sc.OrganizationKey, in.Token)
 	targets, err := s.targetDigests(ctx, pre, prePlan)
 	if err != nil {
 		return AdmissionView{}, err
 	}
-	check := s.admissionCheck(sc, actor, rootID, tokenHash, in.Selected, pre.env.ID, targets)
+	check := s.admissionCheck(sc, actor, rootID, tokenHash, expires.Unix(), nonce, in.Selected, pre.env.ID, targets)
 
 	// Pin the original target of every selected resource. target_ref is
 	// immutable, so reading it outside the transaction cannot race; the
@@ -509,6 +591,34 @@ func (s *Service) targetDigests(ctx context.Context, snap *snapshot, p *plan) (m
 	return out, nil
 }
 
+// replay answers an already-admitted request. It needs only the persisted
+// operation: no plan, no State login, no engine and no clock.
+func (s *Service) replay(ctx context.Context, sc Scope, actor Actor, rootID string, in Input, requestHash string) (AdmissionView, bool, error) {
+	var (
+		rec   tfresource.CleanupRecord
+		found bool
+	)
+	err := s.store.ReadSnapshot(ctx, func(ctx context.Context, _ persistence.Store) error {
+		var err error
+		rec, found, err = s.reader.FindCleanupByRequest(ctx, sc.ApplicationKey, sc.EnvironmentKey, actor.Username, requestHash)
+		return err
+	})
+	if err != nil || !found {
+		return AdmissionView{}, false, err
+	}
+	if rec.Mode != tfresource.CleanupUserConfirmed || rec.RootID != rootID || !tfresource.SameSelection(rec.SelectedIDs, in.Selected) {
+		return AdmissionView{}, true, ErrStalePreview
+	}
+	if in.ConfirmationName != rec.ConfirmationName {
+		return AdmissionView{}, true, ErrConfirmationMismatch
+	}
+	stage := safeStage(rec.Stage)
+	if stage == domain.AttemptUnknown {
+		stage = tfexec.CleanupRequested
+	}
+	return AdmissionView{OperationID: rec.OperationID, Status: safeOperationStatus(rec.Status), Stage: stage, Replayed: true}, true, nil
+}
+
 func requestHashOf(org, token string) string {
 	sum := sha256.Sum256([]byte("orchestrator-resource-deletion-v1|" + org + "|" + token))
 	return hex.EncodeToString(sum[:])
@@ -518,7 +628,7 @@ func requestHashOf(org, token string) string {
 // through the claim transaction (Environment row locked), so a deploy, a draft
 // write, a consumer edge or a status change cannot commit between this check
 // and the claim. Any failure rejects the whole request before any effect.
-func (s *Service) admissionCheck(sc Scope, actor Actor, rootID, tokenHash string, selected []string, envID string, targets map[string]string) terraformstate.AdmissionCheck {
+func (s *Service) admissionCheck(sc Scope, actor Actor, rootID, tokenHash string, expires int64, nonce string, selected []string, envID string, targets map[string]string) terraformstate.AdmissionCheck {
 	return func(ctx context.Context) error {
 		if !actor.MayDelete {
 			return ErrForbidden
@@ -540,7 +650,7 @@ func (s *Service) admissionCheck(sc Scope, actor Actor, rootID, tokenHash string
 		if p.busy {
 			return persistence.Busy(sc.ApplicationKey, sc.EnvironmentKey)
 		}
-		hash, err := p.tokenHash(actor.Username, targets)
+		hash, err := p.tokenHash(actor.Username, targets, expires, nonce)
 		if err != nil {
 			return err
 		}
@@ -739,7 +849,11 @@ func (s *Service) GetCleanup(ctx context.Context, sc Scope, operationID string) 
 		if err != nil {
 			return err
 		}
-		out = projectCleanup(snap, rec)
+		attempts, err := s.reader.ListOperationAttempts(ctx, sc.ApplicationKey, sc.EnvironmentKey, operationID)
+		if err != nil {
+			return err
+		}
+		out = projectCleanup(snap, rec, attempts)
 		return nil
 	})
 	return out, err
@@ -752,7 +866,21 @@ type storedResult struct {
 	code      string
 }
 
-func projectCleanup(snap *snapshot, rec tfresource.CleanupRecord) CleanupView {
+// verifiedBy returns the instances this very operation destroyed and proved
+// absent: a SUCCEEDED DESTROY attempt at stage DESTROYED bound to the
+// operation. A resource that is DESTROYED now because a later operation (or
+// anything else) destroyed it is not verified by this one.
+func verifiedBy(attempts []tfresource.OperationAttempt) map[string]bool {
+	out := map[string]bool{}
+	for _, a := range attempts {
+		if a.Action == tfresource.ActionDestroy && a.Status == tfresource.AttemptSucceeded && a.Stage == tfexec.StageDestroyed {
+			out[a.InstanceID] = true
+		}
+	}
+	return out
+}
+
+func projectCleanup(snap *snapshot, rec tfresource.CleanupRecord, attempts []tfresource.OperationAttempt) CleanupView {
 	status := safeOperationStatus(rec.Status)
 	view := CleanupView{OperationID: rec.OperationID, Application: snap.scope.ApplicationKey, Environment: snap.scope.EnvironmentKey,
 		Status: status, Stage: safeStage(rec.Stage), Mode: string(rec.Mode), Actor: rec.ActorRef, RootID: rec.RootID,
@@ -798,6 +926,7 @@ func projectCleanup(snap *snapshot, rec tfresource.CleanupRecord) CleanupView {
 			stored[id] = r
 		}
 	}
+	proved := verifiedBy(attempts)
 	order := append([]string(nil), rec.SelectedIDs...)
 	// Root first, then by descriptor, so the display order is stable.
 	sortIDs(order, snap, rec.RootID)
@@ -806,35 +935,43 @@ func projectCleanup(snap *snapshot, rec tfresource.CleanupRecord) CleanupView {
 	remainingSeen := map[string]bool{}
 	for _, id := range order {
 		r, known := snap.records[id]
-		item := CleanupResourceView{ID: id, Descriptor: "unknown", Status: domain.AttemptUnknown, Outcome: "UNKNOWN", Remaining: []string{}}
+		item := CleanupResourceView{ID: id, Descriptor: "unknown", CurrentStatus: domain.AttemptUnknown, Outcome: "UNKNOWN", Remaining: []string{}}
 		if known {
 			item.Descriptor = r.Instance.Identity.Descriptor
-			item.Status = safeInstanceStatus(r.Instance.Status)
+			item.CurrentStatus = safeInstanceStatus(r.Instance.Status)
 		}
 		res, hasResult := stored[id]
-		persistedGone := known && r.Instance.Status == tfresource.InstanceDestroyed
+		// Verification is this operation's own persisted proof; the current
+		// status of the instance is never evidence for a historical operation.
+		verified := proved[id]
 		switch {
-		case persistedGone:
+		case verified:
 			item.Outcome, item.Verified = "DESTROYED", true
-		case hasResult && res.code == tfexec.CodeNotAttempted, hasResult && res.code == tfexec.CodeRetainedConsumer:
+		case hasResult && (res.code == tfexec.CodeNotAttempted || res.code == tfexec.CodeRetainedConsumer):
 			item.Outcome, item.ReasonCode = "RETAINED", res.code
 		case hasResult && res.code == tfexec.CodeNeedsAttention:
 			item.Outcome, item.ReasonCode = "NEEDS_ATTENTION", res.code
-		case hasResult:
+		case hasResult && !res.destroyed:
 			item.Outcome, item.ReasonCode = "REMAINING", res.code
-		case known && r.Instance.Status == tfresource.InstanceDestroying, held && id == current:
+		case hasResult:
+			// The result claims a destroy that no persisted attempt of this
+			// operation proves: it is not believed.
+			item.Outcome = "UNKNOWN"
+		case held && (id == current || known && r.Instance.Status == tfresource.InstanceDestroying):
 			item.Outcome = "DESTROYING"
 		case held:
 			item.Outcome = "PENDING"
 		}
-		if hasResult && !persistedGone {
-			item.Remaining = res.remaining
-			item.RemainingUnknown = res.unknown || (len(res.remaining) == 0)
-		} else if !persistedGone && !held {
-			// Not verified absent and no result recorded: absence is unknown.
-			item.RemainingUnknown = true
-		}
-		if !item.Verified {
+		if !verified {
+			switch {
+			case hasResult:
+				item.Remaining = res.remaining
+				item.RemainingUnknown = res.unknown || len(res.remaining) == 0
+			case !held:
+				// Not verified by this operation and no result recorded:
+				// absence is unknown.
+				item.RemainingUnknown = true
+			}
 			allVerified = false
 			for _, v := range item.Remaining {
 				if !remainingSeen[v] {

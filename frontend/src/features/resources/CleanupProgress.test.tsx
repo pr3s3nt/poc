@@ -23,7 +23,7 @@ describe('cleanup progress (UC-09 RES-03)', () => {
     const calls = stubApi(forOp('op-1',
       Response.json(wire.cleanup(operation({ stage: 'CHECKING' }))),
       Response.json(wire.cleanup(operation({ stage: 'DESTROYING' }))),
-      Response.json(wire.cleanup(operation({ status: 'SUCCEEDED', stage: 'VERIFYING', terminal: 'SUCCEEDED', allVerified: true, resources: [{ id: rootId, descriptor: rootName, status: 'DESTROYED', outcome: 'DESTROYED', verified: true, remaining: [], remainingUnknown: false }] }))),
+      Response.json(wire.cleanup(operation({ status: 'SUCCEEDED', stage: 'VERIFYING', terminal: 'SUCCEEDED', allVerified: true, resources: [{ id: rootId, descriptor: rootName, currentStatus: 'DESTROYED', outcome: 'DESTROYED', verified: true, remaining: [], remainingUnknown: false }] }))),
     ));
     render(<CleanupProgress applicationId="shop" environment="staging" operationId="op-1" intervalMs={10} onSettled={settled} />);
     expect(screen.getByRole('status')).toHaveTextContent('Đang tải tiến trình xóa…');
@@ -36,7 +36,7 @@ describe('cleanup progress (UC-09 RES-03)', () => {
   });
 
   it('never calls success while a confirmed resource is unverified, even when the operation says SUCCEEDED', async () => {
-    stubApi(forOp('op-1', Response.json(wire.cleanup(operation({ status: 'SUCCEEDED', allVerified: false, resources: [{ id: rootId, descriptor: rootName, status: 'UNREFERENCED', outcome: 'UNKNOWN', verified: false, remaining: [], remainingUnknown: true }] })))));
+    stubApi(forOp('op-1', Response.json(wire.cleanup(operation({ status: 'SUCCEEDED', allVerified: false, resources: [{ id: rootId, descriptor: rootName, currentStatus: 'UNREFERENCED', outcome: 'UNKNOWN', verified: false, remaining: [], remainingUnknown: true }] })))));
     render(<CleanupProgress applicationId="shop" environment="staging" operationId="op-1" />);
     expect(await screen.findByRole('alert')).toHaveTextContent('chưa xác minh được mọi tài nguyên đã chọn đã hết');
     expect(screen.queryByText(/đã được xác minh là không còn/)).not.toBeInTheDocument();
@@ -44,14 +44,14 @@ describe('cleanup progress (UC-09 RES-03)', () => {
   });
 
   it('shows an interrupted operation as needing attention, neither deleted nor intact', async () => {
-    stubApi(forOp('op-1', Response.json(wire.cleanup(operation({ status: 'INTERRUPTED', terminal: 'NEEDS_ATTENTION', resources: [{ id: rootId, descriptor: rootName, status: 'DESTROYING', outcome: 'NEEDS_ATTENTION', verified: false, remaining: [], remainingUnknown: true, reasonCode: 'NEEDS_ATTENTION' }] })))));
+    stubApi(forOp('op-1', Response.json(wire.cleanup(operation({ status: 'INTERRUPTED', terminal: 'NEEDS_ATTENTION', resources: [{ id: rootId, descriptor: rootName, currentStatus: 'DESTROYING', outcome: 'NEEDS_ATTENTION', verified: false, remaining: [], remainingUnknown: true, reasonCode: 'NEEDS_ATTENTION' }] })))));
     render(<CleanupProgress applicationId="shop" environment="staging" operationId="op-1" intervalMs={10} />);
     expect(await screen.findByRole('alert')).toHaveTextContent('chưa rõ kết quả');
     expect(screen.getByText('Chưa rõ kết quả; cần kiểm tra thủ công')).toBeInTheDocument();
   });
 
   it('maps unknown stages, outcomes and reason codes to generic text', async () => {
-    stubApi(forOp('op-1', Response.json(wire.cleanup(operation({ status: 'weird', stage: 'password=hunter2', failureCode: 'RAW', resources: [{ id: rootId, descriptor: rootName, status: 'x', outcome: 'hunter2-outcome', verified: false, remaining: [], remainingUnknown: true, reasonCode: 'RAW ERROR hunter2' }] })))));
+    stubApi(forOp('op-1', Response.json(wire.cleanup(operation({ status: 'weird', stage: 'password=hunter2', failureCode: 'RAW', resources: [{ id: rootId, descriptor: rootName, currentStatus: 'x', outcome: 'hunter2-outcome', verified: false, remaining: [], remainingUnknown: true, reasonCode: 'RAW ERROR hunter2' }] })))));
     render(<CleanupProgress applicationId="shop" environment="staging" operationId="op-1" />);
     await screen.findByText(/Trạng thái:/);
     expect(document.body).not.toHaveTextContent('hunter2');
@@ -85,8 +85,8 @@ describe('cleanup progress (UC-09 RES-03)', () => {
     view.rerender(<CleanupProgress applicationId="shop" environment="staging" operationId="op-new" />);
     await waitFor(() => expect(Object.keys(pending)).toHaveLength(2));
     const [oldUrl, newUrl] = Object.keys(pending) as [string, string];
-    await act(async () => { pending[newUrl]?.(Response.json(wire.cleanup(operation({ operationId: 'op-new', status: 'FAILED', resources: [{ id: depA, descriptor: 'vpc.default#new', status: 'UNREFERENCED', outcome: 'REMAINING', verified: false, remaining: ['x=new'], remainingUnknown: false }] })))); });
-    await act(async () => { pending[oldUrl]?.(Response.json(wire.cleanup(operation({ operationId: 'op-old', status: 'SUCCEEDED', allVerified: true, resources: [{ id: rootId, descriptor: 'OLD-RESOURCE', status: 'DESTROYED', outcome: 'DESTROYED', verified: true, remaining: [], remainingUnknown: false }] })))); });
+    await act(async () => { pending[newUrl]?.(Response.json(wire.cleanup(operation({ operationId: 'op-new', status: 'FAILED', resources: [{ id: depA, descriptor: 'vpc.default#new', currentStatus: 'UNREFERENCED', outcome: 'REMAINING', verified: false, remaining: ['x=new'], remainingUnknown: false }] })))); });
+    await act(async () => { pending[oldUrl]?.(Response.json(wire.cleanup(operation({ operationId: 'op-old', status: 'SUCCEEDED', allVerified: true, resources: [{ id: rootId, descriptor: 'OLD-RESOURCE', currentStatus: 'DESTROYED', outcome: 'DESTROYED', verified: true, remaining: [], remainingUnknown: false }] })))); });
     expect(screen.getByText('vpc.default#new')).toBeInTheDocument();
     expect(screen.queryByText('OLD-RESOURCE')).not.toBeInTheDocument();
     expect(screen.queryByText(/đã được xác minh là không còn/)).not.toBeInTheDocument();

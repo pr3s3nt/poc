@@ -3,8 +3,10 @@ package tfexec_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/adapters/postgres"
 	"orchestrator/internal/domain/environment"
 	"testing"
+	"time"
 
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/resourcecleanup"
@@ -102,6 +104,53 @@ func TestResourceCleanupRealEngineDestroysSelectedDependencyOnly(t *testing.T) {
 	detail, err := svc.GetResource(context.Background(), sc, db.InstanceID)
 	if err != nil || detail.Status != "DESTROYED" {
 		t.Fatalf("detail after deletion: %+v %v", detail, err)
+	}
+
+	// Replay after the REAL cleanup retired the graph: the exact actor, token and
+	// selected set return the same operation from persistence alone - on the same
+	// service, on a reopened Console connection, past the preview expiry and with
+	// the execution services unavailable - and no second destroy ever runs.
+	opens, destroys := h.runner.opens, h.count(`SELECT count(*) FROM terraform_resource_attempts WHERE action='DESTROY'`)
+	same := resourcecleanup.Input{Token: pv.Token, ConfirmationName: pv.ConfirmationName, Selected: []string{ns.InstanceID, db.InstanceID}}
+	again, err := svc.CleanupResources(context.Background(), sc, peActor, db.InstanceID, same)
+	if err != nil || again.OperationID != adm.OperationID || !again.Replayed {
+		t.Fatalf("replay on the same service: %+v %v", again, err)
+	}
+	reopened, err := postgres.Open(context.Background(), h.db.Console)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	cold := resourcecleanup.New(reopened, envops.NewManager(reopened)) // no State login, no engine
+	cold.SetClock(func() time.Time { return time.Now().Add(24 * 365 * time.Hour) })
+	cold1, err := cold.CleanupResources(context.Background(), sc, peActor, db.InstanceID, same)
+	if err != nil || cold1.OperationID != adm.OperationID || !cold1.Replayed {
+		t.Fatalf("replay after reopening, past expiry, without execution services: %+v %v", cold1, err)
+	}
+	if view, err := cold.GetCleanup(context.Background(), sc, adm.OperationID); err != nil || !view.AllVerified || view.Status != "SUCCEEDED" {
+		t.Fatalf("the reopened service lost the operation: %+v %v", view, err)
+	}
+	// A changed selection of an admitted token, a wrong name and a Developer are
+	// still refused, and a new token for the retired graph is refused by planning.
+	for name, in := range map[string]resourcecleanup.Input{
+		"smaller set": {Token: pv.Token, ConfirmationName: pv.ConfirmationName, Selected: []string{db.InstanceID}},
+		"grown set":   {Token: pv.Token, ConfirmationName: pv.ConfirmationName, Selected: []string{db.InstanceID, ns.InstanceID, cfg.InstanceID}},
+	} {
+		if _, err := cold.CleanupResources(context.Background(), sc, peActor, db.InstanceID, in); !errors.Is(err, resourcecleanup.ErrStalePreview) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if _, err := cold.CleanupResources(context.Background(), sc, peActor, db.InstanceID, resourcecleanup.Input{Token: pv.Token, ConfirmationName: "wrong", Selected: same.Selected}); !errors.Is(err, resourcecleanup.ErrConfirmationMismatch) {
+		t.Errorf("wrong name on a replay: %v", err)
+	}
+	if _, err := cold.CleanupResources(context.Background(), sc, resourcecleanup.Actor{Username: "platform-engineer"}, db.InstanceID, same); !errors.Is(err, resourcecleanup.ErrForbidden) {
+		t.Errorf("a Developer replay: %v", err)
+	}
+	if _, err := cold.CleanupResources(context.Background(), sc, resourcecleanup.Actor{Username: "someone-else", MayDelete: true}, db.InstanceID, same); err == nil {
+		t.Error("another actor replayed the token")
+	}
+	if h.runner.opens != opens || h.count(`SELECT count(*) FROM terraform_resource_attempts WHERE action='DESTROY'`) != destroys {
+		t.Fatal("a replay ran a second destroy")
 	}
 }
 

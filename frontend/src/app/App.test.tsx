@@ -45,6 +45,7 @@ function stubBackend() {
     if (url.includes('/configuration')) return Response.json({ applicationKey: 'x', environmentKey: 'staging', version: 0, keys: [] });
     if (url.includes('/workloads')) return Response.json({ draftVersion: 0, workloads: [] });
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (/\/resources$/.test(url)) return Response.json({ resources: [] });
     return Response.json({});
   }));
 }
