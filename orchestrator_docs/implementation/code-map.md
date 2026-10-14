@@ -493,3 +493,12 @@ và runner. [I04-10 local verification](../verification/2026-10-14-i04-10-integr
 chỉ chứng minh local checks; live UI/adapters/cleanup/video còn I04-11/12.
 D12 automatic recovery, D13 orphan reconciliation và D14 backup/restore còn
 hoãn, không coi safety net của owned acceptance run là hoàn tất các hạng mục đó.
+
+I04-11 cleanup fixes `6bffefa`/`ea101e0`: [Kubernetes UID deletion](../../backend/internal/adapters/kubernetes/kubectl.go),
+[renderer ownership/removal](../../backend/internal/adapters/kubernetes/deployer.go),
+[owner preservation](../../backend/internal/application/deployment/service.go),
+[namespace immutable baseline/absence guard](../../backend/internal/application/tfexec/namespace.go),
+[namespace inspection](../../backend/internal/adapters/terraform/readiness/inspect.go),
+[layered physical verification](../../backend/test/integration/v2run/k8s.go),
+[headed native confirmation](../../frontend/test/e2e/terraform-v2-acceptance.mjs).
+Local checks1394Go/race/0skip/622frontend đạt; live acceptance vẫn đang I04-11.

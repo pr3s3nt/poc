@@ -36,8 +36,9 @@ namespace/UID2026-10-15; Codex xác minh lại
 và dọn bằng UID precondition, namespace/PV ABSENT, sentinel giữ nguyên.
 Lượt r2 đã CLOSED_CLEAN: engine gốc ghi3instances DESTROYED, supervisor phục
 hồi CLEAN, DB/ba roles drop và hai Vault dừng; failed evidence/private state
-archives giữ. Luna đã chốt code/test, Codex đang chạy checks độc lập
-trên disk với bản sửa đã review; chưa mở run mới. Platform PG riêng giữ.
+archives giữ. Luna `6bffefa` merge `ea101e0`: Codex checks độc lập1394Go/race/0skip,
+622frontend/37files cùng build/vet/type/lint/docs/PlantUML/syntax đạt trên disk;
+fixture kiểm tra sạch. A01 mới đang chuẩn bị, chưa scenario pass. Platform PG riêng giữ.
 Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi
 lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
 k8s-4f sạch thì tự chạy I04-12 AWS 452025861381/us-east-1. Quyết định2026-10-15

@@ -677,3 +677,12 @@ Quyền bổ sung2026-10-15: dọn ngoại lệ đúng namespace/UID r2 sau ki�
 thực hiện M04 đến hết I04-12 không chờ duyệt cuối, gửi báo cáo. Namespace/PV
 r2 đã verified ABSENT; không biến failed UI scenario thành PASS. Luna đang
 sửa code/test; giữ state/handles để khép cleanup trước lượt mới.
+
+I04-11 bản sửa `6bffefa`/merge `ea101e0`: UID DeleteOptions/Foreground,
+exact renderer ownership và giữ owner qua removal retry; baseline namespace/
+default SA bất biến và typed NotFound/historical-ID verification, inventory
+phân lớp. Regression tests trong kubernetes/credential_target_test.go,
+deployment/unreferenced_test.go/remove_delivered_test.go,
+tfexec/namespace_internal_test.go, readiness/readiness_test.go và v2run/k8s_test.go.
+Codex full1394Go/race/0FAIL/0SKIP,622frontend/fullchecks đạt; chưa thay thế
+A01/E01/E02/A02/A03 live proof hoặc đóng IMP-021.

@@ -336,3 +336,9 @@ chỉ đọc và estimates13lines/counts/5h đạt, chưa tạo AWS.
 phân lớp cleanup; giữ nguyên module pin namespace. Codex đã review, đang chạy
 full Go race/PostgreSQL/Terraform/Redis, build/vet, frontend và docs độc lập tại
 `/home/thanhnt1/.cache/poc-m04-i0411-evidence/checks-r4-final`. Chưa ghi pass.
+
+**Checks bản cuối đạt2026-10-15:** Luna `6bffefa` merge/push `ea101e0`;
+1394Go/race/0fail/0skip với PG/Terraform/Redis thật,622frontend/37files,
+build/vet/type/lint/docs/PlantUML/shell/node đạt. Fixture checks cleanup sạch.
+Evidence `checks-r4-final/` trên disk. A01 mới `a01-20261015-r1` chuẩn bị,
+28 retained UIDs nguyên vẹn; chưa scenario pass, AWS gate chưa mở.
