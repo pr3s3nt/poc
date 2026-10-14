@@ -5,7 +5,7 @@ import { ResourceDetailPage } from './ResourceDetailPage';
 import type { Application } from '../../shared/types/application';
 import { bothConfigured } from '../../test/targets';
 import { apiError, stubApi } from '../../test/api';
-import { detail, operation, rootId, rootName, wire } from '../../test/resources';
+import { detail, operation, preview, rootId, rootName, wire } from '../../test/resources';
 
 const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured('internal-cluster'), workloads: { staging: [], production: [] } };
 const isDetail = (url: string) => url.endsWith(`/resources/${rootId}`);
@@ -146,5 +146,65 @@ describe('resource detail (UC-09 RES-01/02)', () => {
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(detailReads).toBe(2); // the first load and exactly one reload after the operation settled
     expect(screen.getByTestId('cleanup-progress')).toHaveTextContent('đã được xác minh là không còn');
+  });
+
+  it('closes the dialog and never shows or reopens anything of the old scope when the resource, Environment or permission changes', async () => {
+    const otherId = '00000000-0000-4000-8000-0000000000ff';
+    const late: Record<string, (r: Response) => void> = {};
+    const calls = stubApi((c) => {
+      if (c.method === 'POST' && c.url.endsWith('/deletion-preview')) return Response.json(wire.preview(preview()));
+      if (c.method === 'GET' && c.url.includes('/environments/staging/resources/') && c.url.endsWith(otherId)) return new Promise<Response>((resolve) => { late[c.url] = resolve; }) as unknown as Response;
+      if (c.method === 'GET' && c.url.includes('/environments/production/resources/')) return apiError(404, 'NOT_FOUND');
+      return isDetail(c.url) ? Response.json(wire.resource(detail())) : undefined;
+    });
+    const view = render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Xóa tài nguyên' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    const previews = () => calls.filter((c) => c.url.endsWith('/deletion-preview')).length;
+    expect(previews()).toBe(1);
+
+    // Another resource of the same Environment: the dialog closes at once, the old detail is gone, and when
+    // the new detail finally loads no deletion preview is started on its own.
+    view.rerender(<ResourceDetailPage application={application} environment="staging" resourceId={otherId} canDelete />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('resource-name')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Đang tải chi tiết tài nguyên…');
+    await waitFor(() => expect(Object.keys(late)).toHaveLength(1));
+    late[Object.keys(late)[0] as string]?.(Response.json(wire.resource(detail({ id: otherId, descriptor: 'redis.default#shared.other' }))));
+    expect(await screen.findByTestId('resource-name')).toHaveTextContent('redis.default#shared.other');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(previews()).toBe(1);
+
+    // The SAME resource id under another Environment is a different resource: loading, then not found. The
+    // staging detail is never shown for it.
+    view.rerender(<ResourceDetailPage application={application} environment="production" resourceId={otherId} canDelete />);
+    expect(screen.queryByTestId('resource-name')).not.toBeInTheDocument();
+    expect(await screen.findByText('Không tìm thấy tài nguyên')).toBeInTheDocument();
+    expect(screen.queryByText('redis.default#shared.other')).not.toBeInTheDocument();
+
+    // Back to an eligible resource: open, then lose the right to delete. The dialog closes and stays closed.
+    view.rerender(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Xóa tài nguyên' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    view.rerender(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete={false} />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    view.rerender(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
+    await screen.findByRole('button', { name: 'Xóa tài nguyên' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('drops a late old-scope reply that arrives after the scope changed', async () => {
+    const pending: Record<string, (r: Response) => void> = {};
+    stubApi((c) => (c.method === 'GET' ? new Promise<Response>((resolve) => { pending[c.url] = resolve; }) as unknown as Response : undefined));
+    const view = render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
+    await waitFor(() => expect(Object.keys(pending)).toHaveLength(1));
+    const oldUrl = Object.keys(pending)[0] as string;
+    view.rerender(<ResourceDetailPage application={application} environment="production" resourceId={rootId} canDelete />);
+    await waitFor(() => expect(Object.keys(pending)).toHaveLength(2));
+    pending[oldUrl]?.(Response.json(wire.resource(detail({ descriptor: 'postgres.default#shared.STALE' }))));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(screen.queryByText('postgres.default#shared.STALE')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Đang tải chi tiết tài nguyên…');
   });
 });

@@ -978,6 +978,22 @@ func TestDetailShowsTheOriginalTargetNotTheCurrentOne(t *testing.T) {
 			t.Fatalf("%s: the region must be unknown, got %v", name, region)
 		}
 	}
+	// Malformed stored generations fail closed against a run of generation 0: a
+	// fraction that truncates to 0 (or any other malformed value) never matches by cast.
+	for name, generation := range map[string]string{"fractional": `0.5`, "tiny fraction": `1e-300`, "negative fraction": `-0.5`, "negative": `-1`, "huge": `1e30`, "string": `"0"`, "boolean": `false`, "object": `{}`, "array": `[0]`} {
+		f.savePlanRaw(dep, `{"connectionKey":"aws-original","region":"eu-west-1","generation":`+generation+`}`)
+		got := read(f.root.ID)
+		if got["known"] != true {
+			t.Fatalf("%s: the target must stay known: %v", name, got)
+		}
+		if region, present := got["region"]; present && region != "" {
+			t.Fatalf("a %s stored generation must leave the region unknown, got %v", name, region)
+		}
+	}
+	f.savePlanRaw(dep, `{"connectionKey":"aws-original","region":"eu-west-1","generation":0}`)
+	if got := read(f.root.ID); got["region"] != "eu-west-1" {
+		t.Fatalf("a well-formed generation 0 must match: %v", got)
+	}
 	f.savePlan(dep, "aws-original", "eu-west-1", 0)
 	// No Active Resource, or a run of another generation: unknown, never the Environment's.
 	if t0 := read(f.a.ID); t0["known"] != false || t0["connectionKey"] != nil {

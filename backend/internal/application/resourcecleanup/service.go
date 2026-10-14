@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -181,18 +182,26 @@ func plannedRegion(ctx context.Context, st persistence.Store, deploymentID, conn
 	if key, _ := target["connectionKey"].(string); key != connectionKey {
 		return "", false
 	}
+	// Malformed stored metadata fails closed: a fractional, negative, non-finite,
+	// out-of-range or non-numeric generation never matches by truncation or cast.
 	var planned int64
 	switch g := target["generation"].(type) {
 	case nil: // omitted for generation 0
 	case float64:
+		if math.IsNaN(g) || math.IsInf(g, 0) || g != math.Trunc(g) || g < 0 || g > 1<<53 {
+			return "", false
+		}
 		planned = int64(g)
 	case json.Number:
 		n, err := g.Int64()
-		if err != nil {
+		if err != nil || n < 0 {
 			return "", false
 		}
 		planned = n
 	case int64:
+		if g < 0 {
+			return "", false
+		}
 		planned = g
 	default:
 		return "", false

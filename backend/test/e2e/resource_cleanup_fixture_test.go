@@ -578,6 +578,13 @@ func (f *rcFixture) linkDeployment(activeID, connectionKey, connectionName strin
 	return depID
 }
 
+// savePlanRaw stores a plan document whose target is the given raw JSON, to
+// plant malformed stored metadata.
+func (f *rcFixture) savePlanRaw(deploymentID, targetJSON string) {
+	f.t.Helper()
+	f.exec(`INSERT INTO deployment_plans(deployment_id,document,plan_hash) VALUES($1::uuid,$2::jsonb,'plan-hash') ON CONFLICT(deployment_id) DO UPDATE SET document=EXCLUDED.document`, deploymentID, `{"target":`+targetJSON+`}`)
+}
+
 // savePlan stores the immutable plan document of a Deployment with the given
 // pinned target, the way the planner persists it.
 func (f *rcFixture) savePlan(deploymentID, connectionKey, region string, generation int64) {
