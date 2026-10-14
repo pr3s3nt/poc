@@ -40,8 +40,8 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-04 | [Module namespace, Redis và PostgreSQL](I04-04-kubernetes-modules/README.md) | 2 | Hoàn tất |
 | I04-05 | [Module VPC, EKS, ElastiCache và Aurora](I04-05-aws-modules/README.md) | 2 | Hoàn tất |
 | I04-06 | [AWS Connection qua Console và Vault](I04-06-aws-connection/README.md) | 2 | Hoàn tất local |
-| I04-07 | [Definition, Workload class, Preview và renderer](I04-07-definition-workload-ui/README.md) | 2 | Đang thực hiện qua cloud |
-| I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Chưa bắt đầu |
+| I04-07 | [Definition, Workload class, Preview và renderer](I04-07-definition-workload-ui/README.md) | 2 | Hoàn tất local |
+| I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Current; chuẩn bị cloud |
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Chưa bắt đầu |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Chưa bắt đầu |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Chưa bắt đầu |
@@ -52,7 +52,7 @@ Dependencies triển khai: schema/state -> registry -> executor -> modules ->
 Connection/catalog/Workload/renderer -> deletion/app Redis -> integration ->
 k8s-4f đạt + video/estimate + cleanup sạch -> AWS. Không bỏ task hoặc đổi adapter để rút acceptance.
 I04-00 đã được người dùng duyệt sau sửa selected-set và đối chiếu I06-10.
-I04-07 là iteration current; các task sau chưa bắt đầu. M02/I06-10 deferred,
+I04-08 là iteration current; các task sau chưa bắt đầu. M02/I06-10 deferred,
 không coi milestone cũ hoàn thành; xem [coverage còn lại](../M02-usecase-completion/I06-10-uc01-04-management/README.md#đối-chiếu-công-việc-còn-dở-với-m04).
 
 ## Validation và acceptance
@@ -87,7 +87,7 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 
 ## Current handoff
 
-2026-10-14: I04-01..06 đã verified local. I04-06 code `f3ed5bb` đã review,
+2026-10-14: I04-01..07 đã verified local. I04-06 code `f3ed5bb` đã review,
 1082 Go tests/zero skip + 479 frontend tests/build/vet/docs và Codex headed
 browser trên SQL/Vault thật, AWS transport fake đạt. [Biên bản](../../verification/2026-10-14-i04-06-aws-connection.md).
 Video `/tmp/poc-i0406-local-browser-r2/I04-06-captioned.mp4`; cleanup DB/roles,
@@ -96,28 +96,16 @@ cluster resources. Lượt trước và bàn giao cũ giữ tại `/tmp/poc-i040
 Phiên I04-06 [session_01UowTTQea8MqLBRaPktRfSX](https://claude.ai/code/session_01UowTTQea8MqLBRaPktRfSX);
 mode nội bộ không introspect được, Bash/Write/Edit/network quan sát unprompted.
 Nhánh chính/tự sinh đã xóa sau push merge `9b49075`; checkout riêng đã dọn.
-I04-07 đang thực hiện từ base `8acf616` trên nhánh `claude/m04-i04-07`.
-Phiên mới [session_01B8BFUdSwAFdkASEVQA1oKY](https://claude.ai/code/session_01B8BFUdSwAFdkASEVQA1oKY),
-tạo 2026-10-14 02:38 +07; đã yêu cầu báo quyền thực tế/blockers qua status commit.
-Brief/status `/tmp/poc-i0407-definition-workload-ui/`; đã fetch bản nháp
-`4e4300e` (06:11 +07); code không đổi sau `0c870f0`, chưa merge.
-Nhánh tự sinh `claude/m04-i04-07-vsumu1` cùng commits. Quyền Bash/Write/Edit/git/
-network quan sát unprompted theo early status `35b37ec`; không suy từ flag.
-Đã phản hồi metadata malformed, UPDATE/RETAIN/UNVERIFIED intent và các thiếu
-sót trong bàn giao `3107917`: loại public legacy driver pairs, standalone
-Preview intents, giữ optional Kubernetes Connection, đọc tiến độ Terraform
-đã lưu. Bản nháp tiếp theo có các bổ sung này; đang yêu cầu lọc mã stage/error
-không được nhận diện trước khi trả API, không hiển thị nguyên văn dữ liệu riêng
-tư. Nguồn chuẩn quyền đọc projection đã cập nhật ở schema/state contract.
-Codex đã kiểm độc lập `0c870f0`: 1115 Go/0 fail/0 skip, 549 frontend tests,
-build/vet/docs và headed video thử lại đạt; mọi dịch vụ/tệp riêng tư local đã
-dọn. [Biên bản và giới hạn bằng chứng](../../verification/2026-10-14-i04-07-definition-workload-ui.md).
-Video `/tmp/poc-i0407-local-browser-r2/I04-07-captioned.mp4`; assertions tiến
-độ dùng SQL thật với attempts dựng sẵn, không claim Terraform chạy thật.
-Cloud báo 18 lỗi tải provider Terraform, không dùng làm proof pass. Bàn giao
-cuối nêu `BaselinePlans` đọc ngoài snapshot; Codex đã yêu cầu sửa theo UC-05
-BR-01/OC-06, bổ sung tests và bàn giao mới trước merge. Tiếp fetch 06:26:50 +07,
-review/check lại phần sửa snapshot; không có task-owned cluster/AWS assets.
+I04-07 code `3ed0a89`/handoff `00a8813` đã merge: 1121 Go/0 skip, 549 frontend,
+build/vet/docs và Codex headed video đạt. [Biên bản](../../verification/2026-10-14-i04-07-definition-workload-ui.md).
+Video `/tmp/poc-i0407-local-browser-r3/I04-07-captioned.mp4`; SQL/Vault thật,
+executors/attempts video dựng sẵn. Cleanup DB/roles/Vault/PG/mạng/tệp riêng tư
+đã xác minh. Phiên [session_01B8BFUdSwAFdkASEVQA1oKY](https://claude.ai/code/session_01B8BFUdSwAFdkASEVQA1oKY)
+quan sát Bash/Write/Edit/git/network không prompt; mode nội bộ không introspect.
+Brief/handoff/checks/video cũ giữ ở `/tmp/poc-i0407-definition-workload-ui/` và
+các thư mục evidence. Snapshot pending/standalone đã sửa và có PG concurrency tests.
+I04-08 current: chuẩn bị phiên cloud mới từ refactor_ui đã push; draft brief
+`/tmp/poc-i0408-resource-delete-ui/cloud-brief-draft.txt`. Chưa có assets cluster/AWS.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
 Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.

@@ -103,6 +103,14 @@ other than NotFound also stop execution. See
 
 ## IMP-021 — Terraform v2 design/implementation gap
 
+I04-07 đã review/verified local: source/mapping/class UI, required renderer,
+safe resource intents/progress và một snapshot cho pending/standalone Xem trước.
+1121 Go/0 skip, 549 frontend tests và headed video đạt với SQL/Vault thật;
+executors và attempts video giả lập, không thay live proof. Public registration
+không còn static Kubernetes driver pairs. [Biên bản](../verification/2026-10-14-i04-07-definition-workload-ui.md).
+IMP-021 còn mở cho selected-set deletion, Redis app, wiring và live acceptance
+I04-08..12; các checkpoint bên dưới mô tả kết quả ở từng thời điểm.
+
 I04-05 AWS modules đã review/verified với 1042 tests trên PostgreSQL thật,
 không fail/skip, build/vet và cleanup đạt. Xem
 [evidence](../verification/2026-10-14-i04-05-aws-modules.md).

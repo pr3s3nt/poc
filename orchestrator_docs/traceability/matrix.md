@@ -618,3 +618,14 @@ selector cho Developer. UC-03 OC-04d supplies verified source/mapping/provider
 metadata for PE/Admin. [API mapping](../usecase/UC-16/ui/api-mapping.md#metadata-class-và-source--i04-07)
 clarifies role/no-side-effect/error/default/custom guards; implementation/tests
 pending I04-07, không claim delivery từ contract clarification.
+
+## I04-07 local review complete
+
+[Verification](../verification/2026-10-14-i04-07-definition-workload-ui.md)
+hiện thực UC-03 BR-08/11/23 và OC-04d source/mapping/provider metadata;
+UC-16 V2-02/03 class/default/custom/shared IDs; UC-05 BR-01/10 pure consistent
+pending/standalone Preview, CREATE/UPDATE/RETAIN/UNVERIFIED/BIND intent;
+UC-09/ADR-014 safe persisted attempts/column grants và required renderer trên
+hai profiles. Codex 1121 Go/0 skip, 549 frontend tests, build/vet/docs, headed
+SQL/Vault scenario và cleanup đạt. Attempts video dựng sẵn; physical resource
+proof còn I04-10..12. Không sửa 33 reference fixtures hoặc dùng bypass để đạt.

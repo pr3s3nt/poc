@@ -9,7 +9,7 @@ last_reviewed: 2026-10-14
 
 ## Quyết định điều phối M04 — 2026-10-14
 
-I04-01..06 hoàn tất local; I04-07 hiện hành. Claude cloud viết code/test trên
+I04-01..07 hoàn tất local; I04-08 hiện hành. Claude cloud viết code/test trên
 nhánh riêng public; Codex quản lý docs/review/checks/merge và chạy thật local.
 Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi
 lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
@@ -19,6 +19,14 @@ build/vet/docs và Codex headed browser/actual SQL/Vault/cleanup pass. AWS
 transport trong browser fake; chưa có v2 live proof. Tên mode quyền cloud không
 introspect được, nhưng Bash/Write/Edit/network quan sát chạy không prompt.
 [Biên bản I04-06](verification/2026-10-14-i04-06-aws-connection.md).
+
+I04-07 code `3ed0a89`/handoff `00a8813`: **1121 Go PASS/0 FAIL/0 SKIP**,
+549 frontend tests, build/vet/docs và headed video cuối 517,27 giây đạt.
+Definition source/mapping/provider metadata và Workload class/default/custom
+được kiểm; hai Xem trước đọc snapshot nhất quán, safe intents/progress đã có.
+SQL/Vault thật, executors/attempts browser giả lập; cleanup local sạch.
+[Biên bản I04-07](verification/2026-10-14-i04-07-definition-workload-ui.md).
+I04-08 tiếp theo: read detail/selected-set deletion/admission/progress qua UI.
 
 Các đoạn checkpoint lịch sử bên dưới không thay quyết định hiện tại này.
 
