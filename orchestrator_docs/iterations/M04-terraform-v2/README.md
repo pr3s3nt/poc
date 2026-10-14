@@ -163,3 +163,8 @@ không có dirty code cloud được phục hồi. Teleport chuyển checkout sa
 sau review. Brief `/tmp/poc-i0410-local-claude/brief.txt`, handoff yêu cầu
 `/tmp/poc-i0410-local-claude/handoff.md`. Nếu local quota fail thì chuyển agent
 `gpt-6-luna`, giữ code dở và mọi kiểm tra/cleanup; chưa dùng phương án này.
+
+Khởi động local đã xác minh Bash đọc brief và kiểm checkout; tmux cần gửi
+Enter dạng CSI-u để submit trên CLI hiện tại. Claude báo weekly usage92%,
+chưa báo exhausted, đang chạy; khi lỗi quota sẽ giữ dirty code và chuyển
+`gpt-6-luna`. Không coi cảnh báo92% là hoàn tất hoặc lỗi công cụ.
