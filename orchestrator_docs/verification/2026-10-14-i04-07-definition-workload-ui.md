@@ -87,3 +87,7 @@ Lượt r3 checks trên `0c870f0` cũng đạt 1115 Go/0 skip, 549 frontend; vid
 kết quả r4/video r3 trên code cuối. Không có required local check bỏ qua.
 Cloud legacy `refactor-local.mjs` chưa chạy vì không thuộc kịch bản mới; live
 Deploy-to-attempt browser proof còn I04-10..12, không suy từ attempts dựng sẵn.
+
+Hoàn tất push `b988f27`; nhánh `claude/m04-i04-07` và nhánh tự sinh đã xóa,
+`git ls-remote --heads` xác nhận không còn. Checkout review và symlink riêng
+đã dọn; `git worktree list` chỉ còn repo chính. I04-08 đã giao phiên cloud mới.

@@ -41,7 +41,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-05 | [Module VPC, EKS, ElastiCache và Aurora](I04-05-aws-modules/README.md) | 2 | Hoàn tất |
 | I04-06 | [AWS Connection qua Console và Vault](I04-06-aws-connection/README.md) | 2 | Hoàn tất local |
 | I04-07 | [Definition, Workload class, Preview và renderer](I04-07-definition-workload-ui/README.md) | 2 | Hoàn tất local |
-| I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Current; chuẩn bị cloud |
+| I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Đang thực hiện qua cloud |
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Chưa bắt đầu |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Chưa bắt đầu |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Chưa bắt đầu |
@@ -104,8 +104,13 @@ executors/attempts video dựng sẵn. Cleanup DB/roles/Vault/PG/mạng/tệp ri
 quan sát Bash/Write/Edit/git/network không prompt; mode nội bộ không introspect.
 Brief/handoff/checks/video cũ giữ ở `/tmp/poc-i0407-definition-workload-ui/` và
 các thư mục evidence. Snapshot pending/standalone đã sửa và có PG concurrency tests.
-I04-08 current: chuẩn bị phiên cloud mới từ refactor_ui đã push; draft brief
-`/tmp/poc-i0408-resource-delete-ui/cloud-brief-draft.txt`. Chưa có assets cluster/AWS.
+Nhánh I04-07 chính/tự sinh đã xóa, checkout review đã dọn sau push `b988f27`.
+I04-08 current từ base `b988f27` đã push, nhánh `claude/m04-i04-08`.
+Phiên mới [session_015AaNpBjwF2dUGJQHUxUrRv](https://claude.ai/code/session_015AaNpBjwF2dUGJQHUxUrRv),
+tạo 2026-10-14 08:32:58 +07. Brief/status `/tmp/poc-i0408-resource-delete-ui/`.
+Đã yêu cầu STATUS commit báo quyền Bash/Write/Edit/git/network và tools thực tế;
+mode nội bộ chưa xác minh, không suy từ launch flag. Tiếp fetch 08:47:58 +07;
+code/checks/browser I04-08 chưa chạy local, không có assets cluster/AWS.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
 Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.
