@@ -123,7 +123,9 @@ sinh `claude/m04-i04-09-m1sahg` xác nhận Read/Write/Edit/Bash/git push đã c
 network qua proxy, mode nội bộ không introspect. Cloud riêng app 74 pass/0 skip,
 full Go 1205 pass/18 fail/21 skip không được tính đạt. Codex đang review và
 chạy local r1 với Redis 8.0.5 thật/PG16; đã gửi lỗi readiness sau failed write
-và marker chưa xác minh về cùng phiên, yêu cầu bỏ docs edit và mirror nhánh chính. Chưa assets cluster/AWS.
+và marker chưa xác minh về cùng phiên, yêu cầu bỏ docs edit và mirror nhánh chính.
+Review bổ sung: PING đạt nhưng ACL từ chối GET/SET phải khiến diagnostics/readiness
+fail khi fallback/refill lỗi; đã yêu cầu kiểm thử Redis ACL thật. Chưa assets cluster/AWS.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
 Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.
