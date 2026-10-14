@@ -44,7 +44,7 @@ func main() {
 	terraformRecoveryDir := flag.String("terraform-recovery-dir", os.Getenv("ORCHESTRATOR_TERRAFORM_RECOVERY_DIR"), "private absolute directory (0700, outside any Git work tree) for encrypted recovery artifacts of a Terraform state the backend could not store; required with real adapters and the Terraform state backend")
 	terraformCache := flag.String("terraform-plugin-cache", os.Getenv("TF_PLUGIN_CACHE_DIR"), "Terraform provider cache directory")
 	kubectlPath := flag.String("kubectl", "kubectl", "kubectl binary")
-	scorePath := flag.String("score-k8s", "", "explicit path to pinned score-k8s 0.15.0 renderer (optional)")
+	scorePath := flag.String("score-k8s", "", "path to the pinned score-k8s 0.15.0 renderer; required for Workload deployment (without it every Workload plan fails before resources, there is no native fallback)")
 	terraformPath := flag.String("terraform", "terraform", "terraform binary")
 	moduleCacheDir := flag.String("terraform-module-cache-dir", os.Getenv("ORCHESTRATOR_TERRAFORM_MODULE_CACHE_DIR"), "private absolute directory (0700, outside any Git work tree) caching verified Terraform module content; required with -terraform-module-policy-file")
 	modulePolicyFile := flag.String("terraform-module-policy-file", os.Getenv("ORCHESTRATOR_TERRAFORM_MODULE_POLICY_FILE"), "Admin allowlist of HTTPS Git Terraform module sources (JSON); empty allows only the packaged release modules")
@@ -147,6 +147,7 @@ func main() {
 
 	app, err := bootstrap.Build(context.Background(), bootstrap.Options{
 		ScoreK8sPath:                  *scorePath,
+		RequireScoreRenderer:          true,
 		Seed:                          opts,
 		UIDir:                         *uiDir,
 		StatePath:                     *statePath,

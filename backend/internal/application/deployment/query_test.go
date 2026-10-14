@@ -2,7 +2,9 @@ package deployment_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -202,5 +204,86 @@ func TestOutputRedactionFailsClosed(t *testing.T) {
 				t.Fatalf("%s.%s = %v, want %v (all: %v)", descriptor, name, outputs[descriptor][name], value, outputs)
 			}
 		}
+	}
+}
+
+type attemptView struct {
+	persistence.Store
+	attempts []domain.ResourceAttempt
+	err      error
+}
+
+func (a *attemptView) ListDeploymentAttempts(context.Context, string) ([]domain.ResourceAttempt, error) {
+	return a.attempts, a.err
+}
+
+type attemptStore struct {
+	*countingStore
+	attempts []domain.ResourceAttempt
+	err      error
+}
+
+func (a *attemptStore) ReadSnapshot(ctx context.Context, fn func(context.Context, persistence.Store) error) error {
+	return a.countingStore.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
+		return fn(ctx, &attemptView{Store: view, attempts: a.attempts, err: a.err})
+	})
+}
+
+// The deployment view carries the safe persisted-attempt projection under
+// `resourceProgress`, always as an array, scoped like the rest of the view; a
+// failed read is an error, never an empty progress list.
+func TestGetDeploymentCarriesSafeResourceProgress(t *testing.T) {
+	ctx := context.Background()
+	base, opts, id := queryFixture(t)
+	scope := appsvc.GetDeploymentQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, DeploymentID: id}
+
+	view, err := appsvc.NewQueryService(base).GetDeployment(ctx, scope)
+	if err != nil || view.ResourceProgress == nil || len(view.ResourceProgress) != 0 {
+		t.Fatalf("no attempts must be an empty array: %#v %v", view.ResourceProgress, err)
+	}
+
+	attempts := []domain.ResourceAttempt{{Descriptor: "redis.in-cluster#cache", ScopeType: "SHARED", Number: 1, Action: "UPDATE", Ownership: "PREEXISTING", Stage: "APPLYING", Status: "RUNNING", ModuleID: "redis-k8s", ModuleRevision: "r1", StartedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}}
+	view, err = appsvc.NewQueryService(&attemptStore{countingStore: base, attempts: attempts}).GetDeployment(ctx, scope)
+	if err != nil || len(view.ResourceProgress) != 1 || view.ResourceProgress[0].Stage != "APPLYING" {
+		t.Fatalf("progress = %#v %v", view.ResourceProgress, err)
+	}
+
+	// Scope still gates the whole view, including the progress.
+	foreign := scope
+	foreign.OrganizationKey = "another-org"
+	if _, err := appsvc.NewQueryService(&attemptStore{countingStore: base, attempts: attempts}).GetDeployment(ctx, foreign); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("foreign organization = %v", err)
+	}
+
+	outage := errors.New("attempt read outage")
+	if _, err := appsvc.NewQueryService(&attemptStore{countingStore: base, err: outage}).GetDeployment(ctx, scope); !errors.Is(err, outage) {
+		t.Fatalf("a failed progress read must fail the view: %v", err)
+	}
+}
+
+// The view projects through an allowlist: hostile persisted stage/status/error
+// text never reaches the response, while known codes are preserved.
+func TestGetDeploymentProjectsAttemptsThroughTheAllowlist(t *testing.T) {
+	ctx := context.Background()
+	base, opts, id := queryFixture(t)
+	scope := appsvc.GetDeploymentQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, DeploymentID: id}
+	hostile := domain.ResourceAttempt{Descriptor: "redis.in-cluster#shared.cache", ScopeType: "SHARED", Number: 1, Action: "CREATE", Ownership: "PREEXISTING", Stage: "AKIAPRIVATE /var/private/state", Status: "token=PRIVATE", SafeErrorCode: "AUTH vault://PRIVATE", ModuleID: "redis-k8s", ModuleRevision: "r1"}
+	known := hostile
+	known.Number, known.Stage, known.Status, known.SafeErrorCode = 2, "READY", "SUCCEEDED", ""
+	view, err := appsvc.NewQueryService(&attemptStore{countingStore: base, attempts: []domain.ResourceAttempt{hostile, known}}).GetDeployment(ctx, scope)
+	if err != nil || len(view.ResourceProgress) != 2 {
+		t.Fatalf("%v %v", view, err)
+	}
+	raw, _ := json.Marshal(view.ResourceProgress)
+	for _, secret := range []string{"AKIA", "PRIVATE", "/var/", "vault://", "token="} {
+		if strings.Contains(string(raw), secret) {
+			t.Fatalf("view leaks %q: %s", secret, raw)
+		}
+	}
+	if p := view.ResourceProgress[0]; p.Stage != "UNKNOWN" || p.Status != "UNKNOWN" || p.SafeErrorCode != "UNKNOWN_ERROR" {
+		t.Fatalf("hostile row %+v", p)
+	}
+	if p := view.ResourceProgress[1]; p.Stage != "READY" || p.Status != "SUCCEEDED" || p.SafeErrorCode != "" {
+		t.Fatalf("known row %+v", p)
 	}
 }

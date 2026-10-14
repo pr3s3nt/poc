@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	appsvc "orchestrator/internal/application/deployment"
+	appdomain "orchestrator/internal/domain/application"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -106,6 +107,13 @@ type DeploymentPreview struct {
 	WorkloadID     string
 	Action         string
 	Plan           *planning.Plan
+	// Binding and AccountID pin the execution target shown with the resource
+	// intents (UC-05 BR-10); AccountID is the nonsecret AWS account (aws-eks).
+	Binding   environment.Binding
+	AccountID string
+	// Intents is the pure resource projection against the persisted plans of
+	// the existing resources.
+	Intents []planning.ResourceIntent
 }
 
 // Service is read-only: it holds no executor, provisioner or deployer.
@@ -127,7 +135,7 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 	if err != nil {
 		return nil, err
 	}
-	snapshot, err := appsvc.LoadPlanningSnapshot(ctx, s.store, q.OrganizationKey, q.ApplicationKey, q.EnvironmentKey)
+	snapshot, err := appsvc.LoadPlanningSnapshotWithBaselines(ctx, s.store, q.OrganizationKey, q.ApplicationKey, q.EnvironmentKey)
 	if errors.Is(err, appsvc.ErrConnectionNotReady) {
 		return nil, public(ErrNotReady, "the Environment connection is not READY; ask a platform engineer to verify it")
 	}
@@ -152,7 +160,14 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 	if err != nil {
 		return nil, publicPlanningError(err)
 	}
+	accountID := ""
+	if snapshot.Env.Profile == appdomain.ProfileAWSEKS {
+		accountID = snapshot.Connection.ConfigString("accountId")
+	}
 	return &DeploymentPreview{
+		Binding:        snapshot.Env.Binding(),
+		AccountID:      accountID,
+		Intents:        plan.ResourceIntents(snapshot.Baselines.Reader()),
 		ApplicationKey: snapshot.App.Key,
 		EnvironmentKey: snapshot.Env.Key,
 		BaseSetID:      snapshot.BaseSetID,
@@ -236,6 +251,12 @@ type View struct {
 	Matches        []MatchView                            `json:"matches"`
 	Batches        [][]string                             `json:"batches"`
 	Classification planning.Classification                `json:"classification"`
+	// ResourceIntents, Binding and AccountID are the safe resource projection
+	// of UC-05 BR-10: type, class, source, target, account and ownership, with
+	// no params, resolved inputs, secret or state reference.
+	ResourceIntents []planning.ResourceIntent `json:"resourceIntents"`
+	Binding         environment.Binding       `json:"binding"`
+	AccountID       string                    `json:"accountId,omitempty"`
 }
 
 // GraphView omits node parameter values, which may come from Definition
@@ -284,6 +305,8 @@ func (p *DeploymentPreview) Public() (View, error) {
 		Delta: p.Plan.Delta, CandidateSet: candidate,
 		Graph:   GraphView{Nodes: []NodeView{}, Edges: []planning.Edge{}},
 		Matches: []MatchView{}, Batches: [][]string{},
+		ResourceIntents: append([]planning.ResourceIntent{}, p.Intents...),
+		Binding:         p.Binding, AccountID: p.AccountID,
 		Classification: planning.Classification{
 			Existing: nonNil(p.Plan.Classification.Existing), New: nonNil(p.Plan.Classification.New),
 			Unreferenced: nonNil(p.Plan.Classification.Unreferenced),

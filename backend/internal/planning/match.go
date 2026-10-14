@@ -10,24 +10,25 @@ import (
 	"orchestrator/internal/domain/resource"
 )
 
-// ErrConnectionMismatch reports a Definition for the Application's target
-// whose explicit Connection differs from the Environment binding (UC-06
-// BR-20): internal-k8s existing-cluster/Kubernetes Definitions and aws-eks
-// Terraform VPC/EKS Definitions. The selected target is never silently replaced.
+// ErrConnectionMismatch reports a Definition whose explicit Connection differs
+// from the Environment binding (UC-06 BR-20, module contract). The selected
+// target is never silently replaced.
 var ErrConnectionMismatch = errors.New("planning: definition connection differs from the environment connection")
 
 // ConnectionMismatch reports whether def would retarget the Application's
-// saved Connection. External resources (for example databases) keep their own
-// explicit Driver Account and are never reported.
+// saved Connection. Registration forbids a Connection on AWS modules, so any
+// explicit Connection that is not the Environment's own is a mismatch.
 func ConnectionMismatch(env environment.Environment, def resource.Definition) bool {
 	if def.ConnectionKey == "" || def.ConnectionKey == env.ConnectionKey {
 		return false
 	}
-	switch env.Profile {
-	case application.ProfileInternalK8s:
-		return def.DriverType == resource.DriverExistingCluster || def.DriverType == resource.DriverKubernetes
-	case application.ProfileAWSEKS:
-		return def.DriverType == resource.DriverTerraform && (def.ResourceTypeKey == TypeVPC || def.ResourceTypeKey == TypeCluster)
+	// A Terraform module takes no Connection of its own on AWS; a Kubernetes
+	// module may name one only if it is the Environment's own target (module
+	// contract, UC-03 BR-08). Existing-cluster/static Kubernetes Definitions
+	// keep the same rule.
+	switch def.DriverType {
+	case resource.DriverExistingCluster, resource.DriverKubernetes, resource.DriverTerraform:
+		return true
 	}
 	return false
 }
@@ -41,6 +42,20 @@ func checkEnvironmentConnection(env environment.Environment, def resource.Defini
 	return stageErr(StageCatalog, fmt.Errorf("%w: definition %q uses connection %q but environment %q of application %q is bound to %q",
 		ErrConnectionMismatch, def.Key, def.ConnectionKey, env.Key, env.ApplicationKey, env.ConnectionKey))
 }
+
+var (
+	errNoMatch   = errors.New("no match")
+	errAmbiguous = errors.New("ambiguous match")
+)
+
+// matchError keeps the established message while exposing the outcome kind.
+type matchError struct {
+	kind error
+	msg  string
+}
+
+func (e *matchError) Error() string        { return e.msg }
+func (e *matchError) Is(target error) bool { return target == e.kind }
 
 // definitionMatcher selects the most specific Resource Definition for each
 // resource node (UC-03 BR-02 and BR-06, UC-06 MS-07).
@@ -145,8 +160,8 @@ func (m *definitionMatcher) match(node *Node) (Match, error) {
 
 	switch len(best) {
 	case 0:
-		return Match{}, fmt.Errorf("planning: no resource definition matches %s (type %q, class %q)",
-			node.Descriptor, node.ResourceType, node.Class)
+		return Match{}, &matchError{kind: errNoMatch, msg: fmt.Sprintf("planning: no resource definition matches %s (type %q, class %q)",
+			node.Descriptor, node.ResourceType, node.Class)}
 	case 1:
 		def := best[0].def
 		if err := checkEnvironmentConnection(m.ctx.Env, def); err != nil {
@@ -166,6 +181,6 @@ func (m *definitionMatcher) match(node *Node) (Match, error) {
 			keys = append(keys, c.def.Key)
 		}
 		sort.Strings(keys)
-		return Match{}, fmt.Errorf("planning: ambiguous match for %s between %v", node.Descriptor, keys)
+		return Match{}, &matchError{kind: errAmbiguous, msg: fmt.Sprintf("planning: ambiguous match for %s between %v", node.Descriptor, keys)}
 	}
 }

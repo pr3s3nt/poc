@@ -13,7 +13,7 @@ export type MatchingSample = { applicationId: string; environmentId: string; res
 
 type Criterion = { env_type?: string; app_id?: string; env_id?: string; res_id?: string; class?: string };
 type Result = {
-  status: 'INCOMPLETE' | 'MATCHED' | 'NO_MATCH' | 'AMBIGUOUS' | 'CONNECTION_CONFLICT' | 'SYSTEM_BINDING' | 'NATIVE_RENDERER';
+  status: 'INCOMPLETE' | 'MATCHED' | 'NO_MATCH' | 'AMBIGUOUS' | 'CONNECTION_CONFLICT' | 'SYSTEM_BINDING';
   missingFields?: string[];
   candidates?: { key: string; eligible: boolean; matched: boolean; bestCriterion?: Criterion; score?: number }[];
   winner?: { key: string; score: number };
@@ -30,7 +30,6 @@ const statusText: Record<Result['status'], string> = {
   AMBIGUOUS: 'Mơ hồ: nhiều cấu hình cùng điểm cao nhất',
   CONNECTION_CONFLICT: 'Cấu hình thắng xung đột Kết nối với Môi trường',
   SYSTEM_BINDING: 'Hệ thống gắn tự động theo Kết nối của Môi trường',
-  NATIVE_RENDERER: 'Không có mẫu khớp: dùng renderer mặc định',
 };
 const fieldText: Record<string, string> = { resourceId: 'ID tài nguyên (res_id)', class: 'Class' };
 

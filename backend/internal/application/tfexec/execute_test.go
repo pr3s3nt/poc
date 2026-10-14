@@ -5,11 +5,14 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"orchestrator/internal/application/tfexec"
+	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/domain/tfresource"
+	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/ports/terraformexec"
 )
@@ -520,5 +523,41 @@ func TestProviderPinsMustMatchModuleProviders(t *testing.T) {
 	}
 	if len(h.binder.calls) != 0 || h.runner.opens != 0 {
 		t.Fatal("a mismatched pin reached the binder or Terraform")
+	}
+}
+
+// ADR-014: every create/update attempt is linked to its Deployment
+// (`terraform_resource_attempts.deployment_id`), and the Console reads the
+// safe stage/attempt/status projection of it, never the private columns.
+func TestAttemptsLinkTheDeploymentAndFeedTheSafeConsoleProjection(t *testing.T) {
+	h := newHarness(t)
+	ctx, _ := h.claim("proc-a")
+	env, err := h.store.GetEnvironment(context.Background(), h.appKey, "staging")
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := deployment.Deployment{ID: ids.New(), EnvironmentID: env.ID, OrganizationKey: h.orgKey, ApplicationKey: h.appKey, EnvironmentKey: "staging", ExecutionProfile: "internal-k8s", Action: deployment.ActionDeploy, WorkloadID: "api", ActorRef: "test", Status: deployment.StatusPlanning, BaseEnvironmentVersion: env.Version, StartedAt: time.Now().UTC()}
+	if err := h.store.SaveDeployment(context.Background(), record); err != nil {
+		t.Fatal(err)
+	}
+	req := h.request("run-1", h.mod, inputs("db1", "k"))
+	req.DeploymentID = record.ID
+	mustExecute(t, h, ctx, req)
+
+	inst, found := h.instance(ctx, defaultDescriptor, defaultScope())
+	if !found {
+		t.Fatal("no instance")
+	}
+	attempts := h.attempts(inst.ID)
+	if len(attempts) != 1 || attempts[0].DeploymentID != record.ID {
+		t.Fatalf("the attempt must carry its Deployment: %+v", attempts)
+	}
+	progress, err := h.store.ListDeploymentAttempts(context.Background(), record.ID)
+	if err != nil || len(progress) != 1 {
+		t.Fatalf("progress %+v %v", progress, err)
+	}
+	p := progress[0]
+	if p.Descriptor != defaultDescriptor || p.Stage != tfexec.StageReady || p.Status != string(tfresource.AttemptSucceeded) || p.Action != string(tfresource.ActionCreate) || p.ModuleID != "pg" {
+		t.Fatalf("projection %+v", p)
 	}
 }

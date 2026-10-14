@@ -162,14 +162,19 @@ type Plan struct {
 	ScoreAfter  map[string]any                         `json:"scoreAfter,omitempty"`
 	// Delta is the transient Humanitec-shaped Delta document. It is not part
 	// of the persisted plan: UC-06/07 persist it as a DeploymentDeltaSnapshot.
-	Delta          deployment.DeltaDocument `json:"-"`
-	BaseSet        environment.Document     `json:"baseSet"`
-	CandidateSet   environment.Document     `json:"candidateSet"`
-	Graph          Graph                    `json:"graph"`
-	Matches        map[string]Match         `json:"matches"`
-	Terraform      []TerraformContract      `json:"terraform"`
-	Batches        [][]string               `json:"batches"`
-	Classification Classification           `json:"classification"`
+	Delta        deployment.DeltaDocument `json:"-"`
+	BaseSet      environment.Document     `json:"baseSet"`
+	CandidateSet environment.Document     `json:"candidateSet"`
+	Graph        Graph                    `json:"graph"`
+	Matches      map[string]Match         `json:"matches"`
+	Terraform    []TerraformContract      `json:"terraform"`
+	// IntentEvidence holds, per matched node, a digest of the authored Definition
+	// content (driver, profile, Connection, driver inputs, provision rules). It
+	// is compared between plans to tell a retained resource from an updated one;
+	// it is never part of any API view.
+	IntentEvidence map[string]string `json:"intentEvidence,omitempty"`
+	Batches        [][]string        `json:"batches"`
+	Classification Classification    `json:"classification"`
 	// Target pins the nonsecret Environment execution binding the plan used.
 	Target environment.Binding `json:"target"`
 	// UnreferencedResources are the Active Resources the deployment marks

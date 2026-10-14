@@ -12,6 +12,7 @@ import (
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/target"
 	"orchestrator/internal/application/workloadconfig"
+	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
@@ -31,7 +32,10 @@ type Change struct {
 	Action     domain.Action               `json:"action"`
 	Delta      domain.DeltaDocument        `json:"delta"`
 	Resources  planning.Classification     `json:"resources"`
-	PlanHash   string                      `json:"planHash"`
+	// ResourceIntents is the safe resource projection (UC-05 BR-10): no
+	// params, resolved inputs, secret or state reference.
+	ResourceIntents []planning.ResourceIntent `json:"resourceIntents"`
+	PlanHash        string                    `json:"planHash"`
 }
 
 type Preview struct {
@@ -43,13 +47,16 @@ type Preview struct {
 	DraftVersion   int64  `json:"draftVersion"`
 	// ConfigVersion, Binding and SecretStoreKey pin the rest of the snapshot
 	// (ADR-012): any Settings, configuration or draft change invalidates the token.
-	ConfigVersion    int64               `json:"configVersion"`
-	Binding          environment.Binding `json:"binding"`
-	SecretStoreKey   string              `json:"secretStoreKey,omitempty"`
-	RoutePending     bool                `json:"routePending,omitempty"`
-	ConfigRevisionID string              `json:"configRevisionId,omitempty"`
-	RunID            string              `json:"runId"`
-	Changes          []Change            `json:"changes"`
+	ConfigVersion int64               `json:"configVersion"`
+	Binding       environment.Binding `json:"binding"`
+	// AccountID is the nonsecret AWS account of the Environment Connection
+	// (aws-eks only), shown beside the pinned region.
+	AccountID        string   `json:"accountId,omitempty"`
+	SecretStoreKey   string   `json:"secretStoreKey,omitempty"`
+	RoutePending     bool     `json:"routePending,omitempty"`
+	ConfigRevisionID string   `json:"configRevisionId,omitempty"`
+	RunID            string   `json:"runId"`
+	Changes          []Change `json:"changes"`
 }
 
 type Service struct {
@@ -80,42 +87,60 @@ func NewService(store persistence.Store, planner *planning.Service, workloads *w
 // before UC-08 provisions a namespace or other resources.
 func (s *Service) SetImageRegistryHost(host string) { s.imageRegistryHost = host }
 
+// Preview plans the pending changes against ONE read-only snapshot (UC-05 BR-01,
+// OC-06): the Application, Environment, Connection, Deployment Set, configuration,
+// drafts, instances, catalog, Active Resources and the baseline plans behind the
+// resource intents are all read through the same view; nothing is read from the
+// outer store while planning. Nothing is written.
 func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, error) {
-	app, err := s.store.GetApplication(ctx, appKey)
+	var out Preview
+	err := s.store.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
+		var err error
+		out, err = s.previewIn(ctx, view, appKey, envKey)
+		return err
+	})
 	if err != nil {
 		return Preview{}, err
 	}
-	env, err := s.store.GetEnvironment(ctx, appKey, envKey)
+	return out, nil
+}
+
+func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, envKey string) (Preview, error) {
+	app, err := st.GetApplication(ctx, appKey)
 	if err != nil {
 		return Preview{}, err
 	}
-	connection, err := target.Resolve(ctx, s.store, app.OrganizationKey, env)
+	env, err := st.GetEnvironment(ctx, appKey, envKey)
+	if err != nil {
+		return Preview{}, err
+	}
+	connection, err := target.Resolve(ctx, st, app.OrganizationKey, env)
 	if errors.Is(err, target.ErrConnectionNotReady) {
 		return Preview{}, fmt.Errorf("%w: connection is not ready", ErrInvalid)
 	}
 	if err != nil {
 		return Preview{}, err
 	}
-	set, err := s.store.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
+	set, err := st.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
 	if err != nil {
 		return Preview{}, err
 	}
-	scope, err := s.store.GetConfigurationScope(ctx, appKey, envKey)
+	scope, err := st.GetConfigurationScope(ctx, appKey, envKey)
 	if err != nil {
 		return Preview{}, err
 	}
 	desired := configuration.Revision{Entries: map[string]configuration.Entry{}}
 	if scope.DesiredRevisionID != "" {
-		desired, err = s.store.GetConfigurationRevision(ctx, scope.DesiredRevisionID)
+		desired, err = st.GetConfigurationRevision(ctx, scope.DesiredRevisionID)
 		if err != nil {
 			return Preview{}, err
 		}
 	}
-	drafts, err := s.store.ListWorkloadDrafts(ctx, appKey, envKey)
+	drafts, err := st.ListWorkloadDrafts(ctx, appKey, envKey)
 	if err != nil {
 		return Preview{}, err
 	}
-	instances, err := s.store.ListWorkloadInstances(ctx, appKey+"/"+envKey)
+	instances, err := st.ListWorkloadInstances(ctx, appKey+"/"+envKey)
 	if err != nil {
 		return Preview{}, err
 	}
@@ -124,15 +149,21 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 		instanceByID[instance.WorkloadID] = instance
 	}
 
-	types, err := s.store.ListResourceTypes(ctx, app.OrganizationKey)
+	types, err := st.ListResourceTypes(ctx, app.OrganizationKey)
 	if err != nil {
 		return Preview{}, err
 	}
-	definitions, err := s.store.ListResourceDefinitions(ctx, app.OrganizationKey)
+	definitions, err := st.ListResourceDefinitions(ctx, app.OrganizationKey)
 	if err != nil {
 		return Preview{}, err
 	}
-	active, err := s.store.ListActiveResources(ctx, app.OrganizationKey)
+	// Active Resources and their baseline plans come from the same snapshot view; the intent
+	// projection below reads only these captured records.
+	active, err := st.ListActiveResources(ctx, app.OrganizationKey)
+	if err != nil {
+		return Preview{}, err
+	}
+	baselines, err := appsvc.CaptureBaselines(ctx, st, app.OrganizationKey, active)
 	if err != nil {
 		return Preview{}, err
 	}
@@ -150,7 +181,7 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 		if _, exists := pending[id]; exists {
 			continue
 		}
-		changed, err := usesChangedConfiguration(ctx, s.store, module, desired, instanceByID[id].AppliedConfigRevisionID)
+		changed, err := usesChangedConfiguration(ctx, st, module, desired, instanceByID[id].AppliedConfigRevisionID)
 		if err != nil {
 			return Preview{}, err
 		}
@@ -158,7 +189,7 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 		if err != nil {
 			return Preview{}, publicPlanningError(id, err)
 		}
-		unchangedRenderer, err := sameRendering(ctx, s.store, instanceByID[id].LastDeploymentID, id, selected)
+		unchangedRenderer, err := sameRendering(ctx, st, instanceByID[id].LastDeploymentID, id, selected)
 		if err != nil {
 			return Preview{}, err
 		}
@@ -177,6 +208,9 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 	}
 	preview := Preview{ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, RoutePending: env.PublicRoutesPending, ConfigRevisionID: scope.DesiredRevisionID,
 		ConfigVersion: scope.Version, Binding: env.Binding(), SecretStoreKey: env.SecretStoreKey, Changes: []Change{}}
+	if env.Profile == application.ProfileAWSEKS {
+		preview.AccountID = connection.ConfigString("accountId")
+	}
 	// Keep the execution identity stable across revisions of one environment.
 	// The preview token separately pins the mutable base/draft/configuration state.
 	pinHash, err := canon.Hash([]string{appKey, envKey})
@@ -199,7 +233,7 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 			}
 		}
 		if draft.State == environment.DraftUpsert {
-			if err := s.workloads.ValidateImport(ctx, appKey, envKey, draft.Score); err != nil {
+			if err := s.workloads.Bound(st).ValidateImport(ctx, appKey, envKey, draft.Score); err != nil {
 				return Preview{}, err
 			}
 			after, err = score.FromMap(draft.Score)
@@ -228,12 +262,12 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 				return Preview{}, err
 			}
 			if same {
-				changed, err := usesChangedConfiguration(ctx, s.store, base.Modules[id], desired, instanceByID[id].AppliedConfigRevisionID)
+				changed, err := usesChangedConfiguration(ctx, st, base.Modules[id], desired, instanceByID[id].AppliedConfigRevisionID)
 				if err != nil {
 					return Preview{}, err
 				}
 				if !changed {
-					sameRenderer, err := sameRendering(ctx, s.store, instanceByID[id].LastDeploymentID, id, plan.Rendering[id])
+					sameRenderer, err := sameRendering(ctx, st, instanceByID[id].LastDeploymentID, id, plan.Rendering[id])
 					if err != nil {
 						return Preview{}, err
 					}
@@ -243,7 +277,7 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 				}
 			}
 		}
-		preview.Changes = append(preview.Changes, Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, PlanHash: plan.PlanHash})
+		preview.Changes = append(preview.Changes, Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, ResourceIntents: plan.ResourceIntents(baselines.Reader()), PlanHash: plan.PlanHash})
 		base = plan.CandidateSet
 	}
 	// Route and Service-reference rules apply to the final batch state only.
@@ -264,6 +298,16 @@ func publicPlanningError(workloadID string, err error) error {
 	message, ok := planning.PublicMessage(err)
 	if !ok {
 		return err
+	}
+	// Staged failures keep their stage/reason (never the raw text) so the
+	// public envelope can tell no-match, tie or unavailable renderer and a
+	// graph/class mismatch apart.
+	var staged *planning.StageError
+	if errors.As(err, &staged) {
+		if workloadID != "" {
+			return fmt.Errorf("%w: workload %s: %s: %w", ErrInvalid, workloadID, message, staged)
+		}
+		return fmt.Errorf("%w: %s: %w", ErrInvalid, message, staged)
 	}
 	if workloadID != "" {
 		return fmt.Errorf("%w: workload %s: %s", ErrInvalid, workloadID, message)

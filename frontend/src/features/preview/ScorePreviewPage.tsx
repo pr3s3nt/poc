@@ -6,6 +6,7 @@ import { Button } from '../../shared/ui/Button';
 import { ApiError } from '../../shared/api/client';
 import { previewScore, type PreviewAction, type ScorePreview, type ScorePreviewRequest } from './api';
 import { parseScoreText } from './parseScore';
+import { ResourceIntents, rendererText } from './ResourceIntents';
 
 const actions: { value: PreviewAction; label: string; hint: string }[] = [
   { value: 'deploy', label: 'Thêm Workload', hint: 'Chỉ cần Score sau; Workload chưa tồn tại.' },
@@ -119,12 +120,13 @@ function PreviewResult({ result }: { result: ScorePreview }) {
   const renderer = result.rendering?.[result.workloadId];
   return <section className="preview-result" aria-label="Kết quả xem trước Score">
     <section className="content-panel"><div className="section-header"><div><h2>Xem trước · {result.workloadId} · {actionLabel(result.action)}</h2><p>Kết quả chỉ đọc. Không có gì được lưu hay triển khai; hãy triển khai qua luồng Workload thông thường.</p></div></div>
-      <dl className="detail-grid"><div><dt>Môi trường</dt><dd>{result.applicationKey} / {result.environmentKey}</dd></div><div><dt>Deployment Set nền</dt><dd>{result.baseSetId || 'trống'}</dd></div><div><dt>Phiên bản môi trường</dt><dd>{result.baseVersion}</dd></div><div><dt>ID lần chạy</dt><dd>{result.runId}</dd></div><div><dt>Trình dựng Workload</dt><dd>{renderer ? `${renderer.driverType} ${renderer.bundle.version} · ${renderer.definitionKey}` : 'Kubernetes tích hợp sẵn'}</dd></div><div><dt>Mã băm kế hoạch</dt><dd><code className="plan-hash" title={result.planHash}>{result.planHash}</code></dd></div></dl></section>
+      <dl className="detail-grid"><div><dt>Môi trường</dt><dd>{result.applicationKey} / {result.environmentKey}</dd></div><div><dt>Deployment Set nền</dt><dd>{result.baseSetId || 'trống'}</dd></div><div><dt>Phiên bản môi trường</dt><dd>{result.baseVersion}</dd></div><div><dt>ID lần chạy</dt><dd>{result.runId}</dd></div><div><dt>Trình dựng Workload</dt><dd>{rendererText(renderer)}</dd></div><div><dt>Mã băm kế hoạch</dt><dd><code className="plan-hash" title={result.planHash}>{result.planHash}</code></dd></div></dl></section>
     <section className="content-panel"><h2>Delta</h2><DeltaSummary result={result} /></section>
     <section className="content-panel"><h2>Thay đổi tài nguyên</h2><div className="detail-grid">
       <div><h3>Mới ({result.classification.new.length})</h3><List items={result.classification.new} empty="Không có" /></div>
       <div><h3>Đã có ({result.classification.existing.length})</h3><List items={result.classification.existing} empty="Không có" /></div>
       <div><h3>Không còn được tham chiếu ({result.classification.unreferenced.length})</h3><List items={result.classification.unreferenced} empty="Không có" /></div></div></section>
+    <section className="content-panel"><h2>Tài nguyên hạ tầng</h2>{result.binding ? <p aria-label="Đích đã ghim của xem trước">Đích đã ghim: Kết nối {result.binding.connectionKey} · phạm vi {result.binding.executionProfile}{result.binding.region ? ` · vùng ${result.binding.region}` : ''}{result.accountId ? ` · tài khoản AWS ${result.accountId}` : ''}</p> : null}<ResourceIntents intents={result.resourceIntents} /></section>
     <section className="content-panel"><h2>Thứ tự tạo tài nguyên</h2>{result.batches.length ? <ol className="batch-list">{result.batches.map((batch, index) => <li key={index}>Lô {index + 1}: {batch.join(', ')}</li>)}</ol> : <p>Không có tài nguyên cần tạo.</p>}<p><small>Bên cung cấp được tạo trước bên sử dụng.</small></p></section>
     <section className="content-panel"><h2>Liên kết thực thi tài nguyên</h2>{result.matches.length ? <table className="plain-table"><thead><tr><th>Tài nguyên</th><th>Liên kết</th><th>Driver</th></tr></thead><tbody>{result.matches.map((match) => <tr key={match.descriptor}><td>{match.descriptor}</td><td>{match.binding === 'environment-connection' ? `Kết nối của môi trường ${match.connectionKey ?? ''}`.trim() : match.definitionKey}</td><td>{match.driverType}</td></tr>)}</tbody></table> : <p>Không có liên kết tài nguyên.</p>}</section>
     <section className="content-panel"><h2>Đồ thị tài nguyên</h2><p>{result.graph.nodes.length} nút · {result.graph.edges.length} cạnh phụ thuộc</p>

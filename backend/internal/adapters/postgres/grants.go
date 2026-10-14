@@ -43,6 +43,16 @@ var productTables = []string{
 	"deployment_workloads",
 }
 
+// consoleInstanceColumns and consoleAttemptColumns are the only instance and
+// attempt columns the Console may read (the safe Deployment progress
+// projection). target_ref and physical_intent, the module and target
+// snapshots, observed physical IDs, state serial and the recovery handle stay
+// private to the State login.
+var (
+	consoleInstanceColumns = []string{"id", "organization_id", "application_id", "environment_id", "target_generation", "descriptor", "scope_type", "scope_id", "state_key", "active_resource_id", "module_bundle_id", "created_by_run_id", "status", "version", "created_at", "updated_at"}
+	consoleAttemptColumns  = []string{"id", "resource_instance_id", "environment_operation_id", "deployment_id", "run_id", "attempt_number", "action", "ownership", "stage", "status", "safe_error_code", "deadline", "created_at", "updated_at"}
+)
+
 // consoleGrants is the complete privilege set of the Console login. It has no
 // privilege on terraform_states, and on terraform_executor_capabilities only
 // the operation column plus DELETE, which is what revoking every capability
@@ -64,9 +74,9 @@ func consoleGrants() []grant {
 	return append(out,
 		grant{table: "terraform_module_bundles", privilege: "SELECT"},
 		grant{table: "terraform_module_bundles", privilege: "INSERT"},
-		grant{table: "terraform_resource_instances", privilege: "SELECT"},
+		grant{table: "terraform_resource_instances", privilege: "SELECT", columns: consoleInstanceColumns},
 		grant{table: "terraform_resource_dependencies", privilege: "SELECT"},
-		grant{table: "terraform_resource_attempts", privilege: "SELECT"},
+		grant{table: "terraform_resource_attempts", privilege: "SELECT", columns: consoleAttemptColumns},
 		grant{table: "terraform_state_locks", privilege: "SELECT", columns: []string{"resource_instance_id", "lock_id", "environment_operation_id", "owner", "fencing_generation", "deadline"}},
 		grant{table: "terraform_executor_capabilities", privilege: "SELECT", columns: []string{"environment_operation_id"}},
 		grant{table: "terraform_executor_capabilities", privilege: "DELETE"},

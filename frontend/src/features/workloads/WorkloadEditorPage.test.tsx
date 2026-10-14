@@ -138,7 +138,7 @@ it('requires PostgreSQL inputs and saves them as Score resource params', async (
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
-    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', inputs: [{ name: 'database', type: 'string', required: true }, { name: 'username', type: 'string', required: true }], outputs: [{ name: 'host' }] }] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }, { name: 'username', type: 'string', required: true }], outputs: [{ name: 'host' }] }] });
     if (init?.method === 'PUT') { saved = JSON.parse(String(init.body)) as Record<string, unknown>; return Response.json({ draftVersion: 1, workloads: [] }); }
     return Response.json({ draftVersion: 0, workloads: [] });
   }));
@@ -166,7 +166,7 @@ it('preserves PostgreSQL params when editing a workload on the form', async () =
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
-    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', inputs: [{ name: 'database', type: 'string', required: true }, { name: 'username', type: 'string', required: true }], outputs: [] }] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }, { name: 'username', type: 'string', required: true }], outputs: [] }] });
     if (init?.method === 'PUT') { saved = JSON.parse(String(init.body)) as Record<string, unknown>; return Response.json({ draftVersion: 2, workloads: [] }); }
     return Response.json({ draftVersion: 1, workloads: [{ id: 'backend', score: { apiVersion: 'score.dev/v1b1', metadata: { name: 'backend' }, containers: { main: { image: 'example.invalid/backend:v1' } }, resources: { db: { type: 'postgres', params: { database: 'catalog', username: 'app' } } } } }] });
   }));
@@ -186,7 +186,7 @@ it('shows a backend resource param rejection, keeps the form and does not report
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith('/configuration')) return Response.json({ keys: [] });
-    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', inputs: [{ name: 'database', type: 'string', required: true }], outputs: [{ name: 'host' }] }] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }], outputs: [{ name: 'host' }] }] });
     if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body))); return Response.json({ error: 'workloadconfig: invalid input: resources.db.params.database is required by resource type postgres', code: 'INVALID_SCORE', params: { resourceType: 'postgres' } }, { status: 400 }); }
     return Response.json({ draftVersion: 3, workloads: [] });
   }));
@@ -267,7 +267,7 @@ function serve(options: Serve = {}) {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith('/configuration')) return Response.json({ version: 1, keys: options.keys ?? [] });
-    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: options.types ?? [] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: (options.types ?? []).map((type) => ({ classes: [], ...(type as object) })) });
     if (init?.method === 'PUT') { puts.push(JSON.parse(String(init.body)) as Saved); return Response.json({ draftVersion: 2, workloads: [] }); }
     return Response.json({ draftVersion: 1, workloads: options.workloads ?? [] });
   }));
@@ -331,7 +331,7 @@ it('shows the effective request as explicit, else same-dimension limit, else def
 
 it('keeps imported advanced overrides through collapse and basic edits and writes them back unchanged', async () => {
   const score = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api' }, containers: { main: { image: 'example.invalid/api:v1', resources: { requests: { cpu: '250m' }, limits: { cpu: '1', memory: '256Mi' } } } }, resources: { db: { type: 'postgres', class: 'large', params: { database: 'shop' } } }, service: { ports: { http: { port: 80, targetPort: 9090 } } } };
-  const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', score }], types: [{ key: 'postgres', inputs: [{ name: 'database', type: 'string', required: true }], outputs: [] }] });
+  const { puts } = serve({ workloads: [{ id: 'api', state: 'PENDING_UPSERT', score }], types: [{ key: 'postgres', classes: [], inputs: [{ name: 'database', type: 'string', required: true }], outputs: [] }] });
   const user = userEvent.setup();
   render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
   await screen.findByRole('heading', { name: 'Sửa api' });

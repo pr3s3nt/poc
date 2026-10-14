@@ -3,18 +3,18 @@ import { specificGuidance, fieldNote } from '../../shared/api/errors';
 import { href, navigate } from '../../app/routes';
 import { api, ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
-import { capabilitiesForType, loadCapabilities, type Capability } from './capabilities';
+import { capabilitiesForType, isVerifiedPin, loadCapabilities, type Capability } from './capabilities';
 import { useCatalogList } from './useCatalogList';
 
 type InputField = { name: string; type: string; required: boolean };
 type OutputField = InputField & { secret: boolean };
-type ResourceType = { key: string; inputs?: Partial<InputField>[] | null; outputs?: Partial<OutputField>[] | null };
+type ResourceType = { key: string; inputs?: Partial<InputField>[] | null; outputs?: Partial<OutputField>[] | null; classes?: string[] | null };
 
 const fieldTypes = ['string', 'number', 'bool', 'any'];
 const newInput = (): InputField => ({ name: '', type: 'string', required: false });
 const newOutput = (): OutputField => ({ name: '', type: 'string', required: false, secret: false });
 const yesNo = (value: boolean | undefined) => (value === true ? 'Có' : 'Không');
-const driverText = (pair: Capability) => (pair.driverType === 'terraform' ? `Terraform/${pair.module}` : 'Kubernetes');
+const driverText = (pair: Capability) => `Terraform/${pair.module}`;
 
 // Flags and types are copied exactly as the GET returned them; nothing is
 // inferred from field names. A missing flag is false (the API omits false).
@@ -97,14 +97,15 @@ export function ResourceTypesPage() {
   function renderEntry(type: ResourceType) {
     // Support comes only from the authoritative metadata; loading/error never reads as "contract only" or "supported".
     const metadataPending = capabilityList.loading || capabilityList.loadError !== '';
-    const pairs = metadataPending ? [] : capabilitiesForType(capabilityList.items, type.key);
+    // Only registry-verified module pins count as a way to create the Type.
+    const pairs = metadataPending ? [] : capabilitiesForType(capabilityList.items, type.key).filter(isVerifiedPin);
     const rule = pairs.length > 0;
     const supportLabel = capabilityList.loading ? 'Đang kiểm tra hỗ trợ…' : capabilityList.loadError ? 'Chưa xác nhận hỗ trợ' : rule ? 'Có cách tạo hỗ trợ' : 'Chỉ có contract';
     const open = expanded === type.key;
     const inputList = type.inputs ?? [];
     const outputList = type.outputs ?? [];
     return <div key={type.key} className="catalog-entry catalog-entry-rich"><div className="section-header"><div><strong>{type.key}</strong> <span className="status-pill">{supportLabel}</span><br />
-      <span>{inputList.length} đầu vào · {outputList.length} đầu ra</span>{rule ? <span> · Cách tạo: {pairs.map(driverText).join(' hoặc ')}</span> : null}</div>
+      <span>{inputList.length} đầu vào · {outputList.length} đầu ra</span>{rule ? <span> · Cách tạo: {pairs.map(driverText).join(' hoặc ')}</span> : null}{type.classes && type.classes.length > 0 ? <span> · Class đã công bố: {type.classes.join(', ')}</span> : null}</div>
       <div className="form-actions">
         <Button type="button" aria-expanded={open} aria-label={`${open ? 'Ẩn' : 'Xem'} schema ${type.key}`} onClick={() => setExpanded(open ? '' : type.key)}>{open ? 'Ẩn schema' : 'Xem schema'}</Button>
         {rule ? <a className="button" href={href({ name: 'resource-definitions', resourceType: type.key })} aria-label={`Tạo Cấu hình tài nguyên cho ${type.key}`} onClick={(event) => { event.preventDefault(); navigate({ name: 'resource-definitions', resourceType: type.key }); }}>Tạo Cấu hình tài nguyên</a> : null}

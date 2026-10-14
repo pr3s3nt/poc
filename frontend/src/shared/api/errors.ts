@@ -68,7 +68,7 @@ const fallbackByStatus = (status: number): string => {
 };
 
 export const plannerStages = ['score', 'before-state', 'candidate', 'public-routes', 'service-references', 'catalog', 'graph', 'reference', 'contract', 'schedule'] as const;
-export const plannerReasons = ['workload-exists', 'workload-not-current', 'before-mismatch', 'legacy-infrastructure-reference', 'environment-unconfigured'] as const;
+export const plannerReasons = ['workload-exists', 'workload-not-current', 'before-mismatch', 'legacy-infrastructure-reference', 'environment-unconfigured', 'renderer-no-match', 'renderer-ambiguous', 'renderer-unavailable'] as const;
 export type PlannerStage = (typeof plannerStages)[number];
 export type PlannerReason = (typeof plannerReasons)[number];
 export interface ErrorParams { stage?: PlannerStage; reason?: PlannerReason; resourceType?: string }
@@ -95,6 +95,9 @@ export const reasonLabels: Readonly<Record<PlannerReason, string>> = Object.free
   'before-mismatch': 'Score trước không khớp bản đang triển khai; hãy lấy lại từ Score đang chạy',
   'legacy-infrastructure-reference': 'Một cấu hình tài nguyên còn tham chiếu VPC/EKS theo ứng dụng; hãy nhờ kỹ sư nền tảng dùng token @infra',
   'environment-unconfigured': 'Môi trường chưa có kết nối triển khai; hãy chọn trong Cài đặt môi trường',
+  'renderer-no-match': 'Chưa có Mẫu dựng ứng dụng (score-k8s) khớp Workload này ở phạm vi triển khai của Môi trường; hãy nhờ kỹ sư nền tảng đăng ký đúng một mẫu. Hệ thống không dùng renderer mặc định',
+  'renderer-ambiguous': 'Có nhiều Mẫu dựng ứng dụng khớp Workload này với mức ưu tiên bằng nhau; hãy nhờ kỹ sư nền tảng để lại đúng một mẫu',
+  'renderer-unavailable': 'Mẫu dựng ứng dụng cần bundle score-k8s chưa được cài trên máy chủ; hãy nhờ kỹ sư nền tảng kiểm tra bản phát hành nền tảng',
 });
 
 const has = (table: object, key: unknown): key is string => typeof key === 'string' && Object.prototype.hasOwnProperty.call(table, key);
@@ -105,7 +108,7 @@ const knownFields: ReadonlySet<string> = new Set([
   'acknowledgeDowntime', 'priorExecutionStopped', 'resources', 'status', 'scoreBefore', 'scoreAfter', 'version', 'token', 'kubeconfig',
   'type.key', 'type.schema', 'definition.schema', 'definition.driver', 'definition.references', 'definition.key',
   'definition.resourceType', 'definition.executionProfile', 'definition.driverType', 'definition.criteria',
-  'definition.connectionKey', 'context.applicationId', 'context.environmentId', 'context.resourceId', 'context.class', 'service.publicPort',
+  'definition.connectionKey', 'definition.driverInputs.values', 'definition.driverInputs.values.source', 'definition.driverInputs.values.provider_bindings', 'driverInputs.values.variables', 'context.applicationId', 'context.environmentId', 'context.resourceId', 'context.class', 'service.publicPort',
   'accessKeyId', 'secretAccessKey', 'allowedRegions',
 ]);
 
@@ -149,6 +152,8 @@ const fieldLabels: Readonly<Record<string, string>> = Object.freeze({
   'definition.driver': 'Trình điều khiển và tham số của cấu hình', 'definition.references': 'Tham chiếu trong tham số/quy tắc tạo tài nguyên liên quan',
   'definition.key': 'ID cấu hình', 'definition.resourceType': 'Loại tài nguyên', 'definition.executionProfile': 'Phạm vi triển khai',
   'definition.driverType': 'Loại trình điều khiển', 'definition.criteria': 'Điều kiện áp dụng', 'definition.connectionKey': 'Kết nối của cấu hình',
+  'definition.driverInputs.values': 'Ánh xạ đầu vào/đầu ra của module', 'definition.driverInputs.values.source': 'Nguồn module đã kiểm chứng (source/revision/digest)',
+  'definition.driverInputs.values.provider_bindings': 'Provider binding của module', 'driverInputs.values.variables': 'Tham số cấu hình',
   'context.applicationId': 'Ứng dụng mẫu', 'context.environmentId': 'Môi trường mẫu', 'context.resourceId': 'ID tài nguyên mẫu', 'context.class': 'Class mẫu',
   accessKeyId: 'Access key ID', secretAccessKey: 'Secret access key', allowedRegions: 'Vùng được phép',
 });

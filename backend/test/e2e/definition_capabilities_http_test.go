@@ -45,8 +45,8 @@ func TestT31DefinitionCapabilitiesGuideRegistrationHTTP(t *testing.T) {
 		}
 	}
 	for key, want := range map[string]string{
-		"k8s-namespace/kubernetes/name": "${context.env.namespace}",
-		"vpc/terraform/name":            "${context.infra.resourceName}",
+		"k8s-namespace/terraform/name": "${context.env.namespace}",
+		"vpc/terraform/name":           "${context.infra.resourceName}",
 	} {
 		if presets[key] != want {
 			t.Fatalf("preset %s = %q, want %q", key, presets[key], want)
@@ -59,12 +59,18 @@ func TestT31DefinitionCapabilitiesGuideRegistrationHTTP(t *testing.T) {
 		status, _ := requestJSON(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", body)
 		return status
 	}
-	if status := register(map[string]any{
-		"key": "ns-t31", "resourceType": "k8s-namespace", "executionProfile": "internal-k8s", "driverType": "kubernetes",
-		"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{"name": presets["k8s-namespace/kubernetes/name"]}}},
-		"criteria":     []any{map[string]any{"class": "t31"}},
-	}); status != http.StatusCreated {
+	nsDef := k8sModuleDefinition("ns-t31", "k8s-namespace", "k8s-namespace", map[string]any{"name": presets["k8s-namespace/terraform/name"]}, nil, []string{"name"}, []any{map[string]any{"class": "t31"}})
+	if status := register(nsDef); status != http.StatusCreated {
 		t.Fatalf("preset namespace definition: %d", status)
+	}
+	// The retired static Kubernetes driver is not registrable (ADR-014).
+	legacy := map[string]any{
+		"key": "ns-t31-static", "resourceType": "k8s-namespace", "executionProfile": "internal-k8s", "driverType": "kubernetes",
+		"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{"name": "x"}}},
+		"criteria":     []any{map[string]any{"class": "t31"}},
+	}
+	if status := register(legacy); status != http.StatusBadRequest {
+		t.Fatalf("static kubernetes driver: %d, want 400", status)
 	}
 	if status := register(map[string]any{
 		"key": "vpc-t31", "resourceType": "vpc", "executionProfile": "aws-eks", "driverType": "terraform",

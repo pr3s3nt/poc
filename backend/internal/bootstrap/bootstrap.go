@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -72,7 +73,13 @@ type Options struct {
 	KubectlPath   string
 	TerraformPath string
 	ScoreK8sPath  string
-	TerraformRoot string
+	// RequireScoreRenderer is the product mode (UC-05 BR-09, UC-06 BR-17):
+	// every Workload needs exactly one compatible score-k8s Definition and an
+	// installed bundle on both profiles; there is no native renderer
+	// fallback. A missing binary makes every Workload plan fail before
+	// resources instead of rendering natively.
+	RequireScoreRenderer bool
+	TerraformRoot        string
 
 	// TerraformPluginCache keeps provider downloads shared between workspaces.
 	TerraformPluginCache string
@@ -318,7 +325,17 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	}
 
 	var bundles map[string]resource.RenderBundle
-	if opts.ScoreK8sPath != "" {
+	switch {
+	case opts.RequireScoreRenderer && opts.ScoreK8sPath != "":
+		scoreRenderer, err := scorek8s.New(ctx, opts.ScoreK8sPath, nil)
+		if err != nil {
+			return nil, err
+		}
+		bundles = scoreRenderer.Bundles()
+		renderer = scoreRenderer
+	case opts.RequireScoreRenderer:
+		renderer = unavailableRenderer{}
+	case opts.ScoreK8sPath != "":
 		scoreRenderer, err := scorek8s.New(ctx, opts.ScoreK8sPath, renderer)
 		if err != nil {
 			return nil, err
@@ -327,6 +344,9 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		renderer = scoreRenderer
 	}
 	planner := planning.NewService(bundles)
+	if opts.RequireScoreRenderer {
+		planner = planning.NewRequiredRendererService(bundles)
+	}
 	prov := provisioning.NewService(st, registry, secretStore, c)
 	prov.SetModuleVerifier(modules)
 	inspector := planning.RegistryInspector{Metadata: modules}
@@ -607,4 +627,13 @@ func connectionCredentialStore(opts Options) (credentials.Store, error) {
 		return vault.NewConnectionCredentials(opts.ConnectionVaultAddress, strings.TrimSpace(string(token)), mount, nil)
 	}
 	return nil, fmt.Errorf("bootstrap: unknown connection credential store %q", opts.ConnectionCredentialStore)
+}
+
+// unavailableRenderer is the required-renderer mode without a score-k8s
+// binary: planning already fails for every Workload; this refuses any render
+// that would otherwise bypass it.
+type unavailableRenderer struct{}
+
+func (unavailableRenderer) Render(context.Context, execution.RenderRequest) ([]execution.Manifest, error) {
+	return nil, errors.New("bootstrap: the score-k8s renderer is not installed")
 }

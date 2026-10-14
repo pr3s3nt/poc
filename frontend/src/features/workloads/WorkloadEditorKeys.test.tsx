@@ -35,7 +35,7 @@ function serve(options: Options = {}) {
       configCalls += 1;
       return options.configuration ? options.configuration(configCalls) : Response.json({ version: 1, keys: options.keys ?? catalogKeys });
     }
-    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: options.types ?? [] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: (options.types ?? []).map((type) => ({ classes: [], ...type })) });
     if (url.endsWith('/workloads/parse')) return Response.json({ score: options.parse });
     if (init?.method === 'PUT') {
       puts.push(JSON.parse(String(init.body)) as Saved);
@@ -121,7 +121,7 @@ it('selects keys independently per container and allows the same name in two con
   expect(score.containers['container-2']?.variables).toEqual({ API_URL: '${resources.env.API_URL}', LOG_LEVEL: '${resources.env.LOG_LEVEL}' });
 });
 
-const postgres: ResourceType = { key: 'postgres', inputs: [], outputs: [{ name: 'host' }, { name: 'password', secret: true }] };
+const postgres: ResourceType = { key: 'postgres', classes: [], inputs: [], outputs: [{ name: 'host' }, { name: 'password', secret: true }] };
 const twoContainers: Workload = { id: 'api', ready: true, score: {
   apiVersion: 'score.dev/v1b1', metadata: { name: 'api' },
   containers: {
@@ -591,7 +591,7 @@ it.each([
 
 // JSON.parse keeps __proto__ as an own key, as a server or Score file can.
 const protoScoreJson = '{"apiVersion":"score.dev/v1b1","metadata":{"name":"api"},"containers":{"__proto__":{"image":"example.invalid/api:v1","variables":{"__proto__":"${resources.env.__proto__}","DB_HOST":"${resources.__proto__.host}"}}},"service":{"ports":{"__proto__":{"port":80,"targetPort":8080}}},"resources":{"__proto__":{"type":"postgres","params":{"__proto__":"primary","name":"db"}},"env":{"type":"environment"}}}';
-const protoType: ResourceType = { key: 'postgres', inputs: [{ name: '__proto__', type: 'string' }, { name: 'name', type: 'string' }], outputs: [{ name: 'host' }] };
+const protoType: ResourceType = { key: 'postgres', classes: [], inputs: [{ name: '__proto__', type: 'string' }, { name: 'name', type: 'string' }], outputs: [{ name: 'host' }] };
 const protoKeys: ConfigKey[] = [{ name: '__proto__', kind: 'VARIABLE', configured: true, usedBy: [] }];
 
 it.each([
@@ -628,7 +628,7 @@ it.each([
   ['string', false], ['bool', false], ['string', true], ['bool', true],
 ] as const)('treats an unset %s resource input called __proto__ as empty (required: %s)', async (type, required) => {
   const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-  const protoInputType: ResourceType = { key: 'postgres', inputs: [{ name: '__proto__', type, required }], outputs: [{ name: 'host' }] };
+  const protoInputType: ResourceType = { key: 'postgres', classes: [], inputs: [{ name: '__proto__', type, required }], outputs: [{ name: 'host' }] };
   const { puts } = serve({ types: [protoInputType] });
   const user = userEvent.setup();
   await newWorkload(user);

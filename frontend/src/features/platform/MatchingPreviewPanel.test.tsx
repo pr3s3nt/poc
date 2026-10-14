@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { within, act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MatchingPreviewPanel, type MatchingSample } from './MatchingPreviewPanel';
@@ -153,7 +153,7 @@ describe('exact matching preview in the template form (T19)', () => {
     const posts: { url: string; body: Record<string, unknown> }[] = [];
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
-      if (init?.method === 'POST') { posts.push({ url, body: JSON.parse(String(init.body)) as Record<string, unknown> }); return Response.json({ status: 'NATIVE_RENDERER', candidates: [], snapshot: { marker: 'm1', environmentVersion: 2 } }); }
+      if (init?.method === 'POST') { posts.push({ url, body: JSON.parse(String(init.body)) as Record<string, unknown> }); return Response.json({ status: 'NO_MATCH', candidates: [], snapshot: { marker: 'm1', environmentVersion: 2 } }); }
       if (url.endsWith('/applications')) return Response.json({ applications: [{ key: 'shop', name: 'shop', environments: [{ key: 'staging', name: 'staging', environmentType: 'staging', executionProfile: 'internal-k8s' }] }] });
       if (url.endsWith('/render-bundles')) return Response.json({ renderBundles: [{ id: 'bundle-web', version: '1', status: 'AVAILABLE' }] });
       return Response.json({ resourceDefinitions: [] });
@@ -162,6 +162,7 @@ describe('exact matching preview in the template form (T19)', () => {
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
     expect(screen.getByText('Nhập ID mẫu hợp lệ để kiểm tra matching chính xác.')).toBeInTheDocument();
     await user.type(screen.getByLabelText('ID mẫu'), 'web-tpl');
+    await user.selectOptions(screen.getByLabelText('Phạm vi triển khai'), 'internal-k8s');
     await user.selectOptions(screen.getByLabelText('Ứng dụng mẫu'), 'shop');
     await user.selectOptions(screen.getByLabelText('Môi trường mẫu'), 'staging');
     await user.type(screen.getByLabelText('ID tài nguyên mẫu (res_id)'), 'modules.web');
@@ -169,7 +170,8 @@ describe('exact matching preview in the template form (T19)', () => {
     await waitFor(() => expect(run()).toBeEnabled());
     expect(screen.getByRole('group', { name: 'Xem trước phạm vi (trợ giúp ở giao diện)' })).toBeInTheDocument();
     await user.click(run());
-    expect(await screen.findByText('Không có mẫu khớp: dùng renderer mặc định')).toBeInTheDocument();
+    expect(await screen.findByText('Không có cấu hình nào khớp')).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Kết quả matching chính xác' })).queryByText(/renderer mặc định/)).not.toBeInTheDocument();
     expect(posts).toHaveLength(1);
     expect(posts[0]?.url).toBe('/api/v1/resource-definitions/matching-preview');
     expect(posts[0]?.body).toMatchObject({ definition: { key: 'web-tpl', resourceType: 'workload', driverType: 'score-k8s', executionProfile: 'internal-k8s' }, context: { applicationId: 'shop', environmentId: 'staging', resourceId: 'modules.web', class: 'default' } });

@@ -1,5 +1,6 @@
 import { api } from '../../shared/api/client';
 import type { EnvironmentKey } from '../../shared/types/application';
+import type { ResourceIntent } from '../workloads/api';
 
 export type PreviewAction = 'deploy' | 'update' | 'remove';
 
@@ -40,6 +41,11 @@ export type ScorePreview = {
   matches: PreviewMatch[];
   batches: string[][];
   classification: { existing: string[]; new: string[]; unreferenced: string[] };
+  // The safe resource projection and pinned target of UC-05 BR-10. Optional so that a
+  // response without it reads as unavailable, never as "nothing to create".
+  resourceIntents?: ResourceIntent[];
+  binding?: { connectionKey: string; executionProfile: string; region: string };
+  accountId?: string;
 };
 
 export const previewScore = (app: string, env: EnvironmentKey, request: ScorePreviewRequest) =>

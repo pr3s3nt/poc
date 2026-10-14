@@ -304,3 +304,56 @@ it('keeps preview read-only: no save or deploy control before or after a result'
   await screen.findByRole('region', { name: 'Kết quả xem trước Score' });
   expect(screen.queryByRole('button', { name: /triển khai|lưu|deploy|save/i })).not.toBeInTheDocument();
 });
+
+const intent = (overrides: Record<string, unknown> = {}) => ({
+  descriptor: 'redis.in-cluster#shared.cache', resourceType: 'redis', class: 'in-cluster', scope: 'SHARED:cache', ownership: 'ORCHESTRATOR', intent: 'CREATE',
+  definitionKey: 'redis-module', driverType: 'terraform',
+  module: { source: 'platform', module: 'redis-k8s', revision: 'v3-2026.10.13', subdirectory: 'redis-k8s', contentSha256: '446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1' },
+  providers: [{ name: 'kubernetes', kind: 'kubernetes', target: 'environment', connectionKey: 'internal-cluster' }],
+  ...overrides,
+});
+
+it('shows the safe resource intents, module pin, provider target and ownership of a standalone Preview (UC-05 BR-10)', async () => {
+  const body = result({ resourceIntents: [intent(), intent({ descriptor: 'postgres.in-cluster#shared.db', resourceType: 'postgres', intent: 'RETAIN', scope: 'SHARED:db' })], binding: { connectionKey: 'internal-cluster', executionProfile: 'internal-k8s', region: '' } });
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(body)));
+  const user = userEvent.setup();
+  render(<ScorePreviewPage application={application} environment="staging" />);
+  await fill(user);
+  await user.click(screen.getByRole('button', { name: 'Xem trước' }));
+  const table = await screen.findByLabelText('Tài nguyên hạ tầng sẽ được xử lý');
+  expect(table).toHaveTextContent('redis-k8s · v3-2026.10.13');
+  expect(table).toHaveTextContent('sha256:446aeb69eafa');
+  expect(table).toHaveTextContent('kubernetes: cluster của Môi trường internal-cluster');
+  expect(table).toHaveTextContent('Orchestrator (theo phạm vi tài nguyên)');
+  expect(table).toHaveTextContent('Tạo mới');
+  expect(table).toHaveTextContent('Giữ nguyên');
+  expect(screen.getByLabelText('Đích đã ghim của xem trước')).toHaveTextContent('Kết nối internal-cluster · phạm vi internal-k8s');
+  expect(screen.getByLabelText('Đích đã ghim của xem trước')).not.toHaveTextContent('tài khoản AWS');
+});
+
+it('shows the AWS account and region beside the pinned target, never an override', async () => {
+  const body = result({ resourceIntents: [intent({ resourceType: 'vpc', class: 'default', providers: [{ name: 'aws', kind: 'aws', target: 'environment', connectionKey: 'aws-main', region: 'eu-west-1' }] })], binding: { connectionKey: 'aws-main', executionProfile: 'aws-eks', region: 'eu-west-1' }, accountId: '123456789012' });
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(body)));
+  const user = userEvent.setup();
+  render(<ScorePreviewPage application={application} environment="staging" />);
+  await fill(user);
+  await user.click(screen.getByRole('button', { name: 'Xem trước' }));
+  expect(await screen.findByLabelText('Đích đã ghim của xem trước')).toHaveTextContent('Kết nối aws-main · phạm vi aws-eks · vùng eu-west-1 · tài khoản AWS 123456789012');
+  expect(screen.getByLabelText('Tài nguyên hạ tầng sẽ được xử lý')).toHaveTextContent('aws: Kết nối AWS của Môi trường aws-main · vùng eu-west-1');
+});
+
+it('treats a response without resourceIntents as unavailable, never as nothing to create, and an empty list as empty', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(result())));
+  const user = userEvent.setup();
+  const view = render(<ScorePreviewPage application={application} environment="staging" />);
+  await fill(user);
+  await user.click(screen.getByRole('button', { name: 'Xem trước' }));
+  expect(await screen.findByText(/Chưa có thông tin tài nguyên hạ tầng trong kết quả xem trước này/)).toBeInTheDocument();
+  expect(screen.queryByText('Không có tài nguyên hạ tầng nào cần tạo, cập nhật hoặc liên kết.')).not.toBeInTheDocument();
+  view.unmount();
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(result({ resourceIntents: [] }))));
+  render(<ScorePreviewPage application={application} environment="staging" />);
+  await fill(user);
+  await user.click(screen.getByRole('button', { name: 'Xem trước' }));
+  expect(await screen.findByText('Không có tài nguyên hạ tầng nào cần tạo, cập nhật hoặc liên kết.')).toBeInTheDocument();
+});

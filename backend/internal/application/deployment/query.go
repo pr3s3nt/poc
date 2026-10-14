@@ -49,7 +49,11 @@ type View struct {
 	Classification any                   `json:"classification"`
 	PlanHash       string                `json:"planHash"`
 	Resources      []ResourceView        `json:"resources"`
-	Workloads      []WorkloadView        `json:"workloads"`
+	// ResourceProgress is the safe stage/attempt/status projection of the
+	// persisted Terraform attempts (UC-16 states, ADR-014); never the module
+	// or target snapshots, state, physical IDs or recovery handles.
+	ResourceProgress []domain.ResourceAttempt `json:"resourceProgress"`
+	Workloads        []WorkloadView           `json:"workloads"`
 }
 
 // QueryService implements UC-09: assemble a read-only deployment view.
@@ -210,6 +214,15 @@ func assembleView(ctx context.Context, st persistence.Store, query GetDeployment
 		})
 	}
 
+	attempts, err := st.ListDeploymentAttempts(ctx, record.ID)
+	if err != nil {
+		return nil, err
+	}
+	view.ResourceProgress = make([]domain.ResourceAttempt, 0, len(attempts))
+	for _, attempt := range attempts {
+		view.ResourceProgress = append(view.ResourceProgress, attempt.Safe())
+	}
+
 	instances, err := st.ListDeploymentWorkloads(ctx, record.ID)
 	if err != nil {
 		return nil, err
@@ -227,6 +240,9 @@ func assembleView(ctx context.Context, st persistence.Store, query GetDeployment
 	}
 	if view.Resources == nil {
 		view.Resources = []ResourceView{}
+	}
+	if view.ResourceProgress == nil {
+		view.ResourceProgress = []domain.ResourceAttempt{}
 	}
 	if view.Workloads == nil {
 		view.Workloads = []WorkloadView{}

@@ -315,6 +315,12 @@ type DeploymentRepository interface {
 	GetPlan(ctx context.Context, deploymentID string) (map[string]any, error)
 	SaveDeploymentResource(ctx context.Context, r deployment.Resource) error
 	ListDeploymentResources(ctx context.Context, deploymentID string) ([]deployment.Resource, error)
+	// ListDeploymentAttempts is the Console's read-only, safe projection of the
+	// Terraform attempts linked to one Deployment (ADR-014). It reads only the
+	// safe attempt columns and the public module pin of the instance, scoped to
+	// the Deployment's own Environment; it never returns snapshots, state,
+	// recovery handles or target references.
+	ListDeploymentAttempts(ctx context.Context, deploymentID string) ([]deployment.ResourceAttempt, error)
 }
 
 // DeltaSnapshotRepository owns immutable Deployment Delta Snapshots. A

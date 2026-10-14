@@ -210,37 +210,12 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 			return nil, err
 		}
 		return &bundle, nil
-	case resource.DriverKubernetes:
-		if !driverSupportsType(resource.DriverKubernetes, def.ResourceTypeKey) {
-			return nil, fmt.Errorf("Kubernetes executor does not support %q", def.ResourceTypeKey)
-		}
-		if def.ExecutionProfile == "aws-eks" {
-			return nil, fmt.Errorf("Kubernetes definition cannot target aws-eks profile")
-		}
-		if len(def.Source()) > 0 {
-			return nil, fmt.Errorf("Kubernetes definition cannot declare Terraform source")
-		}
 	default:
-		return nil, fmt.Errorf("driver %q is not supported for registration", def.DriverType)
+		// UC-03 BR-08: only registry-verified Terraform modules and score-k8s
+		// rendering are registrable; the static Kubernetes driver and every
+		// other driver are not accepted by the public API.
+		return nil, invalidField("definition.driverType", fmt.Errorf("%w: driver %q is not registrable; use a verified Terraform module (Kubernetes resources included) or score-k8s for Workloads", ErrInvalid, def.DriverType))
 	}
-	if def.ConnectionKey != "" {
-		if err := s.requireConnection(ctx, org, def.ConnectionKey, application.ConnectionKubernetes, "Kubernetes driver requires cluster connection"); err != nil {
-			return nil, err
-		}
-	}
-	if err := validateStaticVariables(*def, typ, variables); err != nil {
-		return nil, err
-	}
-	allowed := map[string]map[string]bool{
-		"k8s-namespace": {"name": true},
-		"postgres":      {"host": true, "port": true, "database": true, "username": true, "password": true},
-	}
-	for _, output := range typ.Outputs {
-		if !allowed[def.ResourceTypeKey][output.Name] {
-			return nil, fmt.Errorf("driver does not provide output %q", output.Name)
-		}
-	}
-	return nil, nil
 }
 
 func validateReferences(def resource.Definition, types []resource.Type) error {

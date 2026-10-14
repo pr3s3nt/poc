@@ -294,8 +294,8 @@ func TestConnectionMismatchComparesTheEnvironmentBinding(t *testing.T) {
 		t.Fatal("a VPC Definition for another account must mismatch")
 	}
 	db := resource.Definition{Key: "db", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, ConnectionKey: "cloud-b"}
-	if ConnectionMismatch(aws, db) {
-		t.Fatal("external database Definitions keep their Driver Account")
+	if !ConnectionMismatch(aws, db) {
+		t.Fatal("AWS modules take no account override: a database for another account must mismatch")
 	}
 }
 

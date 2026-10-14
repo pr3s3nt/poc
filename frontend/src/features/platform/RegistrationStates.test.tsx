@@ -6,6 +6,8 @@ import { ConnectionsPage } from './ConnectionsPage';
 import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
 import { ResourceTypesPage } from './ResourceTypesPage';
 import { capabilityFixture } from '../../test/capabilities';
+import { completeDefinition } from '../../test/definitionKit';
+import { typeFixture } from '../../test/types';
 
 type User = ReturnType<typeof userEvent.setup>;
 type Labels = { listError: string; retry: string; registered: RegExp };
@@ -15,7 +17,7 @@ const english: Labels = { listError: 'List error', retry: 'Retry', registered: /
 // that must be kept on failure and a created row.
 const pages: { name: string; page: () => ReactElement; list: string; field: string; item: Record<string, unknown>; idLabel: string; fill: (user: User) => Promise<void>; submit: string; empty: string; labels?: Labels; failure?: string }[] = [
   { name: 'UC-02 types', page: () => <ResourceTypesPage />, list: '/resource-types', field: 'resourceTypes', item: { key: 'cache', inputs: [], outputs: [] }, idLabel: 'ID loại tài nguyên', fill: async (user) => { await user.type(screen.getByLabelText('ID loại tài nguyên'), 'cache'); }, submit: 'Đăng ký loại tài nguyên', empty: 'Chưa có loại tài nguyên nào.', labels: { listError: 'Lỗi tải danh sách', retry: 'Thử lại', registered: /Đã đăng ký/ }, failure: 'ID loại tài nguyên đã tồn tại. Hãy đổi ID rồi thử lại.' },
-  { name: 'UC-03 definitions', page: () => <ResourceDefinitionsPage />, list: '/resource-definitions', field: 'resourceDefinitions', item: { key: 'pg-fast', resourceType: 'postgres', driverType: 'kubernetes', criteria: [{}] }, idLabel: 'ID cấu hình', fill: async (user) => { await user.type(screen.getByLabelText('ID cấu hình'), 'pg-fast'); await user.selectOptions(screen.getByLabelText('Loại tài nguyên'), 'postgres'); }, submit: 'Đăng ký cấu hình tài nguyên', empty: 'Chưa có cấu hình tài nguyên nào.', labels: { listError: 'Lỗi tải danh sách', retry: 'Thử lại', registered: /Đã đăng ký/ }, failure: 'ID cấu hình đã tồn tại. Hãy đổi ID rồi thử lại.' },
+  { name: 'UC-03 definitions', page: () => <ResourceDefinitionsPage />, list: '/resource-definitions', field: 'resourceDefinitions', item: { key: 'pg-fast', resourceType: 'k8s-namespace', driverType: 'terraform', criteria: [{}] }, idLabel: 'ID cấu hình', fill: async (user) => { await completeDefinition(user, { id: 'pg-fast', type: 'k8s-namespace' }); }, submit: 'Đăng ký cấu hình tài nguyên', empty: 'Chưa có cấu hình tài nguyên nào.', labels: { listError: 'Lỗi tải danh sách', retry: 'Thử lại', registered: /Đã đăng ký/ }, failure: 'ID cấu hình đã tồn tại. Hãy đổi ID rồi thử lại.' },
   { name: 'UC-04 connections', page: () => <ConnectionsPage />, list: '/connections', field: 'connections', item: { key: 'fast', name: 'fast', kind: 'KUBERNETES', status: 'READY', config: { cluster: 'c', kubeContext: 'kind-fast' } }, idLabel: 'Tên kết nối', fill: async (user) => {
     await user.click(screen.getByLabelText('Dán nội dung kubeconfig'));
     await user.click(screen.getByLabelText('Nội dung kubeconfig'));
@@ -41,7 +43,7 @@ function stub(list: string, lists: (() => Response)[], post: () => Response) {
     if (init?.method === 'POST') { calls.posts += 1; return post(); }
     if (url.endsWith('/resource-definition-capabilities')) return Response.json({ capabilities: capabilityFixture });
     if (url.endsWith(list)) return (lists.shift() ?? lists[0] ?? (() => Response.json({})))();
-    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'postgres' }] });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: typeFixture });
     if (url.endsWith('/connections')) return Response.json({ connections: [] });
     return Response.json({}, { status: 404 });
   }));
@@ -85,7 +87,7 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
       if (url.endsWith('/resource-definition-capabilities')) return Response.json({ capabilities: capabilityFixture });
       if (init?.method === 'POST') { calls.posts += 1; return new Promise<Response>((done) => { release = done; }); }
       if (url.endsWith(list)) return listed(calls.posts ? [item] : [])();
-      return Response.json({ resourceTypes: [{ key: 'postgres' }] });
+      return Response.json({ resourceTypes: typeFixture });
     }));
     render(page());
     await screen.findByText(empty);

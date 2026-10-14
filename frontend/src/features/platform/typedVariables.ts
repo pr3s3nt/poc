@@ -107,6 +107,9 @@ export function draftToVariables(draft: VariableDraft, variables: CapabilityVari
 
 // A variable that needs a value from the author: required, no default and no
 // Resource Type param supplies it. Guidance only; the server stays authoritative.
-export function missingRequired(draft: VariableDraft, variables: CapabilityVariable[]): CapabilityVariable[] {
-  return variables.filter((variable) => variable.required && !variable.hasDefault && !variable.resourceParam && !draft[variable.name]?.on);
+// covered, when given, names the variables an explicit input mapping feeds from
+// a required Resource Type input (the registration rule); the same-name
+// resourceParam hint then no longer applies.
+export function missingRequired(draft: VariableDraft, variables: CapabilityVariable[], covered?: ReadonlySet<string>): CapabilityVariable[] {
+  return variables.filter((variable) => variable.required && !variable.hasDefault && !(covered ? covered.has(variable.name) : variable.resourceParam) && !draft[variable.name]?.on);
 }

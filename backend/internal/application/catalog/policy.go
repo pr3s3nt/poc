@@ -36,55 +36,6 @@ type valueType = tfmodule.ValueType
 
 var stringType = valueType{Kind: "string"}
 
-// supportedPair is one Resource Type/driver pair a static (non-Terraform)
-// executor supports. Terraform pairs come from the verified module registry:
-// the Admin/release policy pairs each module with its Resource Types
-// (UC-03 BR-08/BR-23).
-type supportedPair struct {
-	resourceType string
-	driver       resource.DriverType
-}
-
-var supportedPairs = []supportedPair{
-	{"k8s-namespace", resource.DriverKubernetes},
-	{"postgres", resource.DriverKubernetes},
-}
-
-func driverSupportsType(driver resource.DriverType, resourceType string) bool {
-	for _, pair := range supportedPairs {
-		if pair.driver == driver && pair.resourceType == resourceType {
-			return true
-		}
-	}
-	return false
-}
-
-// staticVariable is the contract of one non-Terraform executor variable. The
-// defaults mirror the executor (adapters/kubernetes stringInput fallbacks) and
-// preset is the opt-in placeholder offered by authoring guidance (BR-25).
-type staticVariable struct {
-	typ        valueType
-	required   bool
-	hasDefault bool
-	defaultVal any
-	preset     string
-}
-
-// driverVariableSchemas are the static variable contracts of the
-// non-Terraform executors, keyed by driver and Resource Type (UC-03 BR-12).
-var driverVariableSchemas = map[resource.DriverType]map[string]map[string]staticVariable{
-	resource.DriverKubernetes: {
-		"k8s-namespace": {"name": {typ: stringType, required: true, preset: "${context.env.namespace}"}},
-		"postgres": {
-			"database":  {typ: stringType, hasDefault: true, defaultVal: "app"},
-			"username":  {typ: stringType, hasDefault: true, defaultVal: "app"},
-			"image":     {typ: stringType, hasDefault: true, defaultVal: "postgres:16-alpine"},
-			"storage":   {typ: stringType, hasDefault: true, defaultVal: "1Gi"},
-			"namespace": {typ: stringType},
-		},
-	},
-}
-
 // terraformPresets are the opt-in placeholders per module variable, taken from
 // the current seed policy: the infrastructure resource name and the shared
 // VPC outputs through the @infra token (BR-25).
@@ -149,32 +100,6 @@ func validateDriverInputShape(def resource.Definition) (map[string]any, error) {
 		return nil, errors.New("driverInputs.values.variables must be an object")
 	}
 	return variables, nil
-}
-
-// validateStaticVariables checks Kubernetes variables
-// against the executor contract (UC-03 BR-12).
-func validateStaticVariables(def resource.Definition, typ resource.Type, variables map[string]any) error {
-	schema := driverVariableSchemas[def.DriverType][def.ResourceTypeKey]
-	for _, name := range sortedKeys(variables) {
-		if credentialVariables[name] {
-			return fmt.Errorf("%s.%s is a credential and cannot be a Driver Input", variablesPath, name)
-		}
-		variable, ok := schema[name]
-		if !ok {
-			return fmt.Errorf("%s.%s is not supported by the %s driver for %s", variablesPath, name, def.DriverType, def.ResourceTypeKey)
-		}
-		if err := checkVariableValue(variablesPath+"."+name, variable.typ, variables[name]); err != nil {
-			return err
-		}
-	}
-	if def.DriverType == resource.DriverKubernetes && def.ResourceTypeKey == "k8s-namespace" {
-		if _, ok := variables["name"]; !ok {
-			if input, ok := typ.Input("name"); !ok || !input.Required || input.Type != "string" {
-				return fmt.Errorf("%s.name is required unless the Resource Type declares a required string name input", variablesPath)
-			}
-		}
-	}
-	return nil
 }
 
 // checkVariableValue type-checks one Driver Input value (UC-03 BR-13). A

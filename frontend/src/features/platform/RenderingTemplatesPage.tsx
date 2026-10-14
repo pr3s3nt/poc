@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { specificGuidance } from '../../shared/api/errors';
+import { parseRenderBundles } from './metadata';
 import { api, ApiError } from '../../shared/api/client';
 import { Button } from '../../shared/ui/Button';
 import { snapshotKey, type ApiEnvironment } from './environmentSnapshot';
@@ -12,9 +13,11 @@ type Definition = { key: string; resourceType: string; executionProfile?: string
 
 type InstalledBundle = { id: string; version: string; status: string };
 const idShape = /^[a-z0-9-]+$/;
+const profileOptions = [['internal-k8s', 'Cluster nội bộ (internal-k8s)'], ['aws-eks', 'AWS (aws-eks)']] as const;
+const profileLabel = (profile: string) => profileOptions.find(([value]) => value === profile)?.[1] ?? 'Chưa chọn phạm vi';
 const listFailure = () => 'Không tải được dữ liệu từ máy chủ.';
 const loadDefinitions = async () => (await api<{ resourceDefinitions: Definition[] }>('/resource-definitions')).resourceDefinitions ?? [];
-const loadBundles = async () => ((await api<{ renderBundles: InstalledBundle[] }>('/render-bundles')).renderBundles ?? []).filter((item) => item.status === 'AVAILABLE' && typeof item.id === 'string' && item.id !== '');
+const loadBundles = async (): Promise<InstalledBundle[]> => parseRenderBundles(await api<unknown>('/render-bundles')).filter((item) => item.status === 'AVAILABLE');
 // Real application/environment IDs (keys) for the criteria editor; never derived from names.
 const loadApplications = async (): Promise<ApplicationOption[]> => ((await api<{ applications: APIApplication[] }>('/applications')).applications ?? []).map((app) => ({ key: app.key, name: app.name ?? app.key, environments: (app.environments ?? []).map((env) => ({ key: env.key, name: env.name ?? env.key, environmentType: env.environmentType ?? '', executionProfile: env.executionProfile ?? '', snapshotKey: snapshotKey(env) })) }));
 
@@ -50,6 +53,9 @@ export function RenderingTemplatesPage() {
   const [notice, setNotice] = useState('');
   const [key, setKey] = useState('');
   const [bundle, setBundle] = useState('');
+  // Both targets need exactly one template (UC-03 BR-15); the scope is an explicit choice, never defaulted.
+  const [profile, setProfile] = useState('');
+  const [profileError, setProfileError] = useState('');
   const [criteriaDraft, setCriteriaDraft] = useState<CriteriaDraft>(emptyDraft);
 
   // One installed bundle is chosen for an unselected draft; several need an explicit choice.
@@ -66,10 +72,11 @@ export function RenderingTemplatesPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
-    setError(''); setIdError(''); setBundleError(''); setNotice('');
+    setError(''); setIdError(''); setBundleError(''); setProfileError(''); setNotice('');
     // The backend owns the ID rule; the ID is checked, never changed.
     if (key === '') { setIdError('Nhập ID mẫu.'); return; }
     if (!idShape.test(key)) { setIdError('ID chỉ gồm chữ thường a-z, số 0-9 và dấu gạch ngang. ID không được tự sửa hộ.'); return; }
+    if (profile === '') { setProfileError('Chọn phạm vi triển khai của mẫu: Cluster nội bộ hoặc AWS.'); return; }
     if (bundleBlocked) { setBundleError('Chưa có danh sách bundle khả dụng nên chưa thể đăng ký. Xem hướng dẫn ở mục Bundle dựng ứng dụng.'); return; }
     if (bundle === '') { setBundleError('Chọn bundle dựng ứng dụng.'); return; }
     if (bundleStale) { setBundleError('Bundle đã chọn không còn khả dụng. Hãy chọn bundle khác trong danh sách.'); return; }
@@ -78,27 +85,29 @@ export function RenderingTemplatesPage() {
     const submitted = key;
     setSaving(true);
     try {
-      await api('/resource-definitions', { method: 'POST', body: JSON.stringify({ key: submitted, resourceType: 'workload', executionProfile: 'internal-k8s', driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: bundle } } }, criteria }) });
+      await api('/resource-definitions', { method: 'POST', body: JSON.stringify({ key: submitted, resourceType: 'workload', executionProfile: profile, driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: bundle } } }, criteria }) });
     } catch (reason) { setError(describeFailure(reason)); setSaving(false); return; }
     // Committed: report it and reset the submitted form before reloading.
-    setNotice(`Đã đăng ký mẫu dựng ứng dụng ${submitted}.`); setKey(''); setBundle(''); setCriteriaDraft(emptyDraft()); setSaving(false);
+    setNotice(`Đã đăng ký mẫu dựng ứng dụng ${submitted}.`); setKey(''); setBundle(''); setProfile(''); setCriteriaDraft(emptyDraft()); setSaving(false);
     await definitionList.reload();
   }
 
   const matching = ((): MatchingCandidateInput => {
     if (key === '' || !idShape.test(key)) return { definition: null, problem: 'Nhập ID mẫu hợp lệ để kiểm tra matching chính xác.' };
+    if (profile === '') return { definition: null, problem: 'Chọn phạm vi triển khai để kiểm tra matching chính xác.' };
     if (bundle === '') return { definition: null, problem: 'Chọn bundle dựng ứng dụng để kiểm tra matching chính xác.' };
     const { criteria, problem } = draftToCriteria(criteriaDraft);
     if (problem) return { definition: null, problem };
-    return { definition: { key, resourceType: 'workload', executionProfile: 'internal-k8s', driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: bundle } } }, criteria }, problem: '' };
+    return { definition: { key, resourceType: 'workload', executionProfile: profile, driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: bundle } } }, criteria }, problem: '' };
   })();
 
   const listError = definitionList.loadError;
-  return <section className="page"><header className="page-header"><div><p className="eyebrow">Nền tảng</p><h1>Mẫu dựng ứng dụng</h1><p>Mẫu là tùy chọn và chỉ dùng cho cluster nội bộ. Hệ thống tự chọn mẫu theo Điều kiện áp dụng; không có mẫu khớp thì dùng renderer mặc định. Mẫu đã chọn mà dựng lỗi sẽ báo lỗi, không chuyển âm thầm sang renderer mặc định. Chỉ Kỹ sư nền tảng hoặc Quản trị viên được đăng ký.</p></div></header>
-    <section className="content-panel" aria-label="Mẫu dựng ứng dụng đã đăng ký"><div className="section-header"><h2>Mẫu đã đăng ký</h2></div>{listError ? <div className="form-error" role="alert" aria-label="Lỗi tải danh sách">{listError} <Button type="button" onClick={() => { void definitionList.reload(); }}>Thử lại</Button></div> : definitionList.loading ? <p role="status">Đang tải danh sách mẫu dựng ứng dụng…</p> : templates.length === 0 ? <p>Chưa có mẫu dựng ứng dụng nào.</p> : <div className="catalog-list">{templates.map((template) => <div key={template.key} className="catalog-entry"><strong>{template.key}</strong><span>Bundle: {bundleOf(template) || 'không rõ'} · {template.criteria?.length ?? 0} điều kiện áp dụng</span></div>)}</div>}</section>
-    <section className="content-panel"><div className="section-header"><div><h2>Đăng ký mẫu dựng ứng dụng</h2><p>Loại tài nguyên, driver và phạm vi triển khai được hệ thống đặt sẵn cho cluster nội bộ. Lưu mẫu không tự Xem trước hoặc Triển khai.</p></div></div>
+  return <section className="page"><header className="page-header"><div><p className="eyebrow">Nền tảng</p><h1>Mẫu dựng ứng dụng</h1><p>Mọi Workload, ở cả cluster nội bộ và AWS, cần đúng một mẫu dựng ứng dụng (score-k8s) khớp Điều kiện áp dụng của Môi trường. Không có mẫu, có nhiều mẫu đồng hạng hoặc bundle chưa cài thì Xem trước và Triển khai bị chặn trước khi tạo tài nguyên; hệ thống không dùng renderer mặc định hay renderer khác. Chỉ Kỹ sư nền tảng hoặc Quản trị viên được đăng ký.</p></div></header>
+    <section className="content-panel" aria-label="Mẫu dựng ứng dụng đã đăng ký"><div className="section-header"><h2>Mẫu đã đăng ký</h2></div>{listError ? <div className="form-error" role="alert" aria-label="Lỗi tải danh sách">{listError} <Button type="button" onClick={() => { void definitionList.reload(); }}>Thử lại</Button></div> : definitionList.loading ? <p role="status">Đang tải danh sách mẫu dựng ứng dụng…</p> : templates.length === 0 ? <p>Chưa có mẫu dựng ứng dụng nào.</p> : <div className="catalog-list">{templates.map((template) => <div key={template.key} className="catalog-entry"><strong>{template.key}</strong><span>{profileLabel(template.executionProfile ?? '').replace('Chưa chọn phạm vi', 'Không rõ phạm vi')} · Bundle: {bundleOf(template) || 'không rõ'} · {template.criteria?.length ?? 0} điều kiện áp dụng</span></div>)}</div>}</section>
+    <section className="content-panel"><div className="section-header"><div><h2>Đăng ký mẫu dựng ứng dụng</h2><p>Loại tài nguyên và driver được hệ thống đặt sẵn; bạn chọn phạm vi triển khai và bundle đã cài. Lưu mẫu không tự Xem trước hoặc Triển khai.</p></div></div>
       <form onSubmit={submit} noValidate aria-label="Đăng ký mẫu dựng ứng dụng"><fieldset className="editor-grid form-fieldset" disabled={saving} aria-busy={saving}>
         <div className="field-grid"><label>ID mẫu<input value={key} aria-required="true" aria-invalid={idError ? true : undefined} aria-describedby={idError ? 'template-id-hint template-id-error' : 'template-id-hint'} onChange={(event) => { setKey(event.target.value); setIdError(''); }} /></label>
+          <label>Phạm vi triển khai<select value={profile} aria-required="true" aria-invalid={profileError ? true : undefined} onChange={(event) => { setProfile(event.target.value); setProfileError(''); }}><option value="">Chọn phạm vi triển khai</option>{profileOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label>Bundle dựng ứng dụng<select value={bundle} disabled={bundleBlocked} aria-required="true" aria-invalid={bundleError || selectedMissing ? true : undefined} aria-describedby={bundleError ? 'template-bundle-hint template-bundle-error' : 'template-bundle-hint'} onChange={(event) => { setBundle(event.target.value); setBundleError(''); }}>
             {bundleList.items.length !== 1 ? <option value="">{bundleList.loading ? 'Đang tải bundle…' : 'Chọn bundle dựng ứng dụng'}</option> : null}
             {selectedMissing ? <option value={bundle}>{bundle} ({bundleBlocked ? 'chưa xác nhận khả dụng' : 'không còn khả dụng'})</option> : null}
@@ -106,11 +115,12 @@ export function RenderingTemplatesPage() {
           </select></label></div>
         <p id="template-id-hint" className="feature-note">ID mẫu dùng chữ thường, số và dấu gạch ngang; ID không được tự sửa hộ và là tên kỹ thuật của mẫu.</p>
         {idError ? <div id="template-id-error" className="form-error" role="alert">{idError}</div> : null}
+        {profileError ? <div className="form-error" role="alert">{profileError}</div> : null}
         <p id="template-bundle-hint" className="feature-note">Chọn một bundle đã được cài trên máy chủ. Một bundle duy nhất được chọn sẵn; nhiều bundle cần chọn tường minh. Máy chủ kiểm tra lại bundle khi đăng ký.</p>
         {bundleList.loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải bundle">{bundleList.loadError} Dữ liệu đã nhập vẫn được giữ lại; chưa thể đăng ký cho đến khi tải được danh sách. <Button type="button" onClick={() => { void bundleList.reload(); }}>Thử lại tải bundle</Button></div> : bundleList.loading ? <p role="status">Đang tải danh sách bundle đã cài…</p> : bundleList.items.length === 0 ? <div className="form-error" role="alert" aria-label="Chưa có bundle">Chưa có bundle dựng ứng dụng nào được cài trên máy chủ nên chưa thể đăng ký mẫu. Hãy liên hệ Kỹ sư nền tảng để cài bundle, sau đó làm mới danh sách. <Button type="button" onClick={() => { void bundleList.reload(); }}>Làm mới danh sách bundle</Button></div> : <p><Button type="button" onClick={() => { void bundleList.reload(); }}>Làm mới danh sách bundle</Button></p>}
         {bundleStale ? <div className="form-error" role="alert" aria-label="Bundle không còn khả dụng">Bundle đã chọn ({bundle}) không còn khả dụng trong danh sách. Hãy chọn bundle khác; dữ liệu đã nhập được giữ lại.</div> : null}
         {bundleError ? <div id="template-bundle-error" className="form-error" role="alert">{bundleError}</div> : null}
-        <CriteriaEditor draft={criteriaDraft} onChange={setCriteriaDraft} applications={{ items: applicationList.items, loading: applicationList.loading, error: applicationList.loadError, onRetry: () => { void applicationList.reload(); } }} sources={{ items: templates, loading: definitionList.loading, error: definitionList.loadError, onRetry: () => { void definitionList.reload(); } }} resourceType="workload" profile="internal-k8s" profileLabel="Cluster nội bộ" matching={matching} />
+        <CriteriaEditor draft={criteriaDraft} onChange={setCriteriaDraft} applications={{ items: applicationList.items, loading: applicationList.loading, error: applicationList.loadError, onRetry: () => { void applicationList.reload(); } }} sources={{ items: templates, loading: definitionList.loading, error: definitionList.loadError, onRetry: () => { void definitionList.reload(); } }} resourceType="workload" profile={profile} profileLabel={profileLabel(profile)} matching={matching} />
         {error ? <div className="form-error" role="alert">{error}</div> : null}{notice ? <div className="form-success" role="status">{notice}</div> : null}<div className="form-actions"><Button type="submit" tone="primary" disabled={saving || bundleBlocked || selectedMissing}>{saving ? 'Đang đăng ký…' : 'Đăng ký mẫu dựng ứng dụng'}</Button></div>
       </fieldset></form>
     </section>

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
@@ -192,6 +194,11 @@ func checkInputs(bundle tfmodule.Bundle, typ resource.Type, inputs tfmodule.Driv
 		if err := checkVariableValue(variablesPath+"."+name, want, inputs.Variables[name]); err != nil {
 			return err
 		}
+		if name == publicAccessCIDRsVariable {
+			if err := checkPublicAccessCIDRs(variablesPath+"."+name, inputs.Variables[name]); err != nil {
+				return err
+			}
+		}
 	}
 	mappedParams := map[string]string{}
 	for _, name := range sortedKeys(inputs.InputMapping) {
@@ -310,6 +317,50 @@ func checkSecretReferences(inputs tfmodule.DriverInputs, types []resource.Type) 
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// publicAccessCIDRsVariable is the EKS API allowlist input (module contract,
+// "Provider bindings và dependency"): explicit IPv4 hosts only.
+const publicAccessCIDRsVariable = "public_access_cidrs"
+
+var ipv4Host32 = regexp.MustCompile(`^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})/32$`)
+
+// checkPublicAccessCIDRs rejects a literal entry that is not one specific
+// IPv4 /32 host, a wider prefix, 0.0.0.0, or a duplicate. Whole placeholders
+// are checked when they resolve; nothing is ever added automatically (the
+// executor's own IP is never appended) and there is no default.
+func checkPublicAccessCIDRs(path string, value any) error {
+	items, ok := value.([]any)
+	if !ok {
+		return nil // a whole placeholder; resolved and re-checked at execution
+	}
+	if len(items) == 0 || len(items) > 40 {
+		return fmt.Errorf("%s must list 1 to 40 explicit IPv4 /32 hosts", path)
+	}
+	seen := map[string]bool{}
+	for i, item := range items {
+		text, ok := item.(string)
+		if !ok {
+			return fmt.Errorf("%s[%d] must be a string", path, i)
+		}
+		if full, _ := classifyPlaceholders(text); full {
+			continue
+		}
+		match := ipv4Host32.FindStringSubmatch(text)
+		if match == nil || text == "0.0.0.0/32" {
+			return fmt.Errorf("%s[%d] must be one specific IPv4 host written as a.b.c.d/32 (never a wider prefix or 0.0.0.0)", path, i)
+		}
+		for _, octet := range match[1:] {
+			if n, _ := strconv.Atoi(octet); n > 255 {
+				return fmt.Errorf("%s[%d] must be one specific IPv4 host written as a.b.c.d/32", path, i)
+			}
+		}
+		if seen[text] {
+			return fmt.Errorf("%s[%d] repeats an address", path, i)
+		}
+		seen[text] = true
 	}
 	return nil
 }

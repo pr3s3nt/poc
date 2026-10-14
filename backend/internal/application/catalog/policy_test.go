@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/application/catalog"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/seed"
@@ -45,7 +46,7 @@ func TestRegisterResourceType_PublicIDPolicy(t *testing.T) {
 func TestRegisterResourceDefinition_PublicIDPolicy(t *testing.T) {
 	ctx := context.Background()
 	st, svc, opts := seededCatalog(t, withRegistry)
-	base := registrable(t, opts, "postgres-internal-statefulset")
+	base := moduleShape(t, "postgres")
 	before, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
 	for _, key := range []string{"", " pg", "PG", "pg_fast", "pg.fast", "pg\t"} {
 		def := base
@@ -73,9 +74,14 @@ func TestRegisterResourceDefinition_PublicIDPolicy(t *testing.T) {
 func TestRegisterResourceDefinition_SeededShapesStillRegister(t *testing.T) {
 	ctx := context.Background()
 	_, svc, opts := seededCatalog(t, withRegistry)
-	for _, name := range []string{"namespace-kubernetes", "cluster-aws-eks", "vpc-aws", "postgres-internal-statefulset", "postgres-aws-aurora"} {
-		def := registrable(t, opts, name)
-		def.Key = name + "-copy"
+	for _, name := range []string{"cluster-aws-eks", "vpc-aws", "postgres-aws-aurora", "module:namespace", "module:postgres"} {
+		var def resource.Definition
+		if shape, ok := strings.CutPrefix(name, "module:"); ok {
+			def = moduleShape(t, shape)
+		} else {
+			def = registrable(t, opts, name)
+		}
+		def.Key = strings.ReplaceAll(name, ":", "-") + "-copy"
 		if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {
 			t.Errorf("seeded shape %s rejected: %v", name, err)
 		}
@@ -94,6 +100,26 @@ func registrable(t *testing.T, opts seed.Options, key string) resource.Definitio
 		}
 	}
 	return def
+}
+
+// moduleShape is the current registrable shape of the in-cluster Kubernetes
+// resources: a verified packaged registry module (ADR-014), never the retired
+// static Kubernetes driver.
+func moduleShape(t *testing.T, key string) resource.Definition {
+	t.Helper()
+	refs, err := registry.PackagedRefs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ns := "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+	switch key {
+	case "namespace":
+		return k8sDefinition("ns-shape", "k8s-namespace", refs["k8s-namespace"], map[string]any{"name": "${context.env.namespace}"}, nil, []string{"name"}, resource.Criterion{})
+	case "postgres":
+		return k8sDefinition("pg-shape", "postgres", refs["postgres-k8s"], map[string]any{"namespace": ns}, []string{"database", "username"}, []string{"host", "port", "database", "username", "password"}, resource.Criterion{})
+	}
+	t.Fatalf("unknown shape %q", key)
+	return resource.Definition{}
 }
 
 func withVariables(def resource.Definition, set map[string]any) resource.Definition {
@@ -127,8 +153,8 @@ var deleteMarker any = marker{}
 func TestRegisterResourceDefinition_StrictDriverInputs(t *testing.T) {
 	ctx := context.Background()
 	st, svc, opts := seededCatalog(t, withRegistry)
-	pg := registrable(t, opts, "postgres-internal-statefulset")
-	ns := registrable(t, opts, "namespace-kubernetes")
+	pg := moduleShape(t, "postgres")
+	ns := moduleShape(t, "namespace")
 	aurora := registrable(t, opts, "postgres-aws-aurora")
 	vpcID := "${resources['vpc.default#applications.@app'].outputs.id}"
 	raw := func(def resource.Definition, inputs map[string]any) resource.Definition {
@@ -146,7 +172,6 @@ func TestRegisterResourceDefinition_StrictDriverInputs(t *testing.T) {
 		"variables missing":           raw(pg, map[string]any{"values": map[string]any{}}),
 		"variables null":              raw(pg, map[string]any{"values": map[string]any{"variables": nil}}),
 		"variables array":             raw(pg, map[string]any{"values": map[string]any{"variables": []any{sentinel}}}),
-		"kubernetes source":           raw(pg, map[string]any{"values": map[string]any{"variables": map[string]any{}, "source": map[string]any{"module": "aurora"}}}),
 		"terraform source missing":    raw(aurora, map[string]any{"values": map[string]any{"variables": aurora.Variables()}}),
 		"terraform source null":       raw(aurora, map[string]any{"values": map[string]any{"variables": aurora.Variables(), "source": nil}}),
 		"terraform source url":        raw(aurora, map[string]any{"values": map[string]any{"variables": aurora.Variables(), "source": map[string]any{"module": "aurora", "url": sentinel}}}),
@@ -198,7 +223,7 @@ func TestRegisterResourceDefinition_StrictDriverInputs(t *testing.T) {
 			continue
 		}
 		t.Logf("%s: %v", name, err)
-		if !strings.Contains(err.Error(), "driverInputs") {
+		if !strings.Contains(err.Error(), "driverInputs") && !strings.Contains(err.Error(), "module \"") {
 			t.Errorf("%s: rejected for an unrelated reason: %v", name, err)
 		}
 		if strings.Contains(err.Error(), sentinel) {
@@ -216,7 +241,7 @@ func TestRegisterResourceDefinition_StrictDriverInputs(t *testing.T) {
 func TestRegisterResourceDefinition_PlaceholderAwareTyping(t *testing.T) {
 	ctx := context.Background()
 	_, svc, opts := seededCatalog(t, withRegistry)
-	pg := registrable(t, opts, "postgres-internal-statefulset")
+	pg := moduleShape(t, "postgres")
 	aurora := registrable(t, opts, "postgres-aws-aurora")
 	vpcID := "${resources['vpc.default#applications.@app'].outputs.id}"
 	cases := map[string]resource.Definition{
@@ -229,8 +254,8 @@ func TestRegisterResourceDefinition_PlaceholderAwareTyping(t *testing.T) {
 		"full resource reference":       withVariables(aurora, map[string]any{"private_subnet_ids": vpcID}),
 		"list mixed elements":           withVariables(aurora, map[string]any{"subnet_ids": []any{"subnet-a", vpcID}}),
 		"optional default override":     withVariables(aurora, map[string]any{"seconds_until_auto_pause": 600}),
-		"postgres options omitted":      withVariables(pg, map[string]any{"image": deleteMarker, "storage": deleteMarker, "namespace": deleteMarker}),
-		"postgres all options":          withVariables(pg, map[string]any{"database": "app", "username": "app"}),
+		"postgres options omitted":      withVariables(pg, map[string]any{"image": deleteMarker, "storage": deleteMarker}),
+		"postgres all options":          withVariables(pg, map[string]any{"image": "postgres:16-alpine", "storage": "1Gi"}),
 	}
 	for name, def := range cases {
 		def.Key = "typed-" + strings.ReplaceAll(name, " ", "-")
@@ -240,15 +265,27 @@ func TestRegisterResourceDefinition_PlaceholderAwareTyping(t *testing.T) {
 	}
 }
 
-// TestRegisterResourceDefinition_NamespaceNameFromTypeContract covers the
-// UC-03 BR-12 exception: the Type input contract may supply the name.
+// TestRegisterResourceDefinition_NamespaceNameFromTypeContract: the namespace
+// module's required name may come from the Resource Type input contract
+// (input_mapping), and only when the Type declares a compatible input.
 func TestRegisterResourceDefinition_NamespaceNameFromTypeContract(t *testing.T) {
 	ctx := context.Background()
 	st, svc, opts := seededCatalog(t, withRegistry)
-	ns := withVariables(registrable(t, opts, "namespace-kubernetes"), map[string]any{"name": deleteMarker})
+	ns := withVariables(moduleShape(t, "namespace"), map[string]any{"name": deleteMarker})
 	ns.Key = "namespace-from-params"
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, ns); !errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("namespace without name: %v", err)
+	}
+	mapped := func(key string) resource.Definition {
+		def := ns
+		def.Key = key
+		values := map[string]any{}
+		for k, v := range def.DriverValues() {
+			values[k] = v
+		}
+		values["input_mapping"] = map[string]any{"name": map[string]any{"param": "name"}}
+		def.DriverInputs = map[string]any{"values": values}
+		return def
 	}
 	saveNamespaceType := func(inputs ...resource.InputField) {
 		t.Helper()
@@ -261,23 +298,18 @@ func TestRegisterResourceDefinition_NamespaceNameFromTypeContract(t *testing.T) 
 		}
 	}
 	rejected := map[string]resource.InputField{
-		"optional string":  {Name: "name", Type: "string"},
-		"required number":  {Name: "name", Type: "number", Required: true},
-		"required bool":    {Name: "name", Type: "bool", Required: true},
-		"required any":     {Name: "name", Type: "any", Required: true},
-		"required untyped": {Name: "name", Required: true},
-		"optional number":  {Name: "name", Type: "number"},
+		"required number": {Name: "name", Type: "number", Required: true},
+		"required bool":   {Name: "name", Type: "bool", Required: true},
+		"other input":     {Name: "label", Type: "string", Required: true},
 	}
 	for name, input := range rejected {
 		saveNamespaceType(input)
-		def := ns
-		def.Key = "namespace-" + strings.ReplaceAll(name, " ", "-")
-		if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); !errors.Is(err, catalog.ErrInvalid) {
+		if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, mapped("namespace-"+strings.ReplaceAll(name, " ", "-"))); !errors.Is(err, catalog.ErrInvalid) {
 			t.Errorf("%s name input: want ErrInvalid, got %v", name, err)
 		}
 	}
 	saveNamespaceType(resource.InputField{Name: "name", Type: "string", Required: true})
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, ns); err != nil {
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, mapped("namespace-from-type")); err != nil {
 		t.Fatalf("namespace name supplied by Type contract: %v", err)
 	}
 }

@@ -45,25 +45,25 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 	for _, c := range caps {
 		keys = append(keys, c.ResourceType+"/"+c.DriverType+"/"+c.Module)
 	}
-	want := []string{"k8s-cluster/terraform/eks", "k8s-namespace/kubernetes/", "k8s-namespace/terraform/k8s-namespace", "postgres/kubernetes/", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/elasticache", "redis/terraform/redis-k8s", "vpc/terraform/vpc"}
+	want := []string{"k8s-cluster/terraform/eks", "k8s-namespace/terraform/k8s-namespace", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/elasticache", "redis/terraform/redis-k8s", "vpc/terraform/vpc"}
 	if !reflect.DeepEqual(keys, want) {
 		t.Fatalf("pairs %v, want %v", keys, want)
 	}
 	idx := capabilityIndex(caps)
 
-	ns := variableIndex(idx["k8s-namespace/kubernetes/"])
-	if v := ns["name"]; !v.Required || v.Preset != "${context.env.namespace}" || v.HasDefault || v.ResourceParam {
-		t.Fatalf("namespace name %+v", v)
+	// ADR-014: only verified registry modules are registrable; no static
+	// Kubernetes driver pair is advertised.
+	for key, c := range idx {
+		if c.DriverType != "terraform" {
+			t.Errorf("%s: public metadata offers non-registry driver %q", key, c.DriverType)
+		}
 	}
-	pg := variableIndex(idx["postgres/kubernetes/"])
-	if v := pg["storage"]; v.Required || !v.HasDefault || v.Default != "1Gi" {
-		t.Fatalf("storage %+v", v)
-	}
-	if v := pg["database"]; v.Default != "app" || !v.ResourceParam {
+	pg := variableIndex(idx["postgres/terraform/postgres-k8s"])
+	if v := pg["database"]; !v.ResourceParam {
 		t.Fatalf("database %+v (Resource Type declares database)", v)
 	}
-	if v := pg["image"]; v.Default != "postgres:16-alpine" || v.ResourceParam {
-		t.Fatalf("image %+v", v)
+	if v := variableIndex(idx["k8s-namespace/terraform/k8s-namespace"])["name"]; !v.Required || v.Preset != "${context.env.namespace}" {
+		t.Fatalf("namespace name %+v", v)
 	}
 
 	vpc := idx["vpc/terraform/vpc"]
@@ -142,7 +142,7 @@ func TestListDefinitionCapabilities_ResourceParamIsScoped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(caps) != 9 {
+	if len(caps) != 7 {
 		t.Fatalf("custom type changed the supported pairs: %d", len(caps))
 	}
 	// Another Organization without Resource Types still lists the pairs, no params.
@@ -200,17 +200,18 @@ func TestListDefinitionCapabilities_InspectorFailureIsInternal(t *testing.T) {
 	}
 }
 
-// TestListDefinitionCapabilities_NamespaceNameParamFollowsBR12: the namespace
-// name only counts as a Resource Type param when its input is a required string.
-func TestListDefinitionCapabilities_NamespaceNameParamFollowsBR12(t *testing.T) {
+// TestListDefinitionCapabilities_ModuleParamFollowsScopedTypeInput: a module
+// variable is a Resource Type param only when the Organization's scoped Type
+// declares that input.
+func TestListDefinitionCapabilities_ModuleParamFollowsScopedTypeInput(t *testing.T) {
 	ctx := context.Background()
 	for name, tc := range map[string]struct {
 		input resource.InputField
 		want  bool
 	}{
-		"required string": {resource.InputField{Name: "name", Type: "string", Required: true}, true},
-		"optional string": {resource.InputField{Name: "name", Type: "string"}, false},
-		"required number": {resource.InputField{Name: "name", Type: "number", Required: true}, false},
+		"declared string":   {resource.InputField{Name: "name", Type: "string", Required: true}, true},
+		"declared optional": {resource.InputField{Name: "name", Type: "string"}, true},
+		"other input":       {resource.InputField{Name: "label", Type: "string"}, false},
 	} {
 		st, svc, _ := seededCatalog(t, withRegistry)
 		if err := st.SaveOrganization(ctx, application.Organization{Key: "scratch-org"}); err != nil {
@@ -224,7 +225,7 @@ func TestListDefinitionCapabilities_NamespaceNameParamFollowsBR12(t *testing.T) 
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		got := variableIndex(capabilityIndex(caps)["k8s-namespace/kubernetes/"])["name"]
+		got := variableIndex(capabilityIndex(caps)["k8s-namespace/terraform/k8s-namespace"])["name"]
 		if got.ResourceParam != tc.want || !got.Required {
 			t.Errorf("%s: %+v want resourceParam=%v", name, got, tc.want)
 		}

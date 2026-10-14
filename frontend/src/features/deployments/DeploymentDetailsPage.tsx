@@ -11,7 +11,22 @@ const deploymentStatuses: Record<string, string> = { SUCCEEDED: 'Thành công', 
 const itemStatuses: Record<string, string> = { READY: 'Sẵn sàng', PENDING: 'Đang chờ', FAILED: 'Thất bại', SUCCEEDED: 'Thành công', RUNNING: 'Đang chạy', INTERRUPTED: 'Bị gián đoạn', ACTIVE: 'Đang hoạt động', PROVISIONING: 'Đang tạo tài nguyên', DEPLOYING: 'Đang triển khai', PLANNING: 'Đang lập kế hoạch', UNCONFIGURED: 'Chưa cấu hình', UNREFERENCED: 'Không còn được tham chiếu', APPLYING: 'Đang áp dụng', REMOVING: 'Đang gỡ bỏ', REMOVED: 'Đã gỡ bỏ' };
 // Own-key lookup: inherited keys such as "constructor" must never resolve.
 const lookup = (map: Record<string, string>, key: string) => (Object.hasOwn(map, key) ? map[key] ?? key : key);
+// Progress values come from persisted strings: only known codes are shown, anything else is a generic label.
+const known = (map: Record<string, string>, key: string, generic: string) => (Object.hasOwn(map, key) ? map[key] ?? generic : generic);
 const redactedMarker = '***redacted***';
+const stageLabels: Record<string, string> = {
+  INTENT: 'Ghi nhận ý định', INIT: 'Khởi tạo module', PLANNING: 'Đang lập kế hoạch Terraform', PLANNED: 'Đã lập kế hoạch', APPLYING: 'Đang áp dụng', APPLIED: 'Đã áp dụng', OUTPUTS: 'Đọc đầu ra',
+  READINESS: 'Kiểm tra sẵn sàng', READY: 'Sẵn sàng', NO_CHANGE: 'Không có thay đổi', CHECKING: 'Đang kiểm tra', DESTROYING: 'Đang hủy', VERIFYING: 'Đang xác minh', DESTROYED: 'Đã hủy', RECOVERY: 'Đang khôi phục',
+};
+const scopeLabels: Record<string, string> = { APPLICATION: 'Ứng dụng', ENVIRONMENT: 'Môi trường', WORKLOAD: 'Workload', SHARED: 'Dùng chung' };
+const actionLabels: Record<string, string> = { CREATE: 'Tạo mới', UPDATE: 'Cập nhật', DESTROY: 'Hủy' };
+const ownershipLabels: Record<string, string> = { CREATED_BY_RUN: 'Do lần chạy này tạo', PREEXISTING: 'Đã có trước', UPDATED_BY_RUN: 'Do lần chạy này cập nhật' };
+const attemptStatuses: Record<string, string> = { RUNNING: 'Đang chạy', SUCCEEDED: 'Thành công', FAILED: 'Thất bại', INTERRUPTED: 'Bị gián đoạn', NEEDS_ATTENTION: 'Cần xử lý' };
+const errorLabels: Record<string, string> = {
+  DESTRUCTIVE_PLAN: 'Kế hoạch sẽ hủy tài nguyên nên bị chặn', OUTPUT_CONTRACT: 'Đầu ra module không đúng hợp đồng', NOT_READY: 'Tài nguyên chưa sẵn sàng', READINESS_UNAVAILABLE: 'Chưa kiểm tra được độ sẵn sàng',
+  OUTCOME_UNKNOWN: 'Chưa rõ kết quả; cần kiểm tra trước khi thử lại', STATE_NOT_ACKNOWLEDGED: 'Trạng thái chưa được xác nhận lưu', STATE_BACKEND: 'Lỗi kho trạng thái', TRANSIENT: 'Lỗi tạm thời', AUTH: 'Lỗi xác thực với nhà cung cấp',
+  INPUT: 'Đầu vào không hợp lệ', TIMEOUT: 'Quá thời gian', CANCELLED: 'Đã hủy', FAILED: 'Thất bại', PHYSICAL_RESOURCE_REMAINS: 'Vẫn còn tài nguyên vật lý', SECRET_UNAVAILABLE: 'Không đọc được bí mật cần thiết',
+};
 
 const date = (value?: string) => {
   if (!value) return '—';
@@ -56,6 +71,13 @@ export function DeploymentDetailsPage({ application, environment, deploymentId }
         <dl className="detail-grid"><div><dt>Bắt đầu</dt><dd>{date(detail.deployment.startedAt)}</dd></div><div><dt>Kết thúc</dt><dd>{date(detail.deployment.finishedAt)}</dd></div><div><dt>Người thực hiện</dt><dd>{detail.deployment.actorRef || 'Không rõ người thực hiện'}</dd></div><div><dt>Tập triển khai</dt><dd>{detail.deploymentSetId || '—'}</dd></div></dl></section>
       <section className="content-panel"><h2>Workload</h2>{detail.workloads?.length ? <div className="detail-list">{detail.workloads.map((item) => <div key={item.workloadId}><strong>{item.workloadId}</strong><span>{lookup(itemStatuses, item.status)}</span><small>{item.manifestDigest}</small></div>)}</div> : <p>Chưa ghi nhận trạng thái Workload nào.</p>}</section>
       <section className="content-panel"><h2>Tài nguyên</h2>{detail.resources?.length ? <div className="detail-list">{detail.resources.map((item) => <div key={item.descriptor}><strong>{item.resourceType || item.descriptor}</strong><span>{lookup(itemStatuses, item.status)} · {item.definitionKey || 'chưa có cấu hình tài nguyên'}</span><small>{item.descriptor}</small>{Object.keys(item.outputs ?? {}).length ? <small>Đầu ra: {Object.entries(item.outputs).map(([key, value]) => `${key}=${outputValue(value)}`).join(', ')}</small> : null}</div>)}</div> : <p>Chưa ghi nhận trạng thái tài nguyên nào.</p>}</section>
+      <section className="content-panel" aria-label="Tiến trình tạo tài nguyên"><h2>Tiến trình tạo tài nguyên</h2>{detail.resourceProgress === undefined
+        ? <p className="form-warning" role="note">Không đọc được tiến trình thực thi đã lưu của lần triển khai này nên chưa thể kết luận tài nguyên nào đã chạy. Bấm Tải lại để đọc lại.</p>
+        : detail.resourceProgress.length === 0 ? <p>Chưa có bước thực thi Terraform nào được ghi cho lần triển khai này.</p>
+          : <table className="plain-table"><thead><tr><th>Tài nguyên</th><th>Module</th><th>Lần</th><th>Hành động</th><th>Giai đoạn</th><th>Trạng thái</th><th>Quyền sở hữu</th><th>Cập nhật</th></tr></thead><tbody>{detail.resourceProgress.map((item) => <tr key={`${item.descriptor}|${item.scopeType}|${item.attempt}|${item.startedAt}`}>
+            <td>{item.descriptor}<br /><small>{known(scopeLabels, item.scopeType, 'Phạm vi không rõ')}</small></td><td>{item.moduleId} · {item.moduleRevision}</td><td>{item.attempt}</td><td>{known(actionLabels, item.action, 'Hành động không rõ')}</td><td>{known(stageLabels, item.stage, 'Giai đoạn không rõ')}</td>
+            <td>{known(attemptStatuses, item.status, 'Trạng thái không rõ')}{item.safeErrorCode ? <><br /><small>{known(errorLabels, item.safeErrorCode, 'Lỗi không xác định')}</small></> : null}</td><td>{known(ownershipLabels, item.ownership, 'Quyền sở hữu không rõ')}</td><td>{date(item.updatedAt)}</td></tr>)}</tbody></table>}
+        <p><small>Chỉ hiển thị giai đoạn, trạng thái và mã lỗi an toàn đã lưu. Không có lệnh Terraform, đầu vào đã phân giải, bí mật, trạng thái hay đường dẫn khôi phục.</small></p></section>
       <section className="content-panel"><h2>Kế hoạch tạo tài nguyên</h2>{!detail.planHash ? <p>Không có kế hoạch tạo tài nguyên được lưu cho triển khai này.</p> : <><p>{detail.graph?.nodes?.length ?? 0} nút đồ thị · {detail.graph?.edges?.length ?? 0} phụ thuộc · kế hoạch {detail.planHash.slice(0, 12)}</p>
         {detail.graph?.nodes?.length ? <><h3>Nút</h3><ul>{detail.graph.nodes.map((node) => <li key={node.descriptor}>{node.descriptor} · {node.kind}{detail.matches?.[node.descriptor]?.definitionKey ? ` · ${detail.matches?.[node.descriptor]?.definitionKey}` : ''}</li>)}</ul></> : null}
         {detail.graph?.edges?.length ? <><h3>Phụ thuộc</h3><ul>{detail.graph.edges.map((edge, index) => <li key={`${edge.consumer}-${edge.provider}-${index}`}>{edge.consumer} → {edge.provider}</li>)}</ul></> : null}

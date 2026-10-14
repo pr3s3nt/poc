@@ -1,6 +1,8 @@
 package planning
 
 import (
+	"errors"
+
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -30,15 +32,21 @@ func (s *Service) selectRendering(ctx Context, graph Graph, matcher *definitionM
 				eligible = true
 			}
 		}
-		if !eligible {
+		if !eligible && !s.requireRenderer {
 			continue
 		} // Native renderer: omitted from additive snapshots for legacy compatibility.
 		match, err := renderMatcher.match(&node)
 		if err != nil {
+			if s.requireRenderer {
+				return nil, rendererMatchError(err)
+			}
 			return nil, err
 		}
 		def := matcher.defs[match.DefinitionKey]
 		if err := resource.ValidateRenderDefinition(def, catalog.Types["workload"], s.bundles); err != nil {
+			if s.requireRenderer {
+				return nil, &StageError{Stage: StageCatalog, Reason: ReasonRendererUnavailable, Err: err}
+			}
 			return nil, err
 		}
 		hash, err := canon.Hash(def)
@@ -63,4 +71,21 @@ func (s *Service) SelectWorkloadRendering(app application.Application, env envir
 		return resource.RenderingSelection{}, stageErr(StageCatalog, err)
 	}
 	return selections[id], nil
+}
+
+// rendererMatchError classifies a failed required-renderer match as no match,
+// tie or another catalog failure (for example a Connection conflict).
+func rendererMatchError(err error) error {
+	var staged *StageError
+	if errors.As(err, &staged) {
+		return err
+	}
+	reason := ""
+	switch {
+	case errors.Is(err, errNoMatch):
+		reason = ReasonRendererNoMatch
+	case errors.Is(err, errAmbiguous):
+		reason = ReasonRendererAmbiguous
+	}
+	return &StageError{Stage: StageCatalog, Reason: reason, Err: err}
 }
