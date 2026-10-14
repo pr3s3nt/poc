@@ -686,7 +686,7 @@ func (s *StateStore) RecordStateSerial(ctx context.Context, operationID, instanc
 var _ terraformstate.Repository = (*StateStore)(nil)
 
 // ClaimResourceCleanup stores the claim and the exact selected set atomically.
-func (s *Store) ClaimResourceCleanup(ctx context.Context, claim persistence.OperationClaim, req tfresource.CleanupRequest) (environment.Operation, bool, error) {
+func (s *Store) ClaimResourceCleanup(ctx context.Context, claim persistence.OperationClaim, req tfresource.CleanupRequest, check terraformstate.AdmissionCheck) (environment.Operation, bool, error) {
 	if err := req.Validate(); err != nil {
 		return environment.Operation{}, false, err
 	}
@@ -741,6 +741,14 @@ func (s *Store) ClaimResourceCleanup(ctx context.Context, claim persistence.Oper
 			}
 			if !errors.Is(err, pgx.ErrNoRows) {
 				return translate(err)
+			}
+		}
+		// The admission check reads through this transaction, with the
+		// Environment row locked: no deploy, draft write or claim can commit
+		// between the check and the claim below.
+		if check != nil {
+			if err := check(ctx); err != nil {
+				return err
 			}
 		}
 		for _, item := range req.Scope.Items {

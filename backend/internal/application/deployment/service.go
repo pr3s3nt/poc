@@ -84,7 +84,19 @@ type Service struct {
 	configSync      execution.ConfigSecretSynchronizer
 	publicRoutes    execution.PublicRouteManager
 	baseDomain      string
+	instanceMarker  InstanceMarker
 }
+
+// InstanceMarker mirrors a committed UNREFERENCED Active Resource onto the
+// Terraform resource instance of the same logical identity (implemented by
+// the Terraform executor). It is optional: without Terraform instances there
+// is nothing to mirror.
+type InstanceMarker interface {
+	MarkUnreferenced(ctx context.Context, generation int64, descriptor, scopeType, scopeID string) error
+}
+
+// SetInstanceMarker enables the instance-side UNREFERENCED mirror.
+func (s *Service) SetInstanceMarker(m InstanceMarker) { s.instanceMarker = m }
 
 func (s *Service) SetStoreRegistry(registry configport.Registry) { s.registry = registry }
 
@@ -397,8 +409,26 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		return nil, s.fail(ctx, record, err)
 	}
 
+	if !cmd.HoldSet {
+		s.markInstancesUnreferenced(ctx, env.TargetGeneration, plan.UnreferencedResources)
+	}
+
 	result.Status = record.Status
 	return result, nil
+}
+
+// markInstancesUnreferenced mirrors the committed Active Resource marker onto
+// the Terraform instances of the same logical identity (the State login owns
+// that status, so it cannot be part of the Console transaction). It runs under
+// the Deployment's own Environment claim and is best effort: an instance left
+// READY just stays ineligible for deletion, which fails closed.
+func (s *Service) markInstancesUnreferenced(ctx context.Context, generation int64, unreferenced []resource.ActiveResource) {
+	if s.instanceMarker == nil {
+		return
+	}
+	for _, planned := range unreferenced {
+		_ = s.instanceMarker.MarkUnreferenced(ctx, generation, planned.Descriptor.String(), string(planned.Scope.Type), planned.Scope.ID)
+	}
 }
 
 // markUnreferenced records UC-07 MS-07 inside the final transaction: each

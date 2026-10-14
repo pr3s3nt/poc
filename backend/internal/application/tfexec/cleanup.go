@@ -47,6 +47,9 @@ type InstanceResult struct {
 	RemainingUnknown bool
 	// Reason is a safe sentence for a retained or failed instance.
 	Reason string
+	// Code is the allowlisted machine form of Reason (empty when destroyed);
+	// public projections show the code, never free text.
+	Code string
 }
 
 // CleanupResult is the safe result of RunCleanup. Terminal reports the
@@ -124,10 +127,10 @@ func (s *Service) RunCleanup(ctx context.Context, organizationKey string, source
 		res := InstanceResult{InstanceID: id}
 		switch {
 		case held:
-			res.Reason = "not attempted: an earlier step needs operator attention"
+			res.Reason, res.Code = "not attempted: an earlier step needs operator attention", CodeNotAttempted
 		default:
 			if blocker := order.blockedBy(id, destroyed); blocker != "" {
-				res.Reason = "retained: a consumer in the selection was not destroyed"
+				res.Reason, res.Code = "retained: a consumer in the selection was not destroyed", CodeRetainedConsumer
 				break
 			}
 			say(CleanupDestroying, map[string]any{"resource": id})
@@ -138,9 +141,9 @@ func (s *Service) RunCleanup(ctx context.Context, organizationKey string, source
 				destroyed[id] = true
 			case errors.Is(derr, ErrNeedsAttention):
 				held = true
-				res.Reason = "needs operator attention"
+				res.Reason, res.Code = "needs operator attention", CodeNeedsAttention
 			default:
-				res.Reason = "failed: " + safeReason(derr)
+				res.Reason, res.Code = "failed: "+safeReason(derr), safeReasonCode(derr)
 			}
 		}
 		if !res.Destroyed && len(res.Remaining) == 0 && !res.RemainingUnknown {
@@ -171,6 +174,32 @@ func (s *Service) knownRemaining(ctx context.Context, id string) ([]string, bool
 	}
 	ids := lastObserved(attempts)
 	return ids, len(ids) == 0
+}
+
+// Allowlisted per-instance reason codes of a cleanup result.
+const (
+	CodeNotAttempted     = "NOT_ATTEMPTED"
+	CodeRetainedConsumer = "RETAINED_CONSUMER"
+	CodeNeedsAttention   = "NEEDS_ATTENTION"
+	CodeInstanceHeld     = "INSTANCE_HELD"
+	CodeTargetUnreach    = "ORIGINAL_TARGET_UNAVAILABLE"
+	CodeDestructivePlan  = "DESTRUCTIVE_PLAN"
+	CodeNamespaceContent = "NAMESPACE_NOT_OWNED"
+	CodeDestroyFailed    = "DESTROY_FAILED"
+)
+
+func safeReasonCode(err error) string {
+	switch {
+	case errors.Is(err, ErrInstanceHeld):
+		return CodeInstanceHeld
+	case errors.Is(err, ErrBinding):
+		return CodeTargetUnreach
+	case errors.Is(err, ErrDestructivePlan):
+		return CodeDestructivePlan
+	case errors.Is(err, ErrNamespaceContents):
+		return CodeNamespaceContent
+	}
+	return CodeDestroyFailed
 }
 
 func safeReason(err error) string {
@@ -367,4 +396,20 @@ func checkOwnership(req tfresource.CleanupRequest, inst tfresource.Instance, att
 		return errors.New("the cleanup authorization is unknown")
 	}
 	return nil
+}
+
+// MarkUnreferenced moves the READY instance with this logical identity of the
+// claim owner's Environment to UNREFERENCED, the instance-side counterpart of
+// the Active Resource marker of a successful Remove (UC-07 MS-07). It is a
+// metadata CAS only and destroys nothing. An instance in any other status, or
+// none at all, is left as it is.
+func (s *Service) MarkUnreferenced(ctx context.Context, generation int64, descriptor, scopeType, scopeID string) error {
+	pctx, cancel := persistCtx(ctx)
+	defer cancel()
+	inst, found, err := s.deps.State.FindInstance(pctx, generation, descriptor, scopeType, scopeID)
+	if err != nil || !found || inst.Status != tfresource.InstanceReady {
+		return err
+	}
+	_, err = s.deps.State.SetInstanceStatus(pctx, inst.ID, inst.Version, tfresource.InstanceUnreferenced)
+	return err
 }

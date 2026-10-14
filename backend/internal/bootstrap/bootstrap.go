@@ -35,6 +35,7 @@ import (
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/provisioning"
+	"orchestrator/internal/application/resourcecleanup"
 	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/application/statebackend"
 	"orchestrator/internal/application/transition"
@@ -144,6 +145,12 @@ type Options struct {
 	// the only runtime path that seeds a store from process configuration.
 	PlatformVault *PlatformVaultBootstrap
 
+	// CleanupEngineOverride replaces the engine that runs an admitted resource
+	// cleanup. It exists for tests and for the local browser runner, which run
+	// the real admission, claim and persistence over a deterministic fake
+	// provider; production wiring uses the Terraform executor.
+	CleanupEngineOverride resourcecleanup.Engine
+
 	// Overrides replace individual adapters. Tests use them to inject failures.
 	RegistryOverride           execution.ExecutorRegistry
 	KubeconfigVerifierOverride connection.KubeconfigVerifier
@@ -178,8 +185,10 @@ type App struct {
 	Deployments           *appsvc.Service
 	Queries               *appsvc.QueryService
 	Previews              *preview.Service
-	FakeExec              *fake.ResourceExecutor
-	FakeDeploy            *fake.WorkloadDeployer
+	// ResourceCleanup is the scoped resource detail and confirmed deletion service.
+	ResourceCleanup *resourcecleanup.Service
+	FakeExec        *fake.ResourceExecutor
+	FakeDeploy      *fake.WorkloadDeployer
 	// Configurations and Pending are the UC-12 and UC-05/06 services.
 	Configurations *appconfig.Service
 	Pending        *pending.Service
@@ -458,6 +467,18 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		transitions.SetProbe(kubeTransition)
 	}
 
+	resourceCleanup := resourcecleanup.New(st, operations)
+	if terraformRuntime != nil {
+		resourceCleanup.SetState(terraformRuntime.repo)
+		if terraformRuntime.executor != nil {
+			resourceCleanup.SetEngine(terraformRuntime.executor)
+			deployments.SetInstanceMarker(terraformRuntime.executor)
+		}
+	}
+	if opts.CleanupEngineOverride != nil {
+		resourceCleanup.SetEngine(opts.CleanupEngineOverride)
+	}
+
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
 		Transitions:           transitions,
 		RenderBundles:         bundles,
@@ -474,6 +495,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		Workloads:             workloads,
 		Pending:               pendingChanges,
 		Previews:              previews,
+		ResourceCleanup:       resourceCleanup,
 		Store:                 st,
 		ModuleRegistry:        modules,
 		SeedOptions:           opts.Seed,
@@ -488,6 +510,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		Deployments:           deployments,
 		Queries:               queries,
 		Previews:              previews,
+		ResourceCleanup:       resourceCleanup,
 		FakeExec:              fakeExec,
 		FakeDeploy:            fakeDep,
 		Operations:            operations,

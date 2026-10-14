@@ -55,6 +55,7 @@ func realAdapters(opts Options, credentials *connection.CredentialResolver, tf *
 		if err != nil {
 			return nil, nil, nil, err
 		}
+		tf.executor = terraformExecutor
 		executors[resource.DriverTerraform] = terraformExecutor
 	case opts.Adapters == AdapterAWS:
 		return nil, nil, nil, fmt.Errorf("bootstrap: AWS adapters need the Terraform state backend (state key and State runtime database)")

@@ -59,7 +59,7 @@ func (h *harness) admit(mode tfresource.CleanupMode, root string, selected []str
 	} else {
 		req.RunID = runID
 	}
-	op, _, err := h.store.ClaimResourceCleanup(context.Background(), persistence.OperationClaim{ApplicationKey: h.appKey, EnvironmentKey: "staging", Owner: "proc-clean", Deadline: time.Now().Add(time.Hour)}, req)
+	op, _, err := h.store.ClaimResourceCleanup(context.Background(), persistence.OperationClaim{ApplicationKey: h.appKey, EnvironmentKey: "staging", Owner: "proc-clean", Deadline: time.Now().Add(time.Hour)}, req, nil)
 	if err != nil {
 		return nil, environment.Operation{}, err
 	}

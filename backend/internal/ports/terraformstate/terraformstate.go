@@ -134,23 +134,47 @@ type Repository interface {
 	ReleaseRecoveredLock(ctx context.Context, instanceID string) error
 }
 
+// AdmissionCheck runs inside the claim transaction of a resource cleanup,
+// after the Environment row is locked and before the claim is written. It
+// reads through ctx, which carries that transaction, so every role-independent
+// condition it checks (token, versions, UNREFERENCED, ownership, consumers,
+// busy, selected set) is atomic with the claim. A non-nil error aborts the
+// whole admission with nothing written.
+type AdmissionCheck func(ctx context.Context) error
+
 // CleanupRepository persists the admitted authorization of a resource
 // cleanup together with its Environment claim. It stores exactly the selected
-// set; it never adds dependencies. It is persistence scaffolding only (I04-01):
-// it checks the selection shape, Environment membership and pinned item
-// versions/refs, but NOT session role, preview-token verification,
-// UNREFERENCED status, consumers or ownership. Those checks belong to the
-// I04-08 admission service, which must run them in the same transaction.
-// No public route calls this port until that service exists.
+// set; it never adds dependencies. The repository itself checks the selection
+// shape, Environment membership and pinned item versions/refs; everything
+// that depends on the session role, the preview token, UNREFERENCED status,
+// consumers and ownership is the AdmissionCheck of the I04-08 admission
+// service, which runs in the same transaction as the claim.
 type CleanupRepository interface {
 	// ClaimResourceCleanup claims the Environment with kind RESOURCE_CLEANUP
-	// and the confirmed scope in one transaction. Every selected ID must be an
+	// and the confirmed scope in one transaction. check, when non-nil, runs in
+	// that transaction before anything is written. Every selected ID must be an
 	// instance of the claimed Environment whose pinned version, state key and
 	// module match. A replay of the same request hash by the same actor
 	// returns the admitted operation (replayed=true) when the selection is
-	// identical and ErrCleanupSelectionChanged otherwise.
-	ClaimResourceCleanup(ctx context.Context, claim persistence.OperationClaim, req tfresource.CleanupRequest) (op environment.Operation, replayed bool, err error)
+	// identical and ErrCleanupSelectionChanged otherwise; a replay performs no
+	// check and writes nothing.
+	ClaimResourceCleanup(ctx context.Context, claim persistence.OperationClaim, req tfresource.CleanupRequest, check AdmissionCheck) (op environment.Operation, replayed bool, err error)
 	CleanupRequest(ctx context.Context, operationID string) (tfresource.CleanupRequest, error)
+}
+
+// ResourceReader is the Console's safe, read-only view of Terraform resource
+// instances, their dependency edges and cleanup operations (UC-09 RES-01..03).
+// It is served by the Console login: it can reach only the safe instance and
+// attempt columns, so it never exposes target references, physical intent,
+// snapshots, state, locks or recovery handles. Every method is scoped by the
+// Application and Environment keys and returns ErrNotFound otherwise.
+type ResourceReader interface {
+	ListResourceRecords(ctx context.Context, applicationKey, environmentKey string) ([]tfresource.ResourceRecord, error)
+	// ListResourceEdges returns every consumer -> provider edge of the Environment.
+	ListResourceEdges(ctx context.Context, applicationKey, environmentKey string) ([]tfresource.Dependency, error)
+	GetCleanupRecord(ctx context.Context, applicationKey, environmentKey, operationID string) (tfresource.CleanupRecord, error)
+	// ListCleanupRecords returns the Environment's cleanup operations, newest first.
+	ListCleanupRecords(ctx context.Context, applicationKey, environmentKey string, limit int) ([]tfresource.CleanupRecord, error)
 }
 
 // Cipher seals and opens state with a key held outside the database. Each
