@@ -228,5 +228,17 @@ không tự viết code sản phẩm/test. Giữ final gate, không tự ghi đ�
 I04-10 branch cleanup sau push2695056 đã xác minh: remote branches vắng, local
 checkout/branches/exact taskstash đã dọn; source bundles và checks còn giữ.
 I04-11 dùng checkout riêng `/tmp/poc-i0411-local-runtime` tại2695056, frontend
-build đạt. Chưa tạo task-owned namespace/AWS; chuẩn bị local fixture/config
-và images cho A01.
+build đạt. A01 lượt đầu `a01-20261014-r1` lỗi422 khi đăng ký kho bí mật,
+trước triển khai: Vault token fixture thiếu lookup-self/capabilities-self
+(read-only xác nhận403). Video thất bại ở
+`/tmp/poc-i0411-live/a01-20261014-r1/A01-captioned.mp4`.
+Namespace/PV vắng, sentinel nguyên vẹn; supervisor NEEDS_ATTENTION tại guard
+delivery trước khi bind Environment. Không tuyên bố CLEAN hoặc mở retry.
+Agent `/root/i0410_luna` sửa code/test trong checkout I04-11; không đọc handles.
+Các thành phần còn giữ: container/volume PostgreSQL
+`poc-m04-i0411-platform-pg-20261014`/tên tương ứng hậu tố `-data`, hai Vault
+run-owned và private recovery dưới evidence. Mười node image references
+chính xác ghi trong `/tmp/poc-i0411-local-preparation/kind-image-ownership.json`;
+giữ baseline images, không prune. Chưa tạo namespace/AWS.
+Bước kế: review/check sửa lỗi, hoàn tất cleanup bằng state/handles gốc và
+xác minh sạch trước một lượt retry A01.

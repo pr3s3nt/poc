@@ -11,7 +11,10 @@ related: [M04, ADR-014, IMP-021]
 ## Chặng và trạng thái
 
 Chặng 2; xem [M04](../README.md). Current sau I04-10 local checks đạt;
-Codex chuẩn bị chạy thật, chưa có scenario pass hoặc task-owned live assets.
+Codex đã chạy A01 lượt đầu `a01-20261014-r1`, chưa có scenario pass.
+Đăng ký kho bí mật lỗi422: fixture token thiếu quyền tự kiểm tra Vault.
+Namespace/PV đã xác minh vắng, sentinel giữ nguyên; supervisor chưa CLEAN.
+Giữ fixture PostgreSQL/Vault/private handles để phục hồi, chưa mở retry.
 
 ## Phạm vi
 

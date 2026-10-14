@@ -16,7 +16,11 @@ tmux; Claude local cũng hết hạn mức thì giao code/test cho Codex `gpt-6-
 Claude local đã xác nhận hết hạn mức; agent `gpt-6-luna` đã hoàn tất code
 I04-10, squash `0964fb6`:1351Go/race/0skip,622frontend/build/vet/docs/shell đạt.
 [Biên bản I04-10](verification/2026-10-14-i04-10-integration.md). Chưa live
-A01/E01/E02/A02/A03; Codex chuyển sang I04-11, AWS vẫn bị gate.
+A01/E01/E02/A02/A03 đạt; I04-11 A01 lượt đầu đã chạy và thất bại trước
+triển khai khi đăng ký kho bí mật (fixture token thiếu quyền tự kiểm tra).
+Namespace/PV vắng và sentinel nguyên vẹn; supervisor còn NEEDS_ATTENTION,
+giữ PostgreSQL/Vault/state phục hồi và chưa mở retry. Agent Luna đang sửa
+fixture/cleanup trước triển khai; AWS vẫn bị gate.
 Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi
 lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
 k8s-4f sạch thì tự chạy I04-12 AWS 452025861381/us-east-1. Giữ điểm duyệt cuối.
