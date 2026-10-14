@@ -936,7 +936,10 @@ func TestDetailShowsTheOriginalTargetNotTheCurrentOne(t *testing.T) {
 	f := newRCFixture(t)
 	// The Environment is bound to a different Connection now.
 	active := f.linkActive(f.root, "UNREFERENCED")
-	f.linkDeployment(active, "aws-original", "Original AWS", 0)
+	dep := f.linkDeployment(active, "aws-original", "Original AWS", 0)
+	// The Connection allows several regions and its configured one is only the
+	// default (us-east-1); the run was planned for eu-west-1.
+	f.savePlan(dep, "aws-original", "eu-west-1", 0)
 	read := func(id string) map[string]any {
 		_, raw, body := f.do(f.dev, http.MethodGet, f.resourceURL(id), nil)
 		assertSafe(t, "detail", raw)
@@ -949,6 +952,33 @@ func TestDetailShowsTheOriginalTargetNotTheCurrentOne(t *testing.T) {
 	if _, leaked := target["privateNote"]; leaked || strings.Contains(rcJSON(target), privateTarget) {
 		t.Fatalf("a private Connection value leaked: %v", target)
 	}
+	// The Environment moves to other regions after the run: the original region stays.
+	f.exec(`UPDATE environments SET connection_id=(SELECT id FROM connections WHERE connection_key='aws-original'),execution_profile='aws-eks',runtime_status='READY',region='ap-southeast-1' WHERE id=$1::uuid`, f.envID)
+	if again := read(f.root.ID); again["region"] != "eu-west-1" {
+		t.Fatalf("a later Environment region changed the original region: %v", again)
+	}
+	f.exec(`UPDATE environments SET connection_id=(SELECT id FROM connections WHERE connection_key='aws-original'),execution_profile='aws-eks',runtime_status='READY',region='us-east-1' WHERE id=$1::uuid`, f.envID)
+	if again := read(f.root.ID); again["region"] != "eu-west-1" {
+		t.Fatalf("the Connection default region replaced the planned one: %v", again)
+	}
+	// Plan evidence that does not match the run (other Connection or other
+	// generation) or is missing leaves the region unknown; the rest stays known.
+	for name, setup := range map[string]func(){
+		"another connection": func() { f.savePlan(dep, "other-connection", "eu-west-1", 0) },
+		"another generation": func() { f.savePlan(dep, "aws-original", "eu-west-1", 3) },
+		"an invalid region":  func() { f.savePlan(dep, "aws-original", "../etc", 0) },
+		"no plan":            func() { f.exec(`DELETE FROM deployment_plans WHERE deployment_id=$1::uuid`, dep) },
+	} {
+		setup()
+		got := read(f.root.ID)
+		if got["known"] != true || got["connectionKey"] != "aws-original" {
+			t.Fatalf("%s: the target must stay known: %v", name, got)
+		}
+		if region, present := got["region"]; present && region != "" {
+			t.Fatalf("%s: the region must be unknown, got %v", name, region)
+		}
+	}
+	f.savePlan(dep, "aws-original", "eu-west-1", 0)
 	// No Active Resource, or a run of another generation: unknown, never the Environment's.
 	if t0 := read(f.a.ID); t0["known"] != false || t0["connectionKey"] != nil {
 		t.Fatalf("a resource without a persisted run must have an unknown target: %v", t0)

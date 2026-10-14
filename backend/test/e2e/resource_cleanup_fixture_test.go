@@ -567,12 +567,28 @@ func (f *rcFixture) activeStatus(activeID string) string {
 // linkDeployment records a past run of the resource's Active Resource with the
 // given Connection and target generation (fixture arrangement). The Connection
 // row is created when missing.
-func (f *rcFixture) linkDeployment(activeID, connectionKey, connectionName string, generation int64) {
+func (f *rcFixture) linkDeployment(activeID, connectionKey, connectionName string, generation int64) string {
 	f.t.Helper()
 	f.exec(`INSERT INTO connections(id,organization_id,connection_key,name,kind,authentication_type,config,secret_ref,status,verification) SELECT gen_random_uuid(),o.id,$2,$3,'AWS','AWS_ACCESS_KEY',$4::jsonb,'vault:private/ref','READY','{}'::jsonb FROM organizations o WHERE o.organization_key=$1 ON CONFLICT DO NOTHING`,
-		f.orgKey, connectionKey, connectionName, `{"accountId":"123456789012","region":"eu-west-1","privateNote":"`+privateTarget+`"}`)
+		f.orgKey, connectionKey, connectionName, `{"accountId":"123456789012","region":"us-east-1","allowedRegions":["us-east-1","eu-west-1","ap-southeast-1"],"privateNote":"`+privateTarget+`"}`)
 	depID := ids.New()
 	f.exec(`INSERT INTO deployments(id,environment_id,organization_key,application_key,environment_key,execution_profile,action,workload_id,actor_ref,status,base_environment_version,started_at,connection_key,target_generation) VALUES($1::uuid,$2::uuid,$3,$4,'staging','aws-eks','DEPLOY','api','developer','FAILED',1,now(),$5,$6)`,
 		depID, f.envID, f.orgKey, f.appKey, connectionKey, generation)
 	f.exec(`UPDATE active_resources SET last_deployment_id=$2::uuid WHERE id=$1::uuid`, activeID, depID)
+	return depID
+}
+
+// savePlan stores the immutable plan document of a Deployment with the given
+// pinned target, the way the planner persists it.
+func (f *rcFixture) savePlan(deploymentID, connectionKey, region string, generation int64) {
+	f.t.Helper()
+	target := map[string]any{"connectionKey": connectionKey, "executionProfile": "aws-eks", "region": region, "infrastructureScope": "AWS_EKS"}
+	if generation != 0 {
+		target["generation"] = generation
+	}
+	doc, err := json.Marshal(map[string]any{"target": target})
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	f.exec(`INSERT INTO deployment_plans(deployment_id,document,plan_hash) VALUES($1::uuid,$2::jsonb,'plan-hash') ON CONFLICT(deployment_id) DO UPDATE SET document=EXCLUDED.document`, deploymentID, string(doc))
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strconv"
@@ -153,11 +154,57 @@ func originalTarget(ctx context.Context, st persistence.Store, snap *snapshot, r
 		if v := conn.ConfigString("accountId"); accountShape.MatchString(v) {
 			out.AccountID = v
 		}
-		if v := conn.ConfigString("region"); regionShape.MatchString(v) {
-			out.Region = v
-		}
+	}
+	// The region is the one the run was PLANNED for, from that Deployment's
+	// immutable persisted plan target. A Connection may allow several regions
+	// (its configured one is only a default) and the Environment's current region
+	// can have changed since, so neither is evidence; without a matching plan
+	// target the region is unknown, never guessed.
+	if region, ok := plannedRegion(ctx, st, dep.ID, dep.ConnectionKey, dep.TargetGeneration); ok {
+		out.Region = region
 	}
 	return out
+}
+
+// plannedRegion reads the region pinned in the persisted plan target of one
+// Deployment, only when that target names the Deployment's own Connection and
+// target generation.
+func plannedRegion(ctx context.Context, st persistence.Store, deploymentID, connectionKey string, generation int64) (string, bool) {
+	doc, err := st.GetPlan(ctx, deploymentID)
+	if err != nil {
+		return "", false
+	}
+	target, ok := doc["target"].(map[string]any)
+	if !ok {
+		return "", false
+	}
+	if key, _ := target["connectionKey"].(string); key != connectionKey {
+		return "", false
+	}
+	var planned int64
+	switch g := target["generation"].(type) {
+	case nil: // omitted for generation 0
+	case float64:
+		planned = int64(g)
+	case json.Number:
+		n, err := g.Int64()
+		if err != nil {
+			return "", false
+		}
+		planned = n
+	case int64:
+		planned = g
+	default:
+		return "", false
+	}
+	if planned != generation {
+		return "", false
+	}
+	region, _ := target["region"].(string)
+	if !regionShape.MatchString(region) {
+		return "", false
+	}
+	return region, true
 }
 
 // ListResources returns the Environment's resources, every generation, newest

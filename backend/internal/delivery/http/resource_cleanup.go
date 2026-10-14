@@ -24,9 +24,21 @@ func (s *Server) resourceRequest(w http.ResponseWriter, r *http.Request) (resour
 	return resourcecleanup.Scope{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: envKey}, actor, true
 }
 
+// resourceServiceReady answers 503 when the resource service is not wired (a
+// server built without it). There is no in-memory or State fallback: reads and
+// mutations are simply unavailable. It runs after the session scope and the role
+// gate, so a Developer is still denied first and a foreign scope is still 404.
+func (s *Server) resourceServiceReady(w http.ResponseWriter) bool {
+	if s.resourceCleanup != nil {
+		return true
+	}
+	s.writeError(w, resourcecleanup.ErrUnavailable)
+	return false
+}
+
 func (s *Server) handleListResources(w http.ResponseWriter, r *http.Request) {
 	scope, _, ok := s.resourceRequest(w, r)
-	if !ok {
+	if !ok || !s.resourceServiceReady(w) {
 		return
 	}
 	list, err := s.resourceCleanup.ListResources(r.Context(), scope)
@@ -39,7 +51,7 @@ func (s *Server) handleListResources(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGetResource(w http.ResponseWriter, r *http.Request) {
 	scope, _, ok := s.resourceRequest(w, r)
-	if !ok {
+	if !ok || !s.resourceServiceReady(w) {
 		return
 	}
 	view, err := s.resourceCleanup.GetResource(r.Context(), scope, r.PathValue("resourceId"))
@@ -59,6 +71,9 @@ func (s *Server) handleDeletionPreview(w http.ResponseWriter, r *http.Request) {
 	// denied before the body is read and before any planning (UC-07).
 	if !actor.MayDelete {
 		writeCode(w, codeForbidden, "")
+		return
+	}
+	if !s.resourceServiceReady(w) {
 		return
 	}
 	var body struct{}
@@ -88,6 +103,9 @@ func (s *Server) handleDeletions(w http.ResponseWriter, r *http.Request) {
 		writeCode(w, codeForbidden, "")
 		return
 	}
+	if !s.resourceServiceReady(w) {
+		return
+	}
 	var body deletionBody
 	if !decodeStrict(w, r, 16<<10, &body) {
 		return
@@ -104,7 +122,7 @@ func (s *Server) handleDeletions(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGetResourceCleanup(w http.ResponseWriter, r *http.Request) {
 	scope, _, ok := s.resourceRequest(w, r)
-	if !ok {
+	if !ok || !s.resourceServiceReady(w) {
 		return
 	}
 	view, err := s.resourceCleanup.GetCleanup(r.Context(), scope, r.PathValue("operationId"))
