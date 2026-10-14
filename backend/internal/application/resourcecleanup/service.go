@@ -119,6 +119,33 @@ func (s *Service) GetResource(ctx context.Context, sc Scope, id string) (Resourc
 	return out, err
 }
 
+// ListResources returns the Environment's resources, every generation, newest
+// generation first, for navigation to a detail. Platform resources are not
+// part of the Environment's own resources and are not listed.
+func (s *Service) ListResources(ctx context.Context, sc Scope) ([]SummaryView, error) {
+	if !s.readable() {
+		return nil, ErrUnavailable
+	}
+	out := []SummaryView{}
+	err := s.store.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error {
+		snap, err := loadSnapshot(ctx, view, s.reader, sc)
+		if err != nil {
+			return err
+		}
+		for _, id := range snap.order {
+			rec := snap.records[id]
+			if platformResource(rec) {
+				continue
+			}
+			d, _ := resource.ParseDescriptor(rec.Instance.Identity.Descriptor)
+			out = append(out, SummaryView{ID: id, Descriptor: rec.Instance.Identity.Descriptor, Type: d.Type, Class: d.Class, ResourceID: d.ID,
+				Status: safeInstanceStatus(rec.Instance.Status), Scope: string(rec.Instance.Identity.Scope.Type), Generation: rec.Instance.Identity.TargetGeneration, Module: safeToken(rec.ModuleID)})
+		}
+		return nil
+	})
+	return out, err
+}
+
 func (s *Service) resourceView(snap *snapshot, p *plan) ResourceView {
 	rec := snap.records[p.root]
 	in := rec.Instance

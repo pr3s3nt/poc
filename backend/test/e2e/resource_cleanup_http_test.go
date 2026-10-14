@@ -731,3 +731,83 @@ func TestConsoleLoginCannotReachPrivateColumnsAndOperationRecordHoldsNone(t *tes
 		t.Fatalf("the pinned original target is not bound by a digest: %.300s", record)
 	}
 }
+
+// TestAdmissionRacesAgainstConcurrentDraftWrites races the admission with a
+// pending-workload write that declares the root's shared resource. A draft can
+// only be saved while no operation holds the Environment, so it cannot slip in
+// between the admission check and the claim: exactly one side wins.
+func TestAdmissionRacesAgainstConcurrentDraftWrites(t *testing.T) {
+	for round := 0; round < 12; round++ {
+		f := newRCFixture(t)
+		f.engine.gate = make(chan struct{})
+		token := f.previewToken(f.pe)
+		env, err := f.app.Store.GetEnvironment(context.Background(), f.appKey, "staging")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var wg sync.WaitGroup
+		start := make(chan struct{})
+		var admitted, saved bool
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			<-start
+			status, _, _ := f.deletion(f.pe, token, f.rootName(), f.root.ID, f.a.ID)
+			admitted = status == http.StatusAccepted
+		}()
+		go func() {
+			defer wg.Done()
+			<-start
+			err := f.app.Store.SaveWorkloadDraft(context.Background(), env.DraftVersion, environment.WorkloadDraft{ApplicationKey: f.appKey, EnvironmentKey: "staging", WorkloadID: "api", State: environment.DraftUpsert,
+				Score: map[string]any{"resources": map[string]any{"db": map[string]any{"type": "postgres", "id": "db"}}}})
+			saved = err == nil
+		}()
+		close(start)
+		wg.Wait()
+		close(f.engine.gate)
+		f.app.ResourceCleanup.Wait()
+		if admitted && saved {
+			t.Fatalf("round %d: a pending consumer was saved while the deletion held the Environment", round)
+		}
+		if !admitted && f.engine.Calls() != 0 {
+			t.Fatalf("round %d: the engine ran for a rejected request", round)
+		}
+		if saved && f.refresh(f.root).Status == tfresource.InstanceDestroyed {
+			t.Fatalf("round %d: the shared resource was destroyed after a workload started to need it", round)
+		}
+	}
+}
+
+func TestResourceListIsScopedSafeAndOmitsPlatform(t *testing.T) {
+	f := newRCFixture(t)
+	list := f.base() + "/resources"
+	for _, client := range []*http.Client{f.dev, f.pe} {
+		status, raw, body := f.do(client, http.MethodGet, list, nil)
+		if status != http.StatusOK {
+			t.Fatalf("list = %d %s", status, raw)
+		}
+		assertSafe(t, "resource list", raw)
+		got := map[string]string{}
+		for _, r := range body["resources"].([]any) {
+			m := r.(map[string]any)
+			got[m["id"].(string)] = m["status"].(string)
+		}
+		if len(got) != 5 || got[f.root.ID] != "UNREFERENCED" || got[f.x.ID] != "READY" {
+			t.Fatalf("unexpected list: %v", got)
+		}
+		if _, ok := got[f.plat.ID]; ok {
+			t.Fatal("a platform resource is listed")
+		}
+	}
+	if status, _, _ := f.do(f.foreign, http.MethodGet, list, nil); status != http.StatusNotFound {
+		t.Fatalf("foreign list = %d", status)
+	}
+	if status, _, _ := f.do(http.DefaultClient, http.MethodGet, list, nil); status != http.StatusUnauthorized {
+		t.Fatalf("anonymous list = %d", status)
+	}
+	other := f.server.URL + "/api/v1/applications/" + f.appKey + "/environments/production/resources"
+	_, _, body := f.do(f.pe, http.MethodGet, other, nil)
+	if len(body["resources"].([]any)) != 0 {
+		t.Fatal("another Environment's list is not empty")
+	}
+}

@@ -235,3 +235,18 @@ type CleanupView struct {
 	UpdatedAt   time.Time             `json:"updatedAt"`
 	FinishedAt  *time.Time            `json:"finishedAt,omitempty"`
 }
+
+// SummaryView is one row of the Environment's resource list (UC-09: the
+// navigation entry to a resource detail, including UNREFERENCED resources whose
+// Workload was removed). It carries identity and status only.
+type SummaryView struct {
+	ID         string `json:"id"`
+	Descriptor string `json:"descriptor"`
+	Type       string `json:"type"`
+	Class      string `json:"class"`
+	ResourceID string `json:"resourceId"`
+	Status     string `json:"status"`
+	Scope      string `json:"scope"`
+	Generation int64  `json:"generation"`
+	Module     string `json:"module"`
+}

@@ -12,7 +12,8 @@ export type Route =
   | { name: 'workload'; applicationId: string; environment: 'staging' | 'production'; workloadId?: string }
   | { name: 'score-preview'; applicationId: string; environment: 'staging' | 'production' }
   | { name: 'deployments'; applicationId: string; environment: 'staging' | 'production' }
-  | { name: 'deployment'; applicationId: string; environment: 'staging' | 'production'; deploymentId: string };
+  | { name: 'deployment'; applicationId: string; environment: 'staging' | 'production'; deploymentId: string }
+  | { name: 'resource'; applicationId: string; environment: 'staging' | 'production'; resourceId: string };
 
 const base = '/ui';
 
@@ -42,6 +43,8 @@ export function parseRoute(path = window.location.pathname): Route {
   if (workload?.[1] && workload[2] && workload[3]) return { name: 'workload', applicationId: decodeURIComponent(workload[1]), environment: workload[2] as 'staging' | 'production', workloadId: workload[3] === 'new' ? undefined : decodeURIComponent(workload[3]) };
   const deployment = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/deployments\/([^/]+)$/);
   if (deployment?.[1] && deployment[2] && deployment[3]) return { name: 'deployment', applicationId: decodeURIComponent(deployment[1]), environment: deployment[2] as 'staging' | 'production', deploymentId: decodeURIComponent(deployment[3]) };
+  const resource = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/resources\/([^/]+)$/);
+  if (resource?.[1] && resource[2] && resource[3]) return { name: 'resource', applicationId: decodeURIComponent(resource[1]), environment: resource[2] as 'staging' | 'production', resourceId: decodeURIComponent(resource[3]) };
   const scorePreview = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/preview$/);
   if (scorePreview?.[1] && scorePreview[2]) return { name: 'score-preview', applicationId: decodeURIComponent(scorePreview[1]), environment: scorePreview[2] as 'staging' | 'production' };
   const deployments = relative.match(/^\/applications\/([^/]+)\/environments\/(staging|production)\/deployments$/);
@@ -67,6 +70,7 @@ export function href(route: Route): string {
     case 'workload': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/workloads/${route.workloadId ? encodeURIComponent(route.workloadId) : 'new'}`;
     case 'score-preview': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/preview`;
     case 'deployments': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/deployments`;
+    case 'resource': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/resources/${encodeURIComponent(route.resourceId)}`;
     case 'deployment': return `${base}/applications/${encodeURIComponent(route.applicationId)}/environments/${route.environment}/deployments/${encodeURIComponent(route.deploymentId)}`;
   }
 }

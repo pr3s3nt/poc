@@ -16,6 +16,13 @@ describe('console routes', () => {
     expect(parseRoute('/ui/applications/payment%20api/environments/staging/deployments/deploy-1')).toEqual({ name: 'deployment', applicationId: 'payment api', environment: 'staging', deploymentId: 'deploy-1' });
   });
 
+  it('routes a resource detail inside its Environment and encodes the ID', () => {
+    expect(parseRoute('/ui/applications/shop/environments/staging/resources/abc-1')).toEqual({ name: 'resource', applicationId: 'shop', environment: 'staging', resourceId: 'abc-1' });
+    expect(parseRoute('/ui/applications/shop/environments/qa/resources/abc-1')).not.toMatchObject({ name: 'resource' });
+    expect(href({ name: 'resource', applicationId: 'shop', environment: 'production', resourceId: 'a/b' })).toBe('/ui/applications/shop/environments/production/resources/a%2Fb');
+    expect(parseRoute(href({ name: 'resource', applicationId: 'shop', environment: 'production', resourceId: 'a/b' }))).toEqual({ name: 'resource', applicationId: 'shop', environment: 'production', resourceId: 'a/b' });
+  });
+
   it('routes the rendering templates page', () => {
     expect(parseRoute('/ui/platform/rendering-templates')).toEqual({ name: 'rendering-templates' });
     expect(href({ name: 'rendering-templates' })).toBe('/ui/platform/rendering-templates');

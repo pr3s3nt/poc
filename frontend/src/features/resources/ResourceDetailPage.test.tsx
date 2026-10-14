@@ -1,0 +1,107 @@
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ResourceDetailPage } from './ResourceDetailPage';
+import type { Application } from '../../shared/types/application';
+import { bothConfigured } from '../../test/targets';
+import { apiError, stubApi } from '../../test/api';
+import { detail, operation, rootId, rootName, wire } from '../../test/resources';
+
+const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured('internal-cluster'), workloads: { staging: [], production: [] } };
+const isDetail = (url: string) => url.endsWith(`/resources/${rootId}`);
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe('resource detail (UC-09 RES-01/02)', () => {
+  it('shows the safe metadata of an UNREFERENCED resource, hides secret outputs and offers deletion to a Platform Engineer', async () => {
+    stubApi((c) => c.method === 'GET' && isDetail(c.url) ? Response.json(wire.resource(detail())) : undefined);
+    render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
+    expect(screen.getByRole('status')).toHaveTextContent('Đang tải chi tiết tài nguyên…');
+    expect(await screen.findByTestId('resource-name')).toHaveTextContent(rootName);
+    expect(screen.getByText('Không còn được tham chiếu')).toBeInTheDocument();
+    expect(screen.getByText('aurora · rev1')).toBeInTheDocument();
+    expect(screen.getByText('db.internal')).toBeInTheDocument();
+    expect(screen.getByText('Đã che')).toBeInTheDocument();
+    expect(screen.queryByText('***redacted***')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Xóa tài nguyên' })).toBeEnabled();
+  });
+
+  it('never shows the delete action to a Developer and sends no mutation', async () => {
+    const calls = stubApi((c) => isDetail(c.url) ? Response.json(wire.resource(detail())) : undefined);
+    render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete={false} />);
+    await screen.findByTestId('resource-name');
+    expect(screen.queryByRole('button', { name: 'Xóa tài nguyên' })).not.toBeInTheDocument();
+    expect(screen.getByText('Chỉ Kỹ sư nền tảng hoặc Quản trị viên được xóa tài nguyên.')).toBeInTheDocument();
+    expect(calls.every((c) => c.method === 'GET')).toBe(true);
+  });
+
+  it('disables the action and explains each blocker', async () => {
+    stubApi(() => Response.json(wire.resource(detail({ status: 'READY', consumers: [{ kind: 'WORKLOAD', name: 'api' }], eligibility: { eligible: false, reasons: ['NOT_UNREFERENCED', 'HAS_CONSUMERS', 'ENVIRONMENT_BUSY'] } }))));
+    render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
+    expect(await screen.findByRole('button', { name: 'Xóa tài nguyên' })).toBeDisabled();
+    const note = screen.getByTestId('delete-blockers');
+    expect(note).toHaveTextContent('chưa ở trạng thái không còn được tham chiếu');
+    expect(note).toHaveTextContent('Vẫn còn Workload hoặc tài nguyên khác đang dùng');
+    expect(note).toHaveTextContent('Môi trường đang bận');
+    expect(screen.getByText(/Workload hiện tại/)).toBeInTheDocument();
+  });
+
+  it('keeps a failed load apart from an empty resource and retries only on request', async () => {
+    let fail = true;
+    const calls = stubApi((c) => isDetail(c.url) ? (fail ? apiError(500, 'INTERNAL_ERROR') : Response.json(wire.resource(detail()))) : undefined);
+    const user = userEvent.setup();
+    render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải chi tiết tài nguyên.');
+    expect(screen.queryByTestId('resource-name')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Xóa tài nguyên' })).not.toBeInTheDocument();
+    expect(calls).toHaveLength(1);
+    fail = false;
+    await user.click(screen.getByRole('button', { name: 'Thử lại' }));
+    expect(await screen.findByTestId('resource-name')).toBeInTheDocument();
+    expect(calls).toHaveLength(2);
+  });
+
+  it('reports a missing or foreign resource as not found, without a retry', async () => {
+    stubApi(() => apiError(404, 'NOT_FOUND'));
+    render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
+    expect(await screen.findByRole('heading', { name: 'Không tìm thấy tài nguyên' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Thử lại' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Xóa tài nguyên' })).not.toBeInTheDocument();
+  });
+
+  it('rejects a malformed response instead of showing an empty resource', async () => {
+    stubApi(() => Response.json({ resource: { id: rootId } }));
+    render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải chi tiết tài nguyên.');
+    expect(screen.queryByTestId('resource-name')).not.toBeInTheDocument();
+  });
+
+  it('drops a late reply for another resource or Environment', async () => {
+    const resolvers: Record<string, (r: Response) => void> = {};
+    stubApi((c) => { if (c.method !== 'GET') return undefined; return new Promise<Response>((resolve) => { resolvers[c.url] = resolve; }) as unknown as Response; });
+    const view = render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
+    await waitFor(() => expect(Object.keys(resolvers)).toHaveLength(1));
+    const stagingUrl = Object.keys(resolvers)[0] as string;
+    view.rerender(<ResourceDetailPage application={application} environment="production" resourceId={rootId} canDelete />);
+    await waitFor(() => expect(Object.keys(resolvers)).toHaveLength(2));
+    resolvers[Object.keys(resolvers)[1] as string]?.(Response.json(wire.resource(detail({ environment: 'production', descriptor: 'redis.default#shared.prod' }))));
+    expect(await screen.findByTestId('resource-name')).toHaveTextContent('redis.default#shared.prod');
+    resolvers[stagingUrl]?.(Response.json(wire.resource(detail({ descriptor: 'postgres.default#shared.STALE' }))));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByTestId('resource-name')).toHaveTextContent('redis.default#shared.prod');
+    expect(screen.queryByText('postgres.default#shared.STALE')).not.toBeInTheDocument();
+  });
+
+  it('shows a deleted resource as history without a delete action and resumes the progress of its operation after a reload', async () => {
+    stubApi((c) => {
+      if (isDetail(c.url)) return Response.json(wire.resource(detail({ status: 'DESTROYED', eligibility: { eligible: false, reasons: ['NOT_UNREFERENCED'] }, cleanup: { operationId: 'op-9', status: 'SUCCEEDED', stage: 'VERIFYING' } })));
+      if (c.url.endsWith('/resource-cleanups/op-9')) return Response.json(wire.cleanup(operation({ operationId: 'op-9', status: 'SUCCEEDED', stage: 'VERIFYING', allVerified: true, resources: [{ id: rootId, descriptor: rootName, status: 'DESTROYED', outcome: 'DESTROYED', verified: true, remaining: [], remainingUnknown: false }] })));
+      return undefined;
+    });
+    render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete pollMs={10} />);
+    expect(await screen.findByText('Tài nguyên này đã được xóa và xác minh; lịch sử được giữ lại.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Xóa tài nguyên' })).toBeDisabled();
+    const progress = await screen.findByTestId('cleanup-progress');
+    expect(await within(progress).findByText(/đã được xác minh là không còn/)).toBeInTheDocument();
+  });
+});

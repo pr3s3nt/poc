@@ -47,6 +47,7 @@ const messageTable = {
   DOWNTIME_ACK_REQUIRED: 'Cần xác nhận chấp nhận thời gian ngừng ứng dụng trước khi chuyển dữ liệu.',
   RECOVERY_CONFIRMATION_REQUIRED: 'Hãy xác nhận thao tác bị gián đoạn đã dừng hẳn trước khi khôi phục.',
   CLEANUP_REFUSED: 'Chưa thể dọn nguồn cũ. Xem trạng thái chuyển kết nối để biết bước cần xử lý.',
+  RESOURCE_CONFIRMATION_MISMATCH: 'Tên nhập lại không khớp tên tài nguyên. Nhập chính xác từng ký tự như hiển thị; chưa có gì bị xóa.',
   NOT_RECOVERABLE: 'Thao tác này hiện không thể khôi phục.',
   RECOVERY_INCOMPLETE: 'Khôi phục chưa hoàn tất. Môi trường vẫn bị giữ cho tới khi khôi phục thành công; cần can thiệp theo hướng dẫn.',
   OPERATION_LOST: 'Thao tác đã bị gián đoạn. Xem trạng thái thao tác; Console không tự tiếp quản.',
@@ -71,7 +72,18 @@ export const plannerStages = ['score', 'before-state', 'candidate', 'public-rout
 export const plannerReasons = ['workload-exists', 'workload-not-current', 'before-mismatch', 'legacy-infrastructure-reference', 'environment-unconfigured', 'renderer-no-match', 'renderer-ambiguous', 'renderer-unavailable'] as const;
 export type PlannerStage = (typeof plannerStages)[number];
 export type PlannerReason = (typeof plannerReasons)[number];
-export interface ErrorParams { stage?: PlannerStage; reason?: PlannerReason; resourceType?: string }
+// Allowlisted refusal reasons of a resource deletion (OC-19); the server sends them under `reason`.
+export const cleanupReasons = ['NOT_UNREFERENCED', 'HAS_CONSUMERS', 'PLATFORM_RESOURCE', 'OWNERSHIP_UNVERIFIED', 'ORIGINAL_TARGET_UNAVAILABLE', 'ENVIRONMENT_BUSY'] as const;
+export type CleanupReason = (typeof cleanupReasons)[number];
+export const cleanupReasonLabels: Readonly<Record<CleanupReason, string>> = Object.freeze({
+  NOT_UNREFERENCED: 'Tài nguyên chưa ở trạng thái không còn được tham chiếu (UNREFERENCED).',
+  HAS_CONSUMERS: 'Vẫn còn Workload hoặc tài nguyên khác đang dùng tài nguyên này, ngoài tập đã chọn.',
+  PLATFORM_RESOURCE: 'Đây là tài nguyên nền tảng, không thuộc quyền xóa của môi trường.',
+  OWNERSHIP_UNVERIFIED: 'Chưa có bằng chứng bền vững rằng Orchestrator quản lý tài nguyên này.',
+  ORIGINAL_TARGET_UNAVAILABLE: 'Chưa dùng được đích, module hoặc trạng thái gốc của tài nguyên này.',
+  ENVIRONMENT_BUSY: 'Môi trường đang bận với thao tác khác.',
+});
+export interface ErrorParams { stage?: PlannerStage; reason?: PlannerReason; cleanupReason?: CleanupReason; resourceType?: string }
 
 // A registered resource Type key: lowercase letters, digits and hyphens, at most 63 characters.
 const technicalID = /^[a-z0-9][a-z0-9-]{0,62}$/;
@@ -109,7 +121,7 @@ const knownFields: ReadonlySet<string> = new Set([
   'type.key', 'type.schema', 'definition.schema', 'definition.driver', 'definition.references', 'definition.key',
   'definition.resourceType', 'definition.executionProfile', 'definition.driverType', 'definition.criteria',
   'definition.connectionKey', 'definition.driverInputs.values', 'definition.driverInputs.values.source', 'definition.driverInputs.values.provider_bindings', 'driverInputs.values.variables', 'context.applicationId', 'context.environmentId', 'context.resourceId', 'context.class', 'service.publicPort',
-  'accessKeyId', 'secretAccessKey', 'allowedRegions',
+  'accessKeyId', 'secretAccessKey', 'allowedRegions', 'confirmationName', 'selectedResourceIds',
 ]);
 
 export function knownCode(code: unknown): code is string { return has(errorMessages, code); }
@@ -121,8 +133,9 @@ export function safeParams(params: unknown): ErrorParams | undefined {
   const out: ErrorParams = {};
   if (typeof source.stage === 'string' && (plannerStages as readonly string[]).includes(source.stage)) out.stage = source.stage as PlannerStage;
   if (typeof source.reason === 'string' && (plannerReasons as readonly string[]).includes(source.reason)) out.reason = source.reason as PlannerReason;
+  else if (typeof source.reason === 'string' && (cleanupReasons as readonly string[]).includes(source.reason)) out.cleanupReason = source.reason as CleanupReason;
   if (typeof source.resourceType === 'string' && technicalID.test(source.resourceType)) out.resourceType = source.resourceType;
-  return out.stage || out.reason || out.resourceType ? out : undefined;
+  return out.stage || out.reason || out.cleanupReason || out.resourceType ? out : undefined;
 }
 
 /** Vietnamese text for a code/status; never uses backend sentences. */
@@ -136,6 +149,9 @@ export function messageFor(status: number, code?: string, params?: ErrorParams, 
   }
   if (code === 'INVALID_SCORE' && field === 'resources') {
     return `${base} Một tài nguyên trong Score dùng loại chưa được đăng ký; hãy chọn loại tài nguyên đã đăng ký.`;
+  }
+  if (code === 'CLEANUP_REFUSED' && params?.cleanupReason) {
+    return `Không thể xóa: ${cleanupReasonLabels[params.cleanupReason]} Chưa có gì bị xóa.`;
   }
   if (code === 'PLANNING_REJECTED' || code === 'INVALID_SCORE') {
     const detail = (params?.reason && reasonLabels[params.reason]) || (params?.stage && stageLabels[params.stage]);
@@ -156,6 +172,7 @@ const fieldLabels: Readonly<Record<string, string>> = Object.freeze({
   'definition.driverInputs.values.provider_bindings': 'Provider binding của module', 'driverInputs.values.variables': 'Tham số cấu hình',
   'context.applicationId': 'Ứng dụng mẫu', 'context.environmentId': 'Môi trường mẫu', 'context.resourceId': 'ID tài nguyên mẫu', 'context.class': 'Class mẫu',
   accessKeyId: 'Access key ID', secretAccessKey: 'Secret access key', allowedRegions: 'Vùng được phép',
+  confirmationName: 'Tên nhập lại', selectedResourceIds: 'Tài nguyên đã chọn',
 });
 
 /** " Trường liên quan: <nhãn>." for a trusted field, otherwise nothing. */

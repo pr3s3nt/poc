@@ -69,6 +69,7 @@ it('confirms deletion by name and Environment, disables duplicate actions while 
     }
     if (url.endsWith('/workloads/api/undo')) return list('staging', [{ id: 'api', state: '', ready: true, score: {} }], 3);
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/resources')) return Response.json({ resources: [] });
     return list('staging', [{ id: 'api', state: '', ready: true, score: {} }]);
   }));
   const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
@@ -95,6 +96,7 @@ it('reloads the list on a version conflict and never retries the mutation', asyn
     const url = String(input);
     if (init?.method === 'DELETE') { deletes += 1; return Response.json({ error: 'workloads changed since they were loaded; reload and try again' }, { status: 409 }); }
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/resources')) return Response.json({ resources: [] });
     lists += 1;
     return list('staging', [{ id: 'api', state: '', ready: true, score: {} }, ...(lists > 1 ? [{ id: 'web', state: 'PENDING_UPSERT', ready: false, score: {} }] : [])], lists);
   }));
@@ -114,6 +116,7 @@ it('keeps the deploy outcome when the list reload fails and blocks mutations unt
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.endsWith('/preview')) return Response.json({ token: 't', draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
     if (url.endsWith('/deploy')) return Response.json({ status: 'SUCCEEDED', results: [{ workloadId: 'api', action: 'UPDATE', status: 'SUCCEEDED', deploymentId: 'dep-1' }] });
     lists += 1;
@@ -142,6 +145,7 @@ it('keeps controls busy until the post-deploy reload finishes', async () => {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.endsWith('/preview')) return Response.json({ token: 't', draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
     if (url.endsWith('/deploy')) return Response.json({ status: 'SUCCEEDED', results: [{ workloadId: 'api', action: 'UPDATE', status: 'SUCCEEDED' }] });
     lists += 1;
@@ -168,6 +172,7 @@ it('does not show a staging conflict notice after switching to production', asyn
     const url = String(input);
     if (init?.method === 'DELETE') return Response.json({ error: 'conflict' }, { status: 409 });
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.includes('/production/')) return list('production', [{ id: 'prod-only', state: '', ready: true, score: {} }]);
     stagingLists += 1;
     if (stagingLists === 2) return new Promise<Response>((done) => { releaseReload = done; });
@@ -193,6 +198,7 @@ it('reports truthfully when the reload after a conflict fails', async () => {
     const url = String(input);
     if (init?.method === 'DELETE') return Response.json({ error: 'conflict' }, { status: 409 });
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/resources')) return Response.json({ resources: [] });
     lists += 1;
     if (lists === 2) return Response.json({ error: 'unavailable' }, { status: 500 });
     return list('staging', [{ id: 'api', state: '', ready: true, score: {} }], lists);
@@ -215,6 +221,7 @@ it('ignores a late Preview after switching Environment and blocks switching duri
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.endsWith('/preview')) {
       previews += 1;
       if (previews === 1) return new Promise<Response>((done) => { resolvePreview = done; });
@@ -244,7 +251,7 @@ it('ignores a late Preview after switching Environment and blocks switching duri
 });
 
 it('shows the target of the selected Environment only and switches with the tab', async () => {
-  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ draftVersion: 0, workloads: [], deployments: [] })));
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ draftVersion: 0, workloads: [], deployments: [], resources: [] })));
   const user = userEvent.setup();
   render(<ApplicationHomePage application={{ ...application, environments: { staging: configuredTarget('lab', { connectionName: 'Lab' }), production: configuredTarget('cloud', { connectionName: 'Cloud', connectionKind: 'AWS', profile: 'aws-eks', region: 'us-east-1', runtimeStatus: 'PENDING' }) } }} />);
   expect(screen.getAllByLabelText('Đích triển khai')[0]).toHaveTextContent('staging · Kết nối Lab (lab) · Phạm vi triển khai Cluster nội bộ (internal-k8s)');
@@ -258,7 +265,7 @@ it('guides an UNCONFIGURED Environment to its settings and surfaces the safe 422
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith('/preview') && init?.method === 'POST') return Response.json({ error: 'the Environment has no execution connection; set one in Environment Settings', field: 'connectionKey', code: 'ENVIRONMENT_UNCONFIGURED' }, { status: 422 });
-    return Response.json({ draftVersion: 0, workloads: [], deployments: [] });
+    return Response.json({ draftVersion: 0, workloads: [], deployments: [], resources: [] });
   }));
   const user = userEvent.setup();
   render(<ApplicationHomePage application={{ ...application, environments: { staging: unconfiguredTarget, production: configuredTarget('lab') } }} />);
@@ -300,6 +307,7 @@ it('shows only a safe Vietnamese message when Preview fails with a raw provider 
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.endsWith('/preview')) return Response.json({ error: 'provider denied key AKIA-SECRET-123 value hunter2' }, { status: 500 });
     return pendingList();
   }));
@@ -315,7 +323,7 @@ it('shows only a safe Vietnamese message when Preview fails with a raw provider 
 });
 
 it('shows a safe Vietnamese message when the first list load fails', async () => {
-  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => String(input).includes('/deployments') ? Response.json({ deployments: [] }) : Response.json({ error: 'password=hunter2' }, { status: 500 })));
+  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => String(input).includes('/deployments') ? Response.json({ deployments: [] }) : String(input).includes('/resources') ? Response.json({ resources: [] }) : Response.json({ error: 'password=hunter2' }, { status: 500 })));
   render(<ApplicationHomePage application={application} />);
   const alert = await screen.findByRole('alert');
   expect(alert).toHaveTextContent('Không thể tải danh sách Workload của staging.');
@@ -330,6 +338,7 @@ it('reports a partial Deploy per Workload without raw errors and retries through
     const url = String(input);
     if (init?.method === 'POST') calls.push(url.split('/').pop() ?? '');
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.endsWith('/preview')) { previews += 1; return Response.json({ token: `tok-${previews}`, draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] }); }
     if (url.endsWith('/deploy')) return Response.json({ status: 'PARTIAL', results: [{ workloadId: 'web', action: 'DEPLOY', status: 'SUCCEEDED', deploymentId: 'dep-web' }, { workloadId: 'api', action: 'UPDATE', status: 'FAILED', error: 'helm: token=abc123 refused' }] });
     return pendingList();
@@ -359,6 +368,7 @@ it('drops a stale Preview on a 409 Deploy, reloads the list and does not redeplo
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.endsWith('/preview')) return Response.json({ token: 'old', draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
     if (url.endsWith('/deploy')) { deploys += 1; return Response.json({ error: 'preview token is stale: raw detail xyz' }, { status: 409 }); }
     lists += 1;
@@ -381,6 +391,7 @@ it('keeps Deploy unavailable for a no-op Preview', async () => {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.endsWith('/preview')) return Response.json({ token: 'noop', draftVersion: 1, changes: [] });
     return list('staging', [{ id: 'api', state: '', ready: true, score: {} }]);
   }));
@@ -397,6 +408,7 @@ it('ignores a late Deploy result after the same page is rerendered for another A
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.endsWith('/preview')) return Response.json({ token: 't', draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
     if (url.endsWith('/deploy')) return new Promise<Response>((done) => { resolveDeploy = done; });
     return url.includes('/applications/other/') ? list('staging', [{ id: 'other-api', state: '', ready: true, score: {} }]) : pendingList();
@@ -440,6 +452,7 @@ it('uses a fixed Vietnamese message when delete fails and keeps the list', async
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     if (init?.method === 'DELETE') return Response.json({ error: 'db password=hunter2' }, { status: 500 });
     if (String(input).includes('/deployments')) return Response.json({ deployments: [] });
+    if (String(input).includes('/resources')) return Response.json({ resources: [] });
     return list('staging', [{ id: 'api', state: '', ready: true, score: {} }]);
   }));
   vi.spyOn(window, 'confirm').mockReturnValue(true);

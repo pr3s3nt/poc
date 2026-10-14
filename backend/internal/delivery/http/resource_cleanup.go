@@ -24,6 +24,19 @@ func (s *Server) resourceRequest(w http.ResponseWriter, r *http.Request) (resour
 	return resourcecleanup.Scope{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: envKey}, actor, true
 }
 
+func (s *Server) handleListResources(w http.ResponseWriter, r *http.Request) {
+	scope, _, ok := s.resourceRequest(w, r)
+	if !ok {
+		return
+	}
+	list, err := s.resourceCleanup.ListResources(r.Context(), scope)
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"resources": list})
+}
+
 func (s *Server) handleGetResource(w http.ResponseWriter, r *http.Request) {
 	scope, _, ok := s.resourceRequest(w, r)
 	if !ok {

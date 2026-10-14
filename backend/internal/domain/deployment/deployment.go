@@ -87,6 +87,9 @@ type Resource struct {
 // It carries only allowlisted codes and the public module pin: never the module
 // or target snapshots, state, physical IDs, recovery handles or resolved inputs.
 type ResourceAttempt struct {
+	// ResourceID is the opaque ID of the resource instance (the resource
+	// detail route key), shown only when it has the shape of an ID.
+	ResourceID     string    `json:"resourceId,omitempty"`
 	Descriptor     string    `json:"descriptor"`
 	ScopeType      string    `json:"scopeType"`
 	Number         int       `json:"attempt"`
@@ -124,6 +127,7 @@ var (
 	attemptScopes    = []string{"APPLICATION", "ENVIRONMENT", "WORKLOAD", "SHARED"}
 	attemptErrorCode = []string{"DESTRUCTIVE_PLAN", "OUTPUT_CONTRACT", "NOT_READY", "READINESS_UNAVAILABLE", "OUTCOME_UNKNOWN", "STATE_NOT_ACKNOWLEDGED", "STATE_BACKEND", "TRANSIENT", "AUTH", "INPUT", "TIMEOUT", "CANCELLED", "FAILED", "PHYSICAL_RESOURCE_REMAINS", "SECRET_UNAVAILABLE"}
 	moduleToken      = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
+	resourceIDShape  = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 	descriptorShape  = regexp.MustCompile(`^[a-z0-9-]+\.[a-z0-9-]+#[a-z0-9@._-]{1,200}$`)
 )
 
@@ -150,6 +154,9 @@ func (a ResourceAttempt) Safe() ResourceAttempt {
 	}
 	if !descriptorShape.MatchString(a.Descriptor) {
 		out.Descriptor = AttemptUnknown
+	}
+	if !resourceIDShape.MatchString(a.ResourceID) {
+		out.ResourceID = ""
 	}
 	if !moduleToken.MatchString(a.ModuleID) {
 		out.ModuleID = AttemptUnknown

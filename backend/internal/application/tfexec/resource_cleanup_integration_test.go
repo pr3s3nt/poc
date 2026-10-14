@@ -3,6 +3,7 @@ package tfexec_test
 import (
 	"context"
 	"errors"
+	"orchestrator/internal/domain/environment"
 	"testing"
 
 	"orchestrator/internal/application/envops"
@@ -171,4 +172,41 @@ func TestResourceCleanupRealEngineUnknownOutcomeHoldsTheEnvironment(t *testing.T
 	if _, err := svc.PrepareDeletion(context.Background(), sc, peActor, db.InstanceID); err == nil {
 		t.Fatal("a held Environment accepted a new deletion preview")
 	}
+}
+
+func TestMarkUnreferencedMirrorsOnlyReadyInstancesUnderTheClaim(t *testing.T) {
+	h := newHarness(t)
+	db := h.createInstance("run-1", defaultDescriptor, defaultScope(), nil)
+	if h.status(db.InstanceID) != tfresource.InstanceReady {
+		t.Fatalf("setup status %s", h.status(db.InstanceID))
+	}
+	// Without an Environment claim nothing is written.
+	if err := h.svc.MarkUnreferenced(context.Background(), 0, defaultDescriptor, string(defaultScope().Type), defaultScope().ID); err == nil || h.status(db.InstanceID) != tfresource.InstanceReady {
+		t.Fatalf("marked without a claim: %v", err)
+	}
+	ctx, op := h.claim("proc-mark")
+	if err := h.svc.MarkUnreferenced(ctx, 0, defaultDescriptor, string(defaultScope().Type), defaultScope().ID); err != nil {
+		t.Fatal(err)
+	}
+	if h.status(db.InstanceID) != tfresource.InstanceUnreferenced {
+		t.Fatalf("status %s", h.status(db.InstanceID))
+	}
+	// Idempotent; an unknown identity and another generation are left alone.
+	for _, gen := range []int64{0, 7} {
+		if err := h.svc.MarkUnreferenced(ctx, gen, defaultDescriptor, string(defaultScope().Type), defaultScope().ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := h.svc.MarkUnreferenced(ctx, 0, "postgres.default#modules.nope.externals.db", string(defaultScope().Type), "x"); err != nil {
+		t.Fatal(err)
+	}
+	// Only READY instances move: a FAILED one keeps its status.
+	failed, _ := h.instance(ctx, defaultDescriptor, defaultScope())
+	if _, err := h.state.SetInstanceStatus(ctx, failed.ID, failed.Version, tfresource.InstanceFailed); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.svc.MarkUnreferenced(ctx, 0, defaultDescriptor, string(defaultScope().Type), defaultScope().ID); err != nil || h.status(db.InstanceID) != tfresource.InstanceFailed {
+		t.Fatalf("a FAILED instance was changed: %s %v", h.status(db.InstanceID), err)
+	}
+	h.release(op, environment.OpSucceeded)
 }
