@@ -29,53 +29,6 @@ backend Service. `/api/checks` returns booleans only, never the secret or
 database credentials. Missing bindings show `FAIL`; the existing job form
 remains available for a deeper frontend → backend → database → worker check.
 
-## Redis cache (I04-09)
-
-PostgreSQL stays the durable authority. A shared Redis (the same instance for
-`backend` and `worker`) caches completed job results:
-
-```text
-worker: commit result to PostgreSQL -> write-through SET <key> EX <ttl>
-backend: GET <key> -> HIT: serve cached
-                      MISS: read the same PostgreSQL row -> SET <key> EX <ttl> (refill)
-                      ERROR: serve the PostgreSQL row, report the failure
-```
-
-Only completed jobs are cached, so a pending job is always read from PostgreSQL
-and is never frozen by an entry. The key is
-`acceptance:v1:<app>:<env>:<run>:job:<id>`.
-
-Redis is required, with authentication in-cluster and managed. A cache failure
-is never a pass: it is shown in the existing deployment-check table (row
-`cache`), `/readyz` returns 503, and `/api/checks` carries safe evidence even
-though the durable result is still shown. The worker records the outcome of each
-write-through in `jobs.cache_write` (`OK`/`FAILED`); a post-commit failure
-keeps the committed job (never reprocessed or duplicated) and keeps the `cache`
-check failing. A missing or invalid binding makes the `worker` exit and the
-`backend` report `config`.
-
-| Variable | Meaning |
-|---|---|
-| `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD`, `REDIS_TLS` | The `redis` resource outputs (all required; `REDIS_TLS` is `true` or `false`; the password arrives through a Secret) |
-| `ACCEPTANCE_CACHE_APP`, `ACCEPTANCE_CACHE_ENV`, `ACCEPTANCE_CACHE_RUN` | Key scope, 1-63 letters, digits, `.`, `_`, `-` (all required) |
-| `ACCEPTANCE_CACHE_TTL_SECONDS` | Entry lifetime, 1-3600, default 30 |
-
-With `REDIS_TLS=true` the server certificate chain and the host name (also used
-as SNI) are always verified; there is no insecure option. The binaries embed the
-public CA roots, so the `FROM scratch` images verify ElastiCache certificates.
-
-`/api/checks` returns, next to the boolean `checks`, a `cache` object:
-`configured`, `reachable`, `reason` (`unreachable|auth|tls|timeout|config|error`),
-`tls`, `ttlSeconds`, `scope`, `lookups` (counts of `hit`, `miss-refilled`,
-`miss-refill-failed`, `error-db-fallback`, `pending`), the 50 most recent
-lookups (job id, outcome, reason, time) and `workerWrites` (`ok`, `failed`). Job
-responses carry `cache` and `cacheReason`. No value, password or raw error is
-included.
-
-Tests need a real PostgreSQL and `redis-server` (they fail, not skip, under
-`REQUIRE_POSTGRES=1` or `REQUIRE_REDIS=1`). Run them against a disposable
-fixture with `bash backend/test/integration/acceptance-redis-local.sh`.
-
 Build the images with `test/integration/build-images.sh <tag>`; it produces a
 static binary per workload and wraps it in the shared `Dockerfile`.
 
