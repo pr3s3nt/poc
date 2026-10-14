@@ -154,3 +154,12 @@ hiện có giữ nguyên; cloud session/URL ở trên, không tuyên bố file c
 đã được lấy về. Findings ownership/claim-before-effect, AWS runner, secrets
 binding/scan/argv và dirty marker vẫn phải giải quyết. Không task-owned
 cluster/AWS assets; r1 WIP1309Go/0skip/fullchecks đã dọn PG/network/files.
+
+Claude local đã khởi chạy tại tmux `poc-m04-i0410-clauded-local`, dùng
+`clauded --teleport session_01HtXzgfyBzoNma2DQ2SzNY5`; UI báo Session resumed
+và bypass permissions on. Conversation khôi phục, code checkout `666da24`
+không có dirty code cloud được phục hồi. Teleport chuyển checkout sang nhánh
+`claude/m04-i04-10-dwitbm`; Claude được cấm commit/push, Codex quản lý commit
+sau review. Brief `/tmp/poc-i0410-local-claude/brief.txt`, handoff yêu cầu
+`/tmp/poc-i0410-local-claude/handoff.md`. Nếu local quota fail thì chuyển agent
+`gpt-6-luna`, giữ code dở và mọi kiểm tra/cleanup; chưa dùng phương án này.
