@@ -258,7 +258,11 @@ func (s *Service) checkCleanup(ctx context.Context, req tfresource.CleanupReques
 		if inst.Version != item.Version || inst.StateKey != item.StateKey || inst.ModuleBundleID != item.ModuleBundleID {
 			return reject("a selected resource changed after admission; review it again")
 		}
-		if same, err := sameJSON(inst.TargetRef, item.TargetRef); err != nil || !same {
+		if item.TargetDigest != "" {
+			if digest, err := tfresource.TargetDigest(inst.TargetRef); err != nil || digest != item.TargetDigest {
+				return reject("a selected resource target changed after admission; review it again")
+			}
+		} else if same, err := sameJSON(inst.TargetRef, item.TargetRef); err != nil || !same {
 			return reject("a selected resource target changed after admission; review it again")
 		}
 		if envID == "" {

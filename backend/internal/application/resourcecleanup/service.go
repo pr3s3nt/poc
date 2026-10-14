@@ -397,7 +397,14 @@ func (s *Service) CleanupResources(ctx context.Context, sc Scope, actor Actor, r
 		if err != nil || inst.Identity.EnvironmentID != pre.env.ID || inst.Identity.OrganizationID != rec.Instance.Identity.OrganizationID {
 			return AdmissionView{}, ErrUnavailable
 		}
-		items = append(items, tfresource.CleanupItem{InstanceID: id, Version: inst.Version, StateKey: inst.StateKey, ModuleBundleID: inst.ModuleBundleID, TargetRef: inst.TargetRef})
+		digest, err := tfresource.TargetDigest(inst.TargetRef)
+		if err != nil {
+			return AdmissionView{}, ErrUnavailable
+		}
+		// Only a digest of the original target is persisted in the
+		// Console-readable operation record; the engine re-reads the target
+		// itself and compares.
+		items = append(items, tfresource.CleanupItem{InstanceID: id, Version: inst.Version, StateKey: inst.StateKey, ModuleBundleID: inst.ModuleBundleID, TargetDigest: digest})
 	}
 	candidates := make([]string, 0, len(prePlan.order))
 	retained := map[string]string{}
