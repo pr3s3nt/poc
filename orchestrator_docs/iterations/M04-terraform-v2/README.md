@@ -111,10 +111,13 @@ tạo 2026-10-14 08:32:58 +07. Brief/status `/tmp/poc-i0408-resource-delete-ui/`
 Fetch đầu 08:48:21 +07: `4cee2a7` STATUS, chưa có code. Bash/Read/git commit/
 network quan sát không prompt; Write/Edit chưa dùng, tên mode nội bộ không
 introspect. Push đã nhận cả nhánh chính và `claude/m04-i04-08-u9cf6p`.
-Cloud có PG16 binaries và Playwright; Docker daemon không có, Terraform/score/
-Vault chưa cài lúc bắt đầu, đang chuẩn bị pins/checks. Không coi tool chưa cài
-là pass hoặc blocker kéo dài. Tiếp fetch 09:03:21 +07; code/checks/browser chưa
-chạy local, không assets cluster/AWS.
+Fetch 09:03:45 +07: `c2253a8` WIP backend (safe Console reads, admission dưới
+Environment lock, cleanup engine và SQL/HTTP tests); frontend chưa có trong diff.
+Đã gửi sửa token expiry, role gate sớm, replay sau real cleanup/reopen, proof của
+đúng operation, safe original-target detail và unavailable eligibility. Chưa
+review cuối/checks local/merge. Tiếp fetch 09:18:45 +07. Cloud code đã ghi/push
+thành công; tên mode nội bộ vẫn không introspect, không suy từ flag. Không có
+assets cluster/AWS hoặc runtime local của I04-08.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
 Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.
