@@ -144,3 +144,13 @@ lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi ch�
 Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.
 A01/E01/E02 pass + video/estimate + k8s-4f sạch thì tự chạy I04-12. Điểm duyệt
 cuối vẫn giữ; không tự ghi đã duyệt.
+
+### Bàn giao chuyển công cụ — 2026-10-14
+
+Người dùng báo Claude cloud hết credit; fetched head I04-10 `666da24` đã lưu
+local, chưa merge. Chuyển Claude local qua tmux/`clauded`; nếu lại hết hạn mức
+thì agent Codex `gpt-6-luna` viết code/test theo quyền mới. Code/checks/review
+hiện có giữ nguyên; cloud session/URL ở trên, không tuyên bố file chưa push
+đã được lấy về. Findings ownership/claim-before-effect, AWS runner, secrets
+binding/scan/argv và dirty marker vẫn phải giải quyết. Không task-owned
+cluster/AWS assets; r1 WIP1309Go/0skip/fullchecks đã dọn PG/network/files.

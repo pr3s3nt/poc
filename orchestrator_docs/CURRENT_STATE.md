@@ -11,6 +11,8 @@ last_reviewed: 2026-10-14
 
 I04-01..09 hoàn tất local; I04-10 hiện hành. Claude cloud viết code/test trên
 nhánh riêng public; Codex quản lý docs/review/checks/merge và chạy thật local.
+Quyết định mới nhất cùng ngày: cloud hết hạn mức thì chuyển `clauded` qua
+tmux; Claude local cũng hết hạn mức thì giao code/test cho Codex `gpt-6-luna`.
 Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi
 lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
 k8s-4f sạch thì tự chạy I04-12 AWS 452025861381/us-east-1. Giữ điểm duyệt cuối.

@@ -5,7 +5,7 @@ status: current
 last_reviewed: 2026-10-14
 ---
 
-# Điều phối Claude cloud và kiểm chứng local
+# Điều phối Claude, phương án thay thế và kiểm chứng local
 
 Quyết định người dùng 2026-10-14 thay clauded/tmux bằng Claude cloud; giữ path
 runbook để các liên kết lịch sử còn hợp lệ. Codex quản lý docs/review/checks/
@@ -27,6 +27,23 @@ merge và chạy thật local; Claude viết code/test, không sửa docs.
 6. Codex chạy thật local trên code Claude: cluster/AWS theo quyền đã giao,
    Playwright headed và video. Gửi lỗi code về cùng phiên để Claude sửa.
    Công cụ lỗi kéo dài: lưu task/bước/session/tài nguyên/việc tiếp theo trước dừng.
+
+## Phương án thay thế khi hết hạn mức — quyết định mới nhất 2026-10-14
+
+Người dùng yêu cầu chuyển khỏi cloud đã hết credit: fetch code đã push, giữ
+ID/URL/head và các findings; không giả đã lấy được file cloud chưa push.
+Dùng checkout riêng và session tmux riêng của task, chạy `clauded` (alias local
+của `claude --dangerously-skip-permissions`). Có thể dùng `--teleport` để lấy
+handoff/conversation của phiên cloud; kiểm trạng thái thực tế trước khi ghi
+đã phục hồi. Giao brief có nguồn chuẩn, phạm vi, findings chưa sửa và checks.
+Claude local chỉ sửa code/test, không đọc credential/kubeconfig/state/.env,
+không chạy cluster/AWS, không sửa docs hoặc commit/push. Codex chạy thật.
+
+Nếu Claude local báo hết hạn mức, giữ evidence và chuyển việc code/test còn
+lại cho agent Codex với model **gpt-6-luna**, theo quyền người dùng đã cấp.
+Codex điều phối vẫn review và chạy kiểm tra độc lập, không đổi sang model khác.
+Nhịp theo dõi 15 phút, kiểm sớm khi lỗi/hoàn tất; chỉ dọn session task sau
+lưu handoff. Giữ nguyên source order, nghiệm thu, zero-skip và cleanup.
 
 ## Playwright recording cho task code/test có browser flow
 

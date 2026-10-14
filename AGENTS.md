@@ -123,6 +123,21 @@ và lý do, cùng mọi user-owned change còn lại.
 
 ## Codex điều phối và Claude cloud thực hiện code
 
+### Quyết định M04 mới nhất — 2026-10-14
+
+Khi Claude cloud hết hạn mức, lấy code đã push về checkout riêng và lưu
+handoff/session cloud. Tiếp tục code/test bằng Claude local qua tmux với
+`clauded`; Codex giữ vai trò docs/review/checks/merge và chạy thật. Nếu Claude
+local tiếp tục hết hạn mức, Codex được giao code/test cho agent Codex dùng
+model `gpt-6-luna`. Đây là quyền thay thế do người dùng cấp cho M04, ưu tiên
+hơn các câu cấm thay Claude bằng Codex bên dưới. Không tự đổi model khác.
+Theo dõi tiến độ mỗi 15 phút; chỉ đọc sớm khi lỗi/hoàn tất hoặc người dùng yêu
+cầu. Giữ mọi yêu cầu validation, không skip, quyền external và cleanup.
+Claude local/agent thay thế chỉ sửa code/test trong checkout task riêng,
+không sửa docs/commit/push nhánh điều phối; Codex commit sau review và checks.
+Không đóng tmux của người dùng, không ghi credential vào handoff hoặc Git.
+
+
 Codex sửa canonical documentation và điều phối; Claude cloud viết code/test.
 Codex không tự viết code sản phẩm/test. Mỗi task tạo phiên cloud mới từ repo
 sau khi push nhánh điều phối; giao phạm vi, nguồn chuẩn, tiêu chí nghiệm thu và
