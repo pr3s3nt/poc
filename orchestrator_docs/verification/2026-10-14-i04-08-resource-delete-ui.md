@@ -83,3 +83,9 @@ Video r1 tại `18c387d` cũng pass, 127,6 giây; giữ tại
 `/tmp/poc-i0408-local-browser-r1/`. DB/roles/Vault/PG/mạng/tệp riêng tư của r1
 đã xác minh dọn sạch. Không tính các lượt này là V2-A01/A02/A03 live proof;
 I04-10..12 còn wiring, job/cache và physical absence thật. IMP-021 còn mở.
+
+## Chốt nhánh
+
+Code `8d213a3`, handoff message-only `2235fde` đã merge và push cùng docs
+`ee41f1d`. Hai nhánh `claude/m04-i04-08` và nhánh tự sinh `-u9cf6p` đã xóa;
+`git ls-remote --heads` xác minh không còn. Checkout review đã dọn.

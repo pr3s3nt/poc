@@ -42,7 +42,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-06 | [AWS Connection qua Console và Vault](I04-06-aws-connection/README.md) | 2 | Hoàn tất local |
 | I04-07 | [Definition, Workload class, Preview và renderer](I04-07-definition-workload-ui/README.md) | 2 | Hoàn tất local |
 | I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Hoàn tất local |
-| I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Current; chuẩn bị cloud |
+| I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Current; cloud đang chạy |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Chưa bắt đầu |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Chưa bắt đầu |
 | I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Chưa bắt đầu |
@@ -112,10 +112,14 @@ Video `/tmp/poc-i0408-local-browser-r2/I04-08-captioned.mp4`, r3 checks tại
 đã xác minh. REAL engine/CLI/encrypted SQL/Vault, FAKE objects/absence;
 không v2 live proof. [Phiên](https://claude.ai/code/session_015AaNpBjwF2dUGJQHUxUrRv)
 quan sát Write/Edit/Read/Bash/git/network, mode nội bộ không introspect. Code/
-handoff/brief giữ tại `/tmp/poc-i0408-resource-delete-ui/`; dọn nhánh/checkout
-sau push. Không còn gap token/proof/scope/marker diagnostic hay DESTROYED intent.
-I04-09 current: chuẩn bị phiên mới từ refactor_ui đã push, draft brief
-`/tmp/poc-i0409-acceptance-redis/cloud-brief-draft.txt`. Chưa assets cluster/AWS.
+handoff/brief giữ tại `/tmp/poc-i0408-resource-delete-ui/`; handoff cuối
+`2235fde` đã merge, docs push `ee41f1d`; hai nhánh cloud và checkout đã dọn,
+remote xác minh không còn nhánh I04-08. Không còn gap token/proof/scope/marker diagnostic hay DESTROYED intent.
+I04-09 current: phiên mới [session_019GgofsetFjxTDq6V83vv6Q](https://claude.ai/code/session_019GgofsetFjxTDq6V83vv6Q)
+đã tạo từ refactor_ui `ee41f1d` đã push, nhánh yêu cầu `claude/m04-i04-09`.
+Brief `/tmp/poc-i0409-acceptance-redis/cloud-brief.txt`; cờ
+`--dangerously-skip-permissions` đã truyền, quyền thực tế đang chờ evidence
+của phiên, chưa suy từ cờ. Chưa assets cluster/AWS.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
 Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.

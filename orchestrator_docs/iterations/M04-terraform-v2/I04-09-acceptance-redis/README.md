@@ -10,7 +10,7 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Current sau I04-08 verified local; chuẩn bị phiên cloud mới, chưa implement/verify.
+Chặng 2; xem [M04](../README.md). Current sau I04-08 verified local; phiên cloud session_019GgofsetFjxTDq6V83vv6Q đang chạy từ ee41f1d; chưa verified.
 
 ## Phạm vi
 
