@@ -108,9 +108,13 @@ Nhánh I04-07 chính/tự sinh đã xóa, checkout review đã dọn sau push `b
 I04-08 current từ base `b988f27` đã push, nhánh `claude/m04-i04-08`.
 Phiên mới [session_015AaNpBjwF2dUGJQHUxUrRv](https://claude.ai/code/session_015AaNpBjwF2dUGJQHUxUrRv),
 tạo 2026-10-14 08:32:58 +07. Brief/status `/tmp/poc-i0408-resource-delete-ui/`.
-Đã yêu cầu STATUS commit báo quyền Bash/Write/Edit/git/network và tools thực tế;
-mode nội bộ chưa xác minh, không suy từ launch flag. Tiếp fetch 08:47:58 +07;
-code/checks/browser I04-08 chưa chạy local, không có assets cluster/AWS.
+Fetch đầu 08:48:21 +07: `4cee2a7` STATUS, chưa có code. Bash/Read/git commit/
+network quan sát không prompt; Write/Edit chưa dùng, tên mode nội bộ không
+introspect. Push đã nhận cả nhánh chính và `claude/m04-i04-08-u9cf6p`.
+Cloud có PG16 binaries và Playwright; Docker daemon không có, Terraform/score/
+Vault chưa cài lúc bắt đầu, đang chuẩn bị pins/checks. Không coi tool chưa cài
+là pass hoặc blocker kéo dài. Tiếp fetch 09:03:21 +07; code/checks/browser chưa
+chạy local, không assets cluster/AWS.
 Kiểm tra cloud mỗi **15 phút (900 giây)**; giữ lượt chạy khi chờ, kiểm sớm khi
 lỗi/completion/yêu cầu người dùng. Không có scheduler tự khởi chạy lại lượt.
 Dự toán đang chuẩn bị `/tmp/poc-m04-estimate-20261014/`; I04-11 chốt trước AWS.
