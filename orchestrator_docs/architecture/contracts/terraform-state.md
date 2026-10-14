@@ -10,6 +10,15 @@ related: [ADR-014, UC-06, UC-07, UC-08]
 
 ## Identity và storage
 
+Namespace creation baseline (quyết định2026-10-15): lưu riêng artifact mã hóa
+bất biến theo instance, namespace UID và default ServiceAccount UID quan sát
+read-only sau create/Ready, trước children/delivery. Dùng VerificationStore
+với handle riêng, ghi idempotent không overwrite; không trộn với pre-destroy
+state hoặc Terraform state được refresh. Khi cleanup, namespace/SA UID phải
+khớp và đối tượng không có custom metadata/refs/automount override. Thiếu/hỏng
+artifact hoặc UID đổi giữ fail-closed; không import/PATCH để nhận ownership.
+Artifact nằm ngoài Git/UI/log công khai, cùng quyền truy cập private state.
+
 Canonical identity tuple: Organization ID, Application/Environment ID, target
 generation, resource descriptor, scope type và scope ID. Backend opaque state ID
 là digest của canonical tuple, ánh xạ một-một qua unique database constraint.

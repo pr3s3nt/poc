@@ -154,6 +154,11 @@ không Ready hoặc output sai contract thì không render/apply consumer.
 
 ## Provider bindings và dependency
 
+Namespace module/executor chỉ quan sát ServiceAccount mặc định để ghi baseline
+UID theo [state contract](terraform-state.md), không mutate/adopt SA mặc định
+hoặc cài thành phần cluster. Nếu dùng data source, nó không được coi là managed
+resource cần destroy; cập nhật state/refresh không thay baseline bất biến.
+
 | Module | Provider source | Required dependency |
 |---|---|---|
 | VPC | Environment AWS Connection + region | Không có |

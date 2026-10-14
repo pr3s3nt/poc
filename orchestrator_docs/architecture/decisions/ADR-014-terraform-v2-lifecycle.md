@@ -161,6 +161,19 @@ chưa hoàn thành và không bắt đầu run mới.
 
 ## Implementation boundary
 
+Kiểm chứng namespace2026-10-15: Kubernetes có thể tạo ServiceAccount default
+không có managedFields; không suy thiếu manager thành ownership. Nếu dùng
+baseline bổ sung, executor chỉ quan sát read-only ngay sau namespace được
+tạo/Ready, trước dependent resources/workload delivery, và lưu namespace UID,
+default SA UID cùng metadata an toàn trong artifact mã hóa bất biến theo
+instance. Khi destroy, baseline UID phải khớp namespace/SA thực tế và SA
+không có custom metadata, owner, secret refs, imagePullSecrets hoặc override
+automount. Baseline thiếu/hỏng/UID đổi không đủ quyền xóa. Data source quan sát
+nếu có không phải managed destroy identity; refresh không được thay baseline
+ban đầu. Không PATCH/adopt default SA hoặc import state để lấy ownership.
+Namespace đã vắng chỉ được khép cleanup sau query NotFound/physical IDs gốc;
+không coi lỗi đọc/API bất kỳ là absence. Không mở rộng D12–D14.
+
 Quyết định người dùng 2026-10-14: chặng 1 đã được duyệt; bỏ điểm duyệt 2.
 Sau I04-11 đạt A01/E01/E02, video và dự toán AWS đã lưu, k8s-4f sạch,
 Codex tự chạy I04-12 AWS A02 rồi A03, cleanup ngay và xác minh từng run.
