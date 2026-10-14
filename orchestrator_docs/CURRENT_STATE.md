@@ -43,6 +43,14 @@ Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạ
 lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
 k8s-4f sạch thì tự chạy I04-12 AWS 452025861381/us-east-1. Quyết định2026-10-15
 bỏ điểm duyệt cuối; thực hiện đến hết I04-12 và gửi báo cáo.
+Cập nhật15Oct: A01 mới `a01-20261015-r1` FAIL/PLANNING do đường dẫn provider
+socket dài; normal cleanup/CLOSED_CLEAN,28retainedUIDs/10nodeimage refs sạch,
+video1415.07s giữ. Root schema reproduction112bytesFAIL/86bytesPASS với cùng
+pin chứng minh lỗi cấu hình; dùng owner-only disk root ngắn `.m4/<run-id>`,
+giữ isolation. A01 `a01-20261015-r2` đang chạy, chưa PASS. AWSpreflightfix
+3136dcc merge6d9fb2f: full1395Go/race/0skip/622FE/checks đạt/fixtureclean,
+complete-action read-only preflight A02/A03 đạt; chưa AWS provisioning.
+
 I04-06 tại `f3ed5bb`: **1082 Go PASS/0 FAIL/0 SKIP**, 479 frontend tests,
 build/vet/docs và Codex headed browser/actual SQL/Vault/cleanup pass. AWS
 transport trong browser fake; chưa có v2 live proof. Tên mode quyền cloud không

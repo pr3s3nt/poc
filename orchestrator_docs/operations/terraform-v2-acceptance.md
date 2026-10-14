@@ -77,6 +77,17 @@ Plan/task cụ thể: [M04](../iterations/M04-terraform-v2/README.md).
    provider delete lập tức. Deadline tuning phải ghi trước run, giữ hữu hạn và
    không kéo dài run lỗi để tạo thêm resources.
 
+## Đường dẫn riêng của provider trên Linux
+
+Giữ evidence/state/credential ngoài Git, owner-only0700/0600 và TMPDIR riêng
+của từng invocation. Chọn đường dẫn thật ngắn trên disk, không symlink hoặc
+thư mục tạm dùng chung: registry thêm `private/module-cache/runs/inv-*`, runner
+thêm `work-N/tmp`, rồi provider tạo Unix socket. Đường dẫn dài có thể làm
+provider không khởi động trước apply. Trước chạy, kiểm schema với đúng binary/
+provider pin tại độ dài TMPDIR thực tế. M04 local dùng
+`/home/thanhnt1/.m4/<run-id>`; giữ failed evidence cũ tại đường dẫn đã ghi.
+Đây là cấu hình vận hành, không giảm cách ly hoặc đổi module pin.
+
 ## Công cụ viết code khi hết hạn mức
 
 Quyết định mới nhất2026-10-14: cloud hết credit thì fetch code đã push, lưu

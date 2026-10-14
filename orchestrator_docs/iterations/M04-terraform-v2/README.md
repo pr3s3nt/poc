@@ -44,7 +44,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Hoàn tất local |
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
-| I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Current; namespace r2 đã dọn theo UID, sửa lỗi/khép registry trước lượt mới |
+| I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Current; các lượt lỗi CLOSED_CLEAN, A01 chạy lại trên disk root ngắn |
 | I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Chưa bắt đầu |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
@@ -342,3 +342,14 @@ full Go race/PostgreSQL/Terraform/Redis, build/vet, frontend và docs độc l�
 build/vet/type/lint/docs/PlantUML/shell/node đạt. Fixture checks cleanup sạch.
 Evidence `checks-r4-final/` trên disk. A01 mới `a01-20261015-r1` chuẩn bị,
 28 retained UIDs nguyên vẹn; chưa scenario pass, AWS gate chưa mở.
+
+**Handoff mới nhất15Oct:** A01 `a01-20261015-r1` FAIL/PLANNING trước create,
+normal cleanup/28retainedUIDs/imagecache CLEAN, video1415.07s giữ. Provider
+socket dài112bytes gây bind invalid argument, schema A/B rootngắn86bytes đạt.
+Tất cả real evidence mới dùng `/home/thanhnt1/.m4/<run-id>`0700, giữprivate
+isolation/modulepins. A01 `a01-20261015-r2` đang chạy, supervisor ARMED;
+config `/tmp/poc-i0411-private/a01-20261015-r2.json`0600. Code runtime6bffefa.
+AWS preparationfix3136dcc merge/push6d9fb2f,1395Go/race/0skip/622FE/fullchecks
+đạt và fixtureclean; source/preflight schema/proof ngoàiGit. Sau A01 sạch chạy
+E01/E02 từ checkout `/tmp/poc-i0412-local-runtime`3136dcc (latest code + dist).
+Gateđủ thì AWSA02 sạch rồiA03; configs/gates trỏ shortroot, chưa tạoAWS.

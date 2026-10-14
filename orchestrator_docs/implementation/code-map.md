@@ -502,3 +502,10 @@ I04-11 cleanup fixes `6bffefa`/`ea101e0`: [Kubernetes UID deletion](../../backen
 [layered physical verification](../../backend/test/integration/v2run/k8s.go),
 [headed native confirmation](../../frontend/test/e2e/terraform-v2-acceptance.mjs).
 Local checks1394Go/race/0skip/622frontend đạt; live acceptance vẫn đang I04-11.
+
+AWS preflight coverage `3136dcc`/`6d9fb2f`: shared [complete action accessor](../../backend/internal/adapters/awsaccess/verify.go)
+and [runner action/chunk/result checks](../../backend/test/integration/v2run/aws.go),
+[regression tests](../../backend/test/integration/v2run/aws_test.go). Fullchecks
+1395Go/race/0skip/622frontend đạt; AWS live vẫn gated. Provider schema runtime
+preflight/root ngắn là cấu hình vận hành theo acceptance runbook, không đổi
+namespace/module source pin.

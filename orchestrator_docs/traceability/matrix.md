@@ -686,3 +686,10 @@ deployment/unreferenced_test.go/remove_delivered_test.go,
 tfexec/namespace_internal_test.go, readiness/readiness_test.go và v2run/k8s_test.go.
 Codex full1394Go/race/0FAIL/0SKIP,622frontend/fullchecks đạt; chưa thay thế
 A01/E01/E02/A02/A03 live proof hoặc đóng IMP-021.
+
+AWS pre-create permission gate:3136dcc/6d9fb2f share complete product actions
+with runner/ECR; tests reject missing EKS access-entry/access-policy permission
+and incomplete/duplicate/unexpected/truncated simulation. Full1395Go/race/
+0SKIP/622FE đạt, read-only A02/A03 actual preflight đạt; chưa AWS live proof.
+A01 a01-20261015-r1 FAIL trước provider create, CLEAN/CLOSED_CLEAN; socket
+length A/B diagnosis và shortroot rerun ghi trong VERIFY-I04-11-20261014.
