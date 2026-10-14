@@ -124,3 +124,27 @@ func TestVerificationArtifactIsEncryptedBoundAndNeverOverwritten(t *testing.T) {
 		t.Fatal("unsafe handle accepted")
 	}
 }
+
+func TestNamespaceCreationBaselineUsesImmutableEncryptedVerificationStore(t *testing.T) {
+	s, dir := store(t)
+	instance := ids.New()
+	handle := "baseline-" + instance
+	original := []byte(`{"namespaceUid":"ns-uid-private","defaultServiceAccountUid":"sa-uid-private"}`)
+	if err := s.SaveVerification(context.Background(), handle, instance, original); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, handle))
+	if err != nil || strings.Contains(string(raw), "ns-uid-private") || strings.Contains(string(raw), "sa-uid-private") {
+		t.Fatalf("baseline was not encrypted: %v", err)
+	}
+	if err := s.SaveVerification(context.Background(), handle, instance, []byte(`{"namespaceUid":"replacement","defaultServiceAccountUid":"replacement"}`)); err != nil {
+		t.Fatal(err)
+	}
+	got, found, err := s.LoadVerification(context.Background(), handle, instance)
+	if err != nil || !found || !bytes.Equal(got, original) {
+		t.Fatalf("immutable baseline load: found=%v err=%v", found, err)
+	}
+	if _, _, err := s.LoadVerification(context.Background(), handle, ids.New()); err == nil {
+		t.Fatal("baseline opened under a different instance")
+	}
+}

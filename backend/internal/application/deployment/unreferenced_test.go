@@ -22,6 +22,7 @@ type hookDeployer struct {
 	removeErr      error
 	onRemove       func()
 	calls, removes int
+	removeTarget   execution.Target
 }
 
 func (d *hookDeployer) Apply(context.Context, execution.Target, []execution.Manifest) error {
@@ -31,9 +32,10 @@ func (d *hookDeployer) Apply(context.Context, execution.Target, []execution.Mani
 func (*hookDeployer) WaitReady(context.Context, execution.Target, []execution.WorkloadRef) error {
 	return nil
 }
-func (d *hookDeployer) Remove(context.Context, execution.Target, string) error {
+func (d *hookDeployer) Remove(_ context.Context, target execution.Target, _ string) error {
 	d.calls++
 	d.removes++
+	d.removeTarget = target
 	if d.onRemove != nil {
 		d.onRemove()
 	}
@@ -198,6 +200,36 @@ func TestUnreferencedMarking_RollsBackWithFailedRuntimeOrCommit(t *testing.T) {
 				t.Fatalf("latest Deployment = %s, want FAILED", list[0].Status)
 			}
 		})
+	}
+}
+
+func TestFailedWorkloadRemovalKeepsOriginalOwnershipDeployment(t *testing.T) {
+	app, opts, deployer := uc07App(t)
+	backend := seed.AcceptanceScores(opts)["backend"]
+	if _, err := uc07Deploy(t, app, opts, "backend", nil, backend); err != nil {
+		t.Fatal(err)
+	}
+	before, err := app.Store.ListWorkloadInstances(context.Background(), opts.ApplicationKey+"/"+opts.EnvironmentKey)
+	if err != nil || len(before) != 1 {
+		t.Fatalf("initial workload instance: %v %v", before, err)
+	}
+	ownedBy := before[0].LastDeploymentID
+	deployer.removeErr = errors.New("UID precondition conflict")
+	if _, err := uc07Deploy(t, app, opts, "backend", backend, nil); err == nil {
+		t.Fatal("failed removal unexpectedly succeeded")
+	}
+	if got := deployer.removeTarget.Extra["deployment"]; got != ownedBy {
+		t.Fatalf("remove ownership deployment %q, want %q", got, ownedBy)
+	}
+	after, err := app.Store.ListWorkloadInstances(context.Background(), opts.ApplicationKey+"/"+opts.EnvironmentKey)
+	if err != nil || len(after) != 1 {
+		t.Fatalf("failed workload instance: %v %v", after, err)
+	}
+	if after[0].Status != domain.InstanceFailed || after[0].TargetRef["orchestrator.io/owner-deployment-id"] != ownedBy {
+		t.Fatalf("failed remove lost original ownership: status=%s owner=%q want=%q", after[0].Status, after[0].TargetRef["orchestrator.io/owner-deployment-id"], ownedBy)
+	}
+	if after[0].LastDeploymentID == ownedBy {
+		t.Fatal("failed removal progress must belong to its own deployment snapshot")
 	}
 }
 

@@ -32,6 +32,13 @@ var ErrUnavailable = errors.New("readiness: the readiness query could not comple
 // Runner runs one external command with an environment and returns stdout.
 type Runner func(ctx context.Context, bin string, args []string, env []string) ([]byte, error)
 
+type commandFailure struct{ notFound bool }
+
+func (commandFailure) Error() string { return "command failed" }
+func (e commandFailure) Is(target error) bool {
+	return e.notFound && target == terraformexec.ErrNamespaceAbsent
+}
+
 // Checker implements terraformexec.ReadinessChecker.
 type Checker struct {
 	Kubectl  string
@@ -61,9 +68,11 @@ func (c *Checker) run() Runner {
 		cmd := exec.CommandContext(ctx, bin, args...)
 		cmd.Env = env
 		var out bytes.Buffer
+		var stderr bytes.Buffer
 		cmd.Stdout = &out
+		cmd.Stderr = &stderr
 		if err := cmd.Run(); err != nil {
-			return nil, errors.New("command failed")
+			return nil, commandFailure{notFound: strings.Contains(stderr.String(), "Error from server (NotFound)")}
 		}
 		return out.Bytes(), nil
 	}

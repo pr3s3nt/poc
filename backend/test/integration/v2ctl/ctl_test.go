@@ -45,7 +45,7 @@ if [ "$1" = "-n" ]; then
   ns="$2"; shift 2
   case "$1" in
     get) case "$2" in
-           deployments*) [ -e "$C/ns.json" ] && cat "$C/delivery" 2>/dev/null; exit 0;;
+           deployments,daemonsets,replicasets,jobs,cronjobs,services,ingresses,secrets,roles,rolebindings,configmaps,serviceaccounts) [ -e "$C/ns.json" ] && cat "$C/delivery.json" 2>/dev/null; exit 0;;
            statefulsets*) [ -e "$C/ns.json" ] && cat "$C/app" 2>/dev/null; exit 0;;
          esac;;
     delete) case "$2" in
@@ -73,7 +73,7 @@ echo "unexpected: $@" >&2; exit 99
 const fakeCleanup = `#!/bin/sh
 C="$(dirname "$0")/cluster"
 case "$1" in
-  delivery) echo delivery >> "$C/order.log"; : > "$C/delivery";;
+  delivery) echo delivery >> "$C/order.log"; : > "$C/delivery"; printf '{"items":[]}' > "$C/delivery.json";;
   terraform) echo app-resources >> "$C/order.log"; : > "$C/app"; : > "$C/pv.items"; echo namespace >> "$C/order.log"; rm -f "$C/ns.json";;
   status) [ ! -e "$C/ns.json" ] || exit 3;;
   *) exit 2;;
@@ -164,6 +164,7 @@ func newEnv(t *testing.T, namespaceRunID string) *env {
 	ns := fmt.Sprintf(`{"metadata":{"name":"orch-v2-test-a01-0001","labels":{"run-id":%q,"managed-by":%q}}}`, namespaceRunID, v2run.ProductManagedByTag)
 	_ = os.WriteFile(filepath.Join(e.cluster, "ns.json"), []byte(ns), 0o600)
 	_ = os.WriteFile(filepath.Join(e.cluster, "delivery"), []byte("deployment.apps/web\n"), 0o600)
+	_ = os.WriteFile(filepath.Join(e.cluster, "delivery.json"), []byte(`{"items":[{"kind":"Deployment","metadata":{"name":"web","uid":"uid-web"}}]}`), 0o600)
 	_ = os.WriteFile(filepath.Join(e.cluster, "app"), []byte("statefulset.apps/redis\n"), 0o600)
 	_ = os.WriteFile(filepath.Join(e.cluster, "pv.items"), []byte(`{"metadata":{"name":"pv-1"},"spec":{"claimRef":{"namespace":"orch-v2-test-a01-0001"}}}`), 0o600)
 	return e

@@ -13,11 +13,12 @@ import (
 // fakeCluster is a pure-logic stand-in for kubectl used only to unit test the
 // guard and verification decisions. It is NOT acceptance evidence.
 type fakeCluster struct {
-	namespaces map[string]string // name -> JSON
-	objects    map[string][]string
-	pvJSON     string
-	calls      []string
-	denyGet    bool
+	namespaces  map[string]string // name -> JSON
+	objects     map[string][]string
+	objectsJSON string
+	pvJSON      string
+	calls       []string
+	denyGet     bool
 }
 
 func (f *fakeCluster) Run(_ context.Context, args ...string) ([]byte, string, int) {
@@ -37,6 +38,9 @@ func (f *fakeCluster) Run(_ context.Context, args ...string) ([]byte, string, in
 		}
 		return []byte(doc), "", 0
 	case args[0] == "-n" && args[2] == "get":
+		if args[len(args)-1] == "json" {
+			return []byte(f.objectsJSON), "", 0
+		}
 		return []byte(strings.Join(f.objects[args[3]], "\n")), "", 0
 	case line == "get pv -o json":
 		return []byte(f.pvJSON), "", 0
@@ -51,7 +55,7 @@ func (f *fakeCluster) Run(_ context.Context, args ...string) ([]byte, string, in
 }
 
 func nsJSON(name, runID, managedBy string) string {
-	return fmt.Sprintf(`{"metadata":{"name":%q,"labels":{"run-id":%q,"managed-by":%q}}}`, name, runID, managedBy)
+	return fmt.Sprintf(`{"metadata":{"name":%q,"labels":{"run-id":%q,"managed-by":%q,"orchestrator-managed":"true","orchestrator-instance":"0123456789abcdef"}}}`, name, runID, managedBy)
 }
 
 func k8sManifest(t *testing.T) v2run.Manifest {
@@ -135,9 +139,10 @@ func TestVerifyLayersAreReadOnlyAndJudgedByContents(t *testing.T) {
 	m := k8sManifest(t)
 	ctx := context.Background()
 	c := &fakeCluster{
-		namespaces: map[string]string{m.Namespace: nsJSON(m.Namespace, "a01-0001", v2run.ProductManagedByTag)},
-		objects:    map[string][]string{"deployments,daemonsets,replicasets,jobs,cronjobs,services,ingresses,configmaps,secrets,serviceaccounts,roles,rolebindings": {"deployment.apps/web", "configmap/kube-root-ca.crt"}, "statefulsets,persistentvolumeclaims": {"statefulset.apps/redis"}},
-		pvJSON:     `{"items":[{"metadata":{"name":"pv-1"},"spec":{"claimRef":{"namespace":"` + m.Namespace + `"}}}]}`,
+		namespaces:  map[string]string{m.Namespace: nsJSON(m.Namespace, "a01-0001", v2run.ProductManagedByTag)},
+		objects:     map[string][]string{"statefulsets,persistentvolumeclaims": {"statefulset.apps/redis"}},
+		objectsJSON: `{"items":[{"kind":"Deployment","metadata":{"name":"web","labels":{}}}]}`,
+		pvJSON:      `{"items":[{"metadata":{"name":"pv-1"},"spec":{"claimRef":{"namespace":"` + m.Namespace + `"}}}]}`,
 	}
 	for _, layer := range []string{v2run.LayerDelivery, v2run.LayerAppResources, v2run.LayerNamespace} {
 		if err := v2run.VerifyLayer(ctx, c, m, layer); err == nil {
@@ -148,6 +153,7 @@ func TestVerifyLayersAreReadOnlyAndJudgedByContents(t *testing.T) {
 	for key := range c.objects {
 		c.objects[key] = nil
 	}
+	c.objectsJSON = `{"items":[]}`
 	if err := v2run.VerifyLayer(ctx, c, m, v2run.LayerDelivery); err != nil {
 		t.Fatal(err)
 	}
@@ -169,6 +175,57 @@ func TestVerifyLayersAreReadOnlyAndJudgedByContents(t *testing.T) {
 		if strings.Contains(call, "delete") {
 			t.Fatalf("verification issued a delete: %s", call)
 		}
+	}
+}
+
+func TestDeliveryVerificationRoutesOnlyKnownTerraformObjects(t *testing.T) {
+	m := k8sManifest(t)
+	ctx := context.Background()
+	baseLabels := `"orchestrator-managed":"true","orchestrator-created-by-run":"a01-0001","orchestrator-instance":"0123456789abcdef","app.kubernetes.io/managed-by":"orchestrator","app.kubernetes.io/name":"postgres","app.kubernetes.io/instance":"postgres-0123456789abcdef"`
+	tests := []struct {
+		name, item string
+		wantErr    bool
+	}{
+		{"owned auth secret", `{"kind":"Secret","metadata":{"name":"postgres-0123456789abcdef-auth","labels":{` + baseLabels + `}}}`, false},
+		{"owned terraform service", `{"kind":"Service","metadata":{"name":"postgres-0123456789abcdef","labels":{` + baseLabels + `}}}`, false},
+		{"foreign same name", `{"kind":"Secret","metadata":{"name":"postgres-0123456789abcdef-auth","labels":{}}}`, true},
+		{"mismatched run tag", `{"kind":"Service","metadata":{"name":"postgres-0123456789abcdef","labels":{` + strings.Replace(baseLabels, `"orchestrator-created-by-run":"a01-0001"`, `"orchestrator-created-by-run":"other-run"`, 1) + `}}}`, true},
+		{"missing physical instance", `{"kind":"Secret","metadata":{"name":"custom-secret","labels":{"orchestrator-managed":"true","orchestrator-created-by-run":"a01-0001","app.kubernetes.io/managed-by":"orchestrator"}}}`, true},
+		{"custom secret with spoofed labels", `{"kind":"Secret","metadata":{"name":"custom-secret","labels":{` + baseLabels + `}}}`, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &fakeCluster{namespaces: map[string]string{m.Namespace: nsJSON(m.Namespace, m.RunID, v2run.ProductManagedByTag)}, objectsJSON: `{"items":[` + tt.item + `]}`}
+			err := v2run.VerifyLayer(ctx, c, m, v2run.LayerDelivery)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("VerifyLayer error=%v, wantErr=%v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDeliveryVerificationRoutesOnlyPristineNamespaceDefaults(t *testing.T) {
+	m := k8sManifest(t)
+	ctx := context.Background()
+	tests := []struct {
+		name, item string
+		wantErr    bool
+	}{
+		{"default service account", `{"kind":"ServiceAccount","metadata":{"name":"default","uid":"uid-sa"}}`, false},
+		{"root CA config map", `{"kind":"ConfigMap","data":{"ca.crt":"opaque-cert"},"metadata":{"name":"kube-root-ca.crt","uid":"uid-ca","annotations":{"kubernetes.io/description":"cluster CA certificate"},"managedFields":[{"manager":"kube-controller-manager"}]}}`, false},
+		{"default account custom annotation", `{"kind":"ServiceAccount","metadata":{"name":"default","uid":"uid-sa","annotations":{"team":"custom"}}}`, true},
+		{"default account image pull secret", `{"kind":"ServiceAccount","imagePullSecrets":[{"name":"registry"}],"metadata":{"name":"default","uid":"uid-sa"}}`, true},
+		{"root CA custom label", `{"kind":"ConfigMap","data":{"ca.crt":"opaque-cert"},"metadata":{"name":"kube-root-ca.crt","uid":"uid-ca","labels":{"team":"custom"}}}`, true},
+		{"lookalike config map", `{"kind":"ConfigMap","data":{"ca.crt":"opaque-cert","extra":"x"},"metadata":{"name":"kube-root-ca.crt","uid":"uid-ca"}}`, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &fakeCluster{namespaces: map[string]string{m.Namespace: nsJSON(m.Namespace, m.RunID, v2run.ProductManagedByTag)}, objectsJSON: `{"items":[` + tt.item + `]}`}
+			err := v2run.VerifyLayer(ctx, c, m, v2run.LayerDelivery)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("VerifyLayer error=%v wantErr=%v", err, tt.wantErr)
+			}
+		})
 	}
 }
 

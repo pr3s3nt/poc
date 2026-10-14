@@ -84,6 +84,12 @@ func TestCredentialTarget_KubectlFailuresNeverEchoOutput(t *testing.T) {
 				kubectl, logPath := installStub(t)
 				t.Setenv("STUB_LEAK", tc.match)
 				t.Setenv("STUB_LEAK_MSG", tc.stderr)
+				if tc.name == "delete" {
+					labels := `"labels":{"orchestrator.io/application":"shop","orchestrator.io/environment":"staging","orchestrator.io/deployment-id":"deploy-123","app.kubernetes.io/managed-by":"orchestrator","app.kubernetes.io/name":"api"}`
+					t.Setenv("STUB_DEPLOYMENT", `{"metadata":{"uid":"11111111-1111-4111-8111-111111111111",`+labels+`}}`)
+					t.Setenv("STUB_SERVICE", `{"metadata":{"uid":"22222222-2222-4222-8222-222222222222",`+labels+`}}`)
+					t.Setenv("STUB_SECRET", `{"metadata":{"uid":"33333333-3333-4333-8333-333333333333",`+labels+`}}`)
+				}
 				err := tc.run(context.Background(), kubectl, &stubResolver{document: selected.Document})
 				if !errors.Is(err, tc.want) {
 					t.Fatalf("got %v, want category %v", err, tc.want)
@@ -179,11 +185,15 @@ func TestExplicitPathTarget_KeepsKubectlDiagnostics(t *testing.T) {
 	kubectl, _ := installStub(t)
 	t.Setenv("STUB_LEAK", " delete ")
 	t.Setenv("STUB_LEAK_MSG", "Error from server (Forbidden): deployments.apps is forbidden for host user")
+	labels := `"labels":{"orchestrator.io/application":"shop","orchestrator.io/environment":"staging","orchestrator.io/deployment-id":"deploy-123","app.kubernetes.io/managed-by":"orchestrator","app.kubernetes.io/name":"api"}`
+	t.Setenv("STUB_DEPLOYMENT", `{"metadata":{"uid":"11111111-1111-4111-8111-111111111111",`+labels+`}}`)
+	t.Setenv("STUB_SERVICE", `{"metadata":{"uid":"22222222-2222-4222-8222-222222222222",`+labels+`}}`)
+	t.Setenv("STUB_SECRET", `{"metadata":{"uid":"33333333-3333-4333-8333-333333333333",`+labels+`}}`)
 	path := filepath.Join(t.TempDir(), "eks.kubeconfig")
 	if err := os.WriteFile(path, []byte("apiVersion: v1\nkind: Config\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err := (&Deployer{KubectlPath: kubectl}).Remove(context.Background(), execution.Target{Context: "eks-cluster", Kubeconfig: path, Namespace: "ns"}, "api")
+	err := (&Deployer{KubectlPath: kubectl}).Remove(context.Background(), execution.Target{Context: "eks-cluster", Kubeconfig: path, Namespace: "ns", Extra: map[string]string{"application": "shop", "environment": "staging", "deployment": "deploy-123"}}, "api")
 	if !errors.Is(err, ErrForbidden) || !strings.Contains(err.Error(), "forbidden for host user") {
 		t.Fatalf("explicit-path diagnostics lost: %v", err)
 	}

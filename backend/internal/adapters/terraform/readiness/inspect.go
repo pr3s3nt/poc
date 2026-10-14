@@ -3,6 +3,7 @@ package readiness
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"sort"
 	"strings"
@@ -11,6 +12,7 @@ import (
 )
 
 var _ terraformexec.NamespaceInspector = (*Checker)(nil)
+var _ terraformexec.NamespaceAbsenceInspector = (*Checker)(nil)
 
 // ignoredNamespacedResources are namespaced API resources the content
 // inspection does not list: events are transient records of what happened and
@@ -49,6 +51,9 @@ func (c *Checker) Inspect(ctx context.Context, env []string, namespace string) (
 
 	nsOut, err := c.run()(ctx, c.Kubectl, append(append([]string(nil), base...), "get", "namespace", namespace, "-o", "json"), cmdEnv)
 	if err != nil {
+		if errors.Is(err, terraformexec.ErrNamespaceAbsent) {
+			return terraformexec.NamespaceInspection{Absent: true}, terraformexec.ErrNamespaceAbsent
+		}
 		return none, ErrUnavailable
 	}
 	var nsDoc struct {
@@ -150,4 +155,84 @@ func (c *Checker) Inspect(ctx context.Context, env []string, namespace string) (
 		inspection.Objects = append(inspection.Objects, object)
 	}
 	return inspection, nil
+}
+
+var absenceResource = map[string]string{
+	"kubernetes_stateful_set": "statefulsets", "kubernetes_stateful_set_v1": "statefulsets",
+	"kubernetes_deployment": "deployments", "kubernetes_deployment_v1": "deployments",
+	"kubernetes_service": "services", "kubernetes_service_v1": "services",
+	"kubernetes_secret": "secrets", "kubernetes_secret_v1": "secrets",
+	"kubernetes_config_map": "configmaps", "kubernetes_config_map_v1": "configmaps",
+	"kubernetes_persistent_volume_claim": "persistentvolumeclaims", "kubernetes_persistent_volume_claim_v1": "persistentvolumeclaims",
+	"kubernetes_service_account": "serviceaccounts", "kubernetes_service_account_v1": "serviceaccounts",
+	"kubernetes_resource_quota": "resourcequotas", "kubernetes_resource_quota_v1": "resourcequotas",
+	"kubernetes_limit_range": "limitranges", "kubernetes_limit_range_v1": "limitranges",
+	"kubernetes_network_policy": "networkpolicies", "kubernetes_network_policy_v1": "networkpolicies",
+	"kubernetes_role": "roles", "kubernetes_role_v1": "roles",
+	"kubernetes_role_binding": "rolebindings", "kubernetes_role_binding_v1": "rolebindings",
+}
+
+var namespaceTypes = map[string]bool{"kubernetes_namespace": true, "kubernetes_namespace_v1": true}
+
+// VerifyAbsent is used only after Inspect receives an exact namespace NotFound.
+// It rechecks that namespace and queries every historical namespaced state ID;
+// any malformed ID, API error, recreated namespace or surviving object fails.
+func (c *Checker) VerifyAbsent(ctx context.Context, env []string, namespace string, resources []terraformexec.StateResource) error {
+	if !validName(namespace) {
+		return ErrUnavailable
+	}
+	dir, err := os.MkdirTemp(c.Dir, "inspect-absent-")
+	if err != nil {
+		return ErrUnavailable
+	}
+	defer os.RemoveAll(dir)
+	kubeconfig, err := writeKubeconfig(dir, env)
+	if err != nil {
+		return ErrUnavailable
+	}
+	base := []string{"--kubeconfig", kubeconfig}
+	if name := value(env, "KUBE_CTX"); name != "" {
+		base = append(base, "--context", name)
+	}
+	cmdEnv := []string{"PATH=" + os.TempDir() + "/no-path", "HOME=" + dir, "KUBECONFIG=" + kubeconfig}
+	checkNamespaceAbsent := func() error {
+		_, err := c.run()(ctx, c.Kubectl, append(append([]string(nil), base...), "get", "namespace", namespace, "-o", "name"), cmdEnv)
+		if !errors.Is(err, terraformexec.ErrNamespaceAbsent) {
+			return ErrUnavailable
+		}
+		return nil
+	}
+	if err := checkNamespaceAbsent(); err != nil {
+		return err
+	}
+	for _, r := range resources {
+		if namespaceTypes[r.Type] {
+			if r.ID != namespace || r.UID == "" {
+				return ErrUnavailable
+			}
+			continue
+		}
+		plural, ok := absenceResource[r.Type]
+		if !ok {
+			if strings.HasPrefix(r.Type, "kubernetes_") {
+				return ErrUnavailable
+			}
+			continue
+		}
+		idNamespace, name, found := strings.Cut(r.ID, "/")
+		if !found || idNamespace != namespace || name == "" || strings.Contains(name, "/") || r.UID == "" {
+			return ErrUnavailable
+		}
+		out, err := c.run()(ctx, c.Kubectl, append(append([]string(nil), base...), "get", plural, name, "-n", namespace, "-o", "name"), cmdEnv)
+		if err == nil {
+			if strings.TrimSpace(string(out)) != "" {
+				return ErrUnavailable
+			}
+			return ErrUnavailable
+		}
+		if !errors.Is(err, terraformexec.ErrNamespaceAbsent) {
+			return ErrUnavailable
+		}
+	}
+	return checkNamespaceAbsent()
 }

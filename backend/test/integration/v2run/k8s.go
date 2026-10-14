@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -42,6 +43,83 @@ type namespaceDoc struct {
 		Labels      map[string]string `json:"labels"`
 		Annotations map[string]string `json:"annotations"`
 	} `json:"metadata"`
+}
+
+type listedObject struct {
+	Kind             string            `json:"kind"`
+	Data             map[string]string `json:"data"`
+	Secrets          []any             `json:"secrets"`
+	ImagePullSecrets []any             `json:"imagePullSecrets"`
+	Automount        *bool             `json:"automountServiceAccountToken"`
+	Metadata         struct {
+		Name        string            `json:"name"`
+		UID         string            `json:"uid"`
+		Labels      map[string]string `json:"labels"`
+		Annotations map[string]string `json:"annotations"`
+		Owners      []any             `json:"ownerReferences"`
+		Managed     []struct {
+			Manager string `json:"manager"`
+		} `json:"managedFields"`
+	} `json:"metadata"`
+}
+
+type listedObjects struct {
+	Items []listedObject `json:"items"`
+}
+
+var physicalInstancePattern = regexp.MustCompile(`^[0-9a-f]{8,64}$`)
+
+func generatedDeliveryObject(o listedObject, runID string) bool {
+	labels := o.Metadata.Labels
+	if labels["orchestrator-managed"] == "true" && labels["orchestrator-created-by-run"] == runID &&
+		physicalInstancePattern.MatchString(labels["orchestrator-instance"]) && labels["app.kubernetes.io/managed-by"] == "orchestrator" {
+		instance := labels["app.kubernetes.io/instance"]
+		name := labels["app.kubernetes.io/name"]
+		for _, app := range []string{"postgres", "redis"} {
+			key := strings.TrimPrefix(instance, app+"-")
+			if name != app || !physicalInstancePattern.MatchString(key) || labels["orchestrator-instance"] != key {
+				continue
+			}
+			if o.Kind == "Service" && o.Metadata.Name == instance {
+				return true
+			}
+			if o.Kind == "Secret" && o.Metadata.Name == instance+"-auth" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// pristineNamespaceDefault recognizes only the two control-plane defaults
+// that the Terraform namespace layer later checks by full UID inventory.
+func pristineNamespaceDefault(o listedObject) bool {
+	if o.Metadata.UID == "" || len(o.Metadata.Labels) != 0 || len(o.Metadata.Owners) != 0 {
+		return false
+	}
+	managerOK := len(o.Metadata.Managed) == 0 || len(o.Metadata.Managed) == 1 && o.Metadata.Managed[0].Manager == "kube-controller-manager"
+	if !managerOK {
+		return false
+	}
+	switch {
+	case o.Kind == "ServiceAccount" && o.Metadata.Name == "default":
+		if len(o.Metadata.Annotations) != 0 || len(o.Secrets) != 0 || len(o.ImagePullSecrets) != 0 || o.Automount != nil {
+			return false
+		}
+		return true
+	case o.Kind == "ConfigMap" && o.Metadata.Name == "kube-root-ca.crt":
+		if len(o.Data) != 1 || o.Data["ca.crt"] == "" {
+			return false
+		}
+		for key := range o.Metadata.Annotations {
+			if key != "kubernetes.io/description" {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 // GuardNamespace proves the run namespace is run-owned before any effect:
@@ -102,7 +180,11 @@ func GuardNamespaceForRun(ctx context.Context, k Kubectl, m Manifest, c Config) 
 // destroyed by the original engine (v2cleanup terraform); delivered Workloads
 // by the product's own Remove (v2cleanup delivery).
 var layerResources = map[string]string{
-	LayerDelivery:     "deployments,daemonsets,replicasets,jobs,cronjobs,services,ingresses,configmaps,secrets,serviceaccounts,roles,rolebindings",
+	// The platform-generated default account/CA ConfigMap are routed to the
+	// namespace engine's full UID inventory. Known postgres/redis Service+auth
+	// Secret shapes are routed to Terraform state/UID verification. The latter are checked
+	// here as routed Terraform inventory and must later disappear in the TF layer.
+	LayerDelivery:     "deployments,daemonsets,replicasets,jobs,cronjobs,services,ingresses,secrets,roles,rolebindings,configmaps,serviceaccounts",
 	LayerAppResources: "statefulsets,persistentvolumeclaims",
 }
 
@@ -139,7 +221,11 @@ func VerifyLayer(ctx context.Context, k Kubectl, m Manifest, layer string) error
 		if nsGone {
 			return nil
 		}
-		out, stderr, exit := k.Run(ctx, "-n", m.Namespace, "get", layerResources[layer], "-o", "name")
+		format := "name"
+		if layer == LayerDelivery {
+			format = "json"
+		}
+		out, stderr, exit := k.Run(ctx, "-n", m.Namespace, "get", layerResources[layer], "-o", format)
 		if exit != 0 {
 			if notFound.MatchString(stderr) {
 				return nil
@@ -147,13 +233,26 @@ func VerifyLayer(ctx context.Context, k Kubectl, m Manifest, layer string) error
 			return errors.New("remaining objects could not be listed")
 		}
 		var left []string
-		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-			line = strings.TrimSpace(line)
-			// Objects the cluster recreates itself are not workload delivery.
-			if line == "" || line == "configmap/kube-root-ca.crt" || strings.HasPrefix(line, "serviceaccount/default") {
-				continue
+		if layer == LayerDelivery {
+			var inventory listedObjects
+			if err := json.Unmarshal(out, &inventory); err != nil {
+				return errors.New("delivery inventory could not be decoded")
 			}
-			left = append(left, line)
+			for _, object := range inventory.Items {
+				// Only the exact Terraform module Service and auth Secret identity
+				// shapes are routed to the later state/UID-verified Terraform layer.
+				// A same-name or same-label object alone never proves cleanup.
+				if object.Metadata.Name == "" || object.Kind == "" || (!generatedDeliveryObject(object, m.RunID) && !pristineNamespaceDefault(object)) {
+					left = append(left, object.Kind+"/"+object.Metadata.Name)
+				}
+			}
+		} else {
+			for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+				line = strings.TrimSpace(line)
+				if line != "" {
+					left = append(left, line)
+				}
+			}
 		}
 		if len(left) > 0 {
 			return fmt.Errorf("%d object(s) remain in the %s layer", len(left), layer)

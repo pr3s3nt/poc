@@ -2,11 +2,14 @@ package tfexec
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
+	"orchestrator/internal/domain/tfresource"
 	"orchestrator/internal/ports/terraformexec"
 )
 
@@ -40,6 +43,98 @@ var ownKinds = map[string]string{
 // controllerManager is the field manager recorded for objects the Kubernetes
 // control plane generates itself.
 const controllerManager = "kube-controller-manager"
+
+type namespaceCreationBaseline struct {
+	NamespaceUID             string `json:"namespaceUid"`
+	DefaultServiceAccountUID string `json:"defaultServiceAccountUid"`
+}
+
+func namespaceBaselineHandle(instanceID string) string { return "baseline-" + instanceID }
+
+// captureNamespaceBaseline records the default ServiceAccount UID immediately
+// after this run creates and readies its namespace, before dependent workloads
+// are provisioned. The encrypted artifact is immutable for the instance.
+func (s *Service) captureNamespaceBaseline(ctx context.Context, st *execState, resources []terraformexec.StateResource) error {
+	if st.action != tfresource.ActionCreate || st.bundle.Ref.ModuleID != "k8s-namespace" {
+		return nil
+	}
+	var namespace terraformexec.StateResource
+	for _, r := range resources {
+		if namespaceTypes[r.Type] {
+			if namespace.ID != "" || r.ID == "" || r.UID == "" || strings.Contains(r.ID, "/") {
+				return fmt.Errorf("%w: namespace creation provenance is ambiguous", ErrExecution)
+			}
+			namespace = r
+		}
+	}
+	if namespace.ID == "" || s.deps.Namespaces == nil {
+		return fmt.Errorf("%w: namespace creation baseline is unavailable", ErrExecution)
+	}
+	var serviceAccount *terraformexec.NamespaceObject
+	for {
+		inspected, err := s.deps.Namespaces.Inspect(ctx, st.env.Env, namespace.ID)
+		if err != nil || inspected.UID != namespace.UID {
+			return fmt.Errorf("%w: namespace creation baseline could not be verified", ErrExecution)
+		}
+		serviceAccount = nil
+		for i := range inspected.Objects {
+			o := &inspected.Objects[i]
+			if o.Kind == "ServiceAccount" && o.Name == "default" {
+				if serviceAccount != nil {
+					return fmt.Errorf("%w: default ServiceAccount identity is ambiguous", ErrExecution)
+				}
+				serviceAccount = o
+			}
+		}
+		if serviceAccount != nil {
+			if !pristineDefaultServiceAccount(*serviceAccount, true) {
+				return fmt.Errorf("%w: default ServiceAccount creation provenance is unavailable", ErrExecution)
+			}
+			break
+		}
+		// Kubernetes creates the namespace's default ServiceAccount
+		// asynchronously. Retry only this exact not-yet-present condition,
+		// under the bounded readiness context. API errors and a present but
+		// non-pristine object remain immediate failures.
+		timer := time.NewTimer(250 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return fmt.Errorf("%w: default ServiceAccount did not appear before readiness expired", ErrExecution)
+		case <-timer.C:
+		}
+	}
+	baseline, err := json.Marshal(namespaceCreationBaseline{NamespaceUID: namespace.UID, DefaultServiceAccountUID: serviceAccount.UID})
+	if err != nil {
+		return fmt.Errorf("%w: namespace creation baseline could not be encoded", ErrExecution)
+	}
+	handle := namespaceBaselineHandle(st.inst.ID)
+	existing, found, err := s.deps.Verification.LoadVerification(ctx, handle, st.inst.ID)
+	if err != nil || found && string(existing) != string(baseline) {
+		return fmt.Errorf("%w: namespace creation baseline is unreadable or changed", ErrExecution)
+	}
+	if !found {
+		if err := s.deps.Verification.SaveVerification(ctx, handle, st.inst.ID, baseline); err != nil {
+			return fmt.Errorf("%w: namespace creation baseline could not be preserved", ErrExecution)
+		}
+		stored, storedFound, err := s.deps.Verification.LoadVerification(ctx, handle, st.inst.ID)
+		if err != nil || !storedFound || string(stored) != string(baseline) {
+			return fmt.Errorf("%w: namespace creation baseline was not durably preserved", ErrExecution)
+		}
+	}
+	return nil
+}
+
+func pristineDefaultServiceAccount(o terraformexec.NamespaceObject, allowNoManager bool) bool {
+	if o.Kind != "ServiceAccount" || o.Name != "default" || o.UID == "" || len(o.Owners) != 0 || len(o.LabelKeys) != 0 ||
+		o.SecretRefs != 0 || o.ImagePullSecrets != 0 || o.AutomountSet || len(o.AnnotationKeys) != 0 {
+		return false
+	}
+	if len(o.Managers) == 0 && allowNoManager {
+		return true
+	}
+	return onlyManager(o)
+}
 
 // namespaceOf returns the namespaces (name and state UID) a destroy would delete.
 type stateNamespace struct{ Name, UID string }
@@ -102,6 +197,10 @@ func generatedDefault(o terraformexec.NamespaceObject) bool {
 //   - an object whose every ownerReference names an accounted object by kind,
 //     name AND UID (a recreated or spoofed same-name owner is foreign).
 func judgeNamespace(ns stateNamespace, inspected terraformexec.NamespaceInspection, own []terraformexec.StateResource) (foreign []string, namespaceIsOurs bool) {
+	return judgeNamespaceWithBaseline(ns, inspected, own, nil)
+}
+
+func judgeNamespaceWithBaseline(ns stateNamespace, inspected terraformexec.NamespaceInspection, own []terraformexec.StateResource, baseline *namespaceCreationBaseline) (foreign []string, namespaceIsOurs bool) {
 	namespaceIsOurs = ns.UID != "" && inspected.UID == ns.UID
 	ownUID := map[string]string{} // kind/name -> UID recorded in state
 	for _, r := range own {
@@ -124,6 +223,10 @@ func judgeNamespace(ns stateNamespace, inspected terraformexec.NamespaceInspecti
 			accounted[o.UID] = true
 		}
 		if generatedDefault(o) {
+			accounted[o.UID] = true
+		}
+		if baseline != nil && baseline.NamespaceUID == ns.UID && inspected.UID == ns.UID &&
+			o.Kind == "ServiceAccount" && o.Name == "default" && o.UID == baseline.DefaultServiceAccountUID && pristineDefaultServiceAccount(o, true) {
 			accounted[o.UID] = true
 		}
 	}
@@ -172,10 +275,29 @@ func (s *Service) inspectNamespaces(ctx context.Context, st *execState, pre []te
 			return fmt.Errorf("%w: no inspector is configured", ErrNamespaceContents)
 		}
 		inspected, err := s.deps.Namespaces.Inspect(ctx, st.env.Env, ns.Name)
+		if errors.Is(err, terraformexec.ErrNamespaceAbsent) && inspected.Absent {
+			verifier, ok := s.deps.Namespaces.(terraformexec.NamespaceAbsenceInspector)
+			if !ok || verifier.VerifyAbsent(ctx, st.env.Env, ns.Name, pre) != nil {
+				return fmt.Errorf("%w: the absent namespace's historical resources could not be verified", ErrNamespaceContents)
+			}
+			continue
+		}
 		if err != nil {
 			return fmt.Errorf("%w: the contents of %s could not be read", ErrNamespaceContents, ns.Name)
 		}
-		foreign, ours := judgeNamespace(ns, inspected, pre)
+		var baseline *namespaceCreationBaseline
+		if handle := namespaceBaselineHandle(st.inst.ID); st.inst.ID != "" {
+			if raw, found, loadErr := s.deps.Verification.LoadVerification(ctx, handle, st.inst.ID); loadErr != nil {
+				return fmt.Errorf("%w: the namespace creation baseline could not be read", ErrNamespaceContents)
+			} else if found {
+				var value namespaceCreationBaseline
+				if json.Unmarshal(raw, &value) != nil || value.NamespaceUID == "" || value.DefaultServiceAccountUID == "" {
+					return fmt.Errorf("%w: the namespace creation baseline is malformed", ErrNamespaceContents)
+				}
+				baseline = &value
+			}
+		}
+		foreign, ours := judgeNamespaceWithBaseline(ns, inspected, pre, baseline)
 		if !ours {
 			return fmt.Errorf("%w: %s is not the namespace this state created", ErrNamespaceContents, ns.Name)
 		}
