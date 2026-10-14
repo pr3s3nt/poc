@@ -83,7 +83,7 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 - Cleanup từng run xác minh hết owned cloud/k8s assets; remaining IDs là chưa complete.
 - CURRENT_STATE/code map/traceability ghi kết quả thật; IMP-021 chỉ đóng khi đủ bằng chứng.
 - Task-only changes reviewed/committed/pushed, nhánh Claude đã xóa.
-- Handoff cuối sẵn sàng và người dùng duyệt; không giả claim approval.
+- Gửi bàn giao cuối theo quyền 2026-10-15, không chờ duyệt hoặc tự ghi đã duyệt.
 
 ## Current handoff
 
@@ -330,3 +330,9 @@ và runtime mới dùng TMPDIR riêng trên disk
 `/home/thanhnt1/.cache/poc-m04-i0411-evidence/`, ngoài Git0700. Giữ failed
 evidence cũ, không dọn wildcard hoặc user-owned /tmp. A02/A03 configs/preflight
 chỉ đọc và estimates13lines/counts/5h đạt, chưa tạo AWS.
+
+**Bản sửa đã chốt2026-10-15:** Luna hoàn tất UID DeleteOptions/Foreground,
+đợi vắng có deadline, ownership qua removal attempt, baseline bất biến và
+phân lớp cleanup; giữ nguyên module pin namespace. Codex đã review, đang chạy
+full Go race/PostgreSQL/Terraform/Redis, build/vet, frontend và docs độc lập tại
+`/home/thanhnt1/.cache/poc-m04-i0411-evidence/checks-r4-final`. Chưa ghi pass.

@@ -13,7 +13,7 @@ last_reviewed: 2026-10-13
 small sizing, estimates, deadlines và cleanup. [M04](../iterations/M04-terraform-v2/README.md)
 yêu cầu A01/E01/E02 pass, video và dự toán đã lưu, k8s-4f sạch trước AWS.
 Quyết định 2026-10-14 bỏ điểm duyệt 2: Codex tự chạy I04-12 khi đủ điều kiện;
-điểm duyệt bàn giao cuối vẫn giữ. Account 452025861381, region us-east-1.
+quyết định 2026-10-15 bỏ điểm duyệt cuối, hoàn tất gửi báo cáo. Account 452025861381, region us-east-1.
 
 ## Preflight
 
@@ -57,4 +57,4 @@ Query AWS theo physical IDs/run tags: VPC/subnets/SG/routes/NAT/IGW, EC2/EBS/
 EIP, EKS, RDS, ElastiCache, ECR, IAM/LB phát sinh. Destroy exit 0/empty state
 không đủ absence proof. Remaining IDs phải được xử lý và xác minh; chưa sạch
 thì run chưa hoàn tất và không bắt đầu run mới. Giữ failed video/assertions
-và evidence cleanup để final handoff được người dùng duyệt.
+và bằng chứng cleanup để báo cáo cuối, không chờ duyệt.

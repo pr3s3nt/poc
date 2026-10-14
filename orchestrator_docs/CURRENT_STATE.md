@@ -26,8 +26,8 @@ A01 retry duy nhất `a01-20261014-r2` fail ở native confirm xóa workload;
 deploy/job/cache/Vault đều đạt. Operator gỡ workload/VSO, Terraform gốc dọn
 Redis/PostgreSQL, dọn renderer Secrets theo UID. Namespace từng bị chặn vì
 default SA không managedFields; quyền ngoại lệ15Oct đã được thực hiện sau
-xác minh UID, namespace/PV ABSENT. Giữ DB/hai Vault/private handles để khép
-registry bằng bản sửa,28 retained UIDs nguyên vẹn. AWS vẫn bị gate.
+xác minh UID, namespace/PV ABSENT. Engine đã khép registry, DB/hai Vault đã dọn; private archives giữ,
+28 retained UIDs nguyên vẹn. AWS vẫn bị gate.
 [Biên bản I04-11](verification/2026-10-14-i04-11-k8s4f.md).
 Quyết định2026-10-15: bỏ giới hạn một retry scenario; thất bại phải tìm nguyên
 nhân, giao writer sửa và review/checks rồi chạy lại khi lượt cũ cleanup sạch.
@@ -36,7 +36,8 @@ namespace/UID2026-10-15; Codex xác minh lại
 và dọn bằng UID precondition, namespace/PV ABSENT, sentinel giữ nguyên.
 Lượt r2 đã CLOSED_CLEAN: engine gốc ghi3instances DESTROYED, supervisor phục
 hồi CLEAN, DB/ba roles drop và hai Vault dừng; failed evidence/private state
-archives giữ. Luna finalize code/test; chưa mở run mới. Platform PG riêng giữ.
+archives giữ. Luna đã chốt code/test, Codex đang chạy checks độc lập
+trên disk với bản sửa đã review; chưa mở run mới. Platform PG riêng giữ.
 Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi
 lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
 k8s-4f sạch thì tự chạy I04-12 AWS 452025861381/us-east-1. Quyết định2026-10-15
