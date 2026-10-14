@@ -480,11 +480,16 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 		if instance.WorkloadID != workloadID {
 			continue
 		}
-		target := execution.Target{Namespace: planCtx.Env.Namespace(), Extra: map[string]string{"application": planCtx.App.Key, "environment": planCtx.Env.Key}}
+		ownerDeploymentID := workloadOwnerDeploymentID(instance)
+		target := execution.Target{Namespace: planCtx.Env.Namespace(), Extra: map[string]string{"application": planCtx.App.Key, "environment": planCtx.Env.Key, "deployment": ownerDeploymentID}}
 		if err := restoreEnvironmentTarget(&target, instance.TargetRef, planCtx.OrganizationKey, planCtx.Env.ConnectionKey); err != nil {
 			return err
 		}
 		instance.Status = domain.InstanceRemoving
+		instance.TargetRef = withWorkloadOwner(instance.TargetRef, ownerDeploymentID)
+		// The progress snapshot belongs to this removal deployment, while the
+		// renderer objects still belong to the deployment recorded in TargetRef.
+		// Keep both identities so a failed/unknown delete can be retried safely.
 		instance.LastDeploymentID = deploymentID
 		instance.ObservedAt = s.clock.Now()
 		if err := s.store.UpsertWorkloadProgress(ctx, instance); err != nil {
@@ -678,7 +683,7 @@ func (s *Service) applyWorkload(
 		LastDeploymentID:        record.ID,
 		AppliedConfigRevisionID: configRevisionID,
 		Generation:              planCtx.Env.TargetGeneration,
-		TargetRef:               withDelivery(targetRef(target), secretDelivery),
+		TargetRef:               withWorkloadOwner(withDelivery(targetRef(target), secretDelivery), record.ID),
 		ManifestDigest:          digest,
 		Status:                  domain.InstanceApplying,
 		ObservedAt:              s.clock.Now(),
@@ -842,6 +847,24 @@ func withDelivery(ref map[string]any, delivery map[string]any) map[string]any {
 	if delivery != nil {
 		ref["secretDelivery"] = delivery
 	}
+	return ref
+}
+
+const workloadOwnerDeploymentIDKey = "orchestrator.io/owner-deployment-id"
+
+func workloadOwnerDeploymentID(instance domain.WorkloadInstance) string {
+	if value, exists := instance.TargetRef[workloadOwnerDeploymentIDKey]; exists {
+		owner, ok := value.(string)
+		if !ok {
+			return ""
+		}
+		return owner
+	}
+	return instance.LastDeploymentID
+}
+
+func withWorkloadOwner(ref map[string]any, deploymentID string) map[string]any {
+	ref[workloadOwnerDeploymentIDKey] = deploymentID
 	return ref
 }
 

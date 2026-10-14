@@ -107,6 +107,41 @@ func TestRemoveDeliveredUnknownOutcomeKeepsTheClaimAndTheFailedInstance(t *testi
 	}
 }
 
+func TestRemoveDeliveredRetryUsesOriginalOwnerAfterRemovalSnapshotChanged(t *testing.T) {
+	ctx, in, deployer, instances := deliveredApp(t)
+	var instance domain.WorkloadInstance
+	for _, candidate := range instances() {
+		if candidate.WorkloadID == "worker" {
+			instance = candidate
+		}
+	}
+	if instance.WorkloadID == "" {
+		t.Fatal("worker workload missing")
+	}
+	originalOwner := instance.LastDeploymentID
+	instance.TargetRef = cloneTargetRef(instance.TargetRef)
+	instance.TargetRef["orchestrator.io/owner-deployment-id"] = originalOwner
+	instance.LastDeploymentID = "removal-attempt"
+	instance.Status = domain.InstanceFailed
+	if err := in.Store.UpsertWorkloadInstance(ctx, instance); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := in.Service.RemoveDelivered(ctx, in.Organization, in.Application, in.Environment, 0); err != nil {
+		t.Fatal(err)
+	}
+	if got := deployer.removeTarget.Extra["deployment"]; got != originalOwner {
+		t.Fatalf("retry used deployment %q; renderer objects belong to %q", got, originalOwner)
+	}
+}
+
+func cloneTargetRef(ref map[string]any) map[string]any {
+	clone := make(map[string]any, len(ref))
+	for key, value := range ref {
+		clone[key] = value
+	}
+	return clone
+}
+
 func TestRemoveDeliveredRefusesAWrongGenerationAndProtectsOthers(t *testing.T) {
 	ctx, in, deployer, instances := deliveredApp(t)
 	before := deployer.removes

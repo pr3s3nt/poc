@@ -2,6 +2,7 @@ package deployment_test
 
 import (
 	"context"
+	"fmt"
 	"orchestrator/internal/seed/seedtest"
 	"os"
 	"path/filepath"
@@ -33,11 +34,15 @@ for a in "$@"; do
   if [ "$prev" = "--kubeconfig" ]; then kc="$a"; fi
   prev="$a"
 done
+deleted_file="$STUB_DELETED_FILE"
 cred="none"
 if [ -n "$kc" ] && grep -q "$STUB_EXPECT" "$kc"; then cred="ok"; fi
 echo "CALL cred=$cred $*" >> "$STUB_LOG"
 case "$*" in
   *" apply "*) if [ -n "$STUB_LEAK" ]; then echo "Error from server (BadRequest): $kc" >&2; cat "$kc" >&2; exit 1; fi ;;
+  *" get deployment backend "*) if grep -Fq '/deployments/backend' "$deleted_file" 2>/dev/null; then echo 'Error from server (NotFound): not found' >&2; exit 1; elif [ -n "$STUB_DEPLOYMENT" ]; then printf '%s\n' "$STUB_DEPLOYMENT"; else echo 'Error from server (NotFound): not found' >&2; exit 1; fi ;;
+  *" get service backend "*) if grep -Fq '/services/backend' "$deleted_file" 2>/dev/null; then echo 'Error from server (NotFound): not found' >&2; exit 1; elif [ -n "$STUB_SERVICE" ]; then printf '%s\n' "$STUB_SERVICE"; else echo 'Error from server (NotFound): not found' >&2; exit 1; fi ;;
+  *" delete --raw "*) raw_path=""; previous=""; for arg in "$@"; do [ "$previous" = "--raw" ] && raw_path="$arg"; previous="$arg"; done; cat >/dev/null; echo "$raw_path" >> "$deleted_file" ;;
   *" get "*) echo 'Error from server (NotFound): ingresses.networking.k8s.io "x" not found' >&2; exit 1 ;;
 esac
 `
@@ -90,6 +95,7 @@ func TestCredentialBackedTarget_RemovalAfterRestart(t *testing.T) {
 	stubLog := filepath.Join(dir, "kubectl.log")
 	t.Setenv("STUB_LOG", stubLog)
 	t.Setenv("STUB_EXPECT", restartToken)
+	t.Setenv("STUB_DELETED_FILE", filepath.Join(dir, "deleted-objects"))
 	statePath := filepath.Join(dir, "state.json")
 	creds := credentialmemory.New()
 	opts := seedtest.Defaults()
@@ -146,6 +152,10 @@ func TestCredentialBackedTarget_RemovalAfterRestart(t *testing.T) {
 	if err != nil || len(instances) != 1 || instances[0].TargetRef["connection"] != created.Key || instances[0].TargetRef["organization"] != opts.OrganizationKey {
 		t.Fatalf("persisted target after restart: %v %#v", err, instances)
 	}
+	ownerID := instances[0].LastDeploymentID
+	labels := fmt.Sprintf(`"labels":{"orchestrator.io/application":%q,"orchestrator.io/environment":%q,"orchestrator.io/deployment-id":%q,"app.kubernetes.io/managed-by":"orchestrator","app.kubernetes.io/name":"backend"}`, opts.ApplicationKey, opts.EnvironmentKey, ownerID)
+	t.Setenv("STUB_DEPLOYMENT", `{"metadata":{"uid":"11111111-1111-4111-8111-111111111111",`+labels+`}}`)
+	t.Setenv("STUB_SERVICE", `{"metadata":{"uid":"22222222-2222-4222-8222-222222222222",`+labels+`}}`)
 	remove := deploy
 	remove.ScoreBefore, remove.ScoreAfter = scores["backend"], nil
 	if _, err := second.app.Deployments.DeployWorkload(ctx, remove); err != nil {
@@ -158,7 +168,8 @@ func TestCredentialBackedTarget_RemovalAfterRestart(t *testing.T) {
 		if !strings.HasPrefix(call, "CALL cred=ok ") || !strings.Contains(call, "--context lab ") {
 			t.Fatalf("call after restart without the stored credential: %s", call)
 		}
-		if strings.Contains(call, " delete deployment backend ") || strings.Contains(call, " delete service backend ") {
+		if strings.Contains(call, " delete --raw /apis/apps/v1/namespaces/") && strings.Contains(call, "/deployments/backend -f -") ||
+			strings.Contains(call, " delete --raw /api/v1/namespaces/") && strings.Contains(call, "/services/backend -f -") {
 			deletes++
 		}
 		if strings.Contains(call, " get ingress ") {

@@ -1,11 +1,53 @@
 package tfexec
 
 import (
+	"context"
 	"reflect"
 	"testing"
+	"time"
 
+	"orchestrator/internal/domain/tfmodule"
+	"orchestrator/internal/domain/tfresource"
 	"orchestrator/internal/ports/terraformexec"
 )
+
+type baselineStore struct{ values map[string][]byte }
+
+func (s *baselineStore) SaveVerification(_ context.Context, handle, _ string, value []byte) error {
+	if s.values == nil {
+		s.values = map[string][]byte{}
+	}
+	if _, exists := s.values[handle]; !exists {
+		s.values[handle] = append([]byte(nil), value...)
+	}
+	return nil
+}
+func (s *baselineStore) LoadVerification(_ context.Context, handle, _ string) ([]byte, bool, error) {
+	v, ok := s.values[handle]
+	return append([]byte(nil), v...), ok, nil
+}
+
+type baselineInspector struct {
+	inspection terraformexec.NamespaceInspection
+}
+
+func (i baselineInspector) Inspect(context.Context, []string, string) (terraformexec.NamespaceInspection, error) {
+	return i.inspection, nil
+}
+
+type baselineSequenceInspector struct {
+	inspections []terraformexec.NamespaceInspection
+	calls       int
+}
+
+func (i *baselineSequenceInspector) Inspect(context.Context, []string, string) (terraformexec.NamespaceInspection, error) {
+	index := i.calls
+	i.calls++
+	if index >= len(i.inspections) {
+		index = len(i.inspections) - 1
+	}
+	return i.inspections[index], nil
+}
 
 const nsUID = "uid-ns"
 
@@ -87,5 +129,112 @@ func TestJudgeNamespaceAccountsOnlyForProvenObjects(t *testing.T) {
 	}
 	if _, ours := judgeNamespace(stateNamespace{Name: "orc-ns"}, terraformexec.NamespaceInspection{UID: nsUID}, own); ours {
 		t.Fatal("a namespace without a recorded UID was accepted")
+	}
+}
+
+func TestDefaultServiceAccountRequiresImmutableCreationBaselineWhenManagersAreAbsent(t *testing.T) {
+	defaultSA := terraformexec.NamespaceObject{Kind: "ServiceAccount", Name: "default", UID: "uid-sa"}
+	ns := stateNamespace{Name: "orch-v2-test-r1", UID: nsUID}
+	inspection := terraformexec.NamespaceInspection{UID: nsUID, Objects: []terraformexec.NamespaceObject{defaultSA}}
+	if got, ours := judgeNamespace(ns, inspection, nil); !ours || !reflect.DeepEqual(got, []string{"ServiceAccount/default"}) {
+		t.Fatalf("an SA with no field-manager provenance must remain foreign without a baseline: %v ours=%v", got, ours)
+	}
+	baseline := &namespaceCreationBaseline{NamespaceUID: nsUID, DefaultServiceAccountUID: "uid-sa"}
+	if got, ours := judgeNamespaceWithBaseline(ns, inspection, nil, baseline); !ours || len(got) != 0 {
+		t.Fatalf("the exact immutable creation baseline should account for the default SA: %v ours=%v", got, ours)
+	}
+	for name, tc := range map[string]struct {
+		inspection terraformexec.NamespaceInspection
+		baseline   namespaceCreationBaseline
+	}{
+		"replacement UID":    {inspection: inspection, baseline: namespaceCreationBaseline{NamespaceUID: nsUID, DefaultServiceAccountUID: "uid-replaced"}},
+		"replaced namespace": {inspection: terraformexec.NamespaceInspection{UID: "uid-new", Objects: []terraformexec.NamespaceObject{defaultSA}}, baseline: *baseline},
+		"custom metadata":    {inspection: terraformexec.NamespaceInspection{UID: nsUID, Objects: []terraformexec.NamespaceObject{{Kind: "ServiceAccount", Name: "default", UID: "uid-sa", ImagePullSecrets: 1}}}, baseline: *baseline},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, ours := judgeNamespaceWithBaseline(ns, tc.inspection, nil, &tc.baseline)
+			wantOurs := name != "replaced namespace"
+			if ours != wantOurs || !reflect.DeepEqual(got, []string{"ServiceAccount/default"}) {
+				t.Fatalf("invalid baseline/object was accepted: %v ours=%v", got, ours)
+			}
+		})
+	}
+}
+
+func TestCaptureNamespaceBaselineIsImmutableAndBoundToCreatedUIDs(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		uid     string
+		labels  []string
+		wantErr bool
+	}{
+		{name: "fresh default", uid: "uid-sa"},
+		{name: "custom metadata", uid: "uid-sa", labels: []string{"team"}, wantErr: true},
+		{name: "empty identity", uid: "", wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &baselineStore{}
+			inspector := baselineInspector{inspection: terraformexec.NamespaceInspection{UID: nsUID, Objects: []terraformexec.NamespaceObject{{Kind: "ServiceAccount", Name: "default", UID: tc.uid, LabelKeys: tc.labels}}}}
+			s := &Service{deps: Deps{Verification: store, Namespaces: inspector}}
+			st := &execState{action: tfresource.ActionCreate, bundle: tfmodule.Bundle{Ref: tfmodule.SourceRef{ModuleID: "k8s-namespace"}}, inst: tfresource.Instance{ID: "12345678-1234-4234-8234-123456789abc"}, env: terraformexec.ProviderEnv{}}
+			resources := []terraformexec.StateResource{{Type: "kubernetes_namespace_v1", ID: "orch-ns", UID: nsUID}}
+			err := s.captureNamespaceBaseline(context.Background(), st, resources)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("capture error=%v wantErr=%v", err, tc.wantErr)
+			}
+			if tc.wantErr {
+				return
+			}
+			original, found, err := store.LoadVerification(context.Background(), namespaceBaselineHandle(st.inst.ID), st.inst.ID)
+			if err != nil || !found {
+				t.Fatalf("baseline not persisted: found=%v err=%v", found, err)
+			}
+			inspector.inspection.Objects[0].UID = "uid-replaced"
+			if err := s.captureNamespaceBaseline(context.Background(), st, resources); err == nil {
+				t.Fatal("replacement UID overwrote an established baseline")
+			}
+			after, found, err := store.LoadVerification(context.Background(), namespaceBaselineHandle(st.inst.ID), st.inst.ID)
+			if err != nil || !found {
+				t.Fatalf("baseline not readable: found=%v err=%v", found, err)
+			}
+			if !reflect.DeepEqual(after, original) {
+				t.Fatal("immutable baseline changed")
+			}
+		})
+	}
+}
+
+func TestCaptureNamespaceBaselineWaitsOnlyForLateDefaultServiceAccount(t *testing.T) {
+	inspector := &baselineSequenceInspector{inspections: []terraformexec.NamespaceInspection{
+		{UID: nsUID},
+		{UID: nsUID, Objects: []terraformexec.NamespaceObject{{Kind: "ServiceAccount", Name: "default", UID: "uid-sa"}}},
+	}}
+	store := &baselineStore{}
+	s := &Service{deps: Deps{Verification: store, Namespaces: inspector}}
+	st := &execState{action: tfresource.ActionCreate, bundle: tfmodule.Bundle{Ref: tfmodule.SourceRef{ModuleID: "k8s-namespace"}}, inst: tfresource.Instance{ID: "12345678-1234-4234-8234-123456789abc"}, env: terraformexec.ProviderEnv{}}
+	resources := []terraformexec.StateResource{{Type: "kubernetes_namespace_v1", ID: "orch-ns", UID: nsUID}}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := s.captureNamespaceBaseline(ctx, st, resources); err != nil {
+		t.Fatal(err)
+	}
+	if inspector.calls != 2 {
+		t.Fatalf("inspector calls=%d, want retry only after the default account was absent", inspector.calls)
+	}
+}
+
+func TestCaptureNamespaceBaselineStopsWhenReadinessExpires(t *testing.T) {
+	inspector := &baselineSequenceInspector{inspections: []terraformexec.NamespaceInspection{{UID: nsUID}}}
+	store := &baselineStore{}
+	s := &Service{deps: Deps{Verification: store, Namespaces: inspector}}
+	st := &execState{action: tfresource.ActionCreate, bundle: tfmodule.Bundle{Ref: tfmodule.SourceRef{ModuleID: "k8s-namespace"}}, inst: tfresource.Instance{ID: "12345678-1234-4234-8234-123456789abc"}, env: terraformexec.ProviderEnv{}}
+	resources := []terraformexec.StateResource{{Type: "kubernetes_namespace_v1", ID: "orch-ns", UID: nsUID}}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if err := s.captureNamespaceBaseline(ctx, st, resources); err == nil {
+		t.Fatal("a missing default ServiceAccount outlived the readiness deadline")
+	}
+	if len(store.values) != 0 {
+		t.Fatal("baseline was saved without a verified ServiceAccount UID")
 	}
 }

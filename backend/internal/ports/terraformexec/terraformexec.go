@@ -427,7 +427,12 @@ type NamespaceObject struct {
 type NamespaceInspection struct {
 	UID     string
 	Objects []NamespaceObject
+	Absent  bool
 }
+
+// ErrNamespaceAbsent is returned only for an authoritative Kubernetes
+// NotFound response to the exact namespace GET.
+var ErrNamespaceAbsent = errors.New("terraformexec: namespace is absent")
 
 // NamespaceInspector lists the real contents of one namespace through the
 // scoped provider environment, immediately before a destroy that would delete
@@ -435,6 +440,12 @@ type NamespaceInspection struct {
 // be refused.
 type NamespaceInspector interface {
 	Inspect(ctx context.Context, env []string, namespace string) (NamespaceInspection, error)
+}
+
+// NamespaceAbsenceInspector verifies the exact historical state identities
+// are NotFound when a namespace recorded in Terraform state is already gone.
+type NamespaceAbsenceInspector interface {
+	VerifyAbsent(ctx context.Context, env []string, namespace string, resources []StateResource) error
 }
 
 // VerificationStore keeps the private encrypted pre-destroy state of one

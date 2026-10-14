@@ -260,3 +260,54 @@ func TestInspectListsObjectsWithUIDsOwnersAndManagers(t *testing.T) {
 		t.Fatalf("no scoped access: %v", err)
 	}
 }
+
+func TestVerifyAbsentRequiresExactHistoricalIDsAndNamespaceNotFound(t *testing.T) {
+	file := t.TempDir() + "/k"
+	if err := os.WriteFile(file, []byte("kubeconfig"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	resources := []terraformexec.StateResource{
+		{Type: "kubernetes_namespace_v1", ID: "orch-v2-test-r1", UID: "uid-ns"},
+		{Type: "kubernetes_service_v1", ID: "orch-v2-test-r1/db", UID: "uid-db"},
+		{Type: "kubernetes_secret_v1", ID: "orch-v2-test-r1/auth", UID: "uid-auth"},
+	}
+	var calls [][]string
+	run := func(_ context.Context, _ string, args []string, _ []string) ([]byte, error) {
+		calls = append(calls, append([]string(nil), args...))
+		if args[2] == "namespace" {
+			return nil, terraformexec.ErrNamespaceAbsent
+		}
+		return nil, terraformexec.ErrNamespaceAbsent
+	}
+	c := &Checker{Kubectl: "kubectl", Dir: t.TempDir(), Run: run}
+	if err := c.VerifyAbsent(context.Background(), []string{"KUBE_CONFIG_PATH=" + file}, "orch-v2-test-r1", resources); err != nil {
+		t.Fatalf("exact historical IDs reported NotFound: %v", err)
+	}
+	if len(calls) != 4 || strings.Join(calls[1][2:], " ") != "get services db -n orch-v2-test-r1 -o name" || strings.Join(calls[2][2:], " ") != "get secrets auth -n orch-v2-test-r1 -o name" {
+		t.Fatalf("namespace and exact state IDs were not queried: %v", calls)
+	}
+
+	for name, bad := range map[string]struct {
+		resources []terraformexec.StateResource
+		run       Runner
+	}{
+		"malformed identity": {resources: []terraformexec.StateResource{{Type: "kubernetes_service_v1", ID: "other/db", UID: "uid-db"}}, run: run},
+		"surviving historical object": {resources: resources, run: func(_ context.Context, _ string, args []string, _ []string) ([]byte, error) {
+			if args[2] == "namespace" {
+				return nil, terraformexec.ErrNamespaceAbsent
+			}
+			if args[3] == "services" {
+				return []byte("service/db"), nil
+			}
+			return nil, terraformexec.ErrNamespaceAbsent
+		}},
+		"inspection uncertainty": {resources: resources, run: func(context.Context, string, []string, []string) ([]byte, error) { return nil, errors.New("forbidden") }},
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := &Checker{Kubectl: "kubectl", Dir: t.TempDir(), Run: bad.run}
+			if err := c.VerifyAbsent(context.Background(), []string{"KUBE_CONFIG_PATH=" + file}, "orch-v2-test-r1", bad.resources); err == nil {
+				t.Fatal("uncertain or surviving historical object passed absence verification")
+			}
+		})
+	}
+}

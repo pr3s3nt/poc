@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"orchestrator/internal/ports/execution"
@@ -61,8 +62,9 @@ func (d *Deployer) WaitReady(ctx context.Context, target execution.Target, refs 
 	return nil
 }
 
-// Remove deletes only the workload's Deployment and Service; resources remain
-// subject to UC-07 reference classification and are not destroyed here.
+// Remove deletes only the exact application/environment/deployment-owned
+// workload objects. A same-name object with different or missing ownership
+// labels makes the operation fail before any deletion.
 func (d *Deployer) Remove(ctx context.Context, target execution.Target, workloadID string) error {
 	if target.Namespace == "" {
 		return fmt.Errorf("kubernetes: remove without a namespace")
@@ -70,15 +72,60 @@ func (d *Deployer) Remove(ctx context.Context, target execution.Target, workload
 	if !target.Explicit() {
 		return fmt.Errorf("kubernetes: remove without an explicit cluster target")
 	}
+	application, environment, deployment := target.Extra["application"], target.Extra["environment"], target.Extra["deployment"]
+	if application == "" || environment == "" || deployment == "" || workloadID == "" || strings.Contains(workloadID, "/") {
+		return fmt.Errorf("kubernetes: remove without the persisted application, environment and deployment identity")
+	}
 	cli, cleanup, err := OpenCLI(ctx, d.KubectlPath, d.Credentials, target)
 	if err != nil {
 		return err
 	}
 	defer cleanup()
-	if err := cli.Delete(ctx, target.Namespace, "deployment", workloadID); err != nil {
-		return err
+	type ownedObject struct{ kind, name, uid string }
+	owned := []ownedObject{{kind: "deployment", name: workloadID}, {kind: "service", name: workloadID}, {kind: "secret", name: workloadID + "-env"}}
+	for i := range owned {
+		object := &owned[i]
+		doc, found, err := cli.Get(ctx, target.Namespace, object.kind, object.name)
+		if err != nil {
+			return err
+		}
+		if !found {
+			continue
+		}
+		if !hasOwnershipLabels(doc, application, environment, deployment, workloadID) {
+			return fmt.Errorf("kubernetes: refusing to remove %s/%s with unverified application ownership", object.kind, object.name)
+		}
+		metadata, _ := doc["metadata"].(map[string]any)
+		object.uid, _ = metadata["uid"].(string)
+		if object.uid == "" {
+			return fmt.Errorf("kubernetes: refusing to remove %s/%s without a verified UID", object.kind, object.name)
+		}
 	}
-	return cli.Delete(ctx, target.Namespace, "service", workloadID)
+	for _, object := range owned {
+		if object.uid == "" {
+			continue
+		}
+		if err := cli.DeleteUID(ctx, target.Namespace, object.kind, object.name, object.uid, d.Timeout); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func hasOwnershipLabels(object map[string]any, application, environment, deployment, workloadID string) bool {
+	metadata, ok := object["metadata"].(map[string]any)
+	if !ok {
+		return false
+	}
+	labels, ok := metadata["labels"].(map[string]any)
+	if !ok {
+		return false
+	}
+	return labels["orchestrator.io/application"] == application &&
+		labels["orchestrator.io/environment"] == environment &&
+		labels["orchestrator.io/deployment-id"] == deployment &&
+		labels["app.kubernetes.io/managed-by"] == "orchestrator" &&
+		labels["app.kubernetes.io/name"] == workloadID
 }
 
 func kindArg(kind string) string {

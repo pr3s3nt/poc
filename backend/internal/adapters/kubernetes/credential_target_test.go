@@ -25,6 +25,19 @@ for a in "$@"; do
   if [ "$prev" = "--kubeconfig" ]; then kc="$a"; fi
   prev="$a"
 done
+deleted_file="${STUB_DELETED_FILE:-$STUB_LOG.deleted}"
+was_deleted() {
+  grep -Fqx "$1" "$deleted_file" 2>/dev/null || return 1
+  if [ "${STUB_DELAY_DELETE_POLLS:-0}" -gt 0 ]; then
+    count_file="$deleted_file.count"
+    count=0
+    [ -f "$count_file" ] && count=$(cat "$count_file")
+    count=$((count + 1))
+    echo "$count" > "$count_file"
+    [ "$count" -le "$STUB_DELAY_DELETE_POLLS" ] && return 1
+  fi
+  return 0
+}
 echo "ARGS $*" >> "$STUB_LOG"
 if [ -n "$kc" ]; then
   echo "FILE $kc $(stat -c %a "$kc") $(stat -c %a "$(dirname "$kc")")" >> "$STUB_LOG"
@@ -43,8 +56,31 @@ fi
 case "$*" in
   *"version -o json"*) echo '{"serverVersion":{"gitVersion":"v1.34.0"}}' ;;
   *"auth can-i"*) echo "${STUB_CAN_I:-yes}"; [ "${STUB_CAN_I:-yes}" = yes ] || exit 1 ;;
+  *" get deployment api "*)
+    path="/apis/apps/v1/namespaces/team-a/deployments/api"
+    if [ -n "$STUB_FAIL_WAIT_GET" ] && grep -Fqx "$path" "$deleted_file" 2>/dev/null; then echo "Error from server (Forbidden): wait denied" >&2; exit 1; fi
+    if was_deleted "$path"; then echo "Error from server (NotFound): not found" >&2; exit 1; fi
+    if [ -n "$STUB_DEPLOYMENT" ]; then doc="$STUB_DEPLOYMENT"; [ -n "$STUB_REPLACEMENT_AFTER_DELETE" ] && grep -Fqx "$path" "$deleted_file" 2>/dev/null && doc=$(printf '%s' "$doc" | sed "s/11111111-1111-4111-8111-111111111111/$STUB_REPLACEMENT_AFTER_DELETE/"); printf '%s\n' "$doc"; else echo "Error from server (NotFound): not found" >&2; exit 1; fi ;;
+  *" get service api "*)
+    path="/api/v1/namespaces/team-a/services/api"
+    if [ -n "$STUB_FAIL_WAIT_GET" ] && grep -Fqx "$path" "$deleted_file" 2>/dev/null; then echo "Error from server (Forbidden): wait denied" >&2; exit 1; fi
+    if was_deleted "$path"; then echo "Error from server (NotFound): not found" >&2; exit 1; fi
+    if [ -n "$STUB_SERVICE" ]; then printf '%s\n' "$STUB_SERVICE"; else echo "Error from server (NotFound): not found" >&2; exit 1; fi ;;
+  *" get secret api-env "*)
+    path="/api/v1/namespaces/team-a/secrets/api-env"
+    if [ -n "$STUB_FAIL_WAIT_GET" ] && grep -Fqx "$path" "$deleted_file" 2>/dev/null; then echo "Error from server (Forbidden): wait denied" >&2; exit 1; fi
+    if was_deleted "$path"; then echo "Error from server (NotFound): not found" >&2; exit 1; fi
+    if [ -n "$STUB_SECRET" ]; then printf '%s\n' "$STUB_SECRET"; else echo "Error from server (NotFound): not found" >&2; exit 1; fi ;;
   *" get "*) if [ -n "$STUB_GET" ]; then echo "$STUB_GET"; else echo "Error from server (NotFound): not found" >&2; exit 1; fi ;;
-  *" delete "*) if [ -n "$STUB_FAIL_DELETE" ]; then echo "error: loading $kc failed" >&2; exit 1; fi ;;
+  *" delete --raw "*)
+    raw_path=""; previous=""
+    for arg in "$@"; do [ "$previous" = "--raw" ] && raw_path="$arg"; previous="$arg"; done
+    if [ -n "$STUB_DELETE_BODY" ]; then cat > "$STUB_DELETE_BODY"; else cat >/dev/null; fi
+    if [ -n "$STUB_REPLACEMENT_UID" ] && ! grep -q "$STUB_REPLACEMENT_UID" "$STUB_DELETE_BODY"; then echo "Error from server (Conflict): UID precondition failed" >&2; exit 1; fi
+    if [ -n "$STUB_FAIL_DELETE" ]; then echo "error: loading $kc failed" >&2; exit 1; fi
+    echo "$raw_path" >> "$deleted_file" ;;
+  *" delete "*)
+    if [ -n "$STUB_FAIL_DELETE" ]; then echo "error: loading $kc failed" >&2; exit 1; fi ;;
 esac
 `
 
@@ -68,6 +104,7 @@ func installStub(t *testing.T) (kubectl, logPath string) {
 	}
 	logPath = filepath.Join(dir, "log")
 	t.Setenv("STUB_LOG", logPath)
+	t.Setenv("STUB_DELETED_FILE", filepath.Join(dir, "deleted-objects"))
 	t.Setenv("STUB_EXPECT", "stub-token-value")
 	return kubectl, logPath
 }
@@ -105,7 +142,7 @@ func assertPrivateAndRemoved(t *testing.T, log string) {
 }
 
 func credentialTarget() execution.Target {
-	return execution.Target{Kind: "kubernetes", Context: "lab", ClusterName: "lab-cluster", Namespace: "team-a", Organization: "acme", Connection: "lab"}
+	return execution.Target{Kind: "kubernetes", Context: "lab", ClusterName: "lab-cluster", Namespace: "team-a", Organization: "acme", Connection: "lab", Extra: map[string]string{"application": "shop", "environment": "staging", "deployment": "deploy-123"}}
 }
 
 func normalized(t *testing.T) []byte {
@@ -129,6 +166,10 @@ func TestCredentialTarget_DeployerUsesScopedPrivateKubeconfig(t *testing.T) {
 	if err := deployer.WaitReady(ctx, target, []execution.WorkloadRef{{Kind: "Deployment", Name: "api"}}); err != nil {
 		t.Fatal(err)
 	}
+	owned := `{"metadata":{"uid":"11111111-1111-4111-8111-111111111111","labels":{"orchestrator.io/application":"shop","orchestrator.io/environment":"staging","orchestrator.io/deployment-id":"deploy-123","app.kubernetes.io/managed-by":"orchestrator","app.kubernetes.io/name":"api"}}}`
+	t.Setenv("STUB_DEPLOYMENT", owned)
+	t.Setenv("STUB_SERVICE", owned)
+	t.Setenv("STUB_SECRET", `{"metadata":{"uid":"33333333-3333-4333-8333-333333333333","labels":{"orchestrator.io/application":"shop","orchestrator.io/environment":"staging","orchestrator.io/deployment-id":"deploy-123","app.kubernetes.io/managed-by":"orchestrator","app.kubernetes.io/name":"api"}}}`)
 	if err := deployer.Remove(ctx, target, "api"); err != nil {
 		t.Fatal(err)
 	}
@@ -144,9 +185,175 @@ func TestCredentialTarget_DeployerUsesScopedPrivateKubeconfig(t *testing.T) {
 	}
 
 	t.Setenv("STUB_FAIL_DELETE", "1")
+	t.Setenv("STUB_DELETE_BODY", filepath.Join(t.TempDir(), "delete-options.json"))
+	if err := os.WriteFile(os.Getenv("STUB_DELETED_FILE"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	err := deployer.Remove(ctx, target, "api")
 	if err == nil || strings.Contains(err.Error(), "orch-kube-") || strings.Contains(err.Error(), "loading") || !errors.Is(err, ErrKubectlCommand) {
 		t.Fatalf("error must not carry kubectl output: %v", err)
+	}
+}
+
+func TestDeployerRemoveDeletesOnlyRendererSecretWithExactOwnership(t *testing.T) {
+	kubectl, logPath := installStub(t)
+	labels := `"labels":{"orchestrator.io/application":"shop","orchestrator.io/environment":"staging","orchestrator.io/deployment-id":"deploy-123","app.kubernetes.io/managed-by":"orchestrator","app.kubernetes.io/name":"api"}`
+	t.Setenv("STUB_DEPLOYMENT", `{"metadata":{"name":"api","uid":"11111111-1111-4111-8111-111111111111",`+labels+`}}`)
+	t.Setenv("STUB_SERVICE", `{"metadata":{"name":"api","uid":"22222222-2222-4222-8222-222222222222",`+labels+`}}`)
+	t.Setenv("STUB_SECRET", `{"metadata":{"name":"api-env","uid":"33333333-3333-4333-8333-333333333333",`+labels+`}}`)
+	deleteBody := filepath.Join(t.TempDir(), "delete-options.json")
+	t.Setenv("STUB_DELETE_BODY", deleteBody)
+	deployer := &Deployer{KubectlPath: kubectl, Credentials: &stubResolver{document: normalized(t)}}
+	if err := deployer.Remove(context.Background(), credentialTarget(), "api"); err != nil {
+		t.Fatal(err)
+	}
+	log := readLog(t, logPath)
+	for _, want := range []string{"delete --raw /apis/apps/v1/namespaces/team-a/deployments/api -f -", "delete --raw /api/v1/namespaces/team-a/services/api -f -", "delete --raw /api/v1/namespaces/team-a/secrets/api-env -f -"} {
+		if !strings.Contains(log, want) {
+			t.Fatalf("owned object %q was not removed: %s", want, log)
+		}
+	}
+	body, err := os.ReadFile(deleteBody)
+	if err != nil || !strings.Contains(string(body), `"kind":"DeleteOptions"`) || !strings.Contains(string(body), `"uid":"33333333-3333-4333-8333-333333333333"`) {
+		t.Fatalf("raw delete did not carry the inspected UID precondition: %v", err)
+	}
+	if !strings.Contains(string(body), `"propagationPolicy":"Foreground"`) {
+		t.Fatalf("delete must wait for controller garbage collection: %s", body)
+	}
+
+	t.Setenv("STUB_LOG", filepath.Join(t.TempDir(), "foreign-log"))
+	if err := os.WriteFile(os.Getenv("STUB_DELETED_FILE"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("STUB_SECRET", `{"metadata":{"name":"api-env","uid":"44444444-4444-4444-8444-444444444444","labels":{"orchestrator.io/application":"other","orchestrator.io/environment":"staging","orchestrator.io/deployment-id":"deploy-123","app.kubernetes.io/managed-by":"orchestrator","app.kubernetes.io/name":"api"}}}`)
+	err = deployer.Remove(context.Background(), credentialTarget(), "api")
+	if err == nil || !strings.Contains(err.Error(), "unverified application ownership") {
+		t.Fatalf("foreign same-name Secret was not refused: %v", err)
+	}
+	if log := readLog(t, os.Getenv("STUB_LOG")); strings.Contains(log, " delete ") {
+		t.Fatalf("ownership mismatch must be detected before every delete: %s", log)
+	}
+}
+
+func TestDeployerRemoveWaitsForForegroundAndFailsClosedDuringAbsenceCheck(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		delayPolls      string
+		replacementUID  string
+		waitError       string
+		wantErrContains string
+	}{
+		{name: "waits for controller garbage collection", delayPolls: "1"},
+		{name: "replacement appears", delayPolls: "1", replacementUID: "99999999-9999-4999-8999-999999999999", wantErrContains: "replacement object"},
+		{name: "absence query is forbidden", waitError: "1", wantErrContains: "not permitted"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			kubectl, logPath := installStub(t)
+			labels := `"labels":{"orchestrator.io/application":"shop","orchestrator.io/environment":"staging","orchestrator.io/deployment-id":"deploy-123","app.kubernetes.io/managed-by":"orchestrator","app.kubernetes.io/name":"api"}`
+			t.Setenv("STUB_DEPLOYMENT", `{"metadata":{"uid":"11111111-1111-4111-8111-111111111111",`+labels+`}}`)
+			t.Setenv("STUB_SERVICE", `{"metadata":{"uid":"22222222-2222-4222-8222-222222222222",`+labels+`}}`)
+			t.Setenv("STUB_SECRET", `{"metadata":{"uid":"33333333-3333-4333-8333-333333333333",`+labels+`}}`)
+			t.Setenv("STUB_DELAY_DELETE_POLLS", tc.delayPolls)
+			t.Setenv("STUB_REPLACEMENT_AFTER_DELETE", tc.replacementUID)
+			t.Setenv("STUB_FAIL_WAIT_GET", tc.waitError)
+			deployer := &Deployer{KubectlPath: kubectl, Timeout: time.Second, Credentials: &stubResolver{document: normalized(t)}}
+			err := deployer.Remove(context.Background(), credentialTarget(), "api")
+			if tc.wantErrContains == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				log := readLog(t, logPath)
+				if strings.Count(log, " get deployment api ") < 3 {
+					t.Fatalf("removal did not wait for the original controller to disappear: %s", log)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(strings.ToLower(err.Error()), tc.wantErrContains) {
+				t.Fatalf("absence check error=%v, want %q", err, tc.wantErrContains)
+			}
+		})
+	}
+}
+
+func TestDeleteUIDAllowsRendererSecretSuffixBeyondDNSLabelLength(t *testing.T) {
+	kubectl, logPath := installStub(t)
+	name := strings.Repeat("a", 63) + "-env"
+	cli := NewCLI(kubectl, "", filepath.Join(t.TempDir(), "kubeconfig"))
+	if err := os.WriteFile(cli.Kubeconfig, []byte("explicit test kubeconfig"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := cli.DeleteUID(context.Background(), "team-a", "secret", name, "33333333-3333-4333-8333-333333333333", time.Second); err != nil {
+		t.Fatalf("valid rendered Secret name of %d characters was refused: %v", len(name), err)
+	}
+	if !strings.Contains(readLog(t, logPath), "/api/v1/namespaces/team-a/secrets/"+name) {
+		t.Fatal("UID-preconditioned Secret delete did not address the exact long renderer name")
+	}
+	before := readLog(t, logPath)
+	if err := cli.DeleteUID(context.Background(), "team-a", "secret", "valid/../../foreign", "33333333-3333-4333-8333-333333333333", time.Second); err == nil {
+		t.Fatal("resource path injection was accepted")
+	}
+	if after := readLog(t, logPath); after != before {
+		t.Fatal("invalid resource name reached kubectl")
+	}
+}
+
+func TestDeployerRemoveUIDPreconditionRetainsSameNameReplacement(t *testing.T) {
+	kubectl, logPath := installStub(t)
+	labels := `"labels":{"orchestrator.io/application":"shop","orchestrator.io/environment":"staging","orchestrator.io/deployment-id":"deploy-123","app.kubernetes.io/managed-by":"orchestrator","app.kubernetes.io/name":"api"}`
+	t.Setenv("STUB_DEPLOYMENT", `{"metadata":{"uid":"11111111-1111-4111-8111-111111111111",`+labels+`}}`)
+	t.Setenv("STUB_SERVICE", `{"metadata":{"uid":"22222222-2222-4222-8222-222222222222",`+labels+`}}`)
+	t.Setenv("STUB_SECRET", `{"metadata":{"uid":"33333333-3333-4333-8333-333333333333",`+labels+`}}`)
+	// The API fixture now has a replacement UID, so its atomic delete precondition fails.
+	t.Setenv("STUB_REPLACEMENT_UID", "99999999-9999-4999-8999-999999999999")
+	deleteBody := filepath.Join(t.TempDir(), "delete-options.json")
+	t.Setenv("STUB_DELETE_BODY", deleteBody)
+	deployer := &Deployer{KubectlPath: kubectl, Credentials: &stubResolver{document: normalized(t)}}
+	err := deployer.Remove(context.Background(), credentialTarget(), "api")
+	if err == nil || !errors.Is(err, ErrRequestRejected) {
+		t.Fatalf("UID replacement should conflict: %v", err)
+	}
+	log := readLog(t, logPath)
+	body, readErr := os.ReadFile(deleteBody)
+	if strings.Contains(log, "stub-token-value") || !strings.Contains(log, "delete --raw /apis/apps/v1/namespaces/team-a/deployments/api -f -") || readErr != nil || !strings.Contains(string(body), `"uid":"11111111-1111-4111-8111-111111111111"`) {
+		t.Fatalf("delete request did not carry an opaque UID precondition safely: %s err=%v", log, readErr)
+	}
+}
+
+func TestDeployerRemoveRefusesOwnedLabelShapeWithoutUIDBeforeAnyDelete(t *testing.T) {
+	kubectl, logPath := installStub(t)
+	labels := `"labels":{"orchestrator.io/application":"shop","orchestrator.io/environment":"staging","orchestrator.io/deployment-id":"deploy-123","app.kubernetes.io/managed-by":"orchestrator","app.kubernetes.io/name":"api"}`
+	t.Setenv("STUB_DEPLOYMENT", `{"metadata":{"uid":"11111111-1111-4111-8111-111111111111",`+labels+`}}`)
+	t.Setenv("STUB_SERVICE", `{"metadata":{"uid":"22222222-2222-4222-8222-222222222222",`+labels+`}}`)
+	t.Setenv("STUB_SECRET", `{"metadata":{`+labels+`}}`)
+	deployer := &Deployer{KubectlPath: kubectl, Credentials: &stubResolver{document: normalized(t)}}
+	if err := deployer.Remove(context.Background(), credentialTarget(), "api"); err == nil || !strings.Contains(err.Error(), "without a verified UID") {
+		t.Fatalf("missing UID did not fail closed: %v", err)
+	}
+	if log := readLog(t, logPath); strings.Contains(log, " delete ") {
+		t.Fatalf("prevalidation failed after a deletion: %s", log)
+	}
+}
+
+func TestDeployerRemoveRefusesForeignDeploymentOrServiceBeforeDeleting(t *testing.T) {
+	for _, object := range []string{"deployment", "service"} {
+		t.Run(object, func(t *testing.T) {
+			kubectl, logPath := installStub(t)
+			labels := `"labels":{"orchestrator.io/application":"other","orchestrator.io/environment":"staging","orchestrator.io/deployment-id":"deploy-123"}`
+			doc := `{"metadata":{"name":"api",` + labels + `}}`
+			if object == "deployment" {
+				t.Setenv("STUB_DEPLOYMENT", doc)
+			} else {
+				t.Setenv("STUB_DEPLOYMENT", "")
+				t.Setenv("STUB_SERVICE", doc)
+			}
+			deployer := &Deployer{KubectlPath: kubectl, Credentials: &stubResolver{document: normalized(t)}}
+			if err := deployer.Remove(context.Background(), credentialTarget(), "api"); err == nil {
+				t.Fatal("foreign same-name workload object was accepted")
+			}
+			if log := readLog(t, logPath); strings.Contains(log, " delete ") {
+				t.Fatalf("ownership mismatch must be found before every delete: %s", log)
+			}
+		})
 	}
 }
 
@@ -320,7 +527,7 @@ func TestExplicitKubeconfigPathTargetStillRuns(t *testing.T) {
 		t.Fatal(err)
 	}
 	deployer := &Deployer{KubectlPath: kubectl}
-	if err := deployer.Remove(context.Background(), execution.Target{Context: "eks-cluster", Kubeconfig: path, Namespace: "ns"}, "api"); err != nil {
+	if err := deployer.Remove(context.Background(), execution.Target{Context: "eks-cluster", Kubeconfig: path, Namespace: "ns", Extra: map[string]string{"application": "shop", "environment": "staging", "deployment": "deploy-123"}}, "api"); err != nil {
 		t.Fatal(err)
 	}
 	log := readLog(t, logPath)

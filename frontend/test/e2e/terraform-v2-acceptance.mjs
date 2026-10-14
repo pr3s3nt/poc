@@ -294,7 +294,18 @@ export const SCENARIOS = {
     await s.backToApplication();
     for (const name of ['backend', 'worker', 'frontend']) {
       const workloadRow = page.locator('.table-row').filter({ has: page.locator('.workload-name', { hasText: new RegExp(`${name}$`) }) });
-      await h.click(workloadRow.getByRole('button', { name: 'Xóa', exact: true }));
+      const expected = `Đánh dấu xóa ${name} trong staging? Workload đang chạy chỉ thay đổi sau khi Triển khai.`;
+      const opened = new Promise((resolve) => page.once('dialog', resolve));
+      const clicking = h.click(workloadRow.getByRole('button', { name: 'Xóa', exact: true }));
+      const dialog = await opened;
+      if (dialog.message() !== expected) {
+        ctx.x11.keys(['Escape']);
+        await clicking;
+        throw new Error(`the ${name} confirmation did not match the expected Application/Environment`);
+      }
+      await h.pause(SHORT_READ);
+      ctx.x11.keys(['Return']);
+      await clicking;
       await expect(workloadRow).toContainText('Chờ xóa');
     }
     await h.click(page.getByRole('button', { name: 'Xem trước thay đổi', exact: true }));
@@ -656,6 +667,7 @@ async function main() {
     const page = await context.newPage();
     currentPage = page;
     const x11 = args.headed ? x11Input(env.ORCH_E2E_XDOTOOL) : undefined;
+    if (x11) page.on('dialog', () => {}); // keep native confirmations open until an X11 key answers them
     const selectNative = x11 ? nativeSelect(x11) : undefined;
     const h = createHuman(page, selectNative ? { selectNative } : {});
     await page.goto(`${baseURL}/ui/sign-in`);
@@ -679,7 +691,7 @@ async function main() {
       if (previewRuns.length === 0) throw new Error('Deploy without a recorded Preview run id');
       await h.click(page.getByRole('button', { name: 'Triển khai các thay đổi này', exact: true }));
     };
-    await scenario({ page, h, context, selectNative, caption: captions.caption, phase, rec, baseURL, input, forwarders, evidenceDir, deploy });
+    await scenario({ page, h, context, x11, selectNative, caption: captions.caption, phase, rec, baseURL, input, forwarders, evidenceDir, deploy });
     result = 'PASS';
     console.log(`PASS: scenario ${args.scenario}`);
   } catch (error) {

@@ -589,7 +589,16 @@ func (s *Service) checkReadiness(ctx context.Context, st *execState, out invocat
 		Targets: st.req.Targets, Resources: out.resources, Outputs: checked.Module, Env: st.env.Env, Deadline: deadline,
 	})
 	if err == nil {
-		return nil
+		if baselineErr := s.captureNamespaceBaseline(rctx, st, out.resources); baselineErr == nil {
+			return nil
+		}
+		if ferr := s.finalizeAttempt(ctx, st, StageReadiness, tfresource.AttemptFailed, codeFailed); ferr != nil {
+			return holdOn(ctx, "the namespace creation provenance failure could not be recorded")
+		}
+		if serr := s.setInstance(ctx, st, tfresource.InstanceFailed); serr != nil {
+			return holdOn(ctx, "the instance status could not be recorded")
+		}
+		return fmt.Errorf("%w: namespace creation provenance could not be preserved", ErrExecution)
 	}
 	code, safe := codeReadinessUnav, fmt.Errorf("%w: the readiness query could not complete", ErrExecution)
 	if errors.Is(err, terraformexec.ErrNotReady) {

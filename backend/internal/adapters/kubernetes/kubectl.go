@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -262,6 +263,80 @@ func (c CLI) Delete(ctx context.Context, namespace, kind, name string) error {
 	_, err := c.Run(ctx, nil, args...)
 	return err
 }
+
+// DeleteUID removes one object only while the API object's UID still matches
+// the identity inspected by the caller. The API server enforces this
+// precondition atomically, so a same-name replacement is retained.
+func (c CLI) DeleteUID(ctx context.Context, namespace, kind, name, uid string, timeout time.Duration) error {
+	kind = strings.ToLower(kind)
+	if !dnsLabel.MatchString(namespace) || !validDeleteObjectName(kind, name) || !kubernetesUID.MatchString(uid) {
+		return errors.New("kubernetes: delete without a valid namespace, name and inspected UID")
+	}
+	resource := map[string]string{
+		"deployment": "/apis/apps/v1/namespaces/" + namespace + "/deployments/" + name,
+		"service":    "/api/v1/namespaces/" + namespace + "/services/" + name,
+		"secret":     "/api/v1/namespaces/" + namespace + "/secrets/" + name,
+	}[kind]
+	if resource == "" {
+		return errors.New("kubernetes: UID-preconditioned delete kind is unsupported")
+	}
+	if timeout <= 0 {
+		timeout = 5 * time.Minute
+	}
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	payload, err := json.Marshal(struct {
+		APIVersion        string `json:"apiVersion"`
+		Kind              string `json:"kind"`
+		PropagationPolicy string `json:"propagationPolicy"`
+		Preconditions     struct {
+			UID string `json:"uid"`
+		} `json:"preconditions"`
+	}{APIVersion: "v1", Kind: "DeleteOptions", PropagationPolicy: "Foreground", Preconditions: struct {
+		UID string `json:"uid"`
+	}{UID: uid}})
+	if err != nil {
+		return errors.New("kubernetes: could not encode UID-preconditioned delete")
+	}
+	_, err = c.Run(waitCtx, payload, "delete", "--raw", resource, "-f", "-")
+	if errors.Is(err, ErrObjectNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		object, found, getErr := c.Get(waitCtx, namespace, kind, name)
+		if getErr != nil {
+			return getErr
+		}
+		if !found {
+			return nil
+		}
+		metadata, _ := object["metadata"].(map[string]any)
+		currentUID, _ := metadata["uid"].(string)
+		if currentUID == "" || currentUID != uid {
+			return errors.New("kubernetes: a replacement object appeared before UID-preconditioned deletion completed")
+		}
+		select {
+		case <-waitCtx.Done():
+			return errors.New("kubernetes: the original object did not disappear before the deletion deadline")
+		case <-ticker.C:
+		}
+	}
+}
+
+func validDeleteObjectName(kind, name string) bool {
+	if kind == "secret" {
+		return len(name) <= 253 && kubernetesSubdomain.MatchString(name)
+	}
+	return dnsLabel.MatchString(name)
+}
+
+var kubernetesUID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+var kubernetesSubdomain = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
 
 func redactArgs(args []string) []string {
 	out := make([]string, len(args))
