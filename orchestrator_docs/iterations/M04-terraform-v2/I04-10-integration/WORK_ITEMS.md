@@ -19,4 +19,4 @@ live proof còn I04-11/12, branch cleanup ghi sau push.
 - [x] Claude chạy checks; Codex review diff và independently verify tương ứng.
 - [x] Evidence/cleanup/remaining blockers vào dated verification, không chép log vào plan.
 - [x] Commit/push task-only khi checks/review đạt theo AGENTS.md; không force-push.
-- [ ] Xóa nhánh Claude sau merge; lưu handoff cloud khi bị chặn/hủy; giữ điểm duyệt cuối.
+- [x] Xóa nhánh Claude sau merge; lưu handoff cloud khi bị chặn/hủy; giữ điểm duyệt cuối.

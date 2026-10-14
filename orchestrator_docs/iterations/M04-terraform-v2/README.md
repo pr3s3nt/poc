@@ -224,3 +224,9 @@ không gửi writer; headed Chromium/xdotool/pins đã chuẩn bị. AWS estimat
 `/tmp/poc-m04-estimate-20261014/` draft; chốt trước gate. Không có task-owned
 live assets lúc bàn giao này. Lỗi code trả agent Luna theo quyền fallback,
 không tự viết code sản phẩm/test. Giữ final gate, không tự ghi đã duyệt.
+
+I04-10 branch cleanup sau push2695056 đã xác minh: remote branches vắng, local
+checkout/branches/exact taskstash đã dọn; source bundles và checks còn giữ.
+I04-11 dùng checkout riêng `/tmp/poc-i0411-local-runtime` tại2695056, frontend
+build đạt. Chưa tạo task-owned namespace/AWS; chuẩn bị local fixture/config
+và images cho A01.
