@@ -551,14 +551,12 @@ func (s *Service) CleanupResources(ctx context.Context, sc Scope, actor Actor, r
 	case err != nil:
 		return AdmissionView{}, err
 	}
+	// The stage is what the admission committed (REQUESTED), never a value
+	// supplied by this layer.
 	view := AdmissionView{OperationID: op.ID, Status: safeOperationStatus(string(op.Status)), Stage: safeStage(op.Stage), Replayed: replayed}
-	if view.Stage == domain.AttemptUnknown {
-		view.Stage = tfexec.CleanupRequested
-	}
 	if replayed {
 		return view, nil
 	}
-	view.Stage = tfexec.CleanupRequested
 	actives := make([]string, 0, len(in.Selected))
 	for _, id := range in.Selected {
 		if aid := pre.records[id].Instance.ActiveResourceID; aid != "" {
@@ -612,11 +610,7 @@ func (s *Service) replay(ctx context.Context, sc Scope, actor Actor, rootID stri
 	if in.ConfirmationName != rec.ConfirmationName {
 		return AdmissionView{}, true, ErrConfirmationMismatch
 	}
-	stage := safeStage(rec.Stage)
-	if stage == domain.AttemptUnknown {
-		stage = tfexec.CleanupRequested
-	}
-	return AdmissionView{OperationID: rec.OperationID, Status: safeOperationStatus(rec.Status), Stage: stage, Replayed: true}, true, nil
+	return AdmissionView{OperationID: rec.OperationID, Status: safeOperationStatus(rec.Status), Stage: safeStage(rec.Stage), Replayed: true}, true, nil
 }
 
 func requestHashOf(org, token string) string {

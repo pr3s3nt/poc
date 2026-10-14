@@ -638,7 +638,7 @@ it('never prints a hostile stage, status, action, owner, scope or error string, 
 
 it('links a persisted Terraform attempt to its resource detail only when the server sent a valid resource ID', async () => {
   const id = '00000000-0000-4000-8000-0000000000a1';
-  vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({ resourceProgress: [attempt({ descriptor: 'postgres.default#shared.db', resourceId: id }), attempt({ descriptor: 'redis.default#shared.cache', resourceId: '../../etc' })] }))));
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({ resourceProgress: [attempt({ descriptor: 'postgres.default#shared.db', resourceInstanceId: id }), attempt({ descriptor: 'redis.default#shared.cache', resourceInstanceId: '../../etc' })] }))));
   const user = userEvent.setup();
   render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
   const links = await screen.findAllByRole('link', { name: 'Chi tiết tài nguyên' });

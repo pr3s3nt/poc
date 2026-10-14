@@ -69,6 +69,9 @@ type scriptedEngine struct {
 	script map[string]string // descriptor -> "fail" | "unknown" | "hold"
 	// gate, when set, is closed by the test to let a run proceed.
 	gate chan struct{}
+	// holdStart, when set, blocks the engine before it reports anything, so
+	// the test sees exactly what the admission itself committed.
+	holdStart chan struct{}
 	// started is signalled when a run entered the engine.
 	started chan struct{}
 }
@@ -82,8 +85,11 @@ func (e *scriptedEngine) Calls() int {
 func (e *scriptedEngine) RunCleanup(ctx context.Context, _ string, source tfexec.CleanupSource, report tfexec.StageReporter) (tfexec.CleanupResult, error) {
 	e.mu.Lock()
 	e.calls++
-	gate, started, script := e.gate, e.started, e.script
+	gate, started, script, holdStart := e.gate, e.started, e.script, e.holdStart
 	e.mu.Unlock()
+	if holdStart != nil {
+		<-holdStart
+	}
 	if started != nil {
 		select {
 		case started <- struct{}{}:

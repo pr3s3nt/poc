@@ -89,7 +89,7 @@ type Resource struct {
 type ResourceAttempt struct {
 	// ResourceID is the opaque ID of the resource instance (the resource
 	// detail route key), shown only when it has the shape of an ID.
-	ResourceID     string    `json:"resourceId,omitempty"`
+	ResourceID     string    `json:"resourceInstanceId,omitempty"`
 	Descriptor     string    `json:"descriptor"`
 	ScopeType      string    `json:"scopeType"`
 	Number         int       `json:"attempt"`

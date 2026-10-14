@@ -958,3 +958,45 @@ func TestDetailShowsTheOriginalTargetNotTheCurrentOne(t *testing.T) {
 		t.Fatalf("a run of another generation must not identify the target: %v", t1)
 	}
 }
+
+// TestAdmissionCommitsRequestedBeforeTheEngineRuns: REQUESTED is durable with
+// the claim and the confirmed scope, so the 202, the persisted operation, the
+// stored column and a re-read all agree while the engine has not even started.
+func TestAdmissionCommitsRequestedBeforeTheEngineRuns(t *testing.T) {
+	f := newRCFixture(t)
+	f.engine.holdStart = make(chan struct{})
+	token := f.previewToken(f.pe)
+	status, raw, body := f.deletion(f.pe, token, f.rootName(), f.root.ID, f.a.ID)
+	if status != http.StatusAccepted {
+		t.Fatalf("deletion = %d %s", status, raw)
+	}
+	adm := body["cleanup"].(map[string]any)
+	id := adm["operationId"].(string)
+	if adm["stage"] != "REQUESTED" || adm["status"] != "ACTIVE" {
+		t.Fatalf("admission: %v", adm)
+	}
+	var stage, mode string
+	if err := f.conn().QueryRow(context.Background(), `SELECT stage,authorization_mode FROM environment_operations WHERE id=$1::uuid`, id).Scan(&stage, &mode); err != nil {
+		t.Fatal(err)
+	}
+	if stage != "REQUESTED" || mode != "USER_CONFIRMED" || f.engine.Calls() != 1 {
+		t.Fatalf("persisted stage %q mode %q engine calls %d", stage, mode, f.engine.Calls())
+	}
+	// The query endpoint reports the committed stage, not an overridden one.
+	_, _, got := f.do(f.dev, http.MethodGet, f.base()+"/resource-cleanups/"+id, nil)
+	view := got["cleanup"].(map[string]any)
+	if view["stage"] != "REQUESTED" || view["status"] != "ACTIVE" || view["allVerified"] == true {
+		t.Fatalf("persisted view: %v", view)
+	}
+	// A replay reads the same committed stage.
+	_, _, again := f.deletion(f.pe, token, f.rootName(), f.root.ID, f.a.ID)
+	if r := again["cleanup"].(map[string]any); r["stage"] != "REQUESTED" || r["operationId"] != id || r["replayed"] != true {
+		t.Fatalf("replay: %v", r)
+	}
+	// Reopening the server (a new application over the same database) still sees REQUESTED.
+	if err := f.conn().QueryRow(context.Background(), `SELECT stage FROM environment_operations WHERE id=$1::uuid`, id).Scan(&stage); err != nil || stage != "REQUESTED" {
+		t.Fatalf("stage after re-read: %q %v", stage, err)
+	}
+	close(f.engine.holdStart)
+	f.waitOperation(f.pe, id)
+}
