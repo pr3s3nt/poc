@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../../shared/ui/Button';
 import type { EnvironmentKey } from '../../shared/types/application';
-import { getCleanup, type CleanupOperation } from './api';
+import { getCleanup, isTerminalStatus, provenSuccess, type CleanupOperation } from './api';
 import { failureLabel, operationStatusLabel, outcomeLabel, reasonCodeLabel, stageLabel } from './labels';
 
 const stages = ['REQUESTED', 'CHECKING', 'DESTROYING', 'VERIFYING'] as const;
 export const pollIntervalMs = 1500;
 
-// A claim that still owns the Environment: the operation is not finished.
+// Only these statuses are final. A running, held (INTERRUPTED) or unknown status is indeterminate: it keeps being
+// followed, never settles the page and never clears the Environment busy state.
+const pending = (status: string) => !isTerminalStatus(status);
 const running = (status: string) => status === 'ACTIVE' || status === 'RECOVERING';
 
 /**
@@ -35,7 +37,7 @@ export function CleanupProgress({ applicationId, environment, operationId, inter
     getCleanup(applicationId, environment, operationId).then((value) => {
       if (current !== latest.current) return;
       setOperation(value); setError('');
-      if (running(value.status)) { timer = setTimeout(() => setTick((n) => n + 1), intervalMs); return; }
+      if (pending(value.status)) { timer = setTimeout(() => setTick((n) => n + 1), value.status === 'INTERRUPTED' ? intervalMs * 4 : intervalMs); return; }
       if (settled.current !== operationId) { settled.current = operationId; callback.current?.(value); }
     }).catch(() => {
       // The last known progress stays on screen; a read failure never means the cleanup stopped or finished.
@@ -51,8 +53,9 @@ export function CleanupProgress({ applicationId, environment, operationId, inter
     {!operation ? (error ? null : <p role="status" aria-busy="true">Đang tải tiến trình xóa…</p>) : <>
       <ol className="stage-list" aria-label="Các giai đoạn">{stages.map((stage) => <li key={stage} data-state={stage === operation.stage && running(operation.status) ? 'current' : undefined} aria-current={stage === operation.stage && running(operation.status) ? 'step' : undefined}>{stageLabel(stage)}</li>)}</ol>
       <p role="status">Trạng thái: <strong>{operationStatusLabel(operation.status)}</strong>{running(operation.status) ? ` · ${stageLabel(operation.stage)}` : ''}</p>
-      {operation.status === 'SUCCEEDED' && operation.allVerified ? <div className="form-success" role="status">Tất cả tài nguyên đã chọn đã được xác minh là không còn. Dữ liệu đã bị xóa vĩnh viễn; lịch sử triển khai được giữ nguyên.</div> : null}
-      {operation.status === 'SUCCEEDED' && !operation.allVerified ? <div className="form-error" role="alert">Thao tác báo hoàn tất nhưng chưa xác minh được mọi tài nguyên đã chọn đã hết nên không được coi là thành công.</div> : null}
+      {provenSuccess(operation) ? <div className="form-success" role="status">Tất cả tài nguyên đã chọn đã được xác minh là không còn. Dữ liệu đã bị xóa vĩnh viễn; lịch sử triển khai được giữ nguyên.</div> : null}
+      {operation.status === 'SUCCEEDED' && !provenSuccess(operation) ? <div className="form-error" role="alert">Thao tác báo hoàn tất nhưng bằng chứng từng tài nguyên thiếu hoặc mâu thuẫn (chưa xác minh đã hết, còn đối tượng hoặc chưa rõ) nên không được coi là thành công.</div> : null}
+      {!isTerminalStatus(operation.status) && !running(operation.status) && operation.status !== 'INTERRUPTED' ? <div className="form-error" role="alert">Trạng thái thao tác xóa không nhận ra được. Môi trường có thể vẫn đang bị giữ; chưa thể coi thao tác đã xong, tài nguyên đã bị xóa hay còn nguyên.</div> : null}
       {operation.status === 'FAILED' ? <div className="form-error" role="alert">{failureLabel(operation.failureCode ?? 'CLEANUP_FAILED')} Tài nguyên chưa được xác minh là đã hết vẫn có thể còn tồn tại; không có hoàn tác hay thử lại tự động.</div> : null}
       {operation.status === 'INTERRUPTED' ? <div className="form-error" role="alert">Thao tác bị gián đoạn hoặc chưa rõ kết quả. Môi trường được giữ cho tới khi người vận hành xác nhận tiến trình đã dừng; chưa thể coi tài nguyên đã bị xóa hay còn nguyên.</div> : null}
       <table className="plain-table"><thead><tr><th>Tài nguyên</th><th>Kết quả</th><th>Đã xác minh hết</th><th>Còn lại</th></tr></thead><tbody>{operation.resources.map((item) => <tr key={item.id}>

@@ -110,6 +110,16 @@ describe('resource detail (UC-09 RES-01/02)', () => {
     expect(screen.queryByText('postgres.default#shared.STALE')).not.toBeInTheDocument();
   });
 
+  it('keeps deletion blocked while the latest operation is of unknown or held status', async () => {
+    for (const status of ['MYSTERY', 'INTERRUPTED', 'RECOVERING']) {
+      stubApi((c) => isDetail(c.url) ? Response.json(wire.resource(detail({ cleanup: { operationId: 'op-3', status, stage: 'CHECKING' } }))) : c.url.endsWith('/resource-cleanups/op-3') ? Response.json(wire.cleanup(operation({ operationId: 'op-3', status }))) : undefined);
+      const view = render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete pollMs={500} />);
+      expect(await screen.findByRole('button', { name: 'Xóa tài nguyên' })).toBeDisabled();
+      expect(screen.getByTestId('delete-blockers')).toHaveTextContent('Một thao tác xóa đang chạy');
+      view.unmount();
+    }
+  });
+
   it('shows a deleted resource as history without a delete action and resumes the progress of its operation after a reload', async () => {
     stubApi((c) => {
       if (isDetail(c.url)) return Response.json(wire.resource(detail({ status: 'DESTROYED', eligibility: { eligible: false, reasons: ['NOT_UNREFERENCED'] }, cleanup: { operationId: 'op-9', status: 'SUCCEEDED', stage: 'VERIFYING' } })));

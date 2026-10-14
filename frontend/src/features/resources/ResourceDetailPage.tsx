@@ -4,7 +4,7 @@ import { ApiError } from '../../shared/api/client';
 import type { Application, EnvironmentKey } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
 import { Status } from '../../shared/ui/Status';
-import { getResource, type Admission, type ResourceDetail } from './api';
+import { getResource, isTerminalStatus, type Admission, type ResourceDetail } from './api';
 import { CleanupProgress } from './CleanupProgress';
 import { DeleteResourceDialog } from './DeleteResourceDialog';
 import { consumerKindLabel, operationStatusLabel, refusalLabel, resourceStatusLabel, scopeLabel, stageLabel } from './labels';
@@ -12,7 +12,8 @@ import { consumerKindLabel, operationStatusLabel, refusalLabel, resourceStatusLa
 const redactedMarker = '***redacted***';
 const outputText = (value: string) => (value === redactedMarker ? 'Đã che' : value);
 const date = (value: string) => { const d = new Date(value); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('vi-VN'); };
-const running = (status: string) => status === 'ACTIVE' || status === 'RECOVERING' || status === 'INTERRUPTED';
+// Not final = still holding the Environment or of unknown outcome: deletion stays blocked.
+const running = (status: string) => !isTerminalStatus(status);
 
 type Load = { state: 'loading' } | { state: 'ready'; detail: ResourceDetail } | { state: 'notFound' } | { state: 'error' };
 

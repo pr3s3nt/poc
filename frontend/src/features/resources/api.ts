@@ -157,3 +157,21 @@ export async function getCleanup(app: string, env: EnvironmentKey, operationId: 
 export function responseLost(error: unknown): boolean {
   return !(error instanceof ApiError);
 }
+
+/** Persisted operation statuses after which nothing more will change. Anything else, including a status
+ * this Console does not know, is indeterminate: the Environment may still be held and the outcome unknown. */
+export function isTerminalStatus(status: string): boolean {
+  return status === 'SUCCEEDED' || status === 'FAILED' || status === 'RECOVERED';
+}
+
+/**
+ * Success is believed only when the whole response agrees: the operation says SUCCEEDED and allVerified,
+ * and every confirmed resource (the root among them) carries its own proof - verified, outcome DESTROYED,
+ * nothing remaining and no unknown remainder. Missing, empty or contradictory per-resource proof is never success.
+ */
+export function provenSuccess(operation: CleanupOperation): boolean {
+  if (operation.status !== 'SUCCEEDED' || !operation.allVerified || operation.resources.length === 0) return false;
+  if (!operation.resources.some((r) => r.id === operation.rootId)) return false;
+  if (operation.remainingIds.length > 0) return false;
+  return operation.resources.every((r) => r.verified && r.outcome === 'DESTROYED' && !r.remainingUnknown && r.remaining.length === 0);
+}

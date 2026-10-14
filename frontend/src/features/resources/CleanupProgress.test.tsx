@@ -38,9 +38,42 @@ describe('cleanup progress (UC-09 RES-03)', () => {
   it('never calls success while a confirmed resource is unverified, even when the operation says SUCCEEDED', async () => {
     stubApi(forOp('op-1', Response.json(wire.cleanup(operation({ status: 'SUCCEEDED', allVerified: false, resources: [{ id: rootId, descriptor: rootName, currentStatus: 'UNREFERENCED', outcome: 'UNKNOWN', verified: false, remaining: [], remainingUnknown: true }] })))));
     render(<CleanupProgress applicationId="shop" environment="staging" operationId="op-1" />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('chưa xác minh được mọi tài nguyên đã chọn đã hết');
+    expect(await screen.findByRole('alert')).toHaveTextContent('bằng chứng từng tài nguyên thiếu hoặc mâu thuẫn');
     expect(screen.queryByText(/đã được xác minh là không còn/)).not.toBeInTheDocument();
     expect(screen.getByText('Chưa rõ — không thể coi là đã hết')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['empty per-resource proof', { status: 'SUCCEEDED', allVerified: true, resources: [] }],
+    ['a row that is not verified', { status: 'SUCCEEDED', allVerified: true, resources: [{ id: rootId, descriptor: rootName, currentStatus: 'DESTROYED', outcome: 'DESTROYED', verified: false, remaining: [], remainingUnknown: false }] }],
+    ['an unknown remainder', { status: 'SUCCEEDED', allVerified: true, resources: [{ id: rootId, descriptor: rootName, currentStatus: 'DESTROYED', outcome: 'DESTROYED', verified: true, remaining: [], remainingUnknown: true }] }],
+    ['an outcome that is not DESTROYED', { status: 'SUCCEEDED', allVerified: true, resources: [{ id: rootId, descriptor: rootName, currentStatus: 'DESTROYED', outcome: 'UNKNOWN', verified: true, remaining: [], remainingUnknown: false }] }],
+    ['remaining objects', { status: 'SUCCEEDED', allVerified: true, remainingIds: ['x=1'], resources: [{ id: rootId, descriptor: rootName, currentStatus: 'DESTROYED', outcome: 'DESTROYED', verified: true, remaining: [], remainingUnknown: false }] }],
+    ['a root missing from the proof', { status: 'SUCCEEDED', allVerified: true, resources: [{ id: depA, descriptor: 'vpc.default#x', currentStatus: 'DESTROYED', outcome: 'DESTROYED', verified: true, remaining: [], remainingUnknown: false }] }],
+  ])('does not show success for SUCCEEDED/allVerified with %s', async (_name, over) => {
+    stubApi(forOp('op-1', Response.json(wire.cleanup(operation(over as never)))));
+    render(<CleanupProgress applicationId="shop" environment="staging" operationId="op-1" intervalMs={10} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('bằng chứng từng tài nguyên thiếu hoặc mâu thuẫn');
+    expect(screen.queryByText(/đã được xác minh là không còn/)).not.toBeInTheDocument();
+  });
+
+  it('keeps an unknown status indeterminate: it keeps polling, never settles and says the outcome is unknown', async () => {
+    const settled = vi.fn();
+    const calls = stubApi(forOp('op-1', Response.json(wire.cleanup(operation({ status: 'MYSTERY' })))));
+    render(<CleanupProgress applicationId="shop" environment="staging" operationId="op-1" intervalMs={10} onSettled={settled} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Trạng thái thao tác xóa không nhận ra được');
+    await waitFor(() => expect(calls.length).toBeGreaterThan(3));
+    expect(settled).not.toHaveBeenCalled();
+    expect(screen.queryByText(/đã được xác minh là không còn/)).not.toBeInTheDocument();
+  });
+
+  it('an interrupted operation is held: it never settles the page', async () => {
+    const settled = vi.fn();
+    stubApi(forOp('op-1', Response.json(wire.cleanup(operation({ status: 'INTERRUPTED' })))));
+    render(<CleanupProgress applicationId="shop" environment="staging" operationId="op-1" intervalMs={10} onSettled={settled} />);
+    await screen.findByRole('alert');
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(settled).not.toHaveBeenCalled();
   });
 
   it('shows an interrupted operation as needing attention, neither deleted nor intact', async () => {
