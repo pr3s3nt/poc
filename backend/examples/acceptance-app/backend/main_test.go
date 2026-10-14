@@ -1,10 +1,23 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"io"
+	"log"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
+
+	"orchestrator/examples/acceptance-app/internal/jobcache"
+	"orchestrator/examples/acceptance-app/internal/jobstore"
+	"orchestrator/examples/acceptance-app/internal/testfixture"
 )
 
 func TestAcceptanceChecks(t *testing.T) {
@@ -20,5 +33,281 @@ func TestAcceptanceChecks(t *testing.T) {
 		if got[name] {
 			t.Errorf("%s should fail", name)
 		}
+	}
+}
+
+// app is the real backend handler on a real PostgreSQL and a real Redis.
+type app struct {
+	t        *testing.T
+	store    *jobstore.Store
+	redis    *testfixture.Redis
+	cfg      jobcache.Config
+	srv      *httptest.Server
+	logs     *bytes.Buffer
+	evidence *jobcache.Evidence
+}
+
+func newApp(t *testing.T, ttl time.Duration, mutate func(*jobcache.Config)) *app {
+	t.Helper()
+	ctx := context.Background()
+	pg := testfixture.PostgresConfig(t)
+	store, err := jobstore.Open(ctx, pg, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(store.Close)
+	if err := store.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	r := testfixture.StartRedis(t, testfixture.RedisOptions{})
+	cfg := jobcache.Config{Host: r.Host, Port: r.Port, Username: r.Username, Password: r.Password, TLS: r.TLS,
+		App: "acceptance", Env: "dev", Run: "run-01", TTL: ttl}
+	if mutate != nil {
+		mutate(&cfg)
+	}
+	cache := jobcache.New(cfg)
+	t.Cleanup(func() { _ = cache.Close() })
+	ev := jobcache.NewEvidence()
+	logs := &bytes.Buffer{}
+	log.SetOutput(logs)
+	t.Cleanup(func() { log.SetOutput(io.Discard) })
+	srv := httptest.NewServer(newMux(store, pg, cache, cfg, jobcache.NewResolver(cache, store, ev), ev))
+	t.Cleanup(srv.Close)
+	return &app{t: t, store: store, redis: r, cfg: cfg, srv: srv, logs: logs, evidence: ev}
+}
+
+// workerComplete mirrors the worker: commit to PostgreSQL, then write through.
+func (a *app) workerComplete() jobstore.Job {
+	a.t.Helper()
+	job, claimed, err := a.store.ClaimAndProcess(context.Background(), "worker-1", func(p string) string { return "processed:" + strings.ToUpper(p) })
+	if err != nil || !claimed {
+		a.t.Fatalf("claim: %v %v", claimed, err)
+	}
+	cache := jobcache.New(a.cfg)
+	defer cache.Close()
+	if err := cache.Put(context.Background(), job); err != nil {
+		a.t.Fatalf("write-through: %v", err)
+	}
+	return job
+}
+
+func (a *app) do(method, path, body string) (int, map[string]any, string) {
+	a.t.Helper()
+	req, _ := http.NewRequest(method, a.srv.URL+path, strings.NewReader(body))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	var decoded map[string]any
+	_ = json.Unmarshal(raw, &decoded)
+	return resp.StatusCode, decoded, string(raw)
+}
+
+func (a *app) submit(payload string) int64 {
+	a.t.Helper()
+	status, body, raw := a.do("POST", "/api/jobs", `{"payload":"`+payload+`"}`)
+	if status != http.StatusCreated {
+		a.t.Fatalf("submit: %d %s", status, raw)
+	}
+	return int64(body["id"].(float64))
+}
+
+func (a *app) jobs() int64 {
+	n, err := a.store.CountJobs(context.Background())
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	return n
+}
+
+func (a *app) assertSafe(bodies ...string) {
+	a.t.Helper()
+	all := a.logs.String() + strings.Join(bodies, "\n")
+	for _, secret := range []string{a.cfg.Password, "WRONGPASS", "dial tcp", "connection refused", "127.0.0.1:" + itoa(a.cfg.Port)} {
+		if secret != "" && strings.Contains(all, secret) {
+			a.t.Fatalf("a response or log leaks %q", secret)
+		}
+	}
+}
+
+func itoa(n int) string { b, _ := json.Marshal(n); return string(b) }
+
+func cacheCheck(body map[string]any) bool { return body["checks"].(map[string]any)["cache"].(bool) }
+
+func TestBackendCacheHitMissRefillThroughTheAPI(t *testing.T) {
+	a := newApp(t, time.Second, nil)
+	id := a.submit("hello")
+	// Pending: served from PostgreSQL and never cached.
+	status, body, _ := a.do("GET", "/api/jobs/"+itoa(int(id)), "")
+	if status != 200 || body["status"] != "PENDING" || body["cache"] != "pending" {
+		t.Fatalf("pending: %d %v", status, body)
+	}
+	if a.redis.Client(t).Exists(context.Background(), a.cfg.KeyFor(id)).Val() != 0 {
+		t.Fatal("pending job cached")
+	}
+	job := a.workerComplete()
+
+	_, body, _ = a.do("GET", "/api/jobs/"+itoa(int(id)), "")
+	if body["cache"] != "hit" || body["result"] != job.Result || body["status"] != "DONE" {
+		t.Fatalf("hit expected: %v", body)
+	}
+	// The list used by the existing UI resolves completed jobs through the cache too.
+	_, list, _ := a.do("GET", "/api/jobs", "")
+	first := list["jobs"].([]any)[0].(map[string]any)
+	if first["cache"] != "hit" || first["result"] != job.Result || first["payload"] != "hello" {
+		t.Fatalf("list should hit: %v", first)
+	}
+
+	time.Sleep(1300 * time.Millisecond) // TTL expiry
+	_, list, _ = a.do("GET", "/api/jobs", "")
+	first = list["jobs"].([]any)[0].(map[string]any)
+	if first["cache"] != "miss-refilled" || first["result"] != job.Result || first["processedBy"] != "worker-1" {
+		t.Fatalf("miss -> same PostgreSQL result -> refill expected: %v", first)
+	}
+	if a.redis.Client(t).Exists(context.Background(), a.cfg.KeyFor(id)).Val() != 1 {
+		t.Fatal("refill missing")
+	}
+
+	_, checks, raw := a.do("GET", "/api/checks", "")
+	evidence := checks["cache"].(map[string]any)
+	lookups := evidence["lookups"].(map[string]any)
+	if !cacheCheck(checks) || lookups["hit"].(float64) < 2 || lookups["miss-refilled"].(float64) != 1 || evidence["ttlSeconds"].(float64) != 1 || evidence["scope"] != "acceptance/dev/run-01" {
+		t.Fatalf("evidence: %v", evidence)
+	}
+	a.assertSafe(raw)
+	if a.jobs() != 1 {
+		t.Fatalf("expected exactly one job, got %d", a.jobs())
+	}
+}
+
+func TestBackendRedisOutageFailsDiagnosticsButKeepsDurableResult(t *testing.T) {
+	a := newApp(t, 30*time.Second, nil)
+	id := a.submit("outage")
+	job := a.workerComplete()
+	a.redis.Stop()
+
+	status, body, raw := a.do("GET", "/api/jobs/"+itoa(int(id)), "")
+	if status != 200 || body["result"] != job.Result || body["cache"] != "error-db-fallback" || body["cacheReason"] != "unreachable" {
+		t.Fatalf("%d %v", status, body)
+	}
+	_, checks, raw2 := a.do("GET", "/api/checks", "")
+	if cacheCheck(checks) || !checks["checks"].(map[string]any)["database"].(bool) {
+		t.Fatalf("cache must fail while the database passes: %v", checks)
+	}
+	if checks["cache"].(map[string]any)["reachable"] != false || checks["cache"].(map[string]any)["reason"] != "unreachable" {
+		t.Fatalf("%v", checks["cache"])
+	}
+	if status, _, _ := a.do("GET", "/readyz", ""); status != http.StatusServiceUnavailable {
+		t.Fatalf("readyz = %d, want 503", status)
+	}
+	if _, list, _ := a.do("GET", "/api/jobs", ""); list["jobs"].([]any)[0].(map[string]any)["result"] != job.Result {
+		t.Fatal("list must still show the durable result")
+	}
+	a.assertSafe(raw, raw2)
+	if a.jobs() != 1 {
+		t.Fatal("no implicit resubmit")
+	}
+}
+
+func TestBackendWrongRedisPasswordCannotPass(t *testing.T) {
+	a := newApp(t, 30*time.Second, func(c *jobcache.Config) { c.Password = "definitely-wrong" })
+	a.submit("auth")
+	_, checks, raw := a.do("GET", "/api/checks", "")
+	if cacheCheck(checks) || checks["cache"].(map[string]any)["reason"] != "auth" {
+		t.Fatalf("%v", checks)
+	}
+	if status, body, _ := a.do("GET", "/readyz", ""); status != http.StatusServiceUnavailable || body["status"] != "cache unavailable" {
+		t.Fatalf("readyz %d %v", status, body)
+	}
+	a.assertSafe(raw)
+	if strings.Contains(raw, "definitely-wrong") || strings.Contains(a.logs.String(), "definitely-wrong") {
+		t.Fatal("password leaked")
+	}
+}
+
+func TestBackendWrongBindingCannotPass(t *testing.T) {
+	ctx := context.Background()
+	store, err := jobstore.Open(ctx, testfixture.PostgresConfig(t), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err := store.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// An unparsable binding leaves the backend running without a cache client.
+	_, cfgErr := jobcache.ConfigFromEnv(func(string) string { return "" })
+	if cfgErr == nil {
+		t.Fatal("empty binding must be rejected")
+	}
+	ev := jobcache.NewEvidence()
+	srv := httptest.NewServer(newMux(store, jobstore.Config{}, nil, jobcache.Config{}, jobcache.NewResolver(nil, store, ev), ev))
+	defer srv.Close()
+	resp, err := http.Get(srv.URL + "/api/checks")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var checks map[string]any
+	_ = json.NewDecoder(resp.Body).Decode(&checks)
+	if cacheCheck(checks) || checks["cache"].(map[string]any)["reason"] != "config" || checks["cache"].(map[string]any)["configured"] != false {
+		t.Fatalf("%v", checks)
+	}
+	if !checks["checks"].(map[string]any)["database"].(bool) {
+		t.Fatal("database check is independent and must pass")
+	}
+	if r, _ := http.Get(srv.URL + "/readyz"); r.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("readyz %d", r.StatusCode)
+	}
+}
+
+func TestBackendWorkerWriteFailureStaysVisibleAfterRedisRecovers(t *testing.T) {
+	a := newApp(t, 30*time.Second, nil)
+	id := a.submit("after-commit")
+	a.redis.Stop()
+	// The worker commits first; the write-through then fails.
+	job, claimed, err := a.store.ClaimAndProcess(context.Background(), "worker-1", strings.ToUpper)
+	if err != nil || !claimed {
+		t.Fatal(err)
+	}
+	cache := jobcache.New(a.cfg)
+	if err := cache.Put(context.Background(), job); err == nil {
+		t.Fatal("write-through must fail while Redis is down")
+	}
+	_ = cache.Close()
+	if err := a.store.RecordCacheWrite(context.Background(), job.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	// The committed result is exactly one completed job and is not reprocessed.
+	if _, again, _ := a.store.ClaimAndProcess(context.Background(), "worker-2", strings.ToLower); again {
+		t.Fatal("completed job processed again")
+	}
+	a.redis.Restart()
+	status, body, _ := a.do("GET", "/api/jobs/"+itoa(int(id)), "")
+	if status != 200 || body["status"] != "DONE" || body["result"] != job.Result || body["processedBy"] != "worker-1" {
+		t.Fatalf("committed result must survive: %d %v", status, body)
+	}
+	_, checks, _ := a.do("GET", "/api/checks", "")
+	writes := checks["cache"].(map[string]any)["workerWrites"].(map[string]any)
+	if cacheCheck(checks) || writes["failed"].(float64) != 1 {
+		t.Fatalf("a failed write-through must keep the cache check failed even after Redis recovers: %v", checks)
+	}
+	if a.jobs() != 1 {
+		t.Fatal("exactly one job expected")
+	}
+}
+
+func TestBackendBadRequestsDoNotTouchTheCache(t *testing.T) {
+	a := newApp(t, 30*time.Second, nil)
+	if status, _, _ := a.do("GET", "/api/jobs/abc", ""); status != 400 {
+		t.Fatalf("status %d", status)
+	}
+	if status, _, _ := a.do("GET", "/api/jobs/999", ""); status != 404 {
+		t.Fatalf("status %d", status)
+	}
+	if status, _, _ := a.do("POST", "/api/jobs", `{"payload":"  "}`); status != 400 {
+		t.Fatalf("status %d", status)
 	}
 }
