@@ -98,15 +98,16 @@ sau dọn đạt, bốn SLR giữ nguyên, database/ba role/private vắng. Vide
 đã decode. Fresh A02r3 config/dự toán đã chuẩn bị, chưa chạy; A03 chưa chạy.
 Evidence `/home/thanhnt1/.m4/a02-20261015-r2`, tiến trình runner PTY88205.
 Writer `/root/i0410_luna` đã sửa helper chọn boolean ở checkout riêng
-`/tmp/poc-i0412-form-fix`, Codex đang fullfrontend checks; checkout getter là
-`/tmp/poc-i0412-local-runtime`. Hai file getter ảnh probe đã đóng băng, kiểm
-độc lập toàn bộ đang chạy PTY95031 tại `.m4/checks-i0412-probe-pins-r7`.
+`/tmp/poc-i0412-form-fix`: `214e37f` đãreview/merge,635frontend/fullchecks
+đạt, backend không đổi so1d35a00/R6. Checkout getter là
+`/tmp/poc-i0412-local-runtime`. Getter ảnh probe `660fd5c` đãreview/merge; R7 đạt1407Go/race/0skip,
+634frontend/fullchecks/sourcehashkhớp vàfixtureclean tại
+`.m4/checks-i0412-probe-pins-r7`.
 Lần chạy hiện tại còn cảnh báo thiếu getter metadata ảnh probe; không sửa
 manifest gốc. `operator-probe-image-pins.json` ghi cấu hình thực tế đã ghim,
 nhưng chưa có technical probe vì biểu mẫu thất bại; không coi A02 đạt.
 Dự toán5h A02~2,1300USD/A03~2,0507USD; chưa có hóa đơn thực tế.
-Tiếp: hoàn tất review/checks/merge/push hai bản sửa,
-chạy lại A02; chỉ khi A02 sạch mới A03. Không cần duyệt giữa hoặc cuối.
+Tiếp: chạy A02r3 với cả hai bản sửa; chỉ khi A02 sạch mới A03. Không cần duyệt giữa hoặc cuối.
 Các đoạn bên dưới là lịch sử bàn giao, không thay trạng thái hiện hành này.
 
 2026-10-14: I04-01..09 đã verified local. I04-06 code `f3ed5bb` đã review,

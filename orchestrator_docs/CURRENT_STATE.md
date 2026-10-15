@@ -11,8 +11,10 @@ last_reviewed: 2026-10-15
 
 I04-01..10 đã hoàn tất phần code và kiểm tra local. **I04-11 đã đạt** cả
 A01/E01/E02 trên k8s-4f với adapter thật, trình duyệt có ghi hình, kiểm chứng
-PostgreSQL sau khởi động lại và dọn sạch độc lập. I04-12 hiện hành: chuẩn bị
-chạy AWS A02, dọn sạch rồi mới A03; chưa tạo tài nguyên AWS trong M04 v2.
+PostgreSQL sau khởi động lại và dọn sạch độc lập. I04-12 hiện hành: A02r2
+đã tạo ba kho ECR thật rồi dọn sạch sau lỗi biểu mẫu boolean, chưa triển khai
+EKS. Bản sửa helper vàgetter ảnh probe đã hợp nhất; chuẩn bị A02r3, A03 chưa
+chạy. Chỉ chạy A03 sau khi A02 sạch.
 
 | Scenario | Lượt đạt | Kiểm tra trình duyệt | Video | Kết quả tổng |
 |---|---|---|---|---|
@@ -1035,3 +1037,9 @@ và opaque target. ADR-010 baseline score-k8s 0.15.0/internal bundle có evidenc
 Set-once/legacy migrations và tên chứa run ID của ADR-011 đã hết hiệu lực;
 ADR-012 operation/transition features đã verified vẫn được giữ trong scope cũ.
 Không claim Terraform full resume, orphan import hay platform DR đã implement.
+
+
+Cập nhật kiểm chứng I04-12: getter probe `660fd5c` đạt độc lập1407Go/race/
+0fail/0skip,634frontend/fullchecks, mã băm nguồn khớp vàfixtureclean (R7).
+Helper boolean `214e37f` đạt635frontend/fullchecks, backend không đổi.
+Cả hai đã hợp nhất; A02r3 chạy trên mã này, evidence sẽ ghi đúng commit.
