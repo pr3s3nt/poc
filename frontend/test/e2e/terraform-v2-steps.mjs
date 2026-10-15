@@ -28,6 +28,17 @@ export const K8S_ACCEPTANCE_DEFINITIONS = [
   { id: 'redis-in-cluster', type: 'redis', module: 'redis-k8s', scope: 'Cluster nội bộ', presetNamespace: true, klass: 'in-cluster' },
 ];
 
+// The shared catalog stores JSON-encoded typed values for planner tests. The
+// form accepts the underlying scalar as text, not its JSON-quoted encoding.
+export function decodeCatalogOverride(encoded, substitutions = {}) {
+  const expanded = Object.entries(substitutions).reduce((value, [key, replacement]) => value.replaceAll(`@${key}@`, replacement), encoded);
+  return JSON.parse(expanded);
+}
+
+export function formOverrideText(value) {
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
 // The Redis Definition carries one fixture annotation that references the
 // shared PostgreSQL host (a non-secret output). It makes the graph
 // namespace <- PostgreSQL <- Redis, so the deletion step has BOTH a dependency
@@ -66,7 +77,7 @@ export function steps({ page, h, caption, phase, rec, baseURL, input }) {
   }
   async function override(name, value) {
     await h.click(form(`Ghi đè ${name}`));
-    await h.paste(form(`Giá trị ${name}`), value);
+    await h.paste(form(`Giá trị ${name}`), formOverrideText(value));
   }
   async function startDefinition(id, type, module, scope) {
     await h.type(form('ID cấu hình'), id);
@@ -377,9 +388,8 @@ export function steps({ page, h, caption, phase, rec, baseURL, input }) {
     caption('Cấu hình tài nguyên AWS: VPC, EKS, namespace, Aurora và bộ nhớ đệm — chỉ chọn module đã được registry xác minh; giá trị được nhập qua form, không có ô URL hay digest');
     await h.click(nav('Cấu hình tài nguyên'));
     await expect(page.getByRole('heading', { name: 'Cấu hình tài nguyên', level: 1, exact: true })).toBeVisible();
-    const sub = (text) => Object.entries(subs).reduce((acc, [k, v]) => acc.replaceAll(`@${k}@`, v), text);
     for (const d of [...catalog.definitions.common, ...catalog.definitions[scenario]]) {
-      await registerDefinition({ ...d, overrides: (d.overrides ?? []).map(([name, value]) => [name, sub(value)]) });
+      await registerDefinition({ ...d, overrides: (d.overrides ?? []).map(([name, value]) => [name, decodeCatalogOverride(value, subs)]) });
     }
     const defs = (await get('/resource-definitions')).resourceDefinitions.map((x) => x.key).sort();
     const capabilities = (await get('/resource-definition-capabilities')).capabilities;

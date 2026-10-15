@@ -1,7 +1,20 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { once } from 'node:events';
 import { verifyReopen } from './terraform-v2-reopen.mjs';
+import { decodeCatalogOverride, formOverrideText } from './terraform-v2-steps.mjs';
+
+const awsCatalog = JSON.parse(readFileSync(resolve(process.cwd(), '../backend/test/integration/v2run/testdata/aws-catalog.json'), 'utf8'));
+
+function catalogFormValue(definitionID, variable, substitutions = {}) {
+  const entries = [...awsCatalog.definitions.common, ...awsCatalog.definitions.A02, ...awsCatalog.definitions.A03];
+  const definition = entries.find((item) => item.id === definitionID);
+  const encoded = definition?.overrides?.find(([name]) => name === variable)?.[1];
+  if (encoded === undefined) throw new Error(`missing catalog override ${definitionID}.${variable}`);
+  return formOverrideText(decodeCatalogOverride(encoded, substitutions));
+}
 
 let server;
 let base;
@@ -52,6 +65,20 @@ function setup(scenario) {
 }
 
 describe('Terraform v2 SQL reopen acceptance checks', () => {
+  it('turns JSON-typed AWS catalog entries into the raw typed form values', () => {
+    expect(catalogFormValue('cluster-aws-eks', 'node_instance_type', { NODE_TYPE: 't4g.medium' })).toBe('t4g.medium');
+    expect(catalogFormValue('cluster-aws-eks', 'node_capacity_type')).toBe('SPOT');
+    expect(catalogFormValue('cluster-aws-eks', 'node_disk_size')).toBe('20');
+    expect(catalogFormValue('cluster-aws-eks', 'ebs_csi_driver')).toBe('true');
+    expect(catalogFormValue('cluster-aws-eks', 'public_access_cidrs', { EGRESS: '198.51.100.7/32' })).toBe('["198.51.100.7/32"]');
+    expect(catalogFormValue('cluster-aws-eks', 'name')).toBe('${context.infra.resourceName}');
+    expect(catalogFormValue('redis-eks-in-cluster', 'storage_class')).toBe('gp2');
+  });
+  it('keeps E02 image references raw and preserves the intentional invalid-map string', () => {
+    const badImage = 'redis:7.4.7-alpine@sha256:' + 'a'.repeat(64);
+    expect(formOverrideText(badImage)).toBe(badImage);
+    expect(formOverrideText(JSON.stringify('not-a-map'))).toBe('"not-a-map"');
+  });
   it.each(['A01', 'E01', 'E02', 'A02', 'A03'])('accepts exact %s catalog and post-cleanup history', async (scenario) => {
     setup(scenario); await start();
     await expect(verifyReopen({ base, scenario, applicationKey: 'app-key', connectionKey: 'conn-key' })).resolves.toMatchObject({ scenario });

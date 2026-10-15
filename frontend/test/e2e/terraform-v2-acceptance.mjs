@@ -514,7 +514,7 @@ export const SCENARIOS = {
     await s.registerKubernetesConnection();
     phase('FORM', 'Biểu mẫu: Definition Redis ghim image có digest không tồn tại (cú pháp hợp lệ); mọi thứ khác là module thật đã ghim');
     await s.registerTypes();
-    const { defs } = await s.registerDefinitions({ redisOverrides: [['image', JSON.stringify(badImage)]] });
+    const { defs } = await s.registerDefinitions({ redisOverrides: [['image', badImage]] });
     await s.registerRenderTemplate();
     rec.record('ui.definitions.registered', 'FORM', 'ui', ['namespace-k8s-module', 'pg-in-cluster', 'redis-in-cluster'].every((k) => defs.includes(k)), defs.join(','));
     await s.signOut();
