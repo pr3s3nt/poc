@@ -180,8 +180,11 @@ func TestVerifyLayersAreReadOnlyAndJudgedByContents(t *testing.T) {
 
 func TestDeliveryVerificationRoutesOnlyKnownTerraformObjects(t *testing.T) {
 	m := k8sManifest(t)
+	if err := m.AddTerraformRun("pending-0123456789abcdef"); err != nil {
+		t.Fatal(err)
+	}
 	ctx := context.Background()
-	baseLabels := `"orchestrator-managed":"true","orchestrator-created-by-run":"a01-0001","orchestrator-instance":"0123456789abcdef","app.kubernetes.io/managed-by":"orchestrator","app.kubernetes.io/name":"postgres","app.kubernetes.io/instance":"postgres-0123456789abcdef"`
+	baseLabels := `"run-id":"a01-0001","managed-by":"orchestrator-verification","orchestrator-managed":"true","orchestrator-created-by-run":"pending-0123456789abcdef","orchestrator-instance":"0123456789abcdef","app.kubernetes.io/managed-by":"orchestrator","app.kubernetes.io/name":"postgres","app.kubernetes.io/instance":"postgres-0123456789abcdef"`
 	tests := []struct {
 		name, item string
 		wantErr    bool
@@ -189,9 +192,15 @@ func TestDeliveryVerificationRoutesOnlyKnownTerraformObjects(t *testing.T) {
 		{"owned auth secret", `{"kind":"Secret","metadata":{"name":"postgres-0123456789abcdef-auth","labels":{` + baseLabels + `}}}`, false},
 		{"owned terraform service", `{"kind":"Service","metadata":{"name":"postgres-0123456789abcdef","labels":{` + baseLabels + `}}}`, false},
 		{"foreign same name", `{"kind":"Secret","metadata":{"name":"postgres-0123456789abcdef-auth","labels":{}}}`, true},
-		{"mismatched run tag", `{"kind":"Service","metadata":{"name":"postgres-0123456789abcdef","labels":{` + strings.Replace(baseLabels, `"orchestrator-created-by-run":"a01-0001"`, `"orchestrator-created-by-run":"other-run"`, 1) + `}}}`, true},
-		{"missing physical instance", `{"kind":"Secret","metadata":{"name":"custom-secret","labels":{"orchestrator-managed":"true","orchestrator-created-by-run":"a01-0001","app.kubernetes.io/managed-by":"orchestrator"}}}`, true},
+		{"mismatched Terraform run tag", `{"kind":"Service","metadata":{"name":"postgres-0123456789abcdef","labels":{` + strings.Replace(baseLabels, `"orchestrator-created-by-run":"pending-0123456789abcdef"`, `"orchestrator-created-by-run":"pending-fedcba9876543210"`, 1) + `}}}`, true},
+		{"outer scenario run is not Terraform run", `{"kind":"Service","metadata":{"name":"postgres-0123456789abcdef","labels":{` + strings.Replace(baseLabels, `"orchestrator-created-by-run":"pending-0123456789abcdef"`, `"orchestrator-created-by-run":"a01-0001"`, 1) + `}}}`, true},
+		{"missing outer run tag", `{"kind":"Service","metadata":{"name":"postgres-0123456789abcdef","labels":{` + strings.Replace(baseLabels, `"run-id":"a01-0001",`, "", 1) + `}}}`, true},
+		{"foreign outer run tag", `{"kind":"Service","metadata":{"name":"postgres-0123456789abcdef","labels":{` + strings.Replace(baseLabels, `"run-id":"a01-0001"`, `"run-id":"other-run"`, 1) + `}}}`, true},
+		{"wrong verifier managed-by tag", `{"kind":"Service","metadata":{"name":"postgres-0123456789abcdef","labels":{` + strings.Replace(baseLabels, `"managed-by":"orchestrator-verification"`, `"managed-by":"other"`, 1) + `}}}`, true},
+		{"missing physical instance", `{"kind":"Secret","metadata":{"name":"custom-secret","labels":{"orchestrator-managed":"true","orchestrator-created-by-run":"pending-0123456789abcdef","app.kubernetes.io/managed-by":"orchestrator"}}}`, true},
 		{"custom secret with spoofed labels", `{"kind":"Secret","metadata":{"name":"custom-secret","labels":{` + baseLabels + `}}}`, true},
+		{"wrong app identity", `{"kind":"Secret","metadata":{"name":"redis-0123456789abcdef-auth","labels":{` + baseLabels + `}}}`, true},
+		{"wrong module object kind", `{"kind":"Deployment","metadata":{"name":"postgres-0123456789abcdef","labels":{` + baseLabels + `}}}`, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -69,9 +69,17 @@ type listedObjects struct {
 
 var physicalInstancePattern = regexp.MustCompile(`^[0-9a-f]{8,64}$`)
 
-func generatedDeliveryObject(o listedObject, runID string) bool {
+func generatedDeliveryObject(o listedObject, m Manifest) bool {
 	labels := o.Metadata.Labels
-	if labels["orchestrator-managed"] == "true" && labels["orchestrator-created-by-run"] == runID &&
+	terraformRunID := labels["orchestrator-created-by-run"]
+	knownTerraformRun := false
+	for _, runID := range m.TerraformRuns {
+		if terraformRunPattern.MatchString(runID) && terraformRunID == runID {
+			knownTerraformRun = true
+			break
+		}
+	}
+	if knownTerraformRun && labels["run-id"] == m.RunID && labels["managed-by"] == ProductManagedByTag && labels["orchestrator-managed"] == "true" &&
 		physicalInstancePattern.MatchString(labels["orchestrator-instance"]) && labels["app.kubernetes.io/managed-by"] == "orchestrator" {
 		instance := labels["app.kubernetes.io/instance"]
 		name := labels["app.kubernetes.io/name"]
@@ -242,7 +250,7 @@ func VerifyLayer(ctx context.Context, k Kubectl, m Manifest, layer string) error
 				// Only the exact Terraform module Service and auth Secret identity
 				// shapes are routed to the later state/UID-verified Terraform layer.
 				// A same-name or same-label object alone never proves cleanup.
-				if object.Metadata.Name == "" || object.Kind == "" || (!generatedDeliveryObject(object, m.RunID) && !pristineNamespaceDefault(object)) {
+				if object.Metadata.Name == "" || object.Kind == "" || (!generatedDeliveryObject(object, m) && !pristineNamespaceDefault(object)) {
 					left = append(left, object.Kind+"/"+object.Metadata.Name)
 				}
 			}
