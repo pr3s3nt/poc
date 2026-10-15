@@ -50,7 +50,9 @@ cleanuphelper chọn vault delivery theoadapter; fix1d35a00 đãreview/merge,
 1407Go/race/0skip/634frontend/fullchecks đạt/fixtureclean. FreshA02r2
 vàdựtoán13dòng~2,13USD đã qua gate; supervisor bật trước ba kho ECR thật.
 A02r2 thất bại ở biểu mẫu EKS do boolean `ebs_csi_driver` bị từ chối, chưa
-triển khai cụm. Supervisor đang dọn; chưa xác nhận sạch. Writer chẩn đoán lỗi,
+triển khai cụm. Marker CLOSED_CLEAN: AWS absence/preflight10/10, bốn SLR giữ nguyên,
+DB/ba role/private vắng, video334,20giây decode đạt. Writer đã sửa helper
+chọn boolean, Codex đang kiểm đầy đủ frontend ở checkout riêng;
 Codex giữ evidence thất bại và chạy kiểm độc lập getter ảnh probe ở
 `.m4/checks-i0412-probe-pins-r7/`; không chạy A03 trước khi A02 sạch.
 [Biên bản I04-12](verification/2026-10-15-i04-12-aws.md).

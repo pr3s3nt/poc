@@ -93,16 +93,19 @@ I04-12 đang thực hiện. A02 `a02-20261015-r2` chạy code `1d35a00`, đã qu
 preflight/gate/dự toán, supervisor được bật trước khi tạo ba kho ECR thật.
 Browser đã đăng ký AWS Connection READY và sáu loại tài nguyên; biểu mẫu EKS
 thất bại vì giá trị boolean `ebs_csi_driver` bị từ chối. Chưa triển khai EKS.
-Supervisor đang dọn; chưa xác nhận sạch, không chạy lượt mới hoặc A03.
+A02r2 đã exit1/FAIL, marker CLOSED_CLEAN: AWS absence query vàpreflight10/10
+sau dọn đạt, bốn SLR giữ nguyên, database/ba role/private vắng. Video334,20giây
+đã decode. Fresh A02r3 config/dự toán đã chuẩn bị, chưa chạy; A03 chưa chạy.
 Evidence `/home/thanhnt1/.m4/a02-20261015-r2`, tiến trình runner PTY88205.
-Writer `/root/i0410_luna` đang chẩn đoán lỗi biểu mẫu trong checkout
+Writer `/root/i0410_luna` đã sửa helper chọn boolean ở checkout riêng
+`/tmp/poc-i0412-form-fix`, Codex đang fullfrontend checks; checkout getter là
 `/tmp/poc-i0412-local-runtime`. Hai file getter ảnh probe đã đóng băng, kiểm
 độc lập toàn bộ đang chạy PTY95031 tại `.m4/checks-i0412-probe-pins-r7`.
 Lần chạy hiện tại còn cảnh báo thiếu getter metadata ảnh probe; không sửa
 manifest gốc. `operator-probe-image-pins.json` ghi cấu hình thực tế đã ghim,
 nhưng chưa có technical probe vì biểu mẫu thất bại; không coi A02 đạt.
 Dự toán5h A02~2,1300USD/A03~2,0507USD; chưa có hóa đơn thực tế.
-Tiếp: xác minh dọn AWS/SQL/Vault, sửa lỗi qua writer, review/checks/merge/push,
+Tiếp: hoàn tất review/checks/merge/push hai bản sửa,
 chạy lại A02; chỉ khi A02 sạch mới A03. Không cần duyệt giữa hoặc cuối.
 Các đoạn bên dưới là lịch sử bàn giao, không thay trạng thái hiện hành này.
 
