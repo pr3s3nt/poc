@@ -18,7 +18,7 @@ R9 đạt 1.408 Go/race, 642 frontend và toàn bộ checks, không bỏ qua; ng
 khớp trước/sau, fixture sạch. A02r6 đang chạy từ `5f77e00`: preflight/gate/
 dự toán đạt, supervisor bật trước ba kho ECR, manifest có đủ bảy pin v4 và
 Connection READY. Preview đã đạt, VPC/EKS đều READY trên AWS thật;
-Aurora đang APPLYING trong deployment `d5369d3a-adb2-45e3-be7c-0fe97674ad58`.
+Aurora cũng READY, ElastiCache đang APPLYING trong deployment `d5369d3a-adb2-45e3-be7c-0fe97674ad58`.
 A03 chưa chạy.
 
 A02r5 đã khép `CLOSED_CLEAN` sau xác minh độc lập. Engine gốc đã destroy các
