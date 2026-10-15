@@ -205,14 +205,12 @@ func ReadRunMarker(dir string) (RunMarker, error) {
 }
 
 // DirtyRuns lists run directories under root that are not verified clean. A
-// directory with a run marker is dirty unless its marker is closed
-// (CLOSED_CLEAN by the runner after the supervisor reported CLEAN and every
-// absence was verified, or CLOSED_NO_EFFECTS by explicit operator action) or its
-// supervisor status is CLEAN, even when the spec or status files are missing: a lost private spec
-// or a failed pre-arm run is not ignorable. A directory with a legacy
-// supervisor spec but no marker is checked the same way. Directories with
-// neither are unrelated and excluded. No new run may start while any previous
-// run is dirty.
+// known run is clean only after an explicit CLOSED_CLEAN marker (the runner
+// verified cleanup and local teardown) or CLOSED_NO_EFFECTS marker (explicit
+// operator action). Supervisor CLEAN alone is insufficient because it does not
+// prove the runner completed physical, sentinel, and local cleanup checks. A
+// legacy supervisor spec without a marker stays dirty until operator closure;
+// unrelated directories with neither file are excluded.
 func DirtyRuns(root string) ([]string, error) {
 	entries, err := os.ReadDir(root)
 	if err != nil {
@@ -229,7 +227,7 @@ func DirtyRuns(root string) ([]string, error) {
 		dir := filepath.Join(root, e.Name())
 		_, markerErr := os.Lstat(filepath.Join(dir, RunMarkerName))
 		_, specErr := os.Lstat(filepath.Join(dir, "private", "supervisor-spec.json"))
-		if markerErr != nil && specErr != nil {
+		if os.IsNotExist(markerErr) && os.IsNotExist(specErr) {
 			continue // not a run directory of this runner
 		}
 		if markerErr == nil {
@@ -238,10 +236,9 @@ func DirtyRuns(root string) ([]string, error) {
 				continue
 			}
 		}
-		st, err := ReadStatus(filepath.Join(dir, "private", "supervisor-status.json"))
-		if err != nil || st.State != StateClean {
-			dirty = append(dirty, e.Name())
-		}
+		// A present, malformed, unreadable, or legacy run marker/spec without
+		// explicit closure remains dirty. Supervisor status cannot override it.
+		dirty = append(dirty, e.Name())
 	}
 	return dirty, nil
 }

@@ -289,13 +289,26 @@ func TestDirtyAndScanGuards(t *testing.T) {
 	}
 	st, _ := json.Marshal(v2run.Status{RunID: "r", State: v2run.StateClean})
 	_ = os.WriteFile(filepath.Join(run, "supervisor-status.json"), st, 0o600)
-	if dirty, _ = v2run.DirtyRuns(root); len(dirty) != 0 {
-		t.Fatalf("clean run reported dirty: %v", dirty)
+	if dirty, _ = v2run.DirtyRuns(root); len(dirty) != 1 || dirty[0] != "run-1" {
+		t.Fatalf("supervisor CLEAN without final runner closure must remain dirty: %v", dirty)
 	}
 	st, _ = json.Marshal(v2run.Status{RunID: "r", State: v2run.StateAttention})
 	_ = os.WriteFile(filepath.Join(run, "supervisor-status.json"), st, 0o600)
 	if dirty, _ = v2run.DirtyRuns(root); len(dirty) != 1 {
-		t.Fatal("a NEEDS_ATTENTION run must block a new run")
+		t.Fatal("a legacy NEEDS_ATTENTION run must block a new run")
+	}
+	markerDir := filepath.Dir(run)
+	if err := v2run.WriteRunMarker(markerDir, v2run.RunMarker{RunID: "r", Target: v2run.TargetK8s4f, State: v2run.MarkerStarted}); err != nil {
+		t.Fatal(err)
+	}
+	if dirty, _ = v2run.DirtyRuns(root); len(dirty) != 1 || dirty[0] != "run-1" {
+		t.Fatalf("an open marker must remain dirty regardless of supervisor status: %v", dirty)
+	}
+	if err := v2run.WriteRunMarker(markerDir, v2run.RunMarker{RunID: "r", Target: v2run.TargetK8s4f, State: v2run.MarkerClosedClean}); err != nil {
+		t.Fatal(err)
+	}
+	if dirty, _ = v2run.DirtyRuns(root); len(dirty) != 0 {
+		t.Fatalf("explicit final closure should clear cleanup dirtiness: %v", dirty)
 	}
 
 	public := t.TempDir()
