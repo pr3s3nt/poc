@@ -6,7 +6,7 @@
 // from a Secret: errors are reduced to a fixed first line without arguments.
 import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 export const PHASES = ['PREPARE', 'FORM', 'PREVIEW', 'TERRAFORM', 'READY', 'JOB', 'CACHE', 'CLEANUP'];
 export const SOURCES = ['ui', 'private-read'];
@@ -68,6 +68,22 @@ export async function waitFor(fn, { timeoutMs, intervalMs = 1000, what }) {
     }
     if (Date.now() >= deadline) throw new Error(`timed out waiting for ${what}${last ? ` (${last})` : ''}`);
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+
+/** Reads the latest runner-owned input only after its supervisor gate is released. */
+export async function readScenarioInputAfterGate(inputPath, gatePath, { timeoutMs = 180_000, intervalMs = 200 } = {}) {
+  if (gatePath) await waitFor(() => existsSync(gatePath), { timeoutMs, intervalMs, what: 'the cleanup supervisor to be armed' });
+  let raw;
+  try {
+    raw = readFileSync(inputPath, 'utf8');
+  } catch {
+    throw new Error('scenario input is unavailable after the supervisor gate');
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error('scenario input is invalid after the supervisor gate');
   }
 }
 
