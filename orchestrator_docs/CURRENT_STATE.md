@@ -13,7 +13,8 @@ I04-01..10 đã hoàn tất code và kiểm tra local. **I04-11 đã đạt** A0
 trên k8s-4f với adapter thật, video, SQL sau khởi động lại và cleanup độc lập.
 I04-12 đang thực hiện: **A02r5 đang chạy từ `5074bb2`**. Pins, preflight,
 gate và dự toán đạt; supervisor PID1653265 bật trước ba kho ECR đã xác minh
-digest. Chưa triển khai EKS; A03 chưa chạy và chỉ chạy sau khi A02 sạch.
+digest. Preview đã đạt đầy đủ và UI đã bắt đầu Deploy; VPC đang PROVISIONING.
+A03 chưa chạy và chỉ chạy sau khi A02 sạch.
 
 Các lượt A02 trước giữ kết quả FAIL và đã cleanup độc lập. Lỗi gần nhất là
 browser đọc đầu vào trước khi runner ghi ECR/digest và mở cổng. Bản sửa

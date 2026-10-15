@@ -96,7 +96,10 @@ A02 `a02-20261015-r5` đang chạy từ `5074bb2` trong checkout
 Pins, 10 kiểm tra AWS, gate I04-11 và dự toán đều đạt. Supervisor độc lập
 PID1653265 bật trước khi tạo ba kho ECR; ảnh workload đã xác minh digest.
 Database riêng `i0410_c56dcdcf749e` và ba role còn phục vụ lượt đang chạy.
-Chưa triển khai EKS hoặc chạy A03; phải dọn và query xác minh A02 sạch trước A03.
+Preview đã đạt đầy đủ và UI đã bắt đầu Deploy: deployment
+`540bb1bf-e2fc-442d-945d-7866f3618a88`, VPC đang PROVISIONING/PLANNING.
+Cả ba bản nháp đã được đọc độc lập, ảnh khớp ECR/digest mới. A03 chưa chạy;
+phải dọn và query xác minh A02 sạch trước A03.
 
 Bản sửa `6479236` đọc đầu vào sau khi runner xuất bản ECR và mở cổng khởi
 chạy, tránh giữ danh sách kho và ảnh cũ. Hồi quy dùng file thật khi chờ cổng;
