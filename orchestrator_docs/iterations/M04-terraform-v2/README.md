@@ -96,10 +96,13 @@ credential cho writer; không giảm guard kiểu để hợp thức hóa module
 
 Luna `/root/i0410_luna` đang sửa code/test trong
 `/tmp/poc-i0412-vpc-list-fix`, nhánh `codex/m04-i0412-vpc-list-fix`, từ
-`5074bb2`. Có hai thay đổi dở ở VPC main.tf và registry/release.json; chưa
-review/checks đầy đủ. Dự kiến `tolist` tường minh và revision mới
-`v4-2026.10.15`, giữ nguyên artifact v3. Agent từng báo hết hạn mức; Codex đã
-thử lại sau mốc reset được công cụ báo, hiện agent đang chạy. Không tự đổi model.
+`5074bb2`. Bản sửa đã hoàn tất và đóng băng: hai output dùng `tolist`, release
+`v4-2026.10.15`, VPC digest `c783343a2686a754e42521d9d21cdc8a70ead0a2b83b14d90448b56296acbfad`.
+Manifest có một revision chung nên các module khác cũng mang v4, nhưng byte/
+digest của chúng không đổi. Hồi quy Terraform 1.9.8 thật chứng minh tuple bị
+từ chối, list(string) đạt contract. Codex đã review; bộ kiểm tra đầy đủ R8
+đang chạy PTY72581 ở `.m4/checks-i0412-vpc-list-r8/`. Chưa merge hoặc tạo AWS.
+Agent đã tiếp tục được sau mốc reset hạn mức, hiện idle; không đổi model.
 
 A02r5 đã `CLOSED_CLEAN` bằng closure operator: destroy bằng module/state gốc
 đã DONE; hai ARN tag cũ được EC2 xác nhận NotFound, rồi verifier gốc aux PASS.

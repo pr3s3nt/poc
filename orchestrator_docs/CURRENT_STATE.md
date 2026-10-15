@@ -13,8 +13,9 @@ I04-01..10 đã hoàn tất code và kiểm tra local. **I04-11 đã đạt** A0
 trên k8s-4f với adapter thật, video, SQL sau khởi động lại và cleanup độc lập.
 I04-12 đang thực hiện: A02r5 đã qua đầy đủ Preview và tạo VPC thật, nhưng
 thất bại ở OUTPUT_CONTRACT. Hai output subnet thực tế là tuple, trái kiểu
-list suy ra từ module. Luna đang sửa `tolist` và pin mới trong checkout riêng;
-chưa review hoặc kiểm đủ, chưa chạy lượt mới. A03 chưa chạy.
+list suy ra từ module. Luna đã sửa `tolist` và release v4 trong checkout riêng;
+Codex đã review và đang chạy toàn bộ checks R8, chưa merge hoặc tạo lượt AWS
+mới. A03 chưa chạy.
 
 A02r5 đã khép `CLOSED_CLEAN` sau xác minh độc lập. Engine gốc đã destroy các
 lớp; API tag còn hai ARN cũ khiến supervisor báo NEEDS_ATTENTION. API EC2 xác
