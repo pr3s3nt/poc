@@ -13,8 +13,9 @@ related: [M04, ADR-014, IMP-021]
 Chặng 3 hiện hành; xem [M04](../README.md). I04-11 đã đạt đủba scenario,
 video/SQL/cleanup độc lập và dự toán. AWS gate cùng10kiểm tra preflight chỉ
 đọc A02 đạt. A02r1–r5 giữ kết quả FAIL và đã dọn sạch. A02r6 đang chạy từ
-`5f77e00` sau bản sửa VPC v4/list và đầy đủ pin: Preview đạt, VPC/EKS/Aurora READY,
-ElastiCache đang triển khai. Các bản sửa có kiểm chứng độc lập trước chạy thật.
+`5f77e00` sau bản sửa VPC v4/list và đầy đủ pin: Preview và cả năm module
+Terraform đạt READY, Workload lỗi credential trước tạo object trên EKS.
+Cleanup gốc giữ REMOVE INTERRUPTED; đang chẩn đoán, sửa và tiếp tục dọn an toàn. Các bản sửa có kiểm chứng độc lập trước chạy thật.
 A03 chưa chạy; chỉ chạy sau A02 dọn và query xác minh sạch.
 
 Quyết định2026-10-15: scenario thất bại thì tìm nguyên nhân, giao writer sửa,
