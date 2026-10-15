@@ -46,6 +46,42 @@ func TestConfigGetPrintsOnlyNamedNonSecretFields(t *testing.T) {
 	}
 }
 
+func TestAWSConfigGetExposesPinnedKubectlWithoutKubeconfig(t *testing.T) {
+	e := newEnv(t, "a01-0001")
+	c := e.cfg
+	c.Scenario, c.Target, c.Kube, c.NodeArch = "A03", v2run.TargetAWS, nil, "arm64"
+	c.Execution = v2run.Duration{Duration: 180 * time.Minute}
+	c.Images["arm64"] = c.Images["amd64"]
+	c.Binaries["aws"] = v2run.Binary{Path: "/opt/pinned/aws", SHA256: strings.Repeat("c", 64)}
+	c.Binaries["docker"] = v2run.Binary{Path: "/opt/pinned/docker", SHA256: strings.Repeat("d", 64)}
+	c.AWS = &v2run.AWSConfig{
+		AccountID: v2run.AWSAccountID, Region: v2run.AWSRegion, PrincipalARN: "arn:aws:iam::452025861381:user/codex",
+		ExecutorEgress: "203.0.113.9/32", NodeInstanceType: "t4g.medium", AccessKeyFile: "/private/aws-key.json",
+		EstimateFile: "/private/estimate.json", ECRRepositoryPrefix: "orch-acceptance",
+		ProbePostgresImage: v2run.Image{Ref: "postgres:16-alpine", Digest: "sha256:" + strings.Repeat("e", 64)},
+		ProbeRedisImage:    v2run.Image{Ref: "redis:7.4-alpine", Digest: "sha256:" + strings.Repeat("f", 64)},
+	}
+	if err := c.Validate(); err != nil {
+		t.Fatalf("AWS fixture must be valid without kubeconfig: %v", err)
+	}
+	path := filepath.Join(e.dir, "aws-config.json")
+	raw, err := json.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := v2run.WriteFilePrivate(path, raw); err != nil {
+		t.Fatal(err)
+	}
+	if out, code := e.ctl("config-get", "-config", path, "-field", "kubectl"); code != 0 || strings.TrimSpace(out) != c.Binaries["kubectl"].Path {
+		t.Fatalf("AWS kubectl path = %q (%d), want pinned path %q", out, code, c.Binaries["kubectl"].Path)
+	}
+	for _, field := range []string{"kubeconfig", "kubeContext", "namespace", "sentinelName"} {
+		if out, code := e.ctl("config-get", "-config", path, "-field", field); code == 0 {
+			t.Errorf("AWS config exposed unavailable Kubernetes field %s: %q", field, out)
+		}
+	}
+}
+
 func TestModulePinsListTheThreeKubernetesModules(t *testing.T) {
 	e := newEnv(t, "a01-0001")
 	out, code := e.ctl("module-pins")
