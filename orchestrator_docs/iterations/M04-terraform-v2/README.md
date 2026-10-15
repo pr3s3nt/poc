@@ -108,7 +108,11 @@ Tiếp: A02 `a02-20261015-r6`, cấu hình 0600
 `/home/thanhnt1/.m4/a02-20261015-r6`; tên lượt dùng ngày UTC.
 Estimate/countmanifest có bảy pin v4, 13 dòng/~2,1300 USD; A03 tương ứng
 ~2,0507 USD. Preflight chỉ đọc và gate đạt, runner sẽ kiểm lại trước create.
-Chưa bắt đầu lượt mới hoặc A03. Chạy form/Preview/deploy/job/cache thật, dọn
+A02r6 đang chạy từ `5f77e00`, PTY72419: preflight/gate/dự toán đạt;
+supervisorPID2845843 bật trước ECR, manifest bảy pin v4/digestVPC đúng.
+Ba kho ECR/digest/tag đã đối chiếu, Connection READY. Database riêng
+`i0410_054814261d49`/ba role còn phục vụ lượt chạy; chưa bắt đầu A03.
+Tiếp tục form/Preview/deploy/job/cache thật, dọn
 và query sạch A02 trước A03. Không cần duyệt giữa hoặc cuối. Container/volume
 PostgreSQL fixture riêng còn giữ cho các lượt sau, phải dọn khi hoàn tất M04.
 Các đoạn dưới đây là lịch sử bàn giao, không thay trạng thái hiện hành.

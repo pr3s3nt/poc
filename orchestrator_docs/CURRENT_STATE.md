@@ -7,7 +7,7 @@ last_reviewed: 2026-10-16
 
 # Current project state
 
-## M04 — trạng thái hiện tại ngày 2026-10-15
+## M04 — trạng thái hiện tại ngày 2026-10-16
 
 I04-01..10 đã hoàn tất code và kiểm tra local. **I04-11 đã đạt** A01/E01/E02
 trên k8s-4f với adapter thật, video, SQL sau khởi động lại và cleanup độc lập.
@@ -15,7 +15,9 @@ I04-12 đang thực hiện: A02r5 đã qua đầy đủ Preview và tạo VPC th
 thất bại ở OUTPUT_CONTRACT. Hai output subnet thực tế là tuple, trái kiểu
 list suy ra từ module. Bản sửa `bcabb40` đã review/merge: `tolist`, release v4 và đủ bảy pin module.
 R9 đạt 1.408 Go/race, 642 frontend và toàn bộ checks, không bỏ qua; nguồn
-khớp trước/sau, fixture sạch. Chuẩn bị A02r6; A03 chưa chạy.
+khớp trước/sau, fixture sạch. A02r6 đang chạy từ `5f77e00`: preflight/gate/
+dự toán đạt, supervisor bật trước ba kho ECR, manifest có đủ bảy pin v4 và
+Connection READY. A03 chưa chạy.
 
 A02r5 đã khép `CLOSED_CLEAN` sau xác minh độc lập. Engine gốc đã destroy các
 lớp; API tag còn hai ARN cũ khiến supervisor báo NEEDS_ATTENTION. API EC2 xác
