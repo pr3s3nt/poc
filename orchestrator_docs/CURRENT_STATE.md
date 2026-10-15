@@ -7,71 +7,48 @@ last_reviewed: 2026-10-15
 
 # Current project state
 
-## Quyết định điều phối M04 — 2026-10-14
+## M04 — trạng thái hiện tại ngày 2026-10-15
 
-I04-01..10 hoàn tất local; I04-11 hiện hành. Claude cloud viết code/test trên
-nhánh riêng public; Codex quản lý docs/review/checks/merge và chạy thật local.
-Quyết định mới nhất cùng ngày: cloud hết hạn mức thì chuyển `clauded` qua
-tmux; Claude local cũng hết hạn mức thì giao code/test cho Codex `gpt-6-luna`.
-Claude local đã xác nhận hết hạn mức; agent `gpt-6-luna` đã hoàn tất code
-I04-10, squash `0964fb6`:1351Go/race/0skip,622frontend/build/vet/docs/shell đạt.
-[Biên bản I04-10](verification/2026-10-14-i04-10-integration.md). Chưa live
-A01/E01/E02/A02/A03 đạt; I04-11 A01 lượt đầu đã chạy và thất bại trước
-triển khai khi đăng ký kho bí mật (fixture token thiếu quyền tự kiểm tra).
-Namespace/PV vắng và sentinel nguyên vẹn; supervisor ban đầu NEEDS_ATTENTION.
-Phục hồi độc lập bằng handles gốc đã CLEAN/CLOSED_CLEAN, database/ba roles,
-hai Vault và ảnh bổ trợ đã dọn. Agent Luna sửa fixture/cleanup trước triển khai;
-Codex checks1352Go/0skip và622frontend/fullchecks đạt, merge `72a807e`;
-A01 retry duy nhất `a01-20261014-r2` fail ở native confirm xóa workload;
-deploy/job/cache/Vault đều đạt. Operator gỡ workload/VSO, Terraform gốc dọn
-Redis/PostgreSQL, dọn renderer Secrets theo UID. Namespace từng bị chặn vì
-default SA không managedFields; quyền ngoại lệ15Oct đã được thực hiện sau
-xác minh UID, namespace/PV ABSENT. Engine đã khép registry, DB/hai Vault đã dọn; private archives giữ,
-28 retained UIDs nguyên vẹn. AWS vẫn bị gate.
-[Biên bản I04-11](verification/2026-10-14-i04-11-k8s4f.md).
-Quyết định2026-10-15: bỏ giới hạn một retry scenario; thất bại phải tìm nguyên
-nhân, giao writer sửa và review/checks rồi chạy lại khi lượt cũ cleanup sạch.
-Không dừng chỉ vì retry fail. Người dùng đã cấp ngoại lệ đúng
-namespace/UID2026-10-15; Codex xác minh lại
-và dọn bằng UID precondition, namespace/PV ABSENT, sentinel giữ nguyên.
-Lượt r2 đã CLOSED_CLEAN: engine gốc ghi3instances DESTROYED, supervisor phục
-hồi CLEAN, DB/ba roles drop và hai Vault dừng; failed evidence/private state
-archives giữ. Luna `6bffefa` merge `ea101e0`: Codex checks độc lập1394Go/race/0skip,
-622frontend/37files cùng build/vet/type/lint/docs/PlantUML/syntax đạt trên disk;
-fixture kiểm tra sạch. A01 mới đang chuẩn bị, chưa scenario pass. Platform PG riêng giữ.
-Kiểm tra phiên cloud mỗi 15 phút theo chỉ dẫn mới; không tự chạy nền sau khi
-lượt kết thúc. Điểm duyệt 2 bỏ: I04-11 A01/E01/E02 pass, video/dự toán lưu và
-k8s-4f sạch thì tự chạy I04-12 AWS 452025861381/us-east-1. Quyết định2026-10-15
-bỏ điểm duyệt cuối; thực hiện đến hết I04-12 và gửi báo cáo.
-Cập nhật15Oct: A01 mới `a01-20261015-r1` FAIL/PLANNING do đường dẫn provider
-socket dài; normal cleanup/CLOSED_CLEAN,28retainedUIDs/10nodeimage refs sạch,
-video1415.07s giữ. Root schema reproduction112bytesFAIL/86bytesPASS với cùng
-pin chứng minh lỗi cấu hình; dùng owner-only disk root ngắn `.m4/<run-id>`,
-giữ isolation. A01 `a01-20261015-r2` đang chạy, chưa PASS. AWSpreflightfix
-3136dcc merge6d9fb2f: full1395Go/race/0skip/622FE/checks đạt/fixtureclean,
-complete-action read-only preflight A02/A03 đạt; chưa AWS provisioning.
+I04-01..10 đã hoàn tất phần code và kiểm tra local. **I04-11 đã đạt** cả
+A01/E01/E02 trên k8s-4f với adapter thật, trình duyệt có ghi hình, kiểm chứng
+PostgreSQL sau khởi động lại và dọn sạch độc lập. I04-12 hiện hành: chuẩn bị
+chạy AWS A02, dọn sạch rồi mới A03; chưa tạo tài nguyên AWS trong M04 v2.
 
-Mới nhất: A01shortroot r2 browser42assertions/8marks PASS, cleanupCLEAN,
-PV2/namespaceABSENT/28retainedUIDs/cacheclean, nhưng overallSQLrestartFAIL do
-harnesswrongscope/phase. KhôngI04-11PASS. Luna fix34a9dcc đãreview/merge: scopedSQLreopen/overall runnergate, explicit
-closure guard vàA03gp2. Full1396Go/race/0fail/0skip,632frontend/38files,
-build/vet/type/lint/docs/PlantUML đạt; fixturesclean. Chuẩn bịfreshA01r3 từ
-checkout `/tmp/poc-i0412-local-runtime`34a9dcc. A01r3browser42PASS nhưng
-reopen thiếu builtin/renderdefinition nênoverallFAIL, receiptCLOSED_CLEAN;
-28retainedUIDs/namespace/haiPV/DB/roles/private/images đãxác minh. Catalogfixd1f1da4 đãreview/merge:632frontend/type/lint/build/node/docs đạt;
-backendkhôngđổi so1396Go/race/0skip. FreshA01r4 kế tiếp.
-A01r4 đãPASS toànlượt/exit0/SQLreopen/42assertions/video1339.07s vàcleanup
-độc lập; E01r1browser12PASS nhưngoverallFAIL vìno-execute khôngpersistbuiltin;
-cleanupđộc lậpCLEAN. Fix05bba6e đãreview/merge và632frontend/fullchecksđạt;
-E01r2 đãPASS toànlượt/exit0/SQL/video484.73s/cleanupđộc lập; E02r1 đang
-chạy. E02r1 thất bại trước Pod do fixture nhập image kèm dấu kép JSON;
-cleanup độc lập sạch. Fixbb38fc8 đãreview/merge và634frontend/fullchecksđạt,
-backend không đổi. E02r2 đã chứng minh Redis FAILED/READINESS thật nhưng
-runner selector sai; cleanup NEEDS_ATTENTION vì routing nhầm ID outer/Preview.
-Fixcdfb027 đãreview/merge:1402Go/race/0skip và634frontend/fullchecks đạt.
-Cleanup tiếp bằng engine gốc đãCLEAN,2instances DESTROYED, namespace/PV vắng,
-28UID giữ lại khớp; DB/roles/Vault/private dọn xong, marker CLOSED_CLEAN và
-receiptFAIL cũ giữ nguyên. FreshE02r3 đang chạy; chưaAWS.
+| Scenario | Lượt đạt | Kiểm tra trình duyệt | Video | Kết quả tổng |
+|---|---|---|---|---|
+| A01 | a01-20261015-r4 | 42, 8 mốc | 1339,07 giây | PASS, exit0, CLOSED_CLEAN |
+| E01 | e01-20261015-r2 | 12, 4 mốc | 484,73 giây | PASS, exit0, CLOSED_CLEAN |
+| E02 | e02-20261015-r3 | 15, 5 mốc | 687,87 giây | PASS, exit0, CLOSED_CLEAN |
+
+Video và bằng chứng ở `/home/thanhnt1/.m4/<run-id>/`, ngoài Git. Đã giải mã,
+xem khung hình/phụ đề và quét secret. Namespace/PV của các lượt đã vắng;
+28 UID tài nguyên giữ lại khớp bản đối chiếu. Database/ba role, Vault riêng,
+thư mục credential và ảnh bổ trợ từng lượt đã dọn. Container/volume PostgreSQL
+kiểm chứng riêng còn giữ để dùng cho AWS, không phải database của người dùng.
+Lịch sử lỗi và phục hồi bằng engine gốc được giữ trong
+[biên bản I04-11](verification/2026-10-14-i04-11-k8s4f.md).
+
+Code mới nhất `cdfb027` đã review/merge/push: sửa kiểm chứng sau khởi động lại,
+điều kiện kết thúc toàn lượt, nhập tham số đúng kiểu và phân lớp cleanup theo
+PreviewRunID đã ghi cùng tag/identity chính xác. Kiểm độc lập **1402 Go/race,
+0 lỗi/0 bỏ qua**, build/vet; **634 frontend**, type/lint/build, tài liệu/
+PlantUML/syntax đạt. Kết quả kiểm tra ban đầu thất bại được giữ; sửa riêng bài
+nhãn ghép không thay backend, rồi chạy lại toàn bộ frontend đạt. Bằng chứng
+`.m4/checks-i0412-cleanup-r4/final-validation.json` và thư mục liên kết.
+
+Dự toán AWS mỗi lượt cho cửa sổ 5 giờ (3 giờ thực thi + 2 giờ dọn): A02
+2,1300USD, A03 2,0507USD, có13dòng giá và giới hạn số tài nguyên. Không phải
+trần do người dùng đặt hoặc chi phí hóa đơn thực tế. Preflight chỉ đọc A02 mới
+đạt account452025861381/principal đã ghim/us-east-1, IP/32, quyền, sức chứa
+Pod và tag trống. Điều kiện ba scenario đã đạt được xác nhận bởi AWS gate.
+
+Người dùng bỏ duyệt giữa chặng và duyệt cuối; thất bại phải tìm nguyên nhân,
+giao writer sửa, review/checks rồi chạy lại khi lượt cũ đã sạch. Không bypass
+ownership hoặc tự retry apply có kết quả chưa rõ. Claude cloud/local đã hết
+hạn mức; code/test do agent `gpt-6-luna` trong checkout riêng, Codex giữ docs,
+review/checks/merge và chạy thật. Không gửi secrets cho writer. Theo dõi writer
+mỗi15phút khi đang chạy bình thường, sớm khi lỗi/hoàn tất hoặc người dùng yêu cầu.
+IMP-021 còn mở đến khi A02/A03 đạt; D12–D14 vẫn deferred.
 
 I04-06 tại `f3ed5bb`: **1082 Go PASS/0 FAIL/0 SKIP**, 479 frontend tests,
 build/vet/docs và Codex headed browser/actual SQL/Vault/cleanup pass. AWS

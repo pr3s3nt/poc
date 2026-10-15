@@ -799,3 +799,11 @@ credential đãdọn. Runmarker CLOSED_CLEAN; receiptFAIL cũ không sửa. Vide
 E02r2 giải mã đạt; bằng chứng `operator-*` tại `.m4/e02-20261015-r2/`, spec/
 status/log gốc lưu0700 ở `.m4/e02-20261015-r2-recovery-private/`.
 E02fresh `e02-20261015-r3` bắt đầu từcdfb027; chưaAWS.
+
+
+I04-11 đã đạt15Oct: A01r4 (42assertions), E01r2 (12), E02r3 (15),
+receiptPASS/exit0/CLOSED_CLEAN, SQLrestart/video/cleanup độc lập và28retainedUIDs
+đạt. E02 chứng minh READINESS/FAILED thật với lịch sử/module provenance giữ;
+fixcdfb027 đã kiểm1402Go/race/0skip/634frontend/fullchecks. Evidence vàcác lượt
+lỗi giữ tại VERIFY-I04-11-20261014. I04-12 current sauAWSgate/preflightA02
+read-only đạt, chưa AWS provision; IMP-021 còn mở/D12–D14 không đổi.

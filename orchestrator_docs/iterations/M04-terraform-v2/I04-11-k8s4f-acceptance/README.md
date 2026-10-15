@@ -1,8 +1,8 @@
 ---
 id: I04-11
 artifact: iteration-plan
-status: current
-last_reviewed: 2026-10-14
+status: historical
+last_reviewed: 2026-10-15
 related: [M04, ADR-014, IMP-021]
 ---
 
@@ -10,23 +10,12 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 2; xem [M04](../README.md). Current sau I04-10 local checks đạt;
-Codex đã chạy A01 lượt đầu `a01-20261014-r1`, chưa có scenario pass.
-Đăng ký kho bí mật lỗi422: fixture token thiếu quyền tự kiểm tra Vault.
-Namespace/PV đã xác minh vắng, sentinel giữ nguyên; supervisor ban đầu chưa CLEAN.
-Phục hồi độc lập đã CLEAN/CLOSED_CLEAN bằng handles gốc; database/ba role,
-hai Vault và ảnh bổ trợ đã dọn. Bản sửa Luna qua checks độc lập1352Go/0skip,
-622frontend/fullchecks, merge `72a807e`; retry duy nhất `a01-20261014-r2`
-đã fail bước xóa workload do chưa trả lời native confirm, dù deploy/job/cache
-đạt. Operator dọn workload/VSO/Redis/PG/renderer Secrets; namespace bị chặn vì
-default SA thiếu managedFields đã được dọn theo quyền ngoại lệ15Oct sau xác
-minh đúng UID, namespace/PV ABSENT. Engine gốc đã khép3instances DESTROYED,
-supervisor phục hồi CLEAN, DB/ba roles drop và hai Vault dừng; r2 CLOSED_CLEAN,
-failed evidence/private archives giữ.28 baseline UIDs giữ nguyên. Chưa mở run mới.
-Quyết định2026-10-15 thay giới hạn retry: tiếp tục tìm nguyên nhân/sửa code,
-review/checks và chạy lại sau cleanup sạch; không dừng chỉ vì retry fail.
-Quyền ngoại lệ chỉ dành namespace/UID r2; không bypass guard nói chung.
-[Biên bản](../../../verification/2026-10-14-i04-11-k8s4f.md).
+Chặng 2 hoàn tất ngày2026-10-15: A01r4/E01r2/E02r3 đều PASS toàn lượt,
+exit0, SQL sau khởi động lại đạt, video có phụ đề đã kiểm tra và cleanup độc
+lập sạch. 28 UID tài nguyên giữ lại khớp; namespace/PV, database/roles/Vault và
+ảnh bổ trợ của từng lượt đã dọn. Dự toán AWS đã lưu; tự chuyển I04-12 theo
+quyền người dùng, không chờ duyệt. Các lượt lỗi và phục hồi được giữ trong
+[biên bản](../../../verification/2026-10-14-i04-11-k8s4f.md).
 
 ## Phạm vi
 

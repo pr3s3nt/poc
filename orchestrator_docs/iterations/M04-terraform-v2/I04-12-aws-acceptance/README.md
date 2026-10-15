@@ -1,8 +1,8 @@
 ---
 id: I04-12
 artifact: iteration-plan
-status: deferred
-last_reviewed: 2026-10-14
+status: current
+last_reviewed: 2026-10-15
 related: [M04, ADR-014, IMP-021]
 ---
 
@@ -10,7 +10,9 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 3; xem [M04](../README.md). Chưa bắt đầu; không suy status này thành task bị bỏ hoặc đã implement.
+Chặng 3 hiện hành; xem [M04](../README.md). I04-11 đã đạt đủba scenario,
+video/SQL/cleanup độc lập và dự toán. AWS gate cùng10kiểm tra preflight chỉ
+đọc A02 mới đạt; chưa tạo AWS. Chạy A02 rồi dọn xác minh trước A03.
 
 Quyết định2026-10-15: scenario thất bại thì tìm nguyên nhân, giao writer sửa,
 review/checks rồi chạy lại sau cleanup sạch; bỏ giới hạn một retry. Không dừng
