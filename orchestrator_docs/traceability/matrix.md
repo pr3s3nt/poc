@@ -813,3 +813,9 @@ AWS runner startup regression010b1af: pinned kubectl dùng được trên AWS kh
 cóKube config, kubeconfig/context/namespace/sentinel vẫn không khả dụng.
 1403Go/race/0skip/634frontend/fullchecks đạt; lần A02 trước không có effect,
 scenario AWS thật vẫn còn. Evidence VERIFY-I04-12-20261015.
+
+
+AWS startup/cleanup Vault delivery1d35a00: cùngmode theoadapter, VSO giữchoK8s,
+agent dùngchoAWS. ActualcleanupOptions hồi quy vàCLIgetter coverage đạt;
+1407Go/race/0skip/634frontend/fullchecks độc lập. No-effectA02r1 đãkhép,
+freshA02r2 tiếp theo; liveAWS vẫn còn. VERIFY-I04-12-20261015.

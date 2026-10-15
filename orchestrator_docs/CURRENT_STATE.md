@@ -46,7 +46,8 @@ không hỗ trợ AWS nilKube. Fix010b1af đãreview/merge,1403Go/race/0skip,
 634frontend vàfullchecks đạt/fixtureclean. A02r1 sau đó dừng trước manifest/
 supervisor/create vì runner épVSO choAWS. DB/roles/Vault local đã xác minh dọn,
 AWS tagtrống; marker CLOSED_NO_EFFECTS/receiptFAIL giữ. Writer sửa runner và
-cleanuphelper chọn vault delivery theoadapter; đang fullchecksR6. FreshA02r2
+cleanuphelper chọn vault delivery theoadapter; fix1d35a00 đãreview/merge,
+1407Go/race/0skip/634frontend/fullchecks đạt/fixtureclean. FreshA02r2
 vàdựtoán13dòng~2,13USD chuẩn bị; chưa ECR/AWSresource.
 [Biên bản I04-12](verification/2026-10-15-i04-12-aws.md).
 
