@@ -467,3 +467,21 @@ giải mã catalog trước khi nhập, chuỗi nhập nguyên giá trị, kiể
 E01. Codex review và chạy độc lập634frontend/38files, type/lint/build/node/
 docs/PlantUML đạt, mã băm không đổi; backend không đổi so1396Go/race/0skip.
 Bằng chứng `.m4/checks-form-overrides-r1/`. Chuẩn bịE02r2; AWS vẫn bị chặn.
+
+
+E02 lượt `e02-20261015-r2` đã tạo Pod Redis thật `ImagePullBackOff` và PVC
+Bound; node Redis chuyển FAILED ở READINESS, mã READINESS_UNAVAILABLE.
+Bằng chứng chỉ đọc `operator-live-safe-progress.json`, định danh PVC/PV ở
+`operator-pvc-ownership.json`. Bộ chạy bị chặn ở selector role=alert trong khi
+Console dùng panel có nhãn Kết quả triển khai. Codex lưu ảnh màn hình, đóng
+đúng tab thuộc lượt để kết thúc bình thường; không ghi scenario đạt.
+
+Cleanup báo NEEDS_ATTENTION tại lớp delivery: hai đối tượng Service/Secret
+Terraform bị phân lớp sai vì `orchestrator-created-by-run` là PreviewRunID
+`pending-ae5442641374e577`, còn guard so với mã nghiệm thu `e02-20261015-r2`.
+Manifest đã ghi cả hai ID. Redis/PVC/PV và namespace vẫn còn; database
+`i0410_17086099c0bc`, state mã hóa và Vault riêng PID3822964 được giữ để dọn
+bằng engine gốc. Không mở lượt mới/AWS. Luna được giao sửa selector, kiểm tra
+lịch sử qua UI và routing theo provenance đã ghi, không bypass ownership.
+Sau review/fullchecks sẽ tiếp tục cleanup bằng handles/state/module gốc rồi
+xác minh absence/retained UIDs trước lượt mới.
