@@ -486,7 +486,8 @@ func configGet(args []string) int {
 		},
 	}
 	get, ok := values[*field]
-	if !ok || (strings.HasPrefix(*field, "kube") || *field == "namespace" || *field == "sentinelName") && c.Kube == nil {
+	needsKube := *field == "kubeconfig" || *field == "kubeContext" || *field == "namespace" || *field == "sentinelName"
+	if !ok || needsKube && c.Kube == nil {
 		return fail("unknown or unavailable field %q", *field)
 	}
 	fmt.Println(get())
