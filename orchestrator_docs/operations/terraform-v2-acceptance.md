@@ -119,7 +119,9 @@ rõ trạng thái đó, không tuyên bố toàn bộ bảng đạt hoặc suy t
 Secret bindings của PostgreSQL/Redis và kiểm tra cache vẫn bắt buộc ở cả ba
 scenario; lỗi những mục đó không được chuyển thành pass. Coverage secret cấu
 hình thật của A01 dùng fixture Vault riêng, không mở thêm hạ tầng Vault/VSO AWS
-chỉ để kiểm tra dòng tùy chọn này.
+chỉ để kiểm tra dòng tùy chọn này. Runner và helper cleanup phải chọn cùng chế độ
+Vault delivery theo adapter: k8s-4f dùng `vso`, AWS dùng `agent` để không yêu
+cầu cài VSO lên EKS. Scoped Vault cho Connection và output secrets vẫn bắt buộc.
 
 ## Ba happy paths
 

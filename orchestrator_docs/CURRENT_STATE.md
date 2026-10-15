@@ -43,8 +43,11 @@ trần do người dùng đặt hoặc chi phí hóa đơn thực tế. Prefligh
 Pod và tag trống. Điều kiện ba scenario đã đạt được xác nhận bởi AWS gate.
 Lần khởi động A02 dừng trước tạo evidence/marker/tài nguyên vì getter kubectl
 không hỗ trợ AWS nilKube. Fix010b1af đãreview/merge,1403Go/race/0skip,
-634frontend vàfullchecks đạt/fixtureclean. Chuẩn bị thử lại A02r1; chưa ECR/
-AWSresource.
+634frontend vàfullchecks đạt/fixtureclean. A02r1 sau đó dừng trước manifest/
+supervisor/create vì runner épVSO choAWS. DB/roles/Vault local đã xác minh dọn,
+AWS tagtrống; marker CLOSED_NO_EFFECTS/receiptFAIL giữ. Writer sửa runner và
+cleanuphelper chọn vault delivery theoadapter; đang fullchecksR6. FreshA02r2
+vàdựtoán13dòng~2,13USD chuẩn bị; chưa ECR/AWSresource.
 [Biên bản I04-12](verification/2026-10-15-i04-12-aws.md).
 
 Người dùng bỏ duyệt giữa chặng và duyệt cuối; thất bại phải tìm nguyên nhân,
