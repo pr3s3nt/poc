@@ -36,7 +36,7 @@ function setup(scenario) {
   const aws = scenario === 'A02' || scenario === 'A03';
   fixture = {
     types: aws ? ['workload', 'k8s-cluster', 'vpc', 'k8s-namespace', 'postgres', 'redis'].map((key) => ({ key })) : ['workload', 'k8s-cluster', 'k8s-namespace', 'postgres', 'redis'].map((key) => ({ key })),
-    definitions: aws ? ['vpc-aws', 'cluster-aws-eks', 'namespace-eks-module', 'pg-aurora', scenario === 'A02' ? 'redis-elasticache' : 'redis-eks-in-cluster'] : ['namespace-k8s-module', 'pg-in-cluster', 'redis-in-cluster'],
+    definitions: aws ? ['builtin-existing-cluster', 'vpc-aws', 'cluster-aws-eks', 'namespace-eks-module', 'pg-aurora', scenario === 'A02' ? 'redis-elasticache' : 'redis-eks-in-cluster', 'render-aws'] : ['builtin-existing-cluster', 'namespace-k8s-module', 'pg-in-cluster', 'redis-in-cluster', 'render-internal'],
     modules: aws ? ['vpc', 'eks', 'k8s-namespace', 'aurora', scenario === 'A02' ? 'elasticache' : 'redis-k8s'] : ['k8s-namespace', 'postgres-k8s', 'redis-k8s'],
     appKey: 'app-key', connectionKey: 'conn-key', kind: aws ? 'AWS' : 'KUBERNETES', resources: [], deployments: [], progress: [],
   };
