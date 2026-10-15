@@ -18,7 +18,10 @@ EKS. Bản sửa helper vàgetter ảnh probe đã hợp nhất; A02r3 từc5f77
 thất bại. Read-onlyAPI xác nhận không Deployment/resource; writer đang chẩn
 đoán phần ECR/tag/noLeak, không giảm assertion. A02r3 đãCLOSED_CLEAN:
 AWSabsencequery/bốnSLRgiữ nguyên/DBbaRolePrivatevắng, Vaultdừng.
-A03 chưa chạy. Chỉ chạy A03 sau khi A02 sạch.
+A02r4 đangchạy từddb2e92, supervisorPID1592152 bật trước ECR, ConnectionREADY;
+đối chiếu indexTag/nativeECR đúngbaARN/tagrun. Bản chẩnđoán639frontend đạt,
+giữnguyên guard; chưa kếtluận nguyênnhân Preview cũ. A03 chưa chạy,
+chỉ chạy sau khi A02 sạch.
 
 | Scenario | Lượt đạt | Kiểm tra trình duyệt | Video | Kết quả tổng |
 |---|---|---|---|---|
