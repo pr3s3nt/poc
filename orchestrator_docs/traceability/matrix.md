@@ -749,3 +749,14 @@ AWS/EKS khôngpersistbuiltin. Luna05bba6e sửaexactscenarioexpectations/test;
 full632frontend/type/lint/build/node/docsPASS tại `.m4/checks-reopen-catalog-r2/`,
 sourcehashunchanged/backendbyteunchanged34a9dcc (1396Go/race/0skip đãđạt).
 A01r4 vẫnđạt; freshE01r2 tiếp theo, E02/AWS chưa chạy.
+
+
+**E01 đạttoànlượt15Oct:** `e01-20261015-r2`, code05bba6e, exit0 vàreceipt
+PASS/CLOSED_CLEAN;12liveassertions/4marks. UIchặnnamespace missing vàannotations
+sai kiểu, khônglưuDefinitionlỗi; Previewpure,0deployments/0resources/noapply.
+SQLreopen đạt5types/4definitions/0resources/0deployments. Video
+`/home/thanhnt1/.m4/e01-20261015-r2/E01-captioned.mp4`484.73sdecodeđạt,
+phaseframes/phụđềđãkiểm tra;22textfiles quétsecretđạt. Independentcleanup
+28retainedUIDskhớp/namespacevắng, DB `i0410_c39149ce7f17`/ba roles/privatevắng,
+Vaultdừng, khôngcóimageimport. Proof `operator-independent-cleanup.json`.
+E02 `e02-20261015-r1` bắtđầu từ05bba6e; A01r4/E01r2 đãđạt, gateAWS cònE02.

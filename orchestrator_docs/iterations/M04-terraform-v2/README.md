@@ -44,7 +44,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Hoàn tất local |
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
-| I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Current; A01r4 overallPASS/SQL/video/cleanupCLEAN; E01 đang chạy, E02 còn lại |
+| I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Current; A01r4/E01r2 overallPASS/SQL/video/cleanupCLEAN; E02 đang chạy |
 | I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Chưa bắt đầu |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
@@ -438,3 +438,14 @@ AWS/EKS khôngpersistbuiltin. Luna05bba6e sửaexactscenarioexpectations/test;
 full632frontend/type/lint/build/node/docsPASS tại `.m4/checks-reopen-catalog-r2/`,
 sourcehashunchanged/backendbyteunchanged34a9dcc (1396Go/race/0skip đãđạt).
 A01r4 vẫnđạt; freshE01r2 tiếp theo, E02/AWS chưa chạy.
+
+
+**E01 đạttoànlượt15Oct:** `e01-20261015-r2`, code05bba6e, exit0 vàreceipt
+PASS/CLOSED_CLEAN;12liveassertions/4marks. UIchặnnamespace missing vàannotations
+sai kiểu, khônglưuDefinitionlỗi; Previewpure,0deployments/0resources/noapply.
+SQLreopen đạt5types/4definitions/0resources/0deployments. Video
+`/home/thanhnt1/.m4/e01-20261015-r2/E01-captioned.mp4`484.73sdecodeđạt,
+phaseframes/phụđềđãkiểm tra;22textfiles quétsecretđạt. Independentcleanup
+28retainedUIDskhớp/namespacevắng, DB `i0410_c39149ce7f17`/ba roles/privatevắng,
+Vaultdừng, khôngcóimageimport. Proof `operator-independent-cleanup.json`.
+E02 `e02-20261015-r1` bắtđầu từ05bba6e; A01r4/E01r2 đãđạt, gateAWS cònE02.

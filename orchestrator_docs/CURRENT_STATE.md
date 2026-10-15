@@ -63,7 +63,8 @@ backendkhôngđổi so1396Go/race/0skip. FreshA01r4 kế tiếp.
 A01r4 đãPASS toànlượt/exit0/SQLreopen/42assertions/video1339.07s vàcleanup
 độc lập; E01r1browser12PASS nhưngoverallFAIL vìno-execute khôngpersistbuiltin;
 cleanupđộc lậpCLEAN. Fix05bba6e đãreview/merge và632frontend/fullchecksđạt;
-freshE01r2 tiếp theo, E02 còn lại. ChưaAWS.
+E01r2 đãPASS toànlượt/exit0/SQL/video484.73s/cleanupđộc lập; E02r1 đang
+chạy. ChưaAWS.
 
 I04-06 tại `f3ed5bb`: **1082 Go PASS/0 FAIL/0 SKIP**, 479 frontend tests,
 build/vet/docs và Codex headed browser/actual SQL/Vault/cleanup pass. AWS
