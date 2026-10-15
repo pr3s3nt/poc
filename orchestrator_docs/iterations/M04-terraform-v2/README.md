@@ -45,7 +45,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Hoàn tất; A01r4/E01r2/E02r3 PASS, SQL/video/cleanup xác minh |
-| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02r6 VPC READY, EKS đang triển khai |
+| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02r6 VPC/EKS READY, Aurora đang triển khai |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
 Dependencies triển khai: schema/state -> registry -> executor -> modules ->
@@ -112,7 +112,7 @@ A02r6 đang chạy từ `5f77e00`, PTY72419: preflight/gate/dự toán đạt;
 supervisorPID2845843 bật trước ECR, manifest bảy pin v4/digestVPC đúng.
 Ba kho ECR/digest/tag đã đối chiếu, Connection READY. Preview đầy đủ đạt;
 VPC instance `e9160aa8-36e8-415f-802f-f3c4f0c50335` READY trên AWS thật,
-EKS `752fa29f-fbde-4f86-8358-de166c6c40c1` đang PLANNING trong deployment
+EKS `752fa29f-fbde-4f86-8358-de166c6c40c1` READY, Aurora APPLYING trong deployment
 `d5369d3a-adb2-45e3-be7c-0fe97674ad58`. Database riêng
 `i0410_054814261d49`/ba role còn phục vụ lượt chạy; chưa bắt đầu A03.
 Tiếp tục form/Preview/deploy/job/cache thật, dọn
