@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { once } from 'node:events';
 import { verifyReopen } from './terraform-v2-reopen.mjs';
-import { decodeCatalogOverride, formOverrideText } from './terraform-v2-steps.mjs';
+import { applyOverrideValue, decodeCatalogOverride, formOverrideText } from './terraform-v2-steps.mjs';
 
 const awsCatalog = JSON.parse(readFileSync(resolve(process.cwd(), '../backend/test/integration/v2run/testdata/aws-catalog.json'), 'utf8'));
 
@@ -65,6 +65,33 @@ function setup(scenario) {
 }
 
 describe('Terraform v2 SQL reopen acceptance checks', () => {
+  it('uses native choices for booleans and raw insertion for other typed overrides', async () => {
+    const actions = [];
+    const h = {
+      choose: async (_field, label) => actions.push(['choose', label]),
+      paste: async (_field, text) => actions.push(['paste', text]),
+    };
+    const field = {};
+    const decoded = (definition, variable, substitutions) => {
+      const entries = [...awsCatalog.definitions.common, ...awsCatalog.definitions.A02, ...awsCatalog.definitions.A03];
+      const entry = entries.find((item) => item.id === definition)?.overrides?.find(([name]) => name === variable)?.[1];
+      if (entry === undefined) throw new Error(`missing catalog override ${definition}.${variable}`);
+      return decodeCatalogOverride(entry, substitutions);
+    };
+
+    await applyOverrideValue(h, field, decoded('cluster-aws-eks', 'ebs_csi_driver'));
+    await applyOverrideValue(h, field, false);
+    await applyOverrideValue(h, field, decoded('cluster-aws-eks', 'node_capacity_type'));
+    await applyOverrideValue(h, field, decoded('cluster-aws-eks', 'node_disk_size'));
+    await applyOverrideValue(h, field, decoded('cluster-aws-eks', 'public_access_cidrs', { EGRESS: '198.51.100.7/32' }));
+    await applyOverrideValue(h, field, decoded('cluster-aws-eks', 'name'));
+
+    expect(actions).toEqual([
+      ['choose', 'true'], ['choose', 'false'], ['paste', 'SPOT'], ['paste', '20'],
+      ['paste', '["198.51.100.7/32"]'], ['paste', '${context.infra.resourceName}'],
+    ]);
+  });
+
   it('turns JSON-typed AWS catalog entries into the raw typed form values', () => {
     expect(catalogFormValue('cluster-aws-eks', 'node_instance_type', { NODE_TYPE: 't4g.medium' })).toBe('t4g.medium');
     expect(catalogFormValue('cluster-aws-eks', 'node_capacity_type')).toBe('SPOT');
