@@ -14,10 +14,10 @@
 import { expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { requireCaptionLocale, createCaptions } from './captions.mjs';
 import { createHuman, expectVisibleCursor, installCursor, putKeys } from './human.mjs';
-import { createRecorder, kubectlRunner, nonexistentDigest, pickByImage, registryDigestStatus, safeError, startPortForward, waitFor } from './terraform-v2-lib.mjs';
+import { createRecorder, kubectlRunner, nonexistentDigest, pickByImage, readScenarioInputAfterGate, registryDigestStatus, safeError, startPortForward, waitFor } from './terraform-v2-lib.mjs';
 import { ACCEPTANCE, REDIS_ANNOTATION, SHORT_READ, steps } from './terraform-v2-steps.mjs';
 import { awsScenario } from './terraform-v2-aws.mjs';
 import { launchHeaded, nativeSelect, screenSize, startRecording, stopRecording, x11Input } from './video.mjs';
@@ -620,7 +620,7 @@ async function main() {
   if (args.headed) for (const name of ['ORCH_E2E_XDOTOOL', 'DISPLAY']) if (!env[name]) throw new Error(`${name} is required`);
   const baseURL = env.ORCH_E2E_URL;
   const evidenceDir = env.ORCH_E2E_EVIDENCE_DIR;
-  const input = JSON.parse(readFileSync(env.ORCH_E2E_INPUT, 'utf8'));
+  let input;
   const { width, height } = screenSize(env);
   const videoPath = `${evidenceDir}/${args.scenario}-raw.mp4`;
   const assertionsPath = `${evidenceDir}/assertions.txt`;
@@ -678,7 +678,7 @@ async function main() {
   try {
     // The runner arms the independent cleanup supervisor (it watches this process) and
     // only then releases the gate, so the first create can never precede the supervisor.
-    if (env.ORCH_E2E_START_GATE) await waitFor(async () => existsSync(env.ORCH_E2E_START_GATE), { timeoutMs: 180_000, intervalMs: 200, what: 'the cleanup supervisor to be armed' });
+    input = await readScenarioInputAfterGate(env.ORCH_E2E_INPUT, env.ORCH_E2E_START_GATE);
     const page = await context.newPage();
     currentPage = page;
     const x11 = args.headed ? x11Input(env.ORCH_E2E_XDOTOOL) : undefined;
