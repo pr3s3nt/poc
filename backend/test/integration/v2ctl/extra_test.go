@@ -78,9 +78,22 @@ func TestAWSConfigGetExposesPinnedKubectlWithoutKubeconfig(t *testing.T) {
 	if out, code := e.ctl("config-get", "-config", path, "-field", "vaultDelivery"); code != 0 || strings.TrimSpace(out) != "agent" {
 		t.Fatalf("AWS Vault delivery mode = %q (%d), want agent", out, code)
 	}
+	for field, want := range map[string]string{
+		"awsProbePostgres": "postgres:16-alpine@sha256:" + strings.Repeat("e", 64),
+		"awsProbeRedis":    "redis:7.4-alpine@sha256:" + strings.Repeat("f", 64),
+	} {
+		if out, code := e.ctl("config-get", "-config", path, "-field", field); code != 0 || strings.TrimSpace(out) != want {
+			t.Errorf("%s = %q (%d), want pinned image %q", field, out, code, want)
+		}
+	}
 	for _, field := range []string{"kubeconfig", "kubeContext", "namespace", "sentinelName"} {
 		if out, code := e.ctl("config-get", "-config", path, "-field", field); code == 0 {
 			t.Errorf("AWS config exposed unavailable Kubernetes field %s: %q", field, out)
+		}
+	}
+	for _, field := range []string{"awsBinary", "awsRegion", "awsAccountId", "awsEstimateFile", "awsAccessKeyFile", "awsProbePostgres", "awsProbeRedis"} {
+		if out, code := e.ctl("config-get", "-config", e.cfgPath, "-field", field); code == 0 {
+			t.Errorf("Kubernetes config exposed AWS-only field %s: %q", field, out)
 		}
 	}
 }
