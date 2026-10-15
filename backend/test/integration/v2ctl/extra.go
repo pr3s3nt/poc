@@ -432,13 +432,13 @@ func configGet(args []string) int {
 	if err != nil {
 		return fail("%v", err)
 	}
-	image := func(w string) string {
-		img := c.Images[c.NodeArch][w]
+	pinnedImage := func(img v2run.Image) string {
 		if strings.Contains(img.Ref, "@") {
 			return img.Ref
 		}
 		return img.Ref + "@" + img.Digest
 	}
+	image := func(w string) string { return pinnedImage(c.Images[c.NodeArch][w]) }
 	values := map[string]func() string{
 		"runId": func() string { return c.RunID }, "scenario": func() string { return c.Scenario }, "target": func() string { return c.Target },
 		"owner": func() string { return c.Owner }, "evidenceDir": func() string { return c.EvidenceDir }, "nodeArch": func() string { return c.NodeArch },
@@ -454,13 +454,15 @@ func configGet(args []string) int {
 		},
 		"pgAdminUrlFile": func() string { return c.PostgresAdminURLFile },
 		"imageFrontend":  func() string { return image("frontend") }, "imageBackend": func() string { return image("backend") }, "imageWorker": func() string { return image("worker") },
-		"kubeconfig":     func() string { return c.Kube.Kubeconfig },
-		"kubeContext":    func() string { return c.Kube.Context },
-		"namespace":      func() string { return c.Kube.Namespace },
-		"applicationKey": func() string { return c.ApplicationKey() },
-		"awsBinary":      func() string { return c.Binaries["aws"].Path },
-		"awsRegion":      func() string { return c.AWS.Region },
-		"awsAccountId":   func() string { return c.AWS.AccountID },
+		"kubeconfig":       func() string { return c.Kube.Kubeconfig },
+		"kubeContext":      func() string { return c.Kube.Context },
+		"namespace":        func() string { return c.Kube.Namespace },
+		"applicationKey":   func() string { return c.ApplicationKey() },
+		"awsBinary":        func() string { return c.Binaries["aws"].Path },
+		"awsRegion":        func() string { return c.AWS.Region },
+		"awsAccountId":     func() string { return c.AWS.AccountID },
+		"awsProbePostgres": func() string { return pinnedImage(c.AWS.ProbePostgresImage) },
+		"awsProbeRedis":    func() string { return pinnedImage(c.AWS.ProbeRedisImage) },
 		"awsEstimateFile": func() string {
 			if c.AWS == nil {
 				return ""
@@ -493,7 +495,8 @@ func configGet(args []string) int {
 	}
 	get, ok := values[*field]
 	needsKube := *field == "kubeconfig" || *field == "kubeContext" || *field == "namespace" || *field == "sentinelName"
-	if !ok || needsKube && c.Kube == nil {
+	needsAWS := strings.HasPrefix(*field, "aws")
+	if !ok || needsKube && c.Kube == nil || needsAWS && c.AWS == nil {
 		return fail("unknown or unavailable field %q", *field)
 	}
 	fmt.Println(get())
