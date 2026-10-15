@@ -517,3 +517,12 @@ Runtime evidencefix34a9dcc: [scoped restart verifier](../../frontend/test/e2e/te
 [AWS gate](../../backend/test/integration/v2run/aws.go),
 [explicit closure guard](../../backend/test/integration/v2run/scan.go).
 1396Go/race/0skip/632frontend vàfullchecks đạt; liveacceptance còn riêng.
+
+
+I04-12 runtime checks: [đọc đầu vào sau cổng supervisor](../../frontend/test/e2e/terraform-v2-lib.mjs)
+và [luồng browser](../../frontend/test/e2e/terraform-v2-acceptance.mjs),
+[hồi quy file thật](../../frontend/test/e2e/terraform-v2-input-gate.test.mjs),
+[chẩn đoán Preview AWS](../../frontend/test/e2e/terraform-v2-aws.mjs) và
+[hồi quy ownership/purity](../../frontend/test/e2e/terraform-v2-aws-purity.test.mjs).
+Các bản sửa này chỉ củng cố runner, không thay bằng chứng chạy AWS thật;
+xem [I04-12 verification](../verification/2026-10-15-i04-12-aws.md).

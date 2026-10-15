@@ -819,3 +819,12 @@ AWS startup/cleanup Vault delivery1d35a00: cùngmode theoadapter, VSO giữchoK8
 agent dùngchoAWS. ActualcleanupOptions hồi quy vàCLIgetter coverage đạt;
 1407Go/race/0skip/634frontend/fullchecks độc lập. No-effectA02r1 đãkhép,
 freshA02r2 tiếp theo; liveAWS vẫn còn. VERIFY-I04-12-20261015.
+
+
+I04-12 đang chạy A02r5 từ `5074bb2`. Getter ảnh probe, nhập boolean qua native
+select, chẩn đoán từng điều kiện Preview và đọc đầu vào sau cổng khởi chạy đã
+được review/merge. Bản sửa cuối có hồi quy file thật thay ECR/digest trong lúc
+chờ cổng; 642 frontend và các checks tương ứng đạt, backend không đổi so R7
+1.407 Go/race/0 skip. A02r1–r4 giữ kết quả FAIL và cleanup đã được xác minh.
+Đây chưa phải bằng chứng A02/A03 đạt: IMP-021 còn mở, D12–D14 vẫn hoãn.
+Bằng chứng: VERIFY-I04-12-20261015.

@@ -9,13 +9,17 @@ last_reviewed: 2026-10-15
 
 ## M04 — trạng thái hiện tại ngày 2026-10-15
 
-I04-01..10 đã hoàn tất code vàkiểm tra local. **I04-11 đã đạt** A01/E01/E02
-trênk8s-4f, adapterthật/video/SQLrestart/cleanupđộclập. I04-12đangthựchiện:
-A02r4 đãFAIL/CLOSED_CLEAN saupháthiện browserđọcinputtrướcrunnerghiECRdigest
-vàmởgate. KhôngEKSđượcdeploy; baECRđãdọn/queryvắng, bốnSLRgiữnguyên,
-DBbaRolePrivatevắng/Vaultdừng. Bản sửa6479236 đãreview/merge,642frontend và
-fullchecksđạt, backendkhôngđổi1407Go/race/0skip. ChuẩnbịA02r5 vớifreshgates/
-dựtoán/supervisor; A03chưachạy vàchỉchạysauA02sạch.
+I04-01..10 đã hoàn tất code và kiểm tra local. **I04-11 đã đạt** A01/E01/E02
+trên k8s-4f với adapter thật, video, SQL sau khởi động lại và cleanup độc lập.
+I04-12 đang thực hiện: **A02r5 đang chạy từ `5074bb2`**. Pins, preflight,
+gate và dự toán đạt; supervisor PID1653265 bật trước ba kho ECR đã xác minh
+digest. Chưa triển khai EKS; A03 chưa chạy và chỉ chạy sau khi A02 sạch.
+
+Các lượt A02 trước giữ kết quả FAIL và đã cleanup độc lập. Lỗi gần nhất là
+browser đọc đầu vào trước khi runner ghi ECR/digest và mở cổng. Bản sửa
+`6479236` đã review và kiểm 642 bài frontend cùng toàn bộ checks tương ứng;
+backend không đổi so 1.407 Go/race, không lỗi hoặc bỏ qua. Bằng chứng và lịch
+sử sửa lỗi ở [biên bản I04-12](verification/2026-10-15-i04-12-aws.md).
 
 | Scenario | Lượt đạt | Kiểm tra trình duyệt | Video | Kết quả tổng |
 |---|---|---|---|---|

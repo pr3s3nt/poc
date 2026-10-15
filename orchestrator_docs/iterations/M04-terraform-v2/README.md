@@ -45,7 +45,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Hoàn tất; A01r4/E01r2/E02r3 PASS, SQL/video/cleanup xác minh |
-| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02r2 lỗi biểu mẫu EKS, đang dọn và sửa |
+| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02r5 đang chạy sau sửa lỗi đầu vào trước cổng |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
 Dependencies triển khai: schema/state -> registry -> executor -> modules ->
@@ -87,46 +87,34 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 
 ## Current handoff
 
-**Lượt hiện hành:** A02r4 đãFAIL/CLOSED_CLEAN sau Codexđóng riêngtab sớm
-vì xácđịnh browserđọcJSON trước khi runnerghiECRpublication/digest vàmởgate.
-IndexTag/nativeECR đềuđúngbaARN; nguyênnhân làobjectinputcũ, khônggiảmguard.
-CleanupAWS/bốnSLR/DBbaRolePrivate/Vault/preflightsaudọn10/10 vàvideo151,13s
-đãxácminh. Evidence `.m4/a02-20261015-r4/` giữreceiptFAIL/lýdooperator.
-Luna `6479236` sửađọcinputSAUgate, hồiquyfilethật; Codex642frontend/fullchecks/
-hashtracked+newtestkhớp, backendkhôngđổiR7 1407Go/race/0skip, đãreview/merge.
-Chuẩn bị A02r5 config0600 `/tmp/poc-i0411-private/a02-20261015-r5.json`,
-evidence `.m4/a02-20261015-r5`, dựtoán13dòng~2,13USDđạt. Chưa tạoAWSr5.
-Tiếp: freshgates/supervisor/ECR/UI/Preview/deploy/job/cache, cleanupquerysạch;
-A03chưachạy. Writeridle, khôngcầnduyệt giữa/cuối. Lịch sử bên dưới giữ nguyên.
+**Hiện hành — 2026-10-15:** I04-11 đã hoàn tất A01r4/E01r2/E02r3, gồm
+video, SQL sau khởi động lại và cleanup độc lập. I04-12 đang thực hiện.
 
-**Handoff hiện hành 2026-10-15:** I04-11 đạt A01r4/E01r2/E02r3,
-SQL restart/video/cleanup độc lập và28UID giữ lại. I04-12 đang thực hiện.
-A02r2 FAILED do helper nhập chữ vào select boolean; đãCLOSED_CLEAN,
-AWS absence/preflight10/10, bốn SLR giữ nguyên, DB/ba role/private vắng.
-Video334,20giây vàreceiptFAIL giữ tại `.m4/a02-20261015-r2/`.
+A02 `a02-20261015-r5` đang chạy từ `5074bb2` trong checkout
+`/tmp/poc-i0412-local-runtime`, tiến trình PTY66875. Evidence:
+`/home/thanhnt1/.m4/a02-20261015-r5`; cấu hình 0600 nằm ngoài Git.
+Pins, 10 kiểm tra AWS, gate I04-11 và dự toán đều đạt. Supervisor độc lập
+PID1653265 bật trước khi tạo ba kho ECR; ảnh workload đã xác minh digest.
+Database riêng `i0410_c56dcdcf749e` và ba role còn phục vụ lượt đang chạy.
+Chưa triển khai EKS hoặc chạy A03; phải dọn và query xác minh A02 sạch trước A03.
 
-A02r3 **FAIL/CLOSED_CLEAN**, exit1 từ `c5f77ff`, checkout
-`/tmp/poc-i0412-local-runtime`, evidence `/home/thanhnt1/.m4/a02-20261015-r3`.
-Preflight8pins/10AWS/gate/dự toán đạt, supervisorPID1446690 đã bật trước
-ba kho ECR thật; digest workload verified, AWS Connection READY. Manifest
-đã ghi đầy đủ probe image digests. Browser đã qua toàn bộform/nămDefinition/
-baWorkload, nhưng assertion Preview.pure thất bại. Read-onlyAPI độc lập
-xác nhận không Deployment/resource; chưa xác định nhánh ECR/tag/noLeak nào
-sai do assertion chưa ghi chi tiết từng điều kiện. Writer đang chẩn đoán và
-bổ sung hồi quy/diagnostics, không giảm acceptance. AWS absencequery đãđạt,
-bốnSLRgiữ nguyên; DB/ba role/private độc lập xác minh vắng.
-DB riêng `i0410_7237b78b0b8e`/ba role đãdọn, Vault riêng đãdừng.
-A03 chưa chạy. Không lượt mới trước cleanup A02 sạch; không bypass ownership.
+Bản sửa `6479236` đọc đầu vào sau khi runner xuất bản ECR và mở cổng khởi
+chạy, tránh giữ danh sách kho và ảnh cũ. Hồi quy dùng file thật khi chờ cổng;
+Codex review, kiểm độc lập 642 bài frontend cùng type/lint/build/tài liệu đạt,
+mã băm nguồn và file test mới khớp. Backend không đổi so bộ R7 đã đạt
+1.407 Go/race, không lỗi hoặc bỏ qua. Writer `/root/i0410_luna` đang idle.
+Bằng chứng kiểm tra: `.m4/checks-input-gate-r1/`, `.m4/checks-i0412-probe-pins-r7/`.
 
-Writer `/root/i0410_luna` hiện idle: getter `660fd5c` và helper boolean
-`214e37f` đãreview/merge/push. R7 đạt1407Go/race/0fail/0skip,634frontend,
-fullchecks/sourcehashkhớp/fixtureclean ở `.m4/checks-i0412-probe-pins-r7/`.
-Bản helper có635frontend/fullchecks tại `.m4/checks-bool-form-r1/`, backend
-không đổi; hai thay đổi độc lập đã kết hợp trong nguồn lượt hiện tại.
-Dự toán5h A02~2,1300USD/A03~2,0507USD; chưa có hóa đơn thực tế.
-Tiếp: review bản sửa Preview, kiểm độc lập/merge/push rồi chạy lại A02;
-dọn vàquery sạch rồi mới A03. Không cần duyệt giữa hoặc cuối.
-Các đoạn bên dưới là lịch sử bàn giao, không thay trạng thái hiện hành này.
+A02r1 dừng trước AWS; A02r2/r3/r4 đều FAIL và đã khép sau cleanup độc lập,
+giữ nguyên video và receipt thất bại. A02r4 được dừng sớm sau khi xác định
+lỗi đọc đầu vào trước cổng; chỉ tab kiểm chứng riêng bị đóng. Đối chiếu API
+tag và ECR đều đúng ba ARN, nên không coi API tag là nguyên nhân.
+Chi tiết trong [biên bản I04-12](../../verification/2026-10-15-i04-12-aws.md).
+
+Dự toán cửa sổ 5 giờ: A02 khoảng 2,1300 USD, A03 khoảng 2,0507 USD; chưa có
+hóa đơn thực tế. Tiếp: theo dõi form, Preview, triển khai, job/cache, SQL và
+video; cleanup bằng engine gốc rồi query độc lập. Không cần duyệt giữa hoặc cuối.
+Các đoạn dưới đây là lịch sử bàn giao, không thay trạng thái hiện hành.
 
 2026-10-14: I04-01..09 đã verified local. I04-06 code `f3ed5bb` đã review,
 1082 Go tests/zero skip + 479 frontend tests/build/vet/docs và Codex headed
