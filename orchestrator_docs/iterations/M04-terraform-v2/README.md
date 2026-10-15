@@ -449,3 +449,21 @@ phaseframes/phụđềđãkiểm tra;22textfiles quétsecretđạt. Independentc
 28retainedUIDskhớp/namespacevắng, DB `i0410_c39149ce7f17`/ba roles/privatevắng,
 Vaultdừng, khôngcóimageimport. Proof `operator-independent-cleanup.json`.
 E02 `e02-20261015-r1` bắtđầu từ05bba6e; A01r4/E01r2 đãđạt, gateAWS cònE02.
+
+
+E02 lượt `e02-20261015-r1` không đạt: namespace được tạo nhưng Redis không
+có Pod/PVC, nên không chứng minh được lỗi kéo ảnh. Bộ kiểm chứng chờ hết hạn;
+SQL reopen vẫn đọc được 2 resource và lịch sử thất bại. Supervisor CLEAN,
+marker CLOSED_CLEAN, namespace và database `i0410_160695d878fe`/ba role vắng,
+28 UID giữ lại nguyên vẹn; Vault dừng và thư mục riêng đã xóa. Video
+`/home/thanhnt1/.m4/e02-20261015-r1/E02-captioned.mp4` dài1044 giây, giải mã
+đạt; ảnh lỗi và bằng chứng dọn độc lập được giữ. Không ghi E02 đạt.
+
+Nguyên nhân fixture: ô chuỗi nhận nguyên văn chuỗi JSON đã có dấu ngoặc kép,
+đưa dấu đó vào image reference và bị module từ chối trước Pod. Danh mục AWS
+cũng dùng chuỗi JSON cho giá trị typed. Luna `bb38fc8` sửa đường nhập liệu:
+giải mã catalog trước khi nhập, chuỗi nhập nguyên giá trị, kiểu khác dùng JSON;
+ảnh E02 nhập không kèm dấu kép. Giữ nguyên trường map sai kiểu có chủ đích của
+E01. Codex review và chạy độc lập634frontend/38files, type/lint/build/node/
+docs/PlantUML đạt, mã băm không đổi; backend không đổi so1396Go/race/0skip.
+Bằng chứng `.m4/checks-form-overrides-r1/`. Chuẩn bịE02r2; AWS vẫn bị chặn.
