@@ -40,6 +40,22 @@ export function assetsFromArns(arns) {
   return out;
 }
 
+/** Keeps the preview gate's independent proofs visible without exposing AWS keys. */
+export function previewPurityProof({ baseline, expectedArns, expectedAssets, ownedKeys, afterPreview, deploymentCount, resourceCount, panelText, accessKeyId, secretAccessKey }) {
+  const sorted = (values) => [...values].sort();
+  const exactPreparation = expectedArns.length === 3
+    && JSON.stringify(sorted(baseline)) === JSON.stringify(sorted(expectedArns))
+    && expectedAssets.length === 3
+    && expectedAssets.every((asset) => asset?.kind === 'ecr-repository' && ownedKeys.has(`${asset.kind}\t${asset.id}`));
+  const unchanged = JSON.stringify(sorted(afterPreview)) === JSON.stringify(sorted(baseline));
+  const stateFree = deploymentCount === 0 && resourceCount === 0;
+  // Preserve the established broad credential-text guard, including configured key values.
+  const noKeyMaterial = !/AKIA|secret/i.test(panelText.replace(/bí mật/g, ''))
+    && !(accessKeyId && panelText.includes(accessKeyId))
+    && !(secretAccessKey && panelText.includes(secretAccessKey));
+  return { exactPreparation, unchanged, stateFree, noKeyMaterial };
+}
+
 export async function awsScenario(ctx, scenario, { v2ctl, recordNamespace, forbidden }) {
   const { page, h, rec, input } = ctx;
   const s = steps(ctx);
@@ -116,13 +132,12 @@ export async function awsScenario(ctx, scenario, { v2ctl, recordNamespace, forbi
   const expectedArns = [...(prepared?.repositories ?? [])].sort();
   const expectedAssets = expectedArns.map((arn) => assetsFromArns([arn])[0]);
   const ownedBeforePreview = new Set(v2ctl(input, 'manifest-owned', '-manifest', input.manifestFile).split('\n').filter(Boolean));
-  const baselineIsExactOwnedPreparation = expectedArns.length === 3 && JSON.stringify(baseline) === JSON.stringify(expectedArns)
-    && expectedAssets.every((asset) => asset?.kind === 'ecr-repository' && ownedBeforePreview.has(ownedKey(asset)));
   const previewResponse = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(`${scope}/preview`));
   await h.click(page.getByRole('button', { name: 'Xem trước thay đổi', exact: true }));
   const preview = await (await previewResponse).json();
   const panel = page.getByLabel('Xem trước triển khai');
   await expect(panel).toContainText('3 Workload bị ảnh hưởng', { timeout: 180_000 });
+  const panelText = await panel.innerText();
   await h.moveTo(panel);
   await h.pause(SHORT_READ);
   const intents = new Map();
@@ -130,11 +145,13 @@ export async function awsScenario(ctx, scenario, { v2ctl, recordNamespace, forbi
   const terraformIntents = [...intents.values()].filter((i) => i.driverType === 'terraform');
   const byType = (type) => [...intents.values()].filter((i) => i.resourceType === type);
   const pinOf = (module) => capabilities.find((c) => c.driverType === 'terraform' && c.module === module)?.source;
-  const noLeak = !/AKIA|secret/i.test((await panel.innerText()).replace(/bí mật/g, '')) && !(await panel.innerText()).includes(input.aws.secretAccessKey);
-  const stateFree = ((await s.get(`${scope}/deployments`)).deployments ?? []).length === 0 && ((await s.get(`${scope}/resources`)).resources ?? []).length === 0;
+  const deploymentCount = ((await s.get(`${scope}/deployments`)).deployments ?? []).length;
+  const resourceCount = ((await s.get(`${scope}/resources`)).resources ?? []).length;
   const afterPreview = taggedArns().sort();
-  rec.record('preview.pure', 'PREVIEW', 'private-read', baselineIsExactOwnedPreparation && JSON.stringify(afterPreview) === JSON.stringify(baseline) && stateFree && noLeak,
-    `Preview left the exact three manifest-owned ECR preparation assets unchanged; no other tagged asset appeared, no Deployment/resource record was created (so no Terraform state), and no key material is on screen`);
+  const purity = previewPurityProof({ baseline, expectedArns, expectedAssets, ownedKeys: ownedBeforePreview, afterPreview, deploymentCount, resourceCount, panelText, accessKeyId: input.aws.accessKeyId, secretAccessKey: input.aws.secretAccessKey });
+  const purityPassed = Object.values(purity).every(Boolean);
+  rec.record('preview.pure', 'PREVIEW', 'private-read', purityPassed,
+    `exact ECR preparation=${purity.exactPreparation}; unchanged after preview=${purity.unchanged}; no deployment/resource state=${purity.stateFree}; no AWS key material on screen=${purity.noKeyMaterial}`);
   rec.record('preview.target', 'PREVIEW', 'ui', preview.binding?.connectionKey === connectionKey && preview.binding?.executionProfile === 'aws-eks' && preview.accountId === input.aws.accountId && preview.binding?.region === input.aws.region,
     `connection ${preview.binding?.connectionKey} profile ${preview.binding?.executionProfile} account ${preview.accountId} region ${preview.binding?.region}`);
   const expectedModules = ['vpc', 'eks', 'k8s-namespace', 'aurora', scenario === 'A02' ? 'elasticache' : 'redis-k8s'].sort();
