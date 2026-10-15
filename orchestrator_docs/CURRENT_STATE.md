@@ -9,19 +9,13 @@ last_reviewed: 2026-10-15
 
 ## M04 — trạng thái hiện tại ngày 2026-10-15
 
-I04-01..10 đã hoàn tất phần code và kiểm tra local. **I04-11 đã đạt** cả
-A01/E01/E02 trên k8s-4f với adapter thật, trình duyệt có ghi hình, kiểm chứng
-PostgreSQL sau khởi động lại và dọn sạch độc lập. I04-12 hiện hành: A02r2
-đã tạo ba kho ECR thật rồi dọn sạch sau lỗi biểu mẫu boolean, chưa triển khai
-EKS. Bản sửa helper vàgetter ảnh probe đã hợp nhất; A02r3 từc5f77ff
-đãqua gate/preflight/dự toán và toàn bộform, nhưng assertion Preview.pure
-thất bại. Read-onlyAPI xác nhận không Deployment/resource; writer đang chẩn
-đoán phần ECR/tag/noLeak, không giảm assertion. A02r3 đãCLOSED_CLEAN:
-AWSabsencequery/bốnSLRgiữ nguyên/DBbaRolePrivatevắng, Vaultdừng.
-A02r4 đangchạy từddb2e92, supervisorPID1592152 bật trước ECR, ConnectionREADY;
-đối chiếu indexTag/nativeECR đúngbaARN/tagrun. Bản chẩnđoán639frontend đạt,
-giữnguyên guard; chưa kếtluận nguyênnhân Preview cũ. A03 chưa chạy,
-chỉ chạy sau khi A02 sạch.
+I04-01..10 đã hoàn tất code vàkiểm tra local. **I04-11 đã đạt** A01/E01/E02
+trênk8s-4f, adapterthật/video/SQLrestart/cleanupđộclập. I04-12đangthựchiện:
+A02r4 đãFAIL/CLOSED_CLEAN saupháthiện browserđọcinputtrướcrunnerghiECRdigest
+vàmởgate. KhôngEKSđượcdeploy; baECRđãdọn/queryvắng, bốnSLRgiữnguyên,
+DBbaRolePrivatevắng/Vaultdừng. Bản sửa6479236 đãreview/merge,642frontend và
+fullchecksđạt, backendkhôngđổi1407Go/race/0skip. ChuẩnbịA02r5 vớifreshgates/
+dựtoán/supervisor; A03chưachạy vàchỉchạysauA02sạch.
 
 | Scenario | Lượt đạt | Kiểm tra trình duyệt | Video | Kết quả tổng |
 |---|---|---|---|---|

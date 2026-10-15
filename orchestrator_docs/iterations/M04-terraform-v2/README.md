@@ -87,18 +87,17 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 
 ## Current handoff
 
-**Lượt hiện hành:** A02 `a02-20261015-r4` đang chạy PTY98815 từ `ddb2e92`,
-checkout `/tmp/poc-i0412-local-runtime`, evidence
-`/home/thanhnt1/.m4/a02-20261015-r4`. Database riêng
-`i0410_0f9f88c1f581`/ba role; supervisorPID1592152 ARMED trước baECRcreate.
-Pins8/preflight10/I11gate/dự toán13dòng~2,13USD đạt, ConnectionREADY.
-Operator chỉ đọc đối chiếu ngay saucreate: indexTag vànativeECR cùngđúngbaARN,
-tagrun khớp; proof `operator-ecr-index-vs-native.json`. Chưa chứng minh nguyên
-nhân lỗiPreview cũ. `c26e2dd` giữ nguyên guard, thêm boolean từngđiều kiện,
-639frontend/fullchecks/hashtracked+newtestkhớp, backendkhôngđổiR7 1407Go/race.
-Writer `/root/i0410_luna` chỉauditđọc, khôngsửanguồn tronglượthiện hành.
-Tiếp: theo dõi Preview/deploy/job/cache, cleanuporiginalengine+query sạch;
-A03 chưa chạy, không lượt mới trước cleanup A02. Không cần duyệt.
+**Lượt hiện hành:** A02r4 đãFAIL/CLOSED_CLEAN sau Codexđóng riêngtab sớm
+vì xácđịnh browserđọcJSON trước khi runnerghiECRpublication/digest vàmởgate.
+IndexTag/nativeECR đềuđúngbaARN; nguyênnhân làobjectinputcũ, khônggiảmguard.
+CleanupAWS/bốnSLR/DBbaRolePrivate/Vault/preflightsaudọn10/10 vàvideo151,13s
+đãxácminh. Evidence `.m4/a02-20261015-r4/` giữreceiptFAIL/lýdooperator.
+Luna `6479236` sửađọcinputSAUgate, hồiquyfilethật; Codex642frontend/fullchecks/
+hashtracked+newtestkhớp, backendkhôngđổiR7 1407Go/race/0skip, đãreview/merge.
+Chuẩn bị A02r5 config0600 `/tmp/poc-i0411-private/a02-20261015-r5.json`,
+evidence `.m4/a02-20261015-r5`, dựtoán13dòng~2,13USDđạt. Chưa tạoAWSr5.
+Tiếp: freshgates/supervisor/ECR/UI/Preview/deploy/job/cache, cleanupquerysạch;
+A03chưachạy. Writeridle, khôngcầnduyệt giữa/cuối. Lịch sử bên dưới giữ nguyên.
 
 **Handoff hiện hành 2026-10-15:** I04-11 đạt A01r4/E01r2/E02r3,
 SQL restart/video/cleanup độc lập và28UID giữ lại. I04-12 đang thực hiện.
