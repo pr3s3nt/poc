@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-15
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -693,3 +693,9 @@ and incomplete/duplicate/unexpected/truncated simulation. Full1395Go/race/
 0SKIP/622FE đạt, read-only A02/A03 actual preflight đạt; chưa AWS live proof.
 A01 a01-20261015-r1 FAIL trước provider create, CLEAN/CLOSED_CLEAN; socket
 length A/B diagnosis và shortroot rerun ghi trong VERIFY-I04-11-20261014.
+
+A01shortroot r2:42liveassertions/8marks đạt/cleanupCLEAN/28UIDs giữ/2PVABSENT,
+nhưng SQLreopenharness sai application/phase =>overallFAIL. AWSgate vẫn đóng;
+browserPASS vàCLOSED_CLEAN không được đồng nhất acceptancePASS. Luna đang
+sửa scopedSQLrestart/overallcompletionproof vàA03explicitgp2 (defaultclass
+không bật trênEKS1.35/pinnedCSI). IMP-021 chưa đóng; proofs trongbiênbảnI04-11.

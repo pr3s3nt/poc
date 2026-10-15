@@ -2,7 +2,7 @@
 id: M04
 artifact: milestone-plan
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-15
 related: [ADR-014, IMP-021, D01, D03, D12, D13, D14]
 ---
 
@@ -44,7 +44,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Hoàn tất local |
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
-| I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Current; các lượt lỗi CLOSED_CLEAN, A01 chạy lại trên disk root ngắn |
+| I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Current; A01 browser42PASS/cleanupCLEAN, sửa SQL reopen/overall gate trước lượt mới |
 | I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Chưa bắt đầu |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
@@ -353,3 +353,14 @@ AWS preparationfix3136dcc merge/push6d9fb2f,1395Go/race/0skip/622FE/fullchecks
 đạt và fixtureclean; source/preflight schema/proof ngoàiGit. Sau A01 sạch chạy
 E01/E02 từ checkout `/tmp/poc-i0412-local-runtime`3136dcc (latest code + dist).
 Gateđủ thì AWSA02 sạch rồiA03; configs/gates trỏ shortroot, chưa tạoAWS.
+
+**Handoff hiện hành:** A01shortroot r2 browser42PASS/8marks vàfull cleanupCLEAN,
+nhưng overall exit1 vìSQLreopen hardcodewrongapplication/phase. Video1346.6s
+vàproofs trong `.m4/a01-20261015-r2/`;28retainedUIDs và2PVabsence độc lập,
+10cache refs/3aliases đãdọn. Không ghiI04-11PASS. Luna đang sửaCODE/TEST tại
+`/tmp/poc-i0412-local-runtime`3136dcc: scopedscenario-awareSQLreopen/HTTPchecks,
+overallrunnerPASSproof choAWSgate (browserPASS+cleanupCLEANchưa đủ), A03
+explicitgp2 class vìEKS1.35/CSIdefaultfalse. Modulepins giữnguyên; estimateA03
+5h2.0507USD/13lines đạt. Sauwriterfreeze: review/fullchecks0skip, merge/push,
+A01fresh rồiE01/E02; đủgate mớiAWSA02sạch rồiA03. Các run cũ CLOSED_CLEAN,
+platformPGcontainer/volume riêng còn giữ; chưaAWSresources.
