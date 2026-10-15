@@ -712,3 +712,11 @@ marker tường minh; A03gp2 explicit, không đổi modulepins. A01fresh
 `a01-20261015-r3` chuẩn bị ở `.m4/a01-20261015-r3/`,28retainedUIDskhớp,
 namespace chưa có khipreflight; imageownership trong `.m4/prep-a01-r3/`.
 Chưa ghi livePASS; đủA01/E01/E02 mới mởAWS.
+
+
+**Catalogfix đãđạt:** Luna `d1f1da4` merge sau independent632frontend/38files,
+type/lint/build/node/docs/PlantUML/diffPASS, sourcehashunchanged tại
+`/home/thanhnt1/.m4/checks-reopen-catalog-r1/`. Backendbyteunchanged34a9dcc,
+giữ bằngchứng1396Go/race/0skip đãchạy; khôngchạy lại Go cho thayđổi riêngJS.
+Reopen exactcatalog naygồm builtin vàrender template thực tế của từngscenario.
+Chuẩn bịA01 `a01-20261015-r4`, không dùngreceiptFAILr3 đểmởAWS.

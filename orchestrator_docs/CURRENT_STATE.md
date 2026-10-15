@@ -56,7 +56,11 @@ PV2/namespaceABSENT/28retainedUIDs/cacheclean, nhưng overallSQLrestartFAIL do
 harnesswrongscope/phase. KhôngI04-11PASS. Luna fix34a9dcc đãreview/merge: scopedSQLreopen/overall runnergate, explicit
 closure guard vàA03gp2. Full1396Go/race/0fail/0skip,632frontend/38files,
 build/vet/type/lint/docs/PlantUML đạt; fixturesclean. Chuẩn bịfreshA01r3 từ
-checkout `/tmp/poc-i0412-local-runtime`34a9dcc; chưaAWS.
+checkout `/tmp/poc-i0412-local-runtime`34a9dcc. A01r3browser42PASS nhưng
+reopen thiếu builtin/renderdefinition nênoverallFAIL, receiptCLOSED_CLEAN;
+28retainedUIDs/namespace/haiPV/DB/roles/private/images đãxác minh. Catalogfixd1f1da4 đãreview/merge:632frontend/type/lint/build/node/docs đạt;
+backendkhôngđổi so1396Go/race/0skip. FreshA01r4 kế tiếp.
+ChưaAWS.
 
 I04-06 tại `f3ed5bb`: **1082 Go PASS/0 FAIL/0 SKIP**, 479 frontend tests,
 build/vet/docs và Codex headed browser/actual SQL/Vault/cleanup pass. AWS
