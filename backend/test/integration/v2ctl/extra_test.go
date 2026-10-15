@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"orchestrator/internal/adapters/postgres"
+	"orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/test/integration/v2run"
@@ -98,17 +100,41 @@ func TestAWSConfigGetExposesPinnedKubectlWithoutKubeconfig(t *testing.T) {
 	}
 }
 
-func TestModulePinsListTheThreeKubernetesModules(t *testing.T) {
+func TestModulePinsListsEveryPackagedModuleDeterministically(t *testing.T) {
 	e := newEnv(t, "a01-0001")
 	out, code := e.ctl("module-pins")
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-	if code != 0 || len(lines) != 3 {
+	if code != 0 {
 		t.Fatalf("%d %q", code, out)
 	}
-	for _, line := range lines {
-		if f := strings.Split(line, "\t"); len(f) != 3 || len(f[2]) != 64 {
-			t.Fatalf("pin line %q", line)
+	refs, err := registry.PackagedRefs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(refs) != 7 {
+		t.Fatalf("packaged release has %d refs, want all 7 packaged modules", len(refs))
+	}
+	ids := make([]string, 0, len(refs))
+	for id := range refs {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	want := make([]string, 0, len(ids))
+	for _, id := range ids {
+		ref := refs[id]
+		if ref.Revision == "" || len(ref.ContentSHA256) != 64 {
+			t.Fatalf("invalid packaged pin for %s: %+v", id, ref)
 		}
+		want = append(want, id+"\t"+ref.Revision+"\t"+ref.ContentSHA256)
+	}
+	if got := strings.TrimSpace(out); got != strings.Join(want, "\n") {
+		t.Fatalf("module-pins output:\n%s\nwant:\n%s", got, strings.Join(want, "\n"))
+	}
+	if ref := refs["vpc"]; ref.Revision != "v4-2026.10.15" || ref.ContentSHA256 != "c783343a2686a754e42521d9d21cdc8a70ead0a2b83b14d90448b56296acbfad" {
+		t.Fatalf("VPC v4 pin = %+v", ref)
+	}
+	again, code := e.ctl("module-pins")
+	if code != 0 || again != out {
+		t.Fatalf("module-pins output is not deterministic: %d %q", code, again)
 	}
 }
 

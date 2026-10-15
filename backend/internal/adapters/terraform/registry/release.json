@@ -63,12 +63,12 @@
   ],
   "packaged": {
     "sourceId": "platform",
-    "revision": "v3-2026.10.13",
+    "revision": "v4-2026.10.15",
     "modules": [
       {
         "id": "vpc",
         "subdirectory": "vpc",
-        "contentSha256": "f159d1be486706560730a1d7e36744b5588103d7d6ea9c67e1c120519cb382cc",
+        "contentSha256": "c783343a2686a754e42521d9d21cdc8a70ead0a2b83b14d90448b56296acbfad",
         "resourceTypes": [
           "vpc"
         ]

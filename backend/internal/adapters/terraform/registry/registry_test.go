@@ -684,7 +684,7 @@ func TestVerifyForExecutionFailsClosed(t *testing.T) {
 	}
 	// Drift or a missing artifact in the shared cache stops the run.
 	bundleRoot := f.cache.bundleDir(ref)
-	cached := filepath.Join(bundleRoot, "sources", "platform@v3-2026.10.13", "vpc", "extra.tf")
+	cached := filepath.Join(bundleRoot, "sources", "platform@v4-2026.10.15", "vpc", "extra.tf")
 	if err := os.WriteFile(cached, []byte("# injected"), 0o600); err != nil {
 		t.Fatal(err)
 	}
