@@ -87,27 +87,28 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 
 ## Current handoff
 
-**Handoff hiện hành 2026-10-15:** I04-11 đã đạt A01r4/E01r2/E02r3,
-bao gồm receipt toàn lượt, SQL restart, video và cleanup độc lập/28 UID giữ lại.
-I04-12 đang thực hiện. A02 `a02-20261015-r2` chạy code `1d35a00`, đã qua
-preflight/gate/dự toán, supervisor được bật trước khi tạo ba kho ECR thật.
-Browser đã đăng ký AWS Connection READY và sáu loại tài nguyên; biểu mẫu EKS
-thất bại vì giá trị boolean `ebs_csi_driver` bị từ chối. Chưa triển khai EKS.
-A02r2 đã exit1/FAIL, marker CLOSED_CLEAN: AWS absence query vàpreflight10/10
-sau dọn đạt, bốn SLR giữ nguyên, database/ba role/private vắng. Video334,20giây
-đã decode. Fresh A02r3 config/dự toán đã chuẩn bị, chưa chạy; A03 chưa chạy.
-Evidence `/home/thanhnt1/.m4/a02-20261015-r2`, tiến trình runner PTY88205.
-Writer `/root/i0410_luna` đã sửa helper chọn boolean ở checkout riêng
-`/tmp/poc-i0412-form-fix`: `214e37f` đãreview/merge,635frontend/fullchecks
-đạt, backend không đổi so1d35a00/R6. Checkout getter là
-`/tmp/poc-i0412-local-runtime`. Getter ảnh probe `660fd5c` đãreview/merge; R7 đạt1407Go/race/0skip,
-634frontend/fullchecks/sourcehashkhớp vàfixtureclean tại
-`.m4/checks-i0412-probe-pins-r7`.
-Lần chạy hiện tại còn cảnh báo thiếu getter metadata ảnh probe; không sửa
-manifest gốc. `operator-probe-image-pins.json` ghi cấu hình thực tế đã ghim,
-nhưng chưa có technical probe vì biểu mẫu thất bại; không coi A02 đạt.
+**Handoff hiện hành 2026-10-15:** I04-11 đạt A01r4/E01r2/E02r3,
+SQL restart/video/cleanup độc lập và28UID giữ lại. I04-12 đang thực hiện.
+A02r2 FAILED do helper nhập chữ vào select boolean; đãCLOSED_CLEAN,
+AWS absence/preflight10/10, bốn SLR giữ nguyên, DB/ba role/private vắng.
+Video334,20giây vàreceiptFAIL giữ tại `.m4/a02-20261015-r2/`.
+
+A02r3 **đang chạy** PTY10821 từ `c5f77ff`, checkout
+`/tmp/poc-i0412-local-runtime`, evidence `/home/thanhnt1/.m4/a02-20261015-r3`.
+Preflight8pins/10AWS/gate/dự toán đạt, supervisorPID1446690 đã bật trước
+ba kho ECR thật; digest workload verified, AWS Connection READY. Manifest
+đã ghi đầy đủ probe image digests. Browser đang khai báo danh mục qua form.
+DB riêng `i0410_7237b78b0b8e`/ba role, Vault/state/handles chỉ trong private.
+A03 chưa chạy. Không lượt mới trước cleanup A02 sạch; không bypass ownership.
+
+Writer `/root/i0410_luna` hiện idle: getter `660fd5c` và helper boolean
+`214e37f` đãreview/merge/push. R7 đạt1407Go/race/0fail/0skip,634frontend,
+fullchecks/sourcehashkhớp/fixtureclean ở `.m4/checks-i0412-probe-pins-r7/`.
+Bản helper có635frontend/fullchecks tại `.m4/checks-bool-form-r1/`, backend
+không đổi; hai thay đổi độc lập đã kết hợp trong nguồn lượt hiện tại.
 Dự toán5h A02~2,1300USD/A03~2,0507USD; chưa có hóa đơn thực tế.
-Tiếp: chạy A02r3 với cả hai bản sửa; chỉ khi A02 sạch mới A03. Không cần duyệt giữa hoặc cuối.
+Tiếp: theo dõi form/Preview/deploy EKS/Aurora/cache, job/cache thật, SQL/video;
+dọn vàquery sạch rồi mới A03. Không cần duyệt giữa hoặc cuối.
 Các đoạn bên dưới là lịch sử bàn giao, không thay trạng thái hiện hành này.
 
 2026-10-14: I04-01..09 đã verified local. I04-06 code `f3ed5bb` đã review,
