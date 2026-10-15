@@ -39,6 +39,16 @@ export function formOverrideText(value) {
   return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
+// Boolean capability inputs are native selects. Other typed controls accept
+// their raw textual or JSON representation through a paste-like insert.
+export async function applyOverrideValue(h, field, value) {
+  if (typeof value === 'boolean') {
+    await h.choose(field, String(value));
+    return;
+  }
+  await h.paste(field, formOverrideText(value));
+}
+
 // The Redis Definition carries one fixture annotation that references the
 // shared PostgreSQL host (a non-secret output). It makes the graph
 // namespace <- PostgreSQL <- Redis, so the deletion step has BOTH a dependency
@@ -77,7 +87,7 @@ export function steps({ page, h, caption, phase, rec, baseURL, input }) {
   }
   async function override(name, value) {
     await h.click(form(`Ghi đè ${name}`));
-    await h.paste(form(`Giá trị ${name}`), formOverrideText(value));
+    await applyOverrideValue(h, form(`Giá trị ${name}`), value);
   }
   async function startDefinition(id, type, module, scope) {
     await h.type(form('ID cấu hình'), id);
