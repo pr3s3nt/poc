@@ -61,7 +61,9 @@ reopen thiếu builtin/renderdefinition nênoverallFAIL, receiptCLOSED_CLEAN;
 28retainedUIDs/namespace/haiPV/DB/roles/private/images đãxác minh. Catalogfixd1f1da4 đãreview/merge:632frontend/type/lint/build/node/docs đạt;
 backendkhôngđổi so1396Go/race/0skip. FreshA01r4 kế tiếp.
 A01r4 đãPASS toànlượt/exit0/SQLreopen/42assertions/video1339.07s vàcleanup
-độc lập; E01 đangchạy, E02 còn lại. ChưaAWS.
+độc lập; E01r1browser12PASS nhưngoverallFAIL vìno-execute khôngpersistbuiltin;
+cleanupđộc lậpCLEAN. Fix05bba6e đãreview/merge và632frontend/fullchecksđạt;
+freshE01r2 tiếp theo, E02 còn lại. ChưaAWS.
 
 I04-06 tại `f3ed5bb`: **1082 Go PASS/0 FAIL/0 SKIP**, 479 frontend tests,
 build/vet/docs và Codex headed browser/actual SQL/Vault/cleanup pass. AWS
