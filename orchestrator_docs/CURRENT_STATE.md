@@ -11,16 +11,18 @@ last_reviewed: 2026-10-15
 
 I04-01..10 đã hoàn tất code và kiểm tra local. **I04-11 đã đạt** A01/E01/E02
 trên k8s-4f với adapter thật, video, SQL sau khởi động lại và cleanup độc lập.
-I04-12 đang thực hiện: **A02r5 đang chạy từ `5074bb2`**. Pins, preflight,
-gate và dự toán đạt; supervisor PID1653265 bật trước ba kho ECR đã xác minh
-digest. Preview đã đạt đầy đủ và UI đã bắt đầu Deploy; VPC đang PROVISIONING.
-A03 chưa chạy và chỉ chạy sau khi A02 sạch.
+I04-12 đang thực hiện: A02r5 đã qua đầy đủ Preview và tạo VPC thật, nhưng
+thất bại ở OUTPUT_CONTRACT. Hai output subnet thực tế là tuple, trái kiểu
+list suy ra từ module. Luna đang sửa `tolist` và pin mới trong checkout riêng;
+chưa review hoặc kiểm đủ, chưa chạy lượt mới. A03 chưa chạy.
 
-Các lượt A02 trước giữ kết quả FAIL và đã cleanup độc lập. Lỗi gần nhất là
-browser đọc đầu vào trước khi runner ghi ECR/digest và mở cổng. Bản sửa
-`6479236` đã review và kiểm 642 bài frontend cùng toàn bộ checks tương ứng;
-backend không đổi so 1.407 Go/race, không lỗi hoặc bỏ qua. Bằng chứng và lịch
-sử sửa lỗi ở [biên bản I04-12](verification/2026-10-15-i04-12-aws.md).
+A02r5 đã khép `CLOSED_CLEAN` sau xác minh độc lập. Engine gốc đã destroy các
+lớp; API tag còn hai ARN cũ khiến supervisor báo NEEDS_ATTENTION. API EC2 xác
+nhận hai ID vắng, sau đó verifier gốc cũng xác nhận lớp aux sạch. Giữ nguyên
+kết quả FAIL và trạng thái supervisor ban đầu; biên bản operator bổ sung
+closure. Bốn SLR giữ đúng trust/policy; metadata toàn bộ 11 SLR có sẵn khớp.
+Database/ba role, Vault riêng và credential đã dọn. Bằng chứng trong
+[biên bản I04-12](verification/2026-10-15-i04-12-aws.md).
 
 | Scenario | Lượt đạt | Kiểm tra trình duyệt | Video | Kết quả tổng |
 |---|---|---|---|---|

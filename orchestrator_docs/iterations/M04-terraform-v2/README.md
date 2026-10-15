@@ -87,36 +87,35 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 
 ## Current handoff
 
-**Hiện hành — 2026-10-15:** I04-11 đã hoàn tất A01r4/E01r2/E02r3, gồm
-video, SQL sau khởi động lại và cleanup độc lập. I04-12 đang thực hiện.
+**Hiện hành — 2026-10-15:** I04-11 đã đạt A01r4/E01r2/E02r3.
+I04-12 chưa đạt. A02r5 (`5074bb2`) đã qua toàn bộ Preview, ba bản nháp dùng
+đúng ECR/digest mới; Terraform tạo VPC nhưng lỗi OUTPUT_CONTRACT. Metadata
+thực tế chỉ xuất tên/kiểu: `subnetIds` và `privateSubnetIds` là tuple(string,
+string), trong khi hợp đồng module suy ra list(any). Không xuất state hoặc
+credential cho writer; không giảm guard kiểu để hợp thức hóa module.
 
-A02 `a02-20261015-r5` đang chạy từ `5074bb2` trong checkout
-`/tmp/poc-i0412-local-runtime`, tiến trình PTY66875. Evidence:
-`/home/thanhnt1/.m4/a02-20261015-r5`; cấu hình 0600 nằm ngoài Git.
-Pins, 10 kiểm tra AWS, gate I04-11 và dự toán đều đạt. Supervisor độc lập
-PID1653265 bật trước khi tạo ba kho ECR; ảnh workload đã xác minh digest.
-Database riêng `i0410_c56dcdcf749e` và ba role còn phục vụ lượt đang chạy.
-Preview đã đạt đầy đủ và UI đã bắt đầu Deploy: deployment
-`540bb1bf-e2fc-442d-945d-7866f3618a88`, VPC đang PROVISIONING/PLANNING.
-Cả ba bản nháp đã được đọc độc lập, ảnh khớp ECR/digest mới. A03 chưa chạy;
-phải dọn và query xác minh A02 sạch trước A03.
+Luna `/root/i0410_luna` đang sửa code/test trong
+`/tmp/poc-i0412-vpc-list-fix`, nhánh `codex/m04-i0412-vpc-list-fix`, từ
+`5074bb2`. Có hai thay đổi dở ở VPC main.tf và registry/release.json; chưa
+review/checks đầy đủ. Dự kiến `tolist` tường minh và revision mới
+`v4-2026.10.15`, giữ nguyên artifact v3. Agent từng báo hết hạn mức; Codex đã
+thử lại sau mốc reset được công cụ báo, hiện agent đang chạy. Không tự đổi model.
 
-Bản sửa `6479236` đọc đầu vào sau khi runner xuất bản ECR và mở cổng khởi
-chạy, tránh giữ danh sách kho và ảnh cũ. Hồi quy dùng file thật khi chờ cổng;
-Codex review, kiểm độc lập 642 bài frontend cùng type/lint/build/tài liệu đạt,
-mã băm nguồn và file test mới khớp. Backend không đổi so bộ R7 đã đạt
-1.407 Go/race, không lỗi hoặc bỏ qua. Writer `/root/i0410_luna` đang idle.
-Bằng chứng kiểm tra: `.m4/checks-input-gate-r1/`, `.m4/checks-i0412-probe-pins-r7/`.
+A02r5 đã `CLOSED_CLEAN` bằng closure operator: destroy bằng module/state gốc
+đã DONE; hai ARN tag cũ được EC2 xác nhận NotFound, rồi verifier gốc aux PASS.
+Bốn SLR giữ ARN/ID/trust/policy; toàn bộ 11 SLR có sẵn khớp metadata. Database
+`i0410_c56dcdcf749e`/ba role vắng, Vault PID1649658 đúng địa chỉ đã dừng,
+private credential directory đã xóa. Receipt FAIL và supervisor ban đầu
+NEEDS_ATTENTION giữ nguyên. Recovery metadata/logs/module bundles gốc lưu0700
+ở `.m4/a02-20261015-r5-recovery-private/`; operator proof trong evidence
+`.m4/a02-20261015-r5/`. Không còn AWS asset thuộc lượt theo verifier.
 
-A02r1 dừng trước AWS; A02r2/r3/r4 đều FAIL và đã khép sau cleanup độc lập,
-giữ nguyên video và receipt thất bại. A02r4 được dừng sớm sau khi xác định
-lỗi đọc đầu vào trước cổng; chỉ tab kiểm chứng riêng bị đóng. Đối chiếu API
-tag và ECR đều đúng ba ARN, nên không coi API tag là nguyên nhân.
-Chi tiết trong [biên bản I04-12](../../verification/2026-10-15-i04-12-aws.md).
-
-Dự toán cửa sổ 5 giờ: A02 khoảng 2,1300 USD, A03 khoảng 2,0507 USD; chưa có
-hóa đơn thực tế. Tiếp: theo dõi form, Preview, triển khai, job/cache, SQL và
-video; cleanup bằng engine gốc rồi query độc lập. Không cần duyệt giữa hoặc cuối.
+Tiếp: review bản sửa module/pin và hồi quy Terraform thật, chạy đầy đủ Go/race
+với PostgreSQL, frontend, docs; merge/push, cập nhật estimate/count/pins cho
+lượt A02 mới, chạy thật và cleanup trước A03. Chưa bắt đầu A03. Không cần duyệt
+người dùng giữa chặng hoặc cuối. Code/test vẫn chỉ giao Luna; Codex làm docs,
+review/checks/merge và chạy thật. Các bản sửa trước có642frontend và1407Go/race
+không bỏ qua; không dùng chúng thay cho checks của bản sửa module mới.
 Các đoạn dưới đây là lịch sử bàn giao, không thay trạng thái hiện hành.
 
 2026-10-14: I04-01..09 đã verified local. I04-06 code `f3ed5bb` đã review,
