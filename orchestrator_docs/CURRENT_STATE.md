@@ -42,7 +42,9 @@ trần do người dùng đặt hoặc chi phí hóa đơn thực tế. Prefligh
 đạt account452025861381/principal đã ghim/us-east-1, IP/32, quyền, sức chứa
 Pod và tag trống. Điều kiện ba scenario đã đạt được xác nhận bởi AWS gate.
 Lần khởi động A02 dừng trước tạo evidence/marker/tài nguyên vì getter kubectl
-không hỗ trợ AWS nilKube; writer đang sửa và kiểm tra. Chưa ECR/AWSresource.
+không hỗ trợ AWS nilKube. Fix010b1af đãreview/merge,1403Go/race/0skip,
+634frontend vàfullchecks đạt/fixtureclean. Chuẩn bị thử lại A02r1; chưa ECR/
+AWSresource.
 [Biên bản I04-12](verification/2026-10-15-i04-12-aws.md).
 
 Người dùng bỏ duyệt giữa chặng và duyệt cuối; thất bại phải tìm nguyên nhân,

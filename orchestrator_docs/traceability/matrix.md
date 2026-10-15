@@ -807,3 +807,9 @@ receiptPASS/exit0/CLOSED_CLEAN, SQLrestart/video/cleanup độc lập và28retai
 fixcdfb027 đã kiểm1402Go/race/0skip/634frontend/fullchecks. Evidence vàcác lượt
 lỗi giữ tại VERIFY-I04-11-20261014. I04-12 current sauAWSgate/preflightA02
 read-only đạt, chưa AWS provision; IMP-021 còn mở/D12–D14 không đổi.
+
+
+AWS runner startup regression010b1af: pinned kubectl dùng được trên AWS không
+cóKube config, kubeconfig/context/namespace/sentinel vẫn không khả dụng.
+1403Go/race/0skip/634frontend/fullchecks đạt; lần A02 trước không có effect,
+scenario AWS thật vẫn còn. Evidence VERIFY-I04-12-20261015.

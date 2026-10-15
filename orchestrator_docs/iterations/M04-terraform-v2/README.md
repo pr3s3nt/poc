@@ -523,3 +523,15 @@ A02 đã thử khởi động sau đủgate: binarypins8PASS/preflight10PASS/I04
 nhưng dừng trước mkdir evidence/STARTED vì `config-get kubectl` không hỗ trợ
 AWS nilKube. Chưa có ECR/AWSresource. Luna sửa getter/tests trong checkout riêng;
 Codex review/checks rồi tiếp tục. [Biên bản I04-12](../../verification/2026-10-15-i04-12-aws.md).
+
+
+**Cập nhật I04-12:**
+
+Luna `010b1af` đãreview/merge: getter chỉ yêu cầu Kube cho kubeconfig/context/
+namespace/sentinel; kubectl lấy từ binary đã ghim trên cả AWS. Hồi quy cấu
+hình A03 hợp lệ chứng minh getter hoạt động và trường kube-only vẫn bị chặn.
+Codex chạy độc lập1403Go/race/0fail/0skip,634frontend/38files,
+build/vet/type/lint/docs/PlantUML vàbash syntax đạt; sourcehash không đổi.
+Evidence `/home/thanhnt1/.m4/checks-i0412-aws-getter-r5/`, fixture database/
+network/file credential kiểm tra đãvắng. Lần trước dừng trước mọi effect nên
+A02r1 config/evidence cònfresh; chạy lại toàn bộ gates trước create.
