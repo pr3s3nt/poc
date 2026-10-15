@@ -720,3 +720,18 @@ type/lint/build/node/docs/PlantUML/diffPASS, sourcehashunchanged tại
 giữ bằngchứng1396Go/race/0skip đãchạy; khôngchạy lại Go cho thayđổi riêngJS.
 Reopen exactcatalog naygồm builtin vàrender template thực tế của từngscenario.
 Chuẩn bịA01 `a01-20261015-r4`, không dùngreceiptFAILr3 đểmởAWS.
+
+
+**A01 đạt toàn lượt15Oct:** `a01-20261015-r4`, code d1f1da4, exit0,
+runner-completion PASS/CLOSED_CLEAN,42liveassertions/8marks. UI khai báo/
+Preview/deploy/3Ready/jobDONE, actualPGrow/Rediswrite-hit/TTLmiss/refill/reload,
+UIxóa workload vàselectedRedis+PGđạt, uncheckednamespace giữREADY đếnsupervisor.
+SQLreopen đạt5types/5definitions/3DESTROYEDresources/6deployments.
+Video `/home/thanhnt1/.m4/a01-20261015-r4/A01-captioned.mp4`1339.07s,
+decode/READY-CACHE-CLEANUPframes/phụđềreview đạt;24textfiles quétsecret đạt.
+Namespace/haiPV vắng,28retainedUIDs khớpđộc lập; database
+`i0410_83705f083962`/ba rolesvắng,haiVaultdừng/privatevắng;10imagerefs/3aliases
+đãdọn,baseline/sourceimages nguyênvẹn. Proofs `operator-retained-and-absence.json`,
+`operator-auxiliary-cleanup.json`,imagecleanup `.m4/prep-a01-r4/`.
+E01 `e01-20261015-r1` đang chạy từ cùngcheckout; E02/AWS chưa chạy,
+I04-11 chưa đủba scenario, IMP-021 vẫn mở.

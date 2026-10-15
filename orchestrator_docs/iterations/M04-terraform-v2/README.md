@@ -44,7 +44,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-08 | [Xóa tài nguyên và dependency qua Console](I04-08-resource-delete-ui/README.md) | 2 | Hoàn tất local |
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
-| I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Current; A01 browser42PASS/cleanupCLEAN, sửa SQL reopen/overall gate trước lượt mới |
+| I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Current; A01r4 overallPASS/SQL/video/cleanupCLEAN; E01 đang chạy, E02 còn lại |
 | I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Chưa bắt đầu |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
@@ -409,3 +409,18 @@ type/lint/build/node/docs/PlantUML/diffPASS, sourcehashunchanged tại
 giữ bằngchứng1396Go/race/0skip đãchạy; khôngchạy lại Go cho thayđổi riêngJS.
 Reopen exactcatalog naygồm builtin vàrender template thực tế của từngscenario.
 Chuẩn bịA01 `a01-20261015-r4`, không dùngreceiptFAILr3 đểmởAWS.
+
+
+**A01 đạt toàn lượt15Oct:** `a01-20261015-r4`, code d1f1da4, exit0,
+runner-completion PASS/CLOSED_CLEAN,42liveassertions/8marks. UI khai báo/
+Preview/deploy/3Ready/jobDONE, actualPGrow/Rediswrite-hit/TTLmiss/refill/reload,
+UIxóa workload vàselectedRedis+PGđạt, uncheckednamespace giữREADY đếnsupervisor.
+SQLreopen đạt5types/5definitions/3DESTROYEDresources/6deployments.
+Video `/home/thanhnt1/.m4/a01-20261015-r4/A01-captioned.mp4`1339.07s,
+decode/READY-CACHE-CLEANUPframes/phụđềreview đạt;24textfiles quétsecret đạt.
+Namespace/haiPV vắng,28retainedUIDs khớpđộc lập; database
+`i0410_83705f083962`/ba rolesvắng,haiVaultdừng/privatevắng;10imagerefs/3aliases
+đãdọn,baseline/sourceimages nguyênvẹn. Proofs `operator-retained-and-absence.json`,
+`operator-auxiliary-cleanup.json`,imagecleanup `.m4/prep-a01-r4/`.
+E01 `e01-20261015-r1` đang chạy từ cùngcheckout; E02/AWS chưa chạy,
+I04-11 chưa đủba scenario, IMP-021 vẫn mở.
