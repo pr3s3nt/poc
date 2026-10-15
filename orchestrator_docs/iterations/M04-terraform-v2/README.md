@@ -364,3 +364,13 @@ explicitgp2 class vìEKS1.35/CSIdefaultfalse. Modulepins giữnguyên; estimateA
 5h2.0507USD/13lines đạt. Sauwriterfreeze: review/fullchecks0skip, merge/push,
 A01fresh rồiE01/E02; đủgate mớiAWSA02sạch rồiA03. Các run cũ CLOSED_CLEAN,
 platformPGcontainer/volume riêng còn giữ; chưaAWSresources.
+
+
+**Tiếp tục kiểm chứng15Oct:** Writer đã đóng băng bản sửa SQL reopen theo đúng
+Application/Connection và từng scenario, bằng chứng kết thúc toàn runner cho
+AWS gate, yêu cầu marker đóng tường minh trước run mới và A03 storage class
+`gp2` tường minh. Codex đang chạy lại bộ checks độc lập đầy đủ tại
+`/home/thanhnt1/.m4/checks-i0412-runtime-r2/`; chưa ghi PASS hoặc merge.
+Bộ sơ bộ runtime-r1 được dừng để bổ sung sửa guard cleanup, đã xác minh dọn
+PostgreSQL/network/file credential riêng; không dùng làm bằng chứng đạt.
+A01 mới dự kiến `a01-20261015-r3`, chưa deploy; E01/E02 và AWS chưa chạy.
