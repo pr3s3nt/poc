@@ -39,8 +39,8 @@ export async function verifyReopen({ base, scenario, applicationKey, connectionK
   const definitionsDoc = await get('/resource-definitions');
   const definitions = expectArray(definitionsDoc.resourceDefinitions, 'resource definitions').map((item) => item?.key);
   const expectedDefinitions = aws
-    ? [...awsCatalog.definitions.common, ...awsCatalog.definitions[scenario]].map((item) => item.id)
-    : K8S_ACCEPTANCE_DEFINITIONS.map((item) => item.id);
+    ? ['builtin-existing-cluster', ...[...awsCatalog.definitions.common, ...awsCatalog.definitions[scenario]].map((item) => item.id), 'render-aws']
+    : ['builtin-existing-cluster', ...K8S_ACCEPTANCE_DEFINITIONS.map((item) => item.id), 'render-internal'];
   if (definitions.some((key) => typeof key !== 'string') || !equal(definitions, expectedDefinitions)) throw new Error('scenario resource definition catalog changed after reopen');
   const capabilities = expectArray((await get('/resource-definition-capabilities')).capabilities, 'definition capabilities');
   const expectedModules = aws
