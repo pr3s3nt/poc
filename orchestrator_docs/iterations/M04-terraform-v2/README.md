@@ -93,12 +93,17 @@ A02r2 FAILED do helper nhập chữ vào select boolean; đãCLOSED_CLEAN,
 AWS absence/preflight10/10, bốn SLR giữ nguyên, DB/ba role/private vắng.
 Video334,20giây vàreceiptFAIL giữ tại `.m4/a02-20261015-r2/`.
 
-A02r3 **đang chạy** PTY10821 từ `c5f77ff`, checkout
+A02r3 **FAIL/CLOSED_CLEAN**, exit1 từ `c5f77ff`, checkout
 `/tmp/poc-i0412-local-runtime`, evidence `/home/thanhnt1/.m4/a02-20261015-r3`.
 Preflight8pins/10AWS/gate/dự toán đạt, supervisorPID1446690 đã bật trước
 ba kho ECR thật; digest workload verified, AWS Connection READY. Manifest
-đã ghi đầy đủ probe image digests. Browser đang khai báo danh mục qua form.
-DB riêng `i0410_7237b78b0b8e`/ba role, Vault/state/handles chỉ trong private.
+đã ghi đầy đủ probe image digests. Browser đã qua toàn bộform/nămDefinition/
+baWorkload, nhưng assertion Preview.pure thất bại. Read-onlyAPI độc lập
+xác nhận không Deployment/resource; chưa xác định nhánh ECR/tag/noLeak nào
+sai do assertion chưa ghi chi tiết từng điều kiện. Writer đang chẩn đoán và
+bổ sung hồi quy/diagnostics, không giảm acceptance. AWS absencequery đãđạt,
+bốnSLRgiữ nguyên; DB/ba role/private độc lập xác minh vắng.
+DB riêng `i0410_7237b78b0b8e`/ba role đãdọn, Vault riêng đãdừng.
 A03 chưa chạy. Không lượt mới trước cleanup A02 sạch; không bypass ownership.
 
 Writer `/root/i0410_luna` hiện idle: getter `660fd5c` và helper boolean
@@ -107,7 +112,7 @@ fullchecks/sourcehashkhớp/fixtureclean ở `.m4/checks-i0412-probe-pins-r7/`.
 Bản helper có635frontend/fullchecks tại `.m4/checks-bool-form-r1/`, backend
 không đổi; hai thay đổi độc lập đã kết hợp trong nguồn lượt hiện tại.
 Dự toán5h A02~2,1300USD/A03~2,0507USD; chưa có hóa đơn thực tế.
-Tiếp: theo dõi form/Preview/deploy EKS/Aurora/cache, job/cache thật, SQL/video;
+Tiếp: review bản sửa Preview, kiểm độc lập/merge/push rồi chạy lại A02;
 dọn vàquery sạch rồi mới A03. Không cần duyệt giữa hoặc cuối.
 Các đoạn bên dưới là lịch sử bàn giao, không thay trạng thái hiện hành này.
 

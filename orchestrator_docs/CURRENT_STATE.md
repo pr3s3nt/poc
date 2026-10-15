@@ -13,8 +13,11 @@ I04-01..10 đã hoàn tất phần code và kiểm tra local. **I04-11 đã đ�
 A01/E01/E02 trên k8s-4f với adapter thật, trình duyệt có ghi hình, kiểm chứng
 PostgreSQL sau khởi động lại và dọn sạch độc lập. I04-12 hiện hành: A02r2
 đã tạo ba kho ECR thật rồi dọn sạch sau lỗi biểu mẫu boolean, chưa triển khai
-EKS. Bản sửa helper vàgetter ảnh probe đã hợp nhất; A02r3 đang chạy từc5f77ff,
-đãqua gate/preflight/dự toán, supervisor bật trước ECR/digest vàConnectionREADY.
+EKS. Bản sửa helper vàgetter ảnh probe đã hợp nhất; A02r3 từc5f77ff
+đãqua gate/preflight/dự toán và toàn bộform, nhưng assertion Preview.pure
+thất bại. Read-onlyAPI xác nhận không Deployment/resource; writer đang chẩn
+đoán phần ECR/tag/noLeak, không giảm assertion. A02r3 đãCLOSED_CLEAN:
+AWSabsencequery/bốnSLRgiữ nguyên/DBbaRolePrivatevắng, Vaultdừng.
 A03 chưa chạy. Chỉ chạy A03 sau khi A02 sạch.
 
 | Scenario | Lượt đạt | Kiểm tra trình duyệt | Video | Kết quả tổng |
