@@ -28,7 +28,8 @@
          ["subnet_ids", "\"${resources['vpc.default#@infra'].outputs.subnetIds}\""], ["private_subnet_ids", "\"${resources['vpc.default#@infra'].outputs.privateSubnetIds}\""]]}
     ],
     "A03": [
-      {"id": "redis-eks-in-cluster", "type": "redis", "module": "redis-k8s", "scope": "AWS", "presetNamespace": true, "klass": "in-cluster"}
+      {"id": "redis-eks-in-cluster", "type": "redis", "module": "redis-k8s", "scope": "AWS", "presetNamespace": true, "klass": "in-cluster",
+       "overrides": [["storage_class", "\"gp2\""]]}
     ]
   },
   "classes": {"A02": {"postgres": "cloud-managed", "redis": "cloud-managed"}, "A03": {"postgres": "cloud-managed", "redis": "in-cluster"}}

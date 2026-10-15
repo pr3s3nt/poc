@@ -196,10 +196,10 @@ func simulateAWSActions(ctx context.Context, cli AWSCLI, principalARN, region st
 	return nil
 }
 
-// AWSGate refuses any AWS effect until I04-11 passed: the evidence directories
-// of the k8s-4f runs must cover A01, E01 and E02, each with result PASS and a
-// run marker closed CLEAN (the supervisor reported CLEAN and absence was
-// verified).
+// AWSGate refuses any AWS effect until I04-11 passed end to end: each k8s-4f
+// evidence directory must cover A01, E01 or E02 with browser PASS, a matching
+// CLOSED_CLEAN marker, and the final runner receipt after SQL/video/evidence
+// checks and local cleanup succeeded.
 func AWSGate(c Config) error {
 	if c.AWS == nil {
 		return errors.New("aws settings are required")
@@ -210,8 +210,12 @@ func AWSGate(c Config) error {
 		if err != nil {
 			return fmt.Errorf("I04-11 evidence %s has no run.json", filepath.Base(dir))
 		}
-		var run struct{ Scenario, Target string }
-		if json.Unmarshal(raw, &run) != nil || run.Target != TargetK8s4f {
+		var run struct {
+			Scenario string `json:"scenario"`
+			RunID    string `json:"runId"`
+			Target   string `json:"target"`
+		}
+		if json.Unmarshal(raw, &run) != nil || run.Target != TargetK8s4f || run.RunID == "" {
 			return fmt.Errorf("I04-11 evidence %s is not a k8s-4f run", filepath.Base(dir))
 		}
 		result, err := os.ReadFile(filepath.Join(dir, "result.txt"))
@@ -219,8 +223,22 @@ func AWSGate(c Config) error {
 			return fmt.Errorf("I04-11 evidence %s (%s) did not PASS", filepath.Base(dir), run.Scenario)
 		}
 		marker, err := ReadRunMarker(dir)
-		if err != nil || marker.State != MarkerClosedClean {
+		if err != nil || marker.State != MarkerClosedClean || marker.RunID != run.RunID || marker.Target != run.Target {
 			return fmt.Errorf("I04-11 evidence %s (%s) is not closed clean", filepath.Base(dir), run.Scenario)
+		}
+		completionRaw, err := os.ReadFile(filepath.Join(dir, "runner-completion.json"))
+		var completion struct {
+			RunID        string `json:"runId"`
+			Scenario     string `json:"scenario"`
+			Target       string `json:"target"`
+			Status       string `json:"status"`
+			CleanupState string `json:"cleanupState"`
+			ExitCode     *int   `json:"exitCode"`
+		}
+		if err != nil || json.Unmarshal(completionRaw, &completion) != nil ||
+			completion.RunID != run.RunID || completion.Scenario != run.Scenario || completion.Target != run.Target ||
+			completion.Status != "PASS" || completion.ExitCode == nil || *completion.ExitCode != 0 || completion.CleanupState != MarkerClosedClean {
+			return fmt.Errorf("I04-11 evidence %s (%s) lacks a successful end-to-end runner completion proof", filepath.Base(dir), run.Scenario)
 		}
 		seen[run.Scenario] = true
 	}

@@ -77,6 +77,49 @@ func TestRunMarkerMakesUnverifiedRunsDirty(t *testing.T) {
 	}
 }
 
+func TestDirtyRunsRequiresExplicitClosureInsteadOfSupervisorClean(t *testing.T) {
+	root := t.TempDir()
+	makeRun := func(name string) string {
+		dir := filepath.Join(root, name)
+		if err := os.MkdirAll(filepath.Join(dir, "private"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+	writeCleanStatus := func(dir string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, "private", "supervisor-status.json"), []byte(`{"runId":"r","state":"CLEAN"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	armed := makeRun("armed-clean-supervisor")
+	if err := v2run.WriteRunMarker(armed, v2run.RunMarker{RunID: "r", Target: "k8s-4f", State: v2run.MarkerStarted}); err != nil {
+		t.Fatal(err)
+	}
+	if err := v2run.WriteRunMarker(armed, v2run.RunMarker{RunID: "r", Target: "k8s-4f", State: v2run.MarkerArmed}); err != nil {
+		t.Fatal(err)
+	}
+	writeCleanStatus(armed)
+	legacy := makeRun("legacy-spec-clean-supervisor")
+	if err := os.WriteFile(filepath.Join(legacy, "private", "supervisor-spec.json"), []byte(`{"runId":"legacy"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	writeCleanStatus(legacy)
+	closed := makeRun("closed-clean-runner")
+	if err := v2run.WriteRunMarker(closed, v2run.RunMarker{RunID: "closed", Target: "k8s-4f", State: v2run.MarkerStarted}); err != nil {
+		t.Fatal(err)
+	}
+	if err := v2run.WriteRunMarker(closed, v2run.RunMarker{RunID: "closed", Target: "k8s-4f", State: v2run.MarkerClosedClean}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(closed, "result.txt"), []byte("FAIL\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := v2run.DirtyRuns(root); err != nil || len(got) != 2 || got[0] != "armed-clean-supervisor" || got[1] != "legacy-spec-clean-supervisor" {
+		t.Fatalf("supervisor CLEAN must not substitute for explicit final closure; dirty=%v err=%v", got, err)
+	}
+}
+
 func TestScanDetectsAJSONKeyHandleValues(t *testing.T) {
 	dir := t.TempDir()
 	handle := filepath.Join(t.TempDir(), "aws-key.json")

@@ -114,7 +114,7 @@ SCREEN="${ORCH_VIDEO_SCREEN:-1440x900}"
 MIN_SECONDS="${ORCH_VIDEO_MIN_SECONDS:-60}"
 STRIP=96
 export ORCH_VIDEO_DIR="${WORK}"
-PIDS=() SERVER_PID="" VAULT_PID="" VAULT2_PID="" NODE_PID="" PG_PROVISIONED=0 PG_DROP_CLEAN=1 SUPERVISED=0 FINISHED=0 STATUS=0 CLEANUP_PROVEN=0
+PIDS=() SERVER_PID="" VAULT_PID="" VAULT2_PID="" NODE_PID="" PG_PROVISIONED=0 PG_DROP_CLEAN=1 SUPERVISED=0 FINISHED=0 STATUS=0 CLEANUP_PROVEN=0 CLOSED_CLEAN=0 LOCAL_STOP_CLEAN=1 PRIVATE_CLEAN=1
 # shellcheck source=video-lib.sh
 source "${ROOT}/test/integration/video-lib.sh"
 
@@ -122,6 +122,28 @@ source "${ROOT}/test/integration/video-lib.sh"
 note() { printf '%s\n' "$*" >> "${WORK}/cleanup.txt"; }
 check() { printf '%s\n' "$*" | tee -a "${WORK}/checks.txt"; }
 : > "${WORK}/checks.txt"
+
+owned_child_stopped() {
+  local child="$1" state
+  if ! kill -0 "${child}" 2>/dev/null; then return 0; fi
+  state="$(ps -o stat= -p "${child}" 2>/dev/null | awk '{print substr($1,1,1)}')"
+  [[ "${state}" == Z ]]
+}
+stop_owned_child() {
+  local child="$1" iteration
+  kill -TERM "${child}" 2>/dev/null || true
+  for iteration in $(seq 1 40); do
+    if owned_child_stopped "${child}"; then wait "${child}" 2>/dev/null || true; return 0; fi
+    sleep 0.25
+  done
+  kill -KILL "${child}" 2>/dev/null || true
+  for iteration in $(seq 1 20); do
+    if owned_child_stopped "${child}"; then wait "${child}" 2>/dev/null || true; return 0; fi
+    sleep 0.25
+  done
+  disown "${child}" 2>/dev/null || true
+  return 1
+}
 
 # The cluster-side cleanup is the independent supervisor's job. This trap stops
 # only local fixtures and, if the run ends early, asks the supervisor to run the
@@ -133,9 +155,7 @@ cleanup() {
     FINISHED=1
   fi
   if [[ -n "${NODE_PID}" ]] && kill -0 "${NODE_PID}" 2>/dev/null; then
-    kill -TERM "${NODE_PID}" 2>/dev/null || true
-    for _ in $(seq 1 60); do kill -0 "${NODE_PID}" 2>/dev/null || break; sleep 0.5; done
-    kill -KILL "${NODE_PID}" 2>/dev/null || true
+    if ! stop_owned_child "${NODE_PID}"; then LOCAL_STOP_CLEAN=0; code=1; note "headed browser process did not stop within the bounded cleanup window"; fi
   fi
   if [[ "${SUPERVISED}" == 1 ]]; then
     if SUMMARY="$("${CTL}" supervisor-wait -private "${PRIVATE}" -timeout "${CLEANUP_SECONDS}s" 2>&1)"; then
@@ -154,11 +174,7 @@ cleanup() {
     fi
   fi
   if [[ -n "${SERVER_PID}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
-    kill -TERM "${SERVER_PID}" 2>/dev/null || true
-    for _ in $(seq 1 40); do kill -0 "${SERVER_PID}" 2>/dev/null || break; sleep 0.25; done
-    kill -KILL "${SERVER_PID}" 2>/dev/null || true
-    wait "${SERVER_PID}" 2>/dev/null || true
-    note "orchestrator stopped"
+    if stop_owned_child "${SERVER_PID}"; then note "orchestrator stopped"; else LOCAL_STOP_CLEAN=0; code=1; note "orchestrator did not stop within the bounded cleanup window"; fi
   fi
   for pid in "${PIDS[@]}"; do kill "${pid}" 2>/dev/null || true; done
   for pid in "${PIDS[@]}"; do wait "${pid}" 2>/dev/null || true; done
@@ -172,9 +188,10 @@ cleanup() {
     if [[ "${KEEP_PRIVATE:-0}" == 1 ]]; then
       # Output-secret objects are needed to continue a manual destroy.
       disown "${VAULT_PID}" 2>/dev/null || true
+      LOCAL_STOP_CLEAN=0
       note "run-owned Vault dev server KEPT RUNNING for manual continuation: pid=${VAULT_PID} address=${VAULT_ADDR_LOCAL}; stop it with kill ${VAULT_PID} after cleanup completes"
     else
-      kill "${VAULT_PID}" 2>/dev/null || true; wait "${VAULT_PID}" 2>/dev/null || true; note "vault dev server stopped"
+      if stop_owned_child "${VAULT_PID}"; then note "vault dev server stopped"; else LOCAL_STOP_CLEAN=0; code=1; note "Vault dev server did not stop within the bounded cleanup window"; fi
     fi
   fi
   # Keep the scoped Vault alive whenever state or handles must be retained for
@@ -182,16 +199,18 @@ cleanup() {
   if [[ -n "${VAULT2_PID}" ]]; then
     if [[ "${KEEP_PRIVATE:-0}" == 1 ]]; then
       disown "${VAULT2_PID}" 2>/dev/null || true
+      LOCAL_STOP_CLEAN=0
       note "run-owned secret-store Vault KEPT RUNNING for manual continuation: pid=${VAULT2_PID}"
     else
-      kill "${VAULT2_PID}" 2>/dev/null || true; wait "${VAULT2_PID}" 2>/dev/null || true; note "run-owned secret-store Vault stopped (its values, policies and roles are gone)"
+      if stop_owned_child "${VAULT2_PID}"; then note "run-owned secret-store Vault stopped (its values, policies and roles are gone)"; else LOCAL_STOP_CLEAN=0; code=1; note "run-owned secret-store Vault did not stop within the bounded cleanup window"; fi
     fi
   fi
+  if [[ "${LOCAL_STOP_CLEAN}" != 1 ]]; then code=1; KEEP_PRIVATE=1; note "a run-owned local process is not proven stopped; private handles are retained and the run remains dirty"; fi
   if [[ "${KEEP_PRIVATE:-0}" == 1 ]]; then
     note "private directory kept (needs attention): ${PRIVATE}; the run stays DIRTY until the supervisor reports CLEAN or an operator closes it"
   else
     if [[ "${SUPERVISED}" == 1 && "${CLEANUP_PROVEN}" == 1 && "${PG_DROP_CLEAN}" == 1 ]]; then
-      "${CTL}" run-marker -dir "${EVIDENCE}" -run "${RUN_ID}" -target "${TARGET}" -state CLOSED_CLEAN >> "${WORK}/cleanup.txt" 2>&1 || { note "run marker could not be closed; the run stays dirty"; code=1; KEEP_PRIVATE=1; }
+      if "${CTL}" run-marker -dir "${EVIDENCE}" -run "${RUN_ID}" -target "${TARGET}" -state CLOSED_CLEAN >> "${WORK}/cleanup.txt" 2>&1; then CLOSED_CLEAN=1; else note "run marker could not be closed; the run stays dirty"; code=1; KEEP_PRIVATE=1; fi
     else
       note "cleanup was not fully proven (supervisor, physical absence, private database); run marker remains dirty"
       KEEP_PRIVATE=1
@@ -200,9 +219,12 @@ cleanup() {
     if [[ "${KEEP_PRIVATE:-0}" == 1 ]]; then
       note "private directory kept because clean closure was not acknowledged: ${PRIVATE}"
     else
-      rm -rf "${PRIVATE}"
-      note "private credential directory removed"
+      if rm -rf "${PRIVATE}"; then note "private credential directory removed"; else PRIVATE_CLEAN=0; code=1; KEEP_PRIVATE=1; note "private credential directory removal failed"; fi
     fi
+  fi
+  if ! node -e 'const fs=require("fs");const [path,runId,scenario,target,status,code,cleanup]=process.argv.slice(1);const doc={runId,scenario,target,status,exitCode:Number(code),cleanupState:cleanup};const tmp=path+".tmp";fs.writeFileSync(tmp,JSON.stringify(doc)+"\n",{mode:0o600,flag:"wx"});fs.renameSync(tmp,path)' \
+    "${WORK}/runner-completion.json" "${RUN_ID}" "${SCENARIO}" "${TARGET}" "$([[ "${code}" == 0 && "${CLOSED_CLEAN}" == 1 && "${LOCAL_STOP_CLEAN}" == 1 && "${PRIVATE_CLEAN}" == 1 ]] && echo PASS || echo FAIL)" "${code}" "$([[ "${CLOSED_CLEAN}" == 1 ]] && echo CLOSED_CLEAN || echo INCOMPLETE)"; then
+    note "runner completion receipt could not be written"; code=1
   fi
   echo "evidence in ${WORK}"
   echo "run-id=${RUN_ID} scenario=${SCENARIO} status=${code}"
@@ -486,7 +508,8 @@ for _ in $(seq 1 40); do kill -0 "${SERVER_PID}" 2>/dev/null || break; sleep 0.2
 wait "${SERVER_PID}" 2>/dev/null || true
 SERVER_PID=""
 if start_product "${WORK}/api-addr-reopen" "${WORK}/orchestrator-reopen.log"; then
-  node "${E2E}/terraform-v2-reopen.mjs" "${API}" "${SCENARIO}" acceptance | tee -a "${WORK}/checks.txt" || STATUS=1
+  REOPEN_CONNECTION_KEY="$(node -e 'const fs=require("fs");const i=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write(i.aws?.connectionName ?? i.connection?.name ?? "")' "${PRIVATE}/scenario-input.json")"
+  ORCH_REPO_ROOT="${REPO}" node "${E2E}/terraform-v2-reopen.mjs" "${API}" "${SCENARIO}" "${APPLICATION_KEY}" "${REOPEN_CONNECTION_KEY}" | tee -a "${WORK}/checks.txt" || STATUS=1
 else
   check "FAIL the product did not restart on the same database"; STATUS=1
 fi

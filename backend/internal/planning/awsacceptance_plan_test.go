@@ -169,6 +169,21 @@ func awsAcceptanceRequest(t *testing.T, scenario string) planning.Request {
 }
 
 func TestConsoleAuthoredAWSCatalogPlansA02AndA03OverRealBundles(t *testing.T) {
+	catalog := loadAWSCatalog(t)
+	a03Redis := catalog.Definitions["A03"]
+	var storageClass string
+	for _, definition := range a03Redis {
+		if definition.ID == "redis-eks-in-cluster" {
+			for _, override := range definition.Overrides {
+				if override[0] == "storage_class" && json.Unmarshal([]byte(override[1]), &storageClass) == nil {
+					break
+				}
+			}
+		}
+	}
+	if storageClass != "gp2" {
+		t.Fatalf("A03 Redis must explicitly select the EKS-provided gp2 StorageClass; got %q", storageClass)
+	}
 	for scenario, want := range map[string]map[string]int{
 		"A02": {"vpc": 1, "k8s-cluster": 1, "k8s-namespace": 1, "postgres": 1, "redis": 1},
 		"A03": {"vpc": 1, "k8s-cluster": 1, "k8s-namespace": 1, "postgres": 1, "redis": 1},

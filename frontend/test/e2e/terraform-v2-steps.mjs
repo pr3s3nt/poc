@@ -20,6 +20,14 @@ export const TYPES = [
 
 export const ACCEPTANCE = { database: 'acceptance', username: 'app', dbId: 'acceptance-db', cacheId: 'acceptance-cache', alias: { db: 'db', cache: 'cache' } };
 
+// Shared with the post-restart verifier so its expected catalog cannot drift
+// from the definitions authored through the UI.
+export const K8S_ACCEPTANCE_DEFINITIONS = [
+  { id: 'namespace-k8s-module', type: 'k8s-namespace', module: 'k8s-namespace', scope: 'Cluster nội bộ', presetName: 'name' },
+  { id: 'pg-in-cluster', type: 'postgres', module: 'postgres-k8s', scope: 'Cluster nội bộ', input: true, presetNamespace: true, klass: 'in-cluster' },
+  { id: 'redis-in-cluster', type: 'redis', module: 'redis-k8s', scope: 'Cluster nội bộ', presetNamespace: true, klass: 'in-cluster' },
+];
+
 // The Redis Definition carries one fixture annotation that references the
 // shared PostgreSQL host (a non-secret output). It makes the graph
 // namespace <- PostgreSQL <- Redis, so the deletion step has BOTH a dependency
@@ -154,9 +162,9 @@ export function steps({ page, h, caption, phase, rec, baseURL, input }) {
     await h.click(nav('Cấu hình tài nguyên'));
     await expect(page.getByRole('heading', { name: 'Cấu hình tài nguyên', level: 1, exact: true })).toBeVisible();
     await expect(page.getByLabel(/URL|digest|revision|source_id/i)).toHaveCount(0);
-    await registerDefinition({ id: 'namespace-k8s-module', type: 'k8s-namespace', module: 'k8s-namespace', scope: 'Cluster nội bộ', presetName: 'name' });
-    await registerDefinition({ id: 'pg-in-cluster', type: 'postgres', module: 'postgres-k8s', scope: 'Cluster nội bộ', input: true, presetNamespace: true, klass: 'in-cluster' });
-    await registerDefinition({ id: 'redis-in-cluster', type: 'redis', module: 'redis-k8s', scope: 'Cluster nội bộ', presetNamespace: true, klass: 'in-cluster', overrides: redisOverrides });
+    for (const definition of K8S_ACCEPTANCE_DEFINITIONS) {
+      await registerDefinition({ ...definition, ...(definition.id === 'redis-in-cluster' ? { overrides: redisOverrides } : {}) });
+    }
     const defs = (await get('/resource-definitions')).resourceDefinitions.map((d) => d.key).sort();
     const capabilities = (await get('/resource-definition-capabilities')).capabilities;
     const pinned = ['k8s-namespace', 'postgres-k8s', 'redis-k8s'].every((m) => capabilities.some((c) => c.driverType === 'terraform' && c.module === m && c.source?.contentSha256));

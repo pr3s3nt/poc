@@ -194,7 +194,7 @@ func TestAWSGuardAndAbsenceChecksRequireExactConfiguredIdentity(t *testing.T) {
 func evidenceRun(t *testing.T, scenario, result, marker string) string {
 	t.Helper()
 	dir := t.TempDir()
-	raw, _ := json.Marshal(map[string]string{"scenario": scenario, "target": "k8s-4f"})
+	raw, _ := json.Marshal(map[string]string{"scenario": scenario, "runId": "r", "target": "k8s-4f"})
 	if err := os.WriteFile(filepath.Join(dir, "run.json"), raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -202,13 +202,19 @@ func evidenceRun(t *testing.T, scenario, result, marker string) string {
 		t.Fatal(err)
 	}
 	if marker != "" {
-		if err := v2run.WriteRunMarker(dir, v2run.RunMarker{RunID: "r", State: v2run.MarkerStarted}); err != nil {
+		if err := v2run.WriteRunMarker(dir, v2run.RunMarker{RunID: "r", Target: "k8s-4f", State: v2run.MarkerStarted}); err != nil {
 			t.Fatal(err)
 		}
 		if marker != v2run.MarkerStarted {
-			if err := v2run.WriteRunMarker(dir, v2run.RunMarker{RunID: "r", State: marker}); err != nil {
+			if err := v2run.WriteRunMarker(dir, v2run.RunMarker{RunID: "r", Target: "k8s-4f", State: marker}); err != nil {
 				t.Fatal(err)
 			}
+		}
+	}
+	if marker == v2run.MarkerClosedClean && result == "PASS" {
+		completion, _ := json.Marshal(map[string]any{"runId": "r", "scenario": scenario, "target": "k8s-4f", "status": "PASS", "exitCode": 0, "cleanupState": v2run.MarkerClosedClean})
+		if err := os.WriteFile(filepath.Join(dir, "runner-completion.json"), completion, 0o600); err != nil {
+			t.Fatal(err)
 		}
 	}
 	return dir
@@ -233,6 +239,36 @@ func TestAWSGateRefusesAnyEffectUntilI0411PassedAndWasCleaned(t *testing.T) {
 		if err := v2run.AWSGate(c); err == nil {
 			t.Fatalf("%s must keep the AWS gate closed", name)
 		}
+	}
+	// Browser success and clean external cleanup are only partial evidence:
+	// a SQL reopen failure must not authorize AWS.
+	partial := evidenceRun(t, "A01", "PASS", v2run.MarkerClosedClean)
+	if err := os.WriteFile(filepath.Join(partial, "runner-completion.json"), []byte(`{"runId":"r","scenario":"A01","target":"k8s-4f","status":"FAIL","exitCode":1,"cleanupState":"CLOSED_CLEAN"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c.AWS.I0411Evidence = []string{partial, good[1], good[2]}
+	if err := v2run.AWSGate(c); err == nil {
+		t.Fatal("runner failure after browser PASS and clean cleanup must keep AWS gated")
+	}
+	for name, proof := range map[string]string{"missing": "", "wrong run": `{"runId":"other","scenario":"A01","target":"k8s-4f","status":"PASS","exitCode":0,"cleanupState":"CLOSED_CLEAN"}`, "wrong scenario": `{"runId":"r","scenario":"E01","target":"k8s-4f","status":"PASS","exitCode":0,"cleanupState":"CLOSED_CLEAN"}`} {
+		dir := evidenceRun(t, "A01", "PASS", v2run.MarkerClosedClean)
+		if proof == "" {
+			_ = os.Remove(filepath.Join(dir, "runner-completion.json"))
+		} else if err := os.WriteFile(filepath.Join(dir, "runner-completion.json"), []byte(proof), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		c.AWS.I0411Evidence = []string{dir, good[1], good[2]}
+		if err := v2run.AWSGate(c); err == nil {
+			t.Fatalf("%s completion proof must keep AWS gated", name)
+		}
+	}
+	dir := evidenceRun(t, "A01", "PASS", v2run.MarkerClosedClean)
+	if err := os.WriteFile(filepath.Join(dir, "runner-completion.json"), []byte(`{"runId":"r","scenario":"A01","target":"k8s-4f","status":"PASS","cleanupState":"CLOSED_CLEAN"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c.AWS.I0411Evidence = []string{dir, good[1], good[2]}
+	if err := v2run.AWSGate(c); err == nil {
+		t.Fatal("completion proof without an explicit exitCode must keep AWS gated")
 	}
 }
 
