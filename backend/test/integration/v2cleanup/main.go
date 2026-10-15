@@ -63,7 +63,7 @@ func options(h v2run.CleanupHandles) (bootstrap.Options, error) {
 		TerraformRecoveryDir: h.RecoveryDir, TerraformStateKeyFile: h.StateKeyFile, TerraformStateKeyID: h.StateKeyID,
 		ConnectionCredentialStore: "vault", ConnectionVaultAddress: h.VaultAddress, ConnectionVaultTokenFile: h.ConnectionTokenFile, ConnectionVaultMount: h.VaultMount,
 		OutputSecretStore: "vault", OutputSecretVaultAddress: h.VaultAddress, OutputSecretVaultTokenFile: h.OutputTokenFile, OutputSecretVaultMount: h.VaultMount,
-		WorkloadDelivery: "direct", VaultDelivery: "vso",
+		WorkloadDelivery: "direct", VaultDelivery: vaultDelivery(h),
 		TerraformInvocationTimeout: h.InvocationTimeout.Duration, TerraformReadinessTimeout: h.ReadinessTimeout.Duration,
 		Tags: map[string]string{"project": "orchestrator", "owner": h.Owner, "environment": v2run.ProductEnvironmentTag, "run-id": h.RunID, "managed-by": v2run.ProductManagedByTag,
 			"expires-at": time.Now().UTC().Add(time.Hour).Format(time.RFC3339)},
@@ -191,4 +191,11 @@ func adapterMode(h v2run.CleanupHandles) bootstrap.AdapterMode {
 		return bootstrap.AdapterAWS
 	}
 	return bootstrap.AdapterKubernetes
+}
+
+func vaultDelivery(h v2run.CleanupHandles) string {
+	if adapterMode(h) == bootstrap.AdapterAWS {
+		return "agent"
+	}
+	return "vso"
 }

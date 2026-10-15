@@ -92,6 +92,7 @@ if [[ "${IS_AWS}" == 1 ]]; then KUBECONFIG_HANDLE="" KUBE_CONTEXT=""; else KUBEC
 TERRAFORM="$(cfg terraform)"
 SCORE_K8S="$(cfg scoreK8s)"
 VAULT_BIN="$(cfg vaultBin)"
+VAULT_DELIVERY="$(cfg vaultDelivery)"
 PG_ADMIN="$(cfg pgAdminUrlFile)"
 
 # No new run while a previous one is dirty.
@@ -353,7 +354,7 @@ start_product() {
     -connection-credential-store vault -connection-vault-address "${VAULT_ADDR_LOCAL}" -connection-vault-token-file "${PRIVATE}/connection-vault-token" -connection-vault-mount secret \
     -output-secret-store vault -output-secret-vault-address "${VAULT_ADDR_LOCAL}" -output-secret-vault-token-file "${PRIVATE}/output-vault-token" -output-secret-vault-mount secret \
     -terraform-invocation-timeout "${TF_INVOCATION_TIMEOUT}" -terraform-readiness-timeout "${TF_READINESS_TIMEOUT}" -deploy-deadline "${DEPLOY_DEADLINE}" \
-    -workload-delivery direct -vault-delivery vso -application-key "${APPLICATION_KEY}" \
+    -workload-delivery direct -vault-delivery "${VAULT_DELIVERY}" -application-key "${APPLICATION_KEY}" \
     > "${log}" 2>&1 &
   SERVER_PID=$!
   for _ in $(seq 1 240); do [[ -s "${addr_file}" ]] && break; kill -0 "${SERVER_PID}" 2>/dev/null || break; sleep 0.25; done

@@ -446,6 +446,12 @@ func configGet(args []string) int {
 		"cleanupSeconds":   func() string { return fmt.Sprint(int(c.Cleanup.Duration.Seconds())) },
 		"terraform":        func() string { return c.Binaries["terraform"].Path }, "scoreK8s": func() string { return c.Binaries["score-k8s"].Path },
 		"kubectl": func() string { return c.Binaries["kubectl"].Path }, "vaultBin": func() string { return c.VaultBin },
+		"vaultDelivery": func() string {
+			if c.Target == v2run.TargetK8s4f {
+				return "vso"
+			}
+			return "agent"
+		},
 		"pgAdminUrlFile": func() string { return c.PostgresAdminURLFile },
 		"imageFrontend":  func() string { return image("frontend") }, "imageBackend": func() string { return image("backend") }, "imageWorker": func() string { return image("worker") },
 		"kubeconfig":     func() string { return c.Kube.Kubeconfig },

@@ -35,7 +35,7 @@ func TestKeygenWritesAPrivateKeyOnceAndNeverOverwrites(t *testing.T) {
 
 func TestConfigGetPrintsOnlyNamedNonSecretFields(t *testing.T) {
 	e := newEnv(t, "a01-0001")
-	for field, want := range map[string]string{"runId": "a01-0001", "scenario": "A01", "target": "k8s-4f", "namespace": "orch-v2-test-a01-0001", "executionSeconds": "1800", "cleanupSeconds": "600", "kubeContext": "kind-k8s-4f", "imageBackend": "r/b:m04@sha256:" + strings.Repeat("b", 64)} {
+	for field, want := range map[string]string{"runId": "a01-0001", "scenario": "A01", "target": "k8s-4f", "namespace": "orch-v2-test-a01-0001", "executionSeconds": "1800", "cleanupSeconds": "600", "kubeContext": "kind-k8s-4f", "vaultDelivery": "vso", "imageBackend": "r/b:m04@sha256:" + strings.Repeat("b", 64)} {
 		out, code := e.ctl("config-get", "-config", e.cfgPath, "-field", field)
 		if code != 0 || strings.TrimSpace(out) != want {
 			t.Errorf("%s = %q (%d), want %q", field, out, code, want)
@@ -74,6 +74,9 @@ func TestAWSConfigGetExposesPinnedKubectlWithoutKubeconfig(t *testing.T) {
 	}
 	if out, code := e.ctl("config-get", "-config", path, "-field", "kubectl"); code != 0 || strings.TrimSpace(out) != c.Binaries["kubectl"].Path {
 		t.Fatalf("AWS kubectl path = %q (%d), want pinned path %q", out, code, c.Binaries["kubectl"].Path)
+	}
+	if out, code := e.ctl("config-get", "-config", path, "-field", "vaultDelivery"); code != 0 || strings.TrimSpace(out) != "agent" {
+		t.Fatalf("AWS Vault delivery mode = %q (%d), want agent", out, code)
 	}
 	for _, field := range []string{"kubeconfig", "kubeContext", "namespace", "sentinelName"} {
 		if out, code := e.ctl("config-get", "-config", path, "-field", field); code == 0 {
