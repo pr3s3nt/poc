@@ -2,7 +2,7 @@
 id: M04
 artifact: milestone-plan
 status: current
-last_reviewed: 2026-10-15
+last_reviewed: 2026-10-16
 related: [ADR-014, IMP-021, D01, D03, D12, D13, D14]
 ---
 
@@ -87,38 +87,30 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 
 ## Current handoff
 
-**Hiện hành — 2026-10-15:** I04-11 đã đạt A01r4/E01r2/E02r3.
-I04-12 chưa đạt. A02r5 (`5074bb2`) đã qua toàn bộ Preview, ba bản nháp dùng
-đúng ECR/digest mới; Terraform tạo VPC nhưng lỗi OUTPUT_CONTRACT. Metadata
-thực tế chỉ xuất tên/kiểu: `subnetIds` và `privateSubnetIds` là tuple(string,
-string), trong khi hợp đồng module suy ra list(any). Không xuất state hoặc
-credential cho writer; không giảm guard kiểu để hợp thức hóa module.
+**Hiện hành — 2026-10-16:** I04-11 đã đạt A01r4/E01r2/E02r3.
+I04-12 chưa đạt; A02r5 đã tạo VPC rồi lỗi kiểu output, đã CLOSED_CLEAN.
+Giữ nguyên receipt FAIL và supervisor NEEDS_ATTENTION ban đầu; verifier gốc
+sau độ trễ xác nhận aux sạch, API EC2 xác nhận hai ID vắng. Bốn SLR giữ trust/
+policy, toàn bộ 11 SLR giữ metadata; 28 UID k8s-4f khớp. Database/ba role,
+Vault riêng và credential đã dọn; 12 nhãn ảnh Docker của A02r2–r5 đã xóa,
+ảnh nguồn giữ nguyên. Evidence `.m4/a02-20261015-r5/`, recovery metadata/
+module bundle v3 ngoài Git ở `.m4/a02-20261015-r5-recovery-private/`.
 
-Luna `/root/i0410_luna` đang sửa code/test trong
-`/tmp/poc-i0412-vpc-list-fix`, nhánh `codex/m04-i0412-vpc-list-fix`, từ
-`5074bb2`. Bản sửa đã hoàn tất và đóng băng: hai output dùng `tolist`, release
-`v4-2026.10.15`, VPC digest `c783343a2686a754e42521d9d21cdc8a70ead0a2b83b14d90448b56296acbfad`.
-Manifest có một revision chung nên các module khác cũng mang v4, nhưng byte/
-digest của chúng không đổi. Hồi quy Terraform 1.9.8 thật chứng minh tuple bị
-từ chối, list(string) đạt contract. Codex đã review; bộ kiểm tra đầy đủ R8
-đang chạy PTY72581 ở `.m4/checks-i0412-vpc-list-r8/`. Chưa merge hoặc tạo AWS.
-Agent đã tiếp tục được sau mốc reset hạn mức, hiện idle; không đổi model.
+Bản sửa `bcabb40` đã review/merge: hai output subnet dùng `tolist`, release
+v4-2026.10.15, chỉ byte/digest VPC đổi; các module khác giữ byte/digest nhưng
+cùng revision mới theo manifest. CLI ghi đủ bảy module trước create. R9 tại
+`.m4/checks-i0412-complete-pins-r9/` đạt 1.408 Go/race/0 skip, 642 frontend,
+build/vet/type/lint/tài liệu/PlantUML/format; hash nguồn gồm test mới khớp,
+fixture sạch. R8 độc lập cũng đạt; writer `/root/i0410_luna` đang idle.
 
-A02r5 đã `CLOSED_CLEAN` bằng closure operator: destroy bằng module/state gốc
-đã DONE; hai ARN tag cũ được EC2 xác nhận NotFound, rồi verifier gốc aux PASS.
-Bốn SLR giữ ARN/ID/trust/policy; toàn bộ 11 SLR có sẵn khớp metadata. Database
-`i0410_c56dcdcf749e`/ba role vắng, Vault PID1649658 đúng địa chỉ đã dừng,
-private credential directory đã xóa. Receipt FAIL và supervisor ban đầu
-NEEDS_ATTENTION giữ nguyên. Recovery metadata/logs/module bundles gốc lưu0700
-ở `.m4/a02-20261015-r5-recovery-private/`; operator proof trong evidence
-`.m4/a02-20261015-r5/`. Không còn AWS asset thuộc lượt theo verifier.
-
-Tiếp: review bản sửa module/pin và hồi quy Terraform thật, chạy đầy đủ Go/race
-với PostgreSQL, frontend, docs; merge/push, cập nhật estimate/count/pins cho
-lượt A02 mới, chạy thật và cleanup trước A03. Chưa bắt đầu A03. Không cần duyệt
-người dùng giữa chặng hoặc cuối. Code/test vẫn chỉ giao Luna; Codex làm docs,
-review/checks/merge và chạy thật. Các bản sửa trước có642frontend và1407Go/race
-không bỏ qua; không dùng chúng thay cho checks của bản sửa module mới.
+Tiếp: A02 `a02-20261015-r6`, cấu hình 0600
+`/tmp/poc-i0411-private/a02-20261015-r6.json`, evidence
+`/home/thanhnt1/.m4/a02-20261015-r6`; tên lượt dùng ngày UTC.
+Estimate/countmanifest có bảy pin v4, 13 dòng/~2,1300 USD; A03 tương ứng
+~2,0507 USD. Preflight chỉ đọc và gate đạt, runner sẽ kiểm lại trước create.
+Chưa bắt đầu lượt mới hoặc A03. Chạy form/Preview/deploy/job/cache thật, dọn
+và query sạch A02 trước A03. Không cần duyệt giữa hoặc cuối. Container/volume
+PostgreSQL fixture riêng còn giữ cho các lượt sau, phải dọn khi hoàn tất M04.
 Các đoạn dưới đây là lịch sử bàn giao, không thay trạng thái hiện hành.
 
 2026-10-14: I04-01..09 đã verified local. I04-06 code `f3ed5bb` đã review,

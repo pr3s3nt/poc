@@ -828,3 +828,11 @@ chờ cổng; 642 frontend và các checks tương ứng đạt, backend không 
 1.407 Go/race/0 skip. A02r1–r4 giữ kết quả FAIL và cleanup đã được xác minh.
 Đây chưa phải bằng chứng A02/A03 đạt: IMP-021 còn mở, D12–D14 vẫn hoãn.
 Bằng chứng: VERIFY-I04-12-20261015.
+
+
+2026-10-16: `bcabb40` sửa VPC output tuple→list bằng release v4 bất biến và
+ghi đủ bảy pin module trước create. R9 độc lập1408Go/race/0skip,642frontend/
+fullchecks/sourcehash/fixturecleanup đạt; hồi quy Terraform CLI thật. A02r5
+đã khép sau verifier gốc và đối chiếu EC2/SLR/SQL/Vault; chuẩn bị A02r6.
+IMP-021 vẫn mở vì A02/A03 job/cache live chưa đạt; D12–D14 không đổi.
+Bằng chứng VERIFY-I04-12-20261015.

@@ -2,7 +2,7 @@
 id: I04-12
 artifact: iteration-plan
 status: current
-last_reviewed: 2026-10-15
+last_reviewed: 2026-10-16
 related: [M04, ADR-014, IMP-021]
 ---
 
