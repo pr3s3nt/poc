@@ -68,9 +68,10 @@ chạy. E02r1 thất bại trước Pod do fixture nhập image kèm dấu kép 
 cleanup độc lập sạch. Fixbb38fc8 đãreview/merge và634frontend/fullchecksđạt,
 backend không đổi. E02r2 đã chứng minh Redis FAILED/READINESS thật nhưng
 runner selector sai; cleanup NEEDS_ATTENTION vì routing nhầm ID outer/Preview.
-Namespace/Redis/PVC/PV còn, DB/state/Vault riêng được giữ để phục hồi bằng
-engine gốc. Luna sửa code/test, sau review/fullchecks tiếp tục dọn; không mở
-lượt mới hoặc AWS trước khi xác minh sạch.
+Fixcdfb027 đãreview/merge:1402Go/race/0skip và634frontend/fullchecks đạt.
+Cleanup tiếp bằng engine gốc đãCLEAN,2instances DESTROYED, namespace/PV vắng,
+28UID giữ lại khớp; DB/roles/Vault/private dọn xong, marker CLOSED_CLEAN và
+receiptFAIL cũ giữ nguyên. FreshE02r3 đang chạy; chưaAWS.
 
 I04-06 tại `f3ed5bb`: **1082 Go PASS/0 FAIL/0 SKIP**, 479 frontend tests,
 build/vet/docs và Codex headed browser/actual SQL/Vault/cleanup pass. AWS
