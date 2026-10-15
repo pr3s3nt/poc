@@ -77,6 +77,17 @@ Plan/task cụ thể: [M04](../iterations/M04-terraform-v2/README.md).
    provider delete lập tức. Deadline tuning phải ghi trước run, giữ hữu hạn và
    không kéo dài run lỗi để tạo thêm resources.
 
+## Cổng khởi chạy browser và đầu vào AWS
+
+Runner bật supervisor độc lập trước khi tạo ECR. Sau khi xuất bản và xác minh
+ba ảnh, runner ghi danh sách kho ECR và các tham chiếu ảnh mới vào file đầu
+vào riêng, rồi mới mở cổng khởi chạy browser. Browser phải đọc file sau khi
+cổng đã mở; không giữ object đã đọc trước lúc ECR hoàn tất. Khi chờ cổng hoặc
+đọc file thất bại, dừng luồng trước thao tác nghiệp vụ và để supervisor dọn.
+Kiểm tra hồi quy phải chứng minh file được thay trong lúc chờ cổng vẫn cho
+ra danh sách kho và ảnh mới. Không bỏ phép đối chiếu ownership hoặc điều kiện
+Preview không tạo trạng thái để hợp thức hóa đầu vào cũ.
+
 ## Đường dẫn riêng của provider trên Linux
 
 Giữ evidence/state/credential ngoài Git, owner-only0700/0600 và TMPDIR riêng
