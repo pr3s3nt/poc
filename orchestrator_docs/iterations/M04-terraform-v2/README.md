@@ -121,8 +121,10 @@ EKS `752fa29f-fbde-4f86-8358-de166c6c40c1`, Aurora, ElastiCache và namespace đ
 Workload backend FAILED trước tạo object EKS; direct deployer dùng resolver
 KUBECONFIG cho Connection AWS. Cleanup delivery cũng lỗi resolver và giữ
 REMOVE INTERRUPTED `cc544d89-6496-4eb0-8aeb-78e103e47778`, chặn Terraform.
-Delivery đã được xác minh vắng độc lập; không tự bỏ hold. Cần xác nhận owner
-process đã dừng, tăng fence/revoke capability theo contract trước continuation.
+Delivery đã xác minh vắng độc lập. Sau xác nhận process dừng và lock/capability
+0, operator tăng fence 1→2/revoke, khép REMOVE RECOVERED theo contract.
+Supervisor tiếp tục PID3169361 dùng binary/state/target/module gốc, budget110m;
+đang destroy, chưa xác nhận sạch. Receipt FAIL/supervisor cũ giữ nguyên.
 Writer đang sửa riêng `/tmp/poc-i0412-eks-workload-target`; hai file sửa index
 tag đã đóng băng, kiểm toàn bộ R10 đang chạy PTY33060, chưa merge.
 Tiếp tục form/Preview/deploy/job/cache thật, dọn

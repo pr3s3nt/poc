@@ -20,9 +20,11 @@ dự toán đạt, supervisor bật trước ba kho ECR, manifest có đủ bả
 Connection READY. Preview đã đạt, VPC/EKS đều READY trên AWS thật;
 cả năm module Terraform đã READY nhưng Workload backend FAILED trước khi tạo
 object trên EKS, deployment `d5369d3a-adb2-45e3-be7c-0fe97674ad58`.
-Cleanup gốc đã xác minh delivery vắng nhưng thao tác REMOVE giữ INTERRUPTED
-sau lỗi credential, chặn app-resources. Giữ nguyên hold/handles, đang xử lý
-operator continuation theo fencing contract; AWS còn tài nguyên thuộc lượt.
+Cleanup gốc xác minh delivery vắng nhưng REMOVE bị INTERRUPTED sau lỗi
+credential, chặn app-resources. Sau xác nhận các process đã dừng và lock/
+capability bằng 0, operator tăng fence 1→2/revoke rồi khép REMOVE RECOVERED
+theo contract. Supervisor tiếp tục PID3169361 dùng binary/state/module gốc,
+đang destroy; AWS còn tài nguyên thuộc lượt, chưa tuyên bố sạch.
 A03 chưa chạy.
 
 A02r5 đã khép `CLOSED_CLEAN` sau xác minh độc lập. Engine gốc đã destroy các
