@@ -45,7 +45,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Hoàn tất; A01r4/E01r2/E02r3 PASS, SQL/video/cleanup xác minh |
-| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; preflight A02 đạt, chuẩn bị chạy AWS |
+| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02r2 lỗi biểu mẫu EKS, đang dọn và sửa |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
 Dependencies triển khai: schema/state -> registry -> executor -> modules ->
@@ -89,13 +89,21 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 
 **Handoff hiện hành 2026-10-15:** I04-11 đã đạt A01r4/E01r2/E02r3,
 bao gồm receipt toàn lượt, SQL restart, video và cleanup độc lập/28 UID giữ lại.
-Checkout code `/tmp/poc-i0412-local-runtime` tại `cdfb027`, writer Luna đã dừng
-sau đóng băng; Codex độc lập1402Go/race/0skip và634frontend/fullchecks đạt.
-I04-12 hiện hành, A02 chưa tạo: config0600
-`/tmp/poc-i0411-private/a02-20261015-r1.json`, evidence dự kiến
-`/home/thanhnt1/.m4/a02-20261015-r1`; AWS gate và10preflight chỉ đọc mới đạt.
-Dự toán5h A02~2,1300USD/A03~2,0507USD; nguyên mẫu/quyền/pins giữ theo runbook.
-Tiếp: chạy A02 qua UI/headed + supervisor, dọn và query sạch rồi mới A03.
+I04-12 đang thực hiện. A02 `a02-20261015-r2` chạy code `1d35a00`, đã qua
+preflight/gate/dự toán, supervisor được bật trước khi tạo ba kho ECR thật.
+Browser đã đăng ký AWS Connection READY và sáu loại tài nguyên; biểu mẫu EKS
+thất bại vì giá trị boolean `ebs_csi_driver` bị từ chối. Chưa triển khai EKS.
+Supervisor đang dọn; chưa xác nhận sạch, không chạy lượt mới hoặc A03.
+Evidence `/home/thanhnt1/.m4/a02-20261015-r2`, tiến trình runner PTY88205.
+Writer `/root/i0410_luna` đang chẩn đoán lỗi biểu mẫu trong checkout
+`/tmp/poc-i0412-local-runtime`. Hai file getter ảnh probe đã đóng băng, kiểm
+độc lập toàn bộ đang chạy PTY95031 tại `.m4/checks-i0412-probe-pins-r7`.
+Lần chạy hiện tại còn cảnh báo thiếu getter metadata ảnh probe; không sửa
+manifest gốc. `operator-probe-image-pins.json` ghi cấu hình thực tế đã ghim,
+nhưng chưa có technical probe vì biểu mẫu thất bại; không coi A02 đạt.
+Dự toán5h A02~2,1300USD/A03~2,0507USD; chưa có hóa đơn thực tế.
+Tiếp: xác minh dọn AWS/SQL/Vault, sửa lỗi qua writer, review/checks/merge/push,
+chạy lại A02; chỉ khi A02 sạch mới A03. Không cần duyệt giữa hoặc cuối.
 Các đoạn bên dưới là lịch sử bàn giao, không thay trạng thái hiện hành này.
 
 2026-10-14: I04-01..09 đã verified local. I04-06 code `f3ed5bb` đã review,

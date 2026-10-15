@@ -48,7 +48,11 @@ supervisor/create vì runner épVSO choAWS. DB/roles/Vault local đã xác minh 
 AWS tagtrống; marker CLOSED_NO_EFFECTS/receiptFAIL giữ. Writer sửa runner và
 cleanuphelper chọn vault delivery theoadapter; fix1d35a00 đãreview/merge,
 1407Go/race/0skip/634frontend/fullchecks đạt/fixtureclean. FreshA02r2
-vàdựtoán13dòng~2,13USD chuẩn bị; chưa ECR/AWSresource.
+vàdựtoán13dòng~2,13USD đã qua gate; supervisor bật trước ba kho ECR thật.
+A02r2 thất bại ở biểu mẫu EKS do boolean `ebs_csi_driver` bị từ chối, chưa
+triển khai cụm. Supervisor đang dọn; chưa xác nhận sạch. Writer chẩn đoán lỗi,
+Codex giữ evidence thất bại và chạy kiểm độc lập getter ảnh probe ở
+`.m4/checks-i0412-probe-pins-r7/`; không chạy A03 trước khi A02 sạch.
 [Biên bản I04-12](verification/2026-10-15-i04-12-aws.md).
 
 Người dùng bỏ duyệt giữa chặng và duyệt cuối; thất bại phải tìm nguyên nhân,
