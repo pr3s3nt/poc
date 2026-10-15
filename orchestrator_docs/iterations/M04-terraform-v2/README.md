@@ -374,3 +374,16 @@ AWS gate, yêu cầu marker đóng tường minh trước run mới và A03 stor
 Bộ sơ bộ runtime-r1 được dừng để bổ sung sửa guard cleanup, đã xác minh dọn
 PostgreSQL/network/file credential riêng; không dùng làm bằng chứng đạt.
 A01 mới dự kiến `a01-20261015-r3`, chưa deploy; E01/E02 và AWS chưa chạy.
+
+
+**Bản sửa đã kiểm chứng15Oct:** Luna `34a9dcc` đã được Codex review/merge;
+full1396Go/race/0fail/0skip với PostgreSQL/Terraform/Redis thật,632frontend/
+38files, build/vet/type/lint/docs/PlantUML vàshell/node syntax đạt. Evidence
+`/home/thanhnt1/.m4/checks-i0412-runtime-r3/`; sourcehash unchanged, PostgreSQL/
+network/credentialfile riêng đãvắng. R2checks1395pass/1staleCLItestfail/0skip
+được giữ; sửa đúngfixture explicitclosure, không giảmguard. SQLreopen nayđúng
+scope/scenario, AWS gateyêu cầu overallrunnerreceipt, DirtyRunsyêu cầu đóng
+marker tường minh; A03gp2 explicit, không đổi modulepins. A01fresh
+`a01-20261015-r3` chuẩn bị ở `.m4/a01-20261015-r3/`,28retainedUIDskhớp,
+namespace chưa có khipreflight; imageownership trong `.m4/prep-a01-r3/`.
+Chưa ghi livePASS; đủA01/E01/E02 mới mởAWS.

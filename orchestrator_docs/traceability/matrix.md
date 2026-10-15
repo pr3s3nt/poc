@@ -699,3 +699,16 @@ nhưng SQLreopenharness sai application/phase =>overallFAIL. AWSgate vẫn đón
 browserPASS vàCLOSED_CLEAN không được đồng nhất acceptancePASS. Luna đang
 sửa scopedSQLrestart/overallcompletionproof vàA03explicitgp2 (defaultclass
 không bật trênEKS1.35/pinnedCSI). IMP-021 chưa đóng; proofs trongbiênbảnI04-11.
+
+
+**Bản sửa đã kiểm chứng15Oct:** Luna `34a9dcc` đã được Codex review/merge;
+full1396Go/race/0fail/0skip với PostgreSQL/Terraform/Redis thật,632frontend/
+38files, build/vet/type/lint/docs/PlantUML vàshell/node syntax đạt. Evidence
+`/home/thanhnt1/.m4/checks-i0412-runtime-r3/`; sourcehash unchanged, PostgreSQL/
+network/credentialfile riêng đãvắng. R2checks1395pass/1staleCLItestfail/0skip
+được giữ; sửa đúngfixture explicitclosure, không giảmguard. SQLreopen nayđúng
+scope/scenario, AWS gateyêu cầu overallrunnerreceipt, DirtyRunsyêu cầu đóng
+marker tường minh; A03gp2 explicit, không đổi modulepins. A01fresh
+`a01-20261015-r3` chuẩn bị ở `.m4/a01-20261015-r3/`,28retainedUIDskhớp,
+namespace chưa có khipreflight; imageownership trong `.m4/prep-a01-r3/`.
+Chưa ghi livePASS; đủA01/E01/E02 mới mởAWS.

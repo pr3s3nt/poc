@@ -53,8 +53,10 @@ complete-action read-only preflight A02/A03 đạt; chưa AWS provisioning.
 
 Mới nhất: A01shortroot r2 browser42assertions/8marks PASS, cleanupCLEAN,
 PV2/namespaceABSENT/28retainedUIDs/cacheclean, nhưng overallSQLrestartFAIL do
-harnesswrongscope/phase. KhôngI04-11PASS. Luna sửa scopedSQLreopen/overall
-runnergate/A03explicitgp2 trước Codex review/fullchecks vàfreshA01. ChưaAWS.
+harnesswrongscope/phase. KhôngI04-11PASS. Luna fix34a9dcc đãreview/merge: scopedSQLreopen/overall runnergate, explicit
+closure guard vàA03gp2. Full1396Go/race/0fail/0skip,632frontend/38files,
+build/vet/type/lint/docs/PlantUML đạt; fixturesclean. Chuẩn bịfreshA01r3 từ
+checkout `/tmp/poc-i0412-local-runtime`34a9dcc; chưaAWS.
 
 I04-06 tại `f3ed5bb`: **1082 Go PASS/0 FAIL/0 SKIP**, 479 frontend tests,
 build/vet/docs và Codex headed browser/actual SQL/Vault/cleanup pass. AWS

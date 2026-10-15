@@ -509,3 +509,11 @@ and [runner action/chunk/result checks](../../backend/test/integration/v2run/aws
 1395Go/race/0skip/622frontend đạt; AWS live vẫn gated. Provider schema runtime
 preflight/root ngắn là cấu hình vận hành theo acceptance runbook, không đổi
 namespace/module source pin.
+
+
+Runtime evidencefix34a9dcc: [scoped restart verifier](../../frontend/test/e2e/terraform-v2-reopen.mjs),
+[HTTP regression tests](../../frontend/test/e2e/terraform-v2-reopen.test.mjs),
+[overall completion receipt](../../backend/test/integration/terraform-v2-acceptance.sh),
+[AWS gate](../../backend/test/integration/v2run/aws.go),
+[explicit closure guard](../../backend/test/integration/v2run/scan.go).
+1396Go/race/0skip/632frontend vàfullchecks đạt; liveacceptance còn riêng.
