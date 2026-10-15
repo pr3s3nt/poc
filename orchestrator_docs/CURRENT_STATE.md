@@ -41,6 +41,9 @@ Dự toán AWS mỗi lượt cho cửa sổ 5 giờ (3 giờ thực thi + 2 gi�
 trần do người dùng đặt hoặc chi phí hóa đơn thực tế. Preflight chỉ đọc A02 mới
 đạt account452025861381/principal đã ghim/us-east-1, IP/32, quyền, sức chứa
 Pod và tag trống. Điều kiện ba scenario đã đạt được xác nhận bởi AWS gate.
+Lần khởi động A02 dừng trước tạo evidence/marker/tài nguyên vì getter kubectl
+không hỗ trợ AWS nilKube; writer đang sửa và kiểm tra. Chưa ECR/AWSresource.
+[Biên bản I04-12](verification/2026-10-15-i04-12-aws.md).
 
 Người dùng bỏ duyệt giữa chặng và duyệt cuối; thất bại phải tìm nguyên nhân,
 giao writer sửa, review/checks rồi chạy lại khi lượt cũ đã sạch. Không bypass

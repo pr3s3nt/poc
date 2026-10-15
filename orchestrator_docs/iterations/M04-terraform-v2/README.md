@@ -517,3 +517,9 @@ credential đãdọn. Runmarker CLOSED_CLEAN; receiptFAIL cũ không sửa. Vide
 E02r2 giải mã đạt; bằng chứng `operator-*` tại `.m4/e02-20261015-r2/`, spec/
 status/log gốc lưu0700 ở `.m4/e02-20261015-r2-recovery-private/`.
 E02fresh `e02-20261015-r3` bắt đầu từcdfb027; chưaAWS.
+
+
+A02 đã thử khởi động sau đủgate: binarypins8PASS/preflight10PASS/I04-11gatePASS,
+nhưng dừng trước mkdir evidence/STARTED vì `config-get kubectl` không hỗ trợ
+AWS nilKube. Chưa có ECR/AWSresource. Luna sửa getter/tests trong checkout riêng;
+Codex review/checks rồi tiếp tục. [Biên bản I04-12](../../verification/2026-10-15-i04-12-aws.md).
