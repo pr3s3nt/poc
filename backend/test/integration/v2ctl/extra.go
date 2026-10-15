@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -379,8 +380,8 @@ func keygen(args []string) int {
 	return 0
 }
 
-// modulePins prints the packaged Kubernetes module pins (id, revision,
-// content SHA-256), the same values the Console shows and Preview must match.
+// modulePins prints every packaged module pin (id, revision, content SHA-256),
+// so the run manifest records the complete release before any create.
 func modulePins(args []string) int {
 	fs := flag.NewFlagSet("module-pins", flag.ExitOnError)
 	_ = fs.Parse(args)
@@ -388,11 +389,16 @@ func modulePins(args []string) int {
 	if err != nil {
 		return fail("%v", err)
 	}
-	for _, id := range []string{"k8s-namespace", "postgres-k8s", "redis-k8s"} {
-		ref, ok := refs[id]
-		if !ok {
-			return fail("module %s is not part of the packaged release", id)
-		}
+	ids := make([]string, 0, len(refs))
+	for id := range refs {
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return fail("the packaged release has no module pins")
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		ref := refs[id]
 		fmt.Printf("%s\t%s\t%s\n", id, ref.Revision, ref.ContentSHA256)
 	}
 	return 0

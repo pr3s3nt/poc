@@ -335,7 +335,9 @@ func TestAWSModuleSourceSafety(t *testing.T) {
 	// The VPC owns the private network once, with no gateway route.
 	vpc := codeOnly(moduleSource(t, "vpc"))
 	for _, want := range []string{`resource "aws_subnet" "private"`, `resource "aws_route_table" "private"`, `resource "aws_route_table_association" "private"`,
-		"cidrsubnet(var.cidr, 4, 8 + count.index)", "map_public_ip_on_launch = false", "output \"privateSubnetIds\""} {
+		"cidrsubnet(var.cidr, 4, 8 + count.index)", "map_public_ip_on_launch = false",
+		`output "subnetIds" { value = tolist(aws_subnet.public[*].id) }`,
+		`output "privateSubnetIds" { value = tolist(aws_subnet.private[*].id) }`} {
 		if !strings.Contains(vpc, want) {
 			t.Errorf("vpc misses %q", want)
 		}
@@ -461,15 +463,15 @@ func TestEKSAddonsArePinnedToVerifiedBuilds(t *testing.T) {
 func TestPackagedReleaseRevisionIsDistinctFromEarlierRelease(t *testing.T) {
 	type pin struct{ revision, digest string }
 	earlier := map[string][]pin{
-		"vpc":           {{"v1-2026.10.13", "ebc9b73046f6838921bc5fcff8beebb725a0d085a8921e95766fb5a30339b92d"}, {"v2-2026.10.13", "7f85d296ce7dceff9d57475599a4367c7ece599cf87d1c5e269b11d0071395e4"}},
-		"eks":           {{"v1-2026.10.13", "00dabd6fe3df5514f1c26bc23064fe527157d27130402a4305abe71503070460"}, {"v2-2026.10.13", "15cd6a4d5a88dc48ff49cce5c84c68db160f934d8594752b933b502952647997"}},
-		"aurora":        {{"v1-2026.10.13", "5fc963c62421d46ac1c68540f9fef2651314721facd245967394a63f6293e7f2"}, {"v2-2026.10.13", "b3d4fa946b12a66799818715abbdf64a0ffe12d8a1781e778f8fd86d6ca71afd"}},
-		"elasticache":   {{"v2-2026.10.13", "ad562a3f616c6db0566a38d38acd323fc8d62ebeaa68758bb74ea83a556b9878"}},
-		"k8s-namespace": {{"v1-2026.10.13", "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"}, {"v2-2026.10.13", "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"}},
-		"redis-k8s":     {{"v1-2026.10.13", "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"}, {"v2-2026.10.13", "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"}},
-		"postgres-k8s":  {{"v1-2026.10.13", "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"}, {"v2-2026.10.13", "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"}},
+		"vpc":           {{"v1-2026.10.13", "ebc9b73046f6838921bc5fcff8beebb725a0d085a8921e95766fb5a30339b92d"}, {"v2-2026.10.13", "7f85d296ce7dceff9d57475599a4367c7ece599cf87d1c5e269b11d0071395e4"}, {"v3-2026.10.13", "f159d1be486706560730a1d7e36744b5588103d7d6ea9c67e1c120519cb382cc"}},
+		"eks":           {{"v1-2026.10.13", "00dabd6fe3df5514f1c26bc23064fe527157d27130402a4305abe71503070460"}, {"v2-2026.10.13", "15cd6a4d5a88dc48ff49cce5c84c68db160f934d8594752b933b502952647997"}, {"v3-2026.10.13", "15cd6a4d5a88dc48ff49cce5c84c68db160f934d8594752b933b502952647997"}},
+		"aurora":        {{"v1-2026.10.13", "5fc963c62421d46ac1c68540f9fef2651314721facd245967394a63f6293e7f2"}, {"v2-2026.10.13", "b3d4fa946b12a66799818715abbdf64a0ffe12d8a1781e778f8fd86d6ca71afd"}, {"v3-2026.10.13", "f8755b77289c2e2bf5b2be351b90d4a1d44d0eeaf56021560c7fefb1aafc4ba6"}},
+		"elasticache":   {{"v2-2026.10.13", "ad562a3f616c6db0566a38d38acd323fc8d62ebeaa68758bb74ea83a556b9878"}, {"v3-2026.10.13", "b46261d722e23f7ace3693c12f0d5ed03f28ca6d8abbbc8ae519230051c3e8e7"}},
+		"k8s-namespace": {{"v1-2026.10.13", "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"}, {"v2-2026.10.13", "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"}, {"v3-2026.10.13", "836f7b7470deb519633a523dccb02a83a1b20947725ddb705596fb2601a180a8"}},
+		"redis-k8s":     {{"v1-2026.10.13", "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"}, {"v2-2026.10.13", "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"}, {"v3-2026.10.13", "feaa167e8a79990aa57e5a6f5f5c5a3de15c2c82312bffe179557e25e1d14e74"}},
+		"postgres-k8s":  {{"v1-2026.10.13", "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"}, {"v2-2026.10.13", "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"}, {"v3-2026.10.13", "446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1"}},
 	}
-	const current = "v3-2026.10.13"
+	const current = "v4-2026.10.15"
 	refs, err := registry.PackagedRefs()
 	if err != nil {
 		t.Fatal(err)
@@ -490,7 +492,7 @@ func TestPackagedReleaseRevisionIsDistinctFromEarlierRelease(t *testing.T) {
 				t.Fatal("an earlier pin cannot use the current revision")
 			}
 			// Changed content must not keep an earlier pin.
-			changed := id == "vpc" || id == "aurora" || id == "elasticache" || (id == "eks" && prev.revision == "v1-2026.10.13")
+			changed := id == "vpc" || (id == "aurora" && prev.revision != "v3-2026.10.13") || (id == "elasticache" && prev.revision != "v3-2026.10.13") || (id == "eks" && prev.revision == "v1-2026.10.13")
 			if changed && ref.ContentSHA256 == prev.digest {
 				t.Errorf("%s changed module but kept the digest of %s", id, prev.revision)
 			}

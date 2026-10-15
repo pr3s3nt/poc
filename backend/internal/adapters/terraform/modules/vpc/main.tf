@@ -137,5 +137,5 @@ resource "aws_route_table_association" "private" {
 
 output "id" { value = aws_vpc.this.id }
 output "cidr" { value = aws_vpc.this.cidr_block }
-output "subnetIds" { value = aws_subnet.public[*].id }
-output "privateSubnetIds" { value = aws_subnet.private[*].id }
+output "subnetIds" { value = tolist(aws_subnet.public[*].id) }
+output "privateSubnetIds" { value = tolist(aws_subnet.private[*].id) }
