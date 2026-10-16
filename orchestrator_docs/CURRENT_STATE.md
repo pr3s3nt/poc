@@ -29,8 +29,9 @@ năm instance, native absence/ECR đạt; một ARN SG cũ trong chỉ mục tag
 ba role, Vault riêng, private credential và ba nhãn ảnh đã dọn; 11 SLR và
 28 UID giữ nguyên. Scenario FAIL/supervisor cũ không sửa. Bản sửa EKS/absence
 `3c7e986` đã merge/push `05f1978`, R11 đạt 1.465 Go/race/0 skip và 642
-frontend/full checks. Bản sửa thứ tự cleanup đang full R12; định dạng lỗi
-AWS CLI 2.35 đang full R13. Chưa merge hai bản này. Lượt mới
+frontend/full checks. Thứ tự cleanup/định dạng lỗi AWS CLI đã merge
+`f918a76` → `45af080`: R12/R13 đạt 1.470/1.477 Go/race, 0 skip, 642 frontend
+và toàn bộ checks; hash khớp và fixture riêng vắng. Lượt mới
 `a02-20261016-r1` đã chuẩn bị, chưa chạy.
 A03 chưa chạy.
 

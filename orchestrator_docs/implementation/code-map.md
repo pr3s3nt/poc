@@ -535,3 +535,8 @@ I04-12 EKS workload credential fix `3c7e986`: [scoped EKS source](../../backend/
 [Absence verifier](../../backend/test/integration/v2run/aws.go) và
 [stale-index tests](../../backend/test/integration/v2run/aws_stale_index_test.go)
 chỉ chấp nhận typed native NotFound của subnet/SG đã ghi nhận đúng ownership.
+
+I04-12 cleanup/CLI fix `f918a76`: [reverse-DAG leaf ordering](../../backend/internal/application/tfexec/cleanup.go),
+[priority/dependency regression](../../backend/internal/application/tfexec/cleanup_order_test.go),
+[real Terraform/PostgreSQL cleanup integration](../../backend/internal/application/tfexec/cleanup_order_integration_test.go),
+[AWS CLI stderr regression qua ExecAWS](../../backend/test/integration/v2run/aws_cli_error_format_test.go).

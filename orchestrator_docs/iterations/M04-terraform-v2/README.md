@@ -109,20 +109,24 @@ guard chặn destroy trùng; dừng đúng PID dư, closure dùng native/registr
 lập thay vì log có thể bị ghi chồng. Chi tiết trong biên bản I04-12.
 
 Writer fallback hiện tại `/root/m04_cleanup_writer`, model gpt-6-luna; Claude
-cloud/local đã hết hạn mức, session cũ giữ ở lịch sử bên dưới. Code/test riêng:
-- `/tmp/poc-i0412-cleanup-order`: ưu tiên layer giữa reverse-DAG leaves;
-  full R12 PTY8393, integration Terraform CLI/PostgreSQL mới đã PASS, còn chờ
-  toàn bộ suite/FE/build/docs/hash/fixture; chưa merge.
-- `/tmp/poc-i0412-aws-cli-error-format`: kết hợp R12 với đúng optional prefix
-  `aws: [ERROR]: ` của AWS CLI 2.35; full R13 PTY32133, chưa merge. Typed
-  code/operation/account/region/tag/ownership vẫn bắt buộc; nguồn đã đóng băng.
+cloud/local đã hết hạn mức, session cũ giữ ở lịch sử bên dưới. Code/test riêng
+đã review và merge `f918a76` → `45af080`: ưu tiên layer giữa reverse-DAG leaves
+và đúng optional prefix `aws: [ERROR]: ` của AWS CLI 2.35. Dependency, typed
+code/operation/account/region/tag/ownership vẫn chi phối, không mở guard.
 
-Tiếp: hoàn tất review/full checks 0 skip, hash và fixture cleanup; merge/push
-rồi cập nhật runtime checkout. A02 mới `a02-20261016-r1`, config 0600
+Full R12/R13 tại `.m4/checks-i0412-cleanup-order-r12/` và
+`.m4/checks-i0412-aws-cli-format-r13/` đạt 1.470/1.477 Go/race, 0 fail/skip,
+642 frontend, build/vet/type/lint/build/docs/PlantUML/diff; hash nguồn gồm test
+mới trước/sau khớp. Container/network/credential fixture riêng vắng. Chỉ năm
+file mới được đưa vào commit qua checkout review byte-identical, không lặp
+commit các file R11 đã ghép. Writer đã đóng băng/idle, chưa có task code tiếp.
+
+Tiếp: đồng bộ runtime checkout rồi A02 mới `a02-20261016-r1`, config 0600
 `/tmp/poc-i0411-private/a02-20261016-r1.json`, evidence dự kiến
 `/home/thanhnt1/.m4/a02-20261016-r1`; **chưa chạy/chưa create**. Dự toán/count
-manifest đủ bảy pin v4, 13 dòng/~2,129994 USD, estimate-check đạt; A03 tương ứng
-~2,050679 USD. Giá gốc ngày 14-10 còn trong cửa sổ kiểm tra, không phải hóa đơn.
+manifest đủ bảy pin v4, 13 dòng/~2,129994 USD, estimate-check đạt. A03 mới
+`a03-20261016-r1` cũng chuẩn bị config/estimate, 13 dòng/~2,050679 USD, chưa
+chạy. Giá gốc ngày 14-10 còn trong cửa sổ kiểm tra, không phải hóa đơn.
 Runner phải fresh preflight account452025861381/us-east-1/principal/egress/gate/
 dirty/estimate và supervisor trước create. Chỉ chạy A03 sau A02 đạt và sạch.
 
