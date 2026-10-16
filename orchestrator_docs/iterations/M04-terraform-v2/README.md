@@ -123,10 +123,16 @@ KUBECONFIG cho Connection AWS. Cleanup delivery cũng lỗi resolver và giữ
 REMOVE INTERRUPTED `cc544d89-6496-4eb0-8aeb-78e103e47778`, chặn Terraform.
 Delivery đã xác minh vắng độc lập. Sau xác nhận process dừng và lock/capability
 0, operator tăng fence 1→2/revoke, khép REMOVE RECOVERED theo contract.
-Supervisor tiếp tục PID3169361 dùng binary/state/target/module gốc, budget110m;
-đang destroy, chưa xác nhận sạch. Receipt FAIL/supervisor cũ giữ nguyên.
-Writer đang sửa riêng `/tmp/poc-i0412-eks-workload-target`; hai file sửa index
-tag đã đóng băng, kiểm toàn bộ R10 đang chạy PTY33060, chưa merge.
+Lượt tiếp tục PID3169361 đã kết thúc: namespace/EKS/Aurora DESTROYED, cache
+DESTROY_FAILED, VPC giữ vì consumer. R6 tiếp tục cleanup bằng binary/state/
+target/module gốc, token cùng policy cấp lại 2h. Supervisor đang chạy PID1043150,
+engine1043441; một supervisor dư1044396 đã được dừng đúng PID, guard chặn
+destroy trùng. Status/log continuation r3 có thể bị ghi chồng nên cần proof
+native/DB độc lập; receipt FAIL/supervisor ban đầu giữ nguyên.
+Bản sửa EKS/absence `3c7e986` đã merge/push `05f1978`; R10 1.445 và R11
+1.465 Go/race, 0 fail/skip, 642 frontend/all checks, nguồn trước/sau khớp và
+fixture sạch. Bản sửa thứ tự cleanup ở `/tmp/poc-i0412-cleanup-order`, writer
+`/root/m04_cleanup_writer` model gpt-6-luna, đang full R12 PTY8393.
 Tiếp tục form/Preview/deploy/job/cache thật, dọn
 và query sạch A02 trước A03. Không cần duyệt giữa hoặc cuối. Container/volume
 PostgreSQL fixture riêng còn giữ cho các lượt sau, phải dọn khi hoàn tất M04.

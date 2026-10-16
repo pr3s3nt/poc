@@ -526,3 +526,12 @@ và [luồng browser](../../frontend/test/e2e/terraform-v2-acceptance.mjs),
 [hồi quy ownership/purity](../../frontend/test/e2e/terraform-v2-aws-purity.test.mjs).
 Các bản sửa này chỉ củng cố runner, không thay bằng chứng chạy AWS thật;
 xem [I04-12 verification](../verification/2026-10-15-i04-12-aws.md).
+
+
+I04-12 EKS workload credential fix `3c7e986`: [scoped EKS source](../../backend/internal/adapters/kubernetes/eks_credentials.go),
+[bootstrap wiring](../../backend/internal/bootstrap/adapters.go),
+[opaque target persistence/restore](../../backend/internal/application/deployment/service.go),
+[lifecycle regression](../../backend/internal/bootstrap/eks_target_credentials_test.go).
+[Absence verifier](../../backend/test/integration/v2run/aws.go) và
+[stale-index tests](../../backend/test/integration/v2run/aws_stale_index_test.go)
+chỉ chấp nhận typed native NotFound của subnet/SG đã ghi nhận đúng ownership.
