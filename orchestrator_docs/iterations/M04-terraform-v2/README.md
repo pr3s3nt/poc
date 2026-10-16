@@ -45,7 +45,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Hoàn tất; A01r4/E01r2/E02r3 PASS, SQL/video/cleanup xác minh |
-| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02r6 năm module READY, Workload lỗi; đang dọn/sửa |
+| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; R6 CLOSED_CLEAN/FAIL, chờ checks trước A02 mới |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
 Dependencies triển khai: schema/state -> registry -> executor -> modules ->
@@ -87,62 +87,49 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 
 ## Current handoff
 
-**Hiện hành — 2026-10-16:** I04-11 đã đạt A01r4/E01r2/E02r3.
-I04-12 chưa đạt; A02r5 đã tạo VPC rồi lỗi kiểu output, đã CLOSED_CLEAN.
-Giữ nguyên receipt FAIL và supervisor NEEDS_ATTENTION ban đầu; verifier gốc
-sau độ trễ xác nhận aux sạch, API EC2 xác nhận hai ID vắng. Bốn SLR giữ trust/
-policy, toàn bộ 11 SLR giữ metadata; 28 UID k8s-4f khớp. Database/ba role,
-Vault riêng và credential đã dọn; 12 nhãn ảnh Docker của A02r2–r5 đã xóa,
-ảnh nguồn giữ nguyên. Evidence `.m4/a02-20261015-r5/`, recovery metadata/
-module bundle v3 ngoài Git ở `.m4/a02-20261015-r5-recovery-private/`.
+**Hiện hành — 2026-10-16:** I04-01..10 hoàn tất; I04-11 đạt A01r4/E01r2/E02r3,
+video/SQL/cleanup độc lập. I04-12 chưa đạt: A02r6 đã qua Preview và cả năm
+Terraform node READY nhưng Workload backend lỗi resolver trước khi tạo object
+EKS. A03 chưa chạy. Không cần duyệt giữa hoặc cuối theo quyền người dùng.
 
-Bản sửa `bcabb40` đã review/merge: hai output subnet dùng `tolist`, release
-v4-2026.10.15, chỉ byte/digest VPC đổi; các module khác giữ byte/digest nhưng
-cùng revision mới theo manifest. CLI ghi đủ bảy module trước create. R9 tại
-`.m4/checks-i0412-complete-pins-r9/` đạt 1.408 Go/race/0 skip, 642 frontend,
-build/vet/type/lint/tài liệu/PlantUML/format; hash nguồn gồm test mới khớp,
-fixture sạch. R8 độc lập cũng đạt. Writer `/root/i0410_luna` đang sửa riêng
-lỗi xác minh index tag trễ trong `/tmp/poc-i0412-aws-absence`; chỉ ARN đã ghi
-nhận thuộc lượt, đúng account/region/tag và API EC2 báo đúng NotFound mới được
-xác nhận vắng. Không thay binary/source của lượt đang chạy.
+A02r6 đã **CLOSED_CLEAN operator**, scenario vẫn FAIL. Original engine destroy
+đủ năm instance; native app/EKS/VPC/ECR vắng. ARN default SG còn trong index
+tag được chứng minh vắng bằng unique full-ARN CREATED_BY_RUN/aux, đúng run tag
+và native InvalidGroup.NotFound/DescribeSecurityGroups. Registry không còn
+held operation/state lock; database/ba role, Vault riêng, private credential,
+ba Docker alias đã dọn; ảnh nguồn giữ nguyên. 11 SLR và 28 UID k8s-4f giữ đúng.
+Proof `.m4/a02-20261015-r6/operator-cleanup-closure.json`; original FAIL và
+supervisor NEEDS_ATTENTION không sửa. Metadata/log/module bundle gốc ngoài Git
+ở `.m4/a02-20261015-r6-recovery-private/`, không archive key/credential.
 
-Tiếp: A02 `a02-20261015-r6`, cấu hình 0600
-`/tmp/poc-i0411-private/a02-20261015-r6.json`, evidence
-`/home/thanhnt1/.m4/a02-20261015-r6`; tên lượt dùng ngày UTC.
-Estimate/countmanifest có bảy pin v4, 13 dòng/~2,1300 USD; A03 tương ứng
-~2,0507 USD. Preflight chỉ đọc và gate đạt, runner sẽ kiểm lại trước create.
-A02r6 đang chạy từ `5f77e00`, PTY72419: preflight/gate/dự toán đạt;
-supervisorPID2845843 bật trước ECR, manifest bảy pin v4/digestVPC đúng.
-Ba kho ECR/digest/tag đã đối chiếu, Connection READY. Preview đầy đủ đạt;
-VPC instance `e9160aa8-36e8-415f-802f-f3c4f0c50335` READY trên AWS thật,
-EKS `752fa29f-fbde-4f86-8358-de166c6c40c1`, Aurora, ElastiCache và namespace đều READY trong deployment
-`d5369d3a-adb2-45e3-be7c-0fe97674ad58`. Database riêng
-`i0410_054814261d49`/ba role còn phục vụ cleanup; chưa bắt đầu A03.
-Workload backend FAILED trước tạo object EKS; direct deployer dùng resolver
-KUBECONFIG cho Connection AWS. Cleanup delivery cũng lỗi resolver và giữ
-REMOVE INTERRUPTED `cc544d89-6496-4eb0-8aeb-78e103e47778`, chặn Terraform.
-Delivery đã xác minh vắng độc lập. Sau xác nhận process dừng và lock/capability
-0, operator tăng fence 1→2/revoke, khép REMOVE RECOVERED theo contract.
-R6 đã CLOSED_CLEAN operator: engine gốc destroy đủ năm instance, native
-app/EKS/VPC/ECR đạt. ARN default SG còn trong index tag đã chứng minh vắng
-bằng exact ownership/tag và native typed NotFound. 11 SLR/28 UID giữ nguyên;
-database/ba role, Vault riêng, private credential và ba Docker alias đã dọn.
-Evidence `operator-cleanup-closure.json`; FAIL/supervisor gốc giữ nguyên.
-Một supervisor dư đã được dừng đúng PID, guard chặn destroy trùng; log r3
-không dùng riêng làm proof, closure dùng native/registry độc lập.
-Bản sửa EKS/absence `3c7e986` đã merge/push `05f1978`; R10 1.445 và R11
-1.465 Go/race, 0 fail/skip, 642 frontend/all checks, nguồn trước/sau khớp và
-fixture sạch. Writer `/root/m04_cleanup_writer` model gpt-6-luna đã đóng băng
-sửa thứ tự cleanup `/tmp/poc-i0412-cleanup-order` (full R12 PTY8393) và prefix
-AWS CLI 2.35 `/tmp/poc-i0412-aws-cli-error-format` (full R13 PTY32133).
-R12 integration mới qua Terraform CLI/PostgreSQL thật đã PASS; còn chờ toàn bộ.
-Đầu vào A02 mới `/tmp/poc-i0411-private/a02-20261016-r1.json`, dự toán/count
-manifest đủ bảy pin v4, 13 dòng/~2,13 USD, estimate-check đạt; chưa chạy.
-Chỉ chạy sau review/full checks/hash/fixture cleanup của R13, rồi fresh preflight.
+Bản sửa EKS workload/opaque provider-region và absence `3c7e986` đã merge/push
+`05f1978`. R10 1.445 và R11 kết hợp 1.465 Go/race, 0 fail/skip, 642 frontend,
+all checks/hash/fixture cleanup đạt. Quá trình R6 từng khởi chạy dư supervisor:
+guard chặn destroy trùng; dừng đúng PID dư, closure dùng native/registry độc
+lập thay vì log có thể bị ghi chồng. Chi tiết trong biên bản I04-12.
 
-Tiếp tục form/Preview/deploy/job/cache thật, dọn
-và query sạch A02 trước A03. Không cần duyệt giữa hoặc cuối. Container/volume
-PostgreSQL fixture riêng còn giữ cho các lượt sau, phải dọn khi hoàn tất M04.
+Writer fallback hiện tại `/root/m04_cleanup_writer`, model gpt-6-luna; Claude
+cloud/local đã hết hạn mức, session cũ giữ ở lịch sử bên dưới. Code/test riêng:
+- `/tmp/poc-i0412-cleanup-order`: ưu tiên layer giữa reverse-DAG leaves;
+  full R12 PTY8393, integration Terraform CLI/PostgreSQL mới đã PASS, còn chờ
+  toàn bộ suite/FE/build/docs/hash/fixture; chưa merge.
+- `/tmp/poc-i0412-aws-cli-error-format`: kết hợp R12 với đúng optional prefix
+  `aws: [ERROR]: ` của AWS CLI 2.35; full R13 PTY32133, chưa merge. Typed
+  code/operation/account/region/tag/ownership vẫn bắt buộc; nguồn đã đóng băng.
+
+Tiếp: hoàn tất review/full checks 0 skip, hash và fixture cleanup; merge/push
+rồi cập nhật runtime checkout. A02 mới `a02-20261016-r1`, config 0600
+`/tmp/poc-i0411-private/a02-20261016-r1.json`, evidence dự kiến
+`/home/thanhnt1/.m4/a02-20261016-r1`; **chưa chạy/chưa create**. Dự toán/count
+manifest đủ bảy pin v4, 13 dòng/~2,129994 USD, estimate-check đạt; A03 tương ứng
+~2,050679 USD. Giá gốc ngày 14-10 còn trong cửa sổ kiểm tra, không phải hóa đơn.
+Runner phải fresh preflight account452025861381/us-east-1/principal/egress/gate/
+dirty/estimate và supervisor trước create. Chỉ chạy A03 sau A02 đạt và sạch.
+
+Hiện không còn tài nguyên AWS thuộc các lượt đã chạy theo native proof;
+Cost Explorer run-tag chưa phân bổ được chi phí thực tế, không coi rỗng là 0.
+Container/volume PostgreSQL fixture riêng giữ cho các lượt sau; dọn khi hết M04.
+User-owned `frontend/node_modules` ở runtime checkout không được xóa/stage.
 Các đoạn dưới đây là lịch sử bàn giao, không thay trạng thái hiện hành.
 
 2026-10-14: I04-01..09 đã verified local. I04-06 code `f3ed5bb` đã review,

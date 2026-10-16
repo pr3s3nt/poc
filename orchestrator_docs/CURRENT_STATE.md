@@ -15,7 +15,7 @@ I04-12 đang thực hiện: A02r5 đã qua đầy đủ Preview và tạo VPC th
 thất bại ở OUTPUT_CONTRACT. Hai output subnet thực tế là tuple, trái kiểu
 list suy ra từ module. Bản sửa `bcabb40` đã review/merge: `tolist`, release v4 và đủ bảy pin module.
 R9 đạt 1.408 Go/race, 642 frontend và toàn bộ checks, không bỏ qua; nguồn
-khớp trước/sau, fixture sạch. A02r6 đang chạy từ `5f77e00`: preflight/gate/
+khớp trước/sau, fixture sạch. A02r6 đã chạy từ `5f77e00`: preflight/gate/
 dự toán đạt, supervisor bật trước ba kho ECR, manifest có đủ bảy pin v4 và
 Connection READY. Preview đã đạt, VPC/EKS đều READY trên AWS thật;
 cả năm module Terraform đã READY nhưng Workload backend FAILED trước khi tạo
