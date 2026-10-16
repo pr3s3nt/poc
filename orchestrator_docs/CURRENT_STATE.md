@@ -32,9 +32,13 @@ ba role, Vault riêng, private credential và ba nhãn ảnh đã dọn; 11 SLR 
 frontend/full checks. Thứ tự cleanup/định dạng lỗi AWS CLI đã merge
 `f918a76` → `45af080`: R12/R13 đạt 1.470/1.477 Go/race, 0 skip, 642 frontend
 và toàn bộ checks; hash khớp và fixture riêng vắng. Lượt mới
-`a02-20261016-r1` đang chạy từ `677f93e`: fresh preflight/gate/dự toán đạt,
-supervisor1369971 bật trước ECR, manifest bảy pin v4 đúng. Ba ECR/digest/tag
-đã xác minh cả index và native API; đang form browser.
+`a02-20261016-r1` từ `677f93e` đã dừng chủ động trước Preview/Deploy khi
+review phát hiện browser còn đòi chỉ mục tag rỗng dù native verifier đã chứng
+minh vắng. Supervisor CLEAN/CLOSED_CLEAN; tag trống, đúng ba ECR vắng,
+database/ba role/Vault/private vắng độc lập. Giữ FAIL và video. Writer sửa
+riêng kiểm chứng frontend, R14 đạt 649 frontend/41 file, type/lint/build/syntax/docs, nguồn trước/sau
+khớp; `fe1cc86` đã review/merge. Backend giữ nguyên R13. A02 mới
+`a02-20261016-r2` đã chuẩn bị và estimate-check đạt, chưa tạo tài nguyên.
 A03 chưa chạy.
 
 A02r5 đã khép `CLOSED_CLEAN` sau xác minh độc lập. Engine gốc đã destroy các

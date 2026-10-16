@@ -45,7 +45,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Hoàn tất; A01r4/E01r2/E02r3 PASS, SQL/video/cleanup xác minh |
-| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02 16-10 r1 đang chạy, R6 CLOSED_CLEAN/FAIL |
+| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02 16-10 r1 CLOSED_CLEAN/FAIL, kiểm bản sửa frontend R14 |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
 Dependencies triển khai: schema/state -> registry -> executor -> modules ->
@@ -121,15 +121,16 @@ mới trước/sau khớp. Container/network/credential fixture riêng vắng. C
 file mới được đưa vào commit qua checkout review byte-identical, không lặp
 commit các file R11 đã ghép. Writer đã đóng băng/idle, chưa có task code tiếp.
 
-A02 mới `a02-20261016-r1` đang chạy từ `677f93e`, PTY68929, config 0600
-`/tmp/poc-i0411-private/a02-20261016-r1.json`, evidence dự kiến
-`/home/thanhnt1/.m4/a02-20261016-r1`. Fresh preflight/gate/dự toán đạt;
-supervisorPID/PGID/SID1369971 bật trước ECR, manifest bảy pin v4/VPC digest
-và probe digests đúng. Ba ECR/digest/tag đã xác minh index/native, đang form
-browser; chưa Preview/Deploy ở mốc này. Database `i0410_bd26cddb7876`/ba role
-và Vault riêng còn phục vụ lượt; giữ handles/supervisor đến cleanup sạch.
-Observer chỉ đọc probe image PTY89626 đang chờ EKS handle; ECR observer94486
-đã đạt. Dự toán/count
+A02 `a02-20261016-r1` từ `677f93e` đã dừng chủ động trước Preview/Deploy:
+review thấy browser còn ép raw tag index rỗng, mâu thuẫn native absence đã
+chứng minh ở R6. Supervisor CLEAN/CLOSED_CLEAN, native đúng ba ECR vắng/tag
+trống; DB/ba role/Vault/private vắng độc lập. FAIL và video giữ nguyên ở
+`/home/thanhnt1/.m4/a02-20261016-r1/`. Writer Luna sửa riêng hai frontend file
+trong `/tmp/poc-i0412-cleanup-evidence`, R14 đạt 649 frontend/41 file, type/lint/build/syntax/docs/hash; `fe1cc86`
+đã review/merge. Backend giữ nguyên R13. Bài test chỉ khẳng định contract gọi verifier, không
+mạo nhận mô phỏng native AWS; ownership/typed API được kiểm trong R13.
+A02 mới `a02-20261016-r2` đã chuẩn bị, estimate-check đạt; chạy sau push.
+A03 chưa chạy. Dự toán/count
 manifest đủ bảy pin v4, 13 dòng/~2,129994 USD, estimate-check đạt. A03 mới
 `a03-20261016-r1` cũng chuẩn bị config/estimate, 13 dòng/~2,050679 USD, chưa
 chạy. Giá gốc ngày 14-10 còn trong cửa sổ kiểm tra, không phải hóa đơn.

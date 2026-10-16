@@ -19,8 +19,11 @@ R6 đã khép CLOSED_CLEAN operator sau fencing và original engine cleanup,
 native absence/SLR/28 UID/local teardown xác minh; giữ nguyên scenario FAIL.
 Bản sửa EKS đã merge; thứ tự cleanup/CLI error format `f918a76` → `45af080`
 đạt R13 1.477 Go/race/0 skip, 642 frontend/all checks/hash/fixture cleanup.
-A02 `a02-20261016-r1` đang chạy từ `677f93e`: preflight/gate/dự toán/ECR
-đạt, supervisor1369971 đã bật trước create, đang form browser. Các bản sửa có kiểm chứng độc lập trước chạy thật.
+A02 `a02-20261016-r1` từ `677f93e` dừng chủ động trước Preview/Deploy khi
+review thấy kiểm chứng browser còn đòi raw tag index rỗng. Supervisor CLEAN,
+CLOSED_CLEAN; native ECR/tag và local fixture vắng độc lập, FAIL/video giữ.
+Bản sửa frontend `fe1cc86` đã review/merge, R14 đạt 649 bài/41 file cùng
+type/lint/build/syntax/docs/hash. Backend không đổi R13. A02r2 đã chuẩn bị.
 A03 chưa chạy; chỉ chạy sau A02 dọn và query xác minh sạch.
 
 Quyết định2026-10-15: scenario thất bại thì tìm nguyên nhân, giao writer sửa,
