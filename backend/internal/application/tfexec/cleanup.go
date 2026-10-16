@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 
+	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfresource"
 	"orchestrator/internal/ports/persistence"
 )
@@ -322,38 +323,75 @@ func (s *Service) checkCleanup(ctx context.Context, req tfresource.CleanupReques
 	for id := range consumers {
 		sort.Strings(consumers[id])
 	}
-	// Reverse topological order: a resource comes after all its consumers.
-	order := []string{}
-	done := map[string]bool{}
 	ids := make([]string, 0, len(selected))
 	for id := range selected {
 		ids = append(ids, id)
 	}
-	sort.Strings(ids)
+	order, err := reverseTopologicalCleanupOrder(ids, consumers, func(id string) int {
+		return cleanupPriority(instances[id].Identity.Descriptor)
+	})
+	if err != nil {
+		return reject("the selection has a dependency cycle")
+	}
+	return cleanupOrder{destroyOrder: order, consumers: consumers}, nil
+}
+
+// reverseTopologicalCleanupOrder chooses among currently eligible leaves by
+// layer. Persisted consumer edges always take precedence over this preference.
+func reverseTopologicalCleanupOrder(ids []string, consumers map[string][]string, priority func(string) int) ([]string, error) {
+	remaining := map[string]bool{}
+	for _, id := range ids {
+		remaining[id] = true
+	}
+	order := make([]string, 0, len(ids))
 	for len(order) < len(ids) {
-		progressed := false
-		for _, id := range ids {
-			if done[id] {
-				continue
-			}
-			ready := true
-			for _, c := range consumers[id] {
-				if !done[c] {
-					ready = false
+		ready := make([]string, 0, len(remaining))
+		for id := range remaining {
+			blocked := false
+			for _, consumer := range consumers[id] {
+				if remaining[consumer] {
+					blocked = true
 					break
 				}
 			}
-			if ready {
-				done[id] = true
-				order = append(order, id)
-				progressed = true
+			if !blocked {
+				ready = append(ready, id)
 			}
 		}
-		if !progressed {
-			return reject("the selection has a dependency cycle")
+		if len(ready) == 0 {
+			return nil, errors.New("dependency cycle")
 		}
+		sort.Slice(ready, func(i, j int) bool {
+			pi, pj := priority(ready[i]), priority(ready[j])
+			if pi != pj {
+				return pi < pj
+			}
+			return ready[i] < ready[j]
+		})
+		next := ready[0]
+		order = append(order, next)
+		delete(remaining, next)
 	}
-	return cleanupOrder{destroyOrder: order, consumers: consumers}, nil
+	return order, nil
+}
+
+// cleanupPriority applies the acceptance layer preference only to independent
+// resources. Unknown resource types are application resources.
+func cleanupPriority(descriptor string) int {
+	d, err := resource.ParseDescriptor(descriptor)
+	if err != nil {
+		return 0
+	}
+	switch d.Type {
+	case "k8s-namespace":
+		return 1
+	case "k8s-cluster":
+		return 2
+	case "vpc":
+		return 3
+	default:
+		return 0
+	}
 }
 
 // checkOwnership applies the authorization-specific ownership rule.
