@@ -39,7 +39,8 @@ database/ba role/Vault/private vắng độc lập. Giữ FAIL và video. Writer
 riêng kiểm chứng frontend, R14 đạt 649 frontend/41 file, type/lint/build/syntax/docs, nguồn trước/sau
 khớp; `fe1cc86` đã review/merge. Backend giữ nguyên R13. A02 mới
 `a02-20261016-r2` đang chạy từ `b083d97`, PTY75088: preflight/gate/dự toán
-đạt; supervisor1506784 bật trước ba ECR, native/index khớp. Đang form browser.
+đạt; supervisor1506784 bật trước ba ECR, native/index khớp. Ba deployment SUCCEEDED, 28 assertion job/cache/TTL/refill/reload đạt;
+đang chuyển cleanup, chưa ghi toàn lượt PASS.
 A03 chưa chạy.
 
 A02r5 đã khép `CLOSED_CLEAN` sau xác minh độc lập. Engine gốc đã destroy các
