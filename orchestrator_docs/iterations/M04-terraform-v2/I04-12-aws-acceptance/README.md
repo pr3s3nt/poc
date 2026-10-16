@@ -23,7 +23,8 @@ A02 `a02-20261016-r1` từ `677f93e` dừng chủ động trước Preview/Deplo
 review thấy kiểm chứng browser còn đòi raw tag index rỗng. Supervisor CLEAN,
 CLOSED_CLEAN; native ECR/tag và local fixture vắng độc lập, FAIL/video giữ.
 Bản sửa frontend `fe1cc86` đã review/merge, R14 đạt 649 bài/41 file cùng
-type/lint/build/syntax/docs/hash. Backend không đổi R13. A02r2 đã chuẩn bị.
+type/lint/build/syntax/docs/hash. Backend không đổi R13. A02 `a02-20261016-r2` đang chạy từ `b083d97`, supervisor1506784 đã bật
+trước ECR; preflight/gate/dự toán/ECR index-native đạt, đang form browser.
 A03 chưa chạy; chỉ chạy sau A02 dọn và query xác minh sạch.
 
 Quyết định2026-10-15: scenario thất bại thì tìm nguyên nhân, giao writer sửa,

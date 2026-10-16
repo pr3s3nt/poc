@@ -129,7 +129,10 @@ trống; DB/ba role/Vault/private vắng độc lập. FAIL và video giữ nguy
 trong `/tmp/poc-i0412-cleanup-evidence`, R14 đạt 649 frontend/41 file, type/lint/build/syntax/docs/hash; `fe1cc86`
 đã review/merge. Backend giữ nguyên R13. Bài test chỉ khẳng định contract gọi verifier, không
 mạo nhận mô phỏng native AWS; ownership/typed API được kiểm trong R13.
-A02 mới `a02-20261016-r2` đã chuẩn bị, estimate-check đạt; chạy sau push.
+A02 mới `a02-20261016-r2` đang chạy từ `b083d97`, PTY75088, supervisor
+PID/PGID/SID1506784 bật trước ECR; preflight/gate/estimate và native/index
+ba ECR đạt. Database `i0410_feec347607a2`/ba role, Vault PID1503081 đang phục
+vụ lượt; private handles giữ đến cleanup sạch. Probe observer PTY57934 chờ EKS.
 A03 chưa chạy. Dự toán/count
 manifest đủ bảy pin v4, 13 dòng/~2,129994 USD, estimate-check đạt. A03 mới
 `a03-20261016-r1` cũng chuẩn bị config/estimate, 13 dòng/~2,050679 USD, chưa
