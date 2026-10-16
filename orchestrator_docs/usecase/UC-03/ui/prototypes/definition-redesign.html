@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cấu hình tài nguyên · Bản thiết kế #4</title>
+<style>
+:root{color-scheme:light;--bg:#f6f8fa;--line:#d0d7de;--ink:#1f2328;--muted:#656d76;--blue:#0969da;--green:#1f883d;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.55}button,input,select,textarea{font:inherit}button,summary{cursor:pointer}button{padding:8px 13px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font-weight:600}button:hover{background:#eef2f6}button:disabled{opacity:.5;cursor:default}button.primary{background:var(--green);color:#fff;border-color:var(--green)}button.quiet{background:transparent;color:var(--blue)}:focus-visible{outline:3px solid #54aeff;outline-offset:2px}[hidden]{display:none!important}.shell{display:grid;grid-template-columns:222px minmax(0,1fr);min-height:100vh}.sidebar{background:#0d1f38;color:#c9d1d9;padding:27px 17px}.brand{font-size:19px;font-weight:750;color:#fff;margin:0 8px 36px}.brand span{color:#54aeff}.nav-caption{font-size:11px;letter-spacing:.12em;margin:24px 10px 10px;color:#8b949e}.nav-item{display:block;width:100%;text-align:left;border:0;background:transparent;color:#c9d1d9;margin:4px 0;padding:10px}.nav-item.active{background:#263b51;color:#fff}.sidebar small{display:block;margin:34px 10px;color:#a5b4c4}.page{padding:30px 36px 60px;max-width:1520px;margin:auto}.crumb{font-size:12px;color:var(--muted)}h1{font-size:29px;line-height:1.25;margin:10px 0}h2{font-size:18px;margin:0 0 5px}h3{font-size:14px;margin:0 0 10px}p{margin:6px 0 14px}.muted,small{color:var(--muted)}small{font-size:12px;font-weight:400}.topline,.actions,.section-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}.badge{display:inline-block;padding:3px 9px;border:1px solid #bf8700;background:#fff8c5;border-radius:20px;font-size:11px;white-space:nowrap;color:#7d4e00}.notice{background:#ddf4ff;border:1px solid #b6e3ff;border-radius:6px;padding:11px 14px;margin:20px 0}.layout{display:grid;grid-template-columns:minmax(0,1fr) 292px;gap:22px;align-items:start}.panel{background:#fff;border:1px solid var(--line);border-radius:8px;padding:22px;margin-bottom:18px}.panel-head{display:flex;gap:12px;margin-bottom:20px}.step{width:26px;height:26px;flex-shrink:0;border-radius:50%;background:#ddf4ff;color:#0550ae;display:grid;place-items:center;font-size:12px;font-weight:700}.panel-head p{margin:3px 0 0;color:var(--muted);font-size:13px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}label{display:grid;gap:6px;font-size:13px;font-weight:600;min-width:0}input:not([type=checkbox]),select,textarea{width:100%;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}textarea{font-family:ui-monospace,monospace;font-size:12px;resize:vertical}input[type=checkbox]{accent-color:var(--blue)}.rule{background:#f6f8fa;border:1px solid #d8dee4;border-radius:6px;padding:16px;margin:12px 0}.rule-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.rule-header button{font-size:12px;padding:3px 8px}.or{font-size:11px;font-weight:750;color:var(--blue);letter-spacing:.05em}details{margin-top:14px}summary{font-size:13px;font-weight:600;color:var(--blue)}details .grid,details textarea{margin-top:12px}.separator{border-top:1px solid #d8dee4;margin:18px 0}.hint{font-size:12px;color:var(--muted);margin-top:8px}.chip{font-size:11px;background:#eef2f6;border-radius:4px;padding:3px 7px;display:inline-block;margin:3px 3px 3px 0}.summary{position:sticky;top:20px}.summary h2{font-size:16px}.summary .row{margin:14px 0}.summary .row small{display:block}.summary strong{overflow-wrap:anywhere}.summary p{font-size:13px;overflow-wrap:anywhere}.summary button{width:100%;margin-top:8px}.flow{padding:12px;background:#f6f8fa;border-radius:6px;font-size:12px;line-height:1.8}.status{border-radius:6px;padding:12px;margin-top:12px;font-size:13px;background:#f6f8fa;border:1px solid var(--line);white-space:pre-line;overflow-wrap:anywhere}.status.good{background:#dafbe1;border-color:#aceebb;color:#116329}.status.warn{background:#fff8c5;border-color:#d4a72c;color:#7d4e00}.status.bad{background:#ffebe9;border-color:#ff8182;color:#82071e}.inline{display:flex;gap:8px;align-items:center}.preset{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.preset button{font-size:12px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:11px 8px;border-bottom:1px solid #d8dee4;vertical-align:top}th{color:var(--muted);font-size:12px}code{font-size:12px;overflow-wrap:anywhere}.table-wrap{overflow:auto}.footer{font-size:12px;color:var(--muted);text-align:center;margin:26px 0 0}.target{border-left:3px solid #54aeff;padding:10px 12px;background:#f6f8fa;margin-top:14px}.connection-card{display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid var(--line);gap:20px}.connection-card label{width:190px}.connection-card small{display:block}.section-heading{margin-bottom:14px}dialog{border:1px solid var(--line);border-radius:10px;max-width:720px;width:calc(100% - 32px);padding:24px}dialog::backdrop{background:#0d1f3880}dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f6f8fa;padding:16px;max-height:55vh;overflow:auto;font-size:12px}
+@media(max-width:1150px){.shell{grid-template-columns:185px minmax(0,1fr)}.page{padding:24px}.layout{grid-template-columns:minmax(0,1fr)}.summary{position:static}.grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.shell{display:block}.sidebar{padding:12px 16px}.brand{margin:0 0 10px}.nav-caption,.sidebar small{display:none}.sidebar nav{display:flex;gap:8px}.nav-item{font-size:12px;width:auto;margin:0}.page{padding:18px 12px}.grid,.grid.three{grid-template-columns:1fr}.panel{padding:17px}.topline{align-items:flex-start}h1{font-size:25px}.connection-card{align-items:flex-start;flex-direction:column}.connection-card label{width:100%}.preset button{flex:1}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar"><div class="brand"><span>◈</span> Orchestrator</div><div class="nav-caption">NỀN TẢNG</div><nav aria-label="Điều hướng bản thiết kế"><button class="nav-item active" id="navDefinitions" aria-current="page">Cấu hình tài nguyên</button><button class="nav-item" id="navConnections">Kết nối</button></nav><small>Tổ chức minh họa<br><b>Platform Engineering</b></small></aside>
+<main class="page">
+<div class="topline"><div class="crumb">Nền tảng / <span id="breadcrumb">Cấu hình tài nguyên</span></div><span class="badge">ĐỀ XUẤT · ISSUE #4</span></div>
+<div class="notice">Bản thiết kế tương tác để xem trước. Dữ liệu minh họa, xử lý tại trình duyệt; chưa lưu cấu hình hay gọi máy chủ.</div>
+<section id="definitionsView">
+<h1>Đăng ký cấu hình tài nguyên</h1><p class="muted">Quy định khi nào dùng một cấu hình và cách tạo tài nguyên tương ứng.</p>
+<div class="preset" aria-label="Ví dụ cấu hình"><button data-preset="internal">Ví dụ: Redis nội bộ</button><button data-preset="eks">Ví dụ: Redis trên EKS</button><button data-preset="managed">Ví dụ: Redis được quản lý</button></div>
+<div class="layout"><div>
+<section class="panel"><div class="panel-head"><span class="step">1</span><div><h2>Định danh</h2><p>Tên duy nhất để quản lý cấu hình này.</p></div></div><label>ID cấu hình<input id="definitionId" value="redis-noi-bo" autocomplete="off" spellcheck="false"><small>Ví dụ: redis-noi-bo, redis-production. Chữ thường, số và dấu gạch ngang.</small></label></section>
+<section class="panel"><div class="panel-head"><span class="step">2</span><div><h2>Khi nào dùng</h2><p>Tất cả điều kiện chọn cấu hình nằm ở đây.</p></div></div>
+<div class="grid"><label>Loại tài nguyên<select id="resourceType"><option value="redis">redis</option><option value="postgres">postgres</option></select></label><label>Nhóm triển khai<select id="deploymentGroup"></select><small>Lấy từ Connection gắn với môi trường.</small></label></div>
+<div class="separator"></div><h3>Điều kiện áp dụng <small>Matching Criteria</small></h3><p class="hint">Trong một dòng: các điều kiện kết hợp bằng VÀ. Giữa các dòng: HOẶC. Ô trống nghĩa là bất kỳ.</p>
+<div id="rules"></div><button id="addRule" type="button">+ Thêm điều kiện thay thế</button>
+<p class="hint">Loại tài nguyên và nhóm triển khai được lọc trước. Năm trường matching giữ quy tắc ưu tiên hiện tại.</p>
+</section>
+<section class="panel"><div class="panel-head"><span class="step">3</span><div><h2>Tạo bằng cách nào</h2><p>Module được thực thi sau khi cấu hình này được chọn.</p></div></div>
+<label>Module Terraform<select id="module"></select></label><p class="hint">Danh mục module minh họa. Bản thật hiển thị phiên bản và nguồn đã kiểm chứng từ registry.</p>
+<div class="target"><label>Đích provider<select id="providerTarget"><option value="environment">Cluster từ Connection của môi trường</option><option value="eks-resource">Cluster do tài nguyên EKS cung cấp</option></select></label><p class="hint" id="targetHint"></p><label id="clusterRefLabel">Tham chiếu tài nguyên EKS<input id="clusterRef" value="k8s-cluster.default#@infra" spellcheck="false"></label></div>
+<div id="compatibility" role="status"></div>
+<details><summary>Ánh xạ đầu vào / đầu ra</summary><p class="hint">Ví dụ rút gọn. Bản thật giữ trình nhập biểu mẫu và JSON, kiểm tra schema và cờ bí mật.</p><div class="table-wrap"><table><thead><tr><th>Hướng</th><th>Trường module</th><th>Trường tài nguyên</th></tr></thead><tbody><tr><td>Đầu ra</td><td>host</td><td>host</td></tr><tr><td>Đầu ra</td><td>port</td><td>port</td></tr><tr><td>Đầu ra · bí mật</td><td>password</td><td>password · giữ bí mật</td></tr></tbody></table></div></details>
+<details><summary>Tham số cấu hình</summary><p class="hint">Thử ghi đè tham số bằng JSON. Chỉ dùng dữ liệu minh họa, không nhập thông tin kết nối.</p><label>Tham số ghi đè (JSON)<textarea id="parameters" rows="4" spellcheck="false">{}</textarea></label></details>
+<details><summary>Tài nguyên đi kèm và phụ thuộc</summary><p class="hint">Giữ descriptor, params, is_dependent và match_dependents. Ví dụ Redis trên EKS cần đồ thị phụ thuộc tới cluster và namespace.</p><label>Quy tắc tài nguyên đi kèm (JSON)<textarea id="provision" rows="5" spellcheck="false">{}</textarea></label></details>
+</section>
+<section class="panel"><div class="panel-head"><span class="step">✓</span><div><h2>Thử điều kiện với một ngữ cảnh</h2><p>Mô phỏng matching trên dữ liệu mẫu; bản thật kiểm tra trên máy chủ.</p></div></div>
+<div class="grid"><label>Ứng dụng thử<select id="sampleApp"><option value="shop">shop</option><option value="orders">orders</option></select></label><label>Môi trường thử<select id="sampleEnv"><option value="staging">staging</option><option value="production">production</option></select></label><label>Connection của môi trường thử<select id="sampleConnection"></select><small>Chỉ đổi dữ liệu ví dụ; bản thật đọc Connection từ môi trường.</small></label><label>Class thử<input id="sampleClass" value="in-cluster"></label><label>ID tài nguyên thử<input id="sampleResource" value="cache"></label><label>Loại môi trường thử<input id="sampleEnvType" value="staging"></label></div>
+<div class="separator"></div><label class="inline"><input type="checkbox" id="simulateTie">Thêm một Definition mẫu cùng điểm để thử xung đột</label><p class="hint">Danh mục mẫu chỉ gồm bản nháp này và bản trùng khi bật lựa chọn trên. Không chứng minh kết quả cho toàn bộ hệ thống.</p><button id="check" type="button">Thử matching · dữ liệu mẫu</button><div id="result" class="status" aria-live="polite">Chưa kiểm tra ngữ cảnh này.</div>
+</section>
+</div>
+<aside class="panel summary" aria-label="Tóm tắt cấu hình"><h2>Tóm tắt cấu hình</h2><div class="row"><small>ID</small><strong id="summaryId"></strong></div><div class="row"><small>Áp dụng cho</small><strong id="summaryScope"></strong></div><div id="summaryRules"></div><div class="row"><small>Tạo bằng</small><strong id="summaryModule"></strong></div><div class="flow">Môi trường → Connection → nhóm triển khai<br>↓<br>Lọc loại tài nguyên + nhóm<br>↓<br>Matching chọn Definition<br>↓<br>Thực thi module</div><button id="reviewDraft" class="primary">Xem bản nháp</button><small>Chỉ xem cấu trúc đề xuất. Không đăng ký hay triển khai tài nguyên.</small></aside>
+</div>
+</section>
+<section id="connectionsView" hidden><h1>Kết nối và nhóm triển khai</h1><p class="muted">Nhiều Connection có thể cùng một nhóm. Nhóm triển khai khác với kiểu kết nối kỹ thuật.</p><div class="panel"><h2>Danh mục nhóm</h2><p class="hint">Danh mục dùng chung cho Connection và Definition. Thêm nhóm chỉ minh họa phân loại; không tự bổ sung hỗ trợ provider mới.</p><div class="grid"><label>Tên nhóm mới<input id="newGroup" placeholder="Ví dụ: Cloud thử nghiệm" maxlength="50"></label><div class="actions" style="justify-content:flex-start;align-items:end"><button id="addGroup">+ Thêm nhóm minh họa</button></div></div><div id="groupFeedback" role="status" class="hint"></div></div><div class="panel"><h2>Connection minh họa</h2><div id="connections"></div><div class="notice">Ví dụ: Connection AWS có thể cấp EKS. Module redis-k8s vẫn chạy được trên cluster EKS đó khi đích provider trỏ tới tài nguyên EKS.</div></div><button id="backToDefinitions">← Quay lại cấu hình tài nguyên</button></section>
+<p class="footer">Bản đề xuất #4 · 16/10/2026 · Nội dung chưa thay thế thiết kế hoặc API hiện hành</p>
+</main></div>
+<dialog id="draftDialog"><div class="section-heading"><h2>Bản nháp minh họa</h2><button id="closeDialog" aria-label="Đóng bản nháp">Đóng</button></div><p class="hint">Cấu trúc phục vụ thảo luận UI, chưa phải hợp đồng API. deploymentGroup là đề xuất mở rộng.</p><pre id="draftJSON"></pre></dialog>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const groups=[{id:'internal',name:'Nội bộ'},{id:'aws',name:'AWS'}];
+const connections=[{id:'kind-local',kind:'Kubernetes',group:'internal'},{id:'aws-production',kind:'AWS',group:'aws'},{id:'company-cluster',kind:'Kubernetes',group:'internal'}];
+const modules={redis:[{id:'redis-k8s',provider:'kubernetes'},{id:'elasticache',provider:'aws'}],postgres:[{id:'postgres-k8s',provider:'kubernetes'},{id:'aurora',provider:'aws'}]};
+const fieldNames={app_id:'ứng dụng',env_id:'môi trường',class:'class',env_type:'loại môi trường',res_id:'ID tài nguyên'};
+const weights={env_type:1,app_id:2,env_id:4,res_id:8,class:16};
+let rules=[{app_id:'',env_id:'staging',class:'in-cluster',env_type:'',res_id:''}];
+let revision=0;
+const blankRule=()=>({app_id:'',env_id:'',class:'',env_type:'',res_id:''});
+function option(value,label){return new Option(label,value)}
+function populate(select,items,value){select.replaceChildren(...items.map(x=>option(x.id,x.name||x.id)));select.value=value;if(select.selectedIndex<0)select.selectedIndex=0}
+function groupName(id){return groups.find(g=>g.id===id)?.name||id}
+function currentModule(){return modules[$('resourceType').value].find(m=>m.id===$('module').value)}
+function invalidate(){revision++;$('result').className='status';$('result').textContent='Chưa kiểm tra hoặc dữ liệu đã thay đổi. Hãy thử matching lại.'}
+function update(){
+ $('summaryId').textContent=$('definitionId').value||'Chưa đặt ID';
+ $('summaryScope').textContent=$('resourceType').value+' · '+groupName($('deploymentGroup').value);
+ $('summaryModule').textContent=$('module').value;
+ $('summaryRules').replaceChildren(...rules.map((r,i)=>{const p=document.createElement('p');p.textContent=(i?'HOẶC: ':'Khi: ')+(Object.entries(r).filter(([,v])=>v.trim()).map(([k,v])=>fieldNames[k]+' = '+v.trim()).join(' VÀ ')||'Bất kỳ ngữ cảnh nào');return p}));
+ const m=currentModule(),aws=m.provider==='aws';
+ $('providerTarget').disabled=aws;
+ if(aws){$('providerTarget').value='environment';$('providerTarget').options[0].textContent='Connection AWS của môi trường'}else $('providerTarget').options[0].textContent='Cluster từ Connection của môi trường';
+ $('clusterRefLabel').hidden=aws||$('providerTarget').value!=='eks-resource';
+ $('targetHint').textContent=aws?'Tài khoản và vùng lấy từ Connection của môi trường.':'Chọn cluster có sẵn hoặc tham chiếu cluster EKS. Kiểu provider Kubernetes không đồng nghĩa với nhóm Nội bộ.';
+ $('compatibility').className='status';$('compatibility').textContent='Tính hợp lệ của module và đích provider cần được bản thật kiểm tra theo Connection và đồ thị phụ thuộc. Nhóm chỉ dùng để phân loại.';
+ invalidate();
+}
+function drawRules(){
+ $('rules').replaceChildren();
+ rules.forEach((r,i)=>{
+  const box=document.createElement('div');box.className='rule';
+  const header=document.createElement('div');header.className='rule-header';
+  const title=document.createElement('strong');title.textContent=(i?'HOẶC · ':'')+'Điều kiện '+(i+1);header.append(title);
+  if(rules.length>1){const remove=document.createElement('button');remove.textContent='Xóa dòng';remove.setAttribute('aria-label','Xóa điều kiện '+(i+1));remove.onclick=()=>{rules.splice(i,1);drawRules();update()};header.append(remove)}
+  box.append(header);const main=document.createElement('div');main.className='grid three';
+  const advanced=document.createElement('details');advanced.open=!!(r.env_type||r.res_id);const summary=document.createElement('summary');summary.textContent='Điều kiện nâng cao'+(advanced.open?' · đang sử dụng':'');advanced.append(summary);const more=document.createElement('div');more.className='grid';advanced.append(more);
+  for(const [key,label] of [['app_id','Ứng dụng'],['env_id','Môi trường'],['class','Class tài nguyên'],['env_type','Loại môi trường (env_type)'],['res_id','ID tài nguyên (res_id)']]){
+   const wrapper=document.createElement('label');wrapper.append(document.createTextNode(label));let input;
+   if(key==='app_id'||key==='env_id'){input=document.createElement('select');const values=key==='app_id'?['shop','orders']:['staging','production'];input.append(option('','Bất kỳ'),...values.map(v=>option(v,v)))}else{input=document.createElement('input');input.placeholder=key==='class'?'Bất kỳ · ví dụ in-cluster':'Bất kỳ'}
+   input.value=r[key];input.setAttribute('aria-label',label+' · điều kiện '+(i+1));input.addEventListener('input',()=>{r[key]=input.value;update()});wrapper.append(input);(key==='env_type'||key==='res_id'?more:main).append(wrapper);
+  }
+  const hint=document.createElement('p');hint.className='hint';hint.textContent='Loại môi trường gom nhiều môi trường cùng mục đích. ID tài nguyên chọn riêng một tài nguyên logic, không phải ID cấu hình.';advanced.append(hint);box.append(main,advanced);$('rules').append(box);
+ });
+}
+function drawConnections(){
+ $('connections').replaceChildren();
+ connections.forEach(c=>{const row=document.createElement('div');row.className='connection-card';const text=document.createElement('div');const name=document.createElement('strong');name.textContent=c.id;const kind=document.createElement('small');kind.textContent='Kiểu kết nối kỹ thuật: '+c.kind;text.append(name,kind);const label=document.createElement('label');label.textContent='Nhóm triển khai';const select=document.createElement('select');select.setAttribute('aria-label','Nhóm của '+c.id);populate(select,groups,c.group);select.onchange=()=>{c.group=select.value;invalidate()};label.append(select);row.append(text,label);$('connections').append(row)});
+ populate($('sampleConnection'),connections,$('sampleConnection').value||'kind-local');
+}
+function setModules(){populate($('module'),modules[$('resourceType').value],$('module').value);update()}
+function setPreset(name){
+ $('resourceType').value='redis';populate($('module'),modules.redis,name==='managed'?'elasticache':'redis-k8s');
+ $('definitionId').value={internal:'redis-noi-bo',eks:'redis-tren-eks',managed:'redis-duoc-quan-ly'}[name];
+ $('deploymentGroup').value=name==='internal'?'internal':'aws';$('providerTarget').value=name==='eks'?'eks-resource':'environment';
+ const env=name==='internal'?'staging':'production',cls=name==='managed'?'managed':'in-cluster';
+ rules=[{...blankRule(),env_id:env,class:cls}];$('sampleEnv').value=env;$('sampleEnvType').value=env;$('sampleClass').value=cls;$('sampleConnection').value=name==='internal'?'kind-local':'aws-production';$('simulateTie').checked=false;
+ $('parameters').value='{}';$('provision').value='{}';drawRules();update();
+}
+function validateJSON(id){try{const x=JSON.parse($(id).value);if(!x||Array.isArray(x)||typeof x!=='object')throw Error();return x}catch{return null}}
+function draft(){return {prototypeOnly:true,id:$('definitionId').value,resourceType:$('resourceType').value,deploymentGroup:$('deploymentGroup').value,criteria:rules.map(r=>Object.fromEntries(Object.entries(r).filter(([,v])=>v.trim()).map(([k,v])=>[k,v.trim()]))),module:$('module').value,providerTarget:$('providerTarget').value,...($('providerTarget').value==='eks-resource'?{clusterResourceRef:$('clusterRef').value}:{}),parameters:validateJSON('parameters'),provision:validateJSON('provision')}}
+function showView(connectionsView){$('connectionsView').hidden=!connectionsView;$('definitionsView').hidden=connectionsView;$('breadcrumb').textContent=connectionsView?'Kết nối':'Cấu hình tài nguyên';for(const [id,on]of[['navDefinitions',!connectionsView],['navConnections',connectionsView]]){$(id).classList.toggle('active',on);if(on)$(id).setAttribute('aria-current','page');else $(id).removeAttribute('aria-current')}window.scrollTo(0,0)}
+$('navDefinitions').onclick=$('backToDefinitions').onclick=()=>showView(false);$('navConnections').onclick=()=>showView(true);
+$('addGroup').onclick=()=>{const name=$('newGroup').value.trim();if(!name){$('groupFeedback').textContent='Nhập tên nhóm.';return}if(groups.some(g=>g.name.toLocaleLowerCase()===name.toLocaleLowerCase())){$('groupFeedback').textContent='Tên nhóm đã tồn tại.';return}groups.push({id:'custom-'+groups.length,name});populate($('deploymentGroup'),groups,$('deploymentGroup').value);drawConnections();$('newGroup').value='';$('groupFeedback').textContent='Đã thêm nhóm minh họa: '+name;update()};
+$('addRule').onclick=()=>{rules.push(blankRule());drawRules();update()};
+$('resourceType').onchange=setModules;$('module').onchange=update;$('deploymentGroup').onchange=update;$('providerTarget').onchange=update;
+for(const id of ['definitionId','clusterRef','parameters','provision'])$(id).addEventListener('input',update);
+for(const id of ['sampleApp','sampleEnv','sampleConnection','sampleClass','sampleResource','sampleEnvType','simulateTie'])$(id).addEventListener('input',invalidate);
+$('sampleEnv').addEventListener('change',()=>{$('sampleEnvType').value=$('sampleEnv').value;invalidate()});
+document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>setPreset(b.dataset.preset));
+$('check').onclick=()=>{
+ const result=$('result'),ctx={app_id:$('sampleApp').value,env_id:$('sampleEnv').value,class:$('sampleClass').value.trim(),res_id:$('sampleResource').value.trim(),env_type:$('sampleEnvType').value.trim()};
+ const finish=(kind,text)=>{result.className='status '+kind;result.textContent=text};
+ if(Object.values(ctx).some(v=>!v))return finish('warn','Cần nhập đủ ngữ cảnh thử để đánh giá matching.');
+ const conn=connections.find(c=>c.id===$('sampleConnection').value);
+ if(conn.group!==$('deploymentGroup').value)return finish('warn','Không khớp nhóm triển khai: Connection thuộc '+groupName(conn.group)+', cấu hình dành cho '+groupName($('deploymentGroup').value)+'.');
+ const scores=rules.filter(r=>Object.entries(r).every(([k,v])=>!v.trim()||v.trim()===ctx[k])).map(r=>Object.entries(r).reduce((s,[k,v])=>s+(v.trim()?weights[k]:0),0));
+ if(!scores.length)return finish('warn','Không có điều kiện nào khớp ngữ cảnh thử.');
+ const score=Math.max(...scores);
+ if($('simulateTie').checked)return finish('bad','Xung đột: bản nháp và Definition mẫu cùng điểm '+score+'. Không tự chọn một cấu hình.');
+ finish('good','Trong danh mục mẫu, bản nháp được chọn với điểm '+score+'.\nKết quả chỉ kiểm matching; chưa xác minh module, tham số hoặc đồ thị provider.');
+};
+$('reviewDraft').onclick=()=>{const data=draft();if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.id)){$('draftJSON').textContent='ID cấu hình chưa hợp lệ.'}else if(data.parameters===null||data.provision===null){$('draftJSON').textContent='Tham số và tài nguyên đi kèm phải là JSON object hợp lệ.'}else $('draftJSON').textContent=JSON.stringify(data,null,2);$('draftDialog').showModal()};$('closeDialog').onclick=()=>$('draftDialog').close();
+populate($('deploymentGroup'),groups,'internal');drawConnections();setPreset('internal');
+</script>
+</body>
+</html>
