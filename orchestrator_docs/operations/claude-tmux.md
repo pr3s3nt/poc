@@ -42,7 +42,9 @@ không chạy cluster/AWS, không sửa docs hoặc commit/push. Codex chạy th
 Nếu Claude local báo hết hạn mức, giữ evidence và chuyển việc code/test còn
 lại cho agent Codex với model **gpt-6-luna**, theo quyền người dùng đã cấp.
 Codex điều phối vẫn review và chạy kiểm tra độc lập, không đổi sang model khác.
-Nhịp theo dõi 15 phút, kiểm sớm khi lỗi/hoàn tất; chỉ dọn session task sau
+Nhịp theo dõi 15 phút, kiểm sớm khi lỗi/hoàn tất; quyết định 2026-10-16
+áp dụng cả lượt chạy thật AWS/Kubernetes, supervisor vẫn chạy độc lập và
+không gửi cập nhật lặp lại khi chờ; chỉ dọn session task sau
 lưu handoff. Giữ nguyên source order, nghiệm thu, zero-skip và cleanup.
 
 ## Playwright recording cho task code/test có browser flow

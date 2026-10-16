@@ -836,3 +836,11 @@ fullchecks/sourcehash/fixturecleanup đạt; hồi quy Terraform CLI thật. A02
 đã khép sau verifier gốc và đối chiếu EC2/SLR/SQL/Vault; chuẩn bị A02r6.
 IMP-021 vẫn mở vì A02/A03 job/cache live chưa đạt; D12–D14 không đổi.
 Bằng chứng VERIFY-I04-12-20261015.
+
+
+A02 `a02-20261016-r2` đã đạt35assertion/8mốc, ba deploymentSUCCEEDED,
+job/cache/Aurora/ElastiCache/TTL/refill/reload thật, SQLreopen, video,
+secret scan, runnerPASS/exit0/CLOSED_CLEAN và supervisorCLEAN. DB/roles/
+Vault/private vắng,28UID/11SLR giữ. Evidence trong
+[biên bản I04-12](../verification/2026-10-15-i04-12-aws.md).
+IMP-021 vẫn mở vì A03 chưa chạy; D12–D14 không đổi.

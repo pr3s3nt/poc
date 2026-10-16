@@ -10,23 +10,15 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 3 hiện hành; xem [M04](../README.md). I04-11 đã đạt đủba scenario,
-video/SQL/cleanup độc lập và dự toán. AWS gate cùng10kiểm tra preflight chỉ
-đọc A02 đạt. A02r1–r5 giữ kết quả FAIL và đã dọn sạch. A02r6 đang chạy từ
-`5f77e00` sau bản sửa VPC v4/list và đầy đủ pin: Preview và cả năm module
-Terraform đạt READY, Workload lỗi credential trước tạo object trên EKS.
-R6 đã khép CLOSED_CLEAN operator sau fencing và original engine cleanup,
-native absence/SLR/28 UID/local teardown xác minh; giữ nguyên scenario FAIL.
-Bản sửa EKS đã merge; thứ tự cleanup/CLI error format `f918a76` → `45af080`
-đạt R13 1.477 Go/race/0 skip, 642 frontend/all checks/hash/fixture cleanup.
-A02 `a02-20261016-r1` từ `677f93e` dừng chủ động trước Preview/Deploy khi
-review thấy kiểm chứng browser còn đòi raw tag index rỗng. Supervisor CLEAN,
-CLOSED_CLEAN; native ECR/tag và local fixture vắng độc lập, FAIL/video giữ.
-Bản sửa frontend `fe1cc86` đã review/merge, R14 đạt 649 bài/41 file cùng
-type/lint/build/syntax/docs/hash. Backend không đổi R13. A02 `a02-20261016-r2` đang chạy từ `b083d97`, supervisor1506784 đã bật
-trước ECR; preflight/gate/dự toán/ECR index-native đạt. Ba deployment SUCCEEDED, 28 assertion job/cache/TTL/refill/reload đạt;
-đang chuyển cleanup, chưa ghi toàn lượt PASS.
-A03 chưa chạy; chỉ chạy sau A02 dọn và query xác minh sạch.
+Chặng 3 hiện hành; I04-11 đạt đủ A01/E01/E02, video/SQL/cleanup độc lập.
+A02 `a02-20261016-r2` từ `b083d97` đạt 35 assertion/8 mốc, ba deployment
+SUCCEEDED, SQL reopen, secret scan, video phụ đề 6677,13giây; runner exit0,
+PASS/CLOSED_CLEAN, supervisor CLEAN/tám bước DONE. DB/ba role/Vault/private
+vắng độc lập; 28 UID/11 SLR giữ. Sáu lớp native verifier và video full decode exit0 đều đạt độc lập. A03 chưa chạy, estimate-check13dòng/~2,05USD
+đạt. Lượt FAIL cũ và evidence giữ nguyên, không đổi verdict lịch sử.
+Theo dõi lượt chạy thật15phút/lần theo quyết định2026-10-16; supervisor độc
+lập vẫn chạy. Bản sửa mới nhất frontend `fe1cc86`, R14 đạt649/41file/fullFE/
+syntax/docs/hash; backend nguyên R13 1477Go/race0skip.
 
 Quyết định2026-10-15: scenario thất bại thì tìm nguyên nhân, giao writer sửa,
 review/checks rồi chạy lại sau cleanup sạch; bỏ giới hạn một retry. Không dừng

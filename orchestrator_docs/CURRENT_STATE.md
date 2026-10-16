@@ -10,38 +10,20 @@ last_reviewed: 2026-10-16
 ## M04 — trạng thái hiện tại ngày 2026-10-16
 
 I04-01..10 đã hoàn tất code và kiểm tra local. **I04-11 đã đạt** A01/E01/E02
-trên k8s-4f với adapter thật, video, SQL sau khởi động lại và cleanup độc lập.
-I04-12 đang thực hiện: A02r5 đã qua đầy đủ Preview và tạo VPC thật, nhưng
-thất bại ở OUTPUT_CONTRACT. Hai output subnet thực tế là tuple, trái kiểu
-list suy ra từ module. Bản sửa `bcabb40` đã review/merge: `tolist`, release v4 và đủ bảy pin module.
-R9 đạt 1.408 Go/race, 642 frontend và toàn bộ checks, không bỏ qua; nguồn
-khớp trước/sau, fixture sạch. A02r6 đã chạy từ `5f77e00`: preflight/gate/
-dự toán đạt, supervisor bật trước ba kho ECR, manifest có đủ bảy pin v4 và
-Connection READY. Preview đã đạt, VPC/EKS đều READY trên AWS thật;
-cả năm module Terraform đã READY nhưng Workload backend FAILED trước khi tạo
-object trên EKS, deployment `d5369d3a-adb2-45e3-be7c-0fe97674ad58`.
-Cleanup gốc xác minh delivery vắng nhưng REMOVE bị INTERRUPTED sau lỗi
-credential, chặn app-resources. Sau xác nhận các process đã dừng và lock/
-capability bằng 0, operator tăng fence 1→2/revoke rồi khép REMOVE RECOVERED
-theo contract. R6 đã khép CLOSED_CLEAN bằng operator: engine gốc destroy đủ
-năm instance, native absence/ECR đạt; một ARN SG cũ trong chỉ mục tag đã
-được chứng minh vắng bằng đúng typed EC2 NotFound và ownership. Database/
-ba role, Vault riêng, private credential và ba nhãn ảnh đã dọn; 11 SLR và
-28 UID giữ nguyên. Scenario FAIL/supervisor cũ không sửa. Bản sửa EKS/absence
-`3c7e986` đã merge/push `05f1978`, R11 đạt 1.465 Go/race/0 skip và 642
-frontend/full checks. Thứ tự cleanup/định dạng lỗi AWS CLI đã merge
-`f918a76` → `45af080`: R12/R13 đạt 1.470/1.477 Go/race, 0 skip, 642 frontend
-và toàn bộ checks; hash khớp và fixture riêng vắng. Lượt mới
-`a02-20261016-r1` từ `677f93e` đã dừng chủ động trước Preview/Deploy khi
-review phát hiện browser còn đòi chỉ mục tag rỗng dù native verifier đã chứng
-minh vắng. Supervisor CLEAN/CLOSED_CLEAN; tag trống, đúng ba ECR vắng,
-database/ba role/Vault/private vắng độc lập. Giữ FAIL và video. Writer sửa
-riêng kiểm chứng frontend, R14 đạt 649 frontend/41 file, type/lint/build/syntax/docs, nguồn trước/sau
-khớp; `fe1cc86` đã review/merge. Backend giữ nguyên R13. A02 mới
-`a02-20261016-r2` đang chạy từ `b083d97`, PTY75088: preflight/gate/dự toán
-đạt; supervisor1506784 bật trước ba ECR, native/index khớp. Ba deployment SUCCEEDED, 28 assertion job/cache/TTL/refill/reload đạt;
-đang chuyển cleanup, chưa ghi toàn lượt PASS.
-A03 chưa chạy.
+trên k8s-4f, video/SQL sau khởi động lại và cleanup độc lập.
+**A02 `a02-20261016-r2` đạt toàn lượt** từ source `b083d97`: ba deployment
+SUCCEEDED, 35 assertion/8 mốc đều đạt, job/Aurora/ElastiCache hit/TTL miss/
+refill/reload thật. Runner exit0/PASS, SQL reopen đạt (6 loại/6 Definition/
+5 resource/3 deployment), quét secret đạt. Supervisor1506784 CLEAN,
+CLOSED_CLEAN, mọi bước cleanup DONE một lần. Video có phụ đề
+`.m4/a02-20261016-r2/A02-captioned.mp4`, 6677,13 giây. DB/ba role/Vault/
+private đã vắng độc lập; nhãn ảnh riêng dọn, 28 UID/11 SLR giữ đúng baseline.
+Sáu lớp native verifier độc lập đều đạt; video giải mã đầy đủ exit0. I04-12 chưa hoàn tất: **A03 chưa chạy**, cấu hình/dự toán
+13 dòng/~2,050679 USD đã kiểm. IMP-021 còn mở đến đủ A03 và closure.
+Code gần nhất sửa cleanup evidence `fe1cc86`, R14 đạt 649 frontend/41 file,
+type/lint/build/syntax/docs/hash, backend giữ nguyên R13 1477 Go/race/0 skip.
+Nhịp theo dõi lượt chạy thật 15 phút theo quyết định 2026-10-16; chỉ đọc sớm
+khi lỗi/hoàn tất hoặc người dùng yêu cầu, supervisor luôn chạy độc lập.
 
 A02r5 đã khép `CLOSED_CLEAN` sau xác minh độc lập. Engine gốc đã destroy các
 lớp; API tag còn hai ARN cũ khiến supervisor báo NEEDS_ATTENTION. API EC2 xác

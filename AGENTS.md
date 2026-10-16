@@ -147,7 +147,9 @@ local tiếp tục hết hạn mức, Codex được giao code/test cho agent Co
 model `gpt-6-luna`. Đây là quyền thay thế do người dùng cấp cho M04, ưu tiên
 hơn các câu cấm thay Claude bằng Codex bên dưới. Không tự đổi model khác.
 Theo dõi tiến độ mỗi 15 phút; chỉ đọc sớm khi lỗi/hoàn tất hoặc người dùng yêu
-cầu. Giữ mọi yêu cầu validation, không skip, quyền external và cleanup.
+cầu. Quyết định 2026-10-16 áp dụng nhịp này cả cho lượt chạy thật AWS/Kubernetes;
+supervisor vẫn chạy độc lập, không gửi cập nhật lặp lại khi chỉ đang chờ.
+Giữ mọi yêu cầu validation, không skip, quyền external và cleanup.
 Claude local/agent thay thế chỉ sửa code/test trong checkout task riêng,
 không sửa docs/commit/push nhánh điều phối; Codex commit sau review và checks.
 Không đóng tmux của người dùng, không ghi credential vào handoff hoặc Git.
