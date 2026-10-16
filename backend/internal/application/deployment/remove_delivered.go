@@ -88,7 +88,7 @@ func (s *Service) RemoveDelivered(ctx context.Context, organizationKey, applicat
 	var lastTarget execution.Target
 	for _, w := range candidates {
 		target := execution.Target{Namespace: env.Namespace(), Extra: map[string]string{"application": applicationKey, "environment": environmentKey, "deployment": workloadOwnerDeploymentID(w)}}
-		if err := restoreEnvironmentTarget(&target, w.TargetRef, organizationKey, env.ConnectionKey); err != nil {
+		if err := restoreEnvironmentTarget(&target, w.TargetRef, organizationKey, env); err != nil {
 			report.Failed = append(report.Failed, w.WorkloadID)
 			continue
 		}

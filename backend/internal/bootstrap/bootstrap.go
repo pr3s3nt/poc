@@ -333,6 +333,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		return nil, err
 	}
 	credentialResolver := connection.NewCredentialResolver(st, connectionCredentials)
+	kubeconfigSource := kubeconfigSourceFor(opts.Adapters, credentialResolver, nil)
 
 	secretStore, err := outputSecretStore(opts, terraformRuntime != nil)
 	if err != nil {
@@ -358,7 +359,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		renderer = kubernetesRenderer()
 		deployer = fakeDep
 	case AdapterKubernetes, AdapterAWS:
-		registry, renderer, deployer, err = realAdapters(opts, credentialResolver, terraformRuntime, secretStore, modules, closers)
+		registry, renderer, deployer, err = realAdapters(opts, credentialResolver, kubeconfigSource, terraformRuntime, secretStore, modules, closers)
 		if err != nil {
 			return nil, err
 		}
@@ -411,7 +412,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 			}
 			deployments.SetPublicRouteManager(fleet, opts.Seed.BaseDomain)
 		} else {
-			deployments.SetPublicRouteManager(&k8s.PublicRoutes{KubectlPath: opts.KubectlPath, Credentials: credentialResolver}, opts.Seed.BaseDomain)
+			deployments.SetPublicRouteManager(&k8s.PublicRoutes{KubectlPath: opts.KubectlPath, Credentials: kubeconfigSource}, opts.Seed.BaseDomain)
 		}
 	}
 	if opts.WorkloadDelivery == "fleet-gitrepo" {
