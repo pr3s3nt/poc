@@ -32,7 +32,9 @@ ba role, Vault riêng, private credential và ba nhãn ảnh đã dọn; 11 SLR 
 frontend/full checks. Thứ tự cleanup/định dạng lỗi AWS CLI đã merge
 `f918a76` → `45af080`: R12/R13 đạt 1.470/1.477 Go/race, 0 skip, 642 frontend
 và toàn bộ checks; hash khớp và fixture riêng vắng. Lượt mới
-`a02-20261016-r1` đã chuẩn bị, chưa chạy.
+`a02-20261016-r1` đang chạy từ `677f93e`: fresh preflight/gate/dự toán đạt,
+supervisor1369971 bật trước ECR, manifest bảy pin v4 đúng. Ba ECR/digest/tag
+đã xác minh cả index và native API; đang form browser.
 A03 chưa chạy.
 
 A02r5 đã khép `CLOSED_CLEAN` sau xác minh độc lập. Engine gốc đã destroy các
