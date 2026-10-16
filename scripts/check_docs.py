@@ -164,8 +164,11 @@ def validate_diagram_pairs(errors: list[str]) -> None:
             )
 
 
-def validate_iteration_packages(errors: list[str]) -> None:
-    iteration_root = DOCS / "iterations"
+def validate_iteration_packages(
+    errors: list[str], docs_root: Path | None = None
+) -> None:
+    docs_root = docs_root or DOCS
+    iteration_root = docs_root / "iterations"
     iteration_index = iteration_root / "README.md"
     if not iteration_index.is_file():
         return
@@ -180,18 +183,20 @@ def validate_iteration_packages(errors: list[str]) -> None:
     for path in legacy_records:
         errors.append(
             "iteration record must live in a milestone/iteration folder: "
-            f"{path.relative_to(ROOT)}"
+            f"{path.relative_to(docs_root.parent)}"
         )
 
     for milestone in sorted(path for path in iteration_root.glob("M*") if path.is_dir()):
         if not MILESTONE_DIR_RE.fullmatch(milestone.name):
-            errors.append(f"invalid milestone directory: {milestone.relative_to(ROOT)}")
+            errors.append(
+                f"invalid milestone directory: {milestone.relative_to(docs_root.parent)}"
+            )
             continue
 
         milestone_readme = milestone / "README.md"
         if not milestone_readme.is_file():
             errors.append(
-                f"milestone has no README: {milestone.relative_to(ROOT)}"
+                f"milestone has no README: {milestone.relative_to(docs_root.parent)}"
             )
             continue
         if f"({milestone.name}/README.md)" not in index_text:
@@ -206,13 +211,16 @@ def validate_iteration_packages(errors: list[str]) -> None:
 
         for iteration in sorted(path for path in milestone.glob("I*") if path.is_dir()):
             if not ITERATION_DIR_RE.fullmatch(iteration.name):
-                errors.append(f"invalid iteration directory: {iteration.relative_to(ROOT)}")
+                errors.append(
+                    f"invalid iteration directory: {iteration.relative_to(docs_root.parent)}"
+                )
                 continue
             for filename in REQUIRED_ITERATION_FILES:
                 path = iteration / filename
                 if not path.is_file():
                     errors.append(
-                        f"incomplete iteration package; missing: {path.relative_to(ROOT)}"
+                        "incomplete iteration package; missing: "
+                        f"{path.relative_to(docs_root.parent)}"
                     )
 
             iteration_readme = iteration / "README.md"
@@ -220,7 +228,8 @@ def validate_iteration_packages(errors: list[str]) -> None:
                 continue
             if f"({iteration.name}/README.md)" not in milestone_text:
                 errors.append(
-                    f"{milestone.relative_to(ROOT)}/README.md does not register "
+                    f"{milestone.relative_to(docs_root.parent)}/README.md "
+                    "does not register "
                     f"{iteration.name}/README.md"
                 )
             metadata, error = parse_front_matter(
@@ -229,16 +238,28 @@ def validate_iteration_packages(errors: list[str]) -> None:
             if not error and metadata.get("status") == "current":
                 current_iterations.append(iteration_readme)
 
-    if len(current_milestones) != 1:
+    if len(current_milestones) > 1:
         errors.append(
-            "exactly one milestone must be current; found "
+            "at most one milestone may be current; found "
             f"{len(current_milestones)}"
         )
-    if len(current_iterations) != 1:
+    if len(current_iterations) > 1:
         errors.append(
-            "exactly one iteration plan must be current; found "
+            "at most one iteration plan may be current; found "
             f"{len(current_iterations)}"
         )
+    if len(current_milestones) != len(current_iterations):
+        errors.append(
+            "current milestone and iteration must be paired; found "
+            f"{len(current_milestones)} milestone(s) and "
+            f"{len(current_iterations)} iteration(s)"
+        )
+    if current_milestones and current_iterations:
+        if current_iterations[0].parent.parent != current_milestones[0].parent:
+            errors.append(
+                "current iteration must belong to the current milestone: "
+                f"{current_iterations[0].relative_to(docs_root.parent)}"
+            )
 
 
 def main() -> int:

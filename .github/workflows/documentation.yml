@@ -21,6 +21,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends --yes plantuml
 
+      - name: Test documentation checker
+        run: python3 -m unittest scripts.test_check_docs
+
       - name: Validate documentation contract
         run: REQUIRE_PLANTUML=1 python3 scripts/check_docs.py
 
