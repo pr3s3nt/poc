@@ -490,7 +490,8 @@ Execution evidence: [T31 local verification](../verification/2026-10-12-T31-type
 scope thiết kế với code/evidence. Các paths I04-01..10 phía trên đã hiện thực
 state/locks/registry/executor/modules/Connections/Console deletion, Redis app
 và runner. [I04-10 local verification](../verification/2026-10-14-i04-10-integration.md)
-chỉ chứng minh local checks; live UI/adapters/cleanup/video còn I04-11/12.
+chỉ chứng minh local checks; I04-11/12 đã bổ sung năm kịch bản live,
+cleanup/SQL/video trong [biên bản cuối](../verification/2026-10-16-m04-completion.md).
 D12 automatic recovery, D13 orphan reconciliation và D14 backup/restore còn
 hoãn, không coi safety net của owned acceptance run là hoàn tất các hạng mục đó.
 

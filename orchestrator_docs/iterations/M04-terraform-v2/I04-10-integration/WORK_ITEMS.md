@@ -1,8 +1,8 @@
 ---
 id: I04-10-WORK-ITEMS
 artifact: implementation-checklist
-status: current
-last_reviewed: 2026-10-14
+status: historical
+last_reviewed: 2026-10-16
 ---
 
 # I04-10 — Work items
@@ -16,7 +16,7 @@ live proof còn I04-11/12, branch cleanup ghi sau push.
 - [x] Test supervisor/process isolation bằng low-cost owned fixtures; no autonomous D12 claims.
 
 - [x] Ghi actual changed code/test paths và planned-test IDs đã được hiện thực.
-- [x] Claude chạy checks; Codex review diff và independently verify tương ứng.
+- [x] Writer chạy kiểm tra trong môi trường có sẵn; Codex review và chạy toàn bộ kiểm tra độc lập, không tính skip của writer là pass.
 - [x] Evidence/cleanup/remaining blockers vào dated verification, không chép log vào plan.
 - [x] Commit/push task-only khi checks/review đạt theo AGENTS.md; không force-push.
-- [x] Xóa nhánh Claude sau merge; lưu handoff cloud khi bị chặn/hủy; giữ điểm duyệt cuối.
+- [x] Xóa nhánh Claude sau merge; lưu handoff cloud khi bị chặn/hủy; không chờ duyệt cuối theo quyết định2026-10-15.

@@ -7,132 +7,36 @@ last_reviewed: 2026-10-16
 
 # Current project state
 
-## M04 — trạng thái hiện tại ngày 2026-10-16
+## M04 — hoàn tất ngày 2026-10-16
 
-I04-01..10 đã hoàn tất code và kiểm tra local. **I04-11 đã đạt** A01/E01/E02
-trên k8s-4f, video/SQL sau khởi động lại và cleanup độc lập.
-**A02 `a02-20261016-r2` đạt toàn lượt** từ source `b083d97`: ba deployment
-SUCCEEDED, 35 assertion/8 mốc đều đạt, job/Aurora/ElastiCache hit/TTL miss/
-refill/reload thật. Runner exit0/PASS, SQL reopen đạt (6 loại/6 Definition/
-5 resource/3 deployment), quét secret đạt. Supervisor1506784 CLEAN,
-CLOSED_CLEAN, mọi bước cleanup DONE một lần. Video có phụ đề
-`.m4/a02-20261016-r2/A02-captioned.mp4`, 6677,13 giây. DB/ba role/Vault/
-private đã vắng độc lập; nhãn ảnh riêng dọn, 28 UID/11 SLR giữ đúng baseline.
-Sáu lớp native verifier độc lập đều đạt; video giải mã đầy đủ exit0. I04-12 chưa hoàn tất: **A03 `a03-20261016-r1` đã khởi động** từ `3560aac`, PTY82651; cấu hình/
-dự toán13 dòng/~2,050679 USD đã kiểm. Fresh preflight và supervisor do runner
-thực thi trước create; kết quả mới nhất FAIL, chi tiết cleanup ở dưới. IMP-021 còn mở đến đủ A03 và closure.
-Code mới nhất `1f3d3cb` ghi diagnostic heartbeat allowlist/first-loss,
-không đổi ngưỡng/fencing/hold. R15 đạt1482 Go/race/0skip,649frontend/41file,
-build/vet/type/lint/docs/PlantUML/hash; fixture riêng vắng độc lập.
-**A03r2 hiện đang chạy** từ `a121642`, PTY25798: kiểm08:09Z ba deployment
-SUCCEEDED, cả năm module READY,28assertion0fail gồm job/SQL/cache/TTL/refill/reload; cleanup/SQL reopen/
-video/finalreceipt còn phải kiểm. Kiểm08:26Z Aurora/Redis/namespace đã
-DESTROYED, EKS DESTROYING, VPC cònREADY; supervisor2943679 CLEANING,
-SQL785mẫu0error/0blocked-heartbeat. Chưa ghi A03PASS.
+I04-01..12 đã hoàn tất trong phạm vi Terraform v2; IMP-021 đóng. Năm kịch
+bản A01/E01/E02/A02/A03 đều PASS/exit0/CLOSED_CLEAN, có video, SQL sau restart
+và cleanup độc lập. [Biên bản bàn giao](verification/2026-10-16-m04-completion.md).
 
-A03r1 đã FAIL: EKS PLANNING NEEDS_ATTENTION/CANCELLED, DEPLOY INTERRUPTED
-trước deadline. PostgreSQL ghi câu heartbeat UPDATE bị hủy lúc06:00:42Z;
-chưa đủ bằng chứng xác định blocker/OOM. Original supervisor NEEDS_ATTENTION
-ở VPC do EKS hold; FAIL/video giữ. Operator đã xác minh đúng EKS name vắng,
-không state/APPLY, toàn bộ old owner/process dừng; fence1→2/revoke trước khi
-release exact old lock, resolve plan thành FAILED (giữ CANCELLED/audit),
-RECOVERED rồi chạy cleanup original engine/state/target/module trong budget
-còn lại. Continuation2694951 CLEAN; sáu lớp native đạt, hai instance DESTROYED,
-0 hold/lock/capability, DB/roles/Vault/private vắng,28 UID/11 SLR giữ.
-Marker CLOSED_CLEAN operator; original FAIL giữ. Bản sửa diagnostic heartbeat `1f3d3cb` đã review/merge, R15 full đạt.
-A03r2 đã khởi động từ `a121642`, PTY25798, với safe SQL contention telemetry.
+| Kịch bản | Lượt đạt | Kiểm tra / mốc |
+|---|---|---|
+| A01 | a01-20261015-r4 | 42 / 8 |
+| E01 | e01-20261015-r2 | 12 / 4 |
+| E02 | e02-20261015-r3 | 15 / 5 |
+| A02 | a02-20261016-r2 | 35 / 8 |
+| A03 | a03-20261016-r2 | 35 / 8 |
 
-Nhịp theo dõi lượt chạy thật 15 phút theo quyết định 2026-10-16; chỉ đọc sớm
-khi lỗi/hoàn tất hoặc người dùng yêu cầu, supervisor luôn chạy độc lập.
+A02 source `b083d97`, A03 source `a121642`: ba deployment/five Terraform
+modules, job/Aurora/cache/TTL/refill/reload đạt. A03 PVC1Gi/gp2→PV→EBS được
+đối chiếu native NotFound. Sáu lớp AWS verifier đạt,28UID k8s-4f/11SLR giữ
+đúng baseline. Các database/role/Vault/private/run image alias đã dọn; fixture
+PostgreSQL container/volume/admin credential cuối cùng cũng vắng. Video ở
+`/home/thanhnt1/.m4/<run-id>/`, lỗi cũ và recovery evidence giữ nguyên.
 
-A02r5 đã khép `CLOSED_CLEAN` sau xác minh độc lập. Engine gốc đã destroy các
-lớp; API tag còn hai ARN cũ khiến supervisor báo NEEDS_ATTENTION. API EC2 xác
-nhận hai ID vắng, sau đó verifier gốc cũng xác nhận lớp aux sạch. Giữ nguyên
-kết quả FAIL và trạng thái supervisor ban đầu; biên bản operator bổ sung
-closure. Bốn SLR giữ đúng trust/policy; metadata toàn bộ 11 SLR có sẵn khớp.
-Database/ba role, Vault riêng và credential đã dọn. Bằng chứng trong
-[biên bản I04-12](verification/2026-10-15-i04-12-aws.md).
+R15 `1f3d3cb`:1482Go/race/0fail/0skip,649frontend/41file, build/vet/type/lint/
+build/docs/PlantUML/diff đạt; hash trước/sau khớp, fixture riêng vắng độc lập.
+Writer viết code/test; Codex review, kiểm độc lập và chạy thật. Dự toán mỗi
+lượt A02~2,13USD/A03~2,05USD; Cost Explorer chưa phân bổ theo run tag, không
+coi rỗng là0. Giữ nguyên user-owned node_modules tại runtime checkout.
 
-| Scenario | Lượt đạt | Kiểm tra trình duyệt | Video | Kết quả tổng |
-|---|---|---|---|---|
-| A01 | a01-20261015-r4 | 42, 8 mốc | 1339,07 giây | PASS, exit0, CLOSED_CLEAN |
-| E01 | e01-20261015-r2 | 12, 4 mốc | 484,73 giây | PASS, exit0, CLOSED_CLEAN |
-| E02 | e02-20261015-r3 | 15, 5 mốc | 687,87 giây | PASS, exit0, CLOSED_CLEAN |
-
-Video và bằng chứng ở `/home/thanhnt1/.m4/<run-id>/`, ngoài Git. Đã giải mã,
-xem khung hình/phụ đề và quét secret. Namespace/PV của các lượt đã vắng;
-28 UID tài nguyên giữ lại khớp bản đối chiếu. Database/ba role, Vault riêng,
-thư mục credential và ảnh bổ trợ từng lượt đã dọn. Container/volume PostgreSQL
-kiểm chứng riêng còn giữ để dùng cho AWS, không phải database của người dùng.
-Lịch sử lỗi và phục hồi bằng engine gốc được giữ trong
-[biên bản I04-11](verification/2026-10-14-i04-11-k8s4f.md).
-
-Code mới nhất `cdfb027` đã review/merge/push: sửa kiểm chứng sau khởi động lại,
-điều kiện kết thúc toàn lượt, nhập tham số đúng kiểu và phân lớp cleanup theo
-PreviewRunID đã ghi cùng tag/identity chính xác. Kiểm độc lập **1402 Go/race,
-0 lỗi/0 bỏ qua**, build/vet; **634 frontend**, type/lint/build, tài liệu/
-PlantUML/syntax đạt. Kết quả kiểm tra ban đầu thất bại được giữ; sửa riêng bài
-nhãn ghép không thay backend, rồi chạy lại toàn bộ frontend đạt. Bằng chứng
-`.m4/checks-i0412-cleanup-r4/final-validation.json` và thư mục liên kết.
-
-Dự toán AWS mỗi lượt cho cửa sổ 5 giờ (3 giờ thực thi + 2 giờ dọn): A02
-2,1300USD, A03 2,0507USD, có13dòng giá và giới hạn số tài nguyên. Không phải
-trần do người dùng đặt hoặc chi phí hóa đơn thực tế. Preflight chỉ đọc A02 mới
-đạt account452025861381/principal đã ghim/us-east-1, IP/32, quyền, sức chứa
-Pod và tag trống. Điều kiện ba scenario đã đạt được xác nhận bởi AWS gate.
-Lần khởi động A02 dừng trước tạo evidence/marker/tài nguyên vì getter kubectl
-không hỗ trợ AWS nilKube. Fix010b1af đãreview/merge,1403Go/race/0skip,
-634frontend vàfullchecks đạt/fixtureclean. A02r1 sau đó dừng trước manifest/
-supervisor/create vì runner épVSO choAWS. DB/roles/Vault local đã xác minh dọn,
-AWS tagtrống; marker CLOSED_NO_EFFECTS/receiptFAIL giữ. Writer sửa runner và
-cleanuphelper chọn vault delivery theoadapter; fix1d35a00 đãreview/merge,
-1407Go/race/0skip/634frontend/fullchecks đạt/fixtureclean. FreshA02r2
-vàdựtoán13dòng~2,13USD đã qua gate; supervisor bật trước ba kho ECR thật.
-A02r2 thất bại ở biểu mẫu EKS do boolean `ebs_csi_driver` bị từ chối, chưa
-triển khai cụm. Marker CLOSED_CLEAN: AWS absence/preflight10/10, bốn SLR giữ nguyên,
-DB/ba role/private vắng, video334,20giây decode đạt. Writer đã sửa helper
-chọn boolean, Codex đang kiểm đầy đủ frontend ở checkout riêng;
-Codex giữ evidence thất bại và chạy kiểm độc lập getter ảnh probe ở
-`.m4/checks-i0412-probe-pins-r7/`; không chạy A03 trước khi A02 sạch.
-[Biên bản I04-12](verification/2026-10-15-i04-12-aws.md).
-
-Người dùng bỏ duyệt giữa chặng và duyệt cuối; thất bại phải tìm nguyên nhân,
-giao writer sửa, review/checks rồi chạy lại khi lượt cũ đã sạch. Không bypass
-ownership hoặc tự retry apply có kết quả chưa rõ. Claude cloud/local đã hết
-hạn mức; code/test do agent `gpt-6-luna` trong checkout riêng, Codex giữ docs,
-review/checks/merge và chạy thật. Không gửi secrets cho writer. Theo dõi writer
-mỗi15phút khi đang chạy bình thường, sớm khi lỗi/hoàn tất hoặc người dùng yêu cầu.
-IMP-021 còn mở đến khi A02/A03 đạt; D12–D14 vẫn deferred.
-
-I04-06 tại `f3ed5bb`: **1082 Go PASS/0 FAIL/0 SKIP**, 479 frontend tests,
-build/vet/docs và Codex headed browser/actual SQL/Vault/cleanup pass. AWS
-transport trong browser fake; chưa có v2 live proof. Tên mode quyền cloud không
-introspect được, nhưng Bash/Write/Edit/network quan sát chạy không prompt.
-[Biên bản I04-06](verification/2026-10-14-i04-06-aws-connection.md).
-
-I04-07 code `3ed0a89`/handoff `00a8813`: **1121 Go PASS/0 FAIL/0 SKIP**,
-549 frontend tests, build/vet/docs và headed video cuối 517,27 giây đạt.
-Definition source/mapping/provider metadata và Workload class/default/custom
-được kiểm; hai Xem trước đọc snapshot nhất quán, safe intents/progress đã có.
-SQL/Vault thật, executors/attempts browser giả lập; cleanup local sạch.
-[Biên bản I04-07](verification/2026-10-14-i04-07-definition-workload-ui.md).
-
-
-I04-08 code `8d213a3`: **1171 Go PASS/0 FAIL/0 SKIP**, 609 frontend tests,
-build/vet/docs và headed video cuối 125,6 giây đạt. Scoped list/detail, root-only
-selected set, exact confirmation, atomic claim/REQUESTED, idempotent replay và
-operation-bound absence proof đã có; scope/unknown/malformed guards fail closed.
-REAL engine/Terraform/encrypted SQL/Vault, FAKE terraform_data objects/provider
-binding/readiness/absence; cleanup local sạch, không A01 live proof.
-[Biên bản I04-08](verification/2026-10-14-i04-08-resource-delete-ui.md).
-I04-09 code `65223ef`/handoff `67e26a7`: **1254 Go PASS/0 FAIL/0 SKIP**,
-609 frontend tests/build/vet/docs và PG16/Redis8 thật đạt. Cache hit/miss/refill,
-TLS/auth, post-commit failure/no duplicate và per-job recovery được kiểm;
-6 ảnh amd64/arm64 có manifest digest, registry fixture đã dọn. Không video unit
-hoặc v2 live proof. [Biên bản I04-09](verification/2026-10-14-i04-09-acceptance-redis.md).
-I04-10 tiếp theo: wiring Redis/real providers/runner/supervisor; I04-11/12 live.
-
-Các đoạn checkpoint lịch sử bên dưới không thay quyết định hiện tại này.
+Không còn iteration M04 đang thực thi. D12–D14, M02/I06-10 và TLS issue#2 vẫn
+hoãn, không tự mở roadmap khác. Các checkpoint bên dưới là lịch sử triển khai;
+không thay trạng thái hoàn tất hiện hành ở trên.
 
 ## M04 documentation review checkpoint — 2026-10-13
 
@@ -283,7 +187,7 @@ thành: I06-05 đóng IMP-010, I06-06 đóng IMP-008, I06-07 đóng IMP-009.
 | UC-01 | Implemented; locally E2E verified | Authenticated Developer list/create/get Application qua API/UI; service tự sinh ID, staging/production, empty Deployment Sets và namespace identities. Create không deploy; browser restart test xác nhận durable local state. |
 | UC-02 | Registration implemented | Platform Engineer/Admin có thể đăng ký và xem Resource Types trong Organization qua API/UI; seeded catalog và normalized PostgreSQL persistence dùng được. Production-grade RBAC chưa có. |
 | UC-03 | Registration implemented | Platform Engineer/Admin có thể đăng ký Definition runtime-supported với criteria, driver inputs và provision rules qua API/UI; planner vẫn có profile guard và matching, catalog được persist trong PostgreSQL. Remote source và production-grade RBAC chưa có. |
-| UC-04 | Kubernetes kubeconfig onboarding implemented and verified | Platform Engineer/Admin nhập tên, upload/dán kubeconfig, inspect/chọn context rồi verify API/RBAC read-only và lưu `READY`. Vault KV v2 lưu scoped credential; metadata/name/authentication type ở PostgreSQL, migration/race/reopen đã pass isolated local. Executor resolve credential bằng opaque target identity; T22 bỏ host-context/API body cũ, seed thiếu credential ở VERIFYING. Live kind upload và video đã pass ngày 2026-10-06; AWS access-key onboarding đã verified local qua Console/Vault ở I04-06; STS/region/IAM policy simulation và scoped resolver đã có, AWS transport browser fake, live proof còn I04-12. |
+| UC-04 | Kubernetes kubeconfig onboarding implemented and verified | Platform Engineer/Admin nhập tên, upload/dán kubeconfig, inspect/chọn context rồi verify API/RBAC read-only và lưu `READY`. Vault KV v2 lưu scoped credential; metadata/name/authentication type ở PostgreSQL, migration/race/reopen đã pass isolated local. Executor resolve credential bằng opaque target identity; T22 bỏ host-context/API body cũ, seed thiếu credential ở VERIFYING. Live kind upload và video đã pass ngày 2026-10-06; AWS access-key onboarding đã verified local qua Console/Vault ở I04-06; STS/region/IAM policy simulation và scoped resolver đã có, AWS transport browser local fake; live AWS Connection/deployment đã đạt A02/A03 ở I04-12. |
 | UC-05 | Implemented; locally verified | Standalone Score Preview service, authenticated scoped API và Console trả Delta/Candidate/graph/matches/batches/classification, consistent snapshot chung với direct Deploy, safe public projection và no-mutation tests. Pending-change Preview vẫn riêng; UI-only human-paced recording đã pass. Không chạy Terraform plan thật. |
 | UC-06 | Executable baseline; partially conformant | HTTP → plan → UC-08 → target workload apply đã pass kind/AWS; optional Fleet GitRepo adapter cho internal kind đã pass Harbor-image deployment. Environment Ingress nhiều path và Fleet `_routes` bundle đã pass kind test với hai workload BusyBox, Fleet revision/prune và cleanup; route failure có route-only retry (unit test), Backstage cụ thể chưa kiểm chứng. DNS/TLS/chuyển controller ra ngoài chưa có. Mỗi Deployment persist immutable `DeploymentDeltaSnapshot`; UC-12/16 pending changes deploy theo Preview token với per-workload result. |
 | UC-07 | Implemented; locally verified | UC-16 scoped Preview → Deploy update/remove, before/shared invariants, final Service validation, confirmation/Undo và busy/stale/reload UI states. READY resource marking UNREFERENCED commit cùng current set/SUCCEEDED; PostgreSQL rollback/reopen và UI-only recording pass. Không destroy/rollback; Application-wide cleanup ngoài scope. Fleet remove kind evidence là lịch sử, chưa rerun live cho mốc này. |
@@ -980,7 +884,7 @@ SQL opt-in hoặc mutate retained/cloud/cluster; không claim live provider proo
 Các mô tả dưới đây được chuyển từ checkpoint `3367f7e`; chúng mô tả trạng
 thái code/evidence trước M04, không phải yêu cầu v2 hoặc test vừa chạy lại.
 Nguồn trước cập nhật nằm ở `git show 3367f7e:<path>` và trước Bước 1 ở
-`git show a897d6b:<path>`. IMP-021 theo dõi phần chưa đáp ứng yêu cầu mới.
+`git show a897d6b:<path>`. IMP-021 theo dõi gap ở checkpoint đó; nay đã đóng theo biên bản M04.
 
 ### usecase/UC-02/specification.md
 
@@ -1076,7 +980,7 @@ ADR-012 operation/transition features đã verified vẫn được giữ trong s
 Không claim Terraform full resume, orphan import hay platform DR đã implement.
 
 
-Cập nhật kiểm chứng I04-12: getter probe `660fd5c` đạt độc lập1407Go/race/
+Checkpoint trước khi M04 hoàn tất — getter probe `660fd5c` đạt độc lập1407Go/race/
 0fail/0skip,634frontend/fullchecks, mã băm nguồn khớp vàfixtureclean (R7).
 Helper boolean `214e37f` đạt635frontend/fullchecks, backend không đổi.
 Cả hai đã hợp nhất; A02r3 chạy trên mã này, evidence sẽ ghi đúng commit.

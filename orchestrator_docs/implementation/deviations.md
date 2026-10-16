@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-16
 ---
 
 # Known design and implementation deviations
@@ -101,7 +101,17 @@ other than NotFound also stop execution. See
 
 <a id="imp-021-terraform-v2-designimplementation-gap"></a>
 
-## IMP-021 — Terraform v2 design/implementation gap
+## IMP-021 — Terraform v2 design/implementation gap (resolved 2026-10-16)
+
+**Đã đóng trong phạm vi M04.** I04-01..12 đã implement/review/verify; năm
+kịch bản A01/E01/E02/A02/A03 PASS/exit0/CLOSED_CLEAN với video, SQL sau
+restart, cleanup native độc lập và tài nguyên giữ lại không đổi. R15 đạt
+1482Go/race/0skip,649frontend/fullchecks/hash/fixture.
+[Biên bản hoàn tất](../verification/2026-10-16-m04-completion.md).
+D12–D14/TLSissue#2/M02 giữ ngoài phạm vi, không coi là được implement.
+Các đoạn dưới đây là checkpoint lịch sử, không phải gap còn mở hiện hành.
+
+### Lịch sử checkpoint
 
 I04-08 đã review/verified local: scoped resource queries, PE/Admin selected-set
 admission nguyên tử, REQUESTED cùng claim, replay từ persistence và proof của

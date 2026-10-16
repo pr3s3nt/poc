@@ -850,3 +850,13 @@ A03r1 FAIL do heartbeat cancellation đã CLOSED_CLEAN operator với audit,
 original verdict giữ. Diagnostic heartbeat `1f3d3cb` đã review/merge, R15 đạt
 1482Go/race0skip/649frontend/fullchecks/hash/fixture. Không đổi quyền/hold/
 fencing; A03r2 chờ chạy thật, IMP-021 vẫn mở đến A03 đạt và cleanup sạch.
+
+
+## M04 — closure ngày2026-10-16
+
+IMP-021 đã đóng trong phạm vi Terraformv2. Năm biên nhận A01r4/E01r2/E02r3/
+A02r2/A03r2 đềuPASS/exit0/CLOSED_CLEAN, có video/SQL/native cleanup/retained
+UID/SLR và fixture absence. R15 đạt1482Go/race/0skip,649frontend/fullchecks.
+[Biên bản bàn giao](../verification/2026-10-16-m04-completion.md) ánh xạ từng
+task đến execution record/video. Các ghi chú còn mở phía trên là checkpoint
+lịch sử trước closure; D12–D14/M02/TLSissue#2 vẫn hoãn, không bị đóng theo.

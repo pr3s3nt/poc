@@ -2,16 +2,16 @@
 id: ITERATION-INDEX
 artifact: iteration-index
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-16
 ---
 
 # Iteration index
 
 ## Active
 
-- [M04 — Terraform v2](M04-terraform-v2/README.md)
-  - [I04-02 — Module registry](M04-terraform-v2/I04-02-module-registry/README.md): I04-01 hoàn tất; tiếp chặng 2.
-- [M02 — Use-case completion](M02-usecase-completion/README.md) và I06-10 deferred do reprioritize, chưa complete.
+Không còn iteration M04 đang thực thi: I04-01..12 đã hoàn tất.
+[Biên bản bàn giao](../verification/2026-10-16-m04-completion.md).
+M02/I06-10 và các hạng mục hoãn không tự chuyển thành task active.
 
 ## Roadmap
 
@@ -26,7 +26,7 @@ last_reviewed: 2026-10-13
 4. [M03 — Production and external compatibility](M03-production-compatibility/README.md):
    IMP-001, rồi IMP-006/007 khi boundary tương ứng được yêu cầu.
 
-5. [M04 — Terraform v2](M04-terraform-v2/README.md): current, ba chặng có gate duyệt; code bắt đầu sau gate 1.
+5. [M04 — Terraform v2](M04-terraform-v2/README.md): historical, hoàn tất2026-10-16; năm kịch bản thật/cleanup đạt, không cần duyệt cuối.
 
 ## Folder contract
 
@@ -41,5 +41,7 @@ canonical specification/realization/architecture được link, không sửa ch�
 hợp thức hóa code. Execution evidence nằm trong `verification/`, không sao chép
 vào iteration folder.
 
-Chỉ một iteration có status `current`. Iteration chưa đến lượt dùng `deferred`;
+Có tối đa một milestone và một iteration `current`; nếu có, iteration phải
+thuộc milestone hiện hành. Hoàn tất phạm vi có thể không còn công việc active.
+Iteration chưa đến lượt dùng `deferred`;
 khi hoàn thành, ghi outcome/verification links và chuyển sang `historical`.

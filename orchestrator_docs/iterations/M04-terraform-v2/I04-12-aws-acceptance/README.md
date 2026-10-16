@@ -1,7 +1,7 @@
 ---
 id: I04-12
 artifact: iteration-plan
-status: current
+status: historical
 last_reviewed: 2026-10-16
 related: [M04, ADR-014, IMP-021]
 ---
@@ -10,38 +10,18 @@ related: [M04, ADR-014, IMP-021]
 
 ## Chặng và trạng thái
 
-Chặng 3 hiện hành; I04-11 đạt đủ A01/E01/E02, video/SQL/cleanup độc lập.
-A02 `a02-20261016-r2` từ `b083d97` đạt 35 assertion/8 mốc, ba deployment
-SUCCEEDED, SQL reopen, secret scan, video phụ đề 6677,13giây; runner exit0,
-PASS/CLOSED_CLEAN, supervisor CLEAN/tám bước DONE. DB/ba role/Vault/private
-vắng độc lập; 28 UID/11 SLR giữ. Sáu lớp native verifier và video full decode exit0 đều đạt độc lập. A03 `a03-20261016-r1` đã khởi động từ `3560aac`, PTY82651,
-estimate-check13dòng/~2,05USD đạt; kết quả mới nhất FAIL, cleanup ở dưới. Lượt FAIL cũ và evidence giữ nguyên, không đổi verdict lịch sử.
-Theo dõi lượt chạy thật15phút/lần theo quyết định2026-10-16; supervisor độc
-lập vẫn chạy. Bản sửa frontend trước đó `fe1cc86`, R14 đạt649/41file/fullFE/
-syntax/docs/hash; backend nguyên R13 1477Go/race0skip.
+Chặng3 đã hoàn tất. A02 `a02-20261016-r2`/source`b083d97` và A03
+`a03-20261016-r2`/source`a121642` đều35kiểm tra/8mốc, ba deployment
+SUCCEEDED, SQL sau restart, secret scan/video, runnerPASS/exit0/CLOSED_CLEAN.
+Sáu lớp AWS/native absence, exact Redis EBS volume,28UID/11SLR và local
+fixture đều đối chiếu độc lập; fixture PostgreSQL cuối cùng đã dọn.
+[Biên bản bàn giao](../../../verification/2026-10-16-m04-completion.md).
 
-Lượt hiện hành A03r2 từ `a121642`, PTY25798: kiểm08:09Z ba deployment
-SUCCEEDED,28assertion0fail gồm job/cache/TTL/refill/reload. Kiểm08:26Z
-Aurora/Redis/namespace DESTROYED, EKS DESTROYING; chờ cleanup/SQL reopen/
-video/finalreceipt. Supervisor2943679 CLEANING,SQL785mẫu0error/
-0blocked-heartbeat. Chưa ghi A03PASS.
-
-A03r1 đã FAIL: EKS PLANNING NEEDS_ATTENTION/CANCELLED, DEPLOY INTERRUPTED
-trước deadline. PostgreSQL ghi câu heartbeat UPDATE bị hủy lúc06:00:42Z;
-chưa đủ bằng chứng xác định blocker/OOM. Original supervisor NEEDS_ATTENTION
-ở VPC do EKS hold; FAIL/video giữ. Operator đã xác minh đúng EKS name vắng,
-không state/APPLY, toàn bộ old owner/process dừng; fence1→2/revoke trước khi
-release exact old lock, resolve plan thành FAILED (giữ CANCELLED/audit),
-RECOVERED rồi chạy cleanup original engine/state/target/module trong budget
-còn lại. Continuation2694951 CLEAN; sáu lớp native đạt, hai instance DESTROYED,
-0 hold/lock/capability, DB/roles/Vault/private vắng,28 UID/11 SLR giữ.
-Marker CLOSED_CLEAN operator; original FAIL giữ. Bản sửa diagnostic `1f3d3cb` đã review/merge, R15 đạt1482Go/race0skip,
-649frontend/fullchecks/hash/fixture. A03r2 đã khởi động từ `a121642`, PTY25798; chưa có kết quả toàn lượt.
-
-Quyết định2026-10-15: scenario thất bại thì tìm nguyên nhân, giao writer sửa,
-review/checks rồi chạy lại sau cleanup sạch; bỏ giới hạn một retry. Không dừng
-chỉ vì retry fail; giữ deadline từng run, preflight/dự toán, quyền ownership,
-gate I04-11 và thứ tự A02 sạch rồi A03 theo runbook acceptance.
+Code diagnostic `1f3d3cb` đã review/merge: R15 đạt1482Go/race/0skip,
+649frontend/fullchecks/hash/fixture. Lượt FAIL trước giữ nguyên, kể cả A03r1
+manual fenced cleanup theo state contract; không giảm guard/assertion.
+Dự toán A02~2,13USD/A03~2,05USD mỗi lượt; AWS chưa phân bổ chi phí thực tế
+theo run tag. IMP-021 đóng; D12–D14 vẫn hoãn. Không chờ duyệt bàn giao cuối.
 
 ## Phạm vi
 

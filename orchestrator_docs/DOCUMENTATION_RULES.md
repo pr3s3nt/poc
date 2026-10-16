@@ -2,7 +2,7 @@
 id: DOC-RULES
 artifact: documentation-standard
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-10-16
 ---
 
 # Documentation rules
@@ -48,6 +48,11 @@ cải thiện navigation. Ngày review không tự quyết định authority.
 - Milestone/iteration docs sở hữu work order, scope và exit criteria; không sao
   chép hoặc thay thế use-case/architecture requirement. `WORK_ITEMS.md` chỉ là
   implementation checklist; execution evidence vẫn nằm trong `verification/`.
+- Work order có tối đa một milestone và một iteration `current`. Khi có công
+  việc active, cả hai phải tồn tại và iteration thuộc milestone đó. Khi đã
+  hoàn tất phạm vi được giao, cả hai có thể không còn `current`; index ghi rõ
+  không có công việc active và artifact hoàn tất chuyển `historical`. Không
+  mở roadmap mới chỉ để thỏa bộ kiểm tra tài liệu.
 - UI design riêng của use case nằm tại `usecase/UC-xx/ui/`; shared shell và
   reusable interaction patterns nằm tại `architecture/ui/`. UI artifact không
   thay thế specification, realization hoặc HTTP operation contract.

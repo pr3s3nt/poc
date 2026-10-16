@@ -2,7 +2,7 @@
 id: DOC-INDEX
 artifact: documentation-index
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-16
 ---
 
 # Documentation index
@@ -103,7 +103,9 @@ then affected use-case specifications, [module contract](architecture/contracts/
 [acceptance scope](operations/terraform-v2-acceptance.md). Full recovery, orphan
 reconciliation and platform backup are explicitly deferred in D12–D14.
 
-M04 current work order: [plan](iterations/M04-terraform-v2/README.md),
+M04 đã hoàn tất ngày16-10-2026: [plan](iterations/M04-terraform-v2/README.md),
 [rule reconciliation](implementation/v2-rule-reconciliation.md). Chặng 1 đã duyệt; quyết định 2026-10-14 bỏ điểm duyệt 2. I04-11
 pass + video/estimate + cleanup sạch thì tự chạy AWS; quyết định2026-10-15
 bỏ điểm duyệt cuối và yêu cầu sửa/check/chạy lại khi scenario thất bại.
+
+Kết quả và cleanup cuối: [bàn giao M04](verification/2026-10-16-m04-completion.md).

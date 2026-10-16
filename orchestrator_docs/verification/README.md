@@ -2,7 +2,7 @@
 id: VERIFICATION-INDEX
 artifact: verification-index
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-16
 ---
 
 # Verification evidence
@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-16 | M04 I04-06..12 hoàn tất, năm kịch bản thật/cleanup/video/checks và chi phí | [Bàn giao M04](2026-10-16-m04-completion.md) |
 | 2026-10-14 | I04-11 A01 fail; job/cache đạt, namespace r2 dọn theo quyền15Oct, sửa lỗi/khép registry; chưa đạt AWS gate | [Biên bản k8s-4f](2026-10-14-i04-11-k8s4f.md) |
 | 2026-10-14 | I04-10 runner/supervisor/durable outputs, local SQL/CLI/race checks; live scenarios pending | [Integration verification](2026-10-14-i04-10-integration.md) |
 | 2026-10-14 | I04-06 AWS onboarding, scoped Vault/SQL, IAM context guards and Codex headed browser | [AWS Connection verification](2026-10-14-i04-06-aws-connection.md) |
@@ -90,4 +91,4 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 - [2026-10-13 — A–D reconciliation và plan M04](2026-10-13-terraform-v2-reconciliation.md) — docs-only; gate 1 chờ người dùng duyệt trước code.
 
-- [2026-10-15 — I04-12 AWS A02/A03](2026-10-15-i04-12-aws.md) — đang thực hiện; preflight đạt, startup runner đang sửa trước create.
+- [2026-10-15 — I04-12 AWS A02/A03](2026-10-15-i04-12-aws.md) — hoàn tất A02r2/A03r2; FAIL cũ giữ, xem biên bản bàn giao16-10.
