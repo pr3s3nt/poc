@@ -14,8 +14,8 @@ Chặng 3 hiện hành; I04-11 đạt đủ A01/E01/E02, video/SQL/cleanup độ
 A02 `a02-20261016-r2` từ `b083d97` đạt 35 assertion/8 mốc, ba deployment
 SUCCEEDED, SQL reopen, secret scan, video phụ đề 6677,13giây; runner exit0,
 PASS/CLOSED_CLEAN, supervisor CLEAN/tám bước DONE. DB/ba role/Vault/private
-vắng độc lập; 28 UID/11 SLR giữ. Sáu lớp native verifier và video full decode exit0 đều đạt độc lập. A03 chưa chạy, estimate-check13dòng/~2,05USD
-đạt. Lượt FAIL cũ và evidence giữ nguyên, không đổi verdict lịch sử.
+vắng độc lập; 28 UID/11 SLR giữ. Sáu lớp native verifier và video full decode exit0 đều đạt độc lập. A03 `a03-20261016-r1` đã khởi động từ `3560aac`, PTY82651,
+estimate-check13dòng/~2,05USD đạt; chưa có kết quả toàn lượt. Lượt FAIL cũ và evidence giữ nguyên, không đổi verdict lịch sử.
 Theo dõi lượt chạy thật15phút/lần theo quyết định2026-10-16; supervisor độc
 lập vẫn chạy. Bản sửa mới nhất frontend `fe1cc86`, R14 đạt649/41file/fullFE/
 syntax/docs/hash; backend nguyên R13 1477Go/race0skip.

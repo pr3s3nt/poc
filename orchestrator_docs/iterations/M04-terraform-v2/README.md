@@ -45,7 +45,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Hoàn tất; A01r4/E01r2/E02r3 PASS, SQL/video/cleanup xác minh |
-| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02 16-10 r2 PASS/CLOSED_CLEAN, chuẩn bị A03 |
+| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02 16-10 r2 PASS/CLOSED_CLEAN, A03 16-10 r1 đang chạy |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
 Dependencies triển khai: schema/state -> registry -> executor -> modules ->
@@ -99,13 +99,13 @@ Sáu lớp native verifier độc lập đều đạt, video full decode exit0; 
 closure hoàn tất.
 Evidence `.m4/a02-20261016-r2/`, không đưa credential/state vào Git.
 
-A03 `a03-20261016-r1` **chưa chạy**, config0600 tại
+A03 `a03-20261016-r1` **đã khởi động** từ `3560aac`, PTY82651, config0600 tại
 `/tmp/poc-i0411-private/a03-20261016-r1.json`. Dự toán13dòng/5h khoảng
 2,050679USD, estimate-check đạt; bảy pin v4, Redis in-cluster PVC1Gi/gp2,
-Aurora/EKS small sizing không đổi. Sau A02 closure độc lập, push docs rồi
-runtime fast-forward (giữ user-owned frontend/node_modules) và chạy headed
-bằng runner hiện có, fresh account452025861381/us-east-1/principal/egress/
-gate/dirty/estimate; supervisor phải bật trước create. Không cần duyệt.
+Aurora/EKS small sizing không đổi. A02 closure đã đạt độc lập, docs đã push; runtime fast-forward giữ
+user-owned frontend/node_modules và runner headed đã chạy. Fresh
+account452025861381/us-east-1/principal/egress/gate/dirty/estimate và
+supervisor trước create do runner thực thi; chưa ghi kết quả A03.
 Theo dõi **15 phút/lần**, chỉ đọc sớm khi lỗi/hoàn tất hoặc người dùng yêu cầu;
 supervisor vẫn chạy độc lập, không gửi cập nhật chờ lặp lại.
 

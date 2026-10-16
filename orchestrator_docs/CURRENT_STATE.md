@@ -18,8 +18,9 @@ refill/reload thật. Runner exit0/PASS, SQL reopen đạt (6 loại/6 Definitio
 CLOSED_CLEAN, mọi bước cleanup DONE một lần. Video có phụ đề
 `.m4/a02-20261016-r2/A02-captioned.mp4`, 6677,13 giây. DB/ba role/Vault/
 private đã vắng độc lập; nhãn ảnh riêng dọn, 28 UID/11 SLR giữ đúng baseline.
-Sáu lớp native verifier độc lập đều đạt; video giải mã đầy đủ exit0. I04-12 chưa hoàn tất: **A03 chưa chạy**, cấu hình/dự toán
-13 dòng/~2,050679 USD đã kiểm. IMP-021 còn mở đến đủ A03 và closure.
+Sáu lớp native verifier độc lập đều đạt; video giải mã đầy đủ exit0. I04-12 chưa hoàn tất: **A03 `a03-20261016-r1` đã khởi động** từ `3560aac`, PTY82651; cấu hình/
+dự toán13 dòng/~2,050679 USD đã kiểm. Fresh preflight và supervisor do runner
+thực thi trước create; chưa có kết quả A03 ở mốc này. IMP-021 còn mở đến đủ A03 và closure.
 Code gần nhất sửa cleanup evidence `fe1cc86`, R14 đạt 649 frontend/41 file,
 type/lint/build/syntax/docs/hash, backend giữ nguyên R13 1477 Go/race/0 skip.
 Nhịp theo dõi lượt chạy thật 15 phút theo quyết định 2026-10-16; chỉ đọc sớm
