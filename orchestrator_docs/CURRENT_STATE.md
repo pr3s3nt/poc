@@ -23,11 +23,15 @@ object trên EKS, deployment `d5369d3a-adb2-45e3-be7c-0fe97674ad58`.
 Cleanup gốc xác minh delivery vắng nhưng REMOVE bị INTERRUPTED sau lỗi
 credential, chặn app-resources. Sau xác nhận các process đã dừng và lock/
 capability bằng 0, operator tăng fence 1→2/revoke rồi khép REMOVE RECOVERED
-theo contract. Lượt tiếp tục đã destroy namespace/EKS/Aurora; ElastiCache
-báo DESTROY_FAILED và giữ VPC. Đang tiếp tục bằng binary/state/module gốc
-sau cấp lại token cùng policy; chưa xác nhận sạch. Bản sửa EKS/absence
+theo contract. R6 đã khép CLOSED_CLEAN bằng operator: engine gốc destroy đủ
+năm instance, native absence/ECR đạt; một ARN SG cũ trong chỉ mục tag đã
+được chứng minh vắng bằng đúng typed EC2 NotFound và ownership. Database/
+ba role, Vault riêng, private credential và ba nhãn ảnh đã dọn; 11 SLR và
+28 UID giữ nguyên. Scenario FAIL/supervisor cũ không sửa. Bản sửa EKS/absence
 `3c7e986` đã merge/push `05f1978`, R11 đạt 1.465 Go/race/0 skip và 642
-frontend/full checks. Bản sửa thứ tự cleanup đang full R12, chưa merge.
+frontend/full checks. Bản sửa thứ tự cleanup đang full R12; định dạng lỗi
+AWS CLI 2.35 đang full R13. Chưa merge hai bản này. Lượt mới
+`a02-20261016-r1` đã chuẩn bị, chưa chạy.
 A03 chưa chạy.
 
 A02r5 đã khép `CLOSED_CLEAN` sau xác minh độc lập. Engine gốc đã destroy các

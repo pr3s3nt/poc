@@ -15,7 +15,10 @@ video/SQL/cleanup độc lập và dự toán. AWS gate cùng10kiểm tra prefli
 đọc A02 đạt. A02r1–r5 giữ kết quả FAIL và đã dọn sạch. A02r6 đang chạy từ
 `5f77e00` sau bản sửa VPC v4/list và đầy đủ pin: Preview và cả năm module
 Terraform đạt READY, Workload lỗi credential trước tạo object trên EKS.
-Cleanup gốc giữ REMOVE INTERRUPTED; đang chẩn đoán, sửa và tiếp tục dọn an toàn. Các bản sửa có kiểm chứng độc lập trước chạy thật.
+R6 đã khép CLOSED_CLEAN operator sau fencing và original engine cleanup,
+native absence/SLR/28 UID/local teardown xác minh; giữ nguyên scenario FAIL.
+Bản sửa EKS đã merge; thứ tự cleanup và CLI error format đang full checks.
+A02 `a02-20261016-r1` đã chuẩn bị nhưng chưa chạy. Các bản sửa có kiểm chứng độc lập trước chạy thật.
 A03 chưa chạy; chỉ chạy sau A02 dọn và query xác minh sạch.
 
 Quyết định2026-10-15: scenario thất bại thì tìm nguyên nhân, giao writer sửa,
