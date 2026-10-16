@@ -15,10 +15,20 @@ A02 `a02-20261016-r2` từ `b083d97` đạt 35 assertion/8 mốc, ba deployment
 SUCCEEDED, SQL reopen, secret scan, video phụ đề 6677,13giây; runner exit0,
 PASS/CLOSED_CLEAN, supervisor CLEAN/tám bước DONE. DB/ba role/Vault/private
 vắng độc lập; 28 UID/11 SLR giữ. Sáu lớp native verifier và video full decode exit0 đều đạt độc lập. A03 `a03-20261016-r1` đã khởi động từ `3560aac`, PTY82651,
-estimate-check13dòng/~2,05USD đạt; chưa có kết quả toàn lượt. Lượt FAIL cũ và evidence giữ nguyên, không đổi verdict lịch sử.
+estimate-check13dòng/~2,05USD đạt; kết quả mới nhất FAIL, cleanup ở dưới. Lượt FAIL cũ và evidence giữ nguyên, không đổi verdict lịch sử.
 Theo dõi lượt chạy thật15phút/lần theo quyết định2026-10-16; supervisor độc
 lập vẫn chạy. Bản sửa mới nhất frontend `fe1cc86`, R14 đạt649/41file/fullFE/
 syntax/docs/hash; backend nguyên R13 1477Go/race0skip.
+
+A03r1 đã FAIL: EKS PLANNING NEEDS_ATTENTION/CANCELLED, DEPLOY INTERRUPTED
+trước deadline. PostgreSQL ghi câu heartbeat UPDATE bị hủy lúc06:00:42Z;
+chưa đủ bằng chứng xác định blocker/OOM. Original supervisor NEEDS_ATTENTION
+ở VPC do EKS hold; FAIL/video giữ. Operator đã xác minh đúng EKS name vắng,
+không state/APPLY, toàn bộ old owner/process dừng; fence1→2/revoke trước khi
+release exact old lock, resolve plan thành FAILED (giữ CANCELLED/audit),
+RECOVERED rồi chạy cleanup original engine/state/target/module trong budget
+còn lại. Continuation PID2694951, chưa kết luận sạch. Writer sửa diagnostic
+heartbeat allowlist/first-cause logging; full R15 độc lập đang chạy.
 
 Quyết định2026-10-15: scenario thất bại thì tìm nguyên nhân, giao writer sửa,
 review/checks rồi chạy lại sau cleanup sạch; bỏ giới hạn một retry. Không dừng

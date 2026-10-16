@@ -45,7 +45,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Hoàn tất; A01r4/E01r2/E02r3 PASS, SQL/video/cleanup xác minh |
-| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02 16-10 r2 PASS/CLOSED_CLEAN, A03 16-10 r1 đang chạy |
+| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02 PASS/CLOSED_CLEAN, A03r1 FAIL đang cleanup; R15 kiểm |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
 Dependencies triển khai: schema/state -> registry -> executor -> modules ->
@@ -99,17 +99,34 @@ Sáu lớp native verifier độc lập đều đạt, video full decode exit0; 
 closure hoàn tất.
 Evidence `.m4/a02-20261016-r2/`, không đưa credential/state vào Git.
 
-A03 `a03-20261016-r1` **đã khởi động** từ `3560aac`, PTY82651, config0600 tại
-`/tmp/poc-i0411-private/a03-20261016-r1.json`. Dự toán13dòng/5h khoảng
-2,050679USD, estimate-check đạt; bảy pin v4, Redis in-cluster PVC1Gi/gp2,
-Aurora/EKS small sizing không đổi. A02 closure đã đạt độc lập, docs đã push; runtime fast-forward giữ
-user-owned frontend/node_modules và runner headed đã chạy. Fresh
-account452025861381/us-east-1/principal/egress/gate/dirty/estimate và
-supervisor trước create đều đạt. Supervisor2375105 ARMED trước ba ECR,
-index/native/digest khớp; năm assertion Connection/catalog/Environment đạt,
-đang nhập Workload. Database `i0410_1582aee68dc5`/ba role, Vault PID2371220
-và private handles giữ đến CLEAN. Probe observer PTY18597 chờ EKS handle.
-Chưa ghi kết quả toàn lượt A03.
+A03 `a03-20261016-r1` từ `3560aac` đã FAIL, original runner82651 exit1.
+11 assertion trước deploy đạt; VPC READY nhưng EKS PLANNING được giữ
+NEEDS_ATTENTION/CANCELLED. DEPLOY `3d05a2a2-8d13-4afe-9726-ffaf13578775`
+INTERRUPTED trước deadline. PostgreSQL06:00:42Z xác nhận UPDATE heartbeat bị
+hủy, chưa có wait graph để kết luận blocker hay OOM. Supervisor2375105
+NEEDS_ATTENTION ở VPC; giữ nguyên FAIL/video/summary và private recovery.
+
+Operator chứng minh original product/browser/supervisor/provider dừng, đúng
+EKS name từ module snapshot native NotFound, no state/APPLY. Theo state
+contract, manual scoped CAS fence1→2/revoke2cap rồi release exact old state
+lock, resolve plan FAILED (CANCELLED giữ/audit status cũ), operation RECOVERED.
+Đã rehearsal ROLLBACK rồi COMMIT; proof/operator-held-plan-recovery* ngoàiGit.
+Cleanup continuation **PID/PGID/SID2694951** dùng original binary/state/target/
+module, budget còn6650s tính từ120m gốc, status
+`.m4/a03-20261016-r1/operator-recovery-status.json`; chỉ một supervisor tiếp.
+Chưa xác minh sạch, không chạy A03r2 trước closure. DB`i0410_1582aee68dc5`,
+Vault riêng/private handles phải giữ. Không đọc/đưa state hoặc secret vàoGit.
+
+Writer `/root/m04_cleanup_writer` sửa hai Go file tại
+`/tmp/poc-i0412-heartbeat-diagnostics`: diagnostic cause/trigger allowlist,
+first loss log không phụ thuộc quyền ghi, giữ nguyên ngưỡng/holds/fencing.
+Parent full R15 đang chạy PTY72067, evidence
+`.m4/checks-i0412-heartbeat-diagnostics-r15/`, zero skip bắt buộc, chưa merge.
+Bước kế: cleanup/native/local proof A03r1, R15 pass/hash/fixture sạch, merge/
+commit/push; thêm safe SQL wait telemetry cho A03r2 để xác định blocker nếu tái
+hiện. Script operator ngoàiGit `.m4/watch-own-postgres-contention.py` chỉ
+SELECT own disposable DB và ghi loại chờ/PID, không rawSQL/token/state.
+
 Theo dõi **15 phút/lần**, chỉ đọc sớm khi lỗi/hoàn tất hoặc người dùng yêu cầu;
 supervisor vẫn chạy độc lập, không gửi cập nhật chờ lặp lại.
 
