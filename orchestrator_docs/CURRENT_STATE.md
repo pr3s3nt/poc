@@ -21,8 +21,9 @@ private đã vắng độc lập; nhãn ảnh riêng dọn, 28 UID/11 SLR giữ 
 Sáu lớp native verifier độc lập đều đạt; video giải mã đầy đủ exit0. I04-12 chưa hoàn tất: **A03 `a03-20261016-r1` đã khởi động** từ `3560aac`, PTY82651; cấu hình/
 dự toán13 dòng/~2,050679 USD đã kiểm. Fresh preflight và supervisor do runner
 thực thi trước create; kết quả mới nhất FAIL, chi tiết cleanup ở dưới. IMP-021 còn mở đến đủ A03 và closure.
-Code gần nhất sửa cleanup evidence `fe1cc86`, R14 đạt 649 frontend/41 file,
-type/lint/build/syntax/docs/hash, backend giữ nguyên R13 1477 Go/race/0 skip.
+Code mới nhất `1f3d3cb` ghi diagnostic heartbeat allowlist/first-loss,
+không đổi ngưỡng/fencing/hold. R15 đạt1482 Go/race/0skip,649frontend/41file,
+build/vet/type/lint/docs/PlantUML/hash; fixture riêng vắng độc lập.
 A03r1 đã FAIL: EKS PLANNING NEEDS_ATTENTION/CANCELLED, DEPLOY INTERRUPTED
 trước deadline. PostgreSQL ghi câu heartbeat UPDATE bị hủy lúc06:00:42Z;
 chưa đủ bằng chứng xác định blocker/OOM. Original supervisor NEEDS_ATTENTION
@@ -30,8 +31,10 @@ chưa đủ bằng chứng xác định blocker/OOM. Original supervisor NEEDS_A
 không state/APPLY, toàn bộ old owner/process dừng; fence1→2/revoke trước khi
 release exact old lock, resolve plan thành FAILED (giữ CANCELLED/audit),
 RECOVERED rồi chạy cleanup original engine/state/target/module trong budget
-còn lại. Continuation PID2694951, chưa kết luận sạch. Writer sửa diagnostic
-heartbeat allowlist/first-cause logging; full R15 độc lập đang chạy.
+còn lại. Continuation2694951 CLEAN; sáu lớp native đạt, hai instance DESTROYED,
+0 hold/lock/capability, DB/roles/Vault/private vắng,28 UID/11 SLR giữ.
+Marker CLOSED_CLEAN operator; original FAIL giữ. Bản sửa diagnostic heartbeat `1f3d3cb` đã review/merge, R15 full đạt.
+A03r2 config/estimate sẵn, chờ push và chạy với safe SQL contention telemetry.
 
 Nhịp theo dõi lượt chạy thật 15 phút theo quyết định 2026-10-16; chỉ đọc sớm
 khi lỗi/hoàn tất hoặc người dùng yêu cầu, supervisor luôn chạy độc lập.

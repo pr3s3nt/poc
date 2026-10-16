@@ -27,8 +27,10 @@ chưa đủ bằng chứng xác định blocker/OOM. Original supervisor NEEDS_A
 không state/APPLY, toàn bộ old owner/process dừng; fence1→2/revoke trước khi
 release exact old lock, resolve plan thành FAILED (giữ CANCELLED/audit),
 RECOVERED rồi chạy cleanup original engine/state/target/module trong budget
-còn lại. Continuation PID2694951, chưa kết luận sạch. Writer sửa diagnostic
-heartbeat allowlist/first-cause logging; full R15 độc lập đang chạy.
+còn lại. Continuation2694951 CLEAN; sáu lớp native đạt, hai instance DESTROYED,
+0 hold/lock/capability, DB/roles/Vault/private vắng,28 UID/11 SLR giữ.
+Marker CLOSED_CLEAN operator; original FAIL giữ. Bản sửa diagnostic `1f3d3cb` đã review/merge, R15 đạt1482Go/race0skip,
+649frontend/fullchecks/hash/fixture. A03r2 đã chuẩn bị, chưa chạy.
 
 Quyết định2026-10-15: scenario thất bại thì tìm nguyên nhân, giao writer sửa,
 review/checks rồi chạy lại sau cleanup sạch; bỏ giới hạn một retry. Không dừng

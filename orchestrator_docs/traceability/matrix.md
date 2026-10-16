@@ -844,3 +844,9 @@ secret scan, runnerPASS/exit0/CLOSED_CLEAN và supervisorCLEAN. DB/roles/
 Vault/private vắng,28UID/11SLR giữ. Evidence trong
 [biên bản I04-12](../verification/2026-10-15-i04-12-aws.md).
 IMP-021 vẫn mở vì A03 chưa chạy; D12–D14 không đổi.
+
+
+A03r1 FAIL do heartbeat cancellation đã CLOSED_CLEAN operator với audit,
+original verdict giữ. Diagnostic heartbeat `1f3d3cb` đã review/merge, R15 đạt
+1482Go/race0skip/649frontend/fullchecks/hash/fixture. Không đổi quyền/hold/
+fencing; A03r2 chờ chạy thật, IMP-021 vẫn mở đến A03 đạt và cleanup sạch.

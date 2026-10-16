@@ -114,18 +114,27 @@ lock, resolve plan FAILED (CANCELLED giữ/audit status cũ), operation RECOVERE
 Cleanup continuation **PID/PGID/SID2694951** dùng original binary/state/target/
 module, budget còn6650s tính từ120m gốc, status
 `.m4/a03-20261016-r1/operator-recovery-status.json`; chỉ một supervisor tiếp.
-Chưa xác minh sạch, không chạy A03r2 trước closure. DB`i0410_1582aee68dc5`,
-Vault riêng/private handles phải giữ. Không đọc/đưa state hoặc secret vàoGit.
+Đã CLOSED_CLEAN operator: tám bước DONE, sáu lớp native đạt, hai instance
+DESTROYED/0 hold-lock-capability, DB`i0410_1582aee68dc5`/ba role/Vault/private
+vắng.28 UID/11 SLR giữ, video decode0/secret72file đạt. Original FAIL và
+NEEDS_ATTENTION giữ, closure.json riêng. Không đọc/đưa state/secret vàoGit.
 
-Writer `/root/m04_cleanup_writer` sửa hai Go file tại
-`/tmp/poc-i0412-heartbeat-diagnostics`: diagnostic cause/trigger allowlist,
-first loss log không phụ thuộc quyền ghi, giữ nguyên ngưỡng/holds/fencing.
-Parent full R15 đang chạy PTY72067, evidence
-`.m4/checks-i0412-heartbeat-diagnostics-r15/`, zero skip bắt buộc, chưa merge.
-Bước kế: cleanup/native/local proof A03r1, R15 pass/hash/fixture sạch, merge/
-commit/push; thêm safe SQL wait telemetry cho A03r2 để xác định blocker nếu tái
-hiện. Script operator ngoàiGit `.m4/watch-own-postgres-contention.py` chỉ
-SELECT own disposable DB và ghi loại chờ/PID, không rawSQL/token/state.
+Writer `/root/m04_cleanup_writer` đã hoàn tất hai Go file tại
+`/tmp/poc-i0412-heartbeat-diagnostics`; code `1f3d3cb` review/merge. Diagnostic
+cause/trigger allowlist và first-loss log vẫn có khi storage từ chối ghi,
+không raw error/SQL/secret, không đổi ngưỡng/holds/fencing. R15 đạt1482Go/
+race0fail0skip,649frontend/41file, build/vet/type/lint/docs/PlantUML/diff;
+hash tracked+newtest trước/sau khớp, container/network/credential vắng độc lập.
+Evidence `.m4/checks-i0412-heartbeat-diagnostics-r15/final-validation.json`.
+
+A03 `a03-20261016-r2` config0600 tại
+`/tmp/poc-i0411-private/a03-20261016-r2.json`, estimate13dòng/~2,050679USD đạt,
+bảy pin v4/count/sizing/giá không đổi. **Chưa chạy** ở mốc này. Bước kế push
+root và runtime fast-forward giữ user-owned node_modules, chạy headed với
+fresh preflight/gate/dirty/estimate/supervisor. Phải bật collector SQL read-only
+`.m4/watch-own-postgres-contention.py` ngay startup, chỉ ownDB/PID/wait/age,
+không query/token/state. Bộ tool riêng đã chuyển tmpfs→disk giữ byte và đường
+dẫn để giảm footprint local; không kết luận đó là nguyên nhân gốc.
 
 Theo dõi **15 phút/lần**, chỉ đọc sớm khi lỗi/hoàn tất hoặc người dùng yêu cầu;
 supervisor vẫn chạy độc lập, không gửi cập nhật chờ lặp lại.
