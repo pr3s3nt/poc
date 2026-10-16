@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -299,6 +300,12 @@ func VerifyAWSLayer(ctx context.Context, cli AWSCLI, c Config, m Manifest, layer
 			continue
 		}
 		stdout, stderr, exit := cli.Run(ctx, queryArgs(q)...)
+		if q.ID == "tagged-resources" {
+			if err := verifyTaggedAWSResources(ctx, cli, c, m, stdout, stderr, exit); err != nil {
+				bad = append(bad, "tagged-resources: "+err.Error())
+			}
+			continue
+		}
 		p := q.Evaluate(stdout, stderr, exit)
 		switch {
 		case len(p.Present) > 0:
@@ -311,6 +318,110 @@ func VerifyAWSLayer(ctx context.Context, cli AWSCLI, c Config, m Manifest, layer
 		return errors.New(strings.Join(bad, "; "))
 	}
 	return nil
+}
+
+var ec2ResourceARN = regexp.MustCompile(`^arn:aws:ec2:([a-z0-9-]+):([0-9]{12}):(security-group|subnet)/(sg-[0-9a-f]+|subnet-[0-9a-f]+)$`)
+var exactNotFoundMessage = regexp.MustCompile(`^An error occurred \(([^)]+)\) when calling the ([A-Za-z0-9]+) operation:`)
+
+type taggedAWSResource struct {
+	ResourceARN string `json:"ResourceARN"`
+	Tags        []struct {
+		Key   string `json:"Key"`
+		Value string `json:"Value"`
+	} `json:"Tags"`
+}
+
+// verifyTaggedAWSResources compensates only for the known eventual-consistency
+// lag in RGTA's index. A stale entry is absent only when the exact full ARN was
+// recorded as a unique run-owned manifest asset and the service's native,
+// exact-ID describe call returns its typed not-found response.
+func verifyTaggedAWSResources(ctx context.Context, cli AWSCLI, c Config, m Manifest, raw []byte, stderr string, exit int) error {
+	if exit != 0 {
+		return fmt.Errorf("tagged resource query failed (exit %d)", exit)
+	}
+	var doc struct {
+		Mappings []taggedAWSResource `json:"ResourceTagMappingList"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return errors.New("tagged resource response is malformed")
+	}
+	if doc.Mappings == nil {
+		return errors.New("tagged resource response omitted ResourceTagMappingList")
+	}
+	if m.RunID != c.RunID || c.Target != TargetAWS || m.Target != TargetAWS || c.AWS == nil || m.Account != c.AWS.AccountID || m.Region != c.AWS.Region || m.Principal != c.AWS.PrincipalARN {
+		return errors.New("manifest account, region, target or run does not match the configured AWS run")
+	}
+	seen := make(map[string]bool, len(doc.Mappings))
+	for _, item := range doc.Mappings {
+		arn := item.ResourceARN
+		if arn == "" || seen[arn] {
+			return errors.New("tagged resource response contains a missing or duplicate ARN")
+		}
+		seen[arn] = true
+	}
+	for _, item := range doc.Mappings {
+		arn := item.ResourceARN
+		if !hasExactRunTag(item.Tags, c.RunID) {
+			return fmt.Errorf("tagged resource %s lacks the exact run tag", arn)
+		}
+		kind, id, ok := staleEC2Candidate(arn, c, m)
+		if !ok {
+			return fmt.Errorf("tagged resource remains present: %s", arn)
+		}
+		operation, expectedCode, command, flag := "", "", "", ""
+		switch kind {
+		case "subnet":
+			operation, expectedCode, command, flag = "DescribeSubnets", "InvalidSubnetID.NotFound", "describe-subnets", "--subnet-ids"
+		case "security-group":
+			operation, expectedCode, command, flag = "DescribeSecurityGroups", "InvalidGroup.NotFound", "describe-security-groups", "--group-ids"
+		default:
+			return fmt.Errorf("tagged resource remains present: %s", arn)
+		}
+		_, detail, code := cli.Run(ctx, "ec2", command, flag, id)
+		if code == 0 {
+			return fmt.Errorf("tagged resource remains physically present: %s", arn)
+		}
+		match := exactNotFoundMessage.FindStringSubmatch(strings.TrimSpace(detail))
+		if len(match) != 3 || match[1] != expectedCode || match[2] != operation {
+			return fmt.Errorf("exact native absence check for %s was indeterminate", arn)
+		}
+	}
+	return nil
+}
+
+func hasExactRunTag(tags []struct {
+	Key   string `json:"Key"`
+	Value string `json:"Value"`
+}, runID string) bool {
+	found := false
+	for _, tag := range tags {
+		if tag.Key == "run-id" {
+			if found || tag.Value != runID {
+				return false
+			}
+			found = true
+		}
+	}
+	return found
+}
+
+func staleEC2Candidate(arn string, c Config, m Manifest) (kind, id string, ok bool) {
+	match := ec2ResourceARN.FindStringSubmatch(arn)
+	if len(match) != 5 || match[1] != c.AWS.Region || match[2] != c.AWS.AccountID {
+		return "", "", false
+	}
+	kind, id = match[3], match[4]
+	if (kind == "security-group" && !strings.HasPrefix(id, "sg-")) || (kind == "subnet" && !strings.HasPrefix(id, "subnet-")) {
+		return "", "", false
+	}
+	count, exact := 0, false
+	for _, asset := range m.Assets {
+		if asset.ID == arn {
+			count++
+			exact = asset.Kind == "arn" && asset.Layer == LayerAux && asset.Owner == OwnerCreatedByRun
+		}
+	}
+	return kind, id, count == 1 && exact
 }
 
 // queryArgs strips the fixed `aws --region R --output json` prefix of a query.

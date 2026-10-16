@@ -482,7 +482,7 @@ func (s *Service) removeWorkload(ctx context.Context, planCtx planning.Context, 
 		}
 		ownerDeploymentID := workloadOwnerDeploymentID(instance)
 		target := execution.Target{Namespace: planCtx.Env.Namespace(), Extra: map[string]string{"application": planCtx.App.Key, "environment": planCtx.Env.Key, "deployment": ownerDeploymentID}}
-		if err := restoreEnvironmentTarget(&target, instance.TargetRef, planCtx.OrganizationKey, planCtx.Env.ConnectionKey); err != nil {
+		if err := restoreEnvironmentTarget(&target, instance.TargetRef, planCtx.OrganizationKey, planCtx.Env); err != nil {
 			return err
 		}
 		instance.Status = domain.InstanceRemoving
@@ -775,7 +775,7 @@ func (s *Service) GenerationTarget(ctx context.Context, app appdomain.Applicatio
 	for _, instance := range instances {
 		candidate := base
 		candidate.Extra = map[string]string{"application": app.Key, "environment": env.Key}
-		if err := restoreEnvironmentTarget(&candidate, instance.TargetRef, app.OrganizationKey, env.ConnectionKey); err != nil {
+		if err := restoreEnvironmentTarget(&candidate, instance.TargetRef, app.OrganizationKey, env); err != nil {
 			return execution.Target{}, err
 		}
 		if candidate.Explicit() {
@@ -830,7 +830,7 @@ func (s *Service) routesFor(ctx context.Context, app appdomain.Application, env 
 	for _, instance := range instances {
 		candidate := base
 		candidate.Extra = map[string]string{"application": app.Key, "environment": env.Key}
-		if err := restoreEnvironmentTarget(&candidate, instance.TargetRef, app.OrganizationKey, env.ConnectionKey); err != nil {
+		if err := restoreEnvironmentTarget(&candidate, instance.TargetRef, app.OrganizationKey, env); err != nil {
 			return err
 		}
 		target = candidate
@@ -905,12 +905,19 @@ func (s *Service) preflightSecretDelivery(ctx context.Context, cmd DeployCommand
 // restoreEnvironmentTarget restores a stored target and rejects a credential
 // reference that names a Connection other than the one the Environment
 // generation is pinned to; the stored identity is never trusted blindly.
-func restoreEnvironmentTarget(target *execution.Target, ref map[string]any, organizationKey, connectionKey string) error {
+func restoreEnvironmentTarget(target *execution.Target, ref map[string]any, organizationKey string, env environment.Environment) error {
 	if err := restoreTarget(target, ref, organizationKey); err != nil {
 		return err
 	}
-	if target.Connection != "" && target.Connection != connectionKey {
+	if target.Connection != "" && target.Connection != env.ConnectionKey {
 		return fmt.Errorf("deployment: workload target uses a connection other than the environment connection")
+	}
+	if env.Profile == appdomain.ProfileAWSEKS {
+		if target.Provider != "eks" || target.Region != env.Region {
+			return fmt.Errorf("deployment: workload target does not match the pinned EKS environment")
+		}
+	} else if target.Provider != "" {
+		return fmt.Errorf("deployment: workload target provider does not match the Environment profile")
 	}
 	return nil
 }
@@ -930,6 +937,10 @@ func targetRef(target execution.Target) map[string]any {
 		ref["organization"] = target.Organization
 		ref["connection"] = target.Connection
 	}
+	if target.Provider != "" {
+		ref["provider"] = target.Provider
+		ref["region"] = target.Region
+	}
 	return ref
 }
 
@@ -946,11 +957,21 @@ func restoreTarget(target *execution.Target, ref map[string]any, organizationKey
 	}
 	target.Context = text("context")
 	target.ClusterName = text("cluster")
+	target.Kind = "kubernetes"
+	target.Provider = text("provider")
+	target.Region = text("region")
 	if connection := text("connection"); connection != "" {
 		if text("organization") != organizationKey {
 			return fmt.Errorf("deployment: workload target belongs to another organization")
 		}
 		target.Organization, target.Connection = organizationKey, connection
+	}
+	if target.Provider != "" {
+		if target.Provider != "eks" || target.Region == "" || target.ClusterName == "" || target.Connection == "" {
+			return fmt.Errorf("deployment: workload target provider metadata is incomplete or unsupported")
+		}
+	} else if target.Region != "" {
+		return fmt.Errorf("deployment: workload target has a region without a provider")
 	}
 	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"sync"
 
+	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/execution"
 )
@@ -51,14 +52,19 @@ func (e *ResourceExecutor) Provision(_ context.Context, req execution.ProvisionR
 			State: map[string]any{"driver": "fake", "descriptor": req.Descriptor},
 		}, nil
 	case "k8s-cluster":
-		return execution.ProvisionResult{
+		result := execution.ProvisionResult{
 			Outputs: map[string]any{
 				"name":        "fake-" + req.ApplicationKey,
 				"endpoint":    "https://fake-cluster.invalid",
 				"kubeContext": contextInput(req.Inputs),
 			},
 			State: map[string]any{"driver": "fake", "descriptor": req.Descriptor},
-		}, nil
+		}
+		if req.Connection.Kind == application.ConnectionAWS {
+			result.Target = &execution.Target{Kind: "kubernetes", Provider: "eks", ClusterName: "fake-" + req.ApplicationKey,
+				Organization: req.OrganizationKey, Connection: req.Connection.Key, Region: req.Connection.ConfigString("region")}
+		}
+		return result, nil
 	case "k8s-namespace":
 		return execution.ProvisionResult{
 			Outputs: map[string]any{"name": id},

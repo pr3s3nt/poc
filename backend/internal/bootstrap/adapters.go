@@ -3,15 +3,27 @@ package bootstrap
 import (
 	"fmt"
 
+	"orchestrator/internal/adapters/awsaccess"
 	"orchestrator/internal/adapters/gitops"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	moduleregistry "orchestrator/internal/adapters/terraform/registry"
 	"orchestrator/internal/application/connection"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/execution"
+	"orchestrator/internal/ports/terraformexec"
 )
 
 func kubernetesRenderer() execution.WorkloadRenderer { return k8s.NewRenderer() }
+
+func kubeconfigSourceFor(mode AdapterMode, resolver *connection.CredentialResolver, api terraformexec.AWSAPI) execution.KubeconfigSource {
+	if mode != AdapterAWS {
+		return resolver
+	}
+	if api == nil {
+		api = awsaccess.New()
+	}
+	return &k8s.TargetCredentials{Kubernetes: resolver, AWS: resolver, API: api}
+}
 
 // registry maps a Driver Type onto its executor adapter (UC-08 MS-04).
 type registry struct {
@@ -40,11 +52,11 @@ func (r registry) VerifiesModules(driver resource.DriverType) bool {
 
 // realAdapters wires the cluster and cloud executors used outside the walking
 // skeleton. Kubernetes mode covers internal-k8s; AWS mode adds Terraform.
-func realAdapters(opts Options, credentials *connection.CredentialResolver, tf *terraformRuntime, secretStore execution.SecretStore, modules *moduleregistry.Service, closers *[]func()) (execution.ExecutorRegistry, execution.WorkloadRenderer, execution.WorkloadDeployer, error) {
+func realAdapters(opts Options, credentials *connection.CredentialResolver, kubeconfig execution.KubeconfigSource, tf *terraformRuntime, secretStore execution.SecretStore, modules *moduleregistry.Service, closers *[]func()) (execution.ExecutorRegistry, execution.WorkloadRenderer, execution.WorkloadDeployer, error) {
 	kubernetesExecutor := k8s.NewExecutor(opts.KubectlPath)
-	kubernetesExecutor.Credentials = credentials
+	kubernetesExecutor.Credentials = kubeconfig
 	existingCluster := k8s.NewExistingClusterAdapter(opts.KubectlPath)
-	existingCluster.Credentials = credentials
+	existingCluster.Credentials = kubeconfig
 	executors := map[resource.DriverType]execution.ResourceExecutor{
 		resource.DriverKubernetes:      kubernetesExecutor,
 		resource.DriverExistingCluster: existingCluster,
@@ -61,7 +73,7 @@ func realAdapters(opts Options, credentials *connection.CredentialResolver, tf *
 		return nil, nil, nil, fmt.Errorf("bootstrap: AWS adapters need the Terraform state backend (state key and State runtime database)")
 	}
 	direct := k8s.NewDeployer(opts.KubectlPath)
-	direct.Credentials = credentials
+	direct.Credentials = kubeconfig
 	deployer := execution.WorkloadDeployer(direct)
 	if opts.WorkloadDelivery == "fleet-gitrepo" {
 		if opts.Adapters != AdapterKubernetes {

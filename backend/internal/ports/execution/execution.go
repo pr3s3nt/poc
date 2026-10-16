@@ -47,9 +47,10 @@ func (t Target) Explicit() bool {
 	return t.CredentialBacked() || t.Kubeconfig != ""
 }
 
-// KubeconfigSource resolves the normalized selected-context kubeconfig of a
-// credential-backed target. It fails closed for a missing, foreign, non-READY
-// or non-KUBECONFIG Connection and never falls back to host credentials.
+// KubeconfigSource resolves short-lived kubeconfig data for an explicit
+// credential-backed target. Implementations may support a scoped KUBECONFIG
+// Connection or a completed opaque EKS target; they fail closed for mismatched
+// scope and never fall back to host credentials.
 type KubeconfigSource interface {
 	ResolveKubeconfig(ctx context.Context, target Target) ([]byte, error)
 }
