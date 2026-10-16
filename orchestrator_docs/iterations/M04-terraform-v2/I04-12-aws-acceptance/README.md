@@ -30,7 +30,7 @@ RECOVERED rồi chạy cleanup original engine/state/target/module trong budget
 còn lại. Continuation2694951 CLEAN; sáu lớp native đạt, hai instance DESTROYED,
 0 hold/lock/capability, DB/roles/Vault/private vắng,28 UID/11 SLR giữ.
 Marker CLOSED_CLEAN operator; original FAIL giữ. Bản sửa diagnostic `1f3d3cb` đã review/merge, R15 đạt1482Go/race0skip,
-649frontend/fullchecks/hash/fixture. A03r2 đã chuẩn bị, chưa chạy.
+649frontend/fullchecks/hash/fixture. A03r2 đã khởi động từ `a121642`, PTY25798; chưa có kết quả toàn lượt.
 
 Quyết định2026-10-15: scenario thất bại thì tìm nguyên nhân, giao writer sửa,
 review/checks rồi chạy lại sau cleanup sạch; bỏ giới hạn một retry. Không dừng

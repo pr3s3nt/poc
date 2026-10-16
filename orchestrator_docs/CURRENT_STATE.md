@@ -34,7 +34,7 @@ RECOVERED rồi chạy cleanup original engine/state/target/module trong budget
 còn lại. Continuation2694951 CLEAN; sáu lớp native đạt, hai instance DESTROYED,
 0 hold/lock/capability, DB/roles/Vault/private vắng,28 UID/11 SLR giữ.
 Marker CLOSED_CLEAN operator; original FAIL giữ. Bản sửa diagnostic heartbeat `1f3d3cb` đã review/merge, R15 full đạt.
-A03r2 config/estimate sẵn, chờ push và chạy với safe SQL contention telemetry.
+A03r2 đã khởi động từ `a121642`, PTY25798, với safe SQL contention telemetry.
 
 Nhịp theo dõi lượt chạy thật 15 phút theo quyết định 2026-10-16; chỉ đọc sớm
 khi lỗi/hoàn tất hoặc người dùng yêu cầu, supervisor luôn chạy độc lập.
