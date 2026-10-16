@@ -105,7 +105,11 @@ A03 `a03-20261016-r1` **đã khởi động** từ `3560aac`, PTY82651, config06
 Aurora/EKS small sizing không đổi. A02 closure đã đạt độc lập, docs đã push; runtime fast-forward giữ
 user-owned frontend/node_modules và runner headed đã chạy. Fresh
 account452025861381/us-east-1/principal/egress/gate/dirty/estimate và
-supervisor trước create do runner thực thi; chưa ghi kết quả A03.
+supervisor trước create đều đạt. Supervisor2375105 ARMED trước ba ECR,
+index/native/digest khớp; năm assertion Connection/catalog/Environment đạt,
+đang nhập Workload. Database `i0410_1582aee68dc5`/ba role, Vault PID2371220
+và private handles giữ đến CLEAN. Probe observer PTY18597 chờ EKS handle.
+Chưa ghi kết quả toàn lượt A03.
 Theo dõi **15 phút/lần**, chỉ đọc sớm khi lỗi/hoàn tất hoặc người dùng yêu cầu;
 supervisor vẫn chạy độc lập, không gửi cập nhật chờ lặp lại.
 
