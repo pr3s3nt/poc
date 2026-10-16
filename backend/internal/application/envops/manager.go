@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -112,18 +114,20 @@ type Claim struct {
 // Lease is a held claim. Ctx carries the owner for repository writes and is
 // cancelled when the claim is lost or ended.
 type Lease struct {
-	Operation environment.Operation
-	Ctx       context.Context
-	owner     persistence.Owner
-	manager   *Manager
-	cancel    context.CancelFunc
-	stop      chan struct{}
-	done      sync.WaitGroup
-	mu        sync.Mutex
-	stage     string
-	detail    map[string]any
-	lost      bool
-	ended     bool
+	Operation   environment.Operation
+	Ctx         context.Context
+	owner       persistence.Owner
+	manager     *Manager
+	cancel      context.CancelFunc
+	stop        chan struct{}
+	done        sync.WaitGroup
+	mu          sync.Mutex
+	stage       string
+	detail      map[string]any
+	lost        bool
+	lossCause   string
+	lossTrigger string
+	ended       bool
 }
 
 // Begin claims the Environment. ErrBusy (wrapping ErrEnvironmentBusy) reports
@@ -179,11 +183,50 @@ func (l *Lease) Detached() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.WithoutCancel(l.Ctx), ioTimeout)
 }
 
-func (l *Lease) markLost() {
+func (l *Lease) markLost(cause, trigger string) {
 	l.mu.Lock()
+	if l.lost {
+		l.mu.Unlock()
+		return
+	}
 	l.lost = true
+	l.lossCause = cause
+	l.lossTrigger = trigger
 	l.mu.Unlock()
+	slog.Info("environment operation heartbeat lost",
+		"cause", cause,
+		"trigger", trigger,
+		"operation_id", l.Operation.ID,
+		"fence", l.Operation.Fence,
+	)
 	l.cancel()
+}
+
+func heartbeatFailureCause(err error) string {
+	switch {
+	case errors.Is(err, persistence.ErrOperationLost):
+		return "operation_lost"
+	case errors.Is(err, context.DeadlineExceeded):
+		return "heartbeat_io_timeout"
+	default:
+		return "heartbeat_storage_error"
+	}
+}
+
+// heldFailure adds only allowlisted heartbeat diagnostics. Raw adapter errors
+// may contain SQL or connection details and must never enter the operation.
+func (l *Lease) heldFailure(failure string) string {
+	l.mu.Lock()
+	cause, trigger := l.lossCause, l.lossTrigger
+	l.mu.Unlock()
+	if cause == "" {
+		return failure
+	}
+	diagnostic := fmt.Sprintf("heartbeat_loss cause=%s trigger=%s operation_id=%s fence=%d", cause, trigger, l.Operation.ID, l.Operation.Fence)
+	if failure == "" {
+		return diagnostic
+	}
+	return strings.TrimSpace(failure) + "; " + diagnostic
 }
 
 func (l *Lease) heartbeatNow(stage string, detail map[string]any) error {
@@ -210,13 +253,13 @@ func (l *Lease) beat() {
 			case err == nil:
 				lastOK = time.Now()
 			case errors.Is(err, persistence.ErrOperationLost):
-				l.markLost()
+				l.markLost("operation_lost", "operation_lost")
 				return
 			case time.Since(lastOK) > l.manager.staleAfter/2:
 				// Authority can no longer be verified and another backend may soon
 				// mark this claim INTERRUPTED: stop external work instead of
 				// continuing under unverified authority.
-				l.markLost()
+				l.markLost(heartbeatFailureCause(err), "stale_after_exceeded")
 				return
 			}
 		}
@@ -241,7 +284,7 @@ func (l *Lease) Stage(stage string, detail map[string]any) error {
 	l.mu.Unlock()
 	err := l.heartbeatNow(stage, d)
 	if errors.Is(err, persistence.ErrOperationLost) {
-		l.markLost()
+		l.markLost("operation_lost", "operation_lost")
 	}
 	return err
 }
@@ -298,5 +341,5 @@ func (l *Lease) Suspend(failure string) error {
 	l.cancel()
 	ctx, cancel := context.WithTimeout(context.Background(), ioTimeout)
 	defer cancel()
-	return l.manager.store.SuspendOperation(ctx, l.owner, failure)
+	return l.manager.store.SuspendOperation(ctx, l.owner, l.heldFailure(failure))
 }
