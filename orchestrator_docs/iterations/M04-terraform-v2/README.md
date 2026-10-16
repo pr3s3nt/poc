@@ -131,7 +131,11 @@ A03 `a03-20261016-r2` config0600 tại
 `/tmp/poc-i0411-private/a03-20261016-r2.json`, estimate13dòng/~2,050679USD đạt,
 bảy pin v4/count/sizing/giá không đổi. **Đã khởi động** từ `a121642`, PTY25798 sau push và runtime fast-forward
 giữ user-owned node_modules. Runner headed kiểm fresh preflight/gate/dirty/
-estimate/supervisor trước create; chưa có kết quả. Đã bật collector SQL read-only
+estimate/supervisor trước create đã đạt. Supervisor2943679 ARMED trước ba ECR,
+index/native/digest khớp, năm assertion trước Workload đạt. DB`i0410_147d44e3f63f`/
+ba role và Vault PID2939662 đang dùng; giữ private handles đến CLEAN.
+SQL collector191mẫu/0error/0blocked-heartbeat ở lần kiểm07:35Z. Chưa có
+kết quả toàn lượt. Đã bật collector SQL read-only
 `.m4/watch-own-postgres-contention.py` ngay startup, chỉ ownDB/PID/wait/age,
 không query/token/state. Bộ tool riêng đã chuyển tmpfs→disk giữ byte và đường
 dẫn để giảm footprint local; không kết luận đó là nguyên nhân gốc.
