@@ -17,8 +17,13 @@ PASS/CLOSED_CLEAN, supervisor CLEAN/tám bước DONE. DB/ba role/Vault/private
 vắng độc lập; 28 UID/11 SLR giữ. Sáu lớp native verifier và video full decode exit0 đều đạt độc lập. A03 `a03-20261016-r1` đã khởi động từ `3560aac`, PTY82651,
 estimate-check13dòng/~2,05USD đạt; kết quả mới nhất FAIL, cleanup ở dưới. Lượt FAIL cũ và evidence giữ nguyên, không đổi verdict lịch sử.
 Theo dõi lượt chạy thật15phút/lần theo quyết định2026-10-16; supervisor độc
-lập vẫn chạy. Bản sửa mới nhất frontend `fe1cc86`, R14 đạt649/41file/fullFE/
+lập vẫn chạy. Bản sửa frontend trước đó `fe1cc86`, R14 đạt649/41file/fullFE/
 syntax/docs/hash; backend nguyên R13 1477Go/race0skip.
+
+Lượt hiện hành A03r2 từ `a121642`, PTY25798: kiểm08:09Z ba deployment
+SUCCEEDED, năm module READY,21assertion0fail đến jobDONE. Chờ cache/TTL/
+cleanup/SQL/video/finalreceipt; supervisor2943679 ARMED,SQL584mẫu0error/
+0blocked-heartbeat. Chưa ghi A03PASS.
 
 A03r1 đã FAIL: EKS PLANNING NEEDS_ATTENTION/CANCELLED, DEPLOY INTERRUPTED
 trước deadline. PostgreSQL ghi câu heartbeat UPDATE bị hủy lúc06:00:42Z;
