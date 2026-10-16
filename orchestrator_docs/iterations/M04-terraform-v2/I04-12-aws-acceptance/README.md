@@ -21,8 +21,9 @@ lập vẫn chạy. Bản sửa frontend trước đó `fe1cc86`, R14 đạt649/
 syntax/docs/hash; backend nguyên R13 1477Go/race0skip.
 
 Lượt hiện hành A03r2 từ `a121642`, PTY25798: kiểm08:09Z ba deployment
-SUCCEEDED, năm module READY,21assertion0fail đến jobDONE. Chờ cache/TTL/
-cleanup/SQL/video/finalreceipt; supervisor2943679 ARMED,SQL584mẫu0error/
+SUCCEEDED,28assertion0fail gồm job/cache/TTL/refill/reload. Kiểm08:26Z
+Aurora/Redis/namespace DESTROYED, EKS DESTROYING; chờ cleanup/SQL reopen/
+video/finalreceipt. Supervisor2943679 CLEANING,SQL785mẫu0error/
 0blocked-heartbeat. Chưa ghi A03PASS.
 
 A03r1 đã FAIL: EKS PLANNING NEEDS_ATTENTION/CANCELLED, DEPLOY INTERRUPTED

@@ -45,7 +45,7 @@ Cleanup tài nguyên đã tạo luôn tiếp tục khi cần, không để chờ
 | I04-09 | [Redis cho acceptance app hiện có](I04-09-acceptance-redis/README.md) | 2 | Hoàn tất local |
 | I04-10 | [Tích hợp và runner/evidence/cleanup supervisor](I04-10-integration/README.md) | 2 | Hoàn tất local |
 | I04-11 | [V2-A01/E01/E02 và dự toán AWS](I04-11-k8s4f-acceptance/README.md) | 2 | Hoàn tất; A01r4/E01r2/E02r3 PASS, SQL/video/cleanup xác minh |
-| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02 PASS/CLOSED_CLEAN, A03r2 ba deployment đạt, chờ job/cache/cleanup |
+| I04-12 | [V2-A02/A03, cleanup và handoff cuối](I04-12-aws-acceptance/README.md) | 3 | Current; A02 PASS/CLOSED_CLEAN, A03r2 job/cache đạt, đang cleanup |
 
 Mỗi charter link sources, criteria và checks cụ thể; WORK_ITEMS chỉ là checklist.
 Dependencies triển khai: schema/state -> registry -> executor -> modules ->
@@ -88,9 +88,10 @@ deferred; minimal state/locking/unknown-outcome hold và cleanup không hoãn.
 ## Current handoff
 
 **Lượt đang chạy: A03 `a03-20261016-r2` từ `a121642`, PTY25798.**
-Kiểm08:09Z: ba deployment SUCCEEDED, cả năm module READY,21assertion0fail
-đến jobDONE/UI; chờ cache/TTL/refill/reload và cleanup/SQL/video/finalreceipt.
-Supervisor2943679 ARMED; SQL584mẫu0error/0blocked-heartbeat. Không sửa runtime
+Kiểm08:26Z: ba deployment SUCCEEDED,28assertion0fail gồm job/SQL/cache/
+TTL/refill/reload. Aurora/Redis/namespace DESTROYED, EKS DESTROYING, VPC
+READY; chờ cleanup/SQL reopen/video/finalreceipt. Supervisor2943679 CLEANING;
+SQL785mẫu0error/0blocked-heartbeat. Không sửa runtime
 khi lượt còn chạy. Bằng chứng `.m4/a03-20261016-r2/`, chưa ghi A03PASS.
 
 

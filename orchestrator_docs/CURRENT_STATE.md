@@ -25,9 +25,10 @@ Code mới nhất `1f3d3cb` ghi diagnostic heartbeat allowlist/first-loss,
 không đổi ngưỡng/fencing/hold. R15 đạt1482 Go/race/0skip,649frontend/41file,
 build/vet/type/lint/docs/PlantUML/hash; fixture riêng vắng độc lập.
 **A03r2 hiện đang chạy** từ `a121642`, PTY25798: kiểm08:09Z ba deployment
-SUCCEEDED, cả năm module READY,21assertion0fail đến jobDONE; cache/TTL/
-cleanup/SQL/video/finalreceipt còn phải kiểm. Supervisor2943679 ARMED,
-SQL584mẫu0error/0blocked-heartbeat. Chưa ghi A03PASS.
+SUCCEEDED, cả năm module READY,28assertion0fail gồm job/SQL/cache/TTL/refill/reload; cleanup/SQL reopen/
+video/finalreceipt còn phải kiểm. Kiểm08:26Z Aurora/Redis/namespace đã
+DESTROYED, EKS DESTROYING, VPC cònREADY; supervisor2943679 CLEANING,
+SQL785mẫu0error/0blocked-heartbeat. Chưa ghi A03PASS.
 
 A03r1 đã FAIL: EKS PLANNING NEEDS_ATTENTION/CANCELLED, DEPLOY INTERRUPTED
 trước deadline. PostgreSQL ghi câu heartbeat UPDATE bị hủy lúc06:00:42Z;
