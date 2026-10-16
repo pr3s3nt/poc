@@ -56,6 +56,15 @@ export function previewPurityProof({ baseline, expectedArns, expectedAssets, own
   return { exactPreparation, unchanged, stateFree, noKeyMaterial };
 }
 
+/** Runs the authoritative fresh layer verifier and accepts only its exact success record. */
+export function verifyCleanupAWSAbsence(v2ctl, input) {
+  const proof = v2ctl(input, 'aws-verify', '-config', input.configFile, '-manifest', input.manifestFile, '-layer', 'aux');
+  if (proof !== 'layer aux verified absent\n') {
+    throw new Error('AWS auxiliary resources are not verified absent');
+  }
+  return 'layer aux verified absent';
+}
+
 export async function awsScenario(ctx, scenario, { v2ctl, recordNamespace, forbidden }) {
   const { page, h, rec, input } = ctx;
   const s = steps(ctx);
@@ -353,8 +362,9 @@ export async function awsScenario(ctx, scenario, { v2ctl, recordNamespace, forbi
   }
   rec.record('cleanup.supervisor-clean', 'CLEANUP', 'private-read', /"state": "CLEAN"/.test(waited), 'supervisor reached CLEAN (each layer verified absent by exact IDs and the run tag)');
   let verify = '';
-  try { verify = v2ctl(input, 'aws-verify', '-config', input.configFile, '-manifest', input.manifestFile, '-layer', 'aux'); } catch (error) { verify = `FAIL ${safeError(error)}`; }
-  rec.record('cleanup.aws-absent', 'CLEANUP', 'private-read', !verify.includes('FAIL') && taggedArns().length === 0, 'no resource with the run tag remains; VPC, EKS, Aurora, cache and network objects are verified absent');
+  let verifyFailure = '';
+  try { verify = verifyCleanupAWSAbsence(v2ctl, input); } catch (error) { verifyFailure = safeError(error); }
+  rec.record('cleanup.aws-absent', 'CLEANUP', 'private-read', verify === 'layer aux verified absent', verify ? 'the fresh authoritative AWS verifier proved all auxiliary resources absent by exact IDs, ownership, identity and run tag' : `AWS auxiliary resource absence is unverified: ${verifyFailure}`);
   await page.waitForTimeout(5000);
   writeFileSync(`${ctx.evidenceDir}/outcome.json`, JSON.stringify({ jobId, cacheKey, scenario }, null, 2));
 }
