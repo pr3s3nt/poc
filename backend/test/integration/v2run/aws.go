@@ -381,7 +381,12 @@ func verifyTaggedAWSResources(ctx context.Context, cli AWSCLI, c Config, m Manif
 		if code == 0 {
 			return fmt.Errorf("tagged resource remains physically present: %s", arn)
 		}
-		match := exactNotFoundMessage.FindStringSubmatch(strings.TrimSpace(detail))
+		detail = strings.TrimSpace(detail)
+		// AWS CLI 2.35 prefixes its native service error with this exact
+		// diagnostic marker. Strip only that known marker; arbitrary wrapper
+		// text must not turn an unrecognized failure into proof of absence.
+		detail = strings.TrimPrefix(detail, "aws: [ERROR]: ")
+		match := exactNotFoundMessage.FindStringSubmatch(detail)
 		if len(match) != 3 || match[1] != expectedCode || match[2] != operation {
 			return fmt.Errorf("exact native absence check for %s was indeterminate", arn)
 		}
