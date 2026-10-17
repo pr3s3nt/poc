@@ -339,3 +339,17 @@ Recovery command above restores the old IDP dump with pinned historical images
 and re-enables old FE/BE; it first quiesces the newly created app and retains its
 PVC. Recovery was verified offline and prepared, but not executed on live state
 because the run succeeded. Do not use it casually against a healthy current app.
+
+
+## V01 dữ liệu phát triển — quyết định 2026-10-17
+
+Người dùng giao V01 và cho xóa dữ liệu sản phẩm phát triển cũ vì chưa có người
+dùng thực tế; V02–V03 không cần migration dữ liệu. Quyền này cho phép Codex
+reset database/state sản phẩm đúng instance sau preflight ownership và chuẩn bị
+baseline V01; không cần lặp lại điểm duyệt T29 cho cùng phạm vi đã cho phép.
+Không suy thành quyền xóa cluster, Docker metadata store, workload ngoài phạm
+vi hoặc tài nguyên cloud. Không dùng `docker compose down -v` để reset tràn.
+Writer không truy cập retained data hoặc credential; Codex chạy thật và ghi
+phạm vi/identity/kết quả trước-sau trong [V01 handoff](../verification/2026-10-17-v01-handoff.md).
+Khi Docker/cluster không truy cập được, không sửa/xóa metadata để ép reset;
+kiểm chứng riêng với DB/Vault task-owned và báo rõ reset retained chưa thực hiện.

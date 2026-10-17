@@ -727,3 +727,15 @@ Fresh baseline/digest/catalog checks include the version column/constraint/grant
 Existing baseline or JSON incompatibility fails startup without DDL/reset or
 credential access. User decision 2026-10-17 removes V02–V03 old-data migration
 requirements; it does not authorize destructive reset of retained state/resources.
+
+
+## Quyền reset dữ liệu phát triển — bổ sung 2026-10-17
+
+Người dùng yêu cầu xóa dữ liệu sản phẩm cũ vì chưa có người dùng thực tế.
+V01 được phép reset database/state phát triển cũ của dự án sau khi xác định rõ
+instance/namespace/ownership và có baseline mới để khởi tạo. Không cần migration
+hay giữ tương thích dữ liệu cũ. Đây là quyền reset tường minh của task, không phải
+cơ chế tự reset khi startup hoặc quyền xóa tài nguyên không thuộc dữ liệu sản phẩm.
+Codex thực hiện và ghi evidence phạm vi/kết quả; writer không truy cập retained
+state hoặc tự chạy thao tác hạ tầng. Các yêu cầu secret scope, CAS, pinned targets
+trên baseline mới và bảo vệ tài nguyên ngoài task vẫn áp dụng.
