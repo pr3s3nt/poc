@@ -195,6 +195,10 @@ func (s *Service) persist(ctx context.Context, org, name string, value []byte, b
 			return s.store.CreateConnection(ctx, conn)
 		})
 		if err == nil {
+			// Re-read so the caller sees the stored identity (ID, version).
+			if stored, readErr := s.store.GetConnection(context.WithoutCancel(ctx), org, key); readErr == nil {
+				return stored, nil
+			}
 			return conn, nil
 		}
 		if cleanupErr := s.cleanup(ctx, org, key, ref); cleanupErr != nil {

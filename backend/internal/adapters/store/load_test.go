@@ -220,6 +220,9 @@ func TestIncompleteOrDanglingCurrentRecordsAreRejected(t *testing.T) {
 			})
 		},
 		"connection without name":                editOne(t, "connections", nil, func(r map[string]any) { delete(r, "name") }),
+		"connection without version":             editOne(t, "connections", nil, func(r map[string]any) { delete(r, "version") }),
+		"connection with zero version":           editOne(t, "connections", nil, func(r map[string]any) { r["version"] = 0 }),
+		"connection with negative version":       editOne(t, "connections", nil, func(r map[string]any) { r["version"] = -3 }),
 		"connection host context":                editOne(t, "connections", kubernetes, func(r map[string]any) { r["authenticationType"] = "HOST_CONTEXT" }),
 		"connection without authentication type": editOne(t, "connections", kubernetes, func(r map[string]any) { delete(r, "authenticationType") }),
 		"connection of a missing organization":   editOne(t, "connections", nil, func(r map[string]any) { r["organizationKey"] = "nobody-org" }),
@@ -324,5 +327,37 @@ func TestCurrentGenerationAndHistoricalTargetsReopenUnchanged(t *testing.T) {
 		if again, _ := os.ReadFile(path); string(again) != string(written) {
 			t.Fatalf("%s: reopen and persist changed the snapshot", name)
 		}
+	}
+}
+
+// A seeded snapshot carries version 1 on every Connection, and the V01 CAS
+// version survives reopen unchanged (never re-derived or defaulted).
+func TestConnectionVersionSurvivesJSONReopen(t *testing.T) {
+	path, opts := seededSnapshot(t)
+	ctx := context.Background()
+	st, err := NewWithSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := st.GetConnection(ctx, opts.OrganizationKey, opts.CloudConnectionKey)
+	if err != nil || conn.Version != 1 {
+		t.Fatalf("seeded version: %+v %v", conn, err)
+	}
+	updated, err := st.UpdateConnection(ctx, persistence.ConnectionUpdate{OrganizationKey: conn.OrganizationKey, Key: conn.Key, ExpectedVersion: 1,
+		Name: "Renamed", Config: conn.Config, SecretRef: conn.SecretRef, Status: conn.Status, Verification: conn.Verification})
+	if err != nil || updated.Version != 2 {
+		t.Fatalf("update: %+v %v", updated, err)
+	}
+	reopened, err := NewWithSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := reopened.GetConnection(ctx, conn.OrganizationKey, conn.Key)
+	if err != nil || got.Version != 2 || got.Name != "Renamed" {
+		t.Fatalf("after reopen: %+v %v", got, err)
+	}
+	if _, err := reopened.UpdateConnection(ctx, persistence.ConnectionUpdate{OrganizationKey: conn.OrganizationKey, Key: conn.Key, ExpectedVersion: 1,
+		Name: "Stale", Config: conn.Config, Status: conn.Status, Verification: conn.Verification}); !errors.Is(err, persistence.ErrVersionConflict) {
+		t.Fatalf("stale after reopen: %v", err)
 	}
 }
