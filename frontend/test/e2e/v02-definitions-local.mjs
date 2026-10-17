@@ -21,8 +21,8 @@
 // (Resource Types, the two fixture accounts and three competing Definitions),
 // (b) to assert stored results, (c) for the explicit negative 403/400 checks and
 // (d) for the labelled "another operator" write that makes the UI copy stale.
-//   node v02-definitions-local.mjs --check V02
-//   node v02-definitions-local.mjs --scenario V02 --headed --captions vi --evidence DIR
+//   node v02-definitions-local.mjs --check V02|V02P
+//   node v02-definitions-local.mjs --scenario V02|V02P --headed --captions vi --evidence DIR
 // Marks, captions, assertions and the video are written also when a step fails.
 // Credentials are random per run, live only in this process, private 0600 files
 // and never in a caption, a reply that the page keeps or the evidence.
@@ -35,6 +35,7 @@ import { requireCaptionLocale, createCaptions } from './captions.mjs';
 import { createHuman, expectVisibleCursor, installCursor } from './human.mjs';
 import { assertNoSecretLeaks } from './secret-scan.mjs';
 import { launchHeaded, screenSize, startRecording, stopRecording, x11Input } from './video.mjs';
+import { provisionScenario } from './v02-provision-scenario.mjs';
 
 const SHORT_READ = 2200;
 const SEEDED_PASSWORD = 'test-password'; // fixed synthetic local account, typed into a masked field
@@ -664,6 +665,8 @@ export const SCENARIOS = {
     writeFileSync(`${evidenceDir}/definition-writes.json`, JSON.stringify({ fake: 'AWS verification is a deterministic fake; no Terraform or cloud', writes }, null, 2));
     if (process.env.ORCH_V02_INJECT_FAILURE === 'after-success') await fail('injected failure after success');
   },
+  // Companion-resource (provision) authoring and planner consumption: see v02-provision-scenario.mjs.
+  V02P: provisionScenario,
 };
 
 export function parseArgs(argv) {

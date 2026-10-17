@@ -899,3 +899,20 @@ Catalog/domain/planning/tfexec/resource-cleanup and HTTP/SQL tests cover the
 obligations above; `v02-definitions-local.sh`/`v02-definitions-local.mjs` cover
 21 UI phases including edit/reload/restart and inherited cluster/current renderer.
 T16 also passed independently. [Evidence and limits](../verification/2026-10-17-v02-handoff.md).
+
+### V02 provision evidence follow-up — verified 2026-10-18
+
+| Requirement | Added coverage | Evidence status |
+|---|---|---|
+| UC-03 BR-26/V02-03/07 | ResourceDefinitionsPage edit regression: nested params, flags, form↔JSON, unchanged account/inputs/criteria, local duplicate/invalid params rejection | Independent frontend690tests/full gates PASS |
+| UC-06 BR-08 | CoProvisionFlagMatrix; stored HTTP registration → real Score Preview; flag toggle/CAS, nested params, cycle rejection | Full Go1536tests and race190tests/2packages PASS, zero skips |
+| V02.09–10 | `v02-provision-local.sh`/`v02-provision-scenario.mjs`: UI author/save/reload/edit/restart and real Preview graph/batches; all parent consumers and provider-first edges | Headed SQL/Vault UI assertions PASS; video waived by user; no deployment claim |
+
+The original V02 video only covered resource_ref inheritance; it did not author
+provision rules. This follow-up keeps contract unchanged. Default false flags
+and empty params normalize on the server; editor draft round-trip is lossless.
+
+Follow-up original V02 rerun canceled at user request (exit143), after V02P
+scenario/wrapper finished0. No new video upload required; existing V02 video is
+not reclassified as companion-authoring evidence. Cleanup independently verified;
+[handoff](../verification/2026-10-17-v02-handoff.md) records scope and waiver.

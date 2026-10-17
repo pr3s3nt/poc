@@ -8,6 +8,10 @@
 # with Vietnamese captions below the browser.
 #   v02-definitions-local.sh --headed --captions vi --evidence NEW_PATH
 #
+# The same runner also records scenario V02P (companion-resource "provision"
+# authoring; see v02-provision-local.sh for its invocation and limits):
+#   v02-definitions-local.sh --scenario V02P --headed --captions vi --evidence NEW_PATH
+#
 # REAL: the Web Console bundle, the product HTTP handlers and services, a
 #   disposable PostgreSQL database (Console store) and a Vault KV v2 credential
 #   store (run-owned `vault server -dev`, or an existing task Vault with a
@@ -63,18 +67,20 @@ umask 077
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO="$(cd "${ROOT}/.." && pwd)"
 E2E="${REPO}/frontend/test/e2e"
-usage() { echo "usage: $0 --headed --captions vi --evidence NEW_PATH" >&2; exit 2; }
+usage() { echo "usage: $0 [--scenario V02|V02P] --headed --captions vi --evidence NEW_PATH" >&2; exit 2; }
 
-HEADED=0 CAPTIONS="" EVIDENCE=""
+HEADED=0 CAPTIONS="" EVIDENCE="" SCENARIO=V02
 while (( $# )); do
   case "$1" in
     --headed) HEADED=1; shift ;;
     --captions) [[ $# -ge 2 ]] || usage; CAPTIONS="$2"; shift 2 ;;
     --evidence) [[ $# -ge 2 ]] || usage; EVIDENCE="$2"; shift 2 ;;
+    --scenario) [[ $# -ge 2 ]] || usage; SCENARIO="$2"; shift 2 ;;
     *) usage ;;
   esac
 done
 [[ "${HEADED}" == 1 && -n "${CAPTIONS}" && -n "${EVIDENCE}" ]] || usage
+[[ "${SCENARIO}" == V02 || "${SCENARIO}" == V02P ]] || { echo "unsupported scenario ${SCENARIO}; only V02 and V02P" >&2; exit 2; }
 [[ "${CAPTIONS}" == vi ]] || { echo "unsupported captions ${CAPTIONS}; only vi" >&2; exit 2; }
 [[ -n "${ORCH_V02_PG_ADMIN_URL_FILE:-}" && -f "${ORCH_V02_PG_ADMIN_URL_FILE}" ]] || { echo "ORCH_V02_PG_ADMIN_URL_FILE must name the administrator URL file of a disposable PostgreSQL server" >&2; exit 2; }
 if [[ -n "${ORCH_V02_VAULT_ADDR:-}" ]]; then
@@ -86,7 +92,7 @@ SCORE_K8S="${ORCH_V02_SCORE_K8S:-$(command -v score-k8s || true)}"
 [[ -n "${SCORE_K8S}" && -x "${SCORE_K8S}" ]] || { echo "set ORCH_V02_SCORE_K8S (or put score-k8s on PATH): the rendering-template steps list its render bundle; nothing is rendered" >&2; exit 2; }
 command -v node >/dev/null || { echo "node is required" >&2; exit 1; }
 command -v curl >/dev/null || { echo "curl is required" >&2; exit 1; }
-node "${E2E}/v02-definitions-local.mjs" --check V02 || exit 2
+node "${E2E}/v02-definitions-local.mjs" --check "${SCENARIO}" || exit 2
 
 EVIDENCE="$(realpath -m "${EVIDENCE}")"
 case "${EVIDENCE}/" in "${REPO}/"*) echo "evidence path must be outside the repository" >&2; exit 2 ;; esac
@@ -100,7 +106,7 @@ WORK="${EVIDENCE}"
 PRIVATE="${WORK}/private"
 mkdir -m 0700 "${PRIVATE}"
 export ORCH_VIDEO_DIR="${WORK}"
-RUN_ID="v02-$(date -u +%Y%m%d%H%M%S)-${RANDOM}"
+RUN_ID="${SCENARIO,,}-$(date -u +%Y%m%d%H%M%S)-${RANDOM}"
 SCREEN="${ORCH_VIDEO_SCREEN:-1440x900}"
 MIN_SECONDS="${ORCH_VIDEO_MIN_SECONDS:-240}"
 STRIP=96
@@ -277,6 +283,9 @@ SUFFIX="$(head -c 3 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 # scenario can restart it mid-recording. Same fixed port, same PostgreSQL and
 # Vault; inherited database/Vault/AWS/kube configuration is dropped.
 PORT="${ORCH_V02_PORT:-$(free_port)}"
+# V02P needs a fake-verified Internal account (the Environment connection that lets the Score Preview plan).
+SERVER_EXTRA=""
+if [[ "${SCENARIO}" == V02P ]]; then SERVER_EXTRA="-fake-kubernetes -kube-calls-file ${WORK}/kube-calls-\${N}.json"; fi
 cat > "${PRIVATE}/start-server.sh" <<SCRIPT
 #!/usr/bin/env bash
 set -euo pipefail
@@ -289,7 +298,7 @@ env -u ORCHESTRATOR_DATABASE_URL_FILE -u ORCHESTRATOR_CONNECTION_CREDENTIAL_STOR
   -database-url-file "${PRIVATE}/console.url" -connection-vault-address "${VAULT_ADDR_LOCAL}" \\
   -connection-vault-token-file "${PRIVATE}/connection-vault-token" -connection-vault-mount "${MOUNT}" \\
   -profile test -catalog none -score-k8s "${SCORE_K8S}" -run-id "${RUN_ID}" -credential-journal "${JOURNAL}" \\
-  -aws-calls-file "${WORK}/aws-calls-\${N}.json" \\
+  -aws-calls-file "${WORK}/aws-calls-\${N}.json" ${SERVER_EXTRA} \\
   > "${WORK}/orchestrator-\${N}.log" 2>&1 &
 echo \$! > "${PRIVATE}/server.pid"
 for _ in \$(seq 1 120); do
@@ -313,10 +322,10 @@ SCRIPT
 chmod 0700 "${PRIVATE}/start-server.sh" "${PRIVATE}/restart-server.sh"
 "${PRIVATE}/start-server.sh" 1 || { echo "backend did not start; see ${WORK}/orchestrator-1.log" >&2; exit 1; }
 API="http://127.0.0.1:${PORT}"
-printf '{"scenario":"V02","runId":"%s","adapters":"fake-workloads (no Terraform, no cloud)","awsTransport":"FAKE (awsfake) for the two fixture accounts","postgres":"disposable","vault":"%s","captions":"%s"}\n' "${RUN_ID}" "$([[ ${EXISTING_VAULT} == 1 ]] && echo 'existing task Vault (scoped token)' || echo 'run-owned dev server')" "${CAPTIONS}" > "${WORK}/run.json"
+printf '{"scenario":"%s","runId":"%s","adapters":"fake-workloads (no Terraform, no cloud)","awsTransport":"FAKE (awsfake) for the fixture AWS accounts; V02P uses a fake Kubernetes verification and no AWS account","postgres":"disposable","vault":"%s","captions":"%s"}\n' "${SCENARIO}" "${RUN_ID}" "$([[ ${EXISTING_VAULT} == 1 ]] && echo 'existing task Vault (scoped token)' || echo 'run-owned dev server')" "${CAPTIONS}" > "${WORK}/run.json"
 
 video_start_xvfb "${SCREEN}"
-RAW="${WORK}/V02-raw.mp4"
+RAW="${WORK}/${SCENARIO}-raw.mp4"
 STATUS=0
 : > "${WORK}/playwright.log"
 tail -n +1 -f "${WORK}/playwright.log" &
@@ -324,7 +333,7 @@ PIDS+=($!)
 DISPLAY="${VIDEO_DISPLAY}" ORCH_E2E_SCREEN="${SCREEN}" ORCH_E2E_XDOTOOL="${XDOTOOL}" ORCH_E2E_PRIVATE_DIR="${PRIVATE}" \
   ORCH_E2E_RESTART_CMD="${PRIVATE}/restart-server.sh" ORCH_V02_SUFFIX="${SUFFIX}" \
   ORCH_E2E_URL="${API}" ORCH_E2E_RUN_ID="${RUN_ID}" ORCH_E2E_EVIDENCE_DIR="${WORK}" \
-  setsid node "${E2E}/v02-definitions-local.mjs" --scenario V02 --headed --captions "${CAPTIONS}" --evidence "${WORK}" \
+  setsid node "${E2E}/v02-definitions-local.mjs" --scenario "${SCENARIO}" --headed --captions "${CAPTIONS}" --evidence "${WORK}" \
   > "${WORK}/playwright.log" 2>&1 &
 NODE_PID=$!
 NODE_PGID="${NODE_PID}"
@@ -342,7 +351,8 @@ curl -fsS "${VAULT_ADDR_LOCAL}/v1/sys/health" > "${WORK}/vault-health.json" 2>/d
 # credential the scenario created, and the scoped token cannot overwrite.
 if [[ -s "${WORK}/accounts.json" && -s "${PRIVATE}/secret-values" ]]; then
   vget() { curl -fsS -H @"${PRIVATE}/scoped-header" "$@"; }
-  for KIND in aws awsSecond; do
+  KINDS="aws awsSecond"; [[ "${SCENARIO}" == V02P ]] && KINDS="internal"
+  for KIND in ${KINDS}; do
     KEY="$(node -e 'console.log(require(process.argv[1])[process.argv[2]])' "${WORK}/accounts.json" "${KIND}")"
     [[ "${KEY}" =~ ^[a-z0-9-]+$ ]] || { check "FAIL invalid ${KIND} account key"; STATUS=1; continue; }
     IDS="$(owned_objects | awk -v k="${KEY}" '$1==k {print $2}' | tr '\n' ' ')"
@@ -358,7 +368,7 @@ if [[ -s "${WORK}/accounts.json" && -s "${PRIVATE}/secret-values" ]]; then
       let s = ""; process.stdin.on("data", (d) => s += d).on("end", () => {
         const b = JSON.parse(s).data;
         const text = Buffer.from(b.data.value, "base64").toString("utf8");
-        const want = kind === "aws" ? first : second;
+        const want = kind === "awsSecond" ? second : first;
         if (b.data.encoding !== "base64" || b.metadata.version !== 1 || !text.includes(want)) { console.error(`stored credential check failed (${kind})`); process.exit(1); }
         console.log(`vault-object ok (${kind}): version 1, base64, holds the credential the scenario created (value not printed)`);
       });
@@ -381,6 +391,15 @@ for N in 1 2; do
     if (bad.length) { console.error(`non read-only or unexpected fake calls: ${bad.join("; ")}`); process.exit(1); }
     console.log(`fake calls server-${process.argv[2]}: aws=${aws.length} read-only (no create/modify/delete); the Definition steps made no provider call`);
   ' "${WORK}/aws-calls-${N}.json" "${N}" | tee -a "${WORK}/checks.txt" || STATUS=1
+  if [[ "${SCENARIO}" == V02P ]]; then
+    [[ -s "${WORK}/kube-calls-${N}.json" ]] || { check "FAIL kube-calls-${N}.json was not written"; STATUS=1; continue; }
+    node -e '
+      const calls = require(process.argv[1]).calls;
+      const bad = calls.filter((call) => !/^verify https:\/\/fake-lab\.example:6443$/.test(call));
+      if (bad.length) { console.error(`unexpected fake Kubernetes calls: ${bad.join("; ")}`); process.exit(1); }
+      console.log(`fake Kubernetes verification server-${process.argv[2]}: ${calls.length} endpoint check(s), no cluster contacted`);
+    ' "${WORK}/kube-calls-${N}.json" "${N}" | tee -a "${WORK}/checks.txt" || STATUS=1
+  fi
 done
 
 # Every retained text file is scanned for fixture keys, run secrets, Vault
@@ -414,7 +433,7 @@ node -e '
 ' "${WORK}" "${PRIVATE}" | tee -a "${WORK}/checks.txt" || STATUS=1
 
 # Captions below the browser area, never over the UI; also after a failure.
-CAPTIONED="${WORK}/V02-captioned.mp4"
+CAPTIONED="${WORK}/${SCENARIO}-captioned.mp4"
 W="${SCREEN%x*}" H="${SCREEN#*x}"
 if [[ -s "${RAW}" && -s "${WORK}/captions.srt" ]]; then
   node "${E2E}/render-captions.mjs" "${WORK}/captions.srt" "${WORK}/captions.ass" "${W}" "$((H + STRIP))"
@@ -423,7 +442,7 @@ if [[ -s "${RAW}" && -s "${WORK}/captions.srt" ]]; then
 fi
 
 if [[ "${STATUS}" != 0 ]]; then
-  echo "scenario V02 failed; video, marks, assertions and checks kept in ${WORK}" >&2
+  echo "scenario ${SCENARIO} failed; video, marks, assertions and checks kept in ${WORK}" >&2
   exit "${STATUS}"
 fi
 [[ "$(<"${WORK}/result.txt")" == PASS ]] || { echo "result.txt is not PASS" >&2; exit 1; }

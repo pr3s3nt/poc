@@ -41,3 +41,13 @@ Khi chốt, cập nhật UC-05/06 preconditions, catalog repository/bootstrap,
 CURRENT_STATE và tests cho invalid seed, corrupt persisted catalog và
 unrelated Resource Type. Không thay đổi conformance adapter semantics đã chốt
 tại I06-05.
+
+## Provision descriptor aliases — observation 2026-10-17
+
+V02 provision evidence review observed that distinct provision map keys can
+resolve to one descriptor (whitespace or inherited class aliases). Registration
+and the typed editor reject exact duplicate keys; normalized aliases may still
+merge during fixed-point expansion (`planning.expandProvision`/`ensure`). Whether
+to reject aliases, define conflict handling or retain shared-resource merging is
+not decided here. This follow-up tests distinct descriptors and does not change
+alias policy; do not treat an option as a new registration requirement.

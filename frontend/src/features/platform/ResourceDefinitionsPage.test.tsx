@@ -971,6 +971,70 @@ describe('UC-03 V02 Definition edit', () => {
     expect(values(puts[0]?.body).provider_bindings).toEqual({ kubernetes: { target: 'resource', resource_ref: 'k8s-cluster.eks#environments.@app.@env' } });
   });
 
+  it('edits stored provision rules with nested params and both flags, keeps explicit false/empty values through form and advanced JSON, and leaves unrelated configuration untouched', async () => {
+    const user = userEvent.setup();
+    const provision = {
+      'postgres.audit#shared.audit': { is_dependent: true, match_dependents: false, params: { database: 'audit', options: { retention: 7, tags: ['a', { deep: true }], enabled: false } } },
+      'redis.cache#shared.cache': { is_dependent: false, match_dependents: true, params: {} },
+    };
+    const original = stored({ provision });
+    const { puts } = await openEditor(user, { definitions: [original] });
+    expect(field('Descriptor tài nguyên đi kèm 1')).toHaveValue('postgres.audit#shared.audit');
+    expect(field('Tài nguyên đi kèm 1 phụ thuộc vào tài nguyên cha (is_dependent)')).toBeChecked();
+    expect(field('Nối consumer của tài nguyên cha tới tài nguyên đi kèm 1 (match_dependents)')).not.toBeChecked();
+    expect(field('Tài nguyên đi kèm 2 phụ thuộc vào tài nguyên cha (is_dependent)')).not.toBeChecked();
+    expect(field('Nối consumer của tài nguyên cha tới tài nguyên đi kèm 2 (match_dependents)')).toBeChecked();
+    expect(JSON.parse((field('Params tài nguyên đi kèm 1 (JSON object)') as HTMLTextAreaElement).value)).toEqual(provision['postgres.audit#shared.audit'].params);
+    expect(screen.getAllByText(/Đảo vai trò: tài nguyên đi kèm \(consumer\) phụ thuộc vào tài nguyên cha \(provider\)/)).toHaveLength(2);
+    // Form -> advanced JSON -> form keeps everything, including the explicit false flag and empty params.
+    await user.click(screen.getByRole('button', { name: 'Quy tắc: JSON nâng cao' }));
+    expect(JSON.parse((field('Quy tắc tạo tài nguyên liên quan (JSON object)') as HTMLTextAreaElement).value)).toEqual(provision);
+    await user.click(screen.getByRole('button', { name: 'Quy tắc: biểu mẫu' }));
+    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]?.body.provision).toEqual(provision);
+    // Only the provision changes: every other field of the stored Definition is sent back as stored.
+    expect(puts[0]?.body).toMatchObject({ key: original.key, name: original.name, resourceType: original.resourceType, driverType: original.driverType, driverAccount: original.driverAccount, criteria: original.criteria, version: 3 });
+    expect(puts[0]?.body.driverInputs).toEqual(original.driverInputs);
+    // Toggle both flags of the first rule and remove the second.
+    await user.click(field('Tài nguyên đi kèm 1 phụ thuộc vào tài nguyên cha (is_dependent)'));
+    await user.click(field('Nối consumer của tài nguyên cha tới tài nguyên đi kèm 1 (match_dependents)'));
+    await user.click(screen.getByRole('button', { name: 'Xóa tài nguyên đi kèm 2' }));
+    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    await waitFor(() => expect(puts).toHaveLength(2));
+    expect(puts[1]?.body.version).toBe(4);
+    expect(puts[1]?.body.provision).toEqual({ 'postgres.audit#shared.audit': { is_dependent: false, match_dependents: true, params: provision['postgres.audit#shared.audit'].params } });
+  });
+
+  it('keeps a stored provision rule the form cannot represent in advanced JSON and saves it unchanged', async () => {
+    const user = userEvent.setup();
+    const provision = { 'redis.cache#shared.cache': { is_dependent: true, extra: { kept: 1 } } };
+    const { puts } = await openEditor(user, { definitions: [stored({ provision })] });
+    expect(screen.getByRole('button', { name: 'Quy tắc: JSON nâng cao' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/biểu mẫu không biểu diễn/)).toBeInTheDocument();
+    expect(JSON.parse((field('Quy tắc tạo tài nguyên liên quan (JSON object)') as HTMLTextAreaElement).value)).toEqual(provision);
+    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]?.body.provision).toEqual(provision);
+  });
+
+  it('refuses a duplicate descriptor and invalid params locally without a request', async () => {
+    const user = userEvent.setup();
+    const { puts } = await openEditor(user);
+    for (const index of [1, 2]) {
+      await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên đi kèm' }));
+      await user.type(field(`Descriptor tài nguyên đi kèm ${index}`), 'redis.cache#shared.cache');
+    }
+    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Descriptor "redis.cache#shared.cache" bị trùng');
+    await user.clear(field('Descriptor tài nguyên đi kèm 2'));
+    await user.type(field('Descriptor tài nguyên đi kèm 2'), 'redis.other#shared.other');
+    fireEvent.change(field('Params tài nguyên đi kèm 2 (JSON object)'), { target: { value: '[1]' } });
+    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Params của "redis.other#shared.other"/);
+    expect(puts).toEqual([]);
+  });
+
   it('cancels an edit back to a blank registration form', async () => {
     const user = userEvent.setup();
     await openEditor(user);

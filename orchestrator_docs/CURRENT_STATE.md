@@ -2,12 +2,20 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
 # Current project state
 
 ## V02 — Definition authoring và matching, 2026-10-17
+
+Follow-up provision đã khép ngày2026-10-18: UI tạo/sửa descriptor/params/hai
+flags, form↔JSON, reload/restart và real Score Preview graph/batches PASS trên
+SQL/Vault thật. Bốn tổ hợp flags, mọi consumer của parent, provider-first order
+và cycle rejection/recovery có assertions. Không deploy tài nguyên. Người dùng
+miễn video bổ sung; original V02 rerun bị hủy theo yêu cầu, không claim pass.
+Go1536tests, race190tests/2packages, frontend690tests/full gates, build/vet/docs
+PASS, không individual skip. Task services/private material đã cleanup.
 
 Đã triển khai tạo/sửa Definition với Name, version CAS, Driver Inputs, Driver
 Account và region theo từng resource. ID/Resource Type bất biến; bản sửa chỉ

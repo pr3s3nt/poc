@@ -3,6 +3,7 @@ package planning
 import (
 	"errors"
 	"orchestrator/internal/seed/seedtest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -649,5 +650,120 @@ func TestPlan_EKSWithoutPublicAccessAllowlistFailsBeforeEffects(t *testing.T) {
 	_, err := NewService().Plan(req)
 	if err == nil || !strings.Contains(err.Error(), `required Terraform variable "public_access_cidrs"`) {
 		t.Fatalf("plan without allowlist: %v", err)
+	}
+}
+
+// TestPlan_CoProvisionFlagMatrix covers the four flag combinations of a
+// provision rule stored through the Definition contract (UC-03 BR-26,
+// UC-06 BR-08): the edge direction is always consumer -> provider, the
+// co-provisioned params (nested objects and lists included) reach the child
+// node unchanged and a reference inside them yields a child -> provider edge.
+func TestPlan_CoProvisionFlagMatrix(t *testing.T) {
+	const (
+		child    = "logging.default#shared.acceptance-logging"
+		parent   = "postgres.default#shared.acceptance-db"
+		consumer = "workload.default#modules.backend"
+		nsRef    = "k8s-namespace.default#environments.acceptance.dev"
+	)
+	for _, tc := range []struct {
+		name                    string
+		isDependent, matchDepts bool
+	}{
+		{"neither flag", false, false},
+		{"is_dependent only", true, false},
+		{"match_dependents only", false, true},
+		{"both flags", true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := testRequest(t, application.ProfileInternalK8s, "backend")
+			catalog := req.Catalog
+			catalog.Types["logging"] = resource.Type{Key: "logging", Outputs: []resource.OutputField{{Name: "endpoint", Type: "string"}}}
+			params := map[string]any{
+				"sink":    map[string]any{"level": "info", "targets": []any{"stdout", map[string]any{"retain": float64(7), "enabled": false}}},
+				"project": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+			}
+			defs := append([]resource.Definition(nil), catalog.Definitions...)
+			for i, def := range defs {
+				if def.Key == "postgres-internal-statefulset" {
+					defs[i].Provision = map[string]resource.ProvisionRule{child: {IsDependent: tc.isDependent, MatchDependents: tc.matchDepts, Params: params}}
+				}
+			}
+			defs = append(defs, resource.Definition{Key: "logging-default", Name: "logging-default", Version: 1, ResourceTypeKey: "logging", DriverType: resource.DriverEcho, Criteria: []resource.Criterion{{}}})
+			catalog.Definitions = defs
+			req.Catalog = catalog
+
+			plan, err := NewService().Plan(req)
+			if err != nil {
+				t.Fatalf("plan: %v", err)
+			}
+			node, ok := plan.Graph.Node(child)
+			if !ok {
+				t.Fatalf("the co-provisioned resource is missing: %v", plan.Graph.Nodes)
+			}
+			if !reflect.DeepEqual(node.Params, params) {
+				t.Fatalf("co-provisioned params = %#v, want %#v", node.Params, params)
+			}
+			has := func(consumerKey, providerKey, reason string) bool {
+				for _, e := range plan.Graph.Edges {
+					if e.Consumer == consumerKey && e.Provider == providerKey && e.Reason == reason {
+						return true
+					}
+				}
+				return false
+			}
+			if got := has(child, parent, ReasonDependent); got != tc.isDependent {
+				t.Fatalf("is_dependent edge child -> parent = %v, want %v", got, tc.isDependent)
+			}
+			if got := has(consumer, child, ReasonMatchDependent); got != tc.matchDepts {
+				t.Fatalf("match_dependents edge consumer -> child = %v, want %v", got, tc.matchDepts)
+			}
+			// Never the reverse direction.
+			if has(parent, child, ReasonDependent) || has(child, consumer, ReasonMatchDependent) {
+				t.Fatal("a co-provision edge points provider -> consumer")
+			}
+			if !has(child, nsRef, ReasonReference) {
+				t.Fatalf("the reference inside the params must give a child -> provider edge: %v", plan.Graph.Edges)
+			}
+			batchOf := func(descriptor string) int {
+				for i, batch := range plan.Batches {
+					for _, d := range batch {
+						if d == descriptor {
+							return i
+						}
+					}
+				}
+				return -1
+			}
+			if tc.isDependent && batchOf(child) <= batchOf(parent) {
+				t.Fatalf("is_dependent: the parent must be scheduled first, got %v", plan.Batches)
+			}
+		})
+	}
+}
+
+// TestPlan_CoProvisionDependentCycleIsRejected: two co-provisioned resources
+// that both set is_dependent and match_dependents become consumers of each
+// other, which the planner rejects at the schedule stage (planner reference
+// "17-co-provision": a cycle in the final graph is RESOURCE_GRAPH_CYCLE).
+func TestPlan_CoProvisionDependentCycleIsRejected(t *testing.T) {
+	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	catalog := req.Catalog
+	catalog.Types["logging"] = resource.Type{Key: "logging", Outputs: []resource.OutputField{{Name: "endpoint", Type: "string"}}}
+	defs := append([]resource.Definition(nil), catalog.Definitions...)
+	for i, def := range defs {
+		if def.Key == "postgres-internal-statefulset" {
+			defs[i].Provision = map[string]resource.ProvisionRule{
+				"logging.default#shared.one": {IsDependent: true, MatchDependents: true},
+				"logging.default#shared.two": {IsDependent: true, MatchDependents: true},
+			}
+		}
+	}
+	defs = append(defs, resource.Definition{Key: "logging-default", Name: "logging-default", Version: 1, ResourceTypeKey: "logging", DriverType: resource.DriverEcho, Criteria: []resource.Criterion{{}}})
+	catalog.Definitions = defs
+	req.Catalog = catalog
+	_, err := NewService().Plan(req)
+	var stage *StageError
+	if !errors.As(err, &stage) || stage.Stage != StageSchedule {
+		t.Fatalf("want a schedule-stage rejection, got %v", err)
 	}
 }
