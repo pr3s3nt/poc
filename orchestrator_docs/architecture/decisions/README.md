@@ -2,7 +2,7 @@
 id: ADR-INDEX
 artifact: decision-index
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # Architecture Decision Records
@@ -30,3 +30,5 @@ last_reviewed: 2026-10-13
 - [ADR-013 — Implicit existing-cluster node from Environment binding](ADR-013-implicit-existing-cluster.md) — internal Kubernetes cluster node bypasses user Definition matching; cloud/resource matching remains.
 
 - [ADR-014 — Terraform v2 lifecycle/modules/state](ADR-014-terraform-v2-lifecycle.md) — accepted design; implementation and live acceptance pending.
+
+- [ADR-015 — Infrastructure accounts for Definition-selected drivers](ADR-015-infrastructure-driver-accounts.md) — V01 account catalog; downstream consumer replacement V02–V06.

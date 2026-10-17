@@ -5,10 +5,16 @@ VERIFYING --> STORING : identity/connectivity/permissions valid
 VERIFYING --> REJECTED : parse/auth/verification fails
 STORING --> READY : credential stored + Connection insert committed
 STORING --> REJECTED : store/insert fails; cleanup own attempt
+READY --> READY : rename + version CAS
+READY --> RECHECKING : explicit verify/replace, expected version
+RECHECKING --> READY : read-only verify + CAS succeeds, version + 1
+RECHECKING --> READY : verify/CAS fails; prior committed record unchanged
 READY --> [*]
 REJECTED --> [*]
 note right of READY
-Only READY is persisted as a Connection.
+READY is the last successful verification, not live health.
+Recheck failure is visible separately; retain committed record.
+Version CAS guards edits and credential replacement.
 VERIFYING/STORING/REJECTED describe request stages.
 Registration does not change Organization default.
 READY records a verification, not live health.

@@ -2,7 +2,7 @@
 id: DOMAIN-OBJECTS
 artifact: domain-persistence-classification
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # Domain Objects and Persistence Classification
@@ -180,3 +180,15 @@ Platform Connection/cluster is reference-only. Logical descriptor scope preserve
 existing planner semantics; ownership and run provenance are explicit additional
 metadata, not guessed from descriptor or namespace prefix. Required structures/
 constraints are canonical in [schema](../database/schema.md#terraform-v2-schema-design-adr-014-not-yet-implemented).
+
+
+## V01 infrastructure account
+
+[ADR-015](../decisions/ADR-015-infrastructure-driver-accounts.md) uses Connection
+as the backing account aggregate, adding optimistic Version and an AWS/INTERNAL
+public type distinct from authentication. Identity/key/Organization remain stable;
+metadata-only edit, private credential replacement and read-only verify are
+separate operations. Account config is not an applicability filter. Physical
+Connection names/legacy consumers remain until V02–V03 replacement; no copied
+credential aggregate or Environment assignment is added. SQL constraints belong
+to [schema](../database/schema.md); behavior belongs to UC-04 AC-01..12.

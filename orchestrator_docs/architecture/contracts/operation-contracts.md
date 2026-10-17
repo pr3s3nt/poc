@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-17
 ---
 
 # Operation Contracts
@@ -637,3 +637,19 @@ secret-store calls/fetch hoặc writes. Module pins/provider controls vẫn ch�
 unknown/custom/default semantics và imported selections không bị rewrite.
 Failure safe error, không fake empty/guessed class fallback. Chi tiết ở
 [UC-16 API mapping](../../usecase/UC-16/ui/api-mapping.md#metadata-class-và-source--i04-07).
+
+
+## OC-05a — V01 infrastructure account management
+
+Use case: UC-04 AC-01..12. Decision: ADR-015. Exact wire contract belongs to
+[UC-04 API mapping](../../usecase/UC-04/ui/api-mapping.md#v01-infrastructure-account-api).
+Organization/PE/Admin scope precedes all secret/provider access. List/get are safe
+metadata only; metadata rename cannot alter identity/target/ref. All mutations
+require version CAS; no external I/O inside database transactions. Verify is
+read-only externally and commits only successful verification/version. Explicit
+same-target replacement writes an immutable attempt then CAS publishes metadata/
+ref/version; stale/failure removes only attempt-owned objects. Keep all prior
+committed objects for pinned consumers. No secret-ref input/read endpoint or
+host fallback. New account types/authentication and verification regions do not
+introduce applicability, matching rules or Environment bindings. V02–V03 old-data
+migration is not required; no implicit retained-state reset is authorized.

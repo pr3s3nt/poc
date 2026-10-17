@@ -2,7 +2,7 @@
 id: UC-04-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-17
 ---
 
 # UC-04 Connection HTTP mapping
@@ -110,3 +110,45 @@ Identity, từng region read probe và IAM policy simulation đều phải đạ
 us-east-1, service regional dùng từng vùng đích. Vùng đầu tiên là default, full
 allowed list được giữ trong read metadata và checked khi binding. Registration
 không tạo hạ tầng; execution preflight kiểm lại trước apply theo runbook.
+
+
+## V01 infrastructure account API
+
+All routes use authenticated session Organization and PE/Admin gates. A foreign
+key returns scoped 404; clients cannot send Organization, secretRef, profile or
+applicability. Strict bounded known-field JSON and existing credential limits
+apply; reject duplicate/null/mixed/unknown fields and trailing documents. New
+account type is `AWS`/`INTERNAL`, separate from authenticationType.
+
+| Method/path | Request/result | Effect |
+|---|---|---|
+| `GET /api/v1/driver-accounts` | `{accounts:[Account]}` | Safe Organization catalog |
+| `GET /api/v1/driver-accounts/{key}` | `Account` | Safe detail/version |
+| `POST /api/v1/driver-accounts/internal/inspect` | `{kubeconfig}` -> safe contexts | Parse only |
+| `POST /api/v1/driver-accounts/internal` | `{name,kubeconfig,context}` -> `Account` | Verify, immutable secret, create version 1 |
+| `POST /api/v1/driver-accounts/aws` | `{name,accessKeyId,secretAccessKey,verificationRegions}` -> `Account` | Read-only verify, immutable secret, create version 1 |
+| `PUT /api/v1/driver-accounts/{key}` | `{name,version}` -> `Account` | Rename via CAS |
+| `POST /api/v1/driver-accounts/{key}/verify` | `{version,verificationRegions?}` -> `Account` | Recheck stored secret; CAS on success |
+| `PUT /api/v1/driver-accounts/{key}/credentials` | Internal `{version,kubeconfig,context}` or AWS `{version,accessKeyId,secretAccessKey,verificationRegions}` -> `Account` | Same-target verified replacement via CAS |
+
+`Account` includes id/key/name/type/authenticationType/status/version and safe
+config/verification. It excludes private ref and credential; infrastructure type
+cannot be changed by update. AWS `config.verificationRegions` and safe account/
+principal metadata describe checks; do not expose `allowedRegions`/default-region
+fields as new account policy. Internal config whitelists selected cluster/context/
+endpoint and safe TLS metadata. Legacy `/connections` DTO is unchanged except
+optional version for shared backing records; it retains legacy kind/region fields.
+
+AWS verify may omit verificationRegions to recheck the stored evidence list;
+Internal verify must reject this AWS-only field. Credential replacement is
+kind-specific and rejects mixed forms. Same-target checks prevent account-ID or
+Internal target/context/endpoint/trust redirection; require a new account instead.
+Verify failures do not change committed status/ref/version; UI must report the
+fresh failure separately. No claim of live health solely from READY.
+
+GET/inspect/edit/verify/replace success 200; create 201. Invalid 400, auth 401/403,
+scoped missing 404, stale 409 with stable stale code, body limit 413, verification
+or incompatible target 422, unavailable credential store 503, unexpected storage
+500. Use existing public error contract with safe stable codes/fields, no raw
+provider details. No account delete/read-secret API. Consumers/driver selection
+and deployment region move to the new model in V02–V03, not V01.

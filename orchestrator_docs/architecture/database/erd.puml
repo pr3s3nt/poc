@@ -47,6 +47,7 @@ entity connections {
   * organization_id : uuid <<FK>>
   --
   connection_key : text
+  version : bigint <<CAS,positive>>
   name : text
   authentication_type : text
   kind : text

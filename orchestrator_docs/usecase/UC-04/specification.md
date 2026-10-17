@@ -2,7 +2,7 @@
 id: UC-04-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # UC-04 — Configure Execution Profile Connections
@@ -152,8 +152,8 @@ Read/list chỉ có metadata; key không được đọc lại qua Console.
   thuộc VAR-02, BR-10/11/12.
 - **OOS-02:** Tạo cluster Kubernetes từ form đăng ký.
 - **OOS-03:** Xác thực Kubernetes qua `exec` hoặc file credential bên ngoài.
-- **OOS-04:** Sửa/xóa Connection và migration dữ liệu Connection cũ; reset dev thuộc T29.
-- **OOS-05:** Credential rotation, health monitoring, reconnect và audit history.
+- **OOS-04:** Xóa tài khoản/Connection; V01 bổ sung sửa theo AC-01..12 bên dưới. V02–V03 không yêu cầu migration dữ liệu cũ theo quyết định 2026-10-17.
+- **OOS-05:** Tự động rotation, health monitoring liên tục và audit history; thay credential tường minh cùng đích thuộc AC-07.
 - **OOS-06:** Humanitec-style Agent, private-cluster tunnel, GitOps mode và cài đặt Operator tự động.
 
 ## Ranh giới tài liệu
@@ -206,3 +206,55 @@ See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
   đủ tái tạo credential cho invocation sau restart. Không persist kubeconfig/
   đường dẫn tạm, không dùng host context. Existing k8s-4f dùng KUBECONFIG
   theo BR-15; HTTP state token tách khỏi AWS credential.
+
+
+## V01 — Danh mục tài khoản hạ tầng (AC-01..12)
+
+[ADR-015](../../architecture/decisions/ADR-015-infrastructure-driver-accounts.md)
+quy định mô hình và ranh giới rollout. Các quy tắc sau mở rộng UC-04; luồng
+Connection cũ giữ nguyên cho consumers đến V02–V03, không coi là mô hình đích.
+
+- **AC-01:** PE/Admin quản lý tài khoản thuộc Organization của session; không
+  nhận Organization do client chọn. Developer không có quyền quản lý hoặc đọc
+  credential. Không có phạm vi áp dụng hoặc gán tài khoản mới cho môi trường.
+- **AC-02:** Tài khoản có ID/key ổn định, tên (1–100 Unicode, không control),
+  `type` AWS/INTERNAL, authenticationType AWS_ACCESS_KEY/KUBECONFIG đúng loại,
+  config/verification không bí mật, private ref, status và version >= 1.
+  Nhiều tài khoản AWS/Internal được phép cùng tồn tại.
+- **AC-03:** Internal dùng upload/paste kubeconfig, inspect/chọn context và verify
+  như VAR-01. Descriptor an toàn chứa cluster/context/endpoint/TLS metadata;
+  auth reference chỉ cho nội bộ. Cluster có sẵn không thuộc quyền tạo/xóa của run.
+- **AC-04:** AWS dùng access key theo VAR-02/ADR-009. `verificationRegions` là
+  vùng cần kiểm tra lúc đăng ký/xác minh, không phải phạm vi áp dụng tài khoản.
+  Region khi provision do Driver Inputs chọn ở V02; V01 chưa đổi execution cũ.
+- **AC-05:** Danh sách/chi tiết trả metadata an toàn và version, không secretRef/
+  raw verification/key/kubeconfig. Danh mục sẵn sàng cho PE/driver consumer tương
+  lai; V01 không thêm chọn Driver Account tại Definition hoặc thay planner.
+- **AC-06:** Sửa tên yêu cầu version hiện tại; giữ nguyên ID/key/type/auth/target/
+  ref/verification. Lỗi stale báo 409 và yêu cầu tải lại; không tự ghi đè hoặc retry
+  mutation. Lưu thành công tăng version một lần; load lại/restart thấy đúng tên.
+- **AC-07:** Thay credential là thao tác riêng được che, xác minh trước lưu.
+  Không prefill credential. Cùng account phải giữ AWS account ID hoặc cùng
+  Internal target/context/endpoint/trust; khác đích yêu cầu đăng ký tài khoản mới.
+  CAS mới công bố ref/verification/version; thất bại giữ nguyên bản đang dùng.
+- **AC-08:** “Kiểm tra kết nối” dùng credential lưu riêng và network chỉ đọc;
+  không tạo workload/VPC/EKS/database/cache. Kiểm tra quyền/API/AWS theo các
+  bảo đảm hiện có; sai loại, thiếu quyền, hết hạn, đích unreachable báo lỗi an toàn.
+  Success tăng version và refresh metadata; lỗi giữ record cũ nhưng hiển thị
+  kiểm tra vừa thất bại. READY chỉ phản ánh lần xác minh thành công gần nhất.
+- **AC-09:** Mọi cập nhật dùng CAS. Request bị hủy hoặc race không thể overwrite
+  winner. Cleanup chỉ xóa object của attempt thất bại; credential cũ đã commit
+  được giữ để không phá persisted targets. Lỗi cleanup phải có dấu vận hành an
+  toàn và không được xem là success. Không có API đọc/xóa credential công khai.
+- **AC-10:** UI “Tài khoản hạ tầng” có tạo/xem/sửa tên, thay credential tường minh,
+  kiểm tra kết nối và tải lại; phân biệt loại hạ tầng với auth, vùng kiểm tra với
+  deployment region. Loading/empty/error/stale/saving/success và reload lỗi tách
+  rõ; đổi draft vô hiệu response cũ, không tự submit/replay mutation.
+- **AC-11:** Dữ liệu và scoped credential còn đúng sau khởi động lại; dùng Vault
+  durable với SQL thật khi kiểm chứng persistence. Không ghi secret vào state,
+  DTO, logs, errors, graph, video hoặc Git. Memory chỉ hỗ trợ fake/no-persistent
+  tests như boundary hiện có.
+- **AC-12:** V01 giữ đường triển khai cũ; không tự chuyển dữ liệu hay xóa tài nguyên.
+  Theo quyết định người dùng 2026-10-17, V02–V03 không cần migration dữ liệu cũ.
+  Baseline/state không tương thích phải fail rõ, không tự upgrade/reset retained
+  state. Chỉ bỏ đường cũ sau khi đường thay thế được kiểm chứng.

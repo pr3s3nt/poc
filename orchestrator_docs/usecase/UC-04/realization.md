@@ -2,7 +2,7 @@
 id: UC-04-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # UC-04 — Use Case Realization
@@ -112,3 +112,26 @@ trusted system binding bypasses criteria matching, and UC-08 resolves the select
 Environment Connection through existing-cluster. Preview is pure; execution
 admits the reserved system Definition before persistence writes. Other resource
 Definitions, executor scheduling and output propagation remain unchanged.
+
+
+## V01 account collaboration
+
+UC-04 AC-01..12 and ADR-015 add an Organization/PE/Admin-gated AccountController
+(or equivalent routes in ConnectionController) over the same ConnectionService,
+repository and scoped credential store. No second catalog or credential copy.
+Public projection whitelists safe fields and maps KUBERNETES to INTERNAL.
+
+Create reuses normalized kubeconfig/AWS verifiers; metadata edits take name and
+expected version only. Reverify resolves the stored scoped secret, verifies
+read-only outside a transaction, then CAS publishes metadata/version. Replacement
+revalidates target identity, verifies supplied credential, writes one new attempt
+object, then CAS publishes ref/config/verification/version atomically. Failure or
+stale cleans only that attempt. Prior committed refs remain valid. Guard inputs
+again in the transaction; never hold a database transaction during provider calls.
+
+Frontend presents one account-management entry point, reusable onboarding inputs,
+explicit rename/reverify/credential replacement and separate draft/request guards.
+Current Connection consumer endpoints may remain for staged compatibility. New
+account creation does not configure an Environment. Tests must cover version races,
+unknown outcome/reload, permission/org isolation, target redirection rejection,
+failed-attempt cleanup, safe DTO and durable SQL/Vault reopen.

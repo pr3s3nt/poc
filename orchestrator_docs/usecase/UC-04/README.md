@@ -2,7 +2,7 @@
 id: UC-04-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # UC-04 context — Configure execution connections
@@ -34,3 +34,11 @@ UI: [screens](ui/screens.md), [states](ui/states.md), [HTTP mapping](ui/api-mapp
 - [`backend/internal/adapters/terraform`](../../../backend/internal/adapters/terraform/)
 - [`backend/internal/bootstrap`](../../../backend/internal/bootstrap/)
 - [`backend/internal/seed`](../../../backend/internal/seed/)
+
+## V01 account catalog
+
+[AC-01..12](specification.md#v01--danh-mục-tài-khoản-hạ-tầng-ac-0112),
+[ADR-015](../../architecture/decisions/ADR-015-infrastructure-driver-accounts.md)
+and [V01 handoff](../../verification/2026-10-17-v01-handoff.md) define the new
+account catalog and its staged replacement boundary. Account catalog delivery
+does not imply V02–V06 driver/planner changes are implemented.

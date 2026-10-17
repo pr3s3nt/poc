@@ -26,6 +26,9 @@ package "Application Services" {
     +PreviewMatching(ctx, org, query): MatchingPreview
   }
   class ConnectionService {
+    +RenameAccount(ctx, org, key, version, name): Connection
+    +VerifyAccount(ctx, org, key, version): Connection
+    +ReplaceAccountCredential(ctx, org, key, version, cmd): Connection
     +InspectKubeconfig(ctx, org, document): ContextMetadata
     +RegisterAWSDriverAccount(ctx, cmd): Connection
     +RegisterKubeconfig(ctx, cmd): Connection
@@ -158,6 +161,8 @@ package "Domain" {
     +Version: int64
   }
   class Connection <<aggregate>> {
+    +Version: int64
+    +AccountType(): AWS or INTERNAL
     +Name: string
     +AuthenticationType: ConnectionAuthenticationType
     +Kind: ConnectionKind

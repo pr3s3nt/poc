@@ -2,7 +2,7 @@
 id: CONNECTION-CREDENTIAL-DESIGN
 artifact: shared-design
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # Connection credentials and execution identity
@@ -146,3 +146,22 @@ scope, never recursively inside the workload's selected store. Resolver validate
 scope/provider/READY and returns private client credentials; public choices exclude
 refs/tokens. VSO bundle metadata pins store addresses/mount/auth and store-specific
 object names; old deployments do not follow a changed Settings selection.
+
+
+## V01 versioned infrastructure accounts
+
+[ADR-015](decisions/ADR-015-infrastructure-driver-accounts.md) and UC-04 AC-01..12
+extend the existing scope with account rename, explicit credential replacement
+and read-only reverify. Public AWS/INTERNAL type maps the same persisted records;
+Vault paths and auth boundary are unchanged. No credential-read DTO or arbitrary
+ref input exists. New account API verification regions are evidence, not account
+applicability or the future driver deployment region.
+
+Verify before creating an attempt object; then CAS the metadata/ref/version in
+one local transaction. Clean only a losing/failed attempt object. Keep previously
+committed objects because historical targets may still pin them; GC is deferred.
+Replacements preserve AWS account ID or Internal target/context/endpoint/TLS
+trust. Do not redirect an existing account to another physical destination.
+Current Environment/legacy regional binding remains only until V02–V03 replaces
+consumers; new account catalog itself introduces no Environment scope. Old-state
+migration in V02–V03 is not required per the user decision 2026-10-17.

@@ -2,7 +2,7 @@
 id: ARCHITECTURE-INDEX
 artifact: architecture-index
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # Shared Architecture Baseline
@@ -47,3 +47,8 @@ Internal cluster binding follows [ADR-013](decisions/ADR-013-implicit-existing-c
 - [V2 acceptance scope](../operations/terraform-v2-acceptance.md)
 
 These are required v2 design; current implementation remains tracked separately.
+
+## Infrastructure accounts (V01)
+
+[ADR-015](decisions/ADR-015-infrastructure-driver-accounts.md) adds the account
+catalog while preserving current execution consumers until V02–V03.

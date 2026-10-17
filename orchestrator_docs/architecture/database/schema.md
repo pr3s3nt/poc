@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # Database Schema
@@ -74,7 +74,8 @@ Only token hashes are persisted. A revoked or expired session is invalid.
 | `connection_key` | text | NOT NULL |
 | `name` | text | NOT NULL; supplied explicitly |
 | `authentication_type` | text | NOT NULL; `KUBECONFIG` or `AWS_ACCESS_KEY`; kind-compatible |
-| `kind` | text | `AWS` or `KUBERNETES` |
+| `kind` | text | `AWS` or `KUBERNETES`; V01 account API projects AWS/INTERNAL |
+| `version` | bigint | NOT NULL, default 1, CHECK(version >= 1); CAS guard for V01 updates |
 | `config` | jsonb | non-secret config, NOT NULL |
 | `secret_ref` | text | NOT NULL |
 | `status` | text | `VERIFYING`, `READY` or `REJECTED` |
@@ -695,3 +696,34 @@ Bootstrap owner là bước setup rõ ràng cho database mới. Credentials file
 ngoài database/repo, quyền OS hạn chế, cùng database/schema/identity đã cấu hình.
 Không SECURITY DEFINER state access trong phương án này, không reset/regrant
 retained database. Tables/graph/lifecycle và encrypted-state contract giữ nguyên.
+
+
+## V01 infrastructure-account persistence
+
+[ADR-015](../decisions/ADR-015-infrastructure-driver-accounts.md) keeps the existing
+`connections` identity/FKs as backing account storage. It is not a second account
+table. Public `type` = AWS/INTERNAL projects the persisted kind; authentication
+remains explicit. Config keeps verified account identity or selected Internal
+cluster descriptor; raw credentials are excluded. Account API has no execution
+profile, applicability or Environment assignment columns.
+
+`version` starts at 1 on newly created/seeded records. Name edit, successful
+reverification and credential replacement use `WHERE organization_id = ... AND
+connection_key = ... AND version = expected` and atomically increment it. CAS
+failure does not alter winner metadata/ref; transaction does not call providers
+or Vault. JSON state must preserve the same version/CAS semantics; old snapshots
+missing it are incompatible, never silently filled during reopen.
+
+Credential update preserves stable ID/key/kind/authentication and target identity;
+new ref/config/verification/version publish together. Attempt-only rollback cannot
+delete a committed credential. Prior successful objects remain in Vault because
+persisted execution targets may still reference them. No account GC in V01.
+AWS verification regions are evidence; new public account schema contains no
+allowed deployment-region scope. Legacy `config.allowedRegions` remains for the
+temporary legacy execution consumers only, and must not be advertised as the
+new account applicability policy.
+
+Fresh baseline/digest/catalog checks include the version column/constraint/grants.
+Existing baseline or JSON incompatibility fails startup without DDL/reset or
+credential access. User decision 2026-10-17 removes V02–V03 old-data migration
+requirements; it does not authorize destructive reset of retained state/resources.

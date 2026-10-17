@@ -68,4 +68,34 @@ alt Admission fails
 else Admitted or unchanged
   Service --> Bootstrap: Ordinary verified store; runtime resolves credential ref
 end
+== V01 account management [AC-01..12] ==
+PE -> API: View / rename / verify / replace (expected version)
+API -> Service: Scoped PE/Admin account command
+Service -> Repo: Get account by Organization and key
+alt Metadata rename
+  Service -> Service: Validate name; preserve target/ref
+else Reverify or same-target credential replacement
+  Service -> Secrets: Resolve stored credential privately (verify only)
+  Service -> K8s: Read-only verify Internal credential (or AWS verifier)
+  Service -> Service: Preserve target identity; reject redirection
+  opt Replacement only
+    Service -> Secrets: Put new immutable attempt object
+    Secrets --> Service: new private reference
+  end
+end
+Service -> Repo: CAS metadata/ref/verification/version <<transaction>>
+alt CAS succeeds
+  Service --> API: Safe account DTO with new version
+  API --> PE: Success; clear credential; refresh
+else Stale or failure
+  opt Own new attempt exists
+    Service -> Secrets: Delete only uncommitted own attempt
+  end
+  API --> PE: Safe failure / stale; reload before retry
+end
+note right of Secrets
+Keep previously committed objects for pinned targets.
+Account types AWS/INTERNAL; no Environment assignment.
+AWS probe regions are evidence, not applicability.
+end note
 @enduml

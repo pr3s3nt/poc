@@ -2,7 +2,7 @@
 id: UC-04-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # UC-04 UI states
@@ -86,3 +86,18 @@ chứng; retry giữ edits, không thay bằng default hay replay mutation. Know
 input/provider/integrity error dùng code/field an toàn. BUSY giữ dữ liệu đang
 sửa; stale yêu cầu review/Preview mới. Progress lấy persisted stage/attempt,
 không raw CLI/state/secret; interruption không được coi là cleanup thành công.
+
+
+## V01 account management
+
+List/detail loading, empty and error are distinct. Keep draft when list refresh
+fails. Editing starts with a captured expected version; stale 409 preserves draft
+and requests explicit reload/review. Do not automatically submit again or silently
+replace user's draft with a late detail response. Disable duplicate mutation.
+Verify pending and verify failure are separate from last successful READY status;
+failed verification cannot be shown as fresh success. Successful metadata edit,
+verify and credential replacement refresh safe metadata/version. Unknown network
+outcome requires GET before retry. No secret is prefilled from GET. Clear submitted
+credential after committed success and when canceling/leaving replacement; never
+render it in notifications, list, summaries or recording. Switching selected
+account/source/document invalidates responses for the prior draft/account.

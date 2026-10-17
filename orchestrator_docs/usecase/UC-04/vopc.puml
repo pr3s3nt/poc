@@ -8,6 +8,9 @@ class ConnectionController <<boundary>> {
   +RegisterAWSDriverAccount(command)
 }
 class ConnectionService <<control>> {
+  +RenameAccount(ctx, org, key, expectedVersion, name)
+  +VerifyAccount(ctx, org, key, expectedVersion)
+  +ReplaceAccountCredential(ctx, org, key, expectedVersion, cmd)
   +InspectKubeconfig(ctx, org, document): ContextMetadata
   +RegisterKubeconfig(ctx, org, cmd): Connection
   +RegisterAWSDriverAccount(ctx, org, cmd): Connection
@@ -21,6 +24,8 @@ class KubernetesConnectionVerifier <<adapter>> {
 }
 class AWSConnectionVerifier <<adapter>>
 class Connection <<entity>> {
+  +Version
+  +AccountType: AWS or INTERNAL
   +Name
   +Kind
   +AuthenticationType
@@ -33,6 +38,7 @@ interface ConnectionCredentialStore {
   +Delete(ctx, org, key, reference)
 }
 interface ConnectionRepository {
+  +CompareAndSwap(ctx, org, key, expectedVersion, replacement)
   +Create(ctx, connection)
   +FindReady(ctx, org, key): Connection
 }

@@ -2,7 +2,7 @@
 id: UC-04-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # UC-04 Connections screen
@@ -101,3 +101,23 @@ or secret ref. STS verified and provisioning capability checks are distinguished
 not READY solely because identity resolves. Clear credentials after success;
 verification error preserves safe metadata and uses concealed re-entry as needed.
 No resource creation during Connection registration or host-profile selector.
+
+
+## V01 — Tài khoản hạ tầng
+
+Navigation presents “Tài khoản hạ tầng”, at `/ui/platform/driver-accounts`.
+Legacy `/ui/platform/connections` remains a compatibility entry while existing
+consumers remain; prefer shared account UI components rather than copied forms.
+List/detail show name/key, AWS/Internal, separate auth method, safe AWS identity
+or Internal cluster descriptor, latest successful verification and version. Include
+all account statuses with honest labels; an unverified seed is not READY.
+
+Create uses existing concealed AWS/kubeconfig inputs and explicit verify/save.
+AWS labels `verificationRegions` as “Vùng kiểm tra”, not deployment scope. Explain
+that deployment region will be selected in Driver Inputs. No Environment picker,
+applicability selector or account executionProfile control.
+
+Each account offers view, rename, explicit “Kiểm tra kết nối” and a separate
+concealed credential-replacement form, with same-target explanation. Never prefill
+or reveal stored secrets. Successful save clears submitted secrets and refreshes
+metadata/version. Developer cannot open management UI. Account deletion is absent.

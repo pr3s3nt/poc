@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-15
+last_reviewed: 2026-10-17
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -860,3 +860,12 @@ UID/SLR và fixture absence. R15 đạt1482Go/race/0skip,649frontend/fullchecks.
 [Biên bản bàn giao](../verification/2026-10-16-m04-completion.md) ánh xạ từng
 task đến execution record/video. Các ghi chú còn mở phía trên là checkpoint
 lịch sử trước closure; D12–D14/M02/TLSissue#2 vẫn hoãn, không bị đóng theo.
+
+
+## V01 account catalog — design checkpoint
+
+| Requirement | Canonical design | Implementation / evidence |
+|---|---|---|
+| UC-04 AC-01..05 | ADR-015; account API; schema/ERD; auth/credential boundaries | Pending writer; no V01 runtime claim |
+| UC-04 AC-06..09 | Versioned rename/reverify/same-target replacement; OC-05a; UC-04 sequence/VOPC/state machine | Pending CAS/race/cleanup/redaction checks |
+| UC-04 AC-10..12 | Account UI states; staged consumer boundary; no V02–V03 old-data migration | [V01 handoff](../verification/2026-10-17-v01-handoff.md); browser/restart pending |
