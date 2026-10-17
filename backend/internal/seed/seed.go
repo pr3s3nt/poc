@@ -229,7 +229,7 @@ func driverInputs(variables map[string]any) map[string]any {
 
 // terraformInputs is the strict Terraform v2 Driver Inputs shape: the exact
 // verified module pin, Definition values, explicit input/output mappings and
-// the Environment AWS provider binding.
+// the Driver Account AWS provider binding.
 func terraformInputs(ref tfmodule.SourceRef, variables map[string]any, inputs, outputs []string) map[string]any {
 	inputMapping := map[string]any{}
 	for _, name := range inputs {
@@ -244,7 +244,7 @@ func terraformInputs(ref tfmodule.SourceRef, variables map[string]any, inputs, o
 		"variables":         variables,
 		"input_mapping":     inputMapping,
 		"output_mapping":    outputMapping,
-		"provider_bindings": map[string]any{"aws": map[string]any{"target": tfmodule.TargetEnvironment}},
+		"provider_bindings": map[string]any{"aws": map[string]any{"target": tfmodule.TargetAccount}},
 	}}
 }
 
@@ -259,8 +259,11 @@ func (o Options) platformModules() map[string]tfmodule.SourceRef {
 	return refs
 }
 
-// ResourceDefinitions returns the Resource Definitions of both Execution
-// Profiles (UC-03). The profile guard precedes five-field criteria matching.
+// ResourceDefinitions returns the seeded Resource Definitions (UC-03 V02-08).
+// Matching uses only the five criteria fields: the internal and cloud demands
+// are told apart by the explicit app_id of their seeded Application, never by
+// an execution profile, and AWS Definitions name their Driver Account and
+// literal region explicitly.
 func ResourceDefinitions(o Options) []resource.Definition {
 	cloud := o.Cloud
 	if cloud.KubernetesVersion == "" {
@@ -301,17 +304,18 @@ func ResourceDefinitions(o Options) []resource.Definition {
 		}
 		out = append(out, d)
 	}
-	return append(out, terraformK8sDefinitions(modules)...)
+	return append(out, terraformK8sDefinitions(modules, o.ApplicationKey)...)
 }
 
 // terraformK8sDefinitions are the in-cluster Definitions over the verified
-// packaged modules. The Kubernetes provider is bound to the Environment target
-// (the registered Connection on internal-k8s, the EKS node on aws-eks), never
-// inferred from variables. The namespace name is the exact Environment
+// packaged modules. The Kubernetes provider keeps the legacy Environment target
+// (the registered Connection on internal-k8s, the EKS node on aws-eks) until
+// V03, never inferred from variables. The seeded internal Application selects
+// the in-cluster database/cache through its app_id criterion. The namespace name is the exact Environment
 // namespace (generation suffix included).
-func terraformK8sDefinitions(modules map[string]tfmodule.SourceRef) []resource.Definition {
+func terraformK8sDefinitions(modules map[string]tfmodule.SourceRef, appKey string) []resource.Definition {
 	nsOut := "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
-	build := func(key, typ, module, profile string, variables map[string]any, inputs, outputs []string) resource.Definition {
+	build := func(key, name, typ, module string, criteria []resource.Criterion, variables map[string]any, inputs, outputs []string) resource.Definition {
 		inputMapping := map[string]any{}
 		for _, name := range inputs {
 			inputMapping[name] = map[string]any{"param": name}
@@ -320,26 +324,37 @@ func terraformK8sDefinitions(modules map[string]tfmodule.SourceRef) []resource.D
 		for _, name := range outputs {
 			outputMapping[name] = name
 		}
-		d := resource.Definition{Key: key, ResourceTypeKey: typ, DriverType: resource.DriverTerraform,
+		return resource.Definition{Key: key, Name: name, Version: 1, ResourceTypeKey: typ, DriverType: resource.DriverTerraform,
 			DriverInputs: map[string]any{"values": map[string]any{
 				"source": modules[module].Map(), "variables": variables, "input_mapping": inputMapping, "output_mapping": outputMapping,
 				"provider_bindings": map[string]any{"kubernetes": map[string]any{"target": tfmodule.TargetEnvironment}},
 			}},
-			Criteria: []resource.Criterion{{}}}
-		d.ExecutionProfile = profile
-		return d
+			Criteria: criteria}
 	}
+	internalApp := []resource.Criterion{{ApplicationID: appKey}}
 	return []resource.Definition{
-		build("namespace-k8s-module", "k8s-namespace", "k8s-namespace", "", map[string]any{"name": "${context.env.namespace}"}, nil, []string{"name"}),
-		build("postgres-k8s-module", "postgres", "postgres-k8s", "internal-k8s", map[string]any{"namespace": nsOut}, []string{"database", "username"}, []string{"host", "port", "database", "username", "password"}),
-		build("redis-k8s-module", "redis", "redis-k8s", "internal-k8s", map[string]any{"namespace": nsOut}, nil, []string{"host", "port", "username", "password", "tls"}),
+		build("namespace-k8s-module", "Namespace Kubernetes (Terraform module)", "k8s-namespace", "k8s-namespace", []resource.Criterion{{}}, map[string]any{"name": "${context.env.namespace}"}, nil, []string{"name"}),
+		build("postgres-k8s-module", "PostgreSQL trong cluster (Terraform module)", "postgres", "postgres-k8s", internalApp, map[string]any{"namespace": nsOut}, []string{"database", "username"}, []string{"host", "port", "database", "username", "password"}),
+		build("redis-k8s-module", "Redis trong cluster (Terraform module)", "redis", "redis-k8s", internalApp, map[string]any{"namespace": nsOut}, nil, []string{"host", "port", "username", "password", "tls"}),
 	}
 }
 
 func baseDefinitions(o Options, cloud CloudConfig, eksVariables map[string]any, modules map[string]tfmodule.SourceRef) []resource.Definition {
+	// AWS Definitions carry their own scoped READY account and a literal region
+	// (UC-03 V02-03); the seeded cloud Application selects them by app_id.
+	withRegion := func(variables map[string]any) map[string]any {
+		if o.Region != "" {
+			variables["region"] = o.Region
+		}
+		return variables
+	}
+	cloudApp := []resource.Criterion{{ApplicationID: o.CloudApplicationKey}}
+	internalApp := []resource.Criterion{{ApplicationID: o.ApplicationKey}}
 	return []resource.Definition{
 		{
 			Key:             "namespace-kubernetes",
+			Name:            "Namespace Kubernetes (driver cũ)",
+			Version:         1,
 			ResourceTypeKey: "k8s-namespace",
 			DriverType:      resource.DriverKubernetes,
 			DriverInputs:    driverInputs(map[string]any{"name": "${context.env.namespace}"}),
@@ -347,39 +362,48 @@ func baseDefinitions(o Options, cloud CloudConfig, eksVariables map[string]any, 
 		},
 		{
 			Key:             "cluster-aws-eks",
+			Name:            "Cluster EKS (AWS)",
+			Version:         1,
 			ResourceTypeKey: "k8s-cluster",
 			DriverType:      resource.DriverTerraform,
-			DriverInputs:    terraformInputs(modules["eks"], eksVariables, nil, []string{"name", "endpoint", "kubeContext", "kubeconfig"}),
+			DriverAccount:   o.CloudConnectionKey,
+			DriverInputs:    terraformInputs(modules["eks"], withRegion(eksVariables), nil, []string{"name", "endpoint", "kubeContext", "kubeconfig"}),
 			Criteria:        []resource.Criterion{{Class: "eks"}},
 		},
 		{
 			Key:             "vpc-aws",
+			Name:            "VPC (AWS)",
+			Version:         1,
 			ResourceTypeKey: "vpc",
 			DriverType:      resource.DriverTerraform,
-			DriverInputs: terraformInputs(modules["vpc"], map[string]any{
+			DriverAccount:   o.CloudConnectionKey,
+			DriverInputs: terraformInputs(modules["vpc"], withRegion(map[string]any{
 				"name": "${context.infra.resourceName}",
 				"cidr": cloud.VPCCidr,
-			}, nil, []string{"id", "cidr", "subnetIds", "privateSubnetIds"}),
+			}), nil, []string{"id", "cidr", "subnetIds", "privateSubnetIds"}),
 			Criteria: []resource.Criterion{{}},
 		},
 		{
-			Key:              "postgres-internal-statefulset",
-			ResourceTypeKey:  "postgres",
-			ExecutionProfile: "internal-k8s",
-			DriverType:       resource.DriverKubernetes,
+			Key:             "postgres-internal-statefulset",
+			Name:            "PostgreSQL StatefulSet trong cluster (driver cũ)",
+			Version:         1,
+			ResourceTypeKey: "postgres",
+			DriverType:      resource.DriverKubernetes,
 			DriverInputs: driverInputs(map[string]any{
 				"image":     o.Images.Postgres,
 				"storage":   "1Gi",
 				"namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
 			}),
-			Criteria: []resource.Criterion{{}},
+			Criteria: internalApp,
 		},
 		{
-			Key:              "postgres-aws-aurora",
-			ResourceTypeKey:  "postgres",
-			ExecutionProfile: "aws-eks",
-			DriverType:       resource.DriverTerraform,
-			DriverInputs: terraformInputs(modules["aurora"], map[string]any{
+			Key:             "postgres-aws-aurora",
+			Name:            "PostgreSQL Aurora (AWS)",
+			Version:         1,
+			ResourceTypeKey: "postgres",
+			DriverType:      resource.DriverTerraform,
+			DriverAccount:   o.CloudConnectionKey,
+			DriverInputs: terraformInputs(modules["aurora"], withRegion(map[string]any{
 				"name":               "${context.infra.resourceName}",
 				"engine_version":     cloud.AuroraEngineVersion,
 				"min_capacity":       cloud.AuroraMinACU,
@@ -387,8 +411,8 @@ func baseDefinitions(o Options, cloud CloudConfig, eksVariables map[string]any, 
 				"vpc_id":             "${resources['vpc.default#@infra'].outputs.id}",
 				"subnet_ids":         "${resources['vpc.default#@infra'].outputs.subnetIds}",
 				"private_subnet_ids": "${resources['vpc.default#@infra'].outputs.privateSubnetIds}",
-			}, []string{"database", "username"}, []string{"host", "port", "database", "username", "password"}),
-			Criteria: []resource.Criterion{{}},
+			}), []string{"database", "username"}, []string{"host", "port", "database", "username", "password"}),
+			Criteria: cloudApp,
 		},
 	}
 }
@@ -504,9 +528,6 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 			return err
 		}
 	}
-	if err := refreshSeededDefinitions(ctx, store, o); err != nil {
-		return err
-	}
 	if o.CatalogFree() {
 		return applyFixtureApplication(ctx, store, o)
 	}
@@ -546,6 +567,11 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		} else if err != nil {
 			return err
 		}
+	}
+
+	// Definitions reference their Driver Account, so they follow the accounts.
+	if err := refreshSeededDefinitions(ctx, store, o); err != nil {
+		return err
 	}
 
 	internal := application.Application{

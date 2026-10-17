@@ -154,6 +154,8 @@ entity resource_definitions {
   * resource_type_id : uuid <<FK>>
   --
   definition_key : text
+  definition_name : text
+  version : bigint <<CAS>>
   driver_type : text
   connection_id : uuid <<FK>>
   driver_inputs : jsonb

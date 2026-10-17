@@ -15,7 +15,7 @@ import (
 func kubernetesModuleDefinition(binding map[string]any) resource.Definition {
 	ref := tfmodule.SourceRef{SourceID: "platform", ModuleID: "pgk8s", Revision: "v1", Subdirectory: "pgk8s", ContentSHA256: strings.Repeat("a", 64)}
 	return resource.Definition{
-		Key: "postgres-k8s-module", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform,
+		Key: "postgres-k8s-module", Name: "postgres-k8s-module", Version: 1, ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform,
 		DriverInputs: map[string]any{"values": map[string]any{
 			"source": ref.Map(), "variables": map[string]any{},
 			"input_mapping":     map[string]any{"database": map[string]any{"param": "database"}, "username": map[string]any{"param": "username"}},
@@ -46,8 +46,8 @@ func contractFor(t *testing.T, plan *Plan, definition string) TerraformContract 
 	return TerraformContract{}
 }
 
-// AWS bindings pin the Environment AWS Connection and region.
-func TestPlan_AWSBindingsPinEnvironmentConnectionAndRegion(t *testing.T) {
+// AWS bindings pin the Definition's Driver Account and literal region.
+func TestPlan_AWSBindingsPinDriverAccountAndRegion(t *testing.T) {
 	req := testRequest(t, application.ProfileAWSEKS, "backend")
 	plan, err := NewService().Plan(req)
 	if err != nil {
@@ -55,25 +55,41 @@ func TestPlan_AWSBindingsPinEnvironmentConnectionAndRegion(t *testing.T) {
 	}
 	for _, definition := range []string{"vpc-aws", "cluster-aws-eks", "postgres-aws-aurora"} {
 		pins := contractFor(t, plan, definition).ProviderBindings
-		if len(pins) != 1 || pins[0] != (tfmodule.ProviderPin{Name: "aws", Kind: tfmodule.BindingAWS, Target: tfmodule.TargetEnvironment, ConnectionKey: req.Env.ConnectionKey, ConnectionKind: "AWS", Region: req.Env.Region, Profile: "aws-eks"}) {
+		if len(pins) != 1 || pins[0] != (tfmodule.ProviderPin{Name: "aws", Kind: tfmodule.BindingAWS, Target: tfmodule.TargetAccount, ConnectionKey: "aws-account", ConnectionKind: "AWS", AccountVersion: 3, Region: "us-east-1", Profile: "aws-eks"}) {
 			t.Fatalf("%s pins %+v", definition, pins)
 		}
 	}
-	// A different Environment account or region changes the pinned plan.
+	// A Definition region change changes the pinned plan.
 	other := req
-	other.Env.Region = "eu-west-1"
+	other.Catalog.Definitions = append([]resource.Definition(nil), req.Catalog.Definitions...)
+	mutateDefinition(&other, "vpc-aws", func(d *resource.Definition) {
+		vars := map[string]any{}
+		for k, v := range d.DriverInputs["values"].(map[string]any)["variables"].(map[string]any) {
+			vars[k] = v
+		}
+		vars["region"] = "eu-west-1"
+		values := map[string]any{}
+		for k, v := range d.DriverInputs["values"].(map[string]any) {
+			values[k] = v
+		}
+		values["variables"] = vars
+		d.DriverInputs = map[string]any{"values": values}
+	})
 	again, err := NewService().Plan(other)
 	if err != nil || again.PlanHash == plan.PlanHash {
 		t.Fatalf("region change did not change the plan hash: %v", err)
 	}
-	// An AWS binding in an internal-k8s Environment is refused at planning.
+	// An AWS binding still needs the account, not an Environment: the
+	// Definition-owned binding plans in an internal-k8s Environment too, when
+	// the Definition matches (no profile guard).
 	internal := testRequest(t, application.ProfileInternalK8s, "backend")
+	internal.Catalog = req.Catalog
 	aws := seedAWSDefinition()
-	aws.Key, aws.ExecutionProfile = "postgres-aws-forced", "internal-k8s"
-	aws.Criteria = []resource.Criterion{{Class: "default"}}
-	internal.Catalog.Definitions = append(internal.Catalog.Definitions, aws)
-	if _, err := NewService().Plan(internal); err == nil || !strings.Contains(err.Error(), "aws-eks Environment") {
-		t.Fatalf("AWS binding without AWS Environment: %v", err)
+	aws.Key, aws.Name = "postgres-aws-forced", "forced"
+	aws.Criteria = []resource.Criterion{{ApplicationID: internal.App.Key, Class: "default"}}
+	internal.Catalog.Definitions = append(append([]resource.Definition(nil), internal.Catalog.Definitions...), aws)
+	if _, err := NewService().Plan(internal); err != nil {
+		t.Fatalf("AWS node from a Definition account: %v", err)
 	}
 }
 

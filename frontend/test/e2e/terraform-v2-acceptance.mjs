@@ -448,7 +448,7 @@ export const SCENARIOS = {
     // The module variable "namespace" is required and has no default: it is deliberately left unmapped.
     await h.click(s.submitDefinition());
     const missing = page.getByRole('alert').first();
-    await expect(missing).toContainText('Cần nhập trước khi đăng ký');
+    await expect(missing).toContainText('Cần nhập trước khi lưu');
     const missingText = await missing.innerText();
     await h.moveTo(missing);
     await h.pause(SHORT_READ);

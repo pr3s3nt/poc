@@ -2,7 +2,7 @@
 id: TERRAFORM-MODULE-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 related: [ADR-014, UC-03, UC-05, UC-06, UC-08, UC-16]
 ---
 
@@ -75,9 +75,9 @@ packaged revision mới; giữ cache cũ và provider plugins cho lock cũ đế
 instance của release đó đã được xác minh hết. Thiếu release/artifact thì từ
 chối cleanup và giữ remaining IDs; không thay bằng release hiện tại.
 
-Public Definition registration giữ insert-only: nâng module bằng Definition ID
-mới và thay criteria có specificity/context tạo unique winner đã review, không ngầm thêm
-API overwrite/update Definition.
+Public Definition creation là insert-only; V02 bổ sung explicit version-CAS
+update theo UC-03 V02-06. PE có thể chọn verified module/pin khác của cùng Type
+hoặc tạo ID mới; không overwrite concurrent winner hoặc historical resource pins.
 Nếu hai Definition đồng hạng thì Preview chặn; PE phải cấu hình criteria cho một
 winner. State của resource hiện hữu không bị thay theo Definition ID mới.
 
@@ -93,10 +93,12 @@ Type param có giá trị ưu tiên fallback/default của module variable tươ
 Không nhận arbitrary expression hoặc secret field qua param mapping.
 `output_mapping` là map module output name -> Type output name.
 `provider_bindings` keyed bởi approved provider requirement: AWS dùng
-`{target: environment}`, Kubernetes dùng cùng target hoặc
+`{target: account}` với Definition Driver Account và literal region trong variables;
+Kubernetes giữ explicit legacy `{target: environment}` tới V03 hoặc
 `{target: resource, resource_ref: <cluster descriptor>}` cho EKS dependency.
 Provider output reference phải tạo graph edge và resolve scoped opaque target;
-không nhận account/region/endpoint/credential override. Known field/schema
+không nhận endpoint/credential trong provider binding; account/region chỉ đến
+từ Definition fields V02. Known field/schema
 validation thuộc UC-03 BR-11/12; các source pins cụ thể do registry release công bố.
 Workload renderer giữ riêng `values.variables.render_bundle`, không nhận
 Terraform source/mappings/provisioners.
@@ -234,3 +236,28 @@ selection trên cả hai profiles. Required bundle absent/no match/tie là lỗi
 resource execution. Các binding đã resolve và Secret refs đi qua
 [rendering contract](workload-rendering.md); không tạo database/cache/namespace
 qua score-k8s hoặc fallback native khi render lỗi.
+
+## V02 Definition account binding — replaces Environment AWS binding
+
+UC-03 V02-03/04 owns selection/validation. Terraform `provider_bindings.aws`
+is `{target: account}`; Definition `driverAccount` supplies scoped READY AWS
+identity, and `values.variables.region` supplies literal region. Region becomes
+editable schema metadata for AWS modules; account verification regions are probe
+evidence, never a deployment allowlist. Never infer account/region from Environment
+or host. Provider pins/PlanHash include actual Definition/account/version/region;
+credential resolution is private and per invocation. Validate winning binding
+before provision; no fallback account or different Definition. Cross-node
+account/region equality is not a platform invariant.
+
+Kubernetes resource bindings retain `{target: resource, resource_ref: ...}`;
+no account on consumer; dependency target/identity supplies access. Explicit
+legacy `{target: environment}` remains only until V03 cluster/Generic Workload
+replacement. No new existing-cluster public driver in V02. All source/pin,
+mappings, inputs, secret validation, dependency edges, state/locking/fencing and
+retained cleanup release requirements above continue unchanged.
+
+Definition update is now version CAS per UC-03 V02-06, replacing the insert-only
+paragraph above. Existing executions/cleanup use persisted original Definition
+content/target/module snapshot, not latest mutable catalog. New planning reads
+updated content and invalidates old Preview; resource updates still require
+explicit Preview/Deploy and preserve state identity.

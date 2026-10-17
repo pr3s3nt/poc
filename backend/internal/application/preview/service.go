@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	appsvc "orchestrator/internal/application/deployment"
-	appdomain "orchestrator/internal/domain/application"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -107,8 +106,9 @@ type DeploymentPreview struct {
 	WorkloadID     string
 	Action         string
 	Plan           *planning.Plan
-	// Binding and AccountID pin the execution target shown with the resource
-	// intents (UC-05 BR-10); AccountID is the nonsecret AWS account (aws-eks).
+	// Binding pins the Environment execution target shown with the resource
+	// intents (UC-05 BR-10). AccountID is retired (always empty): AWS accounts
+	// are per node and appear as provider pins in the intents (UC-03 V02-03).
 	Binding   environment.Binding
 	AccountID string
 	// Intents is the pure resource projection against the persisted plans of
@@ -160,13 +160,10 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 	if err != nil {
 		return nil, publicPlanningError(err)
 	}
-	accountID := ""
-	if snapshot.Env.Profile == appdomain.ProfileAWSEKS {
-		accountID = snapshot.Connection.ConfigString("accountId")
-	}
+	// AWS identity belongs to each node's Definition (provider pins in Intents),
+	// never to the Environment, so no Environment AccountID is reported.
 	return &DeploymentPreview{
 		Binding:        snapshot.Env.Binding(),
-		AccountID:      accountID,
 		Intents:        plan.ResourceIntents(snapshot.Baselines.Reader()),
 		ApplicationKey: snapshot.App.Key,
 		EnvironmentKey: snapshot.Env.Key,
@@ -288,6 +285,10 @@ type MatchView struct {
 	// builtin cluster (ADR-013).
 	Binding       string `json:"binding,omitempty"`
 	ConnectionKey string `json:"connectionKey,omitempty"`
+	// DefinitionVersion and DriverAccount name the Definition version and the
+	// safe Driver Account key the plan pinned (UC-03 V02-07); never a credential.
+	DefinitionVersion int64  `json:"definitionVersion,omitempty"`
+	DriverAccount     string `json:"driverAccount,omitempty"`
 }
 
 // Public renders the sanitized view. It deep-copies the Candidate Set before
@@ -333,7 +334,7 @@ func (p *DeploymentPreview) Public() (View, error) {
 	sort.Strings(descriptors)
 	for _, d := range descriptors {
 		m := p.Plan.Matches[d]
-		view.Matches = append(view.Matches, MatchView{Descriptor: m.Descriptor, DefinitionKey: m.DefinitionKey, DriverType: string(m.DriverType), Specificity: m.Specificity, Binding: m.Binding, ConnectionKey: bindingConnection(m)})
+		view.Matches = append(view.Matches, MatchView{Descriptor: m.Descriptor, DefinitionKey: m.DefinitionKey, DriverType: string(m.DriverType), Specificity: m.Specificity, Binding: m.Binding, ConnectionKey: bindingConnection(m), DefinitionVersion: m.DefinitionVersion, DriverAccount: m.DriverAccount})
 	}
 	for _, batch := range p.Plan.Batches {
 		view.Batches = append(view.Batches, append([]string{}, batch...))

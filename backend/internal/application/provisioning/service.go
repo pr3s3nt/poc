@@ -24,7 +24,7 @@ import (
 
 var errConnectionUnavailable = errors.New("the Connection must exist and be READY")
 var errPriorConnectionMismatch = errors.New("the existing resource belongs to another connection and cannot be reused")
-var errConnectionMismatch = errors.New("the Definition connection differs from the Environment connection")
+var errAccountNotApplicable = errors.New("the Definition names a Driver Account its driver does not use")
 
 // Request is the input of one UC-08 run.
 type Request struct {
@@ -223,24 +223,19 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		return err
 	}
 
-	// Defense in depth for UC-08 BR-07: a target Definition (internal cluster,
-	// Kubernetes, or aws-eks Terraform VPC/EKS) must not retarget the Environment's saved Connection.
-	if planning.ConnectionMismatch(req.Context.Env, def) {
+	if def.DriverType != resource.DriverTerraform && def.DriverAccount != "" {
 		progress.Status = deployment.ResourceFailed
 		finished := s.clock.Now()
 		progress.FinishedAt = &finished
 		_ = s.store.SaveDeploymentResource(ctx, progress)
-		return fmt.Errorf("provisioning: %s: %w", descriptor, errConnectionMismatch)
+		return fmt.Errorf("provisioning: %s: %w", descriptor, errAccountNotApplicable)
 	}
 
-	// A missing or non-READY Connection fails before execution instead of
-	// becoming an empty Connection (UC-04 BR-04/BR-10).
-	connectionKey := connectionKeyFor(def, req.Context)
-	if selfVerifying {
-		// Every v2 provider binding targets the Environment Connection (AWS
-		// account/region, internal cluster) or a cluster this plan creates.
-		connectionKey = req.Context.Env.ConnectionKey
-	}
+	// A missing, foreign or non-READY Connection fails before execution
+	// instead of becoming an empty Connection (UC-04 BR-04/BR-10). An AWS node
+	// runs with the Driver Account its winning Definition pinned; the
+	// Environment account is never a substitute (UC-03 V02-09).
+	connectionKey, wantKind := effectiveConnection(def, match, pins, selfVerifying, target, req.Context)
 	var connection appdomain.Connection
 	err = errors.New("connection key is empty")
 	if connectionKey != "" {
@@ -253,11 +248,8 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		(connection.Kind != appdomain.ConnectionKubernetes || connection.Key != req.Context.Env.ConnectionKey) {
 		err = fmt.Errorf("connection is not the Kubernetes Environment connection")
 	}
-	if err == nil && def.DriverType == resource.DriverTerraform && !selfVerifying && connection.Kind != appdomain.ConnectionAWS {
-		err = fmt.Errorf("connection is not an AWS connection")
-	}
-	if err == nil && selfVerifying && connection.Kind != expectedConnectionKind(req.Context.Env.Profile) {
-		err = fmt.Errorf("connection does not match the Environment execution profile")
+	if err == nil && wantKind != "" && connection.Kind != wantKind {
+		err = fmt.Errorf("connection kind does not match the node binding")
 	}
 	if err != nil {
 		progress.Status = deployment.ResourceFailed
@@ -280,7 +272,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	if selfVerifying {
 		// Stale or foreign provider pins fail before any state write or
 		// provider call.
-		if pinErr := checkPinsAgainstPlan(req.Plan, descriptor, pins, req.Context); pinErr != nil {
+		if pinErr := checkPinsAgainstPlan(req.Plan, descriptor, pins, def, connection, req.Context); pinErr != nil {
 			progress.Status = deployment.ResourceFailed
 			finished := s.clock.Now()
 			progress.FinishedAt = &finished
@@ -498,32 +490,32 @@ func isSecretInputKey(key string) bool {
 	return false
 }
 
-// connectionKeyFor returns the effective connection identity of a node.
-// Terraform VPC/EKS always use the pinned Environment connection (UC-08 BR-07);
-// other Terraform resources such as Aurora keep their explicit Driver Account
-// and never inherit the Environment account, so a missing key stays empty and
-// fails closed. Other drivers fall back to the Environment connection.
-func connectionKeyFor(def resource.Definition, ctx planning.Context) string {
+// effectiveConnection returns the Connection identity and kind a node
+// executes with. A self-verifying Terraform node uses the account of its AWS
+// provider pin; a Kubernetes node inherits its cluster: the credential-backed
+// EKS target, or the legacy Environment connection (kept until V03). The ADR-013
+// system cluster and other drivers use the Environment connection unless the
+// Definition names a Driver Account.
+func effectiveConnection(def resource.Definition, match planning.Match, pins []tfmodule.ProviderPin, selfVerifying bool, target execution.Target, ctx planning.Context) (string, appdomain.ConnectionKind) {
+	env := ctx.Env
+	if match.DefinitionKey == planning.BuiltinClusterKey {
+		return env.ConnectionKey, appdomain.ConnectionKubernetes
+	}
 	if def.DriverType == resource.DriverTerraform {
-		switch def.ResourceTypeKey {
-		case planning.TypeVPC, planning.TypeCluster:
-			return ctx.Env.ConnectionKey
+		if !selfVerifying {
+			return def.DriverAccount, appdomain.ConnectionAWS
 		}
-		// A v2 AWS provider binding targets the Environment AWS Connection
-		// (UC-03 BR-08); no Definition-level account override exists.
-		if inputs, err := tfmodule.ParseDriverInputs(def.DriverValues()); err == nil {
-			for _, binding := range inputs.ProviderBindings {
-				if binding.Target == tfmodule.TargetEnvironment && def.ConnectionKey == "" {
-					return ctx.Env.ConnectionKey
-				}
+		for _, pin := range pins {
+			if pin.Kind == tfmodule.BindingAWS {
+				return pin.ConnectionKey, appdomain.ConnectionAWS
 			}
 		}
-		return def.ConnectionKey
+		if target.Provider == "eks" && target.Connection != "" {
+			return target.Connection, appdomain.ConnectionAWS
+		}
+		return env.ConnectionKey, expectedConnectionKind(env.Profile)
 	}
-	if def.ConnectionKey != "" {
-		return def.ConnectionKey
-	}
-	return ctx.Env.ConnectionKey
+	return env.ConnectionKey, ""
 }
 
 func mapOrEmpty(m map[string]any) map[string]any {
@@ -676,7 +668,7 @@ func expectedConnectionKind(profile appdomain.ExecutionProfile) appdomain.Connec
 // the Environment it executes in: a pin for another connection, region or
 // profile (stale), or a provider cluster without its graph edge (foreign).
 // This runs before any state write or provider call.
-func checkPinsAgainstPlan(plan *planning.Plan, descriptor string, pins []tfmodule.ProviderPin, ctx planning.Context) error {
+func checkPinsAgainstPlan(plan *planning.Plan, descriptor string, pins []tfmodule.ProviderPin, def resource.Definition, account appdomain.Connection, ctx planning.Context) error {
 	env := ctx.Env
 	providers := map[string]bool{}
 	for _, p := range plan.Graph.Providers(descriptor) {
@@ -688,7 +680,11 @@ func checkPinsAgainstPlan(plan *planning.Plan, descriptor string, pins []tfmodul
 		}
 		switch pin.Kind {
 		case tfmodule.BindingAWS:
-			if pin.ConnectionKey != env.ConnectionKey || pin.Region != env.Region {
+			// The pin must still describe the Definition's own Driver Account,
+			// literal region and the account version the plan saw.
+			region, _ := def.DefinitionRegion()
+			if pin.ConnectionKey == "" || pin.ConnectionKey != def.DriverAccount || pin.ConnectionKey != account.Key ||
+				pin.Region == "" || pin.Region != region || pin.AccountVersion != account.Version {
 				return errPinStale
 			}
 		case tfmodule.BindingKubernetes:

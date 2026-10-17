@@ -2,6 +2,7 @@ package catalog_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/ports/moduleregistry"
@@ -33,6 +34,7 @@ func seededCatalog(t *testing.T, modules registryFactory) (*store.Store, *catalo
 	ctx := context.Background()
 	st := store.New()
 	opts := seedtest.Defaults()
+	opts.Region, opts.AccountID = "us-east-1", "000000000000"
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +55,7 @@ func seededDefinition(t *testing.T, opts seed.Options, key string) resource.Defi
 		// Historical authored existing-cluster shape (no longer seeded, ADR-013);
 		// public registration rejects it for every key.
 		return resource.Definition{
-			Key: key, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, ConnectionKey: opts.ConnectionKey,
+			Key: key, Name: key, Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, DriverAccount: opts.ConnectionKey,
 			DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{
 				"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
 			Criteria: []resource.Criterion{{Class: "internal"}},
@@ -63,41 +65,61 @@ func seededDefinition(t *testing.T, opts seed.Options, key string) resource.Defi
 	return resource.Definition{}
 }
 
-// TestRegisterResourceDefinition_RejectsConnectionAndProfileMisuse covers
-// UC-03 MS-04/BR-08 negative paths: nothing is stored for any of them.
-func TestRegisterResourceDefinition_RejectsConnectionAndProfileMisuse(t *testing.T) {
+// UC-03 V02-03 negative paths: nothing is stored for any of them, and the
+// failing field is the driver account or region, never an echoed value.
+func TestRegisterResourceDefinition_RejectsAccountMisuse(t *testing.T) {
 	ctx := context.Background()
 	st, svc, opts := seededCatalog(t, withRegistry)
-	if err := st.SaveConnection(ctx, application.Connection{Name: "pending-cluster", AuthenticationType: application.AuthKubeconfig, Key: "pending-cluster", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionVerifying}); err != nil {
+	if err := st.SaveConnection(ctx, application.Connection{Name: "pending-aws", AuthenticationType: application.AuthAWSAccessKey, Key: "pending-aws", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionVerifying, Version: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.SaveOrganization(ctx, application.Organization{Key: "globex", Name: "Globex"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SaveConnection(ctx, application.Connection{Name: "globex-cluster", AuthenticationType: application.AuthKubeconfig, Key: "globex-cluster", OrganizationKey: "globex", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady}); err != nil {
+	if err := st.SaveConnection(ctx, application.Connection{Name: "globex-aws", AuthenticationType: application.AuthAWSAccessKey, Key: "globex-aws", OrganizationKey: "globex", Kind: application.ConnectionAWS, Status: application.ConnectionReady, Version: 1}); err != nil {
 		t.Fatal(err)
 	}
 	aurora := seededDefinition(t, opts, "postgres-aws-aurora")
-	internal := seededDefinition(t, opts, "postgres-internal-statefulset")
-	cases := map[string]func(*resource.Definition){
-		"terraform with cluster connection":  func(d *resource.Definition) { *d = aurora; d.ConnectionKey = opts.ConnectionKey },
-		"terraform with AWS account":         func(d *resource.Definition) { *d = aurora; d.ConnectionKey = opts.CloudConnectionKey },
-		"connection not READY":               func(d *resource.Definition) { *d = internal; d.ConnectionKey = "pending-cluster" },
-		"connection of another Organization": func(d *resource.Definition) { *d = internal; d.ConnectionKey = "globex-cluster" },
-		"unknown connection":                 func(d *resource.Definition) { *d = internal; d.ConnectionKey = "missing" },
-		"kubernetes definition for aws-eks":  func(d *resource.Definition) { *d = internal; d.ExecutionProfile = "aws-eks" },
-		"empty criteria list":                func(d *resource.Definition) { *d = internal; d.Criteria = []resource.Criterion{} },
-		"terraform for internal-k8s profile": func(d *resource.Definition) { *d = aurora; d.ExecutionProfile = "internal-k8s" },
-		"unsupported driver/type pair":       func(d *resource.Definition) { *d = internal; d.ResourceTypeKey = "vpc" },
+	vars := func(d *resource.Definition) map[string]any {
+		return d.DriverInputs["values"].(map[string]any)["variables"].(map[string]any)
+	}
+	cases := map[string]struct {
+		change func(*resource.Definition)
+		field  string
+	}{
+		"no account":                      {func(d *resource.Definition) { d.DriverAccount = "" }, "definition.driverAccount"},
+		"internal (cluster) account":      {func(d *resource.Definition) { d.DriverAccount = opts.ConnectionKey }, "definition.driverAccount"},
+		"account not READY":               {func(d *resource.Definition) { d.DriverAccount = "pending-aws" }, "definition.driverAccount"},
+		"account of another Organization": {func(d *resource.Definition) { d.DriverAccount = "globex-aws" }, "definition.driverAccount"},
+		"unknown account":                 {func(d *resource.Definition) { d.DriverAccount = "missing" }, "definition.driverAccount"},
+		"missing region":                  {func(d *resource.Definition) { delete(vars(d), "region") }, "definition.driverInputs.values.variables.region"},
+		"placeholder region":              {func(d *resource.Definition) { vars(d)["region"] = "${context.env.region}" }, "definition.driverInputs.values.variables.region"},
+		"malformed region":                {func(d *resource.Definition) { vars(d)["region"] = "mars-1" }, "definition.driverInputs.values.variables.region"},
+		"environment binding": {func(d *resource.Definition) {
+			d.DriverInputs["values"].(map[string]any)["provider_bindings"] = map[string]any{"aws": map[string]any{"target": "environment"}}
+		}, "definition.driverInputs.values.provider_bindings"},
+		"empty criteria list":   {func(d *resource.Definition) { d.Criteria = []resource.Criterion{} }, "definition.schema"},
+		"blank name":            {func(d *resource.Definition) { d.Name = "   " }, "definition.name"},
+		"unsupported type pair": {func(d *resource.Definition) { d.ResourceTypeKey = "vpc" }, ""},
 	}
 	before, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
-	for name, mutate := range cases {
-		var def resource.Definition
-		mutate(&def)
+	for name, tc := range cases {
+		def := aurora
+		def.DriverInputs = cloneInputs(aurora.DriverInputs)
+		tc.change(&def)
 		// Keys satisfy UC-03 BR-10 so each case fails for its own reason.
-		def.Key = "negative-" + strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(name, " ", "-"), "/", "-"))
-		if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); !errors.Is(err, catalog.ErrInvalid) {
+		def.Key = "negative-" + strings.Map(func(r rune) rune {
+			if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
+				return r
+			}
+			return '-'
+		}, strings.ToLower(name))
+		_, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def)
+		var fieldErr *catalog.FieldError
+		if !errors.Is(err, catalog.ErrInvalid) {
 			t.Errorf("%s: want ErrInvalid, got %v", name, err)
+		} else if tc.field != "" && (!errors.As(err, &fieldErr) || fieldErr.Field != tc.field) {
+			t.Errorf("%s: field = %v, want %s (err %v)", name, fieldErr, tc.field, err)
 		}
 	}
 	after, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
@@ -106,68 +128,50 @@ func TestRegisterResourceDefinition_RejectsConnectionAndProfileMisuse(t *testing
 	}
 }
 
-// UC-03 BR-08 (T16): Terraform vpc/eks register with an empty ConnectionKey and
-// without any Environment; every nonempty key is rejected before any insert.
-func TestRegisterResourceDefinition_TerraformVPCAndEKSRequireEmptyConnection(t *testing.T) {
-	ctx := context.Background()
-	st, svc, opts := seededCatalog(t, withRegistry)
-	if err := st.SaveOrganization(ctx, application.Organization{Key: "globex", Name: "Globex"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := st.SaveConnection(ctx, application.Connection{Name: "globex-aws", AuthenticationType: application.AuthAWSAccessKey, Key: "globex-aws", OrganizationKey: "globex", Kind: application.ConnectionAWS, Status: application.ConnectionReady}); err != nil {
-		t.Fatal(err)
-	}
-	for _, seededKey := range []string{"vpc-aws", "cluster-aws-eks"} {
-		base := seededDefinition(t, opts, seededKey)
-		if base.ConnectionKey != "" {
-			t.Fatalf("seeded %s must not carry a connection: %q", seededKey, base.ConnectionKey)
-		}
-		base.ExecutionProfile = "aws-eks"
-		ok := base
-		ok.Key = "registered-" + seededKey
-		ok.Criteria = []resource.Criterion{{ApplicationID: "registered"}}
-		if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, ok); err != nil {
-			t.Fatalf("%s with an empty key: %v", seededKey, err)
-		}
-		for name, key := range map[string]string{
-			"equal to an Environment target": opts.CloudConnectionKey,
-			"nonexistent":                    "missing",
-			"other Organization":             "globex-aws",
-			"Kubernetes connection":          opts.ConnectionKey,
-		} {
-			bad := base
-			bad.Key = "rejected-" + seededKey + "-" + strings.ToLower(strings.ReplaceAll(name, " ", "-"))
-			bad.ConnectionKey = key
-			before, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
-			_, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, bad)
-			if !errors.Is(err, catalog.ErrInvalid) || !strings.Contains(err.Error(), "leave connectionKey empty") || strings.Contains(err.Error(), key) {
-				t.Fatalf("%s %s: err = %v", seededKey, name, err)
-			}
-			after, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
-			if len(after) != len(before) {
-				t.Fatalf("%s %s: definition was inserted", seededKey, name)
-			}
-		}
-	}
+// cloneInputs deep-copies driver inputs so a mutating case never leaks into the
+// next one.
+func cloneInputs(in map[string]any) map[string]any {
+	raw, _ := json.Marshal(in)
+	out := map[string]any{}
+	_ = json.Unmarshal(raw, &out)
+	return out
 }
 
-// UC-03 BR-08 (v2): Aurora, like every AWS module, uses the Environment AWS
-// Connection; an explicit account override is rejected before any insert.
-func TestRegisterResourceDefinition_AuroraUsesEnvironmentConnection(t *testing.T) {
+// UC-03 V02-03: AWS Terraform Definitions (VPC, EKS, Aurora, ElastiCache) all
+// register with their own READY AWS account and a literal region, without any
+// Environment; Kubernetes-bound modules take no account.
+func TestRegisterResourceDefinition_AWSDefinitionsTakeTheirOwnAccountAndRegion(t *testing.T) {
 	ctx := context.Background()
 	st, svc, opts := seededCatalog(t, withRegistry)
-	if err := st.SaveConnection(ctx, application.Connection{Name: "aurora-account", AuthenticationType: application.AuthAWSAccessKey, Key: "aurora-account", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionReady}); err != nil {
+	if err := st.SaveConnection(ctx, application.Connection{Name: "second", AuthenticationType: application.AuthAWSAccessKey, Key: "second-aws", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionReady, Version: 1}); err != nil {
 		t.Fatal(err)
 	}
-	aurora := seededDefinition(t, opts, "postgres-aws-aurora")
-	aurora.Criteria = []resource.Criterion{{ApplicationID: "registered"}}
-	aurora.Key, aurora.ConnectionKey = "aurora-separate", "aurora-account"
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, aurora); !errors.Is(err, catalog.ErrInvalid) || !strings.Contains(err.Error(), "leave connectionKey empty") {
-		t.Fatalf("explicit account must be rejected: %v", err)
+	for _, seededKey := range []string{"vpc-aws", "cluster-aws-eks", "postgres-aws-aurora"} {
+		base := seededDefinition(t, opts, seededKey)
+		if base.DriverAccount != opts.CloudConnectionKey {
+			t.Fatalf("seeded %s account = %q", seededKey, base.DriverAccount)
+		}
+		for i, account := range []string{opts.CloudConnectionKey, "second-aws"} {
+			def := base
+			def.DriverInputs = cloneInputs(base.DriverInputs)
+			def.DriverInputs["values"].(map[string]any)["variables"].(map[string]any)["region"] = []string{"us-east-1", "eu-west-1"}[i]
+			def.Key = "registered-" + seededKey + "-" + strings.ToLower(account)
+			def.DriverAccount = account
+			def.Criteria = []resource.Criterion{{ApplicationID: def.Key}}
+			created, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def)
+			if err != nil {
+				t.Fatalf("%s with %s: %v", seededKey, account, err)
+			}
+			if created.Version != 1 || created.DriverAccount != account {
+				t.Fatalf("created = %+v", created)
+			}
+		}
 	}
-	aurora.Key, aurora.ConnectionKey = "aurora-environment", ""
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, aurora); err != nil {
-		t.Fatalf("Environment-bound Aurora: %v", err)
+	// A Kubernetes-bound module takes no account (cluster access is inherited).
+	kube := moduleShape(t, "namespace")
+	kube.Key, kube.DriverAccount = "namespace-with-account", opts.ConnectionKey
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, kube); !errors.Is(err, catalog.ErrInvalid) {
+		t.Fatalf("an account on a Kubernetes-bound module: %v", err)
 	}
 }
 
@@ -223,7 +227,6 @@ func TestRegisterResourceDefinition_RejectsExistingClusterDriver(t *testing.T) {
 	ctx := context.Background()
 	st, svc, opts := seededCatalog(t, withRegistry)
 	base := seededDefinition(t, opts, "cluster-internal-registered")
-	base.ExecutionProfile = "internal-k8s"
 	with := func(mutate func(*resource.Definition)) resource.Definition {
 		d := base
 		mutate(&d)
@@ -232,12 +235,10 @@ func TestRegisterResourceDefinition_RejectsExistingClusterDriver(t *testing.T) {
 	cases := map[string]resource.Definition{
 		"arbitrary key":      with(func(d *resource.Definition) { d.Key = "cluster-custom" }),
 		"reserved key":       with(func(d *resource.Definition) { d.Key = planning.BuiltinClusterKey }),
-		"valid connection":   with(func(d *resource.Definition) { d.Key = "cluster-valid"; d.ConnectionKey = opts.ConnectionKey }),
-		"no connection":      with(func(d *resource.Definition) { d.Key = "cluster-noconn"; d.ConnectionKey = "" }),
-		"unknown connection": with(func(d *resource.Definition) { d.Key = "cluster-unknown"; d.ConnectionKey = "missing" }),
-		"AWS connection":     with(func(d *resource.Definition) { d.Key = "cluster-aws"; d.ConnectionKey = opts.CloudConnectionKey }),
-		"no profile":         with(func(d *resource.Definition) { d.Key = "cluster-noprofile"; d.ExecutionProfile = "" }),
-		"other profile":      with(func(d *resource.Definition) { d.Key = "cluster-other"; d.ExecutionProfile = "aws-eks" }),
+		"valid connection":   with(func(d *resource.Definition) { d.Key = "cluster-valid"; d.DriverAccount = opts.ConnectionKey }),
+		"no connection":      with(func(d *resource.Definition) { d.Key = "cluster-noconn"; d.DriverAccount = "" }),
+		"unknown connection": with(func(d *resource.Definition) { d.Key = "cluster-unknown"; d.DriverAccount = "missing" }),
+		"AWS connection":     with(func(d *resource.Definition) { d.Key = "cluster-aws"; d.DriverAccount = opts.CloudConnectionKey }),
 		"no criteria":        with(func(d *resource.Definition) { d.Key = "cluster-nocrit"; d.Criteria = nil }),
 		"invalid key":        with(func(d *resource.Definition) { d.Key = "Not A Key" }),
 	}

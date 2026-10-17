@@ -17,6 +17,7 @@ func TestRegisterResourceDefinition_ContractsAndOrganization(t *testing.T) {
 	ctx := context.Background()
 	st := store.New()
 	opts := seedtest.Defaults()
+	opts.Region, opts.AccountID = "us-east-1", "000000000000"
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}

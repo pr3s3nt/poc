@@ -2,14 +2,89 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # UC-03 — Register Resource Definition and Matching Criteria
 
 ## Mục tiêu
 
-Đăng ký Resource Definition để xác định cách provision một Resource Type theo Execution Profile và deployment context.
+Tạo và sửa Resource Definition để xác định driver, inputs, account và Matching Criteria của một Resource Type; kiểm tra matching trên máy chủ trước khi sử dụng.
+
+## Hợp đồng V02 — áp dụng từ 2026-10-17
+
+Phần này sở hữu hợp đồng V02. Các ID requirement cũ được giữ và ánh xạ
+sang hợp đồng mới bên dưới; predecessor truy xuất bằng Git tại `96eb602`. Quy tắc nguồn module bất biến, validation
+schema/placeholders/mappings/provision, bí mật và weighted criteria tiếp tục có
+hiệu lực. System cluster theo ADR-013 và cơ chế render hiện tại chỉ được thay
+bằng Generic Workload ở V03; V02 không đăng ký public existing-cluster.
+
+- **V02-01 (MS-01..09, BR-01/03/08):** Definition có ID kỹ thuật `key`,
+  `name` hiển thị bắt buộc, `resourceType`, `driverType`, `driverInputs`,
+  `driverAccount` khi driver cần account, `criteria`, `provision`, `version`.
+  ID tuân UC-02 BR-05; Name là text không rỗng sau trim, tối đa253 ký tự,
+  không control characters; ID và Resource Type bất biến khi sửa.
+  `executionProfile` và `connectionKey` không còn là public authoring fields;
+  không chuyển field cũ hoặc suy account từ Environment.
+- **V02-02 (BR-01/02/03/06/07/21):** Cùng Resource Type, xét đúng năm field
+  `env_type`, `app_id`, `env_id`, `res_id`, `class`; AND trong dòng, OR giữa
+  các dòng; lấy điểm tốt nhất mỗi Definition, rồi unique maximum với trọng số
+  1/2/4/8/16. Không lọc ngầm theo profile/account/region/nhóm triển khai.
+  Không criteria/[] bị từ chối; `[{}]` là wildcard điểm0. Không match và hòa
+  điểm cao nhất là hai kết quả khác nhau. Winner sai account/driver thì báo
+  lỗi winner, không bỏ qua để chọn ứng viên khác. Definition ID khác `res_id`.
+- **V02-03 (BR-08/11/12/14/23/24):** Danh mục driver do backend công bố từ
+  capability registry thực: Terraform cho modules đã verified và score-k8s
+  cho render bundle hiện có; không quảng cáo Generic Workload lifecycle.
+  AWS Terraform bắt buộc `driverAccount` trỏ key AWS READY cùng Organization;
+  region là literal string hợp lệ tại `driverInputs.values.variables.region`,
+  không lấy Environment region hoặc verificationRegions làm phạm vi cho phép.
+  AWS provider binding là `{target: account}`. Kubernetes Terraform nhận
+  `{target: resource, resource_ref: <cluster descriptor>}`; không chọn account
+  lại, UI hiển thị nguồn cluster dependency. Trong giai đoạn trước V03,
+  `{target: environment}` còn là binding Kubernetes legacy có nhãn rõ,
+  không trở thành account selector hoặc matching filter. score-k8s không nhận
+  driverAccount; existing-cluster vẫn dành system ở V02.
+- **V02-04 (BR-09/11..16/23..26):** Giữ verified pins, input/output mapping,
+  typed variables/defaults/params và placeholders/reference/provision flags.
+  Region là input PE được phép cấu hình cho AWS; credential/password/tags
+  executor-owned vẫn không editable. Unknown/null/raw secret bị từ chối an toàn.
+  Validation metadata mô tả account requirement, account kind và target source;
+  không tự suy driver từ tên Type. Source unavailable phải giữ draft và có retry.
+- **V02-05 (BR-20..22):** Matching preview đọc một scoped snapshot của app,
+  env, Types, Definitions và account metadata; không cần Environment có
+  Connection READY để tính matching thường. Context env_type lấy server;
+  app/env/resourceId/class như OC-04c. Candidate chỉ replace cùng key trong
+  memory. Trả criterion/score, unique winner/ties/no-match và lý do, safe
+  account key/name/type/version, effective region hoặc cluster source reference
+  của winner. Không trả credential/ref/config/endpoint. Thiếu context trả
+  INCOMPLETE. Không resolve secret, inspector, render, external calls hay writes.
+  Marker bao phủ catalog/account/context versions; đổi draft/context/session
+  hoặc metadata làm stale kết quả và vô hiệu late reply. Kết quả không phải
+  token Save/Deploy; server kiểm lại ở registration/planning/pre-provision.
+- **V02-06:** Người dùng chốt 2026-10-17: PE/Admin được sửa Name, Driver Type,
+  Inputs, Account, criteria và provision, giữ ID/Resource Type. Gửi expected
+  version; một CAS transaction cập nhật Definition + criteria + verified bundle
+  association và tăng version; race409 giữ winner, rollback không lưu nửa chừng.
+  Verify/inspect ngoài transaction; không ghi đè khi chưa rõ kết quả COMMIT,
+  không tự replay mutation. UI giữ draft và yêu cầu tải lại/review khi stale.
+- **V02-07:** Sửa chỉ ảnh hưởng Preview/Deploy mới; không sửa persisted plan,
+  snapshot, current/applied resource, original target/state/module/ownership hoặc
+  cleanup pins. Preview cũ phải stale khi Definition/account đổi trước admission. Execution
+  đã admit dùng snapshot/pins gốc, không đọc Definition mutable để đổi cấu hình.
+  Đổi account/region không tự cho phép di chuyển/adopt state/resource đang có;
+  reuse mismatch vẫn fail closed theo lifecycle/ownership contract. Không thêm
+  xóa Definition hoặc tự provision khi Save/Preview.
+- **V02-08:** Fresh SQL/JSON baseline/seed và acceptance fixture dùng hợp đồng
+  mới; không migration/upsert dữ liệu cũ. Seed không dựa profile để tránh tie:
+  dùng class/context tường minh hoặc chỉ một default cho từng nhu cầu. Không
+  thêm criterion theo account/group. Old incompatible state fail rõ, không
+  auto-reset. Codex chỉ reset đúng dev instance/ownership đã được cho phép.
+- **V02-09:** Tất cả nơi tiêu thụ Definition (catalog, render template,
+  matching preview, planner và pre-provision) dùng cùng matching/account contract.
+  Runtime không được dùng Environment identity thay driverAccount. Giữ locking,
+  fencing, secret isolation và pins. Không claim live multi-account AWS hoặc
+  Generic Workload đã pass trong V02; live V03–V06 không thuộc task này.
 
 ## Primary actor
 
@@ -20,9 +95,8 @@ last_reviewed: 2026-10-13
 - **PRE-01:** Organization đã tồn tại.
 - **PRE-02:** Resource Type tương ứng đã được đăng ký qua UC-02.
 - **PRE-03:** Driver được tham chiếu đã được orchestrator hỗ trợ.
-- **PRE-04:** Provider binding có contract hợp lệ. AWS dùng Connection của
-  Environment lúc Preview/Deploy; registration không cần Environment cụ thể.
-  Kubernetes bind target của Environment hoặc outputs của node EKS.
+- **PRE-04:** Driver metadata/account binding hợp lệ theo V02-03/04; không cần
+  Environment cụ thể để đăng ký Definition.
 - **PRE-05:** Platform Engineer có quyền quản lý Resource Definition.
 
 ## Trigger
@@ -31,11 +105,11 @@ last_reviewed: 2026-10-13
 
 ## Main success scenario
 
-1. **MS-01:** Platform Engineer cung cấp Definition ID, Resource Type, Driver Type và Driver Inputs.
-2. **MS-02:** Platform Engineer chọn `execution_profile` áp dụng cho Definition (hoặc để trống nếu dùng chung), rồi khai báo Matching Criteria bằng các field `env_type`, `app_id`, `env_id`, `res_id` và `class`.
+1. **MS-01:** Platform Engineer cung cấp Definition ID, Name, Resource Type, Driver Type, Driver Inputs và Driver Account phù hợp.
+2. **MS-02:** Khai báo năm Matching Criteria; không có Definition profile guard.
 3. **MS-03:** Orchestrator validate cấu trúc Resource Definition và yêu cầu ít
    nhất một Matching Criterion.
-4. **MS-04:** Orchestrator kiểm tra Resource Type, Driver và Driver Account/connection được tham chiếu tồn tại.
+4. **MS-04:** Orchestrator kiểm tra Resource Type, Driver và Driver Account được tham chiếu tồn tại.
 5. **MS-05:** Orchestrator validate Driver Inputs, resource references và provision rules.
 6. **MS-06:** Orchestrator kiểm tra Definition ID chưa tồn tại trong Organization.
 7. **MS-07:** Orchestrator xác nhận Definition có thể cung cấp output contract của Resource Type.
@@ -44,12 +118,10 @@ last_reviewed: 2026-10-13
 
 ## Luồng biến thể trong happy path
 
-- **VAR-01:** Trên `aws-eks`, Terraform tạo VPC/EKS/namespace, Aurora/
-  ElastiCache hoặc Redis/PostgreSQL in-cluster theo class. Mọi AWS provider
-  dùng cùng Connection/account/region đã chọn cho Environment.
-- **VAR-02:** Trên `internal-k8s`, cluster node lấy Connection của Environment
-  theo ADR-013. Namespace, Redis và PostgreSQL vẫn matching Definition và dùng
-  module Terraform với Kubernetes provider.
+- **VAR-01:** Terraform AWS chọn account tại Definition và region từ Driver Inputs;
+  PostgreSQL/Redis managed hay in-cluster được chọn bởi class/criteria tường minh.
+- **VAR-02:** Kubernetes consumer kế thừa cluster dependency; binding Environment
+  legacy và implicit cluster được giữ tới V03, không dùng làm matching filter.
 
 ## Hậu điều kiện
 
@@ -58,17 +130,18 @@ last_reviewed: 2026-10-13
 - **POST-03:** Definition AWS cung cấp module Terraform cho VPC, EKS,
   ElastiCache và Aurora; class in-cluster trên EKS vẫn hợp lệ.
 - **POST-04:** Definition Kubernetes cung cấp module Terraform cho namespace,
-  Redis/PostgreSQL; cluster có sẵn chỉ được tham chiếu bằng system binding.
+  Redis/PostgreSQL; cluster có sẵn vẫn system binding trong V02, thay ở V03.
 - **POST-05:** Hai PostgreSQL Definitions cùng triển khai contract outputs của Resource Type `postgres`.
 - **POST-06:** Driver Inputs và provision rules sẵn sàng cho quá trình dựng Resource Graph.
 
 ## Quy tắc nghiệp vụ
 
-- **BR-01:** Definition chỉ được xét cho node có cùng Resource Type và có `execution_profile` trống hoặc bằng profile của Environment. Profile là điều kiện lọc trước matching, không cộng điểm specificity.
+- **BR-01:** Cùng Resource Type và năm criteria theo V02-02; không profile filter.
 - **BR-02:** Matching cần đúng một Definition thắng theo specificity.
   Không match, đồng hạng cao nhất hoặc binding của winner sai thì dừng; không
   đổi class/target hoặc chọn ứng viên khác.
-- **BR-03:** `execution_profile` là thuộc tính của Definition, không phải field Matching Criterion. Hai Definition PostgreSQL theo profile dùng cùng 5 field chuẩn để xét context sau khi lọc profile; `env_type` vẫn là loại Environment, không đại diện target nội bộ/cloud.
+- **BR-03:** Không có executionProfile/Connection/account/region/group trong
+  predicate ngoài năm criteria chuẩn theo V02-02.
 - **BR-06:** Matching Criteria chỉ gồm năm field chuẩn với trọng số cố định:
 
   | Field | Trọng số |
@@ -85,14 +158,9 @@ last_reviewed: 2026-10-13
 - **BR-07:** Lệnh đăng ký Definition phải có ít nhất một Matching Criterion;
   thiếu criteria hoặc `criteria: []` bị từ chối trước persistence. Một criterion
   `{}` khai báo tường minh là wildcard hợp lệ với specificity `0`.
-- **BR-08:** Chỉ đăng ký cặp Type/driver/module trong registry đã kiểm chứng:
-  Terraform cho namespace/Redis/PostgreSQL Kubernetes và VPC/EKS/ElastiCache/
-  Aurora AWS; score-k8s cho Workload theo BR-15. Mọi public registration
-  `existing-cluster` hoặc reserved system key đều bị từ chối trước insert.
-  AWS Definition không nhận Connection/account/region override, kể cả Aurora.
-  Kubernetes dùng target Environment hoặc target EKS từ dependency; Connection
-  riêng nếu khai báo phải cùng target Environment. Binding sai bị chặn trước
-  execution, không fallback credential host hoặc Definition khác.
+- **BR-08:** Supported driver/account/provider contracts theo V02-03/04;
+  public existing-cluster/reserved keys vẫn bị từ chối trong V02. Winner sai
+  binding bị chặn, không fallback credential host hoặc Definition khác.
 - **BR-09:** Module phải từ nguồn Admin cho phép, pin full Git commit hoặc
   artifact digest, kiểm checksum/nội dung và các dependency module. Fetch/cache/
   inspect hoàn tất trước insert; kiểm đủ input/output mappings, provider pins
@@ -106,7 +174,7 @@ UC-03 Register Resource Definition
 ├── Parse Definition document
 ├── Validate Resource Type and Driver
 ├── Validate Driver Inputs and references
-├── Validate optional Execution Profile guard and Matching Criteria
+├── Validate five-field Matching Criteria and selected account
 ├── Validate common Resource Type output contract
 ├── Persist Definition and Criteria
 └── Publish Definition for deployment matching
@@ -114,17 +182,16 @@ UC-03 Register Resource Definition
 
 ## Definition mapping
 
-| Profile | Resource | Implementation |
+| Resource | Driver | Account/target |
 |---|---|---|
-| aws-eks | VPC/EKS | Terraform AWS |
-| aws-eks | Redis/PostgreSQL cloud-managed | Terraform ElastiCache/Aurora |
-| internal-k8s / aws-eks | Namespace, Redis/PostgreSQL in-cluster | Terraform Kubernetes |
-| internal-k8s | Cluster có sẵn | System Connection binding ADR-013 |
-| internal-k8s / aws-eks | Workload | score-k8s, bắt buộc có Definition/bundle |
+| VPC/EKS, Aurora/ElastiCache | verified Terraform AWS | Definition AWS Driver Account + Driver Inputs region |
+| Namespace, Redis/PostgreSQL in-cluster | verified Terraform Kubernetes | Cluster dependency; explicit legacy Environment binding until V03 |
+| Existing internal cluster | system existing-cluster | ADR-013 until V03, no public registration |
+| Current rendering template | score-k8s | Installed bundle, no account selection; not Generic Workload lifecycle |
 
 ## Ngoài phạm vi happy path
 
-- **OOS-01:** Cập nhật, vô hiệu hóa hoặc xóa Resource Definition.
+- **OOS-01:** Vô hiệu hóa hoặc xóa Resource Definition; cập nhật thuộc V02-06.
 - **OOS-02:** Phát hiện criteria chồng lấn ngay tại thời điểm đăng ký.
 - **OOS-03:** Versioning và migration Definition.
 - **OOS-04:** Kiểm tra ảnh hưởng tới Active Resources hiện có.
@@ -162,7 +229,7 @@ UC-03 Register Resource Definition
 
 ## Workload rendering Definitions
 
-- **BR-15:** Workload dùng score-k8s cho `internal-k8s` hoặc `aws-eks`,
+- **BR-15:** Workload dùng score-k8s không có profile matching guard,
   với bundle tương thích đã cài. Không Connection override, provision rule
   hay input/output tài nguyên; có đúng một literal `render_bundle`. Thiếu/
   unavailable bundle bị chặn. Fingerprint registration là audit; Plan pin
@@ -173,20 +240,13 @@ UC-03 Register Resource Definition
 
 See [workload rendering contract](../../architecture/contracts/workload-rendering.md).
 
-## Environment execution target references
+## Context và resource references
 
-Environment Settings theo [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md)
-cung cấp profile/region via `${context.env.profile}` and
-`${context.env.region}`. Product resolution rejects `${context.app.profile}` and
-`${context.app.region}` as unknown context values; no server rewrite or legacy
-fallback is allowed (T21/LEG-04). Application identity context remains unchanged.
-AWS infrastructure references may
-use `vpc.default#@infra`; parser expands @infra to the Environment path including target generation.
-Cloud names use context.infra.resourceName (bounded Environment-specific hash identifier); context.infra.name is a readable stem only.
-Seeded Definitions use these scope-aware values. Platform-authored hardcoded
-application VPC/EKS references are rejected by product Environment
-planning with guidance rather than introducing cross-environment
-resources. Matching giữ specificity/tie; AWS chỉ dùng account của Environment.
+Các context được hỗ trợ, scoped resource references và @infra vẫn giữ contract;
+Application aliases app.profile/app.region đã bị bỏ và không rewrite/fallback.
+AWS region/account không được lấy context.env.region/profile để thay input
+Definition V02-03. Reference có output hợp lệ tạo graph edge; output declaration
+không tự tạo dependency. Legacy Environment graph enrichment chỉ giữ tới V03.
 
 ## Implicit internal cluster binding
 
@@ -212,33 +272,22 @@ See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
 
 ## Matching preview trước đăng ký (T19)
 
-- **BR-20:** PE/Admin có thể gửi Definition chưa lưu và context tường minh tới
-  POST `/api/v1/resource-definitions/matching-preview`. Organization lấy từ
-  session; app/env phải tồn tại trong Organization đó. Profile, env_type và
-  Connection lấy từ Environment trong một read-only snapshot, không tin giá trị
-  target do client gửi. Context gồm `applicationId`, `environmentId`, `resourceId`
-  và `class`; thiếu resourceId/class trả `INCOMPLETE`, không kết luận tie.
-- **BR-21:** Snapshot catalog chỉ thay Definition cùng key bằng candidate trong
-  bộ nhớ. Dùng `BestCriterion` và `ConnectionMismatch` của planner; BR-01/06
-  giữ nguyên. Trả eligibility và criterion/score tốt nhất từng Definition,
-  winner hoặc các ties ở điểm thắng cao nhất. Tie thấp hơn không ambiguous.
-  Connection conflict chỉ chặn winner duy nhất; không chọn ứng viên thay thế.
-  Đúng implicit internal k8s-cluster node (class internal, res_id của
-  Connection descriptor) giữ system binding ADR-013, không materialize record;
-  Workload không có match trả NO_MATCH; không chọn renderer khác và không render.
-- **BR-22:** Kết quả chỉ phản ánh snapshot đã đọc: marker deterministic từ
-  catalog/Environment target và version, không phải save/deploy token. Không
-  registration, insert, system admission, inspector/executor, Vault, kube/cloud
-  calls hoặc SQL writes. Snapshot reads qua persistence được phép. Không validate
-  đầy đủ Driver Inputs/output contract hoặc bảo đảm candidate đăng ký được;
-  registration và planner vẫn kiểm lại độc lập. Request bounded/known-field;
-  response/error không chứa inputs, credentials, raw provider diagnostics.
+- **BR-20:** PE/Admin preview một candidate/context tường minh theo V02-05.
+  app/env lấy scoped snapshot, env_type server-derived; resourceId/class thiếu
+  trả INCOMPLETE. Ordinary matching không cần configured Environment target.
+- **BR-21:** Candidate replace cùng key trong memory; shared five-field matcher,
+  highest unique winner/ties; account conflict kiểm sau chọn winner, không fallback.
+  Legacy implicit node ADR-013 có thể trả SYSTEM_BINDING tới V03; không write.
+- **BR-22:** Marker gồm catalog/account/context versions; safe selected identity,
+  effective region/cluster source theo V02-05. Không secret, inspector, render,
+  provider call hay writes. Không thay full graph Preview/Save/Deploy token.
 
 ## T27 — Current seed and scope boundary
 
 Seed inserts only missing Definitions; no earlier template form is upgraded.
 ENVIRONMENT is the only execution infrastructure scope. Invalid/retired scopes
-fail before planning/execution; matching profiles, criteria weights and ties remain unchanged.
+fail before planning/execution; five-field criteria weights and ties remain unchanged.
+Fresh V02 seed/account/baseline follows V02-08 without profile disambiguation.
 
 ## Capability metadata và typed authoring (T31)
 

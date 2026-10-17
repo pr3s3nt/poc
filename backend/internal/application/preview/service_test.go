@@ -603,8 +603,20 @@ func TestPreview_ResourceIntentsAndTargetAreSafe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if view.AccountID != opts.AccountID || view.Binding.Region == "" {
-		t.Fatalf("target account/region missing: account=%q binding=%+v", view.AccountID, view.Binding)
+	// V02: AWS identity is per node (provider pins); no Environment account is reported.
+	if view.AccountID != "" || view.Binding.Region == "" {
+		t.Fatalf("environment account must not be reported: account=%q binding=%+v", view.AccountID, view.Binding)
+	}
+	pinned := false
+	for _, intent := range view.ResourceIntents {
+		for _, provider := range intent.Providers {
+			if provider.Kind == "aws" && provider.ConnectionKey == opts.CloudConnectionKey && provider.Region == opts.Region {
+				pinned = true
+			}
+		}
+	}
+	if !pinned {
+		t.Fatalf("no AWS node pins its Definition account and region: %+v", view.ResourceIntents)
 	}
 	byType := map[string]planning.ResourceIntent{}
 	for _, intent := range view.ResourceIntents {
@@ -753,7 +765,7 @@ func TestPreview_PublicViewRedactsWithoutChangingPlan(t *testing.T) {
 	for _, m := range top["matches"].([]any) {
 		for field := range m.(map[string]any) {
 			switch field {
-			case "descriptor", "definitionKey", "driverType", "specificity", "binding", "connectionKey":
+			case "descriptor", "definitionKey", "definitionVersion", "driverAccount", "driverType", "specificity", "binding", "connectionKey":
 			default:
 				t.Fatalf("match exposes extra field %s: %v", field, m)
 			}

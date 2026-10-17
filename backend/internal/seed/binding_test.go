@@ -37,21 +37,26 @@ func TestApplyBindsAcceptanceFixturesWithExplicitEnvironmentScopeAndIsIdempotent
 	}
 }
 
-// T16 + UC-03 BR-08 (v2): every seeded AWS Terraform Definition (VPC, EKS,
-// Aurora) has no Connection override and binds AWS to the Environment.
-func TestResourceDefinitionsVPCAndEKSHaveNoConnection(t *testing.T) {
+// UC-03 V02-03/08: every seeded AWS Terraform Definition (VPC, EKS, Aurora)
+// names its own Driver Account, binds AWS to {target: account}, carries a
+// literal region and an explicit Name and version.
+func TestResourceDefinitionsAWSNameTheirAccountAndRegion(t *testing.T) {
 	opts := seed.Defaults()
+	opts.Region = "ap-southeast-1"
 	seen := map[string]bool{}
 	for _, def := range seed.ResourceDefinitions(opts) {
 		switch def.Key {
 		case "vpc-aws", "cluster-aws-eks", "postgres-aws-aurora":
 			seen[def.Key] = true
-			if def.ConnectionKey != "" {
-				t.Fatalf("%s ConnectionKey = %q", def.Key, def.ConnectionKey)
+			if def.DriverAccount != opts.CloudConnectionKey || def.Name == "" || def.Version != 1 {
+				t.Fatalf("%s account/name/version = %q %q %d", def.Key, def.DriverAccount, def.Name, def.Version)
+			}
+			if region, ok := def.DefinitionRegion(); !ok || region != "ap-southeast-1" {
+				t.Fatalf("%s region = %q %v", def.Key, region, ok)
 			}
 			bindings, _ := def.DriverValues()["provider_bindings"].(map[string]any)
 			aws, _ := bindings["aws"].(map[string]any)
-			if len(bindings) != 1 || aws["target"] != "environment" {
+			if len(bindings) != 1 || aws["target"] != "account" {
 				t.Fatalf("%s provider bindings = %v", def.Key, bindings)
 			}
 		}
@@ -251,14 +256,14 @@ func TestApplyKeepsPlatformAuthoredDefinitionsOfSeededKeys(t *testing.T) {
 	if err := seed.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
-	cluster := resource.Definition{Key: "cluster-internal-registered", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, ConnectionKey: opts.ConnectionKey}
+	cluster := resource.Definition{Key: "cluster-internal-registered", Name: "cluster-internal-registered", Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, DriverAccount: opts.ConnectionKey}
 	cluster.Criteria = []resource.Criterion{{ApplicationID: "only-mine", Class: "internal"}}
 	cluster.DriverInputs = map[string]any{"values": map[string]any{"variables": map[string]any{"name": "authored"}}}
 	if err := st.SaveResourceDefinition(ctx, opts.OrganizationKey, cluster); err != nil {
 		t.Fatal(err)
 	}
 	eks := earlier(t, st, opts, "cluster-aws-eks", strings.NewReplacer("${context.infra.resourceName}", "${context.infra.name}-${context.run.id}"))
-	eks.ConnectionKey = "my-aws"
+	eks.DriverAccount = "my-aws"
 	if err := st.SaveResourceDefinition(ctx, opts.OrganizationKey, eks); err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +273,7 @@ func TestApplyKeepsPlatformAuthoredDefinitionsOfSeededKeys(t *testing.T) {
 	if got := definitionByKey(t, st, opts.OrganizationKey, "cluster-internal-registered"); len(got.Criteria) != 1 || got.Criteria[0].ApplicationID != "only-mine" || !strings.Contains(toString(got.DriverInputs), "authored") {
 		t.Fatalf("authored existing-cluster Definition overwritten: %+v", got)
 	}
-	if got := definitionByKey(t, st, opts.OrganizationKey, "cluster-aws-eks"); got.ConnectionKey != "my-aws" || !strings.Contains(toString(got.DriverInputs), "context.infra.name") {
+	if got := definitionByKey(t, st, opts.OrganizationKey, "cluster-aws-eks"); got.DriverAccount != "my-aws" || !strings.Contains(toString(got.DriverInputs), "context.infra.name") {
 		t.Fatalf("authored AWS Definition overwritten: %+v", got)
 	}
 }

@@ -33,7 +33,7 @@ func TestScoreK8sDefinitionPreviewDeployAndSnapshot(t *testing.T) {
 	}
 	catalogSvc := catalog.NewService(app.Store)
 	catalogSvc.SetRenderBundles(renderer.Bundles())
-	def := resource.Definition{Key: "score-workloads", ResourceTypeKey: "workload", ExecutionProfile: "internal-k8s", DriverType: resource.DriverScoreK8s, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": scorek8s.BundleID}}}, Criteria: []resource.Criterion{{ApplicationID: opts.ApplicationKey}}}
+	def := resource.Definition{Key: "score-workloads", Name: "score-workloads", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": scorek8s.BundleID}}}, Criteria: []resource.Criterion{{ApplicationID: opts.ApplicationKey}}}
 	registered, err := catalogSvc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def)
 	if err != nil {
 		t.Fatal(err)

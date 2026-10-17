@@ -12,7 +12,7 @@ type Props = {
   disabled?: boolean;
 };
 
-const bindingLabel = { aws: 'Kết nối AWS của Môi trường', kubernetes: 'Cluster Kubernetes' } as const;
+const bindingLabel = { aws: 'Tài khoản AWS của cấu hình', kubernetes: 'Cluster Kubernetes' } as const;
 
 // Typed controls of input_mapping / output_mapping / provider_bindings (UC-03
 // BR-11). Choices come only from the verified module metadata and the Resource
@@ -58,18 +58,18 @@ export function MappingEditor({ capability, type, clusterClasses, draft, onChang
       })}
     </div>
     <div className="mapping-group" aria-label="Provider binding">
-      <div className="section-header"><div><h4>Provider binding</h4><p className="feature-note">Không có ô nhập Kết nối, tài khoản, vùng, endpoint hay credential: mọi provider dùng đích của Môi trường khi Xem trước hoặc Triển khai.</p></div></div>
+      <div className="section-header"><div><h4>Provider binding</h4><p className="feature-note">Không có ô nhập endpoint hay credential. Provider AWS dùng Tài khoản và Vùng của chính cấu hình này; provider Kubernetes kế thừa cluster của tài nguyên phụ thuộc, không chọn lại tài khoản.</p></div></div>
       {providers.length === 0 ? <p className="feature-note">Module này không cần provider binding.</p> : providers.map((provider) => {
         const binding = draft.bindings[provider.name] ?? { target: '', clusterClass: '' };
         const problem = problemFor(`binding:${provider.name}`);
         return <div key={provider.name} className="mapping-row" data-provider={provider.name}>
           <strong>{provider.name}</strong> <span className="status-pill">{provider.source} {provider.version}</span>
-          {provider.binding === 'aws' ? <p className="feature-note" role="note">{bindingLabel.aws}. Tài khoản và vùng lấy từ Môi trường khi Xem trước/Triển khai; cấu hình không chọn tài khoản riêng, kể cả Aurora.</p> : <>
+          {provider.binding === 'aws' ? <p className="feature-note" role="note">{bindingLabel.aws}: binding <code>{'{target: account}'}</code>. Chọn Tài khoản và nhập Vùng ở phần “Tài khoản và vùng” phía trên; không lấy từ Môi trường.</p> : <>
             <label>Cluster đích của {provider.name}
               <select aria-label={`Cluster đích của provider ${provider.name}`} aria-invalid={problem ? true : undefined} value={binding.target} disabled={disabled} onChange={(event) => setBinding(provider.name, { target: event.target.value as BindingDraft['target'] })}>
                 <option value="">Chưa chọn</option>
-                <option value="environment">Cluster của Môi trường (Kết nối Kubernetes của Môi trường)</option>
-                <option value="resource">Cluster do node EKS cung cấp</option>
+                <option value="resource">Cluster do node EKS cung cấp (kế thừa từ tài nguyên phụ thuộc)</option>
+                <option value="environment">Cluster của Môi trường (cách cũ, giữ tới V03)</option>
               </select></label>
             {binding.target === 'resource' ? <label>Class cluster EKS
               <select aria-label={`Class cluster EKS của provider ${provider.name}`} value={binding.clusterClass} disabled={disabled} onChange={(event) => setBinding(provider.name, { clusterClass: event.target.value })}>

@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/resource"
 )
 
 // ErrResetRequired means the snapshot is not the current complete format. It is
@@ -78,6 +80,26 @@ func (s *state) validateCurrent() error {
 		}
 		if _, ok := s.Organizations[app.OrganizationKey]; !ok {
 			return resetRequired("an Application has no Organization")
+		}
+	}
+	for key, def := range s.Definitions {
+		org, _, ok := strings.Cut(key, "/")
+		if !ok || def.Key == "" || catalogKey(org, def.Key) != key {
+			return resetRequired("a Resource Definition record is incomplete")
+		}
+		if _, ok := s.Organizations[org]; !ok {
+			return resetRequired("a Resource Definition has no Organization")
+		}
+		if resource.ValidateName(def.Name) != nil {
+			return resetRequired("a Resource Definition lacks an explicit current name")
+		}
+		if def.Version < 1 {
+			return resetRequired("a Resource Definition has no positive version")
+		}
+		if def.DriverAccount != "" {
+			if _, ok := s.Connections[catalogKey(org, def.DriverAccount)]; !ok {
+				return resetRequired("a Resource Definition names no Driver Account of its Organization")
+			}
 		}
 	}
 	for key, conn := range s.Connections {

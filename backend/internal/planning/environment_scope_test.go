@@ -25,7 +25,28 @@ func scopedAWSRequest(t *testing.T, appKey, envKey string) Request {
 	req.Env.Key = envKey
 	req.Env.NamespaceIdentity = "app-" + appKey + "-" + envKey
 	req.Env.InfrastructureScope = environment.ScopeEnvironment
+	rescopeApplication(&req, testSeedCloudApp, appKey)
 	return req
+}
+
+const testSeedCloudApp = "acceptance-cloud"
+
+// rescopeApplication moves the seeded app_id criteria of from to the request's
+// Application: V02 has no profile guard, so a different Application selects
+// its Definitions through its own explicit app_id.
+func rescopeApplication(req *Request, from, to string) {
+	definitions := make([]resource.Definition, len(req.Catalog.Definitions))
+	for i, def := range req.Catalog.Definitions {
+		criteria := append([]resource.Criterion(nil), def.Criteria...)
+		for j := range criteria {
+			if criteria[j].ApplicationID == from {
+				criteria[j].ApplicationID = to
+			}
+		}
+		def.Criteria = criteria
+		definitions[i] = def
+	}
+	req.Catalog.Definitions = definitions
 }
 
 func nodeByType(t *testing.T, plan *Plan, resourceType, class string) Node {
@@ -274,28 +295,6 @@ func TestContext_EnvProfileRegionComeFromEnvironment(t *testing.T) {
 	}
 	if got, _ := placeholder.ExpandString("${context.env.region}", ctx); got != "eu-west-1" {
 		t.Fatalf("first environment region changed: %v", got)
-	}
-}
-
-func TestConnectionMismatchComparesTheEnvironmentBinding(t *testing.T) {
-	def := resource.Definition{Key: "cluster-x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, ConnectionKey: "other"}
-	k8s := environment.Environment{Key: "staging", ApplicationKey: "a", ConnectionKey: "lab", Profile: application.ProfileInternalK8s}
-	if !ConnectionMismatch(k8s, def) {
-		t.Fatal("a cluster Definition for another Connection must mismatch")
-	}
-	k8s.ConnectionKey = "other"
-	if ConnectionMismatch(k8s, def) {
-		t.Fatal("the selected Connection must match")
-	}
-	// Two Environments of one Application decide independently.
-	aws := environment.Environment{Key: "production", ApplicationKey: "a", ConnectionKey: "cloud", Profile: application.ProfileAWSEKS, Region: "eu-west-1"}
-	vpc := resource.Definition{Key: "vpc-x", ResourceTypeKey: TypeVPC, DriverType: resource.DriverTerraform, ConnectionKey: "cloud-b"}
-	if !ConnectionMismatch(aws, vpc) {
-		t.Fatal("a VPC Definition for another account must mismatch")
-	}
-	db := resource.Definition{Key: "db", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, ConnectionKey: "cloud-b"}
-	if !ConnectionMismatch(aws, db) {
-		t.Fatal("AWS modules take no account override: a database for another account must mismatch")
 	}
 }
 

@@ -34,9 +34,9 @@ describe('T31 typed Definition variables over verified pins', () => {
     const user = userEvent.setup();
     const { posted } = backend();
     await ready();
-    await user.type(field('ID cấu hình'), 'ns-typed');
+    await user.type(field('ID cấu hình (Definition ID)'), 'ns-typed');
+    await user.type(field('Tên hiển thị'), 'Namespace typed');
     await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
-    await user.selectOptions(field('Phạm vi triển khai'), 'internal-k8s');
     await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
     await user.selectOptions(field('Cluster đích của provider kubernetes'), 'environment');
     expect(screen.queryByLabelText('Giá trị name')).not.toBeInTheDocument();
@@ -46,7 +46,8 @@ describe('T31 typed Definition variables over verified pins', () => {
     await screen.findByRole('status');
     expect(variables(posted[0])).toEqual({ name: '${context.env.namespace}' });
 
-    await user.type(field('ID cấu hình'), 'aurora-typed');
+    await user.type(field('ID cấu hình (Definition ID)'), 'aurora-typed');
+    await user.type(field('Tên hiển thị'), 'Aurora typed');
     await user.selectOptions(field('Loại tài nguyên'), 'postgres');
     await user.selectOptions(field('Module đã kiểm chứng'), screen.getByRole('option', { name: /^aurora ·/ }));
     for (const name of ['region', 'tags', 'master_password', 'password']) expect(screen.queryByLabelText(`Ghi đè ${name}`)).not.toBeInTheDocument();
@@ -72,6 +73,7 @@ describe('T31 typed Definition variables over verified pins', () => {
     expect(variables(posted[0])).toEqual({
       engine_version: '16.4', min_capacity: 0.5, max_capacity: '${context.x}', name: 'db-${context.env.profile}',
       vpc_id: "${resources['vpc.default#@infra'].outputs.id}", subnet_ids: "${resources['vpc.default#@infra'].outputs.subnetIds}", private_subnet_ids: "${resources['vpc.default#@infra'].outputs.privateSubnetIds}",
+      region: 'us-east-1', // the literal region comes from its own control, never from a typed override
     });
   });
 

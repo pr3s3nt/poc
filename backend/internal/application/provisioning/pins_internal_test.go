@@ -6,6 +6,7 @@ import (
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning"
 )
@@ -24,31 +25,57 @@ func pinContext(profile application.ExecutionProfile, connection, region string,
 func TestCheckPinsAgainstPlanRejectsStaleAndForeignTargets(t *testing.T) {
 	cluster := "k8s-cluster.eks#environments.app.env"
 	good := tfmodule.ProviderPin{Name: "kubernetes", Kind: tfmodule.BindingKubernetes, Target: tfmodule.TargetEnvironment, Provider: cluster, Profile: "aws-eks", Generation: 2}
-	aws := tfmodule.ProviderPin{Name: "aws", Kind: tfmodule.BindingAWS, Target: tfmodule.TargetEnvironment, ConnectionKey: "acct", ConnectionKind: "AWS", Region: "us-east-1", Profile: "aws-eks", Generation: 2}
-	ctx := pinContext(application.ProfileAWSEKS, "acct", "us-east-1", 2)
+	aws := tfmodule.ProviderPin{Name: "aws", Kind: tfmodule.BindingAWS, Target: tfmodule.TargetAccount, ConnectionKey: "acct", ConnectionKind: "AWS", AccountVersion: 5, Region: "us-east-1", Profile: "aws-eks", Generation: 2}
+	ctx := pinContext(application.ProfileAWSEKS, "env-account", "eu-west-1", 2)
 	plan := pinPlan(cluster)
-	if err := checkPinsAgainstPlan(plan, "redis.default#modules.x", []tfmodule.ProviderPin{good, aws}, ctx); err != nil {
+	def := resource.Definition{Key: "d", DriverType: resource.DriverTerraform, DriverAccount: "acct", DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"region": "us-east-1"}}}}
+	account := application.Connection{Key: "acct", Kind: application.ConnectionAWS, Version: 5}
+	// The Environment account and region are irrelevant to an AWS pin.
+	if err := checkPinsAgainstPlan(plan, "redis.default#modules.x", []tfmodule.ProviderPin{good, aws}, def, account, ctx); err != nil {
 		t.Fatalf("matching pins: %v", err)
 	}
-	stale := map[string]planning.Context{
-		"connection": pinContext(application.ProfileAWSEKS, "other-account", "us-east-1", 2),
-		"region":     pinContext(application.ProfileAWSEKS, "acct", "eu-west-1", 2),
-		"profile":    pinContext(application.ProfileInternalK8s, "acct", "us-east-1", 2),
-		"generation": pinContext(application.ProfileAWSEKS, "acct", "us-east-1", 3),
+	stale := map[string]func() (resource.Definition, application.Connection, planning.Context){
+		"definition account": func() (resource.Definition, application.Connection, planning.Context) {
+			d := def
+			d.DriverAccount = "other"
+			return d, account, ctx
+		},
+		"account identity": func() (resource.Definition, application.Connection, planning.Context) {
+			a := account
+			a.Key = "other"
+			return def, a, ctx
+		},
+		"account version": func() (resource.Definition, application.Connection, planning.Context) {
+			a := account
+			a.Version = 6
+			return def, a, ctx
+		},
+		"definition region": func() (resource.Definition, application.Connection, planning.Context) {
+			d := def
+			d.DriverInputs = map[string]any{"values": map[string]any{"variables": map[string]any{"region": "eu-west-1"}}}
+			return d, account, ctx
+		},
+		"profile": func() (resource.Definition, application.Connection, planning.Context) {
+			return def, account, pinContext(application.ProfileInternalK8s, "env-account", "eu-west-1", 2)
+		},
+		"generation": func() (resource.Definition, application.Connection, planning.Context) {
+			return def, account, pinContext(application.ProfileAWSEKS, "env-account", "eu-west-1", 3)
+		},
 	}
-	for name, c := range stale {
-		if err := checkPinsAgainstPlan(plan, "redis.default#modules.x", []tfmodule.ProviderPin{good, aws}, c); !errors.Is(err, ErrProviderPin) {
+	for name, build := range stale {
+		d, a, c := build()
+		if err := checkPinsAgainstPlan(plan, "redis.default#modules.x", []tfmodule.ProviderPin{good, aws}, d, a, c); !errors.Is(err, ErrProviderPin) {
 			t.Errorf("%s drift accepted: %v", name, err)
 		}
 	}
 	foreign := good
 	foreign.Provider = "k8s-cluster.eks#environments.other.env"
-	if err := checkPinsAgainstPlan(plan, "redis.default#modules.x", []tfmodule.ProviderPin{foreign}, ctx); !errors.Is(err, ErrProviderPin) {
+	if err := checkPinsAgainstPlan(plan, "redis.default#modules.x", []tfmodule.ProviderPin{foreign}, def, account, ctx); !errors.Is(err, ErrProviderPin) {
 		t.Errorf("a cluster without a graph edge was accepted: %v", err)
 	}
 	none := good
 	none.Provider = ""
-	if err := checkPinsAgainstPlan(plan, "redis.default#modules.x", []tfmodule.ProviderPin{none}, ctx); !errors.Is(err, ErrProviderPin) {
+	if err := checkPinsAgainstPlan(plan, "redis.default#modules.x", []tfmodule.ProviderPin{none}, def, account, ctx); !errors.Is(err, ErrProviderPin) {
 		t.Errorf("a Kubernetes pin without a cluster was accepted: %v", err)
 	}
 }

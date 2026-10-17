@@ -102,9 +102,10 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 		t.Fatalf("aurora database %+v", v)
 	}
 
-	// Executor-owned variables never appear as editable variables.
+	// Executor-owned variables never appear as editable variables; the AWS
+	// region is a required, editable literal input (UC-03 V02-03/04).
 	for key, c := range idx {
-		for _, name := range []string{"region", "tags", "master_password"} {
+		for _, name := range []string{"tags", "master_password"} {
 			if _, ok := variableIndex(c)[name]; ok {
 				t.Errorf("%s exposes executor-owned %s", key, name)
 			}
@@ -112,12 +113,29 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 		if c.ExecutorOwned == nil || c.Variables == nil {
 			t.Errorf("%s has nil slices", key)
 		}
+		if !c.Account.Required {
+			continue
+		}
+		region, ok := variableIndex(c)["region"]
+		if !ok || !region.Required || c.Account.Type != "AWS" || c.Account.RegionVariable != "region" {
+			t.Errorf("%s account/region requirement = %+v region %+v", key, c.Account, region)
+		}
+		if len(c.Bindings) != 1 || len(c.Bindings[0].Targets) != 1 || c.Bindings[0].Targets[0].Target != "account" {
+			t.Errorf("%s AWS binding targets = %+v", key, c.Bindings)
+		}
 	}
-	if got := idx["postgres/terraform/aurora"].ExecutorOwned; !reflect.DeepEqual(got, []string{"master_password", "region", "tags"}) {
+	if got := idx["postgres/terraform/aurora"].ExecutorOwned; !reflect.DeepEqual(got, []string{"master_password", "tags"}) {
 		t.Fatalf("aurora executor-owned %v", got)
 	}
-	if got := idx["vpc/terraform/vpc"].ExecutorOwned; !reflect.DeepEqual(got, []string{"region", "tags"}) {
+	if got := idx["vpc/terraform/vpc"].ExecutorOwned; !reflect.DeepEqual(got, []string{"tags"}) {
 		t.Fatalf("vpc executor-owned %v", got)
+	}
+	// Kubernetes-bound modules need no account and expose the legacy
+	// Environment target as an explicitly legacy option.
+	k8s := idx["k8s-namespace/terraform/k8s-namespace"]
+	if k8s.Account.Required || len(k8s.Bindings) != 1 || k8s.Bindings[0].Kind != "kubernetes" ||
+		!reflect.DeepEqual(k8s.Bindings[0].Targets, []catalog.CapabilityTarget{{Target: "resource"}, {Target: "environment", Legacy: true}}) {
+		t.Fatalf("k8s binding metadata = %+v %+v", k8s.Account, k8s.Bindings)
 	}
 
 	// Public metadata carries the controlled pin (IDs, revision, digest) but

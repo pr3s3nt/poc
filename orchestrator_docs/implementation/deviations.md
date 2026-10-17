@@ -207,3 +207,12 @@ CURRENT_STATE (checkpoint a897d6b/3367f7e), gồm catalog/renderer/planner
 fixtures, current HTTP/draft/Preview/Deploy/Fleet/history/credential/SQL
 behavior và old state/name limitations. Bằng chứng cũ vẫn giữ nguyên và
 không được dùng để đóng các test obligations M04 mới.
+
+## IMP-024 — V02 Definition contract replacement — closed 2026-10-17
+
+At base96eb602 the accepted UC-03 V02 contract was designed but unimplemented.
+Definition Name/account/CAS edit, shared matching, explicit AWS account/region,
+fresh baseline and all affected consumers now implement that contract. One full
+post-writer review batch and its cleanup-evidence remainder were resolved before
+independent final validation. [Checks and limitations](../verification/2026-10-17-v02-handoff.md).
+No old-data migration or Generic Workload/V03 completion is claimed.

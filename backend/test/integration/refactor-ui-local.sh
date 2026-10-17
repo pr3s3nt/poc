@@ -9,7 +9,7 @@
 # rejected before anything starts. No Docker, cluster, cloud, database, Vault or
 # .env: inherited external configuration is dropped. NEW_PATH must not exist
 # and must be outside the repository; it is kept, also on failure.
-# T03 and T18 additionally pass -score-k8s with a test-local stub (stubs/score-k8s-render-fail-stub.sh)
+# T03, T16 and T18 additionally pass -score-k8s with a test-local stub (stubs/score-k8s-render-fail-stub.sh)
 # whose `generate` always fails; calls are logged in NEW_PATH/score-k8s-stub/score-k8s-calls.log.
 # T16 additionally passes a fake AWS region/account so the seeded aws-account Connection can bind an Environment.
 # T05, T06, T07, T23 and T30 additionally use in-memory state with the explicit memory credential store (no state file, no Vault).
@@ -100,9 +100,9 @@ video_require_tools
 video_require_fresh_dist "${REPO}"
 XDOTOOL="$(video_xdotool)"
 
-# T03 and T18 only: a controlled score-k8s stand-in. No real renderer binary is used.
+# T03, T16 and T18 only: a controlled score-k8s stand-in (T16 only lists its bundle and previews; it never renders). No real renderer binary is used.
 SCORE_ARGS=()
-if [[ "${SCENARIO}" == T03 || "${SCENARIO}" == T18 ]]; then
+if [[ "${SCENARIO}" == T03 || "${SCENARIO}" == T16 || "${SCENARIO}" == T18 ]]; then
   mkdir -m 0700 "${WORK}/score-k8s-stub"
   cp "${ROOT}/test/integration/stubs/score-k8s-render-fail-stub.sh" "${WORK}/score-k8s-stub/score-k8s"
   chmod 0755 "${WORK}/score-k8s-stub/score-k8s"

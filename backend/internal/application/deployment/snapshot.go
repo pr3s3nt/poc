@@ -149,10 +149,14 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 		for _, d := range defList {
 			definitions[d.Key] = d
 		}
+		accounts, err := target.Accounts(ctx, view, organizationKey)
+		if err != nil {
+			return err
+		}
 		out = PlanningSnapshot{
 			App: app, Env: env, Connection: conn,
 			BaseSetID: env.CurrentDeploymentSetID, BaseSet: base,
-			Catalog: planning.Catalog{Types: types, Definitions: defList},
+			Catalog: planning.Catalog{Types: types, Definitions: defList, Accounts: accounts},
 			Types:   types, Definitions: definitions, Active: active,
 		}
 		if withBaselines {

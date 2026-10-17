@@ -23,6 +23,8 @@ const (
 	sourcePath   = "definition.driverInputs.values.source"
 	mappingPath  = "definition.driverInputs.values"
 	bindingsPath = "definition.driverInputs.values.provider_bindings"
+	accountPath  = "definition.driverAccount"
+	regionPath   = "definition.driverInputs.values.variables.region"
 )
 
 // validateTerraform checks a Terraform Definition against the verified module
@@ -49,18 +51,27 @@ func (s *Service) validateTerraform(ctx context.Context, org string, def *resour
 		usesAWS = usesAWS || provider.Binding == tfmodule.BindingAWS
 	}
 	if usesAWS {
-		if def.ExecutionProfile != "aws-eks" {
-			return tfmodule.Bundle{}, invalidField("definition.executionProfile", fmt.Errorf("%w: an AWS Terraform module requires the aws-eks profile", ErrInvalid))
+		// UC-03 V02-03: an AWS module names its scoped READY AWS Driver
+		// Account and a literal region; nothing is read from the Environment.
+		if def.DriverAccount == "" {
+			return tfmodule.Bundle{}, invalidField(accountPath, fmt.Errorf("%w: an AWS Terraform definition needs a Driver Account", ErrInvalid))
 		}
-		// UC-03 BR-08: AWS modules always run on the Environment AWS
-		// Connection; no Definition-level account/region override.
-		if def.ConnectionKey != "" {
-			return tfmodule.Bundle{}, invalidField("definition.connectionKey", fmt.Errorf("%w: AWS Terraform definitions use the Environment AWS connection; leave connectionKey empty", ErrInvalid))
-		}
-	} else if def.ConnectionKey != "" {
-		if err := s.requireConnection(ctx, org, def.ConnectionKey, application.ConnectionKubernetes, "the module's Kubernetes provider binding requires a cluster connection"); err != nil {
+		if err := s.requireAccount(ctx, org, def.DriverAccount, application.ConnectionAWS, "the AWS module requires an AWS Driver Account"); err != nil {
 			return tfmodule.Bundle{}, err
 		}
+		region, literal := inputs.Variables["region"].(string)
+		if !literal || !resource.ValidAWSRegion(region) {
+			return tfmodule.Bundle{}, invalidField(regionPath, fmt.Errorf("%w: region must be a literal AWS region such as ap-southeast-1", ErrInvalid))
+		}
+		if _, mapped := inputs.InputMapping["region"]; mapped {
+			// A Resource Type param could otherwise override the literal that
+			// the provider pin and the plan hash cover.
+			return tfmodule.Bundle{}, invalidField(mappingPath, fmt.Errorf("%w: region is a Definition literal and cannot be mapped to a Resource Type input", ErrInvalid))
+		}
+	} else if def.DriverAccount != "" {
+		// A Kubernetes resource binding inherits its cluster access; a second
+		// account would be redundant and ambiguous.
+		return tfmodule.Bundle{}, invalidField(accountPath, fmt.Errorf("%w: this module takes no Driver Account; its cluster access comes from the binding", ErrInvalid))
 	}
 	if err := checkBindings(bundle, inputs.ProviderBindings, types); err != nil {
 		return tfmodule.Bundle{}, invalidField(bindingsPath, fmt.Errorf("%w: %v", ErrInvalid, err))
@@ -95,23 +106,26 @@ func registryError(err error) error {
 	return &internalError{err: errors.New("catalog: the Terraform module registry failed")}
 }
 
-func (s *Service) requireConnection(ctx context.Context, org, key string, kind application.ConnectionKind, kindMessage string) error {
+// requireAccount checks that key is a READY Driver Account of kind in this
+// Organization. Messages never echo credentials or the private reference.
+func (s *Service) requireAccount(ctx context.Context, org, key string, kind application.ConnectionKind, kindMessage string) error {
 	conn, err := s.store.GetConnection(ctx, org, key)
 	if err != nil && !errors.Is(err, persistence.ErrNotFound) {
 		return &internalError{err: err}
 	}
 	if err != nil || conn.OrganizationKey != org || conn.Status != application.ConnectionReady {
-		return invalidField("definition.connectionKey", fmt.Errorf("connection %q is not READY in this organization", key))
+		return invalidField(accountPath, fmt.Errorf("driver account %q is not READY in this organization", key))
 	}
 	if conn.Kind != kind {
-		return invalidField("definition.connectionKey", errors.New(kindMessage))
+		return invalidField(accountPath, errors.New(kindMessage))
 	}
 	return nil
 }
 
 // checkBindings requires exactly one binding per configurable provider of
-// the bundle: AWS binds to the Environment; Kubernetes to the Environment or
-// to a cluster resource descriptor. Unconfigured providers take none.
+// the bundle: AWS binds to the Definition's Driver Account; Kubernetes to a
+// cluster resource descriptor or, until V03, the legacy Environment target.
+// Unconfigured providers take none.
 func checkBindings(bundle tfmodule.Bundle, bindings map[string]tfmodule.Binding, types []resource.Type) error {
 	for _, name := range sortedKeys(bindings) {
 		provider, ok := bundle.Providers[name]
@@ -130,10 +144,13 @@ func checkBindings(bundle tfmodule.Bundle, bindings map[string]tfmodule.Binding,
 		}
 		switch provider.Binding {
 		case tfmodule.BindingAWS:
-			if binding.Target != tfmodule.TargetEnvironment {
-				return fmt.Errorf("%s binds only to the Environment AWS connection", name)
+			if binding.Target != tfmodule.TargetAccount {
+				return fmt.Errorf("%s binds only to the Definition's Driver Account ({target: account})", name)
 			}
 		case tfmodule.BindingKubernetes:
+			if binding.Target == tfmodule.TargetAccount {
+				return fmt.Errorf("%s inherits its cluster access; {target: account} is only for AWS", name)
+			}
 			if binding.Target == tfmodule.TargetResource {
 				if err := checkClusterRef(binding.ResourceRef, types); err != nil {
 					return fmt.Errorf("%s.resource_ref %v", name, err)

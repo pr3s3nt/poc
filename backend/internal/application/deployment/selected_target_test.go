@@ -55,10 +55,10 @@ func selectedTargetApp(t *testing.T, definitionConnection string) (*bootstrap.Ap
 	}
 	if definitionConnection != "" {
 		if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, resource.Definition{
-			Key: "cluster-second", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
-			ExecutionProfile: "internal-k8s", ConnectionKey: definitionConnection,
-			DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
-			Criteria:     []resource.Criterion{{Class: "internal", ResourceID: "connections.second"}},
+			Key: "cluster-second", Name: "cluster-second", Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
+			DriverAccount: definitionConnection,
+			DriverInputs:  map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
+			Criteria:      []resource.Criterion{{Class: "internal", ResourceID: "connections.second"}},
 		}); err != nil {
 			t.Fatal(err)
 		}
@@ -77,6 +77,7 @@ func newBoundApplication(t *testing.T, store persistence.Store, organizationKey,
 	if err != nil {
 		t.Fatal(err)
 	}
+	selectSeededDefinitionsFor(t, store, organizationKey, created.Application.Key)
 	for env, key := range map[string]string{"staging": stagingKey, "production": productionKey} {
 		if key == "" {
 			continue
@@ -86,6 +87,34 @@ func newBoundApplication(t *testing.T, store persistence.Store, organizationKey,
 		}
 	}
 	return created.Application.Key
+}
+
+// selectSeededDefinitionsFor adds the new Application to the explicit app_id
+// criteria of the seeded internal Definitions. V02 has no profile guard, so a
+// new Application matches a Definition only through its own criteria.
+func selectSeededDefinitionsFor(t *testing.T, store persistence.Store, organizationKey, applicationKey string) {
+	t.Helper()
+	ctx := context.Background()
+	defs, err := store.ListResourceDefinitions(ctx, organizationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seeded := seed.Defaults().ApplicationKey
+	for _, def := range defs {
+		changed := false
+		for _, criterion := range def.Criteria {
+			if criterion.ApplicationID == seeded {
+				def.Criteria = append(def.Criteria, resource.Criterion{ApplicationID: applicationKey})
+				changed = true
+				break
+			}
+		}
+		if changed {
+			if err := store.SaveResourceDefinition(ctx, organizationKey, def); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
 }
 
 func deployBackendTo(app *bootstrap.App, opts seed.Options, applicationKey, environment string) error {
@@ -203,10 +232,10 @@ func registerCluster(t *testing.T, app *bootstrap.App, organizationKey, key stri
 		t.Fatal(err)
 	}
 	if err := app.Store.SaveResourceDefinition(ctx, organizationKey, resource.Definition{
-		Key: "cluster-" + key, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
-		ExecutionProfile: "internal-k8s", ConnectionKey: key,
-		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
-		Criteria:     []resource.Criterion{{Class: "internal", ResourceID: "connections." + key}},
+		Key: "cluster-" + key, Name: "cluster-" + key, Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
+		DriverAccount: key,
+		DriverInputs:  map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
+		Criteria:      []resource.Criterion{{Class: "internal", ResourceID: "connections." + key}},
 	}); err != nil {
 		t.Fatal(err)
 	}

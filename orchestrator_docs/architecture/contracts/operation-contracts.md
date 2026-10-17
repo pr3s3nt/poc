@@ -658,3 +658,43 @@ committed objects for pinned consumers. No secret-ref input/read endpoint or
 host fallback. New account types/authentication and verification regions do not
 introduce applicability, matching rules or Environment bindings. V02–V03 old-data
 migration is not required; no implicit retained-state reset is authorized.
+
+## V02 replacements for OC-04, OC-04c, OC-04d and Definition matching
+
+Canonical behavior: UC-03 V02-01..09; this section supersedes profile filtering,
+Environment AWS account selection and insert-only statements in older contracts.
+
+- OC-04 create: POST `/api/v1/resource-definitions` accepts strict Definition
+  authoring DTO `key`, `name`, `resourceType`, `driverType`, `driverAccount?`,
+  `driverInputs`, `criteria`, `provision?`; returns201 with positive `version`.
+  Server-owned fingerprint/version cannot be injected at creation. Scoped
+  PE/Admin only; validate shared schema/module/account before atomic insert.
+- OC-04 update: PUT `/api/v1/resource-definitions/{key}` accepts same editable
+  fields plus required `version`; path/body key and stored Resource Type must
+  agree. Returns200 with incremented version; 404 scoped missing, 409 stale,
+  400 invalid strict input, 403 role. Same validation as create, atomic
+  Definition/criteria/bundle CAS; no delete endpoint, automatic retry or writes
+  to historical plan/resource pins. Public list includes Name/version and safe
+  selected account key, never credential references.
+- OC-04c keeps candidate/context route and request envelope. Same weighted
+  matcher as planner without profile/Connection/account prefilter; ordinary
+  matching does not require Environment target. Reads include scoped safe account
+  metadata. Winner includes safe selected account identity/version and region or
+  inherited cluster source; incompatible/missing/not-READY winner is explicit
+  account/binding conflict without fallback. Existing status naming may retain
+  CONNECTION_CONFLICT as safe binding-conflict compatibility code. INCOMPLETE,
+  NO_MATCH, AMBIGUOUS, MATCHED semantics remain. SYSTEM_BINDING applies only to
+  actual legacy implicit node until V03. Response includes reason/criterion/score;
+  marker covers catalog/context/account versions without secret bytes.
+- OC-04d capabilities publish account requirement/kind and target source along
+  with current verified drivers/module schemas. AWS region is editable required
+  literal input; credentials/password/tags remain executor-owned. Installed
+  score-k8s/render-bundle discovery remains safe and exposes no Generic Workload
+  capability. UI never invents an unsupported driver.
+- OC-06/07/08/10: all Definition ranking follows UC-03 V02-02. Persist actual
+  winner account/region/Definition version/content pins; preview stale on edit.
+  Runtime checks identity/kind/READY and account snapshot consistency before
+  provision; cannot substitute Environment/host account. Historical cleanup and already-admitted execution use
+  original stored pins rather than rereading mutable Definition. Existing state
+  target mismatch cannot trigger an implicit move/adoption. Legacy implicit
+  enrichment is reserved for V03 removal.

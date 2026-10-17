@@ -61,7 +61,7 @@ func (s *Store) SaveResourceDefinition(ctx context.Context, org string, v resour
 	}
 	return s.Transact(ctx, func(ctx context.Context) error {
 		var id string
-		err := s.q(ctx).QueryRow(ctx, `INSERT INTO resource_definitions(id,organization_id,definition_key,resource_type_id,execution_profile,driver_type,connection_id,driver_inputs,provision_rules,source_fingerprint) SELECT $1::uuid,o.id,$3,rt.id,NULLIF($4,''),$5,c.id,$7,$8,NULLIF($9,'') FROM organizations o JOIN resource_types rt ON rt.organization_id=o.id AND rt.resource_type_key=$6 LEFT JOIN connections c ON c.organization_id=o.id AND c.connection_key=NULLIF($10,'') WHERE o.organization_key=$2 ON CONFLICT(organization_id,definition_key) DO UPDATE SET resource_type_id=EXCLUDED.resource_type_id,execution_profile=EXCLUDED.execution_profile,driver_type=EXCLUDED.driver_type,connection_id=EXCLUDED.connection_id,driver_inputs=EXCLUDED.driver_inputs,provision_rules=EXCLUDED.provision_rules,source_fingerprint=EXCLUDED.source_fingerprint RETURNING id::text`, ids.New(), org, v.Key, v.ExecutionProfile, v.DriverType, v.ResourceTypeKey, driver, rules, v.SourceFingerpr, v.ConnectionKey).Scan(&id)
+		err := s.q(ctx).QueryRow(ctx, `INSERT INTO resource_definitions(id,organization_id,definition_key,resource_type_id,definition_name,driver_type,connection_id,driver_inputs,provision_rules,source_fingerprint,version) SELECT $1::uuid,o.id,$3,rt.id,$4,$5,c.id,$7,$8,NULLIF($9,''),$11 FROM organizations o JOIN resource_types rt ON rt.organization_id=o.id AND rt.resource_type_key=$6 LEFT JOIN connections c ON c.organization_id=o.id AND c.connection_key=NULLIF($10,'') WHERE o.organization_key=$2 ON CONFLICT(organization_id,definition_key) DO UPDATE SET resource_type_id=EXCLUDED.resource_type_id,definition_name=EXCLUDED.definition_name,driver_type=EXCLUDED.driver_type,connection_id=EXCLUDED.connection_id,driver_inputs=EXCLUDED.driver_inputs,provision_rules=EXCLUDED.provision_rules,source_fingerprint=EXCLUDED.source_fingerprint,version=EXCLUDED.version RETURNING id::text`, ids.New(), org, v.Key, v.Name, v.DriverType, v.ResourceTypeKey, driver, rules, v.SourceFingerpr, v.DriverAccount, v.Version).Scan(&id)
 		if err != nil {
 			return translate(err)
 		}
@@ -78,7 +78,7 @@ func (s *Store) SaveResourceDefinition(ctx context.Context, org string, v resour
 	})
 }
 func (s *Store) ListResourceDefinitions(ctx context.Context, org string) ([]resource.Definition, error) {
-	rows, err := s.q(ctx).Query(ctx, `SELECT rd.id::text,rd.definition_key,rt.resource_type_key,COALESCE(rd.execution_profile,''),rd.driver_type,COALESCE(c.connection_key,''),rd.driver_inputs,rd.provision_rules,COALESCE(rd.source_fingerprint,'') FROM resource_definitions rd JOIN organizations o ON o.id=rd.organization_id JOIN resource_types rt ON rt.id=rd.resource_type_id LEFT JOIN connections c ON c.id=rd.connection_id WHERE o.organization_key=$1 ORDER BY rd.definition_key`, org)
+	rows, err := s.q(ctx).Query(ctx, `SELECT rd.id::text,rd.definition_key,rt.resource_type_key,rd.definition_name,rd.driver_type,COALESCE(c.connection_key,''),rd.driver_inputs,rd.provision_rules,COALESCE(rd.source_fingerprint,''),rd.version FROM resource_definitions rd JOIN organizations o ON o.id=rd.organization_id JOIN resource_types rt ON rt.id=rd.resource_type_id LEFT JOIN connections c ON c.id=rd.connection_id WHERE o.organization_key=$1 ORDER BY rd.definition_key`, org)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (s *Store) ListResourceDefinitions(ctx context.Context, org string) ([]reso
 	for rows.Next() {
 		var x item
 		var a, b []byte
-		if err = rows.Scan(&x.id, &x.v.Key, &x.v.ResourceTypeKey, &x.v.ExecutionProfile, &x.v.DriverType, &x.v.ConnectionKey, &a, &b, &x.v.SourceFingerpr); err != nil {
+		if err = rows.Scan(&x.id, &x.v.Key, &x.v.ResourceTypeKey, &x.v.Name, &x.v.DriverType, &x.v.DriverAccount, &a, &b, &x.v.SourceFingerpr, &x.v.Version); err != nil {
 			return nil, err
 		}
 		if err = unmarshalJSON(a, &x.v.DriverInputs); err != nil {

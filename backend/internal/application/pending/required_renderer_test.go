@@ -67,14 +67,26 @@ func requiredAppBundlesOn(t *testing.T, withBinary bool, databaseURL string) (*b
 	return app, opts, log, bundles
 }
 
+// registerRenderer registers a score-k8s template; profile only names which seeded Application
+// ("internal-k8s" or "aws-eks") the default criterion scopes it to.
 func registerRenderer(t *testing.T, app *bootstrap.App, bundles map[string]resource.RenderBundle, opts seed.Options, key, profile string, criteria ...resource.Criterion) {
 	t.Helper()
 	svc := catalog.NewService(app.Store)
 	svc.SetRenderBundles(bundles)
 	if len(criteria) == 0 {
-		criteria = []resource.Criterion{{}}
+		// V02 has no profile guard: the seeded internal and cloud Applications
+		// select their renderer through an explicit app_id criterion instead.
+		defaults := seedtest.Defaults()
+		switch profile {
+		case "internal-k8s":
+			criteria = []resource.Criterion{{ApplicationID: defaults.ApplicationKey}}
+		case "aws-eks":
+			criteria = []resource.Criterion{{ApplicationID: defaults.CloudApplicationKey}}
+		default:
+			criteria = []resource.Criterion{{}}
+		}
 	}
-	def := resource.Definition{Key: key, ResourceTypeKey: "workload", ExecutionProfile: profile, DriverType: resource.DriverScoreK8s, Criteria: criteria,
+	def := resource.Definition{Key: key, Name: key, Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: criteria,
 		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": scorek8s.BundleID}}}}
 	if _, err := svc.RegisterResourceDefinition(context.Background(), opts.OrganizationKey, def); err != nil {
 		t.Fatal(err)
@@ -103,7 +115,7 @@ func TestRequiredRendererMissingTieAndUnavailableFailBeforeResources(t *testing.
 			registerRenderer(t, app, b, o, "render-a", "internal-k8s")
 			registerRenderer(t, app, b, o, "render-b", "internal-k8s")
 		}, "equally"},
-		{"wrong-profile", true, func(t *testing.T, app *bootstrap.App, b map[string]resource.RenderBundle, o seed.Options) {
+		{"other-application", true, func(t *testing.T, app *bootstrap.App, b map[string]resource.RenderBundle, o seed.Options) {
 			registerRenderer(t, app, b, o, "render-cloud", "aws-eks")
 		}, "rendering template"},
 		{"no-binary", false, func(*testing.T, *bootstrap.App, map[string]resource.RenderBundle, seed.Options) {}, "rendering template"},
@@ -251,7 +263,7 @@ func TestRequiredRendererAWSProfileRendersAfterInfrastructure(t *testing.T) {
 	if _, statErr := os.Stat(log); statErr == nil {
 		t.Fatal("Preview ran the score-k8s CLI")
 	}
-	if preview.Binding.Profile != "aws-eks" || preview.Binding.Region != "us-east-1" || preview.AccountID == "" {
+	if preview.Binding.Profile != "aws-eks" || preview.Binding.Region != "us-east-1" || preview.AccountID != "" {
 		t.Fatalf("target not pinned: %+v account=%q", preview.Binding, preview.AccountID)
 	}
 	change := preview.Changes[0]

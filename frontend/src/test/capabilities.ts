@@ -116,6 +116,13 @@ export const capabilityFixture: Capability[] = [
     "resourceParam": false
    },
    {
+    "name": "region",
+    "type": "string",
+    "required": true,
+    "hasDefault": false,
+    "resourceParam": false
+   },
+   {
     "name": "subnet_ids",
     "type": "list(string)",
     "required": true,
@@ -125,8 +132,23 @@ export const capabilityFixture: Capability[] = [
    }
   ],
   "executorOwned": [
-   "region",
    "tags"
+  ],
+  "account": {
+   "required": true,
+   "type": "AWS",
+   "regionVariable": "region"
+  },
+  "bindings": [
+   {
+    "provider": "aws",
+    "kind": "aws",
+    "targets": [
+     {
+      "target": "account"
+     }
+    ]
+   }
   ]
  },
  {
@@ -167,6 +189,24 @@ export const capabilityFixture: Capability[] = [
   ],
   "executorOwned": [
    "tags"
+  ],
+  "account": {
+   "required": false
+  },
+  "bindings": [
+   {
+    "provider": "kubernetes",
+    "kind": "kubernetes",
+    "targets": [
+     {
+      "target": "resource"
+     },
+     {
+      "target": "environment",
+      "legacy": true
+     }
+    ]
+   }
   ]
  },
  {
@@ -269,6 +309,13 @@ export const capabilityFixture: Capability[] = [
     "preset": "${resources['vpc.default#@infra'].outputs.privateSubnetIds}"
    },
    {
+    "name": "region",
+    "type": "string",
+    "required": true,
+    "hasDefault": false,
+    "resourceParam": false
+   },
+   {
     "name": "seconds_until_auto_pause",
     "type": "number",
     "required": false,
@@ -302,8 +349,23 @@ export const capabilityFixture: Capability[] = [
   ],
   "executorOwned": [
    "master_password",
-   "region",
    "tags"
+  ],
+  "account": {
+   "required": true,
+   "type": "AWS",
+   "regionVariable": "region"
+  },
+  "bindings": [
+   {
+    "provider": "aws",
+    "kind": "aws",
+    "targets": [
+     {
+      "target": "account"
+     }
+    ]
+   }
   ]
  },
  {
@@ -416,6 +478,24 @@ export const capabilityFixture: Capability[] = [
   "executorOwned": [
    "password",
    "tags"
+  ],
+  "account": {
+   "required": false
+  },
+  "bindings": [
+   {
+    "provider": "kubernetes",
+    "kind": "kubernetes",
+    "targets": [
+     {
+      "target": "resource"
+     },
+     {
+      "target": "environment",
+      "legacy": true
+     }
+    ]
+   }
   ]
  },
  {
@@ -492,6 +572,13 @@ export const capabilityFixture: Capability[] = [
     "preset": "${resources['vpc.default#@infra'].outputs.privateSubnetIds}"
    },
    {
+    "name": "region",
+    "type": "string",
+    "required": true,
+    "hasDefault": false,
+    "resourceParam": false
+   },
+   {
     "name": "subnet_ids",
     "type": "list(string)",
     "required": true,
@@ -518,8 +605,23 @@ export const capabilityFixture: Capability[] = [
   ],
   "executorOwned": [
    "password",
-   "region",
    "tags"
+  ],
+  "account": {
+   "required": true,
+   "type": "AWS",
+   "regionVariable": "region"
+  },
+  "bindings": [
+   {
+    "provider": "aws",
+    "kind": "aws",
+    "targets": [
+     {
+      "target": "account"
+     }
+    ]
+   }
   ]
  },
  {
@@ -627,6 +729,24 @@ export const capabilityFixture: Capability[] = [
   "executorOwned": [
    "password",
    "tags"
+  ],
+  "account": {
+   "required": false
+  },
+  "bindings": [
+   {
+    "provider": "kubernetes",
+    "kind": "kubernetes",
+    "targets": [
+     {
+      "target": "resource"
+     },
+     {
+      "target": "environment",
+      "legacy": true
+     }
+    ]
+   }
   ]
  },
  {
@@ -693,11 +813,33 @@ export const capabilityFixture: Capability[] = [
     "hasDefault": false,
     "resourceParam": false,
     "preset": "${context.infra.resourceName}"
+   },
+   {
+    "name": "region",
+    "type": "string",
+    "required": true,
+    "hasDefault": false,
+    "resourceParam": false
    }
   ],
   "executorOwned": [
-   "region",
    "tags"
+  ],
+  "account": {
+   "required": true,
+   "type": "AWS",
+   "regionVariable": "region"
+  },
+  "bindings": [
+   {
+    "provider": "aws",
+    "kind": "aws",
+    "targets": [
+     {
+      "target": "account"
+     }
+    ]
+   }
   ]
  }
 ];

@@ -65,7 +65,7 @@ func TestT31DefinitionCapabilitiesGuideRegistrationHTTP(t *testing.T) {
 	}
 	// The retired static Kubernetes driver is not registrable (ADR-014).
 	legacy := map[string]any{
-		"key": "ns-t31-static", "resourceType": "k8s-namespace", "executionProfile": "internal-k8s", "driverType": "kubernetes",
+		"key": "ns-t31-static", "name": "Static", "resourceType": "k8s-namespace", "driverType": "kubernetes",
 		"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{"name": "x"}}},
 		"criteria":     []any{map[string]any{"class": "t31"}},
 	}
@@ -73,24 +73,24 @@ func TestT31DefinitionCapabilitiesGuideRegistrationHTTP(t *testing.T) {
 		t.Fatalf("static kubernetes driver: %d, want 400", status)
 	}
 	if status := register(map[string]any{
-		"key": "vpc-t31", "resourceType": "vpc", "executionProfile": "aws-eks", "driverType": "terraform",
-		"driverInputs": map[string]any{"values": map[string]any{"source": vpcSource, "variables": map[string]any{"name": presets["vpc/terraform/name"]},
-			"output_mapping": map[string]any{"id": "id", "cidr": "cidr", "subnetIds": "subnetIds", "privateSubnetIds": "privateSubnetIds"}, "provider_bindings": map[string]any{"aws": map[string]any{"target": "environment"}}}},
+		"key": "vpc-t31", "name": "VPC t31", "resourceType": "vpc", "driverType": "terraform", "driverAccount": "aws-account",
+		"driverInputs": map[string]any{"values": map[string]any{"source": vpcSource, "variables": map[string]any{"name": presets["vpc/terraform/name"], "region": "us-east-1"},
+			"output_mapping": map[string]any{"id": "id", "cidr": "cidr", "subnetIds": "subnetIds", "privateSubnetIds": "privateSubnetIds"}, "provider_bindings": map[string]any{"aws": map[string]any{"target": "account"}}}},
 		"criteria": []any{map[string]any{"class": "t31"}},
 	}); status != http.StatusCreated {
 		t.Fatalf("defaults-omitted vpc definition: %d", status)
 	}
 	if status := register(map[string]any{
-		"key": "vpc-t31-legacy", "resourceType": "vpc", "executionProfile": "aws-eks", "driverType": "terraform",
+		"key": "vpc-t31-legacy", "name": "Legacy", "resourceType": "vpc", "driverType": "terraform", "driverAccount": "aws-account",
 		"driverInputs": map[string]any{"values": map[string]any{"source": map[string]any{"module": "vpc"}, "variables": map[string]any{"name": "x"}}},
 		"criteria":     []any{map[string]any{"class": "t31"}},
 	}); status != http.StatusBadRequest {
 		t.Fatalf("an unpinned module name must be rejected: %d", status)
 	}
 	if status := register(map[string]any{
-		"key": "vpc-t31-secret", "resourceType": "vpc", "executionProfile": "aws-eks", "driverType": "terraform",
+		"key": "vpc-t31-secret", "name": "Secret", "resourceType": "vpc", "driverType": "terraform", "driverAccount": "aws-account",
 		"driverInputs": map[string]any{"values": map[string]any{"source": vpcSource, "variables": map[string]any{"name": "x", "master_password": "p"},
-			"output_mapping": map[string]any{"id": "id"}, "provider_bindings": map[string]any{"aws": map[string]any{"target": "environment"}}}},
+			"output_mapping": map[string]any{"id": "id"}, "provider_bindings": map[string]any{"aws": map[string]any{"target": "account"}}}},
 		"criteria": []any{map[string]any{"class": "t31"}},
 	}); status != http.StatusBadRequest {
 		t.Fatalf("master_password must be rejected: %d", status)

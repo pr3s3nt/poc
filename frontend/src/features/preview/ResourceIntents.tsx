@@ -7,13 +7,14 @@ const intentLabels: Record<string, string> = {
 };
 const label = (table: Record<string, string>, key: string) => (Object.hasOwn(table, key) ? table[key] : key);
 
-// Where one provider of a module runs: the Environment's Connection or, for
-// Kubernetes, the cluster another previewed node provides. Names only: never a
-// credential, endpoint or account override.
+// Where one provider of a module runs: the Definition's own Driver Account and
+// region (AWS), the cluster another previewed node provides or the legacy
+// Environment cluster (Kubernetes). Names only: never a credential, endpoint or
+// account override.
 function providerText(provider: NonNullable<ResourceIntent['providers']>[number]): string {
   if (provider.target === 'resource') return `${provider.name}: cluster do node ${provider.provider ?? 'EKS'} cung cấp`;
-  if (provider.kind === 'aws') return `${provider.name}: Kết nối AWS của Môi trường${provider.connectionKey ? ` ${provider.connectionKey}` : ''}${provider.region ? ` · vùng ${provider.region}` : ''}`;
-  return `${provider.name}: cluster của Môi trường${provider.connectionKey ? ` ${provider.connectionKey}` : ''}`;
+  if (provider.kind === 'aws') return `${provider.name}: tài khoản AWS của cấu hình${provider.connectionKey ? ` ${provider.connectionKey}` : ''}${provider.region ? ` · vùng ${provider.region}` : ''}`;
+  return `${provider.name}: cluster của Môi trường (cách cũ, giữ tới V03)${provider.connectionKey ? ` ${provider.connectionKey}` : ''}`;
 }
 
 export const rendererText = (rendering: { definitionKey: string; driverType: string; bundle: { version: string } } | undefined) =>

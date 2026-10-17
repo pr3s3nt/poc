@@ -879,3 +879,23 @@ lịch sử trước closure; D12–D14/M02/TLSissue#2 vẫn hoãn, không bị 
 | UC-04 AC-06..09: CAS, read-only checks, same-target replacement, retained prior objects and conservative commit recovery | `accounts.go`, PostgreSQL `registration.go`/`store.go`, memory/JSON CAS | `accounts_test.go`: identity/trust mismatch, CAS loss, legacy-region denial, committed-but-unacknowledged create/replace, known rollback cleanup; `commit_error_test.go`; shared persistence contract |
 | UC-04 AC-10: create/detail/edit/verify UI, stale and unknown outcome recovery | `features/platform/accounts/` | `DriverAccountsPage.test.tsx`; `v01-accounts-local.mjs` human-paced headed flow, Vietnamese captions, hard secret-reply assertions |
 | UC-04 AC-11..12: SQL/Vault persistence and restart; preserve legacy consumers through V01 | PostgreSQL baseline/version compatibility, scoped Vault, legacy Connection resolver | shared SQL/JSON reopen tests, HTTP legacy-preservation tests, `v01-accounts-local.sh`; [dated checks and evidence](../verification/2026-10-17-v01-handoff.md) distinguish real SQL/Vault from simulated external providers |
+
+## V02 Definition authoring and matching — delivered 2026-10-17
+
+[UC-03 V02-01..09](../usecase/UC-03/specification.md) and ADR-015 V02 supersede
+historical profile/Environment AWS binding/insert-only statements in prior rows.
+
+| Requirement | Design | Validation required before completion |
+|---|---|---|
+| V02-01/06/07 | OC-04 V02, schema Name/version/Driver Account, sequence/VOPC CAS | Create/edit/reload/restart; immutable ID/type; PostgreSQL race/rollback; snapshots unchanged; stale preview |
+| V02-02/05 | Shared matcher, OC-04c snapshot without profile filter | Five weights/AND/OR/wildcard/empty/ties/no-match; unconfigured env; winner conflict no fallback; stale/late replies |
+| V02-03/04/09 | Capability/module contract; scoped selected account + region per node | Role/org/kind/READY; schema/types/mappings/references/provision; no secret/Environment fallback; pre-provision pins |
+| V02-08 | Fresh baseline/JSON/seed, schema/ERD | No migration/reset on startup; incompatible old state rejected; fixtures deterministic |
+| V02.09–10 | UC-03 UI artifacts, headed recording runbook | Independent full checks zero-skip; Vietnamese captions/cursor/input/reviewed native issue attachment; owned cleanup |
+
+Independent checks: Go1528tests, race530tests/8packages plus closure99tests,
+frontend687tests, build/vet/docs/PlantUML PASS; zero individual skips.
+Catalog/domain/planning/tfexec/resource-cleanup and HTTP/SQL tests cover the
+obligations above; `v02-definitions-local.sh`/`v02-definitions-local.mjs` cover
+21 UI phases including edit/reload/restart and inherited cluster/current renderer.
+T16 also passed independently. [Evidence and limits](../verification/2026-10-17-v02-handoff.md).

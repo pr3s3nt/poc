@@ -42,7 +42,7 @@ func TestPostgresCreateDefinitionRollsBackOnCriterionFailure(t *testing.T) {
 	adminExec(t, url, `CREATE FUNCTION test_fail_criterion() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN IF NEW.class = 'boom' THEN RAISE EXCEPTION 'injected criterion failure'; END IF; RETURN NEW; END $$;
 CREATE TRIGGER test_fail_criterion BEFORE INSERT ON matching_criteria FOR EACH ROW EXECUTE FUNCTION test_fail_criterion();`)
-	def := resource.Definition{Key: "cache-atomic", ResourceTypeKey: "cache", DriverType: resource.DriverKubernetes,
+	def := resource.Definition{Key: "cache-atomic", Name: "cache-atomic", Version: 1, ResourceTypeKey: "cache", DriverType: resource.DriverKubernetes,
 		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{}}},
 		Criteria:     []resource.Criterion{{Class: "ok"}, {Class: "boom"}}}
 	if err := st.CreateResourceDefinition(ctx, "atomic", def); err == nil {
@@ -128,8 +128,8 @@ func TestPostgresConcurrentRegistrationHasOneWinner(t *testing.T) {
 		}
 
 		defs := [2]resource.Definition{
-			{Key: "cache-def-" + suffix, ResourceTypeKey: types[w].Key, DriverType: resource.DriverKubernetes, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"who": "a"}}}, Criteria: []resource.Criterion{{Class: "a"}}},
-			{Key: "cache-def-" + suffix, ResourceTypeKey: types[w].Key, DriverType: resource.DriverKubernetes, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"who": "b"}}}, Criteria: []resource.Criterion{{Class: "b"}, {}}},
+			{Key: "cache-def-" + suffix, Name: "A", Version: 1, ResourceTypeKey: types[w].Key, DriverType: resource.DriverKubernetes, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"who": "a"}}}, Criteria: []resource.Criterion{{Class: "a"}}},
+			{Key: "cache-def-" + suffix, Name: "B", Version: 1, ResourceTypeKey: types[w].Key, DriverType: resource.DriverKubernetes, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"who": "b"}}}, Criteria: []resource.Criterion{{Class: "b"}, {}}},
 		}
 		w = race(t, "definition", [2]func() error{
 			func() error { return st.CreateResourceDefinition(ctx, "race", defs[0]) },
@@ -140,7 +140,7 @@ func TestPostgresConcurrentRegistrationHasOneWinner(t *testing.T) {
 		for _, got := range all {
 			if got.Key == defs[w].Key {
 				found++
-				if got.ResourceTypeKey != defs[w].ResourceTypeKey || got.DriverType != defs[w].DriverType || got.ExecutionProfile != defs[w].ExecutionProfile || got.ConnectionKey != defs[w].ConnectionKey ||
+				if got.ResourceTypeKey != defs[w].ResourceTypeKey || got.DriverType != defs[w].DriverType || got.Name != defs[w].Name || got.Version != defs[w].Version || got.DriverAccount != defs[w].DriverAccount ||
 					!reflect.DeepEqual(got.Criteria, defs[w].Criteria) || !reflect.DeepEqual(got.DriverInputs, defs[w].DriverInputs) {
 					t.Fatalf("round %d definition: stored %+v, winner %+v", round, got, defs[w])
 				}
@@ -177,5 +177,109 @@ func requireOne(t *testing.T, what string, n int) {
 	t.Helper()
 	if n != 1 {
 		t.Fatalf("%s stored %d times, want exactly once", what, n)
+	}
+}
+
+// UC-03 V02-06 on real SQL: the CAS update replaces the Definition and its
+// criteria in one transaction. A fault in the second criterion INSERT rolls the
+// UPDATE, the DELETE and the first criterion back; the version is not bumped.
+func TestPostgresUpdateDefinitionRollsBackWholeEditOnCriterionFailure(t *testing.T) {
+	ctx := context.Background()
+	st, url := openFresh(t)
+	if err := st.SaveOrganization(ctx, application.Organization{Key: "upd", Name: "upd"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.CreateResourceType(ctx, "upd", resource.Type{Key: "cache", Outputs: []resource.OutputField{{Name: "host", Type: "string"}}}); err != nil {
+		t.Fatal(err)
+	}
+	original := resource.Definition{Key: "cache-upd", Name: "Gốc", Version: 1, ResourceTypeKey: "cache", DriverType: resource.DriverKubernetes,
+		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"v": "1"}}}, Criteria: []resource.Criterion{{Class: "old-a"}, {Class: "old-b"}}}
+	if err := st.CreateResourceDefinition(ctx, "upd", original); err != nil {
+		t.Fatal(err)
+	}
+	adminExec(t, url, `CREATE FUNCTION test_fail_criterion() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN IF NEW.class = 'boom' THEN RAISE EXCEPTION 'injected criterion failure'; END IF; RETURN NEW; END $$;
+CREATE TRIGGER test_fail_criterion BEFORE INSERT ON matching_criteria FOR EACH ROW EXECUTE FUNCTION test_fail_criterion();`)
+	next := original
+	next.Name = "Mới"
+	next.DriverInputs = map[string]any{"values": map[string]any{"variables": map[string]any{"v": "2"}}}
+	next.Criteria = []resource.Criterion{{Class: "new-a"}, {Class: "boom"}}
+	if _, err := st.UpdateResourceDefinition(ctx, "upd", 1, next); err == nil {
+		t.Fatal("update committed despite the injected criterion failure")
+	}
+	defs, _ := st.ListResourceDefinitions(ctx, "upd")
+	if len(defs) != 1 || !reflect.DeepEqual(defs[0], original) {
+		t.Fatalf("a failed edit changed the stored definition: %+v", defs)
+	}
+	// The same edit without the fault succeeds from the untouched version.
+	next.Criteria = []resource.Criterion{{Class: "new-a"}, {Class: "new-b"}}
+	saved, err := st.UpdateResourceDefinition(ctx, "upd", 1, next)
+	if err != nil || saved.Version != 2 {
+		t.Fatalf("retry: %+v %v", saved, err)
+	}
+}
+
+func TestPostgresUpdateDefinitionCompareAndSetRaceAndImmutability(t *testing.T) {
+	ctx := context.Background()
+	st, _ := openFresh(t)
+	if err := st.SaveOrganization(ctx, application.Organization{Key: "cas", Name: "cas"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"cache", "other"} {
+		if err := st.CreateResourceType(ctx, "cas", resource.Type{Key: key, Outputs: []resource.OutputField{{Name: "host", Type: "string"}}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	def := resource.Definition{Key: "cache-cas", Name: "Gốc", Version: 1, ResourceTypeKey: "cache", DriverType: resource.DriverKubernetes,
+		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{}}}, Criteria: []resource.Criterion{{}}}
+	if err := st.CreateResourceDefinition(ctx, "cas", def); err != nil {
+		t.Fatal(err)
+	}
+	const writers = 6
+	errs := make([]error, writers)
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for i := 0; i < writers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			next := def
+			next.Name = fmt.Sprintf("writer-%d", i)
+			_, errs[i] = st.UpdateResourceDefinition(ctx, "cas", 1, next)
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+	wins := 0
+	for _, err := range errs {
+		switch {
+		case err == nil:
+			wins++
+		case errors.Is(err, persistence.ErrVersionConflict):
+		default:
+			t.Fatalf("unexpected: %v", err)
+		}
+	}
+	defs, _ := st.ListResourceDefinitions(ctx, "cas")
+	if wins != 1 || len(defs) != 1 || defs[0].Version != 2 {
+		t.Fatalf("wins=%d stored=%+v", wins, defs)
+	}
+	// Immutable Resource Type and missing Definition.
+	moved := defs[0]
+	moved.ResourceTypeKey = "other"
+	if _, err := st.UpdateResourceDefinition(ctx, "cas", 2, moved); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("resource type change: %v", err)
+	}
+	ghost := def
+	ghost.Key = "ghost"
+	if _, err := st.UpdateResourceDefinition(ctx, "cas", 1, ghost); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("missing definition: %v", err)
+	}
+	// The database refuses a blank or control-character Name and a non-positive version.
+	for _, bad := range []string{"UPDATE resource_definitions SET definition_name='  '", "UPDATE resource_definitions SET definition_name=E'a\\nb'", "UPDATE resource_definitions SET version=0"} {
+		if _, err := st.pool.Exec(ctx, bad); err == nil {
+			t.Fatalf("SQL accepted %q", bad)
+		}
 	}
 }

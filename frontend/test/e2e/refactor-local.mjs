@@ -91,6 +91,9 @@ export const SCENARIOS = {
     await h.pause(3000);
   },
 
+  // HISTORICAL (pre-V02 scenario): at the base commit 96eb602, before V02, this scenario already failed at refactor-local.mjs:113 (list text 'Tạo trên AWS (Terraform)').
+  // V02 additionally retired the contract some later steps assert (executionProfile/connectionKey, scope preview, Environment AWS
+  // inheritance); those assertions below are stated in V02 terms. The V02 behavior is recorded by v02-definitions-local.mjs (V02).
   // T02: Cấu hình tài nguyên form. Platform Engineer, fake adapters, seeded
   // READY connections (internal-cluster KUBERNETES, aws-account AWS).
   async T02({ page, h, ui, caption, mark, check, baseURL }) {
@@ -197,9 +200,12 @@ export const SCENARIOS = {
     const entry = page.locator('.catalog-entry').filter({ has: page.getByText('vpc-t02', { exact: true }) });
     await expect(entry).toContainText('vpc · AWS · Tạo trên AWS (Terraform) · 1 điều kiện áp dụng');
     const vpc = (await definitions()).find((item) => item.key === 'vpc-t02');
-    expect(vpc).toMatchObject({ resourceType: 'vpc', executionProfile: 'aws-eks', driverType: 'terraform' });
-    expect(vpc.connectionKey ?? '').toBe('');
-    check('registered vpc-t02: payload aws-eks, terraform, empty connection (T16), listed in UI');
+    // V02: no executionProfile/connectionKey; an AWS pair stores its own Driver Account and a literal region.
+    expect(vpc).toMatchObject({ resourceType: 'vpc', driverType: 'terraform' });
+    expect(vpc).not.toHaveProperty('executionProfile');
+    expect(vpc).not.toHaveProperty('connectionKey');
+    expect(vpc.driverAccount, 'the Definition names its own Driver Account').toBeTruthy();
+    check('registered vpc-t02: terraform, its own Driver Account, no retired executionProfile/connectionKey, listed in UI');
     mark('vpc-registered');
     await h.moveTo(entry);
     await h.read('Đã đăng ký vpc-t02');
@@ -231,6 +237,9 @@ export const SCENARIOS = {
     await h.pause(3000);
   },
 
+  // HISTORICAL (pre-V02 scenario): at the base commit 96eb602, before V02, this scenario already failed at refactor-local.mjs:265 (summary 'Phạm vi triển khai (executionProfile)').
+  // V02 additionally retired the contract some later steps assert (executionProfile/connectionKey, scope preview, Environment AWS
+  // inheritance); those assertions below are stated in V02 terms. The V02 behavior is recorded by v02-definitions-local.mjs (V02).
   // T02B: editor Điều kiện áp dụng. Platform Engineer, fake adapters; seeded
   // application acceptance (environment dev, type development)
   // and definitions namespace/vpc/postgres (internal-k8s postgres is [{}]).
@@ -262,8 +271,9 @@ export const SCENARIOS = {
     await expect(mode(/Mọi nơi/)).toBeChecked();
     await expect(editor.getByLabel('Loại môi trường', { exact: true })).toHaveCount(0);
     await expect(group('Tóm tắt phạm vi áp dụng')).toContainText('Mọi nơi (không giới hạn)');
-    await expect(group('Tóm tắt phạm vi áp dụng')).toContainText('Phạm vi triển khai (executionProfile): Cluster nội bộ');
-    check('mode Mọi nơi default: no extra controls, summary shows scope and profile apart from env_type');
+    // V02: there is no execution-profile scope; the summary shows only the five-field criteria.
+    await expect(group('Tóm tắt phạm vi áp dụng')).not.toContainText('executionProfile');
+    check('mode Mọi nơi default: no extra controls, summary shows the criteria only (no deployment scope or profile)');
     mark('mode-all');
     await h.moveTo(group('Tóm tắt phạm vi áp dụng'));
     await h.read('Mọi nơi: không có ô nhập nào, phạm vi triển khai tách khỏi loại môi trường');
@@ -401,6 +411,9 @@ export const SCENARIOS = {
     await h.pause(3000);
   },
 
+  // HISTORICAL (pre-V02 scenario): at the base commit 96eb602, before V02, this scenario already failed at refactor-local.mjs:468 (page hint 'Mẫu là tùy chọn và chỉ dùng cho cluster nội bộ').
+  // V02 additionally retired the contract some later steps assert (executionProfile/connectionKey, scope preview, Environment AWS
+  // inheritance); those assertions below are stated in V02 terms. The V02 behavior is recorded by v02-definitions-local.mjs (V02).
   // T03: trang Mẫu dựng ứng dụng. Fake adapters + a test-local score-k8s stub
   // whose `generate` always fails (wrapper passes -score-k8s). Phases:
   //   Developer creates two Applications and a workload each (UI);
@@ -510,7 +523,8 @@ export const SCENARIOS = {
     await expect(ui('renderingTemplates', 'id')).toHaveValue('');
     await expect(ui('renderingTemplates', 'bundle')).toHaveValue('');
     const stored = (await definitions()).find((item) => item.key === 'tpl-web');
-    expect(stored).toMatchObject({ resourceType: 'workload', driverType: 'score-k8s', executionProfile: 'internal-k8s', criteria: [{ app_id: templateId, env_id: 'staging' }] });
+    expect(stored).toMatchObject({ resourceType: 'workload', driverType: 'score-k8s', criteria: [{ app_id: templateId, env_id: 'staging' }] });
+    expect(stored, 'V02: no executionProfile').not.toHaveProperty('executionProfile');
     expect(stored.driverInputs.values.variables).toEqual({ render_bundle: 'score-k8s-internal-v1' });
     expect(stored.driverInputs.values.source, 'no source').toBeUndefined();
     expect(stored.connectionKey ?? '', 'no connection').toBe('');
@@ -3670,12 +3684,12 @@ export const SCENARIOS = {
     await h.pause(3000);
   },
 
-  // T16: VPC/EKS luôn dùng Kết nối AWS của Môi trường. Fake adapters, state JSON tạm.
-  // SETUP (UI, Nhà phát triển): tạo ứng dụng và chọn Kết nối AWS aws-account cho Staging.
-  // SETUP/ASSERTION (API, không phải thao tác sản phẩm): POST resource-definitions với
-  // connectionKey khác rỗng để chứng minh API từ chối 400; chỉ đọc danh sách để xác minh.
+  // T16 (V02): mỗi cấu hình AWS (VPC/EKS/Aurora) dùng Tài khoản hạ tầng và vùng literal CỦA CHÍNH NÓ, không lấy từ Môi trường.
+  // Thay hành vi cũ "VPC/EKS luôn dùng Kết nối AWS của Môi trường". Fake adapters, state JSON tạm.
+  // SETUP (UI, Nhà phát triển): tạo ứng dụng và chọn Kết nối AWS aws-account cho Staging (trường Môi trường cũ, giữ tới V03).
+  // SETUP/ASSERTION (API, không phải thao tác sản phẩm): POST có trường đã bỏ hoặc tài khoản sai để chứng minh API từ chối 400.
   async T16({ page, h, ui, caption, mark, check, baseURL }) {
-    const NAME = 'T16 Kết nối Môi trường';
+    const NAME = 'T16 Tài khoản cấu hình';
     const apiDefinitions = async () => (await (await page.request.get(`${baseURL}/api/v1/resource-definitions`)).json()).resourceDefinitions;
     const apiDefinition = async (key) => (await apiDefinitions()).find((item) => item.key === key);
     const posts = [];
@@ -3685,23 +3699,29 @@ export const SCENARIOS = {
     const registered = (key) => expect(page.getByRole('status').filter({ hasText: `Đã đăng ký cấu hình tài nguyên ${key}.` })).toBeVisible();
     const editor = page.locator('.criteria-editor');
     const select = (text) => editor.locator('label').filter({ hasText: text }).locator('select');
+    const pick = async (locator, prefix) => h.choose(locator, (await locator.locator('option').allTextContents()).find((text) => text.trim().startsWith(prefix)));
     let appId = '';
-    // Same module inputs as the seeded Definitions; literals match the declared types.
-    const eksVars = JSON.stringify({ name: '${context.infra.resourceName}', subnet_ids: "${resources['vpc.default#@infra'].outputs.subnetIds}", kubernetes_version: '1.34', node_instance_type: 't4g.small', node_capacity_type: 'SPOT', node_ami_type: 'AL2023_ARM_64_STANDARD', node_disk_size: 20 });
-    const auroraVars = JSON.stringify({ name: '${context.infra.resourceName}', engine_version: '16.14', min_capacity: 0, max_capacity: 1, vpc_id: "${resources['vpc.default#@infra'].outputs.id}", vpc_cidr: "${resources['vpc.default#@infra'].outputs.cidr}", subnet_ids: "${resources['vpc.default#@infra'].outputs.subnetIds}" });
+    // Same module inputs as the seeded Definitions; literals match the declared types. The region has its own control.
+    const eksVars = JSON.stringify({ name: '${context.infra.resourceName}', subnet_ids: "${resources['vpc.default#@infra'].outputs.subnetIds}", kubernetes_version: '1.34', node_instance_type: 't4g.small', node_capacity_type: 'SPOT', node_ami_type: 'AL2023_ARM_64_STANDARD', node_disk_size: 20, public_access_cidrs: ['203.0.113.10/32'] });
+    const auroraVars = JSON.stringify({ name: '${context.infra.resourceName}', engine_version: '16.4', min_capacity: 0.5, max_capacity: 2, vpc_id: "${resources['vpc.default#@infra'].outputs.id}", subnet_ids: "${resources['vpc.default#@infra'].outputs.subnetIds}", private_subnet_ids: "${resources['vpc.default#@infra'].outputs.privateSubnetIds}" });
+    const startAws = async (id, name, type) => {
+      await h.type(ui('resourceDefinitions', 'id'), id);
+      await h.type(ui('resourceDefinitions', 'name'), name);
+      await h.choose(ui('resourceDefinitions', 'type'), type);
+    };
 
-    caption('SETUP (qua giao diện): Nhà phát triển đăng nhập, tạo ứng dụng và chọn Kết nối AWS aws-account cho Staging');
+    caption('SETUP (qua giao diện): Nhà phát triển đăng nhập, tạo ứng dụng và chọn Kết nối AWS aws-account cho Staging (trường Môi trường cũ)');
     await h.showCursor();
     await expectVisibleCursor(page);
     await h.type(ui('signIn', 'username'), 'developer');
     await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
     await h.click(ui('signIn', 'submit'));
     await expect(ui('applications', 'heading')).toBeVisible();
-    appId = await createApplication(h, NAME, 't16-ket-noi-moi-truong', { connections: { staging: 'aws-account' } });
+    appId = await createApplication(h, NAME, 't16-tai-khoan-cau-hinh', { connections: { staging: 'aws-account' } });
     await expect(page.getByText('aws-account').first()).toBeVisible();
-    check('setup via UI: application created and Staging bound to the fake AWS connection aws-account (not product steps of T16)');
+    check('setup via UI: application created and Staging bound to the fake AWS connection aws-account (legacy Environment field, not a product step of T16)');
     mark('setup-app');
-    await h.read('Thiết lập: ứng dụng Staging dùng Kết nối AWS aws-account');
+    await h.read('Thiết lập: Staging có Kết nối cũ aws-account; cấu hình AWS sẽ tự chọn tài khoản');
     await h.click(ui('shell', 'signOut'));
     await expect(ui('signIn', 'username')).toBeVisible();
 
@@ -3715,39 +3735,46 @@ export const SCENARIOS = {
     mark('definitions-page');
     await h.pause(SHORT_READ);
 
-    caption('Bước 2: Chọn vpc: không có ô Kết nối AWS, kể cả Nâng cao; trợ giúp nói rõ dùng Kết nối của Môi trường');
-    await h.type(ui('resourceDefinitions', 'id'), 'vpc-t16');
-    await h.choose(ui('resourceDefinitions', 'type'), 'vpc');
-    await expect(ui('resourceDefinitions', 'driver')).toHaveValue('terraform');
-    await expect(ui('resourceDefinitions', 'awsConnection')).toHaveCount(0);
-    const note = page.getByRole('note').filter({ hasText: 'dùng Kết nối AWS của Môi trường' });
-    await expect(note).toContainText('Xem trước hoặc Triển khai');
-    await h.click(ui('resourceDefinitions', 'showAdvanced'));
-    await expect(ui('resourceDefinitions', 'awsConnection')).toHaveCount(0);
-    check('vpc: no AWS account control (also under Nâng cao); Vietnamese note explains Environment inheritance');
-    mark('vpc-no-account');
-    await h.moveTo(note);
-    await h.read('VPC dùng Kết nối AWS của Môi trường; không chọn tài khoản ở đây');
+    caption('Bước 2: Chọn vpc: có ô Tài khoản hạ tầng và Vùng AWS riêng; trợ giúp nói rõ KHÔNG lấy từ Môi trường');
+    await startAws('vpc-t16', 'VPC T16', 'vpc');
+    await expect(ui('resourceDefinitions', 'account')).toBeVisible();
+    await expect(ui('resourceDefinitions', 'region')).toBeVisible();
+    await expect(page.getByLabel('Kết nối AWS')).toHaveCount(0);
+    await expect(page.getByLabel('Phạm vi triển khai')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Tài khoản và nguồn phụ thuộc' })).toContainText('Cấu hình không lấy tài khoản hay vùng từ Môi trường');
+    check('vpc: Driver Account and literal region controls; no Environment AWS Connection or deployment scope control; the help says nothing is taken from the Environment');
+    mark('vpc-own-account');
+    await h.moveTo(ui('resourceDefinitions', 'account'));
+    await h.read('VPC chọn tài khoản và vùng của chính nó, không dùng Môi trường');
 
-    caption('Bước 3: Đặt điều kiện Theo ứng dụng cho ứng dụng thử rồi đăng ký vpc không có tài khoản');
+    caption('Bước 3: Chọn aws-account, vùng us-east-1, điều kiện Theo ứng dụng rồi đăng ký vpc');
+    await pick(ui('resourceDefinitions', 'account'), 'aws-account');
+    await h.type(ui('resourceDefinitions', 'region'), 'us-east-1');
+    await h.click(page.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
     await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
-    await h.choose(select(/^Ứng dụng(?! mẫu)/), `${NAME} (${appId})`);
+    await h.choose(select(/^Ứng dụng(?! kiểm tra)/), `${NAME} (${appId})`);
     await typeVariablesJson(h, ui, '{"name":"${context.infra.resourceName}","cidr":"10.30.0.0/16"}', { replace: true, delay: 30 });
     await h.click(ui('resourceDefinitions', 'submit'));
     await registered('vpc-t16');
-    expect(posts.at(-1)).toMatchObject({ key: 'vpc-t16', resourceType: 'vpc', driverType: 'terraform', executionProfile: 'aws-eks', connectionKey: '' });
+    expect(posts.at(-1)).toMatchObject({ key: 'vpc-t16', name: 'VPC T16', resourceType: 'vpc', driverType: 'terraform', driverAccount: 'aws-account' });
+    expect(posts.at(-1)).not.toHaveProperty('executionProfile');
+    expect(posts.at(-1)).not.toHaveProperty('connectionKey');
     const vpc = await apiDefinition('vpc-t16');
-    expect(vpc.connectionKey ?? '').toBe('');
-    expect(vpc.criteria).toEqual([{ app_id: appId }]);
-    check('registered vpc-t16 through UI: POST payload and stored Definition have empty connectionKey');
+    expect(vpc).toMatchObject({ name: 'VPC T16', version: 1, driverAccount: 'aws-account', criteria: [{ app_id: appId }] });
+    expect(vpc.driverInputs.values.variables.region).toBe('us-east-1');
+    expect(vpc.driverInputs.values.provider_bindings).toEqual({ aws: { target: 'account' } });
+    expect(vpc).not.toHaveProperty('executionProfile');
+    expect(vpc).not.toHaveProperty('connectionKey');
+    check('registered vpc-t16 through UI: POST and stored Definition carry Name, driverAccount aws-account, literal region us-east-1 and {target: account}; no retired executionProfile/connectionKey');
     mark('vpc-registered');
     await h.pause(SHORT_READ);
 
-    caption('Bước 4: Đăng ký k8s-cluster (module eks) cũng không có tài khoản');
-    await h.type(ui('resourceDefinitions', 'id'), 'eks-t16');
-    await h.choose(ui('resourceDefinitions', 'type'), 'k8s-cluster');
-    await expect(page.locator('code', { hasText: /^eks$/ })).toBeVisible();
-    await expect(ui('resourceDefinitions', 'awsConnection')).toHaveCount(0);
+    caption('Bước 4: Đăng ký k8s-cluster (module eks) với CÙNG tài khoản nhưng vùng eu-west-1 khác: vùng thuộc từng cấu hình');
+    await startAws('eks-t16', 'EKS T16', 'k8s-cluster');
+    await expect(ui('resourceDefinitions', 'account')).toBeVisible();
+    await pick(ui('resourceDefinitions', 'account'), 'aws-account');
+    await h.type(ui('resourceDefinitions', 'region'), 'eu-west-1');
+    await h.click(page.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
     // The seeded EKS Definition matches Class eks; app + Class eks is strictly more specific.
     await h.click(editor.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
     await h.type(editor.getByLabel('Điều kiện 1 ID ứng dụng'), appId);
@@ -3755,88 +3782,83 @@ export const SCENARIOS = {
     await typeVariablesJson(h, ui, eksVars, { replace: true, delay: 5 });
     await h.click(ui('resourceDefinitions', 'submit'));
     await registered('eks-t16');
-    expect(posts.at(-1)).toMatchObject({ key: 'eks-t16', resourceType: 'k8s-cluster', driverType: 'terraform', connectionKey: '' });
-    expect((await apiDefinition('eks-t16')).connectionKey ?? '').toBe('');
-    expect((await apiDefinition('eks-t16')).criteria).toEqual([{ app_id: appId, class: 'eks' }]);
-    check('registered eks-t16 through UI: empty connectionKey');
+    expect(posts.at(-1)).toMatchObject({ key: 'eks-t16', resourceType: 'k8s-cluster', driverType: 'terraform', driverAccount: 'aws-account' });
+    const eks = await apiDefinition('eks-t16');
+    expect(eks.driverInputs.values.variables.region).toBe('eu-west-1');
+    expect(eks.criteria).toEqual([{ app_id: appId, class: 'eks' }]);
+    check('registered eks-t16 through UI: same account as vpc-t16 but its own region eu-west-1');
     mark('eks-registered');
     await h.pause(SHORT_READ);
 
-    caption('Bước 5: Aurora (postgres + Terraform) vẫn bắt buộc chọn Kết nối AWS riêng; thiếu thì bị chặn cục bộ');
-    await h.type(ui('resourceDefinitions', 'id'), 'aurora-t16');
-    await h.choose(ui('resourceDefinitions', 'type'), 'postgres');
-    await h.choose(ui('resourceDefinitions', 'driver'), 'Tạo trên AWS (Terraform)');
-    await expect(ui('resourceDefinitions', 'awsConnection')).toBeVisible();
+    caption('Bước 5: Aurora (postgres, module aurora) bắt buộc chọn tài khoản và vùng; thiếu tài khoản thì bị chặn cục bộ, không gửi gì');
+    await startAws('aurora-t16', 'Aurora T16', 'postgres');
+    await pick(ui('resourceDefinitions', 'module'), 'aurora');
+    await expect(ui('resourceDefinitions', 'account')).toBeVisible();
+    await h.click(page.getByRole('button', { name: 'Ghép đầu vào theo tên trùng', exact: true }));
+    await h.click(page.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
     await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
-    await h.choose(select(/^Ứng dụng(?! mẫu)/), `${NAME} (${appId})`);
+    await h.choose(select(/^Ứng dụng(?! kiểm tra)/), `${NAME} (${appId})`);
     await typeVariablesJson(h, ui, auroraVars, { replace: true, delay: 5 });
     const postsBefore = posts.length;
     await h.click(ui('resourceDefinitions', 'submit'));
-    await expect(page.locator('form .form-error[role="alert"]')).toContainText('Chọn một Kết nối AWS sẵn sàng');
+    await expect(page.locator('form .form-error[role="alert"]')).toContainText('Chọn tài khoản AWS sẵn sàng');
     expect(posts.length).toBe(postsBefore);
     check('Aurora without account: Vietnamese local error, no POST');
     mark('aurora-required');
     await h.moveTo(page.locator('form .form-error[role="alert"]'));
-    await h.read('Aurora cần Kết nối AWS riêng');
+    await h.read('Aurora cần tài khoản AWS riêng');
 
-    caption('Bước 6: Chọn aws-account cho Aurora, đổi sang vpc rồi quay lại: lựa chọn Aurora được giữ nhưng không gửi cho VPC/EKS');
-    await h.choose(ui('resourceDefinitions', 'awsConnection'), 'aws-account');
-    await h.choose(ui('resourceDefinitions', 'type'), 'vpc');
-    await expect(ui('resourceDefinitions', 'awsConnection')).toHaveCount(0);
-    await h.choose(ui('resourceDefinitions', 'type'), 'postgres');
-    await expect(ui('resourceDefinitions', 'driver')).toHaveValue('terraform');
-    await expect(ui('resourceDefinitions', 'awsConnection')).toHaveValue('aws-account');
-    check('type switch vpc <-> postgres keeps the Aurora account selection; VPC shows no selector');
-    mark('aurora-selection-kept');
-    await h.read('Lựa chọn Aurora được giữ khi đổi loại');
-
-    caption('Bước 7: Đăng ký Aurora với Kết nối AWS riêng; sau đó đăng ký lại vpc: payload vẫn rỗng dù vừa chọn tài khoản');
+    caption('Bước 6: Chọn aws-account và vùng ap-southeast-1 cho Aurora rồi đăng ký; mỗi cấu hình AWS giữ tài khoản và vùng của riêng nó');
+    await pick(ui('resourceDefinitions', 'account'), 'aws-account');
+    await h.type(ui('resourceDefinitions', 'region'), 'ap-southeast-1');
     await h.click(ui('resourceDefinitions', 'submit'));
     await registered('aurora-t16');
-    expect(posts.at(-1)).toMatchObject({ key: 'aurora-t16', resourceType: 'postgres', driverType: 'terraform', connectionKey: 'aws-account' });
-    expect((await apiDefinition('aurora-t16')).connectionKey).toBe('aws-account');
-    expect((await apiDefinition('vpc-t16')).connectionKey ?? '').toBe('');
-    await h.type(ui('resourceDefinitions', 'id'), 'vpc-t16-after-aurora');
-    await h.choose(ui('resourceDefinitions', 'type'), 'vpc');
-    await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
-    await h.choose(select(/^Ứng dụng(?! mẫu)/), `${NAME} (${appId})`);
-    // Limited to Production so it never ties with vpc-t16 on the Staging Preview below.
-    const productionLabel = (await select(/^Môi trường \(tùy chọn\)/).locator('option').allTextContents()).find((text) => text.includes('(production)'));
-    expect(productionLabel, 'production environment option').toBeTruthy();
-    await h.choose(select(/^Môi trường \(tùy chọn\)/), productionLabel);
-    await typeVariablesJson(h, ui, '{"name":"${context.infra.resourceName}","cidr":"10.31.0.0/16"}', { replace: true, delay: 30 });
-    await h.click(ui('resourceDefinitions', 'submit'));
-    await registered('vpc-t16-after-aurora');
-    expect(posts.at(-1)).toMatchObject({ key: 'vpc-t16-after-aurora', connectionKey: '' });
-    check('registered aurora-t16 with its own account aws-account; VPC registered afterwards still sends connectionKey ""');
+    expect(posts.at(-1)).toMatchObject({ key: 'aurora-t16', resourceType: 'postgres', driverType: 'terraform', driverAccount: 'aws-account' });
+    const aurora = await apiDefinition('aurora-t16');
+    expect(aurora.driverInputs.values.variables.region).toBe('ap-southeast-1');
+    expect((await apiDefinition('vpc-t16')).driverInputs.values.variables.region).toBe('us-east-1');
+    check('registered aurora-t16 with account aws-account and region ap-southeast-1; vpc-t16 keeps us-east-1 and eks-t16 keeps eu-west-1');
     mark('aurora-registered');
     await h.pause(SHORT_READ);
 
-    caption('SETUP/ASSERTION (API, không phải thao tác sản phẩm): gửi trực tiếp connectionKey khác rỗng cho vpc/eks; API từ chối 400 và không lưu');
+    caption('Bước 7: Đăng ký Mẫu dựng ứng dụng cho ứng dụng thử (mọi Workload cần đúng một mẫu khớp; Tên và phiên bản, không có profile)');
+    await h.click(ui('shell', 'navRenderingTemplates'));
+    await expect(ui('renderingTemplates', 'heading')).toBeVisible();
+    await h.type(ui('renderingTemplates', 'id'), 'tpl-t16');
+    await h.type(page.getByLabel('Tên hiển thị', { exact: true }), 'Mẫu T16');
+    await h.click(editor.getByRole('radio', { name: /Theo ứng dụng/ }));
+    await h.choose(select(/^Ứng dụng(?! kiểm tra)/), `${NAME} (${appId})`);
+    await h.click(ui('renderingTemplates', 'submit'));
+    await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng ứng dụng tpl-t16.' })).toBeVisible();
+    expect(await apiDefinition('tpl-t16')).toMatchObject({ name: 'Mẫu T16', version: 1, resourceType: 'workload', driverType: 'score-k8s', criteria: [{ app_id: appId }] });
+    check('registered tpl-t16 through UI: Name, version 1, score-k8s, criteria app_id only, no profile');
+    mark('template-registered');
+    await h.pause(SHORT_READ);
+
+    caption('SETUP/ASSERTION (API, không phải thao tác sản phẩm): trường đã bỏ, thiếu hoặc sai tài khoản bị API từ chối 400 và không lưu');
     const before = (await apiDefinitions()).length;
-    for (const [type, module] of [['vpc', 'vpc'], ['k8s-cluster', 'eks']]) {
-      for (const [label, connectionKey] of [['aws-account (bằng đích Môi trường)', 'aws-account'], ['không tồn tại', 'khong-ton-tai']]) {
-        const response = await page.request.post(`${baseURL}/api/v1/resource-definitions`, { data: {
-          key: `api-reject-${module}-${connectionKey}`, resourceType: type, executionProfile: 'aws-eks', driverType: 'terraform', connectionKey,
-          driverInputs: { values: { variables: {}, source: { module } } }, criteria: [{}],
-        } });
-        expect(response.status(), `${type} with ${label}`).toBe(400);
-        // T20 contract: stable code + fixed field, no raw message and no echo of the submitted key.
-        const body = await response.json();
-        expect(body.code).toBe('INVALID_REQUEST');
-        expect(body.field).toBe('definition.connectionKey');
-        expect(JSON.stringify(body)).not.toContain(connectionKey);
-        expect(JSON.stringify(body)).not.toContain('leave connectionKey empty');
-      }
+    const base = { name: 'API từ chối', resourceType: 'vpc', driverType: 'terraform', provision: {}, criteria: [{}], driverInputs: vpc.driverInputs };
+    for (const [label, extra, field] of [
+      ['executionProfile đã bỏ', { driverAccount: 'aws-account', executionProfile: 'aws-eks' }, undefined],
+      ['connectionKey đã bỏ', { driverAccount: 'aws-account', connectionKey: 'aws-account' }, undefined],
+      ['thiếu driverAccount', {}, 'definition.driverAccount'],
+      ['driverAccount không tồn tại', { driverAccount: 'khong-ton-tai' }, 'definition.driverAccount'],
+    ]) {
+      const response = await page.request.post(`${baseURL}/api/v1/resource-definitions`, { data: { key: `api-reject-${before}-${label.length}`, ...base, ...extra } });
+      expect(response.status(), label).toBe(400);
+      const body = await response.json();
+      expect(body.code).toBe('INVALID_REQUEST');
+      if (field) expect(body.field).toBe(field);
+      expect(JSON.stringify(body)).not.toContain('khong-ton-tai');
     }
     expect((await apiDefinitions()).length).toBe(before);
-    check('API (setup/assertion): vpc and eks with nonempty keys (equal to the target, nonexistent) -> 400 safe message, nothing inserted');
+    check('API (setup/assertion): retired executionProfile/connectionKey, a missing account and an unknown account -> 400 INVALID_REQUEST without echoing the submitted value; nothing inserted');
     mark('api-reject');
-    await h.read('API từ chối mọi connectionKey khác rỗng cho VPC/EKS');
+    await h.read('API từ chối trường đã bỏ và tài khoản thiếu hoặc sai');
     await h.click(ui('shell', 'signOut'));
     await expect(ui('signIn', 'username')).toBeVisible();
 
-    caption('Bước 8: Nhà phát triển mở Xem trước Score của Staging: đích hiển thị Kết nối aws-account');
+    caption('Bước 8: Nhà phát triển mở Xem trước Score của Staging: đích Môi trường (cách cũ) vẫn hiển thị Kết nối aws-account');
     await h.type(ui('signIn', 'username'), 'developer');
     await h.type(ui('signIn', 'password'), SEEDED_PASSWORD);
     await h.click(ui('signIn', 'submit'));
@@ -3848,9 +3870,9 @@ export const SCENARIOS = {
     await expect(page.getByLabel('Đích triển khai')).toContainText('Kết nối aws-account');
     mark('preview-page');
     await h.moveTo(page.getByLabel('Đích triển khai'));
-    await h.read('Đích triển khai của Staging là Kết nối AWS aws-account');
+    await h.read('Đích Môi trường cũ vẫn hiển thị; tài khoản AWS của cấu hình nằm ở từng node');
 
-    caption('Bước 9: Xem trước workload dùng postgres: VPC/EKS đã đăng ký khớp mà không có tài khoản riêng; Aurora dùng cấu hình đã đăng ký');
+    caption('Bước 9: Xem trước workload dùng postgres: VPC, EKS và Aurora đã đăng ký thắng, mỗi node ghim tài khoản và vùng của cấu hình');
     const score = 'apiVersion: score.dev/v1b1\nmetadata:\n  name: api\ncontainers:\n  main:\n    image: registry.example/api:t16\nresources:\n  db:\n    type: postgres\n    params:\n      database: acceptance\n      username: app\n';
     await h.type(page.getByLabel('ID Workload'), 'api', { replace: true });
     await h.type(page.getByLabel('ID lần chạy'), 'run-t16', { replace: true });
@@ -3858,7 +3880,7 @@ export const SCENARIOS = {
     const previewResponse = page.waitForResponse((response) => response.request().method() === 'POST' && response.url().endsWith('/score-preview'));
     await h.click(page.getByRole('button', { name: 'Xem trước', exact: true }));
     const previewReply = await previewResponse;
-    expect(previewReply.status(), 'score-preview status').toBe(200);
+    expect(previewReply.status(), `score-preview status ${previewReply.status()} ${(await previewReply.text()).slice(0, 300)}`).toBe(200);
     const previews = [await previewReply.json()];
     const result = page.getByRole('region', { name: 'Kết quả xem trước Score' });
     await expect(result).toBeVisible();
@@ -3866,19 +3888,26 @@ export const SCENARIOS = {
     await expect(links).toContainText('vpc-t16');
     await expect(links).toContainText('eks-t16');
     await expect(links).toContainText('aurora-t16');
-    const keys = Object.fromEntries(previews[0].matches.map((match) => [match.definitionKey, match.driverType]));
-    expect(keys).toMatchObject({ 'vpc-t16': 'terraform', 'eks-t16': 'terraform', 'aurora-t16': 'terraform' });
+    const byKey = Object.fromEntries(previews[0].matches.map((match) => [match.definitionKey, match]));
+    expect(byKey).toMatchObject({ 'vpc-t16': { driverType: 'terraform', driverAccount: 'aws-account' }, 'eks-t16': { driverType: 'terraform', driverAccount: 'aws-account' }, 'aurora-t16': { driverType: 'terraform', driverAccount: 'aws-account' } });
+    const intentOf = (key) => (previews[0].resourceIntents ?? []).find((item) => item.definitionKey === key);
+    for (const [key, region] of [['vpc-t16', 'us-east-1'], ['eks-t16', 'eu-west-1'], ['aurora-t16', 'ap-southeast-1']]) {
+      const pin = intentOf(key)?.providers?.find((provider) => provider.kind === 'aws');
+      expect(pin, `${key} AWS pin`).toMatchObject({ target: 'account', connectionKey: 'aws-account', region });
+    }
     expect(JSON.stringify(previews[0])).not.toMatch(/secret|password/i);
-    check('Preview (real backend, fake adapters): winning matches are UI-registered vpc-t16, eks-t16 (no account) and aurora-t16 on Staging bound to aws-account; vpc-t16-after-aurora (Production only) does not tie. NOTE: aws-account is both the Environment target and Aurora\'s explicit key in this run; distinct accounts are covered by backend tests only');
+    check('Preview (real backend, fake adapters): the UI-registered vpc-t16, eks-t16 and aurora-t16 win on Staging and each node pins its own account (aws-account) and region (us-east-1 / eu-west-1 / ap-southeast-1), not the Environment\'s. NOTE: aws-account is also the legacy Environment target in this run; distinct accounts are covered by the V02 recording');
     mark('preview-result');
     await h.moveTo(links);
-    await h.read('Xem trước chọn đúng cấu hình VPC, EKS và Aurora đã đăng ký');
+    await h.read('Xem trước chọn đúng VPC, EKS và Aurora; mỗi node dùng tài khoản và vùng riêng');
     await h.click(ui('shell', 'signOut'));
     await expect(ui('signIn', 'username')).toBeVisible();
     mark('signed-out');
     await h.pause(3000);
   },
 
+  // HISTORICAL (pre-V02 scenario): at the base commit 96eb602, before V02, this scenario already failed at refactor-local.mjs:4003
+  // (the 'Chọn bundle dựng ứng dụng.' alert). Its executionProfile expectation below is stated in V02 terms (the field is retired).
   // T18: bộ chọn bundle dựng ứng dụng từ GET /api/v1/render-bundles. Fake adapters + the T03 score-k8s stub
   // (wrapper passes -score-k8s), so the REAL backend lists exactly one installed bundle and registers/plans for real.
   // MOCKS (page.route, projections of GET /render-bundles only; every POST/Preview stays real): 'empty' (0 bundle),
@@ -4050,7 +4079,8 @@ export const SCENARIOS = {
     await expect(bundle()).toHaveValue(real.id);
     expect(posts).toHaveLength(2);
     const stored = (await definitions()).find((item) => item.key === TEMPLATE);
-    expect(stored).toMatchObject({ resourceType: 'workload', driverType: 'score-k8s', executionProfile: 'internal-k8s', criteria: [{ app_id: appId, env_id: 'staging' }] });
+    expect(stored).toMatchObject({ resourceType: 'workload', driverType: 'score-k8s', criteria: [{ app_id: appId, env_id: 'staging' }] });
+    expect(stored, 'V02: no executionProfile').not.toHaveProperty('executionProfile');
     expect(stored.driverInputs.values.variables).toEqual({ render_bundle: real.id });
     expect(posts[1].driverInputs.values.variables).toEqual({ render_bundle: real.id });
     check(`registered ${TEMPLATE} with render_bundle ${real.id} (payload unchanged shape); a single installed bundle is auto-selected for the next draft`);
@@ -4081,6 +4111,9 @@ export const SCENARIOS = {
     await h.pause(3000);
   },
 
+  // HISTORICAL (pre-V02 scenario): at the base commit 96eb602, before V02, this scenario already failed at refactor-local.mjs:4137 (label 'Cách tạo').
+  // V02 additionally retired the contract some later steps assert (executionProfile/connectionKey, scope preview, Environment AWS
+  // inheritance); those assertions below are stated in V02 terms. The V02 behavior is recorded by v02-definitions-local.mjs (V02).
   // T19: kiểm tra matching chính xác (POST /resource-definitions/matching-preview). Backend thật, fake adapters,
   // JSON state tạm. Mọi bước sản phẩm đi qua UI. MOCK duy nhất: một lần page.route trả 500 cho matching-preview để
   // chứng minh lỗi transport tách khỏi kết quả matching; mọi kết quả matching khác là phản hồi thật của backend.
@@ -4153,7 +4186,8 @@ export const SCENARIOS = {
     await expect(result.getByRole('list', { name: 'Chi tiết từng cấu hình' })).toContainText(/postgres-aws-aurora: không đủ điều kiện/);
     await expect(result).toContainText('Kết quả theo snapshot; hệ thống vẫn kiểm tra lại khi đăng ký và triển khai');
     expect(previews).toHaveLength(1);
-    expect(previews[0].definition).toMatchObject({ key: 'pg-t19-wild', resourceType: 'postgres', driverType: 'kubernetes', executionProfile: 'internal-k8s', criteria: [{}] });
+    expect(previews[0].definition).toMatchObject({ key: 'pg-t19-wild', resourceType: 'postgres', driverType: 'kubernetes', criteria: [{}] });
+    expect(previews[0].definition, 'V02: the preview candidate carries no executionProfile').not.toHaveProperty('executionProfile');
     expect(previews[0].context).toEqual({ applicationId: appId, environmentId: 'staging', resourceId: 'db', class: 'default' });
     expect(Object.keys(previews[0].context).sort()).toEqual(['applicationId', 'class', 'environmentId', 'resourceId']);
     expect(registrations).toHaveLength(0);
@@ -5002,6 +5036,9 @@ export const SCENARIOS = {
     await h.pause(2000);
   },
 
+  // HISTORICAL (pre-V02 scenario): at the base commit 96eb602, before V02, this scenario already failed at refactor-local.mjs:5075 (catalog entry text 'Kubernetes hoặc Terraform/aurora').
+  // V02 additionally retired the contract some later steps assert (executionProfile/connectionKey, scope preview, Environment AWS
+  // inheritance); those assertions below are stated in V02 terms. The V02 behavior is recorded by v02-definitions-local.mjs (V02).
   // T31: form typed theo driver/module. Kỹ sư nền tảng; backend thật + fake adapters; không gọi cloud/cluster/DB ngoài.
   // Developer chỉ thiết lập ứng dụng mẫu (SETUP) để có context cho Kiểm tra matching; mọi bước sản phẩm đi qua UI.
   // MOCK (1): chỉ giả một lỗi 500 của metadata để kiểm tra trạng thái lỗi/Thử lại; mọi phản hồi khác là backend thật.
@@ -5166,7 +5203,9 @@ export const SCENARIOS = {
     await h.type(ui('resourceDefinitions', 'id'), 'aurora-t31');
     await h.choose(ui('resourceDefinitions', 'type'), 'postgres');
     await h.choose(ui('resourceDefinitions', 'driver'), 'Tạo trên AWS (Terraform)');
-    await h.choose(ui('resourceDefinitions', 'awsConnection'), 'aws-account');
+    // V02: Aurora names its own Driver Account and a literal region (no Environment AWS Connection selector).
+    await h.choose(ui('resourceDefinitions', 'account'), (await ui('resourceDefinitions', 'account').locator('option').allTextContents()).find((text) => text.startsWith('aws-account')));
+    await h.type(ui('resourceDefinitions', 'region'), 'us-east-1');
     for (const name of ['name', 'vpc_id', 'vpc_cidr', 'subnet_ids']) await preset(name);
     await override('engine_version');
     await h.type(control('Giá trị engine_version'), '15.4', { replace: true });

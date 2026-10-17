@@ -37,8 +37,13 @@ const (
 
 // Provider binding targets a Definition may declare.
 const (
+	// TargetEnvironment is the legacy Environment-bound Kubernetes target; it
+	// stays until the V03 Generic Workload replacement and is never an AWS
+	// target.
 	TargetEnvironment = "environment"
 	TargetResource    = "resource"
+	// TargetAccount binds an AWS provider to the Definition's Driver Account.
+	TargetAccount = "account"
 )
 
 var (
@@ -453,9 +458,10 @@ func ParseDriverInputs(values map[string]any) (DriverInputs, error) {
 		}
 		switch {
 		case binding.Target == TargetEnvironment && binding.ResourceRef == "":
+		case binding.Target == TargetAccount && binding.ResourceRef == "":
 		case binding.Target == TargetResource && binding.ResourceRef != "":
 		default:
-			return DriverInputs{}, fmt.Errorf("driverInputs.values.provider_bindings.%s must be {target: environment} or {target: resource, resource_ref: <descriptor>}", safeKey(name))
+			return DriverInputs{}, fmt.Errorf("driverInputs.values.provider_bindings.%s must be {target: account}, {target: environment} or {target: resource, resource_ref: <descriptor>}", safeKey(name))
 		}
 		out.ProviderBindings[name] = binding
 	}
@@ -608,13 +614,16 @@ type ProviderPin struct {
 	Name string `json:"name"`
 	// Kind is the release binding kind (BindingAWS or BindingKubernetes).
 	Kind string `json:"kind"`
-	// Target is TargetEnvironment or TargetResource, as declared.
+	// Target is TargetAccount, TargetEnvironment (legacy) or TargetResource, as declared.
 	Target string `json:"target"`
 	// ConnectionKey and ConnectionKind name the Connection that supplies
-	// credentials when the target is the Environment connection.
+	// credentials: the Definition's Driver Account for an AWS binding, the
+	// Environment connection for a legacy Kubernetes binding.
 	ConnectionKey  string `json:"connectionKey,omitempty"`
 	ConnectionKind string `json:"connectionKind,omitempty"`
-	// Region is the Environment AWS region of an AWS binding.
+	// AccountVersion pins the Driver Account version the plan saw.
+	AccountVersion int64 `json:"accountVersion,omitempty"`
+	// Region is the literal Driver Inputs region of an AWS binding.
 	Region string `json:"region,omitempty"`
 	// Provider is the descriptor of the cluster resource node that supplies
 	// the target of a resource binding (the dependency edge points at it).

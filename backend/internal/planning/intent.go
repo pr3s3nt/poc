@@ -93,7 +93,7 @@ func (p *Plan) intentFingerprints() map[string]string {
 			continue // no authored-content evidence (for example an older persisted plan): unverified
 		}
 		hash, err := canon.Hash(map[string]any{
-			"definition": match.DefinitionKey, "driver": match.DriverType, "connection": match.ConnectionKey, "binding": match.Binding,
+			"definition": match.DefinitionKey, "driver": match.DriverType, "connection": match.ConnectionKey, "account": match.DriverAccount, "binding": match.Binding,
 			"type": node.ResourceType, "class": node.Class, "params": node.Params, "bindings": node.Bindings,
 			"authored": evidence, "fingerprint": contract.Fingerprint, "bundle": contract.BundleID, "terraform": contract.TerraformVersion, "lock": contract.ProviderLockDigest,
 			"source": contract.Source, "inputs": contract.Inputs, "outputs": contract.OutputMapping, "secretOutputs": contract.SecretOutputs, "providers": contract.ProviderBindings,
@@ -114,7 +114,7 @@ func intentEvidence(matches map[string]Match, matcher *definitionMatcher) map[st
 		if !ok {
 			continue
 		}
-		hash, err := canon.Hash(map[string]any{"driver": def.DriverType, "profile": def.ExecutionProfile, "connection": def.ConnectionKey, "inputs": def.DriverInputs, "provision": def.Provision})
+		hash, err := canon.Hash(map[string]any{"driver": def.DriverType, "account": def.DriverAccount, "inputs": def.DriverInputs, "provision": def.Provision})
 		if err == nil {
 			out[descriptor] = hash
 		}

@@ -113,11 +113,15 @@ func TestAWSBindingFailsClosedOnAccountRegionAndMissingConnection(t *testing.T) 
 	if _, err := other.Bind(ctx, terraformexec.BindRequest{OrganizationKey: "acme", Pins: []tfmodule.ProviderPin{awsPin}}); !errors.Is(err, terraformexec.ErrProviderBinding) {
 		t.Fatalf("another account's key: %v", err)
 	}
+	// V02: the Definition's literal region is not limited by the account's
+	// verification regions; an empty pinned region is the only region failure.
 	region := awsPin
 	region.Region = "eu-west-1"
-	if _, err := binder(&fakeAPI{account: "123456789012"}).Bind(ctx, terraformexec.BindRequest{OrganizationKey: "acme", Pins: []tfmodule.ProviderPin{region}}); !errors.Is(err, terraformexec.ErrProviderBinding) {
-		t.Fatalf("stale region: %v", err)
+	env, err := binder(&fakeAPI{account: "123456789012"}).Bind(ctx, terraformexec.BindRequest{OrganizationKey: "acme", Pins: []tfmodule.ProviderPin{region}})
+	if err != nil || env.Region != "eu-west-1" {
+		t.Fatalf("a Definition region outside the verification regions: %v %+v", err, env)
 	}
+	_ = env.Close()
 	if _, err := binder(&fakeAPI{account: "123456789012"}).Bind(ctx, terraformexec.BindRequest{OrganizationKey: "globex", Pins: []tfmodule.ProviderPin{awsPin}}); !errors.Is(err, terraformexec.ErrProviderBinding) {
 		t.Fatalf("foreign organization: %v", err)
 	}
@@ -184,7 +188,7 @@ func TestEKSTargetBindingDerivesEndpointAndTokenAndRejectsForeignOrInactive(t *t
 	}
 }
 
-func TestAWSBindingAcceptsAnyAllowedRegionOfTheConnectionAndNoOther(t *testing.T) {
+func TestAWSBindingBindsTheDefinitionRegionNotAnAccountAllowlist(t *testing.T) {
 	ctx := context.Background()
 	conn := awsConn()
 	conn.AllowedRegions = []string{"us-east-1", "eu-west-1"}
@@ -204,9 +208,11 @@ func TestAWSBindingAcceptsAnyAllowedRegionOfTheConnectionAndNoOther(t *testing.T
 	}
 	unlisted := awsPin
 	unlisted.Region = "ap-south-1"
-	if _, err := b().Bind(ctx, terraformexec.BindRequest{OrganizationKey: "acme", Pins: []tfmodule.ProviderPin{unlisted}}); !errors.Is(err, terraformexec.ErrProviderBinding) {
-		t.Fatalf("an unlisted region was accepted: %v", err)
+	other, err := b().Bind(ctx, terraformexec.BindRequest{OrganizationKey: "acme", Pins: []tfmodule.ProviderPin{unlisted}})
+	if err != nil || other.Region != "ap-south-1" {
+		t.Fatalf("a region outside the account verification regions must bind: %v %+v", err, other)
 	}
+	defer other.Close()
 	empty := awsPin
 	empty.Region = ""
 	if _, err := b().Bind(ctx, terraformexec.BindRequest{OrganizationKey: "acme", Pins: []tfmodule.ProviderPin{empty}}); !errors.Is(err, terraformexec.ErrProviderBinding) {

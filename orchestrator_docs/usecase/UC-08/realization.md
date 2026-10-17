@@ -93,10 +93,15 @@ in their existing adapters. No database transaction spans a CLI/external call.
 
 ## Selected Environment connection
 
-Shared snapshot loader resolves persisted Environment target in session
-Organization; UNCONFIGURED fails before planning/execution. Definition guards and
-UC-08 defense-in-depth compare against this Environment connection. Terraform VPC/EKS use the pinned Environment AWS account even though the reusable Definition key is empty; resolve and validate org/kind/READY before execution and persist the effective account in ActiveResource. A malformed conflicting winning Definition fails without fallback. Aurora/ElastiCache cũng dùng Environment account/region; không override. Context,
-version, scope mode and nonsecret target metadata are pinned into hashes/snapshots.
+Shared snapshot keeps legacy Environment graph target until V03. Definition
+ranking follows UC-03 V02-02 without profile filtering; resolve each AWS winner's
+scoped READY Driver Account and Driver Inputs region, not Environment identity.
+Planner, snapshot projection and pre-provision share safe selected identity pins;
+provider invocations privately resolve that account only. Account/type/READY or
+state target conflict fails without fallback. Definition/account version/content
+join Preview hashes and admission stale checks. Mutable catalog edits do not
+change historical plan/resource/cleanup pins, secret refs or module/state identity.
+Context, version, scope and target metadata remain pinned.
 AWS enrichment produces Environment/generation-scoped VPC/EKS only (T27).
 Retired scopes fail closed; current generation-0 identity is preserved under [ADR-011](../../architecture/decisions/ADR-011-environment-execution-binding.md).
 Target changes use ADR-012 versioned admission/transition; runtime READY update is Environment-only.

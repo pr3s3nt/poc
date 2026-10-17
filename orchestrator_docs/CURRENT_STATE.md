@@ -7,6 +7,28 @@ last_reviewed: 2026-10-17
 
 # Current project state
 
+## V02 — Definition authoring và matching, 2026-10-17
+
+Đã triển khai tạo/sửa Definition với Name, version CAS, Driver Inputs, Driver
+Account và region theo từng resource. ID/Resource Type bất biến; bản sửa chỉ
+áp dụng cho Preview/Deploy sau, không sửa snapshot/resource đang chạy. Matcher
+chung năm field, AND/OR và trọng số1/2/4/8/16 phân biệt wildcard, criteria rỗng,
+hòa điểm và không khớp; không lọc executionProfile. Preview phía server hoạt động
+với Environment chưa cấu hình và vô hiệu khi metadata/input đổi.
+
+Các consumer planner/renderer/executor dùng cùng contract; account/version và
+region được pin trước provision. Cleanup thiếu bằng chứng đích trả unknown,
+không đoán account Environment. Kubernetes resource_ref kế thừa cluster; legacy
+system/Environment binding còn giữ đến V03. Chưa triển khai Generic Workload
+vào cluster có sẵn. Baseline SQL/JSON mới không migration dữ liệu cũ.
+
+[Handoff/checks/video](verification/2026-10-17-v02-handoff.md): Go1528tests,
+race530tests/8packages và closure99tests/2packages, frontend687tests, build/vet,
+docs/PlantUML PASS, không bỏ test. UI headed8phút09giây/21phase dùng PostgreSQL
+SCRAM và Vault file-backed thật, AWS verifier mô phỏng. T16 độc lập PASS.
+Docker/kind vẫn không truy cập được; chưa reset retained instance hoặc chạy live
+cloud/cluster. Các runner lịch sử lỗi sẵn được ghi rõ trong handoff.
+
 ## V01 — danh mục tài khoản hạ tầng, 2026-10-17
 
 Đã implement catalog Organization cho PE/Admin: AWS access key và Internal
@@ -24,8 +46,9 @@ build/vet PASS, không bỏ test.
 Video được attach trực tiếp issue#4; SQL và Vault file-backed thật, AWS/Kubernetes
 verifier mô phỏng có nhãn. Không có bằng chứng live AWS/kind cho V01.
 
-V01 giữ consumers/liên kết Environment cũ đến khi V02–V03 thay thế được kiểm
-chứng; chưa thêm Driver Account selection, matching hoặc Driver Inputs V02.
+Tại mốc V01, consumers/liên kết Environment cũ được giữ đến V02–V03.
+Đường Definition đã được thay thế tại V02 mô tả ở trên; legacy cluster binding
+còn giữ đến V03.
 V02–V03 không cần migration dữ liệu cũ theo quyết định người dùng. Baseline SQL/
 JSON không tương thích phải fail rõ; không tự chuyển đổi. Người dùng cho reset
 dữ liệu phát triển cũ, nhưng retained Docker/kind hiện không truy cập được nên

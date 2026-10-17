@@ -900,9 +900,9 @@ func (s *Store) CreateResourceDefinition(ctx context.Context, organizationKey st
 	if _, ok := s.state.ResourceTypes[catalogKey(organizationKey, d.ResourceTypeKey)]; !ok {
 		return fmt.Errorf("%w: resource type %q", persistence.ErrNotFound, d.ResourceTypeKey)
 	}
-	if d.ConnectionKey != "" {
-		if _, ok := s.state.Connections[catalogKey(organizationKey, d.ConnectionKey)]; !ok {
-			return fmt.Errorf("%w: connection %q", persistence.ErrNotFound, d.ConnectionKey)
+	if d.DriverAccount != "" {
+		if _, ok := s.state.Connections[catalogKey(organizationKey, d.DriverAccount)]; !ok {
+			return fmt.Errorf("%w: driver account %q", persistence.ErrNotFound, d.DriverAccount)
 		}
 	}
 	if err := d.Validate(); err != nil {
@@ -914,6 +914,37 @@ func (s *Store) CreateResourceDefinition(ctx context.Context, organizationKey st
 	}
 	s.state.Definitions[key] = d
 	return nil
+}
+
+// UpdateResourceDefinition is the version compare-and-set of UC-03 V02-06. It
+// replaces the editable content and criteria of one Definition when the stored
+// version equals expected and bumps the version by exactly one. The key and the
+// Resource Type are immutable; a stale version is ErrVersionConflict and leaves
+// the stored winner untouched.
+func (s *Store) UpdateResourceDefinition(ctx context.Context, organizationKey string, expected int64, d resource.Definition) (resource.Definition, error) {
+	defer s.lock(ctx)()
+	key := catalogKey(organizationKey, d.Key)
+	current, ok := s.state.Definitions[key]
+	if !ok {
+		return resource.Definition{}, fmt.Errorf("%w: resource definition %q", persistence.ErrNotFound, d.Key)
+	}
+	if current.ResourceTypeKey != d.ResourceTypeKey {
+		return resource.Definition{}, fmt.Errorf("%w: the resource type of definition %q is immutable", persistence.ErrNotFound, d.Key)
+	}
+	if d.DriverAccount != "" {
+		if _, ok := s.state.Connections[catalogKey(organizationKey, d.DriverAccount)]; !ok {
+			return resource.Definition{}, fmt.Errorf("%w: driver account %q", persistence.ErrNotFound, d.DriverAccount)
+		}
+	}
+	if current.Version != expected {
+		return resource.Definition{}, fmt.Errorf("%w: resource definition %q", persistence.ErrVersionConflict, d.Key)
+	}
+	d.Version = current.Version + 1
+	if err := d.Validate(); err != nil {
+		return resource.Definition{}, err
+	}
+	s.state.Definitions[key] = d
+	return d, nil
 }
 
 // SaveResourceDefinition registers a Resource Definition for one Organization.

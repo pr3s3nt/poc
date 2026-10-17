@@ -3,6 +3,9 @@ package resource
 import (
 	"fmt"
 	"sort"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // DriverType selects the executor adapter used to provision a resource.
@@ -94,16 +97,43 @@ type ProvisionRule struct {
 }
 
 // Definition is a Resource Definition: how a Resource Type is implemented (UC-03).
+//
+// Key is the immutable technical ID, Name the editable display text. Version is
+// the positive compare-and-set counter of UC-03 V02-06. DriverAccount is the
+// key of the scoped Driver Account (Connection) that supplies cloud identity
+// when the driver needs one; it is never inferred from the Environment.
 type Definition struct {
-	Key              string                   `json:"key"`
-	ResourceTypeKey  string                   `json:"resourceType"`
-	ExecutionProfile string                   `json:"executionProfile,omitempty"`
-	DriverType       DriverType               `json:"driverType"`
-	ConnectionKey    string                   `json:"connectionKey,omitempty"`
-	DriverInputs     map[string]any           `json:"driverInputs,omitempty"`
-	Provision        map[string]ProvisionRule `json:"provision,omitempty"`
-	Criteria         []Criterion              `json:"criteria"`
-	SourceFingerpr   string                   `json:"sourceFingerprint,omitempty"`
+	Key             string                   `json:"key"`
+	Name            string                   `json:"name"`
+	ResourceTypeKey string                   `json:"resourceType"`
+	DriverType      DriverType               `json:"driverType"`
+	DriverAccount   string                   `json:"driverAccount,omitempty"`
+	DriverInputs    map[string]any           `json:"driverInputs,omitempty"`
+	Provision       map[string]ProvisionRule `json:"provision,omitempty"`
+	Criteria        []Criterion              `json:"criteria"`
+	SourceFingerpr  string                   `json:"sourceFingerprint,omitempty"`
+	Version         int64                    `json:"version"`
+}
+
+// MaxDefinitionNameLength bounds the display Name of a Definition.
+const MaxDefinitionNameLength = 253
+
+// ValidateName reports why a display Name is unusable: it must be non-empty
+// after trimming, at most MaxDefinitionNameLength characters and free of
+// control characters (UC-03 V02-01).
+func ValidateName(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("name is empty")
+	}
+	if utf8.RuneCountInString(name) > MaxDefinitionNameLength {
+		return fmt.Errorf("name is longer than %d characters", MaxDefinitionNameLength)
+	}
+	for _, r := range name {
+		if unicode.IsControl(r) {
+			return fmt.Errorf("name contains a control character")
+		}
+	}
+	return nil
 }
 
 // DriverValues returns `driverInputs.values`, the Humanitec container for the
@@ -156,8 +186,11 @@ func (d Definition) Validate() error {
 	if d.ResourceTypeKey == "" {
 		return fmt.Errorf("resource: definition %q has no resource type", d.Key)
 	}
-	if d.ExecutionProfile != "" && d.ExecutionProfile != "internal-k8s" && d.ExecutionProfile != "aws-eks" {
-		return fmt.Errorf("resource: definition %q has unknown execution profile %q", d.Key, d.ExecutionProfile)
+	if err := ValidateName(d.Name); err != nil {
+		return fmt.Errorf("resource: definition %q: %v", d.Key, err)
+	}
+	if d.Version < 1 {
+		return fmt.Errorf("resource: definition %q has no positive version", d.Key)
 	}
 	switch d.DriverType {
 	case DriverTerraform, DriverKubernetes, DriverExistingCluster, DriverEcho, DriverScoreK8s:

@@ -56,7 +56,6 @@
     }
   ],
   "executorVariables": [
-    "region",
     "tags",
     "master_password",
     "password"

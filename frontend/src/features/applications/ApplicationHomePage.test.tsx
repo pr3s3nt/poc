@@ -515,7 +515,7 @@ it('shows the safe Preview projection: renderer, pinned target and account, modu
   expect(rows[0]).toHaveTextContent('aurora-prod');
   expect(rows[0]).toHaveTextContent('aurora · v3-2026.10.13');
   expect(rows[0]).toHaveTextContent('sha256:aaaaaaaaaaaa');
-  expect(rows[0]).toHaveTextContent('aws: Kết nối AWS của Môi trường aws-prod · vùng us-east-1');
+  expect(rows[0]).toHaveTextContent('aws: tài khoản AWS của cấu hình aws-prod · vùng us-east-1');
   expect(rows[0]).toHaveTextContent('Tạo mới');
   expect(rows[1]).toHaveTextContent('Giữ nguyên (đã xác minh không đổi');
   expect(rows[2]).toHaveTextContent('Nền tảng (liên kết hệ thống)');

@@ -307,6 +307,13 @@ func (s *Service) checkPins(st *execState) error {
 // targetSnapshot is the immutable nonsecret target history of an instance.
 func targetSnapshot(pins []tfmodule.ProviderPin, targets map[string]execution.Target, accountID, region string) (map[string]any, error) {
 	sorted := append([]tfmodule.ProviderPin(nil), pins...)
+	// The Driver Account version is an operational CAS counter (rename, verify,
+	// same-target credential replacement). It guards Preview/admission but is not
+	// part of the physical destination, so it never enters the durable target
+	// identity: a version-only account change must not force replacement.
+	for i := range sorted {
+		sorted[i].AccountVersion = 0
+	}
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Name < sorted[j].Name })
 	provider := map[string]any{}
 	for descriptor, t := range targets {

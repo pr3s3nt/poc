@@ -2,11 +2,16 @@
 id: UC-03-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 related: UC-03
 ---
 
 # UC-03 UI states
+
+V02 sections below own current authoring/edit/account/matching behavior under
+UC-03 V02-01..09. Earlier T02–T31 descriptions remain only for unchanged typed
+inputs/interaction details; their profile/Environment AWS/insert-only/client-only
+preview requirements are superseded. Predecessor is available at commit96eb602.
 
 - Loading: đang tải Resource Types và Definitions.
 - Empty: chưa có Definition; form vẫn dùng được nếu có Resource Type.
@@ -114,3 +119,13 @@ chứng; retry giữ edits, không thay bằng default hay replay mutation. Know
 input/provider/integrity error dùng code/field an toàn. BUSY giữ dữ liệu đang
 sửa; stale yêu cầu review/Preview mới. Progress lấy persisted stage/attempt,
 không raw CLI/state/secret; interruption không được coi là cleanup thành công.
+
+## V02 replacements
+
+Apply UC-03 V02-01..09: loading/error/empty capabilities and account lists are
+distinct; no invented default driver/account. Account/type/region errors keep
+draft. Edit starts from loaded version; ID/type immutable; stale409 preserves
+local draft and requires explicit reload/review. Unknown mutation outcome does
+not auto-resubmit. Saved/reload-error remains saved and Retry only GETs catalog.
+Matching results/pending replies invalidate on Name/driver/account/region/inputs/
+criteria/provision/context/session/metadata change; no client-side winner.

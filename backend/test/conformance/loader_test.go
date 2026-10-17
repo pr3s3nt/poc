@@ -125,7 +125,7 @@ func TestProductPlannerRejectsCriteriaLessDefinition(t *testing.T) {
 		req := fixture.Request
 		req.Catalog.Definitions = append(append([]resource.Definition(nil), req.Catalog.Definitions...),
 			resource.Definition{
-				Key:             "no-criteria",
+				Key: "no-criteria", Name: "no-criteria", Version: 1,
 				ResourceTypeKey: planning.TypeNamespace,
 				DriverType:      resource.DriverEcho,
 				Criteria:        criteria,

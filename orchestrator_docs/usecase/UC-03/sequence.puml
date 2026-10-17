@@ -37,12 +37,12 @@ PE -> API: POST matching-preview(candidate, explicit context)
 API -> API: Authenticate session org and PE/Admin
 API -> Service: PreviewMatching(ctx, org, query)
 Service -> Service: ReadSnapshot scoped app/env/target/types/definitions\nReplace same-key candidate only in memory
-Service -> Service: BestCriterion + profile eligibility + ConnectionMismatch\nNo registration/inspection/admission/write
+Service -> Service: BestCriterion (five fields only) + winner account validation\nNo registration/inspection/admission/write
 Service --> API: incomplete or winner/ties/conflict + snapshot marker
 API --> PE: 200 safe snapshot result
 end
 
-PE -> API: RegisterResourceDefinition(document, optional profile) [MS-01..MS-02]
+PE -> API: Create or Update Definition(document, expected version) [MS-01..MS-02]
 API -> Service: RegisterResourceDefinition(ctx, command)
 Service -> Validator: Validate() [MS-03, BR-07]
 Validator --> Service: valid
@@ -53,10 +53,10 @@ end note
 Service -> Service: Reject public existing-cluster and reserved keys [BR-08, BR-17]
 Service -> TypeRepo: ListResourceTypes(orgID) [MS-04]
 TypeRepo --> Service: ResourceType
-Service -> Service: Reject AWS account/region override [BR-08]
+Service -> Service: Validate scoped READY driverAccount and Driver Inputs region [V02-03]
 note right of Service: Symbolic provider registration needs no Environment.
-opt Optional Kubernetes explicit connection
-Service -> ConnectionRepo: GetConnection(connectionID) + READY/org check [MS-04]
+opt Driver requires selected account
+Service -> ConnectionRepo: GetConnection(driverAccount) + READY/org/kind check [MS-04]
 ConnectionRepo --> Service: Connection
 end
 Service -> Service: validate Driver Inputs shape/types/placeholders\nand references/provision rules [MS-05, BR-11..BR-14]
@@ -71,15 +71,14 @@ else infrastructure Definition
 end
 Service -> DefinitionRepo: ListResourceDefinitions(orgID) [MS-06]
 DefinitionRepo --> Service: no duplicate ID
-Service -> DefinitionRepo: CreateResourceDefinition(orgID, definition) <<transaction>> [MS-08]
+Service -> DefinitionRepo: Create or CAS Update Definition + criteria + bundle <<transaction>> [MS-08]
 DefinitionRepo --> Service: ResourceDefinition
 Service --> API: ResourceDefinition [MS-09]
 API --> PE: Registered
 note right of DefinitionRepo
-Insert-only Definition and criteria in one transaction.
-Concurrent duplicate cannot replace either.
-Planning first filters by Definition profile,
-then scores the five standard criteria.
+Create version1; edit CAS version + 1 atomically.
+ID/type immutable; historical snapshots unchanged.
+Planning scores five fields without profile filter.
 end note
 
 @enduml

@@ -60,7 +60,7 @@ func newHarness(t *testing.T, mutate ...func(*bootstrap.Options)) *harness {
 	if err := app.Store.SaveConnection(ctx, conn); err != nil {
 		t.Fatal(err)
 	}
-	def := resource.Definition{Key: "cluster-internal-" + destKey, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, ConnectionKey: destKey,
+	def := resource.Definition{Key: "cluster-internal-" + destKey, Name: "cluster-internal-" + destKey, Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, DriverAccount: destKey,
 		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
 		Criteria:     []resource.Criterion{{Class: "internal", ResourceID: "connections." + destKey}}}
 	if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {

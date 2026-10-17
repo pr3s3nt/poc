@@ -2,11 +2,16 @@
 id: UC-03-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 related: UC-03
 ---
 
 # UC-03 UI screens
+
+V02 sections below own current authoring/edit/account/matching behavior under
+UC-03 V02-01..09. Earlier T02–T31 descriptions remain only for unchanged typed
+inputs/interaction details; their profile/Environment AWS/insert-only/client-only
+preview requirements are superseded. Predecessor is available at commit96eb602.
 
 Trang Cấu hình tài nguyên liệt kê cấu hình thuộc Organization hiện tại, gồm
 ID, loại tài nguyên, phạm vi triển khai, driver và số điều kiện áp dụng. Không
@@ -107,3 +112,26 @@ và chiều consumer → provider (is_dependent đảo vai trò parent/companion
 match_dependents nối consumers tới companion); advanced JSON giữ cases phức tạp.
 Không tự Preview/provision khi đổi form. CTA/prefill chỉ được bật khi metadata
 và catalog cùng xác nhận cặp supported.
+
+## V02 — authoritative replacement of legacy authoring controls
+
+UC-03 V02-01..09 owns behavior. List/form show Definition ID, Name, Resource
+Type, supported Driver Type, Driver Inputs, Driver Account and five-field
+criteria. No executionProfile selector, client-only scope preview, account
+applicability or Environment AWS inheritance. Label Definition ID separately
+from Resource ID (res_id) criteria. Explain AND within row, OR across rows,
+missing criteria versus explicit wildcard. Only server preview declares winner.
+
+AWS driver shows scoped compatible READY account selector and region in typed
+Driver Inputs. Kubernetes dependency-bound driver shows inherited cluster source,
+not another account selector; retained Environment target is visibly legacy.
+Keep typed/advanced variables, mappings, verified module pins, references and
+provision flags losslessly. Backend capability metadata is authoritative.
+
+Edit opens current Name/config/version; ID/type read-only. Save is explicit;
+no resource mutation. Success reloads catalog, failure keeps edits; 409 prompts
+reload/review without retry mutation. Explain subsequent Preview/Deploy uses new
+config while existing deployed snapshot stays unchanged. Rendering templates
+consume same Name/version/profile-free Definition contract; no Generic Workload
+lifecycle UI in V02. Preview shows winner/reason/criterion/score, account/region
+or inherited cluster source, distinct no-match/ties/conflict; all edits stale it.

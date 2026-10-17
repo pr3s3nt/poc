@@ -11,6 +11,7 @@ import (
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/ports/persistence/persistencetest"
 	"orchestrator/internal/seed"
@@ -325,6 +326,65 @@ func TestCurrentGenerationAndHistoricalTargetsReopenUnchanged(t *testing.T) {
 		}
 		if again, _ := os.ReadFile(path); string(again) != string(written) {
 			t.Fatalf("%s: reopen and persist changed the snapshot", name)
+		}
+	}
+}
+
+// UC-03 V02-08: a persisted Resource Definition needs an explicit current Name
+// and positive version and no retired profile/Connection field. Nothing is
+// inferred from the ID, defaulted or migrated; the file is never rewritten.
+func TestOldOrIncompleteDefinitionStateRequiresReset(t *testing.T) {
+	cases := map[string]func(map[string]any){
+		"no name":               func(r map[string]any) { delete(r, "name") },
+		"blank name":            func(r map[string]any) { r["name"] = "  " },
+		"no version":            func(r map[string]any) { delete(r, "version") },
+		"zero version":          func(r map[string]any) { r["version"] = 0 },
+		"retired profile":       func(r map[string]any) { r["executionProfile"] = "aws-eks" },
+		"retired connectionKey": func(r map[string]any) { r["connectionKey"] = "aws-account" },
+		"foreign account":       func(r map[string]any) { r["driverAccount"] = "nowhere" },
+	}
+	for name, change := range cases {
+		path, _ := seededSnapshot(t)
+		raw := mutateSnapshot(t, path, editOne(t, "resourceDefinitions", nil, change))
+		st, err := NewWithSnapshot(path)
+		if st != nil || !errors.Is(err, ErrResetRequired) || strings.Contains(err.Error(), "aws-account") || strings.Contains(err.Error(), "nowhere") {
+			t.Fatalf("%s: store=%v err=%v", name, st, err)
+		}
+		if after, _ := os.ReadFile(path); string(after) != string(raw) {
+			t.Fatalf("%s: snapshot rewritten", name)
+		}
+	}
+}
+
+// A saved edit survives reopen with its Name, version, account and criteria.
+func TestDefinitionEditSurvivesReopenInTheJSONSnapshot(t *testing.T) {
+	path, opts := seededSnapshot(t)
+	ctx := context.Background()
+	st, err := NewWithSnapshot(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defs, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
+	var target = defs[0]
+	for _, d := range defs {
+		if d.Key == "postgres-internal-statefulset" {
+			target = d
+		}
+	}
+	target.Name = "Đã đổi tên"
+	target.Criteria = append(target.Criteria, resource.Criterion{Class: "extra"})
+	saved, err := st.UpdateResourceDefinition(ctx, opts.OrganizationKey, target.Version, target)
+	if err != nil || saved.Version != target.Version+1 {
+		t.Fatalf("update: %+v %v", saved, err)
+	}
+	reopened, err := NewWithSnapshot(path)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	after, _ := reopened.ListResourceDefinitions(ctx, opts.OrganizationKey)
+	for _, d := range after {
+		if d.Key == target.Key && (d.Name != "Đã đổi tên" || d.Version != saved.Version || len(d.Criteria) != 2) {
+			t.Fatalf("reopened = %+v", d)
 		}
 	}
 }

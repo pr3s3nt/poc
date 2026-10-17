@@ -18,7 +18,7 @@ func TestRegisterEKSDefinitionRequiresExplicitIPv4HostAllowlist(t *testing.T) {
 	register := func(key string, cidrs any) error {
 		def := seededDefinition(t, opts, "cluster-aws-eks")
 		def.Key = key
-		def.ExecutionProfile, def.Criteria = "aws-eks", []resource.Criterion{{Class: key}}
+		def.Criteria = []resource.Criterion{{Class: key}}
 		values := def.DriverInputs["values"].(map[string]any)
 		variables := map[string]any{}
 		for name, value := range values["variables"].(map[string]any) {

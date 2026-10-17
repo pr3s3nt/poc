@@ -79,10 +79,28 @@ func (b *graphBuilder) expandProviderBindings(node *Node, def resource.Definitio
 	return nil
 }
 
+// awsAccountPin resolves the Driver Account and literal region an AWS binding
+// of def uses (UC-03 V02-03). Environment identity is never a fallback and the
+// account's verification regions are not an allowlist.
+func (b *graphBuilder) awsAccountPin(def resource.Definition) (application.Connection, string, error) {
+	if def.DriverAccount == "" {
+		return application.Connection{}, "", fmt.Errorf("%w: definition %q has no driver account", ErrAccountConflict, def.Key)
+	}
+	account, ok := b.catalog.Accounts[def.DriverAccount]
+	if !ok || account.OrganizationKey != b.ctx.OrganizationKey || account.Kind != application.ConnectionAWS || account.Status != application.ConnectionReady {
+		return application.Connection{}, "", fmt.Errorf("%w: definition %q needs a READY AWS driver account of this organization", ErrAccountConflict, def.Key)
+	}
+	region, ok := def.DefinitionRegion()
+	if !ok || !resource.ValidAWSRegion(region) {
+		return application.Connection{}, "", fmt.Errorf("planning: definition %q has no literal AWS region in its driver inputs", def.Key)
+	}
+	return account, region, nil
+}
+
 // providerPins resolves and pins the scoped target metadata of every
 // provider binding of one Terraform node. It checks the target exists and has
-// the required kind: AWS needs an aws-eks Environment with its AWS
-// Connection; Kubernetes needs a cluster node already in the graph. A
+// the required kind: AWS needs the Definition's READY AWS Driver Account and
+// literal region; Kubernetes needs a cluster node already in the graph. A
 // configurable provider without a binding is refused.
 func (b *graphBuilder) providerPins(node *Node, def resource.Definition, contract ModuleContract) ([]tfmodule.ProviderPin, error) {
 	if contract.ProviderKinds == nil {
@@ -107,10 +125,17 @@ func (b *graphBuilder) providerPins(node *Node, def resource.Definition, contrac
 		pin := tfmodule.ProviderPin{Name: name, Kind: kind, Target: binding.Target, Profile: string(env.Profile), Generation: env.TargetGeneration}
 		switch kind {
 		case tfmodule.BindingAWS:
-			if env.Profile != application.ProfileAWSEKS || b.ctx.Connection.Kind != application.ConnectionAWS || b.ctx.Connection.Key != env.ConnectionKey {
-				return nil, fmt.Errorf("planning: %s provider binding %s needs an aws-eks Environment with its AWS Connection", node.Descriptor, name)
+			if _, mapped := inputs.InputMapping["region"]; mapped {
+				return nil, fmt.Errorf("planning: %s provider binding %s: the AWS region cannot come from a Resource Type input", node.Descriptor, name)
 			}
-			pin.ConnectionKey, pin.ConnectionKind, pin.Region = env.ConnectionKey, string(application.ConnectionAWS), env.Region
+			account, region, err := b.awsAccountPin(def)
+			if err != nil {
+				return nil, fmt.Errorf("planning: %s provider binding %s: %w", node.Descriptor, name, err)
+			}
+			if binding.Target != tfmodule.TargetAccount {
+				return nil, fmt.Errorf("planning: %s provider binding %s must target the definition's driver account", node.Descriptor, name)
+			}
+			pin.ConnectionKey, pin.ConnectionKind, pin.Region, pin.AccountVersion = account.Key, string(application.ConnectionAWS), region, account.Version
 		case tfmodule.BindingKubernetes:
 			provider, err := b.clusterProvider(node, binding)
 			if err != nil {

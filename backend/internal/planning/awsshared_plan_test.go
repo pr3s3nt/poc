@@ -43,8 +43,10 @@ func awsSharedRequest(t *testing.T) planning.Request {
 		"vpc_id": infra("id"), "subnet_ids": infra("subnetIds"), "private_subnet_ids": infra("privateSubnetIds"),
 		"engine_version": "7.1", "node_type": "cache.t4g.micro",
 	}, nil, []string{"host", "port", "username", "password", "tls"})
-	elasticache.ExecutionProfile = "aws-eks"
-	elasticache.DriverInputs["values"].(map[string]any)["provider_bindings"] = map[string]any{"aws": map[string]any{"target": tfmodule.TargetEnvironment}}
+	elasticache.DriverAccount = o.CloudConnectionKey
+	elasticache.DriverInputs["values"].(map[string]any)["variables"].(map[string]any)["region"] = o.Region
+	elasticache.DriverInputs["values"].(map[string]any)["provider_bindings"] = map[string]any{"aws": map[string]any{"target": tfmodule.TargetAccount}}
+	catalog.Accounts = map[string]application.Connection{o.CloudConnectionKey: {Key: o.CloudConnectionKey, Name: "AWS", OrganizationKey: o.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionReady, Version: 1}}
 	catalog.Definitions = append(catalog.Definitions, elasticache)
 
 	scoreMap := seed.AcceptanceScores(o)["backend"]

@@ -6,42 +6,13 @@ import (
 	"sort"
 
 	"orchestrator/internal/domain/application"
-	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 )
 
-// ErrConnectionMismatch reports a Definition whose explicit Connection differs
-// from the Environment binding (UC-06 BR-20, module contract). The selected
-// target is never silently replaced.
-var ErrConnectionMismatch = errors.New("planning: definition connection differs from the environment connection")
-
-// ConnectionMismatch reports whether def would retarget the Application's
-// saved Connection. Registration forbids a Connection on AWS modules, so any
-// explicit Connection that is not the Environment's own is a mismatch.
-func ConnectionMismatch(env environment.Environment, def resource.Definition) bool {
-	if def.ConnectionKey == "" || def.ConnectionKey == env.ConnectionKey {
-		return false
-	}
-	// A Terraform module takes no Connection of its own on AWS; a Kubernetes
-	// module may name one only if it is the Environment's own target (module
-	// contract, UC-03 BR-08). Existing-cluster/static Kubernetes Definitions
-	// keep the same rule.
-	switch def.DriverType {
-	case resource.DriverExistingCluster, resource.DriverKubernetes, resource.DriverTerraform:
-		return true
-	}
-	return false
-}
-
-// checkApplicationConnection validates the winning Definition. Matching order,
-// specificity and ties are unchanged; this only rejects the winner.
-func checkEnvironmentConnection(env environment.Environment, def resource.Definition) error {
-	if !ConnectionMismatch(env, def) {
-		return nil
-	}
-	return stageErr(StageCatalog, fmt.Errorf("%w: definition %q uses connection %q but environment %q of application %q is bound to %q",
-		ErrConnectionMismatch, def.Key, def.ConnectionKey, env.Key, env.ApplicationKey, env.ConnectionKey))
-}
+// ErrAccountConflict reports a unique winning Definition whose Driver Account
+// is missing, foreign, not READY or of the wrong kind. The winner is never
+// replaced by another candidate (UC-03 V02-02).
+var ErrAccountConflict = errors.New("planning: the winning definition's driver account is unavailable")
 
 var (
 	errNoMatch   = errors.New("no match")
@@ -134,51 +105,26 @@ func (m *definitionMatcher) match(node *Node) (Match, error) {
 		Class:           node.Class,
 	}
 
-	type candidate struct {
-		def       resource.Definition
-		criterion resource.Criterion
-		score     int
-	}
-	var best []candidate
-	bestScore := -1
-
-	for _, def := range m.list {
-		if def.ResourceTypeKey != node.ResourceType || (def.ExecutionProfile != "" && def.ExecutionProfile != string(m.ctx.Env.Profile)) {
-			continue
-		}
-		criterion, score, ok := def.BestCriterion(ctx)
-		if !ok {
-			continue
-		}
-		if score > bestScore {
-			bestScore, best = score, nil
-		}
-		if score == bestScore {
-			best = append(best, candidate{def: def, criterion: criterion, score: score})
-		}
-	}
-
-	switch len(best) {
+	ranking := resource.Rank(m.list, node.ResourceType, ctx, nil)
+	switch len(ranking.Top) {
 	case 0:
 		return Match{}, &matchError{kind: errNoMatch, msg: fmt.Sprintf("planning: no resource definition matches %s (type %q, class %q)",
 			node.Descriptor, node.ResourceType, node.Class)}
 	case 1:
-		def := best[0].def
-		if err := checkEnvironmentConnection(m.ctx.Env, def); err != nil {
-			return Match{}, err
-		}
+		win := ranking.Top[0]
 		return Match{
-			Descriptor:    node.Descriptor,
-			DefinitionKey: def.Key,
-			DriverType:    def.DriverType,
-			ConnectionKey: def.ConnectionKey,
-			Specificity:   best[0].score,
-			Criterion:     best[0].criterion,
+			Descriptor:        node.Descriptor,
+			DefinitionKey:     win.Definition.Key,
+			DriverType:        win.Definition.DriverType,
+			DefinitionVersion: win.Definition.Version,
+			DriverAccount:     win.Definition.DriverAccount,
+			Specificity:       win.Score,
+			Criterion:         win.Criterion,
 		}, nil
 	default:
-		keys := make([]string, 0, len(best))
-		for _, c := range best {
-			keys = append(keys, c.def.Key)
+		keys := make([]string, 0, len(ranking.Top))
+		for _, c := range ranking.Top {
+			keys = append(keys, c.Definition.Key)
 		}
 		sort.Strings(keys)
 		return Match{}, &matchError{kind: errAmbiguous, msg: fmt.Sprintf("planning: ambiguous match for %s between %v", node.Descriptor, keys)}

@@ -64,6 +64,11 @@ func TestDefinitionCapabilitiesAuthShapeAndNoWrites(t *testing.T) {
 			Module        string           `json:"module"`
 			Variables     []map[string]any `json:"variables"`
 			ExecutorOwned []string         `json:"executorOwned"`
+			Account       struct {
+				Required       bool   `json:"required"`
+				Type           string `json:"type"`
+				RegionVariable string `json:"regionVariable"`
+			} `json:"account"`
 		} `json:"capabilities"`
 	}
 	if err := json.Unmarshal([]byte(body), &got); err != nil {
@@ -83,8 +88,26 @@ func TestDefinitionCapabilitiesAuthShapeAndNoWrites(t *testing.T) {
 					t.Fatalf("unexpected public field %q", key)
 				}
 			}
-			if name := v["name"]; name == "region" || name == "tags" || name == "master_password" {
+			if name := v["name"]; name == "tags" || name == "master_password" {
 				t.Fatalf("executor-owned %v exposed", name)
+			}
+		}
+		// UC-03 V02-03: the server publishes the account/region requirement per pair.
+		switch c.Module {
+		case "eks", "vpc", "aurora", "elasticache":
+			if !c.Account.Required || c.Account.Type != "AWS" || c.Account.RegionVariable != "region" {
+				t.Fatalf("%s account requirement = %+v", c.Module, c.Account)
+			}
+			region := false
+			for _, v := range c.Variables {
+				region = region || (v["name"] == "region" && v["required"] == true)
+			}
+			if !region {
+				t.Fatalf("%s must expose a required editable region", c.Module)
+			}
+		default:
+			if c.Account.Required {
+				t.Fatalf("%s must not require an account: %+v", c.Module, c.Account)
 			}
 		}
 	}

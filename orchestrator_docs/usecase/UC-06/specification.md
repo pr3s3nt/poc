@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # UC-06 — Deploy Workload
@@ -228,13 +228,15 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 
 ## Environment connection binding
 
-- **BR-20:** Mọi execution pin Connection/account/region/target generation
-  của Environment trong Organization. AWS Definition không override account/
-  region, kể cả database/cache. Kubernetes dùng scoped KUBECONFIG hoặc target
-  EKS đã provision. Binding conflict/state target khác bị từ chối, không host/
-  default fallback hay đổi winner. Chỉ ENVIRONMENT infrastructure scope hợp lệ;
-  system internal cluster ADR-013 giữ scope tham chiếu riêng. Effective target
-  nhất quán giữa Plan, executor và persisted resource; UNCONFIGURED chặn trước call.
+- **BR-20:** AWS execution pins account/region from each winning Definition
+  under UC-03 V02-03/09, never from Environment or host. Same weighted matcher
+  as server matching preview, without profile eligibility. Kubernetes consumer
+  inherits scoped dependency target; explicit legacy Environment binding and
+  system cluster ADR-013 remain until V03. Account/Definition edits stale prior
+  Preview and never rewrite historical plan/resource/cleanup pins. Wrong winning
+  account, stale identity or persisted state target mismatch fails before call,
+  without another winner/fallback. Scope/generation/ownership/fencing remain.
+  No invariant requires all nodes to share account/region/cluster.
 
 ## Editable destination and transition consistency (ADR-012)
 

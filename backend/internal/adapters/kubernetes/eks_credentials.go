@@ -72,7 +72,7 @@ func (s *TargetCredentials) ResolveKubeconfig(ctx context.Context, target execut
 		return nil, ErrCredentialTarget
 	}
 	conn, err := s.AWS.ResolveAWS(ctx, target.Organization, target.Connection)
-	if err != nil || conn.ConnectionKey != target.Connection || !conn.AllowsRegion(target.Region) {
+	if err != nil || conn.ConnectionKey != target.Connection {
 		return nil, ErrCredentialTarget
 	}
 	conn.Region = target.Region

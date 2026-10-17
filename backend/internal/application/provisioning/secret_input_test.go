@@ -73,9 +73,9 @@ func runClassified(t *testing.T, typeSecret, moduleSensitive, runtimeSensitive b
 	saveAWSConnections(t, app, org, "aws-a")
 	refs, _ := registry.PackagedRefs()
 	pinned := func(key, typ string, variables map[string]any, mapping map[string]any, outputs map[string]any) resource.Definition {
-		return resource.Definition{Key: key, ResourceTypeKey: typ, DriverType: resource.DriverTerraform, ExecutionProfile: "aws-eks", Criteria: []resource.Criterion{{}},
+		return resource.Definition{Key: key, Name: key, Version: 1, ResourceTypeKey: typ, DriverType: resource.DriverTerraform, DriverAccount: "aws-a", Criteria: []resource.Criterion{{}},
 			DriverInputs: map[string]any{"values": map[string]any{"source": refs["vpc"].Map(), "variables": variables, "input_mapping": mapping, "output_mapping": outputs,
-				"provider_bindings": map[string]any{"aws": map[string]any{"target": "environment"}}}}}
+				"provider_bindings": map[string]any{"aws": map[string]any{"target": "account"}}}}}
 	}
 	provider := pinned("db-def", "db", map[string]any{}, map[string]any{}, map[string]any{"h": "host", "pw": "password"})
 	consumerVars := map[string]any{}

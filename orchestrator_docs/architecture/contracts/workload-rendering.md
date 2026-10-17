@@ -46,15 +46,16 @@ Definition content hash, but it is **not** compared with the installed bundle at
 planning or Deploy. After upgrade A → B the same existing Definition selects B:
 Preview/Deploy artifacts pinned to A are stale (plan hash and pending token change),
 a fresh Preview pins B, and pending detects the renderer-only change even without
-a Score draft. Re-registration or Definition update/retire is not required and no
-such API exists. An unknown ID, ambiguous match or binary drift between startup
+a Score draft. Re-registration or Definition update/retire is not required for bundle upgrade.
+V02 adds version-CAS Definition editing separately under UC-03 V02-06. An unknown ID, ambiguous match or binary drift between startup
 and Deploy still fails before UC-08.
 
 Driver Inputs deliberately retain `values.variables`; no generic
 `source`, `secret_refs`, inline command or template-upload API is added. Bundle trong immutable release manifest pin exact score-k8s version/binary
 digest và adapter/patch content cho profile được hỗ trợ; không download runtime.
 
-Workload Definitions use the current profile guard and specificity rules.
+Workload Definitions use the same five-field specificity rules without profile
+guard under UC-03 V02-02; installed bundle compatibility is validated independently.
 Preserve `workload.default#modules.<id>` and reject ties or unavailable selected bundles.
 Cả internal-k8s và aws-eks cần đúng một score-k8s Definition/bundle tương thích.
 No match/tie hoặc unavailable bundle chặn trước UC-08; không chọn renderer

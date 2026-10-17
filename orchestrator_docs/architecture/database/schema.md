@@ -202,13 +202,13 @@ Columns: `id uuid PK`, `organization_id FK`, `resource_type_key text`, `input_sc
 
 ### `resource_definitions`
 
-Columns: `id uuid PK`, `organization_id FK`, `definition_key text`, `resource_type_id FK`, `execution_profile text nullable` (`internal-k8s` or `aws-eks`), `driver_type text`, `connection_id FK nullable`, `driver_inputs jsonb`, `provision_rules jsonb`, `source_fingerprint text nullable`, timestamps. Unique `(organization_id, definition_key)`. A NULL profile is shared across profiles; a non-NULL profile filters eligible Definitions before criteria scoring.
+Columns: `id uuid PK`, `organization_id FK`, `definition_key text`, `definition_name text NOT NULL`, `resource_type_id FK`, `driver_type text`, `connection_id FK nullable` (Driver Account backing identity), `driver_inputs jsonb`, `provision_rules jsonb`, `source_fingerprint text nullable`, `version bigint NOT NULL DEFAULT 1 CHECK(version >= 1)`, timestamps. Unique `(organization_id, definition_key)`. Name is nonblank, <=253 characters, no control characters. ID/type immutable for public edits; version CAS atomically replaces editable content and criteria. No Definition execution_profile column or profile matching predicate in V02.
 
 ### `matching_criteria`
 
 Columns: `id uuid PK`, `resource_definition_id FK ON DELETE CASCADE`, optional `env_type`, `app_id`, `env_id`, `res_id`, `class`, and computed `specificity_score int`. Index by `resource_definition_id` and match fields.
 
-Năm field này cùng trọng số `env_type=1`, `app_id=2`, `env_id=4`, `res_id=8`, `class=16` là contract chuẩn của UC-03 BR-06. `execution_profile` nằm trên Definition, không nằm trong Matching Criterion và không đổi trọng số. Vì vậy Application mới vẫn chọn được Aurora hoặc StatefulSet theo profile, không cần seed thêm criterion `app_id`.
+Năm field này cùng trọng số `env_type=1`, `app_id=2`, `env_id=4`, `res_id=8`, `class=16` là contract chuẩn của UC-03 BR-06. Không có profile/account/region filter ngoài năm criteria. Fresh seed phân biệt nhu cầu bằng class/context tường minh; account không có phạm vi áp dụng.
 
 ### `deployment_sets`
 
@@ -739,3 +739,28 @@ cơ chế tự reset khi startup hoặc quyền xóa tài nguyên không thuộc
 Codex thực hiện và ghi evidence phạm vi/kết quả; writer không truy cập retained
 state hoặc tự chạy thao tác hạ tầng. Các yêu cầu secret scope, CAS, pinned targets
 trên baseline mới và bảo vệ tài nguyên ngoài task vẫn áp dụng.
+
+## V02 Resource Definition baseline — authoritative replacement of Definition profile model
+
+UC-03 V02-01..09 owns behavior. `resource_definitions` adds `definition_name text NOT NULL` (public `name`)
+(nonblank, bounded253, no control characters), `version bigint NOT NULL DEFAULT 1
+CHECK(version >= 1)`. Unique org/key and Type FK remain; key/type immutable on
+update. Existing `connection_id` nullable FK backs public `driverAccount`, with
+org/kind/READY validation in service. Remove `execution_profile` from fresh
+Definition table/model; Environment profile remains for legacy graph enrichment
+until V03. No new account table, criteria account field or region-wide constraint.
+Driver Account key is serialized as `driverAccount`; AWS region is stored in
+`driver_inputs.values.variables.region`. No legacy authoring field conversion.
+
+One transaction CASes version and replaces Definition, matching_criteria and
+verified bundle association; failed criterion/bundle write rolls back everything.
+Version increments exactly once. CAS loser cannot overwrite winner. No secret
+bytes/ref in Definition. Existing plan/resource targets, module fingerprints,
+state IDs/ownership/fencing and cleanup records are immutable across edits.
+
+Fresh SQL baseline/digests/catalog validation and JSON format change together.
+JSON requires positive explicit version and nonblank Name, no inference from ID
+or retired profile/Connection field during reopen. Old state fails safely with
+reset-required diagnostic; startup never migrates/resets. Current constructors
+and seeds supply explicit Name/version/account and unambiguous five-field
+criteria. No retained data reset without instance/ownership verification.

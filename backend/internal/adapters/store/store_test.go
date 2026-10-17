@@ -96,7 +96,7 @@ func TestCatalogIsScopedByOrganization(t *testing.T) {
 		if err := s.SaveResourceType(ctx, org, resource.Type{Key: "postgres", Outputs: []resource.OutputField{{Name: "host", Type: "string"}}}); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.SaveResourceDefinition(ctx, org, resource.Definition{Key: "postgres-kind", ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}}); err != nil {
+		if err := s.SaveResourceDefinition(ctx, org, resource.Definition{Key: "postgres-kind", Name: "postgres-kind", Version: 1, ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes, Criteria: []resource.Criterion{{}}}); err != nil {
 			t.Fatal(err)
 		}
 	}

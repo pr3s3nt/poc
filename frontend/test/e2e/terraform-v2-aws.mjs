@@ -161,8 +161,12 @@ export async function awsScenario(ctx, scenario, { v2ctl, recordNamespace, forbi
   const purityPassed = Object.values(purity).every(Boolean);
   rec.record('preview.pure', 'PREVIEW', 'private-read', purityPassed,
     `exact ECR preparation=${purity.exactPreparation}; unchanged after preview=${purity.unchanged}; no deployment/resource state=${purity.stateFree}; no AWS key material on screen=${purity.noKeyMaterial}`);
-  rec.record('preview.target', 'PREVIEW', 'ui', preview.binding?.connectionKey === connectionKey && preview.binding?.executionProfile === 'aws-eks' && preview.accountId === input.aws.accountId && preview.binding?.region === input.aws.region,
-    `connection ${preview.binding?.connectionKey} profile ${preview.binding?.executionProfile} account ${preview.accountId} region ${preview.binding?.region}`);
+  // V02: each AWS node runs under the Driver Account and literal region its own Definition pinned in the plan; the Environment binding
+  // (connection and profile) is the legacy field kept until V03 and is no longer evidence of the AWS account or region.
+  const awsPins = terraformIntents.flatMap((i) => (i.providers ?? []).filter((p) => p.name === 'aws').map((p) => ({ module: i.module?.module, pin: p })));
+  const awsPinsOk = awsPins.length >= 3 && awsPins.every(({ pin }) => pin.target === 'account' && pin.connectionKey === connectionKey && pin.region === input.aws.region);
+  rec.record('preview.target', 'PREVIEW', 'ui', preview.binding?.connectionKey === connectionKey && preview.binding?.executionProfile === 'aws-eks' && awsPinsOk,
+    `legacy Environment connection ${preview.binding?.connectionKey} profile ${preview.binding?.executionProfile}; per-node AWS pins ${awsPins.map(({ module, pin }) => `${module}:${pin.connectionKey}@${pin.region}`).join(' ')}`);
   const expectedModules = ['vpc', 'eks', 'k8s-namespace', 'aurora', scenario === 'A02' ? 'elasticache' : 'redis-k8s'].sort();
   const pinsOk = terraformIntents.length === expectedModules.length && terraformIntents.map((i) => i.module?.module).sort().join() === expectedModules.join()
     && terraformIntents.every((i) => { const pin = pinOf(i.module?.module); return pin && i.module.contentSha256 === pin.contentSha256 && i.module.revision === pin.revision; });

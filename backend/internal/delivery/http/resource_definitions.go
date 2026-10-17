@@ -31,16 +31,37 @@ func (s *Server) handleRegisterResourceDefinition(w http.ResponseWriter, r *http
 	if !ok {
 		return
 	}
-	var def resource.Definition
-	if !decodeStrict(w, r, managementBodyLimit, &def) {
+	// The strict authoring DTO has no version, fingerprint, executionProfile
+	// or connectionKey: unknown and retired fields are rejected.
+	var draft catalog.DefinitionDraft
+	if !decodeStrict(w, r, managementBodyLimit, &draft) {
 		return
 	}
-	created, err := s.catalog.RegisterResourceDefinition(r.Context(), org, def)
+	created, err := s.catalog.RegisterResourceDefinition(r.Context(), org, draft.Definition())
 	if err != nil {
 		s.writeError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, created)
+}
+
+// handleUpdateResourceDefinition is the UC-03 V02-06 edit: the same strict
+// authoring fields plus the expected version, as one compare-and-set.
+func (s *Server) handleUpdateResourceDefinition(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.platformActor(w, r)
+	if !ok {
+		return
+	}
+	var update catalog.DefinitionUpdate
+	if !decodeStrict(w, r, managementBodyLimit, &update) {
+		return
+	}
+	updated, err := s.catalog.UpdateResourceDefinition(r.Context(), org, r.PathValue("key"), update.Version, update.Definition())
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
 }
 
 func (s *Server) handleRenderBundles(w http.ResponseWriter, r *http.Request) {

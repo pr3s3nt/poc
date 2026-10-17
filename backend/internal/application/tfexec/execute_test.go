@@ -561,3 +561,41 @@ func TestAttemptsLinkTheDeploymentAndFeedTheSafeConsoleProjection(t *testing.T) 
 		t.Fatalf("projection %+v", p)
 	}
 }
+
+// The Driver Account version is an operational CAS counter: a rename, a
+// verification or a same-target credential replacement raises it without moving
+// the physical destination. A fresh plan after such a change reuses the same
+// instance, while a changed account or region still requires replacement.
+func TestAccountVersionOnlyChangeKeepsTheInstanceButTargetChangeReplacesIt(t *testing.T) {
+	h := newHarness(t)
+	aws := h.mod
+	aws.bundle.Providers = map[string]tfmodule.ProviderRequirement{"aws": {Source: "hashicorp/aws", Version: "5.0.0", Binding: tfmodule.BindingAWS}}
+	mods := &fixtureModules{h: h, bundles: map[string]module{aws.bundle.ID: aws}}
+	svc := h.newService(mods)
+	pin := func(account string, version int64, region string) []tfmodule.ProviderPin {
+		return []tfmodule.ProviderPin{{Name: "aws", Kind: tfmodule.BindingAWS, Target: "account", ConnectionKey: account, AccountVersion: version, Region: region}}
+	}
+	run := func(id string, pins []tfmodule.ProviderPin) (tfexec.Result, error) {
+		req := h.request(id, aws, inputs("db1", "k"))
+		req.Pins = pins
+		ctx, op := h.claim("proc-" + id)
+		defer h.release(op, environment.OpSucceeded)
+		return svc.Execute(ctx, req)
+	}
+	if _, err := run("run-1", pin("aws-account", 1, "us-east-1")); err != nil {
+		t.Fatal(err)
+	}
+	first, _ := h.instance(context.Background(), defaultDescriptor, defaultScope())
+	if _, err := run("run-2", pin("aws-account", 7, "us-east-1")); err != nil {
+		t.Fatalf("a version-only account change must reuse the instance: %v", err)
+	}
+	second, ok := h.instance(context.Background(), defaultDescriptor, defaultScope())
+	if !ok || second.ID != first.ID || second.StateKey != first.StateKey {
+		t.Fatalf("instance identity moved: %+v -> %+v", first, second)
+	}
+	for _, changed := range [][]tfmodule.ProviderPin{pin("aws-other", 7, "us-east-1"), pin("aws-account", 7, "eu-west-1")} {
+		if _, err := run("run-3", changed); !errors.Is(err, tfexec.ErrReplacementRequired) {
+			t.Fatalf("a changed account or region must require replacement: %v", err)
+		}
+	}
+}

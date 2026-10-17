@@ -9,9 +9,9 @@ const apps: ApplicationOption[] = [
   { key: 'blog', name: 'blog', environments: [{ key: 'dev', name: 'Development', environmentType: 'development' }] },
 ];
 const sources: CriteriaSource[] = [
-  { key: 'pg-adv', resourceType: 'postgres', executionProfile: 'internal-k8s', criteria: [{ env_type: 'staging', class: 'fast' }, { app_id: 'shop' }] },
-  { key: 'pg-env', resourceType: 'postgres', executionProfile: 'aws-eks', criteria: [{ env_type: 'production' }] },
-  { key: 'ns-any', resourceType: 'k8s-namespace', executionProfile: '', criteria: [{}] },
+  { key: 'pg-adv', name: 'PG nâng cao', resourceType: 'postgres', criteria: [{ env_type: 'staging', class: 'fast' }, { app_id: 'shop' }] },
+  { key: 'pg-env', resourceType: 'postgres', criteria: [{ env_type: 'production' }] },
+  { key: 'ns-any', resourceType: 'k8s-namespace', criteria: [{}] },
 ];
 
 type Props = Partial<Parameters<typeof CriteriaEditor>[0]> & { initial?: CriteriaDraft; onDraft?(draft: CriteriaDraft): void };
@@ -101,23 +101,19 @@ describe('CriteriaEditor', () => {
     expect(retry).toHaveBeenCalledTimes(1);
   });
 
-  it('does not suggest applicability when the sample environment profile differs or is unknown', async () => {
+  it('has no profile reasoning and no browser-only scope preview: the sample context only feeds the server matching panel', async () => {
     const user = userEvent.setup();
-    const profiled: ApplicationOption[] = [{ key: 'shop', name: 'shop', environments: [{ key: 'prod', name: 'prod', environmentType: 'production', executionProfile: 'aws-eks' }, { key: 'dev', name: 'dev', environmentType: 'development', executionProfile: '' }, { key: 'ci', name: 'ci', environmentType: 'ci', executionProfile: 'internal-k8s' }] }];
-    render(<Harness applications={{ items: profiled, loading: false, error: '', onRetry: vi.fn() }} profile="internal-k8s" initial={draftFromCriteria([{ app_id: 'shop' }])} />);
-    const preview = screen.getByRole('group', { name: /Xem trước phạm vi/ });
-    await user.selectOptions(screen.getByLabelText('Ứng dụng mẫu'), 'shop');
-    await user.type(screen.getByLabelText('ID tài nguyên mẫu (res_id)'), 'db');
-    await user.type(screen.getByLabelText('Class mẫu'), 'fast');
-    await user.selectOptions(screen.getByLabelText('Môi trường mẫu'), 'prod');
-    expect(preview).toHaveTextContent(/khác phạm vi internal-k8s.*không được xét/);
-    expect(preview).not.toHaveTextContent('thỏa context mẫu');
-    await user.selectOptions(screen.getByLabelText('Môi trường mẫu'), 'dev');
-    expect(preview).toHaveTextContent(/Chưa biết phạm vi triển khai.*chưa có nghĩa là cấu hình được xét/);
-    await user.selectOptions(screen.getByLabelText('Môi trường mẫu'), 'ci');
-    expect(preview).toHaveTextContent('phù hợp với cấu hình này');
-    expect(preview).toHaveTextContent('Điều kiện 1: thỏa context mẫu');
-    expect(preview.textContent).not.toMatch(/ambiguous|thắng|winner/i);
+    const typed: ApplicationOption[] = [{ key: 'shop', name: 'shop', environments: [{ key: 'prod', name: 'prod', environmentType: 'production' }, { key: 'dev', name: 'dev', environmentType: 'development' }] }];
+    render(<Harness applications={{ items: typed, loading: false, error: '', onRetry: vi.fn() }} initial={draftFromCriteria([{ app_id: 'shop' }])} />);
+    expect(screen.queryByRole('group', { name: /Xem trước phạm vi/ })).not.toBeInTheDocument();
+    const context = screen.getByRole('group', { name: 'Ngữ cảnh kiểm tra matching' });
+    await user.selectOptions(screen.getByLabelText('Ứng dụng kiểm tra'), 'shop');
+    await user.selectOptions(screen.getByLabelText('Môi trường kiểm tra'), 'prod');
+    await user.type(screen.getByLabelText('ID tài nguyên kiểm tra (res_id)'), 'db');
+    await user.type(screen.getByLabelText('Class kiểm tra'), 'fast');
+    expect(context).not.toHaveTextContent('Cần thêm ngữ cảnh');
+    expect(context.textContent).not.toMatch(/thỏa context|không thỏa|executionProfile|phạm vi triển khai|thắng|winner|ambiguous/i);
+    expect(context).toHaveTextContent('env_type được máy chủ lấy từ môi trường');
   });
 
   it('shows the four Vietnamese modes and only the controls of the selected one', async () => {
@@ -193,7 +189,7 @@ describe('CriteriaEditor', () => {
   it('copies criteria as an independent value and asks before replacing typed criteria', async () => {
     const user = userEvent.setup();
     const seen: CriteriaDraft[] = [];
-    const mutable: CriteriaSource[] = [{ key: 'pg-adv', resourceType: 'postgres', executionProfile: '', criteria: [{ env_type: 'staging', class: 'fast' }, { app_id: 'shop' }] }];
+    const mutable: CriteriaSource[] = [{ key: 'pg-adv', resourceType: 'postgres', criteria: [{ env_type: 'staging', class: 'fast' }, { app_id: 'shop' }] }];
     render(<Harness sources={{ items: mutable, loading: false, error: '', onRetry: vi.fn() }} onDraft={(draft) => seen.push(draft)} />);
     await user.selectOptions(screen.getByLabelText('Sao chép điều kiện từ cấu hình khác'), 'pg-adv');
     await user.click(screen.getByRole('button', { name: 'Sao chép điều kiện' }));
@@ -211,48 +207,60 @@ describe('CriteriaEditor', () => {
     expect(screen.getByLabelText('Điều kiện 2 ID tài nguyên')).toHaveValue('');
   });
 
-  it('shows app/env scope and the deployment profile apart from env_type', async () => {
+  it('shows app/env scope and no deployment profile; env_type stays its own criterion', async () => {
     const user = userEvent.setup();
-    render(<Harness profile="internal-k8s" profileLabel="Cluster nội bộ" initial={draftFromCriteria([{ app_id: 'shop', env_id: 'staging' }])} />);
+    render(<Harness initial={draftFromCriteria([{ app_id: 'shop', env_id: 'staging' }])} />);
     const summary = screen.getByRole('group', { name: 'Tóm tắt phạm vi áp dụng' });
     expect(summary).toHaveTextContent('Ứng dụng (app_id): Cửa hàng (shop)');
     expect(summary).toHaveTextContent('Môi trường (env_id): staging');
     expect(summary).not.toHaveTextContent('Loại môi trường (env_type):');
-    expect(summary).toHaveTextContent(/Phạm vi triển khai \(executionProfile\): Cluster nội bộ.*không phải Loại môi trường \(env_type\)/);
+    expect(summary).not.toHaveTextContent(/executionProfile|Phạm vi triển khai|profile/i);
     await user.click(mode(/Theo loại môi trường/));
     await user.type(screen.getByLabelText('Loại môi trường'), 'production');
     expect(summary).toHaveTextContent('Loại môi trường (env_type): production');
   });
 
-  it('asks for more context before previewing and never claims an exact match', async () => {
-    const user = userEvent.setup();
-    render(<Harness initial={draftFromCriteria([{ app_id: 'shop', class: 'fast' }])} />);
-    const preview = screen.getByRole('group', { name: /Xem trước phạm vi/ });
-    expect(preview).toHaveTextContent(/Cần thêm context: ứng dụng và môi trường mẫu, ID tài nguyên \(res_id\), Class/);
-    await user.selectOptions(screen.getByLabelText('Ứng dụng mẫu'), 'shop');
-    await user.selectOptions(screen.getByLabelText('Môi trường mẫu'), 'staging');
-    await user.type(screen.getByLabelText('ID tài nguyên mẫu (res_id)'), 'db');
-    expect(preview).toHaveTextContent(/Cần thêm context: Class/);
-    await user.type(screen.getByLabelText('Class mẫu'), 'fast');
-    expect(preview).not.toHaveTextContent('Cần thêm context');
-    expect(preview).toHaveTextContent('Điều kiện 1: thỏa context mẫu');
-    expect(preview).toHaveTextContent(/không phải kết quả matching chính xác/);
-    await user.clear(screen.getByLabelText('Class mẫu'));
-    await user.type(screen.getByLabelText('Class mẫu'), 'slow');
-    expect(preview).toHaveTextContent('Điều kiện 1: không thỏa context mẫu');
-    expect(preview.textContent).not.toMatch(/ambiguous|thắng|winner/i);
+  it('explains AND within a row, OR across rows, the weights, an explicit wildcard versus no criteria, and Definition ID versus res_id', () => {
+    render(<Harness />);
+    const rules = screen.getByRole('note', { name: 'Quy tắc so khớp' });
+    expect(rules).toHaveTextContent('AND trong một dòng, OR giữa các dòng');
+    expect(rules).toHaveTextContent('env_type 1 · app_id 2 · env_id 4 · res_id 8 · class 16');
+    expect(rules).toHaveTextContent('Không có điều kiện (danh sách trống) bị từ chối');
+    expect(rules).toHaveTextContent('Dòng trống {} là wildcard tường minh, khớp mọi nơi với điểm 0');
+    expect(rules).toHaveTextContent('hòa điểm cao nhất và không có cấu hình nào khớp là hai kết quả khác nhau');
+    expect(rules).toHaveTextContent('ID cấu hình (Definition ID) khác ID tài nguyên res_id');
   });
 
-  it('warns about possible overlap only for the same type and profile eligibility, without claiming a winner', () => {
-    const { rerender } = render(<Harness resourceType="postgres" profile="internal-k8s" initial={draftFromCriteria([{ env_type: 'staging' }])} />);
+  it('asks for more context before the server check and never evaluates or ranks in the browser', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={draftFromCriteria([{ app_id: 'shop', class: 'fast' }])} />);
+    const context = screen.getByRole('group', { name: 'Ngữ cảnh kiểm tra matching' });
+    expect(context).toHaveTextContent(/Cần thêm ngữ cảnh: ứng dụng và môi trường, ID tài nguyên \(res_id\), Class/);
+    await user.selectOptions(screen.getByLabelText('Ứng dụng kiểm tra'), 'shop');
+    await user.selectOptions(screen.getByLabelText('Môi trường kiểm tra'), 'staging');
+    await user.type(screen.getByLabelText('ID tài nguyên kiểm tra (res_id)'), 'db');
+    expect(context).toHaveTextContent(/Cần thêm ngữ cảnh: Class/);
+    await user.type(screen.getByLabelText('Class kiểm tra'), 'fast');
+    expect(context).not.toHaveTextContent('Cần thêm ngữ cảnh');
+    await user.clear(screen.getByLabelText('Class kiểm tra'));
+    await user.type(screen.getByLabelText('Class kiểm tra'), 'slow');
+    expect(context.textContent).not.toMatch(/thỏa|không thỏa|ambiguous|thắng|winner/i);
+  });
+
+  it('warns about possible overlap only for the same Resource Type, without profile reasoning or a winner', () => {
+    render(<Harness resourceType="postgres" initial={draftFromCriteria([{ class: 'fast' }])} />);
     const warning = screen.getByRole('group', { name: 'Cảnh báo nguy cơ chồng lấn' });
     expect(warning).toHaveTextContent('pg-adv');
-    expect(warning).not.toHaveTextContent('pg-env'); // other profile
+    expect(warning).toHaveTextContent('pg-env'); // no profile guard: any same-type overlap candidate may be listed
     expect(warning).not.toHaveTextContent('ns-any'); // other type
-    expect(warning).toHaveTextContent(/chưa phải kết quả matching chính xác/);
-    expect(warning.textContent).not.toMatch(/ambiguous|thắng|winner|mơ hồ/i);
-    rerender(<Harness resourceType="postgres" profile="aws-eks" initial={draftFromCriteria([{ env_type: 'development' }])} />);
-    expect(screen.queryByRole('group', { name: 'Cảnh báo nguy cơ chồng lấn' })).not.toBeInTheDocument();
+    expect(warning).toHaveTextContent(/chỉ “Kiểm tra matching” trên máy chủ mới cho biết cấu hình thắng, hòa hay không khớp/);
+    expect(warning.textContent).not.toMatch(/ambiguous|mơ hồ|executionProfile|phạm vi triển khai/i);
+  });
+
+  it('never offers the Definition being edited as its own copy or overlap source', () => {
+    render(<Harness resourceType="postgres" excludeKey="pg-adv" initial={draftFromCriteria([{ class: 'fast' }])} />);
+    expect(screen.getByRole('group', { name: 'Cảnh báo nguy cơ chồng lấn' })).not.toHaveTextContent('pg-adv');
+    expect(screen.queryByRole('option', { name: /pg-adv/ })).not.toBeInTheDocument();
   });
 
   it('keeps edits when the application list loads late, fails or is retried', async () => {

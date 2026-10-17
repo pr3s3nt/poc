@@ -49,8 +49,15 @@ const TABLES = {
   // T02 translated this page; `current` equals `vi` for its entries.
   resourceDefinitions: {
     heading: { role: 'heading', level: 1, vi: 'Cấu hình tài nguyên', current: 'Cấu hình tài nguyên' },
-    id: { role: 'label', vi: 'ID cấu hình', current: 'ID cấu hình' },
+    // V02: the Definition has a Name, a verified module pin and (AWS) its own Driver Account and literal region.
+    id: { role: 'label', vi: 'ID cấu hình (Definition ID)', current: 'ID cấu hình (Definition ID)' },
+    name: { role: 'label', vi: 'Tên hiển thị', current: 'Tên hiển thị' },
     type: { role: 'label', wrapsOptions: true, vi: 'Loại tài nguyên', current: 'Loại tài nguyên' },
+    module: { role: 'label', wrapsOptions: true, vi: 'Module đã kiểm chứng', current: 'Module đã kiểm chứng' },
+    account: { role: 'label', wrapsOptions: true, vi: 'Tài khoản hạ tầng', current: 'Tài khoản hạ tầng' },
+    region: { role: 'label', vi: 'Vùng AWS', current: 'Vùng AWS' },
+    // HISTORICAL (pre-V02/T31 form): driver, scope, awsConnection, kubeConnection, showAdvanced and hideAdvanced no longer exist on the page;
+    // only the historical T02/T02B/T19/T31 steps still name them (those scenarios already fail at the base commit, see their banners).
     driver: { role: 'label', wrapsOptions: true, vi: 'Cách tạo', current: 'Cách tạo' },
     scope: { role: 'label', wrapsOptions: true, vi: 'Phạm vi triển khai', current: 'Phạm vi triển khai' },
     awsConnection: { role: 'label', wrapsOptions: true, vi: 'Kết nối AWS', current: 'Kết nối AWS' },

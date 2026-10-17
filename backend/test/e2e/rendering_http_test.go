@@ -24,7 +24,7 @@ func TestScoreK8sPublicDefinitionPreviewDeploy(t *testing.T) {
 	defer server.Close()
 	pe := authenticatedClientAs(t, server.URL, "platform-engineer")
 	dev := authenticatedClient(t, server.URL)
-	body := `{"key":"score-workloads","resourceType":"workload","executionProfile":"internal-k8s","driverType":"score-k8s","driverInputs":{"values":{"variables":{"render_bundle":"score-k8s-internal-v1"}}},"criteria":[{}]}`
+	body := `{"key":"score-workloads","name":"Mẫu dựng","resourceType":"workload","driverType":"score-k8s","driverInputs":{"values":{"variables":{"render_bundle":"score-k8s-internal-v1"}}},"criteria":[{}]}`
 	if resp, out := call(t, dev, http.MethodPost, server.URL+"/api/v1/resource-definitions", body); resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("developer registered Definition: %d %s", resp.StatusCode, out)
 	}

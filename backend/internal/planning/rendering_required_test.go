@@ -15,7 +15,7 @@ func renderDefinition(key, profile string, criteria ...resource.Criterion) resou
 	if len(criteria) == 0 {
 		criteria = []resource.Criterion{{}}
 	}
-	return resource.Definition{Key: key, ResourceTypeKey: "workload", ExecutionProfile: profile, DriverType: resource.DriverScoreK8s,
+	return resource.Definition{Key: key, Name: key, Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s,
 		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed"}}}, Criteria: criteria}
 }
 
@@ -46,14 +46,10 @@ func TestRequiredRendererRejectsMissingTiedAndUnavailableBeforeResources(t *test
 			if _, err := required.Plan(req); rendererReason(t, err) != ReasonRendererNoMatch {
 				t.Fatalf("no Definition: %v", err)
 			}
-			// A Definition of the other profile, or a non-matching criterion, is no match either.
-			other := "aws-eks"
-			if profile == application.ProfileAWSEKS {
-				other = "internal-k8s"
-			}
-			req.Catalog.Definitions = append(req.Catalog.Definitions, renderDefinition("other-profile", other), renderDefinition("other-class", string(profile), resource.Criterion{Class: "special"}))
+			// A non-matching criterion is no match either; there is no profile guard.
+			req.Catalog.Definitions = append(req.Catalog.Definitions, renderDefinition("other-class", string(profile), resource.Criterion{Class: "special"}))
 			if _, err := required.Plan(req); rendererReason(t, err) != ReasonRendererNoMatch {
-				t.Fatalf("wrong profile/class: %v", err)
+				t.Fatalf("wrong class: %v", err)
 			}
 			req.Catalog.Definitions = append(req.Catalog.Definitions, renderDefinition("render", string(profile)))
 			plan, err := required.Plan(req)

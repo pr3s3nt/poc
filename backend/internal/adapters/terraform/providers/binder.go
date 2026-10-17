@@ -1,6 +1,6 @@
 // Package providers resolves the pinned provider bindings of a Terraform
-// invocation into a private subprocess environment: the Environment AWS
-// account and region, a scoped Kubernetes Connection or the completed opaque
+// invocation into a private subprocess environment: the Definition's
+// Driver Account and region, a scoped Kubernetes Connection or the completed opaque
 // EKS target. It never reads the host credential chain, profile, shared
 // config, instance metadata or the default kube context, and it never writes
 // a credential anywhere but an owner-only file under a private directory that
@@ -82,10 +82,11 @@ func (b *Binder) Bind(ctx context.Context, req terraformexec.BindRequest) (terra
 			}
 			seenAWS = true
 			conn, err := b.AWS.ResolveAWS(ctx, req.OrganizationKey, pin.ConnectionKey)
-			if err != nil || !conn.AllowsRegion(pin.Region) || conn.ConnectionKey != pin.ConnectionKey {
+			if err != nil || pin.Region == "" || conn.ConnectionKey != pin.ConnectionKey {
 				return fail(refuse("the AWS Connection is unavailable or no longer matches the plan"))
 			}
-			// The Environment pinned one of the verified allowed regions.
+			// The Definition pinned the literal region; the account's
+			// verification regions are probe evidence, not an allowlist.
 			conn.Region = pin.Region
 			if err := verify(conn); err != nil {
 				return fail(err)
@@ -120,7 +121,7 @@ func (b *Binder) Bind(ctx context.Context, req terraformexec.BindRequest) (terra
 				return fail(refuse("the cluster target is missing, foreign or not a completed EKS target"))
 			}
 			conn, err := b.AWS.ResolveAWS(ctx, req.OrganizationKey, target.Connection)
-			if err != nil || !conn.AllowsRegion(target.Region) || conn.ConnectionKey != target.Connection {
+			if err != nil || target.Region == "" || conn.ConnectionKey != target.Connection {
 				return fail(refuse("the EKS target's AWS Connection is unavailable or changed"))
 			}
 			conn.Region = target.Region

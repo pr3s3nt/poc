@@ -47,12 +47,12 @@ func TestUC02UC03RegistrationPolicyHTTP(t *testing.T) {
 		"nested placeholder":   definition("pg-policy", map[string]any{"namespace": namespace, "image": "${context.${" + policySentinel + "}}"}),
 		"nested escaped token": definition("pg-policy", map[string]any{"namespace": namespace, "image": "${context.$${" + policySentinel + "}}"}),
 		"static kubernetes driver": {
-			"key": "pg-policy", "resourceType": "postgres", "executionProfile": "internal-k8s", "driverType": "kubernetes",
+			"key": "pg-policy", "name": "PG policy", "resourceType": "postgres", "driverType": "kubernetes",
 			"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{"namespace": namespace}}},
 			"criteria":     []any{map[string]any{"class": "policy"}},
 		},
 		"secret refs": {
-			"key": "pg-policy", "resourceType": "postgres", "executionProfile": "internal-k8s", "driverType": "terraform",
+			"key": "pg-policy", "name": "PG policy", "resourceType": "postgres", "driverType": "terraform",
 			"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{}}, "secret_refs": map[string]any{"password": policySentinel}},
 			"criteria":     []any{map[string]any{"class": "policy"}},
 		},

@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"github.com/jackc/pgx/v5"
 	"net/http"
 	"strings"
@@ -967,7 +968,6 @@ func TestDetailShowsTheOriginalTargetNotTheCurrentOne(t *testing.T) {
 		"another connection": func() { f.savePlan(dep, "other-connection", "eu-west-1", 0) },
 		"another generation": func() { f.savePlan(dep, "aws-original", "eu-west-1", 3) },
 		"an invalid region":  func() { f.savePlan(dep, "aws-original", "../etc", 0) },
-		"no plan":            func() { f.exec(`DELETE FROM deployment_plans WHERE deployment_id=$1::uuid`, dep) },
 	} {
 		setup()
 		got := read(f.root.ID)
@@ -1002,6 +1002,87 @@ func TestDetailShowsTheOriginalTargetNotTheCurrentOne(t *testing.T) {
 	f.exec(`UPDATE deployments SET target_generation=7 WHERE connection_key='aws-original'`)
 	if t1 := read(f.root.ID); t1["known"] != false || t1["connectionKey"] != nil {
 		t.Fatalf("a run of another generation must not identify the target: %v", t1)
+	}
+}
+
+// UC-03 V02-09: an AWS node ran under the Driver Account and region its
+// Definition pinned in that run's immutable plan; the safe original target shows
+// that account, not the Environment's Connection of the same Deployment.
+func TestDetailShowsTheNodeDriverAccountPinFromTheRunPlan(t *testing.T) {
+	f := newRCFixture(t)
+	active := f.linkActive(f.root, "UNREFERENCED")
+	dep := f.linkDeployment(active, "aws-original", "Original AWS", 0)
+	f.exec(`INSERT INTO connections(id,organization_id,connection_key,name,kind,authentication_type,config,secret_ref,status,verification) SELECT gen_random_uuid(),o.id,'aws-node','Node AWS','AWS','AWS_ACCESS_KEY','{"accountId":"210987654321","region":"eu-west-1"}'::jsonb,'vault:private/ref','READY','{}'::jsonb FROM organizations o WHERE o.organization_key=$1 ON CONFLICT DO NOTHING`, f.orgKey)
+	doc, err := json.Marshal(map[string]any{
+		"target": map[string]any{"connectionKey": "aws-original", "executionProfile": "aws-eks", "region": "us-east-1"},
+		"terraform": []any{
+			map[string]any{"descriptor": "other.default#shared.x", "providerBindings": []any{map[string]any{"kind": "aws", "connectionKey": "aws-original", "region": "us-east-1"}}},
+			map[string]any{"descriptor": f.root.Identity.Descriptor, "providerBindings": []any{map[string]any{"kind": "aws", "target": "account", "connectionKey": "aws-node", "region": "ap-southeast-1", "accountVersion": 3}}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.exec(`INSERT INTO deployment_plans(deployment_id,document,plan_hash) VALUES($1::uuid,$2::jsonb,'plan-hash') ON CONFLICT(deployment_id) DO UPDATE SET document=EXCLUDED.document`, dep, string(doc))
+	_, raw, body := f.do(f.dev, http.MethodGet, f.resourceURL(f.root.ID), nil)
+	assertSafe(t, "detail", raw)
+	target := body["resource"].(map[string]any)["target"].(map[string]any)
+	if target["known"] != true || target["connectionKey"] != "aws-node" || target["connectionName"] != "Node AWS" || target["accountId"] != "210987654321" || target["region"] != "ap-southeast-1" {
+		t.Fatalf("the node pin must identify the original target: %v", target)
+	}
+}
+
+// UC-03 V02-09: an AWS node whose per-node pin is missing or malformed in the
+// run plan has an unknown original target; the Environment's Connection and
+// region of the same Deployment are never guessed for it.
+func TestDetailDoesNotGuessTheEnvironmentAccountForAnUnprovenAWSNodePin(t *testing.T) {
+	f := newRCFixture(t)
+	active := f.linkActive(f.root, "UNREFERENCED")
+	dep := f.linkDeployment(active, "aws-original", "Original AWS", 0)
+	f.exec(`INSERT INTO connections(id,organization_id,connection_key,name,kind,authentication_type,config,secret_ref,status,verification) SELECT gen_random_uuid(),o.id,'aws-node','Node AWS','AWS','AWS_ACCESS_KEY','{"accountId":"210987654321","region":"eu-west-1"}'::jsonb,'vault:private/ref','READY','{}'::jsonb FROM organizations o WHERE o.organization_key=$1 ON CONFLICT DO NOTHING`, f.orgKey)
+	target := map[string]any{"connectionKey": "aws-original", "executionProfile": "aws-eks", "region": "us-east-1"}
+	descriptor := f.root.Identity.Descriptor
+	// The whole original plan is missing, unreadable or empty: AWS-vs-legacy cannot be proven, so the
+	// Environment's account (aws-original) is never named for the node; an invalid pinned region is not a known target either.
+	for name, setup := range map[string]func(){
+		"no plan row": func() { f.exec(`DELETE FROM deployment_plans WHERE deployment_id=$1::uuid`, dep) },
+		"unparseable plan": func() {
+			f.exec(`INSERT INTO deployment_plans(deployment_id,document,plan_hash) VALUES($1::uuid,'[]'::jsonb,'plan-hash') ON CONFLICT(deployment_id) DO UPDATE SET document=EXCLUDED.document`, dep)
+		},
+		"empty plan": func() {
+			f.exec(`INSERT INTO deployment_plans(deployment_id,document,plan_hash) VALUES($1::uuid,'{}'::jsonb,'plan-hash') ON CONFLICT(deployment_id) DO UPDATE SET document=EXCLUDED.document`, dep)
+		},
+		"no target section": func() {
+			f.exec(`INSERT INTO deployment_plans(deployment_id,document,plan_hash) VALUES($1::uuid,'{"matches":{}}'::jsonb,'plan-hash') ON CONFLICT(deployment_id) DO UPDATE SET document=EXCLUDED.document`, dep)
+		},
+		"invalid pin region": func() {
+			raw, _ := json.Marshal(map[string]any{"target": target, "terraform": []any{map[string]any{"descriptor": descriptor, "providerBindings": []any{map[string]any{"kind": "aws", "target": "account", "connectionKey": "aws-node", "region": "../etc"}}}}})
+			f.exec(`INSERT INTO deployment_plans(deployment_id,document,plan_hash) VALUES($1::uuid,$2::jsonb,'plan-hash') ON CONFLICT(deployment_id) DO UPDATE SET document=EXCLUDED.document`, dep, string(raw))
+		},
+	} {
+		setup()
+		_, body, parsed := f.do(f.dev, http.MethodGet, f.resourceURL(f.root.ID), nil)
+		assertSafe(t, name, body)
+		got := parsed["resource"].(map[string]any)["target"].(map[string]any)
+		if got["known"] != false || got["connectionKey"] != nil || got["accountId"] != nil || got["region"] != nil {
+			t.Fatalf("%s: an unprovable original target must be unknown: %v", name, got)
+		}
+	}
+	for name, doc := range map[string]map[string]any{
+		"malformed pin": {"target": target, "terraform": []any{map[string]any{"descriptor": descriptor, "providerBindings": []any{map[string]any{"kind": "aws", "target": "account", "connectionKey": "", "region": "ap-southeast-1"}}}}},
+		"missing pin":   {"target": target, "matches": map[string]any{descriptor: map[string]any{"driverAccount": "aws-node"}}, "terraform": []any{map[string]any{"descriptor": descriptor}}},
+	} {
+		raw, err := json.Marshal(doc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.exec(`INSERT INTO deployment_plans(deployment_id,document,plan_hash) VALUES($1::uuid,$2::jsonb,'plan-hash') ON CONFLICT(deployment_id) DO UPDATE SET document=EXCLUDED.document`, dep, string(raw))
+		_, body, parsed := f.do(f.dev, http.MethodGet, f.resourceURL(f.root.ID), nil)
+		assertSafe(t, name, body)
+		got := parsed["resource"].(map[string]any)["target"].(map[string]any)
+		if got["known"] != false || got["connectionKey"] != nil || got["accountId"] != nil || got["region"] != nil {
+			t.Fatalf("%s: an unproven AWS node must have an unknown original target: %v", name, got)
+		}
 	}
 }
 

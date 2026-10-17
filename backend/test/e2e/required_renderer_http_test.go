@@ -11,6 +11,7 @@ import (
 
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/bootstrap/bootstraptest"
+	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/seed/seedtest"
 )
 
@@ -31,6 +32,11 @@ func TestRequiredRendererOverHTTPGuardsMissingTemplateAndWrongClass(t *testing.T
 	defer server.Close()
 	pe := authenticatedClientAs(t, server.URL, "platform-engineer")
 	dev := authenticatedClient(t, server.URL)
+	// V02 has no profile guard: this new Application needs its own matching PostgreSQL Definition.
+	if err := app.Store.SaveResourceDefinition(context.Background(), seedtest.Defaults().OrganizationKey, resource.Definition{Key: "postgres-required-app", Name: "PostgreSQL cho ứng dụng thử", Version: 1, ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes,
+		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"image": "postgres:17-alpine", "storage": "1Gi", "namespace": namespaceOutput}}}, Criteria: []resource.Criterion{{}}}); err != nil {
+		t.Fatal(err)
+	}
 	created := createConfiguredApplication(t, dev, server.URL, "Required App", "required-app", "internal-cluster")
 	appKey := created["application"].(map[string]any)["key"].(string)
 	base := server.URL + "/api/v1/applications/" + appKey + "/environments/staging"
@@ -59,7 +65,7 @@ func TestRequiredRendererOverHTTPGuardsMissingTemplateAndWrongClass(t *testing.T
 	}
 	assertRejected("no rendering Definition", "renderer-no-match")
 
-	body := `{"key":"score-workloads","resourceType":"workload","executionProfile":"internal-k8s","driverType":"score-k8s","driverInputs":{"values":{"variables":{"render_bundle":"score-k8s-internal-v1"}}},"criteria":[{}]}`
+	body := `{"key":"score-workloads","name":"Mẫu dựng","resourceType":"workload","driverType":"score-k8s","driverInputs":{"values":{"variables":{"render_bundle":"score-k8s-internal-v1"}}},"criteria":[{}]}`
 	if resp, out := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", body); resp.StatusCode != http.StatusCreated {
 		t.Fatalf("registration: %d %s", resp.StatusCode, out)
 	}

@@ -59,7 +59,7 @@ export const REDIS_ANNOTATION = `{"example.test/postgres-host": "\${resources['p
 export function steps({ page, h, caption, phase, rec, baseURL, input }) {
   const nav = (name) => page.getByRole('link', { name: new RegExp(`(^|\\s)${name}$`) });
   const get = async (path) => (await (await page.request.get(`${baseURL}/api/v1${path}`)).json());
-  const wrappedSelects = new Set(['Loại tài nguyên', 'Module đã kiểm chứng', 'Phạm vi triển khai', 'Bundle dựng ứng dụng']);
+  const wrappedSelects = new Set(['Loại tài nguyên', 'Module đã kiểm chứng', 'Tài khoản hạ tầng', 'Bundle dựng ứng dụng']);
   const form = (name) => (wrappedSelects.has(name)
     ? page.locator(`select[aria-label="${name}"], label:has-text("${name}") > select`).first()
     : page.getByLabel(name, { exact: true }));
@@ -89,8 +89,11 @@ export function steps({ page, h, caption, phase, rec, baseURL, input }) {
     await h.click(form(`Ghi đè ${name}`));
     await applyOverrideValue(h, form(`Giá trị ${name}`), value);
   }
-  async function startDefinition(id, type, module, scope) {
-    await h.type(form('ID cấu hình'), id);
+  // V02: the Definition has a Name, no deployment scope. An AWS pair names its own READY
+  // Driver Account and a literal region (input.aws), never the Environment's.
+  async function startDefinition(id, type, module, _scope, name = id) {
+    await h.type(form('ID cấu hình (Definition ID)'), id);
+    await h.type(form('Tên hiển thị'), name);
     await choose(form('Loại tài nguyên'), type);
     await expect(form('Loại tài nguyên')).toHaveValue(type);
     if (module) {
@@ -98,11 +101,13 @@ export function steps({ page, h, caption, phase, rec, baseURL, input }) {
       if (await pins.isEnabled()) await choose(pins, module);
       await expect(pins).toContainText(module);
     }
-    if (scope) {
-      const select = form('Phạm vi triển khai');
-      // A module that only supports one scope pre-selects it and disables the control.
-      if (await select.isEnabled()) await choose(select, scope);
-      else await expect(select).toContainText(scope);
+    const account = form('Tài khoản hạ tầng');
+    if (await account.count()) {
+      // The scenario registers its Driver Account under input.aws.connectionName; input.aws.account overrides the label prefix.
+      const accountLabel = input.aws?.account ?? input.aws?.connectionName;
+      if (!accountLabel || !input.aws?.region) throw new Error('an AWS pair needs input.aws.account (or connectionName) and input.aws.region');
+      await choose(account, accountLabel);
+      await h.type(form('Vùng AWS'), input.aws.region);
     }
   }
 
@@ -197,7 +202,7 @@ export function steps({ page, h, caption, phase, rec, baseURL, input }) {
     await h.click(nav('Mẫu dựng ứng dụng'));
     await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1, exact: true })).toBeVisible();
     await h.type(form('ID mẫu'), id);
-    await choose(form('Phạm vi triển khai'), scope);
+    await h.type(form('Tên hiển thị'), `Mẫu dựng ${scope}`);
     await expect(form('Bundle dựng ứng dụng')).toHaveValue('score-k8s-internal-v1');
     await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
     await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký mẫu dựng ứng dụng ${id}.` })).toBeVisible();

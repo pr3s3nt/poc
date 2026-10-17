@@ -4,17 +4,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RenderingTemplatesPage } from './RenderingTemplatesPage';
 
 type Body = Record<string, unknown>;
-type Backend = { definitions?: Body[]; post?: () => Response; definitionLists?: (() => Response)[]; bundles?: Body[]; bundleLists?: (() => Response | Promise<Response>)[] };
+type Backend = { definitions?: Body[]; post?: () => Response | Promise<Response>; put?: () => Response | Promise<Response>; definitionLists?: (() => Response)[]; bundles?: Body[]; bundleLists?: (() => Response | Promise<Response>)[] };
 const bundleWeb = { id: 'bundle-web', version: '0.15.0', status: 'AVAILABLE' };
 const applications = [{ key: 'shop', name: 'Cửa hàng', environments: [{ key: 'staging', name: 'Staging', environmentType: 'staging' }] }];
-const template = { key: 'web-tpl', resourceType: 'workload', driverType: 'score-k8s', executionProfile: 'internal-k8s', driverInputs: { values: { variables: { render_bundle: 'bundle-web' } } }, criteria: [{ env_type: 'staging' }] };
-const other = { key: 'pg-main', resourceType: 'postgres', driverType: 'kubernetes', executionProfile: 'internal-k8s', criteria: [{}] };
+const template = { key: 'web-tpl', name: 'Mẫu web', version: 2, resourceType: 'workload', driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: 'bundle-web' } } }, criteria: [{ env_type: 'staging' }] };
+const other = { key: 'pg-main', name: 'PG chính', version: 1, resourceType: 'postgres', driverType: 'kubernetes', criteria: [{}] };
 
 function backend(options: Backend = {}) {
   const posted: Body[] = [];
+  const puts: { url: string; body: Body }[] = [];
   const gets: string[] = [];
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
+    if (init?.method === 'PUT') { const body = JSON.parse(String(init.body)) as Body; puts.push({ url, body }); return (options.put ?? (() => Response.json({ ...body, version: Number(body.version) + 1 })))(); }
     if (init?.method === 'POST') { posted.push(JSON.parse(String(init.body)) as Body); return (options.post ?? (() => Response.json({}, { status: 201 })))(); }
     gets.push(url);
     if (url.endsWith('/applications')) return Response.json({ applications });
@@ -22,7 +24,7 @@ function backend(options: Backend = {}) {
     const next = options.definitionLists?.shift();
     return next ? next() : Response.json({ resourceDefinitions: options.definitions ?? [] });
   }));
-  return { posted, gets };
+  return { posted, puts, gets };
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -31,9 +33,9 @@ const field = (label: string) => screen.getByLabelText(label);
 const submitName = 'Đăng ký mẫu dựng ứng dụng';
 const submitButton = () => screen.getByRole('button', { name: submitName });
 const bundleSelect = () => screen.getByLabelText('Bundle dựng ứng dụng');
-async function fill(user: ReturnType<typeof userEvent.setup>, id = 'web-tpl', bundle = '', profile = 'internal-k8s') {
+async function fill(user: ReturnType<typeof userEvent.setup>, id = 'web-tpl', bundle = '', name = 'Mẫu web') {
   await user.type(field('ID mẫu'), id);
-  if (profile) await user.selectOptions(field('Phạm vi triển khai'), profile);
+  if (name) await user.type(field('Tên hiển thị'), name);
   if (bundle) await user.selectOptions(bundleSelect(), bundle);
 }
 
@@ -41,22 +43,24 @@ describe('UC-03 rendering templates page (T03)', () => {
   it('lists only workload Definitions with ID, bundle and criteria', async () => {
     backend({ definitions: [other, template] });
     render(<RenderingTemplatesPage />);
-    expect(await screen.findByText('web-tpl')).toBeInTheDocument();
-    expect(screen.getByText(/Cluster nội bộ \(internal-k8s\) · Bundle: bundle-web · 1 điều kiện áp dụng/)).toBeInTheDocument();
-    expect(screen.queryByText('pg-main', { selector: 'strong' })).not.toBeInTheDocument();
+    expect(await screen.findByText('Mẫu web')).toBeInTheDocument();
+    expect(screen.getByText('Mẫu web', { selector: 'strong' }).nextElementSibling).toHaveTextContent('ID web-tpl · Bundle: bundle-web · phiên bản 2 · 1 điều kiện áp dụng');
+    expect(screen.queryByText('PG chính', { selector: 'strong' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/internal-k8s|aws-eks|Phạm vi triển khai/)).not.toBeInTheDocument();
   });
 
-  it('shows the empty state and the required-on-both-profiles/no-fallback guidance in Vietnamese', async () => {
+  it('shows the empty state and the exactly-one-template/no-fallback guidance in Vietnamese', async () => {
     backend();
     render(<RenderingTemplatesPage />);
     expect(await screen.findByText('Chưa có mẫu dựng ứng dụng nào.')).toBeInTheDocument();
-    expect(screen.getByText(/ở cả cluster nội bộ và AWS, cần đúng một mẫu dựng ứng dụng/)).toBeInTheDocument();
+    expect(screen.getByText(/cần đúng một mẫu dựng ứng dụng \(score-k8s\) khớp Điều kiện áp dụng của Môi trường, theo cùng năm field/)).toBeInTheDocument();
+    expect(screen.getByText(/không có bộ lọc profile/)).toBeInTheDocument();
     expect(screen.getByText(/hệ thống không dùng renderer mặc định hay renderer khác/)).toBeInTheDocument();
     expect(screen.queryByText(/dùng renderer mặc định\./)).not.toBeInTheDocument();
-    expect(screen.getByText(/Một bundle duy nhất được chọn sẵn; nhiều bundle cần chọn tường minh/)).toBeInTheDocument();
+    expect(screen.getByText(/Một bundle duy nhất được chọn sẵn khi tạo mới; nhiều bundle cần chọn tường minh/)).toBeInTheDocument();
   });
 
-  it('posts only workload/score-k8s with the chosen profile, render_bundle and criteria', async () => {
+  it('posts only workload/score-k8s with the Name, render_bundle and criteria', async () => {
     const user = userEvent.setup();
     const { posted } = backend({ definitionLists: [() => Response.json({ resourceDefinitions: [] }), () => Response.json({ resourceDefinitions: [template] })] });
     render(<RenderingTemplatesPage />);
@@ -64,30 +68,32 @@ describe('UC-03 rendering templates page (T03)', () => {
     await fill(user);
     await user.click(submitButton());
     expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký mẫu dựng ứng dụng web-tpl.');
-    expect(posted).toEqual([{ key: 'web-tpl', resourceType: 'workload', executionProfile: 'internal-k8s', driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: 'bundle-web' } } }, criteria: [{}] }]);
-    for (const forbidden of ['connectionKey', 'provision']) expect(posted[0]).not.toHaveProperty(forbidden);
+    expect(posted).toEqual([{ key: 'web-tpl', name: 'Mẫu web', resourceType: 'workload', driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: 'bundle-web' } } }, criteria: [{}] }]);
+    for (const forbidden of ['connectionKey', 'driverAccount', 'executionProfile', 'provision']) expect(posted[0]).not.toHaveProperty(forbidden);
     expect(posted[0]).not.toHaveProperty('driverInputs.values.source');
     expect(await screen.findByText(/Bundle: bundle-web/)).toBeInTheDocument();
     expect(field('ID mẫu')).toHaveValue('');
-    expect(field('Phạm vi triển khai')).toHaveValue('');
+    expect(field('Tên hiển thị')).toHaveValue('');
     expect(bundleSelect()).toHaveValue('bundle-web');
   });
 
-  it('registers the same template for the AWS profile and never defaults the scope', async () => {
+  it('requires a Name and registers with explicit criteria instead of a deployment scope', async () => {
     const user = userEvent.setup();
     const { posted } = backend();
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
     await fill(user, 'web-cloud', '', '');
     await user.click(submitButton());
-    expect(await screen.findByRole('alert')).toHaveTextContent('Chọn phạm vi triển khai của mẫu');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nhập Tên hiển thị của mẫu.');
     expect(posted).toEqual([]);
-    expect(field('Phạm vi triển khai')).toHaveValue('');
-    await user.selectOptions(field('Phạm vi triển khai'), 'aws-eks');
-    expect(screen.getByText(/Phạm vi triển khai \(executionProfile\):/)).toHaveTextContent('AWS (aws-eks)');
+    expect(screen.queryByLabelText('Phạm vi triển khai')).not.toBeInTheDocument();
+    await user.type(field('Tên hiển thị'), 'Mẫu cloud');
+    await user.click(screen.getByLabelText(/Theo ứng dụng/));
+    await user.selectOptions(screen.getByLabelText('Ứng dụng'), 'shop');
     await user.click(submitButton());
     expect(await screen.findByRole('status')).toHaveTextContent('web-cloud');
-    expect(posted[0]).toMatchObject({ key: 'web-cloud', executionProfile: 'aws-eks', driverType: 'score-k8s', resourceType: 'workload' });
+    expect(posted[0]).toMatchObject({ key: 'web-cloud', name: 'Mẫu cloud', driverType: 'score-k8s', resourceType: 'workload', criteria: [{ app_id: 'shop' }] });
+    expect(posted[0]).not.toHaveProperty('executionProfile');
   });
 
   it('shows no infrastructure controls and reuses the shared criteria editor', async () => {
@@ -96,8 +102,8 @@ describe('UC-03 rendering templates page (T03)', () => {
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
     for (const label of [/Kết nối/, /Terraform/, /module/i, /JSON/, /Quy tắc tạo tài nguyên/, /Loại tài nguyên/, /Cách tạo/]) expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: 'Chế độ điều kiện áp dụng' })).toBeInTheDocument();
-    await userEvent.setup().selectOptions(field('Phạm vi triển khai'), 'internal-k8s');
-    expect(screen.getByText(/Phạm vi triển khai \(executionProfile\):/)).toHaveTextContent('Cluster nội bộ');
+    expect(screen.queryByLabelText('Phạm vi triển khai')).not.toBeInTheDocument();
+    expect(screen.getByRole('note', { name: 'Quy tắc so khớp' })).toHaveTextContent('AND trong một dòng, OR giữa các dòng');
   });
 
   it('validates ID shape before any POST', async () => {
@@ -112,8 +118,9 @@ describe('UC-03 rendering templates page (T03)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('ID chỉ gồm chữ thường');
     expect(field('ID mẫu')).toHaveValue('Bad_ID');
     await user.clear(field('ID mẫu'));
+    await user.clear(field('ID mẫu'));
     await user.type(field('ID mẫu'), 'ok-id');
-    await user.selectOptions(field('Phạm vi triển khai'), 'internal-k8s');
+    await user.type(field('Tên hiển thị'), 'Mẫu ok');
     await user.click(submitButton());
     expect(posted).toHaveLength(1);
   });
@@ -169,7 +176,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     const alert = await screen.findByRole('alert', { name: 'Lỗi tải danh sách' });
     expect(screen.queryByText('Chưa có mẫu dựng ứng dụng nào.')).not.toBeInTheDocument();
     await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
-    expect(await screen.findByText('web-tpl')).toBeInTheDocument();
+    expect(await screen.findByText('Mẫu web')).toBeInTheDocument();
   });
 
   it('separates a created registration from a reload failure; Retry only reloads the list', async () => {
@@ -185,7 +192,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     expect(screen.queryByText('Chưa có mẫu dựng ứng dụng nào.')).not.toBeInTheDocument();
     const before = gets.length;
     await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
-    expect(await screen.findByText('web-tpl')).toBeInTheDocument();
+    expect(await screen.findByText('Mẫu web')).toBeInTheDocument();
     expect(gets.length).toBeGreaterThan(before);
     expect(posted).toHaveLength(1);
   });
@@ -209,7 +216,7 @@ describe('UC-03 rendering templates page (T03)', () => {
       await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
       expect(bundleSelect()).toHaveValue('');
       await user.type(field('ID mẫu'), 'web-tpl');
-      await user.selectOptions(field('Phạm vi triển khai'), 'internal-k8s');
+      await user.type(field('Tên hiển thị'), 'Mẫu web');
       await user.click(submitButton());
       expect(await screen.findByRole('alert')).toHaveTextContent('Chọn bundle dựng ứng dụng.');
       expect(posted).toHaveLength(0);
@@ -275,7 +282,7 @@ describe('UC-03 rendering templates page (T03)', () => {
       await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
       await user.selectOptions(bundleSelect(), 'bundle-b');
       await user.type(field('ID mẫu'), 'web-tpl');
-      await user.selectOptions(field('Phạm vi triển khai'), 'aws-eks');
+      await user.type(field('Tên hiển thị'), 'Mẫu web');
       await user.click(screen.getByRole('button', { name: 'Làm mới danh sách bundle' }));
       const alert = await screen.findByRole('alert', { name: 'Bundle không còn khả dụng' });
       expect(alert).toHaveTextContent('bundle-b');
@@ -340,5 +347,89 @@ describe('UC-03 rendering templates page (T03)', () => {
       expect(field('ID mẫu')).toHaveValue('web-tpl');
       expect(posted).toHaveLength(0);
     });
+  });
+});
+
+// UC-03 V02-06 for the rendering template page: the same Name/version contract and one CAS edit.
+describe('UC-03 V02 rendering template edit', () => {
+  async function open(user: ReturnType<typeof userEvent.setup>, options: Backend = {}) {
+    const harness = backend({ definitions: [template], ...options });
+    render(<RenderingTemplatesPage />);
+    await screen.findByText('Mẫu web');
+    await user.click(screen.getByRole('button', { name: 'Sửa mẫu web-tpl' }));
+    return harness;
+  }
+  it('loads the template, keeps the ID fixed and saves one PUT with the expected version', async () => {
+    const user = userEvent.setup();
+    const { puts, posted } = await open(user);
+    expect(field('ID mẫu')).toHaveAttribute('readonly');
+    expect(field('ID mẫu')).toHaveValue('web-tpl');
+    expect(field('Tên hiển thị')).toHaveValue('Mẫu web');
+    expect(bundleSelect()).toHaveValue('bundle-web');
+    expect(screen.getByLabelText(/Theo loại môi trường/)).toBeChecked();
+    await user.clear(field('Tên hiển thị'));
+    await user.type(field('Tên hiển thị'), 'Mẫu web mới');
+    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Đã lưu mẫu dựng ứng dụng web-tpl (phiên bản 3).');
+    expect(posted).toEqual([]);
+    expect(puts[0]?.url).toMatch(/\/resource-definitions\/web-tpl$/);
+    expect(puts[0]?.body).toEqual({ key: 'web-tpl', name: 'Mẫu web mới', resourceType: 'workload', driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: 'bundle-web' } } }, criteria: [{ env_type: 'staging' }], version: 2 });
+  });
+  it('keeps the draft on a stale 409 and needs an explicit reload before saving again', async () => {
+    const user = userEvent.setup();
+    const { puts } = await open(user, { put: () => Response.json({ code: 'STALE_VERSION' }, { status: 409 }) });
+    await user.clear(field('Tên hiển thị'));
+    await user.type(field('Tên hiển thị'), 'Bản nháp');
+    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    expect(await screen.findByRole('alert', { name: 'Cần tải lại mẫu' })).toHaveTextContent(/Chưa có gì bị ghi đè/);
+    expect(field('Tên hiển thị')).toHaveValue('Bản nháp');
+    expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Tải lại bản mới nhất' }));
+    expect(field('Tên hiển thị')).toHaveValue('Mẫu web');
+    expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeEnabled();
+    expect(puts).toHaveLength(1);
+  });
+});
+
+// UC-03 V02-06: an unknown CREATE outcome holds the registration like an unknown edit holds Save.
+describe('UC-03 V02 rendering template create with an unknown outcome', () => {
+  async function submitCreate(user: ReturnType<typeof userEvent.setup>, options: Backend) {
+    const harness = backend(options);
+    render(<RenderingTemplatesPage />);
+    await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await waitFor(() => expect(bundleSelect()).toBeEnabled());
+    await fill(user, 'web-tpl', 'bundle-web');
+    await user.click(submitButton());
+    return harness;
+  }
+  it('holds the registration after a network failure, never replays the POST and opens the stored template when the key exists', async () => {
+    const user = userEvent.setup();
+    const definitionLists = [() => Response.json({ resourceDefinitions: [] }), () => Response.json({ resourceDefinitions: [template] }), () => Response.json({ resourceDefinitions: [template] })];
+    const { posted } = await submitCreate(user, { post: () => { throw new TypeError('network'); }, definitionLists });
+    const review = await screen.findByRole('alert', { name: 'Cần tải lại mẫu' });
+    expect(review).toHaveTextContent(/Chưa biết lần đăng ký đã được lưu hay chưa/);
+    expect(submitButton()).toBeDisabled();
+    expect(posted).toHaveLength(1);
+    await user.click(within(review).getByRole('button', { name: 'Kiểm tra trên máy chủ' }));
+    expect(await screen.findByRole('heading', { name: 'Sửa mẫu dựng ứng dụng web-tpl' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(/đã có trên máy chủ/);
+    expect(posted).toHaveLength(1);
+  });
+  it('keeps draft and hold when the check fails, then releases the hold with the draft when the create rolled back', async () => {
+    const user = userEvent.setup();
+    const definitionLists = [() => Response.json({ resourceDefinitions: [] }), () => Response.json({ resourceDefinitions: [] }), () => Response.json({ error: 'x' }, { status: 500 }), () => Response.json({ resourceDefinitions: [] }), () => Response.json({ resourceDefinitions: [] })];
+    const { posted } = await submitCreate(user, { post: () => Response.json({ code: 'COMMIT_UNCERTAIN' }, { status: 503 }), definitionLists });
+    const review = await screen.findByRole('alert', { name: 'Cần tải lại mẫu' });
+    await user.click(within(review).getByRole('button', { name: 'Kiểm tra trên máy chủ' }));
+    await waitFor(() => expect(screen.getByRole('alert', { name: 'Cần tải lại mẫu' })).toBeInTheDocument());
+    expect(submitButton()).toBeDisabled();
+    expect(field('ID mẫu')).toHaveValue('web-tpl');
+    await user.click(within(screen.getByRole('alert', { name: 'Cần tải lại mẫu' })).getByRole('button', { name: 'Kiểm tra trên máy chủ' }));
+    await waitFor(() => expect(screen.queryByRole('alert', { name: 'Cần tải lại mẫu' })).not.toBeInTheDocument());
+    expect(screen.getByRole('status')).toHaveTextContent(/lần đăng ký trước không được lưu/);
+    expect(field('ID mẫu')).toHaveValue('web-tpl');
+    expect(bundleSelect()).toHaveValue('bundle-web');
+    expect(submitButton()).toBeEnabled();
+    expect(posted).toHaveLength(1);
   });
 });

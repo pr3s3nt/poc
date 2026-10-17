@@ -350,8 +350,11 @@ func TestInspectorReadsContract(t *testing.T) {
 	if c.Outputs["port"].Type != "number" || c.Outputs["host"].Type != "" || !c.Outputs["password"].Sensitive {
 		t.Fatalf("outputs %+v", c.Outputs)
 	}
-	if !equal(c.ExecutorOwned, []string{"region"}) {
-		t.Fatalf("executor owned %v", c.ExecutorOwned)
+	if len(c.ExecutorOwned) != 0 {
+		t.Fatalf("region is an authored input (UC-03 V02-03/04), not executor-owned: %v", c.ExecutorOwned)
+	}
+	if _, ok := c.Inputs["region"]; !ok {
+		t.Fatalf("the region variable is still declared: %+v", c.Inputs)
 	}
 	aws := result.providers["aws"]
 	if aws.Version != "6.60.0" || aws.Binding != tfmodule.BindingAWS || len(aws.Hashes) == 0 || aws.Constraints != ">= 5.0" {

@@ -9,6 +9,7 @@ class ResourceDefinitionController <<boundary>> {
 }
 class ResourceDefinitionService <<control>> {
   +RegisterResourceDefinition(ctx, cmd): ResourceDefinition
+    +UpdateResourceDefinition(ctx, key, expectedVersion, cmd): ResourceDefinition
   +ListRenderBundles(): SafeBundleMetadata[]
   +ListDefinitionCapabilities(ctx, org): CapabilityMetadata[]
   +PreviewMatching(ctx, org, query): MatchingPreview
@@ -48,7 +49,7 @@ class RenderBundle <<value>>
 class RenderingSelection <<value>>
 ResourceDefinitionService ..> RenderBundle : installed contract/fingerprint
 class DefinitionMatcher <<control>>
-ResourceDefinitionService ..> DefinitionMatcher : pure criteria + connection guard
+ResourceDefinitionService ..> DefinitionMatcher : five-field ranking + winner account guard
 class ModuleSourcePolicy <<control>>
 class ModuleBundleResolver <<adapter>>
 class TerraformModuleBundle <<entity>>

@@ -28,7 +28,7 @@ func k8sTerraformDefinition(key, typ string, ref tfmodule.SourceRef, variables m
 		outputMapping[name] = name
 	}
 	return resource.Definition{
-		Key: key, ResourceTypeKey: typ, DriverType: resource.DriverTerraform,
+		Key: key, Name: key, Version: 1, ResourceTypeKey: typ, DriverType: resource.DriverTerraform,
 		DriverInputs: map[string]any{"values": map[string]any{
 			"source": ref.Map(), "variables": variables, "input_mapping": inputMapping, "output_mapping": outputMapping,
 			"provider_bindings": map[string]any{"kubernetes": map[string]any{"target": tfmodule.TargetEnvironment}},
@@ -83,13 +83,6 @@ func k8sRequestWith(t *testing.T, annotations map[string]any, adjust func(*plann
 		k8sTerraformDefinition("postgres-k8s-module", "postgres", refs["postgres-k8s"], map[string]any{"namespace": nsOut}, []string{"database", "username"}, []string{"host", "port", "database", "username", "password"}),
 		k8sTerraformDefinition("redis-k8s-module", "redis", refs["redis-k8s"], redisVars, nil, []string{"host", "port", "username", "password", "tls"}),
 	)
-	// Registry-driven planning of the Definitions needs the postgres class too.
-	for i := range catalog.Definitions {
-		if catalog.Definitions[i].Key == "postgres-k8s-module" {
-			catalog.Definitions[i].ExecutionProfile = "internal-k8s"
-		}
-	}
-
 	if adjust != nil {
 		adjust(&catalog)
 	}
@@ -298,9 +291,6 @@ func TestConsoleAuthoredAcceptanceCatalogPlansTheDeletionFixtureGraph(t *testing
 			"namespace":   nsOut,
 			"annotations": map[string]any{"example.test/postgres-host": "${resources['" + pg + "'].outputs.host}"},
 		}, nil, []string{"host", "port", "username", "password", "tls"})
-		for _, d := range []*resource.Definition{&nsDef, &pgDef, &redisDef} {
-			d.ExecutionProfile = "internal-k8s"
-		}
 		pgDef.Criteria = []resource.Criterion{{Class: "in-cluster"}}
 		redisDef.Criteria = []resource.Criterion{{Class: "in-cluster"}}
 		c.Definitions = []resource.Definition{nsDef, pgDef, redisDef}

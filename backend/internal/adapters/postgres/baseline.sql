@@ -172,9 +172,13 @@ CREATE TABLE resource_types (
 );
 CREATE TABLE resource_definitions (
   id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id), definition_key text NOT NULL,
-  resource_type_id uuid NOT NULL REFERENCES resource_types(id), execution_profile text,
+  resource_type_id uuid NOT NULL REFERENCES resource_types(id),
+  definition_name text NOT NULL CONSTRAINT resource_definitions_name_check CHECK (
+    btrim(definition_name) <> '' AND char_length(definition_name) <= 253 AND definition_name !~ '[[:cntrl:]]'),
   driver_type text NOT NULL, connection_id uuid REFERENCES connections(id), driver_inputs jsonb NOT NULL,
-  provision_rules jsonb NOT NULL, source_fingerprint text, UNIQUE(organization_id, definition_key)
+  provision_rules jsonb NOT NULL, source_fingerprint text,
+  version bigint NOT NULL DEFAULT 1 CONSTRAINT resource_definitions_version_check CHECK (version >= 1),
+  UNIQUE(organization_id, definition_key)
 );
 CREATE TABLE matching_criteria (
   id uuid PRIMARY KEY, resource_definition_id uuid NOT NULL REFERENCES resource_definitions(id) ON DELETE CASCADE,

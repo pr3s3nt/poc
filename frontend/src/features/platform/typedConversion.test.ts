@@ -32,7 +32,7 @@ describe('typed variable conversion is lossless', () => {
   it('refuses to import null or mismatching values into typed controls', () => {
     expect(variablesToDraft({ min_capacity: 'many' }, vars).reason).toBeTruthy();
     expect(variablesToDraft({ name: null }, vars).reason).toBeTruthy();
-    expect(variablesToDraft({ region: 'x' }, vars).reason).toBeTruthy();
+    expect(variablesToDraft({ tags: { a: 'b' } }, vars).reason).toBeTruthy(); // executor-owned: the AWS region is edited by its own control, tags never
     expect(variablesToDraft({ master_password: 'x' }, vars).reason).toBeTruthy();
   });
 });

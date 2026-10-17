@@ -2,11 +2,16 @@
 id: UC-03-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-17
 related: UC-03
 ---
 
 # UC-03 HTTP mapping
+
+V02 sections below own current authoring/edit/account/matching behavior under
+UC-03 V02-01..09. Earlier T02–T31 descriptions remain only for unchanged typed
+inputs/interaction details; their profile/Environment AWS/insert-only/client-only
+preview requirements are superseded. Predecessor is available at commit96eb602.
 
 `GET /api/v1/resource-definitions` lists the session Organization's catalog.
 `POST /api/v1/resource-definitions` is Platform Engineer/Admin registration,
@@ -127,3 +132,14 @@ cần metadata, giữ edits và retry read; không silent fallback sang packaged
 Query không fetch/inspect; preparation/registration inspection vẫn theo OC-04.
 Driver Inputs tiếp tục full `values.source`, input_mapping/output_mapping và
 provider_bindings đã định nghĩa; Workload form không chọn những fields này.
+
+## V02 API replacement
+
+Use OC-04/04c/04d V02 replacement contract: strict `name`, `driverAccount`,
+positive response `version`; POST create, PUT key edit with expected version.
+Remove `executionProfile`/`connectionKey` authoring from all Definition consumers,
+including rendering templates. Account selector uses V01 `/api/v1/driver-accounts`;
+filter compatible kind/READY for UX and independently validate server-side.
+AWS provider `{target: account}` with region in Driver Inputs; Kubernetes
+resource reference keeps inherited target. Do not add account criteria or infer
+from Environment. Matching endpoint remains read-only and authoritative.

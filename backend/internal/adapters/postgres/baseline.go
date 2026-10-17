@@ -26,7 +26,7 @@ var baselineSQL string
 
 // baselineIdentity is the technical marker stored by a fresh initialization.
 // It identifies the baseline; it is not a migration ledger and drives no upgrade.
-const baselineIdentity = "orchestrator-fresh-baseline-t28"
+const baselineIdentity = "orchestrator-fresh-baseline-v02"
 
 // baselineLockKey serializes initialization and validation across instances.
 const baselineLockKey = 1862274311

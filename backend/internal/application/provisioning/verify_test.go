@@ -57,13 +57,13 @@ func runVerified(t *testing.T, app *bootstrap.App, org string, verifier modulere
 	t.Helper()
 	descriptor := "cache.default#applications.a"
 	refs, _ := registry.PackagedRefs()
-	def := resource.Definition{Key: "cache-def", ResourceTypeKey: "cache", DriverType: resource.DriverTerraform, ExecutionProfile: "aws-eks", Criteria: []resource.Criterion{{}},
+	def := resource.Definition{Key: "cache-def", Name: "cache-def", Version: 1, ResourceTypeKey: "cache", DriverType: resource.DriverTerraform, DriverAccount: "aws-a", Criteria: []resource.Criterion{{}},
 		DriverInputs: map[string]any{"values": map[string]any{
 			"source":            refs["vpc"].Map(),
 			"variables":         map[string]any{"memory_mb": 512},
 			"input_mapping":     map[string]any{"memory_mb": map[string]any{"param": "size"}},
 			"output_mapping":    map[string]any{"endpoint": "host", "auth": "password"},
-			"provider_bindings": map[string]any{"aws": map[string]any{"target": "environment"}},
+			"provider_bindings": map[string]any{"aws": map[string]any{"target": "account"}},
 		}}}
 	typ := resource.Type{Key: "cache", Inputs: []resource.InputField{{Name: "size", Type: "number"}}, Outputs: []resource.OutputField{{Name: "host", Type: "string", Required: true}, {Name: "password", Type: "string", Required: true}}}
 	if err := app.Store.SaveResourceType(context.Background(), org, typ); err != nil {

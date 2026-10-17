@@ -46,6 +46,29 @@ type CapabilityOutput struct {
 	Sensitive bool   `json:"sensitive"`
 }
 
+// CapabilityAccount states whether the pair needs a Driver Account (UC-03
+// V02-03). Type is the required account type; RegionVariable names the
+// literal Driver Inputs variable that carries the AWS region.
+type CapabilityAccount struct {
+	Required       bool   `json:"required"`
+	Type           string `json:"type,omitempty"`
+	RegionVariable string `json:"regionVariable,omitempty"`
+}
+
+// CapabilityTarget is one provider binding target a Definition may use.
+// Legacy marks the Environment target kept visible until V03.
+type CapabilityTarget struct {
+	Target string `json:"target"`
+	Legacy bool   `json:"legacy,omitempty"`
+}
+
+// CapabilityBinding lists the allowed targets of one configurable provider.
+type CapabilityBinding struct {
+	Provider string             `json:"provider"`
+	Kind     string             `json:"kind"`
+	Targets  []CapabilityTarget `json:"targets"`
+}
+
 // Capability describes one registrable Resource Type/driver/module pair.
 type Capability struct {
 	ResourceType     string               `json:"resourceType"`
@@ -57,6 +80,8 @@ type Capability struct {
 	Outputs          []CapabilityOutput   `json:"outputs,omitempty"`
 	Variables        []CapabilityVariable `json:"variables"`
 	ExecutorOwned    []string             `json:"executorOwned"`
+	Account          CapabilityAccount    `json:"account"`
+	Bindings         []CapabilityBinding  `json:"bindings"`
 }
 
 // ListDefinitionCapabilities returns the supported registration pairs with
@@ -123,11 +148,19 @@ func terraformCapability(bundle tfmodule.Bundle, typ resource.Type, resourceType
 		Outputs:          []CapabilityOutput{},
 		Variables:        []CapabilityVariable{},
 		ExecutorOwned:    append([]string{}, bundle.Contract.ExecutorOwned...),
+		Bindings:         []CapabilityBinding{},
 	}
 	sort.Strings(capability.ExecutorOwned)
 	for _, name := range sortedKeys(bundle.Providers) {
 		p := bundle.Providers[name]
 		capability.Providers = append(capability.Providers, CapabilityProvider{Name: name, Source: p.Source, Version: p.Version, Binding: p.Binding})
+		switch p.Binding {
+		case tfmodule.BindingAWS:
+			capability.Account = CapabilityAccount{Required: true, Type: "AWS", RegionVariable: "region"}
+			capability.Bindings = append(capability.Bindings, CapabilityBinding{Provider: name, Kind: p.Binding, Targets: []CapabilityTarget{{Target: tfmodule.TargetAccount}}})
+		case tfmodule.BindingKubernetes:
+			capability.Bindings = append(capability.Bindings, CapabilityBinding{Provider: name, Kind: p.Binding, Targets: []CapabilityTarget{{Target: tfmodule.TargetResource}, {Target: tfmodule.TargetEnvironment, Legacy: true}}})
+		}
 	}
 	for _, name := range sortedKeys(bundle.Contract.Outputs) {
 		o := bundle.Contract.Outputs[name]

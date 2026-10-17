@@ -106,9 +106,17 @@ type Match struct {
 	Descriptor    string              `json:"descriptor"`
 	DefinitionKey string              `json:"definitionKey"`
 	DriverType    resource.DriverType `json:"driverType"`
-	ConnectionKey string              `json:"connectionKey,omitempty"`
-	Specificity   int                 `json:"specificity"`
-	Criterion     resource.Criterion  `json:"criterion"`
+	// ConnectionKey is set only for the ADR-013 Environment-bound system
+	// cluster. A catalog match never carries an Environment connection.
+	ConnectionKey string `json:"connectionKey,omitempty"`
+	// DefinitionVersion, DriverAccount and AccountVersion pin the Definition
+	// content version and the selected Driver Account the plan saw
+	// (UC-03 V02-07); editing either makes an older Preview stale.
+	DefinitionVersion int64              `json:"definitionVersion,omitempty"`
+	DriverAccount     string             `json:"driverAccount,omitempty"`
+	AccountVersion    int64              `json:"accountVersion,omitempty"`
+	Specificity       int                `json:"specificity"`
+	Criterion         resource.Criterion `json:"criterion"`
 	// Binding is set only when the Environment Connection selected the
 	// Definition (ADR-013); catalog matches leave it empty.
 	Binding string `json:"binding,omitempty"`
@@ -188,6 +196,10 @@ type Plan struct {
 type Catalog struct {
 	Types       map[string]resource.Type
 	Definitions []resource.Definition
+	// Accounts are the scoped Driver Accounts (Connections) of the
+	// Organization by key. Planning reads only identity, kind, status and
+	// version; never configuration secrets.
+	Accounts map[string]application.Connection
 }
 
 // ModuleInspector returns the Terraform module contract of a Definition. The

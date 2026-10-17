@@ -19,7 +19,7 @@ func TestRenderingRegistrationRejectsUnavailableOrInfrastructureInputs(t *testin
 	}
 	svc := catalog.NewService(st)
 	makeDef := func() resource.Definition {
-		return resource.Definition{Key: "workload-render", ResourceTypeKey: "workload", ExecutionProfile: "internal-k8s", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}}, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed"}}}}
+		return resource.Definition{Key: "workload-render", Name: "workload-render", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}}, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed"}}}}
 	}
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, makeDef()); !errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("unavailable renderer: %v", err)
@@ -29,10 +29,8 @@ func TestRenderingRegistrationRejectsUnavailableOrInfrastructureInputs(t *testin
 		name   string
 		mutate func(*resource.Definition)
 	}{
-		{"shared-profile", func(d *resource.Definition) { d.ExecutionProfile = "" }},
-		{"unknown-profile", func(d *resource.Definition) { d.ExecutionProfile = "other" }},
 		{"wrong-type", func(d *resource.Definition) { d.ResourceTypeKey = "postgres" }},
-		{"connection", func(d *resource.Definition) { d.ConnectionKey = opts.ConnectionKey }},
+		{"driver account", func(d *resource.Definition) { d.DriverAccount = opts.ConnectionKey }},
 		{"provision", func(d *resource.Definition) {
 			d.Provision = map[string]resource.ProvisionRule{"postgres.default#db": {}}
 		}},
@@ -63,10 +61,10 @@ func TestRenderingRegistrationRejectsUnavailableOrInfrastructureInputs(t *testin
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); !errors.Is(err, catalog.ErrDuplicate) {
 		t.Fatalf("duplicate: %v", err)
 	}
-	// Both target profiles take a score-k8s rendering Definition (UC-03 BR-15).
-	cloud := makeDef()
-	cloud.Key, cloud.ExecutionProfile = "workload-render-cloud", "aws-eks"
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, cloud); err != nil {
-		t.Fatalf("aws-eks rendering Definition: %v", err)
+	// A second renderer registers with its own explicit criteria; there is no profile (UC-03 V02-02).
+	second := makeDef()
+	second.Key, second.Criteria = "workload-render-cloud", []resource.Criterion{{ApplicationID: "cloud"}}
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, second); err != nil {
+		t.Fatalf("second rendering Definition: %v", err)
 	}
 }

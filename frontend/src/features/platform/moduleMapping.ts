@@ -45,12 +45,11 @@ export function outputCompatible(contractType: string, moduleType: string | unde
 }
 
 export const bindingProviders = (capability: Capability): CapabilityProvider[] => capability.providerRequirements.filter((provider) => provider.binding === 'aws' || provider.binding === 'kubernetes');
-// A Kubernetes-only module may name the Environment's own Kubernetes Connection (UC-03 BR-08).
-export const needsKubernetesConnection = (capability: Capability): boolean => !needsAwsConnection(capability) && capability.providerRequirements.some((provider) => provider.binding === 'kubernetes');
-export const needsAwsConnection = (capability: Capability): boolean => capability.providerRequirements.some((provider) => provider.binding === 'aws');
-// An AWS module always runs on the Environment's AWS Connection and aws-eks; a
-// Kubernetes-only module may run on either target or on both ("Dùng chung").
-export const profileChoices = (capability: Capability): string[] => (needsAwsConnection(capability) ? ['aws-eks'] : ['internal-k8s', 'aws-eks', '']);
+// The server publishes whether a pair needs a Driver Account (UC-03 V02-03); the
+// form never infers it from the Resource Type or module name.
+export const needsAccount = (capability: Capability): boolean => capability.account.required;
+// A Kubernetes provider inherits its cluster from a binding target, never from an account.
+export const inheritsCluster = (capability: Capability): boolean => capability.bindings.some((binding) => binding.kind === 'kubernetes');
 
 export function mappingToObject(draft: MappingDraft, capability: Capability): { input_mapping: JsonObject; output_mapping: JsonObject; provider_bindings: JsonObject } {
   const input_mapping: JsonObject = {};
@@ -60,7 +59,7 @@ export function mappingToObject(draft: MappingDraft, capability: Capability): { 
   const provider_bindings: JsonObject = {};
   for (const provider of bindingProviders(capability)) {
     const binding = draft.bindings[provider.name];
-    if (provider.binding === 'aws') provider_bindings[provider.name] = { target: 'environment' };
+    if (provider.binding === 'aws') provider_bindings[provider.name] = { target: 'account' };
     else if (binding?.target === 'environment') provider_bindings[provider.name] = { target: 'environment' };
     else if (binding?.target === 'resource' && binding.clusterClass !== '') provider_bindings[provider.name] = { target: 'resource', resource_ref: clusterRef(binding.clusterClass) };
   }
@@ -102,7 +101,11 @@ export function objectToMapping(value: JsonObject, capability: Capability, type:
     const provider = providers.get(name);
     if (!provider) return { reason: `Provider "${name}" không nhận binding trong module đã chọn. Giữ trong JSON nâng cao.` };
     if (!isObject(entry)) return { reason: `provider_bindings."${name}" không phải JSON object. Giữ trong JSON nâng cao.` };
-    if (entry.target === 'environment' && Object.keys(entry).length === 1) { draft.bindings[name] = { target: 'environment', clusterClass: '' }; continue; }
+    if (provider.binding === 'aws') {
+      if (entry.target === 'account' && Object.keys(entry).length === 1) continue;
+      return { reason: `Binding của "${name}" phải là {target: account} (tài khoản của cấu hình). Giữ trong JSON nâng cao.` };
+    }
+    if (provider.binding === 'kubernetes' && entry.target === 'environment' && Object.keys(entry).length === 1) { draft.bindings[name] = { target: 'environment', clusterClass: '' }; continue; }
     const ref = typeof entry.resource_ref === 'string' ? clusterRefPattern.exec(entry.resource_ref) : null;
     if (provider.binding === 'kubernetes' && entry.target === 'resource' && Object.keys(entry).length === 2 && ref?.[1] && clusterClasses.includes(ref[1])) { draft.bindings[name] = { target: 'resource', clusterClass: ref[1] }; continue; }
     return { reason: `Binding của "${name}" không biểu diễn an toàn bằng control (cluster cần là class đã công bố). Giữ trong JSON nâng cao.` };
@@ -125,7 +128,7 @@ export function mappingProblems(draft: MappingDraft, capability: Capability, typ
   const clusterNeeded = bindingProviders(capability).filter((provider) => provider.binding === 'kubernetes');
   for (const provider of clusterNeeded) {
     const binding = draft.bindings[provider.name];
-    if (!binding || binding.target === '') problems.push({ field: `binding:${provider.name}`, message: `Chọn nơi provider ${provider.name} chạy: cluster của Môi trường hoặc cluster do node EKS cung cấp.` });
+    if (!binding || binding.target === '') problems.push({ field: `binding:${provider.name}`, message: `Chọn nơi provider ${provider.name} lấy cluster: cluster do node EKS cung cấp, hoặc cluster của Môi trường (cách cũ, giữ tới V03).` });
     else if (binding.target === 'resource' && binding.clusterClass === '') problems.push({ field: `binding:${provider.name}`, message: `Chọn class cluster EKS cho provider ${provider.name}.` });
   }
   return problems;

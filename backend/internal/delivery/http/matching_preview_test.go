@@ -107,7 +107,8 @@ func TestMatchingPreviewStrictBoundedErrors(t *testing.T) {
 	}
 }
 
-func TestMatchingPreviewUnavailableTarget(t *testing.T) {
+// UC-03 V02-05: ordinary matching needs no configured Environment target.
+func TestMatchingPreviewWorksForUnconfiguredEnvironment(t *testing.T) {
 	_, ts, st := bundleTestServer(t, nil)
 	env, err := st.GetEnvironment(context.Background(), "acceptance", "dev")
 	if err != nil {
@@ -119,7 +120,7 @@ func TestMatchingPreviewUnavailableTarget(t *testing.T) {
 	}
 	pe := bundleClient(t, ts.URL, "platform-engineer")
 	code, body := postPreview(t, pe, ts.URL, strings.Replace(previewBody, `"environmentId":"dev"`, `"environmentId":"unbound"`, 1))
-	if code != http.StatusUnprocessableEntity || strings.Contains(body, "unbound-id") {
+	if code != http.StatusOK || strings.Contains(body, "unbound-id") || !strings.Contains(body, `"status":"MATCHED"`) {
 		t.Fatalf("%d %s", code, body)
 	}
 }

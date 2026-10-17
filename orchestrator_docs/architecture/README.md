@@ -52,3 +52,8 @@ These are required v2 design; current implementation remains tracked separately.
 
 [ADR-015](decisions/ADR-015-infrastructure-driver-accounts.md) adds the account
 catalog while preserving current execution consumers until V02–V03.
+
+V02 Definition authoring/matching replaces profile filtering and Environment AWS
+identity per [UC-03](../usecase/UC-03/specification.md#hợp-đồng-v02--áp-dụng-từ-2026-10-17).
+Definition edits are version CAS; historical execution/cleanup pins remain.
+Actual V02 delivery is tracked in CURRENT_STATE/evidence, not implied by design.

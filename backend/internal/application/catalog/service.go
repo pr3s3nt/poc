@@ -108,52 +108,26 @@ func (s *Service) RegisterResourceType(ctx context.Context, organizationKey stri
 	return typ, nil
 }
 
-// RegisterResourceDefinition accepts only runtime-supported driver/type pairs.
+// ErrVersionConflict reports an edit based on a stale Definition version
+// (HTTP 409). The stored winner is untouched.
+var ErrVersionConflict = errors.New("catalog: stale resource definition version")
+
+// ErrOutcomeUncertain means the database commit of a Definition write may have
+// happened. The write is never replayed automatically; the caller reloads the
+// Definition before deciding.
+var ErrOutcomeUncertain = errors.New("catalog: the outcome is not known; reload the definition before trying again")
+
+// ErrNotFound reports a Definition outside the Organization (HTTP 404).
+var ErrNotFound = errors.New("catalog: resource definition not found")
+
+// RegisterResourceDefinition validates and creates a Definition at version 1.
+// Retired authoring fields are rejected by the strict public DTO; the version
+// and source fingerprint are always server-owned.
 func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKey string, def resource.Definition) (resource.Definition, error) {
-	if def.Key == planning.BuiltinClusterKey {
-		return resource.Definition{}, invalidField("definition.key", fmt.Errorf("%w: resource definition key %q is reserved for the system", ErrInvalid, def.Key))
-	}
-	if def.DriverType == resource.DriverExistingCluster {
-		// ADR-013/UC-03 BR-08: the existing-cluster binding is a system
-		// Definition; public registration is rejected for every key.
-		return resource.Definition{}, invalidField("definition.driverType", fmt.Errorf("%w: driver %q cannot be registered publicly", ErrInvalid, def.DriverType))
-	}
-	if err := validatePublicID("resource definition", def.Key); err != nil {
-		return resource.Definition{}, &invalidIDError{err: invalidField("definition.key", fmt.Errorf("%w: %v", ErrInvalid, err))}
-	}
-	if err := def.Validate(); err != nil {
-		return resource.Definition{}, invalidField("definition.schema", fmt.Errorf("%w: %v", ErrInvalid, err))
-	}
-	def.SourceFingerpr = "" // Server-owned metadata; never trust a submitted fingerprint.
-	types, err := s.store.ListResourceTypes(ctx, organizationKey)
+	def.Version = 1
+	prepared, bundle, err := s.prepareDefinition(ctx, organizationKey, def)
 	if err != nil {
 		return resource.Definition{}, err
-	}
-	var typ resource.Type
-	found := false
-	for _, candidate := range types {
-		if candidate.Key == def.ResourceTypeKey {
-			typ, found = candidate, true
-			break
-		}
-	}
-	if !found {
-		return resource.Definition{}, invalidField("definition.resourceType", fmt.Errorf("%w: unknown resource type %q", ErrInvalid, def.ResourceTypeKey))
-	}
-	bundle, err := s.validateDriver(ctx, organizationKey, &def, typ, types)
-	if err != nil {
-		var internal *internalError
-		if errors.As(err, &internal) {
-			return resource.Definition{}, internal.err
-		}
-		var fieldErr *FieldError
-		if errors.As(err, &fieldErr) {
-			return resource.Definition{}, err
-		}
-		return resource.Definition{}, invalidField("definition.driver", fmt.Errorf("%w: %v", ErrInvalid, err))
-	}
-	if err := validateReferences(def, types); err != nil {
-		return resource.Definition{}, invalidField("definition.references", fmt.Errorf("%w: %v", ErrInvalid, err))
 	}
 	err = s.store.Transact(ctx, func(ctx context.Context) error {
 		if _, err := s.store.GetOrganization(ctx, organizationKey); err != nil {
@@ -164,31 +138,162 @@ func (s *Service) RegisterResourceDefinition(ctx context.Context, organizationKe
 			return err
 		}
 		for _, existing := range defs {
-			if existing.Key == def.Key {
-				return fmt.Errorf("%w: resource definition %q", ErrDuplicate, def.Key)
+			if existing.Key == prepared.Key {
+				return fmt.Errorf("%w: resource definition %q", ErrDuplicate, prepared.Key)
 			}
 		}
-		if bundle != nil {
-			// The verified bundle is recorded with the Definition. A bundle
-			// committed concurrently for the same revision path must be the
-			// identical verified content, contract and release (no drift).
-			stored, err := s.store.InsertModuleBundle(ctx, *bundle)
-			if err != nil {
-				return err
-			}
-			if !stored.SameVerifiedContent(*bundle) {
-				return registryError(moduleregistry.ErrDrift)
-			}
+		if err := s.storeBundle(ctx, bundle); err != nil {
+			return err
 		}
-		return s.store.CreateResourceDefinition(ctx, organizationKey, def)
+		return s.store.CreateResourceDefinition(ctx, organizationKey, prepared)
 	})
 	if errors.Is(err, persistence.ErrDuplicate) {
-		return resource.Definition{}, fmt.Errorf("%w: resource definition %q", ErrDuplicate, def.Key)
+		return resource.Definition{}, fmt.Errorf("%w: resource definition %q", ErrDuplicate, prepared.Key)
+	}
+	if errors.Is(err, persistence.ErrCommitUncertain) {
+		return resource.Definition{}, ErrOutcomeUncertain
 	}
 	if err != nil {
 		return resource.Definition{}, err
 	}
-	return def, nil
+	return prepared, nil
+}
+
+// UpdateResourceDefinition edits the whole configuration of an existing
+// Definition except its ID and Resource Type (UC-03 V02-06). It runs the same
+// validation as creation, then one transaction compares the expected version
+// and replaces the Definition, its criteria and the verified bundle record.
+// A lost race is ErrVersionConflict; an unknown commit outcome is returned as
+// is and never replayed here.
+func (s *Service) UpdateResourceDefinition(ctx context.Context, organizationKey, key string, expected int64, def resource.Definition) (resource.Definition, error) {
+	if expected < 1 {
+		return resource.Definition{}, invalidField("definition.version", fmt.Errorf("%w: expected version must be positive", ErrInvalid))
+	}
+	if def.Key != key {
+		return resource.Definition{}, invalidField("definition.key", fmt.Errorf("%w: the definition ID is immutable", ErrInvalid))
+	}
+	stored, err := s.loadDefinition(ctx, organizationKey, key)
+	if err != nil {
+		return resource.Definition{}, err
+	}
+	if stored.ResourceTypeKey != def.ResourceTypeKey {
+		return resource.Definition{}, invalidField("definition.resourceType", fmt.Errorf("%w: the resource type is immutable", ErrInvalid))
+	}
+	if stored.Version != expected {
+		return resource.Definition{}, fmt.Errorf("%w: resource definition %q", ErrVersionConflict, key)
+	}
+	def.Version = expected
+	prepared, bundle, err := s.prepareDefinition(ctx, organizationKey, def)
+	if err != nil {
+		return resource.Definition{}, err
+	}
+	var saved resource.Definition
+	err = s.store.Transact(ctx, func(ctx context.Context) error {
+		if err := s.storeBundle(ctx, bundle); err != nil {
+			return err
+		}
+		var err error
+		saved, err = s.store.UpdateResourceDefinition(ctx, organizationKey, expected, prepared)
+		return err
+	})
+	switch {
+	case errors.Is(err, persistence.ErrCommitUncertain):
+		return resource.Definition{}, ErrOutcomeUncertain
+	case errors.Is(err, persistence.ErrVersionConflict):
+		return resource.Definition{}, fmt.Errorf("%w: resource definition %q", ErrVersionConflict, key)
+	case errors.Is(err, persistence.ErrNotFound):
+		return resource.Definition{}, fmt.Errorf("%w: resource definition %q", ErrNotFound, key)
+	case err != nil:
+		return resource.Definition{}, err
+	}
+	return saved, nil
+}
+
+func (s *Service) loadDefinition(ctx context.Context, organizationKey, key string) (resource.Definition, error) {
+	defs, err := s.store.ListResourceDefinitions(ctx, organizationKey)
+	if err != nil {
+		return resource.Definition{}, err
+	}
+	for _, d := range defs {
+		if d.Key == key && d.Key != planning.BuiltinClusterKey {
+			return d, nil
+		}
+	}
+	return resource.Definition{}, fmt.Errorf("%w: resource definition %q", ErrNotFound, key)
+}
+
+// storeBundle records the verified module bundle with the Definition. A bundle
+// committed concurrently for the same revision path must be the identical
+// verified content, contract and release (no drift).
+func (s *Service) storeBundle(ctx context.Context, bundle *tfmodule.Bundle) error {
+	if bundle == nil {
+		return nil
+	}
+	stored, err := s.store.InsertModuleBundle(ctx, *bundle)
+	if err != nil {
+		return err
+	}
+	if !stored.SameVerifiedContent(*bundle) {
+		return registryError(moduleregistry.ErrDrift)
+	}
+	return nil
+}
+
+// prepareDefinition is the shared create/edit validation pipeline: public ID
+// and reserved-key rules, structural validation, Resource Type, driver
+// (module registry, bindings, Driver Account and region) and references. It
+// performs module fetch/inspection and account reads outside any write
+// transaction.
+func (s *Service) prepareDefinition(ctx context.Context, organizationKey string, def resource.Definition) (resource.Definition, *tfmodule.Bundle, error) {
+	if def.Key == planning.BuiltinClusterKey {
+		return resource.Definition{}, nil, invalidField("definition.key", fmt.Errorf("%w: resource definition key %q is reserved for the system", ErrInvalid, def.Key))
+	}
+	if def.DriverType == resource.DriverExistingCluster {
+		// ADR-013/UC-03 BR-08: the existing-cluster binding is a system
+		// Definition; public registration is rejected for every key.
+		return resource.Definition{}, nil, invalidField("definition.driverType", fmt.Errorf("%w: driver %q cannot be registered publicly", ErrInvalid, def.DriverType))
+	}
+	if err := validatePublicID("resource definition", def.Key); err != nil {
+		return resource.Definition{}, nil, &invalidIDError{err: invalidField("definition.key", fmt.Errorf("%w: %v", ErrInvalid, err))}
+	}
+	if err := resource.ValidateName(def.Name); err != nil {
+		return resource.Definition{}, nil, invalidField("definition.name", fmt.Errorf("%w: %v", ErrInvalid, err))
+	}
+	if err := def.Validate(); err != nil {
+		return resource.Definition{}, nil, invalidField("definition.schema", fmt.Errorf("%w: %v", ErrInvalid, err))
+	}
+	def.SourceFingerpr = "" // Server-owned metadata; never trust a submitted fingerprint.
+	types, err := s.store.ListResourceTypes(ctx, organizationKey)
+	if err != nil {
+		return resource.Definition{}, nil, err
+	}
+	var typ resource.Type
+	found := false
+	for _, candidate := range types {
+		if candidate.Key == def.ResourceTypeKey {
+			typ, found = candidate, true
+			break
+		}
+	}
+	if !found {
+		return resource.Definition{}, nil, invalidField("definition.resourceType", fmt.Errorf("%w: unknown resource type %q", ErrInvalid, def.ResourceTypeKey))
+	}
+	bundle, err := s.validateDriver(ctx, organizationKey, &def, typ, types)
+	if err != nil {
+		var internal *internalError
+		if errors.As(err, &internal) {
+			return resource.Definition{}, nil, internal.err
+		}
+		var fieldErr *FieldError
+		if errors.As(err, &fieldErr) {
+			return resource.Definition{}, nil, err
+		}
+		return resource.Definition{}, nil, invalidField("definition.driver", fmt.Errorf("%w: %v", ErrInvalid, err))
+	}
+	if err := validateReferences(def, types); err != nil {
+		return resource.Definition{}, nil, invalidField("definition.references", fmt.Errorf("%w: %v", ErrInvalid, err))
+	}
+	return def, bundle, nil
 }
 
 func (s *Service) validateDriver(ctx context.Context, org string, def *resource.Definition, typ resource.Type, types []resource.Type) (*tfmodule.Bundle, error) {
@@ -198,6 +303,9 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 	}
 	switch def.DriverType {
 	case resource.DriverScoreK8s:
+		if def.DriverAccount != "" {
+			return nil, invalidField("definition.driverAccount", fmt.Errorf("%w: score-k8s rendering takes no driver account", ErrInvalid))
+		}
 		if err := resource.ValidateRenderDefinition(*def, typ, s.bundles); err != nil {
 			return nil, err
 		}

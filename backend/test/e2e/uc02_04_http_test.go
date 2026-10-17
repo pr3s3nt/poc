@@ -25,6 +25,7 @@ func TestUC02UC04RegistrationIsUsableWithoutRestart(t *testing.T) {
 	for _, tc := range []struct{ path, body string }{
 		{"/api/v1/connections/kubernetes", uploadBody("Fast cluster")},
 		{"/api/v1/resource-definitions", fastPostgres},
+		{"/api/v1/resource-definitions", postgresBody("postgres-default", []any{map[string]any{}})},
 		{"/api/v1/resource-types", `{"key":"cache","inputs":[{"name":"size","type":"number","required":true}],"outputs":[{"name":"host","type":"string","required":true}]}`},
 	} {
 		if resp, body := call(t, pe, http.MethodPost, server.URL+tc.path, tc.body); resp.StatusCode != http.StatusCreated {
@@ -60,7 +61,10 @@ func TestUC02UC04RegistrationIsUsableWithoutRestart(t *testing.T) {
 	}
 	status, standard := preview(map[string]any{"db": map[string]any{"type": "postgres", "params": map[string]any{"database": "shop", "username": "shop"}}})
 	if _, ok := matched(standard)["postgres-fast"]; status != http.StatusOK || ok {
-		t.Fatalf("class default must keep the seeded Definition: %d %v", status, matched(standard))
+		t.Fatalf("class default must keep the default Definition: %d %v", status, matched(standard))
+	}
+	if _, ok := matched(standard)["postgres-default"]; !ok {
+		t.Fatalf("the explicit wildcard Definition must serve the default class: %v", matched(standard))
 	}
 
 	// The new Type's input schema validates Score params in planning at once
@@ -149,7 +153,7 @@ func concurrentRegistration(t *testing.T, baseURL string, client *http.Client) {
 	t.Helper()
 	for _, tc := range []struct{ path, list, a, b string }{
 		{"/api/v1/resource-types", "/api/v1/resource-types", `{"key":"race-type","outputs":[{"name":"host","type":"string"}]}`, `{"key":"race-type","inputs":[{"name":"size","type":"number"}],"outputs":[{"name":"host","type":"string"}]}`},
-		{"/api/v1/resource-definitions", "/api/v1/resource-definitions", postgresBody("race-def", "", []any{map[string]any{"class": "fast"}}), postgresBody("race-def", "", []any{map[string]any{"class": "slow"}, map[string]any{}})},
+		{"/api/v1/resource-definitions", "/api/v1/resource-definitions", postgresBody("race-def", []any{map[string]any{"class": "fast"}}), postgresBody("race-def", []any{map[string]any{"class": "slow"}, map[string]any{}})},
 	} {
 		statuses := make([]int, 2)
 		var wg sync.WaitGroup
@@ -250,15 +254,15 @@ func TestPublicRegistrationRejectsExistingClusterDriver(t *testing.T) {
 	}
 	before := list()
 	for name, key := range map[string]string{"arbitrary key": "cluster-fast", "reserved key": "builtin-existing-cluster"} {
-		for _, connection := range []string{`,"connectionKey":"fast-cluster"`, ``, `,"connectionKey":"missing"`} {
-			body := `{"key":"` + key + `","resourceType":"k8s-cluster","executionProfile":"internal-k8s","driverType":"existing-cluster"` + connection + `,` +
+		for _, connection := range []string{`,"driverAccount":"fast-cluster"`, ``, `,"driverAccount":"missing"`} {
+			body := `{"key":"` + key + `","name":"Cluster","resourceType":"k8s-cluster","driverType":"existing-cluster"` + connection + `,` +
 				`"driverInputs":{"values":{"variables":{"name":"${context.connection.cluster}","kubeContext":"${context.connection.context}"}}},"criteria":[{"class":"internal"}]}`
 			if resp, out := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", body); resp.StatusCode != http.StatusBadRequest {
 				t.Errorf("%s %q: status %d %s, want 400", name, connection, resp.StatusCode, out)
 			}
 		}
 	}
-	reserved := postgresBody("builtin-existing-cluster", "fast-cluster", []any{map[string]any{"class": "fast"}})
+	reserved := postgresBody("builtin-existing-cluster", []any{map[string]any{"class": "fast"}})
 	if resp, out := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", reserved); resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("reserved key with kubernetes driver: %d %s, want 400", resp.StatusCode, out)
 	}

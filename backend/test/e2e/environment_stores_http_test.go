@@ -174,7 +174,7 @@ func TestTransitionOverHTTPPreviewExecuteProgressAndCleanup(t *testing.T) {
 	if err := app.Store.SaveConnection(ctx, conn); err != nil {
 		t.Fatal(err)
 	}
-	def := resource.Definition{Key: "cluster-internal-lab2", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, ConnectionKey: "lab2",
+	def := resource.Definition{Key: "cluster-internal-lab2", Name: "cluster-internal-lab2", Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, DriverAccount: "lab2",
 		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
 		Criteria:     []resource.Criterion{{Class: "internal", ResourceID: "connections.lab2"}}}
 	if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {

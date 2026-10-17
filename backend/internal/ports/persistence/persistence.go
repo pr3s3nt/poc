@@ -299,6 +299,14 @@ type CatalogRepository interface {
 	// Resource Type. Save* remain the seed/test upserts.
 	CreateResourceType(ctx context.Context, organizationKey string, t resource.Type) error
 	CreateResourceDefinition(ctx context.Context, organizationKey string, d resource.Definition) error
+	// UpdateResourceDefinition is the UC-03 V02-06 compare-and-set. It
+	// replaces the editable content and matching criteria of the Definition
+	// named by d.Key when the stored version equals expected, increments the
+	// version exactly once and returns the stored record. The key and the
+	// Resource Type are immutable. ErrNotFound: missing Definition, Resource
+	// Type change or missing Driver Account; ErrVersionConflict: stale
+	// expected version, with the stored winner untouched.
+	UpdateResourceDefinition(ctx context.Context, organizationKey string, expected int64, d resource.Definition) (resource.Definition, error)
 }
 
 // ModuleBundleRepository owns the verified Terraform module registry

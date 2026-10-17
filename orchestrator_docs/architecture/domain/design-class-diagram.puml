@@ -22,6 +22,7 @@ package "Application Services" {
   }
   class ResourceDefinitionService {
     +RegisterResourceDefinition(ctx, cmd): ResourceDefinition
+    +UpdateResourceDefinition(ctx, key, expectedVersion, cmd): ResourceDefinition
     +ListRenderBundles(): SafeBundleMetadata[]
     +PreviewMatching(ctx, org, query): MatchingPreview
   }
@@ -170,7 +171,13 @@ package "Domain" {
     +Status: ConnectionStatus
   }
   class ResourceType <<aggregate>>
-  class ResourceDefinition <<aggregate>>
+  class ResourceDefinition <<aggregate>> {
+    +Key: string {immutable}
+    +ResourceType: string {immutable}
+    +Name: string
+    +DriverAccount: string
+    +Version: int64
+  }
   class MatchingCriterion <<entity>>
   class DeploymentSet <<entity>>
   class Deployment <<aggregate>> {
@@ -361,7 +368,7 @@ system Definition; no criteria matching.
 AWS and other resources retain DefinitionMatcher.
 end note
 
-ResourceDefinitionService ..> DefinitionMatcher : pure criteria + connection guard
+ResourceDefinitionService ..> DefinitionMatcher : five-field ranking + winner account guard
 class TerraformModuleBundle <<entity>> {
   +Revision: immutable
   +ContentSHA256: string

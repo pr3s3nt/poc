@@ -2,27 +2,38 @@ package catalog_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"orchestrator/internal/domain/tfmodule"
 	"reflect"
 	"strings"
 	"testing"
 
-	"orchestrator/internal/adapters/store"
 	"orchestrator/internal/application/catalog"
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
-	"orchestrator/internal/seed/seedtest"
 )
 
-func previewCandidate(key string, criteria ...resource.Criterion) resource.Definition {
-	return resource.Definition{Key: key, ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: criteria}
+func previewCandidate(key string, criteria ...resource.Criterion) catalog.DefinitionDraft {
+	return catalog.DefinitionDraft{Key: key, Name: key, ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: criteria}
 }
 
-func previewQuery(opts seed.Options, def resource.Definition, resID, class string) catalog.MatchingPreviewQuery {
+// awsDraft is an unsaved AWS Terraform candidate bound to a Driver Account and a
+// literal region, as the Console authors it.
+func awsDraft(key, account, region string, criteria ...resource.Criterion) catalog.DefinitionDraft {
+	variables := map[string]any{}
+	if region != "" {
+		variables["region"] = region
+	}
+	return catalog.DefinitionDraft{Key: key, Name: "AWS " + key, ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, DriverAccount: account,
+		DriverInputs: map[string]any{"values": map[string]any{"variables": variables, "provider_bindings": map[string]any{"aws": map[string]any{"target": "account"}}}},
+		Criteria:     criteria}
+}
+
+func previewQuery(opts seed.Options, def catalog.DefinitionDraft, resID, class string) catalog.MatchingPreviewQuery {
 	return catalog.MatchingPreviewQuery{Definition: def, Context: catalog.MatchingContext{
 		ApplicationID: opts.ApplicationKey, EnvironmentID: opts.EnvironmentKey, ResourceID: resID, Class: class}}
 }
@@ -45,15 +56,22 @@ func candidateByKey(p catalog.MatchingPreview, key string) (catalog.MatchingCand
 	return catalog.MatchingCandidate{}, false
 }
 
-func TestPreviewMatching_WildcardTiesWithSharedAndExcludesAWSProfile(t *testing.T) {
+// UC-03 V02-02: ranking uses only the five criteria. The AWS Definition is not
+// "ineligible"; it simply does not match this Application's context.
+func TestPreviewMatching_TiesAreDecidedByScoreAndNoProfileOrAccountFilter(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
-	got := runPreview(t, svc, opts, previewQuery(opts, previewCandidate("pg-wild", resource.Criterion{}), "db", "default"))
-	if got.Status != catalog.PreviewAmbiguous || !reflect.DeepEqual(got.Ties, []string{"pg-wild", "postgres-internal-statefulset"}) || got.Winner != nil {
+	got := runPreview(t, svc, opts, previewQuery(opts, previewCandidate("pg-app", resource.Criterion{ApplicationID: opts.ApplicationKey}), "db", "default"))
+	if got.Status != catalog.PreviewAmbiguous || !reflect.DeepEqual(got.Ties, []string{"pg-app", "postgres-internal-statefulset"}) || got.Winner != nil {
 		t.Fatalf("got %+v", got)
 	}
 	aws, ok := candidateByKey(got, "postgres-aws-aurora")
-	if !ok || aws.Eligible || aws.Matched || aws.Score != nil {
-		t.Fatalf("aws candidate must be ineligible: %+v", aws)
+	if !ok || aws.Matched || aws.Score != nil || aws.Name == "" {
+		t.Fatalf("aws candidate must be listed but not matched: %+v", aws)
+	}
+	// A wildcard (score 0) loses to the seeded explicit app_id criterion.
+	wild := runPreview(t, svc, opts, previewQuery(opts, previewCandidate("pg-wild", resource.Criterion{}), "db", "default"))
+	if wild.Status != catalog.PreviewMatched || wild.Winner.Key != "postgres-internal-statefulset" {
+		t.Fatalf("wildcard: %+v", wild)
 	}
 	if got.Snapshot.Marker == "" || got.Snapshot.EnvironmentVersion == 0 {
 		t.Fatalf("snapshot %+v", got.Snapshot)
@@ -72,7 +90,7 @@ func TestPreviewMatching_HigherScoreEliminatesLowerTie(t *testing.T) {
 		t.Fatalf("candidate %+v", c)
 	}
 	shared, _ := candidateByKey(got, "postgres-internal-statefulset")
-	if !shared.Matched || *shared.Score != 0 {
+	if !shared.Matched || *shared.Score != 2 {
 		t.Fatalf("shared %+v", shared)
 	}
 }
@@ -80,7 +98,8 @@ func TestPreviewMatching_HigherScoreEliminatesLowerTie(t *testing.T) {
 func TestPreviewMatching_ExactTieAtHighestScoreOnly(t *testing.T) {
 	st, svc, opts := seededCatalog(t, nil)
 	ctx := context.Background()
-	other := previewCandidate("pg-other", resource.Criterion{ResourceID: "db"})
+	other := previewCandidate("pg-other", resource.Criterion{ResourceID: "db"}).Definition()
+	other.Version = 1
 	if err := st.CreateResourceDefinition(ctx, opts.OrganizationKey, other); err != nil {
 		t.Fatal(err)
 	}
@@ -104,11 +123,11 @@ func TestPreviewMatching_NonOverlapAndNoMatch(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 	c, _ := candidateByKey(got, "pg-staging")
-	if !c.Eligible || c.Matched {
+	if c.Matched {
 		t.Fatalf("candidate %+v", c)
 	}
 	// A different type has no matching Definition.
-	def := resource.Definition{Key: "ns-only", ResourceTypeKey: "k8s-namespace", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{ResourceID: "nope"}}}
+	def := catalog.DefinitionDraft{Key: "ns-only", Name: "ns-only", ResourceTypeKey: "k8s-namespace", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{ResourceID: "nope"}}}
 	q := previewQuery(opts, def, "x", "default")
 	got = runPreview(t, svc, opts, q)
 	if got.Status != catalog.PreviewMatched || got.Winner.Key != "namespace-kubernetes" {
@@ -135,21 +154,73 @@ func TestPreviewMatching_IncompleteContextHasNoWinnerOrTies(t *testing.T) {
 	}
 }
 
-func TestPreviewMatching_ConnectionConflictKeepsWinnerWithoutFallback(t *testing.T) {
+// The unique winner shows its Name, selected Driver Account (key, name, type,
+// version) and literal region; nothing secret is part of the view.
+func TestPreviewMatching_WinnerShowsSafeAccountAndRegion(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
-	def := previewCandidate("pg-other-conn", resource.Criterion{ResourceID: "db"})
-	def.ConnectionKey = "some-other-cluster"
+	def := awsDraft("pg-aws", opts.CloudConnectionKey, "ap-southeast-1", resource.Criterion{ResourceID: "db"})
 	got := runPreview(t, svc, opts, previewQuery(opts, def, "db", "default"))
-	if got.Status != catalog.PreviewConnectionConflict || got.Winner == nil || got.Winner.Key != "pg-other-conn" ||
-		got.ConnectionConflict == nil || got.ConnectionConflict.TargetKey != opts.ConnectionKey {
+	if got.Status != catalog.PreviewMatched || got.Winner == nil || got.Winner.Key != "pg-aws" || got.Winner.Name != "AWS pg-aws" ||
+		got.Winner.Region != "ap-southeast-1" || got.Winner.Account == nil || *got.Winner.Account != (catalog.MatchingAccount{Key: opts.CloudConnectionKey, Name: opts.CloudConnectionKey, Type: "AWS", Version: 1}) {
 		t.Fatalf("got %+v", got)
 	}
-	// Conflict of a losing candidate does not block the unique winner.
-	def2 := previewCandidate("pg-loser", resource.Criterion{ResourceID: "other"})
-	def2.ConnectionKey = "some-other-cluster"
-	got = runPreview(t, svc, opts, previewQuery(opts, def2, "db", "default"))
-	if got.Status != catalog.PreviewMatched || got.ConnectionConflict != nil {
-		t.Fatalf("got %+v", got)
+	raw, _ := json.Marshal(got)
+	for _, leak := range []string{"secret://", "accessKey", "secretRef", "accountId", "000000000000"} {
+		if strings.Contains(string(raw), leak) {
+			t.Fatalf("preview leaks %q: %s", leak, raw)
+		}
+	}
+}
+
+// An unusable winner account is reported as a conflict and never replaced by
+// another candidate; a losing candidate's conflict does not matter.
+func TestPreviewMatching_AccountConflictKeepsWinnerWithoutFallback(t *testing.T) {
+	st, svc, opts := seededCatalog(t, nil)
+	ctx := context.Background()
+	if err := st.SaveConnection(ctx, application.Connection{Name: "pending-aws", AuthenticationType: application.AuthAWSAccessKey, Key: "pending-aws", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionVerifying, Version: 1}); err != nil {
+		t.Fatal(err)
+	}
+	cases := map[string]struct{ account, region, reason string }{
+		"no account":      {"", "us-east-1", catalog.ConflictAccountMissing},
+		"unknown account": {"gone", "us-east-1", catalog.ConflictAccountNotFound},
+		"internal kind":   {opts.ConnectionKey, "us-east-1", catalog.ConflictAccountKindMismatch},
+		"not ready":       {"pending-aws", "us-east-1", catalog.ConflictAccountNotReady},
+		"no region":       {opts.CloudConnectionKey, "", catalog.ConflictRegionInvalid},
+		"bad region":      {opts.CloudConnectionKey, "mars-1", catalog.ConflictRegionInvalid},
+	}
+	for name, tc := range cases {
+		def := awsDraft("pg-conflict", tc.account, tc.region, resource.Criterion{ResourceID: "db"})
+		got := runPreview(t, svc, opts, previewQuery(opts, def, "db", "default"))
+		if got.Status != catalog.PreviewConnectionConflict || got.Winner == nil || got.Winner.Key != "pg-conflict" ||
+			got.ConnectionConflict == nil || got.ConnectionConflict.Reason != tc.reason || got.ConnectionConflict.DefinitionKey != "pg-conflict" {
+			t.Fatalf("%s: %+v", name, got)
+		}
+	}
+	loser := awsDraft("pg-loser", "gone", "us-east-1", resource.Criterion{ResourceID: "other"})
+	got := runPreview(t, svc, opts, previewQuery(opts, loser, "db", "default"))
+	if got.Status != catalog.PreviewMatched || got.ConnectionConflict != nil || got.Winner.Key != "postgres-internal-statefulset" {
+		t.Fatalf("loser conflict blocked the winner: %+v", got)
+	}
+}
+
+// A Kubernetes binding shows where its cluster comes from; the legacy
+// Environment binding is labelled, never an account.
+func TestPreviewMatching_KubernetesWinnerShowsInheritedClusterSource(t *testing.T) {
+	_, svc, opts := seededCatalog(t, nil)
+	for name, tc := range map[string]struct {
+		binding map[string]any
+		want    catalog.MatchingClusterSource
+	}{
+		"resource":           {map[string]any{"target": "resource", "resource_ref": "k8s-cluster.eks#environments.@app.@env"}, catalog.MatchingClusterSource{Kind: catalog.ClusterSourceResource, Reference: "k8s-cluster.eks#environments.@app.@env"}},
+		"legacy environment": {map[string]any{"target": "environment"}, catalog.MatchingClusterSource{Kind: catalog.ClusterSourceLegacyEnvironment}},
+	} {
+		def := catalog.DefinitionDraft{Key: "pg-k8s", Name: "PG k8s", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform,
+			DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{}, "provider_bindings": map[string]any{"kubernetes": tc.binding}}},
+			Criteria:     []resource.Criterion{{ResourceID: "db"}}}
+		got := runPreview(t, svc, opts, previewQuery(opts, def, "db", "default"))
+		if got.Status != catalog.PreviewMatched || got.Winner.Account != nil || got.Winner.Region != "" || got.Winner.ClusterSource == nil || *got.Winner.ClusterSource != tc.want {
+			t.Fatalf("%s: %+v", name, got)
+		}
 	}
 }
 
@@ -192,17 +263,29 @@ func TestPreviewMatching_MarkerIsDeterministicAndCatalogSensitive(t *testing.T) 
 	if a.Snapshot != b.Snapshot {
 		t.Fatalf("candidate/context must not change marker: %+v %+v", a.Snapshot, b.Snapshot)
 	}
-	if err := st.CreateResourceDefinition(context.Background(), opts.OrganizationKey, previewCandidate("later", resource.Criterion{ResourceID: "z"})); err != nil {
+	later := previewCandidate("later", resource.Criterion{ResourceID: "z"}).Definition()
+	later.Version = 1
+	if err := st.CreateResourceDefinition(context.Background(), opts.OrganizationKey, later); err != nil {
 		t.Fatal(err)
 	}
 	c := runPreview(t, svc, opts, previewQuery(opts, previewCandidate("a", resource.Criterion{}), "db", "default"))
 	if c.Snapshot.Marker == a.Snapshot.Marker {
 		t.Fatal("catalog change must change marker")
 	}
+	// An account change (here a new version) changes the marker as well.
+	account, _ := st.GetConnection(context.Background(), opts.OrganizationKey, opts.CloudConnectionKey)
+	account.Version++
+	if err := st.SaveConnection(context.Background(), account); err != nil {
+		t.Fatal(err)
+	}
+	d := runPreview(t, svc, opts, previewQuery(opts, previewCandidate("a", resource.Criterion{}), "db", "default"))
+	if d.Snapshot.Marker == c.Snapshot.Marker {
+		t.Fatal("account change must change marker")
+	}
 }
 
 func TestPreviewMatching_ScopingAndTarget(t *testing.T) {
-	st, svc, opts := seededCatalog(t, nil)
+	_, svc, opts := seededCatalog(t, nil)
 	ctx := context.Background()
 	q := previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default")
 	if _, err := svc.PreviewMatching(ctx, "other-org", q); !errors.Is(err, catalog.ErrPreviewNotFound) {
@@ -220,30 +303,50 @@ func TestPreviewMatching_ScopingAndTarget(t *testing.T) {
 	if _, err := svc.PreviewMatching(ctx, opts.OrganizationKey, q); !errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("empty scope: %v", err)
 	}
-	// Unconfigured Environment: target unavailable.
+}
+
+// UC-03 V02-05: ordinary matching needs no configured Environment target, and
+// the server (not the client) supplies env_type.
+func TestPreviewMatching_WorksForUnconfiguredEnvironmentWithServerEnvType(t *testing.T) {
+	st, svc, opts := seededCatalog(t, nil)
+	ctx := context.Background()
 	env, err := st.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	env.Key, env.ID, env.ConnectionKey, env.Profile = "unbound", "unbound-id", "", ""
+	env.Key, env.ID, env.ConnectionKey, env.Profile, env.Type = "unbound", "unbound-id", "", "", "qa"
 	if err := st.SaveEnvironment(ctx, env); err != nil {
 		t.Fatal(err)
 	}
-	q = previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default")
+	q := previewQuery(opts, previewCandidate("pg-qa", resource.Criterion{EnvironmentType: "qa"}), "db", "default")
 	q.Context.EnvironmentID = "unbound"
-	if _, err := svc.PreviewMatching(ctx, opts.OrganizationKey, q); !errors.Is(err, catalog.ErrTargetUnavailable) {
+	got, err := svc.PreviewMatching(ctx, opts.OrganizationKey, q)
+	if err != nil {
 		t.Fatalf("unbound env: %v", err)
+	}
+	c, _ := candidateByKey(got, "pg-qa")
+	if got.Status == catalog.PreviewIncomplete || !c.Matched || *c.Score != 1 {
+		t.Fatalf("env_type from the server snapshot did not apply: %+v", got)
+	}
+	// No system node is created for an unconfigured Environment.
+	cluster := catalog.DefinitionDraft{Key: "cluster-x", Name: "x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}
+	q = previewQuery(opts, cluster, "connections."+opts.ConnectionKey, "internal")
+	q.Context.EnvironmentID = "unbound"
+	got, err = svc.PreviewMatching(ctx, opts.OrganizationKey, q)
+	if err != nil || got.Status == catalog.PreviewSystemBinding {
+		t.Fatalf("preview must not invent the legacy system node: %+v %v", got, err)
 	}
 }
 
 func TestPreviewMatching_ReservedAndPublicExistingClusterRejected(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
 	ctx := context.Background()
-	cases := map[string]resource.Definition{
+	cases := map[string]catalog.DefinitionDraft{
 		"builtin key":      {Key: "builtin-existing-cluster", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
 		"existing-cluster": {Key: "any-key", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, Criteria: []resource.Criterion{{}}},
 		"unknown type":     {Key: "x", ResourceTypeKey: "nope", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
 		"no criteria":      {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform},
+		"control name":     {Key: "x", Name: "a\nb", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
 		"bad id":           {Key: "Bad_Key", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
 		"too many":         {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: make([]resource.Criterion, 65)},
 		"long criterion":   {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: strings.Repeat("a", 300)}}},
@@ -258,7 +361,7 @@ func TestPreviewMatching_ReservedAndPublicExistingClusterRejected(t *testing.T) 
 
 func TestPreviewMatching_SystemBindingOnlyForExactImplicitClusterNode(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
-	cluster := resource.Definition{Key: "cluster-x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}
+	cluster := catalog.DefinitionDraft{Key: "cluster-x", Name: "cluster-x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}
 	exact := "connections." + opts.ConnectionKey
 	got := runPreview(t, svc, opts, previewQuery(opts, cluster, exact, "internal"))
 	if got.Status != catalog.PreviewSystemBinding || got.Winner != nil || len(got.Ties) != 0 {
@@ -274,7 +377,7 @@ func TestPreviewMatching_SystemBindingOnlyForExactImplicitClusterNode(t *testing
 
 func TestPreviewMatching_WorkloadOnlyRanksScoreK8sAndNeverFallsBackToNative(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
-	k8s := resource.Definition{Key: "wl-k8s", ResourceTypeKey: "workload", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}}
+	k8s := catalog.DefinitionDraft{Key: "wl-k8s", Name: "wl-k8s", ResourceTypeKey: "workload", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}}
 	got := runPreview(t, svc, opts, previewQuery(opts, k8s, "modules.web", "default"))
 	if got.Status != catalog.PreviewNoMatch || got.Winner != nil {
 		t.Fatalf("non-score-k8s must not rank: %+v", got)
@@ -282,53 +385,38 @@ func TestPreviewMatching_WorkloadOnlyRanksScoreK8sAndNeverFallsBackToNative(t *t
 	if _, ok := candidateByKey(got, "wl-k8s"); ok {
 		t.Fatal("non-score-k8s workload definition must be excluded from ranking")
 	}
-	score := resource.Definition{Key: "wl-score", ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}}}
+	score := catalog.DefinitionDraft{Key: "wl-score", Name: "wl-score", ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}}}
 	got = runPreview(t, svc, opts, previewQuery(opts, score, "modules.web", "default"))
 	if got.Status != catalog.PreviewMatched || got.Winner.Key != "wl-score" {
 		t.Fatalf("score-k8s: %+v", got)
 	}
 }
 
-func TestPreviewMatching_TargetMustBeReadyConsistentAndOwned(t *testing.T) {
+// The Environment connection's state never gates ordinary matching: only the
+// scoped catalog, the account metadata and the context do (UC-03 V02-05).
+func TestPreviewMatching_IgnoresEnvironmentConnectionState(t *testing.T) {
 	ctx := context.Background()
-	q := func(opts seed.Options, env string) catalog.MatchingPreviewQuery {
-		x := previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default")
-		x.Context.EnvironmentID = env
-		return x
-	}
-	cases := map[string]func(t *testing.T, st persistence.Store, opts seed.Options){
-		"connection not ready": func(t *testing.T, st persistence.Store, opts seed.Options) {
-			c, _ := st.GetConnection(ctx, opts.OrganizationKey, opts.ConnectionKey)
-			c.Status = application.ConnectionVerifying
-			_ = st.SaveConnection(ctx, c)
-		},
-		"connection rejected": func(t *testing.T, st persistence.Store, opts seed.Options) {
-			c, _ := st.GetConnection(ctx, opts.OrganizationKey, opts.ConnectionKey)
-			c.Status = application.ConnectionRejected
-			_ = st.SaveConnection(ctx, c)
-		},
-	}
-	envCases := map[string]func(*environment.Environment){
+	for name, mutate := range map[string]func(*environment.Environment){
 		"kind inconsistent with profile": func(e *environment.Environment) { e.ConnectionKey = "aws-account" },
 		"invalid scope":                  func(e *environment.Environment) { e.InfrastructureScope = "BOGUS" },
 		"failed runtime":                 func(e *environment.Environment) { e.RuntimeStatus = application.RuntimeStatus("FAILED") },
 		"aws without region": func(e *environment.Environment) {
 			e.Profile, e.Region, e.ConnectionKey = application.ProfileAWSEKS, "", "aws-account"
 		},
-	}
-	for name, mutate := range envCases {
+	} {
 		st, _, opts := seededCatalog(t, nil)
 		svc := catalog.NewService(envMutatingStore{st, mutate})
-		if _, err := svc.PreviewMatching(ctx, opts.OrganizationKey, q(opts, opts.EnvironmentKey)); !errors.Is(err, catalog.ErrTargetUnavailable) {
-			t.Fatalf("%s: %v", name, err)
+		got, err := svc.PreviewMatching(ctx, opts.OrganizationKey, previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default"))
+		if err != nil || got.Status == "" {
+			t.Fatalf("%s: %+v %v", name, got, err)
 		}
 	}
-	for name, mutate := range cases {
-		st, svc, opts := seededCatalog(t, nil)
-		mutate(t, st, opts)
-		if _, err := svc.PreviewMatching(ctx, opts.OrganizationKey, q(opts, opts.EnvironmentKey)); !errors.Is(err, catalog.ErrTargetUnavailable) {
-			t.Fatalf("%s: %v", name, err)
-		}
+	st, svc, opts := seededCatalog(t, nil)
+	c, _ := st.GetConnection(ctx, opts.OrganizationKey, opts.ConnectionKey)
+	c.Status = application.ConnectionVerifying
+	_ = st.SaveConnection(ctx, c)
+	if _, err := svc.PreviewMatching(ctx, opts.OrganizationKey, previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default")); err != nil {
+		t.Fatalf("connection not ready blocked ordinary matching: %v", err)
 	}
 }
 
@@ -368,10 +456,10 @@ func TestPreviewMatching_MarkerIgnoresRepositoryListOrder(t *testing.T) {
 func TestPreviewMatching_ValidationErrorNeverEchoesSubmittedValues(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
 	const secret = "SENTINEL-s3cret"
-	bad := []resource.Definition{
+	bad := []catalog.DefinitionDraft{
 		{Key: secret + "_BAD", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
 		{Key: "ok", ResourceTypeKey: secret, DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
-		{Key: "ok", ResourceTypeKey: "postgres", ExecutionProfile: secret, DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
+		{Key: "ok", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, DriverAccount: secret + strings.Repeat("x", 300), Criteria: []resource.Criterion{{}}},
 		{Key: "ok", ResourceTypeKey: "postgres", DriverType: resource.DriverType(secret), Criteria: []resource.Criterion{{}}},
 		{Key: "ok", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: secret + strings.Repeat("x", 300)}}},
 	}
@@ -386,7 +474,7 @@ func TestPreviewMatching_ValidationErrorNeverEchoesSubmittedValues(t *testing.T)
 
 func TestPreviewMatching_SystemBindingDoesNotShowAuthoredMatches(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
-	cluster := resource.Definition{Key: "cluster-x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}
+	cluster := catalog.DefinitionDraft{Key: "cluster-x", Name: "cluster-x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}
 	got := runPreview(t, svc, opts, previewQuery(opts, cluster, "connections."+opts.ConnectionKey, "internal"))
 	for _, c := range got.Candidates {
 		if c.Matched || c.Score != nil || c.BestCriterion != nil {
@@ -407,27 +495,6 @@ func rebind(t *testing.T, st persistence.Store, opts seed.Options, mutate func(*
 	mutate(&b)
 	if _, err := st.BindEnvironment(ctx, b); err != nil {
 		t.Fatal(err)
-	}
-}
-
-type foreignConnStore struct{ persistence.Store }
-type foreignConnView struct{ persistence.Store }
-
-func (s foreignConnStore) ReadSnapshot(ctx context.Context, fn func(context.Context, persistence.Store) error) error {
-	return s.Store.ReadSnapshot(ctx, func(ctx context.Context, view persistence.Store) error { return fn(ctx, foreignConnView{view}) })
-}
-
-// GetConnection reports the Connection as absent from the caller's Organization.
-func (foreignConnView) GetConnection(context.Context, string, string) (application.Connection, error) {
-	return application.Connection{}, persistence.ErrNotFound
-}
-
-func TestPreviewMatching_ConnectionOutsideOrganizationIsUnavailableTarget(t *testing.T) {
-	st, _, opts := seededCatalog(t, nil)
-	svc := catalog.NewService(foreignConnStore{st})
-	_, err := svc.PreviewMatching(context.Background(), opts.OrganizationKey, previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default"))
-	if !errors.Is(err, catalog.ErrTargetUnavailable) {
-		t.Fatalf("got %v", err)
 	}
 }
 
@@ -480,9 +547,9 @@ func (v readSpyView) GetEnvironment(ctx context.Context, a, e string) (environme
 	v.spy.reads = append(v.spy.reads, "GetEnvironment")
 	return v.in.GetEnvironment(ctx, a, e)
 }
-func (v readSpyView) GetConnection(ctx context.Context, o, k string) (application.Connection, error) {
-	v.spy.reads = append(v.spy.reads, "GetConnection")
-	return v.in.GetConnection(ctx, o, k)
+func (v readSpyView) ListConnections(ctx context.Context, o string) ([]application.Connection, error) {
+	v.spy.reads = append(v.spy.reads, "ListConnections")
+	return v.in.ListConnections(ctx, o)
 }
 func (v readSpyView) ListResourceTypes(ctx context.Context, o string) ([]resource.Type, error) {
 	v.spy.reads = append(v.spy.reads, "ListResourceTypes")
@@ -521,7 +588,7 @@ func (f noInspectorUse) VerifyForExecution(context.Context, tfmodule.SourceRef) 
 
 func TestPreviewMatching_UsesExactlyOneSnapshotAndNoWrites(t *testing.T) {
 	st, _, opts := seededCatalog(t, nil)
-	allowed := map[string]bool{"GetApplication": true, "GetEnvironment": true, "GetConnection": true, "ListResourceTypes": true, "ListResourceDefinitions": true}
+	allowed := map[string]bool{"GetApplication": true, "GetEnvironment": true, "ListConnections": true, "ListResourceTypes": true, "ListResourceDefinitions": true}
 	scenarios := map[string]struct {
 		q       catalog.MatchingPreviewQuery
 		org     string
@@ -530,8 +597,8 @@ func TestPreviewMatching_UsesExactlyOneSnapshotAndNoWrites(t *testing.T) {
 		"success":    {q: previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default"), org: opts.OrganizationKey},
 		"incomplete": {q: previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "", ""), org: opts.OrganizationKey},
 		"not found":  {q: previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default"), org: "other-org", wantErr: true},
-		"invalid":    {q: previewQuery(opts, resource.Definition{Key: "builtin-existing-cluster", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}}, "db", "default"), org: opts.OrganizationKey, wantErr: true},
-		"system":     {q: previewQuery(opts, resource.Definition{Key: "c", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}, "connections."+opts.ConnectionKey, "internal"), org: opts.OrganizationKey},
+		"invalid":    {q: previewQuery(opts, catalog.DefinitionDraft{Key: "builtin-existing-cluster", Name: "builtin-existing-cluster", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}}, "db", "default"), org: opts.OrganizationKey, wantErr: true},
+		"system":     {q: previewQuery(opts, catalog.DefinitionDraft{Key: "c", Name: "c", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}, "connections."+opts.ConnectionKey, "internal"), org: opts.OrganizationKey},
 	}
 	for name, sc := range scenarios {
 		spy := &readSpy{real: st}
@@ -572,37 +639,6 @@ func TestPreviewMatching_AllFiveCriteriaScoreThirtyOne(t *testing.T) {
 	}
 }
 
-func TestPreviewMatching_AWSModulesTakeNoAccountOverride(t *testing.T) {
-	st := store.New()
-	opts := seedtest.Defaults()
-	opts.Region, opts.AccountID = "us-east-1", "000000000000"
-	if err := seedtest.Apply(context.Background(), st, opts); err != nil {
-		t.Fatal(err)
-	}
-	svc := catalog.NewService(st)
-	cloud := func(def resource.Definition) catalog.MatchingPreviewQuery {
-		q := previewQuery(opts, def, "default", "default")
-		q.Context.ApplicationID = opts.CloudApplicationKey
-		return q
-	}
-	ctx := context.Background()
-	if _, err := svc.PreviewMatching(ctx, opts.OrganizationKey, cloud(previewCandidate("x", resource.Criterion{}))); err != nil {
-		t.Fatalf("cloud Environment must be bound by the seed: %v", err)
-	}
-	for _, typ := range []string{"vpc", "k8s-cluster", "postgres"} {
-		def := resource.Definition{Key: "infra-" + typ, ResourceTypeKey: typ, ExecutionProfile: "aws-eks", DriverType: resource.DriverTerraform, ConnectionKey: "some-other-aws", Criteria: []resource.Criterion{{ResourceID: "r1"}}}
-		got, err := svc.PreviewMatching(ctx, opts.OrganizationKey, withResource(cloud(def), "r1", "default"))
-		if err != nil || got.Status != catalog.PreviewConnectionConflict || got.ConnectionConflict == nil || got.Winner == nil || got.Winner.Key != def.Key {
-			t.Fatalf("%s: %+v %v", typ, got, err)
-		}
-	}
-}
-
-func withResource(q catalog.MatchingPreviewQuery, id, class string) catalog.MatchingPreviewQuery {
-	q.Context.ResourceID, q.Context.Class = id, class
-	return q
-}
-
 func TestPreviewMatching_WhitespaceOnlyContext(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
 	ctx := context.Background()
@@ -627,5 +663,68 @@ func TestPreviewMatching_WhitespaceOnlyContext(t *testing.T) {
 	c, _ := candidateByKey(got, "pg-db")
 	if c.Matched {
 		t.Fatalf("padded resourceId must not be normalized: %+v", c)
+	}
+}
+
+// The legacy system binding is claimed only when its backing Driver Account is
+// a READY Kubernetes account; otherwise ordinary matching continues.
+func TestPreviewMatching_SystemBindingNeedsReadyKubernetesBackingAccount(t *testing.T) {
+	cluster := catalog.DefinitionDraft{Key: "cluster-x", Name: "cluster-x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}
+	for name, mutate := range map[string]func(*application.Connection){
+		"not ready": func(c *application.Connection) { c.Status = application.ConnectionVerifying },
+		"wrong kind": func(c *application.Connection) {
+			c.Kind, c.AuthenticationType = application.ConnectionAWS, application.AuthAWSAccessKey
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			st, svc, opts := seededCatalog(t, nil)
+			ctx := context.Background()
+			list, err := st.ListConnections(ctx, opts.OrganizationKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, c := range list {
+				if c.Key == opts.ConnectionKey {
+					mutate(&c)
+					if err := st.SaveConnection(ctx, c); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			got := runPreview(t, svc, opts, previewQuery(opts, cluster, "connections."+opts.ConnectionKey, "internal"))
+			if got.Status == catalog.PreviewSystemBinding {
+				t.Fatalf("%s: unusable backing account claimed as system binding: %+v", name, got)
+			}
+		})
+	}
+}
+
+// Preview of an existing key keeps the stored version in the winner, and a
+// long multibyte Name that registration accepts is accepted by the preview.
+func TestPreviewMatching_ExistingVersionAndMultibyteName(t *testing.T) {
+	st, svc, opts := seededCatalog(t, nil)
+	ctx := context.Background()
+	stored, _ := st.ListResourceDefinitions(ctx, opts.OrganizationKey)
+	var existing resource.Definition
+	for _, d := range stored {
+		if d.Key == "postgres-internal-statefulset" {
+			existing = d
+		}
+	}
+	if existing.Version == 0 {
+		t.Fatal("seed must carry a stored version")
+	}
+	got := runPreview(t, svc, opts, previewQuery(opts, previewCandidate(existing.Key, resource.Criterion{}), "db", "default"))
+	if got.Winner == nil || got.Winner.Key != existing.Key || got.Winner.Version != existing.Version {
+		t.Fatalf("winner lost the stored version %d: %+v", existing.Version, got.Winner)
+	}
+	long := previewCandidate("long-name", resource.Criterion{})
+	long.Name = strings.Repeat("Ă", resource.MaxDefinitionNameLength)
+	if _, err := svc.PreviewMatching(ctx, opts.OrganizationKey, previewQuery(opts, long, "db", "default")); err != nil {
+		t.Fatalf("a valid 253-character Name must preview: %v", err)
+	}
+	long.Name += "x"
+	if _, err := svc.PreviewMatching(ctx, opts.OrganizationKey, previewQuery(opts, long, "db", "default")); !errors.Is(err, catalog.ErrInvalid) {
+		t.Fatalf("an overlong Name: %v", err)
 	}
 }

@@ -111,3 +111,20 @@ cơ chế tự reset khi startup hoặc quyền xóa tài nguyên không thuộc
 Codex thực hiện và ghi evidence phạm vi/kết quả; writer không truy cập retained
 state hoặc tự chạy thao tác hạ tầng. Các yêu cầu secret scope, CAS, pinned targets
 trên baseline mới và bảo vệ tài nguyên ngoài task vẫn áp dụng.
+
+## V02 — Definition authoring và matching, 2026-10-17
+
+V02 áp dụng [UC-03 V02-01..09](../../usecase/UC-03/specification.md).
+Definition chọn AWS account riêng và region trong Driver Inputs; Kubernetes
+consumer giữ dependency target thay vì chọn lại account. Năm criteria là toàn
+bộ matching predicate; loại bỏ Definition profile guard. Environment target
+và implicit system cluster chưa bị xóa trước lát cắt V03 được kiểm chứng.
+
+Người dùng đã chốt sửa toàn bộ cấu hình Definition, trừ ID và Resource Type.
+Version CAS bảo vệ concurrent edit; existing immutable snapshots và resource
+execution/cleanup pins không bị rewrite. Preview/Deploy mới đọc catalog mới,
+Preview cũ stale. Không thêm xóa Definition; không migration dữ liệu cũ.
+Account là Connection backing identity của V01; không copy credential/catalog.
+Physical Definition FK có thể giữ `connection_id` làm driver account backing;
+public authoring chỉ có `driverAccount`. Shared contract cập nhật trong schema
+và module contract; không suy account/region từ Environment cho AWS node.

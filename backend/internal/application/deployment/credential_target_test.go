@@ -110,10 +110,10 @@ func credentialBackedApp(t *testing.T, status application.ConnectionStatus) (*bo
 		}
 	}
 	if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, resource.Definition{
-		Key: "cluster-lab", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
-		ExecutionProfile: "internal-k8s", ConnectionKey: "lab",
-		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
-		Criteria:     []resource.Criterion{{Class: "internal", ApplicationID: opts.ApplicationKey}},
+		Key: "cluster-lab", Name: "cluster-lab", Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
+		DriverAccount: "lab",
+		DriverInputs:  map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
+		Criteria:      []resource.Criterion{{Class: "internal", ApplicationID: opts.ApplicationKey}},
 	}); err != nil {
 		t.Fatal(err)
 	}

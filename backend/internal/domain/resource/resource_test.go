@@ -1,6 +1,9 @@
 package resource
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestDescriptorRoundTrip(t *testing.T) {
 	d, err := ParseDescriptor("postgres.default#shared.acceptance-db")
@@ -64,14 +67,81 @@ func TestCriterionMatchesOnlyDeclaredFields(t *testing.T) {
 	}
 }
 
-func TestDefinitionRejectsUnknownExecutionProfile(t *testing.T) {
-	d := Definition{Key: "postgres", ResourceTypeKey: "postgres", DriverType: DriverKubernetes, Criteria: []Criterion{{}}, ExecutionProfile: "unknown"}
-	if err := d.Validate(); err == nil {
-		t.Fatal("expected invalid profile rejection")
-	}
-	d.ExecutionProfile = "internal-k8s"
+func TestDefinitionRequiresNameAndPositiveVersion(t *testing.T) {
+	d := Definition{Key: "postgres", Name: "PostgreSQL", Version: 1, ResourceTypeKey: "postgres", DriverType: DriverKubernetes, Criteria: []Criterion{{}}}
 	if err := d.Validate(); err != nil {
 		t.Fatal(err)
+	}
+	for name, change := range map[string]func(*Definition){
+		"blank name":   func(d *Definition) { d.Name = "  \t " },
+		"long name":    func(d *Definition) { d.Name = strings.Repeat("a", MaxDefinitionNameLength+1) },
+		"control name": func(d *Definition) { d.Name = "a\nb" },
+		"no version":   func(d *Definition) { d.Version = 0 },
+	} {
+		bad := d
+		change(&bad)
+		if bad.Validate() == nil {
+			t.Fatalf("%s accepted", name)
+		}
+	}
+	long := d
+	long.Name = strings.Repeat("ạ", MaxDefinitionNameLength)
+	if err := long.Validate(); err != nil {
+		t.Fatalf("a %d-character name is valid: %v", MaxDefinitionNameLength, err)
+	}
+}
+
+func TestRankIsTheSharedFiveFieldMatcher(t *testing.T) {
+	mk := func(key string, criteria ...Criterion) Definition {
+		return Definition{Key: key, Name: key, Version: 1, ResourceTypeKey: "postgres", DriverType: DriverTerraform, DriverAccount: "any-" + key, Criteria: criteria}
+	}
+	ctx := MatchContext{EnvironmentType: "dev", ApplicationID: "app", EnvironmentID: "env", ResourceID: "db", Class: "default"}
+	defs := []Definition{
+		mk("wildcard", Criterion{}),
+		mk("by-class", Criterion{Class: "default"}),
+		mk("by-app-or-env", Criterion{ApplicationID: "app"}, Criterion{EnvironmentID: "env"}),
+		mk("other-class", Criterion{Class: "x"}),
+		{Key: "elsewhere", Name: "e", Version: 1, ResourceTypeKey: "redis", DriverType: DriverTerraform, Criteria: []Criterion{{}}},
+	}
+	r := Rank(defs, "postgres", ctx, nil)
+	if len(r.Matched) != 3 || len(r.Top) != 1 || r.Top[0].Definition.Key != "by-class" || r.Top[0].Score != 16 {
+		t.Fatalf("ranking = %+v", r)
+	}
+	// AND inside a criterion: both fields must match.
+	and := Rank([]Definition{mk("and", Criterion{ApplicationID: "app", EnvironmentID: "other"})}, "postgres", ctx, nil)
+	if len(and.Matched) != 0 {
+		t.Fatal("AND row matched with one field wrong")
+	}
+	// Equal top scores are a tie; the account is never a ranking input.
+	tie := Rank([]Definition{mk("a", Criterion{Class: "default"}), mk("b", Criterion{Class: "default"})}, "postgres", ctx, nil)
+	if len(tie.Top) != 2 || tie.Top[0].Definition.Key != "a" {
+		t.Fatalf("tie = %+v", tie)
+	}
+	// Weights 1/2/4/8/16.
+	for i, c := range []Criterion{{EnvironmentType: "dev"}, {ApplicationID: "app"}, {EnvironmentID: "env"}, {ResourceID: "db"}, {Class: "default"}} {
+		if got := c.Specificity(); got != 1<<i {
+			t.Fatalf("weight %d = %d", i, got)
+		}
+	}
+}
+
+func TestDefinitionRegionAndAwsRegionFormat(t *testing.T) {
+	d := Definition{DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"region": "ap-southeast-1"}}}}
+	if region, ok := d.DefinitionRegion(); !ok || region != "ap-southeast-1" {
+		t.Fatalf("region = %q %v", region, ok)
+	}
+	if _, ok := (Definition{}).DefinitionRegion(); ok {
+		t.Fatal("empty definition has no region")
+	}
+	for _, good := range []string{"us-east-1", "eu-west-3", "ap-southeast-1", "us-gov-west-1"} {
+		if !ValidAWSRegion(good) {
+			t.Fatalf("%s rejected", good)
+		}
+	}
+	for _, bad := range []string{"", "mars", "us-east", "US-EAST-1", "${context.env.region}", "us-east-1; rm"} {
+		if ValidAWSRegion(bad) {
+			t.Fatalf("%q accepted", bad)
+		}
 	}
 }
 

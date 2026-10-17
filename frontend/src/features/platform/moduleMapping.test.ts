@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { capabilityFixture } from '../../test/capabilities';
 import { typeFixture } from '../../test/types';
-import { clusterRef, emptyMapping, inputCompatible, mappingProblems, mappingToObject, needsAwsConnection, objectToMapping, outputCompatible, profileChoices, sameNameInputs, sameNameOutputs } from './moduleMapping';
+import { clusterRef, emptyMapping, inputCompatible, mappingProblems, inheritsCluster, mappingToObject, needsAccount, objectToMapping, outputCompatible, sameNameInputs, sameNameOutputs } from './moduleMapping';
 
 const capability = (module: string) => {
   const found = capabilityFixture.find((candidate) => candidate.driverType === 'terraform' && candidate.module === module);
@@ -23,11 +23,18 @@ describe('module mapping rules mirror the backend contract', () => {
     expect(outputCompatible('bool', 'bool')).toBe(true);
   });
 
-  it('offers AWS-only modules the aws-eks profile alone, Kubernetes modules every scope', () => {
-    expect(profileChoices(capability('aurora'))).toEqual(['aws-eks']);
-    expect(needsAwsConnection(capability('vpc'))).toBe(true);
-    expect(profileChoices(capability('postgres-k8s'))).toEqual(['internal-k8s', 'aws-eks', '']);
-    expect(needsAwsConnection(capability('redis-k8s'))).toBe(false);
+  it('takes the account requirement from the published metadata: AWS modules need an account, Kubernetes modules inherit their cluster', () => {
+    for (const module of ['aurora', 'vpc', 'eks', 'elasticache']) {
+      expect(needsAccount(capability(module))).toBe(true);
+      expect(capability(module).account).toEqual({ required: true, type: 'AWS', regionVariable: 'region' });
+      expect(inheritsCluster(capability(module))).toBe(false);
+    }
+    for (const module of ['postgres-k8s', 'redis-k8s', 'k8s-namespace']) {
+      expect(needsAccount(capability(module))).toBe(false);
+      expect(inheritsCluster(capability(module))).toBe(true);
+      // The Environment target stays selectable but is labelled legacy until V03.
+      expect(capability(module).bindings[0]?.targets).toEqual([{ target: 'resource' }, { target: 'environment', legacy: true }]);
+    }
   });
 
   it('serializes to the strict Driver Inputs shape and never invents a binding', () => {
@@ -42,8 +49,8 @@ describe('module mapping rules mirror the backend contract', () => {
       output_mapping: { host: 'host', password: 'password' },
       provider_bindings: { kubernetes: { target: 'resource', resource_ref: clusterRef('eks') } },
     });
-    // AWS always binds to the Environment; there is no account, region or Connection field to serialize.
-    expect(mappingToObject(emptyMapping(), capability('aurora')).provider_bindings).toEqual({ aws: { target: 'environment' } });
+    // AWS always binds to the Definition's Driver Account; the account and region are separate fields, never serialized here.
+    expect(mappingToObject(emptyMapping(), capability('aurora')).provider_bindings).toEqual({ aws: { target: 'account' } });
   });
 
   it('reads valid objects back and refuses what the controls cannot hold', () => {
@@ -58,7 +65,8 @@ describe('module mapping rules mirror the backend contract', () => {
       objectToMapping({ input_mapping: { database: { param: 'database' }, username: { param: 'database' } } }, pg, type('postgres'), []),
       objectToMapping({ output_mapping: { nope: 'host' } }, pg, type('postgres'), []),
       objectToMapping({ output_mapping: { host: 'nope' } }, pg, type('postgres'), []),
-      objectToMapping({ provider_bindings: { aws: { target: 'environment' } } }, pg, type('postgres'), []),
+      objectToMapping({ provider_bindings: { aws: { target: 'account' } } }, pg, type('postgres'), []), // not a provider of this module
+      objectToMapping({ provider_bindings: { aws: { target: 'environment' } } }, capability('aurora'), type('postgres'), []), // an AWS provider never binds to the Environment
       objectToMapping({ provider_bindings: { kubernetes: { target: 'resource', resource_ref: clusterRef('other') } } }, pg, type('postgres'), ['eks']),
       objectToMapping({ provider_bindings: { kubernetes: { target: 'environment', region: 'x' } } }, pg, type('postgres'), []),
     ];

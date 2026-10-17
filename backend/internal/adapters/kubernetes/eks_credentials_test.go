@@ -135,7 +135,6 @@ func TestEKSTargetCredentialsRejectMismatchedOrUnknownScopeWithoutFallback(t *te
 		mutate func(*execution.Target, *eksAWSIdentity, *eksAWSAPI)
 	}{
 		{name: "foreign connection key", mutate: func(target *execution.Target, _ *eksAWSIdentity, _ *eksAWSAPI) { target.Connection = "other" }},
-		{name: "unallowed region", mutate: func(target *execution.Target, _ *eksAWSIdentity, _ *eksAWSAPI) { target.Region = "us-west-2" }},
 		{name: "redirected context", mutate: func(target *execution.Target, _ *eksAWSIdentity, _ *eksAWSAPI) { target.Context = "foreign-cluster" }},
 		{name: "account mismatch", mutate: func(_ *execution.Target, _ *eksAWSIdentity, api *eksAWSAPI) { api.account = "999999999999" }},
 		{name: "inactive cluster", mutate: func(_ *execution.Target, _ *eksAWSIdentity, api *eksAWSAPI) { api.endpoint.Status = "CREATING" }},
@@ -161,6 +160,16 @@ func TestEKSTargetCredentialsRejectMismatchedOrUnknownScopeWithoutFallback(t *te
 			}
 		})
 	}
+	// UC-03 V02-03: the account's verification regions are probe evidence, not a
+	// deployment allowlist. The Definition's region reaches the same identity.
+	t.Run("region outside the verification regions is accepted", func(t *testing.T) {
+		source, _, _ := eksTestSource()
+		target := eksTestTarget()
+		target.Region = "us-west-2"
+		if _, err := source.ResolveKubeconfig(context.Background(), target); err != nil {
+			t.Fatalf("a Definition region must not be limited by the account verification regions: %v", err)
+		}
+	})
 	t.Run("unknown provider does not fall back to uploaded kubeconfig", func(t *testing.T) {
 		internal := &stubResolver{document: []byte(`apiVersion: v1`)}
 		source := &TargetCredentials{Kubernetes: internal}

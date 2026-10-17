@@ -122,93 +122,37 @@ func (r *countingRegistry) Resolve(resource.DriverType) (execution.ResourceExecu
 	return nil, errors.New("executor must not be resolved")
 }
 
-// TestProvision_InternalDefinitionConnectionMismatchFailsBeforeExecutor covers
-// UC-08 BR-07 defense in depth: a plan that bypassed planning cannot retarget
-// the Environment's saved Connection, and external accounts keep their
-// explicit Driver Account semantics.
-func TestProvision_InternalDefinitionConnectionMismatchFailsBeforeExecutor(t *testing.T) {
+// A Kubernetes or existing-cluster Definition inherits its cluster access; one
+// that names a Driver Account is refused before any executor call.
+func TestProvision_NonTerraformDefinitionWithAnAccountFailsBeforeExecutor(t *testing.T) {
 	ctx := context.Background()
 	seedOptions := seedtest.Defaults()
 	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatal(err)
-	}
-	for _, key := range []string{"lab", "other"} {
-		if err := app.Store.SaveConnection(ctx, application.Connection{Name: key, ID: key, Key: key, OrganizationKey: seedOptions.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, AuthenticationType: application.AuthKubeconfig}); err != nil {
-			t.Fatal(err)
-		}
 	}
 	descriptor := "k8s-cluster.internal#connections.lab"
 	for _, driver := range []resource.DriverType{resource.DriverExistingCluster, resource.DriverKubernetes} {
 		registry := &countingRegistry{}
 		service := provisioning.NewService(app.Store, registry, secrets.NewMemory(), clock.System{})
-		def := resource.Definition{Key: "cluster-other", ResourceTypeKey: "k8s-cluster", DriverType: driver, ConnectionKey: "other", ExecutionProfile: "internal-k8s", Criteria: []resource.Criterion{{}}}
+		def := resource.Definition{Key: "cluster-other", Name: "cluster-other", Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: driver, DriverAccount: "other", Criteria: []resource.Criterion{{}}}
 		_, err := service.Provision(ctx, provisioning.Request{
 			DeploymentID: "dep-1", RunID: "run-1",
 			Context: planning.Context{OrganizationKey: seedOptions.OrganizationKey, App: application.Application{Key: "a", OrganizationKey: seedOptions.OrganizationKey}, Env: environment.Environment{Key: "staging", Profile: application.ProfileInternalK8s, ConnectionKey: "lab"}},
 			Plan: &planning.Plan{
 				Graph:   planning.Graph{Nodes: []planning.Node{{Descriptor: descriptor, Kind: planning.NodeResource, ResourceType: "k8s-cluster", Class: "internal", Scope: resource.Scope{Type: resource.ScopeApplication, ID: "a"}}}},
-				Matches: map[string]planning.Match{descriptor: {Descriptor: descriptor, DefinitionKey: def.Key, DriverType: driver, ConnectionKey: "other"}},
+				Matches: map[string]planning.Match{descriptor: {Descriptor: descriptor, DefinitionKey: def.Key, DriverType: driver}},
 				Batches: [][]string{{descriptor}},
 			},
 			Types:       map[string]resource.Type{"k8s-cluster": {Key: "k8s-cluster"}},
 			Definitions: map[string]resource.Definition{def.Key: def},
 		})
-		if err == nil || !strings.Contains(err.Error(), "differs from the Environment connection") {
-			t.Fatalf("%s mismatch error = %v", driver, err)
+		if err == nil || !strings.Contains(err.Error(), "does not use") {
+			t.Fatalf("%s account error = %v", driver, err)
 		}
 		if registry.calls != 0 {
-			t.Fatalf("%s: executor resolved %d times before the mismatch was rejected", driver, registry.calls)
+			t.Fatalf("%s: executor resolved %d times before the account was rejected", driver, registry.calls)
 		}
-	}
-}
-
-// aws-eks: Terraform VPC/EKS Definitions must use the Environment account
-// before any executor call; an external database Definition is not checked.
-func TestProvision_AWSTargetDefinitionConnectionMismatchFailsBeforeExecutor(t *testing.T) {
-	ctx := context.Background()
-	seedOptions := seedtest.Defaults()
-	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, key := range []string{"aws-a", "aws-b"} {
-		if err := app.Store.SaveConnection(ctx, application.Connection{Name: key, ID: key, Key: key, OrganizationKey: seedOptions.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionReady, AuthenticationType: application.AuthAWSAccessKey, Config: map[string]any{"region": "us-east-1"}}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	run := func(resourceType, connection string) (error, int) {
-		descriptor := resourceType + ".default#applications.a"
-		registry := &countingRegistry{}
-		service := provisioning.NewService(app.Store, registry, secrets.NewMemory(), clock.System{})
-		def := resource.Definition{Key: "def-" + resourceType, ResourceTypeKey: resourceType, DriverType: resource.DriverTerraform, DriverInputs: terraformInputs(), ConnectionKey: connection, ExecutionProfile: "aws-eks", Criteria: []resource.Criterion{{}}}
-		_, err := service.Provision(ctx, provisioning.Request{
-			DeploymentID: "dep-1", RunID: "run-1",
-			Context: planning.Context{OrganizationKey: seedOptions.OrganizationKey, App: application.Application{Key: "a", OrganizationKey: seedOptions.OrganizationKey}, Env: environment.Environment{Key: "staging", Profile: application.ProfileAWSEKS, ConnectionKey: "aws-a", Region: "us-east-1"}},
-			Plan: &planning.Plan{
-				Graph:   planning.Graph{Nodes: []planning.Node{{Descriptor: descriptor, Kind: planning.NodeResource, ResourceType: resourceType, Class: "default", Scope: resource.Scope{Type: resource.ScopeApplication, ID: "a"}}}},
-				Matches: map[string]planning.Match{descriptor: {Descriptor: descriptor, DefinitionKey: def.Key, DriverType: def.DriverType, ConnectionKey: connection}},
-				Batches: [][]string{{descriptor}},
-			},
-			Types:       map[string]resource.Type{resourceType: {Key: resourceType}},
-			Definitions: map[string]resource.Definition{def.Key: def},
-		})
-		return err, registry.calls
-	}
-	for _, resourceType := range []string{"vpc", "k8s-cluster"} {
-		err, calls := run(resourceType, "aws-b")
-		if err == nil || !strings.Contains(err.Error(), "differs from the Environment connection") || calls != 0 {
-			t.Fatalf("%s mismatch: err=%v executor calls=%d", resourceType, err, calls)
-		}
-		// Same account passes the guard and reaches the executor.
-		if err, calls := run(resourceType, "aws-a"); calls != 1 {
-			t.Fatalf("%s matching account must reach the executor: err=%v calls=%d", resourceType, err, calls)
-		}
-	}
-	// AWS modules take no account override (ADR-014): a database definition
-	// naming another account is a mismatch like VPC/EKS.
-	if err, calls := run("postgres", "aws-b"); err == nil || calls != 0 {
-		t.Fatalf("database for another account must fail before the executor: err=%v calls=%d", err, calls)
 	}
 }
 
@@ -239,7 +183,7 @@ func provisionAWS(t *testing.T, app *bootstrap.App, org, resourceType, definitio
 	t.Helper()
 	descriptor := resourceType + ".default#applications.a"
 	service := provisioning.NewService(app.Store, registry, secrets.NewMemory(), clock.System{})
-	def := resource.Definition{Key: "def-" + resourceType, ResourceTypeKey: resourceType, DriverType: resource.DriverTerraform, DriverInputs: terraformInputs(), ConnectionKey: definitionKey, ExecutionProfile: "aws-eks", Criteria: []resource.Criterion{{}}}
+	def := resource.Definition{Key: "def-" + resourceType, Name: "def-" + resourceType, Version: 1, ResourceTypeKey: resourceType, DriverType: resource.DriverTerraform, DriverInputs: terraformInputs(), DriverAccount: definitionKey, Criteria: []resource.Criterion{{}}}
 	if err := app.Store.SaveResourceDefinition(context.Background(), org, def); err != nil {
 		t.Fatal(err)
 	}
@@ -248,7 +192,7 @@ func provisionAWS(t *testing.T, app *bootstrap.App, org, resourceType, definitio
 		Context: planning.Context{OrganizationKey: org, App: application.Application{Key: "a", OrganizationKey: org}, Env: environment.Environment{Key: "staging", Profile: application.ProfileAWSEKS, ConnectionKey: envConnection, Region: "us-east-1"}},
 		Plan: &planning.Plan{
 			Graph:   planning.Graph{Nodes: []planning.Node{{Descriptor: descriptor, Kind: planning.NodeResource, ResourceType: resourceType, Class: "default", Scope: resource.Scope{Type: resource.ScopeApplication, ID: "a"}}}},
-			Matches: map[string]planning.Match{descriptor: {Descriptor: descriptor, DefinitionKey: def.Key, DriverType: def.DriverType, ConnectionKey: definitionKey}},
+			Matches: map[string]planning.Match{descriptor: {Descriptor: descriptor, DefinitionKey: def.Key, DriverType: def.DriverType, DriverAccount: definitionKey}},
 			Batches: [][]string{{descriptor}},
 		},
 		Types:       map[string]resource.Type{resourceType: {Key: resourceType}},
@@ -257,88 +201,43 @@ func provisionAWS(t *testing.T, app *bootstrap.App, org, resourceType, definitio
 	return err
 }
 
-// UC-08 BR-07 (T16): a VPC/EKS Definition without a key inherits whichever AWS
-// Environment connection is pinned; executor request and ActiveResource agree.
-func TestProvision_AWSVPCAndEKSInheritEnvironmentConnection(t *testing.T) {
+// V02: every AWS node runs under the Driver Account of its Definition, whatever
+// account the Environment is bound to; the executor request and the persisted
+// ActiveResource agree. A node without an account never inherits the
+// Environment's one.
+func TestProvision_AWSNodesRunUnderTheirOwnDriverAccount(t *testing.T) {
 	ctx := context.Background()
 	seedOptions := seedtest.Defaults()
-	for _, resourceType := range []string{"vpc", "k8s-cluster"} {
-		for _, target := range []string{"aws-a", "aws-b"} {
-			app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
-			if err != nil {
-				t.Fatal(err)
-			}
-			saveAWSConnections(t, app, seedOptions.OrganizationKey, "aws-a", "aws-b")
-			registry := &recordingRegistry{}
-			if err := provisionAWS(t, app, seedOptions.OrganizationKey, resourceType, "", target, registry); err != nil {
-				t.Fatalf("%s on %s: %v", resourceType, target, err)
-			}
-			if len(registry.requests) != 1 || registry.requests[0].Connection.Key != target {
-				t.Fatalf("%s on %s: executor requests = %+v", resourceType, target, registry.requests)
-			}
-			active, _ := app.Store.ListActiveResources(ctx, seedOptions.OrganizationKey)
-			found := false
-			for _, a := range active {
-				if a.Descriptor.Type == resourceType {
-					found = true
-					if a.ConnectionKey != target {
-						t.Fatalf("%s on %s: ActiveResource connection = %q", resourceType, target, a.ConnectionKey)
-					}
+	for _, resourceType := range []string{"vpc", "k8s-cluster", "postgres"} {
+		app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
+		if err != nil {
+			t.Fatal(err)
+		}
+		saveAWSConnections(t, app, seedOptions.OrganizationKey, "aws-a", "aws-b")
+		registry := &recordingRegistry{}
+		if err := provisionAWS(t, app, seedOptions.OrganizationKey, resourceType, "aws-b", "aws-a", registry); err != nil {
+			t.Fatalf("%s: %v", resourceType, err)
+		}
+		if len(registry.requests) != 1 || registry.requests[0].Connection.Key != "aws-b" {
+			t.Fatalf("%s: executor requests = %+v", resourceType, registry.requests)
+		}
+		active, _ := app.Store.ListActiveResources(ctx, seedOptions.OrganizationKey)
+		found := false
+		for _, a := range active {
+			if a.Descriptor.Type == resourceType {
+				found = true
+				if a.ConnectionKey != "aws-b" {
+					t.Fatalf("%s: ActiveResource connection = %q", resourceType, a.ConnectionKey)
 				}
 			}
-			if !found {
-				t.Fatalf("%s on %s: no ActiveResource persisted", resourceType, target)
-			}
 		}
-	}
-}
-
-// AWS Definitions carry no account override (UC-03 BR-08, ADR-014): an Aurora
-// Definition naming another account fails before the executor; one without a
-// key binds to the Environment account, and state recorded under another
-// account is never reused.
-func TestProvision_AuroraTakesNoAccountOverrideAndNeverInherits(t *testing.T) {
-	ctx := context.Background()
-	seedOptions := seedtest.Defaults()
-	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
-	if err != nil {
-		t.Fatal(err)
-	}
-	saveAWSConnections(t, app, seedOptions.OrganizationKey, "aws-a", "aws-b")
-	explicit := &recordingRegistry{}
-	err = provisionAWS(t, app, seedOptions.OrganizationKey, "postgres", "aws-b", "aws-a", explicit)
-	if err == nil || !strings.Contains(err.Error(), "differs from the Environment connection") || len(explicit.requests) != 0 {
-		t.Fatalf("explicit Aurora account: err=%v executor calls=%d", err, len(explicit.requests))
-	}
-	registry := &recordingRegistry{}
-	if err := provisionAWS(t, app, seedOptions.OrganizationKey, "postgres", "", "aws-b", registry); err != nil {
-		t.Fatal(err)
-	}
-	if len(registry.requests) != 1 || registry.requests[0].Connection.Key != "aws-b" {
-		t.Fatalf("Aurora executor requests = %+v", registry.requests)
-	}
-	missing := &recordingRegistry{}
-	err = provisionAWS(t, app, seedOptions.OrganizationKey, "postgres", "", "aws-a", missing)
-	if err == nil || !strings.Contains(err.Error(), "belongs to another connection") || len(missing.requests) != 0 {
-		t.Fatalf("Environment-bound Aurora over aws-b state: err=%v executor calls=%d", err, len(missing.requests))
-	}
-}
-
-// A malformed VPC/EKS key different from the pinned target is rejected before
-// any executor call, and an empty key is not a mismatch.
-func TestProvision_MalformedVPCKeyIsRejectedWithoutFallback(t *testing.T) {
-	ctx := context.Background()
-	seedOptions := seedtest.Defaults()
-	app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
-	if err != nil {
-		t.Fatal(err)
-	}
-	saveAWSConnections(t, app, seedOptions.OrganizationKey, "aws-a", "aws-b")
-	for _, resourceType := range []string{"vpc", "k8s-cluster"} {
-		registry := &recordingRegistry{}
-		err := provisionAWS(t, app, seedOptions.OrganizationKey, resourceType, "aws-b", "aws-a", registry)
-		if err == nil || !strings.Contains(err.Error(), "differs from the Environment connection") || len(registry.requests) != 0 {
-			t.Fatalf("%s: err=%v executor calls=%d", resourceType, err, len(registry.requests))
+		if !found {
+			t.Fatalf("%s: no ActiveResource persisted", resourceType)
+		}
+		// No Driver Account: fail closed; the Environment account is not a fallback.
+		none := &recordingRegistry{}
+		if err := provisionAWS(t, app, seedOptions.OrganizationKey, resourceType, "", "aws-a", none); err == nil || len(none.requests) != 0 {
+			t.Fatalf("%s without an account: err=%v calls=%d", resourceType, err, len(none.requests))
 		}
 	}
 }
@@ -349,12 +248,7 @@ func TestProvision_MalformedVPCKeyIsRejectedWithoutFallback(t *testing.T) {
 func TestProvision_ReuseNeverCrossesAccounts(t *testing.T) {
 	ctx := context.Background()
 	seedOptions := seedtest.Defaults()
-	cases := []struct{ name, resourceType, first, firstEnv, second, secondEnv string }{
-		{"vpc", "vpc", "", "aws-a", "", "aws-b"},
-		{"eks", "k8s-cluster", "", "aws-a", "", "aws-b"},
-		{"aurora", "postgres", "", "aws-a", "", "aws-b"},
-	}
-	for _, c := range cases {
+	for _, resourceType := range []string{"vpc", "k8s-cluster", "postgres"} {
 		app, err := bootstraptest.Build(ctx, bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
 		if err != nil {
 			t.Fatal(err)
@@ -362,29 +256,29 @@ func TestProvision_ReuseNeverCrossesAccounts(t *testing.T) {
 		saveAWSConnections(t, app, seedOptions.OrganizationKey, "aws-a", "aws-b")
 		registry := &recordingRegistry{}
 		org := seedOptions.OrganizationKey
-		if err := provisionAWS(t, app, org, c.resourceType, c.first, c.firstEnv, registry); err != nil {
-			t.Fatalf("%s first run: %v", c.name, err)
+		if err := provisionAWS(t, app, org, resourceType, "aws-a", "aws-a", registry); err != nil {
+			t.Fatalf("%s first run: %v", resourceType, err)
 		}
 		// Same account reuses the stored executor state.
-		if err := provisionAWS(t, app, org, c.resourceType, c.first, c.firstEnv, registry); err != nil || registry.requests[1].PriorState["account"] != "aws-a" {
-			t.Fatalf("%s same-account reuse: err=%v requests=%+v", c.name, err, registry.requests)
+		if err := provisionAWS(t, app, org, resourceType, "aws-a", "aws-a", registry); err != nil || registry.requests[1].PriorState["account"] != "aws-a" {
+			t.Fatalf("%s same-account reuse: err=%v requests=%+v", resourceType, err, registry.requests)
 		}
 		calls := len(registry.requests)
-		err = provisionAWS(t, app, org, c.resourceType, c.second, c.secondEnv, registry)
+		err = provisionAWS(t, app, org, resourceType, "aws-b", "aws-a", registry)
 		if err == nil || !strings.Contains(err.Error(), "belongs to another connection") || len(registry.requests) != calls {
-			t.Fatalf("%s cross-account reuse: err=%v executor calls %d -> %d", c.name, err, calls, len(registry.requests))
+			t.Fatalf("%s cross-account reuse: err=%v executor calls %d -> %d", resourceType, err, calls, len(registry.requests))
 		}
 		active, _ := app.Store.ListActiveResources(ctx, org)
 		for _, a := range active {
-			if a.Descriptor.Type == c.resourceType && a.ConnectionKey != "aws-a" {
-				t.Fatalf("%s: stored identity overwritten with %q", c.name, a.ConnectionKey)
+			if a.Descriptor.Type == resourceType && a.ConnectionKey != "aws-a" {
+				t.Fatalf("%s: stored identity overwritten with %q", resourceType, a.ConnectionKey)
 			}
 		}
 	}
 }
 
-// The effective connection must exist, be READY, AWS and belong to the
-// Organization: VPC/EKS check the Environment connection, Aurora its own.
+// The Definition's Driver Account must exist, be READY, AWS and belong to the
+// Organization; otherwise the node fails before any executor call.
 func TestProvision_EffectiveAWSConnectionUnavailableFailsBeforeExecutor(t *testing.T) {
 	ctx := context.Background()
 	seedOptions := seedtest.Defaults()
@@ -409,16 +303,16 @@ func TestProvision_EffectiveAWSConnectionUnavailableFailsBeforeExecutor(t *testi
 	for _, bad := range []string{"pending", "kube", "foreign", "missing"} {
 		for _, resourceType := range []string{"vpc", "k8s-cluster", "postgres"} {
 			registry := &recordingRegistry{}
-			err := provisionAWS(t, app, org, resourceType, "", bad, registry)
-			if err == nil || !strings.Contains(err.Error(), "must exist and be READY") || len(registry.requests) != 0 {
-				t.Fatalf("%s with Environment connection %q: err=%v calls=%d", resourceType, bad, err, len(registry.requests))
+			err := provisionAWS(t, app, org, resourceType, bad, "aws-ok", registry)
+			if err == nil || !strings.Contains(err.Error(), "kind does not match") && !strings.Contains(err.Error(), "must exist and be READY") || len(registry.requests) != 0 {
+				t.Fatalf("%s with Driver Account %q: err=%v calls=%d", resourceType, bad, err, len(registry.requests))
 			}
 		}
 	}
 }
 
 // terraformInputs is a v2 Terraform Driver Inputs document (packaged VPC
-// pin, Environment AWS binding). The fake executor runs no module code, so
+// pin, Driver Account AWS binding). The fake executor runs no module code, so
 // no artifact verification happens in these connection tests.
 func terraformInputs() map[string]any {
 	refs, err := registry.PackagedRefs()
@@ -428,6 +322,6 @@ func terraformInputs() map[string]any {
 	return map[string]any{"values": map[string]any{
 		"source":            refs["vpc"].Map(),
 		"variables":         map[string]any{},
-		"provider_bindings": map[string]any{"aws": map[string]any{"target": "environment"}},
+		"provider_bindings": map[string]any{"aws": map[string]any{"target": "account"}},
 	}}
 }

@@ -6,16 +6,18 @@ import (
 	"sort"
 	"strings"
 
-	"orchestrator/internal/application/target"
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/platform/canon"
 	"orchestrator/internal/ports/persistence"
 )
 
-// Matching preview statuses (UC-03 BR-20..22, OC-04c).
+// Matching preview statuses (UC-03 V02-05, OC-04c). PreviewConnectionConflict
+// keeps its established wire name for a winner whose Driver Account or binding
+// is unusable.
 const (
 	PreviewIncomplete         = "INCOMPLETE"
 	PreviewMatched            = "MATCHED"
@@ -25,22 +27,34 @@ const (
 	PreviewSystemBinding      = "SYSTEM_BINDING"
 )
 
+// Safe winner-account conflict reasons. They are fixed codes, never text from
+// the account or its credentials.
+const (
+	ConflictAccountMissing      = "ACCOUNT_MISSING"
+	ConflictAccountNotFound     = "ACCOUNT_NOT_FOUND"
+	ConflictAccountKindMismatch = "ACCOUNT_KIND_MISMATCH"
+	ConflictAccountNotReady     = "ACCOUNT_NOT_READY"
+	ConflictRegionInvalid       = "REGION_INVALID"
+)
+
+// Cluster source kinds shown for a Kubernetes resource binding.
+const (
+	ClusterSourceResource          = "RESOURCE"
+	ClusterSourceLegacyEnvironment = "LEGACY_ENVIRONMENT"
+)
+
 // Bounds keep one preview request cheap and its response small.
 const (
 	maxPreviewCriteria    = 64
 	maxPreviewContextText = 253
 )
 
-// ErrTargetUnavailable reports an Environment without a usable execution
-// binding (HTTP 422).
-var ErrTargetUnavailable = errors.New("catalog: environment execution target is unavailable")
-
 // ErrPreviewNotFound reports an Application or Environment outside the
 // Organization (HTTP 404).
 var ErrPreviewNotFound = errors.New("catalog: application or environment not found")
 
-// MatchingContext is the explicit client context. Organization, profile,
-// environment type and Connection always come from the server snapshot.
+// MatchingContext is the explicit client context. Organization and the
+// environment type always come from the server snapshot.
 type MatchingContext struct {
 	ApplicationID string `json:"applicationId"`
 	EnvironmentID string `json:"environmentId"`
@@ -48,32 +62,79 @@ type MatchingContext struct {
 	Class         string `json:"class"`
 }
 
+// DefinitionDraft is the strict public authoring document of a Definition
+// (create, edit and matching preview). The version, source fingerprint and any
+// retired field are not part of it.
+type DefinitionDraft struct {
+	Key             string                            `json:"key"`
+	Name            string                            `json:"name"`
+	ResourceTypeKey string                            `json:"resourceType"`
+	DriverType      resource.DriverType               `json:"driverType"`
+	DriverAccount   string                            `json:"driverAccount,omitempty"`
+	DriverInputs    map[string]any                    `json:"driverInputs,omitempty"`
+	Provision       map[string]resource.ProvisionRule `json:"provision,omitempty"`
+	Criteria        []resource.Criterion              `json:"criteria"`
+}
+
+// Definition converts the draft to a Definition without a version.
+func (d DefinitionDraft) Definition() resource.Definition {
+	return resource.Definition{Key: d.Key, Name: d.Name, ResourceTypeKey: d.ResourceTypeKey, DriverType: d.DriverType,
+		DriverAccount: d.DriverAccount, DriverInputs: d.DriverInputs, Provision: d.Provision, Criteria: d.Criteria}
+}
+
+// DefinitionUpdate is the strict edit document: the draft plus the expected
+// stored version (UC-03 V02-06).
+type DefinitionUpdate struct {
+	DefinitionDraft
+	Version int64 `json:"version"`
+}
+
 // MatchingPreviewQuery is one unsaved candidate plus its context.
 type MatchingPreviewQuery struct {
-	Definition resource.Definition `json:"definition"`
-	Context    MatchingContext     `json:"context"`
+	Definition DefinitionDraft `json:"definition"`
+	Context    MatchingContext `json:"context"`
 }
 
 // MatchingCandidate is the safe per-Definition result.
 type MatchingCandidate struct {
 	Key           string              `json:"key"`
-	Eligible      bool                `json:"eligible"`
+	Name          string              `json:"name"`
 	Matched       bool                `json:"matched"`
 	BestCriterion *resource.Criterion `json:"bestCriterion,omitempty"`
 	Score         *int                `json:"score,omitempty"`
 }
 
-// MatchingWinner identifies the winning Definition.
-type MatchingWinner struct {
-	Key   string `json:"key"`
-	Score int    `json:"score"`
+// MatchingAccount is the safe identity of a selected Driver Account.
+type MatchingAccount struct {
+	Key     string `json:"key"`
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	Version int64  `json:"version"`
 }
 
-// MatchingConflict reports a winner whose Connection differs from the target.
+// MatchingClusterSource names where a Kubernetes binding inherits its cluster.
+type MatchingClusterSource struct {
+	Kind      string `json:"kind"`
+	Reference string `json:"reference,omitempty"`
+}
+
+// MatchingWinner identifies the winning Definition and what it will run with.
+type MatchingWinner struct {
+	Key           string                 `json:"key"`
+	Name          string                 `json:"name"`
+	Version       int64                  `json:"version,omitempty"`
+	DriverType    string                 `json:"driverType"`
+	Score         int                    `json:"score"`
+	Account       *MatchingAccount       `json:"account,omitempty"`
+	Region        string                 `json:"region,omitempty"`
+	ClusterSource *MatchingClusterSource `json:"clusterSource,omitempty"`
+}
+
+// MatchingConflict reports a winner whose Driver Account or binding is unusable.
 type MatchingConflict struct {
 	DefinitionKey string `json:"definitionKey"`
-	ConnectionKey string `json:"connectionKey"`
-	TargetKey     string `json:"targetConnectionKey"`
+	DriverAccount string `json:"driverAccount,omitempty"`
+	Reason        string `json:"reason"`
 }
 
 // MatchingSnapshot identifies what the result reflects; it is not a token.
@@ -117,8 +178,8 @@ func boundedText(s string) bool {
 }
 
 // validatePreviewCandidate applies structural matching validation only: no
-// driver contract, connection, bundle or placeholder inspection. Errors name
-// the field and never echo submitted values.
+// driver contract, account, bundle or placeholder inspection. Errors name the
+// field and never echo submitted values.
 func validatePreviewCandidate(def resource.Definition, types map[string]resource.Type) error {
 	if def.Key == planning.BuiltinClusterKey || def.DriverType == resource.DriverExistingCluster {
 		return invalid("definition.key")
@@ -126,11 +187,13 @@ func validatePreviewCandidate(def resource.Definition, types map[string]resource
 	if validatePublicID("resource definition", def.Key) != nil || len(def.Key) > maxPreviewContextText {
 		return invalid("definition.key")
 	}
+	// A partial draft may still be unnamed; a given Name follows the same
+	// Unicode bound and control rule as registration.
+	if strings.TrimSpace(def.Name) != "" && resource.ValidateName(def.Name) != nil {
+		return invalid("definition.name")
+	}
 	if _, ok := types[def.ResourceTypeKey]; !ok {
 		return invalid("definition.resourceType")
-	}
-	if def.ExecutionProfile != "" && def.ExecutionProfile != "internal-k8s" && def.ExecutionProfile != "aws-eks" {
-		return invalid("definition.executionProfile")
 	}
 	switch def.DriverType {
 	case resource.DriverTerraform, resource.DriverScoreK8s:
@@ -147,14 +210,16 @@ func validatePreviewCandidate(def resource.Definition, types map[string]resource
 			}
 		}
 	}
-	if !boundedText(def.ConnectionKey) {
-		return invalid("definition.connectionKey")
+	if !boundedText(def.DriverAccount) {
+		return invalid("definition.driverAccount")
 	}
 	return nil
 }
 
 // PreviewMatching computes the single-context matching of one unsaved
-// Definition against a consistent catalog snapshot. It never writes.
+// Definition against a consistent catalog snapshot. It never writes and does
+// not need a configured Environment target: the five-field ranking uses only
+// the scoped Environment type and the explicit context.
 func (s *Service) PreviewMatching(ctx context.Context, organizationKey string, q MatchingPreviewQuery) (MatchingPreview, error) {
 	c := q.Context
 	for field, v := range map[string]string{"context.applicationId": c.ApplicationID, "context.environmentId": c.EnvironmentID, "context.resourceId": c.ResourceID, "context.class": c.Class} {
@@ -184,14 +249,6 @@ func (s *Service) PreviewMatching(ctx context.Context, organizationKey string, q
 		if err != nil {
 			return err
 		}
-		// Same snapshot: READY Connection of the Organization, kind/region/scope consistency.
-		conn, err := target.Resolve(ctx, view, organizationKey, env)
-		if err != nil {
-			if errors.Is(err, target.ErrUnconfigured) || errors.Is(err, target.ErrInconsistent) || errors.Is(err, target.ErrConnectionNotReady) || errors.Is(err, persistence.ErrNotFound) {
-				return ErrTargetUnavailable
-			}
-			return err
-		}
 		typeList, err := view.ListResourceTypes(ctx, organizationKey)
 		if err != nil {
 			return err
@@ -204,31 +261,40 @@ func (s *Service) PreviewMatching(ctx context.Context, organizationKey string, q
 		if err != nil {
 			return err
 		}
-		// Marker covers the catalog and target before candidate replacement.
-		// Sorted copies keep the hash independent of repository list order.
+		accountList, err := view.ListConnections(ctx, organizationKey)
+		if err != nil {
+			return err
+		}
+		accounts := map[string]application.Connection{}
+		safeAccounts := make([]map[string]any, 0, len(accountList))
+		for _, a := range accountList {
+			accounts[a.Key] = a
+			// Non-secret identity only; never configuration or credentials.
+			safeAccounts = append(safeAccounts, map[string]any{"key": a.Key, "name": a.Name, "kind": a.Kind, "status": a.Status, "version": a.Version})
+		}
+		sort.Slice(safeAccounts, func(i, j int) bool { return safeAccounts[i]["key"].(string) < safeAccounts[j]["key"].(string) })
+		// Marker covers the catalog, accounts and context before candidate
+		// replacement. Sorted copies keep the hash independent of list order.
 		sortedDefs := append([]resource.Definition(nil), stored...)
 		resource.SortDefinitions(sortedDefs)
 		sortedTypes := append([]resource.Type(nil), typeList...)
 		sort.Slice(sortedTypes, func(i, j int) bool { return sortedTypes[i].Key < sortedTypes[j].Key })
 		marker, err := canon.Hash(map[string]any{
-			"definitions": sortedDefs, "types": sortedTypes,
+			"definitions": sortedDefs, "types": sortedTypes, "accounts": safeAccounts,
 			"environment": map[string]any{
 				"app": env.ApplicationKey, "key": env.Key, "type": env.Type, "profile": env.Profile,
-				"connection": env.ConnectionKey, "scope": env.Scope(), "generation": env.TargetGeneration,
-				"version": env.Version, "region": env.Region, "runtimeStatus": env.RuntimeStatus,
+				"connection": env.ConnectionKey, "generation": env.TargetGeneration, "version": env.Version,
 			},
-			// Non-secret identity of the resolved Connection; never its config or credentials.
-			"connection": map[string]any{"key": conn.Key, "kind": conn.Kind, "status": conn.Status, "region": conn.ConfigString("region")},
 		})
 		if err != nil {
 			return err
 		}
-		candidate := q.Definition
+		candidate := q.Definition.Definition()
+		candidate.Version = 0
 		if err := validatePreviewCandidate(candidate, types); err != nil {
 			return err
 		}
-		candidate.SourceFingerpr = ""
-		out = s.previewResult(env, candidate, stored, c)
+		out = s.previewResult(env, candidate, stored, accounts, c)
 		out.Snapshot = MatchingSnapshot{Marker: marker, EnvironmentVersion: env.Version}
 		return nil
 	})
@@ -238,7 +304,7 @@ func (s *Service) PreviewMatching(ctx context.Context, organizationKey string, q
 	return out, nil
 }
 
-func (s *Service) previewResult(env environment.Environment, candidate resource.Definition, stored []resource.Definition, c MatchingContext) MatchingPreview {
+func (s *Service) previewResult(env environment.Environment, candidate resource.Definition, stored []resource.Definition, accounts map[string]application.Connection, c MatchingContext) MatchingPreview {
 	out := MatchingPreview{MissingFields: []string{}, Candidates: []MatchingCandidate{}}
 	if strings.TrimSpace(c.ResourceID) == "" {
 		out.MissingFields = append(out.MissingFields, "resourceId")
@@ -248,7 +314,8 @@ func (s *Service) previewResult(env environment.Environment, candidate resource.
 	}
 	typeKey := candidate.ResourceTypeKey
 
-	// Replace only the same-key entry, in memory.
+	// Replace only the same-key entry, in memory. The candidate keeps the
+	// stored version of the entry it replaces so the winner reports it.
 	defs := make([]resource.Definition, 0, len(stored)+1)
 	replaced := false
 	for _, d := range stored {
@@ -256,6 +323,7 @@ func (s *Service) previewResult(env environment.Environment, candidate resource.
 			continue // system admission copy never takes part in matching
 		}
 		if d.Key == candidate.Key {
+			candidate.Version = d.Version
 			d, replaced = candidate, true
 		}
 		defs = append(defs, d)
@@ -263,40 +331,28 @@ func (s *Service) previewResult(env environment.Environment, candidate resource.
 	if !replaced {
 		defs = append(defs, candidate)
 	}
-	resource.SortDefinitions(defs)
 
 	mctx := resource.MatchContext{EnvironmentType: env.Type, ApplicationID: c.ApplicationID, EnvironmentID: c.EnvironmentID, ResourceID: c.ResourceID, Class: c.Class}
 	complete := len(out.MissingFields) == 0
-
-	type scored struct {
-		key   string
-		def   resource.Definition
-		score int
+	// Workload ranking only includes score-k8s renderers, as selectRendering.
+	include := func(d resource.Definition) bool {
+		return typeKey != "workload" || d.DriverType == resource.DriverScoreK8s
 	}
-	var best []scored
-	bestScore := -1
-	for _, d := range defs {
-		if d.ResourceTypeKey != typeKey {
+	ranking := resource.Rank(defs, typeKey, mctx, include)
+	byKey := map[string]resource.Ranked{}
+	for _, r := range ranking.Matched {
+		byKey[r.Definition.Key] = r
+	}
+	ordered := append([]resource.Definition(nil), defs...)
+	resource.SortDefinitions(ordered)
+	for _, d := range ordered {
+		if d.ResourceTypeKey != typeKey || !include(d) {
 			continue
 		}
-		// Workload ranking only includes score-k8s renderers, as selectRendering.
-		if typeKey == "workload" && d.DriverType != resource.DriverScoreK8s {
-			continue
-		}
-		cand := MatchingCandidate{Key: d.Key, Eligible: d.ExecutionProfile == "" || d.ExecutionProfile == string(env.Profile)}
-		if cand.Eligible && complete {
-			if crit, score, ok := d.BestCriterion(mctx); ok {
-				cand.Matched = true
-				crit := crit
-				score := score
-				cand.BestCriterion, cand.Score = &crit, &score
-				if score > bestScore {
-					bestScore, best = score, nil
-				}
-				if score == bestScore {
-					best = append(best, scored{key: d.Key, def: d, score: score})
-				}
-			}
+		cand := MatchingCandidate{Key: d.Key, Name: d.Name}
+		if r, ok := byKey[d.Key]; ok && complete {
+			crit, score := r.Criterion, r.Score
+			cand.Matched, cand.BestCriterion, cand.Score = true, &crit, &score
 		}
 		out.Candidates = append(out.Candidates, cand)
 	}
@@ -305,10 +361,13 @@ func (s *Service) previewResult(env environment.Environment, candidate resource.
 		out.Status = PreviewIncomplete
 		return out
 	}
-	// Only the exact implicit internal cluster node is a system binding.
-	if env.Profile == application.ProfileInternalK8s && typeKey == planning.TypeCluster && c.Class == planning.ClassInternal {
-		if want, err := planning.InternalClusterDescriptor(env.ConnectionKey); err == nil && c.ResourceID == want.ID {
-			// The system binding bypasses authored Definitions: no candidate is shown as matched.
+	// Only the exact legacy implicit internal cluster node is a system binding
+	// (ADR-013, kept until V03). It needs a configured internal Environment;
+	// Preview never creates it.
+	if env.Profile == application.ProfileInternalK8s && env.ConnectionKey != "" && typeKey == planning.TypeCluster && c.Class == planning.ClassInternal {
+		backing, found := accounts[env.ConnectionKey]
+		if want, err := planning.InternalClusterDescriptor(env.ConnectionKey); err == nil && c.ResourceID == want.ID && found &&
+			backing.Kind == application.ConnectionKubernetes && backing.Status == application.ConnectionReady {
 			for i := range out.Candidates {
 				out.Candidates[i].Matched, out.Candidates[i].BestCriterion, out.Candidates[i].Score = false, nil, nil
 			}
@@ -316,24 +375,116 @@ func (s *Service) previewResult(env environment.Environment, candidate resource.
 			return out
 		}
 	}
-	switch len(best) {
+	switch len(ranking.Top) {
 	case 0:
 		// A Workload with no score-k8s match is NO_MATCH like any other type:
-		// there is no native/default renderer to fall back to (UC-03 BR-21).
+		// there is no native/default renderer to fall back to (UC-03 V02-02).
 		out.Status = PreviewNoMatch
 	case 1:
-		out.Winner = &MatchingWinner{Key: best[0].key, Score: best[0].score}
+		win := ranking.Top[0]
 		out.Status = PreviewMatched
-		if planning.ConnectionMismatch(env, best[0].def) {
-			out.Status = PreviewConnectionConflict
-			out.ConnectionConflict = &MatchingConflict{DefinitionKey: best[0].key, ConnectionKey: best[0].def.ConnectionKey, TargetKey: env.ConnectionKey}
+		out.Winner = winnerOf(win, accounts)
+		if conflict := accountConflict(win.Definition, accounts); conflict != nil {
+			out.Status, out.ConnectionConflict = PreviewConnectionConflict, conflict
 		}
 	default:
 		out.Status = PreviewAmbiguous
-		for _, b := range best {
-			out.Ties = append(out.Ties, b.key)
+		for _, t := range ranking.Top {
+			out.Ties = append(out.Ties, t.Definition.Key)
 		}
 		sort.Strings(out.Ties)
 	}
 	return out
+}
+
+// bindingTargets reads the provider binding targets of a Terraform Definition
+// without failing: structural problems leave the result empty and are reported
+// by registration and planning instead.
+func bindingTargets(def resource.Definition) []tfmodule.Binding {
+	if def.DriverType != resource.DriverTerraform {
+		return nil
+	}
+	raw, _ := def.DriverValues()["provider_bindings"].(map[string]any)
+	names := make([]string, 0, len(raw))
+	for name := range raw {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	out := make([]tfmodule.Binding, 0, len(names))
+	for _, name := range names {
+		object, _ := raw[name].(map[string]any)
+		target, _ := object["target"].(string)
+		ref, _ := object["resource_ref"].(string)
+		out = append(out, tfmodule.Binding{Target: target, ResourceRef: ref})
+	}
+	return out
+}
+
+// needsAccount reports whether def binds an AWS provider to its Driver Account.
+func needsAccount(def resource.Definition) bool {
+	for _, b := range bindingTargets(def) {
+		if b.Target == tfmodule.TargetAccount {
+			return true
+		}
+	}
+	return false
+}
+
+func accountType(kind application.ConnectionKind) string {
+	if kind == application.ConnectionKubernetes {
+		return "INTERNAL"
+	}
+	return "AWS"
+}
+
+// winnerOf projects the safe public view of the winner: Name, selected account
+// identity and effective region, or the inherited cluster source. It carries
+// no credential, secret reference, endpoint, raw configuration or diagnostic.
+func winnerOf(r resource.Ranked, accounts map[string]application.Connection) *MatchingWinner {
+	def := r.Definition
+	w := &MatchingWinner{Key: def.Key, Name: def.Name, Version: def.Version, DriverType: string(def.DriverType), Score: r.Score}
+	if needsAccount(def) {
+		if acct, ok := accounts[def.DriverAccount]; ok {
+			w.Account = &MatchingAccount{Key: acct.Key, Name: acct.Name, Type: accountType(acct.Kind), Version: acct.Version}
+		}
+		if region, ok := def.DefinitionRegion(); ok && resource.ValidAWSRegion(region) {
+			w.Region = region
+		}
+	}
+	for _, b := range bindingTargets(def) {
+		switch b.Target {
+		case tfmodule.TargetResource:
+			w.ClusterSource = &MatchingClusterSource{Kind: ClusterSourceResource, Reference: b.ResourceRef}
+		case tfmodule.TargetEnvironment:
+			w.ClusterSource = &MatchingClusterSource{Kind: ClusterSourceLegacyEnvironment}
+		}
+	}
+	return w
+}
+
+// accountConflict validates the unique winner's Driver Account and region. A
+// conflict is reported as is; no other candidate replaces the winner.
+func accountConflict(def resource.Definition, accounts map[string]application.Connection) *MatchingConflict {
+	if !needsAccount(def) {
+		return nil
+	}
+	conflict := func(reason string) *MatchingConflict {
+		return &MatchingConflict{DefinitionKey: def.Key, DriverAccount: def.DriverAccount, Reason: reason}
+	}
+	if def.DriverAccount == "" {
+		return conflict(ConflictAccountMissing)
+	}
+	acct, ok := accounts[def.DriverAccount]
+	switch {
+	case !ok:
+		return conflict(ConflictAccountNotFound)
+	case acct.Kind != application.ConnectionAWS:
+		return conflict(ConflictAccountKindMismatch)
+	case acct.Status != application.ConnectionReady:
+		return conflict(ConflictAccountNotReady)
+	}
+	if region, ok := def.DefinitionRegion(); !ok || !resource.ValidAWSRegion(region) {
+		return conflict(ConflictRegionInvalid)
+	}
+	return nil
 }

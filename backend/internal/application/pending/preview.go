@@ -12,7 +12,6 @@ import (
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/target"
 	"orchestrator/internal/application/workloadconfig"
-	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
@@ -171,7 +170,11 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	for _, typ := range types {
 		typeMap[typ.Key] = typ
 	}
-	catalog := planning.Catalog{Types: typeMap, Definitions: definitions}
+	accounts, err := target.Accounts(ctx, st, app.OrganizationKey)
+	if err != nil {
+		return Preview{}, err
+	}
+	catalog := planning.Catalog{Types: typeMap, Definitions: definitions, Accounts: accounts}
 
 	pending := map[string]environment.WorkloadDraft{}
 	for _, draft := range drafts {
@@ -208,9 +211,6 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	}
 	preview := Preview{ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, RoutePending: env.PublicRoutesPending, ConfigRevisionID: scope.DesiredRevisionID,
 		ConfigVersion: scope.Version, Binding: env.Binding(), SecretStoreKey: env.SecretStoreKey, Changes: []Change{}}
-	if env.Profile == application.ProfileAWSEKS {
-		preview.AccountID = connection.ConfigString("accountId")
-	}
 	// Keep the execution identity stable across revisions of one environment.
 	// The preview token separately pins the mutable base/draft/configuration state.
 	pinHash, err := canon.Hash([]string{appKey, envKey})

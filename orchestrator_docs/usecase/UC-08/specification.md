@@ -2,7 +2,7 @@
 id: UC-08-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # UC-08 — Provision Infrastructure and Application Resources
@@ -131,12 +131,15 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 
 ## Environment connection binding
 
-- **BR-07:** Mọi AWS node, kể cả Aurora/ElastiCache, dùng pinned READY
-  Environment Connection/account/region trong Organization. Kubernetes dùng
-  scoped Connection hoặc EKS target. Không override/host/default fallback.
-  Reuse kiểm persisted target/generation/account/region trước executor; mismatch
-  chặn, không đổi winner. Infrastructure scope chỉ ENVIRONMENT; cluster có
-  sẵn theo system binding ADR-013. Target lịch sử được giữ để xóa đúng nơi.
+- **BR-07:** Each AWS node, including Aurora/ElastiCache, uses its winning
+  Definition's pinned scoped READY Driver Account and Driver Inputs region
+  (UC-03 V02-03/09). Verify kind/identity/version before provision and resolve
+  credentials privately per invocation; never substitute Environment/host identity.
+  Kubernetes uses inherited cluster dependency target; legacy explicit Environment
+  target/system cluster ADR-013 persists until V03. Reuse validates original
+  state target/generation/account/region; mismatch stops without fallback.
+  Mutable catalog edits never rewrite original execution/cleanup pins.
+  Infrastructure scope/ownership/fencing remain; no cross-node account constraint.
 
 ## Editable destination and transition consistency (ADR-012)
 

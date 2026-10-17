@@ -95,8 +95,9 @@ kubectl transport requires an explicit kubeconfig for every invocation.
 
 AWS resolver yields account credential only to the selected Terraform
 subprocess environment, never global env, variables, arguments or workload.
-Provider/state credential channels tách biệt; mọi AWS module dùng cùng
-Environment account/region. Kubernetes Terraform provider bind uploaded
+Provider/state credential channels tách biệt; V02 AWS node dùng Driver Account
+và Driver Inputs region của matched Definition (UC-03 V02-03/09), không lấy
+Environment identity hoặc áp đặt account/region chung. Kubernetes Terraform provider bind uploaded
 Connection hoặc EKS endpoint/CA/token tái tạo từ opaque pinned target.
 EKS kubeconfig file chỉ tồn tại trong invocation, không lưu path/content.
 Platform state key và HTTP capability tách khỏi provider/workload secrets;

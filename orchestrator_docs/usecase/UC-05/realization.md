@@ -101,5 +101,5 @@ Definitions, executor scheduling and output propagation remain unchanged.
 ## Matching preview boundary (T19)
 
 Catalog `PreviewMatching` của UC-03 dùng cùng domain weighted criteria và
-ConnectionMismatch guard nhưng không gọi full PlanningService.Plan. Kết quả
+winner account/target guard theo UC-03 V02-05, không profile filter và không gọi full PlanningService.Plan. Kết quả
 không là input admission cho UC-05/06; shared planner tiếp tục kiểm snapshot mới.

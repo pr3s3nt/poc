@@ -69,11 +69,11 @@ describe('malformed metadata never becomes ready metadata in the Definition form
     expect(alert).toHaveTextContent('Không tải được metadata module đã kiểm chứng từ máy chủ.');
     expect(document.body).not.toHaveTextContent(secretLooking);
     expect(screen.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên' })).toBeDisabled();
-    await user.type(field('ID cấu hình'), 'kept-draft');
+    await user.type(field('ID cấu hình (Definition ID)'), 'kept-draft');
     expect(screen.queryByRole('option', { name: 'vpc' })).toBeNull();
     await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
     await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
-    expect(field('ID cấu hình')).toHaveValue('kept-draft');
+    expect(field('ID cấu hình (Definition ID)')).toHaveValue('kept-draft');
     expect(posted).toEqual([]);
   });
 
@@ -93,10 +93,10 @@ describe('malformed metadata never becomes ready metadata in the Definition form
     render(<ResourceDefinitionsPage />);
     const alert = await screen.findByRole('alert', { name: 'Lỗi tải loại tài nguyên' });
     expect(screen.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên' })).toBeDisabled();
-    await user.type(field('ID cấu hình'), 'kept');
+    await user.type(field('ID cấu hình (Definition ID)'), 'kept');
     await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
     await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
-    expect(field('ID cấu hình')).toHaveValue('kept');
+    expect(field('ID cấu hình (Definition ID)')).toHaveValue('kept');
     expect(posted).toEqual([]);
   });
 

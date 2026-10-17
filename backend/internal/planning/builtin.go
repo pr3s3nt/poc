@@ -27,10 +27,11 @@ var ErrReservedDefinition = errors.New("planning: definition key " + BuiltinClus
 // satisfies Definition validation; the matcher never evaluates it.
 func BuiltinClusterDefinition() resource.Definition {
 	return resource.Definition{
-		Key:              BuiltinClusterKey,
-		ResourceTypeKey:  TypeCluster,
-		ExecutionProfile: string(application.ProfileInternalK8s),
-		DriverType:       resource.DriverExistingCluster,
+		Key:             BuiltinClusterKey,
+		Name:            "Existing internal cluster",
+		Version:         1,
+		ResourceTypeKey: TypeCluster,
+		DriverType:      resource.DriverExistingCluster,
 		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{
 			"name":        "${context.connection.cluster}",
 			"kubeContext": "${context.connection.context}",

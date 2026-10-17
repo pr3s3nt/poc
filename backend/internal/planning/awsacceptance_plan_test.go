@@ -75,7 +75,7 @@ func awsTypes(t *testing.T, file awsCatalogFile) map[string]resource.Type {
 
 // authored converts one form entry into the Definition the Console stores: only
 // opted-in overrides become variables, matching outputs/inputs are mapped by the
-// same name, AWS modules bind aws to the Environment, Kubernetes modules bind
+// same name, AWS modules bind aws to the Definition's Driver Account, Kubernetes modules bind
 // the Environment cluster (the EKS node on aws-eks).
 func authored(t *testing.T, e awsDefinitionEntry, refs map[string]tfmodule.SourceRef, types map[string]resource.Type, moduleOutputs map[string][]string, egress, nodeType string) resource.Definition {
 	t.Helper()
@@ -111,15 +111,17 @@ func authored(t *testing.T, e awsDefinitionEntry, refs map[string]tfmodule.Sourc
 			outputs[o.Name] = o.Name
 		}
 	}
-	providerKind := "aws"
+	providerKind, target, account := "aws", tfmodule.TargetAccount, "aws-account"
 	if e.Module == "k8s-namespace" || e.Module == "redis-k8s" || e.Module == "postgres-k8s" {
-		providerKind = "kubernetes"
+		providerKind, target, account = "kubernetes", tfmodule.TargetEnvironment, ""
+	} else {
+		variables["region"] = "us-east-1"
 	}
 	def := resource.Definition{
-		Key: e.ID, ResourceTypeKey: e.Type, DriverType: resource.DriverTerraform, ExecutionProfile: "aws-eks",
+		Key: e.ID, Name: e.ID, Version: 1, ResourceTypeKey: e.Type, DriverType: resource.DriverTerraform, DriverAccount: account,
 		DriverInputs: map[string]any{"values": map[string]any{
 			"source": refs[e.Module].Map(), "variables": variables, "input_mapping": inputs, "output_mapping": outputs,
-			"provider_bindings": map[string]any{providerKind: map[string]any{"target": tfmodule.TargetEnvironment}},
+			"provider_bindings": map[string]any{providerKind: map[string]any{"target": target}},
 		}},
 		Criteria: []resource.Criterion{{Class: e.Klass}},
 	}
@@ -142,7 +144,9 @@ func awsAcceptanceRequest(t *testing.T, scenario string) planning.Request {
 	o.RunID, o.Region = "run-test", "us-east-1"
 	o.SharedDatabaseID = "acceptance-db"
 	types := awsTypes(t, file)
-	catalog := planning.Catalog{Types: types}
+	catalog := planning.Catalog{Types: types, Accounts: map[string]application.Connection{
+		o.CloudConnectionKey: {Key: o.CloudConnectionKey, Name: "AWS", OrganizationKey: o.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionReady, Version: 1},
+	}}
 	for _, e := range append(append([]awsDefinitionEntry{}, file.Definitions["common"]...), file.Definitions[scenario]...) {
 		catalog.Definitions = append(catalog.Definitions, authored(t, e, refs, types, moduleOutputs, "203.0.113.9/32", "t4g.medium"))
 	}

@@ -1,6 +1,7 @@
 package planning
 
 import (
+	"errors"
 	"orchestrator/internal/seed/seedtest"
 	"strings"
 	"testing"
@@ -22,7 +23,9 @@ func seedOptions() seed.Options {
 }
 
 func catalogOf(o seed.Options) Catalog {
-	catalog := Catalog{Types: map[string]resource.Type{}, Definitions: seed.ResourceDefinitions(o)}
+	catalog := Catalog{Types: map[string]resource.Type{}, Definitions: seed.ResourceDefinitions(o), Accounts: map[string]application.Connection{
+		o.CloudConnectionKey: {Key: o.CloudConnectionKey, Name: "Tài khoản AWS", OrganizationKey: o.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionReady, Version: 3},
+	}}
 	for _, rt := range seed.ResourceTypes() {
 		catalog.Types[rt.Key] = rt
 	}
@@ -87,7 +90,7 @@ func (s stubInspector) Contract(def resource.Definition) (ModuleContract, error)
 	if err != nil {
 		return ModuleContract{}, err
 	}
-	for _, name := range []string{"region", "tags", "master_password"} {
+	for _, name := range []string{"tags", "master_password"} {
 		if _, ok := contract.Variables[name]; ok {
 			contract.ExecutorOwned = append(contract.ExecutorOwned, name)
 		}
@@ -181,19 +184,27 @@ func TestPlan_UsesDeploymentSetPathsAsResourceIdentity(t *testing.T) {
 	}
 }
 
-func TestPlan_NewApplicationMatchesPostgresByExecutionProfile(t *testing.T) {
+// UC-03 V02-02: there is no profile guard. A new Application matches a Definition
+// only through its own explicit criteria; the seeded profile-era fallback is gone.
+func TestPlan_NewApplicationMatchesOnlyThroughExplicitCriteria(t *testing.T) {
 	for _, tc := range []struct {
 		profile    application.ExecutionProfile
+		seededApp  string
 		definition string
 	}{
-		{application.ProfileInternalK8s, "postgres-internal-statefulset"},
-		{application.ProfileAWSEKS, "postgres-aws-aurora"},
+		{application.ProfileInternalK8s, "acceptance", "postgres-internal-statefulset"},
+		{application.ProfileAWSEKS, "acceptance-cloud", "postgres-aws-aurora"},
 	} {
 		t.Run(string(tc.profile), func(t *testing.T) {
 			req := testRequest(t, tc.profile, "backend")
 			req.App.Key = "new-application"
 			req.Env.ApplicationKey = req.App.Key
 			req.Env.NamespaceIdentity = "new-application-staging"
+			_, err := NewService().Plan(req)
+			if err == nil || !errors.Is(err, errNoMatch) {
+				t.Fatalf("a new Application must not inherit a seeded match: %v", err)
+			}
+			rescopeApplication(&req, tc.seededApp, req.App.Key)
 			plan, err := NewService().Plan(req)
 			if err != nil {
 				t.Fatal(err)
@@ -458,7 +469,7 @@ func TestPlan_CoProvisionAddsDependentAndMatchesDependents(t *testing.T) {
 		}
 	}
 	defs = append(defs, resource.Definition{
-		Key:             "logging-default",
+		Key: "logging-default", Name: "logging-default", Version: 1,
 		ResourceTypeKey: "logging",
 		DriverType:      resource.DriverEcho,
 		Criteria:        []resource.Criterion{{}},

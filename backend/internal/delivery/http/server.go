@@ -157,6 +157,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/resource-types", s.handleRegisterResourceType)
 	s.mux.HandleFunc("GET /api/v1/resource-definitions", s.handleResourceDefinitions)
 	s.mux.HandleFunc("POST /api/v1/resource-definitions", s.handleRegisterResourceDefinition)
+	s.mux.HandleFunc("PUT /api/v1/resource-definitions/{key}", s.handleUpdateResourceDefinition)
 	s.mux.HandleFunc("POST /api/v1/resource-definitions/matching-preview", s.handleMatchingPreview)
 	s.mux.HandleFunc("GET /api/v1/resource-definition-capabilities", s.handleDefinitionCapabilities)
 	s.mux.HandleFunc("GET /api/v1/render-bundles", s.handleRenderBundles)

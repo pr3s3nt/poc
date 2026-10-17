@@ -220,13 +220,13 @@ func addSyntheticCatalog(catalog *planning.Catalog) {
 	}
 	catalog.Definitions = append(catalog.Definitions,
 		resource.Definition{
-			Key:             syntheticNamespaceDefinition,
+			Key: syntheticNamespaceDefinition, Name: syntheticNamespaceDefinition, Version: 1,
 			ResourceTypeKey: planning.TypeNamespace,
 			DriverType:      resource.DriverEcho,
 			Criteria:        []resource.Criterion{{}},
 		},
 		resource.Definition{
-			Key:             syntheticClusterDefinition,
+			Key: syntheticClusterDefinition, Name: syntheticClusterDefinition, Version: 1,
 			ResourceTypeKey: planning.TypeCluster,
 			DriverType:      resource.DriverEcho,
 			Criteria:        []resource.Criterion{{}},
@@ -309,7 +309,7 @@ func readDefinitions(dir string, names []string) ([]resource.Definition, error) 
 			return nil, err
 		}
 		def := resource.Definition{
-			Key:             doc.Metadata.ID,
+			Key: doc.Metadata.ID, Name: doc.Metadata.ID, Version: 1,
 			ResourceTypeKey: doc.Entity.Type,
 			DriverType:      driverType(doc.Entity.DriverType),
 			DriverInputs:    normalizeTree(doc.Entity.DriverInputs),

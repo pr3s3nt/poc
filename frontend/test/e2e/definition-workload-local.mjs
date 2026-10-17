@@ -29,7 +29,7 @@ export const SCENARIOS = {
     const nav = (name) => page.getByRole('link', { name: new RegExp(`(^|\\s)${name}$`) });
     const get = async (path) => (await (await page.request.get(`${baseURL}/api/v1${path}`)).json());
     // Native selects wrapped in a <label> have the option texts in their label, so exact label matching fails for them.
-    const wrappedSelects = new Set(['Loại tài nguyên', 'Module đã kiểm chứng', 'Phạm vi triển khai', 'Bundle dựng ứng dụng']);
+    const wrappedSelects = new Set(['Loại tài nguyên', 'Module đã kiểm chứng', 'Tài khoản hạ tầng', 'Bundle dựng ứng dụng']);
     const form = (name) => (wrappedSelects.has(name)
       ? page.locator(`select[aria-label="${name}"], label:has-text("${name}") > select`).first()
       : page.getByLabel(name, { exact: true }));
@@ -60,8 +60,9 @@ export const SCENARIOS = {
       await h.click(form(`Ghi đè ${name}`));
       await h.paste(form(`Giá trị ${name}`), value);
     }
-    async function startDefinition(id, type, module, scope) {
-      await h.type(form('ID cấu hình'), id);
+    async function startDefinition(id, type, module, _scope, name = id) {
+      await h.type(form('ID cấu hình (Definition ID)'), id);
+      await h.type(form('Tên hiển thị'), name);
       await choose(form('Loại tài nguyên'), type);
       await expect(form('Loại tài nguyên')).toHaveValue(type);
       if (module) {
@@ -69,7 +70,11 @@ export const SCENARIOS = {
         if (await pins.isEnabled()) await choose(pins, module);
         await expect(pins).toContainText(module);
       }
-      if (scope) await choose(form('Phạm vi triển khai'), scope);
+      const account = form('Tài khoản hạ tầng');
+      if (await account.count()) {
+        await choose(account, 'aws-account'); // the seeded READY fake account (Name = key)
+        await h.type(form('Vùng AWS'), 'us-east-1');
+      }
     }
     async function registered(id) {
       await expect(page.getByRole('status').filter({ hasText: `Đã đăng ký cấu hình tài nguyên ${id}.` })).toBeVisible();
@@ -164,14 +169,12 @@ export const SCENARIOS = {
     mark('pg-in-cluster-registered');
     await h.read('Đã đăng ký PostgreSQL in-cluster');
 
-    // Aurora: cloud-managed, Environment account and region, no selector.
-    caption('Bước 8: PostgreSQL managed (Aurora): không có ô chọn Kết nối hay tài khoản AWS; tài khoản và vùng lấy từ Môi trường lúc Xem trước/Triển khai');
+    // Aurora: cloud-managed, its own Driver Account and region.
+    caption('Bước 8: PostgreSQL managed (Aurora): chọn Tài khoản hạ tầng và vùng AWS của CHÍNH cấu hình; không có ô Kết nối AWS, không lấy gì từ Môi trường');
     await startDefinition('pg-cloud-managed', 'postgres', 'aurora');
-    await expect(form('Phạm vi triển khai')).toHaveValue('aws-eks');
-    await expect(form('Phạm vi triển khai')).toBeDisabled();
     await expect(page.getByLabel('Kết nối AWS')).toHaveCount(0);
-    await expect(page.getByText(/cấu hình không chọn Kết nối AWS riêng, kể cả Aurora/)).toBeVisible();
-    check('aurora form: scope locked to aws-eks, no AWS Connection selector, account/region inherited from the Environment');
+    await expect(page.getByText(/mỗi cấu hình có thể dùng tài khoản và vùng khác nhau/)).toBeVisible();
+    check('aurora form: own Driver Account and literal region, no AWS Connection selector, nothing inherited from the Environment');
     await h.click(page.getByRole('button', { name: 'Ghép đầu vào theo tên trùng', exact: true }));
     await h.click(page.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
     for (const variable of ['name', 'vpc_id', 'subnet_ids', 'private_subnet_ids']) await h.click(page.getByRole('button', { name: `Dùng preset cho ${variable}`, exact: true }));
@@ -203,7 +206,7 @@ export const SCENARIOS = {
     await override('node_disk_size', '20');
     await override('node_instance_type', 't3.medium');
     await h.click(page.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true }));
-    await expect(alert()).toContainText('Cần nhập trước khi đăng ký: public_access_cidrs');
+    await expect(alert()).toContainText('Cần nhập trước khi lưu: public_access_cidrs');
     check('eks: public_access_cidrs has no default or preset; the form blocks until the author lists addresses');
     await override('public_access_cidrs', '["0.0.0.0/0"]');
     await h.click(submitDefinition());
@@ -293,7 +296,7 @@ export const SCENARIOS = {
     await h.click(nav('Mẫu dựng ứng dụng'));
     await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1, exact: true })).toBeVisible();
     await h.type(form('ID mẫu'), 'render-internal');
-    await choose(form('Phạm vi triển khai'), 'Cluster nội bộ');
+    await h.type(form('Tên hiển thị'), 'Mẫu dựng cluster nội bộ');
     await expect(form('Bundle dựng ứng dụng')).toHaveValue('score-k8s-internal-v1');
     await h.click(page.getByRole('button', { name: 'Đăng ký mẫu dựng ứng dụng', exact: true }));
     await expect(page.getByRole('status').filter({ hasText: 'Đã đăng ký mẫu dựng ứng dụng render-internal.' })).toBeVisible();

@@ -66,6 +66,8 @@ func main() {
 	fakeKube := flag.Bool("fake-kubernetes", false, "verify Kubernetes kubeconfigs with the deterministic FAKE verifier (V01 account scenario)")
 	journalFile := flag.String("credential-journal", "", "append-only file that records every credential object this process writes or deletes (exact run ownership)")
 	kubeCallsFile := flag.String("kube-calls-file", "", "file written on shutdown with the fake Kubernetes verification endpoints")
+	scoreK8s := flag.String("score-k8s", "", "optional path of the pinned score-k8s renderer; with it the Console lists its render bundle (the V02 rendering-template steps need one). Nothing is rendered or deployed")
+	catalog := flag.String("catalog", "", `seed catalog: "" (walking-skeleton catalog) or "none" (no Types, Definitions or Connections: the V02 Definition scenario authors them)`)
 	flag.Parse()
 	if *databaseURLFile == "" || *vaultAddress == "" || *vaultTokenFile == "" {
 		log.Print("awsconnserver: -database-url-file, -connection-vault-address and -connection-vault-token-file are required")
@@ -99,11 +101,20 @@ func main() {
 	}
 
 	opts.Profile, opts.RunID = *profile, *runID
+	switch *catalog {
+	case "":
+	case "none":
+		opts.Catalog = seed.CatalogNone
+	default:
+		log.Print("awsconnserver: -catalog must be empty or none")
+		os.Exit(2)
+	}
 	kubeVerifier := &fakeKubernetes{}
 	buildOptions := bootstrap.Options{
 		Seed: opts, UIDir: *uiDir, Adapters: bootstrap.AdapterFake, DatabaseURL: strings.TrimSpace(string(raw)),
 		ConnectionCredentialStore: "vault", ConnectionVaultAddress: *vaultAddress, ConnectionVaultTokenFile: *vaultTokenFile, ConnectionVaultMount: *vaultMount,
 		AWSVerifierOverride: awsaccess.Verifier{Client: client},
+		ScoreK8sPath:        *scoreK8s,
 	}
 	if *fakeKube {
 		buildOptions.KubeconfigVerifierOverride = kubeVerifier

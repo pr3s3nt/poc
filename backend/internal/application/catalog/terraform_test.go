@@ -127,6 +127,7 @@ func newTerraformCatalogOn(t *testing.T, st persistence.Store, typ resource.Type
 	t.Helper()
 	ctx := context.Background()
 	opts := seedtest.Defaults()
+	opts.Region, opts.AccountID = "us-east-1", "000000000000"
 	if err := seedtest.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
@@ -175,14 +176,14 @@ func cacheType() resource.Type {
 
 func (c terraformCatalog) definition(key string) resource.Definition {
 	return resource.Definition{
-		Key: key, ResourceTypeKey: "cache", ExecutionProfile: "aws-eks", DriverType: resource.DriverTerraform,
+		Key: key, Name: key, Version: 1, ResourceTypeKey: "cache", DriverType: resource.DriverTerraform, DriverAccount: c.opts.CloudConnectionKey,
 		Criteria: []resource.Criterion{{Class: key}},
 		DriverInputs: map[string]any{"values": map[string]any{
 			"source":            c.ref.Map(),
-			"variables":         map[string]any{"cache_name": "${context.infra.resourceName}"},
+			"variables":         map[string]any{"cache_name": "${context.infra.resourceName}", "region": "us-east-1"},
 			"input_mapping":     map[string]any{"memory": map[string]any{"param": "size"}},
 			"output_mapping":    map[string]any{"host": "host", "port": "port", "password": "password", "tls": "tls"},
-			"provider_bindings": map[string]any{"aws": map[string]any{"target": "environment"}},
+			"provider_bindings": map[string]any{"aws": map[string]any{"target": "account"}},
 		}},
 	}
 }
@@ -223,38 +224,36 @@ func TestTerraformRegistrationVerifiesPinAndMappings(t *testing.T) {
 		return m
 	}
 	cases := map[string]resource.Definition{
-		"unknown type input":           setValue(base, "input_mapping", map[string]any{"memory": map[string]any{"param": "nope"}}),
-		"type input unmapped":          setValue(base, "input_mapping", map[string]any{}),
-		"same param twice":             setValue(base, "input_mapping", map[string]any{"memory": map[string]any{"param": "size"}, "cache_name": map[string]any{"param": "size"}}),
-		"param type mismatch":          setValue(setValue(base, "variables", map[string]any{"memory": 1}), "input_mapping", map[string]any{"cache_name": map[string]any{"param": "size"}}),
-		"map executor-owned region":    setValue(base, "input_mapping", map[string]any{"memory": map[string]any{"param": "size"}, "region": map[string]any{"param": "size"}}),
-		"map sensitive input":          setValue(base, "input_mapping", map[string]any{"master_password": map[string]any{"param": "size"}}),
-		"set executor-owned tags":      setValue(base, "variables", map[string]any{"cache_name": "x", "tags": map[string]any{"a": "b"}}),
-		"set region":                   setValue(base, "variables", map[string]any{"cache_name": "x", "region": "eu-west-1"}),
-		"set sensitive input":          setValue(base, "variables", map[string]any{"cache_name": "x", "master_password": "s3cr3t"}),
-		"unknown variable":             setValue(base, "variables", map[string]any{"cache_name": "x", "nope": 1}),
-		"literal type":                 setValue(base, "variables", map[string]any{"cache_name": 3}),
-		"required variable missing":    setValue(base, "variables", map[string]any{}),
-		"unknown module output":        setValue(base, "output_mapping", map[string]any{"host": "host", "port": "port", "password": "password", "tls": "tls", "nope": "host"}),
-		"unknown type output":          setValue(base, "output_mapping", map[string]any{"host": "host", "port": "port", "password": "password", "tls": "tls", "internal_arn": "arn"}),
-		"two outputs one target":       setValue(base, "output_mapping", map[string]any{"host": "host", "internal_arn": "host", "port": "port", "password": "password", "tls": "tls"}),
-		"required output unmapped":     setValue(base, "output_mapping", map[string]any{"host": "host", "port": "port", "tls": "tls"}),
-		"output type mismatch":         setValue(base, "output_mapping", map[string]any{"host": "host", "port": "tls", "password": "password", "tls": "port"}),
-		"binding missing":              setValue(base, "provider_bindings", map[string]any{}),
-		"binding unknown provider":     setValue(base, "provider_bindings", map[string]any{"aws": map[string]any{"target": "environment"}, "kubernetes": map[string]any{"target": "environment"}}),
-		"aws bound to resource":        setValue(base, "provider_bindings", map[string]any{"aws": map[string]any{"target": "resource", "resource_ref": "k8s-cluster.eks#x"}}),
-		"aws region override":          setValue(base, "provider_bindings", map[string]any{"aws": map[string]any{"target": "environment", "region": "eu-west-1"}}),
-		"legacy module name":           setValue(base, "source", map[string]any{"module": "cache"}),
-		"source url":                   setValue(base, "source", pin(func(m map[string]any) { m["url"] = cacheURL })),
-		"wrong digest":                 setValue(base, "source", pin(func(m map[string]any) { m["content_sha256"] = strings.Repeat("9", 64) })),
-		"branch revision":              setValue(base, "source", pin(func(m map[string]any) { m["revision"] = "main" })),
-		"unallowlisted source":         setValue(base, "source", pin(func(m map[string]any) { m["source_id"] = "evil" })),
-		"unknown driver input field":   setValue(base, "provisioners", []any{"local-exec"}),
-		"arbitrary output expression":  setValue(base, "output_mapping", map[string]any{"host": "${upper(host)}"}),
-		"module for another type":      func() resource.Definition { d := base; d.ResourceTypeKey = "postgres"; return d }(),
-		"connection override":          func() resource.Definition { d := base; d.ConnectionKey = c.opts.CloudConnectionKey; return d }(),
-		"aws module on internal-k8s":   func() resource.Definition { d := base; d.ExecutionProfile = "internal-k8s"; return d }(),
-		"aws module without a profile": func() resource.Definition { d := base; d.ExecutionProfile = ""; return d }(),
+		"unknown type input":             setValue(base, "input_mapping", map[string]any{"memory": map[string]any{"param": "nope"}}),
+		"type input unmapped":            setValue(base, "input_mapping", map[string]any{}),
+		"same param twice":               setValue(base, "input_mapping", map[string]any{"memory": map[string]any{"param": "size"}, "cache_name": map[string]any{"param": "size"}}),
+		"param type mismatch":            setValue(setValue(base, "variables", map[string]any{"memory": 1}), "input_mapping", map[string]any{"cache_name": map[string]any{"param": "size"}}),
+		"map executor-owned region":      setValue(base, "input_mapping", map[string]any{"memory": map[string]any{"param": "size"}, "region": map[string]any{"param": "size"}}),
+		"map sensitive input":            setValue(base, "input_mapping", map[string]any{"master_password": map[string]any{"param": "size"}}),
+		"set executor-owned tags":        setValue(base, "variables", map[string]any{"cache_name": "x", "tags": map[string]any{"a": "b"}}),
+		"malformed region":               setValue(base, "variables", map[string]any{"cache_name": "x", "region": "eu-west-1; x"}),
+		"set sensitive input":            setValue(base, "variables", map[string]any{"cache_name": "x", "master_password": "s3cr3t"}),
+		"unknown variable":               setValue(base, "variables", map[string]any{"cache_name": "x", "nope": 1}),
+		"literal type":                   setValue(base, "variables", map[string]any{"cache_name": 3}),
+		"required variable missing":      setValue(base, "variables", map[string]any{}),
+		"unknown module output":          setValue(base, "output_mapping", map[string]any{"host": "host", "port": "port", "password": "password", "tls": "tls", "nope": "host"}),
+		"unknown type output":            setValue(base, "output_mapping", map[string]any{"host": "host", "port": "port", "password": "password", "tls": "tls", "internal_arn": "arn"}),
+		"two outputs one target":         setValue(base, "output_mapping", map[string]any{"host": "host", "internal_arn": "host", "port": "port", "password": "password", "tls": "tls"}),
+		"required output unmapped":       setValue(base, "output_mapping", map[string]any{"host": "host", "port": "port", "tls": "tls"}),
+		"output type mismatch":           setValue(base, "output_mapping", map[string]any{"host": "host", "port": "tls", "password": "password", "tls": "port"}),
+		"binding missing":                setValue(base, "provider_bindings", map[string]any{}),
+		"binding unknown provider":       setValue(base, "provider_bindings", map[string]any{"aws": map[string]any{"target": "environment"}, "kubernetes": map[string]any{"target": "environment"}}),
+		"aws bound to resource":          setValue(base, "provider_bindings", map[string]any{"aws": map[string]any{"target": "resource", "resource_ref": "k8s-cluster.eks#x"}}),
+		"aws region override":            setValue(base, "provider_bindings", map[string]any{"aws": map[string]any{"target": "account", "region": "eu-west-1"}}),
+		"legacy module name":             setValue(base, "source", map[string]any{"module": "cache"}),
+		"source url":                     setValue(base, "source", pin(func(m map[string]any) { m["url"] = cacheURL })),
+		"wrong digest":                   setValue(base, "source", pin(func(m map[string]any) { m["content_sha256"] = strings.Repeat("9", 64) })),
+		"branch revision":                setValue(base, "source", pin(func(m map[string]any) { m["revision"] = "main" })),
+		"unallowlisted source":           setValue(base, "source", pin(func(m map[string]any) { m["source_id"] = "evil" })),
+		"unknown driver input field":     setValue(base, "provisioners", []any{"local-exec"}),
+		"arbitrary output expression":    setValue(base, "output_mapping", map[string]any{"host": "${upper(host)}"}),
+		"module for another type":        func() resource.Definition { d := base; d.ResourceTypeKey = "postgres"; return d }(),
+		"account on a Kubernetes module": func() resource.Definition { d := base; d.DriverAccount = c.opts.CloudConnectionKey; return d }(),
 	}
 	before, _ := c.st.ListResourceDefinitions(ctx, org)
 	for name, def := range cases {
@@ -378,9 +377,12 @@ func TestTerraformCapabilitiesPublishVerifiedBundleSafely(t *testing.T) {
 		t.Fatalf("capability %+v", found)
 	}
 	for _, v := range found.Variables {
-		if v.Name == "master_password" || v.Name == "region" || v.Name == "tags" {
+		if v.Name == "master_password" || v.Name == "tags" {
 			t.Fatalf("exposes %s as an authoring control", v.Name)
 		}
+	}
+	if !found.Account.Required || found.Account.Type != "AWS" || found.Account.RegionVariable != "region" {
+		t.Fatalf("AWS module must publish its account and region requirement: %+v", found.Account)
 	}
 	raw, _ := json.Marshal(caps)
 	for _, leak := range []string{cacheURL, "git.example.com", "bundles/", "h1:", "zh:", os.TempDir()} {

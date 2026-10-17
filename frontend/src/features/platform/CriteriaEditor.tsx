@@ -2,18 +2,21 @@ import { useId, useState } from 'react';
 import { Button } from '../../shared/ui/Button';
 import { MatchingPreviewPanel, type MatchingCandidateInput } from './MatchingPreviewPanel';
 
-// Shared "Điều kiện áp dụng" editor (UC-03 T02B). It edits the five-field
+// Shared "Điều kiện áp dụng" editor (UC-03 T02B, V02-02). It edits the five-field
 // Matching Criteria contract and serializes it unchanged; modes are only a
-// friendlier projection. The draft is controlled by the owner so the editor
-// can serve Resource Definition and renderer forms alike.
+// friendlier projection. There is no profile, account or region predicate and
+// the browser never ranks Definitions: only the server matching preview names a
+// winner. The draft is controlled by the owner so the editor can serve Resource
+// Definition and renderer forms alike.
 
 export type CriterionField = 'env_type' | 'app_id' | 'env_id' | 'res_id' | 'class';
 export type Criterion = Record<CriterionField, string>;
 export type CriteriaMode = 'all' | 'env_type' | 'app_env' | 'advanced';
 export type CriteriaDraft = { mode: CriteriaMode; rows: Criterion[] };
-export type EnvironmentOption = { key: string; name: string; environmentType: string; executionProfile?: string; /** Opaque non-secret target/version fingerprint of the Environment DTO; a change invalidates exact previews. */ snapshotKey?: string };
+export type EnvironmentOption = { key: string; name: string; environmentType: string; /** Opaque non-secret target/version fingerprint of the Environment DTO; a change invalidates exact previews. */ snapshotKey?: string };
 export type ApplicationOption = { key: string; name: string; environments: EnvironmentOption[] };
-export type CriteriaSource = { key: string; resourceType: string; executionProfile?: string; criteria?: Partial<Criterion>[] };
+// Public Definition metadata that decides a matching result (never secret material); the whole record is part of the preview signature.
+export type CriteriaSource = { key: string; name?: string; version?: number; resourceType: string; driverType?: string; driverAccount?: string; driverInputs?: unknown; criteria?: Partial<Criterion>[] };
 export type ListState<T> = { items: readonly T[]; loading: boolean; error: string; onRetry(): void };
 
 const fields: { key: CriterionField; label: string }[] = [
@@ -104,20 +107,20 @@ function describeRow(row: Record<string, string>, applications: readonly Applica
 
 type Pending = { kind: 'mode'; target: CriteriaMode } | { kind: 'copy'; source: string; draft: CriteriaDraft };
 
-export function CriteriaEditor({ draft, onChange, applications, sources, resourceType = '', profile = '', profileLabel = '', matching, scopeKey = '' }: {
+export function CriteriaEditor({ draft, onChange, applications, sources, resourceType = '', matching, scopeKey = '', excludeKey = '' }: {
   draft: CriteriaDraft;
   onChange(next: CriteriaDraft): void;
   applications: ListState<ApplicationOption>;
   /** Other definitions: copy source and overlap candidates. */
   sources: ListState<CriteriaSource>;
-  /** Type and executionProfile of the form being edited ('' profile = shared). */
+  /** Resource Type of the form being edited. */
   resourceType?: string;
-  profile?: string;
-  profileLabel?: string;
   /** Full unsaved candidate for the exact server-side matching preview (T19); omitted = panel hidden. */
   matching?: MatchingCandidateInput;
   /** Session/scope identity: a change invalidates the exact preview result. */
   scopeKey?: string;
+  /** The Definition being edited: never its own copy or overlap source. */
+  excludeKey?: string;
 }) {
   const id = useId();
   const [pending, setPending] = useState<Pending | null>(null);
@@ -152,20 +155,19 @@ export function CriteriaEditor({ draft, onChange, applications, sources, resourc
     setPending(null);
   }
 
-  const overlaps = resourceType === '' || problem !== '' ? [] : sources.items.filter((source) => source.resourceType === resourceType
-    && ((source.executionProfile ?? '') === profile || (source.executionProfile ?? '') === '' || profile === '')
+  const overlaps = resourceType === '' || problem !== '' ? [] : sources.items.filter((source) => source.key !== excludeKey && source.resourceType === resourceType
     && (source.criteria ?? []).some((other) => criteria.some((mine) => canOverlap(mine, other as Record<string, string>))));
 
   const sampleApp = applications.items.find((app) => app.key === sample.app);
   const sampleEnv = sampleApp?.environments.find((env) => env.key === sample.env);
-  const missing = [sampleApp && sampleEnv ? '' : 'ứng dụng và môi trường mẫu', sample.resId.trim() ? '' : 'ID tài nguyên (res_id)', sample.cls.trim() ? '' : 'Class'].filter(Boolean);
-  const sampleProfile = sampleEnv?.executionProfile ?? '';
-  const profileState: 'match' | 'differs' | 'unknown' = profile === '' || sampleProfile === profile ? 'match' : sampleProfile === '' ? 'unknown' : 'differs';
-  const context: Record<string, string> = { env_type: sampleEnv?.environmentType ?? '', app_id: sample.app, env_id: sample.env, res_id: sample.resId.trim(), class: sample.cls.trim() };
-  const applies = (item: Record<string, string>) => fields.every(({ key }) => !item[key] || item[key] === context[key]);
+  const missing = [sampleApp && sampleEnv ? '' : 'ứng dụng và môi trường', sample.resId.trim() ? '' : 'ID tài nguyên (res_id)', sample.cls.trim() ? '' : 'Class'].filter(Boolean);
 
   return <section className="catalog-fields criteria-editor" aria-labelledby={`${id}-title`}>
-    <div className="section-header"><div><h3 id={`${id}-title`}>Điều kiện áp dụng</h3><p>Chọn nơi cấu hình này được xét. Hệ thống vẫn dùng năm field chuẩn; chế độ chỉ giúp nhập nhanh hơn.</p></div></div>
+    <div className="section-header"><div><h3 id={`${id}-title`}>Điều kiện áp dụng</h3><p>Chọn nơi cấu hình này được xét. Hệ thống chỉ dùng năm field chuẩn; chế độ chỉ giúp nhập nhanh hơn. Không có bộ lọc theo profile, tài khoản hay vùng.</p></div></div>
+    <div className="feature-note criteria-rules" role="note" aria-label="Quy tắc so khớp"><p><strong>AND trong một dòng, OR giữa các dòng.</strong> Mọi field đã nhập trong cùng một dòng phải khớp cùng lúc; cấu hình khớp khi có ít nhất một dòng khớp, và lấy điểm của dòng tốt nhất.</p>
+      <p>Trọng số cố định: env_type 1 · app_id 2 · env_id 4 · res_id 8 · class 16. Cấu hình có điểm cao nhất duy nhất sẽ thắng; hòa điểm cao nhất và không có cấu hình nào khớp là hai kết quả khác nhau.</p>
+      <p><strong>Không có điều kiện</strong> (danh sách trống) bị từ chối. <strong>Dòng trống <code>{'{}'}</code></strong> là wildcard tường minh, khớp mọi nơi với điểm 0 (chế độ “Mọi nơi”).</p>
+      <p>Lưu ý: ID cấu hình (Definition ID) khác ID tài nguyên <code>res_id</code>; chỉ <code>res_id</code> là điều kiện so khớp.</p></div>
     <div role="radiogroup" aria-label="Chế độ điều kiện áp dụng" className="criteria-modes">{modes.map((mode) => <label key={mode.key} className="criteria-mode"><input type="radio" name={`${id}-mode`} checked={draft.mode === mode.key} onChange={() => chooseMode(mode.key)} /><span><strong>{mode.label}</strong><small>{mode.hint}</small></span></label>)}</div>
 
     {pending ? <div role="group" aria-label="Xác nhận thay đổi điều kiện" className="form-warning criteria-confirm">
@@ -192,34 +194,29 @@ export function CriteriaEditor({ draft, onChange, applications, sources, resourc
     {sources.error ? <div className="form-error" role="alert" aria-label="Lỗi tải cấu hình để sao chép">Không tải được danh sách cấu hình để sao chép hoặc kiểm tra chồng lấn. Điều kiện đang nhập được giữ nguyên. <Button type="button" onClick={sources.onRetry}>Thử lại</Button></div> : null}
     {problem ? <p className="feature-note" id={`${id}-problem`}>{problem}</p> : null}
 
-    <div className="criteria-copy field-grid"><label>Sao chép điều kiện từ cấu hình khác<select value={copyFrom} onChange={(event) => setCopyFrom(event.target.value)}><option value="">{sources.loading && sources.items.length === 0 ? 'Đang tải cấu hình…' : sources.items.length === 0 ? 'Chưa có cấu hình để sao chép' : 'Chọn cấu hình'}</option>{sources.items.map((source) => <option key={source.key} value={source.key}>{source.key} ({source.resourceType})</option>)}</select></label>
+    <div className="criteria-copy field-grid"><label>Sao chép điều kiện từ cấu hình khác<select value={copyFrom} onChange={(event) => setCopyFrom(event.target.value)}><option value="">{sources.loading && sources.items.length === 0 ? 'Đang tải cấu hình…' : sources.items.length === 0 ? 'Chưa có cấu hình để sao chép' : 'Chọn cấu hình'}</option>{sources.items.filter((source) => source.key !== excludeKey).map((source) => <option key={source.key} value={source.key}>{source.name && source.name !== source.key ? `${source.name} (${source.key})` : source.key} ({source.resourceType})</option>)}</select></label>
       <div className="form-actions"><Button type="button" disabled={copyFrom === ''} onClick={copy}>Sao chép điều kiện</Button></div></div>
     <p className="feature-note">Sao chép chỉ lấy một bản độc lập tại thời điểm bấm; sửa cấu hình nguồn sau đó không làm đổi điều kiện này.</p>
 
     <div className="criteria-summary" role="group" aria-label="Tóm tắt phạm vi áp dụng">
       <h4>Phạm vi áp dụng</h4>
       {problem ? <p>Chưa đủ thông tin để tóm tắt phạm vi.</p> : <ul>{criteria.map((item, index) => <li key={index}>{describeRow(item, applications.items)}</li>)}</ul>}
-      <p>Phạm vi triển khai (executionProfile): <strong>{profileLabel || (profile === '' ? 'Dùng chung' : profile)}</strong>. Đây là bộ lọc riêng, không phải Loại môi trường (env_type).</p>
     </div>
 
-    {overlaps.length > 0 ? <div role="group" aria-label="Cảnh báo nguy cơ chồng lấn" className="form-warning">Điều kiện này có thể chồng lấn với {overlaps.map((item) => item.key).join(', ')}: cùng Loại tài nguyên, cùng điều kiện lọc theo phạm vi triển khai và các điều kiện không loại trừ nhau. Đây chỉ là cảnh báo nguy cơ từ giao diện, chưa phải kết quả matching chính xác.</div> : null}
+    {overlaps.length > 0 ? <div role="group" aria-label="Cảnh báo nguy cơ chồng lấn" className="form-warning">Điều kiện này có thể chồng lấn với {overlaps.map((item) => item.key).join(', ')}: cùng Loại tài nguyên và các điều kiện không loại trừ nhau. Đây chỉ là cảnh báo nguy cơ từ giao diện; chỉ “Kiểm tra matching” trên máy chủ mới cho biết cấu hình thắng, hòa hay không khớp.</div> : null}
 
-    <div className="criteria-preview" role="group" aria-label="Xem trước phạm vi (trợ giúp ở giao diện)">
-      <h4>Xem trước phạm vi</h4>
-      <p className="feature-note">Chỉ là trợ giúp trong trình duyệt: không lưu, không tạo tài nguyên và không phải kết quả matching chính xác.</p>
+    <div className="criteria-preview" role="group" aria-label="Ngữ cảnh kiểm tra matching">
+      <h4>Ngữ cảnh kiểm tra matching</h4>
+      <p className="feature-note">Chọn ứng dụng và môi trường thật rồi nhập ID tài nguyên (res_id) và Class. env_type được máy chủ lấy từ môi trường; trình duyệt không tự đánh giá hay xếp hạng cấu hình.</p>
       <div className="field-grid">
-        <label>Ứng dụng mẫu<select value={sample.app} onChange={(event) => setSample({ ...sample, app: event.target.value, env: '' })}><option value="">Chọn ứng dụng</option>{applications.items.map((app) => <option key={app.key} value={app.key}>{app.name !== app.key ? `${app.name} (${app.key})` : app.key}</option>)}</select></label>
-        <label>Môi trường mẫu<select value={sample.env} disabled={!sampleApp} onChange={(event) => setSample({ ...sample, env: event.target.value })}><option value="">Chọn môi trường</option>{(sampleApp?.environments ?? []).map((env) => <option key={env.key} value={env.key}>{env.name !== env.key ? `${env.name} (${env.key})` : env.key}</option>)}</select></label>
-        <label>ID tài nguyên mẫu (res_id)<input value={sample.resId} onChange={(event) => setSample({ ...sample, resId: event.target.value })} /></label>
-        <label>Class mẫu<input value={sample.cls} onChange={(event) => setSample({ ...sample, cls: event.target.value })} /></label>
+        <label>Ứng dụng kiểm tra<select value={sample.app} onChange={(event) => setSample({ ...sample, app: event.target.value, env: '' })}><option value="">Chọn ứng dụng</option>{applications.items.map((app) => <option key={app.key} value={app.key}>{app.name !== app.key ? `${app.name} (${app.key})` : app.key}</option>)}</select></label>
+        <label>Môi trường kiểm tra<select value={sample.env} disabled={!sampleApp} onChange={(event) => setSample({ ...sample, env: event.target.value })}><option value="">Chọn môi trường</option>{(sampleApp?.environments ?? []).map((env) => <option key={env.key} value={env.key}>{env.name !== env.key ? `${env.name} (${env.key})` : env.key}</option>)}</select></label>
+        <label>ID tài nguyên kiểm tra (res_id)<input value={sample.resId} onChange={(event) => setSample({ ...sample, resId: event.target.value })} /></label>
+        <label>Class kiểm tra<input value={sample.cls} onChange={(event) => setSample({ ...sample, cls: event.target.value })} /></label>
       </div>
-      {missing.length > 0 ? <p>Cần thêm context: {missing.join(', ')}. Chưa đủ context nên chưa đánh giá điều kiện.</p>
-        : problem ? <p>Hoàn thiện điều kiện áp dụng trước khi xem trước.</p>
-        : profileState === 'differs' ? <p>Môi trường mẫu dùng phạm vi triển khai (executionProfile) {sampleProfile}, khác phạm vi {profile} của cấu hình này nên cấu hình không được xét ở môi trường đó, dù năm field điều kiện có khớp hay không.</p>
-        : <><p>Context mẫu: loại môi trường (env_type) {context.env_type || '(không có)'}, ứng dụng {context.app_id}, môi trường {context.env_id}.</p>
-          {profileState === 'unknown' ? <p>Chưa biết phạm vi triển khai của môi trường mẫu (chưa cấu hình?). Thỏa điều kiện chưa có nghĩa là cấu hình được xét.</p> : <p>Phạm vi triển khai (executionProfile) của môi trường mẫu phù hợp với cấu hình này; đây là bộ lọc riêng, tách khỏi năm field điều kiện.</p>}<ul>{criteria.map((item, index) => <li key={index}>Điều kiện {index + 1}: {applies(item) ? 'thỏa context mẫu' : 'không thỏa context mẫu'}</li>)}</ul></>}
+      {missing.length > 0 ? <p>Cần thêm ngữ cảnh: {missing.join(', ')}. Chưa đủ ngữ cảnh nên chưa kiểm tra matching.</p> : problem ? <p>Hoàn thiện điều kiện áp dụng trước khi kiểm tra.</p> : null}
     </div>
 
-    {matching ? <MatchingPreviewPanel candidate={matching} scopeKey={`${scopeKey}|${sampleEnv?.environmentType ?? ''}|${sampleEnv?.executionProfile ?? ''}|${sampleEnv?.snapshotKey ?? ''}|apps:${applications.loading ? 'loading' : 'idle'}:${applications.error}|defs:${sources.loading ? 'loading' : 'idle'}:${sources.error}|${JSON.stringify(sources.items.map((item) => [item.key, item.resourceType, item.executionProfile ?? '', item.criteria ?? []]))}`} sample={{ applicationId: sample.app, environmentId: sampleApp && sampleEnv ? sample.env : '', resourceId: sample.resId, class: sample.cls }} /> : null}
+    {matching ? <MatchingPreviewPanel candidate={matching} scopeKey={`${scopeKey}|${sampleEnv?.environmentType ?? ''}|${sampleEnv?.snapshotKey ?? ''}|apps:${applications.loading ? 'loading' : 'idle'}:${applications.error}|defs:${sources.loading ? 'loading' : 'idle'}:${sources.error}|${JSON.stringify(sources.items)}`} sample={{ applicationId: sample.app, environmentId: sampleApp && sampleEnv ? sample.env : '', resourceId: sample.resId, class: sample.cls }} /> : null}
   </section>;
 }

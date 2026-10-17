@@ -323,7 +323,7 @@ it('shows the safe resource intents, module pin, provider target and ownership o
   const table = await screen.findByLabelText('Tài nguyên hạ tầng sẽ được xử lý');
   expect(table).toHaveTextContent('redis-k8s · v3-2026.10.13');
   expect(table).toHaveTextContent('sha256:446aeb69eafa');
-  expect(table).toHaveTextContent('kubernetes: cluster của Môi trường internal-cluster');
+  expect(table).toHaveTextContent('kubernetes: cluster của Môi trường (cách cũ, giữ tới V03) internal-cluster');
   expect(table).toHaveTextContent('Orchestrator (theo phạm vi tài nguyên)');
   expect(table).toHaveTextContent('Tạo mới');
   expect(table).toHaveTextContent('Giữ nguyên');
@@ -339,7 +339,7 @@ it('shows the AWS account and region beside the pinned target, never an override
   await fill(user);
   await user.click(screen.getByRole('button', { name: 'Xem trước' }));
   expect(await screen.findByLabelText('Đích đã ghim của xem trước')).toHaveTextContent('Kết nối aws-main · phạm vi aws-eks · vùng eu-west-1 · tài khoản AWS 123456789012');
-  expect(screen.getByLabelText('Tài nguyên hạ tầng sẽ được xử lý')).toHaveTextContent('aws: Kết nối AWS của Môi trường aws-main · vùng eu-west-1');
+  expect(screen.getByLabelText('Tài nguyên hạ tầng sẽ được xử lý')).toHaveTextContent('aws: tài khoản AWS của cấu hình aws-main · vùng eu-west-1');
 });
 
 it('treats a response without resourceIntents as unavailable, never as nothing to create, and an empty list as empty', async () => {

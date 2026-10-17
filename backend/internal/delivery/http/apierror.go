@@ -157,9 +157,11 @@ var trustedFields = map[string]bool{
 	"secretStoreKey": true, "destinationKey": true, "acknowledgeDowntime": true, "priorExecutionStopped": true,
 	"resources": true, "status": true, "scoreBefore": true, "scoreAfter": true, "version": true, "token": true, "kubeconfig": true,
 	"type.key": true, "type.schema": true, "definition.schema": true, "definition.driver": true, "definition.references": true,
-	"definition.key": true, "definition.resourceType": true, "definition.executionProfile": true,
-	"definition.driverType": true, "definition.criteria": true, "definition.connectionKey": true,
-	"context.applicationId": true, "context.environmentId": true, "context.resourceId": true, "context.class": true,
+	"definition.key": true, "definition.name": true, "definition.resourceType": true, "definition.version": true,
+	"definition.driverType": true, "definition.criteria": true, "definition.driverAccount": true,
+	"definition.driverInputs.values": true, "definition.driverInputs.values.source": true, "definition.driverInputs.values.variables.region": true,
+	"definition.driverInputs.values.provider_bindings": true,
+	"context.applicationId":                            true, "context.environmentId": true, "context.resourceId": true, "context.class": true,
 	"service.publicPort": true, "confirmationName": true, "selectedResourceIds": true,
 	"accessKeyId": true, "secretAccessKey": true, "allowedRegions": true, "verificationRegions": true,
 }
@@ -319,11 +321,11 @@ func classify(err error) (failure, bool) {
 		// Standalone Preview has always answered 400 here; keep it.
 		return failure{status: http.StatusBadRequest, code: codeConnectionUnavailable, field: "connectionKey"}, true
 	case errors.Is(err, target.ErrInconsistent), errors.Is(err, appsvc.ErrConnectionNotReady),
-		errors.Is(err, appcreate.ErrTargetNotReady), errors.Is(err, catalog.ErrTargetUnavailable):
+		errors.Is(err, appcreate.ErrTargetNotReady):
 		return failure{code: codeConnectionUnavailable, field: "connectionKey"}, true
 	case errors.Is(err, persistence.ErrEnvironmentBusy):
 		return failure{code: codeEnvironmentBusy}, true
-	case errors.Is(err, persistence.ErrVersionConflict), errors.Is(err, appcreate.ErrStaleVersion):
+	case errors.Is(err, persistence.ErrVersionConflict), errors.Is(err, catalog.ErrVersionConflict), errors.Is(err, appcreate.ErrStaleVersion):
 		return failure{code: codeStaleVersion}, true
 	case errors.Is(err, pending.ErrStalePreview), errors.Is(err, transition.ErrStaleToken):
 		return failure{code: codeStalePreview}, true
@@ -341,13 +343,13 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeOperationLost}, true
 	case errors.Is(err, pending.ErrRouteReconcile):
 		return failure{code: codeRouteReconcileFailed}, true
-	case errors.Is(err, persistence.ErrNotFound), errors.Is(err, catalog.ErrPreviewNotFound):
+	case errors.Is(err, persistence.ErrNotFound), errors.Is(err, catalog.ErrPreviewNotFound), errors.Is(err, catalog.ErrNotFound):
 		return failure{code: codeNotFound}, true
 	case errors.Is(err, authentication.ErrInvalidCredentials):
 		return failure{code: codeInvalidCredentials}, true
 	case errors.Is(err, authentication.ErrUnauthorized):
 		return failure{code: codeUnauthorized}, true
-	case errors.Is(err, connectionapp.ErrOutcomeUncertain):
+	case errors.Is(err, connectionapp.ErrOutcomeUncertain), errors.Is(err, catalog.ErrOutcomeUncertain):
 		return failure{code: codeCommitUncertain}, true
 	case errors.Is(err, connectionapp.ErrAccountIncompatible):
 		return failure{code: codeAccountTargetMismatch}, true

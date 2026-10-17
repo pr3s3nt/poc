@@ -147,7 +147,20 @@ func originalTarget(ctx context.Context, st persistence.Store, snap *snapshot, r
 		return unknown
 	}
 	out := TargetView{Known: true, ConnectionKey: safeToken(dep.ConnectionKey), Profile: safeToken(dep.ExecutionProfile), Generation: dep.TargetGeneration}
-	if conn, err := st.GetConnection(ctx, snap.scope.OrganizationKey, dep.ConnectionKey); err == nil {
+	connectionKey := dep.ConnectionKey
+	// UC-03 V02-09: an AWS node ran under the Driver Account and region its
+	// Definition pinned in that run's immutable plan, not the Environment's.
+	pinned, pinnedRegion, evidence := plannedAWSPin(ctx, st, dep.ID, rec.Instance.Identity.Descriptor)
+	if evidence == awsUnproven {
+		// The node ran under a Driver Account the immutable plan cannot prove;
+		// the Environment's account or region is not evidence for it.
+		return unknown
+	}
+	hasPin := evidence == awsPinned
+	if hasPin {
+		connectionKey, out.ConnectionKey = pinned, safeToken(pinned)
+	}
+	if conn, err := st.GetConnection(ctx, snap.scope.OrganizationKey, connectionKey); err == nil {
 		if labelShape.MatchString(conn.Name) {
 			out.ConnectionName = conn.Name
 		}
@@ -161,10 +174,77 @@ func originalTarget(ctx context.Context, st persistence.Store, snap *snapshot, r
 	// (its configured one is only a default) and the Environment's current region
 	// can have changed since, so neither is evidence; without a matching plan
 	// target the region is unknown, never guessed.
+	if hasPin {
+		if regionShape.MatchString(pinnedRegion) {
+			out.Region = pinnedRegion
+		}
+		return out
+	}
 	if region, ok := plannedRegion(ctx, st, dep.ID, dep.ConnectionKey, dep.TargetGeneration); ok {
 		out.Region = region
 	}
 	return out
+}
+
+type awsEvidence int
+
+const (
+	// notAWS: the plan records no per-node AWS target for the node.
+	notAWS awsEvidence = iota
+	// awsPinned: the plan pins the node's Driver Account and region.
+	awsPinned
+	// awsUnproven: the plan marks the node as AWS-targeted but its pin is
+	// missing or malformed.
+	awsUnproven
+)
+
+// plannedAWSPin reads the AWS provider pin of one node from the persisted plan of
+// the Deployment that last executed it (terraform[].providerBindings). A node the
+// plan marks as AWS-targeted (an AWS pin entry or a pinned Driver Account in its
+// match) whose pin is missing or malformed is awsUnproven, never a fallback to
+// the Environment-level target.
+func plannedAWSPin(ctx context.Context, st persistence.Store, deploymentID, descriptor string) (connectionKey, region string, evidence awsEvidence) {
+	doc, err := st.GetPlan(ctx, deploymentID)
+	if err != nil {
+		// No readable original plan: AWS-vs-legacy destination cannot be proven.
+		return "", "", awsUnproven
+	}
+	_, hasTarget := doc["target"].(map[string]any)
+	_, hasTerraform := doc["terraform"].([]any)
+	if !hasTarget && !hasTerraform {
+		return "", "", awsUnproven
+	}
+	marked := false
+	if matches, _ := doc["matches"].(map[string]any); matches != nil {
+		match, _ := matches[descriptor].(map[string]any)
+		if account, _ := match["driverAccount"].(string); account != "" {
+			marked = true
+		}
+	}
+	contracts, _ := doc["terraform"].([]any)
+	for _, item := range contracts {
+		contract, _ := item.(map[string]any)
+		if d, _ := contract["descriptor"].(string); d != descriptor {
+			continue
+		}
+		pins, _ := contract["providerBindings"].([]any)
+		for _, raw := range pins {
+			pin, _ := raw.(map[string]any)
+			if kind, _ := pin["kind"].(string); kind != "aws" {
+				continue
+			}
+			marked = true
+			key, _ := pin["connectionKey"].(string)
+			region, _ := pin["region"].(string)
+			if key != "" && labelShape.MatchString(key) && regionShape.MatchString(region) {
+				return key, region, awsPinned
+			}
+		}
+	}
+	if marked {
+		return "", "", awsUnproven
+	}
+	return "", "", notAWS
 }
 
 // plannedRegion reads the region pinned in the persisted plan target of one

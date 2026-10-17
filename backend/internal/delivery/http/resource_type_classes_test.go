@@ -38,7 +38,7 @@ func TestResourceTypesExposeComputedClassesToEveryAuthenticatedRole(t *testing.T
 		t.Fatalf("anonymous: %d %s", code, body)
 	}
 	for index, class := range []string{"in-cluster", "cloud-managed", "in-cluster"} {
-		def := resource.Definition{Key: "pg-" + class + "-" + string(rune('a'+index)), ResourceTypeKey: "postgres", ExecutionProfile: "internal-k8s", DriverType: resource.DriverKubernetes,
+		def := resource.Definition{Key: "pg-" + class + "-" + string(rune('a'+index)), Name: "pg-" + class + "-" + string(rune('a'+index)), Version: 1, ResourceTypeKey: "postgres", DriverType: resource.DriverKubernetes,
 			DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"image": "postgres:16-alpine"}}}, Criteria: []resource.Criterion{{Class: class}}}
 		if err := st.CreateResourceDefinition(context.Background(), org, def); err != nil {
 			t.Fatal(err)

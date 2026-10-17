@@ -2,7 +2,7 @@
 id: UC-05-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-17
 ---
 
 # UC-05 — Validate and Preview Score Changes
@@ -128,10 +128,13 @@ See [workload rendering contract](../../architecture/contracts/workload-renderin
 
 ## Environment connection binding
 
-- **BR-11:** Preview lấy configured Environment Connection/profile/region,
-  không dùng Organization default/Application target. UNCONFIGURED trả 422
-  field connectionKey. Mọi AWS node dùng cùng account/region; winning binding
-  conflict bị chặn. Binding/generation/version được pin theo ADR-012/014.
+- **BR-11:** Definition matching follows UC-03 V02-02 without profile filtering.
+  AWS node pins its winning Definition Driver Account and Driver Inputs region;
+  no Environment/host identity fallback or cross-node equality requirement.
+  Winner account conflict stops planning. Definition/account versions and content
+  join preview staleness checks. Legacy full graph enrichment still requires
+  Environment target until V03; single-context UC-03 matching does not.
+  Preserve binding/generation/version/ownership pins per ADR-012/014.
 
 ## Editable destination and transition consistency (ADR-012)
 

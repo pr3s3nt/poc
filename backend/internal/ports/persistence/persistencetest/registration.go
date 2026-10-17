@@ -22,6 +22,8 @@ type RegistrationFixture struct {
 	Connection   application.Connection
 	// Versioned is the V01 account after one compare-and-set update.
 	Versioned application.Connection
+	// Edited is a Definition after one V02 compare-and-set update.
+	Edited resource.Definition
 }
 
 // Registration checks the insert-only registration contract (UC-02/03/04):
@@ -55,7 +57,7 @@ func Registration(t *testing.T, st persistence.Store) RegistrationFixture {
 	assertType(t, st, "reg-globex", changed)
 
 	def := resource.Definition{
-		Key: "cache-fast", ResourceTypeKey: "cache", ExecutionProfile: "internal-k8s", DriverType: resource.DriverKubernetes,
+		Key: "cache-fast", Name: "Cache nhanh", Version: 1, ResourceTypeKey: "cache", DriverType: resource.DriverKubernetes,
 		DriverInputs:   map[string]any{"values": map[string]any{"variables": map[string]any{"tier": "fast"}}},
 		Criteria:       []resource.Criterion{{Class: "fast"}, {EnvironmentType: "development", ApplicationID: "a", EnvironmentID: "e", ResourceID: "r"}, {}},
 		Provision:      map[string]resource.ProvisionRule{"cache.replica": {IsDependent: true, Params: map[string]any{"size": float64(1)}}},
@@ -94,20 +96,20 @@ func Registration(t *testing.T, st persistence.Store) RegistrationFixture {
 	// a missing or foreign key fails and inserts neither row nor criteria.
 	for name, key := range map[string]string{"missing connection": "reg-missing-cluster", "foreign connection": "reg-foreign-cluster"} {
 		bad := def
-		bad.Key, bad.ConnectionKey = "cache-"+strings.ReplaceAll(name, " ", "-"), key
+		bad.Key, bad.DriverAccount = "cache-"+strings.ReplaceAll(name, " ", "-"), key
 		if err := st.CreateResourceDefinition(ctx, "reg-acme", bad); !errors.Is(err, persistence.ErrNotFound) {
 			t.Fatalf("%s: %v", name, err)
 		}
 	}
 	withConnection := def
-	withConnection.Key, withConnection.ConnectionKey = "cache-on-cluster", "reg-cluster"
+	withConnection.Key, withConnection.DriverAccount = "cache-on-cluster", "reg-cluster"
 	if err := st.CreateResourceDefinition(ctx, "reg-acme", withConnection); err != nil {
 		t.Fatalf("definition with same-Organization connection: %v", err)
 	}
 	defs, _ := st.ListResourceDefinitions(ctx, "reg-acme")
 	keys := map[string]string{}
 	for _, d := range defs {
-		keys[d.Key] = d.ConnectionKey
+		keys[d.Key] = d.DriverAccount
 	}
 	if len(keys) != 2 || keys["cache-on-cluster"] != "reg-cluster" || keys["cache-fast"] != "" {
 		t.Fatalf("definitions after rejected references: %v", keys)
@@ -130,7 +132,8 @@ func Registration(t *testing.T, st persistence.Store) RegistrationFixture {
 	}
 	connectionAuthentication(t, st)
 	versioned := connectionVersioning(t, st)
-	return RegistrationFixture{Organization: "reg-acme", Type: typ, Definition: def, Connection: conn, Versioned: versioned}
+	edited := definitionVersioning(t, st, typ)
+	return RegistrationFixture{Organization: "reg-acme", Type: typ, Definition: def, Connection: conn, Versioned: versioned, Edited: edited}
 }
 
 // connectionAuthentication checks the UC-04 name/authentication type columns:
@@ -170,6 +173,7 @@ func AssertRegistration(t *testing.T, st persistence.Store, f RegistrationFixtur
 	assertType(t, st, f.Organization, f.Type)
 	assertDefinition(t, st, f.Organization, f.Definition)
 	assertConnection(t, st, f.Connection)
+	assertDefinition(t, st, f.Organization, f.Edited)
 	got, err := st.GetConnection(context.Background(), f.Organization, f.Versioned.Key)
 	if err != nil || got.Version != f.Versioned.Version || got.Name != f.Versioned.Name || got.SecretRef != f.Versioned.SecretRef ||
 		got.Status != f.Versioned.Status || !reflect.DeepEqual(got.Config["endpoint"], f.Versioned.Config["endpoint"]) {
@@ -324,4 +328,105 @@ func connectionVersioning(t *testing.T, st persistence.Store) application.Connec
 		t.Fatalf("final = %+v, %v", final, err)
 	}
 	return final
+}
+
+// definitionVersioning checks the UC-03 V02-06 Definition compare-and-set: new
+// records start at the given version, an update replaces name, driver inputs,
+// account and criteria and increments the version exactly once, a stale version
+// leaves the winner untouched, the Resource Type is immutable, an account that
+// is not in the Organization fails without writing, and concurrent writers of
+// one version have exactly one winner. Every adapter must behave identically.
+func definitionVersioning(t *testing.T, st persistence.Store, typ resource.Type) resource.Definition {
+	t.Helper()
+	ctx := context.Background()
+	other := resource.Type{Key: "queue", Outputs: []resource.OutputField{{Name: "url", Type: "string"}}}
+	if err := st.CreateResourceType(ctx, "reg-acme", other); err != nil {
+		t.Fatal(err)
+	}
+	base := resource.Definition{Key: "cache-edited", Name: "Bản đầu", Version: 1, ResourceTypeKey: typ.Key, DriverType: resource.DriverTerraform,
+		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"v": "1"}}},
+		Criteria:     []resource.Criterion{{Class: "one"}, {EnvironmentType: "dev"}}, SourceFingerpr: "sha256:one"}
+	if err := st.CreateResourceDefinition(ctx, "reg-acme", base); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	next := base
+	next.Name, next.DriverAccount = "Bản sửa", "reg-cluster"
+	next.DriverInputs = map[string]any{"values": map[string]any{"variables": map[string]any{"v": "2"}}}
+	next.Criteria = []resource.Criterion{{ApplicationID: "app", Class: "two"}}
+	next.Provision = map[string]resource.ProvisionRule{"cache.replica": {IsDependent: true}}
+	next.SourceFingerpr = "sha256:two"
+	updated, err := st.UpdateResourceDefinition(ctx, "reg-acme", 1, next)
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	next.Version = 2
+	if !reflect.DeepEqual(normalizeDefinition(updated), normalizeDefinition(next)) {
+		t.Fatalf("returned %+v, want %+v", updated, next)
+	}
+	assertDefinition(t, st, "reg-acme", next)
+	if _, err := st.UpdateResourceDefinition(ctx, "reg-acme", 1, next); !errors.Is(err, persistence.ErrVersionConflict) {
+		t.Fatalf("stale update: %v", err)
+	}
+	moved := next
+	moved.ResourceTypeKey = other.Key
+	if _, err := st.UpdateResourceDefinition(ctx, "reg-acme", 2, moved); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("resource type change: %v", err)
+	}
+	ghost := next
+	ghost.Key = "cache-ghost"
+	if _, err := st.UpdateResourceDefinition(ctx, "reg-acme", 1, ghost); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("missing definition: %v", err)
+	}
+	if _, err := st.UpdateResourceDefinition(ctx, "reg-globex", 2, next); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("foreign organization: %v", err)
+	}
+	foreign := next
+	foreign.DriverAccount = "reg-missing-cluster"
+	if _, err := st.UpdateResourceDefinition(ctx, "reg-acme", 2, foreign); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("unknown account: %v", err)
+	}
+	blank := next
+	blank.Name = "   "
+	if _, err := st.UpdateResourceDefinition(ctx, "reg-acme", 2, blank); err == nil {
+		t.Fatal("blank name accepted")
+	}
+	assertDefinition(t, st, "reg-acme", next) // every rejected edit left the winner untouched
+	const racers = 8
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	wins, stale := 0, 0
+	for i := 0; i < racers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			candidate := next
+			candidate.Name = fmt.Sprintf("Racer %d", i)
+			_, err := st.UpdateResourceDefinition(ctx, "reg-acme", 2, candidate)
+			mu.Lock()
+			defer mu.Unlock()
+			switch {
+			case err == nil:
+				wins++
+			case errors.Is(err, persistence.ErrVersionConflict):
+				stale++
+			default:
+				t.Errorf("racer %d: %v", i, err)
+			}
+		}(i)
+	}
+	wg.Wait()
+	if wins != 1 || stale != racers-1 {
+		t.Fatalf("racers: %d wins, %d stale", wins, stale)
+	}
+	defs, _ := st.ListResourceDefinitions(ctx, "reg-acme")
+	for _, d := range defs {
+		if d.Key == base.Key {
+			if d.Version != 3 {
+				t.Fatalf("final version = %d", d.Version)
+			}
+			return d
+		}
+	}
+	t.Fatal("edited definition missing")
+	return resource.Definition{}
 }

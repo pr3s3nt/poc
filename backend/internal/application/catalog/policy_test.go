@@ -88,18 +88,11 @@ func TestRegisterResourceDefinition_SeededShapesStillRegister(t *testing.T) {
 	}
 }
 
-// registrable returns a seeded Definition with the Execution Profile public
-// registration requires (seeds rely on criteria instead).
+// registrable returns a seeded Definition: seeds already carry a Driver Account,
+// a literal region and explicit criteria, so no profile adjustment exists.
 func registrable(t *testing.T, opts seed.Options, key string) resource.Definition {
 	t.Helper()
-	def := seededDefinition(t, opts, key)
-	if def.ExecutionProfile == "" {
-		switch def.DriverType {
-		case resource.DriverTerraform:
-			def.ExecutionProfile = "aws-eks"
-		}
-	}
-	return def
+	return seededDefinition(t, opts, key)
 }
 
 // moduleShape is the current registrable shape of the in-cluster Kubernetes
