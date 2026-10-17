@@ -167,6 +167,23 @@ type ApplicationRepository interface {
 	// an existing (Organization, key), ErrNotFound for a missing Organization.
 	// SaveConnection remains the seed/test upsert.
 	CreateConnection(ctx context.Context, conn application.Connection) error
+	// UpdateConnection is the V01 guarded update of one Connection's mutable
+	// fields. It succeeds only while the stored version equals ExpectedVersion,
+	// advances the version by one and never changes ID, key, Organization,
+	// kind or authentication type. ErrVersionConflict for a stale version,
+	// ErrNotFound for a missing (or foreign-Organization) Connection.
+	UpdateConnection(ctx context.Context, u ConnectionUpdate) (application.Connection, error)
+}
+
+// ConnectionUpdate is the mutable part of a Connection written by one CAS.
+type ConnectionUpdate struct {
+	OrganizationKey, Key string
+	ExpectedVersion      int64
+	Name                 string
+	Config               map[string]any
+	SecretRef            string
+	Status               application.ConnectionStatus
+	Verification         map[string]any
 }
 
 type IdentityRepository interface {

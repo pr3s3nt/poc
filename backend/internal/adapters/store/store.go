@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -518,8 +519,66 @@ func (s *Store) SaveConnection(ctx context.Context, conn application.Connection)
 	if err := conn.Validate(); err != nil {
 		return err
 	}
-	s.state.Connections[catalogKey(conn.OrganizationKey, conn.Key)] = conn
+	key := catalogKey(conn.OrganizationKey, conn.Key)
+	// The seed upsert never rewinds the optimistic version: an unversioned
+	// seed keeps the stored one, and a changed record advances it.
+	if existing, ok := s.state.Connections[key]; ok {
+		if conn.Version < 1 {
+			conn.Version = existing.Version
+			conn.ID = existing.ID
+			if !connectionContentEqual(existing, conn) {
+				conn.Version++
+			}
+		}
+	} else if conn.Version < 1 {
+		conn.Version = 1
+	}
+	s.state.Connections[key] = conn
 	return nil
+}
+
+func connectionContentEqual(a, b application.Connection) bool {
+	return a.Name == b.Name && a.Kind == b.Kind && a.AuthenticationType == b.AuthenticationType &&
+		a.SecretRef == b.SecretRef && a.Status == b.Status &&
+		reflect.DeepEqual(a.Config, b.Config) && reflect.DeepEqual(a.Verification, b.Verification)
+}
+
+// UpdateConnection is the guarded V01 update: stale version is
+// ErrVersionConflict and nothing changes; identity, kind and authentication
+// type are never written.
+func (s *Store) UpdateConnection(ctx context.Context, u persistence.ConnectionUpdate) (application.Connection, error) {
+	defer s.lock(ctx)()
+	key := catalogKey(u.OrganizationKey, u.Key)
+	current, ok := s.state.Connections[key]
+	if !ok {
+		return application.Connection{}, fmt.Errorf("%w: connection %q", persistence.ErrNotFound, u.Key)
+	}
+	if u.ExpectedVersion < 1 || current.Version != u.ExpectedVersion {
+		return application.Connection{}, fmt.Errorf("%w: connection %q", persistence.ErrVersionConflict, u.Key)
+	}
+	current.Name, current.SecretRef, current.Status = u.Name, u.SecretRef, u.Status
+	current.Config, current.Verification = cloneAnyMap(u.Config), cloneAnyMap(u.Verification)
+	current.Version++
+	if err := current.Validate(); err != nil {
+		return application.Connection{}, err
+	}
+	s.state.Connections[key] = current
+	return current, nil
+}
+
+func cloneAnyMap(in map[string]any) map[string]any {
+	if in == nil {
+		return map[string]any{}
+	}
+	b, err := json.Marshal(in)
+	if err != nil {
+		return map[string]any{}
+	}
+	out := map[string]any{}
+	if json.Unmarshal(b, &out) != nil {
+		return map[string]any{}
+	}
+	return out
 }
 
 // CreateConnection inserts a Connection; an existing key is ErrDuplicate.
@@ -540,6 +599,9 @@ func (s *Store) CreateConnection(ctx context.Context, conn application.Connectio
 	}
 	if conn.ID == "" {
 		conn.ID = ids.New()
+	}
+	if conn.Version < 1 {
+		conn.Version = 1
 	}
 	s.state.Connections[key] = conn
 	return nil

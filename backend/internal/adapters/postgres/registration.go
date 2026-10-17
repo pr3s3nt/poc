@@ -92,10 +92,40 @@ func (s *Store) CreateConnection(ctx context.Context, v application.Connection) 
 	}
 	// Insert-only registration never changes the Organization default
 	// connection (UC-04 BR-16); only the seed SaveConnection links it.
+	if v.Version < 1 {
+		v.Version = 1
+	}
 	var id string
-	err = s.q(ctx).QueryRow(ctx, `INSERT INTO connections(id,organization_id,connection_key,kind,config,secret_ref,status,verification,name,authentication_type) SELECT $1::uuid,o.id,$3,$4,$5,$6,$7,$8,$9,$10 FROM organizations o WHERE o.organization_key=$2 RETURNING id::text`, v.ID, v.OrganizationKey, v.Key, v.Kind, config, v.SecretRef, v.Status, verification, v.Name, v.AuthenticationType).Scan(&id)
+	err = s.q(ctx).QueryRow(ctx, `INSERT INTO connections(id,organization_id,connection_key,kind,config,secret_ref,status,verification,name,authentication_type,version) SELECT $1::uuid,o.id,$3,$4,$5,$6,$7,$8,$9,$10,$11 FROM organizations o WHERE o.organization_key=$2 RETURNING id::text`, v.ID, v.OrganizationKey, v.Key, v.Kind, config, v.SecretRef, v.Status, verification, v.Name, v.AuthenticationType, v.Version).Scan(&id)
 	if err != nil {
 		return registrationError(err, "connection "+v.Key)
 	}
 	return nil
+}
+
+// UpdateConnection is the V01 compare-and-set of the mutable account fields.
+// The version, Organization and key guard sit in the one UPDATE; identity,
+// kind and authentication type are not written. A miss is classified by a
+// second read so a stale version never looks like a missing account.
+func (s *Store) UpdateConnection(ctx context.Context, u persistence.ConnectionUpdate) (application.Connection, error) {
+	config, err := jsonBytes(u.Config)
+	if err != nil {
+		return application.Connection{}, err
+	}
+	verification, err := jsonBytes(u.Verification)
+	if err != nil {
+		return application.Connection{}, err
+	}
+	tag, err := s.q(ctx).Exec(ctx, `UPDATE connections c SET name=$4,config=$5,secret_ref=$6,status=$7,verification=$8,version=c.version+1,updated_at=now() FROM organizations o WHERE o.id=c.organization_id AND o.organization_key=$1 AND c.connection_key=$2 AND c.version=$3`,
+		u.OrganizationKey, u.Key, u.ExpectedVersion, u.Name, config, u.SecretRef, u.Status, verification)
+	if err != nil {
+		return application.Connection{}, fmt.Errorf("postgres: update connection: %w", translate(err))
+	}
+	if tag.RowsAffected() == 0 {
+		if _, getErr := s.GetConnection(ctx, u.OrganizationKey, u.Key); getErr != nil {
+			return application.Connection{}, getErr
+		}
+		return application.Connection{}, fmt.Errorf("%w: connection %q", persistence.ErrVersionConflict, u.Key)
+	}
+	return s.GetConnection(ctx, u.OrganizationKey, u.Key)
 }

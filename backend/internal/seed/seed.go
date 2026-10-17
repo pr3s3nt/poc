@@ -516,6 +516,7 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		Key:             o.ConnectionKey,
 		Name:            o.ConnectionKey,
 		OrganizationKey: o.OrganizationKey,
+		Version:         1,
 		Kind:            application.ConnectionKubernetes,
 		// The seeded Kubernetes record is explicit KUBECONFIG metadata without an
 		// uploaded credential: VERIFYING with an empty reference, never READY.
@@ -530,6 +531,7 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		Key:             o.CloudConnectionKey,
 		Name:            o.CloudConnectionKey,
 		OrganizationKey: o.OrganizationKey,
+		Version:         1,
 		Kind:            application.ConnectionAWS,
 		// Process-configured AWS seed metadata; it does not hold durable credentials.
 		AuthenticationType: application.AuthAWSAccessKey,

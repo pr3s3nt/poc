@@ -96,6 +96,7 @@ type Service struct {
 	kubeconfig  KubeconfigVerifier
 	aws         AWSVerifier
 	credentials credentials.Store
+	now         func() time.Time
 }
 
 // NewService returns the Connection service. Upload registration needs
@@ -148,13 +149,17 @@ func (s *Service) RegisterKubeconfig(ctx context.Context, org string, cmd Regist
 	if err != nil {
 		return application.Connection{}, kubeconfigVerificationError(err)
 	}
+	tls := kubeTLS(selected)
 	return s.persist(ctx, org, name, selected.Document, func(key, ref string) application.Connection {
 		return application.Connection{
-			Key: key, Name: name, OrganizationKey: org,
+			Key: key, Name: name, OrganizationKey: org, Version: 1,
 			Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig,
-			Config:    map[string]any{"cluster": selected.Context.Cluster, "kubeContext": selected.Context.Name, "endpoint": selected.Context.Endpoint},
+			Config: map[string]any{
+				"cluster": selected.Context.Cluster, "kubeContext": selected.Context.Name, "endpoint": selected.Context.Endpoint,
+				"tlsVerification": tls.verification, "tlsCustomCA": tls.customCA,
+			},
 			SecretRef: ref, Status: application.ConnectionReady,
-			Verification: map[string]any{"verified": true, "endpoint": selected.Context.Endpoint, "serverVersion": verified.Version},
+			Verification: map[string]any{"verified": true, "endpoint": selected.Context.Endpoint, "serverVersion": verified.Version, "verifiedAt": s.timestamp()},
 		}
 	})
 }

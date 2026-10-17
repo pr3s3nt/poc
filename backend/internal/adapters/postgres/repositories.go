@@ -91,7 +91,7 @@ func (s *Store) SaveConnection(ctx context.Context, v application.Connection) er
 	if err != nil {
 		return err
 	}
-	_, err = s.q(ctx).Exec(ctx, `INSERT INTO connections(id,organization_id,connection_key,kind,config,secret_ref,status,verification,name,authentication_type) SELECT $1::uuid,o.id,$3,$4,$5,$6,$7,$8,$9,$10 FROM organizations o WHERE o.organization_key=$2 ON CONFLICT(organization_id,connection_key) DO UPDATE SET kind=EXCLUDED.kind,config=EXCLUDED.config,secret_ref=EXCLUDED.secret_ref,status=EXCLUDED.status,verification=EXCLUDED.verification,name=EXCLUDED.name,authentication_type=EXCLUDED.authentication_type,updated_at=now()`, v.ID, v.OrganizationKey, v.Key, v.Kind, config, v.SecretRef, v.Status, verification, v.Name, v.AuthenticationType)
+	_, err = s.q(ctx).Exec(ctx, `INSERT INTO connections(id,organization_id,connection_key,kind,config,secret_ref,status,verification,name,authentication_type) SELECT $1::uuid,o.id,$3,$4,$5,$6,$7,$8,$9,$10 FROM organizations o WHERE o.organization_key=$2 ON CONFLICT(organization_id,connection_key) DO UPDATE SET version=CASE WHEN (connections.kind,connections.config,connections.secret_ref,connections.status,connections.verification,connections.name,connections.authentication_type) IS DISTINCT FROM (EXCLUDED.kind,EXCLUDED.config,EXCLUDED.secret_ref,EXCLUDED.status,EXCLUDED.verification,EXCLUDED.name,EXCLUDED.authentication_type) THEN connections.version+1 ELSE connections.version END,kind=EXCLUDED.kind,config=EXCLUDED.config,secret_ref=EXCLUDED.secret_ref,status=EXCLUDED.status,verification=EXCLUDED.verification,name=EXCLUDED.name,authentication_type=EXCLUDED.authentication_type,updated_at=now()`, v.ID, v.OrganizationKey, v.Key, v.Kind, config, v.SecretRef, v.Status, verification, v.Name, v.AuthenticationType)
 	if err != nil {
 		return fmt.Errorf("postgres: save connection: %w", translate(err))
 	}
@@ -101,7 +101,7 @@ func (s *Store) SaveConnection(ctx context.Context, v application.Connection) er
 func (s *Store) GetConnection(ctx context.Context, org, key string) (application.Connection, error) {
 	var v application.Connection
 	var a, b []byte
-	err := s.q(ctx).QueryRow(ctx, `SELECT c.id::text,c.connection_key,o.organization_key,c.kind,c.config,c.secret_ref,c.status,c.verification,c.name,c.authentication_type FROM connections c JOIN organizations o ON o.id=c.organization_id WHERE o.organization_key=$1 AND c.connection_key=$2`, org, key).Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Kind, &a, &v.SecretRef, &v.Status, &b, &v.Name, &v.AuthenticationType)
+	err := s.q(ctx).QueryRow(ctx, `SELECT c.id::text,c.connection_key,o.organization_key,c.kind,c.config,c.secret_ref,c.status,c.verification,c.name,c.authentication_type,c.version FROM connections c JOIN organizations o ON o.id=c.organization_id WHERE o.organization_key=$1 AND c.connection_key=$2`, org, key).Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Kind, &a, &v.SecretRef, &v.Status, &b, &v.Name, &v.AuthenticationType, &v.Version)
 	if err != nil {
 		return v, fmt.Errorf("postgres: get connection: %w", translate(err))
 	}
@@ -112,7 +112,7 @@ func (s *Store) GetConnection(ctx context.Context, org, key string) (application
 	return v, err
 }
 func (s *Store) ListConnections(ctx context.Context, org string) ([]application.Connection, error) {
-	rows, err := s.q(ctx).Query(ctx, `SELECT c.id::text,c.connection_key,o.organization_key,c.kind,c.config,c.secret_ref,c.status,c.verification,c.name,c.authentication_type FROM connections c JOIN organizations o ON o.id=c.organization_id WHERE o.organization_key=$1 ORDER BY c.connection_key`, org)
+	rows, err := s.q(ctx).Query(ctx, `SELECT c.id::text,c.connection_key,o.organization_key,c.kind,c.config,c.secret_ref,c.status,c.verification,c.name,c.authentication_type,c.version FROM connections c JOIN organizations o ON o.id=c.organization_id WHERE o.organization_key=$1 ORDER BY c.connection_key`, org)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (s *Store) ListConnections(ctx context.Context, org string) ([]application.
 	for rows.Next() {
 		var v application.Connection
 		var a, b []byte
-		if err = rows.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Kind, &a, &v.SecretRef, &v.Status, &b, &v.Name, &v.AuthenticationType); err != nil {
+		if err = rows.Scan(&v.ID, &v.Key, &v.OrganizationKey, &v.Kind, &a, &v.SecretRef, &v.Status, &b, &v.Name, &v.AuthenticationType, &v.Version); err != nil {
 			return nil, err
 		}
 		if err = unmarshalJSON(a, &v.Config); err != nil {

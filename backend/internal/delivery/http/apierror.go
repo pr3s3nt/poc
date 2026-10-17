@@ -58,6 +58,7 @@ const (
 	codeVerifyRegionUnavailable   = "VERIFICATION_REGION_UNAVAILABLE"
 	codeVerifyCapabilityUnproven  = "VERIFICATION_CAPABILITY_UNVERIFIABLE"
 	codeVerifyPrincipalRefused    = "VERIFICATION_PRINCIPAL_UNSUPPORTED"
+	codeAccountTargetMismatch     = "ACCOUNT_TARGET_MISMATCH"
 	codeKubeconfigInvalid         = "KUBECONFIG_INVALID"
 	codeKubeconfigNoContext       = "KUBECONFIG_NO_VALID_CONTEXT"
 	codeKubeconfigContextRequired = "KUBECONFIG_CONTEXT_REQUIRED"
@@ -117,6 +118,7 @@ var publicErrors = map[string]publicError{
 	codeVerifyRegionUnavailable:   {http.StatusUnprocessableEntity, "verification failed: an allowed region is not usable with this credential"},
 	codeVerifyCapabilityUnproven:  {http.StatusUnprocessableEntity, "verification failed: the provisioning permissions could not be verified"},
 	codeVerifyPrincipalRefused:    {http.StatusUnprocessableEntity, "verification failed: this kind of credential is not supported"},
+	codeAccountTargetMismatch:     {http.StatusUnprocessableEntity, "the credential belongs to a different target than the account"},
 	codeKubeconfigInvalid:         {http.StatusBadRequest, "the kubeconfig is not valid"},
 	codeKubeconfigNoContext:       {http.StatusBadRequest, "the kubeconfig has no usable context"},
 	codeKubeconfigContextRequired: {http.StatusBadRequest, "a kubeconfig context must be selected"},
@@ -157,7 +159,7 @@ var trustedFields = map[string]bool{
 	"definition.driverType": true, "definition.criteria": true, "definition.connectionKey": true,
 	"context.applicationId": true, "context.environmentId": true, "context.resourceId": true, "context.class": true,
 	"service.publicPort": true, "confirmationName": true, "selectedResourceIds": true,
-	"accessKeyId": true, "secretAccessKey": true, "allowedRegions": true,
+	"accessKeyId": true, "secretAccessKey": true, "allowedRegions": true, "verificationRegions": true, "context": true,
 }
 
 // technicalID bounds a registered resource Type key echoed as a param: lowercase
@@ -343,6 +345,8 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeInvalidCredentials}, true
 	case errors.Is(err, authentication.ErrUnauthorized):
 		return failure{code: codeUnauthorized}, true
+	case errors.Is(err, connectionapp.ErrTargetMismatch):
+		return failure{code: codeAccountTargetMismatch}, true
 	case errors.Is(err, connectionapp.ErrKubeconfigTooLarge):
 		return failure{code: codeRequestTooLarge}, true
 	case errors.Is(err, connectionapp.ErrCredentialStore), errors.Is(err, secretstores.ErrCredentialStore),

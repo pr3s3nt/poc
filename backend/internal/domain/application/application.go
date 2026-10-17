@@ -120,10 +120,13 @@ type Connection struct {
 	OrganizationKey    string             `json:"organizationKey"`
 	Kind               ConnectionKind     `json:"kind"`
 	AuthenticationType AuthenticationType `json:"authenticationType,omitempty"`
-	Config             map[string]any     `json:"config"`
-	SecretRef          string             `json:"secretRef"`
-	Status             ConnectionStatus   `json:"status"`
-	Verification       map[string]any     `json:"verification"`
+	// Version is the optimistic-concurrency guard of V01 account updates. A
+	// stored record is always >= 1; the stores assign 1 only to a new record.
+	Version      int64            `json:"version"`
+	Config       map[string]any   `json:"config"`
+	SecretRef    string           `json:"secretRef"`
+	Status       ConnectionStatus `json:"status"`
+	Verification map[string]any   `json:"verification"`
 }
 
 // ErrInvalidConnection reports a Connection whose explicit metadata is missing
