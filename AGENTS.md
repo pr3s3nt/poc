@@ -121,7 +121,30 @@ không làm mất công việc có sẵn của người dùng.
 Handoff phải nêu ngắn gọn: outcome, vùng thay đổi, checks đã chạy, checks bỏ qua
 và lý do, cùng mọi user-owned change còn lại.
 
-## Codex điều phối và Claude cloud thực hiện code
+## Codex điều phối và Claude thực hiện code
+
+### Quyết định mới nhất — 2026-10-17: Claude local qua tmux
+
+Người dùng yêu cầu từ nay Codex điều khiển Claude trên máy này qua `tmux` và
+`clauded`, sau đó xác nhận tiếp tục local cho V01. Đây là luồng mặc định mới,
+không phụ thuộc việc cloud có còn quota hay không. `clauded` là alias local;
+kiểm tra alias thực tế, không tự thay bằng model hoặc công cụ khác.
+
+Mỗi task dùng checkout và session tmux riêng. Claude local chỉ sửa code/test
+trong checkout task, không sửa docs/AGENTS, không commit/push hoặc sửa checkout
+điều phối. Codex sửa docs, giao nguồn chuẩn/scope/checks, review diff và tự chạy
+validation/runtime, rồi commit/push/merge task-only. Không đóng session tmux có
+sẵn của người dùng. Lưu session ID, model và mode quyền thực tế từ CLI, nhánh,
+base/head và handoff; không suy mode từ launch flag. Theo dõi bình thường mỗi
+15 phút, đọc sớm khi lỗi/hoàn tất hoặc người dùng yêu cầu. Giữ toàn bộ yêu cầu
+PostgreSQL thật, zero-skip, recording, quyền external và cleanup bên dưới.
+
+Quy trình cloud trong phần lịch sử bên dưới không còn là mặc định và không
+cấp quyền chạy đồng thời writer cloud/local. Cloud chỉ dùng lại khi người dùng
+yêu cầu. Quyền thay Claude bằng Codex `gpt-6-luna` trước đây vẫn chỉ dành M04,
+không tự mở rộng sang V01 hoặc task mới.
+
+### Các quyết định và quy trình cloud M04 — lịch sử, giữ provenance
 
 ### Quyết định M04 mới nhất — 2026-10-15
 

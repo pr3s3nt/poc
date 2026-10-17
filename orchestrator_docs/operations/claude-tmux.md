@@ -2,10 +2,42 @@
 id: RUNBOOK-CLAUDE-TMUX
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-17
 ---
 
 # Điều phối Claude, phương án thay thế và kiểm chứng local
+
+## Luồng mặc định — quyết định 2026-10-17
+
+Người dùng yêu cầu Codex điều khiển Claude local qua `tmux` và `clauded`; áp
+dụng kể cả khi cloud còn quota. Codex docs/review/checks/commit/push/merge và
+chạy thật; Claude chỉ viết code/test trong checkout riêng. Không tự đổi model
+hoặc thay Claude bằng Codex cho task mới; ngoại lệ `gpt-6-luna` vẫn chỉ dành M04.
+
+1. Kiểm git status/head và các tmux session hiện có; giữ nguyên phiên người dùng.
+   Tạo checkout/task branch và tmux session mới, không cho writer sửa checkout
+   điều phối hoặc docs/AGENTS; không cho local writer commit/push.
+2. Mở interactive shell, kiểm alias `clauded` thực tế rồi chạy alias đó trong
+   session task. Giao brief đầy đủ: scope, nguồn chuẩn, acceptance/checks, paths,
+   private/external-state boundaries và cách bàn giao khi hoàn tất/lỗi.
+3. Xác nhận model và effective permission mode từ CLI UI, ghi session ID khi có;
+   không suy từ `--dangerously-skip-permissions`. Lưu checkout/branch/base/head,
+   tmux target, brief path và completion/error markers trong Current handoff.
+4. Theo dõi mỗi 15 phút; chỉ đọc sớm khi lỗi/completion hoặc người dùng yêu cầu.
+   Completion marker chỉ hợp lệ cùng diff/handoff/checks thực tế. Nếu quota hoặc
+   auth chặn, giữ worktree/session, ghi handoff và làm phần độc lập được phép.
+5. Codex review diff, tự chạy PostgreSQL thật REQUIRE_POSTGRES=1, Go/frontend/docs
+   checks, runtime và headed recording theo phần dưới; không chấp nhận skips
+   trong checks bắt buộc. Gửi findings vào cùng session local để writer sửa.
+6. Sau review/checks, Codex commit code/test trong checkout task, merge task-only
+   vào nhánh điều phối và cập nhật docs/issue rồi push. Không commit công việc
+   có sẵn ngoài task. Giữ evidence/cleanup và không đóng tmux của người dùng.
+
+Nếu chuyển một task cloud đang mở sang local, gửi yêu cầu cloud dừng, kiểm nhánh
+đã push và lưu session/handoff. Không coi `ok:true` là xác nhận remote đã dừng;
+không merge cloud output không được review hoặc chạy hai writer trên cùng checkout.
+
+## Quy trình cloud trước đây — chỉ dùng lại khi người dùng yêu cầu
 
 Quyết định người dùng 2026-10-14 thay clauded/tmux bằng Claude cloud; giữ path
 runbook để các liên kết lịch sử còn hợp lệ. Codex quản lý docs/review/checks/
