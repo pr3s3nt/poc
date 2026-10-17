@@ -96,12 +96,13 @@ type Service struct {
 	kubeconfig  KubeconfigVerifier
 	aws         AWSVerifier
 	credentials credentials.Store
+	now         func() time.Time
 }
 
 // NewService returns the Connection service. Upload registration needs
 // SetKubeconfigRegistration; without it registration fails closed.
 func NewService(store persistence.Store) *Service {
-	return &Service{store: store}
+	return &Service{store: store, now: time.Now}
 }
 
 // SetKubeconfigRegistration wires the upload verifier and credential store.
@@ -148,13 +149,19 @@ func (s *Service) RegisterKubeconfig(ctx context.Context, org string, cmd Regist
 	if err != nil {
 		return application.Connection{}, kubeconfigVerificationError(err)
 	}
+	target, err := kubeconfigTarget(selected.Document)
+	if err != nil {
+		return application.Connection{}, err
+	}
 	return s.persist(ctx, org, name, selected.Document, func(key, ref string) application.Connection {
+		config := map[string]any{"cluster": selected.Context.Cluster, "kubeContext": selected.Context.Name, "endpoint": selected.Context.Endpoint}
+		target.addTo(config)
 		return application.Connection{
 			Key: key, Name: name, OrganizationKey: org,
 			Kind: application.ConnectionKubernetes, AuthenticationType: application.AuthKubeconfig,
-			Config:    map[string]any{"cluster": selected.Context.Cluster, "kubeContext": selected.Context.Name, "endpoint": selected.Context.Endpoint},
-			SecretRef: ref, Status: application.ConnectionReady,
-			Verification: map[string]any{"verified": true, "endpoint": selected.Context.Endpoint, "serverVersion": verified.Version},
+			Config:    config,
+			SecretRef: ref, Status: application.ConnectionReady, Version: 1,
+			Verification: map[string]any{"verified": true, "endpoint": selected.Context.Endpoint, "serverVersion": verified.Version, "verifiedAt": s.timestamp()},
 		}
 	})
 }
@@ -181,6 +188,7 @@ func (s *Service) persist(ctx context.Context, org, name string, value []byte, b
 			return application.Connection{}, ErrCredentialStore
 		}
 		conn := build(key, ref)
+		conn.ID = ids.New()
 		err = s.store.Transact(ctx, func(ctx context.Context) error {
 			if _, err := s.store.GetOrganization(ctx, org); err != nil {
 				return err
@@ -191,6 +199,11 @@ func (s *Service) persist(ctx context.Context, org, name string, value []byte, b
 		})
 		if err == nil {
 			return conn, nil
+		}
+		if errors.Is(err, persistence.ErrCommitUncertain) {
+			// The row may exist and point at this object: keep it, no retry.
+			log.Printf("connection: registration outcome uncertain; credential object retained (organization %s, connection %s, object %s)", org, key, objectID(ref))
+			return application.Connection{}, ErrOutcomeUncertain
 		}
 		if cleanupErr := s.cleanup(ctx, org, key, ref); cleanupErr != nil {
 			return application.Connection{}, cleanupErr

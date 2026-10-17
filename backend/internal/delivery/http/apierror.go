@@ -50,6 +50,8 @@ const (
 	codeEnvironmentBusy           = "ENVIRONMENT_BUSY"
 	codeEnvironmentUnconfigured   = "ENVIRONMENT_UNCONFIGURED"
 	codeConnectionUnavailable     = "CONNECTION_UNAVAILABLE"
+	codeAccountTargetMismatch     = "ACCOUNT_TARGET_MISMATCH"
+	codeCommitUncertain           = "COMMIT_UNCERTAIN"
 	codeVerificationFailed        = "VERIFICATION_FAILED"
 	codeVerifyContextMissing      = "VERIFICATION_CONTEXT_MISSING"
 	codeVerifyUnreachable         = "VERIFICATION_UNREACHABLE"
@@ -109,6 +111,8 @@ var publicErrors = map[string]publicError{
 	codeEnvironmentBusy:           {http.StatusConflict, "the environment is busy with another operation"},
 	codeEnvironmentUnconfigured:   {http.StatusUnprocessableEntity, "the environment has no connection selected"},
 	codeConnectionUnavailable:     {http.StatusUnprocessableEntity, "the connection is not available"},
+	codeAccountTargetMismatch:     {http.StatusUnprocessableEntity, "the credential does not belong to this account's target; register a new account for another target"},
+	codeCommitUncertain:           {http.StatusServiceUnavailable, "the result is not known; reload before trying again"},
 	codeVerificationFailed:        {http.StatusUnprocessableEntity, "verification failed"},
 	codeVerifyContextMissing:      {http.StatusUnprocessableEntity, "verification failed: the context is not configured on the backend host"},
 	codeVerifyUnreachable:         {http.StatusUnprocessableEntity, "verification failed: the endpoint could not be reached"},
@@ -157,7 +161,7 @@ var trustedFields = map[string]bool{
 	"definition.driverType": true, "definition.criteria": true, "definition.connectionKey": true,
 	"context.applicationId": true, "context.environmentId": true, "context.resourceId": true, "context.class": true,
 	"service.publicPort": true, "confirmationName": true, "selectedResourceIds": true,
-	"accessKeyId": true, "secretAccessKey": true, "allowedRegions": true,
+	"accessKeyId": true, "secretAccessKey": true, "allowedRegions": true, "verificationRegions": true,
 }
 
 // technicalID bounds a registered resource Type key echoed as a param: lowercase
@@ -343,6 +347,12 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeInvalidCredentials}, true
 	case errors.Is(err, authentication.ErrUnauthorized):
 		return failure{code: codeUnauthorized}, true
+	case errors.Is(err, connectionapp.ErrOutcomeUncertain):
+		return failure{code: codeCommitUncertain}, true
+	case errors.Is(err, connectionapp.ErrAccountIncompatible):
+		return failure{code: codeAccountTargetMismatch}, true
+	case errors.Is(err, connectionapp.ErrAccountCredential):
+		return failure{code: codeConnectionUnavailable}, true
 	case errors.Is(err, connectionapp.ErrKubeconfigTooLarge):
 		return failure{code: codeRequestTooLarge}, true
 	case errors.Is(err, connectionapp.ErrCredentialStore), errors.Is(err, secretstores.ErrCredentialStore),

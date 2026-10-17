@@ -38,10 +38,14 @@ func TestFreshSchemaSeedsVerifyingKubeconfigAndRejectsHostContext(t *testing.T) 
 	for name, update := range map[string]string{
 		"kind-incompatible": `UPDATE connections SET authentication_type='KUBECONFIG' WHERE connection_key='` + opts.CloudConnectionKey + `'`,
 		"host context":      `UPDATE connections SET authentication_type='HOST_CONTEXT' WHERE connection_key='` + opts.ConnectionKey + `'`,
+		"zero version":      `UPDATE connections SET version=0 WHERE connection_key='` + opts.ConnectionKey + `'`,
 	} {
 		if _, err := st.pool.Exec(ctx, update); err == nil {
 			t.Fatalf("%s authentication type accepted", name)
 		}
+	}
+	if cloud.Version != 1 {
+		t.Fatalf("seeded connection version = %d, want 1", cloud.Version)
 	}
 	if err := st.CreateConnection(ctx, application.Connection{Key: "uploaded", Name: "Uploaded", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionKubernetes,
 		AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionReady, Config: map[string]any{"kubeContext": "lab"},

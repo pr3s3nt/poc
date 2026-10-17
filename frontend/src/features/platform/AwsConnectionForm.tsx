@@ -37,7 +37,7 @@ function validate(fields: Fields): string {
 
 // Fixed Vietnamese guidance by status and stable code. Raw backend or AWS text never reaches the page.
 function registerGuidance(reason: unknown): string {
-  if (!(reason instanceof ApiError)) return 'Chưa nhận được phản hồi từ máy chủ nên chưa biết kết nối đã được lưu hay chưa. Hãy tải lại danh sách để kiểm tra trước khi đăng ký lại; Console không tự gửi lại. Hãy nhập lại access key khi thử lại.';
+  if (!(reason instanceof ApiError) || reason.code === 'COMMIT_UNCERTAIN') return 'Chưa nhận được phản hồi từ máy chủ nên chưa biết kết nối đã được lưu hay chưa. Hãy tải lại danh sách để kiểm tra trước khi đăng ký lại; Console không tự gửi lại. Hãy nhập lại access key khi thử lại.';
   switch (reason.status) {
     case 400: return 'Máy chủ từ chối dữ liệu đăng ký. Kiểm tra tên, access key và danh sách vùng rồi nhập lại khóa.';
     case 401: return 'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử lại.';
@@ -88,7 +88,7 @@ export function AwsConnectionForm({ onRegistered }: { onRegistered: () => Promis
     } catch (reason) {
       setError(registerGuidance(reason)); setSaving(false);
       // An unknown outcome is checked by reloading the list, never by resubmitting.
-      if (!(reason instanceof ApiError)) void onRegistered();
+      if (!(reason instanceof ApiError) || reason.code === 'COMMIT_UNCERTAIN') void onRegistered();
       return;
     }
     setFields(emptyFields); setSaving(false);

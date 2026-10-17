@@ -2,10 +2,35 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-17
 ---
 
 # Current project state
+
+## V01 — danh mục tài khoản hạ tầng, 2026-10-17
+
+Đã implement catalog Organization cho PE/Admin: AWS access key và Internal
+kubeconfig, UI/API tạo/xem/sửa tên, kiểm tra chỉ đọc và thay credential cùng đích.
+Backing record vẫn là Connection; metadata có version/CAS, credential Vault bất
+biến, giữ object đã commit. Commit chưa rõ kết quả trả lỗi an toàn, giữ object có
+thể đã commit và yêu cầu GET/xem kết quả trước thao tác tiếp. Key AWS thay thế
+được kiểm cả vùng legacy còn dùng. Developer không đọc catalog/credential.
+
+[ADR-015](architecture/decisions/ADR-015-infrastructure-driver-accounts.md),
+[UC-04 AC-01..12](usecase/UC-04/specification.md),
+[checks/video/bàn giao](verification/2026-10-17-v01-handoff.md). Frontend665tests,
+race PostgreSQL265tests và recording độc lập PASS; Go1510tests/58packages,
+build/vet PASS, không bỏ test.
+Video được attach trực tiếp issue#4; SQL và Vault file-backed thật, AWS/Kubernetes
+verifier mô phỏng có nhãn. Không có bằng chứng live AWS/kind cho V01.
+
+V01 giữ consumers/liên kết Environment cũ đến khi V02–V03 thay thế được kiểm
+chứng; chưa thêm Driver Account selection, matching hoặc Driver Inputs V02.
+V02–V03 không cần migration dữ liệu cũ theo quyết định người dùng. Baseline SQL/
+JSON không tương thích phải fail rõ; không tự chuyển đổi. Người dùng cho reset
+dữ liệu phát triển cũ, nhưng retained Docker/kind hiện không truy cập được nên
+chưa reset/deploy retained instance. Không sửa metadata Docker hoặc xóa tài
+nguyên ngoài task.
 
 ## M04 — hoàn tất ngày 2026-10-16
 

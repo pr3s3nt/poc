@@ -90,6 +90,9 @@ func (s *state) validateCurrent() error {
 		if err := conn.Validate(); err != nil {
 			return resetRequired("a Connection lacks explicit current name or authentication metadata")
 		}
+		if err := conn.ValidateStored(); err != nil {
+			return resetRequired("a Connection has no positive version")
+		}
 	}
 	for key, store := range s.SecretStores {
 		if key != catalogKey(store.OrganizationKey, store.Key) {

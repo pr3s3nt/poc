@@ -92,9 +92,21 @@ func (d *db) Transact(ctx context.Context, fn func(context.Context) error) error
 		return err
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return translate(err)
+		return commitError(err)
 	}
 	return nil
+}
+
+// commitError separates a commit the server reported as failed (the
+// transaction rolled back) from one whose result is unknown: a server error
+// code or pgx's rolled-back marker is definite; anything else (broken
+// connection, cancelled or expired context) may have committed.
+func commitError(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) || errors.Is(err, pgx.ErrTxCommitRollback) {
+		return translate(err)
+	}
+	return fmt.Errorf("%w", persistence.ErrCommitUncertain)
 }
 
 // ReadSnapshot runs fn in one REPEATABLE READ READ ONLY transaction, so every

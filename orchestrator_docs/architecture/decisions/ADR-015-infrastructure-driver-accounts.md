@@ -59,7 +59,10 @@ No task may erase retained resources or their ownership implicitly.
    explain that READY records the last successful check, not current health.
 7. Credential replacement is explicit and write-only. Normalize/verify before
    creating a new immutable object, then CAS on stable key/version. Failure or
-   concurrent loss deletes only the attempt-owned new object; bounded cleanup
+   concurrent loss proven to have rolled back deletes only the attempt-owned new
+   object. An uncertain database commit must retain the new object and require
+   GET recovery; neither creation nor replacement may delete a potentially
+   committed credential or automatically retry the mutation. Bounded cleanup
    failures are observable. Never delete a prior successful object in this
    slice: persisted targets may still pin it. Lifecycle garbage collection is
    deferred. Replacement cannot redirect the account to another AWS account
@@ -71,6 +74,9 @@ No task may erase retained resources or their ownership implicitly.
    Region selection belongs to Driver Inputs in V02. Reuse the current AWS
    verifier and keep the old allowed-region metadata only for the temporary
    legacy Connection execution path, with no claim V01 removes that policy.
+   Replacement credentials must pass checks for every retained legacy allowed
+   region before publication; never silently reroute an existing environment
+   or retain permission evidence belonging only to the previous credential.
 9. V01 retains existing Environment/Definition execution behavior and the old
    HTTP consumer contract while exposing the new catalog and UI. V02–V03 replace
    consumers before removing old binding paths. No old-data migration is required

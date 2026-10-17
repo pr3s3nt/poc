@@ -41,6 +41,7 @@ CREATE TABLE connections (
   connection_key text NOT NULL, name text NOT NULL,
   kind text NOT NULL CHECK (kind IN ('AWS','KUBERNETES')),
   authentication_type text NOT NULL,
+  version bigint NOT NULL DEFAULT 1 CONSTRAINT connections_version_check CHECK (version >= 1),
   config jsonb NOT NULL, secret_ref text NOT NULL, status text NOT NULL,
   verification jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (organization_id, connection_key),

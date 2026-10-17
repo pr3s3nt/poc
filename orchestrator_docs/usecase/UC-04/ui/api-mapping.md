@@ -136,7 +136,9 @@ config/verification. It excludes private ref and credential; infrastructure type
 cannot be changed by update. AWS `config.verificationRegions` and safe account/
 principal metadata describe checks; do not expose `allowedRegions`/default-region
 fields as new account policy. Internal config whitelists selected cluster/context/
-endpoint and safe TLS metadata. Legacy `/connections` DTO is unchanged except
+endpoint and safe TLS metadata (`config.tls.mode`, optional `serverName`);
+`verification.verifiedAt` records the last successful check. Seed markers without
+a stored credential remain visible but cannot be verified until registered. Legacy `/connections` DTO is unchanged except
 optional version for shared backing records; it retains legacy kind/region fields.
 
 AWS verify may omit verificationRegions to recheck the stored evidence list;
@@ -148,7 +150,12 @@ fresh failure separately. No claim of live health solely from READY.
 
 GET/inspect/edit/verify/replace success 200; create 201. Invalid 400, auth 401/403,
 scoped missing 404, stale 409 with stable stale code, body limit 413, verification
-or incompatible target 422, unavailable credential store 503, unexpected storage
+or incompatible target 422 (`ACCOUNT_TARGET_MISMATCH` for target changes,
+`CONNECTION_UNAVAILABLE` for missing stored credentials), unavailable credential
+store 503, uncertain database commit 503 `COMMIT_UNCERTAIN`, unexpected storage
 500. Use existing public error contract with safe stable codes/fields, no raw
-provider details. No account delete/read-secret API. Consumers/driver selection
+provider details. `COMMIT_UNCERTAIN` requires GET recovery and explicit user
+review before another mutation; retain any potentially committed credential.
+Replacement AWS keys are also checked in every retained legacy allowed region
+before publication. No account delete/read-secret API. Consumers/driver selection
 and deployment region move to the new model in V02–V03, not V01.

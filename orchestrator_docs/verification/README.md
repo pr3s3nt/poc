@@ -13,7 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
-| 2026-10-17 | V01 charter, decisions, writer/checks/runtime handoff; in progress | [V01 handoff](2026-10-17-v01-handoff.md) |
+| 2026-10-17 | V01 delivered catalog; independent SQL/Vault/Playwright/video/checks and runtime limits | [V01 handoff](2026-10-17-v01-handoff.md) |
 | 2026-10-16 | M04 I04-06..12 hoàn tất, năm kịch bản thật/cleanup/video/checks và chi phí | [Bàn giao M04](2026-10-16-m04-completion.md) |
 | 2026-10-14 | I04-11 A01 fail; job/cache đạt, namespace r2 dọn theo quyền15Oct, sửa lỗi/khép registry; chưa đạt AWS gate | [Biên bản k8s-4f](2026-10-14-i04-11-k8s4f.md) |
 | 2026-10-14 | I04-10 runner/supervisor/durable outputs, local SQL/CLI/race checks; live scenarios pending | [Integration verification](2026-10-14-i04-10-integration.md) |

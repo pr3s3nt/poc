@@ -26,6 +26,8 @@ type connectionView struct {
 	Config             map[string]any `json:"config"`
 	Status             string         `json:"status"`
 	Verification       map[string]any `json:"verification"`
+	// Version is optional for shared backing records (V01).
+	Version int64 `json:"version,omitempty"`
 }
 
 var (
@@ -46,6 +48,7 @@ func publicConnection(conn application.Connection) connectionView {
 		Key: conn.Key, Name: name, Kind: string(conn.Kind), AuthenticationType: string(conn.AuthenticationType),
 		Config: withLists(pick(conn.Config, publicConnectionConfig), conn.Config, publicConnectionConfigLists), Status: string(conn.Status),
 		Verification: withLists(pick(conn.Verification, publicConnectionVerification), conn.Verification, publicConnectionVerificationLists),
+		Version:      conn.Version,
 	}
 }
 

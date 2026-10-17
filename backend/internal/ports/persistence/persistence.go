@@ -27,6 +27,13 @@ var ErrImmutable = errors.New("persistence: immutable record")
 // ErrVersionConflict is returned when an optimistic version check fails.
 var ErrVersionConflict = errors.New("persistence: version conflict")
 
+// ErrCommitUncertain is returned by Transact when the database may or may not
+// have committed (for example a lost commit acknowledgement or a cancelled
+// context during COMMIT). Every other Transact error means the transaction
+// rolled back. Callers that wrote an external object for the transaction must
+// keep it on ErrCommitUncertain and must not retry the mutation.
+var ErrCommitUncertain = errors.New("persistence: commit outcome unknown")
+
 // ErrDuplicate is returned by insert-only Create operations when the logical
 // key already exists; the existing record is left unchanged.
 var ErrDuplicate = errors.New("persistence: duplicate key")
@@ -167,6 +174,13 @@ type ApplicationRepository interface {
 	// an existing (Organization, key), ErrNotFound for a missing Organization.
 	// SaveConnection remains the seed/test upsert.
 	CreateConnection(ctx context.Context, conn application.Connection) error
+	// UpdateConnection is the V01 account compare-and-set. It replaces name,
+	// config, secret reference, status and verification of an existing
+	// Connection of the Organization if and only if its stored version equals
+	// expectedVersion, increments the version and returns the stored record.
+	// ErrNotFound for a missing or foreign key, ErrVersionConflict when stale.
+	// Identity, kind and authentication type never change.
+	UpdateConnection(ctx context.Context, organizationKey, key string, expectedVersion int64, next application.Connection) (application.Connection, error)
 }
 
 type IdentityRepository interface {

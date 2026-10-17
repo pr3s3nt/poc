@@ -5,6 +5,7 @@ export type Route =
   | { name: 'resource-definitions'; resourceType?: string }
   | { name: 'rendering-templates' }
   | { name: 'connections' }
+  | { name: 'driver-accounts'; account?: string }
   | { name: 'secret-stores' }
   | { name: 'create-application' }
   | { name: 'application'; applicationId: string; environment?: 'staging' | 'production' }
@@ -32,6 +33,10 @@ export function parseRoute(path = window.location.pathname): Route {
   }
   if (relative === '/platform/rendering-templates') return { name: 'rendering-templates' };
   if (relative === '/platform/connections') return { name: 'connections' };
+  if (relative === '/platform/driver-accounts') {
+    const account = new URLSearchParams(search).get('account');
+    return { name: 'driver-accounts', ...(account ? { account } : {}) };
+  }
   if (relative === '/platform/secret-stores') return { name: 'secret-stores' };
   if (relative === '/applications/new') return { name: 'create-application' };
   const settings = relative.match(/^\/applications\/([^/]+)\/settings$/);
@@ -63,6 +68,7 @@ export function href(route: Route): string {
     case 'resource-definitions': return `${base}/platform/resource-definitions${route.resourceType ? `?resourceType=${encodeURIComponent(route.resourceType)}` : ''}`;
     case 'rendering-templates': return `${base}/platform/rendering-templates`;
     case 'connections': return `${base}/platform/connections`;
+    case 'driver-accounts': return `${base}/platform/driver-accounts${route.account ? `?account=${encodeURIComponent(route.account)}` : ''}`;
     case 'secret-stores': return `${base}/platform/secret-stores`;
     case 'create-application': return `${base}/applications/new`;
     case 'application': return `${base}/applications/${encodeURIComponent(route.applicationId)}${route.environment ? `?environment=${route.environment}` : ''}`;

@@ -23,6 +23,14 @@ describe('console routes', () => {
     expect(parseRoute(href({ name: 'resource', applicationId: 'shop', environment: 'production', resourceId: 'a/b' }))).toEqual({ name: 'resource', applicationId: 'shop', environment: 'production', resourceId: 'a/b' });
   });
 
+  it('routes infrastructure accounts with an optional selected account', () => {
+    expect(parseRoute('/ui/platform/driver-accounts')).toEqual({ name: 'driver-accounts' });
+    expect(parseRoute('/ui/platform/driver-accounts?account=lab-aws')).toEqual({ name: 'driver-accounts', account: 'lab-aws' });
+    expect(href({ name: 'driver-accounts' })).toBe('/ui/platform/driver-accounts');
+    expect(href({ name: 'driver-accounts', account: 'a/b' })).toBe('/ui/platform/driver-accounts?account=a%2Fb');
+    expect(parseRoute('/ui/platform/connections')).toEqual({ name: 'connections' });
+  });
+
   it('routes the rendering templates page', () => {
     expect(parseRoute('/ui/platform/rendering-templates')).toEqual({ name: 'rendering-templates' });
     expect(href({ name: 'rendering-templates' })).toBe('/ui/platform/rendering-templates');

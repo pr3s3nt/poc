@@ -79,6 +79,9 @@ func (s *Store) CreateConnection(ctx context.Context, v application.Connection) 
 	if v.ID == "" {
 		v.ID = ids.New()
 	}
+	if v.Version < 1 {
+		v.Version = 1
+	}
 	if err := v.Validate(); err != nil {
 		return err
 	}
@@ -93,9 +96,38 @@ func (s *Store) CreateConnection(ctx context.Context, v application.Connection) 
 	// Insert-only registration never changes the Organization default
 	// connection (UC-04 BR-16); only the seed SaveConnection links it.
 	var id string
-	err = s.q(ctx).QueryRow(ctx, `INSERT INTO connections(id,organization_id,connection_key,kind,config,secret_ref,status,verification,name,authentication_type) SELECT $1::uuid,o.id,$3,$4,$5,$6,$7,$8,$9,$10 FROM organizations o WHERE o.organization_key=$2 RETURNING id::text`, v.ID, v.OrganizationKey, v.Key, v.Kind, config, v.SecretRef, v.Status, verification, v.Name, v.AuthenticationType).Scan(&id)
+	err = s.q(ctx).QueryRow(ctx, `INSERT INTO connections(id,organization_id,connection_key,kind,config,secret_ref,status,verification,name,authentication_type,version) SELECT $1::uuid,o.id,$3,$4,$5,$6,$7,$8,$9,$10,$11 FROM organizations o WHERE o.organization_key=$2 RETURNING id::text`, v.ID, v.OrganizationKey, v.Key, v.Kind, config, v.SecretRef, v.Status, verification, v.Name, v.AuthenticationType, v.Version).Scan(&id)
 	if err != nil {
 		return registrationError(err, "connection "+v.Key)
 	}
 	return nil
+}
+
+// UpdateConnection is the V01 account compare-and-set: one UPDATE guarded by
+// the stored version. A stale expected version leaves the winner untouched.
+func (s *Store) UpdateConnection(ctx context.Context, org, key string, expected int64, next application.Connection) (application.Connection, error) {
+	if err := next.Validate(); err != nil {
+		return application.Connection{}, err
+	}
+	config, err := jsonBytes(next.Config)
+	if err != nil {
+		return application.Connection{}, err
+	}
+	verification, err := jsonBytes(next.Verification)
+	if err != nil {
+		return application.Connection{}, err
+	}
+	tag, err := s.q(ctx).Exec(ctx, `UPDATE connections c SET name=$4,config=$5,secret_ref=$6,status=$7,verification=$8,version=c.version+1,updated_at=now() FROM organizations o WHERE o.id=c.organization_id AND o.organization_key=$1 AND c.connection_key=$2 AND c.version=$3`,
+		org, key, expected, next.Name, config, next.SecretRef, next.Status, verification)
+	if err != nil {
+		return application.Connection{}, fmt.Errorf("postgres: update connection: %w", translate(err))
+	}
+	if tag.RowsAffected() == 0 {
+		// Distinguish a missing/foreign key from a lost race.
+		if _, err := s.GetConnection(ctx, org, key); err != nil {
+			return application.Connection{}, err
+		}
+		return application.Connection{}, fmt.Errorf("%w: connection %s", persistence.ErrVersionConflict, key)
+	}
+	return s.GetConnection(ctx, org, key)
 }

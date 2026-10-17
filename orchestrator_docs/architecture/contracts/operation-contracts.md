@@ -430,6 +430,8 @@ HTTP status, org/app/env scoping, CAS, fencing và transaction semantics giữ n
 | `NOT_FOUND` | 404 | Không tìm thấy hoặc không truy cập được trong scope. |
 | `REQUEST_TOO_LARGE` | 413 | Giảm kích thước body/document. |
 | `STALE_VERSION` / `STALE_PREVIEW` | 409 | Reload/review hoặc Xem trước lại; không tự gửi mutation. |
+| `COMMIT_UNCERTAIN` | 503 | Chưa rõ commit đã thành công; giữ credential có thể đã commit, GET và xem kết quả trước khi thao tác tiếp; không retry tự động. |
+| `ACCOUNT_TARGET_MISMATCH` | 422 | Credential thay thế trỏ sang đích khác; đăng ký tài khoản mới. |
 | `ENVIRONMENT_BUSY` | 409 | Đợi/xem trạng thái operation; giữ edits. |
 | `ENVIRONMENT_UNCONFIGURED` | 422 | Chọn kết nối trong Cài đặt môi trường, field `connectionKey`. |
 | `CONNECTION_UNAVAILABLE` | 422 (UC-05 standalone READY rejection giữ 400) | Kết nối không hợp lệ/không READY trong scope. |
@@ -644,11 +646,14 @@ Failure safe error, không fake empty/guessed class fallback. Chi tiết ở
 Use case: UC-04 AC-01..12. Decision: ADR-015. Exact wire contract belongs to
 [UC-04 API mapping](../../usecase/UC-04/ui/api-mapping.md#v01-infrastructure-account-api).
 Organization/PE/Admin scope precedes all secret/provider access. List/get are safe
-metadata only; metadata rename cannot alter identity/target/ref. All mutations
-require version CAS; no external I/O inside database transactions. Verify is
+metadata only; metadata rename cannot alter identity/target/ref. Creation starts
+at version1; updates require version CAS; no external I/O inside database transactions. Verify is
 read-only externally and commits only successful verification/version. Explicit
 same-target replacement writes an immutable attempt then CAS publishes metadata/
-ref/version; stale/failure removes only attempt-owned objects. Keep all prior
+ref/version; proven rollback/stale failure removes only attempt-owned objects.
+Uncertain commit retains potentially committed objects and requires GET recovery
+and explicit user review without mutation replay. Replacement AWS credentials
+must pass verification in every retained legacy allowed region. Keep all prior
 committed objects for pinned consumers. No secret-ref input/read endpoint or
 host fallback. New account types/authentication and verification regions do not
 introduce applicability, matching rules or Environment bindings. V02–V03 old-data

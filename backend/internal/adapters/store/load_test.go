@@ -220,6 +220,8 @@ func TestIncompleteOrDanglingCurrentRecordsAreRejected(t *testing.T) {
 			})
 		},
 		"connection without name":                editOne(t, "connections", nil, func(r map[string]any) { delete(r, "name") }),
+		"connection without version":             editOne(t, "connections", nil, func(r map[string]any) { delete(r, "version") }),
+		"connection with zero version":           editOne(t, "connections", nil, func(r map[string]any) { r["version"] = 0 }),
 		"connection host context":                editOne(t, "connections", kubernetes, func(r map[string]any) { r["authenticationType"] = "HOST_CONTEXT" }),
 		"connection without authentication type": editOne(t, "connections", kubernetes, func(r map[string]any) { delete(r, "authenticationType") }),
 		"connection of a missing organization":   editOne(t, "connections", nil, func(r map[string]any) { r["organizationKey"] = "nobody-org" }),

@@ -19,6 +19,8 @@ const messageTable = {
   ENVIRONMENT_BUSY: 'Môi trường đang bận với thao tác khác. Hãy chờ hoặc xem trạng thái thao tác; thay đổi đang nhập được giữ nguyên.',
   ENVIRONMENT_UNCONFIGURED: 'Môi trường chưa có kết nối triển khai. Hãy chọn kết nối trong Cài đặt môi trường; chưa có gì được lập kế hoạch hoặc triển khai.',
   CONNECTION_UNAVAILABLE: 'Kết nối không hợp lệ hoặc chưa sẵn sàng (READY) trong phạm vi này. Hãy nhờ kỹ sư nền tảng kiểm tra kết nối.',
+  COMMIT_UNCERTAIN: 'Máy chủ chưa xác nhận được thao tác đã được lưu hay chưa. Credential mới (nếu có) được giữ lại. Hãy tải lại để xem kết quả thực tế; Console không tự gửi lại.',
+  ACCOUNT_TARGET_MISMATCH: 'Credential mới không thuộc cùng đích với tài khoản này (khác tài khoản AWS hoặc khác cluster/context/endpoint/TLS). Credential cũ vẫn được giữ; hãy đăng ký tài khoản mới cho đích khác.',
   VERIFICATION_FAILED: 'Xác minh không thành công. Kiểm tra thông tin rồi thử lại; Console không hiển thị chi tiết từ nhà cung cấp.',
   VERIFICATION_CONTEXT_MISSING: 'Xác minh không thành công: context chưa được cấu hình trên máy chủ backend.',
   VERIFICATION_UNREACHABLE: 'Xác minh không thành công: không kết nối được tới địa chỉ đã chọn. Kiểm tra địa chỉ, mạng và TLS.',
@@ -123,7 +125,7 @@ const knownFields: ReadonlySet<string> = new Set([
   'type.key', 'type.schema', 'definition.schema', 'definition.driver', 'definition.references', 'definition.key',
   'definition.resourceType', 'definition.executionProfile', 'definition.driverType', 'definition.criteria',
   'definition.connectionKey', 'definition.driverInputs.values', 'definition.driverInputs.values.source', 'definition.driverInputs.values.provider_bindings', 'driverInputs.values.variables', 'context.applicationId', 'context.environmentId', 'context.resourceId', 'context.class', 'service.publicPort',
-  'accessKeyId', 'secretAccessKey', 'allowedRegions', 'confirmationName', 'selectedResourceIds',
+  'accessKeyId', 'secretAccessKey', 'allowedRegions', 'verificationRegions', 'confirmationName', 'selectedResourceIds',
 ]);
 
 export function knownCode(code: unknown): code is string { return has(errorMessages, code); }
@@ -173,7 +175,7 @@ const fieldLabels: Readonly<Record<string, string>> = Object.freeze({
   'definition.driverInputs.values': 'Ánh xạ đầu vào/đầu ra của module', 'definition.driverInputs.values.source': 'Nguồn module đã kiểm chứng (source/revision/digest)',
   'definition.driverInputs.values.provider_bindings': 'Provider binding của module', 'driverInputs.values.variables': 'Tham số cấu hình',
   'context.applicationId': 'Ứng dụng mẫu', 'context.environmentId': 'Môi trường mẫu', 'context.resourceId': 'ID tài nguyên mẫu', 'context.class': 'Class mẫu',
-  accessKeyId: 'Access key ID', secretAccessKey: 'Secret access key', allowedRegions: 'Vùng được phép',
+  accessKeyId: 'Access key ID', secretAccessKey: 'Secret access key', allowedRegions: 'Vùng được phép', verificationRegions: 'Vùng kiểm tra',
   confirmationName: 'Tên nhập lại', selectedResourceIds: 'Tài nguyên đã chọn',
 });
 

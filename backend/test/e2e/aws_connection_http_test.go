@@ -32,6 +32,8 @@ type awsHTTPVerifier struct {
 	mu    sync.Mutex
 	err   error
 	calls int
+	// other, when set, is the account ID the verifier reports.
+	other string
 }
 
 func (v *awsHTTPVerifier) VerifyAWS(_ context.Context, _ connectionapp.AWSAccessKey, regions []string) (connectionapp.AWSVerification, error) {
@@ -41,8 +43,12 @@ func (v *awsHTTPVerifier) VerifyAWS(_ context.Context, _ connectionapp.AWSAccess
 	if v.err != nil {
 		return connectionapp.AWSVerification{}, v.err
 	}
+	account := "123456789012"
+	if v.other != "" {
+		account = v.other
+	}
 	return connectionapp.AWSVerification{
-		AccountID: "123456789012", PrincipalARN: "arn:aws:iam::123456789012:user/orch",
+		AccountID: account, PrincipalARN: "arn:aws:iam::" + account + ":user/orch",
 		Regions: regions, Capabilities: []string{"Aurora", "EKS", "ElastiCache", "VPC"},
 	}, nil
 }

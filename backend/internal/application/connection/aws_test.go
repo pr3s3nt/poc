@@ -35,6 +35,8 @@ type awsVerifier struct {
 	calls  int
 	keys   []connection.AWSAccessKey
 	asked  [][]string
+	// denyRegion makes any check that includes this region fail.
+	denyRegion string
 }
 
 func okVerification(regions ...string) connection.AWSVerification {
@@ -52,6 +54,11 @@ func (v *awsVerifier) VerifyAWS(_ context.Context, key connection.AWSAccessKey, 
 	v.asked = append(v.asked, append([]string(nil), regions...))
 	if v.err != nil {
 		return connection.AWSVerification{}, v.err
+	}
+	for _, region := range regions {
+		if v.denyRegion != "" && region == v.denyRegion {
+			return connection.AWSVerification{}, connection.ErrRegionUnavailable
+		}
 	}
 	if v.result.AccountID != "" {
 		return v.result, nil

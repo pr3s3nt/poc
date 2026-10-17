@@ -48,7 +48,7 @@ function inspectGuidance(reason: unknown): string {
 
 function registerGuidance(reason: unknown): string {
   // No HTTP status: the request may or may not have reached the backend.
-  if (!(reason instanceof ApiError)) return 'Chưa nhận được phản hồi từ máy chủ nên chưa biết kết nối đã được lưu hay chưa. Hãy tải lại danh sách để kiểm tra trước khi đăng ký lại; Console không tự gửi lại.';
+  if (!(reason instanceof ApiError) || reason.code === 'COMMIT_UNCERTAIN') return 'Chưa nhận được phản hồi từ máy chủ nên chưa biết kết nối đã được lưu hay chưa. Hãy tải lại danh sách để kiểm tra trước khi đăng ký lại; Console không tự gửi lại.';
   switch (reason.status) {
     case 400: return `Máy chủ từ chối dữ liệu đăng ký. ${reason.code && reason.code !== 'INVALID_REQUEST' ? specificGuidance(reason.code, reason.message) ?? '' : 'Kiểm tra tên kết nối, kubeconfig và context rồi thử lại.'}`;
     case 401: return 'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử lại.';
@@ -167,7 +167,7 @@ export function ConnectionsPage() {
     } catch (reason) {
       setError(registerGuidance(reason)); setSaving(false);
       // An unknown outcome is checked by reloading the list, never by resubmitting.
-      if (!(reason instanceof ApiError)) void reload();
+      if (!(reason instanceof ApiError) || reason.code === 'COMMIT_UNCERTAIN') void reload();
       return;
     }
     // Committed: report it, clear every credential and the form, then reload.
@@ -189,7 +189,7 @@ export function ConnectionsPage() {
       </div>
       {kind === 'aws' ? <>
         <div className="section-header"><div><h2>Đăng ký tài khoản AWS</h2><p>Nhập access key dài hạn của một người dùng IAM và các vùng được phép. “Kiểm tra và lưu” xác minh danh tính, từng vùng và quyền cấp phát VPC, EKS, ElastiCache, Aurora bằng các lời gọi chỉ đọc; đăng ký không tạo tài nguyên AWS và không tự chọn kết nối cho môi trường nào.</p></div></div>
-        <AwsConnectionForm onRegistered={reload} />
+        <AwsConnectionForm onRegistered={async () => { await reload(); }} />
       </> : <>
       <div className="section-header"><div><h2>Đăng ký cluster Kubernetes</h2><p>Tải lên hoặc dán kubeconfig có token hoặc client certificate nhúng sẵn. Console tự đọc danh sách context; “Kiểm tra và lưu” mới xác minh quyền truy cập API mà không tạo tài nguyên.</p></div></div>
       <form onSubmit={submit}><fieldset className="form-fieldset connection-form" disabled={saving} aria-busy={busy}>

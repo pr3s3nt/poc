@@ -38,6 +38,7 @@ import (
 
 	"orchestrator/internal/adapters/awsaccess"
 	"orchestrator/internal/adapters/awsaccess/awsfake"
+	"orchestrator/internal/adapters/vault"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/seed"
 )
@@ -62,6 +63,9 @@ func main() {
 	profile := flag.String("profile", "test", "seed profile")
 	runID := flag.String("run-id", "", "run id")
 	callsFile := flag.String("aws-calls-file", "", "file written on shutdown with the fake AWS calls (service and action only)")
+	fakeKube := flag.Bool("fake-kubernetes", false, "verify Kubernetes kubeconfigs with the deterministic FAKE verifier (V01 account scenario)")
+	journalFile := flag.String("credential-journal", "", "append-only file that records every credential object this process writes or deletes (exact run ownership)")
+	kubeCallsFile := flag.String("kube-calls-file", "", "file written on shutdown with the fake Kubernetes verification endpoints")
 	flag.Parse()
 	if *databaseURLFile == "" || *vaultAddress == "" || *vaultTokenFile == "" {
 		log.Print("awsconnserver: -database-url-file, -connection-vault-address and -connection-vault-token-file are required")
@@ -81,6 +85,9 @@ func main() {
 		"AKIAFAKENOSIMULATE01": awsfake.RuleNoSimulate,
 	}
 	fake.Disabled["ap-east-1"] = true
+	// V01 accounts: a second key of the same account (rotation) and a key of
+	// another account (redirection must be refused).
+	fake.KeyAccount = map[string]string{"AKIAFAKEOTHERACCT001": "210987654321"}
 	fakeServer := fake.Start()
 	defer fakeServer.Close()
 	client := &awsaccess.Client{
@@ -92,11 +99,29 @@ func main() {
 	}
 
 	opts.Profile, opts.RunID = *profile, *runID
-	app, err := bootstrap.Build(context.Background(), bootstrap.Options{
+	kubeVerifier := &fakeKubernetes{}
+	buildOptions := bootstrap.Options{
 		Seed: opts, UIDir: *uiDir, Adapters: bootstrap.AdapterFake, DatabaseURL: strings.TrimSpace(string(raw)),
 		ConnectionCredentialStore: "vault", ConnectionVaultAddress: *vaultAddress, ConnectionVaultTokenFile: *vaultTokenFile, ConnectionVaultMount: *vaultMount,
 		AWSVerifierOverride: awsaccess.Verifier{Client: client},
-	})
+	}
+	if *fakeKube {
+		buildOptions.KubeconfigVerifierOverride = kubeVerifier
+	}
+	if *journalFile != "" {
+		token, err := os.ReadFile(*vaultTokenFile)
+		if err != nil {
+			log.Print("awsconnserver: read Vault token file")
+			os.Exit(1)
+		}
+		inner, err := vault.NewConnectionCredentials(*vaultAddress, strings.TrimSpace(string(token)), *vaultMount, nil)
+		if err != nil {
+			log.Print("awsconnserver: Vault credential store")
+			os.Exit(1)
+		}
+		buildOptions.ConnectionCredentialStore, buildOptions.ConnectionCredentialsOverride = "", &journaledCredentials{inner: inner, path: *journalFile}
+	}
+	app, err := bootstrap.Build(context.Background(), buildOptions)
 	if err != nil {
 		log.Printf("awsconnserver: startup failed: %v", err)
 		os.Exit(1)
@@ -125,6 +150,10 @@ func main() {
 	if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Printf("awsconnserver: %v", err)
 		os.Exit(1)
+	}
+	if *kubeCallsFile != "" {
+		encoded, _ := json.MarshalIndent(map[string]any{"fake": true, "calls": kubeVerifier.recorded()}, "", "  ")
+		_ = os.WriteFile(*kubeCallsFile, encoded, 0o600)
 	}
 	if *callsFile != "" {
 		calls := []string{}

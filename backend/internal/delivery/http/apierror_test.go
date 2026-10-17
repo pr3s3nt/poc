@@ -281,3 +281,16 @@ func TestParamErrorNamesOnlyAValidatedRegisteredType(t *testing.T) {
 		t.Fatalf("canary logged: %s", logs.String())
 	}
 }
+
+func TestUncertainAccountOutcomeIsAStableRetryAfterReloadCode(t *testing.T) {
+	f, ok := classify(fmt.Errorf("replace: %w", connectionapp.ErrOutcomeUncertain))
+	if !ok || f.code != codeCommitUncertain {
+		t.Fatalf("classified %+v %v", f, ok)
+	}
+	rec := httptest.NewRecorder()
+	writeFailure(rec, f)
+	body := rec.Body.String()
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(body, `"code":"COMMIT_UNCERTAIN"`) || strings.Contains(body, "connection:") {
+		t.Fatalf("%d %s", rec.Code, body)
+	}
+}

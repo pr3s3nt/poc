@@ -13,17 +13,20 @@ export function useCatalogList<T>(load: () => Promise<T[]>, describeError: (reas
   const describer = useRef(describeError);
   describer.current = describeError;
 
-  const reload = useCallback(async () => {
+  // Resolves true only when this very request loaded the list successfully.
+  const reload = useCallback(async (): Promise<boolean> => {
     const request = ++latest.current;
     setLoading(true); setLoadError('');
+    let loaded = false;
     try {
       const next = await loader.current();
-      if (request === latest.current) setItems(next);
+      if (request === latest.current) { setItems(next); loaded = true; }
     } catch (reason) {
       if (request === latest.current) setLoadError(describer.current(reason));
     } finally {
       if (request === latest.current) setLoading(false);
     }
+    return loaded;
   }, []);
 
   useEffect(() => { if (enabled) void reload(); }, [reload, enabled]);

@@ -124,6 +124,10 @@ type Connection struct {
 	SecretRef          string             `json:"secretRef"`
 	Status             ConnectionStatus   `json:"status"`
 	Verification       map[string]any     `json:"verification"`
+	// Version is the optimistic-concurrency guard of V01 account updates. A
+	// newly created or seeded Connection starts at 1; stored state without it
+	// is incompatible and is never defaulted when reopened.
+	Version int64 `json:"version"`
 }
 
 // ErrInvalidConnection reports a Connection whose explicit metadata is missing
@@ -136,6 +140,22 @@ var ErrInvalidConnection = errors.New("application: connection needs a name and 
 func (c Connection) Validate() error {
 	if c.Name == "" || !c.AuthenticationType.Compatible(c.Kind) {
 		return ErrInvalidConnection
+	}
+	return nil
+}
+
+// ErrInvalidConnectionVersion reports stored Connection state without a
+// positive version (a pre-V01 baseline).
+var ErrInvalidConnectionVersion = errors.New("application: connection version must be at least 1")
+
+// ValidateStored is Validate plus the V01 version guard. It is used when
+// persisted state is reopened: nothing is defaulted.
+func (c Connection) ValidateStored() error {
+	if err := c.Validate(); err != nil {
+		return err
+	}
+	if c.Version < 1 {
+		return ErrInvalidConnectionVersion
 	}
 	return nil
 }

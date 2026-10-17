@@ -3,8 +3,10 @@ package persistencetest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"orchestrator/internal/domain/application"
@@ -18,6 +20,8 @@ type RegistrationFixture struct {
 	Type         resource.Type
 	Definition   resource.Definition
 	Connection   application.Connection
+	// Versioned is the V01 account after one compare-and-set update.
+	Versioned application.Connection
 }
 
 // Registration checks the insert-only registration contract (UC-02/03/04):
@@ -125,7 +129,8 @@ func Registration(t *testing.T, st persistence.Store) RegistrationFixture {
 		t.Fatalf("connection explicit metadata: name %q, authentication %q", stored.Name, stored.AuthenticationType)
 	}
 	connectionAuthentication(t, st)
-	return RegistrationFixture{Organization: "reg-acme", Type: typ, Definition: def, Connection: conn}
+	versioned := connectionVersioning(t, st)
+	return RegistrationFixture{Organization: "reg-acme", Type: typ, Definition: def, Connection: conn, Versioned: versioned}
 }
 
 // connectionAuthentication checks the UC-04 name/authentication type columns:
@@ -165,6 +170,11 @@ func AssertRegistration(t *testing.T, st persistence.Store, f RegistrationFixtur
 	assertType(t, st, f.Organization, f.Type)
 	assertDefinition(t, st, f.Organization, f.Definition)
 	assertConnection(t, st, f.Connection)
+	got, err := st.GetConnection(context.Background(), f.Organization, f.Versioned.Key)
+	if err != nil || got.Version != f.Versioned.Version || got.Name != f.Versioned.Name || got.SecretRef != f.Versioned.SecretRef ||
+		got.Status != f.Versioned.Status || !reflect.DeepEqual(got.Config["endpoint"], f.Versioned.Config["endpoint"]) {
+		t.Fatalf("versioned connection after reopen = %+v, %v; want %+v", got, err, f.Versioned)
+	}
 }
 
 func assertType(t *testing.T, st persistence.Store, org string, want resource.Type) {
@@ -233,4 +243,85 @@ func assertConnection(t *testing.T, st persistence.Store, want application.Conne
 		!reflect.DeepEqual(got.Config, want.Config) || got.Status != want.Status || !reflect.DeepEqual(got.Verification, want.Verification) {
 		t.Fatalf("connection = %+v, want %+v", got, want)
 	}
+}
+
+// connectionVersioning checks the V01 account compare-and-set: new records
+// start at version 1, an update with the current version replaces name/config/
+// reference/status/verification and increments the version once, a stale
+// version leaves the winner untouched, a foreign or missing key is not found,
+// and concurrent writers of one version have exactly one winner.
+func connectionVersioning(t *testing.T, st persistence.Store) application.Connection {
+	t.Helper()
+	ctx := context.Background()
+	base := application.Connection{Key: "reg-versioned", Name: "Versioned", OrganizationKey: "reg-acme", Kind: application.ConnectionKubernetes,
+		AuthenticationType: application.AuthKubeconfig, Status: application.ConnectionReady,
+		Config:    map[string]any{"cluster": "v", "kubeContext": "v-ctx", "endpoint": "https://v.example"},
+		SecretRef: "kv2://kv/orchestrator/connections/reg-acme/reg-versioned/credentials/00000000-0000-4000-8000-0000000000a1", Verification: map[string]any{"verified": true}}
+	if err := st.CreateConnection(ctx, base); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.GetConnection(ctx, "reg-acme", base.Key)
+	if err != nil || got.Version != 1 {
+		t.Fatalf("new connection version = %d, %v", got.Version, err)
+	}
+	next := got
+	next.Name, next.Status = "Renamed", application.ConnectionReady
+	next.SecretRef = "kv2://kv/orchestrator/connections/reg-acme/reg-versioned/credentials/00000000-0000-4000-8000-0000000000a2"
+	next.Verification = map[string]any{"verified": true, "verifiedAt": "2026-10-17T00:00:00Z"}
+	next.Kind, next.AuthenticationType, next.Key = application.ConnectionAWS, application.AuthAWSAccessKey, "other-key"
+	updated, err := st.UpdateConnection(ctx, "reg-acme", base.Key, 1, next)
+	if err == nil && (updated.Kind != application.ConnectionKubernetes || updated.Key != base.Key) {
+		t.Fatalf("identity changed: %+v", updated)
+	}
+	if err != nil {
+		// Adapters may also reject a record whose kind and authentication disagree.
+		next.Kind, next.AuthenticationType, next.Key = base.Kind, base.AuthenticationType, base.Key
+		if updated, err = st.UpdateConnection(ctx, "reg-acme", base.Key, 1, next); err != nil {
+			t.Fatalf("update: %v", err)
+		}
+	}
+	if updated.Version != 2 || updated.Name != "Renamed" || updated.SecretRef != next.SecretRef || updated.ID != got.ID {
+		t.Fatalf("updated = %+v", updated)
+	}
+	if _, err := st.UpdateConnection(ctx, "reg-acme", base.Key, 1, next); !errors.Is(err, persistence.ErrVersionConflict) {
+		t.Fatalf("stale update: %v", err)
+	}
+	if _, err := st.UpdateConnection(ctx, "reg-globex", base.Key, 2, next); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("foreign organization update: %v", err)
+	}
+	if _, err := st.UpdateConnection(ctx, "reg-acme", "reg-nothing", 1, next); !errors.Is(err, persistence.ErrNotFound) {
+		t.Fatalf("missing update: %v", err)
+	}
+	const racers = 8
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	wins, stale := 0, 0
+	for i := 0; i < racers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			candidate := updated
+			candidate.Name = fmt.Sprintf("Racer %d", i)
+			_, err := st.UpdateConnection(ctx, "reg-acme", base.Key, 2, candidate)
+			mu.Lock()
+			defer mu.Unlock()
+			switch {
+			case err == nil:
+				wins++
+			case errors.Is(err, persistence.ErrVersionConflict):
+				stale++
+			default:
+				t.Errorf("racer %d: %v", i, err)
+			}
+		}(i)
+	}
+	wg.Wait()
+	if wins != 1 || stale != racers-1 {
+		t.Fatalf("racers: %d wins, %d stale", wins, stale)
+	}
+	final, err := st.GetConnection(ctx, "reg-acme", base.Key)
+	if err != nil || final.Version != 3 {
+		t.Fatalf("final = %+v, %v", final, err)
+	}
+	return final
 }

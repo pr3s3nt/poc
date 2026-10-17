@@ -237,6 +237,8 @@ Connection cũ giữ nguyên cho consumers đến V02–V03, không coi là mô 
   Không prefill credential. Cùng account phải giữ AWS account ID hoặc cùng
   Internal target/context/endpoint/trust; khác đích yêu cầu đăng ký tài khoản mới.
   CAS mới công bố ref/verification/version; thất bại giữ nguyên bản đang dùng.
+  AWS key mới phải xác minh mọi vùng legacy còn được phép sử dụng trước khi
+  công bố; không đổi ngầm vùng của môi trường đang liên kết.
 - **AC-08:** “Kiểm tra kết nối” dùng credential lưu riêng và network chỉ đọc;
   không tạo workload/VPC/EKS/database/cache. Kiểm tra quyền/API/AWS theo các
   bảo đảm hiện có; sai loại, thiếu quyền, hết hạn, đích unreachable báo lỗi an toàn.
@@ -245,11 +247,15 @@ Connection cũ giữ nguyên cho consumers đến V02–V03, không coi là mô 
 - **AC-09:** Mọi cập nhật dùng CAS. Request bị hủy hoặc race không thể overwrite
   winner. Cleanup chỉ xóa object của attempt thất bại; credential cũ đã commit
   được giữ để không phá persisted targets. Lỗi cleanup phải có dấu vận hành an
-  toàn và không được xem là success. Không có API đọc/xóa credential công khai.
+  toàn và không được xem là success. Commit chưa rõ kết quả phải giữ object
+  có thể đã commit, báo cần GET để xác định kết quả; không tự retry mutation.
+  Không có API đọc/xóa credential công khai.
 - **AC-10:** UI “Tài khoản hạ tầng” có tạo/xem/sửa tên, thay credential tường minh,
   kiểm tra kết nối và tải lại; phân biệt loại hạ tầng với auth, vùng kiểm tra với
   deployment region. Loading/empty/error/stale/saving/success và reload lỗi tách
-  rõ; đổi draft vô hiệu response cũ, không tự submit/replay mutation.
+  rõ; đổi draft vô hiệu response cũ, không tự submit/replay mutation. Khi tạo
+  hoặc sửa chưa rõ kết quả, chặn gửi lại đến khi GET thành công và người dùng
+  đã xem kết quả; GET lỗi tiếp tục chặn và cho tải lại.
 - **AC-11:** Dữ liệu và scoped credential còn đúng sau khởi động lại; dùng Vault
   durable với SQL thật khi kiểm chứng persistence. Không ghi secret vào state,
   DTO, logs, errors, graph, video hoặc Git. Memory chỉ hỗ trợ fake/no-persistent

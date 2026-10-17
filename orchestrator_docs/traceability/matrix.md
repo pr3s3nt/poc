@@ -869,3 +869,13 @@ lịch sử trước closure; D12–D14/M02/TLSissue#2 vẫn hoãn, không bị 
 | UC-04 AC-01..05 | ADR-015; account API; schema/ERD; auth/credential boundaries | Pending writer; no V01 runtime claim |
 | UC-04 AC-06..09 | Versioned rename/reverify/same-target replacement; OC-05a; UC-04 sequence/VOPC/state machine | Pending CAS/race/cleanup/redaction checks |
 | UC-04 AC-10..12 | Account UI states; staged consumer boundary; no V02–V03 old-data migration | [V01 handoff](../verification/2026-10-17-v01-handoff.md); browser/restart pending |
+
+
+## V01 infrastructure account catalog — ADR-015
+
+| Requirement | Implementation | Verification |
+|---|---|---|
+| UC-04 AC-01..05: Organization catalog, type/auth distinction, safe descriptor and permissions | `connection/accounts.go`, `http/driver_accounts.go`, shared Connection version and scoped credentials | `driver_accounts_http_test.go`: org/PE/Admin/Developer gates, strict payloads and public DTO; existing resolver scope guards |
+| UC-04 AC-06..09: CAS, read-only checks, same-target replacement, retained prior objects and conservative commit recovery | `accounts.go`, PostgreSQL `registration.go`/`store.go`, memory/JSON CAS | `accounts_test.go`: identity/trust mismatch, CAS loss, legacy-region denial, committed-but-unacknowledged create/replace, known rollback cleanup; `commit_error_test.go`; shared persistence contract |
+| UC-04 AC-10: create/detail/edit/verify UI, stale and unknown outcome recovery | `features/platform/accounts/` | `DriverAccountsPage.test.tsx`; `v01-accounts-local.mjs` human-paced headed flow, Vietnamese captions, hard secret-reply assertions |
+| UC-04 AC-11..12: SQL/Vault persistence and restart; preserve legacy consumers through V01 | PostgreSQL baseline/version compatibility, scoped Vault, legacy Connection resolver | shared SQL/JSON reopen tests, HTTP legacy-preservation tests, `v01-accounts-local.sh`; [dated checks and evidence](../verification/2026-10-17-v01-handoff.md) distinguish real SQL/Vault from simulated external providers |

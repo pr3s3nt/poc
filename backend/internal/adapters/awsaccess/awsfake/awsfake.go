@@ -44,6 +44,9 @@ type Server struct {
 	DenyRead map[string]string
 	// RegionAccount maps a region to the account its regional STS reports.
 	RegionAccount map[string]string
+	// KeyAccount maps an access key ID to the account its STS identity reports
+	// (the principal ARN follows the account); other keys report Account.
+	KeyAccount map[string]string
 	// Simulate overrides the IAM simulation answer for one requested region.
 	Simulate func(region string, actions []string) (status int, body string)
 	// DenyRegionCapabilities makes simulation for these regions (the
@@ -171,7 +174,11 @@ func (s *Server) Handler() http.Handler {
 			if other, ok := s.RegionAccount[region]; ok {
 				account = other
 			}
-			_, _ = w.Write([]byte(`{"GetCallerIdentityResponse":{"GetCallerIdentityResult":{"Account":"` + account + `","Arn":"` + s.ARN + `","UserId":"U"}}}`))
+			arn := s.ARN
+			if other, ok := s.KeyAccount[keyID]; ok {
+				account, arn = other, "arn:aws:iam::"+other+":user/orchestrator"
+			}
+			_, _ = w.Write([]byte(`{"GetCallerIdentityResponse":{"GetCallerIdentityResult":{"Account":"` + account + `","Arn":"` + arn + `","UserId":"U"}}}`))
 		case "ec2":
 			_, _ = w.Write([]byte(`<DescribeVpcsResponse><vpcSet/></DescribeVpcsResponse>`))
 		case "eks":
@@ -190,7 +197,11 @@ func (s *Server) Handler() http.Handler {
 				actions = append(actions, a)
 			}
 			requested := form.Get("ContextEntries.member.1.ContextKeyValues.member.1")
-			if form.Get("PolicySourceArn") != s.ARN || form.Get("ResourceArns.member.1") != "*" ||
+			principal := s.ARN
+			if other, ok := s.KeyAccount[keyID]; ok {
+				principal = "arn:aws:iam::" + other + ":user/orchestrator"
+			}
+			if form.Get("PolicySourceArn") != principal || form.Get("ResourceArns.member.1") != "*" ||
 				form.Get("ContextEntries.member.1.ContextKeyName") != "aws:RequestedRegion" || requested == "" {
 				w.WriteHeader(http.StatusBadRequest)
 				return

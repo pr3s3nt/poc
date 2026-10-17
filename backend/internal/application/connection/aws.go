@@ -132,14 +132,14 @@ func (e *FieldError) Unwrap() error { return ErrInvalid }
 // credential store) AWS registration fails closed.
 func (s *Service) SetAWSRegistration(verifier AWSVerifier) { s.aws = verifier }
 
-func validAWSRegions(raw []string) ([]string, error) {
+func validAWSRegions(raw []string, field string) ([]string, error) {
 	if len(raw) == 0 || len(raw) > MaxAllowedRegions {
-		return nil, &FieldError{Field: "allowedRegions"}
+		return nil, &FieldError{Field: field}
 	}
 	seen := map[string]bool{}
 	for _, region := range raw {
 		if !awsRegionPattern.MatchString(region) || len(region) > 30 || seen[region] {
-			return nil, &FieldError{Field: "allowedRegions"}
+			return nil, &FieldError{Field: field}
 		}
 		seen[region] = true
 	}
@@ -152,6 +152,17 @@ func validAWSRegions(raw []string) ([]string, error) {
 // insert (including a concurrent winner of the same key) deletes only this
 // attempt's credential object.
 func (s *Service) RegisterAWS(ctx context.Context, org string, cmd RegisterAWSCommand) (application.Connection, error) {
+	return s.registerAWS(ctx, org, cmd, "allowedRegions")
+}
+
+// RegisterAWSDriverAccount is the V01 account creation. The regions are
+// verification evidence (field verificationRegions); the backing record keeps
+// the legacy allowed-region metadata for the staged legacy consumers only.
+func (s *Service) RegisterAWSDriverAccount(ctx context.Context, org string, cmd RegisterAWSCommand) (application.Connection, error) {
+	return s.registerAWS(ctx, org, cmd, "verificationRegions")
+}
+
+func (s *Service) registerAWS(ctx context.Context, org string, cmd RegisterAWSCommand, regionField string) (application.Connection, error) {
 	name, err := validName(cmd.Name)
 	if err != nil {
 		return application.Connection{}, &FieldError{Field: "name"}
@@ -162,7 +173,7 @@ func (s *Service) RegisterAWS(ctx context.Context, org string, cmd RegisterAWSCo
 	if !awsSecretKeyPattern.MatchString(cmd.SecretAccessKey) {
 		return application.Connection{}, &FieldError{Field: "secretAccessKey"}
 	}
-	regions, err := validAWSRegions(cmd.AllowedRegions)
+	regions, err := validAWSRegions(cmd.AllowedRegions, regionField)
 	if err != nil {
 		return application.Connection{}, err
 	}
@@ -197,14 +208,14 @@ func (s *Service) RegisterAWS(ctx context.Context, org string, cmd RegisterAWSCo
 			// read; allowedRegions is the full verified list.
 			Config: map[string]any{
 				"accountId": verified.AccountID, "region": regions[0], "allowedRegions": regions,
-				"principalArn": verified.PrincipalARN,
+				"principalArn": verified.PrincipalARN, "verificationRegions": regions,
 			},
-			SecretRef: ref, Status: application.ConnectionReady,
+			SecretRef: ref, Status: application.ConnectionReady, Version: 1,
 			Verification: map[string]any{
 				"verified": true, "accountId": verified.AccountID, "principalArn": verified.PrincipalARN,
 				"region": regions[0], "regions": verified.Regions,
 				"identity": "VERIFIED", "regionCheck": "VERIFIED", "capabilityCheck": "VERIFIED",
-				"capabilities": verified.Capabilities,
+				"capabilities": verified.Capabilities, "verifiedAt": s.timestamp(),
 			},
 		}
 	})

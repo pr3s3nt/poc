@@ -518,8 +518,37 @@ func (s *Store) SaveConnection(ctx context.Context, conn application.Connection)
 	if err := conn.Validate(); err != nil {
 		return err
 	}
+	// Seed/test upsert: a new record starts at version 1 and an existing one
+	// keeps its version unless the caller supplies a higher one.
+	if existing, ok := s.state.Connections[catalogKey(conn.OrganizationKey, conn.Key)]; ok && conn.Version < existing.Version {
+		conn.Version = existing.Version
+	}
+	if conn.Version < 1 {
+		conn.Version = 1
+	}
 	s.state.Connections[catalogKey(conn.OrganizationKey, conn.Key)] = conn
 	return nil
+}
+
+// UpdateConnection is the V01 account compare-and-set.
+func (s *Store) UpdateConnection(ctx context.Context, organizationKey, key string, expectedVersion int64, next application.Connection) (application.Connection, error) {
+	defer s.lock(ctx)()
+	catalog := catalogKey(organizationKey, key)
+	current, ok := s.state.Connections[catalog]
+	if !ok {
+		return application.Connection{}, fmt.Errorf("%w: connection %q", persistence.ErrNotFound, key)
+	}
+	if current.Version != expectedVersion {
+		return application.Connection{}, fmt.Errorf("%w: connection %q", persistence.ErrVersionConflict, key)
+	}
+	current.Name, current.Config, current.SecretRef = next.Name, next.Config, next.SecretRef
+	current.Status, current.Verification = next.Status, next.Verification
+	if err := current.Validate(); err != nil {
+		return application.Connection{}, err
+	}
+	current.Version++
+	s.state.Connections[catalog] = current
+	return current, nil
 }
 
 // CreateConnection inserts a Connection; an existing key is ErrDuplicate.
@@ -540,6 +569,9 @@ func (s *Store) CreateConnection(ctx context.Context, conn application.Connectio
 	}
 	if conn.ID == "" {
 		conn.ID = ids.New()
+	}
+	if conn.Version < 1 {
+		conn.Version = 1
 	}
 	s.state.Connections[key] = conn
 	return nil
