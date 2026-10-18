@@ -336,20 +336,29 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	}
 	record = planned
 
+	if after != nil {
+		if err := s.checkAppliedPlacement(ctx, planCtx, plan, workloadID); err != nil {
+			return nil, s.fail(ctx, record, err)
+		}
+	}
 	// Secret delivery must be usable before any infrastructure is touched.
 	if err := s.preflightSecretDelivery(ctx, cmd, env, plan, workloadID, after != nil); err != nil {
 		return nil, s.fail(ctx, record, err)
 	}
 
 	// MS-09: UC-08 provisions resource-only batches.
-	provisionResult, err := s.provisioning.Provision(ctx, provisioning.Request{
+	// UC-06 owns the combined lifecycle order: resources that depend on a workload
+	// (plan.AfterWorkloads) run after that workload is applied and Ready.
+	provisionRequest := provisioning.Request{
 		DeploymentID: record.ID,
 		RunID:        cmd.RunID,
 		Context:      planCtx,
 		Plan:         plan,
 		Types:        types,
 		Definitions:  definitions,
-	})
+		Select:       func(descriptor string) bool { _, post := plan.AfterWorkloads[descriptor]; return !post },
+	}
+	provisionResult, err := s.provisioning.Provision(ctx, provisionRequest)
 	if err != nil {
 		return nil, s.fail(ctx, record, err)
 	}
@@ -372,6 +381,9 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 
 	if after != nil {
 		if err := s.applyWorkload(ctx, &record, planCtx, plan, provisionResult, types, workloadID, cmd.ConfigRevisionID); err != nil {
+			return nil, s.fail(ctx, record, err)
+		}
+		if err := s.provisionPostWorkload(ctx, provisionRequest, provisionResult, workloadID, env); err != nil {
 			return nil, s.fail(ctx, record, err)
 		}
 	} else {
@@ -519,19 +531,33 @@ func (s *Service) applyWorkload(
 	workloadID string,
 	configRevisionID string,
 ) error {
-	wd, err := planning.WorkloadDescriptor(workloadID)
-	if err != nil {
-		return err
+	var node planning.Node
+	found := false
+	for _, candidate := range plan.Graph.Nodes {
+		if candidate.Kind == planning.NodeWorkload && candidate.WorkloadID == workloadID {
+			node, found = candidate, true
+			break
+		}
 	}
-	node, ok := plan.Graph.Node(wd.String())
-	if !ok {
+	if !found {
 		return fmt.Errorf("deployment: workload %q is not in the plan graph", workloadID)
 	}
+	wd := node.Descriptor
 	module, ok := plan.CandidateSet.Modules[workloadID]
 	if !ok {
 		return fmt.Errorf("deployment: workload %q is not in the candidate deployment set", workloadID)
 	}
-	target := provisioning.ResolveTarget(plan.Graph, provisionResult, wd.String())
+	var target execution.Target
+	var err error
+	if planCtx.DefinitionPlaced() {
+		// ADR-016: the workload's own typed references decide the target.
+		target, err = provisioning.ResolveWorkloadTarget(plan, provisionResult, wd, planCtx.OrganizationKey)
+		if err != nil {
+			return err
+		}
+	} else {
+		target = provisioning.ResolveTarget(plan.Graph, provisionResult, wd)
+	}
 	target.Extra = map[string]string{"application": planCtx.App.Key, "environment": planCtx.Env.Key, "deployment": record.ID}
 	if target.Namespace == "" {
 		return fmt.Errorf("deployment: workload %q has no resolved namespace", workloadID)
@@ -683,7 +709,7 @@ func (s *Service) applyWorkload(
 		LastDeploymentID:        record.ID,
 		AppliedConfigRevisionID: configRevisionID,
 		Generation:              planCtx.Env.TargetGeneration,
-		TargetRef:               withWorkloadOwner(withDelivery(targetRef(target), secretDelivery), record.ID),
+		TargetRef:               withWorkloadOwner(withDelivery(withPlacement(targetRef(target), plan.Placements[wd]), secretDelivery), record.ID),
 		ManifestDigest:          digest,
 		Status:                  domain.InstanceApplying,
 		ObservedAt:              s.clock.Now(),
@@ -782,6 +808,9 @@ func (s *Service) GenerationTarget(ctx context.Context, app appdomain.Applicatio
 			return candidate, nil
 		}
 	}
+	if !env.Configured() {
+		return execution.Target{}, fmt.Errorf("deployment: the environment has no applied workload target")
+	}
 	conn, err := s.store.GetConnection(ctx, app.OrganizationKey, env.ConnectionKey)
 	if err != nil {
 		return execution.Target{}, err
@@ -839,6 +868,64 @@ func (s *Service) routesFor(ctx context.Context, app appdomain.Application, env 
 		}
 	}
 	return s.publicRoutes.Reconcile(ctx, target, route)
+}
+
+// withPlacement pins the nonsecret placement of an applied workload (cluster
+// and namespace resources, Definition and account identity) beside its target,
+// so Update, Remove and restart reach the original target (ADR-016).
+func withPlacement(ref map[string]any, placement planning.Placement) map[string]any {
+	if placement.Node == "" {
+		return ref
+	}
+	ref["placement"] = map[string]any{
+		"cluster": placement.Cluster, "clusterDefinition": placement.ClusterDefinition,
+		"clusterDefinitionVersion": float64(placement.ClusterDefinitionVersion),
+		"account":                  placement.Account, "accountVersion": float64(placement.AccountVersion),
+		"namespace": placement.Namespace,
+	}
+	return ref
+}
+
+// ErrTargetChanged reports a catalog edit that would move an applied
+// workload to another cluster, account or namespace resource: replacement is
+// never implicit (UC-05 V2-04).
+// ErrDependencyNotReady: a post-workload resource needs another workload that is not applied yet.
+var ErrDependencyNotReady = errors.New("deployment: a required workload dependency is not ready")
+
+var ErrTargetChanged = errors.New("deployment: the workload target changed; it cannot be moved by an update")
+
+// checkAppliedPlacement refuses to retarget an applied workload before any
+// provisioning side effect.
+func (s *Service) checkAppliedPlacement(ctx context.Context, planCtx planning.Context, plan *planning.Plan, workloadID string) error {
+	if !planCtx.DefinitionPlaced() {
+		return nil
+	}
+	instances, err := s.store.ListWorkloadInstancesFor(ctx, planCtx.App.Key+"/"+planCtx.Env.Key, planCtx.Env.TargetGeneration)
+	if err != nil {
+		return err
+	}
+	var want planning.Placement
+	for _, p := range plan.Placements {
+		if p.Namespace != "" {
+			if node, ok := plan.Graph.Node(p.Node); ok && node.WorkloadID == workloadID {
+				want = p
+			}
+		}
+	}
+	for _, instance := range instances {
+		if instance.WorkloadID != workloadID || instance.Status == domain.InstanceRemoved {
+			continue
+		}
+		applied, _ := instance.TargetRef["placement"].(map[string]any)
+		if applied == nil {
+			continue
+		}
+		text := func(key string) string { v, _ := applied[key].(string); return v }
+		if text("cluster") != want.Cluster || text("account") != want.Account || text("namespace") != want.Namespace {
+			return ErrTargetChanged
+		}
+	}
+	return nil
 }
 
 // withDelivery pins the nonsecret secret-delivery metadata of the store that
@@ -908,6 +995,14 @@ func (s *Service) preflightSecretDelivery(ctx context.Context, cmd DeployCommand
 func restoreEnvironmentTarget(target *execution.Target, ref map[string]any, organizationKey string, env environment.Environment) error {
 	if err := restoreTarget(target, ref, organizationKey); err != nil {
 		return err
+	}
+	if !env.Configured() {
+		// Definition-placed (ADR-016): the persisted workload target is the
+		// only source; it must name a scoped account, never a host default.
+		if target.Connection == "" {
+			return fmt.Errorf("deployment: workload target has no scoped account")
+		}
+		return nil
 	}
 	if target.Connection != "" && target.Connection != env.ConnectionKey {
 		return fmt.Errorf("deployment: workload target uses a connection other than the environment connection")
@@ -1081,4 +1176,71 @@ func (r bindingResolver) ResolveContext(path string) (any, error) {
 		return fmt.Sprintf("http://%s.%s.svc.cluster.local:%d", parts[1], r.namespace, port.Port), nil
 	}
 	return r.ctx.ResolveContext(path)
+}
+
+// provisionPostWorkload executes the resource-only subset that depends on the
+// workload just applied (UC-06 BR-08). A resource that also depends on another
+// workload waits until every one of its workloads has an applied instance.
+func (s *Service) provisionPostWorkload(ctx context.Context, req provisioning.Request, result *provisioning.Result, workloadID string, env environment.Environment) error {
+	plan := req.Plan
+	if len(plan.AfterWorkloads) == 0 {
+		return nil
+	}
+	workloadOf := map[string]string{}
+	var self string
+	for _, node := range plan.Graph.Nodes {
+		if node.Kind != planning.NodeWorkload {
+			continue
+		}
+		workloadOf[node.Descriptor] = node.WorkloadID
+		if node.WorkloadID == workloadID {
+			self = node.Descriptor
+		}
+	}
+	// Only instances of THIS generation whose pinned cluster and account equal the plan's placement of
+	// that workload unlock a post resource (never an old generation or another target).
+	instances, err := s.store.ListWorkloadInstancesFor(ctx, env.ApplicationKey+"/"+env.Key, env.TargetGeneration)
+	if err != nil {
+		return err
+	}
+	suitable := func(descriptor string) bool {
+		want, ok := plan.Placements[descriptor]
+		if !ok {
+			return false
+		}
+		for _, instance := range instances {
+			if instance.WorkloadID != workloadOf[descriptor] || instance.Status != domain.InstanceReady || instance.Generation != env.TargetGeneration {
+				continue
+			}
+			placement, _ := instance.TargetRef["placement"].(map[string]any)
+			if placement["cluster"] == want.Cluster && placement["account"] == want.Account {
+				return true
+			}
+		}
+		return false
+	}
+	ready := map[string]bool{}
+	for descriptor, workloads := range plan.AfterWorkloads {
+		follows := false
+		for _, w := range workloads {
+			follows = follows || w == self
+		}
+		if !follows {
+			continue // it runs in the deployment of the workload it follows
+		}
+		for _, w := range workloads {
+			if w != self && !suitable(w) {
+				// A required post action must never be dropped while the Deployment commits SUCCEEDED.
+				return fmt.Errorf("%w: a resource that follows this workload also needs workload %q, which has no ready instance on the planned target in the current generation", ErrDependencyNotReady, workloadOf[w])
+			}
+		}
+		ready[descriptor] = true
+	}
+	if len(ready) == 0 {
+		return nil
+	}
+	req.Prior = result
+	req.Select = func(descriptor string) bool { return ready[descriptor] }
+	_, err = s.provisioning.Provision(ctx, req)
+	return err
 }

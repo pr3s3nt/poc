@@ -33,9 +33,8 @@ const maxExpansionRounds = 32
 // expand matches Definitions and expands Resource References and
 // co-provisioned resources until the graph reaches a fixed point
 // (UC-06 MS-07, BR-08).
-func (b *graphBuilder) expand(matcher *definitionMatcher, matches map[string]Match) ([]pendingRef, error) {
+func (b *graphBuilder) expand(matcher *definitionMatcher, matches map[string]Match, dependents []dependentRule) ([]pendingRef, error) {
 	var refs []pendingRef
-	var dependents []dependentRule
 
 	for round := 0; round < maxExpansionRounds; round++ {
 		progress := false

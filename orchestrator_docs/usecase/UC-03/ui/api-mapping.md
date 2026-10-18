@@ -143,3 +143,8 @@ filter compatible kind/READY for UX and independently validate server-side.
 AWS provider `{target: account}` with region in Driver Inputs; Kubernetes
 resource reference keeps inherited target. Do not add account criteria or infer
 from Environment. Matching endpoint remains read-only and authoritative.
+
+
+## V03 UI/API replacement
+
+[ADR-016](../../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) defines current internal placement. Remove deployment Connection selection after replacement pass; keep Secret Store/configuration/version/error/operation state. Definition authoring supports existing-cluster account choice and workload namespace/cluster references, Type params and provision flags; consumers inherit account. Score import/edit/export preserves metadata.class. Preview shows each workload/resource Definition/account/cluster/namespace and provider-first graph/batches without secrets, and blocks missing/ambiguous/mismatched/unready inputs as appropriate. No Environment target is required. Retired deployment-Connection writes fail explicitly; safe matching and stale-token gates remain. UI multi-cluster V03 unsupported error occurs before execution. Progress/readiness/errors/update/remove use per-workload targets; failure never shown as success.

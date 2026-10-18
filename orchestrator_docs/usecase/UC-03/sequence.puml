@@ -50,7 +50,8 @@ note right of Validator
 Missing or [] criteria is rejected.
 Explicit {} is wildcard score 0.
 end note
-Service -> Service: Reject public existing-cluster and reserved keys [BR-08, BR-17]
+Service -> Service: Validate supported existing-cluster/Internal account and workload refs [V03]
+Service -> Service: Reject reserved keys and raw credentials; strict Type/driver contract
 Service -> TypeRepo: ListResourceTypes(orgID) [MS-04]
 TypeRepo --> Service: ResourceType
 Service -> Service: Validate scoped READY driverAccount and Driver Inputs region [V02-03]

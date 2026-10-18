@@ -107,15 +107,15 @@ Retired scopes fail closed; current generation-0 identity is preserved under [AD
 Target changes use ADR-012 versioned admission/transition; runtime READY update is Environment-only.
 UI/query use selected Environment or deployment-pinned target, no Application target.
 
-## Implicit internal cluster collaboration
+## Matched internal cluster collaboration
 
-[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
-changes only internal cluster binding: the enricher supplies the provider node,
-trusted system binding bypasses criteria matching, and UC-08 resolves the selected
-Environment Connection through existing-cluster. Preview is pure; execution
-admits the reserved system Definition before persistence writes. Other resource
-Definitions, executor scheduling and output propagation remain unchanged.
-
+ADR-016 replaces the system provider. The workload Definition contributes
+namespace/cluster references and provision rules before fixed-point expansion.
+The same matcher selects existing-cluster and pins its own account. Target
+resolution validates each consumer against that cluster and namespace; no
+reserved Definition admission or global target inference. UC-08 resolves the
+preexisting cluster before namespace/resources; UC-06 uses its own selected
+workload target and applied identity across restart/update/remove.
 
 ## State, retry và cleanup
 
@@ -131,3 +131,8 @@ khóa state, destroy consumers trước providers và kiểm absence. UI eligibi
 confirmation do UC-07 sở hữu; engine không mở rộng scope hoặc xóa platform.
 [Cleanup sequence](sequence-cleanup.puml), [state contract](../../architecture/contracts/terraform-state.md)
 và OC-18/19 sở hữu protocol; D12–D14 là backlog riêng.
+
+
+## V03 collaboration replacement
+
+[ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) replaces internal profile enrichment/system binding in the collaboration above. Catalog validates public existing-cluster/Internal account and workload typed namespace/cluster refs plus provision rules. Planning matches workload first and expands all nodes to fixed point; same normal matcher selects cluster Definition. Target resolver builds/pins per-consumer placement, rejects mismatch/ambiguous/cycle/multi-cluster V03. Shared snapshot/admission compare pins/versions; UC-08 resolves cluster then owned namespace/resources. UC-06 renders/applies/waits on selected workload target; no global target or builtin persistence. Applied target restored for Update/Remove/restart; separate cleanup preserves preexisting cluster. AWS legacy collaboration remains until V05–V06.

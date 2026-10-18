@@ -33,7 +33,7 @@ func TestScoreK8sDefinitionPreviewDeployAndSnapshot(t *testing.T) {
 	}
 	catalogSvc := catalog.NewService(app.Store)
 	catalogSvc.SetRenderBundles(renderer.Bundles())
-	def := resource.Definition{Key: "score-workloads", Name: "score-workloads", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": scorek8s.BundleID}}}, Criteria: []resource.Criterion{{ApplicationID: opts.ApplicationKey}}}
+	def := resource.Definition{Key: "score-workloads", Name: "score-workloads", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": scorek8s.BundleID, "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}", "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}}, Criteria: []resource.Criterion{{ApplicationID: opts.ApplicationKey, Class: "default"}}}
 	registered, err := catalogSvc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def)
 	if err != nil {
 		t.Fatal(err)
@@ -100,7 +100,7 @@ func TestScoreK8sDefinitionPreviewDeployAndSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	def.Key = "score-specific"
-	def.Criteria = []resource.Criterion{{ApplicationID: opts.ApplicationKey, EnvironmentID: opts.EnvironmentKey}}
+	def.Criteria = []resource.Criterion{{ApplicationID: opts.ApplicationKey, EnvironmentID: opts.EnvironmentKey, Class: "default"}}
 	if _, err := catalogSvc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {
 		t.Fatal(err)
 	}

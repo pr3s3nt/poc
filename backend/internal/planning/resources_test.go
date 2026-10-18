@@ -56,7 +56,7 @@ func TestPlan_PreservesContainerResourceRequirements(t *testing.T) {
 
 	req := testRequest(t, application.ProfileInternalK8s, "backend")
 	req.After = backendScoreWithResources(t, declared)
-	plan, err := NewService().Plan(req)
+	plan, err := NewService(testBundles()).Plan(req)
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -91,11 +91,11 @@ func TestPlan_ContainerResourcesAddNoGraphNodes(t *testing.T) {
 		"requests": map[string]any{"cpu": "100m", "memory": "128Mi"},
 		"limits":   map[string]any{"cpu": "500m", "memory": "512Mi"},
 	})
-	a, err := NewService().Plan(without)
+	a, err := NewService(testBundles()).Plan(without)
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
-	b, err := NewService().Plan(with)
+	b, err := NewService(testBundles()).Plan(with)
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestPlan_ContainerResourcesAddNoGraphNodes(t *testing.T) {
 // Changing one declared value produces a module-relative replace patch whose
 // value is the exact Score string.
 func TestPlan_ContainerResourceChangeIsModuleRelativePatch(t *testing.T) {
-	svc := NewService()
+	svc := NewService(testBundles())
 	first := testRequest(t, application.ProfileInternalK8s, "backend")
 	first.After = backendScoreWithResources(t, map[string]any{
 		"requests": map[string]any{"cpu": "100m"},

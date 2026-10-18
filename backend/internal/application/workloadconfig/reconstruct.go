@@ -455,7 +455,11 @@ func reconstruct(workload string, module environment.Module, set environment.Doc
 		}
 		containers[name] = body
 	}
-	out := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": workload}, "containers": containers}
+	metadata := map[string]any{"name": workload}
+	if module.Class != "" {
+		metadata["class"] = module.Class // explicit class survives rebuild/export unchanged (ADR-016)
+	}
+	out := map[string]any{"apiVersion": "score.dev/v1b1", "metadata": metadata, "containers": containers}
 	if len(b.resources) > 0 {
 		out["resources"] = b.resources
 	}

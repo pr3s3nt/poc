@@ -34,7 +34,7 @@ func TestUC02UC04RegistrationIsUsableWithoutRestart(t *testing.T) {
 	}
 
 	dev := authenticatedClient(t, server.URL)
-	created := createConfiguredApplication(t, dev, server.URL, "Catalog Use", "catalog-use", "fast-cluster")
+	created := createConfiguredApplication(t, dev, server.URL, "Catalog Use", "catalog-use", "internal-cluster")
 	base := server.URL + "/api/v1/applications/" + created["application"].(map[string]any)["key"].(string) + "/environments/staging"
 	scoreWith := func(resources map[string]any) map[string]any {
 		score := previewScore("api")
@@ -77,7 +77,7 @@ func TestUC02UC04RegistrationIsUsableWithoutRestart(t *testing.T) {
 		}
 	}
 	status, rejected := preview(map[string]any{"c": map[string]any{"type": "cache", "params": map[string]any{"size": 2}}})
-	if status != http.StatusBadRequest || rejected["code"] != "PLANNING_REJECTED" || toJSON(t, rejected["params"]) != `{"stage":"graph"}` {
+	if status != http.StatusBadRequest || rejected["code"] != "PLANNING_REJECTED" || toJSON(t, rejected["params"]) != `{"reason":"resource-no-match","stage":"graph"}` {
 		t.Fatalf("cache without a Definition: %d %v", status, rejected)
 	}
 }

@@ -87,8 +87,12 @@ func TestRegisterResourceDefinition_RejectsStaticResourceDrivers(t *testing.T) {
 			def.Key, def.DriverType, def.ResourceTypeKey = "static-"+typeKey, driver, typeKey
 			_, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def)
 			var field *catalog.FieldError
-			if !errors.Is(err, catalog.ErrInvalid) || !errors.As(err, &field) || field.Field != "definition.driverType" {
-				t.Fatalf("%s/%s must be rejected at definition.driverType: %v", driver, typeKey, err)
+			want := "definition.driverType"
+			if driver == resource.DriverExistingCluster {
+				want = "definition.resourceType" // public existing-cluster serves k8s-cluster only (ADR-016)
+			}
+			if !errors.Is(err, catalog.ErrInvalid) || !errors.As(err, &field) || field.Field != want {
+				t.Fatalf("%s/%s must be rejected at %s: %v", driver, typeKey, want, err)
 			}
 		}
 	}

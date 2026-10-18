@@ -15,6 +15,7 @@ import { MappingEditor } from './MappingEditor';
 import { clusterType, emptyMapping, inheritsCluster, mappingProblems, mappingToObject, needsAccount, objectToMapping, bindingProviders, type MappingDraft, type TypeContract } from './moduleMapping';
 import { draftToVariables, emptyVariableDraft, missingRequired, parseObjectText, variablesToDraft, type JsonObject, type VariableDraft } from './typedVariables';
 import { provisionToRows, rowsToProvision, type ProvisionRow } from './typedProvision';
+import { ExistingClusterSection } from './ExistingClusterSection';
 import { listAccounts, statusLabel, typeLabel, type Account } from './accounts/accountsApi';
 
 type APIApplication = { key: string; name?: string; environments?: ApiEnvironment[] };
@@ -86,7 +87,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   // The account list names the account of every listed Definition and fills the selector, so it always loads.
   const accountList = useCatalogList(listAccounts, accountFailure);
   const types = typeList.items.filter((type) => type.key !== 'workload');
-  const definitions = definitionList.items.filter((definition) => definition.resourceType !== 'workload' && definition.driverType !== 'score-k8s');
+  const definitions = definitionList.items.filter((definition) => definition.resourceType !== 'workload' && definition.driverType !== 'score-k8s' && definition.driverType !== 'existing-cluster');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [idError, setIdError] = useState('');
@@ -387,6 +388,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   return <section className="page"><header className="page-header"><div><p className="eyebrow">Nền tảng</p><h1>Cấu hình tài nguyên</h1><p>Mô tả cách tạo tài nguyên bằng module Terraform đã kiểm chứng, tài khoản hạ tầng và điều kiện áp dụng. Chỉ Kỹ sư nền tảng hoặc Quản trị viên được đăng ký và sửa. Không có thao tác xóa.</p></div></header>
     <section className="content-panel"><div className="section-header"><h2>Cấu hình đã đăng ký</h2></div>{listError ? <div className="form-error" role="alert" aria-label="Lỗi tải danh sách">{listError} <Button type="button" onClick={() => { void definitionList.reload(); }}>Thử lại</Button></div> : definitionList.loading && definitionList.items.length === 0 ? <p>Đang tải danh sách cấu hình tài nguyên…</p> : definitions.length === 0 ? <p>Chưa có cấu hình tài nguyên nào.</p> : <div className="catalog-list">{definitions.map((definition) => <div key={definition.key} className="catalog-entry" data-definition={definition.key}><strong>{definition.name || definition.key}</strong><span>ID <code>{definition.key}</code> · {definition.resourceType} · {own(driverLabels, definition.driverType) ?? definition.driverType}{definition.driverAccount ? ` · tài khoản ${accountName(definition.driverAccount)}` : ''} · phiên bản {definition.version ?? '?'} · {definition.criteria?.length ?? 0} điều kiện áp dụng{definition.driverType === 'existing-cluster' ? <> · <strong>Hệ thống</strong> (chỉ đọc)</> : null}</span>
       {definition.driverType !== 'existing-cluster' ? <Button type="button" aria-label={`Sửa cấu hình ${definition.key}`} disabled={saving || !metadataReady} onClick={() => startEdit(definition)}>Sửa</Button> : null}</div>)}</div>}</section>
+    <ExistingClusterSection definitions={definitionList.items} reload={async () => { void typeList.reload(); return definitionList.reload(); }} />
     <section className="content-panel" ref={formRef} aria-label={editing ? 'Sửa cấu hình tài nguyên' : 'Đăng ký cấu hình tài nguyên'}><div className="section-header"><div><h2>{editing ? `Sửa cấu hình ${editing.key}` : 'Đăng ký cấu hình tài nguyên'}</h2><p>{editing ? 'ID và Loại tài nguyên không đổi. Các thay đổi khác được lưu một lần theo phiên bản; Lưu không tạo hay thay đổi tài nguyên. Chỉ lần Xem trước và Triển khai mới dùng cấu hình mới.' : 'Chỉ nhận module Terraform đã được kiểm chứng trong registry. Module, phiên bản và digest lấy từ metadata của máy chủ; form không có ô nhập nguồn, URL hay digest.'}</p></div>{editing ? <Button type="button" onClick={resetForm} disabled={saving}>Hủy sửa</Button> : null}</div>
       {review ? <div className="form-warning" role="alert" aria-label="Cần tải lại cấu hình">
         <p>{review.kind === 'stale' ? 'Cấu hình đã được người khác thay đổi kể từ lần bạn tải (phiên bản không còn khớp). Chưa có gì bị ghi đè. Bản nháp của bạn vẫn được giữ trên màn hình.' : review.created ? 'Chưa biết lần đăng ký đã được lưu hay chưa. Console không tự gửi lại.' : 'Chưa biết thay đổi đã được lưu hay chưa. Console không tự gửi lại.'}</p>

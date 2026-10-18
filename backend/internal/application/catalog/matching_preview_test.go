@@ -130,7 +130,7 @@ func TestPreviewMatching_NonOverlapAndNoMatch(t *testing.T) {
 	def := catalog.DefinitionDraft{Key: "ns-only", Name: "ns-only", ResourceTypeKey: "k8s-namespace", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{ResourceID: "nope"}}}
 	q := previewQuery(opts, def, "x", "default")
 	got = runPreview(t, svc, opts, q)
-	if got.Status != catalog.PreviewMatched || got.Winner.Key != "namespace-kubernetes" {
+	if got.Status != catalog.PreviewMatched || got.Winner.Key != "namespace-kubernetes-internal" {
 		t.Fatalf("got %+v", got)
 	}
 	nc, _ := candidateByKey(got, "ns-only")
@@ -328,28 +328,19 @@ func TestPreviewMatching_WorksForUnconfiguredEnvironmentWithServerEnvType(t *tes
 	if got.Status == catalog.PreviewIncomplete || !c.Matched || *c.Score != 1 {
 		t.Fatalf("env_type from the server snapshot did not apply: %+v", got)
 	}
-	// No system node is created for an unconfigured Environment.
-	cluster := catalog.DefinitionDraft{Key: "cluster-x", Name: "x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}
-	q = previewQuery(opts, cluster, "connections."+opts.ConnectionKey, "internal")
-	q.Context.EnvironmentID = "unbound"
-	got, err = svc.PreviewMatching(ctx, opts.OrganizationKey, q)
-	if err != nil || got.Status == catalog.PreviewSystemBinding {
-		t.Fatalf("preview must not invent the legacy system node: %+v %v", got, err)
-	}
 }
 
-func TestPreviewMatching_ReservedAndPublicExistingClusterRejected(t *testing.T) {
+func TestPreviewMatching_ReservedKeyAndMalformedDraftsRejected(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
 	ctx := context.Background()
 	cases := map[string]catalog.DefinitionDraft{
-		"builtin key":      {Key: "builtin-existing-cluster", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
-		"existing-cluster": {Key: "any-key", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, Criteria: []resource.Criterion{{}}},
-		"unknown type":     {Key: "x", ResourceTypeKey: "nope", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
-		"no criteria":      {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform},
-		"control name":     {Key: "x", Name: "a\nb", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
-		"bad id":           {Key: "Bad_Key", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
-		"too many":         {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: make([]resource.Criterion, 65)},
-		"long criterion":   {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: strings.Repeat("a", 300)}}},
+		"builtin key":    {Key: "builtin-existing-cluster", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
+		"unknown type":   {Key: "x", ResourceTypeKey: "nope", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
+		"no criteria":    {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform},
+		"control name":   {Key: "x", Name: "a\nb", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
+		"bad id":         {Key: "Bad_Key", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}},
+		"too many":       {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: make([]resource.Criterion, 65)},
+		"long criterion": {Key: "x", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: strings.Repeat("a", 300)}}},
 	}
 	for name, def := range cases {
 		_, err := svc.PreviewMatching(ctx, opts.OrganizationKey, previewQuery(opts, def, "db", "default"))
@@ -359,33 +350,17 @@ func TestPreviewMatching_ReservedAndPublicExistingClusterRejected(t *testing.T) 
 	}
 }
 
-func TestPreviewMatching_SystemBindingOnlyForExactImplicitClusterNode(t *testing.T) {
-	_, svc, opts := seededCatalog(t, nil)
-	cluster := catalog.DefinitionDraft{Key: "cluster-x", Name: "cluster-x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}
-	exact := "connections." + opts.ConnectionKey
-	got := runPreview(t, svc, opts, previewQuery(opts, cluster, exact, "internal"))
-	if got.Status != catalog.PreviewSystemBinding || got.Winner != nil || len(got.Ties) != 0 {
-		t.Fatalf("exact: %+v", got)
-	}
-	for name, ctx := range map[string][2]string{"other id": {"connections.other", "internal"}, "other class": {exact, "default"}} {
-		got = runPreview(t, svc, opts, previewQuery(opts, cluster, ctx[0], ctx[1]))
-		if got.Status == catalog.PreviewSystemBinding {
-			t.Fatalf("%s must not be a system binding: %+v", name, got)
-		}
-	}
-}
-
 func TestPreviewMatching_WorkloadOnlyRanksScoreK8sAndNeverFallsBackToNative(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
 	k8s := catalog.DefinitionDraft{Key: "wl-k8s", Name: "wl-k8s", ResourceTypeKey: "workload", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{}}}
 	got := runPreview(t, svc, opts, previewQuery(opts, k8s, "modules.web", "default"))
-	if got.Status != catalog.PreviewNoMatch || got.Winner != nil {
+	if got.Status != catalog.PreviewMatched || got.Winner == nil || got.Winner.Key == "wl-k8s" {
 		t.Fatalf("non-score-k8s must not rank: %+v", got)
 	}
 	if _, ok := candidateByKey(got, "wl-k8s"); ok {
 		t.Fatal("non-score-k8s workload definition must be excluded from ranking")
 	}
-	score := catalog.DefinitionDraft{Key: "wl-score", Name: "wl-score", ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}}}
+	score := catalog.DefinitionDraft{Key: "wl-score", Name: "wl-score", ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{ApplicationID: opts.ApplicationKey, Class: "default"}}}
 	got = runPreview(t, svc, opts, previewQuery(opts, score, "modules.web", "default"))
 	if got.Status != catalog.PreviewMatched || got.Winner.Key != "wl-score" {
 		t.Fatalf("score-k8s: %+v", got)
@@ -468,17 +443,6 @@ func TestPreviewMatching_ValidationErrorNeverEchoesSubmittedValues(t *testing.T)
 		var invalid *catalog.PreviewInvalidError
 		if !errors.As(err, &invalid) || !errors.Is(err, catalog.ErrInvalid) || strings.Contains(err.Error(), secret) || invalid.Field == "" {
 			t.Fatalf("case %d: %v", i, err)
-		}
-	}
-}
-
-func TestPreviewMatching_SystemBindingDoesNotShowAuthoredMatches(t *testing.T) {
-	_, svc, opts := seededCatalog(t, nil)
-	cluster := catalog.DefinitionDraft{Key: "cluster-x", Name: "cluster-x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}
-	got := runPreview(t, svc, opts, previewQuery(opts, cluster, "connections."+opts.ConnectionKey, "internal"))
-	for _, c := range got.Candidates {
-		if c.Matched || c.Score != nil || c.BestCriterion != nil {
-			t.Fatalf("system binding must not present authored matches: %+v", c)
 		}
 	}
 }
@@ -663,39 +627,6 @@ func TestPreviewMatching_WhitespaceOnlyContext(t *testing.T) {
 	c, _ := candidateByKey(got, "pg-db")
 	if c.Matched {
 		t.Fatalf("padded resourceId must not be normalized: %+v", c)
-	}
-}
-
-// The legacy system binding is claimed only when its backing Driver Account is
-// a READY Kubernetes account; otherwise ordinary matching continues.
-func TestPreviewMatching_SystemBindingNeedsReadyKubernetesBackingAccount(t *testing.T) {
-	cluster := catalog.DefinitionDraft{Key: "cluster-x", Name: "cluster-x", ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverTerraform, Criteria: []resource.Criterion{{Class: "internal"}}}
-	for name, mutate := range map[string]func(*application.Connection){
-		"not ready": func(c *application.Connection) { c.Status = application.ConnectionVerifying },
-		"wrong kind": func(c *application.Connection) {
-			c.Kind, c.AuthenticationType = application.ConnectionAWS, application.AuthAWSAccessKey
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			st, svc, opts := seededCatalog(t, nil)
-			ctx := context.Background()
-			list, err := st.ListConnections(ctx, opts.OrganizationKey)
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, c := range list {
-				if c.Key == opts.ConnectionKey {
-					mutate(&c)
-					if err := st.SaveConnection(ctx, c); err != nil {
-						t.Fatal(err)
-					}
-				}
-			}
-			got := runPreview(t, svc, opts, previewQuery(opts, cluster, "connections."+opts.ConnectionKey, "internal"))
-			if got.Status == catalog.PreviewSystemBinding {
-				t.Fatalf("%s: unusable backing account claimed as system binding: %+v", name, got)
-			}
-		})
 	}
 }
 

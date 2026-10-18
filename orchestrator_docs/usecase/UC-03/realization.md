@@ -89,3 +89,8 @@ or incompatible identity before execution. Kubernetes resource references still
 create consumer -> cluster dependencies; legacy Environment target is explicit
 until V03. Generic Workload is not implemented here. Persisted execution and
 cleanup never reread mutable Definition to replace original pins.
+
+
+## V03 collaboration replacement
+
+[ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) replaces internal profile enrichment/system binding in the collaboration above. Catalog validates public existing-cluster/Internal account and workload typed namespace/cluster refs plus provision rules. Planning matches workload first and expands all nodes to fixed point; same normal matcher selects cluster Definition. Target resolver builds/pins per-consumer placement, rejects mismatch/ambiguous/cycle/multi-cluster V03. Shared snapshot/admission compare pins/versions; UC-08 resolves cluster then owned namespace/resources. UC-06 renders/applies/waits on selected workload target; no global target or builtin persistence. Applied target restored for Update/Remove/restart; separate cleanup preserves preexisting cluster. AWS legacy collaboration remains until V05–V06.

@@ -215,7 +215,7 @@ func (b *graphBuilder) inspectTerraform(
 			}
 		}
 
-		pins, err := b.providerPins(node, def, contract)
+		pins, err := b.providerPins(node, def, contract, matches)
 		if err != nil {
 			return nil, err
 		}

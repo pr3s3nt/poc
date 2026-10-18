@@ -3,6 +3,8 @@ package score
 import (
 	"encoding/json"
 	"fmt"
+
+	"orchestrator/internal/domain/resource"
 )
 
 // Allowed keys of `containers.*.resources` (UC-05 BR-07, UC-06 BR-11).
@@ -63,4 +65,27 @@ func object(value json.RawMessage, where string) (map[string]json.RawMessage, er
 		return nil, fmt.Errorf("score: %s must be an object", where)
 	}
 	return out, nil
+}
+
+// validateMetadataClass rejects an explicit but blank or malformed
+// `metadata.class`; an absent class is the default class (ADR-016).
+func validateMetadataClass(b []byte) error {
+	var raw struct {
+		Metadata map[string]json.RawMessage `json:"metadata"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return fmt.Errorf("score: invalid document: %w", err)
+	}
+	value, declared := raw.Metadata["class"]
+	if !declared {
+		return nil
+	}
+	var class *string
+	if err := json.Unmarshal(value, &class); err != nil || class == nil {
+		return fmt.Errorf("score: metadata.class must be a string")
+	}
+	if !resource.ValidClass(*class) {
+		return fmt.Errorf("score: metadata.class must be a non-blank class identifier")
+	}
+	return nil
 }

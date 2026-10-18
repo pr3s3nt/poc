@@ -37,7 +37,7 @@ func TestRequiredRendererOverHTTPGuardsMissingTemplateAndWrongClass(t *testing.T
 		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"image": "postgres:17-alpine", "storage": "1Gi", "namespace": namespaceOutput}}}, Criteria: []resource.Criterion{{}}}); err != nil {
 		t.Fatal(err)
 	}
-	created := createConfiguredApplication(t, dev, server.URL, "Required App", "required-app", "internal-cluster")
+	created := createUnrenderedApplication(t, dev, server.URL, "Required App", "required-app")
 	appKey := created["application"].(map[string]any)["key"].(string)
 	base := server.URL + "/api/v1/applications/" + appKey + "/environments/staging"
 	score := previewScore("api")
@@ -65,7 +65,7 @@ func TestRequiredRendererOverHTTPGuardsMissingTemplateAndWrongClass(t *testing.T
 	}
 	assertRejected("no rendering Definition", "renderer-no-match")
 
-	body := `{"key":"score-workloads","name":"Mẫu dựng","resourceType":"workload","driverType":"score-k8s","driverInputs":{"values":{"variables":{"render_bundle":"score-k8s-internal-v1"}}},"criteria":[{}]}`
+	body := `{"key":"score-workloads","name":"Mẫu dựng","resourceType":"workload","driverType":"score-k8s","driverInputs":{"values":{"variables":{` + placedWorkloadVariables + `}}},"criteria":[{"app_id":"` + appKey + `"}]}`
 	if resp, out := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", body); resp.StatusCode != http.StatusCreated {
 		t.Fatalf("registration: %d %s", resp.StatusCode, out)
 	}

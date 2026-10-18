@@ -20,7 +20,7 @@ database ActiveResourceRepository as ResourceRepo
 Developer -> API: PreviewDeployment(query)
 API -> Preview: PreviewDeployment(ctx, query)
 Preview -> EnvRepo: ReadSnapshot(appID, envID, session Organization) [MS-01]
-EnvRepo --> Preview: app + configured env connection/profile/region/scope + current set + version + catalog + active resources
+EnvRepo --> Preview: app/env scope/config/current/version + catalog/accounts + active resources
 Preview -> Planner: Plan(request)
 Planner -> Converter: ConvertAndValidate(before/after Score) [MS-02..MS-03]
 Converter --> Planner: Before/after workload fragments
@@ -30,20 +30,19 @@ Planner -> BeforeValidator: Validate(currentSet, workloadID, before) [MS-04]
 BeforeValidator --> Planner: valid module + shared contribution
 Planner -> Delta: BuildHumanitecDelta(currentSet, workloadID, before, after) [MS-04]
 Delta --> Planner: transient DeploymentDeltaDocument + CandidateSet
-Planner -> Enricher: Enrich(candidate, profile) [MS-05]
-Enricher --> Planner: Implicit resources
-Planner -> Graph: BuildAndExpand(candidate, implicit) [MS-05]
-Graph -> Graph: Bind implicit internal cluster from Environment (no catalog write)
-Graph -> Matcher: Match remaining resource nodes (AWS cluster included)
-Matcher -> Matcher: Validate internal Definition connection equals Environment binding
+Planner -> Matcher: Select workload Definition/class first [V03]
+Matcher --> Planner: pinned lifecycle bundle + namespace/cluster refs + provision rules
+Planner -> Graph: BuildAndExpand(candidate, selected workload references/rules) [MS-05]
+Graph -> Graph: Expand to fixed point; no internal builtin/profile target
+Graph -> Matcher: Match resource nodes including existing-cluster
+Matcher -> Matcher: Validate winning Definition/account kind/org/READY/version
 Matcher --> Graph: Matched definitions or safe planning error
 Graph --> Planner: ResourceGraph
 Planner -> Inspector: InspectContracts(graph) [MS-06]
 Inspector --> Planner: Valid contracts + pinned module/provider digests
 note right of Inspector: Read verified registry only; no fetch/CLI/provider call
 note right of Planner: Classify using Active Resources\nfrom the same read-only snapshot
-Planner -> Matcher: Require score-k8s Definition/bundle for both profiles
-Matcher --> Planner: Definition/content hash + installed bundle/version/digests
+Planner -> Planner: Pin per-consumer target/namespace; reject mismatch, ambiguity or multiple V03 clusters
 Planner -> Scheduler: Schedule(graph) [MS-07]
 Scheduler --> Planner: Provider-first batches
 Planner --> Preview: DeploymentPlan + pinned rendering intent (no CLI execution)

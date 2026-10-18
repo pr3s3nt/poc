@@ -30,7 +30,7 @@ func TestRenderingPreflightAndGenerationFailureDoNotCommit(t *testing.T) {
 			}
 			svc := catalog.NewService(app.Store)
 			svc.SetRenderBundles(renderer.Bundles())
-			def := resource.Definition{Key: "render", Name: "render", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}}, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": scorek8s.BundleID}}}}
+			def := resource.Definition{Key: "render", Name: "render", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{ApplicationID: opts.ApplicationKey, Class: "default"}}, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": scorek8s.BundleID, "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}", "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}}}
 			if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {
 				t.Fatal(err)
 			}

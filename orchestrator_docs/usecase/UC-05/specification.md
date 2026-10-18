@@ -21,7 +21,7 @@ Kiểm tra Score và hiển thị thay đổi dự kiến trước khi thực hi
 - **PRE-01:** Application và Environment đã tồn tại.
 - **PRE-02:** Environment có Deployment Set hiện tại, kể cả Deployment Set rỗng.
 - **PRE-03:** Các Resource Type và Resource Definition cần thiết đã được đăng ký.
-- **PRE-04:** Environment đã set Execution Profile và Connection trạng thái `READY`.
+- **PRE-04:** Internal target được resolve từ matched Definitions và READY Driver Account, không cần Environment Connection/profile (ADR-016).
 
 ## Trigger
 
@@ -33,7 +33,7 @@ Kiểm tra Score và hiển thị thay đổi dự kiến trước khi thực hi
 2. **MS-02:** Orchestrator validate Score theo Score contract và Resource Type schemas, gồm `containers.*.resources.requests/limits` khi được khai báo.
 3. **MS-03:** Orchestrator chuyển Score thành workload fragment và giữ nguyên container CPU/memory requests/limits trong module spec.
 4. **MS-04:** Orchestrator tạo Humanitec-shaped Deployment Delta và Candidate Deployment Set.
-5. **MS-05:** Orchestrator enrich implicit resources theo Execution Profile, dựng Resource Graph và match Resource Definitions.
+5. **MS-05:** Chọn workload Definition trước, mở namespace/cluster references/provision tới fixed point và match resources; internal không profile/builtin enrichment.
 6. **MS-06:** Orchestrator kiểm graph, references, required/typed/bounds inputs
    và module mappings biết được trước execution; lỗi chặn Deploy trước tạo hạ tầng.
 7. **MS-07:** Orchestrator tính provision batches và phân loại Active Resources.
@@ -126,15 +126,14 @@ UC-05 Validate and Preview
 
 See [workload rendering contract](../../architecture/contracts/workload-rendering.md).
 
-## Environment connection binding
+## Definition account and target binding
 
-- **BR-11:** Definition matching follows UC-03 V02-02 without profile filtering.
-  AWS node pins its winning Definition Driver Account and Driver Inputs region;
-  no Environment/host identity fallback or cross-node equality requirement.
-  Winner account conflict stops planning. Definition/account versions and content
-  join preview staleness checks. Legacy full graph enrichment still requires
-  Environment target until V03; single-context UC-03 matching does not.
-  Preserve binding/generation/version/ownership pins per ADR-012/014.
+- **BR-11:** All Definition matching follows UC-03 V02-02 without profile
+  filtering. AWS pins winning account/region; internal cluster pins winning
+  Internal account and consumers pin explicit namespace/cluster references
+  under ADR-016. No Environment target is required for internal Preview.
+  Account kind/org/READY/version and reference intent join deterministic
+  hashes/admission checks; no secret/provider call or mutable target fallback.
 
 ## Editable destination and transition consistency (ADR-012)
 
@@ -150,11 +149,12 @@ recovery and cleanup. Explicit PostgreSQL transfer quiesces writers and restores
 before destination apps/routes become live. See
 [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).
 
-## Implicit internal cluster binding
+## Matched internal cluster binding
 
-- **BR-12:** Preview shows the implicit existing-cluster node and system execution binding derived from the pinned Environment Connection for internal-k8s, without matching user cluster Definitions or writing a system catalog record. Cloud/resource matching and no-mutation guarantees remain.
-
-See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
+- **BR-12:** Show matched cluster Definition/account and per-consumer target
+  source under ADR-016. Reject missing/ambiguous/mismatched target, cycles and
+  V03 multi-cluster Candidate Sets before execution. No system binding/catalog
+  admission or write in Preview.
 
 ## Ranh giới với matching preview (T19)
 
@@ -177,3 +177,8 @@ runtime/current set hoặc Environment khác khi lưu.
   Deploy thông thường không được delete/replace tài nguyên hiện hữu. Cần
   operation tạo identity/generation mới và xác nhận riêng, hoặc chặn trước
   apply; tài nguyên cũ được giữ, không tự chuyển dữ liệu.
+
+
+## V03 placement intent
+
+[ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) replaces legacy internal graph enrichment and Environment binding in BR-11. Plan/token include each workload/resource typed cluster and namespace provenance, Definition/account versions and class. UI shows safe resolved or deferred output provenance; Preview never invokes renderer/provider/secrets. Changes invalidate old Preview; pending detection includes target/Definition/reference intent.

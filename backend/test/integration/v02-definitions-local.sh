@@ -81,6 +81,10 @@ while (( $# )); do
 done
 [[ "${HEADED}" == 1 && -n "${CAPTIONS}" && -n "${EVIDENCE}" ]] || usage
 [[ "${SCENARIO}" == V02 || "${SCENARIO}" == V02P ]] || { echo "unsupported scenario ${SCENARIO}; only V02 and V02P" >&2; exit 2; }
+if [[ "${SCENARIO}" == V02P ]]; then
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"
+  retired_runner "v02-definitions-local.sh --scenario V02P (binds the Environment to an internal account through /connection)" "the Go test TestV02ProvisionStoredThroughHTTPDrivesPreviewPlan and backend/test/integration/v03-internal-frontend.sh, which place the Application with Definitions"
+fi
 [[ "${CAPTIONS}" == vi ]] || { echo "unsupported captions ${CAPTIONS}; only vi" >&2; exit 2; }
 [[ -n "${ORCH_V02_PG_ADMIN_URL_FILE:-}" && -f "${ORCH_V02_PG_ADMIN_URL_FILE}" ]] || { echo "ORCH_V02_PG_ADMIN_URL_FILE must name the administrator URL file of a disposable PostgreSQL server" >&2; exit 2; }
 if [[ -n "${ORCH_V02_VAULT_ADDR:-}" ]]; then

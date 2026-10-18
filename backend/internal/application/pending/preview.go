@@ -34,7 +34,9 @@ type Change struct {
 	// ResourceIntents is the safe resource projection (UC-05 BR-10): no
 	// params, resolved inputs, secret or state reference.
 	ResourceIntents []planning.ResourceIntent `json:"resourceIntents"`
-	PlanHash        string                    `json:"planHash"`
+	// Placements are the safe per-workload/resource cluster and namespace pins.
+	Placements []planning.Placement `json:"placements"`
+	PlanHash   string               `json:"planHash"`
 }
 
 type Preview struct {
@@ -113,7 +115,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
-	connection, err := target.Resolve(ctx, st, app.OrganizationKey, env)
+	connection, err := target.ResolveOptional(ctx, st, app.OrganizationKey, env)
 	if errors.Is(err, target.ErrConnectionNotReady) {
 		return Preview{}, fmt.Errorf("%w: connection is not ready", ErrInvalid)
 	}
@@ -188,7 +190,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		if err != nil {
 			return Preview{}, err
 		}
-		selected, err := s.planner.SelectWorkloadRendering(app, env, id, catalog)
+		selected, err := s.planner.SelectWorkloadRendering(app, env, id, module.WorkloadClass(), catalog)
 		if err != nil {
 			return Preview{}, publicPlanningError(id, err)
 		}
@@ -277,7 +279,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 				}
 			}
 		}
-		preview.Changes = append(preview.Changes, Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, ResourceIntents: plan.ResourceIntents(baselines.Reader()), PlanHash: plan.PlanHash})
+		preview.Changes = append(preview.Changes, Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, ResourceIntents: plan.ResourceIntents(baselines.Reader()), Placements: plan.PlacementList(), PlanHash: plan.PlanHash})
 		base = plan.CandidateSet
 	}
 	// Route and Service-reference rules apply to the final batch state only.

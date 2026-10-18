@@ -109,7 +109,7 @@ func platformResource(rec tfresource.ResourceRecord) bool {
 	if err != nil {
 		return true
 	}
-	return d.Type == "k8s-cluster" && d.Class == "internal" || strings.HasPrefix(d.ID, "connections.")
+	return d.Type == "k8s-cluster" || strings.HasPrefix(d.ID, "connections.")
 }
 
 // staticReasons are the blockers that depend on the item alone (not on what

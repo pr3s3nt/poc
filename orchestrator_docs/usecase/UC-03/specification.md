@@ -16,8 +16,8 @@ Tạo và sửa Resource Definition để xác định driver, inputs, account v
 Phần này sở hữu hợp đồng V02. Các ID requirement cũ được giữ và ánh xạ
 sang hợp đồng mới bên dưới; predecessor truy xuất bằng Git tại `96eb602`. Quy tắc nguồn module bất biến, validation
 schema/placeholders/mappings/provision, bí mật và weighted criteria tiếp tục có
-hiệu lực. System cluster theo ADR-013 và cơ chế render hiện tại chỉ được thay
-bằng Generic Workload ở V03; V02 không đăng ký public existing-cluster.
+hiệu lực. Các giới hạn system cluster/render-only của V02 được thay bởi V03
+và ADR-016 bên dưới; V02 evidence không chứng minh V03 runtime.
 
 - **V02-01 (MS-01..09, BR-01/03/08):** Definition có ID kỹ thuật `key`,
   `name` hiển thị bắt buộc, `resourceType`, `driverType`, `driverInputs`,
@@ -34,8 +34,8 @@ bằng Generic Workload ở V03; V02 không đăng ký public existing-cluster.
   điểm cao nhất là hai kết quả khác nhau. Winner sai account/driver thì báo
   lỗi winner, không bỏ qua để chọn ứng viên khác. Definition ID khác `res_id`.
 - **V02-03 (BR-08/11/12/14/23/24):** Danh mục driver do backend công bố từ
-  capability registry thực: Terraform cho modules đã verified và score-k8s
-  cho render bundle hiện có; không quảng cáo Generic Workload lifecycle.
+  capability registry thực: Terraform cho modules đã verified, score-k8s cho
+  workload lifecycle theo ADR-016 và existing-cluster cho Internal account.
   AWS Terraform bắt buộc `driverAccount` trỏ key AWS READY cùng Organization;
   region là literal string hợp lệ tại `driverInputs.values.variables.region`,
   không lấy Environment region hoặc verificationRegions làm phạm vi cho phép.
@@ -44,7 +44,7 @@ bằng Generic Workload ở V03; V02 không đăng ký public existing-cluster.
   lại, UI hiển thị nguồn cluster dependency. Trong giai đoạn trước V03,
   `{target: environment}` còn là binding Kubernetes legacy có nhãn rõ,
   không trở thành account selector hoặc matching filter. score-k8s không nhận
-  driverAccount; existing-cluster vẫn dành system ở V02.
+  driverAccount; existing-cluster public tại V03 theo ADR-016.
 - **V02-04 (BR-09/11..16/23..26):** Giữ verified pins, input/output mapping,
   typed variables/defaults/params và placeholders/reference/provision flags.
   Region là input PE được phép cấu hình cho AWS; credential/password/tags
@@ -185,9 +185,9 @@ UC-03 Register Resource Definition
 | Resource | Driver | Account/target |
 |---|---|---|
 | VPC/EKS, Aurora/ElastiCache | verified Terraform AWS | Definition AWS Driver Account + Driver Inputs region |
-| Namespace, Redis/PostgreSQL in-cluster | verified Terraform Kubernetes | Cluster dependency; explicit legacy Environment binding until V03 |
-| Existing internal cluster | system existing-cluster | ADR-013 until V03, no public registration |
-| Current rendering template | score-k8s | Installed bundle, no account selection; not Generic Workload lifecycle |
+| Namespace, Redis/PostgreSQL in-cluster | verified Terraform Kubernetes | Explicit cluster resource reference; no internal Environment fallback |
+| Existing internal cluster | public matched existing-cluster | Definition Internal Driver Account, ADR-016 |
+| Generic Workload | score-k8s + existing lifecycle adapters | Installed bundle and typed namespace/cluster refs; no account reselection, ADR-016 |
 
 ## Ngoài phạm vi happy path
 
@@ -229,11 +229,7 @@ UC-03 Register Resource Definition
 
 ## Workload rendering Definitions
 
-- **BR-15:** Workload dùng score-k8s không có profile matching guard,
-  với bundle tương thích đã cài. Không Connection override, provision rule
-  hay input/output tài nguyên; có đúng một literal `render_bundle`. Thiếu/
-  unavailable bundle bị chặn. Fingerprint registration là audit; Plan pin
-  snapshot bundle/binary/content đang được cài và Preview cũ bị stale khi đổi.
+- **BR-15:** Workload score-k8s chọn bundle đã cài, không profile matching guard hoặc Driver Account riêng. V03 cho phép typed placement references và provision rules theo ADR-016; render_bundle literal, namespace/cluster whole typed output refs. Fingerprint registration là audit; Plan pin bundle/binary/content/version và Preview cũ stale khi đổi.
 - **BR-16:** Registration does not accept templates, command provisioners, URLs
   or raw credentials. Workload execution belongs to UC-06 after UC-08 outputs;
   the driver is not registered as a resource provisioner.
@@ -250,7 +246,7 @@ không tự tạo dependency. Legacy Environment graph enrichment chỉ giữ t�
 
 ## Implicit internal cluster binding
 
-- **BR-17:** Internal cluster node bypasses user Definition matching; mọi public registration dùng driver `existing-cluster` bị từ chối trước insert; system-owned reserved Definition keys cannot be registered publicly for any driver. Existing authored cluster Definitions remain readable for compatibility but do not control the implicit node. Other resource matching/weights remain unchanged.
+- **BR-17:** V03 public existing-cluster chỉ cho k8s-cluster, yêu cầu scoped READY Internal Driver Account. Normal five-field matching, no builtin bypass, wrong winner/account fails không fallback. Reserved historical builtin IDs vẫn không cho người dùng chiếm; không admission builtin mới. Theo ADR-016.
 
 See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
 
@@ -314,3 +310,18 @@ Fresh V02 seed/account/baseline follows V02-08 without profile disambiguation.
   consumer -> provider; provider-first scheduling không đổi. Metadata/form không
   tự matching-preview/provision hoặc gọi external provider. Unsupported/null/
   credential inputs giữ strict rejection, không nhận template/command hoặc nguồn module ngoài BR-09.
+
+
+## V03 registration extension
+
+- **V03-01:** [ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) defines supported Generic Workload/cluster Driver Inputs and lifecycle. Create/edit/CAS, strict schema, typed params, safe capability metadata, provision editor và form↔JSON phải hỗ trợ contract đó. Không quảng cáo full Humanitec compatibility.
+- **V03-02:** Workload class mặc định default, explicit Score metadata.class được giữ qua import/edit/export/Candidate matching. Namespace/workload không chọn lại account; cluster Definition chọn account. Matching Preview không trả SYSTEM_BINDING cho internal cluster.
+
+
+V03 workload driver accepts exactly render_bundle/namespace/cluster, not
+arbitrary workload Type input values. Required workload Type inputs are
+incompatible; optional fields do not create controls or accepted variables.
+Existing Score resource params, Type checks and companion params remain intact.
+No unused variable is accepted as if it affected rendering. Render-only
+Definition registration requires criteria explicitly scoped to legacy-bound
+Applications (AWS after V03.10); unscoped internal workloads need both refs.

@@ -11,12 +11,16 @@ import (
 	"testing"
 
 	"orchestrator/internal/adapters/scorek8s"
+	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/catalog"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/bootstrap/bootstraptest"
+	appdomain "orchestrator/internal/domain/application"
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
+	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
 	"orchestrator/internal/seed/seedtest"
 )
@@ -67,12 +71,39 @@ func requiredAppBundlesOn(t *testing.T, withBinary bool, databaseURL string) (*b
 	return app, opts, log, bundles
 }
 
+// disableSeededRenderers keeps the seeded workload Definitions but makes them match
+// nothing, so a test supplies its own rendering template.
+func disableSeededRenderers(t *testing.T, st persistence.Store, organizationKey string) {
+	t.Helper()
+	defs, err := st.ListResourceDefinitions(context.Background(), organizationKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, def := range defs {
+		if def.ResourceTypeKey == "workload" && strings.HasPrefix(def.Key, "workload-score-k8s") {
+			def.Criteria = []resource.Criterion{{ApplicationID: "disabled-by-test"}}
+			if err := st.SaveResourceDefinition(context.Background(), organizationKey, def); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+// placedVariables adds the typed namespace and cluster references an internal
+// Application's workload Definition carries (ADR-016).
+func placedVariables(variables map[string]any) map[string]any {
+	variables["namespace"] = "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+	variables["cluster"] = "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"
+	return variables
+}
+
 // registerRenderer registers a score-k8s template; profile only names which seeded Application
 // ("internal-k8s" or "aws-eks") the default criterion scopes it to.
 func registerRenderer(t *testing.T, app *bootstrap.App, bundles map[string]resource.RenderBundle, opts seed.Options, key, profile string, criteria ...resource.Criterion) {
 	t.Helper()
 	svc := catalog.NewService(app.Store)
 	svc.SetRenderBundles(bundles)
+	disableSeededRenderers(t, app.Store, opts.OrganizationKey)
 	if len(criteria) == 0 {
 		// V02 has no profile guard: the seeded internal and cloud Applications
 		// select their renderer through an explicit app_id criterion instead.
@@ -86,8 +117,12 @@ func registerRenderer(t *testing.T, app *bootstrap.App, bundles map[string]resou
 			criteria = []resource.Criterion{{}}
 		}
 	}
+	variables := map[string]any{"render_bundle": scorek8s.BundleID}
+	if profile != "aws-eks" {
+		placedVariables(variables)
+	}
 	def := resource.Definition{Key: key, Name: key, Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: criteria,
-		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": scorek8s.BundleID}}}}
+		DriverInputs: map[string]any{"values": map[string]any{"variables": variables}}}
 	if _, err := svc.RegisterResourceDefinition(context.Background(), opts.OrganizationKey, def); err != nil {
 		t.Fatal(err)
 	}
@@ -110,13 +145,26 @@ func TestRequiredRendererMissingTieAndUnavailableFailBeforeResources(t *testing.
 		prepare    func(*testing.T, *bootstrap.App, map[string]resource.RenderBundle, seed.Options)
 		want       string
 	}{
-		{"no-definition", true, func(*testing.T, *bootstrap.App, map[string]resource.RenderBundle, seed.Options) {}, "rendering template"},
+		{"no-definition", true, func(t *testing.T, app *bootstrap.App, _ map[string]resource.RenderBundle, o seed.Options) {
+			disableSeededRenderers(t, app.Store, o.OrganizationKey)
+		}, "rendering template"},
 		{"tie", true, func(t *testing.T, app *bootstrap.App, b map[string]resource.RenderBundle, o seed.Options) {
 			registerRenderer(t, app, b, o, "render-a", "internal-k8s")
 			registerRenderer(t, app, b, o, "render-b", "internal-k8s")
 		}, "equally"},
 		{"other-application", true, func(t *testing.T, app *bootstrap.App, b map[string]resource.RenderBundle, o seed.Options) {
-			registerRenderer(t, app, b, o, "render-cloud", "aws-eks")
+			// A renderer for another (legacy-bound) Application never applies to this one.
+			other, err := appcreate.NewService(app.Store).Create(context.Background(), appcreate.CreateCommand{OrganizationKey: o.OrganizationKey, Name: "Other", Subdomain: "other"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, env := range []string{"staging", "production"} {
+				if _, err := app.Store.BindEnvironment(context.Background(), persistence.EnvironmentBinding{ApplicationKey: other.Application.Key, EnvironmentKey: env, ConnectionKey: o.ConnectionKey,
+					Profile: appdomain.ProfileInternalK8s, RuntimeStatus: appdomain.RuntimeReady, Scope: environment.ScopeEnvironment, ExpectedVersion: 1}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			registerRenderer(t, app, b, o, "render-other", "internal-k8s", resource.Criterion{ApplicationID: other.Application.Key})
 		}, "rendering template"},
 		{"no-binary", false, func(*testing.T, *bootstrap.App, map[string]resource.RenderBundle, seed.Options) {}, "rendering template"},
 	} {

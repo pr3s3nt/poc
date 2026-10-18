@@ -4,10 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RenderingTemplatesPage } from './RenderingTemplatesPage';
 
 type Body = Record<string, unknown>;
-type Backend = { definitions?: Body[]; post?: () => Response | Promise<Response>; put?: () => Response | Promise<Response>; definitionLists?: (() => Response)[]; bundles?: Body[]; bundleLists?: (() => Response | Promise<Response>)[] };
+type Backend = { workloadInputs?: { name: string; type: string; required?: boolean }[]; definitions?: Body[]; post?: () => Response | Promise<Response>; put?: () => Response | Promise<Response>; definitionLists?: (() => Response)[]; bundles?: Body[]; bundleLists?: (() => Response | Promise<Response>)[] };
+const nsRef = "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}";
+const clusterRef = "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}";
 const bundleWeb = { id: 'bundle-web', version: '0.15.0', status: 'AVAILABLE' };
 const applications = [{ key: 'shop', name: 'Cửa hàng', environments: [{ key: 'staging', name: 'Staging', environmentType: 'staging' }] }];
-const template = { key: 'web-tpl', name: 'Mẫu web', version: 2, resourceType: 'workload', driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: 'bundle-web' } } }, criteria: [{ env_type: 'staging' }] };
+const template = { key: 'web-tpl', name: 'Mẫu web', version: 2, resourceType: 'workload', driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: 'bundle-web', namespace: nsRef, cluster: clusterRef } } }, criteria: [{ env_type: 'staging' }] };
 const other = { key: 'pg-main', name: 'PG chính', version: 1, resourceType: 'postgres', driverType: 'kubernetes', criteria: [{}] };
 
 function backend(options: Backend = {}) {
@@ -20,6 +22,11 @@ function backend(options: Backend = {}) {
     if (init?.method === 'POST') { posted.push(JSON.parse(String(init.body)) as Body); return (options.post ?? (() => Response.json({}, { status: 201 })))(); }
     gets.push(url);
     if (url.endsWith('/applications')) return Response.json({ applications });
+    if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'workload', inputs: options.workloadInputs ?? [], outputs: [], classes: [] }] });
+    if (url.endsWith('/resource-definition-capabilities')) return Response.json({ capabilities: [{ resourceType: 'workload', driverType: 'score-k8s', module: '', variables: [
+      { name: 'render_bundle', type: 'string', required: true, hasDefault: false, resourceParam: false },
+      { name: 'namespace', type: 'string', required: true, hasDefault: false, resourceParam: false, preset: nsRef },
+      { name: 'cluster', type: 'string', required: true, hasDefault: false, resourceParam: false, preset: clusterRef }], executorOwned: [], account: { required: false }, bindings: [] }] });
     if (url.endsWith('/render-bundles')) { const nextBundles = options.bundleLists?.shift(); return nextBundles ? nextBundles() : Response.json({ renderBundles: options.bundles ?? [bundleWeb] }); }
     const next = options.definitionLists?.shift();
     return next ? next() : Response.json({ resourceDefinitions: options.definitions ?? [] });
@@ -37,6 +44,8 @@ async function fill(user: ReturnType<typeof userEvent.setup>, id = 'web-tpl', bu
   await user.type(field('ID mẫu'), id);
   if (name) await user.type(field('Tên hiển thị'), name);
   if (bundle) await user.selectOptions(bundleSelect(), bundle);
+  await user.click(await screen.findByRole('button', { name: 'Dùng gợi ý namespace' }));
+  await user.click(screen.getByRole('button', { name: 'Dùng gợi ý cluster' }));
 }
 
 describe('UC-03 rendering templates page (T03)', () => {
@@ -68,7 +77,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     await fill(user);
     await user.click(submitButton());
     expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký mẫu dựng ứng dụng web-tpl.');
-    expect(posted).toEqual([{ key: 'web-tpl', name: 'Mẫu web', resourceType: 'workload', driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: 'bundle-web' } } }, criteria: [{}] }]);
+    expect(posted).toEqual([{ key: 'web-tpl', name: 'Mẫu web', resourceType: 'workload', driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: 'bundle-web', namespace: nsRef, cluster: clusterRef } } }, criteria: [{}] }]);
     for (const forbidden of ['connectionKey', 'driverAccount', 'executionProfile', 'provision']) expect(posted[0]).not.toHaveProperty(forbidden);
     expect(posted[0]).not.toHaveProperty('driverInputs.values.source');
     expect(await screen.findByText(/Bundle: bundle-web/)).toBeInTheDocument();
@@ -100,7 +109,7 @@ describe('UC-03 rendering templates page (T03)', () => {
     backend();
     render(<RenderingTemplatesPage />);
     await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
-    for (const label of [/Kết nối/, /Terraform/, /module/i, /JSON/, /Quy tắc tạo tài nguyên/, /Loại tài nguyên/, /Cách tạo/]) expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
+    for (const label of [/Kết nối/, /Terraform/, /module/i, /Loại tài nguyên/, /Cách tạo/]) expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
     expect(screen.getByRole('radiogroup', { name: 'Chế độ điều kiện áp dụng' })).toBeInTheDocument();
     expect(screen.queryByLabelText('Phạm vi triển khai')).not.toBeInTheDocument();
     expect(screen.getByRole('note', { name: 'Quy tắc so khớp' })).toHaveTextContent('AND trong một dòng, OR giữa các dòng');
@@ -121,6 +130,8 @@ describe('UC-03 rendering templates page (T03)', () => {
     await user.clear(field('ID mẫu'));
     await user.type(field('ID mẫu'), 'ok-id');
     await user.type(field('Tên hiển thị'), 'Mẫu ok');
+    await user.click(await screen.findByRole('button', { name: 'Dùng gợi ý namespace' }));
+    await user.click(screen.getByRole('button', { name: 'Dùng gợi ý cluster' }));
     await user.click(submitButton());
     expect(posted).toHaveLength(1);
   });
@@ -155,7 +166,12 @@ describe('UC-03 rendering templates page (T03)', () => {
     vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       if (init?.method === 'POST') return new Promise<Response>((done) => { release = done; });
       const url = String(input);
-      if (url.endsWith('/render-bundles')) return Response.json({ renderBundles: [bundleWeb] });
+      if (url.endsWith('/resource-types')) return Response.json({ resourceTypes: [{ key: 'workload', inputs: [], outputs: [], classes: [] }] });
+    if (url.endsWith('/resource-definition-capabilities')) return Response.json({ capabilities: [{ resourceType: 'workload', driverType: 'score-k8s', module: '', variables: [
+      { name: 'render_bundle', type: 'string', required: true, hasDefault: false, resourceParam: false },
+      { name: 'namespace', type: 'string', required: true, hasDefault: false, resourceParam: false, preset: nsRef },
+      { name: 'cluster', type: 'string', required: true, hasDefault: false, resourceParam: false, preset: clusterRef }], executorOwned: [], account: { required: false }, bindings: [] }] });
+    if (url.endsWith('/render-bundles')) return Response.json({ renderBundles: [bundleWeb] });
       return url.endsWith('/applications') ? Response.json({ applications }) : Response.json({ resourceDefinitions: [] });
     }));
     render(<RenderingTemplatesPage />);
@@ -221,6 +237,8 @@ describe('UC-03 rendering templates page (T03)', () => {
       expect(await screen.findByRole('alert')).toHaveTextContent('Chọn bundle dựng ứng dụng.');
       expect(posted).toHaveLength(0);
       await user.selectOptions(bundleSelect(), 'bundle-b');
+      await user.click(await screen.findByRole('button', { name: 'Dùng gợi ý namespace' }));
+      await user.click(screen.getByRole('button', { name: 'Dùng gợi ý cluster' }));
       await user.click(submitButton());
       expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký mẫu dựng ứng dụng web-tpl.');
       expect(posted[0]).toMatchObject({ driverInputs: { values: { variables: { render_bundle: 'bundle-b' } } } });
@@ -291,6 +309,8 @@ describe('UC-03 rendering templates page (T03)', () => {
       expect(submitButton()).toBeDisabled();
       expect(posted).toHaveLength(0);
       await user.selectOptions(bundleSelect(), 'bundle-web');
+      await user.click(await screen.findByRole('button', { name: 'Dùng gợi ý namespace' }));
+      await user.click(screen.getByRole('button', { name: 'Dùng gợi ý cluster' }));
       await user.click(submitButton());
       await waitFor(() => expect(posted).toHaveLength(1));
       expect(posted[0]).toMatchObject({ driverInputs: { values: { variables: { render_bundle: 'bundle-web' } } } });
@@ -373,7 +393,7 @@ describe('UC-03 V02 rendering template edit', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Đã lưu mẫu dựng ứng dụng web-tpl (phiên bản 3).');
     expect(posted).toEqual([]);
     expect(puts[0]?.url).toMatch(/\/resource-definitions\/web-tpl$/);
-    expect(puts[0]?.body).toEqual({ key: 'web-tpl', name: 'Mẫu web mới', resourceType: 'workload', driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: 'bundle-web' } } }, criteria: [{ env_type: 'staging' }], version: 2 });
+    expect(puts[0]?.body).toEqual({ key: 'web-tpl', name: 'Mẫu web mới', resourceType: 'workload', driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: 'bundle-web', namespace: nsRef, cluster: clusterRef } } }, criteria: [{ env_type: 'staging' }], version: 2 });
   });
   it('keeps the draft on a stale 409 and needs an explicit reload before saving again', async () => {
     const user = userEvent.setup();
@@ -431,5 +451,114 @@ describe('UC-03 V02 rendering template create with an unknown outcome', () => {
     expect(bundleSelect()).toHaveValue('bundle-web');
     expect(submitButton()).toBeEnabled();
     expect(posted).toHaveLength(1);
+  });
+});
+
+describe('ADR-016 workload placement and companions', () => {
+  const jsonField = () => screen.getByLabelText('JSON nâng cao của mẫu dựng ứng dụng') as HTMLTextAreaElement;
+
+  it('sends the typed namespace/cluster references and a companion rule exactly, with no other variable', async () => {
+    const user = userEvent.setup();
+    // A workload Type that declares inputs adds no control: the driver would not consume them.
+    const { posted } = backend({ workloadInputs: [{ name: 'backend_url', type: 'string' }] });
+    render(<RenderingTemplatesPage />);
+    await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await fill(user);
+    expect(screen.queryByLabelText('Đầu vào backend_url')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên đi kèm' }));
+    await user.type(screen.getByLabelText('Descriptor tài nguyên đi kèm 1'), 'k8s-namespace.default#environments.@app.@env-extra');
+    await user.click(submitButton());
+    expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký mẫu dựng ứng dụng web-tpl.');
+    expect(posted[0]).toEqual({
+      key: 'web-tpl', name: 'Mẫu web', resourceType: 'workload', driverType: 'score-k8s', criteria: [{}],
+      driverInputs: { values: { variables: { render_bundle: 'bundle-web', namespace: nsRef, cluster: clusterRef } } },
+      provision: { 'k8s-namespace.default#environments.@app.@env-extra': {} },
+    });
+    expect(posted[0]).not.toHaveProperty('driverAccount');
+  });
+
+  it('refuses a half pair of references and sends the render-only AWS legacy form only when both are empty', async () => {
+    const user = userEvent.setup();
+    const { posted } = backend();
+    render(<RenderingTemplatesPage />);
+    await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await fill(user);
+    await user.clear(screen.getByLabelText('Tham chiếu cluster'));
+    await user.click(submitButton());
+    expect(await screen.findByRole('alert')).toHaveTextContent('Nhập đủ tham chiếu namespace và cluster');
+    expect(posted).toEqual([]);
+    await user.clear(screen.getByLabelText('Tham chiếu namespace'));
+    await user.click(submitButton());
+    await screen.findByRole('status');
+    expect(posted[0]).toMatchObject({ driverInputs: { values: { variables: { render_bundle: 'bundle-web' } } } });
+    expect((posted[0]?.driverInputs as { values: { variables: Record<string, unknown> } }).values.variables).not.toHaveProperty('namespace');
+  });
+
+  it('keeps form and advanced JSON as one lossless document', async () => {
+    const user = userEvent.setup();
+    const { posted } = backend();
+    render(<RenderingTemplatesPage />);
+    await screen.findByText('Chưa có mẫu dựng ứng dụng nào.');
+    await fill(user);
+    await user.click(screen.getByRole('button', { name: 'JSON nâng cao' }));
+    expect(JSON.parse(jsonField().value)).toEqual({ variables: { render_bundle: 'bundle-web', namespace: nsRef, cluster: clusterRef } });
+    await user.click(screen.getByRole('button', { name: 'Biểu mẫu' }));
+    expect(screen.getByLabelText('Tham chiếu cluster')).toHaveValue(clusterRef);
+    // A key the form cannot show stays authoritative in JSON; nothing is dropped.
+    await user.click(screen.getByRole('button', { name: 'JSON nâng cao' }));
+    await user.clear(jsonField());
+    await user.click(jsonField());
+    await user.paste(JSON.stringify({ variables: { render_bundle: 'bundle-web', namespace: nsRef, cluster: clusterRef, unknown_key: 'x' } }));
+    await user.click(screen.getByRole('button', { name: 'Biểu mẫu' }));
+    expect(screen.getByText(/không được trình điều khiển workload hỗ trợ/)).toBeInTheDocument();
+    expect(jsonField()).toBeInTheDocument();
+    await user.click(submitButton());
+    expect(posted[0]).toMatchObject({ driverInputs: { values: { variables: { unknown_key: 'x' } } } });
+  });
+
+  it('opens a stored template with a companion rule in the form and saves it unchanged', async () => {
+    const user = userEvent.setup();
+    const stored = { ...template, provision: { 'k8s-namespace.default#environments.@app.@env-extra': { match_dependents: true } } };
+    const { puts } = backend({ definitions: [stored] });
+    render(<RenderingTemplatesPage />);
+    await screen.findByText('Mẫu web');
+    await user.click(screen.getByRole('button', { name: 'Sửa mẫu web-tpl' }));
+    expect(screen.getByLabelText('Descriptor tài nguyên đi kèm 1')).toHaveValue('k8s-namespace.default#environments.@app.@env-extra');
+    expect(screen.getByLabelText(/match_dependents/)).toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    await screen.findByRole('status');
+    expect(puts[0]?.body).toMatchObject({ provision: { 'k8s-namespace.default#environments.@app.@env-extra': { match_dependents: true } }, driverInputs: { values: { variables: { namespace: nsRef, cluster: clusterRef } } } });
+  });
+
+  it('keeps all four flag combinations of the workload companion rules lossless through the form (BR-08)', async () => {
+    const user = userEvent.setup();
+    const rules = {
+      'k8s-namespace.default#environments.@app.@env-a': {},
+      'k8s-namespace.default#environments.@app.@env-b': { is_dependent: true },
+      'k8s-namespace.default#environments.@app.@env-c': { match_dependents: true },
+      'k8s-namespace.default#environments.@app.@env-d': { is_dependent: true, match_dependents: true },
+    };
+    const { puts } = backend({ definitions: [{ ...template, provision: rules }] });
+    render(<RenderingTemplatesPage />);
+    await screen.findByText('Mẫu web');
+    await user.click(screen.getByRole('button', { name: 'Sửa mẫu web-tpl' }));
+    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    await screen.findByRole('status');
+    // No flag is added, dropped or flipped: false/absent stays absent, true stays true, a rule with both keeps both.
+    expect((puts[0]?.body as { provision: unknown }).provision).toEqual(rules);
+  });
+
+  it('opens a stored template the form cannot represent in advanced JSON and preserves it', async () => {
+    const user = userEvent.setup();
+    const stored = { ...template, driverInputs: { values: { variables: { render_bundle: 'bundle-web', namespace: nsRef, cluster: clusterRef, legacy_extra: { nested: true } } } } };
+    const { puts } = backend({ definitions: [stored] });
+    render(<RenderingTemplatesPage />);
+    await screen.findByText('Mẫu web');
+    await user.click(screen.getByRole('button', { name: 'Sửa mẫu web-tpl' }));
+    expect(JSON.parse(jsonField().value).variables.legacy_extra).toEqual({ nested: true });
+    expect(screen.getByRole('status')).toHaveTextContent('Mẫu được mở ở JSON nâng cao');
+    await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    await screen.findAllByRole('status');
+    expect((puts[0]?.body.driverInputs as { values: { variables: Record<string, unknown> } }).values.variables.legacy_extra).toEqual({ nested: true });
   });
 });

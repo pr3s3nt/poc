@@ -47,7 +47,7 @@ func fixture(t *testing.T) (*bootstrap.App, *workloadconfig.Service, *pending.Se
 		t.Fatal(err)
 	}
 	workloads := workloadconfig.NewService(app.Store)
-	preview := pending.NewService(app.Store, planning.NewService(), workloads, planning.RegistryInspector{Metadata: app.Modules})
+	preview := pending.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
 	preview.SetDeployer(app.Deployments)
 	return app, workloads, preview, opts
 }

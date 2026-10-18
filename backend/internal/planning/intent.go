@@ -11,7 +11,6 @@ import (
 const (
 	IntentCreate = "CREATE"
 	IntentRetain = "RETAIN"
-	IntentBind   = "BIND"
 	// IntentUpdate: the identity exists and its authored Definition, module
 	// pin, provider targets or params differ from the last executed plan.
 	IntentUpdate = "UPDATE"
@@ -20,12 +19,13 @@ const (
 	IntentUnverified = "UNVERIFIED"
 )
 
-// Ownership values of a previewed resource: the implicit Environment cluster
-// binding is a platform resource (ADR-013); every other node is owned by the
-// orchestrator within its scope.
+// Ownership values of a previewed resource: every Terraform-managed node is
+// owned by the orchestrator within its scope; an existing cluster is only reached.
 const (
-	OwnerPlatform     = "PLATFORM"
 	OwnerOrchestrator = "ORCHESTRATOR"
+	// OwnerPreexisting marks a cluster the orchestrator reaches but never
+	// creates or destroys (ADR-016).
+	OwnerPreexisting = "PREEXISTING"
 )
 
 // IntentModule is the public pin of the verified module a node will run.
@@ -53,16 +53,20 @@ type IntentProvider struct {
 // ownership and create/retain intent. It carries no params, resolved inputs,
 // secret or state reference and does not claim a final Terraform plan.
 type ResourceIntent struct {
-	Descriptor    string           `json:"descriptor"`
-	ResourceType  string           `json:"resourceType"`
-	Class         string           `json:"class"`
-	Scope         string           `json:"scope"`
-	Ownership     string           `json:"ownership"`
-	Intent        string           `json:"intent"`
-	DefinitionKey string           `json:"definitionKey"`
-	DriverType    string           `json:"driverType"`
-	Module        *IntentModule    `json:"module,omitempty"`
-	Providers     []IntentProvider `json:"providers,omitempty"`
+	Descriptor    string `json:"descriptor"`
+	ResourceType  string `json:"resourceType"`
+	Class         string `json:"class"`
+	Scope         string `json:"scope"`
+	Ownership     string `json:"ownership"`
+	Intent        string `json:"intent"`
+	DefinitionKey string `json:"definitionKey"`
+	DriverType    string `json:"driverType"`
+	// DriverAccount and AccountVersion name the safe Driver Account key a
+	// node's Definition pinned (an Internal account for existing-cluster).
+	DriverAccount  string           `json:"driverAccount,omitempty"`
+	AccountVersion int64            `json:"accountVersion,omitempty"`
+	Module         *IntentModule    `json:"module,omitempty"`
+	Providers      []IntentProvider `json:"providers,omitempty"`
 }
 
 // intentFingerprints hashes, per node, the complete authored and pinned
@@ -89,11 +93,11 @@ func (p *Plan) intentFingerprints() map[string]string {
 			continue
 		}
 		evidence, hasEvidence := p.IntentEvidence[node.Descriptor]
-		if !hasEvidence && match.Binding == "" {
+		if !hasEvidence {
 			continue // no authored-content evidence (for example an older persisted plan): unverified
 		}
 		hash, err := canon.Hash(map[string]any{
-			"definition": match.DefinitionKey, "driver": match.DriverType, "connection": match.ConnectionKey, "account": match.DriverAccount, "binding": match.Binding,
+			"definition": match.DefinitionKey, "driver": match.DriverType, "account": match.DriverAccount, "accountVersion": match.AccountVersion,
 			"type": node.ResourceType, "class": node.Class, "params": node.Params, "bindings": node.Bindings,
 			"authored": evidence, "fingerprint": contract.Fingerprint, "bundle": contract.BundleID, "terraform": contract.TerraformVersion, "lock": contract.ProviderLockDigest,
 			"source": contract.Source, "inputs": contract.Inputs, "outputs": contract.OutputMapping, "secretOutputs": contract.SecretOutputs, "providers": contract.ProviderBindings,
@@ -118,6 +122,15 @@ func intentEvidence(matches map[string]Match, matcher *definitionMatcher) map[st
 		if err == nil {
 			out[descriptor] = hash
 		}
+	}
+	return out
+}
+
+// PlacementList returns the plan's placements ordered by node.
+func (p *Plan) PlacementList() []Placement {
+	out := make([]Placement, 0, len(p.Placements))
+	for _, node := range sortedKeys(p.Placements) {
+		out = append(out, p.Placements[node])
 	}
 	return out
 }
@@ -148,6 +161,10 @@ func (p *Plan) ResourceIntents(previous func(Node) *Plan) []ResourceIntent {
 			Scope: node.Scope.Key(), Ownership: OwnerOrchestrator,
 			DefinitionKey: match.DefinitionKey, DriverType: string(match.DriverType),
 		}
+		if match.DriverType == resource.DriverExistingCluster {
+			intent.DriverAccount, intent.AccountVersion = match.DriverAccount, match.AccountVersion
+			intent.Ownership = OwnerPreexisting
+		}
 		if isNew[node.Descriptor] {
 			intent.Intent = IntentCreate
 		} else {
@@ -165,9 +182,6 @@ func (p *Plan) ResourceIntents(previous func(Node) *Plan) []ResourceIntent {
 					}
 				}
 			}
-		}
-		if match.Binding == BindingEnvironmentConnection {
-			intent.Ownership, intent.Intent = OwnerPlatform, IntentBind
 		}
 		if contract, ok := contracts[node.Descriptor]; ok {
 			if contract.Source != nil {

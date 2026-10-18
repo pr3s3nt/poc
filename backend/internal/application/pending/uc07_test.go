@@ -125,7 +125,7 @@ func TestDeployReportDoesNotEchoRuntimeErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	workloads := workloadconfig.NewService(app.Store)
-	svc := pending.NewService(app.Store, planning.NewService(), workloads, planning.RegistryInspector{Metadata: app.Modules})
+	svc := pending.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), workloads, planning.RegistryInspector{Metadata: app.Modules})
 	svc.SetDeployer(app.Deployments)
 	if _, err := workloads.Save(ctx, opts.ApplicationKey, opts.EnvironmentKey, "backend", scoreFor("backend", "example.invalid/backend:v1", false), 0); err != nil {
 		t.Fatal(err)

@@ -41,7 +41,7 @@ describe('exact matching preview panel (T19)', () => {
     expect(screen.queryByText(/hòa/)).not.toBeInTheDocument();
   });
 
-  it('does not call candidates unmatched when the context is incomplete or the node is a system binding', async () => {
+  it('does not call candidates unmatched when the context is incomplete', async () => {
     const candidates = [{ key: 'pg-new', name: 'PG mới', matched: false }, { key: 'pg-aws', name: 'PG AWS', matched: false }];
     stub(() => Response.json({ status: 'INCOMPLETE', missingFields: ['class'], candidates, snapshot: { marker: 'm', environmentVersion: 1 } }));
     const first = render(<MatchingPreviewPanel candidate={{ definition, problem: '' }} sample={sample} />);
@@ -50,12 +50,6 @@ describe('exact matching preview panel (T19)', () => {
     expect(list.textContent).toMatch(/PG mới \(pg-new\): chưa đánh giá do thiếu context/);
     expect(list.textContent).not.toMatch(/không khớp context/);
     first.unmount();
-    stub(() => Response.json({ status: 'SYSTEM_BINDING', missingFields: [], candidates, snapshot: { marker: 'm', environmentVersion: 1 } }));
-    render(<MatchingPreviewPanel candidate={{ definition, problem: '' }} sample={sample} />);
-    await userEvent.setup().click(run());
-    const system = await screen.findByRole('list', { name: 'Chi tiết từng cấu hình' });
-    expect(system.textContent).toMatch(/PG mới \(pg-new\): không xét điều kiện: node dùng binding hệ thống/);
-    expect(system.textContent).not.toMatch(/không khớp context/);
   });
 
   it('blocks the action with a reason when the candidate or the scope is incomplete', async () => {

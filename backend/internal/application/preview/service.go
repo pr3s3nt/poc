@@ -247,13 +247,19 @@ type View struct {
 	Graph          GraphView                              `json:"graph"`
 	Matches        []MatchView                            `json:"matches"`
 	Batches        [][]string                             `json:"batches"`
-	Classification planning.Classification                `json:"classification"`
+	// AfterWorkloads lists, per resource that depends on a workload (is_dependent), the
+	// workloads it follows: the lifecycle order UC-06 owns around the resource batches.
+	AfterWorkloads map[string][]string     `json:"afterWorkloads,omitempty"`
+	Classification planning.Classification `json:"classification"`
 	// ResourceIntents, Binding and AccountID are the safe resource projection
 	// of UC-05 BR-10: type, class, source, target, account and ownership, with
 	// no params, resolved inputs, secret or state reference.
 	ResourceIntents []planning.ResourceIntent `json:"resourceIntents"`
-	Binding         environment.Binding       `json:"binding"`
-	AccountID       string                    `json:"accountId,omitempty"`
+	// Placements show, per workload and Kubernetes-bound resource, the cluster
+	// Definition/account and namespace it runs on (ADR-016); identities only.
+	Placements []planning.Placement `json:"placements"`
+	Binding    environment.Binding  `json:"binding"`
+	AccountID  string               `json:"accountId,omitempty"`
 }
 
 // GraphView omits node parameter values, which may come from Definition
@@ -281,14 +287,11 @@ type MatchView struct {
 	DefinitionKey string `json:"definitionKey"`
 	DriverType    string `json:"driverType"`
 	Specificity   int    `json:"specificity"`
-	// Binding and ConnectionKey are set only for the Environment-bound
-	// builtin cluster (ADR-013).
-	Binding       string `json:"binding,omitempty"`
-	ConnectionKey string `json:"connectionKey,omitempty"`
 	// DefinitionVersion and DriverAccount name the Definition version and the
 	// safe Driver Account key the plan pinned (UC-03 V02-07); never a credential.
 	DefinitionVersion int64  `json:"definitionVersion,omitempty"`
 	DriverAccount     string `json:"driverAccount,omitempty"`
+	AccountVersion    int64  `json:"accountVersion,omitempty"`
 }
 
 // Public renders the sanitized view. It deep-copies the Candidate Set before
@@ -327,6 +330,10 @@ func (p *DeploymentPreview) Public() (View, error) {
 		view.Graph.Nodes = append(view.Graph.Nodes, NodeView{Descriptor: n.Descriptor, Kind: n.Kind, ResourceType: n.ResourceType, Class: n.Class, Origins: origins, WorkloadID: n.WorkloadID, ParamKeys: keys, Bindings: bindings})
 	}
 	view.Graph.Edges = append(view.Graph.Edges, p.Plan.Graph.Edges...)
+	view.Placements = []planning.Placement{}
+	for _, node := range sortedPlacementKeys(p.Plan.Placements) {
+		view.Placements = append(view.Placements, p.Plan.Placements[node])
+	}
 	descriptors := make([]string, 0, len(p.Plan.Matches))
 	for d := range p.Plan.Matches {
 		descriptors = append(descriptors, d)
@@ -334,10 +341,16 @@ func (p *DeploymentPreview) Public() (View, error) {
 	sort.Strings(descriptors)
 	for _, d := range descriptors {
 		m := p.Plan.Matches[d]
-		view.Matches = append(view.Matches, MatchView{Descriptor: m.Descriptor, DefinitionKey: m.DefinitionKey, DriverType: string(m.DriverType), Specificity: m.Specificity, Binding: m.Binding, ConnectionKey: bindingConnection(m), DefinitionVersion: m.DefinitionVersion, DriverAccount: m.DriverAccount})
+		view.Matches = append(view.Matches, MatchView{Descriptor: m.Descriptor, DefinitionKey: m.DefinitionKey, DriverType: string(m.DriverType), Specificity: m.Specificity, DefinitionVersion: m.DefinitionVersion, DriverAccount: m.DriverAccount, AccountVersion: m.AccountVersion})
 	}
 	for _, batch := range p.Plan.Batches {
 		view.Batches = append(view.Batches, append([]string{}, batch...))
+	}
+	if len(p.Plan.AfterWorkloads) > 0 {
+		view.AfterWorkloads = map[string][]string{}
+		for descriptor, workloads := range p.Plan.AfterWorkloads {
+			view.AfterWorkloads[descriptor] = append([]string{}, workloads...)
+		}
 	}
 	return view, nil
 }
@@ -394,10 +407,11 @@ func copyDocument(set environment.Document) (environment.Document, error) {
 	return out, nil
 }
 
-// bindingConnection exposes the Connection key only for the Environment-bound match.
-func bindingConnection(m planning.Match) string {
-	if m.Binding == "" {
-		return ""
+func sortedPlacementKeys(m map[string]planning.Placement) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
 	}
-	return m.ConnectionKey
+	sort.Strings(keys)
+	return keys
 }

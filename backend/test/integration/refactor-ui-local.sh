@@ -22,6 +22,8 @@
 # Output in NEW_PATH: <Txx>-raw.mp4, <Txx>-captioned.mp4, captions.srt/.ass,
 # marks.json, assertions.txt, result.txt, run.json, ffprobe.json, frames/*.png.
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"
+retired_runner "refactor-ui-local.sh (mock UI suite asserting the Settings Connection selector)" "vitest suites in frontend/src and backend/test/integration/v03-internal-frontend.sh; the suite must be migrated before reuse"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO="$(cd "${ROOT}/.." && pwd)"

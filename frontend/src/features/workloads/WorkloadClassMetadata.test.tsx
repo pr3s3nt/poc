@@ -223,3 +223,51 @@ describe('UC-16 dependency class from authoritative metadata (I04-07)', () => {
     expect(screen.getByLabelText('Cách cung cấp (class) của db')).toBeEnabled();
   });
 });
+
+describe('ADR-016 workload class (Score metadata.class)', () => {
+  it('writes metadata.class only when chosen and leaves a missing class missing', async () => {
+    const user = userEvent.setup();
+    const { puts } = serve();
+    await newWorkload(user);
+    await user.click(save());
+    expect((puts[0]?.score as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api' });
+    await user.type(screen.getByLabelText('Class Workload'), 'gold');
+    await user.click(save());
+    expect((puts[1]?.score as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api', class: 'gold' });
+  });
+
+  it('opens an imported class in the form, keeps it through an edit and never converts default', async () => {
+    const user = userEvent.setup();
+    for (const className of ['gold', 'default']) {
+      cleanup();
+      vi.unstubAllGlobals();
+      const score = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api', class: className }, containers: { main: { image: 'example.invalid/api:v1' } } };
+      const { puts } = serve({ workloads: [{ id: 'api', ready: true, score }] });
+      render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+      expect(await screen.findByLabelText('Class Workload')).toHaveValue(className);
+      await user.clear(screen.getByLabelText('Ảnh Container'));
+      await user.type(screen.getByLabelText('Ảnh Container'), 'example.invalid/api:v2');
+      await user.click(save());
+      expect((puts[0]?.score as { metadata: Record<string, unknown> }).metadata).toEqual({ name: 'api', class: className });
+    }
+  });
+
+  it('refuses an invalid class before saving and keeps the typed value', async () => {
+    const user = userEvent.setup();
+    const { puts } = serve();
+    await newWorkload(user);
+    await user.type(screen.getByLabelText('Class Workload'), 'Gold Class');
+    await user.click(save());
+    expect(await screen.findByRole('alert')).toHaveTextContent('Class Workload không hợp lệ');
+    expect(puts).toEqual([]);
+    expect(screen.getByLabelText('Class Workload')).toHaveValue('Gold Class');
+  });
+
+  it('keeps a Score whose metadata.class is not a valid identifier in the advanced Score editor instead of rewriting it', async () => {
+    const score = { apiVersion: 'score.dev/v1b1', metadata: { name: 'api', class: 'Not Valid' }, containers: { main: { image: 'example.invalid/api:v1' } } };
+    serve({ workloads: [{ id: 'api', ready: true, score }] });
+    render(<WorkloadEditorPage application={application} environment="staging" workloadId="api" />);
+    expect((await screen.findAllByText(/Nhập một file Score|Đã phân tích Workload/)).length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText('Class Workload')).not.toBeInTheDocument();
+  });
+});

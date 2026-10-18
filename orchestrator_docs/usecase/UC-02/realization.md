@@ -59,3 +59,11 @@ POST chỉ cho Platform Engineer/Admin. Contract list và form nằm trong
 ## Input validation collaboration
 
 New public registration validates the ID and reserved virtual Type keys before persistence, per specification BR-05/BR-06. The existing validation participant performs this check; no new persistence entity or transaction is introduced.
+
+
+## V03 typed target contract
+
+UC-02 V03-01/02 and ADR-016 extend fresh k8s-cluster outputs with concrete opaque
+cluster target validation and allow workload Type params/safe outputs. Existing
+Type schema validation remains; execution validators must enforce target identity
+and scope in addition to the generic any schema. No credential bytes/public refs.

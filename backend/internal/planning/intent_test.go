@@ -60,7 +60,7 @@ func TestResourceIntentComparesTheCompleteExecutionIntent(t *testing.T) {
 			p.Matches["redis.in-cluster#shared.cache"] = Match{DefinitionKey: "redis-other", DriverType: resource.DriverTerraform}
 		}, IntentUpdate},
 		"connection": {func(p *Plan) {
-			p.Matches["redis.in-cluster#shared.cache"] = Match{DefinitionKey: "redis-module", DriverType: resource.DriverTerraform, ConnectionKey: "lab"}
+			p.Matches["redis.in-cluster#shared.cache"] = Match{DefinitionKey: "redis-module", DriverType: resource.DriverTerraform, DriverAccount: "lab"}
 		}, IntentUpdate},
 		"authored param": {func(p *Plan) { p.Graph.Nodes[0].Params = map[string]any{"size": 2} }, IntentUpdate},
 		"provider target": {func(p *Plan) {
@@ -104,25 +104,31 @@ func TestResourceIntentComparesTheCompleteExecutionIntent(t *testing.T) {
 	}
 }
 
-// Non-Terraform, definitions-driven semantics: the driver, Connection and
-// binding of the match are part of the comparison.
-func TestResourceIntentComparesDriverAndBindingOfNonTerraformNodes(t *testing.T) {
-	const descriptor = "k8s-cluster.internal#connections.lab"
+// Non-Terraform existing-cluster semantics (ADR-016): the Driver Account identity and its version
+// are part of the comparison, and the cluster is shown as PREEXISTING (never created or deleted).
+func TestResourceIntentComparesAccountAndShowsAnExistingClusterAsPreexisting(t *testing.T) {
+	const descriptor = "k8s-cluster.internal#environments.a.dev"
 	mk := func(match Match) *Plan {
 		return &Plan{
-			Graph:   Graph{Nodes: []Node{{Descriptor: descriptor, Kind: NodeResource, ResourceType: "k8s-cluster", Class: "internal", Scope: resource.Scope{Type: resource.ScopeApplication, ID: "a"}}}},
-			Matches: map[string]Match{descriptor: match},
+			Graph:          Graph{Nodes: []Node{{Descriptor: descriptor, Kind: NodeResource, ResourceType: "k8s-cluster", Class: "internal", Scope: resource.Scope{Type: resource.ScopeEnvironment, ID: "a.dev"}}}},
+			Matches:        map[string]Match{descriptor: match},
+			IntentEvidence: map[string]string{descriptor: "evidence"},
 		}
 	}
-	base := Match{DefinitionKey: "builtin-existing-cluster", DriverType: resource.DriverExistingCluster, Binding: BindingEnvironmentConnection, ConnectionKey: "lab"}
+	base := Match{DefinitionKey: "cluster-lab", DriverType: resource.DriverExistingCluster, DriverAccount: "lab", AccountVersion: 3}
 	same := mk(base).ResourceIntents(func(Node) *Plan { return mk(base) })
-	if same[0].Intent != IntentBind {
-		t.Fatalf("binding node: %+v", same[0])
+	if same[0].Ownership != OwnerPreexisting || same[0].Intent != IntentUnverified && same[0].Intent != IntentRetain || same[0].DriverAccount != "lab" || same[0].AccountVersion != 3 {
+		t.Fatalf("existing cluster: %+v", same[0])
 	}
 	moved := base
-	moved.ConnectionKey = "other"
-	// The bound node is always BIND for display, but its stored fingerprint differs.
-	if mk(base).intentFingerprints()[descriptor+"|"+mk(base).Graph.Nodes[0].Scope.Key()] == mk(moved).intentFingerprints()[descriptor+"|"+mk(moved).Graph.Nodes[0].Scope.Key()] {
-		t.Fatal("a changed Connection must change the fingerprint")
+	moved.AccountVersion = 4
+	key := descriptor + "|" + mk(base).Graph.Nodes[0].Scope.Key()
+	if mk(base).intentFingerprints()[key] == mk(moved).intentFingerprints()[key] {
+		t.Fatal("a changed account version must change the fingerprint")
+	}
+	other := base
+	other.DriverAccount = "other"
+	if mk(base).intentFingerprints()[key] == mk(other).intentFingerprints()[key] {
+		t.Fatal("a changed account must change the fingerprint")
 	}
 }

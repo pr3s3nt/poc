@@ -311,7 +311,7 @@ func TestRegisterResourceDefinition_NamespaceNameFromTypeContract(t *testing.T) 
 func TestRegisterResourceDefinition_RejectsReservedBuiltinKey(t *testing.T) {
 	ctx := context.Background()
 	_, svc, opts := seededCatalog(t, withRegistry)
-	def := planning.BuiltinClusterDefinition()
+	def := resource.Definition{Key: planning.BuiltinClusterKey, Name: "reserved", Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, Criteria: []resource.Criterion{{Class: "internal"}}}
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def); !errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("reserved key = %v", err)
 	}

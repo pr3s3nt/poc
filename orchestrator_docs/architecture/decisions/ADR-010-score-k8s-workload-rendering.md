@@ -21,6 +21,13 @@ và aws-eks. Không có matching Definition/bundle hoặc rendering lỗi thì d
 Bản này không sở hữu account/provider/state Terraform; không ghi supersession
 Aurora hay module nguồn vốn thuộc ADR khác.
 
+[ADR-016](ADR-016-definition-selected-workload-targets.md) extends workload
+Definitions from render-only selection to lifecycle policy and explicit typed
+placement. score-k8s still performs render/generate and controlled patches;
+existing adapters perform apply/readiness/update/remove. Platform-managed patches
+remain sufficient for V03; PE-authored patch configuration is deferred in
+[issue5](https://github.com/pr3s3nt/poc/issues/5).
+
 ## Các quyết định còn hiệu lực
 
 1. Definition Type workload chọn rendering bundle; Orchestrator sở hữu matching

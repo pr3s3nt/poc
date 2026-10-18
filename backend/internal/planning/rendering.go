@@ -9,61 +9,84 @@ import (
 	"orchestrator/internal/platform/canon"
 )
 
-func (s *Service) selectRendering(ctx Context, graph Graph, matcher *definitionMatcher, catalog Catalog) (map[string]resource.RenderingSelection, error) {
-	out := map[string]resource.RenderingSelection{}
-	// Renderer definitions are separate from infrastructure matches and provision batches.
-	renderMatcher := &definitionMatcher{ctx: ctx, defs: matcher.defs}
+// renderMatcher narrows the Definition list to workload score-k8s Definitions.
+// Renderer definitions are separate from infrastructure matches and provision batches.
+func renderMatcher(ctx Context, matcher *definitionMatcher) *definitionMatcher {
+	rm := &definitionMatcher{ctx: ctx, defs: matcher.defs, accounts: matcher.accounts}
 	for _, def := range matcher.list {
 		if def.ResourceTypeKey == "workload" && def.DriverType == resource.DriverScoreK8s {
-			renderMatcher.list = append(renderMatcher.list, def)
+			rm.list = append(rm.list, def)
 		}
 	}
+	return rm
+}
+
+// pickWorkload selects and validates the workload Definition of one workload
+// node. skipped is true when no Definition applies and the native renderer
+// keeps the additive planner-reference behavior.
+func (s *Service) pickWorkload(ctx Context, rm *definitionMatcher, node Node, catalog Catalog) (def resource.Definition, match Match, skipped bool, err error) {
+	matchCtx := resource.MatchContext{EnvironmentType: ctx.Env.Type, ApplicationID: ctx.App.Key, EnvironmentID: ctx.Env.Key, ResourceID: descriptorID(node.Descriptor), Class: node.Class}
+	eligible := false
+	for _, candidate := range rm.list {
+		if _, _, ok := candidate.BestCriterion(matchCtx); ok {
+			eligible = true
+		}
+	}
+	if !eligible && !s.requireRenderer {
+		return resource.Definition{}, Match{}, true, nil
+	}
+	match, err = rm.match(&node)
+	if err != nil {
+		if s.requireRenderer {
+			return resource.Definition{}, Match{}, false, rendererMatchError(err)
+		}
+		return resource.Definition{}, Match{}, false, err
+	}
+	def = rm.defs[match.DefinitionKey]
+	if err := resource.ValidateRenderDefinition(def, catalog.Types["workload"], s.bundles, ctx.DefinitionPlaced()); err != nil {
+		if s.requireRenderer {
+			return resource.Definition{}, Match{}, false, &StageError{Stage: StageCatalog, Reason: ReasonRendererUnavailable, Err: err}
+		}
+		return resource.Definition{}, Match{}, false, err
+	}
+	return def, match, false, nil
+}
+
+func (s *Service) selectRendering(ctx Context, graph Graph, matcher *definitionMatcher, catalog Catalog) (map[string]resource.RenderingSelection, error) {
+	out := map[string]resource.RenderingSelection{}
+	rm := renderMatcher(ctx, matcher)
 	for _, node := range graph.Nodes {
 		if node.Kind != NodeWorkload {
 			continue
 		}
-		eligible := false
-		matchCtx := resource.MatchContext{EnvironmentType: ctx.Env.Type, ApplicationID: ctx.App.Key, EnvironmentID: ctx.Env.Key, ResourceID: descriptorID(node.Descriptor), Class: node.Class}
-		for _, def := range renderMatcher.list {
-			if _, _, ok := def.BestCriterion(matchCtx); ok {
-				eligible = true
-			}
-		}
-		if !eligible && !s.requireRenderer {
-			continue
-		} // Native renderer: omitted from additive snapshots for legacy compatibility.
-		match, err := renderMatcher.match(&node)
+		def, _, skipped, err := s.pickWorkload(ctx, rm, node, catalog)
 		if err != nil {
-			if s.requireRenderer {
-				return nil, rendererMatchError(err)
-			}
 			return nil, err
 		}
-		def := matcher.defs[match.DefinitionKey]
-		if err := resource.ValidateRenderDefinition(def, catalog.Types["workload"], s.bundles); err != nil {
-			if s.requireRenderer {
-				return nil, &StageError{Stage: StageCatalog, Reason: ReasonRendererUnavailable, Err: err}
-			}
-			return nil, err
+		if skipped {
+			continue
 		}
 		hash, err := canon.Hash(def)
 		if err != nil {
 			return nil, err
 		}
-		out[node.WorkloadID] = resource.RenderingSelection{DefinitionKey: def.Key, DefinitionHash: hash, DriverType: def.DriverType, Bundle: s.bundles[def.Variables()["render_bundle"].(string)]}
+		out[node.WorkloadID] = resource.RenderingSelection{DefinitionKey: def.Key, DefinitionHash: hash, DriverType: def.DriverType, Class: node.Class, Bundle: s.bundles[def.Variables()[resource.VariableRenderBundle].(string)]}
 	}
 	return out, nil
 }
 
 // SelectWorkloadRendering detects renderer-only pending updates without planning
 // or validating unrelated workload changes. It uses the same selection as Plan.
-func (s *Service) SelectWorkloadRendering(app application.Application, env environment.Environment, id string, catalog Catalog) (resource.RenderingSelection, error) {
+func (s *Service) SelectWorkloadRendering(app application.Application, env environment.Environment, id, class string, catalog Catalog) (resource.RenderingSelection, error) {
+	if class == "" {
+		class = ClassDefault
+	}
 	ctx := Context{App: app, Env: env}
 	matcher, err := newDefinitionMatcher(ctx, catalog)
 	if err != nil {
 		return resource.RenderingSelection{}, stageErr(StageCatalog, err)
 	}
-	selections, err := s.selectRendering(ctx, Graph{Nodes: []Node{{Descriptor: "workload.default#modules." + id, Kind: NodeWorkload, ResourceType: "workload", Class: "default", WorkloadID: id}}}, matcher, catalog)
+	selections, err := s.selectRendering(ctx, Graph{Nodes: []Node{{Descriptor: "workload." + class + "#modules." + id, Kind: NodeWorkload, ResourceType: "workload", Class: class, WorkloadID: id}}}, matcher, catalog)
 	if err != nil {
 		return resource.RenderingSelection{}, stageErr(StageCatalog, err)
 	}

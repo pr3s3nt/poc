@@ -698,3 +698,8 @@ Environment AWS account selection and insert-only statements in older contracts.
   original stored pins rather than rereading mutable Definition. Existing state
   target mismatch cannot trigger an implicit move/adoption. Legacy implicit
   enrichment is reserved for V03 removal.
+
+
+## V03 operations — Definition-selected internal lifecycle
+
+[ADR-016](../decisions/ADR-016-definition-selected-workload-targets.md) replaces internal system-binding/Environment-target preconditions in OC-04/04c/06/07/08/10 and the internal target Settings operation. Registration permits existing-cluster with scoped READY Internal account and workload reference/provision configuration. Planning selects workload first, expands all references/rules, validates typed placement/DAG and pins versions without writes/provider calls. Deploy validates same snapshot, claims operation, resolves resource outputs and dispatches selected workload lifecycle to its exact target. Update/Remove restore applied target after restart. Cleanup uses original owned state; existing cluster is never eligible. V03.10 rejects retired internal deployment-Connection writes and removes that selector after live replacement verification. Secret Store operations remain. Multi-cluster Candidate Sets fail clearly before side effects in V03.

@@ -35,6 +35,12 @@ func WorkloadDescriptor(workloadID string) (resource.Descriptor, error) {
 	return resource.NewDescriptor(TypeWorkload, ClassDefault, PathModules+workloadID)
 }
 
+// WorkloadDescriptorFor returns `workload.<class>#modules.<workload-id>` for a
+// workload of the given effective class.
+func WorkloadDescriptorFor(workloadID, class string) (resource.Descriptor, error) {
+	return resource.NewDescriptor(TypeWorkload, class, PathModules+workloadID)
+}
+
 // PrivateDescriptor returns `<type>.<class>#modules.<workload-id>.externals.<name>`.
 func PrivateDescriptor(workloadID, name string, entry environment.ResourceEntry) (resource.Descriptor, error) {
 	return resource.NewDescriptor(entry.Type, entryClass(entry), PathModules+workloadID+".externals."+name)
@@ -54,11 +60,6 @@ func VPCDescriptor(ctx Context) (resource.Descriptor, error) {
 // EKSDescriptor returns the EKS node of the aws-eks profile, scoped like the VPC.
 func EKSDescriptor(ctx Context) (resource.Descriptor, error) {
 	return resource.NewDescriptor(TypeCluster, ClassEKS, ctx.InfraPath())
-}
-
-// InternalClusterDescriptor returns the registered-cluster node of internal-k8s.
-func InternalClusterDescriptor(connectionKey string) (resource.Descriptor, error) {
-	return resource.NewDescriptor(TypeCluster, ClassInternal, PathConnections+connectionKey)
 }
 
 // NamespaceDescriptor returns the Environment-scoped namespace node.
@@ -141,4 +142,11 @@ func ParseDescriptorText(raw string, current *Node, ctx Context) (resource.Descr
 		id = descriptorID(current.Descriptor)
 	}
 	return resource.NewDescriptor(typ, class, id)
+}
+
+// InternalClusterDescriptor returns the registered-cluster node of the planner REFERENCE mode
+// (Context.ReferenceCluster): the reference challenge fixtures predate ADR-016 and name the cluster by
+// a connection key. No product path uses it; a product Environment with the internal profile is refused.
+func InternalClusterDescriptor(connectionKey string) (resource.Descriptor, error) {
+	return resource.NewDescriptor(TypeCluster, ClassInternal, PathConnections+connectionKey)
 }

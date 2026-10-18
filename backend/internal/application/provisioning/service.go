@@ -34,6 +34,11 @@ type Request struct {
 	Plan         *planning.Plan
 	Types        map[string]resource.Type
 	Definitions  map[string]resource.Definition
+	// Select restricts execution to a resource-only subset (UC-06 owns the combined
+	// lifecycle order: resources that depend on a workload run after it). Nil runs all.
+	Select func(descriptor string) bool
+	// Prior carries the outputs of an earlier subset so later subsets resolve against them.
+	Prior *Result
 }
 
 // Result maps every executed descriptor to its outputs and resolved target.
@@ -48,6 +53,10 @@ type Result struct {
 	// resolution; consumers are checked against this map before any input is
 	// persisted or any consumer runs.
 	Secrets map[string]map[string]bool
+	// NodeClusters records, per Kubernetes-bound resource, the cluster target
+	// its provider binding actually used (ADR-016); consumers compare it with
+	// their own typed cluster reference before any call.
+	NodeClusters map[string]execution.ClusterRef
 }
 
 // ErrSecretInput means a secret output would reach a nonsecret Terraform
@@ -81,9 +90,15 @@ func (s *Service) Provision(ctx context.Context, req Request) (*Result, error) {
 	if req.Plan == nil {
 		return nil, fmt.Errorf("provisioning: plan is required")
 	}
-	result := &Result{Outputs: map[string]map[string]any{}, Targets: map[string]execution.Target{}, Instances: map[string]string{}, Secrets: map[string]map[string]bool{}}
+	result := req.Prior
+	if result == nil {
+		result = &Result{Outputs: map[string]map[string]any{}, Targets: map[string]execution.Target{}, Instances: map[string]string{}, Secrets: map[string]map[string]bool{}, NodeClusters: map[string]execution.ClusterRef{}}
+	}
 	for batchIndex, batch := range req.Plan.Batches {
 		for _, descriptor := range batch {
+			if req.Select != nil && !req.Select(descriptor) {
+				continue
+			}
 			if err := s.provisionNode(ctx, req, result, descriptor, batchIndex); err != nil {
 				return nil, err
 			}
@@ -101,17 +116,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	if !ok {
 		return fmt.Errorf("provisioning: node %q has no matched definition", descriptor)
 	}
-	if err := planning.ValidateBuiltinMatch(req.Context, node, match); err != nil {
-		return err
-	}
 	def, ok := req.Definitions[match.DefinitionKey]
-	if match.DefinitionKey == planning.BuiltinClusterKey {
-		// ADR-013: the effective definition is trusted code, never a stored copy.
-		def, ok = planning.BuiltinClusterDefinition(), true
-		if err := EnsureBuiltinCluster(ctx, s.store, req.Context.OrganizationKey); err != nil {
-			return err
-		}
-	}
 	if !ok {
 		return fmt.Errorf("provisioning: definition %q is not registered", match.DefinitionKey)
 	}
@@ -149,8 +154,8 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		return err
 	}
 	nodeParams := node.Params
-	if match.DefinitionKey == planning.BuiltinClusterKey {
-		nodeParams = nil // the Environment Connection is the only input source
+	if match.DriverType == resource.DriverExistingCluster && len(nodeParams) > 0 {
+		return fmt.Errorf("provisioning: %s: an existing cluster accepts no params; its identity comes from the driver account", descriptor)
 	}
 	params, err := expand(mapOrEmpty(nodeParams), "param")
 	if err != nil {
@@ -223,7 +228,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		return err
 	}
 
-	if def.DriverType != resource.DriverTerraform && def.DriverAccount != "" {
+	if def.DriverType != resource.DriverTerraform && def.DriverType != resource.DriverExistingCluster && def.DriverAccount != "" {
 		progress.Status = deployment.ResourceFailed
 		finished := s.clock.Now()
 		progress.FinishedAt = &finished
@@ -235,7 +240,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	// instead of becoming an empty Connection (UC-04 BR-04/BR-10). An AWS node
 	// runs with the Driver Account its winning Definition pinned; the
 	// Environment account is never a substitute (UC-03 V02-09).
-	connectionKey, wantKind := effectiveConnection(def, match, pins, selfVerifying, target, req.Context)
+	connectionKey, wantKind := effectiveConnection(def, match, pinsOf(req.Plan, descriptor), selfVerifying, target, req.Context)
 	var connection appdomain.Connection
 	err = errors.New("connection key is empty")
 	if connectionKey != "" {
@@ -244,12 +249,11 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	if err == nil && (connection.Status != appdomain.ConnectionReady || connection.OrganizationKey != req.Context.OrganizationKey) {
 		err = fmt.Errorf("connection is not READY in this organization")
 	}
-	if err == nil && match.DefinitionKey == planning.BuiltinClusterKey &&
-		(connection.Kind != appdomain.ConnectionKubernetes || connection.Key != req.Context.Env.ConnectionKey) {
-		err = fmt.Errorf("connection is not the Kubernetes Environment connection")
-	}
 	if err == nil && wantKind != "" && connection.Kind != wantKind {
 		err = fmt.Errorf("connection kind does not match the node binding")
+	}
+	if err == nil && match.DriverType == resource.DriverExistingCluster && (connection.Key != match.DriverAccount || connection.Version != match.AccountVersion) {
+		err = fmt.Errorf("the driver account changed after the plan; plan again")
 	}
 	if err != nil {
 		progress.Status = deployment.ResourceFailed
@@ -377,6 +381,24 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		execResult.Outputs = mapped
 	}
 
+	if def.DriverType == resource.DriverExistingCluster {
+		// Only the safe outputs the Resource Type declares are published; the
+		// typed `cluster` target is mandatory (ADR-016).
+		kept := map[string]any{}
+		for name, value := range execResult.Outputs {
+			if _, declared := typ.Output(name); declared {
+				kept[name] = value
+			}
+		}
+		execResult.Outputs = kept
+		if _, ok := kept[resource.ClusterTargetOutput]; !ok {
+			progress.Status = deployment.ResourceFailed
+			finished := s.clock.Now()
+			progress.FinishedAt = &finished
+			_ = s.store.SaveDeploymentResource(ctx, progress)
+			return fmt.Errorf("provisioning: %s: the cluster resource type does not declare the %q output", descriptor, resource.ClusterTargetOutput)
+		}
+	}
 	if err := typ.ValidateOutputs(execResult.Outputs); err != nil {
 		progress.Status = deployment.ResourceFailed
 		finished := s.clock.Now()
@@ -432,6 +454,14 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 		return err
 	}
 
+	for _, pin := range pinsOf(req.Plan, descriptor) {
+		if pin.Kind != tfmodule.BindingKubernetes || pin.Provider == "" {
+			continue
+		}
+		if provider, ok := result.Targets[pin.Provider]; ok {
+			result.NodeClusters[descriptor] = execution.ClusterRef{Target: provider, Descriptor: pin.Provider, AccountVersion: pin.AccountVersion}
+		}
+	}
 	result.Outputs[descriptor] = execResult.Outputs
 	if result.Secrets == nil {
 		result.Secrets = map[string]map[string]bool{}
@@ -498,10 +528,19 @@ func isSecretInputKey(key string) bool {
 // Definition names a Driver Account.
 func effectiveConnection(def resource.Definition, match planning.Match, pins []tfmodule.ProviderPin, selfVerifying bool, target execution.Target, ctx planning.Context) (string, appdomain.ConnectionKind) {
 	env := ctx.Env
-	if match.DefinitionKey == planning.BuiltinClusterKey {
-		return env.ConnectionKey, appdomain.ConnectionKubernetes
+	if def.DriverType == resource.DriverExistingCluster {
+		// ADR-016: the Definition's own Internal Driver Account, never the Environment.
+		return def.DriverAccount, appdomain.ConnectionKubernetes
 	}
 	if def.DriverType == resource.DriverTerraform {
+		if ctx.DefinitionPlaced() {
+			// ADR-016: a Kubernetes-bound node runs with the account of its cluster resource.
+			for _, pin := range pins {
+				if pin.Kind == tfmodule.BindingKubernetes && pin.ConnectionKey != "" {
+					return pin.ConnectionKey, appdomain.ConnectionKubernetes
+				}
+			}
+		}
 		if !selfVerifying {
 			return def.DriverAccount, appdomain.ConnectionAWS
 		}
@@ -510,10 +549,20 @@ func effectiveConnection(def resource.Definition, match planning.Match, pins []t
 				return pin.ConnectionKey, appdomain.ConnectionAWS
 			}
 		}
+		for _, pin := range pins {
+			if pin.Kind == tfmodule.BindingKubernetes && pin.ConnectionKey != "" {
+				return pin.ConnectionKey, appdomain.ConnectionKubernetes
+			}
+		}
 		if target.Provider == "eks" && target.Connection != "" {
 			return target.Connection, appdomain.ConnectionAWS
 		}
 		return env.ConnectionKey, expectedConnectionKind(env.Profile)
+	}
+	if ctx.DefinitionPlaced() {
+		// A non-Terraform Kubernetes driver (for example a namespace of the static driver) runs with the
+		// account of the cluster its references resolved to; the Environment never supplies one.
+		return target.Connection, appdomain.ConnectionKubernetes
 	}
 	return env.ConnectionKey, ""
 }
@@ -691,7 +740,13 @@ func checkPinsAgainstPlan(plan *planning.Plan, descriptor string, pins []tfmodul
 			if pin.Provider == "" || !providers[pin.Provider] {
 				return errPinForeign
 			}
-			if pin.ConnectionKey != "" && pin.ConnectionKey != env.ConnectionKey {
+			if ctx.DefinitionPlaced() {
+				// The pin must describe the READY Internal account this
+				// node runs with, at the version the plan saw.
+				if pin.ConnectionKey == "" || pin.ConnectionKey != account.Key || pin.AccountVersion != account.Version {
+					return errPinStale
+				}
+			} else if pin.ConnectionKey != "" && pin.ConnectionKey != env.ConnectionKey {
 				return errPinStale
 			}
 		}
@@ -753,4 +808,42 @@ func (s *Service) identityOf(ctx context.Context, req Request, descriptor resour
 		return tfresource.Identity{}, fmt.Errorf("the instance identity is incomplete")
 	}
 	return identity, nil
+}
+
+// ErrWorkloadTarget reports a workload whose typed cluster/namespace
+// references do not resolve to one agreeing, account-pinned target.
+var ErrWorkloadTarget = errors.New("provisioning: the workload target does not match its pinned placement")
+
+// ResolveWorkloadTarget builds the execution target of a workload from its
+// own typed namespace and cluster references (ADR-016), never from the last
+// cluster in the graph. The cluster output must equal the plan's pinned
+// placement and the namespace must have been created on that same cluster.
+func ResolveWorkloadTarget(plan *planning.Plan, result *Result, workload, organizationKey string) (execution.Target, error) {
+	placement, ok := plan.Placements[workload]
+	if !ok || placement.Namespace == "" {
+		return execution.Target{}, fmt.Errorf("%w: no pinned placement", ErrWorkloadTarget)
+	}
+	raw, ok := result.Outputs[placement.Cluster]["cluster"]
+	if !ok {
+		return execution.Target{}, fmt.Errorf("%w: the cluster produced no target", ErrWorkloadTarget)
+	}
+	ref, err := execution.ParseClusterOutput(raw)
+	if err != nil {
+		return execution.Target{}, fmt.Errorf("%w: %v", ErrWorkloadTarget, err)
+	}
+	if ref.Descriptor != placement.Cluster || ref.Target.Connection != placement.Account || ref.AccountVersion != placement.AccountVersion || ref.Target.Organization != organizationKey {
+		return execution.Target{}, fmt.Errorf("%w: the resolved cluster differs from the plan pin", ErrWorkloadTarget)
+	}
+	nsCluster, ok := result.NodeClusters[placement.Namespace]
+	if !ok || nsCluster.Descriptor != placement.Cluster || nsCluster.Target.Connection != ref.Target.Connection ||
+		nsCluster.Target.ClusterName != ref.Target.ClusterName || nsCluster.Target.Organization != ref.Target.Organization {
+		return execution.Target{}, fmt.Errorf("%w: the namespace was not created on the workload cluster", ErrWorkloadTarget)
+	}
+	namespace, _ := result.Outputs[placement.Namespace]["name"].(string)
+	if namespace == "" {
+		return execution.Target{}, fmt.Errorf("%w: the namespace resolved no name", ErrWorkloadTarget)
+	}
+	target := ref.Target
+	target.Namespace = namespace
+	return target, nil
 }

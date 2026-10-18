@@ -394,4 +394,11 @@ RESOURCE_CLEANUP persists USER_CONFIRMED or RUN_CLEANUP.
 Confirmed root/dependency set and version snapshot immutable.
 Token replay cannot create a second operation.
 end note
+note as V03Placement
+ADR-016: plan/module JSON preserves metadata.class and per-workload placement.
+Original target_ref/provider pins include scoped cluster and namespace.
+Internal execution does not use Environment connection/profile.
+Normal existing-cluster Definition FK; cluster ownership PREEXISTING.
+Fresh baseline only; no automatic old-state migration/reset.
+end note
 @enduml

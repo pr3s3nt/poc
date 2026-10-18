@@ -93,3 +93,24 @@ UC-02 Register Resource Type
 - Existing catalog reads, seed/import fixtures and planning remain compatible:
   this policy is enforced at new public registration, not by rewriting legacy
   records or broadening the planner's identifier restrictions.
+
+
+## V03 typed cluster output
+
+- **V03-01:** [ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md)
+  adds required `cluster` output to the fresh k8s-cluster Type. The existing
+  contract schema may represent this as `any`, but the driver/planner/runtime
+  must validate its concrete opaque scoped Kubernetes target shape, not accept
+  arbitrary objects or strings as a deploy target. Preserve safe name/context
+  metadata needed by existing consumers; no raw kubeconfig/token/credential
+  path in outputs. Public projections expose safe target provenance only.
+- **V03-02:** Workload driver variables are limited to ADR-016 supported placement/bundle
+  inputs. Required workload Type inputs are incompatible; supplying optional
+  Type input values to this driver is unsupported and rejected. Existing
+  Score resource/companion params retain their Type validation. Lifecycle
+  metadata/readiness is exposed through existing Deployment/Workload status
+  views; workload Type outputs must be empty for this driver. Reject unsupported
+  output declarations before execution. Namespace/cluster/resource outputs
+  remain supported. A
+  namespace output remains required string `name`. Resource Type registration
+  stays create-only; fresh fixtures/seeds reflect V03, no old Type migration.

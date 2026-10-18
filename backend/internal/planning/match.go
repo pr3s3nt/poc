@@ -31,22 +31,18 @@ func (e *matchError) Is(target error) bool { return target == e.kind }
 // definitionMatcher selects the most specific Resource Definition for each
 // resource node (UC-03 BR-02 and BR-06, UC-06 MS-07).
 type definitionMatcher struct {
-	ctx  Context
-	defs map[string]resource.Definition
-	list []resource.Definition
+	ctx      Context
+	defs     map[string]resource.Definition
+	list     []resource.Definition
+	accounts map[string]application.Connection
 }
 
 func newDefinitionMatcher(ctx Context, catalog Catalog) (*definitionMatcher, error) {
-	m := &definitionMatcher{ctx: ctx, defs: map[string]resource.Definition{}}
+	m := &definitionMatcher{ctx: ctx, defs: map[string]resource.Definition{}, accounts: catalog.Accounts}
 	var defs []resource.Definition
 	for _, d := range catalog.Definitions {
 		if d.Key == BuiltinClusterKey {
-			// A stored copy is only history of the system admission; it never
-			// takes part in matching and must equal the trusted definition.
-			if !IsBuiltinClusterDefinition(d) {
-				return nil, ErrReservedDefinition
-			}
-			continue
+			return nil, ErrReservedDefinition
 		}
 		defs = append(defs, d)
 	}
@@ -64,11 +60,6 @@ func newDefinitionMatcher(ctx Context, catalog Catalog) (*definitionMatcher, err
 		m.defs[d.Key] = d
 	}
 	m.list = defs
-	if !ctx.ReferenceCluster && ctx.Env.Profile == application.ProfileInternalK8s {
-		if _, ok := catalog.Types[TypeCluster]; ok {
-			m.defs[BuiltinClusterKey] = BuiltinClusterDefinition()
-		}
-	}
 	return m, nil
 }
 
@@ -79,24 +70,6 @@ func (m *definitionMatcher) definition(key string) (resource.Definition, bool) {
 
 // match returns the winning definition for one node.
 func (m *definitionMatcher) match(node *Node) (Match, error) {
-	if m.ctx.isImplicitCluster(node) {
-		// ADR-013: the Environment Connection selects this node; authored
-		// Definitions and ties cannot redirect it.
-		if _, ok := m.defs[BuiltinClusterKey]; !ok {
-			return Match{}, fmt.Errorf("planning: resource type %q is not registered", TypeCluster)
-		}
-		if len(node.Params) > 0 {
-			return Match{}, fmt.Errorf("planning: %s is bound to the environment connection and accepts no params", node.Descriptor)
-		}
-		return Match{
-			Descriptor:    node.Descriptor,
-			DefinitionKey: BuiltinClusterKey,
-			DriverType:    resource.DriverExistingCluster,
-			ConnectionKey: m.ctx.Env.ConnectionKey,
-			Specificity:   -1,
-			Binding:       BindingEnvironmentConnection,
-		}, nil
-	}
 	ctx := resource.MatchContext{
 		EnvironmentType: m.ctx.Env.Type,
 		ApplicationID:   m.ctx.App.Key,
@@ -112,7 +85,7 @@ func (m *definitionMatcher) match(node *Node) (Match, error) {
 			node.Descriptor, node.ResourceType, node.Class)}
 	case 1:
 		win := ranking.Top[0]
-		return Match{
+		match := Match{
 			Descriptor:        node.Descriptor,
 			DefinitionKey:     win.Definition.Key,
 			DriverType:        win.Definition.DriverType,
@@ -120,7 +93,13 @@ func (m *definitionMatcher) match(node *Node) (Match, error) {
 			DriverAccount:     win.Definition.DriverAccount,
 			Specificity:       win.Score,
 			Criterion:         win.Criterion,
-		}, nil
+		}
+		if win.Definition.DriverType == resource.DriverExistingCluster {
+			if err := m.pinClusterAccount(node, win.Definition, &match); err != nil {
+				return Match{}, err
+			}
+		}
+		return match, nil
 	default:
 		keys := make([]string, 0, len(ranking.Top))
 		for _, c := range ranking.Top {
@@ -129,4 +108,24 @@ func (m *definitionMatcher) match(node *Node) (Match, error) {
 		sort.Strings(keys)
 		return Match{}, &matchError{kind: errAmbiguous, msg: fmt.Sprintf("planning: ambiguous match for %s between %v", node.Descriptor, keys)}
 	}
+}
+
+// pinClusterAccount checks the unique winning existing-cluster Definition's
+// own Internal Driver Account and pins its version (ADR-016). The winner is
+// never replaced by another candidate and no Environment or host account is a
+// fallback.
+func (m *definitionMatcher) pinClusterAccount(node *Node, def resource.Definition, match *Match) error {
+	if !m.ctx.DefinitionPlaced() && def.DriverAccount == "" {
+		return nil // planner-reference fixtures only
+	}
+	if node.ResourceType != TypeCluster {
+		return fmt.Errorf("%w: existing-cluster definition %q matched %s which is not a Kubernetes cluster", ErrAccountConflict, def.Key, node.Descriptor)
+	}
+	account, ok := m.accounts[def.DriverAccount]
+	if def.DriverAccount == "" || !ok || account.OrganizationKey != m.ctx.OrganizationKey ||
+		account.Kind != application.ConnectionKubernetes || account.Status != application.ConnectionReady {
+		return fmt.Errorf("%w: definition %q needs a READY Internal driver account of this organization", ErrAccountConflict, def.Key)
+	}
+	match.AccountVersion = account.Version
+	return nil
 }

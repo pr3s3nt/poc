@@ -9,7 +9,7 @@ last_reviewed: 2026-10-17
 
 ## Mục tiêu
 
-Triển khai Score workload theo Execution Profile của Environment, tự động chuẩn bị hạ tầng cần thiết và đưa workload lên Kubernetes.
+Triển khai Score workload qua matched Definition và references, chuẩn bị dependency theo graph và đưa workload lên đúng Kubernetes target đã pin. V03 internal contract theo [ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md).
 
 ## Primary actors
 
@@ -24,7 +24,7 @@ Triển khai Score workload theo Execution Profile của Environment, tự độ
 ## Tiền điều kiện
 
 - **PRE-01:** Application và Environment đã tồn tại.
-- **PRE-02:** Environment đã cấu hình Connection; profile `aws-eks` hoặc `internal-k8s` được suy ra từ Connection theo UC-01, không đọc từ Application.
+- **PRE-02:** Internal Preview/Deploy không cần Environment Connection/profile; workload, namespace và cluster Definitions xác định đích theo ADR-016. Legacy AWS binding còn đến V05–V06.
 - **PRE-03:** AWS Driver Account hoặc internal cluster connection trạng thái `READY` đã được cấu hình trong UC-04.
 - **PRE-04:** Các Resource Type và Resource Definition cần thiết đã được đăng ký.
 - **PRE-05:** Score document hợp lệ, mô tả đúng một workload và mọi container resource requests/limits khai báo đều đúng Score subset.
@@ -38,11 +38,10 @@ Triển khai Score workload theo Execution Profile của Environment, tự độ
 1. **MS-01:** Orchestrator tạo Deployment record và đọc Deployment Set hiện tại của Environment.
 2. **MS-02:** Orchestrator validate Score và chuyển nó thành workload fragment, bảo toàn container CPU/memory requests/limits.
 3. **MS-03:** Orchestrator tạo Humanitec-shaped Deployment Delta và Candidate Deployment Set.
-4. **MS-04:** Orchestrator resolve và pin Execution Profile, Connection, region và runtime configuration của Environment; Application chỉ cung cấp identity/current metadata.
-5. **MS-05:** Orchestrator enrich graph theo VAR-01 hoặc VAR-02.
+4. **MS-04:** Orchestrator chọn/pin workload Definition theo class trước graph expansion; Application/Environment cung cấp scope/version/configuration, không chọn internal account.
+5. **MS-05:** Orchestrator mở references và provision rules của workload Definition, bao gồm namespace/cluster; legacy AWS enrichment theo VAR-01 chỉ còn đến V05.
 6. **MS-06:** Orchestrator thêm namespace có identity theo Environment và resource dependencies từ Score.
-7. **MS-07:** Orchestrator bind internal cluster ngầm từ Environment Connection, match Resource Definitions cho các resource còn lại rồi expand Resource References và provision rules tới fixed point; Redis/PostgreSQL được chọn theo type/class/profile và criteria, không tự đổi
-   class khi matching thất bại.
+7. **MS-07:** Orchestrator match mọi resource kể cả existing cluster bằng criteria chung, expand references/provision rules tới fixed point và pin đích từng resource/workload. Không đổi class, dùng builtin hoặc fallback khi matching thất bại.
 8. **MS-08:** Orchestrator validate graph/contracts và tính provider-first provision batches.
 9. **MS-09:** Sau kiểm inputs/artifacts và nhận Environment operation dưới
    CAS/owner fencing, UC-06 `«include»` UC-08 để provision theo dependency order.
@@ -57,8 +56,7 @@ Triển khai Score workload theo Execution Profile của Environment, tự độ
 - **VAR-01:** `aws-eks`: thêm VPC/EKS thuộc Environment/generation;
   Terraform tạo hạ tầng theo dependency. Redis/PostgreSQL có thể in-cluster
   trên EKS hoặc ElastiCache/Aurora theo class, cùng AWS account/region.
-- **VAR-02:** `internal-k8s`: cluster provider tham chiếu Connection có sẵn;
-  Terraform tạo namespace/Redis/PostgreSQL trên target đó, không tạo VPC/EKS.
+- **VAR-02:** Internal: matched cluster Definition chọn Internal Driver Account; namespace/workload kế thừa typed cluster reference. V03 frontend không yêu cầu PostgreSQL/Redis; các workload dependency đó nghiệm thu tại V04.
 - **VAR-03 — Fleet GitRepo trên internal kind:** tại MS-11, khi platform cấu
   hình mode này, Orchestrator ghi workload manifests không bí mật vào repo
   GitOps theo Application/Environment/workload và Ingress vào bundle
@@ -81,7 +79,7 @@ Triển khai Score workload theo Execution Profile của Environment, tự độ
 
 - **BR-01:** Planning phải duy trì invariant `current + Delta = Candidate`.
 - **BR-02:** Resource Descriptor là identity ổn định; VPC/EKS scope Environment theo ADR-011/T27, namespace scope Environment, Score dependency dùng declared scope.
-- **BR-03:** Execution Profile chỉ enrich graph/context; provider-specific execution được chọn qua Resource Definition và executor adapter; internal cluster dùng trusted system binding theo ADR-013, không matching catalog.
+- **BR-03:** Internal placement do Definition/reference quyết định theo ADR-016; không profile enrichment/system cluster. Legacy AWS enrichment được giữ tới V05, không trở thành matching filter.
 - **BR-04:** Graph phải là DAG và batches phải đặt mọi provider trước consumer.
 - **BR-05:** Chỉ commit Candidate thành current sau khi UC-08, manifest
   validation, delivery và readiness đều thành công. Lỗi không giả success.
@@ -144,9 +142,24 @@ UC-06 Deploy Workload
     └── Persist deployment state
 ```
 
-## Implicit Resource Graph
+## Definition-selected internal Resource Graph and legacy AWS graph
 
-Cloud (`consumer -> provider`):
+Internal (`consumer -> provider`) follows authored references, not profile:
+
+```text
+workload Definition -> namespace -> matched existing-k8s-cluster
+workload Definition -> companion resources / Score dependencies
+```
+
+Workload is selected first. Namespace provider binding and workload cluster
+reference point to the same explicitly described cluster. The cluster winner
+selects its own Internal account; no implicit connection-addressed node.
+Scope and explicit descriptor identity remain deterministic. Output declarations
+alone create no dependency; Resource References and provision flags do.
+
+V04 adds real PostgreSQL/Redis consumers and business coverage on this graph.
+For legacy AWS until V05–V06, enrichment still supplies environment/generation
+VPC/EKS and dependencies use their authored mappings/Definition accounts:
 
 ```text
 workload -> k8s-namespace -> eks -> vpc
@@ -154,26 +167,8 @@ workload -> postgres-aurora / redis-elasticache -> vpc
 workload -> redis/postgres-in-cluster -> namespace -> eks -> vpc
 ```
 
-Internal Kubernetes:
-
-```text
-workload -> k8s-namespace -> existing-k8s-cluster
-workload -> postgres-in-cluster -> namespace -> existing-k8s-cluster
-workload -> redis-in-cluster -> namespace -> existing-k8s-cluster
-```
-
-VPC/EKS có scope theo Environment và target generation; namespace có scope theo Environment; Redis/PostgreSQL có private/shared scope theo dependency trong Score.
-
-Hai sơ đồ trên là hình dạng tối thiểu sinh ra từ Score và Execution Profile. Resource Definition được
-phép bổ sung edge cho chính resource của nó bằng Resource Reference trong driver inputs
-(`${resources['TYPE[.CLASS][#ID]'].outputs.NAME}`, UC-03 BR-04) và bằng provision rule; graph expansion
-hợp nhất các edge đó vào cùng DAG. Hai edge bắt buộc theo cách này:
-
-- `postgres-statefulset -> k8s-namespace` trên `internal-k8s`, vì StatefulSet/Service chỉ apply được
-  sau khi namespace của Environment tồn tại.
-- `postgres-aurora -> vpc` trên `aws-eks`, vì Aurora cần subnet group của VPC đã provision.
-
-Edge do Definition khai báo không được đổi chiều `consumer -> provider` và vẫn phải giữ DAG (BR-04).
+Same DAG/provider-first, output validation, state/ownership/fencing and secret
+rules apply. V03 does not execute this AWS path.
 
 ## Resource Descriptor convention
 
@@ -186,7 +181,7 @@ Resource ID là đường dẫn trong Deployment Set, không phải tên tự đ
 | Shared dependency | `<type>.<class>#shared.<shared-id>` |
 | VPC implicit (`aws-eks`) | `vpc.default#environments.<app-id>.<env-id>` |
 | EKS implicit (`aws-eks`) | `k8s-cluster.eks#environments.<app-id>.<env-id>` |
-| Cluster đã đăng ký (`internal-k8s`) | `k8s-cluster.internal#connections.<connection-id>` |
+| Matched internal cluster | `k8s-cluster.internal#environments.<app-id>.<env-id>` (hoặc explicit scoped descriptor trong Definition reference) |
 | Namespace của Environment | `k8s-namespace.default#environments.<app-id>.<env-id>` |
 
 Ba dòng đầu là contract chung với Humanitec. Bốn dòng implicit là phần mở rộng của orchestrator và
@@ -226,17 +221,16 @@ hard-code Application hay Environment.
 
 See [workload rendering contract](../../architecture/contracts/workload-rendering.md).
 
-## Environment connection binding
+## Definition account and target binding
 
-- **BR-20:** AWS execution pins account/region from each winning Definition
-  under UC-03 V02-03/09, never from Environment or host. Same weighted matcher
-  as server matching preview, without profile eligibility. Kubernetes consumer
-  inherits scoped dependency target; explicit legacy Environment binding and
-  system cluster ADR-013 remain until V03. Account/Definition edits stale prior
-  Preview and never rewrite historical plan/resource/cleanup pins. Wrong winning
-  account, stale identity or persisted state target mismatch fails before call,
-  without another winner/fallback. Scope/generation/ownership/fencing remain.
-  No invariant requires all nodes to share account/region/cluster.
+- **BR-20:** AWS nodes pin winning Definition account/region under UC-03
+  V02-03/09; internal clusters pin their matched existing-cluster Definition's
+  Internal Driver Account. Consumers inherit their explicitly referenced
+  cluster. Validate kind/org/READY/version and original persisted target before
+  calls; no Environment/host fallback or alternative winner. Catalog edits stale
+  Preview, never rewrite original execution/cleanup pins. No global same-account
+  or same-region invariant. V03 same-cluster capability rejects multi-target
+  Candidate Sets while preserving per-resource placement data.
 
 ## Editable destination and transition consistency (ADR-012)
 
@@ -252,17 +246,15 @@ recovery and cleanup. Explicit PostgreSQL transfer quiesces writers and restores
 before destination apps/routes become live. See
 [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).
 
-## Implicit internal cluster binding
+## Matched internal cluster binding
 
-- **BR-21:** Internal-k8s creates an implicit existing-cluster provider from the pinned Environment Connection, bypasses user Definition matching for that node, and executes it through UC-08 before downstream Kubernetes consumers. Namespace/PostgreSQL and AWS VPC/EKS/Aurora retain matching.
-
-See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
-
-Public `existing-cluster` registration is rejected before insert under UC-03
-BR-08/BR-17. This does not remove the trusted internal driver, executor or
-system Definition admission required by ADR-013. No retained records are
-deleted by this API change.
-
+- **BR-21:** Internal cluster uses a public existing-cluster Definition through
+  normal five-field matching and its own pinned Internal Driver Account under
+  ADR-016. It is PREEXISTING, never created/destroyed. Namespace/workload typed
+  targets must agree; missing/ambiguous targets, cycles and V03 multiple-cluster
+  Candidate Sets fail before execution. No builtin Definition admission.
+  Reserved historical builtin IDs stay protected. Existing snapshots are not
+  silently rewritten; no old-data migration is required.
 
 ## Retry, gián đoạn và kiểm chứng
 
@@ -274,3 +266,19 @@ deleted by this API change.
   riêng theo UC-05 V2-04. Acceptance phải hoàn tất luồng job trên UI ứng dụng
   và chứng minh đọc/ghi Redis/PostgreSQL, ngoài việc Declare/Preview/Deploy qua
   form Console; không chỉ chứng minh Pod Ready. V2-A01 có bước xóa qua UI.
+
+
+## V03 Generic Workload lifecycle
+
+- **V03-01:** [ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) owns input shape, class, typed namespace/cluster references, safe outputs and lifecycle. Workload Definition chọn trước graph fixed point; resource params/references/companion flags giữ đầy đủ semantics.
+- **V03-02:** Render sau dependency outputs, deploy/readiness trên đúng target; persisted target/namespace/Definition/account/bundle pins dùng lại sau restart và khi Remove. Không lấy cluster cuối graph.
+- **V03-03:** Preview cho từng workload/resource Definition/account/cluster/namespace, edges/batches và lỗi; no secret/credential refs. Wrong account/permission/unready/ambiguous target không false success hoặc deploy sang cụm khác.
+- **V03-04:** Replacement real happy path pass trước V03.10 bỏ Connection selector/internal legacy path. No migration, không reset tự động. Frontend-only acceptance và deferred V04 coverage theo bàn giao V03; không fake backend để claim pass.
+
+
+A post-workload resource required by the executing workload must not be silently
+deferred while reporting SUCCEEDED. If another workload provider is not Ready
+in the correct target generation/Candidate context, fail safely and preserve
+progress/current-set invariants. An old-generation READY instance is insufficient.
+Workload lifecycle metadata/readiness is queried through existing status views;
+V03 does not supply arbitrary workload Type output bindings (Type outputs empty).

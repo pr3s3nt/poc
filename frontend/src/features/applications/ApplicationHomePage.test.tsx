@@ -269,7 +269,7 @@ it('guides an UNCONFIGURED Environment to its settings and surfaces the safe 422
   }));
   const user = userEvent.setup();
   render(<ApplicationHomePage application={{ ...application, environments: { staging: unconfiguredTarget, production: configuredTarget('lab') } }} />);
-  expect(screen.getAllByLabelText('Đích triển khai')[0]).toHaveTextContent('staging chưa có kết nối triển khai');
+  expect(screen.getAllByLabelText('Đích triển khai')[0]).toHaveTextContent('staging · Đích triển khai do Resource Definition và tham chiếu của Workload quyết định');
   await screen.findByText('Môi trường này chưa có Workload nào.');
   await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
   const alert = await screen.findByRole('alert');

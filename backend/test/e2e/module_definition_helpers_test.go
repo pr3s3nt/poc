@@ -47,7 +47,7 @@ func k8sModuleDefinition(key, resourceType, module string, variables map[string]
 		"key": key, "name": "Định nghĩa " + key, "resourceType": resourceType, "driverType": "terraform",
 		"driverInputs": map[string]any{"values": map[string]any{
 			"source": packagedPin(module), "variables": variables, "input_mapping": inputMapping, "output_mapping": outputMapping,
-			"provider_bindings": map[string]any{"kubernetes": map[string]any{"target": "environment"}},
+			"provider_bindings": map[string]any{"kubernetes": map[string]any{"target": "resource", "resource_ref": "k8s-cluster.internal#environments.@app.@env"}},
 		}},
 		"criteria": criteria,
 	}

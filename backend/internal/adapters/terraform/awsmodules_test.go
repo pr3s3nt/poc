@@ -181,7 +181,7 @@ func TestAWSModuleOutputMappings(t *testing.T) {
 		values map[string]any
 	}{
 		{"vpc", seedType(t, "vpc"), nil, map[string]any{"id": "vpc-0123", "cidr": "10.42.0.0/16", "subnetIds": []any{"subnet-a", "subnet-b"}}},
-		{"eks", seedType(t, "k8s-cluster"), []string{"kubeContext", "kubeconfig"}, map[string]any{"name": "orch-x", "endpoint": "https://x.eks.amazonaws.com", "kubeContext": "orch-x"}},
+		{"eks", seedType(t, "k8s-cluster"), []string{"kubeContext", "kubeconfig", "cluster"}, map[string]any{"name": "orch-x", "endpoint": "https://x.eks.amazonaws.com", "kubeContext": "orch-x"}},
 		{"aurora", seedType(t, "postgres"), nil, map[string]any{"host": "x.cluster-y.us-east-1.rds.amazonaws.com", "port": float64(5432), "database": "acceptance", "username": "app", "password": "p"}},
 		{"elasticache", redisType(), nil, map[string]any{"host": "master.x.cache.amazonaws.com", "port": float64(6379), "username": "app", "password": "p", "tls": true}},
 	}

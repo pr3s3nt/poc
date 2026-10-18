@@ -129,7 +129,7 @@ func eligible(org string, conn appdomain.Connection) bool {
 	}
 	switch conn.Kind {
 	case appdomain.ConnectionKubernetes:
-		return true
+		return false // ADR-016: an Environment no longer targets a Kubernetes connection
 	case appdomain.ConnectionAWS:
 		return conn.ConfigString("region") != ""
 	}
@@ -223,13 +223,13 @@ func (s *Service) prepare(ctx context.Context, req Request, inspect bool) (*prep
 		return nil, ErrSameDestination
 	}
 	destConn, err := s.store.GetConnection(ctx, app.OrganizationKey, req.DestinationKey)
+	if err == nil && destConn.Kind == appdomain.ConnectionKubernetes {
+		return nil, ErrTransitionRetired
+	}
 	if err != nil || !eligible(app.OrganizationKey, destConn) {
 		return nil, ErrDestinationFailed
 	}
-	profile, region, status := appdomain.ProfileInternalK8s, "", appdomain.RuntimeReady
-	if destConn.Kind == appdomain.ConnectionAWS {
-		profile, region, status = appdomain.ProfileAWSEKS, destConn.ConfigString("region"), appdomain.RuntimePending
-	}
+	profile, region, status := appdomain.ProfileAWSEKS, destConn.ConfigString("region"), appdomain.RuntimePending
 	generation := env.GenerationHigh
 	if env.TargetGeneration > generation {
 		generation = env.TargetGeneration
@@ -569,75 +569,9 @@ func shortHash(parts ...string) string {
 // checkMigration validates MIGRATE_POSTGRES against every persisted source and
 // planned destination before any workload is stopped.
 func (s *Service) checkMigration(ctx context.Context, p *prepared, req Request, inspect bool) error {
-	if s.scaler == nil || s.postgres == nil {
-		return unsupported("this backend has no Kubernetes data-transfer adapter")
-	}
-	if !s.directDelivery {
-		return unsupported("workloads are delivered through Fleet GitOps, which does not support data transfer")
-	}
-	if p.env.Profile != appdomain.ProfileInternalK8s || p.dest.Profile != appdomain.ProfileInternalK8s {
-		return unsupported("automatic data transfer supports Kubernetes-managed PostgreSQL on direct Kubernetes targets only; AWS/Aurora transfer is not supported")
-	}
-	active, err := s.store.ListActiveResources(ctx, p.app.OrganizationKey)
-	if err != nil {
-		return err
-	}
-	allowed := map[string]bool{"postgres": true, "k8s-namespace": true, "k8s-cluster": true, "workload": true}
-	unreferenced := 0
-	for _, a := range active {
-		if a.Scope.Type == resource.ScopeApplication || !envops.InGeneration(a.Scope, p.app.Key, p.env.Key, p.env.TargetGeneration) {
-			continue
-		}
-		if !allowed[a.Descriptor.Type] {
-			return unsupported("resource type %q holds state that cannot be transferred", a.Descriptor.Type)
-		}
-		if a.Descriptor.Type != "postgres" {
-			continue
-		}
-		if a.Status == resource.StatusUnreferenced {
-			unreferenced++
-			continue
-		}
-		res, err := s.locateSource(ctx, p, a)
-		if err != nil {
-			return err
-		}
-		p.sources = append(p.sources, pgSource{active: a, resource: res})
-	}
-	sort.Slice(p.sources, func(i, j int) bool {
-		return p.sources[i].active.Descriptor.String() < p.sources[j].active.Descriptor.String()
-	})
-	if unreferenced > 0 {
-		p.notes = append(p.notes, fmt.Sprintf("%d unreferenced database(s) stay at the source generation and are not transferred.", unreferenced))
-	}
-	if len(p.sources) == 0 {
-		return unsupported("the environment has no PostgreSQL resource to transfer; use DEPLOY_NEW")
-	}
-	if err := s.resolveMappings(p, req); err != nil {
-		return err
-	}
-	for _, mapping := range p.mappings {
-		dest := p.dests[mapping.DestinationDescriptor]
-		if dest.definition.DriverType != resource.DriverKubernetes {
-			return unsupported("destination database %s is not a Kubernetes-managed PostgreSQL", mapping.DestinationDescriptor)
-		}
-		if image := dest.image; image != "" && !postgres16Image.MatchString(image) {
-			return unsupported("destination database %s does not use PostgreSQL 16", mapping.DestinationDescriptor)
-		}
-	}
-	if inspect {
-		for _, source := range p.sources {
-			inventory, err := s.postgres.Inspect(ctx, source.resource)
-			if err != nil {
-				return unsupported("source database %s cannot be inspected without a password", source.active.Descriptor.String())
-			}
-			if inventory.ServerVersionNum < 160000 || inventory.ServerVersionNum >= 170000 {
-				return unsupported("source database %s is not PostgreSQL 16", source.active.Descriptor.String())
-			}
-		}
-	}
-	p.notes = append(p.notes, "Application writers stop before the backup; they restart on the destination after the data is restored and verified.")
-	return nil
+	// ADR-016 retires Kubernetes-to-Kubernetes transitions, the only path that carried data
+	// between PostgreSQL instances; AWS/Aurora transfer was never supported.
+	return unsupported("automatic data transfer is retired for Kubernetes connections (ADR-016) and not supported for AWS/Aurora")
 }
 
 // locateSource resolves a source Active Resource to a Kubernetes PostgreSQL

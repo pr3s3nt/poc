@@ -60,6 +60,9 @@ cfg() { "${CTL}" config-get -config "${CONFIG}" -field "$1"; }
 
 "${CTL}" validate-config -fresh -config "${CONFIG}" > /dev/null
 SCENARIO="$(cfg scenario)"
+case "${SCENARIO}" in
+  A01|E02) source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"; retired_runner "terraform-v2-acceptance.sh scenario ${SCENARIO} (builtin existing-cluster / internal Connection)" "backend/test/integration/v03-internal-frontend.sh; the AWS scenarios A02/A03 are unchanged" ;;
+esac
 TARGET="$(cfg target)"
 IS_AWS=0
 if [[ "${TARGET}" == aws ]]; then

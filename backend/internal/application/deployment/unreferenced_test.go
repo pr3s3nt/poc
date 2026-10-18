@@ -9,6 +9,7 @@ import (
 
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/bootstrap"
+	"orchestrator/internal/domain/application"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/execution"
@@ -246,8 +247,8 @@ func TestEnvironmentWritesDuringAdmittedDeployAreRejected(t *testing.T) {
 	var bindErr, saveErr, draftErr error
 	deployer.onRemove = func() {
 		_, bindErr = app.Store.BindEnvironment(ctx, persistence.EnvironmentBinding{
-			ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, ConnectionKey: env.ConnectionKey,
-			Profile: env.Profile, Region: env.Region, RuntimeStatus: env.RuntimeStatus, Scope: env.Scope(), ExpectedVersion: env.Version,
+			ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, ConnectionKey: opts.ConnectionKey,
+			Profile: application.ProfileInternalK8s, Region: env.Region, RuntimeStatus: env.RuntimeStatus, Scope: env.Scope(), ExpectedVersion: env.Version,
 		})
 		saveErr = app.Store.SetPublicRoutesPending(ctx, opts.ApplicationKey, opts.EnvironmentKey, true)
 		draftErr = app.Store.DeleteWorkloadDraft(ctx, opts.ApplicationKey, opts.EnvironmentKey, "backend", env.DraftVersion)

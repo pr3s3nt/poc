@@ -223,7 +223,7 @@ func newApp(t *testing.T, cloud bool) (*bootstrap.App, seed.Options) {
 
 func newPreview(t *testing.T, st persistence.Store) *preview.Service {
 	t.Helper()
-	return preview.NewService(st, planning.NewService(), registrytest.Inspector(t, st))
+	return preview.NewService(st, planning.NewService(bootstrap.FakeRenderBundles()), registrytest.Inspector(t, st))
 }
 
 func deploy(t *testing.T, app *bootstrap.App, opts seed.Options, id string, before, after map[string]any) *appsvc.DeployResult {
@@ -506,14 +506,14 @@ func TestPreview_ScopeAndConnection(t *testing.T) {
 		t.Fatalf("missing environment: %v", err)
 	}
 	a, _ := app.Store.GetApplication(ctx, opts.ApplicationKey)
-	e, _ := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
-	conn, _ := app.Store.GetConnection(ctx, a.OrganizationKey, e.ConnectionKey)
+	// The cluster Definition's own Internal Driver Account decides readiness (ADR-016).
+	conn, _ := app.Store.GetConnection(ctx, a.OrganizationKey, opts.ConnectionKey)
 	conn.Status = appdomain.ConnectionVerifying
 	if err := app.Store.SaveConnection(ctx, conn); err != nil {
 		t.Fatal(err)
 	}
 	_, err := svc.PreviewDeployment(ctx, query(opts, "worker", preview.ActionDeploy, nil, scores(opts)["worker"]))
-	if !errors.Is(err, preview.ErrNotReady) || strings.Contains(err.Error(), conn.Key) {
+	if err == nil || !strings.Contains(err.Error(), "Resource Definitions") || strings.Contains(err.Error(), conn.Key) {
 		t.Fatalf("connection not ready: %v", err)
 	}
 }
@@ -753,9 +753,9 @@ func TestPreview_PublicViewRedactsWithoutChangingPlan(t *testing.T) {
 	raw, _ := json.Marshal(view)
 	var top map[string]any
 	_ = json.Unmarshal(raw, &top)
-	want := []string{"action", "applicationKey", "baseSetId", "baseVersion", "batches", "binding", "candidateSet", "classification", "delta", "environmentKey", "graph", "matches", "planHash", "resourceIntents", "runId", "workloadId"}
+	want := []string{"action", "applicationKey", "baseSetId", "baseVersion", "batches", "binding", "candidateSet", "classification", "delta", "environmentKey", "graph", "matches", "placements", "planHash", "rendering", "resourceIntents", "runId", "workloadId"}
 	if len(top) != len(want) {
-		t.Fatalf("view fields = %d, want exactly %v", len(top), want)
+		t.Fatalf("view fields = %d , want exactly %v", len(top), want)
 	}
 	for _, key := range want {
 		if _, ok := top[key]; !ok {
@@ -765,7 +765,7 @@ func TestPreview_PublicViewRedactsWithoutChangingPlan(t *testing.T) {
 	for _, m := range top["matches"].([]any) {
 		for field := range m.(map[string]any) {
 			switch field {
-			case "descriptor", "definitionKey", "definitionVersion", "driverAccount", "driverType", "specificity", "binding", "connectionKey":
+			case "descriptor", "definitionKey", "definitionVersion", "driverAccount", "accountVersion", "driverType", "specificity":
 			default:
 				t.Fatalf("match exposes extra field %s: %v", field, m)
 			}
@@ -827,7 +827,7 @@ func TestPreview_CatalogErrorsNeverEchoed(t *testing.T) {
 		app, opts := newApp(t, true)
 		opts.ApplicationKey = opts.CloudApplicationKey
 		calls := 0
-		svc := preview.NewService(app.Store, planning.NewService(), failingInspector{ModuleInspector: planning.RegistryInspector{Metadata: app.Modules}, sentinel: sentinel, calls: &calls})
+		svc := preview.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), failingInspector{ModuleInspector: planning.RegistryInspector{Metadata: app.Modules}, sentinel: sentinel, calls: &calls})
 		_, err := svc.PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
 		var public *preview.PublicError
 		if !errors.As(err, &public) || !errors.Is(err, preview.ErrPlanningRejected) || strings.Contains(err.Error(), sentinel) {
@@ -963,41 +963,6 @@ func TestPreview_PublicViewUsesStableEmptyCollections(t *testing.T) {
 	}
 }
 
-// ADR-013: Preview reports the builtin binding but never admits the system
-// Definition, and is deterministic.
-func TestPreview_BuiltinClusterIsReadOnlyAndDeterministic(t *testing.T) {
-	app, opts := newApp(t, false)
-	svc := newPreview(t, app.Store)
-	q := query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"])
-	first, err := svc.PreviewDeployment(context.Background(), q)
-	if err != nil {
-		t.Fatal(err)
-	}
-	second, err := svc.PreviewDeployment(context.Background(), q)
-	if err != nil || first.Plan.PlanHash != second.Plan.PlanHash {
-		t.Fatalf("preview must be deterministic: %v", err)
-	}
-	found := false
-	view, err := first.Public()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, m := range view.Matches {
-		if m.DefinitionKey == planning.BuiltinClusterKey {
-			found = m.Binding == planning.BindingEnvironmentConnection && m.ConnectionKey == opts.ConnectionKey
-		}
-	}
-	if !found {
-		t.Fatal("preview does not expose the builtin binding")
-	}
-	defs, _ := app.Store.ListResourceDefinitions(context.Background(), opts.OrganizationKey)
-	for _, d := range defs {
-		if d.Key == planning.BuiltinClusterKey {
-			t.Fatal("preview admitted the system definition")
-		}
-	}
-}
-
 // metadataOnly counts metadata reads and fails the test on any registry
 // operation that may fetch, inspect or verify for execution.
 type metadataOnly struct {
@@ -1026,7 +991,7 @@ func TestPreview_TerraformUsesRegistryMetadataOnly(t *testing.T) {
 	app, opts := newApp(t, true)
 	opts.ApplicationKey = opts.CloudApplicationKey
 	reads := 0
-	svc := preview.NewService(app.Store, planning.NewService(), planning.RegistryInspector{Metadata: metadataOnly{Registry: app.Modules, t: t, reads: &reads}})
+	svc := preview.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), planning.RegistryInspector{Metadata: metadataOnly{Registry: app.Modules, t: t, reads: &reads}})
 	result, err := svc.PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
 	if err != nil {
 		t.Fatal(err)

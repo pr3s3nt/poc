@@ -192,3 +192,8 @@ separate operations. Account config is not an applicability filter. Physical
 Connection names/legacy consumers remain until V02–V03 replacement; no copied
 credential aggregate or Environment assignment is added. SQL constraints belong
 to [schema](../database/schema.md); behavior belongs to UC-04 AC-01..12.
+
+
+## V03 placement model
+
+[ADR-016](../decisions/ADR-016-definition-selected-workload-targets.md) extends workload rendering selection into lifecycle selection with per-workload namespace/cluster pins; ResourceDefinition references/provision participate before graph fixed point. Typed cluster outputs carry opaque scoped target, not auth bytes. Resource instances and applied workload records preserve independent target identity and namespace through restart/update/remove/cleanup. V03 one-cluster admission is a service capability check, not a single-cluster domain cardinality. Internal cluster Definition owns account choice; consumers inherit it.

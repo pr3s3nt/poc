@@ -81,8 +81,9 @@ class RenderingSelection <<value>>
 PlanningService ..> RenderingSelection : deterministic selection + plan hash
 RenderingSelection *-- RenderBundle
 note right of ImplicitResourceEnricher
-Internal existing-cluster receives system binding
-from Environment Connection (ADR-013).
+ADR-016: select workload Definition before fixed point;
+match internal existing-cluster normally with own account.
+Pin typed namespace/cluster per consumer, no Environment fallback.
 No catalog write or user matching in Preview.
 end note
 

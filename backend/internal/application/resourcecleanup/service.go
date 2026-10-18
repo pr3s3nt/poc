@@ -143,8 +143,24 @@ func originalTarget(ctx context.Context, st persistence.Store, snap *snapshot, r
 	}
 	dep, err := st.GetDeployment(ctx, active.LastDeploymentID)
 	if err != nil || dep.OrganizationKey != snap.scope.OrganizationKey || dep.ApplicationKey != snap.scope.ApplicationKey || dep.EnvironmentKey != snap.scope.EnvironmentKey ||
-		dep.TargetGeneration != rec.Instance.Identity.TargetGeneration || dep.ConnectionKey == "" {
+		dep.TargetGeneration != rec.Instance.Identity.TargetGeneration {
 		return unknown
+	}
+	if dep.ConnectionKey == "" {
+		// Definition-placed run (ADR-016): the original target is the account
+		// its immutable plan pinned for this node, not an Environment binding.
+		account := plannedPlacementAccount(ctx, st, dep.ID, rec.Instance.Identity.Descriptor)
+		if account == "" {
+			return unknown
+		}
+		out := TargetView{Known: true, ConnectionKey: safeToken(account), Generation: dep.TargetGeneration}
+		if conn, err := st.GetConnection(ctx, snap.scope.OrganizationKey, account); err == nil {
+			if labelShape.MatchString(conn.Name) {
+				out.ConnectionName = conn.Name
+			}
+			out.ConnectionKind = safeToken(string(conn.Kind))
+		}
+		return out
 	}
 	out := TargetView{Known: true, ConnectionKey: safeToken(dep.ConnectionKey), Profile: safeToken(dep.ExecutionProfile), Generation: dep.TargetGeneration}
 	connectionKey := dep.ConnectionKey
@@ -1115,4 +1131,20 @@ func projectCleanup(snap *snapshot, rec tfresource.CleanupRecord, attempts []tfr
 	sortStrings(view.RemainingID)
 	view.AllVerified = allVerified && status == string(environment.OpSucceeded)
 	return view
+}
+
+// plannedPlacementAccount reads the Driver Account key pinned for one node in
+// the persisted plan placements of the run that last executed it.
+func plannedPlacementAccount(ctx context.Context, st persistence.Store, deploymentID, descriptor string) string {
+	doc, err := st.GetPlan(ctx, deploymentID)
+	if err != nil {
+		return ""
+	}
+	placements, _ := doc["placements"].(map[string]any)
+	placement, _ := placements[descriptor].(map[string]any)
+	account, _ := placement["account"].(string)
+	if !labelShape.MatchString(account) {
+		return ""
+	}
+	return account
 }

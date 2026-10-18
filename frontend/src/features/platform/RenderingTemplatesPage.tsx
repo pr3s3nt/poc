@@ -7,10 +7,14 @@ import { snapshotKey, type ApiEnvironment } from './environmentSnapshot';
 import { CriteriaEditor, draftFromCriteria, draftToCriteria, emptyDraft, type ApplicationOption, type Criterion, type CriteriaDraft } from './CriteriaEditor';
 import type { MatchingCandidateInput } from './MatchingPreviewPanel';
 import { useCatalogList } from './useCatalogList';
+import { loadCapabilities } from './capabilities';
+import { ProvisionEditor } from './ProvisionEditor';
+import type { ProvisionRow } from './typedProvision';
+import { bodyToTemplate, emptyTemplateForm, jsonToBody, templateToBody, type TemplateForm } from './workloadTemplate';
 
 type APIApplication = { key: string; name?: string; environments?: ApiEnvironment[] };
 // The same profile-free Definition contract as the Resource Definition page (UC-03 V02-01): Name, version, five-field criteria.
-type Definition = { key: string; name?: string; version?: number; resourceType: string; driverType: string; driverInputs?: { values?: { variables?: { render_bundle?: unknown } } }; criteria?: Partial<Criterion>[] };
+type Definition = { key: string; name?: string; version?: number; resourceType: string; driverType: string; driverInputs?: { values?: { variables?: Record<string, unknown> } }; provision?: Record<string, unknown>; criteria?: Partial<Criterion>[] };
 type Editing = { key: string; version: number };
 
 type InstalledBundle = { id: string; version: string; status: string };
@@ -46,6 +50,9 @@ export function RenderingTemplatesPage() {
   const definitionList = useCatalogList(loadDefinitions, listFailure);
   const applicationList = useCatalogList(loadApplications, listFailure);
   const bundleList = useCatalogList(loadBundles, () => 'Không tải được danh sách bundle đã cài.');
+  const capabilityList = useCatalogList(loadCapabilities, () => 'Không tải được metadata Cấu hình workload.');
+  const presets = capabilityList.items.find((capability) => capability.driverType === 'score-k8s')?.variables ?? [];
+  const presetOf = (name: string) => presets.find((variable) => variable.name === name)?.preset ?? '';
   const templates = definitionList.items.filter((definition) => definition.resourceType === 'workload');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -57,6 +64,13 @@ export function RenderingTemplatesPage() {
   const [name, setName] = useState('');
   const [bundle, setBundle] = useState('');
   const [criteriaDraft, setCriteriaDraft] = useState<CriteriaDraft>(emptyDraft);
+  // Typed placement and companions (ADR-016). Form and advanced JSON serialize to the same two objects.
+  const [namespaceRef, setNamespaceRef] = useState('');
+  const [clusterRef, setClusterRef] = useState('');
+  const [rows, setRows] = useState<ProvisionRow[]>([]);
+  const [mode, setMode] = useState<'form' | 'json'>('form');
+  const [jsonText, setJsonText] = useState('{}');
+  const [modeNote, setModeNote] = useState('');
   const [editing, setEditing] = useState<Editing | null>(null);
   // A stale (409) or unknown-outcome save never resubmits by itself: the draft stays and Save is off until an explicit reload.
   // A create with an unknown outcome is held the same way (`created` is the submitted ID): no automatic POST replay before the stored key is read back.
@@ -73,13 +87,47 @@ export function RenderingTemplatesPage() {
   const selectedMissing = bundle !== '' && !bundleList.items.some((item) => item.id === bundle);
   const bundleStale = selectedMissing && !bundleBlocked;
 
+  const formState = (): TemplateForm => ({ ...emptyTemplateForm(), bundle, namespaceRef, clusterRef, rows });
+  function applyForm(form: TemplateForm) { setBundle(form.bundle); setNamespaceRef(form.namespaceRef); setClusterRef(form.clusterRef); setRows(form.rows); }
+  function jsonFromForm(form: TemplateForm): string {
+    const body = templateToBody(form);
+    // An incomplete form still round-trips: raw values are shown exactly as typed.
+    const variables = body.variables ?? { render_bundle: form.bundle, namespace: form.namespaceRef, cluster: form.clusterRef };
+    return JSON.stringify({ variables, ...(body.provision ? { provision: body.provision } : {}) }, null, 2);
+  }
+  function switchMode(next: 'form' | 'json') {
+    setModeNote('');
+    if (next === 'json') { setJsonText(jsonFromForm(formState())); setMode('json'); return; }
+    const parsed = jsonToBody(jsonText);
+    if (parsed.error) { setModeNote(parsed.error); return; }
+    const converted = bodyToTemplate(parsed.variables, parsed.provision);
+    if (!converted.form) { setModeNote(converted.reason ?? 'JSON nâng cao không biểu diễn được bằng biểu mẫu.'); return; }
+    applyForm(converted.form); setMode('form');
+  }
+  // The body both modes send; a problem blocks Save without changing the draft.
+  const currentBody = (): { variables?: unknown; provision?: unknown; problem?: string } => {
+    if (mode === 'form') return templateToBody(formState());
+    const parsed = jsonToBody(jsonText);
+    if (parsed.error) return { problem: parsed.error };
+    if (parsed.variables === null || typeof parsed.variables !== 'object' || Array.isArray(parsed.variables)) return { problem: 'variables phải là JSON object.' };
+    return { variables: parsed.variables, ...(parsed.provision !== undefined ? { provision: parsed.provision } : {}) };
+  };
+
   function resetForm() {
+    applyForm(emptyTemplateForm()); setMode('form'); setModeNote(''); setJsonText('{}');
     setKey(''); setName(''); setBundle(''); setCriteriaDraft(emptyDraft()); setEditing(null); setReview(null);
     setError(''); setIdError(''); setNameError(''); setBundleError('');
   }
   function startEdit(template: Definition) {
     setNotice(''); setError(''); setIdError(''); setNameError(''); setBundleError(''); setReview(null);
     setKey(template.key); setName(template.name ?? ''); setBundle(bundleOf(template)); setCriteriaDraft(draftFromCriteria(template.criteria));
+    const converted = bodyToTemplate(template.driverInputs?.values?.variables ?? {}, template.provision);
+    if (converted.form) { applyForm(converted.form); setMode('form'); setModeNote(''); }
+    else {
+      applyForm({ ...emptyTemplateForm(), bundle: bundleOf(template) });
+      setJsonText(JSON.stringify({ variables: template.driverInputs?.values?.variables ?? {}, ...(template.provision ? { provision: template.provision } : {}) }, null, 2));
+      setMode('json'); setModeNote(`${converted.reason ?? ''} Mẫu được mở ở JSON nâng cao để không mất cấu hình.`);
+    }
     setEditing({ key: template.key, version: template.version ?? 0 });
   }
   // Explicit reload after a stale or unknown-outcome save: one GET of the stored template replaces the draft.
@@ -117,7 +165,9 @@ export function RenderingTemplatesPage() {
     const { criteria, problem } = draftToCriteria(criteriaDraft);
     if (problem) { setError(problem); return; }
     const submitted = key;
-    const body = { key: submitted, name, resourceType: 'workload', driverType: 'score-k8s', driverInputs: { values: { variables: { render_bundle: bundle } } }, criteria };
+    const parts = currentBody();
+    if (parts.problem) { setError(parts.problem); return; }
+    const body = { key: submitted, name, resourceType: 'workload', driverType: 'score-k8s', driverInputs: { values: { variables: parts.variables } }, ...(parts.provision !== undefined ? { provision: parts.provision } : {}), criteria };
     setSaving(true);
     if (editing) {
       let saved: Definition;
@@ -145,7 +195,7 @@ export function RenderingTemplatesPage() {
       return;
     }
     // Committed: report it and reset the submitted form before reloading.
-    setNotice(`Đã đăng ký mẫu dựng ứng dụng ${submitted}.`); setKey(''); setName(''); setBundle(''); setCriteriaDraft(emptyDraft()); setSaving(false);
+    setNotice(`Đã đăng ký mẫu dựng ứng dụng ${submitted}.`); setKey(''); setName(''); applyForm(emptyTemplateForm()); setMode('form'); setJsonText('{}'); setCriteriaDraft(emptyDraft()); setSaving(false);
     await definitionList.reload();
   }
 
@@ -178,6 +228,18 @@ export function RenderingTemplatesPage() {
         {bundleList.loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải bundle">{bundleList.loadError} Dữ liệu đã nhập vẫn được giữ lại; chưa thể lưu cho đến khi tải được danh sách. <Button type="button" onClick={() => { void bundleList.reload(); }}>Thử lại tải bundle</Button></div> : bundleList.loading ? <p role="status">Đang tải danh sách bundle đã cài…</p> : bundleList.items.length === 0 ? <div className="form-error" role="alert" aria-label="Chưa có bundle">Chưa có bundle dựng ứng dụng nào được cài trên máy chủ nên chưa thể lưu mẫu. Hãy liên hệ Kỹ sư nền tảng để cài bundle, sau đó làm mới danh sách. <Button type="button" onClick={() => { void bundleList.reload(); }}>Làm mới danh sách bundle</Button></div> : <p><Button type="button" onClick={() => { void bundleList.reload(); }}>Làm mới danh sách bundle</Button></p>}
         {bundleStale ? <div className="form-error" role="alert" aria-label="Bundle không còn khả dụng">Bundle đã chọn ({bundle}) không còn khả dụng trong danh sách. Hãy chọn bundle khác; dữ liệu đã nhập được giữ lại.</div> : null}
         {bundleError ? <div id="template-bundle-error" className="form-error" role="alert">{bundleError}</div> : null}
+        <section className="catalog-fields" aria-label="Đích triển khai và cấu hình workload">
+          <div className="section-header"><div><h4>Đích triển khai và đầu vào</h4><p className="feature-note">Cấu hình quyết định nơi workload chạy: tham chiếu đầy đủ tới output <code>name</code> của namespace và output <code>cluster</code> của cluster. Cluster dùng tài khoản Internal của chính cấu hình cluster; Môi trường không chọn tài khoản. Biểu mẫu và JSON nâng cao là cùng một cấu hình.</p></div>
+            <Button type="button" onClick={() => switchMode(mode === 'form' ? 'json' : 'form')}>{mode === 'form' ? 'JSON nâng cao' : 'Biểu mẫu'}</Button></div>
+          {modeNote ? <div className="form-warning" role="status">{modeNote}</div> : null}
+          {mode === 'json' ? <label>JSON nâng cao (variables, provision)<textarea aria-label="JSON nâng cao của mẫu dựng ứng dụng" rows={14} spellCheck={false} value={jsonText} onChange={(event) => setJsonText(event.target.value)} /></label> : <>
+            <label>Tham chiếu namespace<input aria-label="Tham chiếu namespace" value={namespaceRef} spellCheck={false} placeholder="${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}" onChange={(event) => setNamespaceRef(event.target.value)} /></label>
+            {presetOf('namespace') ? <Button type="button" tone="quiet" onClick={() => setNamespaceRef(presetOf('namespace'))}>Dùng gợi ý namespace</Button> : null}
+            <label>Tham chiếu cluster<input aria-label="Tham chiếu cluster" value={clusterRef} spellCheck={false} placeholder="${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}" onChange={(event) => setClusterRef(event.target.value)} /></label>
+            {presetOf('cluster') ? <Button type="button" tone="quiet" onClick={() => setClusterRef(presetOf('cluster'))}>Dùng gợi ý cluster</Button> : null}
+            <ProvisionEditor rows={rows} onChange={setRows} disabled={saving} />
+          </>}
+        </section>
         <CriteriaEditor draft={criteriaDraft} onChange={setCriteriaDraft} applications={{ items: applicationList.items, loading: applicationList.loading, error: applicationList.loadError, onRetry: () => { void applicationList.reload(); } }} sources={{ items: templates, loading: definitionList.loading, error: definitionList.loadError, onRetry: () => { void definitionList.reload(); } }} resourceType="workload" matching={matching} scopeKey={`bundles:${bundleList.loading ? 'loading' : bundleList.loadError ? 'error' : JSON.stringify(bundleList.items.map((item) => [item.id, item.version, item.status]))}|editing:${editing ? `${editing.key}@${editing.version}` : ''}`} excludeKey={editing?.key ?? ''} />
         {error ? <div className="form-error" role="alert">{error}</div> : null}{notice ? <div className="form-success" role="status">{notice}</div> : null}<div className="form-actions"><Button type="submit" tone="primary" disabled={saving || bundleBlocked || selectedMissing || review !== null}>{saving ? (editing ? 'Đang lưu…' : 'Đang đăng ký…') : editing ? 'Lưu thay đổi' : 'Đăng ký mẫu dựng ứng dụng'}</Button></div>
       </fieldset></form>

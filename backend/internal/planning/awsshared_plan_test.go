@@ -82,7 +82,7 @@ func awsSharedRequest(t *testing.T) planning.Request {
 // node/descriptor and an edge to that single VPC; the private subnet IDs come
 // from the VPC output reference, never from a literal or a per-consumer network.
 func TestAWSTwoDatabasesAndTwoCachesShareOneVPCNode(t *testing.T) {
-	plan, err := planning.NewService().Plan(awsSharedRequest(t))
+	plan, err := planning.NewService(placedBundles()).Plan(awsSharedRequest(t))
 	if err != nil {
 		t.Fatal(err)
 	}

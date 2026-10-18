@@ -24,6 +24,10 @@ var publicPathPattern = regexp.MustCompile(`^/(?:[A-Za-z0-9._~-]+(?:/[A-Za-z0-9.
 // Metadata names the single workload described by a Score document.
 type Metadata struct {
 	Name string `json:"name"`
+	// Class is the optional workload class (product extension, ADR-016). A
+	// missing class means the default class; an explicit value is kept as
+	// written through import, edit, export and storage.
+	Class string `json:"class,omitempty"`
 }
 
 // ResourceSpec is one resource dependency declared by a Score workload. A
@@ -79,6 +83,9 @@ func parse(b []byte) (*Document, error) {
 		return nil, fmt.Errorf("score: invalid document: %w", err)
 	}
 	if err := validateContainerResources(b); err != nil {
+		return nil, err
+	}
+	if err := validateMetadataClass(b); err != nil {
 		return nil, err
 	}
 	if err := doc.Validate(); err != nil {
@@ -180,6 +187,7 @@ func (d Document) Fragment(types map[string]resource.Type) (*Fragment, error) {
 
 	module := environment.Module{
 		Profile: environment.ModuleProfile,
+		Class:   d.Metadata.Class,
 		Spec: environment.ModuleSpec{
 			Containers: map[string]environment.Container{},
 			Service:    d.Service,

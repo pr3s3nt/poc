@@ -17,14 +17,17 @@ type Dependency = { alias: string; type: string; className: string; sharedId: st
 type ClassMetadata = 'ready' | 'loading' | 'error';
 type ServicePort = { name: string; port: string; targetPort: string };
 type PublicRoute = { path: string; port: string };
-type Form = { name: string; containers: ContainerForm[]; dependencies: Dependency[]; servicePorts: ServicePort[]; publicRoutes: PublicRoute[] };
+// workloadClass is Score metadata.class (ADR-016): empty means the default class, an explicit value is kept as written.
+type Form = { name: string; workloadClass: string; containers: ContainerForm[]; dependencies: Dependency[]; servicePorts: ServicePort[]; publicRoutes: PublicRoute[] };
 
 const emptyContainer = (): ContainerForm => ({ name: 'main', image: '', cpuRequest: '', memoryRequest: '', cpuLimit: '', memoryLimit: '', bindings: [] });
-const emptyForm = (): Form => ({ name: '', containers: [emptyContainer()], dependencies: [], servicePorts: [], publicRoutes: [] });
+const emptyForm = (): Form => ({ name: '', workloadClass: '', containers: [emptyContainer()], dependencies: [], servicePorts: [], publicRoutes: [] });
 
 function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): boolean {
   if (Object.keys(raw).some((key) => !['apiVersion', 'metadata', 'containers', 'resources', 'service'].includes(key))) return true;
-  if (Object.keys((raw.metadata ?? {}) as Record<string, unknown>).some((key) => key !== 'name')) return true;
+  if (Object.keys((raw.metadata ?? {}) as Record<string, unknown>).some((key) => key !== 'name' && key !== 'class')) return true;
+  const declaredClass = (raw.metadata as { class?: unknown } | undefined)?.class;
+  if (declaredClass !== undefined && (typeof declaredClass !== 'string' || !validWorkloadClass(declaredClass))) return true;
   const containers = (raw.containers ?? {}) as Record<string, Record<string, unknown>>;
   if (Object.values(containers).some((container) => Object.keys(container).some((key) => !['image', 'variables', 'resources'].includes(key)))) return true;
   if (Object.values(containers).some((container) => Object.keys((container.resources ?? {}) as Record<string, unknown>).some((key) => !['requests', 'limits'].includes(key)))) return true;
@@ -47,6 +50,9 @@ function needsScoreEditor(raw: Record<string, unknown>, types: ResourceType[]): 
   const ports = ((raw.service as { ports?: Record<string, Record<string, unknown>> } | undefined)?.ports ?? {});
   return Object.values(ports).some((port) => Object.keys(port).some((key) => !['port', 'targetPort'].includes(key)));
 }
+
+// Workload class identifier: lowercase, no dot or space, at most 63 characters (backend resource.ValidClass).
+export const validWorkloadClass = (value: string): boolean => /^[a-z0-9][a-z0-9_-]{0,62}$/.test(value);
 
 // Reads a resource input the user set; an unset name such as __proto__ is empty,
 // not an inherited Object member.
@@ -93,7 +99,7 @@ function buildScore(form: Form, types: ResourceType[]): Record<string, unknown> 
   }
   const ports = new Map<string, unknown>();
   for (const port of form.servicePorts) if (port.name && Number(port.port) > 0) ports.set(port.name, { port: Number(port.port), targetPort: Number(port.targetPort || port.port) });
-  return { apiVersion: 'score.dev/v1b1', metadata: { name: form.name }, containers: Object.fromEntries(containers), ...(ports.size ? { service: { ports: Object.fromEntries(ports), ...(form.publicRoutes.length ? { publicRoutes: form.publicRoutes } : {}) } } : {}), ...(resources.size ? { resources: Object.fromEntries(resources) } : {}) };
+  return { apiVersion: 'score.dev/v1b1', metadata: { name: form.name, ...(form.workloadClass ? { class: form.workloadClass } : {}) }, containers: Object.fromEntries(containers), ...(ports.size ? { service: { ports: Object.fromEntries(ports), ...(form.publicRoutes.length ? { publicRoutes: form.publicRoutes } : {}) } } : {}), ...(resources.size ? { resources: Object.fromEntries(resources) } : {}) };
 }
 
 const DEFAULT_CPU_REQUEST = '10m';
@@ -139,6 +145,7 @@ function Advanced({ label, summary, children }: { label: string; summary: ReactN
 function readForm(score: Record<string, unknown>): Form {
   const form = emptyForm();
   form.name = String((score.metadata as { name?: string } | undefined)?.name ?? '');
+  form.workloadClass = String((score.metadata as { class?: string } | undefined)?.class ?? '');
   const resources = (score.resources ?? {}) as Record<string, { type?: string; class?: string; id?: unknown; params?: Record<string, unknown> }>;
   form.dependencies = Object.entries(resources).filter(([, spec]) => spec.type !== 'environment' && spec.type !== 'service').map(([alias, spec]) => ({ alias, type: spec.type ?? '', className: spec.class ?? '', sharedId: typeof spec.id === 'string' ? spec.id : '', params: Object.fromEntries(Object.entries(spec.params ?? {}).map(([key, value]) => [key, String(value)])) }));
   const rawContainers = (score.containers ?? {}) as Record<string, { image?: string; variables?: Record<string, string>; resources?: { requests?: { cpu?: string; memory?: string }; limits?: { cpu?: string; memory?: string } } }>;
@@ -301,6 +308,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
       if (problem) { setError(`Đường dẫn ${route.path}: ${problem}`); return; }
     }
     if (mode === 'form' || dirty) {
+      if (form.workloadClass && !validWorkloadClass(form.workloadClass)) { setError('Class Workload không hợp lệ: chỉ dùng chữ thường, số, "-" hoặc "_" (tối đa 63 ký tự), hoặc để trống để dùng default.'); return; }
       if (classMetadata !== 'ready' && form.dependencies.length > 0) { setError(classMetadata === 'loading' ? 'Metadata class đang tải. Hãy chờ tải xong trước khi lưu.' : 'Chưa xác nhận được metadata class của tài nguyên. Hãy tải lại metadata class trước khi lưu; các giá trị đã nhập được giữ nguyên.'); return; }
       for (const dependency of form.dependencies) {
         const contract = types.find((item) => item.key === dependency.type);
@@ -342,7 +350,7 @@ export function WorkloadEditorPage({ application, environment, workloadId, onTar
     {stale ? <div className="form-error" role="alert" aria-label="Draft Workload đã cũ">Các Workload trong {environment} đã thay đổi sau khi trang này được tải. Bản chỉnh sửa của bạn được giữ nhưng chưa được lưu. Hãy tải lại trạng thái hiện tại, xem lại rồi lưu lại. <Button disabled={reloading} onClick={() => void reloadCurrent()}>{reloading ? 'Đang tải lại…' : 'Tải lại trạng thái hiện tại'}</Button>{reloadError ? <p>{reloadError}</p> : null}</div> : null}
     {current ? <div className="form-info" role="status">Đã tải lại draft phiên bản {current.version}. Trạng thái hiện tại của Workload này: {currentState}. Các chỉnh sửa bên dưới không đổi; hãy xem lại và lưu lại nếu vẫn áp dụng.{current.score ? <details><summary>Score hiện tại</summary><pre className="score-preview">{JSON.stringify(current.score, null, 2)}</pre></details> : null}</div> : null}
     {loading ? <p>Đang tải tùy chọn Workload…</p> : mode === 'import' ? <section className="content-panel"><h2>Nhập một file Score</h2><p>YAML hoặc JSON. Áp dụng cùng quy tắc tham chiếu như form; nhập file không lưu hay triển khai.</p><input aria-label="File Score" type="file" accept=".yaml,.yml,.json,text/yaml,application/json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void importFile(file); }} />{imported ? <><p>Đã phân tích Workload: <strong>{String((imported.metadata as { name?: string } | undefined)?.name ?? '')}</strong></p><pre className="score-preview">{JSON.stringify(imported, null, 2)}</pre></> : null}</section> : <>
-      <section className="content-panel editor-grid"><h2>Thông tin cơ bản</h2><label>Tên Workload<input value={form.name} disabled={Boolean(workloadId)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="frontend" /></label></section>
+      <section className="content-panel editor-grid"><h2>Thông tin cơ bản</h2><label>Tên Workload<input value={form.name} disabled={Boolean(workloadId)} onChange={(event) => updateForm({ ...form, name: event.target.value })} placeholder="frontend" /></label><label>Class Workload (metadata.class)<input aria-label="Class Workload" value={form.workloadClass} onChange={(event) => updateForm({ ...form, workloadClass: event.target.value })} placeholder="default" /></label>{form.workloadClass && !validWorkloadClass(form.workloadClass) ? <small role="note">Class chỉ gồm chữ thường, số, "-" hoặc "_" (tối đa 63 ký tự). Để trống nghĩa là default.</small> : <small className="muted">Để trống nghĩa là default. Class được giữ nguyên khi nhập, sửa và xuất Score; đổi class sau khi triển khai không tự chuyển Workload sang Definition khác.</small>}</section>
       {catalog.status === 'error' ? <div className="form-error" role="alert">Không tải được biến và bí mật của ứng dụng. {catalog.message} Các lựa chọn của bạn được giữ nguyên. <Button onClick={() => setCatalogAttempt((value) => value + 1)}>Thử tải lại key</Button></div> : null}
       {form.containers.map((container, ci) => <section className="content-panel editor-grid" key={ci}><div className="section-header"><h2>Container {ci + 1}</h2>{form.containers.length > 1 ? <Button tone="danger" onClick={() => updateForm({ ...form, containers: form.containers.filter((_, index) => index !== ci) })}>Xóa</Button> : null}</div><div className="field-grid"><label>Tên Container<input value={container.name} onChange={(event) => updateContainer(ci, { ...container, name: event.target.value })} /></label><label>Ảnh Container<input value={container.image} onChange={(event) => updateContainer(ci, { ...container, image: event.target.value })} placeholder="registry.example/app:tag" /></label></div>
         <Advanced label={`Container ${ci + 1}`} summary={`Yêu cầu hiệu lực: CPU ${effectiveRequest(container.cpuRequest, container.cpuLimit, DEFAULT_CPU_REQUEST)} · Bộ nhớ ${effectiveRequest(container.memoryRequest, container.memoryLimit, DEFAULT_MEMORY_REQUEST)}. Giới hạn: CPU ${container.cpuLimit || 'chưa đặt'} · Bộ nhớ ${container.memoryLimit || 'chưa đặt'}.`}>

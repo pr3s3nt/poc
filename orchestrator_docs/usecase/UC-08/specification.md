@@ -25,7 +25,7 @@ Provision implicit infrastructure cùng private/shared resources theo dependency
 ## Tiền điều kiện
 
 - **PRE-01:** Resource Graph đã được dựng và là DAG.
-- **PRE-02:** Mỗi resource node có đúng một execution binding: matched Definition hoặc system existing-cluster binding theo ADR-013.
+- **PRE-02:** Mỗi resource có đúng một matched Definition; internal cluster không system binding theo ADR-016.
 - **PRE-03:** Driver, Driver Account/connection và credentials cần thiết đã sẵn sàng.
 - **PRE-04:** Resource Descriptor và scope Application, Environment hoặc workload đã được xác định.
 - **PRE-05:** Provision batches đặt provider trước consumer.
@@ -155,17 +155,14 @@ recovery and cleanup. Explicit PostgreSQL transfer quiesces writers and restores
 before destination apps/routes become live. See
 [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).
 
-## Implicit internal cluster binding
+## Matched internal cluster binding
 
-- **BR-08:** Internal existing-cluster uses the system execution binding from the plan, validates the scoped READY Kubernetes Connection, and resolves/checks the existing cluster without creation. Admit the reserved system Definition idempotently before FK-dependent writes, never in Preview. Preserve descriptors and scoped KUBECONFIG targets; reject host-context or missing credentials per UC-04 BR-15, and fail closed on collision or target mismatch.
-
-See [ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
-
-Public `existing-cluster` registration is rejected before insert under UC-03
-BR-08/BR-17. This does not remove the trusted internal driver, executor or
-system Definition admission required by ADR-013. No retained records are
-deleted by this API change.
-
+- **BR-08:** Use matched existing-cluster Definition and pinned READY scoped
+  Internal account under ADR-016. Check identity/API/permissions/readiness and
+  return a typed opaque target before consumers; no cluster create/destroy,
+  builtin catalog admission or Environment/host fallback. Namespace provider
+  and workload cluster reference must agree. Historical applied target remains
+  authoritative for cleanup, not current catalog selection.
 
 ## Locking, retry và outcome chưa rõ
 
@@ -180,3 +177,8 @@ deleted by this API change.
   công trước cleanup; không import v1 hoặc rollback resource đã cập nhật.
 
 Protocol/validation đầy đủ ở [state contract](../../architecture/contracts/terraform-state.md).
+
+
+## V03 typed targets
+
+[ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) supersedes the internal Environment/system binding portions of BR-07/09. Persist target per resource and workload, validate output contract and original target on reuse/restart/cleanup. The existing cluster is PREEXISTING. Workload driver lifecycle remains UC-06/07 after resource-only batches; namespaces are owned resources. No cross-cluster global target inference.

@@ -350,6 +350,9 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		deployer execution.WorkloadDeployer
 		fakeExec *fake.ResourceExecutor
 		fakeDep  *fake.WorkloadDeployer
+		// fakeRenderer: the fake adapters render with the native renderer behind the
+		// deterministic fake bundle, so planning stays Definition-placed (ADR-016).
+		fakeRenderer bool
 	)
 	switch opts.Adapters {
 	case "", AdapterFake:
@@ -358,6 +361,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		registry = fake.Registry{Executor: fakeExec}
 		renderer = kubernetesRenderer()
 		deployer = fakeDep
+		fakeRenderer = true
 	case AdapterKubernetes, AdapterAWS:
 		registry, renderer, deployer, err = realAdapters(opts, credentialResolver, kubeconfigSource, terraformRuntime, secretStore, modules, closers)
 		if err != nil {
@@ -378,7 +382,15 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	}
 
 	var bundles map[string]resource.RenderBundle
+	useFakeRenderer := false
+	if fakeRenderer && opts.RendererOverride == nil && opts.ScoreK8sPath == "" && !opts.RequireScoreRenderer {
+		fake := fakeBundleRenderer{native: renderer}
+		bundles, renderer = fake.Bundles(), fake
+		opts.RequireScoreRenderer = true
+		useFakeRenderer = true
+	}
 	switch {
+	case useFakeRenderer:
 	case opts.RequireScoreRenderer && opts.ScoreK8sPath != "":
 		scoreRenderer, err := scorek8s.New(ctx, opts.ScoreK8sPath, nil)
 		if err != nil {
@@ -748,4 +760,37 @@ func outputSecretStore(opts Options, durableState bool) (execution.SecretStore, 
 		return vault.NewOutputSecrets(opts.OutputSecretVaultAddress, token, mount, nil)
 	}
 	return nil, fmt.Errorf("bootstrap: unknown output secret store %q", opts.OutputSecretStore)
+}
+
+// FakeRenderBundleID is the render bundle the fake adapters install. It carries the
+// ID of the real score-k8s bundle so Definitions authored for either run unchanged.
+const FakeRenderBundleID = "score-k8s-internal-v1"
+
+// fakeBundleRenderer is the fake adapters' renderer: the native renderer behind a
+// deterministic, clearly fake bundle. It exists only for AdapterFake, which touches
+// no cluster and no cloud account.
+type fakeBundleRenderer struct{ native execution.WorkloadRenderer }
+
+// NewFakeBundleRenderer is the fake adapters' renderer for tests that wire the Deployment service by hand.
+func NewFakeBundleRenderer(native execution.WorkloadRenderer) execution.WorkloadRenderer {
+	return fakeBundleRenderer{native: native}
+}
+
+func (fakeBundleRenderer) Bundles() map[string]resource.RenderBundle { return FakeRenderBundles() }
+
+// FakeRenderBundles is the bundle snapshot the fake adapters install; tests that build
+// their own planner use it so plans pin the same bundle as the application's.
+func FakeRenderBundles() map[string]resource.RenderBundle {
+	return map[string]resource.RenderBundle{FakeRenderBundleID: {ID: FakeRenderBundleID, Version: "fake", BinaryDigest: "fake-binary", Digest: "fake-bundle"}}
+}
+
+func (r fakeBundleRenderer) Render(ctx context.Context, req execution.RenderRequest) ([]execution.Manifest, error) {
+	return r.native.Render(ctx, req)
+}
+
+func (fakeBundleRenderer) ValidateSelection(_ context.Context, selected resource.RenderingSelection) error {
+	if selected.Bundle.ID != FakeRenderBundleID || selected.DriverType != resource.DriverScoreK8s {
+		return errors.New("bootstrap: the fake renderer only serves its own bundle")
+	}
+	return nil
 }

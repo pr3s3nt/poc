@@ -45,9 +45,14 @@ func (b *graphBuilder) clusterProvider(node *Node, binding tfmodule.Binding) (re
 		}
 		return target, nil
 	}
+	if b.ctx.DefinitionPlaced() {
+		return resource.Descriptor{}, fmt.Errorf("the Environment provider target is retired; bind the provider to a cluster resource (target resource)")
+	}
 	switch b.ctx.Env.Profile {
 	case application.ProfileInternalK8s:
-		return InternalClusterDescriptor(b.ctx.Env.ConnectionKey)
+		if b.ctx.ReferenceCluster { // planner reference mode only; a product Environment never reaches here
+			return InternalClusterDescriptor(b.ctx.Env.ConnectionKey)
+		}
 	case application.ProfileAWSEKS:
 		return EKSDescriptor(b.ctx)
 	}
@@ -102,7 +107,7 @@ func (b *graphBuilder) awsAccountPin(def resource.Definition) (application.Conne
 // the required kind: AWS needs the Definition's READY AWS Driver Account and
 // literal region; Kubernetes needs a cluster node already in the graph. A
 // configurable provider without a binding is refused.
-func (b *graphBuilder) providerPins(node *Node, def resource.Definition, contract ModuleContract) ([]tfmodule.ProviderPin, error) {
+func (b *graphBuilder) providerPins(node *Node, def resource.Definition, contract ModuleContract, matches map[string]Match) ([]tfmodule.ProviderPin, error) {
 	if contract.ProviderKinds == nil {
 		return nil, nil // planner-reference fixtures declare no providers
 	}
@@ -145,11 +150,13 @@ func (b *graphBuilder) providerPins(node *Node, def resource.Definition, contrac
 				return nil, fmt.Errorf("planning: %s provider binding %s names a cluster %s that is not part of the plan", node.Descriptor, name, provider)
 			}
 			pin.Provider = provider.String()
-			if internal, err := InternalClusterDescriptor(env.ConnectionKey); err == nil && provider == internal {
-				if env.Profile != application.ProfileInternalK8s || b.ctx.Connection.Kind != application.ConnectionKubernetes || b.ctx.Connection.Key != env.ConnectionKey {
-					return nil, fmt.Errorf("planning: %s provider binding %s needs the Environment Kubernetes Connection", node.Descriptor, name)
+			if b.ctx.DefinitionPlaced() {
+				clusterNode := b.nodes[provider.String()]
+				match, err := clusterAccountMatch(clusterNode, matches, nil)
+				if err != nil {
+					return nil, fmt.Errorf("planning: %s provider binding %s: %w", node.Descriptor, name, err)
 				}
-				pin.ConnectionKey, pin.ConnectionKind = env.ConnectionKey, string(application.ConnectionKubernetes)
+				pin.ConnectionKey, pin.ConnectionKind, pin.AccountVersion = match.DriverAccount, string(application.ConnectionKubernetes), match.AccountVersion
 			}
 		}
 		pins = append(pins, pin)

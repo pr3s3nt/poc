@@ -163,7 +163,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(window.location.pathname).toBe('/ui/applications/payment');
   });
 
-  it('creates an application without a connection and sets each environment independently in Settings', async () => {
+  it('creates an application without a connection and Settings offers none', async () => {
     const user = userEvent.setup();
     render(<App />);
     await signIn(user);
@@ -177,30 +177,23 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     await user.click(screen.getByRole('button', { name: 'Tạo ứng dụng' }));
 
     expect(await screen.findByRole('heading', { name: 'Catalog' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('staging chưa có kết nối triển khai');
+    expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('staging · Đích triển khai do Resource Definition và tham chiếu của Workload quyết định');
     expect(screen.getByRole('status')).toHaveTextContent('Đã tạo ứng dụng.');
     expect(screen.getByRole('button', { name: /staging/ })).toHaveClass('tab-active');
     const create = requests.find((request) => request.method === 'POST' && request.url.endsWith('/applications'));
     expect(JSON.parse(create?.body ?? '{}')).toEqual({ name: 'Catalog', subdomain: 'catalog' });
 
-    // Staging picks lab in Settings; production stays unset.
+    // ADR-016: Settings no longer offers an Environment connection; both Environments stay unset.
     await user.click(screen.getByRole('button', { name: 'Cài đặt môi trường' }));
-    await user.selectOptions(await screen.findByLabelText('Kết nối cho Staging'), 'lab');
-    await user.click(screen.getByRole('button', { name: 'Lưu kết nối' }));
-    expect(await screen.findByText('Thế hệ 0')).toBeInTheDocument();
-    expect(screen.getByLabelText('Kết nối cho Staging')).toHaveValue('lab');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    const put = requests.find((request) => request.method === 'PUT' && request.url.endsWith('/environments/staging/connection'));
-    expect(JSON.parse(put?.body ?? '{}')).toEqual({ connectionKey: 'lab', expectedVersion: 1 });
+    expect(await screen.findByRole('tab', { name: 'Staging' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByLabelText('Kết nối cho Staging')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Lưu kết nối' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Production' }));
-    expect(await screen.findByLabelText('Kết nối cho Production')).toHaveValue('');
-    expect(screen.getAllByText('Chưa cấu hình').length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText('Kết nối cho Production')).not.toBeInTheDocument();
+    expect(requests.some((request) => request.method === 'PUT' && request.url.endsWith('/connection'))).toBe(false);
     expect(requests.some((request) => /\/(deploy|preview|deployments)$/.test(request.url) && request.method === 'POST')).toBe(false);
-    // Back home the cached target shows the staging binding only.
     await user.click(screen.getByRole('button', { name: /← Catalog/ }));
-    expect(await screen.findByLabelText('Đích triển khai')).toHaveTextContent('staging · Kết nối lab (lab)');
-    await user.click(screen.getByRole('button', { name: /^production/ }));
-    expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('production chưa có kết nối triển khai');
+    expect(await screen.findByLabelText('Đích triển khai')).toHaveTextContent('staging · Đích triển khai do Resource Definition');
   });
 
   it('keeps the Settings Environment aligned with the URL across tab clicks and back/forward', async () => {
@@ -209,7 +202,8 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     authenticated = true;
     render(<App />);
     expect(await screen.findByRole('tab', { name: 'Production' })).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByLabelText('Kết nối triển khai')).toHaveTextContent('Production triển khai tới kết nối này');
+    // The Environment connection selector is retired (ADR-016): Settings no longer offers it.
+    expect(screen.queryByLabelText('Kết nối triển khai')).not.toBeInTheDocument();
     await waitFor(() => expect(requests.some((request) => request.url.includes('/environments/production/configuration'))).toBe(true));
     // A tab click keeps the URL aligned, so a reload opens the same scope.
     await user.click(screen.getByRole('tab', { name: 'Staging' }));
@@ -219,11 +213,11 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     window.history.pushState({}, '', '/ui/applications/payment/settings?environment=production');
     await act(async () => { window.dispatchEvent(new PopStateEvent('popstate')); });
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Production' })).toHaveAttribute('aria-selected', 'true'));
-    expect(screen.getByLabelText('Kết nối triển khai')).toHaveTextContent('Production triển khai tới kết nối này');
+    expect(screen.queryByLabelText('Kết nối triển khai')).not.toBeInTheDocument();
     window.history.pushState({}, '', '/ui/applications/payment/settings');
     await act(async () => { window.dispatchEvent(new PopStateEvent('popstate')); });
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Staging' })).toHaveAttribute('aria-selected', 'true'));
-    expect(screen.getByLabelText('Kết nối triển khai')).toHaveTextContent('Staging triển khai tới kết nối này');
+    expect(screen.queryByLabelText('Kết nối triển khai')).not.toBeInTheDocument();
   });
 
   it('returns to sign-in with a notice when the session expires', async () => {

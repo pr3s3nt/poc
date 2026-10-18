@@ -60,6 +60,14 @@ func (e *ResourceExecutor) Provision(_ context.Context, req execution.ProvisionR
 			},
 			State: map[string]any{"driver": "fake", "descriptor": req.Descriptor},
 		}
+		if req.DriverType == resource.DriverExistingCluster && req.Connection.Kind == application.ConnectionKubernetes {
+			// ADR-016: an existing cluster reaches its own Internal Driver Account and
+			// reports the typed opaque target of that account; no credential.
+			cluster, kubeContext := req.Connection.ConfigString("cluster"), req.Connection.ConfigString("kubeContext")
+			target := execution.Target{Kind: "kubernetes", Context: kubeContext, ClusterName: cluster, Organization: req.OrganizationKey, Connection: req.Connection.Key}
+			result.Outputs = map[string]any{"name": cluster, "kubeContext": kubeContext, "cluster": target.ClusterOutput(req.Descriptor, req.Connection.Version)}
+			result.Target = &target
+		}
 		if req.Connection.Kind == application.ConnectionAWS {
 			result.Target = &execution.Target{Kind: "kubernetes", Provider: "eks", ClusterName: "fake-" + req.ApplicationKey,
 				Organization: req.OrganizationKey, Connection: req.Connection.Key, Region: req.Connection.ConfigString("region")}

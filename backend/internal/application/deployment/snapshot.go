@@ -29,6 +29,7 @@ const (
 	FailureUnconfigured = "the Environment has no execution connection; set one in Environment Settings"
 	FailureInconsistent = "the Environment execution target is inconsistent; ask a platform engineer to review it"
 	FailureNotReady     = "the Environment connection is not READY; ask a platform engineer to verify it"
+	FailureTargetChange = "the workload target changed since it was applied; a target cannot be moved by an update, so remove and deploy it again"
 	FailureRuntime      = "runtime deployment failed during resource provisioning, workload apply/readiness or removal; preview changes again to retry"
 	FailureNotFound     = "a required Application, Environment or catalog record was not found"
 )
@@ -42,7 +43,7 @@ const FailureLegacy = "deployment failed; its recorded diagnostic is not shown. 
 // empty) and FailureLegacy otherwise.
 func SafeFailureReason(reason string) string {
 	switch reason {
-	case "", FailureStale, FailureNotReady, FailureUnconfigured, FailureInconsistent, FailureRuntime, FailureNotFound:
+	case "", FailureTargetChange, FailureStale, FailureNotReady, FailureUnconfigured, FailureInconsistent, FailureRuntime, FailureNotFound:
 		return reason
 	}
 	if planning.IsPublicMessage(reason) {
@@ -64,6 +65,8 @@ func PublicFailure(err error) string {
 		return FailureInconsistent
 	case errors.Is(err, persistence.ErrNotFound):
 		return FailureNotFound
+	case errors.Is(err, ErrTargetChanged):
+		return FailureTargetChange
 	}
 	if message, ok := planning.PublicMessage(err); ok {
 		return message
@@ -117,7 +120,7 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 		if err != nil {
 			return err
 		}
-		conn, err := target.Resolve(ctx, view, app.OrganizationKey, env)
+		conn, err := target.ResolveOptional(ctx, view, app.OrganizationKey, env)
 		if err != nil {
 			return err
 		}

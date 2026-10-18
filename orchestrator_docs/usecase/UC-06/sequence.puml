@@ -21,13 +21,14 @@ database WorkloadInstanceRepository as WorkloadRepo
 Developer -> API: DeployWorkload(command)
 API -> Service: DeployWorkload(ctx, command)
 Service -> EnvRepo: LoadPlanningSnapshot(appID, envID) [MS-01]
-EnvRepo --> Service: Snapshot + version + configured Environment Connection/profile/region/scope
+EnvRepo --> Service: Scoped snapshot + config/current versions + catalog/account metadata
 Service -> DeploymentRepo: Create(PLANNING, snapshot=NULL)
 DeploymentRepo --> Service: Deployment
 Service -> Planner: Plan(request) [MS-02..MS-08]
 Planner -> DescriptorParser: ParseDescriptorText(reference, node, context) [BR-12]
 DescriptorParser --> Planner: Canonical descriptor
-Planner -> Planner: Internal cluster system binding; other/cloud resource matching [BR-21]
+Planner -> Planner: Select workload first; expand references/rules; match internal cluster [BR-21]
+Planner -> Planner: Validate and pin each workload/resource namespace and cluster target
 Planner --> Service: Plan with Humanitec-shaped Delta\nand typed container resources
 alt planning fails before Delta Snapshot
   Service -> DeploymentRepo: MarkFailed(reason, snapshot=NULL)

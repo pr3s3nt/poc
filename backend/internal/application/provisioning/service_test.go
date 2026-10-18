@@ -147,7 +147,13 @@ func TestProvision_NonTerraformDefinitionWithAnAccountFailsBeforeExecutor(t *tes
 			Types:       map[string]resource.Type{"k8s-cluster": {Key: "k8s-cluster"}},
 			Definitions: map[string]resource.Definition{def.Key: def},
 		})
-		if err == nil || !strings.Contains(err.Error(), "does not use") {
+		want := "does not use"
+		if driver == resource.DriverExistingCluster {
+			// ADR-016: an existing cluster runs with its own pinned account; a stale or
+			// foreign account is an unavailable Connection, still before any executor call.
+			want = "is unavailable"
+		}
+		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("%s account error = %v", driver, err)
 		}
 		if registry.calls != 0 {

@@ -176,7 +176,10 @@ var (
 	// target can only change through the explicit transition flow.
 	ErrRuntimeExists = errors.New("application: environment has runtime resources; use a connection transition")
 	ErrStaleVersion  = errors.New("application: environment changed; reload it")
-	ErrNotFound      = persistence.ErrNotFound
+	// ErrDeploymentConnectionRetired rejects selecting a Kubernetes (Internal) Connection as an
+	// Environment deployment target: internal placement comes from Resource Definitions (ADR-016).
+	ErrDeploymentConnectionRetired = errors.New("application: the internal deployment connection is retired; Resource Definitions decide the target")
+	ErrNotFound                    = persistence.ErrNotFound
 	// ErrBusy wraps persistence.ErrEnvironmentBusy for delivery.
 	ErrBusy = persistence.ErrEnvironmentBusy
 )
@@ -233,6 +236,9 @@ func (s *Service) SetConnection(ctx context.Context, cmd SetConnectionCommand) (
 		if !eligible(cmd.OrganizationKey, conn) {
 			return fieldError(connectionKeyField, ErrTargetNotReady, targetUnavailableMsg)
 		}
+		if conn.Kind == appdomain.ConnectionKubernetes {
+			return fieldError(connectionKeyField, ErrDeploymentConnectionRetired, "internal placement comes from Resource Definitions; an Environment no longer selects a Kubernetes connection")
+		}
 		if env.Configured() {
 			exists, err := envops.HasRuntime(ctx, s.store, cmd.OrganizationKey, env)
 			if err != nil {
@@ -242,10 +248,7 @@ func (s *Service) SetConnection(ctx context.Context, cmd SetConnectionCommand) (
 				return ErrRuntimeExists
 			}
 		}
-		profile, region, status := appdomain.ProfileInternalK8s, "", appdomain.RuntimeReady
-		if conn.Kind == appdomain.ConnectionAWS {
-			profile, region, status = appdomain.ProfileAWSEKS, conn.ConfigString("region"), appdomain.RuntimePending
-		}
+		profile, region, status := appdomain.ProfileAWSEKS, conn.ConfigString("region"), appdomain.RuntimePending
 		bound, err := s.store.BindEnvironment(ctx, persistence.EnvironmentBinding{
 			ApplicationKey: cmd.ApplicationKey, EnvironmentKey: cmd.EnvironmentKey, ConnectionKey: conn.Key,
 			Profile: profile, Region: region, RuntimeStatus: status, Scope: environment.ScopeEnvironment,

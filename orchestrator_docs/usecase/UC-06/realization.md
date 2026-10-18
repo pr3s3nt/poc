@@ -121,14 +121,15 @@ Retired scopes fail closed; current generation-0 identity is preserved under [AD
 Target changes use ADR-012 versioned admission/transition; runtime READY update is Environment-only.
 UI/query use selected Environment or deployment-pinned target, no Application target.
 
-## Implicit internal cluster collaboration
+## Matched internal cluster collaboration
 
-[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md)
-changes only internal cluster binding: the enricher supplies the provider node,
-trusted system binding bypasses criteria matching, and UC-08 resolves the selected
-Environment Connection through existing-cluster. Preview is pure; execution
-admits the reserved system Definition before persistence writes. Other resource
-Definitions, executor scheduling and output propagation remain unchanged.
+ADR-016 replaces the system provider. The workload Definition contributes
+namespace/cluster references and provision rules before fixed-point expansion.
+The same matcher selects existing-cluster and pins its own account. Target
+resolution validates each consumer against that cluster and namespace; no
+reserved Definition admission or global target inference. UC-08 resolves the
+preexisting cluster before namespace/resources; UC-06 uses its own selected
+workload target and applied identity across restart/update/remove.
 
 ## T25 — Public route input
 
@@ -136,3 +137,27 @@ Score parsing and public Deployment Set projection reject `service.publicPort`;
 only `publicRoutes` reaches Candidate validation and rendering. Multi-path,
 same-host ownership, declared-port validation and route-only retry remain intact.
 No alias conversion or default route is introduced.
+
+
+## V03 collaboration replacement
+
+[ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) replaces internal profile enrichment/system binding in the collaboration above. Catalog validates public existing-cluster/Internal account and workload typed namespace/cluster refs plus provision rules. Planning matches workload first and expands all nodes to fixed point; same normal matcher selects cluster Definition. Target resolver builds/pins per-consumer placement, rejects mismatch/ambiguous/cycle/multi-cluster V03. Shared snapshot/admission compare pins/versions; UC-08 resolves cluster then owned namespace/resources. UC-06 renders/applies/waits on selected workload target; no global target or builtin persistence. Applied target restored for Update/Remove/restart; separate cleanup preserves preexisting cluster. AWS legacy collaboration remains until V05–V06.
+
+
+## V03 provision flags and execution stages
+
+UC-06 BR-08 applies without changing flag meanings when the parent is a workload
+Definition. An empty/false rule alone creates no ordering edge; is_dependent
+adds child→parent, match_dependents adds every parent consumer→child. References
+add their own edges. Validate cycles over the full graph including workloads
+and self-edges before execution. Resource-only UC-08 scheduling must never erase
+a dependency merely because its provider is a workload.
+
+UC-06 owns the combined lifecycle order and dispatches selected workload render/
+apply/readiness at the required graph position; UC-08 executes only resource
+subsets whose providers have completed. A resource that depends on a workload
+executes after its acknowledged lifecycle/output stage, before final success
+commit. Typed safe workload metadata outputs, when declared/supported, are
+validated before their consumers. No new public endpoint or all-purpose external
+driver protocol is implied. Existing owner/fence, persisted progress, restart
+and current-set-after-complete guarantees remain across all stages.

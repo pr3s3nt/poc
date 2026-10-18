@@ -320,6 +320,10 @@ paths use local tests; no distinct-cluster DNS or AWS migration is claimed.
 
 ## Implicit internal cluster binding (ADR-013)
 
+Historical matrix for baseline `7a00e43`, superseded by ADR-016/V03.10.
+Builtin admission/tests below were removed with that runtime route; current
+workload placement and persistence are traced in the V03 section.
+
 | Requirements | Collaboration / contract | Persistence / compatibility | Validation |
 |---|---|---|---|
 | UC-03 BR-17; UC-04 BR-17 | System-owned cluster binding, no per-cluster registration; ADR-013 | Reserved Definition key, preserve authored history | `catalog/policy_test.go`; `planning/connection_binding_test.go`; `provisioning/builtin_test.go` |
@@ -389,6 +393,10 @@ integration proof is claimed.
 SQL opt-in and real AWS/cluster verification are not claimed by local evidence.
 
 ## T17 — public existing-cluster registration closure
+
+Historical closure at `7a00e43`. V03/ADR-016 replaces this restriction with
+public Definition registration and normal matching; old builtin test paths
+refer to that historical commit, not current runtime.
 
 | Requirement | Contract / implementation | Validation |
 |---|---|---|
@@ -916,3 +924,18 @@ Follow-up original V02 rerun canceled at user request (exit143), after V02P
 scenario/wrapper finished0. No new video upload required; existing V02 video is
 not reclassified as companion-authoring evidence. Cleanup independently verified;
 [handoff](../verification/2026-10-17-v02-handoff.md) records scope and waiver.
+
+
+## V03 Definition-selected Internal workload placement
+
+| Requirement | Design | Implementation / verification |
+|---|---|---|
+| UC-03 V03-01/02, UC-06 V03-01 | ADR-016; workload-rendering contract; UC-03/06 realization | `catalog/v03_registration_test.go`, `planning/placement_test.go`, `score/class_test.go`; live UI Type/Definition/Score/graph assertions |
+| UC-05 BR-12, UC-06 BR-21/V03-02, UC-08 BR-08 | ADR-016; internal sequence; per-resource schema pins | `planning/placement_test.go`, `deployment/placement_test.go`, `placement_post_test.go`, `placement_retry_test.go`; strict inputs, full DAG cycles, flags, target agreement, unsupported multi-cluster, PostgreSQL reopen and pre/post workload order |
+| UC-01 V03 Settings, UC-06 V03-04 | ADR-016 removal gate; UI/API contracts | R6 real replacement PASS before removal; `application/service_test.go` rejects Internal writes without mutation; `configuration/SettingsPage.test.tsx`, target/transition/seed guards and fail-fast historical runners |
+| UC-06 V03-03; UC-07 V03 restoration | V03 coverage handoff; lifecycle/ownership contracts | `v03-internal-frontend.sh`, headed scenario and `v03run/` ownership tests; R6 replacement and final r7 update/restart/remove/cleanup PASS35/35; V04 business coverage explicitly deferred |
+
+Independent final Go1580/race526/frontend700tests and build/vet/type/lint pass,
+0individual fail/skip. Live coverage, video and cleanup evidence are in the
+[V03 handoff](../verification/2026-10-18-v03-handoff.md); frontend-only proof
+does not establish backend/jobs/cache behavior.

@@ -7,10 +7,7 @@ import (
 	"testing"
 	"time"
 
-	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
-	"orchestrator/internal/domain/resource"
-	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -162,92 +159,4 @@ func TestEnvironmentSettingsStoreSelectionConflictsAndBusyStateOverHTTP(t *testi
 
 func extraScore(name string) map[string]any {
 	return map[string]any{"apiVersion": "score.dev/v1b1", "metadata": map[string]any{"name": name}, "containers": map[string]any{"main": map[string]any{"image": "example.invalid/" + name + ":1"}}}
-}
-
-func TestTransitionOverHTTPPreviewExecuteProgressAndCleanup(t *testing.T) {
-	server, opts, app := newServerApp(t, "")
-	app.Transitions.SetAsync(false)
-	developer := authenticatedClient(t, server.URL)
-	ctx := context.Background()
-	conn := appdomain.Connection{ID: ids.New(), Key: "lab2", Name: "Second", OrganizationKey: opts.OrganizationKey, Kind: appdomain.ConnectionKubernetes, AuthenticationType: appdomain.AuthKubeconfig, Status: appdomain.ConnectionReady,
-		Config: map[string]any{"cluster": "second", "kubeContext": "second-context", "endpoint": "https://second.invalid"}, SecretRef: "fake-credential://second-context", Verification: map[string]any{}}
-	if err := app.Store.SaveConnection(ctx, conn); err != nil {
-		t.Fatal(err)
-	}
-	def := resource.Definition{Key: "cluster-internal-lab2", Name: "cluster-internal-lab2", Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster, DriverAccount: "lab2",
-		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
-		Criteria:     []resource.Criterion{{Class: "internal", ResourceID: "connections.lab2"}}}
-	if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, def); err != nil {
-		t.Fatal(err)
-	}
-	created := createConfiguredApplication(t, developer, server.URL, "Transition Test", "transition-test", "internal-cluster")
-	appKey := created["application"].(map[string]any)["key"].(string)
-	base := server.URL + "/api/v1/applications/" + appKey + "/environments/staging"
-
-	// No runtime yet: a transition is refused and a plain Save is how it changes.
-	if status, out := requestJSON(t, developer, http.MethodPost, base+"/connection-transition/preview", map[string]any{"destinationKey": "lab2", "mode": "DEPLOY_NEW"}); status != http.StatusConflict || out["code"] != "NO_RUNTIME" {
-		t.Fatalf("no runtime: %d %v", status, out)
-	}
-	if status, _ := requestJSON(t, developer, http.MethodPut, base+"/workloads/web", map[string]any{"score": extraScore("web"), "version": 0}); status != http.StatusOK {
-		t.Fatal("draft")
-	}
-	_, preview := requestJSON(t, developer, http.MethodPost, base+"/preview", map[string]any{})
-	if status, out := requestJSON(t, developer, http.MethodPost, base+"/deploy", map[string]any{"token": preview["token"]}); status != http.StatusOK || out["status"] != "SUCCEEDED" {
-		t.Fatalf("deploy: %d %v", status, out)
-	}
-	// The Settings Save now needs the explicit transition.
-	_, envs := requestJSON(t, developer, http.MethodGet, server.URL+"/api/v1/applications/"+appKey, nil)
-	var version any
-	for _, raw := range envs["application"].(map[string]any)["environments"].([]any) {
-		if view := raw.(map[string]any); view["key"] == "staging" {
-			version = view["version"]
-			if view["runtimeExists"] != true {
-				t.Fatalf("runtimeExists must be reported: %v", view)
-			}
-		}
-	}
-	if status, out := requestJSON(t, developer, http.MethodPut, base+"/connection", map[string]any{"connectionKey": "lab2", "expectedVersion": version}); status != http.StatusConflict || out["code"] != "TRANSITION_REQUIRED" {
-		t.Fatalf("save with runtime: %d %v", status, out)
-	}
-	if status, out := requestJSON(t, developer, http.MethodPost, base+"/connection-transition/preview", map[string]any{"destinationKey": "internal-cluster", "mode": "DEPLOY_NEW"}); status != http.StatusUnprocessableEntity || out["field"] != "destinationKey" {
-		t.Fatalf("same destination: %d %v", status, out)
-	}
-	if status, out := requestJSON(t, developer, http.MethodPost, base+"/connection-transition/preview", map[string]any{"destinationKey": "lab2", "mode": "MIGRATE_POSTGRES"}); status != http.StatusUnprocessableEntity || out["code"] != "TRANSITION_UNSUPPORTED" {
-		t.Fatalf("no database to migrate must be unsupported: %d %v", status, out)
-	}
-	status, pv := requestJSON(t, developer, http.MethodPost, base+"/connection-transition/preview", map[string]any{"destinationKey": "lab2", "mode": "DEPLOY_NEW"})
-	token := pv["preview"].(map[string]any)["token"]
-	if status != http.StatusOK || token == "" {
-		t.Fatalf("preview: %d %v", status, pv)
-	}
-	if status, out := requestJSON(t, developer, http.MethodPost, base+"/connection-transitions", map[string]any{"destinationKey": "lab2", "mode": "DEPLOY_NEW", "token": "forged"}); status != http.StatusConflict || out["code"] != "STALE_PREVIEW" {
-		t.Fatalf("forged token: %d %v", status, out)
-	}
-	status, executed := requestJSON(t, developer, http.MethodPost, base+"/connection-transitions", map[string]any{"destinationKey": "lab2", "mode": "DEPLOY_NEW", "token": token})
-	detail := executed["transition"].(map[string]any)
-	if status != http.StatusAccepted || detail["status"] != "SUCCEEDED" || detail["canCleanupSource"] != true {
-		t.Fatalf("execute: %d %v", status, executed)
-	}
-	id := detail["id"].(string)
-	if status, got := requestJSON(t, developer, http.MethodGet, base+"/connection-transitions/"+id, nil); status != http.StatusOK || got["transition"].(map[string]any)["destination"].(map[string]any)["connectionKey"] != "lab2" {
-		t.Fatalf("get: %d %v", status, got)
-	}
-	if status, list := requestJSON(t, developer, http.MethodGet, base+"/connection-transitions", nil); status != http.StatusOK || len(list["transitions"].([]any)) != 1 {
-		t.Fatalf("list: %d %v", status, list)
-	}
-	// The retained source can be cleaned only explicitly; the first request deletes it.
-	status, cleaned := requestJSON(t, developer, http.MethodPost, base+"/connection-transitions/"+id+"/cleanup-source", map[string]any{})
-	if status != http.StatusOK || cleaned["transition"].(map[string]any)["sourceState"] != "CLEANED" {
-		t.Fatalf("cleanup: %d %v", status, cleaned)
-	}
-	if status, out := requestJSON(t, developer, http.MethodPost, base+"/connection-transitions/"+id+"/cleanup-source", map[string]any{}); status != http.StatusConflict || out["code"] != "CLEANUP_REFUSED" {
-		t.Fatalf("second cleanup: %d %v", status, out)
-	}
-	// Recovery needs the explicit confirmation and an interrupted operation.
-	if status, out := requestJSON(t, developer, http.MethodPost, base+"/operations/"+ids.New()+"/recover", map[string]any{"priorExecutionStopped": false}); status != http.StatusUnprocessableEntity || out["field"] != "priorExecutionStopped" {
-		t.Fatalf("recover without confirmation: %d %v", status, out)
-	}
-	if status, _ := requestJSON(t, developer, http.MethodPost, base+"/operations/"+ids.New()+"/recover", map[string]any{"priorExecutionStopped": true}); status != http.StatusNotFound {
-		t.Fatalf("recover unknown: %d", status)
-	}
 }

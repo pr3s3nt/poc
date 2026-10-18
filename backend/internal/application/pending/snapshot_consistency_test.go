@@ -110,7 +110,7 @@ func assertPendingPreviewIsOneSnapshot(t *testing.T, app *bootstrap.App, opts se
 			_, _ = app.Store.UpsertActiveResource(ctx, moved)
 		}
 	}
-	service := pending.NewService(store, planning.NewRequiredRendererService(bundles), workloadconfig.NewService(app.Store), nil)
+	service := pending.NewService(store, planning.NewRequiredRendererService(bundles), workloadconfig.NewService(app.Store), planning.RegistryInspector{Metadata: app.Modules})
 	var got pending.Preview
 	func() {
 		defer func() {

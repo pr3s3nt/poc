@@ -106,9 +106,6 @@ type Match struct {
 	Descriptor    string              `json:"descriptor"`
 	DefinitionKey string              `json:"definitionKey"`
 	DriverType    resource.DriverType `json:"driverType"`
-	// ConnectionKey is set only for the ADR-013 Environment-bound system
-	// cluster. A catalog match never carries an Environment connection.
-	ConnectionKey string `json:"connectionKey,omitempty"`
 	// DefinitionVersion, DriverAccount and AccountVersion pin the Definition
 	// content version and the selected Driver Account the plan saw
 	// (UC-03 V02-07); editing either makes an older Preview stale.
@@ -117,10 +114,32 @@ type Match struct {
 	AccountVersion    int64              `json:"accountVersion,omitempty"`
 	Specificity       int                `json:"specificity"`
 	Criterion         resource.Criterion `json:"criterion"`
-	// Binding is set only when the Environment Connection selected the
-	// Definition (ADR-013); catalog matches leave it empty.
-	Binding string `json:"binding,omitempty"`
 }
+
+// Placement is the safe resolved target of one workload or Kubernetes
+// resource node (ADR-016): which cluster Definition/account it runs on and,
+// for a workload, which namespace. It holds identities and versions only.
+type Placement struct {
+	Node                     string `json:"node"`
+	Cluster                  string `json:"cluster"`
+	ClusterDefinition        string `json:"clusterDefinition"`
+	ClusterDefinitionVersion int64  `json:"clusterDefinitionVersion"`
+	Account                  string `json:"account"`
+	AccountVersion           int64  `json:"accountVersion"`
+	Namespace                string `json:"namespace,omitempty"`
+	// Source says where the target came from: a workload reference or a
+	// Terraform provider binding.
+	Source string `json:"source"`
+}
+
+// Placement sources.
+const (
+	PlacementWorkloadReference = "workload-reference"
+	PlacementProviderBinding   = "provider-binding"
+	// PlacementReference: a resource whose driver inputs reference a cluster
+	// output directly (for example a namespace of a non-Terraform driver).
+	PlacementReference = "cluster-reference"
+)
 
 // TerraformContract is the planning-time inspection of a Terraform module
 // (UC-06 BR-09).
@@ -182,7 +201,15 @@ type Plan struct {
 	// it is never part of any API view.
 	IntentEvidence map[string]string `json:"intentEvidence,omitempty"`
 	Batches        [][]string        `json:"batches"`
-	Classification Classification    `json:"classification"`
+	// AfterWorkloads lists, per resource that transitively depends on a workload
+	// (an is_dependent companion of the workload), the workloads it follows.
+	// Lifecycle orchestration provisions such a resource after that workload.
+	AfterWorkloads map[string][]string `json:"afterWorkloads,omitempty"`
+	Classification Classification      `json:"classification"`
+	// Placements pin, per workload and Kubernetes resource node, the cluster
+	// Definition/account and namespace it runs on (ADR-016). Empty for legacy
+	// Environment-bound plans.
+	Placements map[string]Placement `json:"placements,omitempty"`
 	// Target pins the nonsecret Environment execution binding the plan used.
 	Target environment.Binding `json:"target"`
 	// UnreferencedResources are the Active Resources the deployment marks

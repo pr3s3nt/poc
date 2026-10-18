@@ -21,7 +21,7 @@ type Winner = {
   clusterSource?: { kind: 'RESOURCE' | 'LEGACY_ENVIRONMENT'; reference?: string };
 };
 type Result = {
-  status: 'INCOMPLETE' | 'MATCHED' | 'NO_MATCH' | 'AMBIGUOUS' | 'CONNECTION_CONFLICT' | 'SYSTEM_BINDING';
+  status: 'INCOMPLETE' | 'MATCHED' | 'NO_MATCH' | 'AMBIGUOUS' | 'CONNECTION_CONFLICT';
   missingFields?: string[];
   candidates?: { key: string; name?: string; matched: boolean; bestCriterion?: Criterion; score?: number }[];
   winner?: Winner;
@@ -37,7 +37,6 @@ const statusText: Record<Result['status'], string> = {
   NO_MATCH: 'Không có cấu hình nào khớp (khác với hòa điểm)',
   AMBIGUOUS: 'Hòa điểm: nhiều cấu hình cùng điểm cao nhất, chưa có cấu hình thắng',
   CONNECTION_CONFLICT: 'Cấu hình thắng có tài khoản hoặc vùng không dùng được; hệ thống không chọn cấu hình khác',
-  SYSTEM_BINDING: 'Nút cluster nội bộ cũ do hệ thống gắn theo Kết nối của Môi trường (giữ tới V03)',
 };
 const conflictText: Record<string, string> = {
   ACCOUNT_MISSING: 'cấu hình chưa chọn tài khoản',
@@ -106,13 +105,12 @@ export function MatchingPreviewPanel({ candidate, sample, scopeKey = '' }: { can
     {result ? <div role="region" aria-label="Kết quả matching chính xác">
       <p><strong>{statusText[result.status] ?? 'Trạng thái không xác định'}</strong></p>
       {result.status === 'INCOMPLETE' ? <p>Cần bổ sung context: {(result.missingFields ?? []).map((field) => fieldText[field] ?? field).join(', ')}. Chưa kết luận tie hay cấu hình thắng.</p> : null}
-      {result.status === 'SYSTEM_BINDING' ? <p>Nút cluster nội bộ cũ này do hệ thống gắn theo Kết nối của Môi trường và được giữ tới V03; cấu hình tự viết không điều khiển nút này nên không có cấu hình thắng hoặc hòa.</p> : null}
       {result.winner ? <div role="group" aria-label="Cấu hình thắng"><p>Cấu hình thắng: <strong>{result.winner.name || result.winner.key}</strong> (ID <code>{result.winner.key}</code>{result.winner.version ? `, phiên bản ${result.winner.version}` : ''}, điểm {result.winner.score}).</p>
         {result.winner.account ? <p>Tài khoản: <strong>{result.winner.account.name}</strong> (<code>{result.winner.account.key}</code>, {result.winner.account.type}, phiên bản {result.winner.account.version}){result.winner.region ? <>; vùng hiệu lực: <strong>{result.winner.region}</strong></> : null}.</p> : null}
         {result.winner.clusterSource ? <p>Cluster kế thừa từ: {result.winner.clusterSource.kind === 'RESOURCE' ? <>tài nguyên <code>{result.winner.clusterSource.reference}</code></> : <><strong>Môi trường (cách cũ, giữ tới V03)</strong></>}; không chọn lại tài khoản.</p> : null}</div> : null}
       {result.ties && result.ties.length > 0 ? <p>Các cấu hình đang hòa ở điểm cao nhất: <strong>{result.ties.join(', ')}</strong>. Theo snapshot này, matching mơ hồ cho tới khi các điều kiện thay đổi; kết quả thật vẫn do hệ thống kiểm tra lại.</p> : null}
       {result.connectionConflict ? <p role="alert">Xung đột tài khoản của cấu hình thắng <strong>{result.connectionConflict.definitionKey}</strong>{result.connectionConflict.driverAccount ? ` (tài khoản ${result.connectionConflict.driverAccount})` : ''}: {conflictText[result.connectionConflict.reason] ?? 'tài khoản không dùng được'}. Hệ thống không chọn cấu hình thay thế.</p> : null}
-      {(result.candidates ?? []).length > 0 ? <ul aria-label="Chi tiết từng cấu hình">{(result.candidates ?? []).map((item) => <li key={item.key}><strong>{item.name || item.key}</strong> (<code>{item.key}</code>): {result.status === 'INCOMPLETE' ? 'chưa đánh giá do thiếu context' : result.status === 'SYSTEM_BINDING' ? 'không xét điều kiện: node dùng binding hệ thống' : item.matched ? `khớp, điểm ${item.score ?? 0}, điều kiện tốt nhất: ${describeCriterion(item.bestCriterion)}` : 'không khớp context'}</li>)}</ul> : null}
+      {(result.candidates ?? []).length > 0 ? <ul aria-label="Chi tiết từng cấu hình">{(result.candidates ?? []).map((item) => <li key={item.key}><strong>{item.name || item.key}</strong> (<code>{item.key}</code>): {result.status === 'INCOMPLETE' ? 'chưa đánh giá do thiếu context' : item.matched ? `khớp, điểm ${item.score ?? 0}, điều kiện tốt nhất: ${describeCriterion(item.bestCriterion)}` : 'không khớp context'}</li>)}</ul> : null}
       {result.snapshot ? <p className="feature-note">Snapshot {result.snapshot.marker.slice(0, 12)} · phiên bản môi trường {result.snapshot.environmentVersion}. Kết quả theo snapshot; hệ thống vẫn kiểm tra lại khi đăng ký và triển khai.</p> : null}
     </div> : null}
   </div>;

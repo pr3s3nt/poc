@@ -129,3 +129,8 @@ local draft and requires explicit reload/review. Unknown mutation outcome does
 not auto-resubmit. Saved/reload-error remains saved and Retry only GETs catalog.
 Matching results/pending replies invalidate on Name/driver/account/region/inputs/
 criteria/provision/context/session/metadata change; no client-side winner.
+
+
+## V03 UI/API replacement
+
+[ADR-016](../../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) defines current internal placement. Remove deployment Connection selection after replacement pass; keep Secret Store/configuration/version/error/operation state. Definition authoring supports existing-cluster account choice and workload namespace/cluster references, Type params and provision flags; consumers inherit account. Score import/edit/export preserves metadata.class. Preview shows each workload/resource Definition/account/cluster/namespace and provider-first graph/batches without secrets, and blocks missing/ambiguous/mismatched/unready inputs as appropriate. No Environment target is required. Retired deployment-Connection writes fail explicitly; safe matching and stale-token gates remain. UI multi-cluster V03 unsupported error occurs before execution. Progress/readiness/errors/update/remove use per-workload targets; failure never shown as success.

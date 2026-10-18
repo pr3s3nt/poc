@@ -192,7 +192,7 @@ func TestConsoleAuthoredAWSCatalogPlansA02AndA03OverRealBundles(t *testing.T) {
 		"A02": {"vpc": 1, "k8s-cluster": 1, "k8s-namespace": 1, "postgres": 1, "redis": 1},
 		"A03": {"vpc": 1, "k8s-cluster": 1, "k8s-namespace": 1, "postgres": 1, "redis": 1},
 	} {
-		plan, err := planning.NewService().Plan(awsAcceptanceRequest(t, scenario))
+		plan, err := planning.NewService(placedBundles()).Plan(awsAcceptanceRequest(t, scenario))
 		if err != nil {
 			t.Fatalf("%s: %v", scenario, err)
 		}
@@ -266,7 +266,7 @@ func TestConsoleAuthoredAWSCatalogRefusesIncompleteDefinitions(t *testing.T) {
 				delete(req.Catalog.Definitions[i].DriverInputs["values"].(map[string]any)["variables"].(map[string]any), drop.variable)
 			}
 		}
-		if _, err := planning.NewService().Plan(req); err == nil {
+		if _, err := planning.NewService(placedBundles()).Plan(req); err == nil {
 			t.Fatalf("%s must be refused by the planner", name)
 		}
 	}

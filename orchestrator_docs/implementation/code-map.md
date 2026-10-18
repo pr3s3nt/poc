@@ -2,13 +2,16 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-18
 ---
 
 # Design-to-code map
 
 | Design concern | Implementation entry point |
 |---|---|
+| V03 Definition-selected cluster/workload placement (ADR-016) | `backend/internal/planning/workload.go`, `schedule.go`, `backend/internal/application/deployment/service.go`, `backend/internal/ports/execution/clustertarget.go`; target pins in `backend/internal/domain/environment/document.go` |
+| V03 existing-cluster authoring and strict renderer inputs | `backend/internal/application/catalog/capabilities.go`, `backend/internal/domain/resource/rendering.go`, `frontend/src/features/platform/ExistingClusterSection.tsx`, `RenderingTemplatesPage.tsx`, `frontend/src/features/preview/Placements.tsx` |
+| V03 real frontend acceptance, restart and owned cleanup | `backend/test/integration/v03-internal-frontend.sh`, `v03-supervisor.sh`, `v03-cleanup.sh`, `backend/test/integration/v03run/`, `frontend/test/e2e/v03-internal-frontend.mjs`, `v03-reopen.mjs`; [coverage and execution record](../verification/2026-10-18-v03-handoff.md) |
 | V02 provision authoring and stored rules → Preview graph/batches | [`HTTP planner tests`](../../backend/test/e2e/provision_planning_http_test.go), [`focused runner`](../../backend/test/integration/v02-provision-local.sh), [`scenario`](../../frontend/test/e2e/v02-provision-scenario.mjs) |
 | V02 Definition CAS/Driver Inputs/account and shared matching | [`catalog regression`](../../backend/internal/application/catalog/definition_update_test.go), [`matcher`](../../backend/internal/domain/resource/match.go), [`headed runner`](../../backend/test/integration/v02-definitions-local.sh), [`scenario`](../../frontend/test/e2e/v02-definitions-local.mjs), [`verification`](../verification/2026-10-17-v02-handoff.md) |
 | V01 organization infrastructure accounts, CAS, same-target credentials and uncertain commit recovery | [`account service`](../../backend/internal/application/connection/accounts.go), [`public account API`](../../backend/internal/delivery/http/driver_accounts.go), [`PostgreSQL CAS`](../../backend/internal/adapters/postgres/registration.go), [`commit outcome`](../../backend/internal/adapters/postgres/store.go), [`Console`](../../frontend/src/features/platform/accounts/), [`API tests`](../../backend/test/e2e/driver_accounts_http_test.go), [`headed runner`](../../backend/test/integration/v01-accounts-local.sh), [`scenario`](../../frontend/test/e2e/v01-accounts-local.mjs) |
@@ -139,13 +142,14 @@ links trong cùng logical change.
 Historical Environment Settings set-once delivery follows
 [ADR-011](../architecture/decisions/ADR-011-environment-execution-binding.md);
 resolver/service and migration paths are mapped below.
-Prior Application-selection evidence above is historical; scripts now follow Environment Settings.
+Prior Application-selection evidence and Internal Settings runners are historical;
+V03.10 retires that runtime route. Use the V03 route above.
 
 ## Environment binding implementation (ADR-011)
 
 - [Domain](../../backend/internal/domain/environment/environment.go), [binding service](../../backend/internal/application/application/service.go), [target resolver](../../backend/internal/application/target/target.go).
 - [PostgreSQL fresh baseline](../../backend/internal/adapters/postgres/baseline.sql), [SQL binding](../../backend/internal/adapters/postgres/repositories.go), [JSON binding/load](../../backend/internal/adapters/store/store.go), [adapter contract](../../backend/internal/ports/persistence/persistencetest/binding.go).
-- [Settings connection section](../../frontend/src/features/configuration/EnvironmentConnection.tsx), [Settings routes](../../frontend/src/app/routes.ts), [new AWS scope tests](../../backend/internal/planning/environment_scope_test.go).
+- [Settings page (Connection selector removed in V03.10)](../../frontend/src/features/configuration/SettingsPage.tsx), [Settings routes](../../frontend/src/app/routes.ts), [new AWS scope tests](../../backend/internal/planning/environment_scope_test.go).
 - [Live runner](../../backend/test/integration/application-connection-kind-video.sh), [human scenario](../../frontend/test/e2e/application-connection-kind-human.mjs), [reviewed evidence/video](../verification/2026-10-07-environment-connection-kind.md).
 
 
@@ -164,46 +168,26 @@ live evidence is in the [reviewed recording](../verification/2026-10-08-environm
 
 ## Implicit internal cluster (ADR-013)
 
-- [Trusted Definition and binding validation](../../backend/internal/planning/builtin.go),
-  [default matcher bypass](../../backend/internal/planning/match.go) and
-  [planner contract tests](../../backend/internal/planning/connection_binding_test.go).
-- [Idempotent execution admission](../../backend/internal/application/provisioning/builtin.go),
-  [execution/Connection checks](../../backend/internal/application/provisioning/service.go),
-  [race/collision/FK ordering tests](../../backend/internal/application/provisioning/builtin_test.go).
-- [Read-only Preview projection](../../backend/internal/application/preview/service.go),
-  [pure Preview tests](../../backend/internal/application/preview/service_test.go),
-  [Console binding display](../../frontend/src/features/preview/ScorePreviewPage.tsx).
-- [JSON reopen/retry/remove tests](../../backend/internal/application/deployment/builtin_cluster_test.go),
-  [stored-target guard](../../backend/internal/application/deployment/service_restore_test.go),
-  [public existing-cluster/reserved-key guard](../../backend/internal/application/catalog/service.go),
-  [legacy seed preservation](../../backend/internal/seed/binding_test.go).
-- [Explicit reference compatibility](../../backend/test/conformance/loader.go),
-  [local browser flow](../../frontend/test/e2e/application-connection-local.mjs) and
-  [local execution evidence](../verification/2026-10-09-implicit-existing-cluster-local.md).
-- [Real kind runner](../../backend/test/integration/application-connection-kind-video.sh)
-  and [human browser flow](../../frontend/test/e2e/application-connection-kind-human.mjs)
-  support an exact staging Connection name, isolated workload Vault and
-  ownership-checked cleanup.
-- [Retained Console Connection helper](../../frontend/test/e2e/k8s4f-register.mjs)
-  and [optional kind networking](../../deploy/local/compose.kind.yml) support
-  private kubeconfig registration/reuse from the Docker Console.
-- [Retained Docker Console dev runner](../../backend/test/integration/k8s4f-dev-playwright.sh),
-  [human scenario](../../frontend/test/e2e/k8s4f-dev-human.mjs),
-  [workload Vault setup](../../deploy/local/workload-vault/start.sh) and
-  [port-forward supervisor](../../backend/test/integration/retained-port-forward.sh)
-  prepare and retain the new physical K8S-4F sample deployment.
-- [Caption generation](../../frontend/test/e2e/captions.mjs),
-  [ASS rendering](../../frontend/test/e2e/render-captions.mjs) and
-  [two-session video assembly](../../backend/test/integration/k8s4f-dev-compose-video.sh)
-  keep Vietnamese captions below the browser window; title cards disclose the
-  separate recorded sessions.
+Historical implementation, superseded by ADR-016 and removed in V03.10. For the
+old source use `git show 7a00e43:backend/internal/planning/builtin.go`,
+`backend/internal/application/provisioning/builtin.go` and their tests at that
+commit. The old Environment Connection selector and implicit-cluster admission
+are absent from the current runtime. Reference-only planning remains isolated
+in [conformance loading](../../backend/test/conformance/loader.go).
+
+[Historical local evidence](../verification/2026-10-09-implicit-existing-cluster-local.md)
+and [historical real-kind evidence](../verification/2026-10-09-k8s4f-live.md)
+retain their original scope. Internal Connection runners now fail fast through
+`backend/test/integration/retired-runner.sh`; use the V03 acceptance runner and
+coverage map above. Retained dev fixtures are not permission to deploy or delete
+resources and are not current acceptance evidence.
 
 ## T07 — Environment Settings UI
 
 [Environment Settings verification](../verification/2026-10-11-T07-environment-settings.md)
-traces ENV-01 and VI-02/04/05. Draft-only single READY suggestions and explicit
-Save live in [EnvironmentConnection](../../frontend/src/features/configuration/EnvironmentConnection.tsx)
-and [SecretStoreSelection](../../frontend/src/features/environment/SecretStoreSelection.tsx).
+historically traced ENV-01 and VI-02/04/05. The Connection selector was removed
+in V03.10; its old source is available at `7a00e43`. Store selection remains in
+[SecretStoreSelection](../../frontend/src/features/environment/SecretStoreSelection.tsx).
 [SettingsPage](../../frontend/src/features/configuration/SettingsPage.tsx) retains
 open editors on refresh and scopes late replies; environment labels, transition
 and operation components provide Vietnamese static/accessibility text.

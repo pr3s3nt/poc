@@ -24,7 +24,9 @@ func TestApplyBindsAcceptanceFixturesWithExplicitEnvironmentScopeAndIsIdempotent
 		}
 	}
 	k8s, err := st.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
-	if err != nil || k8s.ConnectionKey != opts.ConnectionKey || k8s.Profile != application.ProfileInternalK8s || k8s.InfrastructureScope != environment.ScopeEnvironment || k8s.Version != 2 {
+	// ADR-016: the internal Application's Environment carries no deployment Connection;
+	// Resource Definitions place it.
+	if err != nil || k8s.Configured() || k8s.ConnectionKey != "" || k8s.Profile != "" || k8s.Version != 1 {
 		t.Fatalf("acceptance env = %+v %v", k8s, err)
 	}
 	aws, err := st.GetEnvironment(ctx, opts.CloudApplicationKey, opts.EnvironmentKey)

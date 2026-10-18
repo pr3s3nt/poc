@@ -7,6 +7,47 @@ last_reviewed: 2026-10-18
 
 # Current project state
 
+## V03 — Definition-selected Internal workload, 2026-10-18
+
+Đã implement và nghiệm thu Generic Workload qua Definition/matching/references
+trên cluster nội bộ có sẵn theo [ADR-016](architecture/decisions/ADR-016-definition-selected-workload-targets.md).
+Workload Definition được chọn trước khi hoàn tất graph; namespace/companion/
+workload dùng typed references và kế thừa cluster/account đúng. Pin đích theo
+workload/resource; V03 từ chối nhiều cluster trong một Candidate Set trước
+side effects, không cố định domain vào một target của Application/Environment.
+Score metadata.class, provision flags/full DAG order, target agreement, readiness,
+update/restart/cleanup có tests. Custom workload Type inputs/outputs ngoài
+contract renderer bị từ chối; lifecycle metadata đi qua status hiện có.
+
+R6 replacement gate PASS trước khi áp dụng V03.10. Sau đó bỏ Connection selector,
+loại bỏ internal builtin/admission/deployment fallback và từ chối Internal
+Connection transition/write. AWS legacy còn thuộc mốc sau; conformance reference
+mode chỉ phục vụ read-only fixtures. R7 sau removal PASS35/35 assertions:
+UI onboarding/Score/Preview/graph, namespace chính+companion, frontend thật,
+update image/config, restart và thao tác tiếp, negatives, product cleanup/reopen.
+Video headed14phút59.933giây có phụ đề Việt, đã review/decode/secret check và
+[attach trực tiếp issue4](https://github.com/pr3s3nt/poc/issues/4#issuecomment-6245557915).
+
+Final Go1580tests/59packages, race526tests/10packages, frontend700tests/45files,
+build/vet/typecheck/lint/build/docs/PlantUML PASS, không individual fail/skip.
+Các lượt lỗi runner/config r1–r5 được giữ là FAIL, đã sửa và cleanup từng lượt;
+không giảm assertions. Hai chỉnh sửa cuối chỉ là comments; behavioral results
+được tái sử dụng vì executable logic/config/environment không đổi.
+
+[Coverage/handoff](verification/2026-10-18-v03-handoff.md) ghi rõ frontend-only:
+backend/proxy/jobs/worker/PostgreSQL/Redis business tests **DEFERRED V04**, không
+được tính PASS. V04 phải đọc lại coverage và bổ sung tests; V05 lặp trên EKS,
+V06 trên managed resources. Hai image dùng cùng binary acceptance frontend
+thật với metadata khác nhau; config update được kiểm trên trang. Platform
+score-k8s patches hiện tại đủ; PE-authored patches deferred
+[issue5](https://github.com/pr3s3nt/poc/issues/5).
+
+Task runtime đã cleanup và kiểm độc lập: namespace/SQL/Vault/run processes,
+auth fixture đúng UID và task image references; task PG/Vault dừng, private
+material xóa. Hai cluster có sẵn Ready, namespace UID ban đầu được giữ; không có lệnh task
+đóng tmux có sẵn. Inventory cuối và giới hạn quan sát session ghi trong handoff. Không AWS, không xóa cluster/reset retained data/Docker metadata.
+Dừng tại V03; các mục dưới là checkpoints lịch sử, không ghi đè contract V03.
+
 ## V02 — Definition authoring và matching, 2026-10-17
 
 Follow-up provision đã khép ngày2026-10-18: UI tạo/sửa descriptor/params/hai

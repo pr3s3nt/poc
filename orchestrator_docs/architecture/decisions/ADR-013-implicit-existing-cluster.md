@@ -1,7 +1,7 @@
 ---
 id: ADR-013
 artifact: architecture-decision
-status: current
+status: superseded
 last_reviewed: 2026-10-13
 ---
 
@@ -10,6 +10,10 @@ last_reviewed: 2026-10-13
 Status: Accepted — 2026-10-09. Supersedes the internal cluster Definition
 registration/matching requirement in ADR-001/ADR-011; ADR-012 editable bindings
 and target generation remain authoritative.
+
+## Supersession
+
+[ADR-016](ADR-016-definition-selected-workload-targets.md) supersedes this internal binding design in V03. The following text preserves the historical decision and is not the new internal execution contract.
 
 ## Decision
 

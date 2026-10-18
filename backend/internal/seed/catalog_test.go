@@ -91,7 +91,7 @@ func TestTerraformK8sCatalogHasNoLegacyKubernetesDriver(t *testing.T) {
 		values := keys[key].DriverValues()
 		bindings, _ := values["provider_bindings"].(map[string]any)
 		k8s, _ := bindings["kubernetes"].(map[string]any)
-		if k8s["target"] != "environment" {
+		if k8s["target"] != "resource" || k8s["resource_ref"] != "k8s-cluster.internal#environments.@app.@env" {
 			t.Errorf("%s binds the Kubernetes provider to %v", key, k8s)
 		}
 		src, _ := values["source"].(map[string]any)

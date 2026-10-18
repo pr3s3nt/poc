@@ -1,10 +1,12 @@
 package planning
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
 
+	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -52,9 +54,6 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	if req.WorkloadID == "" {
 		return nil, fmt.Errorf("planning: workload id is required")
 	}
-	if !req.Env.Configured() {
-		return nil, &StageError{Stage: StageCatalog, Reason: ReasonUnconfigured, Err: ErrEnvironmentUnconfigured}
-	}
 	ctx := Context{
 		OrganizationKey:  req.OrganizationKey,
 		App:              req.App,
@@ -63,8 +62,8 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		RunID:            req.RunID,
 		ReferenceCluster: req.ReferenceCluster,
 	}
-	if err := ctx.checkImplicitConnection(); err != nil {
-		return nil, stageErr(StageCatalog, err)
+	if req.Env.Profile == application.ProfileInternalK8s && !req.ReferenceCluster {
+		return nil, &StageError{Stage: StageCatalog, Reason: ReasonRetiredTarget, Err: ErrRetiredTarget}
 	}
 
 	base := normalize(req.BaseSet)
@@ -99,6 +98,10 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		}
 	}
 
+	matcher, err := newDefinitionMatcher(ctx, req.Catalog)
+	if err != nil {
+		return nil, stageErr(StageCatalog, err)
+	}
 	builder := newGraphBuilder(ctx, req.Catalog)
 	builder.inspector = req.Terraform
 	namespace, err := builder.enrichProfile()
@@ -109,15 +112,34 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		return nil, stageErr(StageGraph, err)
 	}
 
-	matcher, err := newDefinitionMatcher(ctx, req.Catalog)
-	if err != nil {
-		return nil, stageErr(StageCatalog, err)
-	}
 	matches := map[string]Match{}
-	refs, err := builder.expand(matcher, matches)
+	var refs, workloadRefs []pendingRef
+	var dependents []dependentRule
+	if ctx.DefinitionPlaced() {
+		// ADR-016: select each workload Definition and add its references and
+		// companions before the graph is expanded to a fixed point.
+		var rules []dependentRule
+		workloadRefs, rules, err = builder.expandWorkloads(s, matcher)
+		if err != nil {
+			return nil, stageErr(StageGraph, err)
+		}
+		refs = append(refs, workloadRefs...)
+		dependents = rules
+	}
+	expanded, err := builder.expand(matcher, matches, dependents)
 	if err != nil {
+		if errors.Is(err, ErrAccountConflict) {
+			return nil, &StageError{Stage: StageGraph, Reason: ReasonPlacement, Err: err}
+		}
+		if errors.Is(err, errNoMatch) {
+			return nil, &StageError{Stage: StageGraph, Reason: ReasonResourceNoMatch, Err: err}
+		}
+		if errors.Is(err, errAmbiguous) {
+			return nil, &StageError{Stage: StageGraph, Reason: ReasonResourceAmbiguous, Err: err}
+		}
 		return nil, stageErr(StageGraph, err)
 	}
+	refs = append(refs, expanded...)
 	if err := builder.validateReferenceOutputs(refs, matches, matcher, req.Terraform); err != nil {
 		return nil, stageErr(StageReference, err)
 	}
@@ -125,9 +147,13 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 	if err != nil {
 		return nil, stageErr(StageContract, err)
 	}
+	placements, err := builder.resolvePlacements(matches, matcher, contracts)
+	if err != nil {
+		return nil, stageErr(StageGraph, err)
+	}
 
 	graph := builder.graph()
-	batches, err := scheduleBatches(graph)
+	batches, afterWorkloads, err := schedule(graph)
 	if err != nil {
 		return nil, stageErr(StageSchedule, err)
 	}
@@ -147,8 +173,10 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		Matches:        matches,
 		Terraform:      contracts,
 		Batches:        batches,
+		AfterWorkloads: afterWorkloads,
 		Classification: classify(ctx, graph, req.Active),
 		Target:         req.Env.Binding(),
+		Placements:     placements,
 	}
 	plan.IntentEvidence = intentEvidence(matches, matcher)
 	plan.Rendering, err = s.selectRendering(ctx, graph, matcher, req.Catalog)
@@ -174,6 +202,12 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		"terraform":    plan.Terraform,
 		"batches":      plan.Batches,
 		"target":       plan.Target,
+	}
+	if len(plan.AfterWorkloads) > 0 {
+		hashInput["afterWorkloads"] = plan.AfterWorkloads
+	}
+	if len(plan.Placements) > 0 {
+		hashInput["placements"] = plan.Placements
 	}
 	if len(plan.Rendering) > 0 {
 		hashInput["rendering"] = plan.Rendering

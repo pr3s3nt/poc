@@ -41,6 +41,8 @@
 # (environment-connection-kind-<run id>.mp4, marks.json, ffprobe.json,
 # frames/, checks.txt, run.json, persisted-binding.json, logs).
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"
+retired_runner "application-connection-kind-video.sh (live per-Environment Kubernetes Connection selection)" "backend/test/integration/v03-internal-frontend.sh"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO="$(cd "${ROOT}/.." && pwd)"

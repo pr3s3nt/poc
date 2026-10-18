@@ -11,12 +11,29 @@ import (
 	"orchestrator/internal/domain/tfmodule"
 )
 
+// dropWorkloadDefinitions removes the seeded workload Definitions so a test supplies its own.
+func dropWorkloadDefinitions(req *Request) {
+	var kept []resource.Definition
+	for _, def := range req.Catalog.Definitions {
+		if def.ResourceTypeKey != TypeWorkload {
+			kept = append(kept, def)
+		}
+	}
+	req.Catalog.Definitions = kept
+}
+
 func renderDefinition(key, profile string, criteria ...resource.Criterion) resource.Definition {
 	if len(criteria) == 0 {
 		criteria = []resource.Criterion{{}}
 	}
+	variables := map[string]any{"render_bundle": "installed"}
+	if profile == string(application.ProfileInternalK8s) {
+		// Definition-placed Applications reference the typed namespace and cluster outputs (ADR-016).
+		variables["namespace"] = "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+		variables["cluster"] = "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"
+	}
 	return resource.Definition{Key: key, Name: key, Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s,
-		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed"}}}, Criteria: criteria}
+		DriverInputs: map[string]any{"values": map[string]any{"variables": variables}}, Criteria: criteria}
 }
 
 var testBundle = resource.RenderBundle{ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "bundle"}
@@ -38,9 +55,12 @@ func TestRequiredRendererRejectsMissingTiedAndUnavailableBeforeResources(t *test
 	for _, profile := range []application.ExecutionProfile{application.ProfileInternalK8s, application.ProfileAWSEKS} {
 		t.Run(string(profile), func(t *testing.T) {
 			req := testRequest(t, profile, "backend")
-			// The additive planner still plans natively without a Definition (reference compatibility).
-			if plan, err := NewService().Plan(req); err != nil || len(plan.Rendering) != 0 {
-				t.Fatalf("additive planner must stay native: %v %v", plan, err)
+			dropWorkloadDefinitions(&req)
+			if profile == application.ProfileAWSEKS {
+				// The additive planner still plans natively without a Definition (reference compatibility).
+				if plan, err := NewService(testBundles()).Plan(req); err != nil || len(plan.Rendering) != 0 {
+					t.Fatalf("additive planner must stay native: %v %v", plan, err)
+				}
 			}
 			required := NewRequiredRendererService(bundles)
 			if _, err := required.Plan(req); rendererReason(t, err) != ReasonRendererNoMatch {
@@ -79,6 +99,7 @@ func TestRequiredRendererRejectsMissingTiedAndUnavailableBeforeResources(t *test
 // The required renderer never changes the infrastructure part of the plan.
 func TestRequiredRendererKeepsInfrastructurePlanAndHidesParamsFromIntents(t *testing.T) {
 	req := testRequest(t, application.ProfileAWSEKS, "backend")
+	dropWorkloadDefinitions(&req)
 	req.Terraform = pinnedInspector{stubInspector{}}
 	req.Catalog.Definitions = append(req.Catalog.Definitions, renderDefinition("render", "aws-eks"))
 	native, err := NewService(map[string]resource.RenderBundle{"installed": testBundle}).Plan(req)

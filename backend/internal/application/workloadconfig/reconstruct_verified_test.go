@@ -246,3 +246,28 @@ func TestVerifyRewrittenHonorsEscapedPlaceholders(t *testing.T) {
 		t.Fatalf("tampered escape accepted: %v", err)
 	}
 }
+
+// ADR-016: an explicit Score metadata.class is rebuilt and verified unchanged;
+// a module without a class never gains one.
+func TestReconstructKeepsExplicitWorkloadClass(t *testing.T) {
+	set := environment.NewDocument()
+	module := moduleWith(map[string]string{"A": "${context.uc12.K}"}, nil)
+	module.Class = "gold"
+	set.Modules["api"] = module
+	raw, err := ReconstructVerified("api", module, set, pgTypes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if metadata := raw["metadata"].(map[string]any); metadata["class"] != "gold" || metadata["name"] != "api" {
+		t.Fatalf("metadata = %v", metadata)
+	}
+	plain := moduleWith(map[string]string{"A": "${context.uc12.K}"}, nil)
+	set.Modules["api"] = plain
+	raw, err = ReconstructVerified("api", plain, set, pgTypes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, has := raw["metadata"].(map[string]any)["class"]; has {
+		t.Fatalf("a missing class must not be invented: %v", raw["metadata"])
+	}
+}

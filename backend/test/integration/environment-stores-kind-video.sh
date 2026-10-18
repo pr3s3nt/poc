@@ -27,6 +27,8 @@
 #
 # Output: /tmp/poc-environment-stores-review/live/<run id>/
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"
+retired_runner "environment-stores-kind-video.sh (Environment Connection selection and Kubernetes transition)" "backend/test/integration/v03-internal-frontend.sh for placement; Secret Store selection is not retired and needs a runner that places the Application with Definitions"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO="$(cd "${ROOT}/.." && pwd)"

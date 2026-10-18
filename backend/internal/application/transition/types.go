@@ -12,7 +12,9 @@ import (
 
 // Errors mapped by delivery. Texts are fixed and safe.
 var (
-	ErrNoRuntime          = errors.New("transition: the environment has no runtime resources; change its connection in Settings instead")
+	ErrNoRuntime = errors.New("transition: the environment has no runtime resources")
+	// ErrTransitionRetired: transitions between Kubernetes (Internal) connections are retired; internal placement comes from Resource Definitions (ADR-016).
+	ErrTransitionRetired  = errors.New("transition: a transition to a Kubernetes connection is retired; internal placement comes from Resource Definitions")
 	ErrSameDestination    = errors.New("transition: choose a destination different from the current connection")
 	ErrAcknowledge        = errors.New("transition: migrating data stops the application; acknowledge the downtime")
 	ErrStaleToken         = errors.New("transition: the preview is stale; preview the transition again")

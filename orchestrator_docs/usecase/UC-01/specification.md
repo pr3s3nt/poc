@@ -96,3 +96,8 @@ verification không được cấp quyền trong task này.
 
 Thiết kế ADR-012 accepted; implementation status và evidence ở CURRENT_STATE.
 Bản set-once ADR-011 là hành vi lịch sử đang được thay thế.
+
+
+## V03 internal Settings replacement
+
+[ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) supersedes the internal deployment Connection selector and deployment-transition flow above. Application create still takes Name/Subdomain only. Internal Environment Settings retain Secret Store/configuration, version/operation/error/reload states, but contain no deployment Connection picker. Internal Preview/Deploy resolve matched Definition references without a selected Environment Connection. Legacy deployment-target write fields/endpoints are rejected clearly after V03.10; do not silently accept or derive another target. AWS legacy consumers remain scoped to V05–V06, not newly exposed through an internal selector. Target versions and owner/fence checks remain necessary per resource. No migration required; startup never resets old data.

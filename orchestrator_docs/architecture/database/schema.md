@@ -764,3 +764,19 @@ or retired profile/Connection field during reopen. Old state fails safely with
 reset-required diagnostic; startup never migrates/resets. Current constructors
 and seeds supply explicit Name/version/account and unambiguous five-field
 criteria. No retained data reset without instance/ownership verification.
+
+
+## V03 per-resource placement baseline
+
+[ADR-016](../decisions/ADR-016-definition-selected-workload-targets.md) owns placement behavior. Environment deployment connection/profile is not authoritative for internal execution; no single Application/Environment target column substitutes for per-resource target data. Environment Secret Store, version, current Set, namespace base identity and operation owner/fence remain. Retire internal deployment-binding persistence/compatibility on a new baseline after V03.10; AWS legacy fields, if still needed until V05–V06, cannot activate internal fallback.
+
+Persist optional workload class (Score metadata.class; missing means default) in module contribution, drafts and immutable plan. Workload plan selections include namespace/cluster descriptor, safe target/account identity/version and Definition/bundle provenance. ActiveResource, Terraform state provider pins and WorkloadInstance/deployment_workloads target_ref preserve original target plus namespace; reuse checks compare scoped cluster identity even when namespace names match. Target type/identity must survive PostgreSQL/JSON roundtrip. No raw credentials, kubeconfig/temp paths or public secret refs. Existing Definition/version/account FK and CAS semantics remain.
+
+Existing cluster gets a normal user Definition FK and PREEXISTING ownership, no reserved builtin catalog admission. Its logical descriptor is explicit reference identity, not inferred from Environment connection key. Namespace ownership/UID and cluster-qualified execution pins guard cleanup. Fresh SQL/JSON format/digest validation changes together if serialized schema changes; old data fails explicitly, no migration/backfill/reset at startup. Codex owns any separately authorized verified dev reset.
+
+
+V03 plan JSON additionally persists afterWorkloads: resource descriptor ->
+transitive workload provider descriptors, hashed with the complete full-graph
+DAG. UC-08 executes resource-only subsets; UC-06 coordinates workload positions
+and persists lifecycle progress before a final success commit. This field never
+permits ignoring a required dependency merely because it is a workload.

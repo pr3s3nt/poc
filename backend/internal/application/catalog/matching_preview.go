@@ -24,7 +24,6 @@ const (
 	PreviewNoMatch            = "NO_MATCH"
 	PreviewAmbiguous          = "AMBIGUOUS"
 	PreviewConnectionConflict = "CONNECTION_CONFLICT"
-	PreviewSystemBinding      = "SYSTEM_BINDING"
 )
 
 // Safe winner-account conflict reasons. They are fixed codes, never text from
@@ -181,7 +180,7 @@ func boundedText(s string) bool {
 // driver contract, account, bundle or placeholder inspection. Errors name the
 // field and never echo submitted values.
 func validatePreviewCandidate(def resource.Definition, types map[string]resource.Type) error {
-	if def.Key == planning.BuiltinClusterKey || def.DriverType == resource.DriverExistingCluster {
+	if def.Key == planning.BuiltinClusterKey {
 		return invalid("definition.key")
 	}
 	if validatePublicID("resource definition", def.Key) != nil || len(def.Key) > maxPreviewContextText {
@@ -196,7 +195,7 @@ func validatePreviewCandidate(def resource.Definition, types map[string]resource
 		return invalid("definition.resourceType")
 	}
 	switch def.DriverType {
-	case resource.DriverTerraform, resource.DriverScoreK8s:
+	case resource.DriverTerraform, resource.DriverScoreK8s, resource.DriverExistingCluster:
 	default:
 		return invalid("definition.driverType")
 	}
@@ -361,20 +360,6 @@ func (s *Service) previewResult(env environment.Environment, candidate resource.
 		out.Status = PreviewIncomplete
 		return out
 	}
-	// Only the exact legacy implicit internal cluster node is a system binding
-	// (ADR-013, kept until V03). It needs a configured internal Environment;
-	// Preview never creates it.
-	if env.Profile == application.ProfileInternalK8s && env.ConnectionKey != "" && typeKey == planning.TypeCluster && c.Class == planning.ClassInternal {
-		backing, found := accounts[env.ConnectionKey]
-		if want, err := planning.InternalClusterDescriptor(env.ConnectionKey); err == nil && c.ResourceID == want.ID && found &&
-			backing.Kind == application.ConnectionKubernetes && backing.Status == application.ConnectionReady {
-			for i := range out.Candidates {
-				out.Candidates[i].Matched, out.Candidates[i].BestCriterion, out.Candidates[i].Score = false, nil, nil
-			}
-			out.Status = PreviewSystemBinding
-			return out
-		}
-	}
 	switch len(ranking.Top) {
 	case 0:
 		// A Workload with no score-k8s match is NO_MATCH like any other type:
@@ -422,6 +407,9 @@ func bindingTargets(def resource.Definition) []tfmodule.Binding {
 
 // needsAccount reports whether def binds an AWS provider to its Driver Account.
 func needsAccount(def resource.Definition) bool {
+	if def.DriverType == resource.DriverExistingCluster {
+		return true // the Definition's own Internal Driver Account (ADR-016)
+	}
 	for _, b := range bindingTargets(def) {
 		if b.Target == tfmodule.TargetAccount {
 			return true
@@ -447,7 +435,7 @@ func winnerOf(r resource.Ranked, accounts map[string]application.Connection) *Ma
 		if acct, ok := accounts[def.DriverAccount]; ok {
 			w.Account = &MatchingAccount{Key: acct.Key, Name: acct.Name, Type: accountType(acct.Kind), Version: acct.Version}
 		}
-		if region, ok := def.DefinitionRegion(); ok && resource.ValidAWSRegion(region) {
+		if region, ok := def.DefinitionRegion(); ok && resource.ValidAWSRegion(region) && def.DriverType != resource.DriverExistingCluster {
 			w.Region = region
 		}
 	}
@@ -478,13 +466,24 @@ func accountConflict(def resource.Definition, accounts map[string]application.Co
 	switch {
 	case !ok:
 		return conflict(ConflictAccountNotFound)
-	case acct.Kind != application.ConnectionAWS:
+	case acct.Kind != wantedKind(def):
 		return conflict(ConflictAccountKindMismatch)
 	case acct.Status != application.ConnectionReady:
 		return conflict(ConflictAccountNotReady)
+	}
+	if def.DriverType == resource.DriverExistingCluster {
+		return nil
 	}
 	if region, ok := def.DefinitionRegion(); !ok || !resource.ValidAWSRegion(region) {
 		return conflict(ConflictRegionInvalid)
 	}
 	return nil
+}
+
+// wantedKind is the Driver Account kind a Definition's driver needs.
+func wantedKind(def resource.Definition) application.ConnectionKind {
+	if def.DriverType == resource.DriverExistingCluster {
+		return application.ConnectionKubernetes
+	}
+	return application.ConnectionAWS
 }

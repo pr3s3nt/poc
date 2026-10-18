@@ -105,18 +105,23 @@ func TestDefinitionCapabilitiesAuthShapeAndNoWrites(t *testing.T) {
 			if !region {
 				t.Fatalf("%s must expose a required editable region", c.Module)
 			}
+		case "":
+			// existing-cluster and score-k8s carry no module; only the cluster needs its own Internal account.
+			if want := c.DriverType == "existing-cluster"; c.Account.Required != want || (want && c.Account.Type != "INTERNAL") {
+				t.Fatalf("%s/%s account requirement = %+v", c.ResourceType, c.DriverType, c.Account)
+			}
 		default:
 			if c.Account.Required {
 				t.Fatalf("%s must not require an account: %+v", c.Module, c.Account)
 			}
 		}
 	}
-	if want := []string{"k8s-cluster/terraform/eks", "k8s-namespace/terraform/k8s-namespace", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/elasticache", "redis/terraform/redis-k8s", "vpc/terraform/vpc"}; !reflect.DeepEqual(pairs, want) {
+	if want := []string{"k8s-cluster/existing-cluster/", "k8s-cluster/terraform/eks", "k8s-namespace/terraform/k8s-namespace", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/elasticache", "redis/terraform/redis-k8s", "vpc/terraform/vpc", "workload/score-k8s/"}; !reflect.DeepEqual(pairs, want) {
 		t.Fatalf("pairs %v", pairs)
 	}
 	// Image defaults are public digest pins ("name@sha256:..."); an internal
 	// module fingerprint would be a bare "sha256:..." value.
-	for _, leak := range []string{"fingerprint", "\"sha256:", ".tf", "existing-cluster", "score-k8s"} {
+	for _, leak := range []string{"fingerprint", "\"sha256:", ".tf"} {
 		if strings.Contains(body, leak) {
 			t.Fatalf("leaks %q", leak)
 		}

@@ -238,11 +238,46 @@ Build the Web Console, then from `backend/` run:
 bash test/integration/application-connection-playwright-local.sh
 ```
 
-This script follows ADR-012 Environment Settings and ADR-013 implicit cluster
-binding with fake runtime adapters,
+Historical route, retired by V03.10: this runner now refuses before setup.
+Use the V03 runner below. It previously followed ADR-012 Environment Settings
+and ADR-013 implicit cluster binding with fake runtime adapters,
 JSON state and a read-only kubectl stand-in.
 Platform-authenticated API setup registers a second Connection without a cluster
 Definition; Developer UI creates an unconfigured app, selects separate Environment
 targets, checks Preview/Deploy and persisted bindings after restart. No cluster/cloud mutation.
 Use `ORCH_KEEP_EVIDENCE=1` to retain logs/screenshots, or
 `ORCH_EVIDENCE_DIR=/tmp/new-directory` for a new private evidence directory.
+
+## V03 Definition-selected Internal frontend acceptance
+
+Use `backend/test/integration/v03-internal-frontend.sh --headed --captions vi
+--evidence NEW_PATH` after reading its required environment variables and the
+[V03 coverage/handoff](../verification/2026-10-18-v03-handoff.md). Prepare a
+disposable owned PostgreSQL instance, scoped Vault connection token and a
+**distinct** output-only token, uploaded Internal kubeconfig, a real restricted
+credential for the permission negative, trusted pinned binaries, two real
+acceptance frontend images and a host kubeconfig used only by verification and
+guarded cleanup. Explicit authorization for cluster mutation remains required.
+For issue4 V03, publish reviewed video as a native attachment directly in the
+issue; the historical release-asset upload procedure above does not satisfy it.
+
+The product chooses cluster and namespace from matching Definitions and
+references. The host context never supplies a product fallback. Keep PostgreSQL,
+Vault, state key and recovery artifacts if cleanup is not proven. The independent
+supervisor and product ownership receipts guard namespace deletion by exact run
+tags and recorded UID. Never remove an existing cluster or unrelated resources.
+
+Supply the digest that the cluster runtime actually reports for each image,
+verified against the immutable import/build index → named platform manifest →
+config chain. Containerd may report a registered repo digest, or the config ID
+when there is no repo digest; inspect the actual CRI mapping. An OCI build index
+digest is not automatically the container runtime image ID. Retain
+that mapping as evidence; the runner compares every running Pod's image identity
+and also asserts rollout generation, replicas, configuration and actual frontend
+page. Backend/worker/jobs/cache remain deferred to V04; their frontend FAIL rows
+are expected and must never be reported as verified dependency behavior.
+
+V03.10 removed the historical Internal Connection/implicit-cluster runtime
+procedures; this route replaces them. Historical evidence records remain historical; they do
+not establish the current runtime contract. Do not use a retired runner to
+reintroduce the old Internal deployment path.

@@ -93,6 +93,7 @@ func TestWriteErrorCodesStatusesAndFields(t *testing.T) {
 		{"kubeconfig context", connectionapp.ErrContextRequired, 400, "KUBECONFIG_CONTEXT_REQUIRED", ""},
 		{"same destination", transition.ErrSameDestination, 422, "TRANSITION_SAME_DESTINATION", "destinationKey"},
 		{"destination failed", transition.ErrDestinationFailed, 422, "DESTINATION_UNAVAILABLE", "destinationKey"},
+		{"retired transition", transition.ErrTransitionRetired, 422, "DEPLOYMENT_CONNECTION_RETIRED", "destinationKey"},
 		{"downtime", transition.ErrAcknowledge, 422, "DOWNTIME_ACK_REQUIRED", "acknowledgeDowntime"},
 		{"recovery unconfirmed", persistence.ErrRecoveryUnconfirmed, 422, "RECOVERY_CONFIRMATION_REQUIRED", "priorExecutionStopped"},
 		{"no runtime", transition.ErrNoRuntime, 409, "NO_RUNTIME", ""},

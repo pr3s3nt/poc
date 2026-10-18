@@ -21,6 +21,10 @@ import (
 	"orchestrator/internal/ports/persistence"
 )
 
+// RenderBundleID is the score-k8s render bundle the seeded workload Definitions use (the real
+// renderer and the fake adapters both install a bundle of this ID).
+const RenderBundleID = "score-k8s-internal-v1"
+
 // Catalog modes of Options.Catalog.
 const (
 	CatalogLegacy       = ""
@@ -194,6 +198,8 @@ func resourceTypes() []resource.Type {
 				{Name: "endpoint", Type: "string"},
 				{Name: "kubeContext", Type: "string", Required: true},
 				{Name: "kubeconfig", Type: "string"},
+				// The opaque scoped Kubernetes target of an existing cluster (ADR-016).
+				{Name: "cluster", Type: "any"},
 			},
 		},
 		{
@@ -299,7 +305,7 @@ func ResourceDefinitions(o Options) []resource.Definition {
 	out := make([]resource.Definition, 0, len(defs)+2)
 	for _, d := range defs {
 		switch d.Key {
-		case "namespace-kubernetes", "postgres-internal-statefulset":
+		case "namespace-kubernetes", "namespace-kubernetes-internal", "postgres-internal-statefulset":
 			continue // legacy Kubernetes driver: not v2 provider proof
 		}
 		out = append(out, d)
@@ -308,13 +314,13 @@ func ResourceDefinitions(o Options) []resource.Definition {
 }
 
 // terraformK8sDefinitions are the in-cluster Definitions over the verified
-// packaged modules. The Kubernetes provider keeps the legacy Environment target
-// (the registered Connection on internal-k8s, the EKS node on aws-eks) until
-// V03, never inferred from variables. The seeded internal Application selects
+// packaged modules. The Kubernetes provider is bound to the matched internal
+// cluster resource (ADR-016), never inferred from variables. The seeded internal Application selects
 // the in-cluster database/cache through its app_id criterion. The namespace name is the exact Environment
 // namespace (generation suffix included).
 func terraformK8sDefinitions(modules map[string]tfmodule.SourceRef, appKey string) []resource.Definition {
 	nsOut := "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+	const clusterRef = "k8s-cluster.internal#environments.@app.@env"
 	build := func(key, name, typ, module string, criteria []resource.Criterion, variables map[string]any, inputs, outputs []string) resource.Definition {
 		inputMapping := map[string]any{}
 		for _, name := range inputs {
@@ -327,7 +333,7 @@ func terraformK8sDefinitions(modules map[string]tfmodule.SourceRef, appKey strin
 		return resource.Definition{Key: key, Name: name, Version: 1, ResourceTypeKey: typ, DriverType: resource.DriverTerraform,
 			DriverInputs: map[string]any{"values": map[string]any{
 				"source": modules[module].Map(), "variables": variables, "input_mapping": inputMapping, "output_mapping": outputMapping,
-				"provider_bindings": map[string]any{"kubernetes": map[string]any{"target": tfmodule.TargetEnvironment}},
+				"provider_bindings": map[string]any{"kubernetes": map[string]any{"target": tfmodule.TargetResource, "resource_ref": clusterRef}},
 			}},
 			Criteria: criteria}
 	}
@@ -351,6 +357,54 @@ func baseDefinitions(o Options, cloud CloudConfig, eksVariables map[string]any, 
 	cloudApp := []resource.Criterion{{ApplicationID: o.CloudApplicationKey}}
 	internalApp := []resource.Criterion{{ApplicationID: o.ApplicationKey}}
 	return []resource.Definition{
+		// ADR-016: the internal Application's placement is decided by Definitions. The cluster
+		// Definition uses the seeded Internal Driver Account; the workload and namespace
+		// Definitions reference its typed `cluster` output.
+		{
+			Key:             "cluster-internal",
+			Name:            "Cluster nội bộ (cluster có sẵn)",
+			Version:         1,
+			ResourceTypeKey: "k8s-cluster",
+			DriverType:      resource.DriverExistingCluster,
+			DriverAccount:   o.ConnectionKey,
+			DriverInputs:    driverInputs(map[string]any{}),
+			Criteria:        []resource.Criterion{{ApplicationID: o.ApplicationKey, Class: "internal"}},
+		},
+		{
+			Key:             "namespace-kubernetes-internal",
+			Name:            "Namespace Kubernetes của ứng dụng nội bộ",
+			Version:         1,
+			ResourceTypeKey: "k8s-namespace",
+			DriverType:      resource.DriverTerraform,
+			DriverInputs: map[string]any{"values": map[string]any{
+				"source": modules["k8s-namespace"].Map(), "variables": map[string]any{"name": "${context.env.namespace}"},
+				"input_mapping": map[string]any{}, "output_mapping": map[string]any{"name": "name"},
+				"provider_bindings": map[string]any{"kubernetes": map[string]any{"target": tfmodule.TargetResource, "resource_ref": "k8s-cluster.internal#environments.@app.@env"}},
+			}},
+			Criteria: internalApp,
+		},
+		{
+			Key:             "workload-score-k8s",
+			Name:            "Mẫu dựng workload score-k8s",
+			Version:         1,
+			ResourceTypeKey: "workload",
+			DriverType:      resource.DriverScoreK8s,
+			DriverInputs: driverInputs(map[string]any{
+				"render_bundle": RenderBundleID,
+				"namespace":     "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}",
+				"cluster":       "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}",
+			}),
+			Criteria: internalApp,
+		},
+		{
+			Key:             "workload-score-k8s-cloud",
+			Name:            "Mẫu dựng workload score-k8s (cloud)",
+			Version:         1,
+			ResourceTypeKey: "workload",
+			DriverType:      resource.DriverScoreK8s,
+			DriverInputs:    driverInputs(map[string]any{"render_bundle": RenderBundleID}),
+			Criteria:        cloudApp,
+		},
 		{
 			Key:             "namespace-kubernetes",
 			Name:            "Namespace Kubernetes (driver cũ)",
@@ -596,13 +650,14 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 	type appEnv struct {
 		app       application.Application
 		namespace string
-		binding   persistence.EnvironmentBinding
+		// binding is nil for the internal Application: Resource Definitions decide its placement
+		// (ADR-016), so its Environment carries no deployment Connection.
+		binding *persistence.EnvironmentBinding
 	}
-	pairs := []appEnv{{app: internal, namespace: o.NamespaceIdentity, binding: persistence.EnvironmentBinding{
-		ConnectionKey: o.ConnectionKey, Profile: application.ProfileInternalK8s, RuntimeStatus: application.RuntimeReady, Scope: environment.ScopeEnvironment}}}
+	pairs := []appEnv{{app: internal, namespace: o.NamespaceIdentity}}
 	if o.Region != "" {
 		// The cloud Application is only usable once a region is configured.
-		pairs = append(pairs, appEnv{app: cloud, namespace: o.CloudNamespaceIdentity, binding: persistence.EnvironmentBinding{
+		pairs = append(pairs, appEnv{app: cloud, namespace: o.CloudNamespaceIdentity, binding: &persistence.EnvironmentBinding{
 			ConnectionKey: o.CloudConnectionKey, Profile: application.ProfileAWSEKS, Region: o.Region, RuntimeStatus: application.RuntimePending, Scope: environment.ScopeEnvironment}})
 	}
 
@@ -620,11 +675,11 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 			}
 		}
 		if existing, err := store.GetEnvironment(ctx, pair.app.Key, o.EnvironmentKey); err == nil {
-			if existing.Configured() {
+			if existing.Configured() || pair.binding == nil {
 				continue
 			}
 			pair.binding.ApplicationKey, pair.binding.EnvironmentKey, pair.binding.ExpectedVersion = pair.app.Key, o.EnvironmentKey, existing.Version
-			if _, err := store.BindEnvironment(ctx, pair.binding); err != nil {
+			if _, err := store.BindEnvironment(ctx, *pair.binding); err != nil {
 				return err
 			}
 			continue
@@ -662,8 +717,11 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 			if err := store.SaveEnvironment(ctx, env); err != nil {
 				return err
 			}
+			if pair.binding == nil {
+				return nil
+			}
 			pair.binding.ApplicationKey, pair.binding.EnvironmentKey, pair.binding.ExpectedVersion = pair.app.Key, o.EnvironmentKey, env.Version
-			_, err := store.BindEnvironment(ctx, pair.binding)
+			_, err := store.BindEnvironment(ctx, *pair.binding)
 			return err
 		})
 		if err != nil {

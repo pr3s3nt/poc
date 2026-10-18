@@ -362,10 +362,10 @@ EnvironmentTransitionService --> PostgreSQLTransfer
 EnvironmentTransitionService --> DeploymentService : pinned destination
 EnvironmentTransitionService --> EnvironmentOperation : persisted stages
 note right of ImplicitResourceEnricher
-ADR-013: internal cluster node binds directly
-to pinned Environment Connection through a trusted
-system Definition; no criteria matching.
-AWS and other resources retain DefinitionMatcher.
+ADR-016: internal cluster uses normal matching
+and its own scoped READY Internal Driver Account.
+Consumers inherit typed target through explicit references.
+No Environment/system binding or account fallback.
 end note
 
 ResourceDefinitionService ..> DefinitionMatcher : five-field ranking + winner account guard
@@ -414,4 +414,18 @@ ResourceCleanupService --> ResourceInstanceRepository
 ResourceCleanupService --> ResourceAttemptRepository
 ResourceCleanupService --> TerraformExecutor : explicit DESTROY
 ResourceCleanupService --> EnvironmentOperation : separate claim
+class WorkloadPlacement <<value>> {
+  +WorkloadClass: string
+  +ClusterDescriptor: string
+  +NamespaceDescriptor: string
+  +ScopedTargetPin: opaque
+}
+class WorkloadPlacementResolver <<control>>
+PlanningService --> WorkloadPlacementResolver : selected Definition references
+WorkloadPlacementResolver --> WorkloadPlacement : validate and pin per consumer
+note right of WorkloadPlacement
+V03 same-cluster admission only;
+model supports independent resource targets.
+No credentials in public projection.
+end note
 @enduml

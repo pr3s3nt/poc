@@ -103,3 +103,8 @@ Definitions, executor scheduling and output propagation remain unchanged.
 Catalog `PreviewMatching` của UC-03 dùng cùng domain weighted criteria và
 winner account/target guard theo UC-03 V02-05, không profile filter và không gọi full PlanningService.Plan. Kết quả
 không là input admission cho UC-05/06; shared planner tiếp tục kiểm snapshot mới.
+
+
+## V03 collaboration replacement
+
+[ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) replaces internal profile enrichment/system binding in the collaboration above. Catalog validates public existing-cluster/Internal account and workload typed namespace/cluster refs plus provision rules. Planning matches workload first and expands all nodes to fixed point; same normal matcher selects cluster Definition. Target resolver builds/pins per-consumer placement, rejects mismatch/ambiguous/cycle/multi-cluster V03. Shared snapshot/admission compare pins/versions; UC-08 resolves cluster then owned namespace/resources. UC-06 renders/applies/waits on selected workload target; no global target or builtin persistence. Applied target restored for Update/Remove/restart; separate cleanup preserves preexisting cluster. AWS legacy collaboration remains until V05–V06.

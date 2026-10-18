@@ -76,3 +76,9 @@ func (d *Descriptor) UnmarshalText(b []byte) error {
 	*d = parsed
 	return nil
 }
+
+var classPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,62}$`)
+
+// ValidClass reports whether class is a usable workload/resource class
+// identifier: non-blank, lowercase, no dot or whitespace, at most 63 bytes.
+func ValidClass(class string) bool { return classPattern.MatchString(class) }

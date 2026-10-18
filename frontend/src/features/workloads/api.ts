@@ -15,12 +15,14 @@ export const parseScoreImport = (app: string, env: EnvironmentKey, content: stri
 
 // Safe projection of one resource node of a Preview (UC-05 BR-10): no params, resolved inputs, secret or state reference.
 export type ResourceIntent = {
-  descriptor: string; resourceType: string; class: string; scope: string; ownership: 'PLATFORM' | 'ORCHESTRATOR'; intent: 'CREATE' | 'UPDATE' | 'RETAIN' | 'BIND' | 'UNVERIFIED';
-  definitionKey: string; driverType: string;
+  descriptor: string; resourceType: string; class: string; scope: string; ownership: 'PLATFORM' | 'ORCHESTRATOR' | 'PREEXISTING'; intent: 'CREATE' | 'UPDATE' | 'RETAIN' | 'BIND' | 'UNVERIFIED';
+  definitionKey: string; driverType: string; driverAccount?: string; accountVersion?: number;
   module?: { module: string; sourceId: string; revision: string; subdirectory: string; contentSha256: string };
   providers?: { name: string; kind: string; target: string; connectionKey?: string; region?: string; provider?: string }[];
 };
-export type PendingChange = { rendering?: { definitionKey: string; driverType: string; bundle: { id: string; version: string } }; workloadId: string; action: 'DEPLOY' | 'UPDATE' | 'REMOVE'; delta: Record<string, unknown>; resources: { existing: string[]; new: string[]; unreferenced: string[] }; resourceIntents?: ResourceIntent[]; planHash: string };
+// Safe resolved target of one workload or Kubernetes-bound resource (ADR-016): identities and versions only.
+export type Placement = { node: string; cluster: string; clusterDefinition: string; clusterDefinitionVersion: number; account: string; accountVersion: number; namespace?: string; source: string };
+export type PendingChange = { placements?: Placement[]; rendering?: { definitionKey: string; driverType: string; bundle: { id: string; version: string } }; workloadId: string; action: 'DEPLOY' | 'UPDATE' | 'REMOVE'; delta: Record<string, unknown>; resources: { existing: string[]; new: string[]; unreferenced: string[] }; resourceIntents?: ResourceIntent[]; planHash: string };
 export type PendingPreview = { token: string; binding?: { connectionKey: string; executionProfile: string; region: string }; accountId?: string; applicationKey: string; environmentKey: EnvironmentKey; baseDeploymentSetId: string; baseVersion: number; draftVersion: number; routePending?: boolean; configRevisionId?: string; changes: PendingChange[] };
 export const previewChanges = (app: string, env: EnvironmentKey) => api<PendingPreview>(`/applications/${encodeURIComponent(app)}/environments/${env}/preview`, { method: 'POST', body: '{}' });
 export type DeployReport = { status: 'SUCCEEDED' | 'PARTIAL' | 'FAILED'; results: { workloadId: string; action: string; status: 'SUCCEEDED' | 'FAILED' | 'SKIPPED'; deploymentId?: string; error?: string }[] };

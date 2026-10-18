@@ -45,9 +45,8 @@ func Resolve(ctx context.Context, view persistence.ApplicationRepository, organi
 	// when the binding was set, so a mixed kind never reaches another account.
 	switch env.Profile {
 	case appdomain.ProfileInternalK8s:
-		if conn.Kind != appdomain.ConnectionKubernetes {
-			return appdomain.Connection{}, fmt.Errorf("%w: environment %s/%s", ErrInconsistent, env.ApplicationKey, env.Key)
-		}
+		// ADR-016: an Environment no longer targets a Kubernetes connection; such a record is a retired baseline.
+		return appdomain.Connection{}, fmt.Errorf("%w: environment %s/%s carries a retired internal deployment connection", ErrInconsistent, env.ApplicationKey, env.Key)
 	case appdomain.ProfileAWSEKS:
 		if conn.Kind != appdomain.ConnectionAWS || (regionConstrained(conn) && !conn.AllowsRegion(env.Region)) {
 			return appdomain.Connection{}, fmt.Errorf("%w: environment %s/%s", ErrInconsistent, env.ApplicationKey, env.Key)
@@ -57,6 +56,17 @@ func Resolve(ctx context.Context, view persistence.ApplicationRepository, organi
 		return appdomain.Connection{}, fmt.Errorf("%w: connection %q is %s, want READY", ErrConnectionNotReady, conn.Key, conn.Status)
 	}
 	return conn, nil
+}
+
+// ResolveOptional is Resolve for planning that supports Definition-placed
+// Environments (ADR-016): an Environment without a deployment Connection has
+// no Environment account and yields the zero Connection. A configured
+// Environment (legacy, until V03.10) resolves exactly as Resolve.
+func ResolveOptional(ctx context.Context, view persistence.ApplicationRepository, organizationKey string, env environment.Environment) (appdomain.Connection, error) {
+	if !env.Configured() {
+		return appdomain.Connection{}, nil
+	}
+	return Resolve(ctx, view, organizationKey, env)
 }
 
 // regionConstrained reports whether the Connection restricts its Environments

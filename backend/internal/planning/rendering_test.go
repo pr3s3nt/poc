@@ -12,12 +12,15 @@ import (
 func TestRendererMatchingPinsContentAndPreservesInfrastructure(t *testing.T) {
 	req := testRequest(t, application.ProfileInternalK8s, "backend")
 	bundle := resource.RenderBundle{ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "bundle"}
-	svc := NewService(map[string]resource.RenderBundle{"installed": bundle})
+	bundles := testBundles()
+	bundles["installed"] = bundle
+	svc := NewService(bundles)
 	native, err := svc.Plan(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	def := resource.Definition{Key: "render", Name: "render", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed"}}}, Criteria: []resource.Criterion{{}}}
+	dropWorkloadDefinitions(&req)
+	def := renderDefinition("render", string(application.ProfileInternalK8s))
 	req.Catalog.Definitions = append(req.Catalog.Definitions, def)
 	plan, err := svc.Plan(req)
 	if err != nil {
@@ -29,7 +32,7 @@ func TestRendererMatchingPinsContentAndPreservesInfrastructure(t *testing.T) {
 	if len(plan.Matches) != len(native.Matches) || len(plan.Batches) != len(native.Batches) {
 		t.Fatal("render selection affected infrastructure")
 	}
-	if _, err := NewService().Plan(req); err == nil {
+	if _, err := NewService(testBundles()).Plan(req); err == nil {
 		t.Fatal("missing bundle accepted")
 	}
 	def.Key = "specific"
@@ -53,7 +56,9 @@ func TestRendererMatchingPinsContentAndPreservesInfrastructure(t *testing.T) {
 // A still plans under installed bundle B, pins B, and changes the plan hash.
 func TestRenderingBundleUpgradeKeepsDefinitionAndPinsInstalledBundle(t *testing.T) {
 	req := testRequest(t, application.ProfileInternalK8s, "backend")
-	def := resource.Definition{Key: "render", Name: "render", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, SourceFingerpr: "bundle-a", DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed"}}}, Criteria: []resource.Criterion{{}}}
+	dropWorkloadDefinitions(&req)
+	def := renderDefinition("render", string(application.ProfileInternalK8s))
+	def.SourceFingerpr = "bundle-a"
 	req.Catalog.Definitions = append(req.Catalog.Definitions, def)
 	a := resource.RenderBundle{ID: "installed", Version: "0.15.0", BinaryDigest: "binary-a", Digest: "bundle-a"}
 	b := resource.RenderBundle{ID: "installed", Version: "0.15.0", BinaryDigest: "binary-b", Digest: "bundle-b"}
@@ -90,7 +95,7 @@ func TestRenderingBundleUpgradeKeepsDefinitionAndPinsInstalledBundle(t *testing.
 func TestWorkloadRenderingTypeCannotBeScoreDependency(t *testing.T) {
 	req := testRequest(t, application.ProfileInternalK8s, "backend")
 	req.After.Resources["renderer"] = score.ResourceSpec{Type: "workload"}
-	if _, err := NewService().Plan(req); err == nil {
+	if _, err := NewService(testBundles()).Plan(req); err == nil {
 		t.Fatal("renderer became an infrastructure dependency")
 	}
 }

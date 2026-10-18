@@ -24,6 +24,7 @@ func newStore(t *testing.T) *store.Store {
 	for _, c := range []application.Connection{
 		{Name: "lab", AuthenticationType: application.AuthKubeconfig, ID: "k", Key: "lab", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady},
 		{Name: "verifying", AuthenticationType: application.AuthKubeconfig, ID: "k2", Key: "verifying", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionVerifying},
+		{Name: "awsverifying", AuthenticationType: application.AuthAWSAccessKey, ID: "av", Key: "awsverifying", OrganizationKey: "acme", Kind: application.ConnectionAWS, Status: application.ConnectionVerifying, Config: map[string]any{"region": "eu-west-1"}},
 		{Name: "multi", AuthenticationType: application.AuthAWSAccessKey, ID: "m", Key: "multi", OrganizationKey: "acme", Kind: application.ConnectionAWS, Status: application.ConnectionReady, Config: map[string]any{"region": "us-east-1", "allowedRegions": []any{"us-east-1", "eu-west-1"}}},
 		{Name: "badlist", AuthenticationType: application.AuthAWSAccessKey, ID: "b", Key: "badlist", OrganizationKey: "acme", Kind: application.ConnectionAWS, Status: application.ConnectionReady, Config: map[string]any{"region": "eu-west-1", "allowedRegions": []any{}}},
 		{Name: "cloud", AuthenticationType: application.AuthAWSAccessKey, ID: "a", Key: "cloud", OrganizationKey: "acme", Kind: application.ConnectionAWS, Status: application.ConnectionReady, Config: map[string]any{"region": "eu-west-1"}},
@@ -49,7 +50,8 @@ func TestResolveRequiresAConsistentReadyTarget(t *testing.T) {
 		want error
 	}{
 		{"unconfigured", environment.Environment{Key: "staging", ApplicationKey: "app"}, target.ErrUnconfigured},
-		{"kubernetes ready", good, nil},
+		// ADR-016: an Environment no longer targets a Kubernetes connection; such a row is a retired baseline.
+		{"retired internal profile", good, target.ErrInconsistent},
 		{"aws pending", aws, nil},
 		{"kubernetes profile on an AWS connection", with(good, func(e *environment.Environment) { e.ConnectionKey = "cloud" }), target.ErrInconsistent},
 		{"aws profile on a Kubernetes connection", with(aws, func(e *environment.Environment) { e.ConnectionKey = "lab" }), target.ErrInconsistent},
@@ -59,12 +61,12 @@ func TestResolveRequiresAConsistentReadyTarget(t *testing.T) {
 		{"aws multi-region second allowed region", with(aws, func(e *environment.Environment) { e.ConnectionKey, e.Region = "multi", "eu-west-1" }), nil},
 		{"aws multi-region unlisted region", with(aws, func(e *environment.Environment) { e.ConnectionKey, e.Region = "multi", "ap-south-1" }), target.ErrInconsistent},
 		{"aws malformed allowedRegions does not fall back to region", with(aws, func(e *environment.Environment) { e.ConnectionKey, e.Region = "badlist", "eu-west-1" }), target.ErrInconsistent},
-		{"unknown profile", with(good, func(e *environment.Environment) { e.Profile = "gcp" }), target.ErrInconsistent},
-		{"unconfigured status on a bound row", with(good, func(e *environment.Environment) { e.RuntimeStatus = application.RuntimeUnconfigured }), target.ErrInconsistent},
-		{"unknown scope", with(good, func(e *environment.Environment) { e.InfrastructureScope = "SHARED" }), target.ErrInconsistent},
-		{"retired scope", with(good, func(e *environment.Environment) { e.InfrastructureScope = "LEGACY_APPLICATION" }), target.ErrInconsistent},
-		{"unset scope reads as ENVIRONMENT", with(good, func(e *environment.Environment) { e.InfrastructureScope = "" }), nil},
-		{"connection not ready", with(good, func(e *environment.Environment) { e.ConnectionKey = "verifying" }), target.ErrConnectionNotReady},
+		{"unknown profile", with(aws, func(e *environment.Environment) { e.Profile = "gcp" }), target.ErrInconsistent},
+		{"unconfigured status on a bound row", with(aws, func(e *environment.Environment) { e.RuntimeStatus = application.RuntimeUnconfigured }), target.ErrInconsistent},
+		{"unknown scope", with(aws, func(e *environment.Environment) { e.InfrastructureScope = "SHARED" }), target.ErrInconsistent},
+		{"retired scope", with(aws, func(e *environment.Environment) { e.InfrastructureScope = "LEGACY_APPLICATION" }), target.ErrInconsistent},
+		{"unset scope reads as ENVIRONMENT", with(aws, func(e *environment.Environment) { e.InfrastructureScope = "" }), nil},
+		{"connection not ready", with(aws, func(e *environment.Environment) { e.ConnectionKey = "awsverifying" }), target.ErrConnectionNotReady},
 	}
 	for _, tc := range cases {
 		conn, err := target.Resolve(context.Background(), st, "acme", tc.env)

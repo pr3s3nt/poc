@@ -87,14 +87,13 @@ func TestMatchingPreviewStrictBoundedErrors(t *testing.T) {
 		body string
 		code int
 	}{
-		"unknown field":    {strings.Replace(previewBody, `"context":`, `"organizationKey":"x","context":`, 1), http.StatusBadRequest},
-		"unknown context":  {strings.Replace(previewBody, `"class":"fast"}}`, `"class":"fast","profile":"aws-eks"}}`, 1), http.StatusBadRequest},
-		"not object":       {`[]`, http.StatusBadRequest},
-		"trailing":         {previewBody + `{}`, http.StatusBadRequest},
-		"reserved":         {strings.Replace(previewBody, `"pg-new"`, `"builtin-existing-cluster"`, 1), http.StatusBadRequest},
-		"existing-cluster": {strings.Replace(previewBody, `"terraform"`, `"existing-cluster"`, 1), http.StatusBadRequest},
-		"unknown type":     {strings.Replace(previewBody, `"postgres"`, `"nope"`, 1), http.StatusBadRequest},
-		"oversize":         {`{"definition":{"key":"` + strings.Repeat("a", 2<<20) + `"}}`, http.StatusRequestEntityTooLarge},
+		"unknown field":   {strings.Replace(previewBody, `"context":`, `"organizationKey":"x","context":`, 1), http.StatusBadRequest},
+		"unknown context": {strings.Replace(previewBody, `"class":"fast"}}`, `"class":"fast","profile":"aws-eks"}}`, 1), http.StatusBadRequest},
+		"not object":      {`[]`, http.StatusBadRequest},
+		"trailing":        {previewBody + `{}`, http.StatusBadRequest},
+		"reserved":        {strings.Replace(previewBody, `"pg-new"`, `"builtin-existing-cluster"`, 1), http.StatusBadRequest},
+		"unknown type":    {strings.Replace(previewBody, `"postgres"`, `"nope"`, 1), http.StatusBadRequest},
+		"oversize":        {`{"definition":{"key":"` + strings.Repeat("a", 2<<20) + `"}}`, http.StatusRequestEntityTooLarge},
 	}
 	for name, c := range cases {
 		code, body := postPreview(t, pe, ts.URL, c.body)

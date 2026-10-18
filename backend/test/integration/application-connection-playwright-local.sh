@@ -9,6 +9,8 @@
 # Set ORCH_KEEP_EVIDENCE=1 to keep logs and state in the temporary directory;
 # ORCH_EVIDENCE_DIR=<new path> keeps them there instead.
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"
+retired_runner "application-connection-playwright-local.sh (per-Environment Connection selection UI)" "backend/test/integration/v03-internal-frontend.sh (Definition-placed internal workloads); the AWS Connection selection stays covered by aws-connection-local.sh"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO="$(cd "${ROOT}/.." && pwd)"

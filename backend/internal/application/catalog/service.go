@@ -248,11 +248,6 @@ func (s *Service) prepareDefinition(ctx context.Context, organizationKey string,
 	if def.Key == planning.BuiltinClusterKey {
 		return resource.Definition{}, nil, invalidField("definition.key", fmt.Errorf("%w: resource definition key %q is reserved for the system", ErrInvalid, def.Key))
 	}
-	if def.DriverType == resource.DriverExistingCluster {
-		// ADR-013/UC-03 BR-08: the existing-cluster binding is a system
-		// Definition; public registration is rejected for every key.
-		return resource.Definition{}, nil, invalidField("definition.driverType", fmt.Errorf("%w: driver %q cannot be registered publicly", ErrInvalid, def.DriverType))
-	}
 	if err := validatePublicID("resource definition", def.Key); err != nil {
 		return resource.Definition{}, nil, &invalidIDError{err: invalidField("definition.key", fmt.Errorf("%w: %v", ErrInvalid, err))}
 	}
@@ -302,12 +297,38 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 		return nil, err
 	}
 	switch def.DriverType {
+	case resource.DriverExistingCluster:
+		// ADR-016: a public existing-cluster Definition is a k8s-cluster whose
+		// own READY Internal Driver Account supplies access. Authored inputs
+		// carry no variables: identity and credentials come from the account.
+		if def.ResourceTypeKey != resource.ClusterTargetType {
+			return nil, invalidField("definition.resourceType", fmt.Errorf("%w: existing-cluster serves only the %s resource type", ErrInvalid, resource.ClusterTargetType))
+		}
+		if field, ok := typ.Output(resource.ClusterTargetOutput); !ok || field.Secret {
+			return nil, invalidField("definition.resourceType", fmt.Errorf("%w: the %s resource type must declare a non-secret %q output", ErrInvalid, resource.ClusterTargetType, resource.ClusterTargetOutput))
+		}
+		if len(variables) != 0 {
+			return nil, invalidField(variablesPath, fmt.Errorf("%w: existing-cluster takes no variables; its identity comes from the driver account", ErrInvalid))
+		}
+		if def.DriverAccount == "" {
+			return nil, invalidField(accountPath, fmt.Errorf("%w: existing-cluster needs an Internal driver account", ErrInvalid))
+		}
+		if err := s.requireAccount(ctx, org, def.DriverAccount, application.ConnectionKubernetes, "existing-cluster requires an Internal driver account"); err != nil {
+			return nil, err
+		}
+		return nil, nil
 	case resource.DriverScoreK8s:
 		if def.DriverAccount != "" {
 			return nil, invalidField("definition.driverAccount", fmt.Errorf("%w: score-k8s rendering takes no driver account", ErrInvalid))
 		}
-		if err := resource.ValidateRenderDefinition(*def, typ, s.bundles); err != nil {
+		_, placed := variables[resource.VariableNamespace]
+		if err := resource.ValidateRenderDefinition(*def, typ, s.bundles, placed); err != nil {
 			return nil, err
+		}
+		if !placed {
+			if err := s.requireLegacyRenderScope(ctx, org, def.Criteria); err != nil {
+				return nil, err
+			}
 		}
 		bundle := s.bundles[variables["render_bundle"].(string)]
 		def.SourceFingerpr = bundle.Digest
@@ -408,4 +429,37 @@ func (s *Service) ListRenderBundles() []InstalledRenderBundle {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
+}
+
+// requireLegacyRenderScope admits a render-only workload Definition (no namespace/cluster
+// references) only as the explicit legacy compatibility form for Applications whose Environments
+// are all bound to the AWS execution profile (until V05). Every criterion must name such an
+// Application; a Definition-placed Application always needs the typed references, and the retired
+// internal Connection profile is never accepted.
+func (s *Service) requireLegacyRenderScope(ctx context.Context, org string, criteria []resource.Criterion) error {
+	invalid := func() error {
+		return invalidField("definition.driverInputs", fmt.Errorf("%w: a workload Definition without namespace and cluster references is accepted only for Applications deployed with the AWS legacy profile; declare both references", ErrInvalid))
+	}
+	if len(criteria) == 0 {
+		return invalid()
+	}
+	for _, criterion := range criteria {
+		if criterion.ApplicationID == "" {
+			return invalid()
+		}
+		app, err := s.store.GetApplication(ctx, criterion.ApplicationID)
+		if err != nil || app.OrganizationKey != org {
+			return invalid()
+		}
+		environments, err := s.store.ListEnvironments(ctx, app.Key)
+		if err != nil || len(environments) == 0 {
+			return invalid()
+		}
+		for _, env := range environments {
+			if env.Profile != application.ProfileAWSEKS {
+				return invalid()
+			}
+		}
+	}
+	return nil
 }

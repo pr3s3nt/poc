@@ -18,7 +18,7 @@ export function safeError(error) {
 }
 
 /** Records assertions and phase marks; the files are rewritten on every call so a failed run keeps them. */
-export function createRecorder({ dir, now = () => Date.now(), startedAt = () => 0 }) {
+export function createRecorder({ dir, now = () => Date.now(), startedAt = () => 0, extraSources = [] }) {
   const assertions = [];
   const phases = [];
   const flush = () => {
@@ -30,7 +30,7 @@ export function createRecorder({ dir, now = () => Date.now(), startedAt = () => 
     /** One assertion. source is 'ui' (observed in the Console / app UI) or 'private-read' (read-only query of the real resource). */
     record(id, phase, source, pass, detail = '') {
       if (!PHASES.includes(phase)) throw new Error(`unknown phase ${phase}`);
-      if (!SOURCES.includes(source)) throw new Error(`assertion source ${source} cannot count as live proof`);
+      if (!SOURCES.includes(source) && !extraSources.includes(source)) throw new Error(`assertion source ${source} cannot count as live proof`);
       if (assertions.some((a) => a.id === id)) throw new Error(`duplicate assertion ${id}`);
       assertions.push({ id, phase, pass: Boolean(pass), source, detail: String(detail).slice(0, 300) });
       flush();
@@ -56,7 +56,7 @@ export function kubectlRunner({ kubectl, kubeconfig, context, env: extraEnv = {}
 }
 
 /** Polls fn until it returns a truthy value; throws a safe timeout error naming only `what`. */
-export async function waitFor(fn, { timeoutMs, intervalMs = 1000, what }) {
+export async function waitFor(fn, { timeoutMs, intervalMs = 1000, what, describe }) {
   const deadline = Date.now() + timeoutMs;
   let last;
   for (;;) {
@@ -66,7 +66,7 @@ export async function waitFor(fn, { timeoutMs, intervalMs = 1000, what }) {
     } catch (error) {
       last = safeError(error);
     }
-    if (Date.now() >= deadline) throw new Error(`timed out waiting for ${what}${last ? ` (${last})` : ''}`);
+    if (Date.now() >= deadline) throw new Error(`timed out waiting for ${what}${last ? ` (${last})` : describe ? ` (last verdict: ${String(describe() ?? '').slice(0, 600)})` : ''}`);
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 }
@@ -136,6 +136,37 @@ export function startPortForward({ kubectl, kubeconfig, context, namespace, serv
     url: `http://127.0.0.1:${localPort}`,
     exited,
     stop() { try { process.kill(-child.pid, 'SIGTERM'); } catch { /* already gone */ } },
+    kill() { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already gone */ } },
+  };
+}
+
+/**
+ * `kubectl port-forward service/X` binds ONE Pod and dies when a rollout replaces it. The manager reconnects to the real
+ * Service (and so to the new Ready Pod) after every rollout: it stops the old forward, waits until it is gone (the local
+ * port is free again), starts a new one and waits for a real health answer. Every forward it ever started stays in
+ * `forwarders` so the final cleanup stops the old and the replacement ones. Nothing is faked.
+ */
+export function createForwardManager(options, { forwarders, start = startPortForward, healthy, timeoutMs = 120_000, stopWaitMs = 5000 }) {
+  let current = null;
+  const stopCurrent = async () => {
+    if (!current) return;
+    const old = current;
+    current = null;
+    old.stop();
+    const gone = await Promise.race([old.exited.then(() => true), new Promise((resolve) => setTimeout(() => resolve(false), stopWaitMs))]);
+    if (!gone) { old.kill?.(); await Promise.race([old.exited, new Promise((resolve) => setTimeout(resolve, stopWaitMs))]); }
+  };
+  return {
+    get url() { return current?.url; },
+    async connect(what = 'the frontend Service to answer through a fresh port-forward') {
+      await stopCurrent();
+      const forward = start(options);
+      current = forward;
+      forwarders.push(forward);
+      await waitFor(async () => healthy(forward.url), { timeoutMs, intervalMs: 1000, what });
+      return forward;
+    },
+    async stop() { await stopCurrent(); },
   };
 }
 

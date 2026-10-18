@@ -46,6 +46,17 @@ const (
 	ReasonRendererNoMatch     = "renderer-no-match"
 	ReasonRendererAmbiguous   = "renderer-ambiguous"
 	ReasonRendererUnavailable = "renderer-unavailable"
+	// Placement reasons (ADR-016): a typed target is missing, ambiguous,
+	// contradictory or unsupported before any consumer runs.
+	// A resource (for example the cluster) matches no Definition, or several equally.
+	ReasonResourceNoMatch   = "resource-no-match"
+	ReasonResourceAmbiguous = "resource-ambiguous"
+	ReasonPlacement         = "placement"
+	ReasonMultiCluster      = "multi-cluster-unsupported"
+	// ReasonTargetChanged: an applied workload would move to another target.
+	ReasonTargetChanged = "target-changed"
+	// ReasonRetiredTarget: the Environment still carries a retired internal deployment Connection.
+	ReasonRetiredTarget = "retired-target"
 )
 
 // StageError wraps a planning failure with the stage that produced it. Its
@@ -89,6 +100,11 @@ var (
 		ReasonRendererNoMatch:      "no workload rendering template (score-k8s Definition) matches this workload for the Environment profile; ask a platform engineer to register one",
 		ReasonRendererAmbiguous:    "several workload rendering templates (score-k8s Definitions) match this workload equally; ask a platform engineer to leave exactly one",
 		ReasonRendererUnavailable:  "the workload rendering template needs a score-k8s bundle that is not installed; ask a platform engineer to check the platform release",
+		ReasonResourceNoMatch:      "a resource of this Score, or a resource it needs such as the Kubernetes cluster, matches no Resource Definition for this Application and Environment; ask a platform engineer to register one",
+		ReasonResourceAmbiguous:    "several Resource Definitions match a resource of this Score equally, so none was chosen; ask a platform engineer to leave exactly one most specific Definition",
+		ReasonPlacement:            "the workload or resource target cannot be resolved from Resource Definitions: a namespace or cluster reference is missing, contradictory or backed by an unavailable Driver Account; ask a platform engineer to check the Definitions",
+		ReasonRetiredTarget:        "this Environment carries a retired internal deployment connection from an older baseline; internal placement now comes from Resource Definitions, so the baseline must be recreated",
+		ReasonMultiCluster:         "this Environment resolves more than one Kubernetes cluster; multiple clusters in one Environment are not supported yet",
 	}
 	stageMessages = map[Stage]string{
 		StageScore:       "the Score does not satisfy the registered Resource Type contracts (unregistered type, invalid params or unknown resource output)",

@@ -9,7 +9,8 @@ const profileLabel = (profile: string) => (Object.hasOwn(profileLabels, profile)
 export function ApplicationTarget({ application, environment }: { application: Application; environment: EnvironmentKey }) {
   const target = application.environments[environment];
   if (!target.configured) {
-    return <p className="application-target" aria-label="Đích triển khai">{environment} chưa có kết nối triển khai · <a href="#" onClick={(event) => { event.preventDefault(); navigate({ name: 'settings', applicationId: application.id, environment }); }}>Chọn trong Cài đặt môi trường</a></p>;
+    // ADR-016: no Environment account; Definitions and references decide the target.
+    return <p className="application-target" aria-label="Đích triển khai">{environment} · Đích triển khai do Resource Definition và tham chiếu của Workload quyết định; Môi trường không chọn tài khoản. <a href="#" onClick={(event) => { event.preventDefault(); navigate({ name: 'settings', applicationId: application.id, environment }); }}>Cài đặt môi trường</a></p>;
   }
   return <p className="application-target" aria-label="Đích triển khai">{environment} · Kết nối <strong>{target.connectionName || target.connectionKey}</strong> ({target.connectionKey}) · Phạm vi triển khai <strong>{profileLabel(target.profile)}</strong> ({target.profile}){target.region ? <> · Vùng <strong>{target.region}</strong></> : null}</p>;
 }

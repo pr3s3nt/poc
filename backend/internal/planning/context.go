@@ -20,10 +20,21 @@ type Context struct {
 	Connection      application.Connection
 	DeploymentID    string
 	RunID           string
-	// ReferenceCluster restores planner-reference Definition matching for the
-	// internal cluster node. Only the conformance harness sets it; the product
-	// default is the ADR-013 Environment-bound builtin cluster.
+	// ReferenceCluster is a conformance-only mode: it restores planner-reference
+	// Definition matching for the internal cluster node so the read-only
+	// reference fixtures can run. Only the conformance harness sets it. The
+	// product default is ADR-016 Definition placement (typed cluster/namespace
+	// references and the cluster Definition's own Internal account); the
+	// retired ADR-013 builtin cluster is not a product path. AWS legacy
+	// Environments are handled separately (until V05).
 	ReferenceCluster bool
+}
+
+// DefinitionPlaced reports whether placement comes from Definitions and
+// references (ADR-016): the Environment carries no deployment Connection, so
+// no profile enrichment, builtin cluster or Environment account applies.
+func (c Context) DefinitionPlaced() bool {
+	return !c.ReferenceCluster && c.Env.Profile != application.ProfileAWSEKS
 }
 
 // InfraName is the cloud-name stem of VPC/EKS/Aurora: `<app>-<env>` (ADR-011).

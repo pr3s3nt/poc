@@ -141,6 +141,11 @@ func (t Type) ValidateOutputs(outputs map[string]any) error {
 		if err := checkType(o.Type, value); err != nil {
 			return fmt.Errorf("resource: type %q output %q: %w", t.Key, o.Name, err)
 		}
+		if t.Key == ClusterTargetType && o.Name == ClusterTargetOutput {
+			if err := ValidateK8sTarget(value); err != nil {
+				return fmt.Errorf("resource: type %q output %q: %w", t.Key, o.Name, err)
+			}
+		}
 	}
 	for name := range outputs {
 		if _, ok := t.Output(name); !ok {
@@ -169,6 +174,54 @@ func checkType(want string, value any) error {
 	case "any", "":
 	default:
 		return fmt.Errorf("unknown contract type %q", want)
+	}
+	return nil
+}
+
+// ClusterTargetType and ClusterTargetOutput name the Resource Type output that
+// carries the opaque scoped Kubernetes target (ADR-016). The declared schema
+// type may stay "any"; a concrete validator still requires the exact target
+// shape, so no arbitrary object or string is accepted as a target.
+const (
+	ClusterTargetType   = "k8s-cluster"
+	ClusterTargetOutput = "cluster"
+)
+
+// K8sTargetKind is the fixed `kind` of a Kubernetes target value.
+const K8sTargetKind = "kubernetes-target"
+
+var k8sTargetStrings = map[string]bool{"kind": true, "clusterName": true, "context": true, "organization": true, "account": true, "descriptor": true}
+
+// ValidateK8sTarget checks the concrete opaque target shape: cluster identity
+// and Driver Account only, never credential bytes, kubeconfig or paths.
+func ValidateK8sTarget(value any) error {
+	target, ok := value.(map[string]any)
+	if !ok {
+		return fmt.Errorf("expected Kubernetes target object, got %T", value)
+	}
+	for key, field := range target {
+		switch {
+		case key == "accountVersion":
+			switch field.(type) {
+			case float64, int, int64:
+			default:
+				return fmt.Errorf("Kubernetes target accountVersion must be a number")
+			}
+		case k8sTargetStrings[key]:
+			if _, ok := field.(string); !ok {
+				return fmt.Errorf("Kubernetes target field %q must be a string", key)
+			}
+		default:
+			return fmt.Errorf("Kubernetes target has an unsupported field %q", key)
+		}
+	}
+	if target["kind"] != K8sTargetKind {
+		return fmt.Errorf("Kubernetes target kind must be %q", K8sTargetKind)
+	}
+	for _, required := range []string{"clusterName", "organization", "account"} {
+		if text, _ := target[required].(string); text == "" {
+			return fmt.Errorf("Kubernetes target requires %q", required)
+		}
 	}
 	return nil
 }

@@ -14,12 +14,18 @@ control OutputContractValidator as Validator
 boundary SecretStore as Secrets
 database "ActiveResource / DeploymentResource" as Results
 Caller -> Service: Provision(pinned plan, Environment owner/fence)
-loop Provider-first nodes
+opt Matched existing-cluster node [V03]
+  Service -> Credentials: Resolve pinned READY Internal Driver Account
+  Credentials --> Service: invocation-only credential
+  Service -> Service: Check cluster API/permissions/readiness; PREEXISTING
+  Service -> Results: Persist normal matched Definition and typed target output
+end
+loop Provider-first Terraform nodes
   Service -> Intent: Resolve stable instance; persist action/ownership/physical intent
   Service -> Bindings: Resolve params / completed outputs / provider target
   Service -> Modules: Verify pinned digest and contract; no mutable upgrade
   Modules --> Service: verified module + inputs
-  Service -> Credentials: Resolve scoped Environment AWS / Kubernetes / EKS target
+  Service -> Credentials: Resolve pinned Definition account / explicit cluster target
   Credentials --> Service: private invocation credential
   Service -> Terraform: CREATE or non-destructive UPDATE(instance, module, state ref)
   Terraform -> State: LOCK(state ID, invocation capability, lock ID)

@@ -18,121 +18,6 @@ func labCluster(connection string) resource.Definition {
 	}
 }
 
-// ADR-013: the Environment connection selects the cluster node directly. No
-// cluster Definition is needed and authored Definitions cannot redirect it.
-func TestPlan_InternalClusterFollowsEnvironmentConnectionWithoutDefinition(t *testing.T) {
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
-	req.Env.ConnectionKey = "lab"
-	req.Connection.Key = "lab"
-
-	plan, err := NewService().Plan(req)
-	if err != nil {
-		t.Fatalf("no cluster definition must be needed: %v", err)
-	}
-	match := plan.Matches["k8s-cluster.internal#connections.lab"]
-	if match.DefinitionKey != BuiltinClusterKey || match.ConnectionKey != "lab" || match.Binding != BindingEnvironmentConnection {
-		t.Fatalf("cluster match = %+v", match)
-	}
-	again, err := NewService().Plan(req)
-	if err != nil || again.PlanHash != plan.PlanHash {
-		t.Fatalf("plan must be deterministic: %v", err)
-	}
-
-	// Authored cluster Definitions, specific, tied or for another connection,
-	// never retarget the node nor create ambiguity.
-	req.Catalog.Definitions = append(req.Catalog.Definitions, labCluster("lab"), labCluster("internal-cluster"))
-	req.Catalog.Definitions[len(req.Catalog.Definitions)-1].Key = "cluster-tie"
-	authored, err := NewService().Plan(req)
-	if err != nil {
-		t.Fatalf("authored definitions: %v", err)
-	}
-	if got := authored.Matches["k8s-cluster.internal#connections.lab"]; got != match || authored.PlanHash != plan.PlanHash {
-		t.Fatalf("authored definition changed the cluster binding: %+v", got)
-	}
-
-	// The reference opt-out keeps Definition matching and ConnectionMismatch.
-	req.ReferenceCluster = true
-	req.Catalog.Definitions = req.Catalog.Definitions[:len(req.Catalog.Definitions)-2]
-	if _, err := NewService().Plan(req); err == nil {
-		t.Fatal("reference matching needs a cluster definition")
-	}
-}
-
-func TestPlan_InternalClusterRejectsUntrustedConnectionAndReservedKey(t *testing.T) {
-	cases := map[string]func(*Request){
-		"other identity": func(r *Request) { r.Connection.Key = "someone-else" },
-		"not ready":      func(r *Request) { r.Connection.Status = application.ConnectionVerifying },
-		"wrong kind":     func(r *Request) { r.Connection.Kind = application.ConnectionAWS },
-		"other org":      func(r *Request) { r.Connection.OrganizationKey = "globex" },
-		"forged reserved definition": func(r *Request) {
-			forged := BuiltinClusterDefinition()
-			forged.Criteria = []resource.Criterion{{}}
-			r.Catalog.Definitions = append(r.Catalog.Definitions, forged)
-		},
-	}
-	for name, mutate := range cases {
-		req := testRequest(t, application.ProfileInternalK8s, "backend")
-		mutate(&req)
-		if _, err := NewService().Plan(req); err == nil {
-			t.Fatalf("%s: plan must fail closed", name)
-		}
-	}
-	// The exact stored system definition is accepted and never matched.
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
-	req.Catalog.Definitions = append(req.Catalog.Definitions, BuiltinClusterDefinition())
-	if _, err := NewService().Plan(req); err != nil {
-		t.Fatalf("stored system definition: %v", err)
-	}
-}
-
-func TestValidateBuiltinMatchRejectsForgery(t *testing.T) {
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
-	plan, err := NewService().Plan(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx := Context{OrganizationKey: req.OrganizationKey, App: req.App, Env: req.Env, Connection: req.Connection}
-	desc := "k8s-cluster.internal#connections." + req.Env.ConnectionKey
-	node, _ := plan.Graph.Node(desc)
-	if err := ValidateBuiltinMatch(ctx, node, plan.Matches[desc]); err != nil {
-		t.Fatal(err)
-	}
-	forged := plan.Matches[desc]
-	forged.ConnectionKey = "other"
-	if ValidateBuiltinMatch(ctx, node, forged) == nil {
-		t.Fatal("other connection accepted")
-	}
-	ns, _ := plan.Graph.Node("k8s-namespace.default#environments." + req.App.Key + "." + req.Env.Key)
-	reserved := plan.Matches[desc]
-	reserved.Descriptor = ns.Descriptor
-	if ValidateBuiltinMatch(ctx, ns, reserved) == nil {
-		t.Fatal("reserved key on an unrelated node accepted")
-	}
-	bound := plan.Matches[ns.Descriptor]
-	bound.Binding = BindingEnvironmentConnection
-	if ValidateBuiltinMatch(ctx, ns, bound) == nil {
-		t.Fatal("forged binding accepted")
-	}
-}
-
-func TestMatcher_InternalClusterRejectsParams(t *testing.T) {
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
-	ctx := Context{OrganizationKey: req.OrganizationKey, App: req.App, Env: req.Env, Connection: req.Connection}
-	matcher, err := newDefinitionMatcher(ctx, req.Catalog)
-	if err != nil {
-		t.Fatal(err)
-	}
-	d, _ := InternalClusterDescriptor(req.Env.ConnectionKey)
-	node := &Node{Descriptor: d.String(), Kind: NodeResource, ResourceType: TypeCluster, Class: ClassInternal, Params: map[string]any{"kubeContext": "evil"}}
-	if _, err := matcher.match(node); err == nil {
-		t.Fatal("params on the implicit cluster must be rejected")
-	}
-	node.Params = nil
-	if _, err := matcher.match(node); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // UC-03 V02-02: the Kubernetes Definition carries no account; its legacy
 // Environment binding is not an account selector or a matching filter.
 func TestPlan_KubernetesDefinitionNeedsNoDriverAccount(t *testing.T) {
@@ -142,7 +27,7 @@ func TestPlan_KubernetesDefinitionNeedsNoDriverAccount(t *testing.T) {
 			t.Fatalf("seeded Kubernetes definition %s names an account", def.Key)
 		}
 	}
-	if _, err := NewService().Plan(req); err != nil {
+	if _, err := NewService(testBundles()).Plan(req); err != nil {
 		t.Fatalf("plan: %v", err)
 	}
 }
@@ -172,7 +57,7 @@ func awsPins(t *testing.T, plan *Plan) map[string]tfmodule.ProviderPin {
 // and literal region. The Environment connection and region never decide them.
 func TestPlan_AWSDefinitionsPinTheirOwnDriverAccountAndRegion(t *testing.T) {
 	req := testRequest(t, application.ProfileAWSEKS, "backend")
-	plan, err := NewService().Plan(req)
+	plan, err := NewService(testBundles()).Plan(req)
 	if err != nil {
 		t.Fatalf("matching account: %v", err)
 	}
@@ -193,7 +78,7 @@ func TestPlan_AWSDefinitionsPinTheirOwnDriverAccountAndRegion(t *testing.T) {
 	// A different Environment region does not retarget an AWS node.
 	other := req
 	other.Env.Region = "eu-west-1"
-	again, err := NewService().Plan(other)
+	again, err := NewService(testBundles()).Plan(other)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +96,7 @@ func TestPlan_AWSNodesMayUseDifferentAccountsAndRegions(t *testing.T) {
 		d.DriverAccount = "aws-second"
 		d.DriverInputs["values"].(map[string]any)["variables"].(map[string]any)["region"] = "eu-west-1"
 	})
-	plan, err := NewService().Plan(req)
+	plan, err := NewService(testBundles()).Plan(req)
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -260,7 +145,7 @@ func TestPlan_WinningAccountConflictFailsWithoutFallback(t *testing.T) {
 			winner.Criteria = []resource.Criterion{{ApplicationID: req.App.Key, Class: winner.Criteria[0].Class}}
 			change(&req, &winner)
 			req.Catalog.Definitions = append(req.Catalog.Definitions, winner)
-			if _, err := NewService().Plan(req); !errors.Is(err, ErrAccountConflict) {
+			if _, err := NewService(testBundles()).Plan(req); !errors.Is(err, ErrAccountConflict) {
 				t.Fatalf("%s/%s: want account conflict without fallback to %s, got %v", name, base, base, err)
 			}
 		}
@@ -278,7 +163,7 @@ func TestPlan_AWSRegionMustBeALiteralAwsRegion(t *testing.T) {
 				variables["region"] = region
 			}
 		})
-		if _, err := NewService().Plan(req); err == nil {
+		if _, err := NewService(testBundles()).Plan(req); err == nil {
 			t.Fatalf("%s region was planned", name)
 		}
 	}
@@ -288,14 +173,14 @@ func TestPlan_AWSRegionMustBeALiteralAwsRegion(t *testing.T) {
 // the plan hash covers Definition version/content and the account version.
 func TestPlan_HashFollowsDefinitionVersionAndAccount(t *testing.T) {
 	req := testRequest(t, application.ProfileAWSEKS, "backend")
-	base, err := NewService().Plan(req)
+	base, err := NewService(testBundles()).Plan(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	renamed := req
 	renamed.Catalog.Definitions = append([]resource.Definition(nil), req.Catalog.Definitions...)
 	mutateDefinition(&renamed, "vpc-aws", func(d *resource.Definition) { d.Name, d.Version = "VPC mới", 2 })
-	if p, err := NewService().Plan(renamed); err != nil || p.PlanHash == base.PlanHash {
+	if p, err := NewService(testBundles()).Plan(renamed); err != nil || p.PlanHash == base.PlanHash {
 		t.Fatalf("definition version did not change the hash: %v", err)
 	}
 	bumped := req
@@ -303,7 +188,7 @@ func TestPlan_HashFollowsDefinitionVersionAndAccount(t *testing.T) {
 	account := bumped.Catalog.Accounts["aws-account"]
 	account.Version = 4
 	bumped.Catalog.Accounts["aws-account"] = account
-	if p, err := NewService().Plan(bumped); err != nil || p.PlanHash == base.PlanHash {
+	if p, err := NewService(testBundles()).Plan(bumped); err != nil || p.PlanHash == base.PlanHash {
 		t.Fatalf("account version did not change the hash: %v", err)
 	}
 }

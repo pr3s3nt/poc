@@ -172,7 +172,7 @@ func TestApplyHumanitecDelta_RejectsInconsistentDocuments(t *testing.T) {
 }
 
 func TestPlan_DeltaIsHumanitecShapedAndDeterministic(t *testing.T) {
-	svc := NewService()
+	svc := NewService(testBundles())
 	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
@@ -210,7 +210,7 @@ func TestPlan_DeltaIsHumanitecShapedAndDeterministic(t *testing.T) {
 }
 
 func TestPlan_RedeployingSameScoreIsNoOpDelta(t *testing.T) {
-	svc := NewService()
+	svc := NewService(testBundles())
 	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
@@ -228,7 +228,7 @@ func TestPlan_RedeployingSameScoreIsNoOpDelta(t *testing.T) {
 }
 
 func TestPlan_RemoveWorkloadDeltaListsModule(t *testing.T) {
-	svc := NewService()
+	svc := NewService(testBundles())
 	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)

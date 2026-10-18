@@ -199,7 +199,7 @@ it('explains an UNCONFIGURED Environment instead of showing a plan', async () =>
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: 'the Environment has no execution connection; set one in Environment Settings', field: 'connectionKey', code: 'ENVIRONMENT_UNCONFIGURED' }, { status: 422 })));
   const user = userEvent.setup();
   render(<ScorePreviewPage application={{ ...application, environments: { staging: unconfiguredTarget, production: configuredTarget('lab') } }} environment="staging" />);
-  expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('staging chưa có kết nối triển khai');
+  expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('staging · Đích triển khai do Resource Definition và tham chiếu của Workload quyết định');
   await fill(user);
   await user.click(screen.getByRole('button', { name: 'Xem trước' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Môi trường staging chưa có kết nối triển khai');

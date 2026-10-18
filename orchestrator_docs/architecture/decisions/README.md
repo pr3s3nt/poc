@@ -32,3 +32,6 @@ last_reviewed: 2026-10-17
 - [ADR-014 — Terraform v2 lifecycle/modules/state](ADR-014-terraform-v2-lifecycle.md) — accepted design; implementation and live acceptance pending.
 
 - [ADR-015 — Infrastructure accounts for Definition-selected drivers](ADR-015-infrastructure-driver-accounts.md) — V01 account catalog; downstream consumer replacement V02–V06.
+
+
+- [ADR-016 — Definition-selected workload lifecycle and targets](ADR-016-definition-selected-workload-targets.md) — accepted V03 option B; internal cluster matching replaces ADR-013; per-resource targets with one-cluster V03 delivery boundary.

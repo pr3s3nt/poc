@@ -1,6 +1,6 @@
 import type { ResourceIntent } from '../workloads/api';
 
-const ownershipLabels: Record<string, string> = { PLATFORM: 'Nền tảng (liên kết hệ thống)', ORCHESTRATOR: 'Orchestrator (theo phạm vi tài nguyên)' };
+const ownershipLabels: Record<string, string> = { PLATFORM: 'Nền tảng (liên kết hệ thống)', ORCHESTRATOR: 'Orchestrator (theo phạm vi tài nguyên)', PREEXISTING: 'Có sẵn (không bao giờ bị tạo hoặc xóa)' };
 const intentLabels: Record<string, string> = {
   CREATE: 'Tạo mới', UPDATE: 'Cập nhật tài nguyên đã có (tham số, cấu hình hoặc module thay đổi)', RETAIN: 'Giữ nguyên (đã xác minh không đổi so với lần triển khai trước)',
   UNVERIFIED: 'Đã có, chưa xác minh được thay đổi; có thể được cập nhật', BIND: 'Liên kết hệ thống, không tạo',
@@ -17,8 +17,8 @@ function providerText(provider: NonNullable<ResourceIntent['providers']>[number]
   return `${provider.name}: cluster của Môi trường (cách cũ, giữ tới V03)${provider.connectionKey ? ` ${provider.connectionKey}` : ''}`;
 }
 
-export const rendererText = (rendering: { definitionKey: string; driverType: string; bundle: { version: string } } | undefined) =>
-  rendering?.driverType ? `${rendering.driverType} ${rendering.bundle.version} (mẫu ${rendering.definitionKey})` : 'Chưa xác định trình dựng score-k8s (không có renderer mặc định)';
+export const rendererText = (rendering: { definitionKey: string; class?: string; driverType: string; bundle: { version: string } } | undefined) =>
+  rendering?.driverType ? `${rendering.driverType} ${rendering.bundle.version} (mẫu ${rendering.definitionKey}${rendering.class ? `, class ${rendering.class}` : ''})` : 'Chưa xác định trình dựng score-k8s (không có renderer mặc định)';
 
 // The safe resource projection of a Preview (UC-05 BR-10). It states intent only
 // and does not claim a final Terraform plan or manifest.
@@ -32,7 +32,7 @@ export function ResourceIntents({ intents, label: ariaLabel = 'Tài nguyên hạ
       <tbody>{intents.map((intent) => <tr key={`${intent.descriptor}|${intent.scope}`}>
         <td>{intent.descriptor}<br /><small>{intent.scope}</small></td>
         <td>{intent.resourceType} / {intent.class || 'default'}</td>
-        <td>{intent.definitionKey}<br /><small>{intent.driverType}</small></td>
+        <td>{intent.definitionKey}<br /><small>{intent.driverType}{intent.driverAccount ? ` · tài khoản ${intent.driverAccount}${intent.accountVersion ? ` v${intent.accountVersion}` : ''}` : ''}</small></td>
         <td>{intent.module ? <>{intent.module.module} · {intent.module.revision}<br /><small title={intent.module.contentSha256}>sha256:{intent.module.contentSha256.slice(0, 12)}</small></> : '—'}</td>
         <td>{intent.providers?.length ? <ul>{intent.providers.map((provider) => <li key={provider.name}>{providerText(provider)}</li>)}</ul> : '—'}</td>
         <td>{label(ownershipLabels, intent.ownership)}</td>

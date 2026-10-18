@@ -36,10 +36,11 @@ func (e *credentialExecutor) Provision(ctx context.Context, req execution.Provis
 	e.mu.Unlock()
 	if req.ResourceType == "k8s-cluster" && req.Connection.CredentialBacked() {
 		conn := req.Connection
+		target := execution.Target{Kind: "kubernetes", Context: conn.ConfigString("kubeContext"), ClusterName: conn.ConfigString("cluster"), Organization: req.OrganizationKey, Connection: conn.Key}
 		return execution.ProvisionResult{
-			Outputs: map[string]any{"name": conn.ConfigString("cluster"), "endpoint": conn.ConfigString("endpoint"), "kubeContext": conn.ConfigString("kubeContext")},
+			Outputs: map[string]any{"name": conn.ConfigString("cluster"), "endpoint": conn.ConfigString("endpoint"), "kubeContext": conn.ConfigString("kubeContext"), "cluster": target.ClusterOutput(req.Descriptor, conn.Version)},
 			State:   map[string]any{"driver": "existing-cluster", "organization": req.OrganizationKey, "connection": conn.Key},
-			Target:  &execution.Target{Kind: "kubernetes", Context: conn.ConfigString("kubeContext"), ClusterName: conn.ConfigString("cluster"), Organization: req.OrganizationKey, Connection: conn.Key},
+			Target:  &target,
 		}, nil
 	}
 	return e.fake.Provision(ctx, req)
@@ -49,6 +50,8 @@ type targetDeployer struct {
 	*fake.WorkloadDeployer
 	mu      sync.Mutex
 	targets []execution.Target
+	// onApply runs when a workload is applied (tests observe the lifecycle order).
+	onApply func()
 }
 
 func (d *targetDeployer) record(target execution.Target) {
@@ -59,6 +62,9 @@ func (d *targetDeployer) record(target execution.Target) {
 
 func (d *targetDeployer) Apply(ctx context.Context, target execution.Target, manifests []execution.Manifest) error {
 	d.record(target)
+	if d.onApply != nil {
+		d.onApply()
+	}
 	return d.WorkloadDeployer.Apply(ctx, target, manifests)
 }
 
@@ -95,9 +101,9 @@ func credentialBackedApp(t *testing.T, status application.ConnectionStatus) (*bo
 	}); err != nil {
 		t.Fatal(err)
 	}
-	// A UC-01 Application whose staging Environment selected the Connection;
-	// the seeded acceptance binding is immutable and stays untouched.
-	opts.ApplicationKey, opts.EnvironmentKey = newBoundApplication(t, app.Store, opts.OrganizationKey, "Lab App", "lab-app", "lab", ""), "staging"
+	// A UC-01 Application placed by a cluster Definition backed by the "lab"
+	// account; the seeded acceptance Application stays untouched.
+	opts.ApplicationKey, opts.EnvironmentKey = newApplication(t, app.Store, opts.OrganizationKey, "Lab App", "lab-app"), "staging"
 	if status != application.ConnectionReady {
 		// The Connection degrades after the Environment selected it.
 		stored, err := app.Store.GetConnection(ctx, opts.OrganizationKey, "lab")
@@ -109,14 +115,7 @@ func credentialBackedApp(t *testing.T, status application.ConnectionStatus) (*bo
 			t.Fatal(err)
 		}
 	}
-	if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, resource.Definition{
-		Key: "cluster-lab", Name: "cluster-lab", Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
-		DriverAccount: "lab",
-		DriverInputs:  map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
-		Criteria:      []resource.Criterion{{Class: "internal", ApplicationID: opts.ApplicationKey}},
-	}); err != nil {
-		t.Fatal(err)
-	}
+	registerClusterFor(t, app, opts.OrganizationKey, "cluster-lab", "lab", resource.Criterion{Class: "internal", ApplicationID: opts.ApplicationKey})
 	return app, opts, executor, deployer
 }
 

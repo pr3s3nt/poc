@@ -1,6 +1,6 @@
 import { api } from '../../shared/api/client';
 import type { EnvironmentKey } from '../../shared/types/application';
-import type { ResourceIntent } from '../workloads/api';
+import type { Placement, ResourceIntent } from '../workloads/api';
 
 export type PreviewAction = 'deploy' | 'update' | 'remove';
 
@@ -21,9 +21,9 @@ export type PreviewDelta = {
 
 export type PreviewNode = { descriptor: string; kind: 'workload' | 'resource'; resourceType: string; class: string; origins: string[]; workloadId?: string; paramKeys: string[]; bindings: Record<string, string> };
 export type PreviewEdge = { consumer: string; provider: string; reason: string; path?: string };
-export type PreviewMatch = { descriptor: string; definitionKey: string; driverType: string; specificity: number; binding?: string; connectionKey?: string };
+export type PreviewMatch = { descriptor: string; definitionKey: string; driverType: string; specificity: number; binding?: string; connectionKey?: string; definitionVersion?: number; driverAccount?: string; accountVersion?: number };
 
-export type RenderingSelection = { definitionKey: string; driverType: string; bundle: { id: string; version: string; digest: string } };
+export type RenderingSelection = { definitionKey: string; class?: string; driverType: string; bundle: { id: string; version: string; digest: string } };
 
 export type ScorePreview = {
   rendering?: Record<string, RenderingSelection>;
@@ -44,6 +44,7 @@ export type ScorePreview = {
   // The safe resource projection and pinned target of UC-05 BR-10. Optional so that a
   // response without it reads as unavailable, never as "nothing to create".
   resourceIntents?: ResourceIntent[];
+  placements?: Placement[];
   binding?: { connectionKey: string; executionProfile: string; region: string };
   accountId?: string;
 };

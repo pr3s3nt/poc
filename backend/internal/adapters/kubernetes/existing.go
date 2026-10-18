@@ -59,7 +59,11 @@ func (a *ExistingClusterAdapter) provisionCredentialBacked(ctx context.Context, 
 		return execution.ProvisionResult{}, fmt.Errorf("kubernetes: cluster of connection %q is not reachable", conn.Key)
 	}
 	return execution.ProvisionResult{
-		Outputs: map[string]any{"name": name, "endpoint": endpoint, "kubeContext": kubeContext},
+		Outputs: map[string]any{
+			"name": name, "endpoint": endpoint, "kubeContext": kubeContext,
+			// Typed opaque scoped target (ADR-016): identity and account, no credential.
+			"cluster": target.ClusterOutput(req.Descriptor, conn.Version),
+		},
 		State: map[string]any{
 			"driver": "existing-cluster", "kubeContext": kubeContext, "serverVersion": serverVersion(out),
 			"organization": req.OrganizationKey, "connection": conn.Key,

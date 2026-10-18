@@ -31,7 +31,7 @@ func k8sTerraformDefinition(key, typ string, ref tfmodule.SourceRef, variables m
 		Key: key, Name: key, Version: 1, ResourceTypeKey: typ, DriverType: resource.DriverTerraform,
 		DriverInputs: map[string]any{"values": map[string]any{
 			"source": ref.Map(), "variables": variables, "input_mapping": inputMapping, "output_mapping": outputMapping,
-			"provider_bindings": map[string]any{"kubernetes": map[string]any{"target": tfmodule.TargetEnvironment}},
+			"provider_bindings": map[string]any{"kubernetes": map[string]any{"target": tfmodule.TargetResource, "resource_ref": "k8s-cluster.internal#environments.@app.@env"}},
 		}},
 		Criteria: []resource.Criterion{{}},
 	}
@@ -66,7 +66,9 @@ func k8sRequestWith(t *testing.T, annotations map[string]any, adjust func(*plann
 	if annotation {
 		redisVars["annotations"] = annotations
 	}
-	catalog := planning.Catalog{Types: map[string]resource.Type{}}
+	catalog := planning.Catalog{Types: map[string]resource.Type{}, Accounts: map[string]application.Connection{
+		o.ConnectionKey: {Key: o.ConnectionKey, Kind: application.ConnectionKubernetes, OrganizationKey: o.OrganizationKey, Status: application.ConnectionReady, Version: 2},
+	}}
 	for _, typ := range seed.ResourceTypes() {
 		catalog.Types[typ.Key] = typ
 	}
@@ -74,7 +76,7 @@ func k8sRequestWith(t *testing.T, annotations map[string]any, adjust func(*plann
 		{Name: "host", Type: "string", Required: true}, {Name: "port", Type: "number", Required: true}, {Name: "username", Type: "string", Required: true},
 		{Name: "password", Type: "string", Required: true, Secret: true}, {Name: "tls", Type: "bool", Required: true}}}
 	for _, d := range seed.ResourceDefinitions(o) {
-		if d.Key != "namespace-kubernetes" && d.Key != "postgres-internal-statefulset" {
+		if d.Key != "namespace-kubernetes" && d.Key != "namespace-kubernetes-internal" && d.Key != "postgres-internal-statefulset" {
 			catalog.Definitions = append(catalog.Definitions, d)
 		}
 	}
@@ -97,9 +99,7 @@ func k8sRequestWith(t *testing.T, annotations map[string]any, adjust func(*plann
 		OrganizationKey: o.OrganizationKey,
 		App:             application.Application{Key: o.ApplicationKey, OrganizationKey: o.OrganizationKey, Name: o.ApplicationKey, Version: 1},
 		Env: environment.Environment{Key: o.EnvironmentKey, ApplicationKey: o.ApplicationKey, Name: o.EnvironmentName, Type: o.EnvironmentType, NamespaceIdentity: o.NamespaceIdentity, Version: 1,
-			ConnectionKey: o.ConnectionKey, Profile: application.ProfileInternalK8s, RuntimeStatus: application.RuntimeReady, InfrastructureScope: environment.ScopeEnvironment},
-		Connection: application.Connection{Key: o.ConnectionKey, Kind: application.ConnectionKubernetes, OrganizationKey: o.OrganizationKey, Status: application.ConnectionReady,
-			Config: map[string]any{"cluster": o.ClusterName, "kubeContext": o.KubeContext}},
+			InfrastructureScope: environment.ScopeEnvironment},
 		BaseSet: environment.NewDocument(), After: doc, WorkloadID: "backend", RunID: o.RunID, Catalog: catalog,
 		Terraform: registrytest.Inspector(t, store.New()),
 	}
@@ -131,12 +131,12 @@ func batchOf(plan *planning.Plan, descriptor string) int {
 // PostgreSQL edge to the SAME shared PostgreSQL node (never a second one).
 func TestKubernetesModulesPlanWithRealBundles(t *testing.T) {
 	const (
-		cluster = "k8s-cluster.internal#connections.internal-cluster"
+		cluster = "k8s-cluster.internal#environments.acceptance.dev"
 		ns      = "k8s-namespace.default#environments.acceptance.dev"
 		pg      = "postgres.default#shared.acceptance-db"
 		redis   = "redis.default#shared.acceptance-cache"
 	)
-	plan, err := planning.NewService().Plan(k8sRequest(t, true))
+	plan, err := planning.NewService(placedBundles()).Plan(k8sRequest(t, true))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestKubernetesModulesPlanWithRealBundles(t *testing.T) {
 
 	// Without the fixture annotation the production graph has no Redis ->
 	// PostgreSQL dependency: it is a test graph, not a product requirement.
-	plain, err := planning.NewService().Plan(k8sRequest(t, false))
+	plain, err := planning.NewService(placedBundles()).Plan(k8sRequest(t, false))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func TestKubernetesModulesPlanRejectsSecretOutputsInNonsecretInputs(t *testing.T
 	for class, adjust := range classifications {
 		for name, annotations := range values {
 			t.Run(class+"/"+name, func(t *testing.T) {
-				_, err := planning.NewService().Plan(k8sRequestWith(t, annotations, adjust))
+				_, err := planning.NewService(placedBundles()).Plan(k8sRequestWith(t, annotations, adjust))
 				if !errors.Is(err, planning.ErrSecretInput) {
 					t.Fatalf("not rejected: %v", err)
 				}
@@ -224,7 +224,7 @@ func TestKubernetesModulesPlanRejectsSecretOutputsInNonsecretInputs(t *testing.T
 		}
 	}
 	// A nonsecret output of the same provider is accepted, even next to text.
-	if _, err := planning.NewService().Plan(k8sRequestWith(t, map[string]any{"example.test/postgres-host": "db=" + host}, nil)); err != nil {
+	if _, err := planning.NewService(placedBundles()).Plan(k8sRequestWith(t, map[string]any{"example.test/postgres-host": "db=" + host}, nil)); err != nil {
 		t.Fatalf("nonsecret host fixture: %v", err)
 	}
 }
@@ -240,12 +240,12 @@ func TestSeedTerraformK8sCatalogPlansOverRealBundles(t *testing.T) {
 			c.Types[typ.Key] = typ
 		}
 	})
-	plan, err := planning.NewService().Plan(req)
+	plan, err := planning.NewService(placedBundles()).Plan(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	const (
-		cluster = "k8s-cluster.internal#connections.internal-cluster"
+		cluster = "k8s-cluster.internal#environments.acceptance.dev"
 		ns      = "k8s-namespace.default#environments.acceptance.dev"
 		pg      = "postgres.default#shared.acceptance-db"
 		redis   = "redis.default#shared.acceptance-cache"
@@ -274,7 +274,7 @@ func TestSeedTerraformK8sCatalogPlansOverRealBundles(t *testing.T) {
 // V2-A01 deletion step both a dependency to select and one to leave unchecked.
 func TestConsoleAuthoredAcceptanceCatalogPlansTheDeletionFixtureGraph(t *testing.T) {
 	const (
-		cluster = "k8s-cluster.internal#connections.internal-cluster"
+		cluster = "k8s-cluster.internal#environments.acceptance.dev"
 		ns      = "k8s-namespace.default#environments.acceptance.dev"
 		pg      = "postgres.in-cluster#shared.acceptance-db"
 		redis   = "redis.in-cluster#shared.acceptance-cache"
@@ -294,6 +294,11 @@ func TestConsoleAuthoredAcceptanceCatalogPlansTheDeletionFixtureGraph(t *testing
 		pgDef.Criteria = []resource.Criterion{{Class: "in-cluster"}}
 		redisDef.Criteria = []resource.Criterion{{Class: "in-cluster"}}
 		c.Definitions = []resource.Definition{nsDef, pgDef, redisDef}
+		for _, d := range seed.ResourceDefinitions(seedtest.Defaults()) {
+			if d.Key == "cluster-internal" || d.Key == "workload-score-k8s" {
+				c.Definitions = append(c.Definitions, d)
+			}
+		}
 		c.Types = map[string]resource.Type{
 			"workload":      {Key: "workload"},
 			"k8s-cluster":   {Key: "k8s-cluster", Outputs: []resource.OutputField{{Name: "name", Type: "string", Required: true}, {Name: "endpoint", Type: "string"}, {Name: "kubeContext", Type: "string", Required: true}, {Name: "kubeconfig", Type: "string"}}},
@@ -301,8 +306,8 @@ func TestConsoleAuthoredAcceptanceCatalogPlansTheDeletionFixtureGraph(t *testing
 			"redis":         seed.RedisType(),
 		}
 		for _, typ := range seed.ResourceTypes() {
-			if typ.Key == "postgres" {
-				c.Types["postgres"] = typ
+			if typ.Key == "postgres" || typ.Key == "k8s-cluster" {
+				c.Types[typ.Key] = typ
 			}
 		}
 	})
@@ -314,7 +319,7 @@ func TestConsoleAuthoredAcceptanceCatalogPlansTheDeletionFixtureGraph(t *testing
 		t.Fatal(err)
 	}
 	req.After = after
-	plan, err := planning.NewService().Plan(req)
+	plan, err := planning.NewService(placedBundles()).Plan(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +331,7 @@ func TestConsoleAuthoredAcceptanceCatalogPlansTheDeletionFixtureGraph(t *testing
 	// The wrong reference (default class) is exactly what the planner refuses.
 	bad := k8sRequestWith(t, map[string]any{"example.test/postgres-host": "${resources['postgres.default#shared.acceptance-db'].outputs.host}"}, nil)
 	bad.After = after
-	if _, err := planning.NewService().Plan(bad); err == nil {
+	if _, err := planning.NewService(placedBundles()).Plan(bad); err == nil {
 		t.Fatal("a reference to a nonexistent descriptor was planned")
 	}
 }

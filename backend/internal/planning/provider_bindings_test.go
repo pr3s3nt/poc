@@ -49,7 +49,7 @@ func contractFor(t *testing.T, plan *Plan, definition string) TerraformContract 
 // AWS bindings pin the Definition's Driver Account and literal region.
 func TestPlan_AWSBindingsPinDriverAccountAndRegion(t *testing.T) {
 	req := testRequest(t, application.ProfileAWSEKS, "backend")
-	plan, err := NewService().Plan(req)
+	plan, err := NewService(testBundles()).Plan(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestPlan_AWSBindingsPinDriverAccountAndRegion(t *testing.T) {
 		values["variables"] = vars
 		d.DriverInputs = map[string]any{"values": values}
 	})
-	again, err := NewService().Plan(other)
+	again, err := NewService(testBundles()).Plan(other)
 	if err != nil || again.PlanHash == plan.PlanHash {
 		t.Fatalf("region change did not change the plan hash: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestPlan_AWSBindingsPinDriverAccountAndRegion(t *testing.T) {
 	aws.Key, aws.Name = "postgres-aws-forced", "forced"
 	aws.Criteria = []resource.Criterion{{ApplicationID: internal.App.Key, Class: "default"}}
 	internal.Catalog.Definitions = append(append([]resource.Definition(nil), internal.Catalog.Definitions...), aws)
-	if _, err := NewService().Plan(internal); err != nil {
+	if _, err := NewService(testBundles()).Plan(internal); err != nil {
 		t.Fatalf("AWS node from a Definition account: %v", err)
 	}
 }
@@ -110,14 +110,17 @@ func TestPlan_KubernetesEnvironmentBindingCreatesClusterEdgeWithoutPlaceholder(t
 		profile application.ExecutionProfile
 		cluster string
 		pinConn string
+		binding map[string]any
+		target  string
 	}{
-		{"internal-k8s", application.ProfileInternalK8s, "k8s-cluster.internal#connections.internal-cluster", "internal-cluster"},
-		{"aws-eks", application.ProfileAWSEKS, "k8s-cluster.eks#environments.acceptance-cloud.dev", ""},
+		{"definition-placed", application.ProfileInternalK8s, "k8s-cluster.internal#environments.acceptance.dev", "internal-cluster",
+			map[string]any{"target": tfmodule.TargetResource, "resource_ref": "k8s-cluster.internal#environments.@app.@env"}, tfmodule.TargetResource},
+		{"aws-eks", application.ProfileAWSEKS, "k8s-cluster.eks#environments.acceptance-cloud.dev", "", map[string]any{"target": tfmodule.TargetEnvironment}, tfmodule.TargetEnvironment},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := testRequest(t, tc.profile, "backend")
-			req.Catalog.Definitions = append(req.Catalog.Definitions, kubernetesModuleDefinition(map[string]any{"target": tfmodule.TargetEnvironment}))
-			plan, err := NewService().Plan(req)
+			req.Catalog.Definitions = append(req.Catalog.Definitions, kubernetesModuleDefinition(tc.binding))
+			plan, err := NewService(testBundles()).Plan(req)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -126,7 +129,7 @@ func TestPlan_KubernetesEnvironmentBindingCreatesClusterEdgeWithoutPlaceholder(t
 				t.Fatalf("no provider-binding edge to %s: %+v", tc.cluster, plan.Graph.Edges)
 			}
 			pins := contractFor(t, plan, "postgres-k8s-module").ProviderBindings
-			if len(pins) != 1 || pins[0].Kind != tfmodule.BindingKubernetes || pins[0].Provider != tc.cluster || pins[0].ConnectionKey != tc.pinConn || pins[0].Target != tfmodule.TargetEnvironment {
+			if len(pins) != 1 || pins[0].Kind != tfmodule.BindingKubernetes || pins[0].Provider != tc.cluster || pins[0].ConnectionKey != tc.pinConn || pins[0].Target != tc.target {
 				t.Fatalf("pins %+v", pins)
 			}
 			// Provider before consumer in the schedule.
@@ -155,7 +158,7 @@ func TestPlan_KubernetesEnvironmentBindingCreatesClusterEdgeWithoutPlaceholder(t
 func TestPlan_KubernetesResourceBindingNamesClusterAndRejectsOthers(t *testing.T) {
 	req := testRequest(t, application.ProfileAWSEKS, "backend")
 	req.Catalog.Definitions = append(req.Catalog.Definitions, kubernetesModuleDefinition(map[string]any{"target": tfmodule.TargetResource, "resource_ref": "k8s-cluster.eks#environments.@app.@env"}))
-	plan, err := NewService().Plan(req)
+	plan, err := NewService(testBundles()).Plan(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,12 +171,12 @@ func TestPlan_KubernetesResourceBindingNamesClusterAndRejectsOthers(t *testing.T
 
 	notCluster := testRequest(t, application.ProfileAWSEKS, "backend")
 	notCluster.Catalog.Definitions = append(notCluster.Catalog.Definitions, kubernetesModuleDefinition(map[string]any{"target": tfmodule.TargetResource, "resource_ref": "vpc.default#@infra"}))
-	if _, err := NewService().Plan(notCluster); err == nil || !strings.Contains(err.Error(), "Kubernetes cluster resource") {
+	if _, err := NewService(testBundles()).Plan(notCluster); err == nil || !strings.Contains(err.Error(), "Kubernetes cluster resource") {
 		t.Fatalf("non-cluster reference: %v", err)
 	}
 	foreign := testRequest(t, application.ProfileAWSEKS, "backend")
 	foreign.Catalog.Definitions = append(foreign.Catalog.Definitions, kubernetesModuleDefinition(map[string]any{"target": tfmodule.TargetResource, "resource_ref": "k8s-cluster.nonexistent#environments.other.env"}))
-	if _, err := NewService().Plan(foreign); err == nil {
+	if _, err := NewService(testBundles()).Plan(foreign); err == nil {
 		t.Fatal("a cluster with no matching Definition was planned")
 	}
 }
@@ -182,8 +185,8 @@ func TestPlan_KubernetesResourceBindingNamesClusterAndRejectsOthers(t *testing.T
 func TestPlan_ProviderBindingPlanIsDeterministic(t *testing.T) {
 	build := func() *Plan {
 		req := testRequest(t, application.ProfileInternalK8s, "backend")
-		req.Catalog.Definitions = append(req.Catalog.Definitions, kubernetesModuleDefinition(map[string]any{"target": tfmodule.TargetEnvironment}))
-		plan, err := NewService().Plan(req)
+		req.Catalog.Definitions = append(req.Catalog.Definitions, kubernetesModuleDefinition(map[string]any{"target": tfmodule.TargetResource, "resource_ref": "k8s-cluster.internal#environments.@app.@env"}))
+		plan, err := NewService(testBundles()).Plan(req)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -237,3 +237,23 @@ immutable process registry shared by Organizations, never a scan or renderer cal
 No paths, binaries, template source, digests, credentials or persistence are
 exposed or mutated. Registration revalidates the selected ID independently;
 query results do not guarantee subsequent registration or execution availability.
+
+
+## V03 Generic Workload extension — current replacement
+
+[ADR-016](../decisions/ADR-016-definition-selected-workload-targets.md) replaces the render-only registration restriction for V03 internal execution. `values.variables` permits literal render_bundle and required typed namespace/cluster resource-output refs, with no additional workload driver variables. Provision rules are allowed and expanded from the selected workload Definition before graph completion, with unchanged flags/param semantics. Public Score adds optional metadata.class; absent class is default. Type validation rejects malformed/unknown/credential fields and wrong output types.
+Required workload Type inputs are incompatible; optional Type inputs cannot be
+supplied through this driver. Resource params and companion params remain typed
+and resolved under the existing resource contract. Class and reference intent persist/hash with Definition/bundle pins.
+
+The selected driver owns lifecycle policy by dispatching existing UC-06 render/apply/readiness and UC-07 update/remove adapters, preserving their boundaries. UC-08 never executes a workload node. Infrastructure outputs, including typed target, resolve first; namespace/cluster identity must agree. Lifecycle metadata/readiness uses existing Deployment/Workload status views;
+workload Type outputs must be empty (no arbitrary resource-output publication
+by this driver). Namespace/cluster/resource output bindings remain supported;
+manifests/credential refs are internal only. Match no/tie/wrong-account/missing-target cannot fallback. Deployment/Service, configuration delivery, ownership, bounds, stale tokens and current-set-after-ready postconditions above remain. Preview shows per-workload target provenance. V03 enforces one target in the Candidate Set before calls; the persisted model remains per workload/resource. Full driver protocol compatibility is outside scope.
+
+
+Workload provision flags use UC-06 BR-08 without exceptions: empty rule does
+not invent an edge, is_dependent and match_dependents retain their directions.
+UC-06 coordinates full-graph lifecycle stages, invoking UC-08 resource subsets
+when their providers have completed; UC-08 never executes a workload. Full DAG
+validation includes workload and self-reference cycles before provider calls.

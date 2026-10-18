@@ -111,11 +111,11 @@ func TestCredentialBackedTarget_RemovalAfterRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	opts.ApplicationKey, opts.EnvironmentKey = newBoundApplication(t, first.app.Store, opts.OrganizationKey, "Lab App", "lab-app", created.Key, ""), "staging"
+	opts.ApplicationKey, opts.EnvironmentKey = newApplication(t, first.app.Store, opts.OrganizationKey, "Lab App", "lab-app"), "staging"
 	if err := first.app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, resource.Definition{
 		Key: "cluster-lab", Name: "cluster-lab", Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
 		DriverAccount: created.Key,
-		DriverInputs:  map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
+		DriverInputs:  map[string]any{"values": map[string]any{"variables": map[string]any{}}},
 		Criteria:      []resource.Criterion{{Class: "internal", ApplicationID: opts.ApplicationKey}},
 	}); err != nil {
 		t.Fatal(err)

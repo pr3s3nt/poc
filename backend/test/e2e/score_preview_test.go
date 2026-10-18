@@ -38,7 +38,7 @@ func TestUC05ScorePreviewHTTP(t *testing.T) {
 			t.Fatalf("preview = %d %s", resp.StatusCode, body)
 		}
 		view := decode(t, body)
-		want := []string{"applicationKey", "environmentKey", "baseSetId", "baseVersion", "runId", "workloadId", "action", "planHash", "delta", "candidateSet", "graph", "matches", "batches", "classification", "resourceIntents", "binding"}
+		want := []string{"applicationKey", "environmentKey", "baseSetId", "baseVersion", "runId", "workloadId", "action", "planHash", "delta", "candidateSet", "graph", "matches", "batches", "classification", "resourceIntents", "placements", "binding", "rendering"}
 		if len(view) != len(want) {
 			t.Fatalf("response keys = %v", view)
 		}
@@ -138,8 +138,8 @@ func TestUC05ScorePreviewHTTP(t *testing.T) {
 	t.Run("not ready connection is a safe 400", func(t *testing.T) {
 		ctx := context.Background()
 		a, _ := app.Store.GetApplication(ctx, key)
-		e, _ := app.Store.GetEnvironment(ctx, key, "staging")
-		conn, _ := app.Store.GetConnection(ctx, a.OrganizationKey, e.ConnectionKey)
+		// The cluster Definition's own Internal account decides readiness (ADR-016).
+		conn, _ := app.Store.GetConnection(ctx, a.OrganizationKey, "internal-cluster")
 		saved := conn
 		conn.Status = appdomain.ConnectionVerifying
 		if err := app.Store.SaveConnection(ctx, conn); err != nil {
@@ -149,7 +149,7 @@ func TestUC05ScorePreviewHTTP(t *testing.T) {
 		resp, body := call(t, client, http.MethodPost, endpoint, validJSON)
 		var out map[string]string
 		_ = json.Unmarshal([]byte(body), &out)
-		if resp.StatusCode != http.StatusBadRequest || strings.Contains(body, conn.Key) || out["code"] != "CONNECTION_UNAVAILABLE" || out["field"] != "connectionKey" {
+		if resp.StatusCode != http.StatusBadRequest || strings.Contains(body, conn.Key) || out["code"] != "PLANNING_REJECTED" {
 			t.Fatalf("not ready = %d %s", resp.StatusCode, body)
 		}
 	})

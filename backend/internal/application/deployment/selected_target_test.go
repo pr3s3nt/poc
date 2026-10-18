@@ -3,6 +3,7 @@ package deployment_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"orchestrator/internal/adapters/fake"
@@ -10,6 +11,7 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/bootstrap"
 	domain "orchestrator/internal/domain/application"
+	dep "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/execution"
@@ -32,11 +34,12 @@ func (e *scopedClusterExecutor) Provision(ctx context.Context, req execution.Pro
 		e.requests = append(e.requests, req)
 		e.mu.Unlock()
 		conn := req.Connection
+		target := execution.Target{Kind: "kubernetes", Context: conn.ConfigString("kubeContext"), ClusterName: conn.ConfigString("cluster"), Organization: req.OrganizationKey, Connection: conn.Key}
 		return execution.ProvisionResult{
-			Outputs: map[string]any{"name": conn.ConfigString("cluster"), "endpoint": "https://" + conn.Key + ".invalid", "kubeContext": conn.ConfigString("kubeContext")},
+			Outputs: map[string]any{"name": conn.ConfigString("cluster"), "endpoint": "https://" + conn.Key + ".invalid", "kubeContext": conn.ConfigString("kubeContext"), "cluster": target.ClusterOutput(req.Descriptor, conn.Version)},
 			State:   map[string]any{"driver": "existing-cluster", "kubeContext": conn.ConfigString("kubeContext"), "organization": req.OrganizationKey, "connection": conn.Key},
 			// Opaque scoped identity, as the real adapter reports it.
-			Target: &execution.Target{Kind: "kubernetes", Context: conn.ConfigString("kubeContext"), ClusterName: conn.ConfigString("cluster"), Organization: req.OrganizationKey, Connection: conn.Key},
+			Target: &target,
 		}, nil
 	}
 	return e.credentialExecutor.Provision(ctx, req)
@@ -53,40 +56,38 @@ func selectedTargetApp(t *testing.T, definitionConnection string) (*bootstrap.Ap
 	if err := app.Store.SaveConnection(ctx, domain.Connection{ID: "conn-second", Key: "second", Name: "Second", OrganizationKey: opts.OrganizationKey, Kind: domain.ConnectionKubernetes, AuthenticationType: domain.AuthKubeconfig, Status: domain.ConnectionReady, Config: map[string]any{"cluster": "second-cluster", "kubeContext": "second"}, SecretRef: "fake-credential://second"}); err != nil {
 		t.Fatal(err)
 	}
+	key := newApplication(t, app.Store, opts.OrganizationKey, "Second App", "second-app")
 	if definitionConnection != "" {
-		if err := app.Store.SaveResourceDefinition(ctx, opts.OrganizationKey, resource.Definition{
-			Key: "cluster-second", Name: "cluster-second", Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
-			DriverAccount: definitionConnection,
-			DriverInputs:  map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
-			Criteria:      []resource.Criterion{{Class: "internal", ResourceID: "connections.second"}},
-		}); err != nil {
-			t.Fatal(err)
-		}
+		registerClusterFor(t, app, opts.OrganizationKey, "cluster-second", definitionConnection, resource.Criterion{Class: "internal", ApplicationID: key})
 	}
-	return app, opts, executor, deployer, newBoundApplication(t, app.Store, opts.OrganizationKey, "Second App", "second-app", "second", "second")
+	return app, opts, executor, deployer, key
 }
 
-// newBoundApplication creates an Application through UC-01 and sets the given
-// Connection on each Environment (staging, production) through the product
-// set-once operation. Pass an empty key to leave that Environment unset.
-func newBoundApplication(t *testing.T, store persistence.Store, organizationKey, name, subdomain, stagingKey, productionKey string) string {
+// newApplication creates an Application through UC-01. Its placement comes from
+// the cluster Definitions a test registers for it (ADR-016); the Application
+// carries no deployment Connection.
+func newApplication(t *testing.T, store persistence.Store, organizationKey, name, subdomain string) string {
 	t.Helper()
-	ctx := context.Background()
-	svc := application.NewService(store)
-	created, err := svc.Create(ctx, application.CreateCommand{OrganizationKey: organizationKey, Name: name, Subdomain: subdomain})
+	created, err := application.NewService(store).Create(context.Background(), application.CreateCommand{OrganizationKey: organizationKey, Name: name, Subdomain: subdomain})
 	if err != nil {
 		t.Fatal(err)
 	}
 	selectSeededDefinitionsFor(t, store, organizationKey, created.Application.Key)
-	for env, key := range map[string]string{"staging": stagingKey, "production": productionKey} {
-		if key == "" {
-			continue
-		}
-		if _, err := svc.SetConnection(ctx, application.SetConnectionCommand{OrganizationKey: organizationKey, ApplicationKey: created.Application.Key, EnvironmentKey: env, ConnectionKey: key, ExpectedVersion: 1}); err != nil {
-			t.Fatal(err)
-		}
-	}
 	return created.Application.Key
+}
+
+// registerClusterFor saves an existing-cluster Definition backed by the Internal
+// Driver Account that matches only the given criteria.
+func registerClusterFor(t *testing.T, app *bootstrap.App, organizationKey, key, account string, criteria ...resource.Criterion) {
+	t.Helper()
+	if err := app.Store.SaveResourceDefinition(context.Background(), organizationKey, resource.Definition{
+		Key: key, Name: key, Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
+		DriverAccount: account,
+		DriverInputs:  map[string]any{"values": map[string]any{"variables": map[string]any{}}},
+		Criteria:      criteria,
+	}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // selectSeededDefinitionsFor adds the new Application to the explicit app_id
@@ -101,6 +102,9 @@ func selectSeededDefinitionsFor(t *testing.T, store persistence.Store, organizat
 	}
 	seeded := seed.Defaults().ApplicationKey
 	for _, def := range defs {
+		if def.ResourceTypeKey == "k8s-cluster" {
+			continue // each test registers the cluster Definition that places its Application
+		}
 		changed := false
 		for _, criterion := range def.Criteria {
 			if criterion.ApplicationID == seeded {
@@ -158,85 +162,10 @@ func TestSelectedTarget_MatchingDefinitionDeploysToSelectedConnection(t *testing
 	}
 }
 
-// ADR-013: no cluster Definition is needed; the Environment Connection backs the
-// implicit builtin cluster, which is admitted before progress is written.
-func TestSelectedTarget_NoClusterDefinitionNeeded(t *testing.T) {
-	app, opts, executor, deployer, key := selectedTargetApp(t, "")
-	if err := deployBackendTo(app, opts, key, "staging"); err != nil {
-		t.Fatalf("deploy = %v", err)
-	}
-	assertBuiltinCluster(t, app, opts, executor, deployer)
-}
-
-// An authored cluster Definition for another Connection neither retargets nor
-// rejects the implicit cluster.
-func TestSelectedTarget_AuthoredDefinitionForAnotherConnectionIsIgnored(t *testing.T) {
-	app, opts, executor, deployer, key := selectedTargetApp(t, "internal-cluster")
-	if err := deployBackendTo(app, opts, key, "staging"); err != nil {
-		t.Fatalf("deploy = %v", err)
-	}
-	assertBuiltinCluster(t, app, opts, executor, deployer)
-}
-
-func assertBuiltinCluster(t *testing.T, app *bootstrap.App, opts seed.Options, executor *scopedClusterExecutor, deployer *targetDeployer) {
-	t.Helper()
-	if len(executor.requests) == 0 || len(deployer.targets) == 0 {
-		t.Fatalf("executor calls %d, applies %d", len(executor.requests), len(deployer.targets))
-	}
-	for _, req := range executor.requests {
-		if req.ResourceType != "k8s-cluster" {
-			continue
-		}
-		if req.Connection.Key != "second" || req.DefinitionKey != planning.BuiltinClusterKey {
-			t.Fatalf("cluster ran with connection %q definition %q", req.Connection.Key, req.DefinitionKey)
-		}
-	}
-	for _, target := range deployer.targets {
-		if target.Context != "second" {
-			t.Fatalf("workload applied to %#v", target)
-		}
-	}
-	defs, err := app.Store.ListResourceDefinitions(context.Background(), opts.OrganizationKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	found := 0
-	for _, d := range defs {
-		if d.Key == planning.BuiltinClusterKey {
-			found++
-			if !planning.IsBuiltinClusterDefinition(d) {
-				t.Fatalf("admitted definition differs from the trusted one: %+v", d)
-			}
-		}
-	}
-	if found != 1 {
-		t.Fatalf("builtin definition admitted %d times", found)
-	}
-	active, err := app.Store.ListActiveResources(context.Background(), opts.OrganizationKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, a := range active {
-		if a.Descriptor.Type == "k8s-cluster" && a.DefinitionKey != planning.BuiltinClusterKey {
-			t.Fatalf("active cluster definition = %q", a.DefinitionKey)
-		}
-	}
-}
-
-// registerSecondCluster saves a READY Kubernetes Connection with its matching
-// cluster Definition so an Environment can select it.
+// registerCluster saves a READY Kubernetes Internal Driver Account.
 func registerCluster(t *testing.T, app *bootstrap.App, organizationKey, key string) {
 	t.Helper()
-	ctx := context.Background()
-	if err := app.Store.SaveConnection(ctx, domain.Connection{ID: "conn-" + key, Key: key, Name: key, OrganizationKey: organizationKey, Kind: domain.ConnectionKubernetes, AuthenticationType: domain.AuthKubeconfig, Status: domain.ConnectionReady, Config: map[string]any{"cluster": key + "-cluster", "kubeContext": key}, SecretRef: "fake-credential://" + key}); err != nil {
-		t.Fatal(err)
-	}
-	if err := app.Store.SaveResourceDefinition(ctx, organizationKey, resource.Definition{
-		Key: "cluster-" + key, Name: "cluster-" + key, Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: resource.DriverExistingCluster,
-		DriverAccount: key,
-		DriverInputs:  map[string]any{"values": map[string]any{"variables": map[string]any{"name": "${context.connection.cluster}", "kubeContext": "${context.connection.context}"}}},
-		Criteria:      []resource.Criterion{{Class: "internal", ResourceID: "connections." + key}},
-	}); err != nil {
+	if err := app.Store.SaveConnection(context.Background(), domain.Connection{ID: "conn-" + key, Key: key, Name: key, OrganizationKey: organizationKey, Kind: domain.ConnectionKubernetes, AuthenticationType: domain.AuthKubeconfig, Status: domain.ConnectionReady, Config: map[string]any{"cluster": key + "-cluster", "kubeContext": key}, SecretRef: "fake-credential://" + key}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -250,7 +179,9 @@ func TestSelectedTarget_EnvironmentsDeployToTheirOwnConnectionIndependently(t *t
 	app, opts := newApp(t, func(o *bootstrap.Options) { o.RegistryOverride = executor; o.DeployerOverride = deployer })
 	registerCluster(t, app, opts.OrganizationKey, "stage-cluster")
 	registerCluster(t, app, opts.OrganizationKey, "prod-cluster")
-	key := newBoundApplication(t, app.Store, opts.OrganizationKey, "Split App", "split-app", "stage-cluster", "prod-cluster")
+	key := newApplication(t, app.Store, opts.OrganizationKey, "Split App", "split-app")
+	registerClusterFor(t, app, opts.OrganizationKey, "cluster-stage", "stage-cluster", resource.Criterion{Class: "internal", ApplicationID: key, EnvironmentID: "staging"})
+	registerClusterFor(t, app, opts.OrganizationKey, "cluster-prod", "prod-cluster", resource.Criterion{Class: "internal", ApplicationID: key, EnvironmentID: "production"})
 
 	for _, env := range []string{"staging", "production"} {
 		before := len(deployer.targets)
@@ -277,36 +208,45 @@ func TestSelectedTarget_EnvironmentsDeployToTheirOwnConnectionIndependently(t *t
 // An UNCONFIGURED Environment fails deploy with the typed error before a
 // Deployment, a plan, a provisioning call or any apply exists, while draft and
 // configuration-style reads of the Environment keep working.
-func TestUnconfiguredEnvironmentFailsDeployBeforeAnySideEffect(t *testing.T) {
+func TestEnvironmentWithoutConnectionFailsPlacementBeforeAnySideEffect(t *testing.T) {
 	executor := &scopedClusterExecutor{credentialExecutor: credentialExecutor{fake: fake.NewResourceExecutor()}}
 	deployer := &targetDeployer{WorkloadDeployer: fake.NewWorkloadDeployer()}
 	app, opts := newApp(t, func(o *bootstrap.Options) { o.RegistryOverride = executor; o.DeployerOverride = deployer })
-	key := newBoundApplication(t, app.Store, opts.OrganizationKey, "Unset App", "unset-app", "", "")
+	key := newApplication(t, app.Store, opts.OrganizationKey, "Unset App", "unset-app")
 
+	// ADR-016: an Environment without a deployment Connection is Definition-placed.
+	// With no cluster Definition matching the Application, it fails in planning as
+	// a match error, never as UNCONFIGURED and never on a host or default target.
 	err := deployBackendTo(app, opts, key, "staging")
-	if !errors.Is(err, planning.ErrEnvironmentUnconfigured) {
+	var staged *planning.StageError
+	if errors.Is(err, planning.ErrEnvironmentUnconfigured) || !errors.As(err, &staged) || !strings.Contains(err.Error(), "no resource definition matches k8s-cluster") {
 		t.Fatalf("deploy = %v", err)
 	}
 	if len(executor.requests) != 0 || len(deployer.targets) != 0 || len(app.FakeDeploy.Applied) != 0 {
 		t.Fatalf("side effects: %d executor calls, %d applies", len(executor.requests), len(app.FakeDeploy.Applied))
 	}
-	if deployments, _ := app.Store.ListDeployments(context.Background(), key, "staging"); len(deployments) != 0 {
-		t.Fatalf("a Deployment was recorded: %+v", deployments)
+	// The only record is a FAILED planning Deployment with a fixed safe reason; no resource ran.
+	for _, deployment := range mustDeployments(t, app, key) {
+		if deployment.Status != dep.StatusFailed || deployment.FailureReason == "" || strings.Contains(deployment.FailureReason, "workload.default") {
+			t.Fatalf("deployment = %+v", deployment)
+		}
 	}
 	if _, err := app.Store.GetEnvironment(context.Background(), key, "staging"); err != nil {
 		t.Fatalf("environment still readable: %v", err)
 	}
 }
 
-// A binding set after a preview changes the Environment version and the pinned
-// target, so a deploy cannot reuse a plan made for another target.
+// Cluster Definitions that place the same workload on different Internal Driver
+// Accounts give different plan hashes, so a deploy cannot reuse a plan made for
+// another target.
 func TestPlanHashDiffersBetweenTargetsOfTheSameWorkload(t *testing.T) {
 	app, opts, _, _, _ := selectedTargetApp(t, "second")
 	registerCluster(t, app, opts.OrganizationKey, "third")
 	scores := seed.AcceptanceScores(opts)
 	hashes := map[string]string{}
 	for _, tc := range []struct{ name, subdomain, key string }{{"On Second", "on-second", "second"}, {"On Third", "on-third", "third"}} {
-		appKey := newBoundApplication(t, app.Store, opts.OrganizationKey, tc.name, tc.subdomain, tc.key, "")
+		appKey := newApplication(t, app.Store, opts.OrganizationKey, tc.name, tc.subdomain)
+		registerClusterFor(t, app, opts.OrganizationKey, "cluster-for-"+tc.subdomain, tc.key, resource.Criterion{Class: "internal", ApplicationID: appKey})
 		result, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: appKey, EnvironmentKey: "staging", WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test", RunID: "run-1"})
 		if err != nil {
 			t.Fatal(err)
@@ -316,4 +256,13 @@ func TestPlanHashDiffersBetweenTargetsOfTheSameWorkload(t *testing.T) {
 	if hashes["second"] == hashes["third"] {
 		t.Fatalf("plans for different targets share a hash: %v", hashes)
 	}
+}
+
+func mustDeployments(t *testing.T, app *bootstrap.App, key string) []dep.Deployment {
+	t.Helper()
+	deployments, err := app.Store.ListDeployments(context.Background(), key, "staging")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return deployments
 }

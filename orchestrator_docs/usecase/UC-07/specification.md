@@ -113,12 +113,14 @@ UC-07 Update or Remove Workload
 - **OOS-04:** Recovery khi update Kubernetes thất bại.
 - **OOS-05:** Canary, blue/green hoặc progressive delivery.
 
-## Internal cluster compatibility
+## Internal applied-target restoration
 
-Update/remove/retry uses the implicit cluster binding of
-[ADR-013](../../architecture/decisions/ADR-013-implicit-existing-cluster.md).
-Historical targets remain usable without a new user cluster Definition; binding
-changes remain governed by ADR-012 and never silently retarget old resources.
+Update/remove/retry restores each workload's persisted applied target and
+namespace under [ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md).
+Catalog edits cannot redirect deletion. Replacement target changes still require
+UC-05 V2-04 explicit operation or rejection; no automatic migration/rebinding.
+Old-data migration is not required in V03. Ownership/current consumers and
+original provider state guard separately confirmed resource cleanup.
 
 ## T30 pending rename boundary
 
@@ -191,3 +193,8 @@ runtime/current set hoặc Environment khác khi lưu.
 - **DEL-POST-01:** Chỉ khi tất cả tài nguyên đã xác nhận không còn, cleanup
   SUCCEEDED và resource chuyển DESTROYED. Dữ liệu bị xóa không được coi là
   có thể Undo. Tài nguyên giữ lại, current Set và history không bị sửa ngoài ý định.
+
+
+## V03 target restoration
+
+[ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) replaces the internal ADR-013 compatibility section. Update/remove/retry uses each persisted applied workload target/namespace/identity; catalog edits cannot redirect deletion. Remove marks unused resources UNREFERENCED; separate confirmed cleanup removes only owned namespace/resources and preserves PREEXISTING cluster. A class/target change requiring replacement is blocked under UC-05 V2-04, never silently retargeted.

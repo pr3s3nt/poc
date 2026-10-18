@@ -60,7 +60,7 @@ func TestV02ProvisionStoredThroughHTTPDrivesPreviewPlan(t *testing.T) {
 	}
 	register(map[string]any{"key": "workload", "inputs": []any{}, "outputs": []any{}})
 	register(map[string]any{"key": "k8s-namespace", "inputs": []any{}, "outputs": []any{field("name", "string", true)}})
-	register(map[string]any{"key": "k8s-cluster", "inputs": []any{}, "outputs": []any{field("name", "string", true), field("endpoint", "string", false), field("kubeContext", "string", true), field("kubeconfig", "string", false)}})
+	register(map[string]any{"key": "k8s-cluster", "inputs": []any{}, "outputs": []any{field("name", "string", true), field("endpoint", "string", false), field("cluster", "any", true), field("kubeContext", "string", true), field("kubeconfig", "string", false)}})
 	register(map[string]any{"key": "postgres", "inputs": []any{field("database", "string", true), field("username", "string", true), field("labels", "any", false)},
 		"outputs": []any{field("host", "string", true), field("port", "number", true), field("database", "string", true), field("username", "string", true), field("password", "string", true)}})
 	outputs := []any{}
@@ -74,21 +74,16 @@ func TestV02ProvisionStoredThroughHTTPDrivesPreviewPlan(t *testing.T) {
 	if status != http.StatusCreated {
 		t.Fatalf("internal account: %d %v", status, account)
 	}
-	_, applications := requestJSON(t, pe, http.MethodGet, api+"/applications", nil)
-	for _, item := range applications["applications"].([]any) {
-		app := item.(map[string]any)
-		if app["key"] != opts.ApplicationKey {
-			continue
-		}
-		for _, env := range app["environments"].([]any) {
-			view := env.(map[string]any)
-			if view["key"] != "staging" {
-				continue
-			}
-			if status, out := requestJSON(t, pe, http.MethodPut, api+"/applications/"+opts.ApplicationKey+"/environments/staging/connection", map[string]any{"connectionKey": account["key"], "expectedVersion": view["version"]}); status != http.StatusOK {
-				t.Fatalf("connect staging: %d %v", status, out)
-			}
-		}
+	// ADR-016: Definitions place the Application; the Environment carries no connection.
+	cluster := map[string]any{"key": "cluster-lab", "name": "Cluster lab", "resourceType": "k8s-cluster", "driverType": "existing-cluster", "driverAccount": account["key"],
+		"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{}}}, "criteria": []any{map[string]any{"class": "internal", "app_id": opts.ApplicationKey}}}
+	if status, out := requestJSON(t, pe, http.MethodPost, api+"/resource-definitions", cluster); status != http.StatusCreated {
+		t.Fatalf("register cluster definition: %d %v", status, out)
+	}
+	workload := map[string]any{"key": "workload-lab", "name": "Workload lab", "resourceType": "workload", "driverType": "score-k8s",
+		"driverInputs": map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "score-k8s-internal-v1", "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}", "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}}, "criteria": []any{map[string]any{}}}
+	if status, out := requestJSON(t, pe, http.MethodPost, api+"/resource-definitions", workload); status != http.StatusCreated {
+		t.Fatalf("register workload definition: %d %v", status, out)
 	}
 	namespace := k8sModuleDefinition("ns-lab", "k8s-namespace", "k8s-namespace", map[string]any{"name": "${context.env.namespace}"}, nil, []string{"name"}, []any{map[string]any{}})
 	if status, out := requestJSON(t, pe, http.MethodPost, api+"/resource-definitions", namespace); status != http.StatusCreated {

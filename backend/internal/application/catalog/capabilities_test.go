@@ -45,7 +45,7 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 	for _, c := range caps {
 		keys = append(keys, c.ResourceType+"/"+c.DriverType+"/"+c.Module)
 	}
-	want := []string{"k8s-cluster/terraform/eks", "k8s-namespace/terraform/k8s-namespace", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/elasticache", "redis/terraform/redis-k8s", "vpc/terraform/vpc"}
+	want := []string{"k8s-cluster/existing-cluster/", "k8s-cluster/terraform/eks", "k8s-namespace/terraform/k8s-namespace", "postgres/terraform/aurora", "postgres/terraform/postgres-k8s", "redis/terraform/elasticache", "redis/terraform/redis-k8s", "vpc/terraform/vpc", "workload/score-k8s/"}
 	if !reflect.DeepEqual(keys, want) {
 		t.Fatalf("pairs %v, want %v", keys, want)
 	}
@@ -54,7 +54,8 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 	// ADR-014: only verified registry modules are registrable; no static
 	// Kubernetes driver pair is advertised.
 	for key, c := range idx {
-		if c.DriverType != "terraform" {
+		// score-k8s is the platform workload pair (ADR-016); existing-cluster needs a k8s-cluster Type that declares `cluster`.
+		if c.DriverType != "terraform" && c.DriverType != "score-k8s" && c.DriverType != "existing-cluster" {
 			t.Errorf("%s: public metadata offers non-registry driver %q", key, c.DriverType)
 		}
 	}
@@ -113,8 +114,8 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 		if c.ExecutorOwned == nil || c.Variables == nil {
 			t.Errorf("%s has nil slices", key)
 		}
-		if !c.Account.Required {
-			continue
+		if !c.Account.Required || c.DriverType == "existing-cluster" {
+			continue // the existing cluster's Internal account is checked in v03_registration_test.go
 		}
 		region, ok := variableIndex(c)["region"]
 		if !ok || !region.Required || c.Account.Type != "AWS" || c.Account.RegionVariable != "region" {
@@ -160,7 +161,7 @@ func TestListDefinitionCapabilities_ResourceParamIsScoped(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(caps) != 7 {
+	if len(caps) != 9 {
 		t.Fatalf("custom type changed the supported pairs: %d", len(caps))
 	}
 	// Another Organization without Resource Types still lists the pairs, no params.

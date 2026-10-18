@@ -22,6 +22,15 @@ Generation, immutable target/history, CAS and operation fencing remain unchanged
 See [schema](../database/schema.md#fresh-persistence-baseline-t28--leg-08).
 Retained dev data requires the separately approved T29 reset.
 
+## V03 partial supersession
+
+[ADR-016](ADR-016-definition-selected-workload-targets.md) replaces internal
+deployment Connection selection and the internal target-transition entry point
+with Definition/reference placement. Secret Store selection/copy/revisions,
+operation fencing, immutable applied targets and replacement protection remain.
+The deployment Connection text below now applies only to legacy AWS until
+V05–V06 or preserves rationale/history, never an internal fallback.
+
 ## Scope and ownership
 
 Each Environment independently selects an execution Connection and a Secret

@@ -648,13 +648,65 @@ func createConfiguredApplication(t *testing.T, client *http.Client, baseURL, nam
 		t.Fatalf("create Application: %d %v", status, created)
 	}
 	app := created["application"].(map[string]any)
-	for _, env := range app["environments"].([]any) {
-		view := env.(map[string]any)
-		if status, out := requestJSON(t, client, http.MethodPut, baseURL+"/api/v1/applications/"+app["key"].(string)+"/environments/"+view["key"].(string)+"/connection", map[string]any{"connectionKey": connectionKey, "expectedVersion": view["version"]}); status != http.StatusOK {
-			t.Fatalf("set %s connection: %d %v", view["key"], status, out)
+	if connectionKey != "internal-cluster" {
+		for _, env := range app["environments"].([]any) {
+			view := env.(map[string]any)
+			if status, out := requestJSON(t, client, http.MethodPut, baseURL+"/api/v1/applications/"+app["key"].(string)+"/environments/"+view["key"].(string)+"/connection", map[string]any{"connectionKey": connectionKey, "expectedVersion": view["version"]}); status != http.StatusOK {
+				t.Fatalf("set %s connection: %d %v", view["key"], status, out)
+			}
+		}
+		return created
+	}
+	placeOnSeededCluster(t, baseURL, app["key"].(string), true)
+	return created
+}
+
+// createUnrenderedApplication places the Application on the seeded cluster and namespace but not on
+// the seeded workload rendering Definition, so a test registers its own rendering template.
+func createUnrenderedApplication(t *testing.T, client *http.Client, baseURL, name, subdomain string) map[string]any {
+	t.Helper()
+	status, created := requestJSON(t, client, http.MethodPost, baseURL+"/api/v1/applications", map[string]any{"name": name, "subdomain": subdomain})
+	if status != http.StatusCreated {
+		t.Fatalf("create Application: %d %v", status, created)
+	}
+	placeOnSeededCluster(t, baseURL, created["application"].(map[string]any)["key"].(string), false)
+	return created
+}
+
+// placedWorkloadVariables are the typed references an internal workload rendering Definition carries.
+const placedWorkloadVariables = `"render_bundle":"score-k8s-internal-v1","namespace":"${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}","cluster":"${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"`
+
+// placeOnSeededCluster is the platform engineer adding the Application to the explicit app_id
+// criteria of the seeded internal placement Definitions (ADR-016: Definitions place workloads;
+// an Environment carries no deployment Connection).
+func placeOnSeededCluster(t *testing.T, baseURL, appKey string, workload bool) {
+	t.Helper()
+	pe := authenticatedClientAs(t, baseURL, "platform-engineer")
+	api := baseURL + "/api/v1/resource-definitions"
+	_, list := requestJSON(t, pe, http.MethodGet, api, nil)
+	for _, item := range list["resourceDefinitions"].([]any) {
+		def := item.(map[string]any)
+		criteria, _ := def["criteria"].([]any)
+		seeded := false
+		for _, raw := range criteria {
+			if c, _ := raw.(map[string]any); c["app_id"] == "acceptance" {
+				seeded = true
+			}
+		}
+		if !seeded || def["resourceType"] == "postgres" || def["resourceType"] == "redis" || (!workload && def["resourceType"] == "workload") {
+			continue
+		}
+		body := map[string]any{"key": def["key"], "name": def["name"], "resourceType": def["resourceType"], "driverType": def["driverType"], "version": def["version"],
+			"criteria": append(append([]any{}, criteria...), map[string]any{"app_id": appKey})}
+		for _, field := range []string{"driverAccount", "driverInputs", "provision"} {
+			if v, ok := def[field]; ok {
+				body[field] = v
+			}
+		}
+		if status, out := requestJSON(t, pe, http.MethodPut, api+"/"+def["key"].(string), body); status != http.StatusOK {
+			t.Fatalf("place %s on %s: %d %v", appKey, def["key"], status, out)
 		}
 	}
-	return created
 }
 
 // registerSecretStore registers a store as the platform engineer and returns its key.

@@ -14,7 +14,7 @@ func TestPlan_AWSTargetGenerationsAreIsolated(t *testing.T) {
 	plan := func(generation int64) *Plan {
 		req := scopedAWSRequest(t, "pay", "staging")
 		req.Env.TargetGeneration = generation
-		p, err := NewService().Plan(req)
+		p, err := NewService(testBundles()).Plan(req)
 		if err != nil {
 			t.Fatalf("generation %d: %v", generation, err)
 		}

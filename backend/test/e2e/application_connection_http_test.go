@@ -114,6 +114,7 @@ func TestUC01EnvironmentConnectionEditableOverHTTP(t *testing.T) {
 	ctx := context.Background()
 	saveConnection(t, app.Store, appdomain.Connection{ID: "c-lab", Key: "lab", Name: "Lab", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, AuthenticationType: appdomain.AuthKubeconfig, Status: appdomain.ConnectionReady, SecretRef: "memory://x"})
 	saveConnection(t, app.Store, appdomain.Connection{Name: "pending", AuthenticationType: appdomain.AuthKubeconfig, ID: "c-pending", Key: "pending", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying})
+	saveConnection(t, app.Store, appdomain.Connection{Name: "AWS two", AuthenticationType: appdomain.AuthAWSAccessKey, ID: "c-aws-two", Key: "aws-two", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady, Config: map[string]any{"region": "eu-west-1"}})
 	saveConnection(t, app.Store, appdomain.Connection{Name: "noregion", AuthenticationType: appdomain.AuthAWSAccessKey, ID: "c-noregion", Key: "noregion", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady})
 	if err := app.Store.SaveOrganization(ctx, appdomain.Organization{ID: "org-globex", Key: "globex", Name: "Globex", DefaultConnectionKey: "foreign"}); err != nil {
 		t.Fatal(err)
@@ -150,27 +151,26 @@ func TestUC01EnvironmentConnectionEditableOverHTTP(t *testing.T) {
 			t.Fatalf("%s = %d", body, status)
 		}
 	}
-	// Unset Preview and Deploy are a safe 422 before any side effect.
-	for _, path := range []string{"/preview", "/deploy"} {
-		body := `{}`
-		if path == "/deploy" {
-			body = `{"token":"x"}`
-		}
-		status, out := request(http.MethodPost, "/api/v1/applications/"+appKey+"/environments/staging"+path, body)
-		if status != http.StatusUnprocessableEntity || out["field"] != "connectionKey" || out["code"] != "ENVIRONMENT_UNCONFIGURED" {
-			t.Fatalf("unconfigured %s = %d %v", path, status, out)
-		}
+	// ADR-016: an Environment without a deployment Connection is Definition-placed.
+	// A pending Preview of nothing is an empty plan with no pinned Environment target;
+	// a planned workload without placement Definitions is a safe 400 PLANNING_REJECTED
+	// (reason placement) before any side effect, never UNCONFIGURED.
+	status, out = request(http.MethodPost, "/api/v1/applications/"+appKey+"/environments/staging/preview", `{}`)
+	binding, _ := out["binding"].(map[string]any)
+	if status != http.StatusOK || binding["connectionKey"] != "" || binding["executionProfile"] != "" || len(out["changes"].([]any)) != 0 {
+		t.Fatalf("empty pending preview = %d %v", status, out)
 	}
-	// Every delivery boundary answers the same safe 422: the direct deployment
-	// API and the standalone Score preview too.
 	score := `{"apiVersion":"score.dev/v1b1","metadata":{"name":"api"},"containers":{"main":{"image":"example.invalid/api:v1"}}}`
 	for name, call := range map[string]struct{ path, body string }{
 		"direct deployment": {"/api/v1/deployments", `{"applicationKey":"` + appKey + `","environmentKey":"staging","workloadId":"api","score":` + score + `}`},
 		"score preview":     {"/api/v1/applications/" + appKey + "/environments/staging/score-preview", `{"workloadId":"api","action":"deploy","runId":"r1","scoreAfter":` + score + `}`},
 	} {
 		status, out := request(http.MethodPost, call.path, call.body)
-		if status != http.StatusUnprocessableEntity || out["code"] != "ENVIRONMENT_UNCONFIGURED" || out["field"] != "connectionKey" {
-			t.Fatalf("unconfigured %s = %d %v", name, status, out)
+		if status == http.StatusUnprocessableEntity || out["code"] == "ENVIRONMENT_UNCONFIGURED" || status >= 500 {
+			t.Fatalf("%s must not be UNCONFIGURED or fail internally: %d %v", name, status, out)
+		}
+		if status != http.StatusBadRequest || out["code"] != "PLANNING_REJECTED" {
+			t.Fatalf("%s without placement Definitions = %d %v", name, status, out)
 		}
 	}
 	if applied := len(app.FakeDeploy.Applied); applied != 0 {
@@ -181,10 +181,19 @@ func TestUC01EnvironmentConnectionEditableOverHTTP(t *testing.T) {
 		return request(http.MethodPut, "/api/v1/applications/"+appKey+"/environments/"+env+"/connection", string(body))
 	}
 
-	// Staging selects lab; production stays unset and picks AWS independently.
+	// ADR-016: an Environment can no longer select a Kubernetes (Internal) connection; the
+	// write is refused with a typed error and nothing changes. The AWS legacy selection stays.
 	status, out = set("staging", "lab", 1)
+	if status != http.StatusUnprocessableEntity || out["code"] != "DEPLOYMENT_CONNECTION_RETIRED" || out["field"] != "connectionKey" {
+		t.Fatalf("selecting a Kubernetes connection = %d %v", status, out)
+	}
+	if env, _ := app.Store.GetEnvironment(ctx, appKey, "staging"); env.Configured() || env.Version != 1 {
+		t.Fatalf("the retired write mutated staging: %+v", env)
+	}
+	// Staging selects an AWS account; production stays unset and picks another independently.
+	status, out = set("staging", "aws-account", 1)
 	staging := out["environment"].(map[string]any)
-	if status != http.StatusOK || staging["connectionKey"] != "lab" || staging["connectionName"] != "Lab" || staging["connectionKind"] != "KUBERNETES" || staging["executionProfile"] != "internal-k8s" || staging["runtimeStatus"] != "READY" || staging["infrastructureScope"] != "ENVIRONMENT" || staging["version"] != float64(2) {
+	if status != http.StatusOK || staging["connectionKey"] != "aws-account" || staging["executionProfile"] != "aws-eks" || staging["runtimeStatus"] != "PENDING" || staging["infrastructureScope"] != "ENVIRONMENT" {
 		t.Fatalf("set staging = %d %v", status, out)
 	}
 	status, out = request(http.MethodGet, "/api/v1/applications/"+appKey, "")
@@ -194,9 +203,9 @@ func TestUC01EnvironmentConnectionEditableOverHTTP(t *testing.T) {
 			t.Fatalf("production changed by staging: %v", env)
 		}
 	}
-	status, out = set("production", "aws-account", 1)
+	status, out = set("production", "aws-two", 1)
 	production := out["environment"].(map[string]any)
-	if status != http.StatusOK || production["executionProfile"] != "aws-eks" || production["region"] != "us-east-1" || production["runtimeStatus"] != "PENDING" || production["infrastructureScope"] != "ENVIRONMENT" {
+	if status != http.StatusOK || production["executionProfile"] != "aws-eks" || production["region"] != "eu-west-1" || production["runtimeStatus"] != "PENDING" || production["infrastructureScope"] != "ENVIRONMENT" {
 		t.Fatalf("set production = %d %v", status, out)
 	}
 	// Application stays identity-only.
@@ -208,21 +217,21 @@ func TestUC01EnvironmentConnectionEditableOverHTTP(t *testing.T) {
 	// Same key at the current version is a no-op; a stale version is 409
 	// STALE_VERSION; another key at the current version replaces the target
 	// (no permanent lock, ADR-012).
-	status, out = set("staging", "lab", 2)
+	status, out = set("staging", "aws-account", 2)
 	if status != http.StatusOK || out["environment"].(map[string]any)["version"] != float64(2) {
 		t.Fatalf("same key no-op = %d %v", status, out)
 	}
 	for _, attempt := range []struct {
 		key     string
 		version any
-	}{{"lab", 1}, {"internal-cluster", 1}, {"aws-account", 99}} {
+	}{{"aws-account", 1}, {"aws-two", 1}, {"aws-account", 99}} {
 		status, out := set("staging", attempt.key, attempt.version)
 		if status != http.StatusConflict || out["code"] != "STALE_VERSION" {
 			t.Fatalf("stale %v = %d %v", attempt, status, out)
 		}
 	}
-	status, out = set("staging", "internal-cluster", 2)
-	if edited := out["environment"].(map[string]any); status != http.StatusOK || edited["connectionKey"] != "internal-cluster" || edited["version"] != float64(3) {
+	status, out = set("staging", "aws-two", 2)
+	if edited := out["environment"].(map[string]any); status != http.StatusOK || edited["connectionKey"] != "aws-two" || edited["version"] != float64(3) {
 		t.Fatalf("change connection = %d %v", status, out)
 	}
 	// Strict body and typed failures on a fresh unset Environment.
@@ -290,7 +299,7 @@ func TestUC01EnvironmentConnectionEditableOverHTTP(t *testing.T) {
 			found[view["name"].(string)+"/"+env["key"].(string)] = env["connectionKey"].(string)
 		}
 	}
-	if found["Payments/staging"] != "internal-cluster" || found["Payments/production"] != "aws-account" || found["Other/staging"] != "" || found["Other/production"] != "" {
+	if found["Payments/staging"] != "aws-two" || found["Payments/production"] != "aws-two" || found["Other/staging"] != "" || found["Other/production"] != "" {
 		t.Fatalf("bindings after restart: %v", found)
 	}
 	// The seeded acceptance fixtures are bound with explicit ENVIRONMENT scope.

@@ -50,6 +50,7 @@ const (
 	codeEnvironmentBusy           = "ENVIRONMENT_BUSY"
 	codeEnvironmentUnconfigured   = "ENVIRONMENT_UNCONFIGURED"
 	codeConnectionUnavailable     = "CONNECTION_UNAVAILABLE"
+	codeConnectionRetired         = "DEPLOYMENT_CONNECTION_RETIRED"
 	codeAccountTargetMismatch     = "ACCOUNT_TARGET_MISMATCH"
 	codeCommitUncertain           = "COMMIT_UNCERTAIN"
 	codeVerificationFailed        = "VERIFICATION_FAILED"
@@ -111,6 +112,7 @@ var publicErrors = map[string]publicError{
 	codeEnvironmentBusy:           {http.StatusConflict, "the environment is busy with another operation"},
 	codeEnvironmentUnconfigured:   {http.StatusUnprocessableEntity, "the environment has no connection selected"},
 	codeConnectionUnavailable:     {http.StatusUnprocessableEntity, "the connection is not available"},
+	codeConnectionRetired:         {http.StatusUnprocessableEntity, "an Environment no longer selects a Kubernetes connection; internal placement comes from Resource Definitions"},
 	codeAccountTargetMismatch:     {http.StatusUnprocessableEntity, "the credential does not belong to this account's target; register a new account for another target"},
 	codeCommitUncertain:           {http.StatusServiceUnavailable, "the result is not known; reload before trying again"},
 	codeVerificationFailed:        {http.StatusUnprocessableEntity, "verification failed"},
@@ -182,6 +184,7 @@ var (
 		planning.ReasonWorkloadExists: true, planning.ReasonWorkloadNotCurrent: true, planning.ReasonBeforeMismatch: true,
 		planning.ReasonLegacyInfrastructure: true, planning.ReasonUnconfigured: true,
 		planning.ReasonRendererNoMatch: true, planning.ReasonRendererAmbiguous: true, planning.ReasonRendererUnavailable: true,
+		planning.ReasonPlacement: true, planning.ReasonResourceNoMatch: true, planning.ReasonResourceAmbiguous: true, planning.ReasonMultiCluster: true, planning.ReasonTargetChanged: true,
 		// Allowlisted cleanup refusal reasons (OC-19).
 		resourcecleanup.ReasonNotUnreferenced: true, resourcecleanup.ReasonMetadataSyncPending: true, resourcecleanup.ReasonHasConsumers: true, resourcecleanup.ReasonPlatformResource: true,
 		resourcecleanup.ReasonOwnershipUnproven: true, resourcecleanup.ReasonTargetUnavailable: true, resourcecleanup.ReasonEnvironmentBusy: true,
@@ -315,6 +318,10 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeServiceUnavailable}, true
 	case errors.Is(err, resourcecleanup.ErrInvalid):
 		return failure{code: codeInvalidRequest}, true
+	case errors.Is(err, appcreate.ErrDeploymentConnectionRetired):
+		return failure{code: codeConnectionRetired, field: "connectionKey"}, true
+	case errors.Is(err, appsvc.ErrTargetChanged):
+		return failure{code: codePlanningRejected, params: map[string]string{"reason": planning.ReasonTargetChanged}}, true
 	case errors.Is(err, planning.ErrEnvironmentUnconfigured):
 		return failure{code: codeEnvironmentUnconfigured, field: "connectionKey"}, true
 	case errors.Is(err, preview.ErrNotReady):
@@ -364,6 +371,8 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeNoRuntime}, true
 	case errors.Is(err, transition.ErrSameDestination):
 		return failure{code: codeTransitionSameDestination, field: "destinationKey"}, true
+	case errors.Is(err, transition.ErrTransitionRetired):
+		return failure{code: codeConnectionRetired, field: "destinationKey"}, true
 	case errors.Is(err, transition.ErrDestinationFailed):
 		return failure{code: codeDestinationUnavailable, field: "destinationKey"}, true
 	case errors.Is(err, transition.ErrAcknowledge):

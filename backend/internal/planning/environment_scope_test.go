@@ -77,11 +77,11 @@ func contractValue(t *testing.T, plan *Plan, definitionKey, input string) any {
 }
 
 func TestPlan_NewAWSEnvironmentsGetDistinctInfrastructureIdentity(t *testing.T) {
-	staging, err := NewService().Plan(scopedAWSRequest(t, "pay", "staging"))
+	staging, err := NewService(testBundles()).Plan(scopedAWSRequest(t, "pay", "staging"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	production, err := NewService().Plan(scopedAWSRequest(t, "pay", "production"))
+	production, err := NewService(testBundles()).Plan(scopedAWSRequest(t, "pay", "production"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestPlan_NewAWSEnvironmentsGetDistinctInfrastructureIdentity(t *testing.T) 
 
 func TestPlan_AuroraResolvesInfrastructureGraphThroughInfraToken(t *testing.T) {
 	req := scopedAWSRequest(t, "pay", "staging")
-	plan, err := NewService().Plan(req)
+	plan, err := NewService(testBundles()).Plan(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestPlan_RejectsEveryNonEnvironmentScopeWithoutEchoingIt(t *testing.T) {
 		for _, profile := range []application.ExecutionProfile{application.ProfileAWSEKS, application.ProfileInternalK8s} {
 			req := testRequest(t, profile, "backend")
 			req.Env.InfrastructureScope = bad
-			plan, err := NewService().Plan(req)
+			plan, err := NewService(testBundles()).Plan(req)
 			if plan != nil || !errors.Is(err, environment.ErrInvalidInfrastructureScope) || strings.Contains(err.Error(), string(bad)) {
 				t.Fatalf("%s scope %q: plan=%v err=%v", profile, bad, plan, err)
 			}
@@ -163,15 +163,17 @@ func TestPlan_RejectsEveryNonEnvironmentScopeWithoutEchoingIt(t *testing.T) {
 		req := testRequest(t, application.ProfileInternalK8s, "backend")
 		req.Env.ConnectionKey, req.Env.Profile, req.Env.RuntimeStatus = "", "", ""
 		req.Env.InfrastructureScope = bad
-		if _, err := NewService().Plan(req); !errors.Is(err, environment.ErrInvalidInfrastructureScope) || errors.Is(err, ErrEnvironmentUnconfigured) {
+		if _, err := NewService(testBundles()).Plan(req); !errors.Is(err, environment.ErrInvalidInfrastructureScope) || errors.Is(err, ErrEnvironmentUnconfigured) {
 			t.Fatalf("unconfigured scope %q: %v", bad, err)
 		}
 	}
-	// An unset scope on an unconfigured Environment keeps the documented default.
+	// An unset scope on an Environment without a deployment Connection keeps the
+	// documented default; the Environment is Definition-placed (ADR-016).
 	req := testRequest(t, application.ProfileInternalK8s, "backend")
-	req.Env.ConnectionKey, req.Env.Profile, req.Env.RuntimeStatus, req.Env.InfrastructureScope = "", "", "", ""
-	if _, err := NewService().Plan(req); !errors.Is(err, ErrEnvironmentUnconfigured) {
-		t.Fatalf("unset scope: %v", err)
+	req.Env.InfrastructureScope = ""
+	plan, err := NewService(testBundles()).Plan(req)
+	if err != nil || plan.Target.Scope != environment.ScopeEnvironment {
+		t.Fatalf("unset scope: plan=%v err=%v", plan, err)
 	}
 }
 
@@ -190,7 +192,7 @@ func TestPlan_HardcodedApplicationInfrastructureReferenceFails(t *testing.T) {
 		defs[i].DriverInputs = map[string]any{"values": map[string]any{"source": def.DriverValues()["source"], "variables": variables}}
 	}
 	req.Catalog.Definitions = defs
-	_, err := NewService().Plan(req)
+	_, err := NewService(testBundles()).Plan(req)
 	var staged *StageError
 	if !errors.Is(err, ErrLegacyInfrastructureReference) || !errors.As(err, &staged) || staged.Reason != ReasonLegacyInfrastructure {
 		t.Fatalf("the hardcoded reference must be rejected with guidance: %v", err)
@@ -200,27 +202,34 @@ func TestPlan_HardcodedApplicationInfrastructureReferenceFails(t *testing.T) {
 	}
 }
 
-func TestPlan_UnconfiguredEnvironmentFailsBeforeAnyPlanning(t *testing.T) {
+func TestPlan_EnvironmentWithoutConnectionIsDefinitionPlacedNotUnconfigured(t *testing.T) {
 	req := testRequest(t, application.ProfileInternalK8s, "backend")
-	req.Env.ConnectionKey, req.Env.Profile, req.Env.RuntimeStatus = "", "", ""
-	_, err := NewService().Plan(req)
-	if !errors.Is(err, ErrEnvironmentUnconfigured) {
-		t.Fatalf("unconfigured plan: %v", err)
+	var defs []resource.Definition
+	for _, def := range req.Catalog.Definitions {
+		if def.ResourceTypeKey != TypeWorkload {
+			defs = append(defs, def)
+		}
 	}
-	if message, ok := PublicMessage(err); !ok || !strings.Contains(message, "Environment Settings") {
+	req.Catalog.Definitions = defs
+	_, err := NewService(testBundles()).Plan(req)
+	var staged *StageError
+	if errors.Is(err, ErrEnvironmentUnconfigured) || !errors.As(err, &staged) || staged.Reason != ReasonPlacement {
+		t.Fatalf("a missing Environment Connection must not block planning; the missing workload Definition does: %v", err)
+	}
+	if message, ok := PublicMessage(err); !ok || strings.Contains(message, "Environment Settings") || !strings.Contains(message, "Resource Definitions") {
 		t.Fatalf("public message = %q", message)
 	}
 }
 
 func TestPlan_HashPinsTheNonSecretTarget(t *testing.T) {
-	base, err := NewService().Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	base, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if base.Target.ConnectionKey != "internal-cluster" || base.Target.Profile != application.ProfileInternalK8s || base.Target.Scope != environment.ScopeEnvironment {
+	if base.Target.ConnectionKey != "" || base.Target.Profile != "" || base.Target.Scope != environment.ScopeEnvironment {
 		t.Fatalf("plan target = %+v", base.Target)
 	}
-	again, _ := NewService().Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	again, _ := NewService(testBundles()).Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if again.PlanHash != base.PlanHash {
 		t.Fatal("plan hash must be deterministic")
 	}
@@ -230,7 +239,7 @@ func TestPlan_HashPinsTheNonSecretTarget(t *testing.T) {
 	} {
 		req := testRequest(t, application.ProfileInternalK8s, "backend")
 		mutate(&req)
-		changed, err := NewService().Plan(req)
+		changed, err := NewService(testBundles()).Plan(req)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -408,7 +417,7 @@ func TestResourceName_GenerationZeroIdentityUnchangedAndLaterGenerationsIsolated
 func TestPlan_RealUUIDLongRunNamesAreBoundedInEveryAWSDefinition(t *testing.T) {
 	req := scopedAWSRequest(t, uuidApp, "production")
 	req.RunID = longRun
-	plan, err := NewService().Plan(req)
+	plan, err := NewService(testBundles()).Plan(req)
 	if err != nil {
 		t.Fatal(err)
 	}

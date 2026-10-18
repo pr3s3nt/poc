@@ -6,6 +6,8 @@
 # ffprobe.json and frames/*.png stay in the printed evidence directory, also
 # on failure. Requires Xvfb, ffmpeg, ffprobe and xdotool (see video-lib.sh).
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"
+retired_runner "acceptance-playwright-kind.sh (internal Connection selected in Settings)" "backend/test/integration/v03-internal-frontend.sh"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO="$(cd "${ROOT}/.." && pwd)"

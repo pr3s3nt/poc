@@ -22,6 +22,10 @@ type graphBuilder struct {
 	expanded map[string]bool
 	// inspector reads verified Terraform bundle metadata (never executes).
 	inspector ModuleInspector
+	// workloadDefs/workloadMatches hold the Definition selected for each
+	// workload node before graph expansion (ADR-016).
+	workloadDefs    map[string]resource.Definition
+	workloadMatches map[string]Match
 }
 
 func newGraphBuilder(ctx Context, catalog Catalog) *graphBuilder {
@@ -31,6 +35,9 @@ func newGraphBuilder(ctx Context, catalog Catalog) *graphBuilder {
 		nodes:    map[string]*Node{},
 		edgeSeen: map[string]bool{},
 		expanded: map[string]bool{},
+
+		workloadDefs:    map[string]resource.Definition{},
+		workloadMatches: map[string]Match{},
 	}
 }
 
@@ -79,6 +86,9 @@ func (n *Node) addOrigin(origin Origin) {
 
 func (b *graphBuilder) addEdge(consumer, provider, reason, path string) bool {
 	if consumer == provider {
+		// A self dependency is a cycle; it is kept as an edge so scheduling fails
+		// before any side effect instead of silently dropping it.
+		b.edges = append(b.edges, Edge{Consumer: consumer, Provider: provider, Reason: reason, Path: path})
 		return false
 	}
 	key := strings.Join([]string{consumer, provider, reason, path}, "\x00")
@@ -138,6 +148,9 @@ func (b *graphBuilder) graph() Graph {
 // enrichProfile adds the implicit infrastructure of the Execution Profile
 // (UC-06 MS-05, VAR-01 and VAR-02) and returns the namespace node.
 func (b *graphBuilder) enrichProfile() (*Node, error) {
+	if b.ctx.DefinitionPlaced() {
+		return nil, nil // ADR-016: Definitions and references decide placement
+	}
 	nsDescriptor, err := NamespaceDescriptor(b.ctx.App.Key, b.ctx.Env.Key, b.ctx.Env.TargetGeneration)
 	if err != nil {
 		return nil, err
@@ -166,6 +179,11 @@ func (b *graphBuilder) enrichProfile() (*Node, error) {
 		b.addEdge(eksDescriptor.String(), vpcDescriptor.String(), ReasonProfile, "")
 		b.addEdge(namespace.Descriptor, eksDescriptor.String(), ReasonProfile, "")
 	case application.ProfileInternalK8s:
+		// Only the planner reference mode (the read-only challenge fixtures) reaches this: a product
+		// Environment with the internal profile is refused up front with ErrRetiredTarget (ADR-016).
+		if !b.ctx.ReferenceCluster {
+			return nil, ErrRetiredTarget
+		}
 		clusterDescriptor, err := InternalClusterDescriptor(b.ctx.Env.ConnectionKey)
 		if err != nil {
 			return nil, err
@@ -187,7 +205,7 @@ func (b *graphBuilder) buildFromSet(set environment.Document, namespace *Node) e
 
 	for _, id := range set.ModuleIDs() {
 		module := set.Modules[id]
-		wd, err := WorkloadDescriptor(id)
+		wd, err := WorkloadDescriptorFor(id, module.WorkloadClass())
 		if err != nil {
 			return err
 		}
@@ -199,8 +217,10 @@ func (b *graphBuilder) buildFromSet(set environment.Document, namespace *Node) e
 		workloadNodes[id] = workload
 		privateNodes[id] = map[string]*Node{}
 
-		b.addEdge(workload.Descriptor, namespace.Descriptor, ReasonProfile, "")
-		b.bind(workload, "namespace", namespace.Descriptor)
+		if namespace != nil {
+			b.addEdge(workload.Descriptor, namespace.Descriptor, ReasonProfile, "")
+			b.bind(workload, "namespace", namespace.Descriptor)
+		}
 
 		for _, name := range module.ExternalNames() {
 			entry := module.Externals[name]

@@ -26,11 +26,16 @@ func seedOptions() seed.Options {
 func catalogOf(o seed.Options) Catalog {
 	catalog := Catalog{Types: map[string]resource.Type{}, Definitions: seed.ResourceDefinitions(o), Accounts: map[string]application.Connection{
 		o.CloudConnectionKey: {Key: o.CloudConnectionKey, Name: "Tài khoản AWS", OrganizationKey: o.OrganizationKey, Kind: application.ConnectionAWS, Status: application.ConnectionReady, Version: 3},
+		o.ConnectionKey:      {Key: o.ConnectionKey, Name: "Tài khoản nội bộ", OrganizationKey: o.OrganizationKey, Kind: application.ConnectionKubernetes, Status: application.ConnectionReady, Version: 2},
 	}}
 	for _, rt := range seed.ResourceTypes() {
 		catalog.Types[rt.Key] = rt
 	}
 	return catalog
+}
+
+func testBundles() map[string]resource.RenderBundle {
+	return map[string]resource.RenderBundle{seed.RenderBundleID: {ID: seed.RenderBundleID, Version: "0.15.0", BinaryDigest: "sha256:bin", Digest: "sha256:bundle"}}
 }
 
 func testRequest(t *testing.T, profile application.ExecutionProfile, workload string) Request {
@@ -50,11 +55,11 @@ func testRequest(t *testing.T, profile application.ExecutionProfile, workload st
 	env := environment.Environment{
 		Key: o.EnvironmentKey, ApplicationKey: appKey, Name: o.EnvironmentName,
 		Type: o.EnvironmentType, NamespaceIdentity: namespace, Version: 1,
-		ConnectionKey: connectionKey, Profile: profile, RuntimeStatus: application.RuntimeReady,
 		InfrastructureScope: environment.ScopeEnvironment,
 	}
 	if profile == application.ProfileAWSEKS {
 		env.Region = o.Region
+		env.ConnectionKey, env.Profile, env.RuntimeStatus = connectionKey, profile, application.RuntimeReady
 	}
 	kind := application.ConnectionKubernetes
 	if profile == application.ProfileAWSEKS {
@@ -100,7 +105,7 @@ func (s stubInspector) Contract(def resource.Definition) (ModuleContract, error)
 		contract.Outputs = append(contract.Outputs, "kubeContext", "kubeconfig")
 	}
 	contract.ProviderKinds = map[string]string{"aws": tfmodule.BindingAWS}
-	if contract.Module == "pgk8s" {
+	if contract.Module == "pgk8s" || contract.Module == "k8s-namespace" {
 		contract.ProviderKinds = map[string]string{"kubernetes": tfmodule.BindingKubernetes}
 	}
 	contract.InputMapping, contract.OutputMapping = map[string]string{}, map[string]string{}
@@ -152,6 +157,11 @@ func (stubInspector) module(module string) (ModuleContract, error) {
 		Outputs:   []string{"database", "host", "password", "port", "username"},
 		Variables: map[string]ModuleVariable{"database": {Name: "database", HasDefault: true}, "username": {Name: "username", HasDefault: true}},
 	}
+	contracts["k8s-namespace"] = ModuleContract{
+		Module: "k8s-namespace", Fingerprint: "sha256:k8s-namespace",
+		Outputs:   []string{"name"},
+		Variables: map[string]ModuleVariable{"name": {Name: "name"}},
+	}
 	contract, ok := contracts[module]
 	if !ok {
 		return ModuleContract{}, errUnknownModule(module)
@@ -164,7 +174,7 @@ type errUnknownModule string
 func (e errUnknownModule) Error() string { return "unknown module " + string(e) }
 
 func TestPlan_UsesDeploymentSetPathsAsResourceIdentity(t *testing.T) {
-	plan, err := NewService().Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	plan, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -172,7 +182,7 @@ func TestPlan_UsesDeploymentSetPathsAsResourceIdentity(t *testing.T) {
 		"workload.default#modules.backend":                  true,
 		"postgres.default#shared.acceptance-db":             true,
 		"k8s-namespace.default#environments.acceptance.dev": true,
-		"k8s-cluster.internal#connections.internal-cluster": true,
+		"k8s-cluster.internal#environments.acceptance.dev":  true,
 	}
 	got := map[string]bool{}
 	for _, n := range plan.Graph.Nodes {
@@ -201,12 +211,13 @@ func TestPlan_NewApplicationMatchesOnlyThroughExplicitCriteria(t *testing.T) {
 			req.App.Key = "new-application"
 			req.Env.ApplicationKey = req.App.Key
 			req.Env.NamespaceIdentity = "new-application-staging"
-			_, err := NewService().Plan(req)
-			if err == nil || !errors.Is(err, errNoMatch) {
+			_, err := NewService(testBundles()).Plan(req)
+			var staged *StageError
+			if err == nil || !(errors.Is(err, errNoMatch) || (errors.As(err, &staged) && staged.Reason == ReasonPlacement)) {
 				t.Fatalf("a new Application must not inherit a seeded match: %v", err)
 			}
 			rescopeApplication(&req, tc.seededApp, req.App.Key)
-			plan, err := NewService().Plan(req)
+			plan, err := NewService(testBundles()).Plan(req)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -233,7 +244,7 @@ func TestPlanRejectsTwoPublicWorkloads(t *testing.T) {
 		Service:    &environment.Service{Ports: map[string]environment.Port{"web": {Port: 80}}, PublicRoutes: []environment.PublicPath{{Path: "/", Port: "web"}}},
 	}}
 	req.After.Service = &environment.Service{Ports: map[string]environment.Port{"http": {Port: 8080}}, PublicRoutes: []environment.PublicPath{{Path: "/", Port: "http"}}}
-	if _, err := NewService().Plan(req); err == nil || !strings.Contains(err.Error(), "public path") {
+	if _, err := NewService(testBundles()).Plan(req); err == nil || !strings.Contains(err.Error(), "public path") {
 		t.Fatalf("expected public route conflict, got %v", err)
 	}
 }
@@ -245,17 +256,17 @@ func TestPlanAcceptsDistinctPublicPaths(t *testing.T) {
 		Service:    &environment.Service{Ports: map[string]environment.Port{"web": {Port: 80}}, PublicRoutes: []environment.PublicPath{{Path: "/", Port: "web"}}},
 	}}
 	req.After.Service = &environment.Service{Ports: map[string]environment.Port{"http": {Port: 8080}}, PublicRoutes: []environment.PublicPath{{Path: "/api", Port: "http"}}}
-	if _, err := NewService().Plan(req); err != nil {
+	if _, err := NewService(testBundles()).Plan(req); err != nil {
 		t.Fatalf("distinct public paths rejected: %v", err)
 	}
 	req.After.Service.PublicRoutes[0].Port = "missing"
-	if _, err := NewService().Plan(req); err == nil || !strings.Contains(err.Error(), "not declared") {
+	if _, err := NewService(testBundles()).Plan(req); err == nil || !strings.Contains(err.Error(), "not declared") {
 		t.Fatalf("missing Service port accepted: %v", err)
 	}
 }
 
 func TestPlan_InternalGraphIsProviderFirst(t *testing.T) {
-	plan, err := NewService().Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	plan, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -279,7 +290,7 @@ func TestPlan_InternalGraphIsProviderFirst(t *testing.T) {
 }
 
 func TestPlan_AWSAddsImplicitVPCAndEKS(t *testing.T) {
-	plan, err := NewService().Plan(testRequest(t, application.ProfileAWSEKS, "backend"))
+	plan, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileAWSEKS, "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -305,11 +316,11 @@ func TestPlan_AWSAddsImplicitVPCAndEKS(t *testing.T) {
 }
 
 func TestPlan_PostgresResolvesPerApplication(t *testing.T) {
-	internal, err := NewService().Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	internal, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan internal: %v", err)
 	}
-	cloud, err := NewService().Plan(testRequest(t, application.ProfileAWSEKS, "backend"))
+	cloud, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileAWSEKS, "backend"))
 	if err != nil {
 		t.Fatalf("plan cloud: %v", err)
 	}
@@ -333,7 +344,7 @@ func matchOf(t *testing.T, plan *Plan, resourceType string) string {
 }
 
 func TestPlan_ScoreParamsBecomeResourceInputs(t *testing.T) {
-	plan, err := NewService().Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	plan, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -354,7 +365,7 @@ func TestPlan_ScoreParamsBecomeResourceInputs(t *testing.T) {
 }
 
 func TestPlan_TerraformContractIsInspected(t *testing.T) {
-	plan, err := NewService().Plan(testRequest(t, application.ProfileAWSEKS, "backend"))
+	plan, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileAWSEKS, "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -389,13 +400,13 @@ func TestPlan_RejectsDriverVariableTheModuleDoesNotDeclare(t *testing.T) {
 		}}
 	}
 	req.Catalog.Definitions = defs
-	if _, err := NewService().Plan(req); err == nil {
+	if _, err := NewService(testBundles()).Plan(req); err == nil {
 		t.Fatal("expected an unknown Terraform input error")
 	}
 }
 
 func TestPlan_DeltaKeepsInvariant(t *testing.T) {
-	plan, err := NewService().Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	plan, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -405,7 +416,7 @@ func TestPlan_DeltaKeepsInvariant(t *testing.T) {
 }
 
 func TestPlan_SharedResourceKeepsOneDescriptorForBackendAndWorker(t *testing.T) {
-	svc := NewService()
+	svc := NewService(testBundles())
 	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan backend: %v", err)
@@ -440,7 +451,7 @@ func TestPlan_SharedResourceKeepsOneDescriptorForBackendAndWorker(t *testing.T) 
 }
 
 func TestPlan_RejectsPlanningFromStaleBeforeState(t *testing.T) {
-	svc := NewService()
+	svc := NewService(testBundles())
 	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
@@ -478,7 +489,7 @@ func TestPlan_CoProvisionAddsDependentAndMatchesDependents(t *testing.T) {
 	catalog.Definitions = defs
 	req.Catalog = catalog
 
-	plan, err := NewService().Plan(req)
+	plan, err := NewService(testBundles()).Plan(req)
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -523,7 +534,7 @@ func TestPlan_CoProvisionAddsDependentAndMatchesDependents(t *testing.T) {
 }
 
 func TestPlan_RejectsBeforeScoreWithStaleSharedResource(t *testing.T) {
-	svc := NewService()
+	svc := NewService(testBundles())
 	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan backend: %v", err)
@@ -544,7 +555,7 @@ func TestPlan_RejectsBeforeScoreWithStaleSharedResource(t *testing.T) {
 }
 
 func TestPlan_RejectsSharedConflict(t *testing.T) {
-	svc := NewService()
+	svc := NewService(testBundles())
 	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan backend: %v", err)
@@ -567,7 +578,7 @@ func TestPlan_RejectsSharedConflict(t *testing.T) {
 }
 
 func TestPlan_DropsSharedResourceWhenTheLastWorkloadStopsDeclaringIt(t *testing.T) {
-	svc := NewService()
+	svc := NewService(testBundles())
 	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan backend: %v", err)
@@ -603,7 +614,7 @@ func TestPlan_DropsSharedResourceWhenTheLastWorkloadStopsDeclaringIt(t *testing.
 }
 
 func TestPlan_KeepsSharedResourceWhileAnotherWorkloadReferencesIt(t *testing.T) {
-	svc := NewService()
+	svc := NewService(testBundles())
 	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
 	if err != nil {
 		t.Fatalf("plan backend: %v", err)
@@ -647,7 +658,7 @@ func TestPlan_EKSWithoutPublicAccessAllowlistFailsBeforeEffects(t *testing.T) {
 	o := seedOptions()
 	o.Cloud.EKSPublicAccessCIDRs = nil
 	req.Catalog = catalogOf(o)
-	_, err := NewService().Plan(req)
+	_, err := NewService(testBundles()).Plan(req)
 	if err == nil || !strings.Contains(err.Error(), `required Terraform variable "public_access_cidrs"`) {
 		t.Fatalf("plan without allowlist: %v", err)
 	}
@@ -692,7 +703,7 @@ func TestPlan_CoProvisionFlagMatrix(t *testing.T) {
 			catalog.Definitions = defs
 			req.Catalog = catalog
 
-			plan, err := NewService().Plan(req)
+			plan, err := NewService(testBundles()).Plan(req)
 			if err != nil {
 				t.Fatalf("plan: %v", err)
 			}
@@ -761,7 +772,7 @@ func TestPlan_CoProvisionDependentCycleIsRejected(t *testing.T) {
 	defs = append(defs, resource.Definition{Key: "logging-default", Name: "logging-default", Version: 1, ResourceTypeKey: "logging", DriverType: resource.DriverEcho, Criteria: []resource.Criterion{{}}})
 	catalog.Definitions = defs
 	req.Catalog = catalog
-	_, err := NewService().Plan(req)
+	_, err := NewService(testBundles()).Plan(req)
 	var stage *StageError
 	if !errors.As(err, &stage) || stage.Stage != StageSchedule {
 		t.Fatalf("want a schedule-stage rejection, got %v", err)

@@ -1,7 +1,8 @@
 import { api } from '../../shared/api/client';
 import { fail, filled, flag, isObject, members, text } from './metadata';
 
-export type Driver = 'terraform' | 'kubernetes';
+// existing-cluster and score-k8s are platform pairs without a Terraform module pin (ADR-016).
+export type Driver = 'terraform' | 'kubernetes' | 'existing-cluster' | 'score-k8s';
 
 // Public, secret-free metadata of GET /resource-definition-capabilities (UC-03 BR-23, OC-04d).
 export type CapabilityVariable = {
@@ -45,7 +46,7 @@ function variable(item: unknown): CapabilityVariable {
 const targetNames = ['account', 'resource', 'environment'] as const;
 function account(value: unknown): CapabilityAccount {
   if (!isObject(value) || !flag(value.required) || (value.type !== undefined && !text(value.type)) || (value.regionVariable !== undefined && !text(value.regionVariable))) return fail();
-  if (value.required && (!filled(value.type) || !filled(value.regionVariable))) return fail();
+  if (value.required && (!filled(value.type) || (value.type === 'AWS' && !filled(value.regionVariable)))) return fail();
   return { required: value.required, ...(value.type !== undefined ? { type: value.type } : {}), ...(value.regionVariable !== undefined ? { regionVariable: value.regionVariable } : {}) };
 }
 function bindingMeta(item: unknown): CapabilityBinding {

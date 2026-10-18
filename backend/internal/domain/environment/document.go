@@ -152,9 +152,21 @@ func (m ModuleSpec) ReplicaCount() int {
 
 // Module is the Deployment Set contribution of one Score document.
 type Module struct {
-	Profile   string                   `json:"profile"`
+	Profile string `json:"profile"`
+	// Class is the explicit workload class of the Score `metadata.class`
+	// (ADR-016); empty means the default class.
+	Class     string                   `json:"class,omitempty"`
 	Spec      ModuleSpec               `json:"spec"`
 	Externals map[string]ResourceEntry `json:"externals,omitempty"`
+}
+
+// WorkloadClass returns the effective workload class: the explicit class, or
+// "default" when the Score declared none.
+func (m Module) WorkloadClass() string {
+	if m.Class == "" {
+		return "default"
+	}
+	return m.Class
 }
 
 // Document is the full desired state of an Environment.

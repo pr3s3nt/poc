@@ -1,71 +1,55 @@
 @startuml
-title UC-06 - internal-k8s happy path
+title UC-06 - V03 Definition-selected internal workload
 autonumber
 actor Developer
 control DeploymentService as Service
 control PlanningService as Planner
-control ImplicitResourceEnricher as Enricher
+control DefinitionMatcher as Matcher
 control ResourceProvisioningService as Provisioner
-boundary ExistingClusterAdapter as ExistingCluster
-boundary TerraformExecutor as ResourceTF
-control OutputBindingResolver as Resolver
-control WorkloadRenderer as Renderer
-boundary WorkloadDeployer as WorkloadK8s
-boundary PublicRouteManager as Routes
+boundary ExistingClusterAdapter as Cluster
 control ConnectionCredentialResolver as Credentials
+boundary TerraformExecutor as TF
+control WorkloadRenderer as Renderer
+boundary WorkloadDeployer as Workload
+boundary ResourceCleanupService as Cleanup
 database DeploymentRepository as Repo
-
-Developer -> Service: DeployWorkload(Score, app, env)
-Service -> Repo: Create PLANNING [MS-01]
-Service -> Planner: Plan(request) [MS-02..MS-04]
-Planner -> Enricher: Enrich(profile=internal-k8s) [MS-05]
-Enricher --> Planner: implicit cluster from pinned Environment Connection + env namespace
-Planner -> Planner: Bind cluster with system existing-cluster; match other Definitions [BR-20..BR-21]
-note right of Planner: Mismatch fails planning before execution; no default fallback
-Planner --> Service: Humanitec-shaped Delta + graph:\nworkload -> namespace -> existing cluster\nworkload -> postgres in-cluster -> namespace -> existing cluster [MS-03..MS-08]
-group Required score-k8s preflight
-  Service -> Renderer: ValidateSelection(pinned bundle/binary) before side effects
-  Renderer --> Service: available
+Developer -> Service: Import Score / Preview / Deploy(app, env)
+Service -> Planner: immutable scope/catalog/current/config snapshot
+Planner -> Matcher: Select workload Definition/class first
+Matcher --> Planner: lifecycle selection + refs/provision
+Planner -> Planner: Expand references and provision to fixed point
+Planner -> Matcher: Match namespace / cluster / companion Definitions
+Matcher --> Planner: cluster Driver Account and resource pins
+Planner -> Planner: Validate typed namespace/cluster agreement, DAG\nand one-cluster V03 capability; provider-first batches
+Planner --> Service: Safe per-node placement and pinned plan
+Service -> Renderer: Verify installed bundle/binary before effects
+Service -> Repo: Admit owner/fence, versions, immutable plan
+Service -> Provisioner: Execute resource-only batches
+Provisioner -> Cluster: Resolve matched preexisting cluster
+Cluster -> Credentials: Resolve pinned Internal account privately
+Credentials --> Cluster: invocation-only credential
+Cluster --> Provisioner: checked opaque typed cluster target
+Provisioner -> TF: Provision owned namespace / companions on exact target
+TF --> Provisioner: validated outputs / owned state
+Provisioner --> Service: per-resource typed outputs/targets
+Service -> Renderer: Render Score + resolved namespace/cluster/bindings
+Renderer --> Service: validated internal manifests
+Service -> Workload: Apply exact target and namespace
+Service -> Workload: WaitReady exact workload identity
+Workload --> Service: Ready or explicit failure
+opt Resource depends on completed workload under provision flags
+  Service -> Provisioner: Execute ready resource-only post-workload subset
+  Provisioner --> Service: validated outputs / persisted progress
 end
-Service -> Repo: Admit Environment owner/fence under pinned versions
-Service -> Provisioner: Provision(resource batches, owner/fence) [MS-09]
-Provisioner -> Repo: Admit reserved system Definition (idempotent; collision fails)
-Provisioner -> ExistingCluster: Resolve/check pinned cluster reference
-ExistingCluster -> Credentials: Resolve scoped selected Connection
-Credentials --> ExistingCluster: private invocation credential
-ExistingCluster --> Provisioner: opaque Kubernetes target (org + connection)
-Provisioner -> ResourceTF: Provision(namespace, target)
-ResourceTF --> Provisioner: namespace output
-Provisioner -> ResourceTF: Provision(PostgreSQL module, same Kubernetes target/state backend)
-ResourceTF --> Provisioner: postgres outputs
-Provisioner -> ResourceTF: Provision(Redis module, same target/state backend)
-ResourceTF --> Provisioner: Redis outputs
-Provisioner --> Service: outputs + internal target
-Service -> Resolver: ResolveWorkloadBindings(postgres + Redis outputs) [MS-10]
-Resolver --> Service: Resolved target workload
-Service -> Renderer: Render(normalized workload, output-only bindings, pinned bundle) [MS-11]
-Renderer -> Renderer: score-k8s init (no defaults), generate, controlled patches
-Renderer -> Renderer: Validate protected identity/namespace/Secret refs
-Renderer --> Service: validated Service/Deployment + Secret/Agent auxiliary objects
-Service -> WorkloadK8s: Apply(internal target, manifests)
-WorkloadK8s -> Credentials: Resolve scoped credential for this invocation
-Credentials --> WorkloadK8s: private kubeconfig + cleanup
-Service -> WorkloadK8s: WaitReady(target workload)
-WorkloadK8s --> Service: Ready
-opt Direct UC-06 (pending batch defers until all affected workloads ready)
-  Service -> Routes: Reconcile Environment Ingress from Candidate Set
-  Routes --> Service: Ingress applied or Fleet bundle observed
-end
-note over Provisioner, Repo
-Fresh/reused resource targets retain Connection identity.
-Workload TargetRef persists identity, never secret/temp path.
+Service -> Repo: Commit current/instances/SUCCEEDED only after all required stages Ready
+Developer -> Service: Update image/config; restart then operate
+Service -> Repo: Restore original per-workload target/pins
+Developer -> Service: Remove workload; explicitly confirm owned cleanup
+Service -> Workload: Delete applied objects on persisted target
+Service -> Cleanup: Destroy only confirmed owned namespace/resources
+Cleanup --> Developer: absence verified; existing cluster retained
+note over Developer, Repo
+V03 real acceptance frontend only; backend/jobs/PostgreSQL/Redis deferred V04.
+No fake dependency PASS. No Environment Connection selector after V03.10.
 end note
-Service -> Repo: Commit set/resources/workloads/SUCCEEDED [MS-12]
-Service --> Developer: DeploymentResult [MS-13]
-note over Developer, Service
-Acceptance verification repeats this operation for
-backend, worker and frontend declared through existing forms.
-Then browser submits job and verifies PostgreSQL + Redis use.
-end note
-
 @enduml

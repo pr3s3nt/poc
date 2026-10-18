@@ -216,3 +216,19 @@ fresh baseline and all affected consumers now implement that contract. One full
 post-writer review batch and its cleanup-evidence remainder were resolved before
 independent final validation. [Checks and limitations](../verification/2026-10-17-v02-handoff.md).
 No old-data migration or Generic Workload/V03 completion is claimed.
+
+
+## IMP-022 — V03 Definition-selected workload/target gap — resolved
+
+[ADR-016](../architecture/decisions/ADR-016-definition-selected-workload-targets.md)
+was accepted before code. The V03 delivery replaces baseline7a00e43 Internal
+Environment/system binding and render-only workload registration with matched
+cluster Definitions and early workload references/rules, typed per-consumer
+placement, persisted target pins and strict lifecycle guards. R6 replacement
+passed before V03.10 removal; final r7 after removal passed35/35assertions,
+including update/restart/negative/product cleanup/reopen. Independent final
+Go1580/race526/frontend700tests and build/vet/type/lint passed without individual
+skips. [Handoff](../verification/2026-10-18-v03-handoff.md) records video, cleanup,
+failed attempts and valid result reuse. Backend/jobs/PG/Redis business coverage
+remains explicitly deferred V04 by user decision; it is not an unresolved V03
+implementation gap or a claimed PASS.

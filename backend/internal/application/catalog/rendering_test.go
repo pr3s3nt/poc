@@ -18,8 +18,9 @@ func TestRenderingRegistrationRejectsUnavailableOrInfrastructureInputs(t *testin
 		t.Fatal(err)
 	}
 	svc := catalog.NewService(st)
+	withClusterOutput(t, st, opts)
 	makeDef := func() resource.Definition {
-		return resource.Definition{Key: "workload-render", Name: "workload-render", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}}, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed"}}}}
+		return resource.Definition{Key: "workload-render", Name: "workload-render", Version: 1, ResourceTypeKey: "workload", DriverType: resource.DriverScoreK8s, Criteria: []resource.Criterion{{}}, DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed", "namespace": "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}", "cluster": "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"}}}}
 	}
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, makeDef()); !errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("unavailable renderer: %v", err)
@@ -31,9 +32,6 @@ func TestRenderingRegistrationRejectsUnavailableOrInfrastructureInputs(t *testin
 	}{
 		{"wrong-type", func(d *resource.Definition) { d.ResourceTypeKey = "postgres" }},
 		{"driver account", func(d *resource.Definition) { d.DriverAccount = opts.ConnectionKey }},
-		{"provision", func(d *resource.Definition) {
-			d.Provision = map[string]resource.ProvisionRule{"postgres.default#db": {}}
-		}},
 		{"unknown-bundle", func(d *resource.Definition) {
 			d.DriverInputs["values"].(map[string]any)["variables"].(map[string]any)["render_bundle"] = "https://mutable.invalid/template"
 		}},

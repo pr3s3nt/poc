@@ -115,6 +115,7 @@ func (s *Service) ListDefinitionCapabilities(ctx context.Context, organizationKe
 			out = append(out, capability)
 		}
 	}
+	out = append(out, platformCapabilities(byKey)...)
 	sort.SliceStable(out, func(i, j int) bool {
 		a, b := out[i], out[j]
 		if a.ResourceType != b.ResourceType {
@@ -194,4 +195,41 @@ func terraformCapability(bundle tfmodule.Bundle, typ resource.Type, resourceType
 		capability.Variables = append(capability.Variables, entry)
 	}
 	return capability, nil
+}
+
+// Presets of the typed placement references a workload Definition declares
+// (ADR-016). They are suggestions the author applies explicitly.
+const (
+	NamespaceReferencePreset = "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+	ClusterReferencePreset   = "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"
+)
+
+// platformCapabilities lists the non-module registration pairs: a public
+// existing-cluster Definition with its own Internal Driver Account, and the
+// score-k8s workload with its typed namespace/cluster references only (no
+// other workload variable is consumed at execution). Metadata only; nothing is executed.
+func platformCapabilities(types map[string]resource.Type) []Capability {
+	out := []Capability{}
+	if typ, ok := types[resource.ClusterTargetType]; ok {
+		if field, declared := typ.Output(resource.ClusterTargetOutput); declared && !field.Secret {
+			out = append(out, Capability{
+				ResourceType: typ.Key, DriverType: string(resource.DriverExistingCluster),
+				Variables: []CapabilityVariable{}, ExecutorOwned: []string{}, Bindings: []CapabilityBinding{},
+				Account: CapabilityAccount{Required: true, Type: "INTERNAL"},
+				Outputs: []CapabilityOutput{{Name: resource.ClusterTargetOutput, Type: "any"}},
+			})
+		}
+	}
+	if typ, ok := types["workload"]; ok {
+		variables := []CapabilityVariable{
+			{Name: resource.VariableRenderBundle, Type: "string", Required: true},
+			{Name: resource.VariableNamespace, Type: "string", Required: true, Preset: NamespaceReferencePreset},
+			{Name: resource.VariableCluster, Type: "string", Required: true, Preset: ClusterReferencePreset},
+		}
+		out = append(out, Capability{
+			ResourceType: typ.Key, DriverType: string(resource.DriverScoreK8s),
+			Variables: variables, ExecutorOwned: []string{}, Bindings: []CapabilityBinding{}, Account: CapabilityAccount{},
+		})
+	}
+	return out
 }

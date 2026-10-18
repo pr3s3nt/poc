@@ -24,15 +24,15 @@ func TestScoreK8sPublicDefinitionPreviewDeploy(t *testing.T) {
 	defer server.Close()
 	pe := authenticatedClientAs(t, server.URL, "platform-engineer")
 	dev := authenticatedClient(t, server.URL)
-	body := `{"key":"score-workloads","name":"Mẫu dựng","resourceType":"workload","driverType":"score-k8s","driverInputs":{"values":{"variables":{"render_bundle":"score-k8s-internal-v1"}}},"criteria":[{}]}`
+	created := createUnrenderedApplication(t, dev, server.URL, "Rendered App", "rendered-app")
+	appKey := created["application"].(map[string]any)["key"].(string)
+	body := `{"key":"score-workloads","name":"Mẫu dựng","resourceType":"workload","driverType":"score-k8s","driverInputs":{"values":{"variables":{` + placedWorkloadVariables + `}}},"criteria":[{"app_id":"` + appKey + `"}]}`
 	if resp, out := call(t, dev, http.MethodPost, server.URL+"/api/v1/resource-definitions", body); resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("developer registered Definition: %d %s", resp.StatusCode, out)
 	}
 	if resp, out := call(t, pe, http.MethodPost, server.URL+"/api/v1/resource-definitions", body); resp.StatusCode != http.StatusCreated {
 		t.Fatalf("registration: %d %s", resp.StatusCode, out)
 	}
-	created := createConfiguredApplication(t, dev, server.URL, "Rendered App", "rendered-app", "internal-cluster")
-	appKey := created["application"].(map[string]any)["key"].(string)
 	base := server.URL + "/api/v1/applications/" + appKey + "/environments/staging"
 	score := previewScore("api")
 	delete(score["containers"].(map[string]any)["main"].(map[string]any), "variables")
