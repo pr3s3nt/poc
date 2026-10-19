@@ -30,6 +30,27 @@ async function overrideValue(user: ReturnType<typeof userEvent.setup>, name: str
 afterEach(() => vi.unstubAllGlobals());
 
 describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
+  it('keeps the namespace dependency while authoring E01 typed database fallback and explicit cluster target', async () => {
+    const user = userEvent.setup();
+    const { posted } = backend();
+    await ready();
+    await user.type(field('ID cấu hình (Definition ID)'), 'pg-e01');
+    await user.type(field('Tên hiển thị'), 'PostgreSQL E01');
+    await user.selectOptions(field('Loại tài nguyên'), 'postgres');
+    await user.selectOptions(field('Module đã kiểm chứng'), screen.getByRole('option', { name: /^postgres-k8s ·/ }));
+    await user.click(screen.getByRole('button', { name: 'Ghép đầu vào theo tên trùng' }));
+    await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
+    await user.selectOptions(field('Cluster đích của provider kubernetes'), 'resource');
+    await user.selectOptions(field('Class cluster EKS của provider kubernetes'), 'eks');
+    await user.click(screen.getByRole('button', { name: 'Dùng preset cho namespace' }));
+    await overrideValue(user, 'database', 'Bad.Name');
+    await submitDefinition(user);
+    expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký cấu hình tài nguyên pg-e01.');
+    expect(values(posted[0]).variables).toMatchObject({ database: 'Bad.Name', namespace: "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}" });
+    expect(values(posted[0]).input_mapping).toEqual({ database: { param: 'database' }, username: { param: 'username' } });
+    expect(values(posted[0]).provider_bindings).toEqual({ kubernetes: { target: 'resource', resource_ref: 'k8s-cluster.eks#environments.@app.@env' } });
+  });
+
   it('offers only registry-verified pins, shows the full pin read-only and has no source, URL or digest input', async () => {
     const user = userEvent.setup();
     backend();

@@ -2,7 +2,7 @@
 id: CONNECTION-CREDENTIAL-DESIGN
 artifact: shared-design
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
 # Connection credentials and execution identity
@@ -166,3 +166,15 @@ trust. Do not redirect an existing account to another physical destination.
 Current Environment/legacy regional binding remains only until V02–V03 replaces
 consumers; new account catalog itself introduces no Environment scope. Old-state
 migration in V02–V03 is not required per the user decision 2026-10-17.
+
+
+## V05–V06 deferred cluster identity
+
+[ADR-017](decisions/ADR-017-definition-dependency-execution.md) extends the existing
+opaque EKS execution target to typed cluster outputs. Producing cluster descriptor,
+original scoped AWS Driver Account/version and region are the authority. Resolve
+current private credential for that pinned identity per invocation and mint fresh
+cluster auth; do not use Environment account, host defaults or persisted temporary
+kubeconfig/token. Authentication/authorization/network and Ready capacity must
+be checked before namespace/workload consumers. Public output/progress projects
+safe identity/provenance only; credentials remain invocation-private.

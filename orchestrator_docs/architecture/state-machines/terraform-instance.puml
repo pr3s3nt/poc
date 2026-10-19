@@ -24,4 +24,9 @@ No automatic resume or orphan import (D12/D13).
 Expiry alone never releases owner/lock.
 No v1 adoption; no delete of preexisting/updated resources.
 end note
+note right of READY
+ADR-017 EKS: ACTIVE alone insufficient.
+Typed outputs plus API/auth/network/Ready capacity gate consumers.
+Original Definition/account/region/target/state pins survive restart.
+end note
 @enduml

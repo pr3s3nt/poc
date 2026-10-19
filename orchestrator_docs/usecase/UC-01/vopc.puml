@@ -1,50 +1,46 @@
 @startuml
-title VOPC - UC-01 Editable Environment destinations
+title VOPC - UC-01 Application and Environment metadata (V06 design)
 left to right direction
 class ApplicationController <<boundary>>
+class EnvironmentSettingsController <<boundary>>
 class ApplicationService <<control>> {
  +CreateApplication(name, subdomain)
- +ListApplicationConnections(org): SafeChoices
- +SetConnection(org, app, env, key, expectedVersion): Environment
 }
-class EnvironmentConnectionController <<boundary>>
+class EnvironmentSettingsService <<control>>
+class ConfigurationService <<control>>
 class Application <<entity>> {
  +Identity
- +IdentityOnly
+ +Version
 }
 class Environment <<entity>> {
  +SecretStoreKey
- +TargetGeneration
- +OperationID
- +ConnectionKey
- +ExecutionProfile
- +Region
- +RuntimeStatus
- +InfrastructureScope
  +Version
+ +CurrentSet
+ +NamespaceIdentity
 }
 class DeploymentSet <<entity>>
-interface ConnectionRepository
+class SecretStoreConnection <<entity>>
+class EnvironmentOperation <<entity>>
 interface ApplicationRepository
-interface EnvironmentRepository {
- +ChangeConnectionCAS(expectedVersion, target)
-}
+interface EnvironmentRepository
 interface DeploymentSetRepository
+interface SecretStoreRepository
+interface EnvironmentOperationRepository
 ApplicationController --> ApplicationService
-EnvironmentConnectionController --> ApplicationService
 ApplicationService --> ApplicationRepository
 ApplicationService --> EnvironmentRepository
 ApplicationService --> DeploymentSetRepository
-ApplicationService --> EnvironmentRepository : Version CAS + admission
-ApplicationService --> ConnectionRepository
+EnvironmentSettingsController --> EnvironmentSettingsService
+EnvironmentSettingsService --> ConfigurationService : immutable copy
+EnvironmentSettingsService --> EnvironmentRepository : metadata CAS
+EnvironmentSettingsService --> SecretStoreRepository
+EnvironmentSettingsService --> EnvironmentOperationRepository : owner/fence
 Application "1" *-- "2" Environment
-Environment "1" --> "1" DeploymentSet : current
-class SecretStoreConnection <<entity>>
-class EnvironmentOperation <<entity>>
-class EnvironmentTransitionService <<control>>
-interface SecretStoreRepository
+Environment --> DeploymentSet : current
 Environment --> SecretStoreConnection
 Environment --> EnvironmentOperation
-EnvironmentTransitionService --> EnvironmentRepository
-EnvironmentTransitionService --> SecretStoreRepository
+note bottom of Environment
+Placement/account/region are per-resource pins (ADR-017).
+No Environment deployment binding or transition entry.
+end note
 @enduml

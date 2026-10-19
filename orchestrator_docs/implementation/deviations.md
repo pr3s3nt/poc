@@ -232,3 +232,39 @@ skips. [Handoff](../verification/2026-10-18-v03-handoff.md) records video, clean
 failed attempts and valid result reuse. Backend/jobs/PG/Redis business coverage
 remains explicitly deferred V04 by user decision; it is not an unresolved V03
 implementation gap or a claimed PASS.
+
+
+## IMP-025 — V06 retirement removed retained state-generation metadata — staged correction verified
+
+The isolated unintegrated S5 full PostgreSQL run found that its fresh baseline
+removed environments.generation_high along with deployment-profile fields.
+ADR-017 preserves state/ownership and generation semantics; the unchanged
+State grant/owner query still requires the existing generation metadata. The
+schema table/ERD now explicitly name this retained column before the corrective
+code change. Restore the original column/default in S5; do not broaden grants,
+remove owner checks, migrate/reset retained stores or edit requirements to accept
+the deletion. Focused real PostgreSQL setup/reopen/roles/state checks and affected
+full regression are required. This patch remains gated behind V06 replacement
+acceptance; V04 current code and runtime are unaffected.
+
+
+Staged correction now passes focused27 fresh role/setup/reopen checks and final
+S5 full1667Go/0FAIL/0SKIP, build/vet/conformance with real PostgreSQL. Grants and
+owner checks are unchanged. This is preparation evidence only; resolution in the
+product remains gated on V06 replacement/runtime/removal integration and commit.
+
+
+## IMP-026 — unused Organization default-choice metadata after selector retirement — staged
+
+Final S5 audit found the removed application-choice/Environment selector still
+left Organization.DefaultConnectionKey, two SQL columns/FK, seed marker and a
+SaveConnection side-effect updating that marker. None is used by current
+Definition-driven execution. This is remaining V06.08 legacy-path removal,
+not a new account-selection feature. Canonical schema/ERD and ADR-017 now state
+the final boundary before code: remove the marker/update/seed, keep Organization
+Driver Account ownership and safe credentials unchanged; preserve operation and
+generation guards. Replace historical default-marker tests with whole-Organization
+immutability, retired-snapshot refusal and current account/target contracts.
+Fresh real-PG role/baseline/reopen/registration checks and final broad regression
+are required; do not migrate/reset retained stores. S5 remains unapplied until
+replacement coverage passes. V04 active source is unaffected.

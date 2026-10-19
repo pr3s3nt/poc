@@ -2,10 +2,68 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-19
 ---
 
 # Current project state
+
+## V04 — full acceptance app PASS; V05–V06 pending, 2026-10-19
+
+Root agent trực tiếp code/test/docs, tự review/check/runtime; không coding agents.
+Theo quyết định19-10 ở issue4, nghiệm thu thật chỉ luồng chính; giữ existing
+negative unit/integration tests, secret protection và ownership/UID/API cleanup.
+
+V04 source22/S1 đã nghiệm thu R18 `v04-1019082805-fb41fd`:54/54 assertions PASS,
+runner exit0/CLOSED_CLEAN, admission version2 MAIN_FLOW_2026_10_19. Frontend proxy
+đến backend thật; shared PostgreSQL jobs/worker claim/DONE/result; Redis worker
+write/hit/natural TTL miss/DB refill; config/secret checks đều PASS. Reload,
+image B, valid TTL25→35 update, orchestrator restart và job mới giữ data/identity.
+UI account/Types/Definitions/Score/Preview/graph/order/deploy/readiness đã kiểm.
+
+Cleanup đúng Service dependency: UI remove frontend+backend cùng thay đổi,
+worker còn giữ shared PG/Redis. Labelled technical RemoveDelivered gỡ đúng worker
+và VSO qua original target, UI commit worker removal rồi PE reverse delete Redis,
+PostgreSQL và hai namespaces. Không gọi technical mutation là UI. SQL reopen:
+5types/5definitions/accountREADY,10succeeded/0failed deployments, resourcesDESTROYED.
+Độc lập08:51–08:52UTC:2namespaces/2PVs, DB/3roles,20outputrefs/accountKVmetadata,
+recorded process groups/private material vắng;10baseline namespaceUIDs và cluster
+có sẵn giữ nguyên. Supplemental process scan đầu trùng ffmpeg trích frame đang
+chạy; chờ extractor xong rồi exact scan unchanged PASS, không rerun scenario.
+
+[Video native](https://github.com/pr3s3nt/poc/issues/4#issuecomment-6263439664)
+21phút45.07giây, headed/cursor/captions Việt dưới hình, full raw/captioned decode,
+31publicfiles secret scan và11frames review PASS. GitHub rendered player và
+bản tải xuống20,526,823bytes có SHA3181e786…9f10bc7 trùng local; actual GitHub player headed playback08:58UTC readyState4,1440x996,
+currentTime>1 và đang phát. Cuối clip khoảng
+149giây không caption sau narration cleanup; không dựng lại UI hoặc quay lại run.
+
+Validation theo source/impact: fullGo1654/0FAIL/0SKIP, race254/build/vet/conformance
+đã có; fullfrontend710individualPASS có lỗi collection ở harness import, đã sửa
+và focused5PASS/lint/build (không gọi original command exit1 làPASS). Các delta
+safety/cleanup/admission có realPG/TF tests và race; main contractGo167/0/0,
+frontend20 và latest47/0/0/syntax/lint/type/build PASS, counts overlap không cộng.
+Docs352Markdown304IDs/diff PASS;39PlantUMLsources byte-identical validated snapshot,
+reuse render/check. Mapping source receipts/failures ở handoff, không fullsuite
+rerun để theo dõi hoặc đổi nhãn gate. Mốc V04 commit/push task-only sau checks.
+
+Root refactor_ui user checkout vẫn sạch512d0d3; task checkout sau host reboot
+là /var/tmp/p46-coordination-20261019, branch codex/v040506-recovery. /tmp cũ mất
+bởi reboot; /var/tmp stages/evidence giữ. User tmuxv456 giữ; task không đóng nó.
+Common private nativePG18.6/Vault1.20.4 dưới /var/tmp/p46-fixtures-20261019 còn để
+chạy tiếp; R18 private run đã xóa. Các failed/interrupted R1–R17 giữ lịch sử,
+không coi whole PASS; cleanup từng lượt có proofs/giới hạn quan sát trong handoff.
+
+V05/V06 S2–S5 replacements/removals vẫn isolated/unapplied; strict5patch replay
+và co/S1 equality PASS. AWS main runner bỏ wrong-password/rival-Definition paths,
+focusedS2/S5Go22each/frontend21/10/lint PASS. S2–S5 staged file-backed Vault giữ
+private recovery qua host restart; normal local restart/same scoped token/secret
+read-back và exact local cleanup PASS, token6h không kéo dài cloud deadline5h.
+No AWS create yet. Read-only identity452025861381/itadminaws/us-east-1,
+baseline0EKS/0RDSclusters/0cachegroups/0ECR,1VPC/11SLR protected; fresh per-run
+preflight, source-bound estimates/pins, supervisor/recovery bắt buộc trước create.
+Actual cost chưa xác định. Tự tiếp tục V05 rồi V06 A02→serviceAPIclean→A03;
+gated removals chỉ sau replacementPASS. V06.06 public no-workload entry undefined/
+conditional, no new API/UI, multi-cluster hoặc issue5 scope được thêm.
 
 ## V03 — Definition-selected Internal workload, 2026-10-18
 

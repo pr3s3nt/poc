@@ -3,6 +3,7 @@ package provisioning_test
 import (
 	"context"
 	"orchestrator/internal/seed/seedtest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -217,5 +218,70 @@ func TestDeployWithUnknownTerraformOutcomeHoldsTheEnvironment(t *testing.T) {
 	}
 	if _, err := app.Deployments.DeployWorkload(context.Background(), cmd); !errors.Is(err, persistence.ErrEnvironmentBusy) {
 		t.Fatalf("a held Environment accepted another deploy: %v", err)
+	}
+}
+
+// shortOutputExecutor is a FAKE v2 executor that omits a required output of the PostgreSQL Type.
+type shortOutputExecutor struct{ v2Executor }
+
+func (e *shortOutputExecutor) Provision(ctx context.Context, req execution.ProvisionRequest) (execution.ProvisionResult, error) {
+	out, err := e.v2Executor.Provision(ctx, req)
+	if err == nil && req.ResourceType == "postgres" {
+		delete(out.Outputs, "host")
+	}
+	return out, err
+}
+
+// ADR-017: required outputs are checked before any consumer. A provider whose output misses a required field
+// fails, no workload is rendered or applied, the failed node is recorded and the consumer is reported blocked
+// with a safe code.
+func TestProvision_MissingRequiredOutputBlocksTheConsumerAndIsRecorded(t *testing.T) {
+	opts := seedtest.Defaults()
+	opts.Region, opts.AccountID = "us-east-1", "000000000000"
+	short := &shortOutputExecutor{v2Executor{fake: fake.NewResourceExecutor()}}
+	reg := v2Registry{v2: &short.v2Executor, fake: fake.NewResourceExecutor(), override: short}
+	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, RegistryOverride: reg})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scores := seed.AcceptanceScores(opts)
+	_, err = app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
+		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.CloudApplicationKey, EnvironmentKey: opts.EnvironmentKey,
+		WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test", RunID: "run-a",
+	})
+	if err == nil || !strings.Contains(err.Error(), `requires output "host"`) {
+		t.Fatalf("a missing required output must fail the deployment: %v", err)
+	}
+	history, err := app.Queries.ListDeployments(context.Background(), appsvc.ListDeploymentsQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.CloudApplicationKey, EnvironmentKey: opts.EnvironmentKey})
+	if err != nil || len(history) != 1 || history[0].Status != "FAILED" {
+		t.Fatalf("history = %+v %v", history, err)
+	}
+	if strings.Contains(history[0].FailureReason, "host") {
+		t.Fatalf("the public failure reason must be a fixed sentence: %q", history[0].FailureReason)
+	}
+	view, err := app.Queries.GetDeployment(context.Background(), appsvc.GetDeploymentQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.CloudApplicationKey, EnvironmentKey: opts.EnvironmentKey, DeploymentID: history[0].ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	failedNode := ""
+	for _, r := range view.Resources {
+		if r.Status == "FAILED" {
+			failedNode = r.Descriptor
+		}
+	}
+	if !strings.HasPrefix(failedNode, "postgres.") {
+		t.Fatalf("the provider that broke its contract must be the recorded failed node, got %q in %+v", failedNode, view.Resources)
+	}
+	blocked := false
+	for _, b := range view.Blocked {
+		if b.Provider == failedNode && strings.HasPrefix(b.Consumer, "workload.") && b.Code == appsvc.RejectedBeforeRun {
+			blocked = true
+		}
+	}
+	if !blocked {
+		t.Fatalf("the workload consumer must be reported blocked by the failed provider: %+v", view.Blocked)
+	}
+	if len(view.Workloads) != 0 {
+		t.Fatalf("no workload may run before its dependency is ready: %+v", view.Workloads)
 	}
 }

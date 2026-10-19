@@ -46,6 +46,11 @@ loop Provider-first Terraform nodes
   Terraform --> Service: outputs + observed IDs / safe failure
   alt successful resource and state acknowledgement
     Service -> Validator: Validate Type outputs and readiness
+    opt cluster producer is EKS [ADR-017]
+      Service -> Credentials: Resolve original AWS identity; mint fresh auth privately
+      Service -> Validator: Verify API/auth/network/Ready node capacity
+      Validator --> Service: typed target usable, or fail and block consumers
+    end
     Service -> Secrets: Store secret outputs; reuse stable credential refs
     Secrets --> Service: typed opaque refs
     Service -> Results: Commit READY + safe outputs/progress (short transaction)

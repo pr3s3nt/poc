@@ -121,9 +121,24 @@ không làm mất công việc có sẵn của người dùng.
 Handoff phải nêu ngắn gọn: outcome, vùng thay đổi, checks đã chạy, checks bỏ qua
 và lý do, cùng mọi user-owned change còn lại.
 
-## Codex điều phối và Claude thực hiện code
+## Quy trình hiện hành — quyết định người dùng 2026-10-19
 
-### Quyết định mới nhất — 2026-10-17: Claude local qua tmux
+Agent nhận task tự code/test/scripts/docs, tự review/check/runtime và commit/push
+theo quyền của task. Không khởi tạo hoặc giao coding agent phụ trừ khi người dùng
+yêu cầu. Giữ work/session cũ, không tự đóng tmux người dùng.
+
+Issue #4 V04–V06 nghiệm thu thật chỉ luồng chính: đăng ký → Preview → deploy →
+app/jobs/PostgreSQL/Redis → valid update/restart/reuse → cleanup. Bỏ intentional
+negative paths khỏi runtime/gate; giữ tests đã có và yêu cầu pass, không thêm
+tests ngoại lệ để thay thế. Giữ product guards, secret không lộ, ownership/UID/API
+cleanup bảo vệ shared/preexisting resources. Focused checks theo impact, reuse
+nguồn/config/environment/assertions không đổi; không fullsuite checkpoint.
+Khi chỉ chờ runtime quan sát15phút/lần, sớm khi error/completion/user request.
+Các quy trình writer dưới đây là lịch sử, không ghi đè quyết định này.
+
+## Codex điều phối và Claude thực hiện code — lịch sử
+
+### Quyết định lịch sử — 2026-10-17: Claude local qua tmux
 
 Người dùng yêu cầu từ nay Codex điều khiển Claude trên máy này qua `tmux` và
 `clauded`, sau đó xác nhận tiếp tục local cho V01. Đây là luồng mặc định mới,

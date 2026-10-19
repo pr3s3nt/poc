@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
 # Database Schema
@@ -32,11 +32,15 @@ and is not an upgrade ledger; structural validation is required on reopen.
 | `id` | uuid | PK |
 | `organization_key` | text | UNIQUE, NOT NULL |
 | `name` | text | NOT NULL |
-| `default_connection_id` | uuid | nullable FK connections; when present references an existing scoped record |
 
-The Organization default is only a marker in Environment Settings choices.
-UC-01 creates UNCONFIGURED Environments and never resolves a default. Targets are independently editable with versions and explicit transitions; see
-[ADR-012](../decisions/ADR-012-environment-stores-and-transitions.md).
+Final V06.08 removes the unused Organization default-choice marker with the
+retired Connection selector: no `default_connection_key`, `default_connection_id`
+or default-Connection FK. Driver Accounts still belong to their Organization;
+Definitions select them explicitly. The marker/selector/transition contract is
+historical under [ADR-012](../decisions/ADR-012-environment-stores-and-transitions.md).
+Until its replacement/removal gate passes, intermediate code may retain these
+legacy columns; they must never supply a deployment target. No automatic
+migration/conversion/reset of retained stores is introduced.
 
 ### `user_accounts`
 
@@ -129,10 +133,6 @@ state không được tự upgrade/reset. Lịch sử reset T29 thuộc verifica
 | `environment_key` | text | NOT NULL |
 | `name`, `environment_type` | text | NOT NULL |
 | `namespace_identity` | text | NOT NULL |
-| `connection_id` | uuid | nullable FK connections; NULL means UNCONFIGURED, never inherit Organization default |
-| `execution_profile` | text | empty while unset, else aws-eks/internal-k8s derived from selected Connection |
-| `region` | text | empty while unset/internal; nonempty for configured AWS |
-| `runtime_status` | text | UNCONFIGURED, PENDING (AWS not provisioned), READY |
 | `infrastructure_scope` | text | NOT NULL, ENVIRONMENT only; reject retired/unknown values (T27) |
 | `current_deployment_set_id` | uuid | nullable FK deployment_sets, deferred |
 | `version` | bigint | optimistic version |
@@ -141,17 +141,19 @@ state không được tự upgrade/reset. Lịch sử reset T29 thuộc verifica
 | `desired_config_revision_id` | uuid | nullable FK configuration_revisions, deferred |
 | `secret_store_id` | uuid | nullable scoped FK secret_store_connections |
 | `target_generation` | bigint | immutable execution generation, default 0 |
+| `generation_high` | bigint | NOT NULL DEFAULT 0; retained generation metadata read by the private State owner/scope check; unrelated to retired deployment profiles |
 | `active_operation_id` | uuid | nullable FK environment_operations; owner/fence admission |
 
 `environment_key` is system-owned and limited to `staging` or `production`.
 Unique: `(application_id, environment_key)` and `(application_id, namespace_identity)`.
 The application-creation transaction inserts exactly those two rows, unset.
 
-Selection changes use Environment.version CAS and operation-owner checks, not a
-permanent immutable-binding trigger. Dedicated binding commands own writes;
-ordinary Save cannot bypass them. Generation 0 retains old identities; later
-targets are isolated. No Application target conversion/default fallback is supported (T26).
-See [ADR-012](../decisions/ADR-012-environment-stores-and-transitions.md).
+The final ADR-017 baseline has no Environment deployment Connection/profile/region/
+runtime selector. Secret Store/configuration selection uses version CAS and
+operation-owner checks. Generation0 retains stable resource identities; original
+per-resource/workload targets stay pinned. No Application/Environment target
+conversion or default fallback. The ADR-012 deployment-transition binding design
+is historical after V06.08; its surviving store/CAS/owner protections still apply.
 
 ### `configuration_revisions`
 
@@ -433,27 +435,36 @@ backend/workload addresses, KV/auth mounts, nonsecret TLS configuration,
 credential_ref/status/timestamps. Unique `(organization_id, store_key)`. References
 must be Organization-scoped. Credential bytes live only in platform credential store.
 
-Environment selections/generation/active operation nằm trong bảng
-`environments` ở trên; retained generation records lưu target staging riêng. Environment.version remains Settings CAS. Do not install a
-permanent binding immutability trigger in the fresh baseline; retain
-consistency checks and enforce dedicated CAS/owner commands. Do not clear bindings.
+Environment Secret Store selection, identity generation and active operation
+remain in `environments`; Environment.version remains Settings CAS. ADR-017
+retires deployment-Connection selection/transition storage, preserving original
+resource/workload targets and immutable Secret Store references. No startup
+conversion, clearing retained data or implicit target reconstruction.
 
 ### `environment_operations`
 
 Fields: ID, Environment FK, owner, fencing generation
 (bigint starting at 1, incremented on recovery), kind, status/stage,
-source/destination binding JSON (nonsecret), pinned Environment/draft/config
-versions/current Set, start/update/deadline, safe failure/recovery metadata.
+nonsecret `pins`/`detail` JSON with Environment/draft/config versions/current Set
+and resource identities, start/update/heartbeat/deadline and safe failure metadata.
+Deployment-transition source/destination records are retired after V06.08.
 Unique active owner per Environment, enforced by row claim or partial unique
 index. Claim/release and version guards run inside one transaction. A restart
 preserves INTERRUPTED recovery state; no automatic expiry bypass of live owner.
 Ownership must change on recovery (owner identity or a monotonic fencing token).
-Heartbeat, release and every owner-only write, including transition bookkeeping,
+Heartbeat, release and every surviving owner-only metadata write,
 check the current ownership atomically; a reused operation ID is insufficient.
 Persist safe confirmation/audit metadata that prior execution was stopped before
 recovery takes ownership. Enforce recorded deadlines on executor contexts.
 
-### Retained target records
+### Historical transition records and current target provenance
+
+The source/destination migration fields below describe the retired ADR-012
+transition design, not a new V06 table/API. After V06.08 current provenance lives
+in immutable plans, per-resource instances and workload/deployment `target_ref`.
+Historical evidence is kept with its original label; incompatible old stores fail
+explicitly instead of being imported or reset.
+
 
 Fields: operation ID, target generation,
 source/destination TargetRefs, old Set, resource/executor state identity, writer
@@ -470,7 +481,7 @@ Variable values are metadata, never Secret values. Store identities are explicit
 T23 removes legacy platform-store backfill. Vault network reads are excluded
 from SQL migrations. T24 removes legacy Variable reads/materialization; the fresh
 SQL constraint baseline is defined by T28, without converting retained data.
-JSON and SQL adapters expose equivalent CAS/claim/transition persistence semantics.
+JSON and SQL adapters expose equivalent supported CAS/claim/target-pin persistence semantics.
 
 Local Compose bootstrap (UC-04 SS-07..08) retains the existing
 `secret_store_connections` schema. Its explicit managed-store admission may
@@ -780,3 +791,26 @@ transitive workload provider descriptors, hashed with the complete full-graph
 DAG. UC-08 executes resource-only subsets; UC-06 coordinates workload positions
 and persists lifecycle progress before a final success commit. This field never
 permits ignoring a required dependency merely because it is a workload.
+
+## V04–V06 placement and profile retirement baseline
+
+[ADR-017](../decisions/ADR-017-definition-dependency-execution.md) extends the
+V03 per-resource placement contract to Terraform-created EKS. Plan JSON pins
+producing descriptor/Definition/version/account/version/region while values are
+unknown. After provision, ResourceInstance/ActiveResource and applied workload
+targets preserve original opaque provider=eks/cluster/region/Organization/account
+identity. Persist no auth token, endpoint credentials, temporary kubeconfig/path
+or secret bytes. Outputs/status remain typed; secrets remain opaque refs.
+
+No new Environment-wide target/account/region constraint is introduced. Stable
+logical descriptor/state identity survives restart/redeploy. Shared consumers
+reuse the same resource instance; cleanup dependency records preserve the actual
+reference graph and original pins. Catalog edits never rewrite historical targets.
+
+V06.08 removes execution-profile and retired deployment-Connection binding fields
+from fresh SQL/JSON baseline after replacement coverage; Secret Store bindings,
+Environment version/current Set/operation owner/fence and per-resource target
+records remain. Baseline/schema digest/JSON format and validation change together
+when serialized shape changes; old incompatible state fails clearly without
+migration, startup reset or implicit inference. Exact executable baseline/ERD
+changes must be reviewed on final source before acceptance/commit.

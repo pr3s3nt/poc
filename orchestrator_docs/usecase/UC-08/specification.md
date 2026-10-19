@@ -2,7 +2,7 @@
 id: UC-08-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
 # UC-08 — Provision Infrastructure and Application Resources
@@ -182,3 +182,23 @@ Protocol/validation đầy đủ ở [state contract](../../architecture/contrac
 ## V03 typed targets
 
 [ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) supersedes the internal Environment/system binding portions of BR-07/09. Persist target per resource and workload, validate output contract and original target on reuse/restart/cleanup. The existing cluster is PREEXISTING. Workload driver lifecycle remains UC-06/07 after resource-only batches; namespaces are owned resources. No cross-cluster global target inference.
+
+
+## V04–V06 resource execution replacement
+
+[ADR-017](../../architecture/decisions/ADR-017-definition-dependency-execution.md)
+replaces implicit/profile executor selection in MS-04, VAR-01/02, POST-02/03
+and the profile column of the executor table. Match selects the driver, not
+Environment policy.
+
+- **V04-01:** Persist instance/status/outputs/original ownership, resolve and
+  validate required/type/secret contracts before consumers; block on dependency
+  error. Shared descriptors yield one instance across backend and worker.
+- **V05-01:** Existing and newly provisioned clusters supply typed targets. EKS
+  consumers wait for original-account auth/API/network/node readiness; persist
+  opaque identity, never transient token/kubeconfig. Reuse/restart must not
+  duplicate infrastructure or substitute current catalog/host credentials.
+- **V06-01:** Each node uses its own Definition account/region; managed database/
+  cache depend on required network outputs, never a blanket EKS relation.
+  Destroy uses reverse actual graph and original state/module/target, verifies
+  service APIs and protects shared consumers and PREEXISTING resources.

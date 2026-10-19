@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -939,3 +939,17 @@ Independent final Go1580/race526/frontend700tests and build/vet/type/lint pass,
 0individual fail/skip. Live coverage, video and cleanup evidence are in the
 [V03 handoff](../verification/2026-10-18-v03-handoff.md); frontend-only proof
 does not establish backend/jobs/cache behavior.
+
+
+## V04–V06 required coverage — implementation and acceptance pending
+
+| Requirement | Canonical design | Required evidence (not yet PASS) |
+|---|---|---|
+| UC-03/05/06/08 V04-01 | ADR-017 graph/reference/provision semantics; module/state contracts | Full-DAG flag/fixed-point/cycle/type tests; real main-flow full app shared PG/Redis/jobs/cache/persistence/reverse cleanup; intentional negatives removed from live gates19-10, existing tests retained |
+| UC-03/05/06/08 V05-01 | ADR-017 typed EKS identity; UC-06 cloud sequence; per-resource schema pins | Unknown→resolved output, original-account fresh auth/API/network/node readiness, real EKS app update/restart/reuse/API absence; no intentional live negatives19-10 |
+| UC-03/05/06/08 V06-01 | ADR-017 actual managed network dependencies/account isolation | Contract tests across accounts/regions; separate real A02 then clean then A03, actual managed jobs/cache and owned cleanup |
+| UC-06 V06-02 | ADR-017 replacement/removal gates | Reviewed separate V05.10/V06.08 removals only after replacement PASS; final impacted checks/runtime/stale-reference inventory |
+
+Exact app-function→gate→UI/technical assertion→evidence→cleanup mapping is in
+[pre-code coverage map](../verification/2026-10-18-v040506-handoff.md).
+No implementation/test filenames or runtime PASS are claimed before review.

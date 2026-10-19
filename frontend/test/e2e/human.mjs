@@ -19,6 +19,7 @@ export function createHuman(page, { selectNative } = {}) {
   // Moves the real Playwright mouse in small steps so the injected cursor
   // glides to the target like a hand-held pointer.
   async function moveTo(locator) {
+    await page.bringToFront(); // Native X11 input and the recording must follow this page, including after visiting the app tab.
     await revealComfortably(locator);
     let box = await locator.boundingBox();
     if (!box) throw new Error('target has no bounding box');
@@ -103,12 +104,14 @@ export function createHuman(page, { selectNative } = {}) {
   }
 
   async function showCursor() {
+    await page.bringToFront();
     await page.mouse.move(cursor.x + 1, cursor.y + 1);
     await page.mouse.move(cursor.x, cursor.y);
   }
 
   // Reading pause scaled to the caption: about 60 ms per character, 2-6 s.
   async function read(text = '') {
+    await page.bringToFront();
     await pause(Math.min(6000, Math.max(2000, text.length * 60)));
   }
 

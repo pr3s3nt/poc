@@ -2,7 +2,7 @@
 id: UC-05-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
 # UC-05 — Validate and Preview Score Changes
@@ -182,3 +182,16 @@ runtime/current set hoặc Environment khác khi lưu.
 ## V03 placement intent
 
 [ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) replaces legacy internal graph enrichment and Environment binding in BR-11. Plan/token include each workload/resource typed cluster and namespace provenance, Definition/account versions and class. UI shows safe resolved or deferred output provenance; Preview never invokes renderer/provider/secrets. Changes invalidate old Preview; pending detection includes target/Definition/reference intent.
+
+
+## V04–V06 graph and unknown outputs
+
+- **V04-01:** Show graph ordering reasons, provision status and source errors;
+  preserve typed/secret output boundaries and full DAG validation under ADR-017.
+- **V05-01:** Preview a newly requested cluster as unresolved typed provenance;
+  endpoint/credentials/Ready state need not exist. Show per-resource winning
+  Definition/account/region and namespace/workload cluster source. Pure Preview
+  never invokes provider/auth resolution to replace unknown output values.
+- **V06-01:** A managed-resource-only planner graph must not acquire VPC/EKS
+  except through authored actual dependencies. This rule does not create a new
+  public execution entry without a separately defined contract.

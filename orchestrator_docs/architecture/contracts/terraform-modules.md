@@ -2,7 +2,7 @@
 id: TERRAFORM-MODULE-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 related: [ADR-014, UC-03, UC-05, UC-06, UC-08, UC-16]
 ---
 
@@ -266,3 +266,32 @@ explicit Preview/Deploy and preserve state identity.
 ## V03 internal provider placement
 
 [ADR-016](../decisions/ADR-016-definition-selected-workload-targets.md) removes internal `{target: environment}` fallback. Kubernetes modules use `{target: resource, resource_ref: <cluster descriptor>}`. That cluster is a normal matched resource with its own Internal Driver Account. Namespace and workload typed cluster references must agree with this provider pin; known mismatch fails planning, unresolved output mismatch fails before consumer call. Do not derive account from Environment or the last cluster output. Original state/target/module/digest checks remain; AWS removal deferred V05–V06.
+
+## V04–V06 dependency and target replacement
+
+[ADR-017](../decisions/ADR-017-definition-dependency-execution.md) supersedes
+remaining Environment/profile provider sources in the earlier table. AWS VPC,
+EKS, Aurora and ElastiCache each bind their Definition's own Driver Account and
+literal region; Kubernetes namespace/PostgreSQL/Redis bind explicit cluster
+resource references. No runtime `{target: environment}` or profile-derived
+infrastructure after replacement/removal gates. Matching class selects the
+implementation without a profile guard.
+
+EKS publishes Type `cluster` as the existing typed Kubernetes-target output,
+extended with `provider: eks` and `region`, safe cluster/Organization/account/
+accountVersion/descriptor identity. Internal targets retain existing shape;
+validate the discriminated forms strictly. Publish only mapped Type outputs.
+Runtime identity is derived from the producing node's pinned AWS provider, never
+consumer Environment or an arbitrary authored output account. Treat credentials,
+CA/endpoint access material and temporary kubeconfig as private invocation data.
+Unknown outputs have declared types/provenance at Preview and resolve after
+acknowledged provision/readiness, before provider consumers or rendering.
+
+Required EKS readiness includes authenticated/authorized API access, executor
+network reachability and usable Ready node capacity; ACTIVE alone fails the gate.
+Resolve fresh temporary auth at each operation from original scoped AWS identity.
+Managed data inputs must reference actual VPC/subnet/security connectivity needs;
+module-internal depends_on does not replace platform graph references. Preserve
+module/state/target/digest/fence and Secret-reference contracts during reuse,
+restart, update and reverse cleanup. Cross-account/region validity is checked by
+actual inputs/provider requirements, not an Environment-wide equality rule.

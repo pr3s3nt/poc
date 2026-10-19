@@ -2,10 +2,16 @@
 id: UC-01-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-18
 ---
 
 # UC-01 — Create Application and configure Environment destinations
+
+Current replacement design is the V04–V06 contract below, together with
+[ADR-017](../../architecture/decisions/ADR-017-definition-dependency-execution.md).
+Deployment Connection selection/transition passages describe the staged legacy
+behavior until its replacement gate; they do not authorize that path after V06.08.
+Actual implementation/acceptance status belongs to CURRENT_STATE.
 
 ## Mục tiêu và actor
 
@@ -101,3 +107,33 @@ Bản set-once ADR-011 là hành vi lịch sử đang được thay thế.
 ## V03 internal Settings replacement
 
 [ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) supersedes the internal deployment Connection selector and deployment-transition flow above. Application create still takes Name/Subdomain only. Internal Environment Settings retain Secret Store/configuration, version/operation/error/reload states, but contain no deployment Connection picker. Internal Preview/Deploy resolve matched Definition references without a selected Environment Connection. Legacy deployment-target write fields/endpoints are rejected clearly after V03.10; do not silently accept or derive another target. AWS legacy consumers remain scoped to V05–V06, not newly exposed through an internal selector. Target versions and owner/fence checks remain necessary per resource. No migration required; startup never resets old data.
+
+## V04–V06 — final Settings and creation contract
+
+This extends the V03 replacement to AWS after the corresponding replacement
+gates. Application creation keeps Name/Subdomain, two independent Environments,
+empty Sets and no external side effects/default infrastructure. Environment
+Settings manage the Secret Store/configuration, version and operation state;
+they do not select a deployment Connection, executionProfile, account or region.
+The old deployment-target transition/migrate-data entry is retired with that
+binding. This does not introduce a new cross-target migration feature.
+
+Preview/Deploy use Definition matching and references from UC-03/05/06;
+per-resource/workload target pins preserve the originally resolved account,
+region, cluster and namespace across update/restart/cleanup. An Environment
+without the retired binding is valid; required matching, credential/store,
+reference and readiness checks still apply before the relevant operation.
+Secret Store selection/copy, explicit versioned Save, safe errors, stale Preview
+invalidation and operation owner/fence protections remain in force.
+
+After V06.08, retired deployment fields/commands must not be silently accepted
+or inferred. Fresh persistence omits their fields; incompatible older data fails
+explicitly without automatic migration/reset. Historical deployment/resource
+targets remain provenance rather than a selector for new execution. No automatic
+retargeting, shared-resource deletion or retained-data reset is authorized.
+
+
+The final removal also drops the unused Organization default-choice marker and
+its seed/SQL update path. Historical choice/default passages above do not define
+a surviving public entry. An account registration must preserve Organization
+metadata; it cannot select a target for a new or existing Environment.

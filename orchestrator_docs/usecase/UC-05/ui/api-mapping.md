@@ -2,7 +2,7 @@
 id: UC-05-UI-API
 artifact: use-case-ui-api-mapping
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-18
 related: UC-05, OC-06
 ---
 
@@ -77,3 +77,18 @@ V03 structured graph failures distinguish `resource-no-match` and
 Score Preview exposes full graph/resource batches and `afterWorkloads` lifecycle
 constraints, without provider execution; assertions compare the same intent as
 pending Preview. Safe placements are additive per-node metadata.
+
+
+## V04–V06 current target/dependency behavior
+
+[ADR-017](../../../architecture/decisions/ADR-017-definition-dependency-execution.md)
+replaces remaining profile/Environment-target requirements above for the
+replacement path.
+
+Keep existing role/scoped Definition/Preview/Deploy operations. Registration
+and planning accept typed cluster provenance produced by a matched verified
+EKS Definition as well as Internal existing-cluster. Public DTOs show safe
+identity/provenance/status; no token/kubeconfig/private secret references.
+Deployment profile/Environment account fields do not select infrastructure.
+Legacy writes/fields retire under V05.10/V06.08 gates; no standalone no-workload
+execution endpoint is introduced.

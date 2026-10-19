@@ -20,6 +20,7 @@ type fakeVault struct {
 	listBody string
 	deleteOK bool
 	token    string
+	outputs  map[string]bool
 }
 
 func (f *fakeVault) handler(t *testing.T) http.Handler {
@@ -29,6 +30,25 @@ func (f *fakeVault) handler(t *testing.T) http.Handler {
 			return
 		}
 		parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/v1/secret/"), "/")
+		if len(parts) == 5 && parts[0] == "metadata" && parts[1] == "orchestrator" && parts[2] == "outputs" {
+			path := strings.Join(parts[1:], "/")
+			switch r.Method {
+			case http.MethodDelete:
+				if f.deleteOK {
+					delete(f.outputs, path)
+				}
+				w.WriteHeader(http.StatusNoContent)
+			case http.MethodGet:
+				if f.outputs[path] {
+					_, _ = w.Write([]byte(`{"data":{}}`))
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			default:
+				w.WriteHeader(http.StatusMethodNotAllowed)
+			}
+			return
+		}
 		// metadata|data / orchestrator / connections / org / key / credentials [/ id]
 		if len(parts) < 6 {
 			w.WriteHeader(http.StatusNotFound)
@@ -67,6 +87,39 @@ func (f *fakeVault) handler(t *testing.T) http.Handler {
 			w.WriteHeader(http.StatusNotFound)
 		}
 	})
+}
+
+func TestVaultCleanOutputRefsUsesOnlyExactRunRecordedPaths(t *testing.T) {
+	refA := "secret://vault/secret/orchestrator/outputs/0123456789abcdef/" + idA
+	refB := "secret://vault/secret/orchestrator/outputs/fedcba9876543210/" + idB
+	pathA := "orchestrator/outputs/0123456789abcdef/" + idA
+	pathB := "orchestrator/outputs/fedcba9876543210/" + idB
+	f := &fakeVault{token: "t", deleteOK: true, outputs: map[string]bool{pathA: true, pathB: true, "orchestrator/outputs/foreign/" + idA: true}}
+	result := newVault(t, f).CleanOutputRefs(context.Background(), []string{refA, refB, refA})
+	if len(result.Failed) != 0 || len(result.Deleted) != 2 || f.outputs[pathA] || f.outputs[pathB] || !f.outputs["orchestrator/outputs/foreign/"+idA] {
+		t.Fatalf("result %+v, remaining %+v", result, f.outputs)
+	}
+}
+
+func TestVaultCleanOutputRefsFailsClosedForMalformedForeignAndUnprovenObjects(t *testing.T) {
+	valid := "secret://vault/secret/orchestrator/outputs/0123456789abcdef/" + idA
+	for name, f := range map[string]*fakeVault{
+		"delete leaves object": {token: "t", deleteOK: false, outputs: map[string]bool{"orchestrator/outputs/0123456789abcdef/" + idA: true}},
+		"forbidden token":      {token: "other", deleteOK: true, outputs: map[string]bool{"orchestrator/outputs/0123456789abcdef/" + idA: true}},
+	} {
+		v := newVault(t, f)
+		if name == "forbidden token" {
+			v.Token = "t"
+		}
+		if got := v.CleanOutputRefs(context.Background(), []string{valid}); len(got.Failed) == 0 {
+			t.Fatalf("%s: %+v", name, got)
+		}
+	}
+	for _, ref := range []string{"secret://vault/other/orchestrator/outputs/0123456789abcdef/" + idA, "secret://vault/secret/orchestrator/outputs/../" + idA, "secret://vault/secret/orchestrator/connections/acme/a"} {
+		if got := newVault(t, &fakeVault{token: "t"}).CleanOutputRefs(context.Background(), []string{ref}); len(got.Failed) == 0 {
+			t.Fatalf("unsafe ref accepted: %q", ref)
+		}
+	}
 }
 
 func newVault(t *testing.T, f *fakeVault) Vault {

@@ -1,7 +1,9 @@
 package planning
 
 import (
+	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -11,6 +13,10 @@ import (
 	"orchestrator/internal/planning/placeholder"
 	"orchestrator/internal/platform/canon"
 )
+
+// ErrNodeConflict reports two authored sources that give one scoped descriptor
+// different params.
+var ErrNodeConflict = errors.New("planning: conflicting params for one resource descriptor")
 
 type graphBuilder struct {
 	ctx      Context
@@ -64,8 +70,16 @@ func (b *graphBuilder) ensure(d resource.Descriptor, kind NodeKind, origin Origi
 		}
 		b.nodes[key] = node
 		b.order = append(b.order, key)
-	} else if len(params) > 0 && len(node.Params) == 0 {
-		node.Params = params
+	} else if len(params) > 0 {
+		switch {
+		case len(node.Params) == 0:
+			node.Params = params
+		case !reflect.DeepEqual(node.Params, params):
+			// ADR-017: one scoped descriptor is one node; two authored sources that
+			// disagree about its params are rejected before any call, never merged
+			// silently or resolved by whichever expanded first.
+			return nil, &StageError{Stage: StageGraph, Reason: ReasonResourceConflict, Err: fmt.Errorf("%w: %s", ErrNodeConflict, key)}
+		}
 	}
 	node.addOrigin(origin)
 	return node, nil

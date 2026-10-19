@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
 # UC-03 — Register Resource Definition and Matching Criteria
@@ -325,3 +325,15 @@ Existing Score resource params, Type checks and companion params remain intact.
 No unused variable is accepted as if it affected rendering. Render-only
 Definition registration requires criteria explicitly scoped to legacy-bound
 Applications (AWS after V03.10); unscoped internal workloads need both refs.
+
+
+## V04–V06 dependency authoring
+
+- **V04-01:** Resource-output references and resource-target provider bindings use
+  one descriptor grammar per [ADR-017](../../architecture/decisions/ADR-017-definition-dependency-execution.md). Retain BR-04 and UC-06 BR-08 flags, scoped identity, class/res_id and typed params; do not add duplicate relationship controls.
+- **V05-01:** A matched verified EKS Definition may supply the workload/namespace
+  cluster reference without a live endpoint at registration/Preview. AWS account
+  and region belong to each Definition, never Environment profile or identity.
+- **V06-01:** Managed PostgreSQL/Redis Definitions reference actual network outputs;
+  no implicit EKS dependency or cross-node account/region equality rule. Driver
+  incompatibility and missing/tied matching fail without alternate winner.

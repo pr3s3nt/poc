@@ -27,7 +27,7 @@ DeploymentRepo --> Service: Deployment
 Service -> Planner: Plan(request) [MS-02..MS-08]
 Planner -> DescriptorParser: ParseDescriptorText(reference, node, context) [BR-12]
 DescriptorParser --> Planner: Canonical descriptor
-Planner -> Planner: Select workload first; expand references/rules; match internal cluster [BR-21]
+Planner -> Planner: Select workload first; expand references/rules; match explicit existing/EKS cluster [BR-21, ADR-017]
 Planner -> Planner: Validate and pin each workload/resource namespace and cluster target
 Planner --> Service: Plan with Humanitec-shaped Delta\nand typed container resources
 alt planning fails before Delta Snapshot
@@ -43,10 +43,10 @@ Service -> SetRepo: Save(candidateSet) <<transaction A>>
 Service -> DeploymentRepo: SavePlan, attach snapshot, mark PROVISIONING <<transaction A>>
 Service -> EnvRepo: Admit operation owner/fence under pinned versions (short transaction)
 Service -> Provisioner: Provision(plan.ResourceBatches, owner/fence) [MS-09]
-Provisioner --> Service: ProvisionResult(outputs, target)
+Provisioner --> Service: ProvisionResult(typed outputs, per-consumer target pins)
 Service -> Resolver: ResolveWorkloadBindings(candidate, outputs) [MS-10]
 Resolver --> Service: Resolved workload
-Service -> Renderer: Render(resolved workload, pinned selection, target, requests/limits) [MS-11]
+Service -> Renderer: Render(resolved workload, pinned selection, its resolved target, requests/limits) [MS-11]
 Renderer --> Service: Manifests
 Service -> Deployer: Apply(target, manifests)
 Service -> Deployer: WaitReady(target, workloadRefs)

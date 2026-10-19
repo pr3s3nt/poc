@@ -1,38 +1,29 @@
 @startuml
-title UC-01 - Editable Environment destinations
+title UC-01 - Application creation and Environment Secret Store (V06 design)
 autonumber
 actor Developer as Dev
 boundary SettingsController as API
 control ApplicationService as Apps
 control EnvironmentSettingsService as Settings
-control EnvironmentTransitionService as Transition
+control ConfigurationService as Config
 database UnitOfWork as DB
 participant SecretStoreResolver as Stores
-participant PostgreSQLTransfer as PG
 Dev -> API: CreateApplication(name, subdomain)
-API -> Apps: Validate/create identity and two unset Environments
-Apps -> DB: Atomic create, no defaults or runtime
-Dev -> API: Save initial/change Connection(expectedVersion)
-API -> Settings: Scoped validation
-Settings -> DB: CAS version, require no active owner
-DB --> Dev: New version or 409 stale/busy
+API -> Apps: Validate/create identity and two Environments
+Apps -> DB: Atomic create + empty Sets, no defaults or runtime
+DB --> Dev: Application identity + Environment metadata
+Dev -> API: Load Environment Settings
+API --> Dev: Secret Store, version and safe operation state
 Dev -> API: Change secret store(expectedVersion, configVersion)
-API -> Settings: Claim operation atomically
-Settings -> Stores: Copy immutable desired Secrets and verify
+API -> Settings: Scoped validation and atomic operation claim
+Settings -> Config: Copy immutable desired Secrets
+Config -> Stores: Resolve scoped credentials and copy/verify
 Settings -> DB: Commit store/revision under owner + versions
-DB --> Dev: Pending Preview/Deploy or safe failure
-Dev -> API: Preview target migration(destination, mappings)
-API -> Transition: Validate complete snapshot/capability
-Transition --> Dev: Pinned token and downtime impact
-Dev -> API: Execute(token, acknowledgeDowntime)
-API -> Transition: Admit snapshot and claim owner atomically
-Transition -> PG: Quiesce writers; backup; provision; restore; verify
-Transition -> Transition: Full redeploy, readiness, route cutover
-Transition -> DB: Commit destination/current Set; retain source generation
-DB --> Dev: Result/progress/recovery, no secret bytes
-note over Transition,DB
-Network calls outside transactions.
-Settings/config/draft writes blocked only while operation owns Environment.
-Old targets retained for explicit recovery/cleanup.
+DB --> Dev: New metadata/version or safe stale/busy/copy error
+note over API,DB
+No deployment Connection/profile/region selector or transition entry.
+Preview/Deploy target resolution belongs to UC-05/06/08.
+Network calls outside transactions; no secret bytes in public views.
+Per-resource original pins remain authoritative across restart/cleanup.
 end note
 @enduml

@@ -7,6 +7,7 @@ import { ApiError } from '../../shared/api/client';
 import { previewScore, type PreviewAction, type ScorePreview, type ScorePreviewRequest } from './api';
 import { parseScoreText } from './parseScore';
 import { ResourceIntents, rendererText } from './ResourceIntents';
+import { DependencyGraph } from '../../shared/ui/DependencyGraph';
 import { Placements } from './Placements';
 
 const actions: { value: PreviewAction; label: string; hint: string }[] = [
@@ -130,9 +131,8 @@ function PreviewResult({ result }: { result: ScorePreview }) {
     <section className="content-panel"><h2>Tài nguyên hạ tầng</h2><Placements placements={result.placements} />{result.binding?.connectionKey ? <p aria-label="Đích đã ghim của xem trước">Đích đã ghim: Kết nối {result.binding.connectionKey} · phạm vi {result.binding.executionProfile}{result.binding.region ? ` · vùng ${result.binding.region}` : ''}{result.accountId ? ` · tài khoản AWS ${result.accountId}` : ''}</p> : null}<ResourceIntents intents={result.resourceIntents} /></section>
     <section className="content-panel"><h2>Thứ tự tạo tài nguyên</h2>{result.batches.length ? <ol className="batch-list">{result.batches.map((batch, index) => <li key={index}>Lô {index + 1}: {batch.join(', ')}</li>)}</ol> : <p>Không có tài nguyên cần tạo.</p>}<p><small>Bên cung cấp được tạo trước bên sử dụng.</small></p></section>
     <section className="content-panel"><h2>Liên kết thực thi tài nguyên</h2>{result.matches.length ? <table className="plain-table"><thead><tr><th>Tài nguyên</th><th>Liên kết</th><th>Driver</th></tr></thead><tbody>{result.matches.map((match) => <tr key={match.descriptor}><td>{match.descriptor}</td><td>{match.binding === 'environment-connection' ? `Kết nối của môi trường ${match.connectionKey ?? ''}`.trim() : match.definitionKey}</td><td>{match.driverType}</td></tr>)}</tbody></table> : <p>Không có liên kết tài nguyên.</p>}</section>
-    <section className="content-panel"><h2>Đồ thị tài nguyên</h2><p>{result.graph.nodes.length} nút · {result.graph.edges.length} cạnh phụ thuộc</p>
-      <h3>Nút</h3><ul>{result.graph.nodes.map((node) => <li key={node.descriptor}>{node.descriptor} · {node.kind}{node.paramKeys.length ? ` · tham số: ${node.paramKeys.join(', ')}` : ''}</li>)}</ul>
-      {result.graph.edges.length ? <><h3>Phụ thuộc (bên sử dụng → bên cung cấp)</h3><ul>{result.graph.edges.map((edge, index) => <li key={`${edge.consumer}-${edge.provider}-${index}`}>{edge.consumer} → {edge.provider} <small>({edge.reason})</small></li>)}</ul></> : null}</section>
+    <section className="content-panel"><h2>Đồ thị tài nguyên</h2>
+      <DependencyGraph nodes={result.graph.nodes} edges={result.graph.edges} /></section>
     <section className="content-panel"><h2>Tài liệu (bản đã lọc dữ liệu nhạy cảm)</h2><p><small>Bản đã lọc dữ liệu nhạy cảm: giá trị biến container nguyên văn của các Workload khác hiển thị là <code>***redacted***</code>, và giá trị tham số trong đồ thị tài nguyên bị lược bỏ (chỉ liệt kê tên tham số). Đây không phải Deployment Set có thể thực thi.</small></p>
       <details><summary>Tài liệu Delta</summary><pre className="score-preview">{JSON.stringify(result.delta, null, 2)}</pre></details>
       <details><summary>Candidate Deployment Set — bản đã lọc dữ liệu nhạy cảm, không thể thực thi</summary><pre className="score-preview">{JSON.stringify(result.candidateSet, null, 2)}</pre></details></section>

@@ -67,6 +67,8 @@ type Target struct {
 	OrganizationKey, ApplicationKey, EnvironmentKey string
 	RunIDs                                          []string
 	Generation                                      int64
+	// InstanceIDs optionally narrows recorded-run ownership; nil retains whole-run cleanup.
+	InstanceIDs []string
 }
 
 // Outcomes.
@@ -165,6 +167,23 @@ func (s *Service) Run(ctx context.Context, t Target) (Report, error) {
 	for _, id := range t.RunIDs {
 		owned[id] = true
 	}
+	selected := map[string]bool{}
+	if t.InstanceIDs != nil {
+		if len(t.InstanceIDs) == 0 {
+			return Report{Outcome: OutcomeAttention}, errors.New("runcleanup: explicit selection is empty")
+		}
+		byID := map[string]tfresource.Instance{}
+		for _, inst := range instances {
+			byID[inst.ID] = inst
+		}
+		for _, id := range t.InstanceIDs {
+			inst, found := byID[id]
+			if id == "" || selected[id] || !found || inst.Identity.TargetGeneration != t.Generation || !owned[inst.CreatedByRunID] {
+				return Report{Outcome: OutcomeAttention}, errors.New("runcleanup: explicit selection identity or ownership is invalid")
+			}
+			selected[id] = true
+		}
+	}
 	byRun := map[string][]tfresource.Instance{}
 	for _, inst := range instances {
 		switch {
@@ -174,6 +193,8 @@ func (s *Service) Run(ctx context.Context, t Target) (Report, error) {
 		case !owned[inst.CreatedByRunID]:
 			// Not created by a run the manifest recorded: never self-authorize destruction of it.
 			report.Blocked = append(report.Blocked, Blocked{inst.ID, inst.Identity.Descriptor, string(inst.Status), "NOT_RUN_OWNED"})
+		case t.InstanceIDs != nil && !selected[inst.ID]:
+			report.Blocked = append(report.Blocked, Blocked{inst.ID, inst.Identity.Descriptor, string(inst.Status), "NOT_SELECTED"})
 		case !destroyable(inst.Status):
 			report.Blocked = append(report.Blocked, Blocked{inst.ID, inst.Identity.Descriptor, string(inst.Status), "NOT_DESTROYABLE_STATUS"})
 		default:

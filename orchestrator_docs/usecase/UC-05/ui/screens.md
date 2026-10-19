@@ -2,7 +2,7 @@
 id: UC-05-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-18
 related: UC-05
 ---
 
@@ -62,3 +62,17 @@ replacement. No exact Terraform plan/manifests claim for unresolved outputs.
 ## V03 UI/API replacement
 
 [ADR-016](../../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) defines current internal placement. Remove deployment Connection selection after replacement pass; keep Secret Store/configuration/version/error/operation state. Definition authoring supports existing-cluster account choice and workload namespace/cluster references, Type params and provision flags; consumers inherit account. Score import/edit/export preserves metadata.class. Preview shows each workload/resource Definition/account/cluster/namespace and provider-first graph/batches without secrets, and blocks missing/ambiguous/mismatched/unready inputs as appropriate. No Environment target is required. Retired deployment-Connection writes fail explicitly; safe matching and stale-token gates remain. UI multi-cluster V03 unsupported error occurs before execution. Progress/readiness/errors/update/remove use per-workload targets; failure never shown as success.
+
+
+## V04–V06 current target/dependency behavior
+
+[ADR-017](../../../architecture/decisions/ADR-017-definition-dependency-execution.md)
+replaces remaining profile/Environment-target requirements above for the
+replacement path.
+
+Show Definition/driver/account/region per resource and the explicit cluster
+source per namespace/workload. Graph shows real consumer→provider edges and
+ordering reasons separately from selection-only relations. Unknown EKS output
+values show waiting/provenance, never fabricated Ready/endpoint values. Reuse
+existing authoring, Preview and progress views; no new managed-only execution
+entry or multi-cluster/patch-authoring screen.

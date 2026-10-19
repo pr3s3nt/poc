@@ -378,8 +378,7 @@ node -e '
 ' "${WORK}/run.json" "${RUN_ID}" "${HEADED}" "${NAMESPACE}" "${COMPANION}" "${APPLICATION_KEY}" "${GIT_HEAD}" "${GIT_DIFF_SHA}" "${DIST_SHA}" "$(sha256sum "${ORCH}" | cut -d' ' -f1)" "${SHA_A}" "${SHA_B}" "${ORCH_V03_IMAGE_A}" "${ORCH_V03_IMAGE_A_DIGEST}" "${ORCH_V03_IMAGE_B}" "${ORCH_V03_IMAGE_B_DIGEST}" "1" "${SOURCE_SHA}"
 
 # ---- Headed browser (gated) and GO ---------------------------------------------------------------------
-video_start_xvfb "${SCREEN}"
-printf '%s\nXvfb\n' "${PIDS[-1]}" > "${PRIVATE}/aux-xvfb.pid"
+video_start_xvfb "${SCREEN}" "${PRIVATE}/aux-xvfb.pid"
 RAW="${WORK}/V03-raw.mp4"
 GATE="${PRIVATE}/start-gate"
 : > "${WORK}/playwright.log"

@@ -2,7 +2,7 @@
 id: UC-04-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
 # UC-04 — Use Case Realization
@@ -135,3 +135,21 @@ Current Connection consumer endpoints may remain for staged compatibility. New
 account creation does not configure an Environment. Tests must cover version races,
 unknown outcome/reload, permission/org isolation, target redirection rejection,
 failed-attempt cleanup, safe DTO and durable SQL/Vault reopen.
+
+## V04–V06 Definition-selected execution collaboration
+
+[ADR-017](../../architecture/decisions/ADR-017-definition-dependency-execution.md)
+supersedes the Environment Connection/implicit-cluster execution integration
+above. Account registration/edit/verification still uses the shared scoped
+repository and private credential store; no new account catalog is introduced.
+The winning Definition supplies Driver Account and literal deployment region.
+Internal cluster references resolve its selected account; Terraform-created EKS
+returns safe typed identity pinned to its original account/version/region and
+producing descriptor. Each invocation resolves private fresh authentication from
+that original identity. No Environment/host/default/last-cluster fallback remains.
+
+Read-only account verification does not replace execution-time EKS API/network/
+Ready-node checks or authorize provisioning. Account verification regions remain
+evidence, not a cross-resource equality restriction. The account catalog and
+Secret Store workflows survive legacy executionProfile removal; historical
+Connection storage identity is not an Environment deployment selector.

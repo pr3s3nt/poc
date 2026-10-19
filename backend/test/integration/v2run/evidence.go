@@ -95,6 +95,16 @@ var awsAssertions = []string{
 	"job.reload-same-result", "cleanup.supervisor-clean", "cleanup.aws-absent", "evidence.no-secret-public",
 }
 
+var v05Assertions = []string{
+	"aws.preflight-account-region-principal", "aws.egress-32", "aws.pod-capacity",
+	"ui.signin", "ui.account.ready", "ui.types.registered", "ui.definitions.registered", "ui.workloads.three-saved",
+	"preview.pure", "preview.accounts-regions", "preview.unknown-cluster-outputs", "preview.graph", "preview.pins", "preview.score-k8s-bundle", "preview.no-environment-target",
+	"deploy.terraform-stages", "deploy.cluster-ready-before-consumers", "ready.ownership-recorded", "ready.aws-assets-tagged", "ready.workloads", "ready.nodes", "ready.shared-endpoints", "ready.bindings", "ready.target-identity", "persist.no-credential",
+	"app.rows-pass", "app.secret-row-not-configured", "job.completed-ui", "job.postgres-row", "job.no-duplicate", "cache.worker-write", "cache.backend-hit", "cache.ttl-expiry-miss", "cache.refill", "job.reload-same-result",
+	"update.data-and-worker-preserved", "update.config-rollout", "update.no-duplicate-infra", "restart.operation-after", "restart.target-unchanged", "restart.job-persisted", "restart.new-job",
+	"negative.tied-cluster-definitions", "negative.no-extra-cluster", "cleanup.supervisor-clean", "cleanup.aws-absent", "aws.preexisting-preserved", "evidence.no-secret-public",
+}
+
 var deleteAssertions = []string{
 	"delete.workloads-removed", "delete.resources-unreferenced", "delete.developer-has-no-button", "delete.root-only-checked",
 	"delete.platform-excluded", "delete.dependency-selected", "delete.unchecked-candidate-left", "delete.exact-name-confirmation",
@@ -118,6 +128,8 @@ func RequiredAssertions(scenario string) []string {
 		out = append(append(out, happyCommon...), deleteAssertions...)
 	case "A02", "A03":
 		out = append(out, awsAssertions...)
+	case "V05":
+		out = append(out, v05Assertions...)
 	default:
 		out = append(out, scenarioAssertions[scenario]...)
 	}

@@ -2,7 +2,7 @@
 id: ADR-INDEX
 artifact: decision-index
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
 # Architecture Decision Records
@@ -35,3 +35,5 @@ last_reviewed: 2026-10-17
 
 
 - [ADR-016 — Definition-selected workload lifecycle and targets](ADR-016-definition-selected-workload-targets.md) — accepted V03 option B; internal cluster matching replaces ADR-013; per-resource targets with one-cluster V03 delivery boundary.
+
+- [ADR-017 — Definition dependencies and deferred cluster targets](ADR-017-definition-dependency-execution.md) — V04–V06 contract; same-execution EKS and gated profile removal.

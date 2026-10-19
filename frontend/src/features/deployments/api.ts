@@ -29,7 +29,9 @@ export type DeploymentDetail = {
   deployment: Deployment;
   deploymentSetId: string;
   planHash: string;
-  graph?: { nodes?: { descriptor: string; kind: string }[]; edges?: { consumer: string; provider: string }[] };
+  graph?: { nodes?: { descriptor: string; kind: string; origins?: string[] }[]; edges?: { consumer: string; provider: string; reason: string }[] };
+  // Consumers held back by a failed provider (ADR-017): descriptors, edge reason and a safe code only.
+  blocked?: { consumer: string; provider: string; reason: string; code: string }[];
   matches?: Record<string, { definitionKey: string; driverType: string }>;
   batches?: string[][];
   resources: { descriptor: string; resourceType: string; definitionKey: string; status: string; outputs: Record<string, unknown> }[];

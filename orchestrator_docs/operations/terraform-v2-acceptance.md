@@ -2,17 +2,87 @@
 id: RUNBOOK-TERRAFORM-V2-ACCEPTANCE
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-19
 related: [ADR-014, UC-03, UC-04, UC-05, UC-06, UC-08, UC-16]
 ---
 
 # Terraform v2 — acceptance và quyền thực thi
 
+## Hợp đồng hiện hành issue #4 — quyết định 2026-10-19
+
+V04/V05/A02/A03 chỉ nghiệm thu thật luồng chính: account/Types/Definitions/Score,
+Preview/graph, deploy/readiness, real proxy/job/worker/PostgreSQL, Redis write/hit/
+natural TTL miss/DB refill, persistence, valid update/restart/reuse, reverse cleanup.
+Không intentional failure: unreachable/restricted account, wrong config/credentials,
+Redis ACL outage, E01/E02, permission/driver/matching/network negatives. Không
+negative nào còn chặn gate; giữ tests đã có và yêu cầu pass, không thêm tests
+ngoại lệ để thay thế. Giữ secret scan và cleanup chỉ owned resources qua UID/API,
+bảo vệ shared/preexisting. Không giảm assertions luồng chính.
+
+Positive config update đổi TTL25→35 qua UI, deploy backend+worker, kiểm config
+thật trong pods và app bình thường; không tạo config FAIL rồi recovery.
+Cleanup: frontend tham chiếu Service backend, nên UI đánh dấu xóa frontend và
+backend trong cùng thay đổi; không để frontend tham chiếu Service đã xóa. Worker
+còn chạy chứng minh shared PG/Redis được giữ. Existing
+technical RemoveDelivered dùng original workload targets gỡ worker delivery/
+VSO (label rõ technical mutation), UI commit desired removals rồi xác nhận
+reverse resource deletion. Không skip technical cleanup theo legacy Environment
+binding; không bypass namespace guard hoặc gọi technical mutation là UI/read-only.
+R14 positive evidence reuse theo source/fixture/assertion map; negative failures
+không chặn gate. R14 Preview cleanup chưa qua, không gọi UI cleanup PASS chỉ vì
+emergency supervisor đã dọn sạch. Negative/probe procedures dưới đây là lịch sử.
+
+
 Runbook này ghi scope người dùng đã chốt và execution procedure cần implement;
 không khẳng định runner/modules/Redis đã có. ADR nằm tại
 [ADR-014](../architecture/decisions/ADR-014-terraform-v2-lifecycle.md).
 
-## Ba chặng và điểm dừng
+## Current V04–V06 execution contract
+
+Issue #4 and [ADR-017](../architecture/decisions/ADR-017-definition-dependency-execution.md)
+replace remaining Environment/profile inference and Environment-wide account/region
+equality in this runbook. Match each Definition's Driver Account/region; namespace
+and workload inherit their explicit typed cluster resource reference. Cluster may
+be unknown at Preview and created in the same execution; API/auth/network/Ready
+capacity must pass before consumers. Existing safety/ownership/state/secret/cost
+requirements below remain.
+
+V04 uses full frontend/backend/worker on existing k8s-4f with in-cluster PostgreSQL
+and Redis; V05 repeats applicable full app lifecycle on EKS requested in the graph
+with in-cluster data dependencies. V06 A02 uses Aurora/ElastiCache, then cleanup
+proven clean before A03 uses Aurora/in-cluster Redis on a newly requested EKS.
+No fake/minimal workload or backend-dependent FAIL row is accepted as full app
+PASS. [Pre-code coverage map](../verification/2026-10-18-v040506-handoff.md) binds
+each function to actions/assertions/evidence/cleanup.
+
+For every gate, Console UI authors accounts/catalog/Score and Preview/Deploy;
+existing app UI submits jobs. Technical/API setup/read operations are labelled
+separately. Add persistence over app reload, product redeploy/config update and
+orchestrator restart with subsequent operation; prove original instance/target/
+state/data remain and no duplicate. Keep mandatory main-flow job/worker/Redis
+write/hit/TTL expiry/miss/DB refill/valid config/Secret assertions. Existing
+auth/error/missing-output/cycle/blocked-consumer automated tests remain required
+to pass; intentional live failures and E01/E02 are excluded by the19-10 decision.
+
+V06.06 requires the planner not to insert EKS without an authored dependency.
+A public no-workload entry/contract is not defined; its runtime check is conditional
+in the issue and is not claimed. No new no-workload API/UI is added in this task. Multi-cluster execution and issue5 patch authoring stay out.
+For current V05/A02/A03 AWS admission, use the completed V04 integrated run as
+the predecessor evidence: full main-flow app, all54 required main assertions,
+version2 MAIN_FLOW_2026_10_19 final successful runner receipt after
+SQL/reopen/video/secret checks and proven physical/local cleanup. A browser
+result.txt PASS alone is insufficient. Evidence must identify the actual V04
+run, k8s-4f target and source; cleanup failures or unfinished runner/retained
+private recovery material keep AWS gated. The coordinator additionally verifies
+native video/player/download and completes the V04 commit/push before V05.
+Do not relabel one V04 run as three historical runs or repeat scenarios merely
+to create A01/E01/E02 directory names. Historical M04 admission remains labelled
+historical; those old directories cannot substitute for current V04 coverage.
+
+Staged V05.10/V06.08 removals require corresponding replacement gate PASS;
+review/validate affected final deltas and rerun runtime when broad impact warrants.
+
+## Historical M04 stages and approvals
 
 1. Chặng 1 hoàn tất tài liệu A–D và plan M04, commit/push rồi **dừng chờ duyệt**.
    Không giao code hoặc bắt đầu test mutation của chặng 2 trước người dùng duyệt.
@@ -221,6 +291,18 @@ Không delete namespace trước state-owned children để bỏ qua lifecycle. 
 AWS physical IDs/run tags cho EKS, RDS, ElastiCache, VPC/subnets/SG/routes/NAT/
 IGW, EC2/EBS/EIP, ECR, IAM và LB nếu phát sinh; Kubernetes namespace/objects/PV
 owned được xác minh không còn. Empty Terraform state hoặc destroy exit 0 chưa đủ.
+
+V04 output cleanup phải anchor ActiveResource từ private Terraform instance/attempt
+và đúng deployment/node; instance mới có thể chưa có active_resource_id. Bao gồm
+output hiện tại và mọi snapshot reuse của đúng ActiveResource, kể cả khi reuse
+không tạo attempt. Không dùng descriptor đơn lẻ để nhận ownership.
+Trước writer, lưu baseline metadata output Vault bằng token operator scoped;
+sau khi writers dừng, đối chiếu mọi object mới với SQL inventory. Object baseline
+được bảo vệ; object mới không được inventory hoặc API/list không đầy đủ làm
+cleanup FAIL, giữ database/private recovery và chặn retry. Chỉ xóa exact owned
+references; sau xóa phải chứng minh metadata trở về baseline trước khi drop SQL.
+Metadata listing không đọc secret values. V03 historical runner không có opt-in
+này giữ hợp đồng lịch sử; không dùng kết quả đó miễn điều kiện V04.
 
 Mỗi run giữ headed video có cursor/click/typing/pauses đủ đọc, phụ đề Việt không
 che UI; phase marks PREPARE/FORM/PREVIEW/TERRAFORM/READY/JOB/CACHE/CLEANUP,

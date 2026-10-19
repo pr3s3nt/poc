@@ -79,6 +79,7 @@ func main() {
 	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
 	handlesFile := fs.String("handles", "", "private cleanup handles (0600)")
 	manifestFile := fs.String("manifest", "", "private run manifest: the trusted record of the run's Terraform run IDs and target generation")
+	descriptorsFile := fs.String("selected-descriptors", "", "optional private exact failed-attempt probe descriptors; narrows recorded-run cleanup")
 	_ = fs.Parse(os.Args[2:])
 	handles, err := v2run.LoadCleanupHandles(*handlesFile)
 	if err != nil {
@@ -118,6 +119,18 @@ func main() {
 	}
 	target := runcleanup.Target{OrganizationKey: handles.OrganizationKey, ApplicationKey: handles.ApplicationKey, EnvironmentKey: handles.EnvironmentKey,
 		RunIDs: manifest.TerraformRuns, Generation: manifest.Generation}
+	if *descriptorsFile != "" {
+		if cmd != "terraform" {
+			fmt.Fprintln(os.Stderr, "v2cleanup: selection only supports terraform")
+			os.Exit(exitUsage)
+		}
+		ids, selectErr := selectFailedInstances(ctx, app, target, opts.TerraformStateDatabaseURL, *descriptorsFile)
+		if selectErr != nil {
+			fmt.Fprintln(os.Stderr, "v2cleanup: exact failed selection is invalid")
+			os.Exit(exitAttention)
+		}
+		target.InstanceIDs = ids
+	}
 	switch cmd {
 	case "delivery":
 		os.Exit(delivery(ctx, app, handles, manifest))
@@ -143,10 +156,6 @@ func delivery(ctx context.Context, app *bootstrap.App, h v2run.CleanupHandles, m
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "v2cleanup: the Environment cannot be read")
 		return exitAttention
-	}
-	if !env.Configured() {
-		print(map[string]any{"removed": []string{}, "note": "the Environment was never bound: nothing was delivered"})
-		return exitDone
 	}
 	report, err := app.Deployments.RemoveDelivered(ctx, h.OrganizationKey, h.ApplicationKey, h.EnvironmentKey, m.Generation)
 	print(map[string]any{"removed": report.Removed, "protected": report.Protected, "failed": report.Failed, "secretObjects": report.SecretObjects, "namespace": env.Namespace()})

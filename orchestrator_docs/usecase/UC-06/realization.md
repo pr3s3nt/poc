@@ -2,7 +2,7 @@
 id: UC-06-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-18
 ---
 
 # UC-06 — Use Case Realization
@@ -161,3 +161,20 @@ commit. Typed safe workload metadata outputs, when declared/supported, are
 validated before their consumers. No new public endpoint or all-purpose external
 driver protocol is implied. Existing owner/fence, persisted progress, restart
 and current-set-after-complete guarantees remain across all stages.
+
+
+## V04–V06 collaboration
+
+[ADR-017](../../architecture/decisions/ADR-017-definition-dependency-execution.md)
+replaces the remaining profile-driven collaboration above. Select workload
+Definition, expand all authored references/provision/provider bindings to fixed
+point, validate full DAG and pin each node's Definition/account/region/placement.
+Planning keeps unknown typed outputs and safe provenance without provider calls.
+Provisioning dispatches matched driver with private invocation credentials,
+validates completed outputs/readiness and persists original state/target pins.
+Namespace/workload resolve their explicit cluster; EKS target auth is reconstructed
+per invocation after API/network/node readiness. OutputBindingResolver renders
+only after dependencies pass. Failure blocks consumers and preserves progress.
+Cleanup walks reverse actual graph using original state/module/identity and
+ownership/UID guards, protecting shared/preexisting objects. See cloud sequence
+and module/state contracts for target and secret boundaries.

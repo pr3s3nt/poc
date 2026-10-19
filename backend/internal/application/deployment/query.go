@@ -53,7 +53,10 @@ type View struct {
 	// persisted Terraform attempts (UC-16 states, ADR-014); never the module
 	// or target snapshots, state, physical IDs or recovery handles.
 	ResourceProgress []domain.ResourceAttempt `json:"resourceProgress"`
-	Workloads        []WorkloadView           `json:"workloads"`
+	// Blocked lists the consumers held back by a failed provider (ADR-017):
+	// descriptors, the graph edge reason and a safe failure code only.
+	Blocked   []BlockedView  `json:"blocked"`
+	Workloads []WorkloadView `json:"workloads"`
 }
 
 // QueryService implements UC-09: assemble a read-only deployment view.
@@ -223,6 +226,8 @@ func assembleView(ctx context.Context, st persistence.Store, query GetDeployment
 		view.ResourceProgress = append(view.ResourceProgress, attempt.Safe())
 	}
 
+	view.Blocked = deriveBlocked(view.Graph, view.Resources, attempts)
+
 	instances, err := st.ListDeploymentWorkloads(ctx, record.ID)
 	if err != nil {
 		return nil, err
@@ -246,6 +251,9 @@ func assembleView(ctx context.Context, st persistence.Store, query GetDeployment
 	}
 	if view.Workloads == nil {
 		view.Workloads = []WorkloadView{}
+	}
+	if view.Blocked == nil {
+		view.Blocked = []BlockedView{}
 	}
 	return view, nil
 }

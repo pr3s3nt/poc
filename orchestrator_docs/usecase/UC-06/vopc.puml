@@ -108,7 +108,7 @@ class ModulePreflight <<control>>
 DeploymentService --> EnvironmentOperationManager : admission / current owner-fence
 DeploymentService --> ModulePreflight : known inputs / immutable content
 note right of RenderPreflight
-Required score-k8s on both v2 profiles.
+Required score-k8s for Definition-selected targets.
 No native fallback; output-only bindings.
 end note
 class WorkloadPlacement <<value>> {
@@ -121,8 +121,21 @@ class WorkloadPlacementResolver <<control>>
 PlanningService --> WorkloadPlacementResolver : selected Definition references
 WorkloadPlacementResolver --> WorkloadPlacement : validate and pin per consumer
 note right of WorkloadPlacement
-V03 same-cluster admission only;
+One-cluster Candidate Set capability guard;
 model supports independent resource targets.
 No credentials in public projection.
+end note
+class ClusterTargetIdentity <<value>> {
+  +Provider: Internal or EKS
+  +Descriptor: string
+  +OrganizationAccountVersion: opaque
+  +ClusterNameRegion: safe identity
+}
+WorkloadPlacement *-- ClusterTargetIdentity
+note right of ClusterTargetIdentity
+ADR-017: unknown typed provenance at Preview.
+Resolve EKS after provision; fresh scoped auth per invocation.
+API/auth/network/Ready capacity before consumers.
+No token, kubeconfig, temporary path or host fallback.
 end note
 @enduml

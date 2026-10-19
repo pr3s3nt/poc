@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
 # UC-06 — Deploy Workload
@@ -282,3 +282,28 @@ in the correct target generation/Candidate context, fail safely and preserve
 progress/current-set invariants. An old-generation READY instance is insufficient.
 Workload lifecycle metadata/readiness is queried through existing status views;
 V03 does not supply arbitrary workload Type output bindings (Type outputs empty).
+
+
+## V04–V06 Definition-driven execution replacement
+
+[ADR-017](../../architecture/decisions/ADR-017-definition-dependency-execution.md)
+replaces remaining profile enrichment and same-Environment-account assumptions
+in PRE-02, MS-05, VAR-01, POST-02/03 and BR-03 as V05 is implemented.
+
+- **V04-01:** Expand references/provision/provider edges to fixed point; retain
+  flags and schedule providers before consumers. Real shared PostgreSQL/Redis
+  outputs and Secret bindings precede render. Entire acceptance app must prove
+  browser proxy/job submission→worker result, persistence over reload/redeploy/
+  restart, Redis worker write/hit/miss/TTL/DB refill, config/secret/auth/errors.
+- **V05-01:** Infrastructure exists in the plan only because of matched
+  Definitions/references; same-execution EKS outputs may be unknown at Preview.
+  Use typed completed cluster identity per consumer, original AWS account/region
+  and fresh invocation authentication; API/auth/network/Ready node capacity
+  must pass before namespace/workload. No global last-cluster inference.
+- **V06-01:** Managed resources follow actual network dependencies and their own
+  account/region. A02 then verified cleanup then A03 prove real app business
+  behavior, isolation, lifecycle and owned cleanup; cross-account/region
+  contract tests need not create more live accounts or regions.
+- **V06-02:** Apply legacy AWS-profile removal only after V05 replacement PASS,
+  final executionProfile removal only after corresponding V06 coverage PASS.
+  Validate affected final source and preserve original state/cleanup pins.

@@ -2,7 +2,7 @@
 id: UC-01-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-18
 ---
 
 # UC-01 context — Create Application
@@ -50,3 +50,11 @@ workload/database/Vault execution using UI interactions (2026-10-07).
 supersedes permanent target lock/Application provider selection. Specifications
 now include editable per-Environment destinations and Vault stores/transitions;
 implementation status is tracked in CURRENT_STATE, not inferred from old evidence.
+
+
+## V04–V06 replacement route
+
+Current design: [specification](specification.md#v04v06--final-settings-and-creation-contract),
+[ADR-017](../../architecture/decisions/ADR-017-definition-dependency-execution.md),
+and updated sequence/VOPC/UI. Deployment Connection/profile/transition flows
+above are historical staged behavior; final delivery status remains CURRENT_STATE.

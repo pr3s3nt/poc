@@ -2,7 +2,7 @@
 id: UC-05-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-18
 related: UC-05
 ---
 
@@ -57,3 +57,17 @@ không raw CLI/state/secret; interruption không được coi là cleanup thành
 ## V03 UI/API replacement
 
 [ADR-016](../../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) defines current internal placement. Remove deployment Connection selection after replacement pass; keep Secret Store/configuration/version/error/operation state. Definition authoring supports existing-cluster account choice and workload namespace/cluster references, Type params and provision flags; consumers inherit account. Score import/edit/export preserves metadata.class. Preview shows each workload/resource Definition/account/cluster/namespace and provider-first graph/batches without secrets, and blocks missing/ambiguous/mismatched/unready inputs as appropriate. No Environment target is required. Retired deployment-Connection writes fail explicitly; safe matching and stale-token gates remain. UI multi-cluster V03 unsupported error occurs before execution. Progress/readiness/errors/update/remove use per-workload targets; failure never shown as success.
+
+
+## V04–V06 current target/dependency behavior
+
+[ADR-017](../../../architecture/decisions/ADR-017-definition-dependency-execution.md)
+replaces remaining profile/Environment-target requirements above for the
+replacement path.
+
+Definition/account/region/reference edits invalidate prior Preview/pending
+results. Unresolved typed EKS outputs are a valid planned state; consuming node
+waits for successful producing provision and API/auth/network/node readiness.
+Missing/type/dependency/auth/network failure stays a source error and blocks
+consumer; no fallback account/cluster or false success. Maintain loading/error/
+retry/stale/BUSY and secret-redaction behavior.

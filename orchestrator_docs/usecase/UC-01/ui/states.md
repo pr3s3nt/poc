@@ -2,7 +2,7 @@
 id: UC-01-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-18
 ---
 
 # UC-01 UI states
@@ -86,3 +86,13 @@ không tự replay mutation; lỗi tải lại không phủ nhận kết quả �
 ## V03 UI/API replacement
 
 [ADR-016](../../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) defines current internal placement. Remove deployment Connection selection after replacement pass; keep Secret Store/configuration/version/error/operation state. Definition authoring supports existing-cluster account choice and workload namespace/cluster references, Type params and provision flags; consumers inherit account. Score import/edit/export preserves metadata.class. Preview shows each workload/resource Definition/account/cluster/namespace and provider-first graph/batches without secrets, and blocks missing/ambiguous/mismatched/unready inputs as appropriate. No Environment target is required. Retired deployment-Connection writes fail explicitly; safe matching and stale-token gates remain. UI multi-cluster V03 unsupported error occurs before execution. Progress/readiness/errors/update/remove use per-workload targets; failure never shown as success.
+
+
+## V04–V06 final Settings replacement
+
+After V06.08, Connection-choice and deployment-transition states above are
+retired. Loading/empty/error/explicit Save/stale/unknown-outcome/store-copy and
+operation-owner guards still apply to the surviving Secret Store/configuration
+flow. An Environment with no retired binding is not an error. Missing or invalid
+Definition/reference/credential/readiness is reported in its Preview/execution
+context; no automatic target selection or mutation is introduced.

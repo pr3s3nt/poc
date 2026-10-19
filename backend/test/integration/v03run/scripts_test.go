@@ -33,6 +33,7 @@ func newCleanupFixture(t *testing.T) *cleanupFixture {
 	script := `#!/usr/bin/env bash
 # stub operator tool: records the command and, for reap, whether a recorded process group still lives.
 echo "$1" >> "` + f.log + `"
+if [[ "$1" == v04-output-refs ]]; then printf '[]\n' > "` + filepath.Join(f.private, "output-refs.json") + `"; fi
 if [[ "$1" == v03-reap && -s "` + filepath.Join(f.private, "server.pid") + `" ]]; then echo "reap-saw-live-server" >> "` + f.log + `"; fi
 case "${STUB_FAIL:-}" in *"$1"*) echo "stub failure of $1" >&2; exit 1;; esac
 exit 0
@@ -41,11 +42,11 @@ exit 0
 		t.Fatal(err)
 	}
 	f.envFile = filepath.Join(f.private, "cleanup.env")
-	env := fmt.Sprintf("WORK=%q\nPRIVATE=%q\nCTL=%q\nKUBECTL=kubectl\nHOST_KUBECONFIG=/dev/null\nHOST_CONTEXT=ctx\nRUN_ID=v03-test\nORG=acme\nVAULT_ADDR_LOCAL=http://127.0.0.1:1\nMOUNT=secret\nPG_ADMIN=%q\n", f.work, f.private, stub, filepath.Join(dir, "pg-admin"))
+	env := fmt.Sprintf("WORK=%q\nPRIVATE=%q\nCTL=%q\nKUBECTL=kubectl\nHOST_KUBECONFIG=/dev/null\nHOST_CONTEXT=ctx\nRUN_ID=v03-test\nORG=acme\nVAULT_ADDR_LOCAL=http://127.0.0.1:1\nMOUNT=secret\nOUTPUT_VAULT_ADDR=http://127.0.0.1:1\nOUTPUT_MOUNT=secret\nOUTPUT_REFS_FILE=%q\nOUTPUT_REFS_OWNER_URL_FILE=%q\nOUTPUT_CLEANUP_TOKEN=%q\nPG_ADMIN=%q\n", f.work, f.private, stub, filepath.Join(f.private, "output-refs.json"), filepath.Join(f.private, "owner.url"), filepath.Join(f.private, "output-cleanup-token"), filepath.Join(dir, "pg-admin"))
 	if err := os.WriteFile(f.envFile, []byte(env), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	for name, content := range map[string]string{"baseline.json": "{}", "pg-manifest.json": "{}", "state.key": "KEY", "console.url": "url", "vault-token": "tok"} {
+	for name, content := range map[string]string{"baseline.json": "{}", "pg-manifest.json": "{}", "state.key": "KEY", "console.url": "url", "owner.url": "owner-url", "vault-token": "tok", "output-cleanup-token": "cleanup", "output-refs.json": `["secret://vault/secret/orchestrator/outputs/0123456789abcdef/11111111-1111-4111-8111-111111111111"]`} {
 		if err := os.WriteFile(filepath.Join(f.private, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -110,8 +111,8 @@ func TestCleanupStopsWritersBeforeDeletingAndDropsTheDatabaseLast(t *testing.T) 
 		t.Fatal("the owned process groups must be stopped")
 	}
 	calls := f.calls()
-	if strings.Join(calls, ",") != "v03-reap,v03-vault-clean,pg-drop" {
-		t.Fatalf("order of operations = %v (the cluster, then Vault, then the database)", calls)
+	if strings.Join(calls, ",") != "v03-reap,v04-output-refs,v03-vault-clean,v04-output-clean,pg-drop" {
+		t.Fatalf("order of operations = %v (the cluster and both exact Vault inventories, then the database)", calls)
 	}
 	for _, call := range calls {
 		if call == "reap-saw-live-server" {
@@ -128,8 +129,37 @@ func TestCleanupStopsWritersBeforeDeletingAndDropsTheDatabaseLast(t *testing.T) 
 	}
 }
 
+func TestCleanupPreservesLegacyV03WithoutV04OutputInventory(t *testing.T) {
+	f := newCleanupFixture(t)
+	env, err := os.ReadFile(f.envFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(env), "\n")
+	kept := lines[:0]
+	for _, line := range lines {
+		if strings.HasPrefix(line, "OUTPUT_REFS_FILE=") || strings.HasPrefix(line, "OUTPUT_REFS_OWNER_URL_FILE=") || strings.HasPrefix(line, "OUTPUT_CLEANUP_TOKEN=") {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	if err := os.WriteFile(f.envFile, []byte(strings.Join(kept, "\n")), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := runCleanup(t, f, ""); err != nil {
+		t.Fatalf("legacy V03 cleanup failed: %v", err)
+	}
+	if got := strings.Join(f.calls(), ","); got != "v03-reap,v03-vault-clean,pg-drop" {
+		t.Fatalf("legacy cleanup called V04 inventory without opt-in: %s", got)
+	}
+	log, _ := os.ReadFile(filepath.Join(f.work, "cleanup.txt"))
+	if !strings.Contains(string(log), "V04 output inventory is not configured") {
+		t.Fatal("legacy no-inventory path was not identified")
+	}
+}
+
 func TestCleanupKeepsTheDatabaseAndRecoveryMaterialWhenAnythingIsNotProven(t *testing.T) {
-	for name, stubFail := range map[string]string{"cluster api error": "v03-reap", "vault not proven": "v03-vault-clean"} {
+	for name, stubFail := range map[string]string{"cluster api error": "v03-reap", "output reference inventory not proven": "v04-output-refs", "account vault not proven": "v03-vault-clean", "output vault not proven": "v04-output-clean"} {
 		t.Run(name, func(t *testing.T) {
 			f := newCleanupFixture(t)
 			if err := runCleanup(t, f, stubFail); err == nil {
@@ -140,7 +170,7 @@ func TestCleanupKeepsTheDatabaseAndRecoveryMaterialWhenAnythingIsNotProven(t *te
 					t.Fatal("the database must not be dropped while the cleanup is unproven")
 				}
 			}
-			for _, kept := range []string{"state.key", "console.url", "vault-token", "pg-manifest.json", "baseline.json"} {
+			for _, kept := range []string{"state.key", "console.url", "vault-token", "output-cleanup-token", "output-refs.json", "pg-manifest.json", "baseline.json"} {
 				if _, err := os.Stat(filepath.Join(f.private, kept)); err != nil {
 					t.Fatalf("%s must be kept for recovery: %v", kept, err)
 				}
@@ -233,4 +263,99 @@ func TestSupervisorCleansWhenTheRunnerIsKilledAndWhenItsDeadlinePasses(t *testin
 			t.Fatalf("calls = %v", got)
 		}
 	})
+}
+
+// A browser leader may die before its recorder. Run the actual runner's
+// post-wait fragment, then the real cleanup against a live orphan child.
+func TestBrowserLeaderExitKeepsReceiptUntilOrphanGroupIsReaped(t *testing.T) {
+	f := newCleanupFixture(t)
+	raw, err := os.ReadFile("../v04-internal-full.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(raw)
+	start := strings.Index(script, `wait "${NODE_PID}" || STATUS=$?`)
+	if start < 0 {
+		t.Fatal("browser wait boundary missing")
+	}
+	end := strings.Index(script[start:], "# ---- Post-run checks")
+	if end < 0 {
+		t.Fatal("post-run check boundary missing")
+	}
+	fragment := script[start : start+end]
+	body := `source "$1"
+STATUS=0
+setsid bash -c 'sleep 300 </dev/null >/dev/null 2>&1 & echo "$!" > "$1"; exit 1' _ "$PRIVATE/orphan-child.pid" &
+NODE_PID=$!
+printf '%s\n' "$NODE_PID" > "$PRIVATE/node.pid"
+` + fragment
+	cmd := exec.Command("bash", "-c", body, "_", f.envFile)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("browser exit fragment: %v: %s", err, out)
+	}
+	receipt, err := os.ReadFile(filepath.Join(f.private, "node.pid"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pgid, err := strconv.Atoi(strings.TrimSpace(string(receipt)))
+	if err != nil || pgid <= 1 {
+		t.Fatalf("leader exit lost group receipt: %q", receipt)
+	}
+	t.Cleanup(func() {
+		if groupAlive(pgid) {
+			_ = syscall.Kill(-pgid, syscall.SIGKILL)
+		}
+	})
+	if !groupAlive(pgid) {
+		t.Fatal("regression fixture did not retain its recorder-like child")
+	}
+	result, err := os.ReadFile(filepath.Join(f.work, "result.txt"))
+	if err != nil || strings.TrimSpace(string(result)) != "FAIL" {
+		t.Fatalf("browser crash must be explicit FAIL: %q %v", result, err)
+	}
+	if err := runCleanup(t, f, ""); err != nil {
+		t.Fatalf("orphan group cleanup: %v", err)
+	}
+	if groupAlive(pgid) {
+		t.Fatal("recorder-like child survived verified cleanup")
+	}
+}
+
+func TestCleanupMetadataGuardBlocksDeletionAndRetainsRecovery(t *testing.T) {
+	for _, failure := range []string{"", "v04-output-inventory", "v04-output-refs"} {
+		t.Run("failure-"+failure, func(t *testing.T) {
+			f := newCleanupFixture(t)
+			env, err := os.OpenFile(f.envFile, os.O_APPEND|os.O_WRONLY, 0600)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fmt.Fprintf(env, "OUTPUT_BASELINE_FILE=%q\n", filepath.Join(f.private, "output-baseline.json"))
+			env.Close()
+			if err := os.WriteFile(filepath.Join(f.private, "output-baseline.json"), []byte(`{"version":1}`), 0600); err != nil {
+				t.Fatal(err)
+			}
+			err = runCleanup(t, f, failure)
+			calls := strings.Join(f.calls(), ",")
+			if failure == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				if calls != "v03-reap,v04-output-refs,v03-vault-clean,v04-output-inventory,v04-output-clean,v04-output-inventory,pg-drop" {
+					t.Fatalf("order=%s", calls)
+				}
+			} else {
+				if err == nil {
+					t.Fatal("unproven inventory must fail")
+				}
+				if strings.Contains(calls, "v04-output-clean") || strings.Contains(calls, "pg-drop") {
+					t.Fatalf("destructive cleanup followed unproven inventory: %s", calls)
+				}
+				for _, name := range []string{"pg-manifest.json", "state.key", "output-baseline.json", "owner.url"} {
+					if _, err := os.Stat(filepath.Join(f.private, name)); err != nil {
+						t.Fatalf("recovery handle %s lost: %v", name, err)
+					}
+				}
+			}
+		})
+	}
 }

@@ -220,11 +220,11 @@ func evidenceRun(t *testing.T, scenario, result, marker string) string {
 	return dir
 }
 
-func TestAWSGateRefusesAnyEffectUntilI0411PassedAndWasCleaned(t *testing.T) {
+func TestHistoricalM04EvidenceReaderKeepsItsStrictProofContract(t *testing.T) {
 	c := awsConfig(t, "A02", "t4g.medium")
 	good := []string{evidenceRun(t, "A01", "PASS", v2run.MarkerClosedClean), evidenceRun(t, "E01", "PASS", v2run.MarkerClosedClean), evidenceRun(t, "E02", "PASS", v2run.MarkerClosedClean)}
 	c.AWS.I0411Evidence = good
-	if err := v2run.AWSGate(c); err != nil {
+	if err := v2run.CheckHistoricalM04Evidence(c); err != nil {
 		t.Fatal(err)
 	}
 	cases := map[string][]string{
@@ -236,7 +236,7 @@ func TestAWSGateRefusesAnyEffectUntilI0411PassedAndWasCleaned(t *testing.T) {
 	}
 	for name, dirs := range cases {
 		c.AWS.I0411Evidence = dirs
-		if err := v2run.AWSGate(c); err == nil {
+		if err := v2run.CheckHistoricalM04Evidence(c); err == nil {
 			t.Fatalf("%s must keep the AWS gate closed", name)
 		}
 	}
@@ -247,7 +247,7 @@ func TestAWSGateRefusesAnyEffectUntilI0411PassedAndWasCleaned(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.AWS.I0411Evidence = []string{partial, good[1], good[2]}
-	if err := v2run.AWSGate(c); err == nil {
+	if err := v2run.CheckHistoricalM04Evidence(c); err == nil {
 		t.Fatal("runner failure after browser PASS and clean cleanup must keep AWS gated")
 	}
 	for name, proof := range map[string]string{"missing": "", "wrong run": `{"runId":"other","scenario":"A01","target":"k8s-4f","status":"PASS","exitCode":0,"cleanupState":"CLOSED_CLEAN"}`, "wrong scenario": `{"runId":"r","scenario":"E01","target":"k8s-4f","status":"PASS","exitCode":0,"cleanupState":"CLOSED_CLEAN"}`} {
@@ -258,7 +258,7 @@ func TestAWSGateRefusesAnyEffectUntilI0411PassedAndWasCleaned(t *testing.T) {
 			t.Fatal(err)
 		}
 		c.AWS.I0411Evidence = []string{dir, good[1], good[2]}
-		if err := v2run.AWSGate(c); err == nil {
+		if err := v2run.CheckHistoricalM04Evidence(c); err == nil {
 			t.Fatalf("%s completion proof must keep AWS gated", name)
 		}
 	}
@@ -267,7 +267,7 @@ func TestAWSGateRefusesAnyEffectUntilI0411PassedAndWasCleaned(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.AWS.I0411Evidence = []string{dir, good[1], good[2]}
-	if err := v2run.AWSGate(c); err == nil {
+	if err := v2run.CheckHistoricalM04Evidence(c); err == nil {
 		t.Fatal("completion proof without an explicit exitCode must keep AWS gated")
 	}
 }

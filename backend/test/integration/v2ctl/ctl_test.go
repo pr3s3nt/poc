@@ -273,7 +273,7 @@ func TestSupervisorStartRefusesAnUnarmedManifestAndAWSBeforeI0411(t *testing.T) 
 	path := filepath.Join(e.dir, "aws.json")
 	_ = v2run.WriteFilePrivate(path, raw)
 	out, code := e.ctl("supervisor-start", "-config", path, "-manifest", e.mpath, "-private", e.private, "-supervisor", supBin, "-cleanup", e.cleanup, "-handles", e.handles, "-runner-pid", fmt.Sprint(runner.Process.Pid))
-	if code == 0 || !strings.Contains(out, "I04-11 is not complete") {
+	if code == 0 || !strings.Contains(out, "completed integrated V04 predecessor receipt") {
 		t.Fatalf("AWS start was not refused: %s", out)
 	}
 }

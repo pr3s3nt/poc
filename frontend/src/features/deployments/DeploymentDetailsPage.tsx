@@ -3,6 +3,7 @@ import { navigate } from '../../app/routes';
 import type { Application, EnvironmentKey } from '../../shared/types/application';
 import { Button } from '../../shared/ui/Button';
 import { Status } from '../../shared/ui/Status';
+import { DependencyGraph } from '../../shared/ui/DependencyGraph';
 import { getDeployment, type DeploymentDetail } from './api';
 import { ApiError } from '../../shared/api/client';
 
@@ -78,9 +79,8 @@ export function DeploymentDetailsPage({ application, environment, deploymentId }
             <td>{item.descriptor}<br /><small>{known(scopeLabels, item.scopeType, 'Phạm vi không rõ')}</small>{item.resourceInstanceId ? <><br /><a href="#" onClick={(event) => { event.preventDefault(); navigate({ name: 'resource', applicationId: application.id, environment, resourceId: item.resourceInstanceId as string }); }}>Chi tiết tài nguyên</a></> : null}</td><td>{item.moduleId} · {item.moduleRevision}</td><td>{item.attempt}</td><td>{known(actionLabels, item.action, 'Hành động không rõ')}</td><td>{known(stageLabels, item.stage, 'Giai đoạn không rõ')}</td>
             <td>{known(attemptStatuses, item.status, 'Trạng thái không rõ')}{item.safeErrorCode ? <><br /><small>{known(errorLabels, item.safeErrorCode, 'Lỗi không xác định')}</small></> : null}</td><td>{known(ownershipLabels, item.ownership, 'Quyền sở hữu không rõ')}</td><td>{date(item.updatedAt)}</td></tr>)}</tbody></table>}
         <p><small>Chỉ hiển thị giai đoạn, trạng thái và mã lỗi an toàn đã lưu. Không có lệnh Terraform, đầu vào đã phân giải, bí mật, trạng thái hay đường dẫn khôi phục.</small></p></section>
-      <section className="content-panel"><h2>Kế hoạch tạo tài nguyên</h2>{!detail.planHash ? <p>Không có kế hoạch tạo tài nguyên được lưu cho triển khai này.</p> : <><p>{detail.graph?.nodes?.length ?? 0} nút đồ thị · {detail.graph?.edges?.length ?? 0} phụ thuộc · kế hoạch {detail.planHash.slice(0, 12)}</p>
-        {detail.graph?.nodes?.length ? <><h3>Nút</h3><ul>{detail.graph.nodes.map((node) => <li key={node.descriptor}>{node.descriptor} · {node.kind}{detail.matches?.[node.descriptor]?.definitionKey ? ` · ${detail.matches?.[node.descriptor]?.definitionKey}` : ''}</li>)}</ul></> : null}
-        {detail.graph?.edges?.length ? <><h3>Phụ thuộc</h3><ul>{detail.graph.edges.map((edge, index) => <li key={`${edge.consumer}-${edge.provider}-${index}`}>{edge.consumer} → {edge.provider}</li>)}</ul></> : null}
+      <section className="content-panel"><h2>Kế hoạch tạo tài nguyên</h2>{!detail.planHash ? <p>Không có kế hoạch tạo tài nguyên được lưu cho triển khai này.</p> : <><p>kế hoạch {detail.planHash.slice(0, 12)}</p>
+        <DependencyGraph nodes={detail.graph?.nodes ?? []} edges={detail.graph?.edges ?? []} blocked={detail.blocked ?? []} definitionOf={(descriptor) => detail.matches?.[descriptor]?.definitionKey} />
         <h3>Các đợt tạo tài nguyên</h3>{detail.batches?.length ? <ol>{detail.batches.map((batch, index) => <li key={index}>{batch.join(', ')}</li>)}</ol> : <p>Chưa ghi nhận đợt tạo tài nguyên nào.</p>}</>}</section>
     </> : null}
   </section>;

@@ -248,7 +248,8 @@ it('shows persisted Vietnamese detail, redacted output and never renders resolve
   expect(screen.getByText('frontend · triển khai')).toBeInTheDocument();
   expect(screen.getByText('developer')).toBeInTheDocument();
   expect(screen.getByText(new Date('2026-09-01T10:00:00Z').toLocaleString('vi-VN'))).toBeInTheDocument();
-  expect(screen.getByText('1 nút đồ thị · 0 phụ thuộc · kế hoạch 0123456789ab')).toBeInTheDocument();
+  expect(screen.getByText('kế hoạch 0123456789ab')).toBeInTheDocument();
+  expect(screen.getByText('1 nút · 0 cạnh thứ tự (bên cung cấp chạy trước bên sử dụng)')).toBeInTheDocument();
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   expect(fetcher.mock.calls[0]?.[0]).toBe('/api/v1/applications/catalog%2Fapp/environments/staging/deployments/dep%2F1');
 });
@@ -321,7 +322,7 @@ it('shows a safe Vietnamese failure guidance, never the raw failure reason, and 
   expect(detailEntries()).not.toContain('raw-failure-secret');
   expect(detailEntries()).not.toContain('dial tcp');
   expect(screen.getByText('Không có kế hoạch tạo tài nguyên được lưu cho triển khai này.')).toBeInTheDocument();
-  expect(screen.queryByText(/nút đồ thị/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/cạnh thứ tự/)).not.toBeInTheDocument();
   expect(screen.queryByText('Các đợt tạo tài nguyên')).not.toBeInTheDocument();
 });
 
@@ -645,4 +646,28 @@ it('links a persisted Terraform attempt to its resource detail only when the ser
   expect(links).toHaveLength(1);
   await user.click(links[0] as HTMLElement);
   expect(window.location.pathname).toBe(`/ui/applications/${encodeURIComponent(application.id)}/environments/staging/resources/${id}`);
+});
+
+it('explains each ordering edge and names the consumers a failed provider held back, without raw failure text', async () => {
+  const ns = 'k8s-namespace.default#environments.shop.staging';
+  const db = 'postgres.in-cluster#shared.db';
+  const work = 'workload.default#modules.backend';
+  vi.stubGlobal('fetch', vi.fn(async () => Response.json(detail({
+    deployment: deployment({ status: 'FAILED', failureReason: 'raw dial tcp 10.0.0.9: hvs.leaked-token' }),
+    graph: {
+      nodes: [{ descriptor: ns, kind: 'resource' }, { descriptor: db, kind: 'resource' }, { descriptor: work, kind: 'workload' }, { descriptor: 'audit.default#environments.shop.staging-audit', kind: 'resource', origins: ['co-provision'] }],
+      edges: [{ consumer: db, provider: ns, reason: 'resource-reference' }, { consumer: work, provider: db, reason: 'workload-placeholder' }],
+    },
+    blocked: [{ consumer: work, provider: db, reason: 'workload-placeholder', code: 'OUTPUT_CONTRACT' }],
+    resources: [
+      { descriptor: ns, resourceType: 'k8s-namespace', definitionKey: 'ns', status: 'READY', outputs: {} },
+      { descriptor: db, resourceType: 'postgres', definitionKey: 'pg', status: 'FAILED', outputs: {} },
+    ],
+  }))));
+  render(<DeploymentDetailsPage application={application} environment="staging" deploymentId="dep-1" />);
+  const blocked = await screen.findByRole('region', { name: 'Thành phần bị chặn' });
+  expect(blocked).toHaveTextContent(`${work} không chạy vì ${db} thất bại: đầu ra không đúng hợp đồng`);
+  expect(screen.getByText(/tham chiếu output của tài nguyên khác/)).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Chỉ được chọn, không có thứ tự thực thi' })).toBeInTheDocument();
+  expect(detailEntries()).not.toMatch(/hvs\.|dial tcp|10\.0\.0\.9/);
 });

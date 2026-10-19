@@ -2,7 +2,7 @@
 id: DOMAIN-OBJECTS
 artifact: domain-persistence-classification
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
 # Domain Objects and Persistence Classification
@@ -13,8 +13,8 @@ last_reviewed: 2026-10-17
 |---|---|---|---|
 | User Account | `UserAccount` | password hash, Organization identity, role, status | Username unique; chỉ `ACTIVE` account được authenticate; plaintext password không persist. |
 | Session | `Session` | token hash, expiry, lifecycle status | Opaque token chỉ tồn tại ở browser/request memory; token hash unique và session revoked/expired không authenticate được. |
-| Application | `Application` | system ID/key, Organization, name, subdomain, version | ID do hệ thống sinh; không có target/provider fields; execution/store binding chỉ thuộc Environment, không backfill từ Application (T26). |
-| Environment | `Environment` | namespace identity, versioned connection/store/generation/profile/region/runtime/scope, current-set pointer, public-route pending flag | Thuộc một Application; UC-01 tạo đúng `staging` và `production`; desired endpoint được suy ra từ Application Subdomain và Environment key; current Deployment Set chỉ đổi trong final deployment transaction. Route pending cho phép retry sau lỗi Fleet mà không restart workload. |
+| Application | `Application` | system ID/key, Organization, name, subdomain, version | ID do hệ thống sinh; không có target/provider fields; Secret Store binding thuộc Environment; deployment targets/account/region theo từng resource/workload, không backfill từ Application (T26/ADR-017). |
+| Environment | `Environment` | namespace identity, versioned Secret Store/configuration, identity generation/scope, operation owner, current-set pointer, public-route pending flag | Thuộc một Application; UC-01 tạo đúng `staging` và `production`; desired endpoint được suy ra từ Application Subdomain và Environment key; current Deployment Set chỉ đổi trong final deployment transaction. Route pending cho phép retry sau lỗi Fleet mà không restart workload. |
 | Resource Type | `ResourceType` | input/output schema | Contract độc lập implementation. |
 | Resource Definition | `ResourceDefinition` | Name, version, Driver Account, Matching Criteria, driver inputs, provision rules | UC-03 V02: immutable ID/type, CAS edits; five-field matching without profile filter; compatible account/region per Definition. |
 | Connection | `Connection` | name, kind, authentication type, non-secret config, verification metadata | Chỉ secret reference được persist; chỉ `READY` được sử dụng. |
@@ -36,7 +36,7 @@ separate database aggregate.
 |---|---|---|
 | Entity | `UserAccount`, `Session`, `Application`, `Environment`, `Connection`, `ResourceType`, `ResourceDefinition`, `DeploymentSet`, `DeploymentDeltaSnapshot`, `Deployment`, `DeploymentPlan`, `ActiveResource`, `WorkloadInstance` | Dedicated tables. |
 | Child entity | `MatchingCriterion`, `DeploymentResource`, `DeploymentWorkload` | Dedicated child/join tables. |
-| Value object | `ExecutionProfile`, `NamespaceIdentity`, `ResourceDescriptor`, `ResourceScope`, `DeploymentStatus`, `ResourceStatus`, `DriverType`, `OutputBinding`, `DeploymentTarget`, `ModuleDelta`, `JSONPatchOperation`, `ContainerResourceRequirements`, `ComputeResources`, `RenderBundle`, `RenderingSelection` | Scalar/JSONB columns; validated at construction. |
+| Value object | `NamespaceIdentity`, `ResourceDescriptor`, `ResourceScope`, `DeploymentStatus`, `ResourceStatus`, `DriverType`, `OutputBinding`, `DeploymentTarget`, `ModuleDelta`, `JSONPatchOperation`, `ContainerResourceRequirements`, `ComputeResources`, `RenderBundle`, `RenderingSelection` | Scalar/JSONB columns; validated at construction. |
 | Planning document | `WorkloadFragment`, `CandidateDeploymentSet`, `ResourceGraph`, `ProvisionBatch` | Immutable JSONB snapshot in `deployment_plans`; typed Go model in memory. |
 | Result | `ProvisionResult`, `DeploymentResult`, `DeploymentPreview`, `DeploymentView` | DTO/read model, not aggregate roots. |
 
@@ -44,7 +44,7 @@ separate database aggregate.
 
 - `PlanningService`: orchestrates pure/deterministic planning components.
 - `DefinitionMatcher`: weighted criteria selection.
-- `ImplicitResourceEnricher`: adds profile-scoped infrastructure.
+- `ImplicitResourceEnricher`: preserves required workload/namespace structure; normal matching/references select infrastructure (ADR-017), with read-only reference-fixture behavior isolated.
 - `ResourceGraphBuilder`/`GraphExpander`: build fixed-point DAG.
 - `BatchScheduler`: provider-first Kahn batches.
 - `ResourceProvisioningService`: application service executing resource batches.
@@ -197,3 +197,22 @@ to [schema](../database/schema.md); behavior belongs to UC-04 AC-01..12.
 ## V03 placement model
 
 [ADR-016](../decisions/ADR-016-definition-selected-workload-targets.md) extends workload rendering selection into lifecycle selection with per-workload namespace/cluster pins; ResourceDefinition references/provision participate before graph fixed point. Typed cluster outputs carry opaque scoped target, not auth bytes. Resource instances and applied workload records preserve independent target identity and namespace through restart/update/remove/cleanup. V03 one-cluster admission is a service capability check, not a single-cluster domain cardinality. Internal cluster Definition owns account choice; consumers inherit it.
+
+
+## V04–V06 Definition dependency model
+
+[ADR-017](../decisions/ADR-017-definition-dependency-execution.md) replaces the
+remaining profile-enricher/Environment destination model above. Environment
+retains application scope, namespace base identity, current Set/config/store
+versions and operation owner/fence; it does not supply an infrastructure account
+or region. ExecutionProfile and old deployment-binding compatibility retire
+after V05.10/V06.08 replacement gates.
+
+Resource Definition and references own account/region/dependency selection;
+WorkloadPlacement and original resource/state/applied-target pins retain cluster
+identity per consumer. Typed ClusterTargetIdentity can represent an existing
+Internal cluster or EKS produced in the same graph; Preview keeps unresolved
+typed provenance. EKS resolved target adds provider/region/original AWS identity,
+with credentials reconstructed per invocation. No new lifecycle aggregate or
+managed-only public entry is introduced. Reuse and cleanup preserve original
+identity, ownership, scoped descriptor and state through restart/catalog edits.

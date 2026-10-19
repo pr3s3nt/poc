@@ -2,7 +2,7 @@
 id: UC-01-UI-API
 artifact: use-case-ui-api-mapping
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-18
 ---
 
 # UC-01 UI API mapping
@@ -45,3 +45,14 @@ không tự replay mutation; lỗi tải lại không phủ nhận kết quả �
 ## V03 UI/API replacement
 
 [ADR-016](../../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) defines current internal placement. Remove deployment Connection selection after replacement pass; keep Secret Store/configuration/version/error/operation state. Definition authoring supports existing-cluster account choice and workload namespace/cluster references, Type params and provision flags; consumers inherit account. Score import/edit/export preserves metadata.class. Preview shows each workload/resource Definition/account/cluster/namespace and provider-first graph/batches without secrets, and blocks missing/ambiguous/mismatched/unready inputs as appropriate. No Environment target is required. Retired deployment-Connection writes fail explicitly; safe matching and stale-token gates remain. UI multi-cluster V03 unsupported error occurs before execution. Progress/readiness/errors/update/remove use per-workload targets; failure never shown as success.
+
+
+## V04–V06 final Settings replacement
+
+After V06.08, Application/Environment reads omit retired deployment
+Connection/profile/region/runtime selection fields; no synthetic defaults.
+Create still accepts name/subdomain only. Deployment choice/set/transition
+commands in the historical table are retired, not silently accepted or mapped to
+a new target. Secret Store/configuration and operation APIs retain their existing
+scope/version/owner/error contracts. Placement comes from matched Definition and
+resource references in UC-05/06/08, not an Environment target payload.

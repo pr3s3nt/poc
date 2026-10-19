@@ -1,21 +1,15 @@
 @startuml
 salt
 {
- <b>Payment / Settings</b>
+ <b>Payment / Cài đặt môi trường</b>
  [ Staging ] | [ Production ]
- <b>Deployment connection</b>
- ^Choose READY Connection^ | [ Save / Preview transition ]
- <b>Secret store connection</b>
- ^Choose READY Vault store^ | [ Save and copy secrets ]
- Current version: 12
- Preview becomes stale when settings change.
- <b>Transition</b>
- Mode: ^Deploy new / Migrate PostgreSQL^
- Source resource: ^postgres.default^
- [ Acknowledge downtime ] | [ Preview ] | [ Execute ]
- Progress: Backup -> Restore -> Verify -> Cutover
- Source retained | [ Review cleanup ]
- <b>Variables and Secrets</b>
- [ Add variable ] | [ Add secret ]
+ <b>Kho bí mật</b>
+ ^Chọn kho READY^ | [ Lưu và sao chép Secrets ]
+ Phiên bản hiện tại: 12
+ Thao tác đang chạy: không có
+ Đích triển khai được xác định từ Resource Definition và tham chiếu Workload.
+ Thay đổi cấu hình yêu cầu Xem trước mới.
+ <b>Variables và Secrets</b>
+ [ Thêm biến ] | [ Thêm bí mật ]
 }
 @enduml

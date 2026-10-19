@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
 # Operation Contracts
@@ -703,3 +703,38 @@ Environment AWS account selection and insert-only statements in older contracts.
 ## V03 operations — Definition-selected internal lifecycle
 
 [ADR-016](../decisions/ADR-016-definition-selected-workload-targets.md) replaces internal system-binding/Environment-target preconditions in OC-04/04c/06/07/08/10 and the internal target Settings operation. Registration permits existing-cluster with scoped READY Internal account and workload reference/provision configuration. Planning selects workload first, expands all references/rules, validates typed placement/DAG and pins versions without writes/provider calls. Deploy validates same snapshot, claims operation, resolves resource outputs and dispatches selected workload lifecycle to its exact target. Update/Remove restore applied target after restart. Cleanup uses original owned state; existing cluster is never eligible. V03.10 rejects retired internal deployment-Connection writes and removes that selector after live replacement verification. Secret Store operations remain. Multi-cluster Candidate Sets fail clearly before side effects in V03.
+
+## V04–V06 Definition-driven operation consistency
+
+[ADR-017](../decisions/ADR-017-definition-dependency-execution.md) replaces
+remaining Environment-profile target inference in OC-04/06/07/08/10/19.
+Registration accepts existing or EKS-producing matched cluster sources under the
+same explicit resource-reference contract. Preview is pure, exposes typed unknown
+output provenance and per-resource account/region without credentials. Deploy
+revalidates pins/CAS, provisions actual DAG, resolves original-identity auth and
+checks readiness before consumers. Update/restart reuse original instance/state;
+Remove and confirmed owned deletion use original target/reverse graph with
+consumer/ownership/UID and service-API absence verification. Public errors/status
+must remain safe and truthful on dependency/typing/auth/network/readiness failure.
+
+
+### V06.08 retired Organization default marker
+
+The historical OC-01 choice/default query and OC-01b deployment-setting commands
+are absent after the final replacement gate. Organization deployment-default
+fields/FK and seed/account-save marker updates are removed. Surviving OC-05
+registration preserves the whole Organization identity/metadata; account ownership,
+scoped credentials, role gates and per-Definition target pins stay unchanged.
+
+### Internal operator safety-net selection — V04 provenance
+
+Stable Environment Preview run IDs do not separate negative instances. An optional
+explicit instance-ID set narrows existing RUN_CLEANUP recorded-run/generation
+ownership. Complete validation precedes claim/effects; duplicate/empty/unknown/
+foreign/wrong-generation selection rejects. Nil preserves whole-run behavior.
+Unselected instances stay unchanged with NOT_SELECTED; partial NEEDS_ATTENTION
+is not whole-run CLEAN. Existing pinned version/module/state/target/dependency
+guards remain. Historical probe selector admits PENDING only with complete owned
+CREATE/FAILED/PLANNING history, no observed IDs/state serial/recovery; engine
+independently checks no-state/no-effect absence. No public API or authority added.
+Live probe scenarios are no longer required by the19-10 acceptance decision.

@@ -2,10 +2,16 @@
 id: UC-04-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
-# UC-04 — Configure Execution Profile Connections
+# UC-04 — Infrastructure Driver Accounts and Secret Stores
+
+The current replacement design is the infrastructure account catalog AC-01..12
+with the V04–V06 execution binding clarification below. Earlier profile/implicit
+Environment Connection passages are staged historical behavior, superseded by
+ADR-016/017 at their replacement gates. Account registration/verification remains
+distinct from resource provisioning and never grants external mutation rights.
 
 ## Mục tiêu
 
@@ -276,3 +282,31 @@ cơ chế tự reset khi startup hoặc quyền xóa tài nguyên không thuộc
 Codex thực hiện và ghi evidence phạm vi/kết quả; writer không truy cập retained
 state hoặc tự chạy thao tác hạ tầng. Các yêu cầu secret scope, CAS, pinned targets
 trên baseline mới và bảo vệ tài nguyên ngoài task vẫn áp dụng.
+
+## V04–V06 execution binding clarification
+
+[ADR-017](../../architecture/decisions/ADR-017-definition-dependency-execution.md)
+replaces profile/Environment-selected infrastructure with normal Definition
+matching/references. Every Terraform resource uses its own winning Definition's
+READY Organization Driver Account and literal region. Internal targets bind the
+referenced account; EKS target identity pins the producing descriptor, original
+account/version and region for fresh invocation authentication. Registration and
+verification alone create no infrastructure and do not imply runtime readiness.
+
+V06.08 retires executionProfile and Environment deployment binding/transition
+consumers; it preserves AC-01..12 account management, credential version/CAS,
+immutable committed refs and Secret Store capabilities. Legacy allowed/default
+region constraints do not survive as account applicability policy. Different
+resource accounts/regions require valid actual contracts/network references,
+not equality across an Environment. Never fall back to Environment/host identity.
+Historical Connection storage identity may continue backing Driver Accounts;
+that name is not evidence of an obsolete execution path. Incompatible old data
+fails safely; no startup reset or implicit conversion is introduced.
+
+
+Final V06.08 removes the unused Organization deployment-default choice marker
+with the retired selector. Registration continues to preserve the whole
+Organization identity/metadata and never configures an Environment or changes
+Definition selection. Organization-scoped account ownership, verification,
+credential isolation and role gates remain unchanged; BR-15/16 default-marker
+wording above is historical after that removal.

@@ -197,11 +197,22 @@ func simulateAWSActions(ctx context.Context, cli AWSCLI, principalARN, region st
 	return nil
 }
 
-// AWSGate refuses any AWS effect until I04-11 passed end to end: each k8s-4f
-// evidence directory must cover A01, E01 or E02 with browser PASS, a matching
-// CLOSED_CLEAN marker, and the final runner receipt after SQL/video/evidence
-// checks and local cleanup succeeded.
+// AWSGate requires the completed integrated V04 predecessor for every current
+// AWS scenario. Historical M04 evidence can be inspected separately; it never
+// grants permission to run the replacement-source V05/A02/A03 scenarios.
 func AWSGate(c Config) error {
+	if c.AWS == nil {
+		return errors.New("aws settings are required")
+	}
+	if c.AWS.V04IntegratedEvidence == "" {
+		return errors.New("current AWS execution requires the completed integrated V04 predecessor receipt")
+	}
+	return verifyIntegratedV04(c.AWS.V04IntegratedEvidence, c.AWS.V04ExpectedRunID, c.AWS.V04ExpectedSourceGitHead, c.AWS.V04ExpectedGitDiffSHA256, c.AWS.V04ExpectedSourceFilesSHA256)
+}
+
+// CheckHistoricalM04Evidence reads the old proof format for provenance only.
+// Current execution always calls AWSGate, never this historical reader.
+func CheckHistoricalM04Evidence(c Config) error {
 	if c.AWS == nil {
 		return errors.New("aws settings are required")
 	}

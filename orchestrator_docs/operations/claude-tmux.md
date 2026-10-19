@@ -2,12 +2,21 @@
 id: RUNBOOK-CLAUDE-TMUX
 artifact: operations-runbook
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-19
 ---
 
 # Điều phối Claude, phương án thay thế và kiểm chứng local
 
-## Luồng mặc định — quyết định 2026-10-17
+## Quy trình hiện hành — 2026-10-19
+
+Agent trực tiếp implement/self-review/validate/runtime/commit/push theo quyền;
+không coding agent phụ, không resume writer cũ. Nghiệm thu issue #4 chỉ luồng
+chính theo [runbook acceptance](terraform-v2-acceptance.md), giữ secret/ownership/
+cleanup và tests đã có. Không thêm test ngoại lệ để bù. Focused impact checks và
+source-bound reuse; chỉ chờ thì15phút/lần, early error/completion/user request.
+Quy trình writer phía dưới là lịch sử, không còn mặc định.
+
+## Luồng lịch sử — quyết định 2026-10-17
 
 Người dùng yêu cầu Codex điều khiển Claude local qua `tmux` và `clauded`; áp
 dụng kể cả khi cloud còn quota. Codex docs/review/checks/commit/push/merge và
@@ -36,6 +45,19 @@ hoặc thay Claude bằng Codex cho task mới; ngoại lệ `gpt-6-luna` vẫn 
 Nếu chuyển một task cloud đang mở sang local, gửi yêu cầu cloud dừng, kiểm nhánh
 đã push và lưu session/handoff. Không coi `ok:true` là xác nhận remote đã dừng;
 không merge cloud output không được review hoặc chạy hai writer trên cùng checkout.
+
+## Ngoại lệ riêng issue #4 V04–V06 — quyết định2026-10-18
+
+Khi Claude local hết hạn mức, người dùng cho tiếp tục bằng Codex CLI trong
+checkout và tmux mới, model `gpt-6-luna`, reasoning `medium`, giữ nhịp15phút.
+Tên ban đầu `gpt-6.1-luna` bị CLI/API từ chối; người dùng đã xác nhận đổi đúng
+`gpt-6-luna`, không phải model tự thay. Hủy auto-continue Claude và xác minh idle
+trước khi writer thay thế làm việc để tránh hai writer. Giữ session/checkout/
+snapshots gốc, chuyển partial work có receipt sang checkout riêng và giao toàn
+scope/gate/nguồn chuẩn/findings. Ghi actual CLI model, effort, permission mode,
+session ID; không suy từ launch flags. Writer thay thế vẫn chỉ code/test/scripts,
+không docs/AGENTS, commit/push hay external mutation. Codex điều phối review và
+validation độc lập. Ngoại lệ này không đổi luồng mặc định cho task khác.
 
 ## Quy trình cloud trước đây — chỉ dùng lại khi người dùng yêu cầu
 
@@ -139,3 +161,18 @@ store chỉ được phép với fake adapters và không có persistent state. 
 khác giữ JSON state disposable. T05 không ghi token ra snapshot hoặc dùng Vault;
 registration/verification qua fake backend, projection ABSENT và lỗi GET dùng
 mock được ghi riêng trong assertions/evidence.
+
+
+## Issue4 V04–V06 — direct continuation, 2026-10-19 Bangkok
+
+Latest user instruction explicitly stops the coding agent and assigns Codex
+direct implementation through completion, followed by self-review. This task
+exception supersedes the Claude/Luna writer split above; it does not change the
+default workflow for other tasks. Luna conversation interrupted and background
+terminals stopped with CLI acknowledgement; keep its tmux/session, checkout,
+partial staged work and provenance. No more writer/model calls. Codex directly
+finishes code/tests in isolated task sources, reviews the full result, performs
+independent validation/runtime/video/cleanup and commits only complete gates.
+All source-of-truth, ownership, external authorization, real PostgreSQL/zero-skip,
+recording and staged-removal requirements remain. No user-owned changes or
+existing tmux sessions may be removed.

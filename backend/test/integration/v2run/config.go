@@ -44,7 +44,7 @@ const (
 var (
 	runIDPattern    = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{2,22}[a-z0-9])$`)
 	digestPattern   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
-	scenarioTargets = map[string]string{"A01": TargetK8s4f, "E01": TargetK8s4f, "E02": TargetK8s4f, "A02": TargetAWS, "A03": TargetAWS}
+	scenarioTargets = map[string]string{"A01": TargetK8s4f, "E01": TargetK8s4f, "E02": TargetK8s4f, "A02": TargetAWS, "A03": TargetAWS, "V05": TargetAWS}
 )
 
 // Binary is a pinned tool: absolute path and expected SHA-256.
@@ -169,9 +169,14 @@ type AWSConfig struct {
 	// (multi-arch index digests are fine: the Pod runs on the configured node arch).
 	ProbePostgresImage Image `json:"probePostgresImage"`
 	ProbeRedisImage    Image `json:"probeRedisImage"`
-	// I0411Evidence are the evidence directories of the PASSED k8s-4f runs
-	// (A01, E01, E02): no AWS effect before I04-11 passed and was cleaned.
-	I0411Evidence []string `json:"i0411Evidence"`
+	// I0411Evidence preserves the historical three-run M04 predecessor format.
+	// Current V04→V05/V06 runs use the integrated receipt below.
+	I0411Evidence                []string `json:"i0411Evidence,omitempty"`
+	V04IntegratedEvidence        string   `json:"v04IntegratedEvidence,omitempty"`
+	V04ExpectedRunID             string   `json:"v04ExpectedRunId,omitempty"`
+	V04ExpectedSourceGitHead     string   `json:"v04ExpectedSourceGitHead,omitempty"`
+	V04ExpectedSourceFilesSHA256 string   `json:"v04ExpectedSourceFilesSha256,omitempty"`
+	V04ExpectedGitDiffSHA256     string   `json:"v04ExpectedGitDiffSha256,omitempty"`
 }
 
 // LoadConfig reads and validates a private configuration file.
@@ -222,7 +227,7 @@ func (c Config) Validate() error {
 	}
 	target, known := scenarioTargets[c.Scenario]
 	if !known {
-		add("scenario must be one of A01, E01, E02, A02, A03")
+		add("scenario must be one of A01, E01, E02, A02, A03, V05")
 	} else if target != c.Target {
 		add("scenario %s runs on %s, not %q", c.Scenario, target, c.Target)
 	}
@@ -402,6 +407,24 @@ func (c Config) validateAWS(add func(string, ...any)) {
 		if !filepath.IsAbs(dir) {
 			add("aws.i0411Evidence entries must be absolute evidence directories")
 		}
+	}
+	if a.V04IntegratedEvidence != "" && !filepath.IsAbs(a.V04IntegratedEvidence) {
+		add("aws.v04IntegratedEvidence must be an absolute evidence directory")
+	}
+	if a.V04ExpectedSourceGitHead != "" && len(a.V04ExpectedSourceGitHead) != 40 {
+		add("aws.v04ExpectedSourceGitHead must be a full Git object ID")
+	}
+	if a.V04ExpectedSourceFilesSHA256 != "" && len(a.V04ExpectedSourceFilesSHA256) != 64 {
+		add("aws.v04ExpectedSourceFilesSha256 must be a SHA-256")
+	}
+	if a.V04ExpectedGitDiffSHA256 != "" && len(a.V04ExpectedGitDiffSHA256) != 64 {
+		add("aws.v04ExpectedGitDiffSha256 must be a SHA-256")
+	}
+	if c.Scenario == "V05" && a.V04IntegratedEvidence == "" {
+		add("V05 requires aws.v04IntegratedEvidence from the completed integrated V04 predecessor")
+	}
+	if a.V04IntegratedEvidence != "" && (a.V04ExpectedRunID == "" || a.V04ExpectedSourceGitHead == "" || a.V04ExpectedSourceFilesSHA256 == "" || a.V04ExpectedGitDiffSHA256 == "") {
+		add("integrated V04 admission requires expected run and source identity")
 	}
 	inst, ok := KnownInstances[a.NodeInstanceType]
 	switch {

@@ -31,6 +31,16 @@ operation fencing, immutable applied targets and replacement protection remain.
 The deployment Connection text below now applies only to legacy AWS until
 V05–V06 or preserves rationale/history, never an internal fallback.
 
+## V04–V06 deployment binding supersession
+
+[ADR-017](ADR-017-definition-dependency-execution.md) replaces the remaining AWS
+Environment deployment selector/transition and its unused Organization default
+choice marker after their replacement gates. The execution-Connection and
+migration passages below then preserve history only. Secret Store selection/copy,
+configuration revisions, immutable targets, claims, fencing and interrupted
+operation recovery remain current. Account ownership stays Organization-scoped;
+Definitions/references select deployment targets, with no global default.
+
 ## Scope and ownership
 
 Each Environment independently selects an execution Connection and a Secret

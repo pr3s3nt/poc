@@ -2,7 +2,7 @@
 id: WORKLOAD-RENDERING-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-18
 ---
 
 # Definition-selected workload rendering — contract
@@ -257,3 +257,14 @@ not invent an edge, is_dependent and match_dependents retain their directions.
 UC-06 coordinates full-graph lifecycle stages, invoking UC-08 resource subsets
 when their providers have completed; UC-08 never executes a workload. Full DAG
 validation includes workload and self-reference cycles before provider calls.
+
+## V04–V06 completed target consumption
+
+[ADR-017](../decisions/ADR-017-definition-dependency-execution.md) extends typed
+cluster references to EKS provisioned in the same graph. Keep the supported
+render_bundle/namespace/cluster driver input shape. Workload obtains the completed
+cluster from its own placement, including original AWS identity/region for EKS;
+never a global last cluster, profile or Environment account. Outputs/Secret refs
+are validated before rendering and API/auth/network/node readiness precedes apply.
+The full acceptance frontend/backend/worker workload uses real shared PostgreSQL/
+Redis outputs, existing job UI and cache TTL/refill semantics, with no fake checks.

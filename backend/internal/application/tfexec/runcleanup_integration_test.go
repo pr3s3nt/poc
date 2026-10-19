@@ -3,6 +3,7 @@ package tfexec_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"orchestrator/internal/application/envops"
@@ -201,5 +202,96 @@ func TestSafetyNetWithoutRecordedRunsOrOnAnotherGenerationTouchesNothing(t *test
 	}
 	if h.runner.opens != opens || h.status(own.InstanceID) == tfresource.InstanceDestroyed {
 		t.Fatal("no terraform effect may happen when ownership cannot be proven")
+	}
+}
+
+// One Environment uses a stable Preview run ID. A narrower explicit instance
+// set must not destroy or relabel healthy providers of that SAME run.
+func TestSafetyNetExplicitSubsetOfSameRunPreservesHealthyProviders(t *testing.T) {
+	h := newHarness(t)
+	topo := h.chain()
+	ctx, op := h.claim("mark-known-failure")
+	db, err := h.state.GetInstance(ctx, topo.db.InstanceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = h.state.SetInstanceStatus(ctx, db.ID, db.Version, tfresource.InstanceFailed); err != nil {
+		t.Fatal(err)
+	}
+	h.release(op, environment.OpSucceeded)
+	nsBefore, _ := h.state.GetInstance(context.Background(), topo.ns.InstanceID)
+	cacheBefore, _ := h.state.GetInstance(context.Background(), topo.cache.InstanceID)
+	target := h.target()
+	target.InstanceIDs = []string{db.ID}
+	report, err := h.safetyNet().Run(context.Background(), target)
+	if err != nil || report.Outcome != runcleanup.OutcomeAttention || len(report.Runs) != 1 || report.Runs[0].Terminal != "SUCCEEDED" || h.status(db.ID) != tfresource.InstanceDestroyed {
+		t.Fatalf("selected cleanup %+v %v", report, err)
+	}
+	if len(report.Blocked) != 2 || len(report.Remaining) != 2 {
+		t.Fatalf("protected set %+v", report)
+	}
+	for _, b := range report.Blocked {
+		if b.Reason != "NOT_SELECTED" {
+			t.Fatalf("unexpected block %+v", b)
+		}
+	}
+	for _, before := range []tfresource.Instance{nsBefore, cacheBefore} {
+		after, e := h.state.GetInstance(context.Background(), before.ID)
+		if e != nil || after.Status != before.Status || after.Version != before.Version || after.CreatedByRunID != before.CreatedByRunID {
+			t.Fatalf("protected instance changed: before %+v after %+v %v", before, after, e)
+		}
+	}
+	if h.count(`SELECT count(*) FROM terraform_states`) != 3 {
+		t.Fatal("state tombstone removed")
+	}
+}
+
+func TestSafetyNetExplicitInvalidSubsetRejectsBeforeAnyEffect(t *testing.T) {
+	h := newHarness(t)
+	own := h.createInstance("run-1", defaultDescriptor, defaultScope(), nil)
+	foreign := h.createInstance("run-foreign", "postgres.default#modules.api.externals.retained", scopeOf("retained"), nil)
+	opens := h.runner.opens
+	for name, selection := range map[string][]string{"empty": {}, "unknown": {"absent"}, "duplicate": {own.InstanceID, own.InstanceID}, "foreign": {foreign.InstanceID}, "mixed valid and invalid": {own.InstanceID, "absent"}} {
+		t.Run(name, func(t *testing.T) {
+			target := h.target()
+			target.InstanceIDs = selection
+			report, err := h.safetyNet().Run(context.Background(), target)
+			if err == nil || report.Outcome != runcleanup.OutcomeAttention || len(report.Runs) != 0 || h.runner.opens != opens || h.status(own.InstanceID) != tfresource.InstanceReady || h.status(foreign.InstanceID) != tfresource.InstanceReady {
+				t.Fatalf("invalid selection affected resources: %+v %v", report, err)
+			}
+		})
+	}
+}
+
+// Real PostgreSQL/Terraform validation rejection, not an injected CLI error.
+func TestSafetyNetExplicitPendingPreApplyRejectionUsesOriginalAbsenceGate(t *testing.T) {
+	h := newHarness(t)
+	h.mod.hcl = strings.Replace(h.mod.hcl, `variable "note" { type = string }`, `variable "note" {
+ type = string
+ validation {
+ condition = can(regex("^[a-z]+$", var.note))
+ error_message = "invalid database identifier"
+ }
+}`, 1)
+	h.svc = h.newService(nil)
+	ctx, op := h.claim("preapply-rejection")
+	_, err := h.svc.Execute(ctx, h.request("run-1", h.mod, inputs("Bad.Name", "k")))
+	if err == nil || h.runner.applies != 0 {
+		t.Fatalf("expected real PLAN failure before apply: %v applies=%d", err, h.runner.applies)
+	}
+	inst, ok := h.instance(ctx, defaultDescriptor, defaultScope())
+	if !ok || inst.Status != tfresource.InstancePending {
+		t.Fatalf("instance state %+v", inst)
+	}
+	attempts, err := h.state.ListAttempts(ctx, inst.ID)
+	if err != nil || len(attempts) != 1 || attempts[0].Stage != "PLANNING" || attempts[0].Status != tfresource.AttemptFailed || attempts[0].Ownership != tfresource.CreatedByRun || attempts[0].StateSerial != nil || len(attempts[0].ObservedPhysicalIDs) != 0 || attempts[0].RecoveryHandle != "" {
+		t.Fatalf("attempt proof %+v %v", attempts, err)
+	}
+	h.release(op, environment.OpFailed)
+	target := h.target()
+	target.InstanceIDs = []string{inst.ID}
+	rep, err := h.safetyNet().Run(context.Background(), target)
+	if err != nil || rep.Outcome != runcleanup.OutcomeClean || h.status(inst.ID) != tfresource.InstanceDestroyed || h.runner.applies != 0 {
+		t.Fatalf("original absence gate %+v %v applies=%d", rep, err, h.runner.applies)
 	}
 }

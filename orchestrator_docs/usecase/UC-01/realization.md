@@ -2,10 +2,13 @@
 id: UC-01-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-18
 ---
 
 # UC-01 — Use Case Realization
+
+The V04–V06 replacement collaboration below supersedes deployment Connection/
+transition participants in the historical staged description which follows.
 
 ApplicationService.CreateApplication creates identity, two unconfigured
 Environments/empty Sets atomically without resolving defaults. ApplicationRepository
@@ -33,3 +36,20 @@ Trace: MS-01..08 create; ES-01..04 choices/versions/claim; ES-05 transfer or new
 runtime; ES-06 safe view/progress. Validate CAS races, stale-preview admission,
 claim persistence, store copy failure, generation isolation, restored records and
 cleanup ownership according to [ADR-012](../../architecture/decisions/ADR-012-environment-stores-and-transitions.md).
+
+## V04–V06 replacement collaboration
+
+ApplicationService creates identity, staging/production and empty Sets atomically
+without default Connection/profile/region. EnvironmentSettingsService retains
+scoped Secret Store selection/copy through ConfigurationService, expected
+versions and Environment operation ownership. Controllers publish safe metadata
+and reject retired deployment-binding inputs instead of filling defaults.
+
+EnvironmentTransitionService and deployment-Connection commands cease to be
+execution entry points after V06.08. UC-05/06 planning resolves matched resource
+references; UC-08 executes with original per-resource target/account/state pins.
+The operation repository still fences concurrent mutations and final commits;
+no network call is held inside a database transaction. Reopen retains supported
+metadata and immutable target provenance, never reconstructs a retired binding.
+See ADR-017 and the updated sequence/VOPC for this final collaboration; delivery
+status remains in CURRENT_STATE rather than inferred from these diagrams.

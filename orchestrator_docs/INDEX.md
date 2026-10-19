@@ -45,7 +45,7 @@ implementation status.
 | So thiết kế với code | [Implementation index](implementation/README.md) |
 | So contract với Humanitec/Score | [Compatibility matrix](implementation/humanitec-compatibility.md) |
 | Điều tra khác biệt design/code | [Known deviations](implementation/deviations.md) |
-| Code qua Claude/tmux dưới điều phối Codex | [Claude tmux runbook](operations/claude-tmux.md) |
+| Agent trực tiếp code/review/check; quy trình writer lịch sử | [Agent workflow runbook](operations/claude-tmux.md) |
 | Build/run/troubleshoot | [Operations index](operations/README.md) |
 | Xem bằng chứng execution | [Verification index](verification/README.md) |
 | Kiểm requirement → design → test | [Traceability matrix](traceability/matrix.md) |

@@ -224,6 +224,54 @@ func TestBackendRedisOutageFailsDiagnosticsButKeepsDurableResult(t *testing.T) {
 	}
 }
 
+func TestBackendPooledRedisAuthConnectionsRequireScopedKillAndRecoverFromPostgres(t *testing.T) {
+	a := newAppPrepared(t, 30*time.Second, useLimited, func(r *testfixture.Redis) { limitedACL(t, r, "~*", "&*", "+@all") })
+	id := a.submit("pooled-auth")
+	job := a.workerComplete()
+	// Prime and retain the backend's authenticated pool connection before disabling the ACL user.
+	if status, body, _ := a.do("GET", "/api/jobs/"+itoa(int(id)), ""); status != 200 || body["cache"] != "hit" {
+		t.Fatalf("initial pooled hit: %d %v", status, body)
+	}
+	admin := a.redis.Client(t)
+	if err := admin.Do(context.Background(), "ACL", "SETUSER", "limited", "off").Err(); err != nil {
+		t.Fatal(err)
+	}
+	// Redis leaves existing authenticated connections alive after ACL SETUSER off.
+	if status, body, _ := a.do("GET", "/api/jobs/"+itoa(int(id)), ""); status != 200 || body["cache"] != "hit" {
+		t.Fatalf("disabling an ACL user must not revoke an already-authenticated pooled connection: %d %v", status, body)
+	}
+	// ACL SETUSER off does not revoke already authenticated connections. Kill only the app user so its
+	// next pooled connection must authenticate again; the administrative connection remains untouched.
+	killed, err := admin.Do(context.Background(), "CLIENT", "KILL", "USER", "limited").Int64()
+	if err != nil || killed < 1 {
+		t.Fatalf("CLIENT KILL USER must revoke at least one retained app connection: killed=%d err=%v", killed, err)
+	}
+	status, body, raw := a.do("GET", "/api/jobs/"+itoa(int(id)), "")
+	if status != 200 || body["result"] != job.Result || body["cache"] != "error-db-fallback" || body["cacheReason"] != "auth" {
+		t.Fatalf("auth outage must preserve durable result: %d %v", status, body)
+	}
+	_, checks, rawChecks := a.do("GET", "/api/checks", "")
+	if cacheCheck(checks) || !checks["checks"].(map[string]any)["database"].(bool) || checks["cache"].(map[string]any)["reason"] != "auth" {
+		t.Fatalf("expected DB healthy/cache auth degraded: %v", checks)
+	}
+	a.assertSafe(raw, rawChecks)
+	limitedACL(t, a.redis, "~*", "&*", "+@all")
+	_, recovered, _ := a.do("GET", "/api/jobs/"+itoa(int(id)), "")
+	if recovered["result"] != job.Result || (recovered["cache"] != "hit" && recovered["cache"] != "miss-refilled") {
+		t.Fatalf("recovery must return the durable job: %v", recovered)
+	}
+	if recovered["cache"] == "miss-refilled" && a.redis.Client(t).TTL(context.Background(), a.cfg.KeyFor(id)).Val() <= 0 {
+		t.Fatal("database refill must restore the cache with positive TTL")
+	}
+	_, healthy, _ := a.do("GET", "/api/checks", "")
+	if !cacheCheck(healthy) || !healthy["checks"].(map[string]any)["database"].(bool) || healthy["cache"].(map[string]any)["reason"] != "" || healthy["cache"].(map[string]any)["reachable"] != true {
+		t.Fatalf("cache and database must recover with an explicitly empty wire reason and reachable=true: %v", healthy)
+	}
+	if a.jobs() != 1 {
+		t.Fatal("auth recovery must not duplicate the durable job")
+	}
+}
+
 func TestBackendWrongRedisPasswordCannotPass(t *testing.T) {
 	a := newApp(t, 30*time.Second, func(c *jobcache.Config) { c.Password = "definitely-wrong" })
 	a.submit("auth")

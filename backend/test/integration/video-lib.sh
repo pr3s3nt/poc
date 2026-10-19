@@ -41,24 +41,36 @@ EOF
   printf '%s\n' "${tool}"
 }
 
-# video_start_xvfb <screen>: starts Xvfb on the first free display from :90
-# (WSLg owns :0), appends its PID to PIDS and sets VIDEO_DISPLAY.
+# video_start_xvfb <screen> [private-record-file]: starts Xvfb on the first free display from :90
+# (WSLg owns :0), starts it in a private process group and records its exact
+# process identity for cleanup. It never joins the runner's process group.
 video_start_xvfb() {
-  local screen="$1" candidate
+  local screen="$1" record_file="${2:-}" candidate
+  if [[ -n "${record_file}" ]]; then
+    [[ "${record_file}" == /* && -d "$(dirname "${record_file}")" ]] || { echo "Xvfb ownership record must be an absolute path in an existing private directory" >&2; return 1; }
+  fi
   VIDEO_DISPLAY=""
   for candidate in $(seq 90 99); do
     if [[ ! -e "/tmp/.X${candidate}-lock" && ! -e "/tmp/.X11-unix/X${candidate}" ]]; then VIDEO_DISPLAY=":${candidate}"; break; fi
   done
   [[ -n "${VIDEO_DISPLAY}" ]] || { echo "no free X display in :90-:99" >&2; return 1; }
-  Xvfb "${VIDEO_DISPLAY}" -screen 0 "${screen}x24" -nolisten tcp 2> "${WORK}/xvfb.log" &
+  setsid Xvfb "${VIDEO_DISPLAY}" -screen 0 "${screen}x24" -nolisten tcp > "${WORK}/xvfb.log" 2>&1 &
   PIDS+=($!)
+  VIDEO_XVFB_PID="${PIDS[-1]}"
   # WSLg mounts /tmp/.X11-unix read-only, so Xvfb may listen only on the
   # abstract socket; its lock file marks a started server.
   local _
   for _ in $(seq 1 20); do [[ -e "/tmp/.X${VIDEO_DISPLAY#:}-lock" ]] && break; sleep 0.5; done
   [[ -e "/tmp/.X${VIDEO_DISPLAY#:}-lock" ]] || { echo "Xvfb did not start; see ${WORK}/xvfb.log" >&2; return 1; }
+  local pgid start
+  pgid="$(ps -o pgid= -p "${VIDEO_XVFB_PID}" | tr -d ' ')"
+  start="$(sed 's/^.*) //' "/proc/${VIDEO_XVFB_PID}/stat" | awk '{print $20}')"
+  [[ "${pgid}" == "${VIDEO_XVFB_PID}" && -n "${start}" ]] || { echo "Xvfb did not obtain a private process group" >&2; return 1; }
+  if [[ -n "${record_file}" ]]; then
+    printf '%s\n%s\nXvfb\n%s\n%s\n' "${VIDEO_XVFB_PID}" "${pgid}" "${VIDEO_DISPLAY}" "${start}" > "${record_file}"
+  fi
   sleep 1
-  kill -0 "${PIDS[-1]}"
+  kill -0 "${VIDEO_XVFB_PID}"
 }
 
 # video_validate <video> <screen> <min-seconds> <min-marks> <last-mark>:

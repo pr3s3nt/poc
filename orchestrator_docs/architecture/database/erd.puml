@@ -1,5 +1,5 @@
 @startuml
-title Orchestrator Database ERD — Required Orchestrator schema - ADR-014
+title Orchestrator Database ERD — Required final V06 schema - ADR-014/017
 hide circle
 skinparam linetype ortho
 
@@ -25,6 +25,10 @@ entity organizations {
   organization_key : text <<UQ>>
   name : text
 }
+note right of organizations
+  Final V06.08: no default deployment Connection marker.
+  Driver Accounts belong to Organization and are selected by Definitions.
+end note
 entity user_accounts {
   * id : uuid <<PK>>
   * organization_id : uuid <<FK>>
@@ -79,13 +83,15 @@ entity environment_operations {
  confirmed_scope : jsonb
  deletion_request_hash : text
  scope_snapshot : jsonb
- owner : text
+ owner_instance : text
+ fence : bigint
  status : text
  stage : text
- pinned_versions : jsonb
- source_target : jsonb
- destination_target : jsonb
- recovery_metadata : jsonb
+ pins : jsonb
+ detail : jsonb
+ failure : text
+ heartbeat_at : timestamptz
+ deadline : timestamptz
 }
 entity applications {
   * id : uuid <<PK>>
@@ -101,13 +107,10 @@ entity environments {
   * application_id : uuid <<FK>>
   --
   environment_key : text
-  connection_id : uuid <<FK,nullable>>
-  execution_profile : text
-  region : text
-  runtime_status : text
   infrastructure_scope : text <<ENVIRONMENT only>>
   secret_store_id : uuid <<FK,nullable>>
   target_generation : bigint
+  generation_high : bigint
   active_operation_id : uuid <<FK,nullable>>
   namespace_identity : text
   current_deployment_set_id : uuid <<FK>>
@@ -260,7 +263,7 @@ user_accounts ||--o{ sessions
 organizations ||--o{ applications
 organizations ||--o{ resource_types
 organizations ||--o{ resource_definitions
-environments }o--o| connections : versioned selection
+resource_definitions }o--o| connections : Driver Account
 applications ||--o{ environments
 environments ||--o{ deployment_sets
 environments ||--o{ deployments
@@ -400,5 +403,12 @@ Original target_ref/provider pins include scoped cluster and namespace.
 Internal execution does not use Environment connection/profile.
 Normal existing-cluster Definition FK; cluster ownership PREEXISTING.
 Fresh baseline only; no automatic old-state migration/reset.
+end note
+note as V040506Placement
+ADR-017 extends target_ref/plan pins to same-execution EKS.
+Typed provider=eks + region and original account identity, no auth bytes.
+Final V06.08 design: no Environment deployment-binding/transition fields.
+Implementation and acceptance gates tracked separately in CURRENT_STATE.
+Secret-store selection, owner/fence and original per-resource targets remain.
 end note
 @enduml

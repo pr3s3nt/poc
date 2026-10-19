@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-18
 ---
 
 # UC-03 — Use Case Realization
@@ -94,3 +94,20 @@ cleanup never reread mutable Definition to replace original pins.
 ## V03 collaboration replacement
 
 [ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) replaces internal profile enrichment/system binding in the collaboration above. Catalog validates public existing-cluster/Internal account and workload typed namespace/cluster refs plus provision rules. Planning matches workload first and expands all nodes to fixed point; same normal matcher selects cluster Definition. Target resolver builds/pins per-consumer placement, rejects mismatch/ambiguous/cycle/multi-cluster V03. Shared snapshot/admission compare pins/versions; UC-08 resolves cluster then owned namespace/resources. UC-06 renders/applies/waits on selected workload target; no global target or builtin persistence. Applied target restored for Update/Remove/restart; separate cleanup preserves preexisting cluster. AWS legacy collaboration remains until V05–V06.
+
+
+## V04–V06 collaboration
+
+[ADR-017](../../architecture/decisions/ADR-017-definition-dependency-execution.md)
+replaces the remaining profile-driven collaboration above. Select workload
+Definition, expand all authored references/provision/provider bindings to fixed
+point, validate full DAG and pin each node's Definition/account/region/placement.
+Planning keeps unknown typed outputs and safe provenance without provider calls.
+Provisioning dispatches matched driver with private invocation credentials,
+validates completed outputs/readiness and persists original state/target pins.
+Namespace/workload resolve their explicit cluster; EKS target auth is reconstructed
+per invocation after API/network/node readiness. OutputBindingResolver renders
+only after dependencies pass. Failure blocks consumers and preserves progress.
+Cleanup walks reverse actual graph using original state/module/identity and
+ownership/UID guards, protecting shared/preexisting objects. See cloud sequence
+and module/state contracts for target and secret boundaries.

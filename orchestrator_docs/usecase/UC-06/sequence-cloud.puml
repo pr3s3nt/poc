@@ -1,10 +1,10 @@
 @startuml
-title UC-06 - aws-eks happy path
+title UC-06 - Definition-selected same-execution EKS
 autonumber
 actor Developer
 control DeploymentService as Service
 control PlanningService as Planner
-control ImplicitResourceEnricher as Enricher
+control DefinitionGraphBuilder as Graph
 control ResourceProvisioningService as Provisioner
 boundary TerraformExecutor as Terraform
 control OutputBindingResolver as Resolver
@@ -15,22 +15,27 @@ database DeploymentRepository as Repo
 Developer -> Service: DeployWorkload(Score, app, env)
 Service -> Repo: Create PLANNING [MS-01]
 Service -> Planner: Plan(request) [MS-02..MS-04]
-Planner -> Enricher: Enrich(profile=aws-eks) [MS-05]
-Enricher --> Planner: env/generation VPC + env/generation EKS + env/generation namespace
-Planner -> Planner: Match Definitions; validate VPC/EKS Connection equals Environment binding [BR-20]
+Planner -> Graph: Select workload; expand references/provision/provider bindings
+Graph --> Planner: fixed-point graph, full DAG, per-consumer placements
+Planner -> Planner: Match and pin each Definition/account/region [BR-20]
 note right of Planner
-Empty VPC/EKS keys inherit pinned READY Environment AWS account.
-Malformed conflicting winner fails without fallback. All AWS nodes inherit same account/region.
+No implicit infrastructure or Environment identity.
+Unknown cluster outputs retain typed provenance.
+Each AWS node has its own Definition account/region.
+Wrong winner/account fails without fallback.
 end note
 Planner --> Service: Humanitec-shaped Delta + graph:\nworkload -> namespace -> EKS -> VPC\nworkload -> Aurora -> VPC [MS-03..MS-08]
 Service -> Renderer: Required score-k8s bundle/binary preflight
 Service -> Repo: Admit Environment owner/fence under pinned versions
 Service -> Provisioner: Provision(resource batches, owner/fence) [MS-09]
-Provisioner -> Terraform: Provision(VPC, pinned Environment AWS account)
+Provisioner -> Terraform: Provision(VPC, that Definition AWS account/region)
 Terraform --> Provisioner: vpc outputs
-Provisioner -> Terraform: Provision(EKS, vpc outputs, pinned Environment AWS account)
-Terraform --> Provisioner: cluster target outputs
-Provisioner -> Terraform: Provision(Aurora, vpc outputs, pinned Environment AWS account)
+Provisioner -> Terraform: Provision(EKS, vpc outputs, that Definition AWS account/region)
+Terraform --> Provisioner: typed opaque cluster target (no credential)
+Provisioner -> Provisioner: Resolve original AWS identity; fresh auth
+Provisioner -> K8s: Check API/auth/network/Ready node capacity
+K8s --> Provisioner: Ready or block consumers
+Provisioner -> Terraform: Provision(Aurora, vpc outputs, that Definition AWS account/region)
 Terraform --> Provisioner: postgres outputs
 Provisioner -> Terraform: Provision(namespace, completed EKS target)
 Terraform --> Provisioner: namespace output

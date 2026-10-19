@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -23,6 +24,7 @@ type Vault struct {
 var (
 	accountKey = regexp.MustCompile(`^[a-z0-9-]+$`)
 	objectID   = regexp.MustCompile(`^[0-9a-f-]{36}$`)
+	outputRef  = regexp.MustCompile(`^secret://vault/([A-Za-z0-9_-]+)/orchestrator/outputs/[0-9a-f]{16}/([0-9a-f-]{36})$`)
 )
 
 func (v Vault) do(ctx context.Context, method, path string) (int, []byte, error) {
@@ -135,5 +137,39 @@ func (v Vault) CleanAccounts(ctx context.Context, org string, keys []string) Cle
 			result.Failed = append(result.Failed, fmt.Sprintf("%s: %d object(s) remain", key, len(left)))
 		}
 	}
+	return result
+}
+
+// CleanOutputRefs deletes only exact durable-output references recorded by the
+// run and proves each metadata path absent. It never lists or sweeps the shared
+// orchestrator/outputs namespace.
+func (v Vault) CleanOutputRefs(ctx context.Context, refs []string) CleanResult {
+	result := CleanResult{}
+	unique := map[string]bool{}
+	for _, ref := range refs {
+		if unique[ref] {
+			continue
+		}
+		unique[ref] = true
+		match := outputRef.FindStringSubmatch(ref)
+		if match == nil || match[1] != v.Mount {
+			result.Failed = append(result.Failed, "invalid or foreign output reference")
+			continue
+		}
+		path := "orchestrator/outputs/" + match[0][strings.LastIndex(match[0], "/orchestrator/outputs/")+len("/orchestrator/outputs/"):]
+		status, _, err := v.do(ctx, http.MethodDelete, "metadata/"+path)
+		if err != nil || (status != http.StatusNoContent && status != http.StatusOK && status != http.StatusNotFound) {
+			result.Failed = append(result.Failed, "output reference deletion failed")
+			continue
+		}
+		status, _, err = v.do(ctx, http.MethodGet, "metadata/"+path)
+		if err != nil || status != http.StatusNotFound {
+			result.Failed = append(result.Failed, "output reference absence is unproven")
+			continue
+		}
+		result.Deleted = append(result.Deleted, ref)
+	}
+	sort.Strings(result.Deleted)
+	sort.Strings(result.Failed)
 	return result
 }
