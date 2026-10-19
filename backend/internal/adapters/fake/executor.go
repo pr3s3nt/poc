@@ -69,8 +69,14 @@ func (e *ResourceExecutor) Provision(_ context.Context, req execution.ProvisionR
 			result.Target = &target
 		}
 		if req.Connection.Kind == application.ConnectionAWS {
+			// The Definition's literal region reaches the executor as the `region` variable (ADR-017); the legacy
+			// Connection configuration is only a fallback for profile-era fixtures.
+			region := stringInput(req.Inputs, "region")
+			if region == "" {
+				region = req.Connection.ConfigString("region")
+			}
 			result.Target = &execution.Target{Kind: "kubernetes", Provider: "eks", ClusterName: "fake-" + req.ApplicationKey,
-				Organization: req.OrganizationKey, Connection: req.Connection.Key, Region: req.Connection.ConfigString("region")}
+				Organization: req.OrganizationKey, Connection: req.Connection.Key, Region: region}
 		}
 		return result, nil
 	case "k8s-namespace":

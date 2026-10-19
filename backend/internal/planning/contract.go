@@ -53,7 +53,8 @@ func (b *graphBuilder) validateReferenceOutputs(
 				}
 				continue
 			}
-			if !mapsTo(contract.OutputMapping, ref.Output) {
+			platformOwned := provider.ResourceType == TypeCluster && ref.Output == resource.ClusterTargetOutput
+			if !platformOwned && !mapsTo(contract.OutputMapping, ref.Output) {
 				return fmt.Errorf("planning: %s binds output %q which the Terraform module %q does not map to the %q output contract",
 					ref.Path, ref.Output, contract.Module, provider.ResourceType)
 			}
@@ -201,6 +202,14 @@ func (b *graphBuilder) inspectTerraform(
 
 		if typ, ok := b.catalog.Types[node.ResourceType]; ok {
 			for _, output := range typ.Outputs {
+				if typ.Key == TypeCluster && output.Name == resource.ClusterTargetOutput {
+					// ADR-017: the typed Kubernetes target is produced by the platform from the completed
+					// cluster identity, never mapped from a module output (a module cannot author its own target).
+					if mapsTo(contract.OutputMapping, output.Name) {
+						return nil, fmt.Errorf("planning: definition %q maps a module output to the platform-owned %q output of resource type %q", def.Key, output.Name, typ.Key)
+					}
+					continue
+				}
 				if contract.OutputMapping == nil {
 					if !contains(contract.Outputs, output.Name) {
 						return nil, fmt.Errorf("planning: Terraform module %q does not declare output %q required by resource type %q",

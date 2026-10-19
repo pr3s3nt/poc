@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-20
 ---
 
 # Design-to-code map
@@ -41,8 +41,10 @@ last_reviewed: 2026-10-18
 | UC-07 final resource marking and Service-reference guards | [`deployment service`](../../backend/internal/application/deployment/service.go), [`planner`](../../backend/internal/planning/plan.go), [`Service validation`](../../backend/internal/planning/service_refs.go), [`PostgreSQL atomicity tests`](../../backend/internal/application/deployment/postgres_uc07_integration_test.go) |
 | UC-07 pending UI and human-paced recording | [`Application home`](../../frontend/src/features/applications/ApplicationHomePage.tsx), [`editor`](../../frontend/src/features/workloads/WorkloadEditorPage.tsx), [`Playwright`](../../frontend/test/e2e/uc07-video-local.mjs) and [`runner`](../../backend/test/integration/uc07-video-local.sh) |
 | Definition-selected workload rendering | [`catalog validation`](../../backend/internal/domain/resource/rendering.go), [`planner selection`](../../backend/internal/planning/rendering.go), [`CLI adapter`](../../backend/internal/adapters/scorek8s/), [`deployment wiring`](../../backend/internal/bootstrap/bootstrap.go), [`pending comparisons`](../../backend/internal/application/pending/preview.go), [`HTTP flow tests`](../../backend/test/e2e/rendering_http_test.go) |
-| V04 full reference/provision graph and safe blocked-consumer progress (runtime gate pending) | [`planning graph`](../../backend/internal/planning/graph.go), [`blocked projection`](../../backend/internal/application/deployment/blocked.go), [`Console graph`](../../frontend/src/shared/ui/DependencyGraph.tsx) |
-| V04 full-app acceptance, private output cleanup and completed predecessor evidence (gate pending) | [`integrated runner`](../../backend/test/integration/v04-internal-full.sh), [`browser scenario`](../../frontend/test/e2e/v04-internal-full.mjs), [`operator inventory`](../../backend/test/integration/v2ctl/v04.go), [`admission proof`](../../backend/test/integration/v2run/v04_admission.go) |
+| V04 full reference/provision graph and safe blocked-consumer progress | [`planning graph`](../../backend/internal/planning/graph.go), [`blocked projection`](../../backend/internal/application/deployment/blocked.go), [`Console graph`](../../frontend/src/shared/ui/DependencyGraph.tsx) |
+| V04 full-app acceptance, private output cleanup and completed predecessor evidence | [`integrated runner`](../../backend/test/integration/v04-internal-full.sh), [`browser scenario`](../../frontend/test/e2e/v04-internal-full.mjs), [`operator inventory`](../../backend/test/integration/v2ctl/v04.go), [`admission proof`](../../backend/test/integration/v2run/v04_admission.go) |
+| V05 Definition-selected EKS, deferred cluster completion and per-resource fresh authentication | [`planner catalog contract`](../../backend/internal/planning/definition_catalog_plan_test.go), [`EKS completion`](../../backend/internal/application/provisioning/service.go), [`cluster readiness`](../../backend/internal/adapters/kubernetes/cluster_ready.go), [`restore target`](../../backend/internal/application/deployment/target_restore_test.go) |
+| V05 full real app, original native cleanup and complete SQL history | [`browser scenario`](../../frontend/test/e2e/terraform-v2-aws-definitions.mjs), [`SQL/API reader`](../../frontend/test/e2e/terraform-v2-definition-reopen.mjs), [`safe SQL inventory`](../../backend/test/integration/v04run/state.go), [`owned CSI cleanup`](../../backend/test/integration/v2run/ebs.go); gate/source/reuse evidence in [handoff](../verification/2026-10-18-v040506-handoff.md) |
 | UC-08 resource provisioning | [`backend/internal/application/provisioning`](../../backend/internal/application/provisioning/) |
 | Application/Connection domain | [`backend/internal/domain/application`](../../backend/internal/domain/application/) |
 | Environment/Deployment Set domain | [`backend/internal/domain/environment`](../../backend/internal/domain/environment/) |

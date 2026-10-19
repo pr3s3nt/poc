@@ -149,7 +149,9 @@ func main() {
 
 	mode := bootstrap.AdapterMode(*adapters)
 	if mode == bootstrap.AdapterAWS {
-		if *region == "" {
+		// The acceptance-v2 profile has no profile-bound cloud Application: every AWS Definition names its own
+		// account and literal region (ADR-017), so no process-wide region exists to require.
+		if *region == "" && opts.Profile != seed.ProfileAcceptanceV2 {
 			log.Print("orchestrator: -adapters aws needs -region")
 			os.Exit(1)
 		}

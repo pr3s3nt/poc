@@ -190,7 +190,10 @@ const (
 // K8sTargetKind is the fixed `kind` of a Kubernetes target value.
 const K8sTargetKind = "kubernetes-target"
 
-var k8sTargetStrings = map[string]bool{"kind": true, "clusterName": true, "context": true, "organization": true, "account": true, "descriptor": true}
+var k8sTargetStrings = map[string]bool{"kind": true, "clusterName": true, "context": true, "organization": true, "account": true, "descriptor": true, "provider": true, "region": true}
+
+// K8sTargetProviderEKS is the discriminator of a cluster created by a verified Terraform EKS module (ADR-017).
+const K8sTargetProviderEKS = "eks"
 
 // ValidateK8sTarget checks the concrete opaque target shape: cluster identity
 // and Driver Account only, never credential bytes, kubeconfig or paths.
@@ -223,5 +226,27 @@ func ValidateK8sTarget(value any) error {
 			return fmt.Errorf("Kubernetes target requires %q", required)
 		}
 	}
-	return nil
+	// Discriminated forms (ADR-017): the Internal form keeps its kubeconfig-account shape and has no provider or
+	// region; the EKS form states provider eks with a literal AWS region and has no context (EKS has no kube context).
+	provider, hasProvider := target["provider"].(string)
+	region, hasRegion := target["region"].(string)
+	switch {
+	case !hasProvider && !hasRegion:
+		return nil
+	case hasProvider && provider == K8sTargetProviderEKS:
+		if !hasRegion || !ValidAWSRegion(region) {
+			return fmt.Errorf("an EKS Kubernetes target requires a literal AWS region")
+		}
+		if _, hasContext := target["context"]; hasContext {
+			return fmt.Errorf("an EKS Kubernetes target has no kube context")
+		}
+		if _, hasVersion := target["accountVersion"]; !hasVersion {
+			return fmt.Errorf("an EKS Kubernetes target requires the pinned accountVersion")
+		}
+		if text, _ := target["descriptor"].(string); text == "" {
+			return fmt.Errorf("an EKS Kubernetes target requires the producing descriptor")
+		}
+		return nil
+	}
+	return fmt.Errorf("Kubernetes target mixes the Internal and EKS forms or names an unsupported provider")
 }

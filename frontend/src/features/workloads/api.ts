@@ -21,7 +21,7 @@ export type ResourceIntent = {
   providers?: { name: string; kind: string; target: string; connectionKey?: string; region?: string; provider?: string }[];
 };
 // Safe resolved target of one workload or Kubernetes-bound resource (ADR-016): identities and versions only.
-export type Placement = { node: string; cluster: string; clusterDefinition: string; clusterDefinitionVersion: number; account: string; accountVersion: number; namespace?: string; source: string };
+export type Placement = { node: string; cluster: string; clusterDefinition: string; clusterDefinitionVersion: number; account: string; accountVersion: number; namespace?: string; source: string; provider?: string; region?: string };
 export type PendingChange = { placements?: Placement[]; rendering?: { definitionKey: string; driverType: string; bundle: { id: string; version: string } }; workloadId: string; action: 'DEPLOY' | 'UPDATE' | 'REMOVE'; delta: Record<string, unknown>; resources: { existing: string[]; new: string[]; unreferenced: string[] }; resourceIntents?: ResourceIntent[]; planHash: string };
 export type PendingPreview = { token: string; binding?: { connectionKey: string; executionProfile: string; region: string }; accountId?: string; applicationKey: string; environmentKey: EnvironmentKey; baseDeploymentSetId: string; baseVersion: number; draftVersion: number; routePending?: boolean; configRevisionId?: string; changes: PendingChange[] };
 export const previewChanges = (app: string, env: EnvironmentKey) => api<PendingPreview>(`/applications/${encodeURIComponent(app)}/environments/${env}/preview`, { method: 'POST', body: '{}' });

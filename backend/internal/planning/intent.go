@@ -188,7 +188,11 @@ func (p *Plan) ResourceIntents(previous func(Node) *Plan) []ResourceIntent {
 				intent.Module = &IntentModule{Module: contract.Module, SourceID: contract.Source.SourceID, Revision: contract.Source.Revision, Subdirectory: contract.Source.Subdirectory, ContentSHA256: contract.Source.ContentSHA256}
 			}
 			for _, pin := range contract.ProviderBindings {
-				intent.Providers = append(intent.Providers, IntentProvider{Name: pin.Name, Kind: pin.Kind, Target: pin.Target, ConnectionKey: pin.ConnectionKey, Region: pin.Region, Provider: pin.Provider})
+				connection := pin.ConnectionKey
+				if connection == "" {
+					connection = pin.ClusterAccount // an EKS target the plan itself creates: the producing AWS account
+				}
+				intent.Providers = append(intent.Providers, IntentProvider{Name: pin.Name, Kind: pin.Kind, Target: pin.Target, ConnectionKey: connection, Region: pin.Region, Provider: pin.Provider})
 			}
 		}
 		out = append(out, intent)

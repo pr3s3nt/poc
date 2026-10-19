@@ -212,13 +212,30 @@ func newApp(t *testing.T, cloud bool) (*bootstrap.App, seed.Options) {
 	opts := seedtest.Defaults()
 	opts.RunID = runID
 	if cloud {
-		opts.Region, opts.AccountID = "us-east-1", "000000000000"
+		// The Definition-driven EKS catalog of V05: no Environment profile, Connection or account.
+		opts.Catalog = seed.CatalogNone
+		opts.EnvironmentKey = "staging"
 	}
 	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake})
 	if err != nil {
 		t.Fatalf("bootstrap: %v", err)
 	}
+	if cloud {
+		bootstraptest.EKSCatalog(t, app, opts)
+	}
 	return app, opts
+}
+
+// eksScores are the acceptance Scores whose PostgreSQL runs in the cluster the plan itself creates.
+func eksScores(opts seed.Options) map[string]map[string]any {
+	docs := seed.AcceptanceScores(opts)
+	for _, doc := range docs {
+		resources, _ := doc["resources"].(map[string]any)
+		if db, ok := resources["db"].(map[string]any); ok {
+			db["class"] = "in-cluster"
+		}
+	}
+	return docs
 }
 
 func newPreview(t *testing.T, st persistence.Store) *preview.Service {
@@ -557,10 +574,9 @@ func TestPreview_InternalImplicitGraph(t *testing.T) {
 	}
 }
 
-func TestPreview_AWSImplicitGraph(t *testing.T) {
+func TestPreview_EKSChainComesFromDefinitions(t *testing.T) {
 	app, opts := newApp(t, true)
-	opts.ApplicationKey = opts.CloudApplicationKey
-	result, err := newPreview(t, app.Store).PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
+	result, err := newPreview(t, app.Store).PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, eksScores(opts)["backend"]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -568,7 +584,7 @@ func TestPreview_AWSImplicitGraph(t *testing.T) {
 	cluster, hasCluster := nodeByType(result.Plan, planning.TypeCluster)
 	ns, hasNS := nodeByType(result.Plan, planning.TypeNamespace)
 	if !hasVPC || !hasCluster || cluster.Class != planning.ClassEKS || !hasNS {
-		t.Fatalf("aws-eks must add implicit VPC, EKS and namespace: %+v", result.Plan.Graph.Nodes)
+		t.Fatalf("the Definitions must plan the VPC, EKS and namespace: %+v", result.Plan.Graph.Nodes)
 	}
 	if !(batchIndex(result.Plan.Batches, vpc.Descriptor) < batchIndex(result.Plan.Batches, cluster.Descriptor) &&
 		batchIndex(result.Plan.Batches, cluster.Descriptor) < batchIndex(result.Plan.Batches, ns.Descriptor)) {
@@ -582,7 +598,7 @@ func TestPreview_AWSImplicitGraph(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw, _ := json.Marshal(view)
-	conn, _ := app.Store.GetConnection(context.Background(), opts.OrganizationKey, opts.CloudConnectionKey)
+	conn, _ := app.Store.GetConnection(context.Background(), opts.OrganizationKey, "aws-a")
 	if conn.SecretRef == "" || strings.Contains(string(raw), conn.SecretRef) {
 		t.Fatalf("connection secret reference %q exposed or unset", conn.SecretRef)
 	}
@@ -594,8 +610,7 @@ func TestPreview_AWSImplicitGraph(t *testing.T) {
 func TestPreview_ResourceIntentsAndTargetAreSafe(t *testing.T) {
 	ctx := context.Background()
 	app, opts := newApp(t, true)
-	opts.ApplicationKey = opts.CloudApplicationKey
-	result, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
+	result, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, eksScores(opts)["backend"]))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -603,14 +618,14 @@ func TestPreview_ResourceIntentsAndTargetAreSafe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// V02: AWS identity is per node (provider pins); no Environment account is reported.
-	if view.AccountID != "" || view.Binding.Region == "" {
+	// AWS identity is per node (provider pins); no Environment account or binding is reported.
+	if view.AccountID != "" || view.Binding.ConnectionKey != "" || view.Binding.Region != "" {
 		t.Fatalf("environment account must not be reported: account=%q binding=%+v", view.AccountID, view.Binding)
 	}
 	pinned := false
 	for _, intent := range view.ResourceIntents {
 		for _, provider := range intent.Providers {
-			if provider.Kind == "aws" && provider.ConnectionKey == opts.CloudConnectionKey && provider.Region == opts.Region {
+			if provider.Kind == "aws" && provider.ConnectionKey == "aws-a" && provider.Region == "us-east-1" {
 				pinned = true
 			}
 		}
@@ -647,7 +662,7 @@ func TestPreview_ResourceIntentsAndTargetAreSafe(t *testing.T) {
 			}
 		}
 	}
-	conn, _ := app.Store.GetConnection(ctx, opts.OrganizationKey, opts.CloudConnectionKey)
+	conn, _ := app.Store.GetConnection(ctx, opts.OrganizationKey, "aws-a")
 	if conn.SecretRef == "" || strings.Contains(string(raw), conn.SecretRef) {
 		t.Fatalf("connection secret reference exposed in intents")
 	}
@@ -825,10 +840,9 @@ func TestPreview_CatalogErrorsNeverEchoed(t *testing.T) {
 
 	t.Run("inspector", func(t *testing.T) {
 		app, opts := newApp(t, true)
-		opts.ApplicationKey = opts.CloudApplicationKey
 		calls := 0
 		svc := preview.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), failingInspector{ModuleInspector: planning.RegistryInspector{Metadata: app.Modules}, sentinel: sentinel, calls: &calls})
-		_, err := svc.PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
+		_, err := svc.PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, eksScores(opts)["backend"]))
 		var public *preview.PublicError
 		if !errors.As(err, &public) || !errors.Is(err, preview.ErrPlanningRejected) || strings.Contains(err.Error(), sentinel) {
 			t.Fatalf("inspector error not sanitized: %v", err)
@@ -840,7 +854,6 @@ func TestPreview_CatalogErrorsNeverEchoed(t *testing.T) {
 
 	t.Run("malformed Definition reference", func(t *testing.T) {
 		app, opts := newApp(t, true)
-		opts.ApplicationKey = opts.CloudApplicationKey
 		defs, _ := app.Store.ListResourceDefinitions(ctx, opts.OrganizationKey)
 		for _, d := range defs {
 			if d.Key == "vpc-aws" {
@@ -850,11 +863,11 @@ func TestPreview_CatalogErrorsNeverEchoed(t *testing.T) {
 				}
 			}
 		}
-		_, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
+		_, err := newPreview(t, app.Store).PreviewDeployment(ctx, query(opts, "backend", preview.ActionDeploy, nil, eksScores(opts)["backend"]))
 		if !errors.Is(err, preview.ErrPlanningRejected) || strings.Contains(err.Error(), sentinel) {
 			t.Fatalf("Definition error not sanitized: %v", err)
 		}
-		_, raw := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreAfter: scores(opts)["backend"], Actor: "test", RunID: runID})
+		_, raw := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreAfter: eksScores(opts)["backend"], Actor: "test", RunID: runID})
 		if raw == nil || !strings.Contains(raw.Error(), sentinel) {
 			t.Fatalf("fixture no longer exercises a leaking planner error: %v", raw)
 		}
@@ -989,10 +1002,9 @@ func (m metadataOnly) VerifyForExecution(context.Context, tfmodule.SourceRef) (t
 // plan pins each Terraform node to its verified bundle and release.
 func TestPreview_TerraformUsesRegistryMetadataOnly(t *testing.T) {
 	app, opts := newApp(t, true)
-	opts.ApplicationKey = opts.CloudApplicationKey
 	reads := 0
 	svc := preview.NewService(app.Store, planning.NewService(bootstrap.FakeRenderBundles()), planning.RegistryInspector{Metadata: metadataOnly{Registry: app.Modules, t: t, reads: &reads}})
-	result, err := svc.PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, scores(opts)["backend"]))
+	result, err := svc.PreviewDeployment(context.Background(), query(opts, "backend", preview.ActionDeploy, nil, eksScores(opts)["backend"]))
 	if err != nil {
 		t.Fatal(err)
 	}

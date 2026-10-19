@@ -30,10 +30,9 @@ func (b *graphBuilder) driverBindings(def resource.Definition) (tfmodule.DriverI
 	return inputs, contract, true
 }
 
-// clusterProvider resolves the cluster resource that supplies the Kubernetes
-// provider target of a binding. A resource binding names it; an Environment
-// binding means the Environment's own cluster: the registered internal cluster
-// of internal-k8s or the EKS node of aws-eks. Never inferred from variables.
+// clusterProvider resolves the explicitly referenced Kubernetes cluster.
+// Product Environment targets are retired; read-only planner conformance may
+// name its synthetic registered cluster. No target is inferred from variables.
 func (b *graphBuilder) clusterProvider(node *Node, binding tfmodule.Binding) (resource.Descriptor, error) {
 	if binding.Target == tfmodule.TargetResource {
 		target, err := ParseDescriptorText(binding.ResourceRef, node, b.ctx)
@@ -48,13 +47,8 @@ func (b *graphBuilder) clusterProvider(node *Node, binding tfmodule.Binding) (re
 	if b.ctx.DefinitionPlaced() {
 		return resource.Descriptor{}, fmt.Errorf("the Environment provider target is retired; bind the provider to a cluster resource (target resource)")
 	}
-	switch b.ctx.Env.Profile {
-	case application.ProfileInternalK8s:
-		if b.ctx.ReferenceCluster { // planner reference mode only; a product Environment never reaches here
-			return InternalClusterDescriptor(b.ctx.Env.ConnectionKey)
-		}
-	case application.ProfileAWSEKS:
-		return EKSDescriptor(b.ctx)
+	if b.ctx.Env.Profile == application.ProfileInternalK8s && b.ctx.ReferenceCluster { // planner reference mode only; a product Environment never reaches here
+		return InternalClusterDescriptor(b.ctx.Env.ConnectionKey)
 	}
 	return resource.Descriptor{}, fmt.Errorf("the Environment execution profile has no cluster target")
 }
@@ -151,12 +145,18 @@ func (b *graphBuilder) providerPins(node *Node, def resource.Definition, contrac
 			}
 			pin.Provider = provider.String()
 			if b.ctx.DefinitionPlaced() {
-				clusterNode := b.nodes[provider.String()]
-				match, err := clusterAccountMatch(clusterNode, matches, nil)
+				src, err := b.clusterSourceOf(b.nodes[provider.String()], matches)
 				if err != nil {
 					return nil, fmt.Errorf("planning: %s provider binding %s: %w", node.Descriptor, name, err)
 				}
-				pin.ConnectionKey, pin.ConnectionKind, pin.AccountVersion = match.DriverAccount, string(application.ConnectionKubernetes), match.AccountVersion
+				switch src.Provider {
+				case ClusterEKS:
+					// No Kubernetes Connection supplies credentials: execution derives fresh short-lived
+					// authentication from the producing cluster's original AWS account (ADR-017).
+					pin.ClusterProvider, pin.ClusterAccount, pin.AccountVersion, pin.Region = ClusterEKS, src.Account, src.AccountVersion, src.Region
+				default:
+					pin.ConnectionKey, pin.ConnectionKind, pin.AccountVersion = src.Account, string(application.ConnectionKubernetes), src.AccountVersion
+				}
 			}
 		}
 		pins = append(pins, pin)

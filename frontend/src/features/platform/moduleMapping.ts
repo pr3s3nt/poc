@@ -113,6 +113,10 @@ export function objectToMapping(value: JsonObject, capability: Capability, type:
   return { draft };
 }
 
+// ADR-017/catalog validateOutputMapping: the typed cluster target is produced
+// by the platform from the completed provider identity, never a module mapping.
+export const platformOutput = (capability: Capability, name: string): boolean => capability.resourceType === clusterType && name === 'cluster';
+
 export type MappingProblem = { field: string; message: string };
 
 // Guidance before POST. The server stays authoritative for every rule.
@@ -123,7 +127,7 @@ export function mappingProblems(draft: MappingDraft, capability: Capability, typ
     if (!draft.inputs[input.name]) problems.push({ field: `input:${input.name}`, message: `Chọn biến module nhận tham số "${input.name}" của Loại tài nguyên.` });
   }
   for (const output of type.outputs) {
-    if (output.required && !draft.outputs[output.name]) problems.push({ field: `output:${output.name}`, message: `Chọn output module cung cấp output bắt buộc "${output.name}".` });
+    if (output.required && !platformOutput(capability, output.name) && !draft.outputs[output.name]) problems.push({ field: `output:${output.name}`, message: `Chọn output module cung cấp output bắt buộc "${output.name}".` });
   }
   const clusterNeeded = bindingProviders(capability).filter((provider) => provider.binding === 'kubernetes');
   for (const provider of clusterNeeded) {
@@ -155,6 +159,7 @@ export function sameNameInputs(capability: Capability, type: TypeContract): Reco
 export function sameNameOutputs(capability: Capability, type: TypeContract): Record<string, string> {
   const out: Record<string, string> = {};
   for (const output of type.outputs) {
+    if (platformOutput(capability, output.name)) continue;
     const moduleOutput = capability.outputs.find((candidate) => candidate.name === output.name);
     if (moduleOutput && outputCompatible(output.type, moduleOutput.type)) out[output.name] = moduleOutput.name;
   }

@@ -8,7 +8,7 @@ import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
-export const PHASES = ['PREPARE', 'FORM', 'PREVIEW', 'TERRAFORM', 'READY', 'JOB', 'CACHE', 'CLEANUP'];
+export const PHASES = ['PREPARE', 'FORM', 'PREVIEW', 'TERRAFORM', 'READY', 'JOB', 'CACHE', 'UPDATE', 'CLEANUP'];
 export const SOURCES = ['ui', 'private-read'];
 
 /** Reduces an error to one safe line: never the command line or stderr tail. */

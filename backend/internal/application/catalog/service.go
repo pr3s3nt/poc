@@ -321,14 +321,8 @@ func (s *Service) validateDriver(ctx context.Context, org string, def *resource.
 		if def.DriverAccount != "" {
 			return nil, invalidField("definition.driverAccount", fmt.Errorf("%w: score-k8s rendering takes no driver account", ErrInvalid))
 		}
-		_, placed := variables[resource.VariableNamespace]
-		if err := resource.ValidateRenderDefinition(*def, typ, s.bundles, placed); err != nil {
+		if err := resource.ValidateRenderDefinition(*def, typ, s.bundles, true); err != nil {
 			return nil, err
-		}
-		if !placed {
-			if err := s.requireLegacyRenderScope(ctx, org, def.Criteria); err != nil {
-				return nil, err
-			}
 		}
 		bundle := s.bundles[variables["render_bundle"].(string)]
 		def.SourceFingerpr = bundle.Digest
@@ -429,37 +423,4 @@ func (s *Service) ListRenderBundles() []InstalledRenderBundle {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
-}
-
-// requireLegacyRenderScope admits a render-only workload Definition (no namespace/cluster
-// references) only as the explicit legacy compatibility form for Applications whose Environments
-// are all bound to the AWS execution profile (until V05). Every criterion must name such an
-// Application; a Definition-placed Application always needs the typed references, and the retired
-// internal Connection profile is never accepted.
-func (s *Service) requireLegacyRenderScope(ctx context.Context, org string, criteria []resource.Criterion) error {
-	invalid := func() error {
-		return invalidField("definition.driverInputs", fmt.Errorf("%w: a workload Definition without namespace and cluster references is accepted only for Applications deployed with the AWS legacy profile; declare both references", ErrInvalid))
-	}
-	if len(criteria) == 0 {
-		return invalid()
-	}
-	for _, criterion := range criteria {
-		if criterion.ApplicationID == "" {
-			return invalid()
-		}
-		app, err := s.store.GetApplication(ctx, criterion.ApplicationID)
-		if err != nil || app.OrganizationKey != org {
-			return invalid()
-		}
-		environments, err := s.store.ListEnvironments(ctx, app.Key)
-		if err != nil || len(environments) == 0 {
-			return invalid()
-		}
-		for _, env := range environments {
-			if env.Profile != application.ProfileAWSEKS {
-				return invalid()
-			}
-		}
-	}
-	return nil
 }

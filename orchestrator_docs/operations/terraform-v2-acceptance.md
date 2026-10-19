@@ -8,6 +8,18 @@ related: [ADR-014, UC-03, UC-04, UC-05, UC-06, UC-08, UC-16]
 
 # Terraform v2 — acceptance và quyền thực thi
 
+## Issue4 — quyết định mới nhất19-10: browser E2E nhanh, không video
+
+V04–V06 chỉ cần browser E2E luồng chính PASS cùng readiness/business assertions,
+SQL/technical reads, secret scan và ownership/UID/nativeAPI cleanup. Không bắt
+buộc thao tác chậm kiểu người, cursor, reading pauses, video/captions/decode/
+review/native upload/player/download. Runner dùng chế độ browser-only nhanh;
+đây là browser UI thật, không thay business steps bằng API hoặc fake workload.
+Các deadline/readiness/cache TTL tự nhiên vẫn giữ, không tăng tốc đồng hồ hoặc
+bỏ assertions. Existing automated tests/focused validation/reuse giữ nguyên.
+Lượt đang chạy recording cũ có thể hoàn tất/reuse, không chạy lại chỉ để bỏ video.
+Các yêu cầu recording bên dưới là lịch sử khi áp dụng cho issue4 từ quyết định này.
+
 ## Hợp đồng hiện hành issue #4 — quyết định 2026-10-19
 
 V04/V05/A02/A03 chỉ nghiệm thu thật luồng chính: account/Types/Definitions/Score,

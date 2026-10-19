@@ -12,7 +12,7 @@ const label = (table: Record<string, string>, key: string) => (Object.hasOwn(tab
 // Environment cluster (Kubernetes). Names only: never a credential, endpoint or
 // account override.
 function providerText(provider: NonNullable<ResourceIntent['providers']>[number]): string {
-  if (provider.target === 'resource') return `${provider.name}: cluster do node ${provider.provider ?? 'EKS'} cung cấp`;
+  if (provider.target === 'resource') return `${provider.name}: cluster do node ${provider.provider ?? 'EKS'} cung cấp${provider.connectionKey ? ` · tài khoản ${provider.connectionKey}` : ''}${provider.region ? ` · vùng ${provider.region}` : ''}`;
   if (provider.kind === 'aws') return `${provider.name}: tài khoản AWS của cấu hình${provider.connectionKey ? ` ${provider.connectionKey}` : ''}${provider.region ? ` · vùng ${provider.region}` : ''}`;
   return `${provider.name}: cluster của Môi trường (cách cũ, giữ tới V03)${provider.connectionKey ? ` ${provider.connectionKey}` : ''}`;
 }

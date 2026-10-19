@@ -18,11 +18,12 @@ type Instance struct {
 	Status       string `json:"status"`
 	CreatedByRun string `json:"createdByRun"`
 	Scope        string `json:"scope"`
+	Module       string `json:"module"`
 }
 
 // ReadInstances lists every instance of the run's (exclusive, disposable) Console database.
 func ReadInstances(ctx context.Context, q v03run.Querier) ([]Instance, error) {
-	rows, err := q.Query(ctx, `SELECT descriptor, id::text, left(state_key, 12), status, created_by_run_id, scope_type FROM terraform_resource_instances ORDER BY descriptor, scope_type, scope_id`)
+	rows, err := q.Query(ctx, `SELECT i.descriptor, i.id::text, left(i.state_key, 12), i.status, i.created_by_run_id, i.scope_type, b.module_id FROM terraform_resource_instances i JOIN terraform_module_bundles b ON b.id=i.module_bundle_id ORDER BY i.descriptor, i.scope_type, i.scope_id`)
 	if err != nil {
 		return nil, fmt.Errorf("instances cannot be read: %w", err)
 	}
@@ -30,7 +31,7 @@ func ReadInstances(ctx context.Context, q v03run.Querier) ([]Instance, error) {
 	var out []Instance
 	for rows.Next() {
 		var in Instance
-		if err := rows.Scan(&in.Descriptor, &in.ID, &in.StateKey, &in.Status, &in.CreatedByRun, &in.Scope); err != nil {
+		if err := rows.Scan(&in.Descriptor, &in.ID, &in.StateKey, &in.Status, &in.CreatedByRun, &in.Scope, &in.Module); err != nil {
 			return nil, fmt.Errorf("instances cannot be read: %w", err)
 		}
 		out = append(out, in)

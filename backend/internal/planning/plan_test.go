@@ -195,48 +195,6 @@ func TestPlan_UsesDeploymentSetPathsAsResourceIdentity(t *testing.T) {
 	}
 }
 
-// UC-03 V02-02: there is no profile guard. A new Application matches a Definition
-// only through its own explicit criteria; the seeded profile-era fallback is gone.
-func TestPlan_NewApplicationMatchesOnlyThroughExplicitCriteria(t *testing.T) {
-	for _, tc := range []struct {
-		profile    application.ExecutionProfile
-		seededApp  string
-		definition string
-	}{
-		{application.ProfileInternalK8s, "acceptance", "postgres-internal-statefulset"},
-		{application.ProfileAWSEKS, "acceptance-cloud", "postgres-aws-aurora"},
-	} {
-		t.Run(string(tc.profile), func(t *testing.T) {
-			req := testRequest(t, tc.profile, "backend")
-			req.App.Key = "new-application"
-			req.Env.ApplicationKey = req.App.Key
-			req.Env.NamespaceIdentity = "new-application-staging"
-			_, err := NewService(testBundles()).Plan(req)
-			var staged *StageError
-			if err == nil || !(errors.Is(err, errNoMatch) || (errors.As(err, &staged) && staged.Reason == ReasonPlacement)) {
-				t.Fatalf("a new Application must not inherit a seeded match: %v", err)
-			}
-			rescopeApplication(&req, tc.seededApp, req.App.Key)
-			plan, err := NewService(testBundles()).Plan(req)
-			if err != nil {
-				t.Fatal(err)
-			}
-			found := false
-			for _, match := range plan.Matches {
-				if strings.HasPrefix(match.Descriptor, "postgres.") {
-					found = true
-					if match.DefinitionKey != tc.definition {
-						t.Fatalf("matched %s, want %s", match.DefinitionKey, tc.definition)
-					}
-				}
-			}
-			if !found {
-				t.Fatal("postgres resource not matched")
-			}
-		})
-	}
-}
-
 func TestPlanRejectsTwoPublicWorkloads(t *testing.T) {
 	req := testRequest(t, application.ProfileInternalK8s, "backend")
 	req.BaseSet.Modules["frontend"] = environment.Module{Profile: environment.ModuleProfile, Spec: environment.ModuleSpec{
@@ -289,49 +247,6 @@ func TestPlan_InternalGraphIsProviderFirst(t *testing.T) {
 	}
 }
 
-func TestPlan_AWSAddsImplicitVPCAndEKS(t *testing.T) {
-	plan, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileAWSEKS, "backend"))
-	if err != nil {
-		t.Fatalf("plan: %v", err)
-	}
-	var hasVPC, hasEKS bool
-	for _, n := range plan.Graph.Nodes {
-		if n.ResourceType == TypeVPC {
-			hasVPC = true
-		}
-		if n.ResourceType == TypeCluster && n.Class == ClassEKS {
-			hasEKS = true
-		}
-	}
-	if !hasVPC || !hasEKS {
-		t.Fatalf("aws-eks must add implicit VPC and EKS nodes: %v", plan.Graph.Nodes)
-	}
-	if !strings.HasPrefix(plan.Batches[0][0], "vpc.default#") {
-		t.Fatalf("VPC must be provisioned first, got %v", plan.Batches)
-	}
-	last := plan.Batches[len(plan.Batches)-1]
-	if !strings.HasPrefix(last[0], "k8s-namespace.default#") {
-		t.Fatalf("namespace must come after the cluster, got %v", plan.Batches)
-	}
-}
-
-func TestPlan_PostgresResolvesPerApplication(t *testing.T) {
-	internal, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
-	if err != nil {
-		t.Fatalf("plan internal: %v", err)
-	}
-	cloud, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileAWSEKS, "backend"))
-	if err != nil {
-		t.Fatalf("plan cloud: %v", err)
-	}
-	if got := matchOf(t, internal, "postgres"); got != "postgres-internal-statefulset" {
-		t.Fatalf("internal postgres matched %q", got)
-	}
-	if got := matchOf(t, cloud, "postgres"); got != "postgres-aws-aurora" {
-		t.Fatalf("cloud postgres matched %q", got)
-	}
-}
-
 func matchOf(t *testing.T, plan *Plan, resourceType string) string {
 	t.Helper()
 	for _, n := range plan.Graph.Nodes {
@@ -361,24 +276,6 @@ func TestPlan_ScoreParamsBecomeResourceInputs(t *testing.T) {
 	}
 	if node.Params["database"] != "acceptance" {
 		t.Fatalf("params did not reach the node: %v", node.Params)
-	}
-}
-
-func TestPlan_TerraformContractIsInspected(t *testing.T) {
-	plan, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileAWSEKS, "backend"))
-	if err != nil {
-		t.Fatalf("plan: %v", err)
-	}
-	if len(plan.Terraform) != 3 {
-		t.Fatalf("expected a contract per Terraform node, got %d", len(plan.Terraform))
-	}
-	for _, contract := range plan.Terraform {
-		if !strings.HasPrefix(contract.Fingerprint, "sha256:") {
-			t.Fatalf("contract %s has no fingerprint", contract.Descriptor)
-		}
-		if len(contract.Inputs) == 0 {
-			t.Fatalf("contract %s has no inputs", contract.Descriptor)
-		}
 	}
 }
 
@@ -647,20 +544,6 @@ func TestPlan_KeepsSharedResourceWhileAnotherWorkloadReferencesIt(t *testing.T) 
 	}
 	if _, ok := plan.CandidateSet.Shared["acceptance-db"]; !ok {
 		t.Fatalf("the shared entry must survive while the worker references it: %v", plan.CandidateSet.Shared)
-	}
-}
-
-// The product seed has no EKS allowlist: the AWS plan is refused before any
-// effect until a PE/Admin Definition supplies public_access_cidrs, and a host IP
-// is never inferred or added.
-func TestPlan_EKSWithoutPublicAccessAllowlistFailsBeforeEffects(t *testing.T) {
-	req := testRequest(t, application.ProfileAWSEKS, "backend")
-	o := seedOptions()
-	o.Cloud.EKSPublicAccessCIDRs = nil
-	req.Catalog = catalogOf(o)
-	_, err := NewService(testBundles()).Plan(req)
-	if err == nil || !strings.Contains(err.Error(), `required Terraform variable "public_access_cidrs"`) {
-		t.Fatalf("plan without allowlist: %v", err)
 	}
 }
 

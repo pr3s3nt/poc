@@ -1,11 +1,8 @@
 package planning
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 
-	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning/placeholder"
 	"orchestrator/internal/platform/canon"
@@ -175,9 +172,6 @@ func (b *graphBuilder) scanReferences(current *Node, value any, base string) ([]
 			if _, err := b.ensure(target, NodeResource, OriginReference, nil); err != nil {
 				return err
 			}
-			if err := checkInfrastructureReference(b.ctx, target); err != nil {
-				return &StageError{Stage: StageReference, Reason: ReasonLegacyInfrastructure, Err: fmt.Errorf("planning: %s: %w", path, err)}
-			}
 			b.addEdge(current.Descriptor, target.String(), ReasonReference, path)
 			b.bind(current, ref.Resource, target.String())
 			refs = append(refs, pendingRef{
@@ -215,21 +209,4 @@ func sortStrings(in []string) {
 			in[j], in[j-1] = in[j-1], in[j]
 		}
 	}
-}
-
-// ErrLegacyInfrastructureReference reports a Definition that hardcodes the
-// Application-scoped VPC/EKS path inside an Environment with its own scope.
-var ErrLegacyInfrastructureReference = errors.New("planning: definition references the application-scoped VPC/EKS; use the @infra token (for example vpc.default#@infra)")
-
-// checkInfrastructureReference rejects a hardcoded `applications.` VPC/EKS
-// reference in an aws-eks Environment. Arbitrary references are never
-// silently remapped (ADR-011).
-func checkInfrastructureReference(ctx Context, target resource.Descriptor) error {
-	if ctx.Env.Profile != application.ProfileAWSEKS {
-		return nil
-	}
-	if (target.Type == TypeVPC || (target.Type == TypeCluster && target.Class == ClassEKS)) && strings.HasPrefix(target.ID, PathApplications) {
-		return fmt.Errorf("%w: %s", ErrLegacyInfrastructureReference, target)
-	}
-	return nil
 }

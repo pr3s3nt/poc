@@ -9,7 +9,7 @@
 # -> typed outputs and DURABLE scoped Vault Secret refs -> the REQUIRED pinned
 # score-k8s 0.15.0 -> real Kubernetes delivery and readiness), a disposable
 # PostgreSQL with three separate logins (Owner, Console, State), a run-owned
-# Vault dev server holding the scoped Connection credentials and the output
+# file-backed Vault holding the scoped Connection credentials and the output
 # secrets, the headed browser and the Web Console, and the acceptance app on
 # the real k8s-4f cluster. The Connection is registered through the Console with
 # a single-context kubeconfig; the product never reads the host kubeconfig,
@@ -33,20 +33,22 @@ export LC_ALL=C.UTF-8
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REPO="$(cd "${ROOT}/.." && pwd)"
 E2E="${REPO}/frontend/test/e2e"
-usage() { echo "usage: $0 --config PRIVATE_CONFIG.json [--prepare-only (AWS)] --headed --captions vi" >&2; exit 2; }
+usage() { echo "usage: $0 --config PRIVATE_CONFIG.json [--prepare-only (AWS)] [--browser-only | --headed --captions vi]" >&2; exit 2; }
 
-CONFIG="" HEADED=0 CAPTIONS="" PREPARE_ONLY=0
+CONFIG="" HEADED=0 CAPTIONS="" PREPARE_ONLY=0 BROWSER_ONLY=0
 while (( $# )); do
   case "$1" in
     --config) [[ $# -ge 2 ]] || usage; CONFIG="$2"; shift 2 ;;
     --headed) HEADED=1; shift ;;
+    --browser-only) BROWSER_ONLY=1; shift ;;
     --prepare-only) PREPARE_ONLY=1; shift ;;
     --captions) [[ $# -ge 2 ]] || usage; CAPTIONS="$2"; shift 2 ;;
     *) usage ;;
   esac
 done
-[[ -n "${CONFIG}" && ( "${PREPARE_ONLY}" == 1 || ( "${HEADED}" == 1 && "${CAPTIONS}" == vi ) ) ]] || usage
-REQUIRED_TOOLS=(node go ffmpeg ffprobe Xvfb xdotool curl)
+[[ -n "${CONFIG}" && ( "${PREPARE_ONLY}" == 1 || "${BROWSER_ONLY}" == 1 || ( "${HEADED}" == 1 && "${CAPTIONS}" == vi ) ) ]] || usage
+REQUIRED_TOOLS=(node go curl)
+if [[ "${BROWSER_ONLY}" != 1 ]]; then REQUIRED_TOOLS+=(ffmpeg ffprobe Xvfb xdotool); fi
 if [[ "${PREPARE_ONLY}" == 1 ]]; then REQUIRED_TOOLS=(go); fi
 for tool in "${REQUIRED_TOOLS[@]}"; do command -v "${tool}" >/dev/null || { echo "${tool} is required" >&2; exit 2; }; done
 
@@ -61,14 +63,15 @@ cfg() { "${CTL}" config-get -config "${CONFIG}" -field "$1"; }
 "${CTL}" validate-config -fresh -config "${CONFIG}" > /dev/null
 SCENARIO="$(cfg scenario)"
 case "${SCENARIO}" in
-  A01|E02) source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"; retired_runner "terraform-v2-acceptance.sh scenario ${SCENARIO} (builtin existing-cluster / internal Connection)" "backend/test/integration/v03-internal-frontend.sh; the AWS scenarios A02/A03 are unchanged" ;;
+  A01|E01|E02) source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"; retired_runner "terraform-v2-acceptance.sh scenario ${SCENARIO} (builtin existing-cluster / internal Connection)" "backend/test/integration/v04-internal-full.sh (existing cluster, full app); the AWS scenarios are V05, A02 and A03 (Definition-driven, no Environment Connection)" ;;
+  A02|A03) source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"; retired_runner "terraform-v2-acceptance.sh scenario ${SCENARIO} (managed data services)" "the V06 patch (Definition-driven A02/A03); the V05 gate runs scenario V05 only" ;;
 esac
 TARGET="$(cfg target)"
 IS_AWS=0
 if [[ "${TARGET}" == aws ]]; then
   IS_AWS=1
   # AWS: the read-only gates run FIRST for every AWS invocation: pinned binaries, STS account/region/principal, explicit /32 egress, pod capacity,
-  # permission simulation, an empty run tag and the I04-11 gate (A01, E01, E02 passed and closed clean). Without --prepare-only the run then
+  # permission simulation, an empty run tag and the completed main-flow V04 gate. Without --prepare-only the run then
   # continues; nothing is created before these pass, the estimate is complete and the supervisor is armed.
   "${CTL}" verify-binaries -config "${CONFIG}"
   AWS_PREFLIGHT="$("${CTL}" aws-preflight -config "${CONFIG}")"
@@ -193,9 +196,9 @@ cleanup() {
       # Output-secret objects are needed to continue a manual destroy.
       disown "${VAULT_PID}" 2>/dev/null || true
       LOCAL_STOP_CLEAN=0
-      note "run-owned Vault dev server KEPT RUNNING for manual continuation: pid=${VAULT_PID} address=${VAULT_ADDR_LOCAL}; stop it with kill ${VAULT_PID} after cleanup completes"
+      note "run-owned file Vault KEPT RUNNING for manual continuation: pid=${VAULT_PID} address=${VAULT_ADDR_LOCAL}; stop it with kill ${VAULT_PID} after cleanup completes"
     else
-      if stop_owned_child "${VAULT_PID}"; then note "vault dev server stopped"; else LOCAL_STOP_CLEAN=0; code=1; note "Vault dev server did not stop within the bounded cleanup window"; fi
+      if stop_owned_child "${VAULT_PID}"; then note "file Vault stopped"; else LOCAL_STOP_CLEAN=0; code=1; note "file Vault did not stop within the bounded cleanup window"; fi
     fi
   fi
   # Keep the scoped Vault alive whenever state or handles must be retained for
@@ -248,13 +251,16 @@ else
 fi
 "${CTL}" validate-config -config "${CONFIG}" > "${WORK}/public-config.json"
 if [[ "${IS_AWS}" == 1 ]]; then
-  check "preflight ok: pinned binaries, STS account/region/principal, /32 egress, pod capacity, permission simulation, empty run tag, I04-11 gate (no creation)"
+  check "preflight ok: pinned binaries, STS account/region/principal, /32 egress, pod capacity, permission simulation, empty run tag, main-flow V04 gate (no creation)"
 else
   check "preflight ok: pinned binaries, k8s-4f context ${KUBE_CONTEXT}, no run namespace, sentinel UID, storage class, namespace create permission (no creation)"
 fi
-video_require_tools
 video_require_fresh_dist "${REPO}"
-XDOTOOL="$(video_xdotool)"
+XDOTOOL=""
+if [[ "${BROWSER_ONLY}" != 1 ]]; then
+  video_require_tools
+  XDOTOOL="$(video_xdotool)"
+fi
 
 # ---- Disposable PostgreSQL with three separate logins -----------------------
 "${CTL}" pg-provision -admin-url-file "${PG_ADMIN}" -out-dir "${PRIVATE}" | tee -a "${WORK}/cleanup.txt"
@@ -262,7 +268,8 @@ PG_PROVISIONED=1
 CONSOLE_ROLE="$("${CTL}" pg-role -manifest "${PRIVATE}/pg-manifest.json" -kind console)"
 STATE_ROLE="$("${CTL}" pg-role -manifest "${PRIVATE}/pg-manifest.json" -kind state)"
 ADAPTERS=kubernetes AWS_FLAGS=()
-if [[ "${IS_AWS}" == 1 ]]; then ADAPTERS=aws; AWS_FLAGS=(-region "$(cfg awsRegion)" -account-id "$(cfg awsAccountId)"); fi
+# ADR-017: no process-wide region or account exists; every AWS Definition names its own Driver Account and literal region.
+if [[ "${IS_AWS}" == 1 ]]; then ADAPTERS=aws; fi
 ISOLATED=(env -i "PATH=${PATH}" "HOME=${PRIVATE}/home" "TMPDIR=${PRIVATE}/tmp" "LANG=C.UTF-8")
 for proxy in HTTPS_PROXY HTTP_PROXY NO_PROXY https_proxy http_proxy no_proxy SSL_CERT_FILE; do
   if [[ -n "${!proxy:-}" ]]; then ISOLATED+=("${proxy}=${!proxy}"); fi
@@ -275,23 +282,18 @@ done
 # ---- Run-owned Vault: scoped Connection token and scoped output-secret token -
 synthetic_token() { head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
 free_port() { node -e 'const s=require("net").createServer();s.listen(0,"127.0.0.1",()=>{console.log(s.address().port);s.close()})'; }
-ROOT_TOKEN="$(synthetic_token)"
-printf 'X-Vault-Token: %s\n' "${ROOT_TOKEN}" > "${PRIVATE}/root-header"
 VAULT_PORT="$(free_port)"
 VAULT_ADDR_LOCAL="http://127.0.0.1:${VAULT_PORT}"
-# Its own session: the independent cleanup needs the output secrets (Vault) after the runner and the browser were killed.
-VAULT_DEV_ROOT_TOKEN_ID="${ROOT_TOKEN}" setsid "${VAULT_BIN}" server -dev -dev-listen-address "127.0.0.1:${VAULT_PORT}" -dev-no-store-token > "${PRIVATE}/vault.log" 2>&1 &
-VAULT_PID=$!
+# Its own session and durable file storage: original cleanup can recover after host restart.
+source "${ROOT}/test/integration/vault-file-lib.sh"
+start_file_vault "${PRIVATE}/connection-output-vault" "${VAULT_ADDR_LOCAL}" "${PRIVATE}/root-header" VAULT_PID
 printf '%s\n' "${VAULT_PID}" > "${PRIVATE}/vault.pid"
-unset ROOT_TOKEN
-for _ in $(seq 1 60); do curl -fsS "${VAULT_ADDR_LOCAL}/v1/sys/health" >/dev/null 2>&1 && break; sleep 0.5; done
-curl -fsS "${VAULT_ADDR_LOCAL}/v1/sys/health" >/dev/null || { echo "Vault did not become healthy" >&2; exit 1; }
 vault_put_policy() { curl -fsS -H @"${PRIVATE}/root-header" -X PUT "${VAULT_ADDR_LOCAL}/v1/sys/policies/acl/$1" -d "$2" >/dev/null; }
 vault_token() {
   curl -fsS -H @"${PRIVATE}/root-header" -X POST "${VAULT_ADDR_LOCAL}/v1/auth/token/create" -d "{\"policies\":[\"$1\"],\"no_default_policy\":true,\"ttl\":\"$2\"}" \
     | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const t=JSON.parse(s).auth?.client_token;if(!t)process.exit(1);process.stdout.write(t)})'
 }
-TOKEN_TTL="$(( EXEC_SECONDS / 3600 + 2 ))h"
+TOKEN_TTL="$(( (EXEC_SECONDS + CLEANUP_SECONDS + 3599) / 3600 + 1 ))h"
 vault_put_policy orch-connection-credentials '{"policy":"path \"secret/data/orchestrator/connections/*\" { capabilities = [\"create\", \"read\"] }\npath \"secret/metadata/orchestrator/connections/*\" { capabilities = [\"read\", \"list\", \"delete\"] }\n"}'
 vault_put_policy orch-output-secrets '{"policy":"path \"secret/data/orchestrator/outputs/*\" { capabilities = [\"create\", \"read\"] }\n"}'
 vault_token orch-connection-credentials "${TOKEN_TTL}" > "${PRIVATE}/connection-vault-token"
@@ -388,7 +390,7 @@ pin -name vault -sha256 "$(sha256sum "${VAULT_BIN}" | cut -d' ' -f1)"
 while IFS=$'\t' read -r module revision sha; do pin -name "module:${module}" -version "${revision}" -sha256 "${sha}"; done < <("${CTL}" module-pins)
 plan() { "${CTL}" manifest-plan -manifest "${MANIFEST}" -kind "$1" -count "$2"; }
 case "${SCENARIO}" in
-  A02|A03) while IFS=$'\t' read -r kind count; do plan "${kind}" "${count}"; done < <("${CTL}" planned-resources -scenario "${SCENARIO}") ;;
+  A02|A03|V05) while IFS=$'\t' read -r kind count; do plan "${kind}" "${count}"; done < <("${CTL}" planned-resources -scenario "${SCENARIO}") ;;
   A01) plan kubernetes_namespace_v1 1; plan kubernetes_stateful_set_v1 2; plan kubernetes_persistent_volume_claim_v1 2; plan workload_deployments 3; plan workload_services 2 ;;
   E01) plan kubernetes_namespace_v1 0; plan kubernetes_stateful_set_v1 0; plan workload_deployments 0 ;;
   E02) plan kubernetes_namespace_v1 1; plan kubernetes_stateful_set_v1 1; plan kubernetes_persistent_volume_claim_v1 1; plan workload_deployments 0 ;;
@@ -410,7 +412,7 @@ printf '{"scenario":"%s","runId":"%s","target":"'"${TARGET}"'","adapters":"REAL 
 # ---- Scenario input (private: handles and image refs) -------------------------
 if [[ "${IS_AWS}" == 1 ]]; then
   : > "${PRIVATE}/connection.kubeconfig"   # no kubeconfig Connection on AWS: the AWS Connection is registered with the scoped key
-  "${CTL}" aws-input -config "${CONFIG}" -catalog "${ROOT}/test/integration/v2run/testdata/aws-catalog.json" > "${PRIVATE}/aws-input.json"
+  "${CTL}" aws-input -config "${CONFIG}" -catalog "${ROOT}/test/integration/v2run/testdata/definition-catalog.json" > "${PRIVATE}/aws-input.json"
 else
   "${KUBECTL}" --kubeconfig "${KUBECONFIG_HANDLE}" --context "${KUBE_CONTEXT}" config view --minify --flatten --raw > "${PRIVATE}/connection.kubeconfig"
 fi
@@ -448,7 +450,12 @@ node -e '
 ' "${PRIVATE}/scenario-input.json" "${APPLICATION_KEY}" "${SECRET_STORE_JSON}" "${RUN_ID}" "${SCENARIO}" "${NAMESPACE}" "${KUBECTL}" "${KUBECONFIG_HANDLE}" "${KUBE_CONTEXT}" "${PRIVATE}/connection.kubeconfig" "${CTL}" "${PRIVATE}" "${CONFIG}" "${MANIFEST}" "${FORWARD_PORT}" "${EXEC_MS}" "${CLEANUP_SECONDS}" "$(cfg imageFrontend)" "$(cfg imageBackend)" "$(cfg imageWorker)"
 
 # ---- Headed browser (gated), then the independent supervisor, then GO --------
-video_start_xvfb "${SCREEN}"
+BROWSER_ARGS=(--browser-only)
+VIDEO_DISPLAY=""
+if [[ "${BROWSER_ONLY}" != 1 ]]; then
+  video_start_xvfb "${SCREEN}"
+  BROWSER_ARGS=(--headed --captions "${CAPTIONS}")
+fi
 RAW="${WORK}/${SCENARIO}-raw.mp4"
 GATE="${PRIVATE}/start-gate"
 : > "${WORK}/playwright.log"
@@ -456,7 +463,7 @@ tail -n +1 -f "${WORK}/playwright.log" &
 PIDS+=($!)
 DISPLAY="${VIDEO_DISPLAY}" ORCH_E2E_SCREEN="${SCREEN}" ORCH_E2E_XDOTOOL="${XDOTOOL}" ORCH_E2E_START_GATE="${GATE}" \
   ORCH_E2E_URL="${API}" ORCH_E2E_EVIDENCE_DIR="${WORK}" ORCH_E2E_INPUT="${PRIVATE}/scenario-input.json" \
-  PATH="${PATH}" setsid node "${E2E}/terraform-v2-acceptance.mjs" --scenario "${SCENARIO}" --headed --captions "${CAPTIONS}" --evidence "${WORK}" \
+  PATH="${PATH}" setsid node "${E2E}/terraform-v2-acceptance.mjs" --scenario "${SCENARIO}" "${BROWSER_ARGS[@]}" --evidence "${WORK}" \
   > "${WORK}/playwright.log" 2>&1 &
 NODE_PID=$!
 # The supervisor is a SEPARATE process group and session, armed before the gate opens. Its safety net rebuilds the product wiring from private handles.
@@ -512,10 +519,17 @@ for _ in $(seq 1 40); do kill -0 "${SERVER_PID}" 2>/dev/null || break; sleep 0.2
 wait "${SERVER_PID}" 2>/dev/null || true
 SERVER_PID=""
 if start_product "${WORK}/api-addr-reopen" "${WORK}/orchestrator-reopen.log"; then
-  REOPEN_CONNECTION_KEY="$(node -e 'const fs=require("fs");const i=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));process.stdout.write(i.aws?.connectionName ?? i.connection?.name ?? "")' "${PRIVATE}/scenario-input.json")"
-  ORCH_REPO_ROOT="${REPO}" node "${E2E}/terraform-v2-reopen.mjs" "${API}" "${SCENARIO}" "${APPLICATION_KEY}" "${REOPEN_CONNECTION_KEY}" | tee -a "${WORK}/checks.txt" || STATUS=1
+  # Definition-driven AWS scenarios record the key of the AWS account they registered; nothing else identifies it.
+  REOPEN_CONNECTION_KEY="$(cat "${PRIVATE}/account-key" 2>/dev/null || true)"
+  if "${CTL}" v04-instances -database-url-file "${PRIVATE}/console.url" -out "${WORK}/sql-resource-history.json" >> "${WORK}/checks.txt" 2>&1 &&
+    ORCH_REPO_ROOT="${REPO}" node "${E2E}/terraform-v2-definition-reopen.mjs" "${API}" "${SCENARIO}" "${APPLICATION_KEY}" "${REOPEN_CONNECTION_KEY}" "${WORK}/sql-resource-history.json" | tee -a "${WORK}/checks.txt"; then
+    :
+  else
+    STATUS=1; KEEP_PRIVATE=1
+    note "SQL reopen failed; original database and private material retained for read-only diagnosis"
+  fi
 else
-  check "FAIL the product did not restart on the same database"; STATUS=1
+  check "FAIL the product did not restart on the same database"; STATUS=1; KEEP_PRIVATE=1
 fi
 
 # Evidence rules: secret scan of every public text file first (its verdict is an assertion), then assertions and phases.
@@ -551,6 +565,13 @@ if [[ -s "${WORK}/assertions.json" && -s "${WORK}/phases.json" ]]; then
   "${CTL}" check-evidence -scenario "${SCENARIO}" -marks "${WORK}/phases.json" -assertions "${WORK}/assertions.json" | tee -a "${WORK}/checks.txt" || STATUS=1
 else
   check "FAIL assertions.json or phases.json is missing"; STATUS=1
+fi
+
+if [[ "${BROWSER_ONLY}" == 1 ]]; then
+  [[ "${STATUS}" == 0 && "$(<"${WORK}/result.txt")" == PASS ]] || { echo "browser E2E failed; assertions/logs/cleanup retained" >&2; exit 1; }
+  "${CTL}" scan -public "${WORK}" -secrets "${SECRET_FILES}" > /dev/null
+  echo "browser E2E PASS (fast browser-only; no recording/video requirement)"
+  exit 0
 fi
 
 CAPTIONED="${WORK}/${SCENARIO}-captioned.mp4"

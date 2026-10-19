@@ -120,6 +120,11 @@ func (b *Binder) Bind(ctx context.Context, req terraformexec.BindRequest) (terra
 			if !ok || target.Provider != "eks" || target.Organization != req.OrganizationKey || target.Connection == "" || target.Region == "" || target.ClusterName == "" {
 				return fail(refuse("the cluster target is missing, foreign or not a completed EKS target"))
 			}
+			// A plan-pinned EKS binding (ADR-017) names the producing cluster's original account and region;
+			// a target of another account or region is never silently accepted.
+			if pin.ClusterProvider == "eks" && (pin.ClusterAccount != target.Connection || pin.Region != target.Region) {
+				return fail(refuse("the EKS target differs from the account and region the plan pinned"))
+			}
 			conn, err := b.AWS.ResolveAWS(ctx, req.OrganizationKey, target.Connection)
 			if err != nil || target.Region == "" || conn.ConnectionKey != target.Connection {
 				return fail(refuse("the EKS target's AWS Connection is unavailable or changed"))

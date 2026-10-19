@@ -47,6 +47,12 @@ var (
 	scenarioTargets = map[string]string{"A01": TargetK8s4f, "E01": TargetK8s4f, "E02": TargetK8s4f, "A02": TargetAWS, "A03": TargetAWS, "V05": TargetAWS}
 )
 
+// IsAWSScenario reports the scenarios that create AWS infrastructure: V05 (EKS in the same execution with in-cluster
+// PostgreSQL and Redis) and the managed A02/A03 of V06.
+func IsAWSScenario(scenario string) bool {
+	return scenario == "A02" || scenario == "A03" || scenario == "V05"
+}
+
 // Binary is a pinned tool: absolute path and expected SHA-256.
 type Binary struct {
 	Path   string `json:"path"`
@@ -432,7 +438,7 @@ func (c Config) validateAWS(add func(string, ...any)) {
 		add("unknown node instance type %q", a.NodeInstanceType)
 	case inst.Arch != c.NodeArch:
 		add("node instance type %s is %s but nodeArch is %s", inst.Name, inst.Arch, c.NodeArch)
-	case c.Scenario == "A02" || c.Scenario == "A03":
+	case IsAWSScenario(c.Scenario):
 		if res, err := CheckAWSScenario(c.Scenario, a.NodeInstanceType); err != nil || !res.OK() {
 			add("pod capacity of %s is insufficient for %s: %v", a.NodeInstanceType, c.Scenario, res.Failures)
 		}

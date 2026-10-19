@@ -71,6 +71,33 @@ func newServerAppWith(t *testing.T, uiDir string, mutate func(*bootstrap.Options
 	return server, seedOptions, app
 }
 
+// eksEnvironment is the Environment of the Definition-driven EKS catalog (V05): no execution profile, Connection or binding.
+const eksEnvironment = "staging"
+
+// newEKSServerApp serves the fake-adapter application whose only catalog is the Definition-driven EKS chain.
+func newEKSServerApp(t *testing.T) (*httptest.Server, seed.Options, *bootstrap.App) {
+	t.Helper()
+	var opts seed.Options
+	server, _, app := newServerAppWith(t, "", func(o *bootstrap.Options) {
+		o.Seed.Catalog = seed.CatalogNone
+		opts = o.Seed
+	})
+	bootstraptest.EKSCatalog(t, app, opts)
+	return server, opts, app
+}
+
+// eksScores are the acceptance Scores whose PostgreSQL runs in the cluster the plan creates.
+func eksScores(opts seed.Options) map[string]map[string]any {
+	docs := seed.AcceptanceScores(opts)
+	for _, doc := range docs {
+		resources, _ := doc["resources"].(map[string]any)
+		if db, ok := resources["db"].(map[string]any); ok {
+			db["class"] = "in-cluster"
+		}
+	}
+	return docs
+}
+
 // prepareSeedCluster gives the seeded cluster record explicit synthetic
 // credentials. The product seed is VERIFYING without credentials; fake e2e
 // workflows opt in to a READY scoped fake credential here and nowhere else.
@@ -318,9 +345,9 @@ func TestHTTPDeploymentEndToEnd(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("applications returned %d", status)
 	}
-	// Both Execution Profiles are registered, so the console can offer either.
-	if len(apps["applications"].([]any)) != 2 {
-		t.Fatalf("expected the two seeded applications: %v", apps)
+	// ADR-017: no profile-bound cloud Application is seeded.
+	if len(apps["applications"].([]any)) != 1 {
+		t.Fatalf("expected the one seeded application: %v", apps)
 	}
 
 	var lastID string
@@ -501,12 +528,12 @@ func TestUIServesBundleAndBrowserFallback(t *testing.T) {
 // Resolved inputs are not part of the UC-09 read contract, so the persisted
 // Deployment Resource rows are inspected through the store port instead.
 func TestHTTPUsesTheConfiguredRunID(t *testing.T) {
-	server, seedOptions, app := newServerApp(t, "")
-	scores := seed.AcceptanceScores(seedOptions)
+	server, seedOptions, app := newEKSServerApp(t)
+	scores := eksScores(seedOptions)
 
 	status, created := postJSON(t, server.URL+"/api/v1/deployments", map[string]any{
-		"applicationKey": seedOptions.CloudApplicationKey,
-		"environmentKey": seedOptions.EnvironmentKey,
+		"applicationKey": seedOptions.ApplicationKey,
+		"environmentKey": eksEnvironment,
 		"workloadId":     "backend",
 		"actor":          "web-console",
 		"score":          scores["backend"],
@@ -530,8 +557,8 @@ func TestHTTPUsesTheConfiguredRunID(t *testing.T) {
 		// provenance only and never part of it (ADR-014).
 		named := func(run string) string {
 			return planning.Context{
-				App:   application.Application{Key: seedOptions.CloudApplicationKey},
-				Env:   environment.Environment{ApplicationKey: seedOptions.CloudApplicationKey, Key: seedOptions.EnvironmentKey},
+				App:   application.Application{Key: seedOptions.ApplicationKey},
+				Env:   environment.Environment{ApplicationKey: seedOptions.ApplicationKey, Key: eksEnvironment},
 				RunID: run,
 			}.ResourceName()
 		}
@@ -546,12 +573,12 @@ func TestHTTPUsesTheConfiguredRunID(t *testing.T) {
 }
 
 func TestHTTPDeploymentReadsRequireScopedSessionAndHideResolvedInputs(t *testing.T) {
-	server, seedOptions := newServer(t, "")
-	scores := seed.AcceptanceScores(seedOptions)
+	server, seedOptions, _ := newEKSServerApp(t)
+	scores := eksScores(seedOptions)
 
 	status, created := postJSON(t, server.URL+"/api/v1/deployments", map[string]any{
-		"applicationKey": seedOptions.CloudApplicationKey,
-		"environmentKey": seedOptions.EnvironmentKey,
+		"applicationKey": seedOptions.ApplicationKey,
+		"environmentKey": eksEnvironment,
 		"workloadId":     "backend",
 		"actor":          "web-console",
 		"score":          scores["backend"],
@@ -561,7 +588,7 @@ func TestHTTPDeploymentReadsRequireScopedSessionAndHideResolvedInputs(t *testing
 	}
 	deploymentID, _ := created["deploymentId"].(string)
 
-	path := server.URL + "/api/v1/applications/" + seedOptions.CloudApplicationKey + "/environments/" + seedOptions.EnvironmentKey + "/deployments/" + deploymentID
+	path := server.URL + "/api/v1/applications/" + seedOptions.ApplicationKey + "/environments/" + eksEnvironment + "/deployments/" + deploymentID
 	if status, _ := getJSON(t, path); status != http.StatusUnauthorized {
 		t.Fatalf("anonymous detail returned %d", status)
 	}

@@ -6,19 +6,26 @@ import (
 	"orchestrator/internal/domain/resource"
 )
 
-// ClusterOutput renders the typed opaque `cluster` output of an
-// existing-cluster resource (ADR-016): cluster identity plus the Driver
-// Account that reaches it. It never contains credential bytes or paths.
+// ClusterOutput renders the typed opaque `cluster` output of a cluster resource (ADR-016, ADR-017): cluster
+// identity plus the Driver Account that reaches it. An existing cluster keeps the Internal kubeconfig-account
+// shape. A cluster created by a verified EKS module states provider eks and its literal region and has no kube
+// context. It never contains credential bytes, endpoint access material or paths.
 func (t Target) ClusterOutput(descriptor string, accountVersion int64) map[string]any {
-	return map[string]any{
+	out := map[string]any{
 		"kind":           resource.K8sTargetKind,
 		"clusterName":    t.ClusterName,
-		"context":        t.Context,
 		"organization":   t.Organization,
 		"account":        t.Connection,
 		"accountVersion": float64(accountVersion),
 		"descriptor":     descriptor,
 	}
+	if t.Provider == resource.K8sTargetProviderEKS {
+		out["provider"] = resource.K8sTargetProviderEKS
+		out["region"] = t.Region
+		return out
+	}
+	out["context"] = t.Context
+	return out
 }
 
 // ClusterRef is the decoded identity of a typed cluster output.
@@ -45,7 +52,8 @@ func ParseClusterOutput(value any) (ClusterRef, error) {
 		version = int64(v)
 	}
 	return ClusterRef{
-		Target:         Target{Kind: "kubernetes", Context: text("context"), ClusterName: text("clusterName"), Organization: text("organization"), Connection: text("account")},
+		Target: Target{Kind: "kubernetes", Context: text("context"), ClusterName: text("clusterName"), Organization: text("organization"), Connection: text("account"),
+			Provider: text("provider"), Region: text("region")},
 		Descriptor:     text("descriptor"),
 		AccountVersion: version,
 	}, nil

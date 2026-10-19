@@ -6,12 +6,10 @@ import (
 	"errors"
 	"regexp"
 	"strings"
-	"sync"
 	"testing"
 
 	"orchestrator/internal/adapters/store"
 	appdomain "orchestrator/internal/domain/application"
-	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/ports/persistence"
 )
@@ -202,97 +200,6 @@ func choiceConnections() []appdomain.Connection {
 	}
 }
 
-func TestSetConnection_SetsEachEnvironmentIndependentlyAndOnce(t *testing.T) {
-	ctx := context.Background()
-	svc, st, created := newUnconfigured(t, choiceConnections()...)
-	app := created.Application.Key
-	staging, _ := st.GetEnvironment(ctx, app, "staging")
-	bound, err := svc.SetConnection(ctx, setCommand(staging, "acme", app, "staging", " cloud-us "))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bound.ConnectionKey != "cloud-us" || bound.Profile != appdomain.ProfileAWSEKS || bound.Region != "us-east-1" || bound.RuntimeStatus != appdomain.RuntimePending || bound.InfrastructureScope != environment.ScopeEnvironment || bound.Version != staging.Version+1 {
-		t.Fatalf("staging binding = %+v", bound)
-	}
-	// Production is still unset and independent of staging.
-	production, _ := st.GetEnvironment(ctx, app, "production")
-	if production.Configured() || production.Version != 1 {
-		t.Fatalf("production must stay unset: %+v", production)
-	}
-	// A different account and region is allowed for the other Environment.
-	cloud, err := svc.SetConnection(ctx, setCommand(production, "acme", app, "production", "cloud"))
-	if err != nil || cloud.Profile != appdomain.ProfileAWSEKS || cloud.Region != "eu-west-1" || cloud.RuntimeStatus != appdomain.RuntimePending || cloud.InfrastructureScope != environment.ScopeEnvironment {
-		t.Fatalf("production binding = %+v %v", cloud, err)
-	}
-	// Application stays identity-only after Environment bindings.
-	if stored, err := st.GetApplication(ctx, app); err != nil || stored.Key != app {
-		t.Fatalf("application = %+v %v", stored, err)
-	}
-	// Same key at the current version is an idempotent no-op: no version bump.
-	fresh, _ := st.GetEnvironment(ctx, app, "staging")
-	noop, err := svc.SetConnection(ctx, setCommand(fresh, "acme", app, "staging", "cloud-us"))
-	if err != nil || noop.Version != fresh.Version || noop.ConnectionKey != "cloud-us" {
-		t.Fatalf("same-key no-op: %+v %v", noop, err)
-	}
-	// A stale version loses even for the same key.
-	stale := setCommand(fresh, "acme", app, "staging", "cloud-us")
-	stale.ExpectedVersion = 1
-	if _, err := svc.SetConnection(ctx, stale); !errors.Is(err, ErrStaleVersion) {
-		t.Fatalf("stale same-key: %v", err)
-	}
-	// Before any runtime exists the target is editable with the current version.
-	changed, err := svc.SetConnection(ctx, setCommand(fresh, "acme", app, "staging", "cloud"))
-	if err != nil || changed.ConnectionKey != "cloud" || changed.Version != fresh.Version+1 {
-		t.Fatalf("change connection: %+v %v", changed, err)
-	}
-	// The previous version can no longer write.
-	if _, err := svc.SetConnection(ctx, setCommand(fresh, "acme", app, "staging", "cloud-us")); !errors.Is(err, ErrStaleVersion) {
-		t.Fatalf("old version after change: %v", err)
-	}
-	after, _ := st.GetEnvironment(ctx, app, "staging")
-	if after.ConnectionKey != "cloud" || after.Version != changed.Version {
-		t.Fatalf("rejected writes mutated staging: %+v", after)
-	}
-}
-
-func TestSetConnection_BusyEnvironmentRejectsAndRuntimeRequiresTransition(t *testing.T) {
-	ctx := context.Background()
-	svc, st, created := newUnconfigured(t, choiceConnections()...)
-	app := created.Application.Key
-	env, _ := st.GetEnvironment(ctx, app, "staging")
-	bound, err := svc.SetConnection(ctx, setCommand(env, "acme", app, "staging", "cloud-us"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// A held claim blocks the write before anything is read from the Connection.
-	op, err := st.ClaimEnvironment(ctx, persistence.OperationClaim{ApplicationKey: app, EnvironmentKey: "staging", Owner: "p", Kind: environment.OpDeploy})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := svc.SetConnection(ctx, setCommand(bound, "acme", app, "staging", "cloud")); !errors.Is(err, persistence.ErrEnvironmentBusy) {
-		t.Fatalf("busy: %v", err)
-	}
-	if err := st.ReleaseOperation(ctx, persistence.Owner{OperationID: op.ID, Owner: op.Owner, Fence: op.Fence}, environment.OpSucceeded, ""); err != nil {
-		t.Fatal(err)
-	}
-	// Runtime state (an applied workload instance) forces the transition flow.
-	deploymentID := "11111111-1111-4111-8111-111111111111"
-	if err := st.SaveDeployment(ctx, deployment.Deployment{ID: deploymentID, EnvironmentID: bound.ID, ApplicationKey: app, EnvironmentKey: "staging", Status: deployment.StatusPlanning}); err != nil {
-		t.Fatal(err)
-	}
-	if err := st.UpsertWorkloadInstance(ctx, deployment.WorkloadInstance{EnvironmentKey: app + "/staging", WorkloadID: "web", LastDeploymentID: deploymentID, Status: deployment.InstanceReady}); err != nil {
-		t.Fatal(err)
-	}
-	current, _ := st.GetEnvironment(ctx, app, "staging")
-	if _, err := svc.SetConnection(ctx, setCommand(current, "acme", app, "staging", "cloud")); !errors.Is(err, ErrRuntimeExists) {
-		t.Fatalf("runtime exists: %v", err)
-	}
-	// Same key remains a harmless no-op even with runtime.
-	if _, err := svc.SetConnection(ctx, setCommand(current, "acme", app, "staging", "cloud-us")); err != nil {
-		t.Fatalf("same key with runtime: %v", err)
-	}
-}
-
 func TestSetConnection_KubernetesConnectionIsRetiredAndChangesNothing(t *testing.T) {
 	ctx := context.Background()
 	svc, st, created := newUnconfigured(t, choiceConnections()...)
@@ -362,90 +269,6 @@ func TestSetConnection_RejectsInvalidAndUnavailableWithoutMutation(t *testing.T)
 	}
 }
 
-func TestSetConnection_ConcurrentRequestsHaveOneWinner(t *testing.T) {
-	ctx := context.Background()
-	svc, st, created := newUnconfigured(t, choiceConnections()...)
-	app := created.Application.Key
-	env, _ := st.GetEnvironment(ctx, app, "staging")
-	keys := []string{"default", "lab", "cloud", "cloud-us"}
-	results := make(chan error, len(keys))
-	var wg sync.WaitGroup
-	for _, key := range keys {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, err := svc.SetConnection(ctx, setCommand(env, "acme", app, "staging", key))
-			results <- err
-		}()
-	}
-	wg.Wait()
-	close(results)
-	wins, conflicts := 0, 0
-	for err := range results {
-		switch {
-		case err == nil:
-			wins++
-		case errors.Is(err, ErrStaleVersion):
-			conflicts++
-		default:
-			t.Fatalf("unexpected: %v", err)
-		}
-	}
-	if wins != 1 || conflicts != len(keys)-1 {
-		t.Fatalf("wins=%d conflicts=%d", wins, conflicts)
-	}
-}
-
-func TestSaveEnvironmentCannotOverwriteConfiguredBinding(t *testing.T) {
-	ctx := context.Background()
-	svc, st, created := newUnconfigured(t, choiceConnections()...)
-	app := created.Application.Key
-	env, _ := st.GetEnvironment(ctx, app, "staging")
-	bound, err := svc.SetConnection(ctx, setCommand(env, "acme", app, "staging", "cloud-us"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	// A stale unset copy, and a copy claiming another target, change nothing.
-	if err := st.SaveEnvironment(ctx, env); err != nil {
-		t.Fatal(err)
-	}
-	hostile := bound
-	hostile.ConnectionKey, hostile.Profile, hostile.Region, hostile.InfrastructureScope = "cloud", appdomain.ProfileAWSEKS, "eu-west-1", environment.ScopeEnvironment
-	if err := st.SaveEnvironment(ctx, hostile); err != nil {
-		t.Fatal(err)
-	}
-	after, _ := st.GetEnvironment(ctx, app, "staging")
-	if after.ConnectionKey != "cloud-us" || after.Profile != appdomain.ProfileAWSEKS || after.Region != "us-east-1" || after.InfrastructureScope != environment.ScopeEnvironment || after.RuntimeStatus != appdomain.RuntimePending {
-		t.Fatalf("save overwrote binding: %+v", after)
-	}
-	// A new Environment saved with a binding stays unconfigured too.
-	other := environment.Environment{Key: "qa", ApplicationKey: app, NamespaceIdentity: "app-qa", ConnectionKey: "lab", Profile: appdomain.ProfileInternalK8s, RuntimeStatus: appdomain.RuntimeReady}
-	if err := st.SaveEnvironment(ctx, other); err != nil {
-		t.Fatal(err)
-	}
-	if got, _ := st.GetEnvironment(ctx, app, "qa"); got.Configured() {
-		t.Fatalf("insert wrote a binding: %+v", got)
-	}
-}
-
-func TestSetConnection_DoesNotConsultOrChangeOrganizationDefault(t *testing.T) {
-	ctx := context.Background()
-	svc, st, created := newUnconfigured(t, choiceConnections()...)
-	app := created.Application.Key
-	env, _ := st.GetEnvironment(ctx, app, "staging")
-	if _, err := svc.SetConnection(ctx, setCommand(env, "acme", app, "staging", "cloud-us")); err != nil {
-		t.Fatal(err)
-	}
-	org, _ := st.GetOrganization(ctx, "acme")
-	if org.DefaultConnectionKey != "default" {
-		t.Fatalf("default changed: %+v", org)
-	}
-	production, _ := st.GetEnvironment(ctx, app, "production")
-	if production.Configured() {
-		t.Fatalf("the default must never configure an Environment: %+v", production)
-	}
-}
-
 func TestListChoices_ReturnsOnlyReadySupportedOrganizationConnections(t *testing.T) {
 	ctx := context.Background()
 	st := newTestStore(t,
@@ -456,5 +279,21 @@ func TestListChoices_ReturnsOnlyReadySupportedOrganizationConnections(t *testing
 	choices, err := NewService(st).ListChoices(ctx, "acme")
 	if err != nil || len(choices.Connections) != 1 || choices.Connections[0].Key != "lab" || choices.Connections[0].Name != "lab" || choices.DefaultConnectionKey != "" {
 		t.Fatalf("choices = %+v %v", choices, err)
+	}
+}
+
+func TestSetConnection_EveryConnectionKindIsRetiredAndChangesNothing(t *testing.T) {
+	ctx := context.Background()
+	svc, st, created := newUnconfigured(t, choiceConnections()...)
+	app := created.Application.Key
+	env, _ := st.GetEnvironment(ctx, app, "staging")
+	for _, key := range []string{"lab", "cloud", "cloud-us"} {
+		if _, err := svc.SetConnection(ctx, setCommand(env, "acme", app, "staging", key)); !errors.Is(err, ErrDeploymentConnectionRetired) {
+			t.Fatalf("%s: a deployment connection must be retired: %v", key, err)
+		}
+	}
+	after, _ := st.GetEnvironment(ctx, app, "staging")
+	if after.Configured() || after.Version != env.Version {
+		t.Fatalf("the retired write changed staging: %+v", after)
 	}
 }

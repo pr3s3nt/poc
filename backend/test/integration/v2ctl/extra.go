@@ -766,7 +766,7 @@ func awsGate(args []string) int {
 	if err := v2run.AWSGate(c); err != nil {
 		return fail("%v", err)
 	}
-	fmt.Println("integrated V04 predecessor receipt verified: full acceptance, E01/E02, reopen, final media, secret scan and cleanup")
+	fmt.Println("integrated V04 predecessor receipt verified: full main-flow acceptance, reopen, final media, secret scan and cleanup")
 	return 0
 }
 

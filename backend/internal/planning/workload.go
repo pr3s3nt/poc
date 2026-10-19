@@ -75,17 +75,63 @@ func (b *graphBuilder) referenced(node *Node, def resource.Definition, variable 
 	return target, nil
 }
 
-// clusterAccountMatch returns the existing-cluster match that backs a cluster
-// node, or a placement error when the node is not an account-backed cluster.
-func clusterAccountMatch(node *Node, matches map[string]Match, defs *definitionMatcher) (Match, error) {
+// eksModuleID is the verified packaged Terraform module whose completed cluster resource is a typed EKS target.
+const eksModuleID = "eks"
+
+// clusterSource says where the typed target of a cluster node comes from (ADR-017): an existing-cluster
+// Definition with a READY Internal account, or a verified Terraform EKS module with the Definition's own
+// READY AWS Driver Account and literal region. The EKS endpoint, credentials and readiness do not exist at
+// planning time; only the identity, account version and region are pinned.
+type clusterSource struct {
+	Provider       string
+	Match          Match
+	Account        string
+	AccountVersion int64
+	Region         string
+}
+
+// clusterSourceOf classifies a cluster node. A node that is neither is a placement error: it never falls
+// back to another cluster, an Environment account or the last cluster of the graph.
+func (b *graphBuilder) clusterSourceOf(node *Node, matches map[string]Match) (clusterSource, error) {
 	match, ok := matches[node.Descriptor]
-	if !ok || match.DriverType != resource.DriverExistingCluster || match.DriverAccount == "" || match.AccountVersion < 1 {
-		return Match{}, placementErr(StageGraph, "cluster %s is not backed by an existing-cluster Definition with a READY driver account", node.Descriptor)
+	if !ok {
+		return clusterSource{}, placementErr(StageGraph, "cluster %s is not backed by a Definition", node.Descriptor)
 	}
 	if node.ResourceType != TypeCluster {
-		return Match{}, placementErr(StageGraph, "%s is not a Kubernetes cluster resource", node.Descriptor)
+		return clusterSource{}, placementErr(StageGraph, "%s is not a Kubernetes cluster resource", node.Descriptor)
 	}
-	return match, nil
+	switch match.DriverType {
+	case resource.DriverExistingCluster:
+		if match.DriverAccount == "" || match.AccountVersion < 1 {
+			return clusterSource{}, placementErr(StageGraph, "cluster %s is not backed by an existing-cluster Definition with a READY driver account", node.Descriptor)
+		}
+		return clusterSource{Provider: ClusterExisting, Match: match, Account: match.DriverAccount, AccountVersion: match.AccountVersion}, nil
+	case resource.DriverTerraform:
+		def, ok := b.definition(match.DefinitionKey)
+		if !ok {
+			return clusterSource{}, placementErr(StageGraph, "cluster %s has no registered Definition", node.Descriptor)
+		}
+		inputs, err := tfmodule.ParseDriverInputs(def.DriverValues())
+		if err != nil || inputs.Source.ModuleID != eksModuleID {
+			return clusterSource{}, placementErr(StageGraph, "cluster %s is not produced by a verified EKS module", node.Descriptor)
+		}
+		account, region, err := b.awsAccountPin(def)
+		if err != nil {
+			return clusterSource{}, placementErr(StageGraph, "cluster %s: %v", node.Descriptor, err)
+		}
+		return clusterSource{Provider: ClusterEKS, Match: match, Account: account.Key, AccountVersion: account.Version, Region: region}, nil
+	}
+	return clusterSource{}, placementErr(StageGraph, "cluster %s is not backed by an existing-cluster Definition or a verified EKS module", node.Descriptor)
+}
+
+// definition returns a catalog Definition by key.
+func (b *graphBuilder) definition(key string) (resource.Definition, bool) {
+	for _, def := range b.catalog.Definitions {
+		if def.Key == key {
+			return def, true
+		}
+	}
+	return resource.Definition{}, false
 }
 
 // resolvePlacements pins, per workload and per Kubernetes-bound Terraform
@@ -103,13 +149,13 @@ func (b *graphBuilder) resolvePlacements(matches map[string]Match, matcher *defi
 		if !ok {
 			return placementErr(StageGraph, "%s names cluster %s which is not part of the plan", node, clusterDescriptor)
 		}
-		match, err := clusterAccountMatch(cluster, matches, matcher)
+		src, err := b.clusterSourceOf(cluster, matches)
 		if err != nil {
 			return err
 		}
 		out[node] = Placement{
-			Node: node, Cluster: clusterDescriptor, ClusterDefinition: match.DefinitionKey, ClusterDefinitionVersion: match.DefinitionVersion,
-			Account: match.DriverAccount, AccountVersion: match.AccountVersion, Namespace: namespace, Source: source,
+			Node: node, Cluster: clusterDescriptor, ClusterDefinition: src.Match.DefinitionKey, ClusterDefinitionVersion: src.Match.DefinitionVersion,
+			Account: src.Account, AccountVersion: src.AccountVersion, Namespace: namespace, Source: source, Provider: src.Provider, Region: src.Region,
 		}
 		return nil
 	}

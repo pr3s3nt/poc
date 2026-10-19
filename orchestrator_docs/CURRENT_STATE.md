@@ -2,12 +2,37 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-19
+last_reviewed: 2026-10-20
 ---
 
 # Current project state
 
-## V04 — full acceptance app PASS; V05–V06 pending, 2026-10-19
+## V04–V05 complete; V06 pending, 2026-10-20
+
+Latest user decision19-10: browser E2E nhanh, không video/cursor/reading pauses/
+captions/decode/native upload. R14 real headless browserPASS toàn46assertions;
+giữ main business/readiness/naturalTTL/secret/ownership cleanup. V04 native video
+đã hoàn tất được giữ lịch sử; không rerun chỉ để đổi mode evidence.
+
+V05 replacement R14v05-1019191424-6833 source39 PASS:46/46assertions,9marks,
+full5SQLresources(module/identity/statusDESTROYED)/4APIrows/7deployments reopen,
+28publicfiles secret scan, originalexit0/CLOSED_CLEAN. Independent20:12UTC native
+serviceAPI0owned/exactclusterEC2EBSabsent/DBroles/process/privategone/defaultVPC1/
+SLR11preservedPASS. R13 originalFAIL/reopen defect kept; source39 fix proved in
+integrated R14, not relabelled. S3 AWSprofile removal and protectedvolumeIDveto now
+integrated after replacementPASS, strict5patch/coS3/source40 finalreviewPASS.
+Final S3 broad Go validation PASS1715/0FAIL/0SKIP, race218/0/0, build/vet;
+conformance included in fullGo. Focused helper15+kit8/lint and docs352Markdown/
+304IDs/diff PASS; unchanged39PlantUMLsources/render proof reused. ProductionTS/UI
+S2→S3 byte-identical: prior full and affected74/type/lint/build results reused.
+Final source41 only corrects stale Go comments after checks; executable-token
+comparison proves no behavior delta, so Go/runtime results remain valid.
+S3 authored account/region/target branches unchanged from R14; protectedvolumeID
+veto has no matching candidate in R14's4SLR-only protected manifest, nativeverifier
+unchanged. No extra runtime replay needed for this delta. V05 implementation/
+review/validation/runtime/cleanup complete; milestone Git receipt/currenthead is
+recorded in issue4 after commit/push. V06S4/S5 remain isolated until nextgate.
+Actualcostchưa xác định. CommonPG/Vault/kind/user sessions kept for nextgate.
 
 Root agent trực tiếp code/test/docs, tự review/check/runtime; không coding agents.
 Theo quyết định19-10 ở issue4, nghiệm thu thật chỉ luồng chính; giữ existing
@@ -44,7 +69,7 @@ safety/cleanup/admission có realPG/TF tests và race; main contractGo167/0/0,
 frontend20 và latest47/0/0/syntax/lint/type/build PASS, counts overlap không cộng.
 Docs352Markdown304IDs/diff PASS;39PlantUMLsources byte-identical validated snapshot,
 reuse render/check. Mapping source receipts/failures ở handoff, không fullsuite
-rerun để theo dõi hoặc đổi nhãn gate. Mốc V04 commit/push task-only sau checks.
+rerun để theo dõi hoặc đổi nhãn gate. V04 đã commit/push5413fa1cde798ef6a60a039654f0c1a89952ab2d task-only sau checks.
 
 Root refactor_ui user checkout vẫn sạch512d0d3; task checkout sau host reboot
 là /var/tmp/p46-coordination-20261019, branch codex/v040506-recovery. /tmp cũ mất
@@ -53,12 +78,41 @@ Common private nativePG18.6/Vault1.20.4 dưới /var/tmp/p46-fixtures-20261019 c
 chạy tiếp; R18 private run đã xóa. Các failed/interrupted R1–R17 giữ lịch sử,
 không coi whole PASS; cleanup từng lượt có proofs/giới hạn quan sát trong handoff.
 
-V05/V06 S2–S5 replacements/removals vẫn isolated/unapplied; strict5patch replay
-và co/S1 equality PASS. AWS main runner bỏ wrong-password/rival-Definition paths,
+V05 bắt đầu: áp dụng S2 replacement đã review; S3 removal tiếp tục gated.
+V06 S4/S5 vẫn isolated/unapplied. Strict5patch replay
+và co/S2 equality PASS trên source30 hiện tại. AWS main runner bỏ wrong-password/rival-Definition paths,
 focusedS2/S5Go22each/frontend21/10/lint PASS. S2–S5 staged file-backed Vault giữ
 private recovery qua host restart; normal local restart/same scoped token/secret
 read-back và exact local cleanup PASS, token6h không kéo dài cloud deadline5h.
-No AWS create yet. Read-only identity452025861381/itadminaws/us-east-1,
+V05 R2–R7 mới tạo/xóa3ownedECR mỗi lượt, chưa tạo EKS. R7 source29 tới Deploy
+rồi VPC plan terminalFAIL do provider socket TMPDIR quá sâu; supervisor CLEAN
+và manual originalCLI/SQL/Vault/process/private cleanup, independent nativeAPI
+10:49UTC PASS. Original FAIL/INCOMPLETE receipt giữ nguyên, không gọi gatePASS.
+Source30 sửa short0700 provider TMPDIR, private recovery pointer và cleanup/retain;
+native verified registry/realAWS provider readonly init/plan13changes PASS, noapply.
+Focused runner/executor/cleanup125/0FAIL/0SKIP realPG/TF + race/build/vet PASS.
+R8 v05-1019105951-4ab5 tạoEKS nhưng OUTPUTS/OUTPUT_CONTRACT fail do required
+platformcluster bị kiểm trước completion. Source31 caller module-only projection,
+fullType/identity/readiness giữ nguyên; positive regression red→green, focused122
+/race48/build/vet/docs/replay PASS. Browser owned dừng11:36UTC, original runner/
+supervisor hoàn tất11:54UTC FAIL/CLOSED_CLEAN; independentAPI/SQL/process/private
+absencePASS. R9 v05-1019115452-991a đạt3DeploymentSUCCEEDED, EKS/nodeARM64/3workloads
+Ready/sharedPGRedis/secretrefs PASS; runner targetidentity fail vì so physical
+namespace với logicaldescriptor. Source32 sửa phép đọc, giữ checks cluster/account/
+ARN/ACTIVE và thêm logicalcluster/UID; focused13/syntax/lint/review/docs/replay PASS,
+Go/UI/module/Score/config unchanged/reused. R9closed12:58UTC FAIL/CLOSED_CLEAN,
+independent15:11UTC nativeAPI/SQL/process/privateabsencePASS. R10 v05-1019151159-cd87
+started15:12UTC source32;35positive assertions prove real jobs/cache/TTL/refill/
+validconfigurationupdate/data+infrareuse. Postrestart unchangedScore correctly
+no-op0 but runnerexpected1, so R10FAIL/cleanupactive. Source34 adds genuine valid
+TTL75 change/deploy2 afterrestart with same original target/data/newjob assertions.
+No productdelta/newexceptiontests. R10closed16:15UTC FAIL/CLOSED_CLEAN, independent
+16:16UTC nativeAPI/SQL/process/privateabsencePASS. R11 v05-1019161640-dbab
+started16:16UTC source34 --browser-only fast/headless/no-video;27positive assertions
+then bareNodefetch failed at cachehit technicalread. Source35 browsernative GET
+no-store/HTTP200/15s/no-retry review/syntax/lint/replay/20freshGET smokePASS;
+exactTCPcause unknown, no productchange. R11cleanupactive, V05 chưa gatePASS.
+Read-only identity452025861381/itadminaws/us-east-1,
 baseline0EKS/0RDSclusters/0cachegroups/0ECR,1VPC/11SLR protected; fresh per-run
 preflight, source-bound estimates/pins, supervisor/recovery bắt buộc trước create.
 Actual cost chưa xác định. Tự tiếp tục V05 rồi V06 A02→serviceAPIclean→A03;

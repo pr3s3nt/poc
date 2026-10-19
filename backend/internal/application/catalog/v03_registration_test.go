@@ -234,7 +234,7 @@ func TestWorkloadRegistration_TypedPlacementInputsAndCompanions(t *testing.T) {
 	}
 }
 
-func TestWorkloadRegistration_RequiredTypeInputIsRefusedAndRenderOnlyIsAWSLegacyOnly(t *testing.T) {
+func TestWorkloadRegistration_RequiredTypeInputIsRefusedAndRenderOnlyIsRefusedEverywhere(t *testing.T) {
 	ctx := context.Background()
 	st, svc, opts := seededCatalog(t, nil)
 	withClusterOutput(t, st, opts)
@@ -255,9 +255,9 @@ func TestWorkloadRegistration_RequiredTypeInputIsRefusedAndRenderOnlyIsAWSLegacy
 		DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"render_bundle": "installed"}}}}); !errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("render-only without an Application scope: %v", err)
 	}
-	// Applications bound to a legacy execution profile keep the render-only form (AWS until V05).
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, renderOnly(opts.CloudApplicationKey)); err != nil {
-		t.Fatalf("AWS legacy render-only: %v", err)
+	// ADR-017: no Application is bound to an execution profile any more, so the render-only form is refused for every scope.
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, renderOnly(opts.CloudApplicationKey)); !errors.Is(err, catalog.ErrInvalid) {
+		t.Fatalf("render-only for a retired profile-bound Application: %v", err)
 	}
 	// A workload Type with a required input cannot be served: the driver supplies none.
 	if err := st.SaveResourceType(ctx, opts.OrganizationKey, resource.Type{Key: "workload", Inputs: []resource.InputField{{Name: "backend_url", Type: "string", Required: true}}}); err != nil {

@@ -29,6 +29,10 @@ const (
 // A NAT gateway is deliberately absent: the VPC module creates none.
 func RequiredCostKinds(scenario string) []string {
 	kinds := []string{CostEKSCluster, CostEC2Node, CostEBSVolume, CostPublicIPv4, CostAuroraACU, CostAuroraStorage, CostECRStorage, CostDataTransfer}
+	if scenario == "V05" {
+		// No managed data service exists in V05: PostgreSQL and Redis run on the EKS node and its EBS volumes.
+		kinds = []string{CostEKSCluster, CostEC2Node, CostEBSVolume, CostPublicIPv4, CostECRStorage, CostDataTransfer}
+	}
 	if scenario == "A02" {
 		kinds = append(kinds, CostElastiCache)
 	}

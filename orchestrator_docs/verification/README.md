@@ -97,4 +97,4 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [2026-10-15 — I04-12 AWS A02/A03](2026-10-15-i04-12-aws.md) — hoàn tất A02r2/A03r2; FAIL cũ giữ, xem biên bản bàn giao16-10.
 
 
-- [2026-10-18 V04–V06 active handoff and pre-code coverage](2026-10-18-v040506-handoff.md) — preparation and pending gates, not completion evidence.
+- [2026-10-18 V04–V06 active handoff and pre-code coverage](2026-10-18-v040506-handoff.md) — V04–V05 complete; V06 pending. Source reuse, failed history and independent native cleanup are recorded per gate.

@@ -249,9 +249,5 @@ func validEnvironmentBinding(env environment.Environment) error {
 		}
 		return nil
 	}
-	if !env.Profile.Valid() || (env.RuntimeStatus != application.RuntimePending && env.RuntimeStatus != application.RuntimeReady) ||
-		(env.Profile == application.ProfileAWSEKS && env.Region == "") {
-		return resetRequired("an Environment binding is incomplete")
-	}
-	return nil
+	return resetRequired("an Environment carries a retired deployment binding")
 }

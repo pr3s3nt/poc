@@ -344,7 +344,8 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
       setEditing({ key: saved.key, version: saved.version ?? editing.version + 1 });
       setNotice(`Đã lưu cấu hình ${saved.key} (phiên bản ${saved.version ?? editing.version + 1}). Chỉ Xem trước và Triển khai mới dùng cấu hình mới; tài nguyên đã triển khai và snapshot cũ không đổi.`);
       setSaving(false);
-      await definitionList.reload();
+      // Definition criteria change the server-computed Resource Type classes.
+      await Promise.all([definitionList.reload(), typeList.reload()]);
       return;
     }
     try {
@@ -357,7 +358,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
     }
     // Committed: report it and reset the submitted pin's draft before reloading.
     setNotice(`Đã đăng ký cấu hình tài nguyên ${submitted}.`); setKey(''); setName(''); setDrafts((current) => { const next = { ...current }; delete next[submittedDraft]; return next; }); setCriteriaDraft(emptyDraft()); setSaving(false);
-    await definitionList.reload();
+    await Promise.all([definitionList.reload(), typeList.reload()]);
   }
 
   // Full unsaved candidate for the exact matching preview: same shape as the save request, built without side effects.

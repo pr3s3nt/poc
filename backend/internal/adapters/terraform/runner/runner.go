@@ -12,6 +12,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -104,10 +105,33 @@ func (r *Runner) Open(_ context.Context, req terraformexec.SessionRequest) (terr
 			return nil, terraformexec.ErrWorkspace
 		}
 	}
-	s := &session{runner: r, req: req, art: a, work: work}
+	// Provider plugins create Unix sockets beneath TMPDIR. Evidence/cache paths
+	// can exceed the socket path limit, so use a short invocation-owned directory.
+	providerTmp, err := os.MkdirTemp("/tmp", "orch-tf-")
+	if err != nil {
+		_ = os.RemoveAll(work)
+		return nil, terraformexec.ErrWorkspace
+	}
+	s := &session{runner: r, req: req, art: a, work: work, providerTmp: providerTmp}
 	if err := s.prepare(); err != nil {
+		_ = os.RemoveAll(providerTmp)
 		_ = os.RemoveAll(work)
 		return nil, err
+	}
+	if err := writeFile(filepath.Join(work, "provider-tmp-dir"), []byte(providerTmp+"\n"), 0o600); err != nil {
+		_ = os.RemoveAll(providerTmp)
+		_ = os.RemoveAll(work)
+		return nil, terraformexec.ErrWorkspace
+	}
+	// Artifact retention clears Cleanup when a process may still use the files.
+	// The private pointer above lets recovery locate the retained socket directory.
+	cleanup := a.Cleanup
+	a.Cleanup = func() error {
+		tmpErr := os.RemoveAll(providerTmp)
+		if cleanup != nil {
+			return errors.Join(tmpErr, cleanup())
+		}
+		return tmpErr
 	}
 	return s, nil
 }
@@ -132,12 +156,13 @@ func refuseAmbientConfig(moduleDir string) error {
 }
 
 type session struct {
-	runner *Runner
-	req    terraformexec.SessionRequest
-	art    *tfmodule.VerifiedArtifact
-	work   string
-	failed bool
-	closed bool
+	runner      *Runner
+	req         terraformexec.SessionRequest
+	art         *tfmodule.VerifiedArtifact
+	work        string
+	providerTmp string
+	failed      bool
+	closed      bool
 	// retain keeps the private workspace when a process could not be
 	// confirmed stopped: it may still read the files, and they may be the only
 	// copy of state and credentials an operator needs.
@@ -270,7 +295,7 @@ func (s *session) environment() []string {
 	env := []string{
 		"PATH=" + filepath.Join(s.work, "nopath"),
 		"HOME=" + filepath.Join(s.work, "home"),
-		"TMPDIR=" + filepath.Join(s.work, "tmp"),
+		"TMPDIR=" + s.providerTmp,
 		"TF_DATA_DIR=" + filepath.Join(s.work, "data"),
 		"TF_IN_AUTOMATION=1",
 		"TF_INPUT=0",
@@ -453,7 +478,7 @@ func (s *session) Close() error {
 	if s.retain {
 		return nil
 	}
-	return os.RemoveAll(s.work)
+	return errors.Join(os.RemoveAll(s.providerTmp), os.RemoveAll(s.work))
 }
 
 var _ terraformexec.Session = (*session)(nil)

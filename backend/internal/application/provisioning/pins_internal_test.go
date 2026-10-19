@@ -24,9 +24,10 @@ func pinContext(profile application.ExecutionProfile, connection, region string,
 // node, are refused with ErrProviderPin before any effect.
 func TestCheckPinsAgainstPlanRejectsStaleAndForeignTargets(t *testing.T) {
 	cluster := "k8s-cluster.eks#environments.app.env"
-	good := tfmodule.ProviderPin{Name: "kubernetes", Kind: tfmodule.BindingKubernetes, Target: tfmodule.TargetEnvironment, Provider: cluster, Profile: "aws-eks", Generation: 2}
-	aws := tfmodule.ProviderPin{Name: "aws", Kind: tfmodule.BindingAWS, Target: tfmodule.TargetAccount, ConnectionKey: "acct", ConnectionKind: "AWS", AccountVersion: 5, Region: "us-east-1", Profile: "aws-eks", Generation: 2}
-	ctx := pinContext(application.ProfileAWSEKS, "env-account", "eu-west-1", 2)
+	// The Environment is unbound (ADR-017): the Kubernetes pin names the producing EKS identity, never a Kubernetes Connection.
+	good := tfmodule.ProviderPin{Name: "kubernetes", Kind: tfmodule.BindingKubernetes, Target: tfmodule.TargetResource, Provider: cluster, ClusterProvider: planning.ClusterEKS, ClusterAccount: "acct", AccountVersion: 5, Region: "us-east-1", Generation: 2}
+	aws := tfmodule.ProviderPin{Name: "aws", Kind: tfmodule.BindingAWS, Target: tfmodule.TargetAccount, ConnectionKey: "acct", ConnectionKind: "AWS", AccountVersion: 5, Region: "us-east-1", Generation: 2}
+	ctx := pinContext("", "", "", 2)
 	plan := pinPlan(cluster)
 	def := resource.Definition{Key: "d", DriverType: resource.DriverTerraform, DriverAccount: "acct", DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{"region": "us-east-1"}}}}
 	account := application.Connection{Key: "acct", Kind: application.ConnectionAWS, Version: 5}
@@ -55,11 +56,11 @@ func TestCheckPinsAgainstPlanRejectsStaleAndForeignTargets(t *testing.T) {
 			d.DriverInputs = map[string]any{"values": map[string]any{"variables": map[string]any{"region": "eu-west-1"}}}
 			return d, account, ctx
 		},
-		"profile": func() (resource.Definition, application.Connection, planning.Context) {
+		"environment bound to a retired profile": func() (resource.Definition, application.Connection, planning.Context) {
 			return def, account, pinContext(application.ProfileInternalK8s, "env-account", "eu-west-1", 2)
 		},
 		"generation": func() (resource.Definition, application.Connection, planning.Context) {
-			return def, account, pinContext(application.ProfileAWSEKS, "env-account", "eu-west-1", 3)
+			return def, account, pinContext("", "", "", 3)
 		},
 	}
 	for name, build := range stale {
@@ -67,6 +68,11 @@ func TestCheckPinsAgainstPlanRejectsStaleAndForeignTargets(t *testing.T) {
 		if err := checkPinsAgainstPlan(plan, "redis.default#modules.x", []tfmodule.ProviderPin{good, aws}, d, a, c); !errors.Is(err, ErrProviderPin) {
 			t.Errorf("%s drift accepted: %v", name, err)
 		}
+	}
+	otherCluster := good
+	otherCluster.ClusterAccount = "other"
+	if err := checkPinsAgainstPlan(plan, "redis.default#modules.x", []tfmodule.ProviderPin{otherCluster}, def, account, ctx); !errors.Is(err, ErrProviderPin) {
+		t.Errorf("an EKS pin of another account was accepted: %v", err)
 	}
 	foreign := good
 	foreign.Provider = "k8s-cluster.eks#environments.other.env"

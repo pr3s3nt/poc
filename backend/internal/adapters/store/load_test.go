@@ -294,12 +294,6 @@ func TestRetiredInfrastructureScopeIsRejected(t *testing.T) {
 func TestCurrentGenerationAndHistoricalTargetsReopenUnchanged(t *testing.T) {
 	ctx := context.Background()
 	for name, build := range map[string]func(*testing.T, *Store) func(*testing.T, persistence.Store){
-		"environment generation and operations": func(t *testing.T, st *Store) func(*testing.T, persistence.Store) {
-			fixture := persistencetest.EnvironmentOperations(t, st)
-			return func(t *testing.T, reopened persistence.Store) {
-				persistencetest.AssertOperationsReloaded(t, reopened, fixture)
-			}
-		},
 		"historical deployment targets": func(t *testing.T, st *Store) func(*testing.T, persistence.Store) {
 			fixture := persistencetest.WorkloadSnapshots(t, st)
 			return func(t *testing.T, reopened persistence.Store) { persistencetest.AssertReloaded(t, reopened, fixture) }

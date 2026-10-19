@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"orchestrator/internal/domain/application"
@@ -12,20 +14,6 @@ import (
 
 func TestEnvironmentBindingContract(t *testing.T) {
 	persistencetest.EnvironmentBinding(t, New())
-}
-
-func TestEnvironmentBindingSurvivesJSONRestart(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "state.json")
-	first, err := NewWithSnapshot(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fixture := persistencetest.EnvironmentBinding(t, first)
-	reopened, err := NewWithSnapshot(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	persistencetest.AssertBindingReloaded(t, reopened, fixture)
 }
 
 // The JSON schema carries the SQL defaults explicitly: a new Environment is
@@ -46,16 +34,22 @@ func TestEnvironmentOperationsContract(t *testing.T) {
 	persistencetest.EnvironmentOperations(t, New())
 }
 
-func TestEnvironmentOperationsSurviveJSONRestart(t *testing.T) {
+// ADR-017: a snapshot whose Environment still carries a deployment binding is a retired baseline; the loader never converts it.
+func TestEnvironmentWithARetiredDeploymentBindingRequiresReset(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "state.json")
 	first, err := NewWithSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture := persistencetest.EnvironmentOperations(t, first)
-	reopened, err := NewWithSnapshot(path)
+	persistencetest.EnvironmentBinding(t, first)
+	before, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	persistencetest.AssertOperationsReloaded(t, reopened, fixture)
+	if _, err := NewWithSnapshot(path); err == nil || !strings.Contains(err.Error(), "retired deployment binding") {
+		t.Fatalf("a bound Environment was loaded: %v", err)
+	}
+	if after, _ := os.ReadFile(path); string(after) != string(before) {
+		t.Fatal("the loader rewrote the snapshot")
+	}
 }

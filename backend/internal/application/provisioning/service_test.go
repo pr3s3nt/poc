@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"orchestrator/internal/adapters/fake"
 	"orchestrator/internal/adapters/secrets"
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/application/provisioning"
@@ -22,42 +23,50 @@ import (
 	"orchestrator/internal/seed"
 )
 
-func deployBackend(t *testing.T, profile application.ExecutionProfile) (*bootstrap.App, seed.Options, string, string) {
+// deployBackend deploys the backend on the Internal seed (eks=false) or on the Definition-placed EKS chain of V05 (eks=true).
+func deployBackend(t *testing.T, eks bool) (*bootstrap.App, seed.Options, string, string) {
 	t.Helper()
-	seedOptions := seedtest.Defaults()
-	seedOptions.Region = "us-east-1"
-	seedOptions.AccountID = "000000000000"
-	applicationKey := seedOptions.ApplicationKey
-	if profile == application.ProfileAWSEKS {
-		applicationKey = seedOptions.CloudApplicationKey
+	var (
+		app  *bootstrap.App
+		opts seed.Options
+	)
+	score := func(o seed.Options) map[string]any { return seed.AcceptanceScores(o)["backend"] }
+	environment := ""
+	if eks {
+		app, opts = eksHarness(t, v2Registry{v2: &v2Executor{fake: fake.NewResourceExecutor()}, fake: fake.NewResourceExecutor()}, nil)
+		score = func(o seed.Options) map[string]any { return eksScore(o, "backend") }
+		environment = eksEnv
+	} else {
+		opts = seedtest.Defaults()
+		opts.Region, opts.AccountID = "us-east-1", "000000000000"
+		var err error
+		if app, err = bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake}); err != nil {
+			t.Fatalf("bootstrap: %v", err)
+		}
+		environment = opts.EnvironmentKey
 	}
-	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: seedOptions, Adapters: bootstrap.AdapterFake})
-	if err != nil {
-		t.Fatalf("bootstrap: %v", err)
-	}
-	scores := seed.AcceptanceScores(seedOptions)
 	result, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
-		OrganizationKey: seedOptions.OrganizationKey,
-		ApplicationKey:  applicationKey,
-		EnvironmentKey:  seedOptions.EnvironmentKey,
+		OrganizationKey: opts.OrganizationKey,
+		ApplicationKey:  opts.ApplicationKey,
+		EnvironmentKey:  environment,
 		WorkloadID:      "backend",
-		ScoreAfter:      scores["backend"],
+		ScoreAfter:      score(opts),
 		Actor:           "test",
 		RunID:           "run-test",
 	})
 	if err != nil {
-		t.Fatalf("deploy backend on %s: %v", profile, err)
+		t.Fatalf("deploy backend (eks=%v): %v", eks, err)
 	}
-	return app, seedOptions, applicationKey, result.DeploymentID
+	return app, opts, environment, result.DeploymentID
 }
 
-func TestProvision_PostgresOutputContractEquivalentAcrossProfiles(t *testing.T) {
+func TestProvision_PostgresOutputContractEquivalentAcrossPlacements(t *testing.T) {
 	ctx := context.Background()
 	want := []string{"database", "host", "password", "port", "username"}
 
-	for _, profile := range []application.ExecutionProfile{application.ProfileInternalK8s, application.ProfileAWSEKS} {
-		app, seedOptions, applicationKey, deploymentID := deployBackend(t, profile)
-		view, err := app.Queries.GetDeployment(ctx, appsvc.GetDeploymentQuery{OrganizationKey: seedOptions.OrganizationKey, ApplicationKey: applicationKey, EnvironmentKey: seedOptions.EnvironmentKey, DeploymentID: deploymentID})
+	for _, eks := range []bool{false, true} {
+		app, opts, environment, deploymentID := deployBackend(t, eks)
+		view, err := app.Queries.GetDeployment(ctx, appsvc.GetDeploymentQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: environment, DeploymentID: deploymentID})
 		if err != nil {
 			t.Fatalf("get deployment: %v", err)
 		}
@@ -69,34 +78,33 @@ func TestProvision_PostgresOutputContractEquivalentAcrossProfiles(t *testing.T) 
 			found = true
 			for _, key := range want {
 				if _, ok := res.Outputs[key]; !ok {
-					t.Fatalf("%s postgres outputs are missing %q: %v", profile, key, res.Outputs)
+					t.Fatalf("eks=%v postgres outputs are missing %q: %v", eks, key, res.Outputs)
 				}
 			}
 		}
 		if !found {
-			t.Fatalf("%s deployment has no postgres resource", profile)
+			t.Fatalf("eks=%v deployment has no postgres resource", eks)
 		}
 	}
 }
 
-func TestProvision_ReusesApplicationScopedVPCAndEKS(t *testing.T) {
+func TestProvision_ReusesEnvironmentScopedVPCAndEKS(t *testing.T) {
 	ctx := context.Background()
-	app, seedOptions, applicationKey, _ := deployBackend(t, application.ProfileAWSEKS)
+	app, opts, environment, _ := deployBackend(t, true)
 
-	scores := seed.AcceptanceScores(seedOptions)
 	if _, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{
-		OrganizationKey: seedOptions.OrganizationKey,
-		ApplicationKey:  applicationKey,
-		EnvironmentKey:  seedOptions.EnvironmentKey,
+		OrganizationKey: opts.OrganizationKey,
+		ApplicationKey:  opts.ApplicationKey,
+		EnvironmentKey:  environment,
 		WorkloadID:      "worker",
-		ScoreAfter:      scores["worker"],
+		ScoreAfter:      eksScore(opts, "worker"),
 		Actor:           "test",
 		RunID:           "run-test",
 	}); err != nil {
 		t.Fatalf("deploy worker: %v", err)
 	}
 
-	active, err := app.Store.ListActiveResources(ctx, seedOptions.OrganizationKey)
+	active, err := app.Store.ListActiveResources(ctx, opts.OrganizationKey)
 	if err != nil {
 		t.Fatalf("list active resources: %v", err)
 	}
@@ -105,7 +113,7 @@ func TestProvision_ReusesApplicationScopedVPCAndEKS(t *testing.T) {
 		counts[a.Descriptor.Type]++
 	}
 	if counts["vpc"] != 1 || counts["k8s-cluster"] != 1 {
-		t.Fatalf("an Application must keep one VPC and one EKS: %v", counts)
+		t.Fatalf("an Environment must keep one VPC and one EKS: %v", counts)
 	}
 	for _, a := range active {
 		if a.Descriptor.Type == "vpc" && a.Version < 2 {

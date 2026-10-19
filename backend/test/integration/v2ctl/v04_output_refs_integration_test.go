@@ -13,6 +13,7 @@ import (
 
 	"orchestrator/internal/adapters/postgres"
 	"orchestrator/internal/ports/persistence/persistencetest"
+	"orchestrator/test/integration/v04run"
 )
 
 // Runs the production query against a fresh option-A baseline, verifies the
@@ -56,6 +57,11 @@ func TestV04OutputRefsInventoryRealPostgresRolesHistoryAndEmpty(t *testing.T) {
 		t.Fatalf("State owner handle must retain its existing narrow-purpose access: %v", err)
 	}
 	stateRows.Close()
+	// Reopen's safe full-instance inventory must retain the Console's narrow
+	// grants while joining the verified module identity on the real baseline.
+	if got, err := v04run.ReadInstances(ctx, console); err != nil || len(got) != 0 {
+		t.Fatalf("Console safe instance/module inventory: count=%d err=%v", len(got), err)
+	}
 
 	// The exact production SQL must prepare and return a complete empty result
 	// on the real baseline when run as the private owner, before any provider writes.
@@ -80,10 +86,13 @@ func TestV04OutputRefsInventoryRealPostgresRolesHistoryAndEmpty(t *testing.T) {
 	}
 	for _, q := range []string{
 		`CREATE TABLE terraform_resource_instances(id text, active_resource_id text, descriptor text, physical_intent jsonb, created_by_run_id text)`,
+		`ALTER TABLE terraform_resource_instances ADD COLUMN state_key text DEFAULT repeat('a',64), ADD COLUMN status text DEFAULT 'DESTROYED', ADD COLUMN scope_type text DEFAULT 'SHARED', ADD COLUMN scope_id text DEFAULT 'fixture', ADD COLUMN module_bundle_id text DEFAULT 'verified-module'`,
+		`CREATE TABLE terraform_module_bundles(id text, module_id text)`,
+		`INSERT INTO terraform_module_bundles VALUES ('verified-module','postgres-k8s')`,
 		`CREATE TABLE active_resources(id text, outputs jsonb)`,
 		`CREATE TABLE terraform_resource_attempts(resource_instance_id text, run_id text, deployment_id text)`,
 		`CREATE TABLE deployment_resources(deployment_id text, node_descriptor text, active_resource_id text, output_snapshot jsonb, PRIMARY KEY(deployment_id,node_descriptor))`,
-		`INSERT INTO terraform_resource_instances VALUES
+		`INSERT INTO terraform_resource_instances(id, active_resource_id, descriptor, physical_intent, created_by_run_id) VALUES
 		 ('owned-g1',NULL,'db.shared#resource','{"tags":{"run-id":"operator-run"},"secretRefs":{"intent":"secret://vault/v1/orchestrator/outputs/intent"}}','pending-pin-hash-one'),
 		 ('new-owned',NULL,'cache.shared#resource','{"tags":{"run-id":"operator-run"},"secretRefs":{}}','pending-new'),
 		 ('owned-g2','current-active','db.shared#resource','{"tags":{"run-id":"operator-run"},"secretRefs":{}}','pending-pin-hash-two'),
@@ -107,6 +116,15 @@ func TestV04OutputRefsInventoryRealPostgresRolesHistoryAndEmpty(t *testing.T) {
 	} {
 		if _, err := owner.Exec(ctx, q); err != nil {
 			t.Fatalf("fixture SQL: %v", err)
+		}
+	}
+	instances, err := v04run.ReadInstances(ctx, owner)
+	if err != nil || len(instances) != 4 {
+		t.Fatalf("full instance/module inventory: count=%d err=%v", len(instances), err)
+	}
+	for _, in := range instances {
+		if in.Module != "postgres-k8s" || in.Status != "DESTROYED" || in.StateKey != "aaaaaaaaaaaa" || in.Scope != "SHARED" || in.ID == "" || in.CreatedByRun == "" {
+			t.Fatalf("safe instance/module identity incomplete: %+v", in)
 		}
 	}
 

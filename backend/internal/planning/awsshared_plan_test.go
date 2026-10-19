@@ -1,7 +1,6 @@
 package planning_test
 
 import (
-	"strings"
 	"testing"
 
 	"orchestrator/internal/adapters/store"
@@ -74,44 +73,5 @@ func awsSharedRequest(t *testing.T) planning.Request {
 			Config: map[string]any{"cluster": o.ClusterName, "kubeContext": o.KubeContext}},
 		BaseSet: environment.NewDocument(), After: doc, WorkloadID: "backend", RunID: o.RunID, Catalog: catalog,
 		Terraform: registrytest.Inspector(t, store.New()),
-	}
-}
-
-// Real registry/planner (no mock): two distinct Aurora and two distinct
-// ElastiCache descriptors share ONE VPC provider node. Each consumer has its own
-// node/descriptor and an edge to that single VPC; the private subnet IDs come
-// from the VPC output reference, never from a literal or a per-consumer network.
-func TestAWSTwoDatabasesAndTwoCachesShareOneVPCNode(t *testing.T) {
-	plan, err := planning.NewService(placedBundles()).Plan(awsSharedRequest(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	const vpc = "vpc.default#"
-	counts := map[string]int{}
-	var vpcNode string
-	for _, n := range plan.Graph.Nodes {
-		counts[strings.SplitN(n.Descriptor, ".", 2)[0]]++
-		if strings.HasPrefix(n.Descriptor, vpc) {
-			vpcNode = n.Descriptor
-		}
-	}
-	if counts["vpc"] != 1 || counts["postgres"] != 2 || counts["redis"] != 2 || counts["k8s-cluster"] != 1 {
-		t.Fatalf("node counts %v", counts)
-	}
-	for _, consumer := range []string{"postgres.default#shared.db-a", "postgres.default#shared.db-b", "redis.default#shared.cache-a", "redis.default#shared.cache-b"} {
-		if !hasEdge(plan, consumer, vpcNode, "resource-reference") {
-			t.Errorf("%s has no reference edge to the single VPC node %s", consumer, vpcNode)
-		}
-		if batchOf(plan, consumer) <= batchOf(plan, vpcNode) {
-			t.Errorf("%s is not planned after the VPC", consumer)
-		}
-	}
-	// Each consumer plans its own Terraform instance of its module.
-	modules := map[string]int{}
-	for _, c := range plan.Terraform {
-		modules[c.Module]++
-	}
-	if modules["vpc"] != 1 || modules["aurora"] != 2 || modules["elasticache"] != 2 {
-		t.Fatalf("terraform instances %v", modules)
 	}
 }

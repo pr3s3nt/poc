@@ -31,10 +31,11 @@ type Context struct {
 }
 
 // DefinitionPlaced reports whether placement comes from Definitions and
-// references (ADR-016): the Environment carries no deployment Connection, so
-// no profile enrichment, builtin cluster or Environment account applies.
+// references (ADR-016, ADR-017): the Environment carries no deployment Connection, so
+// no profile enrichment, implicit VPC/EKS, builtin cluster or Environment account applies.
+// Only the read-only planner-reference conformance mode opts out.
 func (c Context) DefinitionPlaced() bool {
-	return !c.ReferenceCluster && c.Env.Profile != application.ProfileAWSEKS
+	return !c.ReferenceCluster
 }
 
 // InfraName is the cloud-name stem of VPC/EKS/Aurora: `<app>-<env>` (ADR-011).

@@ -51,17 +51,6 @@ func SharedDescriptor(sharedID string, entry environment.ResourceEntry) (resourc
 	return resource.NewDescriptor(entry.Type, entryClass(entry), PathShared+sharedID)
 }
 
-// VPCDescriptor returns the VPC node of the aws-eks profile: Environment
-// scoped.
-func VPCDescriptor(ctx Context) (resource.Descriptor, error) {
-	return resource.NewDescriptor(TypeVPC, ClassDefault, ctx.InfraPath())
-}
-
-// EKSDescriptor returns the EKS node of the aws-eks profile, scoped like the VPC.
-func EKSDescriptor(ctx Context) (resource.Descriptor, error) {
-	return resource.NewDescriptor(TypeCluster, ClassEKS, ctx.InfraPath())
-}
-
 // NamespaceDescriptor returns the Environment-scoped namespace node.
 func NamespaceDescriptor(applicationKey, environmentKey string, generation int64) (resource.Descriptor, error) {
 	return resource.NewDescriptor(TypeNamespace, ClassDefault, PathEnvironments+applicationKey+"."+environmentKey+environment.GenerationScopeSuffix(generation))

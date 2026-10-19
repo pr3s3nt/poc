@@ -223,10 +223,11 @@ func (s *Service) prepare(ctx context.Context, req Request, inspect bool) (*prep
 		return nil, ErrSameDestination
 	}
 	destConn, err := s.store.GetConnection(ctx, app.OrganizationKey, req.DestinationKey)
-	if err == nil && destConn.Kind == appdomain.ConnectionKubernetes {
+	if err == nil {
+		// ADR-017: a target transition moved an Environment between deployment Connections, which no longer exist.
 		return nil, ErrTransitionRetired
 	}
-	if err != nil || !eligible(app.OrganizationKey, destConn) {
+	if !eligible(app.OrganizationKey, destConn) {
 		return nil, ErrDestinationFailed
 	}
 	profile, region, status := appdomain.ProfileAWSEKS, destConn.ConfigString("region"), appdomain.RuntimePending

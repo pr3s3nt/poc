@@ -2,7 +2,7 @@ package provisioning_test
 
 import (
 	"context"
-	"orchestrator/internal/seed/seedtest"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -10,11 +10,11 @@ import (
 	"errors"
 	"orchestrator/internal/adapters/fake"
 	appsvc "orchestrator/internal/application/deployment"
-	"orchestrator/internal/bootstrap"
-	"orchestrator/internal/bootstrap/bootstraptest"
+	"orchestrator/internal/application/provisioning"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
+	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
@@ -79,19 +79,13 @@ func (r v2Registry) VerifiesModules(driver resource.DriverType) bool {
 
 func deployV2(t *testing.T) (*v2Executor, seed.Options) {
 	t.Helper()
-	opts := seedtest.Defaults()
-	opts.Region, opts.AccountID = "us-east-1", "000000000000"
 	reg := v2Registry{v2: &v2Executor{fake: fake.NewResourceExecutor()}, fake: fake.NewResourceExecutor()}
-	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, RegistryOverride: reg})
-	if err != nil {
-		t.Fatal(err)
-	}
-	scores := seed.AcceptanceScores(opts)
+	app, opts := eksHarness(t, reg, nil)
 	for i, run := range []string{"run-a", "run-b"} {
 		workload := []string{"backend", "worker"}[i]
 		if _, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
-			OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.CloudApplicationKey, EnvironmentKey: opts.EnvironmentKey,
-			WorkloadID: workload, ScoreAfter: scores[workload], Actor: "test", RunID: run,
+			OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv,
+			WorkloadID: workload, ScoreAfter: eksScore(opts, workload), Actor: "test", RunID: run,
 		}); err != nil {
 			t.Fatalf("deploy %s: %v", workload, err)
 		}
@@ -103,7 +97,7 @@ func deployV2(t *testing.T) (*v2Executor, seed.Options) {
 // provider bindings, a canonical identity without any run ID and the instance
 // IDs of its Terraform providers; the node's provider runs first.
 func TestProvision_V2ExecutorGetsPinsIdentityAndProviderInstances(t *testing.T) {
-	v2, opts := deployV2(t)
+	v2, _ := deployV2(t)
 	byDescriptor := map[string][]execution.ProvisionRequest{}
 	order := []string{}
 	for _, call := range v2.calls {
@@ -129,7 +123,12 @@ func TestProvision_V2ExecutorGetsPinsIdentityAndProviderInstances(t *testing.T) 
 		if first.Source == nil || first.Artifact != nil || first.Source.ModuleID == "" {
 			t.Fatalf("%s: a self-verifying executor must get the pin, not an artifact: %+v", descriptor, first.Source)
 		}
-		if len(first.ProviderPins) != 1 || first.ProviderPins[0].Kind != tfmodule.BindingAWS || first.ProviderPins[0].ConnectionKey != opts.CloudConnectionKey || first.ProviderPins[0].Region != "us-east-1" {
+		// The AWS nodes pin their own Driver Account; the Kubernetes consumers pin the producing EKS identity instead.
+		if strings.HasPrefix(descriptor, "vpc.") || strings.HasPrefix(descriptor, "k8s-cluster.") {
+			if len(first.ProviderPins) != 1 || first.ProviderPins[0].Kind != tfmodule.BindingAWS || first.ProviderPins[0].ConnectionKey != "aws-a" || first.ProviderPins[0].Region != "us-east-1" {
+				t.Fatalf("%s: pins %+v", descriptor, first.ProviderPins)
+			}
+		} else if len(first.ProviderPins) != 1 || first.ProviderPins[0].Kind != tfmodule.BindingKubernetes || first.ProviderPins[0].ClusterProvider != planning.ClusterEKS || first.ProviderPins[0].ClusterAccount != "aws-a" {
 			t.Fatalf("%s: pins %+v", descriptor, first.ProviderPins)
 		}
 		if first.Identity.OrganizationID == "" || first.Identity.EnvironmentID == "" || first.Identity.Descriptor != descriptor {
@@ -155,17 +154,11 @@ func TestProvision_V2ExecutorGetsPinsIdentityAndProviderInstances(t *testing.T) 
 // Runtime sensitivity reported by the executor makes the output secret even
 // though the Resource Type is the only other source: stored values are refs.
 func TestProvision_V2RuntimeSensitiveOutputsAreStoredAsReferences(t *testing.T) {
-	opts := seedtest.Defaults()
-	opts.Region, opts.AccountID = "us-east-1", "000000000000"
 	reg := v2Registry{v2: &v2Executor{fake: fake.NewResourceExecutor()}, fake: fake.NewResourceExecutor()}
-	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, RegistryOverride: reg})
-	if err != nil {
-		t.Fatal(err)
-	}
-	scores := seed.AcceptanceScores(opts)
+	app, opts := eksHarness(t, reg, nil)
 	if _, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
-		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.CloudApplicationKey, EnvironmentKey: opts.EnvironmentKey,
-		WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test", RunID: "run-a",
+		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv,
+		WorkloadID: "backend", ScoreAfter: eksScore(opts, "backend"), Actor: "test", RunID: "run-a",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -198,21 +191,15 @@ func (e *holdingExecutor) Provision(ctx context.Context, req execution.Provision
 // (INTERRUPTED) even though the deploy path records an ordinary failure: no
 // second deploy can start until an operator confirms the process stopped.
 func TestDeployWithUnknownTerraformOutcomeHoldsTheEnvironment(t *testing.T) {
-	opts := seedtest.Defaults()
-	opts.Region, opts.AccountID = "us-east-1", "000000000000"
 	held := &holdingExecutor{v2Executor{fake: fake.NewResourceExecutor()}}
 	reg := v2Registry{v2: &held.v2Executor, fake: fake.NewResourceExecutor()}
 	reg.override = held
-	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, RegistryOverride: reg})
-	if err != nil {
-		t.Fatal(err)
-	}
-	scores := seed.AcceptanceScores(opts)
-	cmd := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.CloudApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test", RunID: "run-a"}
+	app, opts := eksHarness(t, reg, nil)
+	cmd := appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv, WorkloadID: "backend", ScoreAfter: eksScore(opts, "backend"), Actor: "test", RunID: "run-a"}
 	if _, err := app.Deployments.DeployWorkload(context.Background(), cmd); err == nil {
 		t.Fatal("the deploy succeeded after an unknown outcome")
 	}
-	op, ok, err := app.Store.ActiveOperation(context.Background(), opts.CloudApplicationKey, opts.EnvironmentKey)
+	op, ok, err := app.Store.ActiveOperation(context.Background(), opts.ApplicationKey, eksEnv)
 	if err != nil || !ok || op.Status != environment.OpInterrupted {
 		t.Fatalf("operation after an unknown outcome: %+v ok=%v err=%v", op, ok, err)
 	}
@@ -236,30 +223,24 @@ func (e *shortOutputExecutor) Provision(ctx context.Context, req execution.Provi
 // fails, no workload is rendered or applied, the failed node is recorded and the consumer is reported blocked
 // with a safe code.
 func TestProvision_MissingRequiredOutputBlocksTheConsumerAndIsRecorded(t *testing.T) {
-	opts := seedtest.Defaults()
-	opts.Region, opts.AccountID = "us-east-1", "000000000000"
 	short := &shortOutputExecutor{v2Executor{fake: fake.NewResourceExecutor()}}
 	reg := v2Registry{v2: &short.v2Executor, fake: fake.NewResourceExecutor(), override: short}
-	app, err := bootstraptest.Build(context.Background(), bootstrap.Options{Seed: opts, Adapters: bootstrap.AdapterFake, RegistryOverride: reg})
-	if err != nil {
-		t.Fatal(err)
-	}
-	scores := seed.AcceptanceScores(opts)
-	_, err = app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
-		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.CloudApplicationKey, EnvironmentKey: opts.EnvironmentKey,
-		WorkloadID: "backend", ScoreAfter: scores["backend"], Actor: "test", RunID: "run-a",
+	app, opts := eksHarness(t, reg, nil)
+	_, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
+		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv,
+		WorkloadID: "backend", ScoreAfter: eksScore(opts, "backend"), Actor: "test", RunID: "run-a",
 	})
 	if err == nil || !strings.Contains(err.Error(), `requires output "host"`) {
 		t.Fatalf("a missing required output must fail the deployment: %v", err)
 	}
-	history, err := app.Queries.ListDeployments(context.Background(), appsvc.ListDeploymentsQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.CloudApplicationKey, EnvironmentKey: opts.EnvironmentKey})
+	history, err := app.Queries.ListDeployments(context.Background(), appsvc.ListDeploymentsQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv})
 	if err != nil || len(history) != 1 || history[0].Status != "FAILED" {
 		t.Fatalf("history = %+v %v", history, err)
 	}
 	if strings.Contains(history[0].FailureReason, "host") {
 		t.Fatalf("the public failure reason must be a fixed sentence: %q", history[0].FailureReason)
 	}
-	view, err := app.Queries.GetDeployment(context.Background(), appsvc.GetDeploymentQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.CloudApplicationKey, EnvironmentKey: opts.EnvironmentKey, DeploymentID: history[0].ID})
+	view, err := app.Queries.GetDeployment(context.Background(), appsvc.GetDeploymentQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv, DeploymentID: history[0].ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,5 +264,85 @@ func TestProvision_MissingRequiredOutputBlocksTheConsumerAndIsRecorded(t *testin
 	}
 	if len(view.Workloads) != 0 {
 		t.Fatalf("no workload may run before its dependency is ready: %+v", view.Workloads)
+	}
+}
+
+// scriptedReadiness is a FAKE cluster usability proof.
+type scriptedReadiness struct {
+	mu    sync.Mutex
+	err   error
+	calls []execution.Target
+}
+
+func (r *scriptedReadiness) WaitClusterReady(_ context.Context, target execution.Target) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, target)
+	return r.err
+}
+
+// ADR-017: a cluster that exists is not yet usable. When the usability proof fails (here: no Ready node capacity)
+// the cluster node is recorded FAILED with the fixed category only, and no consumer (namespace, database, cache,
+// workload) runs. The proof receives the completed opaque target, never a credential.
+func TestProvision_ClusterReadinessFailureBlocksEveryConsumer(t *testing.T) {
+	reg := v2Registry{v2: &v2Executor{fake: fake.NewResourceExecutor()}, fake: fake.NewResourceExecutor()}
+	proof := &scriptedReadiness{err: fmt.Errorf("%w: 10.9.9.9 secret", execution.ErrClusterNoCapacity)}
+	app, opts := eksHarness(t, reg, proof)
+	_, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
+		OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv,
+		WorkloadID: "backend", ScoreAfter: eksScore(opts, "backend"), Actor: "test", RunID: "run-a",
+	})
+	if err == nil || !errors.Is(err, execution.ErrClusterNoCapacity) || !errors.Is(err, provisioning.ErrClusterNotUsable) {
+		t.Fatalf("a cluster without usable capacity must fail the deployment: %v", err)
+	}
+	if strings.Contains(err.Error(), "10.9.9.9") || strings.Contains(err.Error(), "secret") {
+		t.Fatalf("the failure must carry only the fixed category: %v", err)
+	}
+	if len(proof.calls) != 1 || proof.calls[0].Provider != "eks" || proof.calls[0].Connection != "aws-a" || proof.calls[0].Kubeconfig != "" {
+		t.Fatalf("the proof gets the completed opaque target only: %+v", proof.calls)
+	}
+	for _, call := range reg.v2.calls {
+		if call.ResourceType == "k8s-namespace" || call.ResourceType == "postgres" {
+			t.Fatalf("a consumer of the unusable cluster ran: %s", call.Descriptor)
+		}
+	}
+	history, err := app.Queries.ListDeployments(context.Background(), appsvc.ListDeploymentsQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv})
+	if err != nil || len(history) != 1 {
+		t.Fatalf("history = %+v %v", history, err)
+	}
+	view, err := app.Queries.GetDeployment(context.Background(), appsvc.GetDeploymentQuery{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv, DeploymentID: history[0].ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	failed := ""
+	for _, r := range view.Resources {
+		if r.Status == "FAILED" {
+			failed = r.Descriptor
+		}
+	}
+	if !strings.HasPrefix(failed, "k8s-cluster.") {
+		t.Fatalf("the cluster node is the recorded failure: %q in %+v", failed, view.Resources)
+	}
+	if len(view.Workloads) != 0 {
+		t.Fatalf("no workload may run on an unusable cluster: %+v", view.Workloads)
+	}
+}
+
+// A usable cluster lets the whole chain continue, and the proof is asked again for a later deployment
+// (fresh authentication is derived per invocation inside the proof, never cached by provisioning).
+func TestProvision_UsableClusterLetsConsumersRunAndIsCheckedEachDeployment(t *testing.T) {
+	reg := v2Registry{v2: &v2Executor{fake: fake.NewResourceExecutor()}, fake: fake.NewResourceExecutor()}
+	proof := &scriptedReadiness{}
+	app, opts := eksHarness(t, reg, proof)
+	for i, workload := range []string{"backend", "worker"} {
+		if _, err := app.Deployments.DeployWorkload(context.Background(), appsvc.DeployCommand{
+			OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: eksEnv,
+			WorkloadID: workload, ScoreAfter: eksScore(opts, workload), Actor: "test", RunID: fmt.Sprintf("run-%d", i),
+		}); err != nil {
+			t.Fatalf("deploy %s: %v", workload, err)
+		}
+	}
+	if len(proof.calls) != 2 {
+		t.Fatalf("the cluster usability proof runs once per deployment, got %d", len(proof.calls))
 	}
 }

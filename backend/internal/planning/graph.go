@@ -174,41 +174,19 @@ func (b *graphBuilder) enrichProfile() (*Node, error) {
 		return nil, err
 	}
 
-	switch b.ctx.Env.Profile {
-	case application.ProfileAWSEKS:
-		vpcDescriptor, err := VPCDescriptor(b.ctx)
-		if err != nil {
-			return nil, err
-		}
-		eksDescriptor, err := EKSDescriptor(b.ctx)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := b.ensure(vpcDescriptor, NodeResource, OriginProfile, nil); err != nil {
-			return nil, err
-		}
-		if _, err := b.ensure(eksDescriptor, NodeResource, OriginProfile, nil); err != nil {
-			return nil, err
-		}
-		b.addEdge(eksDescriptor.String(), vpcDescriptor.String(), ReasonProfile, "")
-		b.addEdge(namespace.Descriptor, eksDescriptor.String(), ReasonProfile, "")
-	case application.ProfileInternalK8s:
-		// Only the planner reference mode (the read-only challenge fixtures) reaches this: a product
-		// Environment with the internal profile is refused up front with ErrRetiredTarget (ADR-016).
-		if !b.ctx.ReferenceCluster {
-			return nil, ErrRetiredTarget
-		}
-		clusterDescriptor, err := InternalClusterDescriptor(b.ctx.Env.ConnectionKey)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := b.ensure(clusterDescriptor, NodeResource, OriginProfile, nil); err != nil {
-			return nil, err
-		}
-		b.addEdge(namespace.Descriptor, clusterDescriptor.String(), ReasonProfile, "")
-	default:
-		return nil, fmt.Errorf("planning: unsupported execution profile %q", b.ctx.Env.Profile)
+	// Only the planner-reference conformance mode reaches this point: every product Environment is
+	// Definition-placed (ADR-017). It restores the registered-cluster node the read-only fixtures name.
+	if b.ctx.Env.Profile != application.ProfileInternalK8s || !b.ctx.ReferenceCluster {
+		return nil, ErrRetiredTarget
 	}
+	clusterDescriptor, err := InternalClusterDescriptor(b.ctx.Env.ConnectionKey)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := b.ensure(clusterDescriptor, NodeResource, OriginProfile, nil); err != nil {
+		return nil, err
+	}
+	b.addEdge(namespace.Descriptor, clusterDescriptor.String(), ReasonProfile, "")
 	return namespace, nil
 }
 

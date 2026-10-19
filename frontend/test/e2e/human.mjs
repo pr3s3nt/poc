@@ -9,7 +9,27 @@ export const LONG_TYPE_DELAY = Number(process.env.ORCH_E2E_TYPE_DELAY ?? 30);
 
 // Options: selectNative(h, select, label) operates a native <select> popup
 // in headed recordings (see video.mjs); without it choose() uses selectOption.
-export function createHuman(page, { selectNative } = {}) {
+// Browser-only acceptance uses Playwright actionability and real input events,
+// with no presentation pacing. Resource readiness and TTL polling stay outside it.
+function createFastHuman(page) {
+  return {
+    page, fast: true,
+    pause: async () => {},
+    read: async () => {},
+    showCursor: async () => {},
+    moveTo: (locator) => locator.scrollIntoViewIfNeeded(),
+    click: (locator) => locator.click(),
+    async type(locator, text, { replace = false } = {}) {
+      if (replace) await locator.fill(text);
+      else { await locator.click(); await locator.pressSequentially(text, { delay: 0 }); }
+    },
+    async paste(locator, text) { await locator.click(); await page.keyboard.insertText(text); },
+    choose: (locator, label) => locator.selectOption({ label }),
+  };
+}
+
+export function createHuman(page, { selectNative, fast = false } = {}) {
+  if (fast) return createFastHuman(page);
   const cursor = { x: 640, y: 400 };
 
   async function pause(milliseconds) {

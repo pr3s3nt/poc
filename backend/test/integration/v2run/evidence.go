@@ -8,7 +8,7 @@ import (
 )
 
 // Phases are the video phase marks of a scenario.
-var Phases = []string{"PREPARE", "FORM", "PREVIEW", "TERRAFORM", "READY", "JOB", "CACHE", "CLEANUP"}
+var Phases = []string{"PREPARE", "FORM", "PREVIEW", "TERRAFORM", "READY", "JOB", "CACHE", "UPDATE", "CLEANUP"}
 
 // Mark is one phase mark on the recording timeline.
 type Mark struct {
@@ -19,6 +19,8 @@ type Mark struct {
 
 func requiredPhases(scenario string) []string {
 	switch scenario {
+	case "A01":
+		return []string{"PREPARE", "FORM", "PREVIEW", "TERRAFORM", "READY", "JOB", "CACHE", "CLEANUP"}
 	case "E01":
 		return []string{"PREPARE", "FORM", "PREVIEW", "CLEANUP"}
 	case "E02":
@@ -82,17 +84,22 @@ var happyCommon = []string{
 	"job.reload-same-result", "evidence.no-secret-public",
 }
 
-// awsAssertions are what the V2-A02/A03 scenario records (terraform-v2-aws.mjs) plus the
-// read-only preflight verdicts of the runner. The optional ACCEPTANCE_SECRET binding is
-// NOT configured on AWS: its row must show not-PASS and that is recorded explicitly
-// (app.secret-row-not-configured); PGPASSWORD and REDIS_PASSWORD stay secretKeyRef.
-var awsAssertions = []string{
+// definitionAssertions are what the Definition-driven AWS scenarios V05, A02 and A03 record
+// (terraform-v2-aws-definitions.mjs, equal to its COMMON_ASSERTIONS; a test keeps them equal) plus the
+// read-only preflight verdicts of the runner. The optional ACCEPTANCE_SECRET binding is NOT configured on EKS:
+// its row must show not-PASS and that is recorded explicitly (app.secret-row-not-configured); PGPASSWORD and
+// REDIS_PASSWORD stay secretKeyRef.
+var definitionAssertions = []string{
 	"aws.preflight-account-region-principal", "aws.egress-32", "aws.pod-capacity",
-	"ui.signin", "ui.connections.registered", "ui.types.registered", "ui.definitions.registered", "ui.environment.bound",
-	"ui.workloads.three-saved", "preview.pure", "preview.target", "preview.pins", "preview.graph", "preview.score-k8s-bundle",
-	"deploy.terraform-stages", "ready.aws-assets-tagged", "ready.ownership-recorded", "ready.workloads", "ready.nodes", "ready.shared-endpoints", "ready.bindings",
-	"app.rows-pass", "app.secret-row-not-configured", "technical.pods-owned-and-removed", "aws.preexisting-preserved", "job.completed-ui", "job.postgres-row", "cache.worker-write", "cache.backend-hit", "cache.ttl-expiry-miss", "cache.refill",
-	"job.reload-same-result", "cleanup.supervisor-clean", "cleanup.aws-absent", "evidence.no-secret-public",
+	"ui.signin", "ui.account.ready", "ui.types.registered", "ui.definitions.registered", "ui.workloads.three-saved",
+	"preview.pure", "preview.accounts-regions", "preview.unknown-cluster-outputs", "preview.graph", "preview.pins", "preview.score-k8s-bundle", "preview.no-environment-target",
+	"deploy.terraform-stages", "deploy.cluster-ready-before-consumers",
+	"ready.ownership-recorded", "ready.aws-assets-tagged", "ready.workloads", "ready.nodes", "ready.shared-endpoints", "ready.bindings", "ready.target-identity", "persist.no-credential",
+	"app.rows-pass", "app.secret-row-not-configured",
+	"job.completed-ui", "job.postgres-row", "job.no-duplicate", "cache.worker-write", "cache.backend-hit", "cache.ttl-expiry-miss", "cache.refill", "job.reload-same-result",
+	"update.data-and-worker-preserved", "update.config-rollout", "update.no-duplicate-infra", "restart.operation-after", "restart.target-unchanged", "restart.job-persisted", "restart.new-job",
+
+	"cleanup.supervisor-clean", "cleanup.aws-absent", "aws.preexisting-preserved", "evidence.no-secret-public",
 }
 
 var v05Assertions = []string{
@@ -102,7 +109,7 @@ var v05Assertions = []string{
 	"deploy.terraform-stages", "deploy.cluster-ready-before-consumers", "ready.ownership-recorded", "ready.aws-assets-tagged", "ready.workloads", "ready.nodes", "ready.shared-endpoints", "ready.bindings", "ready.target-identity", "persist.no-credential",
 	"app.rows-pass", "app.secret-row-not-configured", "job.completed-ui", "job.postgres-row", "job.no-duplicate", "cache.worker-write", "cache.backend-hit", "cache.ttl-expiry-miss", "cache.refill", "job.reload-same-result",
 	"update.data-and-worker-preserved", "update.config-rollout", "update.no-duplicate-infra", "restart.operation-after", "restart.target-unchanged", "restart.job-persisted", "restart.new-job",
-	"negative.tied-cluster-definitions", "negative.no-extra-cluster", "cleanup.supervisor-clean", "cleanup.aws-absent", "aws.preexisting-preserved", "evidence.no-secret-public",
+	"cleanup.supervisor-clean", "cleanup.aws-absent", "aws.preexisting-preserved", "evidence.no-secret-public",
 }
 
 var deleteAssertions = []string{
@@ -126,10 +133,11 @@ func RequiredAssertions(scenario string) []string {
 	switch scenario {
 	case "A01":
 		out = append(append(out, happyCommon...), deleteAssertions...)
-	case "A02", "A03":
-		out = append(out, awsAssertions...)
 	case "V05":
-		out = append(out, v05Assertions...)
+		out = append(out, definitionAssertions...)
+	case "A02", "A03":
+		// Managed data services are reached from a short-lived labelled client Pod whose removal is itself asserted.
+		out = append(append(out, definitionAssertions...), "technical.pods-owned-and-removed")
 	default:
 		out = append(out, scenarioAssertions[scenario]...)
 	}

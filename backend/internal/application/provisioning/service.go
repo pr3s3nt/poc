@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"time"
 
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/deployment"
@@ -73,6 +74,15 @@ type Service struct {
 	secrets  execution.SecretStore
 	clock    clock.Clock
 	modules  moduleregistry.ExecutionVerifier
+	// clusters proves a completed cluster target is usable (API auth/authorisation, network, Ready node
+	// capacity) BEFORE any consumer runs (ADR-017). Nil disables the proof (fake adapters).
+	clusters       execution.ClusterReadiness
+	clusterTimeout time.Duration
+}
+
+// SetClusterReadiness wires the cluster usability proof run after a cluster node completes.
+func (s *Service) SetClusterReadiness(checker execution.ClusterReadiness, timeout time.Duration) {
+	s.clusters, s.clusterTimeout = checker, timeout
 }
 
 // SetModuleVerifier wires the module registry check that runs immediately
@@ -240,7 +250,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 	// instead of becoming an empty Connection (UC-04 BR-04/BR-10). An AWS node
 	// runs with the Driver Account its winning Definition pinned; the
 	// Environment account is never a substitute (UC-03 V02-09).
-	connectionKey, wantKind := effectiveConnection(def, match, pinsOf(req.Plan, descriptor), selfVerifying, target, req.Context)
+	connectionKey, wantKind := effectiveConnection(def, pinsOf(req.Plan, descriptor), selfVerifying, target)
 	var connection appdomain.Connection
 	err = errors.New("connection key is empty")
 	if connectionKey != "" {
@@ -340,7 +350,7 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 			return fmt.Errorf("provisioning: %s: %w", descriptor, identityErr)
 		}
 		source := terraformInputs.Source
-		execReq.Source, execReq.Identity, execReq.OutputMapping, execReq.Type = &source, identity, terraformInputs.OutputMapping, typ
+		execReq.Source, execReq.Identity, execReq.OutputMapping, execReq.Type = &source, identity, terraformInputs.OutputMapping, moduleOutputContract(typ, source.ModuleID)
 		execReq.ProviderPins = pins
 		execReq.ProviderTargets = providerTargets(pins, result)
 		execReq.ProviderInstanceIDs = providerInstances(req.Plan.Graph, result, descriptor)
@@ -399,12 +409,43 @@ func (s *Service) provisionNode(ctx context.Context, req Request, result *Result
 			return fmt.Errorf("provisioning: %s: the cluster resource type does not declare the %q output", descriptor, resource.ClusterTargetOutput)
 		}
 	}
+	if def.DriverType == resource.DriverTerraform && node.ResourceType == planning.TypeCluster && execResult.Target != nil {
+		// ADR-017: the platform, never the module, publishes the typed target of a cluster it created.
+		if _, declared := typ.Output(resource.ClusterTargetOutput); declared {
+			if err := completeEKSTarget(descriptor, pinsOf(req.Plan, descriptor), &execResult); err != nil {
+				progress.Status = deployment.ResourceFailed
+				finished := s.clock.Now()
+				progress.FinishedAt = &finished
+				_ = s.store.SaveDeploymentResource(ctx, progress)
+				return fmt.Errorf("provisioning: %s: %w", descriptor, err)
+			}
+		}
+	}
 	if err := typ.ValidateOutputs(execResult.Outputs); err != nil {
 		progress.Status = deployment.ResourceFailed
 		finished := s.clock.Now()
 		progress.FinishedAt = &finished
 		_ = s.store.SaveDeploymentResource(ctx, progress)
 		return err
+	}
+
+	if node.ResourceType == planning.TypeCluster && execResult.Target != nil && s.clusters != nil {
+		// ACTIVE is not enough: authenticated + authorised API access, executor network and usable Ready
+		// node capacity must hold before the namespace, database, cache or workload runs.
+		timeout := s.clusterTimeout
+		if timeout <= 0 {
+			timeout = 15 * time.Minute
+		}
+		waitCtx, cancel := context.WithTimeout(ctx, timeout)
+		err := s.clusters.WaitClusterReady(waitCtx, *execResult.Target)
+		cancel()
+		if err != nil {
+			progress.Status = deployment.ResourceFailed
+			finished := s.clock.Now()
+			progress.FinishedAt = &finished
+			_ = s.store.SaveDeploymentResource(ctx, progress)
+			return fmt.Errorf("provisioning: %s: %w", descriptor, publicClusterError(err))
+		}
 	}
 
 	storable, err := s.redactOutputs(ctx, typ, descriptor, execResult.Outputs, secretOutputs)
@@ -520,24 +561,25 @@ func isSecretInputKey(key string) bool {
 	return false
 }
 
-// effectiveConnection returns the Connection identity and kind a node
-// executes with. A self-verifying Terraform node uses the account of its AWS
-// provider pin; a Kubernetes node inherits its cluster: the credential-backed
-// EKS target, or the legacy Environment connection (kept until V03). The ADR-013
-// system cluster and other drivers use the Environment connection unless the
-// Definition names a Driver Account.
-func effectiveConnection(def resource.Definition, match planning.Match, pins []tfmodule.ProviderPin, selfVerifying bool, target execution.Target, ctx planning.Context) (string, appdomain.ConnectionKind) {
-	env := ctx.Env
-	if def.DriverType == resource.DriverExistingCluster {
-		// ADR-016: the Definition's own Internal Driver Account, never the Environment.
+// effectiveConnection returns the Connection identity and kind a node executes with (ADR-016, ADR-017). A self-verifying Terraform
+// node uses the account of its AWS provider pin; a Kubernetes-bound node inherits its cluster: the Internal account of an existing
+// cluster, or the original AWS account of a cluster the plan itself created. No Environment connection, profile or account is ever a
+// fallback: a node without any of them yields no account and fails as unavailable.
+func effectiveConnection(def resource.Definition, pins []tfmodule.ProviderPin, selfVerifying bool, target execution.Target) (string, appdomain.ConnectionKind) {
+	switch def.DriverType {
+	case resource.DriverExistingCluster:
 		return def.DriverAccount, appdomain.ConnectionKubernetes
-	}
-	if def.DriverType == resource.DriverTerraform {
-		if ctx.DefinitionPlaced() {
-			// ADR-016: a Kubernetes-bound node runs with the account of its cluster resource.
+	case resource.DriverTerraform:
+		for _, pin := range pins {
+			if pin.Kind == tfmodule.BindingKubernetes && pin.ConnectionKey != "" {
+				return pin.ConnectionKey, appdomain.ConnectionKubernetes
+			}
+		}
+		if target.Provider == "eks" && target.Connection != "" {
+			// A node bound to a cluster the plan itself created runs with the original AWS account of that cluster.
 			for _, pin := range pins {
-				if pin.Kind == tfmodule.BindingKubernetes && pin.ConnectionKey != "" {
-					return pin.ConnectionKey, appdomain.ConnectionKubernetes
+				if pin.Kind == tfmodule.BindingKubernetes && pin.ClusterProvider == planning.ClusterEKS {
+					return target.Connection, appdomain.ConnectionAWS
 				}
 			}
 		}
@@ -549,22 +591,13 @@ func effectiveConnection(def resource.Definition, match planning.Match, pins []t
 				return pin.ConnectionKey, appdomain.ConnectionAWS
 			}
 		}
-		for _, pin := range pins {
-			if pin.Kind == tfmodule.BindingKubernetes && pin.ConnectionKey != "" {
-				return pin.ConnectionKey, appdomain.ConnectionKubernetes
-			}
-		}
 		if target.Provider == "eks" && target.Connection != "" {
 			return target.Connection, appdomain.ConnectionAWS
 		}
-		return env.ConnectionKey, expectedConnectionKind(env.Profile)
+		return "", ""
 	}
-	if ctx.DefinitionPlaced() {
-		// A non-Terraform Kubernetes driver (for example a namespace of the static driver) runs with the
-		// account of the cluster its references resolved to; the Environment never supplies one.
-		return target.Connection, appdomain.ConnectionKubernetes
-	}
-	return env.ConnectionKey, ""
+	// A non-Terraform Kubernetes driver runs with the account of the cluster its references resolved to.
+	return target.Connection, appdomain.ConnectionKubernetes
 }
 
 func mapOrEmpty(m map[string]any) map[string]any {
@@ -572,6 +605,22 @@ func mapOrEmpty(m map[string]any) map[string]any {
 		return map[string]any{}
 	}
 	return m
+}
+
+// moduleOutputContract keeps platform-completed EKS identity out of the earlier
+// module-output check. The unchanged full Type is validated after completeEKSTarget.
+func moduleOutputContract(typ resource.Type, module string) resource.Type {
+	if typ.Key != resource.ClusterTargetType || module != "eks" {
+		return typ
+	}
+	outputs := make([]resource.OutputField, 0, len(typ.Outputs))
+	for _, field := range typ.Outputs {
+		if field.Name != resource.ClusterTargetOutput {
+			outputs = append(outputs, field)
+		}
+	}
+	typ.Outputs = outputs
+	return typ
 }
 
 func moduleName(def resource.Definition) string {
@@ -705,14 +754,6 @@ func pinsOf(plan *planning.Plan, descriptor string) []tfmodule.ProviderPin {
 	return nil
 }
 
-// expectedConnectionKind is the Connection kind of an Environment profile.
-func expectedConnectionKind(profile appdomain.ExecutionProfile) appdomain.ConnectionKind {
-	if profile == appdomain.ProfileAWSEKS {
-		return appdomain.ConnectionAWS
-	}
-	return appdomain.ConnectionKubernetes
-}
-
 // checkPinsAgainstPlan refuses a node whose pinned bindings no longer match
 // the Environment it executes in: a pin for another connection, region or
 // profile (stale), or a provider cluster without its graph edge (foreign).
@@ -740,13 +781,14 @@ func checkPinsAgainstPlan(plan *planning.Plan, descriptor string, pins []tfmodul
 			if pin.Provider == "" || !providers[pin.Provider] {
 				return errPinForeign
 			}
-			if ctx.DefinitionPlaced() {
-				// The pin must describe the READY Internal account this
-				// node runs with, at the version the plan saw.
-				if pin.ConnectionKey == "" || pin.ConnectionKey != account.Key || pin.AccountVersion != account.Version {
+			if pin.ClusterProvider == planning.ClusterEKS {
+				// A cluster the plan itself creates (ADR-017): no Kubernetes Connection exists. The node
+				// runs with the original AWS account of the producing cluster, at the version the plan saw.
+				if pin.ConnectionKey != "" || pin.ClusterAccount == "" || pin.ClusterAccount != account.Key || pin.AccountVersion != account.Version || account.Kind != appdomain.ConnectionAWS || pin.Region == "" {
 					return errPinStale
 				}
-			} else if pin.ConnectionKey != "" && pin.ConnectionKey != env.ConnectionKey {
+			} else if pin.ConnectionKey == "" || pin.ConnectionKey != account.Key || pin.AccountVersion != account.Version {
+				// The pin must describe the READY Internal account this node runs with, at the version the plan saw.
 				return errPinStale
 			}
 		}
@@ -831,12 +873,20 @@ func ResolveWorkloadTarget(plan *planning.Plan, result *Result, workload, organi
 	if err != nil {
 		return execution.Target{}, fmt.Errorf("%w: %v", ErrWorkloadTarget, err)
 	}
+	wantProvider := ""
+	if placement.Provider == planning.ClusterEKS {
+		wantProvider = resource.K8sTargetProviderEKS
+	}
+	if ref.Target.Provider != wantProvider || ref.Target.Region != placement.Region {
+		return execution.Target{}, fmt.Errorf("%w: the cluster provider or region differs from the plan pin", ErrWorkloadTarget)
+	}
 	if ref.Descriptor != placement.Cluster || ref.Target.Connection != placement.Account || ref.AccountVersion != placement.AccountVersion || ref.Target.Organization != organizationKey {
 		return execution.Target{}, fmt.Errorf("%w: the resolved cluster differs from the plan pin", ErrWorkloadTarget)
 	}
 	nsCluster, ok := result.NodeClusters[placement.Namespace]
 	if !ok || nsCluster.Descriptor != placement.Cluster || nsCluster.Target.Connection != ref.Target.Connection ||
-		nsCluster.Target.ClusterName != ref.Target.ClusterName || nsCluster.Target.Organization != ref.Target.Organization {
+		nsCluster.Target.ClusterName != ref.Target.ClusterName || nsCluster.Target.Organization != ref.Target.Organization ||
+		nsCluster.Target.Provider != ref.Target.Provider || nsCluster.Target.Region != ref.Target.Region {
 		return execution.Target{}, fmt.Errorf("%w: the namespace was not created on the workload cluster", ErrWorkloadTarget)
 	}
 	namespace, _ := result.Outputs[placement.Namespace]["name"].(string)
@@ -846,4 +896,44 @@ func ResolveWorkloadTarget(plan *planning.Plan, result *Result, workload, organi
 	target := ref.Target
 	target.Namespace = namespace
 	return target, nil
+}
+
+// ErrClusterTarget reports a completed cluster whose identity does not match the plan pin.
+var ErrClusterTarget = errors.New("the created cluster does not match the planned account, region or name")
+
+// completeEKSTarget publishes the typed `cluster` output of a cluster created by a verified EKS module from
+// the completed opaque target, after proving it still equals the plan's AWS pin (original account and literal
+// region). It carries no endpoint, token, kubeconfig or path.
+func completeEKSTarget(descriptor string, pins []tfmodule.ProviderPin, result *execution.ProvisionResult) error {
+	target := *result.Target
+	if target.Provider != resource.K8sTargetProviderEKS {
+		return nil // an existing cluster publishes its own target
+	}
+	var aws *tfmodule.ProviderPin
+	for i := range pins {
+		if pins[i].Kind == tfmodule.BindingAWS {
+			aws = &pins[i]
+		}
+	}
+	if aws == nil || target.Connection != aws.ConnectionKey || target.Region != aws.Region || target.ClusterName == "" || aws.AccountVersion < 1 {
+		return ErrClusterTarget
+	}
+	if result.Outputs == nil {
+		result.Outputs = map[string]any{}
+	}
+	result.Outputs[resource.ClusterTargetOutput] = target.ClusterOutput(descriptor, aws.AccountVersion)
+	return nil
+}
+
+// ErrClusterNotUsable is the fixed public failure of a cluster that exists but cannot serve consumers.
+var ErrClusterNotUsable = errors.New("the cluster is not usable yet: API authentication, authorisation, network access or Ready node capacity failed")
+
+// publicClusterError keeps the fixed category and drops everything else.
+func publicClusterError(err error) error {
+	for _, category := range []error{execution.ErrClusterUnreachable, execution.ErrClusterAuth, execution.ErrClusterForbidden, execution.ErrClusterNoCapacity, execution.ErrClusterNotReady} {
+		if errors.Is(err, category) {
+			return fmt.Errorf("%w: %w", ErrClusterNotUsable, category)
+		}
+	}
+	return ErrClusterNotUsable
 }

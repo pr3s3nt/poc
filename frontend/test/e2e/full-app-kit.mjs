@@ -41,6 +41,7 @@ export function namespaceLookupResult(result) {
   throw new Error('namespace lookup failed; absence is not proven');
 }
 
+
 export function v2ctl(input, ...args) {
   return execFileSync(input.v2ctl, args, { encoding: 'utf8', env: { PATH: process.env.PATH }, stdio: ['ignore', 'pipe', 'pipe'] });
 }
@@ -93,8 +94,7 @@ export function technical(input) {
     async redis(deployment, ...command) {
       const rd = pickByImage(await this.statefulsets(), 'redis')[0];
       if (!rd) throw new Error('no Redis StatefulSet');
-      const user = await resolvedEnv(deployment, 'REDIS_USERNAME');
-      const password = await resolvedEnv(deployment, 'REDIS_PASSWORD');
+      const [user, password] = await Promise.all([resolvedEnv(deployment, 'REDIS_USERNAME'), resolvedEnv(deployment, 'REDIS_PASSWORD')]);
       return this.redisAs(rd, user, password, ...command);
     },
     async redisAs(statefulSet, user, password, ...command) {
@@ -123,12 +123,10 @@ export function recordAppSecret(input, name, value) {
 
 /** Builds the page-level helpers every full-application scenario shares. */
 export function makeKit(ctx) {
-  const { page, h, context, x11, caption, phase, mark, rec, baseURL, input, forwarders, evidenceDir } = ctx;
+  const { page, h, context, x11, caption, phase, rec, baseURL, input, forwarders, evidenceDir } = ctx;
+  const mark = ctx.mark ?? (() => {});
   const nav = (name) => page.getByRole('link', { name: new RegExp(`(^|\\s)${name}$`) });
-  const get = async (path) => {
-    const response = await page.request.get(`${baseURL}/api/v1${path}`);
-    return requiredJSON(response, path);
-  };
+  const get = async (path) => requiredJSON(await page.request.get(`${baseURL}/api/v1${path}`), path);
   const wrapped = new Set(['Loại tài nguyên', 'Module đã kiểm chứng', 'Tài khoản hạ tầng', 'Bundle dựng ứng dụng', 'Cluster đích của provider kubernetes', 'Class cluster EKS của provider kubernetes', 'Tài khoản Internal của cluster']);
   const form = (name, scope = page) => (wrapped.has(name)
     ? scope.locator(`select[aria-label="${name}"], label:has-text("${name}") > select`).first()
@@ -172,7 +170,8 @@ export function makeKit(ctx) {
     await h.click(page.getByRole('button', { name: 'Đăng xuất', exact: true }));
     await expect(page.getByLabel('Tên đăng nhập', { exact: true })).toBeVisible();
   }
-  const deploy = () => h.click(page.getByRole('button', { name: 'Triển khai các thay đổi này', exact: true }));
+  // The AWS harness supplies a deploy() that records the Preview's Terraform run ID in the private manifest first.
+  const deploy = ctx.deploy ?? (() => h.click(page.getByRole('button', { name: 'Triển khai các thay đổi này', exact: true })));
   async function backToApplication(name = input.applicationName) {
     const heading = page.getByRole('heading', { name });
     for (let i = 0; i < 5 && !(await heading.isVisible()); i += 1) await h.click(page.getByRole('button', { name: /^←/ }).first());
@@ -266,7 +265,7 @@ export function makeKit(ctx) {
   };
   const platform = v2steps({ page, h, caption, phase, rec, baseURL, input });
   return {
-    ...ctx, nav, get, form, alertBox, optionLabel, choose, noLeak, assertNoViolations, apiSetup, appPath, tech, signIn, signOut, deploy, backToApplication, openApplication,
-    openSettings, saveVariable, editVariable, leaveSettings, importScore, addWorkloadFromScore, editWorkloadFromScore, scorePreview, pendingPreview, deployAndWait, openLatestDeploymentDetail, platform, variablesSection, context, x11, mark, forwarders,
+    ...ctx, mark, nav, get, form, alertBox, optionLabel, choose, noLeak, assertNoViolations, apiSetup, appPath, tech, signIn, signOut, deploy, backToApplication, openApplication,
+    openSettings, saveVariable, editVariable, leaveSettings, importScore, addWorkloadFromScore, editWorkloadFromScore, scorePreview, pendingPreview, deployAndWait, openLatestDeploymentDetail, platform, variablesSection, context, x11, forwarders,
   };
 }

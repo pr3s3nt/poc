@@ -39,8 +39,7 @@ const (
 
 // Reasons of other stages.
 const (
-	ReasonLegacyInfrastructure = "legacy-infrastructure-reference"
-	ReasonUnconfigured         = "environment-unconfigured"
+	ReasonUnconfigured = "environment-unconfigured"
 	// Renderer selection reasons (UC-05 BR-09): no workload rendering
 	// Definition matches, several tie, or the selected one is unusable.
 	ReasonRendererNoMatch     = "renderer-no-match"
@@ -97,17 +96,16 @@ var (
 		ReasonBeforeMismatch:     "scoreBefore does not match the current Deployment Set for this workload; refresh it from the currently deployed Score",
 	}
 	reasonMessages = map[string]string{
-		ReasonLegacyInfrastructure: "a Resource Definition references the application-scoped VPC/EKS; ask a platform engineer to use the @infra token (for example vpc.default#@infra)",
-		ReasonUnconfigured:         "the Environment has no execution connection; set one in Environment Settings",
-		ReasonRendererNoMatch:      "no workload rendering template (score-k8s Definition) matches this workload for the Environment profile; ask a platform engineer to register one",
-		ReasonRendererAmbiguous:    "several workload rendering templates (score-k8s Definitions) match this workload equally; ask a platform engineer to leave exactly one",
-		ReasonRendererUnavailable:  "the workload rendering template needs a score-k8s bundle that is not installed; ask a platform engineer to check the platform release",
-		ReasonResourceNoMatch:      "a resource of this Score, or a resource it needs such as the Kubernetes cluster, matches no Resource Definition for this Application and Environment; ask a platform engineer to register one",
-		ReasonResourceAmbiguous:    "several Resource Definitions match a resource of this Score equally, so none was chosen; ask a platform engineer to leave exactly one most specific Definition",
-		ReasonResourceConflict:     "two Score or Definition sources declare the same resource with different params; make them identical or use different resource ids",
-		ReasonPlacement:            "the workload or resource target cannot be resolved from Resource Definitions: a namespace or cluster reference is missing, contradictory or backed by an unavailable Driver Account; ask a platform engineer to check the Definitions",
-		ReasonRetiredTarget:        "this Environment carries a retired internal deployment connection from an older baseline; internal placement now comes from Resource Definitions, so the baseline must be recreated",
-		ReasonMultiCluster:         "this Environment resolves more than one Kubernetes cluster; multiple clusters in one Environment are not supported yet",
+		ReasonUnconfigured:        "the Environment has no execution connection; set one in Environment Settings",
+		ReasonRendererNoMatch:     "no workload rendering template (score-k8s Definition) matches this workload for the Environment profile; ask a platform engineer to register one",
+		ReasonRendererAmbiguous:   "several workload rendering templates (score-k8s Definitions) match this workload equally; ask a platform engineer to leave exactly one",
+		ReasonRendererUnavailable: "the workload rendering template needs a score-k8s bundle that is not installed; ask a platform engineer to check the platform release",
+		ReasonResourceNoMatch:     "a resource of this Score, or a resource it needs such as the Kubernetes cluster, matches no Resource Definition for this Application and Environment; ask a platform engineer to register one",
+		ReasonResourceAmbiguous:   "several Resource Definitions match a resource of this Score equally, so none was chosen; ask a platform engineer to leave exactly one most specific Definition",
+		ReasonResourceConflict:    "two Score or Definition sources declare the same resource with different params; make them identical or use different resource ids",
+		ReasonPlacement:           "the workload or resource target cannot be resolved from Resource Definitions: a namespace or cluster reference is missing, contradictory or backed by an unavailable Driver Account; ask a platform engineer to check the Definitions",
+		ReasonRetiredTarget:       "this Environment carries a retired internal deployment connection from an older baseline; internal placement now comes from Resource Definitions, so the baseline must be recreated",
+		ReasonMultiCluster:        "this Environment resolves more than one Kubernetes cluster; multiple clusters in one Environment are not supported yet",
 	}
 	stageMessages = map[Stage]string{
 		StageScore:       "the Score does not satisfy the registered Resource Type contracts (unregistered type, invalid params or unknown resource output)",

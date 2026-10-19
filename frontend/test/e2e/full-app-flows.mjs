@@ -139,7 +139,7 @@ export async function registerK8sModuleDefinition(kit, spec) {
 }
 
 /** Workload rendering template: literal bundle + whole namespace/cluster references (+ optional companion rule). */
-export async function registerWorkloadTemplate(kit, { id, bundle, companion }) {
+export async function registerWorkloadTemplate(kit, { id, bundle, companion, clusterRef }) {
   const { page, h, nav, form, get } = kit;
   await h.click(nav('Mẫu dựng ứng dụng'));
   await expect(page.getByRole('heading', { name: 'Mẫu dựng ứng dụng', level: 1, exact: true })).toBeVisible();
@@ -147,7 +147,12 @@ export async function registerWorkloadTemplate(kit, { id, bundle, companion }) {
   await h.type(form('Tên hiển thị'), 'Mẫu dựng ứng dụng đầy đủ (score-k8s)');
   await expect(form('Bundle dựng ứng dụng')).toHaveValue(bundle);
   await h.click(page.getByRole('button', { name: 'Dùng gợi ý namespace', exact: true }));
-  await h.click(page.getByRole('button', { name: 'Dùng gợi ý cluster', exact: true }));
+  if (clusterRef) {
+    // An EKS cluster the plan itself creates: the author states the reference to the cluster RESOURCE of class eks.
+    await h.type(page.getByLabel('Tham chiếu cluster', { exact: true }), clusterRef, { replace: true });
+  } else {
+    await h.click(page.getByRole('button', { name: 'Dùng gợi ý cluster', exact: true }));
+  }
   if (companion) {
     await h.click(page.getByRole('button', { name: '+ Thêm tài nguyên đi kèm', exact: true }));
     await h.type(page.getByLabel('Descriptor tài nguyên đi kèm 1', { exact: true }), companion.descriptor);
@@ -168,6 +173,15 @@ export async function configureEnvironment(kit, { config, secretName, secretValu
   await putKeys(h, input.applicationName, entries, { secretStore: storeKey });
 }
 
+/** Live technical GET through the same real browser/frontend as the UI. No HTTP cache or fallback data. */
+export async function readAppJSON(page, path) {
+  return page.evaluate(async (route) => {
+    const response = await fetch(route, { cache: 'no-store', signal: AbortSignal.timeout(15_000) });
+    if (response.status !== 200) throw new Error(`acceptance frontend API returned HTTP ${response.status}`);
+    return response.json();
+  }, path);
+}
+
 /** Opens the real frontend through a managed port-forward (re-established after every rollout) and returns { app, ah, forwarding }. */
 export async function openFrontend(kit, serviceName = 'frontend') {
   const { context, input, forwarders } = kit;
@@ -175,7 +189,7 @@ export async function openFrontend(kit, serviceName = 'frontend') {
   const forwarding = createForwardManager({ ...input.kube, namespace: input.namespace, service: serviceName, remotePort: input.servicePort ?? 8080, localPort: input.forwardPort }, { forwarders, start: startPortForward, healthy });
   await forwarding.connect('the frontend Service to answer through the port-forward');
   const app = await context.newPage();
-  const ah = createHuman(app, { selectNative: kit.selectNative });
+  const ah = createHuman(app, { selectNative: kit.selectNative, fast: kit.h.fast === true });
   await app.goto(`${forwarding.url}/`);
   await expect(app.getByRole('heading', { name: 'Acceptance application' })).toBeVisible();
   await ah.showCursor();
@@ -219,3 +233,85 @@ export async function submitJob(ah, app, payload) {
 export const cacheKeyOf = (input, jobId) => `acceptance:v1:${input.applicationKey}:staging:${input.runId}:job:${jobId}`;
 
 export { execFileSync, readFileSync, safeError, kubeFlags, v2ctl };
+
+/**
+ * AWS account upload (V01 UI): masked key fields, "Vùng kiểm tra" is probe evidence only. The Definitions, not the account or the
+ * Environment, state the literal deployment region. Returns the stored account key.
+ */
+export async function onboardAwsAccount(kit, aws) {
+  const { page, h, nav, get, rec, noLeak, assertNoViolations } = kit;
+  await h.click(nav('Tài khoản hạ tầng'));
+  await expect(page.getByRole('heading', { name: 'Tài khoản hạ tầng', level: 1, exact: true })).toBeVisible();
+  const create = () => page.getByRole('group', { name: 'Đăng ký tài khoản mới' });
+  await h.click(create().getByLabel('AWS', { exact: true }));
+  const keyField = create().getByLabel('Access key ID', { exact: true });
+  const secretField = create().getByLabel('Secret access key', { exact: true });
+  await expect(keyField).toHaveAttribute('type', 'password');
+  await expect(secretField).toHaveAttribute('type', 'password');
+  await h.type(create().getByLabel('Tên tài khoản', { exact: true }), aws.name, { replace: true });
+  await h.paste(keyField, aws.accessKeyId);
+  await h.paste(secretField, aws.secretAccessKey);
+  await h.type(create().getByLabel('Vùng kiểm tra', { exact: true }), aws.region, { replace: true });
+  expect(await page.locator('body').innerText(), 'key material must not be visible').not.toContain(aws.secretAccessKey);
+  const response = await responseFromAction(page, (r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/v1/driver-accounts/aws',
+    () => h.click(create().getByRole('button', { name: 'Kiểm tra và lưu', exact: true })), { timeout: 180_000 });
+  const text = await response.text();
+  if (text.includes(aws.secretAccessKey) || text.includes(aws.accessKeyId)) throw new Error('the registration response echoed key material');
+  if (response.status() !== 201) throw new Error(`AWS account registration was refused (HTTP ${response.status()})`);
+  assertNoViolations();
+  const body = JSON.parse(text);
+  const listed = ((await get('/driver-accounts')).accounts ?? []).find((a) => a.key === body.key);
+  rec.record('ui.account.ready', 'PREPARE', 'ui', listed?.status === 'READY' && listed.type === 'AWS' && listed.version === 1, `AWS account ${body.key} ${listed?.status} v${listed?.version}; key fields cleared; the verification region is evidence, not a deployment region`);
+  expect(await keyField.inputValue()).toBe('');
+  expect(await secretField.inputValue()).toBe('');
+  await noLeak('aws account page');
+  await h.read('Tài khoản AWS đã được kiểm tra và sẵn sàng; hai ô khóa đã được xóa');
+  return body.key;
+}
+
+/**
+ * Registers one authored catalog entry (definition-catalog.json) through the Resource Definition form. AWS entries choose the
+ * Driver Account by name and type the literal region; Kubernetes entries bind their provider to the cluster RESOURCE of the
+ * entry's class. A relation is only ever a resource reference or a provider binding: there is no separate dependency field.
+ */
+export async function registerCatalogDefinition(kit, entry, { accountName, region, subs }) {
+  const { page, h, choose, get } = kit;
+  const section = page.getByRole('region', { name: 'Đăng ký cấu hình tài nguyên', exact: true });
+  const form = (name) => kit.form(name, section);
+  const { applyOverrideValue, decodeCatalogOverride } = await import('./terraform-v2-steps.mjs');
+  await h.type(form('ID cấu hình (Definition ID)'), entry.id);
+  await h.type(form('Tên hiển thị'), entry.id);
+  await choose(form('Loại tài nguyên'), entry.type);
+  await expect(form('Loại tài nguyên')).toHaveValue(entry.type);
+  const pins = form('Module đã kiểm chứng');
+  if (await pins.isEnabled()) await choose(pins, entry.module);
+  await expect(pins).toContainText(entry.module);
+  if (entry.provider === 'aws') {
+    await choose(form('Tài khoản hạ tầng'), accountName);
+    await h.type(form('Vùng AWS'), region);
+  }
+  const inputMapping = section.getByRole('button', { name: 'Ghép đầu vào theo tên trùng', exact: true });
+  if (await inputMapping.isVisible()) await h.click(inputMapping);
+  await h.click(section.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
+  if (entry.provider === 'kubernetes') {
+    await choose(form('Cluster đích của provider kubernetes'), 'Cluster do node');
+    await h.choose(section.getByLabel(/^Class cluster EKS của provider /), entry.clusterClass);
+  }
+  if (entry.presetName) await h.click(section.getByRole('button', { name: `Dùng preset cho ${entry.presetName}`, exact: true }));
+  if (entry.presetNamespace) await h.click(section.getByRole('button', { name: 'Dùng preset cho namespace', exact: true }));
+  for (const [name, encoded] of entry.overrides ?? []) {
+    await h.click(form(`Ghi đè ${name}`));
+    await applyOverrideValue(h, form(`Giá trị ${name}`), decodeCatalogOverride(encoded, subs));
+  }
+  if (entry.klass && entry.klass !== 'default') {
+    await h.click(section.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
+    await h.type(form('Điều kiện 1 Class'), entry.klass);
+  } else if (entry.klass === 'default') {
+    await h.click(section.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
+    await h.type(form('Điều kiện 1 Class'), 'default');
+  }
+  await h.pause(SHORT_READ);
+  await h.click(section.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true }));
+  await expect(section.getByRole('status').filter({ hasText: `Đã đăng ký cấu hình tài nguyên ${entry.id}.` })).toBeVisible();
+  return (await get('/resource-definitions')).resourceDefinitions.find((d) => d.key === entry.id);
+}

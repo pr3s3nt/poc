@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"orchestrator/internal/application/envops"
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/platform/ids"
@@ -236,34 +235,9 @@ func (s *Service) SetConnection(ctx context.Context, cmd SetConnectionCommand) (
 		if !eligible(cmd.OrganizationKey, conn) {
 			return fieldError(connectionKeyField, ErrTargetNotReady, targetUnavailableMsg)
 		}
-		if conn.Kind == appdomain.ConnectionKubernetes {
-			return fieldError(connectionKeyField, ErrDeploymentConnectionRetired, "internal placement comes from Resource Definitions; an Environment no longer selects a Kubernetes connection")
-		}
-		if env.Configured() {
-			exists, err := envops.HasRuntime(ctx, s.store, cmd.OrganizationKey, env)
-			if err != nil {
-				return err
-			}
-			if exists {
-				return ErrRuntimeExists
-			}
-		}
-		profile, region, status := appdomain.ProfileAWSEKS, conn.ConfigString("region"), appdomain.RuntimePending
-		bound, err := s.store.BindEnvironment(ctx, persistence.EnvironmentBinding{
-			ApplicationKey: cmd.ApplicationKey, EnvironmentKey: cmd.EnvironmentKey, ConnectionKey: conn.Key,
-			Profile: profile, Region: region, RuntimeStatus: status, Scope: environment.ScopeEnvironment,
-			Generation: env.TargetGeneration, ExpectedVersion: cmd.ExpectedVersion,
-		})
-		switch {
-		case errors.Is(err, persistence.ErrVersionConflict):
-			return ErrStaleVersion
-		case errors.Is(err, persistence.ErrNotFound):
-			return fieldError(connectionKeyField, ErrTargetNotReady, targetUnavailableMsg)
-		case err != nil:
-			return err
-		}
-		out = bound
-		return nil
+		// ADR-016 / ADR-017: placement comes from Resource Definitions and typed references, and every AWS Definition names its own
+		// Driver Account and region. An Environment never selects a deployment Connection, whatever its kind.
+		return fieldError(connectionKeyField, ErrDeploymentConnectionRetired, "placement comes from Resource Definitions and accounts; an Environment no longer selects a deployment connection")
 	})
 	return out, err
 }

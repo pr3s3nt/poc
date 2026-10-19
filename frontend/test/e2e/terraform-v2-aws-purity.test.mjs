@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { assetsFromArns, previewPurityProof } from './terraform-v2-aws.mjs';
+import { assertOwnedTechnicalPod, kubernetesNotFound } from './terraform-v2-aws-definitions.mjs';
 
 const repositories = ['frontend', 'backend', 'worker'].map((name) =>
   `arn:aws:ecr:us-east-1:452025861381:repository/poc-m04-a02-20261015-r3-${name}`);
@@ -44,5 +45,24 @@ describe('AWS preview purity proof', () => {
     expect(proof({ panelText: 'Bí mật not configured' }).noKeyMaterial).toBe(true);
     expect(proof({ panelText: 'preview AKIAABCDEFGHIJKLMNOP' }).noKeyMaterial).toBe(false);
     expect(proof({ panelText: 'preview synthetic-secret-key-for-test-only' }).noKeyMaterial).toBe(false);
+  });
+});
+
+describe('technical Pod lifecycle guards', () => {
+  const labels = { 'run-id': 'run-a', 'managed-by': 'orchestrator-verification', 'app.kubernetes.io/component': 'technical-probe' };
+  const owned = { metadata: { namespace: 'run-ns', name: 'tech-a', uid: 'uid-a', labels } };
+
+  it('accepts only the exact namespace, name, UID and run labels before deletion', () => {
+    expect(() => assertOwnedTechnicalPod(owned, 'run-ns', 'tech-a', 'uid-a', labels)).not.toThrow();
+    expect(() => assertOwnedTechnicalPod({ ...owned, metadata: { ...owned.metadata, uid: 'replacement-uid' } }, 'run-ns', 'tech-a', 'uid-a', labels)).toThrow('identity changed');
+    expect(() => assertOwnedTechnicalPod({ ...owned, metadata: { ...owned.metadata, namespace: 'foreign' } }, 'run-ns', 'tech-a', 'uid-a', labels)).toThrow('identity changed');
+    expect(() => assertOwnedTechnicalPod({ ...owned, metadata: { ...owned.metadata, labels: { ...labels, 'run-id': 'foreign' } } }, 'run-ns', 'tech-a', 'uid-a', labels)).toThrow('run labels changed');
+  });
+
+  it('accepts only API-confirmed NotFound as absence', () => {
+    expect(kubernetesNotFound({ code: 1, stderr: 'Error from server (NotFound): pods "tech-a" not found' })).toBe(true);
+    expect(kubernetesNotFound({ code: 0, stderr: '' })).toBe(false);
+    expect(() => kubernetesNotFound({ code: 1, stderr: 'Forbidden' })).toThrow('did not prove');
+    expect(() => kubernetesNotFound({ code: 1, stderr: 'connection timeout' })).toThrow('did not prove');
   });
 });

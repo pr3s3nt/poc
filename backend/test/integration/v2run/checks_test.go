@@ -164,7 +164,13 @@ func TestMarksAndAssertionsMustCoverTheScenarioWithLiveProof(t *testing.T) {
 	if err := v2run.ValidateMarks("A01", marks); err != nil {
 		t.Fatal(err)
 	}
-	if err := v2run.ValidateMarks("E01", []v2run.Mark{marks[0], marks[1], marks[2], marks[7]}); err != nil {
+	if err := v2run.ValidateMarks("E01", []v2run.Mark{marks[0], marks[1], marks[2], marks[8]}); err != nil {
+		t.Fatal(err)
+	}
+	if err := v2run.ValidateMarks("V05", append(append([]v2run.Mark(nil), marks[:7]...), marks[8])); err == nil {
+		t.Fatal("V05 without the UPDATE phase accepted")
+	}
+	if err := v2run.ValidateMarks("V05", marks); err != nil {
 		t.Fatal(err)
 	}
 	if err := v2run.ValidateMarks("A01", marks[:7]); err == nil {
@@ -181,7 +187,7 @@ func TestMarksAndAssertionsMustCoverTheScenarioWithLiveProof(t *testing.T) {
 		t.Fatal("a mark without a Vietnamese caption was accepted")
 	}
 
-	for _, scenario := range []string{"A01", "E01", "E02", "A02", "A03"} {
+	for _, scenario := range []string{"A01", "E01", "E02", "A02", "A03", "V05"} {
 		var as []v2run.Assertion
 		for _, id := range v2run.RequiredAssertions(scenario) {
 			as = append(as, v2run.Assertion{ID: id, Phase: "READY", Pass: true, Source: "ui"})

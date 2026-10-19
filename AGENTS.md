@@ -134,6 +134,12 @@ tests ngoại lệ để thay thế. Giữ product guards, secret không lộ, o
 cleanup bảo vệ shared/preexisting resources. Focused checks theo impact, reuse
 nguồn/config/environment/assertions không đổi; không fullsuite checkpoint.
 Khi chỉ chờ runtime quan sát15phút/lần, sớm khi error/completion/user request.
+Quyết định bổ sung19-10 cho issue4: nghiệm thu bằng browser E2E chạy nhanh,
+không bắt buộc thao tác chậm/cursor/pause mô phỏng người, recording, captions,
+video review/upload/player/download. Giữ assertions nghiệp vụ, technical reads,
+secret protection, automated checks theo impact và ownership/API cleanup.
+Lượt đã khởi chạy theo chế độ cũ được hoàn tất/tái sử dụng; không rerun chỉ để
+đổi chế độ evidence.
 Các quy trình writer dưới đây là lịch sử, không ghi đè quyết định này.
 
 ## Codex điều phối và Claude thực hiện code — lịch sử

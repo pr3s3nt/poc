@@ -1,6 +1,6 @@
 import { Button } from '../../shared/ui/Button';
 import type { Capability } from './capabilities';
-import { bindingProviders, inputCompatible, outputCompatible, sameNameInputs, sameNameOutputs, type BindingDraft, type MappingDraft, type MappingProblem, type TypeContract } from './moduleMapping';
+import { bindingProviders, platformOutput, inputCompatible, outputCompatible, sameNameInputs, sameNameOutputs, type BindingDraft, type MappingDraft, type MappingProblem, type TypeContract } from './moduleMapping';
 
 type Props = {
   capability: Capability;
@@ -46,6 +46,7 @@ export function MappingEditor({ capability, type, clusterClasses, draft, onChang
       <div className="section-header"><div><h4>Đầu ra: output module → output của Loại</h4><p className="feature-note">Phải đủ các output bắt buộc, đúng kiểu. Cờ bí mật của Loại hoặc module được giữ; không thể hạ cờ bí mật khi ánh xạ.</p></div>
         <Button type="button" tone="quiet" disabled={disabled} onClick={() => onChange({ ...draft, outputs: sameNameOutputs(capability, type) })}>Ghép đầu ra theo tên trùng</Button></div>
       {type.outputs.map((output) => {
+        if (platformOutput(capability, output.name)) return <p key={output.name} className="feature-note">Output <code>{output.name}</code> do nền tảng cung cấp từ danh tính cluster đã tạo; không ánh xạ từ output module.</p>;
         const taken = usedOutputs(output.name);
         const options = capability.outputs.filter((candidate) => outputCompatible(output.type, candidate.type) && !taken.has(candidate.name));
         const problem = problemFor(`output:${output.name}`);

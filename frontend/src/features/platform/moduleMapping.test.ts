@@ -11,6 +11,13 @@ const capability = (module: string) => {
 const type = (key: string) => typeFixture.find((candidate) => candidate.key === key);
 
 describe('module mapping rules mirror the backend contract', () => {
+  it('accepts the platform-produced typed cluster without requiring a Terraform output mapping', () => {
+    const eks = capability('eks');
+    const contract = { key: 'k8s-cluster', classes: ['eks'], inputs: [], outputs: [{ name: 'cluster', type: 'any', required: true }] };
+    expect(mappingProblems(emptyMapping(), eks, contract)).toEqual([]);
+    expect(sameNameOutputs(eks, contract)).toEqual({});
+  });
+
   it('checks input and output compatibility like tfmodule (unknown defers to binding time)', () => {
     expect(inputCompatible('string', 'string')).toBe(true);
     expect(inputCompatible('string', 'number')).toBe(false);

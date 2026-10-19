@@ -84,8 +84,9 @@ func EKSSystemPods() []Pod {
 }
 
 // AcceptancePods are the three workloads (Score requests of the acceptance
-// documents) plus the in-cluster Redis when the scenario has one.
-func AcceptancePods(redis bool) []Pod {
+// documents) plus the in-cluster Redis and, for V05, the in-cluster PostgreSQL
+// when the scenario has them.
+func AcceptancePods(redis bool, postgres ...bool) []Pod {
 	pods := []Pod{
 		{Name: "backend", Replicas: 1, Counted: true, CPUm: 50, MemoryMi: 64},
 		{Name: "worker", Replicas: 1, Counted: true, MemoryMi: 48},
@@ -93,6 +94,9 @@ func AcceptancePods(redis bool) []Pod {
 	}
 	if redis {
 		pods = append(pods, Pod{Name: "redis", Replicas: 1, Counted: true, CPUm: 100, MemoryMi: 128})
+	}
+	if len(postgres) > 0 && postgres[0] {
+		pods = append(pods, Pod{Name: "postgres", Replicas: 1, Counted: true, CPUm: 100, MemoryMi: 256})
 	}
 	return pods
 }
@@ -155,10 +159,10 @@ func CheckAWSScenario(scenario, instanceType string) (CapacityResult, error) {
 	if !ok {
 		return CapacityResult{}, fmt.Errorf("unknown instance type %q (known: %s)", instanceType, strings.Join(knownNames(), ", "))
 	}
-	if scenario != "A02" && scenario != "A03" {
-		return CapacityResult{}, fmt.Errorf("capacity gate applies to A02 and A03, not %q", scenario)
+	if !IsAWSScenario(scenario) {
+		return CapacityResult{}, fmt.Errorf("capacity gate applies to V05, A02 and A03, not %q", scenario)
 	}
-	pods := append(EKSSystemPods(), AcceptancePods(scenario == "A03")...)
+	pods := append(EKSSystemPods(), AcceptancePods(scenario == "A03" || scenario == "V05", scenario == "V05")...)
 	res := CheckCapacity(inst, 1, pods)
 	return res, nil
 }

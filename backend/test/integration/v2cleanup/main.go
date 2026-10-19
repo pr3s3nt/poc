@@ -53,9 +53,8 @@ func options(h v2run.CleanupHandles) (bootstrap.Options, error) {
 	seedOpts.Profile, seedOpts.Catalog = seed.ProfileAcceptanceV2, seed.CatalogNone
 	seedOpts.OrganizationKey, seedOpts.ApplicationKey, seedOpts.EnvironmentKey = h.OrganizationKey, h.ApplicationKey, h.EnvironmentKey
 	seedOpts.NamespaceIdentity, seedOpts.RunID = h.NamespaceIdentity, h.RunID
-	if h.Adapters == "aws" {
-		seedOpts.AccountID, seedOpts.Region = v2run.AWSAccountID, v2run.AWSRegion
-	}
+	// ADR-017: no process-wide account or region exists. The safety net rebuilds exactly the wiring of the product (which seeds no
+	// profile-bound cloud Application) and reaches every AWS node through its ORIGINAL pinned account and region.
 	return bootstrap.Options{
 		Seed: seedOpts, Adapters: adapterMode(h), DatabaseURL: databaseURL, TerraformStateDatabaseURL: stateURL,
 		KubectlPath: h.Kubectl, TerraformPath: h.Terraform, ScoreK8sPath: h.ScoreK8s, RequireScoreRenderer: true, GitPath: h.Git,

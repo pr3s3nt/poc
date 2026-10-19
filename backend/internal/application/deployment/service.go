@@ -408,11 +408,6 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 			if err := s.markUnreferenced(ctx, cmd.OrganizationKey, record.ID, plan.UnreferencedResources); err != nil {
 				return err
 			}
-			if env.Profile == appdomain.ProfileAWSEKS && env.RuntimeStatus != appdomain.RuntimeReady {
-				if err := s.store.UpdateRuntimeStatus(ctx, app.Key, env.Key, appdomain.RuntimeReady); err != nil {
-					return err
-				}
-			}
 		}
 		finished := s.clock.Now()
 		record.Status = domain.StatusSucceeded
@@ -881,7 +876,7 @@ func withPlacement(ref map[string]any, placement planning.Placement) map[string]
 		"cluster": placement.Cluster, "clusterDefinition": placement.ClusterDefinition,
 		"clusterDefinitionVersion": float64(placement.ClusterDefinitionVersion),
 		"account":                  placement.Account, "accountVersion": float64(placement.AccountVersion),
-		"namespace": placement.Namespace,
+		"namespace": placement.Namespace, "provider": placement.Provider, "region": placement.Region,
 	}
 	return ref
 }
@@ -921,7 +916,7 @@ func (s *Service) checkAppliedPlacement(ctx context.Context, planCtx planning.Co
 			continue
 		}
 		text := func(key string) string { v, _ := applied[key].(string); return v }
-		if text("cluster") != want.Cluster || text("account") != want.Account || text("namespace") != want.Namespace {
+		if text("cluster") != want.Cluster || text("account") != want.Account || text("namespace") != want.Namespace || text("provider") != want.Provider || text("region") != want.Region {
 			return ErrTargetChanged
 		}
 	}
@@ -996,23 +991,13 @@ func restoreEnvironmentTarget(target *execution.Target, ref map[string]any, orga
 	if err := restoreTarget(target, ref, organizationKey); err != nil {
 		return err
 	}
-	if !env.Configured() {
-		// Definition-placed (ADR-016): the persisted workload target is the
-		// only source; it must name a scoped account, never a host default.
-		if target.Connection == "" {
-			return fmt.Errorf("deployment: workload target has no scoped account")
-		}
-		return nil
+	if env.Configured() {
+		// A deployment Connection on an Environment is a retired baseline (ADR-017): the persisted workload target is the only source.
+		return fmt.Errorf("deployment: the Environment carries a retired deployment connection")
 	}
-	if target.Connection != "" && target.Connection != env.ConnectionKey {
-		return fmt.Errorf("deployment: workload target uses a connection other than the environment connection")
-	}
-	if env.Profile == appdomain.ProfileAWSEKS {
-		if target.Provider != "eks" || target.Region != env.Region {
-			return fmt.Errorf("deployment: workload target does not match the pinned EKS environment")
-		}
-	} else if target.Provider != "" {
-		return fmt.Errorf("deployment: workload target provider does not match the Environment profile")
+	// Definition-placed: the persisted workload target must name a scoped account, never a host default.
+	if target.Connection == "" {
+		return fmt.Errorf("deployment: workload target has no scoped account")
 	}
 	return nil
 }

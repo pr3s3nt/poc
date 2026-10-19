@@ -18,6 +18,24 @@ describe('Preview target provenance (ADR-016)', () => {
     expect(document.body.textContent).not.toMatch(/kubeconfig|token|secret/i);
   });
 
+  it('shows an EKS cluster created in the same execution with its own account and region and no live endpoint (ADR-017)', () => {
+    render(<Placements placements={[
+      { node: 'workload.default#modules.web', cluster: 'k8s-cluster.eks#environments.shop.dev', clusterDefinition: 'cluster-eks', clusterDefinitionVersion: 1, account: 'aws-a', accountVersion: 5, namespace: 'k8s-namespace.default#environments.shop.dev', source: 'workload-reference', provider: 'eks', region: 'us-east-1' },
+    ]} />);
+    const rows = within(screen.getByLabelText('Đích triển khai của từng thành phần')).getAllByRole('row');
+    expect(rows[1]).toHaveTextContent('EKS tạo trong lần triển khai này');
+    expect(rows[1]).toHaveTextContent('aws-a (v5)');
+    expect(rows[1]).toHaveTextContent('us-east-1');
+    expect(screen.getByText(/chưa tồn tại lúc xem trước: endpoint, xác thực và trạng thái Ready chỉ có sau khi tạo/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/https:\/\/|kubeconfig|token|secret/i);
+  });
+
+  it('shows the producing account and region on a Kubernetes provider bound to a cluster the plan creates', () => {
+    render(<ResourceIntents intents={[{ descriptor: 'postgres.in-cluster#shared.db', resourceType: 'postgres', class: 'in-cluster', scope: 'SHARED', ownership: 'ORCHESTRATOR', intent: 'CREATE', definitionKey: 'pg', driverType: 'terraform',
+      providers: [{ name: 'kubernetes', kind: 'kubernetes', target: 'resource', provider: 'k8s-cluster.eks#environments.shop.dev', connectionKey: 'aws-a', region: 'us-east-1' }] }]} />);
+    expect(screen.getByText(/kubernetes: cluster do node k8s-cluster\.eks#environments\.shop\.dev cung cấp · tài khoản aws-a · vùng us-east-1/)).toBeInTheDocument();
+  });
+
   it('renders nothing when the plan has no placements (legacy or AWS plans)', () => {
     const { container } = render(<Placements placements={[]} />);
     expect(container).toBeEmptyDOMElement();

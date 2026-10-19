@@ -57,3 +57,28 @@ func TestRegisterEKSDefinitionRequiresExplicitIPv4HostAllowlist(t *testing.T) {
 		t.Errorf("whole placeholder: %v", err)
 	}
 }
+
+// ADR-017: a cluster created by a verified EKS module registers with a Resource Type whose typed `cluster` output
+// is required but produced by the platform. A module output can never be mapped onto it.
+func TestRegisterEKSDefinitionLeavesTheTypedClusterOutputToThePlatform(t *testing.T) {
+	ctx := context.Background()
+	st, svc, opts := seededCatalog(t, withRegistry)
+	if err := st.SaveResourceType(ctx, opts.OrganizationKey, resource.Type{Key: "k8s-cluster", Outputs: []resource.OutputField{{Name: "name", Type: "string"}, {Name: "cluster", Type: "any", Required: true}}}); err != nil {
+		t.Fatal(err)
+	}
+	register := func(key string, mapping map[string]any) error {
+		def := seededDefinition(t, opts, "cluster-aws-eks")
+		def.Key = key
+		def.Criteria = []resource.Criterion{{Class: key}}
+		def.DriverInputs["values"].(map[string]any)["output_mapping"] = mapping
+		_, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, def)
+		return err
+	}
+	if err := register("eks-platform-target", map[string]any{"name": "name"}); err != nil {
+		t.Fatalf("a cluster Definition that maps only the name must register: %v", err)
+	}
+	err := register("eks-module-target", map[string]any{"name": "name", "endpoint": "cluster"})
+	if !errors.Is(err, catalog.ErrInvalid) {
+		t.Fatalf("a module output mapped onto the platform-owned target must be refused: %v", err)
+	}
+}

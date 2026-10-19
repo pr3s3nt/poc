@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -76,79 +75,6 @@ func contractValue(t *testing.T, plan *Plan, definitionKey, input string) any {
 	return nil
 }
 
-func TestPlan_NewAWSEnvironmentsGetDistinctInfrastructureIdentity(t *testing.T) {
-	staging, err := NewService(testBundles()).Plan(scopedAWSRequest(t, "pay", "staging"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	production, err := NewService(testBundles()).Plan(scopedAWSRequest(t, "pay", "production"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for envKey, plan := range map[string]*Plan{"staging": staging, "production": production} {
-		vpc, eks := nodeByType(t, plan, TypeVPC, ""), nodeByType(t, plan, TypeCluster, ClassEKS)
-		if vpc.Descriptor != "vpc.default#environments.pay."+envKey || eks.Descriptor != "k8s-cluster.eks#environments.pay."+envKey {
-			t.Fatalf("%s descriptors = %s %s", envKey, vpc.Descriptor, eks.Descriptor)
-		}
-		if vpc.Scope.Type != resource.ScopeEnvironment || vpc.Scope.ID != "pay."+envKey || eks.Scope.Type != resource.ScopeEnvironment {
-			t.Fatalf("%s scope = %+v %+v", envKey, vpc.Scope, eks.Scope)
-		}
-		// Cloud names isolate Environments sharing one account and region.
-		for _, definition := range []string{"vpc-aws", "cluster-aws-eks"} {
-			want := Context{App: scopedAWSRequest(t, "pay", envKey).App, Env: scopedAWSRequest(t, "pay", envKey).Env, RunID: seedOptions().RunID}.ResourceName()
-			if got := contractValue(t, plan, definition, "name"); got != want {
-				t.Fatalf("%s %s name = %v, want %s", envKey, definition, got, want)
-			}
-		}
-	}
-	if staging.PlanHash == production.PlanHash {
-		t.Fatal("distinct Environments must not share a plan hash")
-	}
-	// The EKS consumer reaches the VPC through @infra, not the legacy path.
-	eks := nodeByType(t, staging, TypeCluster, ClassEKS)
-	edges := 0
-	for _, e := range staging.Graph.Edges {
-		if e.Consumer == eks.Descriptor && e.Provider == "vpc.default#environments.pay.staging" {
-			edges++
-		}
-	}
-	if edges == 0 {
-		t.Fatalf("EKS must depend on its own Environment VPC: %v", staging.Graph.Edges)
-	}
-	for _, n := range staging.Graph.Nodes {
-		if strings.Contains(n.Descriptor, "#applications.") {
-			t.Fatalf("new scope must not create an application-scoped node: %s", n.Descriptor)
-		}
-	}
-}
-
-func TestPlan_AuroraResolvesInfrastructureGraphThroughInfraToken(t *testing.T) {
-	req := scopedAWSRequest(t, "pay", "staging")
-	plan, err := NewService(testBundles()).Plan(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	aurora := nodeByType(t, plan, "postgres", "")
-	if plan.Matches[aurora.Descriptor].DefinitionKey != "postgres-aws-aurora" {
-		t.Fatalf("aurora match = %+v", plan.Matches[aurora.Descriptor])
-	}
-	found := false
-	for _, e := range plan.Graph.Edges {
-		if e.Consumer == aurora.Descriptor && e.Provider == "vpc.default#environments.pay.staging" {
-			found = true
-		}
-		if e.Consumer == aurora.Descriptor && strings.Contains(e.Provider, "applications.") {
-			t.Fatalf("aurora depends on the legacy VPC: %v", e)
-		}
-	}
-	if !found {
-		t.Fatalf("aurora must depend on the Environment VPC: %v", plan.Graph.Edges)
-	}
-	if name := fmt.Sprint(contractValue(t, plan, "postgres-aws-aurora", "name")); name != (Context{App: req.App, Env: req.Env, RunID: seedOptions().RunID}).ResourceName() || !strings.HasPrefix(name, "orch-pay-staging-") {
-		t.Fatalf("aurora name = %s", name)
-	}
-}
-
 func TestPlan_RejectsEveryNonEnvironmentScopeWithoutEchoingIt(t *testing.T) {
 	for _, bad := range []environment.InfrastructureScope{"LEGACY_APPLICATION", "APPLICATION", "Env-Scope", "Prod"} {
 		for _, profile := range []application.ExecutionProfile{application.ProfileAWSEKS, application.ProfileInternalK8s} {
@@ -174,31 +100,6 @@ func TestPlan_RejectsEveryNonEnvironmentScopeWithoutEchoingIt(t *testing.T) {
 	plan, err := NewService(testBundles()).Plan(req)
 	if err != nil || plan.Target.Scope != environment.ScopeEnvironment {
 		t.Fatalf("unset scope: plan=%v err=%v", plan, err)
-	}
-}
-
-func TestPlan_HardcodedApplicationInfrastructureReferenceFails(t *testing.T) {
-	req := scopedAWSRequest(t, "pay", "staging")
-	defs := append([]resource.Definition(nil), req.Catalog.Definitions...)
-	for i, def := range defs {
-		if def.Key != "cluster-aws-eks" {
-			continue
-		}
-		variables := map[string]any{}
-		for k, v := range def.Variables() {
-			variables[k] = v
-		}
-		variables["subnet_ids"] = "${resources['vpc.default#applications.pay'].outputs.subnetIds}"
-		defs[i].DriverInputs = map[string]any{"values": map[string]any{"source": def.DriverValues()["source"], "variables": variables}}
-	}
-	req.Catalog.Definitions = defs
-	_, err := NewService(testBundles()).Plan(req)
-	var staged *StageError
-	if !errors.Is(err, ErrLegacyInfrastructureReference) || !errors.As(err, &staged) || staged.Reason != ReasonLegacyInfrastructure {
-		t.Fatalf("the hardcoded reference must be rejected with guidance: %v", err)
-	}
-	if message, ok := PublicMessage(err); !ok || !strings.Contains(message, "@infra") {
-		t.Fatalf("public message = %q", message)
 	}
 }
 
@@ -411,26 +312,5 @@ func TestResourceName_GenerationZeroIdentityUnchangedAndLaterGenerationsIsolated
 		if generation > 0 && path != "environments.pay.production"+environment.GenerationScopeSuffix(generation) {
 			t.Fatalf("generation %d path = %s", generation, path)
 		}
-	}
-}
-
-func TestPlan_RealUUIDLongRunNamesAreBoundedInEveryAWSDefinition(t *testing.T) {
-	req := scopedAWSRequest(t, uuidApp, "production")
-	req.RunID = longRun
-	plan, err := NewService(testBundles()).Plan(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := resourceNameContext(uuidApp, "production", longRun, environment.ScopeEnvironment).ResourceName()
-	for _, definition := range []string{"vpc-aws", "cluster-aws-eks", "postgres-aws-aurora"} {
-		got := fmt.Sprint(contractValue(t, plan, definition, "name"))
-		if got != want || len(got) > 49 || len(got+"-cluster") > 63 || len(got+"-writer") > 63 || got[0] < 'a' || got[0] > 'z' {
-			t.Fatalf("%s name = %q, want %q", definition, got, want)
-		}
-	}
-	// Descriptors and scopes stay the readable full-key identity, not the hash.
-	vpc := nodeByType(t, plan, TypeVPC, "")
-	if vpc.Descriptor != "vpc.default#environments."+uuidApp+".production" || vpc.Scope.ID != uuidApp+".production" {
-		t.Fatalf("identity changed: %+v", vpc)
 	}
 }

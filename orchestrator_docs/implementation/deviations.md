@@ -268,3 +268,106 @@ immutability, retired-snapshot refusal and current account/target contracts.
 Fresh real-PG role/baseline/reopen/registration checks and final broad regression
 are required; do not migrate/reset retained stores. S5 remains unapplied until
 replacement coverage passes. V04 active source is unaffected.
+
+## V05 runtime defect — platform-produced cluster output mapping (2026-10-19)
+
+Canonical ADR-017/module contract and catalog validation correctly reserve the
+k8s-cluster Type output `cluster` for the platform, never a Terraform module
+mapping. V05 live UI incorrectly demanded a mapping for every required Type
+output, so EKS Definition registration was blocked before provisioning. Fix the
+Web Console mapping guidance/editor to mirror that existing special output
+contract; do not fabricate a module output or change planner/catalog rules.
+Existing server planning tests already cover platform production; add positive
+UI mapping coverage and run affected frontend checks before retry. Preserve the
+failed run/video and verify exact ECR/API/local cleanup before fresh run.
+
+V05 R3 exposed a second UI catalog defect after the output fix: creating the EKS
+Definition adds class `eks` to computed Resource Type metadata, but the page only
+reloaded Definitions, leaving the namespace provider class selector empty.
+Reload authoritative Type metadata after successful create/update as well; do
+not invent selectable classes or force a hidden value. Verify fresh class appears
+in positive UI test and actual headed scenario before retrying infrastructure.
+
+V05 R4 reached full authored Preview; unknown-cluster assertion incorrectly
+matched the word `endpoint` in the explanatory UI sentence saying access data
+is unavailable until creation. Check actual placement JSON for endpoint/token/
+kubeconfig properties and URLs, alongside exact provider/account/region/reference
+pins; prose mentioning an unavailable output is not a leaked output value.
+Retain mandatory assertion and secret scanning. No product behavior change.
+
+V05 R5 passed all12 setup/Preview assertions. Runner then navigated back to the
+Application before clicking Deploy, clearing the transient Preview panel and its
+confirmation button. Remove that redundant navigation; deploy from the verified
+Preview on the same page, matching the existing UI contract and V04 kit flow.
+Product code unchanged; keep failed evidence/cleanup and all required assertions.
+
+R6 corrected the earlier incomplete diagnosis: graph assertions additionally
+opened the standalone Score Preview route after Pending Preview; removing only
+back navigation left the browser on Score Preview, which has no Deploy button.
+Order Score Preview graph inspection first, return to Application, then create/
+verify Pending Preview last and Deploy without route changes. All graph/purity/
+identity assertions retained. R5 navigation fix alone was insufficient; failures
+and cleanup evidence remain recorded, no repeated retry on unchanged source.
+
+V05 R7 actual Deploy stopped at VPC PLANNING. Native verified registry/runner
+read-only reproduction fails AWS plugin schema handshake; direct plan with same
+module/vars/key passes. Re-running the exact native CLI invocation changing only
+TMPDIR to a short owned directory passes. Deep evidence/cache/work TMPDIR exceeds
+Unix-socket path limits. Fix runner temporary transport directory ownership and
+cleanup/retention, preserving verified binary/module/state/credential isolation.
+Keep a private pointer in invocation workspace for retained recovery; confirmed
+Close cleans it, unconfirmed process retains it. Extend existing positive scrubbed
+environment test with actual socket bind/private mode/Close absence, and run real
+provider readonly plan plus affected runner/executor/cleanup checks before retry.
+
+### V05 R8 — platform cluster output checked before platform completion (2026-10-19)
+
+Actual EKS apply reached OUTPUTS/FAILED/OUTPUT_CONTRACT after VPC READY.
+ADR-017 correctly reserves typed `cluster` for platform completion from pinned
+AWS identity, after module outputs; module mapping cannot author it. Provisioning
+passed the full Type (including required platform `cluster`) into Terraform
+module validation before completeEKSTarget could publish it. Existing service
+fake did not enforce this intermediate contract. Fix the caller projection for
+the EKS module only: module contract retains all module fields, platform output
+is validated by the unchanged full Type after completion. Do not weaken full
+Type/mapping/identity/readiness checks or alter module pins. Existing positive
+same-execution service test will assert both intermediate module validation and
+unchanged canonical required cluster contract; focused checks and retry pending.
+
+### V05 R11 — CSI derived volume after original cluster destroy (2026-10-20 local)
+
+Original Terraform reverse destroy completed, but native EKS layer absence found
+one available1GiB PostgreSQLCSI volume. Supervisor correctly blocked laterlayers
+and retained recovery. Exact originalmanifest cluster/run namespace/PVC/PVUID/
+creation/state/attachment/account proof enabled one exact nativeAPI deletion and
+NotFound proof; remaining steps resumed with original binaries/deadline. Operator
+cleanup needs that guarded derived-volume reconciliation before unchanged EKS
+absence verification. Do not weaken verifier or remove finalizers/force detach.
+No product/cloud scope or general ownership bypass added.
+
+### V05 prepared restart assertion — historical worker attribution
+
+Self-review of AWS acceptance runner found that the post-restart persisted-job
+assertion matched processed_by against newly rolled out worker Pods. Completed
+job attribution correctly remains the original worker, whose Pod may be gone.
+Compare the complete stored original job fields and UI row against original
+observations/recorded worker UID. Independently require the new post-restart job
+to be processed by a current worker Pod/UID. No product behavior or weaker
+persistence requirement; keep both old attribution and current-worker proof.
+R12 source36 is frozen; defer its stop until original provision/readiness
+completes to avoid interrupting an in-flight Terraform write, then original
+supervisor cleanup. Do not count this intentionally stopped run as app PASS.
+
+### V05 R13 post-cleanup reopen — resource-list projection
+
+R13 real46/46main assertions, original native cleanup/status all8steps and
+CLOSED_CLEAN passed, but final reader expected5Terraforminstances in the public
+Environment resources list. Current resource-list implementation excludes cluster entries;
+changing delete/list eligibility is outside this fix. Preserve all5-instance
+status/identity/module proof with labelled read-only SQL technical inventory after
+restart, and check the API's4-row projection separately. Current fixture returned
+all5mock rows, hiding the mismatch. Correct its positive shape, keep existing
+negative tests, add no replacement exception tests. Preserve safe actual snapshot/
+counts on failure and retain original DB/private for read-only diagnosis if reopen
+fails, rather than discarding the only persisted evidence. R13 originalFAIL stays;
+independent API/SQL/process/private closurePASS, no old result relabelled.

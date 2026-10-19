@@ -44,7 +44,7 @@ func validateRealProfile(opts Options) error {
 		"AWSVerifierOverride": opts.AWSVerifierOverride != nil, "ConnectionCredentialsOverride": opts.ConnectionCredentialsOverride != nil,
 		"RendererOverride": opts.RendererOverride != nil, "DeployerOverride": opts.DeployerOverride != nil,
 		"StoreRegistryOverride": opts.StoreRegistryOverride != nil, "SecretStoreVerifierOverride": opts.SecretStoreVerifierOverride != nil,
-		"CleanupEngineOverride": opts.CleanupEngineOverride != nil,
+		"CleanupEngineOverride": opts.CleanupEngineOverride != nil, "ClusterReadinessOverride": opts.ClusterReadinessOverride != nil,
 	}
 	for name, set := range overrides {
 		if set {

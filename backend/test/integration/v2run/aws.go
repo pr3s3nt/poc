@@ -76,12 +76,13 @@ var ecrRequiredActions = []string{
 }
 
 // RequiredAWSActions returns the product-module capability set plus the ECR
-// actions used by image preparation and exact cleanup. Product permissions are
+// actions used by image preparation and exact derived-volume cleanup. Product permissions are
 // owned by awsaccess.RequiredActions so connection verification and execution
 // preflight cannot drift apart.
 func RequiredAWSActions() []string {
 	seen := make(map[string]struct{})
 	actions := append(awsaccess.RequiredActions(), ecrRequiredActions...)
+	actions = append(actions, "ec2:DescribeVolumes", "ec2:DeleteVolume")
 	for _, action := range actions {
 		seen[action] = struct{}{}
 	}
@@ -471,7 +472,8 @@ func verifyAWSIdentity(ctx context.Context, cli AWSCLI, c Config) error {
 // instances (namespace, Aurora/ElastiCache, EKS, VPC) are destroyed in reverse
 // dependency order by ONE original-engine pass (v2cleanup terraform); the later
 // layers then each verify physical absence by exact IDs, exact linkage and the
-// run tag. No step deletes with the AWS CLI or kubectl, and no step unlocks.
+// run tag. Only exact owned technical Pods, ECR repositories and orphan CSI
+// volumes have guarded operator reconciliation; no step unlocks Terraform.
 func AWSCleanupSteps(ctl, cleanup, manifestPath, handlesPath, configPath, vaultSnapshotPath string, c Config) []Step {
 	env := map[string]string{"V2_AWS_BINARY": c.Binaries["aws"].Path}
 	for k, v := range map[string]string{"AWS_SHARED_CREDENTIALS_FILE": c.AWS.SharedCredentialsFile, "AWS_CONFIG_FILE": c.AWS.ConfigFile, "AWS_PROFILE": c.AWS.Profile} {
@@ -497,7 +499,8 @@ func AWSCleanupSteps(ctl, cleanup, manifestPath, handlesPath, configPath, vaultS
 		step(LayerDelivery, "delivery", budgets.Delivery-probeBudget),
 		step(LayerAppResources, "terraform", budgets.Terraform),
 		step(LayerNamespace, "status", budgets.Status),
-		step(LayerEKS, "status", budgets.Status),
+		{Name: LayerEKS, Layer: LayerEKS, Env: env, Timeout: Duration{Duration: budgets.Status}, MaxAttempts: 2, Guard: guard,
+			Argv: []string{ctl, "aws-ebs-clean", "-config", configPath, "-manifest", manifestPath}, Verify: verify(LayerEKS)},
 		step(LayerVPC, "status", budgets.Status),
 		{Name: "ecr-repositories", Layer: LayerAux, Env: env, Timeout: Duration{Duration: ecrBudget}, MaxAttempts: 2, Guard: guard,
 			Argv:   []string{ctl, "aws-ecr-clean", "-config", configPath, "-manifest", manifestPath},

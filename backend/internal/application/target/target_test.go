@@ -36,56 +36,22 @@ func newStore(t *testing.T) *store.Store {
 	return st
 }
 
-func TestResolveRequiresAConsistentReadyTarget(t *testing.T) {
+func TestResolveRefusesEveryConfiguredEnvironmentAsARetiredBaseline(t *testing.T) {
 	st := newStore(t)
-	good := environment.Environment{Key: "staging", ApplicationKey: "app", ConnectionKey: "lab", Profile: application.ProfileInternalK8s, RuntimeStatus: application.RuntimeReady, InfrastructureScope: environment.ScopeEnvironment}
-	aws := environment.Environment{Key: "production", ApplicationKey: "app", ConnectionKey: "cloud", Profile: application.ProfileAWSEKS, Region: "eu-west-1", RuntimeStatus: application.RuntimePending, InfrastructureScope: environment.ScopeEnvironment}
-	with := func(base environment.Environment, mutate func(*environment.Environment)) environment.Environment {
-		mutate(&base)
-		return base
-	}
 	cases := []struct {
 		name string
 		env  environment.Environment
 		want error
 	}{
 		{"unconfigured", environment.Environment{Key: "staging", ApplicationKey: "app"}, target.ErrUnconfigured},
-		// ADR-016: an Environment no longer targets a Kubernetes connection; such a row is a retired baseline.
-		{"retired internal profile", good, target.ErrInconsistent},
-		{"aws pending", aws, nil},
-		{"kubernetes profile on an AWS connection", with(good, func(e *environment.Environment) { e.ConnectionKey = "cloud" }), target.ErrInconsistent},
-		{"aws profile on a Kubernetes connection", with(aws, func(e *environment.Environment) { e.ConnectionKey = "lab" }), target.ErrInconsistent},
-		{"aws without a pinned region", with(aws, func(e *environment.Environment) { e.Region = "" }), target.ErrInconsistent},
-		{"aws pinned region differs from the connection", with(aws, func(e *environment.Environment) { e.Region = "us-east-1" }), target.ErrInconsistent},
-		{"aws multi-region default", with(aws, func(e *environment.Environment) { e.ConnectionKey, e.Region = "multi", "us-east-1" }), nil},
-		{"aws multi-region second allowed region", with(aws, func(e *environment.Environment) { e.ConnectionKey, e.Region = "multi", "eu-west-1" }), nil},
-		{"aws multi-region unlisted region", with(aws, func(e *environment.Environment) { e.ConnectionKey, e.Region = "multi", "ap-south-1" }), target.ErrInconsistent},
-		{"aws malformed allowedRegions does not fall back to region", with(aws, func(e *environment.Environment) { e.ConnectionKey, e.Region = "badlist", "eu-west-1" }), target.ErrInconsistent},
-		{"unknown profile", with(aws, func(e *environment.Environment) { e.Profile = "gcp" }), target.ErrInconsistent},
-		{"unconfigured status on a bound row", with(aws, func(e *environment.Environment) { e.RuntimeStatus = application.RuntimeUnconfigured }), target.ErrInconsistent},
-		{"unknown scope", with(aws, func(e *environment.Environment) { e.InfrastructureScope = "SHARED" }), target.ErrInconsistent},
-		{"retired scope", with(aws, func(e *environment.Environment) { e.InfrastructureScope = "LEGACY_APPLICATION" }), target.ErrInconsistent},
-		{"unset scope reads as ENVIRONMENT", with(aws, func(e *environment.Environment) { e.InfrastructureScope = "" }), nil},
-		{"connection not ready", with(aws, func(e *environment.Environment) { e.ConnectionKey = "awsverifying" }), target.ErrConnectionNotReady},
+		{"retired internal profile", environment.Environment{Key: "staging", ApplicationKey: "app", ConnectionKey: "lab", Profile: application.ProfileInternalK8s, RuntimeStatus: application.RuntimeReady, InfrastructureScope: environment.ScopeEnvironment}, target.ErrInconsistent},
+		{"retired aws profile", environment.Environment{Key: "production", ApplicationKey: "app", ConnectionKey: "cloud", Profile: application.ProfileAWSEKS, Region: "eu-west-1", RuntimeStatus: application.RuntimePending, InfrastructureScope: environment.ScopeEnvironment}, target.ErrInconsistent},
 	}
 	for _, tc := range cases {
 		conn, err := target.Resolve(context.Background(), st, "acme", tc.env)
-		if tc.want == nil {
-			if err != nil || conn.Key != tc.env.ConnectionKey {
-				t.Fatalf("%s: %v %+v", tc.name, err, conn)
-			}
-			continue
+		if !errors.Is(err, tc.want) || conn.Key != "" {
+			t.Fatalf("%s: err = %v conn = %+v, want %v", tc.name, err, conn, tc.want)
 		}
-		if !errors.Is(err, tc.want) {
-			t.Fatalf("%s: err = %v, want %v", tc.name, err, tc.want)
-		}
-		if tc.want != target.ErrUnconfigured && conn.Key != "" {
-			t.Fatalf("%s: a connection was returned with the error", tc.name)
-		}
-	}
-	// A connection of another Organization is never resolved.
-	if _, err := target.Resolve(context.Background(), st, "globex", good); err == nil {
-		t.Fatal("foreign organization resolved a connection")
 	}
 }
 

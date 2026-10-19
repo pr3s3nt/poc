@@ -162,6 +162,30 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     expect(gets.some((url) => url.endsWith('/connections'))).toBe(false);
   });
 
+  it('refreshes computed cluster classes after creating a Definition so the next provider can select it', async () => {
+    const user = userEvent.setup();
+    const { state } = backend({ types: typeFixture.map((type) => type.key === 'k8s-cluster' ? { ...type, classes: [] } : type) });
+    await ready();
+    await completeDefinition(user, { id: 'new-eks', type: 'k8s-cluster' });
+    await overrideValue(user, 'kubernetes_version', '1.35');
+    await overrideValue(user, 'node_ami_type', 'AL2023_ARM_64_STANDARD');
+    await overrideValue(user, 'node_capacity_type', 'SPOT');
+    await overrideValue(user, 'node_disk_size', '20');
+    await overrideValue(user, 'node_instance_type', 't4g.medium');
+    await overrideValue(user, 'public_access_cidrs', '["203.0.113.10/32"]');
+    state.post = () => {
+      state.types = typeFixture.map((type) => type.key === 'k8s-cluster' ? { ...type, classes: ['eks'] } : type);
+      return Response.json({}, { status: 201 });
+    };
+    await submitDefinition(user);
+    await screen.findByText('Đã đăng ký cấu hình tài nguyên new-eks.');
+    await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
+    await user.selectOptions(field('Cluster đích của provider kubernetes'), 'resource');
+    await waitFor(() => expect(within(field('Class cluster EKS của provider kubernetes')).getByRole('option', { name: 'eks' })).toBeInTheDocument());
+    await user.selectOptions(field('Class cluster EKS của provider kubernetes'), 'eks');
+    expect(field('Class cluster EKS của provider kubernetes')).toHaveValue('eks');
+  });
+
   it('EKS takes an explicit IPv4 /32 allowlist from the author: no default, no wide CIDR, no executor address', async () => {
     const user = userEvent.setup();
     const { posted } = backend();

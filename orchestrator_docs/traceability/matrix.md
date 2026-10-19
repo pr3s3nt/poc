@@ -941,15 +941,16 @@ Independent final Go1580/race526/frontend700tests and build/vet/type/lint pass,
 does not establish backend/jobs/cache behavior.
 
 
-## V04–V06 required coverage — implementation and acceptance pending
+## V04–V06 — design, implementation and gate evidence
 
-| Requirement | Canonical design | Required evidence (not yet PASS) |
+| Requirement | Canonical design | Verification mapping |
 |---|---|---|
-| UC-03/05/06/08 V04-01 | ADR-017 graph/reference/provision semantics; module/state contracts | Full-DAG flag/fixed-point/cycle/type tests; real main-flow full app shared PG/Redis/jobs/cache/persistence/reverse cleanup; intentional negatives removed from live gates19-10, existing tests retained |
-| UC-03/05/06/08 V05-01 | ADR-017 typed EKS identity; UC-06 cloud sequence; per-resource schema pins | Unknown→resolved output, original-account fresh auth/API/network/node readiness, real EKS app update/restart/reuse/API absence; no intentional live negatives19-10 |
-| UC-03/05/06/08 V06-01 | ADR-017 actual managed network dependencies/account isolation | Contract tests across accounts/regions; separate real A02 then clean then A03, actual managed jobs/cache and owned cleanup |
-| UC-06 V06-02 | ADR-017 replacement/removal gates | Reviewed separate V05.10/V06.08 removals only after replacement PASS; final impacted checks/runtime/stale-reference inventory |
+| UC-03/05/06/08 V04-01 | ADR-017 graph/reference/provision semantics; module/state contracts | V04 R18 complete/pushed5413fa1:54/54main assertions, full shared PG/Redis/jobs/cache/persistence/reverse cleanup; full/focused/race source-bound checks in handoff. Intentional live negatives removed19-10, existing tests retained |
+| UC-03/05/06/08 V05-01 | ADR-017 typed EKS identity; UC-06 cloud sequence; per-resource schema pins | V05 R14 source39 replacementPASS46/46: unknown→resolved EKS/auth/API/network/node readiness, full app/update/restart/reuse/native absence;5SQLDESTROYED/4APIrows/7deployments reopen. S3 retirement integrated afterPASS; finalGo1715/race218/build/vet and focusedhelpersPASS; no intentional live negatives19-10 |
+| UC-03/05/06/08 V06-01 | ADR-017 actual managed network dependencies/account isolation | S4/S5 prepared contract tests across accounts/regions and managed-only graph; focused reader delta checksPASS. Live A02→clean→A03 and final removal regression remain pending; no live V06PASS claimed |
+| UC-06 V06-02 | ADR-017 replacement/removal gates | S3 applied only after complete R14replacement and independent cleanupPASS; final impacted checks before V05commit. S5 still gated on A02/A03replacement; final schema/DTO/UI impact requires actual final A03 regression |
 
 Exact app-function→gate→UI/technical assertion→evidence→cleanup mapping is in
 [pre-code coverage map](../verification/2026-10-18-v040506-handoff.md).
-No implementation/test filenames or runtime PASS are claimed before review.
+Gate outcomes and reuse limits follow the dated handoff; prepared V06 code is
+not live acceptance evidence.

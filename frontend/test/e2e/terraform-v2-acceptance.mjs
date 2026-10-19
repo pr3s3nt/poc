@@ -1,5 +1,5 @@
 // Real Terraform v2 acceptance scenarios (M04 I04-10): V2-A01, V2-E01, V2-E02
-// (V2-A02/A03: AWS, terraform-v2-aws.mjs; live execution only after the I04-11 gate). Invoked by
+// (V05 and V2-A02/A03: AWS, terraform-v2-aws-definitions.mjs, Definition-driven). Invoked by
 // backend/test/integration/terraform-v2-acceptance.sh, which starts the REAL
 // product (planner -> pinned Terraform with encrypted PostgreSQL state ->
 // typed outputs and durable Vault Secret refs -> required pinned score-k8s ->
@@ -19,7 +19,7 @@ import { requireCaptionLocale, createCaptions } from './captions.mjs';
 import { createHuman, expectVisibleCursor, installCursor, putKeys } from './human.mjs';
 import { createRecorder, kubectlRunner, nonexistentDigest, pickByImage, readScenarioInputAfterGate, registryDigestStatus, safeError, startPortForward, waitFor } from './terraform-v2-lib.mjs';
 import { ACCEPTANCE, REDIS_ANNOTATION, SHORT_READ, steps } from './terraform-v2-steps.mjs';
-import { awsScenario } from './terraform-v2-aws.mjs';
+import { awsDefinitionScenario } from './terraform-v2-aws-definitions.mjs';
 import { launchHeaded, nativeSelect, screenSize, startRecording, stopRecording, x11Input } from './video.mjs';
 
 const FORBIDDEN_IN_PAGE = [/AKIA/, /vault:\/\//i, /tfstate/i, /kubeconfig/i, /secretRef/i, /\/var\/lib/, /\.terraform/, /recoveryPath/i, /BEGIN [A-Z ]*PRIVATE KEY/];
@@ -586,17 +586,21 @@ export const SCENARIOS = {
     await page.waitForTimeout(5000);
   },
 
-  async A02(ctx) { return awsScenario(ctx, 'A02', { v2ctl, recordNamespace, forbidden: FORBIDDEN_IN_PAGE }); },
-  async A03(ctx) { return awsScenario(ctx, 'A03', { v2ctl, recordNamespace, forbidden: FORBIDDEN_IN_PAGE }); },
+  // ADR-017 (V05): the Definition-driven AWS scenario; no Environment profile, Connection or binding exists in it.
+  async V05(ctx) { return awsDefinitionScenario(ctx, 'V05', { forbidden: FORBIDDEN_IN_PAGE }); },
+  // A02/A03 are delivered by the V06 patch (managed Aurora/ElastiCache per Definition account); the V05 gate never starts them.
+  async A02() { throw new Error('A02 is delivered by the V06 patch'); },
+  async A03() { throw new Error('A03 is delivered by the V06 patch'); },
 };
 
 export function parseArgs(argv) {
-  const args = { scenario: '', captions: '', evidence: '', headed: false, devHeadless: false };
+  const args = { scenario: '', captions: '', evidence: '', headed: false, devHeadless: false, browserOnly: false };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--scenario') args.scenario = argv[++i] ?? '';
     else if (argv[i] === '--captions') args.captions = argv[++i] ?? '';
     else if (argv[i] === '--evidence') args.evidence = argv[++i] ?? '';
     else if (argv[i] === '--headed') args.headed = true;
+    else if (argv[i] === '--browser-only') args.browserOnly = true;
     else if (argv[i] === '--dev-headless') args.devHeadless = true;
     else if (argv[i] === '--check') args.check = argv[++i] ?? '';
     else throw new Error(`unknown argument ${argv[i]}`);
@@ -613,8 +617,8 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.check !== undefined) { requireScenario(args.check); return; }
   const scenario = requireScenario(args.scenario);
-  if (!args.headed && !(args.devHeadless && process.env.ORCH_E2E_DEV_HEADLESS_OK === '1')) throw new Error('--headed is required: recordings use a headed browser');
-  requireCaptionLocale(args.captions);
+  if (!args.browserOnly && !args.headed && !(args.devHeadless && process.env.ORCH_E2E_DEV_HEADLESS_OK === '1')) throw new Error('--headed is required: recordings use a headed browser');
+  if (!args.browserOnly) requireCaptionLocale(args.captions);
   const env = process.env;
   for (const name of ['ORCH_E2E_URL', 'ORCH_E2E_EVIDENCE_DIR', 'ORCH_E2E_INPUT']) if (!env[name]) throw new Error(`${name} is required`);
   if (args.headed) for (const name of ['ORCH_E2E_XDOTOOL', 'DISPLAY']) if (!env[name]) throw new Error(`${name} is required`);
@@ -624,11 +628,12 @@ async function main() {
   const { width, height } = screenSize(env);
   const videoPath = `${evidenceDir}/${args.scenario}-raw.mp4`;
   const assertionsPath = `${evidenceDir}/assertions.txt`;
+  writeFileSync(`${evidenceDir}/browser-mode.json`, JSON.stringify({ browserOnly: args.browserOnly, headed: args.headed, recording: args.headed && !args.browserOnly, inputPacing: args.browserOnly ? 'Playwright actionability; no presentation pauses' : 'historical human-paced' }, null, 2));
 
   const browser = args.headed ? await launchHeaded({ width, height }) : await (await import('@playwright/test')).chromium.launch(env.ORCH_E2E_BROWSER_EXECUTABLE ? { executablePath: env.ORCH_E2E_BROWSER_EXECUTABLE } : {});
-  const context = await browser.newContext(args.headed ? { viewport: null } : {});
+  const context = await browser.newContext(args.headed ? { viewport: null } : { viewport: { width, height } });
   context.setDefaultTimeout(30_000);
-  await context.addInitScript(installCursor);
+  if (!args.browserOnly) await context.addInitScript(installCursor);
   const marks = [];
   const forwarders = [];
   // Every Preview names the Terraform run ID its Deploy will use. It is recorded in the private manifest BEFORE the Deploy click:
@@ -664,7 +669,7 @@ async function main() {
     } finally {
       const total = startedAt ? (Date.now() - startedAt) / 1000 : 0;
       writeFileSync(`${evidenceDir}/marks.json`, JSON.stringify(marks, null, 2));
-      if (startedAt) captions.writeSrt(`${evidenceDir}/captions.srt`, total);
+      if (startedAt && !args.browserOnly) captions.writeSrt(`${evidenceDir}/captions.srt`, total);
       writeFileSync(`${evidenceDir}/result.txt`, `${result}\n`);
       await browser.close();
     }
@@ -684,18 +689,18 @@ async function main() {
     const x11 = args.headed ? x11Input(env.ORCH_E2E_XDOTOOL) : undefined;
     if (x11) page.on('dialog', () => {}); // keep native confirmations open until an X11 key answers them
     const selectNative = x11 ? nativeSelect(x11) : undefined;
-    const h = createHuman(page, selectNative ? { selectNative } : {});
+    const h = createHuman(page, { selectNative, fast: args.browserOnly });
     await page.goto(`${baseURL}/ui/sign-in`);
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(1500);
-    if (x11) {
+    if (!args.browserOnly) await page.waitForTimeout(1500);
+    if (x11 && !args.browserOnly) {
       x11.focusBrowser();
       recorder = await startRecording({ display: env.DISPLAY, width, height, videoPath });
       startedAt = recorder.spawnedAtMs;
     } else {
       startedAt = Date.now();
     }
-    await page.waitForTimeout(1500);
+    if (!args.browserOnly) await page.waitForTimeout(1500);
     const stopPhase = args.devHeadless ? env.ORCH_E2E_DEV_STOP_PHASE : undefined; // development harness only: never set by the runner
     const phase = (name, text) => {
       if (stopPhase && name === stopPhase) throw new Error(`development stop at ${name}`);
@@ -706,7 +711,7 @@ async function main() {
       if (previewRuns.length === 0) throw new Error('Deploy without a recorded Preview run id');
       await h.click(page.getByRole('button', { name: 'Triển khai các thay đổi này', exact: true }));
     };
-    await scenario({ page, h, context, x11, selectNative, caption: captions.caption, phase, rec, baseURL, input, forwarders, evidenceDir, deploy });
+    await scenario({ browserOnly: args.browserOnly, page, h, context, x11, selectNative, caption: captions.caption, phase, rec, baseURL, input, forwarders, evidenceDir, deploy });
     result = 'PASS';
     console.log(`PASS: scenario ${args.scenario}`);
   } catch (error) {

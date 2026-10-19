@@ -182,7 +182,7 @@ var (
 	}
 	trustedReasons = map[string]bool{
 		planning.ReasonWorkloadExists: true, planning.ReasonWorkloadNotCurrent: true, planning.ReasonBeforeMismatch: true,
-		planning.ReasonLegacyInfrastructure: true, planning.ReasonUnconfigured: true,
+		planning.ReasonUnconfigured:    true,
 		planning.ReasonRendererNoMatch: true, planning.ReasonRendererAmbiguous: true, planning.ReasonRendererUnavailable: true,
 		planning.ReasonPlacement: true, planning.ReasonResourceConflict: true, planning.ReasonResourceNoMatch: true, planning.ReasonResourceAmbiguous: true, planning.ReasonMultiCluster: true, planning.ReasonTargetChanged: true,
 		// Allowlisted cleanup refusal reasons (OC-19).

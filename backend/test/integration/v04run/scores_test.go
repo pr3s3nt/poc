@@ -46,6 +46,56 @@ func TestBuildKeepsTheRepositoryScoreSourceIdentity(t *testing.T) {
 	}
 }
 
+func TestBuildAppliesTheRequestedTTLToBothRuntimeConsumers(t *testing.T) {
+	for _, ttl := range []int{17, 45} {
+		t.Run(fmt.Sprint(ttl), func(t *testing.T) {
+			o := options()
+			o.TTLSeconds = ttl
+			result, err := Build(o)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{"backend", "worker"} {
+				variables := workload(t, result, name).Document["containers"].(map[string]any)["main"].(map[string]any)["variables"].(map[string]any)
+				if variables["ACCEPTANCE_CACHE_TTL_SECONDS"] != "${resources.env.ACCEPTANCE_CACHE_TTL_SECONDS}" {
+					t.Fatalf("%s does not reference the shared TTL setting: %v", name, variables)
+				}
+			}
+			matches := 0
+			for _, config := range result.Config {
+				if config.Name == "ACCEPTANCE_CACHE_TTL_SECONDS" {
+					matches++
+					if config.Value != fmt.Sprint(ttl) {
+						t.Fatalf("TTL config = %+v, want %d", config, ttl)
+					}
+				}
+			}
+			if matches != 1 {
+				t.Fatalf("shared TTL config occurs %d times", matches)
+			}
+			foundDelta := false
+			for _, change := range result.Changes {
+				if change.Kind == "cache-ttl" && (change.Workload == "backend" || change.Workload == "worker") && strings.Contains(change.Detail, fmt.Sprint(ttl)) {
+					foundDelta = true
+				}
+			}
+			if !foundDelta {
+				t.Fatalf("the exact TTL delta is not recorded: %+v", result.Changes)
+			}
+		})
+	}
+}
+
+func TestBuildRejectsUnreasonableTTL(t *testing.T) {
+	for _, ttl := range []int{-1, 3601} {
+		o := options()
+		o.TTLSeconds = ttl
+		if _, err := Build(o); err == nil {
+			t.Fatalf("TTL %d was accepted", ttl)
+		}
+	}
+}
+
 func roundTrip(v any) any {
 	raw, _ := json.Marshal(v)
 	var out any
@@ -164,44 +214,6 @@ func TestBuildIsDeterministicAndRejectsIncompleteOptions(t *testing.T) {
 	}
 }
 
-func TestBuildAppliesTheRequestedTTLToBothRuntimeConsumers(t *testing.T) {
-	for _, ttl := range []int{17, 45} {
-		o := options()
-		o.TTLSeconds = ttl
-		result, err := Build(o)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, name := range []string{"backend", "worker"} {
-			variables := workload(t, result, name).Document["containers"].(map[string]any)["main"].(map[string]any)["variables"].(map[string]any)
-			if variables["ACCEPTANCE_CACHE_TTL_SECONDS"] != "${resources.env.ACCEPTANCE_CACHE_TTL_SECONDS}" {
-				t.Fatalf("%s does not reference the shared TTL setting: %v", name, variables)
-			}
-		}
-		matches := 0
-		for _, config := range result.Config {
-			if config.Name == "ACCEPTANCE_CACHE_TTL_SECONDS" {
-				matches++
-				if config.Value != fmt.Sprint(ttl) {
-					t.Fatalf("TTL config = %+v, want %d", config, ttl)
-				}
-			}
-		}
-		if matches != 1 {
-			t.Fatalf("shared TTL config occurs %d times", matches)
-		}
-		foundChange := false
-		for _, change := range result.Changes {
-			if change.Kind == "cache-ttl" && (change.Workload == "backend" || change.Workload == "worker") && strings.Contains(change.Detail, fmt.Sprint(ttl)) {
-				foundChange = true
-			}
-		}
-		if !foundChange {
-			t.Fatalf("the exact TTL delta is not recorded: %+v", result.Changes)
-		}
-	}
-}
-
 func TestGeneratedScoresParseAndConvertWithTheProductScoreParser(t *testing.T) {
 	result, err := Build(options())
 	if err != nil {
@@ -250,6 +262,32 @@ func TestProbeScoreRequestsTheRunOwnedReadinessFailureResource(t *testing.T) {
 	}
 	if strings.Contains(text, "ACCEPTANCE_SECRET") || strings.Contains(text, "acceptance-db") || strings.Contains(text, "Bad-Name") {
 		t.Fatal("the probe must neither use an application secret, a database, nor a pre-apply-invalid name")
+	}
+}
+
+func TestBuildCanOmitTheOptionalApplicationSecretForEKSTargets(t *testing.T) {
+	o := options()
+	o.OmitAppSecret = true
+	result, err := Build(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, w := range result.Workloads {
+		if strings.Contains(w.YAML, "ACCEPTANCE_SECRET") {
+			t.Fatalf("%s still references the optional secret:\n%s", w.Name, w.YAML)
+		}
+	}
+	for _, key := range result.Config {
+		if key.Kind == "secret" || key.Name == "ACCEPTANCE_SECRET_SHA256" {
+			t.Fatalf("the optional secret key %s must not be configured", key.Name)
+		}
+	}
+	// The database and cache credentials are never optional: they stay references to resource outputs.
+	backend := workload(t, result, "backend")
+	for _, want := range []string{"${resources.db.password}", "${resources.cache.password}", "${resources.env.ACCEPTANCE_CONFIG}"} {
+		if !strings.Contains(backend.YAML, want) {
+			t.Fatalf("backend lost %s", want)
+		}
 	}
 }
 

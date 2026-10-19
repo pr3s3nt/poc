@@ -181,6 +181,8 @@ type Options struct {
 	CleanupEngineOverride resourcecleanup.Engine
 
 	// Overrides replace individual adapters. Tests use them to inject failures.
+	// ClusterReadinessOverride replaces the cluster usability proof (test seam; refused by the real acceptance profile).
+	ClusterReadinessOverride   execution.ClusterReadiness
 	RegistryOverride           execution.ExecutorRegistry
 	KubeconfigVerifierOverride connection.KubeconfigVerifier
 	// AWSVerifierOverride replaces the AWS access-key verifier (tests and
@@ -414,6 +416,13 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	}
 	prov := provisioning.NewService(st, registry, secretStore, c)
 	prov.SetModuleVerifier(modules)
+	if opts.ClusterReadinessOverride != nil {
+		prov.SetClusterReadiness(opts.ClusterReadinessOverride, clusterReadyTimeout)
+	} else if opts.Adapters == AdapterKubernetes || opts.Adapters == AdapterAWS {
+		// ADR-017: a cluster (existing or created in this execution) must authenticate, authorise, be reachable
+		// from the executor network and have usable Ready node capacity before any consumer runs.
+		prov.SetClusterReadiness(&k8s.ClusterReady{KubectlPath: opts.KubectlPath, Credentials: kubeconfigSource}, clusterReadyTimeout)
+	}
 	inspector := planning.RegistryInspector{Metadata: modules}
 	deployments := appsvc.NewService(st, planner, prov, renderer, deployer, inspector, c)
 	if opts.Adapters == AdapterKubernetes {
@@ -765,6 +774,9 @@ func outputSecretStore(opts Options, durableState bool) (execution.SecretStore, 
 // FakeRenderBundleID is the render bundle the fake adapters install. It carries the
 // ID of the real score-k8s bundle so Definitions authored for either run unchanged.
 const FakeRenderBundleID = "score-k8s-internal-v1"
+
+// clusterReadyTimeout bounds the usability proof of one completed cluster (ADR-017).
+const clusterReadyTimeout = 10 * time.Minute
 
 // fakeBundleRenderer is the fake adapters' renderer: the native renderer behind a
 // deterministic, clearly fake bundle. It exists only for AdapterFake, which touches

@@ -3,6 +3,7 @@ package runner_test
 import (
 	"context"
 	"errors"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -319,6 +320,27 @@ func TestFakeCLIEnvironmentIsScrubbed(t *testing.T) {
 	}
 	if !strings.Contains(text, "TF_DATA_DIR=") || !strings.Contains(text, "TF_IN_AUTOMATION=1") {
 		t.Fatalf("missing runner variables:\n%s", text)
+	}
+	var providerTmp string
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(line, "TMPDIR=") {
+			providerTmp = strings.TrimPrefix(line, "TMPDIR=")
+		}
+	}
+	info, err := os.Stat(providerTmp)
+	if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
+		t.Fatalf("provider temporary directory is not private: %v", err)
+	}
+	listener, err := net.Listen("unix", filepath.Join(providerTmp, "provider-handshake.sock"))
+	if err != nil {
+		t.Fatalf("provider socket cannot bind in temporary directory: %v", err)
+	}
+	_ = listener.Close()
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(providerTmp); !os.IsNotExist(err) {
+		t.Fatal("confirmed Close retained provider temporary directory")
 	}
 }
 

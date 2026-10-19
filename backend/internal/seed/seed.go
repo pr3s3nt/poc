@@ -1,7 +1,6 @@
-// Package seed registers the Phase 6 catalog: Resource Types, Resource
-// Definitions, Connections, Applications and Environments. Both Execution
-// Profiles are registered, so a single process can serve an internal-k8s and an
-// aws-eks Application and matching can tell them apart by profile.
+// Package seed registers fixture catalogs and initial identities for local,
+// test and isolated acceptance modes. Seed modes are harness choices; product
+// placement comes from Resource Definitions and resource references.
 package seed
 
 import (
@@ -91,8 +90,9 @@ type Options struct {
 	PlatformModules map[string]tfmodule.SourceRef
 }
 
-// CloudConfig holds the cost-driven choices of the aws-eks profile. The
-// verification harness fills it after a pricing lookup.
+// CloudConfig holds cost-driven fixture values used to seed AWS Definitions.
+// The verification harness fills them after a pricing lookup; they are not an
+// Environment deployment target.
 type CloudConfig struct {
 	VPCCidr             string
 	KubernetesVersion   string
@@ -636,15 +636,6 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		Subdomain:       "acceptance",
 		Version:         1,
 	}
-	cloud := application.Application{
-		ID:              ids.New(),
-		Key:             o.CloudApplicationKey,
-		OrganizationKey: o.OrganizationKey,
-		Name:            o.CloudApplicationName,
-		Subdomain:       "acceptance-cloud",
-		Version:         1,
-	}
-
 	// Each acceptance Environment is bound once with explicit ENVIRONMENT
 	// infrastructure scope (ADR-011).
 	type appEnv struct {
@@ -655,11 +646,6 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		binding *persistence.EnvironmentBinding
 	}
 	pairs := []appEnv{{app: internal, namespace: o.NamespaceIdentity}}
-	if o.Region != "" {
-		// The cloud Application is only usable once a region is configured.
-		pairs = append(pairs, appEnv{app: cloud, namespace: o.CloudNamespaceIdentity, binding: &persistence.EnvironmentBinding{
-			ConnectionKey: o.CloudConnectionKey, Profile: application.ProfileAWSEKS, Region: o.Region, RuntimeStatus: application.RuntimePending, Scope: environment.ScopeEnvironment}})
-	}
 
 	for _, pair := range pairs {
 		if existing, err := store.GetApplication(ctx, pair.app.Key); err == nil {

@@ -66,7 +66,7 @@ func ECRRepositoryNames(c Config) map[string]string {
 // local image and verifies the registry's immutable manifest digest.
 func PrepareECRImages(ctx context.Context, aws AWSCLI, docker DockerCLI, c Config, manifestPath string) (ECRPublication, error) {
 	var result ECRPublication
-	if c.Target != TargetAWS || c.AWS == nil || c.Scenario != "A02" && c.Scenario != "A03" {
+	if c.Target != TargetAWS || c.AWS == nil || !IsAWSScenario(c.Scenario) {
 		return result, errors.New("ECR image preparation requires an AWS acceptance run")
 	}
 	m, err := LoadManifest(manifestPath)

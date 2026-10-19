@@ -127,6 +127,12 @@ type Placement struct {
 	Account                  string `json:"account"`
 	AccountVersion           int64  `json:"accountVersion"`
 	Namespace                string `json:"namespace,omitempty"`
+	// Provider says how the cluster exists: an existing-cluster Definition with an Internal
+	// account, or a verified Terraform EKS module (ADR-017). Region is the literal AWS region
+	// of an EKS producer. For a not-yet-created cluster the endpoint and readiness are unknown
+	// at planning time; only this identity is pinned.
+	Provider string `json:"provider,omitempty"`
+	Region   string `json:"region,omitempty"`
 	// Source says where the target came from: a workload reference or a
 	// Terraform provider binding.
 	Source string `json:"source"`
@@ -139,6 +145,12 @@ const (
 	// PlacementReference: a resource whose driver inputs reference a cluster
 	// output directly (for example a namespace of a non-Terraform driver).
 	PlacementReference = "cluster-reference"
+)
+
+// Cluster providers a placement can come from (ADR-017).
+const (
+	ClusterExisting = "existing-cluster"
+	ClusterEKS      = "eks"
 )
 
 // TerraformContract is the planning-time inspection of a Terraform module

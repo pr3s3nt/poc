@@ -16,6 +16,10 @@ import (
 // (aws-catalog.json): the VPC, the EKS node, the namespace, Aurora, and either
 // ElastiCache (A02) or the in-cluster Redis (A03).
 func scenarioModules(scenario string) []string {
+	if scenario == "V05" {
+		// V05: EKS in the same execution with PostgreSQL and Redis running in the cluster (no managed data service).
+		return []string{"vpc", "eks", "k8s-namespace", "postgres-k8s", "redis-k8s"}
+	}
 	mods := []string{"vpc", "eks", "k8s-namespace", "aurora"}
 	if scenario == "A02" {
 		return append(mods, "elasticache")
@@ -37,8 +41,8 @@ var (
 // blocks count once because the Definition enables the driver. This is the
 // manifest's immutable planned set; the cost estimate must list exactly it.
 func PlannedFromModules(scenario string) ([]Planned, error) {
-	if scenario != "A02" && scenario != "A03" {
-		return nil, fmt.Errorf("planned resources exist for A02 and A03 only")
+	if !IsAWSScenario(scenario) {
+		return nil, fmt.Errorf("planned resources exist for V05, A02 and A03 only")
 	}
 	modules := terraform.PackagedModules()
 	counts := map[string]int{}

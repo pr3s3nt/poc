@@ -32,30 +32,8 @@ func Resolve(ctx context.Context, view persistence.ApplicationRepository, organi
 	if !env.Configured() {
 		return appdomain.Connection{}, fmt.Errorf("%w: environment %s/%s", ErrUnconfigured, env.ApplicationKey, env.Key)
 	}
-	if !env.Profile.Valid() || !env.InfrastructureScopeValid() ||
-		(env.RuntimeStatus != appdomain.RuntimePending && env.RuntimeStatus != appdomain.RuntimeReady) ||
-		(env.Profile == appdomain.ProfileAWSEKS && env.Region == "") {
-		return appdomain.Connection{}, fmt.Errorf("%w: environment %s/%s", ErrInconsistent, env.ApplicationKey, env.Key)
-	}
-	conn, err := view.GetConnection(ctx, organizationKey, env.ConnectionKey)
-	if err != nil {
-		return appdomain.Connection{}, err
-	}
-	// The profile must match the Connection kind and, for AWS, the region pinned
-	// when the binding was set, so a mixed kind never reaches another account.
-	switch env.Profile {
-	case appdomain.ProfileInternalK8s:
-		// ADR-016: an Environment no longer targets a Kubernetes connection; such a record is a retired baseline.
-		return appdomain.Connection{}, fmt.Errorf("%w: environment %s/%s carries a retired internal deployment connection", ErrInconsistent, env.ApplicationKey, env.Key)
-	case appdomain.ProfileAWSEKS:
-		if conn.Kind != appdomain.ConnectionAWS || (regionConstrained(conn) && !conn.AllowsRegion(env.Region)) {
-			return appdomain.Connection{}, fmt.Errorf("%w: environment %s/%s", ErrInconsistent, env.ApplicationKey, env.Key)
-		}
-	}
-	if conn.Status != appdomain.ConnectionReady {
-		return appdomain.Connection{}, fmt.Errorf("%w: connection %q is %s, want READY", ErrConnectionNotReady, conn.Key, conn.Status)
-	}
-	return conn, nil
+	// ADR-017: an Environment no longer carries a deployment Connection or execution profile; such a record is a retired baseline.
+	return appdomain.Connection{}, fmt.Errorf("%w: environment %s/%s carries a retired deployment connection", ErrInconsistent, env.ApplicationKey, env.Key)
 }
 
 // ResolveOptional is Resolve for planning that supports Definition-placed

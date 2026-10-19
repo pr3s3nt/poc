@@ -15,6 +15,12 @@ yêu cầu A01/E01/E02 pass, video và dự toán đã lưu, k8s-4f sạch trư�
 Quyết định 2026-10-14 bỏ điểm duyệt 2: Codex tự chạy I04-12 khi đủ điều kiện;
 quyết định 2026-10-15 bỏ điểm duyệt cuối, hoàn tất gửi báo cáo. Account 452025861381, region us-east-1.
 
+Issue4 decision19-10: dùng browser E2E nhanh, không yêu cầu video/typing/cursor/
+reading pauses hoặc native upload. Giữ toàn bộ business assertions, readiness,
+secret scan, quyền AWS/preflight/supervisor và ownership/nativeAPI cleanup.
+Recording clauses phía dưới giữ provenance lịch sử; V04 video đã hoàn tất giữ lại.
+Không rerun lượt đang chạy chỉ để đổi evidence mode.
+
 ## Preflight
 
 1. Kiểm lại account/principal/region không hiển thị key. Host chain chỉ cho
@@ -105,3 +111,28 @@ cleanup manifest with pinned binaries. The independent supervisor covers runner/
 browser loss; a whole host restart needs this manual recovery before dependent
 work. Keep all supporting files when absence remains unknown. A normal local
 Vault restart/read-back check validates storage before first AWS create.
+
+Terraform provider transport uses a short0700 invocation-owned `/tmp/orch-tf-*`
+directory to keep Unix-socket paths within OS limits, independent of durable
+evidence/cache depth. The invocation work directory records its exact path in
+private `provider-tmp-dir`. Confirmed session/artifact close removes it; an
+unconfirmed process retains it with the existing workspace/handle. Recovery
+must verify that original process stopped before deleting the recorded directory.
+State keys, Terraform state, manifests and file-backed Vault remain in durable
+private storage; this volatile transport scratch is not a state recovery store.
+
+## Issue4 — CSI volume recovery after original EKS teardown
+
+A successful original Terraform destroy can remove the cluster while a CSI EBS
+volume from its PVC remains available. Do not treat empty state/clusterNotFound
+as volume absence. The operator supervisor may delete that exact derived task
+volume only after native STS account/principal/region and originalmanifest run/
+cluster ownership, native clusterNotFound, exact owned cluster and run namespace
+CSI tags, PV/PVC identity, creation within run, available+unattached state agree.
+Unknown/mixed ownership, missing tags, attached volume or live cluster blocks
+cleanup and retains recovery; no detach/force/broad prefix delete. Re-read each
+volume by exactID before delete and prove nativeNotFound afterwards. The unchanged
+full service verifier still gates VPC/aux/clean closure. This does not broaden
+product AWS permissions or authorize preexisting/shared volume removal. Original
+failure receipts remain; manual completion and resumed remaining steps recorded
+separately within the original cleanup budget. No dependent retry before proof.

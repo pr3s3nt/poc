@@ -277,6 +277,10 @@ func checkOutputs(bundle tfmodule.Bundle, typ resource.Type, mapping map[string]
 		if !ok {
 			return fmt.Errorf("output_mapping.%s maps to an output the Resource Type does not declare", name)
 		}
+		if typ.Key == resource.ClusterTargetType && target == resource.ClusterTargetOutput {
+			// ADR-017: the typed target is published by the platform from the completed cluster identity.
+			return fmt.Errorf("output_mapping.%s: the %q output of a cluster is produced by the platform and cannot be mapped from a module output", name, target)
+		}
 		if prior, dup := targets[target]; dup {
 			return fmt.Errorf("output_mapping.%s maps to the same Resource Type output as output_mapping.%s", name, prior)
 		}
@@ -286,6 +290,9 @@ func checkOutputs(bundle tfmodule.Bundle, typ resource.Type, mapping map[string]
 		}
 	}
 	for _, field := range typ.Outputs {
+		if typ.Key == resource.ClusterTargetType && field.Name == resource.ClusterTargetOutput {
+			continue // platform-owned (ADR-017)
+		}
 		if _, ok := targets[field.Name]; !ok && field.Required {
 			return fmt.Errorf("output_mapping does not provide required Resource Type output %q", field.Name)
 		}
