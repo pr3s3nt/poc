@@ -26,10 +26,11 @@ Kinds stay `KUBERNETES` / `AWS`. Authentication types (T22 removes HOST_CONTEXT)
 |---|---|---|
 | `KUBECONFIG` | Kubernetes new | Normalized selected-context config from scoped credential store |
 | `AWS_ACCESS_KEY` | AWS | Access key pair in Vault according to ADR-009 |
+| `AWS_EC2_ROLE` | AWS | Fixed IMDSv2 source with pinned ARN/RoleId; no stored credential (ADR-018) |
 
 Missing display name can read as key. Kubernetes authentication must be explicit
 KUBECONFIG; missing type, HOST_CONTEXT and missing scoped credential fail closed.
-AWS credential phải resolve scoped Vault reference; seeded metadata thiếu
+AWS_ACCESS_KEY phải resolve scoped Vault reference; seeded metadata thiếu
 credential không được chọn cho product execution. No generic arbitrary command authentication provider exists.
 
 Kubernetes config contains cluster/context/endpoint (and non-secret TLS metadata
@@ -178,3 +179,12 @@ cluster auth; do not use Environment account, host defaults or persisted tempora
 kubeconfig/token. Authentication/authorization/network and Ready capacity must
 be checked before namespace/workload consumers. Public output/progress projects
 safe identity/provenance only; credentials remain invocation-private.
+
+## EC2 role extension
+
+[ADR-018](decisions/ADR-018-ec2-role-driver-accounts.md) adds AWS_EC2_ROLE without
+changing stored-key behavior. This method has no Vault object; it pins canonical
+role ARN/unique RoleId in Connection config and resolves fresh IMDSv2 credentials
+only for an explicitly selected scoped READY account. An authenticated per-run
+loopback AWS container credential endpoint permits Terraform refresh; it is
+never mounted on public HTTP routes. Account/role mismatches fail every refresh.

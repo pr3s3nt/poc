@@ -42,3 +42,10 @@ UI: [screens](ui/screens.md), [states](ui/states.md), [HTTP mapping](ui/api-mapp
 and [V01 handoff](../../verification/2026-10-17-v01-handoff.md) define the new
 account catalog and its staged replacement boundary. Account catalog delivery
 does not imply V02–V06 driver/planner changes are implemented.
+
+## EC2 role authentication
+
+UC-04 EC2-01..05 extend the account catalog with
+[ADR-018](../../architecture/decisions/ADR-018-ec2-role-driver-accounts.md).
+See [issue #6 verification](../../verification/2026-10-20-issue6-ec2-role.md) for
+local checks, live EC2/Console/Terraform scope and native cleanup evidence.

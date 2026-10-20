@@ -955,3 +955,11 @@ Exact app-function→gate→UI/technical assertion→evidence→cleanup mapping 
 Gate outcomes and reuse limits follow the dated handoff. V06 replacement and
 actual final post-removal A03 are complete; historical prepared evidence is not
 substituted for those live runs.
+
+## Issue #6 — EC2 IAM role authentication
+
+| Requirement | Design | Implementation / validation |
+|---|---|---|
+| UC-04 EC2-01..03 | ADR-018; UC-04 realization/sequence/VOPC; schema | connection EC2 registration/verify/resolver and awsaccess IMDS/STS tests |
+| UC-04 EC2-04 | Terraform module contract; credential design | provider binder refresh/readiness/EKS checks |
+| UC-04 EC2-05 | UC-04 UI screens/states/API mapping | DriverAccountsPage tests; frontend checks |

@@ -9,7 +9,7 @@ import (
 )
 
 // The fresh schema accepts only KUBECONFIG for Kubernetes and AWS_ACCESS_KEY
-// for AWS. The product seed is VERIFYING KUBECONFIG metadata without a
+// or AWS_EC2_ROLE for AWS. The product seed is VERIFYING KUBECONFIG metadata without a
 // credential reference. No Organization deployment default exists.
 // Registration preserves the entire Organization metadata and scoped ownership.
 func TestFreshSchemaSeedsVerifyingKubeconfigAndRejectsHostContext(t *testing.T) {
@@ -56,5 +56,33 @@ func TestFreshSchemaSeedsVerifyingKubeconfigAndRejectsHostContext(t *testing.T) 
 	after, err := st.GetOrganization(ctx, opts.OrganizationKey)
 	if err != nil || after != beforeOrg {
 		t.Fatalf("registration changed Organization metadata: %+v -> %+v (%v)", beforeOrg, after, err)
+	}
+}
+
+func TestEC2RoleAccountPersistsWithoutSecretAndKeepsVersion(t *testing.T) {
+	ctx := context.Background()
+	st, url := openFresh(t)
+	opts := seed.Defaults()
+	opts.Profile = "test"
+	if err := seed.Apply(ctx, st, opts); err != nil {
+		t.Fatal(err)
+	}
+	conn := application.Connection{Key: "ec2-role", Name: "EC2 role", OrganizationKey: opts.OrganizationKey, Kind: application.ConnectionAWS, AuthenticationType: application.AuthAWSEC2Role, Status: application.ConnectionReady, Version: 1, Config: map[string]any{"roleArn": "arn:aws:iam::123456789012:role/Orchestrator", "roleId": "AROAID", "accountId": "123456789012"}, Verification: map[string]any{"verified": true}}
+	if err := st.CreateConnection(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	got, err := reopened.GetConnection(ctx, opts.OrganizationKey, conn.Key)
+	if err != nil || got.AuthenticationType != application.AuthAWSEC2Role || got.SecretRef != "" || got.Version != 1 || got.ConfigString("roleId") != "AROAID" {
+		t.Fatal("role metadata did not survive reopen", err)
+	}
+	got.Name = "Renamed"
+	updated, err := reopened.UpdateConnection(ctx, opts.OrganizationKey, conn.Key, 1, got)
+	if err != nil || updated.Version != 2 || updated.ConfigString("roleArn") != conn.ConfigString("roleArn") {
+		t.Fatal("role CAS failed", err)
 	}
 }

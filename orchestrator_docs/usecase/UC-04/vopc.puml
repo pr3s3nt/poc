@@ -6,6 +6,7 @@ class ConnectionController <<boundary>> {
   +InspectKubeconfig(document)
   +RegisterKubeconfig(command)
   +RegisterAWSDriverAccount(command)
+  +RegisterEC2Role(command)
 }
 class ConnectionService <<control>> {
   +RenameAccount(ctx, org, key, expectedVersion, name)
@@ -14,6 +15,7 @@ class ConnectionService <<control>> {
   +InspectKubeconfig(ctx, org, document): ContextMetadata
   +RegisterKubeconfig(ctx, org, cmd): Connection
   +RegisterAWSDriverAccount(ctx, org, cmd): Connection
+  +RegisterEC2Role(ctx, org, cmd): Connection
 }
 class KubeconfigParser <<control>> {
   +Inspect(document): ContextMetadata
@@ -66,4 +68,10 @@ SecretStoreService --> ConnectionCredentialStore : platform credential scope
 SecretStoreService ..> SecretStoreConnection
 class ComposeSecretStoreBootstrap <<boundary>>
 ComposeSecretStoreBootstrap --> SecretStoreService : shared managed-store admission
+class EC2RoleProvider <<adapter>> {
+  +ResolveEC2Role(ctx, expectedArn, region): TemporaryCredential
+  +VerifyEC2Role(ctx, expectedArn, regions): Verification
+}
+ConnectionService --> EC2RoleProvider : explicit AWS_EC2_ROLE
+ConnectionCredentialResolver --> EC2RoleProvider : pinned ARN and RoleId
 @enduml

@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"orchestrator/internal/adapters/awsaccess"
 	"orchestrator/internal/ports/terraformexec"
 )
 
@@ -166,8 +167,7 @@ func (c *Checker) Check(ctx context.Context, req terraformexec.ReadinessRequest)
 			return ErrUnavailable
 		}
 	}
-	awsConn, awsOK := awsFromEnv(req.Env)
-	if len(aws) > 0 && (c.AWS == nil || !awsOK) {
+	if len(aws) > 0 && c.AWS == nil {
 		return ErrUnavailable
 	}
 	interval := c.Interval
@@ -185,6 +185,14 @@ func (c *Checker) Check(ctx context.Context, req terraformexec.ReadinessRequest)
 				notReady = append(notReady, p.label)
 			case !ready:
 				notReady = append(notReady, p.label)
+			}
+		}
+		var awsConn terraformexec.AWSConnection
+		if len(aws) > 0 {
+			var ok bool
+			awsConn, ok = awsFromEnv(ctx, req.Env)
+			if !ok {
+				return ErrUnavailable
 			}
 		}
 		for _, p := range aws {
@@ -311,7 +319,11 @@ func writeKubeconfig(dir string, env []string) (string, error) {
 	return path, os.WriteFile(path, data, 0o600)
 }
 
-func awsFromEnv(env []string) (terraformexec.AWSConnection, bool) {
+func awsFromEnv(ctx context.Context, env []string) (terraformexec.AWSConnection, bool) {
+	if uri := value(env, "AWS_CONTAINER_CREDENTIALS_FULL_URI"); uri != "" {
+		conn, err := awsaccess.ReadCredentialEndpoint(ctx, uri, value(env, "AWS_CONTAINER_AUTHORIZATION_TOKEN"), value(env, "AWS_REGION"))
+		return conn, err == nil
+	}
 	conn := terraformexec.AWSConnection{
 		AccessKeyID: value(env, "AWS_ACCESS_KEY_ID"), SecretAccessKey: value(env, "AWS_SECRET_ACCESS_KEY"),
 		SessionToken: value(env, "AWS_SESSION_TOKEN"), Region: value(env, "AWS_REGION"),

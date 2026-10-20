@@ -738,3 +738,12 @@ guards remain. Historical probe selector admits PENDING only with complete owned
 CREATE/FAILED/PLANNING history, no observed IDs/state serial/recovery; engine
 independently checks no-state/no-effect absence. No public API or authority added.
 Live probe scenarios are no longer required by the19-10 acceptance decision.
+
+## OC-EC2 — RegisterEC2Role / VerifyAccount
+
+UC-04 EC2-01..05: PE/Admin and session Organization gate. Strict registration
+{name,roleArn,verificationRegions}; read-only role/region/permission verification,
+insert-only version 1, empty secret reference. Verify {version,verificationRegions?}
+revalidates the pinned ARN/RoleId then CAS increments version; failure preserves
+last verification. Unknown commit requires GET recovery, never automatic replay.
+Credential replacement is incompatible. Safe DTO includes canonical role metadata.

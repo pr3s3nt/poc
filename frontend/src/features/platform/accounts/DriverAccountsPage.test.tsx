@@ -344,3 +344,54 @@ describe('V01 infrastructure accounts page', () => {
     });
   });
 });
+
+it('registers an EC2 role without keys and provides rename/verify without credential replacement', async () => {
+  const user = userEvent.setup();
+  const roleArn = 'arn:aws:iam::123456789012:role/platform/Orchestrator';
+  const role: Account = { ...aws, key: 'ec2-role', name: 'EC2 role', version: 1, authenticationType: 'AWS_EC2_ROLE', config: { ...aws.config, roleArn, roleId: 'AROAID' } };
+  const accounts = list([]);
+  const calls = stubApi(accounts.handler, accounts.detail, (call) => {
+    if (is(call, 'POST', '/driver-accounts/aws/ec2-role')) { accounts.set([role]); return Response.json(role, { status: 201 }); }
+    if (is(call, 'POST', '/driver-accounts/ec2-role/verify')) return Response.json({ ...role, version: 2 });
+    return undefined;
+  });
+  render(<DriverAccountsPage />);
+  await screen.findByText('Chưa có tài khoản hạ tầng nào được đăng ký.');
+  await user.click(screen.getByLabelText('AWS'));
+  await user.type(screen.getByLabelText('Access key ID'), keyId);
+  await user.selectOptions(screen.getByLabelText('Phương thức xác thực'), 'ec2-role');
+  expect(screen.queryByLabelText('Access key ID')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Secret access key')).not.toBeInTheDocument();
+  await user.type(screen.getByLabelText('Tên tài khoản'), 'EC2 role');
+  await user.type(screen.getByLabelText('IAM Role ARN'), roleArn);
+  await user.type(screen.getByLabelText('Vùng kiểm tra'), 'us-east-1');
+  await user.click(screen.getByRole('button', { name: 'Kiểm tra và lưu' }));
+  const detail = await screen.findByRole('region', { name: 'Chi tiết tài khoản EC2 role' });
+  expect(calls.find((call) => is(call, 'POST', '/driver-accounts/aws/ec2-role'))?.body).toEqual({ name: 'EC2 role', roleArn, verificationRegions: ['us-east-1'] });
+  expect(within(detail).getByText(roleArn)).toBeInTheDocument();
+  expect(within(detail).queryByRole('group', { name: 'Thay credential' })).not.toBeInTheDocument();
+  await user.click(within(detail).getByRole('button', { name: 'Kiểm tra kết nối' }));
+  await within(detail).findByText(/Kiểm tra kết nối thành công/);
+  expect(calls.find((call) => is(call, 'POST', '/driver-accounts/ec2-role/verify'))?.body).toEqual({ version: 1, verificationRegions: ['us-east-1'] });
+  expect(calls.some((call) => call.url.endsWith('/credentials'))).toBe(false);
+});
+
+it('validates canonical IAM role ARN and clears drafts when authentication changes', async () => {
+  const user = userEvent.setup();
+  const calls = stubApi(list([]).handler);
+  render(<DriverAccountsPage />);
+  await screen.findByText('Chưa có tài khoản hạ tầng nào được đăng ký.');
+  await user.click(screen.getByLabelText('AWS'));
+  await user.selectOptions(screen.getByLabelText('Phương thức xác thực'), 'ec2-role');
+  await user.type(screen.getByLabelText('Tên tài khoản'), 'Role');
+  await user.type(screen.getByLabelText('IAM Role ARN'), 'arn:aws:sts::123456789012:assumed-role/Orchestrator/session');
+  await user.type(screen.getByLabelText('Vùng kiểm tra'), 'us-east-1');
+  await user.click(screen.getByRole('button', { name: 'Kiểm tra và lưu' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Nhập IAM Role ARN hợp lệ');
+  expect(calls.some((call) => call.method === 'POST')).toBe(false);
+  await user.selectOptions(screen.getByLabelText('Phương thức xác thực'), 'access-key');
+  expect(screen.getByLabelText('Access key ID')).toHaveValue('');
+  await user.selectOptions(screen.getByLabelText('Phương thức xác thực'), 'ec2-role');
+  expect(screen.getByLabelText('IAM Role ARN')).toHaveValue('');
+  expect(screen.getByLabelText('Vùng kiểm tra')).toHaveValue('');
+});

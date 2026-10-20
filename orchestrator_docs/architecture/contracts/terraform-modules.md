@@ -295,3 +295,11 @@ module-internal depends_on does not replace platform graph references. Preserve
 module/state/target/digest/fence and Secret-reference contracts during reuse,
 restart, update and reverse cleanup. Cross-account/region validity is checked by
 actual inputs/provider requirements, not an Environment-wide equality rule.
+
+## EC2 role credential binding
+
+UC-04 EC2-04 / ADR-018 extends AWS identity resolution for all existing AWS/EKS
+provider pins. Region remains Definition-selected. AWS_EC2_ROLE uses an internal
+per-invocation authenticated credential endpoint with expiration and identity
+checks on refresh. Module inputs and persisted pins do not contain credentials;
+retained-state/ownership/cleanup contracts are unchanged.

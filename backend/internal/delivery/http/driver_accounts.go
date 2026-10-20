@@ -22,6 +22,7 @@ func (s *Server) registerDriverAccountRoutes() {
 	s.mux.HandleFunc("POST /api/v1/driver-accounts/internal/inspect", s.handleInspectKubeconfig)
 	s.mux.HandleFunc("POST /api/v1/driver-accounts/internal", s.handleCreateInternalAccount)
 	s.mux.HandleFunc("POST /api/v1/driver-accounts/aws", s.handleCreateAWSAccount)
+	s.mux.HandleFunc("POST /api/v1/driver-accounts/aws/ec2-role", s.handleCreateEC2RoleAccount)
 	s.mux.HandleFunc("PUT /api/v1/driver-accounts/{key}", s.handleRenameAccount)
 	s.mux.HandleFunc("POST /api/v1/driver-accounts/{key}/verify", s.handleVerifyAccount)
 	s.mux.HandleFunc("PUT /api/v1/driver-accounts/{key}/credentials", s.handleReplaceAccountCredentials)
@@ -69,7 +70,7 @@ func publicAccount(conn application.Connection) accountView {
 		}
 		verification = pick(conn.Verification, []string{"verified", "endpoint", "serverVersion", "verifiedAt"})
 	case application.ConnectionAWS:
-		config = pick(conn.Config, []string{"accountId", "principalArn"})
+		config = pick(conn.Config, []string{"accountId", "principalArn", "roleArn", "roleId"})
 		regions := conn.ConfigStrings("verificationRegions")
 		if len(regions) == 0 {
 			regions = conn.AllowedRegions()
@@ -363,4 +364,21 @@ func parseStrictObject(raw []byte, spec map[string]memberKind) (strictBody, bool
 		return out, false
 	}
 	return out, true
+}
+
+func (s *Server) handleCreateEC2RoleAccount(w http.ResponseWriter, r *http.Request) {
+	org, ok := s.platformActor(w, r)
+	if !ok {
+		return
+	}
+	body, ok := decodeStrictBody(w, r, accountSmallEnvelopeLimit, map[string]memberKind{"name": kindString, "roleArn": kindString, "verificationRegions": kindStringList})
+	if !ok {
+		return
+	}
+	created, err := s.connections.RegisterEC2Role(r.Context(), org, connectionapp.RegisterEC2RoleCommand{Name: body.text("name"), RoleARN: body.text("roleArn"), VerificationRegions: body.list("verificationRegions")})
+	if err != nil {
+		s.writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, publicAccount(created))
 }

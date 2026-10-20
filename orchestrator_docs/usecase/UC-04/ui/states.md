@@ -101,3 +101,10 @@ outcome requires GET before retry. No secret is prefilled from GET. Clear submit
 credential after committed success and when canceling/leaving replacement; never
 render it in notifications, list, summaries or recording. Switching selected
 account/source/document invalidates responses for the prior draft/account.
+
+## EC2 role states
+
+EC2-05 shares registration saving/error/success/unknown-result recovery with
+access keys. Switching AWS authentication clears credential drafts and role draft.
+Reverification uses the loaded version; no mutation replay. Missing IMDS or role
+mismatch is a safe verification error, never a request for an IAM User key.

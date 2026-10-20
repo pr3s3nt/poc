@@ -153,3 +153,15 @@ Ready-node checks or authorize provisioning. Account verification regions remain
 evidence, not a cross-resource equality restriction. The account catalog and
 Secret Store workflows survive legacy executionProfile removal; historical
 Connection storage identity is not an Environment deployment selector.
+
+## EC2 role realization [EC2-01..05]
+
+Controller calls RegisterEC2Role with scoped Organization/name/expected ARN/regions.
+EC2RoleProvider reads fixed IMDSv2, validates STS assumed-role identity and IAM
+GetRole canonical ARN/RoleId, then reuses region/capability verification. Service
+creates the ordinary Connection without a Vault object. VerifyAccount dispatches
+by authentication method and CAS publishes safe metadata, preserving roleId.
+CredentialResolver resolves EC2 accounts separately from stored keys, rechecking
+identity. ProviderBinder exposes a private authenticated refresh endpoint for the
+Terraform invocation; readiness shares that endpoint and EKS resolves fresh keys.
+See [ADR-018](../../architecture/decisions/ADR-018-ec2-role-driver-accounts.md).

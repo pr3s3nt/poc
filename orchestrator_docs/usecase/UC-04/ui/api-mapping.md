@@ -159,3 +159,12 @@ review before another mutation; retain any potentially committed credential.
 Replacement AWS keys are also checked in every retained legacy allowed region
 before publication. No account delete/read-secret API. Consumers/driver selection
 and deployment region move to the new model in V02–V03, not V01.
+
+## EC2 role API [EC2-01..05]
+
+`POST /api/v1/driver-accounts/aws/ec2-role` strictly accepts
+`{name,roleArn,verificationRegions}` and returns the safe Account DTO (201).
+`authenticationType=AWS_EC2_ROLE`; config adds `roleArn` and `roleId`.
+Existing GET/rename/verify use the same role/org/version gates and error mapping.
+`PUT .../{key}/credentials` rejects EC2 role accounts (ACCOUNT_TARGET_MISMATCH).
+No metadata endpoint, account ID, credential or secret reference can be submitted.

@@ -45,6 +45,7 @@ export function AccountDetail({ account, onChanged, onRefreshed }: { account: Ac
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   const isAws = account.type === 'AWS';
+  const isEc2Role = account.authenticationType === 'AWS_EC2_ROLE';
   const blocked = busy !== null || unknown || reloading || review;
 
   async function reload() {
@@ -66,7 +67,7 @@ export function AccountDetail({ account, onChanged, onRefreshed }: { account: Ac
   }
 
   function failure(operation: Operation, reason: unknown) {
-    const text = accountGuidance(operation, reason);
+    const text = accountGuidance(operation, reason, isEc2Role);
     if (isStaleConflict(reason)) setStale(true);
     if (outcomeUnknown(reason)) { setUnknown(true); void reloadAfterUnknown(); }
     return text;
@@ -174,6 +175,7 @@ export function AccountDetail({ account, onChanged, onRefreshed }: { account: Ac
       <div><dt>Trạng thái</dt> <dd>{statusLabel(account.status)}</dd></div>
       {isAws ? <>
         <div><dt>Tài khoản AWS</dt> <dd>{config.accountId ?? '—'}</dd></div>
+        {isEc2Role ? <><div><dt>IAM Role ARN</dt> <dd>{config.roleArn ?? '—'}</dd></div><div><dt>Role ID</dt> <dd>{config.roleId ?? '—'}</dd></div></> : null}
         <div><dt>Principal</dt> <dd>{config.principalArn ?? '—'}</dd></div>
         <div><dt>Vùng kiểm tra</dt> <dd>{(config.verificationRegions ?? []).join(', ') || '—'}</dd></div>
       </> : <>
@@ -203,7 +205,7 @@ export function AccountDetail({ account, onChanged, onRefreshed }: { account: Ac
       {verifyFailure ? <div className="form-error" role="alert" aria-label="Lần kiểm tra vừa thất bại"><strong>Lần kiểm tra vừa thất bại.</strong> {verifyFailure} Trạng thái “{statusLabel(account.status)}” ở trên vẫn là lần kiểm tra thành công gần nhất{checkedAt ? ` (${checkedAt})` : ''}, không phải kết quả lần này.</div> : null}
     </fieldset>
 
-    <form onSubmit={replace} autoComplete="off"><fieldset className="form-fieldset connection-form" disabled={blocked} aria-label="Thay credential">
+    {isEc2Role ? <p className="muted">Credential tạm thời được lấy từ IAM Role của EC2 và tự làm mới. Không có access key để thay tại đây. Muốn dùng role khác, hãy đăng ký tài khoản mới.</p> : <form onSubmit={replace} autoComplete="off"><fieldset className="form-fieldset connection-form" disabled={blocked} aria-label="Thay credential">
       <legend>Thay credential</legend>
       <p className="muted">{isAws
         ? 'Nhập access key mới của cùng tài khoản AWS. Key mới được xác minh trước khi lưu; khác tài khoản AWS sẽ bị từ chối — hãy đăng ký tài khoản mới.'
@@ -217,6 +219,6 @@ export function AccountDetail({ account, onChanged, onRefreshed }: { account: Ac
         <Button type="submit" tone="primary" disabled={blocked}>{busy === 'replace' ? 'Đang xác minh và thay…' : 'Xác minh và thay credential'}</Button>
         <Button type="button" disabled={busy !== null} onClick={cancelReplace}>Hủy</Button>
       </div>
-    </fieldset></form>
+    </fieldset></form>}
   </section>;
 }

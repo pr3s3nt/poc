@@ -6,7 +6,7 @@ export type AccountType = 'AWS' | 'INTERNAL';
 export type Account = {
   id?: string; key: string; name: string; type: AccountType; authenticationType: string;
   status: string; version: number;
-  config?: { cluster?: string; kubeContext?: string; endpoint?: string; tls?: { mode?: string; serverName?: string }; accountId?: string; principalArn?: string; verificationRegions?: string[] };
+  config?: { cluster?: string; kubeContext?: string; endpoint?: string; tls?: { mode?: string; serverName?: string }; accountId?: string; principalArn?: string; roleArn?: string; roleId?: string; verificationRegions?: string[] };
   verification?: { verified?: boolean; endpoint?: string; serverVersion?: string; accountId?: string; principalArn?: string; identity?: string; regionCheck?: string; capabilityCheck?: string; verifiedAt?: string; regions?: string[]; capabilities?: string[] };
 };
 export type KubeconfigContext = { name: string; cluster: string; endpoint: string };
@@ -21,6 +21,7 @@ const regionShape = /^[a-z]{2}(-[a-z]+)+-[0-9]$/;
 export const listAccounts = async () => (await api<{ accounts: Account[] }>('/driver-accounts')).accounts ?? [];
 export const getAccount = (key: string) => api<Account>(`/driver-accounts/${encodeURIComponent(key)}`);
 export const inspectKubeconfig = (kubeconfig: string) => api<{ contexts: KubeconfigContext[] }>('/driver-accounts/internal/inspect', { method: 'POST', body: JSON.stringify({ kubeconfig }) });
+export const createEc2Role = (body: { name: string; roleArn: string; verificationRegions: string[] }) => api<Account>('/driver-accounts/aws/ec2-role', { method: 'POST', body: JSON.stringify(body) });
 export const createInternal = (body: { name: string; kubeconfig: string; context: string }) => api<Account>('/driver-accounts/internal', { method: 'POST', body: JSON.stringify(body) });
 export const createAws = (body: { name: string; accessKeyId: string; secretAccessKey: string; verificationRegions: string[] }) => api<Account>('/driver-accounts/aws', { method: 'POST', body: JSON.stringify(body) });
 export const renameAccount = (key: string, body: { name: string; version: number }) => api<Account>(`/driver-accounts/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify(body) });
@@ -46,6 +47,10 @@ export function validateRegions(text: string): string {
   return '';
 }
 
+export function validateRoleArn(value: string): string {
+  return /^arn:aws:iam::[0-9]{12}:role\/(?:[A-Za-z0-9+=,.@_-]+\/)*[A-Za-z0-9+=,.@_-]{1,64}$/.test(value) && value.length <= 2048 ? '' : 'Nhập IAM Role ARN hợp lệ, ví dụ arn:aws:iam::123456789012:role/OrchestratorRole.';
+}
+
 export function validateAwsKeys(accessKeyId: string, secretAccessKey: string): string {
   if (!accessKeyShape.test(accessKeyId)) return 'Access key ID không đúng dạng: 20 ký tự bắt đầu bằng AKIA (khóa dài hạn của người dùng IAM).';
   if (!secretKeyShape.test(secretAccessKey)) return 'Secret access key không đúng dạng: đúng 40 ký tự gồm chữ, số, dấu / và +.';
@@ -62,7 +67,12 @@ export const outcomeUnknown = (reason: unknown) => !(reason instanceof ApiError)
  * or provider text never reaches the page; ApiError.message is already the
  * safe text for a known code.
  */
-export function accountGuidance(operation: Operation, reason: unknown): string {
+export function accountGuidance(operation: Operation, reason: unknown, ec2Role = false): string {
+  if (ec2Role && reason instanceof ApiError) {
+    if (reason.code === 'ACCOUNT_TARGET_MISMATCH') return 'IAM Role thực tế không khớp tài khoản, Role ARN hoặc Role ID đã đăng ký. Kiểm tra role gắn với EC2; đăng ký tài khoản mới nếu muốn dùng role khác. Bản ghi đang lưu được giữ nguyên.';
+    if (reason.code === 'VERIFICATION_CREDENTIAL_REJECTED') return 'Không lấy được credential tạm thời hợp lệ của EC2. Kiểm tra instance profile, IMDSv2 và quyền truy cập metadata của backend; hệ thống không dùng access key thay thế.';
+    if (reason.code === 'VERIFICATION_UNREACHABLE') return 'Không kết nối được IMDSv2 hoặc AWS. Kiểm tra mạng và cấu hình metadata của EC2; Docker có thể cần metadata hop limit 2.';
+  }
   if (outcomeUnknown(reason) && operation !== 'inspect') {
     return 'Kết nối bị gián đoạn hoặc máy chủ chưa xác nhận nên chưa biết thao tác đã được lưu hay chưa. Credential mới, nếu đã ghi, được giữ lại. Console đang tải lại dữ liệu hiện hành; hãy xem kết quả rồi mới quyết định, Console không tự gửi lại.';
   }
@@ -92,7 +102,7 @@ export function accountGuidance(operation: Operation, reason: unknown): string {
 }
 
 export function typeLabel(type: AccountType | string): string { return type === 'AWS' ? 'AWS' : type === 'INTERNAL' ? 'Internal (cluster có sẵn)' : type; }
-export function authLabel(auth: string): string { return auth === 'AWS_ACCESS_KEY' ? 'Access key' : auth === 'KUBECONFIG' ? 'Kubeconfig' : auth; }
+export function authLabel(auth: string): string { return auth === 'AWS_EC2_ROLE' ? 'IAM Role của EC2' : auth === 'AWS_ACCESS_KEY' ? 'Access key' : auth === 'KUBECONFIG' ? 'Kubeconfig' : auth; }
 export function statusLabel(status: string): string {
   if (status === 'READY') return 'Sẵn sàng';
   if (status === 'VERIFYING') return 'Chưa xác minh';

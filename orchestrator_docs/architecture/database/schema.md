@@ -77,7 +77,7 @@ Only token hashes are persisted. A revoked or expired session is invalid.
 | `organization_id` | uuid | FK organizations, NOT NULL |
 | `connection_key` | text | NOT NULL |
 | `name` | text | NOT NULL; supplied explicitly |
-| `authentication_type` | text | NOT NULL; `KUBECONFIG` or `AWS_ACCESS_KEY`; kind-compatible |
+| `authentication_type` | text | NOT NULL; `KUBECONFIG`, `AWS_ACCESS_KEY` or `AWS_EC2_ROLE`; kind-compatible |
 | `kind` | text | `AWS` or `KUBERNETES`; V01 account API projects AWS/INTERNAL |
 | `version` | bigint | NOT NULL, default 1, CHECK(version >= 1); CAS guard for V01 updates |
 | `config` | jsonb | non-secret config, NOT NULL |
@@ -814,3 +814,12 @@ records remain. Baseline/schema digest/JSON format and validation change togethe
 when serialized shape changes; old incompatible state fails clearly without
 migration, startup reset or implicit inference. Exact executable baseline/ERD
 changes must be reviewed on final source before acceptance/commit.
+
+## EC2 authentication metadata (ADR-018)
+
+AWS_EC2_ROLE is valid only for kind AWS. Its secret_ref is the empty string;
+config holds roleArn, roleId, accountId, principalArn, region and verificationRegions
+(plus legacy allowedRegions metadata). No credential values or expiration are
+persisted. Existing name/version and identity immutability apply. The fresh
+baseline constraint accepts this enum; no startup conversion/reset is provided.
+The Connection ERD relationship is unchanged (no new entity/column).

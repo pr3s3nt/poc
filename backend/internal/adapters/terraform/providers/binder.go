@@ -1,10 +1,10 @@
 // Package providers resolves the pinned provider bindings of a Terraform
 // invocation into a private subprocess environment: the Definition's
 // Driver Account and region, a scoped Kubernetes Connection or the completed opaque
-// EKS target. It never reads the host credential chain, profile, shared
-// config, instance metadata or the default kube context, and it never writes
-// a credential anywhere but an owner-only file under a private directory that
-// Close removes.
+// EKS target. It never uses the ambient credential chain or default kube
+// context. Explicit EC2 accounts use the guarded identity source and a private
+// authenticated refresh endpoint. Close removes invocation-owned files and
+// stops the endpoint.
 package providers
 
 import (
@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 
+	"orchestrator/internal/adapters/awsaccess"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/ports/terraformexec"
 )
@@ -45,7 +46,14 @@ func (b *Binder) Bind(ctx context.Context, req terraformexec.BindRequest) (terra
 	if err != nil {
 		return terraformexec.ProviderEnv{}, refuse("a private directory could not be created")
 	}
-	closer := func() error { return os.RemoveAll(dir) }
+	var endpoints []func() error
+	closer := func() error {
+		var errs []error
+		for _, closeEndpoint := range endpoints {
+			errs = append(errs, closeEndpoint())
+		}
+		return errors.Join(append(errs, os.RemoveAll(dir))...)
+	}
 	out := terraformexec.ProviderEnv{Close: closer, Retain: func(handle string) error {
 		if !strings.HasPrefix(handle, "retained-") || strings.ContainsAny(handle, "/\\ ") {
 			return refuse("invalid retained handle")
@@ -92,7 +100,33 @@ func (b *Binder) Bind(ctx context.Context, req terraformexec.BindRequest) (terra
 				return fail(err)
 			}
 			out.AccountID, out.Region = conn.AccountID, conn.Region
-			out.Env = append(out.Env, awsEnv(dir, conn)...)
+			if conn.Refresh != nil {
+				refresh := conn.Refresh
+				pinned := conn
+				uri, token, closeEndpoint, err := awsaccess.StartCredentialEndpoint(ctx, func(ctx context.Context) (terraformexec.AWSConnection, error) {
+					fresh, err := refresh(ctx)
+					if err != nil || fresh.ConnectionKey != pinned.ConnectionKey || fresh.RoleARN != pinned.RoleARN || fresh.RoleID != pinned.RoleID || fresh.AccountID != pinned.AccountID {
+						return terraformexec.AWSConnection{}, refuse("the EC2 role identity changed")
+					}
+					return fresh, nil
+				})
+				if err != nil {
+					return fail(refuse("the role credential endpoint is unavailable"))
+				}
+				endpoints = append(endpoints, closeEndpoint)
+				// No static credentials: the provider must refresh from the guarded endpoint.
+				env := awsEnv(dir, terraformexec.AWSConnection{Region: conn.Region})
+				filtered := env[:0]
+				for _, entry := range env {
+					if !strings.HasPrefix(entry, "AWS_ACCESS_KEY_ID=") && !strings.HasPrefix(entry, "AWS_SECRET_ACCESS_KEY=") {
+						filtered = append(filtered, entry)
+					}
+				}
+				out.Env = append(out.Env, filtered...)
+				out.Env = append(out.Env, "AWS_CONTAINER_CREDENTIALS_FULL_URI="+uri, "AWS_CONTAINER_AUTHORIZATION_TOKEN="+token)
+			} else {
+				out.Env = append(out.Env, awsEnv(dir, conn)...)
+			}
 			if err := writeEmptyAWSConfig(dir); err != nil {
 				return fail(err)
 			}

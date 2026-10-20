@@ -8,6 +8,7 @@ package terraformexec
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"orchestrator/internal/domain/tfmodule"
@@ -304,10 +305,15 @@ type ReadinessChecker interface {
 }
 
 // AWSConnection is the resolved, scoped identity of an AWS Connection: an
-// explicit access key plus the account and region the Connection pinned. It
+// stored key or temporary role credential with pinned account/role identity. It
 // is a secret and never leaves the process except in a private subprocess
 // environment.
 type AWSConnection struct {
+	// Role credentials are ephemeral; Refresh is invocation-local and never serialized.
+	RoleARN         string
+	RoleID          string
+	Expiration      time.Time
+	Refresh         func(context.Context) (AWSConnection, error)
 	ConnectionKey   string
 	AccessKeyID     string
 	SecretAccessKey string
@@ -319,6 +325,11 @@ type AWSConnection struct {
 	// Empty means only Region.
 	AllowedRegions []string
 }
+
+// Credential values must not be exposed by diagnostic formatting.
+func (AWSConnection) String() string               { return "AWSConnection{redacted}" }
+func (AWSConnection) GoString() string             { return "AWSConnection{redacted}" }
+func (c AWSConnection) Format(f fmt.State, _ rune) { _, _ = f.Write([]byte(c.String())) }
 
 // AllowsRegion reports whether an invocation may bind region with this
 // Connection: the default Region or any verified allowed region.

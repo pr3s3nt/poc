@@ -1,0 +1,26 @@
+# EC2 overlay: run with deploy/ec2/start.sh (base + AWS + this file).
+# Credentials come exclusively from the EC2 instance profile when that method
+# is selected in Driver Accounts. Never set AWS keys or mount ~/.aws here.
+services:
+  backend:
+    command:
+      - -profile=acceptance-v2
+      - -seed-catalog=none
+      - -application-key=${EC2_APPLICATION_KEY:-ec2-demo}
+      - -namespace=${EC2_APPLICATION_KEY:-ec2-demo}
+      - -run-id=${EC2_RUN_ID:-ec2-demo}
+      - -owner=${EC2_OWNER:-ec2-operator}
+      - -ttl=${EC2_RESOURCE_TTL:-24h}
+      - -score-k8s=/usr/local/bin/score-k8s
+      - -terraform=/usr/local/bin/terraform
+      - -terraform-root=/var/lib/orchestrator/tfroot
+      - -terraform-plugin-cache=/var/lib/orchestrator/plugin-cache
+      - -workload-delivery=direct
+      - -vault-delivery=agent
+      - -terraform-invocation-timeout=45m
+      - -terraform-readiness-timeout=15m
+      - -deploy-deadline=3h
+    # IMDS access is intentional for the explicit EC2-role method. The
+    # application itself uses the fixed IMDSv2 source, not the default chain.
+    environment:
+      ORCHESTRATOR_ADAPTERS: aws

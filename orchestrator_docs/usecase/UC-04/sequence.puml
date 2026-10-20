@@ -98,4 +98,18 @@ Keep previously committed objects for pinned targets.
 Account types AWS/INTERNAL; no Environment assignment.
 AWS probe regions are evidence, not applicability.
 end note
+== EC2 role account [EC2-01..05] ==
+boundary EC2RoleProvider as EC2
+PE -> API: Register EC2 role (name, expected role ARN, regions)
+API -> Service: RegisterEC2Role(org, command)
+Service -> EC2: IMDSv2 + STS + GetRole; region/capability checks
+EC2 --> Service: Safe role ARN/RoleId/account verification
+Service -> Repo: CreateConnection AWS_EC2_ROLE (no secret ref)
+Service --> API: Safe Account DTO
+API --> PE: Verified account
+note right of EC2
+Explicit source only, no host chain fallback.
+Reverify uses version CAS and same role identity.
+Terraform refresh uses authenticated private loopback endpoint.
+end note
 @enduml

@@ -1141,3 +1141,21 @@ Checkpoint trước khi M04 hoàn tất — getter probe `660fd5c` đạt độc
 0fail/0skip,634frontend/fullchecks, mã băm nguồn khớp vàfixtureclean (R7).
 Helper boolean `214e37f` đạt635frontend/fullchecks, backend không đổi.
 Cả hai đã hợp nhất; A02r3 chạy trên mã này, evidence sẽ ghi đúng commit.
+
+## Issue #6 — EC2 IAM role accounts (2026-10-20)
+
+AWS Driver Accounts now support explicit AWS_EC2_ROLE alongside access keys.
+Expected canonical role ARN/unique RoleId are verified through IMDSv2 + STS/IAM;
+role accounts store no credential object, retain Organization/version guards and
+support rename/reverification. Terraform has an authenticated per-invocation
+refresh source; readiness and EKS reuse explicit scoped identity resolution.
+The Console hides access keys/replacement for EC2 accounts. Full-stack EC2 Compose
+is available through `deploy/ec2/start.sh`.
+
+Local Go/frontend/docs checks and real PostgreSQL persistence checks passed.
+Live EC2 UI registration/rename/reverify and a production-binder Terraform VPC
+apply/destroy passed; exact VPC native absence was confirmed. Restart/reverification and full run-owned EC2/EBS/network/IAM cleanup also passed;
+see [issue #6 evidence](verification/2026-10-20-issue6-ec2-role.md).
+EKS/Aurora/ElastiCache full provisioning and waiting for natural credential expiry
+are outside this focused verification. Previous SQL baseline compatibility rules
+remain: no automatic migration or authorized reset is introduced.

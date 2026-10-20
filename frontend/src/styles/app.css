@@ -139,3 +139,9 @@ a { color: inherit; }
 .dialog code,.content-panel code { overflow-wrap:anywhere; }
 .plain-table { width:100%; border-collapse:collapse; font-size:14px; }
 .plain-table th,.plain-table td { padding:8px 10px; border-bottom:1px solid var(--border-muted); text-align:left; vertical-align:top; overflow-wrap:anywhere; }
+
+/* Account metadata includes long Vietnamese labels and canonical role ARNs. */
+.account-detail .destination-summary div { grid-template-columns:200px minmax(0,1fr); }
+@media (max-width:760px) {
+  .account-detail .destination-summary div { grid-template-columns:1fr; gap:2px; }
+}

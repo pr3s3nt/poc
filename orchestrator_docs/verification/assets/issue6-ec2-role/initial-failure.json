@@ -1,0 +1,1 @@
+{"result": "FAIL", "stage": "registration", "status": 422, "code": "VERIFICATION_PERMISSION_DENIED", "cause": "temporary verification role missing eks:ListClusters read probe; product guard correctly rejected", "remediation": "add eks:ListClusters to run-owned role policy; no product guard change"}

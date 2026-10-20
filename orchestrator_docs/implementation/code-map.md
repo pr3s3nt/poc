@@ -544,3 +544,20 @@ Main-flow V04 acceptance uses [shared54assertions](../../backend/test/integratio
 [Operator selector](../../backend/test/integration/v2cleanup/selection.go) and its
 original-engine pre-apply proof tests retain historical negative-run provenance;
 only the existing delivery cleanup is invoked by current main-flow acceptance.
+
+## Issue #6 — EC2 instance-role authentication
+
+UC-04 EC2-01..05 / ADR-018: [account orchestration](../../backend/internal/application/connection/ec2_role.go),
+[fixed IMDSv2 + STS/IAM provider](../../backend/internal/adapters/awsaccess/ec2_role.go),
+[private refresh endpoint](../../backend/internal/adapters/awsaccess/credential_endpoint.go),
+[Terraform binder](../../backend/internal/adapters/terraform/providers/binder.go),
+[readiness](../../backend/internal/adapters/terraform/readiness/readiness.go),
+[HTTP account API](../../backend/internal/delivery/http/driver_accounts.go) and
+[Console](../../frontend/src/features/platform/accounts/).
+
+Validation: [service/resolver tests](../../backend/internal/application/connection/ec2_role_test.go),
+[HTTP contract tests](../../backend/test/e2e/ec2_role_http_test.go),
+[Go live Terraform workload](../../backend/test/acceptance/ec2-role/main.go),
+[browser workload](../../frontend/test/e2e/ec2-role-real.mjs).
+Deployment: [EC2 Compose overlay](../../docker-compose.ec2.yml),
+[start command](../../deploy/ec2/start.sh), [Docker runbook](../operations/docker-local.md).

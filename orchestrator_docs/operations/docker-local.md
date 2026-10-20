@@ -227,3 +227,31 @@ transaction, so the backend database role needs CREATE privileges on its databas
 Existing product schema/data is never repaired and reference schemas are not
 retained. T28's [isolated execution](../verification/2026-10-12-T28-fresh-baseline.md)
 verified this behavior; retained backups are still unverified until T29.
+
+## EC2 with instance role
+
+On EC2 with Docker Engine and Compose v2, run `./deploy/ec2/start.sh` from the
+repository. It merges base Compose, the AWS executor overlay and
+`docker-compose.ec2.yml`; all frontend/backend/PostgreSQL/Vault/bootstrap services
+run with durable named volumes. Backend/frontend use the existing Dockerfiles.
+This developer deployment uses the existing seed login; restrict access with SSH
+forwarding, never expose the default demo login publicly.
+
+Require IMDSv2 and allow the backend container to reach metadata (Docker bridge
+usually needs response hop limit 2). Do not mount host AWS profiles or set AWS
+access keys. Register the expected canonical role in Driver Accounts. All
+executor hosts must carry that same pinned role. Block untrusted containers and
+workload processes from metadata; sharing an EC2 host shares its role authority.
+
+Optional non-secret settings: EC2_APPLICATION_KEY, EC2_RUN_ID, EC2_OWNER,
+EC2_RESOURCE_TTL, FRONTEND_PORT and BACKEND_PORT. Defaults are for development;
+set a unique run ID for verification. Forward local port 3001 to the instance's
+127.0.0.1:3001, then open `/ui/`. Provisioning remains explicit through the app.
+Vault workload address must be reachable by deployed Pods; configure
+VAULT_WORKLOAD_ADDRESS before deploying workloads (the Compose hostname alone
+is not reachable from a remote EKS cluster).
+
+Stop via `docker compose -f docker-compose.yml -f docker-compose.aws.yml -f
+docker-compose.ec2.yml down`. Destroy owned cloud resources through the app before
+terminating EC2 or removing durable volumes. Do not add `-v` for retained data.
+See [AWS runbook](aws.md) for role permissions, live verification and cleanup.

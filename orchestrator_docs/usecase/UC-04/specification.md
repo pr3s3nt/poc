@@ -224,7 +224,8 @@ Connection cũ giữ nguyên cho consumers đến V02–V03, không coi là mô 
   nhận Organization do client chọn. Developer không có quyền quản lý hoặc đọc
   credential. Không có phạm vi áp dụng hoặc gán tài khoản mới cho môi trường.
 - **AC-02:** Tài khoản có ID/key ổn định, tên (1–100 Unicode, không control),
-  `type` AWS/INTERNAL, authenticationType AWS_ACCESS_KEY/KUBECONFIG đúng loại,
+  `type` AWS/INTERNAL, authenticationType AWS_ACCESS_KEY hoặc AWS_EC2_ROLE cho AWS,
+  KUBECONFIG cho Internal,
   config/verification không bí mật, private ref, status và version >= 1.
   Nhiều tài khoản AWS/Internal được phép cùng tồn tại.
 - **AC-03:** Internal dùng upload/paste kubeconfig, inspect/chọn context và verify
@@ -310,3 +311,24 @@ Organization identity/metadata and never configures an Environment or changes
 Definition selection. Organization-scoped account ownership, verification,
 credential isolation and role gates remain unchanged; BR-15/16 default-marker
 wording above is historical after that removal.
+
+## EC2 role accounts — issue #6
+
+[ADR-018](../../architecture/decisions/ADR-018-ec2-role-driver-accounts.md) extends
+AC-02/04/07/08 with AWS_EC2_ROLE, alongside AWS_ACCESS_KEY.
+
+- **EC2-01:** PE/Admin explicitly registers name, canonical expected Role ARN and
+  1–10 verificationRegions in the session Organization. No credential input.
+- **EC2-02:** Verify IMDSv2 temporary credentials, STS identity and IAM role
+  ARN/unique RoleId, regional read probes and existing capability simulation
+  before READY. Wrong role/account, expired credentials, missing permission or
+  metadata failure saves nothing; no host credential fallback.
+- **EC2-03:** Store roleArn/roleId/accountId and safe verification only; secretRef
+  is empty. Reverify preserves both pinned role identifiers and uses version CAS.
+  Rename follows AC-06. Reject credential replacement or authentication changes.
+- **EC2-04:** Terraform and EKS consumers explicitly select this scoped READY
+  account through existing Definition bindings. Refresh credentials during long
+  Terraform runs while preserving role identity, including destroy/cleanup.
+- **EC2-05:** UI distinguishes EC2 role from access key, requests expected Role
+  ARN and regions, hides access-key/replacement controls for role accounts and
+  preserves AC-10 error/stale/unknown-outcome recovery behavior.

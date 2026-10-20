@@ -22,15 +22,19 @@ type awsAccessKeyValue struct {
 	SessionToken    string `json:"sessionToken,omitempty"`
 }
 
-// ResolveAWS implements terraformexec.AWSIdentitySource. It reads the scoped
-// access key of one READY AWS_ACCESS_KEY Connection of the Organization and
-// returns it with the account and region the Connection pinned. Every
-// failure is the same fail-closed error; no host credential is ever used.
+// ResolveAWS resolves the scoped stored key or the explicitly registered EC2
+// role of one READY account. No ambient credential-chain fallback is allowed.
 func (r *CredentialResolver) ResolveAWS(ctx context.Context, organizationKey, connectionKey string) (terraformexec.AWSConnection, error) {
-	if organizationKey == "" || connectionKey == "" || r.connections == nil || r.store == nil {
+	if organizationKey == "" || connectionKey == "" || r.connections == nil {
 		return terraformexec.AWSConnection{}, ErrCredentialUnavailable
 	}
 	conn, err := r.connections.GetConnection(ctx, organizationKey, connectionKey)
+	if err == nil && conn.AuthenticationType == application.AuthAWSEC2Role {
+		return r.resolveEC2Account(ctx, conn, organizationKey, connectionKey)
+	}
+	if r.store == nil {
+		return terraformexec.AWSConnection{}, ErrCredentialUnavailable
+	}
 	if err != nil || conn.OrganizationKey != organizationKey || conn.Key != connectionKey || conn.Kind != application.ConnectionAWS ||
 		conn.AuthenticationType != application.AuthAWSAccessKey || conn.Status != application.ConnectionReady || conn.SecretRef == "" ||
 		conn.ConfigString("accountId") == "" || conn.ConfigString("region") == "" {

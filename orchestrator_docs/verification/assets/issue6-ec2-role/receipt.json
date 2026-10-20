@@ -1,0 +1,59 @@
+{
+  "runId": "i6-20261020T110510Z",
+  "account": "452025861381",
+  "region": "us-east-1",
+  "instanceId": "i-0223a2df41d1bfac0",
+  "browser": {
+    "result": "PASS",
+    "key": "ec2-instance-role",
+    "version": 3,
+    "roleArn": "arn:aws:iam::452025861381:role/i6-20261020T110510Z",
+    "roleId": "AROAWSPWXIUC5D7ZSMA2S",
+    "authenticationType": "AWS_EC2_ROLE",
+    "assertions": [
+      "UI register via EC2 role without keys",
+      "safe identity metadata",
+      "rename CAS",
+      "reverify version 3",
+      "no credential replacement",
+      "reload retains account"
+    ]
+  },
+  "restart": {
+    "result": "PASS",
+    "key": "ec2-instance-role",
+    "persistedVersion": 3,
+    "reverifiedVersion": 4
+  },
+  "terraform": {
+    "result": "PASS",
+    "provider": "hashicorp/aws 6.60.0",
+    "vpcId": "vpc-0ce1bb68cdfa0339c",
+    "apply": "PASS",
+    "destroy": "PASS",
+    "credentialRetrieval": "PASS",
+    "nativeAbsence": "InvalidVpcID.NotFound"
+  },
+  "fullStackReadback": [
+    "backend running healthy",
+    "frontend running healthy",
+    "postgres running healthy",
+    "vault running healthy",
+    "AWS_EC2_ROLE|4|t|AROAWSPWXIUC5D7ZSMA2S",
+    "sha256:89c70e1d8f6f575728409dac0164e572750a809a12ea650fcc559ff4e4403a51",
+    "sha256:c3c3914461dd8ad46ce2d3e000f4a5fb68531093f8edf2d2ea016d550b63e7a6"
+  ],
+  "cleanup": {
+    "result": "PASS",
+    "completedAt": "2026-10-20T11:23:56Z",
+    "instance": "terminated",
+    "vpcCount": 0,
+    "volumeCount": 0,
+    "networkInterfaceCount": 0,
+    "securityGroupCount": 0,
+    "keyPairCount": 0,
+    "role": "NoSuchEntity",
+    "instanceProfile": "NoSuchEntity",
+    "borrowedDefaultVpc": "preserved"
+  }
+}

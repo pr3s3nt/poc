@@ -45,7 +45,7 @@ CREATE TABLE connections (
   UNIQUE (organization_id, connection_key),
   CONSTRAINT connections_authentication_type_check CHECK (
     (kind='KUBERNETES' AND authentication_type='KUBECONFIG') OR
-    (kind='AWS' AND authentication_type='AWS_ACCESS_KEY'))
+    (kind='AWS' AND authentication_type IN ('AWS_ACCESS_KEY','AWS_EC2_ROLE')))
 );
 
 -- Application is identity and current metadata only; execution and store

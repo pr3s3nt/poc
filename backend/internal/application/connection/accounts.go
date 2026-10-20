@@ -215,6 +215,9 @@ func (s *Service) VerifyAccount(ctx context.Context, org, key string, cmd Verify
 	case application.ConnectionKubernetes:
 		return s.verifyKubernetes(ctx, cur)
 	case application.ConnectionAWS:
+		if cur.AuthenticationType == application.AuthAWSEC2Role {
+			return s.verifyEC2Role(ctx, cur, cmd.VerificationRegions)
+		}
 		return s.verifyAWS(ctx, cur, cmd.VerificationRegions)
 	}
 	return application.Connection{}, ErrAccountIncompatible
@@ -391,7 +394,7 @@ func (s *Service) ReplaceAWSCredential(ctx context.Context, org, key string, cmd
 	if err != nil {
 		return application.Connection{}, err
 	}
-	if cur.Kind != application.ConnectionAWS {
+	if cur.Kind != application.ConnectionAWS || cur.AuthenticationType != application.AuthAWSAccessKey {
 		return application.Connection{}, ErrAccountIncompatible
 	}
 	if !awsAccessKeyPattern.MatchString(cmd.AccessKeyID) {

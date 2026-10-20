@@ -190,6 +190,7 @@ type Options struct {
 	// registration is unavailable (fails closed) for fake adapters, so a
 	// fixture key can never reach live AWS.
 	AWSVerifierOverride           connection.AWSVerifier
+	EC2RoleProviderOverride       connection.EC2RoleProvider
 	ConnectionCredentialsOverride credentials.Store
 	RendererOverride              execution.WorkloadRenderer
 	DeployerOverride              execution.WorkloadDeployer
@@ -332,6 +333,11 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		return nil, err
 	}
 	credentialResolver := connection.NewCredentialResolver(st, connectionCredentials)
+	ec2RoleProvider := opts.EC2RoleProviderOverride
+	if ec2RoleProvider == nil && (opts.Adapters == AdapterKubernetes || opts.Adapters == AdapterAWS) {
+		ec2RoleProvider = awsaccess.NewEC2RoleProvider()
+	}
+	credentialResolver.SetEC2RoleProvider(ec2RoleProvider)
 	kubeconfigSource := kubeconfigSourceFor(opts.Adapters, credentialResolver, nil)
 
 	secretStore, err := outputSecretStore(opts, terraformRuntime != nil)
@@ -550,6 +556,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		Applications:          applications,
 		KubeconfigVerifier:    kubeconfigVerifier,
 		AWSVerifier:           awsVerifier,
+		EC2RoleProvider:       ec2RoleProvider,
 		ConnectionCredentials: connectionCredentials,
 		Configurations:        configurations,
 		SecretStores:          secretStoreService,

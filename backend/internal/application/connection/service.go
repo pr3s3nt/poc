@@ -95,6 +95,7 @@ type Service struct {
 	store       persistence.Store
 	kubeconfig  KubeconfigVerifier
 	aws         AWSVerifier
+	ec2         EC2RoleProvider
 	credentials credentials.Store
 	now         func() time.Time
 }

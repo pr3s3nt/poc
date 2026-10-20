@@ -3,9 +3,13 @@ package providers
 import (
 	"context"
 	"errors"
+	"fmt"
+	"orchestrator/internal/adapters/awsaccess"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/ports/execution"
@@ -217,5 +221,69 @@ func TestAWSBindingBindsTheDefinitionRegionNotAnAccountAllowlist(t *testing.T) {
 	empty.Region = ""
 	if _, err := b().Bind(ctx, terraformexec.BindRequest{OrganizationKey: "acme", Pins: []tfmodule.ProviderPin{empty}}); !errors.Is(err, terraformexec.ErrProviderBinding) {
 		t.Fatalf("an empty pinned region was accepted: %v", err)
+	}
+}
+
+// The same protocol is used by the Terraform AWS provider to refresh keys.
+func TestEC2RoleBindingRefreshAuthenticationIdentityAndClose(t *testing.T) {
+	ctx := context.Background()
+	var calls atomic.Int32
+	changed := atomic.Bool{}
+	conn := awsConn()
+	conn.RoleARN = "arn:aws:iam::123456789012:role/Orchestrator"
+	conn.RoleID = "AROAID"
+	conn.SessionToken = "fixture-session"
+	conn.Expiration = time.Now().Add(time.Hour)
+	conn.Refresh = func(context.Context) (terraformexec.AWSConnection, error) {
+		calls.Add(1)
+		fresh := conn
+		fresh.AccessKeyID = fmt.Sprintf("ASIAREFRESH%d", calls.Load())
+		if changed.Load() {
+			fresh.RoleID = "OTHER"
+		}
+		return fresh, nil
+	}
+	b := binder(&fakeAPI{account: conn.AccountID})
+	b.AWS = fakeAWS{conns: map[string]terraformexec.AWSConnection{"acct": conn}}
+	env, err := b.Bind(ctx, terraformexec.BindRequest{OrganizationKey: "acme", Pins: []tfmodule.ProviderPin{awsPin}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer env.Close()
+	var uri, token string
+	for _, entry := range env.Env {
+		if v, ok := strings.CutPrefix(entry, "AWS_CONTAINER_CREDENTIALS_FULL_URI="); ok {
+			uri = v
+		}
+		if v, ok := strings.CutPrefix(entry, "AWS_CONTAINER_AUTHORIZATION_TOKEN="); ok {
+			token = v
+		}
+		if strings.HasPrefix(entry, "AWS_ACCESS_KEY_ID=") || strings.HasPrefix(entry, "AWS_SECRET_ACCESS_KEY=") || strings.HasPrefix(entry, "AWS_SESSION_TOKEN=") {
+			t.Fatal("static credential prevents refresh")
+		}
+	}
+	if uri == "" || token == "" {
+		t.Fatal("no authenticated source")
+	}
+	if _, err = awsaccess.ReadCredentialEndpoint(ctx, uri, "wrong-token", env.Region); err == nil || calls.Load() != 0 {
+		t.Fatal("unauthenticated credential read")
+	}
+	first, err := awsaccess.ReadCredentialEndpoint(ctx, uri, token, env.Region)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := awsaccess.ReadCredentialEndpoint(ctx, uri, token, env.Region)
+	if err != nil || first.AccessKeyID == second.AccessKeyID || second.SessionToken != "fixture-session" {
+		t.Fatal("did not refresh", err)
+	}
+	changed.Store(true)
+	if _, err = awsaccess.ReadCredentialEndpoint(ctx, uri, token, env.Region); err == nil {
+		t.Fatal("role identity changed")
+	}
+	if err = env.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = awsaccess.ReadCredentialEndpoint(ctx, uri, token, env.Region); err == nil {
+		t.Fatal("endpoint remains open")
 	}
 }

@@ -66,6 +66,7 @@ type Config struct {
 	// registration. Without a credential store it answers 503.
 	KubeconfigVerifier    connectionapp.KubeconfigVerifier
 	AWSVerifier           connectionapp.AWSVerifier
+	EC2RoleProvider       connectionapp.EC2RoleProvider
 	ConnectionCredentials credentials.Store
 	Configurations        *appconfig.Service
 	SecretStores          *secretstores.Service
@@ -107,6 +108,7 @@ func NewServer(cfg Config) *Server {
 	}
 	s.connections.SetKubeconfigRegistration(cfg.KubeconfigVerifier, cfg.ConnectionCredentials)
 	s.connections.SetAWSRegistration(cfg.AWSVerifier)
+	s.connections.SetEC2RoleProvider(cfg.EC2RoleProvider)
 
 	s.catalog.SetRenderBundles(cfg.RenderBundles)
 	s.routes()

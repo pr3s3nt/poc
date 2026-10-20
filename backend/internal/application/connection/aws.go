@@ -43,6 +43,10 @@ func completeAWSVerification(v AWSVerification, requested []string) bool {
 	if match == nil || match[1] != v.AccountID {
 		return false
 	}
+	return completeAWSCapabilities(v, requested)
+}
+
+func completeAWSCapabilities(v AWSVerification, requested []string) bool {
 	if len(v.Regions) != len(requested) {
 		return false
 	}
@@ -94,6 +98,7 @@ func (k AWSAccessKey) Format(f fmt.State, _ rune) { _, _ = f.Write([]byte(k.Stri
 type AWSVerification struct {
 	AccountID    string
 	PrincipalARN string
+	RoleID       string
 	// Regions are the regions whose reachability was proven.
 	Regions []string
 	// Capabilities are the provisioning groups proven allowed (for example

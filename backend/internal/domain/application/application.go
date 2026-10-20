@@ -71,6 +71,7 @@ const (
 	AuthKubeconfig AuthenticationType = "KUBECONFIG"
 	// AuthAWSAccessKey is the AWS account identity of ADR-009.
 	AuthAWSAccessKey AuthenticationType = "AWS_ACCESS_KEY"
+	AuthAWSEC2Role   AuthenticationType = "AWS_EC2_ROLE"
 )
 
 // Compatible reports whether the authentication type belongs to the kind.
@@ -78,7 +79,7 @@ func (t AuthenticationType) Compatible(kind ConnectionKind) bool {
 	switch t {
 	case AuthKubeconfig:
 		return kind == ConnectionKubernetes
-	case AuthAWSAccessKey:
+	case AuthAWSAccessKey, AuthAWSEC2Role:
 		return kind == ConnectionAWS
 	}
 	return false

@@ -41,7 +41,7 @@ func validateRealProfile(opts Options) error {
 	}
 	overrides := map[string]bool{
 		"RegistryOverride": opts.RegistryOverride != nil, "KubeconfigVerifierOverride": opts.KubeconfigVerifierOverride != nil,
-		"AWSVerifierOverride": opts.AWSVerifierOverride != nil, "ConnectionCredentialsOverride": opts.ConnectionCredentialsOverride != nil,
+		"AWSVerifierOverride": opts.AWSVerifierOverride != nil, "EC2RoleProviderOverride": opts.EC2RoleProviderOverride != nil, "ConnectionCredentialsOverride": opts.ConnectionCredentialsOverride != nil,
 		"RendererOverride": opts.RendererOverride != nil, "DeployerOverride": opts.DeployerOverride != nil,
 		"StoreRegistryOverride": opts.StoreRegistryOverride != nil, "SecretStoreVerifierOverride": opts.SecretStoreVerifierOverride != nil,
 		"CleanupEngineOverride": opts.CleanupEngineOverride != nil, "ClusterReadinessOverride": opts.ClusterReadinessOverride != nil,

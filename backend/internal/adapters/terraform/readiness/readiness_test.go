@@ -3,9 +3,12 @@ package readiness
 import (
 	"context"
 	"errors"
+	"fmt"
+	"orchestrator/internal/adapters/awsaccess"
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -309,5 +312,40 @@ func TestVerifyAbsentRequiresExactHistoricalIDsAndNamespaceNotFound(t *testing.T
 				t.Fatal("uncertain or surviving historical object passed absence verification")
 			}
 		})
+	}
+}
+
+type refreshingStatus struct{ keys []string }
+
+func (f *refreshingStatus) Status(_ context.Context, c terraformexec.AWSConnection, _ terraformexec.StatusQuery, _ string) (string, error) {
+	f.keys = append(f.keys, c.AccessKeyID)
+	if len(f.keys) == 1 {
+		return "creating", nil
+	}
+	return "available", nil
+}
+
+func TestEC2RoleReadinessRetrievesFreshScopedCredentialsEachPoll(t *testing.T) {
+	var calls atomic.Int32
+	uri, token, closeEndpoint, err := awsaccess.StartCredentialEndpoint(context.Background(), func(context.Context) (terraformexec.AWSConnection, error) {
+		return terraformexec.AWSConnection{AccessKeyID: fmt.Sprintf("ASIA%d", calls.Add(1)), SecretAccessKey: "fixture", SessionToken: "fixture-token", Expiration: time.Now().Add(time.Hour)}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeEndpoint()
+	env := []string{"AWS_CONTAINER_CREDENTIALS_FULL_URI=" + uri, "AWS_CONTAINER_AUTHORIZATION_TOKEN=" + token, "AWS_REGION=us-east-1"}
+	resource := terraformexec.StateResource{Address: "aws_rds_cluster.db", Type: "aws_rds_cluster", ID: "owned"}
+	api := &refreshingStatus{}
+	check := checker(nil, api)
+	if err = check.Check(context.Background(), request(env, resource)); err != nil {
+		t.Fatal(err)
+	}
+	if len(api.keys) != 2 || api.keys[0] == api.keys[1] {
+		t.Fatal("readiness reused expired credential source")
+	}
+	env[1] = "AWS_CONTAINER_AUTHORIZATION_TOKEN=wrong"
+	if err = check.Check(context.Background(), request(env, resource)); !errors.Is(err, ErrUnavailable) {
+		t.Fatal("readiness accepted unauthorized source", err)
 	}
 }

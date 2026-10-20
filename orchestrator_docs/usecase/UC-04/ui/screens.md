@@ -121,3 +121,12 @@ Each account offers view, rename, explicit “Kiểm tra kết nối” and a se
 concealed credential-replacement form, with same-target explanation. Never prefill
 or reveal stored secrets. Successful save clears submitted secrets and refreshes
 metadata/version. Developer cannot open management UI. Account deletion is absent.
+
+## EC2 role [EC2-05]
+
+AWS registration includes “Phương thức xác thực”: Access key / IAM Role của EC2.
+EC2 mode asks only expected IAM Role ARN and “Vùng kiểm tra”, explains that
+backend/executor must run on EC2 with that role attached, and retains explicit
+“Kiểm tra và lưu”. List/detail show the authentication method and canonical role.
+Role detail offers rename/reverify and explains automatic temporary credentials;
+no access-key replacement form. No pasted metadata token or temporary key.

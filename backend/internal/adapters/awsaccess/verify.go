@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -290,7 +291,7 @@ func (r callResult) classify(afterIdentity bool) error {
 	return ErrCall
 }
 
-type callerIdentity struct{ account, arn string }
+type callerIdentity struct{ account, arn, userID string }
 
 func (c *Client) callerIdentity(ctx context.Context, creds Credentials, region string, afterIdentity bool) (callerIdentity, error) {
 	form := url.Values{"Action": {"GetCallerIdentity"}, "Version": {"2011-06-15"}}
@@ -313,13 +314,14 @@ func (c *Client) callerIdentity(ctx context.Context, creds Credentials, region s
 			Result struct {
 				Account string `json:"Account"`
 				Arn     string `json:"Arn"`
+				UserID  string `json:"UserId"`
 			} `json:"GetCallerIdentityResult"`
 		} `json:"GetCallerIdentityResponse"`
 	}
 	if json.Unmarshal(res.body, &doc) != nil || !accountPattern.MatchString(doc.Response.Result.Account) || doc.Response.Result.Arn == "" {
 		return callerIdentity{}, ErrCall
 	}
-	return callerIdentity{account: doc.Response.Result.Account, arn: doc.Response.Result.Arn}, nil
+	return callerIdentity{account: doc.Response.Result.Account, arn: doc.Response.Result.Arn, userID: doc.Response.Result.UserID}, nil
 }
 
 func (c *Client) probeRegion(ctx context.Context, creds Credentials, region string, probe regionProbe) error {
@@ -344,7 +346,11 @@ func (c *Client) probeRegion(ctx context.Context, creds Credentials, region stri
 		return err
 	}
 	if res.status != http.StatusOK {
-		return res.classify(true)
+		code := res.errorCode()
+		if !deniedCodes[code] && !rejectedCodes[code] && !optInCodes[code] {
+			code = "UNCLASSIFIED"
+		}
+		return fmt.Errorf("AWS regional probe HTTP %d (%s): %w", res.status, code, res.classify(true))
 	}
 	return nil
 }

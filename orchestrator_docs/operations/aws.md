@@ -136,3 +136,27 @@ full service verifier still gates VPC/aux/clean closure. This does not broaden
 product AWS permissions or authorize preexisting/shared volume removal. Original
 failure receipts remain; manual completion and resumed remaining steps recorded
 separately within the original cleanup budget. No dependent retry before proof.
+
+## EC2 instance-role accounts (issue #6)
+
+Run backend and Terraform executor on EC2 with an instance profile containing the
+expected IAM role. Use IMDSv2 (`HttpTokens=required`); Docker bridge networking
+may need metadata response hop limit 2. Permit metadata access only to trusted
+backend/executor processes/containers, block workload access. Do not expose
+metadata through application proxies. No static AWS credential environment or
+shared host profile is used by this method.
+
+The role needs module provisioning/read/update/delete/tag and applicable PassRole
+permissions, plus eks:ListClusters for the regional probe, iam:GetRole on itself and
+iam:SimulatePrincipalPolicy for the
+existing read-only verification. Register “IAM Role của EC2” with canonical IAM
+role ARN (not an STS assumed-role ARN), name and verification regions. STS identity
+alone is insufficient for READY. These checks are evidence, not a guarantee
+against future SCP/policy changes. Every executor must have the same role.
+
+Temporary credentials refresh during Terraform via a private authenticated
+loopback endpoint; no port is published in Compose. Missing IMDS, role replacement
+or missing permission fails closed. Remove no IAM role while its resources still
+need cleanup. Previous PostgreSQL baselines fail compatibility checks: no runtime
+migration/reset occurs. Do not reset retained resources to enable this feature;
+a baseline transition requires separate operator authorization.

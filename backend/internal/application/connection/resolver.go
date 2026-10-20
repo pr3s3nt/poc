@@ -23,6 +23,7 @@ type connectionReader interface {
 type CredentialResolver struct {
 	connections connectionReader
 	store       credentials.Store
+	ec2         EC2RoleProvider
 }
 
 // NewCredentialResolver returns the execution-time resolver. A nil store

@@ -68,7 +68,7 @@ export function DriverAccountsPage({ initialAccount }: { initialAccount?: string
   }
 
   const visible = items;
-  return <section className="page"><header className="page-header"><div><p className="eyebrow">Nền tảng</p><h1>Tài khoản hạ tầng</h1><p>Danh mục tài khoản AWS và cluster Internal của tổ chức. Tài khoản chỉ lưu danh tính và đích kết nối; chúng không gán cho môi trường nào và không tạo tài nguyên. Thông tin xác thực nằm trong kho credential của nền tảng và không bao giờ được đọc lại.</p></div></header>
+  return <section className="page"><header className="page-header"><div><p className="eyebrow">Nền tảng</p><h1>Tài khoản hạ tầng</h1><p>Danh mục tài khoản AWS và cluster Internal của tổ chức. Tài khoản chỉ lưu danh tính và đích kết nối; chúng không gán cho môi trường nào và không tạo tài nguyên. Access key và kubeconfig được lưu riêng trong kho credential; IAM Role của EC2 dùng credential tạm thời và không lưu khóa vào danh mục.</p></div></header>
     <section className="content-panel"><div className="section-header"><h2>Tài khoản đã đăng ký</h2><Button type="button" onClick={() => { setListNotice(''); void reload(); }} disabled={loading}>Tải lại danh sách</Button></div>
       {loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải danh sách">{loadError} <Button type="button" onClick={() => void reload()}>Thử lại</Button></div> : null}
       {listNotice ? <div className="form-success" role="status">{listNotice}</div> : null}
