@@ -6,12 +6,14 @@ class ResourceDefinitionController <<boundary>> {
   +RegisterResourceDefinition(document)
   +ListRenderBundles(sessionOrg, role)
   +ListDefinitionCapabilities(sessionOrg, role)
+  +InspectTerraformModule(document)
 }
 class ResourceDefinitionService <<control>> {
   +RegisterResourceDefinition(ctx, cmd): ResourceDefinition
     +UpdateResourceDefinition(ctx, key, expectedVersion, cmd): ResourceDefinition
   +ListRenderBundles(): SafeBundleMetadata[]
   +ListDefinitionCapabilities(ctx, org): CapabilityMetadata[]
+  +InspectTerraformModule(ctx, org, request): CapabilityMetadata
   +PreviewMatching(ctx, org, query): MatchingPreview
 }
 interface DriverContractInspector {
@@ -53,7 +55,7 @@ ResourceDefinitionService ..> DefinitionMatcher : five-field ranking + winner ac
 class ModuleSourcePolicy <<control>>
 class ModuleBundleResolver <<adapter>>
 class TerraformModuleBundle <<entity>>
-ResourceDefinitionService --> ModuleSourcePolicy : Admin allowlist
+ResourceDefinitionService --> ModuleSourcePolicy : legacy policy / direct HTTPS
 ResourceDefinitionService --> ModuleBundleResolver : verify immutable content before insert
 ModuleBundleResolver ..> TerraformModuleBundle
 ResourceDefinition --> TerraformModuleBundle : verified bundle ref

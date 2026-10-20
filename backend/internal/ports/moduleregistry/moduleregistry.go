@@ -38,7 +38,7 @@ var (
 )
 
 // Registrar verifies a pin for registration: it may fetch from an
-// allowlisted source, check the digest, inspect and cache the content. The
+// legacy policy source, or reuse a directly inspected immutable pin. The
 // returned bundle is persisted by the caller together with the Definition.
 type Registrar interface {
 	Verify(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.Bundle, error)
@@ -70,4 +70,18 @@ type Registry interface {
 	Registrar
 	Metadata
 	ExecutionVerifier
+}
+
+// GitInspection is a source draft, never an execution pin or a credential.
+type GitInspection struct {
+	ResourceType string `json:"resourceType"`
+	URL          string `json:"url"`
+	Path         string `json:"path"`
+	Ref          string `json:"ref"`
+}
+
+// GitInspector prepares verified metadata; it never creates a Definition or
+// invokes Terraform. Kept separate from Metadata's pure read interface.
+type GitInspector interface {
+	InspectGit(ctx context.Context, request GitInspection) (tfmodule.Bundle, error)
 }

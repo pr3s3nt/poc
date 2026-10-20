@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/ports/moduleregistry"
 
 	"bytes"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -105,6 +107,64 @@ type gitSnapshot struct {
 	dir    string
 	commit string
 	ca     string
+}
+
+var gitReferencePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$`)
+
+func validGitReference(ref string) bool {
+	return gitReferencePattern.MatchString(ref) && !strings.Contains(ref, "..") && !strings.Contains(ref, "//") && !strings.HasSuffix(ref, "/") && !strings.HasSuffix(ref, ".")
+}
+
+// Resolve peels annotated tags and refuses ambiguous branch/tag names. Nothing
+// executes the supplied ref as a revision expression or a refspec.
+func (g *GitCLI) Resolve(ctx context.Context, source GitSource, ref string) (string, error) {
+	if validateGitURL(source.URL) != nil || !validGitReference(ref) {
+		return "", ErrFetch
+	}
+	dir, err := os.MkdirTemp(g.TempDir, "resolve-")
+	if err != nil {
+		return "", ErrFetch
+	}
+	s := &gitSnapshot{cli: g, ctx: ctx, dir: dir, ca: source.CAFile}
+	defer s.Close()
+	names := []string{ref}
+	if !strings.HasPrefix(ref, "refs/") {
+		names = []string{"refs/heads/" + ref, "refs/tags/" + ref}
+	}
+	patterns := []string{}
+	for _, name := range names {
+		patterns = append(patterns, name, name+"^{}")
+	}
+	out, err := s.git(append([]string{"ls-remote", "--exit-code", "--", source.URL}, patterns...)...)
+	if err != nil {
+		return "", ErrFetch
+	}
+	refs := map[string]string{}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 2 || !tfmodule.FullCommit(fields[0]) {
+			return "", ErrFetch
+		}
+		refs[fields[1]] = fields[0]
+	}
+	var commit string
+	for _, name := range names {
+		value := refs[name]
+		if peeled := refs[name+"^{}"]; peeled != "" {
+			value = peeled
+		}
+		if value == "" {
+			continue
+		}
+		if commit != "" && commit != value {
+			return "", ErrFetch
+		}
+		commit = value
+	}
+	if commit == "" {
+		return "", ErrFetch
+	}
+	return commit, nil
 }
 
 // Open fetches exactly one commit (depth 1) into a private bare repository.

@@ -303,3 +303,24 @@ provider pins. Region remains Definition-selected. AWS_EC2_ROLE uses an internal
 per-invocation authenticated credential endpoint with expiration and identity
 checks on refresh. Module inputs and persisted pins do not contain credentials;
 retained-state/ownership/cleanup contracts are unchanged.
+
+
+## Direct Git inspection — issue #7
+
+Theo amendment ADR-014 ngày2026-10-20, PE/Admin có thể inspect HTTPS Git URL
+không cần policy entry. `POST /api/v1/terraform-modules/inspect` nhận đúng
+`resourceType`, `url`, `path`, `ref`; Type phải thuộc session Organization.
+Empty path dùng `.`; ref bắt buộc là tag/branch/full commit, không nhận option/
+refspec. Downloader resolve rồi fetch và kiểm đúng full commit, không checkout/
+exec code. Digest tự tính theo thuật toán trên. Inspection có deadline hữu hạn;
+provider release/type/content và transitive full-commit guards giữ nguyên.
+
+Inspection ghi verified bundle/cache, không Definition/criteria/state hoặc cloud.
+Response `{capability}` dùng cùng projection với capability list. Bundle contract
+JSON bổ sung optional `sourceUrl` cho safe HTTPS origin; source/module IDs sinh
+xác định từ URL/path/Type, không từ mutable ref. Registration dùng persisted pin,
+kiểm lại digest/release/cache; restart không cần thêm policy cho origin này.
+Remote child HTTPS modules vẫn phải pin full commit và được inspect/cache trong
+bundle. Execution/Preview/cleanup không resolve ref hoặc fetch version mới.
+Full digest chỉ là chi tiết kỹ thuật ở UI. Legacy pins/allowlist config vẫn đọc
+được; không có schema migration vì bundle contract là JSON.

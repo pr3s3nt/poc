@@ -7,6 +7,26 @@ last_reviewed: 2026-10-20
 
 # Current project state
 
+## Direct Git module authoring — issue #7, 2026-10-20
+
+Nhánh `iam_role`: PE/Admin thêm module qua HTTPS URL/thư mục/tag hoặc commit
+ngay trong form Definition, không cần allowlist từng repository. Inspect resolve
+commit, tự tính digest, kiểm/cache/persist verified bundle metadata; không tạo
+Definition hoặc chạy Terraform/provider. Typed variables/mappings/account/criteria
+và CAS hiện hành được reuse. Type chưa có module chọn được để thêm nguồn đầu tiên.
+Digest/full pin chuyển vào Chi tiết kỹ thuật đóng mặc định; selector dùng tên và
+revision rút gọn. Đổi source/Type/mode làm stale inspect; late replies không ghi đè.
+
+Focused registry/catalog/HTTP tests + race, module-domain tests, bootstrap wiring,
+backend build/vet, frontend107distinct tests (chỉ các file chịu ảnh hưởng), typecheck,
+changed-file lint/build và browser Git main flow PASS. Không fullsuite hoặc
+AWS/Kubernetes/deploy rerun. HTTPS Git fixture và product HTTP/catalog chạy thật;
+browser catalog in-memory, không claim SQL persistence hoặc Terraform apply.
+Private Git auth/SSH, provider mới và resource upgrade/destroy ngoài phạm vi.
+Cần durable catalog + module cache để reuse qua process restart. Full repository
+lint còn lỗi có sẵn ở `ec2-role-real.mjs` và user-owned untracked demo; task files
+lint sạch. [Verification](verification/2026-10-20-git-module-authoring.md).
+
 ## V04–V06 hoàn tất — 2026-10-20
 
 Đã hoàn tất Definition/matching/references → dependency graph → tài khoản/vùng

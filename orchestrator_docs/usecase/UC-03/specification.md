@@ -337,3 +337,29 @@ Applications (AWS after V03.10); unscoped internal workloads need both refs.
 - **V06-01:** Managed PostgreSQL/Redis Definitions reference actual network outputs;
   no implicit EKS dependency or cross-node account/region equality rule. Driver
   incompatibility and missing/tied matching fail without alternate winner.
+
+
+## Git module authoring — issue #7, 2026-10-20
+
+- **GIT-01:** PE/Admin được nhập trực tiếp Git HTTPS URL, clean relative module
+  directory (mặc định `.`) và tag/commit trong form Definition; không yêu cầu
+  Admin allowlist từng repository/module. Developer không được inspect/register.
+- **GIT-02:** Thao tác Kiểm tra module gọi API inspect riêng, resolve tag/branch
+  thành full commit, fetch đúng commit, tự tính content digest, kiểm HCL/provider/
+  transitive contract và cache/persist verified bundle metadata. Không tạo/sửa
+  Definition/criteria hoặc provision tài nguyên. Sau inspect mới dựng typed
+  inputs/output/provider mappings từ cùng capability projection hiện hành.
+- **GIT-03:** Giữ lựa chọn module đã verified. Loại tài nguyên chưa có module vẫn
+  được chọn để thêm từ Git. Save giữ immutable source pin hiện hành; server kiểm
+  Type/mappings/accounts/CAS như cũ. Persisted resource/state/cleanup không đổi.
+- **GIT-04:** Thay URL/directory/ref/Type/mode làm stale kết quả inspect và chặn
+  Save tới khi inspect mới thành công hoặc chọn module đã verified. Late replies
+  không ghi đè draft mới; lỗi giữ URL/ref, metadata, criteria và per-pin inputs.
+- **GIT-05:** Selector hiển thị tên module và phiên bản/commit rút gọn, trạng thái
+  Đã xác minh. Full commit/digest chỉ trong Chi tiết kỹ thuật; không nhập digest.
+  Backend lưu safe origin URL để module hoạt động sau restart. URL có credential,
+  non-HTTPS, traversal, hooks/provisioners và mutable execution bị từ chối.
+- **GIT-06:** Đợt này hỗ trợ HTTPS repository mà hardened Git downloader truy cập
+  được không cần credential. Private Git credential authoring/SSH chưa hỗ trợ;
+  UI phải nói rõ, không thu raw secret. Provider release/runtime readiness vẫn
+  có phạm vi hỗ trợ hiện hành; inspect không tuyên bố deploy đã kiểm chứng.

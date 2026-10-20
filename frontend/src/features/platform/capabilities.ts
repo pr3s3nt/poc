@@ -14,9 +14,8 @@ export type CapabilityVariable = {
   resourceParam: boolean;
   preset?: string;
 };
-// The exact verified pin of a registry module: the only choices the form offers
-// (no trust root, URL or free text of its own).
-export type CapabilitySource = { sourceId: string; moduleId: string; revision: string; subdirectory: string; contentSha256: string };
+// The exact verified execution pin, including an optional safe Git origin.
+export type CapabilitySource = { sourceId: string; moduleId: string; revision: string; subdirectory: string; contentSha256: string; repositoryUrl?: string };
 export type CapabilityProvider = { name: string; source: string; version: string; binding: 'aws' | 'kubernetes' | 'none' };
 export type CapabilityOutput = { name: string; type?: string; sensitive: boolean };
 // Account requirement and provider binding targets the server publishes for a
@@ -60,7 +59,7 @@ function bindingMeta(item: unknown): CapabilityBinding {
 const pin = /^[0-9a-f]{64}$/;
 function source(value: unknown): CapabilitySource {
   if (!isObject(value) || !filled(value.sourceId) || !filled(value.moduleId) || !filled(value.revision) || !filled(value.subdirectory) || !text(value.contentSha256) || !pin.test(value.contentSha256)) return fail();
-  return { sourceId: value.sourceId, moduleId: value.moduleId, revision: value.revision, subdirectory: value.subdirectory, contentSha256: value.contentSha256 };
+  return { sourceId: value.sourceId, moduleId: value.moduleId, revision: value.revision, subdirectory: value.subdirectory, contentSha256: value.contentSha256, ...(value.repositoryUrl !== undefined ? { repositoryUrl: filled(value.repositoryUrl) ? value.repositoryUrl : fail() } : {}) };
 }
 
 // Reads GET /resource-definition-capabilities strictly. `variables`, `executorOwned`, `account` and `bindings` are required; `providerRequirements` and `outputs` are omitted by the server when empty. A Terraform pair

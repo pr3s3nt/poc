@@ -551,8 +551,10 @@ Contract/provider_requirements là JSON object; status VERIFIED trong registry
 insert-only hiện hành (không mở API revoke/update). Trigger giữ bundle bất biến. Contract holds input/output/schema mappings,
 provider pins and transitive bundle metadata, never credentials/cache path.
 Definition `driver_inputs` references verified bundle identity plus mappings;
-plan pins immutable bundle snapshot/digests. Admin source allowlist is platform
-configuration, not a PE-authored trust root in this table.
+plan pins immutable bundle snapshot/digests. Issue #7 adds optional contract
+`sourceUrl` containing a credential-free HTTPS origin for directly inspected Git
+modules. PE/Admin may prepare these without a source allowlist (ADR-014 amendment);
+legacy allowlist remains platform configuration. No column/constraint migration.
 
 ### `terraform_resource_instances`
 

@@ -10,10 +10,9 @@ import (
 	"orchestrator/internal/domain/tfmodule"
 )
 
-// Policy is the Admin source allowlist: reviewed platform configuration
-// loaded from a file at startup. Platform Engineers never add a source,
-// module or trust root through registration; they only reference a commit
-// and digest of a module that this policy allows.
+// Policy is legacy reviewed platform source configuration loaded at startup.
+// Those pins retain their source/module restrictions. Direct HTTPS inspection
+// uses its own verified pins without requiring entries here (UC-03 GIT-01).
 type Policy struct {
 	Sources []GitSource `json:"sources"`
 }

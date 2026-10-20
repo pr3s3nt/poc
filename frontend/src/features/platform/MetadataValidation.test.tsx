@@ -107,7 +107,7 @@ describe('malformed metadata never becomes ready metadata in the Definition form
     render(<ResourceDefinitionsPage />);
     await screen.findByText('Chưa có cấu hình tài nguyên nào.');
     expect(screen.queryByRole('alert', { name: 'Lỗi tải metadata module' })).toBeNull();
-    expect(screen.getByRole('option', { name: 'vpc (chưa có module đã kiểm chứng)' })).toBeDisabled();
+    expect(screen.getByRole('option', { name: 'vpc (chưa có module đã kiểm chứng)' })).not.toBeDisabled();
   });
 });
 

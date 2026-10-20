@@ -3,8 +3,8 @@
 // the registry publishes after inspection and the strict Terraform Driver
 // Inputs shape (Terraform module contract, UC-03 BR-09/BR-11).
 //
-// The model carries no credential, download URL or cache path: those stay in
-// the Admin source policy and the private registry cache.
+// The model carries no credential or cache path. Direct Git bundles retain
+// their validated, credential-free HTTPS origin in the inspected contract.
 package tfmodule
 
 import (
@@ -206,6 +206,7 @@ type ModuleCall struct {
 type Contract struct {
 	SchemaVersion   int                `json:"schemaVersion"`
 	SourceKind      string             `json:"sourceKind"`
+	SourceURL       string             `json:"sourceUrl,omitempty"`
 	ResourceTypes   []string           `json:"resourceTypes"`
 	RequiredVersion string             `json:"requiredVersion,omitempty"`
 	Inputs          map[string]Input   `json:"inputs"`

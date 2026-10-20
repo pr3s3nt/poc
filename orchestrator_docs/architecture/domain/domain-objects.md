@@ -156,6 +156,8 @@ remain unchanged. Retired/unknown binding scopes are rejected without conversion
 
 - `TerraformModuleBundle`: immutable verified module/release contract, a platform
   registry entity. Definition references it; Plan pins its snapshot/digests.
+  Direct Git inspection (issue #7) retains optional credential-free `sourceUrl`
+  in its immutable contract; tag resolution is preparation-only.
 - `TerraformResourceInstance`: aggregate for stable Organization/Environment/
   generation/descriptor/scope identity, ownership, original target, state key
   and write-ahead physical intent. One per private/shared/infrastructure instance.

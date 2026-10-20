@@ -148,3 +148,18 @@ waits for successful producing provision and API/auth/network/node readiness.
 Missing/type/dependency/auth/network failure stays a source error and blocks
 consumer; no fallback account/cluster or false success. Maintain loading/error/
 retry/stale/BUSY and secret-redaction behavior.
+
+
+## Git module form — issue #7
+
+UC-03 GIT-01..06 thay giới hạn selector-only trước đây. Chọn module verified
+hoặc Thêm từ Git (HTTPS URL, thư mục, tag/commit); nút Kiểm tra module gọi
+POST `/api/v1/terraform-modules/inspect` với `{resourceType,url,path,ref}`.
+200 trả `{capability}`; 400 invalid/unavailable module, 401 session, 403 role,
+413 oversized; lỗi nội bộ dùng generic 500, không raw Git stderr/URL credential.
+Loading/error giữ draft; thay source/type/mode hoặc unmount vô hiệu late reply.
+Save chặn tới verified selection; inspect không lưu Definition hay provision.
+Form giữ typed mappings/variables/provision/criteria và CAS hiện hành. Selector
+không hiện digest; Chi tiết kỹ thuật đóng mặc định chứa full pin. Public HTTPS
+không cần credential; chưa có private Git auth/SSH. New Type có thể chọn trước
+khi module đầu tiên được inspect. Giữ create/edit/reload và installed module flow.

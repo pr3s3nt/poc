@@ -59,11 +59,12 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     const select = field('Module đã kiểm chứng');
     expect(select).toBeDisabled();
     const pin = pinOf('vpc');
-    expect(within(select).getByRole('option', { name: `vpc · ${pin.revision} · sha256:${pin.content_sha256.slice(0, 12)}` })).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: `vpc · ${pin.revision.slice(0, 12)}` })).toBeInTheDocument();
     const details = document.querySelector('dl[aria-label="Pin module đã kiểm chứng"]') as HTMLElement;
     for (const value of new Set([pin.source_id, pin.module_id, pin.revision, pin.subdirectory, pin.content_sha256])) expect(within(details).getAllByText(value).length).toBeGreaterThan(0);
     expect(within(details).getByText(pin.content_sha256)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/URL|digest|SHA|revision|Nguồn module|source_id/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/digest|SHA|revision|source_id/i)).not.toBeInTheDocument();
+    expect(document.querySelector('details')).not.toHaveAttribute('open');
     // The legacy static Kubernetes pairs of the metadata are never a choice.
     await user.selectOptions(field('Loại tài nguyên'), 'postgres');
     expect(within(field('Module đã kiểm chứng')).getAllByRole('option').map((option) => option.textContent?.split(' · ')[0])).toEqual(['Chọn module và phiên bản', 'aurora', 'postgres-k8s']);
@@ -351,25 +352,25 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     expect(posted).toEqual([]);
   });
 
-  it('hides workload, disables types without a verified module and never offers a source of its own', async () => {
+  it('hides workload and lets authors select a Type before its first Git module exists', async () => {
     const user = userEvent.setup();
     backend({ types: [...typeFixture, { key: 'cache', inputs: [], outputs: [], classes: [] }] });
     await ready();
     const select = field('Loại tài nguyên');
     expect(within(select).queryByRole('option', { name: 'workload' })).not.toBeInTheDocument();
     const unsupported = within(select).getByRole('option', { name: 'cache (chưa có module đã kiểm chứng)' });
-    expect(unsupported).toBeDisabled();
+    expect(unsupported).not.toBeDisabled();
     await user.selectOptions(select, 'cache').catch(() => undefined);
-    expect(select).toHaveValue('');
+    expect(select).toHaveValue('cache');
     expect(screen.queryByRole('option', { name: /score-k8s|existing-cluster/ })).not.toBeInTheDocument();
   });
 
-  it('shows no supported choice at all when the metadata only holds legacy static pairs', async () => {
+  it('offers Git authoring when metadata has no verified installed pins', async () => {
     backend({ capabilities: capabilityFixture.filter((capability) => capability.driverType === 'kubernetes') });
     render(<ResourceDefinitionsPage />);
     await screen.findByText('Chưa có cấu hình tài nguyên nào.');
     await screen.findByRole('option', { name: 'postgres (chưa có module đã kiểm chứng)' });
-    expect(screen.getByRole('option', { name: 'k8s-namespace (chưa có module đã kiểm chứng)' })).toBeDisabled();
+    expect(screen.getByRole('option', { name: 'k8s-namespace (chưa có module đã kiểm chứng)' })).not.toBeDisabled();
     expect(field('Module đã kiểm chứng')).toBeDisabled();
   });
 
@@ -615,8 +616,8 @@ describe('UC-03 Definition form states and errors', () => {
     expect(await screen.findByText('Lạ')).toBeInTheDocument();
     expect(screen.getByText('Lạ').nextElementSibling).toHaveTextContent('ID odd · constructor · toString · phiên bản 1 · 1 điều kiện áp dụng');
     await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
-    expect(screen.getByRole('option', { name: 'constructor (chưa có module đã kiểm chứng)' })).toBeDisabled();
-    expect(screen.getByRole('option', { name: 'toString (chưa có module đã kiểm chứng)' })).toBeDisabled();
+    expect(screen.getByRole('option', { name: 'constructor (chưa có module đã kiểm chứng)' })).not.toBeDisabled();
+    expect(screen.getByRole('option', { name: 'toString (chưa có module đã kiểm chứng)' })).not.toBeDisabled();
     await user.type(field('ID cấu hình (Definition ID)'), 'odd-new');
     await user.type(field('Tên hiển thị'), 'Cấu hình lạ');
     fireEvent.change(field('Loại tài nguyên'), { target: { value: 'constructor' } });
@@ -643,7 +644,7 @@ describe('UC-03 Definition form states and errors', () => {
       render(<ResourceDefinitionsPage initialResourceType={type} />);
       await screen.findByRole('option', { name: 'vpc' });
       await new Promise((done) => setTimeout(done, 30));
-      expect(typeSelect()).toHaveValue('');
+      expect(typeSelect()).toHaveValue(['cache', 'constructor', 'toString'].includes(type) ? type : '');
       expect(posted).toEqual([]);
     });
 

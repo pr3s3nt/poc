@@ -21,6 +21,7 @@ package "Application Services" {
     +UpdateResourceDefinition(ctx, key, expectedVersion, cmd): ResourceDefinition
     +ListRenderBundles(): SafeBundleMetadata[]
     +PreviewMatching(ctx, org, query): MatchingPreview
+    +InspectTerraformModule(ctx, org, request): CapabilityMetadata
   }
   class ConnectionService {
     +RenameAccount(ctx, org, key, version, name): Connection
@@ -353,6 +354,7 @@ class TerraformModuleBundle <<entity>> {
   +ContentSHA256: string
   +ProviderPins: object
   +InputOutputContract: object
+  +SourceURL: optional safe HTTPS origin
 }
 class ModuleBundleResolver <<adapter>>
 class ModuleSourcePolicy <<control>>

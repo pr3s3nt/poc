@@ -111,3 +111,12 @@ only after dependencies pass. Failure blocks consumers and preserves progress.
 Cleanup walks reverse actual graph using original state/module/identity and
 ownership/UID guards, protecting shared/preexisting objects. See cloud sequence
 and module/state contracts for target and secret boundaries.
+
+
+## Git inspection collaboration (issue #7)
+
+`InspectTerraformModule(ctx, org, request)` kiểm scoped Type rồi gọi module
+inspector resolve/fetch/full-commit/content inspection/cache/persist bundle.
+Controller chỉ cho PE/Admin, strict bounded body, deadline; response dùng
+`terraformCapability` giống metadata GET. Không gọi Definition mutation, provider
+hay executor. Registration sau đó tái sử dụng verified pin và CAS pipeline.

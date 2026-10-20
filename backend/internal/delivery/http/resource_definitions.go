@@ -103,7 +103,7 @@ func (s *Server) handleMatchingPreview(w http.ResponseWriter, r *http.Request) {
 
 // decodePreviewBody is strict like decodeStrict but never echoes decoder
 // text: an unknown field name is caller data and could be a secret.
-func decodePreviewBody(w http.ResponseWriter, r *http.Request, dst *catalog.MatchingPreviewQuery) bool {
+func decodePreviewBody(w http.ResponseWriter, r *http.Request, dst any) bool {
 	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, managementBodyLimit))
 	if err != nil {
 		if !writeTooLarge(w, err) {

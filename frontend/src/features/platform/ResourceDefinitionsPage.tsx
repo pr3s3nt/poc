@@ -15,6 +15,7 @@ import { MappingEditor } from './MappingEditor';
 import { clusterType, emptyMapping, inheritsCluster, mappingProblems, mappingToObject, needsAccount, objectToMapping, bindingProviders, type MappingDraft, type TypeContract } from './moduleMapping';
 import { draftToVariables, emptyVariableDraft, missingRequired, parseObjectText, variablesToDraft, type JsonObject, type VariableDraft } from './typedVariables';
 import { provisionToRows, rowsToProvision, type ProvisionRow } from './typedProvision';
+import { GitModuleSource } from './GitModuleSource';
 import { ExistingClusterSection } from './ExistingClusterSection';
 import { listAccounts, statusLabel, typeLabel, type Account } from './accounts/accountsApi';
 
@@ -71,14 +72,13 @@ const loadTypes = async (): Promise<TypeContract[]> => parseTypeMetadata(await a
 const loadDefinitions = async () => (await api<{ resourceDefinitions: Definition[] }>('/resource-definitions')).resourceDefinitions ?? [];
 // Real application/environment IDs (keys) for the criteria editor; never derived from names.
 const loadApplications = async (): Promise<ApplicationOption[]> => ((await api<{ applications: APIApplication[] }>('/applications')).applications ?? []).map((app) => ({ key: app.key, name: app.name ?? app.key, environments: (app.environments ?? []).map((env) => ({ key: env.key, name: env.name ?? env.key, environmentType: env.environmentType ?? '', snapshotKey: snapshotKey(env) })) }));
-const shortDigest = (digest: string) => digest.slice(0, 12);
-const pinLabel = (capability: Capability) => `${capability.module} · ${capability.source?.revision ?? ''} · sha256:${shortDigest(capability.source?.contentSha256 ?? '')}`;
+const pinLabel = (capability: Capability) => `${capability.module} · ${capability.source?.revision.slice(0, 12) ?? ''}`;
 const accountLabel = (account: Account) => (account.name && account.name !== account.key ? `${account.name} (${account.key})` : account.key);
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
 // initialResourceType comes from the Resource Types CTA query (UC-03 UI): it is
-// applied once, after the catalog and the registry metadata confirm a verified
-// pair, and never over a choice.
+// applied once after catalog metadata loads, including Types awaiting their
+// first Git module, and never over a choice.
 export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialResourceType?: string } = {}) {
   const typeList = useCatalogList(loadTypes, listFailure);
   const capabilityList = useCatalogList(loadCapabilities, capabilityFailure);
@@ -97,6 +97,8 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const [name, setName] = useState('');
   const [resourceType, setResourceType] = useState('');
   const [pinChoice, setPinChoice] = useState('');
+  const [sourceMode, setSourceMode] = useState<'installed' | 'git'>('installed');
+  const [gitPin, setGitPin] = useState<Capability | null>(null);
   const [drafts, setDrafts] = useState<Record<string, PairDraft>>({});
   const [criteriaDraft, setCriteriaDraft] = useState<CriteriaDraft>(emptyDraft);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -118,11 +120,11 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   useEffect(() => {
     if (prefilled.current || typeList.loading || typeList.loadError || capabilityList.loading || capabilityList.loadError) return;
     prefilled.current = true;
-    if (initialResourceType !== '' && typeList.items.some((type) => type.key === initialResourceType) && capabilitiesForType(capabilityList.items, initialResourceType).some(isVerifiedPin)) setResourceType((current) => (current === '' ? initialResourceType : current));
+    if (initialResourceType !== '' && initialResourceType !== 'workload' && typeList.items.some((type) => type.key === initialResourceType)) setResourceType((current) => (current === '' ? initialResourceType : current));
   }, [typeList.loading, typeList.loadError, typeList.items, capabilityList.loading, capabilityList.loadError, capabilityList.items, initialResourceType]);
 
   // One verified pin is chosen for the user; several need an explicit choice.
-  const pin: Capability | undefined = typePins.length === 1 && !sourceLost ? typePins[0] : typePins.find((candidate) => capabilityKey(candidate) === pinChoice);
+  const pin: Capability | undefined = sourceMode === 'git' ? (gitPin?.resourceType === resourceType ? gitPin : undefined) : typePins.length === 1 && !sourceLost ? typePins[0] : typePins.find((candidate) => capabilityKey(candidate) === pinChoice);
   const draftKey = pin ? capabilityKey(pin) : '';
   const draft = drafts[draftKey] ?? initialDraft();
   const patchDraft = (change: Partial<PairDraft>) => { if (draftKey) setDrafts((current) => ({ ...current, [draftKey]: { ...initialDraft(), ...current[draftKey], ...change } })); };
@@ -251,12 +253,14 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   }
 
   function resetForm() {
+    setSourceMode('installed'); setGitPin(null);
     setKey(''); setName(''); setIdError(''); setNameError(''); setError(''); setReview(null); setEditing(null); setSourceLost(false);
     setDrafts({}); setCriteriaDraft(emptyDraft()); setPinChoice('');
   }
 
   // Loads a stored Definition into the form for editing (UC-03 V02-06): the ID and Resource Type stay fixed.
   function startEdit(definition: Definition) {
+    setSourceMode('installed'); setGitPin(null);
     const values = isObject(definition.driverInputs?.values) ? definition.driverInputs.values : {};
     const source = isObject(values.source) ? values.source : {};
     const capability = capabilitiesForType(capabilityList.items, definition.resourceType).filter(isVerifiedPin).find((candidate) =>
@@ -352,7 +356,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
       setNotice(`Đã lưu cấu hình ${saved.key} (phiên bản ${saved.version ?? editing.version + 1}). Chỉ Xem trước và Triển khai mới dùng cấu hình mới; tài nguyên đã triển khai và snapshot cũ không đổi.`);
       setSaving(false);
       // Definition criteria change the server-computed Resource Type classes.
-      await Promise.all([definitionList.reload(), typeList.reload()]);
+      await Promise.all([definitionList.reload(), typeList.reload(), capabilityList.reload()]);
       return;
     }
     try {
@@ -364,8 +368,9 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
       return;
     }
     // Committed: report it and reset the submitted pin's draft before reloading.
-    setNotice(`Đã đăng ký cấu hình tài nguyên ${submitted}.`); setKey(''); setName(''); setDrafts((current) => { const next = { ...current }; delete next[submittedDraft]; return next; }); setCriteriaDraft(emptyDraft()); setSaving(false);
-    await Promise.all([definitionList.reload(), typeList.reload()]);
+    setNotice(`Đã đăng ký cấu hình tài nguyên ${submitted}.`); setSourceMode('installed'); setGitPin(null);
+    setKey(''); setName(''); setDrafts((current) => { const next = { ...current }; delete next[submittedDraft]; return next; }); setCriteriaDraft(emptyDraft()); setSaving(false);
+    await Promise.all([definitionList.reload(), typeList.reload(), capabilityList.reload()]);
   }
 
   // Full unsaved candidate for the exact matching preview: same shape as the save request, built without side effects.
@@ -391,13 +396,13 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
     return { provider: provider.name, label };
   }) : [];
   const selectedMissing = accountRequired && chosenAccount !== '' && !compatibleAccounts.some((account) => account.key === chosenAccount);
-  const saveDisabled = saving || types.length === 0 || !metadataReady || review !== null;
+  const saveDisabled = saving || types.length === 0 || !metadataReady || review !== null || (sourceMode === 'git' && !gitPin);
 
   return <section className="page"><header className="page-header"><div><p className="eyebrow">Nền tảng</p><h1>Cấu hình tài nguyên</h1><p>Mô tả cách tạo tài nguyên bằng module Terraform đã kiểm chứng, tài khoản hạ tầng và điều kiện áp dụng. Chỉ Kỹ sư nền tảng hoặc Quản trị viên được đăng ký và sửa. Không có thao tác xóa.</p></div></header>
     <section className="content-panel"><div className="section-header"><h2>Cấu hình đã đăng ký</h2></div>{listError ? <div className="form-error" role="alert" aria-label="Lỗi tải danh sách">{listError} <Button type="button" onClick={() => { void definitionList.reload(); }}>Thử lại</Button></div> : definitionList.loading && definitionList.items.length === 0 ? <p>Đang tải danh sách cấu hình tài nguyên…</p> : definitions.length === 0 ? <p>Chưa có cấu hình tài nguyên nào.</p> : <div className="catalog-list">{definitions.map((definition) => <div key={definition.key} className="catalog-entry" data-definition={definition.key}><strong>{definition.name || definition.key}</strong><span>ID <code>{definition.key}</code> · {definition.resourceType} · {own(driverLabels, definition.driverType) ?? definition.driverType}{definition.driverAccount ? ` · tài khoản ${accountName(definition.driverAccount)}` : ''} · phiên bản {definition.version ?? '?'} · {definition.criteria?.length ?? 0} điều kiện áp dụng{definition.driverType === 'existing-cluster' ? <> · <strong>Hệ thống</strong> (chỉ đọc)</> : null}</span>
       {definition.driverType !== 'existing-cluster' ? <Button type="button" aria-label={`Sửa cấu hình ${definition.key}`} disabled={saving || !metadataReady} onClick={() => startEdit(definition)}>Sửa</Button> : null}</div>)}</div>}</section>
     <ExistingClusterSection definitions={definitionList.items} reload={async () => { void typeList.reload(); return definitionList.reload(); }} />
-    <section className="content-panel" ref={formRef} aria-label={editing ? 'Sửa cấu hình tài nguyên' : 'Đăng ký cấu hình tài nguyên'}><div className="section-header"><div><h2>{editing ? `Sửa cấu hình ${editing.key}` : 'Đăng ký cấu hình tài nguyên'}</h2><p>{editing ? 'ID và Loại tài nguyên không đổi. Các thay đổi khác được lưu một lần theo phiên bản; Lưu không tạo hay thay đổi tài nguyên. Chỉ lần Xem trước và Triển khai mới dùng cấu hình mới.' : 'Chỉ nhận module Terraform đã được kiểm chứng trong registry. Module, phiên bản và digest lấy từ metadata của máy chủ; form không có ô nhập nguồn, URL hay digest.'}</p></div>{editing ? <Button type="button" onClick={resetForm} disabled={saving}>Hủy sửa</Button> : null}</div>
+    <section className="content-panel" ref={formRef} aria-label={editing ? 'Sửa cấu hình tài nguyên' : 'Đăng ký cấu hình tài nguyên'}><div className="section-header"><div><h2>{editing ? `Sửa cấu hình ${editing.key}` : 'Đăng ký cấu hình tài nguyên'}</h2><p>{editing ? 'ID và Loại tài nguyên không đổi. Các thay đổi khác được lưu một lần theo phiên bản; Lưu không tạo hay thay đổi tài nguyên. Chỉ lần Xem trước và Triển khai mới dùng cấu hình mới.' : 'Chọn module đã kiểm chứng hoặc thêm từ Git. Hệ thống kiểm tra và cố định phiên bản trước khi bạn lưu cấu hình.'}</p></div>{editing ? <Button type="button" onClick={resetForm} disabled={saving}>Hủy sửa</Button> : null}</div>
       {review ? <div className="form-warning" role="alert" aria-label="Cần tải lại cấu hình">
         <p>{review.kind === 'stale' ? 'Cấu hình đã được người khác thay đổi kể từ lần bạn tải (phiên bản không còn khớp). Chưa có gì bị ghi đè. Bản nháp của bạn vẫn được giữ trên màn hình.' : review.created ? 'Chưa biết lần đăng ký đã được lưu hay chưa. Console không tự gửi lại.' : 'Chưa biết thay đổi đã được lưu hay chưa. Console không tự gửi lại.'}</p>
         <p>{review.created ? 'Hãy kiểm tra trên máy chủ: nếu cấu hình đã có thì mở bản đã lưu, nếu chưa có thì bản nháp được giữ để bạn đăng ký lại. Nút Đăng ký tạm tắt cho đến khi kiểm tra.' : 'Hãy tải lại bản mới nhất, xem lại rồi lưu lại tường minh. Nút Lưu tạm tắt cho đến khi tải lại.'}</p>
@@ -405,24 +410,26 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
       <form onSubmit={submit} noValidate><fieldset className="editor-grid form-fieldset" disabled={saving} aria-busy={saving}>
         <div className="field-grid"><label>ID cấu hình (Definition ID)<input value={key} readOnly={editing !== null} aria-readonly={editing !== null ? true : undefined} aria-required="true" aria-invalid={idError ? true : undefined} aria-describedby={idError ? 'definition-id-hint definition-id-error' : 'definition-id-hint'} onChange={(event) => { setKey(event.target.value); setIdError(''); }} /></label>
           <label>Tên hiển thị<input value={name} maxLength={maxNameLength} aria-required="true" aria-invalid={nameError ? true : undefined} aria-describedby={nameError ? 'definition-name-error' : undefined} onChange={(event) => { setName(event.target.value); setNameError(''); }} /></label>
-          <label>Loại tài nguyên<select value={resourceType} aria-required="true" disabled={editing !== null} onChange={(event) => { setResourceType(event.target.value); setPinChoice(''); }}><option value="">{typeList.loading && types.length === 0 ? 'Đang tải loại tài nguyên…' : 'Chọn loại tài nguyên'}</option>{types.map((type) => <option key={type.key} value={type.key} disabled={!supportedType(type.key)}>{typeOptionLabel(type.key)}</option>)}</select></label></div>
+          <label>Loại tài nguyên<select value={resourceType} aria-required="true" disabled={editing !== null} onChange={(event) => { setResourceType(event.target.value); setPinChoice(''); }}><option value="">{typeList.loading && types.length === 0 ? 'Đang tải loại tài nguyên…' : 'Chọn loại tài nguyên'}</option>{types.map((type) => <option key={type.key} value={type.key} disabled={!typesReady || !metadataReady}>{typeOptionLabel(type.key)}</option>)}</select></label></div>
         <p id="definition-id-hint" className="feature-note">ID cấu hình là tên kỹ thuật của cấu hình này: chữ thường, số và dấu gạch ngang, không đổi sau khi tạo và không được tự sửa hộ. Đây khác với ID tài nguyên (<code>res_id</code>) dùng trong điều kiện áp dụng bên dưới. Tên hiển thị là chữ tự do (tối đa {maxNameLength} ký tự) và sửa được.</p>
         {idError ? <div id="definition-id-error" className="form-error" role="alert">{idError}</div> : null}
         {nameError ? <div id="definition-name-error" className="form-error" role="alert">{nameError}</div> : null}
         {typeList.loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải loại tài nguyên">Không tải được loại tài nguyên. Dữ liệu đã nhập được giữ nguyên. <Button type="button" onClick={() => { void typeList.reload(); }}>Thử lại</Button></div> : null}
         {capabilityList.loading ? <p role="status" className="feature-note">Đang tải metadata module đã kiểm chứng…</p> : null}
         {capabilityList.loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải metadata module">{capabilityList.loadError} Chưa chọn được module và chưa lưu được; dữ liệu đã nhập được giữ nguyên. <Button type="button" onClick={() => { void capabilityList.reload(); }}>Thử lại</Button></div> : null}
-        <div className="field-grid"><label>Module đã kiểm chứng<select value={pin ? capabilityKey(pin) : ''} aria-required="true" disabled={typePins.length <= 1 && !sourceLost} onChange={(event) => setPinChoice(event.target.value)}>
+        <label>Nguồn module<select value={sourceMode} onChange={(event) => setSourceMode(event.target.value as 'installed' | 'git')}><option value="installed">Module đã đăng ký</option><option value="git">Thêm từ Git</option></select></label>
+        <GitModuleSource resourceType={resourceType} active={sourceMode === 'git'} disabled={saving || !typesReady || !metadataReady} onResult={setGitPin} />
+        <div className="field-grid"><label hidden={sourceMode === 'git'}>Module đã kiểm chứng<select value={pin ? capabilityKey(pin) : ''} aria-required="true" disabled={typePins.length <= 1 && !sourceLost} onChange={(event) => setPinChoice(event.target.value)}>
             {typePins.length === 0 ? <option value="">Chưa chọn (cần chọn loại có module đã kiểm chứng)</option> : typePins.length > 1 || sourceLost ? <option value="">Chọn module và phiên bản</option> : null}
             {typePins.map((candidate) => <option key={capabilityKey(candidate)} value={capabilityKey(candidate)}>{pinLabel(candidate)}</option>)}</select></label>
           <label>Driver Type<input aria-label="Driver Type" readOnly value={pin ? own(driverLabels, pin.driverType) ?? pin.driverType : ''} placeholder="Theo module đã chọn" aria-describedby="driver-type-hint" /></label></div>
         <p id="driver-type-hint" className="feature-note">Driver Type lấy từ metadata của máy chủ theo module đã kiểm chứng; không tự suy từ tên Loại tài nguyên.</p>
-        {pin?.source ? <dl className="pin-panel" aria-label="Pin module đã kiểm chứng">
+        {pin?.source ? <details><summary>Chi tiết kỹ thuật module</summary><dl className="pin-panel" aria-label="Pin module đã kiểm chứng">
           <div><dt>Module</dt><dd><code>{pin.source.moduleId}</code></dd></div><div><dt>Nguồn</dt><dd><code>{pin.source.sourceId}</code></dd></div>
-          <div><dt>Revision</dt><dd><code>{pin.source.revision}</code></dd></div><div><dt>Thư mục con</dt><dd><code>{pin.source.subdirectory}</code></dd></div>
+          <div><dt>Git URL</dt><dd>{pin.source.repositoryUrl ?? 'Module nền tảng'}</dd></div><div><dt>Revision</dt><dd><code>{pin.source.revision}</code></dd></div><div><dt>Thư mục con</dt><dd><code>{pin.source.subdirectory}</code></dd></div>
           <div><dt>SHA-256 nội dung</dt><dd><code>{pin.source.contentSha256}</code></dd></div>
           <div><dt>Terraform</dt><dd>{pin.terraformVersion ?? 'không rõ'}</dd></div>
-          <div><dt>Provider</dt><dd>{pin.providerRequirements.map((provider) => `${provider.name} ${provider.version}`).join(', ') || 'không có'}</dd></div></dl> : null}
+          <div><dt>Provider</dt><dd>{pin.providerRequirements.map((provider) => `${provider.name} ${provider.version}`).join(', ') || 'không có'}</dd></div></dl></details> : null}
         {pin ? <section className="catalog-fields" aria-label="Tài khoản và nguồn phụ thuộc">
           <div className="section-header"><div><h3>Tài khoản và nguồn phụ thuộc</h3></div></div>
           {accountRequired ? <>

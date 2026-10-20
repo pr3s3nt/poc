@@ -281,3 +281,32 @@ V03.10 removed the historical Internal Connection/implicit-cluster runtime
 procedures; this route replaces them. Historical evidence records remain historical; they do
 not establish the current runtime contract. Do not use a retired runner to
 reintroduce the old Internal deployment path.
+
+
+## Adding a Terraform module from Git (issue #7)
+
+PE/Admin: Cấu hình tài nguyên → chọn Loại → Nguồn module: Thêm từ Git → HTTPS
+URL, relative thư mục (rỗng dùng `.`), tag/commit → Kiểm tra module → ánh xạ
+inputs/outputs/providers, cấu hình variables/account/criteria → Lưu. Không cần
+policy entry hoặc tự tính/nhập SHA. Full pin ở Chi tiết kỹ thuật. HTTPS không cần
+credential được hỗ trợ; Git private auth/SSH và provider mới chưa được thêm.
+
+Cấu hình `-terraform-module-cache-dir` (hoặc
+`ORCHESTRATOR_TERRAFORM_MODULE_CACHE_DIR`) tới durable private0700 directory
+ngoài Git work tree, cùng durable catalog storage, để giữ verified modules qua
+restart. Không cấu hình cache thì bootstrap dùng temporary cache; restart cần
+inspect lại module trước khi reuse nếu cache đã mất. Runtime không tự refetch.
+
+Focused local browser verification, không deploy/DB/cloud/Kubernetes:
+
+```bash
+cd frontend
+npm run build
+cd ../backend
+go run ./test/integration/gitmodulebrowser
+```
+
+Harness dùng in-memory catalog thật và task-owned HTTPS Git server với CA riêng;
+fetch/inspect/HTTP/create/edit/reload chạy thật. Không phải bằng chứng Terraform
+apply hoặc PostgreSQL persistence. Tất cả fixture/temp/process được thu hồi khi
+runner kết thúc, kể cả browser lỗi. Không đụng environment/session người dùng.

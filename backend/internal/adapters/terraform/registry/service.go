@@ -134,10 +134,11 @@ func (s *Service) Prepare(ctx context.Context) error {
 // resolver serves the root snapshot and opens allowlisted Git sources at
 // exact commits for remote child modules, each at most once.
 type resolver struct {
-	ctx   context.Context
-	svc   *Service
-	root  moduleDir
-	snaps map[string]Snapshot
+	ctx    context.Context
+	svc    *Service
+	root   moduleDir
+	snaps  map[string]Snapshot
+	direct map[string]GitSource
 }
 
 func (s *Service) resolver(ctx context.Context, ref tfmodule.SourceRef, root Snapshot) *resolver {
@@ -151,6 +152,9 @@ func (r *resolver) snapshot(sourceID, revision string) (Snapshot, error) {
 		return snap, nil
 	}
 	source, ok := r.svc.cfg.Policy.source(sourceID)
+	if dynamic, found := r.direct[sourceID]; found {
+		source, ok = dynamic, true
+	}
 	if !ok || r.svc.cfg.Git == nil || !tfmodule.FullCommit(revision) {
 		return nil, moduleregistry.ErrNotAllowed
 	}
@@ -171,7 +175,26 @@ func (r *resolver) tree(dir moduleDir) (Tree, error) {
 }
 
 func (r *resolver) remote(source string) (moduleDir, error) {
-	return parseRemoteSource(source, r.svc.cfg.Policy)
+	if r.direct == nil {
+		return parseRemoteSource(source, r.svc.cfg.Policy)
+	}
+	repo, err := remoteRepository(source)
+	if err != nil {
+		return moduleDir{}, err
+	}
+	id := gitSourceID(repo)
+	entry := GitSource{ID: id, Kind: tfmodule.SourceKindGit, URL: repo}
+	if configured, ok := r.svc.cfg.Policy.source(id); ok && configured.URL == repo {
+		entry = configured
+	}
+	// Reuse a platform CA for a matching repository without requiring allowlisting.
+	for _, configured := range r.svc.cfg.Policy.Sources {
+		if configured.URL == repo {
+			entry.CAFile = configured.CAFile
+		}
+	}
+	r.direct[id] = entry
+	return parseRemoteSource(source, Policy{Sources: []GitSource{entry}})
 }
 
 func (r *resolver) close() {
@@ -247,6 +270,24 @@ func (s *Service) allowed(ref tfmodule.SourceRef) (kind string, source GitSource
 func (s *Service) Verify(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.Bundle, error) {
 	if err := ref.Validate(); err != nil {
 		return tfmodule.Bundle{}, moduleregistry.ErrNotAllowed
+	}
+	// Direct pins must already have been inspected by the authenticated service.
+	_, legacySource := s.cfg.Policy.source(ref.SourceID)
+	if !legacySource && strings.HasPrefix(ref.SourceID, "git-") {
+		existing, err := s.cfg.Store.GetModuleBundle(ctx, ref)
+		if err != nil {
+			return tfmodule.Bundle{}, moduleregistry.ErrNotVerified
+		}
+		if existing.Ref != ref || existing.Contract.SourceURL == "" || gitSourceID(existing.Contract.SourceURL) != ref.SourceID {
+			return tfmodule.Bundle{}, moduleregistry.ErrDrift
+		}
+		if err := s.releaseMatches(existing); err != nil {
+			return tfmodule.Bundle{}, err
+		}
+		if _, err := s.cfg.Cache.verify(ref, existing.Contract); err != nil {
+			return tfmodule.Bundle{}, err
+		}
+		return existing, nil
 	}
 	kind, source, module, err := s.allowed(ref)
 	if err != nil {

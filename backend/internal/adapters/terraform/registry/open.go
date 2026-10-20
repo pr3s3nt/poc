@@ -8,12 +8,12 @@ import (
 
 // Options configures Open.
 type Options struct {
-	// PolicyFile is the Admin source allowlist; empty allows only the
-	// packaged release modules.
+	// PolicyFile holds legacy source entries and optional repository CAs.
+	// Direct HTTPS inspection does not require policy entries.
 	PolicyFile string
 	// CacheDir is the private, absolute module cache directory.
 	CacheDir string
-	// GitBinary is the git CLI used for allowlisted HTTPS sources.
+	// GitBinary is the git CLI used for HTTPS module sources.
 	GitBinary string
 	// TerraformBinary is the CLI execution verification hashes; empty
 	// makes VerifyForExecution fail closed.
@@ -39,13 +39,9 @@ func Open(ctx context.Context, opts Options) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	var git GitFetcher
-	if len(policy.Sources) > 0 {
-		cli, err := NewGitCLI(opts.GitBinary, cache.TempDir())
-		if err != nil {
-			return nil, err
-		}
-		git = cli
+	git, err := NewGitCLI(opts.GitBinary, cache.TempDir())
+	if err != nil {
+		return nil, err
 	}
 	retained, err := LoadRetained(opts.RetainedReleasesFile)
 	if err != nil {

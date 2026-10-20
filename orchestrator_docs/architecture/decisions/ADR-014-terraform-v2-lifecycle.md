@@ -223,3 +223,15 @@ Hiện không bắt buộc TLS và không áp giới hạn triển khai thay th�
 hoặc chỉ được dùng loopback). Có thể giữ listener loopback hiện tại nếu đáp
 ứng executor; không cần đổi code chỉ vì quyết định này. Ba DB roles, encryption
 at rest, capabilities/locks/fencing và bí mật vẫn theo contract hiện hành.
+
+
+## Amendment — direct Git module authoring, 2026-10-20 (issue #7)
+
+Người dùng chốt PE/Admin được nhập Git HTTPS repository trực tiếp, không cần
+Admin duyệt từng repository/module. Thay thế yêu cầu source allowlist cho luồng
+này; packaged và historical allowlisted pins tiếp tục hoạt động. Inspection
+resolve ref thành full commit, tính digest và giữ verified content trước Save.
+Giữ immutable execution/transitive pins, provider release trust, hardened HTTPS
+fetch, strict content inspection, private cache và original cleanup artifacts.
+Safe origin URL lưu trong bundle contract JSON; không lưu credential. Private
+Git auth/SSH không được thêm trong đợt này. UC-03 GIT-01..06 sở hữu UX behavior.

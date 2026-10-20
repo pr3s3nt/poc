@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"errors"
+	"path"
 	"sort"
 
 	"orchestrator/internal/domain/resource"
@@ -21,14 +22,15 @@ type CapabilityVariable struct {
 	Preset        string `json:"preset,omitempty"`
 }
 
-// CapabilitySource is the safe public pin of a verified module: no URL,
-// credential or cache path (UC-03 BR-23).
+// CapabilitySource is the public verified pin and optional credential-free
+// HTTPS origin. It contains no credential or cache path (UC-03 GIT-05).
 type CapabilitySource struct {
 	SourceID      string `json:"sourceId"`
 	ModuleID      string `json:"moduleId"`
 	Revision      string `json:"revision"`
 	Subdirectory  string `json:"subdirectory"`
 	ContentSHA256 string `json:"contentSha256"`
+	RepositoryURL string `json:"repositoryUrl,omitempty"`
 }
 
 // CapabilityProvider is one pinned provider requirement and its binding kind.
@@ -141,13 +143,19 @@ func terraformCapability(bundle tfmodule.Bundle, typ resource.Type, resourceType
 	ref := bundle.Ref
 	capability := Capability{
 		ResourceType: resourceType, DriverType: string(resource.DriverTerraform), Module: ref.ModuleID,
-		Source:           &CapabilitySource{SourceID: ref.SourceID, ModuleID: ref.ModuleID, Revision: ref.Revision, Subdirectory: ref.Subdirectory, ContentSHA256: ref.ContentSHA256},
+		Source:           &CapabilitySource{SourceID: ref.SourceID, ModuleID: ref.ModuleID, Revision: ref.Revision, Subdirectory: ref.Subdirectory, ContentSHA256: ref.ContentSHA256, RepositoryURL: bundle.Contract.SourceURL},
 		TerraformVersion: bundle.TerraformVersion,
 		Providers:        []CapabilityProvider{},
 		Outputs:          []CapabilityOutput{},
 		Variables:        []CapabilityVariable{},
 		ExecutorOwned:    append([]string{}, bundle.Contract.ExecutorOwned...),
 		Bindings:         []CapabilityBinding{},
+	}
+	if bundle.Contract.SourceURL != "" {
+		capability.Module = path.Base(ref.Subdirectory)
+		if capability.Module == "." {
+			capability.Module = resourceType
+		}
 	}
 	sort.Strings(capability.ExecutorOwned)
 	for _, name := range sortedKeys(bundle.Providers) {

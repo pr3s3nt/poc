@@ -963,3 +963,11 @@ substituted for those live runs.
 | UC-04 EC2-01..03 | ADR-018; UC-04 realization/sequence/VOPC; schema | connection EC2 registration/verify/resolver and awsaccess IMDS/STS tests |
 | UC-04 EC2-04 | Terraform module contract; credential design | provider binder refresh/readiness/EKS checks |
 | UC-04 EC2-05 | UC-04 UI screens/states/API mapping | DriverAccountsPage tests; frontend checks |
+
+
+## UC-03 direct Git module authoring — issue #7
+
+| Requirements | Implementation | Focused verification |
+|---|---|---|
+| GIT-01/02/05/06; OC-04e | `registry.InspectGit`, `GitCLI.Resolve`, catalog inspection, POST terraform-modules/inspect | `registry/git_inspect_test.go`, `delivery/http/terraform_modules_test.go`: immutable pins, TLS Git, transitive modules, restart/cache, role/scope/no Definition mutation |
+| GIT-03/04/05 | `GitModuleSource`, `ResourceDefinitionsPage`, capability projection | `GitModuleSource.test.tsx`, affected Definition/metadata tests; `gitmodulebrowser` + `git-module-local.mjs` real HTTPS Git create/edit/reload main flow |

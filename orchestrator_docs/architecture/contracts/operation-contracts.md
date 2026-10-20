@@ -747,3 +747,18 @@ insert-only version 1, empty secret reference. Verify {version,verificationRegio
 revalidates the pinned ARN/RoleId then CAS increments version; failure preserves
 last verification. Unknown commit requires GET recovery, never automatic replay.
 Credential replacement is incompatible. Safe DTO includes canonical role metadata.
+
+
+## OC-04e `ResourceDefinitionService.InspectTerraformModule` (issue #7)
+
+UC-03 GIT-01..06: PE/Admin session Organization, strict bounded source draft
+`{resourceType,url,path,ref}`; scoped Type lookup precedes outbound requests.
+POST `/api/v1/terraform-modules/inspect` has a two-minute overall deadline.
+Resolve HTTPS Git ref to full commit; fetch/inspect/cache and insert immutable
+verified bundle metadata with safe origin. Return 200 `{capability}` using the
+same projection as OC-04d. No Definition/criteria/state/provider writes or apply.
+Source/pin/content/availability errors return safe validation errors; no raw Git
+stderr, submitted credential or cache paths. Direct Git requires no repository
+allowlist per ADR-014 amendment; private Git auth/SSH remain unsupported. Save
+uses the exact verified pin and existing create/CAS guards; no mutable ref at
+Preview/execution/cleanup. GET capabilities remains metadata-only.

@@ -89,17 +89,17 @@ type Options struct {
 	TerraformPluginCache string
 	// TerraformModuleCacheDir is the private, absolute cache of verified
 	// module content, outside any Git work tree. Empty uses a private
-	// temporary directory removed on Close, which is only allowed without
-	// allowlisted Git sources (packaged modules are re-prepared at startup).
+	// temporary directory removed on Close. Configure a durable directory to
+	// reuse direct Git modules across restarts; legacy policies require one.
 	TerraformModuleCacheDir string
-	// TerraformModulePolicyFile is the Admin allowlist of HTTPS Git module
-	// sources; empty allows only the packaged release modules.
+	// TerraformModulePolicyFile is legacy source configuration and optional
+	// repository CA settings; direct HTTPS inspection needs no allowlist.
 	TerraformModulePolicyFile string
 	// TerraformRetainedReleasesFile lists trusted historical platform releases
 	// (manifest plus absolute Terraform binary path) kept for cleanup of
 	// resources created before a release upgrade.
 	TerraformRetainedReleasesFile string
-	// GitPath is the git CLI used to fetch allowlisted module commits.
+	// GitPath is the git CLI used to resolve and fetch module commits.
 	GitPath string
 	// Region and Tags apply to every cloud resource of one verification run.
 	Region                 string
