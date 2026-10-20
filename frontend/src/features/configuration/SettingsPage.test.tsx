@@ -6,7 +6,7 @@ import { SettingsPage } from './SettingsPage';
 import type { Application } from '../../shared/types/application';
 import { configuredTarget } from '../../test/targets';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: { staging: configuredTarget('internal-cluster', { secretStoreKey: 'vault-a', secretStoreName: 'Vault A' }), production: configuredTarget('internal-cluster') }, workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: { staging: configuredTarget( { secretStoreKey: 'vault-a', secretStoreName: 'Vault A' }), production: configuredTarget() }, workloads: { staging: [], production: [] } };
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
@@ -35,12 +35,11 @@ it('shows separate environment tabs and never displays saved secret values', asy
 });
 
 it('lets ordinary variables be added without a store but asks for a store before a Secret', async () => {
-  const unselected: Application = { ...application, environments: { staging: configuredTarget('internal-cluster'), production: configuredTarget('internal-cluster') } };
+  const unselected: Application = { ...application, environments: { staging: configuredTarget(), production: configuredTarget() } };
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [{ key: 'vault-a', name: 'Vault A', provider: 'VAULT_KV_V2', status: 'READY' }] });
     if (url.endsWith('/application-connections')) return Response.json({ connections: [] });
-    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 0, keys: [] });
   }));
   const user = userEvent.setup();
@@ -60,7 +59,6 @@ it('shows the server sentence and reloads on a 409 conflict', async () => {
     const url = String(input);
     if (init?.method === 'PUT' && url.includes('/configuration/')) { puts += 1; return Response.json({ error: 'the environment is busy with another operation', code: 'ENVIRONMENT_BUSY' }, { status: 409 }); }
     if (url.endsWith('/secret-store-choices') || url.endsWith('/application-connections')) return Response.json({ secretStores: [], connections: [] });
-    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
   }));
   const user = userEvent.setup();
@@ -80,7 +78,6 @@ it('holds every configuration write while an operation owns the environment, kee
     if (init?.method && init.method !== 'GET' && url.includes('/configuration')) writes.push(`${init.method} ${url}`);
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [] });
     if (url.endsWith('/application-connections')) return Response.json({ connections: [] });
-    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [{ name: 'LOG_LEVEL', kind: 'VARIABLE', value: 'debug', configured: true, usedBy: [] }] });
   }));
   const busyApp: Application = { ...application, environments: { ...application.environments, staging: { ...application.environments.staging, activeOperation: { id: 'op1', kind: 'DEPLOY', status: 'ACTIVE', stage: 'DEPLOY web', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: false } } } };
@@ -107,7 +104,6 @@ it('holds an open rename or delete confirmation while busy', async () => {
     const url = String(input);
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [] });
     if (url.endsWith('/application-connections')) return Response.json({ connections: [] });
-    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [{ name: 'LOG_LEVEL', kind: 'VARIABLE', value: 'debug', configured: true, usedBy: [] }] });
   }));
   const busyApp: Application = { ...application, environments: { ...application.environments, staging: { ...application.environments.staging, activeOperation: { id: 'op1', kind: 'DEPLOY', status: 'ACTIVE', stage: 'DEPLOY web', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: false } } } };
@@ -128,13 +124,12 @@ it('notices an operation started elsewhere by polling an idle editor, holds subm
   vi.useFakeTimers({ shouldAdvanceTime: true });
   const op = { id: 'op7', kind: 'DEPLOY' as const, status: 'ACTIVE' as const, stage: 'DEPLOY web', startedAt: '', updatedAt: '', heartbeatAt: '', recoverable: false };
   let remote = application.environments.staging;
-  const env = (t: typeof remote) => ({ key: 'staging', version: t.version, configured: t.configured, connectionKey: t.connectionKey, executionProfile: t.profile, runtimeStatus: t.runtimeStatus, infrastructureScope: t.infrastructureScope, secretStoreKey: t.secretStoreKey, targetGeneration: t.targetGeneration, runtimeExists: t.runtimeExists, activeOperation: t.activeOperation });
+  const env = (t: typeof remote) => ({ key: 'staging', version: t.version, secretStoreKey: t.secretStoreKey, targetGeneration: t.targetGeneration, activeOperation: t.activeOperation });
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.endsWith('/applications/catalog')) return Response.json({ application: { environments: [env(remote)] } });
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [] });
     if (url.endsWith('/application-connections')) return Response.json({ connections: [] });
-    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [{ name: 'LOG_LEVEL', kind: 'VARIABLE', value: 'debug', configured: true, usedBy: [] }] });
   }));
   function Host() {
@@ -164,14 +159,13 @@ it('notices an operation started elsewhere by polling an idle editor, holds subm
 });
 
 it('keeps an open editor and its text when the configuration is refreshed after a secret-store save', async () => {
-  const unbound: Application = { ...application, environments: { staging: configuredTarget('internal-cluster'), production: configuredTarget('internal-cluster') } };
+  const unbound: Application = { ...application, environments: { staging: configuredTarget(), production: configuredTarget() } };
   let configGets = 0;
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [{ key: 'vault-a', name: 'Vault A', provider: 'VAULT_KV_V2', status: 'READY' }] });
     if (url.endsWith('/application-connections')) return Response.json({ connections: [] });
-    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
-    if (url.endsWith('/secret-store') && init?.method === 'PUT') return Response.json({ environment: { key: 'staging', version: 3, configured: true, connectionKey: 'internal-cluster', secretStoreKey: 'vault-a', runtimeStatus: 'READY' }, changed: true, copiedSecrets: 0 });
+    if (url.endsWith('/secret-store') && init?.method === 'PUT') return Response.json({ environment: { key: 'staging', version: 3, secretStoreKey: 'vault-a', targetGeneration: 0 }, changed: true, copiedSecrets: 0 });
     configGets += 1;
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: configGets, keys: [] });
   }));
@@ -191,7 +185,6 @@ it('drops a late save reply that belongs to the environment the user left', asyn
     const url = String(input);
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [] });
     if (url.endsWith('/application-connections')) return Response.json({ connections: [] });
-    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
     if (init?.method === 'PUT') return new Promise<Response>((resolve) => { release = resolve; });
     if (url.includes('/production/')) return Response.json({ applicationKey: 'catalog', environmentKey: 'production', version: 5, keys: [{ name: 'PROD_ONLY', kind: 'VARIABLE', value: '1', configured: true, usedBy: [] }] });
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
@@ -215,7 +208,6 @@ it('warns on rename and delete that references are not rewritten and names the k
     const url = String(input);
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [] });
     if (url.endsWith('/application-connections')) return Response.json({ connections: [] });
-    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [{ name: 'LOG_LEVEL', kind: 'VARIABLE', value: 'debug', configured: true, usedBy: ['frontend'] }] });
   }));
   const user = userEvent.setup();
@@ -235,7 +227,6 @@ function deferredPut() {
     const url = String(input);
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [] });
     if (url.endsWith('/application-connections')) return Response.json({ connections: [] });
-    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
     if (init?.method === 'PUT') return new Promise<Response>((resolve) => { state.release = resolve; });
     state.configGets += 1;
     return Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] });
@@ -295,7 +286,6 @@ it('claims a reload only after the GET succeeds: a failed stale reload keeps the
     const url = String(input);
     if (init?.method === 'PUT' && url.includes('/configuration/')) { puts += 1; return Response.json({ error: 'stale', code: 'STALE_VERSION' }, { status: 409 }); }
     if (url.endsWith('/secret-store-choices') || url.endsWith('/application-connections')) return Response.json({ secretStores: [], connections: [] });
-    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
     if (url.endsWith('/configuration')) { gets += 1; return gets === 2 ? Response.json({ error: 'down' }, { status: 503 }) : Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: gets, keys: [] }); }
     return Response.json({});
   }));
@@ -322,7 +312,6 @@ it('does not carry a failed stale reload gate from staging into production, and 
     const url = String(input);
     if (init?.method === 'PUT' && url.includes('/staging/configuration/')) return Response.json({ error: 'stale', code: 'STALE_VERSION' }, { status: 409 });
     if (url.endsWith('/secret-store-choices') || url.endsWith('/application-connections')) return Response.json({ secretStores: [], connections: [] });
-    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
     if (url.endsWith('/staging/configuration')) { stagingGets += 1; return stagingGets === 2 ? Response.json({ error: 'down' }, { status: 503 }) : Response.json({ applicationKey: 'catalog', environmentKey: 'staging', version: 1, keys: [] }); }
     return Response.json({ applicationKey: 'catalog', environmentKey: 'production', version: 1, keys: [] });
   }));

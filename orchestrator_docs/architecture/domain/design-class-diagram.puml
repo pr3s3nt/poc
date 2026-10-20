@@ -63,7 +63,6 @@ package "Planning" {
   class DeltaBuilder {
     +Build(current, workloadID, before, after): DeltaResult
   }
-  class ImplicitResourceEnricher
   class ResourceDescriptorParser {
     +ParseDescriptorText(raw, current, context): ResourceDescriptor
   }
@@ -254,7 +253,6 @@ PlanningService --> ScoreConverter
 PlanningService --> WorkloadSpecValidator
 PlanningService --> BeforeStateValidator
 PlanningService --> DeltaBuilder
-PlanningService --> ImplicitResourceEnricher
 PlanningService --> ResourceDescriptorParser
 PlanningService --> ResourceGraphBuilder
 PlanningService --> GraphExpander
@@ -341,12 +339,12 @@ Environment --> SecretStoreConnection : versioned selection
 Environment "1" o-- "0..*" EnvironmentOperation
 EnvironmentSettingsService --> SecretStoreResolver
 EnvironmentSettingsService --> EnvironmentRepository : CAS + claim
-note right of ImplicitResourceEnricher
-ADR-016: internal cluster uses normal matching
-and its own scoped READY Internal Driver Account.
-Consumers inherit typed target through explicit references.
-No Environment/system binding or account fallback.
-Final retirement design; gate delivery status in CURRENT_STATE.
+note right of GraphExpander
+ADR-017: expand matched Definition references/rules to fixed point.
+Each winning Definition selects its own account/region.
+Consumers inherit typed cluster through explicit references.
+No profile enrichment or Environment/system/default target.
+Actual gate delivery status belongs to CURRENT_STATE.
 end note
 
 ResourceDefinitionService ..> DefinitionMatcher : five-field ranking + winner account guard

@@ -6,7 +6,7 @@ import type { Application } from '../../shared/types/application';
 import { configuredTarget } from '../../test/targets';
 import { messageFor } from '../../shared/api/errors';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: { staging: configuredTarget('internal-cluster', { secretStoreKey: 'vault-a', secretStoreName: 'Vault A' }), production: configuredTarget('internal-cluster') }, workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: { staging: configuredTarget( { secretStoreKey: 'vault-a', secretStoreName: 'Vault A' }), production: configuredTarget() }, workloads: { staging: [], production: [] } };
 const LABEL = 'Đổi tên và cập nhật tham chiếu';
 
 const view = (over: Record<string, unknown> = {}) => ({
@@ -23,7 +23,6 @@ function stub(onPatch: (patch: Patch) => Response | Promise<Response>, gets: () 
     if (init?.method === 'PATCH') { const patch = { url, body: JSON.parse(String(init.body)) as Record<string, unknown> }; patches.push(patch); return onPatch(patch); }
     if (url.endsWith('/secret-store-choices')) return Response.json({ secretStores: [] });
     if (url.endsWith('/application-connections')) return Response.json({ connections: [] });
-    if (url.includes('/connection-transitions')) return Response.json({ transitions: [] });
     if (url.includes('/configuration')) return Response.json(gets());
     return Response.json({});
   }));

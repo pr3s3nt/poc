@@ -124,7 +124,7 @@ func (s *Service) requireAccount(ctx context.Context, org, key string, kind appl
 
 // checkBindings requires exactly one binding per configurable provider of
 // the bundle: AWS binds to the Definition's Driver Account; Kubernetes to a
-// cluster resource descriptor or, until V03, the legacy Environment target.
+// cluster resource descriptor.
 // Unconfigured providers take none.
 func checkBindings(bundle tfmodule.Bundle, bindings map[string]tfmodule.Binding, types []resource.Type) error {
 	for _, name := range sortedKeys(bindings) {

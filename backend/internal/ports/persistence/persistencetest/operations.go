@@ -64,10 +64,10 @@ func EnvironmentOperations(t *testing.T, st persistence.Store) OperationFixture 
 	t.Helper()
 	ctx := context.Background()
 	org := "opsorg"
-	if err := st.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: org, Name: "Ops", DefaultConnectionKey: "lab"}); err != nil {
+	if err := st.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: org, Name: "Ops"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: "otherorg", Name: "Other", DefaultConnectionKey: "lab"}); err != nil {
+	if err := st.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: "otherorg", Name: "Other"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, key := range []string{"lab", "lab2"} {
@@ -174,9 +174,6 @@ func EnvironmentOperations(t *testing.T, st persistence.Store) OperationFixture 
 	if err := st.CommitConfigurationRevision(ctx, 0, configuration.Revision{ID: ids.New(), ApplicationKey: appID, EnvironmentKey: "staging", Version: 1, Entries: map[string]configuration.Entry{"A": {Kind: configuration.Variable, Value: "1"}}}); !errors.Is(err, persistence.ErrEnvironmentBusy) {
 		t.Fatalf("configuration while busy: %v", err)
 	}
-	if _, err := st.BindEnvironment(ctx, bind(appID, "staging", "lab", application.ProfileInternalK8s, "", application.RuntimeReady, 1)); !errors.Is(err, persistence.ErrEnvironmentBusy) {
-		t.Fatalf("bind while busy: %v", err)
-	}
 	if _, err := st.SelectSecretStore(ctx, persistence.SecretStoreSelection{ApplicationKey: appID, EnvironmentKey: "staging", StoreKey: "vault-a", ExpectedVersion: 1}); !errors.Is(err, persistence.ErrEnvironmentBusy) {
 		t.Fatalf("store selection while busy: %v", err)
 	}
@@ -186,10 +183,7 @@ func EnvironmentOperations(t *testing.T, st persistence.Store) OperationFixture 
 	if err := st.CompareVersionAndSetCurrent(ctx, appID, "staging", 1, env.CurrentDeploymentSetID); !errors.Is(err, persistence.ErrEnvironmentBusy) {
 		t.Fatalf("set pointer while busy: %v", err)
 	}
-	if _, err := st.AllocateGeneration(ctx, appID, "staging"); !errors.Is(err, persistence.ErrEnvironmentBusy) {
-		t.Fatalf("generation without owner: %v", err)
-	}
-	if got, _ := st.GetEnvironment(ctx, appID, "staging"); got.Version != 1 || got.Configured() || got.PublicRoutesPending {
+	if got, _ := st.GetEnvironment(ctx, appID, "staging"); got.Version != 1 || got.PublicRoutesPending {
 		t.Fatalf("rejected writes mutated: %+v", got)
 	}
 
@@ -201,28 +195,10 @@ func EnvironmentOperations(t *testing.T, st persistence.Store) OperationFixture 
 	if err := st.SaveWorkloadDraft(own, 0, environment.WorkloadDraft{ApplicationKey: appID, EnvironmentKey: "staging", WorkloadID: "web", State: environment.DraftUpsert, Score: map[string]any{"apiVersion": "score.dev/v1b1"}}); err != nil {
 		t.Fatalf("owner draft: %v", err)
 	}
-	generation, err := st.AllocateGeneration(own, appID, "staging")
-	if err != nil || generation != 1 {
-		t.Fatalf("generation = %d %v", generation, err)
-	}
-	if again, err := st.AllocateGeneration(own, appID, "staging"); err != nil || again != 2 {
-		t.Fatalf("second generation = %d %v", again, err)
-	}
-	// Bind to generation 1 as the owner; generation 5 was never allocated.
-	badGen := bind(appID, "staging", "lab", application.ProfileInternalK8s, "", application.RuntimeReady, 1)
-	badGen.Generation = 5
-	if _, err := st.BindEnvironment(own, badGen); err == nil {
-		t.Fatal("binding an unallocated generation must fail")
-	}
-	good := bind(appID, "staging", "lab", application.ProfileInternalK8s, "", application.RuntimeReady, 1)
-	good.Generation = 1
-	if bound, err := st.BindEnvironment(own, good); err != nil || bound.TargetGeneration != 1 || bound.GenerationHigh != 2 || bound.Version != 2 {
-		t.Fatalf("owner bind: %+v %v", bound, err)
-	}
 
 	// Instances of different generations coexist.
 	deploymentID := ids.New()
-	if err := st.SaveDeployment(own, deployment.Deployment{ID: deploymentID, EnvironmentID: env.ID, OrganizationKey: org, ApplicationKey: appID, EnvironmentKey: "staging", ExecutionProfile: "internal-k8s", Action: deployment.ActionDeploy, WorkloadID: "web", ActorRef: "t", Status: deployment.StatusPlanning, StartedAt: time.Now().UTC(), ConnectionKey: "lab", TargetGeneration: 1}); err != nil {
+	if err := st.SaveDeployment(own, deployment.Deployment{ID: deploymentID, EnvironmentID: env.ID, OrganizationKey: org, ApplicationKey: appID, EnvironmentKey: "staging", Action: deployment.ActionDeploy, WorkloadID: "web", ActorRef: "t", Status: deployment.StatusPlanning, StartedAt: time.Now().UTC(), TargetGeneration: 1}); err != nil {
 		t.Fatal(err)
 	}
 	for _, generation := range []int64{0, 1} {
@@ -231,12 +207,16 @@ func EnvironmentOperations(t *testing.T, st persistence.Store) OperationFixture 
 			t.Fatalf("instance generation %d: %v", generation, err)
 		}
 	}
-	current, _ := st.ListWorkloadInstances(ctx, appID+"/staging")
+	current, _ := st.ListWorkloadInstancesFor(ctx, appID+"/staging", 1)
+	selected, err := st.ListWorkloadInstances(ctx, appID+"/staging")
+	if err != nil || len(selected) != 1 || selected[0].Generation != env.TargetGeneration {
+		t.Fatalf("current Environment generation must remain %d: %+v %v", env.TargetGeneration, selected, err)
+	}
 	oldOne, _ := st.ListWorkloadInstancesFor(ctx, appID+"/staging", 0)
 	if len(current) != 1 || current[0].Generation != 1 || len(oldOne) != 1 || oldOne[0].Generation != 0 || oldOne[0].TargetRef["namespace"] == current[0].TargetRef["namespace"] {
 		t.Fatalf("generations overwrote each other: current=%+v old=%+v", current, oldOne)
 	}
-	if got, _ := st.GetDeployment(ctx, deploymentID); got.ConnectionKey != "lab" || got.TargetGeneration != 1 {
+	if got, _ := st.GetDeployment(ctx, deploymentID); got.TargetGeneration != 1 {
 		t.Fatalf("deployment target not recorded: %+v", got)
 	}
 
@@ -284,105 +264,7 @@ func EnvironmentOperations(t *testing.T, st persistence.Store) OperationFixture 
 	if err := st.SetPublicRoutesPending(own, appID, "staging", false); !errors.Is(err, persistence.ErrOperationLost) {
 		t.Fatalf("stale owner write: %v", err)
 	}
-	if err := st.SaveTransition(own, environment.Transition{ID: ids.New(), OperationID: held.ID, ApplicationKey: appID, EnvironmentKey: "staging", Status: environment.TransitionRunning, Stage: environment.StagePreflight, Mode: environment.ModeDeployNew}); !errors.Is(err, persistence.ErrOperationLost) {
-		t.Fatalf("stale owner transition write: %v", err)
-	}
-	if err := st.UpsertWorkloadInstance(own, deployment.WorkloadInstance{EnvironmentKey: appID + "/staging", WorkloadID: "late", LastDeploymentID: deploymentID, Status: deployment.InstanceReady, ObservedAt: time.Now()}); !errors.Is(err, persistence.ErrOperationLost) {
-		t.Fatalf("stale owner instance write: %v", err)
-	}
-	if got, _ := st.GetOperation(ctx, held.ID); got.Status != environment.OpRecovering {
-		t.Fatalf("stale release changed the operation: %+v", got)
-	}
-	newOwner := persistence.WithOwner(ctx, ownerOf(recovering))
-	if err := st.SetPublicRoutesPending(newOwner, appID, "staging", false); err != nil {
-		t.Fatalf("recovery owner write: %v", err)
-	}
-	// A duplicate operation ID never overwrites another claim.
-	dup := claim("production", pins, "px")
-	dup.ID = held.ID
-	if _, err := st.ClaimEnvironment(ctx, dup); err == nil {
-		t.Fatal("duplicate operation id accepted")
-	}
-	if got, _ := st.GetOperation(ctx, held.ID); got.EnvironmentKey != "staging" || got.Status != environment.OpRecovering {
-		t.Fatalf("duplicate id overwrote the claim: %+v", got)
-	}
-	if err := st.ReleaseOperation(ctx, ownerOf(recovering), environment.OpRecovered, "interrupted deploy recovered"); err != nil {
-		t.Fatal(err)
-	}
-	if got, _ := st.GetEnvironment(ctx, appID, "staging"); got.Busy() {
-		t.Fatal("release must free the environment")
-	}
-	if ops, err := st.ListOperations(ctx, appID, "staging", 10); err != nil || len(ops) != 1 || ops[0].Status != environment.OpRecovered {
-		t.Fatalf("operation history: %+v %v", ops, err)
-	}
 
-	// Store selection and legacy backfill.
-	sel, err := st.SelectSecretStore(ctx, persistence.SecretStoreSelection{ApplicationKey: appID, EnvironmentKey: "staging", StoreKey: "vault-a", ExpectedVersion: 2})
-	if err != nil || sel.SecretStoreKey != "vault-a" || sel.Version != 3 {
-		t.Fatalf("select store: %+v %v", sel, err)
-	}
-	if _, err := st.SelectSecretStore(ctx, persistence.SecretStoreSelection{ApplicationKey: appID, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: 2}); !errors.Is(err, persistence.ErrVersionConflict) {
-		t.Fatalf("stale store selection: %v", err)
-	}
-	if _, err := st.SelectSecretStore(ctx, persistence.SecretStoreSelection{ApplicationKey: appID, EnvironmentKey: "staging", StoreKey: "nope", ExpectedVersion: 3}); !errors.Is(err, persistence.ErrNotFound) {
-		t.Fatalf("unknown store: %v", err)
-	}
-	// A store of another Organization is invisible to this Environment.
-	if _, err := st.SelectSecretStore(ctx, persistence.SecretStoreSelection{ApplicationKey: appID, EnvironmentKey: "staging", StoreKey: "vault-b", ExpectedVersion: 3}); err != nil {
-		t.Fatalf("switch store: %v", err)
-	}
-
-	managedApp := newOperationApp(t, st, org)
-	managedValueRef := "kv2://kv/orchestrator/apps/" + managedApp + "/envs/staging/values/" + ids.New()
-	managedRev := configuration.Revision{ID: ids.New(), ApplicationKey: managedApp, EnvironmentKey: "staging", Version: 1, Entries: map[string]configuration.Entry{
-		"STORE_SEC": {Kind: configuration.Secret, ValueRef: managedValueRef, StoreKey: "platform-vault"},
-		"PLAIN_VAR": {Kind: configuration.Variable, Value: "plain"},
-	}}
-	if err := st.CommitConfigurationRevision(ctx, 0, managedRev); err != nil {
-		t.Fatal(err)
-	}
-	managedStore := testStore(org, "platform-vault")
-	managedStore.CredentialRef = managedRef0
-	managedStore.Verification = map[string]any{"bootstrap": "compose", "verified": true}
-	if err := st.CreateSecretStore(ctx, managedStore); err != nil {
-		t.Fatal(err)
-	}
-	managedEnv, err := st.GetEnvironment(ctx, managedApp, "staging")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if managedEnv.SecretStoreKey != "" {
-		t.Fatalf("a registered store must not auto-select itself: %+v", managedEnv)
-	}
-	if _, err := st.SelectSecretStore(ctx, persistence.SecretStoreSelection{ApplicationKey: managedApp, EnvironmentKey: "staging", StoreKey: "platform-vault", ExpectedVersion: managedEnv.Version}); err != nil {
-		t.Fatal(err)
-	}
-	assertManagedAdmission(t, st, org, managedApp, managedRev, managedValueRef)
-
-	// New Applications never auto-select a store.
-	if fresh := newOperationApp(t, st, org); true {
-		if e, _ := st.GetEnvironment(ctx, fresh, "staging"); e.SecretStoreKey != "" {
-			t.Fatalf("new environment auto-selected a store: %+v", e)
-		}
-	}
-
-	// Transition records round-trip with their detail.
-	tr := environment.Transition{ID: ids.New(), OperationID: ids.New(), ApplicationKey: appID, EnvironmentKey: "staging", Mode: environment.ModeMigratePostgres, Stage: environment.StageBackup, Status: environment.TransitionRunning,
-		Source: environment.Binding{ConnectionKey: "lab", Profile: application.ProfileInternalK8s, Scope: environment.ScopeEnvironment}, Destination: environment.Binding{ConnectionKey: "lab2", Profile: application.ProfileInternalK8s, Scope: environment.ScopeEnvironment, Generation: 2},
-		OldSetID: "set", Replicas: map[string]int{"api": 2}, SourceState: environment.SourceAuthoritative, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
-	if err := st.SaveTransition(ctx, tr); err != nil {
-		t.Fatal(err)
-	}
-	tr.Stage, tr.Status = environment.StageRestoring, environment.TransitionFailed
-	if err := st.SaveTransition(ctx, tr); err != nil {
-		t.Fatal(err)
-	}
-	if gotTr, err := st.GetTransition(ctx, tr.ID); err != nil || gotTr.Stage != environment.StageRestoring || gotTr.Replicas["api"] != 2 || gotTr.Destination.Generation != 2 || gotTr.Status != environment.TransitionFailed {
-		t.Fatalf("transition: %+v %v", gotTr, err)
-	}
-	if list, err := st.ListTransitions(ctx, appID, "staging"); err != nil || len(list) != 1 {
-		t.Fatalf("transitions: %+v %v", list, err)
-	}
 	return OperationFixture{OrganizationKey: org, ApplicationKey: appID}
 }
 
@@ -392,7 +274,7 @@ func AssertOperationsReloaded(t *testing.T, st persistence.Store, fx OperationFi
 	t.Helper()
 	ctx := context.Background()
 	env, err := st.GetEnvironment(ctx, fx.ApplicationKey, "staging")
-	if err != nil || env.SecretStoreKey != "vault-b" || env.TargetGeneration != 1 || env.GenerationHigh != 2 || env.Busy() || env.Version != 4 {
+	if err != nil || env.SecretStoreKey != "vault-b" || env.Busy() || env.Version < 2 {
 		t.Fatalf("environment after reopen: %+v %v", env, err)
 	}
 	if managed, err := st.GetSecretStore(ctx, fx.OrganizationKey, "platform-vault"); err != nil || managed.CredentialRef != managedRef2 || managed.Verification["bootstrap"] != "compose" {

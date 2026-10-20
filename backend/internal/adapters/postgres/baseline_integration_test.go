@@ -281,29 +281,30 @@ func TestOldLayoutRequiresResetAndIsNeverEligible(t *testing.T) {
 func TestSchemaDriftIsDetectedWithoutRepair(t *testing.T) {
 	ctx := context.Background()
 	drift := map[string][]string{
-		"dropped column":                   {`ALTER TABLE environments DROP COLUMN generation_high`},
-		"extra legacy column":              {`ALTER TABLE secret_store_connections ADD COLUMN legacy boolean NOT NULL DEFAULT false`},
-		"wrong column type":                {`ALTER TABLE sessions ALTER COLUMN id TYPE text`},
-		"nullability":                      {`ALTER TABLE connections ALTER COLUMN name DROP NOT NULL`},
-		"changed default":                  {`ALTER TABLE environments ALTER COLUMN runtime_status SET DEFAULT 'PENDING'`},
-		"dropped foreign key":              {`ALTER TABLE environments DROP CONSTRAINT environments_active_operation_fk`},
-		"not deferrable":                   {`ALTER TABLE environments ALTER CONSTRAINT environments_current_set_fk NOT DEFERRABLE`},
-		"dropped unique":                   {`ALTER TABLE connections DROP CONSTRAINT connections_organization_id_connection_key_key`},
-		"dropped primary key":              {`ALTER TABLE deployment_plans DROP CONSTRAINT deployment_plans_pkey`},
-		"dropped connection version check": {`ALTER TABLE connections DROP CONSTRAINT connections_version_check`},
-		"dropped connection version":       {`ALTER TABLE connections DROP COLUMN version`},
-		"connection version default":       {`ALTER TABLE connections ALTER COLUMN version DROP DEFAULT`},
-		"dropped check":                    {`ALTER TABLE configuration_revision_entries DROP CONSTRAINT configuration_revision_entries_kind_check`},
-		"widened scope check":              {`ALTER TABLE environments DROP CONSTRAINT environments_infrastructure_scope_check`, `ALTER TABLE environments ADD CONSTRAINT environments_infrastructure_scope_check CHECK (infrastructure_scope IN ('ENVIRONMENT','LEGACY_APPLICATION'))`},
-		"widened auth check":               {`ALTER TABLE connections DROP CONSTRAINT connections_authentication_type_check`, `ALTER TABLE connections ADD CONSTRAINT connections_authentication_type_check CHECK (authentication_type IN ('KUBECONFIG','HOST_CONTEXT','AWS_ACCESS_KEY'))`},
-		"dropped partial index":            {`DROP INDEX environment_operations_one_holder`},
-		"partial index widened":            {`DROP INDEX environment_operations_one_holder`, `CREATE UNIQUE INDEX environment_operations_one_holder ON environment_operations(environment_id)`},
-		"dropped expression idx":           {`DROP INDEX applications_organization_lower_name_key`},
-		"dropped generation idx":           {`DROP INDEX workload_instances_env_generation_workload_key`},
-		"dropped snapshot trigger":         {`DROP TRIGGER deployments_require_snapshot ON deployments`},
-		"disabled snapshot trigger":        {`ALTER TABLE deployments DISABLE TRIGGER deployments_require_snapshot`},
-		"altered trigger function":         {`CREATE OR REPLACE FUNCTION require_deployment_snapshot() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$`},
-		"dropped retention trigger":        {`DROP TRIGGER terraform_states_retained ON terraform_states`},
+		"dropped column":                      {`ALTER TABLE environments DROP COLUMN generation_high`},
+		"retired Organization default marker": {`ALTER TABLE organizations ADD COLUMN default_connection_key text NOT NULL DEFAULT ''`},
+		"extra legacy column":                 {`ALTER TABLE secret_store_connections ADD COLUMN legacy boolean NOT NULL DEFAULT false`},
+		"wrong column type":                   {`ALTER TABLE sessions ALTER COLUMN id TYPE text`},
+		"nullability":                         {`ALTER TABLE connections ALTER COLUMN name DROP NOT NULL`},
+		"changed default":                     {`ALTER TABLE environments ALTER COLUMN generation_high SET DEFAULT 1`},
+		"dropped foreign key":                 {`ALTER TABLE environments DROP CONSTRAINT environments_active_operation_fk`},
+		"not deferrable":                      {`ALTER TABLE environments ALTER CONSTRAINT environments_current_set_fk NOT DEFERRABLE`},
+		"dropped unique":                      {`ALTER TABLE connections DROP CONSTRAINT connections_organization_id_connection_key_key`},
+		"dropped primary key":                 {`ALTER TABLE deployment_plans DROP CONSTRAINT deployment_plans_pkey`},
+		"dropped connection version check":    {`ALTER TABLE connections DROP CONSTRAINT connections_version_check`},
+		"dropped connection version":          {`ALTER TABLE connections DROP COLUMN version`},
+		"connection version default":          {`ALTER TABLE connections ALTER COLUMN version DROP DEFAULT`},
+		"dropped check":                       {`ALTER TABLE configuration_revision_entries DROP CONSTRAINT configuration_revision_entries_kind_check`},
+		"widened scope check":                 {`ALTER TABLE environments DROP CONSTRAINT environments_infrastructure_scope_check`, `ALTER TABLE environments ADD CONSTRAINT environments_infrastructure_scope_check CHECK (infrastructure_scope IN ('ENVIRONMENT','LEGACY_APPLICATION'))`},
+		"widened auth check":                  {`ALTER TABLE connections DROP CONSTRAINT connections_authentication_type_check`, `ALTER TABLE connections ADD CONSTRAINT connections_authentication_type_check CHECK (authentication_type IN ('KUBECONFIG','HOST_CONTEXT','AWS_ACCESS_KEY'))`},
+		"dropped partial index":               {`DROP INDEX environment_operations_one_holder`},
+		"partial index widened":               {`DROP INDEX environment_operations_one_holder`, `CREATE UNIQUE INDEX environment_operations_one_holder ON environment_operations(environment_id)`},
+		"dropped expression idx":              {`DROP INDEX applications_organization_lower_name_key`},
+		"dropped generation idx":              {`DROP INDEX workload_instances_env_generation_workload_key`},
+		"dropped snapshot trigger":            {`DROP TRIGGER deployments_require_snapshot ON deployments`},
+		"disabled snapshot trigger":           {`ALTER TABLE deployments DISABLE TRIGGER deployments_require_snapshot`},
+		"altered trigger function":            {`CREATE OR REPLACE FUNCTION require_deployment_snapshot() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$`},
+		"dropped retention trigger":           {`DROP TRIGGER terraform_states_retained ON terraform_states`},
 		"permanent binding trigger": {
 			`CREATE FUNCTION environments_binding_immutable() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$`,
 			`CREATE TRIGGER environments_binding_immutable BEFORE UPDATE ON environments FOR EACH ROW EXECUTE FUNCTION environments_binding_immutable()`},
@@ -366,7 +367,7 @@ func TestBaselineEnforcesCurrentConstraints(t *testing.T) {
 		rev = "44444444-4444-4444-8444-444444444444"
 	)
 	sqlOn(t, url,
-		`INSERT INTO organizations(id,organization_key,name,default_connection_key) VALUES('`+org+`','acme','Acme','default')`,
+		`INSERT INTO organizations(id,organization_key,name) VALUES('`+org+`','acme','Acme')`,
 		`INSERT INTO applications(id,application_key,organization_id,name,subdomain,version) VALUES('`+app+`','app','`+org+`','Payments','pay',1)`,
 		`INSERT INTO environments(id,application_id,environment_key,name,environment_type,namespace_identity,version) VALUES('`+env+`','`+app+`','dev','dev','dev','app-dev',1)`,
 		`INSERT INTO configuration_revisions(id,environment_id,version) VALUES('`+rev+`','`+env+`',1)`,
@@ -424,5 +425,5 @@ func TestBaselineEnforcesCurrentConstraints(t *testing.T) {
 }
 
 func testOrganization(name string) application.Organization {
-	return application.Organization{ID: ids.New(), Key: strings.ToLower(ids.New()[:8]), Name: name, DefaultConnectionKey: "default"}
+	return application.Organization{ID: ids.New(), Key: strings.ToLower(ids.New()[:8]), Name: name}
 }

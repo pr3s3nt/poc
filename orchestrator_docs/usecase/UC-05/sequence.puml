@@ -9,7 +9,6 @@ control ScoreConverter as Converter
 control WorkloadSpecValidator as WorkloadValidator
 control BeforeStateValidator as BeforeValidator
 control DeltaBuilder as Delta
-control ImplicitResourceEnricher as Enricher
 control ResourceGraphBuilder as Graph
 control DefinitionMatcher as Matcher
 control DriverContractInspector as Inspector
@@ -30,10 +29,10 @@ Planner -> BeforeValidator: Validate(currentSet, workloadID, before) [MS-04]
 BeforeValidator --> Planner: valid module + shared contribution
 Planner -> Delta: BuildHumanitecDelta(currentSet, workloadID, before, after) [MS-04]
 Delta --> Planner: transient DeploymentDeltaDocument + CandidateSet
-Planner -> Matcher: Select workload Definition/class first [V03]
+Planner -> Matcher: Select workload Definition/class first [ADR-017]
 Matcher --> Planner: pinned lifecycle bundle + namespace/cluster refs + provision rules
 Planner -> Graph: BuildAndExpand(candidate, selected workload references/rules) [MS-05]
-Graph -> Graph: Expand to fixed point; no internal builtin/profile target
+Graph -> Graph: Expand matched references/rules/provider bindings to fixed point; no implicit infrastructure
 Graph -> Matcher: Match resource nodes including existing-cluster
 Matcher -> Matcher: Validate winning Definition/account kind/org/READY/version
 Matcher --> Graph: Matched definitions or safe planning error

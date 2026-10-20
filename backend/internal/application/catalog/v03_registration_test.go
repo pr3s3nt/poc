@@ -256,14 +256,14 @@ func TestWorkloadRegistration_RequiredTypeInputIsRefusedAndRenderOnlyIsRefusedEv
 		t.Fatalf("render-only without an Application scope: %v", err)
 	}
 	// ADR-017: no Application is bound to an execution profile any more, so the render-only form is refused for every scope.
-	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, renderOnly(opts.CloudApplicationKey)); !errors.Is(err, catalog.ErrInvalid) {
+	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, renderOnly("acceptance-cloud")); !errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("render-only for a retired profile-bound Application: %v", err)
 	}
 	// A workload Type with a required input cannot be served: the driver supplies none.
 	if err := st.SaveResourceType(ctx, opts.OrganizationKey, resource.Type{Key: "workload", Inputs: []resource.InputField{{Name: "backend_url", Type: "string", Required: true}}}); err != nil {
 		t.Fatal(err)
 	}
-	other := renderOnly(opts.CloudApplicationKey)
+	other := renderOnly("acceptance-cloud")
 	other.Key = "workload-legacy-2"
 	if _, err := svc.RegisterResourceDefinition(ctx, opts.OrganizationKey, other); !errors.Is(err, catalog.ErrInvalid) {
 		t.Fatalf("a required workload Type input must be refused: %v", err)

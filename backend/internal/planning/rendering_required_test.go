@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 )
@@ -25,7 +24,7 @@ func renderDefinition(key, profile string, criteria ...resource.Criterion) resou
 		criteria = []resource.Criterion{{}}
 	}
 	variables := map[string]any{"render_bundle": "installed"}
-	if profile == string(application.ProfileInternalK8s) {
+	if profile == string("internal-k8s") {
 		// Definition-placed Applications reference the typed namespace and cluster outputs (ADR-016).
 		variables["namespace"] = "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
 		variables["cluster"] = "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"

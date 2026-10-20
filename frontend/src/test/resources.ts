@@ -25,7 +25,7 @@ export function preview(over: Partial<DeletionPreview> = {}): DeletionPreview {
 
 export function detail(over: Partial<ResourceDetail> = {}): ResourceDetail {
   return { id: rootId, applicationId: 'shop', environment: 'staging', descriptor: rootName, type: 'postgres', class: 'default', resourceId: 'shared.db', status: 'UNREFERENCED', scope: { type: 'SHARED', id: 'shop.staging' },
-    owner: 'SHARED', generation: 0, module: { id: 'aurora', revision: 'rev1' }, target: { known: true, connectionKey: 'aws-original', connectionName: 'Original AWS', connectionKind: 'AWS', profile: 'aws-eks', accountId: '123456789012', region: 'eu-west-1', generation: 0 }, version: 4, outputs: { host: 'db.internal', password: '***redacted***' }, consumers: [], eligibility: { eligible: true, reasons: [] }, ...over };
+    owner: 'SHARED', generation: 0, module: { id: 'aurora', revision: 'rev1' }, target: { known: true, connectionKey: 'aws-original', connectionName: 'Original AWS', connectionKind: 'AWS', accountId: '123456789012', region: 'eu-west-1', generation: 0 }, version: 4, outputs: { host: 'db.internal', password: '***redacted***' }, consumers: [], eligibility: { eligible: true, reasons: [] }, ...over };
 }
 
 export function operation(over: Partial<CleanupOperation> = {}): CleanupOperation {

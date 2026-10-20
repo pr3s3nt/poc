@@ -227,7 +227,7 @@ func TestDefinitionCatalog_V05PlansTheEKSChainFromDefinitionsAlone(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plan.Target.ConnectionKey != "" || plan.Target.Profile != "" || plan.Target.Region != "" {
+	if plan.Target != cp.req.Env.Binding() {
 		t.Fatalf("an Environment target leaked into the plan: %+v", plan.Target)
 	}
 	for _, node := range []string{vpcNode, eksNode, nsNode, pgEKSNode, redisEKSNode, backendNode} {

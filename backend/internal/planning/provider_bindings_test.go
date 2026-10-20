@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 )
@@ -58,7 +57,7 @@ func seedAWSDefinition() resource.Definition {
 // Edges and pins are deterministic: the same inputs give the same plan hash.
 func TestPlan_ProviderBindingPlanIsDeterministic(t *testing.T) {
 	build := func() *Plan {
-		req := testRequest(t, application.ProfileInternalK8s, "backend")
+		req := testRequest(t, "internal-k8s", "backend")
 		req.Catalog.Definitions = append(req.Catalog.Definitions, kubernetesModuleDefinition(map[string]any{"target": tfmodule.TargetResource, "resource_ref": "k8s-cluster.internal#environments.@app.@env"}))
 		plan, err := NewService(testBundles()).Plan(req)
 		if err != nil {

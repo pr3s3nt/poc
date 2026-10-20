@@ -37,8 +37,6 @@ func DeadlineFor(kind environment.OperationKind) time.Duration {
 		return 45 * time.Minute
 	case environment.OpStoreCopy:
 		return 15 * time.Minute
-	case environment.OpTransition:
-		return 3 * time.Hour
 	case environment.OpCleanup, environment.OpRecovery:
 		return 30 * time.Minute
 	}

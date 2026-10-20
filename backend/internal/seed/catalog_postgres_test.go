@@ -65,7 +65,7 @@ func TestCatalogNoneFixtureOnPostgresIsAtomicRaceFreeAndSurvivesReopen(t *testin
 		t.Fatalf("applications %v %v", apps, err)
 	}
 	staging, err := st.GetEnvironment(ctx, o.ApplicationKey, "staging")
-	if err != nil || staging.NamespaceIdentity != "orch-v2-test-pgrun1" || staging.Configured() {
+	if err != nil || staging.NamespaceIdentity != "orch-v2-test-pgrun1" {
 		t.Fatalf("staging %+v %v", staging, err)
 	}
 	if _, err := st.GetEnvironment(ctx, o.ApplicationKey, "production"); err != nil {

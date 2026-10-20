@@ -27,8 +27,8 @@ func TestSeedKubernetesRecordIsVerifyingWithoutCredential(t *testing.T) {
 		t.Fatalf("seeded record = %+v", conn)
 	}
 	org, err := st.GetOrganization(ctx, opts.OrganizationKey)
-	if err != nil || org.DefaultConnectionKey != opts.ConnectionKey {
-		t.Fatalf("default marker = %+v, %v", org, err)
+	if err != nil || org.Key != opts.OrganizationKey || org.Name == "" {
+		t.Fatalf("Organization metadata = %+v, %v", org, err)
 	}
 	ready := conn
 	ready.Status, ready.SecretRef = application.ConnectionReady, "fake-credential://kept"

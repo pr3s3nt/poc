@@ -935,39 +935,39 @@ func TestMissingInfrastructureIsIneligibleAndUnavailableNotEligible(t *testing.T
 // generation, never from the Environment's current binding.
 func TestDetailShowsTheOriginalTargetNotTheCurrentOne(t *testing.T) {
 	f := newRCFixture(t)
-	// The Environment is bound to a different Connection now.
 	active := f.linkActive(f.root, "UNREFERENCED")
 	dep := f.linkDeployment(active, "aws-original", "Original AWS", 0)
 	// The Connection allows several regions and its configured one is only the
 	// default (us-east-1); the run was planned for eu-west-1.
-	f.savePlan(dep, "aws-original", "eu-west-1", 0)
+	f.savePlan(dep, "aws-original", "eu-west-1")
 	read := func(id string) map[string]any {
 		_, raw, body := f.do(f.dev, http.MethodGet, f.resourceURL(id), nil)
 		assertSafe(t, "detail", raw)
 		return body["resource"].(map[string]any)["target"].(map[string]any)
 	}
 	target := read(f.root.ID)
-	if target["known"] != true || target["connectionKey"] != "aws-original" || target["connectionName"] != "Original AWS" || target["profile"] != "aws-eks" || target["accountId"] != "123456789012" || target["region"] != "eu-west-1" {
+	if target["known"] != true || target["connectionKey"] != "aws-original" || target["connectionName"] != "Original AWS" || target["accountId"] != "123456789012" || target["region"] != "eu-west-1" {
 		t.Fatalf("original target: %v", target)
 	}
 	if _, leaked := target["privateNote"]; leaked || strings.Contains(rcJSON(target), privateTarget) {
 		t.Fatalf("a private Connection value leaked: %v", target)
 	}
-	// The Environment moves to other regions after the run: the original region stays.
-	f.exec(`UPDATE environments SET connection_id=(SELECT id FROM connections WHERE connection_key='aws-original'),execution_profile='aws-eks',runtime_status='READY',region='ap-southeast-1' WHERE id=$1::uuid`, f.envID)
+	// Later Environment metadata and current Driver Account configuration cannot replace the region in the run pin.
+	f.exec(`UPDATE environments SET version=version+1 WHERE id=$1::uuid`, f.envID)
 	if again := read(f.root.ID); again["region"] != "eu-west-1" {
-		t.Fatalf("a later Environment region changed the original region: %v", again)
+		t.Fatalf("later Environment metadata changed the original region: %v", again)
 	}
-	f.exec(`UPDATE environments SET connection_id=(SELECT id FROM connections WHERE connection_key='aws-original'),execution_profile='aws-eks',runtime_status='READY',region='us-east-1' WHERE id=$1::uuid`, f.envID)
+	f.exec(`UPDATE connections SET config=jsonb_set(config,'{region}','"ap-southeast-1"'::jsonb) WHERE organization_id=(SELECT id FROM organizations WHERE organization_key=$1) AND connection_key='aws-original'`, f.orgKey)
 	if again := read(f.root.ID); again["region"] != "eu-west-1" {
-		t.Fatalf("the Connection default region replaced the planned one: %v", again)
+		t.Fatalf("the Driver Account default region replaced the per-resource planned region: %v", again)
 	}
-	// Plan evidence that does not match the run (other Connection or other
-	// generation) or is missing leaves the region unknown; the rest stays known.
+	// A plan pin that disagrees with the separately recorded placement is not used for a region.
 	for name, setup := range map[string]func(){
-		"another connection": func() { f.savePlan(dep, "other-connection", "eu-west-1", 0) },
-		"another generation": func() { f.savePlan(dep, "aws-original", "eu-west-1", 3) },
-		"an invalid region":  func() { f.savePlan(dep, "aws-original", "../etc", 0) },
+		"foreign pin": func() {
+			f.savePlan(dep, "aws-original", "eu-west-1")
+			f.savePlanRaw(dep, `{"kind":"aws","target":"account","connectionKey":"other-account","region":"eu-west-1"}`)
+		},
+		"an invalid region": func() { f.savePlan(dep, "aws-original", "../etc") },
 	} {
 		setup()
 		got := read(f.root.ID)
@@ -978,28 +978,39 @@ func TestDetailShowsTheOriginalTargetNotTheCurrentOne(t *testing.T) {
 			t.Fatalf("%s: the region must be unknown, got %v", name, region)
 		}
 	}
-	// Malformed stored generations fail closed against a run of generation 0: a
-	// fraction that truncates to 0 (or any other malformed value) never matches by cast.
-	for name, generation := range map[string]string{"fractional": `0.5`, "tiny fraction": `1e-300`, "negative fraction": `-0.5`, "negative": `-1`, "huge": `1e30`, "string": `"0"`, "boolean": `false`, "object": `{}`, "array": `[0]`} {
-		f.savePlanRaw(dep, `{"connectionKey":"aws-original","region":"eu-west-1","generation":`+generation+`}`)
+	// The Deployment and Active Resource must name the same generation.
+	f.savePlan(dep, "aws-original", "eu-west-1")
+	f.exec(`UPDATE deployments SET target_generation=7 WHERE id=$1::uuid`, dep)
+	if got := read(f.root.ID); got["known"] != false || got["connectionKey"] != nil {
+		t.Fatalf("a deployment of another generation must not identify the resource target: %v", got)
+	}
+	f.exec(`UPDATE deployments SET target_generation=0 WHERE id=$1::uuid`, dep)
+	for name, pin := range map[string]string{
+		"fractional region": `{"kind":"aws","target":"account","connectionKey":"aws-original","region":0.5}`,
+		"missing region":    `{"kind":"aws","target":"account","connectionKey":"aws-original"}`,
+		"invalid region":    `{"kind":"aws","target":"account","connectionKey":"aws-original","region":"../etc"}`,
+		"wrong target":      `{"kind":"aws","target":"environment","connectionKey":"aws-original","region":"eu-west-1"}`,
+		"wrong provider":    `{"kind":"kubernetes","target":"account","connectionKey":"aws-original","region":"eu-west-1"}`,
+	} {
+		f.savePlanRaw(dep, pin)
 		got := read(f.root.ID)
 		if got["known"] != true {
 			t.Fatalf("%s: the target must stay known: %v", name, got)
 		}
 		if region, present := got["region"]; present && region != "" {
-			t.Fatalf("a %s stored generation must leave the region unknown, got %v", name, region)
+			t.Fatalf("a %s pin must leave the region unknown, got %v", name, region)
 		}
 	}
-	f.savePlanRaw(dep, `{"connectionKey":"aws-original","region":"eu-west-1","generation":0}`)
+	f.savePlanRaw(dep, `{"kind":"aws","target":"account","connectionKey":"aws-original","region":"eu-west-1"}`)
 	if got := read(f.root.ID); got["region"] != "eu-west-1" {
 		t.Fatalf("a well-formed generation 0 must match: %v", got)
 	}
-	f.savePlan(dep, "aws-original", "eu-west-1", 0)
+	f.savePlan(dep, "aws-original", "eu-west-1")
 	// No Active Resource, or a run of another generation: unknown, never the Environment's.
 	if t0 := read(f.a.ID); t0["known"] != false || t0["connectionKey"] != nil {
 		t.Fatalf("a resource without a persisted run must have an unknown target: %v", t0)
 	}
-	f.exec(`UPDATE deployments SET target_generation=7 WHERE connection_key='aws-original'`)
+	f.exec(`UPDATE deployments SET target_generation=7 WHERE id=$1::uuid`, dep)
 	if t1 := read(f.root.ID); t1["known"] != false || t1["connectionKey"] != nil {
 		t.Fatalf("a run of another generation must not identify the target: %v", t1)
 	}
@@ -1014,7 +1025,7 @@ func TestDetailShowsTheNodeDriverAccountPinFromTheRunPlan(t *testing.T) {
 	dep := f.linkDeployment(active, "aws-original", "Original AWS", 0)
 	f.exec(`INSERT INTO connections(id,organization_id,connection_key,name,kind,authentication_type,config,secret_ref,status,verification) SELECT gen_random_uuid(),o.id,'aws-node','Node AWS','AWS','AWS_ACCESS_KEY','{"accountId":"210987654321","region":"eu-west-1"}'::jsonb,'vault:private/ref','READY','{}'::jsonb FROM organizations o WHERE o.organization_key=$1 ON CONFLICT DO NOTHING`, f.orgKey)
 	doc, err := json.Marshal(map[string]any{
-		"target": map[string]any{"connectionKey": "aws-original", "executionProfile": "aws-eks", "region": "us-east-1"},
+		"placements": map[string]any{f.root.Identity.Descriptor: map[string]any{"account": "aws-node"}},
 		"terraform": []any{
 			map[string]any{"descriptor": "other.default#shared.x", "providerBindings": []any{map[string]any{"kind": "aws", "connectionKey": "aws-original", "region": "us-east-1"}}},
 			map[string]any{"descriptor": f.root.Identity.Descriptor, "providerBindings": []any{map[string]any{"kind": "aws", "target": "account", "connectionKey": "aws-node", "region": "ap-southeast-1", "accountVersion": 3}}},
@@ -1033,17 +1044,15 @@ func TestDetailShowsTheNodeDriverAccountPinFromTheRunPlan(t *testing.T) {
 }
 
 // UC-03 V02-09: an AWS node whose per-node pin is missing or malformed in the
-// run plan has an unknown original target; the Environment's Connection and
-// region of the same Deployment are never guessed for it.
+// run plan has an unknown original target; the placement account and region of
+// another node are never guessed for it.
 func TestDetailDoesNotGuessTheEnvironmentAccountForAnUnprovenAWSNodePin(t *testing.T) {
 	f := newRCFixture(t)
 	active := f.linkActive(f.root, "UNREFERENCED")
 	dep := f.linkDeployment(active, "aws-original", "Original AWS", 0)
 	f.exec(`INSERT INTO connections(id,organization_id,connection_key,name,kind,authentication_type,config,secret_ref,status,verification) SELECT gen_random_uuid(),o.id,'aws-node','Node AWS','AWS','AWS_ACCESS_KEY','{"accountId":"210987654321","region":"eu-west-1"}'::jsonb,'vault:private/ref','READY','{}'::jsonb FROM organizations o WHERE o.organization_key=$1 ON CONFLICT DO NOTHING`, f.orgKey)
-	target := map[string]any{"connectionKey": "aws-original", "executionProfile": "aws-eks", "region": "us-east-1"}
 	descriptor := f.root.Identity.Descriptor
-	// The whole original plan is missing, unreadable or empty: AWS-vs-legacy cannot be proven, so the
-	// Environment's account (aws-original) is never named for the node; an invalid pinned region is not a known target either.
+	// The whole original plan is missing, unreadable or empty: this node's account and region are unknown.
 	for name, setup := range map[string]func(){
 		"no plan row": func() { f.exec(`DELETE FROM deployment_plans WHERE deployment_id=$1::uuid`, dep) },
 		"unparseable plan": func() {
@@ -1052,11 +1061,11 @@ func TestDetailDoesNotGuessTheEnvironmentAccountForAnUnprovenAWSNodePin(t *testi
 		"empty plan": func() {
 			f.exec(`INSERT INTO deployment_plans(deployment_id,document,plan_hash) VALUES($1::uuid,'{}'::jsonb,'plan-hash') ON CONFLICT(deployment_id) DO UPDATE SET document=EXCLUDED.document`, dep)
 		},
-		"no target section": func() {
+		"no provider pin": func() {
 			f.exec(`INSERT INTO deployment_plans(deployment_id,document,plan_hash) VALUES($1::uuid,'{"matches":{}}'::jsonb,'plan-hash') ON CONFLICT(deployment_id) DO UPDATE SET document=EXCLUDED.document`, dep)
 		},
 		"invalid pin region": func() {
-			raw, _ := json.Marshal(map[string]any{"target": target, "terraform": []any{map[string]any{"descriptor": descriptor, "providerBindings": []any{map[string]any{"kind": "aws", "target": "account", "connectionKey": "aws-node", "region": "../etc"}}}}})
+			raw, _ := json.Marshal(map[string]any{"terraform": []any{map[string]any{"descriptor": descriptor, "providerBindings": []any{map[string]any{"kind": "aws", "target": "account", "connectionKey": "aws-node", "region": "../etc"}}}}})
 			f.exec(`INSERT INTO deployment_plans(deployment_id,document,plan_hash) VALUES($1::uuid,$2::jsonb,'plan-hash') ON CONFLICT(deployment_id) DO UPDATE SET document=EXCLUDED.document`, dep, string(raw))
 		},
 	} {
@@ -1069,8 +1078,8 @@ func TestDetailDoesNotGuessTheEnvironmentAccountForAnUnprovenAWSNodePin(t *testi
 		}
 	}
 	for name, doc := range map[string]map[string]any{
-		"malformed pin": {"target": target, "terraform": []any{map[string]any{"descriptor": descriptor, "providerBindings": []any{map[string]any{"kind": "aws", "target": "account", "connectionKey": "", "region": "ap-southeast-1"}}}}},
-		"missing pin":   {"target": target, "matches": map[string]any{descriptor: map[string]any{"driverAccount": "aws-node"}}, "terraform": []any{map[string]any{"descriptor": descriptor}}},
+		"malformed pin": {"terraform": []any{map[string]any{"descriptor": descriptor, "providerBindings": []any{map[string]any{"kind": "aws", "target": "account", "connectionKey": "", "region": "ap-southeast-1"}}}}},
+		"missing pin":   {"matches": map[string]any{descriptor: map[string]any{"driverAccount": "aws-node"}}, "terraform": []any{map[string]any{"descriptor": descriptor}}},
 	} {
 		raw, err := json.Marshal(doc)
 		if err != nil {

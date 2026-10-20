@@ -7,7 +7,7 @@ import type { Application } from '../../shared/types/application';
 import { bothConfigured } from '../../test/targets';
 import { typeFixture } from '../../test/types';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured('internal-cluster'), workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 type Saved = { score: Record<string, unknown>; version: number };
 
 // Types are the recorded GET /resource-types of the product backend (classes included).

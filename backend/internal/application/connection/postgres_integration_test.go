@@ -65,8 +65,8 @@ func TestPostgresKubeconfigRegistrationRaceAndReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	before, err := st.GetOrganization(ctx, opts.OrganizationKey)
-	if err != nil || before.DefaultConnectionKey == "" {
-		t.Fatalf("seeded default: %#v %v", before, err)
+	if err != nil || before.ID == "" {
+		t.Fatalf("seeded Organization: %#v %v", before, err)
 	}
 	creds := credentialmemory.New()
 	barrier := &insertBarrier{Store: st, release: make(chan struct{})}
@@ -108,8 +108,8 @@ func TestPostgresKubeconfigRegistrationRaceAndReopen(t *testing.T) {
 	}
 	defer reopened.Close()
 	after, err := reopened.GetOrganization(ctx, opts.OrganizationKey)
-	if err != nil || after.DefaultConnectionKey != before.DefaultConnectionKey {
-		t.Fatalf("default connection changed: %q -> %q (%v)", before.DefaultConnectionKey, after.DefaultConnectionKey, err)
+	if err != nil || after != before {
+		t.Fatalf("registration changed Organization metadata: %+v -> %+v (%v)", before, after, err)
 	}
 	for _, created := range results {
 		stored, err := reopened.GetConnection(ctx, opts.OrganizationKey, created.Key)

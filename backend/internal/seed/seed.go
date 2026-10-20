@@ -58,12 +58,9 @@ type Options struct {
 	KubeContext       string
 	ClusterName       string
 
-	CloudApplicationKey    string
-	CloudApplicationName   string
-	CloudNamespaceIdentity string
-	CloudConnectionKey     string
-	Region                 string
-	AccountID              string
+	CloudConnectionKey string
+	Region             string
+	AccountID          string
 
 	EnvironmentKey  string
 	EnvironmentName string
@@ -130,25 +127,22 @@ func DefaultCloudConfig() CloudConfig {
 // Defaults fills the values the walking skeleton does not need to override.
 func Defaults() Options {
 	return Options{
-		Profile:                "local",
-		OrganizationKey:        "acme",
-		BaseDomain:             "example.com",
-		ApplicationKey:         "acceptance",
-		ApplicationName:        "Acceptance Application",
-		NamespaceIdentity:      "acceptance-dev",
-		ConnectionKey:          "internal-cluster",
-		KubeContext:            "kind-idp-internal",
-		ClusterName:            "idp-internal",
-		CloudApplicationKey:    "acceptance-cloud",
-		CloudApplicationName:   "Acceptance Application (cloud)",
-		CloudNamespaceIdentity: "acceptance-cloud-dev",
-		CloudConnectionKey:     "aws-account",
-		EnvironmentKey:         "dev",
-		EnvironmentName:        "Development",
-		EnvironmentType:        "development",
-		SharedDatabaseID:       "acceptance-db",
-		Database:               "acceptance",
-		DatabaseUser:           "app",
+		Profile:            "local",
+		OrganizationKey:    "acme",
+		BaseDomain:         "example.com",
+		ApplicationKey:     "acceptance",
+		ApplicationName:    "Acceptance Application",
+		NamespaceIdentity:  "acceptance-dev",
+		ConnectionKey:      "internal-cluster",
+		KubeContext:        "kind-idp-internal",
+		ClusterName:        "idp-internal",
+		CloudConnectionKey: "aws-account",
+		EnvironmentKey:     "dev",
+		EnvironmentName:    "Development",
+		EnvironmentType:    "development",
+		SharedDatabaseID:   "acceptance-db",
+		Database:           "acceptance",
+		DatabaseUser:       "app",
 		Images: Images{
 			Frontend: "acceptance-frontend:dev",
 			Backend:  "acceptance-backend:dev",
@@ -266,10 +260,8 @@ func (o Options) platformModules() map[string]tfmodule.SourceRef {
 }
 
 // ResourceDefinitions returns the seeded Resource Definitions (UC-03 V02-08).
-// Matching uses only the five criteria fields: the internal and cloud demands
-// are told apart by the explicit app_id of their seeded Application, never by
-// an execution profile, and AWS Definitions name their Driver Account and
-// literal region explicitly.
+// Matching uses only the five criteria fields, never an execution profile, and
+// AWS Definitions name their Driver Account and literal region explicitly.
 func ResourceDefinitions(o Options) []resource.Definition {
 	cloud := o.Cloud
 	if cloud.KubernetesVersion == "" {
@@ -347,14 +339,13 @@ func terraformK8sDefinitions(modules map[string]tfmodule.SourceRef, appKey strin
 
 func baseDefinitions(o Options, cloud CloudConfig, eksVariables map[string]any, modules map[string]tfmodule.SourceRef) []resource.Definition {
 	// AWS Definitions carry their own scoped READY account and a literal region
-	// (UC-03 V02-03); the seeded cloud Application selects them by app_id.
+	// (UC-03 V02-03).
 	withRegion := func(variables map[string]any) map[string]any {
 		if o.Region != "" {
 			variables["region"] = o.Region
 		}
 		return variables
 	}
-	cloudApp := []resource.Criterion{{ApplicationID: o.CloudApplicationKey}}
 	internalApp := []resource.Criterion{{ApplicationID: o.ApplicationKey}}
 	return []resource.Definition{
 		// ADR-016: the internal Application's placement is decided by Definitions. The cluster
@@ -395,15 +386,6 @@ func baseDefinitions(o Options, cloud CloudConfig, eksVariables map[string]any, 
 				"cluster":       "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}",
 			}),
 			Criteria: internalApp,
-		},
-		{
-			Key:             "workload-score-k8s-cloud",
-			Name:            "Mẫu dựng workload score-k8s (cloud)",
-			Version:         1,
-			ResourceTypeKey: "workload",
-			DriverType:      resource.DriverScoreK8s,
-			DriverInputs:    driverInputs(map[string]any{"render_bundle": RenderBundleID}),
-			Criteria:        cloudApp,
 		},
 		{
 			Key:             "namespace-kubernetes",
@@ -466,7 +448,7 @@ func baseDefinitions(o Options, cloud CloudConfig, eksVariables map[string]any, 
 				"subnet_ids":         "${resources['vpc.default#@infra'].outputs.subnetIds}",
 				"private_subnet_ids": "${resources['vpc.default#@infra'].outputs.privateSubnetIds}",
 			}), []string{"database", "username"}, []string{"host", "port", "database", "username", "password"}),
-			Criteria: cloudApp,
+			Criteria: []resource.Criterion{{Class: "cloud-managed"}},
 		},
 	}
 }
@@ -517,13 +499,6 @@ func AllowsFixedTestAccounts(profile string) bool {
 	return profile == "local" || profile == "test" || profile == ProfileAcceptanceV2
 }
 
-func (o Options) defaultConnectionKey() string {
-	if o.CatalogFree() {
-		return "" // Connections are registered through the Console
-	}
-	return o.ConnectionKey
-}
-
 // CatalogFree reports whether Apply registers no catalog, Connection or
 // Environment binding for these options.
 func (o Options) CatalogFree() bool { return o.Catalog == CatalogNone }
@@ -551,7 +526,7 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		return err
 	}
 	if _, err := store.GetOrganization(ctx, o.OrganizationKey); errors.Is(err, persistence.ErrNotFound) {
-		if err := store.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: o.OrganizationKey, Name: "Acme", DefaultConnectionKey: o.defaultConnectionKey()}); err != nil {
+		if err := store.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: o.OrganizationKey, Name: "Acme"}); err != nil {
 			return err
 		}
 	} else if err != nil {
@@ -636,85 +611,54 @@ func Apply(ctx context.Context, store persistence.Store, o Options) error {
 		Subdomain:       "acceptance",
 		Version:         1,
 	}
-	// Each acceptance Environment is bound once with explicit ENVIRONMENT
-	// infrastructure scope (ADR-011).
-	type appEnv struct {
-		app       application.Application
-		namespace string
-		// binding is nil for the internal Application: Resource Definitions decide its placement
-		// (ADR-016), so its Environment carries no deployment Connection.
-		binding *persistence.EnvironmentBinding
-	}
-	pairs := []appEnv{{app: internal, namespace: o.NamespaceIdentity}}
-
-	for _, pair := range pairs {
-		if existing, err := store.GetApplication(ctx, pair.app.Key); err == nil {
-			pair.app = existing
-		} else if !errors.Is(err, persistence.ErrNotFound) {
-			return err
-		} else {
-			if err := pair.app.Validate(); err != nil {
-				return err
-			}
-			if err := store.SaveApplication(ctx, pair.app); err != nil {
-				return err
-			}
-		}
-		if existing, err := store.GetEnvironment(ctx, pair.app.Key, o.EnvironmentKey); err == nil {
-			if existing.Configured() || pair.binding == nil {
-				continue
-			}
-			pair.binding.ApplicationKey, pair.binding.EnvironmentKey, pair.binding.ExpectedVersion = pair.app.Key, o.EnvironmentKey, existing.Version
-			if _, err := store.BindEnvironment(ctx, *pair.binding); err != nil {
-				return err
-			}
-			continue
-		} else if !errors.Is(err, persistence.ErrNotFound) {
+	if existing, err := store.GetApplication(ctx, internal.Key); err == nil {
+		internal = existing
+	} else if !errors.Is(err, persistence.ErrNotFound) {
+		return err
+	} else {
+		if err := internal.Validate(); err != nil {
 			return err
 		}
-		emptySet := environment.DeploymentSet{
-			ID:             ids.New(),
-			EnvironmentID:  "",
-			EnvironmentKey: pair.app.Key + "/" + o.EnvironmentKey,
-			Document:       environment.NewDocument(),
-			DocumentHash:   "empty",
-		}
-		envID := ids.New()
-		emptySet.EnvironmentID = envID
-		env := environment.Environment{
-			ID:                     envID,
-			Key:                    o.EnvironmentKey,
-			ApplicationID:          pair.app.ID,
-			ApplicationKey:         pair.app.Key,
-			Name:                   o.EnvironmentName,
-			Type:                   o.EnvironmentType,
-			NamespaceIdentity:      pair.namespace,
-			CurrentDeploymentSetID: emptySet.ID,
-			Version:                1,
-		}
-		if err := env.Validate(); err != nil {
-			return err
-		}
-		// OC-02: Environment, empty Deployment Set and current pointer are atomic.
-		err := store.Transact(ctx, func(ctx context.Context) error {
-			if err := store.SaveDeploymentSet(ctx, emptySet); err != nil {
-				return err
-			}
-			if err := store.SaveEnvironment(ctx, env); err != nil {
-				return err
-			}
-			if pair.binding == nil {
-				return nil
-			}
-			pair.binding.ApplicationKey, pair.binding.EnvironmentKey, pair.binding.ExpectedVersion = pair.app.Key, o.EnvironmentKey, env.Version
-			_, err := store.BindEnvironment(ctx, *pair.binding)
-			return err
-		})
-		if err != nil {
+		if err := store.SaveApplication(ctx, internal); err != nil {
 			return err
 		}
 	}
-	return nil
+	// ADR-016 / ADR-017: Resource Definitions decide placement, so the Environment carries no deployment Connection.
+	if _, err := store.GetEnvironment(ctx, internal.Key, o.EnvironmentKey); err == nil {
+		return nil
+	} else if !errors.Is(err, persistence.ErrNotFound) {
+		return err
+	}
+	emptySet := environment.DeploymentSet{
+		ID:             ids.New(),
+		EnvironmentID:  "",
+		EnvironmentKey: internal.Key + "/" + o.EnvironmentKey,
+		Document:       environment.NewDocument(),
+		DocumentHash:   "empty",
+	}
+	envID := ids.New()
+	emptySet.EnvironmentID = envID
+	env := environment.Environment{
+		ID:                     envID,
+		Key:                    o.EnvironmentKey,
+		ApplicationID:          internal.ID,
+		ApplicationKey:         internal.Key,
+		Name:                   o.EnvironmentName,
+		Type:                   o.EnvironmentType,
+		NamespaceIdentity:      o.NamespaceIdentity,
+		CurrentDeploymentSetID: emptySet.ID,
+		Version:                1,
+	}
+	if err := env.Validate(); err != nil {
+		return err
+	}
+	// OC-02: Environment, empty Deployment Set and current pointer are atomic.
+	return store.Transact(ctx, func(ctx context.Context) error {
+		if err := store.SaveDeploymentSet(ctx, emptySet); err != nil {
+			return err
+		}
+		return store.SaveEnvironment(ctx, env)
+	})
 }
 
 // refreshSeededDefinitions creates the missing seeded Definitions. Every
@@ -744,7 +688,8 @@ func refreshSeededDefinitions(ctx context.Context, store persistence.Store, o Op
 // real acceptance run: the Application with its staging and production
 // Environments (the two the Console offers), the staging Environment carrying
 // the exact owned namespace identity (production gets a distinct unused one)
-// and no binding. Connection, profile and everything else are Console steps.
+// identity. Driver Accounts and other console-authored configuration are
+// created through their respective Console steps.
 func applyFixtureApplication(ctx context.Context, store persistence.Store, o Options) error {
 	app := application.Application{ID: ids.New(), Key: o.ApplicationKey, OrganizationKey: o.OrganizationKey, Name: o.ApplicationName, Subdomain: "acceptance", Version: 1}
 	if existing, err := store.GetApplication(ctx, app.Key); err == nil {

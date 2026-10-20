@@ -18,18 +18,18 @@ func (s *Store) SaveDeployment(ctx context.Context, v deployment.Deployment) err
 }
 
 func (s *Store) fencedSaveDeployment(ctx context.Context, v deployment.Deployment) error {
-	_, err := s.q(ctx).Exec(ctx, `INSERT INTO deployments(id,environment_id,organization_key,application_key,environment_key,execution_profile,action,workload_id,actor_ref,status,base_environment_version,base_deployment_set_id,candidate_deployment_set_id,failure_reason,started_at,finished_at,connection_key,target_generation) VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULLIF($12,'')::uuid,NULLIF($13,'')::uuid,$14,$15,$16,$17,$18) ON CONFLICT(id) DO UPDATE SET status=EXCLUDED.status,candidate_deployment_set_id=EXCLUDED.candidate_deployment_set_id,failure_reason=EXCLUDED.failure_reason,finished_at=EXCLUDED.finished_at`, v.ID, v.EnvironmentID, v.OrganizationKey, v.ApplicationKey, v.EnvironmentKey, v.ExecutionProfile, v.Action, v.WorkloadID, v.ActorRef, v.Status, v.BaseEnvironmentVersion, v.BaseDeploymentSetID, v.CandidateDeploymentSet, v.FailureReason, v.StartedAt, v.FinishedAt, v.ConnectionKey, v.TargetGeneration)
+	_, err := s.q(ctx).Exec(ctx, `INSERT INTO deployments(id,environment_id,organization_key,application_key,environment_key,action,workload_id,actor_ref,status,base_environment_version,base_deployment_set_id,candidate_deployment_set_id,failure_reason,started_at,finished_at,target_generation) VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,'')::uuid,NULLIF($12,'')::uuid,$13,$14,$15,$16) ON CONFLICT(id) DO UPDATE SET status=EXCLUDED.status,candidate_deployment_set_id=EXCLUDED.candidate_deployment_set_id,failure_reason=EXCLUDED.failure_reason,finished_at=EXCLUDED.finished_at`, v.ID, v.EnvironmentID, v.OrganizationKey, v.ApplicationKey, v.EnvironmentKey, v.Action, v.WorkloadID, v.ActorRef, v.Status, v.BaseEnvironmentVersion, v.BaseDeploymentSetID, v.CandidateDeploymentSet, v.FailureReason, v.StartedAt, v.FinishedAt, v.TargetGeneration)
 	if err != nil {
 		return fmt.Errorf("postgres: save deployment: %w", translate(err))
 	}
 	return nil
 }
 
-const deploymentSelect = `SELECT d.id::text,d.environment_id::text,d.organization_key,d.application_key,d.environment_key,d.execution_profile,d.action,d.workload_id,d.actor_ref,d.status,d.base_environment_version,COALESCE(d.base_deployment_set_id::text,''),COALESCE(d.candidate_deployment_set_id::text,''),COALESCE(s.id::text,''),d.failure_reason,d.started_at,d.finished_at,d.connection_key,d.target_generation FROM deployments d LEFT JOIN deployment_delta_snapshots s ON s.deployment_id=d.id`
+const deploymentSelect = `SELECT d.id::text,d.environment_id::text,d.organization_key,d.application_key,d.environment_key,d.action,d.workload_id,d.actor_ref,d.status,d.base_environment_version,COALESCE(d.base_deployment_set_id::text,''),COALESCE(d.candidate_deployment_set_id::text,''),COALESCE(s.id::text,''),d.failure_reason,d.started_at,d.finished_at,d.target_generation FROM deployments d LEFT JOIN deployment_delta_snapshots s ON s.deployment_id=d.id`
 
 func scanDeployment(row pgx.Row) (deployment.Deployment, error) {
 	var v deployment.Deployment
-	err := row.Scan(&v.ID, &v.EnvironmentID, &v.OrganizationKey, &v.ApplicationKey, &v.EnvironmentKey, &v.ExecutionProfile, &v.Action, &v.WorkloadID, &v.ActorRef, &v.Status, &v.BaseEnvironmentVersion, &v.BaseDeploymentSetID, &v.CandidateDeploymentSet, &v.DeltaSnapshotID, &v.FailureReason, &v.StartedAt, &v.FinishedAt, &v.ConnectionKey, &v.TargetGeneration)
+	err := row.Scan(&v.ID, &v.EnvironmentID, &v.OrganizationKey, &v.ApplicationKey, &v.EnvironmentKey, &v.Action, &v.WorkloadID, &v.ActorRef, &v.Status, &v.BaseEnvironmentVersion, &v.BaseDeploymentSetID, &v.CandidateDeploymentSet, &v.DeltaSnapshotID, &v.FailureReason, &v.StartedAt, &v.FinishedAt, &v.TargetGeneration)
 	return v, err
 }
 func (s *Store) GetDeployment(ctx context.Context, id string) (deployment.Deployment, error) {
@@ -54,7 +54,7 @@ func (s *Store) ListDeployments(ctx context.Context, app, env string) ([]deploym
 	var out []deployment.Deployment
 	for rows.Next() {
 		var v deployment.Deployment
-		if err = rows.Scan(&v.ID, &v.EnvironmentID, &v.OrganizationKey, &v.ApplicationKey, &v.EnvironmentKey, &v.ExecutionProfile, &v.Action, &v.WorkloadID, &v.ActorRef, &v.Status, &v.BaseEnvironmentVersion, &v.BaseDeploymentSetID, &v.CandidateDeploymentSet, &v.DeltaSnapshotID, &v.FailureReason, &v.StartedAt, &v.FinishedAt, &v.ConnectionKey, &v.TargetGeneration); err != nil {
+		if err = rows.Scan(&v.ID, &v.EnvironmentID, &v.OrganizationKey, &v.ApplicationKey, &v.EnvironmentKey, &v.Action, &v.WorkloadID, &v.ActorRef, &v.Status, &v.BaseEnvironmentVersion, &v.BaseDeploymentSetID, &v.CandidateDeploymentSet, &v.DeltaSnapshotID, &v.FailureReason, &v.StartedAt, &v.FinishedAt, &v.TargetGeneration); err != nil {
 			return nil, err
 		}
 		out = append(out, v)

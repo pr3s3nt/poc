@@ -1,257 +1,50 @@
 {
-  "_comment": "Single source of the Console-authored Definition-driven catalog of V05 (EKS created in the same execution). The headed scenarios type exactly these values into the Resource Definition forms; backend/internal/planning/definition_catalog_plan_test.go plans them over the REAL verified registry bundles. No Environment profile, Connection or @infra token exists: every AWS Definition names its own Driver Account and literal region, every Kubernetes module binds its provider to the cluster RESOURCE of class eks, and every relation is a resource reference. Placeholders: @REGION@ (literal AWS region), @EGRESS@ (explicit /32 of the executor), @NODE_TYPE@ (small compatible EKS node type).",
+  "_comment": "Single source of the Console-authored Definition-driven catalog of V05 (EKS created in the same execution) and V06 (A02/A03 managed). The headed scenarios type exactly these values into the Resource Definition forms; backend/internal/planning/definition_catalog_plan_test.go plans them over the REAL verified registry bundles. No Environment profile, Connection or @infra token exists: every AWS Definition names its own Driver Account and literal region, every Kubernetes module binds its provider to the cluster RESOURCE of class eks, and every relation is a resource reference. Placeholders: @REGION@ (literal AWS region), @EGRESS@ (explicit /32 of the executor), @NODE_TYPE@ (small compatible EKS node type).",
   "types": [
-    {
-      "key": "workload",
-      "inputs": [],
-      "outputs": []
-    },
-    {
-      "key": "k8s-cluster",
-      "inputs": [],
-      "outputs": [
-        [
-          "name",
-          "string",
-          false
-        ],
-        [
-          "cluster",
-          "any",
-          true
-        ]
-      ]
-    },
-    {
-      "key": "vpc",
-      "inputs": [],
-      "outputs": [
-        [
-          "id",
-          "string",
-          true
-        ],
-        [
-          "cidr",
-          "string",
-          false
-        ],
-        [
-          "subnetIds",
-          "any",
-          false
-        ],
-        [
-          "privateSubnetIds",
-          "any",
-          false
-        ]
-      ]
-    },
-    {
-      "key": "k8s-namespace",
-      "inputs": [
-        [
-          "name",
-          "string",
-          false
-        ]
-      ],
-      "outputs": [
-        [
-          "name",
-          "string",
-          true
-        ]
-      ]
-    },
-    {
-      "key": "postgres",
-      "inputs": [
-        [
-          "database",
-          "string",
-          true
-        ],
-        [
-          "username",
-          "string",
-          true
-        ]
-      ],
-      "outputs": [
-        [
-          "host",
-          "string",
-          true
-        ],
-        [
-          "port",
-          "number",
-          true
-        ],
-        [
-          "database",
-          "string",
-          true
-        ],
-        [
-          "username",
-          "string",
-          true
-        ],
-        [
-          "password",
-          "string",
-          true,
-          true
-        ]
-      ]
-    },
-    {
-      "key": "redis",
-      "inputs": [],
-      "outputs": [
-        [
-          "host",
-          "string",
-          true
-        ],
-        [
-          "port",
-          "number",
-          true
-        ],
-        [
-          "username",
-          "string",
-          true
-        ],
-        [
-          "password",
-          "string",
-          true,
-          true
-        ],
-        [
-          "tls",
-          "bool",
-          true
-        ]
-      ]
-    }
+    {"key": "workload", "inputs": [], "outputs": []},
+    {"key": "k8s-cluster", "inputs": [], "outputs": [["name", "string", false], ["cluster", "any", true]]},
+    {"key": "vpc", "inputs": [], "outputs": [["id", "string", true], ["cidr", "string", false], ["subnetIds", "any", false], ["privateSubnetIds", "any", false]]},
+    {"key": "k8s-namespace", "inputs": [["name", "string", false]], "outputs": [["name", "string", true]]},
+    {"key": "postgres", "inputs": [["database", "string", true], ["username", "string", true]], "outputs": [["host", "string", true], ["port", "number", true], ["database", "string", true], ["username", "string", true], ["password", "string", true, true]]},
+    {"key": "redis", "inputs": [], "outputs": [["host", "string", true], ["port", "number", true], ["username", "string", true], ["password", "string", true, true], ["tls", "bool", true]]}
   ],
   "definitions": {
     "common": [
-      {
-        "id": "vpc-aws",
-        "type": "vpc",
-        "module": "vpc",
-        "provider": "aws",
-        "klass": "default",
-        "overrides": [
-          [
-            "name",
-            "\"${context.infra.resourceName}\""
-          ],
-          [
-            "cidr",
-            "\"10.42.0.0/16\""
-          ]
-        ]
-      },
-      {
-        "id": "cluster-eks",
-        "type": "k8s-cluster",
-        "module": "eks",
-        "provider": "aws",
-        "klass": "eks",
-        "overrides": [
-          [
-            "name",
-            "\"${context.infra.resourceName}\""
-          ],
-          [
-            "subnet_ids",
-            "\"${resources['vpc.default#environments.@app.@env'].outputs.subnetIds}\""
-          ],
-          [
-            "kubernetes_version",
-            "\"1.35\""
-          ],
-          [
-            "node_instance_type",
-            "\"@NODE_TYPE@\""
-          ],
-          [
-            "node_capacity_type",
-            "\"SPOT\""
-          ],
-          [
-            "node_ami_type",
-            "\"AL2023_ARM_64_STANDARD\""
-          ],
-          [
-            "node_disk_size",
-            "20"
-          ],
-          [
-            "ebs_csi_driver",
-            "true"
-          ],
-          [
-            "public_access_cidrs",
-            "[\"@EGRESS@\"]"
-          ]
-        ]
-      },
-      {
-        "id": "namespace-eks",
-        "type": "k8s-namespace",
-        "module": "k8s-namespace",
-        "provider": "kubernetes",
-        "clusterClass": "eks",
-        "presetName": "name"
-      }
+      {"id": "vpc-aws", "type": "vpc", "module": "vpc", "provider": "aws", "klass": "default",
+       "overrides": [["name", "\"${context.infra.resourceName}\""], ["cidr", "\"10.42.0.0/16\""]]},
+      {"id": "cluster-eks", "type": "k8s-cluster", "module": "eks", "provider": "aws", "klass": "eks",
+       "overrides": [["name", "\"${context.infra.resourceName}\""], ["subnet_ids", "\"${resources['vpc.default#environments.@app.@env'].outputs.subnetIds}\""],
+         ["kubernetes_version", "\"1.35\""], ["node_instance_type", "\"@NODE_TYPE@\""], ["node_capacity_type", "\"SPOT\""], ["node_ami_type", "\"AL2023_ARM_64_STANDARD\""],
+         ["node_disk_size", "20"], ["ebs_csi_driver", "true"], ["public_access_cidrs", "[\"@EGRESS@\"]"]]},
+      {"id": "namespace-eks", "type": "k8s-namespace", "module": "k8s-namespace", "provider": "kubernetes", "clusterClass": "eks", "presetName": "name"}
     ],
     "V05": [
-      {
-        "id": "pg-eks",
-        "type": "postgres",
-        "module": "postgres-k8s",
-        "provider": "kubernetes",
-        "clusterClass": "eks",
-        "input": true,
-        "presetNamespace": true,
-        "klass": "in-cluster",
-        "overrides": [
-          [
-            "storage_class",
-            "\"gp2\""
-          ]
-        ]
-      },
-      {
-        "id": "redis-eks",
-        "type": "redis",
-        "module": "redis-k8s",
-        "provider": "kubernetes",
-        "clusterClass": "eks",
-        "presetNamespace": true,
-        "klass": "in-cluster",
-        "overrides": [
-          [
-            "storage_class",
-            "\"gp2\""
-          ]
-        ]
-      }
+      {"id": "pg-eks", "type": "postgres", "module": "postgres-k8s", "provider": "kubernetes", "clusterClass": "eks", "input": true, "presetNamespace": true, "klass": "in-cluster",
+       "overrides": [["storage_class", "\"gp2\""]]},
+      {"id": "redis-eks", "type": "redis", "module": "redis-k8s", "provider": "kubernetes", "clusterClass": "eks", "presetNamespace": true, "klass": "in-cluster",
+       "overrides": [["storage_class", "\"gp2\""]]}
+    ],
+    "A02": [
+      {"id": "pg-aurora", "type": "postgres", "module": "aurora", "provider": "aws", "input": true, "klass": "cloud-managed",
+       "overrides": [["name", "\"${context.infra.resourceName}\""], ["engine_version", "\"16.14\""], ["min_capacity", "0"], ["max_capacity", "1"],
+         ["vpc_id", "\"${resources['vpc.default#environments.@app.@env'].outputs.id}\""], ["subnet_ids", "\"${resources['vpc.default#environments.@app.@env'].outputs.subnetIds}\""],
+         ["private_subnet_ids", "\"${resources['vpc.default#environments.@app.@env'].outputs.privateSubnetIds}\""]]},
+      {"id": "redis-elasticache", "type": "redis", "module": "elasticache", "provider": "aws", "klass": "cloud-managed",
+       "overrides": [["engine_version", "\"7.1\""], ["node_type", "\"cache.t4g.micro\""], ["vpc_id", "\"${resources['vpc.default#environments.@app.@env'].outputs.id}\""],
+         ["subnet_ids", "\"${resources['vpc.default#environments.@app.@env'].outputs.subnetIds}\""], ["private_subnet_ids", "\"${resources['vpc.default#environments.@app.@env'].outputs.privateSubnetIds}\""]]}
+    ],
+    "A03": [
+      {"id": "pg-aurora", "type": "postgres", "module": "aurora", "provider": "aws", "input": true, "klass": "cloud-managed",
+       "overrides": [["name", "\"${context.infra.resourceName}\""], ["engine_version", "\"16.14\""], ["min_capacity", "0"], ["max_capacity", "1"],
+         ["vpc_id", "\"${resources['vpc.default#environments.@app.@env'].outputs.id}\""], ["subnet_ids", "\"${resources['vpc.default#environments.@app.@env'].outputs.subnetIds}\""],
+         ["private_subnet_ids", "\"${resources['vpc.default#environments.@app.@env'].outputs.privateSubnetIds}\""]]},
+      {"id": "redis-eks", "type": "redis", "module": "redis-k8s", "provider": "kubernetes", "clusterClass": "eks", "presetNamespace": true, "klass": "in-cluster",
+       "overrides": [["storage_class", "\"gp2\""]]}
     ]
   },
   "classes": {
-    "V05": {
-      "postgres": "in-cluster",
-      "redis": "in-cluster"
-    }
+    "V05": {"postgres": "in-cluster", "redis": "in-cluster"},
+    "A02": {"postgres": "cloud-managed", "redis": "cloud-managed"},
+    "A03": {"postgres": "cloud-managed", "redis": "in-cluster"}
   }
 }

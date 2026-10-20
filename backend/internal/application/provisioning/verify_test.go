@@ -78,7 +78,7 @@ func runVerified(t *testing.T, app *bootstrap.App, org string, verifier modulere
 	}
 	_, err := service.Provision(context.Background(), provisioning.Request{
 		DeploymentID: "dep-verify", RunID: "run-1",
-		Context: planning.Context{OrganizationKey: org, App: application.Application{Key: "a", OrganizationKey: org}, Env: environment.Environment{Key: "staging", Profile: application.ProfileAWSEKS, ConnectionKey: "aws-a", Region: "us-east-1"}},
+		Context: planning.Context{OrganizationKey: org, App: application.Application{Key: "a", OrganizationKey: org}, Env: environment.Environment{Key: "staging"}},
 		Plan: &planning.Plan{
 			Graph:   planning.Graph{Nodes: []planning.Node{{Descriptor: descriptor, Kind: planning.NodeResource, ResourceType: "cache", Class: "default", Params: map[string]any{"size": 2048}, Scope: resource.Scope{Type: resource.ScopeApplication, ID: "a"}}}},
 			Matches: map[string]planning.Match{descriptor: {Descriptor: descriptor, DefinitionKey: def.Key, DriverType: def.DriverType}},

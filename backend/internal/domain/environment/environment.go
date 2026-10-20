@@ -8,18 +8,16 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"orchestrator/internal/domain/application"
 )
 
 var namespacePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
-// InfrastructureScope says where an aws-eks Environment keeps VPC/EKS (ADR-011).
+// InfrastructureScope pins resource identity scope; it never requests infrastructure or selects a deployment target.
 type InfrastructureScope string
 
 // Infrastructure scopes.
 const (
-	// ScopeEnvironment gives the Environment its own VPC/EKS identity.
+	// ScopeEnvironment gives explicitly requested resources an Environment identity scope.
 	ScopeEnvironment InfrastructureScope = "ENVIRONMENT"
 )
 
@@ -30,12 +28,12 @@ var ErrInvalidInfrastructureScope = errors.New("environment: infrastructure scop
 // Valid reports whether the scope is the only supported value.
 func (s InfrastructureScope) Valid() bool { return s == ScopeEnvironment }
 
-// Environment is a deployment target that belongs to exactly one Application.
-// ConnectionKey, Profile, Region, RuntimeStatus, InfrastructureScope and
-// TargetGeneration are the execution binding: empty/UNCONFIGURED until
-// selected, then replaceable only through the versioned dedicated commands
-// (ADR-012). SecretStoreKey is the independent workload secret-store
-// selection.
+// Environment is a deployment scope that belongs to exactly one Application.
+// It carries no deployment Connection, execution profile or region (ADR-017):
+// placement comes from Resource Definitions, accounts and typed references.
+// InfrastructureScope and TargetGeneration pin the identity of the
+// Environment's resources. SecretStoreKey is the independent workload
+// secret-store selection.
 type Environment struct {
 	ID                     string `json:"id"`
 	Key                    string `json:"key"`
@@ -49,34 +47,16 @@ type Environment struct {
 	DraftVersion           int64  `json:"draftVersion,omitempty"`
 	PublicRoutesPending    bool   `json:"publicRoutesPending,omitempty"`
 
-	ConnectionKey       string                       `json:"connectionKey,omitempty"`
-	Profile             application.ExecutionProfile `json:"executionProfile,omitempty"`
-	Region              string                       `json:"region,omitempty"`
-	RuntimeStatus       application.RuntimeStatus    `json:"runtimeStatus,omitempty"`
-	InfrastructureScope InfrastructureScope          `json:"infrastructureScope,omitempty"`
+	InfrastructureScope InfrastructureScope `json:"infrastructureScope,omitempty"`
 
-	// TargetGeneration is the immutable generation of the current execution
-	// binding. Generation 0 keeps the legacy resource/namespace/state identity.
+	// TargetGeneration is the immutable identity generation of the Environment's resources.
+	// Generation 0 keeps the legacy resource/namespace/state identity.
 	TargetGeneration int64 `json:"targetGeneration,omitempty"`
-	// GenerationHigh is the highest generation ever allocated to this
-	// Environment, including failed transition attempts.
-	GenerationHigh int64 `json:"generationHigh,omitempty"`
 	// SecretStoreKey selects the workload Secret Store Connection.
 	SecretStoreKey string `json:"secretStoreKey,omitempty"`
 	// ActiveOperationID is the persisted claim that excludes concurrent
 	// execution, settings, configuration and draft writes.
 	ActiveOperationID string `json:"activeOperationId,omitempty"`
-}
-
-// Configured reports whether the execution binding was set.
-func (e Environment) Configured() bool { return e.ConnectionKey != "" }
-
-// Status reports the runtime status, UNCONFIGURED while the binding is unset.
-func (e Environment) Status() application.RuntimeStatus {
-	if !e.Configured() || e.RuntimeStatus == "" {
-		return application.RuntimeUnconfigured
-	}
-	return e.RuntimeStatus
 }
 
 // InfrastructureScopeValid reports whether the stored scope is unset (reads as
@@ -95,26 +75,16 @@ func (e Environment) Scope() InfrastructureScope {
 	return e.InfrastructureScope
 }
 
-// Binding is the nonsecret execution target pinned in snapshots and hashes.
-// Generation is omitted at generation 0 so legacy hashes stay unchanged.
+// Binding is the nonsecret identity pin of an Environment's resources in snapshots and hashes.
+// Generation is omitted at generation 0 so existing hashes stay unchanged.
 type Binding struct {
-	ConnectionKey string                       `json:"connectionKey"`
-	Profile       application.ExecutionProfile `json:"executionProfile"`
-	Region        string                       `json:"region"`
-	Scope         InfrastructureScope          `json:"infrastructureScope"`
-	Generation    int64                        `json:"generation,omitempty"`
+	Scope      InfrastructureScope `json:"infrastructureScope"`
+	Generation int64               `json:"generation,omitempty"`
 }
 
-// Binding returns the pinned target of a configured Environment.
+// Binding returns the pinned identity of the Environment.
 func (e Environment) Binding() Binding {
-	return Binding{ConnectionKey: e.ConnectionKey, Profile: e.Profile, Region: e.Region, Scope: e.Scope(), Generation: e.TargetGeneration}
-}
-
-// WithBinding returns a copy of the Environment executing against binding b.
-func (e Environment) WithBinding(b Binding, status application.RuntimeStatus) Environment {
-	e.ConnectionKey, e.Profile, e.Region = b.ConnectionKey, b.Profile, b.Region
-	e.InfrastructureScope, e.TargetGeneration, e.RuntimeStatus = b.Scope, b.Generation, status
-	return e
+	return Binding{Scope: e.Scope(), Generation: e.TargetGeneration}
 }
 
 // Busy reports whether an operation currently owns the Environment.

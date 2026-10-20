@@ -30,7 +30,7 @@ func TestConsoleReadsSafeAttemptProgressOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := deployment.Deployment{ID: ids.New(), EnvironmentID: env.ID, OrganizationKey: "acme", ApplicationKey: "app", EnvironmentKey: "staging", ExecutionProfile: "internal-k8s", Action: deployment.ActionDeploy, WorkloadID: "api", ActorRef: "test", Status: deployment.StatusPlanning, BaseEnvironmentVersion: env.Version, StartedAt: time.Now().UTC()}
+	record := deployment.Deployment{ID: ids.New(), EnvironmentID: env.ID, OrganizationKey: "acme", ApplicationKey: "app", EnvironmentKey: "staging", Action: deployment.ActionDeploy, WorkloadID: "api", ActorRef: "test", Status: deployment.StatusPlanning, BaseEnvironmentVersion: env.Version, StartedAt: time.Now().UTC()}
 	if err := f.console.SaveDeployment(ctx, record); err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestDeploymentViewAllowlistsHostilePersistedAttemptText(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := deployment.Deployment{ID: ids.New(), EnvironmentID: env.ID, OrganizationKey: "acme", ApplicationKey: "app", EnvironmentKey: "staging", ExecutionProfile: "internal-k8s", Action: deployment.ActionDeploy, WorkloadID: "api", ActorRef: "test", Status: deployment.StatusPlanning, BaseEnvironmentVersion: env.Version, StartedAt: time.Now().UTC()}
+	record := deployment.Deployment{ID: ids.New(), EnvironmentID: env.ID, OrganizationKey: "acme", ApplicationKey: "app", EnvironmentKey: "staging", Action: deployment.ActionDeploy, WorkloadID: "api", ActorRef: "test", Status: deployment.StatusPlanning, BaseEnvironmentVersion: env.Version, StartedAt: time.Now().UTC()}
 	if err := f.console.SaveDeployment(ctx, record); err != nil {
 		t.Fatal(err)
 	}

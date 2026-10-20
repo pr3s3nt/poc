@@ -48,16 +48,13 @@ type Preview struct {
 	DraftVersion   int64  `json:"draftVersion"`
 	// ConfigVersion, Binding and SecretStoreKey pin the rest of the snapshot
 	// (ADR-012): any Settings, configuration or draft change invalidates the token.
-	ConfigVersion int64               `json:"configVersion"`
-	Binding       environment.Binding `json:"binding"`
-	// AccountID is the nonsecret AWS account of the Environment Connection
-	// (aws-eks only), shown beside the pinned region.
-	AccountID        string   `json:"accountId,omitempty"`
-	SecretStoreKey   string   `json:"secretStoreKey,omitempty"`
-	RoutePending     bool     `json:"routePending,omitempty"`
-	ConfigRevisionID string   `json:"configRevisionId,omitempty"`
-	RunID            string   `json:"runId"`
-	Changes          []Change `json:"changes"`
+	ConfigVersion    int64               `json:"configVersion"`
+	Binding          environment.Binding `json:"binding"`
+	SecretStoreKey   string              `json:"secretStoreKey,omitempty"`
+	RoutePending     bool                `json:"routePending,omitempty"`
+	ConfigRevisionID string              `json:"configRevisionId,omitempty"`
+	RunID            string              `json:"runId"`
+	Changes          []Change            `json:"changes"`
 }
 
 type Service struct {
@@ -115,13 +112,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
-	connection, err := target.ResolveOptional(ctx, st, app.OrganizationKey, env)
-	if errors.Is(err, target.ErrConnectionNotReady) {
-		return Preview{}, fmt.Errorf("%w: connection is not ready", ErrInvalid)
-	}
-	if err != nil {
-		return Preview{}, err
-	}
+
 	set, err := st.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)
 	if err != nil {
 		return Preview{}, err
@@ -252,7 +243,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		} else if before != nil {
 			action = domain.ActionUpdate
 		}
-		plan, err := s.planner.Plan(planning.Request{OrganizationKey: app.OrganizationKey, App: app, Env: env, Connection: connection, BaseSet: base, Before: before, After: after, WorkloadID: id, Action: action, Catalog: catalog, Active: active, Terraform: s.terraform, RunID: preview.RunID,
+		plan, err := s.planner.Plan(planning.Request{OrganizationKey: app.OrganizationKey, App: app, Env: env, BaseSet: base, Before: before, After: after, WorkloadID: id, Action: action, Catalog: catalog, Active: active, Terraform: s.terraform, RunID: preview.RunID,
 			// Each step may be intermediate; the final batch state is validated below.
 			AllowIntermediateEnvironmentState: true})
 		if err != nil {

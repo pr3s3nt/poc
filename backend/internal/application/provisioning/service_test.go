@@ -146,7 +146,7 @@ func TestProvision_NonTerraformDefinitionWithAnAccountFailsBeforeExecutor(t *tes
 		def := resource.Definition{Key: "cluster-other", Name: "cluster-other", Version: 1, ResourceTypeKey: "k8s-cluster", DriverType: driver, DriverAccount: "other", Criteria: []resource.Criterion{{}}}
 		_, err := service.Provision(ctx, provisioning.Request{
 			DeploymentID: "dep-1", RunID: "run-1",
-			Context: planning.Context{OrganizationKey: seedOptions.OrganizationKey, App: application.Application{Key: "a", OrganizationKey: seedOptions.OrganizationKey}, Env: environment.Environment{Key: "staging", Profile: application.ProfileInternalK8s, ConnectionKey: "lab"}},
+			Context: planning.Context{OrganizationKey: seedOptions.OrganizationKey, App: application.Application{Key: "a", OrganizationKey: seedOptions.OrganizationKey}, Env: environment.Environment{Key: "staging"}},
 			Plan: &planning.Plan{
 				Graph:   planning.Graph{Nodes: []planning.Node{{Descriptor: descriptor, Kind: planning.NodeResource, ResourceType: "k8s-cluster", Class: "internal", Scope: resource.Scope{Type: resource.ScopeApplication, ID: "a"}}}},
 				Matches: map[string]planning.Match{descriptor: {Descriptor: descriptor, DefinitionKey: def.Key, DriverType: driver}},
@@ -193,7 +193,7 @@ func saveAWSConnections(t *testing.T, app *bootstrap.App, org string, keys ...st
 
 // provisionAWS runs one Terraform node of an aws-eks Environment pinned to
 // envConnection with a Definition whose key is definitionKey.
-func provisionAWS(t *testing.T, app *bootstrap.App, org, resourceType, definitionKey, envConnection string, registry execution.ExecutorRegistry) error {
+func provisionAWS(t *testing.T, app *bootstrap.App, org, resourceType, definitionKey, _ string, registry execution.ExecutorRegistry) error {
 	t.Helper()
 	descriptor := resourceType + ".default#applications.a"
 	service := provisioning.NewService(app.Store, registry, secrets.NewMemory(), clock.System{})
@@ -203,7 +203,7 @@ func provisionAWS(t *testing.T, app *bootstrap.App, org, resourceType, definitio
 	}
 	_, err := service.Provision(context.Background(), provisioning.Request{
 		DeploymentID: "dep-1", RunID: "run-1",
-		Context: planning.Context{OrganizationKey: org, App: application.Application{Key: "a", OrganizationKey: org}, Env: environment.Environment{Key: "staging", Profile: application.ProfileAWSEKS, ConnectionKey: envConnection, Region: "us-east-1"}},
+		Context: planning.Context{OrganizationKey: org, App: application.Application{Key: "a", OrganizationKey: org}, Env: environment.Environment{Key: "staging"}},
 		Plan: &planning.Plan{
 			Graph:   planning.Graph{Nodes: []planning.Node{{Descriptor: descriptor, Kind: planning.NodeResource, ResourceType: resourceType, Class: "default", Scope: resource.Scope{Type: resource.ScopeApplication, ID: "a"}}}},
 			Matches: map[string]planning.Match{descriptor: {Descriptor: descriptor, DefinitionKey: def.Key, DriverType: def.DriverType, DriverAccount: definitionKey}},

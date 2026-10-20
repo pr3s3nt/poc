@@ -49,8 +49,8 @@ func TestResourceTypeClassesComeFromVerifiedCatalogMetadata(t *testing.T) {
 	if got := classesOf(t, svc, opts.OrganizationKey, "redis"); len(got) != 0 {
 		t.Fatalf("a Type no Definition serves has no classes: %v", got)
 	}
-	if got := classesOf(t, svc, opts.OrganizationKey, "postgres"); len(got) != 0 {
-		t.Fatalf("classless seed Definitions offer no class (default is not mapped): %v", got)
+	if got := classesOf(t, svc, opts.OrganizationKey, "postgres"); !reflect.DeepEqual(got, []string{"cloud-managed"}) {
+		t.Fatalf("only the explicitly declared class from the verified Aurora seed Definition is offered: %v", got)
 	}
 	ns := "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
 	out := []string{"host", "port", "username", "password", "tls"}

@@ -15,12 +15,12 @@ func pinPlan(provider string) *planning.Plan {
 	return &planning.Plan{Graph: planning.Graph{Edges: []planning.Edge{{Consumer: "redis.default#modules.x", Provider: provider, Reason: planning.ReasonProviderBinding}}}}
 }
 
-func pinContext(profile application.ExecutionProfile, connection, region string, generation int64) planning.Context {
-	return planning.Context{Env: environment.Environment{Profile: profile, ConnectionKey: connection, Region: region, TargetGeneration: generation}}
+func pinContext(_ string, _ string, _ string, generation int64) planning.Context {
+	return planning.Context{Env: environment.Environment{TargetGeneration: generation}}
 }
 
-// Pins that differ from the Environment target (another connection, region,
-// profile or generation), or name a cluster that is not a provider edge of the
+// Pins that differ from their Definition/account/region/generation,
+// or name a cluster that is not a provider edge of the
 // node, are refused with ErrProviderPin before any effect.
 func TestCheckPinsAgainstPlanRejectsStaleAndForeignTargets(t *testing.T) {
 	cluster := "k8s-cluster.eks#environments.app.env"
@@ -56,9 +56,6 @@ func TestCheckPinsAgainstPlanRejectsStaleAndForeignTargets(t *testing.T) {
 			d.DriverInputs = map[string]any{"values": map[string]any{"variables": map[string]any{"region": "eu-west-1"}}}
 			return d, account, ctx
 		},
-		"environment bound to a retired profile": func() (resource.Definition, application.Connection, planning.Context) {
-			return def, account, pinContext(application.ProfileInternalK8s, "env-account", "eu-west-1", 2)
-		},
 		"generation": func() (resource.Definition, application.Connection, planning.Context) {
 			return def, account, pinContext("", "", "", 3)
 		},
@@ -67,6 +64,14 @@ func TestCheckPinsAgainstPlanRejectsStaleAndForeignTargets(t *testing.T) {
 		d, a, c := build()
 		if err := checkPinsAgainstPlan(plan, "redis.default#modules.x", []tfmodule.ProviderPin{good, aws}, d, a, c); !errors.Is(err, ErrProviderPin) {
 			t.Errorf("%s drift accepted: %v", name, err)
+		}
+	}
+
+	for name, target := range map[string]string{"missing": "", "retired environment": "environment", "resource for aws": tfmodule.TargetResource} {
+		wrong := aws
+		wrong.Target = target
+		if err := checkPinsAgainstPlan(plan, "redis.default#modules.x", []tfmodule.ProviderPin{wrong}, def, account, ctx); !errors.Is(err, ErrProviderPin) {
+			t.Errorf("%s AWS target accepted: %v", name, err)
 		}
 	}
 	otherCluster := good

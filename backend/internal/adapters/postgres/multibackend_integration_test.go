@@ -100,7 +100,7 @@ func TestClaimAndSettingsWritesRaceAcrossBackends(t *testing.T) {
 	var wg sync.WaitGroup
 	errs := make(chan error, 12)
 	for i := 0; i < 3; i++ {
-		wg.Add(4)
+		wg.Add(3)
 		go func() {
 			defer wg.Done()
 			errs <- b.CommitConfigurationRevision(ctx, 0, configuration.Revision{ID: ids.New(), ApplicationKey: app, EnvironmentKey: "staging", Version: 1, Entries: map[string]configuration.Entry{"A": {Kind: configuration.Variable, Value: "1"}}})
@@ -112,11 +112,6 @@ func TestClaimAndSettingsWritesRaceAcrossBackends(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			_, err := b.SelectSecretStore(ctx, persistence.SecretStoreSelection{ApplicationKey: app, EnvironmentKey: "staging", StoreKey: "one", ExpectedVersion: 1})
-			errs <- err
-		}()
-		go func() {
-			defer wg.Done()
-			_, err := b.BindEnvironment(ctx, persistence.EnvironmentBinding{ApplicationKey: app, EnvironmentKey: "staging", ConnectionKey: "x", Profile: application.ProfileInternalK8s, RuntimeStatus: application.RuntimeReady, Scope: environment.ScopeEnvironment, ExpectedVersion: 1})
 			errs <- err
 		}()
 	}

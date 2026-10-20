@@ -92,9 +92,7 @@ func runFencing(t *testing.T, storeA, storeB persistence.Store) {
 	if err := storeA.SetPublicRoutesPending(oldCtx, appKey, "staging", true); !errors.Is(err, persistence.ErrOperationLost) {
 		t.Fatalf("old owner write: %v", err)
 	}
-	if err := storeA.SaveTransition(oldCtx, environment.Transition{ID: ids.New(), OperationID: oldLease.Operation.ID, ApplicationKey: appKey, EnvironmentKey: "staging", Status: environment.TransitionRunning, Stage: environment.StagePreflight, Mode: environment.ModeDeployNew}); !errors.Is(err, persistence.ErrOperationLost) {
-		t.Fatalf("old owner transition write: %v", err)
-	}
+
 	if err := oldLease.Stage("late", nil); !errors.Is(err, persistence.ErrOperationLost) {
 		t.Fatalf("old owner stage: %v", err)
 	}
@@ -178,7 +176,7 @@ func runSuspend(t *testing.T, st persistence.Store) {
 	ctx := context.Background()
 	appKey := seedEnvironment(t, st)
 	m := envops.NewManager(st)
-	lease, err := m.Begin(ctx, envops.Claim{ApplicationKey: appKey, EnvironmentKey: "staging", Kind: environment.OpTransition})
+	lease, err := m.Begin(ctx, envops.Claim{ApplicationKey: appKey, EnvironmentKey: "staging", Kind: environment.OpCleanup})
 	if err != nil {
 		t.Fatal(err)
 	}

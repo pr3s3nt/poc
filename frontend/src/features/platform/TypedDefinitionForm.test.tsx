@@ -38,7 +38,8 @@ describe('T31 typed Definition variables over verified pins', () => {
     await user.type(field('Tên hiển thị'), 'Namespace typed');
     await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
     await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
-    await user.selectOptions(field('Cluster đích của provider kubernetes'), 'environment');
+    await user.selectOptions(field('Cluster đích của provider kubernetes'), 'resource');
+    await user.selectOptions(field('Class cluster EKS của provider kubernetes'), 'eks');
     expect(screen.queryByLabelText('Giá trị name')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Dùng preset cho name' }));
     expect(field('Giá trị name')).toHaveValue('${context.env.namespace}');

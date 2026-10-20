@@ -104,7 +104,7 @@ export async function completeDefinition(user: User, fill: Fill) {
     if (fill.binding && typeof fill.binding === 'object') {
       await user.selectOptions(select, 'resource');
       await user.selectOptions(screen.getByLabelText(/^Class cluster EKS của provider /), fill.binding.cluster);
-    } else await user.selectOptions(select, 'environment'); // the legacy Environment target, kept until V03
+    } else { await user.selectOptions(select, 'resource'); await user.selectOptions(screen.getByLabelText(/^Class cluster EKS của provider /), 'eks'); }
   }
   for (const preset of screen.queryAllByRole('button', { name: /^Dùng preset cho / })) {
     const name = preset.getAttribute('aria-label')?.replace('Dùng preset cho ', '') ?? '';

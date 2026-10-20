@@ -33,6 +33,8 @@ describe('strict capability metadata', () => {
     ['incomplete source', withVpc((c) => { c.source = { sourceId: 'platform', moduleId: 'vpc' }; })],
     ['empty revision', withVpc((c) => { (c.source as Record<string, unknown>).revision = ''; })],
     ['digest shape', withVpc((c) => { (c.source as Record<string, unknown>).contentSha256 = 'not-a-digest'; })],
+    ['retired environment target', withVpc((c) => { c.bindings = [{ provider: 'aws', kind: 'aws', targets: [{ target: 'environment' }] }]; })],
+    ['retired legacy marker', withVpc((c) => { c.bindings = [{ provider: 'aws', kind: 'aws', targets: [{ target: 'account', legacy: true }] }]; })],
     ['member not an object', { capabilities: [1] }],
   ])('rejects %s with a payload-free error', (_name, body) => {
     let error: unknown;

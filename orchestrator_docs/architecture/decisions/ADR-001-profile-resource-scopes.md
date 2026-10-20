@@ -2,22 +2,28 @@
 id: ADR-001
 artifact: architecture-decision
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-20
 ---
 
 # ADR-001 — Execution-profile Resource Enrichment and Scopes
 
-Status: Accepted — 2026-09-20.
+Status: Accepted — 2026-09-20; profile enrichment/guard partially superseded by
+[ADR-016](ADR-016-definition-selected-workload-targets.md) and
+[ADR-017](ADR-017-definition-dependency-execution.md). Private/shared descriptor
+and isolation rules remain; no current profile enrichment or matching predicate.
 
 ## Quan hệ với các ADR sau
 
 ADR-012 sở hữu Environment target selection/generation; ADR-013 sở hữu internal
-cluster system binding. ADR này vẫn sở hữu enrichment, private/shared scopes
-và profile guard trước weighted criteria. ADR-014 sở hữu module/executor/state
+cluster system binding. ADR này giữ private/shared scopes; enrichment và profile guard đã được
+ADR-016/017 thay bằng Definition/matching/references. ADR-014 sở hữu module/executor/state
 v2; ADR-001 không chọn renderer, account Aurora riêng hoặc tên chứa run ID.
 Các logical descriptor và isolation rules dưới đây tiếp tục có hiệu lực.
 
-## Decision
+## Historical profile decision — superseded
+
+Phần dưới giữ provenance của quyết định cũ, không phải luật chọn hạ tầng/đích
+hiện hành.
 
 Planning uses one shared core. `ImplicitResourceEnricher` adds infrastructure from Execution Profile:
 

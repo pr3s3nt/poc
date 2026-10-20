@@ -7,8 +7,18 @@ last_reviewed: 2026-10-18
 
 # UC-01 UI API mapping
 
-Session owns Organization/role. Profiles/regions are derived from scoped
-Connection; public payloads exclude credentials, SecretRef/config/verification.
+Session owns Organization/role. Current UC-01 V04–V06 Settings contract and
+ADR-017 omit all deployment Connection/profile/region selection; placement belongs
+to matched Definitions/references. Secret Store/configuration and fenced-operation
+APIs remain; public payloads exclude credentials and private verification data.
+
+## Historical deployment-binding table — superseded after V06.08
+
+The table preserves ADR-011/012 navigation and endpoint provenance. Its
+Application/Environment target fields, application-choice/default and deployment
+connection/transition commands are retired. They are not current API options.
+Secret-store/operation rows retain their contracts, as stated in the current
+replacement section below.
 
 | UI action | HTTP contract | Result/error |
 |---|---|---|

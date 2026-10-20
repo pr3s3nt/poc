@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # UC-12/16 desired configuration, Preview -> Deploy, and VSO on kind.
 set -euo pipefail
+# HISTORICAL: preserved source for old evidence; retired before any external access.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"
+retired_runner "uc12-kind-verify.sh (retired Environment Connection contract)" "backend/test/integration/v04-internal-full.sh"
+
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=platform-store-lib.sh

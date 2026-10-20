@@ -2,101 +2,25 @@ package target_test
 
 import (
 	"context"
-	"errors"
-	"go/ast"
-	"go/parser"
-	"go/token"
-	"io/fs"
-	"path/filepath"
-	"strings"
-	"testing"
-
 	"orchestrator/internal/adapters/store"
 	"orchestrator/internal/application/target"
 	"orchestrator/internal/domain/application"
-	"orchestrator/internal/domain/environment"
+	"testing"
 )
 
-func newStore(t *testing.T) *store.Store {
-	t.Helper()
+func TestAccountsReturnsOrganizationScopedCatalog(t *testing.T) {
 	st := store.New()
 	ctx := context.Background()
 	for _, c := range []application.Connection{
-		{Name: "lab", AuthenticationType: application.AuthKubeconfig, ID: "k", Key: "lab", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionReady},
-		{Name: "verifying", AuthenticationType: application.AuthKubeconfig, ID: "k2", Key: "verifying", OrganizationKey: "acme", Kind: application.ConnectionKubernetes, Status: application.ConnectionVerifying},
-		{Name: "awsverifying", AuthenticationType: application.AuthAWSAccessKey, ID: "av", Key: "awsverifying", OrganizationKey: "acme", Kind: application.ConnectionAWS, Status: application.ConnectionVerifying, Config: map[string]any{"region": "eu-west-1"}},
-		{Name: "multi", AuthenticationType: application.AuthAWSAccessKey, ID: "m", Key: "multi", OrganizationKey: "acme", Kind: application.ConnectionAWS, Status: application.ConnectionReady, Config: map[string]any{"region": "us-east-1", "allowedRegions": []any{"us-east-1", "eu-west-1"}}},
-		{Name: "badlist", AuthenticationType: application.AuthAWSAccessKey, ID: "b", Key: "badlist", OrganizationKey: "acme", Kind: application.ConnectionAWS, Status: application.ConnectionReady, Config: map[string]any{"region": "eu-west-1", "allowedRegions": []any{}}},
-		{Name: "cloud", AuthenticationType: application.AuthAWSAccessKey, ID: "a", Key: "cloud", OrganizationKey: "acme", Kind: application.ConnectionAWS, Status: application.ConnectionReady, Config: map[string]any{"region": "eu-west-1"}},
+		{ID: "a1", Key: "aws-a", OrganizationKey: "acme", Name: "AWS A", Kind: application.ConnectionAWS, AuthenticationType: application.AuthAWSAccessKey, Status: application.ConnectionReady},
+		{ID: "a2", Key: "aws-b", OrganizationKey: "globex", Name: "AWS B", Kind: application.ConnectionAWS, AuthenticationType: application.AuthAWSAccessKey, Status: application.ConnectionReady},
 	} {
 		if err := st.SaveConnection(ctx, c); err != nil {
 			t.Fatal(err)
 		}
 	}
-	return st
-}
-
-func TestResolveRefusesEveryConfiguredEnvironmentAsARetiredBaseline(t *testing.T) {
-	st := newStore(t)
-	cases := []struct {
-		name string
-		env  environment.Environment
-		want error
-	}{
-		{"unconfigured", environment.Environment{Key: "staging", ApplicationKey: "app"}, target.ErrUnconfigured},
-		{"retired internal profile", environment.Environment{Key: "staging", ApplicationKey: "app", ConnectionKey: "lab", Profile: application.ProfileInternalK8s, RuntimeStatus: application.RuntimeReady, InfrastructureScope: environment.ScopeEnvironment}, target.ErrInconsistent},
-		{"retired aws profile", environment.Environment{Key: "production", ApplicationKey: "app", ConnectionKey: "cloud", Profile: application.ProfileAWSEKS, Region: "eu-west-1", RuntimeStatus: application.RuntimePending, InfrastructureScope: environment.ScopeEnvironment}, target.ErrInconsistent},
-	}
-	for _, tc := range cases {
-		conn, err := target.Resolve(context.Background(), st, "acme", tc.env)
-		if !errors.Is(err, tc.want) || conn.Key != "" {
-			t.Fatalf("%s: err = %v conn = %+v, want %v", tc.name, err, conn, tc.want)
-		}
-	}
-}
-
-// ADR-011: product code resolves the target through the Environment. The
-// legacy Application target fields may only be touched by the persistence
-// adapters (migration/preservation) and the domain type itself.
-func TestProductCodeNeverReadsTheApplicationTarget(t *testing.T) {
-	root := filepath.Join("..", "..", "..", "internal")
-	allowed := []string{"adapters/store", "adapters/postgres", "domain/application", "ports/persistence/persistencetest"}
-	fields := map[string]bool{"ConnectionKey": true, "Profile": true, "Region": true, "RuntimeStatus": true}
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return err
-		}
-		slashed := filepath.ToSlash(path)
-		for _, prefix := range allowed {
-			if strings.Contains(slashed, "/internal/"+prefix+"/") || strings.Contains(slashed, "internal/"+prefix+"/") {
-				return nil
-			}
-		}
-		file, parseErr := parser.ParseFile(token.NewFileSet(), path, nil, 0)
-		if parseErr != nil {
-			return parseErr
-		}
-		ast.Inspect(file, func(n ast.Node) bool {
-			sel, ok := n.(*ast.SelectorExpr)
-			if !ok || !fields[sel.Sel.Name] {
-				return true
-			}
-			// Receiver names that denote an Application value.
-			switch x := sel.X.(type) {
-			case *ast.Ident:
-				if x.Name == "app" || x.Name == "storedApp" {
-					t.Errorf("%s reads Application.%s; resolve the Environment target instead", path, sel.Sel.Name)
-				}
-			case *ast.SelectorExpr:
-				if x.Sel.Name == "App" {
-					t.Errorf("%s reads App.%s; resolve the Environment target instead", path, sel.Sel.Name)
-				}
-			}
-			return true
-		})
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
+	got, err := target.Accounts(ctx, st, "acme")
+	if err != nil || len(got) != 1 || got["aws-a"].Name != "AWS A" {
+		t.Fatalf("accounts=%+v err=%v", got, err)
 	}
 }

@@ -11,7 +11,6 @@ import (
 	"orchestrator/internal/adapters/store"
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
-	"orchestrator/internal/ports/persistence"
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
@@ -21,8 +20,8 @@ func newTestStore(t *testing.T, conns ...appdomain.Connection) *store.Store {
 	ctx := context.Background()
 	st := store.New()
 	for _, org := range []appdomain.Organization{
-		{ID: "org-acme", Key: "acme", Name: "Acme", DefaultConnectionKey: "default"},
-		{ID: "org-globex", Key: "globex", Name: "Globex", DefaultConnectionKey: "default"},
+		{ID: "org-acme", Key: "acme", Name: "Acme"},
+		{ID: "org-globex", Key: "globex", Name: "Globex"},
 	} {
 		if err := st.SaveOrganization(ctx, org); err != nil {
 			t.Fatal(err)
@@ -65,7 +64,7 @@ func TestCreateApplication_CreatesUnconfiguredEnvironmentsWithoutAnyConnection(t
 		t.Fatalf("environments = %+v", envs)
 	}
 	for _, env := range envs {
-		if env.Configured() || env.Status() != appdomain.RuntimeUnconfigured || env.Profile != "" || env.Region != "" || env.Version != 1 {
+		if env.Version != 1 || env.InfrastructureScope != environment.ScopeEnvironment {
 			t.Fatalf("environment %s must be UNCONFIGURED at version 1: %+v", env.Key, env)
 		}
 	}
@@ -170,130 +169,5 @@ func TestCreateApplication_RollsBackWhenAnyEnvironmentFails(t *testing.T) {
 	}
 	if _, err := NewService(st).Create(ctx, CreateCommand{OrganizationKey: "acme", Name: "Catalog", Subdomain: "catalog"}); err != nil {
 		t.Fatalf("rolled-back Name/Subdomain must stay available: %v", err)
-	}
-}
-
-func setCommand(app environment.Environment, org, appKey, env, connection string) SetConnectionCommand {
-	return SetConnectionCommand{OrganizationKey: org, ApplicationKey: appKey, EnvironmentKey: env, ConnectionKey: connection, ExpectedVersion: app.Version}
-}
-
-func newUnconfigured(t *testing.T, conns ...appdomain.Connection) (*Service, *store.Store, Result) {
-	t.Helper()
-	st := newTestStore(t, conns...)
-	svc := NewService(st)
-	result, err := svc.Create(context.Background(), CreateCommand{OrganizationKey: "acme", Name: "Payment", Subdomain: "payment"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return svc, st, result
-}
-
-func choiceConnections() []appdomain.Connection {
-	return []appdomain.Connection{
-		{Name: "default", AuthenticationType: appdomain.AuthKubeconfig, ID: "c1", Key: "default", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
-		{ID: "c2", Key: "lab", Name: "Lab", AuthenticationType: appdomain.AuthKubeconfig, OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
-		{Name: "cloud", AuthenticationType: appdomain.AuthAWSAccessKey, ID: "c3", Key: "cloud", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady, Config: map[string]any{"region": "eu-west-1"}},
-		{Name: "cloud-us", AuthenticationType: appdomain.AuthAWSAccessKey, ID: "c4", Key: "cloud-us", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady, Config: map[string]any{"region": "us-east-1"}},
-		{Name: "foreign", AuthenticationType: appdomain.AuthKubeconfig, ID: "c5", Key: "foreign", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
-		{Name: "verifying", AuthenticationType: appdomain.AuthKubeconfig, ID: "c6", Key: "verifying", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying},
-		{Name: "noregion", AuthenticationType: appdomain.AuthAWSAccessKey, ID: "c7", Key: "noregion", OrganizationKey: "acme", Kind: appdomain.ConnectionAWS, Status: appdomain.ConnectionReady},
-	}
-}
-
-func TestSetConnection_KubernetesConnectionIsRetiredAndChangesNothing(t *testing.T) {
-	ctx := context.Background()
-	svc, st, created := newUnconfigured(t, choiceConnections()...)
-	app := created.Application.Key
-	env, _ := st.GetEnvironment(ctx, app, "staging")
-	_, err := svc.SetConnection(ctx, setCommand(env, "acme", app, "staging", "lab"))
-	if !errors.Is(err, ErrDeploymentConnectionRetired) {
-		t.Fatalf("a Kubernetes connection must be retired as a deployment target: %v", err)
-	}
-	after, _ := st.GetEnvironment(ctx, app, "staging")
-	if after.Configured() || after.Version != env.Version {
-		t.Fatalf("the retired write changed staging: %+v", after)
-	}
-}
-
-func TestSetConnection_StaleVersionIsDistinct(t *testing.T) {
-	ctx := context.Background()
-	svc, st, created := newUnconfigured(t, choiceConnections()...)
-	app := created.Application.Key
-	cmd := SetConnectionCommand{OrganizationKey: "acme", ApplicationKey: app, EnvironmentKey: "staging", ConnectionKey: "lab", ExpectedVersion: 7}
-	if _, err := svc.SetConnection(ctx, cmd); !errors.Is(err, ErrStaleVersion) {
-		t.Fatalf("stale expected version: %v", err)
-	}
-	env, _ := st.GetEnvironment(ctx, app, "staging")
-	if env.Configured() {
-		t.Fatalf("stale request mutated: %+v", env)
-	}
-}
-
-func TestSetConnection_RejectsInvalidAndUnavailableWithoutMutation(t *testing.T) {
-	ctx := context.Background()
-	svc, st, created := newUnconfigured(t, choiceConnections()...)
-	app := created.Application.Key
-	env, _ := st.GetEnvironment(ctx, app, "staging")
-	for _, key := range []string{"foreign", "verifying", "noregion", "missing"} {
-		_, err := svc.SetConnection(ctx, setCommand(env, "acme", app, "staging", key))
-		var field *FieldError
-		if !errors.Is(err, ErrTargetNotReady) || !errors.As(err, &field) || field.Field != "connectionKey" || strings.Contains(err.Error(), key) {
-			t.Fatalf("%s: %v", key, err)
-		}
-	}
-	for _, key := range []string{"", "  "} {
-		_, err := svc.SetConnection(ctx, setCommand(env, "acme", app, "staging", key))
-		var field *FieldError
-		if !errors.Is(err, ErrInvalid) || !errors.As(err, &field) || field.Field != "connectionKey" {
-			t.Fatalf("blank %q: %v", key, err)
-		}
-	}
-	zero := setCommand(env, "acme", app, "staging", "lab")
-	zero.ExpectedVersion = 0
-	if _, err := svc.SetConnection(ctx, zero); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("missing expected version: %v", err)
-	}
-	// Scope: foreign Organization session, missing Application and Environment are 404.
-	for _, cmd := range []SetConnectionCommand{
-		setCommand(env, "globex", app, "staging", "lab"),
-		setCommand(env, "acme", "missing", "staging", "lab"),
-		setCommand(env, "acme", app, "missing", "lab"),
-	} {
-		if _, err := svc.SetConnection(ctx, cmd); !errors.Is(err, persistence.ErrNotFound) {
-			t.Fatalf("scope %+v: %v", cmd, err)
-		}
-	}
-	after, _ := st.GetEnvironment(ctx, app, "staging")
-	if after.Configured() || after.Version != env.Version {
-		t.Fatalf("rejected sets mutated: %+v", after)
-	}
-}
-
-func TestListChoices_ReturnsOnlyReadySupportedOrganizationConnections(t *testing.T) {
-	ctx := context.Background()
-	st := newTestStore(t,
-		appdomain.Connection{AuthenticationType: appdomain.AuthKubeconfig, ID: "c1", Key: "default", Name: "Default", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionVerifying},
-		appdomain.Connection{Name: "lab", AuthenticationType: appdomain.AuthKubeconfig, ID: "c2", Key: "lab", OrganizationKey: "acme", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady, SecretRef: "secret"},
-		appdomain.Connection{Name: "foreign", AuthenticationType: appdomain.AuthKubeconfig, ID: "c3", Key: "foreign", OrganizationKey: "globex", Kind: appdomain.ConnectionKubernetes, Status: appdomain.ConnectionReady},
-	)
-	choices, err := NewService(st).ListChoices(ctx, "acme")
-	if err != nil || len(choices.Connections) != 1 || choices.Connections[0].Key != "lab" || choices.Connections[0].Name != "lab" || choices.DefaultConnectionKey != "" {
-		t.Fatalf("choices = %+v %v", choices, err)
-	}
-}
-
-func TestSetConnection_EveryConnectionKindIsRetiredAndChangesNothing(t *testing.T) {
-	ctx := context.Background()
-	svc, st, created := newUnconfigured(t, choiceConnections()...)
-	app := created.Application.Key
-	env, _ := st.GetEnvironment(ctx, app, "staging")
-	for _, key := range []string{"lab", "cloud", "cloud-us"} {
-		if _, err := svc.SetConnection(ctx, setCommand(env, "acme", app, "staging", key)); !errors.Is(err, ErrDeploymentConnectionRetired) {
-			t.Fatalf("%s: a deployment connection must be retired: %v", key, err)
-		}
-	}
-	after, _ := st.GetEnvironment(ctx, app, "staging")
-	if after.Configured() || after.Version != env.Version {
-		t.Fatalf("the retired write changed staging: %+v", after)
 	}
 }

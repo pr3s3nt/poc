@@ -203,16 +203,14 @@ func TestPreviewMatching_AccountConflictKeepsWinnerWithoutFallback(t *testing.T)
 	}
 }
 
-// A Kubernetes binding shows where its cluster comes from; the legacy
-// Environment binding is labelled, never an account.
+// A Kubernetes binding shows which resource provides its cluster.
 func TestPreviewMatching_KubernetesWinnerShowsInheritedClusterSource(t *testing.T) {
 	_, svc, opts := seededCatalog(t, nil)
 	for name, tc := range map[string]struct {
 		binding map[string]any
 		want    catalog.MatchingClusterSource
 	}{
-		"resource":           {map[string]any{"target": "resource", "resource_ref": "k8s-cluster.eks#environments.@app.@env"}, catalog.MatchingClusterSource{Kind: catalog.ClusterSourceResource, Reference: "k8s-cluster.eks#environments.@app.@env"}},
-		"legacy environment": {map[string]any{"target": "environment"}, catalog.MatchingClusterSource{Kind: catalog.ClusterSourceLegacyEnvironment}},
+		"resource": {map[string]any{"target": "resource", "resource_ref": "k8s-cluster.eks#environments.@app.@env"}, catalog.MatchingClusterSource{Kind: catalog.ClusterSourceResource, Reference: "k8s-cluster.eks#environments.@app.@env"}},
 	} {
 		def := catalog.DefinitionDraft{Key: "pg-k8s", Name: "PG k8s", ResourceTypeKey: "postgres", DriverType: resource.DriverTerraform,
 			DriverInputs: map[string]any{"values": map[string]any{"variables": map[string]any{}, "provider_bindings": map[string]any{"kubernetes": tc.binding}}},
@@ -314,7 +312,7 @@ func TestPreviewMatching_WorksForUnconfiguredEnvironmentWithServerEnvType(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	env.Key, env.ID, env.ConnectionKey, env.Profile, env.Type = "unbound", "unbound-id", "", "", "qa"
+	env.Key, env.ID, env.Type = "unbound", "unbound-id", "qa"
 	if err := st.SaveEnvironment(ctx, env); err != nil {
 		t.Fatal(err)
 	}
@@ -369,29 +367,18 @@ func TestPreviewMatching_WorkloadOnlyRanksScoreK8sAndNeverFallsBackToNative(t *t
 
 // The Environment connection's state never gates ordinary matching: only the
 // scoped catalog, the account metadata and the context do (UC-03 V02-05).
-func TestPreviewMatching_IgnoresEnvironmentConnectionState(t *testing.T) {
-	ctx := context.Background()
-	for name, mutate := range map[string]func(*environment.Environment){
-		"kind inconsistent with profile": func(e *environment.Environment) { e.ConnectionKey = "aws-account" },
-		"invalid scope":                  func(e *environment.Environment) { e.InfrastructureScope = "BOGUS" },
-		"failed runtime":                 func(e *environment.Environment) { e.RuntimeStatus = application.RuntimeStatus("FAILED") },
-		"aws without region": func(e *environment.Environment) {
-			e.Profile, e.Region, e.ConnectionKey = application.ProfileAWSEKS, "", "aws-account"
-		},
-	} {
-		st, _, opts := seededCatalog(t, nil)
-		svc := catalog.NewService(envMutatingStore{st, mutate})
-		got, err := svc.PreviewMatching(ctx, opts.OrganizationKey, previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default"))
-		if err != nil || got.Status == "" {
-			t.Fatalf("%s: %+v %v", name, got, err)
-		}
-	}
+func TestPreviewMatching_IgnoresEnvironmentTargetBecauseItHasNone(t *testing.T) {
 	st, svc, opts := seededCatalog(t, nil)
-	c, _ := st.GetConnection(ctx, opts.OrganizationKey, opts.ConnectionKey)
+	got, err := svc.PreviewMatching(context.Background(), opts.OrganizationKey, previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default"))
+	if err != nil || got.Status == "" {
+		t.Fatalf("ordinary matching: %+v %v", got, err)
+	}
+	// Account readiness is checked for a winning Definition, not inherited from an Environment.
+	c, _ := st.GetConnection(context.Background(), opts.OrganizationKey, opts.ConnectionKey)
 	c.Status = application.ConnectionVerifying
-	_ = st.SaveConnection(ctx, c)
-	if _, err := svc.PreviewMatching(ctx, opts.OrganizationKey, previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default")); err != nil {
-		t.Fatalf("connection not ready blocked ordinary matching: %v", err)
+	_ = st.SaveConnection(context.Background(), c)
+	if _, err := svc.PreviewMatching(context.Background(), opts.OrganizationKey, previewQuery(opts, previewCandidate("pg", resource.Criterion{}), "db", "default")); err != nil {
+		t.Fatalf("unrelated account state gated matching: %v", err)
 	}
 }
 
@@ -444,21 +431,6 @@ func TestPreviewMatching_ValidationErrorNeverEchoesSubmittedValues(t *testing.T)
 		if !errors.As(err, &invalid) || !errors.Is(err, catalog.ErrInvalid) || strings.Contains(err.Error(), secret) || invalid.Field == "" {
 			t.Fatalf("case %d: %v", i, err)
 		}
-	}
-}
-
-func rebind(t *testing.T, st persistence.Store, opts seed.Options, mutate func(*persistence.EnvironmentBinding)) {
-	t.Helper()
-	ctx := context.Background()
-	env, err := st.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	b := persistence.EnvironmentBinding{ApplicationKey: env.ApplicationKey, EnvironmentKey: env.Key, ConnectionKey: env.ConnectionKey, Profile: env.Profile,
-		Region: env.Region, RuntimeStatus: env.RuntimeStatus, Scope: env.Scope(), Generation: env.TargetGeneration, ExpectedVersion: env.Version}
-	mutate(&b)
-	if _, err := st.BindEnvironment(ctx, b); err != nil {
-		t.Fatal(err)
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"sort"
 
-	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -61,9 +60,6 @@ func (s *Service) Plan(req Request) (*Plan, error) {
 		Connection:       req.Connection,
 		RunID:            req.RunID,
 		ReferenceCluster: req.ReferenceCluster,
-	}
-	if req.Env.Profile == application.ProfileInternalK8s && !req.ReferenceCluster {
-		return nil, &StageError{Stage: StageCatalog, Reason: ReasonRetiredTarget, Err: ErrRetiredTarget}
 	}
 
 	base := normalize(req.BaseSet)

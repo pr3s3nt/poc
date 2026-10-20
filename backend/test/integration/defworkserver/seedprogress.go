@@ -103,7 +103,7 @@ func seedProgress(args []string) int {
 		return fail("instance", err)
 	}
 	save := func(status deployment.Status, reason string) (string, error) {
-		d := deployment.Deployment{ID: ids.New(), EnvironmentID: environ.ID, OrganizationKey: application.OrganizationKey, ApplicationKey: *app, EnvironmentKey: *env, ExecutionProfile: "internal-k8s", Action: deployment.ActionDeploy, WorkloadID: "seeded", ActorRef: "seed-progress", Status: status, BaseEnvironmentVersion: environ.Version, StartedAt: time.Now().UTC()}
+		d := deployment.Deployment{ID: ids.New(), EnvironmentID: environ.ID, OrganizationKey: application.OrganizationKey, ApplicationKey: *app, EnvironmentKey: *env, Action: deployment.ActionDeploy, WorkloadID: "seeded", ActorRef: "seed-progress", Status: status, BaseEnvironmentVersion: environ.Version, StartedAt: time.Now().UTC()}
 		if err := console.SaveDeployment(ctx, d); err != nil {
 			return "", err
 		}

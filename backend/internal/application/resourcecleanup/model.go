@@ -125,7 +125,6 @@ type TargetView struct {
 	ConnectionKey  string `json:"connectionKey,omitempty"`
 	ConnectionName string `json:"connectionName,omitempty"`
 	ConnectionKind string `json:"connectionKind,omitempty"`
-	Profile        string `json:"profile,omitempty"`
 	AccountID      string `json:"accountId,omitempty"`
 	Region         string `json:"region,omitempty"`
 	Generation     int64  `json:"generation"`

@@ -37,11 +37,7 @@ const (
 
 // Provider binding targets a Definition may declare.
 const (
-	// TargetEnvironment is the legacy Environment-bound Kubernetes target; it
-	// stays until the V03 Generic Workload replacement and is never an AWS
-	// target.
-	TargetEnvironment = "environment"
-	TargetResource    = "resource"
+	TargetResource = "resource"
 	// TargetAccount binds an AWS provider to the Definition's Driver Account.
 	TargetAccount = "account"
 )
@@ -457,11 +453,10 @@ func ParseDriverInputs(values map[string]any) (DriverInputs, error) {
 			}
 		}
 		switch {
-		case binding.Target == TargetEnvironment && binding.ResourceRef == "":
 		case binding.Target == TargetAccount && binding.ResourceRef == "":
 		case binding.Target == TargetResource && binding.ResourceRef != "":
 		default:
-			return DriverInputs{}, fmt.Errorf("driverInputs.values.provider_bindings.%s must be {target: account}, {target: environment} or {target: resource, resource_ref: <descriptor>}", safeKey(name))
+			return DriverInputs{}, fmt.Errorf("driverInputs.values.provider_bindings.%s must be {target: account} or {target: resource, resource_ref: <descriptor>}", safeKey(name))
 		}
 		out.ProviderBindings[name] = binding
 	}
@@ -605,7 +600,7 @@ func cloneValue(v any) any {
 
 // ProviderPin is the plan-time resolved, nonsecret metadata of one provider
 // binding of a Terraform node: which release provider it configures, whether
-// the Environment connection or another cluster resource supplies the target,
+// the Definition Driver Account or the referenced cluster resource supplies the target,
 // and the scoped identity that target was resolved to. It carries no
 // credential, endpoint or account override; execution resolves the credential
 // again from this identity and refuses any difference.
@@ -614,7 +609,7 @@ type ProviderPin struct {
 	Name string `json:"name"`
 	// Kind is the release binding kind (BindingAWS or BindingKubernetes).
 	Kind string `json:"kind"`
-	// Target is TargetAccount, TargetEnvironment (legacy) or TargetResource, as declared.
+	// Target is TargetAccount or TargetResource, as declared.
 	Target string `json:"target"`
 	// ConnectionKey and ConnectionKind name the Connection that supplies
 	// credentials: the Definition's Driver Account for an AWS binding, the
@@ -634,7 +629,6 @@ type ProviderPin struct {
 	// execution derives fresh short-lived authentication from that original account.
 	ClusterProvider string `json:"clusterProvider,omitempty"`
 	ClusterAccount  string `json:"clusterAccount,omitempty"`
-	// Profile and Generation pin the Environment execution target.
-	Profile    string `json:"profile,omitempty"`
-	Generation int64  `json:"generation,omitempty"`
+	// Generation pins the identity generation of the Environment's resources.
+	Generation int64 `json:"generation,omitempty"`
 }

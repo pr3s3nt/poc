@@ -22,7 +22,7 @@ export type CapabilityOutput = { name: string; type?: string; sensitive: boolean
 // Account requirement and provider binding targets the server publishes for a
 // pair (UC-03 V02-03): the Console never guesses a driver's account needs.
 export type CapabilityAccount = { required: boolean; type?: string; regionVariable?: string };
-export type CapabilityBinding = { provider: string; kind: 'aws' | 'kubernetes'; targets: { target: 'account' | 'resource' | 'environment'; legacy?: boolean }[] };
+export type CapabilityBinding = { provider: string; kind: 'aws' | 'kubernetes'; targets: { target: 'account' | 'resource' }[] };
 export type Capability = {
   resourceType: string;
   driverType: Driver;
@@ -43,7 +43,7 @@ function variable(item: unknown): CapabilityVariable {
   if (!isObject(item) || !filled(item.name) || !text(item.type) || !flag(item.required) || !flag(item.hasDefault) || !flag(item.resourceParam) || (item.preset !== undefined && !text(item.preset))) return fail();
   return { name: item.name, type: item.type, required: item.required, hasDefault: item.hasDefault, resourceParam: item.resourceParam, ...(item.default !== undefined ? { default: item.default } : {}), ...(item.preset !== undefined ? { preset: item.preset } : {}) };
 }
-const targetNames = ['account', 'resource', 'environment'] as const;
+const targetNames = ['account', 'resource'] as const;
 function account(value: unknown): CapabilityAccount {
   if (!isObject(value) || !flag(value.required) || (value.type !== undefined && !text(value.type)) || (value.regionVariable !== undefined && !text(value.regionVariable))) return fail();
   if (value.required && (!filled(value.type) || (value.type === 'AWS' && !filled(value.regionVariable)))) return fail();
@@ -52,8 +52,8 @@ function account(value: unknown): CapabilityAccount {
 function bindingMeta(item: unknown): CapabilityBinding {
   if (!isObject(item) || !filled(item.provider) || (item.kind !== 'aws' && item.kind !== 'kubernetes')) return fail();
   const targets = members(item.targets, (entry) => {
-    if (!isObject(entry) || typeof entry.target !== 'string' || !(targetNames as readonly string[]).includes(entry.target) || (entry.legacy !== undefined && !flag(entry.legacy))) return fail();
-    return { target: entry.target as CapabilityBinding['targets'][number]['target'], ...(entry.legacy === true ? { legacy: true } : {}) };
+    if (!isObject(entry) || typeof entry.target !== 'string' || !(targetNames as readonly string[]).includes(entry.target) || entry.legacy !== undefined) return fail();
+    return { target: entry.target as CapabilityBinding['targets'][number]['target'] };
   });
   return { provider: item.provider, kind: item.kind, targets };
 }

@@ -7,6 +7,22 @@ import (
 	identitydomain "orchestrator/internal/domain/identity"
 )
 
+// scopedEnvironment authenticates and scopes an Application Environment request.
+func (s *Server) scopedEnvironment(w http.ResponseWriter, r *http.Request) (org, appKey, envKey string, ok bool) {
+	identity, ok := s.sessionIdentity(r)
+	if !ok {
+		writeCode(w, codeUnauthorized, "")
+		return "", "", "", false
+	}
+	appKey, envKey = r.PathValue("id"), r.PathValue("env")
+	app, err := s.store.GetApplication(r.Context(), appKey)
+	if err != nil || app.OrganizationKey != identity.OrganizationKey || (envKey != "staging" && envKey != "production") {
+		writeCode(w, codeNotFound, "")
+		return "", "", "", false
+	}
+	return identity.OrganizationKey, appKey, envKey, true
+}
+
 // resourceRequest authenticates the caller and scopes the Application/
 // Environment of a resource route. A missing session is 401 and a foreign or
 // unknown scope 404, both before the role matters; the role only decides the

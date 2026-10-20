@@ -44,7 +44,7 @@ func SaveDeployment(t *testing.T, st persistence.Store, opts seed.Options, statu
 	record := deployment.Deployment{
 		ID: ids.New(), EnvironmentID: env.ID, OrganizationKey: opts.OrganizationKey,
 		ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey,
-		ExecutionProfile: "internal-k8s", ConnectionKey: historyConnection, TargetGeneration: historyGeneration, Action: deployment.ActionDeploy, WorkloadID: "api",
+		TargetGeneration: historyGeneration, Action: deployment.ActionDeploy, WorkloadID: "api",
 		ActorRef: "contract", Status: status, BaseEnvironmentVersion: env.Version, StartedAt: startedAt,
 	}
 	record.Status = deployment.StatusPlanning
@@ -331,8 +331,8 @@ func assertHistoricalTarget(t *testing.T, st persistence.Store, fixture Fixture)
 	t.Helper()
 	for _, id := range []string{fixture.FirstID, fixture.SecondID} {
 		d, err := st.GetDeployment(context.Background(), id)
-		if err != nil || d.ConnectionKey != historyConnection || d.TargetGeneration != historyGeneration {
-			t.Fatalf("historical deployment target changed: %+v %v", d, err)
+		if err != nil || d.TargetGeneration != historyGeneration {
+			t.Fatalf("historical deployment generation changed: %+v %v", d, err)
 		}
 	}
 }

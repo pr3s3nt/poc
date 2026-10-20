@@ -241,7 +241,7 @@ func TestStateLoginIsConfinedToTheStateRepository(t *testing.T) {
 		"organizations":          `SELECT * FROM organizations`,
 		"environment row":        `SELECT * FROM environments`,
 		"operation pins":         `SELECT pins FROM environment_operations`,
-		"product insert":         `INSERT INTO organizations(id,organization_key,name,default_connection_key) VALUES(gen_random_uuid(),'x','x','x')`,
+		"product insert":         `INSERT INTO organizations(id,organization_key,name) VALUES(gen_random_uuid(),'x','x')`,
 		"claim status":           `UPDATE environment_operations SET status='SUCCEEDED'`,
 		"claim fence":            `UPDATE environment_operations SET fence=fence+1`,
 		"claim owner":            `UPDATE environment_operations SET owner_instance='thief'`,

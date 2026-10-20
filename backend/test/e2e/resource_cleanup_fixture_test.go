@@ -572,28 +572,34 @@ func (f *rcFixture) linkDeployment(activeID, connectionKey, connectionName strin
 	f.exec(`INSERT INTO connections(id,organization_id,connection_key,name,kind,authentication_type,config,secret_ref,status,verification) SELECT gen_random_uuid(),o.id,$2,$3,'AWS','AWS_ACCESS_KEY',$4::jsonb,'vault:private/ref','READY','{}'::jsonb FROM organizations o WHERE o.organization_key=$1 ON CONFLICT DO NOTHING`,
 		f.orgKey, connectionKey, connectionName, `{"accountId":"123456789012","region":"us-east-1","allowedRegions":["us-east-1","eu-west-1","ap-southeast-1"],"privateNote":"`+privateTarget+`"}`)
 	depID := ids.New()
-	f.exec(`INSERT INTO deployments(id,environment_id,organization_key,application_key,environment_key,execution_profile,action,workload_id,actor_ref,status,base_environment_version,started_at,connection_key,target_generation) VALUES($1::uuid,$2::uuid,$3,$4,'staging','aws-eks','DEPLOY','api','developer','FAILED',1,now(),$5,$6)`,
-		depID, f.envID, f.orgKey, f.appKey, connectionKey, generation)
+	f.exec(`INSERT INTO deployments(id,environment_id,organization_key,application_key,environment_key,action,workload_id,actor_ref,status,base_environment_version,started_at,target_generation) VALUES($1::uuid,$2::uuid,$3,$4,'staging','DEPLOY','api','developer','FAILED',1,now(),$5)`,
+		depID, f.envID, f.orgKey, f.appKey, generation)
 	f.exec(`UPDATE active_resources SET last_deployment_id=$2::uuid WHERE id=$1::uuid`, activeID, depID)
 	return depID
 }
 
-// savePlanRaw stores a plan document whose target is the given raw JSON, to
-// plant malformed stored metadata.
-func (f *rcFixture) savePlanRaw(deploymentID, targetJSON string) {
+// savePlanRaw stores one raw per-resource provider pin, to plant malformed
+// target evidence in the immutable run plan.
+func (f *rcFixture) savePlanRaw(deploymentID, pinJSON string) {
 	f.t.Helper()
-	f.exec(`INSERT INTO deployment_plans(deployment_id,document,plan_hash) VALUES($1::uuid,$2::jsonb,'plan-hash') ON CONFLICT(deployment_id) DO UPDATE SET document=EXCLUDED.document`, deploymentID, `{"target":`+targetJSON+`}`)
+	var descriptor string
+	if err := f.conn().QueryRow(context.Background(), `SELECT ar.descriptor FROM active_resources ar WHERE ar.last_deployment_id=$1::uuid LIMIT 1`, deploymentID).Scan(&descriptor); err != nil {
+		f.t.Fatal(err)
+	}
+	doc := `{"terraform":[{"descriptor":"` + descriptor + `","providerBindings":[` + pinJSON + `]}],"placements":{"` + descriptor + `":{"account":"aws-original"}}}`
+	f.exec(`INSERT INTO deployment_plans(deployment_id,document,plan_hash) VALUES($1::uuid,$2::jsonb,'plan-hash') ON CONFLICT(deployment_id) DO UPDATE SET document=EXCLUDED.document`, deploymentID, doc)
 }
 
 // savePlan stores the immutable plan document of a Deployment with the given
 // pinned target, the way the planner persists it.
-func (f *rcFixture) savePlan(deploymentID, connectionKey, region string, generation int64) {
+func (f *rcFixture) savePlan(deploymentID, connectionKey, region string) {
 	f.t.Helper()
-	target := map[string]any{"connectionKey": connectionKey, "executionProfile": "aws-eks", "region": region, "infrastructureScope": "AWS_EKS"}
-	if generation != 0 {
-		target["generation"] = generation
+	var descriptor string
+	if err := f.conn().QueryRow(context.Background(), `SELECT ar.descriptor FROM active_resources ar WHERE ar.last_deployment_id=$1::uuid LIMIT 1`, deploymentID).Scan(&descriptor); err != nil {
+		f.t.Fatal(err)
 	}
-	doc, err := json.Marshal(map[string]any{"target": target})
+	contract := map[string]any{"descriptor": descriptor, "providerBindings": []any{map[string]any{"kind": "aws", "target": "account", "connectionKey": connectionKey, "region": region}}}
+	doc, err := json.Marshal(map[string]any{"placements": map[string]any{descriptor: map[string]any{"account": connectionKey}}, "terraform": []any{contract}})
 	if err != nil {
 		f.t.Fatal(err)
 	}

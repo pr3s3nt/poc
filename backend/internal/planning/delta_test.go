@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"testing"
 
-	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/platform/canon"
@@ -173,7 +172,7 @@ func TestApplyHumanitecDelta_RejectsInconsistentDocuments(t *testing.T) {
 
 func TestPlan_DeltaIsHumanitecShapedAndDeterministic(t *testing.T) {
 	svc := NewService(testBundles())
-	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	first, err := svc.Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -184,7 +183,7 @@ func TestPlan_DeltaIsHumanitecShapedAndDeterministic(t *testing.T) {
 		t.Fatalf("expected modules.add.backend, got %s", deltaJSON(t, first.Delta))
 	}
 	for i := 0; i < 3; i++ {
-		again, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+		again, err := svc.Plan(testRequest(t, "internal-k8s", "backend"))
 		if err != nil {
 			t.Fatalf("plan: %v", err)
 		}
@@ -211,11 +210,11 @@ func TestPlan_DeltaIsHumanitecShapedAndDeterministic(t *testing.T) {
 
 func TestPlan_RedeployingSameScoreIsNoOpDelta(t *testing.T) {
 	svc := NewService(testBundles())
-	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	first, err := svc.Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req := testRequest(t, "internal-k8s", "backend")
 	req.BaseSet = first.CandidateSet
 	req.Before = req.After
 	plan, err := svc.Plan(req)
@@ -229,11 +228,11 @@ func TestPlan_RedeployingSameScoreIsNoOpDelta(t *testing.T) {
 
 func TestPlan_RemoveWorkloadDeltaListsModule(t *testing.T) {
 	svc := NewService(testBundles())
-	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	first, err := svc.Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req := testRequest(t, "internal-k8s", "backend")
 	req.BaseSet = first.CandidateSet
 	req.Before = req.After
 	req.After = nil

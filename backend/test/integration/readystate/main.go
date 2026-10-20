@@ -50,7 +50,7 @@ func main() {
 	// The current snapshot format requires the owning Organization first; the
 	// product seed at backend start keeps an existing one.
 	if _, err := st.GetOrganization(ctx, *organization); errors.Is(err, persistence.ErrNotFound) {
-		if err := st.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: *organization, Name: "Acme", DefaultConnectionKey: defaults.ConnectionKey}); err != nil {
+		if err := st.SaveOrganization(ctx, application.Organization{ID: ids.New(), Key: *organization, Name: "Acme"}); err != nil {
 			fmt.Fprintln(os.Stderr, "readystate:", err)
 			os.Exit(1)
 		}

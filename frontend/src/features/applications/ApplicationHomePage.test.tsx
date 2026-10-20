@@ -4,9 +4,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { ApplicationHomePage } from './ApplicationHomePage';
 import type { Application } from '../../shared/types/application';
 import { bothConfigured, configuredTarget } from '../../test/targets';
-import { unconfiguredTarget } from '../../shared/types/application';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured('internal-cluster'), workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -29,10 +28,10 @@ it('previews pending changes and deploys only after confirmation', async () => {
   await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
   expect(await screen.findByRole('heading', { name: 'Xem trước cho staging' })).toBeInTheDocument();
   expect(deployToken).toBe('');
-  expect(within(screen.getByLabelText('Xem trước triển khai')).getByLabelText('Đích triển khai')).toHaveTextContent('staging · Kết nối internal-cluster (internal-cluster) · Phạm vi triển khai Cluster nội bộ (internal-k8s)');
+  expect(within(screen.getByLabelText('Xem trước triển khai')).getByLabelText('Đích triển khai')).toHaveTextContent('staging · Đích được xác định từ Resource Definition và các tham chiếu Workload.');
   await user.click(screen.getByRole('button', { name: 'Triển khai các thay đổi này' }));
   expect(await screen.findByRole('heading', { name: 'Triển khai thành công' })).toBeInTheDocument();
-  expect(within(screen.getByLabelText('Kết quả triển khai')).getByLabelText('Đích triển khai')).toHaveTextContent('internal-cluster');
+  expect(within(screen.getByLabelText('Kết quả triển khai')).getByLabelText('Đích triển khai')).toHaveTextContent('staging · Đích được xác định từ Resource Definition và các tham chiếu Workload.');
   expect(deployToken).toBe('pinned-preview');
 });
 
@@ -253,31 +252,14 @@ it('ignores a late Preview after switching Environment and blocks switching duri
 it('shows the target of the selected Environment only and switches with the tab', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => Response.json({ draftVersion: 0, workloads: [], deployments: [], resources: [] })));
   const user = userEvent.setup();
-  render(<ApplicationHomePage application={{ ...application, environments: { staging: configuredTarget('lab', { connectionName: 'Lab' }), production: configuredTarget('cloud', { connectionName: 'Cloud', connectionKind: 'AWS', profile: 'aws-eks', region: 'us-east-1', runtimeStatus: 'PENDING' }) } }} />);
-  expect(screen.getAllByLabelText('Đích triển khai')[0]).toHaveTextContent('staging · Kết nối Lab (lab) · Phạm vi triển khai Cluster nội bộ (internal-k8s)');
+  render(<ApplicationHomePage application={{ ...application, environments: { staging: configuredTarget(), production: configuredTarget() } }} />);
+  expect(screen.getAllByLabelText('Đích triển khai')[0]).toHaveTextContent('staging · Đích được xác định từ Resource Definition và các tham chiếu Workload.');
   await screen.findByText('Môi trường này chưa có Workload nào.');
   await user.click(screen.getByRole('button', { name: /^production/ }));
-  expect(screen.getAllByLabelText('Đích triển khai')[0]).toHaveTextContent('production · Kết nối Cloud (cloud) · Phạm vi triển khai AWS (aws-eks) · Vùng us-east-1');
+  expect(screen.getAllByLabelText('Đích triển khai')[0]).toHaveTextContent('production · Đích được xác định từ Resource Definition và các tham chiếu Workload.');
   expect(screen.getAllByLabelText('Đích triển khai')[0]).not.toHaveTextContent('Lab');
 });
 
-it('guides an UNCONFIGURED Environment to its settings and surfaces the safe 422 from Preview', async () => {
-  vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-    const url = String(input);
-    if (url.endsWith('/preview') && init?.method === 'POST') return Response.json({ error: 'the Environment has no execution connection; set one in Environment Settings', field: 'connectionKey', code: 'ENVIRONMENT_UNCONFIGURED' }, { status: 422 });
-    return Response.json({ draftVersion: 0, workloads: [], deployments: [], resources: [] });
-  }));
-  const user = userEvent.setup();
-  render(<ApplicationHomePage application={{ ...application, environments: { staging: unconfiguredTarget, production: configuredTarget('lab') } }} />);
-  expect(screen.getAllByLabelText('Đích triển khai')[0]).toHaveTextContent('staging · Đích triển khai do Resource Definition và tham chiếu của Workload quyết định');
-  await screen.findByText('Môi trường này chưa có Workload nào.');
-  await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
-  const alert = await screen.findByRole('alert');
-  expect(alert).toHaveTextContent('chọn kết nối trong Cài đặt môi trường');
-  await user.click(within(alert).getByRole('button', { name: 'Mở Cài đặt môi trường' }));
-  expect(window.location.pathname).toBe('/ui/applications/catalog/settings');
-  expect(window.location.search).toBe('?environment=staging');
-});
 
 it('disables draft Delete and Undo while an environment operation runs and enables them after release', async () => {
   const calls: string[] = [];
@@ -484,18 +466,18 @@ it('opens on the Environment given by the route and previews that Environment', 
   expect(urls.some((url) => url.includes('/environments/staging/'))).toBe(false);
 });
 
-it('shows the safe Preview projection: renderer, pinned target and account, module pin, provider targets, ownership and intent only', async () => {
+it('shows the safe Preview projection: renderer, module pin, per-resource provider targets, ownership and intent only', async () => {
   const digest = 'a'.repeat(64);
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.endsWith('/workloads')) return Response.json({ draftVersion: 1, workloads: [{ id: 'api', state: 'PENDING_UPSERT', ready: false, score: {} }] });
     if (url.endsWith('/preview')) return Response.json({
-      token: 't', draftVersion: 1, binding: { connectionKey: 'aws-prod', executionProfile: 'aws-eks', region: 'us-east-1' }, accountId: '452025861381',
+      token: 't', draftVersion: 1,
       changes: [{ workloadId: 'api', action: 'DEPLOY', planHash: 'p', resources: { existing: [], new: ['postgres.default#shared.orders'], unreferenced: [] },
         rendering: { definitionKey: 'render-cloud', driverType: 'score-k8s', bundle: { id: 'score-k8s-internal-v1', version: '0.15.0' } },
         resourceIntents: [
           { descriptor: 'postgres.cloud-managed#shared.orders', resourceType: 'postgres', class: 'cloud-managed', scope: 'SHARED:orders', ownership: 'ORCHESTRATOR', intent: 'CREATE', definitionKey: 'aurora-prod', driverType: 'terraform',
-            module: { module: 'aurora', sourceId: 'platform', revision: 'v3-2026.10.13', subdirectory: 'aurora', contentSha256: digest }, providers: [{ name: 'aws', kind: 'aws', target: 'environment', connectionKey: 'aws-prod', region: 'us-east-1' }] },
+            module: { module: 'aurora', sourceId: 'platform', revision: 'v3-2026.10.13', subdirectory: 'aurora', contentSha256: digest }, providers: [{ name: 'aws', kind: 'aws', target: 'account', connectionKey: 'aws-prod', region: 'us-east-1' }] },
           { descriptor: 'vpc.default#@infra', resourceType: 'vpc', class: 'default', scope: 'ENVIRONMENT:shop.prod', ownership: 'ORCHESTRATOR', intent: 'RETAIN', definitionKey: 'vpc-aws', driverType: 'terraform' },
           { descriptor: 'k8s-cluster.eks#environments.shop.prod', resourceType: 'k8s-cluster', class: 'eks', scope: 'ENVIRONMENT:shop.prod', ownership: 'PLATFORM', intent: 'BIND', definitionKey: 'cluster-aws-eks', driverType: 'existing-cluster' },
         ] }],
@@ -507,7 +489,7 @@ it('shows the safe Preview projection: renderer, pinned target and account, modu
   await screen.findByText('api');
   await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
   const panel = await screen.findByLabelText('Xem trước triển khai');
-  expect(within(panel).getByLabelText('Đích đã ghim của xem trước')).toHaveTextContent('Kết nối aws-prod · phạm vi aws-eks · vùng us-east-1 · tài khoản AWS 452025861381');
+  expect(within(panel).queryByLabelText('Đích đã ghim của xem trước')).not.toBeInTheDocument();
   expect(panel.querySelector('.preview-changes > li')).toHaveTextContent('trình dựng: score-k8s 0.15.0 (mẫu render-cloud)');
   const table = within(panel).getByRole('table');
   const rows = within(table).getAllByRole('row').slice(1);

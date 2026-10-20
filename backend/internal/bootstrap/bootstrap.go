@@ -40,7 +40,6 @@ import (
 	"orchestrator/internal/application/runcleanup"
 	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/application/statebackend"
-	"orchestrator/internal/application/transition"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
 	deliveryhttp "orchestrator/internal/delivery/http"
 	"orchestrator/internal/domain/environment"
@@ -229,8 +228,6 @@ type App struct {
 	Operations *envops.Manager
 	// StoreRegistry resolves workload secret stores.
 	StoreRegistry configport.Registry
-	// Transitions runs Environment target transitions.
-	Transitions *transition.Service
 	// Modules is the verified Terraform module registry.
 	Modules *moduleregistry.Service
 	// RunCleanup is the independent safety net: reverse destroy of every
@@ -518,10 +515,6 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		awsVerifier = awsaccess.Verifier{Client: awsaccess.New()}
 	}
 
-	transitions := transition.New(st, planner, inspector, deployments, operations)
-	transitions.SetStoreRegistry(storeRegistry)
-	transitions.SetWorkloads(workloads)
-	transitions.SetDirectDelivery(opts.WorkloadDelivery != "fleet-gitrepo")
 	var fakeCluster *fake.Cluster
 	switch opts.Adapters {
 	case "", AdapterFake:
@@ -529,12 +522,6 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		fakeDep.AttachCluster(fakeCluster)
 		fakeExec.AttachCluster(fakeCluster)
 		deployments.SetPublicRouteManager(fakeCluster, opts.Seed.BaseDomain)
-		transitions.SetCluster(fakeCluster, fakeCluster, fakeCluster, fakeCluster)
-		transitions.SetProbe(fakeCluster)
-	case AdapterKubernetes:
-		kubeTransition := &k8s.Transition{KubectlPath: opts.KubectlPath, Credentials: credentialResolver}
-		transitions.SetCluster(kubeTransition, kubeTransition, kubeTransition, kubeTransition)
-		transitions.SetProbe(kubeTransition)
 	}
 
 	resourceCleanup := resourcecleanup.New(st, operations)
@@ -556,7 +543,6 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	}
 
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
-		Transitions:           transitions,
 		RenderBundles:         bundles,
 		Deployments:           deployments,
 		Queries:               queries,
@@ -594,7 +580,6 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		Pending:               pendingChanges,
 		Workloads:             workloads,
 		StoreRegistry:         storeRegistry,
-		Transitions:           transitions,
 		FakeCluster:           fakeCluster,
 		Modules:               modules,
 		RunCleanup:            safetyNet,

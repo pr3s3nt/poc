@@ -29,13 +29,12 @@ func main() {
 	adapters := flag.String("adapters", "fake", "executor adapters: fake, kubernetes or aws")
 	profile := flag.String("profile", opts.Profile, "seed profile: local, test, production or acceptance-v2 (isolated real acceptance: fixture accounts, the exact -namespace identity and no catalog)")
 	seedCatalog := flag.String("seed-catalog", "", "seed catalog: empty (legacy), terraform-k8s (verified Terraform namespace/PostgreSQL/Redis) or none (acceptance-v2 only; the catalog is authored through the Console)")
-	namespace := flag.String("namespace", opts.NamespaceIdentity, "namespace identity of the internal-k8s environment")
+	namespace := flag.String("namespace", opts.NamespaceIdentity, "seeded Environment namespace identity for local/test fixtures; product targets come from Resource Definitions and resource references")
 	applicationKey := flag.String("application-key", opts.ApplicationKey, "key of the seeded fixture Application (acceptance-v2 uses a unique key per run so Vault paths never collide with other runs)")
-	cloudNamespace := flag.String("cloud-namespace", opts.CloudNamespaceIdentity, "namespace identity of the aws-eks environment")
 	kubeContext := flag.String("kube-context", opts.KubeContext, "kubectl context of the registered cluster")
 	cluster := flag.String("cluster", opts.ClusterName, "registered cluster name")
-	region := flag.String("region", "", "AWS region; the aws-eks application is registered only when it is set")
-	accountID := flag.String("account-id", "", "AWS account id for the aws-eks application")
+	region := flag.String("region", "", "seeded AWS Driver Account region hint for local/test fixtures; product targets use each AWS Definition's literal region")
+	accountID := flag.String("account-id", "", "seeded AWS Driver Account identity for local/test fixtures; product targets use the selected Definition account")
 	runID := flag.String("run-id", "", "verification run id, used in cloud resource names and tags")
 	owner := flag.String("owner", "", "owner tag for cloud resources")
 	ttl := flag.Duration("ttl", 2*time.Hour, "expires-at tag horizon for cloud resources")
@@ -124,7 +123,6 @@ func main() {
 	if opts.Profile == seed.ProfileAcceptanceV2 && opts.Catalog == "" {
 		opts.Catalog = seed.CatalogNone
 	}
-	opts.CloudNamespaceIdentity = *cloudNamespace
 	opts.KubeContext = *kubeContext
 	opts.ClusterName = *cluster
 	opts.Region = *region

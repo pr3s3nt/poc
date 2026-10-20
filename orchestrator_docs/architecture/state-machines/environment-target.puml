@@ -1,5 +1,5 @@
 @startuml
-title Environment destinations and operation admission
+title HISTORICAL - Environment deployment selector (retired by ADR-017 / V06.08)
 [*] --> UNCONFIGURED
 UNCONFIGURED --> CONFIGURED : explicit scoped READY selection + version CAS
 CONFIGURED --> CONFIGURED : pre-runtime change / successful store copy\nversion CAS; no permanent lock
@@ -17,4 +17,9 @@ Preview pins versions + both destinations.
 Stale Deploy rejected before side effects.
 Different Environments operate independently.
 end note
+legend bottom
+Historical ADR-012 selection lifecycle only.
+Current placement follows matched Definition/resource references;
+this selector/transition is not a current API or state machine.
+endlegend
 @enduml

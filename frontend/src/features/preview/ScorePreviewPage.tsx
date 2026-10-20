@@ -65,8 +65,7 @@ export function ScorePreviewPage({ application, environment }: { application: Ap
       if (current !== generation.current) return;
       if (err instanceof ApiError && err.status === 401) return;
       // Only the stable code selects text; raw backend/parser text is never shown.
-      if (err instanceof ApiError && (err.code === 'ENVIRONMENT_UNCONFIGURED')) setFailure({ kind: 'error', message: `Môi trường ${environment} chưa có kết nối triển khai. Hãy mở Cài đặt môi trường của ${environment} và chọn kết nối; chưa có gì được lập kế hoạch hoặc triển khai.` });
-      else if (err instanceof ApiError && (err.status === 400 || err.status === 413)) setFailure({ kind: 'validation', message: err.message });
+      if (err instanceof ApiError && (err.status === 400 || err.status === 413)) setFailure({ kind: 'validation', message: err.message });
       else if (err instanceof ApiError) setFailure({ kind: 'error', message: err.message });
       else setFailure({ kind: 'error', message: 'Không thể xem trước Score. Hãy thử lại.' });
     } finally {
@@ -128,9 +127,9 @@ function PreviewResult({ result }: { result: ScorePreview }) {
       <div><h3>Mới ({result.classification.new.length})</h3><List items={result.classification.new} empty="Không có" /></div>
       <div><h3>Đã có ({result.classification.existing.length})</h3><List items={result.classification.existing} empty="Không có" /></div>
       <div><h3>Không còn được tham chiếu ({result.classification.unreferenced.length})</h3><List items={result.classification.unreferenced} empty="Không có" /></div></div></section>
-    <section className="content-panel"><h2>Tài nguyên hạ tầng</h2><Placements placements={result.placements} />{result.binding?.connectionKey ? <p aria-label="Đích đã ghim của xem trước">Đích đã ghim: Kết nối {result.binding.connectionKey} · phạm vi {result.binding.executionProfile}{result.binding.region ? ` · vùng ${result.binding.region}` : ''}{result.accountId ? ` · tài khoản AWS ${result.accountId}` : ''}</p> : null}<ResourceIntents intents={result.resourceIntents} /></section>
+    <section className="content-panel"><h2>Tài nguyên hạ tầng</h2><Placements placements={result.placements} />{}<ResourceIntents intents={result.resourceIntents} /></section>
     <section className="content-panel"><h2>Thứ tự tạo tài nguyên</h2>{result.batches.length ? <ol className="batch-list">{result.batches.map((batch, index) => <li key={index}>Lô {index + 1}: {batch.join(', ')}</li>)}</ol> : <p>Không có tài nguyên cần tạo.</p>}<p><small>Bên cung cấp được tạo trước bên sử dụng.</small></p></section>
-    <section className="content-panel"><h2>Liên kết thực thi tài nguyên</h2>{result.matches.length ? <table className="plain-table"><thead><tr><th>Tài nguyên</th><th>Liên kết</th><th>Driver</th></tr></thead><tbody>{result.matches.map((match) => <tr key={match.descriptor}><td>{match.descriptor}</td><td>{match.binding === 'environment-connection' ? `Kết nối của môi trường ${match.connectionKey ?? ''}`.trim() : match.definitionKey}</td><td>{match.driverType}</td></tr>)}</tbody></table> : <p>Không có liên kết tài nguyên.</p>}</section>
+    <section className="content-panel"><h2>Liên kết thực thi tài nguyên</h2>{result.matches.length ? <table className="plain-table"><thead><tr><th>Tài nguyên</th><th>Định nghĩa</th><th>Driver</th></tr></thead><tbody>{result.matches.map((match) => <tr key={match.descriptor}><td>{match.descriptor}</td><td>{match.definitionKey}</td><td>{match.driverType}</td></tr>)}</tbody></table> : <p>Không có liên kết tài nguyên.</p>}</section>
     <section className="content-panel"><h2>Đồ thị tài nguyên</h2>
       <DependencyGraph nodes={result.graph.nodes} edges={result.graph.edges} /></section>
     <section className="content-panel"><h2>Tài liệu (bản đã lọc dữ liệu nhạy cảm)</h2><p><small>Bản đã lọc dữ liệu nhạy cảm: giá trị biến container nguyên văn của các Workload khác hiển thị là <code>***redacted***</code>, và giá trị tham số trong đồ thị tài nguyên bị lược bỏ (chỉ liệt kê tên tham số). Đây không phải Deployment Set có thể thực thi.</small></p>

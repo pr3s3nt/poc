@@ -15,7 +15,7 @@ export type Eligibility = { eligible: boolean; reasons: string[] };
 export type CleanupSummary = { operationId: string; status: string; stage: string };
 export type AttemptSummary = { number: number; action: string; stage: string; status: string; errorCode?: string; updatedAt: string };
 
-export type Target = { known: boolean; connectionKey?: string; connectionName?: string; connectionKind?: string; profile?: string; accountId?: string; region?: string; generation: number };
+export type Target = { known: boolean; connectionKey?: string; connectionName?: string; connectionKind?: string; accountId?: string; region?: string; generation: number };
 
 export type ResourceDetail = {
   id: string; applicationId: string; environment: string; descriptor: string; type: string; class: string; resourceId: string;
@@ -69,7 +69,7 @@ function eligibility(v: unknown): Eligibility {
 
 function target(v: unknown): Target {
   const o = obj(v);
-  return { known: bool(o.known), connectionKey: optStr(o.connectionKey), connectionName: optStr(o.connectionName), connectionKind: optStr(o.connectionKind), profile: optStr(o.profile), accountId: optStr(o.accountId), region: optStr(o.region), generation: num(o.generation) };
+  return { known: bool(o.known), connectionKey: optStr(o.connectionKey), connectionName: optStr(o.connectionName), connectionKind: optStr(o.connectionKind), accountId: optStr(o.accountId), region: optStr(o.region), generation: num(o.generation) };
 }
 
 export function parseResource(raw: unknown): ResourceDetail {

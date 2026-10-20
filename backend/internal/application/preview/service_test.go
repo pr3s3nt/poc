@@ -619,9 +619,18 @@ func TestPreview_ResourceIntentsAndTargetAreSafe(t *testing.T) {
 		t.Fatal(err)
 	}
 	// AWS identity is per node (provider pins); no Environment account or binding is reported.
-	if view.AccountID != "" || view.Binding.ConnectionKey != "" || view.Binding.Region != "" {
-		t.Fatalf("environment account must not be reported: account=%q binding=%+v", view.AccountID, view.Binding)
+	encoded, err := json.Marshal(view)
+	if err != nil {
+		t.Fatal(err)
 	}
+	var public map[string]any
+	if err := json.Unmarshal(encoded, &public); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := public["accountId"]; exists {
+		t.Fatal("Preview must not expose an Environment-wide account field")
+	}
+
 	pinned := false
 	for _, intent := range view.ResourceIntents {
 		for _, provider := range intent.Providers {

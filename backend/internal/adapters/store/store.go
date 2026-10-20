@@ -49,7 +49,6 @@ type state struct {
 	WorkloadDrafts      map[string]environment.WorkloadDraft          `json:"workloadDrafts"`
 	SecretStores        map[string]secretstore.Store                  `json:"secretStores"`
 	Operations          map[string]environment.Operation              `json:"environmentOperations"`
-	Transitions         map[string]environment.Transition             `json:"environmentTransitions"`
 	ModuleBundles       map[string]tfmodule.Bundle                    `json:"terraformModuleBundles"`
 }
 
@@ -76,7 +75,6 @@ func newState() *state {
 		WorkloadDrafts:      map[string]environment.WorkloadDraft{},
 		SecretStores:        map[string]secretstore.Store{},
 		Operations:          map[string]environment.Operation{},
-		Transitions:         map[string]environment.Transition{},
 		ModuleBundles:       map[string]tfmodule.Bundle{},
 	}
 }
@@ -621,8 +619,8 @@ func (s *Store) SaveEnvironment(ctx context.Context, env environment.Environment
 	if env.Version == 0 {
 		env.Version = 1
 	}
-	// The binding, store selection, generation and claim are never writable
-	// here (ADR-012): keep what is stored, or leave a new Environment unset.
+	// The store selection, generation and claim are never writable here
+	// (ADR-012): keep what is stored, or leave a new Environment unset.
 	key := envKey(env.ApplicationKey, env.Key)
 	stored, existed := s.state.Environments[key]
 	if existed {
@@ -630,13 +628,11 @@ func (s *Store) SaveEnvironment(ctx context.Context, env environment.Environment
 			return err
 		}
 	}
-	env.ConnectionKey, env.Profile, env.Region = stored.ConnectionKey, stored.Profile, stored.Region
-	env.RuntimeStatus, env.InfrastructureScope = stored.RuntimeStatus, stored.InfrastructureScope
-	env.TargetGeneration, env.GenerationHigh = stored.TargetGeneration, stored.GenerationHigh
+	env.InfrastructureScope, env.TargetGeneration = stored.InfrastructureScope, stored.TargetGeneration
 	env.SecretStoreKey, env.ActiveOperationID = stored.SecretStoreKey, stored.ActiveOperationID
 	if !existed {
 		// Stored rows carry the SQL defaults explicitly, not through helpers.
-		env.RuntimeStatus, env.InfrastructureScope = application.RuntimeUnconfigured, environment.ScopeEnvironment
+		env.InfrastructureScope = environment.ScopeEnvironment
 	}
 	s.state.Environments[key] = env
 	return nil
@@ -667,44 +663,6 @@ func (s *Store) fence(ctx context.Context) error {
 	return nil
 }
 
-// BindEnvironment replaces the Environment binding with one versioned write.
-func (s *Store) BindEnvironment(ctx context.Context, b persistence.EnvironmentBinding) (environment.Environment, error) {
-	defer s.lock(ctx)()
-	key := envKey(b.ApplicationKey, b.EnvironmentKey)
-	env, ok := s.state.Environments[key]
-	if !ok {
-		return environment.Environment{}, fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
-	}
-	app, ok := s.state.Applications[b.ApplicationKey]
-	if !ok {
-		return environment.Environment{}, fmt.Errorf("%w: application %q", persistence.ErrNotFound, b.ApplicationKey)
-	}
-	if _, ok := s.state.Connections[catalogKey(app.OrganizationKey, b.ConnectionKey)]; !ok {
-		return environment.Environment{}, fmt.Errorf("%w: connection %q", persistence.ErrNotFound, b.ConnectionKey)
-	}
-	if err := s.ownerCheck(ctx, env); err != nil {
-		return environment.Environment{}, err
-	}
-	if env.Version != b.ExpectedVersion {
-		return environment.Environment{}, fmt.Errorf("%w: environment %s is at version %d, request used %d", persistence.ErrVersionConflict, key, env.Version, b.ExpectedVersion)
-	}
-	if !b.Scope.Valid() {
-		return environment.Environment{}, environment.ErrInvalidInfrastructureScope
-	}
-	if !b.Profile.Valid() || b.RuntimeStatus == "" || b.RuntimeStatus == application.RuntimeUnconfigured || b.Generation < 0 || b.Generation > env.GenerationHigh && b.Generation != env.TargetGeneration {
-		return environment.Environment{}, fmt.Errorf("store: invalid environment binding for %s", key)
-	}
-	env.ConnectionKey, env.Profile, env.Region = b.ConnectionKey, b.Profile, b.Region
-	env.RuntimeStatus, env.InfrastructureScope = b.RuntimeStatus, b.Scope
-	env.TargetGeneration = b.Generation
-	if b.Generation > env.GenerationHigh {
-		env.GenerationHigh = b.Generation
-	}
-	env.Version++
-	s.state.Environments[key] = env
-	return env, nil
-}
-
 // SelectSecretStore replaces the secret-store selection with one versioned write.
 func (s *Store) SelectSecretStore(ctx context.Context, sel persistence.SecretStoreSelection) (environment.Environment, error) {
 	defer s.lock(ctx)()
@@ -732,25 +690,6 @@ func (s *Store) SelectSecretStore(ctx context.Context, sel persistence.SecretSto
 	return env, nil
 }
 
-// UpdateRuntimeStatus advances the runtime status of a configured Environment.
-func (s *Store) UpdateRuntimeStatus(ctx context.Context, applicationKey, environmentKey string, status application.RuntimeStatus) error {
-	defer s.lock(ctx)()
-	key := envKey(applicationKey, environmentKey)
-	env, ok := s.state.Environments[key]
-	if !ok {
-		return fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
-	}
-	if err := s.ownerCheck(ctx, env); err != nil {
-		return err
-	}
-	if !env.Configured() || (status != application.RuntimePending && status != application.RuntimeReady) {
-		return fmt.Errorf("%w: environment %s runtime status", persistence.ErrImmutable, key)
-	}
-	env.RuntimeStatus = status
-	s.state.Environments[key] = env
-	return nil
-}
-
 // SetPublicRoutesPending changes only the route flag.
 func (s *Store) SetPublicRoutesPending(ctx context.Context, applicationKey, environmentKey string, pending bool) error {
 	defer s.lock(ctx)()
@@ -765,25 +704,6 @@ func (s *Store) SetPublicRoutesPending(ctx context.Context, applicationKey, envi
 	env.PublicRoutesPending = pending
 	s.state.Environments[key] = env
 	return nil
-}
-
-// AllocateGeneration reserves the next target generation for the owner.
-func (s *Store) AllocateGeneration(ctx context.Context, applicationKey, environmentKey string) (int64, error) {
-	defer s.lock(ctx)()
-	key := envKey(applicationKey, environmentKey)
-	env, ok := s.state.Environments[key]
-	if !ok {
-		return 0, fmt.Errorf("%w: environment %s", persistence.ErrNotFound, key)
-	}
-	if env.ActiveOperationID == "" || env.ActiveOperationID != persistence.OperationFrom(ctx) {
-		return 0, fmt.Errorf("%w: generation allocation needs the owning operation", persistence.ErrEnvironmentBusy)
-	}
-	if env.GenerationHigh < env.TargetGeneration {
-		env.GenerationHigh = env.TargetGeneration
-	}
-	env.GenerationHigh++
-	s.state.Environments[key] = env
-	return env.GenerationHigh, nil
 }
 
 // GetDeploymentSet reads one immutable Deployment Set.

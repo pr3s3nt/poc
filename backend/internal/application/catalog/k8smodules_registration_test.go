@@ -26,7 +26,7 @@ func k8sDefinition(key, typ string, ref tfmodule.SourceRef, variables map[string
 		Key: key, Name: key, Version: 1, ResourceTypeKey: typ, DriverType: resource.DriverTerraform,
 		DriverInputs: map[string]any{"values": map[string]any{
 			"source": ref.Map(), "variables": variables, "input_mapping": inputMapping, "output_mapping": outputMapping,
-			"provider_bindings": map[string]any{"kubernetes": map[string]any{"target": tfmodule.TargetEnvironment}},
+			"provider_bindings": map[string]any{"kubernetes": map[string]any{"target": tfmodule.TargetResource, "resource_ref": "k8s-cluster.eks#environments.@app.@env"}},
 		}},
 		Criteria: []resource.Criterion{criteria},
 	}

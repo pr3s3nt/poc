@@ -176,7 +176,7 @@ export async function configureEnvironment(kit, { config, secretName, secretValu
 /** Live technical GET through the same real browser/frontend as the UI. No HTTP cache or fallback data. */
 export async function readAppJSON(page, path) {
   return page.evaluate(async (route) => {
-    const response = await fetch(route, { cache: 'no-store', signal: AbortSignal.timeout(15_000) });
+    const response = await fetch(route, { method: 'GET', cache: 'no-store', signal: AbortSignal.timeout(15_000) });
     if (response.status !== 200) throw new Error(`acceptance frontend API returned HTTP ${response.status}`);
     return response.json();
   }, path);

@@ -56,10 +56,8 @@ type CapabilityAccount struct {
 }
 
 // CapabilityTarget is one provider binding target a Definition may use.
-// Legacy marks the Environment target kept visible until V03.
 type CapabilityTarget struct {
 	Target string `json:"target"`
-	Legacy bool   `json:"legacy,omitempty"`
 }
 
 // CapabilityBinding lists the allowed targets of one configurable provider.
@@ -160,7 +158,7 @@ func terraformCapability(bundle tfmodule.Bundle, typ resource.Type, resourceType
 			capability.Account = CapabilityAccount{Required: true, Type: "AWS", RegionVariable: "region"}
 			capability.Bindings = append(capability.Bindings, CapabilityBinding{Provider: name, Kind: p.Binding, Targets: []CapabilityTarget{{Target: tfmodule.TargetAccount}}})
 		case tfmodule.BindingKubernetes:
-			capability.Bindings = append(capability.Bindings, CapabilityBinding{Provider: name, Kind: p.Binding, Targets: []CapabilityTarget{{Target: tfmodule.TargetResource}, {Target: tfmodule.TargetEnvironment, Legacy: true}}})
+			capability.Bindings = append(capability.Bindings, CapabilityBinding{Provider: name, Kind: p.Binding, Targets: []CapabilityTarget{{Target: tfmodule.TargetResource}}})
 		}
 	}
 	for _, name := range sortedKeys(bundle.Contract.Outputs) {

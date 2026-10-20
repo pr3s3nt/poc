@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/planning/score"
@@ -54,7 +53,7 @@ func TestPlan_PreservesContainerResourceRequirements(t *testing.T) {
 	}
 	want := `{"requests":{"cpu":"100m","memory":"128Mi"},"limits":{"cpu":"0.5","memory":"512Mi"}}`
 
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req := testRequest(t, "internal-k8s", "backend")
 	req.After = backendScoreWithResources(t, declared)
 	plan, err := NewService(testBundles()).Plan(req)
 	if err != nil {
@@ -84,9 +83,9 @@ func TestPlan_PreservesContainerResourceRequirements(t *testing.T) {
 // Container requirements belong to the workload module; they never become
 // Resource Graph nodes or change graph identity.
 func TestPlan_ContainerResourcesAddNoGraphNodes(t *testing.T) {
-	without := testRequest(t, application.ProfileInternalK8s, "backend")
+	without := testRequest(t, "internal-k8s", "backend")
 	without.After = backendScoreWithResources(t, nil)
-	with := testRequest(t, application.ProfileInternalK8s, "backend")
+	with := testRequest(t, "internal-k8s", "backend")
 	with.After = backendScoreWithResources(t, map[string]any{
 		"requests": map[string]any{"cpu": "100m", "memory": "128Mi"},
 		"limits":   map[string]any{"cpu": "500m", "memory": "512Mi"},
@@ -116,7 +115,7 @@ func TestPlan_ContainerResourcesAddNoGraphNodes(t *testing.T) {
 // value is the exact Score string.
 func TestPlan_ContainerResourceChangeIsModuleRelativePatch(t *testing.T) {
 	svc := NewService(testBundles())
-	first := testRequest(t, application.ProfileInternalK8s, "backend")
+	first := testRequest(t, "internal-k8s", "backend")
 	first.After = backendScoreWithResources(t, map[string]any{
 		"requests": map[string]any{"cpu": "100m"},
 		"limits":   map[string]any{"memory": "512Mi"},
@@ -126,7 +125,7 @@ func TestPlan_ContainerResourceChangeIsModuleRelativePatch(t *testing.T) {
 		t.Fatalf("plan: %v", err)
 	}
 
-	next := testRequest(t, application.ProfileInternalK8s, "backend")
+	next := testRequest(t, "internal-k8s", "backend")
 	next.BaseSet = firstPlan.CandidateSet
 	next.Before = first.After
 	next.After = backendScoreWithResources(t, map[string]any{

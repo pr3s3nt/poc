@@ -22,7 +22,7 @@ backend/
 ├── internal/application/application/       # UC-01 self-service Application creation
 ├── internal/application/deployment/        # UC-06, UC-07, UC-09
 ├── internal/application/provisioning/      # UC-08
-├── internal/domain/application/            # Organization, Application, ExecutionProfile, Connection
+├── internal/domain/application/            # Organization, Application
 ├── internal/domain/environment/            # Environment, DeploymentSet, NamespaceIdentity
 ├── internal/domain/resource/               # Descriptor, Scope, ResourceType/Definition, ActiveResource
 ├── internal/domain/deployment/             # Deployment, DeploymentPlan, DeploymentResource, WorkloadInstance

@@ -8,10 +8,11 @@ related: UC-03
 
 # UC-03 HTTP mapping
 
-V02 sections below own current authoring/edit/account/matching behavior under
-UC-03 V02-01..09. Earlier T02–T31 descriptions remain only for unchanged typed
-inputs/interaction details; their profile/Environment AWS/insert-only/client-only
-preview requirements are superseded. Predecessor is available at commit96eb602.
+Current authoring/edit/account/matching follows the V02, V03 and V04–V06
+replacement sections below and UC-03 specification. Earlier T02–T31 descriptions
+are historical wherever they name profiles, an Environment target, insert-only
+editing, builtin cluster restrictions or client-only matching preview. Only
+unchanged typed inputs/interaction details survive. Predecessor: commit96eb602.
 
 `GET /api/v1/resource-definitions` lists the session Organization's catalog.
 `POST /api/v1/resource-definitions` is Platform Engineer/Admin registration,

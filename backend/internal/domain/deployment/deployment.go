@@ -26,22 +26,16 @@ const (
 	ActionDeploy Action = "DEPLOY"
 	ActionUpdate Action = "UPDATE"
 	ActionRemove Action = "REMOVE"
-	// ActionProvision pre-provisions destination resources of a target
-	// transition before any destination workload starts.
-	ActionProvision Action = "PROVISION"
 )
 
 // Deployment is one plan-and-execute run against an Environment.
 type Deployment struct {
-	ID               string `json:"id"`
-	EnvironmentID    string `json:"environmentId"`
-	OrganizationKey  string `json:"organizationKey"`
-	ApplicationKey   string `json:"applicationKey"`
-	EnvironmentKey   string `json:"environmentKey"`
-	ExecutionProfile string `json:"executionProfile"`
-	// ConnectionKey and TargetGeneration record the actual execution target
-	// of this run (ADR-012); history never derives them from the current binding.
-	ConnectionKey          string     `json:"connectionKey,omitempty"`
+	ID              string `json:"id"`
+	EnvironmentID   string `json:"environmentId"`
+	OrganizationKey string `json:"organizationKey"`
+	ApplicationKey  string `json:"applicationKey"`
+	EnvironmentKey  string `json:"environmentKey"`
+	// TargetGeneration records the identity generation of this run's resources; history never derives it from the current Environment.
 	TargetGeneration       int64      `json:"targetGeneration,omitempty"`
 	Action                 Action     `json:"action"`
 	WorkloadID             string     `json:"workloadId"`

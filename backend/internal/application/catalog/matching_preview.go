@@ -38,8 +38,7 @@ const (
 
 // Cluster source kinds shown for a Kubernetes resource binding.
 const (
-	ClusterSourceResource          = "RESOURCE"
-	ClusterSourceLegacyEnvironment = "LEGACY_ENVIRONMENT"
+	ClusterSourceResource = "RESOURCE"
 )
 
 // Bounds keep one preview request cheap and its response small.
@@ -281,8 +280,8 @@ func (s *Service) PreviewMatching(ctx context.Context, organizationKey string, q
 		marker, err := canon.Hash(map[string]any{
 			"definitions": sortedDefs, "types": sortedTypes, "accounts": safeAccounts,
 			"environment": map[string]any{
-				"app": env.ApplicationKey, "key": env.Key, "type": env.Type, "profile": env.Profile,
-				"connection": env.ConnectionKey, "generation": env.TargetGeneration, "version": env.Version,
+				"app": env.ApplicationKey, "key": env.Key, "type": env.Type,
+				"generation": env.TargetGeneration, "version": env.Version,
 			},
 		})
 		if err != nil {
@@ -443,8 +442,6 @@ func winnerOf(r resource.Ranked, accounts map[string]application.Connection) *Ma
 		switch b.Target {
 		case tfmodule.TargetResource:
 			w.ClusterSource = &MatchingClusterSource{Kind: ClusterSourceResource, Reference: b.ResourceRef}
-		case tfmodule.TargetEnvironment:
-			w.ClusterSource = &MatchingClusterSource{Kind: ClusterSourceLegacyEnvironment}
 		}
 	}
 	return w

@@ -33,6 +33,10 @@
 # Debug only: ORCH_I0406_INJECT_FAILURE=after-success fails the scenario on
 # purpose to check that video, marks and assertions survive a failure.
 set -euo pipefail
+# HISTORICAL: preserved source for old evidence; retired before any external access.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"
+retired_runner "aws-connection-local.sh (retired Environment Connection contract)" "backend/test/integration/v01-accounts-local.sh and backend/test/integration/v04-internal-full.sh"
+
 umask 077
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

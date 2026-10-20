@@ -28,6 +28,8 @@ type Asset struct {
 	ID    string `json:"id"`
 	Layer string `json:"layer"`
 	Owner string `json:"owner"`
+	// UID is the immutable creation identity of a Kubernetes object.
+	UID string `json:"uid,omitempty"`
 	// Linkage is the exact owner chain of a derived asset (for example the
 	// VPC ID or cluster name the asset hangs off). Cleanup never matches by
 	// name prefix: only by exact ID or exact linkage.
@@ -184,6 +186,12 @@ func (m *Manifest) AddAsset(a Asset) error {
 			}
 			if have.Linkage != "" && a.Linkage != "" && have.Linkage != a.Linkage {
 				return fmt.Errorf("manifest: asset %s/%s linkage cannot change", a.Kind, a.ID)
+			}
+			if have.UID != "" && a.UID != "" && have.UID != a.UID {
+				return fmt.Errorf("manifest: asset %s/%s UID cannot change", a.Kind, a.ID)
+			}
+			if have.UID == "" {
+				m.Assets[i].UID = a.UID
 			}
 			if have.Linkage == "" && a.Linkage != "" {
 				m.Assets[i].Linkage = a.Linkage

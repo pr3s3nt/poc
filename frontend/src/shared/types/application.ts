@@ -6,7 +6,7 @@ export interface Workload {
   status: 'Ready' | 'Draft';
 }
 
-/** Safe projection of the operation currently owning an Environment (ADR-012). */
+/** Safe projection of the operation currently owning an Environment. */
 export interface EnvironmentOperation {
   id: string;
   kind: string;
@@ -19,38 +19,22 @@ export interface EnvironmentOperation {
   recoverable: boolean;
 }
 
-/**
- * Safe, nonsecret selections of one Environment (ADR-012): the execution
- * Connection and the workload Secret Store are both editable, versioned and
- * independent; neither is locked.
- */
+/** Identity, secret-store selection, draft version and operation only. */
 export interface EnvironmentTarget {
-  configured: boolean;
-  connectionKey: string;
-  connectionName?: string;
-  connectionKind?: string;
-  profile: string;
-  region?: string;
-  runtimeStatus: string;
-  infrastructureScope: string;
-  /** Authoritative Environment version; sent as expectedVersion when saving. */
   version: number;
   secretStoreKey: string;
   secretStoreName?: string;
   targetGeneration: number;
   draftVersion: number;
-  /** Runtime resources exist, so a destination change is an explicit transition. */
-  runtimeExists: boolean;
   activeOperation?: EnvironmentOperation;
 }
 
-export const unconfiguredTarget: EnvironmentTarget = { configured: false, connectionKey: '', profile: '', runtimeStatus: 'UNCONFIGURED', infrastructureScope: 'ENVIRONMENT', version: 1, secretStoreKey: '', targetGeneration: 0, draftVersion: 0, runtimeExists: false };
+export const emptyEnvironment: EnvironmentTarget = { version: 1, secretStoreKey: '', targetGeneration: 0, draftVersion: 0 };
 
 export interface Application {
   id: string;
   name: string;
   subdomain: string;
-  /** Execution target per Environment; the Application itself has none. */
   environments: Record<EnvironmentKey, EnvironmentTarget>;
   workloads: Record<EnvironmentKey, readonly Workload[]>;
 }

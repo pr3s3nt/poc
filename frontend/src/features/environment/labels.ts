@@ -9,6 +9,3 @@ const statusLabels: Record<string, string> = {
 
 export const statusLabel = (status: string): string => statusLabels[status] ? `${statusLabels[status]} (${status})` : status;
 export const environmentTitle = (environment: EnvironmentKey): string => environment === 'staging' ? 'Staging' : 'Production';
-
-const profileLabels: Record<string, string> = { 'internal-k8s': 'Cluster nội bộ', 'aws-eks': 'AWS' };
-export const profileLabel = (profile: string): string => profileLabels[profile] ? `${profileLabels[profile]} (${profile})` : profile;

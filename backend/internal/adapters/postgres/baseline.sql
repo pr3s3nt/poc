@@ -16,9 +16,7 @@ CREATE TABLE schema_baseline (
 CREATE TABLE organizations (
   id uuid PRIMARY KEY,
   organization_key text UNIQUE NOT NULL,
-  name text NOT NULL,
-  default_connection_key text NOT NULL,
-  default_connection_id uuid
+  name text NOT NULL
 );
 
 CREATE TABLE user_accounts (
@@ -49,8 +47,6 @@ CREATE TABLE connections (
     (kind='KUBERNETES' AND authentication_type='KUBECONFIG') OR
     (kind='AWS' AND authentication_type='AWS_ACCESS_KEY'))
 );
-ALTER TABLE organizations ADD CONSTRAINT organizations_default_connection_fk
-  FOREIGN KEY (default_connection_id) REFERENCES connections(id) DEFERRABLE INITIALLY DEFERRED;
 
 -- Application is identity and current metadata only; execution and store
 -- binding belong to the Environment.
@@ -70,8 +66,7 @@ CREATE TABLE secret_store_connections (
   created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(organization_id, store_key)
 );
 
--- No permanent binding immutability trigger: binding writes go through the
--- dedicated versioned commands and the operation claim owner.
+-- An Environment carries no deployment Connection, execution profile or region (ADR-017).
 CREATE TABLE environments (
   id uuid PRIMARY KEY, application_id uuid NOT NULL REFERENCES applications(id),
   environment_key text NOT NULL, name text NOT NULL, environment_type text NOT NULL,
@@ -79,20 +74,12 @@ CREATE TABLE environments (
   version bigint NOT NULL, draft_version bigint NOT NULL DEFAULT 0,
   public_routes_pending boolean NOT NULL DEFAULT false,
   desired_config_revision_id uuid,
-  connection_id uuid REFERENCES connections(id),
-  execution_profile text NOT NULL DEFAULT '',
-  region text NOT NULL DEFAULT '',
-  runtime_status text NOT NULL DEFAULT 'UNCONFIGURED',
   infrastructure_scope text NOT NULL DEFAULT 'ENVIRONMENT',
   secret_store_id uuid REFERENCES secret_store_connections(id),
   target_generation bigint NOT NULL DEFAULT 0,
   generation_high bigint NOT NULL DEFAULT 0,
   active_operation_id uuid,
   UNIQUE(application_id, environment_key), UNIQUE(application_id, namespace_identity),
-  CONSTRAINT environments_binding_consistent CHECK (
-    (connection_id IS NULL AND runtime_status='UNCONFIGURED' AND execution_profile='' AND region='') OR
-    (connection_id IS NOT NULL AND execution_profile IN ('aws-eks','internal-k8s') AND runtime_status IN ('PENDING','READY')
-      AND (execution_profile<>'aws-eks' OR region<>''))),
   CONSTRAINT environments_infrastructure_scope_check CHECK (infrastructure_scope = 'ENVIRONMENT')
 );
 
@@ -120,22 +107,15 @@ CREATE UNIQUE INDEX environment_operations_one_holder ON environment_operations(
   WHERE status IN ('ACTIVE','INTERRUPTED','RECOVERING');
 ALTER TABLE environments ADD CONSTRAINT environments_active_operation_fk
   FOREIGN KEY(active_operation_id) REFERENCES environment_operations(id) DEFERRABLE INITIALLY DEFERRED;
-CREATE TABLE environment_transitions (
-  id uuid PRIMARY KEY, environment_id uuid NOT NULL REFERENCES environments(id), operation_id uuid NOT NULL,
-  status text NOT NULL, stage text NOT NULL, document jsonb NOT NULL,
-  created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL
-);
-CREATE INDEX environment_transitions_env_idx ON environment_transitions(environment_id, created_at DESC);
-
 CREATE TABLE deployments (
   id uuid PRIMARY KEY, environment_id uuid NOT NULL REFERENCES environments(id),
   organization_key text NOT NULL, application_key text NOT NULL, environment_key text NOT NULL,
-  execution_profile text NOT NULL, action text NOT NULL, workload_id text NOT NULL,
+  action text NOT NULL, workload_id text NOT NULL,
   actor_ref text NOT NULL, status text NOT NULL, base_environment_version bigint NOT NULL,
   base_deployment_set_id uuid, candidate_deployment_set_id uuid,
   failure_reason text NOT NULL DEFAULT '', started_at timestamptz NOT NULL,
   finished_at timestamptz,
-  connection_key text NOT NULL DEFAULT '', target_generation bigint NOT NULL DEFAULT 0
+  target_generation bigint NOT NULL DEFAULT 0
 );
 CREATE INDEX deployments_environment_started_idx ON deployments(environment_id, started_at DESC);
 CREATE TABLE deployment_sets (

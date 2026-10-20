@@ -55,6 +55,10 @@ func jsonBody(t *testing.T, value any) string {
 
 func TestUC04UploadHTTPContract(t *testing.T) {
 	server, verifier, store, app := uploadServer(t, true)
+	beforeOrg, orgErr := app.Store.GetOrganization(context.Background(), "acme")
+	if orgErr != nil {
+		t.Fatal(orgErr)
+	}
 	pe := authenticatedClientAs(t, server.URL, "platform-engineer")
 	dev := authenticatedClient(t, server.URL)
 	doc := ct.Document(ct.TokenContext("dev", "https://dev.example:6443", uploadToken), ct.CertificateContext("prod", "https://prod.example"))
@@ -144,8 +148,8 @@ func TestUC04UploadHTTPContract(t *testing.T) {
 		}
 	}
 	org, err := app.Store.GetOrganization(context.Background(), "acme")
-	if err != nil || org.DefaultConnectionKey != "internal-cluster" {
-		t.Fatalf("organization default changed: %#v %v", org, err)
+	if err != nil || org != beforeOrg {
+		t.Fatalf("Organization metadata changed: %#v %v", org, err)
 	}
 	resp, body = call(t, pe, http.MethodPost, register, jsonBody(t, map[string]string{"name": "Lab cluster", "kubeconfig": doc, "context": "dev"}))
 	if resp.StatusCode != http.StatusCreated || decode(t, body)["key"] != "lab-cluster-2" {
@@ -205,8 +209,8 @@ func TestProductSeedClusterIsVerifyingAndApplicationCreateStillWorks(t *testing.
 		t.Fatalf("seeded cluster = %+v, %v", seeded, err)
 	}
 	org, err := app.Store.GetOrganization(ctx, opts.OrganizationKey)
-	if err != nil || org.DefaultConnectionKey != opts.ConnectionKey {
-		t.Fatalf("organization default = %+v, %v", org, err)
+	if err != nil || org.Key != opts.OrganizationKey || org.Name == "" {
+		t.Fatalf("Organization metadata = %+v, %v", org, err)
 	}
 	dev := authenticatedClient(t, server.URL)
 	resp, body := call(t, dev, http.MethodPost, server.URL+"/api/v1/applications", `{"name":"Seeded Cluster App","subdomain":"seeded-app"}`)

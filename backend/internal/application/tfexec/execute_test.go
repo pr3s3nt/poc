@@ -516,7 +516,7 @@ func TestClaimAndStaleFenceAreRequiredBeforeEffects(t *testing.T) {
 func TestProviderPinsMustMatchModuleProviders(t *testing.T) {
 	h := newHarness(t)
 	req := h.request("run-1", h.mod, inputs("db1", "k"))
-	req.Pins = []tfmodule.ProviderPin{{Name: "aws", Kind: tfmodule.BindingAWS, Target: tfmodule.TargetEnvironment, ConnectionKey: "aws-account", Region: "us-east-1"}}
+	req.Pins = []tfmodule.ProviderPin{{Name: "aws", Kind: tfmodule.BindingAWS, Target: "environment", ConnectionKey: "aws-account", Region: "us-east-1"}}
 	ctx, _ := h.claim("proc-a")
 	if _, err := h.svc.Execute(ctx, req); !errors.Is(err, tfexec.ErrBinding) {
 		t.Fatalf("pin without provider: %v", err)
@@ -536,7 +536,7 @@ func TestAttemptsLinkTheDeploymentAndFeedTheSafeConsoleProjection(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := deployment.Deployment{ID: ids.New(), EnvironmentID: env.ID, OrganizationKey: h.orgKey, ApplicationKey: h.appKey, EnvironmentKey: "staging", ExecutionProfile: "internal-k8s", Action: deployment.ActionDeploy, WorkloadID: "api", ActorRef: "test", Status: deployment.StatusPlanning, BaseEnvironmentVersion: env.Version, StartedAt: time.Now().UTC()}
+	record := deployment.Deployment{ID: ids.New(), EnvironmentID: env.ID, OrganizationKey: h.orgKey, ApplicationKey: h.appKey, EnvironmentKey: "staging", Action: deployment.ActionDeploy, WorkloadID: "api", ActorRef: "test", Status: deployment.StatusPlanning, BaseEnvironmentVersion: env.Version, StartedAt: time.Now().UTC()}
 	if err := h.store.SaveDeployment(context.Background(), record); err != nil {
 		t.Fatal(err)
 	}

@@ -214,8 +214,8 @@ describe('exact matching preview shows the safe winner, account, region and conf
     expect(screen.queryByText(/secret|credential/i)).not.toBeInTheDocument();
   });
 
-  it('shows the inherited cluster source of a Kubernetes winner, labelling the legacy Environment target', async () => {
-    for (const [clusterSource, expected] of [[{ kind: 'RESOURCE', reference: 'k8s-cluster.eks#environments.@app.@env' }, /tài nguyên k8s-cluster.eks#environments.@app.@env/], [{ kind: 'LEGACY_ENVIRONMENT' }, /Môi trường \(cách cũ, giữ tới V03\)/]] as const) {
+  it('shows resource cluster provenance and safely labels retired Environment targets', async () => {
+    for (const [clusterSource, expected] of [[{ kind: 'RESOURCE', reference: 'k8s-cluster.eks#environments.@app.@env' }, /tài nguyên k8s-cluster.eks#environments.@app.@env/], [{ kind: 'LEGACY_ENVIRONMENT' }, /Nguồn cluster không được hỗ trợ/]] as const) {
       stub(() => Response.json({ status: 'MATCHED', missingFields: [], candidates: [], winner: { key: 'pg-k8s', name: 'PG k8s', driverType: 'terraform', score: 0, clusterSource }, snapshot: { marker: 'mm', environmentVersion: 2 } }));
       const { unmount } = render(<MatchingPreviewPanel candidate={{ definition, problem: '' }} sample={sample} />);
       await userEvent.setup().click(run());
@@ -259,7 +259,7 @@ describe('exact matching preview invalidation by context metadata (T19)', () => 
   }
   const gone = () => expect(screen.queryByRole('region', { name: 'Kết quả matching chính xác' })).not.toBeInTheDocument();
 
-  it('drops the result when the Environment target/version changed but keys, type and profile did not', async () => {
+  it('drops the result when the Environment configuration version changed while matching inputs stayed the same', async () => {
     const view = await ranResult();
     view.rerender(editor(app('v2')));
     gone();

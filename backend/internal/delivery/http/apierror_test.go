@@ -19,7 +19,6 @@ import (
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/secretstores"
-	"orchestrator/internal/application/transition"
 	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/planning"
@@ -70,37 +69,24 @@ func TestWriteErrorCodesStatusesAndFields(t *testing.T) {
 		{"app invalid field", &appcreate.FieldError{Field: "name", Err: appcreate.ErrInvalid}, 400, "INVALID_REQUEST", "name"},
 		{"app unknown field dropped", &appcreate.FieldError{Field: canary, Err: appcreate.ErrInvalid}, 400, "INVALID_REQUEST", ""},
 		{"catalog id", fmt.Errorf("%w: %q", catalog.ErrInvalid, canary), 400, "INVALID_REQUEST", ""},
-		{"target not ready", &appcreate.FieldError{Field: "connectionKey", Err: appcreate.ErrTargetNotReady}, 422, "CONNECTION_UNAVAILABLE", "connectionKey"},
 		{"stale version", fmt.Errorf("row %s: %w", canary, persistence.ErrVersionConflict), 409, "STALE_VERSION", ""},
 		{"stale preview", pending.ErrStalePreview, 409, "STALE_PREVIEW", ""},
-		{"stale token", transition.ErrStaleToken, 409, "STALE_PREVIEW", ""},
 		{"busy", persistence.Busy("a", "staging"), 409, "ENVIRONMENT_BUSY", ""},
 		{"not found", fmt.Errorf("%s: %w", canary, persistence.ErrNotFound), 404, "NOT_FOUND", ""},
 		{"unauthorized", authentication.ErrUnauthorized, 401, "UNAUTHORIZED", ""},
 		{"credentials", authentication.ErrInvalidCredentials, 401, "INVALID_CREDENTIALS", ""},
-		{"unconfigured", planning.ErrEnvironmentUnconfigured, 422, "ENVIRONMENT_UNCONFIGURED", "connectionKey"},
 		{"no store", appconfig.ErrNoStore, 422, "SECRET_STORE_REQUIRED", "secretStoreKey"},
 		{"store unavailable", configport.ErrStoreUnavailable, 422, "SECRET_STORE_UNAVAILABLE", "secretStoreKey"},
 		{"copy failed", fmt.Errorf("%w: %s", appconfig.ErrStoreCopy, canary), 502, "SECRET_COPY_FAILED", ""},
 		{"operation lost", persistence.ErrOperationLost, 409, "OPERATION_LOST", ""},
 		{"route reconcile", pending.ErrRouteReconcile, 502, "ROUTE_RECONCILE_FAILED", ""},
-		{"runtime exists", appcreate.ErrRuntimeExists, 409, "TRANSITION_REQUIRED", ""},
 		{"verification generic", fmt.Errorf("%w: %s", connectionapp.ErrVerification, canary), 422, "VERIFICATION_FAILED", ""},
 		{"secret store verification", fmt.Errorf("%w: %s", secretstores.ErrVerification, canary), 422, "VERIFICATION_FAILED", ""},
 		{"credential store", connectionapp.ErrCredentialStore, 503, "SERVICE_UNAVAILABLE", ""},
 		{"too large", connectionapp.ErrKubeconfigTooLarge, 413, "REQUEST_TOO_LARGE", ""},
 		{"kubeconfig tls", connectionapp.ErrInvalidTLS, 400, "KUBECONFIG_INVALID_TLS", ""},
 		{"kubeconfig context", connectionapp.ErrContextRequired, 400, "KUBECONFIG_CONTEXT_REQUIRED", ""},
-		{"same destination", transition.ErrSameDestination, 422, "TRANSITION_SAME_DESTINATION", "destinationKey"},
-		{"destination failed", transition.ErrDestinationFailed, 422, "DESTINATION_UNAVAILABLE", "destinationKey"},
-		{"retired transition", transition.ErrTransitionRetired, 422, "DEPLOYMENT_CONNECTION_RETIRED", "destinationKey"},
-		{"downtime", transition.ErrAcknowledge, 422, "DOWNTIME_ACK_REQUIRED", "acknowledgeDowntime"},
 		{"recovery unconfirmed", persistence.ErrRecoveryUnconfirmed, 422, "RECOVERY_CONFIRMATION_REQUIRED", "priorExecutionStopped"},
-		{"no runtime", transition.ErrNoRuntime, 409, "NO_RUNTIME", ""},
-		{"cleanup refused", transition.ErrCleanupRefused, 409, "CLEANUP_REFUSED", ""},
-		{"not recoverable", transition.ErrNotRecoverable, 409, "NOT_RECOVERABLE", ""},
-		{"recovery incomplete", transition.ErrRecoveryIncomplete, 409, "RECOVERY_INCOMPLETE", ""},
-		{"unsupported", &transition.UnsupportedError{Reason: canary}, 422, "TRANSITION_UNSUPPORTED", ""},
 		{"matching preview field", &catalog.PreviewInvalidError{Field: "definition.criteria"}, 400, "INVALID_REQUEST", "definition.criteria"},
 		{"matching preview unknown field dropped", &catalog.PreviewInvalidError{Field: canary}, 400, "INVALID_REQUEST", ""},
 		{"unknown", fmt.Errorf("pq: password=%s", canary), 500, "INTERNAL_ERROR", ""},

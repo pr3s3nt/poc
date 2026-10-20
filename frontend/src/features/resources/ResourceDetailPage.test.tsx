@@ -7,7 +7,7 @@ import { bothConfigured } from '../../test/targets';
 import { apiError, stubApi } from '../../test/api';
 import { detail, operation, preview, rootId, rootName, wire } from '../../test/resources';
 
-const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured('internal-cluster'), workloads: { staging: [], production: [] } };
+const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 const isDetail = (url: string) => url.endsWith(`/resources/${rootId}`);
 
 afterEach(() => vi.unstubAllGlobals());
@@ -30,7 +30,7 @@ describe('resource detail (UC-09 RES-01/02)', () => {
     stubApi((c) => isDetail(c.url) ? Response.json(wire.resource(detail())) : undefined);
     const view = render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);
     const target = await screen.findByTestId('original-target');
-    expect(target).toHaveTextContent('Original AWS (aws-original) · AWS · aws-eks · tài khoản 123456789012 · eu-west-1 · thế hệ 0');
+    expect(target).toHaveTextContent('Original AWS (aws-original) · AWS · tài khoản 123456789012 · eu-west-1 · thế hệ 0');
     view.unmount();
     stubApi((c) => isDetail(c.url) ? Response.json(wire.resource(detail({ target: { known: false, generation: 2 } }))) : undefined);
     render(<ResourceDetailPage application={application} environment="staging" resourceId={rootId} canDelete />);

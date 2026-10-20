@@ -71,7 +71,7 @@ func awsFixture(t *testing.T) (*store.Store, *credentialmemory.Store, *awsVerifi
 	ctx := context.Background()
 	st := store.New()
 	for _, key := range []string{"acme", "other"} {
-		if err := st.SaveOrganization(ctx, application.Organization{Key: key, Name: key, DefaultConnectionKey: "internal-cluster"}); err != nil {
+		if err := st.SaveOrganization(ctx, application.Organization{Key: key, Name: key}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -90,6 +90,10 @@ func awsCommand() connection.RegisterAWSCommand {
 func TestRegisterAWSStoresKeyOnlyInTheScopedStoreAndResolvesIt(t *testing.T) {
 	ctx := context.Background()
 	st, creds, v, svc := awsFixture(t)
+	beforeOrg, orgErr := st.GetOrganization(ctx, "acme")
+	if orgErr != nil {
+		t.Fatal(orgErr)
+	}
 	created, err := svc.RegisterAWS(ctx, "acme", awsCommand())
 	if err != nil {
 		t.Fatal(err)
@@ -118,8 +122,8 @@ func TestRegisterAWSStoresKeyOnlyInTheScopedStoreAndResolvesIt(t *testing.T) {
 	if stored.SecretRef == "" || !strings.Contains(stored.SecretRef, "/acme/"+created.Key+"/credentials/") {
 		t.Fatalf("secret reference is not scoped: %q", stored.SecretRef)
 	}
-	if org, _ := st.GetOrganization(ctx, "acme"); org.DefaultConnectionKey != "internal-cluster" {
-		t.Fatalf("registration changed the organization default: %#v", org)
+	if org, _ := st.GetOrganization(ctx, "acme"); org != beforeOrg {
+		t.Fatalf("registration changed Organization metadata: %#v", org)
 	}
 
 	resolver := connection.NewCredentialResolver(st, creds)

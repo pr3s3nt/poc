@@ -38,12 +38,12 @@ func testBundles() map[string]resource.RenderBundle {
 	return map[string]resource.RenderBundle{seed.RenderBundleID: {ID: seed.RenderBundleID, Version: "0.15.0", BinaryDigest: "sha256:bin", Digest: "sha256:bundle"}}
 }
 
-func testRequest(t *testing.T, profile application.ExecutionProfile, workload string) Request {
+func testRequest(t *testing.T, profile string, workload string) Request {
 	t.Helper()
 	o := seedOptions()
-	appKey, namespace, connectionKey := o.ApplicationKey, o.NamespaceIdentity, o.ConnectionKey
-	if profile == application.ProfileAWSEKS {
-		appKey, namespace, connectionKey = o.CloudApplicationKey, o.CloudNamespaceIdentity, o.CloudConnectionKey
+	appKey, namespace := o.ApplicationKey, o.NamespaceIdentity
+	if profile == "aws-eks" {
+		appKey, namespace = "acceptance-cloud", "app-acceptance-cloud-staging"
 	}
 
 	doc, err := score.FromMap(seed.AcceptanceScores(o)[workload])
@@ -57,22 +57,11 @@ func testRequest(t *testing.T, profile application.ExecutionProfile, workload st
 		Type: o.EnvironmentType, NamespaceIdentity: namespace, Version: 1,
 		InfrastructureScope: environment.ScopeEnvironment,
 	}
-	if profile == application.ProfileAWSEKS {
-		env.Region = o.Region
-		env.ConnectionKey, env.Profile, env.RuntimeStatus = connectionKey, profile, application.RuntimeReady
-	}
-	kind := application.ConnectionKubernetes
-	if profile == application.ProfileAWSEKS {
-		kind = application.ConnectionAWS
-	}
-	conn := application.Connection{Key: connectionKey, Kind: kind, OrganizationKey: o.OrganizationKey, Status: application.ConnectionReady,
-		Config: map[string]any{"cluster": o.ClusterName, "kubeContext": o.KubeContext}}
 
 	return Request{
 		OrganizationKey: o.OrganizationKey,
 		App:             app,
 		Env:             env,
-		Connection:      conn,
 		BaseSet:         environment.NewDocument(),
 		After:           doc,
 		WorkloadID:      workload,
@@ -174,7 +163,7 @@ type errUnknownModule string
 func (e errUnknownModule) Error() string { return "unknown module " + string(e) }
 
 func TestPlan_UsesDeploymentSetPathsAsResourceIdentity(t *testing.T) {
-	plan, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	plan, err := NewService(testBundles()).Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -196,7 +185,7 @@ func TestPlan_UsesDeploymentSetPathsAsResourceIdentity(t *testing.T) {
 }
 
 func TestPlanRejectsTwoPublicWorkloads(t *testing.T) {
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req := testRequest(t, "internal-k8s", "backend")
 	req.BaseSet.Modules["frontend"] = environment.Module{Profile: environment.ModuleProfile, Spec: environment.ModuleSpec{
 		Containers: map[string]environment.Container{"main": {Image: "frontend:v1"}},
 		Service:    &environment.Service{Ports: map[string]environment.Port{"web": {Port: 80}}, PublicRoutes: []environment.PublicPath{{Path: "/", Port: "web"}}},
@@ -208,7 +197,7 @@ func TestPlanRejectsTwoPublicWorkloads(t *testing.T) {
 }
 
 func TestPlanAcceptsDistinctPublicPaths(t *testing.T) {
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req := testRequest(t, "internal-k8s", "backend")
 	req.BaseSet.Modules["frontend"] = environment.Module{Profile: environment.ModuleProfile, Spec: environment.ModuleSpec{
 		Containers: map[string]environment.Container{"main": {Image: "frontend:v1"}},
 		Service:    &environment.Service{Ports: map[string]environment.Port{"web": {Port: 80}}, PublicRoutes: []environment.PublicPath{{Path: "/", Port: "web"}}},
@@ -224,7 +213,7 @@ func TestPlanAcceptsDistinctPublicPaths(t *testing.T) {
 }
 
 func TestPlan_InternalGraphIsProviderFirst(t *testing.T) {
-	plan, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	plan, err := NewService(testBundles()).Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -259,7 +248,7 @@ func matchOf(t *testing.T, plan *Plan, resourceType string) string {
 }
 
 func TestPlan_ScoreParamsBecomeResourceInputs(t *testing.T) {
-	plan, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	plan, err := NewService(testBundles()).Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -280,7 +269,7 @@ func TestPlan_ScoreParamsBecomeResourceInputs(t *testing.T) {
 }
 
 func TestPlan_RejectsDriverVariableTheModuleDoesNotDeclare(t *testing.T) {
-	req := testRequest(t, application.ProfileAWSEKS, "backend")
+	req := testRequest(t, "aws-eks", "backend")
 	defs := append([]resource.Definition(nil), req.Catalog.Definitions...)
 	for i, def := range defs {
 		if def.Key != "vpc-aws" {
@@ -303,7 +292,7 @@ func TestPlan_RejectsDriverVariableTheModuleDoesNotDeclare(t *testing.T) {
 }
 
 func TestPlan_DeltaKeepsInvariant(t *testing.T) {
-	plan, err := NewService(testBundles()).Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	plan, err := NewService(testBundles()).Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -314,11 +303,11 @@ func TestPlan_DeltaKeepsInvariant(t *testing.T) {
 
 func TestPlan_SharedResourceKeepsOneDescriptorForBackendAndWorker(t *testing.T) {
 	svc := NewService(testBundles())
-	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	first, err := svc.Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan backend: %v", err)
 	}
-	second := testRequest(t, application.ProfileInternalK8s, "worker")
+	second := testRequest(t, "internal-k8s", "worker")
 	second.BaseSet = first.CandidateSet
 	plan, err := svc.Plan(second)
 	if err != nil {
@@ -349,11 +338,11 @@ func TestPlan_SharedResourceKeepsOneDescriptorForBackendAndWorker(t *testing.T) 
 
 func TestPlan_RejectsPlanningFromStaleBeforeState(t *testing.T) {
 	svc := NewService(testBundles())
-	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	first, err := svc.Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
-	second := testRequest(t, application.ProfileInternalK8s, "backend")
+	second := testRequest(t, "internal-k8s", "backend")
 	second.BaseSet = first.CandidateSet
 	if _, err := svc.Plan(second); err == nil {
 		t.Fatal("expected an error when redeploying without a before Score")
@@ -363,7 +352,7 @@ func TestPlan_RejectsPlanningFromStaleBeforeState(t *testing.T) {
 // TestPlan_CoProvisionAddsDependentAndMatchesDependents exercises the
 // provision rules of UC-06 BR-08 on a definition written for the test.
 func TestPlan_CoProvisionAddsDependentAndMatchesDependents(t *testing.T) {
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req := testRequest(t, "internal-k8s", "backend")
 	catalog := req.Catalog
 	catalog.Types["logging"] = resource.Type{
 		Key:     "logging",
@@ -432,7 +421,7 @@ func TestPlan_CoProvisionAddsDependentAndMatchesDependents(t *testing.T) {
 
 func TestPlan_RejectsBeforeScoreWithStaleSharedResource(t *testing.T) {
 	svc := NewService(testBundles())
-	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	first, err := svc.Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan backend: %v", err)
 	}
@@ -443,7 +432,7 @@ func TestPlan_RejectsBeforeScoreWithStaleSharedResource(t *testing.T) {
 	entry.Params = map[string]any{"database": "other", "username": "app"}
 	base.Shared["acceptance-db"] = entry
 
-	update := testRequest(t, application.ProfileInternalK8s, "backend")
+	update := testRequest(t, "internal-k8s", "backend")
 	update.BaseSet = base
 	update.Before = update.After
 	if _, err := svc.Plan(update); err == nil {
@@ -453,13 +442,13 @@ func TestPlan_RejectsBeforeScoreWithStaleSharedResource(t *testing.T) {
 
 func TestPlan_RejectsSharedConflict(t *testing.T) {
 	svc := NewService(testBundles())
-	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	first, err := svc.Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan backend: %v", err)
 	}
 
 	// A second workload claims the same shared id with different params.
-	second := testRequest(t, application.ProfileInternalK8s, "worker")
+	second := testRequest(t, "internal-k8s", "worker")
 	second.BaseSet = first.CandidateSet
 	resources := second.After.Resources["db"]
 	resources.Params = map[string]any{"database": "different", "username": "app"}
@@ -476,13 +465,13 @@ func TestPlan_RejectsSharedConflict(t *testing.T) {
 
 func TestPlan_DropsSharedResourceWhenTheLastWorkloadStopsDeclaringIt(t *testing.T) {
 	svc := NewService(testBundles())
-	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	first, err := svc.Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan backend: %v", err)
 	}
 
 	// The same workload redeploys without the database.
-	update := testRequest(t, application.ProfileInternalK8s, "backend")
+	update := testRequest(t, "internal-k8s", "backend")
 	update.BaseSet = first.CandidateSet
 	update.Before = update.After
 
@@ -512,11 +501,11 @@ func TestPlan_DropsSharedResourceWhenTheLastWorkloadStopsDeclaringIt(t *testing.
 
 func TestPlan_KeepsSharedResourceWhileAnotherWorkloadReferencesIt(t *testing.T) {
 	svc := NewService(testBundles())
-	first, err := svc.Plan(testRequest(t, application.ProfileInternalK8s, "backend"))
+	first, err := svc.Plan(testRequest(t, "internal-k8s", "backend"))
 	if err != nil {
 		t.Fatalf("plan backend: %v", err)
 	}
-	second := testRequest(t, application.ProfileInternalK8s, "worker")
+	second := testRequest(t, "internal-k8s", "worker")
 	second.BaseSet = first.CandidateSet
 	withWorker, err := svc.Plan(second)
 	if err != nil {
@@ -524,7 +513,7 @@ func TestPlan_KeepsSharedResourceWhileAnotherWorkloadReferencesIt(t *testing.T) 
 	}
 
 	// The backend drops the database; the worker still uses it (UC-07 BR-03).
-	update := testRequest(t, application.ProfileInternalK8s, "backend")
+	update := testRequest(t, "internal-k8s", "backend")
 	update.BaseSet = withWorker.CandidateSet
 	update.Before = update.After
 
@@ -569,7 +558,7 @@ func TestPlan_CoProvisionFlagMatrix(t *testing.T) {
 		{"both flags", true, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			req := testRequest(t, application.ProfileInternalK8s, "backend")
+			req := testRequest(t, "internal-k8s", "backend")
 			catalog := req.Catalog
 			catalog.Types["logging"] = resource.Type{Key: "logging", Outputs: []resource.OutputField{{Name: "endpoint", Type: "string"}}}
 			params := map[string]any{
@@ -640,7 +629,7 @@ func TestPlan_CoProvisionFlagMatrix(t *testing.T) {
 // other, which the planner rejects at the schedule stage (planner reference
 // "17-co-provision": a cycle in the final graph is RESOURCE_GRAPH_CYCLE).
 func TestPlan_CoProvisionDependentCycleIsRejected(t *testing.T) {
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req := testRequest(t, "internal-k8s", "backend")
 	catalog := req.Catalog
 	catalog.Types["logging"] = resource.Type{Key: "logging", Outputs: []resource.OutputField{{Name: "endpoint", Type: "string"}}}
 	defs := append([]resource.Definition(nil), catalog.Definitions...)

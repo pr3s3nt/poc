@@ -40,7 +40,7 @@ func newAccountFixture(t *testing.T) *accountFixture {
 	ctx := context.Background()
 	st := store.New()
 	for _, key := range []string{"acme", "other"} {
-		if err := st.SaveOrganization(ctx, application.Organization{Key: key, Name: key, DefaultConnectionKey: "internal-cluster"}); err != nil {
+		if err := st.SaveOrganization(ctx, application.Organization{Key: key, Name: key}); err != nil {
 			t.Fatal(err)
 		}
 	}

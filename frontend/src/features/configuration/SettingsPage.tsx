@@ -7,7 +7,6 @@ import { environmentTitle } from '../environment/labels';
 import { useEnvironmentBusy } from '../environment/useEnvironmentBusy';
 import { OperationBanner } from '../environment/OperationBanner';
 import { SecretStoreSelection } from '../environment/SecretStoreSelection';
-import { TransitionPanel } from '../environment/TransitionPanel';
 import { deleteKey, getConfiguration, putKey, renameKey, type ConfigKey, type Configuration, type KeyKind } from './api';
 
 type Form = { kind: KeyKind; name: string; value: string; editing?: string };
@@ -178,7 +177,6 @@ export function SettingsPage({ application, initialEnvironment = 'staging', onTa
     <header className="page-header application-header"><div><p className="eyebrow">Cài đặt ứng dụng</p><h1>Cài đặt môi trường</h1><p>Chọn kho bí mật của từng môi trường, rồi cấu hình giá trị riêng cho staging và production. Dùng Xem trước trên trang Ứng dụng để biết phần nào còn cần triển khai. Lựa chọn gợi ý chỉ là bản nháp cho đến khi bạn bấm Lưu.</p></div>{data && data.version > 0 ? <span className="pending-pill">Phiên bản cấu hình v{data.version}</span> : null}</header>
     <div className="tabs" role="tablist" aria-label="Môi trường">{(['staging', 'production'] as const).map((env) => <button key={env} role="tab" aria-selected={env === environment} className={env === environment ? 'tab tab-active' : 'tab'} onClick={() => { setEnvironment(env); replaceRoute({ name: 'settings', applicationId: application.id, environment: env }); }}>{environmentTitle(env)}</button>)}</div>
     <OperationBanner application={application} environment={environment} onTargetChange={change} />
-    {application.environments[environment].runtimeExists ? <TransitionPanel application={application} environment={environment} initialDestination="" onTargetChange={change} /> : null}
     <SecretStoreSelection application={application} environment={environment} configVersion={data?.version ?? 0} onTargetChange={change} onConfigurationChanged={() => setReloadCount((value) => value + 1)} />
     {needStore && !hasStore ? <div className="form-info" role="status">Hãy chọn kho bí mật ở trên trước khi thêm Bí mật. Biến môi trường thì thêm được mà không cần kho.</div> : null}
     {error ? <div className="form-error" role="alert">{error}{reloadNeeded ? <Button type="button" onClick={() => void retryReload()}>Tải lại cấu hình</Button> : null}{!data && !loading ? <Button type="button" onClick={() => { setError(''); setLoading(true); setReloadCount((value) => value + 1); }}>Thử lại</Button> : null}</div> : null}

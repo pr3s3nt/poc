@@ -35,7 +35,7 @@ type grant struct {
 var productTables = []string{
 	"organizations", "user_accounts", "sessions", "connections", "applications",
 	"secret_store_connections", "environments", "environment_operations",
-	"environment_transitions", "deployments", "deployment_sets",
+	"deployments", "deployment_sets",
 	"deployment_delta_snapshots", "deployment_plans", "resource_types",
 	"resource_definitions", "matching_criteria", "active_resources",
 	"deployment_resources", "configuration_revisions",

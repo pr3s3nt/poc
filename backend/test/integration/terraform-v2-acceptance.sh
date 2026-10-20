@@ -64,7 +64,6 @@ cfg() { "${CTL}" config-get -config "${CONFIG}" -field "$1"; }
 SCENARIO="$(cfg scenario)"
 case "${SCENARIO}" in
   A01|E01|E02) source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"; retired_runner "terraform-v2-acceptance.sh scenario ${SCENARIO} (builtin existing-cluster / internal Connection)" "backend/test/integration/v04-internal-full.sh (existing cluster, full app); the AWS scenarios are V05, A02 and A03 (Definition-driven, no Environment Connection)" ;;
-  A02|A03) source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/retired-runner.sh"; retired_runner "terraform-v2-acceptance.sh scenario ${SCENARIO} (managed data services)" "the V06 patch (Definition-driven A02/A03); the V05 gate runs scenario V05 only" ;;
 esac
 TARGET="$(cfg target)"
 IS_AWS=0

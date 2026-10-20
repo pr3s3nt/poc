@@ -19,20 +19,12 @@ var subdomainPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`
 
 // Sentinel errors let delivery map UC-01 failures without parsing messages.
 var (
-	ErrInvalid        = errors.New("application: invalid input")
-	ErrDuplicate      = errors.New("application: already exists")
-	ErrTargetNotReady = errors.New("application: execution target is unavailable")
+	ErrInvalid      = errors.New("application: invalid input")
+	ErrDuplicate    = errors.New("application: already exists")
+	ErrStaleVersion = errors.New("application: environment changed; reload it")
 )
 
-// connectionKeyField names the request field reported for target failures.
-const connectionKeyField = "connectionKey"
-
-// targetUnavailableMsg is the single safe message for a missing, foreign,
-// not-ready or unsupported Connection; it never reveals which case applied.
-const targetUnavailableMsg = "the selected connection is not available"
-
-// FieldError names the Developer-editable field (name, subdomain or
-// connectionKey) that failed.
+// FieldError names the Developer-editable field (name or subdomain) that failed.
 type FieldError struct {
 	Field string
 	Err   error
@@ -47,63 +39,9 @@ func fieldError(field string, err error, msg string) error {
 }
 
 // CreateCommand carries session-derived Organization and Developer input.
-// Create takes no Connection: Environments start UNCONFIGURED (ADR-011).
+// Create takes no Connection: placement comes from Resource Definitions (ADR-017).
 type CreateCommand struct {
 	OrganizationKey, Name, Subdomain, BaseDomain string
-}
-
-// Choice is the safe projection of a selectable Connection.
-type Choice struct {
-	Key    string
-	Name   string
-	Kind   appdomain.ConnectionKind
-	Status appdomain.ConnectionStatus
-}
-
-// Choices lists READY supported Connections and the Organization default.
-type Choices struct {
-	Connections          []Choice
-	DefaultConnectionKey string
-}
-
-func supportedKind(k appdomain.ConnectionKind) bool {
-	return k == appdomain.ConnectionKubernetes || k == appdomain.ConnectionAWS
-}
-
-// eligible reports whether a Connection can bind a new Application.
-func eligible(org string, c appdomain.Connection) bool {
-	if c.OrganizationKey != org || c.Status != appdomain.ConnectionReady || !supportedKind(c.Kind) {
-		return false
-	}
-	return c.Kind != appdomain.ConnectionAWS || c.ConfigString("region") != ""
-}
-
-// ListChoices returns the selectable Connections of the Organization. The
-// default key is reported only when it is itself eligible.
-func (s *Service) ListChoices(ctx context.Context, organizationKey string) (Choices, error) {
-	org, err := s.store.GetOrganization(ctx, organizationKey)
-	if err != nil {
-		return Choices{}, err
-	}
-	conns, err := s.store.ListConnections(ctx, org.Key)
-	if err != nil {
-		return Choices{}, err
-	}
-	out := Choices{Connections: []Choice{}}
-	for _, c := range conns {
-		if !eligible(org.Key, c) {
-			continue
-		}
-		name := c.Name
-		if name == "" {
-			name = c.Key
-		}
-		out.Connections = append(out.Connections, Choice{Key: c.Key, Name: name, Kind: c.Kind, Status: c.Status})
-		if c.Key == org.DefaultConnectionKey {
-			out.DefaultConnectionKey = c.Key
-		}
-	}
-	return out, nil
 }
 
 type Result struct {
@@ -154,7 +92,7 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 		for _, key := range []string{"staging", "production"} {
 			envID := ids.New()
 			set := environment.DeploymentSet{ID: ids.New(), EnvironmentID: envID, EnvironmentKey: app.Key + "/" + key, Document: environment.NewDocument(), DocumentHash: "empty", CreatedAt: time.Now().UTC()}
-			env := environment.Environment{ID: envID, Key: key, ApplicationID: app.ID, ApplicationKey: app.Key, Name: strings.Title(key), Type: key, NamespaceIdentity: "app-" + app.Key + "-" + key, CurrentDeploymentSetID: set.ID, Version: 1, RuntimeStatus: appdomain.RuntimeUnconfigured, InfrastructureScope: environment.ScopeEnvironment}
+			env := environment.Environment{ID: envID, Key: key, ApplicationID: app.ID, ApplicationKey: app.Key, Name: strings.Title(key), Type: key, NamespaceIdentity: "app-" + app.Key + "-" + key, CurrentDeploymentSetID: set.ID, Version: 1, InfrastructureScope: environment.ScopeEnvironment}
 			if err := s.store.SaveDeploymentSet(ctx, set); err != nil {
 				return err
 			}
@@ -167,77 +105,4 @@ func (s *Service) Create(ctx context.Context, cmd CreateCommand) (Result, error)
 		return nil
 	})
 	return result, err
-}
-
-// Failures of SetConnection that delivery maps to 409.
-var (
-	// ErrRuntimeExists means the Environment already has runtime state, so the
-	// target can only change through the explicit transition flow.
-	ErrRuntimeExists = errors.New("application: environment has runtime resources; use a connection transition")
-	ErrStaleVersion  = errors.New("application: environment changed; reload it")
-	// ErrDeploymentConnectionRetired rejects selecting a Kubernetes (Internal) Connection as an
-	// Environment deployment target: internal placement comes from Resource Definitions (ADR-016).
-	ErrDeploymentConnectionRetired = errors.New("application: the internal deployment connection is retired; Resource Definitions decide the target")
-	ErrNotFound                    = persistence.ErrNotFound
-	// ErrBusy wraps persistence.ErrEnvironmentBusy for delivery.
-	ErrBusy = persistence.ErrEnvironmentBusy
-)
-
-// SetConnectionCommand carries session-derived Organization and the request.
-type SetConnectionCommand struct {
-	OrganizationKey, ApplicationKey, EnvironmentKey, ConnectionKey string
-	ExpectedVersion                                                int64
-}
-
-// SetConnection selects or changes the execution Connection of one Environment
-// before any runtime exists (UC-01 ES-03..06, ADR-012). Selecting the same key
-// at the current version is an idempotent no-op. It is one versioned metadata
-// write: no provisioning and no external call.
-func (s *Service) SetConnection(ctx context.Context, cmd SetConnectionCommand) (environment.Environment, error) {
-	cmd.ConnectionKey = strings.TrimSpace(cmd.ConnectionKey)
-	if cmd.ConnectionKey == "" {
-		return environment.Environment{}, fieldError(connectionKeyField, ErrInvalid, "connectionKey must not be blank")
-	}
-	if cmd.ExpectedVersion <= 0 {
-		return environment.Environment{}, fieldError("expectedVersion", ErrInvalid, "expectedVersion is required")
-	}
-	var out environment.Environment
-	err := s.store.Transact(ctx, func(ctx context.Context) error {
-		app, err := s.store.GetApplication(ctx, cmd.ApplicationKey)
-		if err != nil {
-			return err
-		}
-		if app.OrganizationKey != cmd.OrganizationKey {
-			return fmt.Errorf("%w: application %q", persistence.ErrNotFound, cmd.ApplicationKey)
-		}
-		env, err := s.store.GetEnvironment(ctx, cmd.ApplicationKey, cmd.EnvironmentKey)
-		if err != nil {
-			return err
-		}
-		if env.Busy() {
-			return persistence.Busy(cmd.ApplicationKey, cmd.EnvironmentKey)
-		}
-		if env.Version != cmd.ExpectedVersion {
-			return ErrStaleVersion
-		}
-		if env.Configured() && env.ConnectionKey == cmd.ConnectionKey {
-			// Same key at the current version: nothing changes, nothing is rechecked.
-			out = env
-			return nil
-		}
-		conn, err := s.store.GetConnection(ctx, cmd.OrganizationKey, cmd.ConnectionKey)
-		if errors.Is(err, persistence.ErrNotFound) {
-			return fieldError(connectionKeyField, ErrTargetNotReady, targetUnavailableMsg)
-		}
-		if err != nil {
-			return err
-		}
-		if !eligible(cmd.OrganizationKey, conn) {
-			return fieldError(connectionKeyField, ErrTargetNotReady, targetUnavailableMsg)
-		}
-		// ADR-016 / ADR-017: placement comes from Resource Definitions and typed references, and every AWS Definition names its own
-		// Driver Account and region. An Environment never selects a deployment Connection, whatever its kind.
-		return fieldError(connectionKeyField, ErrDeploymentConnectionRetired, "placement comes from Resource Definitions and accounts; an Environment no longer selects a deployment connection")
-	})
-	return out, err
 }

@@ -63,7 +63,7 @@ func binder(api *fakeAPI) *Binder {
 	return &Binder{AWS: fakeAWS{conns: map[string]terraformexec.AWSConnection{"acct": awsConn()}}, Kube: fakeKube{}, API: api, Dir: ""}
 }
 
-var awsPin = tfmodule.ProviderPin{Name: "aws", Kind: tfmodule.BindingAWS, Target: tfmodule.TargetEnvironment, ConnectionKey: "acct", ConnectionKind: "AWS", Region: "us-east-1"}
+var awsPin = tfmodule.ProviderPin{Name: "aws", Kind: tfmodule.BindingAWS, Target: "environment", ConnectionKey: "acct", ConnectionKind: "AWS", Region: "us-east-1"}
 
 func has(env []string, prefix string) bool {
 	for _, e := range env {
@@ -132,7 +132,7 @@ func TestAWSBindingFailsClosedOnAccountRegionAndMissingConnection(t *testing.T) 
 
 func TestKubernetesConnectionBindingWritesPrivateKubeconfigAndNoHostContext(t *testing.T) {
 	t.Setenv("KUBECONFIG", "/host/kubeconfig")
-	pin := tfmodule.ProviderPin{Name: "kubernetes", Kind: tfmodule.BindingKubernetes, Target: tfmodule.TargetEnvironment, ConnectionKey: "internal", ConnectionKind: "KUBERNETES", Provider: "k8s-cluster.internal#connections.internal"}
+	pin := tfmodule.ProviderPin{Name: "kubernetes", Kind: tfmodule.BindingKubernetes, Target: "environment", ConnectionKey: "internal", ConnectionKind: "KUBERNETES", Provider: "k8s-cluster.internal#connections.internal"}
 	env, err := binder(&fakeAPI{}).Bind(context.Background(), terraformexec.BindRequest{OrganizationKey: "acme", Pins: []tfmodule.ProviderPin{pin}})
 	if err != nil {
 		t.Fatal(err)

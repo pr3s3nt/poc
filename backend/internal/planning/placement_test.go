@@ -131,7 +131,7 @@ func TestPlacement_DefinitionsDecideTargetWithoutEnvironmentConnection(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plan.Target.ConnectionKey != "" || plan.Target.Profile != "" {
+	if plan.Target != req.Env.Binding() {
 		t.Fatalf("an Environment target leaked into the plan: %+v", plan.Target)
 	}
 	cluster := plan.Matches[clusterNode]
@@ -472,9 +472,9 @@ func TestPlacement_WorkloadDependencyCyclesFailBeforeAnySideEffect(t *testing.T)
 func TestPlacement_EnvironmentProviderTargetIsRetiredForDefinitionPlacedEnvironments(t *testing.T) {
 	defs := defaultCatalog(t)
 	values := defs[1].DriverInputs["values"].(map[string]any)
-	values["provider_bindings"] = map[string]any{"kubernetes": map[string]any{"target": tfmodule.TargetEnvironment}}
+	values["provider_bindings"] = map[string]any{"kubernetes": map[string]any{"target": "environment"}}
 	_, err := placedPlan(t, placedRequest(t, frontendScore(), defs...))
-	if err == nil || !strings.Contains(err.Error(), "retired") {
+	if err == nil || !strings.Contains(err.Error(), "provider_bindings") {
 		t.Fatalf("err=%v", err)
 	}
 }

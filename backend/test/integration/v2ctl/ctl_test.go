@@ -331,3 +331,100 @@ func TestDirtyAndScanGuards(t *testing.T) {
 		t.Fatal("a scan without secret values proves nothing and must fail")
 	}
 }
+
+// This subprocess fixture exercises operator wiring only; it is not an AWS run.
+func TestOwnedAWSProbeRemovalKeepsOriginalUID(t *testing.T) {
+	e := newEnv(t, "a01-0001")
+	c := e.cfg
+	c.Scenario, c.Target, c.Kube, c.NodeArch = "A03", v2run.TargetAWS, nil, "arm64"
+	c.Execution = v2run.Duration{Duration: 180 * time.Minute}
+	c.Binaries["aws"] = v2run.Binary{Path: "/opt/aws", SHA256: strings.Repeat("a", 64)}
+	c.Binaries["docker"] = v2run.Binary{Path: "/opt/docker", SHA256: strings.Repeat("a", 64)}
+	c.Images["arm64"] = c.Images["amd64"]
+	c.AWS = &v2run.AWSConfig{AccountID: v2run.AWSAccountID, Region: v2run.AWSRegion, PrincipalARN: "arn:aws:iam::452025861381:user/x", ExecutorEgress: "203.0.113.9/32", NodeInstanceType: "t4g.medium", AccessKeyFile: "/p/key.json", EstimateFile: "/p/estimate.json", ECRRepositoryPrefix: "orch-acceptance", ProbePostgresImage: v2run.Image{Ref: "postgres:16-alpine", Digest: "sha256:" + strings.Repeat("c", 64)}, ProbeRedisImage: v2run.Image{Ref: "redis:7.4-alpine", Digest: "sha256:" + strings.Repeat("d", 64)}}
+	raw, _ := json.Marshal(c)
+	if err := v2run.WriteFilePrivate(e.cfgPath, raw); err != nil {
+		t.Fatal(err)
+	}
+	uid := "c3efcf94-c21a-4f44-9620-e9ded4c580bb"
+	if err := v2run.UpdateManifest(e.mpath, func(m *v2run.Manifest) error {
+		if err := m.AddAsset(v2run.Asset{Kind: "eks-cluster", ID: "owned-cluster", Layer: v2run.LayerNamespace, Owner: v2run.OwnerCreatedByRun}); err != nil {
+			return err
+		}
+		return m.AddAsset(v2run.Asset{Kind: "pod", ID: m.Namespace + "/tech-owned", Layer: v2run.LayerDelivery, Owner: v2run.OwnerCreatedByRun})
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if out, code := e.ctl("manifest-asset", "-manifest", e.mpath, "-kind", "pod", "-id", "orch-v2-test-a01-0001/tech-owned", "-layer", v2run.LayerDelivery, "-owner", v2run.OwnerCreatedByRun, "-uid", uid); code != 0 {
+		t.Fatal(out)
+	}
+	m, err := v2run.LoadManifest(e.mpath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, a := range m.Assets {
+		if a.Kind == "pod" {
+			found = a.UID == uid
+		}
+	}
+	if !found {
+		t.Fatal("CLI did not persist creation UID")
+	}
+	if err := os.WriteFile(filepath.Join(e.private, "eks.kubeconfig"), []byte("synthetic"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	pod := `{"metadata":{"name":"tech-owned","namespace":"orch-v2-test-a01-0001","uid":"` + uid + `","labels":{"run-id":"a01-0001","managed-by":"orchestrator-verification","app.kubernetes.io/component":"technical-probe"}}}`
+	if err := os.WriteFile(filepath.Join(e.cluster, "probe.json"), []byte(pod), 0600); err != nil {
+		t.Fatal(err)
+	}
+	script := `#!/bin/sh
+set -eu
+C="$(dirname "$0")/cluster"
+shift 4
+if [ "$1" = delete ]; then
+ [ "$2" = --raw ]
+ [ "$3" = /api/v1/namespaces/orch-v2-test-a01-0001/pods/tech-owned ]
+ [ "$4" = -f ] && [ "$5" = - ]
+ cat > "$C/delete-options.json"
+ rm "$C/probe.json"
+ exit 0
+fi
+[ "$1" = -n ] && [ "$2" = orch-v2-test-a01-0001 ]
+shift 2
+if [ "$1" = wait ]; then [ ! -e "$C/probe.json" ]; exit; fi
+[ "$1" = get ]
+if [ "$2" = pods ]; then
+ printf '{"items":['
+ [ ! -e "$C/probe.json" ] || cat "$C/probe.json"
+ printf ']}'
+ exit 0
+fi
+[ "$2" = pod ] && [ "$3" = tech-owned ]
+echo 'Error from server (NotFound): pods "tech-owned" not found' >&2
+exit 1
+`
+	if err := os.WriteFile(c.Binaries["kubectl"].Path, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if out, code := e.ctl("aws-probes-clean", "-config", e.cfgPath, "-manifest", e.mpath); code != 0 {
+		t.Fatal(out)
+	}
+	options, err := os.ReadFile(filepath.Join(e.cluster, "delete-options.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload struct {
+		APIVersion    string `json:"apiVersion"`
+		Kind          string `json:"kind"`
+		Preconditions struct {
+			UID string `json:"uid"`
+		} `json:"preconditions"`
+	}
+	if err := json.Unmarshal(options, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.APIVersion != "v1" || payload.Kind != "DeleteOptions" || payload.Preconditions.UID != uid {
+		t.Fatalf("delete lost original UID: %s", options)
+	}
+}

@@ -37,7 +37,7 @@ func TestNormalizedStoreRestartAndSnapshotConstraints(t *testing.T) {
 		t.Fatalf("orphan snapshot error = %v", err)
 	}
 
-	record := deployment.Deployment{ID: ids.New(), EnvironmentID: env.ID, OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, ExecutionProfile: "internal-k8s", Action: deployment.ActionDeploy, WorkloadID: "api", ActorRef: "test", Status: deployment.StatusPlanning, BaseEnvironmentVersion: env.Version, StartedAt: time.Now().UTC()}
+	record := deployment.Deployment{ID: ids.New(), EnvironmentID: env.ID, OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, Action: deployment.ActionDeploy, WorkloadID: "api", ActorRef: "test", Status: deployment.StatusPlanning, BaseEnvironmentVersion: env.Version, StartedAt: time.Now().UTC()}
 	if err = first.SaveDeployment(ctx, record); err != nil {
 		t.Fatal(err)
 	}

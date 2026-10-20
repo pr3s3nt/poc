@@ -18,10 +18,10 @@ hoặc `git show 3367f7e:<cùng-path>`. Không dùng record này như luật hi�
 
 | Nội dung cũ | Nguồn chuẩn hiện hành |
 |---|---|
-| Set-once selection, immutable Save/admission/UI | [ADR-012](ADR-012-environment-stores-and-transitions.md): selection/version/operation/generation và transition có xác nhận |
-| User Definition cho internal cluster | [ADR-013](ADR-013-implicit-existing-cluster.md): system Connection binding |
+| Deployment target selection/transition | [ADR-016](ADR-016-definition-selected-workload-targets.md)/[ADR-017](ADR-017-definition-dependency-execution.md): Definition/reference placement; old selector/transition retired; ADR-012 retains store/operation/generation guards |
+| User Definition cho internal cluster | ADR-016/017: matching selects an Internal Driver Account; no builtin binding |
 | Logical Environment descriptors, @infra và generation isolation | UC-06 BR-02/12, [module contract](../contracts/terraform-modules.md), [state identity](../contracts/terraform-state.md), schema |
-| AWS database dùng account riêng | [ADR-014](ADR-014-terraform-v2-lifecycle.md): mọi AWS node cùng Environment account/region |
+| AWS account/region | ADR-017: every winning Definition selects its own Driver Account/literal region; no Environment account/region constraint |
 | Physical names chứa run ID/state tạm | ADR-014/state contract: stable resource instance identity; run ID là audit |
 | Application target/backfill/legacy scope/migration ledger | [schema](../database/schema.md): identity-only Application, ENVIRONMENT scope, fresh baseline; không v1 import/backfill |
 | Old same-key conflicts/permanent SQL immutability trigger | OC-01b và ADR-012: versioned CAS/no-op, temporary operation fencing |

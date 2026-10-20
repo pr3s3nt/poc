@@ -3,7 +3,6 @@ package planning
 import (
 	"testing"
 
-	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 )
@@ -20,7 +19,7 @@ func labCluster(connection string) resource.Definition {
 // UC-03 V02-02: the Kubernetes Definition carries no account; its legacy
 // Environment binding is not an account selector or a matching filter.
 func TestPlan_KubernetesDefinitionNeedsNoDriverAccount(t *testing.T) {
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req := testRequest(t, "internal-k8s", "backend")
 	for _, def := range req.Catalog.Definitions {
 		if def.DriverType == resource.DriverKubernetes && def.DriverAccount != "" {
 			t.Fatalf("seeded Kubernetes definition %s names an account", def.Key)
@@ -54,7 +53,7 @@ func awsPins(t *testing.T, plan *Plan) map[string]tfmodule.ProviderPin {
 
 func TestPlan_AWSRegionMustBeALiteralAwsRegion(t *testing.T) {
 	for name, region := range map[string]any{"missing": nil, "placeholder": "${context.env.region}", "bad shape": "mars-1", "number": 1} {
-		req := testRequest(t, application.ProfileAWSEKS, "backend")
+		req := testRequest(t, "aws-eks", "backend")
 		mutateDefinition(&req, "vpc-aws", func(d *resource.Definition) {
 			variables := d.DriverInputs["values"].(map[string]any)["variables"].(map[string]any)
 			if region == nil {

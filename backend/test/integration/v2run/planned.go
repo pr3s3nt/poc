@@ -13,7 +13,7 @@ import (
 )
 
 // scenarioModules are the packaged Terraform modules each AWS scenario plans
-// (aws-catalog.json): the VPC, the EKS node, the namespace, Aurora, and either
+// (definition-catalog.json): the VPC, the EKS node, the namespace, Aurora, and either
 // ElastiCache (A02) or the in-cluster Redis (A03).
 func scenarioModules(scenario string) []string {
 	if scenario == "V05" {

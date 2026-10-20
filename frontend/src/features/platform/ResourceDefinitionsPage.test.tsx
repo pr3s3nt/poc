@@ -211,7 +211,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     expect(JSON.stringify(posted[0])).not.toMatch(/0\.0\.0\.0|executor/);
   });
 
-  it('Kubernetes modules take no account: the cluster comes from a published EKS class or the labelled legacy Environment target', async () => {
+  it('Kubernetes modules take no account: the cluster comes from a published EKS class', async () => {
     const user = userEvent.setup();
     const { posted } = backend();
     await ready();
@@ -225,11 +225,11 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
     await user.click(screen.getByRole('button', { name: 'Dùng preset cho namespace' }));
     await submitDefinition(user);
-    expect(await screen.findByRole('alert')).toHaveTextContent(/Chọn nơi provider kubernetes lấy cluster/);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Chọn node EKS cung cấp cluster/);
     expect(posted).toEqual([]);
     const target = field('Cluster đích của provider kubernetes');
     expect(target).toHaveValue('');
-    expect(within(target).getByRole('option', { name: /Cluster của Môi trường \(cách cũ, giữ tới V03\)/ })).toBeInTheDocument();
+    expect(within(target).queryByRole('option', { name: /Môi trường|Environment/i })).not.toBeInTheDocument();
     await user.selectOptions(target, 'resource');
     await submitDefinition(user);
     expect(await screen.findByRole('alert')).toHaveTextContent(/Chọn class cluster EKS/);
@@ -255,7 +255,8 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await user.selectOptions(field('Module đã kiểm chứng'), screen.getByRole('option', { name: /^redis-k8s ·/ }));
     expect(screen.getByText(/Output password \(string, bắt buộc, bí mật\)/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
-    await user.selectOptions(field('Cluster đích của provider kubernetes'), 'environment');
+    await user.selectOptions(field('Cluster đích của provider kubernetes'), 'resource');
+    await user.selectOptions(field('Class cluster EKS của provider kubernetes'), 'eks');
     await user.click(screen.getByRole('button', { name: 'Dùng preset cho namespace' }));
     await submitDefinition(user);
     expect(await screen.findByRole('status')).toHaveTextContent('redis-shared');
@@ -337,7 +338,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await ready();
     await completeDefinition(user, { id: 'ns-json', type: 'k8s-namespace' });
     await user.click(screen.getByRole('button', { name: 'Ánh xạ: JSON nâng cao' }));
-    fireEvent.change(field('Ánh xạ module JSON'), { target: { value: '{"output_mapping":{"name":"name"},"provider_bindings":{"kubernetes":{"target":"environment"}},"region":"x"}' } });
+    fireEvent.change(field('Ánh xạ module JSON'), { target: { value: '{"output_mapping":{"name":"name"},"provider_bindings":{"kubernetes":{"target":"resource","resource_ref":"k8s-cluster.eks#environments.@app.@env"}},"region":"x"}' } });
     await submitDefinition(user);
     expect(await screen.findByRole('alert')).toHaveTextContent('không nhận "region"');
     fireEvent.change(field('Ánh xạ module JSON'), { target: { value: '{"output_mapping":{"name":"name"}}' } });
@@ -346,8 +347,8 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     expect(posted).toEqual([]);
     fireEvent.change(field('Ánh xạ module JSON'), { target: { value: '{"output_mapping":{"name":"name"},"provider_bindings":{"kubernetes":{"target":"environment"}}}' } });
     await submitDefinition(user);
-    expect(await screen.findByRole('status')).toHaveTextContent('ns-json');
-    expect(values(posted[0])).toMatchObject({ input_mapping: {}, output_mapping: { name: 'name' }, provider_bindings: { kubernetes: { target: 'environment' } } });
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Binding Kubernetes tới Môi trường đã ngừng hỗ trợ/);
+    expect(posted).toEqual([]);
   });
 
   it('hides workload, disables types without a verified module and never offers a source of its own', async () => {
@@ -383,7 +384,8 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await pick('postgres-k8s');
     await user.click(screen.getByRole('button', { name: 'Ghép đầu vào theo tên trùng' }));
     await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
-    await user.selectOptions(field('Cluster đích của provider kubernetes'), 'environment');
+    await user.selectOptions(field('Cluster đích của provider kubernetes'), 'resource');
+    await user.selectOptions(field('Class cluster EKS của provider kubernetes'), 'eks');
     await overrideValue(user, 'storage', '9Gi');
     await user.click(screen.getByRole('button', { name: 'Dùng preset cho namespace' }));
     await pick('aurora');

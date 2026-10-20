@@ -8,7 +8,7 @@ import { bothConfigured } from '../../test/targets';
 import { apiError, stubApi, type Call } from '../../test/api';
 import { candidate, depA, depC, detail, operation, preview, rootId, rootName, wire } from '../../test/resources';
 
-const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured('internal-cluster'), workloads: { staging: [], production: [] } };
+const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 const isPreview = (c: Call) => c.method === 'POST' && c.url.endsWith('/deletion-preview');
 const isDeletion = (c: Call) => c.method === 'POST' && c.url.endsWith('/deletions');
 const deletions = (calls: Call[]) => calls.filter(isDeletion);

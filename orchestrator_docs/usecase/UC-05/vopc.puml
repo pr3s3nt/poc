@@ -23,11 +23,8 @@ class BeforeStateValidator <<control>> {
 class DeltaBuilder <<control>> {
   +BuildHumanitecDelta(currentSet, workloadID, before, after): DeltaResult
 }
-class ImplicitResourceEnricher <<control>> {
-  +Enrich(candidate, profile, context): ImplicitResources
-}
 class ResourceGraphBuilder <<control>> {
-  +BuildAndExpand(candidate, implicit, definitions): ResourceGraph
+  +BuildAndExpand(candidate, selectedDefinitions, references, rules): ResourceGraph
 }
 class DefinitionMatcher <<control>> {
   +MatchRemainingResources(graph, context): MatchedDefinitions
@@ -67,7 +64,6 @@ PlanningService --> ScoreConverter
 PlanningService --> WorkloadSpecValidator
 PlanningService --> BeforeStateValidator
 PlanningService --> DeltaBuilder
-PlanningService --> ImplicitResourceEnricher
 PlanningService --> ResourceGraphBuilder
 PlanningService --> DefinitionMatcher
 PlanningService --> DriverContractInspector
@@ -80,11 +76,11 @@ class RenderBundle <<value>>
 class RenderingSelection <<value>>
 PlanningService ..> RenderingSelection : deterministic selection + plan hash
 RenderingSelection *-- RenderBundle
-note right of ImplicitResourceEnricher
-ADR-016: select workload Definition before fixed point;
-match internal existing-cluster normally with own account.
-Pin typed namespace/cluster per consumer, no Environment fallback.
-No catalog write or user matching in Preview.
+note right of ResourceGraphBuilder
+ADR-017: select workload Definition before fixed point;
+expand matched references/provision/provider bindings.
+Pin each node account/region and typed consumer placement.
+No implicit EKS, Environment target or provider calls in Preview.
 end note
 
 class TerraformModuleBundle <<value>>

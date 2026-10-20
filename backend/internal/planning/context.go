@@ -95,10 +95,8 @@ func (c Context) Values() map[string]any {
 		"org.key":  c.OrganizationKey,
 		"app.key":  c.App.Key,
 		"app.name": c.App.Name,
-		// ADR-011: env.profile/env.region are the only profile/region keys.
-		"env.profile":        string(c.Env.Profile),
-		"env.region":         c.Env.Region,
-		"env.connection.key": c.Env.ConnectionKey,
+		// ADR-017: an Environment carries no profile, region or deployment Connection; AWS region and account belong to
+		// the Resource Definition that uses them.
 		"infra.name":         c.InfraName(),
 		"infra.resourceName": c.ResourceName(),
 		"env.key":            c.Env.Key,

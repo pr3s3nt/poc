@@ -96,6 +96,13 @@ material until clean is independently proven. Errors retain failed evidence.
 
 ## Replacement gates
 
+Acceptance-scope override19Oct2026: browser main flow only, with secret and
+ownership/UID/native-API cleanup checks; intentional negative scenarios and
+video/human pacing are no longer gate requirements. Existing negative automated
+tests remain required. Negative/video/writer wording below preserves the original
+gate provenance; current execution follows the user decision in issue4 and
+[the acceptance runbook](../../operations/terraform-v2-acceptance.md).
+
 V04 proves the entire acceptance app on existing k8s-4f with real shared PostgreSQL
 and Redis, browser jobs, persistence, cache TTL/refill and truthful negatives.
 V05 proves EKS created by the authored graph in the same execution, readiness,

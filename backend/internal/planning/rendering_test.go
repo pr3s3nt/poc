@@ -1,7 +1,6 @@
 package planning
 
 import (
-	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning/score"
 	"orchestrator/internal/platform/canon"
@@ -10,7 +9,7 @@ import (
 )
 
 func TestRendererMatchingPinsContentAndPreservesInfrastructure(t *testing.T) {
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req := testRequest(t, "internal-k8s", "backend")
 	bundle := resource.RenderBundle{ID: "installed", Version: "0.15.0", BinaryDigest: "binary", Digest: "bundle"}
 	bundles := testBundles()
 	bundles["installed"] = bundle
@@ -20,7 +19,7 @@ func TestRendererMatchingPinsContentAndPreservesInfrastructure(t *testing.T) {
 		t.Fatal(err)
 	}
 	dropWorkloadDefinitions(&req)
-	def := renderDefinition("render", string(application.ProfileInternalK8s))
+	def := renderDefinition("render", string("internal-k8s"))
 	req.Catalog.Definitions = append(req.Catalog.Definitions, def)
 	plan, err := svc.Plan(req)
 	if err != nil {
@@ -55,9 +54,9 @@ func TestRendererMatchingPinsContentAndPreservesInfrastructure(t *testing.T) {
 // SourceFingerpr is registration provenance. A Definition registered under bundle
 // A still plans under installed bundle B, pins B, and changes the plan hash.
 func TestRenderingBundleUpgradeKeepsDefinitionAndPinsInstalledBundle(t *testing.T) {
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req := testRequest(t, "internal-k8s", "backend")
 	dropWorkloadDefinitions(&req)
-	def := renderDefinition("render", string(application.ProfileInternalK8s))
+	def := renderDefinition("render", string("internal-k8s"))
 	def.SourceFingerpr = "bundle-a"
 	req.Catalog.Definitions = append(req.Catalog.Definitions, def)
 	a := resource.RenderBundle{ID: "installed", Version: "0.15.0", BinaryDigest: "binary-a", Digest: "bundle-a"}
@@ -93,7 +92,7 @@ func TestRenderingBundleUpgradeKeepsDefinitionAndPinsInstalledBundle(t *testing.
 }
 
 func TestWorkloadRenderingTypeCannotBeScoreDependency(t *testing.T) {
-	req := testRequest(t, application.ProfileInternalK8s, "backend")
+	req := testRequest(t, "internal-k8s", "backend")
 	req.After.Resources["renderer"] = score.ResourceSpec{Type: "workload"}
 	if _, err := NewService(testBundles()).Plan(req); err == nil {
 		t.Fatal("renderer became an infrastructure dependency")

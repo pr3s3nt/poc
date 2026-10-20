@@ -14,7 +14,7 @@
 import { expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { kubectlRunner, safeError, waitFor } from './terraform-v2-lib.mjs';
 import { SHORT_READ, makeKit, recordAppSecret, technical, v2ctl as ctl } from './full-app-kit.mjs';
 import {
@@ -27,6 +27,9 @@ export { validateKubectlTarget, stopOwnedProcess, startKubectlProxy } from './ku
 
 export const CLUSTER_REF = "${resources['k8s-cluster.eks#environments.@app.@env'].outputs.cluster}";
 export const MANAGED_ROWS = ['backend connection', 'environment', 'database', 'cache'];
+
+/** Keep technical clients alive for the configured AWS execution budget; the supervisor owns cleanup. */
+export const technicalClientCommand = (input) => ['sleep', String(Math.ceil(input.deployTimeoutMs / 1000))];
 
 /** Open and verify the real technical connections before starting timed cache observations. */
 export async function warmTechnicalClients({ psql, redis }) {
@@ -351,16 +354,21 @@ export async function awsDefinitionScenario(ctx, scenario, { forbidden }) {
     if (helperClients.has(image)) return helperClients.get(image);
     const name = `tech-${randomUUID().slice(0, 12)}`;
     ctl(input, 'manifest-asset', '-manifest', input.manifestFile, '-kind', 'pod', '-id', `${ns}/${name}`, '-layer', 'delivery', '-owner', 'CREATED_BY_RUN', '-linkage', 'persistent technical client Pod of this run');
-    const created = await kubectl(['-n', ns, 'run', name, `--labels=${labels}`, '--restart=Never', `--image=${image}`, '--command', '--', 'sh', '-c', 'sleep 3600'], { timeoutMs: 120_000 });
+    const created = await kubectl(['-n', ns, 'run', name, `--labels=${labels}`, '--restart=Never', `--image=${image}`, '-o', 'json', '--command', '--', ...technicalClientCommand(input)], { timeoutMs: 120_000 });
     if (created.code !== 0) throw new Error('technical client Pod creation failed');
     pods.created.push(name);
+    const createdPod = JSON.parse(created.stdout);
+    const createdUID = createdPod.metadata?.uid;
+    if (!createdUID) throw new Error('technical client Pod creation has no UID; cleanup needs attention');
+    assertOwnedTechnicalPod(createdPod, ns, name, createdUID, labelMap);
+    ctl(input, 'manifest-asset', '-manifest', input.manifestFile, '-kind', 'pod', '-id', `${ns}/${name}`, '-layer', 'delivery', '-owner', 'CREATED_BY_RUN', '-linkage', 'persistent technical client Pod of this run', '-uid', createdUID);
     const waited = await kubectl(['-n', ns, 'wait', '--for=condition=Ready', `pod/${name}`, '--timeout=120s'], { timeoutMs: 130_000 });
     if (waited.code !== 0) throw new Error('technical client Pod did not become Ready');
     const found = await kubectl(['-n', ns, 'get', 'pod', name, '-o', 'json']);
     if (found.code !== 0) throw new Error('technical client Pod identity could not be read');
     const pod = JSON.parse(found.stdout);
     const uid = pod.metadata?.uid;
-    if (!uid) throw new Error('technical client Pod has no UID');
+    if (!uid || uid !== createdUID) throw new Error('technical client Pod creation identity changed; cleanup needs attention');
     assertOwnedTechnicalPod(pod, ns, name, uid, labelMap);
     const client = { name, uid };
     helperClients.set(image, client);
@@ -372,7 +380,34 @@ export async function awsDefinitionScenario(ctx, scenario, { forbidden }) {
   };
   const helper = async (image, script, args, password, options) => {
     const result = await helperResult(image, script, args, password, options);
-    if (result.code !== 0) throw new Error('the technical client command failed');
+    if (result.code !== 0) {
+      // Persist only whitelisted metadata, never raw stdout/stderr or command arguments.
+      // A failed command remains a failure; this read neither retries nor repairs it.
+      const client = helperClients.get(image);
+      const diagnostic = { at: new Date().toISOString(), code: result.code, reason: 'unclassified', podLookupCode: null };
+      const errorText = String(result.stderr ?? '');
+      for (const [reason, pattern] of [
+        ['pod-completed', /completed pod|container.*not running|container.*not found/i],
+        ['postgres-authentication', /password authentication failed|no pg_hba.conf entry/i],
+        ['postgres-connection', /server closed the connection|could not connect|connection.*(refused|reset)|connection to server/i],
+        ['kubernetes-authentication', /Unauthorized|must be logged in|getting credentials/i],
+        ['transport', /timed out|timeout|unable to connect|EOF|TLS handshake/i],
+      ]) {
+        if (pattern.test(errorText)) { diagnostic.reason = reason; break; }
+      }
+      try {
+        const observed = await kubectl(['-n', ns, 'get', 'pod', client.name, '-o', 'json'], { timeoutMs: 10_000 });
+        diagnostic.podLookupCode = observed.code;
+        if (observed.code === 0) {
+          const pod = JSON.parse(observed.stdout);
+          diagnostic.originalUIDMatches = pod.metadata?.uid === client.uid;
+          diagnostic.phase = ['Pending', 'Running', 'Succeeded', 'Failed', 'Unknown'].includes(pod.status?.phase) ? pod.status.phase : 'Unknown';
+          diagnostic.terminatedExitCodes = (pod.status?.containerStatuses ?? []).flatMap((container) => Number.isInteger(container.state?.terminated?.exitCode) ? [container.state.terminated.exitCode] : []);
+        }
+      } catch { /* The diagnostic read must not replace the original failed assertion. */ }
+      try { appendFileSync(`${ctx.evidenceDir}/technical-client-failures.jsonl`, `${JSON.stringify(diagnostic)}\n`, { mode: 0o600 }); } catch { /* Retain the original failure if evidence cannot be appended. */ }
+      throw new Error(`the technical client command failed (exit ${diagnostic.code}, ${diagnostic.reason})`);
+    }
     return result.stdout.trim();
   };
   const removeHelpers = async () => {

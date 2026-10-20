@@ -178,6 +178,25 @@ func TestManifestOwnershipNeverUpgradesAndOrdersReverse(t *testing.T) {
 	if err := add(v2run.Asset{Kind: "pvc", ID: "data", Layer: v2run.LayerAppResources, Owner: v2run.OwnerCreatedByRun}); err == nil {
 		t.Fatal("a retained asset was upgraded to CREATED_BY_RUN")
 	}
+	// A later observation of the same object records its original creation UID;
+	// repeating a name-only observation must preserve that identity in durable JSON.
+	if err := add(v2run.Asset{Kind: "deployment", ID: "web", Layer: v2run.LayerDelivery, Owner: v2run.OwnerCreatedByRun, UID: "c3efcf94-c21a-4f44-9620-e9ded4c580bb"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := add(v2run.Asset{Kind: "deployment", ID: "web", Layer: v2run.LayerDelivery, Owner: v2run.OwnerCreatedByRun}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var durable v2run.Manifest
+	if err := json.Unmarshal(raw, &durable); err != nil {
+		t.Fatal(err)
+	}
+	if durable.OwnedByRun()[0].UID != "c3efcf94-c21a-4f44-9620-e9ded4c580bb" {
+		t.Fatal("original UID was not durably preserved")
+	}
 	var got []string
 	for _, a := range m.OwnedByRun() {
 		got = append(got, a.ID)

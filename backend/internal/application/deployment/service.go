@@ -11,7 +11,6 @@ import (
 
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/provisioning"
-	"orchestrator/internal/application/target"
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
 	domain "orchestrator/internal/domain/deployment"
@@ -45,19 +44,6 @@ type DeployCommand struct {
 	// Environment state Preview validated: routes reconcile after the batch
 	// and this step may plan an intermediate Environment state.
 	DeferPublicRoutes bool
-
-	// Destination, BaseSetID and HoldSet are set only by the transition
-	// service under its own claim (ADR-012). Destination replaces the stored
-	// binding and generation for this run without touching the Environment
-	// row; BaseSetID chains the planning base across workloads; HoldSet keeps
-	// the current Set, runtime status and Unreferenced marks untouched until
-	// the atomic cutover commit.
-	Destination *environment.Environment
-	BaseSetID   string
-	HoldSet     bool
-	// ProvisionOnly stops after UC-08 provisioning: no workload is applied,
-	// no route reconciled and no Set committed (transition PROVISIONING).
-	ProvisionOnly bool
 }
 
 // DeployResult is returned to the actor at UC-06 MS-13.
@@ -66,8 +52,6 @@ type DeployResult struct {
 	Status       domain.Status `json:"status"`
 	PlanHash     string        `json:"planHash"`
 	WorkloadID   string        `json:"workloadId"`
-	// CandidateSetID is the Set this run produced (chained by transitions).
-	CandidateSetID string `json:"-"`
 }
 
 // Service orchestrates plan, provision, render, apply and commit.
@@ -176,22 +160,8 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	if err != nil {
 		return nil, err
 	}
-	app, env, conn := snapshot.App, snapshot.Env, snapshot.Connection
+	app, env := snapshot.App, snapshot.Env
 	baseSet, baseSetID := snapshot.BaseSet, snapshot.BaseSetID
-	if cmd.Destination != nil {
-		env = *cmd.Destination
-		conn, err = target.Resolve(ctx, s.store, app.OrganizationKey, env)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if cmd.BaseSetID != "" {
-		chained, err := s.store.GetDeploymentSet(ctx, cmd.BaseSetID)
-		if err != nil {
-			return nil, err
-		}
-		baseSet, baseSetID = chained.Document, chained.ID
-	}
 
 	after, err := parseScore(cmd.ScoreAfter)
 	if err != nil {
@@ -217,20 +187,14 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	}
 
 	now := s.clock.Now()
-	recordAction := action
-	if cmd.ProvisionOnly {
-		recordAction = domain.ActionProvision
-	}
 	record := domain.Deployment{
 		ID:                     ids.New(),
 		EnvironmentID:          env.ID,
 		OrganizationKey:        cmd.OrganizationKey,
 		ApplicationKey:         app.Key,
 		EnvironmentKey:         env.Key,
-		ExecutionProfile:       string(env.Profile),
-		ConnectionKey:          env.ConnectionKey,
 		TargetGeneration:       env.TargetGeneration,
-		Action:                 recordAction,
+		Action:                 action,
 		WorkloadID:             workloadID,
 		ActorRef:               cmd.Actor,
 		Status:                 domain.StatusPlanning,
@@ -246,7 +210,6 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		OrganizationKey: cmd.OrganizationKey,
 		App:             app,
 		Env:             env,
-		Connection:      conn,
 		DeploymentID:    record.ID,
 		RunID:           cmd.RunID,
 	}
@@ -258,7 +221,6 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		OrganizationKey: cmd.OrganizationKey,
 		App:             app,
 		Env:             env,
-		Connection:      conn,
 		BaseSet:         baseSet,
 		Before:          before,
 		After:           after,
@@ -363,17 +325,7 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		return nil, s.fail(ctx, record, err)
 	}
 
-	result := &DeployResult{DeploymentID: record.ID, PlanHash: plan.PlanHash, WorkloadID: workloadID, CandidateSetID: candidateSet.ID}
-	if cmd.ProvisionOnly {
-		finished := s.clock.Now()
-		record.Status = domain.StatusSucceeded
-		record.FinishedAt = &finished
-		if err := s.store.SaveDeployment(ctx, record); err != nil {
-			return nil, s.fail(ctx, record, err)
-		}
-		result.Status = record.Status
-		return result, nil
-	}
+	result := &DeployResult{DeploymentID: record.ID, PlanHash: plan.PlanHash, WorkloadID: workloadID}
 	record.Status = domain.StatusDeploying
 	if err := s.store.SaveDeployment(ctx, record); err != nil {
 		return nil, s.fail(ctx, record, err)
@@ -398,16 +350,12 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	}
 
 	// Transaction B: optimistic commit of the current Deployment Set (MS-12).
-	// A transition holds the pointer: the target and Set move together at cutover.
-	result.CandidateSetID = candidateSet.ID
 	if err := s.store.Transact(ctx, func(ctx context.Context) error {
-		if !cmd.HoldSet {
-			if err := s.store.CompareVersionAndSetCurrent(ctx, app.Key, env.Key, record.BaseEnvironmentVersion, candidateSet.ID); err != nil {
-				return err
-			}
-			if err := s.markUnreferenced(ctx, cmd.OrganizationKey, record.ID, plan.UnreferencedResources); err != nil {
-				return err
-			}
+		if err := s.store.CompareVersionAndSetCurrent(ctx, app.Key, env.Key, record.BaseEnvironmentVersion, candidateSet.ID); err != nil {
+			return err
+		}
+		if err := s.markUnreferenced(ctx, cmd.OrganizationKey, record.ID, plan.UnreferencedResources); err != nil {
+			return err
 		}
 		finished := s.clock.Now()
 		record.Status = domain.StatusSucceeded
@@ -417,14 +365,12 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 		return nil, s.fail(ctx, record, err)
 	}
 
-	if !cmd.HoldSet {
-		if failed := s.markInstancesUnreferenced(ctx, env.TargetGeneration, plan.UnreferencedResources); failed > 0 {
-			// Safe diagnostics only: counts, never references, descriptors or error text. The
-			// committed Deployment and Active Resource history stay as they are; the affected
-			// resources are refused for deletion as METADATA_SYNC_PENDING until the State
-			// projection is repaired by an operator. There is no automatic recovery.
-			log.Printf("deployment: resource metadata sync incomplete (deployment %s, %d of %d unreferenced instances not mirrored)", record.ID, failed, len(plan.UnreferencedResources))
-		}
+	if failed := s.markInstancesUnreferenced(ctx, env.TargetGeneration, plan.UnreferencedResources); failed > 0 {
+		// Safe diagnostics only: counts, never references, descriptors or error text. The
+		// committed Deployment and Active Resource history stay as they are; the affected
+		// resources are refused for deletion as METADATA_SYNC_PENDING until the State
+		// projection is repaired by an operator. There is no automatic recovery.
+		log.Printf("deployment: resource metadata sync incomplete (deployment %s, %d of %d unreferenced instances not mirrored)", record.ID, failed, len(plan.UnreferencedResources))
 	}
 
 	result.Status = record.Status
@@ -803,24 +749,7 @@ func (s *Service) GenerationTarget(ctx context.Context, app appdomain.Applicatio
 			return candidate, nil
 		}
 	}
-	if !env.Configured() {
-		return execution.Target{}, fmt.Errorf("deployment: the environment has no applied workload target")
-	}
-	conn, err := s.store.GetConnection(ctx, app.OrganizationKey, env.ConnectionKey)
-	if err != nil {
-		return execution.Target{}, err
-	}
-	return ConnectionTarget(app.OrganizationKey, env, conn), nil
-}
-
-// ConnectionTarget builds the Kubernetes target of an Environment generation
-// directly from its Connection (used before any workload exists there).
-func ConnectionTarget(organizationKey string, env environment.Environment, conn appdomain.Connection) execution.Target {
-	target := execution.Target{Kind: "kubernetes", Namespace: env.Namespace(), Context: conn.ConfigString("kubeContext"), ClusterName: conn.ConfigString("cluster")}
-	if conn.CredentialBacked() {
-		target.Organization, target.Connection = organizationKey, conn.Key
-	}
-	return target
+	return execution.Target{}, fmt.Errorf("deployment: no persisted workload target exists for this generation")
 }
 
 func (s *Service) routesFor(ctx context.Context, app appdomain.Application, env environment.Environment, set environment.Document, remove bool) error {
@@ -990,10 +919,6 @@ func (s *Service) preflightSecretDelivery(ctx context.Context, cmd DeployCommand
 func restoreEnvironmentTarget(target *execution.Target, ref map[string]any, organizationKey string, env environment.Environment) error {
 	if err := restoreTarget(target, ref, organizationKey); err != nil {
 		return err
-	}
-	if env.Configured() {
-		// A deployment Connection on an Environment is a retired baseline (ADR-017): the persisted workload target is the only source.
-		return fmt.Errorf("deployment: the Environment carries a retired deployment connection")
 	}
 	// Definition-placed: the persisted workload target must name a scoped account, never a host default.
 	if target.Connection == "" {

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { warmTechnicalClients } from './terraform-v2-aws-definitions.mjs';
+import { technicalClientCommand, warmTechnicalClients } from './terraform-v2-aws-definitions.mjs';
 
 describe('AWS technical client lifecycle', () => {
+  it('keeps managed-resource clients available through the configured three-hour execution budget', () => {
+    expect(technicalClientCommand({ deployTimeoutMs: 180 * 60 * 1000 })).toEqual(['sleep', '10800']);
+  });
+
   it('waits for real PostgreSQL and Redis readiness in order before handing control to job submission', async () => {
     const calls = [];
     await warmTechnicalClients({

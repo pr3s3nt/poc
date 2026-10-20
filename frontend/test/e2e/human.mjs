@@ -149,42 +149,14 @@ export async function signIn(h) {
   await h.pause(1500);
 }
 
-// Sets the execution Connection of each listed Environment through
-// Environment Settings (UC-01 ES-03..06) and returns to the Application.
-// targets: { staging?: connectionKey, production?: connectionKey }. The option
-// is found by its "(key)" label, the choice is typed by the real select popup,
-// and the PUT reply plus the saved "Generation" state are awaited.
-export async function setEnvironmentConnections(h, applicationName, targets) {
-  const { page } = h;
-  await h.click(page.getByRole('button', { name: 'Cài đặt môi trường' }));
-  await expect(page.getByRole('heading', { name: 'Cài đặt môi trường', level: 1 })).toBeVisible();
-  for (const [environment, key] of Object.entries(targets)) {
-    const title = environment === 'staging' ? 'Staging' : 'Production';
-    await h.click(page.getByRole('tab', { name: title }));
-    const select = page.getByLabel(`Kết nối cho ${title}`);
-    // With exactly one READY Connection the page may suggest it as an unsaved draft; the explicit choice below still applies.
-    await expect(select).toBeVisible();
-    const label = (await select.locator('option').allTextContents()).find((text) => text.includes(`(${key})`));
-    if (!label) throw new Error(`connection ${key} is not offered for ${environment}`);
-    await h.choose(select, label);
-    await expect(select).toHaveValue(key);
-    const saved = page.waitForResponse((response) => response.request().method() === 'PUT'
-      && new URL(response.url()).pathname.endsWith(`/environments/${environment}/connection`));
-    await h.click(page.getByRole('button', { name: 'Lưu kết nối' }));
-    const response = await saved;
-    if (!response.ok()) throw new Error(`setting ${environment} connection returned HTTP ${response.status()}`);
-    await expect(page.getByText('Thế hệ 0', { exact: true })).toBeVisible();
-    await h.pause(1200);
-  }
-  await h.click(page.getByRole('button', { name: `← ${applicationName}` }));
-  await h.pause(1200);
+// Historical recorder import retained only to fail before any retired target write.
+// Current placement is authored through Definitions; this helper performs no UI/API action.
+export async function setEnvironmentConnections() {
+  throw new Error('Historical Environment Connection recorder retired; use the Definition-driven V04/V05/A02/A03 scenarios');
 }
 
-// Returns the Application id parsed from the detail page URL. By default both
-// Environments are set to the seeded cluster Connection afterwards, which keeps
-// the older flows that deploy to the default cluster unchanged; pass
-// { connections: null } to leave both UNCONFIGURED, or an explicit map.
-export async function createApplication(h, name, subdomain, { connections = { staging: 'internal-cluster', production: 'internal-cluster' } } = {}) {
+export async function createApplication(h, name, subdomain, { connections } = {}) {
+  if (connections) throw new Error('Historical Environment Connection setup retired; author Definitions before deploying');
   const { page } = h;
   await h.click(page.getByRole('button', { name: '+ Tạo ứng dụng' }).first());
   await h.type(page.getByLabel('Tên ứng dụng'), name);
@@ -194,7 +166,6 @@ export async function createApplication(h, name, subdomain, { connections = { st
   await h.pause(1500);
   const appId = new URL(page.url()).pathname.match(/\/applications\/([^/]+)$/)?.[1];
   if (!appId || !/^[a-z0-9-]+$/.test(appId)) throw new Error(`invalid application id: ${appId}`);
-  if (connections) await setEnvironmentConnections(h, name, connections);
   return appId;
 }
 

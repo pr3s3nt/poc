@@ -5,10 +5,6 @@ import (
 	"fmt"
 )
 
-// ErrEnvironmentUnconfigured reports an Environment without an execution
-// Connection. Preview and deploy fail with it before any side effect.
-var ErrEnvironmentUnconfigured = errors.New("planning: environment has no execution connection")
-
 // Stage names the planning step that rejected a request. Callers that expose
 // failures publicly use Stage and Reason to choose a fixed message: a raw
 // message of any stage can quote catalog, Definition, Terraform module or
@@ -96,8 +92,8 @@ var (
 		ReasonBeforeMismatch:     "scoreBefore does not match the current Deployment Set for this workload; refresh it from the currently deployed Score",
 	}
 	reasonMessages = map[string]string{
-		ReasonUnconfigured:        "the Environment has no execution connection; set one in Environment Settings",
-		ReasonRendererNoMatch:     "no workload rendering template (score-k8s Definition) matches this workload for the Environment profile; ask a platform engineer to register one",
+		ReasonUnconfigured:        "a workload or resource placement cannot be resolved from Resource Definitions; ask a platform engineer to check the Definitions",
+		ReasonRendererNoMatch:     "no workload rendering template (score-k8s Definition) matches this workload for the Application and Environment; ask a platform engineer to register one",
 		ReasonRendererAmbiguous:   "several workload rendering templates (score-k8s Definitions) match this workload equally; ask a platform engineer to leave exactly one",
 		ReasonRendererUnavailable: "the workload rendering template needs a score-k8s bundle that is not installed; ask a platform engineer to check the platform release",
 		ReasonResourceNoMatch:     "a resource of this Score, or a resource it needs such as the Kubernetes cluster, matches no Resource Definition for this Application and Environment; ask a platform engineer to register one",

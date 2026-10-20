@@ -132,9 +132,11 @@ func TestEnvironmentSettingsStoreSelectionConflictsAndBusyStateOverHTTP(t *testi
 			t.Fatalf("%s while busy = %d %v", label, status, out)
 		}
 	}
-	s, o := requestJSON(t, developer, http.MethodPut, base+"/connection", map[string]any{"connectionKey": "aws-account", "expectedVersion": current["version"]})
-	busy("connection", s, o)
-	s, o = requestJSON(t, developer, http.MethodPut, base+"/configuration/keys/MODE", map[string]any{"kind": "VARIABLE", "value": "x", "version": 0})
+	// Retired target-setting entry remains absent even while another operation holds the Environment.
+	if response, _ := call(t, developer, http.MethodPut, base+"/connection", `{"connectionKey":"aws-account","expectedVersion":1}`); response.StatusCode != http.StatusNotFound {
+		t.Fatalf("retired connection setting = %d", response.StatusCode)
+	}
+	s, o := requestJSON(t, developer, http.MethodPut, base+"/configuration/keys/MODE", map[string]any{"kind": "VARIABLE", "value": "x", "version": 0})
 	busy("config", s, o)
 	s, o = requestJSON(t, developer, http.MethodPut, base+"/workloads/web", map[string]any{"score": extraScore("web"), "version": 0})
 	busy("draft", s, o)

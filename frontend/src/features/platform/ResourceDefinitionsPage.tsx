@@ -238,6 +238,13 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
       const problem = mappingProblems(draft.map, pin, typeContract)[0];
       if (problem) return problem.message;
     }
+    if (draft.mapMode === 'json') {
+      const parsed = parseObjectText(draft.mapJSON, 'Ánh xạ module');
+      const bindings = parsed.value && isObject(parsed.value.provider_bindings) ? parsed.value.provider_bindings : {};
+      for (const binding of Object.values(bindings)) {
+        if (isObject(binding) && binding.target === 'environment') return 'Binding Kubernetes tới Môi trường đã ngừng hỗ trợ. Chọn tài nguyên cluster làm đích provider.';
+      }
+    }
     const uncovered = missingRequired(draft.vars, variableList, covered).map((variable) => variable.name);
     if (draft.varMode === 'typed' && uncovered.length > 0) return `Cần nhập trước khi lưu: ${uncovered.join(', ')} (bắt buộc, không có mặc định và không được tham số của Loại cung cấp).`;
     return '';
@@ -380,7 +387,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const accountName = (accountKey: string) => { const account = accountList.items.find((item) => item.key === accountKey); return account ? accountLabel(account) : accountKey; };
   const clusterSources = pin ? bindingProviders(pin).filter((provider) => provider.binding === 'kubernetes').map((provider) => {
     const binding = draft.map.bindings[provider.name];
-    const label = binding?.target === 'resource' ? `cluster do node EKS cung cấp${binding.clusterClass ? ` (class ${binding.clusterClass})` : ''}` : binding?.target === 'environment' ? 'cluster của Môi trường (cách cũ, giữ tới V03)' : 'chưa chọn';
+    const label = binding?.target === 'resource' ? `cluster do node EKS cung cấp${binding.clusterClass ? ` (class ${binding.clusterClass})` : ''}` : 'chưa chọn';
     return { provider: provider.name, label };
   }) : [];
   const selectedMissing = accountRequired && chosenAccount !== '' && !compatibleAccounts.some((account) => account.key === chosenAccount);

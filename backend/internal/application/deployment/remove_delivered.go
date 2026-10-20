@@ -72,8 +72,7 @@ func (s *Service) RemoveDelivered(ctx context.Context, organizationKey, applicat
 		}
 	}
 	sort.Slice(candidates, func(i, j int) bool { return candidates[i].WorkloadID < candidates[j].WorkloadID })
-	_, hasRemover := s.configSync.(execution.ConfigSecretRemover)
-	if len(candidates) == 0 && (!hasRemover || !env.Configured()) {
+	if len(candidates) == 0 {
 		return report, nil
 	}
 	// Admission BEFORE any effect: Begin fails with ErrBusy while another operation (or an interrupted one) holds the Environment.

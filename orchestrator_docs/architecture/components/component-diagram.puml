@@ -53,23 +53,19 @@ component "score-k8s adapter" as ScoreAdapter
 artifact "Pinned score-k8s CLI" as ScoreCLI
 Deploy --> Rendering : preflight; resolved bindings + selection
 Rendering --> Native : shared platform policy helpers only in v2
-Rendering --> ScoreAdapter : required v2 immutable bundle, both profiles
+Rendering --> ScoreAdapter : required immutable bundle, Internal/EKS targets
 ScoreAdapter --> ScoreCLI : private workspace; output-only provisioner
 Rendering --> Workload : validated manifests
 note right of ScoreAdapter
 No database/namespace provisioning.
 Only Secret references enter CLI workspace.
 end note
-component "Environment Settings / Transition Services" as Transitions
+component "Environment Configuration / Secret Store Services" as Settings
 component "Scoped Secret Store Resolver" as StoreResolver
-component "PostgreSQL Backup / Restore Adapter" as Transfer
 cloud "Selected Vault KV v2 stores" as VaultStores
-API --> Transitions
-Transitions --> Persistence : atomic operation admission/stages
-Transitions --> Transfer : quiesce, backup, restore, verify
-Transfer --> Kubernetes : explicit retained/new targets
-Transitions --> Deploy : pinned generation, full rollout
-Transitions --> StoreResolver : copy / verify before commit
+API --> Settings
+Settings --> Persistence : atomic operation/config/store admission
+Settings --> StoreResolver : copy / verify before commit
 StoreResolver --> Secrets : platform credentials only
 StoreResolver --> VaultStores : immutable values/bundles
 Workload --> VaultStores : VSO scoped auth/read

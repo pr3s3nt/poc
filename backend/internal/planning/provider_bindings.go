@@ -47,10 +47,10 @@ func (b *graphBuilder) clusterProvider(node *Node, binding tfmodule.Binding) (re
 	if b.ctx.DefinitionPlaced() {
 		return resource.Descriptor{}, fmt.Errorf("the Environment provider target is retired; bind the provider to a cluster resource (target resource)")
 	}
-	if b.ctx.Env.Profile == application.ProfileInternalK8s && b.ctx.ReferenceCluster { // planner reference mode only; a product Environment never reaches here
-		return InternalClusterDescriptor(b.ctx.Env.ConnectionKey)
+	if b.ctx.ReferenceCluster { // planner reference mode only; a product Environment never reaches here
+		return InternalClusterDescriptor(b.ctx.Connection.Key)
 	}
-	return resource.Descriptor{}, fmt.Errorf("the Environment execution profile has no cluster target")
+	return resource.Descriptor{}, fmt.Errorf("no resource-bound cluster target is available")
 }
 
 // expandProviderBindings adds the deterministic dependency edge of every
@@ -121,7 +121,7 @@ func (b *graphBuilder) providerPins(node *Node, def resource.Definition, contrac
 		if !bound {
 			return nil, fmt.Errorf("planning: %s has no provider binding for %s", node.Descriptor, name)
 		}
-		pin := tfmodule.ProviderPin{Name: name, Kind: kind, Target: binding.Target, Profile: string(env.Profile), Generation: env.TargetGeneration}
+		pin := tfmodule.ProviderPin{Name: name, Kind: kind, Target: binding.Target, Generation: env.TargetGeneration}
 		switch kind {
 		case tfmodule.BindingAWS:
 			if _, mapped := inputs.InputMapping["region"]; mapped {

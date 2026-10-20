@@ -21,7 +21,7 @@ export type PreviewDelta = {
 
 export type PreviewNode = { descriptor: string; kind: 'workload' | 'resource'; resourceType: string; class: string; origins: string[]; workloadId?: string; paramKeys: string[]; bindings: Record<string, string> };
 export type PreviewEdge = { consumer: string; provider: string; reason: string; path?: string };
-export type PreviewMatch = { descriptor: string; definitionKey: string; driverType: string; specificity: number; binding?: string; connectionKey?: string; definitionVersion?: number; driverAccount?: string; accountVersion?: number };
+export type PreviewMatch = { descriptor: string; definitionKey: string; driverType: string; specificity: number; definitionVersion?: number; driverAccount?: string; accountVersion?: number };
 
 export type RenderingSelection = { definitionKey: string; class?: string; driverType: string; bundle: { id: string; version: string; digest: string } };
 
@@ -41,12 +41,8 @@ export type ScorePreview = {
   matches: PreviewMatch[];
   batches: string[][];
   classification: { existing: string[]; new: string[]; unreferenced: string[] };
-  // The safe resource projection and pinned target of UC-05 BR-10. Optional so that a
-  // response without it reads as unavailable, never as "nothing to create".
   resourceIntents?: ResourceIntent[];
   placements?: Placement[];
-  binding?: { connectionKey: string; executionProfile: string; region: string };
-  accountId?: string;
 };
 
 export const previewScore = (app: string, env: EnvironmentKey, request: ScorePreviewRequest) =>

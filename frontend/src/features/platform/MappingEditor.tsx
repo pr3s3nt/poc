@@ -70,7 +70,6 @@ export function MappingEditor({ capability, type, clusterClasses, draft, onChang
               <select aria-label={`Cluster đích của provider ${provider.name}`} aria-invalid={problem ? true : undefined} value={binding.target} disabled={disabled} onChange={(event) => setBinding(provider.name, { target: event.target.value as BindingDraft['target'] })}>
                 <option value="">Chưa chọn</option>
                 <option value="resource">Cluster do node EKS cung cấp (kế thừa từ tài nguyên phụ thuộc)</option>
-                <option value="environment">Cluster của Môi trường (cách cũ, giữ tới V03)</option>
               </select></label>
             {binding.target === 'resource' ? <label>Class cluster EKS
               <select aria-label={`Class cluster EKS của provider ${provider.name}`} value={binding.clusterClass} disabled={disabled} onChange={(event) => setBinding(provider.name, { clusterClass: event.target.value })}>

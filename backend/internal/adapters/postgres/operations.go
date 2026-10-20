@@ -412,69 +412,6 @@ func (s *Store) BeginRecovery(ctx context.Context, id, newOwner, confirmedBy str
 	return out, err
 }
 
-func (s *Store) SaveTransition(ctx context.Context, t environment.Transition) error {
-	if t.ID == "" {
-		return fmt.Errorf("postgres: transition needs an id")
-	}
-	now := time.Now().UTC()
-	t.UpdatedAt = now
-	if t.CreatedAt.IsZero() {
-		t.CreatedAt = now
-	}
-	doc, err := jsonBytes(t)
-	if err != nil {
-		return err
-	}
-	return s.fenced(ctx, func(ctx context.Context) error {
-		return s.saveTransition(ctx, t, doc, now)
-	})
-}
-
-func (s *Store) saveTransition(ctx context.Context, t environment.Transition, doc []byte, now time.Time) error {
-	tag, err := s.q(ctx).Exec(ctx, `INSERT INTO environment_transitions(id,environment_id,operation_id,status,stage,document,created_at,updated_at) SELECT $1::uuid,e.id,$4::uuid,$5,$6,$7,$8,$8 FROM environments e JOIN applications a ON a.id=e.application_id WHERE a.application_key=$2 AND e.environment_key=$3 ON CONFLICT(id) DO UPDATE SET status=EXCLUDED.status,stage=EXCLUDED.stage,document=EXCLUDED.document,updated_at=EXCLUDED.updated_at`, t.ID, t.ApplicationKey, t.EnvironmentKey, t.OperationID, t.Status, t.Stage, doc, now)
-	if err != nil {
-		return translate(err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("%w: environment %s/%s", persistence.ErrNotFound, t.ApplicationKey, t.EnvironmentKey)
-	}
-	return nil
-}
-
-func (s *Store) GetTransition(ctx context.Context, id string) (environment.Transition, error) {
-	var parsed pgtype.UUID
-	if err := parsed.Scan(id); err != nil {
-		return environment.Transition{}, fmt.Errorf("%w: transition %q", persistence.ErrNotFound, id)
-	}
-	var doc []byte
-	if err := s.q(ctx).QueryRow(ctx, `SELECT document FROM environment_transitions WHERE id=$1::uuid`, id).Scan(&doc); err != nil {
-		return environment.Transition{}, translate(err)
-	}
-	var t environment.Transition
-	return t, unmarshalJSON(doc, &t)
-}
-
-func (s *Store) ListTransitions(ctx context.Context, app, env string) ([]environment.Transition, error) {
-	rows, err := s.q(ctx).Query(ctx, `SELECT t.document FROM environment_transitions t JOIN environments e ON e.id=t.environment_id JOIN applications a ON a.id=e.application_id WHERE a.application_key=$1 AND e.environment_key=$2 ORDER BY t.created_at DESC`, app, env)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []environment.Transition
-	for rows.Next() {
-		var doc []byte
-		if err := rows.Scan(&doc); err != nil {
-			return nil, err
-		}
-		var t environment.Transition
-		if err := unmarshalJSON(doc, &t); err != nil {
-			return nil, err
-		}
-		out = append(out, t)
-	}
-	return out, rows.Err()
-}
-
 // initialStage is the durable stage an operation is admitted with. A resource
 // cleanup is REQUESTED the moment its claim and confirmed scope commit, so the
 // persisted operation, the 202 and a restart all agree before the engine runs.

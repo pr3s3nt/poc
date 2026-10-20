@@ -104,7 +104,7 @@ func runClassified(t *testing.T, typeSecret, moduleSensitive, runtimeSensitive b
 	service.SetModuleVerifier(classVerifier{moduleSensitive: moduleSensitive})
 	req := provisioning.Request{
 		DeploymentID: "dep-secret", RunID: "run-1",
-		Context: planning.Context{OrganizationKey: org, App: application.Application{Key: "a", OrganizationKey: org}, Env: environment.Environment{Key: "staging", Profile: application.ProfileAWSEKS, ConnectionKey: "aws-a", Region: "us-east-1"}},
+		Context: planning.Context{OrganizationKey: org, App: application.Application{Key: "a", OrganizationKey: org}, Env: environment.Environment{Key: "staging"}},
 		Plan: &planning.Plan{
 			Graph: planning.Graph{Nodes: []planning.Node{
 				{Descriptor: dbDescriptor, Kind: planning.NodeResource, ResourceType: "db", Class: "default", Scope: resource.Scope{Type: resource.ScopeApplication, ID: "a"}},

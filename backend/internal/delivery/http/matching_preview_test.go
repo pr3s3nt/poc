@@ -113,7 +113,7 @@ func TestMatchingPreviewWorksForUnconfiguredEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	env.Key, env.ID, env.ConnectionKey, env.Profile = "unbound", "unbound-id", "", ""
+	env.Key, env.ID = "unbound", "unbound-id"
 	if err := st.SaveEnvironment(context.Background(), env); err != nil {
 		t.Fatal(err)
 	}

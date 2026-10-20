@@ -10,38 +10,11 @@ import (
 var keyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,40}$`)
 var dnsLabelPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
-// ExecutionProfile is the execution policy resolved from an Environment target
-// (UC-01).
-type ExecutionProfile string
-
-// Execution profiles supported by the MVP.
-const (
-	ProfileAWSEKS      ExecutionProfile = "aws-eks"
-	ProfileInternalK8s ExecutionProfile = "internal-k8s"
-)
-
-// Valid reports whether the profile is one of the two approved values.
-func (p ExecutionProfile) Valid() bool {
-	return p == ProfileAWSEKS || p == ProfileInternalK8s
-}
-
-// RuntimeStatus tracks whether Environment-scoped infrastructure exists.
-type RuntimeStatus string
-
-// Runtime statuses.
-const (
-	// RuntimeUnconfigured is an Environment whose target is not set yet.
-	RuntimeUnconfigured RuntimeStatus = "UNCONFIGURED"
-	RuntimePending      RuntimeStatus = "PENDING"
-	RuntimeReady        RuntimeStatus = "READY"
-)
-
 // Organization is the ownership boundary of every other aggregate.
 type Organization struct {
-	ID                   string `json:"id"`
-	Key                  string `json:"key"`
-	Name                 string `json:"name"`
-	DefaultConnectionKey string `json:"defaultConnectionKey"`
+	ID   string `json:"id"`
+	Key  string `json:"key"`
+	Name string `json:"name"`
 }
 
 // Application owns identity and current metadata only. Every execution and

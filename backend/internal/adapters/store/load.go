@@ -8,7 +8,6 @@ import (
 	"io"
 	"strings"
 
-	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 )
@@ -27,7 +26,7 @@ var requiredSnapshotKeys = []string{
 	"deploymentSets", "resourceTypes", "resourceDefinitions", "deployments", "deploymentDeltaSnapshots",
 	"deploymentPlans", "deploymentResources", "activeResources", "workloadInstances", "deploymentWorkloads",
 	"configurationScopes", "configurationRevisions", "workloadDrafts", "secretStores",
-	"environmentOperations", "environmentTransitions", "terraformModuleBundles",
+	"environmentOperations", "terraformModuleBundles",
 }
 
 // loadSnapshot parses the current format only. Missing or null aggregate maps,
@@ -190,11 +189,6 @@ func (s *state) validateCurrent() error {
 			return resetRequired("an Environment operation has no Environment")
 		}
 	}
-	for key, t := range s.Transitions {
-		if t.ID == "" || key != t.ID {
-			return resetRequired("an Environment transition record is incomplete")
-		}
-	}
 	return nil
 }
 
@@ -211,13 +205,8 @@ func (s *state) validEnvironment(key string, env environment.Environment) error 
 	if env.InfrastructureScope != environment.ScopeEnvironment {
 		return fmt.Errorf("%w: an Environment lacks the ENVIRONMENT infrastructure scope: %w", ErrResetRequired, environment.ErrInvalidInfrastructureScope)
 	}
-	if err := validEnvironmentBinding(env); err != nil {
-		return err
-	}
-	if env.ConnectionKey != "" {
-		if _, ok := s.Connections[catalogKey(app.OrganizationKey, env.ConnectionKey)]; !ok {
-			return resetRequired("an Environment binding names no Connection of its Organization")
-		}
+	if env.TargetGeneration < 0 {
+		return resetRequired("an Environment has a negative target generation")
 	}
 	if env.SecretStoreKey != "" {
 		if _, ok := s.SecretStores[catalogKey(app.OrganizationKey, env.SecretStoreKey)]; !ok {
@@ -236,18 +225,4 @@ func (s *state) validEnvironment(key string, env environment.Environment) error 
 		}
 	}
 	return nil
-}
-
-// validEnvironmentBinding mirrors the SQL binding consistency constraint.
-func validEnvironmentBinding(env environment.Environment) error {
-	if env.TargetGeneration < 0 || env.GenerationHigh < 0 {
-		return resetRequired("an Environment has a negative target generation")
-	}
-	if env.ConnectionKey == "" {
-		if env.RuntimeStatus != application.RuntimeUnconfigured || env.Profile != "" || env.Region != "" {
-			return resetRequired("an unconfigured Environment carries binding data")
-		}
-		return nil
-	}
-	return resetRequired("an Environment carries a retired deployment binding")
 }

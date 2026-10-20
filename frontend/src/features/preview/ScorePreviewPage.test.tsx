@@ -1,12 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
-import { unconfiguredTarget, type Application } from '../../shared/types/application';
+import { type Application } from '../../shared/types/application';
 import { ScorePreviewPage } from './ScorePreviewPage';
 import { parseScoreText } from './parseScore';
-import { bothConfigured, configuredTarget } from '../../test/targets';
+import { bothConfigured } from '../../test/targets';
 
-const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured('internal-cluster'), workloads: { staging: [], production: [] } };
+const application: Application = { id: 'shop', name: 'Shop', subdomain: 'shop', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 const yamlScore = 'apiVersion: score.dev/v1b1\nmetadata:\n  name: api\ncontainers:\n  main:\n    image: example.invalid/api:v1\n';
 const result = (overrides: Record<string, unknown> = {}) => ({
   applicationKey: 'shop', environmentKey: 'staging', baseSetId: 'set-1', baseVersion: 3, runId: 'run-7', workloadId: 'api', action: 'deploy',
@@ -59,9 +59,9 @@ it('parses YAML locally and shows every planning artifact without save or deploy
   expect(screen.queryByRole('button', { name: /deploy|save/i })).not.toBeInTheDocument();
 });
 
-it('renders the builtin cluster as the Environment connection and keeps normal Definition rows', async () => {
+it('renders Definition bindings without an Environment deployment Connection', async () => {
   const matches = [
-    { descriptor: 'k8s-cluster.internal#connections.lab', definitionKey: 'builtin-existing-cluster', driverType: 'existing-cluster', specificity: -1, binding: 'environment-connection', connectionKey: 'lab' },
+    { descriptor: 'k8s-cluster.internal#resources.cluster', definitionKey: 'existing-cluster', driverType: 'existing-cluster', specificity: 0 },
     { descriptor: 'k8s-namespace.default#environments.shop.staging', definitionKey: 'namespace-kubernetes', driverType: 'kubernetes', specificity: 0 },
   ];
   vi.stubGlobal('fetch', vi.fn(async () => Response.json(result({ matches }))));
@@ -70,8 +70,8 @@ it('renders the builtin cluster as the Environment connection and keeps normal D
   await fill(user);
   await user.click(screen.getByRole('button', { name: 'Xem trước' }));
   const region = await screen.findByRole('region', { name: 'Kết quả xem trước Score' });
-  expect(region).toHaveTextContent('Kết nối của môi trường lab');
-  expect(region).not.toHaveTextContent('builtin-existing-cluster');
+  expect(region).toHaveTextContent('existing-cluster');
+  expect(region).not.toHaveTextContent('Kết nối của môi trường');
   expect(region).toHaveTextContent('namespace-kubernetes');
 });
 
@@ -195,18 +195,6 @@ it('explains a planner rejection by its allow-listed stage and ignores unknown p
   expect(alert).not.toHaveTextContent(/SECRET|raw planner/);
 });
 
-it('explains an UNCONFIGURED Environment instead of showing a plan', async () => {
-  vi.stubGlobal('fetch', vi.fn(async () => Response.json({ error: 'the Environment has no execution connection; set one in Environment Settings', field: 'connectionKey', code: 'ENVIRONMENT_UNCONFIGURED' }, { status: 422 })));
-  const user = userEvent.setup();
-  render(<ScorePreviewPage application={{ ...application, environments: { staging: unconfiguredTarget, production: configuredTarget('lab') } }} environment="staging" />);
-  expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('staging · Đích triển khai do Resource Definition và tham chiếu của Workload quyết định');
-  await fill(user);
-  await user.click(screen.getByRole('button', { name: 'Xem trước' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Môi trường staging chưa có kết nối triển khai');
-  expect(screen.getByRole('alert')).toHaveTextContent('Cài đặt môi trường');
-  expect(screen.getByRole('alert')).not.toHaveTextContent(/execution connection|Environment Settings/);
-  expect(screen.queryByText(/Không có thay đổi Workload/)).not.toBeInTheDocument();
-});
 
 it('disables duplicate submits and ignores a response for input that changed', async () => {
   let resolve: (value: Response) => void = () => undefined;
@@ -278,10 +266,6 @@ it('accepts one JSON or YAML Score object only', () => {
   expect(parseScoreText('   ')).toEqual({ ok: false, error: 'là bắt buộc.' });
 });
 
-it('shows the Environment connection binding that planning will use', () => {
-  render(<ScorePreviewPage application={{ ...application, environments: { staging: configuredTarget('internal-cluster'), production: configuredTarget('lab') } }} environment="production" />);
-  expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('production · Kết nối lab (lab) · Phạm vi triển khai Cluster nội bộ (internal-k8s)');
-});
 
 it('never exposes raw YAML error text and keeps alias limits and values', () => {
   for (const text of ['containers: [', 'a: b: c', '{"a":', 'key: "unterminated']) {
@@ -309,12 +293,12 @@ const intent = (overrides: Record<string, unknown> = {}) => ({
   descriptor: 'redis.in-cluster#shared.cache', resourceType: 'redis', class: 'in-cluster', scope: 'SHARED:cache', ownership: 'ORCHESTRATOR', intent: 'CREATE',
   definitionKey: 'redis-module', driverType: 'terraform',
   module: { source: 'platform', module: 'redis-k8s', revision: 'v3-2026.10.13', subdirectory: 'redis-k8s', contentSha256: '446aeb69eafa37573233ff53629372172b8ce80439e8c8c2440fdbede9a860e1' },
-  providers: [{ name: 'kubernetes', kind: 'kubernetes', target: 'environment', connectionKey: 'internal-cluster' }],
+  providers: [{ name: 'kubernetes', kind: 'kubernetes', target: 'resource', provider: 'k8s-cluster.internal#resources.cluster' }],
   ...overrides,
 });
 
 it('shows the safe resource intents, module pin, provider target and ownership of a standalone Preview (UC-05 BR-10)', async () => {
-  const body = result({ resourceIntents: [intent(), intent({ descriptor: 'postgres.in-cluster#shared.db', resourceType: 'postgres', intent: 'RETAIN', scope: 'SHARED:db' })], binding: { connectionKey: 'internal-cluster', executionProfile: 'internal-k8s', region: '' } });
+  const body = result({ resourceIntents: [intent(), intent({ descriptor: 'postgres.in-cluster#shared.db', resourceType: 'postgres', intent: 'RETAIN', scope: 'SHARED:db' })] });
   vi.stubGlobal('fetch', vi.fn(async () => Response.json(body)));
   const user = userEvent.setup();
   render(<ScorePreviewPage application={application} environment="staging" />);
@@ -323,22 +307,21 @@ it('shows the safe resource intents, module pin, provider target and ownership o
   const table = await screen.findByLabelText('Tài nguyên hạ tầng sẽ được xử lý');
   expect(table).toHaveTextContent('redis-k8s · v3-2026.10.13');
   expect(table).toHaveTextContent('sha256:446aeb69eafa');
-  expect(table).toHaveTextContent('kubernetes: cluster của Môi trường (cách cũ, giữ tới V03) internal-cluster');
+  expect(table).toHaveTextContent('kubernetes: cluster do node k8s-cluster.internal#resources.cluster cung cấp');
   expect(table).toHaveTextContent('Orchestrator (theo phạm vi tài nguyên)');
   expect(table).toHaveTextContent('Tạo mới');
   expect(table).toHaveTextContent('Giữ nguyên');
-  expect(screen.getByLabelText('Đích đã ghim của xem trước')).toHaveTextContent('Kết nối internal-cluster · phạm vi internal-k8s');
-  expect(screen.getByLabelText('Đích đã ghim của xem trước')).not.toHaveTextContent('tài khoản AWS');
+  expect(screen.queryByLabelText('Đích đã ghim của xem trước')).not.toBeInTheDocument();
 });
 
 it('shows the AWS account and region beside the pinned target, never an override', async () => {
-  const body = result({ resourceIntents: [intent({ resourceType: 'vpc', class: 'default', providers: [{ name: 'aws', kind: 'aws', target: 'environment', connectionKey: 'aws-main', region: 'eu-west-1' }] })], binding: { connectionKey: 'aws-main', executionProfile: 'aws-eks', region: 'eu-west-1' }, accountId: '123456789012' });
+  const body = result({ resourceIntents: [intent({ resourceType: 'vpc', class: 'default', providers: [{ name: 'aws', kind: 'aws', target: 'account', connectionKey: 'aws-main', region: 'eu-west-1' }] })], accountId: '123456789012' });
   vi.stubGlobal('fetch', vi.fn(async () => Response.json(body)));
   const user = userEvent.setup();
   render(<ScorePreviewPage application={application} environment="staging" />);
   await fill(user);
   await user.click(screen.getByRole('button', { name: 'Xem trước' }));
-  expect(await screen.findByLabelText('Đích đã ghim của xem trước')).toHaveTextContent('Kết nối aws-main · phạm vi aws-eks · vùng eu-west-1 · tài khoản AWS 123456789012');
+  expect(screen.queryByLabelText('Đích đã ghim của xem trước')).not.toBeInTheDocument();
   expect(screen.getByLabelText('Tài nguyên hạ tầng sẽ được xử lý')).toHaveTextContent('aws: tài khoản AWS của cấu hình aws-main · vùng eu-west-1');
 });
 

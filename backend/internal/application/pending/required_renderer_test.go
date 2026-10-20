@@ -17,8 +17,6 @@ import (
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/bootstrap/bootstraptest"
-	appdomain "orchestrator/internal/domain/application"
-	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/persistence"
 	"orchestrator/internal/seed"
@@ -112,7 +110,7 @@ func registerRenderer(t *testing.T, app *bootstrap.App, bundles map[string]resou
 		case "internal-k8s":
 			criteria = []resource.Criterion{{ApplicationID: defaults.ApplicationKey}}
 		case "aws-eks":
-			criteria = []resource.Criterion{{ApplicationID: defaults.CloudApplicationKey}}
+			criteria = []resource.Criterion{{ApplicationID: "acceptance-cloud"}}
 		default:
 			criteria = []resource.Criterion{{}}
 		}
@@ -153,17 +151,12 @@ func TestRequiredRendererMissingTieAndUnavailableFailBeforeResources(t *testing.
 			registerRenderer(t, app, b, o, "render-b", "internal-k8s")
 		}, "equally"},
 		{"other-application", true, func(t *testing.T, app *bootstrap.App, b map[string]resource.RenderBundle, o seed.Options) {
-			// A renderer for another (legacy-bound) Application never applies to this one.
+			// A renderer for another (different) Application never applies to this one.
 			other, err := appcreate.NewService(app.Store).Create(context.Background(), appcreate.CreateCommand{OrganizationKey: o.OrganizationKey, Name: "Other", Subdomain: "other"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, env := range []string{"staging", "production"} {
-				if _, err := app.Store.BindEnvironment(context.Background(), persistence.EnvironmentBinding{ApplicationKey: other.Application.Key, EnvironmentKey: env, ConnectionKey: o.ConnectionKey,
-					Profile: appdomain.ProfileInternalK8s, RuntimeStatus: appdomain.RuntimeReady, Scope: environment.ScopeEnvironment, ExpectedVersion: 1}); err != nil {
-					t.Fatal(err)
-				}
-			}
+
 			registerRenderer(t, app, b, o, "render-other", "internal-k8s", resource.Criterion{ApplicationID: other.Application.Key})
 		}, "rendering template"},
 		{"no-binary", false, func(*testing.T, *bootstrap.App, map[string]resource.RenderBundle, seed.Options) {}, "rendering template"},

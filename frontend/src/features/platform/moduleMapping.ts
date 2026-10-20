@@ -16,7 +16,7 @@ export type TypeContract = {
   classes: string[];
 };
 
-export type BindingDraft = { target: '' | 'environment' | 'resource'; clusterClass: string };
+export type BindingDraft = { target: '' | 'resource'; clusterClass: string };
 export type MappingDraft = {
   inputs: Record<string, string>; // Resource Type input -> module variable
   outputs: Record<string, string>; // Resource Type output -> module output
@@ -60,7 +60,6 @@ export function mappingToObject(draft: MappingDraft, capability: Capability): { 
   for (const provider of bindingProviders(capability)) {
     const binding = draft.bindings[provider.name];
     if (provider.binding === 'aws') provider_bindings[provider.name] = { target: 'account' };
-    else if (binding?.target === 'environment') provider_bindings[provider.name] = { target: 'environment' };
     else if (binding?.target === 'resource' && binding.clusterClass !== '') provider_bindings[provider.name] = { target: 'resource', resource_ref: clusterRef(binding.clusterClass) };
   }
   return { input_mapping, output_mapping, provider_bindings };
@@ -105,7 +104,6 @@ export function objectToMapping(value: JsonObject, capability: Capability, type:
       if (entry.target === 'account' && Object.keys(entry).length === 1) continue;
       return { reason: `Binding của "${name}" phải là {target: account} (tài khoản của cấu hình). Giữ trong JSON nâng cao.` };
     }
-    if (provider.binding === 'kubernetes' && entry.target === 'environment' && Object.keys(entry).length === 1) { draft.bindings[name] = { target: 'environment', clusterClass: '' }; continue; }
     const ref = typeof entry.resource_ref === 'string' ? clusterRefPattern.exec(entry.resource_ref) : null;
     if (provider.binding === 'kubernetes' && entry.target === 'resource' && Object.keys(entry).length === 2 && ref?.[1] && clusterClasses.includes(ref[1])) { draft.bindings[name] = { target: 'resource', clusterClass: ref[1] }; continue; }
     return { reason: `Binding của "${name}" không biểu diễn an toàn bằng control (cluster cần là class đã công bố). Giữ trong JSON nâng cao.` };
@@ -132,7 +130,7 @@ export function mappingProblems(draft: MappingDraft, capability: Capability, typ
   const clusterNeeded = bindingProviders(capability).filter((provider) => provider.binding === 'kubernetes');
   for (const provider of clusterNeeded) {
     const binding = draft.bindings[provider.name];
-    if (!binding || binding.target === '') problems.push({ field: `binding:${provider.name}`, message: `Chọn nơi provider ${provider.name} lấy cluster: cluster do node EKS cung cấp, hoặc cluster của Môi trường (cách cũ, giữ tới V03).` });
+    if (!binding || binding.target === '') problems.push({ field: `binding:${provider.name}`, message: `Chọn node EKS cung cấp cluster cho provider ${provider.name}.` });
     else if (binding.target === 'resource' && binding.clusterClass === '') problems.push({ field: `binding:${provider.name}`, message: `Chọn class cluster EKS cho provider ${provider.name}.` });
   }
   return problems;

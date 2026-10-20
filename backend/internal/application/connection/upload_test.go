@@ -91,7 +91,7 @@ func uploadFixture(t *testing.T) (*store.Store, *credentialmemory.Store, *kubeco
 	ctx := context.Background()
 	st := store.New()
 	for _, key := range []string{"acme", "other"} {
-		if err := st.SaveOrganization(ctx, application.Organization{Key: key, Name: key, DefaultConnectionKey: "internal-cluster"}); err != nil {
+		if err := st.SaveOrganization(ctx, application.Organization{Key: key, Name: key}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -105,6 +105,10 @@ func uploadFixture(t *testing.T) (*store.Store, *credentialmemory.Store, *kubeco
 func TestRegisterKubeconfig_StoresSelectedCredentialOutsideRecord(t *testing.T) {
 	ctx := context.Background()
 	st, creds, v, svc := uploadFixture(t)
+	beforeOrg, orgErr := st.GetOrganization(ctx, "acme")
+	if orgErr != nil {
+		t.Fatal(orgErr)
+	}
 	doc := ct.Document(ct.TokenContext("dev", "https://dev.example:6443", secretToken), ct.TokenContext("prod", "https://prod.example", "prod-token-value"))
 	created, err := svc.RegisterKubeconfig(ctx, "acme", connection.RegisterKubeconfigCommand{Name: "  Cụm Nội bộ Lab ", Kubeconfig: doc, Context: "prod"})
 	if err != nil {
@@ -137,8 +141,8 @@ func TestRegisterKubeconfig_StoresSelectedCredentialOutsideRecord(t *testing.T) 
 		t.Fatal("credential readable from another organization")
 	}
 	org, _ := st.GetOrganization(ctx, "acme")
-	if org.DefaultConnectionKey != "internal-cluster" {
-		t.Fatalf("registration changed the organization default: %#v", org)
+	if org != beforeOrg {
+		t.Fatalf("registration changed Organization metadata: %#v", org)
 	}
 
 	// Same name: a collision suffix, never an overwrite.

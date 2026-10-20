@@ -7,117 +7,65 @@ last_reviewed: 2026-10-20
 
 # Current project state
 
-## V04–V05 complete; V06 pending, 2026-10-20
+## V04–V06 hoàn tất — 2026-10-20
 
-Latest user decision19-10: browser E2E nhanh, không video/cursor/reading pauses/
-captions/decode/native upload. R14 real headless browserPASS toàn46assertions;
-giữ main business/readiness/naturalTTL/secret/ownership cleanup. V04 native video
-đã hoàn tất được giữ lịch sử; không rerun chỉ để đổi mode evidence.
+Đã hoàn tất Definition/matching/references → dependency graph → tài khoản/vùng
+và đích theo từng resource/workload theo ADR-017. Không còn executionProfile,
+Environment deployment selector/transition hoặc Organization default-choice
+metadata trong domain/schema/API/UI/seed. Adapter/ports chuyển đích cũ không có
+caller đã gỡ; giữ nguyên Secret Store, operation/fencing, generation và UID cleanup.
+Mô hình placement theo workload/resource vẫn có giới hạn một cluster đã resolve
+trong Candidate Set; không thêm multi-cluster execution hoặc issue5.
 
-V05 replacement R14v05-1019191424-6833 source39 PASS:46/46assertions,9marks,
-full5SQLresources(module/identity/statusDESTROYED)/4APIrows/7deployments reopen,
-28publicfiles secret scan, originalexit0/CLOSED_CLEAN. Independent20:12UTC native
-serviceAPI0owned/exactclusterEC2EBSabsent/DBroles/process/privategone/defaultVPC1/
-SLR11preservedPASS. R13 originalFAIL/reopen defect kept; source39 fix proved in
-integrated R14, not relabelled. S3 AWSprofile removal and protectedvolumeIDveto now
-integrated after replacementPASS, strict5patch/coS3/source40 finalreviewPASS.
-Final S3 broad Go validation PASS1715/0FAIL/0SKIP, race218/0/0, build/vet;
-conformance included in fullGo. Focused helper15+kit8/lint and docs352Markdown/
-304IDs/diff PASS; unchanged39PlantUMLsources/render proof reused. ProductionTS/UI
-S2→S3 byte-identical: prior full and affected74/type/lint/build results reused.
-Final source41 only corrects stale Go comments after checks; executable-token
-comparison proves no behavior delta, so Go/runtime results remain valid.
-S3 authored account/region/target branches unchanged from R14; protectedvolumeID
-veto has no matching candidate in R14's4SLR-only protected manifest, nativeverifier
-unchanged. No extra runtime replay needed for this delta. V05 implementation/
-review/validation/runtime/cleanup complete; milestone Git receipt/currenthead is
-recorded in issue4 after commit/push. V06S4/S5 remain isolated until nextgate.
-Actualcostchưa xác định. CommonPG/Vault/kind/user sessions kept for nextgate.
+| Gate | Bằng chứng thực tế | Git |
+|---|---|---|
+| V04 | R18 `v04-1019082805-fb41fd`:54/54main assertions, native video đã kiểm, SQL/Vault/Kubernetes cleanup độc lập | `5413fa1` pushed |
+| V05 | R14 `v05-1019191424-6833`:46/46, EKS tạo trong chính graph, readiness/job/cache/update/restart/reuse, SQL5/API4 và native cleanup | `c6dad76` pushed; AWS profile path gỡ sau replacement PASS |
+| V06 replacement | A02 `a02-1020003113-c21a` rồi cleanup sạch, A03 `a03-1020024412-35bc`: mỗi run47/47, exit0/CLOSED_CLEAN | Thực hiện trước S5 removal |
+| V06 final | `a03f-1020041903-32d7` trên source51/S5 sau removal:47/47,9marks,7SUCCEEDED deployments, SQL5/API4 reopen, secret scan, durable creationUID/atomic cleanup và native/SQL/process/private absence độc lập05:43UTC | Commit chứa báo cáo này hoàn tất V06; SHA push cuối trong issue4 |
 
-Root agent trực tiếp code/test/docs, tự review/check/runtime; không coding agents.
-Theo quyết định19-10 ở issue4, nghiệm thu thật chỉ luồng chính; giữ existing
-negative unit/integration tests, secret protection và ownership/UID/API cleanup.
+Toàn bộ nghiệm thu dùng `backend/examples/acceptance-app/` thật: frontend proxy
+đến backend, worker claim/DONE/result trên PostgreSQL; Redis worker write/hit,
+TTL hết tự nhiên và DB refill; reload, valid update, restart, job mới, reuse và
+reverse cleanup. A02 dùng Aurora/ElastiCache; A03 dùng Aurora/Redis trong EKS.
+AWS thật chỉ452025861381/us-east-1. Mixed account/region và managed-only graph
+là contract tests; managed-only không tự thêm EKS. Public no-workload execution
+entry chưa được định nghĩa và ngoài scope issue4; không có UI/API mới cho nó.
 
-V04 source22/S1 đã nghiệm thu R18 `v04-1019082805-fb41fd`:54/54 assertions PASS,
-runner exit0/CLOSED_CLEAN, admission version2 MAIN_FLOW_2026_10_19. Frontend proxy
-đến backend thật; shared PostgreSQL jobs/worker claim/DONE/result; Redis worker
-write/hit/natural TTL miss/DB refill; config/secret checks đều PASS. Reload,
-image B, valid TTL25→35 update, orchestrator restart và job mới giữ data/identity.
-UI account/Types/Definitions/Score/Preview/graph/order/deploy/readiness đã kiểm.
+Checks dùng PostgreSQL18.6 thật/REQUIRE_POSTGRES=1,0individualSKIP. V05 full
+Go1715/race218; V06 reuse fullS5 Go1674/frontend722 ở phần không đổi và kiểm
+composed delta: Go117+115/operator176/race48+148, frontend74+21; legacy closure
+Go164/race76/build/vet và all-test compilation. Không cộng các lượt chồng lặp
+thành một fullsuite mới. Frontend typecheck/lint/build, docs352/304, shell/diff
+PASS. PlantUML5 nguồn đổi render PASS,34 nguồn giống snapshot đã kiểm được reuse.
+Mapping chi tiết và các FAIL lịch sử nằm trong handoff; không suite để poll.
 
-Cleanup đúng Service dependency: UI remove frontend+backend cùng thay đổi,
-worker còn giữ shared PG/Redis. Labelled technical RemoveDelivered gỡ đúng worker
-và VSO qua original target, UI commit worker removal rồi PE reverse delete Redis,
-PostgreSQL và hai namespaces. Không gọi technical mutation là UI. SQL reopen:
-5types/5definitions/accountREADY,10succeeded/0failed deployments, resourcesDESTROYED.
-Độc lập08:51–08:52UTC:2namespaces/2PVs, DB/3roles,20outputrefs/accountKVmetadata,
-recorded process groups/private material vắng;10baseline namespaceUIDs và cluster
-có sẵn giữ nguyên. Supplemental process scan đầu trùng ffmpeg trích frame đang
-chạy; chờ extractor xong rồi exact scan unchanged PASS, không rerun scenario.
+Mỗi run đã cleanup bằng original state/module/target và native API; fixture
+PG62005/Vault66681 đã dừng, ports đóng, không còn DB/role/session phụ trước stop,
+private fixture/credential copies đã xóa. Giữ metadata/evidence và billing subset
+hạn chế quyền đọc.10namespace UID cùng reviewerSA/Secret của k8s-4f giữ nguyên;
+host context `kind-idp-internal`, defaultVPC và11SLRs, usertmux `v456`/`tempt`,
+Docker metadata và checkout người dùng `512d0d3` được giữ. Không còn owned cloud
+resources/process/supervisor/recovery cần giữ cho task.
 
-[Video native](https://github.com/pr3s3nt/poc/issues/4#issuecomment-6263439664)
-21phút45.07giây, headed/cursor/captions Việt dưới hình, full raw/captioned decode,
-31publicfiles secret scan và11frames review PASS. GitHub rendered player và
-bản tải xuống20,526,823bytes có SHA3181e786…9f10bc7 trùng local; actual GitHub player headed playback08:58UTC readyState4,1440x996,
-currentTime>1 và đang phát. Cuối clip khoảng
-149giây không caption sau narration cleanup; không dựng lại UI hoặc quay lại run.
+Giới hạn bằng chứng: optional ACCEPTANCE_SECRET trên EKS là NOT_CONFIGURED,
+không tính PASS; V04 đã kiểm binding Vault thật và EKS vẫn có Secret refs thật
+cho DB/cache. Intentional negatives không còn thuộc runtime gate theo quyết định
+19-10; tests hiện có vẫn giữ/pass. Không video V05/V06 theo quyết định mới nhất;
+native video V04 giữ lịch sử. A02R2 technical-read FAIL chưa đủ dữ liệu xác định
+nguyên nhân; suy đoán cũ về expiry đã bị timestamp loại trừ, không đổi thành PASS.
+Các run đã hoàn tất sau đó là bằng chứng độc lập, có đủ assertions/cleanup.
 
-Validation theo source/impact: fullGo1654/0FAIL/0SKIP, race254/build/vet/conformance
-đã có; fullfrontend710individualPASS có lỗi collection ở harness import, đã sửa
-và focused5PASS/lint/build (không gọi original command exit1 làPASS). Các delta
-safety/cleanup/admission có realPG/TF tests và race; main contractGo167/0/0,
-frontend20 và latest47/0/0/syntax/lint/type/build PASS, counts overlap không cộng.
-Docs352Markdown304IDs/diff PASS;39PlantUMLsources byte-identical validated snapshot,
-reuse render/check. Mapping source receipts/failures ở handoff, không fullsuite
-rerun để theo dõi hoặc đổi nhãn gate. V04 đã commit/push5413fa1cde798ef6a60a039654f0c1a89952ab2d task-only sau checks.
+Cost Explorer read-only05:35UTC chỉ trả tagged subset với Estimated=true; không
+đủ quy thuộc mọi EC2/EBS/chi phí và độ trễ billing. **Chi phí thực tế chưa xác định**,
+không ghi0. Dự toán riêng5h: V05≈1.289USD, A02≈1.994USD, mỗi A03≈1.915USD;
+không phải số thực chi hay trần chi phí mới.
 
-Root refactor_ui user checkout vẫn sạch512d0d3; task checkout sau host reboot
-là /var/tmp/p46-coordination-20261019, branch codex/v040506-recovery. /tmp cũ mất
-bởi reboot; /var/tmp stages/evidence giữ. User tmuxv456 giữ; task không đóng nó.
-Common private nativePG18.6/Vault1.20.4 dưới /var/tmp/p46-fixtures-20261019 còn để
-chạy tiếp; R18 private run đã xóa. Các failed/interrupted R1–R17 giữ lịch sử,
-không coi whole PASS; cleanup từng lượt có proofs/giới hạn quan sát trong handoff.
+Agent trực tiếp code/review/check trên luồng chính; không coding agent phụ.
+[Handoff/coverage/reuse](verification/2026-10-18-v040506-handoff.md) và Current
+handoff issue4 chứa head/session/quyền/evidence cuối. Dừng ở V06.
 
-V05 bắt đầu: áp dụng S2 replacement đã review; S3 removal tiếp tục gated.
-V06 S4/S5 vẫn isolated/unapplied. Strict5patch replay
-và co/S2 equality PASS trên source30 hiện tại. AWS main runner bỏ wrong-password/rival-Definition paths,
-focusedS2/S5Go22each/frontend21/10/lint PASS. S2–S5 staged file-backed Vault giữ
-private recovery qua host restart; normal local restart/same scoped token/secret
-read-back và exact local cleanup PASS, token6h không kéo dài cloud deadline5h.
-V05 R2–R7 mới tạo/xóa3ownedECR mỗi lượt, chưa tạo EKS. R7 source29 tới Deploy
-rồi VPC plan terminalFAIL do provider socket TMPDIR quá sâu; supervisor CLEAN
-và manual originalCLI/SQL/Vault/process/private cleanup, independent nativeAPI
-10:49UTC PASS. Original FAIL/INCOMPLETE receipt giữ nguyên, không gọi gatePASS.
-Source30 sửa short0700 provider TMPDIR, private recovery pointer và cleanup/retain;
-native verified registry/realAWS provider readonly init/plan13changes PASS, noapply.
-Focused runner/executor/cleanup125/0FAIL/0SKIP realPG/TF + race/build/vet PASS.
-R8 v05-1019105951-4ab5 tạoEKS nhưng OUTPUTS/OUTPUT_CONTRACT fail do required
-platformcluster bị kiểm trước completion. Source31 caller module-only projection,
-fullType/identity/readiness giữ nguyên; positive regression red→green, focused122
-/race48/build/vet/docs/replay PASS. Browser owned dừng11:36UTC, original runner/
-supervisor hoàn tất11:54UTC FAIL/CLOSED_CLEAN; independentAPI/SQL/process/private
-absencePASS. R9 v05-1019115452-991a đạt3DeploymentSUCCEEDED, EKS/nodeARM64/3workloads
-Ready/sharedPGRedis/secretrefs PASS; runner targetidentity fail vì so physical
-namespace với logicaldescriptor. Source32 sửa phép đọc, giữ checks cluster/account/
-ARN/ACTIVE và thêm logicalcluster/UID; focused13/syntax/lint/review/docs/replay PASS,
-Go/UI/module/Score/config unchanged/reused. R9closed12:58UTC FAIL/CLOSED_CLEAN,
-independent15:11UTC nativeAPI/SQL/process/privateabsencePASS. R10 v05-1019151159-cd87
-started15:12UTC source32;35positive assertions prove real jobs/cache/TTL/refill/
-validconfigurationupdate/data+infrareuse. Postrestart unchangedScore correctly
-no-op0 but runnerexpected1, so R10FAIL/cleanupactive. Source34 adds genuine valid
-TTL75 change/deploy2 afterrestart with same original target/data/newjob assertions.
-No productdelta/newexceptiontests. R10closed16:15UTC FAIL/CLOSED_CLEAN, independent
-16:16UTC nativeAPI/SQL/process/privateabsencePASS. R11 v05-1019161640-dbab
-started16:16UTC source34 --browser-only fast/headless/no-video;27positive assertions
-then bareNodefetch failed at cachehit technicalread. Source35 browsernative GET
-no-store/HTTP200/15s/no-retry review/syntax/lint/replay/20freshGET smokePASS;
-exactTCPcause unknown, no productchange. R11cleanupactive, V05 chưa gatePASS.
-Read-only identity452025861381/itadminaws/us-east-1,
-baseline0EKS/0RDSclusters/0cachegroups/0ECR,1VPC/11SLR protected; fresh per-run
-preflight, source-bound estimates/pins, supervisor/recovery bắt buộc trước create.
-Actual cost chưa xác định. Tự tiếp tục V05 rồi V06 A02→serviceAPIclean→A03;
-gated removals chỉ sau replacementPASS. V06.06 public no-workload entry undefined/
-conditional, no new API/UI, multi-cluster hoặc issue5 scope được thêm.
+Các checkpoint roadmap bên dưới là lịch sử theo ngày, không là task đang chạy.
 
 ## V03 — Definition-selected Internal workload, 2026-10-18
 

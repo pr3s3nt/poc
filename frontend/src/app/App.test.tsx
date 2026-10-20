@@ -7,10 +7,9 @@ import { App } from './App';
 type Handler = (url: string, init?: RequestInit) => Response | Promise<Response> | undefined;
 
 let authenticated: boolean;
-type StubEnvironment = { key: string; version: number; configured: boolean; connectionKey: string; connectionName?: string; connectionKind?: string; executionProfile: string; region?: string; runtimeStatus: string; infrastructureScope: string };
+type StubEnvironment = { key: string; version: number; secretStoreKey?: string; targetGeneration?: number; activeOperation?: { id: string; status: string } };
 type StubApplication = { key: string; name: string; subdomain: string; environments: StubEnvironment[] };
-const unset = (key: string): StubEnvironment => ({ key, version: 1, configured: false, connectionKey: '', executionProfile: '', runtimeStatus: 'UNCONFIGURED', infrastructureScope: 'ENVIRONMENT' });
-const bound = (key: string, connectionKey: string): StubEnvironment => ({ key, version: 2, configured: true, connectionKey, connectionName: connectionKey, connectionKind: 'KUBERNETES', executionProfile: 'internal-k8s', runtimeStatus: 'READY', infrastructureScope: 'ENVIRONMENT' });
+const environmentFixture = (key: string): StubEnvironment => ({ key, version: 1, secretStoreKey: '', targetGeneration: 0 });
 let applications: StubApplication[];
 let requests: { url: string; method: string; body?: string }[];
 let override: Handler | undefined;
@@ -27,20 +26,10 @@ function stubBackend() {
     if (!authenticated) return Response.json({ error: 'unauthorized' }, { status: 401 });
     if (url.endsWith('/applications') && init?.method === 'POST') {
       const body = JSON.parse(String(init.body)) as { name: string; subdomain: string };
-      const created: StubApplication = { key: 'generated-id', name: body.name, subdomain: body.subdomain, environments: [unset('staging'), unset('production')] };
+      const created: StubApplication = { key: 'generated-id', name: body.name, subdomain: body.subdomain, environments: [environmentFixture('staging'), environmentFixture('production')] };
       applications.push(created);
       return Response.json({ application: created }, { status: 201 });
     }
-    const set = url.match(/\/applications\/([^/]+)\/environments\/([^/]+)\/connection$/);
-    if (set && init?.method === 'PUT') {
-      const body = JSON.parse(String(init.body)) as { connectionKey: string; expectedVersion: number };
-      const env = applications.find((item) => item.key === set[1])?.environments.find((item) => item.key === set[2]);
-      if (!env) return Response.json({ error: 'not found' }, { status: 404 });
-      if (env.configured) return Response.json({ error: 'this environment already has a connection; it cannot be changed', code: 'ALREADY_CONFIGURED' }, { status: 409 });
-      Object.assign(env, bound(env.key, body.connectionKey));
-      return Response.json({ environment: env });
-    }
-    if (url.endsWith('/application-connections')) return Response.json({ connections: [{ key: 'internal-cluster', name: 'Internal cluster', kind: 'KUBERNETES', status: 'READY' }, { key: 'lab', name: 'Lab', kind: 'KUBERNETES', status: 'READY' }], defaultConnectionKey: 'internal-cluster' });
     if (url.endsWith('/applications')) return Response.json({ applications });
     if (url.includes('/configuration')) return Response.json({ applicationKey: 'x', environmentKey: 'staging', version: 0, keys: [] });
     if (url.includes('/workloads')) return Response.json({ draftVersion: 0, workloads: [] });
@@ -61,7 +50,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/ui/sign-in');
     authenticated = false;
-    applications = [{ key: 'payment', name: 'Payment', subdomain: 'payment', environments: [bound('staging', 'internal-cluster'), bound('production', 'internal-cluster')] }];
+    applications = [{ key: 'payment', name: 'Payment', subdomain: 'payment', environments: [environmentFixture('staging'), environmentFixture('production')] }];
     requests = [];
     override = undefined;
     stubBackend();
@@ -119,8 +108,8 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
   it('lists several applications in returned order with Vietnamese card labels and deep links', async () => {
     authenticated = true;
     applications = [
-      { key: 'zeta', name: 'Zeta', subdomain: 'zeta', environments: [unset('staging'), unset('production')] },
-      { key: 'alpha', name: 'Alpha', subdomain: 'alpha', environments: [unset('staging'), unset('production')] },
+      { key: 'zeta', name: 'Zeta', subdomain: 'zeta', environments: [environmentFixture('staging'), environmentFixture('production')] },
+      { key: 'alpha', name: 'Alpha', subdomain: 'alpha', environments: [environmentFixture('staging'), environmentFixture('production')] },
     ];
     const user = userEvent.setup();
     render(<App />);
@@ -177,13 +166,13 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     await user.click(screen.getByRole('button', { name: 'Tạo ứng dụng' }));
 
     expect(await screen.findByRole('heading', { name: 'Catalog' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('staging · Đích triển khai do Resource Definition và tham chiếu của Workload quyết định');
+    expect(screen.getByLabelText('Đích triển khai')).toHaveTextContent('staging · Đích được xác định từ Resource Definition và các tham chiếu Workload.');
     expect(screen.getByRole('status')).toHaveTextContent('Đã tạo ứng dụng.');
     expect(screen.getByRole('button', { name: /staging/ })).toHaveClass('tab-active');
     const create = requests.find((request) => request.method === 'POST' && request.url.endsWith('/applications'));
     expect(JSON.parse(create?.body ?? '{}')).toEqual({ name: 'Catalog', subdomain: 'catalog' });
 
-    // ADR-016: Settings no longer offers an Environment connection; both Environments stay unset.
+    // ADR-017: Settings has no deployment Connection/profile/transition; resource Definitions select targets.
     await user.click(screen.getByRole('button', { name: 'Cài đặt môi trường' }));
     expect(await screen.findByRole('tab', { name: 'Staging' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByLabelText('Kết nối cho Staging')).not.toBeInTheDocument();
@@ -193,7 +182,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(requests.some((request) => request.method === 'PUT' && request.url.endsWith('/connection'))).toBe(false);
     expect(requests.some((request) => /\/(deploy|preview|deployments)$/.test(request.url) && request.method === 'POST')).toBe(false);
     await user.click(screen.getByRole('button', { name: /← Catalog/ }));
-    expect(await screen.findByLabelText('Đích triển khai')).toHaveTextContent('staging · Đích triển khai do Resource Definition');
+    expect(await screen.findByLabelText('Đích triển khai')).toHaveTextContent('staging · Đích được xác định từ Resource Definition và các tham chiếu Workload.');
   });
 
   it('keeps the Settings Environment aligned with the URL across tab clicks and back/forward', async () => {
@@ -202,7 +191,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     authenticated = true;
     render(<App />);
     expect(await screen.findByRole('tab', { name: 'Production' })).toHaveAttribute('aria-selected', 'true');
-    // The Environment connection selector is retired (ADR-016): Settings no longer offers it.
+    // ADR-017: Settings has no deployment target selector; Definition pins remain per resource.
     expect(screen.queryByLabelText('Kết nối triển khai')).not.toBeInTheDocument();
     await waitFor(() => expect(requests.some((request) => request.url.includes('/environments/production/configuration'))).toBe(true));
     // A tab click keeps the URL aligned, so a reload opens the same scope.

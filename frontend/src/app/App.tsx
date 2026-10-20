@@ -17,7 +17,7 @@ import { ResourceDefinitionsPage } from '../features/platform/ResourceDefinition
 import { DriverAccountsPage } from '../features/platform/accounts/DriverAccountsPage';
 import { ConnectionsPage } from '../features/platform/ConnectionsPage';
 import { SecretStoresPage } from '../features/platform/SecretStoresPage';
-import { unconfiguredTarget, type Application, type EnvironmentKey, type EnvironmentTarget } from '../shared/types/application';
+import { emptyEnvironment, type Application, type EnvironmentKey, type EnvironmentTarget } from '../shared/types/application';
 import { api, ApiError, sessionExpiredEvent } from '../shared/api/client';
 import { toTarget, type APIEnvironment } from '../shared/api/environment';
 import { Button } from '../shared/ui/Button';
@@ -40,7 +40,7 @@ export function App() {
   function mapApplication(application: APIApplication): Application {
     const target = (key: EnvironmentKey): EnvironmentTarget => {
       const item = application.environments?.find((env) => env.key === key);
-      return item ? toTarget(item) : unconfiguredTarget;
+      return item ? toTarget(item) : emptyEnvironment;
     };
     return { id: application.key, name: application.name, subdomain: application.subdomain, environments: { staging: target('staging'), production: target('production') }, workloads: { staging: [], production: [] } };
   }

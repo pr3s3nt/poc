@@ -51,7 +51,7 @@ func (r registry) VerifiesModules(driver resource.DriverType) bool {
 }
 
 // realAdapters wires the cluster and cloud executors used outside the walking
-// skeleton. Kubernetes mode covers internal-k8s; AWS mode adds Terraform.
+// skeleton. Kubernetes mode supplies cluster adapters; AWS mode also supplies cloud Terraform adapters.
 func realAdapters(opts Options, credentials *connection.CredentialResolver, kubeconfig execution.KubeconfigSource, tf *terraformRuntime, secretStore execution.SecretStore, modules *moduleregistry.Service, closers *[]func()) (execution.ExecutorRegistry, execution.WorkloadRenderer, execution.WorkloadDeployer, error) {
 	kubernetesExecutor := k8s.NewExecutor(opts.KubectlPath)
 	kubernetesExecutor.Credentials = kubeconfig

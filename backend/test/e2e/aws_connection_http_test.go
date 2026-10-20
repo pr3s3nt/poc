@@ -96,6 +96,10 @@ func TestAWSConnectionHTTPContract(t *testing.T) {
 	log.SetOutput(&logs)
 	defer log.SetOutput(os.Stderr)
 	server, verifier, store, app := awsServer(t, true, true)
+	beforeOrg, orgErr := app.Store.GetOrganization(context.Background(), "acme")
+	if orgErr != nil {
+		t.Fatal(orgErr)
+	}
 	pe := authenticatedClientAs(t, server.URL, "platform-engineer")
 	dev := authenticatedClient(t, server.URL)
 	register := server.URL + "/api/v1/connections/aws"
@@ -173,14 +177,14 @@ func TestAWSConnectionHTTPContract(t *testing.T) {
 	if resp.StatusCode != http.StatusOK || !strings.Contains(list, `"key":"tai-khoan-aws-lab"`) || !strings.Contains(list, `"allowedRegions":["us-east-1","eu-west-1"]`) {
 		t.Fatalf("list: %d %s", resp.StatusCode, list)
 	}
-	// The same name never overwrites; the default never moves.
+	// The same name never overwrites; Organization metadata never changes.
 	resp, body = call(t, pe, http.MethodPost, register, awsBody(t, nil))
 	if resp.StatusCode != http.StatusCreated || decode(t, body)["key"] != "tai-khoan-aws-lab-2" {
 		t.Fatalf("collision: %d %s", resp.StatusCode, body)
 	}
 	org, err := app.Store.GetOrganization(context.Background(), "acme")
-	if err != nil || org.DefaultConnectionKey != "internal-cluster" {
-		t.Fatalf("organization default changed: %#v %v", org, err)
+	if err != nil || org != beforeOrg {
+		t.Fatalf("Organization metadata changed: %#v %v", org, err)
 	}
 	stored, err := app.Store.GetConnection(context.Background(), "acme", "tai-khoan-aws-lab")
 	if err != nil || stored.SecretRef == "" || store.Len() != 2 {

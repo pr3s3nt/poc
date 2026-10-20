@@ -7,8 +7,9 @@
 //
 //   - UC-08 executes resource nodes only, so the workload node is never matched
 //     to a Resource Definition and never appears in a provision batch.
-//   - Every Environment gets implicit profile infrastructure (a namespace and a
-//     cluster), which the challenge has no concept of.
+//   - This read-only harness adds a synthetic namespace and registered cluster
+//     solely for reference comparison. Product Environments get no implicit
+//     infrastructure; the challenge has no concept of these harness nodes.
 //
 // For accepted fixtures, Deployment Set shape, the Humanitec-shaped Delta
 // document and its base + delta = candidate invariant, resource identity, params, matching, references, co-provision, batching, Terraform
@@ -132,19 +133,10 @@ func Load(root, name string) (*Case, error) {
 		Name:            appKey,
 		Version:         1,
 	}
-	// Test-only synthetic Environment binding: the fixtures predate the
-	// Environment-owned binding. The product never falls back to a target.
 	env := environment.Environment{
-		ConnectionKey:       syntheticConnectionKey,
-		Profile:             application.ProfileInternalK8s,
-		RuntimeStatus:       application.RuntimeReady,
 		InfrastructureScope: environment.ScopeEnvironment,
-		Key:                 envKey,
-		ApplicationKey:      appKey,
-		Name:                envKey,
-		Type:                stringAt(context, "env_type"),
-		NamespaceIdentity:   syntheticNamespace,
-		Version:             1,
+		Key:                 envKey, ApplicationKey: appKey, Name: envKey,
+		Type: stringAt(context, "env_type"), NamespaceIdentity: syntheticNamespace, Version: 1,
 	}
 	planCtx := planning.Context{OrganizationKey: app.OrganizationKey, App: app, Env: env}
 

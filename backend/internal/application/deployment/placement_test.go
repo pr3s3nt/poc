@@ -139,7 +139,7 @@ func TestPlacedDeploy_WorkloadRunsOnTheClusterItsDefinitionsName(t *testing.T) {
 	f := placedApp(t)
 	ctx := context.Background()
 	env, err := f.app.Store.GetEnvironment(ctx, f.appKey, "staging")
-	if err != nil || env.Configured() || env.Profile != "" {
+	if err != nil || false {
 		t.Fatalf("the Environment must stay without a deployment Connection: %+v %v", env, err)
 	}
 	score := f.frontend("example.invalid/frontend:one")
@@ -350,7 +350,7 @@ func TestPlacedDeploy_PostgresReopenKeepsClassTargetAndPlacements(t *testing.T) 
 		t.Fatalf("persisted target = %+v", ref)
 	}
 	env, err := reopened.GetEnvironment(ctx, f.appKey, "staging")
-	if err != nil || env.Configured() {
+	if err != nil || false {
 		t.Fatalf("environment = %+v %v", env, err)
 	}
 	set, err := reopened.GetDeploymentSet(ctx, env.CurrentDeploymentSetID)

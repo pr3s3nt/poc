@@ -4,9 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -128,13 +126,10 @@ var (
 	labelShape   = regexp.MustCompile(`^[^\x00-\x1f\x7f]{1,128}$`)
 )
 
-// originalTarget identifies the target a resource was created for from the
-// persisted, public record of the run that last executed it: that run's
-// Connection key, profile and target generation, and the public Connection
-// metadata. It never reads the Environment's current binding, so a later
-// transition of the Environment cannot rename the original target, and it
-// never reads the private target reference. Anything that does not match the
-// resource's own generation and scope is reported as unknown.
+// originalTarget identifies the target a resource was created for from its
+// persisted per-node target pin and public provenance. It never reads the
+// Environment's current binding or the private target reference. Anything
+// that does not match the resource's own generation and scope is unknown.
 func originalTarget(ctx context.Context, st persistence.Store, snap *snapshot, rec tfresource.ResourceRecord) TargetView {
 	unknown := TargetView{Known: false, Generation: rec.Instance.Identity.TargetGeneration}
 	active, ok := snap.activeOf(rec)
@@ -146,37 +141,12 @@ func originalTarget(ctx context.Context, st persistence.Store, snap *snapshot, r
 		dep.TargetGeneration != rec.Instance.Identity.TargetGeneration {
 		return unknown
 	}
-	if dep.ConnectionKey == "" {
-		// Definition-placed run (ADR-016): the original target is the account
-		// its immutable plan pinned for this node, not an Environment binding.
-		account := plannedPlacementAccount(ctx, st, dep.ID, rec.Instance.Identity.Descriptor)
-		if account == "" {
-			return unknown
-		}
-		out := TargetView{Known: true, ConnectionKey: safeToken(account), Generation: dep.TargetGeneration}
-		if conn, err := st.GetConnection(ctx, snap.scope.OrganizationKey, account); err == nil {
-			if labelShape.MatchString(conn.Name) {
-				out.ConnectionName = conn.Name
-			}
-			out.ConnectionKind = safeToken(string(conn.Kind))
-		}
-		return out
-	}
-	out := TargetView{Known: true, ConnectionKey: safeToken(dep.ConnectionKey), Profile: safeToken(dep.ExecutionProfile), Generation: dep.TargetGeneration}
-	connectionKey := dep.ConnectionKey
-	// UC-03 V02-09: an AWS node ran under the Driver Account and region its
-	// Definition pinned in that run's immutable plan, not the Environment's.
-	pinned, pinnedRegion, evidence := plannedAWSPin(ctx, st, dep.ID, rec.Instance.Identity.Descriptor)
-	if evidence == awsUnproven {
-		// The node ran under a Driver Account the immutable plan cannot prove;
-		// the Environment's account or region is not evidence for it.
+	account := plannedPlacementAccount(ctx, st, dep.ID, rec.Instance.Identity.Descriptor)
+	if account == "" {
 		return unknown
 	}
-	hasPin := evidence == awsPinned
-	if hasPin {
-		connectionKey, out.ConnectionKey = pinned, safeToken(pinned)
-	}
-	if conn, err := st.GetConnection(ctx, snap.scope.OrganizationKey, connectionKey); err == nil {
+	out := TargetView{Known: true, ConnectionKey: safeToken(account), Generation: dep.TargetGeneration}
+	if conn, err := st.GetConnection(ctx, snap.scope.OrganizationKey, account); err == nil {
 		if labelShape.MatchString(conn.Name) {
 			out.ConnectionName = conn.Name
 		}
@@ -185,18 +155,8 @@ func originalTarget(ctx context.Context, st persistence.Store, snap *snapshot, r
 			out.AccountID = v
 		}
 	}
-	// The region is the one the run was PLANNED for, from that Deployment's
-	// immutable persisted plan target. A Connection may allow several regions
-	// (its configured one is only a default) and the Environment's current region
-	// can have changed since, so neither is evidence; without a matching plan
-	// target the region is unknown, never guessed.
-	if hasPin {
-		if regionShape.MatchString(pinnedRegion) {
-			out.Region = pinnedRegion
-		}
-		return out
-	}
-	if region, ok := plannedRegion(ctx, st, dep.ID, dep.ConnectionKey, dep.TargetGeneration); ok {
+	pinned, region, evidence := plannedAWSPin(ctx, st, dep.ID, rec.Instance.Identity.Descriptor)
+	if evidence == awsPinned && pinned == account && regionShape.MatchString(region) {
 		out.Region = region
 	}
 	return out
@@ -252,7 +212,8 @@ func plannedAWSPin(ctx context.Context, st persistence.Store, deploymentID, desc
 			marked = true
 			key, _ := pin["connectionKey"].(string)
 			region, _ := pin["region"].(string)
-			if key != "" && labelShape.MatchString(key) && regionShape.MatchString(region) {
+			target, _ := pin["target"].(string)
+			if target == "account" && key != "" && labelShape.MatchString(key) && regionShape.MatchString(region) {
 				return key, region, awsPinned
 			}
 		}
@@ -261,55 +222,6 @@ func plannedAWSPin(ctx context.Context, st persistence.Store, deploymentID, desc
 		return "", "", awsUnproven
 	}
 	return "", "", notAWS
-}
-
-// plannedRegion reads the region pinned in the persisted plan target of one
-// Deployment, only when that target names the Deployment's own Connection and
-// target generation.
-func plannedRegion(ctx context.Context, st persistence.Store, deploymentID, connectionKey string, generation int64) (string, bool) {
-	doc, err := st.GetPlan(ctx, deploymentID)
-	if err != nil {
-		return "", false
-	}
-	target, ok := doc["target"].(map[string]any)
-	if !ok {
-		return "", false
-	}
-	if key, _ := target["connectionKey"].(string); key != connectionKey {
-		return "", false
-	}
-	// Malformed stored metadata fails closed: a fractional, negative, non-finite,
-	// out-of-range or non-numeric generation never matches by truncation or cast.
-	var planned int64
-	switch g := target["generation"].(type) {
-	case nil: // omitted for generation 0
-	case float64:
-		if math.IsNaN(g) || math.IsInf(g, 0) || g != math.Trunc(g) || g < 0 || g > 1<<53 {
-			return "", false
-		}
-		planned = int64(g)
-	case json.Number:
-		n, err := g.Int64()
-		if err != nil || n < 0 {
-			return "", false
-		}
-		planned = n
-	case int64:
-		if g < 0 {
-			return "", false
-		}
-		planned = g
-	default:
-		return "", false
-	}
-	if planned != generation {
-		return "", false
-	}
-	region, _ := target["region"].(string)
-	if !regionShape.MatchString(region) {
-		return "", false
-	}
-	return region, true
 }
 
 // ListResources returns the Environment's resources, every generation, newest

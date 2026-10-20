@@ -31,8 +31,6 @@ var (
 	ErrInvalidScore = errors.New("preview: invalid Score")
 	// ErrPlanningRejected reports a catalog-side planning failure.
 	ErrPlanningRejected = errors.New("preview: planning rejected")
-	// ErrNotReady reports that the Environment connection is not READY.
-	ErrNotReady = errors.New("preview: connection not ready")
 )
 
 // PublicError carries a safe message for one public failure kind.
@@ -106,11 +104,9 @@ type DeploymentPreview struct {
 	WorkloadID     string
 	Action         string
 	Plan           *planning.Plan
-	// Binding pins the Environment execution target shown with the resource
-	// intents (UC-05 BR-10). AccountID is retired (always empty): AWS accounts
-	// are per node and appear as provider pins in the intents (UC-03 V02-03).
-	Binding   environment.Binding
-	AccountID string
+	// Binding pins surviving Environment scope/generation metadata. AWS accounts
+	// are per node in the resource intents, never an Environment-wide identity.
+	Binding environment.Binding
 	// Intents is the pure resource projection against the persisted plans of
 	// the existing resources.
 	Intents []planning.ResourceIntent
@@ -136,9 +132,6 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 		return nil, err
 	}
 	snapshot, err := appsvc.LoadPlanningSnapshotWithBaselines(ctx, s.store, q.OrganizationKey, q.ApplicationKey, q.EnvironmentKey)
-	if errors.Is(err, appsvc.ErrConnectionNotReady) {
-		return nil, public(ErrNotReady, "the Environment connection is not READY; ask a platform engineer to verify it")
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +139,6 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 		OrganizationKey: q.OrganizationKey,
 		App:             snapshot.App,
 		Env:             snapshot.Env,
-		Connection:      snapshot.Connection,
 		BaseSet:         snapshot.BaseSet,
 		Before:          before,
 		After:           after,
@@ -251,7 +243,7 @@ type View struct {
 	// workloads it follows: the lifecycle order UC-06 owns around the resource batches.
 	AfterWorkloads map[string][]string     `json:"afterWorkloads,omitempty"`
 	Classification planning.Classification `json:"classification"`
-	// ResourceIntents, Binding and AccountID are the safe resource projection
+	// ResourceIntents and Binding are the safe resource projection
 	// of UC-05 BR-10: type, class, source, target, account and ownership, with
 	// no params, resolved inputs, secret or state reference.
 	ResourceIntents []planning.ResourceIntent `json:"resourceIntents"`
@@ -259,7 +251,6 @@ type View struct {
 	// Definition/account and namespace it runs on (ADR-016); identities only.
 	Placements []planning.Placement `json:"placements"`
 	Binding    environment.Binding  `json:"binding"`
-	AccountID  string               `json:"accountId,omitempty"`
 }
 
 // GraphView omits node parameter values, which may come from Definition
@@ -310,7 +301,7 @@ func (p *DeploymentPreview) Public() (View, error) {
 		Graph:   GraphView{Nodes: []NodeView{}, Edges: []planning.Edge{}},
 		Matches: []MatchView{}, Batches: [][]string{},
 		ResourceIntents: append([]planning.ResourceIntent{}, p.Intents...),
-		Binding:         p.Binding, AccountID: p.AccountID,
+		Binding:         p.Binding,
 		Classification: planning.Classification{
 			Existing: nonNil(p.Plan.Classification.Existing), New: nonNil(p.Plan.Classification.New),
 			Unreferenced: nonNil(p.Plan.Classification.Unreferenced),

@@ -104,11 +104,15 @@ Không đưa các thành phần sau vào domain/API sản phẩm:
 
 `map[string]any` (`Document`) thuận tiện cho bài chấm nhưng không nên là domain model chính. Product cần typed value objects ở boundary quan trọng và chỉ giữ document linh hoạt tại contract boundary.
 
-## 6. Khoảng trống phải bổ sung cho sản phẩm
+## 6. Historical gap analysis — 2026-09-20
+
+Các đề xuất dưới đây là lịch sử phân tích reference, không phải backlog hay
+requirement hiện hành. ADR-016/017 và specifications sở hữu mô hình thay thế;
+CURRENT_STATE sở hữu mức triển khai.
 
 ### 6.1 Planning
 
-- `ExecutionProfileResourceEnricher` để thêm VPC/EKS theo Environment/generation cho `aws-eks` (T27), existing cluster cho `internal-k8s`, và namespace theo Environment.
+- Historical profile enrichment proposal: superseded by ADR-016/017. Current planning expands matched Definitions and references; it inserts no unrequested EKS/namespace from an Environment profile.
 - Scope-aware descriptor/identity cho Application, Environment, workload và shared resource.
 - Registry/repository thật cho Application, Environment, Resource Type, Resource Definition, connection và Active Resource.
 - JSON Schema validation đầy đủ; challenge chỉ chặn unknown top-level input keys, chưa kiểm tra required/type/nested constraints đầy đủ.

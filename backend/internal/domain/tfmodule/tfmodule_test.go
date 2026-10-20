@@ -64,7 +64,7 @@ func driverValues() map[string]any {
 		"variables":         map[string]any{"name": "x"},
 		"input_mapping":     map[string]any{"db_name": map[string]any{"param": "database"}},
 		"output_mapping":    map[string]any{"endpoint": "host"},
-		"provider_bindings": map[string]any{"aws": map[string]any{"target": "environment"}, "kubernetes": map[string]any{"target": "resource", "resource_ref": "k8s-cluster.eks#x"}},
+		"provider_bindings": map[string]any{"aws": map[string]any{"target": "account"}, "kubernetes": map[string]any{"target": "resource", "resource_ref": "k8s-cluster.eks#x"}},
 	}
 }
 
@@ -87,10 +87,13 @@ func TestParseDriverInputsStrictShape(t *testing.T) {
 		},
 		"output mapping object": func(v map[string]any) { v["output_mapping"] = map[string]any{"endpoint": map[string]any{"to": "host"}} },
 		"region override": func(v map[string]any) {
-			v["provider_bindings"] = map[string]any{"aws": map[string]any{"target": "environment", "region": "eu-west-1"}}
+			v["provider_bindings"] = map[string]any{"aws": map[string]any{"target": "account", "region": "eu-west-1"}}
 		},
 		"credential override": func(v map[string]any) {
-			v["provider_bindings"] = map[string]any{"aws": map[string]any{"target": "environment", "access_key": "AKIA"}}
+			v["provider_bindings"] = map[string]any{"aws": map[string]any{"target": "account", "access_key": "AKIA"}}
+		},
+		"retired environment target": func(v map[string]any) {
+			v["provider_bindings"] = map[string]any{"aws": map[string]any{"target": "environment"}}
 		},
 		"connection target": func(v map[string]any) {
 			v["provider_bindings"] = map[string]any{"aws": map[string]any{"target": "connection"}}

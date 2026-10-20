@@ -15,7 +15,7 @@ const reasonLabels: Record<string, string> = {
   'provider-binding': 'provider Kubernetes của module chạy trên cluster này',
   'co-provision-is-dependent': 'tài nguyên đi kèm chạy sau tài nguyên chủ (is_dependent)',
   'co-provision-match-dependents': 'mọi bên dùng tài nguyên chủ chờ tài nguyên đi kèm (match_dependents)',
-  'execution-profile': 'hồ sơ thực thi cũ (sẽ bị loại bỏ)',
+  'execution-profile': 'cạnh hồ sơ thực thi của dữ liệu planner tham chiếu lịch sử',
 };
 export const reasonLabel = (reason: string) => (Object.hasOwn(reasonLabels, reason) ? reasonLabels[reason] : 'quan hệ phụ thuộc khác');
 
@@ -30,7 +30,7 @@ const codeLabels: Record<string, string> = {
 };
 export const codeLabel = (code: string) => (Object.hasOwn(codeLabels, code) ? codeLabels[code] : 'lỗi không xác định');
 
-const originLabels: Record<string, string> = { 'co-provision': 'tài nguyên đi kèm', 'resource-reference': 'được tham chiếu', 'provider-binding': 'cluster của provider', 'shared-dependency': 'dùng chung', 'private-dependency': 'riêng của workload', 'implicit-workload': 'workload', 'execution-profile': 'hồ sơ thực thi cũ' };
+const originLabels: Record<string, string> = { 'co-provision': 'tài nguyên đi kèm', 'resource-reference': 'được tham chiếu', 'provider-binding': 'cluster của provider', 'shared-dependency': 'dùng chung', 'private-dependency': 'riêng của workload', 'implicit-workload': 'workload', 'execution-profile': 'nguồn planner tham chiếu lịch sử' };
 const originLabel = (origin: string) => (Object.hasOwn(originLabels, origin) ? originLabels[origin] : 'nguồn khác');
 
 export function DependencyGraph({ nodes, edges, blocked = [], definitionOf }: { nodes: GraphNode[]; edges: GraphEdge[]; blocked?: BlockedConsumer[]; definitionOf?: (descriptor: string) => string | undefined }) {

@@ -9,7 +9,6 @@ import (
 
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/bootstrap"
-	"orchestrator/internal/domain/application"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/ports/execution"
@@ -244,19 +243,15 @@ func TestEnvironmentWritesDuringAdmittedDeployAreRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 	env, _ := app.Store.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
-	var bindErr, saveErr, draftErr error
+	var saveErr, draftErr error
 	deployer.onRemove = func() {
-		_, bindErr = app.Store.BindEnvironment(ctx, persistence.EnvironmentBinding{
-			ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, ConnectionKey: opts.ConnectionKey,
-			Profile: application.ProfileInternalK8s, Region: env.Region, RuntimeStatus: env.RuntimeStatus, Scope: env.Scope(), ExpectedVersion: env.Version,
-		})
 		saveErr = app.Store.SetPublicRoutesPending(ctx, opts.ApplicationKey, opts.EnvironmentKey, true)
 		draftErr = app.Store.DeleteWorkloadDraft(ctx, opts.ApplicationKey, opts.EnvironmentKey, "backend", env.DraftVersion)
 	}
 	if _, err := uc07Deploy(t, app, opts, "backend", backend, nil); err != nil {
 		t.Fatalf("admitted deploy failed: %v", err)
 	}
-	for name, err := range map[string]error{"bind": bindErr, "routes flag": saveErr, "draft": draftErr} {
+	for name, err := range map[string]error{"routes flag": saveErr, "draft": draftErr} {
 		if !errors.Is(err, persistence.ErrEnvironmentBusy) {
 			t.Fatalf("%s during an admitted deploy: %v", name, err)
 		}

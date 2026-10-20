@@ -17,18 +17,22 @@ The existing [operation contracts](operation-contracts.md) retain their lifecycl
 
 ## Registration shape
 
-The example uses the internal Definition document field names. Registration
-requires the server to have the pinned renderer configured.
+Current example uses the public V02/V03 Definition fields and explicit Internal
+cluster/namespace references. The matching catalog must supply these descriptors
+and the server must have the pinned renderer configured. The bundle does not
+select infrastructure; cluster placement comes from its resource reference.
 
 ```yaml
 key: workload-score-k8s
+name: Workload theo namespace và cluster
 resourceType: workload
-executionProfile: internal-k8s
 driverType: score-k8s
 driverInputs:
   values:
     variables:
       render_bundle: score-k8s-internal-v1
+      namespace: "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}"
+      cluster: "${resources['k8s-cluster.internal#environments.@app.@env'].outputs.cluster}"
 criteria:
   - app_id: shop
 ```

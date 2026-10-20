@@ -187,6 +187,12 @@ func TestPostgresProvisionAndDropOnARealServer(t *testing.T) {
 		t.Fatal(out)
 	}
 	manifest := filepath.Join(e.private, "pg-manifest.json")
+	// Keep ownership handles until cleanup even when setup/assertions fail.
+	t.Cleanup(func() {
+		if out, code := e.ctl("pg-drop", "-admin-url-file", admin, "-manifest", manifest); code != 0 {
+			t.Errorf("fixture cleanup failed: %s", out)
+		}
+	})
 	roles := map[string]string{}
 	for _, kind := range []string{"owner", "console", "state"} {
 		out, code := e.ctl("pg-role", "-manifest", manifest, "-kind", kind)

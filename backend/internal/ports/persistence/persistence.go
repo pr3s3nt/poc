@@ -129,21 +129,6 @@ func OperationFrom(ctx context.Context) string {
 	return owner.OperationID
 }
 
-// EnvironmentBinding is the versioned write of an Environment execution
-// target. A write succeeds only at ExpectedVersion, advances the version and,
-// when the Environment is claimed, only for the owning operation in ctx.
-type EnvironmentBinding struct {
-	ApplicationKey, EnvironmentKey string
-	ConnectionKey                  string
-	Profile                        application.ExecutionProfile
-	Region                         string
-	RuntimeStatus                  application.RuntimeStatus
-	Scope                          environment.InfrastructureScope
-	// Generation is the target generation written with the binding.
-	Generation      int64
-	ExpectedVersion int64
-}
-
 // SecretStoreSelection is the versioned write of the Environment secret store.
 type SecretStoreSelection struct {
 	ApplicationKey, EnvironmentKey string
@@ -196,24 +181,14 @@ type EnvironmentRepository interface {
 	ListEnvironments(ctx context.Context, applicationKey string) ([]environment.Environment, error)
 	GetEnvironment(ctx context.Context, applicationKey, environmentKey string) (environment.Environment, error)
 	// SaveEnvironment is the seed/creation upsert. It never writes the
-	// execution binding, store selection, generation or claim of an existing
-	// Environment; dedicated commands own them.
+	// store selection, generation or claim of an existing Environment;
+	// dedicated commands own them.
 	SaveEnvironment(ctx context.Context, env environment.Environment) error
-	// BindEnvironment replaces the execution binding with one versioned write.
-	// ErrVersionConflict when ExpectedVersion is stale, ErrEnvironmentBusy when
-	// another operation owns the Environment, ErrNotFound for a missing
-	// Environment or foreign/missing Connection.
-	BindEnvironment(ctx context.Context, b EnvironmentBinding) (environment.Environment, error)
 	// SelectSecretStore replaces the secret-store selection with one versioned
-	// write; same errors as BindEnvironment.
+	// write; ErrVersionConflict when ExpectedVersion is stale, ErrEnvironmentBusy when another operation owns the Environment.
 	SelectSecretStore(ctx context.Context, s SecretStoreSelection) (environment.Environment, error)
-	// UpdateRuntimeStatus advances PENDING/READY of a configured Environment.
-	UpdateRuntimeStatus(ctx context.Context, applicationKey, environmentKey string, status application.RuntimeStatus) error
 	// SetPublicRoutesPending changes only the route flag, without a version bump.
 	SetPublicRoutesPending(ctx context.Context, applicationKey, environmentKey string, pending bool) error
-	// AllocateGeneration reserves the next target generation of an Environment
-	// for the owning operation and returns it.
-	AllocateGeneration(ctx context.Context, applicationKey, environmentKey string) (int64, error)
 	GetDeploymentSet(ctx context.Context, id string) (environment.DeploymentSet, error)
 	SaveDeploymentSet(ctx context.Context, set environment.DeploymentSet) error
 	// CompareVersionAndSetCurrent performs the optimistic final commit of UC-06 MS-12.
@@ -282,9 +257,6 @@ type OperationRepository interface {
 	// execution is stopped; an empty value is rejected. Stale heartbeat alone
 	// never authorizes recovery.
 	BeginRecovery(ctx context.Context, id, newOwner, confirmedBy string) (environment.Operation, error)
-	SaveTransition(ctx context.Context, t environment.Transition) error
-	GetTransition(ctx context.Context, id string) (environment.Transition, error)
-	ListTransitions(ctx context.Context, applicationKey, environmentKey string) ([]environment.Transition, error)
 }
 
 // CatalogRepository owns Resource Types and Resource Definitions.

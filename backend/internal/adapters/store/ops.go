@@ -308,51 +308,6 @@ func (s *Store) BeginRecovery(ctx context.Context, id, newOwner, confirmedBy str
 	return op, nil
 }
 
-// SaveTransition upserts a transition record.
-func (s *Store) SaveTransition(ctx context.Context, t environment.Transition) error {
-	defer s.lock(ctx)()
-	if err := s.fence(ctx); err != nil {
-		return err
-	}
-	if t.ID == "" {
-		return fmt.Errorf("store: transition needs an id")
-	}
-	b, err := cloneJSON(t)
-	if err != nil {
-		return err
-	}
-	b.UpdatedAt = time.Now().UTC()
-	s.state.Transitions[t.ID] = b
-	return nil
-}
-
-// GetTransition reads one transition.
-func (s *Store) GetTransition(ctx context.Context, id string) (environment.Transition, error) {
-	defer s.rlock(ctx)()
-	t, ok := s.state.Transitions[id]
-	if !ok {
-		return environment.Transition{}, fmt.Errorf("%w: transition %q", persistence.ErrNotFound, id)
-	}
-	return cloneJSON(t)
-}
-
-// ListTransitions lists the Environment's transitions, newest first.
-func (s *Store) ListTransitions(ctx context.Context, applicationKey, environmentKey string) ([]environment.Transition, error) {
-	defer s.rlock(ctx)()
-	var out []environment.Transition
-	for _, t := range s.state.Transitions {
-		if t.ApplicationKey == applicationKey && t.EnvironmentKey == environmentKey {
-			c, err := cloneJSON(t)
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, c)
-		}
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
-	return out, nil
-}
-
 func cloneJSON[T any](in T) (T, error) {
 	var out T
 	b, err := jsonMarshal(in)

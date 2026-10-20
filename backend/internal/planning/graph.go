@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strings"
 
-	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning/placeholder"
@@ -159,8 +158,9 @@ func (b *graphBuilder) graph() Graph {
 	return Graph{Nodes: nodes, Edges: edges}
 }
 
-// enrichProfile adds the implicit infrastructure of the Execution Profile
-// (UC-06 MS-05, VAR-01 and VAR-02) and returns the namespace node.
+// enrichProfile is retained only for read-only planner-reference conformance
+// fixtures (the pre-ADR-017 Environment target model). Product Environments
+// are Definition-placed and never reach this compatibility path.
 func (b *graphBuilder) enrichProfile() (*Node, error) {
 	if b.ctx.DefinitionPlaced() {
 		return nil, nil // ADR-016: Definitions and references decide placement
@@ -176,10 +176,10 @@ func (b *graphBuilder) enrichProfile() (*Node, error) {
 
 	// Only the planner-reference conformance mode reaches this point: every product Environment is
 	// Definition-placed (ADR-017). It restores the registered-cluster node the read-only fixtures name.
-	if b.ctx.Env.Profile != application.ProfileInternalK8s || !b.ctx.ReferenceCluster {
+	if !b.ctx.ReferenceCluster {
 		return nil, ErrRetiredTarget
 	}
-	clusterDescriptor, err := InternalClusterDescriptor(b.ctx.Env.ConnectionKey)
+	clusterDescriptor, err := InternalClusterDescriptor(b.ctx.Connection.Key)
 	if err != nil {
 		return nil, err
 	}

@@ -5,6 +5,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { requireScenario } from './terraform-v2-acceptance.mjs';
 
 const here = join(process.cwd(), 'test/e2e') + '/';
 const read = (file) => readFileSync(join(here, file), 'utf8');
@@ -21,10 +22,10 @@ function walk(dir, out = []) {
 const corpus = walk(join(process.cwd(), 'src')).map((f) => readFileSync(f, 'utf8')).join('\n')
   + '\n' + readFileSync(join(process.cwd(), '../backend/examples/acceptance-app/frontend/main.go'), 'utf8');
 
-const sources = ['terraform-v2-steps.mjs', 'terraform-v2-acceptance.mjs', 'terraform-v2-aws.mjs'].map(read).join('\n');
+const sources = ['terraform-v2-steps.mjs', 'terraform-v2-acceptance.mjs', 'terraform-v2-aws-definitions.mjs', 'full-app-flows.mjs', 'full-app-kit.mjs', 'v04-internal-full.mjs'].map(read).join('\n');
 const patterns = [
-  /name: '([^']+)'/g, /getByLabel\('([^']+)'/g, /form\('([^']+)'\)/g, /form\(`([^`]+)`\)/g, /getByText\('([^']+)'/g,
-  /toContainText\('([^']+)'/g, /getByRole\('(?:region|group)', \{ name: '([^']+)'/g, /getByLabel\(`([^`]+)`\)/g, /name: `([^`]+)`/g,
+  /getByRole\('[^']+',\s*\{[^}]*?\bname:\s*'([^']+)'/g, /getByLabel\('([^']+)'/g, /form\('([^']+)'\)/g, /form\(`([^`]+)`\)/g, /getByText\('([^']+)'/g,
+  /toContainText\('([^']+)'/g, /getByRole\('(?:region|group)', \{ name: '([^']+)'/g, /getByLabel\(`([^`]+)`\)/g, /getByRole\('[^']+',\s*\{[^}]*?\bname:\s*`([^`]+)`/g,
 ];
 
 function labels() {
@@ -41,6 +42,12 @@ const COMPOSED = {
 };
 
 describe('terraform v2 scenario labels', () => {
+  it.each(['A01', 'E01', 'E02'])('rejects retired %s before runtime', (id) => {
+    expect(() => requireScenario(id)).toThrow(/retired scenario/);
+  });
+  it.each(['V05', 'A02', 'A03'])('retains current %s entry', (id) => {
+    expect(typeof requireScenario(id)).toBe('function');
+  });
   it('extracts a meaningful set of labels', () => {
     expect(labels().length).toBeGreaterThan(60);
   });
@@ -61,7 +68,7 @@ describe('terraform v2 scenario labels', () => {
   });
 
   it('the AWS scenarios take their catalog from the shared planner-tested file and bind no secret store', () => {
-    const aws = read('terraform-v2-aws.mjs');
+    const aws = read('terraform-v2-aws-definitions.mjs');
     expect(aws).toMatch(/catalogFile/);
     expect(aws).not.toMatch(/registerSecretStore|putKeys|kind: 'secret'/);
     expect(aws).toMatch(/\['backend connection', 'environment', 'database', 'cache'\]/);
@@ -82,8 +89,12 @@ describe('terraform v2 scenario labels', () => {
 
   it('creates no job, Workload or resource through the API', () => {
     expect(sources).not.toMatch(/request\.post\(|request\.put\(|request\.delete\(|method: 'POST'|method: 'PUT'/);
+    const browserRead = read('full-app-flows.mjs').match(/export async function readAppJSON\(page, path\) \{[\s\S]*?^}/m)?.[0];
+    expect(browserRead).toContain("fetch(route, { method: 'GET'");
+    expect(browserRead).toContain("cache: 'no-store'");
+    const readSources = sources.replace(browserRead, '');
     // Read-only fetches of the app: job detail and checks only.
-    for (const call of sources.matchAll(/fetch\(`?([^`),]+)/g)) expect(call[1]).toMatch(/healthz|\/api\/jobs\/|\/api\/checks|auth\.docker|manifests/);
+    for (const call of readSources.matchAll(/fetch\(`?([^`),]+)/g)) expect(call[1]).toMatch(/healthz|\/api\/jobs\/|\/api\/checks|auth\.docker|manifests/);
   });
 
 });

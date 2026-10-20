@@ -1,209 +1,81 @@
 # Orchestrator backend
 
-Product code for the orchestrator described in `orchestrator_docs/`. The design
-documents own the requirements; this tree implements them.
+Go product module for the Orchestrator. [Canonical documentation](../orchestrator_docs/INDEX.md)
+owns requirements, architecture and operational permissions; this module implements them.
+The React/TypeScript [Web Console](../frontend/) is distinct from the
+[acceptance application](examples/acceptance-app/README.md), which contains the
+frontend, backend, PostgreSQL jobs and worker used for verification.
 
-```text
-cmd/orchestrator          API process and /ui/ delivery
-internal/                 domain, planning, application services, ports, adapters
-examples/acceptance-app/  frontend, backend and worker workloads used for verification
-test/                     e2e, conformance and kind/AWS integration tests
-../frontend/              Orchestrator Web Console (React + TypeScript + Vite)
-```
+## Build and validation
 
-## 1. Prerequisites
-
-| Tool | Needed for |
-|---|---|
-| Go 1.25+ | building and testing everything |
-| Node 22+ | the Web Console bundle |
-| Docker | building the acceptance images |
-| kubectl | the internal-k8s and aws-eks execution profiles |
-| kind | the internal-k8s verification |
-| terraform 1.5+, aws CLI v2 | the aws-eks execution profile |
-
-## 2. Build and test
+Use the Go version in go.mod and the locked frontend dependencies. Build the Web
+Console before serving its dist directory through the API process.
 
 ```bash
 cd backend
 go build ./...
-go test ./...                 # unit, e2e and the 33 planner-challenge fixtures
-(cd ../frontend && npm ci && npm run build)
+REQUIRE_POSTGRES=1 go test ./...
+cd ../frontend
+npm ci
+npm run typecheck
+npm run lint
+npm test
+npm run build
 ```
 
-`../frontend/dist` must exist before the Go process can serve the console.
+SQL tests require a disposable real PostgreSQL server configured through the
+private ORCHESTRATOR_POSTGRES_TEST_URL environment variable. They provision
+separate Owner, Console and State logins and must not skip when required.
+Acceptance cache tests use a real redis-server. Terraform tests use the pinned
+CLI described in the runbook; race/vet/conformance and documentation checks
+follow the change-impact requirements in [AGENTS.md](../AGENTS.md).
 
-## 3. Run locally with fake executors
+## Configure and deploy
 
-Nothing touches a cluster or a cloud account in this mode. Use it to explore the
-console and the API.
+Platform Engineers register Resource Types, verified Terraform module
+Definitions, workload rendering templates and Driver Accounts. Matching and typed
+resource references determine dependencies, each account/region and each target.
+An existing-cluster Definition uses its own Internal account; a new EKS Definition
+uses its own AWS account and region. Kubernetes consumers inherit the resolved
+cluster target. An Environment has no deployment Connection or executionProfile.
+Its configuration keys and Secret Store selection remain independent.
 
-```bash
-go run ./cmd/orchestrator -addr 127.0.0.1:8080 -ui-dir ../frontend/dist -adapters fake \
-  -region us-east-1 -account-id 000000000000 -run-id local-demo
-```
+Developers import Score into workload drafts, inspect Score and pending-change
+Preview, then deploy through the Console. Preview is pure; deployment uses the
+pinned plan and persists status, target identity and typed output references.
+Update, restart/reuse and reverse dependency cleanup retain the original pins.
+The current one-cluster execution guard remains; this refactor does not add
+multi-cluster execution or PE patch authoring.
 
-Open `http://127.0.0.1:8080/ui/`. Bind to `0.0.0.0` instead of `127.0.0.1` to
-reach it from a Windows host over WSL2.
+Read [UC-03](../orchestrator_docs/usecase/UC-03/README.md),
+[UC-05](../orchestrator_docs/usecase/UC-05/README.md),
+[UC-06](../orchestrator_docs/usecase/UC-06/README.md) and
+[UC-16](../orchestrator_docs/usecase/UC-16/README.md) for authoring, Preview,
+deployment and draft contracts. Starting the product does not authorize an
+external deployment or reset retained data. Startup refuses incompatible stores;
+it does not migrate, reset or regrant them.
 
-Two Applications are registered: `acceptance` (internal-k8s) and, when `-region`
-is set, `acceptance-cloud` (aws-eks). Deploy `backend`, then `worker`, then
-`frontend`: the database is a shared resource the first two both bind to.
+## Real acceptance runs
 
-## 4. Deploy to a real kind cluster
+The [Terraform acceptance runbook](../orchestrator_docs/operations/terraform-v2-acceptance.md)
+and [AWS runbook](../orchestrator_docs/operations/aws.md) own fixture handles,
+pinned Terraform/score-k8s/kubectl tools, permissions, estimates, finite deadlines,
+independent supervisors, ownership and service-API cleanup proofs.
 
-One command does everything and cleans up afterwards:
+- Existing cluster: test/integration/v04-internal-full.sh; full acceptance app,
+  real PostgreSQL/Redis, jobs/cache/config/secret/error checks and protected cluster.
+- New EKS in the same execution: test/integration/terraform-v2-acceptance.sh with
+  a private V05 configuration and completed integrated V04 admission.
+- Managed services: the same runner with A02 (Aurora/ElastiCache), proven cleanup,
+  then a separate A03 (Aurora/in-cluster Redis) configuration/run identity.
 
-```bash
-bash test/integration/kind-verify.sh
-```
+Use the headed scenario with Vietnamese captions and same-run assertions/video;
+review public artifacts for secrets before attaching them. Historical M04 and
+Environment-profile scripts are retired and their old commands are not current
+operational entry points. Do not delete a namespace or trust an empty tag index
+as a substitute for original-state/UID/provider-API cleanup.
 
-To keep the environment running and drive it from the console instead:
-
-```bash
-RUN=dev1
-test/integration/build-images.sh "$RUN"
-for w in frontend backend worker; do
-  kind load docker-image "acceptance-$w:$RUN" --name idp-internal
-done
-
-go run ./cmd/orchestrator -addr 127.0.0.1:8080 -ui-dir ../frontend/dist \
-  -adapters kubernetes -kube-context kind-idp-internal -cluster idp-internal \
-  -namespace "acceptance-$RUN" -state "/tmp/orchestrator-$RUN.json" \
-  -frontend-image "acceptance-frontend:$RUN" \
-  -backend-image "acceptance-backend:$RUN" \
-  -worker-image "acceptance-worker:$RUN"
-```
-
-Deploy `backend`, `worker` and `frontend` from the console, then reach the
-acceptance application:
-
-```bash
-kubectl --context kind-idp-internal port-forward -n "acceptance-$RUN" svc/frontend 8081:8080
-# http://127.0.0.1:8081 submits a job; the worker processes it through PostgreSQL
-```
-
-Clean up when finished:
-
-```bash
-kubectl --context kind-idp-internal delete namespace "acceptance-$RUN"
-```
-
-## 5. Deploy to AWS
-
-**This creates paid resources.** The script prices the run, provisions VPC, EKS
-and Aurora Serverless v2, deploys the three workloads through the HTTP API,
-verifies the job flow and the console, then tears everything down from an EXIT
-trap and proves the account is clean by run-id tag.
-
-```bash
-bash test/integration/aws-verify.sh
-```
-
-Running it by hand instead leaves **no automatic cleanup**:
-
-```bash
-RUN="aws-$(date -u +%Y%m%d%H%M%S)"
-go run ./cmd/orchestrator -addr 127.0.0.1:8080 -ui-dir ../frontend/dist \
-  -adapters aws -region us-east-1 -account-id <account> -run-id "$RUN" \
-  -cloud-namespace "acceptance-$RUN" -terraform-root "/tmp/tf-$RUN" \
-  -state "/tmp/orchestrator-$RUN.json" \
-  -frontend-image <ecr>/acceptance-frontend:<tag> \
-  -backend-image <ecr>/acceptance-backend:<tag> \
-  -worker-image <ecr>/acceptance-worker:<tag>
-
-# afterwards, always:
-RUN_ID="$RUN" TERRAFORM_ROOT="/tmp/tf-$RUN" AWS_REGION=us-east-1 \
-  bash test/integration/aws-cleanup.sh
-```
-
-The EKS node pulls from ECR, so the images must be pushed to a registry the
-cluster can read; `aws-verify.sh` shows the repository creation and push it uses.
-
-## 6. Deploy your own workload
-
-The API is the contract. `POST /api/v1/deployments`:
-
-```json
-{
-  "applicationKey": "acceptance",
-  "environmentKey": "dev",
-  "workloadId": "api",
-  "actor": "me",
-  "score": {
-    "apiVersion": "score.dev/v1b1",
-    "metadata": { "name": "api" },
-    "containers": {
-      "main": {
-        "image": "ghcr.io/acme/api:v1",
-        "variables": { "PGHOST": "${resources.db.host}" }
-      }
-    },
-    "service": { "ports": { "http": { "port": 8080, "targetPort": 8080 } } },
-    "resources": {
-      "db": {
-        "type": "postgres",
-        "id": "acceptance-db",
-        "params": { "database": "acceptance", "username": "app" }
-      }
-    }
-  }
-}
-```
-
-Rules that bite first:
-
-- `workloadId` must equal `metadata.name`.
-- A resource with `id` is shared inside the Environment; without `id` it is
-  private to the workload.
-- `params` keys must exist in the Resource Type input contract.
-- `${resources.<name>.<output>}` only resolves outputs the Resource Type declares.
-- Deploying the same workload twice needs `scoreBefore` in the request: the
-  planner refuses to plan from a snapshot it cannot prove. The console has no
-  field for it yet, so a redeploy goes through the API.
-
-Other endpoints: `GET /api/v1/applications`, `GET /api/v1/score-samples`.
-
-Authenticated deployment reads use
-`GET /api/v1/applications/{applicationId}/environments/{environment}/deployments`
-and the same path followed by `/{deploymentId}` for detail. History accepts an
-optional `?status=SUCCEEDED` lifecycle filter. Reads are scoped to the session's
-Organization; a Deployment outside the selected scope returns `404`.
-
-## 7. State
-
-Without `-state` or `-database-url-file`, everything lives in memory and
-disappears on restart. With `-state <file>` the process writes a local JSON
-snapshot. With `-database-url-file <path>`, it uses the normalized PostgreSQL
-tables and foreign keys from the canonical schema. An explicit owner setup
-(`-setup-database -database-owner-url-file <file> -console-database-role <role>
--state-database-role <role>`) initializes an empty schema and grants the two
-runtime logins. Normal startup uses the Console login and validates read-only;
-it cannot initialize or fall back to an owner login. Terraform state uses a
-separate State login via `-terraform-state-database-url-file`, with the same
-installation/database/schema, plus `-terraform-state-key-file` and
-`-terraform-state-key-id`. Credential files must be owner-only and distinct.
-See the [state contract](../orchestrator_docs/architecture/contracts/terraform-state.md)
-and [setup runbook](../orchestrator_docs/operations/postgres-kind.md). Incompatible databases
-require a development reset before serving. JSON requires the complete current
-format and never infers missing bindings/history. Repository `UnitOfWork` callbacks
-use one database transaction. Variables are ordinary metadata values; Secret
-values stay outside product records as opaque references, redacted in deployment
-views. Terraform state may contain secret values and is stored as authenticated
-ciphertext in restricted tables, never exposed by Console queries.
-
-## 8. Implementation status
-
-[Current state](../orchestrator_docs/CURRENT_STATE.md) and
-[deviations](../orchestrator_docs/implementation/deviations.md) own implemented
-scope and remaining gaps. I04-01 state backend and role separation are under
-validation; production executor mounting and live Terraform v2 acceptance remain
-pending in M04. Existing retained databases are not reset or regranted by startup.
-
-## 9. Boundaries the code keeps
-
-- Planning is deterministic and side-effect free.
-- UC-08 executes resource nodes only; UC-06 applies the workload after outputs exist.
-- The Candidate Deployment Set becomes current only after workload readiness.
-- Secret values never reach public product records, logs or the UC-09 view;
-  Terraform state uses the restricted encrypted backend.
+[Current state](../orchestrator_docs/CURRENT_STATE.md),
+[code map](../orchestrator_docs/implementation/code-map.md) and
+[deviations](../orchestrator_docs/implementation/deviations.md) describe actual
+implementation and validation status; prepared code is not a completed runtime gate.

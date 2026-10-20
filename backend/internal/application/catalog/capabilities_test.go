@@ -131,11 +131,10 @@ func TestListDefinitionCapabilities_PairsAndVariables(t *testing.T) {
 	if got := idx["vpc/terraform/vpc"].ExecutorOwned; !reflect.DeepEqual(got, []string{"tags"}) {
 		t.Fatalf("vpc executor-owned %v", got)
 	}
-	// Kubernetes-bound modules need no account and expose the legacy
-	// Environment target as an explicitly legacy option.
+	// Kubernetes-bound modules need no account and bind to a resource cluster.
 	k8s := idx["k8s-namespace/terraform/k8s-namespace"]
 	if k8s.Account.Required || len(k8s.Bindings) != 1 || k8s.Bindings[0].Kind != "kubernetes" ||
-		!reflect.DeepEqual(k8s.Bindings[0].Targets, []catalog.CapabilityTarget{{Target: "resource"}, {Target: "environment", Legacy: true}}) {
+		!reflect.DeepEqual(k8s.Bindings[0].Targets, []catalog.CapabilityTarget{{Target: "resource"}}) {
 		t.Fatalf("k8s binding metadata = %+v %+v", k8s.Account, k8s.Bindings)
 	}
 

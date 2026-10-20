@@ -31,18 +31,18 @@ func TestCatalogNoneSeedsOnlyTheOwnedNamespaceIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if env.NamespaceIdentity != "orch-v2-test-run1" || env.Configured() {
+	if env.NamespaceIdentity != "orch-v2-test-run1" {
 		t.Fatalf("environment %+v must carry the exact identity and stay unbound", env)
 	}
 	prod, err := st.GetEnvironment(ctx, o.ApplicationKey, "production")
-	if err != nil || prod.NamespaceIdentity == env.NamespaceIdentity || prod.Configured() {
+	if err != nil || prod.NamespaceIdentity == env.NamespaceIdentity {
 		t.Fatalf("production %+v %v", prod, err)
 	}
-	if _, err := st.GetApplication(ctx, o.CloudApplicationKey); err == nil {
+	if _, err := st.GetApplication(ctx, "acceptance-cloud"); err == nil {
 		t.Fatal("catalog-free seed created the cloud Application")
 	}
-	if org, _ := st.GetOrganization(ctx, o.OrganizationKey); org.DefaultConnectionKey != "" {
-		t.Fatalf("default connection marker %q", org.DefaultConnectionKey)
+	if org, err := st.GetOrganization(ctx, o.OrganizationKey); err != nil || org.Key != o.OrganizationKey || org.Name == "" {
+		t.Fatalf("Organization metadata %+v: %v", org, err)
 	}
 	// Idempotent.
 	if err := seed.Apply(ctx, st, o); err != nil {

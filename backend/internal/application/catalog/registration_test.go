@@ -97,7 +97,7 @@ func TestRegisterResourceDefinition_RejectsAccountMisuse(t *testing.T) {
 		"malformed region":                {func(d *resource.Definition) { vars(d)["region"] = "mars-1" }, "definition.driverInputs.values.variables.region"},
 		"environment binding": {func(d *resource.Definition) {
 			d.DriverInputs["values"].(map[string]any)["provider_bindings"] = map[string]any{"aws": map[string]any{"target": "environment"}}
-		}, "definition.driverInputs.values.provider_bindings"},
+		}, ""},
 		"empty criteria list":   {func(d *resource.Definition) { d.Criteria = []resource.Criterion{} }, "definition.schema"},
 		"blank name":            {func(d *resource.Definition) { d.Name = "   " }, "definition.name"},
 		"unsupported type pair": {func(d *resource.Definition) { d.ResourceTypeKey = "vpc" }, ""},

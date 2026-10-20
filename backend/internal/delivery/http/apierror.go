@@ -17,8 +17,6 @@ import (
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/resourcecleanup"
 	"orchestrator/internal/application/secretstores"
-	"orchestrator/internal/application/target"
-	"orchestrator/internal/application/transition"
 	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/planning"
@@ -48,9 +46,7 @@ const (
 	codeStaleVersion              = "STALE_VERSION"
 	codeStalePreview              = "STALE_PREVIEW"
 	codeEnvironmentBusy           = "ENVIRONMENT_BUSY"
-	codeEnvironmentUnconfigured   = "ENVIRONMENT_UNCONFIGURED"
 	codeConnectionUnavailable     = "CONNECTION_UNAVAILABLE"
-	codeConnectionRetired         = "DEPLOYMENT_CONNECTION_RETIRED"
 	codeAccountTargetMismatch     = "ACCOUNT_TARGET_MISMATCH"
 	codeCommitUncertain           = "COMMIT_UNCERTAIN"
 	codeVerificationFailed        = "VERIFICATION_FAILED"
@@ -73,17 +69,10 @@ const (
 	codeSecretStoreUnavailable    = "SECRET_STORE_UNAVAILABLE"
 	codeSecretCopyFailed          = "SECRET_COPY_FAILED"
 	codeRefRewriteUnsafe          = "REFERENCE_REWRITE_UNSAFE"
-	codeTransitionRequired        = "TRANSITION_REQUIRED"
-	codeTransitionUnsupported     = "TRANSITION_UNSUPPORTED"
-	codeTransitionSameDestination = "TRANSITION_SAME_DESTINATION"
-	codeDestinationUnavailable    = "DESTINATION_UNAVAILABLE"
-	codeNoRuntime                 = "NO_RUNTIME"
-	codeDowntimeAckRequired       = "DOWNTIME_ACK_REQUIRED"
 	codeRecoveryConfirmRequired   = "RECOVERY_CONFIRMATION_REQUIRED"
+	codeRecoveryIncomplete        = "RECOVERY_INCOMPLETE"
 	codeCleanupRefused            = "CLEANUP_REFUSED"
 	codeConfirmationMismatch      = "RESOURCE_CONFIRMATION_MISMATCH"
-	codeNotRecoverable            = "NOT_RECOVERABLE"
-	codeRecoveryIncomplete        = "RECOVERY_INCOMPLETE"
 	codeOperationLost             = "OPERATION_LOST"
 	codeRouteReconcileFailed      = "ROUTE_RECONCILE_FAILED"
 	codeServiceUnavailable        = "SERVICE_UNAVAILABLE"
@@ -110,9 +99,7 @@ var publicErrors = map[string]publicError{
 	codeStaleVersion:              {http.StatusConflict, "the data changed since it was loaded"},
 	codeStalePreview:              {http.StatusConflict, "the preview is stale"},
 	codeEnvironmentBusy:           {http.StatusConflict, "the environment is busy with another operation"},
-	codeEnvironmentUnconfigured:   {http.StatusUnprocessableEntity, "the environment has no connection selected"},
 	codeConnectionUnavailable:     {http.StatusUnprocessableEntity, "the connection is not available"},
-	codeConnectionRetired:         {http.StatusUnprocessableEntity, "an Environment no longer selects a Kubernetes connection; internal placement comes from Resource Definitions"},
 	codeAccountTargetMismatch:     {http.StatusUnprocessableEntity, "the credential does not belong to this account's target; register a new account for another target"},
 	codeCommitUncertain:           {http.StatusServiceUnavailable, "the result is not known; reload before trying again"},
 	codeVerificationFailed:        {http.StatusUnprocessableEntity, "verification failed"},
@@ -135,17 +122,10 @@ var publicErrors = map[string]publicError{
 	codeSecretStoreUnavailable:    {http.StatusUnprocessableEntity, "the selected secret store is not available"},
 	codeSecretCopyFailed:          {http.StatusBadGateway, "secrets could not be copied to the new store"},
 	codeRefRewriteUnsafe:          {http.StatusUnprocessableEntity, "the references cannot be updated without losing configuration"},
-	codeTransitionRequired:        {http.StatusConflict, "the environment has runtime resources; use a connection transition"},
-	codeTransitionUnsupported:     {http.StatusUnprocessableEntity, "this transition is not supported"},
-	codeTransitionSameDestination: {http.StatusUnprocessableEntity, "the destination must differ from the current connection"},
-	codeDestinationUnavailable:    {http.StatusUnprocessableEntity, "the destination is not available"},
-	codeNoRuntime:                 {http.StatusConflict, "the environment has no runtime resources"},
-	codeDowntimeAckRequired:       {http.StatusUnprocessableEntity, "downtime must be acknowledged"},
 	codeRecoveryConfirmRequired:   {http.StatusUnprocessableEntity, "recovery needs confirmation that the prior execution stopped"},
+	codeRecoveryIncomplete:        {http.StatusConflict, "recovery remains incomplete; the Environment is held"},
 	codeCleanupRefused:            {http.StatusConflict, "the cleanup is refused"},
 	codeConfirmationMismatch:      {http.StatusBadRequest, "the confirmation name does not match"},
-	codeNotRecoverable:            {http.StatusConflict, "the operation cannot be recovered now"},
-	codeRecoveryIncomplete:        {http.StatusConflict, "recovery did not complete"},
 	codeOperationLost:             {http.StatusConflict, "the operation was interrupted"},
 	codeRouteReconcileFailed:      {http.StatusBadGateway, "workloads were applied but public routes could not be reconciled"},
 	codeServiceUnavailable:        {http.StatusServiceUnavailable, "a required service is not available"},
@@ -298,7 +278,6 @@ func classify(err error) (failure, bool) {
 		catalogErr *catalog.FieldError
 		published  *preview.PublicError
 		stageErr   *planning.StageError
-		unsupport  *transition.UnsupportedError
 		paramErr   *workloadconfig.ParamError
 	)
 	var refused *resourcecleanup.RefusedError
@@ -318,26 +297,14 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeServiceUnavailable}, true
 	case errors.Is(err, resourcecleanup.ErrInvalid):
 		return failure{code: codeInvalidRequest}, true
-	case errors.Is(err, appcreate.ErrDeploymentConnectionRetired):
-		return failure{code: codeConnectionRetired, field: "connectionKey"}, true
 	case errors.Is(err, appsvc.ErrTargetChanged):
 		return failure{code: codePlanningRejected, params: map[string]string{"reason": planning.ReasonTargetChanged}}, true
-	case errors.Is(err, planning.ErrEnvironmentUnconfigured):
-		return failure{code: codeEnvironmentUnconfigured, field: "connectionKey"}, true
-	case errors.Is(err, preview.ErrNotReady):
-		// Standalone Preview has always answered 400 here; keep it.
-		return failure{status: http.StatusBadRequest, code: codeConnectionUnavailable, field: "connectionKey"}, true
-	case errors.Is(err, target.ErrInconsistent), errors.Is(err, appsvc.ErrConnectionNotReady),
-		errors.Is(err, appcreate.ErrTargetNotReady):
-		return failure{code: codeConnectionUnavailable, field: "connectionKey"}, true
 	case errors.Is(err, persistence.ErrEnvironmentBusy):
 		return failure{code: codeEnvironmentBusy}, true
 	case errors.Is(err, persistence.ErrVersionConflict), errors.Is(err, catalog.ErrVersionConflict), errors.Is(err, appcreate.ErrStaleVersion):
 		return failure{code: codeStaleVersion}, true
-	case errors.Is(err, pending.ErrStalePreview), errors.Is(err, transition.ErrStaleToken):
+	case errors.Is(err, pending.ErrStalePreview):
 		return failure{code: codeStalePreview}, true
-	case errors.Is(err, appcreate.ErrRuntimeExists):
-		return failure{code: codeTransitionRequired}, true
 	case errors.Is(err, appconfig.ErrNoStore):
 		return failure{code: codeSecretStoreRequired, field: "secretStoreKey"}, true
 	case errors.Is(err, configport.ErrStoreUnavailable):
@@ -367,28 +334,8 @@ func classify(err error) (failure, bool) {
 	case errors.Is(err, connectionapp.ErrCredentialStore), errors.Is(err, secretstores.ErrCredentialStore),
 		errors.Is(err, credentials.ErrUnavailable), errors.Is(err, configmemory.ErrUnavailable):
 		return failure{code: codeServiceUnavailable}, true
-	case errors.Is(err, transition.ErrNoRuntime):
-		return failure{code: codeNoRuntime}, true
-	case errors.Is(err, transition.ErrSameDestination):
-		return failure{code: codeTransitionSameDestination, field: "destinationKey"}, true
-	case errors.Is(err, transition.ErrTransitionRetired):
-		return failure{code: codeConnectionRetired, field: "destinationKey"}, true
-	case errors.Is(err, transition.ErrDestinationFailed):
-		return failure{code: codeDestinationUnavailable, field: "destinationKey"}, true
-	case errors.Is(err, transition.ErrAcknowledge):
-		return failure{code: codeDowntimeAckRequired, field: "acknowledgeDowntime"}, true
 	case errors.Is(err, persistence.ErrRecoveryUnconfirmed):
 		return failure{code: codeRecoveryConfirmRequired, field: "priorExecutionStopped"}, true
-	case errors.Is(err, transition.ErrCleanupRefused):
-		return failure{code: codeCleanupRefused}, true
-	case errors.Is(err, transition.ErrNotRecoverable):
-		return failure{code: codeNotRecoverable}, true
-	case errors.Is(err, transition.ErrRecoveryIncomplete):
-		return failure{code: codeRecoveryIncomplete}, true
-	case errors.As(err, &unsupport):
-		return failure{code: codeTransitionUnsupported}, true
-	case transition.IsInvalid(err):
-		return failure{code: codeInvalidRequest}, true
 	case errors.Is(err, catalog.ErrDuplicate), errors.Is(err, connectionapp.ErrDuplicate), errors.Is(err, appcreate.ErrDuplicate),
 		errors.Is(err, appconfig.ErrConflict):
 		f := failure{code: codeDuplicate}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -108,7 +109,7 @@ func awsProbesClean(args []string) int {
 		return fail("the private run manifest cannot be read")
 	}
 	var cluster string
-	expected := map[string]bool{}
+	expected := map[string]string{}
 	for _, a := range m.Assets {
 		if a.Kind == "eks-cluster" && a.Owner == v2run.OwnerCreatedByRun {
 			cluster = a.ID
@@ -118,7 +119,7 @@ func awsProbesClean(args []string) int {
 			if len(parts) != 2 || parts[0] != m.Namespace || parts[1] == "" || m.Namespace == "" {
 				return fail("a recorded technical Pod has an invalid exact namespace/name")
 			}
-			expected[parts[1]] = true
+			expected[parts[1]] = a.UID
 		}
 	}
 	if len(expected) == 0 {
@@ -140,8 +141,9 @@ func awsProbesClean(args []string) int {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	run := func(args ...string) ([]byte, error) {
+	runInput := func(input []byte, args ...string) ([]byte, error) {
 		cmd := exec.CommandContext(ctx, kubectl, append([]string{"--kubeconfig", kubeconfig, "--context", "eks-run"}, args...)...)
+		cmd.Stdin = bytes.NewReader(input)
 		cmd.Env = append(os.Environ(), "AWS_REGION="+c.AWS.Region, "AWS_DEFAULT_REGION="+c.AWS.Region)
 		var out, stderr strings.Builder
 		cmd.Stdout, cmd.Stderr = &out, &stderr
@@ -150,6 +152,7 @@ func awsProbesClean(args []string) int {
 		}
 		return []byte(out.String()), nil
 	}
+	run := func(args ...string) ([]byte, error) { return runInput(nil, args...) }
 	selector := "run-id=" + m.RunID + ",managed-by=orchestrator-verification,app.kubernetes.io/component=technical-probe"
 	list, err := run("-n", m.Namespace, "get", "pods", "-l", selector, "-o", "json")
 	if err != nil {
@@ -160,8 +163,8 @@ func awsProbesClean(args []string) int {
 		return fail("the run-labelled technical Pod list is unreadable")
 	}
 	for _, pod := range pods.Items {
-		if !expected[pod.Metadata.Name] || pod.Metadata.Labels["run-id"] != m.RunID || pod.Metadata.Labels["managed-by"] != v2run.ProductManagedByTag || pod.Metadata.Labels["app.kubernetes.io/component"] != "technical-probe" {
-			return fail("an unrecorded or differently labelled technical Pod was found; cleanup is held")
+		if (expected[pod.Metadata.Name] == "" || expected[pod.Metadata.Name] != pod.Metadata.UID || pod.Metadata.Namespace != m.Namespace) || pod.Metadata.Labels["run-id"] != m.RunID || pod.Metadata.Labels["managed-by"] != v2run.ProductManagedByTag || pod.Metadata.Labels["app.kubernetes.io/component"] != "technical-probe" {
+			return fail("a technical Pod without its original recorded UID, namespace or labels was found; cleanup is held")
 		}
 	}
 	if !*verifyOnly {
@@ -169,8 +172,16 @@ func awsProbesClean(args []string) int {
 			if !probeListed(pods.Items, name) {
 				continue
 			}
-			if _, err := run("-n", m.Namespace, "delete", "pod", name, "--wait=true", "--timeout=2m"); err != nil {
-				return fail("an exact recorded technical Pod could not be removed")
+			payload, err := json.Marshal(map[string]any{"apiVersion": "v1", "kind": "DeleteOptions", "preconditions": map[string]string{"uid": expected[name]}})
+			if err != nil {
+				return fail("technical Pod delete options could not be encoded")
+			}
+			path := "/api/v1/namespaces/" + url.PathEscape(m.Namespace) + "/pods/" + url.PathEscape(name)
+			if _, err := runInput(payload, "delete", "--raw", path, "-f", "-"); err != nil {
+				return fail("the original UID-preconditioned technical Pod could not be removed")
+			}
+			if _, err := run("-n", m.Namespace, "wait", "--for=delete", "pod/"+name, "--timeout=2m"); err != nil {
+				return fail("technical Pod removal has not completed")
 			}
 		}
 	}
@@ -192,21 +203,20 @@ func awsProbesClean(args []string) int {
 	return 0
 }
 
-type probePodList struct {
-	Items []struct {
-		Metadata struct {
-			Name   string            `json:"name"`
-			Labels map[string]string `json:"labels"`
-		} `json:"metadata"`
-	} `json:"items"`
+type probePod struct {
+	Metadata struct {
+		Name      string            `json:"name"`
+		Namespace string            `json:"namespace"`
+		UID       string            `json:"uid"`
+		Labels    map[string]string `json:"labels"`
+	} `json:"metadata"`
 }
 
-func probeListed(items []struct {
-	Metadata struct {
-		Name   string            `json:"name"`
-		Labels map[string]string `json:"labels"`
-	} `json:"metadata"`
-}, name string) bool {
+type probePodList struct {
+	Items []probePod `json:"items"`
+}
+
+func probeListed(items []probePod, name string) bool {
 	for _, item := range items {
 		if item.Metadata.Name == name {
 			return true
@@ -867,7 +877,7 @@ func init() { extra["aws-input"] = awsInput }
 // fields by the scenario. Nothing is logged.
 func awsInput(args []string) int {
 	fs := flag.NewFlagSet("aws-input", flag.ExitOnError)
-	cfgPath, catalog := fs.String("config", "", ""), fs.String("catalog", "", "aws-catalog.json")
+	cfgPath, catalog := fs.String("config", "", ""), fs.String("catalog", "", "definition-catalog.json")
 	_ = fs.Parse(args)
 	c, err := loadCfg(*cfgPath)
 	if err != nil || c.Target != v2run.TargetAWS || c.AWS == nil {

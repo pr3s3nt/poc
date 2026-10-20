@@ -5,7 +5,7 @@ import { WorkloadEditorPage } from './WorkloadEditorPage';
 import type { Application } from '../../shared/types/application';
 import { bothConfigured } from '../../test/targets';
 
-const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured('internal-cluster'), workloads: { staging: [], production: [] } };
+const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'catalog', environments: bothConfigured(), workloads: { staging: [], production: [] } };
 
 afterEach(() => vi.unstubAllGlobals());
 

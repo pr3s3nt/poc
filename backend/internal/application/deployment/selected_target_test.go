@@ -219,7 +219,7 @@ func TestEnvironmentWithoutConnectionFailsPlacementBeforeAnySideEffect(t *testin
 	// a match error, never as UNCONFIGURED and never on a host or default target.
 	err := deployBackendTo(app, opts, key, "staging")
 	var staged *planning.StageError
-	if errors.Is(err, planning.ErrEnvironmentUnconfigured) || !errors.As(err, &staged) || !strings.Contains(err.Error(), "no resource definition matches k8s-cluster") {
+	if !errors.As(err, &staged) || !strings.Contains(err.Error(), "no resource definition matches k8s-cluster") {
 		t.Fatalf("deploy = %v", err)
 	}
 	if len(executor.requests) != 0 || len(deployer.targets) != 0 || len(app.FakeDeploy.Applied) != 0 {

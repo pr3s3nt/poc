@@ -65,7 +65,7 @@ Local CLI tests use fake executors/deployers; live kind/AWS remains unverified.
 | MS-04, MS-05 | same | type/connection repository reads; `ValidateReferencesAndRules` | `resource_types`, `connections` | OC-04; invalid reference test |
 | MS-06, MS-07 | same | `catalog.validateTerraform`, verified registry inspection; planner chỉ đọc bundle metadata | immutable module bundle + source fingerprint | OC-04; registry allowlist/transitive/digest tests, catalog mapping tests, PostgreSQL conflicting-pin race |
 | MS-08, MS-09; BR-07 | same | `CreateResourceDefinition/ListResourceDefinitions` | insert-only org-scoped catalog; PostgreSQL Definition + criteria atomic transaction | OC-04; registration contract/race/criterion-failure rollback; no-restart HTTP Preview; explicit `{}` wildcard and criteria-shape conformance |
-| BR-01, BR-03 | [ADR-001](../architecture/decisions/ADR-001-profile-resource-scopes.md) | Optional Definition profile guard before unchanged five-field scoring | `TestPlan_NewApplicationMatchesPostgresByExecutionProfile`, invalid-profile validation |
+| BR-01, BR-03 | [ADR-016](../architecture/decisions/ADR-016-definition-selected-workload-targets.md), [ADR-017](../architecture/decisions/ADR-017-definition-dependency-execution.md) | Five-field criteria choose Definitions; references choose dependencies/targets; no profile predicate | Versioned Organization catalog; scoped original instance pins | `planning/placement_test.go`, `definition_catalog_v06_test.go`, `managed_only_graph_test.go`; historical profile tests retired with their contract |
 
 T02 projection theo [UC-03 UI screens](../usecase/UC-03/ui/screens.md) giữ
 BR-01/03/08/10–14 và contract đăng ký. `ResourceDefinitionsPage.test.tsx`
@@ -947,10 +947,11 @@ does not establish backend/jobs/cache behavior.
 |---|---|---|
 | UC-03/05/06/08 V04-01 | ADR-017 graph/reference/provision semantics; module/state contracts | V04 R18 complete/pushed5413fa1:54/54main assertions, full shared PG/Redis/jobs/cache/persistence/reverse cleanup; full/focused/race source-bound checks in handoff. Intentional live negatives removed19-10, existing tests retained |
 | UC-03/05/06/08 V05-01 | ADR-017 typed EKS identity; UC-06 cloud sequence; per-resource schema pins | V05 R14 source39 replacementPASS46/46: unknown→resolved EKS/auth/API/network/node readiness, full app/update/restart/reuse/native absence;5SQLDESTROYED/4APIrows/7deployments reopen. S3 retirement integrated afterPASS; finalGo1715/race218/build/vet and focusedhelpersPASS; no intentional live negatives19-10 |
-| UC-03/05/06/08 V06-01 | ADR-017 actual managed network dependencies/account isolation | S4/S5 prepared contract tests across accounts/regions and managed-only graph; focused reader delta checksPASS. Live A02→clean→A03 and final removal regression remain pending; no live V06PASS claimed |
-| UC-06 V06-02 | ADR-017 replacement/removal gates | S3 applied only after complete R14replacement and independent cleanupPASS; final impacted checks before V05commit. S5 still gated on A02/A03replacement; final schema/DTO/UI impact requires actual final A03 regression |
+| UC-03/05/06/08 V06-01 | ADR-017 actual managed network dependencies/account isolation | Account/region and managed-only graph contract tests PASS. A02R3 and A03R1 each47/47/nativeSQLprocessprivateclean, sequenced after cleanup. S5 integrated after both gates; final source51 A03 a03f-1020041903-32d7 has47/47/exit0/reopen/secret/nativeSQLprocessprivateclean PASS |
+| UC-06 V06-02 | ADR-017 replacement/removal gates | S3 applied only after complete R14replacement and independent cleanupPASS; final impacted checks before V05commit. S5 applied after A02R3/A03R1 full/native-clean; dead transition adapter/ports removed with focused164/race76 and preserved current UID logic. Final schema/DTO/UI A03 regression47/47/exit0/native-clean PASS; current UID creation/deletion also proved in same run |
 
 Exact app-function→gate→UI/technical assertion→evidence→cleanup mapping is in
 [pre-code coverage map](../verification/2026-10-18-v040506-handoff.md).
-Gate outcomes and reuse limits follow the dated handoff; prepared V06 code is
-not live acceptance evidence.
+Gate outcomes and reuse limits follow the dated handoff. V06 replacement and
+actual final post-removal A03 are complete; historical prepared evidence is not
+substituted for those live runs.

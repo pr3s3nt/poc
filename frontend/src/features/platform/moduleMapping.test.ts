@@ -39,8 +39,8 @@ describe('module mapping rules mirror the backend contract', () => {
     for (const module of ['postgres-k8s', 'redis-k8s', 'k8s-namespace']) {
       expect(needsAccount(capability(module))).toBe(false);
       expect(inheritsCluster(capability(module))).toBe(true);
-      // The Environment target stays selectable but is labelled legacy until V03.
-      expect(capability(module).bindings[0]?.targets).toEqual([{ target: 'resource' }, { target: 'environment', legacy: true }]);
+      // Kubernetes must inherit the cluster from a resource binding.
+      expect(capability(module).bindings[0]?.targets).toEqual([{ target: 'resource' }]);
     }
   });
 
@@ -63,7 +63,8 @@ describe('module mapping rules mirror the backend contract', () => {
   it('reads valid objects back and refuses what the controls cannot hold', () => {
     const pg = capability('postgres-k8s');
     const ok = objectToMapping({ input_mapping: { database: { param: 'database' } }, output_mapping: { host: 'host' }, provider_bindings: { kubernetes: { target: 'environment' } } }, pg, type('postgres'), ['eks']);
-    expect(ok.draft).toEqual({ inputs: { database: 'database' }, outputs: { host: 'host' }, bindings: { kubernetes: { target: 'environment', clusterClass: '' } } });
+    expect(ok.draft).toBeUndefined();
+    expect(ok.reason).toContain('không biểu diễn an toàn');
     const reasons = [
       objectToMapping({ extra: 1 }, pg, type('postgres'), []),
       objectToMapping({ input_mapping: { database: { param: 'database', extra: 1 } } }, pg, type('postgres'), []),
@@ -88,7 +89,9 @@ describe('module mapping rules mirror the backend contract', () => {
     const problems = mappingProblems(emptyMapping(), pg, type('postgres')).map((problem) => problem.field);
     expect(problems).toEqual(['input:database', 'input:username', 'output:host', 'output:port', 'output:database', 'output:username', 'output:password', 'binding:kubernetes']);
     expect(mappingProblems(emptyMapping(), pg, undefined)).toHaveLength(1);
-    const full = { inputs: { database: 'database', username: 'username' }, outputs: sameNameOutputs(pg, type('postgres')!), bindings: { kubernetes: { target: 'environment' as const, clusterClass: '' } } };
+    const full = { inputs: { database: 'database', username: 'username' }, outputs: sameNameOutputs(pg, type('postgres')!), bindings: { kubernetes: { target: 'resource' as const, clusterClass: '' } } };
+    expect(mappingProblems(full, pg, type('postgres'))).toEqual([{ field: 'binding:kubernetes', message: 'Chọn class cluster EKS cho provider kubernetes.' }]);
+    full.bindings.kubernetes = { target: 'resource', clusterClass: 'eks' };
     expect(mappingProblems(full, pg, type('postgres'))).toEqual([]);
   });
 

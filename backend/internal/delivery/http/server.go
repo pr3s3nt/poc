@@ -24,7 +24,6 @@ import (
 	"orchestrator/internal/application/preview"
 	"orchestrator/internal/application/resourcecleanup"
 	"orchestrator/internal/application/secretstores"
-	"orchestrator/internal/application/transition"
 	workloadconfig "orchestrator/internal/application/workloadconfig"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
@@ -45,7 +44,6 @@ type Server struct {
 	connections     *connectionapp.Service
 	secretStores    *secretstores.Service
 	operations      *envops.Manager
-	transitions     *transition.Service
 	configurations  *appconfig.Service
 	workloads       *workloadconfig.Service
 	pending         *pending.Service
@@ -72,7 +70,6 @@ type Config struct {
 	Configurations        *appconfig.Service
 	SecretStores          *secretstores.Service
 	Operations            *envops.Manager
-	Transitions           *transition.Service
 	Workloads             *workloadconfig.Service
 	Pending               *pending.Service
 	Previews              *preview.Service
@@ -98,7 +95,6 @@ func NewServer(cfg Config) *Server {
 		connections:     connectionapp.NewService(cfg.Store),
 		secretStores:    cfg.SecretStores,
 		operations:      cfg.Operations,
-		transitions:     cfg.Transitions,
 		configurations:  cfg.Configurations,
 		workloads:       cfg.Workloads,
 		pending:         cfg.Pending,
@@ -128,16 +124,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/applications", s.handleApplications)
 	s.mux.HandleFunc("POST /api/v1/applications", s.handleCreateApplication)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}", s.handleGetApplication)
-	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/connection", s.handleSetEnvironmentConnection)
 	s.mux.HandleFunc("GET /api/v1/secret-stores", s.handleListSecretStores)
 	s.mux.HandleFunc("POST /api/v1/secret-stores", s.handleRegisterSecretStore)
 	s.mux.HandleFunc("GET /api/v1/secret-store-choices", s.handleSecretStoreChoices)
 	s.mux.HandleFunc("PUT /api/v1/applications/{id}/environments/{env}/secret-store", s.handleSetSecretStore)
-	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/connection-transition/preview", s.handlePreviewTransition)
-	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/connection-transitions", s.handleExecuteTransition)
-	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/connection-transitions", s.handleListTransitions)
-	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/connection-transitions/{tid}", s.handleGetTransition)
-	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/connection-transitions/{tid}/cleanup-source", s.handleCleanupSource)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/operations", s.handleListOperations)
 	s.mux.HandleFunc("POST /api/v1/applications/{id}/environments/{env}/operations/{opid}/recover", s.handleRecoverOperation)
 	s.mux.HandleFunc("GET /api/v1/applications/{id}/environments/{env}/configuration", s.handleGetConfiguration)
@@ -161,7 +151,6 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/v1/resource-definitions/matching-preview", s.handleMatchingPreview)
 	s.mux.HandleFunc("GET /api/v1/resource-definition-capabilities", s.handleDefinitionCapabilities)
 	s.mux.HandleFunc("GET /api/v1/render-bundles", s.handleRenderBundles)
-	s.mux.HandleFunc("GET /api/v1/application-connections", s.handleApplicationConnections)
 	s.mux.HandleFunc("GET /api/v1/connections", s.handleConnections)
 	s.mux.HandleFunc("POST /api/v1/connections/kubernetes", s.handleRegisterKubernetesConnection)
 	s.mux.HandleFunc("POST /api/v1/connections/aws", s.handleRegisterAWSConnection)
@@ -199,14 +188,7 @@ type environmentView struct {
 	NamespaceIdentity      string `json:"namespaceIdentity"`
 	CurrentDeploymentSetID string `json:"currentDeploymentSetId"`
 	Version                int64  `json:"version"`
-	// Target (ADR-011): safe nonsecret binding of this Environment.
-	Configured          bool   `json:"configured"`
-	ConnectionKey       string `json:"connectionKey"`
-	ConnectionName      string `json:"connectionName,omitempty"`
-	ConnectionKind      string `json:"connectionKind,omitempty"`
-	Profile             string `json:"executionProfile"`
-	Region              string `json:"region,omitempty"`
-	RuntimeStatus       string `json:"runtimeStatus"`
+	// An Environment carries no deployment Connection, execution profile or region (ADR-017).
 	InfrastructureScope string `json:"infrastructureScope"`
 	// ADR-012: independent secret-store selection, target generation and the
 	// operation currently owning the Environment (nonsecret).
@@ -215,8 +197,6 @@ type environmentView struct {
 	TargetGeneration int64          `json:"targetGeneration"`
 	DraftVersion     int64          `json:"draftVersion"`
 	ActiveOperation  *operationView `json:"activeOperation,omitempty"`
-	// RuntimeExists means a target change needs an explicit transition.
-	RuntimeExists bool `json:"runtimeExists"`
 }
 
 type applicationView struct {
@@ -226,14 +206,13 @@ type applicationView struct {
 	Environments []environmentView `json:"environments"`
 }
 
-// environmentViewOf projects an Environment with its safe Connection labels.
+// environmentViewOf projects surviving Environment metadata; deployment targets are pinned per resource.
 func (s *Server) environmentViewOf(ctx context.Context, organizationKey string, e environment.Environment) environmentView {
 	v := environmentView{
 		Key: e.Key, Name: e.Name, Type: e.Type, NamespaceIdentity: e.NamespaceIdentity,
 		CurrentDeploymentSetID: e.CurrentDeploymentSetID, Version: e.Version,
-		Configured: e.Configured(), ConnectionKey: e.ConnectionKey, Profile: string(e.Profile), Region: e.Region,
-		RuntimeStatus: string(e.Status()), InfrastructureScope: string(e.Scope()),
-		SecretStoreKey: e.SecretStoreKey, TargetGeneration: e.TargetGeneration, DraftVersion: e.DraftVersion,
+		InfrastructureScope: string(e.Scope()),
+		SecretStoreKey:      e.SecretStoreKey, TargetGeneration: e.TargetGeneration, DraftVersion: e.DraftVersion,
 	}
 	if e.SecretStoreKey != "" {
 		v.SecretStoreName = e.SecretStoreKey
@@ -241,23 +220,10 @@ func (s *Server) environmentViewOf(ctx context.Context, organizationKey string, 
 			v.SecretStoreName = store.Name
 		}
 	}
-	if e.Configured() {
-		if exists, err := envops.HasRuntime(ctx, s.store, organizationKey, e); err == nil {
-			v.RuntimeExists = exists
-		}
-	}
 	if e.Busy() {
 		if op, err := s.store.GetOperation(ctx, e.ActiveOperationID); err == nil {
 			view := operationViewOf(op)
 			v.ActiveOperation = &view
-		}
-	}
-	if e.Configured() {
-		if conn, err := s.store.GetConnection(ctx, organizationKey, e.ConnectionKey); err == nil {
-			v.ConnectionName, v.ConnectionKind = conn.Name, string(conn.Kind)
-			if v.ConnectionName == "" {
-				v.ConnectionName = conn.Key
-			}
 		}
 	}
 	return v
@@ -346,33 +312,6 @@ type createApplicationRequest struct {
 	Subdomain string `json:"subdomain"`
 }
 
-// handleApplicationConnections lists the READY Connection choices of the
-// session Organization. Any authenticated member may read it; the payload is
-// minimal and unrelated to UC-04 management (platform-only).
-func (s *Server) handleApplicationConnections(w http.ResponseWriter, r *http.Request) {
-	identity, ok := s.sessionIdentity(r)
-	if !ok {
-		writeCode(w, codeUnauthorized, "")
-		return
-	}
-	choices, err := s.applications.ListChoices(r.Context(), identity.OrganizationKey)
-	if err != nil {
-		s.writeError(w, err)
-		return
-	}
-	type choiceView struct {
-		Key    string `json:"key"`
-		Name   string `json:"name"`
-		Kind   string `json:"kind"`
-		Status string `json:"status"`
-	}
-	views := make([]choiceView, 0, len(choices.Connections))
-	for _, c := range choices.Connections {
-		views = append(views, choiceView{Key: c.Key, Name: c.Name, Kind: string(c.Kind), Status: string(c.Status)})
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"connections": views, "defaultConnectionKey": choices.DefaultConnectionKey})
-}
-
 func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request) {
 	identity, ok := s.sessionIdentity(r)
 	if !ok {
@@ -380,8 +319,8 @@ func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// Only Name and Subdomain are accepted; Organization and role come from the
-	// session. The execution target is set later, once per Environment
-	// (UC-01 BR-13). Everything else, including connectionKey, is rejected.
+	// session. Placement comes from Resource Definitions, never from an Environment
+	// (ADR-017). Everything else, including connectionKey, is rejected.
 	var req createApplicationRequest
 	if err := decodeSingleObject(r, &req); err != nil {
 		writeCode(w, codeInvalidRequest, "")
@@ -398,45 +337,6 @@ func (s *Server) handleCreateApplication(w http.ResponseWriter, r *http.Request)
 		view.Environments = append(view.Environments, s.environmentViewOf(r.Context(), identity.OrganizationKey, env))
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"application": view})
-}
-
-type setConnectionRequest struct {
-	ConnectionKey   json.RawMessage `json:"connectionKey"`
-	ExpectedVersion json.RawMessage `json:"expectedVersion"`
-}
-
-// handleSetEnvironmentConnection sets the Environment target exactly once
-// (UC-01 ES-03..06). Session Organization scopes the Application.
-func (s *Server) handleSetEnvironmentConnection(w http.ResponseWriter, r *http.Request) {
-	identity, ok := s.sessionIdentity(r)
-	if !ok {
-		writeCode(w, codeUnauthorized, "")
-		return
-	}
-	var req setConnectionRequest
-	if err := decodeSingleObject(r, &req); err != nil {
-		writeCode(w, codeInvalidRequest, "")
-		return
-	}
-	var key string
-	if req.ConnectionKey == nil || json.Unmarshal(req.ConnectionKey, &key) != nil || strings.TrimSpace(key) == "" {
-		writeCode(w, codeInvalidRequest, "connectionKey")
-		return
-	}
-	var version int64
-	if req.ExpectedVersion == nil || json.Unmarshal(req.ExpectedVersion, &version) != nil || version <= 0 {
-		writeCode(w, codeInvalidRequest, "expectedVersion")
-		return
-	}
-	env, err := s.applications.SetConnection(r.Context(), appcreate.SetConnectionCommand{
-		OrganizationKey: identity.OrganizationKey, ApplicationKey: r.PathValue("id"), EnvironmentKey: r.PathValue("env"),
-		ConnectionKey: key, ExpectedVersion: version,
-	})
-	if err != nil {
-		s.writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"environment": s.environmentViewOf(r.Context(), identity.OrganizationKey, env)})
 }
 
 // decodeSingleObject decodes exactly one JSON object with no unknown fields

@@ -10,8 +10,8 @@ import (
 
 // The fresh schema accepts only KUBECONFIG for Kubernetes and AWS_ACCESS_KEY
 // for AWS. The product seed is VERIFYING KUBECONFIG metadata without a
-// credential reference and still satisfies the Organization default link.
-// Registration never changes the default link.
+// credential reference. No Organization deployment default exists.
+// Registration preserves the entire Organization metadata and scoped ownership.
 func TestFreshSchemaSeedsVerifyingKubeconfigAndRejectsHostContext(t *testing.T) {
 	ctx := context.Background()
 	st, _ := openFresh(t)
@@ -19,17 +19,18 @@ func TestFreshSchemaSeedsVerifyingKubeconfigAndRejectsHostContext(t *testing.T) 
 	if err := seed.Apply(ctx, st, opts); err != nil {
 		t.Fatal(err)
 	}
-	var defaultID, connectionID string
-	if err := st.pool.QueryRow(ctx, `SELECT default_connection_id::text FROM organizations WHERE organization_key=$1`, opts.OrganizationKey).Scan(&defaultID); err != nil {
+	beforeOrg, err := st.GetOrganization(ctx, opts.OrganizationKey)
+	if err != nil {
 		t.Fatal(err)
 	}
+	var connectionID string
 	seeded, err := st.GetConnection(ctx, opts.OrganizationKey, opts.ConnectionKey)
 	if err != nil || seeded.AuthenticationType != application.AuthKubeconfig || seeded.Status != application.ConnectionVerifying ||
 		seeded.SecretRef != "" || seeded.Verification["verified"] != false || seeded.Name != opts.ConnectionKey {
 		t.Fatalf("seeded connection = %+v, %v", seeded, err)
 	}
-	if err := st.pool.QueryRow(ctx, `SELECT id::text FROM connections WHERE connection_key=$1`, opts.ConnectionKey).Scan(&connectionID); err != nil || connectionID != defaultID {
-		t.Fatalf("default link %q does not reference the seeded record %q (%v)", defaultID, connectionID, err)
+	if err := st.pool.QueryRow(ctx, `SELECT c.id::text FROM connections c JOIN organizations o ON o.id=c.organization_id WHERE o.organization_key=$1 AND c.connection_key=$2`, opts.OrganizationKey, opts.ConnectionKey).Scan(&connectionID); err != nil || connectionID != seeded.ID {
+		t.Fatalf("scoped seeded identity mismatch: %q vs %q (%v)", connectionID, seeded.ID, err)
 	}
 	cloud, err := st.GetConnection(ctx, opts.OrganizationKey, opts.CloudConnectionKey)
 	if err != nil || cloud.AuthenticationType != application.AuthAWSAccessKey {
@@ -52,8 +53,8 @@ func TestFreshSchemaSeedsVerifyingKubeconfigAndRejectsHostContext(t *testing.T) 
 		SecretRef: "kv2://kv/orchestrator/connections/acme/uploaded/credentials/00000000-0000-4000-8000-000000000002", Verification: map[string]any{}}); err != nil {
 		t.Fatal(err)
 	}
-	var after string
-	if err := st.pool.QueryRow(ctx, `SELECT default_connection_id::text FROM organizations WHERE organization_key=$1`, opts.OrganizationKey).Scan(&after); err != nil || after != defaultID {
-		t.Fatalf("registration changed the default connection: %s -> %s (%v)", defaultID, after, err)
+	after, err := st.GetOrganization(ctx, opts.OrganizationKey)
+	if err != nil || after != beforeOrg {
+		t.Fatalf("registration changed Organization metadata: %+v -> %+v (%v)", beforeOrg, after, err)
 	}
 }

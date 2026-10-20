@@ -234,7 +234,7 @@ remains explicitly deferred V04 by user decision; it is not an unresolved V03
 implementation gap or a claimed PASS.
 
 
-## IMP-025 — V06 retirement removed retained state-generation metadata — staged correction verified
+## IMP-025 — V06 retirement removed retained state-generation metadata — resolved 2026-10-20
 
 The isolated unintegrated S5 full PostgreSQL run found that its fresh baseline
 removed environments.generation_high along with deployment-profile fields.
@@ -254,7 +254,7 @@ owner checks are unchanged. This is preparation evidence only; resolution in the
 product remains gated on V06 replacement/runtime/removal integration and commit.
 
 
-## IMP-026 — unused Organization default-choice metadata after selector retirement — staged
+## IMP-026 — unused Organization default-choice metadata after selector retirement — resolved 2026-10-20
 
 Final S5 audit found the removed application-choice/Environment selector still
 left Organization.DefaultConnectionKey, two SQL columns/FK, seed marker and a
@@ -371,3 +371,57 @@ negative tests, add no replacement exception tests. Preserve safe actual snapsho
 counts on failure and retain original DB/private for read-only diagnosis if reopen
 fails, rather than discarding the only persisted evidence. R13 originalFAIL stays;
 independent API/SQL/process/private closurePASS, no old result relabelled.
+
+
+## IMP-027 — unreachable transition adapter/ports after V06.08 — resolved 2026-10-20
+
+ADR-017 and current UC-01/04 contracts retire the deployment-target transition
+entry point. Final removal review found its Kubernetes Transition adapter,
+execution.WorkloadScaler/PostgresTransfer/RouteInspector/NamespaceCleaner/TargetProbe
+ports and fake transition methods remain without any product caller. The only
+real adapter constructor is the old integration-tagged kindtransition test.
+Remove these leftover legacy contracts and that retired-only test; retain current
+fake workload/database/route observation and all current guards/tests. The
+dnsLabel regex currently declared in the dead adapter is used by current
+UID-preconditioned deletion: move that exact declaration to kubectl.go, keeping
+its pattern and every consumer unchanged. No replacement backup/transition feature.
+
+A02 and A03 replacement gates already passed47/47 and independent cleanup.
+Final-R1 stopped on stale generated frontend artifact before any creation; manual
+closure is independently native/API/SQL/process proved, originalFAIL retained.
+Correct build artifact was materialized from actual passing S5 build with source/
+config124file equality and3dist SHA matches. No current cloud run. Before final
+A03 retry, review this removal, compile all current Go test packages and run
+focused current Kubernetes/fake/bootstrap/deployment tests/build/vet as affected.
+Existing full/focused checks are reused only for unchanged behavior; no new
+exception tests or live fault injection. Historical sources remain in Git.
+
+
+## IMP-028 — stale diagram participants after Definition-driven replacement — resolved
+
+Existing ADR-017 and UC-05/06 current specification/realization already require
+Definition/reference fixed-point expansion without profile enrichment, and retire
+deployment-target transition. Final diagram audit found an unused old participant
+in UC-05 sequence, old implicit-enricher boxes/notes in UC-05 VOPC/shared classes,
+and a transition/backup component that no longer belongs to the current design.
+Align those diagrams to the existing approved collaboration: graph expansion and
+matching remain, configuration/Secret Store/operation components remain, retired
+profile/transfer participants disappear. The old Environment selector state
+diagram is preserved explicitly HISTORICAL, not reused as a current lifecycle.
+No product requirement or runtime source changes. Five affected PlantUML sources
+rendered to valid SVG without syntax-error diagrams;34unchanged sources exactly
+match validated snapshot02 and are reused. Docs352Markdown/304IDs and diff PASS.
+Current actual final A03 source51 remains frozen.
+
+
+### Final V06 resolution evidence for IMP-025/026/027
+
+The staged descriptions above retain discovery history. S5 was applied only after
+A02R3 and A03R1 complete47/47/independent cleanup. Final source51 A03
+`a03f-1020041903-32d7` passed47/47/exit0/CLOSED_CLEAN/reopen/secret scan/native,
+SQL, process and private absence. Current generation metadata is retained; obsolete
+Organization default-choice fields and unused transition ports/adapters are gone.
+Source49 composedGo117+115/FE74/build/vet and source51 focused164/race76/all-test
+compilation cover the affected final content, with unchanged prior checks reused.
+No current tests/guards removed to force pass; old tagged transition-only test
+retired with its unsupported feature. No further work remains for these deviations.

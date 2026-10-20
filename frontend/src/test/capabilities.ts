@@ -201,10 +201,6 @@ export const capabilityFixture: Capability[] = [
      {
       "target": "resource"
      },
-     {
-      "target": "environment",
-      "legacy": true
-     }
     ]
    }
   ]
@@ -490,10 +486,6 @@ export const capabilityFixture: Capability[] = [
      {
       "target": "resource"
      },
-     {
-      "target": "environment",
-      "legacy": true
-     }
     ]
    }
   ]
@@ -741,10 +733,6 @@ export const capabilityFixture: Capability[] = [
      {
       "target": "resource"
      },
-     {
-      "target": "environment",
-      "legacy": true
-     }
     ]
    }
   ]

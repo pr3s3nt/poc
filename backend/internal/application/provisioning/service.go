@@ -765,7 +765,7 @@ func checkPinsAgainstPlan(plan *planning.Plan, descriptor string, pins []tfmodul
 		providers[p] = true
 	}
 	for _, pin := range pins {
-		if pin.Profile != string(env.Profile) || pin.Generation != env.TargetGeneration {
+		if pin.Generation != env.TargetGeneration {
 			return errPinStale
 		}
 		switch pin.Kind {
@@ -773,7 +773,7 @@ func checkPinsAgainstPlan(plan *planning.Plan, descriptor string, pins []tfmodul
 			// The pin must still describe the Definition's own Driver Account,
 			// literal region and the account version the plan saw.
 			region, _ := def.DefinitionRegion()
-			if pin.ConnectionKey == "" || pin.ConnectionKey != def.DriverAccount || pin.ConnectionKey != account.Key ||
+			if pin.Target != tfmodule.TargetAccount || pin.ConnectionKey == "" || pin.ConnectionKey != def.DriverAccount || pin.ConnectionKey != account.Key ||
 				pin.Region == "" || pin.Region != region || pin.AccountVersion != account.Version {
 				return errPinStale
 			}
@@ -801,7 +801,7 @@ var (
 	// (another connection, region, profile or generation) or foreign (a
 	// cluster that is not a provider of the node).
 	ErrProviderPin = errors.New("the provider binding does not match the plan pin")
-	errPinStale    = fmt.Errorf("%w: it differs from the Environment target; plan again", ErrProviderPin)
+	errPinStale    = fmt.Errorf("%w: it differs from the target saved in the Deployment plan; plan again", ErrProviderPin)
 	errPinForeign  = fmt.Errorf("%w: it names a cluster that is not a provider of this node", ErrProviderPin)
 )
 

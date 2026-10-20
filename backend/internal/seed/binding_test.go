@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"orchestrator/internal/adapters/store"
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/seed"
 )
@@ -24,14 +25,9 @@ func TestApplyBindsAcceptanceFixturesWithExplicitEnvironmentScopeAndIsIdempotent
 	k8s, err := st.GetEnvironment(ctx, opts.ApplicationKey, opts.EnvironmentKey)
 	// ADR-016: the internal Application's Environment carries no deployment Connection;
 	// Resource Definitions place it.
-	if err != nil || k8s.Configured() || k8s.ConnectionKey != "" || k8s.Profile != "" || k8s.Version != 1 {
+	if err != nil || k8s.Version != 1 || k8s.InfrastructureScope != environment.ScopeEnvironment {
 		t.Fatalf("acceptance env = %+v %v", k8s, err)
-	}
-	// ADR-017: no profile-bound cloud Application exists; AWS placement comes from Resource Definitions and accounts.
-	if _, err := st.GetEnvironment(ctx, opts.CloudApplicationKey, opts.EnvironmentKey); err == nil {
-		t.Fatal("a retired profile-bound cloud Application was seeded")
-	}
-	// The seeded Applications are identity-only; targets live on Environments.
+	} // The seeded Applications are identity-only; targets live on Environments.
 	if a, err := st.GetApplication(ctx, opts.ApplicationKey); err != nil || a.Key != opts.ApplicationKey {
 		t.Fatalf("seeded application = %+v %v", a, err)
 	}

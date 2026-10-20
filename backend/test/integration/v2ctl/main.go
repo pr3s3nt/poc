@@ -163,9 +163,10 @@ func manifestNamespace(args []string) int {
 func manifestAsset(args []string) int {
 	fs := flag.NewFlagSet("manifest-asset", flag.ExitOnError)
 	path, kind, id, layer, owner, linkage := fs.String("manifest", "", ""), fs.String("kind", "", ""), fs.String("id", "", ""), fs.String("layer", "", ""), fs.String("owner", "", ""), fs.String("linkage", "", "")
+	uid := fs.String("uid", "", "original Kubernetes object UID")
 	_ = fs.Parse(args)
 	return update(*path, func(m *v2run.Manifest) error {
-		return m.AddAsset(v2run.Asset{Kind: *kind, ID: *id, Layer: *layer, Owner: *owner, Linkage: *linkage})
+		return m.AddAsset(v2run.Asset{Kind: *kind, ID: *id, Layer: *layer, Owner: *owner, Linkage: *linkage, UID: *uid})
 	})
 }
 

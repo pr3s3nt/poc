@@ -9,6 +9,7 @@ import (
 	appsvc "orchestrator/internal/application/deployment"
 	"orchestrator/internal/bootstrap"
 	"orchestrator/internal/bootstrap/bootstraptest"
+	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/ports/execution"
@@ -122,7 +123,7 @@ func TestProvision_EKSCreatedInTheSameExecutionDrivesNamespaceDatabaseAndWorkloa
 		t.Fatalf("applied target = %+v", applied)
 	}
 	env, err := app.Store.GetEnvironment(context.Background(), opts.ApplicationKey, "staging")
-	if err != nil || env.ConnectionKey != "" || env.Profile != "" {
+	if err != nil || env.InfrastructureScope != environment.ScopeEnvironment {
 		t.Fatalf("the Environment must stay unbound: %+v %v", env, err)
 	}
 	_ = result
