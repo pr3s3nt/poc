@@ -67,11 +67,14 @@ Compose commands to retain this image/port selection.
 Vault starts with file storage, initializes once, unseals automatically, enables
 KV v2 at `kv` and creates separate scoped periodic tokens. The backend waits for
 PostgreSQL and Vault health checks. No manual token copy is needed. The Vault
-supervisor renews both tokens every minute; each token period is 768 hours.
+supervisor renews the three scoped tokens (Connection, application and output-secret) every minute; each token period is 768 hours.
 Token files are owned by backend UID 65532 and mounted read-only into backend.
 The application token can manage application value/bundle paths and workload
 policies/roles; it cannot read Connection credentials. The credential token
-cannot read application secrets. Root/unseal material stays inaccessible to backend.
+cannot read application secrets. The output-secret token may only create and read
+`kv/orchestrator/outputs/*` (`deploy/local/outputs-policy.hcl`); it backs the durable
+output-secret store the Terraform state backend requires
+(`ORCHESTRATOR_OUTPUT_SECRET_STORE=vault`). Root/unseal material stays inaccessible to backend.
 
 Compose sets `ORCHESTRATOR_PLATFORM_VAULT_BOOTSTRAP=true` with
 `ORCHESTRATOR_PLATFORM_VAULT_ADDR`, `ORCHESTRATOR_PLATFORM_VAULT_WORKLOAD_ADDR`
@@ -107,6 +110,26 @@ separate `vault-bootstrap` volume to support automatic restart. Backend cannot
 mount that bootstrap volume. This is local automation, not KMS auto-unseal or a
 production Vault deployment. See HashiCorp's
 [initialization documentation](https://developer.hashicorp.com/vault/docs/commands/operator/init).
+
+## Backend image tools and AWS mode
+
+The backend image carries `kubectl`, `git`, Terraform 1.9.8 and `score-k8s` 0.15.0,
+plus private 0700 directories under `/var/lib/orchestrator` (`recovery`,
+`tfroot`, `plugin-cache`, `module-cache`). The Terraform state backend refuses to
+start without the Terraform binary, the durable Vault output-secret store and
+the recovery directory (`ORCHESTRATOR_TERRAFORM_RECOVERY_DIR`).
+
+The default Compose runs `ORCHESTRATOR_ADAPTERS=kubernetes`. To execute
+Definition-driven AWS resources, add the override on every Compose command:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build
+```
+
+It selects `-adapters aws` with the `acceptance-v2` seed profile and no seeded
+catalog. No AWS credential is configured in Compose: register an AWS Connection
+in the Console. The override creates real, billable AWS resources when a
+Deployment runs; it does not authorize any AWS run by itself.
 
 ## Stop, restart and troubleshoot
 

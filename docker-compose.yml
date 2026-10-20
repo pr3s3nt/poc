@@ -76,6 +76,8 @@ services:
       - vault-bootstrap:/vault/bootstrap
       - connection-token:/connection-token
       - app-token:/app-token
+      - output-token:/output-token
+      - ./deploy/local/outputs-policy.hcl:/local/outputs-policy.hcl:ro
     healthcheck:
       test: ["CMD-SHELL", "test -f /tmp/vault-ready && vault status >/dev/null 2>&1"]
       interval: 5s
@@ -111,9 +113,15 @@ services:
       ORCHESTRATOR_PLATFORM_VAULT_ADDR: http://vault:8200
       ORCHESTRATOR_PLATFORM_VAULT_WORKLOAD_ADDR: ${VAULT_WORKLOAD_ADDRESS:-http://vault:8200}
       ORCHESTRATOR_PLATFORM_VAULT_TOKEN_FILE: /run/app-token/token
+      ORCHESTRATOR_OUTPUT_SECRET_STORE: vault
+      ORCHESTRATOR_OUTPUT_SECRET_VAULT_ADDR: http://vault:8200
+      ORCHESTRATOR_OUTPUT_SECRET_VAULT_TOKEN_FILE: /run/output-token/token
+      ORCHESTRATOR_TERRAFORM_RECOVERY_DIR: /var/lib/orchestrator/recovery
     volumes:
       - connection-token:/run/connection-token:ro
       - app-token:/run/app-token:ro
+      - output-token:/run/output-token:ro
+      - terraform-recovery:/var/lib/orchestrator/recovery
       - db-runtime-credentials:/run/orchestrator/runtime:ro
       - terraform-state-key:/run/orchestrator/state-key:ro
     healthcheck:
@@ -162,3 +170,5 @@ volumes:
   vault-bootstrap:
   connection-token:
   app-token:
+  output-token:
+  terraform-recovery:

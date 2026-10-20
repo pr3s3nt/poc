@@ -1,0 +1,30 @@
+# Real AWS execution for the local Compose stack (Definition-driven EKS/Aurora/Redis):
+#   docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build backend
+# AWS credentials are never configured here: they are registered in the Console as a Connection.
+services:
+  backend:
+    environment:
+      ORCHESTRATOR_ADAPTERS: aws
+      TF_PLUGIN_CACHE_DIR: /var/lib/orchestrator/plugin-cache
+      ORCHESTRATOR_TERRAFORM_MODULE_CACHE_DIR: /var/lib/orchestrator/module-cache
+    command:
+      - -profile=acceptance-v2
+      - -seed-catalog=none
+      - -application-key=aws-demo
+      - -namespace=aws-demo
+      - -run-id=aws-demo
+      - -owner=demo
+      - -ttl=168h
+      - -score-k8s=/usr/local/bin/score-k8s
+      - -terraform=/usr/local/bin/terraform
+      - -terraform-root=/var/lib/orchestrator/tfroot
+      - -terraform-plugin-cache=/var/lib/orchestrator/plugin-cache
+      - -workload-delivery=direct
+      - -vault-delivery=agent
+      - -terraform-invocation-timeout=45m
+      - -terraform-readiness-timeout=15m
+      - -deploy-deadline=3h
+    volumes:
+      - orchestrator-work:/var/lib/orchestrator
+volumes:
+  orchestrator-work:

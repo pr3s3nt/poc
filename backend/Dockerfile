@@ -29,15 +29,20 @@ ARG TARGETARCH=amd64
 # Disable SSL verification for apk and wget (development only)
 RUN echo "http://dl-cdn.alpinelinux.org/alpine/v3.22/main" > /etc/apk/repositories \
  && echo "http://dl-cdn.alpinelinux.org/alpine/v3.22/community" >> /etc/apk/repositories \
- && apk add --no-cache ca-certificates \
+ && apk add --no-cache ca-certificates git \
  && wget --no-check-certificate -q -O /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
  && wget --no-check-certificate -q -O /tmp/kubectl.sha256 "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256" \
  && echo "$(cat /tmp/kubectl.sha256)  /usr/local/bin/kubectl" | sha256sum -c - \
  && chmod 0755 /usr/local/bin/kubectl \
  && rm /tmp/kubectl.sha256
+ARG SCORE_K8S_VERSION=0.15.0
+RUN wget --no-check-certificate -q -O /tmp/score.tgz "https://github.com/score-spec/score-k8s/releases/download/${SCORE_K8S_VERSION}/score-k8s_${SCORE_K8S_VERSION}_linux_${TARGETARCH}.tar.gz" \
+ && tar -xzf /tmp/score.tgz -C /usr/local/bin score-k8s && chmod 0755 /usr/local/bin/score-k8s && rm /tmp/score.tgz
+COPY --from=hashicorp/terraform:1.9.8 /bin/terraform /usr/local/bin/terraform
 COPY --from=build /out/orchestrator /usr/local/bin/orchestrator
 COPY deploy/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 ENV HOME=/tmp
+RUN mkdir -p /var/lib/orchestrator/recovery /var/lib/orchestrator/tfroot /var/lib/orchestrator/plugin-cache /var/lib/orchestrator/module-cache && chown -R 65532:65532 /var/lib/orchestrator && chmod -R 0700 /var/lib/orchestrator
 USER 65532:65532
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

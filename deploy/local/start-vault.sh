@@ -2,9 +2,9 @@
 # Personal-machine setup: bootstrap material is kept outside the backend volume.
 set -eu
 umask 077
-mkdir -p /vault/data /vault/bootstrap /connection-token /app-token
+mkdir -p /vault/data /vault/bootstrap /connection-token /app-token /output-token
 chmod 700 /vault/data /vault/bootstrap
-chmod 755 /connection-token /app-token
+chmod 755 /connection-token /app-token /output-token
 rm -f /tmp/vault-ready
 
 vault server -config=/local/vault.hcl &
@@ -52,6 +52,7 @@ fi
 rm -f /tmp/vault-mounts.json
 vault policy write orchestrator-connections /local/connections-policy.hcl >/dev/null
 vault policy write orchestrator-applications /local/applications-policy.hcl >/dev/null
+vault policy write orchestrator-outputs /local/outputs-policy.hcl >/dev/null
 
 # ensure_token DIR POLICY renews DIR/token or, when it is absent, expired or
 # revoked, atomically replaces it with a new orphan periodic token that is
@@ -70,6 +71,7 @@ ensure_token() {
 }
 ensure_token /connection-token orchestrator-connections
 ensure_token /app-token orchestrator-applications
+ensure_token /output-token orchestrator-outputs
 
 # Prove the application token can write, read and delete a value before the
 # backend is allowed to start; a failure keeps Vault unhealthy (fail closed).
@@ -95,7 +97,7 @@ echo 'Vault ready; Connection credential store and application secret store conf
 while kill -0 "$server_pid" 2>/dev/null; do
   sleep 60 &
   wait $! || true
-  if ! renew_token /connection-token || ! renew_token /app-token; then
+  if ! renew_token /connection-token || ! renew_token /app-token || ! renew_token /output-token; then
     echo 'Scoped token renewal failed; restarting Vault bootstrap' >&2
     exit 1
   fi
