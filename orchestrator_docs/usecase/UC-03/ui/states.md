@@ -185,3 +185,8 @@ không mất JSON đang sửa. Tạo mới khi đang edit hoặc Hủy sửa là
 như trước. Save bar bị khóa theo cùng saving/review state; không cho chuyển view
 trong write. ID/Name errors mở tab Cấu hình; actionable validation không bị mất
 trong disclosure. Details/help chỉ ẩn lời giải thích, không nới validation.
+
+
+## Unified cluster authoring — 2026-10-21
+
+UI3-05: Switching cluster methods retains each driver draft. Existing-cluster shares catalog/detail navigation, criteria validation, metadata/account loading and error/retry states, CAS stale/unknown-outcome holds and explicit reload with Terraform. ID/Type stay fixed during Edit.

@@ -7,6 +7,17 @@ last_reviewed: 2026-10-21
 
 # Current project state
 
+## Unified cluster Definition authoring — 2026-10-21
+
+Resource Definition catalog/Create/Edit now includes existing-cluster alongside
+Terraform. k8s-cluster selects its method from backend capabilities; existing
+cluster uses Internal READY account, shared two tabs/criteria/payload review and
+CAS/reload pipeline. Removed the separate cluster section/form. Infrastructure
+Accounts, backend/API/matching and cluster lifecycle remain unchanged.
+Focused frontend 152 tests, typecheck/build, changed-file lint, docs and mocked
+HTTP browser desktop/mobile PASS; full lint retains 26 preexisting errors outside
+this task. [Verification](verification/2026-10-21-unified-cluster-definition.md).
+
 ## Resource Definition v3 — issue #8, 2026-10-21
 
 Nhánh `iam_role`: form Definition có hai tab Cấu hình / Điều kiện áp dụng,

@@ -137,3 +137,8 @@ Catalog Create/Edit and editor breadcrumb change presentation only; save/CAS,
 metadata loaders, MatchingPreviewPanel and GitModuleSource lifetimes stay owned
 by the page. Numbered cards, overview and fixed actions reuse that state.
 Mapping and variable provenance disclosures retain existing converters/guards.
+
+UI3-05: ResourceDefinitionsPage also owns existing-cluster drafts and presents
+server-supported cluster methods inside its common editor. The same catalog,
+criteria/matching preview and mutation/reload pipeline serve both drivers.
+Sequence/VOPC participants and backend operations remain unchanged.

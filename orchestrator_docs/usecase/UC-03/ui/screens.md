@@ -206,3 +206,8 @@ current representation with actionable errors. Variables retain explicit opt-in
 overrides in a compact unboxed grid; read-only fields show metadata defaults or
 inherited sources without inserting values into the submitted draft. Scope summary groups actual conditions by
 case; full-payload review remains a quiet disclosure.
+
+
+## Unified cluster authoring — 2026-10-21
+
+UI3-05 replaces the separate existing-cluster section: one catalog and Create/Edit view. k8s-cluster offers server-supported existing-cluster and Terraform methods; existing-cluster shows Internal READY account plus shared identity, criteria tabs and payload review, without module/region/variables. Accounts remain separate.

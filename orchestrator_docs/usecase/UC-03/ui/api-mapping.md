@@ -188,3 +188,8 @@ Review draft và Save dùng cùng builder cho `driverInputs.values`, `provision`
 `criteria` và expected `version` khi edit. Mapping/variables/provision dùng
 converters và strict validation hiện hành; source từ capability/Git API thật.
 Disclosures và tabs không phát sinh write, inspect hay matching tự động.
+
+
+## Unified cluster authoring — 2026-10-21
+
+UI3-05: Both methods use the existing GET/POST/PUT resource-definitions endpoints and capability/account metadata. Existing-cluster submits k8s-cluster, driver existing-cluster, its Internal driverAccount and values.variables = {}; no Terraform source, region or credentials. Matching API and expected-version CAS remain unchanged.
