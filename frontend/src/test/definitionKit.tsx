@@ -81,7 +81,14 @@ export type Fill = { id: string; name?: string; type: string; module?: string; a
 // the way a Platform Engineer does: name it, pick the pin, the Driver Account
 // and the literal region when the pair needs them, map the contract
 // explicitly, bind the provider and opt into the presets.
+export async function openAdvanced(user: User) {
+  const summary = screen.getByText('Thiết lập nâng cao · ánh xạ & tài nguyên liên quan');
+  if (!summary.closest('details')?.open) await user.click(summary);
+}
+
 export async function completeDefinition(user: User, fill: Fill) {
+  const configuration = screen.getByRole('tab', { name: 'Cấu hình' });
+  if (configuration.getAttribute('aria-selected') !== 'true') await user.click(configuration);
   await user.type(field('ID cấu hình (Definition ID)'), fill.id);
   await user.type(field('Tên hiển thị'), fill.name ?? `Tên ${fill.id}`);
   await user.selectOptions(field('Loại tài nguyên'), fill.type);
@@ -97,6 +104,7 @@ export async function completeDefinition(user: User, fill: Fill) {
     await user.selectOptions(account, fill.account ?? 'aws-account');
     await user.type(field('Vùng AWS'), fill.region ?? 'us-east-1');
   }
+  await openAdvanced(user);
   const inputs = screen.queryByRole('button', { name: 'Ghép đầu vào theo tên trùng' });
   if (inputs) await user.click(inputs);
   await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));

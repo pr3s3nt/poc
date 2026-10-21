@@ -13,6 +13,7 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 | Date | Scope | Record |
 |---|---|---|
+| 2026-10-21 | Issue #8 Resource Definition v3; focused frontend checks and real HTTP/Git browser/CAS/mobile | [Resource Definition v3](2026-10-21-resource-definition-v3.md) |
 | 2026-10-20 | Issue #7 direct Git module authoring; focused checks and HTTPS Git/browser create/edit/reload | [Git module authoring](2026-10-20-git-module-authoring.md) |
 | 2026-10-18 | V03 Definition-selected Internal cluster/workload; final frontend-only real acceptance PASS, removal gate, video, deferred coverage and cleanup | [V03 handoff](2026-10-18-v03-handoff.md) |
 | 2026-10-17 | V02 Definition/edit/matching; independent SQL/Vault/headed video and limitations | [V02 handoff](2026-10-17-v02-handoff.md) |

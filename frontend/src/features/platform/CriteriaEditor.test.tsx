@@ -29,6 +29,11 @@ describe('criteria draft projection', () => {
     expect(payload({ mode: 'env_type', rows: [{ env_type: 'staging', app_id: 'leftover', env_id: '', res_id: '', class: '' }] })).toEqual([{ env_type: 'staging' }]);
     expect(payload({ mode: 'app_env', rows: [{ env_type: '', app_id: 'shop', env_id: 'staging', res_id: '', class: '' }] })).toEqual([{ app_id: 'shop', env_id: 'staging' }]);
   });
+  it('preserves literal whitespace criteria instead of replacing them with wildcard', () => {
+    const criteria = [{ env_type: ' ', class: ' custom ' }, { res_id: '\t' }];
+    expect(payload(draftFromCriteria([{ env_type: ' ' }]))).toEqual([{ env_type: ' ' }]);
+    expect(payload(draftFromCriteria(criteria))).toEqual(criteria);
+  });
   it('never turns an incomplete simple mode into a silent wildcard', () => {
     expect(draftToCriteria({ mode: 'env_type', rows: emptyDraft().rows }).problem).toMatch(/loại môi trường/);
     expect(draftToCriteria({ mode: 'app_env', rows: emptyDraft().rows }).problem).toMatch(/ứng dụng/);

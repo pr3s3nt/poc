@@ -2,7 +2,7 @@
 id: UC-03-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-21
 related: UC-03
 ---
 
@@ -170,3 +170,17 @@ Form giữ typed mappings/variables/provision/criteria và CAS hiện hành. Sel
 không hiện digest; Chi tiết kỹ thuật đóng mặc định chứa full pin. Public HTTPS
 không cần credential; chưa có private Git auth/SSH. New Type có thể chọn trước
 khi module đầu tiên được inspect. Giữ create/edit/reload và installed module flow.
+
+## Resource Definition v3 — issue #8 (current replacement)
+
+UI3-01..04 thay bốn chế độ criteria ở form Resource Definition bằng rule editor.
+Hai tab Cấu hình / Điều kiện áp dụng có keyboard navigation, active gạch cam
+và cùng draft. Tab Cấu hình có module verified/Git, tài khoản/region/variables;
+Thiết lập nâng cao đóng mặc định chứa mapping/provider/provision, Form/JSON
+hiện hành. Xem bản đang nhập cho phép review payload đầy đủ trước Save.
+Tab Điều kiện áp dụng có trường hợp AND, OR giữa trường hợp, selector năm
+field chuẩn và giá trị; tóm tắt phạm vi luôn có. Copy, matching, help đóng mặc
+định. Không xuất hiện missing-context message cho tới khi mở matching.
+Validation/actionable errors và overlap warning vẫn hiện trong tác vụ tương
+ứng. Mẫu dựng ứng dụng giữ projection cũ; shared guard/converter không đổi.
+Không có Usage, dữ liệu minh họa hoặc thay đổi theme/navigation.

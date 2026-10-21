@@ -2,7 +2,7 @@
 id: UC-03-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-21
 related: UC-03
 ---
 
@@ -163,3 +163,16 @@ Form giữ typed mappings/variables/provision/criteria và CAS hiện hành. Sel
 không hiện digest; Chi tiết kỹ thuật đóng mặc định chứa full pin. Public HTTPS
 không cần credential; chưa có private Git auth/SSH. New Type có thể chọn trước
 khi module đầu tiên được inspect. Giữ create/edit/reload và installed module flow.
+
+## Resource Definition v3 interaction states — issue #8
+
+- Tab switch: giữ mounted panels và toàn bộ draft/version, không mutate API.
+- Advanced/copy/matching/help: đóng mặc định; mở/đóng không reset editor.
+- New condition: chọn thuộc tính chưa có trong trường hợp, giá trị rỗng là
+  incomplete; chặn submit tới khi nhập hoặc xóa điều kiện tường minh.
+- No conditions in a case: wildcard; no cases: invalid empty criteria.
+- JSON invalid/unrepresentable: giữ text và mode, hiện hướng dẫn, không discard.
+- Hidden matching: thay draft/context/metadata/session vẫn invalidate và bỏ
+  late response; mở lại chỉ hiện kết quả còn thuộc đúng signature hiện tại.
+- Save validation: thông báo lỗi ngoài tab, mở vùng liên quan để sửa; CAS/
+  unknown-outcome giữ explicit reload/review hiện hành, không replay mutation.

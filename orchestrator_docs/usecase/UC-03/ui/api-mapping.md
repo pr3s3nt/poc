@@ -2,7 +2,7 @@
 id: UC-03-UI-API
 artifact: use-case-api-mapping
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-21
 related: UC-03
 ---
 
@@ -179,3 +179,12 @@ Form giữ typed mappings/variables/provision/criteria và CAS hiện hành. Sel
 không hiện digest; Chi tiết kỹ thuật đóng mặc định chứa full pin. Public HTTPS
 không cần credential; chưa có private Git auth/SSH. New Type có thể chọn trước
 khi module đầu tiên được inspect. Giữ create/edit/reload và installed module flow.
+
+## V3 projection — issue #8
+
+UI3-01..04 chỉ đổi layout và projection authoring, không đổi endpoint/DTO.
+Rule editor serialize cùng năm fields/criteria; zero cases không thành wildcard.
+Review draft và Save dùng cùng builder cho `driverInputs.values`, `provision`,
+`criteria` và expected `version` khi edit. Mapping/variables/provision dùng
+converters và strict validation hiện hành; source từ capability/Git API thật.
+Disclosures và tabs không phát sinh write, inspect hay matching tự động.

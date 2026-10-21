@@ -31,6 +31,7 @@ try {
   expect(capability.source.contentSha256).toMatch(/^[0-9a-f]{64}$/);
   await expect(page.getByText(/Đã xác minh: v1.0.0/)).toBeVisible();
   await expect(page.getByText(capability.source.contentSha256, { exact: true })).not.toBeVisible();
+  await page.locator('summary', { hasText: 'Thiết lập nâng cao' }).click();
   await page.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }).click();
   await page.getByLabel('Ghi đè label', { exact: true }).check();
   await page.getByLabel('Giá trị label', { exact: true }).fill('browser-value');
@@ -47,6 +48,7 @@ try {
   await expect(row).toContainText('Git module demo');
   await row.getByRole('button', { name: /Sửa/ }).click();
   await expect(page.getByLabel('Giá trị label', { exact: true })).toHaveValue('browser-value');
+  await page.locator('summary', { hasText: 'Thiết lập nâng cao' }).click();
   await expect(page.getByLabel('Output module cung cấp name', { exact: true })).toHaveValue('name');
   await page.getByLabel('Tên hiển thị', { exact: true }).fill('Git module edited');
   const edited = page.waitForResponse((response) => response.url().endsWith('/resource-definitions/git-demo-definition') && response.request().method() === 'PUT');

@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-21
 ---
 
 # UC-03 — Register Resource Definition and Matching Criteria
@@ -363,3 +363,32 @@ Applications (AWS after V03.10); unscoped internal workloads need both refs.
   được không cần credential. Private Git credential authoring/SSH chưa hỗ trợ;
   UI phải nói rõ, không thu raw secret. Provider release/runtime readiness vẫn
   có phạm vi hỗ trợ hiện hành; inspect không tuyên bố deploy đã kiểm chứng.
+
+## Resource Definition v3 authoring — issue #8
+
+- **UI3-01:** Resource Definition có hai tab Cấu hình / Điều kiện áp dụng,
+  dùng style Console hiện tại. Chuyển tab giữ draft, pin, expected version và
+  trạng thái stale/unknown-outcome; không tự replay Save. Không có tab Usage.
+- **UI3-02:** Cấu hình giữ lựa chọn verified module / Git inspect, account,
+  region và typed variables. Mapping inputs/outputs, provider bindings và
+  provision nằm trong Thiết lập nâng cao thu gọn mặc định. Tái sử dụng các
+  editor và Form/JSON converters hiện hành; JSON sai hoặc không biểu diễn an
+  toàn được giữ nguyên, không mất field/kiểu/placeholder/explicit false/params.
+  Có thể xem đầy đủ payload đang nhập trước Save; chưa hợp lệ phải báo rõ.
+- **UI3-03:** Một rule editor cho Definition: chọn đúng một trong năm thuộc
+  tính chuẩn, nhập giá trị, thêm/xóa điều kiện hoặc trường hợp. AND trong
+  trường hợp, OR giữa các trường hợp; trường hợp không có điều kiện là wildcard
+  `{}`, zero trường hợp là `[]` không hợp lệ. Điều kiện mới chưa nhập giá trị
+  phải chặn Save, không âm thầm thành wildcard. Existing criteria giữ nguyên
+  giá trị, thứ tự trường hợp và wildcard khi mở/sửa/lưu.
+- **UI3-04:** Hiện tóm tắt phạm vi; copy/matching/help thu gọn mặc định. Copy
+  độc lập và cần xác nhận khi thay draft có dữ liệu. Overlap chỉ là cảnh báo
+  UI; kết quả authoritative vẫn từ matching API. Không hiện thiếu context
+  khi panel đóng. Panel ẩn vẫn invalidate theo draft/context/catalog/account/
+  session và bỏ late replies; thu gọn không làm kết quả stale hợp lệ lại.
+
+V3 cố định tại commit `32db49f5cb1df6a855e55241e26962e1cb0adec2`,
+chỉ tham chiếu bố cục/tương tác; không dùng dữ liệu, validation hoặc kết quả
+minh họa làm behavior sản phẩm. Không đổi DTO/API/backend, secrets, module pins,
+CAS, specificity hoặc dependency execution. Mẫu dựng ứng dụng tiếp tục dùng
+projection criteria hiện hành; không mở rộng redesign navigation hay theme.

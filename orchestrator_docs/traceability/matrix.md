@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-21
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -971,3 +971,16 @@ substituted for those live runs.
 |---|---|---|
 | GIT-01/02/05/06; OC-04e | `registry.InspectGit`, `GitCLI.Resolve`, catalog inspection, POST terraform-modules/inspect | `registry/git_inspect_test.go`, `delivery/http/terraform_modules_test.go`: immutable pins, TLS Git, transitive modules, restart/cache, role/scope/no Definition mutation |
 | GIT-03/04/05 | `GitModuleSource`, `ResourceDefinitionsPage`, capability projection | `GitModuleSource.test.tsx`, affected Definition/metadata tests; `gitmodulebrowser` + `git-module-local.mjs` real HTTPS Git create/edit/reload main flow |
+
+## Resource Definition v3 — issue #8
+
+[UC-03 UI3-01..04](../usecase/UC-03/specification.md) uses v3 layout only;
+backend operation contracts, transactions and sequence stay unchanged.
+
+| Requirement | Implementation | Focused validation |
+|---|---|---|
+| UI3-01 tabs/draft/CAS | ResourceDefinitionsPage mounted tabpanels, shared save/reload pipeline | DefinitionV3.test.tsx; ResourceDefinitionsPage.test.tsx CAS/unknown-outcome; real HTTP browser scenario |
+| UI3-02 advanced/mappings/provider/provision/review | Existing MappingEditor/ProvisionEditor/typed converters; disclosure and full draft review | TypedDefinitionForm.test.tsx, moduleMapping.test.ts, typedConversion.test.ts, DefinitionV3.test.tsx; browser unequal Type/module names, flags/params round-trip |
+| UI3-03 rule criteria/wildcard/empty/incomplete | CriteriaRules and draftToCriteria; parent-owned selected fields | ResourceDefinitionsPage.test.tsx rule flows; DefinitionV3.test.tsx five-field copy and wildcard; existing CriteriaEditor.test.tsx for renderer projection |
+| UI3-04 copy/matching/help/hidden invalidation | CriteriaEditor native disclosures; mounted MatchingPreviewPanel signature/session/late reply guards | DefinitionV3.test.tsx hidden in-flight/session invalidation; MatchingPreviewPanel.test.tsx context/catalog metadata; RenderingTemplatesPage.test.tsx shared consumers; real matching/copy browser |
+| Existing GIT-01..06 | GitModuleSource and source/pin selection retained | GitModuleSource.test.tsx, real HTTPS Git inspect/create/reload browser |

@@ -2,10 +2,29 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-20
+last_reviewed: 2026-10-21
 ---
 
 # Current project state
+
+## Resource Definition v3 — issue #8, 2026-10-21
+
+Nhánh `iam_role`: form Definition có hai tab Cấu hình / Điều kiện áp dụng,
+Thiết lập nâng cao đóng mặc định giữ mapping/provider/provision và Form/JSON
+hiện hành. Rule editor hỗ trợ đúng năm fields, AND trong trường hợp/OR giữa
+trường hợp; phân biệt wildcard, zero cases và điều kiện chưa nhập. Copy/matching/
+help thu gọn, tóm tắt phạm vi và full draft review; ẩn panel không unmount hay
+vô hiệu guards. Criteria giữ nguyên literals, kể cả whitespace. Mẫu dựng ứng
+dụng giữ projection cũ và được kiểm tra vì dùng chung editor/converters.
+
+Không thay backend/API, source/module pins, secret/account/CAS hay execution
+contract; không dùng v4/Usage/Humanitec DTO. Frontend211tests chịu ảnh hưởng,
+typecheck, changed-file lint/build, docs và browser HTTP/Git create/edit/CAS/
+reload/mapping/provision/copy/matching/keyboard/mobile PASS. Catalog browser dùng
+in-memory và HTTPS Git fixture thật; không chứng minh database/deploy/cloud.
+Không fullsuite hoặc acceptance ngoài scope. Full-directory lint còn lỗi có
+sẵn ở prototype, script IAM và user-owned demo; không sửa các file đó.
+[Verification](verification/2026-10-21-resource-definition-v3.md).
 
 ## Direct Git module authoring — issue #7, 2026-10-20
 

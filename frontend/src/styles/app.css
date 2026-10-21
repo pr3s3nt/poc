@@ -145,3 +145,41 @@ a { color: inherit; }
 @media (max-width:760px) {
   .account-detail .destination-summary div { grid-template-columns:1fr; gap:2px; }
 }
+
+/* Resource Definition v3: the existing Console tokens and tab treatment. */
+.definition-configuration { display:grid; gap:18px; min-width:0; }
+.definition-configuration[hidden] { display:none; }
+.definition-tabs { margin-bottom:0; flex-wrap:wrap; }
+.definition-advanced,.definition-review { min-width:0; border:1px solid var(--border); border-radius:var(--radius); padding:16px; }
+.definition-advanced > summary,.definition-review > summary,.criteria-editor > details > summary { cursor:pointer; color:var(--muted); padding:6px 0; }
+.definition-advanced > section { margin-top:18px; }
+.definition-review pre { overflow:auto; max-height:480px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.criteria-cases { display:grid; gap:14px; min-width:0; }
+.criteria-case { border:1px solid var(--border); border-radius:var(--radius); padding:18px; min-width:0; }
+.criteria-case h4 { margin:0; }
+.criteria-rule { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1.2fr) auto; align-items:end; gap:12px; margin:12px 0; }
+.criteria-is { padding-bottom:9px; }
+.criteria-editor > details { border-top:1px solid var(--border-muted); padding-top:10px; min-width:0; }
+.criteria-editor > details > .criteria-copy { margin-top:12px; }
+.criteria-summary,.definition-advanced code { overflow-wrap:anywhere; }
+@media (max-width:760px) {
+  .definition-tabs .tab { min-width:0; }
+  .criteria-rule { grid-template-columns:minmax(0,1fr) auto; }
+  .criteria-rule > label { grid-column:1; }
+  .criteria-is { display:none; }
+  .criteria-rule > .button { grid-column:2; grid-row:2; }
+  .definition-advanced,.criteria-case { padding:12px; }
+}
+
+.definition-module { display:grid; gap:14px; min-width:0; }
+.definition-module > h3 { margin:0; }
+.definition-configuration [hidden] { display:none; }
+
+@media (min-width:1100px) {
+  .criteria-editor-rules { grid-template-columns:minmax(0,1fr) 220px; align-items:start; column-gap:20px; }
+  .criteria-editor-rules > * { grid-column:1; min-width:0; }
+  .criteria-editor-rules > .section-header { grid-column:1 / -1; }
+  .criteria-editor-rules > .criteria-cases { grid-row:2; }
+  .criteria-editor-rules > .criteria-summary { grid-column:2; grid-row:2; border:1px solid var(--border); border-radius:var(--radius); padding:18px; }
+  .criteria-editor-rules > .criteria-summary ul { padding-left:18px; line-height:1.6; }
+}

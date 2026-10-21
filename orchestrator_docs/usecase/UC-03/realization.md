@@ -2,7 +2,7 @@
 id: UC-03-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-21
 ---
 
 # UC-03 — Use Case Realization
@@ -120,3 +120,14 @@ inspector resolve/fetch/full-commit/content inspection/cache/persist bundle.
 Controller chỉ cho PE/Admin, strict bounded body, deadline; response dùng
 `terraformCapability` giống metadata GET. Không gọi Definition mutation, provider
 hay executor. Registration sau đó tái sử dụng verified pin và CAS pipeline.
+
+## Resource Definition v3 Console collaboration (issue #8)
+
+Theo UI3-01..04, ResourceDefinitionsPage sở hữu draft/pin/CAS xuyên hai tab;
+CriteriaEditor dùng rule projection cho Definition, giữ projection của Mẫu
+dựng ứng dụng. Các editor mapping/variables/provision tái sử dụng converters
+hiện hành. Native disclosures chỉ ẩn nội dung, không unmount matching: scoped
+snapshot signature và session/late-response guards tiếp tục hoạt động khi ẩn.
+Copy tạo giá trị độc lập có confirmation; local overlap không xếp hạng winner.
+Full draft review serialize cùng payload Save và không gọi API. Không thay
+participants/system operations, transaction hay sequence backend hiện hành.

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
 import { capabilityFixture } from '../../test/capabilities';
 import { typeFixture } from '../../test/types';
-import { backend, completeDefinition, defaultApplications, field, submitDefinition, type Backend } from '../../test/definitionKit';
+import { backend, completeDefinition, openAdvanced, defaultApplications, field, submitDefinition, type Backend } from '../../test/definitionKit';
 
 const pinOf = (module: string) => {
   const capability = capabilityFixture.find((candidate) => candidate.driverType === 'terraform' && candidate.module === module);
@@ -38,7 +38,9 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await user.type(field('Tên hiển thị'), 'PostgreSQL E01');
     await user.selectOptions(field('Loại tài nguyên'), 'postgres');
     await user.selectOptions(field('Module đã kiểm chứng'), screen.getByRole('option', { name: /^postgres-k8s ·/ }));
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ghép đầu vào theo tên trùng' }));
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
     await user.selectOptions(field('Cluster đích của provider kubernetes'), 'resource');
     await user.selectOptions(field('Class cluster EKS của provider kubernetes'), 'eks');
@@ -222,7 +224,9 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await user.selectOptions(field('Module đã kiểm chứng'), screen.getByRole('option', { name: /^postgres-k8s ·/ }));
     expect(screen.queryByLabelText('Tài khoản hạ tầng')).not.toBeInTheDocument();
     expect(screen.getByText(/Module này không chọn tài khoản. Truy cập cluster được kế thừa/)).toBeInTheDocument();
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ghép đầu vào theo tên trùng' }));
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
     await user.click(screen.getByRole('button', { name: 'Dùng preset cho namespace' }));
     await submitDefinition(user);
@@ -255,6 +259,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await user.selectOptions(field('Loại tài nguyên'), 'redis');
     await user.selectOptions(field('Module đã kiểm chứng'), screen.getByRole('option', { name: /^redis-k8s ·/ }));
     expect(screen.getByText(/Output password \(string, bắt buộc, bí mật\)/)).toBeInTheDocument();
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
     await user.selectOptions(field('Cluster đích của provider kubernetes'), 'resource');
     await user.selectOptions(field('Class cluster EKS của provider kubernetes'), 'eks');
@@ -304,6 +309,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     backend();
     await ready();
     await completeDefinition(user, { id: 'pg-roundtrip', type: 'postgres', module: 'postgres-k8s', binding: { cluster: 'eks' } });
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ánh xạ: JSON nâng cao' }));
     const expected = {
       input_mapping: { database: { param: 'database' }, username: { param: 'username' } },
@@ -311,23 +317,28 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
       provider_bindings: { kubernetes: { target: 'resource', resource_ref: 'k8s-cluster.eks#environments.@app.@env' } },
     };
     expect(JSON.parse((field('Ánh xạ module JSON') as HTMLTextAreaElement).value)).toEqual(expected);
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ánh xạ: biểu mẫu' }));
     expect(field('Biến module nhận tham số database')).toHaveValue('database');
     expect(field('Class cluster EKS của provider kubernetes')).toHaveValue('eks');
     // A cluster reference outside the published classes cannot be shown by the controls.
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ánh xạ: JSON nâng cao' }));
     const box = field('Ánh xạ module JSON');
     const custom = JSON.stringify({ ...expected, provider_bindings: { kubernetes: { target: 'resource', resource_ref: 'k8s-cluster.other#environments.@app.@env' } } });
     fireEvent.change(box, { target: { value: custom } });
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ánh xạ: biểu mẫu' }));
     expect(screen.getByText(/không biểu diễn an toàn bằng control/)).toBeInTheDocument();
     expect(field('Ánh xạ module JSON')).toHaveValue(custom);
     // Unknown module variable: kept in the JSON, never dropped.
     fireEvent.change(field('Ánh xạ module JSON'), { target: { value: JSON.stringify({ ...expected, input_mapping: { missing_var: { param: 'database' } } }) } });
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ánh xạ: biểu mẫu' }));
     expect(screen.getByText(/Biến "missing_var" không có trong module đã chọn/)).toBeInTheDocument();
     // Invalid JSON never converts and never loses the text.
     fireEvent.change(field('Ánh xạ module JSON'), { target: { value: '{bad' } });
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ánh xạ: biểu mẫu' }));
     expect(screen.getAllByText(/phải là JSON hợp lệ/).length).toBeGreaterThan(0);
     expect(field('Ánh xạ module JSON')).toHaveValue('{bad');
@@ -338,6 +349,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     const { posted } = backend();
     await ready();
     await completeDefinition(user, { id: 'ns-json', type: 'k8s-namespace' });
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ánh xạ: JSON nâng cao' }));
     fireEvent.change(field('Ánh xạ module JSON'), { target: { value: '{"output_mapping":{"name":"name"},"provider_bindings":{"kubernetes":{"target":"resource","resource_ref":"k8s-cluster.eks#environments.@app.@env"}},"region":"x"}' } });
     await submitDefinition(user);
@@ -383,7 +395,9 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await user.selectOptions(field('Loại tài nguyên'), 'postgres');
     const pick = (module: string) => user.selectOptions(field('Module đã kiểm chứng'), screen.getByRole('option', { name: new RegExp(`^${module} ·`) }));
     await pick('postgres-k8s');
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ghép đầu vào theo tên trùng' }));
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
     await user.selectOptions(field('Cluster đích của provider kubernetes'), 'resource');
     await user.selectOptions(field('Class cluster EKS của provider kubernetes'), 'eks');
@@ -480,6 +494,7 @@ describe('UC-03 Definition form states and errors', () => {
     await user.type(field('Tên hiển thị'), 'Namespace OK');
     await user.click(screen.getByRole('button', { name: 'Tham số: JSON nâng cao' }));
     fireEvent.change(field('Tham số cấu hình (JSON object)'), { target: { value: '{bad' } });
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ánh xạ: JSON nâng cao' }));
     await submitDefinition(user);
     expect(await screen.findByRole('alert')).toHaveTextContent('phải là JSON hợp lệ');
@@ -491,7 +506,9 @@ describe('UC-03 Definition form states and errors', () => {
     const { posted } = backend({ post: () => Response.json({ error: 'catalog: duplicate: resource definition "ns-dup"', code: 'DUPLICATE' }, { status: 409 }) });
     await ready();
     await completeDefinition(user, { id: 'ns-dup', type: 'k8s-namespace' });
-    await user.click(screen.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
+    await user.click(screen.getByRole('tab', { name: /Điều kiện áp dụng/ }));
+    await user.click(screen.getByRole('button', { name: '+ Thêm điều kiện' }));
+    await user.selectOptions(field('Trường hợp 1 thuộc tính 1'), 'class');
     await user.type(field('Điều kiện 1 Class'), 'fast');
     await submitDefinition(user);
     expect(await screen.findByRole('alert')).toHaveTextContent('ID cấu hình đã tồn tại. Hãy đổi ID rồi thử lại.');
@@ -710,137 +727,116 @@ describe('UC-03 Definition form states and errors', () => {
     });
   });
 
-  describe('criteria editor (T02B)', () => {
-    const radio = (name: RegExp) => screen.getByRole('radio', { name });
+  describe('criteria rule editor (v3)', () => {
     async function start(user: ReturnType<typeof userEvent.setup>, id: string, options: Backend = {}) {
       const state = backend(options);
       render(<ResourceDefinitionsPage />);
       await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
       await completeDefinition(user, { id, type: 'k8s-namespace' });
+      await user.click(screen.getByRole('tab', { name: /Điều kiện áp dụng/ }));
       return state;
     }
-
-    it('posts [{}], env_type, real app/env IDs and several advanced rows without changing the rest of the payload', async () => {
+    async function add(user: ReturnType<typeof userEvent.setup>, row: number, key: string, label: string, value: string) {
+      const group = screen.getByRole('region', { name: `Trường hợp ${row}` });
+      await user.click(within(group).getByRole('button', { name: '+ Thêm điều kiện' }));
+      const selectors = within(group).getAllByRole('combobox');
+      await user.selectOptions(selectors.at(-1)!, key);
+      if (value) await user.type(field(`Điều kiện ${row} ${label}`), value);
+    }
+    it('posts wildcard, env_type, real app/env IDs and multiple AND/OR cases without changing the remaining payload', async () => {
       const user = userEvent.setup();
-      const { posted } = await start(user, 'ns-modes');
+      const { posted } = await start(user, 'ns-rules');
       await submitDefinition(user);
-      await screen.findByRole('status');
+      await screen.findByText(/Đã đăng ký cấu hình tài nguyên ns-rules/);
       expect(posted[0]?.criteria).toEqual([{}]);
       await completeDefinition(user, { id: 'ns-env', type: 'k8s-namespace' });
-      await user.click(radio(/Theo loại môi trường/));
-      await user.type(field('Loại môi trường'), 'staging');
+      await user.click(screen.getByRole('tab', { name: /Điều kiện áp dụng/ }));
+      await add(user, 1, 'env_type', 'Loại môi trường', 'staging');
       await submitDefinition(user);
       await waitFor(() => expect(posted).toHaveLength(2));
       expect(posted[1]).toMatchObject({ key: 'ns-env', criteria: [{ env_type: 'staging' }] });
       expect(posted[1]).not.toHaveProperty('executionProfile');
       await screen.findByText(/Đã đăng ký cấu hình tài nguyên ns-env/);
-      expect(radio(/Mọi nơi/)).toBeChecked(); // success resets to the wildcard
       await completeDefinition(user, { id: 'ns-app', type: 'k8s-namespace' });
-      await user.click(radio(/Theo ứng dụng/));
-      await waitFor(() => expect(within(field('Ứng dụng')).getByRole('option', { name: 'Cửa hàng (shop)' })).toBeInTheDocument());
-      await user.selectOptions(field('Ứng dụng'), 'shop');
-      await user.selectOptions(field('Môi trường (tùy chọn)'), 'production');
+      await user.click(screen.getByRole('tab', { name: /Điều kiện áp dụng/ }));
+      await add(user, 1, 'app_id', 'ID ứng dụng', 'shop');
+      await add(user, 1, 'env_id', 'ID môi trường', 'production');
       await submitDefinition(user);
       await waitFor(() => expect(posted).toHaveLength(3));
       expect(posted[2]?.criteria).toEqual([{ app_id: 'shop', env_id: 'production' }]);
       await screen.findByText(/Đã đăng ký cấu hình tài nguyên ns-app/);
       await completeDefinition(user, { id: 'ns-adv', type: 'k8s-namespace' });
-      await user.click(radio(/Tùy chỉnh nâng cao/));
-      await user.type(field('Điều kiện 1 Class'), 'fast');
-      await user.click(screen.getByRole('button', { name: '+ Thêm điều kiện' }));
-      await user.type(field('Điều kiện 2 ID tài nguyên'), 'db');
+      await user.click(screen.getByRole('tab', { name: /Điều kiện áp dụng/ }));
+      await add(user, 1, 'class', 'Class', 'fast');
+      await user.click(screen.getByRole('button', { name: '+ Thêm trường hợp áp dụng' }));
+      await add(user, 2, 'res_id', 'ID tài nguyên', 'db');
       await submitDefinition(user);
       await waitFor(() => expect(posted).toHaveLength(4));
       expect(posted[3]?.criteria).toEqual([{ class: 'fast' }, { res_id: 'db' }]);
     });
-
-    it('refuses to submit an incomplete simple mode instead of registering a wildcard', async () => {
+    it('refuses selected-but-empty conditions and empty cases instead of silently registering a wildcard', async () => {
       const user = userEvent.setup();
       const { posted } = await start(user, 'ns-incomplete');
-      await user.click(radio(/Theo loại môi trường/));
+      await add(user, 1, 'env_type', 'Loại môi trường', '');
       await submitDefinition(user);
-      expect(await screen.findByRole('alert')).toHaveTextContent('Nhập loại môi trường');
-      await user.click(radio(/Theo ứng dụng/));
+      expect(await screen.findByRole('alert')).toHaveTextContent('Nhập giá trị cho mỗi điều kiện');
+      await user.click(screen.getByRole('button', { name: 'Xóa trường hợp 1' }));
       await submitDefinition(user);
-      expect(await screen.findByRole('alert')).toHaveTextContent('Chọn ứng dụng');
+      expect(await screen.findByRole('alert')).toHaveTextContent('Thêm ít nhất một điều kiện');
       expect(posted).toHaveLength(0);
     });
-
-    it('keeps criteria after a failed submit and offers the copy source from the registered list', async () => {
+    it('copies all existing criteria intact and retains them after a failed submit', async () => {
       const user = userEvent.setup();
       const { posted } = await start(user, 'ns-copy', { definitions: [{ key: 'pg-adv', name: 'PG nâng cao', version: 1, resourceType: 'postgres', driverType: 'terraform', criteria: [{ env_type: 'staging', class: 'fast' }, { app_id: 'shop' }] }], post: () => Response.json({ error: 'x' }, { status: 500 }) });
-      await waitFor(() => expect(within(field('Sao chép điều kiện từ cấu hình khác')).getByRole('option', { name: 'PG nâng cao (pg-adv) (postgres)' })).toBeInTheDocument());
+      await user.click(screen.getByText('Sao chép từ cấu hình khác'));
       await user.selectOptions(field('Sao chép điều kiện từ cấu hình khác'), 'pg-adv');
       await user.click(screen.getByRole('button', { name: 'Sao chép điều kiện' }));
-      expect(radio(/Tùy chỉnh nâng cao/)).toBeChecked();
       await submitDefinition(user);
       expect(await screen.findByRole('alert')).toHaveTextContent('Máy chủ gặp lỗi');
-      expect(radio(/Tùy chỉnh nâng cao/)).toBeChecked();
       expect(field('Điều kiện 1 Class')).toHaveValue('fast');
       expect(field('Điều kiện 2 ID ứng dụng')).toHaveValue('shop');
       expect(posted[0]?.criteria).toEqual([{ env_type: 'staging', class: 'fast' }, { app_id: 'shop' }]);
     });
-
-    it('does not let a late or failed applications reply change edits, and retries only that list', async () => {
+    it.each([true, false])('keeps manually entered IDs/cases on a late applications reply (fails=%s) and retries only that list', async (fails) => {
       const user = userEvent.setup();
       let release: (response: Response) => void = () => undefined;
-      const { gets, posted } = backend({ applicationLists: [() => new Promise<Response>((resolve) => { release = resolve; })] });
-      render(<ResourceDefinitionsPage />);
-      await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
-      await user.click(radio(/Theo ứng dụng/));
-      expect(within(field('Ứng dụng')).getByRole('option', { name: 'Đang tải ứng dụng…' })).toBeInTheDocument();
-      await user.click(radio(/Tùy chỉnh nâng cao/));
-      await user.type(field('Điều kiện 1 Class'), 'fast');
-      release(Response.json({ error: 'late' }, { status: 500 }));
-      const alert = await screen.findByRole('alert', { name: 'Lỗi tải ứng dụng' });
-      expect(field('Điều kiện 1 Class')).toHaveValue('fast');
-      await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
-      await waitFor(() => expect(screen.queryByRole('alert', { name: 'Lỗi tải ứng dụng' })).not.toBeInTheDocument());
-      expect(gets.filter((url) => url.endsWith('/applications'))).toHaveLength(2);
-      expect(field('Điều kiện 1 Class')).toHaveValue('fast');
-      expect(posted).toHaveLength(0);
-    });
-
-    it('keeps typed criteria and the chosen mode when the applications reply arrives late and succeeds', async () => {
-      const user = userEvent.setup();
-      let release: (response: Response) => void = () => undefined;
-      const { posted } = backend({ applicationLists: [() => new Promise<Response>((resolve) => { release = resolve; })] });
-      render(<ResourceDefinitionsPage />);
-      await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
-      await completeDefinition(user, { id: 'ns-late', type: 'k8s-namespace' });
-      await user.click(radio(/Tùy chỉnh nâng cao/));
-      await user.type(field('Điều kiện 1 ID ứng dụng'), 'typed-before');
-      await user.click(screen.getByRole('button', { name: '+ Thêm điều kiện' }));
-      await user.type(field('Điều kiện 2 Class'), 'fast');
-      release(Response.json({ applications: defaultApplications }));
-      await user.click(radio(/Theo ứng dụng/)).catch(() => undefined);
-      // Advanced rows are not representable as one app row: the late list neither applied nor dropped anything.
-      expect(screen.getByRole('group', { name: 'Xác nhận thay đổi điều kiện' })).toBeInTheDocument();
-      await user.click(screen.getByRole('button', { name: 'Giữ điều kiện nâng cao' }));
+      const { gets, posted } = await start(user, 'ns-late', { applicationLists: [() => new Promise<Response>((resolve) => { release = resolve; })] });
+      await add(user, 1, 'app_id', 'ID ứng dụng', 'typed-before');
+      await user.click(screen.getByRole('button', { name: '+ Thêm trường hợp áp dụng' }));
+      await add(user, 2, 'class', 'Class', 'fast');
+      release(fails ? Response.json({}, { status: 500 }) : Response.json({ applications: defaultApplications }));
+      if (fails) {
+        const alert = await screen.findByRole('alert', { name: 'Lỗi tải ứng dụng' });
+        await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
+        await waitFor(() => expect(screen.queryByRole('alert', { name: 'Lỗi tải ứng dụng' })).not.toBeInTheDocument());
+        expect(gets.filter((url) => url.endsWith('/applications'))).toHaveLength(2);
+      }
       expect(field('Điều kiện 1 ID ứng dụng')).toHaveValue('typed-before');
       expect(field('Điều kiện 2 Class')).toHaveValue('fast');
       expect(field('ID cấu hình (Definition ID)')).toHaveValue('ns-late');
+      expect(posted).toHaveLength(0);
       await submitDefinition(user);
       await waitFor(() => expect(posted).toHaveLength(1));
       expect(posted[0]?.criteria).toEqual([{ app_id: 'typed-before' }, { class: 'fast' }]);
     });
-
-    it('warns about possible overlap with a same-type Definition without calling it a winner, shows the matching rules, has no profile or browser-only scope preview, and never posts while previewing', async () => {
+    it('separates overlap warnings from authoritative matching and keeps copy/matching/help closed until opened', async () => {
       const user = userEvent.setup();
       const { posted, gets } = await start(user, 'ns-overlap', { definitions: [{ key: 'ns-other', name: 'Namespace khác', version: 1, resourceType: 'k8s-namespace', driverType: 'terraform', criteria: [{}] }, { key: 'pg-other', name: 'PG', version: 1, resourceType: 'postgres', driverType: 'terraform', criteria: [{}] }] });
       const warning = await screen.findByRole('group', { name: 'Cảnh báo nguy cơ chồng lấn' });
       expect(warning).toHaveTextContent('ns-other');
       expect(warning).not.toHaveTextContent('pg-other');
       expect(warning.textContent).not.toMatch(/ambiguous|mơ hồ|executionProfile|phạm vi triển khai/i);
+      expect(screen.getByRole('group', { name: 'Ngữ cảnh kiểm tra matching' })).not.toBeVisible();
+      for (const title of ['Cách hệ thống chọn cấu hình', 'Kiểm tra cấu hình được chọn', 'Sao chép từ cấu hình khác']) expect(screen.getByText(title).closest('details')).not.toHaveAttribute('open');
+      await user.click(screen.getByText('Cách hệ thống chọn cấu hình'));
       const rules = screen.getByRole('note', { name: 'Quy tắc so khớp' });
       expect(rules).toHaveTextContent('AND trong một dòng, OR giữa các dòng');
       expect(rules).toHaveTextContent('env_type 1 · app_id 2 · env_id 4 · res_id 8 · class 16');
       expect(rules).toHaveTextContent('Dòng trống {} là wildcard tường minh');
       expect(rules).toHaveTextContent('khác ID tài nguyên res_id');
-      const summary = screen.getByRole('group', { name: 'Tóm tắt phạm vi áp dụng' });
-      expect(summary).not.toHaveTextContent(/executionProfile|Phạm vi triển khai/);
+      expect(screen.getByRole('group', { name: 'Tóm tắt phạm vi áp dụng' })).not.toHaveTextContent(/executionProfile|Phạm vi triển khai/);
       expect(screen.queryByRole('group', { name: /Xem trước phạm vi/ })).not.toBeInTheDocument();
-      expect(screen.queryByLabelText(/Phạm vi triển khai/)).not.toBeInTheDocument();
+      await user.click(screen.getByText('Kiểm tra cấu hình được chọn'));
       expect(screen.getByRole('group', { name: 'Ngữ cảnh kiểm tra matching' })).toHaveTextContent('Cần thêm ngữ cảnh');
       expect(posted).toHaveLength(0);
       expect(gets.every((url) => !/preview|match/.test(url))).toBe(true);
@@ -863,6 +859,7 @@ describe('UC-03 V02 Definition edit', () => {
     await screen.findByText('VPC chính');
     await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Sửa cấu hình vpc-main' }));
+    await openAdvanced(user);
     return harness;
   }
 
@@ -877,7 +874,10 @@ describe('UC-03 V02 Definition edit', () => {
     expect(field('Tài khoản hạ tầng')).toHaveValue('aws-account');
     expect(field('Vùng AWS')).toHaveValue('ap-southeast-1');
     expect(field('Module đã kiểm chứng')).toBeDisabled();
-    expect(screen.getByRole('radio', { name: /Theo ứng dụng/ })).toBeChecked();
+    await user.click(screen.getByRole('tab', { name: /Điều kiện áp dụng/ }));
+    expect(field('Điều kiện 1 ID ứng dụng')).toHaveValue('shop');
+    expect(field('Điều kiện 1 ID môi trường')).toHaveValue('production');
+    await user.click(screen.getByRole('tab', { name: 'Cấu hình' }));
     expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeEnabled();
     expect(screen.getByText(/Chỉ lần Xem trước và Triển khai mới dùng cấu hình mới/)).toBeInTheDocument();
     // Edit Name, account and region.
@@ -1000,7 +1000,9 @@ describe('UC-03 V02 Definition edit', () => {
     // Switch to the in-cluster module: no account field, nothing is sent for the cloud pair.
     await user.selectOptions(field('Module đã kiểm chứng'), screen.getByRole('option', { name: /^postgres-k8s ·/ }));
     expect(screen.queryByLabelText('Tài khoản hạ tầng')).not.toBeInTheDocument();
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ghép đầu vào theo tên trùng' }));
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
     await user.click(screen.getByRole('button', { name: 'Dùng preset cho namespace' }));
     await user.selectOptions(field('Cluster đích của provider kubernetes'), 'resource');
@@ -1038,8 +1040,10 @@ describe('UC-03 V02 Definition edit', () => {
     expect(JSON.parse((field('Params tài nguyên đi kèm 1 (JSON object)') as HTMLTextAreaElement).value)).toEqual(provision['postgres.audit#shared.audit'].params);
     expect(screen.getAllByText(/Đảo vai trò: tài nguyên đi kèm \(consumer\) phụ thuộc vào tài nguyên cha \(provider\)/)).toHaveLength(2);
     // Form -> advanced JSON -> form keeps everything, including the explicit false flag and empty params.
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Quy tắc: JSON nâng cao' }));
     expect(JSON.parse((field('Quy tắc tạo tài nguyên liên quan (JSON object)') as HTMLTextAreaElement).value)).toEqual(provision);
+    await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Quy tắc: biểu mẫu' }));
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
     await waitFor(() => expect(puts).toHaveLength(1));
