@@ -279,7 +279,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       render(<App />);
       await user.click(await screen.findByRole('link', { name: 'Tạo Cấu hình tài nguyên cho postgres' }));
       expect(window.location.pathname + window.location.search).toBe('/ui/platform/resource-definitions?resourceType=postgres');
-      expect(await screen.findByRole('heading', { name: 'Cấu hình tài nguyên' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Cấu hình tài nguyên mới' })).toBeInTheDocument();
       await waitFor(() => expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('postgres'));
       expect(requests.filter((request) => request.method === 'POST')).toEqual([]);
     });
@@ -289,6 +289,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       window.history.replaceState({}, '', path);
       override = catalog;
       render(<App />);
+      if (path === '/ui/platform/resource-definitions') await userEvent.setup().click(await screen.findByRole('button', { name: 'Tạo cấu hình' }));
       await screen.findByRole('option', { name: 'vpc' });
       expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('');
     });
@@ -303,6 +304,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       await user.click(screen.getByRole('link', { name: /(^|\s)Loại tài nguyên$/ }));
       expect(await screen.findByRole('heading', { name: 'Loại tài nguyên' })).toBeInTheDocument();
       await user.click(screen.getByRole('link', { name: /(^|\s)Cấu hình tài nguyên$/ }));
+      await user.click(await screen.findByRole('button', { name: 'Tạo cấu hình' }));
       await screen.findByRole('option', { name: 'vpc' });
       expect(window.location.search).toBe('');
       expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('');

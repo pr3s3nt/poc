@@ -184,3 +184,17 @@ field chuẩn và giá trị; tóm tắt phạm vi luôn có. Copy, matching, he
 Validation/actionable errors và overlap warning vẫn hiện trong tác vụ tương
 ứng. Mẫu dựng ứng dụng giữ projection cũ; shared guard/converter không đổi.
 Không có Usage, dữ liệu minh họa hoặc thay đổi theme/navigation.
+
+### V3 visual fidelity correction — 2026-10-21
+
+Catalog and Definition editor are separate views. Create/Edit opens a focused
+Definition view with breadcrumb, display name/driver/version header and two tabs.
+Back to catalog preserves the mounted draft; explicit new/cancel actions retain
+the existing reset semantics. Type CTA opens creation directly. Configuration
+uses numbered module and account/parameters cards, an actual metadata overview
+on desktop, and a collapsed advanced card. Source modes use adjacent buttons.
+Input/output mapping rows align Type name → module selector; types/required/
+secret classification remain visible, detailed explanations are disclosures.
+Matching rows are compact with the scope summary alongside them. Save actions
+stay visible in a bottom bar. Responsive layouts keep all tasks accessible.
+No synthetic defaults, inspector/matching results or backend changes.

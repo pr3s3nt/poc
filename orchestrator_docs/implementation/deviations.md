@@ -425,3 +425,17 @@ Source49 composedGo117+115/FE74/build/vet and source51 focused164/race76/all-tes
 compilation cover the affected final content, with unchanged prior checks reused.
 No current tests/guards removed to force pass; old tagged transition-only test
 retired with its unsupported feature. No further work remains for these deviations.
+
+## IMP-023 — Resource Definition v3 visual fidelity (resolved 2026-10-21)
+
+Review of commit `1b4a486` against the preserved v3 HTML found the editor still
+embedded beneath catalog/cluster sections, without configuration cards/overview
+or the fixed Save bar, with stacked mapping controls and excessive help text.
+Functional acceptance did not establish visual fidelity. Correct the Console
+composition against v3 while retaining existing metadata/converters/contracts;
+verify configuration, matching and advanced views at the same viewport.
+
+Resolution: focused catalog/detail views, numbered configuration cards and real
+overview, aligned mapping rows, optional help and fixed action bar. Functional
+guards/converters retained; desktop/mobile browser geometry and same-viewport
+visual review complement existing tests. See [visual correction evidence](../verification/2026-10-21-resource-definition-v3-visual.md).

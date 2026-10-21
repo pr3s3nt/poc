@@ -1,8 +1,8 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
-import { backend, completeDefinition, field, submitDefinition } from '../../test/definitionKit';
+import { renderDefinition, backend, completeDefinition, field, submitDefinition } from '../../test/definitionKit';
 import { sessionExpiredEvent } from '../../shared/api/client';
 
 const criteriaTab = () => screen.getByRole('tab', { name: /Điều kiện áp dụng/ });
@@ -13,7 +13,7 @@ describe('Resource Definition v3 task layout', () => {
   it('starts collapsed, supports keyboard tabs and preserves invalid/unrepresentable JSON, mapping, typed values and provision through tab/mode changes', async () => {
     const user = userEvent.setup();
     const { posted } = backend();
-    render(<ResourceDefinitionsPage />);
+    renderDefinition(<ResourceDefinitionsPage />);
     await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
     await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
     expect(screen.getAllByRole('tab')).toHaveLength(2);
@@ -30,6 +30,13 @@ describe('Resource Definition v3 task layout', () => {
     await user.click(screen.getByRole('button', { name: 'Ánh xạ: JSON nâng cao' }));
     const original = (field('Ánh xạ module JSON') as HTMLTextAreaElement).value;
     fireEvent.change(field('Ánh xạ module JSON'), { target: { value: '{bad json' } });
+    await user.click(screen.getByRole('button', { name: 'Cấu hình tài nguyên' }));
+    expect(screen.getByRole('heading', { name: 'Cấu hình đã đăng ký' })).toBeVisible();
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Tạo cấu hình' }));
+    expect(field('Ánh xạ module JSON')).toHaveValue('{bad json');
+    expect(field('ID cấu hình (Definition ID)')).toHaveValue('ns-v3');
+
     await user.click(criteriaTab());
     expect(configurationTab()).toHaveAttribute('aria-selected', 'false');
     for (const text of ['Sao chép từ cấu hình khác', 'Kiểm tra cấu hình được chọn', 'Cách hệ thống chọn cấu hình']) expect(screen.getByText(text).closest('details')).not.toHaveAttribute('open');
@@ -61,7 +68,7 @@ describe('Resource Definition v3 task layout', () => {
     const user = userEvent.setup();
     const source = [{ env_type: 'staging', app_id: 'shop', env_id: 'production', res_id: 'db', class: ' custom ' }, {}];
     const { posted } = backend({ definitions: [{ key: 'source', resourceType: 'k8s-namespace', driverType: 'terraform', criteria: source }] });
-    render(<ResourceDefinitionsPage />);
+    renderDefinition(<ResourceDefinitionsPage />);
     await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
     await completeDefinition(user, { id: 'ns-copy', type: 'k8s-namespace' });
     await user.click(criteriaTab());
@@ -93,7 +100,7 @@ describe('Resource Definition v3 task layout', () => {
     let release: (response: Response) => void = () => undefined;
     vi.stubGlobal('fetch', vi.fn((input: string | URL | Request, init?: RequestInit) => String(input).endsWith('/matching-preview')
       ? new Promise<Response>((resolve) => { release = resolve; }) : original(input, init)));
-    render(<ResourceDefinitionsPage />);
+    renderDefinition(<ResourceDefinitionsPage />);
     await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
     await completeDefinition(user, { id: 'ns-matching', type: 'k8s-namespace' });
     await user.click(criteriaTab());

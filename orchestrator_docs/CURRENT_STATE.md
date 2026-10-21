@@ -18,13 +18,17 @@ vô hiệu guards. Criteria giữ nguyên literals, kể cả whitespace. Mẫu 
 dụng giữ projection cũ và được kiểm tra vì dùng chung editor/converters.
 
 Không thay backend/API, source/module pins, secret/account/CAS hay execution
-contract; không dùng v4/Usage/Humanitec DTO. Frontend211tests chịu ảnh hưởng,
+contract; không dùng v4/Usage/Humanitec DTO. Bản sửa visual tách catalog/detail,
+card module + tài khoản/thông số, overview desktop, mapping theo hàng và Save
+bar cố định; quay lại catalog có Tiếp tục bản nháp giữ CAS/draft.
+Frontend 215 tests component/editor và 6 tests điều hướng chịu ảnh hưởng,
 typecheck, changed-file lint/build, docs và browser HTTP/Git create/edit/CAS/
 reload/mapping/provision/copy/matching/keyboard/mobile PASS. Catalog browser dùng
 in-memory và HTTPS Git fixture thật; không chứng minh database/deploy/cloud.
 Không fullsuite hoặc acceptance ngoài scope. Full-directory lint còn lỗi có
 sẵn ở prototype, script IAM và user-owned demo; không sửa các file đó.
-[Verification](verification/2026-10-21-resource-definition-v3.md).
+[Functional verification](verification/2026-10-21-resource-definition-v3.md);
+[visual correction](verification/2026-10-21-resource-definition-v3-visual.md).
 
 ## Direct Git module authoring — issue #7, 2026-10-20
 

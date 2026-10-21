@@ -176,3 +176,12 @@ khi module đầu tiên được inspect. Giữ create/edit/reload và installed
   late response; mở lại chỉ hiện kết quả còn thuộc đúng signature hiện tại.
 - Save validation: thông báo lỗi ngoài tab, mở vùng liên quan để sửa; CAS/
   unknown-outcome giữ explicit reload/review hiện hành, không replay mutation.
+
+### V3 catalog/detail navigation
+
+Catalog là view mặc định; Tạo cấu hình hoặc Sửa mở focused editor. Breadcrumb
+quay lại catalog giữ mounted draft, pin và review hold; mở lại bản nháp tạo mới
+không mất JSON đang sửa. Tạo mới khi đang edit hoặc Hủy sửa là reset tường minh
+như trước. Save bar bị khóa theo cùng saving/review state; không cho chuyển view
+trong write. ID/Name errors mở tab Cấu hình; actionable validation không bị mất
+trong disclosure. Details/help chỉ ẩn lời giải thích, không nới validation.

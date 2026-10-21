@@ -131,3 +131,9 @@ snapshot signature và session/late-response guards tiếp tục hoạt động 
 Copy tạo giá trị độc lập có confirmation; local overlap không xếp hạng winner.
 Full draft review serialize cùng payload Save và không gọi API. Không thay
 participants/system operations, transaction hay sequence backend hiện hành.
+
+V3 visual correction: catalog and detail share the same mounted page state.
+Catalog Create/Edit and editor breadcrumb change presentation only; save/CAS,
+metadata loaders, MatchingPreviewPanel and GitModuleSource lifetimes stay owned
+by the page. Numbered cards, overview and fixed actions reuse that state.
+Mapping and variable provenance disclosures retain existing converters/guards.

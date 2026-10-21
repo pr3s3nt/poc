@@ -165,7 +165,7 @@ export function CriteriaEditor({ draft, onChange, applications, sources, resourc
   const missing = [sampleApp && sampleEnv ? '' : 'ứng dụng và môi trường', sample.resId.trim() ? '' : 'ID tài nguyên (res_id)', sample.cls.trim() ? '' : 'Class'].filter(Boolean);
 
   return <section className={`catalog-fields criteria-editor${rules ? ' criteria-editor-rules' : ''}`} aria-labelledby={`${id}-title`}>
-    <div className="section-header"><div><h3 id={`${id}-title`}>Điều kiện áp dụng</h3><p>Chọn nơi cấu hình này được xét. Hệ thống chỉ dùng năm field chuẩn. Không có bộ lọc theo profile, tài khoản hay vùng.</p></div></div>
+    <div className="section-header"><div><h3 id={`${id}-title`}>{rules ? 'Cấu hình này được dùng ở đâu?' : 'Điều kiện áp dụng'}</h3><p>{rules ? 'Thêm các điều kiện cần giới hạn. Chỉ cần một trường hợp bên dưới khớp.' : 'Chọn nơi cấu hình này được xét. Hệ thống chỉ dùng năm field chuẩn. Không có bộ lọc theo profile, tài khoản hay vùng.'}</p></div></div>
 
     {rules ? <CriteriaRules draft={draft} onChange={onChange} /> : <div role="radiogroup" aria-label="Chế độ điều kiện áp dụng" className="criteria-modes">{modes.map((mode) => <label key={mode.key} className="criteria-mode"><input type="radio" name={`${id}-mode`} checked={draft.mode === mode.key} onChange={() => chooseMode(mode.key)} /><span><strong>{mode.label}</strong><small>{mode.hint}</small></span></label>)}</div>}
 

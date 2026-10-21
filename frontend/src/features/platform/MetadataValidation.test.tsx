@@ -7,7 +7,7 @@ import { parseCapabilities, loadCapabilities } from './capabilities';
 import { MetadataError, parseRenderBundles, parseTypeMetadata } from './metadata';
 import { capabilityFixture } from '../../test/capabilities';
 import { typeFixture } from '../../test/types';
-import { backend, completeDefinition, field } from '../../test/definitionKit';
+import { renderDefinition, backend, completeDefinition, field } from '../../test/definitionKit';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -66,7 +66,7 @@ describe('malformed metadata never becomes ready metadata in the Definition form
   ])('%s: a retryable generic error, no registration, edits kept, then valid metadata works', async (_name, malformed) => {
     const user = userEvent.setup();
     const { posted } = backend({ capabilityLists: [() => Response.json(malformed()), () => Response.json({ capabilities: capabilityFixture })] });
-    render(<ResourceDefinitionsPage />);
+    renderDefinition(<ResourceDefinitionsPage />);
     const alert = await screen.findByRole('alert', { name: 'Lỗi tải metadata module' });
     expect(alert).toHaveTextContent('Không tải được metadata module đã kiểm chứng từ máy chủ.');
     expect(document.body).not.toHaveTextContent(secretLooking);
@@ -92,7 +92,7 @@ describe('malformed metadata never becomes ready metadata in the Definition form
       if (String(input).endsWith('/resource-types') && first) { first = false; return Response.json(malformed); }
       return (original as typeof fetch)(input, init);
     }));
-    render(<ResourceDefinitionsPage />);
+    renderDefinition(<ResourceDefinitionsPage />);
     const alert = await screen.findByRole('alert', { name: 'Lỗi tải loại tài nguyên' });
     expect(screen.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên' })).toBeDisabled();
     await user.type(field('ID cấu hình (Definition ID)'), 'kept');
@@ -104,7 +104,7 @@ describe('malformed metadata never becomes ready metadata in the Definition form
 
   it('a valid empty capabilities list is not an error: nothing is registrable, and nothing is posted', async () => {
     backend({ capabilities: [] });
-    render(<ResourceDefinitionsPage />);
+    renderDefinition(<ResourceDefinitionsPage />);
     await screen.findByText('Chưa có cấu hình tài nguyên nào.');
     expect(screen.queryByRole('alert', { name: 'Lỗi tải metadata module' })).toBeNull();
     expect(screen.getByRole('option', { name: 'vpc (chưa có module đã kiểm chứng)' })).not.toBeDisabled();

@@ -6,7 +6,7 @@ import { ConnectionsPage } from './ConnectionsPage';
 import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
 import { ResourceTypesPage } from './ResourceTypesPage';
 import { capabilityFixture } from '../../test/capabilities';
-import { completeDefinition } from '../../test/definitionKit';
+import { completeDefinition, renderDefinition } from '../../test/definitionKit';
 import { typeFixture } from '../../test/types';
 
 type User = ReturnType<typeof userEvent.setup>;
@@ -57,7 +57,7 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
   it('shows an initial load failure with Retry, never an empty list', async () => {
     const user = userEvent.setup();
     stub(list, [failed, listed([])], () => Response.json({}, { status: 201 }));
-    render(page());
+    renderDefinition(page());
     const alert = await screen.findByRole('alert', { name: labels.listError });
     expect(screen.queryByText(empty)).not.toBeInTheDocument();
     await user.click(within(alert).getByRole('button', { name: labels.retry }));
@@ -67,7 +67,7 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
   it('keeps the submitted form when registration fails', async () => {
     const user = userEvent.setup();
     const calls = stub(list, [listed([])], () => Response.json({ error: 'duplicate id' }, { status: 409 }));
-    render(page());
+    renderDefinition(page());
     await screen.findByText(empty);
     await fill(user);
     await user.click(screen.getByRole('button', { name: submit }));
@@ -89,7 +89,7 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
       if (url.endsWith(list)) return listed(calls.posts ? [item] : [])();
       return Response.json({ resourceTypes: typeFixture });
     }));
-    render(page());
+    renderDefinition(page());
     await screen.findByText(empty);
     await fill(user);
     await user.click(screen.getByRole('button', { name: submit }));
@@ -109,7 +109,7 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
   it('reports a committed registration even when the list reload fails, and retries only the list', async () => {
     const user = userEvent.setup();
     const calls = stub(list, [listed([]), failed, listed([item])], () => Response.json(item, { status: 201 }));
-    render(page());
+    renderDefinition(page());
     await screen.findByText(empty);
     await fill(user);
     await user.click(screen.getByRole('button', { name: submit }));

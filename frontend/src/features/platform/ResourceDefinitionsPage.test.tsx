@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
 import { capabilityFixture } from '../../test/capabilities';
 import { typeFixture } from '../../test/types';
-import { backend, completeDefinition, openAdvanced, defaultApplications, field, submitDefinition, type Backend } from '../../test/definitionKit';
+import { renderDefinition, backend, completeDefinition, openAdvanced, defaultApplications, field, submitDefinition, type Backend } from '../../test/definitionKit';
 
 const pinOf = (module: string) => {
   const capability = capabilityFixture.find((candidate) => candidate.driverType === 'terraform' && candidate.module === module);
@@ -16,7 +16,7 @@ const values = (body?: Record<string, unknown>) => (body?.driverInputs as { valu
 const infra = "${resources['vpc.default#@infra'].outputs";
 
 async function ready() {
-  render(<ResourceDefinitionsPage />);
+  renderDefinition(<ResourceDefinitionsPage />);
   await screen.findByText('Chưa có cấu hình tài nguyên nào.');
   await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
 }
@@ -258,7 +258,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await user.type(field('Tên hiển thị'), 'Redis dùng chung');
     await user.selectOptions(field('Loại tài nguyên'), 'redis');
     await user.selectOptions(field('Module đã kiểm chứng'), screen.getByRole('option', { name: /^redis-k8s ·/ }));
-    expect(screen.getByText(/Output password \(string, bắt buộc, bí mật\)/)).toBeInTheDocument();
+    expect(field('Output module cung cấp password').closest('label')).toHaveTextContent('Giá trị bí mật');
     await openAdvanced(user);
     await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
     await user.selectOptions(field('Cluster đích của provider kubernetes'), 'resource');
@@ -379,7 +379,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
 
   it('offers Git authoring when metadata has no verified installed pins', async () => {
     backend({ capabilities: capabilityFixture.filter((capability) => capability.driverType === 'kubernetes') });
-    render(<ResourceDefinitionsPage />);
+    renderDefinition(<ResourceDefinitionsPage />);
     await screen.findByText('Chưa có cấu hình tài nguyên nào.');
     await screen.findByRole('option', { name: 'postgres (chưa có module đã kiểm chứng)' });
     expect(screen.getByRole('option', { name: 'k8s-namespace (chưa có module đã kiểm chứng)' })).not.toBeDisabled();
@@ -431,7 +431,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     const user = userEvent.setup();
     let fail = true;
     const { posted } = backend({ capabilityLists: [() => (fail ? Response.json({ code: 'INTERNAL_ERROR' }, { status: 500 }) : Response.json({ capabilities: capabilityFixture }))] });
-    render(<ResourceDefinitionsPage />);
+    renderDefinition(<ResourceDefinitionsPage />);
     const alert = await screen.findByRole('alert', { name: 'Lỗi tải metadata module' });
     await screen.findByRole('option', { name: 'vpc (chưa xác nhận hỗ trợ)' });
     expect(screen.getByRole('option', { name: 'vpc (chưa xác nhận hỗ trợ)' })).toBeDisabled();
@@ -601,7 +601,7 @@ describe('UC-03 Definition form states and errors', () => {
   it('keeps metadata and a Vietnamese retry when Resource Types fail to load', async () => {
     const user = userEvent.setup();
     const { state } = backend({ typesFail: true });
-    render(<ResourceDefinitionsPage />);
+    renderDefinition(<ResourceDefinitionsPage />);
     const alert = await screen.findByRole('alert', { name: 'Lỗi tải loại tài nguyên' });
     await user.type(field('ID cấu hình (Definition ID)'), 'ns-keep');
     expect(screen.getByRole('button', { name: submitName })).toBeDisabled();
@@ -629,7 +629,7 @@ describe('UC-03 Definition form states and errors', () => {
   it('treats inherited Object property names as unsupported custom types without crashing', async () => {
     const user = userEvent.setup();
     const { posted } = backend({ types: [...typeFixture, { key: 'constructor', inputs: [], outputs: [], classes: [] }, { key: 'toString', inputs: [], outputs: [], classes: [] }], definitions: [{ key: 'odd', name: 'Lạ', version: 1, resourceType: 'constructor', driverType: 'toString', criteria: [{}] }] });
-    render(<ResourceDefinitionsPage />);
+    renderDefinition(<ResourceDefinitionsPage />);
     expect(await screen.findByText('Lạ')).toBeInTheDocument();
     expect(screen.getByText('Lạ').nextElementSibling).toHaveTextContent('ID odd · constructor · toString · phiên bản 1 · 1 điều kiện áp dụng');
     await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
@@ -650,7 +650,7 @@ describe('UC-03 Definition form states and errors', () => {
 
     it.each(['vpc', 'k8s-cluster', 'k8s-namespace', 'postgres', 'redis'])('selects %s after the catalog loaded, without any POST', async (type) => {
       const { posted } = backend();
-      render(<ResourceDefinitionsPage initialResourceType={type} />);
+      renderDefinition(<ResourceDefinitionsPage initialResourceType={type} />);
       await screen.findByRole('option', { name: 'vpc' });
       await waitFor(() => expect(typeSelect()).toHaveValue(type));
       expect(posted).toEqual([]);
@@ -658,7 +658,7 @@ describe('UC-03 Definition form states and errors', () => {
 
     it.each([['', 'missing'], ['workload', 'workload'], ['cache', 'unsupported custom type'], ['constructor', 'inherited property'], ['toString', 'inherited property'], ['VPC', 'wrong case'], ['unknown-type', 'unknown key'], ['vpc ', 'untrimmed key']])('leaves no selection for query %j (%s)', async (type) => {
       const { posted } = backend({ types: [...typeFixture, ...extra] });
-      render(<ResourceDefinitionsPage initialResourceType={type} />);
+      renderDefinition(<ResourceDefinitionsPage initialResourceType={type} />);
       await screen.findByRole('option', { name: 'vpc' });
       await new Promise((done) => setTimeout(done, 30));
       expect(typeSelect()).toHaveValue(['cache', 'constructor', 'toString'].includes(type) ? type : '');
@@ -667,7 +667,7 @@ describe('UC-03 Definition form states and errors', () => {
 
     it('does not select a key the catalog does not contain', async () => {
       backend({ types: typeFixture.filter((type) => type.key === 'k8s-namespace') });
-      render(<ResourceDefinitionsPage initialResourceType="vpc" />);
+      renderDefinition(<ResourceDefinitionsPage initialResourceType="vpc" />);
       await screen.findByRole('option', { name: 'k8s-namespace' });
       await new Promise((done) => setTimeout(done, 30));
       expect(typeSelect()).toHaveValue('');
@@ -684,7 +684,7 @@ describe('UC-03 Definition form states and errors', () => {
         if (url.endsWith('/applications')) return Response.json({ applications: defaultApplications });
         return Response.json({ resourceDefinitions: [] });
       }));
-      render(<ResourceDefinitionsPage initialResourceType="postgres" />);
+      renderDefinition(<ResourceDefinitionsPage initialResourceType="postgres" />);
       await screen.findByText('Chưa có cấu hình tài nguyên nào.');
       expect(typeSelect()).toHaveValue('');
       await user.type(field('ID cấu hình (Definition ID)'), 'my-pg');
@@ -696,7 +696,7 @@ describe('UC-03 Definition form states and errors', () => {
     it('applies the prefill once: a later reload or a user choice is never overwritten', async () => {
       const user = userEvent.setup();
       backend();
-      render(<ResourceDefinitionsPage initialResourceType="vpc" />);
+      renderDefinition(<ResourceDefinitionsPage initialResourceType="vpc" />);
       await waitFor(() => expect(typeSelect()).toHaveValue('vpc'));
       await user.selectOptions(typeSelect(), 'k8s-namespace');
       expect(typeSelect()).toHaveValue('k8s-namespace');
@@ -709,7 +709,7 @@ describe('UC-03 Definition form states and errors', () => {
     it('prefills after a failed load is retried and keeps the form data', async () => {
       const user = userEvent.setup();
       const { state } = backend({ typesFail: true });
-      render(<ResourceDefinitionsPage initialResourceType="k8s-cluster" />);
+      renderDefinition(<ResourceDefinitionsPage initialResourceType="k8s-cluster" />);
       const alert = await screen.findByRole('alert', { name: 'Lỗi tải loại tài nguyên' });
       await user.type(field('ID cấu hình (Definition ID)'), 'cluster-a');
       expect(typeSelect()).toHaveValue('');
@@ -721,7 +721,7 @@ describe('UC-03 Definition form states and errors', () => {
 
     it('does not prefill when the catalog never loads', async () => {
       backend({ typesFail: true });
-      render(<ResourceDefinitionsPage initialResourceType="vpc" />);
+      renderDefinition(<ResourceDefinitionsPage initialResourceType="vpc" />);
       await screen.findByRole('alert', { name: 'Lỗi tải loại tài nguyên' });
       expect(typeSelect()).toHaveValue('');
     });
@@ -730,7 +730,7 @@ describe('UC-03 Definition form states and errors', () => {
   describe('criteria rule editor (v3)', () => {
     async function start(user: ReturnType<typeof userEvent.setup>, id: string, options: Backend = {}) {
       const state = backend(options);
-      render(<ResourceDefinitionsPage />);
+      renderDefinition(<ResourceDefinitionsPage />);
       await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
       await completeDefinition(user, { id, type: 'k8s-namespace' });
       await user.click(screen.getByRole('tab', { name: /Điều kiện áp dụng/ }));
@@ -857,7 +857,7 @@ describe('UC-03 V02 Definition edit', () => {
     const harness = backend({ definitions: [stored()], ...options });
     render(<ResourceDefinitionsPage />);
     await screen.findByText('VPC chính');
-    await waitFor(() => expect(screen.getByRole('option', { name: 'vpc' })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('option', { name: 'vpc', hidden: true })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Sửa cấu hình vpc-main' }));
     await openAdvanced(user);
     return harness;
@@ -971,7 +971,7 @@ describe('UC-03 V02 Definition edit', () => {
     const { puts } = backend({ definitions: [drifted] });
     render(<ResourceDefinitionsPage />);
     await screen.findByText('VPC chính');
-    await waitFor(() => expect(screen.getByRole('option', { name: 'postgres' })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('option', { name: 'postgres', hidden: true })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Sửa cấu hình vpc-main' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/không còn nằm trong metadata đã kiểm chứng/);
     expect(field('ID cấu hình (Definition ID)')).toHaveValue('vpc-main');
@@ -990,7 +990,7 @@ describe('UC-03 V02 Definition edit', () => {
     const { puts, posted } = backend({ definitions: [aurora] });
     render(<ResourceDefinitionsPage />);
     await screen.findByText('PG chính');
-    await waitFor(() => expect(screen.getByRole('option', { name: 'postgres' })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('option', { name: 'postgres', hidden: true })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Sửa cấu hình pg-main' }));
     expect(field('Module đã kiểm chứng')).toBeEnabled();
     expect(field('Loại tài nguyên')).toBeDisabled();

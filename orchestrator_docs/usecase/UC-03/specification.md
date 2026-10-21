@@ -367,7 +367,9 @@ Applications (AWS after V03.10); unscoped internal workloads need both refs.
 ## Resource Definition v3 authoring — issue #8
 
 - **UI3-01:** Resource Definition có hai tab Cấu hình / Điều kiện áp dụng,
-  dùng style Console hiện tại. Chuyển tab giữ draft, pin, expected version và
+  dùng style Console hiện tại. Catalog và editor là hai view riêng; mở Tạo/Sửa
+  vào editor có cards/overview và thanh Save cố định theo v3. Quay lại catalog
+  giữ mounted draft; Type CTA mở tạo mới trực tiếp. Chuyển tab giữ draft, pin, expected version và
   trạng thái stale/unknown-outcome; không tự replay Save. Không có tab Usage.
 - **UI3-02:** Cấu hình giữ lựa chọn verified module / Git inspect, account,
   region và typed variables. Mapping inputs/outputs, provider bindings và

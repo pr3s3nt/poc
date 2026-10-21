@@ -1,13 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
-import { backend, completeDefinition, field, submitDefinition } from '../../test/definitionKit';
+import { renderDefinition, backend, completeDefinition, field, submitDefinition } from '../../test/definitionKit';
 
 afterEach(() => vi.unstubAllGlobals());
 const variables = (body?: Record<string, unknown>) => ((body?.driverInputs as { values: { variables: Record<string, unknown> } }).values).variables;
 async function ready() {
-  render(<ResourceDefinitionsPage />);
+  renderDefinition(<ResourceDefinitionsPage />);
   await screen.findByText('Chưa có cấu hình tài nguyên nào.');
   await screen.findByRole('option', { name: 'vpc' });
 }
@@ -66,9 +66,11 @@ describe('T31 typed Definition variables over verified pins', () => {
     await user.click(field('Ghi đè min_capacity'));
     await user.type(field('Giá trị min_capacity'), '0.5');
     await user.click(field('Ghi đè max_capacity'));
-    await user.type(field('Giá trị max_capacity'), '${{context.x}');
+    await user.click(field('Giá trị max_capacity'));
+    await user.paste('${context.x}');
     await user.click(field('Ghi đè name'));
-    await user.type(field('Giá trị name'), 'db-${{context.env.profile}');
+    await user.click(field('Giá trị name'));
+    await user.paste('db-${context.env.profile}');
     await submitDefinition(user);
     await screen.findByRole('status');
     expect(variables(posted[0])).toEqual({

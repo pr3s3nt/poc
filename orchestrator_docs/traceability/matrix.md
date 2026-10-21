@@ -984,3 +984,14 @@ backend operation contracts, transactions and sequence stay unchanged.
 | UI3-03 rule criteria/wildcard/empty/incomplete | CriteriaRules and draftToCriteria; parent-owned selected fields | ResourceDefinitionsPage.test.tsx rule flows; DefinitionV3.test.tsx five-field copy and wildcard; existing CriteriaEditor.test.tsx for renderer projection |
 | UI3-04 copy/matching/help/hidden invalidation | CriteriaEditor native disclosures; mounted MatchingPreviewPanel signature/session/late reply guards | DefinitionV3.test.tsx hidden in-flight/session invalidation; MatchingPreviewPanel.test.tsx context/catalog metadata; RenderingTemplatesPage.test.tsx shared consumers; real matching/copy browser |
 | Existing GIT-01..06 | GitModuleSource and source/pin selection retained | GitModuleSource.test.tsx, real HTTPS Git inspect/create/reload browser |
+
+### V3 visual correction
+
+UI3-01/02 layout: ResourceDefinitionsPage catalog/detail views, numbered cards,
+actual metadata overview and fixed action bar; MappingEditor aligned rows and
+optional provenance/help. DefinitionV3 tests preserve invalid JSON through
+catalog navigation; focused App T04 tests retain prefill/no-write behavior.
+Real HTTP browser assertions cover catalog hidden in detail, overview to the
+right, fixed bar geometry, resume draft and CAS409 after navigation, plus mobile.
+[Visual correction evidence](../verification/2026-10-21-resource-definition-v3-visual.md)
+qualifies the earlier functional-only acceptance.

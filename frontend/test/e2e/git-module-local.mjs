@@ -15,10 +15,11 @@ try {
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await page.waitForURL('**/ui/applications');
   await page.goto(`${base}/ui/platform/resource-definitions`);
+  await page.getByRole('button', { name: 'Tạo cấu hình', exact: true }).click();
   await page.getByLabel('ID cấu hình (Definition ID)', { exact: true }).fill('git-demo-definition');
   await page.getByLabel('Tên hiển thị', { exact: true }).fill('Git module demo');
   await page.getByRole('combobox', { name: /^Loại tài nguyên/ }).selectOption('git-demo');
-  await page.getByRole('combobox', { name: /^Nguồn module/ }).selectOption('git');
+  await page.getByRole('button', { name: 'Thêm từ Git', exact: true }).click();
   await page.getByLabel('Git HTTPS URL', { exact: true }).fill(source);
   await page.getByLabel('Thư mục module', { exact: true }).fill('modules');
   await page.getByLabel('Tag hoặc commit', { exact: true }).fill('v1.0.0');

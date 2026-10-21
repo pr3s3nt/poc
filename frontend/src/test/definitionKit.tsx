@@ -1,9 +1,18 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { expect } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { capabilityFixture } from './capabilities';
 import { typeFixture } from './types';
+
+// Open creation through the same catalog CTA used by a Platform Engineer.
+export function renderDefinition(element: ReactElement) {
+  const view = render(element);
+  const create = screen.queryByRole('button', { name: 'Tạo cấu hình' });
+  if (create) fireEvent.click(create);
+  return view;
+}
 
 export type Body = Record<string, unknown>;
 export type Backend = {
@@ -89,8 +98,12 @@ export async function openAdvanced(user: User) {
 export async function completeDefinition(user: User, fill: Fill) {
   const configuration = screen.getByRole('tab', { name: 'Cấu hình' });
   if (configuration.getAttribute('aria-selected') !== 'true') await user.click(configuration);
-  await user.type(field('ID cấu hình (Definition ID)'), fill.id);
-  await user.type(field('Tên hiển thị'), fill.name ?? `Tên ${fill.id}`);
+  // Paste fixture text in one user action; keystroke-by-keystroke guards have
+  // their own tests. This avoids spending the test deadline re-rendering IDs.
+  for (const [label, text] of [['ID cấu hình (Definition ID)', fill.id], ['Tên hiển thị', fill.name ?? `Tên ${fill.id}`]] as const) {
+    await user.click(field(label));
+    await user.paste(text);
+  }
   await user.selectOptions(field('Loại tài nguyên'), fill.type);
   const pins = field('Module đã kiểm chứng') as HTMLSelectElement;
   if (!pins.disabled) {
@@ -102,7 +115,8 @@ export async function completeDefinition(user: User, fill: Fill) {
   if (account) {
     await waitFor(() => expect(within(account).getByRole('option', { name: /AWS chính/ })).toBeInTheDocument());
     await user.selectOptions(account, fill.account ?? 'aws-account');
-    await user.type(field('Vùng AWS'), fill.region ?? 'us-east-1');
+    await user.click(field('Vùng AWS'));
+    await user.paste(fill.region ?? 'us-east-1');
   }
   await openAdvanced(user);
   const inputs = screen.queryByRole('button', { name: 'Ghép đầu vào theo tên trùng' });

@@ -28,13 +28,13 @@ export function MappingEditor({ capability, type, clusterClasses, draft, onChang
   const providers = bindingProviders(capability);
   return <div className="mapping-editor">
     <div className="mapping-group" aria-label="Ánh xạ đầu vào">
-      <div className="section-header"><div><h4>Đầu vào: tham số của Loại → biến module</h4><p className="feature-note">Mỗi tham số của Loại tài nguyên phải được nhận bởi một biến module. Tham số thật của workload luôn được ưu tiên hơn giá trị dự phòng của cấu hình và mặc định của module.</p></div>
+      <div className="section-header"><div><h4>Ánh xạ đầu vào</h4><details className="definition-help"><summary>Cách ánh xạ đầu vào</summary><p className="feature-note">Mỗi tham số của Loại tài nguyên phải được nhận bởi một biến module. Tham số thật của workload luôn được ưu tiên hơn giá trị dự phòng của cấu hình và mặc định của module.</p></details></div>
         {type.inputs.length > 0 ? <Button type="button" tone="quiet" disabled={disabled} onClick={() => onChange({ ...draft, inputs: sameNameInputs(capability, type) })}>Ghép đầu vào theo tên trùng</Button> : null}</div>
       {type.inputs.length === 0 ? <p className="feature-note">Loại tài nguyên này không khai báo tham số đầu vào.</p> : type.inputs.map((input) => {
         const taken = usedVariables(input.name);
         const options = capability.variables.filter((variable) => inputCompatible(input.type, variable.type) && !taken.has(variable.name));
         const problem = problemFor(`input:${input.name}`);
-        return <label key={input.name} className="mapping-row">Tham số {input.name} ({input.type || 'any'}{input.required ? ', bắt buộc' : ''}) → biến module
+        return <label key={input.name} className="mapping-row mapping-input-row"><span className="mapping-key"><strong>{input.name}</strong><small>{input.type || 'any'}{input.required ? ' · Bắt buộc' : ' · Tùy chọn'}</small></span><span className="mapping-direction" aria-hidden="true">→</span>
           <select aria-label={`Biến module nhận tham số ${input.name}`} aria-invalid={problem ? true : undefined} value={draft.inputs[input.name] ?? ''} disabled={disabled} onChange={(event) => setInput(input.name, event.target.value)}>
             <option value="">Chưa chọn</option>
             {draft.inputs[input.name] && !options.some((variable) => variable.name === draft.inputs[input.name]) ? <option value={draft.inputs[input.name]}>{draft.inputs[input.name]} (không còn hợp lệ)</option> : null}
@@ -43,14 +43,14 @@ export function MappingEditor({ capability, type, clusterClasses, draft, onChang
       })}
     </div>
     <div className="mapping-group" aria-label="Ánh xạ đầu ra">
-      <div className="section-header"><div><h4>Đầu ra: output module → output của Loại</h4><p className="feature-note">Phải đủ các output bắt buộc, đúng kiểu. Cờ bí mật của Loại hoặc module được giữ; không thể hạ cờ bí mật khi ánh xạ.</p></div>
+      <div className="section-header"><div><h4>Ánh xạ đầu ra</h4><details className="definition-help"><summary>Cách ánh xạ đầu ra</summary><p className="feature-note">Phải đủ các output bắt buộc, đúng kiểu. Cờ bí mật của Loại hoặc module được giữ; không thể hạ cờ bí mật khi ánh xạ.</p></details></div>
         <Button type="button" tone="quiet" disabled={disabled} onClick={() => onChange({ ...draft, outputs: sameNameOutputs(capability, type) })}>Ghép đầu ra theo tên trùng</Button></div>
       {type.outputs.map((output) => {
         if (platformOutput(capability, output.name)) return <p key={output.name} className="feature-note">Output <code>{output.name}</code> do nền tảng cung cấp từ danh tính cluster đã tạo; không ánh xạ từ output module.</p>;
         const taken = usedOutputs(output.name);
         const options = capability.outputs.filter((candidate) => outputCompatible(output.type, candidate.type) && !taken.has(candidate.name));
         const problem = problemFor(`output:${output.name}`);
-        return <label key={output.name} className="mapping-row">Output {output.name} ({output.type || 'any'}{output.required ? ', bắt buộc' : ''}{output.secret ? ', bí mật' : ''}) ← output module
+        return <label key={output.name} className="mapping-row mapping-output-row"><span className="mapping-key"><strong>{output.name}</strong><small>{output.type || 'any'}{output.required ? ' · Bắt buộc' : ' · Tùy chọn'}{output.secret ? ' · Giá trị bí mật' : ''}</small></span><span className="mapping-direction" aria-hidden="true">←</span>
           <select aria-label={`Output module cung cấp ${output.name}`} aria-invalid={problem ? true : undefined} value={draft.outputs[output.name] ?? ''} disabled={disabled} onChange={(event) => setOutput(output.name, event.target.value)}>
             <option value="">Chưa chọn</option>
             {draft.outputs[output.name] && !options.some((candidate) => candidate.name === draft.outputs[output.name]) ? <option value={draft.outputs[output.name]}>{draft.outputs[output.name]} (không còn hợp lệ)</option> : null}
@@ -59,7 +59,7 @@ export function MappingEditor({ capability, type, clusterClasses, draft, onChang
       })}
     </div>
     <div className="mapping-group" aria-label="Provider binding">
-      <div className="section-header"><div><h4>Provider binding</h4><p className="feature-note">Không có ô nhập endpoint hay credential. Provider AWS dùng Tài khoản và Vùng của chính cấu hình này; provider Kubernetes kế thừa cluster của tài nguyên phụ thuộc, không chọn lại tài khoản.</p></div></div>
+      <div className="section-header"><div><h4>Provider binding</h4><details className="definition-help"><summary>Về nguồn truy cập hạ tầng</summary><p className="feature-note">Không có ô nhập endpoint hay credential. Provider AWS dùng Tài khoản và Vùng của chính cấu hình này; provider Kubernetes kế thừa cluster của tài nguyên phụ thuộc, không chọn lại tài khoản.</p></details></div></div>
       {providers.length === 0 ? <p className="feature-note">Module này không cần provider binding.</p> : providers.map((provider) => {
         const binding = draft.bindings[provider.name] ?? { target: '', clusterClass: '' };
         const problem = problemFor(`binding:${provider.name}`);

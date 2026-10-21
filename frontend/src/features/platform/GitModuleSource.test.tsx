@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { GitModuleSource } from './GitModuleSource';
 import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
-import { backend, field, submitDefinition } from '../../test/definitionKit';
+import { renderDefinition, backend, field, submitDefinition } from '../../test/definitionKit';
 import { capabilityFixture } from '../../test/capabilities';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -26,12 +26,12 @@ it('inspects a source without a digest and uses its verified metadata in the exi
     }
     return original(input, init);
   }));
-  render(<ResourceDefinitionsPage />);
+  renderDefinition(<ResourceDefinitionsPage />);
   await screen.findByRole('option', { name: 'vpc' });
   await user.type(field('ID cấu hình (Definition ID)'), 'git-vpc');
   await user.type(field('Tên hiển thị'), 'Git VPC');
   await user.selectOptions(field('Loại tài nguyên'), 'vpc');
-  await user.selectOptions(field('Nguồn module'), 'git');
+  await user.click(screen.getByRole('button', { name: 'Thêm từ Git' }));
   await fill(user);
   expect(screen.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên' })).toBeDisabled();
   await user.click(screen.getByRole('button', { name: 'Kiểm tra module' }));
