@@ -101,8 +101,9 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const [name, setName] = useState('');
   const [resourceType, setResourceType] = useState('');
   const [pinChoice, setPinChoice] = useState('');
-  const [sourceMode, setSourceMode] = useState<'installed' | 'git'>('installed');
+  const [sourceMode, setSourceMode] = useState<'installed' | 'git'>('git');
   const [gitPin, setGitPin] = useState<Capability | null>(null);
+  const [gitDraftVersion, setGitDraftVersion] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, PairDraft>>({});
   const [criteriaDraft, setCriteriaDraft] = useState<CriteriaDraft>(emptyDraft);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -254,7 +255,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
 
   function resetForm() {
     setTab('configuration'); setAdvancedOpen(false);
-    setSourceMode('installed'); setGitPin(null);
+    setSourceMode('git'); setGitPin(null); setGitDraftVersion((version) => version + 1);
     setKey(''); setName(''); setIdError(''); setNameError(''); setError(''); setReview(null); setEditing(null); setSourceLost(false);
     setDrafts({}); setCriteriaDraft(emptyDraft()); setPinChoice('');
   }
@@ -377,7 +378,7 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
       return;
     }
     // Committed: report it and reset the submitted pin's draft before reloading.
-    setNotice(`Đã đăng ký cấu hình tài nguyên ${submitted}.`); setSourceMode('installed'); setGitPin(null);
+    setNotice(`Đã đăng ký cấu hình tài nguyên ${submitted}.`); setSourceMode('git'); setGitPin(null); setGitDraftVersion((version) => version + 1);
     setKey(''); setName(''); setDrafts((current) => { const next = { ...current }; delete next[submittedDraft]; return next; }); setCriteriaDraft(emptyDraft()); setSaving(false);
     await Promise.all([definitionList.reload(), typeList.reload(), capabilityList.reload()]);
   }
@@ -453,8 +454,8 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
         <div className="definition-layout"><div className="definition-main">
         {!editing ? <section className="definition-card definition-create-identity" aria-label="Thông tin cấu hình">{identityFields}</section> : null}
         <section className="definition-card definition-module" aria-label="Module Terraform"><div className="definition-card-title"><span className="definition-step">1</span><h3>Module Terraform</h3>{pin ? <span className="definition-verified">✓ Đã xác minh</span> : null}</div>
-        <div className="definition-segmented" role="group" aria-label="Nguồn module Terraform"><Button type="button" aria-pressed={sourceMode === 'installed'} onClick={() => setSourceMode('installed')}>Module đã đăng ký</Button><Button type="button" aria-pressed={sourceMode === 'git'} onClick={() => setSourceMode('git')}>Thêm từ Git</Button></div>
-        <GitModuleSource resourceType={resourceType} active={sourceMode === 'git'} disabled={saving || !typesReady || !metadataReady} onResult={setGitPin} />
+        <div className="definition-segmented" role="group" aria-label="Nguồn module Terraform"><Button type="button" aria-pressed={sourceMode === 'git'} onClick={() => setSourceMode('git')}>Thêm từ Git</Button><Button type="button" aria-pressed={sourceMode === 'installed'} onClick={() => setSourceMode('installed')}>Module đã đăng ký</Button></div>
+        <GitModuleSource key={gitDraftVersion} resourceType={resourceType} active={sourceMode === 'git'} disabled={saving || !typesReady || !metadataReady} onResult={setGitPin} />
         <div className="field-grid"><label hidden={sourceMode === 'git'}>Module đã kiểm chứng<select value={pin ? capabilityKey(pin) : ''} aria-required="true" disabled={typePins.length <= 1 && !sourceLost} onChange={(event) => setPinChoice(event.target.value)}>
             {typePins.length === 0 ? <option value="">Chưa chọn (cần chọn loại có module đã kiểm chứng)</option> : typePins.length > 1 || sourceLost ? <option value="">Chọn module và phiên bản</option> : null}
             {typePins.map((candidate) => <option key={capabilityKey(candidate)} value={capabilityKey(candidate)}>{pinLabel(candidate)}</option>)}</select></label>

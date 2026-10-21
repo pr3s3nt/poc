@@ -293,6 +293,7 @@ export async function provisionScenario({ page, h, caption, mark, check, baseURL
   await h.type(form('ID cấu hình (Definition ID)'), ID.parent);
   await h.type(form('Tên hiển thị'), names.parent);
   await choose(form('Loại tài nguyên'), 'redis');
+  await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
   await choose(form('Module đã kiểm chứng'), 'redis-k8s');
   await expect(page.getByLabel('Tài khoản hạ tầng')).toHaveCount(0);
   await h.click(page.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));

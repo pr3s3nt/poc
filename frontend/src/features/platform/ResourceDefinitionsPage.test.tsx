@@ -29,6 +29,29 @@ async function overrideValue(user: ReturnType<typeof userEvent.setup>, name: str
 
 afterEach(() => vi.unstubAllGlobals());
 
+describe('UC-03 Git source default', () => {
+  it('opens new drafts in Git without adopting the packaged pin, and returns to Git after saving a registered module', async () => {
+    const user = userEvent.setup();
+    const { posted } = backend();
+    render(<ResourceDefinitionsPage initialResourceType="vpc" />);
+    await waitFor(() => expect(field('Loại tài nguyên')).toHaveValue('vpc'));
+    expect(screen.getByRole('button', { name: 'Thêm từ Git' })).toHaveAttribute('aria-pressed', 'true');
+    expect(field('Git HTTPS URL')).toBeVisible();
+    expect(field('Module đã kiểm chứng')).not.toBeVisible();
+    expect(screen.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên' })).toBeDisabled();
+    expect(screen.queryByLabelText('Pin module đã kiểm chứng')).not.toBeInTheDocument();
+    expect(posted).toEqual([]);
+
+    await completeDefinition(user, { id: 'explicit-vpc', type: 'vpc' });
+    await submitDefinition(user);
+    await waitFor(() => expect(posted).toHaveLength(1));
+    await screen.findByText('Đã đăng ký cấu hình tài nguyên explicit-vpc.');
+    expect(screen.getByRole('button', { name: 'Thêm từ Git' })).toHaveAttribute('aria-pressed', 'true');
+    expect(field('Git HTTPS URL')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên' })).toBeDisabled();
+  });
+});
+
 describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
   it('keeps the namespace dependency while authoring E01 typed database fallback and explicit cluster target', async () => {
     const user = userEvent.setup();
@@ -47,7 +70,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await user.click(screen.getByRole('button', { name: 'Dùng preset cho namespace' }));
     await overrideValue(user, 'database', 'Bad.Name');
     await submitDefinition(user);
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký cấu hình tài nguyên pg-e01.');
+    expect(await screen.findByText(/^Đã (đăng ký|lưu) cấu hình/)).toHaveTextContent('Đã đăng ký cấu hình tài nguyên pg-e01.');
     expect(values(posted[0]).variables).toMatchObject({ database: 'Bad.Name', namespace: "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}" });
     expect(values(posted[0]).input_mapping).toEqual({ database: { param: 'database' }, username: { param: 'username' } });
     expect(values(posted[0]).provider_bindings).toEqual({ kubernetes: { target: 'resource', resource_ref: 'k8s-cluster.eks#environments.@app.@env' } });
@@ -83,7 +106,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     expect(screen.queryByLabelText('Phạm vi triển khai')).not.toBeInTheDocument();
     expect(screen.getByText(/Cấu hình không lấy tài khoản hay vùng từ Môi trường/)).toBeInTheDocument();
     await submitDefinition(user);
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký cấu hình tài nguyên vpc-aws.');
+    expect(await screen.findByText(/^Đã (đăng ký|lưu) cấu hình/)).toHaveTextContent('Đã đăng ký cấu hình tài nguyên vpc-aws.');
     expect(posted).toEqual([{ key: 'vpc-aws', name: 'VPC AWS chính', resourceType: 'vpc', driverType: 'terraform', driverAccount: 'aws-account', provision: {}, criteria: [{}], driverInputs: { values: {
       source: pinOf('vpc'), variables: { name: '${context.infra.resourceName}', region: 'us-east-1' }, input_mapping: {},
       output_mapping: { id: 'id', cidr: 'cidr', subnetIds: 'subnetIds', privateSubnetIds: 'privateSubnetIds' }, provider_bindings: { aws: { target: 'account' } } } } }]);
@@ -153,7 +176,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await overrideValue(user, 'min_capacity', '0.5');
     await overrideValue(user, 'max_capacity', '2');
     await submitDefinition(user);
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký cấu hình tài nguyên aurora.');
+    expect(await screen.findByText(/^Đã (đăng ký|lưu) cấu hình/)).toHaveTextContent('Đã đăng ký cấu hình tài nguyên aurora.');
     expect(posted[0]).toMatchObject({ resourceType: 'postgres', driverType: 'terraform', driverAccount: 'aws-second' });
     expect(values(posted[0])).toEqual({
       source: pinOf('aurora'),
@@ -183,6 +206,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await submitDefinition(user);
     await screen.findByText('Đã đăng ký cấu hình tài nguyên new-eks.');
     await user.selectOptions(field('Loại tài nguyên'), 'k8s-namespace');
+    await user.click(screen.getByRole('button', { name: 'Module đã đăng ký' }));
     await user.selectOptions(field('Cluster đích của provider kubernetes'), 'resource');
     await waitFor(() => expect(within(field('Class cluster EKS của provider kubernetes')).getByRole('option', { name: 'eks' })).toBeInTheDocument());
     await user.selectOptions(field('Class cluster EKS của provider kubernetes'), 'eks');
@@ -208,7 +232,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     expect(posted).toEqual([]);
     await overrideValue(user, 'public_access_cidrs', '["203.0.113.10/32"]');
     await submitDefinition(user);
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký cấu hình tài nguyên eks.');
+    expect(await screen.findByText(/^Đã (đăng ký|lưu) cấu hình/)).toHaveTextContent('Đã đăng ký cấu hình tài nguyên eks.');
     expect(values(posted[0]).variables).toMatchObject({ public_access_cidrs: ['203.0.113.10/32'], subnet_ids: `${infra}.subnetIds}`, region: 'us-east-1' });
     expect(values(posted[0]).provider_bindings).toEqual({ aws: { target: 'account' } });
     expect(JSON.stringify(posted[0])).not.toMatch(/0\.0\.0\.0|executor/);
@@ -243,7 +267,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await user.selectOptions(field('Class cluster EKS của provider kubernetes'), 'eks');
     expect(screen.getByText(/Nguồn cluster của provider/)).toHaveTextContent('cluster do node EKS cung cấp (class eks)');
     await submitDefinition(user);
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký cấu hình tài nguyên pg-k8s.');
+    expect(await screen.findByText(/^Đã (đăng ký|lưu) cấu hình/)).toHaveTextContent('Đã đăng ký cấu hình tài nguyên pg-k8s.');
     expect(posted[0]).toMatchObject({ driverType: 'terraform' });
     expect(posted[0]).not.toHaveProperty('driverAccount');
     expect(values(posted[0]).provider_bindings).toEqual({ kubernetes: { target: 'resource', resource_ref: 'k8s-cluster.eks#environments.@app.@env' } });
@@ -265,10 +289,11 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await user.selectOptions(field('Class cluster EKS của provider kubernetes'), 'eks');
     await user.click(screen.getByRole('button', { name: 'Dùng preset cho namespace' }));
     await submitDefinition(user);
-    expect(await screen.findByRole('status')).toHaveTextContent('redis-shared');
+    expect(await screen.findByText(/^Đã (đăng ký|lưu) cấu hình/)).toHaveTextContent('redis-shared');
     expect(posted[0]).toMatchObject({ resourceType: 'redis' });
     expect(values(posted[0]).output_mapping).toEqual({ host: 'host', port: 'port', username: 'username', password: 'password', tls: 'tls' });
     // The cloud-managed module is a second, separate choice that needs an account and a region.
+    await user.click(screen.getByRole('button', { name: 'Module đã đăng ký' }));
     await user.type(field('ID cấu hình (Definition ID)'), 'redis-cache');
     await user.selectOptions(field('Module đã kiểm chứng'), screen.getByRole('option', { name: /^elasticache ·/ }));
     expect(field('Tài khoản hạ tầng')).toBeRequired();
@@ -419,8 +444,10 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     expect(field('Vùng AWS')).toHaveValue('eu-west-1');
     await pick('postgres-k8s');
     await submitDefinition(user);
-    await screen.findByRole('status');
+    await screen.findByText(/^Đã (đăng ký|lưu) cấu hình/);
     expect(values(posted[0]).variables).toEqual({ storage: '9Gi', namespace: "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}" });
+    expect(screen.getByRole('button', { name: 'Thêm từ Git' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: 'Module đã đăng ký' }));
     expect(field('Ghi đè storage')).not.toBeChecked();
     await pick('aurora');
     expect(field('Giá trị min_capacity')).toHaveValue('2');
@@ -617,13 +644,13 @@ describe('UC-03 Definition form states and errors', () => {
     await ready();
     await completeDefinition(user, { id: 'ns-new', type: 'k8s-namespace' });
     await submitDefinition(user);
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký cấu hình tài nguyên ns-new.');
+    expect(await screen.findByText(/^Đã (đăng ký|lưu) cấu hình/)).toHaveTextContent('Đã đăng ký cấu hình tài nguyên ns-new.');
     const alert = await screen.findByRole('alert', { name: 'Lỗi tải danh sách' });
     expect(field('ID cấu hình (Definition ID)')).toHaveValue('');
     await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
     await screen.findByText('Chưa có cấu hình tài nguyên nào.');
     expect(posted).toHaveLength(1);
-    expect(screen.getByRole('status')).toHaveTextContent('ns-new');
+    expect(screen.getByText(/^Đã đăng ký cấu hình tài nguyên/)).toHaveTextContent('ns-new');
   });
 
   it('treats inherited Object property names as unsupported custom types without crashing', async () => {
@@ -887,7 +914,7 @@ describe('UC-03 V02 Definition edit', () => {
     await user.clear(field('Vùng AWS'));
     await user.type(field('Vùng AWS'), 'eu-west-1');
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã lưu cấu hình vpc-main (phiên bản 4).');
+    expect(await screen.findByText(/^Đã (đăng ký|lưu) cấu hình/)).toHaveTextContent('Đã lưu cấu hình vpc-main (phiên bản 4).');
     expect(posted).toEqual([]);
     expect(puts).toHaveLength(1);
     expect(puts[0]?.url).toMatch(/\/resource-definitions\/vpc-main$/);
@@ -949,7 +976,7 @@ describe('UC-03 V02 Definition edit', () => {
     const user = userEvent.setup();
     const { puts, gets } = await openEditor(user, { definitionLists: [() => Response.json({ resourceDefinitions: [stored()] }), () => Response.json({ error: 'x' }, { status: 500 })] });
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã lưu cấu hình vpc-main (phiên bản 4).');
+    expect(await screen.findByText(/^Đã (đăng ký|lưu) cấu hình/)).toHaveTextContent('Đã lưu cấu hình vpc-main (phiên bản 4).');
     const alert = await screen.findByRole('alert', { name: 'Lỗi tải danh sách' });
     await user.click(within(alert).getByRole('button', { name: 'Thử lại' }));
     await waitFor(() => expect(screen.queryByRole('alert', { name: 'Lỗi tải danh sách' })).not.toBeInTheDocument());
@@ -1014,7 +1041,7 @@ describe('UC-03 V02 Definition edit', () => {
     await user.selectOptions(field('Module đã kiểm chứng'), screen.getByRole('option', { name: /^postgres-k8s ·/ }));
     expect(field('Class cluster EKS của provider kubernetes')).toHaveValue('eks');
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã lưu cấu hình pg-main (phiên bản 4).');
+    expect(await screen.findByText(/^Đã (đăng ký|lưu) cấu hình/)).toHaveTextContent('Đã lưu cấu hình pg-main (phiên bản 4).');
     expect(posted).toEqual([]);
     expect(puts).toHaveLength(1);
     expect(puts[0]?.url).toMatch(/\/resource-definitions\/pg-main$/);

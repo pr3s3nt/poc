@@ -2,7 +2,7 @@
 id: TERRAFORM-MODULE-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-21
 related: [ADR-014, UC-03, UC-05, UC-06, UC-08, UC-16]
 ---
 
@@ -317,10 +317,24 @@ provider release/type/content và transitive full-commit guards giữ nguyên.
 
 Inspection ghi verified bundle/cache, không Definition/criteria/state hoặc cloud.
 Response `{capability}` dùng cùng projection với capability list. Bundle contract
-JSON bổ sung optional `sourceUrl` cho safe HTTPS origin; source/module IDs sinh
-xác định từ URL/path/Type, không từ mutable ref. Registration dùng persisted pin,
+JSON bổ sung optional `sourceUrl` cho safe HTTPS origin; source ID sinh từ URL,
+module ID sinh từ path/Type trừ release-equivalent identity quy định bên dưới;
+không sinh ID từ mutable ref. Registration dùng persisted pin,
 kiểm lại digest/release/cache; restart không cần thêm policy cho origin này.
 Remote child HTTPS modules vẫn phải pin full commit và được inspect/cache trong
 bundle. Execution/Preview/cleanup không resolve ref hoặc fetch version mới.
 Full digest chỉ là chi tiết kỹ thuật ở UI. Legacy pins/allowlist config vẫn đọc
 được; không có schema migration vì bundle contract là JSON.
+
+Theo UC-03 GIT-03, Console mặc định author Definition mới từ Git. Packaged
+modules tiếp tục phục vụ pins/lifecycle cũ và lựa chọn tường minh; không tự
+chọn làm nguồn mặc định của form tạo mới.
+
+Git copies whose root content SHA-256 and requested Resource Type match an
+entry in the trusted platform release retain that entry's module ID and
+executor-owned output metadata. Git URL/source ID, commit, subdirectory and
+digest remain the actual immutable Git pin. Matching by path/name alone is
+forbidden. Unmatched Git modules keep their generated IDs and inspected
+outputs. This preserves EKS target recognition and namespace creation baseline
+for unchanged published modules without granting arbitrary Git code platform
+module semantics.

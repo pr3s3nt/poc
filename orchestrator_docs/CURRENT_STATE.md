@@ -7,6 +7,19 @@ last_reviewed: 2026-10-21
 
 # Current project state
 
+## Git is the default Terraform source — 2026-10-21
+
+New Resource Definition drafts, reset/cancel and successful registration start
+with Git; registered modules require an explicit source switch. Edit preserves
+the original verified pin. Seven unchanged modules are published in public
+[pr3s3nt/terraform-modules](https://github.com/pr3s3nt/terraform-modules), tag
+`v1.0.0`. See [source runbook](operations/terraform-module-sources.md).
+Git inspection recognizes exact release content + Type to preserve EKS executor
+outputs/target identity and namespace creation baseline. Original packaged pins,
+state and cleanup snapshots remain retained. Arbitrary changed Git modules do
+not gain those identities by name. Validation evidence is recorded in
+[verification](verification/2026-10-21-git-module-default.md).
+
 ## Resource Definition v3 — issue #8, 2026-10-21
 
 Nhánh `iam_role`: form Definition có hai tab Cấu hình / Điều kiện áp dụng,

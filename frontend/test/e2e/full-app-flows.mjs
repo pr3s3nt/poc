@@ -112,6 +112,7 @@ export async function registerK8sModuleDefinition(kit, spec) {
   await h.type(form('ID cấu hình (Definition ID)'), spec.id);
   await h.type(form('Tên hiển thị'), spec.name ?? spec.id);
   await choose(form('Loại tài nguyên'), spec.type);
+  await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
   const pins = form('Module đã kiểm chứng');
   if (await pins.isEnabled()) await choose(pins, spec.module);
   const inputMapping = section.getByRole('button', { name: 'Ghép đầu vào theo tên trùng', exact: true });
@@ -282,6 +283,7 @@ export async function registerCatalogDefinition(kit, entry, { accountName, regio
   await h.type(form('ID cấu hình (Definition ID)'), entry.id);
   await h.type(form('Tên hiển thị'), entry.id);
   await choose(form('Loại tài nguyên'), entry.type);
+  await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
   await expect(form('Loại tài nguyên')).toHaveValue(entry.type);
   const pins = form('Module đã kiểm chứng');
   if (await pins.isEnabled()) await choose(pins, entry.module);

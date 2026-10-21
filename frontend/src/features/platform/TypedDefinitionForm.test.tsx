@@ -29,7 +29,7 @@ describe('T31 typed Definition variables over verified pins', () => {
     await user.clear(field('Giá trị storage'));
     await user.type(field('Giá trị storage'), '5Gi');
     await submitDefinition(user);
-    expect(await screen.findByRole('status')).toHaveTextContent('Đã đăng ký cấu hình tài nguyên pg-typed.');
+    expect(await screen.findByText(/^Đã đăng ký cấu hình tài nguyên/)).toHaveTextContent('Đã đăng ký cấu hình tài nguyên pg-typed.');
     expect(variables(posted[0])).toEqual({ storage: '5Gi', namespace: "${resources['k8s-namespace.default#environments.@app.@env'].outputs.name}" });
   });
 
@@ -47,9 +47,10 @@ describe('T31 typed Definition variables over verified pins', () => {
     await user.click(screen.getByRole('button', { name: 'Dùng preset cho name' }));
     expect(field('Giá trị name')).toHaveValue('${context.env.namespace}');
     await submitDefinition(user);
-    await screen.findByRole('status');
+    await screen.findByText(/^Đã đăng ký cấu hình tài nguyên/);
     expect(variables(posted[0])).toEqual({ name: '${context.env.namespace}' });
 
+    await user.click(screen.getByRole('button', { name: 'Module đã đăng ký' }));
     await user.type(field('ID cấu hình (Definition ID)'), 'aurora-typed');
     await user.type(field('Tên hiển thị'), 'Aurora typed');
     await user.selectOptions(field('Loại tài nguyên'), 'postgres');
@@ -75,7 +76,7 @@ describe('T31 typed Definition variables over verified pins', () => {
     await user.click(field('Giá trị name'));
     await user.paste('db-${context.env.profile}');
     await submitDefinition(user);
-    await screen.findByRole('status');
+    await screen.findByText(/^Đã đăng ký cấu hình tài nguyên/);
     expect(variables(posted[0])).toEqual({
       engine_version: '16.4', min_capacity: 0.5, max_capacity: '${context.x}', name: 'db-${context.env.profile}',
       vpc_id: "${resources['vpc.default#@infra'].outputs.id}", subnet_ids: "${resources['vpc.default#@infra'].outputs.subnetIds}", private_subnet_ids: "${resources['vpc.default#@infra'].outputs.privateSubnetIds}",
@@ -134,7 +135,7 @@ describe('T31 typed Definition variables over verified pins', () => {
     expect(field('Descriptor tài nguyên đi kèm 1')).toHaveValue('vpc.default#@infra');
     expect(field('Tài nguyên đi kèm 1 phụ thuộc vào tài nguyên cha (is_dependent)')).toBeChecked();
     await submitDefinition(user);
-    await screen.findByRole('status');
+    await screen.findByText(/^Đã đăng ký cấu hình tài nguyên/);
     expect(posted[0]?.provision).toEqual({ 'vpc.default#@infra': { is_dependent: true, match_dependents: true } });
   });
 });

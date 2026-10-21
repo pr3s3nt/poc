@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-21
 ---
 
 # Known design and implementation deviations
@@ -451,3 +451,13 @@ review/help and the existing light sidebar wordmark. The user-supplied live
 reference `http://100.77.224.24:18088/?review=v3` was opened and exercised; its
 HTML differs from the preserved file only in the advanced.js URL. Existing
 contract tests and real HTTP browser checks pass; user visual review is pending.
+
+## Git copies of release modules — resolved 2026-10-21
+
+Inspection initially generated opaque module IDs for Git copies of packaged
+modules and dropped release-owned executor outputs. EKS planning recognizes
+`eks`; namespace creation baseline recognizes `k8s-namespace`. A byte-identical
+Git copy therefore lost required semantics. Resolved with registry content/Type checks and seven-module/restart tests: reuse
+the release module ID and executor outputs only when both inspected content
+SHA-256 and requested Resource Type match the trusted release entry. Keep the
+Git source/commit/path/digest; never infer identity from repository/path/name.

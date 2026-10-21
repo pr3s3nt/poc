@@ -206,3 +206,6 @@ current representation with actionable errors. Variables retain explicit opt-in
 overrides in a compact unboxed grid; read-only fields show metadata defaults or
 inherited sources without inserting values into the submitted draft. Scope summary groups actual conditions by
 case; full-payload review remains a quiet disclosure.
+
+Nguồn module mặc định khi tạo mới/reset là Git (UC-03 GIT-03). Đặt Git
+trước lựa chọn Module đã đăng ký; edit giữ nguyên pin hiện có.

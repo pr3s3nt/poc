@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 
 	"orchestrator/internal/domain/tfmodule"
@@ -64,7 +65,17 @@ func (s *Service) InspectGit(ctx context.Context, request moduleregistry.GitInsp
 		return tfmodule.Bundle{}, err
 	}
 	ref.ContentSHA256 = tree.Digest()
-	bundle, trees, err := s.build(sources, ref, tfmodule.SourceKindGit, []string{request.ResourceType}, nil)
+	// Content identity, not a Git path or submitted name, carries trusted
+	// release semantics (EKS executor outputs and namespace lifecycle hooks).
+	var executorOutputs []string
+	for _, module := range s.cfg.Release.Packaged.Modules {
+		if module.ContentSHA256 == ref.ContentSHA256 && slices.Contains(module.ResourceTypes, request.ResourceType) {
+			ref.ModuleID = module.ID
+			executorOutputs = module.ExecutorOutputs
+			break
+		}
+	}
+	bundle, trees, err := s.build(sources, ref, tfmodule.SourceKindGit, []string{request.ResourceType}, executorOutputs)
 	if err != nil {
 		return tfmodule.Bundle{}, err
 	}

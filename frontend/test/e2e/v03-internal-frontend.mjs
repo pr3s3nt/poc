@@ -334,6 +334,7 @@ export const SCENARIOS = {
     await h.type(form('ID cấu hình (Definition ID)'), ids.namespace);
     await h.type(form('Tên hiển thị'), 'Namespace Terraform trên cluster internal');
     await choose(form('Loại tài nguyên'), 'k8s-namespace');
+    await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
     const pins = form('Module đã kiểm chứng');
     if (await pins.isEnabled()) await choose(pins, 'k8s-namespace');
     await h.click(page.getByRole('button', { name: 'Ghép đầu vào theo tên trùng', exact: true }));

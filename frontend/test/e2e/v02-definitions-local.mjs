@@ -258,6 +258,7 @@ export const SCENARIOS = {
     await expect(alertBox()).toContainText('Nhập Tên hiển thị của cấu hình.');
     await h.type(form('Tên hiển thị'), names.lab);
     await choose(form('Loại tài nguyên'), 'vpc');
+    await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
     await expect(form('Driver Type')).toHaveValue('Terraform (module đã kiểm chứng)');
     check('Driver Type comes from server metadata (read-only) after choosing the Resource Type');
     await expect(page.getByRole('region', { name: 'Tài khoản và nguồn phụ thuộc' })).toContainText('Cấu hình không lấy tài khoản hay vùng từ Môi trường');
@@ -495,6 +496,7 @@ export const SCENARIOS = {
     await h.type(form('ID cấu hình (Definition ID)'), ID.ns);
     await h.type(form('Tên hiển thị'), names.namespace);
     await choose(form('Loại tài nguyên'), 'k8s-namespace');
+    await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
     await expect(page.getByLabel('Tài khoản hạ tầng')).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Tài khoản và nguồn phụ thuộc' })).toContainText('Module này không chọn tài khoản. Truy cập cluster được kế thừa');
     await h.click(page.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
@@ -529,6 +531,7 @@ export const SCENARIOS = {
     await h.type(form('ID cấu hình (Definition ID)'), ID.nsInherit);
     await h.type(form('Tên hiển thị'), names.inherit);
     await choose(form('Loại tài nguyên'), 'k8s-namespace');
+    await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
     await h.click(page.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
     await h.click(page.getByRole('button', { name: 'Dùng preset cho name', exact: true }));
     await choose(form('Cluster đích của provider kubernetes'), 'Cluster do node EKS cung cấp');

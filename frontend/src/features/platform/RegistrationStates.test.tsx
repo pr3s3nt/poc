@@ -98,7 +98,7 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
     await user.type(idField, 'next-draft');
     expect(idField).not.toHaveValue(expect.stringContaining('next-draft'));
     release(Response.json(item, { status: 201 }));
-    expect(await screen.findByRole('status')).toHaveTextContent(labels.registered);
+    expect(await screen.findByText(labels.registered, { selector: '[role="status"]' })).toHaveTextContent(labels.registered);
     expect(screen.getByLabelText(idLabel)).toBeEnabled();
     expect(screen.getByLabelText(idLabel)).toHaveValue('');
     await user.type(screen.getByLabelText(idLabel), 'next-draft');
@@ -113,10 +113,13 @@ describe.each(pages)('$name registration states', ({ page, list, field, item, id
     await screen.findByText(empty);
     await fill(user);
     await user.click(screen.getByRole('button', { name: submit }));
-    expect(await screen.findByRole('status')).toHaveTextContent(labels.registered);
+    expect(await screen.findByText(labels.registered, { selector: '[role="status"]' })).toHaveTextContent(labels.registered);
     expect(screen.getByLabelText(idLabel)).toHaveValue('');
     const alert = await screen.findByRole('alert', { name: labels.listError });
-    expect(screen.getByRole('button', { name: submit })).toBeEnabled();
+    if (list === '/resource-definitions') {
+      expect(screen.getByRole('button', { name: 'Thêm từ Git' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: submit })).toBeDisabled();
+    } else expect(screen.getByRole('button', { name: submit })).toBeEnabled();
     await user.click(within(alert).getByRole('button', { name: labels.retry }));
     expect(await screen.findByText(String(item.key))).toBeInTheDocument();
     expect(calls.posts).toBe(1);

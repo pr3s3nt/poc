@@ -11,6 +11,9 @@ export function renderDefinition(element: ReactElement) {
   const view = render(element);
   const create = screen.queryByRole('button', { name: 'Tạo cấu hình' });
   if (create) fireEvent.click(create);
+  // These fixtures exercise the explicitly selected registered-module path.
+  const registered = screen.queryByRole('button', { name: 'Module đã đăng ký' });
+  if (registered) fireEvent.click(registered);
   return view;
 }
 
@@ -105,6 +108,7 @@ export async function completeDefinition(user: User, fill: Fill) {
     await user.paste(text);
   }
   await user.selectOptions(field('Loại tài nguyên'), fill.type);
+  await user.click(screen.getByRole('button', { name: 'Module đã đăng ký' }));
   const pins = field('Module đã kiểm chứng') as HTMLSelectElement;
   if (!pins.disabled) {
     const option = within(pins).getAllByRole('option').find((candidate) => candidate.textContent?.startsWith(`${fill.module} ·`));

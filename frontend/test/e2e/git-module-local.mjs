@@ -19,7 +19,7 @@ try {
   await page.getByLabel('ID cấu hình (Definition ID)', { exact: true }).fill('git-demo-definition');
   await page.getByLabel('Tên hiển thị', { exact: true }).fill('Git module demo');
   await page.getByRole('combobox', { name: /^Loại tài nguyên/ }).selectOption('git-demo');
-  await page.getByRole('button', { name: 'Thêm từ Git', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Thêm từ Git', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByLabel('Git HTTPS URL', { exact: true }).fill(source);
   await page.getByLabel('Thư mục module', { exact: true }).fill('modules');
   await page.getByLabel('Tag hoặc commit', { exact: true }).fill('v1.0.0');
@@ -40,6 +40,9 @@ try {
   await page.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true }).click();
   const createResponse = await created;
   expect(createResponse.status()).toBe(201);
+  await expect(page.getByRole('button', { name: 'Thêm từ Git', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByLabel('Git HTTPS URL', { exact: true })).toHaveValue('');
+  await expect(page.getByText(/Đã xác minh: v1.0.0/)).not.toBeVisible();
   const definition = await createResponse.json();
   expect(definition.driverInputs.values.source.revision).toBe(commit);
   expect(definition.driverInputs.values.variables.label).toBe('browser-value');
@@ -61,7 +64,10 @@ try {
   expect(saved.driverInputs.values.source).toEqual(definition.driverInputs.values.source);
   await page.reload();
   await expect(page.locator('[data-definition="git-demo-definition"]')).toContainText('Git module edited');
-  // Installed module flow remains available after Git registration.
+  // New drafts return to Git; registered modules require an explicit switch.
+  await page.getByRole('button', { name: 'Tạo cấu hình', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Thêm từ Git', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
   await page.getByRole('combobox', { name: /^Loại tài nguyên/ }).selectOption('git-demo');
   await expect(page.getByRole('combobox', { name: /^Module đã kiểm chứng/ })).toContainText(`modules · ${commit.slice(0, 12)}`);
   console.log('PASS: Git tag → immutable commit/digest → typed inputs/mappings → create → reload/edit/CAS → installed module selection');

@@ -64,6 +64,7 @@ export const SCENARIOS = {
       await h.type(form('ID cấu hình (Definition ID)'), id);
       await h.type(form('Tên hiển thị'), name);
       await choose(form('Loại tài nguyên'), type);
+      await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
       await expect(form('Loại tài nguyên')).toHaveValue(type);
       if (module) {
         const pins = form('Module đã kiểm chứng');

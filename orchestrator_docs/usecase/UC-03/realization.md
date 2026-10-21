@@ -137,3 +137,7 @@ Catalog Create/Edit and editor breadcrumb change presentation only; save/CAS,
 metadata loaders, MatchingPreviewPanel and GitModuleSource lifetimes stay owned
 by the page. Numbered cards, overview and fixed actions reuse that state.
 Mapping and variable provenance disclosures retain existing converters/guards.
+
+Console khởi tạo/reset draft mới với nguồn Git và chỉ nhận pin sau inspect;
+module đã đăng ký là lựa chọn tường minh. Edit tiếp tục hydrate pin đã lưu,
+không đổi source hoặc lifecycle snapshot.

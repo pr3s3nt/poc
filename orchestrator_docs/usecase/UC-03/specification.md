@@ -349,7 +349,10 @@ Applications (AWS after V03.10); unscoped internal workloads need both refs.
   transitive contract và cache/persist verified bundle metadata. Không tạo/sửa
   Definition/criteria hoặc provision tài nguyên. Sau inspect mới dựng typed
   inputs/output/provider mappings từ cùng capability projection hiện hành.
-- **GIT-03:** Giữ lựa chọn module đã verified. Loại tài nguyên chưa có module vẫn
+- **GIT-03:** Tạo Definition mới mặc định dùng Git, không tự chọn module đóng
+  gói trong code. Sau đăng ký thành công hoặc reset, draft mới trở lại Git.
+  Sửa Definition giữ nguyên module/pin đã lưu qua lựa chọn verified; không
+  yêu cầu inspect lại hoặc đổi nguồn chỉ vì mở editor. Giữ lựa chọn module đã verified. Loại tài nguyên chưa có module vẫn
   được chọn để thêm từ Git. Save giữ immutable source pin hiện hành; server kiểm
   Type/mappings/accounts/CAS như cũ. Persisted resource/state/cleanup không đổi.
 - **GIT-04:** Thay URL/directory/ref/Type/mode làm stale kết quả inspect và chặn

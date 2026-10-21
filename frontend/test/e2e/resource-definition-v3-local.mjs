@@ -49,7 +49,7 @@ try {
   await page.getByLabel('ID cấu hình (Definition ID)', { exact: true }).fill('vthree-main');
   await page.getByLabel('Tên hiển thị', { exact: true }).fill('V3 Definition');
   await page.getByRole('combobox', { name: /^Loại tài nguyên/ }).selectOption('vthree');
-  await page.getByRole('button', { name: 'Thêm từ Git', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Thêm từ Git', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.getByLabel('Git HTTPS URL', { exact: true }).fill(source);
   await page.getByLabel('Thư mục module', { exact: true }).fill('modules');
   await page.getByLabel('Tag hoặc commit', { exact: true }).fill('v1.0.0');
@@ -175,6 +175,8 @@ try {
   expect(updatedResponse.status()).toBe(200);
   expect((await updatedResponse.json()).version).toBe(saved.version + 2);
   await page.getByRole('button', { name: 'Hủy sửa', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Thêm từ Git', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
   await page.getByLabel('ID cấu hình (Definition ID)', { exact: true }).fill('vthree-copy');
   await page.getByLabel('Tên hiển thị', { exact: true }).fill('Copy draft');
   await page.getByRole('combobox', { name: /^Loại tài nguyên/ }).selectOption('vthree');

@@ -3,8 +3,11 @@ package registry
 import (
 	"context"
 	"errors"
+	"io/fs"
+	"orchestrator/internal/domain/tfmodule"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -111,5 +114,76 @@ func TestInspectGitPinsUnlistedRemoteChildren(t *testing.T) {
 	}
 	if len(got.Contract.Transitive) != 1 || got.Contract.Transitive[0].Revision != commitB {
 		t.Fatalf("child not pinned: %+v", got.Contract.Transitive)
+	}
+}
+
+// Published modules retain trusted lifecycle semantics only for exact release
+// content and the corresponding Type; a Git path never grants those semantics.
+func TestInspectGitReleaseCopiesKeepLifecycleIdentity(t *testing.T) {
+	ctx := context.Background()
+	release, err := DefaultRelease()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, module := range release.Packaged.Modules {
+		t.Run(module.ID, func(t *testing.T) {
+			repo := map[string]string{}
+			err := fs.WalkDir(terraform.PackagedModules(), module.Subdirectory, func(path string, entry fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if entry.IsDir() {
+					return nil
+				}
+				data, err := fs.ReadFile(terraform.PackagedModules(), path)
+				repo["published/"+strings.TrimPrefix(path, module.Subdirectory+"/")] = string(data)
+				return err
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			f := newFixture(t, repo)
+			request := moduleregistry.GitInspection{ResourceType: module.ResourceTypes[0], URL: repoURL, Path: "published", Ref: commitA}
+			bundle, err := f.svc.InspectGit(ctx, request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if bundle.Ref.ModuleID != module.ID || bundle.Ref.SourceID == release.Packaged.SourceID || bundle.Ref.Revision != commitA || bundle.Ref.Subdirectory != "published" || bundle.Ref.ContentSHA256 != module.ContentSHA256 || bundle.Contract.SourceKind != tfmodule.SourceKindGit {
+				t.Fatalf("lost Git pin or release identity: %+v", bundle.Ref)
+			}
+			if strings.Join(bundle.Contract.ExecutorOutputs, ",") != strings.Join(module.ExecutorOutputs, ",") {
+				t.Fatalf("lost executor outputs: %v", bundle.Contract.ExecutorOutputs)
+			}
+			restarted, err := New(Config{Release: release, Cache: f.cache, Store: f.store, Packaged: terraform.PackagedModules(), Git: f.git})
+			if err != nil {
+				t.Fatal(err)
+			}
+			verified, err := restarted.Verify(ctx, bundle.Ref)
+			if err != nil || !reflect.DeepEqual(verified.Contract, bundle.Contract) {
+				t.Fatalf("release Git pin did not survive restart: %v", err)
+			}
+
+			request.ResourceType = "other-type"
+			other, err := f.svc.InspectGit(ctx, request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if other.Ref.ModuleID == module.ID || len(other.Contract.ExecutorOutputs) != 0 {
+				t.Fatal("content match granted semantics to a different Type")
+			}
+			request.ResourceType = module.ResourceTypes[0]
+			f.git.repos[repoURL][commitB] = map[string]string{}
+			for path, content := range repo {
+				f.git.repos[repoURL][commitB][path] = content + "\n# changed release content\n"
+			}
+			request.Ref = commitB
+			changed, err := f.svc.InspectGit(ctx, request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if changed.Ref.ModuleID == module.ID || len(changed.Contract.ExecutorOutputs) != 0 {
+				t.Fatal("modified Git content inherited release semantics")
+			}
+		})
 	}
 }

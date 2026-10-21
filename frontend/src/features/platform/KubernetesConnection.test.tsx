@@ -1,8 +1,8 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
-import { backend, completeDefinition, field, ready, submitDefinition } from '../../test/definitionKit';
+import { renderDefinition, backend, completeDefinition, field, ready, submitDefinition } from '../../test/definitionKit';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -13,7 +13,7 @@ describe('UC-03 V02 Kubernetes modules take no account', () => {
   it('shows the inherited cluster source instead of an account selector, and sends no account', async () => {
     const user = userEvent.setup();
     const { posted, gets } = backend();
-    await ready(<ResourceDefinitionsPage />, render);
+    await ready(<ResourceDefinitionsPage />, renderDefinition);
     await completeDefinition(user, { id: 'pg-in-cluster', type: 'postgres', module: 'postgres-k8s' });
     expect(screen.queryByLabelText('Tài khoản hạ tầng')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Vùng AWS')).not.toBeInTheDocument();
@@ -22,7 +22,7 @@ describe('UC-03 V02 Kubernetes modules take no account', () => {
     expect(section).toHaveTextContent('Module này không chọn tài khoản. Truy cập cluster được kế thừa từ tài nguyên phụ thuộc, không chọn lại tài khoản.');
     expect(section).toHaveTextContent('Nguồn cluster của provider kubernetes: cluster do node EKS cung cấp (class eks).');
     await submitDefinition(user);
-    expect(await screen.findByRole('status')).toHaveTextContent('pg-in-cluster');
+    expect(await screen.findByText(/^Đã đăng ký cấu hình tài nguyên/)).toHaveTextContent('pg-in-cluster');
     expect(posted[0]).not.toHaveProperty('driverAccount');
     expect(posted[0]).not.toHaveProperty('connectionKey');
     expect(gets.some((url) => url.endsWith('/connections'))).toBe(false);
@@ -31,7 +31,7 @@ describe('UC-03 V02 Kubernetes modules take no account', () => {
   it('shows the EKS class source for a resource binding and offers no Environment target', async () => {
     const user = userEvent.setup();
     backend();
-    await ready(<ResourceDefinitionsPage />, render);
+    await ready(<ResourceDefinitionsPage />, renderDefinition);
     await completeDefinition(user, { id: 'pg-eks', type: 'postgres', module: 'postgres-k8s', binding: { cluster: 'eks' } });
     expect(screen.getByRole('region', { name: 'Tài khoản và nguồn phụ thuộc' })).toHaveTextContent('Nguồn cluster của provider kubernetes: cluster do node EKS cung cấp (class eks).');
     const target = field('Cluster đích của provider kubernetes');
@@ -42,10 +42,10 @@ describe('UC-03 V02 Kubernetes modules take no account', () => {
   it('has no account selector for AWS-free Types and does not need the account list to register them', async () => {
     const user = userEvent.setup();
     const { posted } = backend({ accountsFail: true });
-    await ready(<ResourceDefinitionsPage />, render);
+    await ready(<ResourceDefinitionsPage />, renderDefinition);
     await completeDefinition(user, { id: 'ns-no-account', type: 'k8s-namespace' });
     await submitDefinition(user);
     await waitFor(() => expect(posted).toHaveLength(1));
-    expect(await screen.findByRole('status')).toHaveTextContent('ns-no-account');
+    expect(await screen.findByText(/^Đã đăng ký cấu hình tài nguyên/)).toHaveTextContent('ns-no-account');
   });
 });

@@ -185,3 +185,7 @@ không mất JSON đang sửa. Tạo mới khi đang edit hoặc Hủy sửa là
 như trước. Save bar bị khóa theo cùng saving/review state; không cho chuyển view
 trong write. ID/Name errors mở tab Cấu hình; actionable validation không bị mất
 trong disclosure. Details/help chỉ ẩn lời giải thích, không nới validation.
+
+Tạo mới, reset và sau đăng ký thành công mặc định ở Git; chưa inspect thì
+không chọn pin đóng gói và không Save. Module đã đăng ký cần chuyển mode
+tường minh. Edit giữ pin đã lưu, không tự chuyển sang Git.
