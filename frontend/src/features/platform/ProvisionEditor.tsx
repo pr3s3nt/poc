@@ -10,7 +10,7 @@ export function ProvisionEditor({ rows, onChange, disabled = false }: Props) {
   const patch = (id: number, change: Partial<ProvisionRow>) => onChange(rows.map((row) => (row.id === id ? { ...row, ...change } : row)));
   return <section className="catalog-fields" aria-label="Tài nguyên đi kèm">
     <div className="section-header"><div><h4>Tài nguyên đi kèm</h4>
-      <p className="feature-note">Mỗi quy tắc mô tả một tài nguyên được tạo cùng tài nguyên chứa Cấu hình này (consumer là bên dùng, provider là bên được dùng). Reference luôn đi theo chiều consumer → provider; form không tự Xem trước hay triển khai.</p></div>
+      <details className="definition-help"><summary>Về quan hệ phụ thuộc</summary><p className="feature-note">Mỗi quy tắc mô tả một tài nguyên được tạo cùng tài nguyên chứa Cấu hình này (consumer là bên dùng, provider là bên được dùng). Reference luôn đi theo chiều consumer → provider; form không tự Xem trước hay triển khai.</p></details></div>
       <Button type="button" disabled={disabled} onClick={() => onChange([...rows, newProvisionRow()])}>+ Thêm tài nguyên đi kèm</Button></div>
     {rows.length === 0 ? <p className="muted">Chưa có tài nguyên đi kèm.</p> : null}
     {rows.map((row, index) => <div key={row.id} className="provision-row">

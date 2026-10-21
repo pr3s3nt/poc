@@ -199,7 +199,7 @@ export function CriteriaEditor({ draft, onChange, applications, sources, resourc
 
     <div className="criteria-summary" role="group" aria-label="Tóm tắt phạm vi áp dụng">
       <h4>Phạm vi áp dụng</h4>
-      {problem ? <p>Chưa đủ thông tin để tóm tắt phạm vi.</p> : <ul>{criteria.map((item, index) => <li key={index}>{describeRow(item, applications.items)}</li>)}</ul>}
+      {problem ? <p>Chưa đủ thông tin để tóm tắt phạm vi.</p> : rules ? <>{criteria.map((item, index) => <div className="criteria-summary-case" key={index}><small>Trường hợp {index + 1}</small>{Object.keys(item).length === 0 ? <p>Mọi nơi (không giới hạn)</p> : fields.filter(({ key }) => item[key] !== undefined).map(({ key }) => <p key={key}>{describeRow({ [key]: item[key] ?? '' }, applications.items)}</p>)}</div>)}<p className="criteria-summary-note">Các điều kiện chỉ quyết định khi nào cấu hình được chọn.</p></> : <ul>{criteria.map((item, index) => <li key={index}>{describeRow(item, applications.items)}</li>)}</ul>}
     </div>
 
     {overlaps.length > 0 ? <div role="group" aria-label="Cảnh báo nguy cơ chồng lấn" className="form-warning">Điều kiện này có thể chồng lấn với {overlaps.map((item) => item.key).join(', ')}: cùng Loại tài nguyên và các điều kiện không loại trừ nhau. Đây chỉ là cảnh báo nguy cơ từ giao diện; chỉ “Kiểm tra matching” trên máy chủ mới cho biết cấu hình thắng, hòa hay không khớp.</div> : null}

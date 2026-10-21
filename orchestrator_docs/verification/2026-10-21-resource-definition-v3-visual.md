@@ -76,3 +76,42 @@ running; no user service, tmux or cluster session was stopped.
 
 No fullsuite, database persistence or deploy/cloud acceptance outside issue #8.
 User-owned untracked `frontend/test/e2e/deploy-kind-demo.mjs` remains untouched.
+
+## Follow-up against the user's live reference
+
+The user supplied `http://100.77.224.24:18088/?review=v3`. Chromium opened the
+page, exercised advanced Form/JSON and the matching tab, and captured all three
+views at 1440×1100. Downloaded HTML matches the preserved v3 file except for
+`/advanced.js` versus `./advanced.js`; this is the same visual reference.
+
+Further correction after `59e7dc5`: remove per-variable boxes; show actual module
+defaults/inherited sources in disabled read-only fields without adding overrides;
+use one advanced mode toolbar and separate labeled mapping/provision JSON objects;
+convert both atomically using existing converters. Stored unrepresentable sections
+open both in JSON, preserving unknown valid fields. Conversion errors retain both
+texts and cannot overwrite a JSON section with fallback form rows. Group actual
+criteria by case; quiet full-document review and dependency help; use the existing
+light sidebar wordmark. Create identity fields now live under Configuration.
+
+Validation for this follow-up: 127 tests across DefinitionV3, Definition form,
+typed variables, CriteriaEditor and RenderingTemplates PASS. Tests retain the
+invalid mapping/provision text and assert atomic mode switching; the stored
+unrepresentable provision regression additionally verifies failed conversion and
+re-selecting JSON keep both objects intact. The typed omission test also checks
+that metadata-default preview controls are disabled. Focused App T04 routing and
+typed/stored regression reruns (6/6 and 1/1), production build/typecheck,
+changed-file lint, docs checker and whitespace check PASS. App T04: 6/6 PASS;
+27 unrelated cases were excluded by the filter. The old unsupported-Type
+expectation for postgres-ha was stale against GIT-03/06: a known Type awaiting
+its first module may be prefilled. The corrected case also asserts no POST and
+Git registration blocked until inspect; no product guard was relaxed.
+
+The isolated real HTTP/Git browser scenario PASS again (create/edit/CAS/reload,
+unequal names, params/flags, Form/JSON/invalid drafts, rules/copy/matching,
+keyboard/mobile and shared renderer). The live tailnet pg-kind view was checked
+read-only at desktop/mobile; no live Save, inspect or matching POST. Screenshots
+include `user-reference-{configuration,advanced,matching}.png` and final product
+views in `/tmp/issue8-visual-review/`. These are manual visual comparisons and
+geometry assertions, not automated pixel-equality tests. Module-specific fields
+come from real metadata, so their number/content differs from the synthetic AWS
+PostgreSQL example. User visual review remains pending.

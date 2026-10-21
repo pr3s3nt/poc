@@ -66,7 +66,7 @@ try {
   await page.getByLabel('Output module cung cấp title', { exact: true }).selectOption('name');
   await page.getByLabel('Ghi đè label', { exact: true }).check();
   await page.getByLabel('Giá trị label', { exact: true }).fill('literal fallback');
-  await page.getByRole('button', { name: 'Ánh xạ: JSON nâng cao', exact: true }).click();
+  await page.getByRole('button', { name: 'Nâng cao: JSON nâng cao', exact: true }).click();
   const mappings = page.getByLabel('Ánh xạ module JSON', { exact: true });
   const originalMappings = await mappings.inputValue();
   await mappings.fill('{invalid');
@@ -77,21 +77,21 @@ try {
   await page.keyboard.press('ArrowLeft');
   await expect(config()).toBeFocused();
   await expect(mappings).toHaveValue('{invalid');
-  await page.getByRole('button', { name: 'Ánh xạ: biểu mẫu', exact: true }).click();
+  await page.getByRole('button', { name: 'Nâng cao: biểu mẫu', exact: true }).click();
   await expect(mappings).toHaveValue('{invalid');
   await mappings.fill(originalMappings);
-  await page.getByRole('button', { name: 'Ánh xạ: biểu mẫu', exact: true }).click();
+  await page.getByRole('button', { name: 'Nâng cao: biểu mẫu', exact: true }).click();
   await page.getByRole('button', { name: '+ Thêm tài nguyên đi kèm', exact: true }).click();
   await page.getByLabel('Descriptor tài nguyên đi kèm 1', { exact: true }).fill('vthree.audit#shared.companion');
   await page.getByLabel('Params tài nguyên đi kèm 1 (JSON object)', { exact: true }).fill('{"message":"${context.env.id}"}');
   await page.getByLabel('Tài nguyên đi kèm 1 phụ thuộc vào tài nguyên cha (is_dependent)', { exact: true }).check();
   await page.getByLabel('Nối consumer của tài nguyên cha tới tài nguyên đi kèm 1 (match_dependents)', { exact: true }).check();
-  await page.getByRole('button', { name: 'Quy tắc: JSON nâng cao', exact: true }).click();
+  await page.getByRole('button', { name: 'Nâng cao: JSON nâng cao', exact: true }).click();
   const provisionJSON = page.getByLabel('Quy tắc tạo tài nguyên liên quan (JSON object)', { exact: true });
   const provision = JSON.parse(await provisionJSON.inputValue());
   provision['vthree.audit#shared.companion'].match_dependents = false;
   await provisionJSON.fill(JSON.stringify(provision));
-  await page.getByRole('button', { name: 'Quy tắc: biểu mẫu', exact: true }).click();
+  await page.getByRole('button', { name: 'Nâng cao: biểu mẫu', exact: true }).click();
   await expect(page.getByLabel('Nối consumer của tài nguyên cha tới tài nguyên đi kèm 1 (match_dependents)', { exact: true })).not.toBeChecked();
   // Add/remove rows without changing the kept rule.
   await page.getByRole('button', { name: '+ Thêm tài nguyên đi kèm', exact: true }).click();

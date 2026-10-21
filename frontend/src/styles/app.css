@@ -288,3 +288,43 @@ a { color: inherit; }
 .definition-module > .field-grid { grid-template-columns:minmax(0,1fr); }
 .definition-module [aria-label="Thêm module từ Git"] .field-grid > label:first-child { grid-column:1 / -1; }
 .definition-module [aria-label="Thêm module từ Git"] > .button { justify-self:start; }
+
+/* v3 detail density: keep the actual opt-in semantics without a card per variable. */
+.definition-page .typed-variables { gap:18px 20px; align-items:start; }
+.definition-page .typed-variable { padding:0; border:0; border-radius:0; gap:4px; }
+.definition-page .typed-variable-toggle code { font-family:inherit; font-size:14px; }
+.definition-page .typed-variable-toggle .status-pill { font-size:10px; font-weight:400; }
+.definition-page .typed-variable-help { margin:0; }
+.definition-page .typed-variable-control > label { font-size:12px; font-weight:400; }
+.definition-page .definition-parameters > .catalog-fields > .section-header h3,
+.definition-page .definition-advanced h3 { font-size:16px; }
+.definition-page .definition-parameters > .catalog-fields[aria-label="Tham số cấu hình"] { border-top:1px solid var(--border-muted); padding-top:18px; }
+.definition-advanced-toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin:0 24px 18px; }
+.definition-advanced-toolbar p { margin:0; }
+.definition-page .definition-advanced > .catalog-fields { margin:0 24px 20px; }
+.definition-page .definition-advanced .mapping-group:first-child { padding-top:18px; }
+.definition-page .definition-advanced .mapping-row { padding:10px 0; }
+.definition-page .definition-advanced .mapping-group > .section-header .button { font-size:11px; font-weight:400; }
+.definition-page .definition-advanced [aria-label="Tài nguyên đi kèm"] { border:0; padding:0; }
+.definition-page .definition-advanced .provision-row { background:var(--canvas); border-color:var(--border); padding:16px; border-radius:var(--radius); }
+.definition-page .definition-advanced .provision-row > .button { justify-self:end; color:var(--red); }
+.definition-page .definition-review { border:0; background:transparent; padding:0; max-width:854px; }
+.definition-page .definition-review > summary { padding:14px 0; font-size:13px; border-top:1px solid var(--border-muted); }
+.definition-page .criteria-editor-rules { row-gap:0; column-gap:20px; }
+.definition-page .criteria-editor-rules > .section-header { margin-bottom:24px; }
+.definition-page .criteria-editor-rules > details { border-bottom:1px solid var(--border-muted); border-top:0; padding:0; }
+.definition-page .criteria-editor-rules > details > summary { padding:16px 0; }
+.definition-page .criteria-editor-rules > .criteria-cases { margin-bottom:24px; }
+.definition-page .criteria-editor-rules > .criteria-summary { padding:20px; }
+.definition-page .criteria-summary h4 { margin:0 0 24px; font-size:13px; text-transform:uppercase; }
+.definition-page .criteria-summary-case { border-bottom:1px solid var(--border-muted); padding-bottom:12px; margin-bottom:18px; }
+.definition-page .criteria-summary-case > small { display:block; color:var(--muted); font-size:10px; text-transform:uppercase; margin-bottom:8px; }
+.definition-page .criteria-summary-case > p { font-size:13px; line-height:1.6; white-space:pre-wrap; }
+.definition-page .criteria-summary-note { font-size:13px; color:var(--muted); line-height:1.8; }
+.definition-page .definition-create-identity { margin:0; }
+@media (min-width:1161px) { .definition-page .criteria-editor-rules { grid-template-columns:minmax(0,1fr) 226px; } }
+@media (max-width:760px) { .definition-advanced-toolbar { margin:0 18px 18px; }.definition-page .definition-advanced > .catalog-fields { margin:0 18px 18px; }.definition-page .definition-parameters .section-header { align-items:start; gap:12px; } }
+.definition-page .typed-variable > .typed-variable-help { order:3; }
+.definition-page .typed-variable > .typed-variable-preview { color:var(--muted); background:var(--canvas); opacity:1; }
+.definition-page .definition-module > details > summary { color:var(--muted); font-size:12px; cursor:pointer; }
+.definition-page .definition-advanced .mapping-group:first-child { border-top:0; padding-top:0; }

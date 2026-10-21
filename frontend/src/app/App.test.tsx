@@ -284,7 +284,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       expect(requests.filter((request) => request.method === 'POST')).toEqual([]);
     });
 
-    it.each(['/ui/platform/resource-definitions', '/ui/platform/resource-definitions?resourceType=postgres-ha', '/ui/platform/resource-definitions?resourceType=workload', '/ui/platform/resource-definitions?resourceType=nope'])('selects nothing for deep link %s', async (path) => {
+    it.each(['/ui/platform/resource-definitions', '/ui/platform/resource-definitions?resourceType=workload', '/ui/platform/resource-definitions?resourceType=nope'])('selects nothing for deep link %s', async (path) => {
       authenticated = true;
       window.history.replaceState({}, '', path);
       override = catalog;
@@ -292,6 +292,18 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       if (path === '/ui/platform/resource-definitions') await userEvent.setup().click(await screen.findByRole('button', { name: 'Tạo cấu hình' }));
       await screen.findByRole('option', { name: 'vpc' });
       expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('');
+    });
+
+    it('prefills a catalog type awaiting its first Git module and keeps Git registration blocked until inspection', async () => {
+      authenticated = true;
+      window.history.replaceState({}, '', '/ui/platform/resource-definitions?resourceType=postgres-ha');
+      override = catalog;
+      render(<App />);
+      await waitFor(() => expect(screen.getByLabelText('Loại tài nguyên')).toHaveValue('postgres-ha'));
+      expect(screen.getByRole('button', { name: 'Thêm từ Git' })).toBeEnabled();
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Thêm từ Git' }));
+      expect(screen.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên' })).toBeDisabled();
+      expect(requests.filter((request) => request.method === 'POST')).toEqual([]);
     });
 
     it('selects a supported type from a deep link and keeps the choice when the user navigates away and back without a query', async () => {

@@ -21,6 +21,9 @@ describe('T31 typed Definition variables over verified pins', () => {
     // Nothing is sent for an optional variable or a param until the author opts in.
     expect(screen.queryByLabelText('Giá trị storage')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Giá trị database')).not.toBeInTheDocument();
+    expect(field('Giá trị kế thừa storage')).toBeDisabled();
+    expect(field('Giá trị kế thừa storage')).toHaveValue('1Gi');
+    expect(field('Giá trị kế thừa database')).toBeDisabled();
     expect(screen.getAllByText(/Param thật của workload luôn được ưu tiên hơn giá trị dự phòng/).length).toBe(2);
     await user.click(field('Ghi đè storage'));
     await user.clear(field('Giá trị storage'));
@@ -125,9 +128,9 @@ describe('T31 typed Definition variables over verified pins', () => {
     await user.type(field('Descriptor tài nguyên đi kèm 1'), 'vpc.default#@infra');
     await user.click(field('Tài nguyên đi kèm 1 phụ thuộc vào tài nguyên cha (is_dependent)'));
     await user.click(field('Nối consumer của tài nguyên cha tới tài nguyên đi kèm 1 (match_dependents)'));
-    await user.click(screen.getByRole('button', { name: 'Quy tắc: JSON nâng cao' }));
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: JSON nâng cao' }));
     expect(JSON.parse((field('Quy tắc tạo tài nguyên liên quan (JSON object)') as HTMLTextAreaElement).value)).toEqual({ 'vpc.default#@infra': { is_dependent: true, match_dependents: true } });
-    await user.click(screen.getByRole('button', { name: 'Quy tắc: biểu mẫu' }));
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: biểu mẫu' }));
     expect(field('Descriptor tài nguyên đi kèm 1')).toHaveValue('vpc.default#@infra');
     expect(field('Tài nguyên đi kèm 1 phụ thuộc vào tài nguyên cha (is_dependent)')).toBeChecked();
     await submitDefinition(user);

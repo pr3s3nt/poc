@@ -995,3 +995,11 @@ Real HTTP browser assertions cover catalog hidden in detail, overview to the
 right, fixed bar geometry, resume draft and CAS409 after navigation, plus mobile.
 [Visual correction evidence](../verification/2026-10-21-resource-definition-v3-visual.md)
 qualifies the earlier functional-only acceptance.
+
+Issue #8 visual follow-up: UI3-02 maps to the single atomic advanced toolbar in
+ResourceDefinitionsPage and disabled metadata previews in TypedVariablesEditor.
+DefinitionV3/TypedDefinitionForm and stored-provision regression assert failed
+conversion preserves both JSON drafts, unknown fields and omission semantics.
+UI3-04 case summaries retain the legacy renderer projection; CriteriaEditor and
+RenderingTemplates tests cover the shared consumers. The same visual evidence
+records comparison with the explicit user-supplied live v3 URL.

@@ -426,7 +426,7 @@ compilation cover the affected final content, with unchanged prior checks reused
 No current tests/guards removed to force pass; old tagged transition-only test
 retired with its unsupported feature. No further work remains for these deviations.
 
-## IMP-023 — Resource Definition v3 visual fidelity (resolved 2026-10-21)
+## IMP-023 — Resource Definition v3 visual fidelity (follow-up correction 2026-10-21)
 
 Review of commit `1b4a486` against the preserved v3 HTML found the editor still
 embedded beneath catalog/cluster sections, without configuration cards/overview
@@ -439,3 +439,15 @@ Resolution: focused catalog/detail views, numbered configuration cards and real
 overview, aligned mapping rows, optional help and fixed action bar. Functional
 guards/converters retained; desktop/mobile browser geometry and same-viewport
 visual review complement existing tests. See [visual correction evidence](../verification/2026-10-21-resource-definition-v3-visual.md).
+
+Follow-up user review: `59e7dc5` improves composition but still has boxed variable
+options, separate advanced mode toolbars, duplicate companion section chrome,
+and a bullet-only scope summary. Reopen visual acceptance; compare all three
+preserved views and live tailnet rendering before reporting the correction.
+
+Follow-up correction: one atomic advanced Form/JSON toolbar, compact variable
+fields with read-only metadata defaults/provenance, grouped case summary, quiet
+review/help and the existing light sidebar wordmark. The user-supplied live
+reference `http://100.77.224.24:18088/?review=v3` was opened and exercised; its
+HTML differs from the preserved file only in the advanced.js URL. Existing
+contract tests and real HTTP browser checks pass; user visual review is pending.

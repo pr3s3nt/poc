@@ -14,7 +14,7 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <a className="wordmark" href={href({ name: 'applications' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'applications' }); }}>
+        <a className="wordmark wordmark-light" href={href({ name: 'applications' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'applications' }); }}>
           <span className="wordmark-mark">◆</span> Orchestrator
         </a>
         <nav className="nav" aria-label="Điều hướng chính">

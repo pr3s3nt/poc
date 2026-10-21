@@ -21,6 +21,11 @@ Không thay backend/API, source/module pins, secret/account/CAS hay execution
 contract; không dùng v4/Usage/Humanitec DTO. Bản sửa visual tách catalog/detail,
 card module + tài khoản/thông số, overview desktop, mapping theo hàng và Save
 bar cố định; quay lại catalog có Tiếp tục bản nháp giữ CAS/draft.
+Lượt đối chiếu URL v3 người dùng bổ sung: một thanh Form/JSON nâng cao chuyển
+đồng thời mapping/provision, giữ JSON khi converter không biểu diễn được; ô
+xem mặc định metadata chỉ đọc, ghi đè vẫn opt-in; scope summary theo trường hợp.
+Kiểm tra lại 127 tests component/editor chịu ảnh hưởng và browser HTTP/Git PASS;
+user visual review còn chờ phản hồi.
 Frontend 215 tests component/editor và 6 tests điều hướng chịu ảnh hưởng,
 typecheck, changed-file lint/build, docs và browser HTTP/Git create/edit/CAS/
 reload/mapping/provision/copy/matching/keyboard/mobile PASS. Catalog browser dùng

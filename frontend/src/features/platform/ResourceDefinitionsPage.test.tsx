@@ -310,7 +310,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await ready();
     await completeDefinition(user, { id: 'pg-roundtrip', type: 'postgres', module: 'postgres-k8s', binding: { cluster: 'eks' } });
     await openAdvanced(user);
-    await user.click(screen.getByRole('button', { name: 'Ánh xạ: JSON nâng cao' }));
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: JSON nâng cao' }));
     const expected = {
       input_mapping: { database: { param: 'database' }, username: { param: 'username' } },
       output_mapping: { host: 'host', port: 'port', database: 'database', username: 'username', password: 'password' },
@@ -318,28 +318,28 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     };
     expect(JSON.parse((field('Ánh xạ module JSON') as HTMLTextAreaElement).value)).toEqual(expected);
     await openAdvanced(user);
-    await user.click(screen.getByRole('button', { name: 'Ánh xạ: biểu mẫu' }));
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: biểu mẫu' }));
     expect(field('Biến module nhận tham số database')).toHaveValue('database');
     expect(field('Class cluster EKS của provider kubernetes')).toHaveValue('eks');
     // A cluster reference outside the published classes cannot be shown by the controls.
     await openAdvanced(user);
-    await user.click(screen.getByRole('button', { name: 'Ánh xạ: JSON nâng cao' }));
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: JSON nâng cao' }));
     const box = field('Ánh xạ module JSON');
     const custom = JSON.stringify({ ...expected, provider_bindings: { kubernetes: { target: 'resource', resource_ref: 'k8s-cluster.other#environments.@app.@env' } } });
     fireEvent.change(box, { target: { value: custom } });
     await openAdvanced(user);
-    await user.click(screen.getByRole('button', { name: 'Ánh xạ: biểu mẫu' }));
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: biểu mẫu' }));
     expect(screen.getByText(/không biểu diễn an toàn bằng control/)).toBeInTheDocument();
     expect(field('Ánh xạ module JSON')).toHaveValue(custom);
     // Unknown module variable: kept in the JSON, never dropped.
     fireEvent.change(field('Ánh xạ module JSON'), { target: { value: JSON.stringify({ ...expected, input_mapping: { missing_var: { param: 'database' } } }) } });
     await openAdvanced(user);
-    await user.click(screen.getByRole('button', { name: 'Ánh xạ: biểu mẫu' }));
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: biểu mẫu' }));
     expect(screen.getByText(/Biến "missing_var" không có trong module đã chọn/)).toBeInTheDocument();
     // Invalid JSON never converts and never loses the text.
     fireEvent.change(field('Ánh xạ module JSON'), { target: { value: '{bad' } });
     await openAdvanced(user);
-    await user.click(screen.getByRole('button', { name: 'Ánh xạ: biểu mẫu' }));
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: biểu mẫu' }));
     expect(screen.getAllByText(/phải là JSON hợp lệ/).length).toBeGreaterThan(0);
     expect(field('Ánh xạ module JSON')).toHaveValue('{bad');
   });
@@ -350,7 +350,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     await ready();
     await completeDefinition(user, { id: 'ns-json', type: 'k8s-namespace' });
     await openAdvanced(user);
-    await user.click(screen.getByRole('button', { name: 'Ánh xạ: JSON nâng cao' }));
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: JSON nâng cao' }));
     fireEvent.change(field('Ánh xạ module JSON'), { target: { value: '{"output_mapping":{"name":"name"},"provider_bindings":{"kubernetes":{"target":"resource","resource_ref":"k8s-cluster.eks#environments.@app.@env"}},"region":"x"}' } });
     await submitDefinition(user);
     expect(await screen.findByRole('alert')).toHaveTextContent('không nhận "region"');
@@ -495,7 +495,7 @@ describe('UC-03 Definition form states and errors', () => {
     await user.click(screen.getByRole('button', { name: 'Tham số: JSON nâng cao' }));
     fireEvent.change(field('Tham số cấu hình (JSON object)'), { target: { value: '{bad' } });
     await openAdvanced(user);
-    await user.click(screen.getByRole('button', { name: 'Ánh xạ: JSON nâng cao' }));
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: JSON nâng cao' }));
     await submitDefinition(user);
     expect(await screen.findByRole('alert')).toHaveTextContent('phải là JSON hợp lệ');
     expect(posted).toHaveLength(0);
@@ -1041,10 +1041,10 @@ describe('UC-03 V02 Definition edit', () => {
     expect(screen.getAllByText(/Đảo vai trò: tài nguyên đi kèm \(consumer\) phụ thuộc vào tài nguyên cha \(provider\)/)).toHaveLength(2);
     // Form -> advanced JSON -> form keeps everything, including the explicit false flag and empty params.
     await openAdvanced(user);
-    await user.click(screen.getByRole('button', { name: 'Quy tắc: JSON nâng cao' }));
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: JSON nâng cao' }));
     expect(JSON.parse((field('Quy tắc tạo tài nguyên liên quan (JSON object)') as HTMLTextAreaElement).value)).toEqual(provision);
     await openAdvanced(user);
-    await user.click(screen.getByRole('button', { name: 'Quy tắc: biểu mẫu' }));
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: biểu mẫu' }));
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
     await waitFor(() => expect(puts).toHaveLength(1));
     expect(puts[0]?.body.provision).toEqual(provision);
@@ -1065,8 +1065,14 @@ describe('UC-03 V02 Definition edit', () => {
     const user = userEvent.setup();
     const provision = { 'redis.cache#shared.cache': { is_dependent: true, extra: { kept: 1 } } };
     const { puts } = await openEditor(user, { definitions: [stored({ provision })] });
-    expect(screen.getByRole('button', { name: 'Quy tắc: JSON nâng cao' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Nâng cao: JSON nâng cao' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText(/biểu mẫu không biểu diễn/)).toBeInTheDocument();
+    expect(JSON.parse((field('Quy tắc tạo tài nguyên liên quan (JSON object)') as HTMLTextAreaElement).value)).toEqual(provision);
+    const mappingJSON = (field('Ánh xạ module JSON') as HTMLTextAreaElement).value;
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: biểu mẫu' }));
+    expect(field('Ánh xạ module JSON')).toHaveValue(mappingJSON);
+    expect(JSON.parse((field('Quy tắc tạo tài nguyên liên quan (JSON object)') as HTMLTextAreaElement).value)).toEqual(provision);
+    await user.click(screen.getByRole('button', { name: 'Nâng cao: JSON nâng cao' }));
     expect(JSON.parse((field('Quy tắc tạo tài nguyên liên quan (JSON object)') as HTMLTextAreaElement).value)).toEqual(provision);
     await user.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
     await waitFor(() => expect(puts).toHaveLength(1));

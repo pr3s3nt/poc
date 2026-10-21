@@ -198,3 +198,11 @@ secret classification remain visible, detailed explanations are disclosures.
 Matching rows are compact with the scope summary alongside them. Save actions
 stay visible in a bottom bar. Responsive layouts keep all tasks accessible.
 No synthetic defaults, inspector/matching results or backend changes.
+
+The advanced card has one shared Form/JSON toolbar for mappings and provision,
+with separate labeled JSON objects under the existing contract. Switching is
+atomic: either both existing converters succeed or both drafts stay in their
+current representation with actionable errors. Variables retain explicit opt-in
+overrides in a compact unboxed grid; read-only fields show metadata defaults or
+inherited sources without inserting values into the submitted draft. Scope summary groups actual conditions by
+case; full-payload review remains a quiet disclosure.
