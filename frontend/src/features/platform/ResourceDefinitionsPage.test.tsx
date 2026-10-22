@@ -249,7 +249,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/Chọn nhóm cluster cho provider kubernetes/);
     expect(posted).toEqual([]);
     expect(field('Nhóm cluster của provider kubernetes')).toHaveValue('');
-    expect(within(field('Phạm vi cluster của provider kubernetes')).getAllByRole('option')).toHaveLength(1);
+    expect(screen.queryByLabelText(/Phạm vi cluster/)).not.toBeInTheDocument();
     const classes = within(field('Nhóm cluster của provider kubernetes')).getAllByRole('option').map((option) => option.getAttribute('value'));
     expect(classes).toEqual(['', 'eks']);
     await user.selectOptions(field('Nhóm cluster của provider kubernetes'), 'eks');

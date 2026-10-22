@@ -25,7 +25,6 @@ type Props = {
 };
 
 const accountLabel = (account: Account) => (account.name && account.name !== account.key ? `${account.name} (${account.key})` : account.key);
-const environmentScope = 'environments.@app.@env';
 
 export function InfrastructureConnection({ capability, accountRequired, accounts, account, region, regionRequired, onAccount, onRegion, mapping, mappingEditable, clusterClasses, onBinding, problems, disabled = false }: Props) {
   const providers = bindingProviders(capability);
@@ -64,9 +63,8 @@ export function InfrastructureConnection({ capability, accountRequired, accounts
               <option value="">Chưa chọn</option>
               {binding.clusterClass && !clusterClasses.includes(binding.clusterClass) ? <option value={binding.clusterClass}>{binding.clusterClass} (không còn trong metadata)</option> : null}
               {clusterClasses.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-            <label>Phạm vi cluster<select aria-label={`Phạm vi cluster của provider ${provider.name}`} value={environmentScope} disabled={disabled || !mappingEditable} onChange={() => undefined}>
-              <option value={environmentScope}>Cùng ứng dụng và môi trường</option></select></label></div>
-          <div className="connection-note"><strong>✓ Dùng thông tin truy cập từ cluster</strong><span>Không nhập tài khoản, token hoặc kubeconfig ở đây. Cluster cụ thể được xác định khi Preview.</span></div>
+          </div>
+          <div className="connection-note"><strong>✓ Dùng thông tin truy cập từ cluster</strong><span>Không nhập tài khoản, token hoặc kubeconfig ở đây. Cluster của chính ứng dụng và môi trường này được hệ thống tự xác định khi Preview.</span></div>
           {clusterClasses.length === 0 ? <p className="feature-note" role="note">Danh mục chưa công bố class nào cho Loại k8s-cluster; chưa chọn được cluster.</p> : null}
           {!mappingEditable ? <p className="feature-note" role="note">Ánh xạ module đang chỉnh bằng JSON nâng cao; chuyển về Biểu mẫu để chọn nguồn cluster ở đây.</p> : null}
           {problem ? <span className="form-error" role="note">{problem}</span> : null}

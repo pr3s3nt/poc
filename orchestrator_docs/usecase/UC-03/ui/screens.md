@@ -217,7 +217,7 @@ UI11-01..05 thay phần 2 “Tài khoản & thông số” và “Tài nguyên �
 các phần khác của form giữ nguyên. Chỉ desktop.
 
 Phần 2 mở đầu bằng thẻ “Kết nối AWS” (Tài khoản READY + Vùng) hoặc “Kết nối
-Kubernetes” (Nhóm cluster/class + Phạm vi cluster + ghi chú dùng thông tin truy
+Kubernetes” (Nhóm cluster/class + ghi chú dùng thông tin truy
 cập từ cluster) cho từng provider theo metadata. Tiếp theo là “Thông số tài
 nguyên”: thẻ cho thông số cần cung cấp/ánh xạ (viền cảnh báo khi thiếu), nhóm
 thu gọn “Thông số có mặc định” và “Thông số tùy chọn”, nhóm “Hệ thống tự cung

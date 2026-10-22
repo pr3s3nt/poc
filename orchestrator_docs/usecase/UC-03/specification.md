@@ -409,7 +409,7 @@ mọi validation và guard khác giữ nguyên.
 - **UI11-01 (Kết nối hạ tầng):** Phần 2 “Tài khoản & thông số” có một vùng kết
   nối cho từng provider mà metadata capability công bố. Provider AWS dùng một
   Tài khoản READY đúng loại và một Vùng literal (không lặp ở thông số).
-  Provider Kubernetes chọn nguồn cluster (Resource Type, class, phạm vi) theo
+  Provider Kubernetes chọn nguồn cluster (class; phạm vi luôn là cùng ứng dụng và môi trường, không có ô chọn) theo
   contract binding đã công bố và dùng thông tin truy cập của cluster, không nhập
   token/kubeconfig/endpoint. Ô kết nối và `provider_bindings` dùng một draft và
   một serializer; JSON nâng cao không biểu diễn được thì vùng kết nối chỉ đọc.

@@ -35,9 +35,7 @@ describe('UC-03 V02 Kubernetes modules take no account', () => {
     await ready(<ResourceDefinitionsPage />, renderDefinition);
     await completeDefinition(user, { id: 'pg-eks', type: 'postgres', module: 'postgres-k8s', binding: { cluster: 'eks' } });
     expect(field('Nhóm cluster của provider kubernetes')).toHaveValue('eks');
-    const scope = field('Phạm vi cluster của provider kubernetes');
-    expect(within(scope).getByRole('option', { name: 'Cùng ứng dụng và môi trường' })).toBeInTheDocument();
-    expect(within(scope).getAllByRole('option')).toHaveLength(1);
+    expect(screen.queryByLabelText(/Phạm vi cluster/)).not.toBeInTheDocument();
     expect(within(field('Nhóm cluster của provider kubernetes')).queryByRole('option', { name: /Môi trường|Environment/i })).not.toBeInTheDocument();
   });
 
