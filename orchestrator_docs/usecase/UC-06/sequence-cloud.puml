@@ -56,4 +56,10 @@ Acceptance verification repeats this operation for
 backend, worker and frontend through existing forms.
 Then browser submits job and verifies PostgreSQL + Redis use.
 end note
+note over Service, Renderer
+ADR-019 / REV-*: admission binds request correlation;
+immutable Plan stores safe desired review.
+After render validation, capture sanitized manifest before Apply;
+only workload READY establishes applied baseline.
+end note
 @enduml

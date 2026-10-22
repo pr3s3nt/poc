@@ -138,4 +138,12 @@ Resolve EKS after provision; fresh scoped auth per invocation.
 API/auth/network/Ready capacity before consumers.
 No token, kubeconfig, temporary path or host fallback.
 end note
+class ReviewRedactor <<control>>
+class DeploymentReview <<value>>
+DeploymentService --> ReviewRedactor : sanitized capture after validation
+DeploymentPlan ..> DeploymentReview : desired review at admission
+note right of ReviewRedactor
+Execution manifest bytes remain unchanged.
+Rendered review becomes applied baseline only after READY.
+end note
 @enduml

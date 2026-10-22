@@ -2,7 +2,7 @@
 id: WORKLOAD-RENDERING-CONTRACT
 artifact: operation-contract
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-23
 ---
 
 # Definition-selected workload rendering — contract
@@ -272,3 +272,16 @@ never a global last cluster, profile or Environment account. Outputs/Secret refs
 are validated before rendering and API/auth/network/node readiness precedes apply.
 The full acceptance frontend/backend/worker workload uses real shared PostgreSQL/
 Redis outputs, existing job UI and cache TTL/refill semantics, with no fake checks.
+
+## Offline Preview capability — ADR-019
+
+[Review contract](deployment-review.md) defines a narrowly scoped preview
+capability using this same selected bundle, normalization and platform policy.
+Execution Render still requires completed outputs. Preview may use typed
+symbolic bindings outside DB transactions and without credential/provider/fetch
+access; it returns partial/unavailable when exact structure is unknown. It must
+not dispatch a substitute YAML generator. Public code is always a sanitized
+projection; raw execution manifests remain private. UC-06 stores a safe rendered
+projection before apply without changing execution bytes or readiness policy.
+This supersedes only the blanket no-render-preview wording in UC-05 BR-04/10,
+not the no-provisioning, no-secret-resolution or pin-consistency constraints.

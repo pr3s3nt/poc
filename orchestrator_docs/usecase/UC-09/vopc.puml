@@ -57,4 +57,16 @@ Detail includes UNREFERENCED resources after workload removal.
 Persisted safe metadata only; no provider refresh.
 Mutation belongs to UC-07.
 end note
+class NodeProgressProjector <<control>>
+class NodeProgress <<value>>
+class DeploymentReview <<value>>
+DeploymentViewAssembler --> NodeProgressProjector
+NodeProgressProjector ..> NodeProgress
+DeploymentView ..> NodeProgress
+DeploymentView ..> DeploymentReview
+note right of NodeProgressProjector
+Derived display states only; persisted evidence wins.
+READINESS != READY. Missing data is UNKNOWN.
+No provider refresh or simulated progress.
+end note
 @enduml

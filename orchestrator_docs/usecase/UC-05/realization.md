@@ -2,7 +2,7 @@
 id: UC-05-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-23
 ---
 
 # UC-05 — Use Case Realization
@@ -125,3 +125,26 @@ only after dependencies pass. Failure blocks consumers and preserves progress.
 Cleanup walks reverse actual graph using original state/module/identity and
 ownership/UID guards, protecting shared/preexisting objects. See cloud sequence
 and module/state contracts for target and secret boundaries.
+
+## Visual review collaboration (VIS-01..08)
+
+`PreviewService` / pending `PreviewDesired` capture one PlanningSnapshot plus
+baseline artifact associations, run shared PlanningService, then close its read
+transaction. `DeploymentReviewAssembler.Assemble(snapshot, plans)` coordinates
+`VerifiedModuleSourceReader.ReadPinned(pin)`, `WorkloadPreviewRenderer.Preview`
+and `ReviewRedactor.Project` outside DB transactions. Source reader cannot fetch;
+preview renderer uses selected installed bundle/shared execution normalization,
+symbolic unknowns and output-only sandbox. No executor/provider/secret-store port
+is available. `ReviewBaselineResolver` uses only captured successful associations.
+
+Assembler returns additive versioned `review` to explicit safe HTTP DTOs and
+pending final graph; resource IDs deduplicate shared nodes without dropping
+provenance. Contract owns bounds/availability; unsupported preview returns a safe
+reason rather than sample code. Frontend `DeploymentReview` reuses Console shell,
+node inspector and bounded diff view in pending and standalone screens. Pending
+starts scoped UC-09 observation using fresh request correlation bound at admission.
+
+Tests planned: read-only/no-fetch/no-provider spies, selected-bundle parity,
+unknown-output structural guard, exact source-pin verification, baseline missing/
+failed/generation mismatch, shared node aggregation, source/manifest nested-secret
+redaction, bounded artifacts/diff, stale request discard, code copy, desktop UI.

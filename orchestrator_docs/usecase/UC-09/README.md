@@ -2,7 +2,7 @@
 id: UC-09-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-23
 ---
 
 # UC-09 context — Observe deployment
@@ -29,3 +29,11 @@ Specification/realization định nghĩa yêu cầu, không chứng minh impleme
 - [`backend/internal/application/deployment`](../../../backend/internal/application/deployment/)
 - [`backend/internal/delivery/http`](../../../backend/internal/delivery/http/)
 - [`frontend/src/features/deployments`](../../../frontend/src/features/deployments/)
+
+## Visual review extension — 2026-10-23
+
+[ADR-019](../../architecture/decisions/ADR-019-visual-deployment-review.md),
+[shared contract](../../architecture/contracts/deployment-review.md) and
+[implementation handoff](../../implementation/visual-deployment-review.md)
+define the accepted extension. Specification/realization and diagrams here own
+behavior/collaboration; prototype acceptance is not product implementation proof.

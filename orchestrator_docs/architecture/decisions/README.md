@@ -2,7 +2,7 @@
 id: ADR-INDEX
 artifact: decision-index
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-23
 ---
 
 # Architecture Decision Records
@@ -39,3 +39,5 @@ last_reviewed: 2026-10-18
 - [ADR-017 — Definition dependencies and deferred cluster targets](ADR-017-definition-dependency-execution.md) — V04–V06 contract; same-execution EKS and gated profile removal.
 
 - [ADR-018 — Explicit EC2 instance-role Driver Accounts](ADR-018-ec2-role-driver-accounts.md) — IAM User-free Terraform execution, issue #6.
+
+- [ADR-019 — Visual deployment review and persisted progress](ADR-019-visual-deployment-review.md).

@@ -2,7 +2,7 @@
 id: UC-06-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-23
 ---
 
 # UC-06 — Deploy Workload
@@ -307,3 +307,16 @@ in PRE-02, MS-05, VAR-01, POST-02/03 and BR-03 as V05 is implemented.
 - **V06-02:** Apply legacy AWS-profile removal only after V05 replacement PASS,
   final executionProfile removal only after corresponding V06 coverage PASS.
   Validate affected final source and preserve original state/cleanup pins.
+
+## Review artifacts and execution observation
+
+- **REV-01:** Admission tiếp tục so token/snapshot/pins trước side effects. Lưu
+  safe desired review vào immutable Plan và admission-bound `review_request_id`
+  trên Deployment; review failure không cho phép bỏ qua existing preflight.
+- **REV-02:** Sau render/validation và trước Apply, persist sanitized manifest
+  review đúng workload/deployment, không đổi bytes/digest dùng cho execution.
+  Chỉ workload READY mới dùng artifact đó làm applied baseline. Failed/partial
+  không thay successful baseline của workload khác. Theo ADR-019/review contract.
+- **REV-03:** Tiến độ lấy từ persisted resource/attempt/workload records. Không
+  tạo nhánh hoặc tăng concurrency chỉ để khớp hình mô phỏng; graph/admission/
+  ownership/readiness/current-set guards hiện hành vẫn là nguồn execution.

@@ -2,7 +2,7 @@
 id: UC-08-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-23
 ---
 
 # UC-08 — Use Case Realization
@@ -153,3 +153,14 @@ only after dependencies pass. Failure blocks consumers and preserves progress.
 Cleanup walks reverse actual graph using original state/module/identity and
 ownership/UID guards, protecting shared/preexisting objects. See cloud sequence
 and module/state contracts for target and secret boundaries.
+
+## Visual review execution contract
+
+UC-08 REV-* uses [ADR-019](../../architecture/decisions/ADR-019-visual-deployment-review.md)
+and the [review contract](../../architecture/contracts/deployment-review.md).
+Admission preserves server reviewRequestId and safe desired review in the immutable
+plan; resource execution persists stage/attempt/readiness facts. Workload owner
+captures redacted rendered manifest before Apply and associates applied baseline
+only after that workload is READY. All writes use existing owner/fence and short
+transactions; no network/renderer subprocess spans a DB transaction. UC-09 reads
+these records; no simulation timer, polling-triggered mutation or new scheduler.

@@ -2,7 +2,7 @@
 id: UC-09-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-23
 related: UC-09
 ---
 
@@ -72,3 +72,16 @@ Không đủ dữ liệu eligibility thì disabled; Developer không thấy muta
 Polling giữ đúng operation ID và chỉ kết thúc thành công khi tất cả confirmed
 IDs verified absent; partial/remaining IDs hiển thị rõ, late response bị bỏ.
 Provider error/unknown cause dùng safe code, không raw state hoặc log.
+
+## Artifact and progress states
+
+- Artifact loading is scoped to selected plan/node; stale replies are discarded.
+- AVAILABLE/PARTIAL show safe text plus provenance; unknown/redacted paths are
+  visibly labeled. ABSENT is confirmed creation/removal. UNAVAILABLE explains
+  missing baseline/content/unsupported render/limit without inventing a diff.
+- WAITING lists real unfinished providers; BLOCKED names failed providers;
+  PROVISIONING and CHECKING remain distinct. Missing records map UNKNOWN or
+  known not-started PENDING, not READY. Plan intent is separate from runtime.
+- Poll failure retains last observation marked stale, allows GET retry and never
+  replays Deploy. Scope/run change cancels requests; terminal stops polling.
+- Progress is a completed-node count, not simulated ETA or percentage of work.

@@ -2,7 +2,7 @@
 id: UC-08-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-23
 ---
 
 # UC-08 — Provision Infrastructure and Application Resources
@@ -202,3 +202,15 @@ Environment policy.
   cache depend on required network outputs, never a blanket EKS relation.
   Destroy uses reverse actual graph and original state/module/target, verifies
   service APIs and protects shared consumers and PREEXISTING resources.
+
+## Resource progress for visual review
+
+- **REV-01:** Persist safe per-node attempt/stage/status/timestamps tại các ranh
+  giới cấp phát và readiness để UC-09 đọc. INIT/PLANNING/APPLYING/APPLIED/OUTPUTS
+  không được chiếu thành READY trước khi output validation/readiness hoàn tất.
+- **REV-02:** Phân biệt verified retain/preexisting binding với newly provisioned
+  READY. Provider failure chặn consumers, giữ committed peers và original state/
+  ownership cho cleanup riêng. Query chỉ đọc snapshots, không gọi executor.
+- **REV-03:** Internal/cloud cùng contract; VPC/EKS chỉ có nếu authored dependency
+  yêu cầu. AWS managed resources có placement ngoài Kubernetes; không tự thêm
+  EKS cho managed-only graph hoặc tạo public managed-only execution flow mới.

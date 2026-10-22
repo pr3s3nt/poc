@@ -6,6 +6,7 @@ boundary DeploymentQueryController as API
 control DeploymentQueryService as Service
 control DeploymentViewAssembler as Assembler
 control OutputRedactor as Redactor
+control NodeProgressProjector as Progress
 database DeploymentRepository as DeploymentRepo
 database DeploymentSetRepository as SetRepo
 database DeploymentResourceRepository as DeploymentResourceRepo
@@ -25,9 +26,12 @@ TypeRepo --> Service: Output classification contracts
 Service -> WorkloadRepo: ListByDeployment(deploymentID)
 WorkloadRepo --> Service: Workload statuses
 Service -> Assembler: Assemble(all snapshots) [MS-04..MS-05]
-Assembler --> Service: DeploymentView
+Assembler -> Progress: Project(pinned graph, exact attempts/resources/workloads) [OBS-01..05]
+Progress --> Assembler: display states + wait/blocked reasons + timestamps
+Assembler -> Assembler: Attach persisted safe review + manifest reviews [OBS-06]
+Assembler --> Service: DeploymentView + nodeProgress + artifacts
 Service -> Redactor: RedactSecretOutputs(view) [MS-06]
 Redactor --> Service: Safe DeploymentView
 Service --> API: DeploymentView [MS-07]
-API --> Developer: Status + graph + non-secret outputs
+API --> Developer: Status + graph + non-secret outputs + review/progress
 @enduml

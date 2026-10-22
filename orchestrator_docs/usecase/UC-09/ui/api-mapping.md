@@ -2,7 +2,7 @@
 id: UC-09-UI-API
 artifact: use-case-ui-api-mapping
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-23
 related: UC-09, OC-11
 ---
 
@@ -54,3 +54,14 @@ Environment để mở detail; bản ghi lịch sử không có association khô
 ID hoặc thay bằng instance ở generation mới. List/detail/progress chỉ đọc
 metadata từ Console; không provider refresh, secret resolution hoặc state blob.
 Thiếu dịch vụ dùng cho mutation thì eligibility bị khóa với hướng dẫn an toàn.
+
+## OBS review/progress additions
+
+Existing deployment list accepts optional `reviewRequestId` exact-match filter,
+validated as a bounded identifier and always combined with full session scope.
+Existing detail adds safe `review`, `nodeProgress` and manifest review association
+from its own persisted records under the shared contract. Missing old artifact
+is UNAVAILABLE, never reconstructed from current catalog or mutable instances.
+Before admission, a filtered empty list means no execution records yet. Poll only
+exact returned IDs; do not fall back to latest deployment. Response errors use
+existing safe error handling. No provider refresh or new mutation endpoint.

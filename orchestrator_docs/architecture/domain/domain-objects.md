@@ -2,7 +2,7 @@
 id: DOMAIN-OBJECTS
 artifact: domain-persistence-classification
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-23
 ---
 
 # Domain Objects and Persistence Classification
@@ -218,3 +218,14 @@ typed provenance. EKS resolved target adds provider/region/original AWS identity
 with credentials reconstructed per invocation. No new lifecycle aggregate or
 managed-only public entry is introduced. Reuse and cleanup preserve original
 identity, ownership, scoped descriptor and state through restart/catalog edits.
+
+## Deployment review values — ADR-019
+
+`DeploymentReview`, `ReviewArtifactSide`, `ArtifactProvenance` and
+`NodeProgress` are safe read models/value objects, not executable plans or
+resource lifecycle entities. Plan owns immutable desired review; per-deployment
+workload snapshot owns sanitized rendered review. Deployment optionally records
+admission-bound reviewRequestId for correlation. The planner graph/identity and existing
+successful workload/resource associations remain authoritative. See
+[review contract](../contracts/deployment-review.md) and
+[schema](../database/schema.md#visual-review-persistence--adr-019-required-design).

@@ -92,6 +92,7 @@ entity environment_operations {
  failure : text
  heartbeat_at : timestamptz
  deadline : timestamptz
+  review_request_id : uuid <<nullable,scoped unique>>
 }
 entity applications {
   * id : uuid <<PK>>
@@ -202,6 +203,7 @@ entity deployments {
   base_deployment_set_id : uuid <<FK>>
   candidate_deployment_set_id : uuid <<FK>>
   base_environment_version : bigint
+  review_request_id : uuid <<nullable,correlation>>
 }
 entity deployment_plans {
   * deployment_id : uuid <<PK,FK>>
@@ -211,6 +213,7 @@ entity deployment_plans {
   provision_batches : jsonb
   classification : jsonb
   plan_hash : text
+  document.review : jsonb <<optional,safe>>
 }
 entity active_resources {
   * id : uuid <<PK>>
@@ -255,6 +258,7 @@ entity deployment_workloads {
   manifest_digest : text
   applied_config_revision_id : uuid <<FK>>
   observed_at : timestamptz
+  manifest_review : jsonb <<nullable,safe>>
 }
 
 organizations ||--o{ connections

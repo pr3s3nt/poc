@@ -34,10 +34,11 @@ end note
 Planner --> Service: Delta + Candidate + classification
 Service -> DeltaSnapshotRepo: Save(immutable snapshot) <<plan transaction>>
 Service -> SetRepo: Save(candidateSet) <<plan transaction>>
-Service -> DeploymentRepo: SavePlanAndMark(PROVISIONING) <<plan transaction>>
+Service -> DeploymentRepo: SavePlan with safe review and admitted request ID; mark PROVISIONING <<plan transaction>>
 Service -> Provisioner: Provision(desired resource batches) [MS-05]
 Provisioner --> Service: Outputs
 alt Update [VAR-01]
+  Service -> DeploymentRepo: Capture sanitized rendered review for this workload [REV-02]
   Service -> Deployer: Apply(updated manifests) [MS-06]
   Service -> Deployer: WaitReady(workload)
 else Remove [VAR-02]

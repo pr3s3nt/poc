@@ -2,7 +2,7 @@
 id: UC-09-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-23
 related: UC-09
 ---
 
@@ -76,3 +76,24 @@ progress REQUESTED/CHECKING/DESTROYING/VERIFYING, tập đã xác nhận, kết 
 absence checks và IDs còn lại nếu lỗi. Poll safe persisted query; không raw
 Terraform log/state/plan. Developer đọc metadata theo quyền Environment nhưng
 không thấy hoặc thực hiện nút Xóa.
+
+## Desktop visual review — 2026-10-23
+
+Use [accepted prototype](../../../../frontend/design/deployment-preview/README.md)
+and [shared review contract](../../../architecture/contracts/deployment-review.md).
+Keep existing AppShell/sidebar, application title/environment tabs, buttons,
+typography and panels. Graph on left, selected node inspector on right; Overview,
+Changes and Code stay linked to the same canonical node ID. Code shows red/green
+line diff, old/new line numbers, after-only/copy and expand/collapse.
+
+Cloud placement groups actual AWS/VPC/EKS namespace identities; Aurora/ElastiCache
+remain outside EKS when so selected. Internal shows retained cluster and authored
+namespace/resources. No hardcoded seven/six-node diagram or region/account fixture.
+Canvas arrows may reverse canonical consumer→provider to show execution order,
+but label direction clearly and preserve all reasons in dependency detail.
+Shared nodes appear once; unknown placement is labeled unresolved.
+
+Pending Preview uses existing explicit Deploy; standalone remains read-only.
+During execution show observed node states, stage/time/wait reasons and counts;
+never render prototype scenario/failure selectors, fake timer, pause or reset.
+No separate mobile design is required by this task; preserve existing shell.

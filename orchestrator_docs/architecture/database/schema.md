@@ -2,7 +2,7 @@
 id: DATABASE-SCHEMA
 artifact: database-schema
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-23
 ---
 
 # Database Schema
@@ -825,3 +825,35 @@ config holds roleArn, roleId, accountId, principalArn, region and verificationRe
 persisted. Existing name/version and identity immutability apply. The fresh
 baseline constraint accepts this enum; no startup conversion/reset is provided.
 The Connection ERD relationship is unchanged (no new entity/column).
+
+## Visual review persistence — ADR-019 (required design)
+
+The following additions are required for UC-05 VIS-* / UC-09 OBS-* and are not
+an assertion that the current baseline already implements them:
+
+- `environment_operations.review_request_id uuid NULL`: optional explicit Deploy
+  request correlation, bound atomically to the admitted operation; unique partial
+  index `(environment_id, review_request_id) WHERE review_request_id IS NOT NULL`.
+- `deployments.review_request_id uuid NULL`: copied only from its admitted
+  operation, immutable once assigned. Index
+  `(environment_id, review_request_id, started_at)` for scoped progress correlation.
+  No association inferred for historical/standalone runs; no credential semantics.
+- `deployment_plans` is physically stored as existing `document jsonb`; the
+  logical graph/matches/batches fields above are members of that document.
+  Add optional `document.review` version 1, containing sanitized desired node
+  artifacts, availability and provenance from the admitted plan. Persist before
+  leaving PLANNING; existing plan immutability applies. Missing means unavailable.
+- `deployment_workloads.manifest_review jsonb NULL`: bounded sanitized rendered
+  manifest projection with version/provenance/redaction metadata. Capture after
+  render validation and before apply in the same scoped workload progress write.
+  It is rendered intent until this workload's status proves READY; terminal
+  snapshots are immutable. No secrets/state/raw execution inputs in this column.
+
+Domain/repository values, JSON store and PostgreSQL mappings must preserve these
+fields on reopen and status updates. No additional lifecycle enum/table or raw
+artifact blob store is introduced. Workload snapshot uses its existing applied
+association for the baseline; failed deployment is not a successful baseline.
+Fresh baseline SQL/digest, serializer validation, grants as necessary and parity
+contracts change together. Do not auto-migrate/reset existing user databases or
+rewrite historical rows; unsupported baseline follows existing explicit setup
+rules. Additive absent artifacts on otherwise compatible rows remain unavailable.

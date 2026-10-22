@@ -2,7 +2,7 @@
 id: UC-07-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-23
 ---
 
 # UC-07 — Update or Remove Workload
@@ -198,3 +198,12 @@ runtime/current set hoặc Environment khác khi lưu.
 ## V03 target restoration
 
 [ADR-016](../../architecture/decisions/ADR-016-definition-selected-workload-targets.md) replaces the internal ADR-013 compatibility section. Update/remove/retry uses each persisted applied workload target/namespace/identity; catalog edits cannot redirect deletion. Remove marks unused resources UNREFERENCED; separate confirmed cleanup removes only owned namespace/resources and preserves PREEXISTING cluster. A class/target change requiring replacement is blocked under UC-05 V2-04, never silently retargeted.
+
+## Review diff and update/remove continuity
+
+- **REV-01:** Update/remove Preview dùng UC-05 VIS-*; baseline chỉ từ applied
+  snapshot thành công cùng identity/generation, không latest failed attempt.
+  Gỡ workload không diễn giải unreferenced resource thành destroy. Đổi module/
+  class/target vẫn giữ replacement guard và không tự chuyển dữ liệu.
+- **REV-02:** Pending execution giữ `review_request_id` và artifact/status capture
+  như UC-06 REV-*. Retry cần Preview mới; không replay deploy khi poll lỗi.

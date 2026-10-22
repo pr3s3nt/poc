@@ -45,6 +45,7 @@ loop Provider-first Terraform nodes
   State -> DB: Release only current lock
   Terraform --> Service: outputs + observed IDs / safe failure
   alt successful resource and state acknowledgement
+    Service -> Results: Persist READINESS stage/timestamps [REV-01]
     Service -> Validator: Validate Type outputs and readiness
     opt cluster producer is EKS [ADR-017]
       Service -> Credentials: Resolve original AWS identity; mint fresh auth privately

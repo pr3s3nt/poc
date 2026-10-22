@@ -7,6 +7,14 @@ last_reviewed: 2026-10-21
 
 # Current project state
 
+## Visual deployment review — design accepted 2026-10-23
+
+Desktop prototype accepted; UC-05/06/07/08/09 requirements, realization and
+shared review/persistence contract are updated under ADR-019. Product code is
+not yet implemented. Dedicated Codex tmux writer requested (`gpt-6-sol`, medium).
+No real Terraform-plan approval or cloud verification is included. Follow
+[implementation handoff](implementation/visual-deployment-review.md) and IMP-029.
+
 ## Git is the default Terraform source — 2026-10-21
 
 New Resource Definition drafts, reset/cancel and successful registration start

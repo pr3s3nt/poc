@@ -422,4 +422,30 @@ Resolve EKS after provision; fresh scoped auth per invocation.
 API/auth/network/Ready capacity before consumers.
 No token, kubeconfig, temporary path or host fallback.
 end note
+package "Safe review read models (ADR-019)" {
+  class DeploymentReviewAssembler
+  class ReviewBaselineResolver
+  class ReviewRedactor
+  interface VerifiedModuleSourceReader
+  interface WorkloadPreviewRenderer
+  class NodeProgressProjector
+  class DeploymentReview <<value>>
+  class ReviewArtifactSide <<value>>
+  class NodeProgress <<value>>
+}
+PreviewService --> DeploymentReviewAssembler
+DeploymentReviewAssembler --> ReviewBaselineResolver
+DeploymentReviewAssembler --> ReviewRedactor
+DeploymentReviewAssembler --> VerifiedModuleSourceReader
+DeploymentReviewAssembler --> WorkloadPreviewRenderer
+DeploymentReviewAssembler ..> DeploymentReview
+DeploymentReview *-- ReviewArtifactSide
+DeploymentQueryService --> NodeProgressProjector
+NodeProgressProjector ..> NodeProgress
+note bottom of DeploymentReview
+Safe desired review in immutable Plan;
+safe rendered review in per-deployment workload snapshot.
+Execution request UUID belongs to admitted operation,
+not deterministic planning runId.
+end note
 @enduml

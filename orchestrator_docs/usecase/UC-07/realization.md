@@ -2,7 +2,7 @@
 id: UC-07-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-23
 ---
 
 # UC-07 — Use Case Realization
@@ -128,3 +128,14 @@ Tests: Developer 403, foreign scope 404, stale/busy/not-unreferenced/consumer
 rejection trước provider calls, exact typed name, pinned selected set/retained
 dependencies, duplicate token idempotency, lock/fencing và safe partial result.
 V2-A01 chứng minh xóa thật qua headed UI; các ngoại lệ role/race có tests riêng.
+
+## Visual review execution contract
+
+UC-07 REV-* uses [ADR-019](../../architecture/decisions/ADR-019-visual-deployment-review.md)
+and the [review contract](../../architecture/contracts/deployment-review.md).
+Admission preserves server reviewRequestId and safe desired review in the immutable
+plan; resource execution persists stage/attempt/readiness facts. Workload owner
+captures redacted rendered manifest before Apply and associates applied baseline
+only after that workload is READY. All writes use existing owner/fence and short
+transactions; no network/renderer subprocess spans a DB transaction. UC-09 reads
+these records; no simulation timer, polling-triggered mutation or new scheduler.

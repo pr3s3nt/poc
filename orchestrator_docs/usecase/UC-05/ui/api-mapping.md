@@ -2,7 +2,7 @@
 id: UC-05-UI-API
 artifact: use-case-ui-api-mapping
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-23
 related: UC-05, OC-06
 ---
 
@@ -92,3 +92,18 @@ identity/provenance/status; no token/kubeconfig/private secret references.
 Deployment profile/Environment account fields do not select infrastructure.
 Legacy writes/fields retire under V05.10/V06.08 gates; no standalone no-workload
 execution endpoint is introduced.
+
+## VIS review response additions
+
+Both `POST .../score-preview` and `POST .../preview` add `review` version 1 under
+[shared contract](../../../architecture/contracts/deployment-review.md). Pending
+review contains the final graph; per-change/token fields remain compatible.
+Explicit DTO only: no generic serialized internal Plan or raw source workspace.
+Source/manifest unavailable does not replace successful graph with fabricated
+files. Unsupported/oversized artifact returns an availability reason in the
+successful preview response; auth/planning failures retain existing status codes.
+Existing pending `runId` is deterministic planning context, not a unique execution
+ID. Deploy may send a fresh UUID `reviewRequestId` beside token; admission binds
+it to a unique scoped operation. Follow UC-09 filter by that ID. Standalone runId
+still grants no execution. Duplicate admitted request ID returns safe 409 and
+never replays Deploy; lost POST response is handled by GET observation only.

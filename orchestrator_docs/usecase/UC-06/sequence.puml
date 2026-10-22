@@ -40,7 +40,7 @@ group Required score-k8s + module/known-input preflight (BR-09/17)
 end
 Service -> DeltaSnapshotRepo: Save(immutable snapshot) <<transaction A>>
 Service -> SetRepo: Save(candidateSet) <<transaction A>>
-Service -> DeploymentRepo: SavePlan, attach snapshot, mark PROVISIONING <<transaction A>>
+Service -> DeploymentRepo: SavePlan + safe desired review; bind admitted reviewRequestId; attach snapshot, mark PROVISIONING <<transaction A>>
 Service -> EnvRepo: Admit operation owner/fence under pinned versions (short transaction)
 Service -> Provisioner: Provision(plan.ResourceBatches, owner/fence) [MS-09]
 Provisioner --> Service: ProvisionResult(typed outputs, per-consumer target pins)
@@ -48,7 +48,8 @@ Service -> Resolver: ResolveWorkloadBindings(candidate, outputs) [MS-10]
 Resolver --> Service: Resolved workload
 Service -> Renderer: Render(resolved workload, pinned selection, its resolved target, requests/limits) [MS-11]
 Renderer --> Service: Manifests
-Service -> Deployer: Apply(target, manifests)
+Service -> WorkloadRepo: Save sanitized rendered manifest review before apply [REV-02]
+Service -> Deployer: Apply(target, unchanged manifests)
 Service -> Deployer: WaitReady(target, workloadRefs)
 Deployer --> Service: Ready
 opt internal kind, direct deploy

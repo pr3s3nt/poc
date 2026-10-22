@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-23
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -1028,3 +1028,17 @@ labels statically. They were not run against a live backend in this change.
 | Requirement | Realization | Verification |
 |---|---|---|
 | UI3-05 common catalog/editor, capability methods, Internal account and shared save | ResourceDefinitionsPage, same OC-04 and matching/CAS pipeline; no sequence/contract changes | ExistingClusterDefinition.test.tsx; ResourceDefinitionsPage.test.tsx; DefinitionV3.test.tsx |
+
+## Visual review design — 2026-10-23 (implementation pending)
+
+| Requirements | Collaboration / contract | Persistence | Required verification (planned) |
+|---|---|---|---|
+| UC-05 VIS-01/05/07 | UC-05 sequence/VOPC; ADR-019; shared review DTO | Pure snapshot; no Preview writes | Final graph/shared-node identity, Internal/cloud placement, existing Console UI, stale requests |
+| UC-05 VIS-02/03/06 | SourceReader, PreviewRenderer, ReviewRedactor | Verified pinned cache only | No provider/fetch/secrets; exact pin, same-bundle render, symbolic unknowns, size/path/redaction guards |
+| UC-05 VIS-04; UC-07 REV-01 | BaselineResolver and safe diff | Plan review + successful workload manifest_review | Missing/failed/generation baseline; red/green lines; copy; no secret equality claims |
+| UC-06 REV-01/02; UC-07 REV-02 | Admission and Render→redact→persist→Apply | review_request_id, plan document.review, workload manifest_review | CAS/fencing, reopen and backend parity, immutable history, partial success |
+| UC-08 REV-01..03; UC-09 OBS-01..04 | Persisted facts → NodeProgressProjector | Existing resource/workload/attempt snapshots | APPLIED != READY, waiting/blocked, explicit retain, failed attempt precedence, missing facts |
+| UC-05 VIS-08; UC-09 OBS-05..07 | Scoped run filter, single-flight query/poll | Exact admitted correlation | Cross-scope/run isolation, lost POST handling, stale/error/terminal polling |
+
+These rows are planned tests, not passed evidence. See
+[implementation checklist](../implementation/visual-deployment-review.md).

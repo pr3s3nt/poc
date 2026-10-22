@@ -2,7 +2,7 @@
 id: UC-09-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-23
 ---
 
 # UC-09 — View Deployment Status and Resource Graph
@@ -98,3 +98,28 @@ UC-09 View Deployment Status
   VERIFYING, từng resource trong phạm vi đã xác nhận, kết quả absence check và
   remaining physical IDs khi lỗi. Poll scoped persisted operation; không báo
   success trước VERIFYING hoàn tất hoặc lấy trạng thái operation khác.
+
+## Visual resource progress — accepted 2026-10-23
+
+- **OBS-01:** Console dùng cùng graph/node identity như Preview và deployment
+  đã persist. Nhóm Internal/EKS/VPC/managed resources từ placement provenance;
+  hiển thị riêng từng resource kể cả shared/preexisting và từng workload.
+- **OBS-02:** Hiển thị chưa chạy/chờ phụ thuộc/đang cấp phát/kiểm tra sẵn sàng/
+  sẵn sàng/giữ nguyên/thất bại/bị chặn/chưa xác định theo mapping chuẩn trong
+  [review contract](../../architecture/contracts/deployment-review.md).
+  Không đổi lifecycle enum; thiếu dữ liệu không tạo trạng thái thành công.
+- **OBS-03:** Chọn node thấy safe stage/attempt, timestamp/elapsed, Definition/
+  source pin, vị trí và dependency đang chờ. APPLIED chưa đồng nghĩa READY;
+  thiếu readiness-stage của workload không được tự suy thành kiểm tra readiness.
+- **OBS-04:** Hiển thị đồng thời các nhánh có evidence đang chạy; failure chặn
+  consumers theo graph thật và giữ completed peers. FAILED không hàm ý cleanup.
+  Không thêm concurrency/retry/rollback hoặc pause execution từ UI.
+- **OBS-05:** Poll read-only persisted query, không provider refresh. Lỗi đọc giữ
+  dữ liệu cuối với dấu stale; đổi scope bỏ late response; terminal thì dừng poll.
+  Timer chỉ tính elapsed từ timestamp, không tạo trạng thái hoặc ETA giả.
+- **OBS-06:** Detail hiển thị safe review/source và rendered manifest artifact
+  của chính deployment; ghi rõ applied chỉ khi workload READY. Thiếu artifact
+  lịch sử báo unavailable; không dựng lại bằng Definition/bundle hiện tại.
+- **OBS-07:** List hỗ trợ `reviewRequestId` (UUID riêng cho mỗi lần Deploy) cùng scope để theo dõi pending batch từ
+  UC-05. Chỉ assoc đã persist khi admission; không lẫn run người khác hoặc
+  deployment cùng workload ở lần khác. Batch chưa có record không là success.

@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-DEVIATIONS
 artifact: design-implementation-deviations
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-23
 ---
 
 # Known design and implementation deviations
@@ -461,3 +461,14 @@ Git copy therefore lost required semantics. Resolved with registry content/Type 
 the release module ID and executor outputs only when both inspected content
 SHA-256 and requested Resource Type match the trusted release entry. Keep the
 Git source/commit/path/digest; never infer identity from repository/path/name.
+
+## IMP-029 — Visual deployment review designed, not yet implemented
+
+Accepted on 2026-10-23 under ADR-019 after desktop prototype review. Existing
+product Preview provides graph/intent metadata but lacks pinned safe source,
+symbolic manifest review/diff and the complete correlated per-node visual progress
+experience. Prototype fixtures/timers are not runtime implementation. Required
+specification, realization, contracts and persistence additions now exist; code
+and verification are pending in the dedicated writer task. See
+[implementation handoff](visual-deployment-review.md). Do not close this gap from
+prototype/browser-fixture tests alone.

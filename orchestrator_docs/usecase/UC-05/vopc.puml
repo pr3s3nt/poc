@@ -88,4 +88,21 @@ class ResourceInstanceMetadata <<value>>
 PlanningSnapshotRepository ..> TerraformModuleBundle : verified registry only
 PlanningSnapshotRepository ..> ResourceInstanceMetadata : stable identity/version
 DeploymentPlan ..> TerraformModuleBundle : pinned module/provider digests
+class DeploymentReviewAssembler <<control>>
+class ReviewBaselineResolver <<control>>
+class ReviewRedactor <<control>>
+interface VerifiedModuleSourceReader
+interface WorkloadPreviewRenderer
+class DeploymentReview <<value>>
+PreviewService --> DeploymentReviewAssembler
+DeploymentReviewAssembler --> ReviewBaselineResolver
+DeploymentReviewAssembler --> VerifiedModuleSourceReader
+DeploymentReviewAssembler --> WorkloadPreviewRenderer
+DeploymentReviewAssembler --> ReviewRedactor
+DeploymentReviewAssembler ..> DeploymentReview
+note right of WorkloadPreviewRenderer
+ADR-019: selected bundle, offline symbolic inputs.
+Outside DB read transaction; no provider/fetch/secrets.
+Not an execution renderer fallback.
+end note
 @enduml

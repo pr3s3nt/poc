@@ -27,3 +27,5 @@ Automatic full resume/rollback vẫn ngoài scope. Explicit Environment transiti
 Retry/cleanup dùng một bộ luật ở state contract/UC-07; full automatic
 recovery/import/backup nằm ở D12–D14.
 Existing ADR-012 transition behavior is not removed by this scoped deferral.
+
+- [Review node progress projection](review-node-progress.puml) — ADR-019 display states from persisted facts; not new lifecycle enums.

@@ -1,0 +1,29 @@
+@startuml
+title Node progress display projection - ADR-019 (not persisted enums)
+[*] --> PENDING : known plan, not started
+[*] --> RETAINED : verified retain/binding evidence
+[*] --> UNKNOWN : missing/unsupported observation
+PENDING --> WAITING : required provider unfinished
+PENDING --> PROVISIONING : persisted attempt/workload start
+WAITING --> PROVISIONING : providers ready + observed start
+PROVISIONING --> CHECKING : persisted readiness stage
+CHECKING --> READY : validated readiness completed
+PROVISIONING --> READY : explicit Ready fact, no intermediate observation
+PROVISIONING --> FAILED : safe persisted failure
+CHECKING --> FAILED : safe persisted failure
+WAITING --> BLOCKED : failed provider proven by graph
+PENDING --> BLOCKED : failed provider proven by graph
+RETAINED --> PROVISIONING : explicit later attempt supersedes intent
+UNKNOWN --> PENDING : sufficient consistent observation
+UNKNOWN --> READY : explicit matching Ready fact
+note right of UNKNOWN
+No timer-driven state changes.
+Missing row never means Ready.
+Poll failure marks view stale; preserves observation.
+end note
+note bottom of FAILED
+No implication of cleanup/rollback.
+Preserve completed peers and exact attempt identity.
+Existing execution lifecycle remains authoritative.
+end note
+@enduml

@@ -2,7 +2,7 @@
 id: ARCHITECTURE-INDEX
 artifact: architecture-index
 status: current
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-23
 ---
 
 # Shared Architecture Baseline
@@ -57,3 +57,5 @@ V02 Definition authoring/matching replaces profile filtering and Environment AWS
 identity per [UC-03](../usecase/UC-03/specification.md#hợp-đồng-v02--áp-dụng-từ-2026-10-17).
 Definition edits are version CAS; historical execution/cleanup pins remain.
 Actual V02 delivery is tracked in CURRENT_STATE/evidence, not implied by design.
+
+- [Deployment review artifact/progress contract](contracts/deployment-review.md) — ADR-019, UC-05/09 desktop visual review.

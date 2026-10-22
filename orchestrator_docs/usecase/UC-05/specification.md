@@ -2,7 +2,7 @@
 id: UC-05-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-23
 ---
 
 # UC-05 — Validate and Preview Score Changes
@@ -50,9 +50,10 @@ Kiểm tra Score và hiển thị thay đổi dự kiến trước khi thực hi
 - **BR-01:** Preview và deploy phải dùng cùng planning pipeline và cùng input snapshot để tránh kết quả khác nhau.
 - **BR-02:** Invariant bắt buộc là `current Deployment Set + Delta = Candidate Deployment Set`.
 - **BR-03:** Graph edge có chiều `consumer -> provider`; batches luôn đặt provider trước consumer.
-- **BR-04:** Preview chỉ đọc, không gọi Resource Executor, Terraform/
-  score-k8s CLI, provider hoặc secret store. Module contracts lấy từ registry
-  đã kiểm chứng; request Preview không tải module.
+- **BR-04:** Preview chỉ đọc, không gọi Resource Executor, Terraform CLI, provider hoặc secret store.
+  Module contracts/content lấy từ registry đã kiểm chứng, không tải module.
+  Sau khi đóng read snapshot, chỉ được gọi offline preview renderer đã pin
+  theo ADR-019; planner không gọi CLI và không persist runtime change.
 - **BR-05:** Deployment Delta có shape `modules.add/remove/update` và `shared`; patch trong `modules.update.<id>` relative với module, patch `shared` relative với object shared.
 - **BR-06:** Delta deterministic; array được diff theo index chung, remove đuôi từ index lớn xuống nhỏ và add đuôi bằng path `/-`.
 - **BR-07:** `containers.*.resources` chỉ nhận `requests`/`limits` với `cpu` và `memory`; mọi field đều optional, nhưng field đã khai báo phải là non-empty string. `null`, number, empty string, branch hoặc resource key khác bị reject. Giá trị hợp lệ phải được bảo toàn nguyên văn từ Score sang Candidate Deployment Set. Validation của planner dừng ở shape này, không kiểm Kubernetes quantity semantics; Kubernetes API kiểm quantity khi workload được apply.
@@ -122,7 +123,8 @@ UC-05 Validate and Preview
 - **BR-10:** Preview hiển thị type/class, Definition/module/revision, target/
   account/region, ownership và create/update/retain intent. Không secret/
   state/credential refs, không khẳng định final manifest hay Terraform plan
-  chính xác khi output chưa có; không chạy render hoặc provision.
+  chính xác khi output chưa có; không provision. Ngoại lệ preview-render
+  offline/symbolic thuộc VIS-03 và ADR-019, không phải execution render.
 
 See [workload rendering contract](../../architecture/contracts/workload-rendering.md).
 
@@ -195,3 +197,34 @@ runtime/current set hoặc Environment khác khi lưu.
 - **V06-01:** A managed-resource-only planner graph must not acquire VPC/EKS
   except through authored actual dependencies. This rule does not create a new
   public execution entry without a separately defined contract.
+
+## Visual deployment review — accepted 2026-10-23
+
+- **VIS-01:** Pending changes và standalone Score Preview cung cấp đồ thị thực
+  từ cùng planning snapshot. Hiển thị workload/resources, intent tạo/cập nhật/
+  giữ nguyên/gỡ tham chiếu, Definition/pins, account/region và vị trí cluster/
+  namespace. Internal không tự thêm cloud nodes; managed AWS resources không
+  đặt vào EKS chỉ vì cùng môi trường. Placement chưa biết ghi provenance chờ.
+- **VIS-02:** Chọn node mở Tổng quan / Thay đổi / Code; safe Terraform source
+  đúng verified pin và input-source mappings, không phải Terraform plan thật.
+- **VIS-03:** Xem Deployment/Service manifest dự kiến từ đúng installed renderer
+  bundle và shared normalization. Unknown output hiện placeholder có nguồn;
+  partial/unavailable rõ ràng. Offline preview rendering được phép theo
+  [review contract](../../architecture/contracts/deployment-review.md).
+- **VIS-04:** Diff source/manifest so sánh baseline thành công cùng identity/
+  generation với desired mới; tô đỏ dòng bỏ, xanh dòng thêm, có dấu/số dòng.
+  Thiếu baseline không coi là file rỗng; secret bị che không được kết luận bằng
+  nhau. Có xem bản sau, copy an toàn và mở rộng code.
+- **VIS-05:** Code và graph gắn cùng scope/plan/pins; sửa input/Definition/bundle/
+  scope khiến Preview cũ stale theo admission hiện hành. Không hardcode fixture
+  prototype vào sản phẩm hoặc dựng resource dựa theo tên hiển thị.
+- **VIS-06:** Khả năng xem code không cấp quyền sửa module, apply artifact hay
+  bỏ qua Deploy/token. Standalone vẫn không có nút Deploy. Review sử dụng safe
+  projection, giới hạn nội dung và fail-closed redaction theo contract chung.
+- **VIS-07:** Desktop dùng AppShell, ApplicationHome, stylesheet/component có
+  sẵn. Bản mẫu đã duyệt là tham chiếu UI; không có scenario selector/fake timer/
+  pause/reset/failure simulation trong luồng sản phẩm.
+- **VIS-08:** Sau Deploy từ pending Preview, giữ cùng ngữ cảnh graph và theo dõi
+  exact deployments bằng `reviewRequestId` được bind khi admission, theo UC-09 OBS-01..07. Không
+  lấy deployment mới nhất làm kết quả của Preview đang xem. Không thêm approval
+  workflow hoặc chạy Terraform plan trong Preview.

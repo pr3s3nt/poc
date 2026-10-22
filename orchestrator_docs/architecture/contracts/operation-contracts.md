@@ -2,7 +2,7 @@
 id: OPERATION-CONTRACTS
 artifact: operation-contracts
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-23
 ---
 
 # Operation Contracts
@@ -762,3 +762,15 @@ stderr, submitted credential or cache paths. Direct Git requires no repository
 allowlist per ADR-014 amendment; private Git auth/SSH remain unsupported. Save
 uses the exact verified pin and existing create/CAS guards; no mutable ref at
 Preview/execution/cleanup. GET capabilities remains metadata-only.
+
+## Visual review extension — ADR-019
+
+OC-06 and OC-17 add versioned safe `review` after pure planning, using verified
+local source and permitted offline preview rendering outside the read transaction.
+OC-07 stays pure and deterministic. OC-08/OC-17 admission captures desired review
+and admission-bound request UUID reviewRequestId; workload execution captures sanitized manifest
+review before apply and promotes it only on READY. OC-10 retains readiness facts.
+OC-11 returns persisted artifacts/node progress and scoped list filter reviewRequestId.
+All detailed shapes, limits, baseline and state rules are owned by
+[deployment-review contract](deployment-review.md); existing auth, CAS, owner/
+fence, secret/ownership/cleanup and no-provider-query rules still apply.

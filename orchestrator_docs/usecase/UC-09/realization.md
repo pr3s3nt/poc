@@ -2,7 +2,7 @@
 id: UC-09-REALIZATION
 artifact: use-case-realization
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-23
 ---
 
 # UC-09 — Use Case Realization
@@ -75,3 +75,26 @@ Console polling giữ operation ID/scope, bỏ late responses; failure không
 Deployment view không lấy lifecycle hiện tại thay snapshot của lần triển khai.
 Tests gồm read-only/scoped/secret-safe query, stale response và cleanup
 partial/verified result; headed A01 ghi nhận hành vi trên resource detail.
+
+## Visual observation collaboration (OBS-01..07)
+
+`DeploymentQueryService` captures plan review, attempt/resource/workload facts and
+manifest reviews in its existing read-only consistent snapshot. New pure
+`NodeProgressProjector.Project(plan, observations)` maps status precedence,
+readiness, dependency waiting/blocked and unknown cases under the shared review
+contract. `DeploymentViewAssembler` joins stable node IDs and artifact provenance;
+`OutputRedactor` remains the final secret boundary. No provider refresh and no
+mutation of historical snapshots.
+
+List accepts optional scoped `reviewRequestId` filter; admission supplies associations
+through UC-06/07. Console observes only returned exact deployment IDs, displays
+multi-run provenance for a pending batch and preserves unknown/unadmitted nodes.
+Single-flight polling cancels stale requests and stops terminal runs. Elapsed is
+computed from persisted timestamps; missing data is explicit. Existing task
+operation/POST remains authoritative for batch completion and route sync.
+
+Tests planned: READY versus APPLIED/READINESS, current failed attempt precedence,
+retain proof, transitive blocked consumers, parallel observed branches, missing
+rows/timestamps, deployment scoping/correlation, immutable history and redaction,
+poll race/error/terminal handling. Browser acceptance uses actual HTTP DTO flow;
+fixtures prove UI only, never AWS execution.
