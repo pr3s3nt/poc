@@ -13,6 +13,7 @@ type Props = {
   accounts: { items: Account[]; loading: boolean; error: string; reload: () => void };
   account: string;
   region: string;
+  regionRequired: boolean;
   onAccount: (account: string) => void;
   onRegion: (region: string) => void;
   mapping: MappingDraft;
@@ -26,7 +27,7 @@ type Props = {
 const accountLabel = (account: Account) => (account.name && account.name !== account.key ? `${account.name} (${account.key})` : account.key);
 const environmentScope = 'environments.@app.@env';
 
-export function InfrastructureConnection({ capability, accountRequired, accounts, account, region, onAccount, onRegion, mapping, mappingEditable, clusterClasses, onBinding, problems, disabled = false }: Props) {
+export function InfrastructureConnection({ capability, accountRequired, accounts, account, region, regionRequired, onAccount, onRegion, mapping, mappingEditable, clusterClasses, onBinding, problems, disabled = false }: Props) {
   const providers = bindingProviders(capability);
   const awsProviders = providers.filter((provider) => provider.binding === 'aws');
   const kubernetesProviders = providers.filter((provider) => provider.binding === 'kubernetes');
@@ -45,8 +46,8 @@ export function InfrastructureConnection({ capability, accountRequired, accounts
           <option value="">{accounts.loading ? 'Đang tải tài khoản…' : accounts.error ? 'Chưa tải được tài khoản' : compatible.length === 0 ? 'Chưa có tài khoản sẵn sàng' : 'Chọn tài khoản'}</option>
           {selectedMissing ? <option value={account}>{accountName(account)} (không còn tương thích hoặc chưa sẵn sàng)</option> : null}
           {compatible.map((item) => <option key={item.key} value={item.key}>{accountLabel(item)} · {statusLabel(item.status)} · phiên bản {item.version}</option>)}</select></label>
-        <label>Vùng AWS<input aria-label="Vùng AWS" aria-required="true" value={region} disabled={disabled} spellCheck={false} placeholder="ap-southeast-1" aria-describedby="definition-region-hint" onChange={(event) => onRegion(event.target.value)} /></label></div>
-      <p id="definition-region-hint" className="feature-note">Vùng là chuỗi literal (không dùng placeholder), nhập một lần và lưu trong Driver Inputs. Vùng xác minh của tài khoản chỉ là bằng chứng kiểm tra, không phải danh sách vùng được phép.</p>
+        {regionRequired ? <label>Vùng AWS<input aria-label="Vùng AWS" aria-required="true" value={region} disabled={disabled} spellCheck={false} placeholder="ap-southeast-1" aria-describedby="definition-region-hint" onChange={(event) => onRegion(event.target.value)} /></label> : null}</div>
+      {regionRequired ? <p id="definition-region-hint" className="feature-note">Vùng là chuỗi literal (không dùng placeholder), nhập một lần và lưu trong Driver Inputs. Vùng xác minh của tài khoản chỉ là bằng chứng kiểm tra, không phải danh sách vùng được phép.</p> : null}
       <details className="definition-help"><summary>Về tài khoản và vùng</summary><p className="feature-note">Module này chạy bằng tài khoản {typeName} và vùng ghi ngay trong cấu hình. Cấu hình không lấy tài khoản hay vùng từ Môi trường; mỗi cấu hình có thể dùng tài khoản và vùng khác nhau.</p></details>
       {accounts.error ? <div className="form-error" role="alert" aria-label="Lỗi tải tài khoản">{accounts.error} Chưa chọn được tài khoản; dữ liệu đã nhập được giữ nguyên. <Button type="button" onClick={accounts.reload}>Thử lại</Button></div> : !accounts.loading && compatible.length === 0 ? <div className="form-warning" role="note" aria-label="Chưa có tài khoản sẵn sàng">Chưa có tài khoản {typeName} ở trạng thái Sẵn sàng trong Tổ chức. Tạo và xác minh tài khoản ở trang Tài khoản hạ tầng trước.</div> : null}
       {selectedMissing && !accounts.loading ? <div className="form-warning" role="alert">Tài khoản đã chọn ({account}) không còn tương thích hoặc chưa Sẵn sàng. Chọn tài khoản khác; máy chủ cũng kiểm tra lại khi lưu và khi lập kế hoạch.</div> : null}

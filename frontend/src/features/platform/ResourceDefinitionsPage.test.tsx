@@ -461,7 +461,7 @@ describe('UC-03 Definition form over verified registry pins (I04-07)', () => {
 const submitName = 'Đăng ký cấu hình tài nguyên';
 
 describe('UC-03 Definition form states and errors', () => {
-  it('lists definitions with Name, ID, version and account, hides workload ones and lists existing-cluster Definitions in their own editable section', async () => {
+  it('lists definitions with Name, ID, version and account, hides workload ones and lists existing-cluster Definitions in the shared editable catalog', async () => {
     backend({ definitions: [
       { key: 'pg-fast', name: 'PostgreSQL nhanh', version: 4, resourceType: 'postgres', driverType: 'terraform', driverAccount: 'aws-account', criteria: [{}] },
       { key: 'workload-score', name: 'Mẫu', version: 1, resourceType: 'workload', driverType: 'score-k8s', criteria: [{}] },
@@ -472,13 +472,13 @@ describe('UC-03 Definition form states and errors', () => {
     expect(await screen.findByText('PostgreSQL nhanh')).toBeInTheDocument();
     expect(screen.queryByText('Mẫu')).not.toBeInTheDocument();
     expect(screen.getByText('PostgreSQL nhanh').nextElementSibling).toHaveTextContent('ID pg-fast · postgres · Terraform (module đã kiểm chứng) · tài khoản AWS chính (aws-account) · phiên bản 4 · 1 điều kiện áp dụng');
-    // ADR-016: a public existing-cluster Definition is edited in its own section, not marked as a system read-only record.
-    expect(screen.getByText('Cluster hệ thống').nextElementSibling).toHaveTextContent('ID cluster-existing · k8s-cluster · tài khoản ? · phiên bản 1');
-    expect(screen.getByText('Cluster hệ thống').closest('[aria-label="Cluster có sẵn (existing-cluster)"]')).not.toBeNull();
+    // ADR-016/UI3-05: existing-cluster uses the same catalog and editor.
+    expect(screen.getByText('Cluster hệ thống').nextElementSibling).toHaveTextContent('ID cluster-existing · k8s-cluster · Cluster có sẵn (existing-cluster) · phiên bản 1');
+    expect(screen.getByText('Cluster hệ thống').closest('[aria-label="Cluster có sẵn (existing-cluster)"]')).toBeNull();
     expect(screen.getByText('Namespace chung').nextElementSibling).toHaveTextContent('phiên bản 2');
     expect(screen.getByRole('button', { name: 'Sửa cấu hình pg-fast' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sửa cluster cluster-existing' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Sửa cấu hình cluster-existing' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Đăng ký cấu hình cluster có sẵn' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sửa cấu hình cluster-existing' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Xóa cấu hình/ })).not.toBeInTheDocument();
   });
 

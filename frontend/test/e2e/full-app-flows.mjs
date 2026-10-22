@@ -78,22 +78,26 @@ export async function onboardInternalAccount(kit) {
   return account.key;
 }
 
-/** Existing-cluster Definition with its OWN Internal account (ADR-016). */
+/** Existing-cluster Definition with its OWN Internal account (ADR-016), authored in the shared Definition form (UI3-05). */
 export async function registerExistingCluster(kit, { id, accountName, appKey, klass = 'internal' }) {
-  const { page, h, nav, form, choose, get, rec, mark } = kit;
+  const { page, h, nav, form: scopedForm, choose, get, rec, mark } = kit;
   await h.click(nav('Cấu hình tài nguyên'));
   await expect(page.getByRole('heading', { name: 'Cấu hình tài nguyên', level: 1, exact: true })).toBeVisible();
-  const section = page.getByRole('region', { name: 'Cluster có sẵn (existing-cluster)' });
-  await h.click(section.getByRole('button', { name: 'Đăng ký cấu hình cluster có sẵn' }));
-  await h.type(section.getByLabel('ID cấu hình cluster', { exact: true }), id);
-  await h.type(section.getByLabel('Tên hiển thị cluster', { exact: true }), 'Cluster k8s-4f (có sẵn)');
-  await choose(form('Tài khoản Internal của cluster'), accountName);
+  await h.click(page.getByRole('button', { name: 'Tạo cấu hình', exact: true }));
+  const section = page.getByRole('region', { name: 'Đăng ký cấu hình tài nguyên', exact: true });
+  const form = (name) => scopedForm(name, section);
+  await h.type(form('ID cấu hình (Definition ID)'), id);
+  await h.type(form('Tên hiển thị'), 'Cluster k8s-4f (có sẵn)');
+  await choose(form('Loại tài nguyên'), 'k8s-cluster');
+  await choose(form('Cách cung cấp cluster'), 'Dùng cluster có sẵn');
+  await choose(form('Tài khoản hạ tầng'), accountName);
+  await h.click(section.getByRole('tab', { name: /Điều kiện áp dụng/ }));
   await h.click(section.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
   await h.type(section.getByLabel('Điều kiện 1 ID ứng dụng', { exact: true }), appKey);
   await h.type(section.getByLabel('Điều kiện 1 Class', { exact: true }), klass);
   await h.pause(SHORT_READ);
-  await h.click(section.getByRole('button', { name: 'Đăng ký cấu hình cluster', exact: true }));
-  await expect(section.getByRole('status')).toContainText(`Đã đăng ký cấu hình cluster ${id}.`);
+  await h.click(section.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true }));
+  await expect(section.getByRole('status')).toContainText(`Đã đăng ký cấu hình tài nguyên ${id}.`);
   const stored = (await get('/resource-definitions')).resourceDefinitions.find((d) => d.key === id);
   rec.record('ui.definition.cluster', 'FORM', 'ui', stored?.driverType === 'existing-cluster' && Boolean(stored.driverAccount) && stored.version === 1,
     `cluster Definition ${id} uses its own Internal account ${stored?.driverAccount}; no Environment connection`);

@@ -234,3 +234,7 @@ một lần vào draft.
 một thẻ cho mỗi tài nguyên đi kèm (Loại tài nguyên, class, phạm vi, params theo
 schema Type, hai cờ bằng tên cụ thể) và “Thêm tài nguyên đi kèm”. “Cấu hình kỹ
 thuật” giữ descriptor và params JSON. Không có “Thứ tự thực hiện”/sơ đồ live.
+
+## Unified cluster authoring — 2026-10-21
+
+UI3-05 replaces the separate existing-cluster section: one catalog and Create/Edit view. k8s-cluster offers server-supported existing-cluster and Terraform methods; existing-cluster shows Internal READY account plus shared identity, criteria tabs and payload review, without module/region/variables. Accounts remain separate.

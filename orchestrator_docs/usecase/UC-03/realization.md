@@ -152,3 +152,7 @@ chế độ vẫn serialize cùng object. Reference đọc Resource Type metadat
 (`inputs/outputs/classes`); không có catalog thứ hai và không có endpoint mới.
 Providers, class và output hợp lệ lấy từ capability/type metadata hiện hành.
 Không thay participant, system operation, transaction hay sequence backend.
+UI3-05: ResourceDefinitionsPage also owns existing-cluster drafts and presents
+server-supported cluster methods inside its common editor. The same catalog,
+criteria/matching preview and mutation/reload pipeline serve both drivers.
+Sequence/VOPC participants and backend operations remain unchanged.

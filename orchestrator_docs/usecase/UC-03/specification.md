@@ -440,3 +440,15 @@ mọi validation và guard khác giữ nguyên.
   params không biểu diễn được giữ nguyên.
 - **UI11-05 (Phạm vi):** Chỉ desktop; không thêm “Thứ tự thực hiện” hay sơ đồ
   live; Lưu/sửa form không Preview, Deploy hay gọi provider.
+
+## Unified existing-cluster authoring — 2026-10-21
+
+- **UI3-05:** Existing-cluster Definitions appear in the same resource catalog
+  and Create/Edit view as Terraform Definitions. For `k8s-cluster`, choose
+  existing-cluster or Terraform using server capability metadata. Existing-cluster
+  uses the shared identity, two tabs, criteria, payload review and Save/CAS/reload
+  pipeline; select a READY Internal Driver Account, without Terraform module,
+  AWS region, credential or variable controls. Keep per-driver drafts when
+  switching methods. No separate existing-cluster registration section. Account
+  registration remains in Infrastructure Accounts; saving a Definition does not
+  create, adopt or destroy the existing cluster. Backend/API/matching unchanged.

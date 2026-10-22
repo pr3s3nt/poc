@@ -14,7 +14,7 @@ last_reviewed: 2026-10-21
 | Git source default + published release-equivalent modules | `ResourceDefinitionsPage.tsx` create/reset/edit source state; `registry/git_inspect.go` content+Type lifecycle identity; `git_inspect_test.go`; `published-modules-local.mjs`; [runbook](../operations/terraform-module-sources.md) |
 | Issue #7 direct Git Terraform module authoring | `backend/internal/adapters/terraform/registry/git_inspect.go`, `fetch.go`, `backend/internal/application/catalog/git_inspect.go`, `backend/internal/delivery/http/terraform_modules.go`, `frontend/src/features/platform/GitModuleSource.tsx`; focused browser: `backend/test/integration/gitmodulebrowser/`, `frontend/test/e2e/git-module-local.mjs` |
 | V03 Definition-selected cluster/workload placement (ADR-016) | `backend/internal/planning/workload.go`, `schedule.go`, `backend/internal/application/deployment/service.go`, `backend/internal/ports/execution/clustertarget.go`; target pins in `backend/internal/domain/environment/document.go` |
-| V03 existing-cluster authoring and strict renderer inputs | `backend/internal/application/catalog/capabilities.go`, `backend/internal/domain/resource/rendering.go`, `frontend/src/features/platform/ExistingClusterSection.tsx`, `RenderingTemplatesPage.tsx`, `frontend/src/features/preview/Placements.tsx` |
+| V03 existing-cluster authoring and strict renderer inputs | `backend/internal/application/catalog/capabilities.go`, `backend/internal/domain/resource/rendering.go`, `frontend/src/features/platform/ResourceDefinitionsPage.tsx`, `RenderingTemplatesPage.tsx`, `frontend/src/features/preview/Placements.tsx` |
 | V03 real frontend acceptance, restart and owned cleanup | `backend/test/integration/v03-internal-frontend.sh`, `v03-supervisor.sh`, `v03-cleanup.sh`, `backend/test/integration/v03run/`, `frontend/test/e2e/v03-internal-frontend.mjs`, `v03-reopen.mjs`; [coverage and execution record](../verification/2026-10-18-v03-handoff.md) |
 | V02 provision authoring and stored rules → Preview graph/batches | [`HTTP planner tests`](../../backend/test/e2e/provision_planning_http_test.go), [`focused runner`](../../backend/test/integration/v02-provision-local.sh), [`scenario`](../../frontend/test/e2e/v02-provision-scenario.mjs) |
 | V02 Definition CAS/Driver Inputs/account and shared matching | [`catalog regression`](../../backend/internal/application/catalog/definition_update_test.go), [`matcher`](../../backend/internal/domain/resource/match.go), [`headed runner`](../../backend/test/integration/v02-definitions-local.sh), [`scenario`](../../frontend/test/e2e/v02-definitions-local.mjs), [`verification`](../verification/2026-10-17-v02-handoff.md) |
@@ -565,3 +565,6 @@ Validation: [service/resolver tests](../../backend/internal/application/connecti
 [browser workload](../../frontend/test/e2e/ec2-role-real.mjs).
 Deployment: [EC2 Compose overlay](../../docker-compose.ec2.yml),
 [start command](../../deploy/ec2/start.sh), [Docker runbook](../operations/docker-local.md).
+
+UI3-05 unified existing-cluster catalog/editor uses ResourceDefinitionsPage and
+ExistingClusterDefinition.test.tsx; the separate ExistingClusterSection was removed.

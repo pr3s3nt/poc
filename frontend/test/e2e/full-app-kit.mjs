@@ -127,7 +127,7 @@ export function makeKit(ctx) {
   const mark = ctx.mark ?? (() => {});
   const nav = (name) => page.getByRole('link', { name: new RegExp(`(^|\\s)${name}$`) });
   const get = async (path) => requiredJSON(await page.request.get(`${baseURL}/api/v1${path}`), path);
-  const wrapped = new Set(['Loại tài nguyên', 'Module đã kiểm chứng', 'Tài khoản hạ tầng', 'Bundle dựng ứng dụng', 'Nhóm cluster của provider kubernetes', 'Phạm vi cluster của provider kubernetes', 'Tài khoản Internal của cluster']);
+  const wrapped = new Set(['Loại tài nguyên', 'Module đã kiểm chứng', 'Tài khoản hạ tầng', 'Bundle dựng ứng dụng', 'Cách cung cấp cluster', 'Nhóm cluster của provider kubernetes', 'Phạm vi cluster của provider kubernetes', 'Tài khoản Internal của cluster']);
   const form = (name, scope = page) => (wrapped.has(name)
     ? scope.locator(`select[aria-label="${name}"], label:has-text("${name}") > select`).first()
     : scope.getByLabel(name, { exact: true }));

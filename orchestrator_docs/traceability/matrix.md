@@ -1022,3 +1022,9 @@ unchanged.
 Browser acceptance scripts `full-app-flows.mjs` and the focused v3/Git scripts
 use `test/e2e/definition-sources.mjs`; `terraform-v2-labels.test.mjs` checks the
 labels statically. They were not run against a live backend in this change.
+
+## UC-03 unified existing-cluster authoring — 2026-10-21
+
+| Requirement | Realization | Verification |
+|---|---|---|
+| UI3-05 common catalog/editor, capability methods, Internal account and shared save | ResourceDefinitionsPage, same OC-04 and matching/CAS pipeline; no sequence/contract changes | ExistingClusterDefinition.test.tsx; ResourceDefinitionsPage.test.tsx; DefinitionV3.test.tsx |

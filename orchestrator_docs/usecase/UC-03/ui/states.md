@@ -203,3 +203,7 @@ tường minh. Edit giữ pin đã lưu, không tự chuyển sang Git.
   chặn Save với hướng dẫn thay vì bị bỏ.
 - Companion: descriptor hoặc params không biểu diễn được hiện chỉ ở “Cấu hình kỹ
   thuật” với cảnh báo; chuyển Form/JSON/tab không mất dữ liệu.
+
+## Unified cluster authoring — 2026-10-21
+
+UI3-05: Switching cluster methods retains each driver draft. Existing-cluster shares catalog/detail navigation, criteria validation, metadata/account loading and error/retry states, CAS stale/unknown-outcome holds and explicit reload with Terraform. ID/Type stay fixed during Edit.

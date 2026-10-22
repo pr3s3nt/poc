@@ -196,3 +196,7 @@ binding, biến, executor-owned và region variable từ GET
 `/resource-definition-capabilities`; Loại tài nguyên, class, inputs/outputs từ GET
 `/resource-types`. Form chỉ sinh `driverInputs.values.variables`,
 `provider_bindings`, `input_mapping` và `provision`; server vẫn kiểm tra strict.
+
+## Unified cluster authoring — 2026-10-21
+
+UI3-05: Both methods use the existing GET/POST/PUT resource-definitions endpoints and capability/account metadata. Existing-cluster submits k8s-cluster, driver existing-cluster, its Internal driverAccount and values.variables = {}; no Terraform source, region or credentials. Matching API and expected-version CAS remain unchanged.

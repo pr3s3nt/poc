@@ -296,10 +296,10 @@ export const SCENARIOS = {
     const afterRestart = (await get('/resource-definitions')).resourceDefinitions.find((d) => d.key === ids.cluster);
     rec.record('restart.catalog-persisted', 'READY', 'ui', afterRestart?.version === cluster.version && afterRestart?.driverAccount === cluster.driverAccount, `cluster Definition v${afterRestart?.version} and account ${afterRestart?.driverAccount} survived the restart`);
     await h.click(nav('Cấu hình tài nguyên'));
-    const section = page.getByRole('region', { name: 'Cluster có sẵn (existing-cluster)' });
-    await h.click(section.getByRole('button', { name: `Sửa cluster ${ids.cluster}` }));
-    await h.type(section.getByLabel('Tên hiển thị cluster', { exact: true }), 'Cluster k8s-4f (có sẵn, đã đổi tên)', { replace: true });
-    await h.click(section.getByRole('button', { name: 'Lưu thay đổi cluster', exact: true }));
+    await h.click(page.getByRole('button', { name: `Sửa cấu hình ${ids.cluster}`, exact: true }));
+    const section = page.getByRole('region', { name: 'Sửa cấu hình tài nguyên', exact: true });
+    await h.type(section.getByLabel('Tên hiển thị', { exact: true }), 'Cluster k8s-4f (có sẵn, đã đổi tên)', { replace: true });
+    await h.click(section.getByRole('button', { name: 'Lưu thay đổi', exact: true }));
     await expect(section.getByRole('status')).toContainText('phiên bản 2');
     await signOut();
     await signIn('developer');
