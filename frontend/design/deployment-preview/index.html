@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deployment Preview · Orchestrator</title>
+  <link rel="stylesheet" href="../../src/styles/index.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+  <aside class="sidebar">
+    <span class="wordmark wordmark-light"><span class="wordmark-mark">◆</span> Orchestrator</span>
+    <nav class="nav" aria-label="Điều hướng chính (minh họa)">
+      <span class="nav-item nav-item-active">▦ <span>Ứng dụng</span></span>
+      <span class="nav-item">◇ <span>Loại tài nguyên</span></span>
+      <span class="nav-item">▣ <span>Cấu hình tài nguyên</span></span>
+      <span class="nav-item">▤ <span>Mẫu dựng ứng dụng</span></span>
+      <span class="nav-item">⌬ <span>Tài khoản hạ tầng</span></span>
+      <span class="nav-item">⌘ <span>Kết nối</span></span>
+      <span class="nav-item">⚿ <span>Kho bí mật</span></span>
+      <span class="nav-item nav-item-disabled">◷ <span>Lịch sử triển khai</span><small>Sắp có</small></span>
+    </nav>
+    <div class="sidebar-footer"><div class="user-chip"><span class="avatar">PE</span><span><strong>platform-demo</strong><small>Kỹ sư nền tảng</small></span></div><span class="button button-quiet">Đăng xuất</span></div>
+  </aside>
+  <main class="main-content">
+    <section class="page application-home deployment-preview">
+      <span class="back-link">← Ứng dụng</span>
+      <header class="page-header application-header"><div><p class="eyebrow">Ứng dụng</p><h1>Shopfront</h1><p>shop.example.test</p></div><button class="button" disabled title="Ngoài phạm vi bản mẫu">Cài đặt môi trường</button></header>
+      <div class="tabs environment-tabs" aria-label="Môi trường minh họa"><div class="tab tab-active">staging<span>shop.staging.example.test</span></div><div class="tab environment-inactive">production<span>shop.example.test</span></div></div>
+      <div class="prototype-controls"><span><strong>Bản mẫu review</strong> · Dữ liệu minh họa · Desktop</span><label>Tình huống <select id="scenario"><option value="update">Cluster có sẵn · cập nhật</option><option value="create">Cluster có sẵn · triển khai mới</option><option value="cloud">Cloud · tạo hạ tầng mới</option></select></label></div>
+      <section class="content-panel preview-container">
+      <div class="section-header"><div><h2>Xem trước thay đổi</h2><p>staging · Chọn thành phần để xem cấu hình, thay đổi và code dự kiến.</p></div><span id="overall-status" class="status status-draft"><span class="status-dot"></span>Chờ mô phỏng</span></div>
+      <div class="summary-bar"><div class="summary-title"><span class="check-icon">✓</span><div><strong id="summary-title">4 thành phần trong kế hoạch</strong><small id="summary-sub">Cụm có sẵn · namespace shopfront-staging</small></div></div><div class="counts" id="counts"></div></div>
+      <div class="review-layout">
+        <section class="graph-panel" aria-label="Sơ đồ triển khai">
+          <div class="panel-heading"><div><h3>Bản đồ triển khai</h3><p>Chọn một thành phần để khám phá thay đổi.</p></div><span class="map-badge">Kubernetes</span></div>
+          <div class="graph-viewport"><div class="graph-stage" id="graph-stage"><div id="graph-background"></div><svg class="connections" id="connections" aria-hidden="true"></svg><div id="nodes"></div></div></div>
+          <div class="graph-legend"><span>→ Điều kiện sẵn sàng → thành phần phụ thuộc</span><span>Khung thể hiện vị trí triển khai</span></div>
+        </section>
+        <aside class="inspector" aria-label="Chi tiết thành phần"><div id="detail-heading"></div><div class="detail-tabs" role="tablist" aria-label="Chi tiết tài nguyên"><button role="tab" data-tab="overview" aria-selected="true">Tổng quan</button><button role="tab" data-tab="changes" aria-selected="false">Thay đổi <span id="change-count"></span></button><button role="tab" data-tab="code" aria-selected="false">Code</button></div><div id="detail-body" role="tabpanel" tabindex="0"></div></aside>
+      </div>
+      <section class="execution"><div class="execution-heading"><div><h2>Điều gì sẽ xảy ra?</h2><p id="execution-description">Hạ tầng sẵn sàng trước, ứng dụng triển khai sau.</p></div><span id="execution-status" role="status" aria-live="polite">Chưa chạy mô phỏng</span></div><div class="simulation-controls"><label>Kết quả mô phỏng <select id="outcome"><option value="success">Thành công</option><option value="failure">Redis / ElastiCache thất bại</option></select></label><span>Thời gian rút gọn để review; không đại diện thời gian cấp phát thực tế.</span></div><div id="progress-summary"></div><ol id="steps"></ol></section>
+      <footer class="action-bar"><div><strong id="footer-title">Sẵn sàng để review</strong><span id="footer-description">Code và trạng thái là minh họa. Mô phỏng chỉ chạy trong trình duyệt.</span></div><div class="actions"><button id="pause" class="button" disabled>Tạm dừng</button><button id="reset" class="button">Đặt lại</button><button id="simulate" class="button button-primary">▷ Mô phỏng triển khai</button></div></footer>
+      </section>
+    </section>
+  </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
