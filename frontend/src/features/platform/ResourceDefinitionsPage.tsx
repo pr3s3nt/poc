@@ -8,16 +8,17 @@ import type { MatchingCandidateInput } from './MatchingPreviewPanel';
 import { useCatalogList } from './useCatalogList';
 import { own } from './resourceSupport';
 import { capabilitiesForType, capabilityKey, isVerifiedPin, loadCapabilities, type Capability } from './capabilities';
-import { TypedVariablesEditor } from './TypedVariablesEditor';
-import { ProvisionEditor } from './ProvisionEditor';
+import { ParameterSources } from './ParameterSources';
+import { InfrastructureConnection } from './InfrastructureConnection';
+import { CompanionResources } from './CompanionResources';
 import { parseTypeMetadata } from './metadata';
 import { MappingEditor } from './MappingEditor';
-import { clusterType, emptyMapping, inheritsCluster, mappingProblems, mappingToObject, needsAccount, objectToMapping, bindingProviders, type MappingDraft, type TypeContract } from './moduleMapping';
+import { clusterType, emptyMapping, mappingProblems, mappingToObject, needsAccount, objectToMapping, type BindingDraft, type MappingDraft, type TypeContract } from './moduleMapping';
 import { draftToVariables, emptyVariableDraft, missingRequired, parseObjectText, variablesToDraft, type JsonObject, type VariableDraft } from './typedVariables';
 import { provisionToRows, rowsToProvision, type ProvisionRow } from './typedProvision';
 import { GitModuleSource } from './GitModuleSource';
 import { ExistingClusterSection } from './ExistingClusterSection';
-import { listAccounts, statusLabel, typeLabel, type Account } from './accounts/accountsApi';
+import { listAccounts, typeLabel, type Account } from './accounts/accountsApi';
 
 type APIApplication = { key: string; name?: string; environments?: ApiEnvironment[] };
 // The public Definition DTO (UC-03 V02-01): Name, version and Driver Account; no profile or Connection field.
@@ -134,12 +135,13 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const draftKey = pin ? capabilityKey(pin) : '';
   const draft = drafts[draftKey] ?? initialDraft();
   const patchDraft = (change: Partial<PairDraft>) => { if (draftKey) setDrafts((current) => ({ ...current, [draftKey]: { ...initialDraft(), ...current[draftKey], ...change } })); };
+  // The cluster source is part of the mapping draft the advanced editor and the JSON mode serialize: one state, one serializer.
+  const setBinding = (provider: string, binding: BindingDraft) => patchDraft({ map: { ...draft.map, bindings: { ...draft.map.bindings, [provider]: binding } } });
   // The account requirement is published by the server per pair; the form never infers a driver's needs.
   const accountRequired = pin !== undefined && needsAccount(pin);
   const regionName = pin?.account.regionVariable ?? 'region';
   // The region has its own control, so it is not a generic variable of the typed form.
   const variableList = pin ? pin.variables.filter((variable) => !(accountRequired && variable.name === regionName)) : [];
-  const compatibleAccounts = accountList.items.filter((account) => account.type === pin?.account.type && account.status === 'READY');
   const chosenAccount = accountRequired ? draft.account : '';
   const chosenRegion = accountRequired ? draft.region.trim() : '';
 
@@ -400,12 +402,6 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
   const typeOptionLabel = (typeKey: string) => (capabilityList.loading ? `${typeKey} (đang kiểm tra hỗ trợ…)` : capabilityList.loadError ? `${typeKey} (chưa xác nhận hỗ trợ)` : supportedType(typeKey) ? typeKey : `${typeKey} (chưa có module đã kiểm chứng)`);
   const problems = pin && draft.mapMode === 'typed' ? mappingProblems(draft.map, pin, typeContract) : [];
   const accountName = (accountKey: string) => { const account = accountList.items.find((item) => item.key === accountKey); return account ? accountLabel(account) : accountKey; };
-  const clusterSources = pin ? bindingProviders(pin).filter((provider) => provider.binding === 'kubernetes').map((provider) => {
-    const binding = draft.map.bindings[provider.name];
-    const label = binding?.target === 'resource' ? `cluster do node EKS cung cấp${binding.clusterClass ? ` (class ${binding.clusterClass})` : ''}` : 'chưa chọn';
-    return { provider: provider.name, label };
-  }) : [];
-  const selectedMissing = accountRequired && chosenAccount !== '' && !compatibleAccounts.some((account) => account.key === chosenAccount);
   const reviewInputs = buildInputs();
   const reviewCriteria = draftToCriteria(criteriaDraft);
   const reviewProblem = reviewInputs.problem || reviewCriteria.problem;
@@ -470,30 +466,19 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
         </section>
         <section className="definition-card definition-parameters"><div className="definition-card-title"><span className="definition-step">2</span><h3>Tài khoản &amp; thông số</h3></div>
         {editing ? identityFields : null}
-        {pin ? <section className="catalog-fields" aria-label="Tài khoản và nguồn phụ thuộc">
-          <div className="section-header"><div><h3 className="definition-sr-only">Tài khoản và nguồn phụ thuộc</h3></div></div>
-          {accountRequired ? <>
-            <details className="definition-help"><summary>Về tài khoản và vùng</summary><p className="feature-note">Module này chạy bằng tài khoản {typeLabel(pin.account.type ?? '')} và vùng ghi ngay trong cấu hình. Cấu hình không lấy tài khoản hay vùng từ Môi trường; mỗi cấu hình có thể dùng tài khoản và vùng khác nhau. Vùng xác minh của tài khoản chỉ là bằng chứng kiểm tra, không phải danh sách vùng được phép.</p></details>
-            <div className="field-grid">
-              <label>Tài khoản {typeLabel(pin.account.type ?? '')}<select aria-label="Tài khoản hạ tầng" aria-required="true" value={chosenAccount} disabled={accountList.loading || accountList.loadError !== ''} onChange={(event) => patchDraft({ account: event.target.value })}>
-                <option value="">{accountList.loading ? 'Đang tải tài khoản…' : accountList.loadError ? 'Chưa tải được tài khoản' : compatibleAccounts.length === 0 ? 'Chưa có tài khoản sẵn sàng' : 'Chọn tài khoản'}</option>
-                {selectedMissing ? <option value={chosenAccount}>{accountName(chosenAccount)} (không còn tương thích hoặc chưa sẵn sàng)</option> : null}
-                {compatibleAccounts.map((account) => <option key={account.key} value={account.key}>{accountLabel(account)} · {statusLabel(account.status)} · phiên bản {account.version}</option>)}</select></label>
-              <label>Vùng AWS<input aria-label="Vùng AWS" aria-required="true" value={draft.region} spellCheck={false} placeholder="ap-southeast-1" aria-describedby="definition-region-hint" onChange={(event) => patchDraft({ region: event.target.value })} /></label></div>
-            <p id="definition-region-hint" className="definition-sr-only">Vùng là chuỗi literal (không dùng placeholder) và được lưu trong Driver Inputs của cấu hình.</p>
-            {accountList.loadError ? <div className="form-error" role="alert" aria-label="Lỗi tải tài khoản">{accountList.loadError} Chưa chọn được tài khoản; dữ liệu đã nhập được giữ nguyên. <Button type="button" onClick={() => { void accountList.reload(); }}>Thử lại</Button></div> : !accountList.loading && compatibleAccounts.length === 0 ? <div className="form-warning" role="note" aria-label="Chưa có tài khoản sẵn sàng">Chưa có tài khoản {typeLabel(pin.account.type ?? '')} ở trạng thái Sẵn sàng trong Tổ chức. Tạo và xác minh tài khoản ở trang Tài khoản hạ tầng trước.</div> : null}
-            {selectedMissing && !accountList.loading ? <div className="form-warning" role="alert">Tài khoản đã chọn ({chosenAccount}) không còn tương thích hoặc chưa Sẵn sàng. Chọn tài khoản khác; máy chủ cũng kiểm tra lại khi lưu và khi lập kế hoạch.</div> : null}
-          </> : <p className="feature-note" role="note">Module này không chọn tài khoản. {inheritsCluster(pin) ? 'Truy cập cluster được kế thừa từ tài nguyên phụ thuộc, không chọn lại tài khoản.' : 'Không dùng tài khoản hạ tầng.'}</p>}
-          {clusterSources.map((source) => <p key={source.provider} className="feature-note" data-cluster-source={source.provider}>Nguồn cluster của provider <code>{source.provider}</code>: <strong>{source.label}</strong>.</p>)}
+        {pin ? <section className="catalog-fields connection-fields" aria-label="Kết nối hạ tầng">
+          <div className="section-header"><div><h3>Kết nối hạ tầng</h3><p className="feature-note">Chọn tài khoản hoặc nguồn truy cập mà module cần trước khi cung cấp thông số.</p></div></div>
+          <InfrastructureConnection capability={pin} accountRequired={accountRequired} accounts={{ items: accountList.items, loading: accountList.loading, error: accountList.loadError, reload: () => { void accountList.reload(); } }}
+            account={chosenAccount} region={draft.region} onAccount={(value) => patchDraft({ account: value })} onRegion={(value) => patchDraft({ region: value })}
+            mapping={draft.map} mappingEditable={draft.mapMode === 'typed'} clusterClasses={clusterClasses} onBinding={setBinding} problems={problems} disabled={saving} />
         </section> : null}
         {pin ? <section className="catalog-fields" aria-label="Tham số cấu hình">
-          <div className="section-header"><div><h3>Tham số cấu hình</h3><details className="definition-help"><summary>Cách cung cấp giá trị</summary><p>Mỗi tham số chỉ được gửi khi bạn chọn ghi đè; tham số bỏ trống giữ mặc định của module hoặc giá trị từ Loại tài nguyên. Giá trị là một placeholder nguyên vẹn, ví dụ <code>{'${context.env.namespace}'}</code>, được kiểm tra khi lập kế hoạch. Không nhận credential hoặc tham chiếu bí mật.</p></details></div>
+          <div className="section-header"><div><h3>Thông số tài nguyên</h3><details className="definition-help"><summary>Cách cung cấp giá trị</summary><p>Mỗi thông số chỉ được gửi khi bạn chọn một nguồn: giá trị nhập trực tiếp, ngữ cảnh triển khai hoặc output của tài nguyên khác. Thông số bỏ trống giữ mặc định của module hoặc giá trị từ Loại tài nguyên. Biểu thức được sinh tự động và chỉ hiện trong phần kỹ thuật. Không nhận credential hoặc tham chiếu bí mật.</p></details></div>
             <div className="definition-segmented" role="group" aria-label="Cách nhập tham số"><Button type="button" aria-label="Tham số: biểu mẫu" aria-pressed={draft.varMode === 'typed'} onClick={() => switchVariables('typed')}>Biểu mẫu</Button><Button type="button" aria-label="Tham số: JSON nâng cao" aria-pressed={draft.varMode === 'json'} onClick={() => switchVariables('json')}>JSON nâng cao</Button></div></div>
-          {pin.executorOwned.length > 0 ? <p className="feature-note">Hệ thống tự cung cấp, không có ô nhập: {pin.executorOwned.map((name) => <code key={name}>{name} </code>)}</p> : null}
           {draft.varsNote ? <div className="form-warning" role="note">{draft.varsNote}</div> : null}
           {draft.varMode === 'typed' && missingRequired(draft.vars, variableList, covered).length > 0 ? <p className="feature-note">Cần nhập trước khi lưu (không có mặc định và không có tham số của Loại cung cấp): {missingRequired(draft.vars, variableList, covered).map((variable) => variable.name).join(', ')}. Máy chủ vẫn kiểm tra khi lưu.</p> : null}
-          {draft.varMode === 'typed' ? <TypedVariablesEditor variables={variableList} draft={draft.vars} onChange={(vars) => patchDraft({ vars })} disabled={saving} mapped={mapped} covered={covered} />
-            : <><label>Tham số cấu hình (JSON object)<textarea aria-label="Tham số cấu hình (JSON object)" value={draft.varsJSON} rows={6} spellCheck={false} aria-describedby="driver-variables-hint" onChange={(event) => patchDraft({ varsJSON: event.target.value, varsNote: '' })} /></label>
+          {draft.varMode === 'typed' ? <ParameterSources variables={variableList} draft={draft.vars} onChange={(vars) => patchDraft({ vars })} executorOwned={pin.executorOwned} types={types} disabled={saving} mapped={mapped} covered={covered} />
+            : <>{pin.executorOwned.length > 0 ? <p className="feature-note">Hệ thống tự cung cấp, không có ô nhập: {pin.executorOwned.map((name) => <code key={name}>{name} </code>)}</p> : null}<label>Tham số cấu hình (JSON object)<textarea aria-label="Tham số cấu hình (JSON object)" value={draft.varsJSON} rows={6} spellCheck={false} aria-describedby="driver-variables-hint" onChange={(event) => patchDraft({ varsJSON: event.target.value, varsNote: '' })} /></label>
               <p id="driver-variables-hint" className="feature-note">Chỉ nhận tham số mà module đã chọn khai báo, và giá trị literal phải đúng kiểu khai báo.{accountRequired ? ` Vùng AWS (${regionName}) nhập ở ô riêng, không nhập ở đây.` : ''} JSON hợp lệ vẫn được máy chủ kiểm tra nghiêm ngặt.</p></>}
         </section> : null}
         </section>
@@ -503,14 +488,14 @@ export function ResourceDefinitionsPage({ initialResourceType = '' }: { initialR
         <section className="catalog-fields" aria-label="Ánh xạ module">
           {draft.mapNote ? <div className="form-warning" role="note">{draft.mapNote}</div> : null}
           {!typeContract ? <p className="feature-note" role="status">Đang chờ hợp đồng của Loại tài nguyên.</p> : draft.mapMode === 'typed'
-            ? <MappingEditor capability={pin} type={typeContract} clusterClasses={clusterClasses} draft={draft.map} onChange={(map) => patchDraft({ map })} problems={problems} disabled={saving} />
+            ? <MappingEditor capability={pin} type={typeContract} draft={draft.map} onChange={(map) => patchDraft({ map })} problems={problems} disabled={saving} />
             : <><label>Ánh xạ module (JSON object: input_mapping, output_mapping, provider_bindings)<textarea aria-label="Ánh xạ module JSON" value={draft.mapJSON} rows={8} spellCheck={false} onChange={(event) => patchDraft({ mapJSON: event.target.value, mapNote: '' })} /></label>
               <p className="feature-note">JSON hợp lệ vẫn được máy chủ kiểm tra nghiêm ngặt: biến, output, kiểu và provider phải có trong module đã kiểm chứng; provider AWS dùng <code>{'{"target": "account"}'}</code>; không nhận endpoint hay credential.</p></>}
         </section>
         <section className="catalog-fields" aria-label="Quy tắc tạo tài nguyên liên quan">
-          <div className="section-header"><div><h3>Tài nguyên đi kèm</h3><p className="feature-note">Khai báo thêm tài nguyên cần tạo cùng cấu hình này.</p></div></div>
+          {draft.provMode === 'json' ? <div className="section-header"><div><h3>Tài nguyên đi kèm</h3><p className="feature-note">Khai báo thêm tài nguyên cần tạo cùng cấu hình này.</p></div></div> : null}
           {draft.provNote ? <div className="form-warning" role="note">{draft.provNote}</div> : null}
-          {draft.provMode === 'typed' ? <ProvisionEditor rows={draft.rows} onChange={(rows) => patchDraft({ rows })} disabled={saving} />
+          {draft.provMode === 'typed' ? <CompanionResources rows={draft.rows} onChange={(rows) => patchDraft({ rows })} parentType={resourceType} types={types} disabled={saving} />
             : <label>Quy tắc tạo tài nguyên liên quan (JSON object)<textarea aria-label="Quy tắc tạo tài nguyên liên quan (JSON object)" value={draft.provJSON} rows={4} spellCheck={false} onChange={(event) => patchDraft({ provJSON: event.target.value, provNote: '' })} /></label>}
         </section>
         </details> : null}

@@ -9,7 +9,8 @@ last_reviewed: 2026-10-21
 
 | Design concern | Implementation entry point |
 |---|---|
-| Issue #8 Resource Definition v3 detail/cards/tabs/rules, atomic advanced mode, metadata default previews | `frontend/src/features/platform/ResourceDefinitionsPage.tsx`, `CriteriaEditor.tsx` (rule projection for Definitions), `CriteriaRules.tsx`, `MappingEditor.tsx`/`TypedVariablesEditor.tsx`/`ProvisionEditor.tsx` and existing converters; `DefinitionV3.test.tsx`; focused real HTTP/Git browser `frontend/test/e2e/resource-definition-v3-local.mjs` via `backend/test/integration/gitmodulebrowser/` |
+| Issue #8 Resource Definition v3 detail/cards/tabs/rules, atomic advanced mode, metadata default previews | `frontend/src/features/platform/ResourceDefinitionsPage.tsx`, `CriteriaEditor.tsx` (rule projection for Definitions), `CriteriaRules.tsx`, `MappingEditor.tsx`/`ParameterSources.tsx` (was TypedVariablesEditor)/`ProvisionEditor.tsx` (Mẫu dựng ứng dụng) and existing converters; `DefinitionV3.test.tsx`; focused real HTTP/Git browser `frontend/test/e2e/resource-definition-v3-local.mjs` via `backend/test/integration/gitmodulebrowser/` |
+| Issue #11 module forms: connection, source chooser, parameter cards, companions | `frontend/src/features/platform/InfrastructureConnection.tsx`, `valueSource.ts`, `ValueSourceDialog.tsx`, `ParameterSources.tsx`, `CompanionResources.tsx`, `ResourceDefinitionsPage.tsx`; tests `ModuleForms.test.tsx`, `valueSource.test.ts`; e2e helper `frontend/test/e2e/definition-sources.mjs`; mock [`frontend/design/resource-definition-module-forms`](../../frontend/design/resource-definition-module-forms/README.md) |
 | Git source default + published release-equivalent modules | `ResourceDefinitionsPage.tsx` create/reset/edit source state; `registry/git_inspect.go` content+Type lifecycle identity; `git_inspect_test.go`; `published-modules-local.mjs`; [runbook](../operations/terraform-module-sources.md) |
 | Issue #7 direct Git Terraform module authoring | `backend/internal/adapters/terraform/registry/git_inspect.go`, `fetch.go`, `backend/internal/application/catalog/git_inspect.go`, `backend/internal/delivery/http/terraform_modules.go`, `frontend/src/features/platform/GitModuleSource.tsx`; focused browser: `backend/test/integration/gitmodulebrowser/`, `frontend/test/e2e/git-module-local.mjs` |
 | V03 Definition-selected cluster/workload placement (ADR-016) | `backend/internal/planning/workload.go`, `schedule.go`, `backend/internal/application/deployment/service.go`, `backend/internal/ports/execution/clustertarget.go`; target pins in `backend/internal/domain/environment/document.go` |
@@ -466,7 +467,7 @@ authoritative; namespace param source respects required-string BR-12.
 [Metadata client](../../frontend/src/features/platform/capabilities.ts) feeds
 [Resource Types](../../frontend/src/features/platform/ResourceTypesPage.tsx)
 support/CTA and [Definition form](../../frontend/src/features/platform/ResourceDefinitionsPage.tsx).
-[Typed controls](../../frontend/src/features/platform/TypedVariablesEditor.tsx),
+[Typed controls](../../frontend/src/features/platform/ParameterSources.tsx),
 [variable conversion](../../frontend/src/features/platform/typedVariables.ts),
 [provision editor](../../frontend/src/features/platform/ProvisionEditor.tsx) and
 [provision conversion](../../frontend/src/features/platform/typedProvision.ts)

@@ -18,9 +18,10 @@ describe('UC-03 V02 Kubernetes modules take no account', () => {
     expect(screen.queryByLabelText('Tài khoản hạ tầng')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Vùng AWS')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Kết nối riêng cho cluster (tùy chọn)')).not.toBeInTheDocument();
-    const section = screen.getByRole('region', { name: 'Tài khoản và nguồn phụ thuộc' });
-    expect(section).toHaveTextContent('Module này không chọn tài khoản. Truy cập cluster được kế thừa từ tài nguyên phụ thuộc, không chọn lại tài khoản.');
-    expect(section).toHaveTextContent('Nguồn cluster của provider kubernetes: cluster do node EKS cung cấp (class eks).');
+    const section = screen.getByRole('region', { name: 'Kết nối Kubernetes kubernetes' });
+    expect(section).toHaveTextContent('Dùng thông tin truy cập từ cluster');
+    expect(section).toHaveTextContent('Không nhập tài khoản, token hoặc kubeconfig ở đây.');
+    expect(within(section).getByLabelText('Nhóm cluster của provider kubernetes')).toHaveValue('eks');
     await submitDefinition(user);
     expect(await screen.findByText(/^Đã đăng ký cấu hình tài nguyên/)).toHaveTextContent('pg-in-cluster');
     expect(posted[0]).not.toHaveProperty('driverAccount');
@@ -28,15 +29,16 @@ describe('UC-03 V02 Kubernetes modules take no account', () => {
     expect(gets.some((url) => url.endsWith('/connections'))).toBe(false);
   });
 
-  it('shows the EKS class source for a resource binding and offers no Environment target', async () => {
+  it('shows the cluster class source for a resource binding and offers no Environment target', async () => {
     const user = userEvent.setup();
     backend();
     await ready(<ResourceDefinitionsPage />, renderDefinition);
     await completeDefinition(user, { id: 'pg-eks', type: 'postgres', module: 'postgres-k8s', binding: { cluster: 'eks' } });
-    expect(screen.getByRole('region', { name: 'Tài khoản và nguồn phụ thuộc' })).toHaveTextContent('Nguồn cluster của provider kubernetes: cluster do node EKS cung cấp (class eks).');
-    const target = field('Cluster đích của provider kubernetes');
-    expect(within(target).getByRole('option', { name: 'Cluster do node EKS cung cấp (kế thừa từ tài nguyên phụ thuộc)' })).toBeInTheDocument();
-    expect(within(target).queryByRole('option', { name: /Môi trường|Environment/i })).not.toBeInTheDocument();
+    expect(field('Nhóm cluster của provider kubernetes')).toHaveValue('eks');
+    const scope = field('Phạm vi cluster của provider kubernetes');
+    expect(within(scope).getByRole('option', { name: 'Cùng ứng dụng và môi trường' })).toBeInTheDocument();
+    expect(within(scope).getAllByRole('option')).toHaveLength(1);
+    expect(within(field('Nhóm cluster của provider kubernetes')).queryByRole('option', { name: /Môi trường|Environment/i })).not.toBeInTheDocument();
   });
 
   it('has no account selector for AWS-free Types and does not need the account list to register them', async () => {

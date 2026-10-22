@@ -189,3 +189,17 @@ trong disclosure. Details/help chỉ ẩn lời giải thích, không nới vali
 Tạo mới, reset và sau đăng ký thành công mặc định ở Git; chưa inspect thì
 không chọn pin đóng gói và không Save. Module đã đăng ký cần chuyển mode
 tường minh. Edit giữ pin đã lưu, không tự chuyển sang Git.
+
+## Resource Definition module forms states — issue #11
+
+- Kết nối: account loading/error/empty/stale (không còn READY/đúng loại) giữ
+  lựa chọn và có Thử lại; vùng không literal chặn Save; JSON nâng cao không
+  biểu diễn được làm vùng kết nối chỉ đọc, không ghi đè JSON.
+- Nguồn giá trị: Hủy giữ nguyên; Áp dụng thiếu trường (Loại/class/phạm vi/
+  output/giá trị sai kiểu) bị khóa kèm lý do; chọn “mặc định/param” bỏ ghi đè.
+  Reference mà Type/output không còn trong metadata hiện là nguồn nâng cao, giữ
+  chuỗi, không âm thầm xóa hoặc gửi giá trị cũ khác.
+- Đổi module/metadata: draft theo pin được giữ; thông số không còn trong module
+  chặn Save với hướng dẫn thay vì bị bỏ.
+- Companion: descriptor hoặc params không biểu diễn được hiện chỉ ở “Cấu hình kỹ
+  thuật” với cảnh báo; chuyển Form/JSON/tab không mất dữ liệu.

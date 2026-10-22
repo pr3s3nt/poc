@@ -37,7 +37,6 @@ function labels() {
 // Labels the Console composes at runtime (a noun or a variable name is interpolated), checked by their constituents.
 const COMPOSED = {
   '+ Thêm tham số đầu vào': ['+ Thêm', 'tham số đầu vào'], '+ Thêm tham số đầu ra': ['+ Thêm', 'tham số đầu ra'], '+ Thêm biến': ['+ Thêm', "'biến'"],
-  'Dùng preset cho namespace': ['Dùng preset cho'], 'Cluster đích của provider kubernetes': ['Cluster đích của provider'],
   'Biến của ứng dụng cho main': ['Biến của ứng dụng'], 'Bí mật của ứng dụng cho main': ['Bí mật của ứng dụng'], 'Điều kiện 1 Class': ['Điều kiện'], 'Triển khai thành công': ['Triển khai', 'thành công'], 'Triển khai thất bại': ['Triển khai', 'thất bại'],
 };
 

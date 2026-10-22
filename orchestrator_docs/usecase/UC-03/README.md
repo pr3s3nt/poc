@@ -23,7 +23,8 @@ Specification/realization định nghĩa yêu cầu, không chứng minh impleme
 6. [Humanitec/Score compatibility matrix](../../implementation/humanitec-compatibility.md)
 
 UI: [screens](ui/screens.md), [states](ui/states.md), [HTTP mapping](ui/api-mapping.md).
-Bản mẫu review (draft, issue #8): [Resource Definition v3](ui/v3-prototype.md).
+Bản mẫu review (draft, issue #8): [Resource Definition v3](ui/v3-prototype.md);
+mock module forms đã duyệt (issue #11): [module forms](ui/module-forms-prototype.md).
 
 ## Implementation entry points
 

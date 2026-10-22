@@ -2,6 +2,15 @@
 // create/edit/reload. The Go harness owns all fixtures; no deployment is made.
 import { chromium, expect } from '@playwright/test';
 
+// The shared source chooser of the form (UC-03 UI11-02): open the parameter card, type a literal, apply.
+async function provideLiteral(page, name, text) {
+  await page.getByRole('button', { name: new RegExp(`^(Cung cấp giá trị|Thay đổi) ${name}$`) }).click();
+  const dialog = page.getByRole('dialog', { name: 'Chọn nguồn giá trị' });
+  await dialog.getByRole('radio', { name: 'Nhập giá trị', exact: true }).check();
+  await dialog.getByLabel(`Giá trị ${name}`, { exact: true }).fill(text);
+  await dialog.getByRole('button', { name: 'Áp dụng', exact: true }).click();
+}
+
 const base = process.env.GIT_MODULE_CONSOLE_URL;
 const source = process.env.GIT_MODULE_SOURCE_URL;
 const commit = process.env.GIT_MODULE_COMMIT;
@@ -34,8 +43,7 @@ try {
   await expect(page.getByText(capability.source.contentSha256, { exact: true })).not.toBeVisible();
   await page.locator('summary', { hasText: 'Thiết lập nâng cao' }).click();
   await page.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }).click();
-  await page.getByLabel('Ghi đè label', { exact: true }).check();
-  await page.getByLabel('Giá trị label', { exact: true }).fill('browser-value');
+  await provideLiteral(page, 'label', 'browser-value');
   const created = page.waitForResponse((response) => response.url().endsWith('/resource-definitions') && response.request().method() === 'POST');
   await page.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true }).click();
   const createResponse = await created;
@@ -51,7 +59,7 @@ try {
   const row = page.locator('[data-definition="git-demo-definition"]');
   await expect(row).toContainText('Git module demo');
   await row.getByRole('button', { name: /Sửa/ }).click();
-  await expect(page.getByLabel('Giá trị label', { exact: true })).toHaveValue('browser-value');
+  await expect(page.locator('[data-variable="label"]')).toContainText('browser-value');
   await page.locator('summary', { hasText: 'Thiết lập nâng cao' }).click();
   await expect(page.getByLabel('Output module cung cấp name', { exact: true })).toHaveValue('name');
   await page.getByLabel('Tên hiển thị', { exact: true }).fill('Git module edited');

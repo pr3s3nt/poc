@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
-import { renderDefinition, backend, completeDefinition, field, submitDefinition } from '../../test/definitionKit';
+import { renderDefinition, backend, card, completeDefinition, field, submitDefinition } from '../../test/definitionKit';
 import { sessionExpiredEvent } from '../../shared/api/client';
 
 const criteriaTab = () => screen.getByRole('tab', { name: /Điều kiện áp dụng/ });
@@ -22,8 +22,8 @@ describe('Resource Definition v3 task layout', () => {
     await user.click(screen.getByRole('button', { name: '+ Thêm tài nguyên đi kèm' }));
     await user.type(field('Descriptor tài nguyên đi kèm 1'), 'redis.audit#shared.cache');
     fireEvent.change(field('Params tài nguyên đi kèm 1 (JSON object)'), { target: { value: '{"number":2,"nested":{"enabled":false},"ref":"${context.env.id}"}' } });
-    await user.click(field('Tài nguyên đi kèm 1 phụ thuộc vào tài nguyên cha (is_dependent)'));
-    await user.click(field('Nối consumer của tài nguyên cha tới tài nguyên đi kèm 1 (match_dependents)'));
+    await user.click(field('Tài nguyên đi kèm 1: redis chờ k8s-namespace tạo xong (is_dependent)'));
+    await user.click(field('Tài nguyên đi kèm 1: các tài nguyên đang dùng k8s-namespace cũng phải chờ redis (match_dependents)'));
     await user.click(screen.getByRole('button', { name: 'Nâng cao: JSON nâng cao' }));
     const provision = JSON.parse((field('Quy tắc tạo tài nguyên liên quan (JSON object)') as HTMLTextAreaElement).value);
     await user.click(screen.getByRole('button', { name: 'Nâng cao: biểu mẫu' }));
@@ -61,8 +61,8 @@ describe('Resource Definition v3 task layout', () => {
     fireEvent.change(field('Quy tắc tạo tài nguyên liên quan (JSON object)'), { target: { value: JSON.stringify(provision) } });
     await user.click(screen.getByRole('button', { name: 'Nâng cao: biểu mẫu' }));
     expect(field('Output module cung cấp name')).toHaveValue('name');
-    expect(field('Giá trị name')).toHaveValue('${context.env.namespace}');
-    expect(field('Tài nguyên đi kèm 1 phụ thuộc vào tài nguyên cha (is_dependent)')).toBeChecked();
+    expect(card('name')).toHaveTextContent('Namespace của môi trường');
+    expect(field('Tài nguyên đi kèm 1: redis chờ k8s-namespace tạo xong (is_dependent)')).toBeChecked();
     await user.click(screen.getByText('Xem bản đang nhập trước khi lưu'));
     const reviewed = JSON.parse(screen.getByLabelText('Bản cấu hình đang nhập').textContent ?? '');
     expect(reviewed.provision).toEqual(provision);

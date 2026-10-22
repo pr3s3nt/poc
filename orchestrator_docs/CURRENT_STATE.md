@@ -20,6 +20,19 @@ state and cleanup snapshots remain retained. Arbitrary changed Git modules do
 not gain those identities by name. Validation evidence is recorded in
 [verification](verification/2026-10-21-git-module-default.md).
 
+## Resource Definition module forms — issue #11, 2026-10-22
+
+Form Resource Definition có vùng “Kết nối hạ tầng” (AWS tài khoản/vùng, nguồn
+cluster Kubernetes) dùng cùng draft/serializer với provider binding; thông số
+module hiển thị dạng thẻ nguồn với bộ chọn dùng chung (literal, mặc định/param,
+ngữ cảnh, tài nguyên khác); preset theo tên biến đã bỏ. Tài nguyên đi kèm là thẻ
+Loại/class/phạm vi + params theo schema Type + hai cờ có tên cụ thể; descriptor
+và params thô nằm ở “Cấu hình kỹ thuật”. Chỉ desktop, không đổi backend/DTO.
+Giới hạn: phạm vi cluster chỉ “cùng ứng dụng và môi trường” (contract hiện
+hành); danh sách context chỉ `env.namespace`, `infra.resourceName`. Các script
+browser cũ (refactor-local, v02-*, v03-internal-frontend, definition-workload-local)
+còn nhãn cũ; chưa chạy browser acceptance trên backend thật.
+
 ## Resource Definition v3 — issue #8, 2026-10-21
 
 Nhánh `iam_role`: form Definition có hai tab Cấu hình / Điều kiện áp dụng,

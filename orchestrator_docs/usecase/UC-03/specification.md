@@ -2,7 +2,7 @@
 id: UC-03-SPEC
 artifact: use-case-specification
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-22
 ---
 
 # UC-03 — Register Resource Definition and Matching Criteria
@@ -397,3 +397,46 @@ chỉ tham chiếu bố cục/tương tác; không dùng dữ liệu, validation
 minh họa làm behavior sản phẩm. Không đổi DTO/API/backend, secrets, module pins,
 CAS, specificity hoặc dependency execution. Mẫu dựng ứng dụng tiếp tục dùng
 projection criteria hiện hành; không mở rộng redesign navigation hay theme.
+
+## Resource Definition module forms — issue #11
+
+Mock desktop đã duyệt ngày 2026-10-22 được lưu tại
+[module forms prototype](ui/module-forms-prototype.md); nó chỉ là visual
+reference. Không đổi DTO/API/backend, module pin, secret, CAS, matching hay thứ
+tự thực thi. Các điều dưới đây thay phần UI tương ứng của BR-24/25/26 và UI3-02;
+mọi validation và guard khác giữ nguyên.
+
+- **UI11-01 (Kết nối hạ tầng):** Phần 2 “Tài khoản & thông số” có một vùng kết
+  nối cho từng provider mà metadata capability công bố. Provider AWS dùng một
+  Tài khoản READY đúng loại và một Vùng literal (không lặp ở thông số).
+  Provider Kubernetes chọn nguồn cluster (Resource Type, class, phạm vi) theo
+  contract binding đã công bố và dùng thông tin truy cập của cluster, không nhập
+  token/kubeconfig/endpoint. Ô kết nối và `provider_bindings` dùng một draft và
+  một serializer; JSON nâng cao không biểu diễn được thì vùng kết nối chỉ đọc.
+  Số provider/nguồn lấy từ metadata, không suy từ tên module hoặc Type.
+- **UI11-02 (Nguồn giá trị):** Mỗi thông số hiển thị nguồn hiện tại và trạng
+  thái thiếu. “Cung cấp giá trị”/“Thay đổi” mở một bộ chọn nguồn dùng chung chỉ
+  với lựa chọn hợp lệ: giá trị literal đúng kiểu; mặc định của module hoặc
+  param ứng dụng (khi có mapping) tức là bỏ ghi đè; ngữ cảnh triển khai được
+  hỗ trợ; tài nguyên khác. Reference chọn theo Loại tài nguyên → class → phạm vi
+  (cùng ứng dụng và môi trường, ngữ cảnh hạ tầng hoặc ID tài nguyên) → output
+  công khai không bí mật, tương thích kiểu; biểu thức được sinh và chỉ hiện ở
+  phần kỹ thuật. Không còn preset theo tên biến hay theo module; mọi nguồn do
+  tác giả chọn tường minh. Giá trị không biểu diễn được (placeholder tự viết,
+  interpolation, escaped, output không rõ) giữ nguyên ở dạng nâng cao.
+- **UI11-03 (Thông số):** Thông số cần cung cấp/ánh xạ hiện trước; thông số có
+  mặc định hoặc tùy chọn nằm trong nhóm thu gọn; executor-owned/sensitive/
+  credential không có control. Param thực của ứng dụng > giá trị dự phòng của
+  Definition > mặc định module. Biến không chọn hoặc dùng mặc định không vào
+  payload; chỉ param ánh xạ từ input bắt buộc của Type mới đáp ứng biến bắt
+  buộc. Literal list/map/bool/number round-trip đúng kiểu.
+- **UI11-04 (Tài nguyên đi kèm):** Mỗi tài nguyên đi kèm chọn Loại tài nguyên,
+  class, phạm vi để sinh descriptor, và dựng params theo schema `inputs` của
+  Resource Type đó (không phải biến Terraform, không chọn cứng module). Hai cờ
+  dùng tên cụ thể: `is_dependent` = tài nguyên đi kèm chờ tài nguyên đang cấu
+  hình (companion → parent); `match_dependents` = mọi consumer của parent chờ
+  tài nguyên đi kèm. Cờ tắt không tự thêm cạnh; reference riêng vẫn tạo phụ
+  thuộc. Descriptor/params thô vẫn sửa được ở phần kỹ thuật; descriptor hoặc
+  params không biểu diễn được giữ nguyên.
+- **UI11-05 (Phạm vi):** Chỉ desktop; không thêm “Thứ tự thực hiện” hay sơ đồ
+  live; Lưu/sửa form không Preview, Deploy hay gọi provider.

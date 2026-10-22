@@ -4,6 +4,15 @@
 import { chromium, expect } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 
+// The shared source chooser of the form (UC-03 UI11-02): open the parameter card, type a literal, apply.
+async function provideLiteral(page, name, text) {
+  await page.getByRole('button', { name: new RegExp(`^(Cung cấp giá trị|Thay đổi) ${name}$`) }).click();
+  const dialog = page.getByRole('dialog', { name: 'Chọn nguồn giá trị' });
+  await dialog.getByRole('radio', { name: 'Nhập giá trị', exact: true }).check();
+  await dialog.getByLabel(`Giá trị ${name}`, { exact: true }).fill(text);
+  await dialog.getByRole('button', { name: 'Áp dụng', exact: true }).click();
+}
+
 const base = process.env.GIT_MODULE_CONSOLE_URL;
 const source = process.env.GIT_MODULE_SOURCE_URL;
 const commit = process.env.GIT_MODULE_COMMIT;
@@ -64,8 +73,7 @@ try {
   await disclose('Thiết lập nâng cao');
   await page.getByLabel('Biến module nhận tham số message', { exact: true }).selectOption('label');
   await page.getByLabel('Output module cung cấp title', { exact: true }).selectOption('name');
-  await page.getByLabel('Ghi đè label', { exact: true }).check();
-  await page.getByLabel('Giá trị label', { exact: true }).fill('literal fallback');
+  await provideLiteral(page, 'label', 'literal fallback');
   await page.getByRole('button', { name: 'Nâng cao: JSON nâng cao', exact: true }).click();
   const mappings = page.getByLabel('Ánh xạ module JSON', { exact: true });
   const originalMappings = await mappings.inputValue();
@@ -84,15 +92,15 @@ try {
   await page.getByRole('button', { name: '+ Thêm tài nguyên đi kèm', exact: true }).click();
   await page.getByLabel('Descriptor tài nguyên đi kèm 1', { exact: true }).fill('vthree.audit#shared.companion');
   await page.getByLabel('Params tài nguyên đi kèm 1 (JSON object)', { exact: true }).fill('{"message":"${context.env.id}"}');
-  await page.getByLabel('Tài nguyên đi kèm 1 phụ thuộc vào tài nguyên cha (is_dependent)', { exact: true }).check();
-  await page.getByLabel('Nối consumer của tài nguyên cha tới tài nguyên đi kèm 1 (match_dependents)', { exact: true }).check();
+  await page.getByLabel('Tài nguyên đi kèm 1: vthree chờ vthree tạo xong (is_dependent)', { exact: true }).check();
+  await page.getByLabel('Tài nguyên đi kèm 1: các tài nguyên đang dùng vthree cũng phải chờ vthree (match_dependents)', { exact: true }).check();
   await page.getByRole('button', { name: 'Nâng cao: JSON nâng cao', exact: true }).click();
   const provisionJSON = page.getByLabel('Quy tắc tạo tài nguyên liên quan (JSON object)', { exact: true });
   const provision = JSON.parse(await provisionJSON.inputValue());
   provision['vthree.audit#shared.companion'].match_dependents = false;
   await provisionJSON.fill(JSON.stringify(provision));
   await page.getByRole('button', { name: 'Nâng cao: biểu mẫu', exact: true }).click();
-  await expect(page.getByLabel('Nối consumer của tài nguyên cha tới tài nguyên đi kèm 1 (match_dependents)', { exact: true })).not.toBeChecked();
+  await expect(page.getByLabel('Tài nguyên đi kèm 1: các tài nguyên đang dùng vthree cũng phải chờ vthree (match_dependents)', { exact: true })).not.toBeChecked();
   // Add/remove rows without changing the kept rule.
   await page.getByRole('button', { name: '+ Thêm tài nguyên đi kèm', exact: true }).click();
   await page.getByRole('button', { name: 'Xóa tài nguyên đi kèm 2', exact: true }).click();
@@ -146,9 +154,9 @@ try {
   await disclose('Thiết lập nâng cao');
   await expect(page.getByLabel('Biến module nhận tham số message', { exact: true })).toHaveValue('label');
   await expect(page.getByLabel('Output module cung cấp title', { exact: true })).toHaveValue('name');
-  await expect(page.getByLabel('Giá trị label', { exact: true })).toHaveValue('literal fallback');
-  await expect(page.getByLabel('Tài nguyên đi kèm 1 phụ thuộc vào tài nguyên cha (is_dependent)', { exact: true })).toBeChecked();
-  await expect(page.getByLabel('Nối consumer của tài nguyên cha tới tài nguyên đi kèm 1 (match_dependents)', { exact: true })).not.toBeChecked();
+  await expect(page.locator('[data-variable="label"]')).toContainText('literal fallback');
+  await expect(page.getByLabel('Tài nguyên đi kèm 1: vthree chờ vthree tạo xong (is_dependent)', { exact: true })).toBeChecked();
+  await expect(page.getByLabel('Tài nguyên đi kèm 1: các tài nguyên đang dùng vthree cũng phải chờ vthree (match_dependents)', { exact: true })).not.toBeChecked();
   await criteria().click();
   await expect(page.getByLabel('Điều kiện 1 Class', { exact: true })).toHaveValue('default');
   await expect(page.getByLabel('Điều kiện 2 ID ứng dụng', { exact: true })).toHaveValue(application.key);

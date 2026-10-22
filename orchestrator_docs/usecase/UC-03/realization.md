@@ -141,3 +141,14 @@ Mapping and variable provenance disclosures retain existing converters/guards.
 Console khởi tạo/reset draft mới với nguồn Git và chỉ nhận pin sau inspect;
 module đã đăng ký là lựa chọn tường minh. Edit tiếp tục hydrate pin đã lưu,
 không đổi source hoặc lifecycle snapshot.
+
+## Resource Definition module forms collaboration (issue #11)
+
+Theo UI11-01..05, ResourceDefinitionsPage vẫn sở hữu draft theo pin và các
+serializer `driverInputs.values`/`provision`. Vùng kết nối đọc/ghi
+`PairDraft.account`, `PairDraft.region` và `MappingDraft.bindings`; bộ chọn nguồn
+chỉ sinh hoặc xóa chuỗi trong `VariableDraft`/params của provision row nên mọi
+chế độ vẫn serialize cùng object. Reference đọc Resource Type metadata đã tải
+(`inputs/outputs/classes`); không có catalog thứ hai và không có endpoint mới.
+Providers, class và output hợp lệ lấy từ capability/type metadata hiện hành.
+Không thay participant, system operation, transaction hay sequence backend.

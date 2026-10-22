@@ -90,7 +90,7 @@ describe('module mapping rules mirror the backend contract', () => {
     expect(problems).toEqual(['input:database', 'input:username', 'output:host', 'output:port', 'output:database', 'output:username', 'output:password', 'binding:kubernetes']);
     expect(mappingProblems(emptyMapping(), pg, undefined)).toHaveLength(1);
     const full = { inputs: { database: 'database', username: 'username' }, outputs: sameNameOutputs(pg, type('postgres')!), bindings: { kubernetes: { target: 'resource' as const, clusterClass: '' } } };
-    expect(mappingProblems(full, pg, type('postgres'))).toEqual([{ field: 'binding:kubernetes', message: 'Chọn class cluster EKS cho provider kubernetes.' }]);
+    expect(mappingProblems(full, pg, type('postgres'))).toEqual([{ field: 'binding:kubernetes', message: 'Chọn nhóm cluster cho provider kubernetes.' }]);
     full.bindings.kubernetes = { target: 'resource', clusterClass: 'eks' };
     expect(mappingProblems(full, pg, type('postgres'))).toEqual([]);
   });

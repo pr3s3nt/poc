@@ -30,7 +30,7 @@ export function parseObjectText(text: string, label: string): { value?: JsonObje
 }
 
 // Value -> control text; undefined when the control cannot show the value without loss.
-function entryFor(variable: CapabilityVariable, value: unknown): VariableEntry | undefined {
+export function entryFor(variable: CapabilityVariable, value: unknown): VariableEntry | undefined {
   const kind = baseKind(variable.type);
   if (value === null || value === undefined) return undefined;
   if (typeof value === 'string' && isWholePlaceholder(value)) {

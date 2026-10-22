@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { GitModuleSource } from './GitModuleSource';
 import { ResourceDefinitionsPage } from './ResourceDefinitionsPage';
-import { renderDefinition, backend, field, submitDefinition } from '../../test/definitionKit';
+import { renderDefinition, backend, field, provideSource, submitDefinition } from '../../test/definitionKit';
 import { capabilityFixture } from '../../test/capabilities';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -40,7 +40,7 @@ it('inspects a source without a digest and uses its verified metadata in the exi
   await user.selectOptions(field('Tài khoản hạ tầng'), 'aws-account');
   await user.type(field('Vùng AWS'), 'us-east-1');
   await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
-  await user.click(screen.getByRole('button', { name: 'Dùng preset cho name' }));
+  await provideSource(user, 'name', '${context.infra.resourceName}');
   await submitDefinition(user);
   await screen.findByText('Đã đăng ký cấu hình tài nguyên git-vpc.');
   expect(posted).toHaveLength(1);

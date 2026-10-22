@@ -1004,3 +1004,21 @@ conversion preserves both JSON drafts, unknown fields and omission semantics.
 UI3-04 case summaries retain the legacy renderer projection; CriteriaEditor and
 RenderingTemplates tests cover the shared consumers. The same visual evidence
 records comparison with the explicit user-supplied live v3 URL.
+
+## Resource Definition module forms — issue #11
+
+[UC-03 UI11-01..05](../usecase/UC-03/specification.md) changes the Console
+authoring controls only; DTO, API, backend validation and execution order are
+unchanged.
+
+| Requirement | Implementation | Focused validation |
+|---|---|---|
+| UI11-01 connection, one state | `InfrastructureConnection`; account/region in `PairDraft`, cluster source in `MappingDraft.bindings` (serializer `mappingToObject`) | `ModuleForms.test.tsx`, `KubernetesConnection.test.tsx`, `ResourceDefinitionsPage.test.tsx` account/region/binding payloads |
+| UI11-02 source chooser, reference picker | `valueSource.ts`, `ValueSourceDialog`, `ParameterSources` | `valueSource.test.ts`, `ModuleForms.test.tsx`, `TypedDefinitionForm.test.tsx` (literal types, default omission, advanced kept verbatim) |
+| UI11-03 parameter groups and priority | `ParameterSources`, `typedVariables` (`missingRequired`, `draftToVariables` unchanged) | `TypedDefinitionForm.test.tsx`, `typedConversion.test.ts` |
+| UI11-04 companion cards and flags | `CompanionResources` over `typedProvision` rows | `ModuleForms.test.tsx` four flag combinations, Type-schema params, unrepresentable kept; `ResourceDefinitionsPage.test.tsx` edit round-trip |
+| UI11-05 scope | no diagram; save does not call Preview/Deploy | `DefinitionV3.test.tsx`, existing no-write assertions |
+
+Browser acceptance scripts `full-app-flows.mjs` and the focused v3/Git scripts
+use `test/e2e/definition-sources.mjs`; `terraform-v2-labels.test.mjs` checks the
+labels statically. They were not run against a live backend in this change.

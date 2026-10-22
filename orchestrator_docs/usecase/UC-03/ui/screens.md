@@ -2,7 +2,7 @@
 id: UC-03-UI-SCREENS
 artifact: use-case-ui-screens
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-22
 related: UC-03
 ---
 
@@ -209,3 +209,28 @@ case; full-payload review remains a quiet disclosure.
 
 Nguồn module mặc định khi tạo mới/reset là Git (UC-03 GIT-03). Đặt Git
 trước lựa chọn Module đã đăng ký; edit giữ nguyên pin hiện có.
+
+## Resource Definition module forms — issue #11
+
+UI11-01..05 thay phần 2 “Tài khoản & thông số” và “Tài nguyên đi kèm” theo
+[mock đã duyệt](module-forms-prototype.md); sidebar, tabs, font, spacing, nút và
+các phần khác của form giữ nguyên. Chỉ desktop.
+
+Phần 2 mở đầu bằng thẻ “Kết nối AWS” (Tài khoản READY + Vùng) hoặc “Kết nối
+Kubernetes” (Nhóm cluster/class + Phạm vi cluster + ghi chú dùng thông tin truy
+cập từ cluster) cho từng provider theo metadata. Tiếp theo là “Thông số tài
+nguyên”: thẻ cho thông số cần cung cấp/ánh xạ (viền cảnh báo khi thiếu), nhóm
+thu gọn “Thông số có mặc định” và “Thông số tùy chọn”, nhóm “Hệ thống tự cung
+cấp” chỉ đọc. Mỗi thẻ có tên, kiểu, nguồn hiện tại, giá trị tóm tắt, nút
+“Cung cấp giá trị”/“Thay đổi” và ghi chú ưu tiên khi có param ánh xạ.
+
+Hộp thoại “Chọn nguồn giá trị”: Nhập giá trị / Dùng mặc định hoặc param ứng
+dụng (nếu hợp lệ) / Lấy từ ngữ cảnh triển khai / Lấy từ tài nguyên khác. Nhánh
+cuối chọn Loại tài nguyên, Nhóm cấu hình (class), Phạm vi, Output cần lấy và hiện
+biểu thức sinh trong phần kỹ thuật thu gọn. Hủy không đổi draft; Áp dụng ghi
+một lần vào draft.
+
+“Tài nguyên đi kèm” nằm trong Thiết lập nâng cao: thẻ tài nguyên đang cấu hình,
+một thẻ cho mỗi tài nguyên đi kèm (Loại tài nguyên, class, phạm vi, params theo
+schema Type, hai cờ bằng tên cụ thể) và “Thêm tài nguyên đi kèm”. “Cấu hình kỹ
+thuật” giữ descriptor và params JSON. Không có “Thứ tự thực hiện”/sơ đồ live.

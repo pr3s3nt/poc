@@ -130,8 +130,8 @@ export function mappingProblems(draft: MappingDraft, capability: Capability, typ
   const clusterNeeded = bindingProviders(capability).filter((provider) => provider.binding === 'kubernetes');
   for (const provider of clusterNeeded) {
     const binding = draft.bindings[provider.name];
-    if (!binding || binding.target === '') problems.push({ field: `binding:${provider.name}`, message: `Chọn node EKS cung cấp cluster cho provider ${provider.name}.` });
-    else if (binding.target === 'resource' && binding.clusterClass === '') problems.push({ field: `binding:${provider.name}`, message: `Chọn class cluster EKS cho provider ${provider.name}.` });
+    if (!binding || binding.target === '') problems.push({ field: `binding:${provider.name}`, message: `Chọn nhóm cluster cho provider ${provider.name}.` });
+    else if (binding.target === 'resource' && binding.clusterClass === '') problems.push({ field: `binding:${provider.name}`, message: `Chọn nhóm cluster cho provider ${provider.name}.` });
   }
   return problems;
 }

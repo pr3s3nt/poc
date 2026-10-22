@@ -3,7 +3,7 @@ import { expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHuman } from './human.mjs';
-import { applyOverrideValue } from './terraform-v2-steps.mjs';
+import { applyCatalogSources, provideSource } from './definition-sources.mjs';
 import { createForwardManager, safeError, startPortForward, waitFor } from './terraform-v2-lib.mjs';
 import { responseFromAction, SHORT_READ, kubeFlags, v2ctl } from './full-app-kit.mjs';
 
@@ -118,17 +118,12 @@ export async function registerK8sModuleDefinition(kit, spec) {
   const inputMapping = section.getByRole('button', { name: 'Ghép đầu vào theo tên trùng', exact: true });
   if (await inputMapping.isVisible()) await h.click(inputMapping);
   await h.click(section.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
-  await choose(form('Cluster đích của provider kubernetes'), 'Cluster do node');
-  await h.choose(section.getByLabel(/^Class cluster EKS của provider /), spec.clusterClass);
-  if (spec.presetName) await h.click(section.getByRole('button', { name: `Dùng preset cho ${spec.presetName}`, exact: true }));
-  if (spec.presetNamespace) await h.click(section.getByRole('button', { name: 'Dùng preset cho namespace', exact: true }));
-  // Keep typed mode: JSON mode hides the namespace presets, and replacing its
+  await h.choose(section.getByLabel(/^Nhóm cluster của provider /), spec.clusterClass);
+  await applyCatalogSources(kit, spec);
+  // Keep typed mode: JSON mode makes the cluster source read-only, and replacing its
   // object would discard the provider's namespace dependency. Values here are
   // actual JS values (unlike the JSON-encoded catalog overrides).
-  for (const [name, value] of Object.entries(spec.variables ?? {})) {
-    await h.click(form(`Ghi đè ${name}`));
-    await applyOverrideValue(h, form(`Giá trị ${name}`), value);
-  }
+  for (const [name, value] of Object.entries(spec.variables ?? {})) await provideSource(kit, name, { literal: value });
   if (spec.klass) {
     await h.click(section.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
     await h.type(form('Điều kiện 1 Class'), spec.klass);
@@ -279,7 +274,7 @@ export async function registerCatalogDefinition(kit, entry, { accountName, regio
   const { page, h, choose, get } = kit;
   const section = page.getByRole('region', { name: 'Đăng ký cấu hình tài nguyên', exact: true });
   const form = (name) => kit.form(name, section);
-  const { applyOverrideValue, decodeCatalogOverride } = await import('./terraform-v2-steps.mjs');
+  const { decodeCatalogOverride } = await import('./terraform-v2-steps.mjs');
   await h.type(form('ID cấu hình (Definition ID)'), entry.id);
   await h.type(form('Tên hiển thị'), entry.id);
   await choose(form('Loại tài nguyên'), entry.type);
@@ -296,15 +291,10 @@ export async function registerCatalogDefinition(kit, entry, { accountName, regio
   if (await inputMapping.isVisible()) await h.click(inputMapping);
   await h.click(section.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
   if (entry.provider === 'kubernetes') {
-    await choose(form('Cluster đích của provider kubernetes'), 'Cluster do node');
-    await h.choose(section.getByLabel(/^Class cluster EKS của provider /), entry.clusterClass);
+    await h.choose(section.getByLabel(/^Nhóm cluster của provider /), entry.clusterClass);
   }
-  if (entry.presetName) await h.click(section.getByRole('button', { name: `Dùng preset cho ${entry.presetName}`, exact: true }));
-  if (entry.presetNamespace) await h.click(section.getByRole('button', { name: 'Dùng preset cho namespace', exact: true }));
-  for (const [name, encoded] of entry.overrides ?? []) {
-    await h.click(form(`Ghi đè ${name}`));
-    await applyOverrideValue(h, form(`Giá trị ${name}`), decodeCatalogOverride(encoded, subs));
-  }
+  await applyCatalogSources(kit, entry);
+  for (const [name, encoded] of entry.overrides ?? []) await provideSource(kit, name, { literal: decodeCatalogOverride(encoded, subs) });
   if (entry.klass && entry.klass !== 'default') {
     await h.click(section.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
     await h.type(form('Điều kiện 1 Class'), entry.klass);

@@ -126,17 +126,50 @@ export async function completeDefinition(user: User, fill: Fill) {
   const inputs = screen.queryByRole('button', { name: 'Ghép đầu vào theo tên trùng' });
   if (inputs) await user.click(inputs);
   await user.click(screen.getByRole('button', { name: 'Ghép đầu ra theo tên trùng' }));
-  for (const select of screen.queryAllByLabelText(/^Cluster đích của provider /)) {
-    if (fill.binding && typeof fill.binding === 'object') {
-      await user.selectOptions(select, 'resource');
-      await user.selectOptions(screen.getByLabelText(/^Class cluster EKS của provider /), fill.binding.cluster);
-    } else { await user.selectOptions(select, 'resource'); await user.selectOptions(screen.getByLabelText(/^Class cluster EKS của provider /), 'eks'); }
+  for (const select of screen.queryAllByLabelText(/^Nhóm cluster của provider /)) {
+    await user.selectOptions(select, fill.binding && typeof fill.binding === 'object' ? fill.binding.cluster : 'eks');
   }
-  for (const preset of screen.queryAllByRole('button', { name: /^Dùng preset cho / })) {
-    const name = preset.getAttribute('aria-label')?.replace('Dùng preset cho ', '') ?? '';
-    if (!fill.skipVariables?.includes(name)) await user.click(preset);
+  // The module's recorded presets are now explicit source choices made through the shared chooser.
+  const capability = capabilityFixture.find((candidate) => candidate.resourceType === fill.type && (fill.module === undefined || candidate.module === fill.module));
+  for (const variable of capability?.variables ?? []) {
+    if (variable.preset && !fill.skipVariables?.includes(variable.name)) await provideSource(user, variable.name, variable.preset);
   }
 }
+
+// Drives the source chooser of one parameter card from a placeholder: context values and Resource Type outputs only.
+export async function provideSource(user: User, name: string, placeholder: string) {
+  const open = screen.queryByRole('button', { name: `Cung cấp giá trị ${name}` }) ?? screen.getByRole('button', { name: `Thay đổi ${name}` });
+  await user.click(open);
+  const dialog = within(screen.getByRole('dialog'));
+  const context = /^\$\{context\.(.+)\}$/.exec(placeholder);
+  if (context) {
+    await user.click(dialog.getByRole('radio', { name: 'Lấy từ ngữ cảnh triển khai' }));
+    await user.selectOptions(dialog.getByLabelText('Giá trị ngữ cảnh'), context[1] ?? '');
+  } else {
+    const reference = /^\$\{resources\['([^.]+)\.([^#]+)#(.+)'\]\.outputs\.(.+)\}$/.exec(placeholder);
+    if (!reference) throw new Error(`unsupported source ${placeholder}`);
+    await user.click(dialog.getByRole('radio', { name: 'Lấy từ tài nguyên khác' }));
+    await user.selectOptions(dialog.getByLabelText('Loại tài nguyên nguồn'), reference[1] ?? '');
+    await user.selectOptions(dialog.getByLabelText('Nhóm cấu hình nguồn'), reference[2] ?? '');
+    await user.selectOptions(dialog.getByLabelText('Phạm vi nguồn'), reference[3] === 'environments.@app.@env' || reference[3] === '@infra' ? (reference[3] ?? '') : 'resource');
+    await user.selectOptions(dialog.getByLabelText('Output cần lấy'), reference[4] ?? '');
+  }
+  await user.click(dialog.getByRole('button', { name: 'Áp dụng' }));
+}
+
+// Provides one literal through the shared chooser; a whole placeholder is pasted, never typed key by key.
+export async function provideLiteral(user: User, name: string, text: string) {
+  const open = screen.queryByRole('button', { name: `Cung cấp giá trị ${name}` }) ?? screen.getByRole('button', { name: `Thay đổi ${name}` });
+  await user.click(open);
+  const dialog = within(screen.getByRole('dialog'));
+  await user.click(dialog.getByRole('radio', { name: 'Nhập giá trị' }));
+  const input = dialog.getByLabelText(`Giá trị ${name}`);
+  if (input.tagName === 'SELECT') await user.selectOptions(input, text);
+  else { await user.clear(input); await user.click(input); await user.paste(text); }
+  await user.click(dialog.getByRole('button', { name: 'Áp dụng' }));
+}
+
+export const card = (name: string) => document.querySelector(`[data-variable="${name}"]`) as HTMLElement;
 
 export async function ready(element: React.ReactElement, render: (ui: React.ReactElement) => unknown) {
   render(element);
