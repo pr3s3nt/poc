@@ -1,0 +1,1139 @@
+{
+  "commit": "6b991b16c39ac8485c74fa6756cf3223a129c8c9",
+  "modules": [
+    {
+      "id": "aurora",
+      "outputs": [
+        {
+          "line": 209,
+          "name": "host",
+          "validation": []
+        },
+        {
+          "line": 210,
+          "name": "port",
+          "validation": []
+        },
+        {
+          "line": 211,
+          "name": "database",
+          "validation": []
+        },
+        {
+          "line": 212,
+          "name": "username",
+          "validation": []
+        },
+        {
+          "line": 214,
+          "name": "password",
+          "sensitive": true,
+          "validation": []
+        },
+        {
+          "line": 218,
+          "name": "cluster_identifier",
+          "validation": []
+        },
+        {
+          "line": 219,
+          "name": "writer_identifier",
+          "validation": []
+        },
+        {
+          "line": 220,
+          "name": "security_group_id",
+          "validation": []
+        }
+      ],
+      "provider": "aws",
+      "variables": [
+        {
+          "line": 18,
+          "name": "region",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [],
+          "label": "region",
+          "mappedParam": false
+        },
+        {
+          "line": 23,
+          "name": "name",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[a-z][a-z0-9-]{2,49}$\", var.name))",
+              "message": "name must be a lowercase DNS-style label of 3 to 50 characters."
+            }
+          ],
+          "label": "Tên Aurora PostgreSQL",
+          "mappedParam": false
+        },
+        {
+          "line": 33,
+          "name": "vpc_id",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [],
+          "label": "VPC sử dụng",
+          "mappedParam": false
+        },
+        {
+          "line": 37,
+          "name": "private_subnet_ids",
+          "owned": false,
+          "required": true,
+          "type": "list(string)",
+          "validation": [
+            {
+              "condition": "length(var.private_subnet_ids) >= 2 && length(var.private_subnet_ids) <= 4",
+              "message": "private_subnet_ids must list the 2 to 4 shared private subnets of the VPC."
+            }
+          ],
+          "label": "Subnet riêng cho dịch vụ",
+          "mappedParam": false
+        },
+        {
+          "line": 46,
+          "name": "subnet_ids",
+          "owned": false,
+          "required": true,
+          "type": "list(string)",
+          "validation": [
+            {
+              "condition": "length(var.subnet_ids) >= 2 && length(var.subnet_ids) <= 4",
+              "message": "subnet_ids must list the 2 to 4 node subnets of the VPC."
+            }
+          ],
+          "label": "Subnet cho node EKS",
+          "mappedParam": false
+        },
+        {
+          "line": 54,
+          "name": "database",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[a-z][a-z0-9_]{0,62}$\", var.database)) && var.database != \"postgres\"",
+              "message": "database must be a lowercase identifier other than postgres."
+            }
+          ],
+          "label": "Tên database",
+          "mappedParam": true
+        },
+        {
+          "line": 62,
+          "name": "username",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[a-z][a-z0-9_]{0,15}$\", var.username)) && !contains([\"postgres\", \"rdsadmin\", \"admin\"], var.username)",
+              "message": "username must be a lowercase identifier of at most 16 characters and not a reserved name."
+            }
+          ],
+          "label": "Tên người dùng",
+          "mappedParam": true,
+          "choices": [
+            "postgres",
+            "rdsadmin",
+            "admin"
+          ]
+        },
+        {
+          "line": 72,
+          "name": "master_password",
+          "owned": true,
+          "required": true,
+          "sensitive": true,
+          "type": "string",
+          "validation": [],
+          "label": "master_password",
+          "mappedParam": false
+        },
+        {
+          "line": 77,
+          "name": "tags",
+          "owned": true,
+          "required": true,
+          "type": "map(string)",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[0-9a-f]{8,64}$\", lookup(var.tags, \"orchestrator-instance\", \"\")))",
+              "message": "tags must carry the stable orchestrator-instance key."
+            }
+          ],
+          "label": "tags",
+          "mappedParam": false
+        },
+        {
+          "line": 88,
+          "name": "engine_version",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^16\\\\.(1[0-9]|[3-9])$\", var.engine_version))",
+              "message": "engine_version must be an Aurora PostgreSQL 16.x release that supports scaling to 0 ACU."
+            }
+          ],
+          "label": "Phiên bản engine",
+          "mappedParam": false
+        },
+        {
+          "line": 96,
+          "name": "min_capacity",
+          "owned": false,
+          "required": true,
+          "type": "number",
+          "validation": [
+            {
+              "condition": "var.min_capacity * 2 == floor(var.min_capacity * 2) && (var.min_capacity == 0 || (var.min_capacity >= 0.5 && var.min_capacity <= 8))",
+              "message": "min_capacity must be 0 or a multiple of 0.5 ACU up to 8."
+            }
+          ],
+          "label": "Công suất tối thiểu (ACU)",
+          "mappedParam": false
+        },
+        {
+          "line": 104,
+          "name": "max_capacity",
+          "owned": false,
+          "required": true,
+          "type": "number",
+          "validation": [
+            {
+              "condition": "var.max_capacity * 2 == floor(var.max_capacity * 2) && var.max_capacity >= 1 && var.max_capacity <= 8",
+              "message": "max_capacity must be a multiple of 0.5 ACU between 1 and 8."
+            },
+            {
+              "condition": "var.max_capacity >= var.min_capacity",
+              "message": "max_capacity must not be lower than min_capacity."
+            }
+          ],
+          "label": "Công suất tối đa (ACU)",
+          "mappedParam": false
+        },
+        {
+          "default": 3600,
+          "line": 117,
+          "name": "seconds_until_auto_pause",
+          "owned": false,
+          "required": false,
+          "type": "number",
+          "validation": [
+            {
+              "condition": "var.seconds_until_auto_pause >= 300 && var.seconds_until_auto_pause <= 86400",
+              "message": "seconds_until_auto_pause must be between 300 and 86400."
+            }
+          ],
+          "label": "Chờ trước khi tự tạm dừng (giây)",
+          "mappedParam": false
+        }
+      ],
+      "title": "Aurora PostgreSQL",
+      "resourceType": "postgres",
+      "description": "Database PostgreSQL trên Aurora Serverless v2.",
+      "url": "https://github.com/pr3s3nt/terraform-modules/blob/6b991b16c39ac8485c74fa6756cf3223a129c8c9/modules/aurora/main.tf"
+    },
+    {
+      "id": "eks",
+      "outputs": [
+        {
+          "line": 307,
+          "name": "name",
+          "validation": []
+        },
+        {
+          "line": 308,
+          "name": "endpoint",
+          "validation": []
+        },
+        {
+          "line": 309,
+          "name": "cluster_security_group_id",
+          "validation": []
+        },
+        {
+          "line": 310,
+          "name": "node_group_name",
+          "validation": []
+        },
+        {
+          "line": 311,
+          "name": "node_role_arn",
+          "validation": []
+        }
+      ],
+      "provider": "aws",
+      "variables": [
+        {
+          "line": 18,
+          "name": "region",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [],
+          "label": "region",
+          "mappedParam": false
+        },
+        {
+          "line": 20,
+          "name": "name",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[a-z][a-z0-9-]{2,49}$\", var.name))",
+              "message": "name must be a lowercase DNS-style label of 3 to 50 characters."
+            }
+          ],
+          "label": "Tên EKS",
+          "mappedParam": false
+        },
+        {
+          "line": 28,
+          "name": "subnet_ids",
+          "owned": false,
+          "required": true,
+          "type": "list(string)",
+          "validation": [
+            {
+              "condition": "length(var.subnet_ids) >= 2",
+              "message": "EKS needs subnets in at least two availability zones."
+            }
+          ],
+          "label": "Subnet cho node EKS",
+          "mappedParam": false
+        },
+        {
+          "line": 38,
+          "name": "kubernetes_version",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "contains([\"1.34\", \"1.35\", \"1.36\", \"1.37\"], var.kubernetes_version)",
+              "message": "kubernetes_version must be a standard-support EKS version of this release (1.34 to 1.37)."
+            }
+          ],
+          "label": "Phiên bản Kubernetes",
+          "mappedParam": false,
+          "choices": [
+            "1.34",
+            "1.35",
+            "1.36",
+            "1.37"
+          ]
+        },
+        {
+          "line": 50,
+          "name": "public_access_cidrs",
+          "nullable": false,
+          "owned": false,
+          "required": true,
+          "type": "list(string)",
+          "validation": [
+            {
+              "condition": "length(var.public_access_cidrs) >= 1 && length(var.public_access_cidrs) <= 40 && length(distinct(var.public_access_cidrs)) == length(var.public_access_cidrs)",
+              "message": "public_access_cidrs must list 1 to 40 distinct addresses."
+            },
+            {
+              "condition": "alltrue([\n      for c in var.public_access_cidrs :\n      can(regex(\"^[0-9]{1,3}(\\\\.[0-9]{1,3}){3}/32$\", c)) && can(cidrhost(c, 0)) && c != \"0.0.0.0/32\"\n    ])",
+              "message": "public_access_cidrs entries must be valid IPv4 hosts written as a.b.c.d/32 (never 0.0.0.0/0 or a wider prefix)."
+            }
+          ],
+          "label": "IP được phép truy cập API cluster",
+          "mappedParam": false
+        },
+        {
+          "line": 66,
+          "name": "node_instance_type",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[a-z][a-z0-9]*\\\\.[a-z0-9]+$\", var.node_instance_type))",
+              "message": "node_instance_type must be an EC2 instance type such as t4g.small."
+            }
+          ],
+          "label": "Loại máy node",
+          "mappedParam": false
+        },
+        {
+          "line": 74,
+          "name": "node_capacity_type",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "contains([\"ON_DEMAND\", \"SPOT\"], var.node_capacity_type)",
+              "message": "node_capacity_type must be ON_DEMAND or SPOT."
+            }
+          ],
+          "label": "Hình thức cấp node",
+          "mappedParam": false,
+          "choices": [
+            "ON_DEMAND",
+            "SPOT"
+          ]
+        },
+        {
+          "line": 82,
+          "name": "node_disk_size",
+          "owned": false,
+          "required": true,
+          "type": "number",
+          "validation": [
+            {
+              "condition": "var.node_disk_size >= 20 && var.node_disk_size <= 100 && floor(var.node_disk_size) == var.node_disk_size",
+              "message": "node_disk_size must be a whole number of GiB from 20 to 100."
+            }
+          ],
+          "label": "Dung lượng đĩa node (GiB)",
+          "mappedParam": false
+        },
+        {
+          "line": 90,
+          "name": "node_ami_type",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "contains([\"AL2023_x86_64_STANDARD\", \"AL2023_ARM_64_STANDARD\"], var.node_ami_type)",
+              "message": "node_ami_type must be an Amazon Linux 2023 standard AMI type."
+            }
+          ],
+          "label": "Loại AMI cho node",
+          "mappedParam": false,
+          "choices": [
+            "AL2023_x86_64_STANDARD",
+            "AL2023_ARM_64_STANDARD"
+          ]
+        },
+        {
+          "default": false,
+          "line": 111,
+          "name": "ebs_csi_driver",
+          "owned": false,
+          "required": false,
+          "type": "bool",
+          "validation": [],
+          "label": "Bật EBS CSI driver",
+          "mappedParam": false
+        },
+        {
+          "default": {},
+          "line": 117,
+          "name": "tags",
+          "owned": true,
+          "required": false,
+          "type": "map(string)",
+          "validation": [],
+          "label": "tags",
+          "mappedParam": false
+        }
+      ],
+      "title": "EKS",
+      "resourceType": "k8s-cluster",
+      "description": "Cluster Kubernetes được quản lý trên AWS.",
+      "url": "https://github.com/pr3s3nt/terraform-modules/blob/6b991b16c39ac8485c74fa6756cf3223a129c8c9/modules/eks/main.tf"
+    },
+    {
+      "id": "elasticache",
+      "outputs": [
+        {
+          "line": 178,
+          "name": "host",
+          "validation": []
+        },
+        {
+          "line": 179,
+          "name": "port",
+          "validation": []
+        },
+        {
+          "line": 180,
+          "name": "username",
+          "validation": []
+        },
+        {
+          "line": 182,
+          "name": "password",
+          "sensitive": true,
+          "validation": []
+        },
+        {
+          "line": 187,
+          "name": "tls",
+          "validation": []
+        },
+        {
+          "line": 188,
+          "name": "replication_group_id",
+          "validation": []
+        },
+        {
+          "line": 189,
+          "name": "security_group_id",
+          "validation": []
+        }
+      ],
+      "provider": "aws",
+      "variables": [
+        {
+          "line": 18,
+          "name": "region",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [],
+          "label": "region",
+          "mappedParam": false
+        },
+        {
+          "line": 22,
+          "name": "vpc_id",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [],
+          "label": "VPC sử dụng",
+          "mappedParam": false
+        },
+        {
+          "line": 26,
+          "name": "private_subnet_ids",
+          "owned": false,
+          "required": true,
+          "type": "list(string)",
+          "validation": [
+            {
+              "condition": "length(var.private_subnet_ids) >= 2 && length(var.private_subnet_ids) <= 4",
+              "message": "private_subnet_ids must list the 2 to 4 shared private subnets of the VPC."
+            }
+          ],
+          "label": "Subnet riêng cho dịch vụ",
+          "mappedParam": false
+        },
+        {
+          "line": 35,
+          "name": "subnet_ids",
+          "owned": false,
+          "required": true,
+          "type": "list(string)",
+          "validation": [
+            {
+              "condition": "length(var.subnet_ids) >= 2 && length(var.subnet_ids) <= 4",
+              "message": "subnet_ids must list the 2 to 4 node subnets of the VPC."
+            }
+          ],
+          "label": "Subnet cho node EKS",
+          "mappedParam": false
+        },
+        {
+          "default": "app",
+          "line": 43,
+          "name": "username",
+          "owned": false,
+          "required": false,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[a-z][a-z0-9_-]{0,31}$\", var.username)) && var.username != \"default\"",
+              "message": "username must be a lowercase identifier other than default."
+            }
+          ],
+          "label": "Tên người dùng",
+          "mappedParam": false
+        },
+        {
+          "line": 55,
+          "name": "engine_version",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "contains([\"7.0\", \"7.1\"], var.engine_version)",
+              "message": "engine_version must be an ElastiCache for Redis OSS 7.x version."
+            }
+          ],
+          "label": "Phiên bản engine",
+          "mappedParam": false,
+          "choices": [
+            "7.0",
+            "7.1"
+          ]
+        },
+        {
+          "line": 63,
+          "name": "node_type",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "contains([\"cache.t4g.micro\", \"cache.t4g.small\", \"cache.t4g.medium\"], var.node_type)",
+              "message": "node_type must be cache.t4g.micro, cache.t4g.small or cache.t4g.medium (the small Graviton burstable ElastiCache node types)."
+            }
+          ],
+          "label": "Loại node Redis",
+          "mappedParam": false,
+          "choices": [
+            "cache.t4g.micro",
+            "cache.t4g.small",
+            "cache.t4g.medium"
+          ]
+        },
+        {
+          "line": 73,
+          "name": "password",
+          "owned": true,
+          "required": true,
+          "sensitive": true,
+          "type": "string",
+          "validation": [],
+          "label": "password",
+          "mappedParam": false
+        },
+        {
+          "line": 78,
+          "name": "tags",
+          "owned": true,
+          "required": true,
+          "type": "map(string)",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[0-9a-f]{8,64}$\", lookup(var.tags, \"orchestrator-instance\", \"\")))",
+              "message": "tags must carry the stable orchestrator-instance key."
+            }
+          ],
+          "label": "tags",
+          "mappedParam": false
+        }
+      ],
+      "title": "ElastiCache Redis",
+      "resourceType": "redis",
+      "description": "Redis được quản lý trên AWS.",
+      "url": "https://github.com/pr3s3nt/terraform-modules/blob/6b991b16c39ac8485c74fa6756cf3223a129c8c9/modules/elasticache/main.tf"
+    },
+    {
+      "id": "k8s-namespace",
+      "outputs": [
+        {
+          "line": 59,
+          "name": "name",
+          "validation": []
+        }
+      ],
+      "provider": "kubernetes",
+      "variables": [
+        {
+          "line": 16,
+          "name": "name",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$\", var.name)) && !startswith(var.name, \"kube-\") && !contains([\"default\", \"kube-system\", \"kube-public\", \"kube-node-lease\"], var.name)",
+              "message": "name must be a DNS label and must not be a reserved Kubernetes namespace."
+            }
+          ],
+          "label": "Tên namespace",
+          "mappedParam": false,
+          "choices": [
+            "default",
+            "kube-system",
+            "kube-public",
+            "kube-node-lease"
+          ]
+        },
+        {
+          "default": {},
+          "line": 26,
+          "name": "tags",
+          "owned": true,
+          "required": false,
+          "type": "map(string)",
+          "validation": [],
+          "label": "tags",
+          "mappedParam": false
+        }
+      ],
+      "title": "Namespace Kubernetes",
+      "resourceType": "k8s-namespace",
+      "description": "Namespace trên cluster được chọn.",
+      "url": "https://github.com/pr3s3nt/terraform-modules/blob/6b991b16c39ac8485c74fa6756cf3223a129c8c9/modules/k8s-namespace/main.tf"
+    },
+    {
+      "id": "postgres-k8s",
+      "outputs": [
+        {
+          "line": 316,
+          "name": "host",
+          "validation": []
+        },
+        {
+          "line": 317,
+          "name": "port",
+          "validation": []
+        },
+        {
+          "line": 318,
+          "name": "database",
+          "validation": []
+        },
+        {
+          "line": 319,
+          "name": "username",
+          "validation": []
+        },
+        {
+          "line": 321,
+          "name": "password",
+          "sensitive": true,
+          "validation": []
+        }
+      ],
+      "provider": "kubernetes",
+      "variables": [
+        {
+          "line": 15,
+          "name": "namespace",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$\", var.namespace))",
+              "message": "namespace must be a DNS label."
+            }
+          ],
+          "label": "Namespace sử dụng",
+          "mappedParam": false
+        },
+        {
+          "line": 23,
+          "name": "database",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[A-Za-z_][A-Za-z0-9_-]{0,62}$\", var.database))",
+              "message": "database must be a PostgreSQL identifier."
+            }
+          ],
+          "label": "Tên database",
+          "mappedParam": true
+        },
+        {
+          "line": 31,
+          "name": "username",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[A-Za-z_][A-Za-z0-9_-]{0,62}$\", var.username))",
+              "message": "username must be a PostgreSQL identifier."
+            }
+          ],
+          "label": "Tên người dùng",
+          "mappedParam": true
+        },
+        {
+          "default": "postgres:16.14-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+          "line": 42,
+          "name": "image",
+          "owned": false,
+          "required": false,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[a-z0-9][a-z0-9._/-]*(:[A-Za-z0-9._-]{1,128})?@sha256:[0-9a-f]{64}$\", var.image))",
+              "message": "image must be a digest-pinned reference (name[:tag]@sha256:<64 hex>)."
+            }
+          ],
+          "label": "Image container",
+          "mappedParam": false
+        },
+        {
+          "default": "1Gi",
+          "line": 51,
+          "name": "storage",
+          "owned": false,
+          "required": false,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[1-9][0-9]{0,3}(Mi|Gi)$\", var.storage))",
+              "message": "storage must be a whole number of Mi or Gi."
+            }
+          ],
+          "label": "Dung lượng lưu trữ",
+          "mappedParam": false
+        },
+        {
+          "default": "",
+          "line": 62,
+          "name": "storage_class",
+          "owned": false,
+          "required": false,
+          "type": "string",
+          "validation": [],
+          "label": "Storage class",
+          "mappedParam": false
+        },
+        {
+          "default": {},
+          "line": 69,
+          "name": "labels",
+          "owned": false,
+          "required": false,
+          "type": "map(string)",
+          "validation": [
+            {
+              "condition": "alltrue([\n      for k, v in var.labels :\n      can(regex(\"^([a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?/)?[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$\", k)) &&\n      can(regex(\"^([A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?)?$\", v)) &&\n      !can(regex(\"(?i)(password|secret|token|credential)\", k)) &&\n      !startswith(k, \"app.kubernetes.io/\") && !startswith(k, \"orchestrator\")\n    ])",
+              "message": "labels must be valid nonsecret Kubernetes labels outside the platform-owned keys."
+            }
+          ],
+          "label": "Nhãn Kubernetes",
+          "mappedParam": false
+        },
+        {
+          "default": {},
+          "line": 84,
+          "name": "annotations",
+          "owned": false,
+          "required": false,
+          "type": "map(string)",
+          "validation": [
+            {
+              "condition": "alltrue([\n      for k, v in var.annotations :\n      can(regex(\"^([a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?/)?[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$\", k)) &&\n      !can(regex(\"(?i)(password|secret|token|credential)\", k)) &&\n      !startswith(k, \"app.kubernetes.io/\") && !startswith(k, \"orchestrator\")\n    ])",
+              "message": "annotations must have valid nonsecret keys outside the platform-owned keys."
+            }
+          ],
+          "label": "Annotations Kubernetes",
+          "mappedParam": false
+        },
+        {
+          "line": 100,
+          "name": "password",
+          "owned": true,
+          "required": true,
+          "sensitive": true,
+          "type": "string",
+          "validation": [],
+          "label": "password",
+          "mappedParam": false
+        },
+        {
+          "line": 105,
+          "name": "tags",
+          "owned": true,
+          "required": true,
+          "type": "map(string)",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[0-9a-f]{8,64}$\", lookup(var.tags, \"orchestrator-instance\", \"\")))",
+              "message": "tags must carry the stable orchestrator-instance key."
+            }
+          ],
+          "label": "tags",
+          "mappedParam": false
+        }
+      ],
+      "title": "PostgreSQL trên Kubernetes",
+      "resourceType": "postgres",
+      "description": "PostgreSQL, PVC và thông tin kết nối trong cluster.",
+      "url": "https://github.com/pr3s3nt/terraform-modules/blob/6b991b16c39ac8485c74fa6756cf3223a129c8c9/modules/postgres-k8s/main.tf"
+    },
+    {
+      "id": "redis-k8s",
+      "outputs": [
+        {
+          "line": 320,
+          "name": "host",
+          "validation": []
+        },
+        {
+          "line": 321,
+          "name": "port",
+          "validation": []
+        },
+        {
+          "line": 322,
+          "name": "username",
+          "validation": []
+        },
+        {
+          "line": 323,
+          "name": "tls",
+          "validation": []
+        },
+        {
+          "line": 325,
+          "name": "password",
+          "sensitive": true,
+          "validation": []
+        }
+      ],
+      "provider": "kubernetes",
+      "variables": [
+        {
+          "line": 15,
+          "name": "namespace",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$\", var.namespace))",
+              "message": "namespace must be a DNS label."
+            }
+          ],
+          "label": "Namespace sử dụng",
+          "mappedParam": false
+        },
+        {
+          "default": "redis:7.4.7-alpine@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf",
+          "line": 26,
+          "name": "image",
+          "owned": false,
+          "required": false,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[a-z0-9][a-z0-9._/-]*(:[A-Za-z0-9._-]{1,128})?@sha256:[0-9a-f]{64}$\", var.image))",
+              "message": "image must be a digest-pinned reference (name[:tag]@sha256:<64 hex>)."
+            }
+          ],
+          "label": "Image container",
+          "mappedParam": false
+        },
+        {
+          "default": "app",
+          "line": 35,
+          "name": "username",
+          "owned": false,
+          "required": false,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[a-z][a-z0-9_-]{0,31}$\", var.username)) && var.username != \"default\"",
+              "message": "username must be a lowercase identifier other than default."
+            }
+          ],
+          "label": "Tên người dùng",
+          "mappedParam": false
+        },
+        {
+          "default": "1Gi",
+          "line": 44,
+          "name": "storage",
+          "owned": false,
+          "required": false,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[1-9][0-9]{0,3}(Mi|Gi)$\", var.storage))",
+              "message": "storage must be a whole number of Mi or Gi."
+            }
+          ],
+          "label": "Dung lượng lưu trữ",
+          "mappedParam": false
+        },
+        {
+          "default": "",
+          "line": 55,
+          "name": "storage_class",
+          "owned": false,
+          "required": false,
+          "type": "string",
+          "validation": [],
+          "label": "Storage class",
+          "mappedParam": false
+        },
+        {
+          "default": {},
+          "line": 62,
+          "name": "labels",
+          "owned": false,
+          "required": false,
+          "type": "map(string)",
+          "validation": [
+            {
+              "condition": "alltrue([\n      for k, v in var.labels :\n      can(regex(\"^([a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?/)?[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$\", k)) &&\n      can(regex(\"^([A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?)?$\", v)) &&\n      !can(regex(\"(?i)(password|secret|token|credential)\", k)) &&\n      !startswith(k, \"app.kubernetes.io/\") && !startswith(k, \"orchestrator\")\n    ])",
+              "message": "labels must be valid nonsecret Kubernetes labels outside the platform-owned keys."
+            }
+          ],
+          "label": "Nhãn Kubernetes",
+          "mappedParam": false
+        },
+        {
+          "default": {},
+          "line": 77,
+          "name": "annotations",
+          "owned": false,
+          "required": false,
+          "type": "map(string)",
+          "validation": [
+            {
+              "condition": "alltrue([\n      for k, v in var.annotations :\n      can(regex(\"^([a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?/)?[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$\", k)) &&\n      !can(regex(\"(?i)(password|secret|token|credential)\", k)) &&\n      !startswith(k, \"app.kubernetes.io/\") && !startswith(k, \"orchestrator\")\n    ])",
+              "message": "annotations must have valid nonsecret keys outside the platform-owned keys."
+            }
+          ],
+          "label": "Annotations Kubernetes",
+          "mappedParam": false
+        },
+        {
+          "line": 93,
+          "name": "password",
+          "owned": true,
+          "required": true,
+          "sensitive": true,
+          "type": "string",
+          "validation": [],
+          "label": "password",
+          "mappedParam": false
+        },
+        {
+          "line": 98,
+          "name": "tags",
+          "owned": true,
+          "required": true,
+          "type": "map(string)",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[0-9a-f]{8,64}$\", lookup(var.tags, \"orchestrator-instance\", \"\")))",
+              "message": "tags must carry the stable orchestrator-instance key."
+            }
+          ],
+          "label": "tags",
+          "mappedParam": false
+        }
+      ],
+      "title": "Redis trên Kubernetes",
+      "resourceType": "redis",
+      "description": "Redis, PVC và thông tin kết nối trong cluster.",
+      "url": "https://github.com/pr3s3nt/terraform-modules/blob/6b991b16c39ac8485c74fa6756cf3223a129c8c9/modules/redis-k8s/main.tf"
+    },
+    {
+      "id": "vpc",
+      "outputs": [
+        {
+          "line": 138,
+          "name": "id",
+          "validation": []
+        },
+        {
+          "line": 139,
+          "name": "cidr",
+          "validation": []
+        },
+        {
+          "line": 140,
+          "name": "subnetIds",
+          "validation": []
+        },
+        {
+          "line": 141,
+          "name": "privateSubnetIds",
+          "validation": []
+        }
+      ],
+      "provider": "aws",
+      "variables": [
+        {
+          "line": 21,
+          "name": "region",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [],
+          "label": "region",
+          "mappedParam": false
+        },
+        {
+          "line": 23,
+          "name": "name",
+          "owned": false,
+          "required": true,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(regex(\"^[a-z][a-z0-9-]{2,49}$\", var.name))",
+              "message": "name must be a lowercase DNS-style label of 3 to 50 characters."
+            }
+          ],
+          "label": "Tên VPC",
+          "mappedParam": false
+        },
+        {
+          "default": "10.42.0.0/16",
+          "line": 31,
+          "name": "cidr",
+          "owned": false,
+          "required": false,
+          "type": "string",
+          "validation": [
+            {
+              "condition": "can(cidrhost(var.cidr, 0)) && tonumber(split(\"/\", var.cidr)[1]) >= 16 && tonumber(split(\"/\", var.cidr)[1]) <= 20",
+              "message": "cidr must be an IPv4 block between /16 and /20."
+            }
+          ],
+          "label": "Dải địa chỉ mạng (CIDR)",
+          "mappedParam": false
+        },
+        {
+          "default": 2,
+          "line": 40,
+          "name": "az_count",
+          "owned": false,
+          "required": false,
+          "type": "number",
+          "validation": [
+            {
+              "condition": "var.az_count >= 2 && var.az_count <= 4 && floor(var.az_count) == var.az_count",
+              "message": "az_count must be a whole number from 2 to 4."
+            }
+          ],
+          "label": "Số vùng sẵn sàng (AZ)",
+          "mappedParam": false
+        },
+        {
+          "default": {},
+          "line": 50,
+          "name": "tags",
+          "owned": true,
+          "required": false,
+          "type": "map(string)",
+          "validation": [],
+          "label": "tags",
+          "mappedParam": false
+        }
+      ],
+      "title": "VPC",
+      "resourceType": "vpc",
+      "description": "Mạng AWS và các subnet dùng chung.",
+      "url": "https://github.com/pr3s3nt/terraform-modules/blob/6b991b16c39ac8485c74fa6756cf3223a129c8c9/modules/vpc/main.tf"
+    }
+  ]
+}
