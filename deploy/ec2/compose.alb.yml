@@ -1,0 +1,4 @@
+# Use only behind the dedicated ALB-to-host security group rule.
+services:
+  frontend:
+    ports: !override ["0.0.0.0:3001:8080"]

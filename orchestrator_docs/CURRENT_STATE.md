@@ -7,6 +7,16 @@ last_reviewed: 2026-10-21
 
 # Current project state
 
+## EC2 operator automation — 2026-10-23
+
+An exact-release EC2 installer now composes the existing backend/frontend,
+PostgreSQL and Vault stack. Terraform provisions an isolated host/role and
+optional client-IP-restricted HTTP ALB in existing public subnets. Host operations
+include health checks, reboot startup, metadata isolation, cold backups and
+compatible-release updates. This remains a dev/PoC deployment; production TLS,
+authentication hardening and full host-loss recovery are not claimed. See the
+[EC2 runbook](operations/ec2.md). Live trial results are recorded separately.
+
 ## Git is the default Terraform source — 2026-10-21
 
 New Resource Definition drafts, reset/cancel and successful registration start

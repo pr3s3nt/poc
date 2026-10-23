@@ -1,0 +1,49 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+# No operator credentials or application secrets are embedded in user data.
+exec > >(tee -a /var/log/orchestrator-bootstrap.log) 2>&1
+trap 'touch /var/lib/orchestrator-bootstrap-failed' ERR
+
+dnf install -y docker git jq iptables
+systemctl enable --now docker
+install -d -m 0755 /usr/local/lib/docker/cli-plugins
+cd /usr/local/lib/docker/cli-plugins
+curl --fail --silent --show-error --location --retry 4 --max-time 180 \
+  https://github.com/docker/compose/releases/download/v2.39.4/docker-compose-linux-x86_64 -o docker-compose-linux-x86_64
+printf '%s\n' '7af95166a730b87e172d4fc9aefea8725d3c6c7327d59149267b452114ddb7d4  docker-compose-linux-x86_64' | sha256sum -c -
+mv docker-compose-linux-x86_64 docker-compose
+chmod 0755 docker-compose
+curl --fail --silent --show-error --location --retry 4 --max-time 180 \
+  https://github.com/docker/buildx/releases/download/v0.26.1/buildx-v0.26.1.linux-amd64 -o buildx-v0.26.1.linux-amd64
+printf '%s\n' '9451034b6ca5354e8bf88a2002a413aedabf110fd0f12ebb0b2f2cc241be8e41  buildx-v0.26.1.linux-amd64' | sha256sum -c -
+mv buildx-v0.26.1.linux-amd64 docker-buildx
+chmod 0755 docker-buildx
+install -d -m 0700 /etc/orchestrator /opt/orchestrator/releases /var/backups/orchestrator
+printf '%s' '${base64encode(jsonencode({repository_url=repository_url, deployment=deployment, owner=owner, enable_alb=enable_alb}))}' | base64 -d > /etc/orchestrator/config.json
+release=/opt/orchestrator/releases/${release_commit}
+git clone --filter=blob:none --no-checkout '${repository_url}' "$release"
+git -C "$release" fetch --depth=1 origin '${release_commit}'
+git -C "$release" checkout --detach '${release_commit}'
+test "$(git -C "$release" rev-parse HEAD)" = '${release_commit}'
+ln -s "$release" /opt/orchestrator/current
+cat > /etc/systemd/system/orchestrator.service <<'UNIT'
+[Unit]
+Description=Orchestrator EC2 Compose stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/orchestrator/current/deploy/ec2/host.sh start
+ExecStop=/opt/orchestrator/current/deploy/ec2/host.sh stop
+TimeoutStartSec=5400
+TimeoutStopSec=180
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable orchestrator.service
+timeout 5500 systemctl start orchestrator.service
+touch /var/lib/orchestrator-bootstrap-ready

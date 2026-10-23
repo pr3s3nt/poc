@@ -255,3 +255,6 @@ Stop via `docker compose -f docker-compose.yml -f docker-compose.aws.yml -f
 docker-compose.ec2.yml down`. Destroy owned cloud resources through the app before
 terminating EC2 or removing durable volumes. Do not add `-v` for retained data.
 See [AWS runbook](aws.md) for role permissions, live verification and cleanup.
+
+For automated host provisioning, updates and the restricted ALB trial endpoint,
+see [EC2 automation](ec2.md).

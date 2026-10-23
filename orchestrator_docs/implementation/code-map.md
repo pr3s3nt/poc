@@ -568,3 +568,11 @@ Deployment: [EC2 Compose overlay](../../docker-compose.ec2.yml),
 
 UI3-05 unified existing-cluster catalog/editor uses ResourceDefinitionsPage and
 ExistingClusterDefinition.test.tsx; the separate ExistingClusterSection was removed.
+
+## EC2 host automation (2026-10-23)
+
+Operator infrastructure and host lifecycle: [Terraform](../../deploy/ec2/terraform/),
+[operator entry point](../../deploy/ec2/manage.sh),
+[host service/backup/update](../../deploy/ec2/host.sh),
+[optional ALB port overlay](../../deploy/ec2/compose.alb.yml).
+Procedure and scope are owned by the [EC2 runbook](../operations/ec2.md).
