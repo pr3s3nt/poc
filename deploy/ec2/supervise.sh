@@ -15,7 +15,9 @@ while [[ ! -f $run_dir/retain-approved ]]; do
     for attempt in {1..12}; do
       if "$script_dir/manage.sh" destroy "$config" "$run_dir"; then
         touch "$run_dir/terraform-destroy-finished"
-        exit 0
+        if "$script_dir/absence.sh" "$config" "$run_dir"; then exit 0; fi
+        echo 'Terraform finished; native absence remains unproven. Recovery retained.' >&2
+        exit 1
       fi
       sleep 30
     done

@@ -574,5 +574,8 @@ ExistingClusterDefinition.test.tsx; the separate ExistingClusterSection was remo
 Operator infrastructure and host lifecycle: [Terraform](../../deploy/ec2/terraform/),
 [operator entry point](../../deploy/ec2/manage.sh),
 [host service/backup/update](../../deploy/ec2/host.sh),
-[optional ALB port overlay](../../deploy/ec2/compose.alb.yml).
+[optional ALB port overlay](../../deploy/ec2/compose.alb.yml),
+[positive browser/role check](../../deploy/ec2/verify.mjs),
+[failure supervisor](../../deploy/ec2/supervise.sh) and
+[native absence proof](../../deploy/ec2/absence.sh).
 Procedure and scope are owned by the [EC2 runbook](../operations/ec2.md).

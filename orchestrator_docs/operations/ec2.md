@@ -24,6 +24,9 @@ security group; SSH only from operator CIDRs. Backend, PostgreSQL and Vault are
 not public. Without ALB, use SSH forwarding to loopback port 3001. A production
 HTTPS endpoint requires a separately configured domain and certificate.
 
+The operator host also needs `flock`, `sha256sum` and `grep` for run locking
+and cleanup evidence.
+
 Host provisioning credentials belong to the operator and never enter EC2 user
 data, containers or Git. The new EC2 role trusts EC2 and has an explicit action
 allowlist for the current AWS modules and read-only account verification. The
@@ -54,6 +57,16 @@ Plan creates no cloud resources. Review the saved plan and current prices before
 apply. The apply consumes that saved plan; changes require a new plan. Private
 Terraform state, plan, keys and logs remain in the run directory; do not commit
 or display their contents. Keep that directory until cleanup is verified.
+After health succeeds, the operator can run the positive browser/role check
+(using `npm ci` in `frontend/` to install Playwright first):
+
+```bash
+node deploy/ec2/verify.mjs BASE_URL ROLE_ARN us-east-1 /private/run/accounts.png
+```
+
+It logs in through the UI, creates the EC2-role account through its form (or
+compares an existing identical account), and requires READY. It performs no
+infrastructure deployment. Repeat after reboot to verify persistence.
 The role must be ready in the Console before using AWS Definitions. Registration
 uses the existing UI/API and checks IMDS identity, regional reads and IAM
 simulation; it is not a provisioning test.
@@ -102,7 +115,8 @@ native absence. Back up any retained data. Then explicitly run:
 The command checks account identity and the exact instance run-id tag before
 Terraform destroy. It never deletes by account-wide/prefix search. The root disk
 is deleted with the owned instance, so destroy requires explicit operator intent.
-After destroy verify exact EC2, volume, ALB, target-group, security-group, key-pair,
+After destroy run `./deploy/ec2/absence.sh /private/run/config.json /private/run`
+to verify exact EC2, volume, ALB, target-group, security-group, key-pair,
 IAM role and instance-profile absence using native APIs and saved resource IDs.
 An empty Terraform state alone is not cleanup proof. Retain recovery material if
 ownership or cleanup is uncertain.

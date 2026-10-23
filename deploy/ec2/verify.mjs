@@ -23,6 +23,7 @@ try {
   const { accounts } = await response.json();
   const name = 'ec2-instance-role';
   let account = accounts.find((item) => item.name === name);
+  const reused = Boolean(account);
   if (!account) {
     await page.getByRole('radio', { name: 'AWS', exact: true }).check();
     await page.getByLabel('Phương thức xác thực').selectOption('ec2-role');
@@ -42,8 +43,18 @@ try {
     throw new Error('Stored account does not match the READY EC2 role and region');
   }
   await expect(page.getByRole('table', { name: 'Tài khoản hạ tầng' })).toContainText(name);
+  if (reused) {
+    await page.getByRole('button', { name: `Xem ${name}`, exact: true }).click();
+    const verified = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === `/api/v1/driver-accounts/${account.key}/verify`, { timeout: 120_000 });
+    await page.getByRole('button', { name: 'Kiểm tra kết nối', exact: true }).click();
+    const refreshed = await verified;
+    if (refreshed.status() !== 200) throw new Error(`Role re-verification HTTP ${refreshed.status()}`);
+    const current = await refreshed.json();
+    if (current.status !== 'READY' || current.config?.roleArn !== roleArn || current.version <= account.version) throw new Error('Role re-verification did not retain the expected READY identity');
+    account = current;
+  }
   if (screenshot) await page.screenshot({ path: screenshot, fullPage: true });
-  console.log(JSON.stringify({ result: 'PASS', login: true, accountKey: account.key, status: account.status, roleArn, region }));
+  console.log(JSON.stringify({ result: 'PASS', login: true, reverified: reused, accountKey: account.key, status: account.status, roleArn, region }));
 } finally {
   await browser.close();
 }
