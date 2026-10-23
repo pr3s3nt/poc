@@ -26,6 +26,13 @@ operator-managed schema upgrade; no retained database was reset or migrated.
 See [implementation](implementation/visual-deployment-review.md) and
 [verification](verification/2026-10-23-visual-preview-implementation.md).
 
+The initial integration's visual acceptance was reopened by user feedback.
+IMP-030 corrects it against the approved prototype: full-width review, original
+column proportions, icons, runtime/configuration cards, grouped dependencies and
+file-based Code. The Tailscale HTTP demo also has a cryptographic UUID fallback.
+Coordinator screenshot comparison and browser checks pass; user re-review is
+pending. See [fidelity correction](verification/2026-10-23-visual-preview-fidelity.md).
+
 ## Git is the default Terraform source — 2026-10-21
 
 New Resource Definition drafts, reset/cancel and successful registration start

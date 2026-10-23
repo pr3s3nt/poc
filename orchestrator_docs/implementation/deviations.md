@@ -481,3 +481,26 @@ there are no admitted JSON modules silently omitted from a supported bundle.
 Real cloud/cluster acceptance is unverified for this feature, not inferred from
 fake-adapter browser execution. Existing database upgrade is an operator task;
 only a fresh disposable baseline was initialized here.
+
+## IMP-030 — Deployment review visual fidelity reopened
+
+User review on 2026-10-23 identified that the product integration did not retain
+the approved prototype's visual quality. Functional verification did not establish
+visual fidelity. The integration nested the review inside the Workload card,
+reduced graph/inspector space, omitted icon hierarchy/intent counts/runtime cards
+and rendered dense technical metadata and all code files at once.
+
+Reopen visual acceptance against `frontend/design/deployment-preview/desktop.png`,
+`code-diff.png` and cloud screenshots. Restore a full-width review panel, graph
+and inspector proportions, visual node hierarchy, clear properties/dependencies,
+file selection and deliberate action/progress layout using existing Console tokens.
+Keep real DTOs, safe artifacts and actual progress; no prototype fixtures/timers,
+scenario controls or new mobile work. Compare real screenshots at 1512 and 1280px,
+then validate affected Console behavior before updating the running demo.
+
+Correction implemented: the review is now a sibling full-width panel, with the
+approved icon/summary/runtime/property hierarchy, grouped provider reasons,
+per-node file tabs, one graph across admission and an explicit busy action.
+Coordinator compared actual Internal/cloud/code captures at 1512px and 1280px;
+functional and Tailscale HTTP checks pass. User re-review is pending. See
+[visual fidelity evidence](../verification/2026-10-23-visual-preview-fidelity.md).

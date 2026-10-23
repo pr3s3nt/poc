@@ -48,7 +48,7 @@ it('previews pending changes and deploys only after confirmation', async () => {
   await screen.findByText('frontend');
   expect(screen.queryByRole('button', { name: 'Triển khai các thay đổi này' })).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
-  expect(await screen.findByRole('heading', { name: 'Xem trước cho staging' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Xem trước thay đổi' })).toBeInTheDocument();
   expect(deployToken).toBe('');
   expect(within(screen.getByLabelText('Xem trước triển khai')).getByLabelText('Đích triển khai')).toHaveTextContent('staging · Đích được xác định từ Resource Definition và các tham chiếu Workload.');
   await user.click(screen.getByRole('button', { name: 'Triển khai các thay đổi này' }));
@@ -486,7 +486,8 @@ it('opens on the Environment given by the route and previews that Environment', 
   render(<ApplicationHomePage application={application} initialEnvironment="production" />);
   await screen.findByText('api');
   await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
-  expect(await screen.findByRole('heading', { name: 'Xem trước cho production' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Xem trước thay đổi' })).toBeInTheDocument();
+  expect(within(screen.getByLabelText('Xem trước triển khai')).getByLabelText('Đích triển khai')).toHaveTextContent('production');
   expect(urls.filter((url) => url.includes('/workloads') || url.endsWith('/preview')).every((url) => url.includes('/environments/production/'))).toBe(true);
   expect(urls.some((url) => url.includes('/environments/staging/'))).toBe(false);
 });

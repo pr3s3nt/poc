@@ -1044,3 +1044,10 @@ See [checklist](../implementation/visual-deployment-review.md) and
 [observed evidence/limits](../verification/2026-10-23-visual-preview-implementation.md).
 IMP-029 retains the unsupported `.tf.json` format gap. Fake execution adapters do
 not establish real cloud or cluster acceptance.
+
+VIS-05/07 and OBS-05 visual follow-up: IMP-030 maps to the full-width
+ApplicationHome review and shared DeploymentReview graph/inspector/code hierarchy.
+File/node scope and HTTP UUID regressions are in DeploymentReview.test.tsx and
+reviewRequestId.test.ts; existing admission/stale-response tests remain.
+[Actual desktop comparison and Tailscale HTTP evidence](../verification/2026-10-23-visual-preview-fidelity.md)
+records coordinator visual review separately from the pending user re-review.

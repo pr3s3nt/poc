@@ -97,3 +97,19 @@ Pending Preview uses existing explicit Deploy; standalone remains read-only.
 During execution show observed node states, stage/time/wait reasons and counts;
 never render prototype scenario/failure selectors, fake timer, pause or reset.
 No separate mobile design is required by this task; preserve existing shell.
+
+### Prototype fidelity correction — 2026-10-23
+
+Pending review occupies its own full-width panel beside the other Application
+sections, never a nested Workload card. Preserve the approved 340px inspector
+(310px at the smaller desktop breakpoint), node/type icons, intent counts,
+readiness card, readable safe workload properties and dependency cards. Group
+multiple reasons for one provider without losing those reasons. Technical pins,
+descriptors and provenance remain available in disclosure sections.
+
+Code uses per-node file selection and one active artifact, diff/after controls,
+line counts, safe copy and expand. Selecting another node resets its file context.
+Preview and observed deployment use one graph at a time; show the disabled busy
+Deploy action while admission is in flight. The dependency strip includes
+workload nodes and describes graph ordering, not scheduler concurrency or ETA.
+Unsupported placement is labeled unresolved. See IMP-030 for visual acceptance.

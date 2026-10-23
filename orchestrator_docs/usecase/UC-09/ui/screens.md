@@ -97,3 +97,11 @@ Pending Preview uses existing explicit Deploy; standalone remains read-only.
 During execution show observed node states, stage/time/wait reasons and counts;
 never render prototype scenario/failure selectors, fake timer, pause or reset.
 No separate mobile design is required by this task; preserve existing shell.
+
+### Shared review presentation — 2026-10-23
+
+The same graph/inspector follows the accepted desktop prototype: icon/title/state
+hierarchy, an observed readiness/stage/time card, safe configuration properties,
+provider-grouped dependency reasons and one selected code file. Derive the
+readiness count from persisted facts; dependency levels are not a claim of
+parallel execution. Keep exact run correlation and unknown/error states intact.

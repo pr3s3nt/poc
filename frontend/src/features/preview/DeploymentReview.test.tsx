@@ -35,7 +35,7 @@ it('shows real blocking provider and unknown state without advancing it', async 
   const user = userEvent.setup();
   render(<DeploymentReview review={review} progress={[{ nodeId: 'cluster', state: 'FAILED', blockingProviderIds: [], observedAt: '2026-10-23T00:00:00Z' }, { nodeId: 'api', state: 'BLOCKED', blockingProviderIds: ['cluster'], observedAt: '2026-10-23T00:00:00Z' }]} />);
   await user.click(screen.getByRole('button', { name: /API/ }));
-  expect(screen.getByText(/Đang chờ: cluster/)).toBeInTheDocument();
+  expect(screen.getByText(/Đang chờ: Cluster/)).toBeInTheDocument();
   expect(screen.getAllByText('Bị chặn').length).toBeGreaterThan(0);
 });
 
@@ -46,6 +46,7 @@ it('draws only real edges and keeps managed resources outside Kubernetes', () =>
  const managed = screen.getByRole('button',{name:/Aurora/});
  expect(managed).toHaveAttribute('data-node-id','db');
  expect(document.querySelector('[data-cluster="outside"]')).toHaveTextContent('Hạ tầng ngoài Kubernetes');
+ expect(document.querySelector('[data-cluster="unresolved"]')).toHaveTextContent('Vị trí chưa xác định');
 });
 it('renders removal lines even when the after side is absent', async () => {
  const user=userEvent.setup();
@@ -60,4 +61,22 @@ it('provides keyboard tabs and reports failed clipboard access without an unhand
  render(<DeploymentReview review={review}/>);await user.click(screen.getByRole('button',{name:/API/}));
  screen.getByRole('tab',{name:'Tổng quan'}).focus();await user.keyboard('{End}');expect(screen.getByRole('tab',{name:'Code'})).toHaveFocus();
  await user.click(screen.getByRole('button',{name:'Sao chép bản sau'}));expect(screen.getByRole('status')).toHaveTextContent('Không thể sao chép tự động');
+});
+
+it('keeps the selected file scoped to its node and presents one artifact at a time', async () => {
+  const user = userEvent.setup();
+  const multiple = { ...review, artifacts: [...review.artifacts, { ...review.artifacts[0]!, id: 'api:service', path: 'Service/api', after: { availability: 'PARTIAL' as const, text: 'kind: Service' } }] };
+  render(<DeploymentReview review={multiple} />);
+  await user.click(screen.getByRole('tab', { name: 'Code' }));
+  expect(screen.getByRole('table', { name: 'Diff Deployment/api' })).toBeInTheDocument();
+  expect(screen.queryByRole('table', { name: 'Diff Service/api' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Service/api' }));
+  expect(screen.getByRole('table', { name: 'Diff Service/api' })).toBeInTheDocument();
+  expect(screen.queryByRole('table', { name: 'Diff Deployment/api' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: /Cluster/ }));
+  await user.click(screen.getByRole('tab', { name: 'Code' }));
+  expect(screen.getByText('Chưa có code an toàn cho nút này.')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: /API/ }));
+  await user.click(screen.getByRole('tab', { name: 'Code' }));
+  expect(screen.getByRole('table', { name: 'Diff Deployment/api' })).toBeInTheDocument();
 });
