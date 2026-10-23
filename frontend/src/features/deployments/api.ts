@@ -1,8 +1,10 @@
 import { api } from '../../shared/api/client';
 import type { EnvironmentKey } from '../../shared/types/application';
+import type { DeploymentReviewData, ReviewProgress, ReviewArtifact } from '../preview/DeploymentReview';
 
 export type Deployment = {
   id: string;
+  reviewRequestId?: string;
   applicationKey: string;
   environmentKey: EnvironmentKey;
   action: 'DEPLOY' | 'UPDATE' | 'REMOVE';
@@ -29,13 +31,15 @@ export type DeploymentDetail = {
   deployment: Deployment;
   deploymentSetId: string;
   planHash: string;
+  review?: DeploymentReviewData;
+  nodeProgress?: ReviewProgress[];
   graph?: { nodes?: { descriptor: string; kind: string; origins?: string[] }[]; edges?: { consumer: string; provider: string; reason: string }[] };
   // Consumers held back by a failed provider (ADR-017): descriptors, edge reason and a safe code only.
   blocked?: { consumer: string; provider: string; reason: string; code: string }[];
   matches?: Record<string, { definitionKey: string; driverType: string }>;
   batches?: string[][];
   resources: { descriptor: string; resourceType: string; definitionKey: string; status: string; outputs: Record<string, unknown> }[];
-  workloads: { workloadId: string; status: string; manifestDigest: string; lastDeploymentId: string; observedAt: string }[];
+  workloads: { workloadId: string; status: string; manifestDigest: string; lastDeploymentId: string; observedAt: string; manifestReview?: { version: number; planHash: string; artifacts: ReviewArtifact[] } }[];
   // Undefined when the response has no valid progress projection: unavailable, never "no attempts".
   resourceProgress?: ResourceAttempt[];
 };
@@ -44,10 +48,14 @@ function scopePath(app: string, env: EnvironmentKey) {
   return `/applications/${encodeURIComponent(app)}/environments/${encodeURIComponent(env)}/deployments`;
 }
 
-export function listDeployments(app: string, env: EnvironmentKey, status?: DeploymentStatus) {
-  const query = status ? `?${new URLSearchParams({ status })}` : '';
+export function listDeployments(app: string, env: EnvironmentKey, status?: DeploymentStatus, reviewRequestId?: string) {
+  const params = new URLSearchParams(); if (status) params.set('status', status); if (reviewRequestId) params.set('reviewRequestId', reviewRequestId);
+  const query = params.size ? `?${params}` : '';
   return api<{ deployments: Deployment[] }>(`${scopePath(app, env)}${query}`);
 }
+
+export type ReviewOperation = { id: string; reviewRequestId?: string; status: string; stage?: string };
+export const listReviewOperations = (app: string, env: EnvironmentKey, requestId?: string) => api<{ operations: ReviewOperation[] }>(`/applications/${encodeURIComponent(app)}/environments/${env}/operations${requestId ? `?reviewRequestId=${encodeURIComponent(requestId)}` : ''}`);
 
 const text = (value: unknown): value is string => typeof value === 'string';
 

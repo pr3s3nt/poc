@@ -194,6 +194,7 @@ type Classification struct {
 
 // Plan is the immutable planning artifact persisted with a Deployment.
 type Plan struct {
+	Review any `json:"review,omitempty"`
 	Rendering   map[string]resource.RenderingSelection `json:"rendering,omitempty"`
 	WorkloadID  string                                 `json:"workloadId"`
 	Action      deployment.Action                      `json:"action"`

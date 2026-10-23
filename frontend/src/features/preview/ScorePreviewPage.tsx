@@ -7,6 +7,7 @@ import { ApiError } from '../../shared/api/client';
 import { previewScore, type PreviewAction, type ScorePreview, type ScorePreviewRequest } from './api';
 import { parseScoreText } from './parseScore';
 import { ResourceIntents, rendererText } from './ResourceIntents';
+import { DeploymentReview } from './DeploymentReview';
 import { DependencyGraph } from '../../shared/ui/DependencyGraph';
 import { Placements } from './Placements';
 
@@ -120,10 +121,11 @@ function List({ items, empty }: { items: string[]; empty: string }) {
 function PreviewResult({ result }: { result: ScorePreview }) {
   const renderer = result.rendering?.[result.workloadId];
   return <section className="preview-result" aria-label="Kết quả xem trước Score">
+    <section className="content-panel"><DeploymentReview review={result.review} title="Bản đồ xem trước Score" /></section>
     <section className="content-panel"><div className="section-header"><div><h2>Xem trước · {result.workloadId} · {actionLabel(result.action)}</h2><p>Kết quả chỉ đọc. Không có gì được lưu hay triển khai; hãy triển khai qua luồng Workload thông thường.</p></div></div>
       <dl className="detail-grid"><div><dt>Môi trường</dt><dd>{result.applicationKey} / {result.environmentKey}</dd></div><div><dt>Deployment Set nền</dt><dd>{result.baseSetId || 'trống'}</dd></div><div><dt>Phiên bản môi trường</dt><dd>{result.baseVersion}</dd></div><div><dt>ID lần chạy</dt><dd>{result.runId}</dd></div><div><dt>Trình dựng Workload</dt><dd>{rendererText(renderer)}</dd></div><div><dt>Mã băm kế hoạch</dt><dd><code className="plan-hash" title={result.planHash}>{result.planHash}</code></dd></div></dl></section>
     <section className="content-panel"><h2>Delta</h2><DeltaSummary result={result} /></section>
-    <section className="content-panel"><h2>Thay đổi tài nguyên</h2><div className="detail-grid">
+    <details open={result.review ? undefined : true}><summary>Chi tiết kỹ thuật của kế hoạch</summary><section className="content-panel"><h2>Thay đổi tài nguyên</h2><div className="detail-grid">
       <div><h3>Mới ({result.classification.new.length})</h3><List items={result.classification.new} empty="Không có" /></div>
       <div><h3>Đã có ({result.classification.existing.length})</h3><List items={result.classification.existing} empty="Không có" /></div>
       <div><h3>Không còn được tham chiếu ({result.classification.unreferenced.length})</h3><List items={result.classification.unreferenced} empty="Không có" /></div></div></section>
@@ -131,7 +133,7 @@ function PreviewResult({ result }: { result: ScorePreview }) {
     <section className="content-panel"><h2>Thứ tự tạo tài nguyên</h2>{result.batches.length ? <ol className="batch-list">{result.batches.map((batch, index) => <li key={index}>Lô {index + 1}: {batch.join(', ')}</li>)}</ol> : <p>Không có tài nguyên cần tạo.</p>}<p><small>Bên cung cấp được tạo trước bên sử dụng.</small></p></section>
     <section className="content-panel"><h2>Liên kết thực thi tài nguyên</h2>{result.matches.length ? <table className="plain-table"><thead><tr><th>Tài nguyên</th><th>Định nghĩa</th><th>Driver</th></tr></thead><tbody>{result.matches.map((match) => <tr key={match.descriptor}><td>{match.descriptor}</td><td>{match.definitionKey}</td><td>{match.driverType}</td></tr>)}</tbody></table> : <p>Không có liên kết tài nguyên.</p>}</section>
     <section className="content-panel"><h2>Đồ thị tài nguyên</h2>
-      <DependencyGraph nodes={result.graph.nodes} edges={result.graph.edges} /></section>
+      <DependencyGraph nodes={result.graph.nodes} edges={result.graph.edges} /></section></details>
     <section className="content-panel"><h2>Tài liệu (bản đã lọc dữ liệu nhạy cảm)</h2><p><small>Bản đã lọc dữ liệu nhạy cảm: giá trị biến container nguyên văn của các Workload khác hiển thị là <code>***redacted***</code>, và giá trị tham số trong đồ thị tài nguyên bị lược bỏ (chỉ liệt kê tên tham số). Đây không phải Deployment Set có thể thực thi.</small></p>
       <details><summary>Tài liệu Delta</summary><pre className="score-preview">{JSON.stringify(result.delta, null, 2)}</pre></details>
       <details><summary>Candidate Deployment Set — bản đã lọc dữ liệu nhạy cảm, không thể thực thi</summary><pre className="score-preview">{JSON.stringify(result.candidateSet, null, 2)}</pre></details></section>

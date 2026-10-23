@@ -9,6 +9,28 @@ const application: Application = { id: 'catalog', name: 'Catalog', subdomain: 'c
 
 afterEach(() => vi.unstubAllGlobals());
 
+it('binds a fresh review request ID and polls only exact scoped deployments', async () => {
+  let requestId = ''; const filteredRequests:string[] = [];
+  vi.stubGlobal('fetch',vi.fn(async (input:string|URL|Request,init?:RequestInit)=>{
+    const url=new URL(String(input),'http://localhost');
+    if (url.pathname.endsWith('/workloads')) return Response.json({applicationKey:'catalog',environmentKey:'staging',draftVersion:1,workloads:[{id:'api',state:'PENDING_UPSERT',ready:false,score:{}}]});
+    if (url.pathname.endsWith('/preview')) return Response.json({token:'pin',changes:[{workloadId:'api',action:'DEPLOY',resources:{existing:[],new:[],unreferenced:[]},planHash:'plan'}],review:{version:1,planHash:'plan',nodes:[{id:'api',kind:'workload',name:'api',resourceType:'workload',class:'default'}],edges:[],batches:[],artifacts:[]}});
+    if (url.pathname.endsWith('/deploy') && init?.method==='POST') {requestId=(JSON.parse(String(init.body)) as {reviewRequestId:string}).reviewRequestId;return Response.json({status:'SUCCEEDED',results:[{workloadId:'api',action:'DEPLOY',status:'SUCCEEDED',deploymentId:'exact-deployment'}]});}
+    if (url.pathname.endsWith('/deployments')) {const filter=url.searchParams.get('reviewRequestId')??'';filteredRequests.push(filter);return Response.json({deployments:filter?[{id:'exact-deployment',workloadId:'api',status:'SUCCEEDED'}]:[]});}
+    if (url.pathname.endsWith('/deployments/exact-deployment')) return Response.json({deployment:{id:'exact-deployment',workloadId:'api',status:'SUCCEEDED'},workloads:[],resources:[],resourceProgress:[],nodeProgress:[{nodeId:'api',state:'READY',blockingProviderIds:[],observedAt:'2026-10-23T00:00:00Z'}]});
+    if (url.pathname.endsWith('/operations')) return Response.json({operations:requestId?[{id:'op',reviewRequestId:requestId,status:'SUCCEEDED'}]:[]});
+    if (url.pathname.endsWith('/resources')) return Response.json({resources:[]});
+    return Response.json({},{status:404});
+  }));
+  const user=userEvent.setup();render(<ApplicationHomePage application={application}/>);
+  await screen.findByText('api');await user.click(screen.getByRole('button',{name:'Xem trước thay đổi'}));
+  await user.click(await screen.findByRole('button',{name:'Triển khai các thay đổi này'}));
+  expect(await screen.findByRole('heading',{name:'Trạng thái triển khai'})).toBeInTheDocument();
+  expect(requestId).toMatch(/^[0-9a-f]{8}-[0-9a-f-]{27}$/);
+  expect(filteredRequests).toContain(requestId);
+  expect(await screen.findByRole('link',{name:/api · SUCCEEDED/})).toBeInTheDocument();
+});
+
 it('previews pending changes and deploys only after confirmation', async () => {
   let deployToken = '';
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -115,6 +137,7 @@ it('keeps the deploy outcome when the list reload fails and blocks mutations unt
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/operations')) return Response.json({ operations: [] });
     if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.endsWith('/preview')) return Response.json({ token: 't', draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
     if (url.endsWith('/deploy')) return Response.json({ status: 'SUCCEEDED', results: [{ workloadId: 'api', action: 'UPDATE', status: 'SUCCEEDED', deploymentId: 'dep-1' }] });
@@ -144,6 +167,7 @@ it('keeps controls busy until the post-deploy reload finishes', async () => {
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/operations')) return Response.json({ operations: [] });
     if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.endsWith('/preview')) return Response.json({ token: 't', draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
     if (url.endsWith('/deploy')) return Response.json({ status: 'SUCCEEDED', results: [{ workloadId: 'api', action: 'UPDATE', status: 'SUCCEEDED' }] });
@@ -350,6 +374,7 @@ it('drops a stale Preview on a 409 Deploy, reloads the list and does not redeplo
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
+    if (url.includes('/operations')) return Response.json({ operations: [] });
     if (url.includes('/resources')) return Response.json({ resources: [] });
     if (url.endsWith('/preview')) return Response.json({ token: 'old', draftVersion: 1, changes: [{ workloadId: 'api', action: 'UPDATE', resources: { existing: [], new: [], unreferenced: [] }, planHash: 'p' }] });
     if (url.endsWith('/deploy')) { deploys += 1; return Response.json({ error: 'preview token is stale: raw detail xyz' }, { status: 409 }); }

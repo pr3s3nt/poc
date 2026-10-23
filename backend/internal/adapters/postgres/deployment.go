@@ -18,18 +18,21 @@ func (s *Store) SaveDeployment(ctx context.Context, v deployment.Deployment) err
 }
 
 func (s *Store) fencedSaveDeployment(ctx context.Context, v deployment.Deployment) error {
-	_, err := s.q(ctx).Exec(ctx, `INSERT INTO deployments(id,environment_id,organization_key,application_key,environment_key,action,workload_id,actor_ref,status,base_environment_version,base_deployment_set_id,candidate_deployment_set_id,failure_reason,started_at,finished_at,target_generation) VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,'')::uuid,NULLIF($12,'')::uuid,$13,$14,$15,$16) ON CONFLICT(id) DO UPDATE SET status=EXCLUDED.status,candidate_deployment_set_id=EXCLUDED.candidate_deployment_set_id,failure_reason=EXCLUDED.failure_reason,finished_at=EXCLUDED.finished_at`, v.ID, v.EnvironmentID, v.OrganizationKey, v.ApplicationKey, v.EnvironmentKey, v.Action, v.WorkloadID, v.ActorRef, v.Status, v.BaseEnvironmentVersion, v.BaseDeploymentSetID, v.CandidateDeploymentSet, v.FailureReason, v.StartedAt, v.FinishedAt, v.TargetGeneration)
+	tag, err := s.q(ctx).Exec(ctx, `INSERT INTO deployments(id,environment_id,organization_key,application_key,environment_key,action,workload_id,actor_ref,status,base_environment_version,base_deployment_set_id,candidate_deployment_set_id,failure_reason,started_at,finished_at,target_generation,review_request_id) VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,'')::uuid,NULLIF($12,'')::uuid,$13,$14,$15,$16,NULLIF($17,'')::uuid) ON CONFLICT(id) DO UPDATE SET status=EXCLUDED.status,candidate_deployment_set_id=EXCLUDED.candidate_deployment_set_id,failure_reason=EXCLUDED.failure_reason,finished_at=EXCLUDED.finished_at WHERE deployments.review_request_id IS NOT DISTINCT FROM EXCLUDED.review_request_id`, v.ID, v.EnvironmentID, v.OrganizationKey, v.ApplicationKey, v.EnvironmentKey, v.Action, v.WorkloadID, v.ActorRef, v.Status, v.BaseEnvironmentVersion, v.BaseDeploymentSetID, v.CandidateDeploymentSet, v.FailureReason, v.StartedAt, v.FinishedAt, v.TargetGeneration, v.ReviewRequestID)
 	if err != nil {
 		return fmt.Errorf("postgres: save deployment: %w", translate(err))
+	}
+	if tag.RowsAffected() == 0 {
+		return persistence.ErrImmutable
 	}
 	return nil
 }
 
-const deploymentSelect = `SELECT d.id::text,d.environment_id::text,d.organization_key,d.application_key,d.environment_key,d.action,d.workload_id,d.actor_ref,d.status,d.base_environment_version,COALESCE(d.base_deployment_set_id::text,''),COALESCE(d.candidate_deployment_set_id::text,''),COALESCE(s.id::text,''),d.failure_reason,d.started_at,d.finished_at,d.target_generation FROM deployments d LEFT JOIN deployment_delta_snapshots s ON s.deployment_id=d.id`
+const deploymentSelect = `SELECT d.id::text,d.environment_id::text,d.organization_key,d.application_key,d.environment_key,d.action,d.workload_id,d.actor_ref,d.status,d.base_environment_version,COALESCE(d.base_deployment_set_id::text,''),COALESCE(d.candidate_deployment_set_id::text,''),COALESCE(s.id::text,''),d.failure_reason,d.started_at,d.finished_at,d.target_generation,COALESCE(d.review_request_id::text,'') FROM deployments d LEFT JOIN deployment_delta_snapshots s ON s.deployment_id=d.id`
 
 func scanDeployment(row pgx.Row) (deployment.Deployment, error) {
 	var v deployment.Deployment
-	err := row.Scan(&v.ID, &v.EnvironmentID, &v.OrganizationKey, &v.ApplicationKey, &v.EnvironmentKey, &v.Action, &v.WorkloadID, &v.ActorRef, &v.Status, &v.BaseEnvironmentVersion, &v.BaseDeploymentSetID, &v.CandidateDeploymentSet, &v.DeltaSnapshotID, &v.FailureReason, &v.StartedAt, &v.FinishedAt, &v.TargetGeneration)
+	err := row.Scan(&v.ID, &v.EnvironmentID, &v.OrganizationKey, &v.ApplicationKey, &v.EnvironmentKey, &v.Action, &v.WorkloadID, &v.ActorRef, &v.Status, &v.BaseEnvironmentVersion, &v.BaseDeploymentSetID, &v.CandidateDeploymentSet, &v.DeltaSnapshotID, &v.FailureReason, &v.StartedAt, &v.FinishedAt, &v.TargetGeneration, &v.ReviewRequestID)
 	return v, err
 }
 func (s *Store) GetDeployment(ctx context.Context, id string) (deployment.Deployment, error) {
@@ -54,7 +57,7 @@ func (s *Store) ListDeployments(ctx context.Context, app, env string) ([]deploym
 	var out []deployment.Deployment
 	for rows.Next() {
 		var v deployment.Deployment
-		if err = rows.Scan(&v.ID, &v.EnvironmentID, &v.OrganizationKey, &v.ApplicationKey, &v.EnvironmentKey, &v.Action, &v.WorkloadID, &v.ActorRef, &v.Status, &v.BaseEnvironmentVersion, &v.BaseDeploymentSetID, &v.CandidateDeploymentSet, &v.DeltaSnapshotID, &v.FailureReason, &v.StartedAt, &v.FinishedAt, &v.TargetGeneration); err != nil {
+		if err = rows.Scan(&v.ID, &v.EnvironmentID, &v.OrganizationKey, &v.ApplicationKey, &v.EnvironmentKey, &v.Action, &v.WorkloadID, &v.ActorRef, &v.Status, &v.BaseEnvironmentVersion, &v.BaseDeploymentSetID, &v.CandidateDeploymentSet, &v.DeltaSnapshotID, &v.FailureReason, &v.StartedAt, &v.FinishedAt, &v.TargetGeneration, &v.ReviewRequestID); err != nil {
 			return nil, err
 		}
 		out = append(out, v)
@@ -248,7 +251,14 @@ func (s *Store) fencedUpsertWorkloadProgress(ctx context.Context, v deployment.W
 		if err != nil {
 			return err
 		}
-		_, err = s.q(ctx).Exec(ctx, `INSERT INTO deployment_workloads(deployment_id,workload_id,status,target_ref,manifest_digest,applied_config_revision_id,observed_at) VALUES($1::uuid,$2,$3,$4,$5,NULLIF($6,'')::uuid,$7) ON CONFLICT(deployment_id,workload_id) DO UPDATE SET status=EXCLUDED.status,target_ref=EXCLUDED.target_ref,manifest_digest=EXCLUDED.manifest_digest,applied_config_revision_id=EXCLUDED.applied_config_revision_id,observed_at=EXCLUDED.observed_at`, v.LastDeploymentID, v.WorkloadID, v.Status, target, v.ManifestDigest, v.AppliedConfigRevisionID, v.ObservedAt)
+		var review any
+		if v.ManifestReview != nil {
+			review, err = jsonBytes(v.ManifestReview)
+			if err != nil {
+				return err
+			}
+		}
+		_, err = s.q(ctx).Exec(ctx, `INSERT INTO deployment_workloads(deployment_id,workload_id,status,target_ref,manifest_digest,applied_config_revision_id,observed_at,manifest_review) VALUES($1::uuid,$2,$3,$4,$5,NULLIF($6,'')::uuid,$7,$8) ON CONFLICT(deployment_id,workload_id) DO UPDATE SET status=EXCLUDED.status,target_ref=EXCLUDED.target_ref,manifest_digest=EXCLUDED.manifest_digest,applied_config_revision_id=EXCLUDED.applied_config_revision_id,observed_at=EXCLUDED.observed_at,manifest_review=COALESCE(deployment_workloads.manifest_review,EXCLUDED.manifest_review)`, v.LastDeploymentID, v.WorkloadID, v.Status, target, v.ManifestDigest, v.AppliedConfigRevisionID, v.ObservedAt, review)
 		return translate(err)
 	})
 }
@@ -283,7 +293,7 @@ func (s *Store) listInstances(ctx context.Context, envKey string, generation int
 }
 
 func (s *Store) ListDeploymentWorkloads(ctx context.Context, deploymentID string) ([]deployment.WorkloadSnapshot, error) {
-	rows, err := s.q(ctx).Query(ctx, `SELECT deployment_id::text,workload_id,COALESCE(applied_config_revision_id::text,''),target_ref,manifest_digest,status,observed_at FROM deployment_workloads WHERE deployment_id=$1::uuid ORDER BY workload_id`, deploymentID)
+	rows, err := s.q(ctx).Query(ctx, `SELECT deployment_id::text,workload_id,COALESCE(applied_config_revision_id::text,''),target_ref,manifest_digest,status,observed_at,manifest_review FROM deployment_workloads WHERE deployment_id=$1::uuid ORDER BY workload_id`, deploymentID)
 	if err != nil {
 		return nil, err
 	}
@@ -291,12 +301,17 @@ func (s *Store) ListDeploymentWorkloads(ctx context.Context, deploymentID string
 	var out []deployment.WorkloadSnapshot
 	for rows.Next() {
 		var v deployment.WorkloadSnapshot
-		var target []byte
-		if err = rows.Scan(&v.DeploymentID, &v.WorkloadID, &v.AppliedConfigRevisionID, &target, &v.ManifestDigest, &v.Status, &v.ObservedAt); err != nil {
+		var target, review []byte
+		if err = rows.Scan(&v.DeploymentID, &v.WorkloadID, &v.AppliedConfigRevisionID, &target, &v.ManifestDigest, &v.Status, &v.ObservedAt, &review); err != nil {
 			return nil, err
 		}
 		if err = unmarshalJSON(target, &v.TargetRef); err != nil {
 			return nil, err
+		}
+		if len(review) > 0 {
+			if err = unmarshalJSON(review, &v.ManifestReview); err != nil {
+				return nil, err
+			}
 		}
 		out = append(out, v)
 	}

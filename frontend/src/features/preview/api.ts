@@ -1,6 +1,7 @@
 import { api } from '../../shared/api/client';
 import type { EnvironmentKey } from '../../shared/types/application';
 import type { Placement, ResourceIntent } from '../workloads/api';
+import type { DeploymentReviewData } from './DeploymentReview';
 
 export type PreviewAction = 'deploy' | 'update' | 'remove';
 
@@ -26,6 +27,7 @@ export type PreviewMatch = { descriptor: string; definitionKey: string; driverTy
 export type RenderingSelection = { definitionKey: string; class?: string; driverType: string; bundle: { id: string; version: string; digest: string } };
 
 export type ScorePreview = {
+	 review?: DeploymentReviewData;
   rendering?: Record<string, RenderingSelection>;
   applicationKey: string;
   environmentKey: EnvironmentKey;

@@ -1,3 +1,4 @@
+/* global document, navigator, window, clearTimeout, setTimeout */
 /* Browser-only review fixture. No API, storage, credentials or infrastructure calls. */
 (() => {
   'use strict';

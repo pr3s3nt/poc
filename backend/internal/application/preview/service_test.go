@@ -777,7 +777,7 @@ func TestPreview_PublicViewRedactsWithoutChangingPlan(t *testing.T) {
 	raw, _ := json.Marshal(view)
 	var top map[string]any
 	_ = json.Unmarshal(raw, &top)
-	want := []string{"action", "applicationKey", "baseSetId", "baseVersion", "batches", "binding", "candidateSet", "classification", "delta", "environmentKey", "graph", "matches", "placements", "planHash", "rendering", "resourceIntents", "runId", "workloadId"}
+	want := []string{"action", "applicationKey", "baseSetId", "baseVersion", "batches", "binding", "candidateSet", "classification", "delta", "environmentKey", "graph", "matches", "placements", "planHash", "rendering", "resourceIntents", "review", "runId", "workloadId"}
 	if len(top) != len(want) {
 		t.Fatalf("view fields = %d , want exactly %v", len(top), want)
 	}

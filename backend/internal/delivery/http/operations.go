@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -16,6 +17,23 @@ import (
 func (s *Server) handleListOperations(w http.ResponseWriter, r *http.Request) {
 	_, appKey, envKey, ok := s.scopedEnvironment(w, r)
 	if !ok {
+		return
+	}
+	if requestID := r.URL.Query().Get("reviewRequestId"); requestID != "" {
+		if !ids.ValidUUID(requestID) {
+			writeCode(w, codeInvalidRequest, "reviewRequestId")
+			return
+		}
+		op, err := s.store.GetReviewOperation(r.Context(), appKey, envKey, strings.ToLower(requestID))
+		if err != nil && !errors.Is(err, persistence.ErrNotFound) {
+			s.writeError(w, err)
+			return
+		}
+		views := []operationView{}
+		if err == nil {
+			views = append(views, operationViewOf(op))
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"operations": views})
 		return
 	}
 	if s.operations != nil {

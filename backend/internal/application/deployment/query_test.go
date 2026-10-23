@@ -36,8 +36,8 @@ func TestQueryServiceScopesFiltersAndOrdersHistory(t *testing.T) {
 	}
 	now := time.Now().UTC()
 	for _, record := range []domain.Deployment{
-		{ID: "old", OrganizationKey: "org-a", ApplicationKey: "app-a", EnvironmentKey: "staging", Status: domain.StatusPlanning, StartedAt: now.Add(-time.Minute)},
-		{ID: "new", OrganizationKey: "org-a", ApplicationKey: "app-a", EnvironmentKey: "staging", Status: domain.StatusFailed, StartedAt: now},
+		{ID: "old", ReviewRequestID: "11111111-1111-4111-8111-111111111111", OrganizationKey: "org-a", ApplicationKey: "app-a", EnvironmentKey: "staging", Status: domain.StatusPlanning, StartedAt: now.Add(-time.Minute)},
+		{ID: "new", ReviewRequestID: "22222222-2222-4222-8222-222222222222", OrganizationKey: "org-a", ApplicationKey: "app-a", EnvironmentKey: "staging", Status: domain.StatusFailed, StartedAt: now},
 		{ID: "other", OrganizationKey: "org-b", ApplicationKey: "app-b", EnvironmentKey: "production", Status: domain.StatusFailed, StartedAt: now.Add(time.Minute)},
 	} {
 		if err := st.SaveDeployment(ctx, record); err != nil {
@@ -53,6 +53,13 @@ func TestQueryServiceScopesFiltersAndOrdersHistory(t *testing.T) {
 	failed, err := queries.ListDeployments(ctx, appsvc.ListDeploymentsQuery{OrganizationKey: "org-a", ApplicationKey: "app-a", EnvironmentKey: "staging", Status: domain.StatusFailed})
 	if err != nil || len(failed) != 1 || failed[0].ID != "new" {
 		t.Fatalf("failed filter = %#v, %v", failed, err)
+	}
+	correlated, err := queries.ListDeployments(ctx, appsvc.ListDeploymentsQuery{OrganizationKey: "org-a", ApplicationKey: "app-a", EnvironmentKey: "staging", ReviewRequestID: "11111111-1111-4111-8111-111111111111"})
+	if err != nil || len(correlated) != 1 || correlated[0].ID != "old" {
+		t.Fatalf("request correlation mixed executions: %#v %v", correlated, err)
+	}
+	if _, err := queries.ListDeployments(ctx, appsvc.ListDeploymentsQuery{ReviewRequestID: "not-a-uuid"}); !errors.Is(err, appsvc.ErrInvalidReviewRequestID) {
+		t.Fatalf("malformed correlation accepted: %v", err)
 	}
 	if _, err := queries.ListDeployments(ctx, appsvc.ListDeploymentsQuery{Status: "NOT_A_STATUS"}); !errors.Is(err, appsvc.ErrInvalidStatus) {
 		t.Fatalf("invalid status = %v", err)

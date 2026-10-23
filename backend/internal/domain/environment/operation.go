@@ -41,11 +41,12 @@ func (s OperationStatus) Holds() bool {
 
 // Operation is the persisted Environment claim. It carries no credentials.
 type Operation struct {
-	ID             string        `json:"id"`
-	ApplicationKey string        `json:"applicationKey"`
-	EnvironmentKey string        `json:"environmentKey"`
-	Kind           OperationKind `json:"kind"`
-	Owner          string        `json:"owner"`
+	ID              string        `json:"id"`
+	ReviewRequestID string        `json:"reviewRequestId,omitempty"`
+	ApplicationKey  string        `json:"applicationKey"`
+	EnvironmentKey  string        `json:"environmentKey"`
+	Kind            OperationKind `json:"kind"`
+	Owner           string        `json:"owner"`
 	// Fence increments each time recovery takes the claim over; owner-only
 	// writes and release must present the current (Owner, Fence) pair.
 	Fence       int64           `json:"fence"`

@@ -338,3 +338,16 @@ func TestGetDeployment_RedactsSecretOutputs(t *testing.T) {
 		}
 	}
 }
+
+func TestDeployReviewRequestUUIDIsCaseInsensitive(t *testing.T) {
+	app, opts := newApp(t)
+	ctx := context.Background()
+	result, err := app.Deployments.DeployWorkload(ctx, appsvc.DeployCommand{OrganizationKey: opts.OrganizationKey, ApplicationKey: opts.ApplicationKey, EnvironmentKey: opts.EnvironmentKey, WorkloadID: "frontend", ScoreAfter: seed.AcceptanceScores(opts)["frontend"], Actor: "review-test", ReviewRequestID: "AABBCCDD-1111-4111-8111-111111111111"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := app.Store.GetDeployment(ctx, result.DeploymentID)
+	if err != nil || got.ReviewRequestID != "aabbccdd-1111-4111-8111-111111111111" {
+		t.Fatalf("correlation not normalized: %v %v", got.ReviewRequestID, err)
+	}
+}

@@ -889,6 +889,9 @@ func (s *Store) SaveDeployment(ctx context.Context, d deployment.Deployment) err
 	if d.ID == "" {
 		return fmt.Errorf("store: deployment needs an id")
 	}
+	if old, ok := s.state.Deployments[d.ID]; ok && !strings.EqualFold(old.ReviewRequestID, d.ReviewRequestID) {
+		return persistence.ErrImmutable
+	}
 	if err := s.checkDeltaSnapshotLocked(d); err != nil {
 		return err
 	}
@@ -1166,6 +1169,9 @@ func (s *Store) UpsertWorkloadProgress(ctx context.Context, w deployment.Workloa
 		w.ID = ids.New()
 	}
 	snapshot := workloadSnapshot(w)
+	if existing, ok := s.state.DeploymentWorkloads[deploymentWorkloadKey(snapshot.DeploymentID, snapshot.WorkloadID)]; ok && existing.ManifestReview != nil {
+		snapshot.ManifestReview = copyMap(existing.ManifestReview)
+	}
 	w.TargetRef = copyMap(w.TargetRef)
 	s.state.WorkloadInstances[key] = w
 	s.state.DeploymentWorkloads[deploymentWorkloadKey(snapshot.DeploymentID, snapshot.WorkloadID)] = snapshot
@@ -1203,6 +1209,7 @@ func (s *Store) ListDeploymentWorkloads(ctx context.Context, deploymentID string
 	for _, snapshot := range s.state.DeploymentWorkloads {
 		if snapshot.DeploymentID == deploymentID {
 			snapshot.TargetRef = copyMap(snapshot.TargetRef)
+			snapshot.ManifestReview = copyMap(snapshot.ManifestReview)
 			out = append(out, snapshot)
 		}
 	}
@@ -1220,6 +1227,7 @@ func workloadSnapshot(w deployment.WorkloadInstance) deployment.WorkloadSnapshot
 		AppliedConfigRevisionID: w.AppliedConfigRevisionID,
 		TargetRef:               copyMap(w.TargetRef), ManifestDigest: w.ManifestDigest,
 		Status: w.Status, ObservedAt: w.ObservedAt,
+		ManifestReview: copyMap(w.ManifestReview),
 	}
 }
 

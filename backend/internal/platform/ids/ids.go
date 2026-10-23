@@ -5,9 +5,16 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var uuidShape = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+// ValidUUID accepts a canonical UUID without accepting a database-specific
+// alternate spelling. Correlation IDs are optional but, when supplied, exact.
+func ValidUUID(value string) bool { return uuidShape.MatchString(value) }
 
 // New returns a random UUID v4 string.
 func New() string {

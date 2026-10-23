@@ -103,6 +103,7 @@ func (m *Manager) Sweep(ctx context.Context) (int, error) {
 // Claim describes what the caller wants to own and which snapshot it verified.
 type Claim struct {
 	ApplicationKey, EnvironmentKey string
+	ReviewRequestID                string
 	Kind                           environment.OperationKind
 	Pins                           environment.OperationPins
 	Detail                         map[string]any
@@ -132,6 +133,10 @@ type Lease struct {
 // the visible owner; ErrVersionConflict reports a stale snapshot. No executor
 // side effect may precede a successful Begin.
 func (m *Manager) Begin(ctx context.Context, c Claim) (*Lease, error) {
+	if c.ReviewRequestID != "" && !ids.ValidUUID(c.ReviewRequestID) {
+		return nil, fmt.Errorf("envops: invalid review request ID")
+	}
+	c.ReviewRequestID = strings.ToLower(c.ReviewRequestID)
 	deadline := c.Deadline
 	if deadline <= 0 {
 		deadline = m.DeadlineOf(c.Kind)
@@ -139,7 +144,8 @@ func (m *Manager) Begin(ctx context.Context, c Claim) (*Lease, error) {
 	_, _ = m.Sweep(ctx)
 	op, err := m.store.ClaimEnvironment(ctx, persistence.OperationClaim{
 		ID: ids.New(), ApplicationKey: c.ApplicationKey, EnvironmentKey: c.EnvironmentKey, Owner: m.instanceID,
-		Kind: c.Kind, Pins: c.Pins, Detail: c.Detail, Deadline: time.Now().UTC().Add(deadline),
+		ReviewRequestID: c.ReviewRequestID,
+		Kind:            c.Kind, Pins: c.Pins, Detail: c.Detail, Deadline: time.Now().UTC().Add(deadline),
 	})
 	if errors.Is(err, persistence.ErrEnvironmentBusy) {
 		active, ok, getErr := m.store.ActiveOperation(ctx, c.ApplicationKey, c.EnvironmentKey)

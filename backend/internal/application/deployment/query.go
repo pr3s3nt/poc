@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"orchestrator/internal/platform/ids"
+	"strings"
+	"time"
 
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
@@ -22,6 +25,8 @@ type ResourceView struct {
 	BatchIndex    int            `json:"batchIndex"`
 	Scope         map[string]any `json:"scope,omitempty"`
 	Outputs       map[string]any `json:"outputs"`
+	StartedAt     time.Time      `json:"startedAt,omitempty"`
+	FinishedAt    *time.Time     `json:"finishedAt,omitempty"`
 }
 
 // WorkloadView is one workload instance row of the deployment view.
@@ -33,6 +38,21 @@ type WorkloadView struct {
 	LastDeploymentID        string         `json:"lastDeploymentId"`
 	AppliedConfigRevisionID string         `json:"appliedConfigRevisionId,omitempty"`
 	ObservedAt              string         `json:"observedAt"`
+	ManifestReview          map[string]any `json:"manifestReview,omitempty"`
+}
+
+type NodeProgress struct {
+	NodeID              string     `json:"nodeId"`
+	State               string     `json:"state"`
+	Status              string     `json:"status,omitempty"`
+	Stage               string     `json:"stage,omitempty"`
+	Attempt             int        `json:"attempt,omitempty"`
+	StartedAt           *time.Time `json:"startedAt,omitempty"`
+	UpdatedAt           *time.Time `json:"updatedAt,omitempty"`
+	FinishedAt          *time.Time `json:"finishedAt,omitempty"`
+	BlockingProviderIDs []string   `json:"blockingProviderIds"`
+	SafeErrorCode       string     `json:"safeErrorCode,omitempty"`
+	ObservedAt          time.Time  `json:"observedAt"`
 }
 
 // View is the read-only UC-09 deployment view.
@@ -55,8 +75,10 @@ type View struct {
 	ResourceProgress []domain.ResourceAttempt `json:"resourceProgress"`
 	// Blocked lists the consumers held back by a failed provider (ADR-017):
 	// descriptors, the graph edge reason and a safe failure code only.
-	Blocked   []BlockedView  `json:"blocked"`
-	Workloads []WorkloadView `json:"workloads"`
+	Blocked      []BlockedView  `json:"blocked"`
+	Workloads    []WorkloadView `json:"workloads"`
+	NodeProgress []NodeProgress `json:"nodeProgress"`
+	Review       any            `json:"review,omitempty"`
 }
 
 // QueryService implements UC-09: assemble a read-only deployment view.
@@ -75,6 +97,7 @@ type ListDeploymentsQuery struct {
 	ApplicationKey  string
 	EnvironmentKey  string
 	Status          domain.Status
+	ReviewRequestID string
 }
 
 type GetDeploymentQuery struct {
@@ -88,6 +111,9 @@ type GetDeploymentQuery struct {
 func (q *QueryService) ListDeployments(ctx context.Context, query ListDeploymentsQuery) ([]domain.Deployment, error) {
 	if query.Status != "" && !validStatus(query.Status) {
 		return nil, fmt.Errorf("%w: %q", ErrInvalidStatus, query.Status)
+	}
+	if query.ReviewRequestID != "" && !ids.ValidUUID(query.ReviewRequestID) {
+		return nil, ErrInvalidReviewRequestID
 	}
 	var out []domain.Deployment
 	err := q.store.ReadSnapshot(ctx, func(ctx context.Context, st persistence.Store) error {
@@ -106,6 +132,9 @@ func (q *QueryService) ListDeployments(ctx context.Context, query ListDeployment
 			if query.Status != "" && record.Status != query.Status {
 				continue
 			}
+			if query.ReviewRequestID != "" && !strings.EqualFold(record.ReviewRequestID, query.ReviewRequestID) {
+				continue
+			}
 			record.FailureReason = SafeFailureReason(record.FailureReason)
 			out = append(out, record)
 		}
@@ -116,6 +145,8 @@ func (q *QueryService) ListDeployments(ctx context.Context, query ListDeployment
 	}
 	return out, nil
 }
+
+var ErrInvalidReviewRequestID = errors.New("deployment: invalid review request id")
 
 // GetDeployment assembles the deployment view and redacts secret outputs
 // (OC-11). Every read happens inside one read-only snapshot so the view never
@@ -181,6 +212,7 @@ func assembleView(ctx context.Context, st persistence.Store, query GetDeployment
 		view.Rendering = plan["rendering"]
 		view.Batches = plan["batches"]
 		view.Classification = plan["classification"]
+		view.Review = plan["review"]
 		if h, ok := plan["planHash"].(string); ok {
 			view.PlanHash = h
 		}
@@ -214,6 +246,7 @@ func assembleView(ctx context.Context, st persistence.Store, query GetDeployment
 			Status:        string(r.Status),
 			BatchIndex:    r.BatchIndex,
 			Outputs:       redact(r.OutputSnapshot, visibleByType[r.ResourceTypeKey]),
+			StartedAt:     r.StartedAt, FinishedAt: r.FinishedAt,
 		})
 	}
 
@@ -241,8 +274,10 @@ func assembleView(ctx context.Context, st persistence.Store, query GetDeployment
 			LastDeploymentID:        w.DeploymentID,
 			AppliedConfigRevisionID: w.AppliedConfigRevisionID,
 			ObservedAt:              w.ObservedAt.UTC().Format("2006-01-02T15:04:05Z"),
+			ManifestReview:          w.ManifestReview,
 		})
 	}
+	view.NodeProgress = projectNodeProgress(view.Graph, view.Review, view.Resources, attempts, instances, record.Status, time.Now().UTC())
 	if view.Resources == nil {
 		view.Resources = []ResourceView{}
 	}
