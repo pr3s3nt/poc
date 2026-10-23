@@ -1,0 +1,29 @@
+@startuml
+title VOPC - UC-17 Platform effectiveness (design)
+left to right direction
+skinparam classAttributeIconSize 0
+class "Effectiveness page" as UI <<boundary>>
+class "EffectivenessService" as Svc <<control>>
+class "WorkItemBuilder" as Items <<control>>
+class "MetricCatalog" as Catalog <<control>>
+class "Run" as Run <<entity>>
+class "WorkItem" as Item <<entity>>
+class "Baseline version" as Baseline <<entity>>
+interface "DeploymentRepository" as Deployments
+interface "CleanupHistory" as Cleanups
+interface "IdentityRepository" as Users
+interface "BaselineRepository" as Baselines
+
+UI --> Svc : report / records / baselines
+Svc --> Deployments : Organization runs
+Svc --> Cleanups : USER_CONFIRMED cleanups (optional)
+Svc --> Users : actor -> User Account
+Svc --> Items : build
+Items ..> Run
+Items ..> Item
+Svc --> Catalog : compute(scope, period)
+Catalog ..> Item
+Catalog ..> Baseline
+Svc --> Baselines : append-only CAS
+Baselines ..> Baseline
+@enduml

@@ -25,6 +25,7 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
           {isPlatformEngineer ? <a className={navClass('driver-accounts')} href={href({ name: 'driver-accounts' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'driver-accounts' }); }}>⌬ <span>Tài khoản hạ tầng</span></a> : null}
           {isPlatformEngineer ? <a className={navClass('connections')} href={href({ name: 'connections' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'connections' }); }}>⌘ <span>Kết nối</span></a> : null}
           {isPlatformEngineer ? <a className={navClass('secret-stores')} href={href({ name: 'secret-stores' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'secret-stores' }); }}>⚿ <span>Kho bí mật</span></a> : null}
+          {isPlatformEngineer ? <a className={navClass('effectiveness')} href={href({ name: 'effectiveness' })} onClick={(event) => { event.preventDefault(); navigate({ name: 'effectiveness' }); }}>▥ <span>Hiệu quả platform</span></a> : null}
           <span className="nav-item nav-item-disabled">◷ <span>Lịch sử triển khai</span><small>Sắp có</small></span>
         </nav>
         <div className="sidebar-footer">

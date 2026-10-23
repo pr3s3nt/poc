@@ -1,0 +1,40 @@
+@startuml
+title UC-17 - Platform effectiveness report and baseline
+autonumber
+actor "Platform Engineer / Admin" as PE
+boundary EffectivenessPage as UI
+control EffectivenessService as Svc
+control WorkItemBuilder as Items
+control MetricCatalog as Catalog
+database "Deployment / cleanup history" as History
+database BaselineRepository as Baselines
+
+PE -> UI: Open report (default: organization, 30 days)
+UI -> Svc: GET report(from, to, application?, workload?)
+Svc -> Svc: Session role PE/Admin, Organization scope,\nnormalize period (Asia/Ho_Chi_Minh)
+Svc -> History: Read runs of Organization (read snapshot)
+History --> Svc: Deployments, USER_CONFIRMED cleanups, users, applications
+Svc -> Items: Build logical work items from runs
+Items --> Svc: Completed / open items with attempts
+Svc -> Baselines: Effective baseline version for scope at period end
+Svc -> Catalog: Compute every catalog entry for scope
+Catalog --> Svc: value, numerator/denominator, coverage,\nCOLLECTED | NO_DATA | NOT_COLLECTED
+Svc --> UI: Report + child-scope breakdown + trend
+PE -> UI: Open metric detail
+UI -> Svc: GET records(metric, same filters)
+Svc --> UI: Source records (IDs link to UC-09 history)
+PE -> UI: Export CSV
+UI -> UI: Format server report + records\n(no recomputation)
+PE -> UI: Save baseline version
+UI -> Svc: POST baseline(expectedVersion, value, source, effectiveFrom)
+Svc -> Baselines: Insert version expectedVersion+1 (CAS)
+alt version changed
+  Baselines --> UI: VERSION_CONFLICT, nothing written
+else inserted
+  Baselines --> UI: New version (older versions unchanged)
+end
+note over History
+Read-only. No executor, provider or cluster call.
+No secrets, inputs, outputs or failure reasons returned.
+end note
+@enduml

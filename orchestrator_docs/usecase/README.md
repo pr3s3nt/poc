@@ -2,7 +2,7 @@
 id: USE-CASE-INDEX
 artifact: use-case-index
 status: current
-last_reviewed: 2026-09-23
+last_reviewed: 2026-10-23
 ---
 
 # Orchestrator Use Case Model
@@ -44,6 +44,7 @@ Xây dựng orchestrator nội bộ sử dụng các contract và khái niệm g
 | UC-14 | Quản lý user, token và RBAC | Administrator | P2 |
 | UC-15 | Audit deployment và configuration changes | Administrator | P2 |
 | [UC-16](UC-16/README.md) | Quản lý cấu hình workload | Developer | Chưa xếp ưu tiên |
+| [UC-17](UC-17/README.md) | Theo dõi và báo cáo hiệu quả platform | Platform Engineer, Administrator | Chưa xếp ưu tiên |
 
 ## 4. Architecturally significant use cases
 

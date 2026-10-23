@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-23
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -1028,3 +1028,16 @@ labels statically. They were not run against a live backend in this change.
 | Requirement | Realization | Verification |
 |---|---|---|
 | UI3-05 common catalog/editor, capability methods, Internal account and shared save | ResourceDefinitionsPage, same OC-04 and matching/CAS pipeline; no sequence/contract changes | ExistingClusterDefinition.test.tsx; ResourceDefinitionsPage.test.tsx; DefinitionV3.test.tsx |
+
+## UC-17 — Platform effectiveness (issue #12 đợt 1)
+
+| Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
+|---|---|---|---|---|
+| MS-01, EX-01..03 | OC-20 report; `UC-17/sequence.puml` | `platformActor`, `effectiveness.Service.Report`, `NewPeriod` | read-only | [HTTP tests](../../backend/internal/delivery/http/effectiveness_test.go) role/tenant/field errors; [domain timezone](../../backend/internal/domain/effectiveness/effectiveness_test.go) |
+| MS-02, MS-03, BR-04, BR-11 | same | `load`, `BuildWorkItems`, `deploymentRun`/`cleanupRun`, `actorResolver` | `deployments`; `environment_operations` RESOURCE_CLEANUP USER_CONFIRMED via `ListCleanupRuns` | retry-chain domain test; org report HTTP test; [PostgreSQL test](../../backend/internal/adapters/postgres/effectiveness_integration_test.go) |
+| MS-04, BR-03, BR-05..08 | same | `Catalog`, `Compute`, `Summarize`, `Trend` | read model | domain tests (distinct users, recomputed medians/ratios, NOT_COLLECTED, bands) |
+| MS-05, MS-06 | same | breakdown per Application/Workload | read-only | drill-down HTTP test; [page tests](../../frontend/src/features/effectiveness/EffectivenessPage.test.tsx) |
+| MS-07, BR-12 | OC-20 records | `Records`, `RecordsOf`, `AllRecords` | read-only | records HTTP test; metric dialog + UC-09 link page test |
+| MS-08 | Console CSV | `buildCsv` | none | CSV unit test; browser download |
+| ALT-01, BR-09, BR-10, EX-04 | OC-20 baselines | `AddBaselineVersion`, `Baseline.Validate`, `EffectiveBaseline`, `AppendEffectivenessBaseline` | `effectiveness_baselines` append-only, CAS by version | baseline HTTP test; PostgreSQL restart + 42501; [JSON reload](../../backend/internal/adapters/store/effectiveness_test.go); browser save/reload |
+| Shell gate | UC-17 UI | `AppShell`, `App` | — | [App tests](../../frontend/src/app/App.test.tsx), [route tests](../../frontend/src/app/routes.test.ts) |

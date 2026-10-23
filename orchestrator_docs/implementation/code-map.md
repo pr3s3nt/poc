@@ -2,7 +2,7 @@
 id: IMPLEMENTATION-CODE-MAP
 artifact: design-to-code-map
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-23
 ---
 
 # Design-to-code map
@@ -568,3 +568,19 @@ Deployment: [EC2 Compose overlay](../../docker-compose.ec2.yml),
 
 UI3-05 unified existing-cluster catalog/editor uses ResourceDefinitionsPage and
 ExistingClusterDefinition.test.tsx; the separate ExistingClusterSection was removed.
+
+## UC-17 — Platform effectiveness
+
+[Specification](../usecase/UC-17/specification.md) → measurement contract and
+catalog [domain](../../backend/internal/domain/effectiveness/) (work items,
+period/timezone, metrics, baseline); [service](../../backend/internal/application/effectiveness/);
+ports [baseline/cleanup history](../../backend/internal/ports/persistence/effectiveness.go);
+adapters [PostgreSQL](../../backend/internal/adapters/postgres/effectiveness.go)
+(+ `effectiveness_baselines` in [baseline.sql](../../backend/internal/adapters/postgres/baseline.sql),
+SELECT/INSERT [grants](../../backend/internal/adapters/postgres/grants.go)) and
+[memory/JSON](../../backend/internal/adapters/store/effectiveness.go);
+[HTTP OC-20](../../backend/internal/delivery/http/effectiveness.go);
+Console [feature](../../frontend/src/features/effectiveness/), route/sidebar in
+[routes](../../frontend/src/app/routes.ts) and [AppShell](../../frontend/src/app/AppShell.tsx).
+Adding a metric: a catalog entry in `metrics.go` (Compute + Records) and its
+copy in `labels.ts`; a new external source also needs spec/schema first.

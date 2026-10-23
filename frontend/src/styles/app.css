@@ -395,3 +395,71 @@ a { color: inherit; }
 .definition-page .value-dialog .value-option strong { font-weight:600; }
 .definition-page .value-dialog .value-wide { grid-column:1 / -1; }
 .definition-page .value-dialog select,.definition-page .value-dialog input:not([type=radio]),.definition-page .value-dialog textarea { width:100%; }
+/* UC-17 Hiệu quả platform (desktop Console; carried over from the approved prototype). */
+.eff-page .page-header { align-items:center; }
+.eff-page .page-header h1 { margin-top:0; }
+.eff-badge { display:inline-block; border:1px solid #d4a72c; border-radius:999px; background:#fff8c5; color:var(--yellow); font-size:12px; padding:2px 9px; }
+.eff-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.eff-filters { display:flex; flex-wrap:wrap; align-items:flex-end; gap:20px; margin-bottom:22px; }
+.eff-filters label { display:grid; gap:6px; color:var(--muted); font-size:12px; }
+.eff-filters select { min-width:170px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--ink); padding:8px 10px; font:inherit; font-size:14px; }
+.eff-crumbs { display:flex; align-items:center; gap:8px; min-width:200px; padding-bottom:9px; font-size:14px; }
+.eff-crumbs span { color:var(--muted); }
+.eff-period { padding-bottom:10px; color:var(--muted); font-size:12px; }
+.eff-section { align-items:center; margin:26px 0 12px; }
+.eff-section h2 { margin:0; }
+.eff-metrics { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; }
+.eff-metric { display:flex; flex-direction:column; gap:18px; min-width:0; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); padding:16px; color:var(--ink); font:inherit; text-align:left; }
+.eff-metric:hover { border-color:#8c959f; box-shadow:0 3px 8px rgba(140,149,159,.15); }
+.eff-metric-title { display:flex; justify-content:space-between; gap:8px; min-height:36px; font-size:13px; font-weight:600; }
+.eff-metric-title > span { color:var(--muted); font-weight:400; }
+.eff-metric strong { font-size:26px; font-weight:600; letter-spacing:-.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.eff-metric small { min-height:18px; color:var(--muted); font-size:12px; line-height:1.5; }
+.eff-metric-muted strong { color:var(--muted); font-size:18px; font-weight:500; letter-spacing:0; }
+.eff-warning, .eff-metric small.eff-warning { color:var(--yellow); }
+.eff-two-col { display:grid; grid-template-columns:1.5fr 1fr; gap:18px; }
+.eff-chart { display:flex; align-items:flex-end; justify-content:space-around; gap:12px; height:165px; border-bottom:1px solid var(--border-muted); background:repeating-linear-gradient(to top,transparent 0,transparent 39px,var(--border-muted) 40px,transparent 41px); }
+.eff-bar-group { display:flex; flex:1; flex-direction:column; align-items:center; justify-content:flex-end; max-width:70px; height:100%; }
+.eff-bar-group strong { margin-bottom:6px; font-size:12px; font-weight:500; }
+.eff-bar { width:70%; border-radius:3px 3px 0 0; background:var(--blue); }
+.eff-bar-group small { width:100%; padding-top:8px; background:var(--surface); color:var(--muted); font-size:11px; text-align:center; }
+.eff-comparison { display:flex; flex-direction:column; align-items:flex-start; }
+.eff-comparison-value { margin:8px 0 0; font-size:30px; font-weight:600; }
+.eff-comparison p { margin:8px 0 14px; font-size:14px; }
+.eff-comparison small { margin-bottom:14px; color:var(--muted); font-size:12px; }
+.eff-comparison .button { margin-top:auto; }
+.eff-bands { display:flex; flex-wrap:wrap; gap:20px; margin:0 0 12px; color:var(--muted); font-size:13px; }
+.eff-bands b { color:var(--ink); }
+.eff-table-wrap { overflow:auto; }
+.eff-table-wrap table { white-space:nowrap; }
+.eff-table-wrap td small { display:block; margin-top:4px; color:var(--muted); font-size:11px; }
+.eff-breakdown th { color:var(--muted); font-size:12px; font-weight:600; }
+.eff-pending h2 { margin:0 0 6px; font-size:20px; }
+.eff-pending-item { display:flex; justify-content:space-between; gap:12px; width:100%; border:0; border-bottom:1px solid var(--border-muted); background:transparent; padding:14px 0; color:var(--ink); font:inherit; font-size:14px; text-align:left; }
+.eff-pending-item:hover span:first-child { color:#0969da; }
+.eff-notice { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+.eff-dialog { width:min(1080px,100%); max-height:calc(100vh - 64px); overflow:auto; }
+.eff-dialog .eff-table-wrap table { white-space:normal; }
+.eff-dialog .eff-table-wrap td:first-child, .eff-dialog .eff-table-wrap td:last-child { white-space:nowrap; }
+.eff-baseline-form input, .eff-baseline-form textarea { font-weight:400; }
+.eff-dialog:has(form) { width:min(600px,100%); }
+.eff-dialog p { font-size:14px; line-height:1.6; }
+.eff-dialog a { color:#0969da; }
+.eff-dialog .form-error .button, .eff-dialog .form-info .button { margin-left:12px; }
+.eff-detail-value strong { font-size:22px; }
+.eff-help { margin-top:16px; font-size:14px; }
+.eff-help summary { cursor:pointer; font-size:13px; font-weight:600; }
+.eff-help-list { padding-left:20px; }
+.eff-help-list li { margin:14px 0; font-size:14px; }
+.eff-help-list p { margin:4px 0 0; color:var(--muted); }
+.eff-baseline-current { display:grid; gap:4px; margin:0 0 12px; }
+.eff-baseline-current small { color:var(--muted); white-space:pre-wrap; }
+.eff-baseline-form { display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; }
+.eff-baseline-form .eff-span { grid-column:1 / -1; }
+.dialog .field textarea, .dialog .eff-range input { width:100%; border:1px solid var(--border); border-radius:6px; padding:8px 10px; font:inherit; }
+.dialog .field textarea { min-height:72px; }
+.eff-range { display:grid; grid-template-columns:1fr 1fr; gap:8px; border:0; margin:14px 0; padding:0; min-width:0; }
+.eff-range legend { margin-bottom:6px; padding:0; font-weight:600; }
+.eff-range label { display:grid; gap:4px; color:var(--muted); font-size:12px; }
+.eff-sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+@media (max-width:1200px) { .eff-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } }

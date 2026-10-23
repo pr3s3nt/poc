@@ -220,6 +220,28 @@ CREATE TABLE deployment_workloads (
   PRIMARY KEY(deployment_id, workload_id)
 );
 
+-- UC-17 baseline versions: append-only (the Console has SELECT/INSERT only).
+-- NULL application_id is the Organization scope.
+CREATE TABLE effectiveness_baselines (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  application_id uuid REFERENCES applications(id),
+  metric_id text NOT NULL CHECK (metric_id IN ('work_duration')),
+  version bigint NOT NULL CHECK (version >= 1),
+  retired boolean NOT NULL DEFAULT false,
+  statistic text CHECK (statistic IN ('MEDIAN')),
+  value_seconds bigint CHECK (value_seconds > 0),
+  source text NOT NULL CHECK (btrim(source) <> '' AND char_length(source) <= 2000),
+  sample_size integer CHECK (sample_size > 0),
+  measured_from date, measured_to date,
+  effective_from date NOT NULL,
+  created_by uuid NOT NULL REFERENCES user_accounts(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK ((retired AND statistic IS NULL AND value_seconds IS NULL) OR (NOT retired AND statistic IS NOT NULL AND value_seconds IS NOT NULL)),
+  CHECK ((measured_from IS NULL) = (measured_to IS NULL) AND (measured_from IS NULL OR measured_from <= measured_to))
+);
+CREATE UNIQUE INDEX effectiveness_baselines_scope_version ON effectiveness_baselines(organization_id, metric_id, COALESCE(application_id, '00000000-0000-0000-0000-000000000000'::uuid), version);
+
 -- Terraform v2 resource identity and state (ADR-014). Instances, attempts,
 -- dependency edges and state blobs are retained audit records: they are never
 -- deleted, and their identity and original snapshots never change.

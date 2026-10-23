@@ -146,6 +146,9 @@ var trustedFields = map[string]bool{
 	"context.applicationId":                            true, "context.environmentId": true, "context.resourceId": true, "context.class": true,
 	"service.publicPort": true, "confirmationName": true, "selectedResourceIds": true,
 	"accessKeyId": true, "secretAccessKey": true, "allowedRegions": true, "verificationRegions": true,
+	// UC-17 effectiveness query and baseline fields.
+	"from": true, "to": true, "workload": true, "metric": true, "statistic": true, "valueSeconds": true, "source": true,
+	"effectiveFrom": true, "sampleSize": true, "measuredFrom": true, "measuredTo": true,
 }
 
 // technicalID bounds a registered resource Type key echoed as a param: lowercase

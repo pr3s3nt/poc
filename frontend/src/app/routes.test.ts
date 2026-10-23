@@ -23,6 +23,14 @@ describe('console routes', () => {
     expect(parseRoute(href({ name: 'resource', applicationId: 'shop', environment: 'production', resourceId: 'a/b' }))).toEqual({ name: 'resource', applicationId: 'shop', environment: 'production', resourceId: 'a/b' });
   });
 
+  it('routes the effectiveness report with its scope and period (UC-17)', () => {
+    expect(parseRoute('/ui/platform/effectiveness')).toEqual({ name: 'effectiveness' });
+    expect(parseRoute('/ui/platform/effectiveness?application=a%2Fb&workload=api&days=7')).toEqual({ name: 'effectiveness', application: 'a/b', workload: 'api', days: 7 });
+    expect(parseRoute('/ui/platform/effectiveness?workload=api&days=12')).toEqual({ name: 'effectiveness' });
+    expect(href({ name: 'effectiveness', application: 'a/b', workload: 'api', days: 90 })).toBe('/ui/platform/effectiveness?application=a%2Fb&workload=api&days=90');
+    expect(href({ name: 'effectiveness', workload: 'api' })).toBe('/ui/platform/effectiveness');
+  });
+
   it('routes infrastructure accounts with an optional selected account', () => {
     expect(parseRoute('/ui/platform/driver-accounts')).toEqual({ name: 'driver-accounts' });
     expect(parseRoute('/ui/platform/driver-accounts?account=lab-aws')).toEqual({ name: 'driver-accounts', account: 'lab-aws' });

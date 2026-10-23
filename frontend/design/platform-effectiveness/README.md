@@ -90,3 +90,18 @@ empty state, page overflow and browser errors. Screenshots were visually compare
 to the product reference. Product full suites, cloud and database runs were not
 needed because product source and runtime behavior are unchanged. The existing
 Tailscale server/session continues to serve the rebuilt prototype.
+
+## Revision 3 — superseded by the product page, 2026-10-23
+
+The approved direction is now implemented as product code (UC-17,
+`frontend/src/features/effectiveness/`) with the two pending feedback items:
+organization overview by default with Application → Workload drill-down, and no
+Dữ liệu tab (sources and formulas live in metric details; CSV kept). This
+prototype's `main.tsx`/`style.css` are kept unchanged for provenance and are no
+longer the design source; see the
+[UC-17 UI design](../../../orchestrator_docs/usecase/UC-17/ui/README.md).
+Product screenshots with fake-adapter data, desktop only:
+[organization](screenshots/product-organization.png),
+[application](screenshots/product-application.png),
+[metric detail](screenshots/product-metric-detail.png),
+[baseline](screenshots/product-baseline.png).

@@ -86,6 +86,7 @@ biến quy tắc thành task redesign toàn bộ các màn hình cũ.
 - [UC-01 application onboarding and home](../../usecase/UC-01/ui/README.md)
 - [UC-12 Application Variables & Secrets](../../usecase/UC-12/ui/README.md)
 - [UC-16 workload configuration](../../usecase/UC-16/ui/README.md)
+- [UC-17 platform effectiveness](../../usecase/UC-17/ui/README.md)
 
 ## Ngôn ngữ Console và locator (VI-01)
 
@@ -144,3 +145,11 @@ BUSY giữ edits và khóa conflicting actions; stale yêu cầu reload/review h
 Preview mới. Session expiry vẫn theo UC-00. Retry GET không replay mutation,
 và lỗi network của mutation không chứng minh chưa lưu. Loading/error/not-found
 và committed-success/reload-failure vẫn tách biệt; scope đổi bỏ late replies.
+
+## Navigation Hiệu quả platform (UC-17)
+
+Sidebar thêm mục “Hiệu quả platform” sau “Kho bí mật”, route
+`/ui/platform/effectiveness`, cùng gate PLATFORM_ENGINEER/ADMIN như các mục
+platform. Developer không thấy mục và không render trang qua deep link. Mục
+“Lịch sử triển khai” vẫn disabled; chi tiết bản ghi mở lịch sử theo Environment
+hiện có. Trang thuộc [UC-17 screens](../../usecase/UC-17/ui/screens.md).
