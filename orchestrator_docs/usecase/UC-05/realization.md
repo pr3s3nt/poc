@@ -148,3 +148,12 @@ Tests planned: read-only/no-fetch/no-provider spies, selected-bundle parity,
 unknown-output structural guard, exact source-pin verification, baseline missing/
 failed/generation mismatch, shared node aggregation, source/manifest nested-secret
 redaction, bounded artifacts/diff, stale request discard, code copy, desktop UI.
+
+Node facts follow VIS-09 and the shared review contract: the assembler projects
+bounded semantic fields from already validated Terraform input contracts and
+verified pinned root-module literal outputs. Sensitive/executor-owned nil values
+are omitted; unresolved references stay unknown. The frontend derives workload
+facts only from sanitized Deployment/Service artifacts and uses public placement
+metadata for legacy/missing summaries. No executor, state or secret resolver is
+introduced. Layout metrics are shared by node rendering and connector routing;
+unique approach/outer lanes preserve the graph and full reason provenance.

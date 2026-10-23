@@ -228,3 +228,8 @@ runtime/current set hoặc Environment khác khi lưu.
   exact deployments bằng `reviewRequestId` được bind khi admission, theo UC-09 OBS-01..07. Không
   lấy deployment mới nhất làm kết quả của Preview đang xem. Không thêm approval
   workflow hoặc chạy Terraform plan trong Preview.
+- **VIS-09:** Mỗi node có tóm tắt thông tin công khai hữu ích theo loại (tên
+  database/namespace, port, image/replicas và placement khi biết), cùng thông tin
+  đầy đủ hơn ở Tổng quan. Dùng safe projection có nguồn, không suy giá trị bí mật
+  hoặc đoán output chưa có. Giãn card/tầng và tách làn đường nối để giữ nội dung
+  và dependency dễ đọc; không đổi graph, thứ tự thực thi hoặc runtime state.

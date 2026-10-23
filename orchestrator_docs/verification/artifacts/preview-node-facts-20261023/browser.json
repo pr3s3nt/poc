@@ -1,0 +1,108 @@
+[
+  {
+    "width": 1512,
+    "graphBefore": 774,
+    "graphAfter": 958,
+    "gain": 184,
+    "colors": [
+      {
+        "type": "k8s-cluster",
+        "ink": "rgb(37, 99, 235)",
+        "background": "linear-gradient(145deg, rgb(239, 246, 255), rgb(255, 255, 255) 70%)"
+      },
+      {
+        "type": "k8s-namespace",
+        "ink": "rgb(124, 58, 237)",
+        "background": "linear-gradient(145deg, rgb(245, 240, 255), rgb(255, 255, 255) 70%)"
+      },
+      {
+        "type": "postgres",
+        "ink": "rgb(51, 103, 145)",
+        "background": "linear-gradient(145deg, rgb(237, 245, 251), rgb(255, 255, 255) 70%)"
+      },
+      {
+        "type": "redis",
+        "ink": "rgb(190, 52, 85)",
+        "background": "linear-gradient(145deg, rgb(255, 240, 243), rgb(255, 255, 255) 70%)"
+      },
+      {
+        "type": "workload",
+        "ink": "rgb(15, 118, 110)",
+        "background": "linear-gradient(145deg, rgb(237, 251, 247), rgb(255, 255, 255) 70%)"
+      },
+      {
+        "type": "workload",
+        "ink": "rgb(15, 118, 110)",
+        "background": "linear-gradient(145deg, rgb(237, 251, 247), rgb(255, 255, 255) 70%)"
+      },
+      {
+        "type": "workload",
+        "ink": "rgb(15, 118, 110)",
+        "background": "linear-gradient(145deg, rgb(237, 251, 247), rgb(255, 255, 255) 70%)"
+      }
+    ],
+    "geometry": {
+      "crosses": [],
+      "shared": [],
+      "count": 7
+    },
+    "preservedNode": "redis.in-cluster#shared.acceptance-cache",
+    "preservedFile": "inputs",
+    "preferenceRestored": true,
+    "historyUnchanged": true,
+    "pageErrors": []
+  },
+  {
+    "width": 1280,
+    "graphBefore": 572,
+    "graphAfter": 756,
+    "gain": 184,
+    "colors": [
+      {
+        "type": "k8s-cluster",
+        "ink": "rgb(37, 99, 235)",
+        "background": "linear-gradient(145deg, rgb(239, 246, 255), rgb(255, 255, 255) 70%)"
+      },
+      {
+        "type": "k8s-namespace",
+        "ink": "rgb(124, 58, 237)",
+        "background": "linear-gradient(145deg, rgb(245, 240, 255), rgb(255, 255, 255) 70%)"
+      },
+      {
+        "type": "postgres",
+        "ink": "rgb(51, 103, 145)",
+        "background": "linear-gradient(145deg, rgb(237, 245, 251), rgb(255, 255, 255) 70%)"
+      },
+      {
+        "type": "redis",
+        "ink": "rgb(190, 52, 85)",
+        "background": "linear-gradient(145deg, rgb(255, 240, 243), rgb(255, 255, 255) 70%)"
+      },
+      {
+        "type": "workload",
+        "ink": "rgb(15, 118, 110)",
+        "background": "linear-gradient(145deg, rgb(237, 251, 247), rgb(255, 255, 255) 70%)"
+      },
+      {
+        "type": "workload",
+        "ink": "rgb(15, 118, 110)",
+        "background": "linear-gradient(145deg, rgb(237, 251, 247), rgb(255, 255, 255) 70%)"
+      },
+      {
+        "type": "workload",
+        "ink": "rgb(15, 118, 110)",
+        "background": "linear-gradient(145deg, rgb(237, 251, 247), rgb(255, 255, 255) 70%)"
+      }
+    ],
+    "geometry": {
+      "crosses": [],
+      "shared": [],
+      "count": 7
+    },
+    "preservedNode": "redis.in-cluster#shared.acceptance-cache",
+    "preservedFile": "inputs",
+    "preferenceRestored": true,
+    "historyUnchanged": true,
+    "pageErrors": []
+  }
+]

@@ -1077,3 +1077,11 @@ mount-preservation tests, resource-type illustrations and existing graph resize
 observation. Browser verification preserves node/file/input state, restores the
 rail preference after reload, measures width gain and checks unchanged history:
 [sidebar/Preview desktop evidence](../verification/2026-10-23-sidebar-preview-space.md).
+
+UC-05 VIS-09: safe node scalar facts map to deploymentreview/properties.go and
+properties_test.go; client cards/Overview map to reviewProperties.ts and its
+secret-field/legacy/multi-container tests. Graph readability maps to shared
+metrics, per-band tracks/ports and dense horizontal/vertical geometry tests.
+DeploymentReview.test.tsx covers selected-node connection filtering/restoration.
+[Real node facts and geometry evidence](../verification/2026-10-23-preview-node-facts.md)
+records read-only Preview, metadata/history preservation and secret boundaries.

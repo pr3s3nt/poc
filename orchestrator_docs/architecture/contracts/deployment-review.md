@@ -63,6 +63,32 @@ Stable sorting by node/path; no arbitrary file path from client input. HTML is
 never interpreted. Diff work must also be bounded; UI may decline a very large
 diff while retaining bounded after-text.
 
+### Safe node facts (VIS-09)
+
+Each review node may add `properties`: at most eight `{key, availability, value?,
+source}` entries. Availability is AVAILABLE or UNKNOWN; `value` is absent for
+unknowns. Stable semantic keys are database, namespace, name, port, storage and
+engineVersion; source is configured or module-output. These facts are desired
+configuration evidence, not observed runtime outputs or a provider refresh.
+
+Project only typed, explicitly allowlisted fields from the captured validated
+Terraform input contract. The planner already removes sensitive/executor values;
+nil/unclassified inputs are omitted. Identifiers, sizes, versions and numeric
+ports require bounded type-specific validation; arbitrary strings/maps/lists,
+credentials, URIs, scripts, connection strings, env values and private references
+are never copied. Unresolved resource expressions become UNKNOWN without copying
+the expression. A port can also come from a verified pinned root HCL module's
+literal numeric output mapped to public `port`: omit secret-classified outputs,
+never evaluate references/functions or access Terraform/state/provider. Unknown
+or unsupported output expressions produce UNKNOWN; no default port is guessed.
+No file/network access beyond the existing verified source reader is added.
+
+Workload facts may be derived by the Console from the already sanitized
+Deployment/Service review; public node placement supplies account/region/class.
+Card/Overview summaries never parse raw Terraform source or request raw inputs.
+Older snapshots without properties remain supported. Adding summaries does not
+change admission, execution inputs, graph edges, plan identity or state enums.
+
 ## Terraform source and inputs
 
 Read only source files in the verified bundle's transitive allowlisted tree:

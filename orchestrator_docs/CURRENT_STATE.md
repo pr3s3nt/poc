@@ -7,6 +7,20 @@ last_reviewed: 2026-10-23
 
 # Current project state
 
+## Readable Preview connectors and safe node facts — 2026-10-23
+
+Preview cards now have factual rows and larger spacing. Routing uses independent
+horizontal tracks, outer lanes and reserved attachment columns; real browser
+geometry at 1512px/1280px found no card crossings or shared connector segments.
+An optional selected-node connection view reduces clutter without changing the
+graph. PostgreSQL shows configured database name and pinned literal port, Redis
+its identity/port, namespace its name, and workloads safe image/ports with fuller
+details in Overview. Unknowns stay explicit; summaries never expose secrets/raw
+inputs or query providers. Backend/frontend runtime was updated after an idle
+check, preserving metadata for seven Applications. User confirmed the existing
+sidebar reopens, so its behavior was kept unchanged. See
+[node facts/spacing verification](verification/2026-10-23-preview-node-facts.md).
+
 ## Desktop sidebar and colored resource illustrations — 2026-10-23
 
 The signed-in shell can collapse from 260px to a 76px icon rail and restores

@@ -47,6 +47,7 @@ type Artifact struct {
 	After    Side   `json:"after"`
 }
 type Node struct {
+	Properties        []Property             `json:"properties,omitempty"`
 	ID                string                 `json:"id"`
 	Kind              string                 `json:"kind"`
 	Name              string                 `json:"name"`
@@ -168,6 +169,7 @@ func (a Assembler) Assemble(ctx context.Context, plan *planning.Plan, intents []
 			}
 			for _, contract := range plan.Terraform {
 				if contract.Descriptor == node.Descriptor {
+					n.Properties = a.properties(ctx, node, contract)
 					appendArtifact(inputsArtifact(plan.PlanHash, i, contract, previous[node.Descriptor]))
 					break
 				}

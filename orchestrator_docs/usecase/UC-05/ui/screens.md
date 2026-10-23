@@ -129,3 +129,22 @@ distinct cluster/namespace glyphs under the
 [shared shell design](../../../architecture/ui/README.md). Colors do not replace
 status text, intent or the actual runtime progress. No planner/graph relation,
 execution behavior or mobile redesign changes.
+
+### Readable graph and useful node facts
+
+Keep visible space between neighboring cards and separate connector lanes in
+each inter-level gap. Preserve all real dependency reasons/pairs; unrelated
+edges must not share long segments or terminate on the same attachment port.
+Cards can grow to show two compact factual rows; horizontal/vertical scrolling
+preserves readable text rather than shrinking a dense graph excessively.
+An optional **Chỉ đường nối của node đang chọn** control isolates the selected
+node's incident connectors for inspection; switching it off restores every edge.
+This is display-only, retaining the complete graph, all nodes and all reasons.
+
+Show useful non-secret facts on each card and fuller facts in Overview: database
+name/port, cache ID/port, namespace name, cluster account/region, workload image/
+ports/replicas/requests and network account/region where known. Facts come only
+from the additive server safe-summary projection or already sanitized manifests
+and public placement metadata. Keep unknown/deferred values explicit and omit
+sensitive/unclassified values. No provider/state/secret query is triggered by
+opening a node. Older history without facts still renders public metadata.

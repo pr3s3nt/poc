@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, useId, useRef, type ReactNode } from 'react';
-import { parse } from 'yaml';
-import { routeReviewEdges, connectionPath } from './reviewEdges';
+import { routeReviewEdges, connectionPath, reviewRowGap } from './reviewEdges';
+import { reviewMetrics } from './reviewMetrics';
+import { nodeFacts } from './reviewProperties';
 import { reasonLabel } from '../../shared/ui/DependencyGraph';
 
 export type ReviewSide = { availability: 'AVAILABLE' | 'PARTIAL' | 'ABSENT' | 'UNAVAILABLE'; text?: string; reason?: string; provenance?: Record<string, string>; redactedPaths?: string[]; unknownPaths?: string[] };
 export type ReviewArtifact = { id: string; nodeId: string; kind: string; path: string; language: string; before: ReviewSide; after: ReviewSide };
-export type ReviewNode = { id: string; kind: string; name: string; resourceType: string; class: string; definitionKey?: string; definitionVersion?: number; account?: string; region?: string; scope?: string; ownership?: string; intent?: string; module?: { module: string; sourceId: string; revision: string; subdirectory: string; contentSha256: string }; placement?: { cluster: string; namespace?: string; account: string; region?: string; source: string; provider?: string }; renderer?: string; rendererDigest?: string };
+export type ReviewNode = { properties?: { key: string; availability: 'AVAILABLE' | 'UNKNOWN'; value?: string; source: string }[]; id: string; kind: string; name: string; resourceType: string; class: string; definitionKey?: string; definitionVersion?: number; account?: string; region?: string; scope?: string; ownership?: string; intent?: string; module?: { module: string; sourceId: string; revision: string; subdirectory: string; contentSha256: string }; placement?: { cluster: string; namespace?: string; account: string; region?: string; source: string; provider?: string }; renderer?: string; rendererDigest?: string };
 export type DeploymentReviewData = { version: 1; planHash: string; nodes: ReviewNode[]; edges: { consumer: string; provider: string; reason: string; path?: string }[]; batches: string[][]; artifacts: ReviewArtifact[] };
 export type ReviewProgress = { nodeId: string; state: string; status?: string; stage?: string; attempt?: number; startedAt?: string; updatedAt?: string; finishedAt?: string; blockingProviderIds: string[]; safeErrorCode?: string; observedAt: string };
 
@@ -114,6 +115,7 @@ function ReviewGraph({ review, progress, selected, select, title }: { review: De
   const viewport = useRef<HTMLDivElement>(null);
   const [availableWidth, setAvailableWidth] = useState(0);
   const [hovered, setHovered] = useState<string>();
+  const [focusedOnly, setFocusedOnly] = useState(false);
   useEffect(() => {
     const element = viewport.current; if (!element) return;
     const resize = () => setAvailableWidth(element.clientWidth);
@@ -123,7 +125,9 @@ function ReviewGraph({ review, progress, selected, select, title }: { review: De
   const layers = useMemo(() => levelsOf(review), [review]);
   const groupOf = (node: ReviewNode) => node.placement?.cluster || (node.resourceType === 'k8s-cluster' ? node.id : node.region || node.resourceType === 'vpc' ? 'outside' : 'unresolved');
   const groupIds = [...new Set(review.nodes.map(groupOf))].sort((a, b) => a === 'outside' ? 1 : b === 'outside' ? -1 : a.localeCompare(b));
-  const groupWidth = (id: string) => Math.max(1, ...layers.map(layer => layer.filter(n => groupOf(n) === id).length)) * 250 + 72;
+  const { nodeWidth, nodeHeight, columnGap, groupPadding } = reviewMetrics;
+  const rowGap = reviewRowGap(review.edges, layers), rowPitch = nodeHeight + rowGap;
+  const groupWidth = (id: string) => { const count = Math.max(1, ...layers.map(layer => layer.filter(n => groupOf(n) === id).length)); return count * nodeWidth + (count - 1) * columnGap + groupPadding * 2; };
   const starts = new Map<string, number>(); let cursor = 24;
   for (const id of groupIds) { starts.set(id, cursor); cursor += groupWidth(id) + 20; }
   const cloudScopes = [...new Set(review.nodes.flatMap(n => {
@@ -135,31 +139,37 @@ function ReviewGraph({ review, progress, selected, select, title }: { review: De
   const positions = new Map<string, Position>();
   layers.forEach((layer, row) => groupIds.forEach(id => {
     const items = layer.filter(n => groupOf(n) === id);
-    items.forEach((n, col) => positions.set(n.id, { x: (starts.get(id) ?? 24) + (groupWidth(id) - items.length * 250) / 2 + col * 250, y: 58 + offset + row * 138 }));
+    items.forEach((n, col) => positions.set(n.id, { x: (starts.get(id) ?? 24) + (groupWidth(id) - (items.length * nodeWidth + Math.max(0, items.length - 1) * columnGap)) / 2 + col * (nodeWidth + columnGap), y: 58 + offset + row * rowPitch }));
   }));
-  const width = Math.max(620, cursor); const height = Math.max(350, layers.length * 138 + 78 + offset);
-  const scale = availableWidth ? Math.max(.7, Math.min(1, (availableWidth - 16) / width)) : 1;
+  let connections = routeReviewEdges(review.edges, positions);
+  const shift = Math.max(0, 24 - Math.min(...connections.flatMap(edge => edge.points.map(p => p.x))));
+  if (shift > 0) { for (const [id, p] of positions) positions.set(id, { ...p, x: p.x + shift }); for (const [id, x] of starts) starts.set(id, x + shift); connections = routeReviewEdges(review.edges, positions); }
+  const width = Math.max(620, cursor + shift, ...connections.flatMap(edge => edge.points.map(p => p.x + 24)));
+  const height = Math.max(420, (layers.length - 1) * rowPitch + nodeHeight + 112 + offset);
+  const facts = new Map(review.nodes.map(node => [node.id, nodeFacts(node, review.artifacts.filter(a => a.nodeId === node.id))]));
+  const scale = availableWidth ? Math.max(.85, Math.min(1, (availableWidth - 16) / width)) : 1;
   const nameOf = (id: string) => { const item = review.nodes.find(n => n.id === id); return item ? nodeLabel(item) : id; };
   return <section className="review-graph" aria-label="Sơ đồ triển khai">
     <header className="review-panel-heading"><div><h3>{title}</h3><p>Chọn một thành phần để khám phá thay đổi.</p></div><span className="review-map-badge">{cloudScope ? 'Cloud' : review.nodes.some(n => n.resourceType === 'k8s-cluster') ? 'Kubernetes' : 'Kế hoạch'}</span></header>
+    <div className="review-graph-controls"><label><input type="checkbox" checked={focusedOnly} onChange={event => setFocusedOnly(event.target.checked)} /> Chỉ đường nối của node đang chọn</label><span>Cuộn để xem toàn bộ sơ đồ</span></div>
     <div ref={viewport} className="review-graph-scroll"><div className="review-graph-canvas" style={{ width: width * scale, height: height * scale }}><div className="review-graph-stage" style={{ width, height, transform: `scale(${scale})` }}>
       {cloudScope ? <div className="review-cloud-boundary" style={{ width: width - 16, height: height - 24 }}><strong>{cloudScope}</strong></div> : null}
       {groupIds.map(id => {
         const members = review.nodes.filter(n => groupOf(n) === id); const ys = members.map(n => positions.get(n.id)?.y ?? 58);
-        const top = Math.min(...ys) - 24; const bottom = Math.max(...ys) + 116;
+        const top = Math.min(...ys) - 24; const bottom = Math.max(...ys) + nodeHeight + 20;
         return <div key={id} className={`review-placement-group ${id === 'outside' ? 'review-placement-outside' : ''}`} style={{ left: starts.get(id), top, width: groupWidth(id), height: bottom - top }} data-cluster={id}><strong>{id === 'outside' ? 'Hạ tầng ngoài Kubernetes' : id === 'unresolved' ? 'Vị trí chưa xác định' : nameOf(id)}</strong></div>;
       })}
-      <svg className="review-edges" width={width} height={height} aria-label="Các cạnh phụ thuộc"><defs><marker id={arrowId} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7" fill="context-stroke" /></marker></defs>{routeReviewEdges(review.edges, positions).map(edge => {
+      <svg className="review-edges" width={width} height={height} aria-label="Các cạnh phụ thuộc"><defs><marker id={arrowId} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7" fill="context-stroke" /></marker></defs>{connections.map(edge => {
         const focus = hovered ?? selected;
-        return <path key={JSON.stringify([edge.provider, edge.consumer])} d={connectionPath(edge)} data-provider={edge.provider} data-consumer={edge.consumer} data-focused={focus === edge.provider || focus === edge.consumer} data-outer-lane={edge.indirectLane} markerEnd={`url(#${arrowId})`}><title>{nameOf(edge.provider)} → {nameOf(edge.consumer)}: {[...new Set(edge.reasons.map(reason => reasonLabel(reason.reason)))].join(' · ')}</title></path>;
+        return <path key={JSON.stringify([edge.provider, edge.consumer])} d={connectionPath(edge)} style={{ display: focusedOnly && selected && edge.provider !== selected && edge.consumer !== selected ? 'none' : undefined }} data-provider={edge.provider} data-consumer={edge.consumer} data-focused={focus === edge.provider || focus === edge.consumer} data-outer-lane={edge.indirectLane} markerEnd={`url(#${arrowId})`}><title>{nameOf(edge.provider)} → {nameOf(edge.consumer)}: {[...new Set(edge.reasons.map(reason => reasonLabel(reason.reason)))].join(' · ')}</title></path>;
       })}</svg>
       {review.nodes.map(n => { const p = progress?.find(item => item.nodeId === n.id); const position = positions.get(n.id);
-        return <button type="button" key={n.id} style={{ left: position?.x, top: position?.y }} title={n.id} className={`review-node ${selected === n.id ? 'review-node-selected' : ''}`} data-resource-type={n.kind === 'workload' ? 'workload' : n.resourceType} data-state={p?.state ?? 'PENDING'} data-node-id={n.id} onClick={() => select(n.id)} onMouseEnter={() => setHovered(n.id)} onMouseLeave={() => setHovered(undefined)} aria-pressed={selected === n.id}>
-          <span className="review-node-icon"><NodeIcon node={n} /></span><strong>{nodeLabel(n)}</strong><small>{nodeDescription(n)}</small><span className="review-node-bottom"><StateBadge state={p?.state} /><span>{intentLabel(n.intent)}</span></span>
+        return <button type="button" key={n.id} style={{ left: position?.x, top: position?.y, width: nodeWidth, height: nodeHeight }} title={n.id} className={`review-node ${selected === n.id ? 'review-node-selected' : ''}`} data-resource-type={n.kind === 'workload' ? 'workload' : n.resourceType} data-state={p?.state ?? 'PENDING'} data-node-id={n.id} onClick={() => select(n.id)} onMouseEnter={() => setHovered(n.id)} onMouseLeave={() => setHovered(undefined)} aria-pressed={selected === n.id}>
+          <span className="review-node-icon"><NodeIcon node={n} /></span><strong>{nodeLabel(n)}</strong><small>{nodeDescription(n)}</small><span className="review-node-facts">{(facts.get(n.id) ?? []).slice(0, 2).map(([label, value]) => <span key={label} title={`${label}: ${value}`}><span>{label}</span><strong>{value}</strong></span>)}</span><span className="review-node-bottom"><StateBadge state={p?.state} /><span>{intentLabel(n.intent)}</span></span>
         </button>;
       })}
     </div></div></div>
-    <footer className="review-graph-legend"><span>→ Điều kiện sẵn sàng → thành phần phụ thuộc</span><span>Nét đứt: liên kết đi qua nhiều tầng</span><span>Chọn thành phần để làm rõ các đường nối.</span></footer>
+    <footer className="review-graph-legend"><span>→ Điều kiện sẵn sàng → thành phần phụ thuộc</span><span>Nét đứt: liên kết đi qua nhiều tầng</span><span>Chọn thành phần để làm rõ các đường nối.</span><span>Cuộn ngang/dọc để xem đầy đủ sơ đồ.</span></footer>
   </section>;
 }
 const intents: Record<string,string> = { CREATE:'Tạo mới',UPDATE:'Cập nhật',RETAIN:'Giữ nguyên',REMOVE:'Gỡ bỏ',UNREFERENCED:'Gỡ tham chiếu',BIND:'Liên kết',UNVERIFIED:'Chưa xác minh' };
@@ -175,17 +185,6 @@ function ProgressInfo({ value }: { value?: ReviewProgress }) {
   return <section className="review-runtime-card" data-state={value?.state ?? 'PENDING'}><div><strong>Trạng thái cấp phát</strong><StateBadge state={value?.state} /></div><p>{descriptions[value?.state ?? 'PENDING'] ?? descriptions.UNKNOWN}</p><dl><div><dt>Thời gian thực thi</dt><dd>{seconds === undefined ? 'Chưa có thời gian' : `${Math.floor(seconds / 60)} phút ${seconds % 60} giây`}</dd></div><div><dt>Bước hiện tại</dt><dd>{value?.stage || (value ? text(states, value.state) : 'Chưa chạy')}{value?.attempt ? ` · lần ${value.attempt}` : ''}</dd></div></dl></section>;
 }
 
-// Read only the safe, bounded artifact returned by the server. Never request raw inputs.
-function workloadProperties(artifacts: ReviewArtifact[]): [string, string][] {
-  const source = artifacts.find(a => a.kind === 'kubernetes-manifest' && a.path.startsWith('Deployment/') && a.after.text)?.after.text;
-  if (!source) return [];
-  try {
-    const doc = parse(source); const spec = doc?.spec; const container = spec?.template?.spec?.containers?.[0];
-    const scalar = (value: unknown) => typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
-    const rows: [string, unknown][] = [['Image', container?.image], ['Replicas', spec?.replicas], ['CPU / RAM mỗi pod', container?.resources?.requests ? [container.resources.requests.cpu, container.resources.requests.memory].filter(value => typeof value === 'string').join(' / ') : undefined], ['Cổng', container?.ports?.map((port: { containerPort?: unknown }) => scalar(port.containerPort)).filter(Boolean).join(', ')]];
-    return rows.flatMap(([key, value]) => { const shown = scalar(value); return shown ? [[key, shown] as [string, string]] : []; });
-  } catch { return []; }
-}
 function ArtifactChange({artifact}:{artifact:ReviewArtifact}) {
   const before=artifact.before,after=artifact.after;
   const safeBefore=before.availability==='ABSENT'||before.text!==undefined;
@@ -225,7 +224,7 @@ function DeploymentReviewContent({ review, progress, title }: { review: Deployme
   for (const edge of dependencies) dependenciesByProvider.set(edge.provider, [...(dependenciesByProvider.get(edge.provider) ?? []), edge]);
   const ready = review?.nodes.filter(n => progress?.some(p => p.nodeId === n.id && ['READY', 'RETAINED'].includes(p.state))).length ?? 0;
   const running = progress?.filter(p => ['PROVISIONING', 'CHECKING'].includes(p.state)).length ?? 0;
-  const properties = workloadProperties(artifacts);
+  const properties = node ? nodeFacts(node, artifacts).filter(([label]) => !['Tài khoản', 'Vùng', 'Module'].includes(label)) : [];
   const selectNode = (id: string) => { setSelected(id); setTab('overview'); setFileId(''); };
   const scopeNames = [...new Set(review.nodes.flatMap(n => { const account = n.placement?.account || n.account; const region = n.placement?.region || n.region; return account && region ? [account + ' · ' + region] : []; }))];
   const totals = [{ intents: ['CREATE'], label: 'tạo mới', tone: 'create' }, { intents: ['UPDATE'], label: 'cập nhật', tone: 'update' }, { intents: ['RETAIN', 'BIND'], label: 'giữ nguyên / liên kết', tone: 'retain' }, { intents: ['REMOVE', 'UNREFERENCED'], label: 'gỡ bỏ / tham chiếu', tone: 'remove' }];

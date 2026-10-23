@@ -597,3 +597,13 @@ AppShell.test.tsx. DeploymentReview supplies type attributes and cluster/namespa
 SVG illustrations; app.css owns the shared icon palette, sticky desktop rail and
 wider Preview pages. DeploymentDetailsPage uses the same desktop width treatment.
 See [visual and browser checks](../verification/2026-10-23-sidebar-preview-space.md).
+
+VIS-09 safe scalar projection is in
+[`properties.go`](../../backend/internal/application/deploymentreview/properties.go),
+called by the existing review assembler. Its tests cover sensitive/unclassified
+inputs, unknown expressions, secret outputs and numeric literal port bounds.
+[`reviewProperties.ts`](../../frontend/src/features/preview/reviewProperties.ts)
+derives public facts from that projection and sanitized manifests; shared
+[`reviewMetrics.ts`](../../frontend/src/features/preview/reviewMetrics.ts) keeps
+card dimensions consistent with routing. `reviewEdges.ts` assigns separate tracks,
+outer lanes and attachment columns, with dense-graph geometry regressions.

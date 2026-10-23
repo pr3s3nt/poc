@@ -84,3 +84,10 @@ retry/stale/BUSY and secret-redaction behavior.
 - Poll failure retains last observation marked stale, allows GET retry and never
   replays Deploy. Scope/run change cancels requests; terminal stops polling.
 - Progress is a completed-node count, not simulated ETA or percentage of work.
+
+VIS-09 node facts distinguish known configured/literal values from unresolved
+outputs. Unknown values stay labeled; missing/sensitive/unclassified fields are
+omitted and public placement/module metadata remains available for old history.
+The display-only connection focus checkbox preserves every node and the full
+dependency data; clearing it restores all connectors. No interaction fetches raw
+state/inputs, queries providers or replays deployment.

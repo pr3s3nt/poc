@@ -50,6 +50,19 @@ it('declines quadratic diff work without discarding safe after text', () => {
   expect(diffLines('a\n'.repeat(800), 'b\n'.repeat(800))).toBeUndefined();
 });
 
+it('can isolate the selected node connections and restore the complete graph', async () => {
+  const user = userEvent.setup();
+  const plan = { ...review, nodes: [...review.nodes, { id: 'db', kind: 'resource', name: 'Database', resourceType: 'postgres', class: 'default' }], edges: [...review.edges, { provider: 'cluster', consumer: 'db', reason: 'provider-binding' }] };
+  render(<DeploymentReview review={plan} />);
+  const visible = () => [...document.querySelectorAll<SVGPathElement>('.review-edges>path')].filter(path => path.style.display !== 'none');
+  expect(visible()).toHaveLength(2);
+  await user.click(screen.getByLabelText('Chỉ đường nối của node đang chọn'));
+  expect(visible()).toHaveLength(1);
+  expect(visible()[0]).toHaveAttribute('data-consumer', 'api');
+  await user.click(screen.getByLabelText('Chỉ đường nối của node đang chọn'));
+  expect(visible()).toHaveLength(2);
+});
+
 it('shows real blocking provider and unknown state without advancing it', async () => {
   const user = userEvent.setup();
   render(<DeploymentReview review={review} progress={[{ nodeId: 'cluster', state: 'FAILED', blockingProviderIds: [], observedAt: '2026-10-23T00:00:00Z' }, { nodeId: 'api', state: 'BLOCKED', blockingProviderIds: ['cluster'], observedAt: '2026-10-23T00:00:00Z' }]} />);
