@@ -2,18 +2,29 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-23
 ---
 
 # Current project state
 
-## Visual deployment review — design accepted 2026-10-23
+## Visual deployment review — implemented 2026-10-23
 
-Desktop prototype accepted; UC-05/06/07/08/09 requirements, realization and
-shared review/persistence contract are updated under ADR-019. Product code is
-not yet implemented. Dedicated Codex tmux writer requested (`gpt-6-sol`, medium).
-No real Terraform-plan approval or cloud verification is included. Follow
-[implementation handoff](implementation/visual-deployment-review.md) and IMP-029.
+Desktop Console now shows the final pending graph, dependencies and placement,
+pinned sanitized Terraform source/inputs, selected score-k8s Deployment/Service
+preview, red/green code diffs and persisted per-node progress. Existing Internal
+clusters are labeled as bindings; cloud resources follow selected Definitions.
+Per-click UUID correlation isolates operations/deployments and retries. Desired
+review and rendered workload review survive persistence; only exact READY
+associations provide an applied baseline. Historical missing data stays unavailable.
+
+Independent review includes product HTTP/browser flows using fake execution
+adapters, a real disposable PostgreSQL fixture, backend and Console checks. No
+real Kubernetes/AWS deployment is claimed. Terraform source is a redacted view,
+not a provider plan; registry-unsupported `.tf.json` remains outside supported
+source coverage (IMP-029). Existing PostgreSQL installations require the normal
+operator-managed schema upgrade; no retained database was reset or migrated.
+See [implementation](implementation/visual-deployment-review.md) and
+[verification](verification/2026-10-23-visual-preview-implementation.md).
 
 ## Git is the default Terraform source — 2026-10-21
 

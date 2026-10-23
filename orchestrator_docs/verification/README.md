@@ -101,3 +101,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 
 
 - [2026-10-18 V04–V06 completion, handoff and pre-code coverage](2026-10-18-v040506-handoff.md) — V04/V05/V06 complete, including A02→clean→A03 and final-source post-removal A03; source/check reuse, failed history, ownership, costs and independent cleanup recorded.
+
+- [2026-10-23 — Visual deployment review implementation](2026-10-23-visual-preview-implementation.md) — independent code review, desktop product HTTP/browser with fake execution adapters, disposable PostgreSQL and supported-format limits.

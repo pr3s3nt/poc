@@ -462,13 +462,22 @@ the release module ID and executor outputs only when both inspected content
 SHA-256 and requested Resource Type match the trusted release entry. Keep the
 Git source/commit/path/digest; never infer identity from repository/path/name.
 
-## IMP-029 — Visual deployment review designed, not yet implemented
+## IMP-029 — Visual deployment review implementation and remaining format gap
 
-Accepted on 2026-10-23 under ADR-019 after desktop prototype review. Existing
-product Preview provides graph/intent metadata but lacks pinned safe source,
-symbolic manifest review/diff and the complete correlated per-node visual progress
-experience. Prototype fixtures/timers are not runtime implementation. Required
-specification, realization, contracts and persistence additions now exist; code
-and verification are pending in the dedicated writer task. See
-[implementation handoff](visual-deployment-review.md). Do not close this gap from
-prototype/browser-fixture tests alone.
+Core implementation delivered on 2026-10-23: safe pinned `.tf` source and inputs,
+selected symbolic Deployment/Service rendering, exact applied baselines,
+persistence/correlation and observed per-node progress in the existing Console.
+Independent code review fixed original-batch baselines, stable cross-revision
+paths, removed artifacts, scalar redaction, symbolic namespace substitution,
+read-only exact operation lookup, UUID parity and contradictory progress pins.
+See [implementation](visual-deployment-review.md) and
+[verification](../verification/2026-10-23-visual-preview-implementation.md).
+
+Remaining explicit gap: the review contract mentions `.tf.json`, while the
+existing registry rejects Terraform JSON configuration at registration
+(`registry/tree.go`). This task preserves that guard and does not expand registry
+format support. Consequently `.tf.json` source review remains unimplemented;
+there are no admitted JSON modules silently omitted from a supported bundle.
+Real cloud/cluster acceptance is unverified for this feature, not inferred from
+fake-adapter browser execution. Existing database upgrade is an operator task;
+only a fresh disposable baseline was initialized here.

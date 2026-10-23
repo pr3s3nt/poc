@@ -1029,16 +1029,18 @@ labels statically. They were not run against a live backend in this change.
 |---|---|---|
 | UI3-05 common catalog/editor, capability methods, Internal account and shared save | ResourceDefinitionsPage, same OC-04 and matching/CAS pipeline; no sequence/contract changes | ExistingClusterDefinition.test.tsx; ResourceDefinitionsPage.test.tsx; DefinitionV3.test.tsx |
 
-## Visual review design — 2026-10-23 (implementation pending)
+## Visual deployment review — 2026-10-23
 
-| Requirements | Collaboration / contract | Persistence | Required verification (planned) |
-|---|---|---|---|
-| UC-05 VIS-01/05/07 | UC-05 sequence/VOPC; ADR-019; shared review DTO | Pure snapshot; no Preview writes | Final graph/shared-node identity, Internal/cloud placement, existing Console UI, stale requests |
-| UC-05 VIS-02/03/06 | SourceReader, PreviewRenderer, ReviewRedactor | Verified pinned cache only | No provider/fetch/secrets; exact pin, same-bundle render, symbolic unknowns, size/path/redaction guards |
-| UC-05 VIS-04; UC-07 REV-01 | BaselineResolver and safe diff | Plan review + successful workload manifest_review | Missing/failed/generation baseline; red/green lines; copy; no secret equality claims |
-| UC-06 REV-01/02; UC-07 REV-02 | Admission and Render→redact→persist→Apply | review_request_id, plan document.review, workload manifest_review | CAS/fencing, reopen and backend parity, immutable history, partial success |
-| UC-08 REV-01..03; UC-09 OBS-01..04 | Persisted facts → NodeProgressProjector | Existing resource/workload/attempt snapshots | APPLIED != READY, waiting/blocked, explicit retain, failed attempt precedence, missing facts |
-| UC-05 VIS-08; UC-09 OBS-05..07 | Scoped run filter, single-flight query/poll | Exact admitted correlation | Cross-scope/run isolation, lost POST handling, stale/error/terminal polling |
+| Requirements | Code / collaboration | Verification |
+|---|---|---|
+| UC-05 VIS-01/05/07 | ADR-019; deploymentreview.Assembler; DeploymentReview graph/inspector | deployment-review-local browser: original two-workload graph, real dependency edges, Definition-selected VPC/EKS/Aurora outside Kubernetes; Console component suites |
+| UC-05 VIS-02/03/06 | ReadPinned; ProjectHCL/ProjectManifests; installed selected score-k8s | review_source_test.go; review_test.go; renderer_test.go: exact digest/drift, structural secret filtering, bounded content, symbolic namespace/output; existing no-provider Preview tests |
+| UC-05 VIS-04; UC-07 REV-01 | CapturePrevious; safe before/after artifact sides; diffLines | baseline_test.go; regression_test.go; DeploymentReview.test.tsx; browser exact applied deployment ID, v1 red/v2 green and copy-after |
+| UC-06 REV-01/02; UC-07 REV-02 | admission UUID; plan.review; rendered manifest_review | store/postgres review_correlation_test.go; persistence workload snapshot conformance; TestDeployReviewRequestUUIDIsCaseInsensitive; real PostgreSQL/reopen checks |
+| UC-08 REV-01..03; UC-09 OBS-01..04 | node_progress.go, exact persisted attempt/workload facts | node_progress_test.go; deployment query tests; browser persisted READY; no inferred readiness from APPLIED |
+| UC-05 VIS-08; UC-09 OBS-05..07 | scoped reviewRequestId GET; reviewObservation; component polling | ApplicationHomePage.test.tsx; DeploymentDetailsPage.test.tsx; reviewObservation.test.ts; browser one operation/two deployment records for exact request |
 
-These rows are planned tests, not passed evidence. See
-[implementation checklist](../implementation/visual-deployment-review.md).
+See [checklist](../implementation/visual-deployment-review.md) and
+[observed evidence/limits](../verification/2026-10-23-visual-preview-implementation.md).
+IMP-029 retains the unsupported `.tf.json` format gap. Fake execution adapters do
+not establish real cloud or cluster acceptance.

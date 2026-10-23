@@ -12,7 +12,8 @@ last_reviewed: 2026-10-23
 User approved the desktop prototype and requested docs/realization first, then
 one new tmux Codex session using exactly `gpt-6-sol`, reasoning `medium`, to code.
 This is a scoped feature task, not a request to continue any roadmap. Current
-state: design ready for implementation; IMP-029 open. No AWS/Kubernetes mutation,
+state: supported-format implementation delivered; the `.tf.json` format gap in
+IMP-029 remains explicit. No AWS/Kubernetes mutation,
 production deployment, retained database reset or extra coding agents authorized.
 
 ## Read order / canonical sources
@@ -50,17 +51,17 @@ production deployment, retained database reset or extra coding agents authorized
   ApplicationHome, ScorePreview and DeploymentDetail UI; exact run correlation,
   stale-response and GET polling behavior. Preserve current editing/Deploy guards.
 
-## Acceptance checklist (all pending)
+## Acceptance checklist (implemented supported formats)
 
-- [ ] Internal existing cluster + namespace/resource graph, update/retain, safe source and manifest diffs.
-- [ ] Definition-selected cloud graph, VPC/EKS only when present, managed DB/cache outside EKS, per-node account/region.
-- [ ] Exact source/bundle pin, symbolic output provenance, renderer parity, strict secret/path/content limits.
-- [ ] Valid baseline provenance, unavailable old history, no mutation from Preview/query, no arbitrary source download.
-- [ ] Persist/reopen desired/applied review safely; failed/partial workload cannot replace successful baseline.
-- [ ] Actual stage/time/wait/blocked/readiness and run association; no timer/fake-ready state.
-- [ ] Desktop Console parity, red/green code diff, copy-after, expand, keyboard; no new mobile design.
-- [ ] Focused Go tests/build, frontend typecheck/changed-file lint/focused tests/build, persistence parity with disposable PostgreSQL if available/authorized, docs/diff and changed diagrams.
-- [ ] Browser flow uses product HTTP DTOs; explicitly label mocks. No AWS/kind run or claims from fixture tests.
+- [x] Internal existing cluster + namespace/resource graph, update/retain, safe source and manifest diffs.
+- [x] Definition-selected cloud graph, VPC/EKS only when present, managed DB/cache outside EKS, per-node account/region.
+- [x] Exact source/bundle pin, symbolic output provenance, renderer parity, strict secret/path/content limits.
+- [x] Valid baseline provenance, unavailable old history, no mutation from Preview/query, no arbitrary source download.
+- [x] Persist/reopen desired/applied review safely; failed/partial workload cannot replace successful baseline.
+- [x] Actual stage/time/wait/blocked/readiness and run association; no timer/fake-ready state.
+- [x] Desktop Console parity, red/green code diff, copy-after, expand, keyboard; no new mobile design.
+- [x] Focused Go tests/build, frontend typecheck/changed-file lint/focused tests/build, persistence parity with disposable PostgreSQL if available/authorized, docs/diff and changed diagrams.
+- [x] Browser flow uses product HTTP DTOs; explicitly label mocks. No AWS/kind run or claims from fixture tests.
 
 Writer edits backend/frontend/tests/scripts in its own checkout only. Coordinator
 owns canonical docs, review and commit/push. Do not modify docs/AGENTS/prototype
@@ -73,6 +74,31 @@ in the dated verification handoff once launch is confirmed.
 
 [Design/launch receipt](../verification/2026-10-23-visual-preview-design-handoff.md)
 records verified CLI model/effort/permissions and initial quota retry.
-Writer is active in tmux `preview-gpt6-sol`, branch `codex/visual-preview`,
+Writer completed with exit 0 after launch in tmux `preview-gpt6-sol`, branch `codex/visual-preview`,
 checkout `/home/thanhnt1/projects/preview/poc-preview-writer`, based on `ee170c1`.
-Implementation and independent product validation remain pending.
+Coordinator independently reviewed and continued code/test fixes under the user's
+follow-up authorization. Writer checkout and logs are preserved; the launch target is no longer listed
+at final tmux inspection. Existing sessions were left untouched. Root also fixed
+the task prototype's ESLint globals; writer restrictions above describe its brief.
+
+## Delivery and limits
+
+Review assembly is `backend/internal/application/deploymentreview`; node progress
+is `backend/internal/application/deployment/node_progress.go`. The Console reuses
+`DeploymentReview.tsx` in pending, standalone and historical detail views.
+`reviewObservation.ts` merges only matching node pins from exact scoped records.
+The local browser runner is `frontend/test/e2e/deployment-review-local.mjs` with
+`backend/test/fixtures/deployment-review`; all execution adapters are explicitly
+fake, while HTTP, selected score-k8s rendering and UI are product code.
+
+Source content is intentionally a partial, non-executable projection: all HCL
+attribute values/comments and unclassified manifest values are hidden. JSON
+Terraform source remains rejected by the existing registry, recorded in IMP-029.
+ElastiCache is represented when selected by a supported registered Definition;
+the browser cloud fixture selects VPC/EKS/Aurora and makes no ElastiCache or
+cloud provisioning claim. Historical records without safe snapshots remain
+unavailable. Fresh PostgreSQL baseline parity is verified; retained installations
+were not reset or migrated. No mobile work was added.
+
+Validation details and retained failure history are in the
+[implementation verification](../verification/2026-10-23-visual-preview-implementation.md).
