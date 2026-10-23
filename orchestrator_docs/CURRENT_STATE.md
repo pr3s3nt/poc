@@ -2,7 +2,7 @@
 id: PROJECT-CURRENT-STATE
 artifact: project-status
 status: current
-last_reviewed: 2026-10-21
+last_reviewed: 2026-10-23
 ---
 
 # Current project state
@@ -15,7 +15,9 @@ optional client-IP-restricted HTTP ALB in existing public subnets. Host operatio
 include health checks, reboot startup, metadata isolation, cold backups and
 compatible-release updates. This remains a dev/PoC deployment; production TLS,
 authentication hardening and full host-loss recovery are not claimed. See the
-[EC2 runbook](operations/ec2.md). Live trial results are recorded separately.
+[EC2 runbook](operations/ec2.md). The [AWS trial](verification/2026-10-23-ec2-trial.md)
+verified ALB login, EC2 role READY, backup, compatible update and reboot; the
+successful host is retained for user access.
 
 ## Git is the default Terraform source — 2026-10-21
 
