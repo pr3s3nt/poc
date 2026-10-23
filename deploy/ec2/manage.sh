@@ -69,7 +69,13 @@ case "$operation" in
     echo 'Waiting for EC2 bootstrap and application health...'
     while true; do
       result=$(ssh -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o "UserKnownHostsFile=$run_dir/known_hosts" -i "$run_dir/operator-key" "ec2-user@$ip" 'if sudo test -f /var/lib/orchestrator-bootstrap-ready; then echo READY; elif sudo test -f /var/lib/orchestrator-bootstrap-failed; then echo FAILED; else echo WAIT; fi' 2>>"$run_dir/ssh.log" || true)
-      [[ $result != FAILED ]] || { echo 'EC2 bootstrap failed; inspect private bootstrap log.' >&2; exit 1; }
+      if [[ $result == FAILED ]]; then
+        # Preserve diagnostics before the failure trap lets the supervisor
+        # terminate this run-owned host. Never print the private log.
+        ssh -o ConnectTimeout=10 -o BatchMode=yes -o "UserKnownHostsFile=$run_dir/known_hosts" -i "$run_dir/operator-key" "ec2-user@$ip" 'sudo journalctl -u orchestrator --no-pager -n 200; sudo tail -n 80 /var/log/orchestrator-bootstrap.log; sudo docker logs --tail 80 orchestrator-ec2-postgres-1; sudo docker logs --tail 80 orchestrator-ec2-backend-1' > "$run_dir/bootstrap-failure.log" 2>&1 || true
+        echo 'EC2 bootstrap failed; diagnostics saved privately before cleanup.' >&2
+        exit 1
+      fi
       if [[ $result == READY ]]; then break; fi
       (( $(date +%s) < deadline )) || { echo 'EC2 bootstrap timed out.' >&2; exit 1; }
       sleep 15

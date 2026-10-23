@@ -82,7 +82,8 @@ Cloud-init has a bounded bootstrap timeout. An operator trial must start an
 independent cleanup supervisor before apply, retain on successful handoff only,
 and destroy on provisioning failure/deadline using this run's state. The apply
 command starts [the detached supervisor](../../deploy/ec2/supervise.sh) automatically
-and waits for host bootstrap/health. After browser/role/reboot verification,
+and waits for host bootstrap/health. Failed bootstrap diagnostics are saved
+privately before requesting cleanup; they are never printed by the wrapper. After browser/role/reboot verification,
 write `retain-approved` in the private run directory to retain the trial. Retained
 user trials are not subject to the historical issue4 immediate-success cleanup.
 Record retention, expiry and costs explicitly; tags do not automatically delete
