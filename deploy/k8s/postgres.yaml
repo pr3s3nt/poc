@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: postgres
+        image: postgres:16-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+          name: postgres
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            memory: 512Mi
+        env:
+        - name: POSTGRES_DB
+          value: orchestrator
+        - name: POSTGRES_USER
+          value: orchestrator
+        - name: POSTGRES_PASSWORD_FILE
+          value: /run/orchestrator/role-passwords/superuser
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        command:
+        - sh
+        - -ec
+        - exec docker-entrypoint.sh postgres -c log_statement=none -c log_min_error_statement=panic
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+          readOnly: false
+        - name: passwords
+          mountPath: /run/orchestrator/role-passwords
+          readOnly: true
+        - name: config
+          mountPath: /docker-entrypoint-initdb.d/10-roles.sh
+          readOnly: true
+          subPath: postgres-init-roles.sh
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -ec
+            - pg_isready -U orchestrator -d orchestrator
+          periodSeconds: 5
+          timeoutSeconds: 3
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -ec
+            - pg_isready -U orchestrator -d orchestrator
+          periodSeconds: 5
+          timeoutSeconds: 3
+        startupProbe:
+          exec:
+            command:
+            - sh
+            - -ec
+            - pg_isready -U orchestrator -d orchestrator
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 60
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: postgres-data
+      - name: passwords
+        emptyDir:
+          medium: Memory
+      - name: config
+        configMap:
+          name: orchestrator-bootstrap
+      - name: source
+        secret:
+          secretName: postgres-passwords
+          defaultMode: 256
+      initContainers:
+      - name: private-passwords
+        image: postgres:16-alpine
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+        command:
+        - sh
+        - -ec
+        - umask 077; cp -L /source/* /passwords/; chown -R "$(id -u postgres):$(id -g postgres)" /passwords;
+          chmod 700 /passwords; chmod 400 /passwords/*
+        volumeMounts:
+        - name: source
+          mountPath: /source
+          readOnly: true
+        - name: passwords
+          mountPath: /passwords

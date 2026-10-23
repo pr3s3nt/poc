@@ -1,0 +1,176 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: backend
+  ports:
+  - port: 8080
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: backend
+        image: orchestrator-backend:deploy-k8s
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 1Gi
+        env:
+        - name: ORCHESTRATOR_LISTEN_ADDR
+          value: 0.0.0.0:8080
+        - name: ORCHESTRATOR_ADAPTERS
+          value: kubernetes
+        - name: ORCHESTRATOR_DATABASE_URL_FILE
+          value: /private/console-database-url
+        - name: ORCHESTRATOR_TERRAFORM_STATE_DATABASE_URL_FILE
+          value: /private/state-database-url
+        - name: ORCHESTRATOR_TERRAFORM_STATE_KEY_FILE
+          value: /private/state-key
+        - name: ORCHESTRATOR_TERRAFORM_STATE_KEY_ID
+          value: k8s-state-key-1
+        - name: ORCHESTRATOR_CONNECTION_CREDENTIAL_STORE
+          value: vault
+        - name: ORCHESTRATOR_CONNECTION_VAULT_ADDR
+          value: http://vault:8200
+        - name: ORCHESTRATOR_CONNECTION_VAULT_TOKEN_FILE
+          value: /private/connection-token
+        - name: ORCHESTRATOR_PLATFORM_VAULT_BOOTSTRAP
+          value: 'true'
+        - name: ORCHESTRATOR_PLATFORM_VAULT_ADDR
+          value: http://vault:8200
+        - name: ORCHESTRATOR_PLATFORM_VAULT_WORKLOAD_ADDR
+          value: http://vault.orchestrator-demo.svc.cluster.local:8200
+        - name: ORCHESTRATOR_PLATFORM_VAULT_TOKEN_FILE
+          value: /private/app-token
+        - name: ORCHESTRATOR_OUTPUT_SECRET_STORE
+          value: vault
+        - name: ORCHESTRATOR_OUTPUT_SECRET_VAULT_ADDR
+          value: http://vault:8200
+        - name: ORCHESTRATOR_OUTPUT_SECRET_VAULT_TOKEN_FILE
+          value: /private/output-token
+        - name: ORCHESTRATOR_TERRAFORM_RECOVERY_DIR
+          value: /var/lib/orchestrator/recovery
+        volumeMounts:
+        - name: private
+          mountPath: /private
+          readOnly: true
+        - name: recovery
+          mountPath: /var/lib/orchestrator/recovery
+          readOnly: false
+        securityContext:
+          runAsUser: 65532
+          runAsGroup: 65532
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        readinessProbe:
+          httpGet:
+            path: /api/v1/healthz
+            port: 8080
+          periodSeconds: 5
+          timeoutSeconds: 3
+        startupProbe:
+          httpGet:
+            path: /api/v1/healthz
+            port: 8080
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 60
+        livenessProbe:
+          httpGet:
+            path: /api/v1/healthz
+            port: 8080
+          periodSeconds: 15
+          timeoutSeconds: 3
+          failureThreshold: 6
+      volumes:
+      - name: runtime
+        secret:
+          secretName: backend-runtime
+          defaultMode: 256
+      - name: tokens
+        secret:
+          secretName: vault-tokens
+          defaultMode: 256
+      - name: owner
+        secret:
+          secretName: database-owner
+          defaultMode: 256
+      - name: private
+        emptyDir:
+          medium: Memory
+      - name: recovery
+        persistentVolumeClaim:
+          claimName: terraform-recovery
+      initContainers:
+      - name: private-files
+        image: postgres:16-alpine
+        command:
+        - sh
+        - -ec
+        - |
+          umask 077
+          for src in /runtime/* /tokens/*; do cp -L "$src" /private/; done
+          chown -R 65532:65532 /private /recovery
+          chmod 700 /private /recovery
+          chmod 400 /private/*
+          until pg_isready -h postgres -U orchestrator -d orchestrator; do sleep 2; done
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - name: runtime
+          mountPath: /runtime
+          readOnly: true
+        - name: tokens
+          mountPath: /tokens
+          readOnly: true
+        - name: private
+          mountPath: /private
+          readOnly: false
+        - name: recovery
+          mountPath: /recovery
+          readOnly: false
+      - name: database-setup
+        image: orchestrator-backend:deploy-k8s
+        imagePullPolicy: IfNotPresent
+        command:
+        - /usr/local/bin/orchestrator
+        - -setup-database
+        - -database-owner-url-file
+        - /owner/database-url
+        - -console-database-role
+        - orchestrator_console
+        - -state-database-role
+        - orchestrator_state
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - name: owner
+          mountPath: /owner
+          readOnly: true

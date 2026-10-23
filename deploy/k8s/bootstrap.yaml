@@ -1,0 +1,161 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orchestrator-bootstrap
+data:
+  postgres-init-roles.sh: |
+    #!/bin/sh
+    # PostgreSQL docker-entrypoint-initdb.d script: runs only when the data
+    # directory is initialized for the first time, so it never touches a retained
+    # database. It creates the option-A roles (ADR-014): the owner, which owns the
+    # empty orchestrator database and runs the explicit owner setup, and the
+    # separate Console and State runtime logins. Grants are made by the owner
+    # setup (orchestrator -setup-database), not here. Passwords come from files
+    # written by init-db-credentials.sh and are never printed.
+    set -eu
+    dir=/run/orchestrator/role-passwords
+    for role in owner console state; do
+      [ -s "$dir/$role" ] || { echo "missing generated password for the $role role" >&2; exit 1; }
+    done
+    # psql reads each password from its file (\set with a backtick command), so
+    # no password appears in any process argument list.
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<'SQL'
+    \set owner_pw `cat /run/orchestrator/role-passwords/owner`
+    \set console_pw `cat /run/orchestrator/role-passwords/console`
+    \set state_pw `cat /run/orchestrator/role-passwords/state`
+    CREATE ROLE orchestrator_owner LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD :'owner_pw';
+    CREATE ROLE orchestrator_console LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD :'console_pw';
+    CREATE ROLE orchestrator_state LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD :'state_pw';
+    ALTER DATABASE orchestrator OWNER TO orchestrator_owner;
+    SQL
+  vault.hcl: |
+    ui = false
+    disable_mlock = true
+
+    storage "file" {
+      path = "/vault/data/storage"
+    }
+
+    listener "tcp" {
+      address = "0.0.0.0:8200"
+      tls_disable = true
+    }
+
+    api_addr = "http://vault:8200"
+  connections-policy.hcl: |
+    path "auth/token/renew-self" {
+      capabilities = ["update"]
+    }
+
+    path "kv/data/orchestrator/connections/+/+/credentials/+" {
+      capabilities = ["create", "read", "update"]
+    }
+
+    path "kv/metadata/orchestrator/connections/+/+/credentials/+" {
+      capabilities = ["delete"]
+    }
+  applications-policy.hcl: |
+    # Platform Vault store token (bootstrap input for the ordinary platform-vault
+    # store, ADR-012): application values,
+    # workload bundles and workload role/policy management only. It has no access
+    # to Connection credentials, other mounts or the root token.
+    path "auth/token/lookup-self" {
+      capabilities = ["read"]
+    }
+
+    path "auth/token/renew-self" {
+      capabilities = ["update"]
+    }
+
+    path "sys/internal/ui/mounts/kv" {
+      capabilities = ["read"]
+    }
+
+    path "sys/capabilities-self" {
+      capabilities = ["update"]
+    }
+
+    path "kv/data/orchestrator/apps/*" {
+      capabilities = ["create", "read", "update"]
+    }
+
+    path "kv/metadata/orchestrator/apps/*" {
+      capabilities = ["read", "list", "delete"]
+    }
+
+    path "sys/policies/acl/orch-*" {
+      capabilities = ["create", "read", "update"]
+    }
+
+    path "auth/kubernetes/role/orch-*" {
+      capabilities = ["create", "read", "update"]
+    }
+
+    path "auth/kubernetes/config" {
+      capabilities = ["read"]
+    }
+  outputs-policy.hcl: |
+    path "auth/token/renew-self" {
+      capabilities = ["update"]
+    }
+
+    path "kv/data/orchestrator/outputs/*" {
+      capabilities = ["create", "read"]
+    }
+  start-vault.sh: |
+    #!/bin/sh
+    # Disposable/development bundle: bootstrap material stays on the Vault PVC.
+    set -eu
+    umask 077
+    export VAULT_ADDR=http://127.0.0.1:8200
+    mkdir -p /vault/data/storage /vault/data/bootstrap
+    rm -f /tmp/vault-ready
+    vault server -config=/config/vault.hcl &
+    pid=$!
+    trap 'rm -f /tmp/vault-ready; kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
+    trap 'exit 0' INT TERM
+    for attempt in $(seq 1 60); do
+      status=0
+      vault status >/dev/null 2>&1 || status=$?
+      case "$status" in 0|2) break ;; esac
+      kill -0 "$pid"
+      sleep 1
+    done
+    if ! vault operator init -status >/dev/null 2>&1; then
+      test ! -s /vault/data/bootstrap/init.txt
+      vault operator init -key-shares=1 -key-threshold=1 > /vault/data/bootstrap/init.txt
+    fi
+    awk '/^Unseal Key 1:/ {print $4}' /vault/data/bootstrap/init.txt > /vault/data/bootstrap/unseal-key
+    awk '/^Initial Root Token:/ {print $4}' /vault/data/bootstrap/init.txt > /vault/data/bootstrap/root-token
+    test -s /vault/data/bootstrap/unseal-key
+    test -s /vault/data/bootstrap/root-token
+    vault operator unseal "$(cat /vault/data/bootstrap/unseal-key)" >/dev/null
+    export VAULT_TOKEN="$(cat /vault/data/bootstrap/root-token)"
+    vault secrets list -format=json > /tmp/mounts.json
+    if ! grep -q '"kv/"' /tmp/mounts.json; then
+      vault secrets enable -path=kv kv-v2 >/dev/null
+    fi
+    for policy in connections applications outputs; do
+      vault policy write "orchestrator-$policy" "/config/$policy-policy.hcl" >/dev/null
+    done
+    # Secret-provided random IDs avoid sharing a filesystem between Vault/backend.
+    # On restart renew existing IDs. Never silently replace a mismatched token.
+    for pair in connection:connections app:applications output:outputs; do
+      name=${pair%:*}; policy=${pair#*:}
+      token=$(cat "/tokens/$name-token")
+      if VAULT_TOKEN="$token" vault token renew >/dev/null 2>&1; then
+        VAULT_TOKEN="$token" vault token renew >/dev/null
+      else
+        vault token create -id="$token" -orphan -no-default-policy \
+          -policy="orchestrator-$policy" -period=768h >/dev/null
+      fi
+    done
+    touch /tmp/vault-ready
+    while kill -0 "$pid" 2>/dev/null; do
+      sleep 60 &
+      wait $! || true
+      for name in connection app output; do
+        VAULT_TOKEN="$(cat "/tokens/$name-token")" vault token renew >/dev/null
+      done
+    done
+    exit 1
