@@ -576,3 +576,12 @@ Application scope availability is mapped from advertised keys in `App.tsx` and
 `Application.availableEnvironments`, with no requests for unsupported scopes.
 `EnvironmentResources.tsx` distinguishes known backend unavailability from an
 empty inventory and ordinary load errors.
+
+IMP-032 persistent kind runtime: [`preview-kind.sh`](../../deploy/local/preview-kind.sh)
+fixes an isolated Compose project with [`real-runtime overlay`](../../deploy/local/compose.preview-kind.yml),
+explicit score-k8s and persistent module/provider caches. Browser onboarding and
+deployment use [`preview-kind-live.mjs`](../../frontend/test/e2e/preview-kind-live.mjs);
+job/update/restart/cleanup observations use
+[`preview-kind-check.mjs`](../../frontend/test/e2e/preview-kind-check.mjs).
+Shared full-app flows use the current v3 Definition criteria/advanced controls.
+See [live evidence](../verification/2026-10-23-preview-kind-live.md).

@@ -1,0 +1,62 @@
+{
+  "resourceIdentityPreserved": true,
+  "pods": [
+    {
+      "name": "backend-ffb4d9689-84bkb",
+      "uid": "8783b648-5297-404b-9569-da39dfb78653",
+      "phase": "Running",
+      "ready": true,
+      "images": [
+        "acceptance-backend:v46-20261018-512d0d3-amd64"
+      ]
+    },
+    {
+      "name": "frontend-589658c66b-4x456",
+      "uid": "4691a1bd-de66-46ef-a16d-097c97495089",
+      "phase": "Running",
+      "ready": true,
+      "images": [
+        "acceptance-frontend:v46-20261018-512d0d3-amd64-b"
+      ]
+    },
+    {
+      "name": "postgres-1ed2f18ed8d57701-0",
+      "uid": "0ac836be-e4c4-4ee1-b65b-faba5bd7372d",
+      "phase": "Running",
+      "ready": true,
+      "images": [
+        "postgres:16.14-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777"
+      ]
+    },
+    {
+      "name": "redis-57ad0b21f2b8aa70-0",
+      "uid": "113c9535-7116-40b6-ba45-45ed82b45ecd",
+      "phase": "Running",
+      "ready": true,
+      "images": [
+        "redis:7.4.7-alpine@sha256:02f2cc4882f8bf87c79a220ac958f58c700bdec0dfb9b9ea61b62fb0e8f1bfcf"
+      ]
+    },
+    {
+      "name": "worker-74766cf96c-qcnvc",
+      "uid": "e7dba429-5859-4f05-b2d0-75f1d7bd4625",
+      "phase": "Running",
+      "ready": true,
+      "images": [
+        "acceptance-worker:v46-20261018-512d0d3-amd64"
+      ]
+    }
+  ],
+  "pvcs": [
+    {
+      "name": "postgres-1ed2f18ed8d57701-data",
+      "uid": "3db4d908-d7b3-40fe-9e1f-2ea791b1e149",
+      "phase": "Bound"
+    },
+    {
+      "name": "redis-57ad0b21f2b8aa70-data",
+      "uid": "e2061c5e-73ff-48d1-947c-1e75b8671890",
+      "phase": "Bound"
+    }
+  ]
+}

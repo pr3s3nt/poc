@@ -529,3 +529,28 @@ Routing, unsupported-scope and favicon defects are corrected. Tests and actual
 limitation with explicit unavailable presentation, not a resolved state backend.
 The live backend was not restarted or its user data reset. See
 [diagnosis evidence](../verification/2026-10-23-preview-errors-diagnosis.md).
+
+## IMP-032 — Persistent kind runtime enablement for the Preview checkout
+
+The reviewed Console on port 18093 uses memory/fake execution, so its UI success
+does not establish live deployment. User requested a complete usable kind runtime.
+Existing deployment contracts already require real matched Definitions, pinned
+Terraform/score-k8s, scoped credentials, state persistence and readiness; no new
+business behavior or AWS verification is implied. Preserve that demo and all
+retained development data. Prepare an isolated persistent `preview-kind` project
+and verify the existing flow on `kind-k8s-4f` with new owned resources only.
+The new overlay explicitly supplies the installed score-k8s path (the base
+Compose does not select a renderer), durable module/provider caches and separate
+ports/volumes. Shared browser helpers also need current Definition v3 criteria
+controls rather than the retired advanced-mode radio.
+
+Operational procedure: [Preview on kind](../operations/preview-kind.md).
+Completion requires dated actual runtime evidence, with any residual limitation
+kept explicit rather than treating fake UI checks as live acceptance.
+
+Resolved for kind: the new persistent runtime completed browser onboarding,
+real three-workload/PostgreSQL/Redis deployment, inventory200, exact applied code
+baseline/update, backend restart/job/resource persistence and independent
+product-cleanup absence. The sample is deliberately retained; no AWS acceptance
+or retained-data upgrade is claimed. See
+[dated live evidence](../verification/2026-10-23-preview-kind-live.md).

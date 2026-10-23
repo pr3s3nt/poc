@@ -1,0 +1,12 @@
+[
+  "owned Application identity",
+  "inventory available from real state backend",
+  "three real successful deployments",
+  "applied manifests persisted for all three workloads",
+  "real backend environment secret database cache checks",
+  "worker completed browser-submitted job",
+  "previous job survives update and backend restart",
+  "cleanup smoke namespace created by real deployment",
+  "owned namespace absent after product cleanup",
+  "no browser page exception"
+]

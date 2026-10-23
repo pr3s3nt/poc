@@ -13,6 +13,7 @@ last_reviewed: 2026-10-21
 | Personal-machine containers | [Docker Compose](docker-local.md) | Local Docker volumes; cluster mutation only on explicit deploy |
 | UC-09 review video | [Human-paced local recording](local.md#uc-09-human-paced-review-recording) | Local browser/display only; publish reviewed evidence separately |
 | Existing kind cluster | [kind verification](kind.md) | Creates a run-specific namespace and workloads |
+| Persistent Preview Console | [Preview on kind](preview-kind.md) | Separate local services; deployment is explicit |
 | AWS | [AWS verification](aws.md) | Creates paid VPC/EKS/Aurora/ECR resources, then destroys them |
 
 [UC-12 Vault on kind](vault-kind.md) documents the persistent Vault release,

@@ -1058,3 +1058,11 @@ maps to App available Environment keys and the legacy-scope regression; UC-09
 inventory states map to EnvironmentResources unavailable-versus-empty tests.
 [Exact user-reported graph and Application error evidence](../verification/2026-10-23-preview-errors-diagnosis.md)
 includes the remaining demo ResourceReader limitation, not a false backend success.
+
+IMP-032 extends existing UC-04 onboarding, UC-05/06 review/admission, UC-09
+inventory/applied manifest and UC-07 explicit cleanup execution evidence:
+`preview-kind-live.mjs` and `preview-kind-check.mjs` use real PostgreSQL/Vault,
+Terraform/score-k8s and `kind-k8s-4f`. Exact READY baseline, valid image update,
+restart/resource/job persistence and scoped product cleanup passed in the
+[persistent kind execution](../verification/2026-10-23-preview-kind-live.md).
+There is no new use case or AWS verification claim.

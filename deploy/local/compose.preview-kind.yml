@@ -1,0 +1,31 @@
+# Persistent, isolated kind Console. Use preview-kind.sh so the default project
+# and a local .env can never select the retained development installation.
+services:
+  db-setup:
+    image: orchestrator-backend:preview-kind
+  backend:
+    image: orchestrator-backend:preview-kind
+    command:
+      - -profile
+      - local
+      - -seed-catalog
+      - none
+      - -score-k8s
+      - /usr/local/bin/score-k8s
+      - -terraform-root
+      - /var/lib/orchestrator/tfroot
+    environment:
+      ORCHESTRATOR_TERRAFORM_MODULE_CACHE_DIR: /var/lib/orchestrator/module-cache
+      TF_PLUGIN_CACHE_DIR: /var/lib/orchestrator/plugin-cache
+    volumes:
+      - module-cache:/var/lib/orchestrator/module-cache
+      - plugin-cache:/var/lib/orchestrator/plugin-cache
+    ports: !override
+      - "127.0.0.1:18095:8080"
+  frontend:
+    image: orchestrator-frontend:preview-kind
+    ports: !override
+      - "${PREVIEW_BIND_ADDRESS:-127.0.0.1}:18094:8080"
+volumes:
+  module-cache:
+  plugin-cache:

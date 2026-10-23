@@ -107,3 +107,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [2026-10-23 — Deployment review fidelity correction](2026-10-23-visual-preview-fidelity.md) — actual prototype/runtime comparison at 1512px/1280px, UI correction and Tailscale HTTP deployment verification.
 
 - [2026-10-23 — Preview connector and Application error diagnosis](2026-10-23-preview-errors-diagnosis.md) — exact reported Application, routing correction, legacy Environment guard and explicit demo inventory unavailability; 33-page read-only audit.
+
+- [2026-10-23 — Persistent Preview Console on real kind](2026-10-23-preview-kind-live.md) — isolated PostgreSQL/Vault runtime, real three-workload/PostgreSQL/Redis deployment, exact code baseline, image update, restart/job persistence and product cleanup.

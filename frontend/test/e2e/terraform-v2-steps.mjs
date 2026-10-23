@@ -56,7 +56,7 @@ export function steps({ page, h, caption, rec }) {
     const body = JSON.parse(text);
     const key = body.key ?? body.secretStore?.key;
     if (!key) throw new Error('the registered secret store has no key');
-    await expect(page.getByRole('status')).toContainText(`"${store.name}" đã sẵn sàng`);
+    await expect(page.getByRole('status').filter({ hasText: `"${store.name}" đã sẵn sàng` })).toBeVisible({ timeout: 30_000 });
     const row = page.locator('.settings-table-row').filter({ hasText: store.name });
     await expect(row).toContainText('Sẵn sàng');
     await h.moveTo(row);

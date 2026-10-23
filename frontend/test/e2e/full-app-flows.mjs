@@ -92,8 +92,13 @@ export async function registerExistingCluster(kit, { id, accountName, appKey, kl
   await choose(form('Cách cung cấp cluster'), 'Dùng cluster có sẵn');
   await choose(form('Tài khoản hạ tầng'), accountName);
   await h.click(section.getByRole('tab', { name: /Điều kiện áp dụng/ }));
-  await h.click(section.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
-  await h.type(section.getByLabel('Điều kiện 1 ID ứng dụng', { exact: true }), appKey);
+  if (appKey) {
+    await h.click(section.getByRole('button', { name: '+ Thêm điều kiện', exact: true }));
+    await section.getByLabel('Trường hợp 1 thuộc tính 1').selectOption('app_id');
+    await h.type(section.getByLabel('Điều kiện 1 ID ứng dụng', { exact: true }), appKey);
+  }
+  await h.click(section.getByRole('button', { name: '+ Thêm điều kiện', exact: true }));
+  await section.getByLabel(`Trường hợp 1 thuộc tính ${appKey ? 2 : 1}`).selectOption('class');
   await h.type(section.getByLabel('Điều kiện 1 Class', { exact: true }), klass);
   await h.pause(SHORT_READ);
   await h.click(section.getByRole('button', { name: 'Đăng ký cấu hình tài nguyên', exact: true }));
@@ -112,6 +117,7 @@ export async function registerExistingCluster(kit, { id, accountName, appKey, kl
 export async function registerK8sModuleDefinition(kit, spec) {
   const { page, h, choose, get } = kit;
   const section = page.getByRole('region', { name: 'Đăng ký cấu hình tài nguyên', exact: true });
+  await h.click(section.getByRole('tab', { name: 'Cấu hình', exact: true }));
   const form = (name) => kit.form(name, section);
   await h.type(form('ID cấu hình (Definition ID)'), spec.id);
   await h.type(form('Tên hiển thị'), spec.name ?? spec.id);
@@ -119,6 +125,8 @@ export async function registerK8sModuleDefinition(kit, spec) {
   await page.getByRole('button', { name: 'Module đã đăng ký', exact: true }).click();
   const pins = form('Module đã kiểm chứng');
   if (await pins.isEnabled()) await choose(pins, spec.module);
+  const advanced = section.locator('details.definition-advanced');
+  if (await advanced.getAttribute('open') === null) await h.click(advanced.locator('summary').first());
   const inputMapping = section.getByRole('button', { name: 'Ghép đầu vào theo tên trùng', exact: true });
   if (await inputMapping.isVisible()) await h.click(inputMapping);
   await h.click(section.getByRole('button', { name: 'Ghép đầu ra theo tên trùng', exact: true }));
@@ -129,7 +137,9 @@ export async function registerK8sModuleDefinition(kit, spec) {
   // actual JS values (unlike the JSON-encoded catalog overrides).
   for (const [name, value] of Object.entries(spec.variables ?? {})) await provideSource(kit, name, { literal: value });
   if (spec.klass) {
-    await h.click(section.getByRole('radio', { name: /Tùy chỉnh nâng cao/ }));
+    await h.click(section.getByRole('tab', { name: /Điều kiện áp dụng/ }));
+    await h.click(section.getByRole('button', { name: '+ Thêm điều kiện', exact: true }));
+    await section.getByLabel('Trường hợp 1 thuộc tính 1').selectOption('class');
     await h.type(form('Điều kiện 1 Class'), spec.klass);
   }
   await h.pause(SHORT_READ);

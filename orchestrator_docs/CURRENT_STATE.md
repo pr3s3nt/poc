@@ -7,6 +7,20 @@ last_reviewed: 2026-10-23
 
 # Current project state
 
+## Persistent Preview Console on kind — 2026-10-23
+
+An isolated `preview-kind` Compose project now serves this checkout at Tailscale
+port 18094 using real adapters, durable PostgreSQL/Vault/state and explicit
+score-k8s. Browser onboarding → Preview → Deploy created real frontend/backend/
+worker, shared PostgreSQL/Redis and two Bound PVCs on `kind-k8s-4f`. Inventory
+HTTP200, persisted manifests, code diff with exact applied baseline, valid image
+update, backend restart/resource reuse and old/new completed jobs passed.
+A separate disposable namespace was deleted through the product and independently
+verified absent. The sample remains usable; port 18093 stays the original fake
+demo. No retained data reset, user session removal or AWS execution occurred.
+See [runtime evidence](verification/2026-10-23-preview-kind-live.md),
+[runbook](operations/preview-kind.md) and IMP-032.
+
 ## Visual deployment review — implemented 2026-10-23
 
 Desktop Console now shows the final pending graph, dependencies and placement,
@@ -17,9 +31,10 @@ Per-click UUID correlation isolates operations/deployments and retries. Desired
 review and rendered workload review survive persistence; only exact READY
 associations provide an applied baseline. Historical missing data stays unavailable.
 
-Independent review includes product HTTP/browser flows using fake execution
-adapters, a real disposable PostgreSQL fixture, backend and Console checks. No
-real Kubernetes/AWS deployment is claimed. Terraform source is a redacted view,
+Initial independent review included product HTTP/browser flows using fake execution
+adapters, a real disposable PostgreSQL fixture, backend and Console checks. The
+subsequent real kind execution is recorded above; no new AWS execution is claimed.
+Terraform source is a redacted view,
 not a provider plan; registry-unsupported `.tf.json` remains outside supported
 source coverage (IMP-029). Existing PostgreSQL installations require the normal
 operator-managed schema upgrade; no retained database was reset or migrated.
