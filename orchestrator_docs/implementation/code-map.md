@@ -585,3 +585,8 @@ job/update/restart/cleanup observations use
 [`preview-kind-check.mjs`](../../frontend/test/e2e/preview-kind-check.mjs).
 Shared full-app flows use the current v3 Definition criteria/advanced controls.
 See [live evidence](../verification/2026-10-23-preview-kind-live.md).
+
+IMP-033: DeploymentReview validates the incoming review before mounting its
+stateful renderer. DeploymentReview.test.tsx covers zero-value/unsupported/null
+collections and availability transitions; ApplicationHomePage.test.tsx uses the
+actual no-change wire response and preserves the disabled Deploy control.

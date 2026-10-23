@@ -399,7 +399,7 @@ it('keeps Deploy unavailable for a no-op Preview', async () => {
     const url = String(input);
     if (url.includes('/deployments')) return Response.json({ deployments: [] });
     if (url.includes('/resources')) return Response.json({ resources: [] });
-    if (url.endsWith('/preview')) return Response.json({ token: 'noop', draftVersion: 1, changes: [] });
+    if (url.endsWith('/preview')) return Response.json({ token: 'noop', draftVersion: 1, changes: [], review: { version: 0, planHash: '', nodes: null, edges: null, batches: null, artifacts: null } });
     return list('staging', [{ id: 'api', state: '', ready: true, score: {} }]);
   }));
   const user = userEvent.setup();
@@ -407,6 +407,7 @@ it('keeps Deploy unavailable for a no-op Preview', async () => {
   await screen.findByText('api');
   await user.click(screen.getByRole('button', { name: 'Xem trước thay đổi' }));
   expect(await screen.findByText('Không có thay đổi Workload nào để triển khai.')).toBeInTheDocument();
+  expect(screen.getByText('Bản review của kế hoạch này chưa có.')).toBeVisible();
   expect(screen.getByRole('button', { name: 'Triển khai các thay đổi này' })).toBeDisabled();
 });
 

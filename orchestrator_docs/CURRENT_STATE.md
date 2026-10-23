@@ -7,6 +7,16 @@ last_reviewed: 2026-10-23
 
 # Current project state
 
+## No-change Preview rendering fix — 2026-10-23
+
+Previewing an already-deployed/empty Application exposed a frontend crash:
+the zero-value review has null collections, but the renderer read nodes before
+checking its version. IMP-033 guards the wire shape before mounting the renderer
+and adds actual no-op payload/availability-transition regressions. No-change
+notice and disabled Deploy remain; valid plans still show their graph. Both
+running Consoles received the fixed assets without backend restart or data writes.
+See [diagnosis and verification](verification/2026-10-23-preview-no-change-white-screen.md).
+
 ## Persistent Preview Console on kind — 2026-10-23
 
 An isolated `preview-kind` Compose project now serves this checkout at Tailscale

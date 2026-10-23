@@ -1066,3 +1066,8 @@ Terraform/score-k8s and `kind-k8s-4f`. Exact READY baseline, valid image update,
 restart/resource/job persistence and scoped product cleanup passed in the
 [persistent kind execution](../verification/2026-10-23-preview-kind-live.md).
 There is no new use case or AWS verification claim.
+
+IMP-033: UC-05 no-change/unavailable states map to the DeploymentReview wire
+guard and component transition tests; UC-16 no-op admission presentation maps
+to the actual zero-value response in ApplicationHomePage.test.tsx. See
+[existing Application white-screen verification](../verification/2026-10-23-preview-no-change-white-screen.md).

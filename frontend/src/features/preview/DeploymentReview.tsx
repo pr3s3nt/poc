@@ -199,6 +199,15 @@ function ArtifactChange({artifact}:{artifact:ReviewArtifact}) {
   </li>;
 }
 export function DeploymentReview({ review, progress, title = 'Bản đồ triển khai' }: { review?: DeploymentReviewData; progress?: ReviewProgress[]; title?: string }) {
+  // No-change/legacy responses may carry the Go zero value (version 0 and
+  // null collections). Check the wire shape before reading any collection.
+  if (!review || review.version !== 1 || !Array.isArray(review.nodes) || !Array.isArray(review.edges) || !Array.isArray(review.artifacts) || !Array.isArray(review.batches)) {
+    return <p className="review-unavailable">Bản review của kế hoạch này chưa có.</p>;
+  }
+  return <DeploymentReviewContent review={review} progress={progress} title={title} />;
+}
+
+function DeploymentReviewContent({ review, progress, title }: { review: DeploymentReviewData; progress?: ReviewProgress[]; title: string }) {
   const [selected, setSelected] = useState('');
   const [tab, setTab] = useState<'overview' | 'changes' | 'code'>('overview');
   const [fileId, setFileId] = useState('');
@@ -216,7 +225,6 @@ export function DeploymentReview({ review, progress, title = 'Bản đồ triể
   const running = progress?.filter(p => ['PROVISIONING', 'CHECKING'].includes(p.state)).length ?? 0;
   const properties = workloadProperties(artifacts);
   const selectNode = (id: string) => { setSelected(id); setTab('overview'); setFileId(''); };
-  if (!review || review.version !== 1) return <p className="review-unavailable">Bản review của kế hoạch này chưa có.</p>;
   const scopeNames = [...new Set(review.nodes.flatMap(n => { const account = n.placement?.account || n.account; const region = n.placement?.region || n.region; return account && region ? [account + ' · ' + region] : []; }))];
   const totals = [{ intents: ['CREATE'], label: 'tạo mới', tone: 'create' }, { intents: ['UPDATE'], label: 'cập nhật', tone: 'update' }, { intents: ['RETAIN', 'BIND'], label: 'giữ nguyên / liên kết', tone: 'retain' }, { intents: ['REMOVE', 'UNREFERENCED'], label: 'gỡ bỏ / tham chiếu', tone: 'remove' }];
   const stages = levelsOf(review);

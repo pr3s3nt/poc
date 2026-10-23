@@ -8,6 +8,25 @@ const review: DeploymentReviewData = { version: 1, planHash: 'plan', nodes: [
   { id: 'api', kind: 'workload', name: 'API', resourceType: 'workload', class: 'default', intent: 'UPDATE', renderer: 'score-k8s@0.15.0' },
 ], edges: [{ consumer: 'api', provider: 'cluster', reason: 'provider-binding' }], batches: [['cluster'], ['api']], artifacts: [{ id: 'api:deployment', nodeId: 'api', kind: 'kubernetes-manifest', path: 'Deployment/api', language: 'yaml', before: { availability: 'AVAILABLE', text: 'image: old\nreplicas: 1' }, after: { availability: 'PARTIAL', text: 'image: new\nreplicas: 2', redactedPaths: ['env.PASSWORD'], unknownPaths: [] } }] };
 
+it.each([
+  { version: 0, planHash: '', nodes: null, edges: null, batches: null, artifacts: null },
+  { version: 2 },
+  ...(['nodes', 'edges', 'batches', 'artifacts'] as const).map((key) => ({ ...review, [key]: null })),
+])('keeps unavailable wire reviews from crashing the page', (wireReview) => {
+  render(<DeploymentReview review={wireReview as unknown as DeploymentReviewData} />);
+  expect(screen.getByText('Bản review của kế hoạch này chưa có.')).toBeVisible();
+  expect(screen.queryByLabelText('Sơ đồ triển khai')).not.toBeInTheDocument();
+});
+
+it('can move from an unavailable review to a valid plan and back without changing hook order', () => {
+  const zero = { version: 0, nodes: null, edges: null, batches: null, artifacts: null } as unknown as DeploymentReviewData;
+  const { rerender } = render(<DeploymentReview review={zero} />);
+  rerender(<DeploymentReview review={review} />);
+  expect(screen.getByLabelText('Sơ đồ triển khai')).toBeVisible();
+  rerender(<DeploymentReview />);
+  expect(screen.getByText('Bản review của kế hoạch này chưa có.')).toBeVisible();
+});
+
 it('shows a bounded red and green code diff with line numbers and copies after-only text', async () => {
   const clipboard = vi.fn(async () => undefined);
   const user = userEvent.setup();

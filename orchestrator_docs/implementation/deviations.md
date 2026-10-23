@@ -554,3 +554,20 @@ baseline/update, backend restart/job/resource persistence and independent
 product-cleanup absence. The sample is deliberately retained; no AWS acceptance
 or retained-data upgrade is claimed. See
 [dated live evidence](../verification/2026-10-23-preview-kind-live.md).
+
+## IMP-033 — No-change Preview crashes the Console
+
+User reported a white screen when Previewing an existing Application. Browser
+reproduction on port 18094 found HTTP200 with zero changes and the pending
+service's zero-value review (`version:0`, null collections, no last plan).
+DeploymentReview called `nodes.find` before checking the review version, causing
+an uncaught render exception and an empty React root. Existing no-op tests omitted
+the serialized review field, so they missed the actual response shape.
+
+The existing no-change specification remains correct. Guard version/collection
+shape in the public component before mounting the hook-owning plan renderer;
+unsupported/missing review shows the existing unavailable text. Preserve the
+parent's no-change message and disabled Deploy. Regression tests use the actual
+zero-value response and unavailable→valid→unavailable transitions. No backend,
+admission, data, deployment or lifecycle behavior is changed. See
+[white-screen diagnosis](../verification/2026-10-23-preview-no-change-white-screen.md).
