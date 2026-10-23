@@ -264,6 +264,24 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
     expect(screen.queryByLabelText('Bundle dựng ứng dụng')).not.toBeInTheDocument();
     expect(requests.some((request) => request.url.endsWith('/resource-definitions'))).toBe(false);
   });
+  it('hides the effectiveness link and page from a developer deep link (UC-17)', async () => {
+    authenticated = true;
+    window.history.replaceState({}, '', '/ui/platform/effectiveness?application=payment');
+    render(<App />);
+    await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+    expect(screen.queryByRole('link', { name: /Hiệu quả platform/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Hiệu quả platform' })).not.toBeInTheDocument();
+    expect(requests.some((request) => request.url.includes('/effectiveness/'))).toBe(false);
+  });
+  it('renders the effectiveness page for a platform engineer deep link (UC-17)', async () => {
+    authenticated = true;
+    window.history.replaceState({}, '', '/ui/platform/effectiveness?application=payment&days=7');
+    override = (url) => url.endsWith('/auth/session') ? Response.json({ user: { Username: 'platform', Role: 'PLATFORM_ENGINEER' } }) : undefined;
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: 'Hiệu quả platform' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Hiệu quả platform/ })).toHaveClass('nav-item-active');
+    await waitFor(() => expect(requests.some((request) => request.url.includes('/effectiveness/report?') && request.url.includes('application=payment'))).toBe(true));
+  });
   describe('Resource Types to Definitions navigation (T04)', () => {
     const catalog = (url: string) => url.endsWith('/auth/session') ? Response.json({ user: { Username: 'platform', Role: 'PLATFORM_ENGINEER' } })
       : url.endsWith('/resource-definition-capabilities') ? Response.json({ capabilities: capabilityFixture })
@@ -401,7 +419,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       expect(nav).toHaveTextContent('Ứng dụng');
       expect(nav).toHaveTextContent('Lịch sử triển khai');
       expect(nav).toHaveTextContent('Sắp có');
-      for (const name of [/Loại tài nguyên/, /Cấu hình tài nguyên/, /Mẫu dựng ứng dụng/, /Tài khoản hạ tầng/, /Kết nối/, /Kho bí mật/]) expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
+      for (const name of [/Loại tài nguyên/, /Cấu hình tài nguyên/, /Mẫu dựng ứng dụng/, /Tài khoản hạ tầng/, /Kết nối/, /Kho bí mật/, /Hiệu quả platform/]) expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
       expect(screen.getByText('Nhà phát triển')).toBeInTheDocument();
       expect(screen.getByText('tester')).toBeInTheDocument();
     });
@@ -411,7 +429,7 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       override = asRole(role);
       render(<App />);
       await screen.findByRole('navigation', { name: 'Điều hướng chính' });
-      const expected: [RegExp, string][] = [[/Ứng dụng/, '/ui/applications'], [/Loại tài nguyên/, '/ui/platform/resource-types'], [/Cấu hình tài nguyên/, '/ui/platform/resource-definitions'], [/Mẫu dựng ứng dụng/, '/ui/platform/rendering-templates'], [/Tài khoản hạ tầng/, '/ui/platform/driver-accounts'], [/Kết nối/, '/ui/platform/connections'], [/Kho bí mật/, '/ui/platform/secret-stores']];
+      const expected: [RegExp, string][] = [[/Ứng dụng/, '/ui/applications'], [/Loại tài nguyên/, '/ui/platform/resource-types'], [/Cấu hình tài nguyên/, '/ui/platform/resource-definitions'], [/Mẫu dựng ứng dụng/, '/ui/platform/rendering-templates'], [/Tài khoản hạ tầng/, '/ui/platform/driver-accounts'], [/Kết nối/, '/ui/platform/connections'], [/Kho bí mật/, '/ui/platform/secret-stores'], [/Hiệu quả platform/, '/ui/platform/effectiveness']];
       for (const [name, path] of expected) expect(screen.getByRole('link', { name })).toHaveAttribute('href', path);
       expect(screen.getByText(label)).toBeInTheDocument();
     });

@@ -17,6 +17,7 @@ function NavigationIcon({ name }: { name: string }) {
     'driver-accounts': <><path d="m10 2 7 3v5c0 4-4 7-7 8-3-1-7-4-7-8V5l7-3Z" /><circle cx="10" cy="8" r="2" /><path d="M6 14c1-4 7-4 8 0" /></>,
     connections: <><path d="m8 12 4-4M7 6l2-2a4 4 0 0 1 6 6l-2 2M7 8l-2 2a4 4 0 0 0 6 6l2-2" /></>,
     'secret-stores': <><rect x="4" y="8" width="12" height="10" rx="2" /><path d="M6 8V6a4 4 0 0 1 8 0v2m-4 4v2" /></>,
+    effectiveness: <><path d="M3 17h14M5 14V9m4 5V5m4 9v-3m4 3V7" /></>,
     history: <><circle cx="10" cy="10" r="7" /><path d="M10 6v4l3 2" /></>,
   };
   return <svg viewBox="0 0 20 20" aria-hidden="true">{paths[name]}</svg>;
@@ -44,6 +45,7 @@ export function AppShell({ children, onSignOut, username, role, activeRoute }: P
     { route: 'driver-accounts', label: 'Tài khoản hạ tầng', tone: 'blue', platform: true },
     { route: 'connections', label: 'Kết nối', tone: 'teal', platform: true },
     { route: 'secret-stores', label: 'Kho bí mật', tone: 'rose', platform: true },
+    { route: 'effectiveness', label: 'Hiệu quả platform', tone: 'violet', platform: true },
   ] as const;
   return (
     <div className={`app-shell${collapsed ? ' app-shell-collapsed' : ''}`}>

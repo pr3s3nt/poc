@@ -18,6 +18,7 @@ import (
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/configuration"
 	"orchestrator/internal/domain/deployment"
+	"orchestrator/internal/domain/effectiveness"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/identity"
 	"orchestrator/internal/domain/resource"
@@ -50,6 +51,8 @@ type state struct {
 	SecretStores        map[string]secretstore.Store                  `json:"secretStores"`
 	Operations          map[string]environment.Operation              `json:"environmentOperations"`
 	ModuleBundles       map[string]tfmodule.Bundle                    `json:"terraformModuleBundles"`
+	// Baselines are the append-only UC-17 versions, keyed by ID.
+	Baselines map[string]effectiveness.Baseline `json:"effectivenessBaselines"`
 }
 
 func newState() *state {
@@ -76,6 +79,7 @@ func newState() *state {
 		SecretStores:        map[string]secretstore.Store{},
 		Operations:          map[string]environment.Operation{},
 		ModuleBundles:       map[string]tfmodule.Bundle{},
+		Baselines:           map[string]effectiveness.Baseline{},
 	}
 }
 

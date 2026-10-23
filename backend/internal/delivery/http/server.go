@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	effectivenessapp "orchestrator/internal/application/effectiveness"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,6 +50,7 @@ type Server struct {
 	pending         *pending.Service
 	previews        *preview.Service
 	resourceCleanup *resourcecleanup.Service
+	effectiveness   *effectivenessapp.Service
 	store           persistence.Store
 	seedOptions     seed.Options
 	uiDir           string
@@ -101,6 +103,7 @@ func NewServer(cfg Config) *Server {
 		pending:         cfg.Pending,
 		previews:        cfg.Previews,
 		resourceCleanup: cfg.ResourceCleanup,
+		effectiveness:   effectivenessapp.New(cfg.Store, effectivenessapp.OriginOf(cfg.SeedOptions.Profile)),
 		store:           cfg.Store,
 		seedOptions:     cfg.SeedOptions,
 		uiDir:           cfg.UIDir,
@@ -120,6 +123,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.mux.Serve
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/healthz", s.handleHealth)
+	s.effectivenessRoutes()
 	s.mux.HandleFunc("POST /api/v1/auth/sign-in", s.handleSignIn)
 	s.mux.HandleFunc("GET /api/v1/auth/session", s.handleSession)
 	s.mux.HandleFunc("POST /api/v1/auth/sign-out", s.handleSignOut)

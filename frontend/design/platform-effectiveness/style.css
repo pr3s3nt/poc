@@ -1,0 +1,359 @@
+/* Only feature content is styled here. Shell, controls and tokens come from Console. */
+.eff-nav-slot {
+  display: contents;
+}
+.eff-page .page-header {
+  align-items: center;
+}
+.eff-page h1 {
+  margin-top: 0;
+}
+.eff-demo {
+  display: inline-block;
+  color: var(--yellow);
+  background: #fff8c5;
+  border: 1px solid #d4a72c;
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 2px 9px;
+}
+.eff-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.eff-filters {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.eff-filters label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.eff-filters select {
+  min-width: 155px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--ink);
+  background: var(--surface);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 14px;
+}
+.eff-scope {
+  display: grid;
+  gap: 6px;
+  padding-top: 14px;
+}
+.eff-scope small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.eff-filters .eff-empty-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding-top: 16px;
+}
+.eff-page .section-header {
+  align-items: center;
+}
+.eff-page .section-header h2 {
+  margin: 0;
+}
+.eff-page .section-header .muted {
+  font-size: 13px;
+}
+.eff-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+.eff-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--surface);
+  text-align: left;
+  color: var(--ink);
+  font: inherit;
+}
+.eff-metric:hover {
+  border-color: #8c959f;
+  box-shadow: 0 3px 8px rgba(140, 149, 159, 0.15);
+}
+.eff-metric-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 36px;
+}
+.eff-metric-title > span {
+  color: var(--muted);
+  font-weight: 400;
+}
+.eff-metric strong {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+}
+.eff-metric small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  min-height: 36px;
+}
+.eff-metric .eff-warning,
+.eff-warning {
+  color: var(--yellow);
+}
+.eff-two-col {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 18px;
+}
+.eff-chart {
+  height: 165px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-muted);
+  background: repeating-linear-gradient(
+    to top,
+    transparent 0,
+    transparent 39px,
+    var(--border-muted) 40px,
+    transparent 41px
+  );
+}
+.eff-bar-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  flex: 1;
+  max-width: 70px;
+}
+.eff-bar-group strong {
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+.eff-bar {
+  width: 70%;
+  background: var(--blue);
+  border-radius: 3px 3px 0 0;
+  max-height: 120px;
+}
+.eff-bar-group small {
+  width: 100%;
+  text-align: center;
+  font-size: 11px;
+  background: var(--surface);
+  color: var(--muted);
+  padding-top: 8px;
+}
+.eff-comparison {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.eff-comparison-value {
+  font-size: 30px;
+  font-weight: 600;
+  margin: 8px 0 0;
+}
+.eff-comparison p {
+  margin: 8px 0 18px;
+  font-size: 14px;
+}
+.eff-comparison small {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+.eff-comparison .button {
+  margin-top: auto;
+}
+.eff-summary {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  padding-top: 18px;
+  font-size: 13px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+.eff-summary b {
+  color: var(--ink);
+}
+.eff-summary .button {
+  margin-left: auto;
+}
+.eff-usage-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.eff-pending h2 {
+  margin: 0 0 10px;
+  font-size: 20px;
+}
+.eff-pending > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-muted);
+  font-size: 14px;
+}
+.eff-pending > .button {
+  margin-top: 12px;
+}
+.eff-table-wrap {
+  overflow: auto;
+}
+.eff-table-wrap table {
+  white-space: nowrap;
+}
+.eff-table-wrap td {
+  padding: 12px 8px;
+}
+.eff-table-wrap td small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.eff-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.eff-dialog {
+  width: 850px;
+  max-width: 94vw;
+  max-height: 85vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 15px 60px #0003;
+}
+.eff-dialog:has(form) {
+  width: 540px;
+}
+.eff-dialog::backdrop {
+  background: #0d1f3866;
+}
+.eff-dialog p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.eff-dialog summary {
+  font-size: 13px;
+  cursor: pointer;
+}
+.eff-dialog a {
+  color: var(--blue);
+}
+.eff-help li {
+  margin: 20px 0;
+  font-size: 14px;
+}
+.eff-help ul {
+  padding-left: 20px;
+}
+.effectiveness-prototype
+  :is(button, a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+@media (max-width: 1200px) {
+  .eff-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .eff-filters .eff-empty-toggle {
+    margin-left: 0;
+  }
+}
+@media (max-width: 760px) {
+  /* Keep the product's horizontal mobile shell; constrain its nav to a scroll area. */
+  .effectiveness-prototype .sidebar {
+    min-width: 0;
+  }
+  .effectiveness-prototype .nav {
+    overflow: auto;
+    min-width: 0;
+  }
+  .effectiveness-prototype .wordmark {
+    flex-shrink: 0;
+  }
+  .effectiveness-prototype .nav-item {
+    flex-shrink: 0;
+  }
+  .eff-page .page-header {
+    gap: 16px;
+  }
+  .eff-page .tabs .tab {
+    min-width: 0;
+    flex-shrink: 0;
+  }
+  .eff-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .eff-metric {
+    padding: 14px;
+    gap: 12px;
+  }
+  .eff-metric strong {
+    font-size: 24px;
+  }
+  .eff-metric:last-child {
+    grid-column: 1/-1;
+  }
+  .eff-two-col,
+  .eff-usage-grid {
+    grid-template-columns: 1fr;
+  }
+  .eff-filters {
+    gap: 14px;
+  }
+  .eff-filters select {
+    min-width: 140px;
+  }
+  .eff-filters .eff-empty-toggle {
+    padding-top: 0;
+  }
+  .eff-summary {
+    gap: 12px;
+  }
+  .eff-summary .button {
+    margin-left: 0;
+  }
+  .eff-chart {
+    gap: 8px;
+  }
+  .eff-dialog {
+    padding: 18px;
+  }
+}

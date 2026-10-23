@@ -2,7 +2,7 @@
 id: PROJECT-GLOSSARY
 artifact: glossary
 status: current
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-23
 ---
 
 # Project glossary
@@ -39,6 +39,16 @@ last_reviewed: 2026-10-10
 |---|---|
 | Secret Store Connection | Kho Vault KV v2 thuộc Organization, có credential ref riêng; Environment chọn độc lập với Deployment Connection. |
 | Environment Operation | Persisted owner/stage claim bảo vệ admission và migration; không phải khóa lựa chọn vĩnh viễn. |
+
+## Hiệu quả platform (UC-17)
+
+| Term | Meaning |
+|---|---|
+| Lượt chạy | Một Deployment hoặc một cleanup tài nguyên `USER_CONFIRMED`; một lần platform thực thi. |
+| Công việc logic | Chuỗi lượt chạy cùng khóa kết thúc ở lượt thành công đầu tiên; retry không thành công việc mới. Định nghĩa chuẩn trong [UC-17](usecase/UC-17/specification.md#công-việc-logic). |
+| Thời gian thực hiện | Lượt đầu bắt đầu → lượt thành công kết thúc; không phải thời gian yêu cầu hay giờ công. |
+| Mốc so sánh (baseline) | Phiên bản giá trị tham chiếu có nguồn, phạm vi và ngày áp dụng; append-only. |
+| Chưa thu thập (`NOT_COLLECTED`) | Chỉ số thuộc danh mục nhưng chưa có nguồn dữ liệu; không hiển thị 0. |
 
 ## Nhãn Web Console (VI-01)
 

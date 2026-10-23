@@ -39,6 +39,7 @@ separate database aggregate.
 | Value object | `NamespaceIdentity`, `ResourceDescriptor`, `ResourceScope`, `DeploymentStatus`, `ResourceStatus`, `DriverType`, `OutputBinding`, `DeploymentTarget`, `ModuleDelta`, `JSONPatchOperation`, `ContainerResourceRequirements`, `ComputeResources`, `RenderBundle`, `RenderingSelection` | Scalar/JSONB columns; validated at construction. |
 | Planning document | `WorkloadFragment`, `CandidateDeploymentSet`, `ResourceGraph`, `ProvisionBatch` | Immutable JSONB snapshot in `deployment_plans`; typed Go model in memory. |
 | Result | `ProvisionResult`, `DeploymentResult`, `DeploymentPreview`, `DeploymentView` | DTO/read model, not aggregate roots. |
+| UC-17 | `EffectivenessBaseline` (entity, append-only versions); `Run`, `WorkItem`, `MetricResult` (read model derived from Deployment/cleanup history, not persisted) | `effectiveness_baselines`; read model only. |
 
 ## Domain services
 

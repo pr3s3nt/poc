@@ -452,6 +452,17 @@ reference `http://100.77.224.24:18088/?review=v3` was opened and exercised; its
 HTML differs from the preserved file only in the advanced.js URL. Existing
 contract tests and real HTTP browser checks pass; user visual review is pending.
 
+## IMP-029 — Shared primary-action color mismatch — open 2026-10-23
+
+The [shared UI design](../architecture/ui/README.md) says primary actions are
+blue, while [Console styles](../../frontend/src/styles/app.css) render the
+shared Button primary action green, with a blue sign-in override. The accepted
+scope-specific origin of that difference has not been reconciled. The platform
+effectiveness prototype reuses the existing Button/styles as requested; it does
+not resolve this mismatch or redefine the canonical color requirement. Resolve
+against approved design history in a separate scoped change, not by silently
+restating current CSS as the requirement.
+
 ## Git copies of release modules — resolved 2026-10-21
 
 Inspection initially generated opaque module IDs for Git copies of packaged

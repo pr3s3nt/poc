@@ -26,7 +26,7 @@ var requiredSnapshotKeys = []string{
 	"deploymentSets", "resourceTypes", "resourceDefinitions", "deployments", "deploymentDeltaSnapshots",
 	"deploymentPlans", "deploymentResources", "activeResources", "workloadInstances", "deploymentWorkloads",
 	"configurationScopes", "configurationRevisions", "workloadDrafts", "secretStores",
-	"environmentOperations", "terraformModuleBundles",
+	"environmentOperations", "terraformModuleBundles", "effectivenessBaselines",
 }
 
 // loadSnapshot parses the current format only. Missing or null aggregate maps,

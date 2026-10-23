@@ -119,6 +119,7 @@ const knownFields: ReadonlySet<string> = new Set([
   'definition.resourceType', 'definition.driverType', 'definition.criteria',
   'definition.connectionKey', 'definition.driverInputs.values', 'definition.driverInputs.values.source', 'definition.driverInputs.values.provider_bindings', 'driverInputs.values.variables', 'context.applicationId', 'context.environmentId', 'context.resourceId', 'context.class', 'service.publicPort',
   'accessKeyId', 'secretAccessKey', 'allowedRegions', 'verificationRegions', 'confirmationName', 'selectedResourceIds',
+  'from', 'to', 'workload', 'metric', 'valueSeconds', 'source', 'effectiveFrom', 'sampleSize', 'measuredFrom', 'measuredTo',
 ]);
 
 export function knownCode(code: unknown): code is string { return has(errorMessages, code); }
@@ -170,6 +171,8 @@ const fieldLabels: Readonly<Record<string, string>> = Object.freeze({
   'context.applicationId': 'Ứng dụng mẫu', 'context.environmentId': 'Môi trường mẫu', 'context.resourceId': 'ID tài nguyên mẫu', 'context.class': 'Class mẫu',
   accessKeyId: 'Access key ID', secretAccessKey: 'Secret access key', allowedRegions: 'Vùng được phép', verificationRegions: 'Vùng kiểm tra',
   confirmationName: 'Tên nhập lại', selectedResourceIds: 'Tài nguyên đã chọn',
+  from: 'Từ ngày', to: 'Đến ngày', workload: 'Workload', metric: 'Chỉ số', valueSeconds: 'Thời gian thực hiện', source: 'Nguồn đo',
+  effectiveFrom: 'Ngày áp dụng', sampleSize: 'Số mẫu', measuredFrom: 'Kỳ đo', measuredTo: 'Kỳ đo',
 });
 
 /** " Trường liên quan: <nhãn>." for a trusted field, otherwise nothing. */

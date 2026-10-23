@@ -607,3 +607,19 @@ derives public facts from that projection and sanitized manifests; shared
 [`reviewMetrics.ts`](../../frontend/src/features/preview/reviewMetrics.ts) keeps
 card dimensions consistent with routing. `reviewEdges.ts` assigns separate tracks,
 outer lanes and attachment columns, with dense-graph geometry regressions.
+
+## UC-17 — Platform effectiveness
+
+[Specification](../usecase/UC-17/specification.md) → measurement contract and
+catalog [domain](../../backend/internal/domain/effectiveness/) (work items,
+period/timezone, metrics, baseline); [service](../../backend/internal/application/effectiveness/);
+ports [baseline/cleanup history](../../backend/internal/ports/persistence/effectiveness.go);
+adapters [PostgreSQL](../../backend/internal/adapters/postgres/effectiveness.go)
+(+ `effectiveness_baselines` in [baseline.sql](../../backend/internal/adapters/postgres/baseline.sql),
+SELECT/INSERT [grants](../../backend/internal/adapters/postgres/grants.go)) and
+[memory/JSON](../../backend/internal/adapters/store/effectiveness.go);
+[HTTP OC-20](../../backend/internal/delivery/http/effectiveness.go);
+Console [feature](../../frontend/src/features/effectiveness/), route/sidebar in
+[routes](../../frontend/src/app/routes.ts) and [AppShell](../../frontend/src/app/AppShell.tsx).
+Adding a metric: a catalog entry in `metrics.go` (Compute + Records) and its
+copy in `labels.ts`; a new external source also needs spec/schema first.

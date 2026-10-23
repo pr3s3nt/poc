@@ -7,6 +7,7 @@ export type Route =
   | { name: 'connections' }
   | { name: 'driver-accounts'; account?: string }
   | { name: 'secret-stores' }
+  | { name: 'effectiveness'; application?: string; workload?: string; days?: EffectivenessDays }
   | { name: 'create-application' }
   | { name: 'application'; applicationId: string; environment?: 'staging' | 'production' }
   | { name: 'settings'; applicationId: string; environment?: 'staging' | 'production' }
@@ -15,6 +16,10 @@ export type Route =
   | { name: 'deployments'; applicationId: string; environment: 'staging' | 'production' }
   | { name: 'deployment'; applicationId: string; environment: 'staging' | 'production'; deploymentId: string }
   | { name: 'resource'; applicationId: string; environment: 'staging' | 'production'; resourceId: string };
+
+// Report periods offered by the UC-17 page.
+export const effectivenessDays = [7, 30, 90] as const;
+export type EffectivenessDays = typeof effectivenessDays[number];
 
 const base = '/ui';
 
@@ -38,6 +43,13 @@ export function parseRoute(path = window.location.pathname): Route {
     return { name: 'driver-accounts', ...(account ? { account } : {}) };
   }
   if (relative === '/platform/secret-stores') return { name: 'secret-stores' };
+  if (relative === '/platform/effectiveness') {
+    const query = new URLSearchParams(search);
+    const application = query.get('application') ?? undefined;
+    const workload = application ? query.get('workload') ?? undefined : undefined;
+    const days = effectivenessDays.find((value) => String(value) === query.get('days'));
+    return { name: 'effectiveness', ...(application ? { application } : {}), ...(workload ? { workload } : {}), ...(days ? { days } : {}) };
+  }
   if (relative === '/applications/new') return { name: 'create-application' };
   const settings = relative.match(/^\/applications\/([^/]+)\/settings$/);
   if (settings?.[1]) {
@@ -70,6 +82,14 @@ export function href(route: Route): string {
     case 'connections': return `${base}/platform/connections`;
     case 'driver-accounts': return `${base}/platform/driver-accounts${route.account ? `?account=${encodeURIComponent(route.account)}` : ''}`;
     case 'secret-stores': return `${base}/platform/secret-stores`;
+    case 'effectiveness': {
+      const query = new URLSearchParams();
+      if (route.application) query.set('application', route.application);
+      if (route.application && route.workload) query.set('workload', route.workload);
+      if (route.days) query.set('days', String(route.days));
+      const text = query.toString();
+      return `${base}/platform/effectiveness${text ? `?${text}` : ''}`;
+    }
     case 'create-application': return `${base}/applications/new`;
     case 'application': return `${base}/applications/${encodeURIComponent(route.applicationId)}${route.environment ? `?environment=${route.environment}` : ''}`;
     case 'settings': return `${base}/applications/${encodeURIComponent(route.applicationId)}/settings${route.environment ? `?environment=${route.environment}` : ''}`;

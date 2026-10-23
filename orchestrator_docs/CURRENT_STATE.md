@@ -90,6 +90,25 @@ is shown explicitly as unavailable, never as an empty list or failed deployment.
 [Diagnosis and 33-page audit](verification/2026-10-23-preview-errors-diagnosis.md)
 record the remaining backend limitation separately from corrected UI defects.
 
+## UC-17 Hiệu quả platform — issue #12 đợt 1, 2026-10-23
+
+PE/Admin mở “Hiệu quả platform” (`/ui/platform/effectiveness`): mặc định Toàn
+tổ chức, drill-down Application → Workload, không tab Dữ liệu; chi tiết chỉ số
+có cách tính, độ phủ và bản ghi dẫn tới lịch sử triển khai; CSV; baseline
+“Mốc so sánh” có phiên bản (append-only, PostgreSQL `effectiveness_baselines`
+và JSON snapshot). Chỉ số platform tự đo từ Deployment và cleanup
+`USER_CONFIRMED`: tần suất triển khai production, ứng dụng/người dùng hoạt
+động, công việc hoàn thành (gộp retry), lượt chạy, thời gian thực hiện và chênh
+lệch với baseline. Lead time, CFR, recovery, rework, yêu cầu → hoàn thành, tự
+phục vụ, công sức, onboarding, giờ công là `NOT_COLLECTED`
+([issue comment](https://github.com/pr3s3nt/poc/issues/12#issuecomment-6361990505)).
+
+Limitations: cleanup history chỉ có trên PostgreSQL (memory/JSON báo nguồn
+không khả dụng); báo cáo đọc toàn bộ lịch sử Organization mỗi request (chưa
+tối ưu cho khối lượng lớn); bảng baseline mới đổi digest baseline T28 nên
+database/snapshot cũ cần reset phát triển; chỉ desktop. Evidence:
+[verification](verification/2026-10-23-uc17-platform-effectiveness.md).
+
 ## Git is the default Terraform source — 2026-10-21
 
 New Resource Definition drafts, reset/cancel and successful registration start

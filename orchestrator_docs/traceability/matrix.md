@@ -1085,3 +1085,16 @@ metrics, per-band tracks/ports and dense horizontal/vertical geometry tests.
 DeploymentReview.test.tsx covers selected-node connection filtering/restoration.
 [Real node facts and geometry evidence](../verification/2026-10-23-preview-node-facts.md)
 records read-only Preview, metadata/history preservation and secret boundaries.
+
+## UC-17 — Platform effectiveness (issue #12 đợt 1)
+
+| Steps | Operation / sequence | Class methods | Persistence/state | Contract / tests |
+|---|---|---|---|---|
+| MS-01, EX-01..03 | OC-20 report; `UC-17/sequence.puml` | `platformActor`, `effectiveness.Service.Report`, `NewPeriod` | read-only | [HTTP tests](../../backend/internal/delivery/http/effectiveness_test.go) role/tenant/field errors; [domain timezone](../../backend/internal/domain/effectiveness/effectiveness_test.go) |
+| MS-02, MS-03, BR-04, BR-11 | same | `load`, `BuildWorkItems`, `deploymentRun`/`cleanupRun`, `actorResolver` | `deployments`; `environment_operations` RESOURCE_CLEANUP USER_CONFIRMED via `ListCleanupRuns` | retry-chain domain test; org report HTTP test; [PostgreSQL test](../../backend/internal/adapters/postgres/effectiveness_integration_test.go) |
+| MS-04, BR-03, BR-05..08 | same | `Catalog`, `Compute`, `Summarize`, `Trend` | read model | domain tests (distinct users, recomputed medians/ratios, NOT_COLLECTED, bands) |
+| MS-05, MS-06 | same | breakdown per Application/Workload | read-only | drill-down HTTP test; [page tests](../../frontend/src/features/effectiveness/EffectivenessPage.test.tsx) |
+| MS-07, BR-12 | OC-20 records | `Records`, `RecordsOf`, `AllRecords` | read-only | records HTTP test; metric dialog + UC-09 link page test |
+| MS-08 | Console CSV | `buildCsv` | none | CSV unit test; browser download |
+| ALT-01, BR-09, BR-10, EX-04 | OC-20 baselines | `AddBaselineVersion`, `Baseline.Validate`, `EffectiveBaseline`, `AppendEffectivenessBaseline` | `effectiveness_baselines` append-only, CAS by version | baseline HTTP test; PostgreSQL restart + 42501; [JSON reload](../../backend/internal/adapters/store/effectiveness_test.go); browser save/reload |
+| Shell gate | UC-17 UI | `AppShell`, `App` | — | [App tests](../../frontend/src/app/App.test.tsx), [route tests](../../frontend/src/app/routes.test.ts) |

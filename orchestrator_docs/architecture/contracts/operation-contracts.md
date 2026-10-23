@@ -774,3 +774,76 @@ OC-11 returns persisted artifacts/node progress and scoped list filter reviewReq
 All detailed shapes, limits, baseline and state rules are owned by
 [deployment-review contract](deployment-review.md); existing auth, CAS, owner/
 fence, secret/ownership/cleanup and no-provider-query rules still apply.
+
+## OC-20 `EffectivenessService.Report` / `Records` / `Baselines`
+
+UC-17 ([specification](../../usecase/UC-17/specification.md)). Mọi endpoint
+yêu cầu session `PLATFORM_ENGINEER`/`ADMIN` (401/403 theo T20); Organization
+lấy từ session. Đọc không đổi state; không gọi provider/executor/cluster.
+
+| Method | Path | Kết quả |
+|---|---|---|
+| GET | `/api/v1/effectiveness/report` | Báo cáo một phạm vi/kỳ |
+| GET | `/api/v1/effectiveness/records` | Công việc logic làm căn cứ cho một chỉ số |
+| GET | `/api/v1/effectiveness/baselines` | Các phiên bản baseline của một phạm vi |
+| POST | `/api/v1/effectiveness/baselines` | Thêm một phiên bản baseline |
+
+Query chung: `from`, `to` (`YYYY-MM-DD`, ngày theo `Asia/Ho_Chi_Minh`, mặc
+định 30 ngày kết thúc hôm nay; thiếu một đầu thì dùng mặc định cho đầu đó),
+`application` (Application key, tuỳ chọn), `workload` (cần `application`).
+`records` thêm `metric` (ID danh mục, tuỳ chọn). Lỗi: `INVALID_REQUEST` field
+`from`/`to`/`workload`/`metric`; Application ngoài Organization `NOT_FOUND`.
+Workload không có lịch sử trong Application vẫn trả báo cáo rỗng.
+
+Report `200`:
+
+```json
+{
+  "scope": {"level": "ORGANIZATION|APPLICATION|WORKLOAD", "applicationKey": "", "applicationName": "", "workloadId": ""},
+  "period": {"from": "2026-09-24", "to": "2026-10-23", "timezone": "Asia/Ho_Chi_Minh", "days": 30},
+  "dataOrigin": "PRODUCTION|TEST_INSTALLATION",
+  "generatedAt": "RFC3339",
+  "sources": [{"id": "deployments", "available": true}, {"id": "resource_cleanups", "available": false}],
+  "metrics": [{"id": "deployment_frequency", "group": "DORA", "unit": "COUNT", "status": "COLLECTED|NO_DATA|NOT_COLLECTED",
+               "value": 12, "numerator": 12, "denominator": 30, "coverage": {"covered": 12, "total": 12},
+               "details": {"perWeek": 2.8}}],
+  "breakdown": {"level": "APPLICATION|WORKLOAD", "rows": [{"key": "", "name": "", "productionDeployments": 0, "frequencyBand": "DAILY|WEEKLY|MONTHLY|RARE|NONE",
+               "completedWork": 0, "openWork": 0, "attempts": 0, "failedAttempts": 0, "medianDurationSeconds": null, "activeUsers": 0}]},
+  "trend": {"bucket": "DAY|WEEK", "points": [{"start": "2026-09-21", "productionDeployments": 0, "completedWork": 0}]},
+  "baseline": null
+}
+```
+
+`unit`: `COUNT`, `RATIO` (0..1), `SECONDS`, `PER_WEEK`. `value`/tử số/mẫu số
+vắng mặt khi `NO_DATA`/`NOT_COLLECTED`; mục `NOT_COLLECTED` có `requiredSource`
+(`COMMIT_LINK`, `INCIDENTS`, `REQUESTS`, `SUPPORT_RECORDS`, `EFFORT_RECORDS`,
+`ONBOARDING_START`). `details` là số phụ theo từng mục (ví dụ `p90Seconds`,
+`openWork`, `automationRuns`, `failedRuns`, nhóm tần suất). Breakdown chỉ có ở
+cấp Organization/Application. `baseline` là phiên bản đang áp dụng (cùng shape
+với baseline list) hoặc `null`.
+
+Records `200`: `{"records": [{"id", "kind": "DEPLOYMENT|RESOURCE_CLEANUP",
+"applicationKey", "applicationName", "environmentKey", "workloadId", "resourceId",
+"action": "DEPLOY|UPDATE|REMOVE|RESOURCE_CLEANUP", "state": "COMPLETED|RUNNING|FAILED_OPEN",
+"attempts", "failedAttempts", "attemptsInPeriod", "firstStartedAt", "completedAt",
+"durationSeconds", "actors": [{"name", "kind": "USER|AUTOMATION"}], "lastRunId"}]}`.
+Không có `metric`: mọi công việc hoàn thành trong kỳ, có lượt bắt đầu trong kỳ
+hoặc đang mở cuối kỳ. `lastRunId` là Deployment ID (mở UC-09 detail) hoặc
+cleanup operation ID; `resourceId` là root resource của cleanup.
+
+Baselines GET (query `application` tuỳ chọn): `{"currentVersion": 0,
+"baselines": [{"id", "metric": "work_duration", "applicationKey", "version",
+"retired", "statistic": "MEDIAN", "valueSeconds", "source", "sampleSize",
+"measuredFrom", "measuredTo", "effectiveFrom", "createdBy", "createdAt"}]}`,
+mới nhất trước; `createdBy` là username.
+
+Baselines POST body (strict, ≤16 KiB): `{"metric": "work_duration",
+"applicationKey"?, "expectedVersion", "retired"?, "valueSeconds"?,
+"source", "effectiveFrom", "sampleSize"?, "measuredFrom"?, "measuredTo"?}`.
+`valueSeconds` 1..31536000 bắt buộc khi không retired và cấm khi retired;
+`source` trim 1..2000; ngày hợp lệ; `measuredFrom/To` đi cặp. Kết quả `201`
+với phiên bản mới. `expectedVersion` khác version hiện tại → `STALE_VERSION`,
+không ghi. Không có update/delete endpoint.
+
+CSV được Console tạo từ report + records của cùng tham số; nó gồm phạm vi, kỳ,
+timezone, `dataOrigin`, nguồn/độ phủ, đơn vị và bản ghi, không tính lại chỉ số.

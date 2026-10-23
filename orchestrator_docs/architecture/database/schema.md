@@ -364,6 +364,42 @@ Per-workload applied revision allows an honest partial-success state when a
 multi-workload configuration rollout fails. The desired Environment pointer
 does not imply every workload has consumed that revision.
 
+### `effectiveness_baselines`
+
+UC-17 baseline versions. Append-only: Console login has only `SELECT` and
+`INSERT`; no runtime login updates or deletes a version.
+
+| Column | Type | Constraint |
+|---|---|---|
+| `id` | uuid | PK |
+| `organization_id` | uuid | FK organizations, NOT NULL |
+| `application_id` | uuid | nullable FK applications; NULL = Toàn tổ chức; Application must belong to the same Organization (checked by the command) |
+| `metric_id` | text | NOT NULL, `work_duration` only in đợt 1 |
+| `version` | bigint | NOT NULL, CHECK(version >= 1) |
+| `retired` | boolean | NOT NULL DEFAULT false; true = ngừng áp dụng từ `effective_from` |
+| `statistic` | text | `MEDIAN` when not retired, NULL when retired |
+| `value_seconds` | bigint | CHECK > 0 when not retired, NULL when retired |
+| `source` | text | NOT NULL, 1..2000 characters after trim |
+| `sample_size` | integer | nullable, CHECK > 0 |
+| `measured_from`, `measured_to` | date | nullable; both or neither; from ≤ to |
+| `effective_from` | date | NOT NULL; report-timezone calendar date |
+| `created_by` | uuid | FK user_accounts, NOT NULL |
+| `created_at` | timestamptz | NOT NULL DEFAULT now() |
+
+Unique index `(organization_id, metric_id, COALESCE(application_id,
+'00000000-0000-0000-0000-000000000000'), version)`. A new version is inserted
+as `expectedVersion + 1`; a unique violation is `ErrVersionConflict` and writes
+nothing. A report uses, among the scope's versions with `effective_from ≤
+period.to`, the one with the latest `effective_from` (ties: highest version);
+if it is retired, no baseline applies. Older periods keep the version that was
+effective for them. The JSON development snapshot stores the same records under
+`effectivenessBaselines`.
+
+UC-17 adds no event table: Deployment and `RESOURCE_CLEANUP` history are the
+event source. The baseline table changes the T28 baseline digest, so a database
+or JSON snapshot created before it requires the documented development reset;
+no automatic migration is provided.
+
 ## Transaction contracts
 
 1. Create Environment: Environment + empty Deployment Set + current pointer atomically.

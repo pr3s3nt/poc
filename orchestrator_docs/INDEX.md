@@ -2,7 +2,7 @@
 id: DOC-INDEX
 artifact: documentation-index
 status: current
-last_reviewed: 2026-10-16
+last_reviewed: 2026-10-23
 ---
 
 # Documentation index
@@ -25,6 +25,7 @@ implementation status.
 |---|---|
 | Hiểu scope, mức hoàn thành hoặc limitation | [Current project state](CURRENT_STATE.md) |
 | Tra cứu thuật ngữ | [Glossary](GLOSSARY.md) |
+| Xây/sửa UI, mock hoặc prototype | [Shared UI design](architecture/ui/README.md), rồi UI của use case liên quan |
 | Thay đổi UC-00 | [UC-00 context](usecase/UC-00/README.md) |
 | Thay đổi UC-01 | [UC-01 context](usecase/UC-01/README.md) |
 | Thay đổi UC-02 | [UC-02 context](usecase/UC-02/README.md) |
@@ -37,6 +38,7 @@ implementation status.
 | Thay đổi UC-09 | [UC-09 context](usecase/UC-09/README.md) |
 | Thay đổi UC-12 | [UC-12 context](usecase/UC-12/README.md) |
 | Thay đổi UC-16 | [UC-16 context](usecase/UC-16/README.md) |
+| Thay đổi UC-17 | [UC-17 context](usecase/UC-17/README.md) |
 | Thay đổi shared architecture/domain | [Architecture index](architecture/README.md) |
 | Thay đổi schema/constraint | [Database schema](architecture/database/schema.md) |
 | Hiểu rationale của quyết định | [ADR index](architecture/decisions/README.md) |

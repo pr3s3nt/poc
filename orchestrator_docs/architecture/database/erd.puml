@@ -261,6 +261,32 @@ entity deployment_workloads {
   manifest_review : jsonb <<nullable,safe>>
 }
 
+entity effectiveness_baselines {
+  * id : uuid <<PK>>
+  * organization_id : uuid <<FK>>
+  application_id : uuid <<FK, nullable>>
+  created_by : uuid <<FK>>
+  --
+  metric_id : text
+  version : bigint
+  retired : boolean
+  statistic : text
+  value_seconds : bigint
+  source : text
+  sample_size : integer
+  measured_from : date
+  measured_to : date
+  effective_from : date
+  created_at : timestamptz
+}
+note right of effectiveness_baselines
+  UC-17 append-only versions; Console SELECT/INSERT only.
+  Unique (organization, metric, application-or-organization, version).
+end note
+
+organizations ||--o{ effectiveness_baselines
+applications |o--o{ effectiveness_baselines : scope
+user_accounts ||--o{ effectiveness_baselines : created_by
 organizations ||--o{ connections
 organizations ||--o{ user_accounts
 user_accounts ||--o{ sessions
