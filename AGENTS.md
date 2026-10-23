@@ -36,6 +36,25 @@ Chỉ khi người dùng yêu cầu “tiếp tục roadmap” mới đọc acti
 `orchestrator_docs/iterations/`. Không tự động bỏ qua yêu cầu hiện tại để làm
 hạng mục roadmap kế tiếp.
 
+## UI, mock và prototype
+
+Mọi task UI, kể cả mock/prototype phục vụ duyệt, phải đọc
+[shared UI design](orchestrator_docs/architecture/ui/README.md) trước khi sửa.
+Đọc shell, styles, shared components và màn hình sản phẩm tương tự; mở giao diện
+đó trên browser trước khi thiết kế. Có thể dùng fixture khi không có backend,
+nhưng phải nêu rõ đó là UI sản phẩm với dữ liệu giả. Mock cũ không mặc nhiên là
+nguồn chuẩn. Nếu không thể xem browser, ghi rõ giới hạn, không coi chỉ đọc code
+là đã đối chiếu trực quan.
+
+Tái sử dụng UI hiện hành; không tự đổi nhận diện, shell, navigation hoặc pattern
+chung ngoài phạm vi được yêu cầu. Tuân thủ quy tắc nội dung ngắn gọn trong shared
+UI design. Trước bàn giao, đối chiếu trực quan với màn hình tham chiếu và hỏi:
+“Nội dung nào có thể bỏ hoặc chuyển vào trợ giúp mà người dùng vẫn hoàn thành
+tác vụ?” Ghi nguồn UI đã dùng và kết quả đối chiếu trong handoff.
+
+Quy tắc áp dụng cho UI mới và phần UI đang sửa; không tự mở rộng task sang việc
+thiết kế lại hoặc tinh giản mọi màn hình cũ.
+
 ## Canonical change order
 
 | Change | Required sequence |
@@ -76,7 +95,7 @@ thay đổi, sửa nguồn chuẩn trước rồi mới sửa dependent artifact
 | Operation/participant | Realization, sequence, VOPC, shared classes, contracts |
 | Domain object/relationship | Domain model, schema, persistence, tests |
 | State/transition | Specification, state machine, contracts, schema, code, tests |
-| API/UI | Specification, realization, handler/client, UI states, tests |
+| API/UI | Specification, realization, handler/client, shared UI design, UI states, tests; với UI/mock: shell, styles, components và browser reference |
 | Planner contract | UC-05/06/07/08, planner reference, conformance tests, traceability |
 | External provider | ADR/architecture, adapter, configuration, runbook, verification |
 | Source path/module name | Imports, build tools, runbooks, code map, links |

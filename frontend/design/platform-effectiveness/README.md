@@ -55,3 +55,38 @@ when the review ends. Preview runtime details are handed off in the conversation
 
 Runtime preview: tmux session `effectiveness-mock-18097`, built assets in
 `/tmp/platform-effectiveness-dist`. Other sessions/services remain unchanged.
+
+## Revision 2 — reuse Console and reduce copy, 2026-10-23
+
+Supersedes the initial prototype's visual direction. The new UI imports the
+product `AppShell`, `Button` and `styles/index.css` directly. The only sidebar
+addition is the proposed “Hiệu quả platform” entry, attached inside this prototype
+with a React portal; product navigation/routes and sources are not modified.
+Sidebar destinations/sign-out show a local notice rather than navigating to
+unimplemented pages. A scoped mobile overflow constraint keeps the existing
+horizontal navigation usable without restyling the product shell.
+
+Reference inspected before redesign: real `ApplicationsPage` + `AppShell`,
+rendered in Chromium with two synthetic applications and the existing product
+CSS. [Console reference](screenshots/console-reference.png),
+[revised desktop](screenshots/desktop.png), [revised mobile](screenshots/mobile.png).
+The sidebar width (260px), background, wordmark, navigation entries, footer and
+primary button styling match the imported product components. The preexisting
+shared-design prose about blue primary actions differs from the green Console
+Button; recorded as [IMP-029](../../../orchestrator_docs/implementation/deviations.md#imp-029--shared-primary-action-color-mismatch--open-2026-10-23).
+This task reuses Button and does not resolve that historical mismatch.
+
+Copy review: removed invented header/workspace identity, English subtitles,
+introductory paragraphs, repeated mock notices and duplicated DORA overview tab.
+Three tabs remain: Tổng quan, Tự phục vụ, Dữ liệu. Baseline (“Mốc so sánh”) is a
+compact dialog. Definitions/formulas and long help are in keyboard/touch-accessible
+dialogs or expandable help. Production scope, units, missing-data indicators,
+median labels and elapsed-time versus labor distinction remain where needed.
+
+Revision 2 checks: strict TypeScript, scoped ESLint, production bundle, docs and
+whitespace checks passed. Chromium desktop/mobile checks cover product shell
+identity, filters/source counts, tabs, dialogs/Escape, baseline save/reset, CSV,
+empty state, page overflow and browser errors. Screenshots were visually compared
+to the product reference. Product full suites, cloud and database runs were not
+needed because product source and runtime behavior are unchanged. The existing
+Tailscale server/session continues to serve the rebuilt prototype.

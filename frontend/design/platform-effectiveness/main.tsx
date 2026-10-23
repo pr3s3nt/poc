@@ -1,5 +1,9 @@
 import { useRef, useState, useEffect } from "react";
 import { createRoot } from "react-dom/client";
+import { createPortal } from "react-dom";
+import { AppShell } from "../../src/app/AppShell";
+import { Button } from "../../src/shared/ui/Button";
+import "../../src/styles/index.css";
 import "./style.css";
 
 type Row = {
@@ -38,7 +42,7 @@ const fmt = (n: number) =>
   new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 }).format(n);
 const duration = (n: number) =>
   n >= 60 ? `${fmt(n / 60)} giờ` : `${fmt(n)} phút`;
-const tabs = ["Tổng quan", "DORA", "Tự phục vụ & sử dụng", "Baseline"];
+const tabs = ["Tổng quan", "Tự phục vụ", "Dữ liệu"];
 function App() {
   const [tab, setTab] = useState("Tổng quan"),
     [app, setApp] = useState("checkout-api"),
@@ -50,6 +54,13 @@ function App() {
       source: string;
     } | null>(null),
     [notice, setNotice] = useState("");
+  const [navSlot] = useState(() => document.createElement("div"));
+  const shell = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    navSlot.className = "eff-nav-slot";
+    shell.current?.querySelector(".nav")?.appendChild(navSlot);
+    return () => navSlot.remove();
+  }, [navSlot]);
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (detail) dialog.current?.showModal();
@@ -71,13 +82,13 @@ function App() {
     {
       name: "Tần suất triển khai",
       en: "Deployment frequency",
-      value: data.length ? `${fmt(data.length / days)} / ngày` : "—",
+      value: data.length ? `${fmt(data.length / days)} lần/ngày` : "—",
       note: `${data.length} deployment production / ${days} ngày`,
       formula:
         "Số deployment đã lên production / số ngày trong kỳ. Các bản ghi mẫu đều đã lên production; sự cố sau deploy được ghi riêng.",
     },
     {
-      name: "Thời gian đưa thay đổi lên production",
+      name: "Commit đến production",
       en: "Change lead time",
       value: leads.length ? duration(median(leads)) : "—",
       note: `Có liên kết commit: ${leads.length}/${data.length}`,
@@ -85,7 +96,7 @@ function App() {
         "Trung vị thời gian từ commit đến deployment production thành công. Không dùng thời gian chạy pipeline thay thế. Chỉ tính bản ghi có commit.",
     },
     {
-      name: "Tỷ lệ thay đổi gây lỗi",
+      name: "Thay đổi gây lỗi",
       en: "Change fail rate",
       value: data.length
         ? `${fmt((incidents.length / data.length) * 100)}%`
@@ -103,7 +114,7 @@ function App() {
         "Trung vị từ sự cố do deployment đến khôi phục. Sự cố chưa khôi phục không có duration và được công bố riêng; không gán bằng 0.",
     },
     {
-      name: "Tỷ lệ triển khai khắc phục",
+      name: "Triển khai khắc phục",
       en: "Deployment rework rate",
       value: data.length
         ? `${fmt((data.filter((r) => r.rework).length / data.length) * 100)}%`
@@ -160,11 +171,11 @@ function App() {
     a.download = `MOCK-hieu-qua-${app}-${days}ngay.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    setNotice("Đã xuất CSV dữ liệu mẫu theo bộ lọc hiện tại.");
+    setNotice("Đã xuất CSV.");
   }
   const evidence = (
-    <div className="table-wrap">
-      <table>
+    <div className="eff-table-wrap">
+      <table className="plain-table">
         <thead>
           <tr>
             <th>Deployment / thời điểm</th>
@@ -184,14 +195,14 @@ function App() {
               <td>{r.actor}</td>
               <td>
                 {r.lead === null ? (
-                  <span className="amber">Thiếu commit</span>
+                  <span className="eff-warning">Thiếu commit</span>
                 ) : (
                   duration(r.lead)
                 )}
               </td>
               <td>
                 {r.incident ? (
-                  <span className="amber">
+                  <span className="eff-warning">
                     {r.recovery === null
                       ? "Chưa khôi phục"
                       : `Khôi phục ${r.recovery} phút`}
@@ -213,103 +224,100 @@ function App() {
       </table>
     </div>
   );
+  const selectedMetric = metrics.find((m) => m.name === detail);
   return (
-    <>
-      <aside>
-        <div className="brand">
-          <span className="brand-icon">O</span> orchestrator
-          <span className="brand-dot">.</span>
-        </div>
-        <div className="workspace">
-          AC{" "}
-          <span>
-            Acme Engineering<small>Tổ chức minh họa</small>
-          </span>
-        </div>
-        <div className="nav-label">WORKSPACE</div>
-        <div className="nav-muted">▧ Ứng dụng</div>
-        <div className="nav-muted">↻ Lịch sử triển khai</div>
-        <div className="nav-active">
-          ▥ Hiệu quả platform <span>Mới</span>
-        </div>
-        <div className="nav-label">NỀN TẢNG</div>
-        <div className="nav-muted">◇ Loại tài nguyên</div>
-        <div className="nav-muted">▦ Cấu hình tài nguyên</div>
-        <div className="nav-muted">⊞ Mẫu dựng ứng dụng</div>
-        <div className="nav-muted">⇄ Kết nối hạ tầng</div>
-        <div className="nav-muted">♧ Kho bí mật</div>
-        <div className="sidebar-bottom">
-          <span className="avatar">AD</span>
-          <div>
-            Quản trị viên<small>Phiên duyệt giao diện</small>
-          </div>
-        </div>
-      </aside>
-      <div className="shell">
-        <header>
-          <span>
-            Workspace <span className="slash">/</span> <b>Hiệu quả platform</b>
-          </span>
-          <span className="prototype">BẢN THIẾT KẾ · 01</span>
-        </header>
-        <main>
-          <div className="heading">
+    <div
+      className="effectiveness-prototype"
+      ref={shell}
+      onClickCapture={(e) => {
+        const link = (e.target as HTMLElement).closest(".sidebar a");
+        if (link && link.getAttribute("href") !== "#effectiveness") {
+          e.preventDefault();
+          e.stopPropagation();
+          setNotice("Mục này chưa có trong bản mẫu.");
+        }
+      }}
+    >
+      <AppShell
+        username="admin"
+        role="ADMIN"
+        activeRoute="effectiveness"
+        onSignOut={() => setNotice("Bản mẫu không có phiên đăng nhập.")}
+      >
+        {createPortal(
+          <a
+            className="nav-item nav-item-active"
+            href="#effectiveness"
+            aria-current="page"
+            onClick={(e) => {
+              e.preventDefault();
+              setTab("Tổng quan");
+            }}
+          >
+            ▥ <span>Hiệu quả platform</span>
+          </a>,
+          navSlot,
+        )}
+        <section className="page eff-page">
+          <header className="page-header">
             <div>
-              <div className="eyebrow">ĐO LƯỜNG GIÁ TRỊ NỀN TẢNG</div>
               <h1>Hiệu quả platform</h1>
-              <p>Từ hoạt động thực tế đến những cải thiện có thể đo lường.</p>
+              <span className="eff-demo">Dữ liệu mẫu</span>
             </div>
-            <button className="primary" onClick={csv} disabled={!data.length}>
-              ↓ Xuất báo cáo CSV
-            </button>
-          </div>
-          <div className="demo">
-            <span>
-              <b>Dữ liệu minh họa</b> · Dùng để duyệt giao diện, không phản ánh
-              hiệu quả dự án.
-            </span>
-            <label>
-              <input
-                type="checkbox"
-                checked={empty}
-                onChange={(e) => setEmpty(e.target.checked)}
-              />{" "}
-              Xem khi chưa có dữ liệu
-            </label>
-          </div>
-          <div className="filters">
+            <div className="eff-actions">
+              <Button onClick={() => setDetail("Mốc so sánh")}>
+                Mốc so sánh
+              </Button>
+              <Button tone="primary" onClick={csv} disabled={!data.length}>
+                Xuất CSV
+              </Button>
+            </div>
+          </header>
+          <div className="eff-filters">
             <label>
               Ứng dụng
-              <select aria-label="Ứng dụng" value={app} onChange={(e) => setApp(e.target.value)}>
+              <select
+                aria-label="Ứng dụng"
+                value={app}
+                onChange={(e) => setApp(e.target.value)}
+              >
                 <option>checkout-api</option>
                 <option>billing-api</option>
               </select>
             </label>
             <label>
-              Khoảng thời gian
+              Thời gian
               <select
-                aria-label="Khoảng thời gian"
+                aria-label="Thời gian"
                 value={days}
                 onChange={(e) => setDays(Number(e.target.value))}
               >
-                <option value={30}>30 ngày gần nhất</option>
-                <option value={7}>7 ngày gần nhất</option>
+                <option value={30}>30 ngày</option>
+                <option value={7}>7 ngày</option>
               </select>
             </label>
-            <div>
-              <small>Môi trường đo lường</small>
-              <b>
-                <span className="dot" /> production
-              </b>
+            <div className="eff-scope">
+              <span className="status status-good">
+                <span className="status-dot" />
+                production
+              </span>
+              <small>
+                {date(24 - days)} — {date(23)}
+              </small>
             </div>
-            <span className="filter-date">
-              {date(24 - days)} — 23/10/2026
-              <small>Mốc thời gian cố định của bản mẫu · UTC</small>
-            </span>
+            <label className="eff-empty-toggle">
+              <input
+                type="checkbox"
+                checked={empty}
+                onChange={(e) => setEmpty(e.target.checked)}
+              />
+              Chưa có dữ liệu
+            </label>
           </div>
           <nav className="tabs" aria-label="Các phần báo cáo">
             {tabs.map((t) => (
               <button
+                className={`tab${tab === t ? " tab-active" : ""}`}
                 key={t}
                 aria-current={tab === t ? "page" : undefined}
                 onClick={() => setTab(t)}
@@ -319,404 +327,361 @@ function App() {
             ))}
           </nav>
           {notice && (
-            <div role="status" className="notice">
+            <div className="form-info eff-notice" role="status">
               {notice}
-              <button aria-label="Đóng thông báo" onClick={() => setNotice("")}>
+              <Button
+                tone="quiet"
+                aria-label="Đóng thông báo"
+                onClick={() => setNotice("")}
+              >
                 ×
-              </button>
+              </Button>
             </div>
           )}
-          {empty && tab !== "Baseline" ? (
-            <section className="empty">
-              <div>▥</div>
-              <h2>Chưa có dữ liệu trong kỳ này</h2>
-              <p>
-                Khi có hoạt động thực tế, báo cáo sẽ xuất hiện tại đây.
-                <br />
-                Chỉ số chưa có dữ liệu không được tính là 0.
-              </p>
-              <button onClick={() => setEmpty(false)}>
-                Xem dữ liệu minh họa
-              </button>
-            </section>
+          {!data.length ? (
+            <div className="empty-state">
+              <div className="empty-icon">▥</div>
+              <h2>Chưa có dữ liệu</h2>
+              <Button onClick={() => setEmpty(false)}>Xem dữ liệu mẫu</Button>
+            </div>
           ) : (
             <>
-              {(tab === "Tổng quan" || tab === "DORA") && (
+              {tab === "Tổng quan" && (
                 <>
-                  <div className="section-title">
-                    <div>
-                      <h2>
-                        {tab === "DORA"
-                          ? "Hiệu quả giao phần mềm"
-                          : "Giao phần mềm nhanh và ổn định hơn"}
-                      </h2>
-                      <p>
-                        5 chỉ số DORA · Theo từng ứng dụng, không xếp hạng đội
-                        ngũ.
-                      </p>
-                    </div>
-                    <a
-                      href="https://dora.dev/guides/dora-metrics/"
-                      target="_blank"
-                      rel="noreferrer"
+                  <div className="section-header">
+                    <h2>DORA</h2>
+                    <Button
+                      tone="quiet"
+                      onClick={() => setDetail("Cách đọc chỉ số")}
                     >
-                      Định nghĩa DORA ↗
-                    </a>
+                      Cách đọc chỉ số
+                    </Button>
                   </div>
-                  <div className="metrics">
+                  <div className="eff-metrics">
                     {metrics.map((m, i) => (
                       <button
-                        className="metric"
+                        className="eff-metric"
                         key={m.en}
                         onClick={() => setDetail(m.name)}
+                        aria-label={`${m.name}: ${m.value}. Xem chi tiết`}
                       >
-                        <span className="metric-index">
-                          0{i + 1}
-                          <span>↗</span>
+                        <span className="eff-metric-title">
+                          {m.name}
+                          <span aria-hidden="true">↗</span>
                         </span>
-                        <h3>{m.name}</h3>
-                        <small>{m.en}</small>
-                        <div className="metric-value">{m.value}</div>
-                        <div className="metric-note">{m.note}</div>
+                        <strong>{m.value}</strong>
+                        {i === 1 && leads.length < data.length ? (
+                          <small className="eff-warning">
+                            Thiếu commit: {data.length - leads.length}/
+                            {data.length}
+                          </small>
+                        ) : i === 3 && recoveries.length < incidents.length ? (
+                          <small className="eff-warning">
+                            Chưa khôi phục:{" "}
+                            {incidents.length - recoveries.length}
+                          </small>
+                        ) : (
+                          <small>
+                            {i === 0
+                              ? `${data.length} lượt triển khai`
+                              : i === 1 || i === 3
+                                ? "Trung vị"
+                                : m.note.replace(" deployment", " lượt")}
+                          </small>
+                        )}
                       </button>
                     ))}
                   </div>
-                  {tab === "Tổng quan" && (
-                    <div className="two-col">
-                      <section>
-                        <div className="section-title">
-                          <div>
-                            <h2>Nhịp triển khai</h2>
-                            <p>
-                              Số deployment production theo khoảng thời gian
-                            </p>
-                          </div>
-                          <span className="pill">{data.length} deployment</span>
-                        </div>
-                        <div
-                          className="chart"
-                          role="img"
-                          aria-label="Biểu đồ số deployment theo khoảng thời gian"
-                        >
-                          {Array.from(
-                            { length: days === 7 ? 7 : 5 },
-                            (_, i) => {
-                              const buckets = days === 7 ? 7 : 5;
-                              const from =
-                                  24 - days + Math.floor((i * days) / buckets),
-                                to =
-                                  24 -
-                                  days +
-                                  Math.floor(((i + 1) * days) / buckets);
-                              const count = data.filter(
-                                (r) => r.day >= from && r.day < to,
-                              ).length;
-                              return (
-                                <div className="bar-group" key={i}>
-                                  <strong>{count}</strong>
-                                  <div
-                                    className="bar"
-                                    style={{
-                                      height: `${Math.max(3, count * 12)}px`,
-                                    }}
-                                  />
-                                  <small>
-                                    {date(from).slice(5)}
-                                    {days === 30
-                                      ? ` – ${date(to - 1).slice(5)}`
-                                      : ""}
-                                  </small>
-                                </div>
-                              );
-                            },
-                          )}
-                        </div>
-                        <div className="chart-footer">
-                          <span className="dot" /> Deployment mẫu · cùng ứng
-                          dụng và môi trường
-                        </div>
-                      </section>
-                      <section className="value-panel">
-                        <div className="eyebrow">SO SÁNH TRƯỚC & SAU</div>
-                        <h2>
-                          Platform đã rút ngắn
-                          <br />
-                          bao nhiêu thời gian?
-                        </h2>
-                        {baseline ? (
-                          <>
-                            <div className="hero-number">
-                              {duration(baseline.minutes - current)}
+                  <div className="eff-two-col">
+                    <section className="content-panel">
+                      <div className="section-header">
+                        <h2>Lượt triển khai</h2>
+                        <span className="muted">{data.length} lượt</span>
+                      </div>
+                      <div
+                        className="eff-chart"
+                        role="img"
+                        aria-label="Số deployment production theo thời gian"
+                      >
+                        {Array.from({ length: days === 7 ? 7 : 5 }, (_, i) => {
+                          const buckets = days === 7 ? 7 : 5;
+                          const from =
+                              24 - days + Math.floor((i * days) / buckets),
+                            to =
+                              24 -
+                              days +
+                              Math.floor(((i + 1) * days) / buckets);
+                          const count = data.filter(
+                            (r) => r.day >= from && r.day < to,
+                          ).length;
+                          return (
+                            <div className="eff-bar-group" key={i}>
+                              <strong>{count}</strong>
+                              <div
+                                className="eff-bar"
+                                style={{
+                                  height: `${Math.max(3, count * 13)}px`,
+                                }}
+                              />
+                              <small>{date(from).slice(5)}</small>
                             </div>
-                            <p>
-                              Chênh lệch thời gian hoàn thành yêu cầu điển hình.
-                              <br />
-                              Baseline {duration(baseline.minutes)} → hiện tại{" "}
-                              {duration(current)}.
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <div className="hero-number">Chưa có baseline</div>
-                            <p>
-                              Bổ sung mốc đo trước khi sử dụng platform để có
-                              phép so sánh có căn cứ.
-                            </p>
-                          </>
-                        )}
-                        <div className="callout">
-                          Thời gian quy trình rút ngắn không đồng nghĩa với giờ
-                          công tiết kiệm.
-                        </div>
-                        <button onClick={() => setTab("Baseline")}>
-                          {baseline ? "Xem baseline" : "Thiết lập baseline"} →
-                        </button>
-                      </section>
-                    </div>
-                  )}
-                  <section className="quality">
-                    <div>
-                      <h3>Độ đầy đủ của dữ liệu</h3>
-                      <p>
-                        {leads.length}/{data.length} deployment có commit ·{" "}
-                        {recoveries.length}/{incidents.length} sự cố có mốc khôi
-                        phục. Các chỉ số chỉ tính trên bản ghi đủ dữ liệu.
-                      </p>
-                    </div>
-                    <button onClick={() => setDetail("Nguồn dữ liệu")}>
-                      Kiểm tra nguồn →
-                    </button>
-                  </section>
-                  {tab === "DORA" && (
-                    <section>
-                      <h2>Lịch sử làm căn cứ</h2>
-                      <p>Các bản ghi giả lập đứng sau chỉ số ở trên.</p>
-                      {evidence}
+                          );
+                        })}
+                      </div>
                     </section>
-                  )}
+                    <section className="content-panel eff-comparison">
+                      <div className="section-header">
+                        <h2>Thời gian rút ngắn</h2>
+                      </div>
+                      <strong className="eff-comparison-value">
+                        {baseline ? duration(baseline.minutes - current) : "—"}
+                      </strong>
+                      <p className="muted">
+                        {baseline
+                          ? `${duration(baseline.minutes)} → ${duration(current)} / yêu cầu`
+                          : "Chưa có mốc so sánh"}
+                      </p>
+                      {baseline && (
+                        <small>Thời gian quy trình, không phải giờ công.</small>
+                      )}
+                      <Button onClick={() => setDetail("Mốc so sánh")}>
+                        {baseline ? "Xem mốc so sánh" : "Thêm mốc so sánh"}
+                      </Button>
+                    </section>
+                  </div>
+                  <div className="eff-summary">
+                    <span>
+                      <b>{users}</b> người dùng hoạt động
+                    </span>
+                    <span>
+                      <b>
+                        {self}/{answered.length}
+                      </b>{" "}
+                      lượt tự phục vụ
+                    </span>
+                    <Button tone="quiet" onClick={() => setTab("Dữ liệu")}>
+                      Xem dữ liệu nguồn →
+                    </Button>
+                  </div>
                 </>
               )}
-              {tab === "Tự phục vụ & sử dụng" && (
+              {tab === "Tự phục vụ" && (
                 <>
-                  <div className="section-title">
-                    <div>
-                      <h2>Giảm phụ thuộc, mở rộng khả năng phục vụ</h2>
-                      <p>
-                        Đo mức sử dụng và nhu cầu hỗ trợ trong phạm vi đã chọn.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="usage-grid">
+                  <div className="eff-usage-grid">
                     {[
                       {
                         name: "Người dùng hoạt động",
                         value: String(users),
-                        note: "Có ít nhất một deployment trong kỳ",
+                        note: "Có triển khai trong kỳ",
                       },
                       {
-                        name: "Deployment production",
-                        value: String(data.length),
-                        note: "Số lượt thực hiện, không phải giờ công",
-                      },
-                      {
-                        name: "Tỷ lệ tự phục vụ",
+                        name: "Tự phục vụ",
                         value: answered.length
                           ? `${fmt((self / answered.length) * 100)}%`
                           : "—",
-                        note: `${self}/${answered.length} lượt đã trả lời không cần hỗ trợ`,
+                        note: `${self}/${answered.length} lượt đã phản hồi`,
                       },
                       {
-                        name: "Độ phủ phản hồi hỗ trợ",
-                        value: data.length
-                          ? `${fmt((answered.length / data.length) * 100)}%`
-                          : "—",
-                        note: `${data.length - answered.length} lượt chưa trả lời`,
+                        name: "Chưa phản hồi hỗ trợ",
+                        value: String(data.length - answered.length),
+                        note: `Trên ${data.length} lượt triển khai`,
                       },
                     ].map((m) => (
                       <button
-                        className="metric"
+                        className="eff-metric"
                         key={m.name}
-                        onClick={() => setDetail("Nguồn dữ liệu")}
+                        onClick={() => setDetail("Tự phục vụ")}
                       >
-                        <h3>{m.name}</h3>
-                        <div className="metric-value">{m.value}</div>
-                        <p>{m.note}</p>
+                        <span className="eff-metric-title">
+                          {m.name}
+                          <span aria-hidden="true">↗</span>
+                        </span>
+                        <strong>{m.value}</strong>
+                        <small>{m.note}</small>
                       </button>
                     ))}
                   </div>
-                  <div className="two-col">
-                    <section>
-                      <h2>Công sức Ops hỗ trợ & bảo trì</h2>
-                      <div className="missing">Chưa thu thập</div>
-                      <p>
-                        Cần dữ liệu giờ công thực tế. Không suy ra từ thời gian
-                        chạy tự động hay vai trò người bấm deploy.
-                      </p>
-                    </section>
-                    <section>
-                      <h2>Thời gian onboarding</h2>
-                      <div className="missing">Chưa thu thập</div>
-                      <p>
-                        Dự kiến đo từ lúc bắt đầu onboarding đến lần triển khai
-                        thành công đầu tiên. Cần ghi nhận mốc bắt đầu.
-                      </p>
-                    </section>
-                  </div>
-                  <section>
-                    <h2>Ghi nhận tự phục vụ</h2>
-                    <p>
-                      Phản hồi minh họa: có / không cần hỗ trợ / chưa trả lời.
-                    </p>
-                    {evidence}
+                  <section className="content-panel eff-pending">
+                    <h2>Cần bổ sung dữ liệu</h2>
+                    <div>
+                      <span>Công sức Ops</span>
+                      <span className="muted">Chưa thu thập</span>
+                    </div>
+                    <div>
+                      <span>Thời gian onboarding</span>
+                      <span className="muted">Chưa thu thập</span>
+                    </div>
+                    <Button
+                      tone="quiet"
+                      onClick={() => setDetail("Tự phục vụ")}
+                    >
+                      Cách ghi nhận
+                    </Button>
                   </section>
                 </>
               )}
-              {tab === "Baseline" && (
-                <div className="baseline-layout">
-                  <section>
-                    <div className="eyebrow">MỐC ĐỐI CHIẾU</div>
-                    <h2>Thời gian xử lý yêu cầu triển khai</h2>
-                    <p>
-                      Nhập sau khi bạn đo quy trình thủ công. Bản mẫu dùng cùng
-                      baseline cho hai ứng dụng để duyệt tương tác; bản thật cần
-                      baseline đúng phạm vi.
-                    </p>
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const f = new FormData(e.currentTarget);
-                        setBaseline({
-                          minutes: Number(f.get("minutes")),
-                          source: String(f.get("source")).trim(),
-                        });
-                        setNotice(
-                          "Đã lưu baseline mẫu trong phiên duyệt. Tải lại trang sẽ đặt lại.",
-                        );
-                      }}
-                    >
-                      <label>
-                        Thời gian từ gửi yêu cầu đến hoàn thành (phút)
-                        <input
-                          name="minutes"
-                          type="number"
-                          min="1"
-                          max="100000"
-                          required
-                          defaultValue={baseline?.minutes}
-                          placeholder="Ví dụ: nhập kết quả bạn đã đo"
-                        />
-                      </label>
-                      <label>
-                        Nguồn / phương pháp đo
-                        <textarea
-                          name="source"
-                          required
-                          minLength={5}
-                          defaultValue={baseline?.source}
-                          placeholder="Đợt khảo sát, số mẫu, quy trình và phạm vi áp dụng…"
-                        />
-                      </label>
-                      <div className="callout">
-                        Chỉ lưu trong phiên mock UI. Không ghi database và không
-                        thay đổi dữ liệu thật.
-                      </div>
-                      <button className="primary" type="submit">
-                        Lưu baseline mẫu
-                      </button>
-                      {baseline && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setBaseline(null);
-                            setNotice("Đã xóa baseline mẫu.");
-                          }}
-                        >
-                          Xóa baseline mẫu
-                        </button>
-                      )}
-                    </form>
-                  </section>
-                  <section className="baseline-guide">
-                    <h2>Đọc kết quả đúng cách</h2>
-                    <ol>
-                      <li>
-                        <b>Cùng công việc, cùng phạm vi</b>
-                        <p>So sánh cùng loại yêu cầu và tiêu chí hoàn thành.</p>
-                      </li>
-                      <li>
-                        <b>Giữ nguồn đo</b>
-                        <p>
-                          Baseline phải có căn cứ và lịch sử phiên bản trong bản
-                          thật.
-                        </p>
-                      </li>
-                      <li>
-                        <b>Phân biệt thời gian và công sức</b>
-                        <p>
-                          Chưa có dữ liệu giờ công thì chưa báo cáo tiền hoặc
-                          ROI.
-                        </p>
-                      </li>
-                    </ol>
-                    <hr />
-                    <p>Tham khảo phương pháp</p>
-                    <a
-                      href="https://docs.port.io/guides/all/create-roi-dashboard/"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Port · Action ROI ↗
-                    </a>
-                    <br />
-                    <a
-                      href="https://humanitec.com/blog/impact-of-internal-developer-platforms"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Humanitec · Platform impact ↗
-                    </a>
-                  </section>
-                </div>
+              {tab === "Dữ liệu" && (
+                <section className="content-panel">
+                  <div className="section-header">
+                    <h2>Lịch sử triển khai</h2>
+                    <span className="muted">{data.length} lượt</span>
+                  </div>
+                  {evidence}
+                </section>
               )}
             </>
           )}
-          <footer>
-            <span>Orchestrator / Hiệu quả platform</span>
-            <span>Dữ liệu mẫu · Chưa kết nối nguồn thực tế</span>
-          </footer>
-        </main>
-      </div>
+        </section>
+      </AppShell>
       <dialog
+        className="eff-dialog"
         ref={dialog}
+        aria-labelledby="eff-dialog-title"
         onCancel={() => setDetail(null)}
         onClick={(e) => {
           if (e.target === e.currentTarget) setDetail(null);
         }}
       >
-        <div className="dialog-heading">
+        <div className="section-header">
           <div>
-            <div className="eyebrow">MINH BẠCH SỐ LIỆU</div>
-            <h2>{detail}</h2>
+            <h2 id="eff-dialog-title">{detail}</h2>
+            {selectedMetric && <p>{selectedMetric.en}</p>}
           </div>
-          <button aria-label="Đóng chi tiết" onClick={() => setDetail(null)}>
+          <Button
+            tone="quiet"
+            aria-label="Đóng chi tiết"
+            onClick={() => setDetail(null)}
+          >
             ×
-          </button>
+          </Button>
         </div>
-        <div className="callout">
-          {metrics.find((m) => m.name === detail)?.formula ??
-            "Nguồn: tập dữ liệu giả lập trong mock UI. Bộ lọc ứng dụng và thời gian được áp dụng cho cả chỉ số và danh sách này."}
-        </div>
-        <p>
-          {app} · production · {data.length} deployment mẫu · {date(24 - days)}{" "}
-          đến 23/10/2026
-        </p>
-        {evidence}
-        <p className="muted">
-          Không có sự kiện thật hoặc bằng chứng hiệu quả kinh doanh trong bản
-          mẫu này.
-        </p>
+        {detail === "Mốc so sánh" ? (
+          <form
+            className="editor-grid"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              setBaseline({
+                minutes: Number(f.get("minutes")),
+                source: String(f.get("source")).trim(),
+              });
+              setNotice("Đã lưu mốc so sánh mẫu.");
+              setDetail(null);
+            }}
+          >
+            <label>
+              Thời gian hoàn thành yêu cầu (phút)
+              <input
+                name="minutes"
+                type="number"
+                min="1"
+                max="100000"
+                required
+                defaultValue={baseline?.minutes}
+              />
+            </label>
+            <label>
+              Nguồn đo
+              <textarea
+                name="source"
+                required
+                minLength={5}
+                defaultValue={baseline?.source}
+                placeholder="Phương pháp, số mẫu và phạm vi áp dụng"
+              />
+            </label>
+            <small className="muted">
+              Mẫu dùng chung cho hai ứng dụng; chỉ lưu đến khi tải lại trang.
+            </small>
+            <details>
+              <summary>Cách so sánh</summary>
+              <p>
+                So cùng loại yêu cầu và tiêu chí hoàn thành. Lấy thời gian thủ
+                công trừ trung vị thời gian yêu cầu qua platform. Đây là thời
+                gian quy trình rút ngắn, không phải giờ công tiết kiệm. Bản thật
+                cần mốc đo theo ứng dụng và loại công việc.
+              </p>
+              <p>
+                <a
+                  href="https://docs.port.io/guides/all/create-roi-dashboard/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Port · Phương pháp đo ↗
+                </a>
+              </p>
+            </details>
+            <div className="eff-actions">
+              <Button tone="primary" type="submit">
+                Lưu mốc so sánh
+              </Button>
+              {baseline && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setBaseline(null);
+                    setDetail(null);
+                    setNotice("Đã xóa mốc so sánh.");
+                  }}
+                >
+                  Xóa mốc so sánh
+                </Button>
+              )}
+            </div>
+          </form>
+        ) : detail === "Cách đọc chỉ số" ? (
+          <div className="eff-help">
+            <p>
+              DORA đo tốc độ và độ ổn định khi giao phần mềm. Các chỉ số ở đây
+              áp dụng cho <b>{app}</b> trên <b>production</b>.
+            </p>
+            <ul>
+              {metrics.map((m) => (
+                <li key={m.en}>
+                  <b>{m.name}</b>
+                  <p>{m.formula}</p>
+                </li>
+              ))}
+            </ul>
+            <a
+              href="https://dora.dev/guides/dora-metrics/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Định nghĩa DORA ↗
+            </a>
+          </div>
+        ) : detail === "Tự phục vụ" ? (
+          <div className="eff-help">
+            <p>
+              Tỷ lệ tự phục vụ = số lượt xác nhận không cần hỗ trợ / số lượt đã
+              trả lời. Chưa trả lời không được tính là tự phục vụ.
+            </p>
+            <p>Người dùng hoạt động: có ít nhất một deployment trong kỳ.</p>
+            <p>
+              Công sức Ops cần số phút hỗ trợ và bảo trì được ghi nhận riêng.
+              Onboarding cần mốc bắt đầu và lần triển khai thành công đầu tiên.
+              Chưa có dữ liệu thì không tính thành 0.
+            </p>
+            <a
+              href="https://humanitec.com/blog/impact-of-internal-developer-platforms"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Humanitec · Chỉ số tham khảo ↗
+            </a>
+          </div>
+        ) : (
+          <>
+            <p>{selectedMetric?.formula}</p>
+            <p className="muted">
+              {selectedMetric?.note} · {app} · production
+            </p>
+            {evidence}
+          </>
+        )}
       </dialog>
-    </>
+    </div>
   );
 }
 createRoot(document.getElementById("root")!).render(<App />);
