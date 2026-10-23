@@ -22,9 +22,14 @@ chmod 0755 docker-buildx
 install -d -m 0700 /etc/orchestrator /opt/orchestrator/releases /var/backups/orchestrator
 printf '%s' '${base64encode(jsonencode({repository_url=repository_url, deployment=deployment, owner=owner, enable_alb=enable_alb}))}' | base64 -d > /etc/orchestrator/config.json
 release=/opt/orchestrator/releases/${release_commit}
-git clone --filter=blob:none --no-checkout '${repository_url}' "$release"
-git -C "$release" fetch --depth=1 origin '${release_commit}'
-git -C "$release" checkout --detach '${release_commit}'
+# Source assets must retain ordinary 0644/0755 modes for non-root containers.
+# Keep the surrounding config/state umask private.
+(
+  umask 022
+  git clone --filter=blob:none --no-checkout '${repository_url}' "$release"
+  git -C "$release" fetch --depth=1 origin '${release_commit}'
+  git -C "$release" checkout --detach '${release_commit}'
+)
 test "$(git -C "$release" rev-parse HEAD)" = '${release_commit}'
 ln -s "$release" /opt/orchestrator/current
 cat > /etc/systemd/system/orchestrator.service <<'UNIT'

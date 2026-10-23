@@ -78,9 +78,12 @@ case ${1:-} in
     previous=$release
     next="/opt/orchestrator/releases/$2"
     if [[ ! -d $next ]]; then
-      git clone --filter=blob:none --no-checkout "$(jq -er .repository_url "$config")" "$next"
-      git -C "$next" fetch --depth=1 origin "$2"
-      git -C "$next" checkout --detach "$2"
+      (
+        umask 022
+        git clone --filter=blob:none --no-checkout "$(jq -er .repository_url "$config")" "$next"
+        git -C "$next" fetch --depth=1 origin "$2"
+        git -C "$next" checkout --detach "$2"
+      )
     fi
     [[ $(git -C "$next" rev-parse HEAD) == "$2" && -z $(git -C "$next" status --porcelain) ]]
     release=$next; set_images; compose build

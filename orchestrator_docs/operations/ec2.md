@@ -73,6 +73,9 @@ simulation; it is not a provisioning test.
 
 Cloud-init installs Docker and checksum-verified pinned Compose, checks out the
 exact release, writes non-secret runtime settings and enables a systemd service.
+Source checkout alone uses umask 022 so non-root PostgreSQL/backend containers
+can read/execute their mounted/copied assets; configuration, state and backups
+retain umask 077.
 The service builds release-tagged images, waits for health and installs the
 metadata firewall. It reuses the same Compose project/volumes on reboot.
 Cloud-init has a bounded bootstrap timeout. An operator trial must start an
