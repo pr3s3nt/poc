@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useId, useRef, type ReactNode } from 'react';
 import { parse } from 'yaml';
+import { routeReviewEdges, connectionPath } from './reviewEdges';
 import { reasonLabel } from '../../shared/ui/DependencyGraph';
 
 export type ReviewSide = { availability: 'AVAILABLE' | 'PARTIAL' | 'ABSENT' | 'UNAVAILABLE'; text?: string; reason?: string; provenance?: Record<string, string>; redactedPaths?: string[]; unknownPaths?: string[] };
@@ -110,6 +111,7 @@ function ReviewGraph({ review, progress, selected, select, title }: { review: De
   const arrowId = useId().replace(/:/g, '');
   const viewport = useRef<HTMLDivElement>(null);
   const [availableWidth, setAvailableWidth] = useState(0);
+  const [hovered, setHovered] = useState<string>();
   useEffect(() => {
     const element = viewport.current; if (!element) return;
     const resize = () => setAvailableWidth(element.clientWidth);
@@ -119,7 +121,7 @@ function ReviewGraph({ review, progress, selected, select, title }: { review: De
   const layers = useMemo(() => levelsOf(review), [review]);
   const groupOf = (node: ReviewNode) => node.placement?.cluster || (node.resourceType === 'k8s-cluster' ? node.id : node.region || node.resourceType === 'vpc' ? 'outside' : 'unresolved');
   const groupIds = [...new Set(review.nodes.map(groupOf))].sort((a, b) => a === 'outside' ? 1 : b === 'outside' ? -1 : a.localeCompare(b));
-  const groupWidth = (id: string) => Math.max(1, ...layers.map(layer => layer.filter(n => groupOf(n) === id).length)) * 250 + 36;
+  const groupWidth = (id: string) => Math.max(1, ...layers.map(layer => layer.filter(n => groupOf(n) === id).length)) * 250 + 72;
   const starts = new Map<string, number>(); let cursor = 24;
   for (const id of groupIds) { starts.set(id, cursor); cursor += groupWidth(id) + 20; }
   const cloudScopes = [...new Set(review.nodes.flatMap(n => {
@@ -145,18 +147,17 @@ function ReviewGraph({ review, progress, selected, select, title }: { review: De
         const top = Math.min(...ys) - 24; const bottom = Math.max(...ys) + 116;
         return <div key={id} className={`review-placement-group ${id === 'outside' ? 'review-placement-outside' : ''}`} style={{ left: starts.get(id), top, width: groupWidth(id), height: bottom - top }} data-cluster={id}><strong>{id === 'outside' ? 'Hạ tầng ngoài Kubernetes' : id === 'unresolved' ? 'Vị trí chưa xác định' : nameOf(id)}</strong></div>;
       })}
-      <svg className="review-edges" width={width} height={height} aria-label="Các cạnh phụ thuộc"><defs><marker id={arrowId} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7" fill="#8c959f" /></marker></defs>{review.edges.map((edge, index) => {
-        const provider = positions.get(edge.provider), consumer = positions.get(edge.consumer); if (!provider || !consumer) return null;
-        const x1 = provider.x + 119, y1 = provider.y + 100, x2 = consumer.x + 119, y2 = consumer.y;
-        return <path key={index} d={`M${x1},${y1} V${(y1 + y2) / 2} H${x2} V${y2 - 4}`} markerEnd={`url(#${arrowId})`}><title>{nameOf(edge.provider)} → {nameOf(edge.consumer)}: {reasonLabel(edge.reason)}</title></path>;
+      <svg className="review-edges" width={width} height={height} aria-label="Các cạnh phụ thuộc"><defs><marker id={arrowId} markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0L7 3.5L0 7" fill="context-stroke" /></marker></defs>{routeReviewEdges(review.edges, positions).map(edge => {
+        const focus = hovered ?? selected;
+        return <path key={JSON.stringify([edge.provider, edge.consumer])} d={connectionPath(edge)} data-provider={edge.provider} data-consumer={edge.consumer} data-focused={focus === edge.provider || focus === edge.consumer} data-outer-lane={edge.indirectLane} markerEnd={`url(#${arrowId})`}><title>{nameOf(edge.provider)} → {nameOf(edge.consumer)}: {[...new Set(edge.reasons.map(reason => reasonLabel(reason.reason)))].join(' · ')}</title></path>;
       })}</svg>
       {review.nodes.map(n => { const p = progress?.find(item => item.nodeId === n.id); const position = positions.get(n.id);
-        return <button type="button" key={n.id} style={{ left: position?.x, top: position?.y }} title={n.id} className={`review-node ${selected === n.id ? 'review-node-selected' : ''}`} data-state={p?.state ?? 'PENDING'} data-node-id={n.id} onClick={() => select(n.id)} aria-pressed={selected === n.id}>
+        return <button type="button" key={n.id} style={{ left: position?.x, top: position?.y }} title={n.id} className={`review-node ${selected === n.id ? 'review-node-selected' : ''}`} data-state={p?.state ?? 'PENDING'} data-node-id={n.id} onClick={() => select(n.id)} onMouseEnter={() => setHovered(n.id)} onMouseLeave={() => setHovered(undefined)} aria-pressed={selected === n.id}>
           <span className="review-node-icon"><NodeIcon node={n} /></span><strong>{nodeLabel(n)}</strong><small>{nodeDescription(n)}</small><span className="review-node-bottom"><StateBadge state={p?.state} /><span>{intentLabel(n.intent)}</span></span>
         </button>;
       })}
     </div></div></div>
-    <footer className="review-graph-legend"><span>→ Điều kiện sẵn sàng → thành phần phụ thuộc</span><span>Khung thể hiện vị trí triển khai</span></footer>
+    <footer className="review-graph-legend"><span>→ Điều kiện sẵn sàng → thành phần phụ thuộc</span><span>Nét đứt: liên kết đi qua nhiều tầng</span><span>Chọn thành phần để làm rõ các đường nối.</span></footer>
   </section>;
 }
 const intents: Record<string,string> = { CREATE:'Tạo mới',UPDATE:'Cập nhật',RETAIN:'Giữ nguyên',REMOVE:'Gỡ bỏ',UNREFERENCED:'Gỡ tham chiếu',BIND:'Liên kết',UNVERIFIED:'Chưa xác minh' };

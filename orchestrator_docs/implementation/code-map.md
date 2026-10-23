@@ -11,7 +11,7 @@ last_reviewed: 2026-10-23
 |---|---|
 | ADR-019 safe review and applied baseline | `backend/internal/application/deploymentreview/`; `registry.Service.ReadPinned`; `deployment/snapshot.go`, `deployment/service.go`; `planning.Plan.Review` |
 | Correlated operation, durable review and observed progress | `envops/manager.go`; `adapters/store/ops.go`; `adapters/postgres/operations.go`, `deployment.go`, `baseline.sql`; `deployment/query.go`, `node_progress.go`; HTTP `operations.go`, `pending.go` |
-| Visual graph, source/manifest diff and polling | `frontend/src/features/preview/DeploymentReview.tsx`, `reviewObservation.ts`, `reviewRequestId.ts` (cryptographic UUID fallback for HTTP demo); ApplicationHomePage, ScorePreviewPage and DeploymentDetailsPage; `frontend/test/e2e/deployment-review-local.mjs`; `backend/test/fixtures/deployment-review/` |
+| Visual graph, source/manifest diff and polling | `frontend/src/features/preview/DeploymentReview.tsx`, `reviewObservation.ts`, `reviewEdges.ts` (deduplicated reason-preserving obstacle routing), `reviewRequestId.ts` (cryptographic UUID fallback for HTTP demo); ApplicationHomePage, ScorePreviewPage and DeploymentDetailsPage; `frontend/test/e2e/deployment-review-local.mjs`; `backend/test/fixtures/deployment-review/` |
 | Issue #8 Resource Definition v3 detail/cards/tabs/rules, atomic advanced mode, metadata default previews | `frontend/src/features/platform/ResourceDefinitionsPage.tsx`, `CriteriaEditor.tsx` (rule projection for Definitions), `CriteriaRules.tsx`, `MappingEditor.tsx`/`ParameterSources.tsx` (was TypedVariablesEditor)/`ProvisionEditor.tsx` (Mẫu dựng ứng dụng) and existing converters; `DefinitionV3.test.tsx`; focused real HTTP/Git browser `frontend/test/e2e/resource-definition-v3-local.mjs` via `backend/test/integration/gitmodulebrowser/` |
 | Issue #11 module forms: connection, source chooser, parameter cards, companions | `frontend/src/features/platform/InfrastructureConnection.tsx`, `valueSource.ts`, `ValueSourceDialog.tsx`, `ParameterSources.tsx`, `CompanionResources.tsx`, `ResourceDefinitionsPage.tsx`; tests `ModuleForms.test.tsx`, `valueSource.test.ts`; e2e helper `frontend/test/e2e/definition-sources.mjs`; mock [`frontend/design/resource-definition-module-forms`](../../frontend/design/resource-definition-module-forms/README.md) |
 | Git source default + published release-equivalent modules | `ResourceDefinitionsPage.tsx` create/reset/edit source state; `registry/git_inspect.go` content+Type lifecycle identity; `git_inspect_test.go`; `published-modules-local.mjs`; [runbook](../operations/terraform-module-sources.md) |
@@ -571,3 +571,8 @@ Deployment: [EC2 Compose overlay](../../docker-compose.ec2.yml),
 
 UI3-05 unified existing-cluster catalog/editor uses ResourceDefinitionsPage and
 ExistingClusterDefinition.test.tsx; the separate ExistingClusterSection was removed.
+
+Application scope availability is mapped from advertised keys in `App.tsx` and
+`Application.availableEnvironments`, with no requests for unsupported scopes.
+`EnvironmentResources.tsx` distinguishes known backend unavailability from an
+empty inventory and ordinary load errors.

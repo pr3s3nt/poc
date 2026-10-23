@@ -55,3 +55,17 @@ describe('Environment resources list', () => {
     expect(screen.queryByText('postgres.default#shared.STAGING-LATE')).not.toBeInTheDocument();
   });
 });
+
+it('keeps a 503 unavailable inventory distinct from an empty list and allows an explicit read retry', async () => {
+  let unavailable = true;
+  const calls = stubApi(() => unavailable ? apiError(503, 'SERVICE_UNAVAILABLE') : Response.json({ resources: [] }));
+  const user = userEvent.setup();
+  render(<EnvironmentResources applicationId="shop" environment="staging" />);
+  expect(await screen.findByText('Danh sách tài nguyên hiện chưa khả dụng')).toBeInTheDocument();
+  expect(screen.queryByText(/Chưa có tài nguyên nào/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  unavailable = false;
+  await user.click(screen.getByRole('button', { name: 'Kiểm tra lại' }));
+  expect(await screen.findByText('Chưa có tài nguyên nào trong staging.')).toBeInTheDocument();
+  expect(calls).toHaveLength(2);
+});

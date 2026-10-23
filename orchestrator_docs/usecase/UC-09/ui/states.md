@@ -85,3 +85,11 @@ Provider error/unknown cause dùng safe code, không raw state hoặc log.
 - Poll failure retains last observation marked stale, allows GET retry and never
   replays Deploy. Scope/run change cancels requests; terminal stops polling.
 - Progress is a completed-node count, not simulated ETA or percentage of work.
+
+## Application availability diagnosis — 2026-10-23
+
+Known resource-list `503 SERVICE_UNAVAILABLE` is an explicit unavailable state,
+not an empty inventory or evidence of Deployment failure. Explain that backend
+data is unavailable and offer an explicit GET retry. Keep unknown errors, 500,
+malformed lists and network failures as load errors with retry. Do not hide or
+rewrite the HTTP 503, synthesize Terraform records or weaken cleanup guards.

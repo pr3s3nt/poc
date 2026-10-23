@@ -105,3 +105,5 @@ tạo file mới; không sửa record cũ để thay ngày/kết quả.
 - [2026-10-23 — Visual deployment review implementation](2026-10-23-visual-preview-implementation.md) — independent code review, desktop product HTTP/browser with fake execution adapters, disposable PostgreSQL and supported-format limits.
 
 - [2026-10-23 — Deployment review fidelity correction](2026-10-23-visual-preview-fidelity.md) — actual prototype/runtime comparison at 1512px/1280px, UI correction and Tailscale HTTP deployment verification.
+
+- [2026-10-23 — Preview connector and Application error diagnosis](2026-10-23-preview-errors-diagnosis.md) — exact reported Application, routing correction, legacy Environment guard and explicit demo inventory unavailability; 33-page read-only audit.

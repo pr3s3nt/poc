@@ -14,7 +14,7 @@ export function ApplicationsPage({ applications, state = 'ready', onRetry }: { a
       applications.length === 0 ? <div className="empty-state"><div className="empty-icon">◇</div><h2>Bắt đầu với ứng dụng mới</h2><p>Tạo ứng dụng để có môi trường staging và production.</p><Button tone="primary" onClick={() => navigate({ name: 'create-application' })}>+ Tạo ứng dụng</Button></div> :
       <div className="application-grid">{applications.map((application) => <button className="application-card" key={application.id} onClick={() => navigate({ name: 'application', applicationId: application.id })}>
         <div className="card-title"><span className="application-icon">⌘</span><span><strong>{application.name}</strong><small>{endpointFor(application, 'production')}</small></span><span className="card-arrow">→</span></div>
-        <div className="environment-summary"><span><small>staging</small><Status tone="draft">Sẵn sàng cấu hình</Status></span><span><small>production</small><Status tone="draft">Sẵn sàng cấu hình</Status></span></div>
+        <div className="environment-summary">{application.availableEnvironments !== undefined && !application.availableEnvironments.some(key => key === 'staging' || key === 'production') ? <span><small>{application.availableEnvironments.join(', ') || 'Chưa có môi trường'}</small><Status tone="neutral">Môi trường cũ / chưa hỗ trợ</Status></span> : (['staging', 'production'] as const).filter(key => application.availableEnvironments === undefined || application.availableEnvironments.includes(key)).map(key => <span key={key}><small>{key}</small><Status tone="draft">Sẵn sàng cấu hình</Status></span>)}</div>
       </button>)}</div>}
   </section>;
 }

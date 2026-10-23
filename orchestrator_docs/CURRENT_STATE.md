@@ -33,6 +33,13 @@ file-based Code. The Tailscale HTTP demo also has a cryptographic UUID fallback.
 Coordinator screenshot comparison and browser checks pass; user re-review is
 pending. See [fidelity correction](verification/2026-10-23-visual-preview-fidelity.md).
 
+IMP-031 corrects connector routing around intermediate cards and the Console's
+requests for nonexistent legacy staging/production Environments. The current
+memory/fake demo still lacks the Terraform resource reader: inventory HTTP503
+is shown explicitly as unavailable, never as an empty list or failed deployment.
+[Diagnosis and 33-page audit](verification/2026-10-23-preview-errors-diagnosis.md)
+record the remaining backend limitation separately from corrected UI defects.
+
 ## Git is the default Terraform source — 2026-10-21
 
 New Resource Definition drafts, reset/cancel and successful registration start

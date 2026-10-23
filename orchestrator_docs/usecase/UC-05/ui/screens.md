@@ -113,3 +113,10 @@ Preview and observed deployment use one graph at a time; show the disabled busy
 Deploy action while admission is in flight. The dependency strip includes
 workload nodes and describes graph ordering, not scheduler concurrency or ETA.
 Unsupported placement is labeled unresolved. See IMP-030 for visual acceptance.
+
+Connector correction: one visible connector per provider/consumer pair retains
+all original reasons. Nonadjacent dependencies route outside intervening node
+cards and use dashed strokes; immediate dependencies stay solid. Separate
+attachment ports and selected/hovered-node highlighting prevent a direct
+Cluster→Workload relation from appearing to originate at Namespace. No edge is
+removed by transitive reduction and no api↔web relation is invented.

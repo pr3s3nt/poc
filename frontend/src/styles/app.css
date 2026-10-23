@@ -429,6 +429,9 @@ a { color: inherit; }
 .review-placement-outside>strong { color:var(--yellow); background:#fffbf5; }
 .review-edges { position:absolute; inset:0; pointer-events:none; }
 .review-edges>path { fill:none; stroke:#8c959f; stroke-width:1.5; stroke-linejoin:round; }
+.review-edges>path { pointer-events:stroke; opacity:.4; }
+.review-edges>path[data-outer-lane=true] { stroke-dasharray:5 4; }
+.review-edges>path[data-focused=true] { stroke:var(--blue); stroke-width:2; opacity:1; }
 .review-node { position:absolute; text-align:left; width:238px; height:100px; padding:12px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); color:var(--ink); cursor:pointer; box-shadow:0 1px 0 #1f23280a; }
 .review-node:hover { border-color:#8c959f; }
 .review-node-selected { border-color:var(--blue); box-shadow:0 0 0 2px #ddf4ff; }

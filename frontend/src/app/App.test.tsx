@@ -416,4 +416,15 @@ describe('developer onboarding shell (UC-00/UC-01)', () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     });
   });
+
+it('keeps a legacy dev-only Application visible without requesting nonexistent staging data', async () => {
+  authenticated = true;
+  applications = [{ key: 'legacy', name: 'Legacy Application', subdomain: 'legacy', environments: [environmentFixture('dev')] }];
+  window.history.replaceState({}, '', '/ui/applications/legacy');
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: 'Môi trường chưa được Console hỗ trợ' })).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('dev');
+  expect(requests.some(request => request.url.includes('/environments/'))).toBe(false);
+});
+
 });

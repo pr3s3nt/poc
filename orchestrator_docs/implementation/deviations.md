@@ -504,3 +504,28 @@ per-node file tabs, one graph across admission and an explicit busy action.
 Coordinator compared actual Internal/cloud/code captures at 1512px and 1280px;
 functional and Tailscale HTTP checks pass. User re-review is pending. See
 [visual fidelity evidence](../verification/2026-10-23-visual-preview-fidelity.md).
+
+## IMP-031 — Preview edge routing and Application availability diagnosis
+
+User reported confusing Namespace/api/web connectors and repeated Application
+errors on 2026-10-23. Actual HTTP/browser inspection found three independent
+causes: (1) a long Cluster→Workload edge is drawn behind the Namespace card and
+shares segments with Namespace→Workload, (2) resource inventory returns scoped
+503 SERVICE_UNAVAILABLE because the isolated memory/fake backend has no Terraform
+ResourceReader, (3) legacy seeded `acceptance` has only `dev`, but the Console
+invents empty staging/production targets and sends requests to nonexistent scopes.
+Initial pre-login session 401 is expected; no browser page exception was observed.
+
+Fix rendering without changing the planner: route long edges around intervening
+cards, group reasons for one endpoint pair, identify and highlight selected
+connections. Preserve all reasons and ordering. Keep service-unavailable distinct
+from a successful empty inventory, with a clear unavailable/retry state. Preserve
+actual Environment keys and block unsupported Application routes before issuing
+requests; do not create/migrate/delete legacy Environments or user data. Verify
+all existing Applications read-only, preserve the running backend and its drafts.
+
+Routing, unsupported-scope and favicon defects are corrected. Tests and actual
+33-page audit pass; inventory HTTP503 remains a documented demo configuration
+limitation with explicit unavailable presentation, not a resolved state backend.
+The live backend was not restarted or its user data reset. See
+[diagnosis evidence](../verification/2026-10-23-preview-errors-diagnosis.md).

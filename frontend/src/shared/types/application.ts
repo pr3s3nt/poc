@@ -36,6 +36,8 @@ export interface Application {
   name: string;
   subdomain: string;
   environments: Record<EnvironmentKey, EnvironmentTarget>;
+  /** Exact keys advertised by the API; absent only for older callers. */
+  availableEnvironments?: readonly string[];
   workloads: Record<EnvironmentKey, readonly Workload[]>;
 }
 

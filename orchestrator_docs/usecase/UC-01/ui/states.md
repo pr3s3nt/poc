@@ -2,7 +2,7 @@
 id: UC-01-UI-STATES
 artifact: use-case-ui-states
 status: current
-last_reviewed: 2026-10-18
+last_reviewed: 2026-10-23
 ---
 
 # UC-01 UI states
@@ -96,3 +96,13 @@ operation-owner guards still apply to the surviving Secret Store/configuration
 flow. An Environment with no retired binding is not an error. Missing or invalid
 Definition/reference/credential/readiness is reported in its Preview/execution
 context; no automatic target selection or mutation is introduced.
+
+## Missing or legacy Environment metadata — 2026-10-23
+
+Use the actual Environment keys advertised by the Application API. An explicitly
+missing staging/production Environment must not be fabricated with default
+metadata or queried by child views. Show the existing Application identity and
+its unsupported/legacy keys with a clear Console-unsupported state. If another
+supported Environment exists, offer explicit navigation to it. Do not create,
+rename, migrate or delete legacy Environments automatically. API responses that
+omit this metadata retain the existing compatibility behavior.

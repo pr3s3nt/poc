@@ -1051,3 +1051,10 @@ File/node scope and HTTP UUID regressions are in DeploymentReview.test.tsx and
 reviewRequestId.test.ts; existing admission/stale-response tests remain.
 [Actual desktop comparison and Tailscale HTTP evidence](../verification/2026-10-23-visual-preview-fidelity.md)
 records coordinator visual review separately from the pending user re-review.
+
+IMP-031: VIS-01/05 dependency provenance maps to `reviewEdges.ts` and its
+node-intersection/reason-preservation tests; UC-01 supported-scope presentation
+maps to App available Environment keys and the legacy-scope regression; UC-09
+inventory states map to EnvironmentResources unavailable-versus-empty tests.
+[Exact user-reported graph and Application error evidence](../verification/2026-10-23-preview-errors-diagnosis.md)
+includes the remaining demo ResourceReader limitation, not a false backend success.
