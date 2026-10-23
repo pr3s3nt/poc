@@ -120,3 +120,12 @@ cards and use dashed strokes; immediate dependencies stay solid. Separate
 attachment ports and selected/hovered-node highlighting prevent a direct
 Cluster→Workload relation from appearing to originate at Namespace. No edge is
 removed by transitive reduction and no api↔web relation is invented.
+
+Desktop space/color follow-up: the shared shell supports a collapsible icon rail
+without clearing Preview, selected node/file or drafts. Preview uses the newly
+available main-content width and recalculates graph scale through its existing
+resize observer. Node/inspector illustrations share resource-type colors and
+distinct cluster/namespace glyphs under the
+[shared shell design](../../../architecture/ui/README.md). Colors do not replace
+status text, intent or the actual runtime progress. No planner/graph relation,
+execution behavior or mobile redesign changes.

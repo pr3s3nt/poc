@@ -1071,3 +1071,9 @@ IMP-033: UC-05 no-change/unavailable states map to the DeploymentReview wire
 guard and component transition tests; UC-16 no-op admission presentation maps
 to the actual zero-value response in ApplicationHomePage.test.tsx. See
 [existing Application white-screen verification](../verification/2026-10-23-preview-no-change-white-screen.md).
+
+UC-05 VIS-02/05/07 desktop space/color follow-up maps to AppShell preference and
+mount-preservation tests, resource-type illustrations and existing graph resize
+observation. Browser verification preserves node/file/input state, restores the
+rail preference after reload, measures width gain and checks unchanged history:
+[sidebar/Preview desktop evidence](../verification/2026-10-23-sidebar-preview-space.md).

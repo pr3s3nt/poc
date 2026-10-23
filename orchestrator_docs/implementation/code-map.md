@@ -590,3 +590,10 @@ IMP-033: DeploymentReview validates the incoming review before mounting its
 stateful renderer. DeploymentReview.test.tsx covers zero-value/unsupported/null
 collections and availability transitions; ApplicationHomePage.test.tsx uses the
 actual no-change wire response and preserves the disabled Deploy control.
+
+Desktop shell width preference, role-filtered SVG navigation and accessible
+collapse/expand live in AppShell.tsx, with state/storage/gate coverage in
+AppShell.test.tsx. DeploymentReview supplies type attributes and cluster/namespace
+SVG illustrations; app.css owns the shared icon palette, sticky desktop rail and
+wider Preview pages. DeploymentDetailsPage uses the same desktop width treatment.
+See [visual and browser checks](../verification/2026-10-23-sidebar-preview-space.md).

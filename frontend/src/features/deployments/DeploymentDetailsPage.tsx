@@ -76,7 +76,7 @@ export function DeploymentDetailsPage({ application, environment, deploymentId }
   const failed = detail && (detail.deployment.status === 'FAILED' || Boolean(detail.deployment.failureReason));
   const rendered = detail?.workloads.flatMap((w) => w.manifestReview?.version === 1 && w.manifestReview.planHash === detail.planHash ? w.manifestReview.artifacts : [] ) ?? [];
   const review = detail?.review ? { ...detail.review, artifacts: [...detail.review.artifacts.filter((artifact) => !rendered.some((actual) => actual.id === artifact.id)), ...rendered] } : undefined;
-  return <section className="page">
+  return <section className="page deployment-details-page">
     <button className="back-link" onClick={() => navigate({ name: 'deployments', applicationId: application.id, environment })}>← Lịch sử triển khai {environment}</button>
     <header className="page-header"><div><p className="eyebrow">{application.name} · {environment}</p><h1>Chi tiết triển khai</h1><p>Kế hoạch và trạng thái thực thi đã lưu. Không làm mới cluster.</p></div><Button onClick={reload}>Tải lại</Button></header>
     {loading ? <p role="status" aria-busy="true">Đang tải chi tiết triển khai…</p> : notFound ? <section className="content-panel"><h2>Không tìm thấy triển khai</h2><p>Triển khai này không tồn tại trong ứng dụng và môi trường đã chọn.</p></section> : error && !detail ? <div role="alert" className="form-error">{error} <Button onClick={reload}>Thử lại</Button></div> : detail ? <>

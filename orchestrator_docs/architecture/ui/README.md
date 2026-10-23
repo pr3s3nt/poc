@@ -2,7 +2,7 @@
 id: UI-ARCHITECTURE-INDEX
 artifact: shared-ui-design
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-23
 ---
 
 # Shared Web Console UI
@@ -19,6 +19,25 @@ It does not own a use-case screen: each use case owns its screens under
   sign-out action.
 - Main content owns the page title, primary action and use-case-specific state.
 - The sign-in page is intentionally outside the authenticated shell.
+
+### Desktop sidebar and Preview space — 2026-10-23
+
+The left navigation has an explicit keyboard-accessible collapse/expand button.
+Expanded mode keeps full labels; collapsed mode keeps a narrow icon rail with
+named links/tooltips, active route, authenticated identity and sign-out access.
+Persist only this display preference locally; unavailable browser storage must
+not prevent navigation. Changing width preserves the mounted page, drafts,
+selected review node/file and any in-flight operation. Routes and role gates stay
+unchanged. Desktop Preview pages use the released horizontal space rather than
+remaining constrained by the old page width; the graph observes its container
+resize. Do not add a new mobile layout.
+
+Resource illustrations use distinct, coordinated type colors and light tinted
+surfaces: cluster blue, namespace violet, PostgreSQL blue, Redis rose, network
+amber and workload teal. Type color is independent of execution state: existing
+readable status labels, state badges, selected/focus outlines and error treatment
+remain authoritative. Node and inspector use the same icon/type palette; icons
+are native SVG and always accompanied by the existing resource labels.
 
 ## Shared interaction rules
 

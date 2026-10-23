@@ -7,6 +7,17 @@ last_reviewed: 2026-10-23
 
 # Current project state
 
+## Desktop sidebar and colored resource illustrations — 2026-10-23
+
+The signed-in shell can collapse from 260px to a 76px icon rail and restores
+the local display preference. Named navigation, role gates, active route,
+identity/sign-out and keyboard access remain. Collapse preserves mounted drafts
+and selected review node/file; blocked browser storage does not break navigation.
+Desktop Preview pages use the released width; real browser checks at 1512px and
+1280px measured 184px additional graph width. Resource nodes/inspector and menu
+icons now use coordinated type colors with native SVG, while state labels remain
+independent. See [desktop UI verification](verification/2026-10-23-sidebar-preview-space.md).
+
 ## No-change Preview rendering fix — 2026-10-23
 
 Previewing an already-deployed/empty Application exposed a frontend crash:

@@ -96,6 +96,8 @@ function nodeDescription(node: ReviewNode): string {
 }
 function NodeIcon({ node }: { node: ReviewNode }) {
   const paths: Record<string, ReactNode> = {
+    'k8s-cluster': <><path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z" /><circle cx="12" cy="12" r="3" /><path d="m12 5 0 4m0 6v4M6 8l3 2m6 4 3 2M6 16l3-2m6-4 3-2" /></>,
+    'k8s-namespace': <><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M3 9h18M8 4v5" /><rect x="7" y="12" width="4" height="4" rx="1" /><path d="M15 12h2m-2 4h2" /></>,
     workload: <><path d="m8 6-6 6 6 6m8-12 6 6-6 6m-3-15-2 18" /></>,
     postgres: <><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0" /></>,
     redis: <><path d="m3 8 9-5 9 5-9 5-9-5Zm0 5 9 5 9-5M3 18l9 5 9-5" /></>,
@@ -152,7 +154,7 @@ function ReviewGraph({ review, progress, selected, select, title }: { review: De
         return <path key={JSON.stringify([edge.provider, edge.consumer])} d={connectionPath(edge)} data-provider={edge.provider} data-consumer={edge.consumer} data-focused={focus === edge.provider || focus === edge.consumer} data-outer-lane={edge.indirectLane} markerEnd={`url(#${arrowId})`}><title>{nameOf(edge.provider)} → {nameOf(edge.consumer)}: {[...new Set(edge.reasons.map(reason => reasonLabel(reason.reason)))].join(' · ')}</title></path>;
       })}</svg>
       {review.nodes.map(n => { const p = progress?.find(item => item.nodeId === n.id); const position = positions.get(n.id);
-        return <button type="button" key={n.id} style={{ left: position?.x, top: position?.y }} title={n.id} className={`review-node ${selected === n.id ? 'review-node-selected' : ''}`} data-state={p?.state ?? 'PENDING'} data-node-id={n.id} onClick={() => select(n.id)} onMouseEnter={() => setHovered(n.id)} onMouseLeave={() => setHovered(undefined)} aria-pressed={selected === n.id}>
+        return <button type="button" key={n.id} style={{ left: position?.x, top: position?.y }} title={n.id} className={`review-node ${selected === n.id ? 'review-node-selected' : ''}`} data-resource-type={n.kind === 'workload' ? 'workload' : n.resourceType} data-state={p?.state ?? 'PENDING'} data-node-id={n.id} onClick={() => select(n.id)} onMouseEnter={() => setHovered(n.id)} onMouseLeave={() => setHovered(undefined)} aria-pressed={selected === n.id}>
           <span className="review-node-icon"><NodeIcon node={n} /></span><strong>{nodeLabel(n)}</strong><small>{nodeDescription(n)}</small><span className="review-node-bottom"><StateBadge state={p?.state} /><span>{intentLabel(n.intent)}</span></span>
         </button>;
       })}
@@ -231,7 +233,7 @@ function DeploymentReviewContent({ review, progress, title }: { review: Deployme
   return <section className="deployment-review" aria-label={title}>
     <div className="review-summary"><div className="review-summary-title"><span className="review-summary-icon" aria-hidden="true">✓</span><div><strong>{review.nodes.length} thành phần trong kế hoạch</strong><small>{scopeNames.join(' · ') || 'Đích triển khai theo Resource Definition'}</small></div></div><div className="review-intent-counts">{totals.map(total => { const count = review.nodes.filter(n => total.intents.includes(n.intent ?? '')).length; return count ? <span key={total.tone} data-intent={total.tone}><i />{count} {total.label}</span> : null; })}</div></div>
     <div className="review-layout"><ReviewGraph review={review} progress={progress} selected={node?.id} title={title} select={selectNode} />
-      <aside className="review-inspector" aria-label="Chi tiết thành phần">{node ? <><header className="review-detail-heading"><span className="review-detail-icon"><NodeIcon node={node} /></span><div><h3 title={node.id}>{nodeLabel(node)}</h3><p>{nodeDescription(node)}</p></div><StateBadge state={state?.state} /></header>
+      <aside className="review-inspector" aria-label="Chi tiết thành phần">{node ? <><header className="review-detail-heading" data-resource-type={node.kind === 'workload' ? 'workload' : node.resourceType}><span className="review-detail-icon"><NodeIcon node={node} /></span><div><h3 title={node.id}>{nodeLabel(node)}</h3><p>{nodeDescription(node)}</p></div><StateBadge state={state?.state} /></header>
         <div className="review-tabs" role="tablist" aria-label="Chi tiết thành phần">{(['overview', 'changes', 'code'] as const).map((key, index) => <button key={key} ref={el => { tabs.current[index] = el; }} role="tab" tabIndex={tab === key ? 0 : -1} aria-selected={tab === key} onKeyDown={event => {
           if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
           event.preventDefault(); const next = event.key === 'Home' ? 0 : event.key === 'End' ? 2 : (index + (event.key === 'ArrowRight' ? 1 : -1) + 3) % 3;

@@ -529,3 +529,45 @@ a { color: inherit; }
 .review-plan-details { margin-top:20px; font-size:12px; }.review-plan-details>summary { cursor:pointer; color:var(--muted); }
 .deployment-review button:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
 @media (min-width:1000px) and (max-width:1450px) { .review-layout { grid-template-columns:minmax(0,1fr) 310px; }.review-intent-counts { gap:8px; font-size:11px; }.review-summary-title { font-size:12px; }.review-map-badge { display:none; } }
+
+/* Desktop navigation rail; changing width leaves the mounted page intact. */
+.sidebar-toggle { display:flex; align-items:center; gap:10px; min-height:36px; padding:8px 10px; border:1px solid #ffffff24; border-radius:6px; background:#ffffff08; color:#c9d6e6; font:inherit; font-size:12px; cursor:pointer; text-align:left; }
+.sidebar-toggle:hover { background:#ffffff12; color:#fff; }
+.sidebar-toggle svg,.sign-out-icon { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
+.sidebar-toggle:focus-visible,.nav-item:focus-visible { outline:2px solid #79c0ff; outline-offset:3px; }
+.nav-icon { display:grid; place-items:center; width:26px; height:26px; flex:0 0 26px; border-radius:7px; font-size:16px; background:#ffffff0a; }
+.nav-icon svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+.nav-icon[data-tone=blue] { color:#91caff; background:#388bfd24; }
+.nav-icon[data-tone=teal] { color:#70dfcf; background:#2dd4bf1c; }
+.nav-icon[data-tone=violet] { color:#c4a9ff; background:#a78bfa24; }
+.nav-icon[data-tone=amber] { color:#f3cf86; background:#fbbf241c; }
+.nav-icon[data-tone=rose] { color:#f5a9c3; background:#f472b624; }
+.sidebar-footer .button { display:flex; align-items:center; gap:9px; min-height:36px; }
+@media (min-width:761px) {
+  .app-shell { transition:grid-template-columns .18s ease; }
+  .sidebar { position:sticky; top:0; height:100vh; min-height:0; overflow-y:auto; gap:20px; }
+  .app-shell-collapsed { grid-template-columns:76px minmax(0,1fr); }
+  .app-shell-collapsed .sidebar { padding-inline:10px; }
+  .app-shell-collapsed .sidebar-label { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  .app-shell-collapsed .wordmark { justify-content:center; min-height:22px; }
+  .app-shell-collapsed .sidebar-toggle,.app-shell-collapsed .nav-item { justify-content:center; padding-inline:0; }
+  .app-shell-collapsed .sidebar-footer { padding-inline:0; justify-items:center; }
+  .app-shell-collapsed .sidebar-footer .button { justify-content:center; width:38px; padding-inline:0; }
+  .application-home,.preview-page,.deployment-details-page { max-width:1680px; }
+}
+@media (prefers-reduced-motion:reduce) { .app-shell { transition:none; } }
+@media (max-width:760px) { .sidebar-toggle { display:none; } }
+
+/* Resource type colors are independent of execution status and selection. */
+[data-resource-type] { --resource-ink:#2563eb; --resource-soft:#eff6ff; --resource-line:#bfd7ff; }
+[data-resource-type=k8s-namespace] { --resource-ink:#7c3aed; --resource-soft:#f5f0ff; --resource-line:#ddcaff; }
+[data-resource-type=postgres] { --resource-ink:#336791; --resource-soft:#edf5fb; --resource-line:#c0d9ec; }
+[data-resource-type=redis] { --resource-ink:#be3455; --resource-soft:#fff0f3; --resource-line:#f8c7d2; }
+[data-resource-type=vpc] { --resource-ink:#a85b09; --resource-soft:#fff7e8; --resource-line:#f5d7a6; }
+[data-resource-type=workload] { --resource-ink:#0f766e; --resource-soft:#edfbf7; --resource-line:#b4e4d9; }
+.review-node { border-top:3px solid var(--resource-line); background:linear-gradient(145deg,var(--resource-soft),var(--surface) 70%); }
+.review-node-icon,.review-detail-icon { background:var(--resource-soft); color:var(--resource-ink); border:1px solid var(--resource-line); }
+.review-detail-heading { background:linear-gradient(110deg,var(--resource-soft),var(--surface)); }
+.review-node-selected { border-color:var(--blue); box-shadow:0 0 0 2px #ddf4ff,0 4px 12px #0969da12; }
+.review-node[data-state=PROVISIONING],.review-node[data-state=CHECKING] { border-color:#54aeff; }
+.review-node[data-state=FAILED] { border-color:var(--red); }
