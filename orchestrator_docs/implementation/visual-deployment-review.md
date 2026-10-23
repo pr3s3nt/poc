@@ -68,3 +68,11 @@ or commit/push from writer. Report a concrete blocker rather than weakening a
 contract, hiding failed checks, substituting a model or adding scope. Keep session
 and work intact on interruption. Runtime/session receipt is recorded separately
 in the dated verification handoff once launch is confirmed.
+
+## Current coding session
+
+[Design/launch receipt](../verification/2026-10-23-visual-preview-design-handoff.md)
+records verified CLI model/effort/permissions and initial quota retry.
+Writer is active in tmux `preview-gpt6-sol`, branch `codex/visual-preview`,
+checkout `/home/thanhnt1/projects/preview/poc-preview-writer`, based on `ee170c1`.
+Implementation and independent product validation remain pending.
