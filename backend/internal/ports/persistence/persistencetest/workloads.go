@@ -94,6 +94,7 @@ func WorkloadSnapshots(t *testing.T, st persistence.Store) Fixture {
 	progress := deployment.WorkloadInstance{
 		EnvironmentKey: environmentKey, WorkloadID: "api", LastDeploymentID: first.ID,
 		TargetRef: target, ManifestDigest: "sha256:first", Status: deployment.InstanceReady, ObservedAt: now,
+		ManifestReview: map[string]any{"version": float64(1), "artifacts": []any{map[string]any{"after": map[string]any{"availability": "PARTIAL", "text": "kind: Deployment"}}}},
 	}
 	if err := st.UpsertWorkloadProgress(ctx, progress); err != nil {
 		t.Fatalf("progress: %v", err)
@@ -102,15 +103,32 @@ func WorkloadSnapshots(t *testing.T, st persistence.Store) Fixture {
 	target["namespace"] = "mutated"
 	target["labels"].(map[string]any)["tier"] = "mutated"
 	target["hosts"].([]any)[0] = "mutated"
+	progress.ManifestReview["version"] = float64(9)
 	firstRows := listOne(t, st, first.ID)
 	if firstRows.TargetRef["namespace"] != "team-a" || firstRows.TargetRef["labels"].(map[string]any)["tier"] != "api" || firstRows.TargetRef["hosts"].([]any)[0] != "a.example" {
 		t.Fatalf("stored snapshot aliases caller map: %#v", firstRows.TargetRef)
 	}
+	if firstRows.ManifestReview["version"] != float64(1) {
+		t.Fatalf("review snapshot aliases caller: %#v", firstRows.ManifestReview)
+	}
 	// Mutating a returned map must not change stored state either.
 	firstRows.TargetRef["namespace"] = "mutated"
 	firstRows.TargetRef["labels"].(map[string]any)["tier"] = "mutated"
+	firstRows.ManifestReview["version"] = float64(9)
 	if again := listOne(t, st, first.ID); again.TargetRef["namespace"] != "team-a" || again.TargetRef["labels"].(map[string]any)["tier"] != "api" {
 		t.Fatalf("stored snapshot aliases returned map: %#v", again.TargetRef)
+	}
+	if again := listOne(t, st, first.ID); again.ManifestReview["version"] != float64(1) {
+		t.Fatalf("review snapshot aliases returned value: %#v", again.ManifestReview)
+	}
+	// A later status/progress write cannot replace the first captured render.
+	progress.ManifestReview = nil
+	progress.TargetRef = map[string]any{"namespace": "team-a", "labels": map[string]any{"tier": "api"}, "hosts": []any{"a.example"}}
+	if err := st.UpsertWorkloadProgress(ctx, progress); err != nil {
+		t.Fatal(err)
+	}
+	if again := listOne(t, st, first.ID); again.ManifestReview["version"] != float64(1) {
+		t.Fatalf("review changed on status update: %#v", again.ManifestReview)
 	}
 	current, err := st.ListWorkloadInstances(ctx, environmentKey)
 	if err != nil || len(current) != 1 || current[0].TargetRef["namespace"] != "team-a" {
@@ -292,7 +310,7 @@ func listOne(t *testing.T, st persistence.Store, deploymentID string) deployment
 func sameSnapshot(a, b deployment.WorkloadSnapshot) bool {
 	return a.DeploymentID == b.DeploymentID && a.WorkloadID == b.WorkloadID && a.Status == b.Status &&
 		a.ManifestDigest == b.ManifestDigest && a.AppliedConfigRevisionID == b.AppliedConfigRevisionID &&
-		a.ObservedAt.Equal(b.ObservedAt) && reflect.DeepEqual(a.TargetRef, b.TargetRef)
+		a.ObservedAt.Equal(b.ObservedAt) && reflect.DeepEqual(a.TargetRef, b.TargetRef) && reflect.DeepEqual(a.ManifestReview, b.ManifestReview)
 }
 
 func containsID(list []deployment.Deployment, id string) bool {

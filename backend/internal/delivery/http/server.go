@@ -456,8 +456,13 @@ func (s *Server) handleListDeployments(w http.ResponseWriter, r *http.Request) {
 	list, err := s.queries.ListDeployments(r.Context(), appsvc.ListDeploymentsQuery{
 		OrganizationKey: identity.OrganizationKey, ApplicationKey: r.PathValue("id"),
 		EnvironmentKey: r.PathValue("env"), Status: domain.Status(r.URL.Query().Get("status")),
+		ReviewRequestID: r.URL.Query().Get("reviewRequestId"),
 	})
 	if err != nil {
+		if errors.Is(err, appsvc.ErrInvalidReviewRequestID) {
+			writeCode(w, codeInvalidRequest, "reviewRequestId")
+			return
+		}
 		if errors.Is(err, appsvc.ErrInvalidStatus) {
 			writeCode(w, codeInvalidRequest, "status")
 			return

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"orchestrator/internal/application/deploymentreview"
 	"orchestrator/internal/application/target"
 	appdomain "orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
@@ -75,7 +76,8 @@ type PlanningSnapshot struct {
 	Active      []resource.ActiveResource
 	// Baselines are the plans that last executed the Active Resources, captured
 	// in the same snapshot; set only by LoadPlanningSnapshotWithBaselines.
-	Baselines *Baselines
+	Baselines       *Baselines
+	ReviewBaselines map[string][]deploymentreview.Artifact
 }
 
 // LoadPlanningSnapshot reads the Application, Environment, current Deployment
@@ -148,6 +150,10 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 			if out.Baselines, err = CaptureBaselines(ctx, view, organizationKey, active); err != nil {
 				return err
 			}
+		}
+		out.ReviewBaselines, err = deploymentreview.CapturePrevious(ctx, view, organizationKey, applicationKey, environmentKey, env.TargetGeneration, active)
+		if err != nil {
+			return err
 		}
 		return nil
 	})

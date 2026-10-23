@@ -38,7 +38,7 @@ func TestUC05ScorePreviewHTTP(t *testing.T) {
 			t.Fatalf("preview = %d %s", resp.StatusCode, body)
 		}
 		view := decode(t, body)
-		want := []string{"applicationKey", "environmentKey", "baseSetId", "baseVersion", "runId", "workloadId", "action", "planHash", "delta", "candidateSet", "graph", "matches", "batches", "classification", "resourceIntents", "placements", "binding", "rendering"}
+		want := []string{"applicationKey", "environmentKey", "baseSetId", "baseVersion", "runId", "workloadId", "action", "planHash", "delta", "candidateSet", "graph", "matches", "batches", "classification", "resourceIntents", "placements", "binding", "rendering", "review"}
 		if len(view) != len(want) {
 			t.Fatalf("response keys = %v", view)
 		}

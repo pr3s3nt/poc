@@ -146,9 +146,17 @@ func (s *Store) ClaimEnvironment(ctx context.Context, claim persistence.Operatio
 			return environment.Operation{}, fmt.Errorf("%w: operation id %q is already used", persistence.ErrDuplicate, claim.ID)
 		}
 	}
+	if claim.ReviewRequestID != "" {
+		for _, prior := range s.state.Operations {
+			if prior.ApplicationKey == claim.ApplicationKey && prior.EnvironmentKey == claim.EnvironmentKey && strings.EqualFold(prior.ReviewRequestID, claim.ReviewRequestID) {
+				return environment.Operation{}, persistence.ErrDuplicate
+			}
+		}
+	}
 	op := environment.Operation{
 		ID: claim.ID, ApplicationKey: claim.ApplicationKey, EnvironmentKey: claim.EnvironmentKey,
-		Kind: claim.Kind, Owner: claim.Owner, Fence: 1, Status: environment.OpActive, Pins: pins,
+		ReviewRequestID: claim.ReviewRequestID,
+		Kind:            claim.Kind, Owner: claim.Owner, Fence: 1, Status: environment.OpActive, Pins: pins,
 		Detail: copyMap(claim.Detail), StartedAt: now, UpdatedAt: now, HeartbeatAt: now, Deadline: claim.Deadline,
 	}
 	if op.ID == "" {
@@ -316,4 +324,16 @@ func cloneJSON[T any](in T) (T, error) {
 	}
 	err = jsonUnmarshal(b, &out)
 	return out, err
+}
+
+// GetReviewOperation observes exactly one admitted request without sweeping or mutating it.
+func (s *Store) GetReviewOperation(ctx context.Context, app, env, requestID string) (environment.Operation, error) {
+	defer s.rlock(ctx)()
+	for _, op := range s.state.Operations {
+		if op.ApplicationKey == app && op.EnvironmentKey == env && strings.EqualFold(op.ReviewRequestID, requestID) {
+			op.Detail = copyMap(op.Detail)
+			return op, nil
+		}
+	}
+	return environment.Operation{}, persistence.ErrNotFound
 }

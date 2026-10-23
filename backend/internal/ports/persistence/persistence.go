@@ -139,6 +139,7 @@ type SecretStoreSelection struct {
 // OperationClaim asks to own an Environment after verifying its pins.
 type OperationClaim struct {
 	ID, ApplicationKey, EnvironmentKey, Owner string
+	ReviewRequestID                           string
 	Kind                                      environment.OperationKind
 	Pins                                      environment.OperationPins
 	Detail                                    map[string]any
@@ -235,6 +236,7 @@ type OperationRepository interface {
 	// pinned version or identity differs.
 	ClaimEnvironment(ctx context.Context, claim OperationClaim) (environment.Operation, error)
 	GetOperation(ctx context.Context, id string) (environment.Operation, error)
+	GetReviewOperation(ctx context.Context, applicationKey, environmentKey, requestID string) (environment.Operation, error)
 	// ActiveOperation returns the operation holding the Environment, if any.
 	ActiveOperation(ctx context.Context, applicationKey, environmentKey string) (environment.Operation, bool, error)
 	ListOperations(ctx context.Context, applicationKey, environmentKey string, limit int) ([]environment.Operation, error)

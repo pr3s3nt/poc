@@ -31,6 +31,7 @@ const (
 // Deployment is one plan-and-execute run against an Environment.
 type Deployment struct {
 	ID              string `json:"id"`
+	ReviewRequestID string `json:"reviewRequestId,omitempty"`
 	EnvironmentID   string `json:"environmentId"`
 	OrganizationKey string `json:"organizationKey"`
 	ApplicationKey  string `json:"applicationKey"`
@@ -187,6 +188,7 @@ type WorkloadInstance struct {
 	ManifestDigest          string         `json:"manifestDigest"`
 	Status                  InstanceStatus `json:"status"`
 	ObservedAt              time.Time      `json:"observedAt"`
+	ManifestReview          map[string]any `json:"-"`
 }
 
 // WorkloadSnapshot is the state observed for one workload during one
@@ -199,4 +201,5 @@ type WorkloadSnapshot struct {
 	ManifestDigest          string         `json:"manifestDigest"`
 	Status                  InstanceStatus `json:"status"`
 	ObservedAt              time.Time      `json:"observedAt"`
+	ManifestReview          map[string]any `json:"manifestReview,omitempty"`
 }

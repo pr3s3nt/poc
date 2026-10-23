@@ -6,6 +6,7 @@ import { Status } from '../../shared/ui/Status';
 import { DependencyGraph } from '../../shared/ui/DependencyGraph';
 import { getDeployment, type DeploymentDetail } from './api';
 import { ApiError } from '../../shared/api/client';
+import { DeploymentReview } from '../preview/DeploymentReview';
 
 const actions: Record<string, string> = { DEPLOY: 'triển khai', UPDATE: 'cập nhật', REMOVE: 'gỡ bỏ' };
 const deploymentStatuses: Record<string, string> = { SUCCEEDED: 'Thành công', FAILED: 'Thất bại', DEPLOYING: 'Đang triển khai', PROVISIONING: 'Đang tạo tài nguyên', PLANNING: 'Đang lập kế hoạch' };
@@ -47,26 +48,40 @@ export function DeploymentDetailsPage({ application, environment, deploymentId }
   const [detail, setDetail] = useState<DeploymentDetail>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [stale, setStale] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true); setError(''); setNotFound(false); setDetail(undefined);
-    getDeployment(application.id, environment, deploymentId).then((value) => { if (!cancelled) setDetail(value); })
-      .catch((err: unknown) => {
+    let cancelled = false; let timer: number | undefined; let hadDetail = false;
+    setLoading(true); setError(''); setStale(false); setNotFound(false); setDetail(undefined);
+    const refresh = async () => {
+      let terminal = false;
+      try {
+        const value = await getDeployment(application.id, environment, deploymentId);
         if (cancelled) return;
-        if (err instanceof ApiError && err.status === 404) setNotFound(true);
+        hadDetail = true; setDetail(value); setStale(false); setError('');
+        terminal = value.deployment.status === 'SUCCEEDED' || value.deployment.status === 'FAILED';
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiError && err.status === 404 && !hadDetail) { setNotFound(true); terminal = true; }
+        else if (hadDetail) setStale(true);
         else setError('Không thể tải chi tiết triển khai.');
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      } finally { if (!cancelled) setLoading(false); }
+      if (!cancelled && !terminal) timer = window.setTimeout(() => void refresh(), 2000);
+    };
+    void refresh();
+    return () => { cancelled = true; if (timer) window.clearTimeout(timer); };
   }, [application.id, environment, deploymentId, attempt]);
   const reload = () => setAttempt((value) => value + 1);
   const failed = detail && (detail.deployment.status === 'FAILED' || Boolean(detail.deployment.failureReason));
+  const rendered = detail?.workloads.flatMap((w) => w.manifestReview?.version === 1 && w.manifestReview.planHash === detail.planHash ? w.manifestReview.artifacts : [] ) ?? [];
+  const review = detail?.review ? { ...detail.review, artifacts: [...detail.review.artifacts.filter((artifact) => !rendered.some((actual) => actual.id === artifact.id)), ...rendered] } : undefined;
   return <section className="page">
     <button className="back-link" onClick={() => navigate({ name: 'deployments', applicationId: application.id, environment })}>← Lịch sử triển khai {environment}</button>
     <header className="page-header"><div><p className="eyebrow">{application.name} · {environment}</p><h1>Chi tiết triển khai</h1><p>Kế hoạch và trạng thái thực thi đã lưu. Không làm mới cluster.</p></div><Button onClick={reload}>Tải lại</Button></header>
-    {loading ? <p role="status" aria-busy="true">Đang tải chi tiết triển khai…</p> : notFound ? <section className="content-panel"><h2>Không tìm thấy triển khai</h2><p>Triển khai này không tồn tại trong ứng dụng và môi trường đã chọn.</p></section> : error ? <div role="alert" className="form-error">{error} <Button onClick={reload}>Thử lại</Button></div> : detail ? <>
+    {loading ? <p role="status" aria-busy="true">Đang tải chi tiết triển khai…</p> : notFound ? <section className="content-panel"><h2>Không tìm thấy triển khai</h2><p>Triển khai này không tồn tại trong ứng dụng và môi trường đã chọn.</p></section> : error && !detail ? <div role="alert" className="form-error">{error} <Button onClick={reload}>Thử lại</Button></div> : detail ? <>
+      {stale ? <div className="form-error" role="alert">Trạng thái hiển thị là lần quan sát cuối; không thể làm mới. <Button onClick={reload}>Thử lại</Button></div> : null}
+      <section className="content-panel"><p>{detail.workloads.some((w) => w.status === 'READY') ? 'Manifest của Workload sẵn sàng đã được áp dụng; các bản khác chỉ là ý định đã dựng.' : 'Manifest hiển thị là ý định đã dựng trước Apply; chưa có Workload nào được xác nhận sẵn sàng.'}</p><DeploymentReview review={review} progress={detail.nodeProgress} title="Bản đồ và trạng thái triển khai" /></section>
       <section className="content-panel"><div className="section-header"><div><h2>{detail.deployment.workloadId} · {lookup(actions, detail.deployment.action)}</h2><p>{detail.deployment.id}</p></div><Status tone={detail.deployment.status === 'SUCCEEDED' ? 'good' : detail.deployment.status === 'FAILED' ? 'draft' : 'neutral'}>{lookup(deploymentStatuses, detail.deployment.status)}</Status></div>
         {failed ? <div className="form-error" role="alert">Triển khai không hoàn tất. Xem trước các thay đổi rồi triển khai lại; liên hệ quản trị viên nếu lỗi lặp lại.</div> : null}
         <dl className="detail-grid"><div><dt>Bắt đầu</dt><dd>{date(detail.deployment.startedAt)}</dd></div><div><dt>Kết thúc</dt><dd>{date(detail.deployment.finishedAt)}</dd></div><div><dt>Người thực hiện</dt><dd>{detail.deployment.actorRef || 'Không rõ người thực hiện'}</dd></div><div><dt>Tập triển khai</dt><dd>{detail.deploymentSetId || '—'}</dd></div></dl></section>

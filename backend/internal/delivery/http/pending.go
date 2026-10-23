@@ -2,12 +2,14 @@ package http
 
 import (
 	"net/http"
+	"orchestrator/internal/platform/ids"
 )
 
 type previewPendingRequest struct{}
 
 type deployPendingRequest struct {
-	Token *string `json:"token"`
+	Token           *string `json:"token"`
+	ReviewRequestID string  `json:"reviewRequestId,omitempty"`
 }
 
 func (s *Server) handlePreviewPending(w http.ResponseWriter, r *http.Request) {
@@ -41,7 +43,11 @@ func (s *Server) handleDeployPending(w http.ResponseWriter, r *http.Request) {
 		writeCode(w, codeInvalidRequest, "")
 		return
 	}
-	report, err := s.pending.Deploy(r.Context(), app, env, identity.UserID, *req.Token)
+	if req.ReviewRequestID != "" && !ids.ValidUUID(req.ReviewRequestID) {
+		writeCode(w, codeInvalidRequest, "reviewRequestId")
+		return
+	}
+	report, err := s.pending.DeployWithReview(r.Context(), app, env, identity.UserID, *req.Token, req.ReviewRequestID)
 	if err != nil {
 		s.writeError(w, err)
 		return

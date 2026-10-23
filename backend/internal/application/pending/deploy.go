@@ -10,6 +10,7 @@ import (
 	"orchestrator/internal/application/workloadconfig"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/platform/ids"
 	"orchestrator/internal/ports/persistence"
 )
 
@@ -34,6 +35,13 @@ func (s *Service) SetDeployer(deployer *appsvc.Service) { s.deployer = deployer 
 // Successful workloads are committed one by one, so a later failure is visible
 // and retryable.
 func (s *Service) Deploy(ctx context.Context, appKey, envKey, actor, token string) (DeployReport, error) {
+	return s.DeployWithReview(ctx, appKey, envKey, actor, token, "")
+}
+
+func (s *Service) DeployWithReview(ctx context.Context, appKey, envKey, actor, token, reviewRequestID string) (DeployReport, error) {
+	if reviewRequestID != "" && !ids.ValidUUID(reviewRequestID) {
+		return DeployReport{}, ErrInvalid
+	}
 	preview, err := s.Preview(ctx, appKey, envKey)
 	if err != nil {
 		return DeployReport{}, err
@@ -50,6 +58,7 @@ func (s *Service) Deploy(ctx context.Context, appKey, envKey, actor, token strin
 	}
 	lease, err := s.operations().Begin(ctx, envops.Claim{
 		ApplicationKey: appKey, EnvironmentKey: envKey, Kind: environment.OpDeploy,
+		ReviewRequestID: reviewRequestID,
 		Pins: environment.OperationPins{
 			CheckEnvVersion: true, EnvVersion: preview.BaseVersion,
 			CheckDraftVersion: true, DraftVersion: preview.DraftVersion,
@@ -140,6 +149,7 @@ func (s *Service) deployClaimed(lease *envops.Lease, orgKey, appKey, envKey, act
 			OrganizationKey: orgKey, ApplicationKey: appKey, EnvironmentKey: envKey,
 			WorkloadID: change.WorkloadID, ScoreBefore: before, ScoreAfter: after, Action: change.Action,
 			Actor: actor, RunID: preview.RunID,
+			ReviewRequestID:   lease.Operation.ReviewRequestID,
 			ExpectedPlanHash:  change.PlanHash,
 			ConfigRevisionID:  preview.ConfigRevisionID,
 			DeferPublicRoutes: true,

@@ -181,7 +181,7 @@ func TestRequiredRendererMissingTieAndUnavailableFailBeforeResources(t *testing.
 	}
 }
 
-// Both profiles' Previews are pure (the CLI is never run), pin the Definition
+// Preview is read-only; ADR-019 permits the selected offline review renderer. Pin the Definition
 // and bundle, and show the safe resource projection. A renderer or Definition
 // change makes the old token stale before any effect; Deploy renders with the
 // real CLI only after the resource outputs.
@@ -196,8 +196,11 @@ func TestRequiredRendererPreviewIsPurePinsAndDeployRendersAfterOutputs(t *testin
 	if err != nil || len(preview.Changes) != 1 {
 		t.Fatalf("preview: %+v %v", preview, err)
 	}
-	if _, err := os.Stat(log); err == nil {
-		t.Fatal("Preview ran the score-k8s CLI")
+	if _, err := os.Stat(log); err != nil {
+		t.Fatal("selected offline renderer was not exercised", err)
+	}
+	if preview.Review.Version != 1 || len(preview.Review.Artifacts) == 0 {
+		t.Fatal("missing bounded safe review")
 	}
 	if len(app.FakeExec.Calls) != 0 || len(app.FakeDeploy.Applied) != 0 {
 		t.Fatal("Preview had effects")

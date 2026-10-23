@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"orchestrator/internal/application/deploymentreview"
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/provisioning"
 	appdomain "orchestrator/internal/domain/application"
@@ -38,6 +39,7 @@ type DeployCommand struct {
 	Actor            string
 	Action           domain.Action
 	RunID            string
+	ReviewRequestID  string
 	ExpectedPlanHash string
 	ConfigRevisionID string
 	// DeferPublicRoutes is set only by the UC-16 pending batch, whose final
@@ -70,7 +72,10 @@ type Service struct {
 	publicRoutes    execution.PublicRouteManager
 	baseDomain      string
 	instanceMarker  InstanceMarker
+	reviewer        deploymentreview.Assembler
 }
+
+func (s *Service) SetReviewer(reviewer deploymentreview.Assembler) { s.reviewer = reviewer }
 
 // InstanceMarker mirrors a committed UNREFERENCED Active Resource onto the
 // Terraform resource instance of the same logical identity (implemented by
@@ -132,6 +137,7 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	}
 	lease, err := s.operations().Begin(ctx, envops.Claim{
 		ApplicationKey: cmd.ApplicationKey, EnvironmentKey: cmd.EnvironmentKey, Kind: environment.OpDeploy,
+		ReviewRequestID: cmd.ReviewRequestID,
 		Pins: environment.OperationPins{
 			CheckEnvVersion: true, EnvVersion: snapshot.Env.Version,
 			CheckSet: true, CurrentSetID: snapshot.Env.CurrentDeploymentSetID,
@@ -154,9 +160,19 @@ func (s *Service) DeployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 }
 
 func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*DeployResult, error) {
+	if opID := persistence.OperationFrom(ctx); opID != "" {
+		op, err := s.store.GetOperation(ctx, opID)
+		if err != nil {
+			return nil, err
+		}
+		if op.ApplicationKey != cmd.ApplicationKey || op.EnvironmentKey != cmd.EnvironmentKey || op.Kind != environment.OpDeploy || (cmd.ReviewRequestID != "" && !strings.EqualFold(cmd.ReviewRequestID, op.ReviewRequestID)) {
+			return nil, persistence.ErrOperationLost
+		}
+		cmd.ReviewRequestID = op.ReviewRequestID
+	}
 	// MS-01: read the current Deployment Set, connection, catalog and Active
 	// Resources from one consistent snapshot shared with UC-05 Preview.
-	snapshot, err := LoadPlanningSnapshot(ctx, s.store, cmd.OrganizationKey, cmd.ApplicationKey, cmd.EnvironmentKey)
+	snapshot, err := LoadPlanningSnapshotWithBaselines(ctx, s.store, cmd.OrganizationKey, cmd.ApplicationKey, cmd.EnvironmentKey)
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +205,7 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	now := s.clock.Now()
 	record := domain.Deployment{
 		ID:                     ids.New(),
+		ReviewRequestID:        cmd.ReviewRequestID,
 		EnvironmentID:          env.ID,
 		OrganizationKey:        cmd.OrganizationKey,
 		ApplicationKey:         app.Key,
@@ -240,6 +257,7 @@ func (s *Service) deployWorkload(ctx context.Context, cmd DeployCommand) (*Deplo
 	if cmd.ExpectedPlanHash != "" && plan.PlanHash != cmd.ExpectedPlanHash {
 		return nil, s.fail(ctx, record, ErrStalePlan)
 	}
+	plan.Review = s.reviewer.Assemble(ctx, plan, plan.ResourceIntents(snapshot.Baselines.Reader()), snapshot.ReviewBaselines)
 
 	if validator, ok := s.renderer.(execution.RenderPreflight); ok {
 		for _, selection := range plan.Rendering {
@@ -654,6 +672,7 @@ func (s *Service) applyWorkload(
 		ManifestDigest:          digest,
 		Status:                  domain.InstanceApplying,
 		ObservedAt:              s.clock.Now(),
+		ManifestReview:          deploymentreview.RenderedSnapshot(plan, workloadID, manifests),
 	}
 	if err := s.store.UpsertWorkloadProgress(ctx, instance); err != nil {
 		return err

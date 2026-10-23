@@ -137,12 +137,12 @@ func (s *Store) AdmitManagedSecretStore(ctx context.Context, adm persistence.Man
 	return out, err
 }
 
-const operationSelect = `SELECT op.id::text,a.application_key,e.environment_key,op.kind,op.owner_instance,op.fence,op.status,op.stage,op.pins,op.detail,op.failure,op.started_at,op.updated_at,op.heartbeat_at,op.deadline,op.finished_at FROM environment_operations op JOIN environments e ON e.id=op.environment_id JOIN applications a ON a.id=e.application_id`
+const operationSelect = `SELECT op.id::text,a.application_key,e.environment_key,COALESCE(op.review_request_id::text,''),op.kind,op.owner_instance,op.fence,op.status,op.stage,op.pins,op.detail,op.failure,op.started_at,op.updated_at,op.heartbeat_at,op.deadline,op.finished_at FROM environment_operations op JOIN environments e ON e.id=op.environment_id JOIN applications a ON a.id=e.application_id`
 
 func scanOperation(row pgx.Row) (environment.Operation, error) {
 	var v environment.Operation
 	var pins, detail []byte
-	if err := row.Scan(&v.ID, &v.ApplicationKey, &v.EnvironmentKey, &v.Kind, &v.Owner, &v.Fence, &v.Status, &v.Stage, &pins, &detail, &v.Failure, &v.StartedAt, &v.UpdatedAt, &v.HeartbeatAt, &v.Deadline, &v.FinishedAt); err != nil {
+	if err := row.Scan(&v.ID, &v.ApplicationKey, &v.EnvironmentKey, &v.ReviewRequestID, &v.Kind, &v.Owner, &v.Fence, &v.Status, &v.Stage, &pins, &detail, &v.Failure, &v.StartedAt, &v.UpdatedAt, &v.HeartbeatAt, &v.Deadline, &v.FinishedAt); err != nil {
 		return v, err
 	}
 	if err := unmarshalJSON(pins, &v.Pins); err != nil {
@@ -216,12 +216,15 @@ func (s *Store) claimEnvironment(ctx context.Context, claim persistence.Operatio
 		if err != nil {
 			return err
 		}
-		if _, err = s.q(ctx).Exec(ctx, `INSERT INTO environment_operations(id,environment_id,kind,owner_instance,status,stage,pins,detail,started_at,updated_at,heartbeat_at,deadline,authorization_mode,actor_ref,root_resource_instance_id,confirmed_scope,deletion_request_hash,confirmation_name,scope_snapshot,run_id) VALUES($1::uuid,$2::uuid,$3,$4,'ACTIVE',$17,$5,$6,$7,$7,$7,$8,$9,$10,$11::uuid,$12::jsonb,$13,$14,$15::jsonb,$16)`, id, envID, claim.Kind, claim.Owner, pinJSON, detailJSON, now, claim.Deadline,
-			cleanup.mode, cleanup.actor, cleanup.root, cleanup.confirmedScope, cleanup.requestHash, cleanup.confirmationName, cleanup.scopeSnapshot, cleanup.runID, initialStage(claim.Kind)); err != nil {
+		if _, err = s.q(ctx).Exec(ctx, `INSERT INTO environment_operations(id,environment_id,kind,owner_instance,status,stage,pins,detail,started_at,updated_at,heartbeat_at,deadline,authorization_mode,actor_ref,root_resource_instance_id,confirmed_scope,deletion_request_hash,confirmation_name,scope_snapshot,run_id,review_request_id) VALUES($1::uuid,$2::uuid,$3,$4,'ACTIVE',$17,$5,$6,$7,$7,$7,$8,$9,$10,$11::uuid,$12::jsonb,$13,$14,$15::jsonb,$16,NULLIF($18,'')::uuid)`, id, envID, claim.Kind, claim.Owner, pinJSON, detailJSON, now, claim.Deadline,
+			cleanup.mode, cleanup.actor, cleanup.root, cleanup.confirmedScope, cleanup.requestHash, cleanup.confirmationName, cleanup.scopeSnapshot, cleanup.runID, initialStage(claim.Kind), claim.ReviewRequestID); err != nil {
 			var pg *pgconn.PgError
 			if errors.As(err, &pg) && pg.Code == "23505" {
 				if pg.ConstraintName == "environment_operations_pkey" {
 					return fmt.Errorf("%w: operation id %q is already used", persistence.ErrDuplicate, id)
+				}
+				if pg.ConstraintName == "environment_operations_review_request" {
+					return persistence.ErrDuplicate
 				}
 				return persistence.Busy(claim.ApplicationKey, claim.EnvironmentKey)
 			}
@@ -420,4 +423,9 @@ func initialStage(kind environment.OperationKind) string {
 		return "REQUESTED"
 	}
 	return ""
+}
+
+func (s *Store) GetReviewOperation(ctx context.Context, app, env, requestID string) (environment.Operation, error) {
+	op, err := scanOperation(s.q(ctx).QueryRow(ctx, operationSelect+` WHERE a.application_key=$1 AND e.environment_key=$2 AND op.review_request_id=$3::uuid`, app, env, requestID))
+	return op, translate(err)
 }

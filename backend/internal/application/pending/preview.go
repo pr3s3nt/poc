@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	appsvc "orchestrator/internal/application/deployment"
+	"orchestrator/internal/application/deploymentreview"
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/target"
 	"orchestrator/internal/application/workloadconfig"
@@ -40,12 +41,16 @@ type Change struct {
 }
 
 type Preview struct {
-	Token          string `json:"token"`
-	ApplicationKey string `json:"applicationKey"`
-	EnvironmentKey string `json:"environmentKey"`
-	BaseSetID      string `json:"baseDeploymentSetId"`
-	BaseVersion    int64  `json:"baseVersion"`
-	DraftVersion   int64  `json:"draftVersion"`
+	Review         deploymentreview.Review                `json:"review"`
+	lastPlan       *planning.Plan                         `json:"-"`
+	previous       map[string][]deploymentreview.Artifact `json:"-"`
+	lastIntents    []planning.ResourceIntent              `json:"-"`
+	Token          string                                 `json:"token"`
+	ApplicationKey string                                 `json:"applicationKey"`
+	EnvironmentKey string                                 `json:"environmentKey"`
+	BaseSetID      string                                 `json:"baseDeploymentSetId"`
+	BaseVersion    int64                                  `json:"baseVersion"`
+	DraftVersion   int64                                  `json:"draftVersion"`
 	// ConfigVersion, Binding and SecretStoreKey pin the rest of the snapshot
 	// (ADR-012): any Settings, configuration or draft change invalidates the token.
 	ConfigVersion    int64               `json:"configVersion"`
@@ -65,7 +70,10 @@ type Service struct {
 	deployer          *appsvc.Service
 	imageRegistryHost string
 	ops               *envops.Manager
+	reviewer          deploymentreview.Assembler
 }
+
+func (s *Service) SetReviewer(reviewer deploymentreview.Assembler) { s.reviewer = reviewer }
 
 // SetOperations shares the Environment claim manager with the other services.
 func (s *Service) SetOperations(ops *envops.Manager) { s.ops = ops }
@@ -99,6 +107,25 @@ func (s *Service) Preview(ctx context.Context, appKey, envKey string) (Preview, 
 	})
 	if err != nil {
 		return Preview{}, err
+	}
+	if out.lastPlan != nil {
+		out.Review = s.reviewer.Assemble(ctx, out.lastPlan, out.lastIntents, out.previous)
+		// Desired actions belong to the complete pending batch, not only its last step.
+		actions := map[string]string{}
+		for _, change := range out.Changes {
+			actions[change.WorkloadID] = string(change.Action)
+		}
+		for i := range out.Review.Nodes {
+			node := &out.Review.Nodes[i]
+			if node.Kind == "workload" {
+				if action, ok := actions[node.Name]; ok {
+					node.Intent = action
+					if action == "DEPLOY" {
+						node.Intent = "CREATE"
+					}
+				}
+			}
+		}
 	}
 	return out, nil
 }
@@ -159,6 +186,10 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
+	reviewBaselines, err := deploymentreview.CapturePrevious(ctx, st, app.OrganizationKey, appKey, envKey, env.TargetGeneration, active)
+	if err != nil {
+		return Preview{}, err
+	}
 	typeMap := map[string]resource.Type{}
 	for _, typ := range types {
 		typeMap[typ.Key] = typ
@@ -203,7 +234,7 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 		return Preview{}, err
 	}
 	preview := Preview{ApplicationKey: appKey, EnvironmentKey: envKey, BaseSetID: set.ID, BaseVersion: env.Version, DraftVersion: env.DraftVersion, RoutePending: env.PublicRoutesPending, ConfigRevisionID: scope.DesiredRevisionID,
-		ConfigVersion: scope.Version, Binding: env.Binding(), SecretStoreKey: env.SecretStoreKey, Changes: []Change{}}
+		ConfigVersion: scope.Version, Binding: env.Binding(), SecretStoreKey: env.SecretStoreKey, Changes: []Change{}, previous: reviewBaselines}
 	// Keep the execution identity stable across revisions of one environment.
 	// The preview token separately pins the mutable base/draft/configuration state.
 	pinHash, err := canon.Hash([]string{appKey, envKey})
@@ -271,6 +302,8 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 			}
 		}
 		preview.Changes = append(preview.Changes, Change{Rendering: plan.Rendering[id], WorkloadID: id, Action: action, Delta: plan.Delta, Resources: plan.Classification, ResourceIntents: plan.ResourceIntents(baselines.Reader()), Placements: plan.PlacementList(), PlanHash: plan.PlanHash})
+		preview.lastPlan = plan
+		preview.lastIntents = plan.ResourceIntents(baselines.Reader())
 		base = plan.CandidateSet
 	}
 	// Route and Service-reference rules apply to the final batch state only.
@@ -279,6 +312,12 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	}
 	if err := planning.ValidateServiceReferences(base); err != nil {
 		return Preview{}, publicPlanningError("", &planning.StageError{Stage: planning.StageServiceRefs, Err: err})
+	}
+	if preview.lastPlan != nil {
+		// Keep execution plans/hashes untouched; review compares the final desired set to the original base.
+		final := *preview.lastPlan
+		final.BaseSet = set.Document
+		preview.lastPlan = &final
 	}
 	preview.Token, err = canon.Hash(preview)
 	return preview, err

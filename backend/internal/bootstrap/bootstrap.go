@@ -32,6 +32,7 @@ import (
 	appconfig "orchestrator/internal/application/configuration"
 	"orchestrator/internal/application/connection"
 	appsvc "orchestrator/internal/application/deployment"
+	"orchestrator/internal/application/deploymentreview"
 	"orchestrator/internal/application/envops"
 	"orchestrator/internal/application/pending"
 	"orchestrator/internal/application/preview"
@@ -427,7 +428,9 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		prov.SetClusterReadiness(&k8s.ClusterReady{KubectlPath: opts.KubectlPath, Credentials: kubeconfigSource}, clusterReadyTimeout)
 	}
 	inspector := planning.RegistryInspector{Metadata: modules}
+	reviewer := deploymentreview.Assembler{Sources: modules, Renderer: renderer}
 	deployments := appsvc.NewService(st, planner, prov, renderer, deployer, inspector, c)
+	deployments.SetReviewer(reviewer)
 	if opts.Adapters == AdapterKubernetes {
 		if opts.WorkloadDelivery == "fleet-gitrepo" {
 			fleet, ok := deployer.(*gitops.Deployer)
@@ -505,12 +508,14 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	}
 	workloads := workloadconfig.NewService(st)
 	pendingChanges := pending.NewService(st, planner, workloads, inspector)
+	pendingChanges.SetReviewer(reviewer)
 	if opts.WorkloadDelivery == "fleet-gitrepo" {
 		pendingChanges.SetImageRegistryHost(opts.HarborRegistryHost)
 	}
 	pendingChanges.SetDeployer(deployments)
 	pendingChanges.SetOperations(operations)
 	previews := preview.NewService(st, planner, inspector)
+	previews.SetReviewer(reviewer)
 	kubeconfigVerifier := opts.KubeconfigVerifierOverride
 	if kubeconfigVerifier == nil {
 		kubeconfigVerifier = k8s.ConnectionVerifier{KubectlPath: opts.KubectlPath}

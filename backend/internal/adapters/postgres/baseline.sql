@@ -84,7 +84,7 @@ CREATE TABLE environments (
 );
 
 CREATE TABLE environment_operations (
-  id uuid PRIMARY KEY, environment_id uuid NOT NULL REFERENCES environments(id),
+  id uuid PRIMARY KEY, environment_id uuid NOT NULL REFERENCES environments(id), review_request_id uuid,
   kind text NOT NULL, owner_instance text NOT NULL, fence bigint NOT NULL DEFAULT 1, status text NOT NULL, stage text NOT NULL DEFAULT '',
   pins jsonb NOT NULL, detail jsonb NOT NULL DEFAULT '{}'::jsonb, failure text NOT NULL DEFAULT '',
   started_at timestamptz NOT NULL, updated_at timestamptz NOT NULL, heartbeat_at timestamptz NOT NULL,
@@ -105,10 +105,12 @@ CREATE UNIQUE INDEX environment_operations_deletion_request ON environment_opera
   WHERE deletion_request_hash IS NOT NULL;
 CREATE UNIQUE INDEX environment_operations_one_holder ON environment_operations(environment_id)
   WHERE status IN ('ACTIVE','INTERRUPTED','RECOVERING');
+CREATE UNIQUE INDEX environment_operations_review_request ON environment_operations(environment_id, review_request_id)
+  WHERE review_request_id IS NOT NULL;
 ALTER TABLE environments ADD CONSTRAINT environments_active_operation_fk
   FOREIGN KEY(active_operation_id) REFERENCES environment_operations(id) DEFERRABLE INITIALLY DEFERRED;
 CREATE TABLE deployments (
-  id uuid PRIMARY KEY, environment_id uuid NOT NULL REFERENCES environments(id),
+  id uuid PRIMARY KEY, environment_id uuid NOT NULL REFERENCES environments(id), review_request_id uuid,
   organization_key text NOT NULL, application_key text NOT NULL, environment_key text NOT NULL,
   action text NOT NULL, workload_id text NOT NULL,
   actor_ref text NOT NULL, status text NOT NULL, base_environment_version bigint NOT NULL,
@@ -118,6 +120,8 @@ CREATE TABLE deployments (
   target_generation bigint NOT NULL DEFAULT 0
 );
 CREATE INDEX deployments_environment_started_idx ON deployments(environment_id, started_at DESC);
+CREATE INDEX deployments_review_request_idx ON deployments(environment_id, review_request_id, started_at)
+  WHERE review_request_id IS NOT NULL;
 CREATE TABLE deployment_sets (
   id uuid PRIMARY KEY, environment_id uuid NOT NULL REFERENCES environments(id) DEFERRABLE INITIALLY DEFERRED,
   created_by_deployment_id uuid REFERENCES deployments(id) DEFERRABLE INITIALLY DEFERRED,
@@ -217,6 +221,7 @@ CREATE TABLE deployment_workloads (
   manifest_digest text NOT NULL,
   applied_config_revision_id uuid REFERENCES configuration_revisions(id),
   observed_at timestamptz NOT NULL,
+  manifest_review jsonb,
   PRIMARY KEY(deployment_id, workload_id)
 );
 

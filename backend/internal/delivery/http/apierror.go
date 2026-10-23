@@ -336,7 +336,7 @@ func classify(err error) (failure, bool) {
 		return failure{code: codeServiceUnavailable}, true
 	case errors.Is(err, persistence.ErrRecoveryUnconfirmed):
 		return failure{code: codeRecoveryConfirmRequired, field: "priorExecutionStopped"}, true
-	case errors.Is(err, catalog.ErrDuplicate), errors.Is(err, connectionapp.ErrDuplicate), errors.Is(err, appcreate.ErrDuplicate),
+	case errors.Is(err, persistence.ErrDuplicate), errors.Is(err, catalog.ErrDuplicate), errors.Is(err, connectionapp.ErrDuplicate), errors.Is(err, appcreate.ErrDuplicate),
 		errors.Is(err, appconfig.ErrConflict):
 		f := failure{code: codeDuplicate}
 		if errors.As(err, &fieldErr) {

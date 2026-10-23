@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	appsvc "orchestrator/internal/application/deployment"
+	"orchestrator/internal/application/deploymentreview"
 	domain "orchestrator/internal/domain/deployment"
 	"orchestrator/internal/domain/environment"
 	"orchestrator/internal/domain/resource"
@@ -96,6 +97,7 @@ type PreviewDeploymentQuery struct {
 // DeploymentPreview is the unredacted, immutable result of one Preview. Plan
 // holds the internal planning artifacts; Public renders the sanitized view.
 type DeploymentPreview struct {
+	Review         deploymentreview.Review
 	ApplicationKey string
 	EnvironmentKey string
 	BaseSetID      string
@@ -117,7 +119,10 @@ type Service struct {
 	store     persistence.Store
 	planner   *planning.Service
 	terraform planning.ModuleInspector
+	reviewer  deploymentreview.Assembler
 }
+
+func (s *Service) SetReviewer(reviewer deploymentreview.Assembler) { s.reviewer = reviewer }
 
 // NewService wires UC-05 Preview.
 func NewService(store persistence.Store, planner *planning.Service, inspector planning.ModuleInspector) *Service {
@@ -154,7 +159,9 @@ func (s *Service) PreviewDeployment(ctx context.Context, q PreviewDeploymentQuer
 	}
 	// AWS identity belongs to each node's Definition (provider pins in Intents),
 	// never to the Environment, so no Environment AccountID is reported.
+	review := s.reviewer.Assemble(ctx, plan, plan.ResourceIntents(snapshot.Baselines.Reader()), snapshot.ReviewBaselines)
 	return &DeploymentPreview{
+		Review:         review,
 		Binding:        snapshot.Env.Binding(),
 		Intents:        plan.ResourceIntents(snapshot.Baselines.Reader()),
 		ApplicationKey: snapshot.App.Key,
@@ -225,6 +232,7 @@ const RedactedValue = appsvc.RedactedValue
 
 // View is the explicit, sanitized HTTP projection of a DeploymentPreview.
 type View struct {
+	Review         deploymentreview.Review                `json:"review"`
 	Rendering      map[string]resource.RenderingSelection `json:"rendering,omitempty"`
 	ApplicationKey string                                 `json:"applicationKey"`
 	EnvironmentKey string                                 `json:"environmentKey"`
@@ -293,6 +301,7 @@ func (p *DeploymentPreview) Public() (View, error) {
 		return View{}, err
 	}
 	view := View{
+		Review:         p.Review,
 		Rendering:      resource.CopyRendering(p.Plan.Rendering),
 		ApplicationKey: p.ApplicationKey, EnvironmentKey: p.EnvironmentKey,
 		BaseSetID: p.BaseSetID, BaseVersion: p.BaseVersion, RunID: p.RunID,

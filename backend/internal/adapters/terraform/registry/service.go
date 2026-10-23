@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -370,6 +371,50 @@ func (s *Service) Bundle(ctx context.Context, ref tfmodule.SourceRef) (tfmodule.
 		return tfmodule.Bundle{}, moduleregistry.ErrDrift
 	}
 	return bundle, nil
+}
+
+// ReadPinned returns only locally cached Terraform source at the exact verified
+// pin. It deliberately calls no resolver, fetcher, Terraform CLI or provider.
+// The cache re-hashes every transitive tree before any bytes are returned.
+func (s *Service) ReadPinned(ctx context.Context, ref tfmodule.SourceRef) (map[string][]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	bundle, err := s.Bundle(ctx, ref)
+	if err != nil {
+		return nil, err
+	}
+	root, err := s.cfg.Cache.verify(ref, bundle.Contract)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string][]byte{}
+	dirs := []moduleDir{rootDir(ref)}
+	digests := []string{ref.ContentSHA256}
+	for _, child := range bundle.Contract.Transitive {
+		dirs = append(dirs, moduleDir{sourceID: child.SourceID, revision: child.Revision, path: child.Path})
+		digests = append(digests, child.ContentSHA256)
+	}
+	for index, dir := range dirs {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		tree, err := readTree(sourceDir(root, dir))
+		if err != nil || tree.Digest() != digests[index] {
+			return nil, ErrArtifact
+		}
+		for file, data := range tree {
+			if !strings.HasSuffix(file, ".tf") {
+				continue
+			}
+			name := file
+			if index > 0 {
+				name = path.Join("modules", fmt.Sprint(index), dir.path, file)
+			}
+			out[name] = append([]byte(nil), data...)
+		}
+	}
+	return out, nil
 }
 
 // List implements moduleregistry.Metadata.
