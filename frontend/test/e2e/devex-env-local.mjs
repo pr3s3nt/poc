@@ -239,9 +239,10 @@ try {
     await en.page.goto(`${base}/ui/applications/${app}`);
     await en.page.locator('.table-row').filter({ hasText: 'api' }).getByRole('button', { name: /Edit/ }).first().click();
     const region = en.page.getByRole('region', { name: 'Environment variables of container main' });
-    const keySearch = region.getByRole('searchbox', { name: 'Search Application variable, row 3' });
+    const regionRow = region.getByRole('row').filter({ has: en.page.locator('input[value="REGION"]') });
+    const keySearch = regionRow.getByRole('searchbox');
     await keySearch.fill('SEARCH_KEY_10');
-    const keyChoice = region.getByLabel('Application variable, row 3', { exact: true });
+    const keyChoice = regionRow.getByRole('combobox', { name: /^Application variable, row/ });
     await expect(keyChoice).toHaveValue('REGION');
     await expect(keyChoice.locator('option')).toHaveCount(3);
     check(`long key catalog filters by name and preserves selection (${label})`, true);

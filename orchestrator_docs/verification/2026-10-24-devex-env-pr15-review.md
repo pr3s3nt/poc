@@ -48,9 +48,24 @@ items. No additional explanatory paragraphs were added to the workflow.
 
 ## Validation status
 
-Validation is recorded below after the final review run. Initial full frontend
+Initial full frontend
 execution oversubscribed workers on this host and hit existing 5-second test
 limits; the repeat uses four workers without increasing test timeouts. The first
 backend suite passed all packages except the sequential Terraform integration
 package, which exceeded Go's default ten-minute package timeout; that package is
 rerun with a 30-minute timeout, preserving all tests and assertions.
+
+| Check | Result |
+|---|---|
+| Frontend typecheck, lint, production build | PASS |
+| `npm test -- --maxWorkers=4` | PASS: 881 tests in 71 files; no timeout increase |
+| Backend affected-package tests, build, vet | PASS |
+| `go test -race ./internal/planning ./test/e2e ./test/conformance` with PostgreSQL required | PASS |
+| Browser acceptance | PASS: 30 assertions, both languages and desktop sizes, including long-catalog search |
+| Documentation checker, `git diff --check` | PASS |
+
+Browser evidence is local at `/tmp/pr15-final-v2/` (screenshots, assertions and
+result); these are synthetic fixture data, not production deployment evidence.
+The final merge gate is the complete backend/frontend/documentation check suite
+on the final PR head, visible in [PR checks](https://github.com/pr3s3nt/poc/pull/15/checks).
+
