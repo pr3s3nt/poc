@@ -7,6 +7,7 @@ import (
 	"regexp"
 
 	"orchestrator/internal/adapters/configmemory"
+	"orchestrator/internal/adapters/renderbundles"
 	appcreate "orchestrator/internal/application/application"
 	"orchestrator/internal/application/authentication"
 	"orchestrator/internal/application/catalog"
@@ -19,11 +20,14 @@ import (
 	"orchestrator/internal/application/secretstores"
 	"orchestrator/internal/application/workloadconfig"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/renderbundle"
+	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/planning/score"
 	configport "orchestrator/internal/ports/configuration"
 	"orchestrator/internal/ports/credentials"
 	"orchestrator/internal/ports/persistence"
+	"orchestrator/internal/ports/renderregistry"
 )
 
 // Public HTTP error contract (T20 / VI-03). Every error response is
@@ -77,6 +81,15 @@ const (
 	codeRouteReconcileFailed      = "ROUTE_RECONCILE_FAILED"
 	codeServiceUnavailable        = "SERVICE_UNAVAILABLE"
 	codeInternal                  = "INTERNAL_ERROR"
+	// Git render bundles (ADR-021, contract RB-C07).
+	codeRenderSourceInvalid       = "RENDER_SOURCE_INVALID"
+	codeRenderBundleInvalid       = "RENDER_BUNDLE_INVALID"
+	codeRenderInputInvalid        = "RENDER_INPUT_INVALID"
+	codeRenderSourceUnavailable   = "RENDER_SOURCE_UNAVAILABLE"
+	codeRenderBundleUnavailable   = "RENDER_BUNDLE_UNAVAILABLE"
+	codeRenderBundleDrift         = "RENDER_BUNDLE_DRIFT"
+	codeRenderContractUnsupported = "RENDER_CONTRACT_UNSUPPORTED"
+	codeRenderFailed              = "RENDER_FAILED"
 )
 
 type publicError struct {
@@ -130,6 +143,14 @@ var publicErrors = map[string]publicError{
 	codeRouteReconcileFailed:      {http.StatusBadGateway, "workloads were applied but public routes could not be reconciled"},
 	codeServiceUnavailable:        {http.StatusServiceUnavailable, "a required service is not available"},
 	codeInternal:                  {http.StatusInternalServerError, "the request failed"},
+	codeRenderSourceInvalid:       {http.StatusBadRequest, "the Git source URL, directory or reference is not valid"},
+	codeRenderBundleInvalid:       {http.StatusBadRequest, "the render bundle is not valid"},
+	codeRenderInputInvalid:        {http.StatusBadRequest, "the render inputs do not match the bundle schema"},
+	codeRenderSourceUnavailable:   {http.StatusServiceUnavailable, "the Git source could not be reached"},
+	codeRenderBundleUnavailable:   {http.StatusServiceUnavailable, "the render bundle is not available on this platform"},
+	codeRenderBundleDrift:         {http.StatusConflict, "the render bundle content differs from its recorded pin"},
+	codeRenderContractUnsupported: {http.StatusBadRequest, "the render bundle contract version is not supported"},
+	codeRenderFailed:              {http.StatusUnprocessableEntity, "the render bundle could not render the workload"},
 }
 
 // Trusted response fields. A field is echoed only when it is in this set:
@@ -142,14 +163,18 @@ var trustedFields = map[string]bool{
 	"definition.key": true, "definition.name": true, "definition.resourceType": true, "definition.version": true,
 	"definition.driverType": true, "definition.criteria": true, "definition.driverAccount": true,
 	"definition.driverInputs.values": true, "definition.driverInputs.values.source": true, "definition.driverInputs.values.variables.region": true,
-	"definition.driverInputs.values.provider_bindings": true,
-	"context.applicationId":                            true, "context.environmentId": true, "context.resourceId": true, "context.class": true,
+	"definition.driverInputs.values.provider_bindings":       true,
+	"definition.driverInputs.values.variables.render_bundle": true, "definition.driverInputs.values.variables.render_inputs": true,
+	"context.applicationId": true, "context.environmentId": true, "context.resourceId": true, "context.class": true,
 	"service.publicPort": true, "confirmationName": true, "selectedResourceIds": true,
 	"accessKeyId": true, "secretAccessKey": true, "allowedRegions": true, "verificationRegions": true,
 	// UC-17 effectiveness query and baseline fields.
 	"from": true, "to": true, "workload": true, "metric": true, "statistic": true, "valueSeconds": true, "source": true,
 	"effectiveFrom": true, "sampleSize": true, "measuredFrom": true, "measuredTo": true,
 }
+
+// safeBundleFile bounds a bundle-relative file name echoed as a param.
+var safeBundleFile = regexp.MustCompile(`^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+){0,7}$`)
 
 // technicalID bounds a registered resource Type key echoed as a param: lowercase
 // letters, digits and hyphens, at most 63 characters (the public ID rule).
@@ -198,6 +223,9 @@ func safeParams(in map[string]string) map[string]string {
 	}
 	if v, ok := in["reason"]; ok && trustedReasons[v] {
 		out["reason"] = v
+	}
+	if v, ok := in["file"]; ok && safeBundleFile.MatchString(v) && len(v) <= 256 {
+		out["file"] = v
 	}
 	return out
 }
@@ -285,7 +313,34 @@ func classify(err error) (failure, bool) {
 	)
 	var refused *resourcecleanup.RefusedError
 	var cleanupField *resourcecleanup.FieldError
+	var renderErr *catalog.RenderError
+	var bundleField *renderbundles.BundleInvalidError
 	switch {
+	case errors.Is(err, renderregistry.ErrSourceInvalid):
+		return failure{code: codeRenderSourceInvalid}, true
+	case errors.Is(err, renderregistry.ErrContractUnsupported), errors.Is(err, renderbundle.ErrUnsupported):
+		return failure{code: codeRenderContractUnsupported}, true
+	case errors.Is(err, renderregistry.ErrBundleInvalid):
+		f := failure{code: codeRenderBundleInvalid}
+		if errors.As(err, &bundleField) && safeBundleFile.MatchString(bundleField.File) {
+			f.params = map[string]string{"file": bundleField.File}
+		}
+		return f, true
+	case errors.Is(err, renderbundle.ErrInputInvalid), errors.Is(err, resource.ErrRenderInputsInvalid):
+		f := failure{code: codeRenderInputInvalid, field: "definition.driverInputs.values.variables.render_inputs"}
+		return f, true
+	case errors.Is(err, renderregistry.ErrSourceUnavailable):
+		return failure{code: codeRenderSourceUnavailable}, true
+	case errors.Is(err, renderregistry.ErrBundleUnavailable):
+		f := failure{code: codeRenderBundleUnavailable}
+		if errors.As(err, &renderErr) {
+			f.field = renderErr.Field
+		}
+		return f, true
+	case errors.Is(err, renderregistry.ErrDrift):
+		return failure{code: codeRenderBundleDrift}, true
+	case errors.Is(err, renderregistry.ErrRenderFailed):
+		return failure{code: codeRenderFailed}, true
 	case errors.As(err, &refused):
 		return failure{code: codeCleanupRefused, params: map[string]string{"reason": refused.RefusalReason()}}, true
 	case errors.As(err, &cleanupField):

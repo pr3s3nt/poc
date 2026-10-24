@@ -1,0 +1,16 @@
+apiVersion: orchestrator.dev/render-bundle/v1
+kind: RenderBundle
+metadata:
+  name: standard-workload
+renderer:
+  type: score-k8s
+  version: 0.15.0
+inputContract: orchestrator.dev/render-input/v1
+inputsSchema: inputs.schema.json
+defaults: defaults.yaml
+normalize: normalize/score.tpl
+provisioners:
+  - provisioners/bindings.provisioners.yaml
+patches:
+  - patches/deployment.tpl
+  - patches/service.tpl

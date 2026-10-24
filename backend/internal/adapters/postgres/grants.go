@@ -64,6 +64,7 @@ var (
 // Console, which runs registration and platform preparation; the baseline
 // trigger keeps them immutable and no runtime login may update or delete them.
 // UC-17 baseline versions are append-only by privilege: SELECT and INSERT.
+// Verified Git render bundles (ADR-021) are insert-only like module bundles.
 func consoleGrants() []grant {
 	var out []grant
 	out = append(out, grant{table: "schema_baseline", privilege: "SELECT"})
@@ -77,6 +78,8 @@ func consoleGrants() []grant {
 		grant{table: "terraform_module_bundles", privilege: "INSERT"},
 		grant{table: "effectiveness_baselines", privilege: "SELECT"},
 		grant{table: "effectiveness_baselines", privilege: "INSERT"},
+		grant{table: "render_bundles", privilege: "SELECT"},
+		grant{table: "render_bundles", privilege: "INSERT"},
 		grant{table: "terraform_resource_instances", privilege: "SELECT", columns: consoleInstanceColumns},
 		grant{table: "terraform_resource_dependencies", privilege: "SELECT"},
 		grant{table: "terraform_resource_attempts", privilege: "SELECT", columns: consoleAttemptColumns},

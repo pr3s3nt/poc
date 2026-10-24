@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"gopkg.in/yaml.v3"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/domain/tfmodule"
 	"orchestrator/internal/planning"
 	"orchestrator/internal/planning/placeholder"
@@ -64,7 +65,36 @@ type Node struct {
 	Placement         *planning.Placement    `json:"placement,omitempty"`
 	Renderer          string                 `json:"renderer,omitempty"`
 	RendererDigest    string                 `json:"rendererDigest,omitempty"`
+	// RenderSource is the Git render bundle pin of a workload (ADR-021).
+	RenderSource *RenderSource `json:"renderSource,omitempty"`
 }
+
+// RenderSource is the safe provenance of a Git render bundle pin.
+type RenderSource struct {
+	URL        string `json:"url"`
+	Path       string `json:"path"`
+	Revision   string `json:"revision"`
+	Version    string `json:"version"`
+	InputsHash string `json:"inputsHash,omitempty"`
+}
+
+func renderSource(selection resource.RenderingSelection) *RenderSource {
+	if !selection.Bundle.Git() {
+		return nil
+	}
+	src := selection.Bundle.Source
+	return &RenderSource{URL: src.URL, Path: src.Path, Revision: src.Revision, Version: selection.Bundle.Version, InputsHash: selection.InputsHash}
+}
+
+// renderProvenance is the manifest artifact provenance of a selection.
+func renderProvenance(planHash string, selection resource.RenderingSelection) map[string]string {
+	out := map[string]string{"planHash": planHash, "rendererBundle": selection.Bundle.ID, "rendererDigest": selection.Bundle.Digest}
+	if src := renderSource(selection); src != nil {
+		out["renderSourceUrl"], out["renderSourcePath"], out["renderRevision"], out["renderVersion"] = src.URL, src.Path, src.Revision, src.Version
+	}
+	return out
+}
+
 type Review struct {
 	Version   int             `json:"version"`
 	PlanHash  string          `json:"planHash"`
@@ -159,6 +189,7 @@ func (a Assembler) Assemble(ctx context.Context, plan *planning.Plan, intents []
 				n.Renderer = selected.Bundle.ID + "@" + selected.Bundle.Version
 				n.RendererDigest = selected.Bundle.Digest
 				n.DefinitionKey = selected.DefinitionKey
+				n.RenderSource = renderSource(selected)
 			}
 			for _, art := range a.manifests(ctx, plan, node.Descriptor, node.WorkloadID, previous[node.Descriptor]) {
 				appendArtifact(art)
@@ -360,8 +391,9 @@ func safeLabel(v string) bool {
 func utf8Valid(b []byte) bool { return utf8.Valid(b) && !strings.ContainsRune(string(b), '\x00') }
 
 // ProjectManifests emits only Deployment and Service review data. The
-// execution manifests remain untouched. Arbitrary annotations, Secret bodies,
-// container literal environment values and unknown object kinds are excluded.
+// execution manifests remain untouched. Platform delivery and credential-named
+// annotations, Secret bodies, container literal environment values and
+// unknown object kinds are excluded; accepted Git policy fields are shown.
 func ProjectManifests(manifests []execution.Manifest) map[string]Side {
 	out := map[string]Side{}
 	for _, m := range manifests {
@@ -374,7 +406,7 @@ func ProjectManifests(manifests []execution.Manifest) map[string]Side {
 			out[m.Kind+"/"+m.Name] = unavailable("REDACTION_REQUIRED")
 			continue
 		}
-		side := Side{Availability: "PARTIAL", Text: string(encoded), RedactedPaths: []string{"metadata.annotations", "spec.template.metadata.annotations", "spec.template.spec.containers[*].env[*].value"}, UnknownPaths: []string{}}
+		side := Side{Availability: "PARTIAL", Text: string(encoded), RedactedPaths: []string{"metadata.annotations", "spec.template.metadata.annotations[vault.hashicorp.com/*]", "spec.template.spec.containers[*].env[*].value"}, UnknownPaths: []string{}}
 		if len(encoded) > MaxSideBytes {
 			side = unavailable("LIMIT_EXCEEDED")
 		}
@@ -384,7 +416,13 @@ func ProjectManifests(manifests []execution.Manifest) map[string]Side {
 }
 
 func sanitizeManifest(m execution.Manifest) map[string]any {
-	result := map[string]any{"apiVersion": m.APIVersion, "kind": m.Kind, "metadata": map[string]any{"name": m.Name, "namespace": m.Namespace}}
+	metadata := map[string]any{"name": m.Name, "namespace": m.Namespace}
+	if source, ok := m.Object["metadata"].(map[string]any); ok {
+		if labels := selectKeyed(source["labels"]); len(labels) > 0 {
+			metadata["labels"] = labels
+		}
+	}
+	result := map[string]any{"apiVersion": m.APIVersion, "kind": m.Kind, "metadata": metadata}
 	spec, _ := m.Object["spec"].(map[string]any)
 	if m.Kind == "Service" {
 		safe := map[string]any{}
@@ -412,11 +450,46 @@ func sanitizeManifest(m execution.Manifest) map[string]any {
 		}
 		safe["selector"] = selected
 	}
+	// Accepted rollout fields of Git render bundles (ADR-021 RB-C06).
+	for _, field := range []string{"strategy"} {
+		if value := safeTree(spec[field], 0); value != nil {
+			if object, ok := value.(map[string]any); !ok || len(object) > 0 {
+				safe[field] = value
+			}
+		}
+	}
+	for _, field := range []string{"minReadySeconds", "revisionHistoryLimit", "progressDeadlineSeconds"} {
+		switch value := spec[field].(type) {
+		case int, int32, int64, float64:
+			safe[field] = value
+		}
+	}
 	tpl, _ := spec["template"].(map[string]any)
 	pod, _ := tpl["spec"].(map[string]any)
+	if source, ok := tpl["metadata"].(map[string]any); ok {
+		templateMetadata := map[string]any{}
+		if labels := selectKeyed(source["labels"]); len(labels) > 0 {
+			templateMetadata["labels"] = labels
+		}
+		// Platform delivery annotations (Vault Agent) stay redacted.
+		if annotations := selectAnnotations(source["annotations"]); len(annotations) > 0 {
+			templateMetadata["annotations"] = annotations
+		}
+		if len(templateMetadata) > 0 {
+			safe["template"] = map[string]any{"metadata": templateMetadata}
+		}
+	}
 	podSafe := map[string]any{}
 	if refs, ok := pod["imagePullSecrets"].([]any); ok {
 		podSafe["imagePullSecrets"] = selectObjectList(refs, "name")
+	}
+	if account, ok := pod["serviceAccountName"].(string); ok && safeLabel(account) {
+		podSafe["serviceAccountName"] = account
+	}
+	for _, field := range []string{"nodeSelector", "affinity", "tolerations", "securityContext", "topologySpreadConstraints"} {
+		if value := safeTree(pod[field], 0); value != nil {
+			podSafe[field] = value
+		}
 	}
 	containers, _ := pod["containers"].([]any)
 	list := []any{}
@@ -433,6 +506,9 @@ func sanitizeManifest(m execution.Manifest) map[string]any {
 		}
 		if ports, ok := c["ports"].([]any); ok {
 			clean["ports"] = selectObjectList(ports, "name", "containerPort", "protocol")
+		}
+		if value := safeTree(c["securityContext"], 0); value != nil {
+			clean["securityContext"] = value
 		}
 		if resources, ok := c["resources"].(map[string]any); ok {
 			selected := map[string]any{}
@@ -478,9 +554,100 @@ func sanitizeManifest(m execution.Manifest) map[string]any {
 		list = append(list, clean)
 	}
 	podSafe["containers"] = list
-	safe["template"] = map[string]any{"spec": podSafe}
+	template, _ := safe["template"].(map[string]any)
+	if template == nil {
+		template = map[string]any{}
+	}
+	template["spec"] = podSafe
+	safe["template"] = template
 	result["spec"] = safe
 	return result
+}
+
+// safeKey accepts label/annotation keys: an optional DNS prefix and a name.
+var safeKey = regexp.MustCompile(`^([a-z0-9]([-a-z0-9.]*[a-z0-9])?/)?[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$`)
+
+// safeText is a bounded printable non-secret display value.
+func safeText(v string) bool {
+	if len(v) > 256 || !utf8.ValidString(v) {
+		return false
+	}
+	for _, r := range v {
+		if r < 0x20 || r == 0x7f {
+			return false
+		}
+	}
+	return true
+}
+
+// selectKeyed keeps string labels with safe keys and values.
+func selectKeyed(raw any) map[string]any {
+	input, _ := raw.(map[string]any)
+	out := map[string]any{}
+	for key, value := range input {
+		if text, ok := value.(string); ok && len(key) <= 253 && safeKey.MatchString(key) && safeText(text) {
+			out[key] = text
+		}
+	}
+	return out
+}
+
+// credentialKey names annotation keys that may carry credentials.
+var credentialKey = regexp.MustCompile(`(?i)(password|passwd|secret|token|credential|private.?key|auth)`)
+
+// selectAnnotations keeps non-platform policy annotations (Git render bundle
+// defaults, ADR-021). Vault Agent delivery, orchestrator.io metadata and
+// credential-named keys are excluded from the review projection.
+func selectAnnotations(raw any) map[string]any {
+	out := selectKeyed(raw)
+	for key := range out {
+		if strings.HasPrefix(key, "vault.hashicorp.com/") || strings.HasPrefix(key, "orchestrator.io/") || credentialKey.MatchString(key) {
+			delete(out, key)
+		}
+	}
+	return out
+}
+
+// safeTree copies a bounded JSON tree of scheduling/security fields keeping
+// only scalars and safe strings; it returns nil for nothing safe.
+func safeTree(v any, depth int) any {
+	if depth > 6 {
+		return nil
+	}
+	switch value := v.(type) {
+	case map[string]any:
+		out := map[string]any{}
+		for key, item := range value {
+			if !safeKey.MatchString(key) {
+				continue
+			}
+			if child := safeTree(item, depth+1); child != nil {
+				out[key] = child
+			}
+		}
+		if len(out) == 0 && len(value) > 0 {
+			return nil
+		}
+		return out
+	case []any:
+		out := []any{}
+		for _, item := range value {
+			if child := safeTree(item, depth+1); child != nil {
+				out = append(out, child)
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	case string:
+		if safeText(value) {
+			return value
+		}
+	case bool, int, int32, int64, float64:
+		return value
+	}
+	return nil
 }
 
 func selectObject(input map[string]any, fields ...string) map[string]any {
@@ -544,7 +711,8 @@ func (a Assembler) manifests(ctx context.Context, plan *planning.Plan, descripto
 	}
 	deadline, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	manifests, err := a.Renderer.Render(deadline, execution.RenderRequest{Selection: selection, WorkloadID: workloadID, Module: symbolicModule, Namespace: namespace, PlainEnv: plain, SecretEnv: secret, Labels: map[string]string{}})
+	manifests, err := a.Renderer.Render(deadline, execution.RenderRequest{Selection: selection, WorkloadID: workloadID, Module: symbolicModule, Namespace: namespace, PlainEnv: plain, SecretEnv: secret, Labels: map[string]string{},
+		Services: execution.ServicePortsOf(plan.CandidateSet.Modules), UnknownPaths: unknown})
 	if err != nil {
 		return []Artifact{{ID: descriptor + ":manifest", NodeID: descriptor, Kind: "kubernetes-manifest", Path: "Deployment/" + workloadID, Language: "yaml", Before: beforeFor(old, "kubernetes-manifest", "Deployment/"+workloadID, !existed), After: unavailable("RENDER_UNAVAILABLE")}}
 	}
@@ -599,7 +767,7 @@ func (a Assembler) manifests(ctx context.Context, plan *planning.Plan, descripto
 			side.UnknownPaths = append(side.UnknownPaths, "metadata.namespace")
 		}
 
-		side.Provenance = map[string]string{"planHash": plan.PlanHash, "rendererBundle": selection.Bundle.ID, "rendererDigest": selection.Bundle.Digest}
+		side.Provenance = renderProvenance(plan.PlanHash, selection)
 		out = append(out, Artifact{ID: descriptor + ":" + key, NodeID: descriptor, Kind: "kubernetes-manifest", Path: key, Language: "yaml", Before: beforeFor(old, "kubernetes-manifest", key, !existed), After: side})
 	}
 	return out
@@ -664,6 +832,9 @@ func RenderedSnapshot(plan *planning.Plan, workloadID string, manifests []execut
 	for _, key := range keys {
 		side := projected[key]
 		side.Provenance = map[string]string{"planHash": plan.PlanHash}
+		if selection, ok := plan.Rendering[workloadID]; ok && selection.Bundle.Git() {
+			side.Provenance = renderProvenance(plan.PlanHash, selection)
+		}
 		before := unavailable("BASELINE_MISSING")
 		if desired != nil {
 			for _, art := range desired.Artifacts {

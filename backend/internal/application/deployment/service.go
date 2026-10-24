@@ -653,6 +653,7 @@ func (s *Service) applyWorkload(
 		ConfigSecretName: configSecretName,
 		ConfigSecretKeys: configSecretKeys,
 		Labels:           map[string]string{"orchestrator.io/application": planCtx.App.Key, "orchestrator.io/environment": planCtx.Env.Key, "orchestrator.io/deployment-id": record.ID},
+		Services:         execution.ServicePortsOf(plan.CandidateSet.Modules),
 	})
 	if err != nil {
 		return err

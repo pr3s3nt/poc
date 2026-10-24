@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	effectivenessapp "orchestrator/internal/application/effectiveness"
+	"orchestrator/internal/ports/renderregistry"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,7 +60,10 @@ type Server struct {
 
 // Config configures the HTTP server.
 type Config struct {
-	RenderBundles  map[string]resource.RenderBundle
+	RenderBundles map[string]resource.RenderBundle
+	// RenderRegistry inspects Git render bundles and reports availability
+	// (ADR-021); nil disables Git bundle inspection.
+	RenderRegistry renderregistry.Registry
 	Deployments    *appsvc.Service
 	Queries        *appsvc.QueryService
 	Authentication *authentication.Service
@@ -114,6 +118,9 @@ func NewServer(cfg Config) *Server {
 	s.connections.SetEC2RoleProvider(cfg.EC2RoleProvider)
 
 	s.catalog.SetRenderBundles(cfg.RenderBundles)
+	if cfg.RenderRegistry != nil {
+		s.catalog.SetRenderRegistry(cfg.RenderRegistry)
+	}
 	s.routes()
 	return s
 }
@@ -158,6 +165,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/v1/resource-definition-capabilities", s.handleDefinitionCapabilities)
 	s.mux.HandleFunc("POST /api/v1/terraform-modules/inspect", s.handleInspectTerraformModule)
 	s.mux.HandleFunc("GET /api/v1/render-bundles", s.handleRenderBundles)
+	s.mux.HandleFunc("POST /api/v1/render-bundles/inspect", s.handleInspectRenderBundle)
+	s.mux.HandleFunc("GET /api/v1/render-bundles/{id}", s.handleGetRenderBundle)
 	s.mux.HandleFunc("GET /api/v1/connections", s.handleConnections)
 	s.mux.HandleFunc("POST /api/v1/connections/kubernetes", s.handleRegisterKubernetesConnection)
 	s.mux.HandleFunc("POST /api/v1/connections/aws", s.handleRegisterAWSConnection)

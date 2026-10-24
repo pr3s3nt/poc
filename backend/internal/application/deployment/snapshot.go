@@ -140,10 +140,15 @@ func loadPlanningSnapshot(ctx context.Context, st persistence.Store, organizatio
 		if err != nil {
 			return err
 		}
+		// Verified Git render bundle metadata of the same snapshot (ADR-021).
+		renderBundles, err := persistence.RenderBundlesOf(ctx, view, organizationKey)
+		if err != nil {
+			return err
+		}
 		out = PlanningSnapshot{
 			App: app, Env: env,
 			BaseSetID: env.CurrentDeploymentSetID, BaseSet: base,
-			Catalog: planning.Catalog{Types: types, Definitions: defList, Accounts: accounts},
+			Catalog: planning.Catalog{Types: types, Definitions: defList, Accounts: accounts, RenderBundles: renderBundles},
 			Types:   types, Definitions: definitions, Active: active,
 		}
 		if withBaselines {

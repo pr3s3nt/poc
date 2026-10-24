@@ -5,6 +5,7 @@ import (
 
 	"orchestrator/internal/domain/application"
 	"orchestrator/internal/domain/environment"
+	"orchestrator/internal/domain/renderbundle"
 	"orchestrator/internal/domain/resource"
 	"orchestrator/internal/platform/canon"
 )
@@ -43,7 +44,7 @@ func (s *Service) pickWorkload(ctx Context, rm *definitionMatcher, node Node, ca
 		return resource.Definition{}, Match{}, false, err
 	}
 	def = rm.defs[match.DefinitionKey]
-	if err := resource.ValidateRenderDefinition(def, catalog.Types["workload"], s.bundles, ctx.DefinitionPlaced()); err != nil {
+	if _, _, err := resource.ResolveRenderDefinition(def, catalog.Types["workload"], s.bundles, catalog.RenderBundles, ctx.DefinitionPlaced()); err != nil {
 		if s.requireRenderer {
 			return resource.Definition{}, Match{}, false, &StageError{Stage: StageCatalog, Reason: ReasonRendererUnavailable, Err: err}
 		}
@@ -70,7 +71,20 @@ func (s *Service) selectRendering(ctx Context, graph Graph, matcher *definitionM
 		if err != nil {
 			return nil, err
 		}
-		out[node.WorkloadID] = resource.RenderingSelection{DefinitionKey: def.Key, DefinitionHash: hash, DriverType: def.DriverType, Class: node.Class, Bundle: s.bundles[def.Variables()[resource.VariableRenderBundle].(string)]}
+		pin, inputs, err := resource.ResolveRenderDefinition(def, catalog.Types["workload"], s.bundles, catalog.RenderBundles, ctx.DefinitionPlaced())
+		if err != nil {
+			return nil, &StageError{Stage: StageCatalog, Reason: ReasonRendererUnavailable, Err: err}
+		}
+		selection := resource.RenderingSelection{DefinitionKey: def.Key, DefinitionHash: hash, DriverType: def.DriverType, Class: node.Class, Bundle: pin}
+		if pin.Git() {
+			// The effective inputs and their hash are pinned so a bundle- or
+			// input-only change is a pending workload update (UC-05 RB-01).
+			selection.Inputs = inputs
+			if selection.InputsHash, err = renderbundle.InputsHash(inputs); err != nil {
+				return nil, err
+			}
+		}
+		out[node.WorkloadID] = selection
 	}
 	return out, nil
 }

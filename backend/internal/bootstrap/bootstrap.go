@@ -21,6 +21,7 @@ import (
 	"orchestrator/internal/adapters/gitops"
 	k8s "orchestrator/internal/adapters/kubernetes"
 	pgstore "orchestrator/internal/adapters/postgres"
+	"orchestrator/internal/adapters/renderbundles"
 	"orchestrator/internal/adapters/scorek8s"
 	"orchestrator/internal/adapters/secrets"
 	"orchestrator/internal/adapters/statecipher"
@@ -51,7 +52,9 @@ import (
 	"orchestrator/internal/ports/credentials"
 	"orchestrator/internal/ports/execution"
 	"orchestrator/internal/ports/persistence"
+	"orchestrator/internal/ports/renderregistry"
 	"orchestrator/internal/ports/terraformstate"
+	"orchestrator/internal/renderengine"
 	"orchestrator/internal/seed"
 )
 
@@ -102,6 +105,13 @@ type Options struct {
 	TerraformRetainedReleasesFile string
 	// GitPath is the git CLI used to resolve and fetch module commits.
 	GitPath string
+	// RenderBundleCacheDir is the durable private cache of verified Git
+	// render bundle content (ADR-021). Empty uses a private temporary
+	// directory removed on Close; production configures a volume.
+	RenderBundleCacheDir string
+	// RenderWorkerPath overrides the template worker executable; empty
+	// runs the product binary itself.
+	RenderWorkerPath string
 	// Region and Tags apply to every cloud resource of one verification run.
 	Region                 string
 	Tags                   map[string]string
@@ -209,6 +219,9 @@ type PlatformVaultBootstrap struct {
 
 // App holds the built components.
 type App struct {
+	// RenderRegistry is the Git render bundle registry (ADR-021); nil
+	// without the score-k8s renderer.
+	RenderRegistry *renderbundles.Registry
 	// ConnectionCredentials is nil when no credential store is configured.
 	ConnectionCredentials credentials.Store
 	Store                 persistence.Store
@@ -414,6 +427,13 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		bundles = scoreRenderer.Bundles()
 		renderer = scoreRenderer
 	}
+	var renderRegistry *renderbundles.Registry
+	if score, ok := renderer.(*scorek8s.Renderer); ok {
+		if renderRegistry, err = gitRenderRegistry(opts, st, score, closers); err != nil {
+			return nil, err
+		}
+		score.SetGitBundles(renderRegistry, renderengine.Executor{Command: opts.RenderWorkerPath})
+	}
 	planner := planning.NewService(bundles)
 	if opts.RequireScoreRenderer {
 		planner = planning.NewRequiredRendererService(bundles)
@@ -553,8 +573,13 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		resourceCleanup.SetEngine(opts.CleanupEngineOverride)
 	}
 
+	var renderPort renderregistry.Registry
+	if renderRegistry != nil {
+		renderPort = renderRegistry
+	}
 	server := deliveryhttp.NewServer(deliveryhttp.Config{
 		RenderBundles:         bundles,
+		RenderRegistry:        renderPort,
 		Deployments:           deployments,
 		Queries:               queries,
 		Authentication:        auth,
@@ -577,6 +602,7 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 	})
 
 	return &App{
+		RenderRegistry:        renderRegistry,
 		ConnectionCredentials: connectionCredentials,
 		Store:                 st,
 		Secrets:               secretStore,
@@ -599,6 +625,34 @@ func build(ctx context.Context, opts Options, closers *[]func()) (*App, error) {
 		TerraformStates:       terraformStates,
 		TerraformStateHandler: stateHandler(terraformStates),
 	}, nil
+}
+
+// gitRenderRegistry opens the verified Git render bundle registry (ADR-021):
+// the durable content cache and the hardened Git transport. Inspection needs
+// a store with the render bundle repository; rendering needs only the cache.
+func gitRenderRegistry(opts Options, st persistence.Store, score *scorek8s.Renderer, closers *[]func()) (*renderbundles.Registry, error) {
+	dir := opts.RenderBundleCacheDir
+	if dir == "" {
+		temp, err := os.MkdirTemp("", "orchestrator-render-bundles-")
+		if err != nil {
+			return nil, fmt.Errorf("bootstrap: create the private render bundle cache: %w", err)
+		}
+		*closers = append(*closers, func() { _ = os.RemoveAll(temp) })
+		dir = temp
+	}
+	cache, err := renderbundles.OpenCache(dir)
+	if err != nil {
+		return nil, err
+	}
+	git, err := moduleregistry.NewGitCLI(opts.GitPath, cache.TempDir())
+	if err != nil {
+		return nil, err
+	}
+	registry := &renderbundles.Registry{Cache: cache, Git: git, Runtime: score}
+	if repo, ok := st.(persistence.RenderBundleRepository); ok {
+		registry.Store = repo
+	}
+	return registry, nil
 }
 
 // moduleRegistry opens the verified Terraform module registry and prepares

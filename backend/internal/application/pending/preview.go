@@ -198,7 +198,11 @@ func (s *Service) previewIn(ctx context.Context, st persistence.Store, appKey, e
 	if err != nil {
 		return Preview{}, err
 	}
-	catalog := planning.Catalog{Types: typeMap, Definitions: definitions, Accounts: accounts}
+	renderBundles, err := persistence.RenderBundlesOf(ctx, st, app.OrganizationKey)
+	if err != nil {
+		return Preview{}, err
+	}
+	catalog := planning.Catalog{Types: typeMap, Definitions: definitions, Accounts: accounts, RenderBundles: renderBundles}
 
 	pending := map[string]environment.WorkloadDraft{}
 	for _, draft := range drafts {

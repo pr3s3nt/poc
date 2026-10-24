@@ -247,6 +247,30 @@ CREATE TABLE effectiveness_baselines (
 );
 CREATE UNIQUE INDEX effectiveness_baselines_scope_version ON effectiveness_baselines(organization_id, metric_id, COALESCE(application_id, '00000000-0000-0000-0000-000000000000'::uuid), version);
 
+-- Verified Git render bundles (ADR-021): Organization scoped, insert-only and
+-- immutable (the Console has SELECT/INSERT only; the trigger refuses UPDATE
+-- and DELETE). Availability is computed from the cache, never stored here.
+CREATE TABLE render_bundles (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  source_url text NOT NULL CHECK (source_url ~ '^https://' AND length(source_url) <= 2048),
+  source_path text NOT NULL CHECK (source_path = '.' OR (source_path !~ '(^|/)\.\.?(/|$)' AND source_path !~ '^/' AND length(source_path) <= 512)),
+  source_revision text NOT NULL CHECK (source_revision ~ '^([0-9a-f]{40}|[0-9a-f]{64})$'),
+  content_sha256 text NOT NULL CHECK (content_sha256 ~ '^[0-9a-f]{64}$'),
+  engine_contract text NOT NULL CHECK (engine_contract = 'git-render-v1'),
+  renderer_version text NOT NULL CHECK (renderer_version = '0.15.0'),
+  renderer_binary_sha256 text NOT NULL CHECK (renderer_binary_sha256 ~ '^[0-9a-f]{64}$'),
+  contract jsonb NOT NULL CHECK (jsonb_typeof(contract) = 'object'),
+  created_at timestamptz NOT NULL,
+  UNIQUE(organization_id, source_url, source_path, source_revision, engine_contract)
+);
+CREATE FUNCTION render_bundle_immutable() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'render_bundles rows are immutable' USING ERRCODE='23514';
+END $$;
+CREATE TRIGGER render_bundles_immutable BEFORE UPDATE OR DELETE ON render_bundles
+  FOR EACH ROW EXECUTE FUNCTION render_bundle_immutable();
+
 -- Terraform v2 resource identity and state (ADR-014). Instances, attempts,
 -- dependency edges and state blobs are retained audit records: they are never
 -- deleted, and their identity and original snapshots never change.

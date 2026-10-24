@@ -181,6 +181,28 @@ type RenderRequest struct {
 	Vault            *VaultInjection
 	ConfigSecretName string
 	ConfigSecretKeys map[string]map[string]string
+	// Services are the complete Candidate Set Service ports by workload and
+	// port name: neutral input of a Git render bundle (ADR-021).
+	Services map[string]map[string]int
+	// UnknownPaths are Preview environment paths whose values are symbolic
+	// stand-ins, never real output values.
+	UnknownPaths []string
+}
+
+// ServicePortsOf is the Services input of a RenderRequest for a module map.
+func ServicePortsOf(modules map[string]environment.Module) map[string]map[string]int {
+	out := map[string]map[string]int{}
+	for id, module := range modules {
+		if module.Spec.Service == nil || len(module.Spec.Service.Ports) == 0 {
+			continue
+		}
+		ports := map[string]int{}
+		for name, port := range module.Spec.Service.Ports {
+			ports[name] = port.Port
+		}
+		out[id] = ports
+	}
+	return out
 }
 
 // ConfigSecretSynchronizer reconciles VSO objects and verifies the Secret of

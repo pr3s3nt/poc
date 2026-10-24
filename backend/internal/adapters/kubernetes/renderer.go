@@ -30,56 +30,30 @@ var vaultRefPattern = regexp.MustCompile(`^kv2://([A-Za-z0-9_-]+)/([A-Za-z0-9_/-
 func NewRenderer() *Renderer { return &Renderer{} }
 
 // Render implements execution.WorkloadRenderer (UC-06 MS-11).
-func (r *Renderer) Render(_ context.Context, req execution.RenderRequest) ([]execution.Manifest, error) {
-	if req.Namespace == "" {
-		return nil, fmt.Errorf("kubernetes: render %q without a namespace", req.WorkloadID)
+func (r *Renderer) Render(ctx context.Context, req execution.RenderRequest) ([]execution.Manifest, error) {
+	delivery, err := PrepareDelivery(ctx, req)
+	if err != nil {
+		return nil, err
 	}
-	if req.Vault != nil && req.ConfigSecretName != "" {
-		return nil, fmt.Errorf("kubernetes: Vault Agent and VSO delivery are mutually exclusive")
-	}
-	labels := map[string]any{"app.kubernetes.io/name": req.WorkloadID, "app.kubernetes.io/managed-by": "orchestrator"}
-	for k, v := range req.Labels {
+	labels := map[string]any{}
+	for k, v := range delivery.Labels {
 		labels[k] = v
 	}
 	var podAnnotations map[string]any
-	if req.Vault != nil {
-		if req.Vault.Role == "" || req.Vault.Address == "" || req.Vault.ServiceAccount == "" {
-			return nil, fmt.Errorf("kubernetes: incomplete Vault injection")
-		}
-		template, firstPath, err := vaultTemplate(req.Vault.Bindings)
-		if err != nil {
-			return nil, err
-		}
-		podAnnotations = map[string]any{
-			"vault.hashicorp.com/agent-inject":                  "true",
-			"vault.hashicorp.com/agent-pre-populate-only":       "true",
-			"vault.hashicorp.com/role":                          req.Vault.Role,
-			"vault.hashicorp.com/service":                       req.Vault.Address,
-			"vault.hashicorp.com/agent-inject-secret-app-env":   firstPath,
-			"vault.hashicorp.com/agent-inject-template-app-env": template,
-			"vault.hashicorp.com/agent-inject-perms-app-env":    "0400",
+	if delivery.PodAnnotations != nil {
+		podAnnotations = map[string]any{}
+		for k, v := range delivery.PodAnnotations {
+			podAnnotations[k] = v
 		}
 	}
-
 	var manifests []execution.Manifest
-	secretName := req.WorkloadID + "-env"
-	secretData := map[string]any{}
-	for _, containerName := range sortedKeys(req.SecretEnv) {
-		for _, key := range sortedStringKeys(req.SecretEnv[containerName]) {
-			secretData[secretKey(containerName, key)] = req.SecretEnv[containerName][key]
+	var serviceAccount []execution.Manifest
+	for _, aux := range delivery.Auxiliaries {
+		if aux.Kind == "ServiceAccount" {
+			serviceAccount = append(serviceAccount, aux)
+			continue
 		}
-	}
-	if len(secretData) > 0 {
-		manifests = append(manifests, execution.Manifest{
-			APIVersion: "v1", Kind: "Secret", Name: secretName, Namespace: req.Namespace, Secret: true,
-			Object: map[string]any{
-				"apiVersion": "v1",
-				"kind":       "Secret",
-				"metadata":   map[string]any{"name": secretName, "namespace": req.Namespace, "labels": labels},
-				"type":       "Opaque",
-				"stringData": secretData,
-			},
-		})
+		manifests = append(manifests, aux)
 	}
 
 	containerNames := make([]string, 0, len(req.Module.Spec.Containers))
@@ -91,27 +65,7 @@ func (r *Renderer) Render(_ context.Context, req execution.RenderRequest) ([]exe
 	containers := make([]any, 0, len(containerNames))
 	for _, name := range containerNames {
 		c := req.Module.Spec.Containers[name]
-		env := make([]any, 0)
-		for _, key := range sortedStringKeys(req.PlainEnv[name]) {
-			env = append(env, map[string]any{"name": key, "value": req.PlainEnv[name][key]})
-		}
-		for _, key := range sortedStringKeys(req.SecretEnv[name]) {
-			env = append(env, map[string]any{
-				"name": key,
-				"valueFrom": map[string]any{
-					"secretKeyRef": map[string]any{"name": secretName, "key": secretKey(name, key)},
-				},
-			})
-		}
-		for _, key := range sortedStringKeys(req.ConfigSecretKeys[name]) {
-			if req.ConfigSecretName == "" || req.ConfigSecretKeys[name][key] == "" {
-				return nil, fmt.Errorf("kubernetes: incomplete VSO Secret reference")
-			}
-			env = append(env, map[string]any{"name": key, "valueFrom": map[string]any{"secretKeyRef": map[string]any{"name": req.ConfigSecretName, "key": req.ConfigSecretKeys[name][key]}}})
-		}
-		if req.Vault != nil {
-			env = append(env, map[string]any{"name": "ORCHESTRATOR_CONFIG_FILE", "value": "/vault/secrets/app-env"})
-		}
+		env := envEntries(delivery.Env[name])
 		container := map[string]any{
 			"name":            name,
 			"image":           c.Image,
@@ -173,9 +127,7 @@ func (r *Renderer) Render(_ context.Context, req execution.RenderRequest) ([]exe
 		podTemplate := deploymentObject["spec"].(map[string]any)["template"].(map[string]any)
 		podTemplate["metadata"].(map[string]any)["annotations"] = podAnnotations
 		podTemplate["spec"].(map[string]any)["serviceAccountName"] = req.Vault.ServiceAccount
-		manifests = append(manifests, execution.Manifest{APIVersion: "v1", Kind: "ServiceAccount", Name: req.Vault.ServiceAccount, Namespace: req.Namespace, Object: map[string]any{
-			"apiVersion": "v1", "kind": "ServiceAccount", "metadata": map[string]any{"name": req.Vault.ServiceAccount, "namespace": req.Namespace, "labels": labels},
-		}})
+		manifests = append(manifests, serviceAccount...)
 	}
 	manifests = append(manifests, execution.Manifest{
 		APIVersion: "apps/v1", Kind: "Deployment", Name: req.WorkloadID, Namespace: req.Namespace, Object: deploymentObject,

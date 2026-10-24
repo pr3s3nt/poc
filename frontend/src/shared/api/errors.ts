@@ -50,6 +50,14 @@ const messageTable = {
   ROUTE_RECONCILE_FAILED: t('shared.errors.theWorkloadWasAppliedBut'),
   SERVICE_UNAVAILABLE: t('shared.errors.aRequiredServiceIsNot'),
   INTERNAL_ERROR: t('shared.errors.theServerHitAnUnknown'),
+  RENDER_SOURCE_INVALID: t('shared.errors.renderSourceInvalid'),
+  RENDER_BUNDLE_INVALID: t('shared.errors.renderBundleInvalid'),
+  RENDER_INPUT_INVALID: t('shared.errors.renderInputInvalid'),
+  RENDER_SOURCE_UNAVAILABLE: t('shared.errors.renderSourceUnavailable'),
+  RENDER_BUNDLE_UNAVAILABLE: t('shared.errors.renderBundleUnavailable'),
+  RENDER_BUNDLE_DRIFT: t('shared.errors.renderBundleDrift'),
+  RENDER_CONTRACT_UNSUPPORTED: t('shared.errors.renderContractUnsupported'),
+  RENDER_FAILED: t('shared.errors.renderFailed'),
 } as const;
 export const errorMessages: Readonly<Record<string, string>> & typeof messageTable = Object.freeze(messageTable);
 
@@ -81,7 +89,10 @@ export const cleanupReasonLabels: Readonly<Record<CleanupReason, string>> = Obje
   METADATA_SYNC_PENDING: t('shared.errors.synchronizationOfTheResourcesState'),
   INFRASTRUCTURE_UNAVAILABLE: t('shared.errors.theStateServiceModulesCredentials'),
 });
-export interface ErrorParams { stage?: PlannerStage; reason?: PlannerReason; cleanupReason?: CleanupReason; resourceType?: string }
+export interface ErrorParams { stage?: PlannerStage; reason?: PlannerReason; cleanupReason?: CleanupReason; resourceType?: string; file?: string }
+
+// A bundle-relative file name of a RENDER_BUNDLE_INVALID error.
+const bundleFile = /^[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+){0,7}$/;
 
 // A registered resource Type key: lowercase letters, digits and hyphens, at most 63 characters.
 const technicalID = /^[a-z0-9][a-z0-9-]{0,62}$/;
@@ -121,6 +132,7 @@ const knownFields: ReadonlySet<string> = new Set([
   'definition.connectionKey', 'definition.driverInputs.values', 'definition.driverInputs.values.source', 'definition.driverInputs.values.provider_bindings', 'driverInputs.values.variables', 'context.applicationId', 'context.environmentId', 'context.resourceId', 'context.class', 'service.publicPort',
   'accessKeyId', 'secretAccessKey', 'allowedRegions', 'verificationRegions', 'confirmationName', 'selectedResourceIds',
   'from', 'to', 'workload', 'metric', 'valueSeconds', 'source', 'effectiveFrom', 'sampleSize', 'measuredFrom', 'measuredTo',
+  'definition.driverInputs.values.variables.render_bundle', 'definition.driverInputs.values.variables.render_inputs',
 ]);
 
 export function knownCode(code: unknown): code is string { return has(errorMessages, code); }
@@ -134,7 +146,8 @@ export function safeParams(params: unknown): ErrorParams | undefined {
   if (typeof source.reason === 'string' && (plannerReasons as readonly string[]).includes(source.reason)) out.reason = source.reason as PlannerReason;
   else if (typeof source.reason === 'string' && (cleanupReasons as readonly string[]).includes(source.reason)) out.cleanupReason = source.reason as CleanupReason;
   if (typeof source.resourceType === 'string' && technicalID.test(source.resourceType)) out.resourceType = source.resourceType;
-  return out.stage || out.reason || out.cleanupReason || out.resourceType ? out : undefined;
+  if (typeof source.file === 'string' && source.file.length <= 256 && bundleFile.test(source.file)) out.file = source.file;
+  return out.stage || out.reason || out.cleanupReason || out.resourceType || out.file ? out : undefined;
 }
 
 /** Vietnamese text for a code/status; never uses backend sentences. */
@@ -148,6 +161,9 @@ export function messageFor(status: number, code?: string, params?: ErrorParams, 
   }
   if (code === 'INVALID_SCORE' && field === 'resources') {
     return t('shared.errors.baseAResourceInThe', { base });
+  }
+  if (code === 'RENDER_BUNDLE_INVALID' && params?.file) {
+    return t('shared.errors.renderBundleInvalidFile', { base, file: params.file });
   }
   if (code === 'CLEANUP_REFUSED' && params?.cleanupReason) {
     return t('shared.errors.cannotDeleteValueNothingHas', { value: cleanupReasonLabels[params.cleanupReason] });
@@ -173,6 +189,7 @@ const fieldLabels: Readonly<Record<string, string>> = Object.freeze({
   accessKeyId: 'Access key ID', secretAccessKey: 'Secret access key', allowedRegions: t('shared.errors.allowedRegions'), verificationRegions: t('shared.errors.checkRegions'),
   confirmationName: t('shared.errors.reEnteredName'), selectedResourceIds: t('shared.errors.selectedResources'),
   from: t('shared.errors.fromDate'), to: t('shared.errors.toDate'), workload: 'Workload', metric: t('shared.errors.metric'), valueSeconds: t('shared.errors.leadTime'), source: t('shared.errors.measurementSource'),
+  'definition.driverInputs.values.variables.render_bundle': t('shared.errors.renderBundleField'), 'definition.driverInputs.values.variables.render_inputs': t('shared.errors.renderInputsField'),
   effectiveFrom: t('shared.errors.effectiveDate'), sampleSize: t('shared.errors.sampleSize'), measuredFrom: t('shared.errors.measurementPeriod'), measuredTo: t('shared.errors.measurementPeriod'),
 });
 

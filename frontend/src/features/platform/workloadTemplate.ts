@@ -8,7 +8,9 @@ import { t } from '../../shared/i18n';
 // (nothing at execution would consume it), so the form offers none. The typed form
 // and the advanced JSON serialize to the same two objects.
 
-export type TemplateForm = { bundle: string; namespaceRef: string; clusterRef: string; rows: ProvisionRow[] };
+// inputs is the literal render_inputs object of a Git bundle (ADR-021); undefined
+// means the Definition carries no render_inputs key (installed bundles accept none).
+export type TemplateForm = { bundle: string; namespaceRef: string; clusterRef: string; rows: ProvisionRow[]; inputs?: JsonObject };
 export const emptyTemplateForm = (): TemplateForm => ({ bundle: '', namespaceRef: '', clusterRef: '', rows: [] });
 
 // Form -> the two objects sent to the server. A problem (Vietnamese) blocks Save. Both references empty
@@ -20,6 +22,7 @@ export function templateToBody(form: TemplateForm): { variables?: JsonObject; pr
   if (namespace !== cluster) return { problem: t('platform.workloadTemplate.enterBothTheNamespaceAnd') };
   const variables: JsonObject = { render_bundle: form.bundle };
   if (namespace) { variables.namespace = form.namespaceRef; variables.cluster = form.clusterRef; }
+  if (form.inputs !== undefined) variables.render_inputs = form.inputs;
   const provision = rowsToProvision(form.rows);
   if (!provision.value) return { problem: provision.problem };
   return { variables, ...(Object.keys(provision.value).length ? { provision: provision.value } : {}) };
@@ -31,6 +34,11 @@ export function bodyToTemplate(variables: unknown, provision: unknown): { form?:
   const source = variables as JsonObject;
   const form = emptyTemplateForm();
   for (const [name, value] of Object.entries(source)) {
+    if (name === 'render_inputs') {
+      if (value === null || typeof value !== 'object' || Array.isArray(value)) return { reason: t('platform.workloadTemplate.renderInputsMustBeAnObject') };
+      form.inputs = value as JsonObject;
+      continue;
+    }
     if (name === 'render_bundle' || name === 'namespace' || name === 'cluster') {
       if (typeof value !== 'string') return { reason: t('platform.workloadTemplate.nameMustBeAString', { name }) };
       if (name === 'render_bundle') form.bundle = value; else if (name === 'namespace') form.namespaceRef = value; else form.clusterRef = value;
