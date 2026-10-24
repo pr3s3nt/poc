@@ -2,7 +2,7 @@
 id: TRACEABILITY-MATRIX
 artifact: traceability-matrix
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # UC-00..UC-09 Traceability Matrix, with UC-12/UC-16 design traces
@@ -238,7 +238,7 @@ Variables/old owning-store refs and failed-copy/version/BUSY safety. HTTP tests
 cover configuration redaction and invalid old-format rejection. See
 [T24 local evidence](../verification/2026-10-12-T24-metadata-variables.md).
 
-## UC-16 — MVP implementation trace
+## UC-16 — MVP implementation trace (historical baseline)
 
 UC-16 specification and UI are approved. Draft save/delete/undo, Score import
 and reference validation are covered by
@@ -271,7 +271,11 @@ local tests; create and configuration-only redeploy are verified on kind.
 
 Execution: [2026-10-02 local validation evidence](../verification/2026-10-02-catalog-workload-validation-local.md).
 
-## UC-16 existing Application-key selection — local implementation trace
+## UC-16 existing Application-key selection — local implementation trace (historical)
+
+The checklist/literal-rejection rows below record the pre-DEVEX-ENV behavior.
+Current required behavior is the approved design at the end of this document;
+old execution evidence does not establish the replacement implementation.
 
 | Requirement | Design / contract | Regression coverage |
 |---|---|---|
@@ -1098,3 +1102,19 @@ records read-only Preview, metadata/history preservation and secret boundaries.
 | MS-08 | Console CSV | `buildCsv` | none | CSV unit test; browser download |
 | ALT-01, BR-09, BR-10, EX-04 | OC-20 baselines | `AddBaselineVersion`, `Baseline.Validate`, `EffectiveBaseline`, `AppendEffectivenessBaseline` | `effectiveness_baselines` append-only, CAS by version | baseline HTTP test; PostgreSQL restart + 42501; [JSON reload](../../backend/internal/adapters/store/effectiveness_test.go); browser save/reload |
 | Shell gate | UC-17 UI | `AppShell`, `App` | — | [App tests](../../frontend/src/app/App.test.tsx), [route tests](../../frontend/src/app/routes.test.ts) |
+
+
+## DEVEX-ENV — approved design awaiting implementation
+
+| Requirement | Canonical design / collaboration | Required evidence (not yet executed) |
+|---|---|---|
+| UC-16 MS-03–05, BR-15–18/25 | Unified [screens](../usecase/UC-16/ui/screens.md), [states](../usecase/UC-16/ui/states.md), sequence/VOPC | E01/03/07/08/09: five sources, mapping/alias retention, invalid sources, per-row/scope guards |
+| UC-16 BR-02/20/23 | OC-16 ordinary literals and private provenance; workload reconstruction/deploy commit | E02/10/11: exact strings, escaping, current-set Edit/restart/rename, partial-success provenance, no legacy secret readback |
+| UC-12 BR-24–28; UC-16 BR-21/24 | OC-12 CreateKey; inline UC-12/UC-01 collaborators | E04/05/09: create-only races/duplicate, initial store selection, independent commit, uncertain outcomes and no-readback |
+| UC-16 BR-22/14/V2-02/03 | Shared dependency subform → local desired state, existing Type validation | E06/07: typed inputs/class/shared IDs, cancel, output selection and no provisioning |
+| UC-16 BR-07/10/19; UC-12 BR-09/12 | Existing explicit Save/Preview/Deploy and rename | E10/11: pending only, stale-preview, no-op, secret redaction and lossless reference rewrite |
+| ADR-020; shared UI | Reused shell/styles, catalog-backed labels and accessible dialog/table | E12: Việt/Anh, catalog parity, keyboard/focus and desktop screenshots |
+
+Scenario IDs, code touch points and commands are in
+[implementation handoff](../implementation/workload-environment-editor.md).
+Replace planned coverage with actual test names/evidence only after execution.

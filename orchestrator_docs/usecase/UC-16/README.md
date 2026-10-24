@@ -2,7 +2,7 @@
 id: UC-16-CONTEXT
 artifact: use-case-context
 status: current
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-24
 ---
 
 # UC-16 context — Manage workload configuration
@@ -25,3 +25,10 @@ Specification/realization định nghĩa yêu cầu, không chứng minh impleme
 
 UC-12 owns Application variables/secrets; saving a draft never changes the
 running workload until an explicit Preview → Deploy.
+
+
+## DEVEX-ENV — thiết kế được duyệt 2026-10-24
+
+Bảng biến môi trường thống nhất và tạo nguồn tại chỗ thay checklist cũ.
+Đọc [handoff coding agent](../../implementation/workload-environment-editor.md)
+sau specification/UI/contract; đây là yêu cầu chưa implement, không phải runtime evidence.

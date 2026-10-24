@@ -2,7 +2,7 @@
 id: UC-12-REALIZATION
 artifact: use-case-realization
 status: draft
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-24
 ---
 
 # UC-12 — Use Case Realization (conceptual)
@@ -81,3 +81,14 @@ current-set identity and no active operation, then commits revision and all
 changed drafts. No provider/executor call runs in this transaction. Failure leaves
 all pointers/versions unchanged. Return authoritative safe metadata; Preview
 remains the separate read-only impact stage.
+
+
+## DEVEX-ENV inline create collaboration
+
+UC-16 hosts the UC-12 create boundary without navigating away. CreateKey shares
+PutKey scoped validation/provider persistence but additionally requires name
+absence under config CAS; it cannot overwrite an existing same-kind key. The
+configuration revision commits independently of the workload draft. Return safe
+metadata/version, then the UI selects the new key and clears the secret input.
+Failure/unknown outcome follows OC-12 create-only; no auto-retry or parent-cancel
+compensation. Existing update/rename/store-copy flows keep their own boundaries.

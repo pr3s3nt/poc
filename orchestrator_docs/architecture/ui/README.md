@@ -178,3 +178,14 @@ Sidebar thêm mục “Hiệu quả platform” sau “Kho bí mật”, route
 platform. Developer không thấy mục và không render trang qua deep link. Mục
 “Lịch sử triển khai” vẫn disabled; chi tiết bản ghi mở lịch sử theo Environment
 hiện có. Trang thuộc [UC-17 screens](../../usecase/UC-17/ui/screens.md).
+
+
+## Inline source creation — DEVEX-ENV (2026-10-24)
+
+The workload editor uses one environment-variable table per container, owned by
+[UC-16 screens](../../usecase/UC-16/ui/screens.md). Reuse shell/card/button/input
+styles; no new visual identity or page navigation is required. Source-specific
+controls appear within a row; create forms open one accessible dialog while
+parent edits remain mounted. Focus returns to the invoking row. Commit boundaries
+are explained at the committing action, not repeated in every row. Shared keys
+remain UC-12 entities; adding a dependency remains local desired workload state.

@@ -2,7 +2,7 @@
 id: UC-12-UI-API-MAPPING
 artifact: use-case-ui-api-mapping
 status: current
-last_reviewed: 2026-10-12
+last_reviewed: 2026-10-24
 related: UC-12, UC-16, UC-05, UC-07
 ---
 
@@ -26,3 +26,12 @@ thất bại báo tải lại, không tự replay rename. Scope change invalidat
 Sau rename ở `production`, CTA Xem trước mở trang ứng dụng đúng `production`
 qua query `environment=production`; route không có query vẫn mặc định staging.
 Không chuyển người dùng sang scope khác để Preview/Deploy.
+
+
+## DEVEX-ENV create-only
+
+Workload inline create uses POST configuration/keys under
+[OC-12 CreateKey](../../../architecture/contracts/operation-contracts.md#oc-12-create-only--devex-env).
+Existing Settings PUT remains update/upsert; it cannot implement create-only by
+client-side catalog checks. Safe success updates the dialog's catalog/version;
+workload Save remains a second explicit operation.

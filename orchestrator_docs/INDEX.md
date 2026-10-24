@@ -2,7 +2,7 @@
 id: DOC-INDEX
 artifact: documentation-index
 status: current
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 ---
 
 # Documentation index
@@ -85,6 +85,12 @@ chọn nguồn chỉ vì mới hơn, dài hơn hoặc gần code hơn.
    stale summary hay unresolved decision.
 5. Sửa canonical owner trước, rồi cập nhật dependent artifacts/code/tests.
 6. Nếu không đủ dữ kiện, ghi backlog khi thuộc scope và không tự đoán.
+
+## DEVEX-ENV task entry
+
+[Workload environment editor handoff](implementation/workload-environment-editor.md)
+collects the approved UC-12/16 design, API contracts, implementation order and
+acceptance scenarios for the unified source table (2026-10-24; not implemented).
 
 ## Major artifact indexes
 

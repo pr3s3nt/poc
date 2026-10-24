@@ -7,6 +7,17 @@ last_reviewed: 2026-10-24
 
 # Current project state
 
+## Workload environment editor — approved design, implementation pending — 2026-10-24
+
+User approved one per-container table with five sources, inline key/dependency
+creation and ordinary literal values. UC-12/16, UI, realization and OC-12/16
+were updated on `features/refactor_dev_ex` after integrating main `8f4d66f`.
+Product code still uses the old checklists and reference-only validation;
+this documentation task does not deliver the new feature. See
+[coding handoff](implementation/workload-environment-editor.md) and
+[IMP-034](implementation/deviations.md#imp-034--unified-workload-environment-editor).
+Acceptance must include the Vietnamese/English catalogs now on main.
+
 ## Console Vietnamese/English message catalogs — 2026-10-24
 
 All Console text formerly hard-coded in Vietnamese now comes from runtime JSON

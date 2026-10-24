@@ -1,29 +1,52 @@
 @startuml
-title UC-16 - Manage workload configuration (conceptual)
+title UC-16 - Unified workload environment variables (DEVEX-ENV)
 autonumber
 actor Developer as Dev
-boundary "Workload configuration UI" as UI
+boundary "Workload editor" as UI
+control "Reference catalog" as Catalog
+control "UC-12 Configuration" as Keys
+control "UC-01 Environment" as Env
 control "Workload configuration" as Config
-entity "Reference catalog" as Catalog
 database "Desired configuration store" as Store
 
-Dev -> UI: Select Application/Environment [MS-01]
-UI -> Config: List workload configurations
-Config -> Store: Read desired workload state
-Store --> UI: Workloads + pending changes
-Dev -> UI: Add/Edit, form or Score import [MS-02]
-UI -> Catalog: List eligible references and dependency class metadata [MS-03..MS-05]
-Catalog --> UI: UC-12 keys, resource inputs/outputs/classes, Services/ports
-Dev -> UI: Tick UC-12 keys per container, optional aliases,\nother sources, in-cluster/cloud-managed class and public paths [MS-04..MS-05, BR-15..BR-18]
-UI -> UI: Validate selected keys + per-container name uniqueness
-Dev -> UI: Save desired configuration [MS-07]
-UI -> Config: Validate and save desired configuration
-Config -> Catalog: Validate all resource params and references\n(scope, output class, Service/port) [MS-06, BR-14]
-Catalog --> Config: Validated references
-Config -> Store: Save pending change [MS-07]
+Dev -> UI: Open Application/Environment workload [MS-01..03]
+UI -> Catalog: Scoped keys, Type inputs/outputs/classes, Services
+Catalog --> UI: Metadata (no Secret values)
+Dev -> UI: Add row: name, source, value/reference [MS-04]
+opt Create Application variable or Secret inline [MS-05, BR-21]
+  opt Secret and no selected store [BR-24]
+    Dev -> UI: Select READY store and explicitly Save store
+    UI -> Env: Versioned initial store selection
+    Env --> UI: Saved store / safe error
+  end
+  Dev -> UI: Create and select key
+  UI -> Keys: CreateKey(name, kind, value, config version)
+  Keys -> Keys: Validate scope, absence, version and store\nSecret write uses existing immutable provider boundary
+  Keys -> Store: CAS new desired configuration revision
+  Store --> Keys: Committed revision
+  Keys --> UI: Safe metadata + version
+  UI -> UI: Select key in initiating row; clear Secret input
+  note right of UI
+    Key committed; workload still unsaved.
+    Cancel workload does not delete key.
+  end note
+end
+opt Add resource inline [BR-22]
+  Dev -> UI: Alias/type/class/shared ID/typed params
+  UI -> UI: Validate and add dependency to local draft only
+  Dev -> UI: Select output explicitly
+end
+Dev -> UI: Save workload [MS-06..07]
+UI -> UI: Validate names/sources; encode ordinary literal strings
+UI -> Config: Save Score with draft version
+Config -> Catalog: Validate Type params and references
+Config -> Store: CAS desired draft + trusted ordinary-value provenance
 Store --> UI: Pending status
-UI --> Dev: Preview changes available (UC-05)
-
+UI --> Dev: Explicit Preview then Deploy available
+note over Config,Store
+  No runtime mutation. Current-set Edit exposes ordinary literals
+  only with exact trusted provenance; legacy unknowns stay unavailable.
+end note
 alt Delete workload [VAR-02]
   Dev -> UI: Confirm deletion
   UI -> Config: Mark pending deletion
